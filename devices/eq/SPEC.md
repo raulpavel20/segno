@@ -52,7 +52,13 @@ Non-parameter state: the UI view (full or compact), stored in `extra`. State ver
 
 ## DSP design
 
-- **Each band** is one analog-matched second-order section, from closed-form designs that match the analog prototype's magnitude up to near Nyquist. Cuts above 12 dB/oct cascade Butterworth sections (with a first-order section for odd orders).
+- **Each band** is one analog-matched second-order section (`fd::dsp::designMatched`). Three candidates are computed and the one closest to the analog magnitude is kept:
+  - a 5-point fit: poles and zeros solved together to match at DC, the band edges, the centre and Nyquist;
+  - Vicanek's 3-point design: exact pole mapping, numerator matched at DC, centre and Nyquist;
+  - a prewarped bilinear design.
+
+  Measured accuracy is in the test targets below. Bilinear designs err by up to 6–8 dB at high frequencies; ours stay within about 0.6 dB for most settings. Resonant shelves (Q > 1) near Nyquist remain approximate.
+- **Cuts** above 12 dB/oct cascade Butterworth sections, with a first-order section for odd orders.
 - **Coefficients** are recomputed on control ticks from the smoothed freq, gain and Q. Recomputing every 32 samples is inaudible and avoids zipper noise.
 - **Stereo placement:** Mid and Side bands run in an M/S-encoded domain; Left and Right bands run on that channel only.
 - **Zero latency** in the core (minimum-phase). Linear phase arrives in stage 2.
@@ -87,7 +93,9 @@ Non-parameter state: the UI view (full or compact), stored in `extra`. State ver
 
 | Metric | Target |
 |---|---|
-| Magnitude vs analog prototype, every type, 48 kHz | Within ±0.1 dB up to 0.9 × Nyquist (bells and shelves; Q ≤ 10) |
+| Bells vs analog prototype (48 kHz, up to 20 kHz, Q 0.3–6) | ≤ 0.8 dB for fc ≤ 12 kHz; ≤ 1.6 dB at 16 kHz; exact gain at fc |
+| Shelves and tilt vs analog (Q 0.3–1) | ≤ 0.7 dB for fc ≤ 8 kHz; ≤ 2 dB at 12 kHz |
+| Every type | Never worse than the bilinear (RBJ-style) design |
 | Cut slopes | Asymptotic slope within ±0.5 dB/oct of nominal |
 | All bands off, output 0 dB | Null against input (< −120 dBFS) |
 | Fast freq sweep (20 Hz→20 kHz in 1 s) on a sine | No clicks (click score < 8); stable |
