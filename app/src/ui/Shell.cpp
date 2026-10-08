@@ -144,6 +144,25 @@ void Shell::registerActions()
                       for (const auto& [code, note] : heldKeys_)
                           session_.computerKeyboardNote(note, 0.0f);
                       heldKeys_.clear();
+                      if (!computerKeyboard_)
+                          return;
+                      // Playing needs an instrument track selected (live MIDI follows the
+                      // selection): pick the first one, or say how to make one.
+                      const auto selected = selectedTrackInfo();
+                      if (!selected || selected->kind != model::TrackInfo::Kind::Instrument)
+                      {
+                          const auto& tracks = session_.snapshot()->tracks;
+                          const auto it = std::find_if(tracks.begin(), tracks.end(), [](const auto& t) {
+                              return t.kind == model::TrackInfo::Kind::Instrument;
+                          });
+                          if (it == tracks.end())
+                          {
+                              showWarning("Add an instrument track (Ctrl+Shift+T) to play it from the keyboard");
+                              return;
+                          }
+                          arrangement_.selectTrack(it->id);
+                      }
+                      showWarning("Computer keyboard: A W S E D F ... play, Z / X octave, C / V velocity");
                   },
                   .isToggled = [this] { return computerKeyboard_; }});
     actions_.add({.id = "track.addAudio", .name = "Add audio track", .category = "Track", .keys = {key('t', kCmd)},

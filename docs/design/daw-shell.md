@@ -107,12 +107,13 @@ Each step adds its actions as it lands; the command palette (M2) lists the regis
 ## Arrangement drawing
 
 Layers, back to front:
-1. lane background (alternating tone steps);
-2. grid lines (bar, beat, subdivision at falling contrast);
-3. clips: flat clip colour, name, and the waveform in a lighter tint (C3);
-4. selection;
-5. loop brace (C5);
-6. playhead.
+1. lane background (one tone step above the canvas; the selected track a step lighter);
+2. grid lines (bar, beat, subdivision at falling contrast, all quieter than the track separators);
+3. track separators: one pixel of `line`, lighter than the lanes, continued through the headers;
+4. clips: flat clip colour, name, and the waveform in a lighter tint (C3);
+5. selection;
+6. loop brace (C5);
+7. playhead.
 
 Waveforms come from a background-built peak cache per file, plus cached drawing per clip and zoom level (C3), within the 8 ms budget (ADR 0015).
 
@@ -145,7 +146,8 @@ Waveforms come from a background-built peak cache per file, plus cached drawing 
 - **Live MIDI follows the selection.** Selecting an instrument track routes live MIDI to it, with monitoring always on; selecting anything else routes it nowhere. This is not an edit, so it adds no undo step.
   - Only tracktion's virtual inputs are routed: "All MIDI Ins" (every physical device, merged) and our "Computer keyboard". Routing physical devices too would double every note.
   - The device list arrives asynchronously and changes when devices are plugged in; the Session re-applies the routing each time.
-- **Computer keyboard** (Ctrl+Shift+K, the keyboard button in the transport bar):
+- **Computer keyboard** (Ctrl+Shift+K, or the keyboard button at the right of the transport bar, with a MIDI activity light beside it):
+  - turning it on selects the first instrument track if none is selected, or says how to add one;
   - A W S E D F T G Y H U J K O L P ; play from C (C3 at the start);
   - Z / X shift octaves, C / V change velocity;
   - keys held with Ctrl or Alt stay shortcuts.

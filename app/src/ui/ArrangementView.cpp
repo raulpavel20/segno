@@ -323,8 +323,8 @@ void ArrangementView::paintHeaders(juce::Graphics& g)
         }
         g.setColour(paletteColour(track.colour));
         g.fillRect(row.withWidth(3.0f).reduced(0.0f, 1.0f));
-        g.setColour(t.surface0);
-        g.fillRect(row.removeFromBottom(1.0f)); // separation by tone, one pixel
+        g.setColour(t.line);
+        g.fillRect(row.removeFromBottom(1.0f)); // the track separator, continued across the lanes
 
         auto text = row.reduced(12.0f, 6.0f);
         g.setColour(selected ? t.textPrimary : t.textPrimary.withAlpha(0.9f));
@@ -357,20 +357,30 @@ void ArrangementView::paintLanes(juce::Graphics& g)
             continue;
         const bool selected = selectedTrack_ == snapshot_->tracks[static_cast<size_t>(i)].id;
         g.setColour(selected ? t.surface1.interpolatedWith(t.surface2, 0.4f) : laneTone);
-        g.fillRect(juce::Rectangle<float>(static_cast<float>(area.getX()), y, static_cast<float>(area.getWidth()), h - 1.0f));
+        g.fillRect(juce::Rectangle<float>(static_cast<float>(area.getX()), y, static_cast<float>(area.getWidth()), h));
     }
 
-    // Grid: bar, beat and subdivision lines at falling contrast.
+    // Grid: bar, beat and subdivision lines at falling contrast, all quieter than the track
+    // separators (the strongest lines in the arrangement).
     const float bottom = static_cast<float>(area.getY() + std::min<double>(layout_.top(layout_.trackCount()), area.getHeight()));
     for (const auto& line : grid_)
     {
         switch (line.kind)
         {
-        case model::Timeline::LineKind::Bar: g.setColour(t.surface3.brighter(0.15f)); break;
-        case model::Timeline::LineKind::Beat: g.setColour(t.surface3); break;
-        case model::Timeline::LineKind::Subdivision: g.setColour(t.surface3.withAlpha(0.5f)); break;
+        case model::Timeline::LineKind::Bar: g.setColour(t.surface3); break;
+        case model::Timeline::LineKind::Beat: g.setColour(t.surface3.withAlpha(0.55f)); break;
+        case model::Timeline::LineKind::Subdivision: g.setColour(t.surface3.withAlpha(0.28f)); break;
         }
         g.fillRect(laneX(line.seconds), static_cast<float>(area.getY()), 1.0f, bottom - static_cast<float>(area.getY()));
+    }
+
+    // Track separators: one pixel of `line`, a step lighter than the lanes, across the width.
+    g.setColour(t.line);
+    for (int i = 0; i < layout_.trackCount(); ++i)
+    {
+        const float y = static_cast<float>(area.getY() + layout_.top(i) + layout_.height(i)) - 1.0f;
+        if (y >= static_cast<float>(area.getY()) && y <= static_cast<float>(area.getBottom()))
+            g.fillRect(static_cast<float>(area.getX()), y, static_cast<float>(area.getWidth()), 1.0f);
     }
 
     // Clips: a solid title strip with dark text over a dark body of the same hue. Only what

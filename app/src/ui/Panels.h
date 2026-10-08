@@ -61,6 +61,9 @@ private:
     bool tempoShown_ = false; // the fields show tempo_
     double position_ = -1.0;
     int cpu_ = -1;
+    double lastMidi_ = -1.0; // last time a MIDI note was held (activity light)
+    bool midiLit_ = false;
+    [[nodiscard]] juce::Rectangle<int> midiLightArea() const;
 };
 
 /// Left panel: one search across devices, presets, samples, plugins and files (M3). In M1 it

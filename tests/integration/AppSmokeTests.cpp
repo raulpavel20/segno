@@ -90,6 +90,10 @@ TEST_CASE("DAW shell builds and paints offscreen at standard and compact widths"
             auto out = juce::File(dump).getChildFile("shell-" + juce::String(width) + ".png").createOutputStream();
             if (out != nullptr)
                 png.writeImageToStream(image, *out);
+            // The transport bar at 2x, as on the reference displays.
+            auto top = juce::File(dump).getChildFile("transport-" + juce::String(width) + "@2x.png").createOutputStream();
+            if (top != nullptr)
+                png.writeImageToStream(f.shell->createComponentSnapshot(f.shell->getLocalBounds().removeFromTop(40), true, 2.0f), *top);
         }
     }
     CHECK_FALSE(f.session->isPlaying()); // never starts making sound by itself

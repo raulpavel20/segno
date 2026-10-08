@@ -9,6 +9,7 @@ struct Glyph
 {
     juce::Path path;
     bool filled = false;
+    juce::Path solid; // extra filled shapes on a stroked icon
 };
 
 Glyph glyph(Icon icon)
@@ -93,17 +94,14 @@ Glyph glyph(Icon icon)
         }
         break;
     case Icon::Keyboard:
-        // A piano octave: outline, key gaps and three black keys.
-        p.addRoundedRectangle(1.5f, 3.5f, 13.0f, 9.0f, 1.0f);
-        for (float x : {5.0f, 8.0f, 11.0f})
+        // A piano: four white keys (outline and gaps below) and three short, wide black keys,
+        // so it reads as a keyboard rather than a grid even at 16 px.
+        p.addRoundedRectangle(1.0f, 3.5f, 14.0f, 9.0f, 1.0f);
+        for (float x : {4.5f, 8.0f, 11.5f})
         {
             p.startNewSubPath(x, 8.5f);
             p.lineTo(x, 12.5f);
-        }
-        for (float x : {5.0f, 8.0f, 11.0f})
-        {
-            p.startNewSubPath(x, 3.5f);
-            p.lineTo(x, 8.0f);
+            g.solid.addRoundedRectangle(x - 1.5f, 3.5f, 3.0f, 4.5f, 0.5f);
         }
         break;
     case Icon::Undo:
@@ -133,6 +131,11 @@ void drawIcon(juce::Graphics& g, Icon icon, juce::Rectangle<float> area, juce::C
     auto glyphData = glyph(icon);
     glyphData.path.applyTransform(juce::AffineTransform::scale(scale).translated(box.getX(), box.getY()));
     g.setColour(colour);
+    if (!glyphData.solid.isEmpty())
+    {
+        glyphData.solid.applyTransform(juce::AffineTransform::scale(scale).translated(box.getX(), box.getY()));
+        g.fillPath(glyphData.solid);
+    }
     if (glyphData.filled)
         g.fillPath(glyphData.path);
     else

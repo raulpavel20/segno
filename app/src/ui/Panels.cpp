@@ -93,6 +93,17 @@ void TransportBar::frame(double positionSeconds, const model::TempoMap& tempo)
         denominatorField_.setValue(std::log2(std::max(1, tempo.denominator)), juce::dontSendNotification);
         position_ = -1.0; // redraw the position in the new tempo
     }
+    // MIDI activity: lit while notes are held, and briefly after a tap.
+    const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
+    if (session_.midiNotesHeld())
+        lastMidi_ = now;
+    const bool lit = lastMidi_ >= 0.0 && now - lastMidi_ < 0.12;
+    if (lit != midiLit_)
+    {
+        midiLit_ = lit;
+        repaint(midiLightArea());
+    }
+
     const int cpu = static_cast<int>(std::lround(session_.cpuUsage() * 100.0));
     if (positionSeconds != position_ || cpu != cpu_)
     {
@@ -116,7 +127,12 @@ void TransportBar::paint(juce::Graphics& g)
     g.drawText("/", numeratorField_.getBounds().withX(numeratorField_.getRight()).withWidth(10),
                juce::Justification::centred, false);
 
-    auto r = getLocalBounds().withTrimmedLeft(denominatorField_.getRight() + 20).withRight(browser_.getX() - 12);
+    // MIDI activity light beside the computer keyboard button.
+    const auto light = midiLightArea().toFloat().withSizeKeepingCentre(6.0f, 6.0f);
+    g.setColour(midiLit_ ? t.accentMidi : t.surface3);
+    g.fillEllipse(light);
+
+    auto r = getLocalBounds().withTrimmedLeft(denominatorField_.getRight() + 20).withRight(keyboard_.getX() - 12);
     auto field = [&](const juce::String& value, const juce::String& unit, int width, float size) {
         auto box = r.removeFromLeft(width);
         r.removeFromLeft(16);
@@ -152,7 +168,6 @@ void TransportBar::resized()
     r.removeFromLeft(8);
     loop_.setBounds(square(r, true));
     metronome_.setBounds(square(r, true));
-    keyboard_.setBounds(square(r, true));
     r.removeFromLeft(16);
     tempoField_.setBounds(r.removeFromLeft(54));
     r.removeFromLeft(34); // "BPM"
@@ -164,6 +179,15 @@ void TransportBar::resized()
     inspector_.setBounds(square(r, false));
     detail_.setBounds(square(r, false));
     browser_.setBounds(square(r, false));
+    // The computer keyboard toggle sits on the right, like the MIDI section of a control bar.
+    r.removeFromRight(12);
+    r.removeFromRight(10); // activity light
+    keyboard_.setBounds(square(r, false));
+}
+
+juce::Rectangle<int> TransportBar::midiLightArea() const
+{
+    return keyboard_.getBounds().withX(keyboard_.getRight() + 2).withWidth(10);
 }
 
 // ---- BrowserPanel --------------------------------------------------------------------------

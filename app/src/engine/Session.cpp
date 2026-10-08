@@ -483,6 +483,15 @@ std::optional<std::uint64_t> Session::midiInputTarget() const
     return impl_->midiTarget;
 }
 
+bool Session::midiNotesHeld() const
+{
+    for (auto& in : impl_->engine.getDeviceManager().getMidiInDevices())
+        for (int n = 0; n < 128; ++n)
+            if (in->keyboardState.isNoteOnForChannels(0xffff, n))
+                return true;
+    return false;
+}
+
 void Session::computerKeyboardNote(int note, float velocity)
 {
     for (auto& in : impl_->engine.getDeviceManager().getMidiInDevices())

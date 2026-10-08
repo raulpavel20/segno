@@ -103,6 +103,9 @@ public:
     /// nullopt routes them nowhere. Not an edit (no undo step).
     void setMidiInputTarget(std::optional<std::uint64_t> trackId);
     [[nodiscard]] std::optional<std::uint64_t> midiInputTarget() const;
+    /// True while any MIDI input (a device or the computer keyboard) holds a note: the
+    /// transport bar's activity light.
+    [[nodiscard]] bool midiNotesHeld() const;
     /// The computer keyboard as a MIDI input: a note on (velocity > 0) or off.
     void computerKeyboardNote(int note, float velocity);
     static constexpr const char* computerKeyboardName = "Computer keyboard";
