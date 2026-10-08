@@ -1,0 +1,202 @@
+{
+  "down-24.attack-rms-db": {
+    "tol": 0.5,
+    "value": -11.286684981107946
+  },
+  "down-24.band-1000-db": {
+    "tol": 0.5,
+    "value": -37.93978540842028
+  },
+  "down-24.band-125-db": {
+    "tol": 0.5,
+    "value": -10.287320179015921
+  },
+  "down-24.band-2000-db": {
+    "tol": 0.5,
+    "value": -40.74219470977418
+  },
+  "down-24.band-250-db": {
+    "tol": 0.5,
+    "value": -12.693106151281722
+  },
+  "down-24.band-4000-db": {
+    "tol": 0.5,
+    "value": -43.62293080245665
+  },
+  "down-24.band-500-db": {
+    "tol": 0.5,
+    "value": -37.2672971815069
+  },
+  "down-24.band-8000-db": {
+    "tol": 0.5,
+    "value": -46.32381157482985
+  },
+  "down-24.release-rms-db": {
+    "tol": 0.5,
+    "value": -45.11383787390368
+  },
+  "down-24.sustain-rms-db": {
+    "tol": 0.5,
+    "value": -12.141348429054506
+  },
+  "filtered.attack-rms-db": {
+    "tol": 0.5,
+    "value": -15.368052703057892
+  },
+  "filtered.band-1000-db": {
+    "tol": 0.5,
+    "value": -14.20014240814156
+  },
+  "filtered.band-125-db": {
+    "tol": 0.5,
+    "value": -2.8706704309746662
+  },
+  "filtered.band-2000-db": {
+    "tol": 0.5,
+    "value": -42.746213165588934
+  },
+  "filtered.band-250-db": {
+    "tol": 0.5,
+    "value": -6.46869970494981
+  },
+  "filtered.band-4000-db": {
+    "tol": 0.5,
+    "value": -54.45770496212246
+  },
+  "filtered.band-500-db": {
+    "tol": 0.5,
+    "value": -6.720084604035518
+  },
+  "filtered.band-8000-db": {
+    "tol": 0.5,
+    "value": -57.4516861942886
+  },
+  "filtered.release-rms-db": {
+    "tol": 0.5,
+    "value": -41.35385774915341
+  },
+  "filtered.sustain-rms-db": {
+    "tol": 0.5,
+    "value": -16.66485675571026
+  },
+  "loop.attack-rms-db": {
+    "tol": 0.5,
+    "value": -12.01862824101584
+  },
+  "loop.band-1000-db": {
+    "tol": 0.5,
+    "value": -13.050000453136635
+  },
+  "loop.band-125-db": {
+    "tol": 0.5,
+    "value": -2.4526376276657764
+  },
+  "loop.band-2000-db": {
+    "tol": 0.5,
+    "value": -40.47133399515797
+  },
+  "loop.band-250-db": {
+    "tol": 0.5,
+    "value": -5.958750097951935
+  },
+  "loop.band-4000-db": {
+    "tol": 0.5,
+    "value": -43.138413597052214
+  },
+  "loop.band-500-db": {
+    "tol": 0.5,
+    "value": -10.177725772174782
+  },
+  "loop.band-8000-db": {
+    "tol": 0.5,
+    "value": -45.80185453172192
+  },
+  "loop.release-rms-db": {
+    "tol": 0.5,
+    "value": -38.19329793786815
+  },
+  "loop.sustain-rms-db": {
+    "tol": 0.5,
+    "value": -13.001998828897554
+  },
+  "root.attack-rms-db": {
+    "tol": 0.5,
+    "value": -12.01862824101584
+  },
+  "root.band-1000-db": {
+    "tol": 0.5,
+    "value": -13.265412901505886
+  },
+  "root.band-125-db": {
+    "tol": 0.5,
+    "value": -1.9757686848457126
+  },
+  "root.band-2000-db": {
+    "tol": 0.5,
+    "value": -41.50236128116732
+  },
+  "root.band-250-db": {
+    "tol": 0.5,
+    "value": -6.414104858254351
+  },
+  "root.band-4000-db": {
+    "tol": 0.5,
+    "value": -45.54212701851949
+  },
+  "root.band-500-db": {
+    "tol": 0.5,
+    "value": -10.751903371415867
+  },
+  "root.band-8000-db": {
+    "tol": 0.5,
+    "value": -48.32612753898203
+  },
+  "root.release-rms-db": {
+    "tol": 0.5,
+    "value": -38.1563391971064
+  },
+  "root.sustain-rms-db": {
+    "tol": 0.5,
+    "value": -13.761917050657244
+  },
+  "up-24.attack-rms-db": {
+    "tol": 0.5,
+    "value": -13.237718441572756
+  },
+  "up-24.band-1000-db": {
+    "tol": 0.5,
+    "value": -6.409719504960892
+  },
+  "up-24.band-125-db": {
+    "tol": 0.5,
+    "value": -29.822135385304442
+  },
+  "up-24.band-2000-db": {
+    "tol": 0.5,
+    "value": -10.868431096143976
+  },
+  "up-24.band-250-db": {
+    "tol": 0.5,
+    "value": -24.05145126659878
+  },
+  "up-24.band-4000-db": {
+    "tol": 0.5,
+    "value": -13.292390255634494
+  },
+  "up-24.band-500-db": {
+    "tol": 0.5,
+    "value": -1.9613761198005526
+  },
+  "up-24.band-8000-db": {
+    "tol": 0.5,
+    "value": -38.390042171315145
+  },
+  "up-24.release-rms-db": {
+    "tol": 0.5,
+    "value": -51.0672393440825
+  },
+  "up-24.sustain-rms-db": {
+    "tol": 0.5,
+    "value": -19.651429311344675
+  }
+}

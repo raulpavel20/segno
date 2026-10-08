@@ -12,6 +12,9 @@ struct DeviceFactory
 {
     const DeviceInfo& (*info)();
     std::unique_ptr<Device> (*create)();
+    /// Optional: makes a fresh instance audible for the conformance suite, e.g. loads a
+    /// generated test sample through readExtraState (ADR 0017). Not real-time.
+    void (*testSetup)(Device&) = nullptr;
 };
 
 /// Every registered device. Generated at build time by fd_generate_device_registry()

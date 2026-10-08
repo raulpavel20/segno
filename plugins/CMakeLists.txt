@@ -93,3 +93,7 @@ fd_add_device_plugin(ID eq NAME "EQ" CODE Feq1 KIND effect
 fd_add_device_plugin(ID subtractive-synth NAME "Subtractive Synth" CODE Fsub KIND instrument
     VST3_CATEGORIES Instrument Synth
     CLAP_FEATURES instrument synthesizer stereo)
+
+fd_add_device_plugin(ID sampler NAME "Sampler" CODE Fsmp KIND instrument
+    VST3_CATEGORIES Instrument Sampler
+    CLAP_FEATURES instrument sampler stereo)

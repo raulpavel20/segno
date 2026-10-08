@@ -1,0 +1,56 @@
+#pragma once
+
+namespace fd::ui
+{
+/// A flat well with a corner label for small device displays (oscillator, filter, envelope
+/// views). Draws from pure DSP functions and repaints only when its parameters change.
+class MiniDisplay : public juce::Component, public ParamControl
+{
+public:
+    MiniDisplay(DeviceUiContext& context, juce::String label, std::vector<size_t> params);
+
+    void refresh() override;
+    void paint(juce::Graphics& g) override;
+
+protected:
+    /// `area` excludes the label line (use the full bounds when there is no label).
+    virtual void drawContent(juce::Graphics& g, juce::Rectangle<float> area) = 0;
+    [[nodiscard]] float param(size_t index) const { return context_.params.getPlain(index); }
+
+private:
+    DeviceUiContext& context_;
+    juce::String label_;
+    std::vector<size_t> params_;
+    std::vector<float> last_;
+};
+
+/// ADSR shape drawn by running dsp::Adsr itself. Expects four consecutive parameters: attack,
+/// decay, release in ms and sustain in percent (A, D, S, R), plus an optional cycle toggle.
+/// Segment widths follow the log of their times and fill the display.
+class EnvelopeDisplay final : public MiniDisplay
+{
+public:
+    EnvelopeDisplay(DeviceUiContext& context, juce::String label, size_t attackIndex,
+                    std::optional<size_t> cycleIndex = std::nullopt);
+
+private:
+    void drawContent(juce::Graphics& g, juce::Rectangle<float> area) override;
+
+    size_t attack_;
+    std::optional<size_t> cycle_;
+};
+/// Magnitude response of the instruments' filter section (dsp::SynthFilter) at the panel's
+/// type, cutoff (Hz) and resonance (percent). Dimmed while the optional enable toggle is off.
+class FilterDisplay final : public MiniDisplay
+{
+public:
+    FilterDisplay(DeviceUiContext& context, size_t typeIndex, size_t cutoffIndex, size_t resonanceIndex,
+                  std::optional<size_t> enabledIndex = std::nullopt);
+
+private:
+    void drawContent(juce::Graphics& g, juce::Rectangle<float> area) override;
+
+    size_t type_, cutoff_, resonance_;
+    std::optional<size_t> enabled_;
+};
+} // namespace fd::ui

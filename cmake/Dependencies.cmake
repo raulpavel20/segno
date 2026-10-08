@@ -5,7 +5,7 @@
 # | Dependency            | Version / commit | License            | Used by                      |
 # |-----------------------|------------------|--------------------|------------------------------|
 # | nlohmann/json         | v3.12.0          | MIT                | libs/device (state JSON)     |
-# | dr_libs (dr_wav)      | dfe83776         | MIT-0 / Unlicense  | libs/testkit (WAV I/O)       |
+# | dr_libs (wav,flac,mp3)| dfe83776         | MIT-0 / Unlicense  | libs/audiofile (decoding)    |
 # | elliptic-blep         | 77bf9866         | MIT                | libs/dsp (oscillators)       |
 # | Catch2                | v3.16.1          | BSL-1.0            | tests                        |
 # | JUCE                  | 9.0.3            | AGPL-3.0 / comm.   | modules, plugins, app        |
@@ -26,8 +26,8 @@ CPMAddPackage(
     GITHUB_REPOSITORY mackron/dr_libs
     GIT_TAG dfe8377631000664666519fdb83da193fd8037f4
     DOWNLOAD_ONLY YES)
-add_library(fd_dep_dr_wav INTERFACE)
-target_include_directories(fd_dep_dr_wav SYSTEM INTERFACE "${dr_libs_SOURCE_DIR}")
+add_library(fd_dep_dr_libs INTERFACE)
+target_include_directories(fd_dep_dr_libs SYSTEM INTERFACE "${dr_libs_SOURCE_DIR}")
 
 # Signalsmith elliptic BLEP: band-limited oscillators (ADC24 talk code, header-only).
 CPMAddPackage(

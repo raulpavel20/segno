@@ -5,4 +5,5 @@ target_link_libraries(fd_device PUBLIC fd::dsp nlohmann_json::nlohmann_json PRIV
 
 fd_add_test(NAME fd_device_tests
     SOURCES tests/ParamTests.cpp tests/StateTests.cpp tests/EventTests.cpp tests/SampleFifoTests.cpp tests/VoiceManagerTests.cpp
+        tests/AssetHandoffTests.cpp
     LIBS fd::device)

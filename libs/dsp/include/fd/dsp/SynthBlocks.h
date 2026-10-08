@@ -47,6 +47,58 @@ private:
     double s_[4] = {0, 0, 0, 0};
 };
 
+/// The instruments' filter section: LP 12, HP 12 and BP 12 (state-variable) and LP 24 (ladder).
+/// The Type order is the order of the instruments' Filter Type parameters.
+class SynthFilter
+{
+public:
+    enum class Type
+    {
+        Lp12,
+        Lp24,
+        Hp12,
+        Bp12
+    };
+
+    void reset() noexcept
+    {
+        svf_.reset();
+        ladder_.reset();
+    }
+
+    float process(float x, Type type, double cutoff, double resonance, double sampleRate) noexcept
+    {
+        using Mode = StateVariableFilter::Mode;
+        switch (type)
+        {
+        case Type::Lp12: return svf_.process(x, cutoff, resonance, sampleRate, Mode::Lowpass);
+        case Type::Lp24: return ladder_.process(x, cutoff, resonance, sampleRate);
+        case Type::Hp12: return svf_.process(x, cutoff, resonance, sampleRate, Mode::Highpass);
+        case Type::Bp12: return svf_.process(x, cutoff, resonance, sampleRate, Mode::Bandpass);
+        }
+        return x;
+    }
+
+    /// Small-signal magnitude at `freq` Hz (for displays).
+    [[nodiscard]] static double magnitude(Type type, double freq, double cutoff, double resonance,
+                                          double sampleRate) noexcept
+    {
+        using Mode = StateVariableFilter::Mode;
+        switch (type)
+        {
+        case Type::Lp12: return StateVariableFilter::magnitude(freq, cutoff, resonance, sampleRate, Mode::Lowpass);
+        case Type::Lp24: return LadderFilter::magnitude(freq, cutoff, resonance, sampleRate);
+        case Type::Hp12: return StateVariableFilter::magnitude(freq, cutoff, resonance, sampleRate, Mode::Highpass);
+        case Type::Bp12: return StateVariableFilter::magnitude(freq, cutoff, resonance, sampleRate, Mode::Bandpass);
+        }
+        return 1.0;
+    }
+
+private:
+    StateVariableFilter svf_;
+    LadderFilter ladder_;
+};
+
 /// ADSR with exponential decay and release (times are to -60 dB) and a slightly convex attack.
 /// Retriggers from the current level (no clicks on voice steal or legato).
 class Adsr

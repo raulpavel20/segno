@@ -39,6 +39,8 @@ public:
     void changeProgramName(int, const juce::String&) override {}
 
     void getStateInformation(juce::MemoryBlock& destData) override;
+    /// UI edit of non-parameter state (ADR 0017): applies it and tells the host.
+    void applyExtraState(const nlohmann::json& patch);
     void setStateInformation(const void* data, int sizeInBytes) override;
 
     // For the editor.

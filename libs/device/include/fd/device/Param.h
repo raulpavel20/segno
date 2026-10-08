@@ -28,7 +28,8 @@ enum class Unit : std::uint8_t
     Cents,
     Ratio, // displayed as "n:1"
     Pan,   // plain -1..1, displayed 50L..C..50R
-    Degrees
+    Degrees,
+    Note // MIDI note number, displayed as a name; middle C (60) = C3
 };
 
 enum class SmoothingKind : std::uint8_t

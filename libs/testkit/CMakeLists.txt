@@ -1,7 +1,7 @@
 add_library(fd_testkit STATIC src/Signals.cpp src/Metrics.cpp src/WavIO.cpp src/Golden.cpp)
 add_library(fd::testkit ALIAS fd_testkit)
 target_include_directories(fd_testkit PUBLIC include)
-target_link_libraries(fd_testkit PUBLIC nlohmann_json::nlohmann_json PRIVATE fd_dep_dr_wav fd::warnings)
+target_link_libraries(fd_testkit PUBLIC nlohmann_json::nlohmann_json PRIVATE fd::audiofile fd::warnings)
 
 fd_add_test(NAME fd_testkit_tests
     SOURCES tests/SignalsTests.cpp tests/MetricsTests.cpp tests/WavGoldenTests.cpp

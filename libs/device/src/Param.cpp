@@ -144,6 +144,12 @@ std::string ParamSpec::toText(float plain) const
         return formatNumber(v, decimals) + ":1";
     case Unit::Degrees:
         return formatNumber(v, decimals) + "\xC2\xB0"; // degree sign (UTF-8)
+    case Unit::Note:
+    {
+        static constexpr const char* names[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+        const long n = std::lround(v);
+        return std::string(names[((n % 12) + 12) % 12]) + std::to_string(static_cast<long>(std::floor(n / 12.0)) - 2);
+    }
     case Unit::Pan:
     {
         const long amount = std::lround(std::abs(v) * 50.0f);
@@ -182,6 +188,18 @@ std::optional<float> ParamSpec::fromText(std::string_view text) const
     }
     if (unit == Unit::Decibels && (t == "-inf" || t == "-inf db" || t == "-inf dB"))
         return min;
+    if (unit == Unit::Note && t[0] >= 'a' && t[0] <= 'g')
+    {
+        static constexpr int semis[] = {9, 11, 0, 2, 4, 5, 7}; // a b c d e f g
+        int note = semis[t[0] - 'a'];
+        size_t i = 1;
+        if (i < t.size() && (t[i] == '#' || t[i] == 'b'))
+            note += t[i++] == '#' ? 1 : -1;
+        auto octave = parseLeadingNumber(std::string_view(t).substr(i));
+        if (!octave || !octave->second.empty())
+            return std::nullopt;
+        return sanitize(static_cast<float>(note + 12 * (octave->first + 2)));
+    }
     if (unit == Unit::Pan)
     {
         if (t == "c" || t == "center" || t == "centre")

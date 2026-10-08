@@ -83,6 +83,23 @@ TEST_CASE("text parsing", "[fast]")
     CHECK_FALSE(kOn.fromText("maybe").has_value());
 }
 
+TEST_CASE("note names (middle C = C3)", "[fast]")
+{
+    constexpr ParamSpec root{.id = "root", .name = "Root Key", .kind = ParamKind::Discrete, .min = 0.0f,
+                             .max = 127.0f, .def = 60.0f, .unit = Unit::Note};
+    CHECK(root.toText(60.0f) == "C3");
+    CHECK(root.toText(57.0f) == "A2");
+    CHECK(root.toText(61.0f) == "C#3");
+    CHECK(root.toText(0.0f) == "C-2");
+    CHECK(root.toText(127.0f) == "G8");
+    CHECK(root.fromText("c3") == 60.0f);
+    CHECK(root.fromText("A2") == 57.0f);
+    CHECK(root.fromText("db3") == 61.0f);
+    CHECK(root.fromText("c-2") == 0.0f);
+    CHECK(root.fromText("64") == 64.0f);
+    CHECK_FALSE(root.fromText("h3").has_value());
+}
+
 TEST_CASE("param store holds sanitised plain values", "[fast]")
 {
     static constexpr std::array specs{kGain, kMode, kOn};

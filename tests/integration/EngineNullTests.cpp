@@ -10,6 +10,7 @@
 #include "fd/testkit/WavIO.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <nlohmann/json.hpp>
 
 #include <algorithm>
 #include <cstdlib>
@@ -177,6 +178,59 @@ TEST_CASE("native instrument in tracktion matches the offline render of the same
     }
     INFO("residual " << nullResidualDb(inEngine, offline) << " dBFS; engine peak " << peakDb(inEngine) << " dBFS");
     CHECK(peakDb(offline) > -30.0);
+    CHECK(nullResidualDb(inEngine, offline) < -120.0);
+}
+
+TEST_CASE("sample loads in the DAW go through undo and match the offline render", "[integration]")
+{
+    Fixture f;
+    juce::TemporaryFile sampleFile(".wav");
+    REQUIRE(writeWav(sampleFile.getFile().getFullPathName().toStdString(), sine(220.0, kSampleRate, 48000, 0.5f, 1),
+                     kSampleRate));
+    const nlohmann::json extra{{"sample.path", sampleFile.getFile().getFullPathName().toStdString()}};
+
+    auto edit = te::Edit::createSingleTrackEdit(f.engine, te::Edit::EditRole::forRendering);
+    auto* track = te::getAudioTracks(*edit)[0];
+    auto clip = track->insertMIDIClip({te::TimePosition(), te::TimeDuration::fromSeconds(kLength / kSampleRate)}, nullptr);
+    clip->getSequence().addNote(60, te::BeatPosition::fromBeats(0.5), te::BeatDuration::fromBeats(1.0), 100, 0, nullptr);
+    clip->getSequence().addNote(67, te::BeatPosition::fromBeats(1.0), te::BeatDuration::fromBeats(2.0), 90, 0, nullptr);
+
+    auto plugin = edit->getPluginCache().createNewPlugin(fd::engine::DevicePlugin::typeNameFor("sampler"), {});
+    REQUIRE(plugin != nullptr);
+    track->pluginList.insertPlugin(plugin, 0, nullptr);
+    auto& native = dynamic_cast<fd::engine::DevicePlugin&>(*plugin);
+
+    // A UI drop: recorded with the Edit's undo manager (ADR 0017).
+    auto& undo = edit->getUndoManager();
+    undo.beginNewTransaction();
+    fd::engine::DevicePluginBinding(native).applyExtraState(extra);
+    auto loaded = [&] {
+        nlohmann::json state = nlohmann::json::object();
+        native.device().writeExtraState(state);
+        return state.contains("sample.path");
+    };
+    CHECK(loaded());
+    undo.undo();
+    CHECK_FALSE(loaded());
+    undo.redo();
+    REQUIRE(loaded());
+
+    const auto inEngine = f.render(*edit);
+
+    auto device = fd::findDevice("sampler")->create();
+    device->readExtraState(extra);
+    RenderOptions o;
+    o.sampleRate = kSampleRate;
+    const auto vel = [](int v) { return juce::MidiMessage::noteOn(1, 60, static_cast<juce::uint8>(v)).getFloatVelocity(); };
+    auto off = [](double beats) { return juce::roundToInt((beats * 0.5 - 0.0001) * kSampleRate); }; // tracktion's nudge
+    o.events = {{12000, {.type = fd::EventType::NoteOn, .key = 60, .value = vel(100)}},
+                {24000, {.type = fd::EventType::NoteOn, .key = 67, .value = vel(90)}},
+                {off(1.5), {.type = fd::EventType::NoteOff, .key = 60}},
+                {off(3.0), {.type = fd::EventType::NoteOff, .key = 67}}};
+    const auto offline = render(*device, silence(kLength, 1), o);
+
+    INFO("residual " << nullResidualDb(inEngine, offline) << " dBFS");
+    CHECK(peakDb(offline) > -20.0);
     CHECK(nullResidualDb(inEngine, offline) < -120.0);
 }
 

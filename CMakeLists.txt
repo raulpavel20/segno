@@ -50,6 +50,7 @@ endif()
 # ---------------------------------------------------------------------------
 add_subdirectory(libs/dsp)
 add_subdirectory(libs/device)
+add_subdirectory(libs/audiofile)
 add_subdirectory(libs/testkit)
 add_subdirectory(devices)
 fd_generate_device_registry()

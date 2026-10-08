@@ -158,6 +158,12 @@ void DeviceAudioProcessor::setStateInformation(const void* data, int sizeInBytes
     updateHostDisplay(ChangeDetails{}.withParameterInfoChanged(true));
 }
 
+void DeviceAudioProcessor::applyExtraState(const nlohmann::json& patch)
+{
+    ui::mergeExtraState(*device_, patch);
+    updateHostDisplay(ChangeDetails{}.withNonParameterStateChanged(true));
+}
+
 juce::AudioProcessorEditor* DeviceAudioProcessor::createEditor()
 {
     return new DeviceEditor(*this);
@@ -180,6 +186,7 @@ public:
     }
     void beginGesture(size_t i) override { processor_.parameter(i).beginChangeGesture(); }
     void endGesture(size_t i) override { processor_.parameter(i).endChangeGesture(); }
+    void applyExtraState(const nlohmann::json& patch) override { processor_.applyExtraState(patch); }
 
 private:
     DeviceAudioProcessor& processor_;
@@ -190,7 +197,7 @@ DeviceEditor::DeviceEditor(DeviceAudioProcessor& p) : juce::AudioProcessorEditor
     setLookAndFeel(&lnf_);
     binding_ = std::make_unique<Binding>(p);
     context_ = std::make_unique<ui::DeviceUiContext>(
-        ui::DeviceUiContext{p.device().info(), *binding_, &p.device().analysis()});
+        ui::DeviceUiContext{p.device().info(), *binding_, &p.device().analysis(), &p.device()});
     panel_ = p.panelFactory()->create(*context_);
     addAndMakeVisible(*panel_);
     setSize(panel_->preferredWidth() + 2 * kEditorMargin, ui::Theme::current().devicePanelHeight + 2 * kEditorMargin);

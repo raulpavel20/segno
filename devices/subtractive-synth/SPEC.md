@@ -82,7 +82,7 @@ Two rows, grouped left to right (about 1160 px wide):
 | Modulation | Three slots: source, target, amount bar | LFO: Wave, Sync, Rate |
 | Voice and output | Mode, Voices bar, Bend bar | Glide, Volume; output meter at the far right |
 
-- Mini displays (oscillator 1 wave, filter response, envelope shapes) are drawn by the same functions the audio path uses (`osc1Mix` + `Oscillator::naiveAt`, `filterMagnitude`, the `Adsr` itself).
+- Mini displays (oscillator 1 wave, filter response, envelope shapes) are drawn by the same functions the audio path uses (`osc1Mix` + `Oscillator::naiveAt`, `dsp::SynthFilter::magnitude`, the `Adsr` itself).
 - Envelope segment widths follow the log of their times and fill the display.
 - Mod amounts, voice count and bend range are value bars.
 - The Cycle toggle sits on the mod envelope display.

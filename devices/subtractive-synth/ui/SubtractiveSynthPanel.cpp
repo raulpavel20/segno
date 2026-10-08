@@ -2,67 +2,14 @@
 
 #include "SubtractiveSynth.h"
 
-#include <limits>
-
 namespace fd::devices
 {
 namespace
 {
 using S = SubtractiveSynth;
 
-/// A flat well with a corner label that draws from pure DSP functions and repaints only when
-/// the parameters it depends on change.
-class MiniDisplay : public juce::Component, public ui::ParamControl
-{
-public:
-    MiniDisplay(ui::DeviceUiContext& ctx, juce::String label, std::vector<size_t> params)
-        : ctx_(ctx), label_(std::move(label)), params_(std::move(params)),
-          last_(params_.size(), std::numeric_limits<float>::quiet_NaN())
-    {
-        setInterceptsMouseClicks(false, false);
-    }
-
-    void refresh() override
-    {
-        bool changed = false;
-        for (size_t i = 0; i < params_.size(); ++i)
-        {
-            const float v = ctx_.params.getPlain(params_[i]);
-            if (!(v == last_[i]))
-            {
-                last_[i] = v;
-                changed = true;
-            }
-        }
-        if (changed)
-            repaint();
-    }
-
-    void paint(juce::Graphics& g) override
-    {
-        const auto& t = ui::Theme::current();
-        const auto r = getLocalBounds().toFloat();
-        g.setColour(t.surface0);
-        g.fillRoundedRectangle(r, t.radiusControl);
-        drawContent(g, r.reduced(5.0f, 4.0f).withTrimmedTop(12.0f));
-        g.setColour(t.textTertiary);
-        g.setFont(ui::fonts::font(t.textXs, ui::fonts::Weight::SemiBold));
-        g.drawText(label_, r.reduced(5.0f, 3.0f).removeFromTop(12.0f), juce::Justification::centredLeft, false);
-    }
-
-protected:
-    virtual void drawContent(juce::Graphics& g, juce::Rectangle<float> area) = 0;
-    [[nodiscard]] float param(size_t index) const { return ctx_.params.getPlain(index); }
-
-private:
-    ui::DeviceUiContext& ctx_;
-    juce::String label_;
-    std::vector<size_t> params_;
-    std::vector<float> last_;
-};
-
 /// One cycle of oscillator 1's morphed waveform.
-class OscDisplay final : public MiniDisplay
+class OscDisplay final : public ui::MiniDisplay
 {
 public:
     explicit OscDisplay(ui::DeviceUiContext& ctx) : MiniDisplay(ctx, "OSC 1", {S::Osc1Shape, S::Osc1Pw}) {}
@@ -86,131 +33,6 @@ private:
     }
 };
 
-/// Filter magnitude response at the panel's cutoff and resonance (small-signal).
-class FilterDisplay final : public MiniDisplay
-{
-public:
-    explicit FilterDisplay(ui::DeviceUiContext& ctx)
-        : MiniDisplay(ctx, "", {S::FilterType, S::FilterCutoff, S::FilterRes})
-    {
-    }
-
-private:
-    static constexpr double kTopDb = 30.0, kBottomDb = -42.0, kSampleRate = 48000.0;
-
-    void drawContent(juce::Graphics& g, juce::Rectangle<float> area) override
-    {
-        const auto& t = ui::Theme::current();
-        area = area.withTop(area.getY() - 10.0f); // no label: use the full height
-        auto yFor = [&](double db) {
-            const double c = juce::jlimit(kBottomDb, kTopDb, db);
-            return area.getY() + static_cast<float>((kTopDb - c) / (kTopDb - kBottomDb)) * area.getHeight();
-        };
-        g.setColour(t.surface3);
-        g.drawHorizontalLine(juce::roundToInt(yFor(0.0)), area.getX(), area.getRight());
-
-        const int type = juce::roundToInt(param(S::FilterType));
-        const double cutoff = param(S::FilterCutoff);
-        const double res = param(S::FilterRes) * 0.01;
-        const int n = juce::jmax(16, static_cast<int>(area.getWidth()));
-        juce::Path curve;
-        for (int i = 0; i <= n; ++i)
-        {
-            const double f = 20.0 * std::pow(1000.0, static_cast<double>(i) / n); // 20 Hz .. 20 kHz
-            const double mag = S::filterMagnitude(type, f, cutoff, res, kSampleRate);
-            const juce::Point<float> pt(area.getX() + static_cast<float>(i) / static_cast<float>(n) * area.getWidth(),
-                                        yFor(20.0 * std::log10(juce::jmax(mag, 1e-6))));
-            i == 0 ? curve.startNewSubPath(pt) : curve.lineTo(pt);
-        }
-        auto fill = curve;
-        fill.lineTo(area.getBottomRight());
-        fill.lineTo(area.getBottomLeft());
-        fill.closeSubPath();
-        g.setColour(t.value.withAlpha(0.14f));
-        g.fillPath(fill);
-        g.setColour(t.value);
-        g.strokePath(curve, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved));
-    }
-};
-
-/// ADSR shape, drawn by running the DSP envelope itself. Segment widths grow with the log of
-/// their times (so short and long envelopes both read clearly) and fill the display.
-class EnvelopeDisplay final : public MiniDisplay
-{
-public:
-    EnvelopeDisplay(ui::DeviceUiContext& ctx, juce::String label, size_t attack, std::optional<size_t> cycle)
-        : MiniDisplay(ctx, std::move(label), paramsFor(attack, cycle)), attack_(attack), cycle_(cycle)
-    {
-    }
-
-private:
-    static std::vector<size_t> paramsFor(size_t attack, std::optional<size_t> cycle)
-    {
-        std::vector<size_t> p{attack, attack + 1, attack + 2, attack + 3};
-        if (cycle)
-            p.push_back(*cycle);
-        return p;
-    }
-
-    void drawContent(juce::Graphics& g, juce::Rectangle<float> area) override
-    {
-        const double a = param(attack_), d = param(attack_ + 1), s = param(attack_ + 2), r = param(attack_ + 3);
-        const bool cycle = cycle_ && param(*cycle_) > 0.5f;
-        const auto settings = S::envelopeSettings(a, d, s, r, cycle);
-
-        // Width per segment: log-scaled time, normalised so the segments fill the display beside
-        // a fixed sustain section.
-        auto weight = [](double ms) { return juce::jmax(0.08, std::log1p(ms / 5.0) / std::log1p(20000.0 / 5.0)); };
-        constexpr float sustainShare = 0.2f;
-        const double total = cycle ? 2.0 * (weight(a) + weight(d)) : weight(a) + weight(d) + weight(r);
-        const float timeWidth = area.getWidth() * (cycle ? 1.0f : 1.0f - sustainShare);
-        auto width = [&](double ms) { return static_cast<float>(weight(ms) / total) * timeWidth; };
-
-        dsp::Adsr env;
-        juce::Path p;
-        float x = area.getX();
-        auto yFor = [&](double level) { return area.getBottom() - static_cast<float>(level) * area.getHeight(); };
-        p.startNewSubPath(x, yFor(0.0));
-        // Runs one segment with the envelope's own coefficients, sampled once per pixel.
-        auto segment = [&](double ms, float px) {
-            const int steps = juce::jmax(2, juce::roundToInt(px));
-            env.setSampleRate(steps / (ms * 0.001));
-            env.set(settings);
-            for (int i = 1; i <= steps; ++i)
-                p.lineTo(x + px * static_cast<float>(i) / static_cast<float>(steps), yFor(env.next()));
-            x += px;
-        };
-
-        env.noteOn();
-        segment(a, width(a));
-        segment(d, width(d));
-        if (cycle)
-        {
-            segment(a, width(a));
-            segment(d, width(d));
-        }
-        else
-        {
-            x += area.getWidth() * sustainShare;
-            p.lineTo(x, yFor(env.level()));
-            env.noteOff();
-            segment(r, width(r));
-        }
-
-        const auto& t = ui::Theme::current();
-        auto fill = p;
-        fill.lineTo(x, area.getBottom());
-        fill.closeSubPath();
-        g.setColour(t.value.withAlpha(0.14f));
-        g.fillPath(fill);
-        g.setColour(t.value);
-        g.strokePath(p, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved));
-    }
-
-    size_t attack_;
-    std::optional<size_t> cycle_;
-};
-
 /// Layout per devices/subtractive-synth/SPEC.md: two rows (one per oscillator / envelope),
 /// grouped left to right: oscillators, filter, envelopes, modulation, voice and output.
 class SubtractiveSynthPanel final : public ui::DevicePanel
@@ -232,12 +54,12 @@ public:
         osc2_ = {knob(S::Osc2Oct), knob(S::Osc2Semi), knob(S::Osc2Detune), knob(S::MixOsc2), knob(S::VoiceDrift)};
 
         filterType_ = &bind(std::make_unique<ui::ParamSegmented>(ctx, S::FilterType, 4));
-        filterView_ = &bind(std::make_unique<FilterDisplay>(ctx));
+        filterView_ = &bind(std::make_unique<ui::FilterDisplay>(ctx, S::FilterType, S::FilterCutoff, S::FilterRes));
         filter_ = {knob(S::FilterCutoff), knob(S::FilterRes), knob(S::FilterKey), knob(S::FilterEnv)};
 
-        ampView_ = &bind(std::make_unique<EnvelopeDisplay>(ctx, "AMP", S::AmpA, std::nullopt));
+        ampView_ = &bind(std::make_unique<ui::EnvelopeDisplay>(ctx, "AMP", S::AmpA));
         amp_ = {knob(S::AmpA), knob(S::AmpD), knob(S::AmpS), knob(S::AmpR)};
-        modView_ = &bind(std::make_unique<EnvelopeDisplay>(ctx, "MOD", S::ModA, S::ModCycle));
+        modView_ = &bind(std::make_unique<ui::EnvelopeDisplay>(ctx, "MOD", S::ModA, S::ModCycle));
         mod_ = {knob(S::ModA), knob(S::ModD), knob(S::ModS), knob(S::ModR)};
         cycle_ = &bind(std::make_unique<ui::ParamToggle>(ctx, S::ModCycle));
 
@@ -372,8 +194,8 @@ private:
     };
 
     OscDisplay* osc1View_ = nullptr;
-    FilterDisplay* filterView_ = nullptr;
-    EnvelopeDisplay *ampView_ = nullptr, *modView_ = nullptr;
+    ui::FilterDisplay* filterView_ = nullptr;
+    ui::EnvelopeDisplay *ampView_ = nullptr, *modView_ = nullptr;
     std::array<ui::ParamKnob*, 5> osc1_{}, osc2_{};
     std::array<ui::ParamKnob*, 4> filter_{}, amp_{}, mod_{};
     std::array<Slot, 3> slots_{};

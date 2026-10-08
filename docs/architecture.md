@@ -30,14 +30,16 @@ Nothing below the line may include JUCE. This keeps the DSP and its tests fast, 
 ```
 libs/dsp        DSP building blocks: filters, oscillators, oversampling, ADAA shapers,
                 dynamics detectors, delay lines, smoothing (+ reused libraries, see ADR 0004)
-libs/device     Device API: ParamSpec / ParamStore, EventList, State (JSON), Registry, AnalysisBus
+libs/device     Device API: ParamSpec / ParamStore, EventList, State (JSON), Registry, AnalysisBus,
+                VoiceManager, AssetHandoff (heavy data to the audio thread)
+libs/audiofile  audio file decoding (WAV/AIFF/FLAC/MP3 via dr_libs) and WAV writing
 libs/testkit    test signals, audio metrics, FFT, WAV I/O, golden comparison
 devices/X/dsp   each device's DSP, SPEC.md, tests, presets
 tools/render    fd-render: renders any device + state + signal/MIDI to WAV + metrics
 ──────────────────────────── JUCE line ────────────────────────────
 modules/fd_ui          design tokens, LookAndFeel, controls, visualisers
-modules/fd_device_ui   DevicePanel base, parameter binding, panel grid
-modules/fd_host_juce   sample loading, state ↔ JUCE, MIDI conversion
+modules/fd_device_ui   DevicePanel base, parameter binding, shared displays (envelope, filter)
+modules/fd_host_juce   state ↔ JUCE, MIDI conversion
 devices/X/ui           each device's panel
 plugins/               plugin adapter + per-device plugin targets
 app/                   the DAW (tracktion_engine), DevicePlugin adapter, shell UI
@@ -49,7 +51,7 @@ tools/snapshot, tools/gallery, tools/analyze
 - **Parameters** are declared in a static table with fields: permanent ID, range, default, skew, unit, smoothing, flags. Both adapters build their host parameters from this table, so automation, undo and presets work identically in both.
 - **`process()`** runs on the audio thread and is `noexcept`. It never allocates, locks or does I/O. This is enforced by an allocation hook in the tests and by RealtimeSanitizer.
 - **Control-rate updates** happen on a grid aligned to absolute sample position. Output is therefore identical whatever the host's block size, and the tests check this bit for bit.
-- **Large data** (samples, wavetables) is prepared off the audio thread and swapped in lock-free.
+- **Large data** (samples, wavetables) is prepared off the audio thread and swapped in lock-free with `AssetHandoff`. UI edits to non-parameter state go through `ParamBinding::applyExtraState` ([ADR 0017](decisions/0017-heavy-data-and-non-parameter-state.md)).
 - **State and presets** use one JSON format, `{device, stateVersion, params, extra}`. It stores plain (not normalised) values and has versioned migrations. The plugin and the DAW share it, so presets move between them.
 - **The UI never computes its own DSP.** Curves and displays call the same pure functions the audio path uses, and live data reaches the UI through a lock-free analysis bus (meters, spectra, playheads).
 - **Devices never write their own parameters.** All edits go through the host binding, so automation and undo always work.

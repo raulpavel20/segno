@@ -157,11 +157,7 @@ void DevicePlugin::restorePluginStateFromValueTree(const juce::ValueTree& v)
         p->updateFromAttachedValue();
 
     if (v.hasProperty(kExtraStateId))
-    {
-        const auto parsed = nlohmann::json::parse(v[kExtraStateId].toString().toStdString(), nullptr, false);
-        if (parsed.is_object())
-            device_->readExtraState(parsed);
-    }
+        applyExtraFromState(v[kExtraStateId].toString());
 }
 
 void DevicePlugin::flushPluginStateToValueTree()
@@ -170,7 +166,34 @@ void DevicePlugin::flushPluginStateToValueTree()
     nlohmann::json extra = nlohmann::json::object();
     device_->writeExtraState(extra);
     if (!extra.empty())
-        state.setProperty(kExtraStateId, juce::String(extra.dump()), nullptr);
+    {
+        appliedExtra_ = juce::String(extra.dump()); // already what the device holds
+        state.setProperty(kExtraStateId, appliedExtra_, nullptr);
+    }
+}
+
+void DevicePlugin::applyExtraState(const nlohmann::json& patch)
+{
+    nlohmann::json extra = nlohmann::json::object();
+    device_->writeExtraState(extra);
+    extra.merge_patch(patch);
+    state.setProperty(kExtraStateId, juce::String(extra.dump()), getUndoManager()); // -> listener
+}
+
+void DevicePlugin::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& id)
+{
+    if (tree == state && id == kExtraStateId) // edits, undo and redo
+        applyExtraFromState(state.getProperty(kExtraStateId, "{}").toString());
+    te::Plugin::valueTreePropertyChanged(tree, id);
+}
+
+void DevicePlugin::applyExtraFromState(const juce::String& json)
+{
+    if (json == appliedExtra_)
+        return;
+    appliedExtra_ = json;
+    const auto parsed = nlohmann::json::parse(json.toStdString(), nullptr, false);
+    device_->readExtraState(parsed.is_object() ? parsed : nlohmann::json::object());
 }
 
 void registerDevices(te::Engine& engine)

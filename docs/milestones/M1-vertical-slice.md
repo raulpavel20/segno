@@ -16,11 +16,11 @@ See [roadmap.md](../roadmap.md) and the device specs in `devices/*/SPEC.md`.
 
 | # | Step | Done when | Status |
 |---|---|---|---|
-| A1 | **DSP building blocks:** FIR half-band oversampler (2/4/8×, integer latency), anti-aliased (ADAA) waveshapers, TPT state-variable and ladder filters, analog-matched second-order sections and Butterworth cascades, ADSR, LFO, band-limited oscillators, sample interpolation | Unit tests incl. measured aliasing and response targets | ◐ all but sample interpolation (comes with B4) |
+| A1 | **DSP building blocks:** FIR half-band oversampler (2/4/8×, integer latency), anti-aliased (ADAA) waveshapers, TPT state-variable and ladder filters, analog-matched second-order sections and Butterworth cascades, ADSR, LFO, band-limited oscillators, sample interpolation | Unit tests incl. measured aliasing and response targets | ☑ incl. windowed-sinc sample interpolation and decimation (`dsp/Resampling.h`) |
 | A2 | **Test kit additions:** THD, aliasing ratio and harmonic profile metrics; MIDI test scripts | Metrics detect what they should (naive saw fails, BLEP saw passes) | ◐ metrics done (exact, leakage-free); MIDI scripts with A3 |
 | A3 | **Instrument support:** voice manager (poly/mono/legato, stealing, sustain pedal, pitch bend, note ids); MIDI in the tracktion adapter; instrument conformance checks (notes always release, all-notes-off, stealing without clicks, block-size invariance with events) | Conformance passes for a test instrument | ☑ `VoiceManager`; MIDI in both adapters; instrument conformance checks; instrument null test in tracktion |
 | A4 | **Analysis taps:** lock-free sample FIFO from DSP to UI (spectra, scopes, playheads) | Tested SPSC; no allocation on the audio thread | ☑ `SampleFifo` on `AnalysisBus` |
-| A5 | **Heavy and non-parameter state:** real-time-safe handoff for large data (samples); `ParamBinding::applyExtraState` so UI edits to non-parameter state go through the host (undoable in the DAW) | Sampler can load files while playing, without glitches or allocation on the audio thread | ☐ |
+| A5 | **Heavy and non-parameter state:** real-time-safe handoff for large data (samples); `ParamBinding::applyExtraState` so UI edits to non-parameter state go through the host (undoable in the DAW) | Sampler can load files while playing, without glitches or allocation on the audio thread | ☑ [ADR 0017](../decisions/0017-heavy-data-and-non-parameter-state.md): `AssetHandoff`, `applyExtraState` in all hosts (DAW: undoable), `libs/audiofile` |
 | A6 | **Latency policy:** constant latency per device instance (e.g. oversampling factors are padded to one latency) | ADR; conformance checks reported vs measured latency for every setting | ☑ [ADR 0016](../decisions/0016-constant-device-latency.md) |
 
 ### B. Devices (each: SPEC → DSP + tests + goldens → panel → plugin → Definition of Done)
@@ -30,7 +30,7 @@ See [roadmap.md](../roadmap.md) and the device specs in `devices/*/SPEC.md`.
 | B1 | **Saturator** ([SPEC](../../devices/saturator/SPEC.md)) | ◐ automated DoD met; awaiting spec approval and sound/feel sign-off |
 | B2 | **EQ** (core) ([SPEC](../../devices/eq/SPEC.md)) | ◐ engine + display done, validators pass; compact view still to do; awaiting spec approval and sign-off |
 | B3 | **Subtractive Synth** (core) ([SPEC](../../devices/subtractive-synth/SPEC.md)) | ◐ engine, panel, plugin, goldens; validators and null test pass; still to do: drag envelopes on their displays, factory presets; awaiting spec approval and sound/feel sign-off |
-| B4 | **Sampler** (classic/one-shot) ([SPEC](../../devices/sampler/SPEC.md)) | ☐ |
+| B4 | **Sampler** (classic/one-shot) ([SPEC](../../devices/sampler/SPEC.md)) | ◐ engine, panel (waveform with markers, drop/browse), plugin, goldens; spec tests, conformance, validators and DAW null and undo tests pass; awaiting spec approval and sound/feel sign-off |
 
 ### C. DAW slice
 

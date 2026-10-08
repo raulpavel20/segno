@@ -60,6 +60,15 @@ RenderOptions optionsFor(const Stimulus& s, std::vector<int> pattern = {512})
     return o;
 }
 
+/// A fresh instance, made audible where the device needs an asset (e.g. a sample; ADR 0017).
+std::unique_ptr<Device> create(const DeviceFactory& f)
+{
+    auto d = f.create();
+    if (f.testSetup != nullptr)
+        f.testSetup(*d);
+    return d;
+}
+
 /// Deterministic pseudo-random setting of every parameter.
 void randomize(Device& d, std::uint32_t seed)
 {
@@ -89,7 +98,7 @@ TEST_CASE("conformance: output is identical for any block size", "[fast][conform
         for (std::uint32_t setting : {0u, 11u, 12u}) // 0 = defaults
         {
             auto make = [&] {
-                auto d = f.create();
+                auto d = create(f);
                 if (setting != 0)
                     randomize(*d, setting);
                 return d;
@@ -116,7 +125,7 @@ TEST_CASE("conformance: works at common sample rates", "[fast][conformance]")
     forEachDevice([](const DeviceFactory& f) {
         for (double sr : {44100.0, 48000.0, 88200.0, 96000.0, 192000.0})
         {
-            auto d = f.create();
+            auto d = create(f);
             const auto s = stimulusFor(f.info(), static_cast<int>(sr / 2));
             auto opts = optionsFor(s);
             opts.sampleRate = sr;
@@ -133,7 +142,7 @@ TEST_CASE("conformance: silence in gives silence out", "[fast][conformance]")
     forEachDevice([](const DeviceFactory& f) {
         if (!isEffect(f.info()))
             return;
-        auto d = f.create();
+        auto d = create(f);
         const auto out = render(*d, silence(48000, f.info().buses.inputChannels), {.sampleRate = kSampleRate});
         CHECK(peakDb(out.slice(36000, 12000)) < -120.0);
         CHECK(countSubnormals(out) == 0);
@@ -143,7 +152,7 @@ TEST_CASE("conformance: silence in gives silence out", "[fast][conformance]")
 TEST_CASE("conformance: survives parameter fuzzing", "[fast][conformance]")
 {
     forEachDevice([](const DeviceFactory& f) {
-        auto d = f.create();
+        auto d = create(f);
         auto s = stimulusFor(f.info(), 96000, 5);
         for (int c = 0; c < s.audio.numChannels(); ++c) // add a full-scale DC section
             for (int i = 48000; i < 60000; ++i)
@@ -174,7 +183,7 @@ TEST_CASE("conformance: parameter jumps do not click", "[fast][conformance]")
                 continue;
             for (bool upwards : {true, false})
             {
-                auto d = f.create();
+                auto d = create(f);
                 d->params().set(p, upwards ? specs[p].min : specs[p].max);
                 RenderOptions opts{.sampleRate = kSampleRate};
                 opts.beforeBlock = [&](Device& dev, std::int64_t start) {
@@ -197,11 +206,11 @@ TEST_CASE("conformance: state round trip reproduces the sound", "[fast][conforma
 {
     forEachDevice([](const DeviceFactory& f) {
         const auto s = stimulusFor(f.info(), 24000);
-        auto a = f.create();
+        auto a = create(f);
         randomize(*a, 1234);
         const std::string saved = serializeState(*a);
 
-        auto b = f.create();
+        auto b = create(f);
         REQUIRE(deserializeState(*b, saved) == ApplyResult::Ok);
         CHECK(serializeState(*b) == saved);
         CHECK(bitIdentical(render(*a, s.audio, optionsFor(s)), render(*b, s.audio, optionsFor(s))));
@@ -212,7 +221,7 @@ TEST_CASE("conformance: reset is deterministic", "[fast][conformance]")
 {
     forEachDevice([](const DeviceFactory& f) {
         const auto s = stimulusFor(f.info(), 24000);
-        auto d = f.create();
+        auto d = create(f);
         randomize(*d, 77);
         const auto first = render(*d, s.audio, optionsFor(s));
         d->reset();
@@ -228,7 +237,7 @@ TEST_CASE("conformance: reported latency matches measured latency", "[fast][conf
         if (!isEffect(f.info()))
             return;
         // Measured at defaults (filters at random settings add group delay, which is not latency).
-        auto d = f.create();
+        auto d = create(f);
         const auto in = whiteNoise(16384, 3, 0.25f, f.info().buses.inputChannels);
         const auto out = render(*d, in, {.sampleRate = kSampleRate});
         CHECK(estimateLatency(in, out, 2048) == d->latencySamples());
@@ -236,7 +245,7 @@ TEST_CASE("conformance: reported latency matches measured latency", "[fast][conf
         // ADR 0016: reported latency never depends on parameters.
         for (std::uint32_t setting : {21u, 22u, 23u})
         {
-            auto r = f.create();
+            auto r = create(f);
             randomize(*r, setting);
             r->prepare({kSampleRate, 512});
             INFO("setting " << setting);
@@ -297,7 +306,7 @@ TEST_CASE("conformance: instrument notes always release to silence", "[fast][con
             return;
         for (std::uint32_t setting : {0u, 21u, 22u, 23u, 24u})
         {
-            auto d = f.create();
+            auto d = create(f);
             if (setting != 0)
                 randomize(*d, setting);
             const auto out = renderWithTail(*d, 48000, busyPlaying(48000, 100 + setting));
@@ -315,7 +324,7 @@ TEST_CASE("conformance: all-notes-off silences an instrument", "[fast][conforman
     forEachDevice([](const DeviceFactory& f) {
         if (!isInstrument(f.info()))
             return;
-        auto d = f.create();
+        auto d = create(f);
         // Held notes and a held pedal: nothing is released except by all-notes-off.
         std::vector<TimedEvent> events{{0, {.type = EventType::Controller, .key = 64, .value = 1.0f}}};
         for (std::uint8_t k = 0; k < 6; ++k)
@@ -332,7 +341,7 @@ TEST_CASE("conformance: process() never allocates", "[fast][conformance]")
     if (!allocationTrackingEnabled())
         SKIP("allocation tracking is disabled in sanitizer builds (RTSan covers it)");
     forEachDevice([](const DeviceFactory& f) {
-        auto d = f.create();
+        auto d = create(f);
         const auto s = stimulusFor(f.info(), 48000);
         auto opts = optionsFor(s, {1, 64, 4096});
         Rng rng(5);

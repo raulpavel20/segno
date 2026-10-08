@@ -47,9 +47,6 @@ public:
     // Pure helpers shared by the audio path and the panel's displays.
     [[nodiscard]] static dsp::Oscillator::Mix osc1Mix(double shapePercent, double widthPercent) noexcept;
     [[nodiscard]] static dsp::Oscillator::Mix osc2Mix(int wave) noexcept;
-    /// Small-signal magnitude of filter `type` (Filter Type index) at `freq` Hz; resonance 0..1.
-    [[nodiscard]] static double filterMagnitude(int type, double freq, double cutoff, double resonance,
-                                                double sampleRate) noexcept;
     [[nodiscard]] static dsp::Adsr::Settings envelopeSettings(double attackMs, double decayMs, double sustainPercent,
                                                               double releaseMs, bool cycle) noexcept;
 
@@ -60,8 +57,7 @@ private:
     struct Voice
     {
         dsp::Oscillator osc1, osc2;
-        dsp::StateVariableFilter svf;
-        dsp::LadderFilter ladder;
+        dsp::SynthFilter filter;
         dsp::Adsr amp, mod;
         dsp::Noise noise;
         dsp::Drift driftPitch, driftCutoff;

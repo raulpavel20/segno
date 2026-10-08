@@ -136,19 +136,6 @@ dsp::Oscillator::Mix SubtractiveSynth::osc2Mix(int wave) noexcept
     return m;
 }
 
-double SubtractiveSynth::filterMagnitude(int type, double freq, double cutoff, double resonance,
-                                         double sampleRate) noexcept
-{
-    using Svf = dsp::StateVariableFilter;
-    switch (type)
-    {
-    case 0: return Svf::magnitude(freq, cutoff, resonance, sampleRate, Svf::Mode::Lowpass);
-    case 1: return dsp::LadderFilter::magnitude(freq, cutoff, resonance, sampleRate);
-    case 2: return Svf::magnitude(freq, cutoff, resonance, sampleRate, Svf::Mode::Highpass);
-    default: return Svf::magnitude(freq, cutoff, resonance, sampleRate, Svf::Mode::Bandpass);
-    }
-}
-
 dsp::Adsr::Settings SubtractiveSynth::envelopeSettings(double attackMs, double decayMs, double sustainPercent,
                                                        double releaseMs, bool cycle) noexcept
 {
@@ -180,8 +167,7 @@ void SubtractiveSynth::reset() noexcept
         auto& v = voice_[i];
         v.osc1.reset();
         v.osc2.reset();
-        v.svf.reset();
-        v.ladder.reset();
+        v.filter.reset();
         v.amp.reset();
         v.mod.reset();
         v.noise.seed(static_cast<std::uint32_t>(i) * 7919u + 1u);
@@ -283,8 +269,7 @@ void SubtractiveSynth::voiceStart(int index, int key, float velocity, int channe
         // oscillator phase, filter state and envelope level (click-free).
         v.osc1.reset();
         v.osc2.reset();
-        v.svf.reset();
-        v.ladder.reset();
+        v.filter.reset();
     }
     startGlide(v, from);
     lastPitch_ = key;
@@ -391,7 +376,7 @@ void SubtractiveSynth::process(ProcessContext& ctx) noexcept
         std::fill(outR, outR + n, 0.0f);
 
     const auto& p = params();
-    const auto filterType = p.getInt(FilterType);
+    const auto filterType = static_cast<dsp::SynthFilter::Type>(p.getInt(FilterType));
     const float envAmount = p.get(FilterEnv) * 0.01f * 5.0f; // octaves at full mod envelope
     const double osc1Offset = 12.0 * p.get(Osc1Oct);
     const double osc2Offset = 12.0 * p.get(Osc2Oct) + p.get(Osc2Semi) + p.get(Osc2Detune) * 0.01;
@@ -429,14 +414,7 @@ void SubtractiveSynth::process(ProcessContext& ctx) noexcept
                     x += static_cast<float>(c[CNoise]) * v.noise.next();
 
                 const double cutoff = std::exp2(std::min(nyquistOct, c[CCutoffOct] + envAmount * modEnv));
-                float y;
-                switch (filterType)
-                {
-                case 0: y = v.svf.process(x, cutoff, c[CRes], sampleRate_, dsp::StateVariableFilter::Mode::Lowpass); break;
-                case 1: y = v.ladder.process(x, cutoff, c[CRes], sampleRate_); break;
-                case 2: y = v.svf.process(x, cutoff, c[CRes], sampleRate_, dsp::StateVariableFilter::Mode::Highpass); break;
-                default: y = v.svf.process(x, cutoff, c[CRes], sampleRate_, dsp::StateVariableFilter::Mode::Bandpass); break;
-                }
+                float y = v.filter.process(x, filterType, cutoff, c[CRes], sampleRate_);
                 y *= ampEnv * static_cast<float>(c[CAmp]);
                 const float angle = static_cast<float>((c[CPan] + 1.0) * 0.25 * dsp::pi);
                 outL[s] += y * (outR != nullptr ? std::cos(angle) : 1.0f);

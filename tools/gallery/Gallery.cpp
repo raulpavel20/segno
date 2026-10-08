@@ -229,9 +229,9 @@ GalleryComponent::GalleryComponent(ui::LookAndFeel& lnf) : lnf_(lnf)
                             std::unique_ptr<ui::DevicePanel> (*fallback)(ui::DeviceUiContext&)) {
         DeviceSlot slot;
         slot.device = std::move(device);
-        slot.binding = std::make_unique<ui::LocalParamBinding>(slot.device->params());
+        slot.binding = std::make_unique<ui::LocalParamBinding>(*slot.device);
         slot.context = std::make_unique<ui::DeviceUiContext>(
-            ui::DeviceUiContext{slot.device->info(), *slot.binding, &slot.device->analysis()});
+            ui::DeviceUiContext{slot.device->info(), *slot.binding, &slot.device->analysis(), slot.device.get()});
         slot.panel = panelFactory != nullptr ? panelFactory->create(*slot.context) : fallback(*slot.context);
         slot.panel->onEnabledChange = [](bool) {};
         addAndMakeVisible(*slot.panel);

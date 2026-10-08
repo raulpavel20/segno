@@ -42,6 +42,11 @@ public:
 
     void restorePluginStateFromValueTree(const juce::ValueTree& v) override;
     void flushPluginStateToValueTree() override;
+    void valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& id) override;
+
+    /// UI edit of non-parameter state (ADR 0017): recorded in the plugin's state with the Edit's
+    /// undo manager; the device follows the state (including undo and redo).
+    void applyExtraState(const nlohmann::json& patch);
 
     [[nodiscard]] Device& device() noexcept { return *device_; }
     [[nodiscard]] te::AutomatableParameter& parameter(size_t index) const noexcept { return *params_[index]; }
@@ -49,6 +54,7 @@ public:
 private:
     [[nodiscard]] bool isInstrument() const noexcept { return device_->info().kind == DeviceKind::Instrument; }
     void convertMidi(const te::PluginRenderContext& fc) noexcept;
+    void applyExtraFromState(const juce::String& json);
 
     std::unique_ptr<Device> device_;
     juce::String name_, type_;
@@ -58,6 +64,7 @@ private:
     EventList events_;
     te::tempo::Sequence::Position tempoPos_{te::createPosition(edit.tempoSequence)};
     double sampleRate_ = 48000.0;
+    juce::String appliedExtra_; // the extra-state JSON the device currently reflects
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DevicePlugin)
 };
@@ -76,6 +83,7 @@ public:
     void setPlain(size_t i, float plain) override { plugin_.parameter(i).setParameter(plain, juce::sendNotification); }
     void beginGesture(size_t i) override { plugin_.parameter(i).parameterChangeGestureBegin(); }
     void endGesture(size_t i) override { plugin_.parameter(i).parameterChangeGestureEnd(); }
+    void applyExtraState(const nlohmann::json& patch) override { plugin_.applyExtraState(patch); }
 
 private:
     DevicePlugin& plugin_;

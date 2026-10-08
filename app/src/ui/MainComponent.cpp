@@ -15,7 +15,7 @@ MainComponent::MainComponent(te::Engine& engine) : engine_(engine)
     auto& device = dynamic_cast<engine::DevicePlugin&>(*plugin_);
     binding_ = std::make_unique<engine::DevicePluginBinding>(device);
     context_ = std::make_unique<ui::DeviceUiContext>(
-        ui::DeviceUiContext{device.device().info(), *binding_, &device.device().analysis()});
+        ui::DeviceUiContext{device.device().info(), *binding_, &device.device().analysis(), &device.device()});
     panel_ = ui::findPanel("utility")->create(*context_);
     panel_->onEnabledChange = [this](bool on) { plugin_->setEnabled(on); };
     addAndMakeVisible(*panel_);

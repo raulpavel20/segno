@@ -15,8 +15,10 @@ namespace
 juce::Image renderPanel(const fd::DeviceFactory& factory, const fd::ui::PanelFactory& panelFactory, float scale)
 {
     auto device = factory.create();
-    fd::ui::LocalParamBinding binding(device->params());
-    fd::ui::DeviceUiContext ctx{factory.info(), binding, nullptr};
+    if (factory.testSetup != nullptr) // e.g. a loaded sample, so its display isn't empty
+        factory.testSetup(*device);
+    fd::ui::LocalParamBinding binding(*device);
+    fd::ui::DeviceUiContext ctx{factory.info(), binding, nullptr, device.get()};
     auto panel = panelFactory.create(ctx);
     panel->onEnabledChange = [](bool) {};
     panel->setSize(panel->preferredWidth(), fd::ui::Theme::current().devicePanelHeight);

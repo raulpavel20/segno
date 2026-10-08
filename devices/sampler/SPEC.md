@@ -49,33 +49,51 @@ None in M1.
 
 **Non-parameter state** (`extra`):
 - `sample.path`: absolute path;
-- `sample.relative`: path relative to the project, if available;
-- the original sample rate and length, for checking.
+- `sample.rate` and `sample.frames`: the original sample rate and length, for checking.
 
-Embedding the audio in the project or preset comes later. State version 1.
+Project-relative paths come with collect-and-save (M3). Embedding the audio in the project or preset comes later. State version 1.
 
 ## DSP design
 
-- **Loading:**
-  - Files are decoded off the audio thread: WAV, AIFF, FLAC and MP3 (JUCE-free decoders).
-  - The result is an immutable `SampleData` (channels, rate, plus pre-decimated copies at ½, ¼ … rate for clean upward transposition), handed to the audio thread lock-free (step A5).
-  - Swapping samples while playing fades the old voices out.
-- **Playback:** windowed-sinc interpolation, choosing the decimated copy that keeps the playback ratio ≤ 2 for anti-aliasing. Loop crossfade uses equal-power curves.
-- **Voices:** the shared voice manager; per-voice amp envelope, filter and filter envelope; glide in mono and legato.
-- **Analysis:** voice playheads go through a FIFO tap (start, end and loop markers come from parameters); 0 = output peak.
+- **Loading ([ADR 0017](../../docs/decisions/0017-heavy-data-and-non-parameter-state.md)):**
+  - Files are decoded with JUCE-free decoders (`libs/audiofile`): WAV/W64/RF64, AIFF, FLAC, MP3. Decoding is synchronous in `readExtraState`, never on the audio thread.
+  - The result is an immutable `SampleData`. It holds the channels (padded for the interpolator) and copies decimated to ½, ¼ … of the rate, plus a min/max overview for the display. It reaches the audio thread through `AssetHandoff`.
+  - Swapping samples while playing fades the old voices out (1.5 ms). The old data is freed off the audio thread.
+  - A missing file keeps its path in the state and is shown on the panel; the device plays silence.
+  - When the panel loads a file with a root note in its metadata (`smpl`/`inst`), it sets Root Key through the host. That is a separate, undoable step.
+- **Playback:**
+  - Windowed-sinc interpolation from `dsp::SincKernels`: Kaiser, 48 taps, cutoff at 0.45 fs, polyphase tables.
+  - The voice reads the smallest decimated copy that is at most 2× its rate. The kernel's cutoff is lowered for the remaining speed-up (up to 96 taps).
+  - Playback pitch is limited to ±60 st from the sample's own pitch, which bounds one-shot tails.
+- **Loop:** the loop's last *crossfade* frames are blended (equal power) with the frames just before the loop start. The crossfade is limited by the material before the loop start and by half the loop length.
+- **Voices:**
+  - The shared voice manager.
+  - A stolen or retriggered voice fades out over 1.5 ms before the new note starts (click-free).
+  - Per voice: amp envelope, stereo filter (the instruments' shared `dsp::SynthFilter`) and filter envelope.
+  - Glide in all voice modes; legato keeps the playback position.
+  - One-shots play to the end, ignoring note-off unless Gate is on. All-notes-off releases them too.
+- **Analysis:**
+  - slot 0 = output peak;
+  - slot 1 = active voices;
+  - slots 2–9 = playheads of up to eight voices (0..1 of the sample, −1 = unused).
+
+  Start, end and loop markers come from parameters.
 
 ## UI layout
 
-```
-┌─ ● Sampler ─────────────────────────────────────── kick.wav ── [Classic|One-shot] ┐
-│ ┌─────────────────────────────────────────────────────┐  ◜◝Trans ◜◝Det  ◜◝Gain    │
-│ │ waveform (flat, clip-colour tint) with start/end/loop │  A D S R env view         │
-│ │ markers you can drag, and live voice playheads        │  [Filter] ◜◝Cut ◜◝Res     │
-│ └─────────────────────────────────────────────────────┘  [Loop] ◜◝LStart ◜◝XFade  │
-└───────────────────────────────────────────────────────────────────────────────────┘
-```
+Waveform on the left, then two-row groups (about 1350 px wide):
 
-Drop a file onto the panel (or onto a track in the DAW) to load it. An empty Sampler shows "Drop a sample".
+| Group | Top row | Bottom row |
+|---|---|---|
+| Waveform | File name and length; waveform (dimmed outside Start–End); loop tint; draggable S, E and L markers; live playheads | |
+| Pitch and level | Transpose, Detune | Gain, Velocity → Volume |
+| Region | [Classic \| One-shot]; Loop and Gate (the one the mode ignores is dimmed); Start and End bars | Loop Start, X-Fade, Fade In, Fade Out |
+| Envelopes | Amp display, A, D, S, R | Filter-envelope display, A, D, S, R |
+| Filter | On, type buttons, response display (dimmed when off) | Cutoff, Res, Env, Key |
+| Voice | Mode, then Root, Voices, Glide and Bend bars, stacked across both rows | |
+
+- Drop a file anywhere on the panel to load it, or click the empty waveform (or double-click a loaded one) to browse. An empty Sampler shows "Drop a sample, or click to browse".
+- Dropping onto a track in the DAW comes with the DAW slice (C4/C7).
 
 ## Factory presets
 
