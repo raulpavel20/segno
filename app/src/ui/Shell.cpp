@@ -2,6 +2,8 @@
 
 #include "fd/audiofile/AudioFile.h"
 
+#include <nlohmann/json.hpp>
+
 #include <juce_audio_utils/juce_audio_utils.h>
 
 namespace fd::app
@@ -49,6 +51,18 @@ Shell::Shell(engine::Session& session) : session_(session), arrangement_(session
         arrangement_.setSnapshot(session_.snapshot());
         selectionChanged(arrangement_.selectedTrack());
     };
+    // New/open: drop every panel and handle before the old project goes away.
+    session_.onProjectWillChange = [this] {
+        arrangement_.selectTrack(std::nullopt);
+        detail_.setSelection(std::nullopt);
+    };
+    session_.onProjectChanged = [this] {
+        arrangement_.setSnapshot(session_.snapshot());
+        applyViewState(session_.savedViewState());
+        selectionChanged(std::nullopt);
+        updateTitle();
+    };
+    session_.viewStateProvider = [this] { return viewState(); };
 
     setWantsKeyboardFocus(true);
     setSize(1600, 960);
@@ -57,6 +71,9 @@ Shell::Shell(engine::Session& session) : session_(session), arrangement_(session
 Shell::~Shell()
 {
     session_.onSnapshotChanged = nullptr;
+    session_.onProjectWillChange = nullptr;
+    session_.onProjectChanged = nullptr;
+    session_.viewStateProvider = nullptr;
 }
 
 // ---- actions -------------------------------------------------------------------------------
@@ -161,6 +178,23 @@ void Shell::registerActions()
     actions_.add({.id = "view.snap", .name = "Snap to grid", .category = "View", .keys = {key('4', kCmd)},
                   .perform = [this] { arrangement_.setSnapEnabled(!arrangement_.isSnapEnabled()); },
                   .isToggled = [this] { return arrangement_.isSnapEnabled(); }});
+    actions_.add({.id = "file.new", .name = "New project", .category = "File", .keys = {key('n', kCmd)},
+                  .perform = [this] { confirmDiscard([this] { session_.newProject(); }); }});
+    actions_.add({.id = "file.open", .name = "Open project", .category = "File", .keys = {key('o', kCmd)},
+                  .perform = [this] { confirmDiscard([this] { openProject(); }); }});
+    actions_.add({.id = "file.save", .name = "Save", .category = "File", .keys = {key('s', kCmd)},
+                  .perform = [this] {
+                      if (session_.file())
+                      {
+                          if (!session_.save())
+                              showWarning("Could not save " + session_.file()->getFullPathName());
+                          updateTitle();
+                      }
+                      else
+                          saveProjectAs();
+                  }});
+    actions_.add({.id = "file.saveAs", .name = "Save as", .category = "File", .keys = {key('s', kCmd | kShift)},
+                  .perform = [this] { saveProjectAs(); }});
     actions_.add({.id = "app.scanPlugins", .name = "Scan for plugins", .category = "App", .keys = {key('p', kCmd | kAlt)},
                   .perform = [this] {
                       showWarning("Scanning for plugins...");
@@ -234,6 +268,123 @@ void Shell::toggle(Panel& p)
     if (focusMode_)
         focusMode_ = false;
     resized();
+}
+
+// ---- projects (C8) -------------------------------------------------------------------------
+
+void Shell::confirmDiscard(std::function<void()> then)
+{
+    if (!session_.hasUnsavedChanges())
+    {
+        then();
+        return;
+    }
+    const auto name = session_.file() ? session_.file()->getFileNameWithoutExtension() : juce::String("Untitled");
+    auto options = juce::MessageBoxOptions()
+                       .withIconType(juce::MessageBoxIconType::NoIcon)
+                       .withTitle("Unsaved changes")
+                       .withMessage("Save the changes to \"" + name + "\"?")
+                       .withButton("Save")
+                       .withButton("Don't save")
+                       .withButton("Cancel")
+                       .withAssociatedComponent(this);
+    juce::AlertWindow::showAsync(options, [this, next = std::move(then)](int result) {
+        if (result == 1) // Save
+        {
+            if (session_.file() && session_.save())
+                next();
+            else
+                saveProjectAs(next);
+        }
+        else if (result == 2) // Don't save
+            next();
+    });
+}
+
+void Shell::openProject()
+{
+    const auto folder = session_.file() ? session_.file()->getParentDirectory()
+                                        : juce::File::getSpecialLocation(juce::File::userDocumentsDirectory);
+    chooser_ = std::make_unique<juce::FileChooser>("Open project", folder, juce::String("*") + engine::Session::fileExtension);
+    chooser_->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                          [this](const juce::FileChooser& fc) {
+                              const auto file = fc.getResult();
+                              if (file == juce::File())
+                                  return;
+                              std::string error;
+                              if (!session_.open(file, &error))
+                                  showWarning(juce::String::fromUTF8(error.c_str()));
+                          });
+}
+
+void Shell::saveProjectAs(std::function<void()> then)
+{
+    const auto initial = session_.file() ? *session_.file()
+                                         : juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
+                                               .getChildFile(juce::String("Untitled") + engine::Session::fileExtension);
+    chooser_ = std::make_unique<juce::FileChooser>("Save project", initial, juce::String("*") + engine::Session::fileExtension);
+    chooser_->launchAsync(juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::warnAboutOverwriting,
+                          [this, next = std::move(then)](const juce::FileChooser& fc) {
+                              auto file = fc.getResult();
+                              if (file == juce::File())
+                                  return;
+                              if (!file.hasFileExtension(engine::Session::fileExtension))
+                                  file = file.withFileExtension(engine::Session::fileExtension);
+                              if (!session_.saveAs(file))
+                              {
+                                  showWarning("Could not save " + file.getFullPathName());
+                                  return;
+                              }
+                              updateTitle();
+                              if (next)
+                                  next();
+                          });
+}
+
+std::string Shell::viewState() const
+{
+    const auto& tl = arrangement_.timeline();
+    return nlohmann::json{{"start", tl.start()},
+                          {"pixelsPerSecond", tl.pixelsPerSecond()},
+                          {"snap", arrangement_.isSnapEnabled()},
+                          {"follow", arrangement_.isFollowEnabled()},
+                          {"browser", browserPanel_.open},
+                          {"inspector", inspectorPanel_.open},
+                          {"detail", detailPanel_.open},
+                          {"browserWidth", browserPanel_.size},
+                          {"inspectorWidth", inspectorPanel_.size}}
+        .dump();
+}
+
+void Shell::applyViewState(const std::string& json)
+{
+    const auto v = nlohmann::json::parse(json, nullptr, false);
+    if (!v.is_object())
+        return;
+    auto get = [&](const char* key, auto fallback) { return v.contains(key) ? v[key].get<decltype(fallback)>() : fallback; };
+    arrangement_.setView(get("start", 0.0), get("pixelsPerSecond", arrangement_.timeline().pixelsPerSecond()));
+    arrangement_.setSnapEnabled(get("snap", true));
+    arrangement_.setFollowEnabled(get("follow", true));
+    browserPanel_.open = get("browser", browserPanel_.open);
+    inspectorPanel_.open = get("inspector", inspectorPanel_.open);
+    detailPanel_.open = get("detail", detailPanel_.open);
+    browserPanel_.size = get("browserWidth", browserPanel_.size);
+    inspectorPanel_.size = get("inspectorWidth", inspectorPanel_.size);
+    resized();
+}
+
+void Shell::updateTitle()
+{
+    auto title = juce::String("FossDAW - ") +
+                 (session_.file() ? session_.file()->getFileNameWithoutExtension() : juce::String("Untitled"));
+    if (session_.hasUnsavedChanges())
+        title << " *";
+    if (title != title_)
+    {
+        title_ = title;
+        if (onTitleChanged)
+            onTitleChanged(title_);
+    }
 }
 
 void Shell::showAudioSettings()
@@ -327,6 +478,8 @@ void Shell::onFrame(double timestamp)
         if (statsVisible_)
             repaint(getLocalBounds().removeFromBottom(28).removeFromLeft(360));
     }
+
+    updateTitle(); // cheap: notifies only when it changes
 
     const double position = session_.position();
     arrangement_.frame(dt, position);

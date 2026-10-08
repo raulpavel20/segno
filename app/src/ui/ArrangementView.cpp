@@ -186,6 +186,12 @@ void ArrangementView::zoomAt(double laneXPos, double factor)
     repaint();
 }
 
+void ArrangementView::setView(double startSeconds, double pixelsPerSecond)
+{
+    timeline_.setView(startSeconds, pixelsPerSecond);
+    repaint();
+}
+
 void ArrangementView::setAllTrackHeights(double height)
 {
     for (int i = 0; i < layout_.trackCount(); ++i)

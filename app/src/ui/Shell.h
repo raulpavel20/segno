@@ -22,6 +22,12 @@ public:
     /// Shows a warning in the window (engine warnings; never a modal dialog).
     void showWarning(const juce::String& message);
 
+    /// Runs `then` once unsaved changes are saved or discarded; nothing if cancelled. The one
+    /// modal dialog the UI principles allow besides confirming destruction.
+    void confirmDiscard(std::function<void()> then);
+    /// "FossDAW - name" with a mark while there are unsaved changes.
+    std::function<void(const juce::String&)> onTitleChanged;
+
     /// Frame statistics overlay (paint time of the arrangement, frame rate): --stats.
     void setStatsVisible(bool visible);
     /// Scripted benchmark (--benchmark): fills the project with 32 tracks of clips, zooms in and
@@ -43,6 +49,13 @@ private:
     };
 
     void registerActions();
+    void openProject();
+    void saveProjectAs(std::function<void()> then = {});
+    [[nodiscard]] std::string viewState() const;
+    void applyViewState(const std::string& json);
+    void updateTitle();
+    std::unique_ptr<juce::FileChooser> chooser_;
+    juce::String title_;
     void onFrame(double timestamp);
     void selectionChanged(std::optional<std::uint64_t> track);
     void showAudioSettings();

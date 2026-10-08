@@ -60,6 +60,8 @@ public:
     [[nodiscard]] WaveformCache& waveforms() noexcept { return waveforms_; }
     /// Immediate zoom around a lane x (benchmarks; input uses the gesture handlers).
     void zoomAt(double laneX, double factor);
+    /// Shows `startSeconds` at the left edge at `pixelsPerSecond` (restoring a saved view).
+    void setView(double startSeconds, double pixelsPerSecond);
     /// Sets every track's height (clamped to the layout's limits).
     void setAllTrackHeights(double height);
     /// Wall time of the last paint, ms (frame statistics).

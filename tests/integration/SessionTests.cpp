@@ -13,6 +13,8 @@
 #include "fd_test_paths.h"
 #endif
 
+#include <nlohmann/json.hpp>
+
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
@@ -309,4 +311,116 @@ TEST_CASE("instrument tracks, MIDI files and live MIDI routing", "[integration]"
     session.setMidiInputTarget(std::nullopt);
     CHECK_FALSE(session.midiInputTarget());
     CHECK(session.canUndo() == couldUndo);
+}
+
+TEST_CASE("projects round-trip through a file", "[integration]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    tracktion::Engine engine{"fd-integration-tests"};
+    fd::engine::registerDevices(engine);
+    juce::TemporaryFile wav(".wav"), project(fd::engine::Session::fileExtension);
+    REQUIRE(fd::testkit::writeWav(wav.getFile().getFullPathName().toStdString(),
+                                  fd::testkit::sine(220.0, 48000.0, 96000, 0.5f, 2), 48000.0));
+
+    std::shared_ptr<const fd::model::Snapshot> saved;
+    float eqValue = 0.0f, synthValue = 0.0f;
+    {
+        fd::engine::Session session(engine);
+        const auto audio = session.snapshot()->tracks[0].id;
+        session.insertAudioFile(audio, wav.getFile(), 2.0);
+        const auto eq = session.addDevice(audio, "fd:eq");
+        const auto sat = session.addDevice(audio, "fd:saturator");
+        session.setDeviceEnabled(sat, false);
+        auto eqHandle = session.openDevice(eq);
+        eqHandle->context().params.setPlain(2, 1234.0f); // a band frequency
+        eqValue = eqHandle->context().params.getPlain(2);
+        eqHandle.reset();
+
+        const auto synth = session.addInstrumentTrack();
+        session.updateSnapshotNow();
+        auto synthHandle = session.openDevice(session.snapshot()->tracks.back().devices[0].id);
+        synthHandle->context().params.setPlain(0, 42.0f); // Osc 1 Shape
+        synthValue = synthHandle->context().params.getPlain(0);
+        synthHandle.reset();
+        (void)synth;
+
+        const auto sampler = session.addInstrumentTrack("fd:sampler");
+        session.updateSnapshotNow();
+        auto samplerHandle = session.openDevice(session.snapshot()->tracks.back().devices[0].id);
+        samplerHandle->context().params.applyExtraState({{"sample.path", wav.getFile().getFullPathName().toStdString()}});
+        samplerHandle.reset();
+        (void)sampler;
+
+        session.setTempo(97.0);
+        session.setTimeSignature(3, 4);
+        session.setLoopRange(4.0, 8.0);
+        session.viewStateProvider = [] { return std::string(R"({"pixelsPerSecond":42})"); };
+        CHECK(session.hasUnsavedChanges());
+        REQUIRE(session.saveAs(project.getFile()));
+        CHECK_FALSE(session.hasUnsavedChanges());
+        CHECK(session.file() == project.getFile());
+        session.updateSnapshotNow();
+        saved = session.snapshot();
+    }
+
+    fd::engine::Session reopened(engine);
+    int willChange = 0, changed = 0;
+    reopened.onProjectWillChange = [&] { ++willChange; };
+    reopened.onProjectChanged = [&] { ++changed; };
+    std::string error;
+    REQUIRE(reopened.open(project.getFile(), &error));
+    CHECK(willChange == 1);
+    CHECK(changed == 1);
+    CHECK_FALSE(reopened.hasUnsavedChanges());
+    CHECK_FALSE(reopened.canUndo());
+    CHECK(reopened.savedViewState() == R"({"pixelsPerSecond":42})");
+
+    reopened.updateSnapshotNow();
+    const auto& s = *reopened.snapshot();
+    CHECK(s.tempo.bpm == Approx(97.0));
+    CHECK(s.tempo.numerator == 3);
+    CHECK(reopened.loopRange().first == Approx(4.0));
+    REQUIRE(s.tracks.size() == saved->tracks.size());
+    for (size_t t = 0; t < s.tracks.size(); ++t)
+    {
+        INFO("track " << t);
+        const auto& a = s.tracks[t];
+        const auto& b = saved->tracks[t];
+        CHECK(a.name == b.name);
+        CHECK(a.kind == b.kind);
+        CHECK(a.colour == b.colour);
+        REQUIRE(a.clips.size() == b.clips.size());
+        for (size_t c = 0; c < a.clips.size(); ++c)
+        {
+            CHECK(a.clips[c].start == Approx(b.clips[c].start));
+            CHECK(a.clips[c].length == Approx(b.clips[c].length));
+            CHECK(a.clips[c].sourcePath == b.clips[c].sourcePath);
+        }
+        REQUIRE(a.devices.size() == b.devices.size());
+        for (size_t d = 0; d < a.devices.size(); ++d)
+        {
+            CHECK(a.devices[d].deviceId == b.devices[d].deviceId);
+            CHECK(a.devices[d].enabled == b.devices[d].enabled);
+        }
+    }
+
+    // Device parameters and non-parameter state come back too.
+    auto eq = reopened.openDevice(s.tracks[0].devices[0].id);
+    CHECK(eq->context().params.getPlain(2) == Approx(eqValue));
+    auto synth = reopened.openDevice(s.tracks[s.tracks.size() - 2].devices[0].id);
+    CHECK(synth->context().params.getPlain(0) == Approx(synthValue));
+    auto sampler = reopened.openDevice(s.tracks.back().devices[0].id);
+    nlohmann::json extra = nlohmann::json::object();
+    sampler->context().device->writeExtraState(extra);
+    CHECK(extra["sample.path"] == wav.getFile().getFullPathName().toStdString());
+
+    // New project: a clean slate, no file.
+    eq.reset();
+    synth.reset();
+    sampler.reset();
+    reopened.newProject();
+    CHECK_FALSE(reopened.file());
+    CHECK(reopened.snapshot()->tracks.size() == 4);
+    CHECK_FALSE(reopened.open(juce::File("/nonexistent.fdproj"), &error));
+    CHECK_FALSE(error.empty());
 }

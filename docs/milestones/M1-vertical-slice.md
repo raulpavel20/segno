@@ -43,7 +43,7 @@ See [roadmap.md](../roadmap.md) and the device specs in `devices/*/SPEC.md`.
 | C5 | **Transport:** play/stop, position, tempo, loop brace, metronome | Manual check | ◐ play/stop, return to start, click to locate, loop brace (draw/move/resize/toggle), metronome, tempo and signature fields (undoable), follow playhead; Session and mouse-driven tests; awaiting manual check |
 | C6 | **Device chain:** native panels plus third-party plugin cards; add, reorder, bypass, delete; VST3/LV2 scanning (crash-safe) | Native and third-party devices on one track | ◐ chain in the detail panel: native panels + plugin cards (own editor window), add menu, header-drag reorder, bypass, delete, undo; in-process scan with dead man's pedal (out-of-process scanner is M3); Session and UI tests incl. our VST3 as a stand-in plugin; awaiting manual check with real third-party plugins |
 | C7 | **Instrument tracks:** live MIDI input monitoring through the synth or sampler; `.mid` import as a read-only preview | Play the synth from a MIDI keyboard | ◐ instrument tracks (Ctrl+Shift+T), live MIDI routed to the selected instrument track (follows device changes), computer keyboard as MIDI, `.mid` drop as a read-only note clip; Session tests; awaiting playing the synth from a MIDI keyboard |
-| C8 | **Project save/open** (`.fdproj`) | Round-trip test | ☐ |
+| C8 | **Project save/open** (`.fdproj`) | Round-trip test | ☑ `.fdproj` (tracktion edit + our view state), new/open/save/save as, unsaved-changes prompt, title; round-trip test (tracks, clips, devices incl. parameters and extra state, tempo, loop, view) |
 
 ## Order of work
 

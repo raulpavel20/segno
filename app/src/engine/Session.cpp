@@ -99,17 +99,6 @@ private:
 
 Session::Impl::Impl(Session& o, te::Engine& e) : owner(o), engine(e)
 {
-    edit = te::Edit::createSingleTrackEdit(engine);
-    edit->ensureNumberOfAudioTracks(4);
-    int i = 0;
-    for (auto* t : te::getAudioTracks(*edit))
-    {
-        t->setName(juce::String(i + 1) + " Audio");
-        t->state.setProperty(kColourId, i * 3 % kPaletteSize, nullptr);
-        ++i;
-    }
-    edit->getUndoManager().clearUndoHistory();
-
     // Live MIDI (C7): the computer keyboard is one more input. tracktion fills its device
     // list asynchronously (and again when devices come and go): midiDevicesChanged() sets
     // every input up and re-applies the routing.
@@ -118,22 +107,55 @@ Session::Impl::Impl(Session& o, te::Engine& e) : owner(o), engine(e)
                      [](const auto& d) { return d->getName() == computerKeyboardName; }))
         (void)devices.createVirtualMidiDevice(computerKeyboardName);
     devices.addChangeListener(this);
-    midiDevicesChanged();
+    attach(newEdit());
+}
 
+std::unique_ptr<te::Edit> Session::Impl::newEdit()
+{
+    auto e = te::Edit::createSingleTrackEdit(engine);
+    e->ensureNumberOfAudioTracks(4);
+    int i = 0;
+    for (auto* t : te::getAudioTracks(*e))
+    {
+        t->setName(juce::String(i + 1) + " Audio");
+        t->state.setProperty(kColourId, i * 3 % kPaletteSize, nullptr);
+        ++i;
+    }
+    return e;
+}
+
+void Session::Impl::attach(std::unique_ptr<te::Edit> e)
+{
+    edit = std::move(e);
+    edit->getUndoManager().clearUndoHistory();
+    edit->resetChangedStatus();
+    dirty = false;
+    midiTarget.reset();
+    midiDevicesChanged(); // playback context and input routing for this edit
     rebuildSnapshot();
     edit->state.addListener(this);
+}
+
+void Session::Impl::detach()
+{
+    if (edit == nullptr)
+        return;
+    cancelPendingUpdate();
+    edit->state.removeListener(this);
+    edit->getTransport().stop(false, true);
+    edit.reset();
 }
 
 Session::Impl::~Impl()
 {
     engine.getDeviceManager().removeChangeListener(this);
-    cancelPendingUpdate();
-    edit->state.removeListener(this);
-    edit->getTransport().stop(false, true);
+    detach();
 }
 
 void Session::Impl::midiDevicesChanged()
 {
+    if (edit == nullptr)
+        return;
     for (auto& in : engine.getDeviceManager().getMidiInDevices())
     {
         if (!in->isEnabled())
@@ -645,6 +667,82 @@ void Session::scanPlugins(std::function<void(const juce::String&)> onProgress, s
 bool Session::isScanning() const
 {
     return impl_->scanner != nullptr && !static_cast<PluginScanner*>(impl_->scanner.get())->isDone();
+}
+
+// ---- projects ------------------------------------------------------------------------------
+
+namespace
+{
+const juce::Identifier kViewStateId{"fdView"}; // the UI's view state, JSON (not undoable)
+} // namespace
+
+void Session::replaceEdit(std::unique_ptr<te::Edit> edit, std::optional<juce::File> file)
+{
+    if (onProjectWillChange)
+        onProjectWillChange(); // the UI drops its device handles and panels first
+    impl_->detach();
+    impl_->file = std::move(file);
+    impl_->attach(std::move(edit));
+    if (onProjectChanged)
+        onProjectChanged();
+}
+
+void Session::newProject()
+{
+    replaceEdit(impl_->newEdit(), std::nullopt);
+}
+
+bool Session::open(const juce::File& file, std::string* error)
+{
+    if (!file.existsAsFile())
+    {
+        if (error != nullptr)
+            *error = "File not found: " + file.getFullPathName().toStdString();
+        return false;
+    }
+    auto edit = te::loadEditFromFile(impl_->engine, file);
+    if (edit == nullptr)
+    {
+        if (error != nullptr)
+            *error = "Not a project: " + file.getFullPathName().toStdString();
+        return false;
+    }
+    replaceEdit(std::move(edit), file);
+    return true;
+}
+
+bool Session::saveAs(const juce::File& file)
+{
+    auto& edit = *impl_->edit;
+    if (viewStateProvider)
+        edit.state.setProperty(kViewStateId, juce::String(viewStateProvider()), nullptr);
+    edit.flushState(); // device states (and our devices' extra state) into the tree
+    if (!te::EditFileOperations(edit).writeToFile(file, false))
+        return false;
+    impl_->file = file;
+    edit.resetChangedStatus();
+    impl_->dirty = false;
+    return true;
+}
+
+bool Session::save()
+{
+    return impl_->file && saveAs(*impl_->file);
+}
+
+std::optional<juce::File> Session::file() const
+{
+    return impl_->file;
+}
+
+bool Session::hasUnsavedChanges() const
+{
+    return impl_->dirty || impl_->edit->hasChangedSinceSaved();
+}
+
+std::string Session::savedViewState() const
+{
+    return impl_->edit->state.getProperty(kViewStateId).toString().toStdString();
 }
 
 void Session::undo()

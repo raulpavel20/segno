@@ -12,6 +12,7 @@
 namespace tracktion::inline engine
 {
 class Engine;
+class Edit;
 }
 
 namespace fd::engine
@@ -128,6 +129,28 @@ public:
                      std::function<void(int found)> onDone);
     [[nodiscard]] bool isScanning() const;
 
+    // ---- projects (C8) -------------------------------------------------------------------
+
+    /// A new project: four audio tracks, no file.
+    void newProject();
+    /// Opens a project file; false (with `error`) if it can't be read.
+    bool open(const juce::File& file, std::string* error = nullptr);
+    /// Saves to `file` and remembers it; `save()` writes to the remembered file.
+    bool saveAs(const juce::File& file);
+    bool save();
+    [[nodiscard]] std::optional<juce::File> file() const;
+    [[nodiscard]] bool hasUnsavedChanges() const;
+    static constexpr const char* fileExtension = ".fdproj";
+
+    /// The UI's view state (JSON), stored with the project when saving.
+    std::function<std::string()> viewStateProvider;
+    /// The view state stored in the open project (empty if none).
+    [[nodiscard]] std::string savedViewState() const;
+    /// Before the project is replaced (new/open): release every DeviceHandle and panel.
+    std::function<void()> onProjectWillChange;
+    /// After the project was replaced: take the new snapshot and view state.
+    std::function<void()> onProjectChanged;
+
     void undo();
     void redo();
     [[nodiscard]] bool canUndo() const;
@@ -144,6 +167,8 @@ public:
     [[nodiscard]] Impl& impl() noexcept { return *impl_; }
 
 private:
+    void replaceEdit(std::unique_ptr<tracktion::Edit> edit, std::optional<juce::File> file);
+
     std::unique_ptr<Impl> impl_;
 };
 } // namespace fd::engine

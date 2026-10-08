@@ -57,6 +57,10 @@ DevicePlugin::DevicePlugin(te::PluginCreationInfo info, const DeviceFactory& fac
         params_.emplace_back(param);
         values_.push_back(std::move(value));
     }
+
+    // A device recreated from a saved project gets its non-parameter state back (ADR 0017).
+    if (state.hasProperty(kExtraStateId))
+        applyExtraFromState(state[kExtraStateId].toString());
 }
 
 DevicePlugin::~DevicePlugin()

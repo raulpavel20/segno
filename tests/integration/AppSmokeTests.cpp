@@ -260,3 +260,31 @@ TEST_CASE("the device chain shows panels and reorders by dragging a header", "[i
     collect(chain);
     CHECK(std::find(panels.begin(), panels.end(), first) != panels.end());
 }
+
+TEST_CASE("the shell saves and restores its view with the project", "[integration]")
+{
+    ShellFixture f;
+    f.shell->setSize(1800, 900);
+    fd::app::ArrangementView* view = nullptr;
+    for (auto* child : f.shell->getChildren())
+        if (auto* v = dynamic_cast<fd::app::ArrangementView*>(child))
+            view = v;
+    REQUIRE(view != nullptr);
+    juce::String title;
+    f.shell->onTitleChanged = [&](const juce::String& t) { title = t; };
+
+    view->setView(5.0, 77.0);
+    REQUIRE(f.shell->actions().perform("view.browser")); // close the browser
+    juce::TemporaryFile project(fd::engine::Session::fileExtension);
+    REQUIRE(f.session->saveAs(project.getFile()));
+
+    f.session->newProject();
+    view->setView(0.0, 20.0);
+    REQUIRE(f.shell->actions().perform("view.browser")); // open again
+
+    REQUIRE(f.session->open(project.getFile()));
+    CHECK(view->timeline().start() == Catch::Approx(5.0));
+    CHECK(view->timeline().pixelsPerSecond() == Catch::Approx(77.0));
+    CHECK_FALSE(f.shell->actions().isToggled("view.browser"));
+    CHECK(title.contains(project.getFile().getFileNameWithoutExtension()));
+}

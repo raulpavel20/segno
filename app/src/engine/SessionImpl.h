@@ -16,6 +16,11 @@ struct Session::Impl final : private juce::ValueTree::Listener, private juce::As
     ~Impl() override;
 
     void rebuildSnapshot();
+    [[nodiscard]] std::unique_ptr<te::Edit> newEdit();
+    void attach(std::unique_ptr<te::Edit> edit);
+    void detach();
+    std::optional<juce::File> file;
+    bool dirty = false; // changed since opened or saved (tracktion's own flag updates on a timer)
     [[nodiscard]] te::AudioTrack* track(std::uint64_t id) const;
     [[nodiscard]] te::Clip* clip(std::uint64_t id) const;
     [[nodiscard]] te::Plugin* plugin(std::uint64_t id) const;
@@ -46,14 +51,29 @@ private:
     {
         if (id == te::IDs::lastSignificantChange) // tracktion's own bookkeeping
             return;
+        if (!inTransport(t))
+            dirty = true; // includes device parameters
         // Device parameters and state change constantly; only a device's power state shows.
         for (auto p = t; p.isValid(); p = p.getParent())
             if (p.hasType(te::IDs::PLUGIN) && !(p == t && id == te::IDs::enabled))
                 return;
         changed(t);
     }
-    void valueTreeChildAdded(juce::ValueTree& t, juce::ValueTree&) override { changed(t); }
-    void valueTreeChildRemoved(juce::ValueTree& t, juce::ValueTree&, int) override { changed(t); }
-    void valueTreeChildOrderChanged(juce::ValueTree& t, int, int) override { changed(t); }
+    void valueTreeChildAdded(juce::ValueTree& t, juce::ValueTree&) override { structureChanged(t); }
+    void valueTreeChildRemoved(juce::ValueTree& t, juce::ValueTree&, int) override { structureChanged(t); }
+    void valueTreeChildOrderChanged(juce::ValueTree& t, int, int) override { structureChanged(t); }
+    void structureChanged(juce::ValueTree& t)
+    {
+        if (!inTransport(t))
+            dirty = true;
+        changed(t);
+    }
+    static bool inTransport(juce::ValueTree t)
+    {
+        for (; t.isValid(); t = t.getParent())
+            if (t.hasType(te::IDs::TRANSPORT))
+                return true;
+        return false;
+    }
 };
 } // namespace fd::engine

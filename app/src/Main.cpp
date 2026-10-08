@@ -73,6 +73,12 @@ public:
         const int display = args.contains("--display") ? args[args.indexOf("--display") + 1].getIntValue() : -1;
         window_ = std::make_unique<MainWindow>(*session_, !commandLine.contains("--software"), display);
         behaviour_->onWarning = [this](const juce::String& m) { window_->shell().showWarning(m); };
+        window_->shell().onTitleChanged = [this](const juce::String& title) { window_->setName(title); };
+        // A project file on the command line opens directly.
+        for (const auto& arg : juce::StringArray::fromTokens(commandLine, true))
+            if (juce::File::isAbsolutePath(arg.unquoted()) &&
+                juce::File(arg.unquoted()).hasFileExtension(fd::engine::Session::fileExtension))
+                session_->open(juce::File(arg.unquoted()));
         if (commandLine.contains("--stats"))
             window_->shell().setStatsVisible(true);
         if (commandLine.contains("--benchmark"))
@@ -96,7 +102,13 @@ public:
         juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
     }
 
-    void systemRequestedQuit() override { quit(); }
+    void systemRequestedQuit() override
+    {
+        if (window_ == nullptr)
+            quit();
+        else
+            window_->shell().confirmDiscard([] { quit(); });
+    }
 
 private:
     fd::ui::LookAndFeel lnf_;

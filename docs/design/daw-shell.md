@@ -126,6 +126,19 @@ Waveforms come from a background-built peak cache per file, plus cached drawing 
 - **During a drag**, clips are drawn at their new place from the model's result. On release the Session applies it as one undo step, and the preview stays until the new snapshot arrives (no flicker).
 - **Commands:** delete, duplicate (copies placed right after the selection), split at the playhead (the selected clips, or the selected track's clips under the playhead), select all.
 
+## Projects (C8)
+
+- **`.fdproj`** is tracktion's edit XML (open-questions C: "tracktion_engine's edit format plus our own sections"). The extra parts:
+  - our devices' parameters and non-parameter state (`fdExtra`, ADR 0017);
+  - the UI's view state as JSON on the root (`fdView`): zoom and scroll, snap, follow, panels open and their widths.
+- **Commands:** Ctrl+N new, Ctrl+O open, Ctrl+S save (asks for a file the first time), Ctrl+Shift+S save as. A project file on the command line opens directly.
+- **Unsaved changes** (Save / Don't save / Cancel) are asked before New, Open and Quit: the one modal the UI principles allow for this. The window title shows the project's name, with `*` while unsaved.
+  - The Session tracks changes itself, because tracktion's own flag updates on a timer.
+  - Device parameter changes count as changes.
+- **Replacing the project:** the Session tells the UI first (`onProjectWillChange`), so every panel and device handle is released before the old Edit is destroyed; then `onProjectChanged` brings the new snapshot and view.
+- **Media stays where it is.** Clips reference their files; collect-and-save comes with the browser (M3).
+- **Tests:** a full round trip compares tracks, clips, devices (order, power, parameters, the Sampler's sample), tempo, time signature, loop and view state. A shell test restores zoom and panels.
+
 ## Instrument tracks and live MIDI (C7)
 
 - **Instrument tracks:** Ctrl+Shift+T adds a track with the Subtractive Synth as its first device, as one undo step. Any instrument can replace it through the chain.
@@ -204,4 +217,4 @@ A software-renderer benchmark also runs offscreen in the integration tests (`"[.
 - **C5 transport** (built, see below).
 - **C6 device chain** (built, see below).
 - **C7 instrument tracks** (built, see below).
-- **C8 save/open:** `.fdproj` is tracktion's edit XML plus our view state; a round-trip test.
+- **C8 save/open** (built, see below).
