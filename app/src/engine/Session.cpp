@@ -38,6 +38,32 @@ private:
     ui::DeviceUiContext context_;
 };
 
+model::ClipInfo clipInfo(te::Clip& c, int trackColour)
+{
+    model::ClipInfo clip;
+    clip.id = c.itemID.getRawID();
+    clip.kind = dynamic_cast<te::MidiClip*>(&c) != nullptr ? model::ClipInfo::Kind::Midi : model::ClipInfo::Kind::Audio;
+    clip.name = c.getName().toStdString();
+    const auto pos = c.getPosition();
+    clip.start = pos.getStart().inSeconds();
+    clip.length = pos.getLength().inSeconds();
+    clip.offset = pos.getOffset().inSeconds();
+    clip.colour = static_cast<int>(c.state.getProperty(kColourId, trackColour));
+    if (auto* midi = dynamic_cast<te::MidiClip*>(&c))
+        for (auto* n : midi->getSequence().getNotes())
+        {
+            const double noteStart = n->getEditStartTime(*midi).inSeconds();
+            clip.notes.push_back({n->getNoteNumber(), noteStart - clip.start, n->getEditEndTime(*midi).inSeconds() - noteStart,
+                                  static_cast<float>(n->getVelocity()) / 127.0f});
+        }
+    if (auto* audio = dynamic_cast<te::AudioClipBase*>(&c))
+    {
+        clip.sourcePath = audio->getOriginalFile().getFullPathName().toStdString();
+        clip.sourceLength = audio->getSourceLength().inSeconds();
+    }
+    return clip;
+}
+
 model::TrackInfo::Kind kindOf(te::AudioTrack& t)
 {
     for (auto* p : t.pluginList)
@@ -117,7 +143,7 @@ std::unique_ptr<te::Edit> Session::Impl::newEdit()
     int i = 0;
     for (auto* t : te::getAudioTracks(*e))
     {
-        t->setName(juce::String(i + 1) + " Audio");
+        t->setName(juce::String(i + 1) + " Track");
         t->state.setProperty(kColourId, i * 3 % kPaletteSize, nullptr);
         ++i;
     }
@@ -215,27 +241,7 @@ void Session::Impl::rebuildSnapshot()
         info.colour = static_cast<int>(t->state.getProperty(kColourId, index * 3 % kPaletteSize));
         for (auto* c : t->getClips())
         {
-            model::ClipInfo clip;
-            clip.id = c->itemID.getRawID();
-            clip.kind = dynamic_cast<te::MidiClip*>(c) != nullptr ? model::ClipInfo::Kind::Midi : model::ClipInfo::Kind::Audio;
-            clip.name = c->getName().toStdString();
-            const auto pos = c->getPosition();
-            clip.start = pos.getStart().inSeconds();
-            clip.length = pos.getLength().inSeconds();
-            clip.offset = pos.getOffset().inSeconds();
-            clip.colour = static_cast<int>(c->state.getProperty(kColourId, info.colour));
-            if (auto* midi = dynamic_cast<te::MidiClip*>(c))
-                for (auto* n : midi->getSequence().getNotes())
-                {
-                    const double noteStart = n->getEditStartTime(*midi).inSeconds();
-                    clip.notes.push_back({n->getNoteNumber(), noteStart - clip.start,
-                                          n->getEditEndTime(*midi).inSeconds() - noteStart, static_cast<float>(n->getVelocity()) / 127.0f});
-                }
-            if (auto* audio = dynamic_cast<te::AudioClipBase*>(c))
-            {
-                clip.sourcePath = audio->getOriginalFile().getFullPathName().toStdString();
-                clip.sourceLength = audio->getSourceLength().inSeconds();
-            }
+            auto clip = clipInfo(*c, info.colour);
             info.clips.push_back(std::move(clip));
         }
         std::sort(info.clips.begin(), info.clips.end(), [](const auto& a, const auto& b) { return a.start < b.start; });
@@ -246,6 +252,8 @@ void Session::Impl::rebuildSnapshot()
             slot.name = p->getName().toStdString();
             slot.enabled = p->isEnabled();
             slot.instrument = p->isSynth();
+            if (slot.instrument && info.instrument.empty())
+                info.instrument = slot.name;
             if (auto* native = dynamic_cast<DevicePlugin*>(p))
             {
                 slot.kind = model::DeviceSlot::Kind::Native;
@@ -308,6 +316,36 @@ te::Plugin* Session::Impl::insertDevice(te::AudioTrack& track, const std::string
             }
     track.pluginList.insertPlugin(plugin, at, nullptr);
     return plugin.get();
+}
+
+void Session::Impl::clearUnder(te::AudioTrack& track, double start, double end, const std::set<std::uint64_t>& except)
+{
+    std::vector<model::ClipInfo> clips;
+    for (auto* c : track.getClips())
+        clips.push_back(clipInfo(*c, 0));
+    for (const auto& cut : model::clearRange(clips, start, end, except))
+    {
+        auto* c = clip(cut.clip);
+        if (c == nullptr)
+            continue;
+        const auto at = [](double s) { return te::TimePosition::fromSeconds(s); };
+        switch (cut.kind)
+        {
+        case model::ClipCut::Kind::Remove:
+            c->removeFromParent();
+            break;
+        case model::ClipCut::Kind::Trim:
+            c->setPosition({{at(cut.start), at(cut.start + cut.length)}, te::TimeDuration::fromSeconds(cut.offset)});
+            break;
+        case model::ClipCut::Kind::SplitAround:
+        {
+            const auto pos = c->getPosition();
+            track.splitClip(*c, at(cut.to)); // the tail after the range becomes its own clip
+            c->setPosition({{pos.getStart(), at(cut.from)}, pos.getOffset()});
+            break;
+        }
+        }
+    }
 }
 
 std::vector<te::Plugin*> Session::Impl::chain(te::AudioTrack& track)
@@ -425,10 +463,10 @@ void Session::setTimeSignature(int numerator, int denominator)
     }
 }
 
-std::uint64_t Session::addAudioTrack()
+std::uint64_t Session::addTrack()
 {
     impl_->beginEdit();
-    auto* track = impl_->insertTrack("Audio");
+    auto* track = impl_->insertTrack("Track");
     return track != nullptr ? track->itemID.getRawID() : 0;
 }
 
@@ -446,7 +484,7 @@ std::uint64_t Session::addInstrumentTrack(const std::string& deviceKey)
     return track->itemID.getRawID();
 }
 
-std::uint64_t Session::insertMidiFile(std::uint64_t trackId, const juce::File& file, double seconds)
+std::uint64_t Session::insertMidiFile(std::uint64_t trackId, const juce::File& file, double seconds, bool* addedInstrument)
 {
     auto* track = impl_->track(trackId);
     juce::FileInputStream in(file);
@@ -469,6 +507,15 @@ std::uint64_t Session::insertMidiFile(std::uint64_t trackId, const juce::File& f
     // The import takes edit times: shift the file's times to the clip's start.
     all.addTimeToMessages(start.inSeconds());
     clip->getSequence().importMidiSequence(all, impl_->edit.get(), start, &impl_->edit->getUndoManager());
+    impl_->clearUnder(*track, start.inSeconds(), start.inSeconds() + length, {clip->itemID.getRawID()});
+
+    // A MIDI clip needs an instrument (ADR 0019): add the default one, in this undo step.
+    const auto devices = Impl::chain(*track);
+    const bool hasInstrument = std::any_of(devices.begin(), devices.end(), [](auto* p) { return p->isSynth(); });
+    if (!hasInstrument)
+        impl_->insertDevice(*track, "fd:subtractive-synth", 0);
+    if (addedInstrument != nullptr)
+        *addedInstrument = !hasInstrument;
     return clip->itemID.getRawID();
 }
 
@@ -516,7 +563,10 @@ std::uint64_t Session::insertAudioFile(std::uint64_t trackId, const juce::File& 
     const auto start = te::TimePosition::fromSeconds(std::max(0.0, seconds));
     auto clip = track->insertWaveClip(file.getFileNameWithoutExtension(), file,
                                       {{start, te::TimeDuration::fromSeconds(audio.getLength())}, {}}, false);
-    return clip != nullptr ? clip->itemID.getRawID() : 0;
+    if (clip == nullptr)
+        return 0;
+    impl_->clearUnder(*track, start.inSeconds(), start.inSeconds() + audio.getLength(), {clip->itemID.getRawID()});
+    return clip->itemID.getRawID();
 }
 
 void Session::applyClipEdits(const std::vector<model::ClipEdit>& edits)
@@ -535,6 +585,13 @@ void Session::applyClipEdits(const std::vector<model::ClipEdit>& edits)
         c->setPosition({{te::TimePosition::fromSeconds(e.start), te::TimePosition::fromSeconds(e.start + e.length)},
                         te::TimeDuration::fromSeconds(e.offset)});
     }
+    // No overlaps (ADR 0019): the placed clips cut what they cover, in the same undo step.
+    std::set<std::uint64_t> placed;
+    for (const auto& e : edits)
+        placed.insert(e.clip);
+    for (const auto& e : edits)
+        if (auto* target = impl_->track(e.track))
+            impl_->clearUnder(*target, e.start, e.start + e.length, placed);
 }
 
 std::vector<std::uint64_t> Session::duplicateClips(const std::vector<model::ClipEdit>& placements)
@@ -558,6 +615,10 @@ std::vector<std::uint64_t> Session::duplicateClips(const std::vector<model::Clip
             created.push_back(copy->itemID.getRawID());
         }
     }
+    const std::set<std::uint64_t> placed(created.begin(), created.end());
+    for (const auto& p : placements)
+        if (auto* target = impl_->track(p.track))
+            impl_->clearUnder(*target, p.start, p.start + p.length, placed);
     return created;
 }
 

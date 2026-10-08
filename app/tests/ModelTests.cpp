@@ -338,3 +338,36 @@ TEST_CASE("box selection and duplicate placement", "[fast]")
     for (const auto& c : copies)
         CHECK(c.start == Approx(c.clip == 1 ? 3.0 : 4.0));
 }
+
+TEST_CASE("placing a clip cuts what it covers (no overlaps on a track)", "[fast]")
+{
+    // Clips on one track: A [0, 4), B [6, 8) offset 1, C [10, 20).
+    const std::vector<ClipInfo> clips{{.id = 1, .start = 0.0, .length = 4.0},
+                                      {.id = 2, .start = 6.0, .length = 2.0, .offset = 1.0},
+                                      {.id = 3, .start = 10.0, .length = 10.0}};
+    // Placing [3, 7): A loses its tail, B loses its head (and its offset moves on).
+    auto cuts = clearRange(clips, 3.0, 7.0, {});
+    REQUIRE(cuts.size() == 2);
+    CHECK(cuts[0].clip == 1);
+    CHECK(cuts[0].kind == ClipCut::Kind::Trim);
+    CHECK(cuts[0].length == Approx(3.0));
+    CHECK(cuts[1].clip == 2);
+    CHECK(cuts[1].kind == ClipCut::Kind::Trim);
+    CHECK(cuts[1].start == Approx(7.0));
+    CHECK(cuts[1].length == Approx(1.0));
+    CHECK(cuts[1].offset == Approx(2.0));
+
+    // Covering B entirely removes it; landing inside C splits it around the range.
+    cuts = clearRange(clips, 5.0, 9.0, {});
+    REQUIRE(cuts.size() == 1);
+    CHECK(cuts[0].kind == ClipCut::Kind::Remove);
+    cuts = clearRange(clips, 12.0, 14.0, {});
+    REQUIRE(cuts.size() == 1);
+    CHECK(cuts[0].kind == ClipCut::Kind::SplitAround);
+    CHECK(cuts[0].from == Approx(12.0));
+    CHECK(cuts[0].to == Approx(14.0));
+
+    // The clips being placed never cut themselves; touching edges are not overlaps.
+    CHECK(clearRange(clips, 3.0, 7.0, {1, 2}).empty());
+    CHECK(clearRange(clips, 4.0, 6.0, {}).empty());
+}

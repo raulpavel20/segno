@@ -53,8 +53,9 @@ struct TrackInfo
     enum class Kind { Audio, Instrument };
 
     std::uint64_t id = 0;
-    Kind kind = Kind::Audio;
+    Kind kind = Kind::Audio; // Instrument when the chain has one (ADR 0019: one kind of track)
     std::string name;
+    std::string instrument; // the first instrument's name, if any
     int colour = 0;
     std::vector<ClipInfo> clips; // sorted by start
     std::vector<DeviceSlot> devices; // the chain, in order (the engine's own mixer plugins are not listed)

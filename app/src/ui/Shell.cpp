@@ -46,6 +46,7 @@ Shell::Shell(engine::Session& session) : session_(session), arrangement_(session
 
     arrangement_.onSelectionChanged = [this](auto track) { selectionChanged(track); };
     arrangement_.onActivated = [this] { lastArea_ = Area::Arrangement; };
+    arrangement_.onMessage = [this](const juce::String& m) { showWarning(m); };
     detail_.chain().onActivated = [this] { lastArea_ = Area::Detail; };
     session_.onSnapshotChanged = [this] {
         arrangement_.setSnapshot(session_.snapshot());
@@ -134,7 +135,7 @@ void Shell::registerActions()
                   .perform = [this] { arrangement_.splitAtPlayhead(); }});
     actions_.add({.id = "edit.selectAll", .name = "Select all clips", .category = "Edit", .keys = {key('a', kCmd)},
                   .perform = [this] { arrangement_.selectAllClips(); }});
-    actions_.add({.id = "track.addInstrument", .name = "Add instrument track", .category = "Track",
+    actions_.add({.id = "track.addInstrument", .name = "Add track with instrument", .category = "Track",
                   .keys = {key('t', kCmd | kShift)},
                   .perform = [this] { arrangement_.selectTrack(session_.addInstrumentTrack()); }});
     actions_.add({.id = "midi.computerKeyboard", .name = "Computer keyboard as MIDI", .category = "MIDI",
@@ -165,8 +166,8 @@ void Shell::registerActions()
                       showWarning("Computer keyboard: A W S E D F ... play, Z / X octave, C / V velocity");
                   },
                   .isToggled = [this] { return computerKeyboard_; }});
-    actions_.add({.id = "track.addAudio", .name = "Add audio track", .category = "Track", .keys = {key('t', kCmd)},
-                  .perform = [&s] { s.addAudioTrack(); }});
+    actions_.add({.id = "track.add", .name = "Add track", .category = "Track", .keys = {key('t', kCmd)},
+                  .perform = [&s] { s.addTrack(); }});
 
     actions_.add({.id = "view.browser", .name = "Show browser", .category = "View", .keys = {key('b', kCmd | kAlt)},
                   .perform = [this] { toggle(browserPanel_); }, .isToggled = [this] { return browserPanel_.open; }});
@@ -550,7 +551,7 @@ void Shell::runBenchmark(double seconds, std::function<void(juce::String)> done)
     }
     while (session_.snapshot()->tracks.size() < 32)
     {
-        session_.addAudioTrack();
+        session_.addTrack();
         session_.updateSnapshotNow();
     }
     for (const auto& t : session_.snapshot()->tracks)

@@ -1,0 +1,39 @@
+Keep the track's audio under third-party instruments (foss-daw ADR 0019).
+
+An instrument plugin without audio inputs gets the track's buffer in place and, in practice,
+overwrites it, so audio clips on a track with an instrument went silent. foss-daw's rule is that
+an instrument adds its sound to the track's audio: keep a copy of the incoming audio and add it
+back after processing. Instruments with audio inputs (vocoders) still receive it as input.
+
+--- a/modules/tracktion_engine/plugins/external/tracktion_ExternalPlugin.cpp
++++ b/modules/tracktion_engine/plugins/external/tracktion_ExternalPlugin.cpp
+@@ -1413,6 +1413,18 @@
+         auto numOutputChannels = pi->getTotalNumOutputChannels();
+         auto numChansToProcess = std::max (std::max (1, numInputChannels), numOutputChannels);
+ 
++        // An instrument without audio inputs adds its sound to the track's audio rather than
++        // replacing it (foss-daw ADR 0019): keep the incoming audio and add it back afterwards.
++        std::optional<AudioScratchBuffer> dry;
++
++        if (isSynth() && numInputChannels == 0)
++        {
++            dry.emplace (destNumChans, fc.bufferNumSamples);
++
++            for (int i = 0; i < destNumChans; ++i)
++                dry->buffer.copyFrom (i, 0, *fc.destBuffer, i, fc.bufferStartSample, fc.bufferNumSamples);
++        }
++
+         if (destNumChans == numChansToProcess)
+         {
+             processPluginBlock (*pi, fc, processedBypass);
+@@ -1460,6 +1472,10 @@
+                     fc.destBuffer->clear (i, fc.bufferStartSample, fc.bufferNumSamples);
+             }
+         }
++
++        if (dry)
++            for (int i = 0; i < destNumChans; ++i)
++                fc.destBuffer->addFrom (i, fc.bufferStartSample, dry->buffer, i, 0, fc.bufferNumSamples);
+     }
+     else
+     {

@@ -80,11 +80,14 @@ public:
 
     // ---- editing (each call is one undoable step) --------------------------------------
 
-    std::uint64_t addAudioTrack();
+    /// A new, empty track (any track takes audio and MIDI clips, ADR 0019).
+    std::uint64_t addTrack();
     /// A new track with the instrument `deviceKey` (see AvailableDevice) as its first device.
     std::uint64_t addInstrumentTrack(const std::string& deviceKey = "fd:subtractive-synth");
     /// Inserts a MIDI file as a clip at `seconds` (all of its tracks merged); returns the clip id.
-    std::uint64_t insertMidiFile(std::uint64_t trackId, const juce::File& file, double seconds);
+    /// A track without an instrument gets the default one (`addedInstrument` says so).
+    std::uint64_t insertMidiFile(std::uint64_t trackId, const juce::File& file, double seconds,
+                                 bool* addedInstrument = nullptr);
     /// Inserts `file` on `trackId` at `seconds`; returns the clip id, or 0 if the file is not
     /// readable audio.
     std::uint64_t insertAudioFile(std::uint64_t trackId, const juce::File& file, double seconds);

@@ -332,10 +332,15 @@ void ArrangementView::paintHeaders(juce::Graphics& g)
         g.drawText(juce::String::fromUTF8(track.name.c_str()), text.removeFromTop(16.0f), juce::Justification::centredLeft, true);
         if (text.getHeight() >= 12.0f)
         {
-            g.setColour(t.textTertiary);
+            // One kind of track (ADR 0019): show the instrument, or that MIDI has nothing to play it.
+            const bool hasMidi = std::any_of(track.clips.begin(), track.clips.end(),
+                                             [](const auto& c) { return c.kind == model::ClipInfo::Kind::Midi; });
+            const auto label = !track.instrument.empty() ? juce::String::fromUTF8(track.instrument.c_str())
+                               : hasMidi                 ? juce::String("No instrument")
+                                                         : juce::String();
+            g.setColour(track.instrument.empty() && hasMidi ? t.meterHot.withAlpha(0.8f) : t.textTertiary);
             g.setFont(ui::fonts::font(t.textXs));
-            g.drawText(track.kind == model::TrackInfo::Kind::Instrument ? "Instrument" : "Audio",
-                       text.removeFromTop(14.0f), juce::Justification::centredLeft, false);
+            g.drawText(label, text.removeFromTop(14.0f), juce::Justification::centredLeft, true);
         }
     }
 }
@@ -840,9 +845,12 @@ void ArrangementView::filesDropped(const juce::StringArray& files, int x, int y)
         if (target >= 0 && target < static_cast<int>(snapshot_->tracks.size()))
             trackId = snapshot_->tracks[static_cast<size_t>(target)].id;
         else
-            trackId = midi ? session_.addInstrumentTrack() : session_.addAudioTrack();
-        const auto clip = midi ? session_.insertMidiFile(trackId, juce::File(path), seconds)
+            trackId = midi ? session_.addInstrumentTrack() : session_.addTrack();
+        bool addedInstrument = false;
+        const auto clip = midi ? session_.insertMidiFile(trackId, juce::File(path), seconds, &addedInstrument)
                                : session_.insertAudioFile(trackId, juce::File(path), seconds);
+        if (addedInstrument && onMessage)
+            onMessage("Added a Subtractive Synth to play the MIDI clip (swap it in the device chain)");
         if (clip != 0 && !first)
             first = trackId;
         if (target >= 0)

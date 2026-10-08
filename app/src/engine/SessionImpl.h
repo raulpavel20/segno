@@ -4,6 +4,8 @@
 
 #include <tracktion_engine/tracktion_engine.h>
 
+#include <set>
+
 namespace fd::engine
 {
 namespace te = tracktion;
@@ -27,6 +29,8 @@ struct Session::Impl final : private juce::ValueTree::Listener, private juce::As
     // Edit steps without starting an undo transaction (commands compose them).
     te::AudioTrack* insertTrack(const juce::String& name);
     te::Plugin* insertDevice(te::AudioTrack& track, const std::string& key, int index);
+    /// ADR 0019: clips on `track` covered by [start, end) are cut (except the ones placed).
+    void clearUnder(te::AudioTrack& track, double start, double end, const std::set<std::uint64_t>& except);
     /// The track's user devices, in order (without tracktion's volume and meter plugins).
     [[nodiscard]] static std::vector<te::Plugin*> chain(te::AudioTrack& track);
 

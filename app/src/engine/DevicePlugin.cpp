@@ -78,6 +78,9 @@ void DevicePlugin::initialise(const te::PluginInitialisationInfo& info)
     device_->prepare({.sampleRate = info.sampleRate, .maxBlockSize = info.blockSizeSamples});
     events_.reserve(2048);
     channelPtrs_.resize(8);
+    // Instruments render here and are added to the track's audio (ADR 0019).
+    if (isInstrument())
+        instrumentOut_.setSize(2, std::max(info.blockSizeSamples, 8192));
 }
 
 void DevicePlugin::reset()
@@ -108,14 +111,19 @@ void DevicePlugin::applyToBuffer(const te::PluginRenderContext& fc)
         store.set(i, params_[i]->getCurrentValue()); // includes automation and modifiers
 
     const int channels = juce::jmin(fc.destBuffer->getNumChannels(), static_cast<int>(channelPtrs_.size()));
+    // An instrument adds its sound to the track's audio rather than replacing it (ADR 0019):
+    // it renders into a scratch buffer that is mixed in afterwards.
+    const bool adds = isInstrument() && fc.bufferNumSamples <= instrumentOut_.getNumSamples();
+    jassert(!isInstrument() || adds); // blocks are never longer than prepared
     for (int c = 0; c < channels; ++c)
-        channelPtrs_[static_cast<size_t>(c)] = fc.destBuffer->getWritePointer(c, fc.bufferStartSample);
+        channelPtrs_[static_cast<size_t>(c)] = adds ? instrumentOut_.getWritePointer(std::min(c, 1))
+                                                    : fc.destBuffer->getWritePointer(c, fc.bufferStartSample);
 
     convertMidi(fc);
 
     ProcessContext ctx;
     ctx.input = {channelPtrs_.data(), device_->info().buses.inputChannels > 0 ? channels : 0};
-    ctx.output = {channelPtrs_.data(), channels};
+    ctx.output = {channelPtrs_.data(), std::min(channels, adds ? 2 : channels)};
     ctx.events = &events_;
     ctx.numSamples = fc.bufferNumSamples;
     tempoPos_.set(fc.editTime.getStart());
@@ -127,6 +135,11 @@ void DevicePlugin::applyToBuffer(const te::PluginRenderContext& fc)
                      .timeSigDenominator = timeSig.denominator,
                      .playing = fc.isPlaying};
     processRealtime(*device_, ctx);
+
+    if (adds)
+        for (int c = 0; c < channels; ++c)
+            fc.destBuffer->addFrom(c, fc.bufferStartSample, instrumentOut_, std::min(c, ctx.output.numChannels - 1), 0,
+                                   fc.bufferNumSamples);
 }
 
 void DevicePlugin::convertMidi(const te::PluginRenderContext& fc) noexcept

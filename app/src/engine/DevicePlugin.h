@@ -62,6 +62,7 @@ private:
     std::vector<std::unique_ptr<juce::CachedValue<float>>> values_;
     std::vector<float*> channelPtrs_;
     EventList events_;
+    juce::AudioBuffer<float> instrumentOut_; // instruments render here, then add (ADR 0019)
     te::tempo::Sequence::Position tempoPos_{te::createPosition(edit.tempoSequence)};
     double sampleRate_ = 48000.0;
     juce::String appliedExtra_; // the extra-state JSON the device currently reflects

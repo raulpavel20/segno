@@ -424,3 +424,68 @@ TEST_CASE("projects round-trip through a file", "[integration]")
     CHECK_FALSE(reopened.open(juce::File("/nonexistent.fdproj"), &error));
     CHECK_FALSE(error.empty());
 }
+
+TEST_CASE("clips never overlap on a track: placing cuts what is covered, in one undo step", "[integration]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    tracktion::Engine engine{"fd-integration-tests"};
+    fd::engine::registerDevices(engine);
+    fd::engine::Session session(engine);
+    juce::TemporaryFile wav(".wav");
+    REQUIRE(fd::testkit::writeWav(wav.getFile().getFullPathName().toStdString(),
+                                  fd::testkit::sine(220.0, 48000.0, 4 * 48000, 0.5f, 2), 48000.0));
+    const auto track = session.snapshot()->tracks[0].id;
+    auto clips = [&] {
+        session.updateSnapshotNow();
+        std::vector<std::pair<double, double>> spans;
+        for (const auto& c : session.snapshot()->tracks[0].clips)
+            spans.emplace_back(c.start, c.end());
+        return spans;
+    };
+
+    const auto a = session.insertAudioFile(track, wav.getFile(), 0.0); // [0, 4)
+    const auto b = session.insertAudioFile(track, wav.getFile(), 8.0); // [8, 12)
+    REQUIRE((a != 0 && b != 0));
+
+    // Dropping a file into the middle of A splits A around it.
+    session.insertAudioFile(track, wav.getFile(), 1.0); // [1, 5): covers A's tail too
+    auto spans = clips();
+    REQUIRE(spans.size() == 3);
+    CHECK(spans[0].second == Approx(1.0)); // A's head
+    CHECK(spans[1].first == Approx(1.0));
+    CHECK(spans[2].first == Approx(8.0));
+    session.undo(); // the insertion and the cut are one step
+    CHECK(clips().size() == 2);
+
+    // Moving B over A trims A's tail: no overlap remains.
+    session.applyClipEdits({{.clip = b, .track = track, .start = 2.0, .length = 4.0, .offset = 0.0}});
+    spans = clips();
+    REQUIRE(spans.size() == 2);
+    CHECK(spans[0].second == Approx(2.0));
+    for (size_t i = 1; i < spans.size(); ++i)
+        CHECK(spans[i].first >= spans[i - 1].second - 1e-6);
+
+    // A MIDI file dropped on a track without an instrument brings one, in the same step.
+    juce::TemporaryFile mid(".mid");
+    {
+        juce::MidiMessageSequence seq;
+        seq.addEvent(juce::MidiMessage::noteOn(1, 60, 0.8f), 0.0);
+        seq.addEvent(juce::MidiMessage::noteOff(1, 60), 960.0);
+        seq.updateMatchedPairs();
+        juce::MidiFile file;
+        file.setTicksPerQuarterNote(480);
+        file.addTrack(seq);
+        juce::FileOutputStream out(mid.getFile());
+        REQUIRE(file.writeTo(out));
+    }
+    bool added = false;
+    const auto other = session.snapshot()->tracks[1].id;
+    REQUIRE(session.insertMidiFile(other, mid.getFile(), 0.0, &added) != 0);
+    CHECK(added);
+    session.updateSnapshotNow();
+    CHECK(session.snapshot()->tracks[1].instrument == "Subtractive Synth");
+    session.undo();
+    session.updateSnapshotNow();
+    CHECK(session.snapshot()->tracks[1].devices.empty());
+    CHECK(session.snapshot()->tracks[1].clips.empty());
+}

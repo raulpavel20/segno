@@ -85,5 +85,6 @@ if(FD_BUILD_APP)
         URL https://github.com/Tracktion/tracktion_engine/archive/6e4423f1465bd4260345532ddf1c58d6c09cdaec.tar.gz
         DOWNLOAD_ONLY YES
         # Local fixes until upstreamed; each patch file explains itself.
-        PATCHES "${CMAKE_CURRENT_LIST_DIR}/patches/tracktion_engine-atomic-state-init.patch")
+        PATCHES "${CMAKE_CURRENT_LIST_DIR}/patches/tracktion_engine-atomic-state-init.patch"
+                "${CMAKE_CURRENT_LIST_DIR}/patches/tracktion_engine-instrument-audio-passthrough.patch")
 endif()

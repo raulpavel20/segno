@@ -27,7 +27,7 @@ TEST_CASE("arrangement paints 32 zooming tracks within the frame budget", "[.ben
         fd::engine::Session session(engine);
         while (session.snapshot()->tracks.size() < 32)
         {
-            session.addAudioTrack();
+            session.addTrack();
             session.updateSnapshotNow();
         }
 

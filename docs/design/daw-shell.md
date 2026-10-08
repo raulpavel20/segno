@@ -68,7 +68,7 @@ app/src/
 | Duplicate | `edit.duplicate` | Ctrl+D |
 | Split at playhead or selection | `edit.split` | Ctrl+E |
 | Select all | `edit.selectAll` | Ctrl+A |
-| Add audio track / instrument track | `track.addAudio` / `track.addInstrument` | Ctrl+T / Ctrl+Shift+T |
+| Add track / track with instrument | `track.add` / `track.addInstrument` | Ctrl+T / Ctrl+Shift+T |
 | Computer keyboard as MIDI | `midi.computerKeyboard` | Ctrl+Shift+K |
 | Scan for plugins | `app.scanPlugins` | Ctrl+Alt+P |
 | Show browser / inspector / detail | `view.browser` / `view.inspector` / `view.detail` | Ctrl+Alt+B / Ctrl+Alt+I / Ctrl+Alt+D |
@@ -140,9 +140,20 @@ Waveforms come from a background-built peak cache per file, plus cached drawing 
 - **Media stays where it is.** Clips reference their files; collect-and-save comes with the browser (M3).
 - **Tests:** a full round trip compares tracks, clips, devices (order, power, parameters, the Sampler's sample), tempo, time signature, loop and view state. A shell test restores zoom and panels.
 
+## One kind of track ([ADR 0019](../decisions/0019-one-kind-of-track.md))
+
+- Every track holds audio and MIDI clips. Its header shows its instrument, "No instrument" when it has MIDI and nothing to play it, or nothing.
+- **No overlaps on a track, of any kind:** the clip you place (move, trim, duplicate, drop) cuts what it covers, in the same undo step (`model::clearRange`, tested). Crossfades between neighbouring audio clips come with clip fades (M2).
+- **Signal flow:** audio clips enter at the start of the chain and MIDI clips feed the first instrument. The instrument adds its sound and never mutes the audio:
+  - our devices render into a scratch buffer that is mixed in;
+  - third-party instruments get the incoming audio added back by a tracktion patch (`cmake/patches/tracktion_engine-instrument-audio-passthrough.patch`).
+
+  Render tests check that audio passes through a silent instrument, ours and a hosted VST3, to below −120 dBFS.
+- **MIDI needs an instrument:** a MIDI file dropped on a track without one adds the Subtractive Synth, in the same undo step, and says so.
+
 ## Instrument tracks and live MIDI (C7)
 
-- **Instrument tracks:** Ctrl+Shift+T adds a track with the Subtractive Synth as its first device, as one undo step. Any instrument can replace it through the chain.
+- **Tracks with an instrument:** Ctrl+Shift+T adds a track with the Subtractive Synth as its first device, as one undo step. Any instrument can replace it through the chain.
 - **Live MIDI follows the selection.** Selecting an instrument track routes live MIDI to it, with monitoring always on; selecting anything else routes it nowhere. This is not an edit, so it adds no undo step.
   - Only tracktion's virtual inputs are routed: "All MIDI Ins" (every physical device, merged) and our "Computer keyboard". Routing physical devices too would double every note.
   - The device list arrives asynchronously and changes when devices are plugged in; the Session re-applies the routing each time.

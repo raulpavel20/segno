@@ -277,3 +277,39 @@ TEST_CASE("our VST3 hosted in tracktion matches the native device", "[integratio
     CHECK(nullResidualDb(viaVst3, offline) < -120.0);
 }
 #endif
+
+// ADR 0019: an instrument adds its sound to the track's audio and never mutes it. With no notes,
+// a track holding an audio clip and an instrument must sound exactly like the clip alone.
+TEST_CASE("audio passes through a track's instrument (ours)", "[integration]")
+{
+    Fixture f;
+    auto edit = f.makeEdit();
+    auto plugin = edit->getPluginCache().createNewPlugin(fd::engine::DevicePlugin::typeNameFor("subtractive-synth"), {});
+    REQUIRE(plugin != nullptr);
+    te::getAudioTracks(*edit)[0]->pluginList.insertPlugin(plugin, 0, nullptr);
+    const auto out = f.render(*edit);
+    INFO("residual " << nullResidualDb(out, f.input) << " dBFS");
+    CHECK(nullResidualDb(out, f.input) < -120.0);
+}
+
+#if defined(FD_SYNTH_VST3_PATH)
+TEST_CASE("audio passes through a third-party instrument (patched engine)", "[integration]")
+{
+    Fixture f;
+    juce::OwnedArray<juce::PluginDescription> found;
+    juce::VST3PluginFormat vst3;
+    vst3.findAllTypesForFile(found, FD_SYNTH_VST3_PATH);
+    REQUIRE(found.size() == 1);
+    REQUIRE(found[0]->isInstrument);
+    f.engine.getPluginManager().knownPluginList.addType(*found[0]);
+
+    auto edit = f.makeEdit();
+    auto external = edit->getPluginCache().createNewPlugin(te::ExternalPlugin::xmlTypeName, *found[0]);
+    REQUIRE(external != nullptr);
+    te::getAudioTracks(*edit)[0]->pluginList.insertPlugin(external, 0, nullptr);
+    external->initialiseFully();
+    const auto out = f.render(*edit);
+    INFO("residual " << nullResidualDb(out, f.input) << " dBFS; output peak " << peakDb(out) << " dBFS");
+    CHECK(nullResidualDb(out, f.input) < -120.0);
+}
+#endif

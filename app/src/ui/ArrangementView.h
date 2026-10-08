@@ -46,6 +46,8 @@ public:
     std::function<void(std::optional<std::uint64_t>)> onSelectionChanged;
     /// Called when the arrangement is clicked (the shell routes Delete to the area used last).
     std::function<void()> onActivated;
+    /// Something worth telling the user (shown in the shell, never modal).
+    std::function<void(const juce::String&)> onMessage;
 
     // Edit commands on the selection (C4), each one undo step.
     void deleteSelection();

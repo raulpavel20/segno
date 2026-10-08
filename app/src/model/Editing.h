@@ -62,6 +62,27 @@ inline constexpr double minClipLength = 0.01;
 [[nodiscard]] std::vector<ClipEdit> duplicatePlacements(const Snapshot& snapshot,
                                                         const std::set<std::uint64_t>& selection);
 
+/// What placing a clip over [start, end) does to the other clips on its track (ADR 0019: no
+/// overlaps; the placed clip wins).
+struct ClipCut
+{
+    enum class Kind
+    {
+        Remove,     // fully covered
+        Trim,       // partly covered: keeps start/length/offset below
+        SplitAround // covered in its middle: keeps [clip start, from) and [to, clip end)
+    };
+    std::uint64_t clip = 0;
+    Kind kind = Kind::Remove;
+    double start = 0.0, length = 0.0, offset = 0.0; // Trim
+    double from = 0.0, to = 0.0;                     // SplitAround
+};
+
+/// Cuts for the clips in `clips` (one track) that overlap [start, end), ignoring `except`
+/// (the clips being placed). Overlaps under a microsecond are ignored.
+[[nodiscard]] std::vector<ClipCut> clearRange(const std::vector<ClipInfo>& clips, double start, double end,
+                                              const std::set<std::uint64_t>& except);
+
 /// The clip and its track index, if the id exists.
 [[nodiscard]] std::optional<std::pair<const ClipInfo*, int>> findClip(const Snapshot& snapshot, std::uint64_t id);
 } // namespace fd::model

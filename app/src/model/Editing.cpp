@@ -116,6 +116,45 @@ std::vector<std::uint64_t> clipsInBox(const Snapshot& snapshot, double t0, doubl
     return out;
 }
 
+std::vector<ClipCut> clearRange(const std::vector<ClipInfo>& clips, double start, double end,
+                                const std::set<std::uint64_t>& except)
+{
+    constexpr double tolerance = 1e-6;
+    std::vector<ClipCut> cuts;
+    for (const auto& c : clips)
+    {
+        if (except.contains(c.id) || c.start >= end - tolerance || c.end() <= start + tolerance)
+            continue;
+        const bool coversStart = start <= c.start + tolerance;
+        const bool coversEnd = end >= c.end() - tolerance;
+        ClipCut cut{.clip = c.id};
+        if (coversStart && coversEnd)
+            cut.kind = ClipCut::Kind::Remove;
+        else if (!coversStart && !coversEnd)
+        {
+            cut.kind = ClipCut::Kind::SplitAround;
+            cut.from = start;
+            cut.to = end;
+        }
+        else if (!coversStart) // the placed range covers the clip's end: keep its head
+        {
+            cut.kind = ClipCut::Kind::Trim;
+            cut.start = c.start;
+            cut.length = start - c.start;
+            cut.offset = c.offset;
+        }
+        else // covers the clip's start: keep its tail
+        {
+            cut.kind = ClipCut::Kind::Trim;
+            cut.start = end;
+            cut.length = c.end() - end;
+            cut.offset = c.offset + (end - c.start);
+        }
+        cuts.push_back(cut);
+    }
+    return cuts;
+}
+
 std::vector<ClipEdit> duplicatePlacements(const Snapshot& snapshot, const std::set<std::uint64_t>& selection)
 {
     double first = std::numeric_limits<double>::max(), last = 0.0;

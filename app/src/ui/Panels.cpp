@@ -304,7 +304,7 @@ void InspectorPanel::paint(juce::Graphics& g)
     if (!track_)
         return;
     row("Track", juce::String::fromUTF8(track_->name.c_str()));
-    row("Type", track_->kind == model::TrackInfo::Kind::Instrument ? "Instrument" : "Audio");
+    row("Instrument", track_->instrument.empty() ? juce::String("None") : juce::String::fromUTF8(track_->instrument.c_str()));
     row("Clips", juce::String(static_cast<int>(track_->clips.size())));
 }
 
