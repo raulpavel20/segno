@@ -13,7 +13,7 @@ A free and open-source music production suite: a **comprehensive set of modern, 
 ## What we are building
 
 1. **A device suite.** Instruments, audio effects, MIDI effects and modulators with the breadth of Ableton Live Suite. They share one design language, one interaction model, one preset format and one quality bar. They ship as plugins (CLAP, VST3, LV2, AU, standalone) and work in any DAW.
-2. **A DAW.** It is arrangement-focused and built on tracktion_engine. The same devices run natively inside it, in a docked device chain with no floating windows. It hosts third-party plugins too.
+2. **A DAW.** It is arrangement-focused and built on tracktion_engine. The same devices run natively inside it, in a docked device chain with no floating windows. It hosts third-party plugins too. Any AI assistant the user chooses can drive it, and every device in it, through a built-in MCP server ([ADR 0021](decisions/0021-mcp-server.md)). This is opt-in and local, and no assistant is bundled.
 
 The two are developed in parallel from one shared device library (see [ADR 0002](decisions/0002-device-suite-and-daw-in-parallel.md)). The plugins make the suite useful early, inside DAWs people already use. The DAW provides the fully integrated experience.
 
@@ -31,7 +31,7 @@ The two are developed in parallel from one shared device library (see [ADR 0002]
 4. **Runs on Linux, Windows and macOS, as plugins and as a DAW.** No platform is second-class; Linux especially. See [ADR 0003](decisions/0003-platforms-and-plugin-formats.md).
 5. **Free and open.** AGPL-3.0. Presets and state are stored in open, documented formats. Projects can be exchanged with other DAWs via DAWproject (later).
 6. **Measurable quality.** Every device is checked by automated measurements and by human listening tests against established references before it ships. See [ADR 0007](decisions/0007-verification-without-ears.md).
-7. **Beyond Live, not a copy.** Live is our reference, not a template, in both UI and functionality. We improve on it where the gain is clear and the cost is realistic, especially where the integrated DAW makes something possible that a standalone plugin can't do: cross-track awareness, drag-to-modulate, an arranger track, a project-wide key. See [ADR 0011](decisions/0011-calibrated-ambition-and-consolidation.md) and [innovation-backlog.md](innovation-backlog.md).
+7. **Beyond Live, not a copy.** Live is our reference, not a template, in both UI and functionality. We improve on it where the gain is clear and the cost is realistic, especially where the integrated DAW makes something possible that a standalone plugin can't do: cross-track awareness, drag-to-modulate, an arranger track, a project-wide key, control by any assistant ([ADR 0021](decisions/0021-mcp-server.md)). See [ADR 0011](decisions/0011-calibrated-ambition-and-consolidation.md) and [innovation-backlog.md](innovation-backlog.md).
 
 ## Non-goals (for now)
 
@@ -42,6 +42,7 @@ The aim is to stay focused, not to rule these out forever. Revisiting any of the
 - **Matching Live's 70+ GB sound library.** We ship curated factory presets and a modest set of CC0 sounds; community packs come later.
 - **Hardware controller ecosystems** (Push-style integrations) beyond generic MIDI learn and mapping.
 - **Video, notation and surround/immersive mixing.**
+- **A built-in AI assistant or a bundled language model.** Assistants the user chooses can drive the DAW through MCP ([ADR 0021](decisions/0021-mcp-server.md)), but the DAW itself ships none.
 - **Mobile and tablet versions.**
 - **Cloning Ableton.** We do not copy its names, presets, graphics, layouts or limitations. Live is the reference for coverage and quality; we go past it selectively (see [ADR 0008](decisions/0008-naming-and-trade-dress.md) and [ADR 0011](decisions/0011-calibrated-ambition-and-consolidation.md)).
 

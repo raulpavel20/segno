@@ -21,6 +21,13 @@ To schedule an idea, it needs:
 | **Undo history panel**, including branches | Lets you see and revisit earlier states | 💡 |
 | **Scratch lane:** an area beside the arrangement for parking ideas | Keeps the arrangement clean while you sketch | 💡 |
 
+## Assistants
+
+| Idea | Why | Status |
+|---|---|---|
+| **Built-in MCP server:** any assistant the user chooses can drive the whole DAW and every device in it: editing, devices, transport, render and analysis ([ADR 0021](decisions/0021-mcp-server.md)) | Existing DAW integrations work from outside and see only part of the program; this DAW was designed for it. It also helps accessibility | 📌 M2 (C9) |
+| **Built-in assistant** (the DAW as an MCP client, with a chat panel) | Help without leaving the DAW | 💡 (needs its own ADR) |
+
 ## Mixing
 
 | Idea | Why | Status |

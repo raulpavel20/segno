@@ -44,6 +44,8 @@ Decisions still to be made. Once a question is answered, record the answer in an
 | B13 | **Saturator Color at low drive.** Color boosts before the curve and cuts the same after, so it's heard only as drive pushes into the curve (SPEC). Should it also act as a plain EQ on a clean signal? | Saturator sign-off (M1) | Product owner, 2026-10-09: agreed. Keep it as is (it shapes which frequencies saturate, like the reference); the dimmed Freq/Gain while Color is off already explain the switch |
 | B14 | **Per-track arm buttons.** Live MIDI follows the selected track (auto-arm). Do you also want arm buttons on track headers, e.g. to play two tracks at once or to arm a track that isn't selected? | C5 recording (M2) | Product owner, 2026-10-09: agreed. Add an arm button per track with C5; selecting a track still arms it unless another is armed explicitly |
 | B15 | **Notes past the clip's end.** Notes drawn or moved outside the clip are kept but don't play (drawn faded). Should drawing past the end lengthen the clip instead? | C2 feel check (M2) | Product owner, 2026-10-09: agreed. Lengthen it to the end of the bar the note ends in when nothing is in the way; leave it as is when another clip follows |
+| B16 | **Assistants to test MCP with.** Which assistants do you use or want supported first? | C9 (M2) | Claude Code (connects over HTTP) and Claude Desktop (launches the stdio bridge) first, plus one client running a local model |
+| B17 | **MCP from other devices** on your network (a tablet or a second computer driving the DAW) | After C9 | Local machine only for now; network access later, behind its own switch and token |
 
 ---
 

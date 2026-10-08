@@ -36,6 +36,8 @@ Build options: `FD_BUILD_TESTS`, `FD_BUILD_TOOLS`, `FD_BUILD_PLUGINS`, `FD_BUILD
 - **No Ableton or other vendors' names in product names, UI or presets** (ADR 0008).
 - **Every new device** gets `devices/<name>/SPEC.md` from `docs/devices/SPEC-TEMPLATE.md` before any code.
 - **Golden test files** change only with a reason stated in the commit message.
+- **MCP lives only in the DAW** (ADR 0021). Nothing in `libs/`, `devices/`, `modules/`, `plugins/` or `tools/` includes `app/src/mcp`; the plugins never open connections. MCP edits go through `engine::Session` and the device host binding, like the UI's.
+- **Every DAW feature ships with its MCP tools** and a test that drives it through MCP (ADR 0021). Released tool names and arguments change only after a deprecation period.
 
 ## Conventions
 

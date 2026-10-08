@@ -2,6 +2,7 @@
 
 **Goal:** finish a track in the DAW with only our devices. That means:
 - MIDI parts written in a piano roll;
+- assistants able to drive the DAW and its devices through MCP;
 - audio and MIDI recorded in;
 - a mixer with sends and returns;
 - automation;
@@ -42,15 +43,17 @@ See [roadmap.md](../roadmap.md) and the device specs in `devices/*/SPEC.md`.
 | C6 | **Clip fades and crossfades** (ADR 0019): fade handles on audio clips, short automatic fades at clip edges, crossfades where audio clips meet. | Edits stay click-free (click score); manual check | ☐ |
 | C7 | **Bounce in place:** render a clip, or a time range of a track, to audio on the same track; the MIDI is kept, muted (ADR 0019). | Bounce nulls against the live render | ☐ |
 | C8 | **Export:**<ul><li>the mix or the loop range to WAV or FLAC;</li><li>bit depth, sample rate, dither and normalise options;</li><li>progress shown in the window, never modal.</li></ul> | The exported file nulls against an offline render | ☐ |
+| C9 | **MCP server** ([ADR 0021](../decisions/0021-mcp-server.md)), designed first in `docs/design/mcp.md`:<ul><li>protocol layer (JSON-RPC, spec 2026-07-28 and 2025-11-25), JUCE-free and unit-tested;</li><li>Streamable HTTP on localhost, a stdio bridge mode and `--headless`;</li><li>tools and resources for everything built so far: tracks, clips, notes, devices and every parameter, presets, transport, tempo, undo, save and open, render and analysis;</li><li>settings switch, token, connection indicator, read-only mode, named undo steps.</li></ul>From C9 on, each step ships its own tools (coverage rule). | Protocol tests; every tool driven by a test; a real assistant session (Claude Code) builds a short loop; the plugin builds contain no MCP code (boundary check) | ☐ |
 
 ## Order of work
 
 1. **C1, the command palette.** It is small, makes every action reachable, and is used daily from then on.
 2. **C2, the piano roll.** Without it you can't write music in the DAW.
-3. **A1, then B1 and B2 (Compressor, Gate), then A2 (sidechain), then B3 (Limiter).** One detector core, three devices.
-4. **C3 the mixer and C4 automation.** The mixer gives the master track a place for the Limiter.
-5. **C5 recording, then C7 bounce in place.**
-6. **C6 fades, C8 export, B4 Spectrum.**
+3. **C9, the MCP server.** Early, so that each later step adds its own tools as it lands (cheaper than retrofitting), and so that development gets a live way to inspect and drive the running app.
+4. **A1, then B1 and B2 (Compressor, Gate), then A2 (sidechain), then B3 (Limiter).** One detector core, three devices.
+5. **C3 the mixer and C4 automation.** The mixer gives the master track a place for the Limiter.
+6. **C5 recording, then C7 bounce in place.**
+7. **C6 fades, C8 export, B4 Spectrum.**
 
 ## Carried over from M1
 

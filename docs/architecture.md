@@ -42,7 +42,8 @@ modules/fd_device_ui   DevicePanel base, parameter binding, shared displays (env
 modules/fd_host_juce   state ↔ JUCE, MIDI conversion
 devices/X/ui           each device's panel
 plugins/               plugin adapter + per-device plugin targets
-app/                   the DAW (tracktion_engine), DevicePlugin adapter, shell UI
+app/                   the DAW (tracktion_engine), DevicePlugin adapter, shell UI,
+                       MCP server (app/src/mcp; DAW only, ADR 0021)
 tools/snapshot, tools/gallery, tools/analyze
 ```
 
@@ -60,6 +61,7 @@ tools/snapshot, tools/gallery, tools/analyze
 
 - **Engine:** tracktion_engine provides the edit model, playback graph, plugin hosting, automation, rendering, undo and time-stretch. We pin a specific commit ([ADR 0004](decisions/0004-tech-stack.md)).
 - **Our code** is the shell UI (transport, arrangement, browser, inspector, detail panel), the `DevicePlugin` adapter that registers every device as a native plugin type, and the interaction models (timeline, selection, snapping). These models are pure classes with unit tests.
+- **Assistants (MCP):** a built-in MCP server lets any assistant the user connects drive the DAW and every device in it ([ADR 0021](decisions/0021-mcp-server.md)). It is a third client of `engine::Session`, next to the UI and the tests. It reaches devices only through the host binding, so the devices and their plugin builds know nothing about it. It is off by default and only reachable from the local machine.
 - **Third-party plugins:** VST3 on all platforms, AU on macOS, LV2 on Linux. CLAP hosting is added later through a custom plugin format, because neither JUCE nor tracktion_engine can host CLAP yet.
 
 ## The UI system
