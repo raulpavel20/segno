@@ -28,6 +28,40 @@ TransportBar::TransportBar(engine::Session& session, const ActionRegistry& actio
 {
     add(play_, "transport.playStop");
     add(stop_, "transport.toStart");
+    add(loop_, "transport.loop");
+    add(metronome_, "transport.metronome");
+
+    // Tempo and time signature: drag or type (each edit is one undo step).
+    tempoField_.setRange(20.0, 999.0, 0.01);
+    tempoField_.setDragSensitivity(0.1);
+    tempoField_.setTooltip("Tempo: drag or type");
+    tempoField_.textFromValue = [](double v) { return juce::String(v, 2); };
+    tempoField_.onValueChange = [this](double v) { session_.setTempo(v); };
+    numeratorField_.setRange(1.0, 32.0, 1.0);
+    numeratorField_.setDragSensitivity(0.1);
+    numeratorField_.setTooltip("Beats per bar");
+    numeratorField_.textFromValue = [](double v) { return juce::String(juce::roundToInt(v)); };
+    numeratorField_.onValueChange = [this](double v) { session_.setTimeSignature(juce::roundToInt(v), tempo_.denominator); };
+    denominatorField_.setRange(0.0, 4.0, 1.0); // index: 1, 2, 4, 8, 16
+    denominatorField_.setDragSensitivity(0.05);
+    denominatorField_.setTooltip("Beat unit");
+    denominatorField_.textFromValue = [](double v) { return juce::String(1 << juce::roundToInt(v)); };
+    denominatorField_.valueFromText = [](const juce::String& s) -> std::optional<double> {
+        const int d = s.getIntValue();
+        for (int i = 0; i <= 4; ++i)
+            if ((1 << i) == d)
+                return i;
+        return std::nullopt;
+    };
+    denominatorField_.onValueChange = [this](double v) {
+        session_.setTimeSignature(tempo_.numerator, 1 << juce::roundToInt(v));
+    };
+    for (auto* f : {&tempoField_, &numeratorField_, &denominatorField_})
+    {
+        f->setFontSize(ui::Theme::current().textMd);
+        addAndMakeVisible(f);
+    }
+    frame(0.0, session_.snapshot()->tempo); // show the project's tempo before the first frame
     add(browser_, "view.browser");
     add(detail_, "view.detail");
     add(inspector_, "view.inspector");
@@ -49,13 +83,21 @@ void TransportBar::frame(double positionSeconds, const model::TempoMap& tempo)
     for (auto& [button, id] : bound_)
         if (button->getToggleState() != actions_.isToggled(id))
             button->setToggleState(actions_.isToggled(id), juce::dontSendNotification);
+    if (!tempoShown_ || !(tempo == tempo_))
+    {
+        tempoShown_ = true;
+        tempo_ = tempo;
+        tempoField_.setValue(tempo.bpm, juce::dontSendNotification);
+        numeratorField_.setValue(tempo.numerator, juce::dontSendNotification);
+        denominatorField_.setValue(std::log2(std::max(1, tempo.denominator)), juce::dontSendNotification);
+        position_ = -1.0; // redraw the position in the new tempo
+    }
     const int cpu = static_cast<int>(std::lround(session_.cpuUsage() * 100.0));
-    if (positionSeconds != position_ || !(tempo == tempo_) || cpu != cpu_)
+    if (positionSeconds != position_ || cpu != cpu_)
     {
         position_ = positionSeconds;
-        tempo_ = tempo;
         cpu_ = cpu;
-        repaint(getLocalBounds().withTrimmedLeft(play_.getRight()).withRight(browser_.getX()));
+        repaint(getLocalBounds().withTrimmedLeft(denominatorField_.getRight()).withRight(browser_.getX()));
     }
 }
 
@@ -64,7 +106,16 @@ void TransportBar::paint(juce::Graphics& g)
     const auto& t = ui::Theme::current();
     g.fillAll(t.surface1);
 
-    auto r = getLocalBounds().withTrimmedLeft(stop_.getRight() + 20).withRight(browser_.getX() - 12);
+    // BPM label after the tempo field, the slash between the signature fields.
+    g.setColour(t.textTertiary);
+    g.setFont(ui::fonts::font(t.textXs));
+    g.drawText("BPM", tempoField_.getBounds().translated(tempoField_.getWidth() + 2, 0).withWidth(30),
+               juce::Justification::centredLeft, false);
+    g.setFont(ui::fonts::font(t.textMd, ui::fonts::Weight::Medium));
+    g.drawText("/", numeratorField_.getBounds().withX(numeratorField_.getRight()).withWidth(10),
+               juce::Justification::centred, false);
+
+    auto r = getLocalBounds().withTrimmedLeft(denominatorField_.getRight() + 20).withRight(browser_.getX() - 12);
     auto field = [&](const juce::String& value, const juce::String& unit, int width, float size) {
         auto box = r.removeFromLeft(width);
         r.removeFromLeft(16);
@@ -78,8 +129,6 @@ void TransportBar::paint(juce::Graphics& g)
         g.drawText(unit, box, juce::Justification::centredLeft, false);
     };
     const auto bb = tempo_.barsBeatsForSeconds(std::max(0.0, position_));
-    field(juce::String(tempo_.bpm, 2), "BPM", 92, t.textMd);
-    field(juce::String(tempo_.numerator) + " / " + juce::String(tempo_.denominator), "", 44, t.textMd);
     field(juce::String(bb.bar) + ". " + juce::String(bb.beat) + ". " + juce::String(bb.sixteenth), "", 84, t.textLg);
     field(formatTime(position_), "", 84, t.textSm);
 
@@ -99,6 +148,15 @@ void TransportBar::resized()
     };
     play_.setBounds(square(r, true));
     stop_.setBounds(square(r, true));
+    r.removeFromLeft(8);
+    loop_.setBounds(square(r, true));
+    metronome_.setBounds(square(r, true));
+    r.removeFromLeft(16);
+    tempoField_.setBounds(r.removeFromLeft(54));
+    r.removeFromLeft(34); // "BPM"
+    numeratorField_.setBounds(r.removeFromLeft(26));
+    r.removeFromLeft(10); // "/"
+    denominatorField_.setBounds(r.removeFromLeft(26));
     settings_.setBounds(square(r, false));
     r.removeFromRight(8);
     inspector_.setBounds(square(r, false));

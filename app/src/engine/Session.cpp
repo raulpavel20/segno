@@ -152,6 +152,58 @@ void Session::setPosition(double seconds)
     impl_->edit->getTransport().setPosition(te::TimePosition::fromSeconds(std::max(0.0, seconds)));
 }
 
+bool Session::isLooping() const
+{
+    return impl_->edit->getTransport().looping;
+}
+
+void Session::setLooping(bool on)
+{
+    impl_->edit->getTransport().looping = on;
+}
+
+std::pair<double, double> Session::loopRange() const
+{
+    const auto r = impl_->edit->getTransport().getLoopRange();
+    return {r.getStart().inSeconds(), r.getEnd().inSeconds()};
+}
+
+void Session::setLoopRange(double start, double end)
+{
+    if (end < start)
+        std::swap(start, end);
+    impl_->edit->getTransport().setLoopRange(
+        {te::TimePosition::fromSeconds(std::max(0.0, start)), te::TimePosition::fromSeconds(std::max(0.0, end))});
+}
+
+bool Session::isMetronomeOn() const
+{
+    return impl_->edit->clickTrackEnabled;
+}
+
+void Session::setMetronome(bool on)
+{
+    impl_->edit->clickTrackEnabled = on;
+}
+
+void Session::setTempo(double bpm)
+{
+    if (auto* tempo = impl_->edit->tempoSequence.getTempo(0))
+    {
+        impl_->beginEdit();
+        tempo->setBpm(std::clamp(bpm, 20.0, 999.0));
+    }
+}
+
+void Session::setTimeSignature(int numerator, int denominator)
+{
+    if (auto* sig = impl_->edit->tempoSequence.getTimeSig(0))
+    {
+        impl_->beginEdit();
+        sig->setStringTimeSig(juce::String(std::clamp(numerator, 1, 32)) + "/" + juce::String(denominator));
+    }
+}
+
 std::uint64_t Session::addAudioTrack()
 {
     impl_->beginEdit();

@@ -163,3 +163,39 @@ TEST_CASE("dragging a clip moves it, snapped, onto another track in one undo ste
     f.session->updateSnapshotNow();
     CHECK(fd::model::findClip(*f.session->snapshot(), clip)->second == 0);
 }
+
+TEST_CASE("the loop brace is drawn, toggled and resized with the mouse", "[integration]")
+{
+    ShellFixture f;
+    fd::app::ArrangementView view(*f.session);
+    view.setSize(1200, 600);
+    const auto& tl = view.timeline();
+    const auto tempo = f.session->snapshot()->tempo;
+    const double bar = tempo.secondsForBeats(tempo.beatsPerBar());
+    auto xAt = [&](double seconds) { return fd::app::ArrangementView::headerWidth + static_cast<float>(tl.xForTime(seconds)); };
+    const float y = 6.0f; // inside the loop strip
+
+    // Draw bars 2-4 (snapped).
+    const juce::Point<float> a(xAt(bar * 1.05), y), b(xAt(bar * 2.97), y);
+    view.mouseDown(mouseEvent(view, a, a, false));
+    view.mouseDrag(mouseEvent(view, b, a, true));
+    view.mouseUp(mouseEvent(view, b, a, true));
+    CHECK(f.session->loopRange().first == Catch::Approx(bar));
+    CHECK(f.session->loopRange().second == Catch::Approx(3.0 * bar));
+    CHECK(f.session->isLooping());
+
+    // A click on the brace toggles looping.
+    const juce::Point<float> mid(xAt(bar * 2.0), y);
+    view.frame(1.0 / 60.0, 0.0); // pick up the transport's loop range
+    view.mouseDown(mouseEvent(view, mid, mid, false));
+    view.mouseUp(mouseEvent(view, mid, mid, false));
+    CHECK_FALSE(f.session->isLooping());
+
+    // Drag the end edge to bar 5.
+    const juce::Point<float> edge(xAt(3.0 * bar), y), to(xAt(4.0 * bar), y);
+    view.mouseDown(mouseEvent(view, edge, edge, false));
+    view.mouseDrag(mouseEvent(view, to, edge, true));
+    view.mouseUp(mouseEvent(view, to, edge, true));
+    CHECK(f.session->loopRange().first == Catch::Approx(bar));
+    CHECK(f.session->loopRange().second == Catch::Approx(4.0 * bar));
+}

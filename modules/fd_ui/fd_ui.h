@@ -25,3 +25,4 @@ END_JUCE_MODULE_DECLARATION
 #include "controls/Toggle.h"
 #include "controls/Meter.h"
 #include "controls/Icons.h"
+#include "controls/NumberField.h"

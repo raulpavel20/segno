@@ -20,7 +20,8 @@ class ArrangementView final : public juce::Component, public juce::FileDragAndDr
 {
 public:
     static constexpr int headerWidth = 180;
-    static constexpr int rulerHeight = 28;
+    static constexpr int rulerHeight = 36;
+    static constexpr int loopStripHeight = 12; // top of the ruler: the loop brace
 
     explicit ArrangementView(engine::Session& session);
 
@@ -32,6 +33,9 @@ public:
     void zoomIn();
     void zoomOut();
     void zoomToFit();
+    /// Follow the playhead while playing (pages the view smoothly).
+    void setFollowEnabled(bool on) noexcept { follow_ = on; }
+    [[nodiscard]] bool isFollowEnabled() const noexcept { return follow_; }
     void setSnapEnabled(bool on) noexcept { snap_ = on; }
     [[nodiscard]] bool isSnapEnabled() const noexcept { return snap_; }
 
@@ -108,7 +112,19 @@ private:
 
     std::set<std::uint64_t> selectedClips_;
 
-    enum class Drag { None, Ruler, Clip, Box };
+    [[nodiscard]] juce::Rectangle<int> loopStripArea() const;
+    enum class LoopZone { None, Body, Start, End };
+    [[nodiscard]] LoopZone loopZoneAt(float x) const;
+
+    bool follow_ = true;
+    std::optional<double> scrollTarget_; // follow-playhead paging, eased
+    std::pair<double, double> loop_{0.0, 0.0};
+    bool looping_ = false;
+    std::optional<std::pair<double, double>> loopPreview_; // while dragging the brace
+    LoopZone loopDrag_ = LoopZone::None;
+    std::pair<double, double> loopAtDragStart_{0.0, 0.0};
+
+    enum class Drag { None, Ruler, Clip, Box, Loop };
     Drag drag_ = Drag::None;
     juce::Point<float> lastDrag_, dragStart_;
     float rulerAnchorX_ = 0.0f;

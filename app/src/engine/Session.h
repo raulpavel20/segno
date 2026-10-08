@@ -43,6 +43,19 @@ public:
     [[nodiscard]] double position() const; // seconds
     void setPosition(double seconds);
 
+    [[nodiscard]] bool isLooping() const;
+    void setLooping(bool on);
+    /// Loop range in seconds (start, end); empty when never set.
+    [[nodiscard]] std::pair<double, double> loopRange() const;
+    void setLoopRange(double start, double end);
+
+    [[nodiscard]] bool isMetronomeOn() const;
+    void setMetronome(bool on);
+
+    /// Tempo and time signature (each change is one undoable step).
+    void setTempo(double bpm);
+    void setTimeSignature(int numerator, int denominator);
+
     // ---- editing (each call is one undoable step) --------------------------------------
 
     std::uint64_t addAudioTrack();

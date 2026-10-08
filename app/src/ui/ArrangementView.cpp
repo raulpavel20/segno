@@ -62,6 +62,24 @@ juce::Rectangle<int> ArrangementView::rulerArea() const
     return getLocalBounds().removeFromTop(rulerHeight).withTrimmedLeft(headerWidth);
 }
 
+juce::Rectangle<int> ArrangementView::loopStripArea() const
+{
+    return rulerArea().removeFromTop(loopStripHeight);
+}
+
+ArrangementView::LoopZone ArrangementView::loopZoneAt(float x) const
+{
+    const auto [a, b] = loopPreview_.value_or(loop_);
+    if (!(b > a))
+        return LoopZone::None;
+    const float x0 = laneX(a), x1 = laneX(b);
+    if (std::abs(x - x0) <= 5.0f)
+        return LoopZone::Start;
+    if (std::abs(x - x1) <= 5.0f)
+        return LoopZone::End;
+    return x > x0 && x < x1 ? LoopZone::Body : LoopZone::None;
+}
+
 juce::Rectangle<int> ArrangementView::headerArea() const
 {
     return getLocalBounds().withTrimmedTop(rulerHeight).removeFromLeft(headerWidth);
@@ -113,6 +131,37 @@ void ArrangementView::frame(double dt, double playheadSeconds)
     }
     if (tiles_.wantsRepaint())
         repaint();
+
+    // Loop brace state (live from the transport, like the playhead).
+    const auto loop = session_.loopRange();
+    const bool looping = session_.isLooping();
+    if (loop != loop_ || looping != looping_)
+    {
+        loop_ = loop;
+        looping_ = looping;
+        repaint(rulerArea());
+    }
+
+    // Follow: when the playhead nears the right edge (or is off screen), page the view so it
+    // sits near the left again, eased over a few frames.
+    if (follow_ && session_.isPlaying() && drag_ == Drag::None && !timeline_.isAnimating())
+    {
+        const double px = timeline_.xForTime(playheadSeconds);
+        if (!scrollTarget_ && (px > timeline_.width() * 0.88 || px < 0.0))
+            scrollTarget_ = std::max(0.0, playheadSeconds - timeline_.width() * 0.12 / timeline_.pixelsPerSecond());
+    }
+    if (scrollTarget_)
+    {
+        const double k = 1.0 - std::exp(-dt / 0.05);
+        double start = timeline_.start() + (*scrollTarget_ - timeline_.start()) * k;
+        if (std::abs(*scrollTarget_ - start) * timeline_.pixelsPerSecond() < 0.5)
+        {
+            start = *scrollTarget_;
+            scrollTarget_.reset();
+        }
+        timeline_.setView(start, timeline_.pixelsPerSecond());
+        repaint();
+    }
 
     playhead_ = playheadSeconds;
     const float x = laneX(playhead_);
@@ -198,6 +247,19 @@ void ArrangementView::paintRuler(juce::Graphics& g)
 
     juce::Graphics::ScopedSaveState saved(g);
     g.reduceClipRegion(area);
+
+    // Loop strip and brace: flat; the active colour when looping is on.
+    const auto strip = loopStripArea();
+    g.setColour(t.surface0.interpolatedWith(t.surface1, 0.5f));
+    g.fillRect(strip);
+    const auto [loopStart, loopEnd] = loopPreview_.value_or(loop_);
+    if (loopEnd > loopStart)
+    {
+        const auto brace = juce::Rectangle<float>(laneX(loopStart), static_cast<float>(strip.getY()) + 2.0f,
+                                                  laneX(loopEnd) - laneX(loopStart), static_cast<float>(strip.getHeight()) - 4.0f);
+        g.setColour(looping_ ? t.active : t.textTertiary.withAlpha(0.7f));
+        g.fillRect(brace);
+    }
     g.setFont(ui::fonts::font(t.textXs, ui::fonts::Weight::Medium, true));
     for (const auto& line : grid_)
     {
@@ -210,7 +272,8 @@ void ArrangementView::paintRuler(juce::Graphics& g)
         if (line.label)
         {
             g.setColour(t.textSecondary);
-            g.drawText(juce::String(line.bar), juce::Rectangle<float>(x + 4.0f, static_cast<float>(area.getY()) + 3.0f, 48.0f, 14.0f),
+            g.drawText(juce::String(line.bar),
+                       juce::Rectangle<float>(x + 4.0f, static_cast<float>(area.getY() + loopStripHeight) + 1.0f, 48.0f, 14.0f),
                        juce::Justification::centredLeft, false);
         }
     }
@@ -430,7 +493,13 @@ void ArrangementView::mouseMove(const juce::MouseEvent& e)
 {
     const auto lanes = laneArea();
     auto cursor = juce::MouseCursor::NormalCursor;
-    if (lanes.contains(e.getPosition()))
+    if (loopStripArea().contains(e.getPosition()))
+    {
+        const auto zone = loopZoneAt(e.position.x);
+        cursor = zone == LoopZone::Start || zone == LoopZone::End ? juce::MouseCursor::LeftRightResizeCursor
+                                                                  : juce::MouseCursor::NormalCursor;
+    }
+    else if (lanes.contains(e.getPosition()))
         if (const auto hit = model::hitClip(*snapshot_, layout_, timeline_, e.position.x - static_cast<float>(lanes.getX()),
                                             e.position.y - static_cast<float>(lanes.getY())))
             cursor = hit->zone == model::ClipHit::Zone::Body ? juce::MouseCursor::NormalCursor
@@ -445,6 +514,13 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
     lastDrag_ = dragStart_ = e.position;
     dragMoved_ = false;
     preview_.clear();
+    if (loopStripArea().contains(pos))
+    {
+        drag_ = Drag::Loop;
+        loopDrag_ = loopZoneAt(e.position.x);
+        loopAtDragStart_ = loop_;
+        return;
+    }
     if (rulerArea().contains(pos))
     {
         drag_ = Drag::Ruler;
@@ -515,6 +591,34 @@ void ArrangementView::mouseDrag(const juce::MouseEvent& e)
         return; // a click, not a drag
     dragMoved_ = true;
 
+    if (drag_ == Drag::Loop)
+    {
+        const auto snapFn = snapFunction(e.mods.isAltDown());
+        const auto lx = static_cast<float>(lanes.getX());
+        const double now = timeline_.timeForX(e.position.x - lx);
+        const double then = timeline_.timeForX(dragStart_.x - lx);
+        auto [a, b] = loopAtDragStart_;
+        switch (loopDrag_)
+        {
+        case LoopZone::None: // draw a new brace
+            a = snapFn(std::min(then, now));
+            b = snapFn(std::max(then, now));
+            break;
+        case LoopZone::Body:
+        {
+            const double moved = snapFn(a + (now - then)) - a;
+            a = std::max(0.0, a + moved);
+            b = a + (loopAtDragStart_.second - loopAtDragStart_.first);
+            break;
+        }
+        case LoopZone::Start: a = std::min(snapFn(now), b - 0.01); break;
+        case LoopZone::End: b = std::max(snapFn(now), a + 0.01); break;
+        }
+        loopPreview_ = std::pair{a, b};
+        repaint(rulerArea());
+        return;
+    }
+
     if (drag_ == Drag::Clip)
     {
         clipDrag_.deltaSeconds = (e.position.x - dragStart_.x) / timeline_.pixelsPerSecond();
@@ -547,6 +651,18 @@ void ArrangementView::mouseUp(const juce::MouseEvent& e)
         // A click in the ruler moves the playhead (snapped; Alt for free).
         const double seconds = timeline_.timeForX(e.position.x - static_cast<float>(laneArea().getX()));
         session_.setPosition(snapped(seconds, e.mods.isAltDown()));
+    }
+    if (drag_ == Drag::Loop)
+    {
+        if (dragMoved_ && loopPreview_ && loopPreview_->second > loopPreview_->first)
+        {
+            session_.setLoopRange(loopPreview_->first, loopPreview_->second);
+            if (loopDrag_ == LoopZone::None)
+                session_.setLooping(true); // drawing a new brace turns looping on
+        }
+        else if (!dragMoved_ && loopDrag_ != LoopZone::None)
+            session_.setLooping(!session_.isLooping()); // a click on the brace toggles it
+        loopPreview_.reset();
     }
     if (drag_ == Drag::Clip && dragMoved_ && !preview_.empty())
         session_.applyClipEdits(preview_); // one undo step; the snapshot follows

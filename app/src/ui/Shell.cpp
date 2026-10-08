@@ -72,6 +72,26 @@ void Shell::registerActions()
                       s.stop();
                       s.setPosition(0.0);
                   }});
+    actions_.add({.id = "transport.loop", .name = "Loop", .category = "Transport", .keys = {key('l', kCmd)},
+                  .perform = [&s] {
+                      // With no brace yet, loop four bars from the playhead's bar.
+                      const auto [a, b] = s.loopRange();
+                      if (!(b > a))
+                      {
+                          const auto tempo = s.snapshot()->tempo;
+                          const double bar = tempo.secondsForBeats(tempo.beatsPerBar());
+                          const double start = std::floor(s.position() / bar) * bar;
+                          s.setLoopRange(start, start + 4.0 * bar);
+                      }
+                      s.setLooping(!s.isLooping());
+                  },
+                  .isToggled = [&s] { return s.isLooping(); }});
+    actions_.add({.id = "transport.metronome", .name = "Metronome", .category = "Transport", .keys = {key('m', kCmd)},
+                  .perform = [&s] { s.setMetronome(!s.isMetronomeOn()); },
+                  .isToggled = [&s] { return s.isMetronomeOn(); }});
+    actions_.add({.id = "view.follow", .name = "Follow playhead", .category = "View", .keys = {key('f', kCmd | kShift)},
+                  .perform = [this] { arrangement_.setFollowEnabled(!arrangement_.isFollowEnabled()); },
+                  .isToggled = [this] { return arrangement_.isFollowEnabled(); }});
     actions_.add({.id = "edit.undo", .name = "Undo", .category = "Edit", .keys = {key('z', kCmd)},
                   .perform = [&s] { s.undo(); }, .isEnabled = [&s] { return s.canUndo(); }});
     actions_.add({.id = "edit.redo", .name = "Redo", .category = "Edit", .keys = {key('z', kCmd | kShift), key('y', kCmd)},

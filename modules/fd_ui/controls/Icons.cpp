@@ -30,12 +30,21 @@ Glyph glyph(Icon icon)
         g.filled = true;
         break;
     case Icon::Loop:
-        // Two arcs with arrow heads: a cycle.
-        p.addCentredArc(8.0f, 8.0f, 5.0f, 5.0f, 0.0f, -2.4f, 0.9f, true);
-        p.startNewSubPath(12.6f, 7.0f);
-        p.lineTo(12.2f, 9.9f);
-        p.lineTo(9.6f, 8.6f);
-        p.addCentredArc(8.0f, 8.0f, 5.0f, 5.0f, 0.0f, 3.14159f - 2.4f + 3.14159f, 3.14159f + 0.9f + 3.14159f, true);
+        // A rounded loop: the top runs right, the bottom runs left, each with an arrow head.
+        p.startNewSubPath(2.5f, 9.0f);
+        p.lineTo(2.5f, 7.0f);
+        p.quadraticTo(2.5f, 4.5f, 5.0f, 4.5f);
+        p.lineTo(12.5f, 4.5f);
+        p.startNewSubPath(10.5f, 2.5f);
+        p.lineTo(12.5f, 4.5f);
+        p.lineTo(10.5f, 6.5f);
+        p.startNewSubPath(13.5f, 7.0f);
+        p.lineTo(13.5f, 9.0f);
+        p.quadraticTo(13.5f, 11.5f, 11.0f, 11.5f);
+        p.lineTo(3.5f, 11.5f);
+        p.startNewSubPath(5.5f, 9.5f);
+        p.lineTo(3.5f, 11.5f);
+        p.lineTo(5.5f, 13.5f);
         break;
     case Icon::Metronome:
         p.startNewSubPath(5.5f, 13.5f);

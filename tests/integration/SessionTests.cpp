@@ -125,3 +125,30 @@ TEST_CASE("session clip edits: move, trim, duplicate, split, delete; each one un
     CHECK(clipOf(a)->second == 0);
     CHECK(clipOf(a)->first->start == Approx(1.0));
 }
+
+TEST_CASE("session transport: loop, metronome, tempo and signature", "[integration]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    tracktion::Engine engine{"fd-integration-tests"};
+    fd::engine::Session session(engine);
+
+    session.setLoopRange(8.0, 4.0); // reversed ends are fine
+    CHECK(session.loopRange().first == Approx(4.0));
+    CHECK(session.loopRange().second == Approx(8.0));
+    session.setLooping(true);
+    CHECK(session.isLooping());
+    session.setMetronome(true);
+    CHECK(session.isMetronomeOn());
+
+    session.setTempo(96.5);
+    session.setTimeSignature(7, 8);
+    session.updateSnapshotNow();
+    CHECK(session.snapshot()->tempo.bpm == Approx(96.5));
+    CHECK(session.snapshot()->tempo.numerator == 7);
+    CHECK(session.snapshot()->tempo.denominator == 8);
+    session.undo();
+    session.undo();
+    session.updateSnapshotNow();
+    CHECK(session.snapshot()->tempo.bpm == Approx(120.0));
+    CHECK(session.snapshot()->tempo.numerator == 4);
+}
