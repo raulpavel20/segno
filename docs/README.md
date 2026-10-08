@@ -11,6 +11,7 @@ These documents define what this project is and the direction it is taking. They
 | [vision.md](vision.md) | What we are building, who it is for, what defines it, and what we are deliberately *not* building. |
 | [design/ui-principles.md](design/ui-principles.md) | What "modern UI" means here, in concrete and checkable terms. |
 | [design/design-language.md](design/design-language.md) | The chosen theme ("Steel"): every colour, size and type value. |
+| [design/daw-shell.md](design/daw-shell.md) | How the DAW shell is built: code layout, threads, layout, actions and shortcuts, timeline. |
 | [devices/device-suite.md](devices/device-suite.md) | The full set of instruments, effects and modulators: Live Suite's coverage as the minimum, best-in-class as the aim. Plus the quality bar every device must meet. |
 | [architecture.md](architecture.md) | How the system is structured: modules, the two hosts, state, UI and verification. |
 | [roadmap.md](roadmap.md) | The order things are built in and what "done" means for each milestone. |

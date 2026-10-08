@@ -45,9 +45,11 @@ The product owner chose this theme at the M0 design gate (2026-10-09). The rules
 | `meterHot` | `#E8C547` | −6 to 0 dBFS |
 | `meterClip` | `#F0505A` | above 0 dBFS |
 
-### Clip and track colours (flat; first 8 of the palette)
+### Clip and track colours (flat, 16 hues)
 
-`#D9824A` · `#D4B04A` · `#7DBA5A` · `#46B3A3` · `#4F8FD6` · `#8E74D6` · `#CC6699` · `#C95454`
+Equal perceptual lightness and chroma (OKLCH L 0.70, C 0.115), hues every ~22°, so no clip is louder than another. New tracks step through the palette three hues at a time, so neighbours differ.
+
+`#DD8273` · `#D78958` · `#C89344` · `#B19F42` · `#92AA54` · `#6FB171` · `#4CB58C` · `#29B5A8` · `#1DB2C0` · `#3AADD4` · `#5CA5E1` · `#809BE6` · `#9D92E1` · `#B689D2` · `#CA82BB` · `#D67FA2`
 
 A clip is drawn with:
 - a solid title strip in the clip colour, with dark text;
@@ -67,8 +69,10 @@ A clip is drawn with:
 | Font | Inter (variable), bundled |
 | Type scale | 11 · 12 · 13 · 15 · 18 px; tabular numerals for values |
 
+### Icons
+
+Line icons drawn in code (`ui::Icon`, `modules/fd_ui/controls/Icons.cpp`): 1.5 px stroke on a 16 px grid. Transport glyphs (play, stop, record) are filled. Every icon has a tooltip with its shortcut.
+
 ## Still open
 
 - **Light theme:** a later milestone (M7). It is built from the same token names.
-- **Full clip palette:** 16–24 hues, defined when the arrangement view is built (M1).
-- **Icon set:** chosen with the first icons (M1).

@@ -28,7 +28,7 @@ See [roadmap.md](../roadmap.md) and the device specs in `devices/*/SPEC.md`.
 | # | Device | Status |
 |---|---|---|
 | B1 | **Saturator** ([SPEC](../../devices/saturator/SPEC.md)) | ◐ automated DoD met; awaiting spec approval and sound/feel sign-off |
-| B2 | **EQ** (core) ([SPEC](../../devices/eq/SPEC.md)) | ◐ engine + display done, validators pass; compact view still to do; awaiting spec approval and sign-off |
+| B2 | **EQ** (core) ([SPEC](../../devices/eq/SPEC.md)) | ◐ engine + display done, validators pass; compact view deferred (open question B12); awaiting spec approval and sign-off |
 | B3 | **Subtractive Synth** (core) ([SPEC](../../devices/subtractive-synth/SPEC.md)) | ◐ engine, panel, plugin, goldens; validators and null test pass; still to do: drag envelopes on their displays, factory presets; awaiting spec approval and sound/feel sign-off |
 | B4 | **Sampler** (classic/one-shot) ([SPEC](../../devices/sampler/SPEC.md)) | ◐ engine, panel (waveform with markers, drop/browse), plugin, goldens; spec tests, conformance, validators and DAW null and undo tests pass; awaiting spec approval and sound/feel sign-off |
 
@@ -36,8 +36,8 @@ See [roadmap.md](../roadmap.md) and the device specs in `devices/*/SPEC.md`.
 
 | # | Step | Done when | Status |
 |---|---|---|---|
-| C1 | **Shell:** OpenGL top level ([ADR 0015](../decisions/0015-rendering-opengl-for-the-daw.md)); app `UIBehaviour` (progress, warnings); layout: transport bar, browser stub, arrangement, detail panel; action registry + shortcuts | Window matches the UI principles layout; actions have shortcuts | ☐ |
-| C2 | **Timeline model and arrangement view:** pure, tested `TimelineModel` (time↔pixel, zoom anchored at the mouse, animated zoom, adaptive grid, snapping); tracks, ruler, playhead; trackpad pinch and scroll | Model tests; smooth on both displays | ☐ |
+| C1 | **Shell:** OpenGL top level ([ADR 0015](../decisions/0015-rendering-opengl-for-the-daw.md)); app `UIBehaviour` (progress, warnings); layout: transport bar, browser stub, arrangement, detail panel; action registry + shortcuts | Window matches the UI principles layout; actions have shortcuts | ◐ shell, adaptive panels, `ActionRegistry` with a shortcut for every action, popover audio settings, in-window warnings ([design](../design/daw-shell.md), [ADR 0018](../decisions/0018-daw-app-structure.md)); awaiting feel check |
+| C2 | **Timeline model and arrangement view:** pure, tested `TimelineModel` (time↔pixel, zoom anchored at the mouse, animated zoom, adaptive grid, snapping); tracks, ruler, playhead; trackpad pinch and scroll | Model tests; smooth on both displays | ◐ `model::Timeline`/`TrackLayout` tested; arrangement with ruler zoom/scroll, wheel, pinch, snapping, file drops; awaiting smoothness check (Release) |
 | C3 | **Waveform cache:** background peak building per file plus a per-zoom tile cache | Paint benchmark: 32 tracks zooming under 8 ms on the reference machine | ☐ |
 | C4 | **Clip editing:** drag files in, move with snap, trim, split, duplicate, delete, box select; undo/redo | Edit tests on the TE model; manual feel check | ☐ |
 | C5 | **Transport:** play/stop, position, tempo, loop brace, metronome | Manual check | ☐ |

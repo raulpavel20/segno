@@ -26,6 +26,7 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0015](0015-rendering-opengl-for-the-daw.md) | OpenGL renderer for the DAW window (GL-thread driven), software for plugin editors; cached heavy views; frame budgets | Accepted |
 | [0016](0016-constant-device-latency.md) | Constant, whole-sample latency per device instance; parameters never change latency | Accepted |
 | [0017](0017-heavy-data-and-non-parameter-state.md) | Heavy data via `AssetHandoff` (frees never on the audio thread); synchronous load in `readExtraState`; UI edits to extra state through the host binding | Accepted |
+| [0018](0018-daw-app-structure.md) | DAW app: `Session` facade over tracktion, immutable snapshots for views, JUCE-free tested `app/src/model`, own `ActionRegistry` | Accepted |
 
 ## Template
 

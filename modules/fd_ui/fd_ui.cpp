@@ -6,3 +6,4 @@
 #include "controls/Knob.cpp"
 #include "controls/Toggle.cpp"
 #include "controls/Meter.cpp"
+#include "controls/Icons.cpp"

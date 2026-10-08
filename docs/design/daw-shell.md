@@ -1,0 +1,126 @@
+# DAW shell: design (M1 slice C1–C8)
+
+How the M1 DAW is put together. The decisions behind it are in [ADR 0018](../decisions/0018-daw-app-structure.md) (structure), [ADR 0015](../decisions/0015-rendering-opengl-for-the-daw.md) (rendering) and [ADR 0004](../decisions/0004-tech-stack.md) (tracktion_engine). The look and behaviour come from [ui-principles.md](ui-principles.md).
+
+## Code layout
+
+```
+app/src/
+  Main.cpp      application, main window, OpenGL attach (software fallback: --software)
+  engine/       everything that includes tracktion_engine
+    DevicePlugin    te::Plugin adapter for fd::Device
+    Session         one open project: owns the te::Edit, commands, snapshots, transport
+    AppBehaviour    te::UIBehaviour: progress and warnings shown in the shell, never modal
+  model/        JUCE-free, unit-tested ([fast])
+    TempoMap        seconds <-> beats <-> bars
+    Timeline        time <-> pixels, zoom and scroll (animated), adaptive grid, snapping
+    TrackLayout     track heights, vertical scroll, hit testing
+    Snapshot        tracks, clips, tempo: what views draw
+  ui/           JUCE components; no tracktion includes (checked by a test)
+    Shell           the window content: panels, splitters, adaptive layout, key routing
+    ActionRegistry  every action: id, name, shortcuts, callbacks
+    TransportBar, BrowserPanel, InspectorPanel, DetailPanel, ArrangementView
+```
+
+## Threads and data
+
+- **Message thread:** owns the Session and the UI state; runs every command.
+- **Engine threads:** tracktion's audio and render threads. Our only shared state with them is through tracktion itself and `fd::Device` (ADR 0017).
+- **GL thread:** renders frames continuously (ADR 0015). The message thread only invalidates regions, from a `VBlankAttachment`.
+- **Snapshots:**
+  - The Session listens to the Edit's state tree and, after any change, rebuilds a `Snapshot` asynchronously (coalesced to once per message loop).
+  - Views get a `shared_ptr<const Snapshot>`, store it, and repaint.
+  - Paint code reads only the snapshot and view state.
+- **Per frame (vblank, message thread):** the shell reads the transport position and play state from the Session, then invalidates the playhead strip and anything animating (zoom).
+
+## Layout (C1)
+
+```
+┌ TransportBar 40 ──────────────────────────────────────────────────────────────┐
+├ Browser 220 ┬ Arrangement ───────────────────────────────────────┬ Inspector 260 ┤
+│ (rail 44)   │ ruler 28                                           │ (collapsible) │
+│             │ track header 180 │ lanes                           │               │
+├─────────────┴────────────────────────────────────────────────────┴───────────────┤
+│ Detail panel: device chain (device panel height + 2 × 12)  ⇄  clip view (Tab)    │
+└──────────────────────────────────────────────────────────────────────────────────┘
+```
+
+- Splitters resize the browser and inspector. The detail panel's height is fixed by the device panel height.
+- **Adaptive:**
+  - below 1440 logical px wide, the browser collapses to its rail and the inspector closes (the overlay inspector comes in M3);
+  - the user's explicit toggles win until the window crosses the threshold again.
+- **Focus mode** shows only the transport bar and the arrangement.
+- Panel sizes are per window in M1; per project from C8.
+- Panels open and close with a 150 ms ease-out (instant with "reduce motion").
+
+## Actions and shortcuts (C1)
+
+`ActionRegistry` holds every action; the shell routes key presses to it unless a text field has focus. "Ctrl" means Cmd on macOS. Shortcuts are defaults; remapping comes with preferences.
+
+| Action | ID | Default |
+|---|---|---|
+| Play / stop | `transport.playStop` | Space |
+| Return to start | `transport.toStart` | Home |
+| Loop on/off | `transport.loop` | Ctrl+L |
+| Metronome | `transport.metronome` | Ctrl+M |
+| Undo / redo | `edit.undo` / `edit.redo` | Ctrl+Z / Ctrl+Shift+Z, Ctrl+Y |
+| Delete | `edit.delete` | Delete, Backspace |
+| Duplicate | `edit.duplicate` | Ctrl+D |
+| Split at playhead or selection | `edit.split` | Ctrl+E |
+| Select all | `edit.selectAll` | Ctrl+A |
+| Add audio track / instrument track | `track.addAudio` / `track.addInstrument` | Ctrl+T / Ctrl+Shift+T |
+| Show browser / inspector / detail | `view.browser` / `view.inspector` / `view.detail` | Ctrl+Alt+B / Ctrl+Alt+I / Ctrl+Alt+D |
+| Device chain ⇄ clip view | `view.detailMode` | Tab |
+| Focus mode | `view.focus` | Ctrl+Alt+F |
+| Zoom in / out / to fit | `view.zoomIn` / `view.zoomOut` / `view.zoomFit` | = / − / Ctrl+0 |
+| Snap to grid | `view.snap` | Ctrl+4 |
+| New / open / save / save as | `file.new` / `file.open` / `file.save` / `file.saveAs` | Ctrl+N / Ctrl+O / Ctrl+S / Ctrl+Shift+S |
+| Audio settings | `app.audioSettings` | Ctrl+, |
+
+Each step adds its actions as it lands; the command palette (M2) lists the registry.
+
+## Timeline (C2)
+
+`model::Timeline` maps seconds to pixels for the arrangement and ruler.
+- **State:** visible start (seconds), pixels per second, width. Zoom is clamped to 0.5–20 000 px/s; the start is never negative.
+- **Zoom anchored at a point:** the time under the mouse (or the playhead, for keyboard zoom) stays put. Wheel and pinch zoom continuously and immediately. Button and keyboard zoom animate towards a target with an exponential ease (~80 ms), advanced once per frame.
+- **Scroll:** horizontal scroll by pixels; it can follow the playhead later (C5).
+- **Adaptive grid:** from the ladder 1/32 beat … 1/2 beat, 1 beat, 1, 2, 4, 8, 16, 32, 64 bars, the finest step whose lines are at least 10 px apart. Lines are tagged bar, beat or subdivision. Bar labels are thinned so they stay at least 56 px apart.
+- **Snapping:** to the nearest line of the current grid (what you see is what you snap to). Holding Alt suspends it; `view.snap` turns it off.
+- **Tempo:** `TempoMap` handles one tempo and time signature in M1. Tempo changes later only replace the TempoMap.
+
+`model::TrackLayout` handles the vertical axis: per-track heights (default 64 px, minimum 24), vertical scroll, the y of each track, and which track (and where in it) a y falls on.
+
+## Input (C2)
+
+| Input | Effect |
+|---|---|
+| Wheel / two-finger scroll | Vertical scroll; horizontal deltas scroll in time |
+| Shift + wheel | Horizontal scroll |
+| Ctrl + wheel, pinch | Zoom at the mouse |
+| Drag in the ruler | Vertical drag zooms around the mouse, horizontal drag scrolls (one gesture) |
+| Click in the ruler | Moves the playhead (C5) |
+
+## Arrangement drawing
+
+Layers, back to front:
+1. lane background (alternating tone steps);
+2. grid lines (bar, beat, subdivision at falling contrast);
+3. clips: flat clip colour, name, and the waveform in a lighter tint (C3);
+4. selection;
+5. loop brace (C5);
+6. playhead.
+
+Waveforms come from a background-built peak cache per file, plus cached drawing per clip and zoom level (C3), within the 8 ms budget (ADR 0015).
+
+## Later steps (outline)
+
+- **C3 waveform cache:** per-file min/max peaks at several resolutions, built on a background thread; per clip and zoom bucket, cached paths. A paint benchmark checks 32 tracks zooming in under 8 ms (Release, reference machine).
+- **C4 clip editing:**
+  - drag files in (onto a track, or below the last track to create one);
+  - move with snap (Alt = free), trim either edge, split, duplicate, delete, box select;
+  - one undo transaction per gesture.
+- **C5 transport:** play/stop, click-to-locate, tempo field, loop brace (drag in the ruler), metronome; follow the playhead while playing.
+- **C6 device chain:** the detail panel shows the selected track's chain. Native panels plus third-party cards; add (menu, until the browser lands), reorder by drag, bypass, delete; VST3/LV2 scan in a child process.
+- **C7 instrument tracks:** MIDI input monitoring through the track's instrument; `.mid` import as a read-only preview clip.
+- **C8 save/open:** `.fdproj` is tracktion's edit XML plus our view state; a round-trip test.

@@ -24,3 +24,4 @@ END_JUCE_MODULE_DECLARATION
 #include "controls/Knob.h"
 #include "controls/Toggle.h"
 #include "controls/Meter.h"
+#include "controls/Icons.h"

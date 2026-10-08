@@ -26,8 +26,11 @@ Theme base()
     t.meterNormal = hex(0x45C97A);
     t.meterHot = hex(0xE8C547);
     t.meterClip = hex(0xF0505A);
-    t.clipColours = {hex(0xD9824A), hex(0xD4B04A), hex(0x7DBA5A), hex(0x46B3A3),
-                     hex(0x4F8FD6), hex(0x8E74D6), hex(0xCC6699), hex(0xC95454)};
+    // 16 hues at equal perceptual lightness and chroma (OKLCH L 0.70, C 0.115), so no clip
+    // shouts louder than another on the dark canvas.
+    t.clipColours = {hex(0xDD8273), hex(0xD78958), hex(0xC89344), hex(0xB19F42), hex(0x92AA54), hex(0x6FB171),
+                     hex(0x4CB58C), hex(0x29B5A8), hex(0x1DB2C0), hex(0x3AADD4), hex(0x5CA5E1), hex(0x809BE6),
+                     hex(0x9D92E1), hex(0xB689D2), hex(0xCA82BB), hex(0xD67FA2)};
     return t;
 }
 

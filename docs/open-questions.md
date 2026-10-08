@@ -40,6 +40,7 @@ Decisions still to be made. Once a question is answered, record the answer in an
 | B9 | **Crash reports and telemetry** | M7 | No telemetry; optional, explicit opt-in crash reports |
 | B10 | **Languages** | After 1.0 | English only until 1.0; prepare strings for translation from M1 |
 | B11 | **Windows/macOS manual testing and Live A/B:** who, on what machine | Before the first public plugin release | CI covers automated tests on all three platforms meanwhile; find a tester or a second machine before release |
+| B12 | **Compact device views** (EQ's 3-band view first): what a compact view shows when the full view's bands or settings don't fit its fixed layout, without changing the sound | A design pass over the devices (after M1) | Product owner, 2026-10-10: skip for now; full views only until a dedicated pass |
 
 ---
 
