@@ -6,6 +6,7 @@
 # |-----------------------|------------------|--------------------|------------------------------|
 # | nlohmann/json         | v3.12.0          | MIT                | libs/device (state JSON)     |
 # | dr_libs (dr_wav)      | dfe83776         | MIT-0 / Unlicense  | libs/testkit (WAV I/O)       |
+# | elliptic-blep         | 77bf9866         | MIT                | libs/dsp (oscillators)       |
 # | Catch2                | v3.16.1          | BSL-1.0            | tests                        |
 # | JUCE                  | 9.0.3            | AGPL-3.0 / comm.   | modules, plugins, app        |
 # | clap-juce-extensions  | 7adee3a1         | MIT                | plugins (CLAP)               |
@@ -27,6 +28,15 @@ CPMAddPackage(
     DOWNLOAD_ONLY YES)
 add_library(fd_dep_dr_wav INTERFACE)
 target_include_directories(fd_dep_dr_wav SYSTEM INTERFACE "${dr_libs_SOURCE_DIR}")
+
+# Signalsmith elliptic BLEP: band-limited oscillators (ADC24 talk code, header-only).
+CPMAddPackage(
+    NAME elliptic_blep
+    GITHUB_REPOSITORY Signalsmith-Audio/elliptic-blep
+    GIT_TAG 77bf9866b705ddffe4870b40020411cf9192cf3b
+    DOWNLOAD_ONLY YES)
+add_library(fd_dep_elliptic_blep INTERFACE)
+target_include_directories(fd_dep_elliptic_blep SYSTEM INTERFACE "${elliptic_blep_SOURCE_DIR}")
 
 if(FD_BUILD_TESTS)
     CPMAddPackage(
