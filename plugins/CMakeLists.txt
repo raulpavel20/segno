@@ -84,3 +84,7 @@ fd_add_device_plugin(ID utility NAME "Utility" CODE Futl KIND effect
 fd_add_device_plugin(ID saturator NAME "Saturator" CODE Fsat KIND effect
     VST3_CATEGORIES Fx Distortion
     CLAP_FEATURES audio-effect distortion stereo mono)
+
+fd_add_device_plugin(ID eq NAME "EQ" CODE Feq1 KIND effect
+    VST3_CATEGORIES Fx EQ
+    CLAP_FEATURES audio-effect equalizer stereo mono)
