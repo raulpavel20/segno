@@ -109,15 +109,57 @@ Session::Impl::Impl(Session& o, te::Engine& e) : owner(o), engine(e)
         ++i;
     }
     edit->getUndoManager().clearUndoHistory();
+
+    // Live MIDI (C7): the computer keyboard is one more input. tracktion fills its device
+    // list asynchronously (and again when devices come and go): midiDevicesChanged() sets
+    // every input up and re-applies the routing.
+    auto& devices = engine.getDeviceManager();
+    if (!std::any_of(devices.getMidiInDevices().begin(), devices.getMidiInDevices().end(),
+                     [](const auto& d) { return d->getName() == computerKeyboardName; }))
+        (void)devices.createVirtualMidiDevice(computerKeyboardName);
+    devices.addChangeListener(this);
+    midiDevicesChanged();
+
     rebuildSnapshot();
     edit->state.addListener(this);
 }
 
 Session::Impl::~Impl()
 {
+    engine.getDeviceManager().removeChangeListener(this);
     cancelPendingUpdate();
     edit->state.removeListener(this);
     edit->getTransport().stop(false, true);
+}
+
+void Session::Impl::midiDevicesChanged()
+{
+    for (auto& in : engine.getDeviceManager().getMidiInDevices())
+    {
+        if (!in->isEnabled())
+            in->setEnabled(true);
+        if (in->getMonitorMode() != te::InputDevice::MonitorMode::on)
+            in->setMonitorMode(te::InputDevice::MonitorMode::on);
+    }
+    edit->getTransport().ensureContextAllocated(true); // instances for new inputs
+    applyMidiTarget();
+}
+
+void Session::Impl::applyMidiTarget()
+{
+    // Only the virtual inputs: "All MIDI Ins" (every physical device, merged) and the computer
+    // keyboard. Routing the physical devices too would play every note twice.
+    auto* target = midiTarget ? track(*midiTarget) : nullptr;
+    for (auto* instance : edit->getAllInputDevices())
+    {
+        if (instance->getInputDevice().getDeviceType() != te::InputDevice::virtualMidiDevice)
+            continue;
+        for (auto id : instance->getTargets())
+            if (target == nullptr || id != target->itemID)
+                (void)instance->removeTarget(id, nullptr);
+        if (target != nullptr && !instance->getTargets().contains(target->itemID))
+            (void)instance->setTarget(target->itemID, true, nullptr, 0);
+    }
 }
 
 void Session::Impl::changed(juce::ValueTree& tree)
@@ -160,6 +202,13 @@ void Session::Impl::rebuildSnapshot()
             clip.length = pos.getLength().inSeconds();
             clip.offset = pos.getOffset().inSeconds();
             clip.colour = static_cast<int>(c->state.getProperty(kColourId, info.colour));
+            if (auto* midi = dynamic_cast<te::MidiClip*>(c))
+                for (auto* n : midi->getSequence().getNotes())
+                {
+                    const double noteStart = n->getEditStartTime(*midi).inSeconds();
+                    clip.notes.push_back({n->getNoteNumber(), noteStart - clip.start,
+                                          n->getEditEndTime(*midi).inSeconds() - noteStart, static_cast<float>(n->getVelocity()) / 127.0f});
+                }
             if (auto* audio = dynamic_cast<te::AudioClipBase*>(c))
             {
                 clip.sourcePath = audio->getOriginalFile().getFullPathName().toStdString();
@@ -198,6 +247,45 @@ te::AudioTrack* Session::Impl::track(std::uint64_t id) const
         if (t->itemID.getRawID() == id)
             return t;
     return nullptr;
+}
+
+te::AudioTrack* Session::Impl::insertTrack(const juce::String& name)
+{
+    const int count = te::getAudioTracks(*edit).size();
+    auto track = edit->insertNewAudioTrack(te::TrackInsertPoint::getEndOfTracks(*edit), nullptr);
+    if (track == nullptr)
+        return nullptr;
+    track->setName(juce::String(count + 1) + " " + name);
+    track->state.setProperty(kColourId, count * 3 % kPaletteSize, &edit->getUndoManager());
+    return track.get();
+}
+
+te::Plugin* Session::Impl::insertDevice(te::AudioTrack& track, const std::string& key, int index)
+{
+    te::Plugin::Ptr plugin;
+    if (key.starts_with("fd:"))
+        plugin = edit->getPluginCache().createNewPlugin(DevicePlugin::typeNameFor(key.substr(3)), {});
+    else if (key.starts_with("ext:"))
+        if (auto desc = engine.getPluginManager().knownPluginList.getTypeForIdentifierString(key.substr(4)))
+            plugin = edit->getPluginCache().createNewPlugin(te::ExternalPlugin::xmlTypeName, *desc);
+    if (plugin == nullptr)
+        return nullptr;
+
+    // Chain index -> plugin list index: before the device at `index`, or before the mixer
+    // plugins at the end.
+    const auto devices = chain(track);
+    int at = track.pluginList.size();
+    if (index >= 0 && index < static_cast<int>(devices.size()))
+        at = track.pluginList.indexOf(devices[static_cast<size_t>(index)]);
+    else
+        for (int i = 0; i < track.pluginList.size(); ++i)
+            if (isMixerPlugin(track.pluginList[i]))
+            {
+                at = i;
+                break;
+            }
+    track.pluginList.insertPlugin(plugin, at, nullptr);
+    return plugin.get();
 }
 
 std::vector<te::Plugin*> Session::Impl::chain(te::AudioTrack& track)
@@ -318,14 +406,73 @@ void Session::setTimeSignature(int numerator, int denominator)
 std::uint64_t Session::addAudioTrack()
 {
     impl_->beginEdit();
-    auto& edit = *impl_->edit;
-    const int count = te::getAudioTracks(edit).size();
-    auto track = edit.insertNewAudioTrack(te::TrackInsertPoint::getEndOfTracks(edit), nullptr);
+    auto* track = impl_->insertTrack("Audio");
+    return track != nullptr ? track->itemID.getRawID() : 0;
+}
+
+std::uint64_t Session::addInstrumentTrack(const std::string& deviceKey)
+{
+    impl_->beginEdit(); // the track and its instrument are one undo step
+    std::string name = "Instrument";
+    for (const auto& d : availableDevices())
+        if (d.key == deviceKey)
+            name = d.name;
+    auto* track = impl_->insertTrack(juce::String::fromUTF8(name.c_str()));
     if (track == nullptr)
         return 0;
-    track->setName(juce::String(count + 1) + " Audio");
-    track->state.setProperty(kColourId, count * 3 % kPaletteSize, &edit.getUndoManager());
+    impl_->insertDevice(*track, deviceKey, 0);
     return track->itemID.getRawID();
+}
+
+std::uint64_t Session::insertMidiFile(std::uint64_t trackId, const juce::File& file, double seconds)
+{
+    auto* track = impl_->track(trackId);
+    juce::FileInputStream in(file);
+    juce::MidiFile midi;
+    if (track == nullptr || !in.openedOk() || !midi.readFrom(in))
+        return 0;
+    midi.convertTimestampTicksToSeconds();
+    juce::MidiMessageSequence all;
+    for (int i = 0; i < midi.getNumTracks(); ++i)
+        all.addSequence(*midi.getTrack(i), 0.0);
+    all.updateMatchedPairs();
+    const double length = std::max(0.1, all.getEndTime());
+
+    impl_->beginEdit();
+    const auto start = te::TimePosition::fromSeconds(std::max(0.0, seconds));
+    auto clip = track->insertMIDIClip(file.getFileNameWithoutExtension(), {start, start + te::TimeDuration::fromSeconds(length)},
+                                      nullptr);
+    if (clip == nullptr)
+        return 0;
+    // The import takes edit times: shift the file's times to the clip's start.
+    all.addTimeToMessages(start.inSeconds());
+    clip->getSequence().importMidiSequence(all, impl_->edit.get(), start, &impl_->edit->getUndoManager());
+    return clip->itemID.getRawID();
+}
+
+void Session::setMidiInputTarget(std::optional<std::uint64_t> trackId)
+{
+    impl_->midiTarget = trackId;
+    impl_->applyMidiTarget();
+}
+
+std::optional<std::uint64_t> Session::midiInputTarget() const
+{
+    return impl_->midiTarget;
+}
+
+void Session::computerKeyboardNote(int note, float velocity)
+{
+    for (auto& in : impl_->engine.getDeviceManager().getMidiInDevices())
+        if (in->getName() == computerKeyboardName)
+            if (auto* keyboard = dynamic_cast<te::VirtualMidiInputDevice*>(in.get()))
+            {
+                auto message = velocity > 0.0f
+                                   ? juce::MidiMessage::noteOn(1, juce::jlimit(0, 127, note), velocity)
+                                   : juce::MidiMessage::noteOff(1, juce::jlimit(0, 127, note));
+                message.setTimeStamp(juce::Time::getMillisecondCounterHiRes() * 0.001);
+                keyboard->handleIncomingMidiMessage(message, te::MPESourceID{1});
+            }
 }
 
 std::uint64_t Session::insertAudioFile(std::uint64_t trackId, const juce::File& file, double seconds)
@@ -436,32 +583,9 @@ std::uint64_t Session::addDevice(std::uint64_t trackId, const std::string& key, 
     auto* track = impl_->track(trackId);
     if (track == nullptr)
         return 0;
-    auto& edit = *impl_->edit;
-    te::Plugin::Ptr plugin;
-    if (key.starts_with("fd:"))
-        plugin = edit.getPluginCache().createNewPlugin(DevicePlugin::typeNameFor(key.substr(3)), {});
-    else if (key.starts_with("ext:"))
-        if (auto desc = impl_->engine.getPluginManager().knownPluginList.getTypeForIdentifierString(key.substr(4)))
-            plugin = edit.getPluginCache().createNewPlugin(te::ExternalPlugin::xmlTypeName, *desc);
-    if (plugin == nullptr)
-        return 0;
-
-    // Chain index -> plugin list index: before the device at `index`, or before the mixer
-    // plugins at the end.
-    const auto devices = Impl::chain(*track);
-    int at = track->pluginList.size();
-    if (index >= 0 && index < static_cast<int>(devices.size()))
-        at = track->pluginList.indexOf(devices[static_cast<size_t>(index)]);
-    else
-        for (int i = 0; i < track->pluginList.size(); ++i)
-            if (isMixerPlugin(track->pluginList[i]))
-            {
-                at = i;
-                break;
-            }
     impl_->beginEdit();
-    track->pluginList.insertPlugin(plugin, at, nullptr);
-    return plugin->itemID.getRawID();
+    auto* plugin = impl_->insertDevice(*track, key, index);
+    return plugin != nullptr ? plugin->itemID.getRawID() : 0;
 }
 
 void Session::removeDevice(std::uint64_t deviceId)

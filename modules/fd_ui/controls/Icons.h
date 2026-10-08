@@ -17,7 +17,8 @@ enum class Icon
     Plus,
     Settings,
     Undo,
-    Redo
+    Redo,
+    Keyboard // computer keyboard as MIDI input
 };
 
 /// Draws `icon` fitted (aspect kept) into `area` in `colour`.

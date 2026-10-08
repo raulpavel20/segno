@@ -2,6 +2,7 @@
 
 #include "engine/DevicePlugin.h"
 #include "engine/Session.h"
+#include "engine/SessionImpl.h"
 #include "model/Editing.h"
 #include "fd/testkit/Signals.h"
 #include "fd/testkit/WavIO.h"
@@ -235,3 +236,77 @@ TEST_CASE("a scanned third-party plugin can be added to a chain", "[integration]
     CHECK(session.openDevice(id) == nullptr); // no native panel: shown as a card
 }
 #endif
+
+TEST_CASE("instrument tracks, MIDI files and live MIDI routing", "[integration]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    tracktion::Engine engine{"fd-integration-tests"};
+    fd::engine::registerDevices(engine);
+    fd::engine::Session session(engine);
+    const auto before = session.snapshot()->tracks.size();
+
+    // One undo step: the track and its instrument.
+    const auto synthTrack = session.addInstrumentTrack();
+    session.updateSnapshotNow();
+    REQUIRE(session.snapshot()->tracks.size() == before + 1);
+    const auto& t = session.snapshot()->tracks.back();
+    CHECK(t.id == synthTrack);
+    CHECK(t.kind == fd::model::TrackInfo::Kind::Instrument);
+    REQUIRE(t.devices.size() == 1);
+    CHECK(t.devices[0].deviceId == "subtractive-synth");
+    CHECK(juce::String(t.name).contains("Subtractive Synth"));
+    session.undo();
+    session.updateSnapshotNow();
+    CHECK(session.snapshot()->tracks.size() == before);
+    session.redo();
+
+    // A MIDI file: three notes at 0, 0.5 and 1 s (120 BPM file), inserted at 2 s.
+    juce::TemporaryFile mid(".mid");
+    {
+        juce::MidiMessageSequence seq;
+        for (int i = 0; i < 3; ++i)
+        {
+            seq.addEvent(juce::MidiMessage::noteOn(1, 60 + i * 4, 0.8f), i * 480.0);
+            seq.addEvent(juce::MidiMessage::noteOff(1, 60 + i * 4), i * 480.0 + 240.0);
+        }
+        seq.addEvent(juce::MidiMessage::tempoMetaEvent(500000), 0.0); // 120 BPM: 960 ticks per second
+        seq.updateMatchedPairs();
+        juce::MidiFile file;
+        file.setTicksPerQuarterNote(480);
+        file.addTrack(seq);
+        juce::FileOutputStream out(mid.getFile());
+        REQUIRE(out.openedOk());
+        REQUIRE(file.writeTo(out));
+    }
+    const auto clip = session.insertMidiFile(synthTrack, mid.getFile(), 2.0);
+    REQUIRE(clip != 0);
+    session.updateSnapshotNow();
+    const auto found = fd::model::findClip(*session.snapshot(), clip);
+    REQUIRE(found);
+    CHECK(found->first->kind == fd::model::ClipInfo::Kind::Midi);
+    CHECK(found->first->start == Approx(2.0));
+    REQUIRE(found->first->notes.size() == 3);
+    CHECK(found->first->notes[1].pitch == 64);
+    CHECK(found->first->notes[1].start == Approx(0.5).margin(0.01));
+    CHECK(found->first->notes[1].length == Approx(0.25).margin(0.01));
+
+    // Live MIDI follows the selected instrument track; no undo steps. The device list (with the
+    // computer keyboard input) arrives asynchronously: the routing must follow when it does.
+    const bool couldUndo = session.canUndo();
+    session.setMidiInputTarget(synthTrack);
+    CHECK(session.midiInputTarget() == synthTrack);
+    auto routed = [&] {
+        for (auto* instance : session.impl().edit->getAllInputDevices())
+            if (instance->getInputDevice().getName() == fd::engine::Session::computerKeyboardName)
+                return instance->getTargets().contains(tracktion::EditItemID::fromRawID(synthTrack));
+        return false;
+    };
+    for (int i = 0; i < 50 && !routed(); ++i)
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(100);
+    CHECK(routed());
+    session.computerKeyboardNote(60, 0.8f); // reaches the virtual input without errors
+    session.computerKeyboardNote(60, 0.0f);
+    session.setMidiInputTarget(std::nullopt);
+    CHECK_FALSE(session.midiInputTarget());
+    CHECK(session.canUndo() == couldUndo);
+}

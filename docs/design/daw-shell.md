@@ -69,6 +69,8 @@ app/src/
 | Split at playhead or selection | `edit.split` | Ctrl+E |
 | Select all | `edit.selectAll` | Ctrl+A |
 | Add audio track / instrument track | `track.addAudio` / `track.addInstrument` | Ctrl+T / Ctrl+Shift+T |
+| Computer keyboard as MIDI | `midi.computerKeyboard` | Ctrl+Shift+K |
+| Scan for plugins | `app.scanPlugins` | Ctrl+Alt+P |
 | Show browser / inspector / detail | `view.browser` / `view.inspector` / `view.detail` | Ctrl+Alt+B / Ctrl+Alt+I / Ctrl+Alt+D |
 | Device chain ⇄ clip view | `view.detailMode` | Tab |
 | Focus mode | `view.focus` | Ctrl+Alt+F |
@@ -123,6 +125,18 @@ Waveforms come from a background-built peak cache per file, plus cached drawing 
 - **Selection:** click; Shift or Ctrl toggles; a drag on empty lanes box-selects (Shift adds); the selected track follows the click.
 - **During a drag**, clips are drawn at their new place from the model's result. On release the Session applies it as one undo step, and the preview stays until the new snapshot arrives (no flicker).
 - **Commands:** delete, duplicate (copies placed right after the selection), split at the playhead (the selected clips, or the selected track's clips under the playhead), select all.
+
+## Instrument tracks and live MIDI (C7)
+
+- **Instrument tracks:** Ctrl+Shift+T adds a track with the Subtractive Synth as its first device, as one undo step. Any instrument can replace it through the chain.
+- **Live MIDI follows the selection.** Selecting an instrument track routes live MIDI to it, with monitoring always on; selecting anything else routes it nowhere. This is not an edit, so it adds no undo step.
+  - Only tracktion's virtual inputs are routed: "All MIDI Ins" (every physical device, merged) and our "Computer keyboard". Routing physical devices too would double every note.
+  - The device list arrives asynchronously and changes when devices are plugged in; the Session re-applies the routing each time.
+- **Computer keyboard** (Ctrl+Shift+K, the keyboard button in the transport bar):
+  - A W S E D F T G Y H U J K O L P ; play from C (C3 at the start);
+  - Z / X shift octaves, C / V change velocity;
+  - keys held with Ctrl or Alt stay shortcuts.
+- **MIDI files:** `.mid` dropped on a track becomes a clip with all of the file's tracks merged. Dropped below the tracks, it creates an instrument track. The clip shows its notes across its own pitch range; editing them is the piano roll (M2).
 
 ## Device chain (C6)
 
@@ -189,5 +203,5 @@ A software-renderer benchmark also runs offscreen in the integration tests (`"[.
 - **C4 clip editing** (built, see below).
 - **C5 transport** (built, see below).
 - **C6 device chain** (built, see below).
-- **C7 instrument tracks:** MIDI input monitoring through the track's instrument; `.mid` import as a read-only preview clip.
+- **C7 instrument tracks** (built, see below).
 - **C8 save/open:** `.fdproj` is tracktion's edit XML plus our view state; a round-trip test.

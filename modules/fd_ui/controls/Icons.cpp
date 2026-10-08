@@ -92,6 +92,20 @@ Glyph glyph(Icon icon)
             p.addEllipse(knob - 1.5f, y - 1.5f, 3.0f, 3.0f);
         }
         break;
+    case Icon::Keyboard:
+        // A piano octave: outline, key gaps and three black keys.
+        p.addRoundedRectangle(1.5f, 3.5f, 13.0f, 9.0f, 1.0f);
+        for (float x : {5.0f, 8.0f, 11.0f})
+        {
+            p.startNewSubPath(x, 8.5f);
+            p.lineTo(x, 12.5f);
+        }
+        for (float x : {5.0f, 8.0f, 11.0f})
+        {
+            p.startNewSubPath(x, 3.5f);
+            p.lineTo(x, 8.0f);
+        }
+        break;
     case Icon::Undo:
     case Icon::Redo:
     {

@@ -40,6 +40,7 @@ public:
     [[nodiscard]] bool isSnapEnabled() const noexcept { return snap_; }
 
     [[nodiscard]] std::optional<std::uint64_t> selectedTrack() const noexcept { return selectedTrack_; }
+    void selectTrack(std::optional<std::uint64_t> track) { select(track); }
     [[nodiscard]] const std::set<std::uint64_t>& selectedClips() const noexcept { return selectedClips_; }
     /// Track or clip selection changed.
     std::function<void(std::optional<std::uint64_t>)> onSelectionChanged;
@@ -94,6 +95,7 @@ private:
     void paintRuler(juce::Graphics& g);
     void paintHeaders(juce::Graphics& g);
     void paintLanes(juce::Graphics& g);
+    void paintNotes(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body, juce::Colour colour);
     void paintWaveform(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body,
                        juce::Rectangle<int> visible, juce::Colour colour);
 

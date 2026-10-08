@@ -30,6 +30,7 @@ TransportBar::TransportBar(engine::Session& session, const ActionRegistry& actio
     add(stop_, "transport.toStart");
     add(loop_, "transport.loop");
     add(metronome_, "transport.metronome");
+    add(keyboard_, "midi.computerKeyboard");
 
     // Tempo and time signature: drag or type (each edit is one undo step).
     tempoField_.setRange(20.0, 999.0, 0.01);
@@ -151,6 +152,7 @@ void TransportBar::resized()
     r.removeFromLeft(8);
     loop_.setBounds(square(r, true));
     metronome_.setBounds(square(r, true));
+    keyboard_.setBounds(square(r, true));
     r.removeFromLeft(16);
     tempoField_.setBounds(r.removeFromLeft(54));
     r.removeFromLeft(34); // "BPM"

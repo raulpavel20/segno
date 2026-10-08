@@ -52,7 +52,7 @@ private:
     engine::Session& session_;
     const ActionRegistry& actions_;
     ui::IconButton play_{ui::Icon::Play}, stop_{ui::Icon::Stop};
-    ui::IconButton loop_{ui::Icon::Loop}, metronome_{ui::Icon::Metronome};
+    ui::IconButton loop_{ui::Icon::Loop}, metronome_{ui::Icon::Metronome}, keyboard_{ui::Icon::Keyboard};
     ui::NumberField tempoField_, numeratorField_, denominatorField_;
     ui::IconButton browser_{ui::Icon::PanelLeft}, detail_{ui::Icon::PanelBottom}, inspector_{ui::Icon::PanelRight};
     ui::IconButton settings_{ui::Icon::Settings};

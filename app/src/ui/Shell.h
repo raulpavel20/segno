@@ -4,6 +4,8 @@
 #include "ui/ArrangementView.h"
 #include "ui/Panels.h"
 
+#include <map>
+
 namespace fd::app
 {
 /// The window content (docs/design/daw-shell.md, C1): transport bar, browser, arrangement,
@@ -30,6 +32,7 @@ public:
     void paintOverChildren(juce::Graphics& g) override;
     void resized() override;
     bool keyPressed(const juce::KeyPress& key) override;
+    bool keyStateChanged(bool isKeyDown) override;
 
 private:
     struct Panel
@@ -84,6 +87,14 @@ private:
     };
     std::optional<Benchmark> benchmark_;
     juce::TemporaryFile benchmarkFile_{".wav"};
+
+    // Computer keyboard as MIDI input (C7): A W S E D F T G Y H U J K O L P ; play an octave
+    // and a third from C; Z / X shift octaves, C / V velocity.
+    bool computerKeyboard_ = false;
+    int keyboardOctave_ = 0;
+    float keyboardVelocity_ = 0.8f;
+    std::map<int, int> heldKeys_; // key code -> note
+    bool handleComputerKeyboard(const juce::KeyPress& key);
 
     juce::String warning_;
     double warningUntil_ = 0.0;

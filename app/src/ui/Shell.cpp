@@ -117,6 +117,18 @@ void Shell::registerActions()
                   .perform = [this] { arrangement_.splitAtPlayhead(); }});
     actions_.add({.id = "edit.selectAll", .name = "Select all clips", .category = "Edit", .keys = {key('a', kCmd)},
                   .perform = [this] { arrangement_.selectAllClips(); }});
+    actions_.add({.id = "track.addInstrument", .name = "Add instrument track", .category = "Track",
+                  .keys = {key('t', kCmd | kShift)},
+                  .perform = [this] { arrangement_.selectTrack(session_.addInstrumentTrack()); }});
+    actions_.add({.id = "midi.computerKeyboard", .name = "Computer keyboard as MIDI", .category = "MIDI",
+                  .keys = {key('k', kCmd | kShift)},
+                  .perform = [this] {
+                      computerKeyboard_ = !computerKeyboard_;
+                      for (const auto& [code, note] : heldKeys_)
+                          session_.computerKeyboardNote(note, 0.0f);
+                      heldKeys_.clear();
+                  },
+                  .isToggled = [this] { return computerKeyboard_; }});
     actions_.add({.id = "track.addAudio", .name = "Add audio track", .category = "Track", .keys = {key('t', kCmd)},
                   .perform = [&s] { s.addAudioTrack(); }});
 
@@ -164,7 +176,56 @@ bool Shell::keyPressed(const juce::KeyPress& k)
 {
     if (dynamic_cast<juce::TextEditor*>(juce::Component::getCurrentlyFocusedComponent()) != nullptr)
         return false; // typing goes to the text field
+    if (computerKeyboard_ && handleComputerKeyboard(k))
+        return true;
     return actions_.handleKey(k);
+}
+
+bool Shell::handleComputerKeyboard(const juce::KeyPress& k)
+{
+    if (k.getModifiers().isCommandDown() || k.getModifiers().isAltDown())
+        return false; // shortcuts keep working
+    static const std::map<juce::juce_wchar, int> semitones{{'a', 0},  {'w', 1},  {'s', 2},  {'e', 3},  {'d', 4},
+                                                           {'f', 5},  {'t', 6},  {'g', 7},  {'y', 8},  {'h', 9},
+                                                           {'u', 10}, {'j', 11}, {'k', 12}, {'o', 13}, {'l', 14},
+                                                           {'p', 15}, {';', 16}};
+    const auto c = juce::CharacterFunctions::toLowerCase(k.getTextCharacter());
+    if (c == 'z' || c == 'x')
+    {
+        keyboardOctave_ = juce::jlimit(-4, 4, keyboardOctave_ + (c == 'x' ? 1 : -1));
+        showWarning("Computer keyboard: C" + juce::String(3 + keyboardOctave_));
+        return true;
+    }
+    if (c == 'c' || c == 'v')
+    {
+        keyboardVelocity_ = juce::jlimit(0.1f, 1.0f, keyboardVelocity_ + (c == 'v' ? 0.1f : -0.1f));
+        showWarning("Computer keyboard velocity: " + juce::String(juce::roundToInt(keyboardVelocity_ * 127.0f)));
+        return true;
+    }
+    const auto it = semitones.find(c);
+    if (it == semitones.end())
+        return false;
+    if (!heldKeys_.contains(k.getKeyCode())) // ignore auto-repeat
+    {
+        const int note = 60 + 12 * keyboardOctave_ + it->second;
+        heldKeys_[k.getKeyCode()] = note;
+        session_.computerKeyboardNote(note, keyboardVelocity_);
+    }
+    return true;
+}
+
+bool Shell::keyStateChanged(bool)
+{
+    // Note-offs: a held key is no longer down.
+    for (auto it = heldKeys_.begin(); it != heldKeys_.end();)
+        if (!juce::KeyPress::isKeyCurrentlyDown(it->first))
+        {
+            session_.computerKeyboardNote(it->second, 0.0f);
+            it = heldKeys_.erase(it);
+        }
+        else
+            ++it;
+    return false;
 }
 
 void Shell::toggle(Panel& p)
@@ -201,6 +262,10 @@ std::optional<model::TrackInfo> Shell::selectedTrackInfo() const
 void Shell::selectionChanged(std::optional<std::uint64_t>)
 {
     const auto info = selectedTrackInfo();
+    // Live MIDI plays the selected track's instrument (auto-arm); other tracks hear nothing.
+    const auto target = info && info->kind == model::TrackInfo::Kind::Instrument ? std::optional(info->id) : std::nullopt;
+    if (target != session_.midiInputTarget())
+        session_.setMidiInputTarget(target);
     const auto& clips = arrangement_.selectedClips();
     std::optional<model::ClipInfo> clip;
     if (clips.size() == 1)

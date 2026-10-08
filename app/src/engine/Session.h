@@ -80,6 +80,10 @@ public:
     // ---- editing (each call is one undoable step) --------------------------------------
 
     std::uint64_t addAudioTrack();
+    /// A new track with the instrument `deviceKey` (see AvailableDevice) as its first device.
+    std::uint64_t addInstrumentTrack(const std::string& deviceKey = "fd:subtractive-synth");
+    /// Inserts a MIDI file as a clip at `seconds` (all of its tracks merged); returns the clip id.
+    std::uint64_t insertMidiFile(std::uint64_t trackId, const juce::File& file, double seconds);
     /// Inserts `file` on `trackId` at `seconds`; returns the clip id, or 0 if the file is not
     /// readable audio.
     std::uint64_t insertAudioFile(std::uint64_t trackId, const juce::File& file, double seconds);
@@ -91,6 +95,16 @@ public:
     void deleteClips(const std::vector<std::uint64_t>& ids);
     /// Splits the clips that contain `seconds`; returns the ids of the new right-hand parts.
     std::vector<std::uint64_t> splitClips(const std::vector<std::uint64_t>& ids, double seconds);
+
+    // ---- live MIDI input (C7) -----------------------------------------------------------
+
+    /// Every MIDI input (devices and the computer keyboard) plays this track's instrument, live;
+    /// nullopt routes them nowhere. Not an edit (no undo step).
+    void setMidiInputTarget(std::optional<std::uint64_t> trackId);
+    [[nodiscard]] std::optional<std::uint64_t> midiInputTarget() const;
+    /// The computer keyboard as a MIDI input: a note on (velocity > 0) or off.
+    void computerKeyboardNote(int note, float velocity);
+    static constexpr const char* computerKeyboardName = "Computer keyboard";
 
     // ---- device chains (C6; each call is one undoable step) -----------------------------
 

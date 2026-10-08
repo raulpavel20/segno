@@ -11,6 +11,11 @@ bool isAudioFile(const juce::String& path)
     return juce::File(path).hasFileExtension("wav;wave;w64;aif;aiff;aifc;flac;mp3");
 }
 
+bool isMidiFile(const juce::String& path)
+{
+    return juce::File(path).hasFileExtension("mid;midi");
+}
+
 juce::Colour paletteColour(int index)
 {
     const auto& colours = ui::Theme::current().clipColours;
@@ -451,7 +456,10 @@ void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, 
     const auto title = box.withHeight(strip);
     g.setColour(colour);
     g.fillRect(title);
-    paintWaveform(g, clip, box.withTrimmedTop(strip), visible, colour);
+    if (clip.kind == model::ClipInfo::Kind::Midi)
+        paintNotes(g, clip, box.withTrimmedTop(strip).reduced(0.0f, 2.0f), colour);
+    else
+        paintWaveform(g, clip, box.withTrimmedTop(strip), visible, colour);
     if (title.getWidth() > 16.0f && strip >= 10.0f)
     {
         g.setColour(t.surface0);
@@ -463,6 +471,32 @@ void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, 
     {
         g.setColour(t.textPrimary);
         g.drawRect(box, 1.0f);
+    }
+}
+
+void ArrangementView::paintNotes(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body,
+                                 juce::Colour colour)
+{
+    // Read-only preview (piano roll editing is M2): notes across the clip's own pitch range.
+    if (clip.notes.empty() || body.getHeight() < 4.0f)
+        return;
+    int lo = 127, hi = 0;
+    for (const auto& n : clip.notes)
+    {
+        lo = std::min(lo, n.pitch);
+        hi = std::max(hi, n.pitch);
+    }
+    const int span = std::max(12, hi - lo + 1);
+    lo = std::max(0, (lo + hi) / 2 - span / 2);
+    const float row = body.getHeight() / static_cast<float>(span);
+    g.setColour(colour.interpolatedWith(juce::Colours::white, 0.25f));
+    juce::Graphics::ScopedSaveState saved(g);
+    g.reduceClipRegion(body.getSmallestIntegerContainer());
+    for (const auto& n : clip.notes)
+    {
+        const float x0 = laneX(clip.start + n.start), x1 = laneX(clip.start + n.start + n.length);
+        const float y = body.getBottom() - static_cast<float>(n.pitch - lo + 1) * row;
+        g.fillRect(juce::Rectangle<float>(x0, y, std::max(1.0f, x1 - x0 - 1.0f), std::max(1.0f, row - 1.0f)));
     }
 }
 
@@ -754,7 +788,7 @@ void ArrangementView::mouseMagnify(const juce::MouseEvent& e, float scaleFactor)
 
 bool ArrangementView::isInterestedInFileDrag(const juce::StringArray& files)
 {
-    return std::any_of(files.begin(), files.end(), [](const juce::String& f) { return isAudioFile(f); });
+    return std::any_of(files.begin(), files.end(), [](const juce::String& f) { return isAudioFile(f) || isMidiFile(f); });
 }
 
 void ArrangementView::fileDragMove(const juce::StringArray&, int x, int y)
@@ -783,14 +817,17 @@ void ArrangementView::filesDropped(const juce::StringArray& files, int x, int y)
     std::optional<std::uint64_t> first;
     for (const auto& path : files)
     {
-        if (!isAudioFile(path))
+        const bool midi = isMidiFile(path);
+        if (!isAudioFile(path) && !midi)
             continue;
         std::uint64_t trackId = 0;
         if (target >= 0 && target < static_cast<int>(snapshot_->tracks.size()))
             trackId = snapshot_->tracks[static_cast<size_t>(target)].id;
         else
-            trackId = session_.addAudioTrack();
-        if (session_.insertAudioFile(trackId, juce::File(path), seconds) != 0 && !first)
+            trackId = midi ? session_.addInstrumentTrack() : session_.addAudioTrack();
+        const auto clip = midi ? session_.insertMidiFile(trackId, juce::File(path), seconds)
+                               : session_.insertAudioFile(trackId, juce::File(path), seconds);
+        if (clip != 0 && !first)
             first = trackId;
         if (target >= 0)
             ++target;

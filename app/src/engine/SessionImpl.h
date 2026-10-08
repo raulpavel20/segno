@@ -10,7 +10,7 @@ namespace te = tracktion;
 
 class PluginScanner;
 
-struct Session::Impl final : private juce::ValueTree::Listener, private juce::AsyncUpdater
+struct Session::Impl final : private juce::ValueTree::Listener, private juce::AsyncUpdater, private juce::ChangeListener
 {
     Impl(Session& owner, te::Engine& engine);
     ~Impl() override;
@@ -19,10 +19,17 @@ struct Session::Impl final : private juce::ValueTree::Listener, private juce::As
     [[nodiscard]] te::AudioTrack* track(std::uint64_t id) const;
     [[nodiscard]] te::Clip* clip(std::uint64_t id) const;
     [[nodiscard]] te::Plugin* plugin(std::uint64_t id) const;
+    // Edit steps without starting an undo transaction (commands compose them).
+    te::AudioTrack* insertTrack(const juce::String& name);
+    te::Plugin* insertDevice(te::AudioTrack& track, const std::string& key, int index);
     /// The track's user devices, in order (without tracktion's volume and meter plugins).
     [[nodiscard]] static std::vector<te::Plugin*> chain(te::AudioTrack& track);
 
     std::unique_ptr<PluginScanner> scanner;
+
+    std::optional<std::uint64_t> midiTarget; // the track live MIDI plays (C7)
+    void midiDevicesChanged();
+    void applyMidiTarget();
     void beginEdit() { edit->getUndoManager().beginNewTransaction(); }
 
     Session& owner;
@@ -32,6 +39,7 @@ struct Session::Impl final : private juce::ValueTree::Listener, private juce::As
     std::uint64_t version = 0;
 
 private:
+    void changeListenerCallback(juce::ChangeBroadcaster*) override { midiDevicesChanged(); }
     void changed(juce::ValueTree& tree);
     void handleAsyncUpdate() override { rebuildSnapshot(); }
     void valueTreePropertyChanged(juce::ValueTree& t, const juce::Identifier& id) override

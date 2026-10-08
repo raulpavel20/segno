@@ -24,6 +24,14 @@ struct ClipInfo
     int colour = 0;      // index into the clip palette
     std::string sourcePath; // audio file, if any
 
+    struct Note
+    {
+        int pitch = 60;
+        double start = 0.0, length = 0.0; // seconds from the clip start
+        float velocity = 0.8f;
+    };
+    std::vector<Note> notes; // MIDI clips
+
     [[nodiscard]] double end() const noexcept { return start + length; }
 };
 
