@@ -63,6 +63,7 @@ A clip is drawn with:
 | Panel radius | 4 px |
 | Device panel height | 168 px (24 px header) |
 | Knob | ≤ 38 px arc diameter, 2.5 px arc, 1.5 px needle |
+| Value bar | Knob in bar style for dense rows (mod amounts, voice counts): `surface3` bar, `value` fill at 45 % from the origin, name left and value right inside; same interaction as a knob, also follows horizontal drags |
 | Font | Inter (variable), bundled |
 | Type scale | 11 · 12 · 13 · 15 · 18 px; tabular numerals for values |
 

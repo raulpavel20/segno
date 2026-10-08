@@ -46,7 +46,7 @@ None in the core. MPE is part of the core, as in Drift.
 | `lfo.rate` | LFO Rate | 0.01 … 40 Hz | 2 | |
 | `lfo.sync` | LFO Sync | Off, 1/32 … 4 bars | Off | Tempo sync when not Off |
 | `m<n>.src` (n = 1–3) | Mod n Source | Mod Env, LFO, Velocity, Mod Wheel, Pressure, Key, Slide | – | |
-| `m<n>.dst` | Mod n Target | Pitch, Cutoff, Resonance, Osc 1 Shape, Osc 1 Width, Osc 2 Level, Amp, Pan, LFO Rate | – | |
+| `m<n>.dst` | Mod n Target | Pitch, Cutoff, Resonance, Osc 1 Shape, Osc 1 Width, Osc 2 Level, Amp, Pan | – | At 100 %: pitch ±12 st, cutoff ±5 oct, shape/res ±full range, width ±45 %, levels/amp ×0–2, pan ±full. (LFO Rate was dropped: the LFO is global, so per-voice sources can't drive it.) |
 | `m<n>.amt` | Mod n Amount | −100 … +100 % | 0 | |
 | `voice.mode` | Voice Mode | Poly, Mono, Legato | Poly | |
 | `voice.count` | Voices | 1 … 16 | 8 | |
@@ -72,15 +72,21 @@ State version 1. The defaults should sound good immediately, as a warm detuned s
 
 ## UI layout
 
-```
-┌─ ● Subtractive Synth ─────────────────────────────────────────────────────────────────┐
-│ OSC 1 [shape view]  OSC 2 [wave]   MIX        FILTER [curve]     AMP ENV [view]  MOD  │
-│ ◜◝Shape ◜◝Oct ◜◝PW  ◜◝Oct ◜◝Semi ◜◝Det  ◜◝1 ◜◝2 ◜◝N  ◜◝Cut ◜◝Res ◜◝Env  A D S R  1..3 │
-│                                                    [LP12|LP24|HP|BP]   MOD ENV  LFO    │
-└───────────────────────────────────────────────────────────────────────────────────────┘
-```
+Two rows, grouped left to right (about 1160 px wide):
 
-Mini displays (oscillator shape, filter response, envelope shapes) come from the same pure functions as the DSP. Envelope displays can be dragged directly.
+| Group | Top row | Bottom row |
+|---|---|---|
+| Oscillators | Osc 1 wave display, Shape, Width, Oct, Level, Noise | Osc 2 Wave menu, Oct, Semi, Detune, Level, Drift |
+| Filter | Type buttons over the response display | Cutoff, Res, Key, Env |
+| Envelopes | Amp display, A, D, S, R | Mod display (with Cycle), A, D, S, R |
+| Modulation | Three slots: source, target, amount bar | LFO: Wave, Sync, Rate |
+| Voice and output | Mode, Voices bar, Bend bar | Glide, Volume; output meter at the far right |
+
+- Mini displays (oscillator 1 wave, filter response, envelope shapes) are drawn by the same functions the audio path uses (`osc1Mix` + `Oscillator::naiveAt`, `filterMagnitude`, the `Adsr` itself).
+- Envelope segment widths follow the log of their times and fill the display.
+- Mod amounts, voice count and bend range are value bars.
+- The Cycle toggle sits on the mod envelope display.
+- To do: drag envelope segments directly on the displays.
 
 ## Factory presets
 

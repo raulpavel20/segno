@@ -3,9 +3,48 @@
 #include "fd/dsp/Math.h"
 
 #include <algorithm>
+#include <complex>
 
 namespace fd::dsp
 {
+namespace
+{
+// Both filters are trapezoidal (TPT) discretisations prewarped at the cutoff, so their digital
+// response is the analog one evaluated at s = j tan(pi f / fs) / tan(pi fc / fs).
+std::complex<double> tptS(double freq, double cutoff, double sampleRate) noexcept
+{
+    const double g = std::tan(pi * std::clamp(cutoff, 10.0, 0.49 * sampleRate) / sampleRate);
+    return {0.0, std::tan(pi * std::clamp(freq, 0.0, 0.4999 * sampleRate) / sampleRate) / g};
+}
+} // namespace
+
+double StateVariableFilter::magnitude(double freq, double cutoff, double resonance, double sampleRate,
+                                      Mode mode) noexcept
+{
+    const auto s = tptS(freq, cutoff, sampleRate);
+    const double k = 1.0 / (0.5 * std::pow(50.0, std::clamp(resonance, 0.0, 1.0)));
+    const auto d = s * s + k * s + 1.0;
+    switch (mode)
+    {
+    case Mode::Lowpass:
+        return std::abs(1.0 / d);
+    case Mode::Highpass:
+        return std::abs(s * s / d);
+    case Mode::Bandpass:
+        return std::abs(s / d);
+    }
+    return std::abs(1.0 / d);
+}
+
+double LadderFilter::magnitude(double freq, double cutoff, double resonance, double sampleRate) noexcept
+{
+    const auto s = tptS(freq, cutoff, sampleRate);
+    const double k = 4.2 * std::clamp(resonance, 0.0, 1.0);
+    const auto stage = 1.0 / (1.0 + s);
+    const auto g4 = stage * stage * stage * stage;
+    return std::abs((1.0 + 0.5 * k) * g4 / (1.0 + k * g4));
+}
+
 float StateVariableFilter::process(float x, double cutoff, double resonance, double sampleRate, Mode mode) noexcept
 {
     const double g = std::tan(pi * std::clamp(cutoff, 10.0, 0.49 * sampleRate) / sampleRate);

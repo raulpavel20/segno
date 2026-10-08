@@ -3,11 +3,29 @@
 #   fd_add_device(ID utility DSP_SOURCES dsp/Utility.cpp)
 #       Creates the JUCE-free target fd_device_<cid>_dsp (cid = ID with '-' -> '_')
 #       and registers the device for the generated registry. The device must define
-#       `const fd::DeviceFactory& fd::devices::<cid>Factory()`.
+#       `const fd::DeviceFactory& fd::devices::<camel>Factory()`, where camel is the ID in
+#       camelCase (subtractive-synth -> subtractiveSynthFactory).
 #
 #   fd_generate_device_registry()
 #       Called once after all devices are added. Creates fd::registry, which links every
 #       device's DSP and implements fd::allDevices().
+
+# kebab-case -> camelCase ("subtractive-synth" -> "subtractiveSynth").
+function(fd_camel_case input outVar)
+    string(REPLACE "-" ";" parts "${input}")
+    set(result "")
+    foreach(part IN LISTS parts)
+        if(result STREQUAL "")
+            set(result "${part}")
+        else()
+            string(SUBSTRING "${part}" 0 1 first)
+            string(SUBSTRING "${part}" 1 -1 rest)
+            string(TOUPPER "${first}" first)
+            string(APPEND result "${first}${rest}")
+        endif()
+    endforeach()
+    set(${outVar} "${result}" PARENT_SCOPE)
+endfunction()
 
 function(fd_add_device)
     cmake_parse_arguments(ARG "" "ID" "DSP_SOURCES" ${ARGN})
@@ -35,8 +53,9 @@ function(fd_generate_device_registry)
     set(libs "")
     foreach(id IN LISTS ids)
         string(REPLACE "-" "_" cid "${id}")
-        string(APPEND decls "const DeviceFactory& ${cid}Factory();\n")
-        string(APPEND entries "        &devices::${cid}Factory(),\n")
+        fd_camel_case("${id}" camel)
+        string(APPEND decls "const DeviceFactory& ${camel}Factory();\n")
+        string(APPEND entries "        &devices::${camel}Factory(),\n")
         list(APPEND libs fd_device_${cid}_dsp)
     endforeach()
 
@@ -72,7 +91,7 @@ endfunction()
 # consumer (plugin, app, tools), like JUCE modules, so JUCE configuration stays consistent.
 #
 #   fd_add_device_ui(ID utility SOURCES ui/UtilityPanel.cpp)
-#       The device must define `const fd::ui::PanelFactory& fd::devices::<cid>PanelFactory()`.
+#       The device must define `const fd::ui::PanelFactory& fd::devices::<camel>PanelFactory()`.
 #
 #   fd_generate_panel_registry()
 #       Creates fd_panel_registry (INTERFACE), which implements fd::ui::allPanels().
@@ -99,8 +118,9 @@ function(fd_generate_panel_registry)
     set(libs "")
     foreach(id IN LISTS ids)
         string(REPLACE "-" "_" cid "${id}")
-        string(APPEND decls "const ui::PanelFactory& ${cid}PanelFactory();\n")
-        string(APPEND entries "        &devices::${cid}PanelFactory(),\n")
+        fd_camel_case("${id}" camel)
+        string(APPEND decls "const ui::PanelFactory& ${camel}PanelFactory();\n")
+        string(APPEND entries "        &devices::${camel}PanelFactory(),\n")
         list(APPEND libs fd_device_${cid}_ui)
     endforeach()
 

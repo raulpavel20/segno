@@ -34,6 +34,9 @@ public:
     void applyToBuffer(const te::PluginRenderContext& context) override;
 
     BusLayout getBusses() const override;
+    bool isSynth() override { return isInstrument(); }
+    bool takesMidiInput() override { return device_->info().buses.acceptsMidi; }
+    bool producesAudioWhenNoAudioInput() override { return isInstrument(); }
     double getLatencySeconds() override;
     double getTailLength() const override { return device_->tailSeconds(); }
 
@@ -44,12 +47,16 @@ public:
     [[nodiscard]] te::AutomatableParameter& parameter(size_t index) const noexcept { return *params_[index]; }
 
 private:
+    [[nodiscard]] bool isInstrument() const noexcept { return device_->info().kind == DeviceKind::Instrument; }
+    void convertMidi(const te::PluginRenderContext& fc) noexcept;
+
     std::unique_ptr<Device> device_;
     juce::String name_, type_;
     std::vector<te::AutomatableParameter::Ptr> params_;
     std::vector<std::unique_ptr<juce::CachedValue<float>>> values_;
     std::vector<float*> channelPtrs_;
     EventList events_;
+    te::tempo::Sequence::Position tempoPos_{te::createPosition(edit.tempoSequence)};
     double sampleRate_ = 48000.0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DevicePlugin)

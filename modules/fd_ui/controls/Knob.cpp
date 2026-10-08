@@ -20,6 +20,15 @@ Knob::Knob()
     setMouseCursor(juce::MouseCursor::UpDownResizeCursor);
 }
 
+void Knob::setStyle(Style style)
+{
+    style_ = style;
+    setMouseCursor(style == Style::Bar ? juce::MouseCursor::UpDownLeftRightResizeCursor
+                                       : juce::MouseCursor::UpDownResizeCursor);
+    resized();
+    repaint();
+}
+
 void Knob::setName(const juce::String& name)
 {
     name_ = name;
@@ -54,11 +63,17 @@ void Knob::changeTo(float normalized)
 void Knob::resized()
 {
     if (editor_ != nullptr)
-        editor_->setBounds(getLocalBounds().removeFromBottom(18).reduced(2, 0));
+        editor_->setBounds(style_ == Style::Bar ? getLocalBounds()
+                                                : getLocalBounds().removeFromBottom(18).reduced(2, 0));
 }
 
 void Knob::paint(juce::Graphics& g)
 {
+    if (style_ == Style::Bar)
+    {
+        paintBar(g);
+        return;
+    }
     const auto& t = Theme::current();
     auto area = getLocalBounds().toFloat();
 
@@ -109,6 +124,46 @@ void Knob::paint(juce::Graphics& g)
     }
 }
 
+void Knob::paintBar(juce::Graphics& g)
+{
+    const auto& t = Theme::current();
+    const auto r = getLocalBounds().toFloat();
+    const bool hot = isMouseOverOrDragging() || hasKeyboardFocus(false);
+
+    g.setColour(t.surface3);
+    g.fillRoundedRectangle(r, t.radiusControl);
+
+    // Flat fill from the origin to the value (bipolar bars grow from the centre).
+    const float x0 = r.getX() + r.getWidth() * juce::jmin(origin_, value_);
+    const float x1 = r.getX() + r.getWidth() * juce::jmax(origin_, value_);
+    if (x1 - x0 > 0.5f)
+    {
+        g.setColour((hot ? t.value.brighter(0.15f) : t.value).withAlpha(0.45f));
+        g.saveState();
+        g.reduceClipRegion(juce::Rectangle<float>(x0, r.getY(), x1 - x0, r.getHeight()).getSmallestIntegerContainer());
+        g.fillRoundedRectangle(r, t.radiusControl);
+        g.restoreState();
+    }
+    if (origin_ > 0.0f && origin_ < 1.0f) // centre marks on the edges, clear of the text
+    {
+        const float cx = r.getX() + r.getWidth() * origin_;
+        g.setColour(t.textTertiary);
+        g.fillRect(juce::Rectangle<float>(cx - 0.5f, r.getY(), 1.0f, 3.0f));
+        g.fillRect(juce::Rectangle<float>(cx - 0.5f, r.getBottom() - 3.0f, 1.0f, 3.0f));
+    }
+
+    if (editor_ != nullptr)
+        return;
+    const auto text = r.reduced(5.0f, 0.0f);
+    g.setFont(fonts::font(t.textXs, fonts::Weight::Medium));
+    g.setColour(hot ? t.textPrimary : t.textSecondary);
+    g.drawText(name_, text, juce::Justification::centredLeft, false);
+    g.setFont(fonts::font(t.textXs, fonts::Weight::Regular, /*tabular*/ true));
+    g.setColour(t.textPrimary);
+    g.drawText(textFromValue ? textFromValue(value_) : juce::String(value_, 2), text,
+               juce::Justification::centredRight, false);
+}
+
 void Knob::mouseDown(const juce::MouseEvent& e)
 {
     if (e.mods.isPopupMenu())
@@ -117,6 +172,7 @@ void Knob::mouseDown(const juce::MouseEvent& e)
     dragging_ = true;
     dragAccumulator_ = value_;
     lastDragY_ = e.position.y;
+    lastDragX_ = e.position.x;
     if (onGestureStart)
         onGestureStart();
 }
@@ -126,8 +182,11 @@ void Knob::mouseDrag(const juce::MouseEvent& e)
     if (!dragging_)
         return;
     // Accumulate relative movement so pressing or releasing Shift mid-drag never jumps.
-    const float delta = (lastDragY_ - e.position.y) / kPixelsForFullRange;
+    float delta = (lastDragY_ - e.position.y) / kPixelsForFullRange;
+    if (style_ == Style::Bar)
+        delta += (e.position.x - lastDragX_) / kPixelsForFullRange;
     lastDragY_ = e.position.y;
+    lastDragX_ = e.position.x;
     const float factor = e.mods.isShiftDown() ? kFineFactor : 1.0f;
     dragAccumulator_ = juce::jlimit(0.0f, 1.0f, dragAccumulator_ + delta * factor);
     changeTo(dragAccumulator_);

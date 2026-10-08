@@ -9,6 +9,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -240,6 +242,88 @@ TEST_CASE("conformance: reported latency matches measured latency", "[fast][conf
             INFO("setting " << setting);
             CHECK(r->latencySamples() == d->latencySamples());
         }
+    });
+}
+
+// --- Instruments (M1 step A3) ------------------------------------------------------------
+
+namespace
+{
+bool isInstrument(const DeviceInfo& info)
+{
+    return info.kind == DeviceKind::Instrument && info.buses.acceptsMidi;
+}
+
+/// A busy second of playing: overlapping notes beyond typical polyphony, repeated keys, a
+/// sustain pedal held over note-offs, pitch bend and mod wheel. Every note is released and
+/// the pedal lifted by `lengthSamples`.
+std::vector<TimedEvent> busyPlaying(int lengthSamples, std::uint32_t seed)
+{
+    Rng rng(seed);
+    std::vector<TimedEvent> events;
+    const int noteSpan = lengthSamples / 2;
+    for (int n = 0; n < 40; ++n)
+    {
+        const auto key = static_cast<std::uint8_t>(36 + static_cast<int>(rng.next01() * 48.0) % 48);
+        const auto on = static_cast<std::int64_t>(rng.next01() * noteSpan);
+        const auto off = on + 1 + static_cast<std::int64_t>(rng.next01() * noteSpan * 0.5);
+        events.push_back({on, {.type = EventType::NoteOn, .key = key, .value = 0.2f + 0.8f * static_cast<float>(rng.next01())}});
+        events.push_back({off, {.type = EventType::NoteOff, .key = key}});
+    }
+    events.push_back({noteSpan / 3, {.type = EventType::Controller, .key = 64, .value = 1.0f}}); // pedal down
+    events.push_back({noteSpan / 2, {.type = EventType::PitchBend, .value = 0.7f}});
+    events.push_back({noteSpan / 2 + 100, {.type = EventType::Controller, .key = 1, .value = 0.6f}});
+    events.push_back({lengthSamples - 1, {.type = EventType::Controller, .key = 64, .value = 0.0f}}); // pedal up
+    std::stable_sort(events.begin(), events.end(),
+                     [](const TimedEvent& a, const TimedEvent& b) { return a.samplePosition < b.samplePosition; });
+    return events;
+}
+
+/// Renders `events` over `length` samples plus the device's declared tail and 100 ms.
+AudioBuffer renderWithTail(Device& d, int length, std::vector<TimedEvent> events)
+{
+    RenderOptions o;
+    o.sampleRate = kSampleRate;
+    o.events = std::move(events);
+    o.tailSamples = static_cast<int>(std::ceil((d.tailSeconds() + 0.1) * kSampleRate));
+    return render(d, silence(length, std::max(1, d.info().buses.inputChannels)), o);
+}
+} // namespace
+
+TEST_CASE("conformance: instrument notes always release to silence", "[fast][conformance]")
+{
+    forEachDevice([](const DeviceFactory& f) {
+        if (!isInstrument(f.info()))
+            return;
+        for (std::uint32_t setting : {0u, 21u, 22u, 23u, 24u})
+        {
+            auto d = f.create();
+            if (setting != 0)
+                randomize(*d, setting);
+            const auto out = renderWithTail(*d, 48000, busyPlaying(48000, 100 + setting));
+            INFO("setting " << setting << ", tail " << d->tailSeconds() << " s");
+            CHECK(allFinite(out));
+            if (setting == 0)
+                CHECK(peak(out.slice(0, 48000)) > 1.0e-3); // it played (random settings may be quiet)
+            CHECK(peakDb(out.slice(out.numSamples() - 2400, 2400)) < -120.0); // last 50 ms
+        }
+    });
+}
+
+TEST_CASE("conformance: all-notes-off silences an instrument", "[fast][conformance]")
+{
+    forEachDevice([](const DeviceFactory& f) {
+        if (!isInstrument(f.info()))
+            return;
+        auto d = f.create();
+        // Held notes and a held pedal: nothing is released except by all-notes-off.
+        std::vector<TimedEvent> events{{0, {.type = EventType::Controller, .key = 64, .value = 1.0f}}};
+        for (std::uint8_t k = 0; k < 6; ++k)
+            events.push_back({100 + k * 50, {.type = EventType::NoteOn, .key = static_cast<std::uint8_t>(48 + 5 * k), .value = 0.8f}});
+        events.push_back({24000, {.type = EventType::AllNotesOff}});
+        const auto out = renderWithTail(*d, 48000, events);
+        CHECK(peak(out.slice(12000, 12000)) > 1.0e-3);
+        CHECK(peakDb(out.slice(out.numSamples() - 2400, 2400)) < -120.0);
     });
 }
 

@@ -1,0 +1,202 @@
+{
+  "bp12-square.attack-rms-db": {
+    "tol": 0.5,
+    "value": -24.225918554476763
+  },
+  "bp12-square.band-1000-db": {
+    "tol": 0.5,
+    "value": -4.863201932104842
+  },
+  "bp12-square.band-125-db": {
+    "tol": 0.5,
+    "value": -13.12955274159284
+  },
+  "bp12-square.band-2000-db": {
+    "tol": 0.5,
+    "value": -10.862776099551986
+  },
+  "bp12-square.band-250-db": {
+    "tol": 0.5,
+    "value": -6.44772509885609
+  },
+  "bp12-square.band-4000-db": {
+    "tol": 0.5,
+    "value": -21.3999647113776
+  },
+  "bp12-square.band-500-db": {
+    "tol": 0.5,
+    "value": -5.1125619638604185
+  },
+  "bp12-square.band-8000-db": {
+    "tol": 0.5,
+    "value": -31.84800446292639
+  },
+  "bp12-square.release-rms-db": {
+    "tol": 0.5,
+    "value": -59.317125533874
+  },
+  "bp12-square.sustain-rms-db": {
+    "tol": 0.5,
+    "value": -21.25416605794765
+  },
+  "default.attack-rms-db": {
+    "tol": 0.5,
+    "value": -14.920938370770848
+  },
+  "default.band-1000-db": {
+    "tol": 0.5,
+    "value": -16.1896693241783
+  },
+  "default.band-125-db": {
+    "tol": 0.5,
+    "value": -2.1245050046152363
+  },
+  "default.band-2000-db": {
+    "tol": 0.5,
+    "value": -30.887489776045847
+  },
+  "default.band-250-db": {
+    "tol": 0.5,
+    "value": -5.805285727215882
+  },
+  "default.band-4000-db": {
+    "tol": 0.5,
+    "value": -47.503658811805195
+  },
+  "default.band-500-db": {
+    "tol": 0.5,
+    "value": -10.555789414089842
+  },
+  "default.band-8000-db": {
+    "tol": 0.5,
+    "value": -51.47904994909848
+  },
+  "default.release-rms-db": {
+    "tol": 0.5,
+    "value": -58.109020135932
+  },
+  "default.sustain-rms-db": {
+    "tol": 0.5,
+    "value": -19.07750208905953
+  },
+  "hp12.attack-rms-db": {
+    "tol": 0.5,
+    "value": -16.933808538879987
+  },
+  "hp12.band-1000-db": {
+    "tol": 0.5,
+    "value": -7.578117794884963
+  },
+  "hp12.band-125-db": {
+    "tol": 0.5,
+    "value": -19.307048994654686
+  },
+  "hp12.band-2000-db": {
+    "tol": 0.5,
+    "value": -10.839578582249468
+  },
+  "hp12.band-250-db": {
+    "tol": 0.5,
+    "value": -5.337139928451045
+  },
+  "hp12.band-4000-db": {
+    "tol": 0.5,
+    "value": -14.165598674885212
+  },
+  "hp12.band-500-db": {
+    "tol": 0.5,
+    "value": -4.277304390062707
+  },
+  "hp12.band-8000-db": {
+    "tol": 0.5,
+    "value": -17.327657446074905
+  },
+  "hp12.release-rms-db": {
+    "tol": 0.5,
+    "value": -57.82587138167052
+  },
+  "hp12.sustain-rms-db": {
+    "tol": 0.5,
+    "value": -19.70173482415389
+  },
+  "lp12-resonant.attack-rms-db": {
+    "tol": 0.5,
+    "value": -7.912213698110092
+  },
+  "lp12-resonant.band-1000-db": {
+    "tol": 0.5,
+    "value": -22.60607249598418
+  },
+  "lp12-resonant.band-125-db": {
+    "tol": 0.5,
+    "value": -6.261627716039213
+  },
+  "lp12-resonant.band-2000-db": {
+    "tol": 0.5,
+    "value": -39.15397215359582
+  },
+  "lp12-resonant.band-250-db": {
+    "tol": 0.5,
+    "value": -7.307347594368354
+  },
+  "lp12-resonant.band-4000-db": {
+    "tol": 0.5,
+    "value": -48.082736882773844
+  },
+  "lp12-resonant.band-500-db": {
+    "tol": 0.5,
+    "value": -2.4622702419926124
+  },
+  "lp12-resonant.band-8000-db": {
+    "tol": 0.5,
+    "value": -51.556765956586915
+  },
+  "lp12-resonant.release-rms-db": {
+    "tol": 0.5,
+    "value": -49.959721410541576
+  },
+  "lp12-resonant.sustain-rms-db": {
+    "tol": 0.5,
+    "value": -11.345755987136197
+  },
+  "noise-sine.attack-rms-db": {
+    "tol": 0.5,
+    "value": -15.845491187283567
+  },
+  "noise-sine.band-1000-db": {
+    "tol": 0.5,
+    "value": -30.142474150258817
+  },
+  "noise-sine.band-125-db": {
+    "tol": 0.5,
+    "value": -0.09226008592769715
+  },
+  "noise-sine.band-2000-db": {
+    "tol": 0.5,
+    "value": -36.47116427655301
+  },
+  "noise-sine.band-250-db": {
+    "tol": 0.5,
+    "value": -24.188669466440015
+  },
+  "noise-sine.band-4000-db": {
+    "tol": 0.5,
+    "value": -40.80898947056297
+  },
+  "noise-sine.band-500-db": {
+    "tol": 0.5,
+    "value": -28.264308252435917
+  },
+  "noise-sine.band-8000-db": {
+    "tol": 0.5,
+    "value": -43.57695439777945
+  },
+  "noise-sine.release-rms-db": {
+    "tol": 0.5,
+    "value": -55.57772497165531
+  },
+  "noise-sine.sustain-rms-db": {
+    "tol": 0.5,
+    "value": -17.051783359892625
+  }
+}

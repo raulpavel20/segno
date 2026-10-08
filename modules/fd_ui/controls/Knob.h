@@ -2,18 +2,27 @@
 
 namespace fd::ui
 {
-/// Rotary control: a flat value arc with a gradient fill (ui-principles §4, §7).
+/// Rotary control: a flat value arc (ui-principles §4, §7). The Bar style draws the same control
+/// as a compact horizontal bar with the name and value inside, for dense rows (mod amounts).
 ///
 /// Interaction (identical everywhere):
-///   drag vertically to change; Shift = fine; double-click = reset to default;
+///   drag vertically to change (a bar also follows horizontal drags); Shift = fine;
+///   double-click = reset to default;
 ///   mouse wheel adjusts; when focused, typing a number opens an inline editor; arrows nudge.
 ///
 /// The knob works in normalised units (0..1). Owners map to plain values and text.
 class Knob : public juce::Component, public juce::SettableTooltipClient
 {
 public:
+    enum class Style
+    {
+        Rotary,
+        Bar
+    };
+
     Knob();
 
+    void setStyle(Style style);
     void setName(const juce::String& name) override;
     void setValue(float normalized, juce::NotificationType notification);
     [[nodiscard]] float getValue() const noexcept { return value_; }
@@ -43,6 +52,7 @@ public:
     void focusGained(FocusChangeType) override { repaint(); }
 
 private:
+    void paintBar(juce::Graphics& g);
     void changeTo(float normalized);
     [[nodiscard]] float quantize(float normalized) const noexcept;
     void showEditor(const juce::String& initialText);
@@ -54,6 +64,8 @@ private:
     int steps_ = 0;
     float dragAccumulator_ = 0.0f;
     float lastDragY_ = 0.0f;
+    float lastDragX_ = 0.0f;
+    Style style_ = Style::Rotary;
     bool dragging_ = false;
     std::unique_ptr<juce::TextEditor> editor_;
 

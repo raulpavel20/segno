@@ -50,7 +50,12 @@ float Oscillator::process(double freq, const Mix& m) noexcept
     blep_.step();
 
     // Discontinuities crossed during this sample, at fractional positions (samples in the past).
-    auto past = [&](double at) { return static_cast<float>((p - at) / freq); };
+    // The BLEP table needs [0, 1): an edge just after the previous sample gives a hair below 1,
+    // which would round up to 1.0f as a float.
+    auto toPast = [](double samples) {
+        return std::clamp(static_cast<float>(samples), 0.0f, std::nextafter(1.0f, 0.0f));
+    };
+    auto past = [&](double at) { return toPast((p - at) / freq); };
 
     // Square falling edge at the pulse width; triangle peak at 0.5 (slope -8 f per sample).
     if (start < w && p >= w && m.square != 0.0f)
@@ -70,10 +75,16 @@ float Oscillator::process(double freq, const Mix& m) noexcept
             blep_.add(static_cast<float>(8.0 * freq) * m.triangle, 2, pastWrap);
         // A very short pulse can also cross the width after wrapping in the same sample.
         if (p >= w && m.square != 0.0f)
-            blep_.add(-2.0f * m.square, 1, static_cast<float>((p - w) / freq));
+            blep_.add(-2.0f * m.square, 1, toPast((p - w) / freq));
     }
     phase_ = p;
 
+    return static_cast<float>(naiveAt(m, p)) + blep_.get();
+}
+
+double Oscillator::naiveAt(const Mix& m, double p) noexcept
+{
+    const double w = std::clamp(static_cast<double>(m.width), 0.02, 0.98);
     double y = 0.0;
     if (m.saw != 0.0f)
         y += m.saw * (2.0 * p - 1.0);
@@ -83,6 +94,6 @@ float Oscillator::process(double freq, const Mix& m) noexcept
         y += m.triangle * (p < 0.5 ? 4.0 * p - 1.0 : 3.0 - 4.0 * p);
     if (m.sine != 0.0f)
         y += m.sine * std::sin(twoPi * p);
-    return static_cast<float>(y) + blep_.get();
+    return y;
 }
 } // namespace fd::dsp

@@ -2,3 +2,4 @@
 add_subdirectory(utility)
 add_subdirectory(saturator)
 add_subdirectory(eq)
+add_subdirectory(subtractive-synth)

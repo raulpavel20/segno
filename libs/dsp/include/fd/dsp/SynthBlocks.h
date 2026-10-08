@@ -22,6 +22,10 @@ public:
     /// `cutoff` in Hz, `resonance` 0..1 (Q from 0.5 to ~25).
     float process(float x, double cutoff, double resonance, double sampleRate, Mode mode) noexcept;
 
+    /// Exact magnitude response of process() at `freq` Hz (for displays).
+    [[nodiscard]] static double magnitude(double freq, double cutoff, double resonance, double sampleRate,
+                                          Mode mode) noexcept;
+
 private:
     double s1_ = 0.0, s2_ = 0.0;
 };
@@ -35,6 +39,9 @@ public:
 
     /// `cutoff` in Hz, `resonance` 0..1 (1 = self-oscillation).
     float process(float x, double cutoff, double resonance, double sampleRate) noexcept;
+
+    /// Small-signal (linearised) magnitude response of process() at `freq` Hz (for displays).
+    [[nodiscard]] static double magnitude(double freq, double cutoff, double resonance, double sampleRate) noexcept;
 
 private:
     double s_[4] = {0, 0, 0, 0};
@@ -92,7 +99,8 @@ private:
 class Noise
 {
 public:
-    explicit Noise(std::uint32_t seed = 1) noexcept : state_(seed ? seed : 1u) {}
+    Noise() noexcept = default;
+    explicit Noise(std::uint32_t seed) noexcept : state_(seed ? seed : 1u) {}
     void seed(std::uint32_t s) noexcept { state_ = s ? s : 1u; }
     float next() noexcept
     {
@@ -103,7 +111,7 @@ public:
     }
 
 private:
-    std::uint32_t state_;
+    std::uint32_t state_ = 1u;
 };
 
 /// Low-frequency oscillator: sine, triangle, saw, square, sample-and-hold. Output -1..1.
@@ -122,6 +130,7 @@ public:
     void reset(double phase = 0.0) noexcept
     {
         phase_ = phase;
+        noise_.seed(0x51ED27u); // deterministic sample-and-hold sequence after every reset
         held_ = noise_.next();
     }
     /// Advance by `samples` at `rateHz`; returns the value at the new position.

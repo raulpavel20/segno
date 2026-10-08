@@ -1,8 +1,12 @@
 #include "fd/dsp/Oscillator.h"
 #include "fd/testkit/Metrics.h"
+#include "fd/testkit/Signals.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+
+#include <algorithm>
+#include <cmath>
 
 using namespace fd::dsp;
 using namespace fd::testkit;
@@ -56,4 +60,61 @@ TEST_CASE("oscillator frequency is exact", "[fast]")
     const auto h = harmonicLevelsDb(saw, 0, size, size, cycles, 2);
     CHECK(h[0] == Approx(0.0).margin(0.05));
     CHECK(h[1] < -100.0);
+}
+
+TEST_CASE("discontinuities just after a sample stay inside the BLEP table", "[fast]")
+{
+    // The offset of a discontinuity is computed in double and handed to the BLEP table as a
+    // float in [0, 1). An edge just after the previous sample gives an offset a hair below 1,
+    // which rounds up to 1.0f unless clamped (out-of-range table read).
+    struct Case { double startPhase; Oscillator::Mix mix; };
+    const Oscillator::Mix saw{1.0f, 0.0f, 0.0f, 0.0f, 0.5f}, square{0.0f, 1.0f, 0.0f, 0.0f, 0.5f},
+        triangle{0.0f, 0.0f, 1.0f, 0.0f, 0.5f};
+    for (const auto& c : {Case{1.0 - 1e-12, saw}, Case{0.5 - 1e-12, square}, Case{1.0 - 1e-12, square},
+                          Case{0.5 - 1e-12, triangle}, Case{1.0 - 1e-12, triangle}})
+    {
+        Oscillator osc;
+        osc.prepare(sr);
+        osc.reset(c.startPhase);
+        for (int i = 0; i < 64; ++i)
+            REQUIRE(std::isfinite(osc.process(0.25, c.mix)));
+    }
+}
+
+TEST_CASE("oscillator survives any frequency and width (fuzz)", "[fast]")
+{
+    // Settings jump per 32-sample control tick. Real synths ramp them; jumps are the stress case
+    // (uncorrected mix changes leave some BLEP residue), so this bounds instability, not level.
+    Oscillator osc;
+    osc.prepare(sr);
+    Rng rng(7);
+    float peakOut = 0.0f;
+    for (int tick = 0; tick < 20000; ++tick)
+    {
+        const double u = rng.next01();
+        const double f = u < 0.1 ? 0.0 : u < 0.3 ? 1e-12 * rng.next01() : std::pow(10.0, -9.0 + 8.7 * rng.next01());
+        const auto mix = Oscillator::morph(static_cast<float>(rng.next01()), static_cast<float>(rng.next01()));
+        for (int i = 0; i < 32; ++i)
+        {
+            const float y = osc.process(f, mix);
+            REQUIRE(std::isfinite(y));
+            peakOut = std::max(peakOut, std::abs(y));
+        }
+    }
+    CHECK(peakOut < 16.0f);
+}
+
+TEST_CASE("fast shape modulation stays near unity level", "[fast]")
+{
+    // Shape swept by a 20 Hz sine, ramped per sample, at a high pitch: the realistic worst case.
+    Oscillator osc;
+    osc.prepare(sr);
+    float peakOut = 0.0f;
+    for (int i = 0; i < 96000; ++i)
+    {
+        const double shape = 0.5 + 0.5 * std::sin(2.0 * 3.14159265358979 * 20.0 * i / sr);
+        const float y = osc.process(4186.0 / sr, Oscillator::morph(static_cast<float>(shape), 0.5f));
+        peakOut = std::max(peakOut, std::abs(y));
+    }
+    CHECK(peakOut < 2.0f);
 }

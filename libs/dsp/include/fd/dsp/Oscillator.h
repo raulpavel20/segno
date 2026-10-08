@@ -25,6 +25,10 @@ public:
     /// Morph: 0 saw -> 1/3 square -> 2/3 triangle -> 1 sine.
     [[nodiscard]] static Mix morph(float shape, float width) noexcept;
 
+    /// The waveform at `phase` (0..1) before the band-limiting corrections. The audio path adds
+    /// BLEP corrections to exactly this; displays draw it directly.
+    [[nodiscard]] static double naiveAt(const Mix& mix, double phase) noexcept;
+
     /// Next sample. `freq` is in cycles per sample (< 0.5).
     float process(double freq, const Mix& mix) noexcept;
 

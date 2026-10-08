@@ -31,6 +31,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT DEFINED CMAKE_LINKER_TYPE)
 endif()
 
 include(FdSanitizers)
+
+# Bounds-checked standard library containers in Debug builds (libstdc++; ignored elsewhere), so
+# out-of-range indexing fails tests instead of reading garbage.
+add_compile_definitions($<$<CONFIG:Debug>:_GLIBCXX_ASSERTIONS>)
 include(FdWarnings)
 include(CPM)
 include(Dependencies)

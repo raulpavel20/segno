@@ -129,7 +129,9 @@ std::string ParamSpec::toText(float plain) const
             return formatNumber(v / 1000.0, 2) + " kHz";
         return formatNumber(v, v < 100.0f ? decimals : 0) + " Hz";
     case Unit::Milliseconds:
-        return formatNumber(v, decimals) + " ms";
+        if (v >= 1000.0f)
+            return formatNumber(v / 1000.0, 2) + " s";
+        return formatNumber(v, v >= 100.0f ? 0 : decimals) + " ms";
     case Unit::Seconds:
         return formatNumber(v, decimals) + " s";
     case Unit::Percent:

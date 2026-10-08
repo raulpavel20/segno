@@ -11,6 +11,9 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
+#include <cstdlib>
+
 #if defined(FD_HAVE_TEST_PATHS)
 #include "fd_test_paths.h"
 #endif
@@ -121,6 +124,59 @@ TEST_CASE("native device in tracktion matches the offline device render", "[inte
 
     INFO("residual " << nullResidualDb(inEngine, offline) << " dBFS");
     CHECK(peakDb(offline) > -40.0); // the settings really did something audible
+    CHECK(nullResidualDb(inEngine, offline) < -120.0);
+}
+
+TEST_CASE("native instrument in tracktion matches the offline render of the same notes", "[integration]")
+{
+    Fixture f;
+    auto edit = te::Edit::createSingleTrackEdit(f.engine, te::Edit::EditRole::forRendering);
+    auto* track = te::getAudioTracks(*edit)[0];
+    auto clip = track->insertMIDIClip({te::TimePosition(), te::TimeDuration::fromSeconds(kLength / kSampleRate)}, nullptr);
+    REQUIRE(clip != nullptr);
+
+    // 120 bpm: one beat = 24000 samples. Overlapping notes, a repeated key and a chord.
+    struct Note { int key; double start, length; int velocity; };
+    const std::vector<Note> notes{{48, 0.0, 1.0, 100}, {55, 0.5, 1.5, 80}, {60, 1.0, 0.25, 127},
+                                  {60, 1.5, 0.5, 64}, {64, 2.0, 1.0, 90}, {67, 2.0, 1.0, 90}};
+    std::vector<TimedEvent> events;
+    for (const auto& n : notes)
+    {
+        clip->getSequence().addNote(n.key, te::BeatPosition::fromBeats(n.start), te::BeatDuration::fromBeats(n.length),
+                                    n.velocity, 0, nullptr);
+        const auto vel = juce::MidiMessage::noteOn(1, n.key, static_cast<juce::uint8>(n.velocity)).getFloatVelocity();
+        events.push_back({static_cast<std::int64_t>(n.start * 24000.0),
+                          {.type = fd::EventType::NoteOn, .key = static_cast<std::uint8_t>(n.key), .value = vel}});
+        // tracktion plays note-offs 0.1 ms early so they sort before same-time note-ons
+        // (MidiNote::getPlaybackTime); the reference does the same.
+        const double offSeconds = (n.start + n.length) * 0.5 - 0.0001;
+        events.push_back({juce::roundToInt(offSeconds * kSampleRate),
+                          {.type = fd::EventType::NoteOff, .key = static_cast<std::uint8_t>(n.key)}});
+    }
+    std::stable_sort(events.begin(), events.end(), [](const auto& a, const auto& b) {
+        // Note-offs first at equal times, as a sequencer sends them.
+        return a.samplePosition != b.samplePosition ? a.samplePosition < b.samplePosition
+                                                    : a.event.type == fd::EventType::NoteOff && b.event.type != fd::EventType::NoteOff;
+    });
+
+    auto plugin = edit->getPluginCache().createNewPlugin(fd::engine::DevicePlugin::typeNameFor("subtractive-synth"), {});
+    REQUIRE(plugin != nullptr);
+    track->pluginList.insertPlugin(plugin, 0, nullptr);
+    const auto inEngine = f.render(*edit);
+
+    auto device = fd::findDevice("subtractive-synth")->create();
+    RenderOptions o;
+    o.sampleRate = kSampleRate;
+    o.events = events;
+    const auto offline = render(*device, silence(kLength, 1), o);
+
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+    {
+        writeWav(std::string(dump) + "/engine.wav", inEngine, kSampleRate);
+        writeWav(std::string(dump) + "/offline.wav", offline, kSampleRate);
+    }
+    INFO("residual " << nullResidualDb(inEngine, offline) << " dBFS; engine peak " << peakDb(inEngine) << " dBFS");
+    CHECK(peakDb(offline) > -30.0);
     CHECK(nullResidualDb(inEngine, offline) < -120.0);
 }
 

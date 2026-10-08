@@ -35,6 +35,28 @@ TEST_CASE("SVF responses at the cutoff", "[fast]")
     CHECK(svfMagDb(StateVariableFilter::Mode::Bandpass, 1000.0, 0.5, 1000.0) == Approx(20.0 * std::log10(0.5 * std::pow(50.0, 0.5))).margin(0.1));
 }
 
+TEST_CASE("filter magnitude() matches the measured response", "[fast]")
+{
+    using M = StateVariableFilter::Mode;
+    for (auto mode : {M::Lowpass, M::Highpass, M::Bandpass})
+        for (double res : {0.0, 0.4, 0.8})
+            for (double f : {100.0, 900.0, 1000.0, 3000.0, 12000.0})
+                CHECK(svfMagDb(mode, 1000.0, res, f)
+                      == Approx(20.0 * std::log10(StateVariableFilter::magnitude(f, 1000.0, res, sr, mode))).margin(0.05));
+
+    // Ladder: drive it softly so tanh stays linear; below self-oscillation.
+    for (double res : {0.0, 0.5, 0.85})
+        for (double f : {100.0, 1000.0, 2000.0, 6000.0})
+        {
+            LadderFilter ladder;
+            AudioBuffer ir(1, 32768);
+            for (int i = 0; i < ir.numSamples(); ++i)
+                ir.at(0, i) = ladder.process(i == 0 ? 1e-4f : 0.0f, 2000.0, res, sr) * 1e4f;
+            const double measured = 20.0 * std::log10(std::abs(responseAt(ir.channel(0), ir.numSamples(), f, sr)));
+            CHECK(measured == Approx(20.0 * std::log10(LadderFilter::magnitude(f, 2000.0, res, sr))).margin(0.1));
+        }
+}
+
 TEST_CASE("ladder self-oscillates at the cutoff with bounded level", "[fast]")
 {
     // Kick it with a short impulse, let it ring at full resonance, and measure the pitch.

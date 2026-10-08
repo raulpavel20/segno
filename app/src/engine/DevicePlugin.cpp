@@ -2,6 +2,7 @@
 
 #include <fd/device/Realtime.h>
 #include <fd/device/State.h>
+#include <fd_host_juce/fd_host_juce.h>
 
 namespace fd::engine
 {
@@ -106,15 +107,45 @@ void DevicePlugin::applyToBuffer(const te::PluginRenderContext& fc)
     for (int c = 0; c < channels; ++c)
         channelPtrs_[static_cast<size_t>(c)] = fc.destBuffer->getWritePointer(c, fc.bufferStartSample);
 
-    events_.clear(); // MIDI for instruments arrives with the first instrument (M1)
+    convertMidi(fc);
 
     ProcessContext ctx;
-    ctx.input = {channelPtrs_.data(), channels};
+    ctx.input = {channelPtrs_.data(), device_->info().buses.inputChannels > 0 ? channels : 0};
     ctx.output = {channelPtrs_.data(), channels};
     ctx.events = &events_;
     ctx.numSamples = fc.bufferNumSamples;
-    ctx.transport.playing = fc.isPlaying;
+    tempoPos_.set(fc.editTime.getStart());
+    const auto timeSig = tempoPos_.getTimeSignature();
+    ctx.transport = {.tempoBpm = tempoPos_.getTempo(),
+                     .ppqPosition = tempoPos_.getBeats().inBeats(),
+                     .samplePosition = te::toSamples(fc.editTime.getStart(), sampleRate_),
+                     .timeSigNumerator = timeSig.numerator,
+                     .timeSigDenominator = timeSig.denominator,
+                     .playing = fc.isPlaying};
     processRealtime(*device_, ctx);
+}
+
+void DevicePlugin::convertMidi(const te::PluginRenderContext& fc) noexcept
+{
+    events_.clear();
+    const auto* midi = fc.bufferForMidiMessages;
+    if (midi == nullptr || !device_->info().buses.acceptsMidi)
+        return;
+
+    if (midi->isAllNotesOff)
+        events_.push({.sampleOffset = 0, .type = EventType::AllNotesOff});
+
+    // Timestamps are seconds from the start of destBuffer (as tracktion's own synths read them);
+    // events are clamped into this block so none is dropped by rounding.
+    const int last = fc.bufferNumSamples - 1;
+    for (const auto& m : *midi)
+    {
+        const int offset = juce::jlimit(0, juce::jmax(0, last),
+                                        juce::roundToInt(m.getTimeStamp() * sampleRate_) - fc.bufferStartSample);
+        if (const auto e = host::toEvent(m, offset))
+            events_.push(*e);
+    }
+    events_.sortByTime();
 }
 
 void DevicePlugin::restorePluginStateFromValueTree(const juce::ValueTree& v)
