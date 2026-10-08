@@ -1,0 +1,110 @@
+# EQ: device spec
+
+- **Status:** Draft (review requested; IDs can still change)
+- **Type:** Audio effect
+- **Tier / milestone:** Tier 1, M1 (core) → M3 (stage 2)
+- **Live target:** EQ Eight, EQ Three, Channel EQ (all covered by this one device). References only ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
+
+## Purpose
+
+The one EQ for everything: surgical fixes, broad tone shaping and channel-strip work. Bands are added by clicking on the curve and edited directly on the display.
+
+## Beyond Live
+
+This is one of the few devices that deliberately goes further (aimed at FabFilter Pro-Q):
+- **Up to 24 bands**, added and removed on the display. Plugin formats need a fixed parameter set, so 24 is the cap, and it's rarely reached.
+- **Steep slopes** for cuts, up to 96 dB/oct.
+- **Per-band stereo placement:** Stereo, Left, Right, Mid or Side.
+- **Analog-matched** response with no cramping near Nyquist.
+- **Compact view:** a simple 3-band layout for channel-strip use, on the same engine.
+- **Stage 2 (M3):** dynamic bands with sidechain, linear-phase mode, EQ match, and a cross-track masking display.
+
+## Stages
+
+| Stage | Scope | Milestone |
+|---|---|---|
+| Core | 24 bands, all types and slopes, stereo placement, pre/post spectrum, output gain, gain scale, compact view | M1 |
+| Stage 2 | Dynamic bands + sidechain, linear-phase / natural-phase modes, EQ match, masking display, auto-gain | M3 |
+
+## Parameters
+
+**Per band** (`n` = 1…24; IDs are `band<n>.<param>`, e.g. `band3.freq`):
+
+| ID | Name | Range | Default | Unit | Curve | Smoothing |
+|---|---|---|---|---|---|---|
+| `band<n>.on` | Band n On | Off / On | Off (bands 1–4 On) | toggle | – | 10 ms crossfade |
+| `band<n>.type` | Band n Type | Bell, Low Shelf, High Shelf, Low Cut, High Cut, Notch, Band Pass, Tilt | Bell (band 1 Low Cut, band 4 High Cut) | choice | – | crossfade on change |
+| `band<n>.freq` | Band n Freq | 10 … 30 000 | spread across bands | Hz | log (centre 632 Hz) | 20 ms multiplicative |
+| `band<n>.gain` | Band n Gain | −30 … +30 | 0 | dB | linear | 20 ms |
+| `band<n>.q` | Band n Q | 0.1 … 40 | 0.71 | – | log (centre 2) | 20 ms multiplicative |
+| `band<n>.slope` | Band n Slope | 6, 12, 18, 24, 36, 48, 72, 96 | 12 | dB/oct (cuts) | – | crossfade on change |
+| `band<n>.place` | Band n Placement | Stereo, Left, Right, Mid, Side | Stereo | choice | – | crossfade on change |
+
+**Global:**
+
+| ID | Name | Range | Default | Unit |
+|---|---|---|---|---|
+| `output` | Output | −24 … +24 | 0 | dB |
+| `scale` | Gain Scale | 0 … 200 | 100 | % (scales every band's gain) |
+| `analyzer` | Analyzer | Off, Pre, Post, Pre+Post | Post | choice (UI only, not automatable) |
+
+Non-parameter state: the UI view (full or compact), stored in `extra`. State version 1.
+
+## DSP design
+
+- **Each band** is one analog-matched second-order section, from closed-form designs that match the analog prototype's magnitude up to near Nyquist. Cuts above 12 dB/oct cascade Butterworth sections (with a first-order section for odd orders).
+- **Coefficients** are recomputed on control ticks from the smoothed freq, gain and Q. Recomputing every 32 samples is inaudible and avoids zipper noise.
+- **Stereo placement:** Mid and Side bands run in an M/S-encoded domain; Left and Right bands run on that channel only.
+- **Zero latency** in the core (minimum-phase). Linear phase arrives in stage 2.
+- **Analysis taps:** pre and post sample FIFOs for the spectrum (A4). Display data is computed in the UI.
+- The UI curve uses `biquadResponse()`-style pure functions on the same coefficients.
+
+## UI layout
+
+```
+┌─ ● EQ ───────────────────────────────────────────────────────────────── [Full|Compact] ┐
+│ ┌────────────────────────────────────────────────────────────────┐  ◜◝ Output  ◜◝ Scale │
+│ │ spectrum (pre/post, flat) + curve (solid line, flat fill)       │  ◟◞ 0.0 dB  ◟◞ 100 % │
+│ │   ①      ②         ③              ④   ← draggable band nodes    │  Band 3: Bell        │
+│ │ 20   100    1k       10k   20k                                 │  1.20 kHz  +3.5 dB Q 1│
+│ └────────────────────────────────────────────────────────────────┘  [Stereo|L|R|M|S]    │
+└──────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Display interactions:**
+  - double-click empty space: add a Bell band there;
+  - drag a node: frequency and gain; mouse wheel on a node: Q;
+  - double-click a node: band on/off; right-click a node: type, slope and placement menu.
+- The selected band's details sit on the right.
+- **Compact view:** three fixed bands (low shelf, bell, high shelf) shown as knobs, plus low cut and output.
+- The panel is wider than the standard device; it is the first device with an expanded view.
+
+## Factory presets
+
+"Low cut 80 Hz", "Vocal presence", "Kick tighten", "Air shelf", "Telephone", "Mid/side widen", "Surgical notch".
+
+## Automated test targets
+
+| Metric | Target |
+|---|---|
+| Magnitude vs analog prototype, every type, 48 kHz | Within ±0.1 dB up to 0.9 × Nyquist (bells and shelves; Q ≤ 10) |
+| Cut slopes | Asymptotic slope within ±0.5 dB/oct of nominal |
+| All bands off, output 0 dB | Null against input (< −120 dBFS) |
+| Fast freq sweep (20 Hz→20 kHz in 1 s) on a sine | No clicks (click score < 8); stable |
+| Mid/Side placement on L = R input | Side bands have no effect |
+| Conformance suite | All checks pass |
+
+## A/B cases (against the Live target)
+
+Deferred until a Live machine is available.
+
+## A/B log
+
+–
+
+## Sign-off
+
+- [ ] Automated: unit, conformance and golden tests; validators
+- [ ] Snapshots reviewed (100% / 200%)
+- [ ] Sound signed off by the product owner (date):
+- [ ] Feel signed off by the product owner (date):

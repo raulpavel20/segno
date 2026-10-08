@@ -18,6 +18,10 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 | Device | Device ID | Plugin code | CLAP ID | Status |
 |---|---|---|---|---|
 | Utility | `utility` | `Futl` | `org.fossdaw.utility` | M0 |
+| Saturator | `saturator` | `Fsat` | `org.fossdaw.saturator` | M1 (spec draft) |
+| EQ | `eq` | `Feq1` | `org.fossdaw.eq` | M1 (spec draft) |
+| Subtractive Synth | `subtractive-synth` | `Fsub` | `org.fossdaw.subtractive-synth` | M1 (spec draft) |
+| Sampler | `sampler` | `Fsmp` | `org.fossdaw.sampler` | M1 (spec draft) |
 
 **Rules:**
 - The device ID is kebab-case and describes the function. It is used in state JSON, the registry, CLAP and LV2 IDs, and file names.
