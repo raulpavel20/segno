@@ -1,0 +1,20 @@
+# Build output
+/build/
+/out/
+compile_commands.json
+.cache/
+
+# Local-only test material (see docs/dev-environment.md, ADR 0007)
+/ab-refs/
+/snapshots/local/
+/audition/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Python tooling
+.venv/
+__pycache__/

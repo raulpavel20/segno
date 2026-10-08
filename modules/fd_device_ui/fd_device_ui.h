@@ -1,0 +1,26 @@
+/*
+BEGIN_JUCE_MODULE_DECLARATION
+
+  ID:                 fd_device_ui
+  vendor:             foss-daw
+  version:            0.0.1
+  name:               foss-daw device UI
+  description:        DevicePanel base, host-agnostic parameter binding, panel registry
+  license:            AGPLv3
+  minimumCppStandard: 20
+  dependencies:       fd_ui
+
+END_JUCE_MODULE_DECLARATION
+*/
+
+#pragma once
+#define FD_DEVICE_UI_H_INCLUDED
+
+#include <fd_ui/fd_ui.h>
+
+#include <fd/device/Device.h>
+
+#include "panel/ParamBinding.h"
+#include "panel/ParamControls.h"
+#include "panel/DevicePanel.h"
+#include "panel/PanelRegistry.h"

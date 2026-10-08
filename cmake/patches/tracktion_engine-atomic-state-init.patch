@@ -1,0 +1,18 @@
+Give AudioClipPlayhead::state an explicit initialiser.
+
+Clang (with libstdc++) treats the nested `State` struct as not default-constructible inside its
+enclosing class, so `std::atomic<State>` has no default constructor and
+`std::make_shared<AudioClipPlayhead>()` fails to compile. An explicit initialiser avoids the
+atomic's default constructor. To upstream (tracktion_engine develop).
+
+--- a/modules/tracktion_engine/model/clips/tracktion_AudioClipBase.h
++++ b/modules/tracktion_engine/model/clips/tracktion_AudioClipBase.h
+@@ -52,7 +52,7 @@
+         uint32_t lastUpdateMs = 0;
+     };
+ 
+-    std::atomic<State> state;
++    std::atomic<State> state { State {} };
+ };
+ 
+ //==============================================================================

@@ -1,0 +1,166 @@
+# CI (ADR 0003, 0007). Runs once the repository is on GitHub.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CPM_SOURCE_CACHE: ${{ github.workspace }}/.cache/CPM
+  CCACHE_DIR: ${{ github.workspace }}/.cache/ccache
+
+jobs:
+  # JUCE-free core: DSP, device API, test kit, devices, conformance suite. Fast, all platforms.
+  core:
+    name: core (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: .cache
+          key: core-${{ matrix.os }}-${{ hashFiles('cmake/Dependencies.cmake') }}-${{ github.sha }}
+          restore-keys: core-${{ matrix.os }}-${{ hashFiles('cmake/Dependencies.cmake') }}-
+      - name: Install tools (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ninja-build ccache clang lld
+      - name: Install tools (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja ccache
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+      - name: Configure
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cmake --preset msvc -DFD_BUILD_PLUGINS=OFF -DFD_BUILD_APP=OFF  # /WX once MSVC warnings are clean
+          else
+            cmake --preset core -DFD_WARNINGS_AS_ERRORS=ON
+          fi
+      - name: Build
+        shell: bash
+        run: cmake --build --preset $([[ "$RUNNER_OS" == "Windows" ]] && echo msvc || echo core)
+      - name: Test
+        shell: bash
+        run: ctest --preset $([[ "$RUNNER_OS" == "Windows" ]] && echo msvc || echo core) -L fast
+
+  # Everything on Linux: plugins, DAW, integration tests, validators.
+  full-linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: .cache
+          key: full-linux-${{ hashFiles('cmake/Dependencies.cmake') }}-${{ github.sha }}
+          restore-keys: full-linux-${{ hashFiles('cmake/Dependencies.cmake') }}-
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build ccache clang lld xvfb \
+            libasound2-dev libjack-jackd2-dev ladspa-sdk libfreetype-dev libfontconfig1-dev \
+            libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev \
+            libxrandr-dev libxrender-dev libxi-dev libglu1-mesa-dev mesa-common-dev libegl-dev
+      - run: cmake --preset dev -DFD_WARNINGS_AS_ERRORS=ON
+      - run: cmake --build --preset dev
+      - name: Test (all, including JUCE and tracktion integration)
+        run: xvfb-run -a ctest --preset dev
+      - name: Validate plugins (pluginval, clap-validator)
+        run: xvfb-run -a tools/validate-plugins.sh dev
+      - name: UI snapshots
+        run: |
+          xvfb-run -a ./build/dev/tools/snapshot/fd-snapshot_artefacts/Debug/fd-snapshot build/dev/snapshots
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-plugins-and-snapshots
+          path: |
+            build/dev/plugins/*_artefacts/Debug/VST3
+            build/dev/plugins/*_artefacts/Debug/CLAP
+            build/dev/plugins/*_artefacts/Debug/LV2
+            build/dev/snapshots
+
+  # Sanitizers on the JUCE-free core (clang 20+ for RealtimeSanitizer).
+  sanitizers:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [asan, rtsan]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: .cache
+          key: san-${{ matrix.preset }}-${{ hashFiles('cmake/Dependencies.cmake') }}-${{ github.sha }}
+          restore-keys: san-${{ matrix.preset }}-${{ hashFiles('cmake/Dependencies.cmake') }}-
+      - name: Install clang 20
+        run: |
+          wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 20
+          sudo apt-get install -y ninja-build ccache
+          sudo ln -sf /usr/bin/clang-20 /usr/local/bin/clang
+          sudo ln -sf /usr/bin/clang++-20 /usr/local/bin/clang++
+          sudo ln -sf /usr/bin/ld.lld-20 /usr/local/bin/ld.lld
+      - run: cmake --preset ${{ matrix.preset }}
+      - run: cmake --build --preset ${{ matrix.preset }}
+      - run: ctest --preset ${{ matrix.preset }}
+
+  # Plugins + DAW on macOS (universal) and Windows, with pluginval.
+  full-macos-windows:
+    name: full (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: .cache
+          key: full-${{ matrix.os }}-${{ hashFiles('cmake/Dependencies.cmake') }}-${{ github.sha }}
+          restore-keys: full-${{ matrix.os }}-${{ hashFiles('cmake/Dependencies.cmake') }}-
+      - name: Install tools (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja ccache
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+      - name: Configure
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            cmake --preset rel -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+          else
+            cmake --preset msvc
+          fi
+      - name: Build
+        shell: bash
+        run: cmake --build --preset $([[ "$RUNNER_OS" == "macOS" ]] && echo rel || echo msvc)
+      - name: Test
+        shell: bash
+        run: ctest --preset $([[ "$RUNNER_OS" == "macOS" ]] && echo rel || echo msvc)
+
+  hygiene:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: REUSE compliance
+        uses: fsfe/reuse-action@v5
+      - name: No JUCE below the JUCE line (ADR 0006)
+        run: |
+          if grep -rnE '#include\s*[<"](juce_|JuceHeader)' libs devices/*/dsp tools/render; then
+            echo "JUCE include found in a JUCE-free module"; exit 1
+          fi
+      - name: Every device has a SPEC.md
+        run: |
+          for d in devices/*/; do
+            [[ -f "$d/SPEC.md" ]] || { echo "missing $d/SPEC.md"; exit 1; }
+          done

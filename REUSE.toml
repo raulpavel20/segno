@@ -1,0 +1,24 @@
+version = 1
+SPDX-PackageName = "foss-daw"
+SPDX-PackageDownloadLocation = "https://github.com/"
+
+# Our own code, docs and data. Third-party files (fetched by CPM into the build
+# tree) are never committed here and keep their own licenses.
+[[annotations]]
+path = ["**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 foss-daw contributors"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+[[annotations]]
+path = ["cmake/CPM.cmake"]
+precedence = "override"
+SPDX-FileCopyrightText = "2019-2025 Lars Melchior and contributors"
+SPDX-License-Identifier = "MIT"
+
+# Patches to tracktion_engine contain upstream code fragments.
+[[annotations]]
+path = ["cmake/patches/tracktion_engine-*.patch"]
+precedence = "override"
+SPDX-FileCopyrightText = "Tracktion Corporation and foss-daw contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
