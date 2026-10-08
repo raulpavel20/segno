@@ -107,6 +107,8 @@ public:
         color_ = &bind(std::make_unique<ui::ParamToggle>(ctx, Saturator::Color));
         colorFreq_ = &bind(std::make_unique<ui::ParamKnob>(ctx, Saturator::ColorFreq));
         colorGain_ = &bind(std::make_unique<ui::ParamKnob>(ctx, Saturator::ColorGain));
+        // Freq and Gain only act while Color is on.
+        dimWhen({colorFreq_, colorGain_}, [&ctx] { return ctx.params.getPlain(Saturator::Color) < 0.5f; });
         quality_ = &bind(std::make_unique<ui::ParamComboBox>(ctx, Saturator::Quality));
 
         if (auto* bus = ctx.analysis)

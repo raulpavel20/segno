@@ -37,7 +37,19 @@ protected:
 
     DeviceUiContext& context() noexcept { return context_; }
 
+    /// Dims `controls` while `inactive()` is true: settings the current mode or switch ignores
+    /// stay visible and adjustable but recede (ui-principles §3). Checked on every refresh.
+    void dimWhen(std::vector<juce::Component*> controls, std::function<bool()> inactive);
+
 private:
+    struct Dimming
+    {
+        std::vector<juce::Component*> controls;
+        std::function<bool()> inactive;
+    };
+    void updateDimming();
+    std::vector<Dimming> dimming_;
+
     void timerCallback() override;
 
     DeviceUiContext& context_;

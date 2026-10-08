@@ -27,6 +27,24 @@ void DevicePanel::timerCallback()
     for (auto& c : controls_)
         if (auto* pc = dynamic_cast<ParamControl*>(c.get()))
             pc->refresh();
+    updateDimming();
+}
+
+void DevicePanel::dimWhen(std::vector<juce::Component*> controls, std::function<bool()> inactive)
+{
+    dimming_.push_back({std::move(controls), std::move(inactive)});
+    updateDimming();
+}
+
+void DevicePanel::updateDimming()
+{
+    for (const auto& d : dimming_)
+    {
+        const float alpha = d.inactive() ? 0.35f : 1.0f;
+        for (auto* c : d.controls)
+            if (c->getAlpha() != alpha)
+                c->setAlpha(alpha);
+    }
 }
 
 void DevicePanel::paint(juce::Graphics& g)

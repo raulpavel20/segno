@@ -281,13 +281,6 @@ private:
     bool dragOver_ = false;
 };
 
-/// Invisible helper: runs `fn` on every panel refresh (e.g. to dim controls a mode ignores).
-struct RefreshHook final : juce::Component, ui::ParamControl
-{
-    std::function<void()> fn;
-    void refresh() override { fn(); }
-};
-
 /// Layout per devices/sampler/SPEC.md: waveform on the left, then pitch and level, playback
 /// region, envelopes, filter, and voice settings; two rows like the other instruments.
 class SamplerPanel final : public ui::DevicePanel, public juce::FileDragAndDropTarget
@@ -328,13 +321,9 @@ public:
         voice_ = {bar(S::Root), bar(S::VoiceCount), bar(S::VoiceGlide), bar(S::VoiceBend)};
 
         // Loop applies to Classic, Gate to One-shot: dim the one the mode ignores.
-        auto* hook = &bind(std::make_unique<RefreshHook>());
-        hook->fn = [this, &ctx] {
-            const bool oneShot = juce::roundToInt(ctx.params.getPlain(S::Mode)) == 1;
-            loop_->setAlpha(oneShot ? 0.35f : 1.0f);
-            gate_->setAlpha(oneShot ? 1.0f : 0.35f);
-        };
-        hook->refresh();
+        auto oneShot = [&ctx] { return juce::roundToInt(ctx.params.getPlain(S::Mode)) == 1; };
+        dimWhen({loop_}, oneShot);
+        dimWhen({gate_}, [oneShot] { return !oneShot(); });
 
         if (auto* bus = ctx.analysis)
             meter_.setLevelSource([bus](int) { return bus->takePeak(S::PeakOut); });

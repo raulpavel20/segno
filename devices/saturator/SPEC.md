@@ -72,6 +72,8 @@ in ──┬─> drive gain ─> [Color pre: bell +g] ─> upsample ×N ─> sha
 
 The transfer-curve display draws the active shaper at the current drive and bias, computed by the same pure function the audio path uses. You can drag on it to change drive (vertical) and bias (horizontal).
 
+Freq and Gain are dimmed while Color is off: they only act when it is on. Color works through the saturation (boost before it, the same cut after), so it is heard as drive pushes the signal into the curve, not on a clean signal.
+
 ## Factory presets
 
 "Gentle warmth", "Tape glue", "Bass grit", "Hard clip", "Fold FX", "Octave rectify", "Mid push (Color)".
