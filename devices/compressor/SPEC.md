@@ -1,0 +1,129 @@
+# Compressor: device spec
+
+- **Status:** Draft (review requested; IDs can still change)
+- **Type:** Audio effect
+- **Tier / milestone:** Tier 1, M2
+- **Live target:** Compressor and Glue Compressor (one device, two characters). References only ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
+
+## Purpose
+
+Controls dynamics on single tracks (Clean) and holds busses and mixes together (Glue). One device covers both because the job is the same and only the character differs. You see what it does: the transfer curve you can grab, and a scrolling history of level and gain reduction.
+
+## Beyond Live
+
+Small: the gain-reduction history scrolls continuously beside the transfer curve (Live shows one or the other).
+
+## Stages
+
+| Stage | Scope | Milestone |
+|---|---|---|
+| Core | Everything below | M2 |
+
+## Parameters
+
+| ID (permanent) | Name | Range | Default | Unit | Curve / skew | Smoothing | Automatable |
+|---|---|---|---|---|---|---|---|
+| `threshold` | Threshold | −60 … 0 | −18 | dB | linear | 20 ms | Yes |
+| `ratio` | Ratio | 1 … 100 (∞ at max) | 4 | :1 | centre 4 | 20 ms | Yes |
+| `knee` | Knee | 0 … 24 | 6 | dB | linear | 20 ms | Yes |
+| `attack` | Attack | 0.01 … 300 | 10 | ms | centre 10 | 20 ms multiplicative | Yes |
+| `release` | Release | 1 … 3 000 | 150 | ms | centre 150 | 20 ms multiplicative | Yes |
+| `release.auto` | Auto Release | Off / On | Off | toggle | – | – | Yes |
+| `makeup` | Makeup | −24 … +36 | 0 | dB | linear | 20 ms | Yes |
+| `makeup.auto` | Auto Makeup | Off / On | Off | toggle | – | – | Yes |
+| `character` | Character | Clean, Glue | Clean | choice | – | 10 ms crossfade | Yes |
+| `detector` | Detector | Peak, RMS | Peak | choice | – | 10 ms crossfade | Yes |
+| `link` | Stereo Link | 0 … 100 | 100 | % | linear | 20 ms | Yes |
+| `lookahead` | Lookahead | Off, 1 ms, 10 ms | Off | choice | – | – | **No** (sets latency, see below) |
+| `sc.filter` | Sidechain Filter | Off, High Pass, Low Pass, Band Pass, Bell | Off | choice | – | 10 ms crossfade | Yes |
+| `sc.freq` | Sidechain Freq | 20 … 20 000 | 100 | Hz | centre 632 Hz | 20 ms multiplicative | Yes |
+| `sc.q` | Sidechain Q | 0.1 … 10 | 0.71 | – | centre 1 | 20 ms multiplicative | Yes |
+| `sc.gain` | Sidechain Gain | −24 … +24 | 0 | dB (Bell only) | linear | 20 ms | Yes |
+| `sc.listen` | Listen | Off / On | Off | toggle | – | 10 ms crossfade | Yes |
+| `mix` | Mix | 0 … 100 | 100 | % | linear | 20 ms | Yes |
+| `output` | Output | −24 … +24 | 0 | dB | linear | 20 ms | Yes |
+
+**Sidechain source** (external sidechain on or off, and which track) is host routing, not a parameter (M2 step A2). With no external sidechain the detector listens to the input.
+
+State version 1.
+
+## DSP design
+
+```
+in ──┬─────────────────────────── lookahead delay ──> × gain ──> makeup ──> output ──┬─> out
+     │                                                   ▲                            │ mix with
+sidechain (or in) ─> SC filter ─> level (peak/RMS, link) ┤                            │ latency-
+     │                                    Glue: from out ─┘                            │ aligned dry
+     └──── dry ─────────────────────────────────────────────────────────────────────┘
+level ─> dB ─> gain computer (threshold, ratio, knee) ─> attack/release (dB domain) ─> gain
+```
+
+- **Gain computer:** the standard soft-knee curve (quadratic across the knee), from a pure function the display also draws (`dsp::compressorCurve`). Ratio ∞ is a limiter curve.
+- **Smoothing:** a one-pole filter on the gain reduction in dB, with branching attack and release.
+  - Auto release blends a fast and a slow release according to how long the reduction has lasted (program-dependent).
+  - Times are 10–90 % for attack and to −60 dB of the reduction for release, like the other envelopes in the suite.
+- **Detector:**
+  - Peak: rectified signal through the attack/release;
+  - RMS: a 10 ms mean square before the gain computer.
+  - Stereo link: linked uses the louder channel's level; unlinked works per channel; in between blends the two.
+- **Glue character:** feedback detection (the detector reads the output), auto release on by default, and a gentle output soft-clip. That's the bus-compressor behaviour: slower, smoother, "glued".
+- **Auto makeup** compensates the static gain at −18 dBFS input: `−curve(−18) − 18`.
+- **Sidechain filter:** a TPT state-variable filter (shared with the synths), on the detector path only. Listen sends the filtered detector signal to the output.
+- **Lookahead and latency.** The latency follows the Lookahead setting: 0, 1 or 10 ms. That makes it an exception to [ADR 0016](../../docs/decisions/0016-constant-device-latency.md); to be recorded as ADR 0020 with step A2, after review.
+  - The setting is not automatable.
+  - Hosts see a change as a configuration change: the plugin reports new latency, and the DAW rebuilds the graph.
+  - Off means zero latency, which keeps live monitoring through a compressor tight.
+- **Dry path:** delayed by the same lookahead, so Mix never comb-filters.
+- **Analysis:**
+  - slot 0 = input level;
+  - slot 1 = output level;
+  - slot 2 = gain reduction (dB, peak-held);
+  - FIFO 0 = gain reduction history for the display.
+
+## UI layout
+
+```
+┌─ ● Compressor ─────────────────────────────────── [Clean|Glue] ┐
+│ ┌──────────┐ ┌──────────────────────┐ ◜◝Thresh ◜◝Ratio ◜◝Knee  │
+│ │ transfer │ │ scrolling history:   │ ◜◝Attack ◜◝Release [Auto]│
+│ │ curve    │ │ in level, out level, │ ◜◝Makeup [Auto] ◜◝Mix    │
+│ │ (drag)   │ │ gain reduction       │ [Peak|RMS] Link  ▭Lookahd│
+│ └──────────┘ └──────────────────────┘ SC: [filter ▾] Freq Q [L]│
+└──────────────────────────────────────────────────────────────────┘
+```
+
+- **Transfer curve:** draws the curve from the same function the audio path uses, with the current input level as a moving dot. Drag the threshold point; drag above it to change the ratio.
+- **History:** about 4 s of input level (dim), output level and gain reduction (from the top, in the value colour).
+- Sidechain controls sit in a row; the source picker is in the header (step A2).
+
+## Factory presets
+
+"Gentle vocal", "Drum punch", "Bass control", "Bus glue", "Mix glue", "Parallel smash", "Sidechain duck", "De-ess (sidechain bell)".
+
+## Automated test targets
+
+| Metric | Target |
+|---|---|
+| Static curve: steady sines across −60…0 dBFS, every knee and ratio | Output level within 0.05 dB of the curve |
+| Attack and release times (steps of +20 dB) | Within ±5 % of the setting |
+| Ratio ∞ with the slowest attack | Output never above threshold + attack overshoot (bounded, reported) |
+| Mix at 0 % | Null against the latency-aligned input (< −120 dBFS) |
+| Below threshold, makeup 0 dB | Null against the input (< −120 dBFS) |
+| Reported latency vs measured, per Lookahead setting | Equal |
+| Sidechain ducking (external key, input steady) | Gain reduction follows the key within the attack time |
+| Conformance suite | All pass |
+
+## A/B cases (against the Live target)
+
+Deferred until a Live machine is available.
+
+## A/B log
+
+–
+
+## Sign-off
+
+- [ ] Automated: unit, conformance and golden tests; validators
+- [ ] Snapshots reviewed (100% / 200%)
+- [ ] Sound signed off by the product owner (date):
+- [ ] Feel signed off by the product owner (date):
