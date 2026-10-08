@@ -1,12 +1,14 @@
 #pragma once
 
+#include "fd/device/SampleFifo.h"
+
 #include <array>
 #include <atomic>
 
 namespace fd
 {
-/// Lock-free channel from the audio thread to displays (meters, gain reduction, playheads).
-/// The audio thread publishes; the UI takes. All operations are wait-free.
+/// Lock-free channel from the audio thread to displays: value slots (meters, gain reduction)
+/// and sample FIFOs (spectra, scopes). The audio thread publishes; the UI takes. Wait-free.
 class AnalysisBus
 {
 public:
@@ -31,7 +33,13 @@ public:
     /// UI: read without resetting.
     [[nodiscard]] float read(int slot) const noexcept { return slots_[static_cast<size_t>(slot)].load(std::memory_order_relaxed); }
 
+    /// Sample FIFOs (spectra, scopes): the device prepares them in Device::prepare(); the audio
+    /// thread pushes, the UI pops.
+    static constexpr int numFifos = 4;
+    [[nodiscard]] SampleFifo& fifo(int index) noexcept { return fifos_[static_cast<size_t>(index)]; }
+
 private:
     std::array<std::atomic<float>, numSlots> slots_{};
+    std::array<SampleFifo, numFifos> fifos_{};
 };
 } // namespace fd

@@ -4,5 +4,5 @@ target_include_directories(fd_device PUBLIC include)
 target_link_libraries(fd_device PUBLIC fd::dsp nlohmann_json::nlohmann_json PRIVATE fd::warnings)
 
 fd_add_test(NAME fd_device_tests
-    SOURCES tests/ParamTests.cpp tests/StateTests.cpp tests/EventTests.cpp
+    SOURCES tests/ParamTests.cpp tests/StateTests.cpp tests/EventTests.cpp tests/SampleFifoTests.cpp
     LIBS fd::device)

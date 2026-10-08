@@ -111,13 +111,13 @@ TEST_CASE("first-order and Butterworth cascades have the nominal slopes", "[fast
     const auto lp1 = designMatchedFirstOrder(false, 200.0, sr);
     CHECK(slopeDbPerOct([&](double f) { return digitalDb(lp1, f); }, 3200.0) == Approx(6.0).margin(0.5));
 
-    for (int order : {2, 4, 6, 8, 12, 16})
+    for (int order : {2, 3, 4, 5, 6, 8, 12, 16})
     {
         double qs[8];
         const int n = butterworthQs(order, qs, 8);
         REQUIRE(n == order / 2);
         auto mag = [&](double f) {
-            double db = 0.0;
+            double db = order % 2 == 1 ? digitalDb(designMatchedFirstOrder(false, 200.0, sr), f) : 0.0;
             for (int i = 0; i < n; ++i)
                 db += digitalDb(designMatched(MatchedType::Lowpass, 200.0, 0.0, qs[i], sr), f);
             return db;

@@ -151,7 +151,9 @@ TEST_CASE("conformance: survives parameter fuzzing", "[fast][conformance]")
         opts.beforeBlock = [&](Device& dev, std::int64_t) { randomize(dev, rng.nextU32()); };
         const auto out = render(*d, s.audio, opts);
         CHECK(allFinite(out));
-        CHECK(peak(out) < 1000.0);
+        // Generous bound: random settings can legitimately boost a lot (EQ: many +30 dB bands);
+        // this catches instability, not loudness.
+        CHECK(peak(out) < 1.0e6);
     });
 }
 
@@ -223,22 +225,20 @@ TEST_CASE("conformance: reported latency matches measured latency", "[fast][conf
     forEachDevice([](const DeviceFactory& f) {
         if (!isEffect(f.info()))
             return;
-        // Defaults plus randomised settings: latency must never depend on parameters (ADR 0016).
-        for (std::uint32_t setting : {0u, 21u, 22u, 23u})
+        // Measured at defaults (filters at random settings add group delay, which is not latency).
+        auto d = f.create();
+        const auto in = whiteNoise(16384, 3, 0.25f, f.info().buses.inputChannels);
+        const auto out = render(*d, in, {.sampleRate = kSampleRate});
+        CHECK(estimateLatency(in, out, 2048) == d->latencySamples());
+
+        // ADR 0016: reported latency never depends on parameters.
+        for (std::uint32_t setting : {21u, 22u, 23u})
         {
-            auto d = f.create();
-            if (setting != 0)
-            {
-                randomize(*d, setting);
-                // Keep the signal path linear enough for correlation: no drive-type extremes.
-                for (size_t i = 0; i < d->params().size(); ++i)
-                    if (const auto id = d->params().spec(i).id; id == "mix" || id == "gain" || id == "output" || id == "drive")
-                        d->params().set(i, d->params().spec(i).def);
-            }
-            const auto in = whiteNoise(48000, 3, 0.25f, f.info().buses.inputChannels);
-            const auto out = render(*d, in, {.sampleRate = kSampleRate});
+            auto r = f.create();
+            randomize(*r, setting);
+            r->prepare({kSampleRate, 512});
             INFO("setting " << setting);
-            CHECK(estimateLatency(in, out, 8192) == d->latencySamples());
+            CHECK(r->latencySamples() == d->latencySamples());
         }
     });
 }

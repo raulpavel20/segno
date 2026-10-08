@@ -299,10 +299,12 @@ BiquadCoeffs designMatchedFirstOrder(bool highpass, double freqHz, double sample
 
 int butterworthQs(int order, double* qs, int maxSections) noexcept
 {
+    // Pole-pair angles from the negative real axis: even N: (2k-1) pi / 2N; odd N (which adds
+    // a real pole as a first-order section): k pi / N.
     const int sections = std::min(order / 2, maxSections);
     for (int k = 1; k <= sections; ++k)
     {
-        const double theta = (2.0 * k - 1.0) * pi / (2.0 * order);
+        const double theta = (order % 2 == 0) ? (2.0 * k - 1.0) * pi / (2.0 * order) : k * pi / order;
         qs[k - 1] = 1.0 / (2.0 * std::cos(theta));
     }
     return sections;
