@@ -1,0 +1,57 @@
+# Open questions
+
+Decisions still to be made. Once a question is answered, record the answer in an ADR or the relevant doc, then move it to "Resolved".
+
+- **Section A** must be answered before M0 (foundations) starts.
+- **Section B** can wait until the milestone given.
+- **Section C** lists technical choices Claude will make unless the product owner objects.
+
+---
+
+## A. Blocking M0
+
+### A1. Your actions before M0
+
+- Install the build toolchain and PipeWire's JACK support (one command in [dev-environment.md](dev-environment.md#build-toolchain-to-install-before-m0)).
+- Create the GitHub repository whenever convenient. It is not blocking, because M0 starts locally.
+
+### Resolved
+
+- ~~Remaining proposed ADRs~~ → 0005 (AGPL-3.0), 0006 (JUCE-free core), 0007 (verification), 0008 (naming) and 0013 (one repository) accepted on 2026-10-08.
+
+- ~~UI technology~~ → JUCE everywhere, with a rendering spike in M0 ([ADR 0012](decisions/0012-ui-toolkit-juce-everywhere.md)).
+- ~~Repository hosting~~ → GitHub; the product owner creates it later.
+- ~~Testing setup~~ → by ear, on Linux, on the reference machine ([dev-environment.md](dev-environment.md)). A/B against Live is deferred.
+
+---
+
+## B. Needed later
+
+| # | Question | Needed by | Recommendation |
+|---|---|---|---|
+| B1 | **Design references.** Screenshots of apps or plugins whose look you love, and what you love about each | Before the M0 design gate | Collect 5–10 references in `docs/design/references/` (screenshots stay local unless they are freely licensed) |
+| B2 | **Minimum hardware target**. The reference machine is high-end (HX 370), so budgets need a lower floor | M0 (sets the performance budgets) | A mid-range 2020+ 4-core laptop with integrated GPU; measure on the reference machine with a CPU cap applied |
+| B3 | **Product name** and organisation ID | Before the first public build | Shortlist in M1; trademark check |
+| B4 | **Who designs factory presets and sounds?** This needs ears and taste | M1 onwards (every device needs presets) | Claude drafts starting presets; you curate and refine; recruit sound designers once the project is public |
+| B5 | **MIDI controllers** you own or want supported | M2 | Generic MIDI learn and mapping first; specific controller scripts only on request |
+| B6 | **Confirm two merges:** Drift + Analog → Subtractive Synth; Simpler + Sampler → Sampler | M1 device specs | Keep both merged (same job, different depth) |
+| B7 | **Distribution costs:** Apple Developer ID ($99/year) for notarised macOS builds; Windows code signing (optional); Flathub listing | M7 | Decide before the 1.0 release; consider donations (Open Collective, GitHub Sponsors) |
+| B8 | **Contributions:** when to open to outside contributors; contributor agreement or not | When the repo goes public | No CLA. Use the DCO (`Signed-off-by`) with AGPL; contribution guide after M1 |
+| B9 | **Crash reports and telemetry** | M7 | No telemetry; optional, explicit opt-in crash reports |
+| B10 | **Languages** | After 1.0 | English only until 1.0; prepare strings for translation from M1 |
+| B11 | **Windows/macOS manual testing and Live A/B:** who, on what machine | Before the first public plugin release | CI covers automated tests on all three platforms meanwhile; find a tester or a second machine before release |
+
+---
+
+## C. Technical choices Claude will make (say if you disagree)
+
+| Topic | Choice |
+|---|---|
+| Audio processing precision | 32-bit float processing; 64-bit where it matters (filter states, long delay lines, accumulators) |
+| Project file format | tracktion_engine's edit format plus our own sections; DAWproject import/export in M7 |
+| Time-stretch default | Signalsmith Stretch (MIT, bundled); Rubber Band as an optional higher-quality mode later |
+| Font | Inter (OFL), bundled |
+| Code style | `clang-format` + `clang-tidy`, enforced in CI |
+| Versioning | Semantic versioning; state and preset formats versioned separately with migrations |
+| Commits | Conventional commit messages; a changelog generated from them |
+| Tests | Catch2 v3; Python (managed with `uv`) for analysis and plotting tools |

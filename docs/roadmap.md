@@ -1,0 +1,33 @@
+# Roadmap
+
+Device lists for each milestone come from [devices/device-suite.md](devices/device-suite.md); DAW innovations come from [innovation-backlog.md](innovation-backlog.md). *(Italics)* mark which stage of a staged device a milestone ships ([ADR 0011](decisions/0011-calibrated-ambition-and-consolidation.md)). Every milestone ends with **automated checks green** and **product-owner sign-off**: sound, feel and the manual checklist in `docs/manual-tests/Mx.md`.
+
+**Status legend:** ☐ not started · ◐ in progress · ☑ done
+
+| | Milestone | Devices | DAW / platform | Status |
+|---|---|---|---|---|
+| D | **Definition** | – | Vision, UI principles, device suite, architecture, ADRs | ☑ |
+| M0 | **Foundations** | Utility | Repo, CMake + pinned dependencies, DSP/device/testkit libraries, `fd-render`, UI seed + **rendering spike** ([ADR 0012](decisions/0012-ui-toolkit-juce-everywhere.md)) + **design gate**, plugin builds (VST3/CLAP/LV2/AU), DAW skeleton playing audio through a native device, CI | ☑ |
+| M1 | **Vertical slice** | EQ *(core)*, Saturator, Subtractive Synth *(core)*, Sampler *(classic/one-shot)* | Arrangement view (audio clips, cached waveforms within the 8 ms frame budget, smooth zoom/scroll, edit + undo), transport, MIDI input monitoring, docked device chain (native + third-party), action registry + shortcuts, save/open. **Device API frozen.** | ☐ |
+| M2 | **Make music** | Compressor, Limiter, Gate, Spectrum | MIDI clips + piano roll, audio/MIDI recording, automation lanes, mixer (volume, pan, sends, returns), export, command palette | ☐ |
+| M3 | **Workflow & space** | Delay, Reverb *(algorithmic)*, Filter, Chorus & Ensemble, Phaser & Flanger, Auto Pan & Tremolo, Tuner, Loudness Meter, EQ *(stage 2: dynamic, linear phase, match, masking display)* | Browser with unified search, preset system, inspector, **arranger track**, **reference-track A/B**, out-of-process plugin scanner, CLAP hosting | ☐ |
+| M4 | **Depth** | Drum Sampler, Sampler *(slice)*, Multiband Dynamics, Distortion, Drum Bus, Arpeggiator, Chord, Scale | Racks + macros, Drum Rack, modulators with **drag-to-modulate**, **project-wide key/scale**, warping/time-stretch, groove & quantise. **Tier 1 complete.** | ☐ |
+| M5 | **Instruments** | Wavetable Synth, FM Synth, Granular Synth, Drum Synth, Sampler *(multisample)*, Subtractive Synth *(stage 2)* | MPE across the DAW | ☐ |
+| M6 | **Breadth** | Reverb *(stage 2: convolution/hybrid)*, Grain Delay, Stutter, Pedal, Tube, Amp & Cabinet, Bitcrusher, Shifter, Vocoder, Transient Shaper, De-esser, remaining MIDI effects | MIDI tools (first set). **Tier 2 complete.** | ☐ |
+| M7 | **1.0 release** | Factory preset pass across all devices, core content | Packaging (AppImage/Flatpak, Windows installer, notarised macOS), light theme, accessibility pass, autosave/crash recovery, DAWproject import/export, performance pass | ☐ |
+| 1.x | **Specialty** | Tier 3: Dual-engine MPE Synth, physical modelling, spectral devices, Erosion, Vinyl, Filter Delay, pitch correction, looper | Plugin sandboxing, detachable panels, content packs | ☐ |
+
+## Milestone principles
+
+- **Every milestone produces something you can use:** plugins that load in your DAW, or a DAW build you can make music in.
+- **Device families share a DSP core** (dynamics detector, modulated delay line, filter set, voice engine, sampler engine). This is why the device order above is not arbitrary.
+- **Large devices ship in stages.** A milestone includes only the stages listed here; each stage must be complete and usable on its own.
+- **The framework is frozen after M1.** Changing the device API or state format after that requires an ADR and a migration path.
+- **No milestone is done without the product owner's sign-off.** Automated checks are necessary but not sufficient.
+
+## Before M0 can start
+
+- [x] All decisions accepted (ADRs 0001–0013, except 0010 which is superseded).
+- [x] Build toolchain installed (command in [dev-environment.md](dev-environment.md#build-toolchain-to-install-before-m0)).
+- [x] Hosting decided: GitHub. The product owner creates the repository later; M0 starts locally with `git init`, and CI runs once it's pushed.
+- [x] Repository structure confirmed: one repository ([ADR 0013](decisions/0013-single-repository.md)).
