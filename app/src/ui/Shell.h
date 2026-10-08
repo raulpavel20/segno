@@ -30,6 +30,11 @@ public:
     /// "FossDAW - name" with a mark while there are unsaved changes.
     std::function<void(const juce::String&)> onTitleChanged;
 
+    /// Ends every eased layout change at once (tests and snapshots, which get no frames).
+    void finishAnimations();
+    [[nodiscard]] DetailPanel& detail() noexcept { return detail_; }
+    [[nodiscard]] ArrangementView& arrangement() noexcept { return arrangement_; }
+
     /// Frame statistics overlay (paint time of the arrangement, frame rate): --stats.
     void setStatsVisible(bool visible);
     /// Scripted benchmark (--benchmark): fills the project with 32 tracks of clips, zooms in and
@@ -70,10 +75,14 @@ private:
     BrowserPanel browser_{actions_};
     InspectorPanel inspector_;
     DetailPanel detail_{session_, actions_};
-    enum class Area { Arrangement, Detail };
-    Area lastArea_ = Area::Arrangement; // where Delete applies
+    enum class Area { Arrangement, Detail, Clip };
+    Area lastArea_ = Area::Arrangement; // where Delete, Duplicate and Select all apply
+    [[nodiscard]] bool notesActive() const; // the piano roll was used last and shows a clip
     ArrangementView arrangement_;
     Splitter browserSplit_, inspectorSplit_;
+    Splitter detailSplit_{true}; // the clip view's top edge
+    float deviceViewHeight_ = 0.0f, clipViewHeight_ = 320.0f; // the detail panel's height per mode
+    std::optional<std::uint64_t> shownMidiClip_; // the selection's MIDI clip (the mode follows it)
     CommandPalette palette_{actions_};
 
     Panel browserPanel_{.open = true, .shown = 1.0f, .size = 220.0f};

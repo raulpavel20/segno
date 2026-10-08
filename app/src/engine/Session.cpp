@@ -1,6 +1,7 @@
 #include "engine/SessionImpl.h"
 
 #include "engine/DevicePlugin.h"
+#include "model/NoteEditing.h"
 
 #include <fd/device/Registry.h>
 
@@ -38,6 +39,17 @@ private:
     ui::DeviceUiContext context_;
 };
 
+model::Note noteOf(const te::MidiNote& n)
+{
+    return {n.getNoteNumber(), n.getStartBeat().inBeats(), n.getLengthBeats().inBeats(),
+            static_cast<float>(n.getVelocity()) / 127.0f};
+}
+
+int midiVelocity(float velocity)
+{
+    return std::clamp(static_cast<int>(std::lround(velocity * 127.0f)), 1, 127);
+}
+
 model::ClipInfo clipInfo(te::Clip& c, int trackColour)
 {
     model::ClipInfo clip;
@@ -50,12 +62,13 @@ model::ClipInfo clipInfo(te::Clip& c, int trackColour)
     clip.offset = pos.getOffset().inSeconds();
     clip.colour = static_cast<int>(c.state.getProperty(kColourId, trackColour));
     if (auto* midi = dynamic_cast<te::MidiClip*>(&c))
+    {
+        // Notes count beats from the content start (the clip's start minus its offset).
+        clip.contentStartBeat = c.edit.tempoSequence.toBeats(pos.getStart() - pos.getOffset()).inBeats();
         for (auto* n : midi->getSequence().getNotes())
-        {
-            const double noteStart = n->getEditStartTime(*midi).inSeconds();
-            clip.notes.push_back({n->getNoteNumber(), noteStart - clip.start, n->getEditEndTime(*midi).inSeconds() - noteStart,
-                                  static_cast<float>(n->getVelocity()) / 127.0f});
-        }
+            clip.notes.push_back(noteOf(*n));
+        std::sort(clip.notes.begin(), clip.notes.end(), model::noteOrder);
+    }
     if (auto* audio = dynamic_cast<te::AudioClipBase*>(&c))
     {
         clip.sourcePath = audio->getOriginalFile().getFullPathName().toStdString();
@@ -348,6 +361,14 @@ void Session::Impl::clearUnder(te::AudioTrack& track, double start, double end, 
     }
 }
 
+bool Session::Impl::ensureInstrument(te::AudioTrack& track)
+{
+    const auto devices = chain(track);
+    if (std::any_of(devices.begin(), devices.end(), [](auto* p) { return p->isSynth(); }))
+        return false;
+    return insertDevice(track, "fd:subtractive-synth", 0) != nullptr;
+}
+
 std::vector<te::Plugin*> Session::Impl::chain(te::AudioTrack& track)
 {
     std::vector<te::Plugin*> out;
@@ -494,15 +515,65 @@ std::uint64_t Session::insertMidiFile(std::uint64_t trackId, const juce::File& f
     all.addTimeToMessages(start.inSeconds());
     clip->getSequence().importMidiSequence(all, impl_->edit.get(), start, &impl_->edit->getUndoManager());
     impl_->clearUnder(*track, start.inSeconds(), start.inSeconds() + length, {clip->itemID.getRawID()});
-
-    // A MIDI clip needs an instrument (ADR 0019): add the default one, in this undo step.
-    const auto devices = Impl::chain(*track);
-    const bool hasInstrument = std::any_of(devices.begin(), devices.end(), [](auto* p) { return p->isSynth(); });
-    if (!hasInstrument)
-        impl_->insertDevice(*track, "fd:subtractive-synth", 0);
+    const bool added = impl_->ensureInstrument(*track);
     if (addedInstrument != nullptr)
-        *addedInstrument = !hasInstrument;
+        *addedInstrument = added;
     return clip->itemID.getRawID();
+}
+
+std::uint64_t Session::createMidiClip(std::uint64_t trackId, double seconds, double lengthSeconds, bool* addedInstrument)
+{
+    auto* track = impl_->track(trackId);
+    if (track == nullptr || !(lengthSeconds > 0.0))
+        return 0;
+    impl_->beginEdit();
+    const auto start = te::TimePosition::fromSeconds(std::max(0.0, seconds));
+    auto clip = track->insertMIDIClip(track->getName(), {start, start + te::TimeDuration::fromSeconds(lengthSeconds)}, nullptr);
+    if (clip == nullptr)
+        return 0;
+    impl_->clearUnder(*track, start.inSeconds(), start.inSeconds() + lengthSeconds, {clip->itemID.getRawID()});
+    const bool added = impl_->ensureInstrument(*track);
+    if (addedInstrument != nullptr)
+        *addedInstrument = added;
+    return clip->itemID.getRawID();
+}
+
+void Session::setNotes(std::uint64_t clipId, const std::vector<model::Note>& notes)
+{
+    auto* midi = dynamic_cast<te::MidiClip*>(impl_->clip(clipId));
+    if (midi == nullptr)
+        return;
+    auto& list = midi->getSequence();
+    auto* undo = &impl_->edit->getUndoManager();
+
+    // Match by value: notes that stay are left alone.
+    std::vector<model::Note> added = notes;
+    std::vector<te::MidiNote*> changed;
+    for (auto* n : list.getNotes())
+        if (auto it = std::find(added.begin(), added.end(), noteOf(*n)); it != added.end())
+            added.erase(it);
+        else
+            changed.push_back(n);
+    if (added.empty() && changed.empty())
+        return;
+    impl_->beginEdit();
+
+    // The rest pair up in time order: a moved note keeps its other properties (colour, mute).
+    std::sort(added.begin(), added.end(), model::noteOrder);
+    std::sort(changed.begin(), changed.end(), [](auto* a, auto* b) { return model::noteOrder(noteOf(*a), noteOf(*b)); });
+    const auto paired = std::min(added.size(), changed.size());
+    for (size_t i = 0; i < paired; ++i)
+    {
+        const auto& to = added[i];
+        changed[i]->setStartAndLength(te::BeatPosition::fromBeats(to.start), te::BeatDuration::fromBeats(to.length), undo);
+        changed[i]->setNoteNumber(to.pitch, undo);
+        changed[i]->setVelocity(midiVelocity(to.velocity), undo);
+    }
+    for (size_t i = paired; i < changed.size(); ++i)
+        list.removeNote(*changed[i], undo);
+    for (size_t i = paired; i < added.size(); ++i)
+        list.addNote(added[i].pitch, te::BeatPosition::fromBeats(added[i].start), te::BeatDuration::fromBeats(added[i].length),
+                     midiVelocity(added[i].velocity), 0, undo);
 }
 
 void Session::setMidiInputTarget(std::optional<std::uint64_t> trackId)

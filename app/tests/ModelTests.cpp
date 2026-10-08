@@ -408,3 +408,15 @@ TEST_CASE("the palette ranks matches, then recent use", "[fast]")
     CHECK(all.size() == items.size());
     CHECK(all.front() == "Snap to grid");
 }
+
+TEST_CASE("a coarser line spacing gives a coarser grid", "[fast]")
+{
+    Timeline tl;
+    tl.setWidth(1000.0);
+    const TempoMap tempo; // 120 BPM: 0.5 s per beat
+    tl.setView(0.0, 60.0); // 30 px per beat: 1/8 notes are 15 px apart
+    CHECK(tl.gridStepBeats(tempo) == Approx(0.5));
+    tl.setLineSpacing(24.0);
+    CHECK(tl.gridStepBeats(tempo) == Approx(1.0));
+    CHECK(tl.snap(0.3, tempo) == Approx(0.5)); // snapping follows
+}

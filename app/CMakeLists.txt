@@ -7,12 +7,12 @@ juce_add_modules(ALIAS_NAMESPACE tracktion
 
 # fd_app_model: JUCE-free view models of the DAW (ADR 0018), tested as [fast].
 add_library(fd_app_model STATIC src/model/Timeline.cpp src/model/TrackLayout.cpp src/model/Peaks.cpp
-    src/model/Editing.cpp src/model/Fuzzy.cpp)
+    src/model/Editing.cpp src/model/Fuzzy.cpp src/model/NoteEditing.cpp)
 target_include_directories(fd_app_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(fd_app_model PUBLIC fd::audiofile PRIVATE fd::warnings)
 
 if(FD_BUILD_TESTS)
-    fd_add_test(NAME fd_app_model_tests SOURCES tests/ModelTests.cpp LIBS fd_app_model)
+    fd_add_test(NAME fd_app_model_tests SOURCES tests/ModelTests.cpp tests/NoteEditingTests.cpp LIBS fd_app_model)
 endif()
 
 # fd_engine: the tracktion adapter, compiled into each consumer (the app and its tests).
@@ -56,7 +56,8 @@ target_sources(fd_app_ui INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/WaveformCache.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/WaveformTiles.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/DeviceChain.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/CommandPalette.cpp")
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/CommandPalette.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/PianoRoll.cpp")
 target_link_libraries(fd_app_ui INTERFACE fd_engine juce::juce_opengl)
 
 target_sources(fd-daw PRIVATE src/Main.cpp)

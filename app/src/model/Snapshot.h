@@ -8,6 +8,18 @@
 
 namespace fd::model
 {
+/// A note in a MIDI clip (C2). Times are in beats (quarter notes) from the clip's content start:
+/// the zero of its notes, which is the clip's start minus its offset.
+struct Note
+{
+    int pitch = 60;
+    double start = 0.0;
+    double length = 0.25;
+    float velocity = 100.0f / 127.0f; // 0..1, in steps of 1/127 (MIDI)
+
+    friend bool operator==(const Note&, const Note&) = default;
+};
+
 /// What the arrangement draws, published by engine::Session after every change (ADR 0018).
 /// Immutable once published; plain data only (no tracktion or JUCE types).
 struct ClipInfo
@@ -24,13 +36,9 @@ struct ClipInfo
     int colour = 0;      // index into the clip palette
     std::string sourcePath; // audio file, if any
 
-    struct Note
-    {
-        int pitch = 60;
-        double start = 0.0, length = 0.0; // seconds from the clip start
-        float velocity = 0.8f;
-    };
-    std::vector<Note> notes; // MIDI clips
+    // MIDI clips: the notes in time order (noteOrder) and the song beat of their zero.
+    std::vector<Note> notes;
+    double contentStartBeat = 0.0;
 
     [[nodiscard]] double end() const noexcept { return start + length; }
 };

@@ -86,6 +86,13 @@ public:
     /// A track without an instrument gets the default one (`addedInstrument` says so).
     std::uint64_t insertMidiFile(std::uint64_t trackId, const juce::File& file, double seconds,
                                  bool* addedInstrument = nullptr);
+    /// An empty MIDI clip on `trackId` over [seconds, seconds + lengthSeconds), named after the
+    /// track; returns its id. A track without an instrument gets the default one, as above.
+    std::uint64_t createMidiClip(std::uint64_t trackId, double seconds, double lengthSeconds,
+                                 bool* addedInstrument = nullptr);
+    /// Replaces a MIDI clip's notes (C2, the piano roll). Notes are matched by value: the ones
+    /// that stay are untouched; changed ones keep their other properties.
+    void setNotes(std::uint64_t clipId, const std::vector<model::Note>& notes);
     /// Inserts `file` on `trackId` at `seconds`; returns the clip id, or 0 if the file is not
     /// readable audio.
     std::uint64_t insertAudioFile(std::uint64_t trackId, const juce::File& file, double seconds);
@@ -107,7 +114,8 @@ public:
     /// True while any MIDI input (a device or the computer keyboard) holds a note: the
     /// transport bar's activity light.
     [[nodiscard]] bool midiNotesHeld() const;
-    /// The computer keyboard as a MIDI input: a note on (velocity > 0) or off.
+    /// The computer keyboard as a MIDI input: a note on (velocity > 0) or off. The piano roll
+    /// previews notes through it too.
     void computerKeyboardNote(int note, float velocity);
     static constexpr const char* computerKeyboardName = "Computer keyboard";
 

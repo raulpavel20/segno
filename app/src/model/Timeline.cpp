@@ -28,16 +28,16 @@ std::int64_t beatTicks(const TempoMap& t) noexcept
 }
 
 /// The step ladder in ticks: 1/32, 1/16, 1/8 note, a beat, then 1, 2, 4 ... 256 bars.
-std::int64_t stepTicks(const TempoMap& t, double pixelsPerTick) noexcept
+std::int64_t stepTicks(const TempoMap& t, double pixelsPerTick, double spacing) noexcept
 {
     const std::array<std::int64_t, 3> subdivisions{1, 2, 4};
     for (auto s : subdivisions)
-        if (s < beatTicks(t) && s * pixelsPerTick >= Timeline::minLineSpacing)
+        if (s < beatTicks(t) && s * pixelsPerTick >= spacing)
             return s;
-    if (beatTicks(t) * pixelsPerTick >= Timeline::minLineSpacing)
+    if (beatTicks(t) * pixelsPerTick >= spacing)
         return beatTicks(t);
     std::int64_t bars = 1;
-    while (bars < 256 && bars * barTicks(t) * pixelsPerTick < Timeline::minLineSpacing)
+    while (bars < 256 && bars * barTicks(t) * pixelsPerTick < spacing)
         bars *= 2;
     return bars * barTicks(t);
 }
@@ -131,14 +131,14 @@ bool Timeline::advance(double dt) noexcept
 
 double Timeline::gridStepBeats(const TempoMap& tempo) const noexcept
 {
-    return static_cast<double>(stepTicks(tempo, pixelsPerTick(*this, tempo))) / kTicksPerQuarter;
+    return static_cast<double>(stepTicks(tempo, pixelsPerTick(*this, tempo), lineSpacing_)) / kTicksPerQuarter;
 }
 
 void Timeline::gridLines(const TempoMap& tempo, std::vector<GridLine>& out) const
 {
     out.clear();
     const double ppt = pixelsPerTick(*this, tempo);
-    const std::int64_t step = stepTicks(tempo, ppt);
+    const std::int64_t step = stepTicks(tempo, ppt, lineSpacing_);
     const std::int64_t bar = barTicks(tempo), beat = beatTicks(tempo);
 
     // Bar labels every 1, 2, 4 ... bars so they stay readable.

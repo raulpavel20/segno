@@ -31,6 +31,9 @@ struct Session::Impl final : private juce::ValueTree::Listener, private juce::As
     te::Plugin* insertDevice(te::AudioTrack& track, const std::string& key, int index);
     /// ADR 0019: clips on `track` covered by [start, end) are cut (except the ones placed).
     void clearUnder(te::AudioTrack& track, double start, double end, const std::set<std::uint64_t>& except);
+    /// A MIDI clip needs an instrument (ADR 0019): adds the default one to a track without one.
+    /// True if it added it.
+    bool ensureInstrument(te::AudioTrack& track);
     /// The track's user devices, in order (without tracktion's volume and meter plugins).
     [[nodiscard]] static std::vector<te::Plugin*> chain(te::AudioTrack& track);
 

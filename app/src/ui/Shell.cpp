@@ -28,12 +28,18 @@ Shell::Shell(engine::Session& session) : session_(session), arrangement_(session
     registerActions();
     transport_ = std::make_unique<TransportBar>(session_, actions_);
 
-    detailPanel_.size = static_cast<float>(ui::Theme::current().devicePanelHeight + 24 + DetailPanel::headerHeight);
+    deviceViewHeight_ = static_cast<float>(ui::Theme::current().devicePanelHeight + 24 + DetailPanel::headerHeight);
+    detailPanel_.size = deviceViewHeight_;
     for (juce::Component* c : {static_cast<juce::Component*>(transport_.get()), static_cast<juce::Component*>(&browser_),
                                static_cast<juce::Component*>(&inspector_), static_cast<juce::Component*>(&detail_),
                                static_cast<juce::Component*>(&arrangement_), static_cast<juce::Component*>(&browserSplit_),
-                               static_cast<juce::Component*>(&inspectorSplit_)})
+                               static_cast<juce::Component*>(&inspectorSplit_), static_cast<juce::Component*>(&detailSplit_)})
         addAndMakeVisible(c);
+    detailSplit_.onDrag = [this](float dy) {
+        clipViewHeight_ = juce::jlimit(200.0f, std::max(200.0f, static_cast<float>(getHeight()) - 260.0f), clipViewHeight_ - dy);
+        detailPanel_.size = clipViewHeight_;
+        resized();
+    };
 
     browserSplit_.onDrag = [this](float dx) {
         browserPanel_.size = juce::jlimit(160.0f, 480.0f, browserPanel_.size + dx);
@@ -48,6 +54,16 @@ Shell::Shell(engine::Session& session) : session_(session), arrangement_(session
     arrangement_.onActivated = [this] { lastArea_ = Area::Arrangement; };
     arrangement_.onMessage = [this](const juce::String& m) { showWarning(m); };
     detail_.chain().onActivated = [this] { lastArea_ = Area::Detail; };
+    detail_.pianoRoll().onActivated = [this] { lastArea_ = Area::Clip; };
+    arrangement_.onOpenClip = [this](std::uint64_t id) {
+        // MIDI clips open in the clip view (a clip made just now isn't in the snapshot yet).
+        const auto found = model::findClip(*session_.snapshot(), id);
+        if (found && found->first->kind != model::ClipInfo::Kind::Midi)
+            return;
+        detail_.setMode(DetailPanel::Mode::Clip);
+        if (!detailPanel_.open)
+            toggle(detailPanel_);
+    };
     session_.onSnapshotChanged = [this] {
         arrangement_.setSnapshot(session_.snapshot());
         selectionChanged(arrangement_.selectedTrack());
@@ -116,25 +132,63 @@ void Shell::registerActions()
                   .perform = [&s] { s.undo(); }, .isEnabled = [&s] { return s.canUndo(); }});
     actions_.add({.id = "edit.redo", .name = "Redo", .category = "Edit", .keys = {key('z', kCmd | kShift), key('y', kCmd)},
                   .perform = [&s] { s.redo(); }, .isEnabled = [&s] { return s.canRedo(); }});
+    // Delete, Duplicate and Select all act on the selection in the area used last: notes in the
+    // piano roll, a device in the chain, else clips.
+    auto& roll = detail_.pianoRoll();
     actions_.add({.id = "edit.delete", .name = "Delete", .category = "Edit",
                   .keys = {key(juce::KeyPress::deleteKey), key(juce::KeyPress::backspaceKey)},
-                  .perform = [this] {
-                      // The selection in the area used last: a device in the chain, else clips.
-                      if (lastArea_ == Area::Detail && detail_.chain().hasSelection())
+                  .perform = [this, &roll] {
+                      if (notesActive() && roll.hasSelection())
+                          roll.deleteSelection();
+                      else if (lastArea_ == Area::Detail && detail_.chain().hasSelection())
                           detail_.chain().deleteSelected();
                       else
                           arrangement_.deleteSelection();
                   },
-                  .isEnabled = [this] {
-                      return (lastArea_ == Area::Detail && detail_.chain().hasSelection()) || arrangement_.hasClipSelection();
+                  .isEnabled = [this, &roll] {
+                      return (notesActive() && roll.hasSelection()) ||
+                             (lastArea_ == Area::Detail && detail_.chain().hasSelection()) || arrangement_.hasClipSelection();
                   }});
     actions_.add({.id = "edit.duplicate", .name = "Duplicate", .category = "Edit", .keys = {key('d', kCmd)},
-                  .perform = [this] { arrangement_.duplicateSelection(); },
-                  .isEnabled = [this] { return arrangement_.hasClipSelection(); }});
+                  .perform = [this, &roll] {
+                      if (notesActive() && roll.hasSelection())
+                          roll.duplicateSelection();
+                      else
+                          arrangement_.duplicateSelection();
+                  },
+                  .isEnabled = [this, &roll] { return (notesActive() && roll.hasSelection()) || arrangement_.hasClipSelection(); }});
     actions_.add({.id = "edit.split", .name = "Split at playhead", .category = "Edit", .keys = {key('e', kCmd)},
                   .perform = [this] { arrangement_.splitAtPlayhead(); }});
-    actions_.add({.id = "edit.selectAll", .name = "Select all clips", .category = "Edit", .keys = {key('a', kCmd)},
-                  .perform = [this] { arrangement_.selectAllClips(); }});
+    actions_.add({.id = "edit.selectAll", .name = "Select all", .category = "Edit", .keys = {key('a', kCmd)},
+                  .perform = [this, &roll] {
+                      if (notesActive())
+                          roll.selectAll();
+                      else
+                          arrangement_.selectAllClips();
+                  }});
+
+    // Notes (C2): the piano roll's selection, while it was used last.
+    auto notesSelected = [this, &roll] { return notesActive() && roll.hasSelection(); };
+    actions_.add({.id = "notes.up", .name = "Transpose up", .category = "Notes", .keys = {key(juce::KeyPress::upKey)},
+                  .perform = [&roll] { roll.transpose(1); }, .isEnabled = notesSelected});
+    actions_.add({.id = "notes.down", .name = "Transpose down", .category = "Notes", .keys = {key(juce::KeyPress::downKey)},
+                  .perform = [&roll] { roll.transpose(-1); }, .isEnabled = notesSelected});
+    actions_.add({.id = "notes.octaveUp", .name = "Transpose up an octave", .category = "Notes",
+                  .keys = {key(juce::KeyPress::upKey, kShift)}, .perform = [&roll] { roll.transpose(12); },
+                  .isEnabled = notesSelected});
+    actions_.add({.id = "notes.octaveDown", .name = "Transpose down an octave", .category = "Notes",
+                  .keys = {key(juce::KeyPress::downKey, kShift)}, .perform = [&roll] { roll.transpose(-12); },
+                  .isEnabled = notesSelected});
+    actions_.add({.id = "notes.later", .name = "Nudge later", .category = "Notes", .keys = {key(juce::KeyPress::rightKey)},
+                  .perform = [&roll] { roll.nudge(1); }, .isEnabled = notesSelected});
+    actions_.add({.id = "notes.earlier", .name = "Nudge earlier", .category = "Notes", .keys = {key(juce::KeyPress::leftKey)},
+                  .perform = [&roll] { roll.nudge(-1); }, .isEnabled = notesSelected});
+    actions_.add({.id = "notes.quantise", .name = "Quantise", .category = "Notes", .keys = {key('u', kCmd)},
+                  .perform = [&roll] { roll.quantise(); },
+                  .isEnabled = [this, &roll] { return detail_.showsPianoRoll() && !roll.notes().empty(); }});
+    actions_.add({.id = "clip.newMidi", .name = "New MIDI clip", .category = "Clip", .keys = {key('m', kCmd | kShift)},
+                  .perform = [this] { arrangement_.createMidiClipAtPlayhead(); },
+                  .isEnabled = [this] { return !session_.snapshot()->tracks.empty(); }});
     actions_.add({.id = "midi.computerKeyboard", .name = "Computer keyboard as MIDI", .category = "MIDI",
                   .keys = {key('k', kCmd | kShift)},
                   .perform = [this] {
@@ -223,6 +277,11 @@ void Shell::registerActions()
                   .isEnabled = [this] { return !session_.isScanning(); }});
     actions_.add({.id = "app.audioSettings", .name = "Audio settings", .category = "App", .keys = {key(',', kCmd)},
                   .perform = [this] { showAudioSettings(); }});
+}
+
+bool Shell::notesActive() const
+{
+    return lastArea_ == Area::Clip && detail_.showsPianoRoll();
 }
 
 bool Shell::keyPressed(const juce::KeyPress& k)
@@ -371,7 +430,8 @@ std::string Shell::viewState() const
                           {"inspector", inspectorPanel_.open},
                           {"detail", detailPanel_.open},
                           {"browserWidth", browserPanel_.size},
-                          {"inspectorWidth", inspectorPanel_.size}}
+                          {"inspectorWidth", inspectorPanel_.size},
+                          {"clipViewHeight", clipViewHeight_}}
         .dump();
 }
 
@@ -389,6 +449,7 @@ void Shell::applyViewState(const std::string& json)
     detailPanel_.open = get("detail", detailPanel_.open);
     browserPanel_.size = get("browserWidth", browserPanel_.size);
     inspectorPanel_.size = get("inspectorWidth", inspectorPanel_.size);
+    clipViewHeight_ = get("clipViewHeight", clipViewHeight_);
     resized();
 }
 
@@ -431,18 +492,35 @@ std::optional<model::TrackInfo> Shell::selectedTrackInfo() const
 
 void Shell::selectionChanged(std::optional<std::uint64_t>)
 {
-    const auto info = selectedTrackInfo();
-    // Live MIDI plays the selected track's instrument (auto-arm); other tracks hear nothing.
-    const auto target = info && info->kind == model::TrackInfo::Kind::Instrument ? std::optional(info->id) : std::nullopt;
-    if (target != session_.midiInputTarget())
-        session_.setMidiInputTarget(target);
+    const auto snapshot = session_.snapshot();
+    auto info = selectedTrackInfo();
     const auto& clips = arrangement_.selectedClips();
     std::optional<model::ClipInfo> clip;
     if (clips.size() == 1)
-        if (const auto found = model::findClip(*session_.snapshot(), *clips.begin()))
+        if (const auto found = model::findClip(*snapshot, *clips.begin()))
+        {
             clip = *found->first;
-    inspector_.setSelection(info, clip, static_cast<int>(clips.size()), session_.snapshot()->tempo);
+            info = snapshot->tracks[static_cast<size_t>(found->second)]; // the clip's track
+        }
+
+    // Live MIDI plays the selected track's instrument (auto-arm); other tracks hear nothing.
+    // The piano roll previews notes through the same route.
+    const auto target = info && info->kind == model::TrackInfo::Kind::Instrument ? std::optional(info->id) : std::nullopt;
+    if (target != session_.midiInputTarget())
+        session_.setMidiInputTarget(target);
+    inspector_.setSelection(info, clip, static_cast<int>(clips.size()), snapshot->tempo);
     detail_.setSelection(info);
+
+    // The detail panel follows the selection: a MIDI clip opens the clip view, anything else the
+    // devices (Tab switches until the selection changes).
+    const auto midi = clip && clip->kind == model::ClipInfo::Kind::Midi ? clip : std::nullopt;
+    const auto midiId = midi ? std::optional(midi->id) : std::nullopt;
+    if (midiId != shownMidiClip_)
+    {
+        shownMidiClip_ = midiId;
+        detail_.setMode(midiId ? DetailPanel::Mode::Clip : DetailPanel::Mode::Devices);
+    }
+    detail_.setClip(midi, snapshot->tempo);
 }
 
 void Shell::showWarning(const juce::String& message)
@@ -471,6 +549,17 @@ void Shell::onFrame(double timestamp)
                 p->shown = target;
             relayout = true;
         }
+    }
+    // The detail panel's height follows its mode: the device view's fixed height, or the clip
+    // view's (resizable at its top edge).
+    const float detailTarget = detail_.mode() == DetailPanel::Mode::Clip ? clipViewHeight_ : deviceViewHeight_;
+    if (detailPanel_.size != detailTarget)
+    {
+        const auto k = static_cast<float>(1.0 - std::exp(-dt / kPanelTimeConstant));
+        detailPanel_.size += (detailTarget - detailPanel_.size) * k;
+        if (std::abs(detailPanel_.size - detailTarget) < 0.5f)
+            detailPanel_.size = detailTarget;
+        relayout = true;
     }
     if (relayout)
         resized();
@@ -502,6 +591,9 @@ void Shell::onFrame(double timestamp)
 
     const double position = session_.position();
     arrangement_.frame(dt, position);
+    detail_.pianoRoll().setSnapEnabled(arrangement_.isSnapEnabled());
+    if (detail_.isVisible())
+        detail_.frame(position);
     transport_->frame(position, session_.snapshot()->tempo);
 
     if (warning_.isNotEmpty() && timestamp > 0.0 && juce::Time::getMillisecondCounterHiRes() * 0.001 > warningUntil_)
@@ -509,6 +601,14 @@ void Shell::onFrame(double timestamp)
         warning_.clear();
         repaint();
     }
+}
+
+void Shell::finishAnimations()
+{
+    for (auto* p : {&browserPanel_, &inspectorPanel_, &detailPanel_})
+        p->shown = p->open ? 1.0f : 0.0f;
+    detailPanel_.size = detail_.mode() == DetailPanel::Mode::Clip ? clipViewHeight_ : deviceViewHeight_;
+    resized();
 }
 
 void Shell::setStatsVisible(bool visible)
@@ -617,11 +717,13 @@ void Shell::resized()
     r.removeFromTop(1);
 
     const bool showSides = !focusMode_;
-    const int detailH = showSides ? juce::roundToInt(detailPanel_.size * detailPanel_.shown) : 0;
+    const int detailH = showSides ? std::min(juce::roundToInt(detailPanel_.size * detailPanel_.shown), std::max(0, r.getHeight() - 160)) : 0;
     detail_.setVisible(detailH > 0);
     detail_.setBounds(r.removeFromBottom(detailH));
     if (detailH > 0)
         r.removeFromBottom(1);
+    detailSplit_.setVisible(detailH > 0 && detailPanel_.open && detail_.mode() == DetailPanel::Mode::Clip);
+    detailSplit_.setBounds(detail_.getBounds().withHeight(5).translated(0, -3));
 
     const float browserW = showSides ? kRailWidth + (browserPanel_.size - kRailWidth) * browserPanel_.shown : 0.0f;
     browser_.setVisible(browserW > 0.0f);
@@ -639,5 +741,6 @@ void Shell::resized()
     arrangement_.setBounds(r);
     browserSplit_.toFront(false);
     inspectorSplit_.toFront(false);
+    detailSplit_.toFront(false);
 }
 } // namespace fd::app

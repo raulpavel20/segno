@@ -48,6 +48,8 @@ public:
     std::function<void()> onActivated;
     /// Something worth telling the user (shown in the shell, never modal).
     std::function<void(const juce::String&)> onMessage;
+    /// A clip was double-clicked or created: show it in the clip view.
+    std::function<void(std::uint64_t clip)> onOpenClip;
 
     // Edit commands on the selection (C4), each one undo step.
     void deleteSelection();
@@ -56,6 +58,12 @@ public:
     /// playhead on the selected track).
     void splitAtPlayhead();
     void selectAllClips();
+    /// A new MIDI clip (C2) on track `index` at `seconds`: from the grid line at or before it,
+    /// one bar long, or shorter to fit before the next clip. Selects it. Returns its id (0 if
+    /// there's no room).
+    std::uint64_t createMidiClip(int trackIndex, double seconds, bool bypassSnap = false);
+    /// The same at the playhead on the selected track.
+    std::uint64_t createMidiClipAtPlayhead();
     [[nodiscard]] bool hasClipSelection() const noexcept { return !selectedClips_.empty(); }
 
     [[nodiscard]] const model::Timeline& timeline() const noexcept { return timeline_; }
@@ -141,6 +149,7 @@ private:
     bool dragMoved_ = false;
     std::vector<model::ClipEdit> preview_; // where dragged clips will land
     std::set<std::uint64_t> boxBase_;      // selection before a Shift box drag
+    std::optional<std::uint64_t> clickedInSelection_; // a click without a drag selects just it
 
     // File drag preview: target track index (or -1 = new track) and snapped time.
     std::optional<std::pair<int, double>> dropTarget_;

@@ -285,9 +285,10 @@ TEST_CASE("tracks with an instrument, MIDI files and live MIDI routing", "[integ
     CHECK(found->first->kind == fd::model::ClipInfo::Kind::Midi);
     CHECK(found->first->start == Approx(2.0));
     REQUIRE(found->first->notes.size() == 3);
+    CHECK(found->first->contentStartBeat == Approx(4.0)); // 2 s at 120 BPM
     CHECK(found->first->notes[1].pitch == 64);
-    CHECK(found->first->notes[1].start == Approx(0.5).margin(0.01));
-    CHECK(found->first->notes[1].length == Approx(0.25).margin(0.01));
+    CHECK(found->first->notes[1].start == Approx(1.0).margin(0.01)); // beats: 0.5 s
+    CHECK(found->first->notes[1].length == Approx(0.5).margin(0.01));
 
     // Live MIDI follows the selected instrument track; no undo steps. The device list (with the
     // computer keyboard input) arrives asynchronously: the routing must follow when it does.
@@ -487,4 +488,79 @@ TEST_CASE("clips never overlap on a track: placing cuts what is covered, in one 
     session.updateSnapshotNow();
     CHECK(session.snapshot()->tracks[1].devices.empty());
     CHECK(session.snapshot()->tracks[1].clips.empty());
+}
+
+TEST_CASE("MIDI clips from scratch and note edits, each one undo step", "[integration]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    tracktion::Engine engine{"fd-integration-tests"};
+    fd::engine::registerDevices(engine);
+    fd::engine::Session session(engine);
+    using fd::model::Note;
+    const auto track = session.snapshot()->tracks.front().id;
+
+    // An empty clip over bar 2 (2..4 s at 120 BPM); the track gets an instrument in the same step.
+    bool added = false;
+    const auto clip = session.createMidiClip(track, 2.0, 2.0, &added);
+    REQUIRE(clip != 0);
+    CHECK(added);
+    session.updateSnapshotNow();
+    auto info = [&] {
+        const auto found = fd::model::findClip(*session.snapshot(), clip);
+        return found ? std::optional(*found->first) : std::nullopt;
+    };
+    REQUIRE(info());
+    CHECK(info()->kind == fd::model::ClipInfo::Kind::Midi);
+    CHECK(info()->notes.empty());
+    CHECK(info()->contentStartBeat == Approx(4.0));
+    CHECK(session.snapshot()->tracks.front().kind == fd::model::TrackInfo::Kind::Instrument);
+
+    // Notes round-trip exactly (beats, MIDI velocity steps).
+    const std::vector<Note> notes{{60, 0.0, 0.5, 100.0f / 127.0f}, {64, 1.0, 0.5, 80.0f / 127.0f}, {67, 2.0, 1.0, 1.0f}};
+    session.setNotes(clip, notes);
+    session.updateSnapshotNow();
+    CHECK(info()->notes == notes);
+
+    // A gesture's result (one note moved, one deleted) is one step; the unchanged note's state
+    // is left alone.
+    auto* midi = dynamic_cast<tracktion::MidiClip*>(session.impl().clip(clip));
+    REQUIRE(midi != nullptr);
+    auto stateOf = [&](int pitch) {
+        for (auto* n : midi->getSequence().getNotes())
+            if (n->getNoteNumber() == pitch)
+                return n->state;
+        return juce::ValueTree();
+    };
+    const auto untouched = stateOf(60);
+    auto edited = notes;
+    edited[1].start = 1.5;
+    edited.pop_back();
+    session.setNotes(clip, edited);
+    session.setNotes(clip, edited); // no change: no undo step
+    session.updateSnapshotNow();
+    CHECK(info()->notes == edited);
+    CHECK(stateOf(60) == untouched);
+
+    session.undo();
+    session.updateSnapshotNow();
+    CHECK(info()->notes == notes);
+    session.undo();
+    session.updateSnapshotNow();
+    CHECK(info()->notes.empty());
+    session.redo();
+    session.redo();
+    session.updateSnapshotNow();
+    CHECK(info()->notes == edited);
+
+    // No overlaps (ADR 0019): a new clip over the second half cuts this one.
+    REQUIRE(session.createMidiClip(track, 3.0, 2.0) != 0);
+    session.updateSnapshotNow();
+    CHECK(info()->length == Approx(1.0));
+
+    // Undo back to the start: no clip, no instrument.
+    while (session.canUndo())
+        session.undo();
+    session.updateSnapshotNow();
+    CHECK_FALSE(info());
+    CHECK(session.snapshot()->tracks.front().devices.empty());
 }

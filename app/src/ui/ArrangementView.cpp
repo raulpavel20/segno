@@ -498,7 +498,7 @@ void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, 
 void ArrangementView::paintNotes(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body,
                                  juce::Colour colour)
 {
-    // Read-only preview (piano roll editing is M2): notes across the clip's own pitch range.
+    // A preview of the notes across the clip's own pitch range (the piano roll edits them).
     if (clip.notes.empty() || body.getHeight() < 4.0f)
         return;
     int lo = 127, hi = 0;
@@ -513,9 +513,12 @@ void ArrangementView::paintNotes(juce::Graphics& g, const model::ClipInfo& clip,
     g.setColour(colour.interpolatedWith(juce::Colours::white, 0.25f));
     juce::Graphics::ScopedSaveState saved(g);
     g.reduceClipRegion(body.getSmallestIntegerContainer());
+    const double contentStart = clip.start - clip.offset; // follows the clip while it is dragged
+    const auto& tempo = snapshot_->tempo;
     for (const auto& n : clip.notes)
     {
-        const float x0 = laneX(clip.start + n.start), x1 = laneX(clip.start + n.start + n.length);
+        const float x0 = laneX(contentStart + tempo.secondsForBeats(n.start));
+        const float x1 = laneX(contentStart + tempo.secondsForBeats(n.start + n.length));
         const float y = body.getBottom() - static_cast<float>(n.pitch - lo + 1) * row;
         g.fillRect(juce::Rectangle<float>(x0, y, std::max(1.0f, x1 - x0 - 1.0f), std::max(1.0f, row - 1.0f)));
     }
@@ -598,8 +601,23 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
     const auto row = layout_.hit(pos.y - lanes.getY());
     if (row)
         select(snapshot_->tracks[static_cast<size_t>(row->track)].id);
-    if (const auto hit = model::hitClip(*snapshot_, layout_, timeline_, e.position.x - static_cast<float>(lanes.getX()), e.position.y - static_cast<float>(lanes.getY())))
+    const auto hit = model::hitClip(*snapshot_, layout_, timeline_, e.position.x - static_cast<float>(lanes.getX()),
+                                    e.position.y - static_cast<float>(lanes.getY()));
+    if (e.getNumberOfClicks() >= 2 && row)
     {
+        // Double-click: open a clip in the clip view, or make a MIDI clip on an empty spot.
+        drag_ = Drag::None;
+        if (hit && onOpenClip)
+            onOpenClip(hit->clip);
+        else if (!hit)
+            createMidiClip(row->track, timeline_.timeForX(e.position.x - static_cast<float>(lanes.getX())), e.mods.isAltDown());
+        return;
+    }
+    clickedInSelection_.reset();
+    if (hit)
+    {
+        if (!additive && selectedClips_.size() > 1 && selectedClips_.contains(hit->clip))
+            clickedInSelection_ = hit->clip; // stays a group for a drag; just this clip for a click
         auto selection = selectedClips_;
         if (additive && selection.contains(hit->clip))
             selection.erase(hit->clip);
@@ -723,6 +741,9 @@ void ArrangementView::mouseUp(const juce::MouseEvent& e)
     }
     if (drag_ == Drag::Clip && dragMoved_ && !preview_.empty())
         session_.applyClipEdits(preview_); // one undo step; the snapshot follows
+    if (drag_ == Drag::Clip && !dragMoved_ && clickedInSelection_)
+        setClipSelection({*clickedInSelection_});
+    clickedInSelection_.reset();
     // Keep drawing the preview until the new snapshot arrives (no flicker back).
     if (drag_ != Drag::Clip || !dragMoved_)
         preview_.clear();
@@ -769,6 +790,52 @@ void ArrangementView::splitAtPlayhead()
         selection.insert(right.begin(), right.end());
         setClipSelection(std::move(selection));
     }
+}
+
+std::uint64_t ArrangementView::createMidiClip(int trackIndex, double seconds, bool bypassSnap)
+{
+    if (trackIndex < 0 || trackIndex >= static_cast<int>(snapshot_->tracks.size()))
+        return 0;
+    const auto& track = snapshot_->tracks[static_cast<size_t>(trackIndex)];
+    const auto& tempo = snapshot_->tempo;
+    double start = std::max(0.0, seconds);
+    if (snap_ && !bypassSnap)
+    {
+        const double step = tempo.secondsForBeats(timeline_.gridStepBeats(tempo));
+        start = std::floor(start / step + 1e-9) * step;
+    }
+    // Never over another clip (ADR 0019 would cut it): start after the one it lands in, end
+    // before the next.
+    for (const auto& c : track.clips) // sorted by start
+        if (c.start <= start + 1e-9 && c.end() > start)
+            start = c.end();
+    double end = start + tempo.secondsForBeats(tempo.beatsPerBar());
+    for (const auto& c : track.clips)
+        if (c.start > start - 1e-9 && c.start < end)
+            end = c.start;
+    if (end - start < model::minClipLength)
+        return 0;
+    bool addedInstrument = false;
+    const auto id = session_.createMidiClip(track.id, start, end - start, &addedInstrument);
+    if (id == 0)
+        return 0;
+    select(track.id);
+    setClipSelection({id});
+    if (addedInstrument && onMessage)
+        onMessage("Added a Subtractive Synth to play the MIDI clip (swap it in the device chain)");
+    if (onOpenClip)
+        onOpenClip(id);
+    return id;
+}
+
+std::uint64_t ArrangementView::createMidiClipAtPlayhead()
+{
+    int index = 0;
+    if (selectedTrack_)
+        for (size_t i = 0; i < snapshot_->tracks.size(); ++i)
+            if (snapshot_->tracks[i].id == *selectedTrack_)
+                index = static_cast<int>(i);
+    return createMidiClip(index, playhead_);
 }
 
 void ArrangementView::selectAllClips()

@@ -3,6 +3,7 @@
 #include "engine/Session.h"
 #include "ui/ActionRegistry.h"
 #include "ui/DeviceChain.h"
+#include "ui/PianoRoll.h"
 
 #include <fd_ui/fd_ui.h>
 
@@ -10,23 +11,32 @@
 
 namespace fd::app
 {
-/// Thin resize handle between docked panels.
+/// Thin resize handle between docked panels: side by side, or (vertical) one above the other.
 class Splitter final : public juce::Component
 {
 public:
+    /// Mouse movement along the drag direction (px, right or down positive).
     std::function<void(float delta)> onDrag;
 
-    Splitter() { setMouseCursor(juce::MouseCursor::LeftRightResizeCursor); }
-    void mouseDown(const juce::MouseEvent& e) override { last_ = e.getScreenPosition().x; }
+    explicit Splitter(bool vertical = false) : vertical_(vertical)
+    {
+        setMouseCursor(vertical ? juce::MouseCursor::UpDownResizeCursor : juce::MouseCursor::LeftRightResizeCursor);
+    }
+    void mouseDown(const juce::MouseEvent& e) override { last_ = along(e); }
     void mouseDrag(const juce::MouseEvent& e) override
     {
-        const int x = e.getScreenPosition().x;
+        const int now = along(e);
         if (onDrag)
-            onDrag(static_cast<float>(x - last_));
-        last_ = x;
+            onDrag(static_cast<float>(now - last_));
+        last_ = now;
     }
 
 private:
+    [[nodiscard]] int along(const juce::MouseEvent& e) const
+    {
+        return vertical_ ? e.getScreenPosition().y : e.getScreenPosition().x;
+    }
+    bool vertical_;
     int last_ = 0;
 };
 
@@ -100,7 +110,8 @@ private:
     model::TempoMap tempo_;
 };
 
-/// Bottom panel: the selected track's device chain (C6) or the clip view; Tab switches.
+/// Bottom panel: the selected track's device chain (C6) or the clip view, which shows the
+/// selected MIDI clip in the piano roll (M2 C2); Tab switches.
 class DetailPanel final : public juce::Component
 {
 public:
@@ -112,13 +123,23 @@ public:
     void setMode(Mode m);
     [[nodiscard]] Mode mode() const noexcept { return mode_; }
     void setSelection(std::optional<model::TrackInfo> track);
+    /// The MIDI clip the clip view edits (nullopt: none).
+    void setClip(std::optional<model::ClipInfo> clip, const model::TempoMap& tempo);
+    /// True while the clip view is showing a clip in the piano roll.
+    [[nodiscard]] bool showsPianoRoll() const noexcept { return mode_ == Mode::Clip && roll_.clip().has_value(); }
     [[nodiscard]] DeviceChain& chain() noexcept { return chain_; }
+    [[nodiscard]] PianoRoll& pianoRoll() noexcept { return roll_; }
+    /// Once per display frame.
+    void frame(double playheadSeconds);
     void paint(juce::Graphics& g) override;
     void resized() override;
 
 private:
+    void updateVisibility();
+
     Mode mode_ = Mode::Devices;
     std::optional<model::TrackInfo> track_;
     DeviceChain chain_;
+    PianoRoll roll_;
 };
 } // namespace fd::app

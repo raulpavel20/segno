@@ -226,6 +226,50 @@ The arrangement's budget (ADR 0015): 32 visible tracks zooming continuously, und
 
 A software-renderer benchmark also runs offscreen in the integration tests (`"[.benchmark]"`, report only: offscreen software painting at 4K is bound by fill rate).
 
+## Piano roll (M2 step C2)
+
+- **Creating clips:**
+  - double-click an empty spot on a lane creates a one-bar MIDI clip from the grid line at or before it (Alt: exactly there);
+  - it never covers another clip: it starts after a clip it lands in and ends where the next one starts;
+  - Ctrl+Shift+M creates one at the playhead on the selected track;
+  - a track without an instrument gets the default one, in the same undo step (ADR 0019);
+  - double-clicking a MIDI clip opens it in the clip view.
+- **Where it lives:** the detail panel follows the selection. A single MIDI clip shows the clip view with the piano roll; anything else shows the devices. Tab switches until the selection changes.
+  - The clip view's height can be dragged at its top edge (default 320 px; saved with the view). The device view keeps the device panel height. The panel eases between the two.
+  - While a clip is open, live MIDI goes to the clip's track, so previews and the computer keyboard play its instrument.
+- **Layout:**
+  - keyboard on the left (click or drag over the keys to hear them); C keys are labelled (C3 = 60);
+  - the ruler on top, with the song's bar numbers and the clip's extent in its colour; click to move the playhead, drag to zoom and scroll as in the arrangement;
+  - the note grid: rows for black keys a tone darker, a line under every C and between E and F;
+  - outside the clip the grid is shaded; notes there are kept but don't play, and are drawn faded;
+  - the velocity lane at the bottom.
+- **Notes:** filled in the clip's colour, mixed toward the control tone at low velocity; the selection is lighter with an outline. Notes wide enough show their name.
+- **Editing.** Pure functions on a plain list of notes (`model/NoteEditing`, tested); the view draws the result live. Every gesture ends in one `Session::setNotes`, which applies the difference as one undo step.
+
+  | Input | Effect |
+  |---|---|
+  | Double-click empty grid | Draw a note one grid step long (drag right while still held to lengthen it) |
+  | Click a note / Shift or Ctrl + click / drag on empty grid | Select / toggle / box select. A click on a note in a multiple selection keeps the group for a drag and selects just that note if released without one (the arrangement does the same with clips) |
+  | Drag a note's body | Move: the grabbed note snaps, the others follow; vertical moves pitch (Alt: no snapping) |
+  | Drag a note's left or right edge | Resize (snapped; at least one grid step) |
+  | Double-click a note, Delete | Delete |
+  | Ctrl+D | Duplicate the selection after itself: by its span rounded up to the grid, or to whole bars once it spans half a bar (a phrase stays on its beats) |
+  | Ctrl+A | Select all notes |
+  | ↑ / ↓ (Shift: octave) | Transpose the selection |
+  | ← / → | Nudge by one grid step |
+  | Ctrl+U | Quantise the selection (or all notes) to the grid |
+  | Drag a selected note's stem in the velocity lane | Move the selection's velocities together |
+  | Click or drag elsewhere in the velocity lane | Draw velocities on the notes the mouse passes (only the selected ones, if any are selected) |
+
+  Delete, Ctrl+D and Ctrl+A act on notes when the clip view was used last, as Delete already does for devices.
+- **Overlaps:** two notes of the same pitch never overlap (MIDI can't tell them apart). The notes an edit places win: another note that starts inside one is removed, one that starts before it is shortened. Overlaps that came in with a MIDI file stay until edited.
+- **Hearing:** clicking or moving a note plays it through the track's instrument, via the same live-MIDI route as the computer keyboard (the clip's track is selected while editing).
+- **Zoom and scroll:**
+  - Ctrl+wheel or pinch zooms time at the mouse; Shift+wheel scrolls time; the wheel scrolls pitches; Alt+wheel changes the row height.
+  - Opening a clip fits it (at least a bar) and centres its notes.
+  - The grid uses the arrangement's ladder with coarser spacing (lines at least 56 px apart), since its step is also the length of a drawn note: about 1/16 with a bar across the panel. Snapping follows the arrangement's snap toggle.
+- **Data:** snapshots carry each note's start and length in beats from the clip's content start, the song beat of that start, and velocities in MIDI steps (k/127), so a list round-trips exactly. The arrangement's preview converts with the tempo map. The Session matches notes by value when applying a new list: unchanged notes stay untouched, changed ones keep their other properties (colour, mute).
+
 ## Later steps (outline)
 
 - **C4 clip editing** (built, see below).

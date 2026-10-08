@@ -310,16 +310,38 @@ void InspectorPanel::paint(juce::Graphics& g)
 
 // ---- DetailPanel ---------------------------------------------------------------------------
 
-DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions) : chain_(session, actions)
+DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions) : chain_(session, actions), roll_(session)
 {
     addAndMakeVisible(chain_);
+    addChildComponent(roll_);
 }
 
 void DetailPanel::setMode(Mode m)
 {
+    if (mode_ == m)
+        return;
     mode_ = m;
-    chain_.setVisible(mode_ == Mode::Devices);
+    updateVisibility();
     repaint();
+}
+
+void DetailPanel::updateVisibility()
+{
+    chain_.setVisible(mode_ == Mode::Devices);
+    roll_.setVisible(showsPianoRoll());
+}
+
+void DetailPanel::setClip(std::optional<model::ClipInfo> clip, const model::TempoMap& tempo)
+{
+    roll_.setClip(std::move(clip), tempo);
+    updateVisibility();
+    repaint(getLocalBounds().removeFromTop(headerHeight));
+}
+
+void DetailPanel::frame(double playheadSeconds)
+{
+    if (roll_.isVisible())
+        roll_.frame(playheadSeconds);
 }
 
 void DetailPanel::setSelection(std::optional<model::TrackInfo> track)
@@ -332,6 +354,7 @@ void DetailPanel::setSelection(std::optional<model::TrackInfo> track)
 void DetailPanel::resized()
 {
     chain_.setBounds(getLocalBounds().withTrimmedTop(headerHeight).reduced(4, 0).withTrimmedBottom(4));
+    roll_.setBounds(getLocalBounds().withTrimmedTop(headerHeight));
 }
 
 void DetailPanel::paint(juce::Graphics& g)
@@ -359,7 +382,15 @@ void DetailPanel::paint(juce::Graphics& g)
         }
         return; // the chain draws the rest
     }
+    if (const auto& clip = roll_.clip())
+    {
+        g.setColour(t.textSecondary);
+        g.drawText(juce::String::fromUTF8(clip->name.c_str()), header.withTrimmedLeft(16).withTrimmedRight(100),
+                   juce::Justification::centredLeft, true);
+        return; // the piano roll draws the rest
+    }
     g.setFont(ui::fonts::font(t.textSm));
-    g.drawText("The clip view arrives with MIDI editing (M2)", r, juce::Justification::centred, false);
+    g.drawText("Select a MIDI clip to edit its notes. Double-click an empty spot on a track to make one.", r,
+               juce::Justification::centred, false);
 }
 } // namespace fd::app

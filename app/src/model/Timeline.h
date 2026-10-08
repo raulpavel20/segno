@@ -19,6 +19,9 @@ public:
     static constexpr double zoomTimeConstant = 0.08; // s, animated zoom
 
     void setWidth(double pixels) noexcept { width_ = pixels > 1.0 ? pixels : 1.0; }
+    /// The closest the finest grid lines may get (px): minLineSpacing by default; the piano roll
+    /// uses a coarser grid, since it is also the note length it draws.
+    void setLineSpacing(double pixels) noexcept { lineSpacing_ = pixels > 1.0 ? pixels : 1.0; }
     [[nodiscard]] double width() const noexcept { return width_; }
 
     /// Sets the view directly (clamped); stops any animation.
@@ -59,7 +62,7 @@ public:
     };
 
     /// The current grid step in quarter notes: the finest step of the ladder whose lines are
-    /// at least minLineSpacing apart.
+    /// at least the line spacing apart.
     [[nodiscard]] double gridStepBeats(const TempoMap& tempo) const noexcept;
 
     /// Grid lines in [start, end] (cleared and refilled; reuse the vector across frames).
@@ -72,6 +75,7 @@ private:
     void clampView() noexcept;
 
     double width_ = 1000.0;
+    double lineSpacing_ = minLineSpacing;
     double start_ = 0.0;
     double pps_ = 50.0;
 
