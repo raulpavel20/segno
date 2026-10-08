@@ -82,11 +82,15 @@ private:
 class InspectorPanel final : public juce::Component
 {
 public:
-    void setSelection(std::optional<model::TrackInfo> track);
+    void setSelection(std::optional<model::TrackInfo> track, std::optional<model::ClipInfo> clip = std::nullopt,
+                      int clipCount = 0, model::TempoMap tempo = {});
     void paint(juce::Graphics& g) override;
 
 private:
     std::optional<model::TrackInfo> track_;
+    std::optional<model::ClipInfo> clip_;
+    int clipCount_ = 0;
+    model::TempoMap tempo_;
 };
 
 /// Bottom panel: the selected track's device chain (C6) or the clip view; Tab switches.

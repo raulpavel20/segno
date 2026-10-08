@@ -170,9 +170,13 @@ void BrowserPanel::paint(juce::Graphics& g)
 
 // ---- InspectorPanel ------------------------------------------------------------------------
 
-void InspectorPanel::setSelection(std::optional<model::TrackInfo> track)
+void InspectorPanel::setSelection(std::optional<model::TrackInfo> track, std::optional<model::ClipInfo> clip,
+                                  int clipCount, model::TempoMap tempo)
 {
     track_ = std::move(track);
+    clip_ = std::move(clip);
+    clipCount_ = clipCount;
+    tempo_ = tempo;
     repaint();
 }
 
@@ -183,7 +187,7 @@ void InspectorPanel::paint(juce::Graphics& g)
     auto r = getLocalBounds().reduced(12, 8);
     paintSectionLabel(g, "Inspector", r.removeFromTop(22));
     g.setFont(ui::fonts::font(t.textSm));
-    if (!track_)
+    if (!track_ && clipCount_ == 0)
     {
         g.setColour(t.textTertiary);
         g.drawText("Nothing selected", r.removeFromTop(20), juce::Justification::centredLeft, false);
@@ -196,6 +200,25 @@ void InspectorPanel::paint(juce::Graphics& g)
         g.setColour(t.textPrimary);
         g.drawText(value, line, juce::Justification::centredLeft, true);
     };
+    auto position = [&](double seconds) {
+        const auto bb = tempo_.barsBeatsForSeconds(seconds);
+        return juce::String(bb.bar) + "." + juce::String(bb.beat) + "." + juce::String(bb.sixteenth);
+    };
+    if (clip_)
+    {
+        row("Clip", juce::String::fromUTF8(clip_->name.c_str()));
+        row("Start", position(clip_->start));
+        row("Length", juce::String(clip_->length, 3) + " s");
+        row("Offset", juce::String(clip_->offset, 3) + " s");
+        r.removeFromTop(12);
+    }
+    else if (clipCount_ > 1)
+    {
+        row("Clips", juce::String(clipCount_) + " selected");
+        r.removeFromTop(12);
+    }
+    if (!track_)
+        return;
     row("Track", juce::String::fromUTF8(track_->name.c_str()));
     row("Type", track_->kind == model::TrackInfo::Kind::Instrument ? "Instrument" : "Audio");
     row("Clips", juce::String(static_cast<int>(track_->clips.size())));

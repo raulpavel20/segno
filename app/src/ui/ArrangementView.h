@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/Session.h"
+#include "model/Editing.h"
 #include "model/Timeline.h"
 #include "model/TrackLayout.h"
 #include "ui/WaveformCache.h"
@@ -9,6 +10,7 @@
 #include <fd_ui/fd_ui.h>
 
 #include <optional>
+#include <set>
 
 namespace fd::app
 {
@@ -34,7 +36,18 @@ public:
     [[nodiscard]] bool isSnapEnabled() const noexcept { return snap_; }
 
     [[nodiscard]] std::optional<std::uint64_t> selectedTrack() const noexcept { return selectedTrack_; }
+    [[nodiscard]] const std::set<std::uint64_t>& selectedClips() const noexcept { return selectedClips_; }
+    /// Track or clip selection changed.
     std::function<void(std::optional<std::uint64_t>)> onSelectionChanged;
+
+    // Edit commands on the selection (C4), each one undo step.
+    void deleteSelection();
+    void duplicateSelection();
+    /// Splits the selected clips at the playhead (or, with none selected, the clips under the
+    /// playhead on the selected track).
+    void splitAtPlayhead();
+    void selectAllClips();
+    [[nodiscard]] bool hasClipSelection() const noexcept { return !selectedClips_.empty(); }
 
     [[nodiscard]] const model::Timeline& timeline() const noexcept { return timeline_; }
     [[nodiscard]] WaveformCache& waveforms() noexcept { return waveforms_; }
@@ -47,6 +60,7 @@ public:
 
     void paint(juce::Graphics& g) override;
     void resized() override;
+    void mouseMove(const juce::MouseEvent& e) override;
     void mouseDown(const juce::MouseEvent& e) override;
     void mouseDrag(const juce::MouseEvent& e) override;
     void mouseUp(const juce::MouseEvent& e) override;
@@ -65,6 +79,10 @@ private:
     [[nodiscard]] float laneX(double seconds) const;
     [[nodiscard]] double snapped(double seconds, bool bypass) const;
     void select(std::optional<std::uint64_t> track);
+    void setClipSelection(std::set<std::uint64_t> clips);
+    [[nodiscard]] std::function<double(double)> snapFunction(bool bypass) const;
+    void paintClip(juce::Graphics& g, const model::ClipInfo& clip, float y, float h, juce::Rectangle<int> area,
+                   juce::Rectangle<int> visible, bool selected);
     void syncLayout();
 
     void paintRuler(juce::Graphics& g);
@@ -88,10 +106,17 @@ private:
     bool snap_ = true;
     std::optional<std::uint64_t> selectedTrack_;
 
-    enum class Drag { None, Ruler };
+    std::set<std::uint64_t> selectedClips_;
+
+    enum class Drag { None, Ruler, Clip, Box };
     Drag drag_ = Drag::None;
-    juce::Point<float> lastDrag_;
+    juce::Point<float> lastDrag_, dragStart_;
     float rulerAnchorX_ = 0.0f;
+    model::Drag clipDrag_;
+    int dragStartTrack_ = 0;
+    bool dragMoved_ = false;
+    std::vector<model::ClipEdit> preview_; // where dragged clips will land
+    std::set<std::uint64_t> boxBase_;      // selection before a Shift box drag
 
     // File drag preview: target track index (or -1 = new track) and snapped time.
     std::optional<std::pair<int, double>> dropTarget_;

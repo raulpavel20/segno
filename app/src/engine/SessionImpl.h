@@ -15,6 +15,7 @@ struct Session::Impl final : private juce::ValueTree::Listener, private juce::As
 
     void rebuildSnapshot();
     [[nodiscard]] te::AudioTrack* track(std::uint64_t id) const;
+    [[nodiscard]] te::Clip* clip(std::uint64_t id) const;
     void beginEdit() { edit->getUndoManager().beginNewTransaction(); }
 
     Session& owner;

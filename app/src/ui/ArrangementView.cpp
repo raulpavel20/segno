@@ -28,9 +28,16 @@ ArrangementView::ArrangementView(engine::Session& session) : session_(session)
 void ArrangementView::setSnapshot(std::shared_ptr<const model::Snapshot> snapshot)
 {
     snapshot_ = std::move(snapshot);
+    preview_.clear();
+    std::set<std::uint64_t> existing;
     for (const auto& t : snapshot_->tracks)
         for (const auto& c : t.clips)
+        {
             waveforms_.request(c.sourcePath);
+            if (selectedClips_.contains(c.id))
+                existing.insert(c.id);
+        }
+    selectedClips_ = std::move(existing);
     syncLayout();
     if (selectedTrack_)
     {
@@ -294,7 +301,11 @@ void ArrangementView::paintLanes(juce::Graphics& g)
 
     // Clips: a solid title strip with dark text over a dark body of the same hue. Only what
     // intersects the invalidated area is drawn (a playhead-only repaint touches a few columns).
+    // Clips being dragged are drawn at their new place instead.
     const auto visible = area.getIntersection(g.getClipBounds());
+    std::set<std::uint64_t> moving;
+    for (const auto& e : preview_)
+        moving.insert(e.clip);
     for (int i = 0; i < layout_.trackCount(); ++i)
     {
         const auto& track = snapshot_->tracks[static_cast<size_t>(i)];
@@ -303,30 +314,33 @@ void ArrangementView::paintLanes(juce::Graphics& g)
         if (y > static_cast<float>(area.getBottom()) || y + h < static_cast<float>(area.getY()))
             continue;
         for (const auto& clip : track.clips)
-        {
-            if (clip.end() < timeline_.start() || clip.start > timeline_.end())
-                continue;
-            const float x0 = std::max(laneX(clip.start), static_cast<float>(area.getX()) - 2.0f);
-            const float x1 = std::min(laneX(clip.end()), static_cast<float>(area.getRight()) + 2.0f);
-            const auto box = juce::Rectangle<float>(x0, y + 1.0f, std::max(1.0f, x1 - x0), h - 3.0f);
-            if (!box.intersects(visible.toFloat()))
-                continue;
-            const auto colour = paletteColour(clip.colour);
-            g.setColour(colour.withBrightness(0.32f));
-            g.fillRect(box);
-            const float strip = std::min(15.0f, box.getHeight() * 0.35f);
-            const auto title = box.withHeight(strip);
-            g.setColour(colour);
-            g.fillRect(title);
-            paintWaveform(g, clip, box.withTrimmedTop(strip), visible, colour);
-            if (title.getWidth() > 16.0f && strip >= 10.0f)
-            {
-                g.setColour(t.surface0);
-                g.setFont(ui::fonts::font(t.textXs, ui::fonts::Weight::SemiBold));
-                g.drawText(juce::String::fromUTF8(clip.name.c_str()), title.reduced(4.0f, 0.0f),
-                           juce::Justification::centredLeft, true);
-            }
-        }
+            if (!moving.contains(clip.id))
+                paintClip(g, clip, y, h, area, visible, selectedClips_.contains(clip.id));
+    }
+    for (const auto& e : preview_)
+    {
+        const auto found = model::findClip(*snapshot_, e.clip);
+        int index = 0;
+        while (index < layout_.trackCount() && snapshot_->tracks[static_cast<size_t>(index)].id != e.track)
+            ++index;
+        if (!found || index >= layout_.trackCount())
+            continue;
+        auto clip = *found->first;
+        clip.start = e.start;
+        clip.length = e.length;
+        clip.offset = e.offset;
+        paintClip(g, clip, static_cast<float>(area.getY() + layout_.top(index)), static_cast<float>(layout_.height(index)),
+                  area, visible, true);
+    }
+
+    // Box selection.
+    if (drag_ == Drag::Box)
+    {
+        const auto box = juce::Rectangle<float>(dragStart_, lastDrag_);
+        g.setColour(t.active.withAlpha(0.10f));
+        g.fillRect(box);
+        g.setColour(t.active.withAlpha(0.6f));
+        g.drawRect(box, 1.0f);
     }
 
     // Empty project hint.
@@ -356,6 +370,39 @@ void ArrangementView::paintLanes(juce::Graphics& g)
     g.fillRect(laneX(playhead_), static_cast<float>(area.getY()), 1.0f, static_cast<float>(area.getHeight()));
 }
 
+void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, float y, float h,
+                                juce::Rectangle<int> area, juce::Rectangle<int> visible, bool selected)
+{
+    const auto& t = ui::Theme::current();
+    if (clip.end() < timeline_.start() || clip.start > timeline_.end())
+        return;
+    const float x0 = std::max(laneX(clip.start), static_cast<float>(area.getX()) - 2.0f);
+    const float x1 = std::min(laneX(clip.end()), static_cast<float>(area.getRight()) + 2.0f);
+    const auto box = juce::Rectangle<float>(x0, y + 1.0f, std::max(1.0f, x1 - x0), h - 3.0f);
+    if (!box.intersects(visible.toFloat()))
+        return;
+    const auto colour = paletteColour(clip.colour);
+    g.setColour(colour.withBrightness(selected ? 0.42f : 0.32f));
+    g.fillRect(box);
+    const float strip = std::min(15.0f, box.getHeight() * 0.35f);
+    const auto title = box.withHeight(strip);
+    g.setColour(colour);
+    g.fillRect(title);
+    paintWaveform(g, clip, box.withTrimmedTop(strip), visible, colour);
+    if (title.getWidth() > 16.0f && strip >= 10.0f)
+    {
+        g.setColour(t.surface0);
+        g.setFont(ui::fonts::font(t.textXs, ui::fonts::Weight::SemiBold));
+        g.drawText(juce::String::fromUTF8(clip.name.c_str()), title.reduced(4.0f, 0.0f), juce::Justification::centredLeft,
+                   true);
+    }
+    if (selected)
+    {
+        g.setColour(t.textPrimary);
+        g.drawRect(box, 1.0f);
+    }
+}
+
 void ArrangementView::paintWaveform(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body,
                                     juce::Rectangle<int> visible, juce::Colour colour)
 {
@@ -372,39 +419,125 @@ void ArrangementView::paintWaveform(juce::Graphics& g, const model::ClipInfo& cl
 
 // ---- input ---------------------------------------------------------------------------------
 
+std::function<double(double)> ArrangementView::snapFunction(bool bypass) const
+{
+    if (!snap_ || bypass)
+        return [](double t) { return std::max(0.0, t); };
+    return [this](double t) { return timeline_.snap(t, snapshot_->tempo); };
+}
+
+void ArrangementView::mouseMove(const juce::MouseEvent& e)
+{
+    const auto lanes = laneArea();
+    auto cursor = juce::MouseCursor::NormalCursor;
+    if (lanes.contains(e.getPosition()))
+        if (const auto hit = model::hitClip(*snapshot_, layout_, timeline_, e.position.x - static_cast<float>(lanes.getX()),
+                                            e.position.y - static_cast<float>(lanes.getY())))
+            cursor = hit->zone == model::ClipHit::Zone::Body ? juce::MouseCursor::NormalCursor
+                                                              : juce::MouseCursor::LeftRightResizeCursor;
+    setMouseCursor(cursor);
+}
+
 void ArrangementView::mouseDown(const juce::MouseEvent& e)
 {
     const auto pos = e.getPosition();
-    lastDrag_ = e.position;
+    const auto lanes = laneArea();
+    lastDrag_ = dragStart_ = e.position;
+    dragMoved_ = false;
+    preview_.clear();
     if (rulerArea().contains(pos))
     {
         drag_ = Drag::Ruler;
-        rulerAnchorX_ = e.position.x - static_cast<float>(laneArea().getX());
+        rulerAnchorX_ = e.position.x - static_cast<float>(lanes.getX());
         return;
     }
     drag_ = Drag::None;
-    if (headerArea().contains(pos) || laneArea().contains(pos))
+    const bool additive = e.mods.isShiftDown() || e.mods.isCommandDown();
+    if (headerArea().contains(pos))
     {
-        const auto hit = layout_.hit(pos.y - laneArea().getY());
-        select(hit ? std::optional(snapshot_->tracks[static_cast<size_t>(hit->track)].id) : std::nullopt);
+        const auto row = layout_.hit(pos.y - lanes.getY());
+        select(row ? std::optional(snapshot_->tracks[static_cast<size_t>(row->track)].id) : std::nullopt);
+        return;
     }
+    if (!lanes.contains(pos))
+        return;
+
+    const auto row = layout_.hit(pos.y - lanes.getY());
+    if (row)
+        select(snapshot_->tracks[static_cast<size_t>(row->track)].id);
+    if (const auto hit = model::hitClip(*snapshot_, layout_, timeline_, e.position.x - static_cast<float>(lanes.getX()), e.position.y - static_cast<float>(lanes.getY())))
+    {
+        auto selection = selectedClips_;
+        if (additive && selection.contains(hit->clip))
+            selection.erase(hit->clip);
+        else if (additive)
+            selection.insert(hit->clip);
+        else if (!selection.contains(hit->clip))
+            selection = {hit->clip};
+        setClipSelection(std::move(selection));
+        if (!selectedClips_.contains(hit->clip))
+            return; // Shift-click removed it
+        drag_ = Drag::Clip;
+        dragStartTrack_ = hit->track;
+        clipDrag_ = {.kind = hit->zone == model::ClipHit::Zone::StartEdge ? model::DragKind::TrimStart
+                             : hit->zone == model::ClipHit::Zone::EndEdge  ? model::DragKind::TrimEnd
+                                                                           : model::DragKind::Move,
+                     .anchor = hit->clip};
+        return;
+    }
+    // Empty lane: box selection (Shift adds to the selection).
+    drag_ = Drag::Box;
+    boxBase_ = additive ? selectedClips_ : std::set<std::uint64_t>{};
+    if (!additive)
+        setClipSelection({});
 }
 
 void ArrangementView::mouseDrag(const juce::MouseEvent& e)
 {
-    if (drag_ != Drag::Ruler)
-        return;
-    // One gesture: vertical zooms around the press point, horizontal scrolls.
-    const auto delta = e.position - lastDrag_;
-    lastDrag_ = e.position;
-    if (delta.y != 0.0f)
-        timeline_.zoomAround(rulerAnchorX_, std::exp(static_cast<double>(delta.y) * 0.012));
-    if (delta.x != 0.0f)
+    const auto lanes = laneArea();
+    if (drag_ == Drag::Ruler)
     {
-        timeline_.scrollBy(-static_cast<double>(delta.x));
-        rulerAnchorX_ = e.position.x - static_cast<float>(laneArea().getX());
+        // One gesture: vertical zooms around the press point, horizontal scrolls.
+        const auto delta = e.position - lastDrag_;
+        lastDrag_ = e.position;
+        if (delta.y != 0.0f)
+            timeline_.zoomAround(rulerAnchorX_, std::exp(static_cast<double>(delta.y) * 0.012));
+        if (delta.x != 0.0f)
+        {
+            timeline_.scrollBy(-static_cast<double>(delta.x));
+            rulerAnchorX_ = e.position.x - static_cast<float>(lanes.getX());
+        }
+        repaint();
+        return;
     }
-    repaint();
+    lastDrag_ = e.position;
+    if (!dragMoved_ && e.getDistanceFromDragStart() < 3)
+        return; // a click, not a drag
+    dragMoved_ = true;
+
+    if (drag_ == Drag::Clip)
+    {
+        clipDrag_.deltaSeconds = (e.position.x - dragStart_.x) / timeline_.pixelsPerSecond();
+        if (clipDrag_.kind == model::DragKind::Move)
+            if (const auto row = layout_.hit(e.position.y - static_cast<float>(lanes.getY())))
+                clipDrag_.deltaTracks = row->track - dragStartTrack_;
+        preview_ = model::dragClips(*snapshot_, selectedClips_, clipDrag_, snapFunction(e.mods.isAltDown()));
+        repaint();
+    }
+    else if (drag_ == Drag::Box)
+    {
+        const double t0 = timeline_.timeForX(dragStart_.x - static_cast<float>(lanes.getX()));
+        const double t1 = timeline_.timeForX(e.position.x - static_cast<float>(lanes.getX()));
+        auto trackAt = [&](float y) {
+            const auto row = layout_.hit(y - static_cast<float>(lanes.getY()));
+            return row ? row->track : (y < static_cast<float>(lanes.getY()) ? 0 : layout_.trackCount() - 1);
+        };
+        auto selection = boxBase_;
+        for (auto id : model::clipsInBox(*snapshot_, t0, t1, trackAt(dragStart_.y), trackAt(e.position.y)))
+            selection.insert(id);
+        setClipSelection(std::move(selection));
+        repaint();
+    }
 }
 
 void ArrangementView::mouseUp(const juce::MouseEvent& e)
@@ -415,7 +548,63 @@ void ArrangementView::mouseUp(const juce::MouseEvent& e)
         const double seconds = timeline_.timeForX(e.position.x - static_cast<float>(laneArea().getX()));
         session_.setPosition(snapped(seconds, e.mods.isAltDown()));
     }
+    if (drag_ == Drag::Clip && dragMoved_ && !preview_.empty())
+        session_.applyClipEdits(preview_); // one undo step; the snapshot follows
+    // Keep drawing the preview until the new snapshot arrives (no flicker back).
+    if (drag_ != Drag::Clip || !dragMoved_)
+        preview_.clear();
     drag_ = Drag::None;
+    repaint();
+}
+
+// ---- edit commands -------------------------------------------------------------------------
+
+void ArrangementView::setClipSelection(std::set<std::uint64_t> clips)
+{
+    if (clips == selectedClips_)
+        return;
+    selectedClips_ = std::move(clips);
+    repaint();
+    if (onSelectionChanged)
+        onSelectionChanged(selectedTrack_);
+}
+
+void ArrangementView::deleteSelection()
+{
+    session_.deleteClips({selectedClips_.begin(), selectedClips_.end()});
+    setClipSelection({});
+}
+
+void ArrangementView::duplicateSelection()
+{
+    const auto created = session_.duplicateClips(model::duplicatePlacements(*snapshot_, selectedClips_));
+    setClipSelection({created.begin(), created.end()});
+}
+
+void ArrangementView::splitAtPlayhead()
+{
+    std::vector<std::uint64_t> targets(selectedClips_.begin(), selectedClips_.end());
+    if (targets.empty() && selectedTrack_)
+        for (const auto& t : snapshot_->tracks)
+            if (t.id == *selectedTrack_)
+                for (const auto& c : t.clips)
+                    targets.push_back(c.id);
+    const auto right = session_.splitClips(targets, playhead_);
+    if (!selectedClips_.empty())
+    {
+        auto selection = selectedClips_;
+        selection.insert(right.begin(), right.end());
+        setClipSelection(std::move(selection));
+    }
+}
+
+void ArrangementView::selectAllClips()
+{
+    std::set<std::uint64_t> all;
+    for (const auto& t : snapshot_->tracks)
+        for (const auto& c : t.clips)
+            all.insert(c.id);
+    setClipSelection(std::move(all));
 }
 
 void ArrangementView::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)

@@ -245,3 +245,96 @@ TEST_CASE("peaks hold the min and max at every resolution", "[fast]")
 
     CHECK(buildPeaks("/nonexistent/fd.wav") == nullptr);
 }
+
+#include "model/Editing.h"
+
+#include <set>
+
+namespace
+{
+/// Two tracks: A has clips 1 [0, 2) and 2 [4, 5), B has clip 3 [1, 3) (offset 0.5 into a 4 s file).
+Snapshot editingSnapshot()
+{
+    Snapshot s;
+    s.tracks.push_back({.id = 10, .clips = {{.id = 1, .start = 0.0, .length = 2.0, .sourceLength = 2.0},
+                                            {.id = 2, .start = 4.0, .length = 1.0, .sourceLength = 3.0}}});
+    s.tracks.push_back({.id = 20, .clips = {{.id = 3, .start = 1.0, .length = 2.0, .offset = 0.5, .sourceLength = 4.0}}});
+    return s;
+}
+
+const std::function<double(double)> noSnap = [](double t) { return t; };
+} // namespace
+
+TEST_CASE("clip hit testing finds the clip and its edges", "[fast]")
+{
+    const auto s = editingSnapshot();
+    TrackLayout layout;
+    layout.setTrackCount(2);
+    Timeline tl;
+    tl.setWidth(1000.0);
+    tl.setView(0.0, 100.0); // 100 px per second
+
+    auto hit = hitClip(s, layout, tl, 100.0, 10.0);
+    REQUIRE(hit);
+    CHECK(hit->clip == 1);
+    CHECK(hit->zone == ClipHit::Zone::Body);
+    CHECK(hitClip(s, layout, tl, 2.0, 10.0)->zone == ClipHit::Zone::StartEdge);
+    CHECK(hitClip(s, layout, tl, 197.0, 10.0)->zone == ClipHit::Zone::EndEdge);
+    CHECK(hitClip(s, layout, tl, 150.0, 70.0)->clip == 3); // second track
+    CHECK_FALSE(hitClip(s, layout, tl, 350.0, 10.0));       // gap
+    CHECK_FALSE(hitClip(s, layout, tl, 100.0, 500.0));      // below the tracks
+}
+
+TEST_CASE("moving clips snaps the grabbed clip and keeps the others relative", "[fast]")
+{
+    const auto s = editingSnapshot();
+    const auto snapToHalf = [](double t) { return std::round(t * 2.0) / 2.0; };
+    auto edits = dragClips(s, {1, 3}, {.kind = DragKind::Move, .anchor = 3, .deltaSeconds = 0.7}, snapToHalf);
+    REQUIRE(edits.size() == 2);
+    // Clip 3 starts at 1.7 -> snaps to 1.5: both move by 0.5.
+    for (const auto& e : edits)
+        CHECK(e.start == Approx(e.clip == 1 ? 0.5 : 1.5));
+
+    // Never before zero; tracks clamp to the list.
+    edits = dragClips(s, {1, 3}, {.kind = DragKind::Move, .anchor = 1, .deltaSeconds = -5.0, .deltaTracks = 3}, noSnap);
+    for (const auto& e : edits)
+    {
+        CHECK(e.start >= 0.0);
+        CHECK(e.track == (e.clip == 1 ? 10u : 20u)); // the pair can't move down: B is the last track
+    }
+    edits = dragClips(s, {1}, {.kind = DragKind::Move, .anchor = 1, .deltaTracks = 1}, noSnap);
+    CHECK(edits[0].track == 20);
+}
+
+TEST_CASE("trimming stays inside the source and keeps a minimum length", "[fast]")
+{
+    const auto s = editingSnapshot();
+    // Clip 3 starts 0.5 s into its file: its start can move back at most 0.5 s.
+    auto e = dragClips(s, {3}, {.kind = DragKind::TrimStart, .anchor = 3, .deltaSeconds = -2.0}, noSnap);
+    CHECK(e[0].start == Approx(0.5));
+    CHECK(e[0].offset == Approx(0.0));
+    CHECK(e[0].length == Approx(2.5));
+    e = dragClips(s, {3}, {.kind = DragKind::TrimStart, .anchor = 3, .deltaSeconds = 5.0}, noSnap);
+    CHECK(e[0].length == Approx(minClipLength));
+    CHECK(e[0].offset == Approx(0.5 + 2.0 - minClipLength));
+
+    // Clip 3's file has 4 s: from offset 0.5 the end can reach 1.0 + 3.5 = 4.5.
+    e = dragClips(s, {3}, {.kind = DragKind::TrimEnd, .anchor = 3, .deltaSeconds = 10.0}, noSnap);
+    CHECK(e[0].length == Approx(3.5));
+    e = dragClips(s, {3}, {.kind = DragKind::TrimEnd, .anchor = 3, .deltaSeconds = -10.0}, noSnap);
+    CHECK(e[0].length == Approx(minClipLength));
+}
+
+TEST_CASE("box selection and duplicate placement", "[fast]")
+{
+    const auto s = editingSnapshot();
+    auto ids = clipsInBox(s, 2.5, 0.5, 1, 0); // reversed corners work too
+    std::set<std::uint64_t> found(ids.begin(), ids.end());
+    CHECK(found == std::set<std::uint64_t>{1, 3});
+    CHECK(clipsInBox(s, 3.5, 3.9, 0, 1).empty());
+
+    const auto copies = duplicatePlacements(s, {1, 3}); // span [0, 3): copies start 3 s later
+    REQUIRE(copies.size() == 2);
+    for (const auto& c : copies)
+        CHECK(c.start == Approx(c.clip == 1 ? 3.0 : 4.0));
+}

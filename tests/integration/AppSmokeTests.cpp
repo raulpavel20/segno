@@ -3,8 +3,10 @@
 
 #include "engine/DevicePlugin.h"
 #include "engine/Session.h"
+#include "model/Editing.h"
 #include "ui/Shell.h"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 namespace
@@ -100,4 +102,64 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
     CHECK(actions.perform("view.browser"));
     CHECK_FALSE(actions.isToggled("view.browser"));
     CHECK(actions.tooltip("transport.playStop").contains("Play"));
+}
+
+namespace
+{
+juce::MouseEvent mouseEvent(juce::Component& c, juce::Point<float> pos, juce::Point<float> down, bool dragged,
+                            juce::ModifierKeys mods = juce::ModifierKeys::leftButtonModifier)
+{
+    return {juce::Desktop::getInstance().getMainMouseSource(), pos, mods, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, &c, &c,
+            juce::Time::getCurrentTime(), down, juce::Time::getCurrentTime(), 1, dragged};
+}
+} // namespace
+
+TEST_CASE("dragging a clip moves it, snapped, onto another track in one undo step", "[integration]")
+{
+    ShellFixture f;
+    juce::TemporaryFile wav(".wav");
+    {
+        juce::AudioBuffer<float> buffer(1, 48000);
+        buffer.clear();
+        juce::WavAudioFormat format;
+        std::unique_ptr<juce::OutputStream> out = wav.getFile().createOutputStream();
+        auto writer = format.createWriterFor(out, juce::AudioFormatWriterOptions{}.withSampleRate(48000.0).withNumChannels(1).withBitsPerSample(16));
+        REQUIRE(writer != nullptr);
+        writer->writeFromAudioSampleBuffer(buffer, 0, buffer.getNumSamples());
+    }
+    const auto tracks = f.session->snapshot()->tracks;
+    const auto clip = f.session->insertAudioFile(tracks[0].id, wav.getFile(), 0.0);
+    f.session->updateSnapshotNow();
+
+    fd::app::ArrangementView view(*f.session);
+    view.setSize(1200, 600);
+    view.setSnapshot(f.session->snapshot());
+    const auto& tl = view.timeline();
+    const float laneX = fd::app::ArrangementView::headerWidth;
+    const float top = fd::app::ArrangementView::rulerHeight;
+
+    // Grab the clip in the middle of its body (0.5 s), drag right ~1.3 s and down one track.
+    const juce::Point<float> down(laneX + static_cast<float>(tl.xForTime(0.5)), top + 30.0f);
+    const auto to = down + juce::Point<float>(static_cast<float>(1.3 * tl.pixelsPerSecond()), 64.0f);
+    view.mouseDown(mouseEvent(view, down, down, false));
+    CHECK(view.selectedClips() == std::set<std::uint64_t>{clip});
+    view.mouseDrag(mouseEvent(view, (down + to) * 0.5f, down, true));
+    view.mouseDrag(mouseEvent(view, to, down, true));
+    if (const char* dump = std::getenv("FD_DUMP_DIR")) // the drag preview, for review
+    {
+        juce::PNGImageFormat png;
+        if (auto out = juce::File(dump).getChildFile("arrangement-drag.png").createOutputStream())
+            png.writeImageToStream(view.createComponentSnapshot(view.getLocalBounds(), true, 2.0f), *out);
+    }
+    view.mouseUp(mouseEvent(view, to, down, true));
+    f.session->updateSnapshotNow();
+
+    const auto moved = fd::model::findClip(*f.session->snapshot(), clip);
+    REQUIRE(moved);
+    CHECK(moved->second == 1);
+    const double snappedStart = tl.snap(1.3, f.session->snapshot()->tempo);
+    CHECK(moved->first->start == Catch::Approx(snappedStart));
+    f.session->undo();
+    f.session->updateSnapshotNow();
+    CHECK(fd::model::findClip(*f.session->snapshot(), clip)->second == 0);
 }

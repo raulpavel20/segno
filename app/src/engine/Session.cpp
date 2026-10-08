@@ -84,7 +84,10 @@ void Session::Impl::rebuildSnapshot()
             clip.offset = pos.getOffset().inSeconds();
             clip.colour = static_cast<int>(c->state.getProperty(kColourId, info.colour));
             if (auto* audio = dynamic_cast<te::AudioClipBase*>(c))
+            {
                 clip.sourcePath = audio->getOriginalFile().getFullPathName().toStdString();
+                clip.sourceLength = audio->getSourceLength().inSeconds();
+            }
             info.clips.push_back(std::move(clip));
         }
         std::sort(info.clips.begin(), info.clips.end(), [](const auto& a, const auto& b) { return a.start < b.start; });
@@ -102,6 +105,11 @@ te::AudioTrack* Session::Impl::track(std::uint64_t id) const
         if (t->itemID.getRawID() == id)
             return t;
     return nullptr;
+}
+
+te::Clip* Session::Impl::clip(std::uint64_t id) const
+{
+    return te::findClipForID(*edit, te::EditItemID::fromRawID(id));
 }
 
 // ---- Session ------------------------------------------------------------------------------
@@ -168,6 +176,81 @@ std::uint64_t Session::insertAudioFile(std::uint64_t trackId, const juce::File& 
     auto clip = track->insertWaveClip(file.getFileNameWithoutExtension(), file,
                                       {{start, te::TimeDuration::fromSeconds(audio.getLength())}, {}}, false);
     return clip != nullptr ? clip->itemID.getRawID() : 0;
+}
+
+void Session::applyClipEdits(const std::vector<model::ClipEdit>& edits)
+{
+    if (edits.empty())
+        return;
+    impl_->beginEdit();
+    for (const auto& e : edits)
+    {
+        auto* c = impl_->clip(e.clip);
+        auto* target = impl_->track(e.track);
+        if (c == nullptr || target == nullptr)
+            continue;
+        if (c->getClipTrack() != target)
+            c->moveTo(*target);
+        c->setPosition({{te::TimePosition::fromSeconds(e.start), te::TimePosition::fromSeconds(e.start + e.length)},
+                        te::TimeDuration::fromSeconds(e.offset)});
+    }
+}
+
+std::vector<std::uint64_t> Session::duplicateClips(const std::vector<model::ClipEdit>& placements)
+{
+    std::vector<std::uint64_t> created;
+    if (placements.empty())
+        return created;
+    impl_->beginEdit();
+    for (const auto& p : placements)
+    {
+        auto* source = impl_->clip(p.clip);
+        auto* target = impl_->track(p.track);
+        if (source == nullptr || target == nullptr)
+            continue;
+        if (auto copy = te::duplicateClip(*source))
+        {
+            if (copy->getClipTrack() != target)
+                copy->moveTo(*target);
+            copy->setPosition({{te::TimePosition::fromSeconds(p.start), te::TimePosition::fromSeconds(p.start + p.length)},
+                               te::TimeDuration::fromSeconds(p.offset)});
+            created.push_back(copy->itemID.getRawID());
+        }
+    }
+    return created;
+}
+
+void Session::deleteClips(const std::vector<std::uint64_t>& ids)
+{
+    if (ids.empty())
+        return;
+    impl_->beginEdit();
+    for (auto id : ids)
+        if (auto* c = impl_->clip(id))
+            c->removeFromParent();
+}
+
+std::vector<std::uint64_t> Session::splitClips(const std::vector<std::uint64_t>& ids, double seconds)
+{
+    std::vector<std::uint64_t> created;
+    const auto at = te::TimePosition::fromSeconds(seconds);
+    bool begun = false;
+    for (auto id : ids)
+    {
+        auto* c = impl_->clip(id);
+        if (c == nullptr || !c->getEditTimeRange().containsInclusive(at) || c->getPosition().getStart() == at ||
+            c->getPosition().getEnd() == at)
+            continue;
+        if (!begun)
+        {
+            impl_->beginEdit();
+            begun = true;
+        }
+        if (auto* track = c->getClipTrack())
+            if (auto* right = track->splitClip(*c, at))
+                created.push_back(right->itemID.getRawID());
+    }
+    return created;
 }
 
 void Session::undo()

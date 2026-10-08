@@ -76,6 +76,17 @@ void Shell::registerActions()
                   .perform = [&s] { s.undo(); }, .isEnabled = [&s] { return s.canUndo(); }});
     actions_.add({.id = "edit.redo", .name = "Redo", .category = "Edit", .keys = {key('z', kCmd | kShift), key('y', kCmd)},
                   .perform = [&s] { s.redo(); }, .isEnabled = [&s] { return s.canRedo(); }});
+    actions_.add({.id = "edit.delete", .name = "Delete", .category = "Edit",
+                  .keys = {key(juce::KeyPress::deleteKey), key(juce::KeyPress::backspaceKey)},
+                  .perform = [this] { arrangement_.deleteSelection(); },
+                  .isEnabled = [this] { return arrangement_.hasClipSelection(); }});
+    actions_.add({.id = "edit.duplicate", .name = "Duplicate", .category = "Edit", .keys = {key('d', kCmd)},
+                  .perform = [this] { arrangement_.duplicateSelection(); },
+                  .isEnabled = [this] { return arrangement_.hasClipSelection(); }});
+    actions_.add({.id = "edit.split", .name = "Split at playhead", .category = "Edit", .keys = {key('e', kCmd)},
+                  .perform = [this] { arrangement_.splitAtPlayhead(); }});
+    actions_.add({.id = "edit.selectAll", .name = "Select all clips", .category = "Edit", .keys = {key('a', kCmd)},
+                  .perform = [this] { arrangement_.selectAllClips(); }});
     actions_.add({.id = "track.addAudio", .name = "Add audio track", .category = "Track", .keys = {key('t', kCmd)},
                   .perform = [&s] { s.addAudioTrack(); }});
 
@@ -153,7 +164,12 @@ std::optional<model::TrackInfo> Shell::selectedTrackInfo() const
 void Shell::selectionChanged(std::optional<std::uint64_t>)
 {
     const auto info = selectedTrackInfo();
-    inspector_.setSelection(info);
+    const auto& clips = arrangement_.selectedClips();
+    std::optional<model::ClipInfo> clip;
+    if (clips.size() == 1)
+        if (const auto found = model::findClip(*session_.snapshot(), *clips.begin()))
+            clip = *found->first;
+    inspector_.setSelection(info, clip, static_cast<int>(clips.size()), session_.snapshot()->tempo);
     detail_.setSelection(info);
 }
 

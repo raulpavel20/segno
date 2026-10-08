@@ -1,5 +1,6 @@
 #pragma once
 
+#include "model/Editing.h"
 #include "model/Snapshot.h"
 
 #include <juce_audio_devices/juce_audio_devices.h>
@@ -48,6 +49,14 @@ public:
     /// Inserts `file` on `trackId` at `seconds`; returns the clip id, or 0 if the file is not
     /// readable audio.
     std::uint64_t insertAudioFile(std::uint64_t trackId, const juce::File& file, double seconds);
+
+    /// Moves and trims clips (C4): each edit gives a clip its track and placement.
+    void applyClipEdits(const std::vector<model::ClipEdit>& edits);
+    /// Copies each `clip` to its placement; returns the new clip ids.
+    std::vector<std::uint64_t> duplicateClips(const std::vector<model::ClipEdit>& placements);
+    void deleteClips(const std::vector<std::uint64_t>& ids);
+    /// Splits the clips that contain `seconds`; returns the ids of the new right-hand parts.
+    std::vector<std::uint64_t> splitClips(const std::vector<std::uint64_t>& ids, double seconds);
 
     void undo();
     void redo();

@@ -1,0 +1,136 @@
+#include "model/Editing.h"
+
+#include <algorithm>
+#include <cmath>
+#include <limits>
+
+namespace fd::model
+{
+std::optional<std::pair<const ClipInfo*, int>> findClip(const Snapshot& snapshot, std::uint64_t id)
+{
+    for (size_t t = 0; t < snapshot.tracks.size(); ++t)
+        for (const auto& c : snapshot.tracks[t].clips)
+            if (c.id == id)
+                return std::pair{&c, static_cast<int>(t)};
+    return std::nullopt;
+}
+
+std::optional<ClipHit> hitClip(const Snapshot& snapshot, const TrackLayout& layout, const Timeline& timeline,
+                               double x, double y, double edgePixels)
+{
+    const auto row = layout.hit(y);
+    if (!row || row->track >= static_cast<int>(snapshot.tracks.size()))
+        return std::nullopt;
+    const double t = timeline.timeForX(x);
+    const auto& clips = snapshot.tracks[static_cast<size_t>(row->track)].clips;
+    // Later clips are drawn on top: search from the end.
+    for (auto it = clips.rbegin(); it != clips.rend(); ++it)
+    {
+        if (t < it->start || t >= it->end())
+            continue;
+        const double x0 = timeline.xForTime(it->start), x1 = timeline.xForTime(it->end());
+        const double edge = std::min(edgePixels, (x1 - x0) / 3.0);
+        ClipHit hit{it->id, row->track, ClipHit::Zone::Body};
+        if (x - x0 < edge)
+            hit.zone = ClipHit::Zone::StartEdge;
+        else if (x1 - x < edge)
+            hit.zone = ClipHit::Zone::EndEdge;
+        return hit;
+    }
+    return std::nullopt;
+}
+
+std::vector<ClipEdit> dragClips(const Snapshot& snapshot, const std::set<std::uint64_t>& selection, const Drag& drag,
+                                const std::function<double(double)>& snap)
+{
+    std::vector<std::pair<const ClipInfo*, int>> clips;
+    for (auto id : selection)
+        if (auto found = findClip(snapshot, id))
+            clips.push_back(*found);
+    const auto anchor = findClip(snapshot, drag.anchor);
+    if (clips.empty() || !anchor)
+        return {};
+    const ClipInfo& a = *anchor->first;
+
+    std::vector<ClipEdit> out;
+    switch (drag.kind)
+    {
+    case DragKind::Move:
+    {
+        double delta = snap(a.start + drag.deltaSeconds) - a.start;
+        int dTrack = drag.deltaTracks;
+        double earliest = std::numeric_limits<double>::max();
+        int lowest = std::numeric_limits<int>::max(), highest = std::numeric_limits<int>::min();
+        for (const auto& [c, t] : clips)
+        {
+            earliest = std::min(earliest, c->start);
+            lowest = std::min(lowest, t);
+            highest = std::max(highest, t);
+        }
+        delta = std::max(delta, -earliest); // nothing before zero
+        dTrack = std::clamp(dTrack, -lowest, static_cast<int>(snapshot.tracks.size()) - 1 - highest);
+        for (const auto& [c, t] : clips)
+            out.push_back({c->id, snapshot.tracks[static_cast<size_t>(t + dTrack)].id, c->start + delta, c->length, c->offset});
+        break;
+    }
+    case DragKind::TrimStart:
+    {
+        const double delta = snap(a.start + drag.deltaSeconds) - a.start;
+        for (const auto& [c, t] : clips)
+        {
+            // Not before the source's start (or time zero), not past the end minus the minimum.
+            const double earliest = std::max(0.0, c->start - c->offset);
+            const double start = std::clamp(c->start + delta, earliest, c->end() - minClipLength);
+            out.push_back({c->id, snapshot.tracks[static_cast<size_t>(t)].id, start, c->end() - start,
+                           c->offset + (start - c->start)});
+        }
+        break;
+    }
+    case DragKind::TrimEnd:
+    {
+        const double delta = snap(a.end() + drag.deltaSeconds) - a.end();
+        for (const auto& [c, t] : clips)
+        {
+            double end = std::max(c->start + minClipLength, c->end() + delta);
+            if (c->sourceLength > 0.0)
+                end = std::min(end, c->start - c->offset + c->sourceLength); // not past the source
+            out.push_back({c->id, snapshot.tracks[static_cast<size_t>(t)].id, c->start, end - c->start, c->offset});
+        }
+        break;
+    }
+    }
+    return out;
+}
+
+std::vector<std::uint64_t> clipsInBox(const Snapshot& snapshot, double t0, double t1, int track0, int track1)
+{
+    if (t1 < t0)
+        std::swap(t0, t1);
+    if (track1 < track0)
+        std::swap(track0, track1);
+    std::vector<std::uint64_t> out;
+    for (int t = std::max(0, track0); t <= std::min(track1, static_cast<int>(snapshot.tracks.size()) - 1); ++t)
+        for (const auto& c : snapshot.tracks[static_cast<size_t>(t)].clips)
+            if (c.start <= t1 && c.end() >= t0)
+                out.push_back(c.id);
+    return out;
+}
+
+std::vector<ClipEdit> duplicatePlacements(const Snapshot& snapshot, const std::set<std::uint64_t>& selection)
+{
+    double first = std::numeric_limits<double>::max(), last = 0.0;
+    std::vector<std::pair<const ClipInfo*, int>> clips;
+    for (auto id : selection)
+        if (auto found = findClip(snapshot, id))
+        {
+            clips.push_back(*found);
+            first = std::min(first, found->first->start);
+            last = std::max(last, found->first->end());
+        }
+    std::vector<ClipEdit> out;
+    const double span = last - first;
+    for (const auto& [c, t] : clips)
+        out.push_back({c->id, snapshot.tracks[static_cast<size_t>(t)].id, c->start + span, c->length, c->offset});
+    return out;
+}
+} // namespace fd::model

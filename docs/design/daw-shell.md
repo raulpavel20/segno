@@ -113,6 +113,16 @@ Layers, back to front:
 
 Waveforms come from a background-built peak cache per file, plus cached drawing per clip and zoom level (C3), within the 8 ms budget (ADR 0015).
 
+## Clip editing (C4)
+
+- **Hit testing and drag maths** live in `model/Editing` (tested):
+  - the grabbed clip snaps and the rest of the selection follows by the same amount;
+  - nothing moves before time zero or off the track list;
+  - trims stay within the source file and leave at least 10 ms.
+- **Selection:** click; Shift or Ctrl toggles; a drag on empty lanes box-selects (Shift adds); the selected track follows the click.
+- **During a drag**, clips are drawn at their new place from the model's result. On release the Session applies it as one undo step, and the preview stays until the new snapshot arrives (no flicker).
+- **Commands:** delete, duplicate (copies placed right after the selection), split at the playhead (the selected clips, or the selected track's clips under the playhead), select all.
+
 ## Waveforms (C3)
 
 - **Peaks** (`model::Peaks`):
@@ -145,10 +155,7 @@ A software-renderer benchmark also runs offscreen in the integration tests (`"[.
 
 ## Later steps (outline)
 
-- **C4 clip editing:**
-  - drag files in (onto a track, or below the last track to create one);
-  - move with snap (Alt = free), trim either edge, split, duplicate, delete, box select;
-  - one undo transaction per gesture.
+- **C4 clip editing** (built, see below).
 - **C5 transport:** play/stop, click-to-locate, tempo field, loop brace (drag in the ruler), metronome; follow the playhead while playing.
 - **C6 device chain:** the detail panel shows the selected track's chain. Native panels plus third-party cards; add (menu, until the browser lands), reorder by drag, bypass, delete; VST3/LV2 scan in a child process.
 - **C7 instrument tracks:** MIDI input monitoring through the track's instrument; `.mid` import as a read-only preview clip.
