@@ -7,12 +7,14 @@
 
 #include <juce_opengl/juce_opengl.h>
 
+#include <iostream>
+
 namespace
 {
 class MainWindow final : public juce::DocumentWindow
 {
 public:
-    MainWindow(fd::engine::Session& session, bool openGL)
+    MainWindow(fd::engine::Session& session, bool openGL, int displayIndex)
         : DocumentWindow("FossDAW", fd::ui::Theme::current().surface0, allButtons)
     {
         setUsingNativeTitleBar(true);
@@ -21,13 +23,20 @@ public:
         setContentOwned(shell, false);
         setResizable(true, true);
         setResizeLimits(1024, 640, 16384, 16384);
-        const auto area = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay()->userBounds;
-        centreWithSize(juce::roundToInt(area.getWidth() * 0.9), juce::roundToInt(area.getHeight() * 0.9));
+        // --display N opens on another display (benchmarks); the primary display by default.
+        const auto& displays = juce::Desktop::getInstance().getDisplays().displays;
+        const auto& display = juce::isPositiveAndBelow(displayIndex, displays.size())
+                                  ? displays.getReference(displayIndex)
+                                  : *juce::Desktop::getInstance().getDisplays().getPrimaryDisplay();
+        const auto area = display.userBounds.toNearestInt();
+        setBounds(area.withSizeKeepingCentre(juce::roundToInt(area.getWidth() * 0.9),
+                                             juce::roundToInt(area.getHeight() * 0.9)));
 
         // ADR 0015: OpenGL renders the window, driven by the GL thread; --software disables it.
         if (openGL)
         {
             gl_.setComponentPaintingEnabled(true);
+            gl_.setImageCacheSize(256u * 1024u * 1024u); // waveform tiles stay on the GPU
             gl_.setContinuousRepainting(true);
             gl_.attachTo(*shell);
         }
@@ -60,8 +69,22 @@ public:
         engine_ = std::make_unique<tracktion::Engine>("FossDAW", std::move(behaviour), nullptr);
         fd::engine::registerDevices(*engine_);
         session_ = std::make_unique<fd::engine::Session>(*engine_);
-        window_ = std::make_unique<MainWindow>(*session_, !commandLine.contains("--software"));
+        const auto args = juce::StringArray::fromTokens(commandLine, true);
+        const int display = args.contains("--display") ? args[args.indexOf("--display") + 1].getIntValue() : -1;
+        window_ = std::make_unique<MainWindow>(*session_, !commandLine.contains("--software"), display);
         behaviour_->onWarning = [this](const juce::String& m) { window_->shell().showWarning(m); };
+        if (commandLine.contains("--stats"))
+            window_->shell().setStatsVisible(true);
+        if (commandLine.contains("--benchmark"))
+            window_->shell().runBenchmark(6.0, [this, commandLine](juce::String report) {
+                const auto* d = juce::Desktop::getInstance().getDisplays().getDisplayForRect(
+                    window_->getScreenBounds());
+                const auto px = d != nullptr ? d->logicalBounds.toDouble() * d->scale : juce::Rectangle<double>();
+                std::cout << (commandLine.contains("--software") ? "software" : "opengl") << " on "
+                          << juce::roundToInt(px.getWidth()) << "x" << juce::roundToInt(px.getHeight()) << " @"
+                          << (d != nullptr ? d->scale : 1.0) << "x: " << report << std::endl;
+                quit();
+            });
     }
 
     void shutdown() override

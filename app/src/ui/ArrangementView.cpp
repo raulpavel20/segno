@@ -1,12 +1,14 @@
 #include "ui/ArrangementView.h"
 
+#include <juce_opengl/juce_opengl.h>
+
 namespace fd::app
 {
 namespace
 {
 bool isAudioFile(const juce::String& path)
 {
-    return juce::File(path).hasFileExtension("wav;wave;w64;aif;aiff;aifc;flac;ogg;mp3");
+    return juce::File(path).hasFileExtension("wav;wave;w64;aif;aiff;aifc;flac;mp3");
 }
 
 juce::Colour paletteColour(int index)
@@ -18,6 +20,7 @@ juce::Colour paletteColour(int index)
 
 ArrangementView::ArrangementView(engine::Session& session) : session_(session)
 {
+    waveforms_.onReady = [this] { repaint(); };
     setSnapshot(session_.snapshot());
     setWantsKeyboardFocus(false);
 }
@@ -25,6 +28,9 @@ ArrangementView::ArrangementView(engine::Session& session) : session_(session)
 void ArrangementView::setSnapshot(std::shared_ptr<const model::Snapshot> snapshot)
 {
     snapshot_ = std::move(snapshot);
+    for (const auto& t : snapshot_->tracks)
+        for (const auto& c : t.clips)
+            waveforms_.request(c.sourcePath);
     syncLayout();
     if (selectedTrack_)
     {
@@ -85,6 +91,22 @@ void ArrangementView::frame(double dt, double playheadSeconds)
     if (timeline_.advance(dt) || timeline_.isAnimating())
         repaint();
 
+    // Waveforms render at the exact zoom once it has settled (WaveformTiles).
+    const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
+    if (timeline_.pixelsPerSecond() != lastPixelsPerSecond_)
+    {
+        lastPixelsPerSecond_ = timeline_.pixelsPerSecond();
+        lastZoomChange_ = now;
+        zoomSettled_ = false;
+    }
+    else if (!zoomSettled_ && now - lastZoomChange_ > 0.15)
+    {
+        zoomSettled_ = true;
+        repaint();
+    }
+    if (tiles_.wantsRepaint())
+        repaint();
+
     playhead_ = playheadSeconds;
     const float x = laneX(playhead_);
     if (std::abs(x - drawnPlayheadX_) >= 0.5f)
@@ -95,6 +117,19 @@ void ArrangementView::frame(double dt, double playheadSeconds)
                 repaint(juce::Rectangle<int>(static_cast<int>(px) - 6, 0, 13, getHeight()));
         drawnPlayheadX_ = x;
     }
+}
+
+void ArrangementView::zoomAt(double laneXPos, double factor)
+{
+    timeline_.zoomAround(laneXPos, factor);
+    repaint();
+}
+
+void ArrangementView::setAllTrackHeights(double height)
+{
+    for (int i = 0; i < layout_.trackCount(); ++i)
+        layout_.setHeight(i, height);
+    repaint();
 }
 
 void ArrangementView::zoomIn()
@@ -132,6 +167,8 @@ void ArrangementView::select(std::optional<std::uint64_t> track)
 
 void ArrangementView::paint(juce::Graphics& g)
 {
+    const double start = juce::Time::getMillisecondCounterHiRes();
+    tiles_.beginPaint();
     const auto& t = ui::Theme::current();
     g.fillAll(t.surface0);
     timeline_.gridLines(snapshot_->tempo, grid_);
@@ -142,6 +179,7 @@ void ArrangementView::paint(juce::Graphics& g)
     // Corner above the headers.
     g.setColour(t.surface1);
     g.fillRect(getLocalBounds().removeFromTop(rulerHeight).removeFromLeft(headerWidth));
+    lastPaintMs_ = juce::Time::getMillisecondCounterHiRes() - start;
 }
 
 void ArrangementView::paintRuler(juce::Graphics& g)
@@ -254,7 +292,9 @@ void ArrangementView::paintLanes(juce::Graphics& g)
         g.fillRect(laneX(line.seconds), static_cast<float>(area.getY()), 1.0f, bottom - static_cast<float>(area.getY()));
     }
 
-    // Clips: a solid title strip with dark text over a dark body of the same hue.
+    // Clips: a solid title strip with dark text over a dark body of the same hue. Only what
+    // intersects the invalidated area is drawn (a playhead-only repaint touches a few columns).
+    const auto visible = area.getIntersection(g.getClipBounds());
     for (int i = 0; i < layout_.trackCount(); ++i)
     {
         const auto& track = snapshot_->tracks[static_cast<size_t>(i)];
@@ -269,14 +309,16 @@ void ArrangementView::paintLanes(juce::Graphics& g)
             const float x0 = std::max(laneX(clip.start), static_cast<float>(area.getX()) - 2.0f);
             const float x1 = std::min(laneX(clip.end()), static_cast<float>(area.getRight()) + 2.0f);
             const auto box = juce::Rectangle<float>(x0, y + 1.0f, std::max(1.0f, x1 - x0), h - 3.0f);
+            if (!box.intersects(visible.toFloat()))
+                continue;
             const auto colour = paletteColour(clip.colour);
             g.setColour(colour.withBrightness(0.32f));
-            g.fillRoundedRectangle(box, 2.0f);
+            g.fillRect(box);
             const float strip = std::min(15.0f, box.getHeight() * 0.35f);
-            auto title = box.withHeight(strip);
+            const auto title = box.withHeight(strip);
             g.setColour(colour);
-            g.fillRoundedRectangle(title, 2.0f);
-            g.fillRect(title.withTrimmedTop(strip * 0.5f));
+            g.fillRect(title);
+            paintWaveform(g, clip, box.withTrimmedTop(strip), visible, colour);
             if (title.getWidth() > 16.0f && strip >= 10.0f)
             {
                 g.setColour(t.surface0);
@@ -312,6 +354,20 @@ void ArrangementView::paintLanes(juce::Graphics& g)
     // Playhead.
     g.setColour(t.textPrimary);
     g.fillRect(laneX(playhead_), static_cast<float>(area.getY()), 1.0f, static_cast<float>(area.getHeight()));
+}
+
+void ArrangementView::paintWaveform(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body,
+                                    juce::Rectangle<int> visible, juce::Colour colour)
+{
+    const auto* peaks = waveforms_.find(clip.sourcePath);
+    if (peaks == nullptr)
+        return;
+    const auto tint = colour.interpolatedWith(juce::Colours::white, 0.25f);
+    // Tiles pay off on the GPU; the software renderer scales images slowly (measured).
+    if (juce::OpenGLContext::getCurrentContext() != nullptr)
+        tiles_.draw(g, *peaks, clip, body, visible, timeline_, laneArea().getX(), tint, zoomSettled_);
+    else
+        WaveformTiles::drawDirect(g, *peaks, clip, body, visible, timeline_, laneArea().getX(), tint);
 }
 
 // ---- input ---------------------------------------------------------------------------------

@@ -3,6 +3,8 @@
 #include "engine/Session.h"
 #include "model/Timeline.h"
 #include "model/TrackLayout.h"
+#include "ui/WaveformCache.h"
+#include "ui/WaveformTiles.h"
 
 #include <fd_ui/fd_ui.h>
 
@@ -35,6 +37,13 @@ public:
     std::function<void(std::optional<std::uint64_t>)> onSelectionChanged;
 
     [[nodiscard]] const model::Timeline& timeline() const noexcept { return timeline_; }
+    [[nodiscard]] WaveformCache& waveforms() noexcept { return waveforms_; }
+    /// Immediate zoom around a lane x (benchmarks; input uses the gesture handlers).
+    void zoomAt(double laneX, double factor);
+    /// Sets every track's height (clamped to the layout's limits).
+    void setAllTrackHeights(double height);
+    /// Wall time of the last paint, ms (frame statistics).
+    [[nodiscard]] double lastPaintMs() const noexcept { return lastPaintMs_; }
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -61,13 +70,20 @@ private:
     void paintRuler(juce::Graphics& g);
     void paintHeaders(juce::Graphics& g);
     void paintLanes(juce::Graphics& g);
+    void paintWaveform(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body,
+                       juce::Rectangle<int> visible, juce::Colour colour);
 
     engine::Session& session_;
     std::shared_ptr<const model::Snapshot> snapshot_;
+    WaveformCache waveforms_;
+    WaveformTiles tiles_;
+    double lastPixelsPerSecond_ = 0.0, lastZoomChange_ = 0.0;
+    bool zoomSettled_ = false;
     model::Timeline timeline_;
     model::TrackLayout layout_;
     std::vector<model::Timeline::GridLine> grid_; // paint scratch
     double playhead_ = 0.0;
+    double lastPaintMs_ = 0.0;
     float drawnPlayheadX_ = -1.0f;
     bool snap_ = true;
     std::optional<std::uint64_t> selectedTrack_;

@@ -1,5 +1,7 @@
 #include "ui/Shell.h"
 
+#include "fd/audiofile/AudioFile.h"
+
 #include <juce_audio_utils/juce_audio_utils.h>
 
 namespace fd::app
@@ -185,6 +187,29 @@ void Shell::onFrame(double timestamp)
     if (relayout)
         resized();
 
+    if (benchmark_)
+    {
+        // Zoom in for 2 s, out for 2 s, repeatedly (about 6 octaves each way at 120 Hz).
+        const bool in = (benchmark_->frame++ / 240) % 2 == 0;
+        arrangement_.zoomAt(arrangement_.timeline().width() * 0.45, in ? 1.035 : 1.0 / 1.035);
+        if (juce::Time::getMillisecondCounterHiRes() * 0.001 > benchmark_->until)
+        {
+            auto done = std::move(benchmark_->done);
+            benchmark_.reset();
+            if (done)
+                done(statsReport());
+        }
+    }
+    if (statsVisible_ || benchmark_)
+    {
+        stats_.frameMs.push_back(dt * 1000.0);
+        stats_.paintMs.push_back(arrangement_.lastPaintMs());
+        if (stats_.frameMs.size() > 4000)
+            stats_.clear();
+        if (statsVisible_)
+            repaint(getLocalBounds().removeFromBottom(28).removeFromLeft(360));
+    }
+
     const double position = session_.position();
     arrangement_.frame(dt, position);
     transport_->frame(position, session_.snapshot()->tempo);
@@ -196,6 +221,66 @@ void Shell::onFrame(double timestamp)
     }
 }
 
+void Shell::setStatsVisible(bool visible)
+{
+    statsVisible_ = visible;
+    stats_.clear();
+    repaint();
+}
+
+juce::String Shell::statsReport() const
+{
+    auto summary = [](std::vector<double> v) {
+        if (v.empty())
+            return std::pair{0.0, 0.0};
+        std::sort(v.begin(), v.end());
+        double sum = 0.0;
+        for (double x : v)
+            sum += x;
+        return std::pair{sum / static_cast<double>(v.size()), v[v.size() * 95 / 100]};
+    };
+    const auto [paintAvg, paintP95] = summary(stats_.paintMs);
+    const auto [frameAvg, frameP95] = summary(stats_.frameMs);
+    return "arrangement paint avg " + juce::String(paintAvg, 2) + " ms, p95 " + juce::String(paintP95, 2) +
+           " ms; frames avg " + juce::String(frameAvg > 0.0 ? 1000.0 / frameAvg : 0.0, 1) + " fps, p95 interval " +
+           juce::String(frameP95, 2) + " ms (" + juce::String(static_cast<int>(stats_.frameMs.size())) + " frames)";
+}
+
+void Shell::runBenchmark(double seconds, std::function<void(juce::String)> done)
+{
+    // 32 tracks with 8 clips each of a busy 16 s stereo file.
+    {
+        constexpr int rate = 48000;
+        std::vector<std::vector<float>> ch(2, std::vector<float>(16 * rate));
+        for (size_t i = 0; i < ch[0].size(); ++i)
+            for (size_t c = 0; c < 2; ++c)
+                ch[c][i] = 0.6f * std::sin(0.011f * static_cast<float>(i) * (1.0f + 0.3f * static_cast<float>(c))) *
+                           std::exp(-static_cast<float>(i % 12000) / 5000.0f);
+        fd::audiofile::writeWav(benchmarkFile_.getFile().getFullPathName().toStdString(), ch, rate);
+    }
+    while (session_.snapshot()->tracks.size() < 32)
+    {
+        session_.addAudioTrack();
+        session_.updateSnapshotNow();
+    }
+    for (const auto& t : session_.snapshot()->tracks)
+        for (int k = 0; k < 8; ++k)
+            session_.insertAudioFile(t.id, benchmarkFile_.getFile(), 16.0 * k);
+    session_.updateSnapshotNow();
+    arrangement_.waveforms().waitUntilIdle();
+    // All 32 tracks on screen: focus mode, tracks shrunk to fit.
+    focusMode_ = true;
+    resized();
+    arrangement_.setAllTrackHeights((arrangement_.getHeight() - ArrangementView::rulerHeight) / 32.0);
+    arrangement_.zoomToFit();
+
+    // Let the zoom-to-fit settle, then measure.
+    juce::Timer::callAfterDelay(1000, [this, seconds, onDone = std::move(done)]() mutable {
+        stats_.clear();
+        benchmark_ = Benchmark{juce::Time::getMillisecondCounterHiRes() * 0.001 + seconds, 0, std::move(onDone)};
+    });
+}
+
 void Shell::paint(juce::Graphics& g)
 {
     g.fillAll(ui::Theme::current().surface0); // shows through the 1 px gaps between panels
@@ -203,9 +288,21 @@ void Shell::paint(juce::Graphics& g)
 
 void Shell::paintOverChildren(juce::Graphics& g)
 {
+    const auto& t = ui::Theme::current();
+    if (statsVisible_)
+    {
+        auto box = getLocalBounds().removeFromBottom(28).removeFromLeft(360).reduced(6, 4);
+        g.setColour(t.surface3.withAlpha(0.9f));
+        g.fillRect(box);
+        g.setColour(t.textPrimary);
+        g.setFont(ui::fonts::font(t.textXs, ui::fonts::Weight::Regular, true));
+        const double paint = stats_.paintMs.empty() ? 0.0 : stats_.paintMs.back();
+        const double frame = stats_.frameMs.empty() ? 0.0 : stats_.frameMs.back();
+        g.drawText("paint " + juce::String(paint, 2) + " ms   frame " + juce::String(frame, 2) + " ms",
+                   box.reduced(6, 0), juce::Justification::centredLeft, false);
+    }
     if (warning_.isEmpty())
         return;
-    const auto& t = ui::Theme::current();
     auto box = arrangement_.getBounds().reduced(16).removeFromBottom(36).removeFromRight(420);
     g.setColour(t.surface3);
     g.fillRoundedRectangle(box.toFloat(), t.radiusPanel);

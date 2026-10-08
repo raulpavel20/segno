@@ -20,6 +20,12 @@ public:
     /// Shows a warning in the window (engine warnings; never a modal dialog).
     void showWarning(const juce::String& message);
 
+    /// Frame statistics overlay (paint time of the arrangement, frame rate): --stats.
+    void setStatsVisible(bool visible);
+    /// Scripted benchmark (--benchmark): fills the project with 32 tracks of clips, zooms in and
+    /// out for `seconds`, then calls `done` with a one-line report.
+    void runBenchmark(double seconds, std::function<void(juce::String)> done);
+
     void paint(juce::Graphics& g) override;
     void paintOverChildren(juce::Graphics& g) override;
     void resized() override;
@@ -54,6 +60,28 @@ private:
     Panel detailPanel_{.open = true, .shown = 1.0f, .size = 0.0f};
     bool focusMode_ = false;
     std::optional<bool> compact_;
+
+    struct Stats
+    {
+        std::vector<double> paintMs, frameMs;
+        void clear()
+        {
+            paintMs.clear();
+            frameMs.clear();
+        }
+    };
+    [[nodiscard]] juce::String statsReport() const;
+
+    bool statsVisible_ = false;
+    Stats stats_;
+    struct Benchmark
+    {
+        double until = 0.0;
+        int frame = 0;
+        std::function<void(juce::String)> done;
+    };
+    std::optional<Benchmark> benchmark_;
+    juce::TemporaryFile benchmarkFile_{".wav"};
 
     juce::String warning_;
     double warningUntil_ = 0.0;

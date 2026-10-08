@@ -56,3 +56,40 @@ TEST_CASE("missing or invalid files fail with a message", "[fast]")
     CHECK_FALSE(error.empty());
     std::filesystem::remove(path);
 }
+
+TEST_CASE("streaming reads every frame in blocks", "[fast]")
+{
+    std::vector<std::vector<float>> channels(2, std::vector<float>(10007));
+    for (size_t i = 0; i < channels[0].size(); ++i)
+    {
+        channels[0][i] = static_cast<float>(i) / 10007.0f;
+        channels[1][i] = -channels[0][i];
+    }
+    const auto path = tempPath("fd-audiofile-stream.wav");
+    REQUIRE(writeWav(path, channels, 48000.0));
+
+    std::vector<float> left;
+    int blocks = 0;
+    const auto info = stream(path, 1000, [&](const StreamInfo& format, const float* interleaved, int frames) {
+        CHECK(format.numChannels == 2);
+        ++blocks;
+        for (int i = 0; i < frames; ++i)
+            left.push_back(interleaved[2 * i]);
+        return true;
+    });
+    REQUIRE(info);
+    CHECK(info->numChannels == 2);
+    CHECK(info->numFrames == 10007);
+    CHECK(blocks == 11);
+    CHECK(left == channels[0]);
+
+    int stopped = 0;
+    stream(path, 1000, [&](const StreamInfo&, const float*, int) { return ++stopped < 3; });
+    CHECK(stopped == 3); // the callback can stop early
+    std::filesystem::remove(path);
+
+    std::string error;
+    CHECK_FALSE(stream(tempPath("fd-does-not-exist.wav"), 100, [](const StreamInfo&, const float*, int) { return true; }, &error));
+    CHECK_FALSE(error.empty());
+}
+

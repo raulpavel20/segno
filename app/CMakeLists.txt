@@ -6,9 +6,9 @@ juce_add_modules(ALIAS_NAMESPACE tracktion
     "${tracktion_engine_SOURCE_DIR}/modules/tracktion_engine")
 
 # fd_app_model: JUCE-free view models of the DAW (ADR 0018), tested as [fast].
-add_library(fd_app_model STATIC src/model/Timeline.cpp src/model/TrackLayout.cpp)
+add_library(fd_app_model STATIC src/model/Timeline.cpp src/model/TrackLayout.cpp src/model/Peaks.cpp)
 target_include_directories(fd_app_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
-target_link_libraries(fd_app_model PRIVATE fd::warnings)
+target_link_libraries(fd_app_model PUBLIC fd::audiofile PRIVATE fd::warnings)
 
 if(FD_BUILD_TESTS)
     fd_add_test(NAME fd_app_model_tests SOURCES tests/ModelTests.cpp LIBS fd_app_model)
@@ -50,8 +50,10 @@ target_sources(fd_app_ui INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/Shell.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/Panels.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ArrangementView.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ActionRegistry.cpp")
-target_link_libraries(fd_app_ui INTERFACE fd_engine)
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ActionRegistry.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/WaveformCache.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/WaveformTiles.cpp")
+target_link_libraries(fd_app_ui INTERFACE fd_engine juce::juce_opengl)
 
 target_sources(fd-daw PRIVATE src/Main.cpp)
 target_link_libraries(fd-daw PRIVATE fd_app_ui juce::juce_opengl juce::juce_recommended_config_flags fd::warnings_juce)

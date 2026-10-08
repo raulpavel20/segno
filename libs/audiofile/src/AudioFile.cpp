@@ -127,6 +127,89 @@ std::optional<DecodedAudio> decode(const std::string& path, std::string* error)
     return out;
 }
 
+std::optional<StreamInfo> stream(const std::string& path, int blockFrames, const BlockCallback& onBlock,
+                                 std::string* error)
+{
+    std::array<char, 12> head{};
+    {
+        std::ifstream in(path, std::ios::binary);
+        if (!in)
+        {
+            setError(error, "cannot open " + path);
+            return std::nullopt;
+        }
+        in.read(head.data(), head.size());
+    }
+    auto starts = [&](const char* tag) { return std::memcmp(head.data(), tag, std::strlen(tag)) == 0; };
+    blockFrames = std::max(1, blockFrames);
+
+    // One loop for the three decoders: read(frames, buffer) -> frames read.
+    auto run = [&](StreamInfo info, auto&& read) -> std::optional<StreamInfo> {
+        if (info.numChannels <= 0 || info.sampleRate <= 0.0)
+        {
+            setError(error, "unsupported audio format: " + path);
+            return std::nullopt;
+        }
+        std::vector<float> buffer(static_cast<size_t>(blockFrames) * static_cast<size_t>(info.numChannels));
+        std::int64_t total = 0;
+        for (;;)
+        {
+            const auto n = static_cast<int>(read(static_cast<std::uint64_t>(blockFrames), buffer.data()));
+            if (n <= 0)
+                break;
+            total += n;
+            if (!onBlock(info, buffer.data(), n))
+                break;
+        }
+        info.numFrames = std::max(info.numFrames, total);
+        return info;
+    };
+
+    if (starts("RIFF") || starts("RIFX") || starts("RF64") || starts("riff") || starts("FORM"))
+    {
+        drwav wav;
+        if (!drwav_init_file(&wav, path.c_str(), nullptr))
+        {
+            setError(error, "unsupported or damaged audio file: " + path);
+            return std::nullopt;
+        }
+        auto info = run({static_cast<double>(wav.sampleRate), static_cast<int>(wav.channels),
+                         static_cast<std::int64_t>(wav.totalPCMFrameCount)},
+                        [&](std::uint64_t n, float* out) { return drwav_read_pcm_frames_f32(&wav, n, out); });
+        drwav_uninit(&wav);
+        return info;
+    }
+    if (starts("fLaC"))
+    {
+        drflac* flac = drflac_open_file(path.c_str(), nullptr);
+        if (flac == nullptr)
+        {
+            setError(error, "unsupported or damaged audio file: " + path);
+            return std::nullopt;
+        }
+        auto info = run({static_cast<double>(flac->sampleRate), static_cast<int>(flac->channels),
+                         static_cast<std::int64_t>(flac->totalPCMFrameCount)},
+                        [&](std::uint64_t n, float* out) { return drflac_read_pcm_frames_f32(flac, n, out); });
+        drflac_close(flac);
+        return info;
+    }
+    drmp3 mp3;
+    if (!drmp3_init_file(&mp3, path.c_str(), nullptr))
+    {
+        setError(error, "unsupported or empty audio file: " + path);
+        return std::nullopt;
+    }
+    auto info = run({static_cast<double>(mp3.sampleRate), static_cast<int>(mp3.channels), 0},
+                    [&](std::uint64_t n, float* out) { return drmp3_read_pcm_frames_f32(&mp3, n, out); });
+    drmp3_uninit(&mp3);
+    if (info && info->numFrames == 0)
+    {
+        setError(error, "unsupported or empty audio file: " + path);
+        return std::nullopt;
+    }
+    return info;
+}
+
 bool writeWav(const std::string& path, const std::vector<std::vector<float>>& channels, double sampleRate,
               std::optional<int> rootKey)
 {

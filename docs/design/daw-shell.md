@@ -113,9 +113,38 @@ Layers, back to front:
 
 Waveforms come from a background-built peak cache per file, plus cached drawing per clip and zoom level (C3), within the 8 ms budget (ADR 0015).
 
+## Waveforms (C3)
+
+- **Peaks** (`model::Peaks`):
+  - built per file on a background thread (`WaveformCache`) by streaming the file through `libs/audiofile`, never loading it whole;
+  - min/max of all channels at 16, 64, 256 … frames per bin;
+  - a pixel column reads a handful of bins at any zoom.
+- **Tiles** (`WaveformTiles`, OpenGL only):
+  - waveforms are rendered into pre-coloured images, 512 logical px of one file's time at device resolution, shared by every clip of that file;
+  - while zooming, tiles come from power-of-two zoom levels and are drawn scaled down by at most 2×;
+  - when the zoom settles (150 ms), they are re-rendered at the exact zoom, up to 12 per frame, and level tiles stand in until then;
+  - least recently used tiles are evicted beyond 192 MB, and the GL texture cache is raised to 256 MB to match.
+- **Software renderer:** waveforms are drawn directly as one polygon per clip, because scaling images costs more there than drawing.
+- **What we measured:**
+  - Under OpenGL, filling paths dominated the frame (about 4.5 ms of 6 ms with 32 visible tracks).
+  - One rectangle per column was slower than one polygon per clip.
+  - Drawing alpha masks "with the current brush" is rasterised on the CPU (24 ms per frame), hence pre-coloured tiles.
+  - Paint code only draws what intersects the invalidated area, so a playhead repaint costs a few columns.
+
+## Performance
+
+The arrangement's budget (ADR 0015): 32 visible tracks zooming continuously, under 8 ms per frame, in Release on the reference machine. `FossDAW --benchmark [--display N] [--software]` fills a project with 32 tracks of 8 clips, shows them all (focus mode), zooms in and out for 6 s, and prints paint time and frame rate. `--stats` shows the same numbers live.
+
+| 2026-10-10, Release | Paint avg | Paint p95 | Frames |
+|---|---|---|---|
+| OpenGL, laptop panel 2880×1920 @2× | 1.9 ms | 5.9 ms | 123 fps (120 Hz panel) |
+| OpenGL, external 3840×2160 @2× | 1.9 ms | 6.3 ms | 123 fps (120 Hz) |
+| Software, external 3840×2160 @2× | 13.8 ms | 21.5 ms | 78 fps |
+
+A software-renderer benchmark also runs offscreen in the integration tests (`"[.benchmark]"`, report only: offscreen software painting at 4K is bound by fill rate).
+
 ## Later steps (outline)
 
-- **C3 waveform cache:** per-file min/max peaks at several resolutions, built on a background thread; per clip and zoom bucket, cached paths. A paint benchmark checks 32 tracks zooming in under 8 ms (Release, reference machine).
 - **C4 clip editing:**
   - drag files in (onto a track, or below the last track to create one);
   - move with snap (Alt = free), trim either edge, split, duplicate, delete, box select;

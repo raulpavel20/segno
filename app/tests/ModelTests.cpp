@@ -198,3 +198,50 @@ TEST_CASE("snapshot reports where the content ends", "[fast]")
     s.tracks.push_back({.id = 2, .clips = {{.id = 3, .start = 0.0, .length = 4.0}}});
     CHECK(s.contentEnd() == 6.0);
 }
+
+#include "model/Peaks.h"
+
+#include "fd/audiofile/AudioFile.h"
+
+#include <cmath>
+#include <filesystem>
+
+TEST_CASE("peaks hold the min and max at every resolution", "[fast]")
+{
+    // Stereo: a slow sine on the left, a single spike on the right.
+    constexpr int frames = 100000;
+    std::vector<std::vector<float>> ch(2, std::vector<float>(frames, 0.0f));
+    for (int i = 0; i < frames; ++i)
+        ch[0][static_cast<size_t>(i)] = 0.5f * std::sin(2.0f * 3.14159265f * static_cast<float>(i) / 1000.0f);
+    ch[1][77777] = -0.9f;
+    const auto path = (std::filesystem::temp_directory_path() / "fd-peaks-test.wav").string();
+    REQUIRE(fd::audiofile::writeWav(path, ch, 48000.0));
+
+    std::string error;
+    const auto peaks = buildPeaks(path, &error);
+    INFO(error);
+    REQUIRE(peaks != nullptr);
+    CHECK(peaks->frames == frames);
+    CHECK(peaks->sampleRate == 48000.0);
+    REQUIRE(peaks->levels.size() >= 6);
+    CHECK(peaks->levels[0].binFrames == 16);
+    CHECK(peaks->levels[1].binFrames == 64);
+    CHECK(peaks->levels.back().min.size() == 1);
+
+    // Any range, at any resolution, reports the true extremes it covers.
+    for (std::int64_t span : {10, 100, 1000, 10000, 100000})
+    {
+        INFO("span " << span);
+        const auto [lo, hi] = peaks->range(77777 - span / 2, 77777 + span / 2 + 1);
+        CHECK(lo == Approx(-0.9f));
+        CHECK(hi <= 0.5f + 1e-6f);
+    }
+    const auto [lo, hi] = peaks->range(0, 1000); // one full sine cycle
+    CHECK(lo == Approx(-0.5f).margin(0.01));
+    CHECK(hi == Approx(0.5f).margin(0.01));
+    CHECK(peaks->range(frames, frames + 100) == std::pair{0.0f, 0.0f}); // past the end
+    CHECK(peaks->bytes() < 100000 * sizeof(float)); // far smaller than the audio
+    std::filesystem::remove(path);
+
+    CHECK(buildPeaks("/nonexistent/fd.wav") == nullptr);
+}
