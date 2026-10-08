@@ -509,6 +509,8 @@ void ArrangementView::mouseMove(const juce::MouseEvent& e)
 
 void ArrangementView::mouseDown(const juce::MouseEvent& e)
 {
+    if (onActivated)
+        onActivated();
     const auto pos = e.getPosition();
     const auto lanes = laneArea();
     lastDrag_ = dragStart_ = e.position;

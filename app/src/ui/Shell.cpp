@@ -43,6 +43,8 @@ Shell::Shell(engine::Session& session) : session_(session), arrangement_(session
     };
 
     arrangement_.onSelectionChanged = [this](auto track) { selectionChanged(track); };
+    arrangement_.onActivated = [this] { lastArea_ = Area::Arrangement; };
+    detail_.chain().onActivated = [this] { lastArea_ = Area::Detail; };
     session_.onSnapshotChanged = [this] {
         arrangement_.setSnapshot(session_.snapshot());
         selectionChanged(arrangement_.selectedTrack());
@@ -98,8 +100,16 @@ void Shell::registerActions()
                   .perform = [&s] { s.redo(); }, .isEnabled = [&s] { return s.canRedo(); }});
     actions_.add({.id = "edit.delete", .name = "Delete", .category = "Edit",
                   .keys = {key(juce::KeyPress::deleteKey), key(juce::KeyPress::backspaceKey)},
-                  .perform = [this] { arrangement_.deleteSelection(); },
-                  .isEnabled = [this] { return arrangement_.hasClipSelection(); }});
+                  .perform = [this] {
+                      // The selection in the area used last: a device in the chain, else clips.
+                      if (lastArea_ == Area::Detail && detail_.chain().hasSelection())
+                          detail_.chain().deleteSelected();
+                      else
+                          arrangement_.deleteSelection();
+                  },
+                  .isEnabled = [this] {
+                      return (lastArea_ == Area::Detail && detail_.chain().hasSelection()) || arrangement_.hasClipSelection();
+                  }});
     actions_.add({.id = "edit.duplicate", .name = "Duplicate", .category = "Edit", .keys = {key('d', kCmd)},
                   .perform = [this] { arrangement_.duplicateSelection(); },
                   .isEnabled = [this] { return arrangement_.hasClipSelection(); }});
@@ -139,6 +149,13 @@ void Shell::registerActions()
     actions_.add({.id = "view.snap", .name = "Snap to grid", .category = "View", .keys = {key('4', kCmd)},
                   .perform = [this] { arrangement_.setSnapEnabled(!arrangement_.isSnapEnabled()); },
                   .isToggled = [this] { return arrangement_.isSnapEnabled(); }});
+    actions_.add({.id = "app.scanPlugins", .name = "Scan for plugins", .category = "App", .keys = {key('p', kCmd | kAlt)},
+                  .perform = [this] {
+                      showWarning("Scanning for plugins...");
+                      session_.scanPlugins([this](const juce::String& file) { showWarning("Scanning " + juce::File(file).getFileName()); },
+                                           [this](int found) { showWarning("Plugin scan finished: " + juce::String(found) + " plugins"); });
+                  },
+                  .isEnabled = [this] { return !session_.isScanning(); }});
     actions_.add({.id = "app.audioSettings", .name = "Audio settings", .category = "App", .keys = {key(',', kCmd)},
                   .perform = [this] { showAudioSettings(); }});
 }

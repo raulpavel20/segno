@@ -4,6 +4,7 @@
 #include "engine/DevicePlugin.h"
 #include "engine/Session.h"
 #include "model/Editing.h"
+#include "ui/DeviceChain.h"
 #include "ui/Shell.h"
 
 #include <catch2/catch_approx.hpp>
@@ -36,6 +37,16 @@ struct ShellFixture
 };
 } // namespace
 
+namespace
+{
+juce::MouseEvent mouseEvent(juce::Component& c, juce::Point<float> pos, juce::Point<float> down, bool dragged,
+                            juce::ModifierKeys mods = juce::ModifierKeys::leftButtonModifier)
+{
+    return {juce::Desktop::getInstance().getMainMouseSource(), pos, mods, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, &c, &c,
+            juce::Time::getCurrentTime(), down, juce::Time::getCurrentTime(), 1, dragged};
+}
+} // namespace
+
 TEST_CASE("DAW shell builds and paints offscreen at standard and compact widths", "[integration]")
 {
     ShellFixture f;
@@ -55,12 +66,22 @@ TEST_CASE("DAW shell builds and paints offscreen at standard and compact widths"
     const auto snapshot = f.session->snapshot();
     f.session->insertAudioFile(snapshot->tracks[0].id, wav.getFile(), 0.0);
     f.session->insertAudioFile(snapshot->tracks[2].id, wav.getFile(), 4.0);
+    f.session->addDevice(snapshot->tracks[0].id, "fd:eq");
+    f.session->addDevice(snapshot->tracks[0].id, "fd:saturator");
     f.session->updateSnapshotNow();
     f.session->setPosition(3.0);
 
     for (int width : {1800, 1200})
     {
         f.shell->setSize(width, 900);
+        // Select the first track (its chain shows in the detail panel).
+        for (auto* child : f.shell->getChildren())
+            if (auto* view = dynamic_cast<fd::app::ArrangementView*>(child))
+            {
+                const juce::Point<float> header(40.0f, fd::app::ArrangementView::rulerHeight + 20.0f);
+                view->mouseDown(mouseEvent(*view, header, header, false));
+                view->mouseUp(mouseEvent(*view, header, header, false));
+            }
         const auto image = f.shell->createComponentSnapshot(f.shell->getLocalBounds());
         CHECK(image.isValid());
         if (const char* dump = std::getenv("FD_DUMP_DIR"))
@@ -104,15 +125,6 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
     CHECK(actions.tooltip("transport.playStop").contains("Play"));
 }
 
-namespace
-{
-juce::MouseEvent mouseEvent(juce::Component& c, juce::Point<float> pos, juce::Point<float> down, bool dragged,
-                            juce::ModifierKeys mods = juce::ModifierKeys::leftButtonModifier)
-{
-    return {juce::Desktop::getInstance().getMainMouseSource(), pos, mods, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, &c, &c,
-            juce::Time::getCurrentTime(), down, juce::Time::getCurrentTime(), 1, dragged};
-}
-} // namespace
 
 TEST_CASE("dragging a clip moves it, snapped, onto another track in one undo step", "[integration]")
 {
@@ -198,4 +210,53 @@ TEST_CASE("the loop brace is drawn, toggled and resized with the mouse", "[integ
     view.mouseUp(mouseEvent(view, to, edge, true));
     CHECK(f.session->loopRange().first == Catch::Approx(bar));
     CHECK(f.session->loopRange().second == Catch::Approx(4.0 * bar));
+}
+
+TEST_CASE("the device chain shows panels and reorders by dragging a header", "[integration]")
+{
+    ShellFixture f;
+    const auto track = f.session->snapshot()->tracks[0].id;
+    const auto eq = f.session->addDevice(track, "fd:eq");
+    const auto sat = f.session->addDevice(track, "fd:saturator");
+    f.session->updateSnapshotNow();
+
+    fd::app::ActionRegistry actions;
+    actions.add({.id = "app.scanPlugins", .name = "Scan", .keys = {juce::KeyPress('p')}, .perform = [] {}});
+    fd::app::DeviceChain chain(*f.session, actions);
+    chain.setSize(1600, 200);
+    chain.setTrack(f.session->snapshot()->tracks[0]);
+
+    // Our devices appear as their panels.
+    std::vector<fd::ui::DevicePanel*> panels;
+    std::function<void(juce::Component&)> collect = [&](juce::Component& c) {
+        for (auto* child : c.getChildren())
+        {
+            if (auto* p = dynamic_cast<fd::ui::DevicePanel*>(child))
+                panels.push_back(p);
+            collect(*child);
+        }
+    };
+    collect(chain);
+    REQUIRE(panels.size() == 2);
+    CHECK(panels[0]->getX() < panels[1]->getX());
+
+    // Drag the EQ's header past the saturator.
+    auto* first = panels[0];
+    const juce::Point<float> grab(60.0f, 10.0f);
+    const auto drop = grab + juce::Point<float>(static_cast<float>(panels[1]->getRight() - first->getX()), 0.0f);
+    chain.mouseDown(mouseEvent(*first, grab, grab, false));
+    CHECK(chain.hasSelection());
+    chain.mouseDrag(mouseEvent(*first, drop, grab, true));
+    chain.mouseUp(mouseEvent(*first, drop, grab, true));
+    f.session->updateSnapshotNow();
+    const auto& devices = f.session->snapshot()->tracks[0].devices;
+    REQUIRE(devices.size() == 2);
+    CHECK(devices[0].id == sat);
+    CHECK(devices[1].id == eq);
+
+    // The chain keeps the panels of devices that remain.
+    chain.setTrack(f.session->snapshot()->tracks[0]);
+    panels.clear();
+    collect(chain);
+    CHECK(std::find(panels.begin(), panels.end(), first) != panels.end());
 }

@@ -284,16 +284,28 @@ void InspectorPanel::paint(juce::Graphics& g)
 
 // ---- DetailPanel ---------------------------------------------------------------------------
 
+DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions) : chain_(session, actions)
+{
+    addAndMakeVisible(chain_);
+}
+
 void DetailPanel::setMode(Mode m)
 {
     mode_ = m;
+    chain_.setVisible(mode_ == Mode::Devices);
     repaint();
 }
 
 void DetailPanel::setSelection(std::optional<model::TrackInfo> track)
 {
     track_ = std::move(track);
+    chain_.setTrack(track_);
     repaint();
+}
+
+void DetailPanel::resized()
+{
+    chain_.setBounds(getLocalBounds().withTrimmedTop(headerHeight).reduced(4, 0).withTrimmedBottom(4));
 }
 
 void DetailPanel::paint(juce::Graphics& g)
@@ -311,11 +323,17 @@ void DetailPanel::paint(juce::Graphics& g)
     g.setColour(t.textTertiary);
     g.drawText("Tab switches", header, juce::Justification::centredRight, false);
 
+    if (mode_ == Mode::Devices)
+    {
+        if (track_)
+        {
+            g.setColour(t.textSecondary);
+            g.drawText(juce::String::fromUTF8(track_->name.c_str()), header.withTrimmedLeft(16).withTrimmedRight(100),
+                       juce::Justification::centredLeft, true);
+        }
+        return; // the chain draws the rest
+    }
     g.setFont(ui::fonts::font(t.textSm));
-    const juce::String text = !track_ ? juce::String("Select a track to see its devices")
-                              : mode_ == Mode::Devices
-                                  ? juce::String::fromUTF8(track_->name.c_str()) + juce::String(": the device chain arrives with step C6")
-                                  : juce::String("The clip view arrives with clip editing");
-    g.drawText(text, r, juce::Justification::centred, false);
+    g.drawText("The clip view arrives with MIDI editing (M2)", r, juce::Justification::centred, false);
 }
 } // namespace fd::app

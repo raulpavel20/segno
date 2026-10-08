@@ -43,6 +43,8 @@ public:
     [[nodiscard]] const std::set<std::uint64_t>& selectedClips() const noexcept { return selectedClips_; }
     /// Track or clip selection changed.
     std::function<void(std::optional<std::uint64_t>)> onSelectionChanged;
+    /// Called when the arrangement is clicked (the shell routes Delete to the area used last).
+    std::function<void()> onActivated;
 
     // Edit commands on the selection (C4), each one undo step.
     void deleteSelection();

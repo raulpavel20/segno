@@ -1,5 +1,9 @@
 #include "engine/SessionImpl.h"
 
+#include "engine/DevicePlugin.h"
+
+#include <fd/device/Registry.h>
+
 namespace fd::engine
 {
 namespace
@@ -9,6 +13,31 @@ const juce::Identifier kColourId{"fdColour"}; // index into the clip palette
 /// Number of colours in ui::Theme::clipColours; snapshots carry indices modulo this.
 constexpr int kPaletteSize = 16;
 
+/// tracktion's own mixer plugins on every track: part of the mixer, not the device chain.
+bool isMixerPlugin(const te::Plugin* p)
+{
+    return dynamic_cast<const te::VolumeAndPanPlugin*>(p) != nullptr || dynamic_cast<const te::LevelMeterPlugin*>(p) != nullptr;
+}
+
+/// UI access to one of our devices (the panel's binding through the engine).
+class NativeDeviceHandle final : public DeviceHandle
+{
+public:
+    explicit NativeDeviceHandle(DevicePlugin& plugin)
+        : plugin_(&plugin), native_(plugin), binding_(plugin),
+          context_{plugin.device().info(), binding_, &plugin.device().analysis(), &plugin.device()}
+    {
+    }
+    ui::DeviceUiContext& context() override { return context_; }
+    std::string_view deviceId() const override { return native_.device().info().id; }
+
+private:
+    te::Plugin::Ptr plugin_; // keeps the device alive while its panel exists
+    DevicePlugin& native_;
+    DevicePluginBinding binding_;
+    ui::DeviceUiContext context_;
+};
+
 model::TrackInfo::Kind kindOf(te::AudioTrack& t)
 {
     for (auto* p : t.pluginList)
@@ -17,6 +46,54 @@ model::TrackInfo::Kind kindOf(te::AudioTrack& t)
     return model::TrackInfo::Kind::Audio;
 }
 } // namespace
+
+/// Scans plugin folders one file per tick on the message thread (some formats must load there;
+/// JUCE's own list does the same). A crash mid-scan is remembered by the dead man's pedal file
+/// and that plugin is skipped next time.
+class PluginScanner final : private juce::Timer
+{
+public:
+    PluginScanner(te::Engine& engine, std::function<void(const juce::String&)> progress, std::function<void(int)> done)
+        : engine_(engine), progress_(std::move(progress)), done_(std::move(done))
+    {
+        auto& pm = engine_.getPluginManager();
+        const auto pedal = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+                               .getChildFile("FossDAW")
+                               .getChildFile("plugin-scan-in-progress.txt");
+        pedal.getParentDirectory().createDirectory();
+        for (auto* format : pm.pluginFormatManager.getFormats())
+            if (format->canScanForPlugins() && !format->getName().containsIgnoreCase("internal"))
+                scanners_.push_back(std::make_unique<juce::PluginDirectoryScanner>(
+                    pm.knownPluginList, *format, format->getDefaultLocationsToSearch(), true, pedal, false));
+        startTimer(5);
+    }
+
+    [[nodiscard]] bool isDone() const noexcept { return scanners_.empty(); }
+
+private:
+    void timerCallback() override
+    {
+        if (scanners_.empty())
+            return;
+        auto& scanner = *scanners_.front();
+        if (progress_)
+            progress_(scanner.getNextPluginFileThatWillBeScanned());
+        juce::String name;
+        if (!scanner.scanNextFile(true, name))
+            scanners_.erase(scanners_.begin());
+        if (scanners_.empty())
+        {
+            stopTimer();
+            if (done_)
+                done_(engine_.getPluginManager().knownPluginList.getNumTypes());
+        }
+    }
+
+    te::Engine& engine_;
+    std::function<void(const juce::String&)> progress_;
+    std::function<void(int)> done_;
+    std::vector<std::unique_ptr<juce::PluginDirectoryScanner>> scanners_;
+};
 
 // ---- Impl ---------------------------------------------------------------------------------
 
@@ -91,6 +168,22 @@ void Session::Impl::rebuildSnapshot()
             info.clips.push_back(std::move(clip));
         }
         std::sort(info.clips.begin(), info.clips.end(), [](const auto& a, const auto& b) { return a.start < b.start; });
+        for (auto* p : chain(*t))
+        {
+            model::DeviceSlot slot;
+            slot.id = p->itemID.getRawID();
+            slot.name = p->getName().toStdString();
+            slot.enabled = p->isEnabled();
+            slot.instrument = p->isSynth();
+            if (auto* native = dynamic_cast<DevicePlugin*>(p))
+            {
+                slot.kind = model::DeviceSlot::Kind::Native;
+                slot.deviceId = std::string(native->device().info().id);
+            }
+            else
+                slot.kind = model::DeviceSlot::Kind::External;
+            info.devices.push_back(std::move(slot));
+        }
         s->tracks.push_back(std::move(info));
         ++index;
     }
@@ -104,6 +197,24 @@ te::AudioTrack* Session::Impl::track(std::uint64_t id) const
     for (auto* t : te::getAudioTracks(*edit))
         if (t->itemID.getRawID() == id)
             return t;
+    return nullptr;
+}
+
+std::vector<te::Plugin*> Session::Impl::chain(te::AudioTrack& track)
+{
+    std::vector<te::Plugin*> out;
+    for (auto* p : track.pluginList)
+        if (!isMixerPlugin(p))
+            out.push_back(p);
+    return out;
+}
+
+te::Plugin* Session::Impl::plugin(std::uint64_t id) const
+{
+    for (auto* t : te::getAudioTracks(*edit))
+        for (auto* p : t->pluginList)
+            if (p->itemID.getRawID() == id)
+                return p;
     return nullptr;
 }
 
@@ -303,6 +414,113 @@ std::vector<std::uint64_t> Session::splitClips(const std::vector<std::uint64_t>&
                 created.push_back(right->itemID.getRawID());
     }
     return created;
+}
+
+std::vector<AvailableDevice> Session::availableDevices() const
+{
+    std::vector<AvailableDevice> out;
+    for (const auto* f : fd::allDevices())
+    {
+        const bool instrument = f->info().kind == DeviceKind::Instrument;
+        out.push_back({"fd:" + std::string(f->info().id), std::string(f->info().name),
+                       instrument ? "Instruments" : "Audio effects", true, instrument});
+    }
+    for (const auto& d : impl_->engine.getPluginManager().knownPluginList.getTypes())
+        out.push_back({"ext:" + d.createIdentifierString().toStdString(), d.name.toStdString(),
+                       d.manufacturerName.isNotEmpty() ? d.manufacturerName.toStdString() : "Plugins", false, d.isInstrument});
+    return out;
+}
+
+std::uint64_t Session::addDevice(std::uint64_t trackId, const std::string& key, int index)
+{
+    auto* track = impl_->track(trackId);
+    if (track == nullptr)
+        return 0;
+    auto& edit = *impl_->edit;
+    te::Plugin::Ptr plugin;
+    if (key.starts_with("fd:"))
+        plugin = edit.getPluginCache().createNewPlugin(DevicePlugin::typeNameFor(key.substr(3)), {});
+    else if (key.starts_with("ext:"))
+        if (auto desc = impl_->engine.getPluginManager().knownPluginList.getTypeForIdentifierString(key.substr(4)))
+            plugin = edit.getPluginCache().createNewPlugin(te::ExternalPlugin::xmlTypeName, *desc);
+    if (plugin == nullptr)
+        return 0;
+
+    // Chain index -> plugin list index: before the device at `index`, or before the mixer
+    // plugins at the end.
+    const auto devices = Impl::chain(*track);
+    int at = track->pluginList.size();
+    if (index >= 0 && index < static_cast<int>(devices.size()))
+        at = track->pluginList.indexOf(devices[static_cast<size_t>(index)]);
+    else
+        for (int i = 0; i < track->pluginList.size(); ++i)
+            if (isMixerPlugin(track->pluginList[i]))
+            {
+                at = i;
+                break;
+            }
+    impl_->beginEdit();
+    track->pluginList.insertPlugin(plugin, at, nullptr);
+    return plugin->itemID.getRawID();
+}
+
+void Session::removeDevice(std::uint64_t deviceId)
+{
+    if (auto* p = impl_->plugin(deviceId))
+    {
+        impl_->beginEdit();
+        p->removeFromParent();
+    }
+}
+
+void Session::moveDevice(std::uint64_t deviceId, int index)
+{
+    auto* p = impl_->plugin(deviceId);
+    auto* track = p != nullptr ? dynamic_cast<te::AudioTrack*>(p->getOwnerTrack()) : nullptr;
+    if (track == nullptr)
+        return;
+    const auto devices = Impl::chain(*track);
+    index = std::clamp(index, 0, static_cast<int>(devices.size()) - 1);
+    auto* target = devices[static_cast<size_t>(index)];
+    if (target == p)
+        return;
+    auto parent = p->state.getParent();
+    impl_->beginEdit();
+    parent.moveChild(parent.indexOf(p->state), parent.indexOf(target->state), &impl_->edit->getUndoManager());
+}
+
+void Session::setDeviceEnabled(std::uint64_t deviceId, bool enabled)
+{
+    if (auto* p = impl_->plugin(deviceId); p != nullptr && p->isEnabled() != enabled)
+    {
+        impl_->beginEdit();
+        p->setEnabled(enabled);
+    }
+}
+
+std::unique_ptr<DeviceHandle> Session::openDevice(std::uint64_t deviceId)
+{
+    if (auto* native = dynamic_cast<DevicePlugin*>(impl_->plugin(deviceId)))
+        return std::make_unique<NativeDeviceHandle>(*native);
+    return nullptr;
+}
+
+void Session::showPluginEditor(std::uint64_t deviceId)
+{
+    if (auto* p = impl_->plugin(deviceId))
+        p->showWindowExplicitly();
+}
+
+void Session::scanPlugins(std::function<void(const juce::String&)> onProgress, std::function<void(int)> onDone)
+{
+    if (isScanning())
+        return;
+    impl_->scanner = std::make_unique<PluginScanner>(impl_->engine, std::move(onProgress), std::move(onDone));
+}
+
+bool Session::isScanning() const
+{
+    return impl_->scanner != nullptr && !static_cast<PluginScanner*>(impl_->scanner.get())->isDone();
 }
 
 void Session::undo()

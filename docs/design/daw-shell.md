@@ -124,6 +124,25 @@ Waveforms come from a background-built peak cache per file, plus cached drawing 
 - **During a drag**, clips are drawn at their new place from the model's result. On release the Session applies it as one undo step, and the preview stays until the new snapshot arrives (no flicker).
 - **Commands:** delete, duplicate (copies placed right after the selection), split at the playhead (the selected clips, or the selected track's clips under the playhead), select all.
 
+## Device chain (C6)
+
+- **The chain:** the detail panel shows the selected track's devices left to right, scrolling horizontally.
+  - Our devices show their panels, bound through `Session::openDevice`, which gives a `DeviceHandle`. That keeps tracktion out of the UI, and edits go through the engine (automation, undo).
+  - Third-party plugins show as compact cards: power, name and "Open editor". The editor opens in a floating window, the only kind the app has.
+  - Panels of devices that stay in the chain are kept across changes (their analysers keep running).
+- **Editing:** each edit is one undo step.
+  - Add with the + button: our instruments and effects, then a Plugins submenu grouped by manufacturer, with "Scan for plugins" at its end.
+  - Reorder by dragging a device's header (a marker shows where it lands).
+  - Bypass with the power toggle.
+  - Click a header to select a device; Delete removes it when the chain was the last area clicked (otherwise Delete applies to clips).
+- **tracktion's own volume and meter plugins** belong to the mixer (M2) and are not shown. New devices go before them.
+- **Snapshots** ignore device parameter and state changes (only a device's power state shows), so turning a knob never rebuilds the arrangement.
+- **Scanning** (`Ctrl+Alt+P`): VST3, plus LV2 on Linux, in the default folders.
+  - One file per tick on the message thread, as JUCE's own plugin list does, because some formats must load there.
+  - A plugin that crashes the scan is skipped next time (JUCE's dead man's pedal).
+  - Results persist through tracktion's settings.
+  - Scanning in a separate process is M3.
+
 ## Transport (C5)
 
 - **Transport bar:** play/stop, stop-and-return, loop and metronome toggles, then tempo and time signature as `ui::NumberField`s (drag, Shift for fine, wheel, or type; each edit is one undo step), the position in bars and time, and CPU load.
@@ -169,6 +188,6 @@ A software-renderer benchmark also runs offscreen in the integration tests (`"[.
 
 - **C4 clip editing** (built, see below).
 - **C5 transport** (built, see below).
-- **C6 device chain:** the detail panel shows the selected track's chain. Native panels plus third-party cards; add (menu, until the browser lands), reorder by drag, bypass, delete; VST3/LV2 scan in a child process.
+- **C6 device chain** (built, see below).
 - **C7 instrument tracks:** MIDI input monitoring through the track's instrument; `.mid` import as a read-only preview clip.
 - **C8 save/open:** `.fdproj` is tracktion's edit XML plus our view state; a round-trip test.

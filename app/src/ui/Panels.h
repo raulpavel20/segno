@@ -2,6 +2,7 @@
 
 #include "engine/Session.h"
 #include "ui/ActionRegistry.h"
+#include "ui/DeviceChain.h"
 
 #include <fd_ui/fd_ui.h>
 
@@ -102,14 +103,19 @@ class DetailPanel final : public juce::Component
 public:
     static constexpr int headerHeight = 24;
 
+    DetailPanel(engine::Session& session, const ActionRegistry& actions);
+
     enum class Mode { Devices, Clip };
     void setMode(Mode m);
     [[nodiscard]] Mode mode() const noexcept { return mode_; }
     void setSelection(std::optional<model::TrackInfo> track);
+    [[nodiscard]] DeviceChain& chain() noexcept { return chain_; }
     void paint(juce::Graphics& g) override;
+    void resized() override;
 
 private:
     Mode mode_ = Mode::Devices;
     std::optional<model::TrackInfo> track_;
+    DeviceChain chain_;
 };
 } // namespace fd::app

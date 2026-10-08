@@ -1,5 +1,6 @@
 // engine::Session (ADR 0018): commands are undoable and snapshots mirror the Edit.
 
+#include "engine/DevicePlugin.h"
 #include "engine/Session.h"
 #include "model/Editing.h"
 #include "fd/testkit/Signals.h"
@@ -7,8 +8,14 @@
 
 #include <tracktion_engine/tracktion_engine.h>
 
+#if defined(FD_HAVE_TEST_PATHS)
+#include "fd_test_paths.h"
+#endif
+
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+
+#include <algorithm>
 
 using Catch::Approx;
 
@@ -152,3 +159,79 @@ TEST_CASE("session transport: loop, metronome, tempo and signature", "[integrati
     CHECK(session.snapshot()->tempo.bpm == Approx(120.0));
     CHECK(session.snapshot()->tempo.numerator == 4);
 }
+
+TEST_CASE("session device chains: add, move, bypass, remove; undo; panel handles", "[integration]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    tracktion::Engine engine{"fd-integration-tests"};
+    fd::engine::registerDevices(engine);
+    fd::engine::Session session(engine);
+    const auto track = session.snapshot()->tracks[0].id;
+    auto chain = [&] {
+        session.updateSnapshotNow();
+        std::vector<std::string> ids;
+        for (const auto& d : session.snapshot()->tracks[0].devices)
+            ids.push_back(d.deviceId);
+        return ids;
+    };
+    CHECK(chain().empty()); // tracktion's volume and meter plugins are not part of the chain
+
+    const auto available = session.availableDevices();
+    CHECK(std::any_of(available.begin(), available.end(), [](const auto& d) { return d.key == "fd:eq" && d.native; }));
+
+    const auto eq = session.addDevice(track, "fd:eq");
+    const auto sat = session.addDevice(track, "fd:saturator");
+    const auto util = session.addDevice(track, "fd:utility", 0); // at the front
+    REQUIRE(eq != 0);
+    CHECK(session.addDevice(track, "fd:no-such-device") == 0);
+    CHECK(chain() == std::vector<std::string>{"utility", "eq", "saturator"});
+
+    session.moveDevice(util, 2);
+    CHECK(chain() == std::vector<std::string>{"eq", "saturator", "utility"});
+    session.setDeviceEnabled(sat, false);
+    session.updateSnapshotNow();
+    CHECK_FALSE(session.snapshot()->tracks[0].devices[1].enabled);
+
+    auto handle = session.openDevice(eq);
+    REQUIRE(handle != nullptr);
+    CHECK(handle->deviceId() == "eq");
+    CHECK(handle->context().info.id == "eq");
+    // Edits through the panel's binding reach the device.
+    handle->context().params.setPlain(0, 1.0f);
+    CHECK(handle->context().params.getPlain(0) == Approx(1.0f));
+
+    session.removeDevice(sat);
+    CHECK(chain() == std::vector<std::string>{"eq", "utility"});
+    session.undo(); // remove
+    CHECK(chain() == std::vector<std::string>{"eq", "saturator", "utility"});
+    session.undo(); // bypass
+    session.undo(); // move
+    CHECK(chain() == std::vector<std::string>{"utility", "eq", "saturator"});
+}
+
+#if defined(FD_UTILITY_VST3_PATH)
+TEST_CASE("a scanned third-party plugin can be added to a chain", "[integration]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    tracktion::Engine engine{"fd-integration-tests"};
+    fd::engine::Session session(engine);
+
+    // Our own VST3 build stands in for a third-party plugin, registered as a scan would.
+    juce::OwnedArray<juce::PluginDescription> found;
+    juce::VST3PluginFormat vst3;
+    vst3.findAllTypesForFile(found, FD_UTILITY_VST3_PATH);
+    REQUIRE(found.size() == 1);
+    engine.getPluginManager().knownPluginList.addType(*found[0]);
+
+    const auto available = session.availableDevices();
+    const auto it = std::find_if(available.begin(), available.end(), [](const auto& d) { return !d.native; });
+    REQUIRE(it != available.end());
+    const auto id = session.addDevice(session.snapshot()->tracks[0].id, it->key);
+    REQUIRE(id != 0);
+    session.updateSnapshotNow();
+    const auto& devices = session.snapshot()->tracks[0].devices;
+    REQUIRE(devices.size() == 1);
+    CHECK(devices[0].kind == fd::model::DeviceSlot::Kind::External);
+    CHECK(session.openDevice(id) == nullptr); // no native panel: shown as a card
+}
+#endif

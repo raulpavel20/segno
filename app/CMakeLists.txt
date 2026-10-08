@@ -19,7 +19,8 @@ endif()
 add_library(fd_engine INTERFACE)
 target_sources(fd_engine INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/DevicePlugin.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/Session.cpp")
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/Session.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/PluginWindow.cpp")
 target_include_directories(fd_engine INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(fd_engine INTERFACE
     tracktion::tracktion_engine tracktion::tracktion_graph tracktion::tracktion_core
@@ -53,7 +54,8 @@ target_sources(fd_app_ui INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ArrangementView.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ActionRegistry.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/WaveformCache.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/WaveformTiles.cpp")
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/WaveformTiles.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/DeviceChain.cpp")
 target_link_libraries(fd_app_ui INTERFACE fd_engine juce::juce_opengl)
 
 target_sources(fd-daw PRIVATE src/Main.cpp)

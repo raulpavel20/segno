@@ -51,7 +51,9 @@ private:
     std::unique_ptr<TransportBar> transport_;
     BrowserPanel browser_{actions_};
     InspectorPanel inspector_;
-    DetailPanel detail_;
+    DetailPanel detail_{session_, actions_};
+    enum class Area { Arrangement, Detail };
+    Area lastArea_ = Area::Arrangement; // where Delete applies
     ArrangementView arrangement_;
     Splitter browserSplit_, inspectorSplit_;
 

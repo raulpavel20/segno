@@ -27,6 +27,19 @@ struct ClipInfo
     [[nodiscard]] double end() const noexcept { return start + length; }
 };
 
+/// A device in a track's chain (C6): ours or a third-party plugin.
+struct DeviceSlot
+{
+    enum class Kind { Native, External };
+
+    std::uint64_t id = 0;
+    Kind kind = Kind::Native;
+    std::string name;
+    std::string deviceId; // our device id ("eq"), empty for third-party plugins
+    bool enabled = true;
+    bool instrument = false;
+};
+
 struct TrackInfo
 {
     enum class Kind { Audio, Instrument };
@@ -36,6 +49,7 @@ struct TrackInfo
     std::string name;
     int colour = 0;
     std::vector<ClipInfo> clips; // sorted by start
+    std::vector<DeviceSlot> devices; // the chain, in order (the engine's own mixer plugins are not listed)
 };
 
 struct Snapshot

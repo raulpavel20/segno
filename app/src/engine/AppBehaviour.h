@@ -1,5 +1,7 @@
 #pragma once
 
+#include "engine/PluginWindow.h"
+
 #include <tracktion_engine/tracktion_engine.h>
 
 namespace fd::engine
@@ -16,6 +18,13 @@ public:
     {
         if (onWarning)
             onWarning(message);
+    }
+
+    std::unique_ptr<juce::Component> createPluginWindow(tracktion::PluginWindowState& state) override
+    {
+        if (auto* ws = dynamic_cast<tracktion::Plugin::WindowState*>(&state))
+            return PluginWindow::create(ws->plugin);
+        return nullptr;
     }
 
     void runTaskWithProgressBar(tracktion::ThreadPoolJobWithProgress& task) override

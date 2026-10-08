@@ -3,6 +3,7 @@
 #include "model/Editing.h"
 #include "model/Snapshot.h"
 
+#include <fd_device_ui/fd_device_ui.h>
 #include <juce_audio_devices/juce_audio_devices.h>
 
 #include <functional>
@@ -15,6 +16,26 @@ class Engine;
 
 namespace fd::engine
 {
+/// UI access to one of our devices in a chain (C6): the context its panel binds to. Edits go
+/// through the engine (automation and undo work). Keep it no longer than the panel.
+class DeviceHandle
+{
+public:
+    virtual ~DeviceHandle() = default;
+    [[nodiscard]] virtual ui::DeviceUiContext& context() = 0;
+    [[nodiscard]] virtual std::string_view deviceId() const = 0;
+};
+
+/// Something that can be added to a chain: one of our devices or a scanned plugin.
+struct AvailableDevice
+{
+    std::string key;      // "fd:eq" or "ext:<plugin identifier>"
+    std::string name;
+    std::string category; // "Instruments", "Audio effects", or the plugin's manufacturer
+    bool native = true;
+    bool instrument = false;
+};
+
 /// One open project (ADR 0018): owns tracktion's Edit, runs every command on it (undoable),
 /// and publishes immutable snapshots for the views. The UI uses only this header, which has no
 /// tracktion types. Message thread only.
@@ -70,6 +91,28 @@ public:
     void deleteClips(const std::vector<std::uint64_t>& ids);
     /// Splits the clips that contain `seconds`; returns the ids of the new right-hand parts.
     std::vector<std::uint64_t> splitClips(const std::vector<std::uint64_t>& ids, double seconds);
+
+    // ---- device chains (C6; each call is one undoable step) -----------------------------
+
+    [[nodiscard]] std::vector<AvailableDevice> availableDevices() const;
+    /// Adds `key` (see AvailableDevice) to the track's chain at `index` (-1 = the end);
+    /// returns the device id, 0 if it couldn't be created.
+    std::uint64_t addDevice(std::uint64_t trackId, const std::string& key, int index = -1);
+    void removeDevice(std::uint64_t deviceId);
+    /// Moves a device to `index` within its chain.
+    void moveDevice(std::uint64_t deviceId, int index);
+    void setDeviceEnabled(std::uint64_t deviceId, bool enabled);
+    /// The panel context of one of our devices; null for third-party plugins.
+    [[nodiscard]] std::unique_ptr<DeviceHandle> openDevice(std::uint64_t deviceId);
+    /// Opens a third-party plugin's own editor window.
+    void showPluginEditor(std::uint64_t deviceId);
+
+    /// Scans the default VST3 (and LV2 on Linux) folders on a background thread. A plugin that
+    /// crashes the scan is skipped next time (dead man's pedal). Callbacks run on the message
+    /// thread.
+    void scanPlugins(std::function<void(const juce::String& current)> onProgress,
+                     std::function<void(int found)> onDone);
+    [[nodiscard]] bool isScanning() const;
 
     void undo();
     void redo();
