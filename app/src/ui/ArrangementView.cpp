@@ -845,7 +845,7 @@ void ArrangementView::filesDropped(const juce::StringArray& files, int x, int y)
         if (target >= 0 && target < static_cast<int>(snapshot_->tracks.size()))
             trackId = snapshot_->tracks[static_cast<size_t>(target)].id;
         else
-            trackId = midi ? session_.addInstrumentTrack() : session_.addTrack();
+            trackId = session_.addTrack(); // a MIDI drop brings its instrument (ADR 0019)
         bool addedInstrument = false;
         const auto clip = midi ? session_.insertMidiFile(trackId, juce::File(path), seconds, &addedInstrument)
                                : session_.insertAudioFile(trackId, juce::File(path), seconds);

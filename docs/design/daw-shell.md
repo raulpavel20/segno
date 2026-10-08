@@ -68,7 +68,7 @@ app/src/
 | Duplicate | `edit.duplicate` | Ctrl+D |
 | Split at playhead or selection | `edit.split` | Ctrl+E |
 | Select all | `edit.selectAll` | Ctrl+A |
-| Add track / track with instrument | `track.add` / `track.addInstrument` | Ctrl+T / Ctrl+Shift+T |
+| Add track | `track.add` | Ctrl+T |
 | Computer keyboard as MIDI | `midi.computerKeyboard` | Ctrl+Shift+K |
 | Scan for plugins | `app.scanPlugins` | Ctrl+Alt+P |
 | Show browser / inspector / detail | `view.browser` / `view.inspector` / `view.detail` | Ctrl+Alt+B / Ctrl+Alt+I / Ctrl+Alt+D |
@@ -153,12 +153,12 @@ Waveforms come from a background-built peak cache per file, plus cached drawing 
 
 ## Instrument tracks and live MIDI (C7)
 
-- **Tracks with an instrument:** Ctrl+Shift+T adds a track with the Subtractive Synth as its first device, as one undo step. Any instrument can replace it through the chain.
+- **Instruments are devices:** any track becomes playable by adding an instrument to its chain (+ in the detail panel). There is one "Add track" (Ctrl+T); nothing is preloaded.
 - **Live MIDI follows the selection.** Selecting an instrument track routes live MIDI to it, with monitoring always on; selecting anything else routes it nowhere. This is not an edit, so it adds no undo step.
   - Only tracktion's virtual inputs are routed: "All MIDI Ins" (every physical device, merged) and our "Computer keyboard". Routing physical devices too would double every note.
   - The device list arrives asynchronously and changes when devices are plugged in; the Session re-applies the routing each time.
 - **Computer keyboard** (Ctrl+Shift+K, or the keyboard button at the right of the transport bar, with a MIDI activity light beside it):
-  - turning it on selects the first instrument track if none is selected, or says how to add one;
+  - turning it on selects the first track with an instrument if none is selected, or says how to add one;
   - A W S E D F T G Y H U J K O L P ; play from C (C3 at the start);
   - Z / X shift octaves, C / V change velocity;
   - keys held with Ctrl or Alt stay shortcuts.

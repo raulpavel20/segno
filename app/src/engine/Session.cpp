@@ -470,20 +470,6 @@ std::uint64_t Session::addTrack()
     return track != nullptr ? track->itemID.getRawID() : 0;
 }
 
-std::uint64_t Session::addInstrumentTrack(const std::string& deviceKey)
-{
-    impl_->beginEdit(); // the track and its instrument are one undo step
-    std::string name = "Instrument";
-    for (const auto& d : availableDevices())
-        if (d.key == deviceKey)
-            name = d.name;
-    auto* track = impl_->insertTrack(juce::String::fromUTF8(name.c_str()));
-    if (track == nullptr)
-        return 0;
-    impl_->insertDevice(*track, deviceKey, 0);
-    return track->itemID.getRawID();
-}
-
 std::uint64_t Session::insertMidiFile(std::uint64_t trackId, const juce::File& file, double seconds, bool* addedInstrument)
 {
     auto* track = impl_->track(trackId);

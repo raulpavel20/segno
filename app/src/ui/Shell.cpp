@@ -135,9 +135,6 @@ void Shell::registerActions()
                   .perform = [this] { arrangement_.splitAtPlayhead(); }});
     actions_.add({.id = "edit.selectAll", .name = "Select all clips", .category = "Edit", .keys = {key('a', kCmd)},
                   .perform = [this] { arrangement_.selectAllClips(); }});
-    actions_.add({.id = "track.addInstrument", .name = "Add track with instrument", .category = "Track",
-                  .keys = {key('t', kCmd | kShift)},
-                  .perform = [this] { arrangement_.selectTrack(session_.addInstrumentTrack()); }});
     actions_.add({.id = "midi.computerKeyboard", .name = "Computer keyboard as MIDI", .category = "MIDI",
                   .keys = {key('k', kCmd | kShift)},
                   .perform = [this] {
@@ -158,7 +155,7 @@ void Shell::registerActions()
                           });
                           if (it == tracks.end())
                           {
-                              showWarning("Add an instrument track (Ctrl+Shift+T) to play it from the keyboard");
+                              showWarning("Add an instrument to a track (+ in its device chain) to play it from the keyboard");
                               return;
                           }
                           arrangement_.selectTrack(it->id);

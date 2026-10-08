@@ -239,7 +239,7 @@ TEST_CASE("a scanned third-party plugin can be added to a chain", "[integration]
 }
 #endif
 
-TEST_CASE("instrument tracks, MIDI files and live MIDI routing", "[integration]")
+TEST_CASE("tracks with an instrument, MIDI files and live MIDI routing", "[integration]")
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
     tracktion::Engine engine{"fd-integration-tests"};
@@ -247,20 +247,17 @@ TEST_CASE("instrument tracks, MIDI files and live MIDI routing", "[integration]"
     fd::engine::Session session(engine);
     const auto before = session.snapshot()->tracks.size();
 
-    // One undo step: the track and its instrument.
-    const auto synthTrack = session.addInstrumentTrack();
+    // One kind of track: an instrument is just a device in its chain.
+    const auto synthTrack = session.addTrack();
+    session.addDevice(synthTrack, "fd:subtractive-synth");
     session.updateSnapshotNow();
     REQUIRE(session.snapshot()->tracks.size() == before + 1);
     const auto& t = session.snapshot()->tracks.back();
     CHECK(t.id == synthTrack);
     CHECK(t.kind == fd::model::TrackInfo::Kind::Instrument);
+    CHECK(t.instrument == "Subtractive Synth");
     REQUIRE(t.devices.size() == 1);
     CHECK(t.devices[0].deviceId == "subtractive-synth");
-    CHECK(juce::String(t.name).contains("Subtractive Synth"));
-    session.undo();
-    session.updateSnapshotNow();
-    CHECK(session.snapshot()->tracks.size() == before);
-    session.redo();
 
     // A MIDI file: three notes at 0, 0.5 and 1 s (120 BPM file), inserted at 2 s.
     juce::TemporaryFile mid(".mid");
@@ -336,7 +333,8 @@ TEST_CASE("projects round-trip through a file", "[integration]")
         eqValue = eqHandle->context().params.getPlain(2);
         eqHandle.reset();
 
-        const auto synth = session.addInstrumentTrack();
+        const auto synth = session.addTrack();
+        session.addDevice(synth, "fd:subtractive-synth");
         session.updateSnapshotNow();
         auto synthHandle = session.openDevice(session.snapshot()->tracks.back().devices[0].id);
         synthHandle->context().params.setPlain(0, 42.0f); // Osc 1 Shape
@@ -344,7 +342,8 @@ TEST_CASE("projects round-trip through a file", "[integration]")
         synthHandle.reset();
         (void)synth;
 
-        const auto sampler = session.addInstrumentTrack("fd:sampler");
+        const auto sampler = session.addTrack();
+        session.addDevice(sampler, "fd:sampler");
         session.updateSnapshotNow();
         auto samplerHandle = session.openDevice(session.snapshot()->tracks.back().devices[0].id);
         samplerHandle->context().params.applyExtraState({{"sample.path", wav.getFile().getFullPathName().toStdString()}});
