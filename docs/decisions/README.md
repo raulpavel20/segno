@@ -24,6 +24,7 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0013](0013-single-repository.md) | One repository (monorepo) for suite + DAW, with independent builds and releases | Accepted |
 | [0014](0014-flat-darker-ableton-adjacent.md) | Flat everywhere, darker, close to Ableton's visual grammar; gradients only as a listed accent effect | Accepted |
 | [0015](0015-rendering-opengl-for-the-daw.md) | OpenGL renderer for the DAW window (GL-thread driven), software for plugin editors; cached heavy views; frame budgets | Accepted |
+| [0016](0016-constant-device-latency.md) | Constant, whole-sample latency per device instance; parameters never change latency | Accepted |
 
 ## Template
 

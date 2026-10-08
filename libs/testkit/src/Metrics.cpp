@@ -204,4 +204,65 @@ std::vector<double> magnitudeSpectrum(const AudioBuffer& b, int channel, int siz
         mags[k] = std::abs(data[k]) * 4.0 / size;
     return mags;
 }
+double binCentredFrequency(int cycles, int size, double sampleRate) noexcept
+{
+    return static_cast<double>(cycles) * sampleRate / static_cast<double>(size);
+}
+
+std::vector<double> powerSpectrum(const AudioBuffer& b, int channel, int start, int size)
+{
+    std::vector<std::complex<double>> data(static_cast<size_t>(size));
+    for (int i = 0; i < size; ++i)
+        data[static_cast<size_t>(i)] = {start + i < b.numSamples() ? b.at(channel, start + i) : 0.0, 0.0};
+    fft(data);
+    std::vector<double> power(static_cast<size_t>(size / 2 + 1));
+    const double norm = 2.0 / size; // a full-scale sine reads amplitude 1 on its bin
+    for (size_t k = 0; k < power.size(); ++k)
+    {
+        const double mag = std::abs(data[k]) * norm * ((k == 0 || k == power.size() - 1) ? 0.5 : 1.0);
+        power[k] = mag * mag;
+    }
+    return power;
+}
+
+std::vector<double> harmonicLevelsDb(const AudioBuffer& b, int channel, int start, int size, int cycles, int count)
+{
+    const auto power = powerSpectrum(b, channel, start, size);
+    std::vector<double> levels;
+    for (int h = 1; h <= count; ++h)
+    {
+        const auto bin = static_cast<size_t>(h) * static_cast<size_t>(cycles);
+        levels.push_back(bin < power.size() ? toDb(std::sqrt(power[bin])) : silenceDb);
+    }
+    return levels;
+}
+
+double thdPercent(const AudioBuffer& b, int channel, int start, int size, int cycles, int count)
+{
+    const auto power = powerSpectrum(b, channel, start, size);
+    const auto fundamental = power[static_cast<size_t>(cycles)];
+    double harmonics = 0.0;
+    for (int h = 2; h <= count; ++h)
+    {
+        const auto bin = static_cast<size_t>(h) * static_cast<size_t>(cycles);
+        if (bin < power.size())
+            harmonics += power[bin];
+    }
+    return fundamental > 0.0 ? 100.0 * std::sqrt(harmonics / fundamental) : 0.0;
+}
+
+double aliasingRatioDb(const AudioBuffer& b, int channel, int start, int size, int cycles, double sampleRate,
+                       double maxFrequencyHz)
+{
+    const auto power = powerSpectrum(b, channel, start, size);
+    const auto maxBin = static_cast<size_t>(maxFrequencyHz / sampleRate * size);
+    double total = 0.0, aliased = 0.0;
+    for (size_t k = 1; k < power.size(); ++k)
+    {
+        total += power[k];
+        if (k <= maxBin && k % static_cast<size_t>(cycles) != 0)
+            aliased += power[k];
+    }
+    return total > 0.0 ? 10.0 * std::log10(std::max(aliased / total, 1e-30)) : silenceDb;
+}
 } // namespace fd::testkit

@@ -88,3 +88,43 @@ TEST_CASE("finite and subnormal checks", "[fast]")
     b.at(0, 2) = std::numeric_limits<float>::quiet_NaN();
     CHECK_FALSE(allFinite(b));
 }
+
+TEST_CASE("harmonic levels and THD are exact for bin-centred tones", "[fast]")
+{
+    constexpr int size = 1 << 14;
+    constexpr int cycles = 101;
+    const double f0 = binCentredFrequency(cycles, size, 48000.0);
+    // x = A sin + a A^3 sin^3  ->  3rd harmonic amplitude = a A^3 / 4, fundamental A + 3aA^3/4
+    AudioBuffer b(1, size);
+    const double A = 0.5, a = 0.2;
+    for (int i = 0; i < size; ++i)
+    {
+        const double x = A * std::sin(2.0 * 3.141592653589793 * f0 * i / 48000.0);
+        b.at(0, i) = static_cast<float>(x + a * x * x * x);
+    }
+    const auto h = harmonicLevelsDb(b, 0, 0, size, cycles, 5);
+    CHECK(h[0] == Approx(toDb(A + 3.0 * a * A * A * A / 4.0)).margin(0.01));
+    CHECK(h[2] == Approx(toDb(a * A * A * A / 4.0)).margin(0.01));
+    CHECK(h[1] < -120.0); // no even harmonics
+    CHECK(thdPercent(b, 0, 0, size, cycles) == Approx(100.0 * (a * A * A * A / 4.0) / (A + 3.0 * a * A * A * A / 4.0)).epsilon(1e-3));
+}
+
+TEST_CASE("aliasing ratio separates naive and band-limited sawtooths", "[fast]")
+{
+    constexpr int size = 1 << 14;
+    constexpr int cycles = 711; // ~2.08 kHz at 48 kHz (around C7)
+    const double f0 = binCentredFrequency(cycles, size, 48000.0);
+
+    AudioBuffer naive(1, size), bandLimited(1, size);
+    for (int i = 0; i < size; ++i)
+    {
+        const double phase = std::fmod(f0 * i / 48000.0, 1.0);
+        naive.at(0, i) = static_cast<float>(2.0 * phase - 1.0);
+        double sum = 0.0; // additive saw: harmonics below Nyquist only
+        for (int k = 1; k * f0 < 24000.0; ++k)
+            sum += std::sin(2.0 * 3.141592653589793 * k * f0 * i / 48000.0) / k;
+        bandLimited.at(0, i) = static_cast<float>(-2.0 / 3.141592653589793 * sum);
+    }
+    CHECK(aliasingRatioDb(naive, 0, 0, size, cycles) > -40.0);
+    CHECK(aliasingRatioDb(bandLimited, 0, 0, size, cycles) < -100.0);
+}

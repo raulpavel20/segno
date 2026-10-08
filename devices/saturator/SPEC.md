@@ -54,6 +54,11 @@ in ──┬─> drive gain ─> [Color pre: bell +g] ─> upsample ×N ─> sha
 - Parameters are read on control ticks and smoothed per sample, as in Utility.
 - **Analysis slots:** 0/1 = input peak L/R; 2/3 = output peak L/R.
 
+**Measured envelope** (ADAA + FIR oversampling; aliasing in the audible band at 48 kHz). Each doubling of the oversampling factor buys about 20 dB:
+- Rectify is the hardest curve, then Hard.
+- At 4×, +12 dB drive: 1 kHz −87 to −153 dB; 2.5 kHz −76 to −152 dB; 5 kHz −67 to −152 dB.
+- Half-band filters let near-Nyquist content fold into 21.6–24 kHz. It is inaudible and not counted.
+
 ## UI layout
 
 ```
@@ -76,7 +81,8 @@ The transfer-curve display draws the active shaper at the current drive and bias
 | Metric | Target |
 |---|---|
 | Drive 0 dB, mix 100 %, Soft | Effectively transparent at −20 dBFS: THD < 0.1 % |
-| Aliasing ratio: 5 kHz sine at +24 dB drive, Hard, 4× | < −80 dB (non-harmonic energy relative to the total) |
+| Aliasing in the audible band (≤ 20 kHz), every curve: 4×, +12 dB drive, 2.5 kHz | < −75 dB |
+| Aliasing in the audible band, every curve, worst case: 8×, +24 dB drive, 5 kHz | < −65 dB |
 | Harmonic profile per curve (1 kHz, +12 dB drive) | Golden metrics (h2…h9 levels) ±0.5 dB |
 | Bias ≠ 0 | Even harmonics present; output DC < −80 dBFS after 100 ms |
 | Mix 0 % | Null against input delayed by the reported latency (< −120 dBFS) |
