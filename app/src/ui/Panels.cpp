@@ -10,7 +10,7 @@ void paintSectionLabel(juce::Graphics& g, const juce::String& text, juce::Rectan
 {
     const auto& t = ui::Theme::current();
     g.setColour(t.textTertiary);
-    g.setFont(ui::fonts::font(t.textXs, ui::fonts::Weight::SemiBold).withExtraKerningFactor(0.06f));
+    g.setFont(ui::fonts::mono(t.textXs - 1.0f, ui::fonts::Weight::SemiBold)); // mono: spaced already
     g.drawText(text.toUpperCase(), area, juce::Justification::centredLeft, false);
 }
 
@@ -120,10 +120,10 @@ void TransportBar::paint(juce::Graphics& g)
 
     // BPM label after the tempo field, the slash between the signature fields.
     g.setColour(t.textTertiary);
-    g.setFont(ui::fonts::font(t.textXs));
+    g.setFont(ui::fonts::mono(t.textXs - 1.0f));
     g.drawText("BPM", tempoField_.getBounds().translated(tempoField_.getWidth() + 2, 0).withWidth(30),
                juce::Justification::centredLeft, false);
-    g.setFont(ui::fonts::font(t.textMd, ui::fonts::Weight::Medium));
+    g.setFont(ui::fonts::mono(t.textMd, ui::fonts::Weight::Medium));
     g.drawText("/", numeratorField_.getBounds().withX(numeratorField_.getRight()).withWidth(10),
                juce::Justification::centred, false);
 
@@ -137,9 +137,9 @@ void TransportBar::paint(juce::Graphics& g)
         auto box = r.removeFromLeft(width);
         r.removeFromLeft(16);
         g.setColour(t.textPrimary);
-        g.setFont(ui::fonts::font(size, ui::fonts::Weight::Medium, true));
+        g.setFont(ui::fonts::mono(size, ui::fonts::Weight::Medium));
         const int valueWidth = static_cast<int>(
-            juce::GlyphArrangement::getStringWidth(ui::fonts::font(size, ui::fonts::Weight::Medium, true), value)) + 4;
+            juce::GlyphArrangement::getStringWidth(ui::fonts::mono(size, ui::fonts::Weight::Medium), value)) + 4;
         g.drawText(value, box.removeFromLeft(valueWidth), juce::Justification::centredLeft, false);
         g.setColour(t.textTertiary);
         g.setFont(ui::fonts::font(t.textXs));
@@ -150,7 +150,7 @@ void TransportBar::paint(juce::Graphics& g)
     field(formatTime(position_), "", 84, t.textSm);
 
     g.setColour(t.textTertiary);
-    g.setFont(ui::fonts::font(t.textXs, ui::fonts::Weight::Regular, true));
+    g.setFont(ui::fonts::mono(t.textXs, ui::fonts::Weight::Regular));
     g.drawText("CPU " + juce::String(std::max(0, cpu_)) + " %", r, juce::Justification::centredRight, false);
 }
 
@@ -169,7 +169,9 @@ void TransportBar::resized()
     loop_.setBounds(square(r, true));
     metronome_.setBounds(square(r, true));
     r.removeFromLeft(16);
-    tempoField_.setBounds(r.removeFromLeft(54));
+    // Sized for the mono digits: "999.00" plus padding.
+    const auto digit = juce::GlyphArrangement::getStringWidth(ui::fonts::mono(t.textMd, ui::fonts::Weight::Medium), "0");
+    tempoField_.setBounds(r.removeFromLeft(static_cast<int>(std::ceil(digit * 6.0f)) + 10));
     r.removeFromLeft(34); // "BPM"
     numeratorField_.setBounds(r.removeFromLeft(26));
     r.removeFromLeft(10); // "/"
@@ -277,11 +279,15 @@ void InspectorPanel::paint(juce::Graphics& g)
         g.drawText("Nothing selected", r.removeFromTop(20), juce::Justification::centredLeft, false);
         return;
     }
-    auto row = [&](const juce::String& label, const juce::String& value) {
+    // Names in the sans, numbers in the mono.
+    auto row = [&](const juce::String& label, const juce::String& value, bool number = false) {
         auto line = r.removeFromTop(20);
+        g.setFont(ui::fonts::font(t.textSm));
         g.setColour(t.textSecondary);
         g.drawText(label, line.removeFromLeft(80), juce::Justification::centredLeft, false);
         g.setColour(t.textPrimary);
+        if (number)
+            g.setFont(ui::fonts::mono(t.textSm));
         g.drawText(value, line, juce::Justification::centredLeft, true);
     };
     auto position = [&](double seconds) {
@@ -291,21 +297,21 @@ void InspectorPanel::paint(juce::Graphics& g)
     if (clip_)
     {
         row("Clip", juce::String::fromUTF8(clip_->name.c_str()));
-        row("Start", position(clip_->start));
-        row("Length", juce::String(clip_->length, 3) + " s");
-        row("Offset", juce::String(clip_->offset, 3) + " s");
+        row("Start", position(clip_->start), true);
+        row("Length", juce::String(clip_->length, 3) + " s", true);
+        row("Offset", juce::String(clip_->offset, 3) + " s", true);
         r.removeFromTop(12);
     }
     else if (clipCount_ > 1)
     {
-        row("Clips", juce::String(clipCount_) + " selected");
+        row("Clips", juce::String(clipCount_) + " selected", true);
         r.removeFromTop(12);
     }
     if (!track_)
         return;
     row("Track", juce::String::fromUTF8(track_->name.c_str()));
     row("Instrument", track_->instrument.empty() ? juce::String("None") : juce::String::fromUTF8(track_->instrument.c_str()));
-    row("Clips", juce::String(static_cast<int>(track_->clips.size())));
+    row("Clips", juce::String(static_cast<int>(track_->clips.size())), true);
 }
 
 // ---- DetailPanel ---------------------------------------------------------------------------

@@ -387,7 +387,7 @@ void PianoRoll::paintNotes(juce::Graphics& g)
     const auto colour = paletteColour(clip_->colour);
     const double clipStart = beatForSeconds(clip_->start), clipEnd = beatForSeconds(clip_->end());
     const bool labels = rowHeight_ >= 10.0;
-    g.setFont(ui::fonts::font(t.textXs - 1.0f, ui::fonts::Weight::SemiBold));
+    g.setFont(ui::fonts::mono(t.textXs - 2.0f, ui::fonts::Weight::SemiBold));
 
     for (int pass = 0; pass < 2; ++pass) // selected notes on top
         for (std::size_t i = 0; i < notes.size(); ++i)
@@ -485,7 +485,7 @@ void PianoRoll::paintVelocities(juce::Graphics& g)
         if (nearest)
         {
             g.setColour(t.textSecondary);
-            g.setFont(ui::fonts::font(t.textXs, ui::fonts::Weight::Medium, true));
+            g.setFont(ui::fonts::mono(t.textXs, ui::fonts::Weight::Medium));
             g.drawText("Velocity " + juce::String(juce::roundToInt(notes[*nearest].velocity * 127.0f)),
                        area.reduced(6, 2).removeFromTop(14), juce::Justification::topRight, false);
         }
@@ -508,7 +508,7 @@ void PianoRoll::paintKeys(juce::Graphics& g)
     const auto rh = static_cast<float>(rowHeight_);
     const int highest = std::min(127, static_cast<int>(std::ceil(topEdge_)) - 1);
     const int lowest = std::max(0, static_cast<int>(std::floor(topEdge_ - 1.0 - area.getHeight() / rowHeight_)));
-    g.setFont(ui::fonts::font(t.textXs - 1.0f, ui::fonts::Weight::Medium));
+    g.setFont(ui::fonts::mono(t.textXs - 2.0f, ui::fonts::Weight::Medium));
     for (int p = lowest; p <= highest; ++p)
     {
         const float y = static_cast<float>(area.getY() + geo.yForPitch(p));
@@ -556,7 +556,7 @@ void PianoRoll::paintRuler(juce::Graphics& g)
     g.setColour(paletteColour(clip_->colour));
     g.fillRect(clipX0, static_cast<float>(area.getBottom()) - 3.0f, clipX1 - clipX0, 3.0f);
 
-    g.setFont(ui::fonts::font(t.textXs, ui::fonts::Weight::Medium, true));
+    g.setFont(ui::fonts::mono(t.textXs, ui::fonts::Weight::Medium));
     for (const auto& line : lines_)
     {
         const float lx = static_cast<float>(area.getX() + timeline_.xForTime(line.seconds));

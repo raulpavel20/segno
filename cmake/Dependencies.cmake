@@ -62,11 +62,17 @@ if(FD_NEEDS_JUCE)
         GIT_TAG 9.0.3
         GIT_SHALLOW ON)
 
-    # The one bundled UI font (ADR 0009 / ui-principles §6): identical rendering on every OS.
+    # The bundled UI fonts (ui-principles §6): identical rendering on every OS. Inter for names and
+    # text; JetBrains Mono for values, readouts and tiny section labels. Both under the OFL.
     CPMAddPackage(
         NAME inter_font
         URL https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip
         URL_HASH SHA256=9883fdd4a49d4fb66bd8177ba6625ef9a64aa45899767dde3d36aa425756b11e
+        DOWNLOAD_ONLY YES)
+    CPMAddPackage(
+        NAME jetbrains_mono_font
+        URL https://github.com/JetBrains/JetBrainsMono/releases/download/v2.304/JetBrainsMono-2.304.zip
+        URL_HASH SHA256=6f6376c6ed2960ea8a963cd7387ec9d76e3f629125bc33d1fdcd7eb7012f7bbf
         DOWNLOAD_ONLY YES)
 endif()
 

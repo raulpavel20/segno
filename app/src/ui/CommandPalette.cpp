@@ -153,7 +153,7 @@ void CommandPalette::paint(juce::Graphics& g)
         if (action != nullptr && !action->keys.empty())
         {
             g.setColour(t.textTertiary);
-            g.setFont(ui::fonts::font(t.textXs, ui::fonts::Weight::Medium));
+            g.setFont(ui::fonts::mono(t.textXs - 1.0f, ui::fonts::Weight::Medium));
             g.drawText(action->keys.front().getTextDescriptionWithIcons(), row.removeFromRight(120),
                        juce::Justification::centredRight, false);
         }

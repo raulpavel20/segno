@@ -265,7 +265,7 @@ public:
 
         // Bar grid.
         const int barStep = zoom > 48 ? 8 : zoom > 16 ? 4 : 1;
-        g.setFont(ui::fonts::font(t.textXs, ui::fonts::Weight::Regular, true));
+        g.setFont(ui::fonts::mono(t.textXs, ui::fonts::Weight::Regular));
         for (int bar = static_cast<int>(startSec / secondsPerBar); bar * secondsPerBar < startSec + visibleSec; ++bar)
         {
             if (bar % barStep != 0)
@@ -469,7 +469,7 @@ void SpikeComponent::paintOverChildren(juce::Graphics& g)
     const auto& t = ui::Theme::current();
     auto bar = getLocalBounds().removeFromTop(40).withTrimmedLeft(430).reduced(12, 0);
     g.setColour(t.textSecondary);
-    g.setFont(ui::fonts::font(t.textSm, ui::fonts::Weight::Regular, true));
+    g.setFont(ui::fonts::mono(t.textSm, ui::fonts::Weight::Regular));
     g.drawText(describe(), bar, juce::Justification::centredRight);
 }
 

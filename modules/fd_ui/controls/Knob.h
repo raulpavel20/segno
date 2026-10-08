@@ -57,6 +57,19 @@ private:
     [[nodiscard]] float quantize(float normalized) const noexcept;
     void showEditor(const juce::String& initialText);
 
+    /// The value text's size, fitted once per width to the widest text the knob can show, so a
+    /// value never changes size while it changes: smaller first (down to 9.5 px), then without
+    /// the spaces before units (down to 9 px).
+    struct ValueFit
+    {
+        float width = -1.0f;
+        float size = 0.0f;
+        bool compact = false;
+    };
+    [[nodiscard]] const ValueFit& valueFit(float width);
+    [[nodiscard]] juce::String valueText() const;
+    ValueFit fit_;
+
     juce::String name_;
     float value_ = 0.0f;
     float default_ = 0.0f;

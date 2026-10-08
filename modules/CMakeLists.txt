@@ -1,10 +1,14 @@
 # JUCE modules (the JUCE line, ADR 0006). Packaged as JUCE modules so every consumer compiles
 # them with its own consistent JUCE configuration.
 
+# The mono font's file name has brackets ("JetBrainsMono[wght].ttf"); copy it to a name that
+# makes a plain symbol.
+configure_file("${jetbrains_mono_font_SOURCE_DIR}/fonts/variable/JetBrainsMono[wght].ttf"
+    "${CMAKE_CURRENT_BINARY_DIR}/JetBrainsMonoVariable.ttf" COPYONLY)
 juce_add_binary_data(fd_ui_assets
     HEADER_NAME FdUiAssets.h
     NAMESPACE fd_assets
-    SOURCES "${inter_font_SOURCE_DIR}/InterVariable.ttf")
+    SOURCES "${inter_font_SOURCE_DIR}/InterVariable.ttf" "${CMAKE_CURRENT_BINARY_DIR}/JetBrainsMonoVariable.ttf")
 set_target_properties(fd_ui_assets PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 juce_add_modules(ALIAS_NAMESPACE fd fd_ui fd_device_ui fd_host_juce)

@@ -7,18 +7,18 @@ juce::Colour hex(juce::uint32 rgb)
     return juce::Colour(0xff000000u | rgb);
 }
 
-/// Shared by all candidates: deep neutral surfaces, text, meters and clip colours.
+/// Shared by all candidates: deep neutral surfaces (no tint), text, meters and clip colours.
 Theme base()
 {
     Theme t;
-    t.surface0 = hex(0x060708);
-    t.surface1 = hex(0x0B0C0E);
-    t.surface2 = hex(0x111215);
-    t.surface3 = hex(0x1C1E22);
-    t.line = hex(0x202226);
-    t.textPrimary = hex(0xE4E6E9);
-    t.textSecondary = hex(0x9A9EA6);
-    t.textTertiary = hex(0x5D6168);
+    t.surface0 = hex(0x070707);
+    t.surface1 = hex(0x0C0C0C);
+    t.surface2 = hex(0x131313);
+    t.surface3 = hex(0x1E1E1E);
+    t.line = hex(0x232323);
+    t.textPrimary = hex(0xE6E6E6);
+    t.textSecondary = hex(0x9E9E9E);
+    t.textTertiary = hex(0x616161);
     t.accentInstrument = hex(0xE9B44C);
     t.accentMidi = hex(0xA88BEB);
     t.accentModulation = hex(0x4FD1A5);
@@ -51,12 +51,7 @@ Theme makeSteel()
 {
     Theme t = base();
     t.name = "Steel";
-    t.description = "Slightly cool greys, blue values and active states";
-    t.surface0 = hex(0x060709);
-    t.surface1 = hex(0x0A0C0F);
-    t.surface2 = hex(0x101317);
-    t.surface3 = hex(0x1A1E24);
-    t.line = hex(0x1F242B);
+    t.description = "Neutral greys, blue values and active states";
     t.value = hex(0x7DB0FF);
     t.active = hex(0x4E95F5);
     t.onActive = hex(0x050D1A);

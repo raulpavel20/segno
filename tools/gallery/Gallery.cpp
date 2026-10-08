@@ -88,7 +88,7 @@ public:
 
         const float x0 = static_cast<float>(headers.getRight());
         const float barW = (static_cast<float>(getWidth()) - x0) / 8.0f;
-        g.setFont(ui::fonts::font(t.textXs, ui::fonts::Weight::Regular, true));
+        g.setFont(ui::fonts::mono(t.textXs, ui::fonts::Weight::Regular));
         for (int bar = 0; bar < 8; ++bar)
         {
             const float x = x0 + static_cast<float>(bar) * barW;

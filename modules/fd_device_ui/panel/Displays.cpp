@@ -33,7 +33,7 @@ void MiniDisplay::paint(juce::Graphics& g)
     if (label_.isEmpty())
         return;
     g.setColour(t.textTertiary);
-    g.setFont(fonts::font(t.textXs, fonts::Weight::SemiBold));
+    g.setFont(fonts::mono(t.textXs - 1.0f, fonts::Weight::SemiBold));
     g.drawText(label_, r.reduced(5.0f, 3.0f).removeFromTop(12.0f), juce::Justification::centredLeft, false);
 }
 

@@ -90,7 +90,7 @@ public:
         DevicePanel::paint(g);
         const auto& t = ui::Theme::current();
         g.setColour(t.textTertiary);
-        g.setFont(ui::fonts::font(t.textXs, ui::fonts::Weight::SemiBold));
+        g.setFont(ui::fonts::mono(t.textXs - 1.0f, ui::fonts::Weight::SemiBold));
         g.drawText("OSC 2", osc2Label_, juce::Justification::centredLeft, false);
         g.drawText("LFO", lfoLabel_, juce::Justification::centredLeft, false);
     }

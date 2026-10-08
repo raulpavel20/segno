@@ -271,7 +271,7 @@ void ArrangementView::paintRuler(juce::Graphics& g)
         g.setColour(looping_ ? t.active : t.textTertiary.withAlpha(0.7f));
         g.fillRect(brace);
     }
-    g.setFont(ui::fonts::font(t.textXs, ui::fonts::Weight::Medium, true));
+    g.setFont(ui::fonts::mono(t.textXs, ui::fonts::Weight::Medium));
     for (const auto& line : grid_)
     {
         const float x = laneX(line.seconds);

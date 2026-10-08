@@ -101,7 +101,7 @@ Decision record: [ADR 0014](../decisions/0014-flat-darker-ableton-adjacent.md).
 - **Buttons and toggles:** rectangles with a very small radius (2–3 px). On = solid fill with dark text; off = a dim surface with secondary text.
 - **Data displays** (EQ curves, spectra, envelopes, waveforms): a solid line plus a flat translucent fill of the same colour.
 - **Meters:** flat level zones (normal, hot, clip), no gradient.
-- **Density close to Ableton:** small type, compact controls, information-dense panels, colour only where it means something (active states, clip/track colours, meters). Modern and minimal: one spacing grid, fewer lines, Inter throughout.
+- **Density close to Ableton:** small type, compact controls, information-dense panels, colour only where it means something (active states, clip/track colours, meters). Modern and minimal: one spacing grid, fewer lines, Inter for text and a mono for values.
 
 **Gradients are a reserved accent effect.** They're allowed only where listed here:
 1. **Automation:** the fill under automation curves and lanes.
@@ -146,10 +146,10 @@ Rules:
 
 ## 6. Typography
 
-- One bundled modern sans-serif variable font (Inter or similar, under the OFL licence), so rendering is identical on every OS.
+- Two bundled variable fonts under the OFL licence, so rendering is identical on every OS: a modern sans-serif (Inter) for names and text, and a mono (JetBrains Mono) for values and readouts ([design-language.md](design-language.md), "Type").
 - Proposed type scale: 11, 12, 13, 15 and 18 px. Hierarchy comes from size and weight, not from boxes and borders.
-- **Tabular numerals** for every value, so numbers don't jitter while they change.
-- Sentence case for labels. All caps only for tiny section labels, with letter spacing.
+- **Every value is set in the mono**, so numbers don't jitter while they change, and readouts look like an instrument's.
+- Sentence case for labels. All caps only for tiny section labels, set in the mono.
 
 ## 7. Devices look and behave as one product
 

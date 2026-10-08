@@ -55,7 +55,7 @@ void NumberField::paint(juce::Graphics& g)
     if (editor_ != nullptr)
         return;
     g.setColour(t.textPrimary);
-    g.setFont(fonts::font(fontSize_, fonts::Weight::Medium, true));
+    g.setFont(fonts::mono(fontSize_, fonts::Weight::Medium));
     g.drawText(text(), getLocalBounds().reduced(4, 0), juce::Justification::centredLeft, false);
 }
 
@@ -138,7 +138,7 @@ void NumberField::showEditor(const juce::String& initial)
 {
     const auto& t = Theme::current();
     editor_ = std::make_unique<juce::TextEditor>();
-    editor_->setFont(fonts::font(fontSize_, fonts::Weight::Medium, true));
+    editor_->setFont(fonts::mono(fontSize_, fonts::Weight::Medium));
     editor_->setIndents(4, 0);
     editor_->setJustification(juce::Justification::centredLeft);
     editor_->setColour(juce::TextEditor::backgroundColourId, t.surface3);

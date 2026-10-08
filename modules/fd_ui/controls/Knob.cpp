@@ -62,6 +62,7 @@ void Knob::changeTo(float normalized)
 
 void Knob::resized()
 {
+    fit_.width = -1.0f; // refit the value text
     if (editor_ != nullptr)
         editor_->setBounds(style_ == Style::Bar ? getLocalBounds()
                                                 : getLocalBounds().removeFromBottom(18).reduced(2, 0));
@@ -117,11 +118,47 @@ void Knob::paint(juce::Graphics& g)
 
     if (editor_ == nullptr)
     {
-        g.setFont(fonts::font(t.textXs, fonts::Weight::Regular, /*tabular*/ true));
+        g.setFont(fonts::mono(valueFit(valueArea.getWidth() - 2.0f).size, fonts::Weight::Regular));
         g.setColour(hot ? t.textPrimary : t.textPrimary.withAlpha(0.85f));
-        g.drawText(textFromValue ? textFromValue(value_) : juce::String(value_, 2), valueArea,
-                   juce::Justification::centred, false);
+        g.drawText(valueText(), valueArea, juce::Justification::centred, false);
     }
+}
+
+juce::String Knob::valueText() const
+{
+    const auto text = textFromValue ? textFromValue(value_) : juce::String(value_, 2);
+    return fit_.compact ? text.removeCharacters(" ") : text;
+}
+
+const Knob::ValueFit& Knob::valueFit(float width)
+{
+    if (fit_.width == width)
+        return fit_;
+    const auto& t = Theme::current();
+    fit_ = {width, t.textXs, false};
+    if (!textFromValue || width <= 0.0f)
+        return fit_;
+
+    // The widest text over the range, measured at 10 px (mono widths scale with the size).
+    const int samples = steps_ > 1 ? steps_ : 65;
+    const auto reference = fonts::mono(10.0f, fonts::Weight::Regular);
+    float widest = 0.0f, widestCompact = 0.0f;
+    for (int i = 0; i < samples; ++i)
+    {
+        const auto text = textFromValue(static_cast<float>(i) / static_cast<float>(juce::jmax(1, samples - 1)));
+        widest = juce::jmax(widest, juce::GlyphArrangement::getStringWidth(reference, text));
+        widestCompact = juce::jmax(widestCompact, juce::GlyphArrangement::getStringWidth(reference, text.removeCharacters(" ")));
+    }
+    auto sizeFor = [&](float widthAt10) { return widthAt10 > 0.0f ? 10.0f * width / widthAt10 : t.textXs; };
+    const float full = juce::jmin(t.textXs, sizeFor(widest));
+    if (full >= 9.5f)
+    {
+        fit_.size = full;
+        return fit_;
+    }
+    fit_.compact = true;
+    fit_.size = juce::jlimit(9.0f, t.textXs, sizeFor(widestCompact));
+    return fit_;
 }
 
 void Knob::paintBar(juce::Graphics& g)
@@ -158,7 +195,7 @@ void Knob::paintBar(juce::Graphics& g)
     g.setFont(fonts::font(t.textXs, fonts::Weight::Medium));
     g.setColour(hot ? t.textPrimary : t.textSecondary);
     g.drawText(name_, text, juce::Justification::centredLeft, false);
-    g.setFont(fonts::font(t.textXs, fonts::Weight::Regular, /*tabular*/ true));
+    g.setFont(fonts::mono(t.textXs, fonts::Weight::Regular));
     g.setColour(t.textPrimary);
     g.drawText(textFromValue ? textFromValue(value_) : juce::String(value_, 2), text,
                juce::Justification::centredRight, false);
@@ -255,7 +292,7 @@ void Knob::showEditor(const juce::String& initialText)
     const auto& t = Theme::current();
     editor_ = std::make_unique<juce::TextEditor>();
     editor_->setJustification(juce::Justification::centred);
-    editor_->setFont(fonts::font(t.textSm, fonts::Weight::Regular, true));
+    editor_->setFont(fonts::mono(t.textSm, fonts::Weight::Regular));
     editor_->setIndents(2, 1);
     addAndMakeVisible(*editor_);
     resized();

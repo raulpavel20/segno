@@ -2,7 +2,7 @@
 
 namespace fd::ui::fonts
 {
-/// Weights of the bundled Inter variable font ('wght' axis).
+/// Weights on the 'wght' axis of both bundled variable fonts.
 enum class Weight
 {
     Regular = 400,
@@ -11,9 +11,15 @@ enum class Weight
     Bold = 700
 };
 
-/// The bundled typeface at a given weight (cached; message thread only).
+/// The bundled sans (Inter) at a given weight (cached; message thread only).
 [[nodiscard]] juce::Typeface::Ptr typeface(Weight weight = Weight::Regular);
+/// The bundled mono (JetBrains Mono) at a given weight (cached; message thread only).
+[[nodiscard]] juce::Typeface::Ptr monoTypeface(Weight weight = Weight::Regular);
 
-/// `sizePx` is the em size, as in CSS. `tabular` enables tabular numerals for values.
-[[nodiscard]] juce::Font font(float sizePx, Weight weight = Weight::Regular, bool tabular = false);
+/// The sans, for names and text. `sizePx` is the em size, as in CSS.
+[[nodiscard]] juce::Font font(float sizePx, Weight weight = Weight::Regular);
+
+/// The mono, for every value, number and readout (fixed width, so changing numbers don't
+/// jitter) and for tiny all-caps section labels (design-language.md, "Type").
+[[nodiscard]] juce::Font mono(float sizePx, Weight weight = Weight::Regular);
 } // namespace fd::ui::fonts

@@ -2,12 +2,13 @@
 
 The product owner chose this theme at the M0 design gate (2026-10-09). The rules live in [ui-principles.md](ui-principles.md) and [ADR 0014](../decisions/0014-flat-darker-ableton-adjacent.md); this document records the **values**. The code source of truth is `modules/fd_ui/theme/Theme.cpp`, and the two must match.
 
-**Character:** flat, very dark, slightly cool neutral greys. Blue is used for values and for active states. Dense and compact, close to Ableton's visual grammar.
+**Character:** flat, very dark, neutral greys (no tint). Blue is used for values and for active states. A mono typeface for every number and readout gives the instrument-panel feel. Dense and compact, close to Ableton's visual grammar.
 
 **Gate history**
 - Round 1 rejected: gradients on panels and knob arcs read as 3D, and the result wasn't dark enough.
 - Round 2 offered three flat candidates: Carbon (amber), Steel (blue) and Signal (lime). **Steel was chosen.**
 - The alternatives remain in `tools/gallery` for comparison only.
+- 2026-10-09, product owner: greys made neutral (they had a blue tint), and a bundled mono font added for values and readouts.
 
 ## Colour tokens
 
@@ -15,14 +16,16 @@ The product owner chose this theme at the M0 design gate (2026-10-09). The rules
 
 | Token | Value | Use |
 |---|---|---|
-| `surface0` | `#060709` | App background, arrangement canvas |
-| `surface1` | `#0A0C0F` | Panels: browser, detail, inspector, top bar |
-| `surface2` | `#101317` | Device bodies, cards |
-| `surface3` | `#1A1E24` | Controls (knob tracks, off buttons), hover |
-| `line` | `#1F242B` | The rare 1 px divider |
-| `textPrimary` | `#E4E6E9` | Names, values |
-| `textSecondary` | `#9A9EA6` | Labels |
-| `textTertiary` | `#5D6168` | Hints, disabled, ruler numbers |
+| `surface0` | `#070707` | App background, arrangement canvas |
+| `surface1` | `#0C0C0C` | Panels: browser, detail, inspector, top bar |
+| `surface2` | `#131313` | Device bodies, cards |
+| `surface3` | `#1E1E1E` | Controls (knob tracks, off buttons), hover |
+| `line` | `#232323` | The rare 1 px divider |
+| `textPrimary` | `#E6E6E6` | Names, values |
+| `textSecondary` | `#9E9E9E` | Labels |
+| `textTertiary` | `#616161` | Hints, disabled, ruler numbers |
+
+All greys are neutral (equal red, green and blue); colour comes only from the roles below and from clip colours.
 
 ### Roles
 
@@ -66,8 +69,15 @@ A clip is drawn with:
 | Device panel height | 168 px (24 px header) |
 | Knob | ≤ 38 px arc diameter, 2.5 px arc, 1.5 px needle |
 | Value bar | Knob in bar style for dense rows (mod amounts, voice counts): `surface3` bar, `value` fill at 45 % from the origin, name left and value right inside; same interaction as a knob, also follows horizontal drags |
-| Font | Inter (variable), bundled |
-| Type scale | 11 · 12 · 13 · 15 · 18 px; tabular numerals for values |
+| Fonts | Inter (variable) for names and text; JetBrains Mono (variable) for values, numbers and readouts. Both bundled, both OFL-1.1 |
+| Type scale | 11 · 12 · 13 · 15 · 18 px |
+
+### Type
+
+- **Mono (`fonts::mono`)** for every value, number and readout: knob and field values, the transport (position, time, tempo, signature, CPU), ruler bar numbers, the inspector's numbers, note names, the velocity read-out, shortcut hints in the command palette. Fixed width, so changing numbers never jitter.
+- **Mono, all caps, 10 px semibold** for tiny section labels (INSTRUMENTS, INSPECTOR, AMP, OSC 2), with no extra letter spacing (the mono is spaced already).
+- **Sans (`fonts::font`)** for everything people name or read: track, clip, device and preset names, parameter names, buttons, menus, messages.
+- **Knob values fit their column.** Each knob sizes its value text once, to the widest text its parameter can show: smaller first (down to 9.5 px), then without the space before the unit (down to 9 px, e.g. `2.00kHz`). The size never changes while the value does.
 
 ### Icons
 
@@ -76,3 +86,4 @@ Line icons drawn in code (`ui::Icon`, `modules/fd_ui/controls/Icons.cpp`): 1.5 p
 ## Still open
 
 - **Light theme:** a later milestone (M7). It is built from the same token names.
+- **Font licences:** both fonts are OFL-1.1 and are compiled into the app and the plugins; their licence texts must ship with every build (M7 packaging, third-party notices).

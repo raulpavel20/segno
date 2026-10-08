@@ -124,7 +124,7 @@ public:
         g.fillRoundedRectangle(r, t.radiusControl);
 
         // Grid: decades and 0 dB.
-        g.setFont(ui::fonts::font(t.textXs - 1.0f, ui::fonts::Weight::Regular, true));
+        g.setFont(ui::fonts::mono(t.textXs - 1.0f, ui::fonts::Weight::Regular));
         for (double f : {50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0, 5000.0, 10000.0})
         {
             const float x = xOf(f);
@@ -178,7 +178,7 @@ public:
             g.setColour(selected ? t.onActive : t.value);
             if (!selected)
                 g.drawEllipse(box.reduced(0.5f), 1.2f);
-            g.setFont(ui::fonts::font(9.0f, ui::fonts::Weight::Bold, true));
+            g.setFont(ui::fonts::mono(9.0f, ui::fonts::Weight::Bold));
             g.setColour(selected ? t.onActive : t.textPrimary);
             g.drawText(juce::String(b + 1), box, juce::Justification::centred, false);
         }
@@ -186,7 +186,7 @@ public:
         if (!hoverText_.isEmpty())
         {
             g.setColour(t.textSecondary);
-            g.setFont(ui::fonts::font(t.textXs, ui::fonts::Weight::Regular, true));
+            g.setFont(ui::fonts::mono(t.textXs, ui::fonts::Weight::Regular));
             g.drawText(hoverText_, r.reduced(6.0f, 4.0f), juce::Justification::topRight, false);
         }
     }

@@ -685,7 +685,7 @@ void Shell::paintOverChildren(juce::Graphics& g)
         g.setColour(t.surface3.withAlpha(0.9f));
         g.fillRect(box);
         g.setColour(t.textPrimary);
-        g.setFont(ui::fonts::font(t.textXs, ui::fonts::Weight::Regular, true));
+        g.setFont(ui::fonts::mono(t.textXs, ui::fonts::Weight::Regular));
         const double paint = stats_.paintMs.empty() ? 0.0 : stats_.paintMs.back();
         const double frame = stats_.frameMs.empty() ? 0.0 : stats_.frameMs.back();
         g.drawText("paint " + juce::String(paint, 2) + " ms   frame " + juce::String(frame, 2) + " ms",
