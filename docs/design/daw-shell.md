@@ -38,7 +38,7 @@ app/src/
 ```
 ┌ TransportBar 40 ──────────────────────────────────────────────────────────────┐
 ├ Browser 220 ┬ Arrangement ───────────────────────────────────────┬ Inspector 260 ┤
-│ (rail 44)   │ ruler 28                                           │ (collapsible) │
+│ (rail 44)   │ loop strip 12 + ruler 24                           │ (collapsible) │
 │             │ track header 180 │ lanes                           │               │
 ├─────────────┴────────────────────────────────────────────────────┴───────────────┤
 │ Detail panel: device chain (device panel height + 2 × 12)  ⇄  clip view (Tab)    │
@@ -73,6 +73,7 @@ app/src/
 | Device chain ⇄ clip view | `view.detailMode` | Tab |
 | Focus mode | `view.focus` | Ctrl+Alt+F |
 | Zoom in / out / to fit | `view.zoomIn` / `view.zoomOut` / `view.zoomFit` | = / − / Ctrl+0 |
+| Follow playhead | `view.follow` | Ctrl+Shift+F |
 | Snap to grid | `view.snap` | Ctrl+4 |
 | New / open / save / save as | `file.new` / `file.open` / `file.save` / `file.saveAs` | Ctrl+N / Ctrl+O / Ctrl+S / Ctrl+Shift+S |
 | Audio settings | `app.audioSettings` | Ctrl+, |
@@ -123,6 +124,17 @@ Waveforms come from a background-built peak cache per file, plus cached drawing 
 - **During a drag**, clips are drawn at their new place from the model's result. On release the Session applies it as one undo step, and the preview stays until the new snapshot arrives (no flicker).
 - **Commands:** delete, duplicate (copies placed right after the selection), split at the playhead (the selected clips, or the selected track's clips under the playhead), select all.
 
+## Transport (C5)
+
+- **Transport bar:** play/stop, stop-and-return, loop and metronome toggles, then tempo and time signature as `ui::NumberField`s (drag, Shift for fine, wheel, or type; each edit is one undo step), the position in bars and time, and CPU load.
+- **Loop brace:** lives in a 12 px strip above the bar numbers.
+  - Drag on empty strip: draws a brace (snapped) and turns looping on.
+  - Drag the brace: moves it; drag its edges: resizes it.
+  - Click the brace: toggles looping.
+  - Ctrl+L with no brace yet loops four bars from the playhead's bar.
+- **Follow:** while playing, when the playhead passes 88 % of the view (or leaves it), the view pages so the playhead sits at 12 %, eased over ~150 ms. It never moves while you drag or zoom.
+- Loop range, loop state and metronome are live transport values read each frame, like the playhead, so they don't rebuild snapshots.
+
 ## Waveforms (C3)
 
 - **Peaks** (`model::Peaks`):
@@ -156,7 +168,7 @@ A software-renderer benchmark also runs offscreen in the integration tests (`"[.
 ## Later steps (outline)
 
 - **C4 clip editing** (built, see below).
-- **C5 transport:** play/stop, click-to-locate, tempo field, loop brace (drag in the ruler), metronome; follow the playhead while playing.
+- **C5 transport** (built, see below).
 - **C6 device chain:** the detail panel shows the selected track's chain. Native panels plus third-party cards; add (menu, until the browser lands), reorder by drag, bypass, delete; VST3/LV2 scan in a child process.
 - **C7 instrument tracks:** MIDI input monitoring through the track's instrument; `.mid` import as a read-only preview clip.
 - **C8 save/open:** `.fdproj` is tracktion's edit XML plus our view state; a round-trip test.
