@@ -25,11 +25,16 @@ class AdaaShaper
 public:
     void setCurve(ShaperCurve curve) noexcept { curve_ = curve; }
     [[nodiscard]] ShaperCurve curve() const noexcept { return curve_; }
-    void reset() noexcept
+    void reset() noexcept { prime(0.0f); }
+
+    /// Sets the previous input, so a freshly switched-in shaper continues smoothly.
+    void prime(float previousInput) noexcept
     {
-        x1_ = 0.0;
-        f1_ = shapeAntiderivative(curve_, 0.0);
+        x1_ = previousInput;
+        f1_ = shapeAntiderivative(curve_, x1_);
     }
+
+    [[nodiscard]] float lastInput() const noexcept { return static_cast<float>(x1_); }
 
     float process(float in) noexcept
     {

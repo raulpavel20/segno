@@ -164,6 +164,10 @@ TEST_CASE("conformance: parameter jumps do not click", "[fast][conformance]")
         const auto& specs = f.info().params;
         for (size_t p = 0; p < specs.size(); ++p)
         {
+            // Non-automatable parameters (e.g. oversampling quality) are not meant to change
+            // during playback (ADR 0016).
+            if (!specs[p].hasFlag(ParamFlags::Automatable))
+                continue;
             for (bool upwards : {true, false})
             {
                 auto d = f.create();
@@ -173,7 +177,8 @@ TEST_CASE("conformance: parameter jumps do not click", "[fast][conformance]")
                     if (start >= 24000)
                         dev.params().set(p, upwards ? specs[p].max : specs[p].min);
                 };
-                const auto out = render(*d, input, opts);
+                // Score the region around the change only (the stimulus itself starts abruptly).
+                const auto out = render(*d, input, opts).slice(12000, 36000);
                 for (int c = 0; c < out.numChannels(); ++c)
                 {
                     INFO("parameter '" << specs[p].id << "' " << (upwards ? "min->max" : "max->min") << ", channel " << c);
@@ -218,10 +223,23 @@ TEST_CASE("conformance: reported latency matches measured latency", "[fast][conf
     forEachDevice([](const DeviceFactory& f) {
         if (!isEffect(f.info()))
             return;
-        auto d = f.create();
-        const auto in = whiteNoise(48000, 3, 0.25f, f.info().buses.inputChannels);
-        const auto out = render(*d, in, {.sampleRate = kSampleRate});
-        CHECK(estimateLatency(in, out, 8192) == d->latencySamples());
+        // Defaults plus randomised settings: latency must never depend on parameters (ADR 0016).
+        for (std::uint32_t setting : {0u, 21u, 22u, 23u})
+        {
+            auto d = f.create();
+            if (setting != 0)
+            {
+                randomize(*d, setting);
+                // Keep the signal path linear enough for correlation: no drive-type extremes.
+                for (size_t i = 0; i < d->params().size(); ++i)
+                    if (const auto id = d->params().spec(i).id; id == "mix" || id == "gain" || id == "output" || id == "drive")
+                        d->params().set(i, d->params().spec(i).def);
+            }
+            const auto in = whiteNoise(48000, 3, 0.25f, f.info().buses.inputChannels);
+            const auto out = render(*d, in, {.sampleRate = kSampleRate});
+            INFO("setting " << setting);
+            CHECK(estimateLatency(in, out, 8192) == d->latencySamples());
+        }
     });
 }
 

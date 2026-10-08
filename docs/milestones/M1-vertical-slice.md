@@ -16,18 +16,18 @@ See [roadmap.md](../roadmap.md) and the device specs in `devices/*/SPEC.md`.
 
 | # | Step | Done when | Status |
 |---|---|---|---|
-| A1 | **DSP building blocks:** FIR half-band oversampler (2/4/8×, integer latency), anti-aliased (ADAA) waveshapers, TPT state-variable and ladder filters, analog-matched second-order sections and Butterworth cascades, ADSR, LFO, band-limited oscillators, sample interpolation | Unit tests incl. measured aliasing and response targets | ☐ |
-| A2 | **Test kit additions:** THD, aliasing ratio and harmonic profile metrics; MIDI test scripts | Metrics detect what they should (naive saw fails, BLEP saw passes) | ☐ |
+| A1 | **DSP building blocks:** FIR half-band oversampler (2/4/8×, integer latency), anti-aliased (ADAA) waveshapers, TPT state-variable and ladder filters, analog-matched second-order sections and Butterworth cascades, ADSR, LFO, band-limited oscillators, sample interpolation | Unit tests incl. measured aliasing and response targets | ◐ oversampler + ADAA done |
+| A2 | **Test kit additions:** THD, aliasing ratio and harmonic profile metrics; MIDI test scripts | Metrics detect what they should (naive saw fails, BLEP saw passes) | ◐ metrics done (exact, leakage-free); MIDI scripts with A3 |
 | A3 | **Instrument support:** voice manager (poly/mono/legato, stealing, sustain pedal, pitch bend, note ids); MIDI in the tracktion adapter; instrument conformance checks (notes always release, all-notes-off, stealing without clicks, block-size invariance with events) | Conformance passes for a test instrument | ☐ |
 | A4 | **Analysis taps:** lock-free sample FIFO from DSP to UI (spectra, scopes, playheads) | Tested SPSC; no allocation on the audio thread | ☐ |
 | A5 | **Heavy and non-parameter state:** real-time-safe handoff for large data (samples); `ParamBinding::applyExtraState` so UI edits to non-parameter state go through the host (undoable in the DAW) | Sampler can load files while playing, without glitches or allocation on the audio thread | ☐ |
-| A6 | **Latency policy:** constant latency per device instance (e.g. oversampling factors are padded to one latency) | ADR; conformance checks reported vs measured latency for every setting | ☐ |
+| A6 | **Latency policy:** constant latency per device instance (e.g. oversampling factors are padded to one latency) | ADR; conformance checks reported vs measured latency for every setting | ☑ [ADR 0016](../decisions/0016-constant-device-latency.md) |
 
 ### B. Devices (each: SPEC → DSP + tests + goldens → panel → plugin → Definition of Done)
 
 | # | Device | Status |
 |---|---|---|
-| B1 | **Saturator** ([SPEC](../../devices/saturator/SPEC.md)) | ☐ |
+| B1 | **Saturator** ([SPEC](../../devices/saturator/SPEC.md)) | ◐ automated DoD met; awaiting spec approval and sound/feel sign-off |
 | B2 | **EQ** (core) ([SPEC](../../devices/eq/SPEC.md)) | ☐ |
 | B3 | **Subtractive Synth** (core) ([SPEC](../../devices/subtractive-synth/SPEC.md)) | ☐ |
 | B4 | **Sampler** (classic/one-shot) ([SPEC](../../devices/sampler/SPEC.md)) | ☐ |

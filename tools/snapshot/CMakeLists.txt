@@ -4,4 +4,4 @@ target_compile_definitions(fd-snapshot PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=
 target_link_libraries(fd-snapshot PRIVATE
     fd_panel_registry fd::registry fd::fd_ui fd::fd_device_ui
     juce::juce_gui_basics
-    juce::juce_recommended_config_flags fd::warnings)
+    juce::juce_recommended_config_flags fd::warnings_juce)

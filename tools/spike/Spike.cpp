@@ -70,7 +70,7 @@ public:
         {
             const double v = 0.5 + 0.5 * std::sin(animationTime() * 3.1 + b * 0.37 + seed_) * std::cos(b * 0.11);
             const float h = display.getHeight() * static_cast<float>(0.15 + 0.6 * v * std::exp(-b / 70.0));
-            g.fillRect(display.getX() + b * bw, display.getBottom() - h, bw - 1.0f, h);
+            g.fillRect(display.getX() + static_cast<float>(b) * bw, display.getBottom() - h, bw - 1.0f, h);
         }
 
         // Response curve: solid line + flat translucent fill (no gradient, ADR 0014).
@@ -203,7 +203,7 @@ public:
     }
 
     static constexpr double samplesPerBasePeak = 64.0;
-    [[nodiscard]] double lengthSamples() const { return levels_[0].size() * samplesPerBasePeak; }
+    [[nodiscard]] double lengthSamples() const { return static_cast<double>(levels_[0].size()) * samplesPerBasePeak; }
 
     /// Min/max over [s0, s1) samples, from the coarsest level that still resolves the span.
     [[nodiscard]] std::pair<float, float> range(double s0, double s1) const
@@ -279,7 +279,7 @@ public:
 
         for (int track = 0; track < tracks; ++track)
         {
-            const float y = rulerH + track * laneH;
+            const float y = static_cast<float>(rulerH) + static_cast<float>(track) * laneH;
             const auto colour = t.clipColours[track % t.clipColours.size()];
             g.setColour(colour);
             g.fillRect(0.0f, y + 1.0f, 3.0f, laneH - 2.0f);

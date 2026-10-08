@@ -7,7 +7,10 @@ ParamKnob::ParamKnob(DeviceUiContext& context, size_t paramIndex) : context_(con
     setTooltip(juce::String(std::string(spec.name)));
     setDefaultValue(spec.toNormalized(spec.def));
     setNumSteps(spec.numSteps());
-    const bool bipolar = spec.min < 0.0f && spec.max > 0.0f && spec.unit != Unit::Decibels;
+    // Bipolar arcs (from the centre) for ranges around zero: pan, bias, and symmetric gains
+    // such as +-12 dB. Asymmetric dB ranges (e.g. -70..+35) fill from the minimum.
+    const bool symmetric = std::abs(spec.min + spec.max) < 1e-6f;
+    const bool bipolar = spec.min < 0.0f && spec.max > 0.0f && (spec.unit != Unit::Decibels || symmetric);
     setArcOrigin(bipolar ? spec.toNormalized(0.0f) : 0.0f);
 
     textFromValue = [&spec](float n) { return juce::String(spec.toText(spec.fromNormalized(n))); };
@@ -48,5 +51,61 @@ void ParamToggle::clicked()
     context_.params.beginGesture(index_);
     context_.params.setPlain(index_, getToggleState() ? 1.0f : 0.0f);
     context_.params.endGesture(index_);
+}
+
+ParamSegmented::ParamSegmented(DeviceUiContext& context, size_t paramIndex, int columns)
+    : context_(context), index_(paramIndex), columns_(std::max(1, columns))
+{
+    const ParamSpec& spec = context_.info.params[index_];
+    constexpr int groupId = 1; // radio groups are scoped to siblings, i.e. this component
+    for (size_t i = 0; i < spec.choices.size(); ++i)
+    {
+        auto* b = buttons_.add(new Toggle(juce::String(std::string(spec.choices[i]))));
+        b->setRadioGroupId(groupId);
+        b->setTooltip(juce::String(std::string(spec.name)));
+        b->onClick = [this, i] {
+            context_.params.beginGesture(index_);
+            context_.params.setPlain(index_, static_cast<float>(i));
+            context_.params.endGesture(index_);
+        };
+        addAndMakeVisible(b);
+    }
+    refresh();
+}
+
+void ParamSegmented::refresh()
+{
+    const int selected = static_cast<int>(context_.params.getPlain(index_));
+    for (int i = 0; i < buttons_.size(); ++i)
+        buttons_[i]->setToggleState(i == selected, juce::dontSendNotification);
+}
+
+void ParamSegmented::resized()
+{
+    const int gap = Theme::current().grid;
+    const int rows = (buttons_.size() + columns_ - 1) / columns_;
+    const int w = (getWidth() - gap * (columns_ - 1)) / columns_;
+    const int h = (getHeight() - gap * (rows - 1)) / std::max(1, rows);
+    for (int i = 0; i < buttons_.size(); ++i)
+        buttons_[i]->setBounds((i % columns_) * (w + gap), (i / columns_) * (h + gap), w, h);
+}
+
+ParamComboBox::ParamComboBox(DeviceUiContext& context, size_t paramIndex) : context_(context), index_(paramIndex)
+{
+    const ParamSpec& spec = context_.info.params[index_];
+    for (size_t i = 0; i < spec.choices.size(); ++i)
+        addItem(juce::String(std::string(spec.choices[i])), static_cast<int>(i) + 1);
+    setTooltip(juce::String(std::string(spec.name)));
+    onChange = [this] {
+        context_.params.beginGesture(index_);
+        context_.params.setPlain(index_, static_cast<float>(getSelectedId() - 1));
+        context_.params.endGesture(index_);
+    };
+    refresh();
+}
+
+void ParamComboBox::refresh()
+{
+    setSelectedId(static_cast<int>(context_.params.getPlain(index_)) + 1, juce::dontSendNotification);
 }
 } // namespace fd::ui

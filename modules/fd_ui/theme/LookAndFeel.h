@@ -23,5 +23,9 @@ public:
     juce::Rectangle<int> getTooltipBounds(const juce::String& tipText, juce::Point<int> screenPos,
                                           juce::Rectangle<int> parentArea) override;
     void drawPopupMenuBackground(juce::Graphics& g, int width, int height) override;
+    void drawComboBox(juce::Graphics& g, int width, int height, bool isButtonDown, int buttonX, int buttonY,
+                      int buttonW, int buttonH, juce::ComboBox& box) override;
+    juce::Font getComboBoxFont(juce::ComboBox& box) override;
+    void positionComboBoxText(juce::ComboBox& box, juce::Label& label) override;
 };
 } // namespace fd::ui

@@ -35,4 +35,30 @@ private:
     DeviceUiContext& context_;
     size_t index_;
 };
+/// Segmented buttons for a Choice parameter, laid out in `columns` columns.
+class ParamSegmented final : public juce::Component, public ParamControl
+{
+public:
+    ParamSegmented(DeviceUiContext& context, size_t paramIndex, int columns);
+    void refresh() override;
+    void resized() override;
+
+private:
+    DeviceUiContext& context_;
+    size_t index_;
+    int columns_;
+    juce::OwnedArray<Toggle> buttons_;
+};
+
+/// Flat dropdown for a Choice parameter.
+class ParamComboBox final : public juce::ComboBox, public ParamControl
+{
+public:
+    ParamComboBox(DeviceUiContext& context, size_t paramIndex);
+    void refresh() override;
+
+private:
+    DeviceUiContext& context_;
+    size_t index_;
+};
 } // namespace fd::ui

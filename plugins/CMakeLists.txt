@@ -67,7 +67,7 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
             fd_device_${cid}_dsp fd_device_${cid}_ui fd::fd_host_juce fd::fd_device_ui
             juce::juce_audio_utils
         PUBLIC
-            juce::juce_recommended_config_flags juce::juce_recommended_lto_flags fd::warnings)
+            juce::juce_recommended_config_flags juce::juce_recommended_lto_flags fd::warnings_juce)
 
     clap_juce_extensions_plugin(TARGET ${target}
         CLAP_ID "${FD_ID_PREFIX}.${ARG_ID}"
@@ -80,3 +80,7 @@ endfunction()
 fd_add_device_plugin(ID utility NAME "Utility" CODE Futl KIND effect
     VST3_CATEGORIES Fx Tools
     CLAP_FEATURES audio-effect utility stereo mono)
+
+fd_add_device_plugin(ID saturator NAME "Saturator" CODE Fsat KIND effect
+    VST3_CATEGORIES Fx Distortion
+    CLAP_FEATURES audio-effect distortion stereo mono)

@@ -103,4 +103,33 @@ void LookAndFeel::drawPopupMenuBackground(juce::Graphics& g, int width, int heig
     g.setColour(t.line);
     g.drawRect(0, 0, width, height, 1);
 }
+
+void LookAndFeel::drawComboBox(juce::Graphics& g, int width, int height, bool isButtonDown, int, int, int, int,
+                               juce::ComboBox& box)
+{
+    const auto& t = Theme::current();
+    const auto bounds = juce::Rectangle<float>(0, 0, static_cast<float>(width), static_cast<float>(height));
+    g.setColour(t.surface3.brighter(isButtonDown ? 0.12f : (box.isMouseOver(true) ? 0.06f : 0.0f)));
+    g.fillRoundedRectangle(bounds, t.radiusControl);
+    // Small flat chevron on the right.
+    const float cx = static_cast<float>(width) - 9.0f, cy = static_cast<float>(height) * 0.5f;
+    juce::Path chevron;
+    chevron.startNewSubPath(cx - 3.0f, cy - 1.5f);
+    chevron.lineTo(cx, cy + 1.5f);
+    chevron.lineTo(cx + 3.0f, cy - 1.5f);
+    g.setColour(t.textSecondary);
+    g.strokePath(chevron, juce::PathStrokeType(1.2f));
+}
+
+juce::Font LookAndFeel::getComboBoxFont(juce::ComboBox&)
+{
+    return fonts::font(Theme::current().textXs, fonts::Weight::SemiBold);
+}
+
+void LookAndFeel::positionComboBoxText(juce::ComboBox& box, juce::Label& label)
+{
+    label.setBounds(6, 0, box.getWidth() - 20, box.getHeight());
+    label.setFont(getComboBoxFont(box));
+    label.setJustificationType(juce::Justification::centredLeft);
+}
 } // namespace fd::ui

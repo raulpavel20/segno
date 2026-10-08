@@ -34,5 +34,5 @@ juce_add_gui_app(fd-daw
     NEEDS_CURL FALSE
     NEEDS_WEB_BROWSER FALSE)
 target_sources(fd-daw PRIVATE src/Main.cpp src/ui/MainComponent.cpp)
-target_link_libraries(fd-daw PRIVATE fd_engine juce::juce_recommended_config_flags fd::warnings)
+target_link_libraries(fd-daw PRIVATE fd_engine juce::juce_recommended_config_flags fd::warnings_juce)
 set_target_properties(fd-daw PROPERTIES C_VISIBILITY_PRESET hidden CXX_VISIBILITY_PRESET hidden)

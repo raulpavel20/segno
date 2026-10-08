@@ -4,4 +4,4 @@ target_sources(fd-spike PRIVATE main.cpp Spike.cpp)
 target_compile_definitions(fd-spike PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
 target_link_libraries(fd-spike PRIVATE
     fd::fd_ui juce::juce_gui_basics juce::juce_opengl
-    juce::juce_recommended_config_flags fd::warnings)
+    juce::juce_recommended_config_flags fd::warnings_juce)

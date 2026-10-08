@@ -1,7 +1,8 @@
 # Integration tests: devices inside tracktion_engine (JUCE line, needs FD_BUILD_APP).
 fd_add_test(NAME fd_integration_tests
     SOURCES EngineNullTests.cpp AppSmokeTests.cpp "${PROJECT_SOURCE_DIR}/app/src/ui/MainComponent.cpp"
-    LIBS fd_engine fd::testkit_device juce::juce_recommended_config_flags)
+    LIBS fd_engine fd::testkit_device juce::juce_recommended_config_flags
+    JUCE)
 target_compile_definitions(fd_integration_tests PRIVATE JUCE_MODAL_LOOPS_PERMITTED=1)
 
 if(TARGET fd_plugin_utility_VST3)
