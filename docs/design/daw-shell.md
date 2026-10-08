@@ -80,7 +80,9 @@ app/src/
 | New / open / save / save as | `file.new` / `file.open` / `file.save` / `file.saveAs` | Ctrl+N / Ctrl+O / Ctrl+S / Ctrl+Shift+S |
 | Audio settings | `app.audioSettings` | Ctrl+, |
 
-Each step adds its actions as it lands; the command palette (M2) lists the registry.
+Each step adds its actions as it lands.
+
+**Command palette** (Ctrl+K, M2 step C1): a popover at the top of the window listing every action by fuzzy search (`model::rankPalette`, tested). It matches names, and categories at a slightly lower score; word starts and consecutive letters rank higher; equal matches go to the most recently used. Each row shows the shortcut, a dot for toggles that are on, and a dimmed name for actions that can't run now. Arrows move, Enter runs, Escape or a click elsewhere closes. Recent use is kept for the session; saving it with the user's settings comes with preferences.
 
 ## Timeline (C2)
 

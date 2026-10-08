@@ -371,3 +371,40 @@ TEST_CASE("placing a clip cuts what it covers (no overlaps on a track)", "[fast]
     CHECK(clearRange(clips, 3.0, 7.0, {1, 2}).empty());
     CHECK(clearRange(clips, 4.0, 6.0, {}).empty());
 }
+
+#include "model/Fuzzy.h"
+
+TEST_CASE("fuzzy matching finds subsequences and prefers word starts", "[fast]")
+{
+    CHECK(fuzzyScore("", "Anything") == 0);
+    CHECK(fuzzyScore("ply", "Play / stop"));
+    CHECK_FALSE(fuzzyScore("xyz", "Play / stop"));
+    CHECK_FALSE(fuzzyScore("pa", "Ap")); // order matters
+    // Word starts beat letters inside words; prefixes beat both.
+    CHECK(*fuzzyScore("ps", "Play / stop") > *fuzzyScore("ps", "Upside"));
+    CHECK(*fuzzyScore("zoom", "Zoom in") > *fuzzyScore("zoom", "Show zoomed"));
+    CHECK(*fuzzyScore("SAVE", "save as") > 0); // case-insensitive
+}
+
+TEST_CASE("the palette ranks matches, then recent use", "[fast]")
+{
+    const std::vector<PaletteItem> items{{"file.save", "Save", "File"},
+                                         {"file.saveAs", "Save as", "File"},
+                                         {"view.snap", "Snap to grid", "View"},
+                                         {"transport.playStop", "Play / stop", "Transport"}};
+    auto names = [&](const std::vector<size_t>& order) {
+        std::vector<std::string> out;
+        for (auto i : order)
+            out.push_back(items[i].name);
+        return out;
+    };
+    CHECK(names(rankPalette("sa", items, {})).front() == "Save");
+    // Recent use decides between equal matches.
+    CHECK(names(rankPalette("save", items, {"file.saveAs"})).front() == "Save as");
+    // The category helps: "transport play".
+    CHECK(names(rankPalette("transport play", items, {})).front() == "Play / stop");
+    // An empty query lists everything, recent first.
+    const auto all = names(rankPalette("", items, {"view.snap"}));
+    CHECK(all.size() == items.size());
+    CHECK(all.front() == "Snap to grid");
+}

@@ -34,7 +34,7 @@ See [roadmap.md](../roadmap.md) and the device specs in `devices/*/SPEC.md`.
 
 | # | Step | Done when | Status |
 |---|---|---|---|
-| C1 | **Command palette** (Ctrl+K): fuzzy search over every action, showing each action's shortcut, recently used first (ui-principles §1). | Ranking tests; every registered action is reachable | ☐ |
+| C1 | **Command palette** (Ctrl+K): fuzzy search over every action, showing each action's shortcut, recently used first (ui-principles §1). | Ranking tests; every registered action is reachable | ◐ Ctrl+K popover over the whole registry; fuzzy ranking and recent-first tested; UI test runs an action; awaiting feel check |
 | C2 | **MIDI clips and piano roll** (clip view in the detail panel):<ul><li>create a clip (double-click an empty lane);</li><li>draw, select, move, resize and delete notes;</li><li>a velocity lane;</li><li>grid and snap, quantise;</li><li>a keyboard that previews notes;</li><li>edits undoable, one step per gesture.</li></ul> | Model tests (note edits, quantise); Session tests; manual feel check | ☐ |
 | C3 | **Mixer**:<ul><li>volume, pan, mute and solo per track (track header and inspector);</li><li>a master track;</li><li>return tracks with pre- or post-fader sends;</li><li>level meters in the track headers.</li></ul> | Gain and pan laws exact; a neutral mix nulls against its sources | ☐ |
 | C4 | **Automation**:<ul><li>lanes under a track for any parameter;</li><li>breakpoints with curves, drawn and edited;</li><li>recording parameter moves while playing;</li><li>automated controls show an indicator;</li><li>lane fills use the reserved gradient (ui-principles §4).</li></ul> | Model tests; round trip in `.fdproj`; manual check | ☐ |

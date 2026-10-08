@@ -2,6 +2,7 @@
 
 #include "ui/ActionRegistry.h"
 #include "ui/ArrangementView.h"
+#include "ui/CommandPalette.h"
 #include "ui/Panels.h"
 
 #include <map>
@@ -19,6 +20,7 @@ public:
     ~Shell() override;
 
     [[nodiscard]] const ActionRegistry& actions() const noexcept { return actions_; }
+    [[nodiscard]] CommandPalette& palette() noexcept { return palette_; }
     /// Shows a warning in the window (engine warnings; never a modal dialog).
     void showWarning(const juce::String& message);
 
@@ -72,6 +74,7 @@ private:
     Area lastArea_ = Area::Arrangement; // where Delete applies
     ArrangementView arrangement_;
     Splitter browserSplit_, inspectorSplit_;
+    CommandPalette palette_{actions_};
 
     Panel browserPanel_{.open = true, .shown = 1.0f, .size = 220.0f};
     Panel inspectorPanel_{.open = true, .shown = 1.0f, .size = 260.0f};

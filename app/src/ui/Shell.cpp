@@ -195,6 +195,8 @@ void Shell::registerActions()
     actions_.add({.id = "view.snap", .name = "Snap to grid", .category = "View", .keys = {key('4', kCmd)},
                   .perform = [this] { arrangement_.setSnapEnabled(!arrangement_.isSnapEnabled()); },
                   .isToggled = [this] { return arrangement_.isSnapEnabled(); }});
+    actions_.add({.id = "app.commandPalette", .name = "Command palette", .category = "App", .keys = {key('k', kCmd)},
+                  .perform = [this] { palette_.isOpen() ? palette_.close() : palette_.open(*this); }});
     actions_.add({.id = "file.new", .name = "New project", .category = "File", .keys = {key('n', kCmd)},
                   .perform = [this] { confirmDiscard([this] { session_.newProject(); }); }});
     actions_.add({.id = "file.open", .name = "Open project", .category = "File", .keys = {key('o', kCmd)},

@@ -292,3 +292,32 @@ TEST_CASE("the shell saves and restores its view with the project", "[integratio
     CHECK_FALSE(f.shell->actions().isToggled("view.browser"));
     CHECK(title.contains(project.getFile().getFileNameWithoutExtension()));
 }
+
+TEST_CASE("the command palette finds and runs any action", "[integration]")
+{
+    ShellFixture f;
+    f.shell->setSize(1800, 900);
+    CHECK(f.shell->keyPressed(juce::KeyPress('k', juce::ModifierKeys::commandModifier, 0)));
+    auto& palette = f.shell->palette();
+    REQUIRE(palette.isOpen());
+
+    // Every action except the palette itself is listed.
+    palette.setQuery("");
+    CHECK(palette.shownIds().size() == std::min<size_t>(fd::app::CommandPalette::maxRows, f.shell->actions().all().size() - 1));
+
+    palette.setQuery("to");
+    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review
+    {
+        juce::PNGImageFormat png;
+        if (auto out = juce::File(dump).getChildFile("palette.png").createOutputStream())
+            png.writeImageToStream(f.shell->createComponentSnapshot({500, 0, 800, 520}, true, 2.0f), *out);
+    }
+    palette.setQuery("brows");
+    REQUIRE_FALSE(palette.shownIds().empty());
+    CHECK(palette.shownIds().front() == "view.browser");
+    const bool before = f.shell->actions().isToggled("view.browser");
+    palette.performSelected();
+    CHECK_FALSE(palette.isOpen());
+    CHECK(f.shell->actions().isToggled("view.browser") != before);
+    CHECK(palette.recent().front() == "view.browser");
+}
