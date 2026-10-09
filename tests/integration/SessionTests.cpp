@@ -604,3 +604,33 @@ TEST_CASE("module view state is saved with the project, never undoable or unsave
     REQUIRE(session.open(project.getFile()));
     CHECK(session.deviceViewState(eq) == view);
 }
+
+TEST_CASE("notes past a MIDI clip's end lengthen it in the same undo step", "[integration]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    tracktion::Engine engine{"fd-integration-tests"};
+    fd::engine::registerDevices(engine);
+    fd::engine::Session session(engine);
+    using fd::model::Note;
+    const auto track = session.snapshot()->tracks.front().id;
+    const auto clip = session.createMidiClip(track, 2.0, 2.0); // bar 2 (120 BPM)
+    REQUIRE(clip != 0);
+    auto info = [&] {
+        session.updateSnapshotNow();
+        return *fd::model::findClip(*session.snapshot(), clip)->first;
+    };
+
+    // A note running into the next bar: the clip grows to that bar's end.
+    session.setNotes(clip, {Note{60, 3.0, 2.0, 0.8f}}); // beats 3..5 = 1.5 s..2.5 s past the start
+    CHECK(info().length == Approx(4.0));
+    CHECK(info().notes.size() == 1);
+    session.undo(); // notes and length together
+    CHECK(info().length == Approx(2.0));
+    CHECK(info().notes.empty());
+
+    // With a clip right after it, the clip stays as it is.
+    REQUIRE(session.createMidiClip(track, 4.0, 2.0) != 0);
+    session.setNotes(clip, {Note{60, 3.0, 2.0, 0.8f}});
+    CHECK(info().length == Approx(2.0));
+    CHECK(info().notes.size() == 1);
+}

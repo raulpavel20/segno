@@ -121,6 +121,13 @@ struct NoteDrag
 [[nodiscard]] std::vector<Note> offsetVelocity(const std::vector<Note>& notes, const std::set<std::size_t>& which,
                                                float delta);
 
+/// Where a MIDI clip should end so its notes play (open question B15, decided 2026-10-09):
+/// when the last note ends past the clip, the end of the bar it ends in, unless another clip
+/// on the track (`trackClips`) is in the way. nullopt leaves the clip as it is (notes past its
+/// end are kept, drawn faded).
+[[nodiscard]] std::optional<double> lengthenedClipEnd(const ClipInfo& clip, const std::vector<ClipInfo>& trackClips,
+                                                      const std::vector<Note>& notes, const TempoMap& tempo);
+
 /// No overlapping notes of the same pitch (MIDI can't tell them apart). The notes in `placed`
 /// win: another note of the same pitch that starts inside a placed note is removed, one that
 /// starts before it is shortened to end where it starts. Among placed notes the later one wins

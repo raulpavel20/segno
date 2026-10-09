@@ -249,3 +249,41 @@ TEST_CASE("velocities are MIDI steps", "[fast]")
     for (int k = 1; k <= 127; ++k)
         CHECK(midiVelocity(static_cast<float>(k) / 127.0f) == static_cast<float>(k) / 127.0f);
 }
+
+TEST_CASE("notes past a clip's end lengthen it to that bar, unless a clip is in the way", "[fast]")
+{
+    const TempoMap tempo; // 120 BPM, 4/4: a bar is 2 s
+    ClipInfo clip;
+    clip.id = 1;
+    clip.kind = ClipInfo::Kind::Midi;
+    clip.start = 2.0; // bar 2
+    clip.length = 2.0;
+    const std::vector<ClipInfo> alone{clip};
+
+    // Inside the clip: nothing to do.
+    CHECK_FALSE(lengthenedClipEnd(clip, alone, {note(60, 3.0, 1.0)}, tempo));
+    // Ending in the next bar (content beat 5 = 4.5 s, in bar 3, which ends at 6 s): to its end.
+    auto end = lengthenedClipEnd(clip, alone, {note(60, 4.5, 0.5)}, tempo);
+    REQUIRE(end);
+    CHECK(*end == Approx(6.0));
+    // A note ending exactly on a bar line (beat 8 = 6 s) ends the clip there, not a bar later.
+    end = lengthenedClipEnd(clip, alone, {note(60, 4.0, 4.0)}, tempo);
+    REQUIRE(end);
+    CHECK(*end == Approx(6.0));
+    // A trimmed start (offset) shifts where the notes are.
+    ClipInfo trimmed = clip;
+    trimmed.offset = 1.0; // content starts at 1 s
+    end = lengthenedClipEnd(trimmed, {trimmed}, {note(60, 6.0, 0.5)}, tempo); // ends at 1 + 3.25 = 4.25 s
+    REQUIRE(end);
+    CHECK(*end == Approx(6.0));
+
+    // Another clip after it, inside the new range: leave the clip as it is.
+    ClipInfo next;
+    next.id = 2;
+    next.start = 5.0;
+    next.length = 1.0;
+    CHECK_FALSE(lengthenedClipEnd(clip, {clip, next}, {note(60, 4.5, 0.5)}, tempo));
+    // ...but one further away doesn't matter.
+    next.start = 6.0;
+    CHECK(lengthenedClipEnd(clip, {clip, next}, {note(60, 4.5, 0.5)}, tempo));
+}

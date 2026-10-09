@@ -574,6 +574,28 @@ void Session::setNotes(std::uint64_t clipId, const std::vector<model::Note>& not
     for (size_t i = paired; i < added.size(); ++i)
         list.addNote(added[i].pitch, te::BeatPosition::fromBeats(added[i].start), te::BeatDuration::fromBeats(added[i].length),
                      midiVelocity(added[i].velocity), 0, undo);
+
+    // Notes past the clip's end lengthen it to the end of that bar when nothing is in the way
+    // (B15), in the same undo step.
+    if (auto* track = midi->getClipTrack())
+    {
+        std::vector<model::ClipInfo> clips;
+        for (auto* c : track->getClips())
+            clips.push_back(clipInfo(*c, 0));
+        model::TempoMap tempo;
+        if (auto* t = impl_->edit->tempoSequence.getTempo(0))
+            tempo.bpm = t->getBpm();
+        if (auto* sig = impl_->edit->tempoSequence.getTimeSig(0))
+        {
+            tempo.numerator = sig->numerator;
+            tempo.denominator = sig->denominator;
+        }
+        if (const auto end = model::lengthenedClipEnd(clipInfo(*midi, 0), clips, notes, tempo))
+        {
+            const auto pos = midi->getPosition();
+            midi->setPosition({{pos.getStart(), te::TimePosition::fromSeconds(*end)}, pos.getOffset()});
+        }
+    }
 }
 
 void Session::setMidiInputTarget(std::optional<std::uint64_t> trackId)

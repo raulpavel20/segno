@@ -248,6 +248,7 @@ A software-renderer benchmark also runs offscreen in the integration tests (`"[.
   - the ruler on top, with the song's bar numbers and the clip's extent in its colour; click to move the playhead, drag to zoom and scroll as in the arrangement;
   - the note grid: rows for black keys a tone darker, a line under every C and between E and F;
   - outside the clip the grid is shaded; notes there are kept but don't play, and are drawn faded;
+  - drawing or moving notes past the clip's end lengthens the clip to the end of the bar the last note ends in, in the same undo step. If another clip on the track is in that range, the clip stays as it is and those notes stay outside (B15). The rule lives in `Session::setNotes`, so it holds for every way of writing notes;
   - the velocity lane at the bottom.
 - **Notes:** filled in the clip's colour, mixed toward the control tone at low velocity; the selection is lighter with an outline. Notes wide enough show their name.
 - **Editing.** Pure functions on a plain list of notes (`model/NoteEditing`, tested); the view draws the result live. Every gesture ends in one `Session::setNotes`, which applies the difference as one undo step.

@@ -355,6 +355,27 @@ std::vector<Note> offsetVelocity(const std::vector<Note>& notes, const std::set<
     return out;
 }
 
+std::optional<double> lengthenedClipEnd(const ClipInfo& clip, const std::vector<ClipInfo>& trackClips,
+                                        const std::vector<Note>& notes, const TempoMap& tempo)
+{
+    if (notes.empty())
+        return std::nullopt;
+    double lastBeat = 0.0;
+    for (const auto& n : notes)
+        lastBeat = std::max(lastBeat, n.start + n.length);
+    const double contentStart = clip.start - clip.offset;
+    const double lastEnd = contentStart + tempo.secondsForBeats(lastBeat);
+    if (lastEnd <= clip.end() + 1e-6)
+        return std::nullopt;
+    // The end of the bar the last note ends in (on the song's bars).
+    const double barBeats = tempo.beatsPerBar();
+    const double end = tempo.secondsForBeats(std::ceil(tempo.beatsForSeconds(lastEnd) / barBeats - kEps) * barBeats);
+    for (const auto& other : trackClips)
+        if (other.id != clip.id && other.start < end - 1e-6 && other.end() > clip.end() + 1e-6)
+            return std::nullopt; // something is in the way: leave the clip as it is
+    return end;
+}
+
 NoteEdit resolveOverlaps(const std::vector<Note>& notes, const std::set<std::size_t>& placed)
 {
     auto items = itemsOf(notes, valid(notes, placed));
