@@ -117,7 +117,7 @@ TEST_CASE("automation: the lane's curve is what the engine draws and plays", "[i
     for (int i = 0; i < 12; ++i, time += 0.3 + 0.1 * i)
         points.push_back({time, value(rng), i % 4 == 3 ? 0.0f : fd::model::curveForBend(bend(rng))});
     REQUIRE(a.session->setAutomation(volume, points));
-    const auto& lane = *a.channel(t).lane("volume");
+    const auto lane = *a.channel(t).lane("volume"); // a copy: snapshots are replaced
     REQUIRE(lane.points.size() == points.size());
 
     auto& curve = a.param(volume).getCurve();
@@ -136,7 +136,7 @@ TEST_CASE("automation: a straight segment is a straight move of the control", "[
     Automation a;
     const auto t = a.track(0);
     REQUIRE(a.session->addDevice(t, "fd:eq") != 0);
-    const auto& info = a.channel(t);
+    const auto info = a.channel(t);
     // A frequency on a skewed knob: halfway along the segment is the knob's centre value.
     const Session::LaneTarget freq{t, moduleLane(info, 0, "band1.freq")};
     REQUIRE(a.session->setAutomation(freq, {{0.0, 0.0f, 0.0f}, {2.0, 1.0f, 0.0f}}));
@@ -167,7 +167,7 @@ TEST_CASE("automation: a rendered volume lane follows the drawn curve", "[integr
     // Holds, a slow ramp, a bend and a step down.
     const AutomationPoints points{{1.0, zero, 0.0f}, {9.0, low, fd::model::curveForBend(0.5f)}, {10.0, zero, 0.0f}};
     REQUIRE(a.session->setAutomation(volume, points));
-    const auto& lane = a.channel(t).lane("volume")->points;
+    const auto lane = a.channel(t).lane("volume")->points;
     const auto y = a.render(0.0, 11.0);
     auto renderedDb = [&](double s) { return 20.0 * std::log10(std::abs(y.at(0, static_cast<int>(s * kRate))) / 0.5); };
     auto drawnDb = [&](double s) { return *a.session->lanePlain(volume, fd::model::automationValueAt(lane, s)); };
@@ -193,11 +193,12 @@ TEST_CASE("automation: one point holds; steps step; settings that change latency
     CHECK(a.played(pan, 9.0) == Approx(0.25f));
 
     REQUIRE(a.session->addDevice(t, "fd:compressor") != 0);
-    const auto& info = a.channel(t);
+    const auto info = a.channel(t);
     // A choice: values snap to its steps and hold until the next point.
     const Session::LaneTarget character{t, moduleLane(info, 0, "character")};
     REQUIRE(a.session->setAutomation(character, {{0.0, 0.1f, 0.0f}, {2.0, 0.9f, 0.0f}}));
-    const auto* lane = a.channel(t).lane(character.lane);
+    const auto withLane = a.channel(t);
+    const auto* lane = withLane.lane(character.lane);
     REQUIRE(lane != nullptr);
     CHECK(lane->steps == 2); // two characters
     CHECK(lane->points[0].value == 0.0f);
@@ -310,7 +311,7 @@ TEST_CASE("automation: lanes are saved with the project; older projects keep the
     Automation a;
     const auto t = a.track(0);
     REQUIRE(a.session->addDevice(t, "fd:eq") != 0);
-    const auto& info = a.channel(t);
+    const auto info = a.channel(t);
     const Session::LaneTarget freq{t, moduleLane(info, 0, "band1.freq")};
     REQUIRE(a.session->setAutomation(freq, {{0.5, 0.3f, fd::model::curveForBend(0.4f)}, {1.5, 0.8f, 0.0f}}));
     REQUIRE(a.session->showLane({t, "pan"}));
@@ -322,7 +323,7 @@ TEST_CASE("automation: lanes are saved with the project; older projects keep the
     juce::TemporaryFile project(Session::fileExtension);
     REQUIRE(a.session->saveAs(project.getFile()));
     REQUIRE(a.session->open(project.getFile()));
-    const auto& loaded = a.channel(saved.id);
+    const auto loaded = a.channel(saved.id);
     REQUIRE(loaded.lanes.size() == saved.lanes.size());
     for (size_t i = 0; i < saved.lanes.size(); ++i)
     {
@@ -370,7 +371,7 @@ TEST_CASE("automation: lanes are saved with the project; older projects keep the
     REQUIRE(gainDb != 0.0f);
     REQUIRE(xml->writeTo(project.getFile()));
     REQUIRE(a.session->open(project.getFile()));
-    const auto& old = a.channel(saved.id);
+    const auto old = a.channel(saved.id);
     CHECK(old.mix.volumeDb == Approx(-6.0f).margin(0.01f));
     auto handle = a.session->openDevice(old.devices.at(0).id);
     REQUIRE(handle != nullptr);
@@ -422,7 +423,8 @@ TEST_CASE("automation: armed, a held control writes its lane while playing, as o
     a.session->stop();
     pump(0.3);
     juce::MessageManager::getInstance()->runDispatchLoopUntil(600);
-    const auto* lane = a.channel(t).lane("volume");
+    const auto recorded = a.channel(t);
+    const auto* lane = recorded.lane("volume");
     REQUIRE(lane != nullptr); // shown, since it has points
     CHECK(lane->points.size() >= 2);
     CHECK(lane->on); // recording isn't an override
