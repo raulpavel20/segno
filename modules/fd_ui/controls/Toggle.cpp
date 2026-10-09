@@ -14,6 +14,20 @@ void Toggle::setAutomationState(AutomationState state)
     repaint();
 }
 
+void Toggle::setArmStyle(bool arm)
+{
+    arm_ = arm;
+    repaint();
+}
+
+void Toggle::setPartlyOn(bool partly)
+{
+    if (partly == partly_)
+        return;
+    partly_ = partly;
+    repaint();
+}
+
 void Toggle::mouseDown(const juce::MouseEvent& e)
 {
     popup_ = e.mods.isPopupMenu();
@@ -38,6 +52,30 @@ void Toggle::paintButton(juce::Graphics& g, bool highlighted, bool down)
     const auto& t = Theme::current();
     const auto bounds = getLocalBounds().toFloat();
     const bool on = getToggleState();
+
+    // An arm button: a record dot, filled when armed, a ring when the selection arms it.
+    if (arm_)
+    {
+        const auto dot = bounds.withSizeKeepingCentre(std::min(bounds.getWidth(), bounds.getHeight()),
+                                                      std::min(bounds.getWidth(), bounds.getHeight()))
+                             .reduced(bounds.getHeight() * 0.25f);
+        if (on)
+        {
+            g.setColour(t.lift(t.record, highlighted, down));
+            g.fillEllipse(dot);
+        }
+        else
+        {
+            g.setColour(t.lift(t.surface3, highlighted, down));
+            g.fillEllipse(dot);
+            if (partly_)
+            {
+                g.setColour(t.record);
+                g.drawEllipse(dot.reduced(0.75f), 1.5f);
+            }
+        }
+        return;
+    }
 
     // A text-less square toggle is a round indicator (e.g. device power).
     if (getButtonText().isEmpty() && getWidth() == getHeight())

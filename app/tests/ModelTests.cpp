@@ -529,7 +529,11 @@ TEST_CASE("channel strips line up on the grid in every combination", "[fast]")
                     for (const auto& pre : s.sendPre)
                         CHECK(pre.isEmpty() == narrow);           // nor Pre switches
                     // Top to bottom, never overlapping; the fader fills down to the value row.
-                    CHECK(s.name.bottom() <= (modules ? s.modules.front().y : s.pan.y));
+                    CHECK(s.name.bottom() <= s.input.y);
+                    CHECK(s.input.bottom() <= (modules ? s.modules.front().y : s.pan.y));
+                    CHECK(s.arm.isEmpty() == narrow); // three buttons only fit a wide strip
+                    if (!narrow)
+                        CHECK(s.arm.right() <= 96.0 - 8.0);
                     CHECK(s.pan.bottom() <= s.mute.y);
                     CHECK(s.mute.bottom() <= s.readout.y);
                     CHECK(s.readout.bottom() <= s.fader.y);

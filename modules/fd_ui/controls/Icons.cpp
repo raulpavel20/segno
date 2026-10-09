@@ -203,6 +203,30 @@ void IconButton::setIcon(Icon icon)
     repaint();
 }
 
+void IconButton::setRecordAccent(bool record)
+{
+    record_ = record;
+    repaint();
+}
+
+void IconButton::mouseDown(const juce::MouseEvent& e)
+{
+    popup_ = e.mods.isPopupMenu() && onPopupMenu != nullptr;
+    if (popup_)
+    {
+        onPopupMenu();
+        return;
+    }
+    juce::Button::mouseDown(e);
+}
+
+void IconButton::mouseUp(const juce::MouseEvent& e)
+{
+    if (std::exchange(popup_, false))
+        return;
+    juce::Button::mouseUp(e);
+}
+
 void IconButton::paintButton(juce::Graphics& g, bool highlighted, bool down)
 {
     const auto& t = Theme::current();
@@ -210,7 +234,8 @@ void IconButton::paintButton(juce::Graphics& g, bool highlighted, bool down)
     const bool on = getToggleState();
     if (on)
     {
-        g.setColour(down ? t.active.darker(0.15f) : t.active);
+        const auto fill = record_ ? t.record : t.active;
+        g.setColour(down ? fill.darker(0.15f) : fill);
         g.fillRoundedRectangle(r, t.radiusControl);
     }
     else if (highlighted || down)

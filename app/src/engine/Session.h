@@ -346,6 +346,18 @@ public:
     /// assistant's "record 8 bars").
     void recordUntil(double seconds);
     [[nodiscard]] bool isRecording() const;
+    /// Where the current pass records from (seconds), until it ends: before it, the count-in.
+    [[nodiscard]] std::optional<double> recordingFrom() const;
+    /// A recording in progress (recording.md §5): its track, where it starts, and whether it's audio.
+    struct LiveRecording
+    {
+        std::uint64_t track = 0;
+        double start = 0.0;
+        bool audio = false;
+    };
+    [[nodiscard]] std::vector<LiveRecording> liveRecordings() const;
+    /// Draws an audio recording in progress, its first `seconds`, into `area`.
+    void drawLiveWaveform(juce::Graphics& g, std::uint64_t track, juce::Rectangle<int> area, double seconds) const;
     /// The clips the last pass made, once it has ended.
     std::function<void(const std::vector<std::uint64_t>& clips)> onRecorded;
     /// The count-in before recording from stopped (a setting kept between projects).

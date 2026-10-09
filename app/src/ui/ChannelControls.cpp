@@ -187,14 +187,22 @@ void SendBar::update(const model::SendInfo& send, const juce::String& returnName
 // ---- ChannelToggle ------------------------------------------------------------------------
 
 ChannelToggle::ChannelToggle(engine::Session& session, Kind kind, std::uint64_t channel, std::uint64_t returnTrack)
-    : ui::Toggle(kind == Kind::Mute ? "M" : kind == Kind::Solo ? "S" : "Pre"), session_(session), kind_(kind),
-      channel_(channel), return_(returnTrack)
+    : ui::Toggle(kind == Kind::Mute ? "M" : kind == Kind::Solo ? "S" : kind == Kind::Arm ? "" : "Pre"), session_(session),
+      kind_(kind), channel_(channel), return_(returnTrack)
 {
     setClickingTogglesState(false); // the snapshot says what it is
     setWantsKeyboardFocus(false);
+    setArmStyle(kind == Kind::Arm);
     setTooltip(kind == Kind::Mute   ? "Mute (Alt+M)"
                : kind == Kind::Solo ? "Solo (Alt+S); Ctrl+click adds to the soloed tracks"
+               : kind == Kind::Arm  ? "Arm for recording (Alt+R); Ctrl+click arms one more"
                                     : "Send before the volume (pre-fader)");
+}
+
+void ChannelToggle::updateArm(const model::InputInfo& input)
+{
+    setToggleState(input.armed, juce::dontSendNotification);
+    setPartlyOn(input.softArmed);
 }
 
 void ChannelToggle::update(bool on)
@@ -215,6 +223,9 @@ void ChannelToggle::clicked()
         break;
     case Kind::PreFader:
         session_.setSend(channel_, return_, std::nullopt, on);
+        break;
+    case Kind::Arm: // a click arms this one alone; Ctrl+click one more (recording.md §4)
+        session_.setArmed(channel_, on, !juce::ModifierKeys::currentModifiers.isCommandDown());
         break;
     }
     setToggleState(on, juce::dontSendNotification); // at once; the snapshot confirms

@@ -32,9 +32,10 @@ struct ChannelStripOptions
 struct ChannelStripSlots
 {
     HeaderRect colour, name;
+    HeaderRect input;                       // what a track listens to (recording.md §3): a row under the name
     std::vector<HeaderRect> modules;        // one row per module name (moduleRows of them)
     std::vector<HeaderRect> sends, sendPre; // one per return: the bar and its Pre switch
-    HeaderRect pan, mute, solo, readout;
+    HeaderRect pan, mute, solo, arm, readout; // arm: beside mute and solo, unless narrow
     HeaderRect fader, scale, meter;         // side by side, filling the height that's left
     HeaderRect value;                       // the volume, typed
 };

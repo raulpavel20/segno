@@ -133,6 +133,13 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     session_.automationMenu = [this](const engine::Session::ParamTarget& target, juce::PopupMenu& menu) {
         addAutomationItems(session_, target, menu);
     };
+    // A pass's new clips are selected, so the inspector shows them (recording.md §5).
+    session_.onRecorded = [this](const std::vector<std::uint64_t>& clips) {
+        session_.updateSnapshotNow();
+        lastArea_ = Area::Arrangement;
+        arrangement_.setSelection(model::withClips(*session_.snapshot(), {clips.begin(), clips.end()},
+                                                   arrangement_.selection().channel, arrangement_.selection().channel));
+    };
     arrangement_.onMessage = [this](const juce::String& m) { showWarning(m); };
     detail_.chain().onActivated = [this] { lastArea_ = Area::Detail; };
     detail_.pianoRoll().onActivated = [this] { lastArea_ = Area::Clip; };
@@ -184,6 +191,7 @@ Shell::~Shell()
     session_.viewStateProvider = nullptr;
     session_.onLaneRevealed = nullptr;
     session_.automationMenu = nullptr;
+    session_.onRecorded = nullptr;
 }
 
 // ---- actions -------------------------------------------------------------------------------
@@ -218,6 +226,31 @@ void Shell::registerActions()
     actions_.add({.id = "transport.metronome", .name = "Metronome", .category = "Transport", .keys = {key('m', kCmd)},
                   .perform = [&s] { s.setMetronome(!s.isMetronomeOn()); },
                   .isToggled = [&s] { return s.isMetronomeOn(); }});
+    // Recording (C5, docs/design/recording.md §5, §11).
+    actions_.add({.id = "transport.record", .name = "Record", .category = "Transport",
+                  .keys = {key('r', kCmd), juce::KeyPress(juce::KeyPress::F9Key)},
+                  .perform = [&s] { s.record(); }, .isToggled = [&s] { return s.isRecording(); }});
+    actions_.add({.id = "track.arm", .name = "Arm selected track", .category = "Track", .keys = {key('r', kAlt)},
+                  .perform = [this, &s] {
+                      if (const auto t = selectedTrackInfo(); t && t->holdsClips())
+                          s.setArmed(t->id, !t->input.armed, true);
+                  },
+                  .isEnabled = [this] { return selectedTrackInfo() && selectedTrackInfo()->holdsClips(); }});
+    actions_.add({.id = "transport.countIn", .name = "Count-in", .category = "Transport", .keys = {key('c', kCmd | kAlt)},
+                  .perform = [this, &s] {
+                      // Off, or back to the last length (one bar at first).
+                      if (s.countIn() == model::CountIn::Off)
+                          s.setCountIn(lastCountIn_);
+                      else
+                      {
+                          lastCountIn_ = s.countIn();
+                          s.setCountIn(model::CountIn::Off);
+                      }
+                  },
+                  .isToggled = [&s] { return s.countIn() != model::CountIn::Off; }});
+    actions_.add({.id = "transport.punch", .name = "Punch in/out (record inside the loop)", .category = "Transport",
+                  .keys = {key('u', kCmd | kAlt)}, .perform = [&s] { s.setPunch(!s.punch()); },
+                  .isToggled = [&s] { return s.punch(); }});
     actions_.add({.id = "view.follow", .name = "Follow playhead", .category = "View", .keys = {key('f', kCmd | kShift)},
                   .perform = [this] { arrangement_.setFollowEnabled(!arrangement_.isFollowEnabled()); },
                   .isToggled = [this] { return arrangement_.isFollowEnabled(); }});
@@ -624,25 +657,49 @@ void Shell::openProject()
 
 void Shell::saveProjectAs(std::function<void()> then)
 {
-    const auto initial = session_.file() ? *session_.file()
-                                         : juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
-                                               .getChildFile(juce::String("Untitled") + engine::Session::fileExtension);
+    // Beside the project's folder (Save As makes a folder of its own), or in Documents.
+    auto initial = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
+                       .getChildFile(juce::String("Untitled") + engine::Session::fileExtension);
+    if (const auto current = session_.file())
+        initial = current->getParentDirectory().getFileName() == current->getFileNameWithoutExtension()
+                      ? current->getParentDirectory().getSiblingFile(current->getFileName())
+                      : *current;
     chooser_ = std::make_unique<juce::FileChooser>("Save project", initial, juce::String("*") + engine::Session::fileExtension);
     chooser_->launchAsync(juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::warnAboutOverwriting,
                           [this, next = std::move(then)](const juce::FileChooser& fc) {
-                              auto file = fc.getResult();
-                              if (file == juce::File())
+                              const auto chosen = fc.getResult();
+                              if (chosen == juce::File())
                                   return;
-                              if (!file.hasFileExtension(engine::Session::fileExtension))
-                                  file = file.withFileExtension(engine::Session::fileExtension);
-                              if (!session_.saveAs(file))
+                              // A project is a folder: Name/Name.segno, with its recordings (ADR 0030).
+                              const juce::File file(model::projectFileFor(chosen.getFullPathName().toStdString()).string());
+                              auto save = [this, file, next] {
+                                  if (!session_.saveAs(file))
+                                  {
+                                      showWarning("Could not save " + file.getFullPathName());
+                                      return;
+                                  }
+                                  updateTitle();
+                                  if (next)
+                                      next();
+                              };
+                              if (file.existsAsFile() && file != session_.file())
                               {
-                                  showWarning("Could not save " + file.getFullPathName());
+                                  // The chooser asked about the name chosen; this is the project inside its folder.
+                                  juce::AlertWindow::showAsync(
+                                      juce::MessageBoxOptions()
+                                          .withIconType(juce::MessageBoxIconType::QuestionIcon)
+                                          .withTitle("Replace " + file.getFileNameWithoutExtension() + "?")
+                                          .withMessage("A project with this name is already in " +
+                                                       file.getParentDirectory().getFullPathName() + ".")
+                                          .withButton("Replace")
+                                          .withButton("Cancel"),
+                                      [save](int button) {
+                                          if (button == 1)
+                                              save();
+                                      });
                                   return;
                               }
-                              updateTitle();
-                              if (next)
-                                  next();
+                              save();
                           });
 }
 

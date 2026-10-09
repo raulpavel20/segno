@@ -544,6 +544,9 @@ void Session::Impl::endRecordingPass()
     recorded.clear();
     // tracktion closes the step once edits pause; the pass's name stays on it.
     recordingPass.reset();
+    recordFrom.reset();
+    liveStarts.clear();
+    liveFiles.clear();
     if (auto clips = std::exchange(recordedClips, {}); !clips.empty() && owner.onRecorded)
         owner.onRecorded(clips);
 }

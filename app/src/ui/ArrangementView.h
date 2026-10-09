@@ -206,7 +206,7 @@ private:
     struct HeaderControls
     {
         HeaderControls(engine::Session& session, const model::TrackInfo& channel);
-        ChannelToggle mute, solo;
+        ChannelToggle mute, solo, arm;
         VolumeBar volume;
         PanBar pan;
         ChannelMeter meter;

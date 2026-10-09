@@ -23,6 +23,9 @@ TransportBar::TransportBar(engine::Session& session, const ActionRegistry& actio
 {
     add(play_, "transport.playStop");
     add(stop_, "transport.toStart");
+    add(record_, "transport.record");
+    record_.setRecordAccent(true);
+    record_.onPopupMenu = [this] { showRecordMenu(); };
     add(loop_, "transport.loop");
     add(metronome_, "transport.metronome");
     add(automationArm_, "automation.arm");
@@ -142,6 +145,28 @@ void TransportBar::frame(double positionSeconds, const model::TempoMap& tempo)
     }
 }
 
+void TransportBar::showRecordMenu()
+{
+    using C = model::CountIn;
+    juce::PopupMenu countIn, midi;
+    const auto now = session_.countIn();
+    for (const auto& [value, name] : {std::pair{C::Off, "Off"}, std::pair{C::OneBeat, "1 beat"}, std::pair{C::TwoBeats, "2 beats"},
+                                      std::pair{C::OneBar, "1 bar"}, std::pair{C::TwoBars, "2 bars"}})
+        countIn.addItem(name, true, now == value, [this, v = value] { session_.setCountIn(v); });
+    const bool overdub = session_.midiOverdub();
+    midi.addItem("New takes", true, !overdub, [this] { session_.setMidiOverdub(false); });
+    midi.addItem("Overdub: laps merge into one clip", true, overdub, [this] { session_.setMidiOverdub(true); });
+    juce::PopupMenu menu;
+    menu.addSubMenu("Count-in", countIn);
+    actions_.addMenuItem(menu, "transport.punch");
+    menu.addSubMenu("MIDI loop recording", midi);
+    menu.addSeparator();
+    juce::PopupMenu::Item settings(juce::String::fromUTF8("Recording settings\xE2\x80\xA6"));
+    settings.setAction([this] { actions_.perform("app.audioSettings"); });
+    menu.addItem(std::move(settings));
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&record_));
+}
+
 void TransportBar::paint(juce::Graphics& g)
 {
     const auto& t = ui::Theme::current();
@@ -179,9 +204,22 @@ void TransportBar::paint(juce::Graphics& g)
         g.setFont(ui::font(ui::TextStyle::Caption));
         g.drawText(unit, box, juce::Justification::centredLeft, false);
     };
-    const auto bb = tempo_.barsBeatsForSeconds(std::max(0.0, position_));
-    field(juce::String(bb.bar) + ". " + juce::String(bb.beat) + ". " + juce::String(bb.sixteenth), "", 84,
-          ui::TextStyle::ValueLarge);
+    // During a count-in the position counts the beats down to the recording (recording.md §9).
+    if (const auto from = session_.recordingFrom(); from && session_.isPlaying() && position_ < *from - 1e-3)
+    {
+        const auto beats = static_cast<int>(std::ceil(tempo_.beatsForSeconds(*from) - tempo_.beatsForSeconds(position_) - 1e-6));
+        auto box = r.removeFromLeft(84);
+        r.removeFromLeft(16);
+        g.setColour(t.record);
+        g.setFont(ui::font(ui::TextStyle::ValueLarge));
+        g.drawText(juce::String::fromUTF8("\xE2\x88\x92") + juce::String(beats), box, juce::Justification::centredLeft, false);
+    }
+    else
+    {
+        const auto bb = tempo_.barsBeatsForSeconds(std::max(0.0, position_));
+        field(juce::String(bb.bar) + ". " + juce::String(bb.beat) + ". " + juce::String(bb.sixteenth), "", 84,
+              ui::TextStyle::ValueLarge);
+    }
     field(formatTime(position_), "", 84, ui::TextStyle::ValueMedium);
 
     g.setColour(t.textTertiary);
@@ -199,6 +237,7 @@ void TransportBar::resized()
     bar.groupLeft();
     play_.setBounds(bar.left());
     stop_.setBounds(bar.left());
+    record_.setBounds(bar.left());
     bar.groupLeft();
     loop_.setBounds(bar.left());
     metronome_.setBounds(bar.left());
@@ -354,6 +393,7 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
     };
     addChildComponent(laneName_);
     addChildComponent(assignments_);
+    addChildComponent(input_);
 }
 
 void InspectorPanel::setContext(const model::PanelContext& context, const model::TempoMap& tempo,
@@ -381,6 +421,8 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
     }
     assignments_.setLane(has(model::InspectorSection::Assignments) ? lane_ : std::nullopt);
     assignments_.setVisible(has(model::InspectorSection::Assignments));
+    input_.setTrack(has(model::InspectorSection::Input) ? channel_ : std::nullopt);
+    input_.setVisible(has(model::InspectorSection::Input));
     mix_.setChannel(has(model::InspectorSection::Mix) ? channel_ : std::nullopt);
     sends_.setChannel(has(model::InspectorSection::Sends) ? channel_ : std::nullopt, returns);
     resized();
@@ -460,6 +502,7 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
     case S::Master: return {{"Modules", modules, true}};
     case S::Mix:
     case S::Sends:
+    case S::Input:
     case S::Assignments: break; // components
     }
     return {};
@@ -473,7 +516,7 @@ void InspectorPanel::resized()
     auto r = getLocalBounds().withTrimmedTop(header_.getBottom() + t.shell.itemGap).reduced(t.shell.padding, 0);
 
     static const std::map<S, juce::String> titles{{S::Point, "Point"}, {S::Points, "Points"}, {S::Lane, "Lane"},
-                                                  {S::Assignments, "Assignments"},
+                                                  {S::Assignments, "Assignments"}, {S::Input, "Input"},
                                                   {S::Clip, "Clip"},   {S::Clips, "Clips"},   {S::Track, "Track"},
                                                   {S::Return, "Return"}, {S::Master, "Master"}, {S::Mix, "Mix"},
                                                   {S::Sends, "Sends"}};
@@ -483,6 +526,7 @@ void InspectorPanel::resized()
         const int height = s == S::Mix           ? mix_.preferredHeight()
                            : s == S::Sends       ? sends_.preferredHeight()
                            : s == S::Assignments ? assignments_.preferredHeight()
+                           : s == S::Input       ? input_.preferredHeight()
                                                  : static_cast<int>(properties(s).size()) * t.shell.rowHeight;
         sections.push_back({titles.at(s), height});
     }
@@ -490,6 +534,7 @@ void InspectorPanel::resized()
     mix_.setBounds({});
     sends_.setBounds({});
     assignments_.setBounds({});
+    input_.setBounds({});
     for (size_t i = 0; i < sections_.size(); ++i)
         if (sections_[i] == S::Mix)
             mix_.setBounds(stack_.content(i));
@@ -497,6 +542,8 @@ void InspectorPanel::resized()
             sends_.setBounds(stack_.content(i));
         else if (sections_[i] == S::Assignments)
             assignments_.setBounds(stack_.content(i));
+        else if (sections_[i] == S::Input)
+            input_.setBounds(stack_.content(i));
         else if (sections_[i] == S::Lane) // the Name row
             laneName_.setBounds(stack_.content(i)
                                     .withTrimmedLeft(t.shell.propertyLabelWidth)

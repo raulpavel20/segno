@@ -6,6 +6,7 @@
 #include "ui/ActionRegistry.h"
 #include "ui/DeviceChain.h"
 #include "ui/LaneAssignments.h"
+#include "ui/TrackInputs.h"
 #include "ui/PianoRoll.h"
 
 #include <fd_ui/fd_ui.h>
@@ -69,7 +70,9 @@ private:
 
     engine::Session& session_;
     const ActionRegistry& actions_;
-    ui::IconButton play_{ui::Icon::Play}, stop_{ui::Icon::Stop};
+    ui::IconButton play_{ui::Icon::Play}, stop_{ui::Icon::Stop}, record_{ui::Icon::Record};
+    /// The Record button's menu (recording.md §9): count-in, punch, MIDI loop recording.
+    void showRecordMenu();
     ui::IconButton loop_{ui::Icon::Loop}, metronome_{ui::Icon::Metronome}, keyboard_{ui::Icon::Keyboard};
     // Automation (C4): arm (touch recording), and turn every lane back on (lit while one is off).
     ui::IconButton automationArm_{ui::Icon::AutomationArm}, automationOn_{ui::Icon::AutomationOn};
@@ -158,6 +161,7 @@ private:
     /// The lane's name, typed (one undo step); empty: named after its assignments.
     juce::TextEditor laneName_;
     LaneAssignments assignments_{session_};
+    TrackInputSection input_{session_};
     model::TempoMap tempo_;
 };
 

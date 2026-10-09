@@ -145,7 +145,8 @@ PanelContext panelContext(const Selection& selection, const Snapshot& snapshot, 
     switch (channel->role)
     {
     case TrackInfo::Role::Track:
-        ctx.inspector.insert(ctx.inspector.end(), {InspectorSection::Track, InspectorSection::Mix, InspectorSection::Sends});
+        ctx.inspector.insert(ctx.inspector.end(),
+                             {InspectorSection::Track, InspectorSection::Input, InspectorSection::Mix, InspectorSection::Sends});
         break;
     case TrackInfo::Role::Return:
         ctx.inspector.insert(ctx.inspector.end(), {InspectorSection::Return, InspectorSection::Mix});

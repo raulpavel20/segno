@@ -15,6 +15,9 @@
 #include "ui/DeviceChain.h"
 #include "ui/MixerView.h"
 #include "ui/Shell.h"
+#include "ui/TrackInputs.h"
+
+#include <tracktion_engine/testing/tracktion_EnginePlayer.h>
 
 using fd::mcp::Json;
 
@@ -184,9 +187,9 @@ TEST_CASE("the mixer in the arrangement: header controls, returns and master, th
     view.resized();
     view.frame(1.0 / 60.0, 0.0);
 
-    // Every row has its controls: two toggles per track and return, none on the master.
+    // Every row has its controls: mute, solo and (tracks) arm; none on the master.
     const auto toggles = findAll<fd::app::ChannelToggle>(view);
-    CHECK(toggles.size() == 2 * (snap->tracks.size() + snap->returns.size()));
+    CHECK(toggles.size() == 3 * snap->tracks.size() + 2 * snap->returns.size());
     CHECK(findAll<fd::app::VolumeBar>(view).size() == snap->tracks.size() + snap->returns.size() + 1);
     CHECK(findAll<fd::app::ChannelMeter>(view).size() == snap->tracks.size() + snap->returns.size() + 1);
 
@@ -387,7 +390,7 @@ TEST_CASE("one selection: the context panels follow the last click in the arrang
     CHECK(view.selection() == Selection{.channel = t0, .clips = {clip}});
     CHECK(detail.mode() == Mode::Clip);
     CHECK(detail.showsPianoRoll());
-    CHECK(inspector.sections() == std::vector{S::Clip, S::Track, S::Mix, S::Sends});
+    CHECK(inspector.sections() == std::vector{S::Clip, S::Track, S::Input, S::Mix, S::Sends});
     CHECK(f.session->midiInputTarget() == t0);
 
     // Another track's header: that track alone, in both panels, told once.
@@ -397,7 +400,7 @@ TEST_CASE("one selection: the context panels follow the last click in the arrang
     CHECK(view.selection() == Selection{.channel = t1});
     CHECK(detail.mode() == Mode::Devices);
     CHECK(detail.chain().track() == t1);
-    CHECK(inspector.sections() == std::vector{S::Track, S::Mix, S::Sends});
+    CHECK(inspector.sections() == std::vector{S::Track, S::Input, S::Mix, S::Sends});
     CHECK(f.session->midiInputTarget() != t0);
 
     // The clip again, then its own track's header: the track alone.
@@ -525,7 +528,7 @@ TEST_CASE("one selection in the mixer view: modules only, no inspector, the chai
     REQUIRE(actions.perform("view.mixer"));
     CHECK(inspector.isVisible());
     CHECK(detail.clipViewAvailable());
-    CHECK(inspector.sections().size() == 3);
+    CHECK(inspector.sections().size() == 4); // track, input, mix, sends
     click(view, laneAt(view, 0.5, 0));
     CHECK(detail.mode() == Mode::Clip);
     REQUIRE(actions.perform("view.mixer"));
@@ -1542,4 +1545,100 @@ TEST_CASE("popovers close on a click anywhere outside them, not inside or in the
     outside.clickedOn(window);
     CHECK(closed == 2);
     outside.detach();
+}
+
+TEST_CASE("recording: arm buttons, the INPUT section, Record and its menu, the recorded clip selected (C5a)",
+          "[integration]")
+{
+    using S = fd::model::InspectorSection;
+    ShellFixture f;
+    f.shell->setSize(1800, 1000);
+    auto& s = *f.session;
+    auto& actions = f.shell->actions();
+    const auto root = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("fd-shell-" + juce::Uuid().toString());
+    s.setUnsavedRoot(root);
+    tracktion::HostedAudioDeviceInterface::Parameters io;
+    io.sampleRate = 48000.0;
+    io.blockSize = 480;
+    io.inputChannels = 2;
+    io.outputChannels = 2;
+    tracktion::test_utilities::EnginePlayer player(f.engine, io);
+    juce::AudioBuffer<float> in(2, 480);
+    std::int64_t clock = 0;
+    auto pump = [&](double seconds) {
+        for (int b = 0; b < static_cast<int>(seconds * 100.0); ++b)
+        {
+            for (int c = 0; c < 2; ++c)
+                for (int i = 0; i < 480; ++i)
+                    in.setSample(c, i, 0.4f * std::sin(static_cast<float>(clock + i) * 0.03f));
+            clock += 480;
+            player.process(in);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil(1);
+        }
+    };
+    pump(0.1);
+    s.updateSnapshotNow();
+    const auto t0 = s.snapshot()->tracks[0].id;
+
+    // Track headers have an arm button; a click arms that track alone.
+    auto& view = f.shell->arrangement();
+    view.setAllTrackHeights(64.0);
+    std::vector<fd::app::ChannelToggle*> arms;
+    for (auto* toggle : findAll<fd::app::ChannelToggle>(view))
+        if (toggle->getButtonText().isEmpty())
+            arms.push_back(toggle);
+    REQUIRE(arms.size() >= 4);
+    arms[0]->triggerClick();
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    s.updateSnapshotNow();
+    CHECK(s.snapshot()->tracks[0].input.armed);
+
+    // A selected track's inspector has INPUT: choosing the audio input is one undo step.
+    view.selectTrack(t0);
+    auto& inspector = f.shell->inspector();
+    REQUIRE(std::find(inspector.sections().begin(), inspector.sections().end(), S::Input) != inspector.sections().end());
+    auto boxes = findAll<juce::ComboBox>(inspector);
+    REQUIRE(boxes.size() >= 4);
+    auto* audio = boxes[0]; // Audio, first
+    REQUIRE(audio->getNumItems() >= 2); // None, then the inputs
+    audio->setSelectedItemIndex(1, juce::sendNotificationSync);
+    s.updateSnapshotNow();
+    CHECK(s.snapshot()->tracks[0].input.audio == s.audioInputs().front().id);
+    CHECK(s.undoDescription() == "Track input");
+
+    // The Record button's menu, and the count-in and punch toggles.
+    REQUIRE(actions.perform("transport.countIn"));
+    CHECK(s.countIn() == fd::model::CountIn::OneBar);
+    REQUIRE(actions.perform("transport.countIn"));
+    CHECK(s.countIn() == fd::model::CountIn::Off);
+    REQUIRE(actions.perform("transport.punch"));
+    CHECK(s.punch());
+    REQUIRE(actions.perform("transport.punch"));
+
+    // Record: a pass, drawn while it grows, then its clip is selected.
+    REQUIRE(actions.perform("transport.record"));
+    CHECK(actions.isToggled("transport.record"));
+    pump(0.6);
+    CHECK_FALSE(s.liveRecordings().empty());
+    view.frame(0.0, s.position());
+    auto image = f.shell->createComponentSnapshot(f.shell->getLocalBounds());
+    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: a recording in progress
+    {
+        juce::PNGImageFormat png;
+        auto file = juce::File(dump).getChildFile("recording.png");
+        file.deleteFile();
+        if (auto out = file.createOutputStream())
+            png.writeImageToStream(image, *out);
+    }
+    REQUIRE(actions.perform("transport.playStop"));
+    pump(0.1);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(50);
+    s.updateSnapshotNow();
+    REQUIRE(s.snapshot()->tracks[0].clips.size() == 1);
+    CHECK(view.selection().clips == std::set{s.snapshot()->tracks[0].clips[0].id});
+
+    // The mixer view's strips: an arm button and the input row for tracks.
+    REQUIRE(actions.perform("view.mixer"));
+    CHECK_FALSE(findAll<fd::app::InputButton>(f.shell->mixer()).empty());
+    root.deleteRecursively();
 }

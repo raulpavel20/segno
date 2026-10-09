@@ -5,6 +5,7 @@
 #include <tracktion_engine/tracktion_engine.h>
 
 #include <algorithm>
+#include <map>
 #include <set>
 #include <utility>
 
@@ -115,6 +116,9 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// One undo step for a recording pass (audio, MIDI and automation together).
     void beginPass(const juce::String& name);
     std::vector<std::uint64_t> recordedClips; // made in the pass now ending
+    std::optional<double> recordFrom;         // where the pass records from (the count-in ends there)
+    std::map<std::uint64_t, juce::File> liveFiles;  // audio being recorded, by track
+    std::map<std::uint64_t, double> liveStarts;     // recordings in progress: where each starts
     /// Stops playback once the playhead passes `stopAt` (recordUntil).
     struct StopAt final : juce::Timer
     {
@@ -246,6 +250,7 @@ private:
     void changeListenerCallback(juce::ChangeBroadcaster* source) override;
     void recordingFinished(te::InputDeviceInstance& instance, te::EditItemID target,
                            const juce::ReferenceCountedArray<te::Clip>& clips) override;
+    void recordingAboutToStart(te::InputDeviceInstance& instance, te::EditItemID target) override;
     void pluginParameterChanged(te::AutomatableParameter& param, bool isFollowingAutomation) override;
     void curveHasChanged(te::AutomatableParameter&) override {}
     void recordingStatusChanged(te::AutomatableParameter& param) override;

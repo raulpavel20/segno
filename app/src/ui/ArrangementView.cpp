@@ -19,12 +19,19 @@ bool isMidiFile(const juce::String& path)
     return juce::File(path).hasFileExtension("mid;midi");
 }
 
+/// A channel header's buttons: mute and solo, and for a track its arm button; none on the master.
+int buttonsOf(const model::TrackInfo& channel)
+{
+    return channel.role == model::TrackInfo::Role::Master ? 0 : channel.holdsClips() ? 3 : 2;
+}
+
 /// How close to a row's bottom edge (in the header column) a drag resizes the row.
 constexpr float kResizeGrab = 3.0f;
 } // namespace
 
 ArrangementView::HeaderControls::HeaderControls(engine::Session& session, const model::TrackInfo& channel)
     : mute(session, ChannelToggle::Kind::Mute, channel.id), solo(session, ChannelToggle::Kind::Solo, channel.id),
+      arm(session, ChannelToggle::Kind::Arm, channel.id),
       volume(session, channel.id), pan(session, channel.id), meter(session, channel.id)
 {
     // Header bars are narrow: values only; the tooltips name them.
@@ -94,12 +101,15 @@ void ArrangementView::syncRows()
                 headerLayer_.addChildComponent(controls->mute);
                 headerLayer_.addChildComponent(controls->solo);
             }
+            if (channel->holdsClips()) // tracks record (recording.md §4)
+                headerLayer_.addChildComponent(controls->arm);
             headerLayer_.addChildComponent(controls->volume);
             headerLayer_.addChildComponent(controls->pan);
             headerLayer_.addChildComponent(controls->meter);
         }
         controls->mute.update(channel->mix.mute);
         controls->solo.update(channel->mix.solo);
+        controls->arm.updateArm(channel->input);
         controls->volume.update(*channel);
         controls->pan.update(*channel);
     }
@@ -242,10 +252,12 @@ void ArrangementView::placeHeaderControls()
         if (it == headerControls_.end())
             continue;
         auto& c = *it->second;
-        const bool master = channel->role == model::TrackInfo::Role::Master;
-        const auto slots = model::layoutTrackHeader(area.getWidth(), height, master ? 0 : 2, true);
+        const auto slots = model::layoutTrackHeader(area.getWidth(), height, buttonsOf(*channel), true);
         show(c.mute, slots.buttons.size() > 0 ? slots.buttons[0] : none, slots.buttons.size() > 0 ? at(slots.buttons[0]) : juce::Rectangle<int>());
         show(c.solo, slots.buttons.size() > 1 ? slots.buttons[1] : none, slots.buttons.size() > 1 ? at(slots.buttons[1]) : juce::Rectangle<int>());
+        if (channel->holdsClips())
+            show(c.arm, slots.buttons.size() > 2 ? slots.buttons[2] : none,
+                 slots.buttons.size() > 2 ? at(slots.buttons[2]) : juce::Rectangle<int>());
         auto controls = at(slots.controls);
         const int gap = ui::Theme::current().shell.itemGap;
         show(c.volume, slots.controls, controls.removeFromLeft((controls.getWidth() - gap) / 2));
@@ -562,7 +574,7 @@ void ArrangementView::paintHeaders(juce::Graphics& g)
         }
         // The slots of the header (docs/design/ui-foundations.md, "Track headers"); the mixer
         // (C3) and recording (C5) add their buttons, controls and meter to it.
-        const auto slots = model::layoutTrackHeader(row.getWidth(), row.getHeight(), master ? 0 : 2, true);
+        const auto slots = model::layoutTrackHeader(row.getWidth(), row.getHeight(), buttonsOf(track), true);
         g.setColour(master ? t.textTertiary : t.clipColour(track.colour));
         g.fillRect(at(slots.colour));
         g.setColour(t.line);
@@ -585,9 +597,15 @@ void ArrangementView::paintHeaders(juce::Graphics& g)
         // One kind of track (ADR 0019): show the instrument, or that MIDI has nothing to play it.
         const bool hasMidi = std::any_of(track.clips.begin(), track.clips.end(),
                                          [](const auto& c) { return c.kind == model::ClipInfo::Kind::Midi; });
-        const auto label = !track.instrument.empty() ? juce::String::fromUTF8(track.instrument.c_str())
-                           : hasMidi                 ? juce::String("No instrument")
-                                                     : juce::String();
+        auto label = !track.instrument.empty() ? juce::String::fromUTF8(track.instrument.c_str())
+                     : hasMidi                 ? juce::String("No instrument")
+                                               : juce::String();
+        // Armed by its button: what it records from (recording.md §3).
+        if (track.input.armed)
+        {
+            const auto input = juce::String::fromUTF8(model::inputSummary(track.input, !track.instrument.empty()).c_str());
+            label = label.isEmpty() ? input : input + juce::String::fromUTF8(" \xC2\xB7 ") + label;
+        }
         g.setColour(track.instrument.empty() && hasMidi ? t.roles.warning : t.textTertiary);
         g.setFont(ui::font(ui::TextStyle::Caption));
         g.drawText(label, at(slots.subtitle), juce::Justification::centredLeft, true);
@@ -667,6 +685,46 @@ void ArrangementView::paintLanes(juce::Graphics& g)
         clip.offset = e.offset;
         paintClip(g, clip, static_cast<float>(area.getY() + layout_.top(row)), static_cast<float>(layout_.height(row)), area,
                   visible, true);
+    }
+
+    // Recordings in progress (recording.md §5): a clip growing to the playhead in the record colour,
+    // its waveform drawn as it arrives.
+    for (const auto& rec : session_.liveRecordings())
+    {
+        int index = -1;
+        for (size_t i = 0; i < snapshot_->tracks.size(); ++i)
+            if (snapshot_->tracks[i].id == rec.track)
+                index = static_cast<int>(i);
+        const int row = model::rowOfTrack(rows_, index);
+        if (row < 0 || !rowVisible(row) || playhead_ <= rec.start)
+            continue;
+        const float y = static_cast<float>(area.getY() + layout_.top(row));
+        const float h = static_cast<float>(layout_.height(row));
+        const float x0 = std::max(laneX(rec.start), static_cast<float>(area.getX()) - 2.0f);
+        const float x1 = std::min(laneX(playhead_), static_cast<float>(area.getRight()) + 2.0f);
+        if (x1 <= x0)
+            continue;
+        const auto box = juce::Rectangle<float>(x0, y + 1.0f, x1 - x0, h - 3.0f);
+        g.setColour(t.clipBody(t.record, false));
+        g.fillRect(box);
+        const float strip = std::min(15.0f, box.getHeight() * 0.35f);
+        g.setColour(t.record);
+        g.fillRect(box.withHeight(strip));
+        if (rec.audio)
+        {
+            g.setColour(t.clipContent(t.record));
+            session_.drawLiveWaveform(g, rec.track,
+                                      juce::Rectangle<float>(laneX(rec.start), box.getY() + strip, laneX(playhead_) - laneX(rec.start),
+                                                             box.getHeight() - strip)
+                                          .toNearestInt(),
+                                      playhead_ - rec.start);
+        }
+        if (box.getWidth() > 16.0f && strip >= 10.0f)
+        {
+            g.setColour(t.surface0);
+            g.setFont(ui::font(ui::TextStyle::Control));
+            g.drawText("Recording", box.withHeight(strip).reduced(4.0f, 0.0f), juce::Justification::centredLeft, true);
+        }
     }
 
     // Automation lanes (C4): the curve the engine plays, over the reserved gradient.

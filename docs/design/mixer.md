@@ -8,7 +8,7 @@ How mixing works in Segno: levels, panning, mute and solo, return tracks with se
 
 You mix where you arrange, or in the mixer view when you want every channel at once:
 
-- **Track headers** carry mute and solo, a level meter, and (when the track is tall enough) volume and pan bars.
+- **Track headers** carry mute and solo (and, for tracks, the arm button: [recording.md](recording.md) §4), a level meter, and (when the track is tall enough) volume and pan bars.
 - **The inspector** (in the arrangement) shows the selected track's whole channel: volume, pan, mute, solo, its sends, and a larger meter.
 - **The mixer view** (§6) shows every channel as a strip, side by side. It takes the arrangement's place in the centre of the window; the transport bar, browser and detail panel stay. The inspector isn't shown there: the strips already carry every channel control ([ADR 0027](../decisions/0027-selection-and-context-panels.md), [selection.md](selection.md)).
 - **The detail panel** shows the selected track's modules, in either view (the mixer view shows only modules, never the clip view). Selecting the master track shows the master's chain (where the Limiter goes).

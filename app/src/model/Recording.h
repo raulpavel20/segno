@@ -36,6 +36,9 @@ struct InputInfo
 /// Whether a track hears its input now (§4): always with In, while armed with Auto, never with Off.
 [[nodiscard]] bool hearsInput(const InputInfo& input) noexcept;
 
+/// What a track listens to, short ("Input 1", "All MIDI", "Keyboard · Ch 2"): the input it records.
+[[nodiscard]] std::string inputSummary(const InputInfo& input, bool hasInstrument);
+
 /// The project file for a Save As choice (ADR 0030): `Name/Name.segno` beside the chosen file,
 /// unless the chosen file is already in a folder of its name. The extension becomes `.segno`.
 [[nodiscard]] std::filesystem::path projectFileFor(const std::filesystem::path& chosen);

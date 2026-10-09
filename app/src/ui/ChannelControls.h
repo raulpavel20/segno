@@ -98,9 +98,11 @@ private:
 class ChannelToggle final : public ui::Toggle
 {
 public:
-    enum class Kind { Mute, Solo, PreFader };
+    enum class Kind { Mute, Solo, PreFader, Arm };
     ChannelToggle(engine::Session& session, Kind kind, std::uint64_t channel, std::uint64_t returnTrack = 0);
     void update(bool on);
+    /// An arm button: armed by its button (`on`), or by the selection for live MIDI (`soft`).
+    void updateArm(const model::InputInfo& input);
 
 private:
     void clicked() override;

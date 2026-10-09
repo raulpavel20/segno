@@ -44,7 +44,7 @@ enum class CentreView { Arrange, Mix };
 enum class Subject { Nothing, Channel, Clip, Clips, Lane };
 
 /// The inspector's sections, top to bottom (selection.md §5).
-enum class InspectorSection { Point, Points, Lane, Assignments, Clip, Clips, Track, Return, Master, Mix, Sends };
+enum class InspectorSection { Point, Points, Lane, Assignments, Clip, Clips, Track, Input, Return, Master, Mix, Sends };
 
 /// Everything the context panels need for a selection in a view: the rules of selection.md §3-5
 /// in one place.

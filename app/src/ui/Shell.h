@@ -109,6 +109,7 @@ private:
     std::optional<std::uint64_t> laneDetailChannel_;
     /// The channel selected last: the parameter picker's first channel for a lane that drives nothing.
     std::optional<std::uint64_t> recentChannel_;
+    model::CountIn lastCountIn_ = model::CountIn::OneBar; // what the count-in toggle turns back on
     CommandPalette palette_{actions_};
     LanePicker lanePicker_{session_};
     /// The picker, assigning a parameter to `lane` (for its first assignment's channel, else the

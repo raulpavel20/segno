@@ -92,6 +92,10 @@ app/src/
 | Add return track (C3) | `track.addReturn` | Ctrl+Alt+T |
 | Show or hide returns and master (C3) | `view.returns` | Ctrl+Alt+R |
 | Arrangement ⇄ mixer view (C3) | `view.mixer` | Ctrl+Alt+X |
+| Record (C5) | `transport.record` | Ctrl+R, F9 |
+| Arm selected track (C5) | `track.arm` | Alt+R |
+| Count-in on/off (C5) | `transport.countIn` | Ctrl+Alt+C |
+| Punch in/out (C5) | `transport.punch` | Ctrl+Alt+U |
 
 Each step adds its actions as it lands.
 
@@ -252,6 +256,14 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
   - Ctrl+L with no brace yet loops four bars from the playhead's bar.
 - **Follow:** while playing, when the playhead passes 88 % of the view (or leaves it), the view pages so the playhead sits at 12 %, eased over ~150 ms. It never moves while you drag or zoom.
 - Loop range, loop state and metronome are live transport values read each frame, like the playhead, so they don't rebuild snapshots.
+
+## Recording (C5a, [recording.md](recording.md))
+
+- **Arm buttons:** the third button of a track's header (after M and S), in the inspector's INPUT section and in mixer strips (wide ones): a dot in the `record` colour, filled when armed by its button and a ring when the selection arms the track for live MIDI (`ChannelToggle::Kind::Arm`, `ui::Toggle::setArmStyle`). A click arms that track alone, Ctrl+click one more. An armed track's subtitle shows what it records from ("Input 1", "All MIDI").
+- **INPUT** (the inspector, between TRACK and MIX; `ui/TrackInputs`): Record (the arm button), Audio, MIDI, Channel (with a MIDI input), Monitor, and Records (with both inputs), as choices. Each is one undo step. Mixer strips show the input as a row under the name; a click opens the same choices as a menu.
+- **Record** (the transport bar, between stop and loop; `ui::IconButton::setRecordAccent`): lit while recording; its right-click menu holds Count-in ▸, Punch in/out, MIDI loop recording ▸ and Recording settings…. During a count-in the position display counts the beats down in the `record` colour.
+- **While recording,** each recording track's clip grows to the playhead in the `record` colour, with its waveform as it's written (tracktion's recording thumbnails, `Session::drawLiveWaveform`). When the pass ends, its clips are selected.
+- **Save As** makes the project's folder (`model::projectFileFor`: `Name/Name.segno`), asking before replacing a project of that name; it starts beside the current project's folder.
 
 ## Waveforms (C3)
 

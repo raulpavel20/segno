@@ -143,7 +143,10 @@ juce::File Session::Impl::recordingFile(te::Track& t, const juce::String& extens
     const auto ext = extension.startsWithChar('.') ? extension : "." + extension;
     for (int n = 1;; ++n)
         if (auto f = folder.getChildFile(name + " " + juce::String(n) + ext); !f.exists())
+        {
+            liveFiles[t.itemID.getRawID()] = f; // drawn while it records
             return f;
+        }
 }
 
 void Session::Impl::moveToProject(const juce::File& to)
@@ -211,6 +214,15 @@ void Session::Impl::beginPass(const juce::String& name)
     recordingPass = std::make_unique<te::Edit::UndoTransactionInhibitor>(*edit);
 }
 
+void Session::Impl::recordingAboutToStart(te::InputDeviceInstance&, te::EditItemID target)
+{
+    // From the playhead when Record was pressed (or now, punching in), or the punch range's start.
+    auto start = recordFrom.value_or(edit->getTransport().getPosition().inSeconds());
+    if (edit->recordingPunchInOut)
+        start = std::max(start, edit->getTransport().getLoopRange().getStart().inSeconds());
+    liveStarts[target.getRawID()] = start;
+}
+
 void Session::Impl::recordingFinished(te::InputDeviceInstance&, te::EditItemID target,
                                       const juce::ReferenceCountedArray<te::Clip>& clips)
 {
@@ -224,6 +236,8 @@ void Session::Impl::recordingFinished(te::InputDeviceInstance&, te::EditItemID t
             c->setName(t->getName());
         recordedClips.push_back(c->itemID.getRawID());
     }
+    liveStarts.erase(target.getRawID());
+    liveFiles.erase(target.getRawID());
 }
 
 // ---- Session -------------------------------------------------------------------------------
@@ -324,7 +338,33 @@ void Session::record()
     impl_->applyAutomationMode();
     impl_->applyInputs();
     impl_->beginPass("Record");
+    impl_->recordFrom = transport.isPlaying() ? std::nullopt : std::optional(position());
     transport.record(false, true); // with nothing armed it still plays (and records automation)
+}
+
+std::optional<double> Session::recordingFrom() const
+{
+    return impl_->recordFrom;
+}
+
+std::vector<Session::LiveRecording> Session::liveRecordings() const
+{
+    std::vector<LiveRecording> out;
+    if (!isRecording())
+        return out;
+    for (const auto& [track, start] : impl_->liveStarts)
+        out.push_back({track, start, impl_->liveFiles.contains(track)});
+    return out;
+}
+
+void Session::drawLiveWaveform(juce::Graphics& g, std::uint64_t track, juce::Rectangle<int> area, double seconds) const
+{
+    const auto it = impl_->liveFiles.find(track);
+    if (it == impl_->liveFiles.end() || seconds <= 0.0)
+        return;
+    auto thumb = impl_->engine.getRecordingThumbnailManager().getThumbnailFor(it->second);
+    if (thumb != nullptr && thumb->thumb != nullptr)
+        thumb->thumb->drawChannels(g, area, 0.0, seconds, 1.0f);
 }
 
 void Session::recordUntil(double seconds)

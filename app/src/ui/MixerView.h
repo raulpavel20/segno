@@ -2,6 +2,7 @@
 
 #include "model/ChannelStripLayout.h"
 #include "ui/ChannelControls.h"
+#include "ui/TrackInputs.h"
 
 #include <map>
 
@@ -46,7 +47,8 @@ private:
     model::ChannelStripSlots slots_;
     VolumeBar fader_;
     PanBar pan_;
-    ChannelToggle mute_, solo_;
+    ChannelToggle mute_, solo_, arm_;
+    InputButton input_; // tracks: what it listens to (recording.md §3)
     ChannelMeter meter_;
     VolumeField value_;
     std::vector<Send> sends_;

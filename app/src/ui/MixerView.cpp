@@ -18,7 +18,8 @@ constexpr int kDividerGap = 8; // between the tracks and the returns, and before
 ChannelStrip::ChannelStrip(engine::Session& session, const model::TrackInfo& channel)
     : session_(session), info_(channel), fader_(session, channel.id, ui::Knob::Style::Fader), pan_(session, channel.id),
       mute_(session, ChannelToggle::Kind::Mute, channel.id), solo_(session, ChannelToggle::Kind::Solo, channel.id),
-      meter_(session, channel.id), value_(session, channel.id)
+      arm_(session, ChannelToggle::Kind::Arm, channel.id), input_(session), meter_(session, channel.id),
+      value_(session, channel.id)
 {
     fader_.setName({});
     for (juce::Component* c : {static_cast<juce::Component*>(&fader_), static_cast<juce::Component*>(&pan_),
@@ -28,6 +29,11 @@ ChannelStrip::ChannelStrip(engine::Session& session, const model::TrackInfo& cha
     {
         addAndMakeVisible(mute_);
         addAndMakeVisible(solo_);
+    }
+    if (channel.holdsClips()) // tracks record
+    {
+        addAndMakeVisible(arm_);
+        addAndMakeVisible(input_);
     }
 }
 
@@ -76,6 +82,8 @@ void ChannelStrip::update(const model::TrackInfo& channel, const std::vector<mod
     pan_.update(channel);
     mute_.update(channel.mix.mute);
     solo_.update(channel.mix.solo);
+    arm_.updateArm(channel.input);
+    input_.update(channel);
     value_.update(channel);
     if (relayout)
         resized();
@@ -95,6 +103,9 @@ void ChannelStrip::resized()
     pan_.setBounds(at(slots_.pan));
     mute_.setBounds(at(slots_.mute));
     solo_.setBounds(at(slots_.solo));
+    arm_.setVisible(info_.holdsClips() && !slots_.arm.isEmpty());
+    arm_.setBounds(at(slots_.arm));
+    input_.setBounds(at(slots_.input));
     value_.setBounds(at(slots_.value));
     for (size_t i = 0; i < sends_.size(); ++i)
     {

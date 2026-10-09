@@ -47,7 +47,7 @@ TEST_CASE("selection: the rule table for the arrangement", "[fast]")
         const auto c = in({.channel = 2});
         CHECK(c.subject == Subject::Channel);
         CHECK(c.channel->id == 2);
-        CHECK(c.inspector == std::vector{Section::Track, Section::Mix, Section::Sends});
+        CHECK(c.inspector == std::vector{Section::Track, Section::Input, Section::Mix, Section::Sends});
         CHECK(!c.opensClipView);
         CHECK(!c.midiInputTarget); // no instrument
     }
@@ -74,7 +74,7 @@ TEST_CASE("selection: the rule table for the arrangement", "[fast]")
         CHECK(c.opensClipView);
         CHECK(c.channel->id == 1);
         CHECK(c.midiInputTarget == 1u);
-        CHECK(c.inspector == std::vector{Section::Clip, Section::Track, Section::Mix, Section::Sends});
+        CHECK(c.inspector == std::vector{Section::Clip, Section::Track, Section::Input, Section::Mix, Section::Sends});
     }
     SECTION("one audio clip shows the modules")
     {
@@ -82,7 +82,7 @@ TEST_CASE("selection: the rule table for the arrangement", "[fast]")
         CHECK(c.subject == Subject::Clip);
         CHECK(!c.midiClip);
         CHECK(!c.opensClipView);
-        CHECK(c.inspector == std::vector{Section::Clip, Section::Track, Section::Mix, Section::Sends});
+        CHECK(c.inspector == std::vector{Section::Clip, Section::Track, Section::Input, Section::Mix, Section::Sends});
     }
     SECTION("several clips")
     {
@@ -92,7 +92,7 @@ TEST_CASE("selection: the rule table for the arrangement", "[fast]")
         CHECK(!c.clip);
         CHECK(!c.opensClipView);
         CHECK(c.channel->id == 1);
-        CHECK(c.inspector == std::vector{Section::Clips, Section::Track, Section::Mix, Section::Sends});
+        CHECK(c.inspector == std::vector{Section::Clips, Section::Track, Section::Input, Section::Mix, Section::Sends});
     }
     SECTION("a clip not in the snapshot yet: its track, until it arrives")
     {

@@ -24,6 +24,18 @@ bool hearsInput(const InputInfo& input) noexcept
     return false;
 }
 
+std::string inputSummary(const InputInfo& input, bool hasInstrument)
+{
+    if (recordKind(input, hasInstrument) == RecordKind::Audio)
+        return input.audio.empty() ? std::string("No input") : input.audio;
+    if (input.midi.empty())
+        return "No input";
+    auto name = input.midi == "all" ? std::string("All MIDI") : input.midi == "keyboard" ? std::string("Keyboard") : input.midi;
+    if (input.channel > 0)
+        name += " \xC2\xB7 Ch " + std::to_string(input.channel);
+    return name;
+}
+
 std::filesystem::path projectFileFor(const std::filesystem::path& chosen)
 {
     const auto name = chosen.stem();

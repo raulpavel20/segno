@@ -10,6 +10,10 @@ public:
 
     /// Shows whether its parameter is automated (automation.md §6).
     void setAutomationState(AutomationState state);
+    /// An arm button (recording.md §4): a round indicator in the `record` colour, filled when on
+    /// and a ring when only partly on (armed by the selection).
+    void setArmStyle(bool arm);
+    void setPartlyOn(bool partly);
     [[nodiscard]] AutomationState automationState() const noexcept { return automation_; }
     /// A right-click: the control's menu (it doesn't toggle).
     std::function<void()> onPopupMenu;
@@ -20,6 +24,6 @@ public:
 
 private:
     AutomationState automation_ = AutomationState::None;
-    bool popup_ = false;
+    bool popup_ = false, arm_ = false, partly_ = false;
 };
 } // namespace fd::ui

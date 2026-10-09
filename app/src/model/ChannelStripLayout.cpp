@@ -17,7 +17,9 @@ ChannelStripSlots layoutChannelStrip(double height, const ChannelStripOptions& o
     s.colour = {0.0, 0.0, width, m.colourHeight};
     double y = 2.0 * m.rowGap; // the first row on the grid, clear of the colour bar
     s.name = {left, y, inner, m.nameHeight};
-    y += m.nameHeight + m.sectionGap;
+    y += m.nameHeight + m.rowGap;
+    s.input = {left, y, inner, m.rowHeight}; // returns and the master keep the space, so rows line up
+    y += m.rowHeight + m.sectionGap;
 
     if (o.modules)
     {
@@ -42,6 +44,8 @@ ChannelStripSlots layoutChannelStrip(double height, const ChannelStripOptions& o
     // Mute and solo, square, side by side on the left.
     s.mute = {left, y, m.rowHeight, m.rowHeight};
     s.solo = {left + m.rowHeight + m.rowGap, y, m.rowHeight, m.rowHeight};
+    if (!o.narrow)
+        s.arm = {left + 2.0 * (m.rowHeight + m.rowGap), y, m.rowHeight, m.rowHeight};
     y += m.rowHeight + m.sectionGap;
     s.readout = {left, y, inner, m.readoutHeight};
     y += m.readoutHeight + m.rowGap;

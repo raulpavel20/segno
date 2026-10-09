@@ -38,9 +38,17 @@ public:
     explicit IconButton(Icon icon, const juce::String& name = {});
 
     void setIcon(Icon icon);
+    /// On in the `record` colour instead of `active` (the transport's Record button).
+    void setRecordAccent(bool record);
+    /// A right-click: the button's menu (it doesn't click).
+    std::function<void()> onPopupMenu;
+
     void paintButton(juce::Graphics& g, bool highlighted, bool down) override;
+    void mouseDown(const juce::MouseEvent& e) override;
+    void mouseUp(const juce::MouseEvent& e) override;
 
 private:
     Icon icon_;
+    bool record_ = false, popup_ = false;
 };
 } // namespace fd::ui

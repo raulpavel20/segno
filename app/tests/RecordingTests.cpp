@@ -40,3 +40,11 @@ TEST_CASE("recording: Save As makes a project folder named after the project", "
     CHECK(projectFileFor("/music/Song/Song.segno") == "/music/Song/Song.segno"); // already in its folder
     CHECK(projectFileFor("/music/Song/Take two.segno") == "/music/Song/Take two/Take two.segno");
 }
+
+TEST_CASE("recording: a track's input in a few words", "[fast]")
+{
+    CHECK(inputSummary({}, true) == "All MIDI");
+    CHECK(inputSummary({.midi = "keyboard", .channel = 2}, true) == "Keyboard \xC2\xB7 Ch 2");
+    CHECK(inputSummary({.audio = "Input 1"}, false) == "Input 1");
+    CHECK(inputSummary({.midi = ""}, true) == "No input");
+}
