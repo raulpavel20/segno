@@ -11,7 +11,7 @@ namespace
 {
 constexpr float kGainMinDb = -70.0f;
 
-constexpr std::array<ParamSpec, Utility::NumParams> kParams{{
+constexpr std::array<ParamSpec, Utility::NumParams> kSpecs{{
     {.id = "gain", .name = "Gain", .shortName = "Gain", .min = kGainMinDb, .max = 35.0f, .def = 0.0f,
      .skewCentre = 0.0f, .unit = Unit::Decibels,
      .flags = ParamFlags::Automatable | ParamFlags::MinusInfinityAtMin},
@@ -27,6 +27,19 @@ constexpr std::array<ParamSpec, Utility::NumParams> kParams{{
     {.id = "dc", .name = "DC Filter", .shortName = "DC", .kind = ParamKind::Toggle, .min = 0.0f, .max = 1.0f},
     {.id = "mute", .name = "Mute", .shortName = "Mute", .kind = ParamKind::Toggle, .min = 0.0f, .max = 1.0f},
 }};
+// What each parameter does, in one sentence: the same as in SPEC.md (open question B22).
+constexpr ParamDescription kDescriptions[] = {
+    {"gain", "Raises or lowers the level; all the way down is silence."},
+    {"balance", "Moves the sound towards the left or the right."},
+    {"width", "Narrows the stereo image towards mono (0 %) or widens it (above 100 %)."},
+    {"mono", "Sums both channels to mono."},
+    {"invert.l", "Flips the polarity of the left channel."},
+    {"invert.r", "Flips the polarity of the right channel."},
+    {"dc", "Removes DC offset with a gentle high-pass filter."},
+    {"mute", "Silences the output, with a short fade."},
+};
+constexpr auto kParams = describe(kSpecs, kDescriptions);
+static_assert(allDescribed(kParams), "every parameter needs a description (SPEC.md)");
 
 constexpr DeviceInfo kInfo{
     .id = "utility",

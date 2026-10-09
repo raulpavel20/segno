@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <optional>
 #include <span>
@@ -79,6 +80,10 @@ struct ParamSpec
     std::uint16_t sinceVersion = 1;
     /// Decimal places for display.
     std::uint8_t decimals = 1;
+    /// One plain sentence: what the parameter does, for people (tooltips) and assistants (the
+    /// MCP module reference). The same sentence as in the device's SPEC table (open question
+    /// B22); the conformance suite compares them.
+    std::string_view description{};
 
     [[nodiscard]] bool isStepped() const noexcept { return kind != ParamKind::Continuous; }
     [[nodiscard]] bool hasFlag(std::uint32_t flag) const noexcept { return (flags & flag) != 0; }
@@ -95,4 +100,32 @@ struct ParamSpec
     /// Parses user-typed text ("-6", "-6 dB", "1.2k", "C", "25R", "on", choice name).
     [[nodiscard]] std::optional<float> fromText(std::string_view text) const;
 };
+/// A parameter's description, by id, for describe().
+struct ParamDescription
+{
+    std::string_view id;
+    std::string_view text;
+};
+
+/// `specs` with each parameter's description from `descriptions` (matched by id).
+template <std::size_t N>
+[[nodiscard]] constexpr std::array<ParamSpec, N> describe(std::array<ParamSpec, N> specs,
+                                                         std::span<const ParamDescription> descriptions)
+{
+    for (auto& s : specs)
+        for (const auto& d : descriptions)
+            if (d.id == s.id)
+                s.description = d.text;
+    return specs;
+}
+
+/// True when every parameter has a description (devices static_assert it).
+template <std::size_t N>
+[[nodiscard]] constexpr bool allDescribed(const std::array<ParamSpec, N>& specs)
+{
+    for (const auto& s : specs)
+        if (s.description.empty())
+            return false;
+    return true;
+}
 } // namespace fd

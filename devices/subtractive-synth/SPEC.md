@@ -22,38 +22,44 @@ None in the core. MPE is part of the core, as in Drift.
 
 ## Parameters
 
-| ID | Name | Range | Default | Notes |
-|---|---|---|---|---|
-| `osc1.shape` | Osc 1 Shape | 0 … 100 % | 0 | Morphs saw → square → triangle → sine |
-| `osc1.oct` | Osc 1 Octave | −3 … +3 | 0 | |
-| `osc1.pw` | Osc 1 Width | 5 … 95 % | 50 | Affects the square region |
-| `osc2.wave` | Osc 2 Wave | Saw, Square, Triangle, Sine | Saw | |
-| `osc2.oct` | Osc 2 Octave | −3 … +3 | 0 | |
-| `osc2.semi` | Osc 2 Semi | −12 … +12 st | 0 | |
-| `osc2.detune` | Osc 2 Detune | −50 … +50 ct | 7 | |
-| `mix.osc1` | Osc 1 Level | −inf … 0 dB | 0 | |
-| `mix.osc2` | Osc 2 Level | −inf … 0 dB | −6 | |
-| `mix.noise` | Noise | −inf … 0 dB | −inf | |
-| `filter.type` | Filter Type | LP 12, LP 24, HP 12, BP 12 | LP 24 | LP 12/HP/BP: TPT state-variable; LP 24: ZDF ladder |
-| `filter.cutoff` | Cutoff | 20 … 20 000 Hz | 2 000 | log |
-| `filter.res` | Resonance | 0 … 100 % | 20 | Self-oscillates near 100 % (LP 24) |
-| `filter.key` | Key Track | 0 … 100 % | 50 | |
-| `filter.env` | Env Amount | −100 … +100 % | 30 | Mod envelope to cutoff (±5 octaves at full) |
-| `amp.a` / `amp.d` / `amp.s` / `amp.r` | Amp A/D/S/R | 0.5 ms … 20 s / level 0–100 % | 2 ms, 300 ms, 80 %, 200 ms | Exponential segments |
-| `mod.a` / `mod.d` / `mod.s` / `mod.r` | Mod A/D/S/R | same | 2 ms, 400 ms, 0 %, 300 ms | |
-| `mod.cycle` | Mod Cycle | Off / On | Off | Loops A→D as an extra LFO |
-| `lfo.wave` | LFO Wave | Sine, Triangle, Saw, Square, S&H | Sine | |
-| `lfo.rate` | LFO Rate | 0.01 … 40 Hz | 2 | |
-| `lfo.sync` | LFO Sync | Off, 1/32 … 4 bars | Off | Tempo sync when not Off |
-| `m<n>.src` (n = 1–3) | Mod n Source | Mod Env, LFO, Velocity, Mod Wheel, Pressure, Key, Slide | – | |
-| `m<n>.dst` | Mod n Target | Pitch, Cutoff, Resonance, Osc 1 Shape, Osc 1 Width, Osc 2 Level, Amp, Pan | – | At 100 %: pitch ±12 st, cutoff ±5 oct, shape/res ±full range, width ±45 %, levels/amp ×0–2, pan ±full. (LFO Rate was dropped: the LFO is global, so per-voice sources can't drive it.) |
-| `m<n>.amt` | Mod n Amount | −100 … +100 % | 0 | |
-| `voice.mode` | Voice Mode | Poly, Mono, Legato | Poly | |
-| `voice.count` | Voices | 1 … 16 | 8 | |
-| `voice.glide` | Glide | 0 … 2 s | 0 | |
-| `voice.drift` | Drift | 0 … 100 % | 15 | Per-voice pitch and cutoff wander |
-| `voice.bend` | Bend Range | 0 … 24 st | 2 | Per-note bend for MPE |
-| `out.volume` | Volume | −inf … +6 dB | −6 | |
+| ID | Name | Description | Range | Default | Notes |
+|---|---|---|---|---|---|
+| `osc1.shape` | Osc 1 Shape | Morphs the first oscillator from saw through square and triangle to sine. | 0 … 100 % | 0 | Morphs saw → square → triangle → sine |
+| `osc1.oct` | Osc 1 Octave | Shifts the first oscillator by whole octaves. | −3 … +3 | 0 | |
+| `osc1.pw` | Osc 1 Width | The pulse width of the first oscillator's square: 50 % sounds hollow, narrower sounds thinner. | 5 … 95 % | 50 | Affects the square region |
+| `osc2.wave` | Osc 2 Wave | The second oscillator's waveform. | Saw, Square, Triangle, Sine | Saw | |
+| `osc2.oct` | Osc 2 Octave | Shifts the second oscillator by whole octaves. | −3 … +3 | 0 | |
+| `osc2.semi` | Osc 2 Semi | Shifts the second oscillator by semitones, for intervals. | −12 … +12 st | 0 | |
+| `osc2.detune` | Osc 2 Detune | Detunes the second oscillator slightly, for a thicker, beating sound. | −50 … +50 ct | 7 | |
+| `mix.osc1` | Osc 1 Level | The first oscillator's level. | −inf … 0 dB | 0 | |
+| `mix.osc2` | Osc 2 Level | The second oscillator's level. | −inf … 0 dB | −6 | |
+| `mix.noise` | Noise | The level of noise mixed in. | −inf … 0 dB | −inf | |
+| `filter.type` | Filter Type | The filter: low pass at 12 or 24 dB per octave, high pass or band pass. | LP 12, LP 24, HP 12, BP 12 | LP 24 | LP 12/HP/BP: TPT state-variable; LP 24: ZDF ladder |
+| `filter.cutoff` | Cutoff | Where the filter starts to cut: lower is darker. | 20 … 20 000 Hz | 2 000 | log |
+| `filter.res` | Resonance | Emphasis at the cutoff; near the top the 24 dB low pass starts to whistle on its own. | 0 … 100 % | 20 | Self-oscillates near 100 % (LP 24) |
+| `filter.key` | Key Track | How much the cutoff follows the note played: at 100 % it rises an octave per octave. | 0 … 100 % | 50 | |
+| `filter.env` | Env Amount | How far the modulation envelope moves the cutoff, up or down. | −100 … +100 % | 30 | Mod envelope to cutoff (±5 octaves at full) |
+| `amp.a` | Amp Attack | How long a note takes to reach full volume. | 0.5 ms … 20 s | 2 ms | Exponential segments |
+| `amp.d` | Amp Decay | How long the volume takes to fall to the sustain level. | 0.5 ms … 20 s | 300 ms | |
+| `amp.s` | Amp Sustain | The volume held while the key stays down. | 0 … 100 % | 80 % | |
+| `amp.r` | Amp Release | How long a note takes to fade out after the key is released. | 0.5 ms … 20 s | 200 ms | |
+| `mod.a` | Mod Attack | How long the modulation envelope takes to rise. | 0.5 ms … 20 s | 2 ms | Exponential segments |
+| `mod.d` | Mod Decay | How long the modulation envelope takes to fall to its sustain level. | 0.5 ms … 20 s | 400 ms | |
+| `mod.s` | Mod Sustain | The modulation envelope's level while the key stays down. | 0 … 100 % | 0 % | |
+| `mod.r` | Mod Release | How long the modulation envelope takes to fall after the key is released. | 0.5 ms … 20 s | 300 ms | |
+| `mod.cycle` | Mod Cycle | Loops the modulation envelope's attack and decay, so it works as a second LFO. | Off / On | Off | Loops A→D as an extra LFO |
+| `lfo.wave` | LFO Wave | The LFO's shape. | Sine, Triangle, Saw, Square, S&H | Sine | |
+| `lfo.rate` | LFO Rate | How fast the LFO moves when it isn't synced to the tempo. | 0.01 … 40 Hz | 2 | |
+| `lfo.sync` | LFO Sync | Locks the LFO to the song's tempo, in note values. | Off, 1/32 … 4 bars | Off | Tempo sync when not Off |
+| `m<n>.src` (n = 1–3) | Mod n Source | What drives this modulation slot: an envelope, the LFO, or how the note is played. | Mod Env, LFO, Velocity, Mod Wheel, Pressure, Key, Slide | – | |
+| `m<n>.dst` | Mod n Target | What this modulation slot changes. | Pitch, Cutoff, Resonance, Osc 1 Shape, Osc 1 Width, Osc 2 Level, Amp, Pan | – | At 100 %: pitch ±12 st, cutoff ±5 oct, shape/res ±full range, width ±45 %, levels/amp ×0–2, pan ±full. (LFO Rate was dropped: the LFO is global, so per-voice sources can't drive it.) |
+| `m<n>.amt` | Mod n Amount | How much, and in which direction, this slot modulates its target. | −100 … +100 % | 0 | |
+| `voice.mode` | Voice Mode | Poly plays chords; Mono plays one note at a time; Legato is mono without restarting the envelopes when notes overlap. | Poly, Mono, Legato | Poly | |
+| `voice.count` | Voices | How many notes can sound at once. | 1 … 16 | 8 | |
+| `voice.glide` | Glide | How long the pitch takes to slide from one note to the next. | 0 … 2 s | 0 | |
+| `voice.drift` | Drift | Small random wandering of each voice's pitch and filter, like an analog synth. | 0 … 100 % | 15 | Per-voice pitch and cutoff wander |
+| `voice.bend` | Bend Range | How far the pitch bend wheel bends, in semitones. | 0 … 24 st | 2 | Per-note bend for MPE |
+| `out.volume` | Volume | The synth's output level. | −inf … +6 dB | −6 | |
 
 State version 1. The defaults should sound good immediately, as a warm detuned saw with a gentle filter envelope.
 

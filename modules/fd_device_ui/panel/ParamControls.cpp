@@ -1,10 +1,20 @@
 namespace fd::ui
 {
+namespace
+{
+/// A control's tooltip: the parameter's full name and what it does (its description, B22).
+juce::String tooltipFor(const ParamSpec& spec)
+{
+    const juce::String name(std::string(spec.name));
+    return spec.description.empty() ? name : name + ": " + juce::String(std::string(spec.description));
+}
+} // namespace
+
 ParamKnob::ParamKnob(DeviceUiContext& context, size_t paramIndex) : context_(context), index_(paramIndex)
 {
     const ParamSpec& spec = context_.info.params[index_];
     setName(juce::String(std::string(spec.shortName.empty() ? spec.name : spec.shortName)));
-    setTooltip(juce::String(std::string(spec.name)));
+    setTooltip(tooltipFor(spec));
     setDefaultValue(spec.toNormalized(spec.def));
     setNumSteps(spec.numSteps());
     // Bipolar arcs (from the centre) for ranges around zero: pan, bias, and symmetric gains
@@ -37,7 +47,7 @@ ParamToggle::ParamToggle(DeviceUiContext& context, size_t paramIndex)
                                           : context.info.params[paramIndex].shortName))),
       context_(context), index_(paramIndex)
 {
-    setTooltip(juce::String(std::string(context.info.params[paramIndex].name)));
+    setTooltip(tooltipFor(context.info.params[paramIndex]));
     refresh();
 }
 
@@ -62,7 +72,7 @@ ParamSegmented::ParamSegmented(DeviceUiContext& context, size_t paramIndex, int 
     {
         auto* b = buttons_.add(new Toggle(juce::String(std::string(spec.choices[i]))));
         b->setRadioGroupId(groupId);
-        b->setTooltip(juce::String(std::string(spec.name)));
+        b->setTooltip(tooltipFor(spec));
         b->onClick = [this, i] {
             context_.params.beginGesture(index_);
             context_.params.setPlain(index_, static_cast<float>(i));
@@ -97,7 +107,7 @@ ParamComboBox::ParamComboBox(DeviceUiContext& context, size_t paramIndex) : cont
     const ParamSpec& spec = context_.info.params[index_];
     for (size_t i = 0; i < spec.choices.size(); ++i)
         addItem(juce::String(std::string(spec.choices[i])), static_cast<int>(i) + 1);
-    setTooltip(juce::String(std::string(spec.name)));
+    setTooltip(tooltipFor(spec));
     onChange = [this] {
         context_.params.beginGesture(index_);
         context_.params.setPlain(index_, static_cast<float>(getSelectedId() - 1));

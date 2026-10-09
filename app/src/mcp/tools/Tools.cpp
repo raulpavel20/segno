@@ -68,6 +68,7 @@ Json parameterJson(const ParamSpec& spec, std::optional<float> plain)
 {
     Json p{{"id", std::string(spec.id)},
            {"name", std::string(spec.name)},
+           {"description", std::string(spec.description)},
            {"kind", kindName(spec.kind)},
            {"unit", unitName(spec.unit)},
            {"min", rounded(spec.min)},

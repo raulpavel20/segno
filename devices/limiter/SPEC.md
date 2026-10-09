@@ -21,16 +21,16 @@ Small: a built-in loudness readout (short-term and integrated LUFS) and true-pea
 
 ## Parameters
 
-| ID (permanent) | Name | Range | Default | Unit | Curve / skew | Smoothing | Automatable |
-|---|---|---|---|---|---|---|---|
-| `gain` | Gain | 0 … +24 | 0 | dB | linear | 20 ms | Yes |
-| `ceiling` | Ceiling | −24 … 0 | −0.3 | dB (dBTP with True Peak on) | linear | 20 ms | Yes |
-| `release` | Release | 1 … 1 000 | 80 | ms | centre 80 | 20 ms multiplicative | Yes |
-| `release.auto` | Auto Release | Off / On | On | toggle | – | – | Yes |
-| `mode` | Mode | Standard, Maximise | Standard | choice | – | 10 ms crossfade | Yes |
-| `truepeak` | True Peak | Off / On | On | toggle | – | – | **No** (changes latency slightly; set before use) |
-| `link` | Channels | Stereo, L/R, M/S | Stereo | choice | – | 10 ms crossfade | Yes |
-| `lookahead` | Lookahead | 1.5 ms, 3 ms, 6 ms | 3 ms | choice | – | – | **No** (sets latency) |
+| ID (permanent) | Name | Description | Range | Default | Unit | Curve / skew | Smoothing | Automatable |
+|---|---|---|---|---|---|---|---|---|
+| `gain` | Gain | Drives the signal into the limiter, making it louder. | 0 … +24 | 0 | dB | linear | 20 ms | Yes |
+| `ceiling` | Ceiling | The highest level the output reaches. | −24 … 0 | −0.3 | dB (dBTP with True Peak on) | linear | 20 ms | Yes |
+| `release` | Release | How quickly the limiter lets go after a peak. | 1 … 1 000 | 80 | ms | centre 80 | 20 ms multiplicative | Yes |
+| `release.auto` | Auto Release | Adapts the release to the material, for loudness without pumping. | Off / On | On | toggle | – | – | Yes |
+| `mode` | Mode | Standard drives Gain into a fixed ceiling; Maximise links Gain and Ceiling, as mastering limiters do. | Standard, Maximise | Standard | choice | – | 10 ms crossfade | Yes |
+| `truepeak` | True Peak | Also catches peaks between samples, so the output stays under the ceiling after conversion. | Off / On | On | toggle | – | – | **No** (changes latency slightly; set before use) |
+| `link` | Channels | Whether both channels are limited together, separately, or as mid and side. | Stereo, L/R, M/S | Stereo | choice | – | 10 ms crossfade | Yes |
+| `lookahead` | Lookahead | How far ahead the limiter looks: longer is smoother, shorter adds less delay. | 1.5 ms, 3 ms, 6 ms | 3 ms | choice | – | – | **No** (sets latency) |
 
 - **Maximise** links Gain and Ceiling, as mastering limiters do: raising Gain lowers nothing else, and the ceiling stays where it is. Output level follows Gain, limited at the ceiling.
 - **Standard:** Gain drives into the limiter; the ceiling is fixed.

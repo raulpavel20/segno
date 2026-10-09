@@ -30,23 +30,23 @@ This is one of the few devices that deliberately goes further (aimed at FabFilte
 
 **Per band** (`n` = 1…24; IDs are `band<n>.<param>`, e.g. `band3.freq`):
 
-| ID | Name | Range | Default | Unit | Curve | Smoothing |
-|---|---|---|---|---|---|---|
-| `band<n>.on` | Band n On | Off / On | Off (bands 1–4 On) | toggle | – | 10 ms crossfade |
-| `band<n>.type` | Band n Type | Bell, Low Shelf, High Shelf, Low Cut, High Cut, Notch, Band Pass, Tilt | Bell (band 1 Low Cut, band 4 High Cut) | choice | – | crossfade on change |
-| `band<n>.freq` | Band n Freq | 10 … 30 000 | spread across bands | Hz | log (centre 632 Hz) | 20 ms multiplicative |
-| `band<n>.gain` | Band n Gain | −30 … +30 | 0 | dB | linear | 20 ms |
-| `band<n>.q` | Band n Q | 0.1 … 40 | 0.71 | – | log (centre 2) | 20 ms multiplicative |
-| `band<n>.slope` | Band n Slope | 6, 12, 18, 24, 36, 48, 72, 96 | 12 | dB/oct (cuts) | – | crossfade on change |
-| `band<n>.place` | Band n Placement | Stereo, Left, Right, Mid, Side | Stereo | choice | – | crossfade on change |
+| ID | Name | Description | Range | Default | Unit | Curve | Smoothing |
+|---|---|---|---|---|---|---|---|
+| `band<n>.on` | Band n On | Turns the band on or off. | Off / On | Off (bands 1–4 On) | toggle | – | 10 ms crossfade |
+| `band<n>.type` | Band n Type | The band's filter shape: bell, shelf, cut, notch, band pass or tilt. | Bell, Low Shelf, High Shelf, Low Cut, High Cut, Notch, Band Pass, Tilt | Bell (band 1 Low Cut, band 4 High Cut) | choice | – | crossfade on change |
+| `band<n>.freq` | Band n Freq | The band's centre or corner frequency. | 10 … 30 000 | spread across bands | Hz | log (centre 632 Hz) | 20 ms multiplicative |
+| `band<n>.gain` | Band n Gain | How much the band boosts or cuts (bells, shelves and tilt). | −30 … +30 | 0 | dB | linear | 20 ms |
+| `band<n>.q` | Band n Q | How narrow the band is: a higher Q affects a narrower range. | 0.1 … 40 | 0.71 | – | log (centre 2) | 20 ms multiplicative |
+| `band<n>.slope` | Band n Slope | How steeply the band cuts, in dB per octave (cut filters). | 6, 12, 18, 24, 36, 48, 72, 96 | 12 | dB/oct (cuts) | – | crossfade on change |
+| `band<n>.place` | Band n Placement | Which part of the signal the band changes: both channels, left, right, mid or side. | Stereo, Left, Right, Mid, Side | Stereo | choice | – | crossfade on change |
 
 **Global:**
 
-| ID | Name | Range | Default | Unit |
-|---|---|---|---|---|
-| `output` | Output | −24 … +24 | 0 | dB |
-| `scale` | Gain Scale | 0 … 200 | 100 | % (scales every band's gain) |
-| `analyzer` | Analyzer | Off, Pre, Post, Pre+Post | Post | choice (UI only, not automatable) |
+| ID | Name | Description | Range | Default | Unit |
+|---|---|---|---|---|---|
+| `output` | Output | The level after the EQ. | −24 … +24 | 0 | dB |
+| `scale` | Gain Scale | Scales every band's boost or cut at once; 0 % makes the EQ flat. | 0 … 200 | 100 | % (scales every band's gain) |
+| `analyzer` | Analyzer | Which signal the spectrum behind the curve shows: before the EQ, after it, or both. | Off, Pre, Post, Pre+Post | Post | choice (UI only, not automatable) |
 
 Non-parameter state: the UI view (full or compact), stored in `extra`. State version 1.
 

@@ -21,6 +21,7 @@ constexpr std::string_view kAnalyzer[] = {"Off", "Pre", "Post", "Pre+Post"};
 struct Tables
 {
     std::array<std::string, Eq::NumParams> ids, names, shortNames;
+    std::array<std::string_view, Eq::NumParams> descriptions; // as in SPEC.md (open question B22)
     std::array<ParamSpec, Eq::NumParams> specs{};
     DeviceInfo info{};
 
@@ -34,44 +35,56 @@ struct Tables
         {
             const std::string prefix = "band" + std::to_string(b + 1) + ".";
             const std::string label = "Band " + std::to_string(b + 1) + " ";
-            auto set = [&](Eq::BandParam p, const char* id, const char* name, const char* shortName) {
+            auto set = [&](Eq::BandParam p, const char* id, const char* name, const char* shortName,
+                           std::string_view description) {
                 const auto i = Eq::paramIndex(b, p);
                 ids[i] = prefix + id;
                 names[i] = label + name;
                 shortNames[i] = shortName;
+                descriptions[i] = description;
                 return i;
             };
             const bool initial = b < 4;
             const float freq = initial ? defaultFreq[b]
                                        : static_cast<float>(30.0 * std::pow(16000.0 / 30.0, (b - 4) / 19.0));
 
-            auto i = set(Eq::On, "on", "On", "On");
+            auto i = set(Eq::On, "on", "On", "On",
+                    "Turns the band on or off.");
             specs[i] = {.kind = ParamKind::Toggle, .min = 0, .max = 1, .def = initial ? 1.0f : 0.0f};
-            i = set(Eq::Type, "type", "Type", "Type");
+            i = set(Eq::Type, "type", "Type", "Type",
+                    "The band's filter shape: bell, shelf, cut, notch, band pass or tilt.");
             specs[i] = {.kind = ParamKind::Choice, .min = 0, .max = 7,
                         .def = static_cast<float>(initial ? static_cast<int>(defaultType[b]) : 0), .choices = kTypes};
-            i = set(Eq::Freq, "freq", "Freq", "Freq");
+            i = set(Eq::Freq, "freq", "Freq", "Freq",
+                    "The band's centre or corner frequency.");
             specs[i] = {.min = 10.0f, .max = 30000.0f, .def = freq, .skewCentre = 632.0f, .unit = Unit::Hertz,
                         .smoothing = {SmoothingKind::Multiplicative, 20.0f}, .decimals = 0};
-            i = set(Eq::Gain, "gain", "Gain", "Gain");
+            i = set(Eq::Gain, "gain", "Gain", "Gain",
+                    "How much the band boosts or cuts (bells, shelves and tilt).");
             specs[i] = {.min = -30.0f, .max = 30.0f, .def = 0.0f, .unit = Unit::Decibels};
-            i = set(Eq::Q, "q", "Q", "Q");
+            i = set(Eq::Q, "q", "Q", "Q",
+                    "How narrow the band is: a higher Q affects a narrower range.");
             specs[i] = {.min = 0.1f, .max = 40.0f, .def = 0.71f, .skewCentre = 2.0f,
                         .smoothing = {SmoothingKind::Multiplicative, 20.0f}, .decimals = 2};
-            i = set(Eq::Slope, "slope", "Slope", "Slope");
+            i = set(Eq::Slope, "slope", "Slope", "Slope",
+                    "How steeply the band cuts, in dB per octave (cut filters).");
             specs[i] = {.kind = ParamKind::Choice, .min = 0, .max = 7, .def = 1.0f, .choices = kSlopes};
-            i = set(Eq::Place, "place", "Placement", "Place");
+            i = set(Eq::Place, "place", "Placement", "Place",
+                    "Which part of the signal the band changes: both channels, left, right, mid or side.");
             specs[i] = {.kind = ParamKind::Choice, .min = 0, .max = 4, .def = 0.0f, .choices = kPlaces};
         }
         ids[Eq::Output] = "output";
         names[Eq::Output] = shortNames[Eq::Output] = "Output";
+        descriptions[Eq::Output] = "The level after the EQ.";
         specs[Eq::Output] = {.min = -24.0f, .max = 24.0f, .def = 0.0f, .unit = Unit::Decibels};
         ids[Eq::Scale] = "scale";
         names[Eq::Scale] = "Gain Scale";
         shortNames[Eq::Scale] = "Scale";
+        descriptions[Eq::Scale] = "Scales every band's boost or cut at once; 0 % makes the EQ flat.";
         specs[Eq::Scale] = {.min = 0.0f, .max = 200.0f, .def = 100.0f, .unit = Unit::Percent, .decimals = 0};
         ids[Eq::Analyzer] = "analyzer";
         names[Eq::Analyzer] = shortNames[Eq::Analyzer] = "Analyzer";
+        descriptions[Eq::Analyzer] = "Which signal the spectrum behind the curve shows: before the EQ, after it, or both.";
         specs[Eq::Analyzer] = {.kind = ParamKind::Choice, .min = 0, .max = 3, .def = 2.0f, .choices = kAnalyzer,
                                .flags = ParamFlags::None};
 
@@ -80,6 +93,7 @@ struct Tables
             specs[i].id = ids[i];
             specs[i].name = names[i];
             specs[i].shortName = shortNames[i];
+            specs[i].description = descriptions[i];
         }
         info = DeviceInfo{.id = "eq", .name = "EQ", .category = "EQ & Filter", .kind = DeviceKind::AudioEffect,
                           .buses = {.inputChannels = 2, .outputChannels = 2}, .params = specs, .stateVersion = 1};

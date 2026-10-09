@@ -21,27 +21,27 @@ Small: the gain-reduction history scrolls continuously beside the transfer curve
 
 ## Parameters
 
-| ID (permanent) | Name | Range | Default | Unit | Curve / skew | Smoothing | Automatable |
-|---|---|---|---|---|---|---|---|
-| `threshold` | Threshold | −60 … 0 | −18 | dB | linear | 20 ms | Yes |
-| `ratio` | Ratio | 1 … 100 (∞ at max) | 4 | :1 | centre 4 | 20 ms | Yes |
-| `knee` | Knee | 0 … 24 | 6 | dB | linear | 20 ms | Yes |
-| `attack` | Attack | 0.01 … 300 | 10 | ms | centre 10 | 20 ms multiplicative | Yes |
-| `release` | Release | 1 … 3 000 | 150 | ms | centre 150 | 20 ms multiplicative | Yes |
-| `release.auto` | Auto Release | Off / On | Off | toggle | – | – | Yes |
-| `makeup` | Makeup | −24 … +36 | 0 | dB | linear | 20 ms | Yes |
-| `makeup.auto` | Auto Makeup | Off / On | Off | toggle | – | – | Yes |
-| `character` | Character | Clean, Glue | Clean | choice | – | 10 ms crossfade | Yes |
-| `detector` | Detector | Peak, RMS | Peak | choice | – | 10 ms crossfade | Yes |
-| `link` | Stereo Link | 0 … 100 | 100 | % | linear | 20 ms | Yes |
-| `lookahead` | Lookahead | Off, 1 ms, 10 ms | Off | choice | – | – | **No** (sets latency, see below) |
-| `sc.filter` | Sidechain Filter | Off, High Pass, Low Pass, Band Pass, Bell | Off | choice | – | 10 ms crossfade | Yes |
-| `sc.freq` | Sidechain Freq | 20 … 20 000 | 100 | Hz | centre 632 Hz | 20 ms multiplicative | Yes |
-| `sc.q` | Sidechain Q | 0.1 … 10 | 0.71 | – | centre 1 | 20 ms multiplicative | Yes |
-| `sc.gain` | Sidechain Gain | −24 … +24 | 0 | dB (Bell only) | linear | 20 ms | Yes |
-| `sc.listen` | Listen | Off / On | Off | toggle | – | 10 ms crossfade | Yes |
-| `mix` | Mix | 0 … 100 | 100 | % | linear | 20 ms | Yes |
-| `output` | Output | −24 … +24 | 0 | dB | linear | 20 ms | Yes |
+| ID (permanent) | Name | Description | Range | Default | Unit | Curve / skew | Smoothing | Automatable |
+|---|---|---|---|---|---|---|---|---|
+| `threshold` | Threshold | The level above which the compressor starts turning the sound down. | −60 … 0 | −18 | dB | linear | 20 ms | Yes |
+| `ratio` | Ratio | How strongly it turns down what goes over the threshold: at 4:1, 4 dB over comes out 1 dB over. | 1 … 100 (∞ at max) | 4 | :1 | centre 4 | 20 ms | Yes |
+| `knee` | Knee | How gradually compression starts around the threshold: wider is gentler. | 0 … 24 | 6 | dB | linear | 20 ms | Yes |
+| `attack` | Attack | How quickly it reacts when the level goes over the threshold. | 0.01 … 300 | 10 | ms | centre 10 | 20 ms multiplicative | Yes |
+| `release` | Release | How quickly it lets go once the level falls back. | 1 … 3 000 | 150 | ms | centre 150 | 20 ms multiplicative | Yes |
+| `release.auto` | Auto Release | Adapts the release to the material: fast after short peaks, slower under sustained loudness. | Off / On | Off | toggle | – | – | Yes |
+| `makeup` | Makeup | Gain after compression, to bring the level back up. | −24 … +36 | 0 | dB | linear | 20 ms | Yes |
+| `makeup.auto` | Auto Makeup | Sets the makeup gain from the threshold and ratio, so the level stays about the same. | Off / On | Off | toggle | – | – | Yes |
+| `character` | Character | Clean is transparent; Glue reacts more gently, for holding busses and mixes together. | Clean, Glue | Clean | choice | – | 10 ms crossfade | Yes |
+| `detector` | Detector | Whether it reacts to peaks or to the average level (RMS). | Peak, RMS | Peak | choice | – | 10 ms crossfade | Yes |
+| `link` | Stereo Link | How much the two channels share their gain reduction: 100 % keeps the stereo image steady. | 0 … 100 | 100 | % | linear | 20 ms | Yes |
+| `lookahead` | Lookahead | Delays the audio a little so the compressor catches fast peaks in time. | Off, 1 ms, 10 ms | Off | choice | – | – | **No** (sets latency, see below) |
+| `sc.filter` | Sidechain Filter | Filters what the compressor listens to, for example so it ignores the bass. | Off, High Pass, Low Pass, Band Pass, Bell | Off | choice | – | 10 ms crossfade | Yes |
+| `sc.freq` | Sidechain Freq | The sidechain filter's frequency. | 20 … 20 000 | 100 | Hz | centre 632 Hz | 20 ms multiplicative | Yes |
+| `sc.q` | Sidechain Q | How narrow the sidechain filter is. | 0.1 … 10 | 0.71 | – | centre 1 | 20 ms multiplicative | Yes |
+| `sc.gain` | Sidechain Gain | How much the sidechain bell boosts or cuts. | −24 … +24 | 0 | dB (Bell only) | linear | 20 ms | Yes |
+| `sc.listen` | Listen | Plays what the compressor listens to, to set the sidechain filter by ear. | Off / On | Off | toggle | – | 10 ms crossfade | Yes |
+| `mix` | Mix | Blends the uncompressed signal with the compressed one (parallel compression). | 0 … 100 | 100 | % | linear | 20 ms | Yes |
+| `output` | Output | The level after the compressor. | −24 … +24 | 0 | dB | linear | 20 ms | Yes |
 
 **Sidechain source** (external sidechain on or off, and which track) is host routing, not a parameter (M2 step A2). With no external sidechain the detector listens to the input.
 

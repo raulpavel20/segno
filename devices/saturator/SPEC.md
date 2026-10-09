@@ -21,17 +21,17 @@ None. The aim is to match Live's Saturator in feel and quality. Anti-aliasing (A
 
 ## Parameters
 
-| ID (permanent) | Name | Range | Default | Unit | Curve / skew | Smoothing | Automatable |
-|---|---|---|---|---|---|---|---|
-| `drive` | Drive | 0 … +36 | 0 | dB | linear | 20 ms, linear in amplitude | Yes |
-| `curve` | Curve | Soft, Warm, Tape, Hard, Fold, Rectify | Soft | choice | – | crossfade 10 ms on change | Yes |
-| `bias` | Bias | −1 … +1 | 0 | – | linear | 20 ms | Yes |
-| `color` | Color | Off / On | Off | toggle | – | 10 ms crossfade | Yes |
-| `color.freq` | Color Freq | 100 … 10 000 | 1 000 | Hz | centre 1 kHz | 20 ms multiplicative | Yes |
-| `color.gain` | Color Gain | −12 … +12 | 0 | dB | linear | 20 ms | Yes |
-| `output` | Output | −36 … +12 | 0 | dB | linear | 20 ms, linear in amplitude | Yes |
-| `mix` | Dry/Wet | 0 … 100 | 100 | % | linear | 20 ms | Yes |
-| `quality` | Quality | 2×, 4×, 8× | 4× | choice (oversampling) | – | – (latency stays constant) | No |
+| ID (permanent) | Name | Description | Range | Default | Unit | Curve / skew | Smoothing | Automatable |
+|---|---|---|---|---|---|---|---|---|
+| `drive` | Drive | How hard the signal is pushed into the curve: more drive, more distortion. | 0 … +36 | 0 | dB | linear | 20 ms, linear in amplitude | Yes |
+| `curve` | Curve | The shape of the distortion, from gentle (Soft, Warm, Tape) to harsh (Hard, Fold, Rectify). | Soft, Warm, Tape, Hard, Fold, Rectify | Soft | choice | – | crossfade 10 ms on change | Yes |
+| `bias` | Bias | Shifts the signal before the curve, adding even harmonics for an asymmetric, warmer tone. | −1 … +1 | 0 | – | linear | 20 ms | Yes |
+| `color` | Color | Shapes which frequencies saturate most: a bell boosts them before the curve and cuts them the same amount after. | Off / On | Off | toggle | – | 10 ms crossfade | Yes |
+| `color.freq` | Color Freq | The frequency Color makes saturate more, or less. | 100 … 10 000 | 1 000 | Hz | centre 1 kHz | 20 ms multiplicative | Yes |
+| `color.gain` | Color Gain | How much Color boosts before the curve; negative values make that range saturate less. | −12 … +12 | 0 | dB | linear | 20 ms | Yes |
+| `output` | Output | The level after saturation, to match the loudness of the dry signal. | −36 … +12 | 0 | dB | linear | 20 ms, linear in amplitude | Yes |
+| `mix` | Dry/Wet | Blends the original signal with the saturated one. | 0 … 100 | 100 | % | linear | 20 ms | Yes |
+| `quality` | Quality | How much the curve is oversampled: higher stays cleaner on bright sounds and uses more CPU. | 2×, 4×, 8× | 4× | choice (oversampling) | – | – (latency stays constant) | No |
 
 No non-parameter state. State version 1.
 

@@ -222,7 +222,7 @@ Built in M2 step C9 as designed above, except:
 | `measure_module` | Later, with the dynamics core (A1): the analysis bus has no names for its meter slots yet, and reading them would take the peaks the panel shows. |
 | True peak and LUFS in `render` | With the dynamics core (A1), which owns those meters. |
 | The tasks extension | Later. Long calls (render, plugin scans) stream progress notifications on their response instead. |
-| Module type reference | Gives each module's purpose (from its SPEC), its parameters (range, default, unit, choices) and its sections. What each parameter means is open question B22. |
+| Module type reference | Gives each module's purpose (from its SPEC), its parameters (what each does, range, default, unit, choices) and its sections. Parameter descriptions came with B22. |
 | Read-only mode | Transport tools (play, stop, position, loop, metronome) count as changes and are refused too. |
 
 Tests: `fd_mcp_tests` (protocol, conventions, HTTP and the relay, `[fast]`), `McpToolTests` (every tool against a real Session: one named undo step per edit, read-only mode, confirmations, render, resources and their notifications, HTTP end to end), the popover in `AppSmokeTests`. The stdio relay and headless mode were run by hand; the product owner's checks are in `manual-tests/M2.md`.

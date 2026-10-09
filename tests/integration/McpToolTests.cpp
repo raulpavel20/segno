@@ -556,3 +556,17 @@ TEST_CASE("mcp server: HTTP end to end, token file and endpoint file", "[integra
     REQUIRE(daw.server->start(0));
     CHECK(fd::mcp::McpServer::endpointFile(daw.folder).existsAsFile());
 }
+
+TEST_CASE("mcp tools: parameters say what they do (B22)", "[integration][mcp]")
+{
+    Daw daw;
+    const auto reference = daw.read("segno://module-type/utility");
+    for (const auto& p : reference["parameters"])
+    {
+        INFO(p.dump());
+        CHECK_FALSE(p["description"].get<std::string>().empty());
+    }
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    const auto eq = daw.call("add_module", {{"track", t0}, {"type", "eq"}});
+    CHECK(eq["parameters"][0]["description"] == "Turns the band on or off.");
+}

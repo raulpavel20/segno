@@ -11,6 +11,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <fstream>
+#include <map>
+#include <regex>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -350,4 +354,98 @@ TEST_CASE("conformance: process() never allocates", "[fast][conformance]")
         render(*d, s.audio, opts);
         CHECK(allocationsDuringProcess() - before == 0);
     });
+}
+
+namespace
+{
+std::vector<std::string> tableCells(const std::string& line)
+{
+    std::vector<std::string> cells;
+    std::string cell;
+    for (size_t i = 1; i < line.size(); ++i)
+    {
+        if (line[i] == '|')
+        {
+            const auto first = cell.find_first_not_of(' '), last = cell.find_last_not_of(' ');
+            cells.push_back(first == std::string::npos ? std::string() : cell.substr(first, last - first + 1));
+            cell.clear();
+        }
+        else
+            cell += line[i];
+    }
+    return cells;
+}
+
+/// Each parameter's description in the device's SPEC: the "Description" column of every table
+/// under "## Parameters". IDs with "<n>" (e.g. `band<n>.freq`) stand for every number.
+std::map<std::string, std::string> specDescriptions(const DeviceInfo& info, std::vector<std::string>& problems)
+{
+    std::ifstream file(std::string(FD_SOURCE_DIR) + "/devices/" + std::string(info.id) + "/SPEC.md");
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    const auto text = buffer.str();
+    std::map<std::string, std::string> out;
+    const auto start = text.find("## Parameters");
+    if (start == std::string::npos)
+    {
+        problems.push_back("SPEC.md has no Parameters section");
+        return out;
+    }
+    std::istringstream section(text.substr(start, text.find("\n## ", start + 3) - start));
+    std::vector<std::string> lines;
+    for (std::string line; std::getline(section, line);)
+        lines.push_back(line);
+    for (size_t i = 0; i + 1 < lines.size(); ++i)
+    {
+        if (!lines[i].starts_with("|") || !lines[i + 1].starts_with("|---"))
+            continue;
+        const auto header = tableCells(lines[i]);
+        const auto column = std::find(header.begin(), header.end(), "Description") - header.begin();
+        if (column == static_cast<long>(header.size()))
+        {
+            problems.push_back("a parameter table without a Description column");
+            continue;
+        }
+        for (i += 2; i < lines.size() && lines[i].starts_with("|"); ++i)
+        {
+            const auto cells = tableCells(lines[i]);
+            if (static_cast<long>(cells.size()) <= column)
+                continue;
+            static const std::regex idPattern("`([a-z0-9.<>-]+)`");
+            for (std::sregex_iterator it(cells[0].begin(), cells[0].end(), idPattern), end; it != end; ++it)
+            {
+                auto pattern = std::regex_replace((*it)[1].str(), std::regex("\\."), "\\.");
+                pattern = std::regex_replace(pattern, std::regex("<n>"), "[0-9]+");
+                const std::regex matcher(pattern);
+                for (const auto& p : info.params)
+                    if (std::regex_match(std::string(p.id), matcher))
+                        out[std::string(p.id)] = cells[static_cast<size_t>(column)];
+            }
+        }
+    }
+    return out;
+}
+} // namespace
+
+TEST_CASE("conformance: every parameter says what it does, in the same words as its SPEC", "[fast][conformance]")
+{
+    for (const auto* factory : allDevices())
+    {
+        const auto& info = factory->info();
+        INFO(info.id);
+        std::vector<std::string> problems;
+        const auto spec = specDescriptions(info, problems);
+        CHECK(problems.empty());
+        for (const auto& p : info.params)
+        {
+            if (p.hasFlag(ParamFlags::Hidden))
+                continue;
+            INFO(p.id);
+            CHECK_FALSE(p.description.empty());
+            CHECK(p.description.ends_with("."));
+            CHECK(p.description.size() < 140); // one sentence, fit for a tooltip
+            REQUIRE(spec.contains(std::string(p.id)));
+            CHECK(spec.at(std::string(p.id)) == p.description);
+        }
+    }
 }

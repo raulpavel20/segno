@@ -24,9 +24,11 @@ By default a device matches its Live target. If it goes further, list each addit
 
 ## Parameters
 
-| ID (permanent) | Name | Range | Default | Unit | Curve / skew | Smoothing | Automatable |
-|---|---|---|---|---|---|---|---|
-| `example.gain` | Gain | −inf…+35 | 0 | dB | dB-linear | 20 ms multiplicative | Yes |
+| ID (permanent) | Name | Description | Range | Default | Unit | Curve / skew | Smoothing | Automatable |
+|---|---|---|---|---|---|---|---|---|
+| `example.gain` | Gain | Raises or lowers the level; all the way down is silence. | −inf…+35 | 0 | dB | dB-linear | 20 ms multiplicative | Yes |
+
+**Description:** one plain sentence saying what the parameter does, ending with a full stop, under 140 characters, no vendor names (open question B22). The code carries the same sentence (`ParamSpec::description`, set with `describe()`); the conformance suite compares the two, and the DAW shows it as the control's tooltip and gives it to assistants. One row per parameter; numbered families use `<n>` (`band<n>.freq`).
 
 Also describe any non-parameter state (sample references, wavetables, and so on).
 

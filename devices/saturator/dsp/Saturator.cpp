@@ -12,7 +12,7 @@ namespace
 constexpr std::string_view kCurves[] = {"Soft", "Warm", "Tape", "Hard", "Fold", "Rectify"};
 constexpr std::string_view kQuality[] = {"2x", "4x", "8x"};
 
-constexpr std::array<ParamSpec, Saturator::NumParams> kParams{{
+constexpr std::array<ParamSpec, Saturator::NumParams> kSpecs{{
     {.id = "drive", .name = "Drive", .shortName = "Drive", .min = 0.0f, .max = 36.0f, .def = 0.0f,
      .unit = Unit::Decibels},
     {.id = "curve", .name = "Curve", .shortName = "Curve", .kind = ParamKind::Choice, .min = 0.0f, .max = 5.0f,
@@ -30,6 +30,20 @@ constexpr std::array<ParamSpec, Saturator::NumParams> kParams{{
     {.id = "quality", .name = "Quality", .shortName = "Quality", .kind = ParamKind::Choice, .min = 0.0f, .max = 2.0f,
      .def = 1.0f, .choices = kQuality, .flags = ParamFlags::None},
 }};
+// What each parameter does, in one sentence: the same as in SPEC.md (open question B22).
+constexpr ParamDescription kDescriptions[] = {
+    {"drive", "How hard the signal is pushed into the curve: more drive, more distortion."},
+    {"curve", "The shape of the distortion, from gentle (Soft, Warm, Tape) to harsh (Hard, Fold, Rectify)."},
+    {"bias", "Shifts the signal before the curve, adding even harmonics for an asymmetric, warmer tone."},
+    {"color", "Shapes which frequencies saturate most: a bell boosts them before the curve and cuts them the same amount after."},
+    {"color.freq", "The frequency Color makes saturate more, or less."},
+    {"color.gain", "How much Color boosts before the curve; negative values make that range saturate less."},
+    {"output", "The level after saturation, to match the loudness of the dry signal."},
+    {"mix", "Blends the original signal with the saturated one."},
+    {"quality", "How much the curve is oversampled: higher stays cleaner on bright sounds and uses more CPU."},
+};
+constexpr auto kParams = describe(kSpecs, kDescriptions);
+static_assert(allDescribed(kParams), "every parameter needs a description (SPEC.md)");
 
 constexpr DeviceInfo kInfo{
     .id = "saturator",

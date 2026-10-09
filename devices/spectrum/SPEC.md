@@ -23,14 +23,14 @@ None.
 
 All are display settings: they never affect audio, and they are not automatable.
 
-| ID (permanent) | Name | Range | Default | Unit | Automatable |
-|---|---|---|---|---|---|
-| `channel` | Channel | L+R, Left, Right, Mid, Side | L+R | choice | No |
-| `resolution` | Resolution | 2 048, 4 096, 8 192, 16 384 | 8 192 | FFT points | No |
-| `average` | Averaging | 0 … 5 000 | 300 | ms | No |
-| `hold` | Peak Hold | Off, 1 s, 3 s, Infinite | 3 s | choice | No |
-| `slope` | Slope | 0 … 6 | 3 | dB/oct (tilt around 1 kHz) | No |
-| `range` | Range | 60, 90, 120 | 90 | dB shown | No |
+| ID (permanent) | Name | Description | Range | Default | Unit | Automatable |
+|---|---|---|---|---|---|---|
+| `channel` | Channel | Which signal is shown: both channels, left, right, mid or side. | L+R, Left, Right, Mid, Side | L+R | choice | No |
+| `resolution` | Resolution | How finely frequencies are resolved: higher shows more detail in the lows and reacts more slowly. | 2 048, 4 096, 8 192, 16 384 | 8 192 | FFT points | No |
+| `average` | Averaging | How long the display averages, from instant to smooth. | 0 … 5 000 | 300 | ms | No |
+| `hold` | Peak Hold | How long peaks stay marked. | Off, 1 s, 3 s, Infinite | 3 s | choice | No |
+| `slope` | Slope | Tilts the display around 1 kHz, so a balanced mix looks flat. | 0 … 6 | 3 | dB/oct (tilt around 1 kHz) | No |
+| `range` | Range | How many decibels the display spans from top to bottom. | 60, 90, 120 | 90 | dB shown | No |
 
 State version 1.
 

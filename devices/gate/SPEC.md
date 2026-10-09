@@ -21,23 +21,23 @@ None.
 
 ## Parameters
 
-| ID (permanent) | Name | Range | Default | Unit | Curve / skew | Smoothing | Automatable |
-|---|---|---|---|---|---|---|---|
-| `threshold` | Threshold | −80 … 0 | −40 | dB | linear | 20 ms | Yes |
-| `return` | Return | 0 … 24 | 3 | dB | linear | 20 ms | Yes |
-| `mode` | Mode | Gate, Expander | Gate | choice | – | 10 ms crossfade | Yes |
-| `ratio` | Ratio | 1 … 10 | 2 | :1 (Expander) | centre 2 | 20 ms | Yes |
-| `range` | Range | −inf … 0 | −inf | dB | dB | 20 ms | Yes |
-| `attack` | Attack | 0.02 … 150 | 0.1 | ms | centre 1 | 20 ms multiplicative | Yes |
-| `hold` | Hold | 0 … 1 000 | 20 | ms | centre 50 | 20 ms | Yes |
-| `release` | Release | 1 … 3 000 | 100 | ms | centre 100 | 20 ms multiplicative | Yes |
-| `flip` | Flip | Off / On | Off | toggle | – | 10 ms crossfade | Yes |
-| `lookahead` | Lookahead | Off, 1 ms, 10 ms | Off | choice | – | – | **No** (sets latency, as in the Compressor) |
-| `sc.filter` | Sidechain Filter | Off, High Pass, Low Pass, Band Pass, Bell | Off | choice | – | 10 ms crossfade | Yes |
-| `sc.freq` | Sidechain Freq | 20 … 20 000 | 100 | Hz | centre 632 Hz | 20 ms multiplicative | Yes |
-| `sc.q` | Sidechain Q | 0.1 … 10 | 0.71 | – | centre 1 | 20 ms multiplicative | Yes |
-| `sc.gain` | Sidechain Gain | −24 … +24 | 0 | dB (Bell only) | linear | 20 ms | Yes |
-| `sc.listen` | Listen | Off / On | Off | toggle | – | 10 ms crossfade | Yes |
+| ID (permanent) | Name | Description | Range | Default | Unit | Curve / skew | Smoothing | Automatable |
+|---|---|---|---|---|---|---|---|---|
+| `threshold` | Threshold | The level above which the gate opens. | −80 … 0 | −40 | dB | linear | 20 ms | Yes |
+| `return` | Return | How far below the threshold the level must fall before the gate closes, so it doesn't chatter. | 0 … 24 | 3 | dB | linear | 20 ms | Yes |
+| `mode` | Mode | Gate cuts the sound below the threshold; Expander turns it down gradually. | Gate, Expander | Gate | choice | – | 10 ms crossfade | Yes |
+| `ratio` | Ratio | How strongly the expander turns down what falls below the threshold. | 1 … 10 | 2 | :1 (Expander) | centre 2 | 20 ms | Yes |
+| `range` | Range | How far the sound is turned down while the gate is closed; -inf is silence. | −inf … 0 | −inf | dB | dB | 20 ms | Yes |
+| `attack` | Attack | How quickly the gate opens. | 0.02 … 150 | 0.1 | ms | centre 1 | 20 ms multiplicative | Yes |
+| `hold` | Hold | How long the gate stays open after the level falls below the threshold. | 0 … 1 000 | 20 | ms | centre 50 | 20 ms | Yes |
+| `release` | Release | How quickly the gate closes after the hold. | 1 … 3 000 | 100 | ms | centre 100 | 20 ms multiplicative | Yes |
+| `flip` | Flip | Inverts the gate: it turns down what's above the threshold and lets the rest through. | Off / On | Off | toggle | – | 10 ms crossfade | Yes |
+| `lookahead` | Lookahead | Delays the audio a little so the gate opens before a hit, keeping its attack. | Off, 1 ms, 10 ms | Off | choice | – | – | **No** (sets latency, as in the Compressor) |
+| `sc.filter` | Sidechain Filter | Filters what the gate listens to, for example so it ignores the bass. | Off, High Pass, Low Pass, Band Pass, Bell | Off | choice | – | 10 ms crossfade | Yes |
+| `sc.freq` | Sidechain Freq | The sidechain filter's frequency. | 20 … 20 000 | 100 | Hz | centre 632 Hz | 20 ms multiplicative | Yes |
+| `sc.q` | Sidechain Q | How narrow the sidechain filter is. | 0.1 … 10 | 0.71 | – | centre 1 | 20 ms multiplicative | Yes |
+| `sc.gain` | Sidechain Gain | How much the sidechain bell boosts or cuts. | −24 … +24 | 0 | dB (Bell only) | linear | 20 ms | Yes |
+| `sc.listen` | Listen | Plays what the gate listens to, to set the sidechain filter by ear. | Off / On | Off | toggle | – | 10 ms crossfade | Yes |
 
 The sidechain source is host routing (M2 step A2). State version 1.
 

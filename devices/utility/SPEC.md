@@ -21,16 +21,16 @@ None. Bass Mono and channel modes (left/right/swap) are possible later additions
 
 ## Parameters
 
-| ID (permanent) | Name | Range | Default | Unit | Curve / skew | Smoothing | Automatable |
-|---|---|---|---|---|---|---|---|
-| `gain` | Gain | −70 (= −inf) … +35 | 0 | dB | centre 0 dB | 20 ms, linear in amplitude | Yes |
-| `balance` | Balance | −1 … +1 | 0 | Pan (50L…C…50R) | linear | 20 ms linear | Yes |
-| `width` | Width | 0 … 400 | 100 | % | centre 100 % | 20 ms linear | Yes |
-| `mono` | Mono | Off / On | Off | toggle | – | 20 ms (via width) | Yes |
-| `invert.l` | Invert L | Off / On | Off | toggle | – | 10 ms crossfade through 0 | Yes |
-| `invert.r` | Invert R | Off / On | Off | toggle | – | 10 ms crossfade through 0 | Yes |
-| `dc` | DC Filter | Off / On | Off | toggle | – | 10 ms crossfade | Yes |
-| `mute` | Mute | Off / On | Off | toggle | – | 20 ms (via gain) | Yes |
+| ID (permanent) | Name | Description | Range | Default | Unit | Curve / skew | Smoothing | Automatable |
+|---|---|---|---|---|---|---|---|---|
+| `gain` | Gain | Raises or lowers the level; all the way down is silence. | −70 (= −inf) … +35 | 0 | dB | centre 0 dB | 20 ms, linear in amplitude | Yes |
+| `balance` | Balance | Moves the sound towards the left or the right. | −1 … +1 | 0 | Pan (50L…C…50R) | linear | 20 ms linear | Yes |
+| `width` | Width | Narrows the stereo image towards mono (0 %) or widens it (above 100 %). | 0 … 400 | 100 | % | centre 100 % | 20 ms linear | Yes |
+| `mono` | Mono | Sums both channels to mono. | Off / On | Off | toggle | – | 20 ms (via width) | Yes |
+| `invert.l` | Invert L | Flips the polarity of the left channel. | Off / On | Off | toggle | – | 10 ms crossfade through 0 | Yes |
+| `invert.r` | Invert R | Flips the polarity of the right channel. | Off / On | Off | toggle | – | 10 ms crossfade through 0 | Yes |
+| `dc` | DC Filter | Removes DC offset with a gentle high-pass filter. | Off / On | Off | toggle | – | 10 ms crossfade | Yes |
+| `mute` | Mute | Silences the output, with a short fade. | Off / On | Off | toggle | – | 20 ms (via gain) | Yes |
 
 No non-parameter state. State version 1.
 

@@ -54,7 +54,7 @@ constexpr ParamSpec fadeTime(std::string_view id, std::string_view name, std::st
             .skewCentre = 10.0f, .unit = Unit::Milliseconds, .decimals = 1};
 }
 
-constexpr std::array<ParamSpec, P::NumParams> kParams{{
+constexpr std::array<ParamSpec, P::NumParams> kSpecs{{
     choice("mode", "Mode", "Mode", kModes, 0.0f),
     percent("start", "Start", "Start", 0.0f, 0.0f, 100.0f, 1),
     percent("end", "End", "End", 100.0f, 0.0f, 100.0f, 1),
@@ -92,6 +92,43 @@ constexpr std::array<ParamSpec, P::NumParams> kParams{{
      .skewCentre = 200.0f, .unit = Unit::Milliseconds, .decimals = 0},
     discrete("voice.bend", "Bend Range", "Bend", 0.0f, 24.0f, 2.0f, Unit::Semitones),
 }};
+// What each parameter does, in one sentence: the same as in SPEC.md (open question B22).
+constexpr ParamDescription kDescriptions[] = {
+    {"mode", "Classic plays while the key is held, with optional looping; One-shot plays to the end, as for drums."},
+    {"start", "Where in the sample playback starts."},
+    {"end", "Where in the sample playback ends."},
+    {"loop", "Loops between Loop Start and End while the key is held (Classic only)."},
+    {"loop.start", "Where the loop starts, within the start-to-end region."},
+    {"loop.xfade", "Crossfades the end of the loop into its start, to hide the seam."},
+    {"root", "The note at which the sample plays at its original pitch."},
+    {"transpose", "Shifts the pitch in semitones."},
+    {"detune", "Fine-tunes the pitch in cents."},
+    {"gain", "The sample's level."},
+    {"vel.amp", "How much velocity changes the volume: at 0 % every note plays equally loud."},
+    {"amp.a", "How long a note takes to reach full volume."},
+    {"amp.d", "How long the volume takes to fall to the sustain level."},
+    {"amp.s", "The volume held while the key stays down."},
+    {"amp.r", "How long a note takes to fade out after the key is released."},
+    {"oneshot.gate", "In One-shot mode, releasing the key fades the sample out instead of letting it play to the end."},
+    {"fade.in", "A short fade at the start of each note, against clicks."},
+    {"fade.out", "A short fade at the end of each note, against clicks."},
+    {"filter.on", "Turns the filter on."},
+    {"filter.type", "The filter: low pass at 12 or 24 dB per octave, high pass or band pass."},
+    {"filter.cutoff", "Where the filter starts to cut: lower is darker."},
+    {"filter.res", "Emphasis at the cutoff; near the top the 24 dB low pass starts to whistle on its own."},
+    {"filter.env", "How far the filter envelope moves the cutoff, up or down."},
+    {"filter.key", "How much the cutoff follows the note played: at 100 % it rises an octave per octave."},
+    {"fenv.a", "How long the filter envelope takes to rise."},
+    {"fenv.d", "How long the filter envelope takes to fall to its sustain level."},
+    {"fenv.s", "The filter envelope's level while the key stays down."},
+    {"fenv.r", "How long the filter envelope takes to fall after the key is released."},
+    {"voice.mode", "Poly plays chords; Mono plays one note at a time; Legato is mono without restarting the envelopes when notes overlap."},
+    {"voice.count", "How many notes can sound at once."},
+    {"voice.glide", "How long the pitch takes to slide from one note to the next."},
+    {"voice.bend", "How far the pitch bend wheel bends, in semitones."},
+};
+constexpr auto kParams = describe(kSpecs, kDescriptions);
+static_assert(allDescribed(kParams), "every parameter needs a description (SPEC.md)");
 
 constexpr DeviceInfo kInfo{
     .id = "sampler",

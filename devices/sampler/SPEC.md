@@ -23,29 +23,40 @@ None in M1.
 
 ## Parameters
 
-| ID | Name | Range | Default | Notes |
-|---|---|---|---|---|
-| `mode` | Mode | Classic, One-shot | Classic | |
-| `start` | Start | 0 … 100 % | 0 | Of the sample length |
-| `end` | End | 0 … 100 % | 100 | |
-| `loop` | Loop | Off / On | Off | Classic only |
-| `loop.start` | Loop Start | 0 … 100 % | 0 | Relative to the start–end region |
-| `loop.xfade` | Loop Crossfade | 0 … 50 % | 2 | Of the loop length |
-| `root` | Root Key | 0 … 127 | 60 | Read from file metadata when present |
-| `transpose` | Transpose | −48 … +48 st | 0 | |
-| `detune` | Detune | −50 … +50 ct | 0 | |
-| `gain` | Gain | −inf … +12 dB | 0 | |
-| `vel.amp` | Velocity → Volume | 0 … 100 % | 50 | |
-| `amp.a` / `amp.d` / `amp.s` / `amp.r` | Amp A/D/S/R | as Subtractive Synth | 0.5 ms, 300 ms, 100 %, 50 ms | One-shot ignores sustain and release unless `oneshot.gate` is on |
-| `oneshot.gate` | Gate | Off / On | Off | One-shot: note-off fades out |
-| `fade.in` / `fade.out` | Fade In / Out | 0 … 100 ms | 0.5 / 2 ms | Click-free start and end |
-| `filter.on` | Filter | Off / On | Off | Same filter engine as Subtractive Synth |
-| `filter.type` / `filter.cutoff` / `filter.res` / `filter.env` / `filter.key` | Filter … | as Subtractive Synth | – | |
-| `fenv.a` / `fenv.d` / `fenv.s` / `fenv.r` | Filter Env A/D/S/R | as above | 2 ms, 400 ms, 0 %, 300 ms | |
-| `voice.mode` | Voice Mode | Poly, Mono, Legato | Poly | |
-| `voice.count` | Voices | 1 … 32 | 16 | |
-| `voice.glide` | Glide | 0 … 2 s | 0 | |
-| `voice.bend` | Bend Range | 0 … 24 st | 2 | |
+| ID | Name | Description | Range | Default | Notes |
+|---|---|---|---|---|---|
+| `mode` | Mode | Classic plays while the key is held, with optional looping; One-shot plays to the end, as for drums. | Classic, One-shot | Classic | |
+| `start` | Start | Where in the sample playback starts. | 0 … 100 % | 0 | Of the sample length |
+| `end` | End | Where in the sample playback ends. | 0 … 100 % | 100 | |
+| `loop` | Loop | Loops between Loop Start and End while the key is held (Classic only). | Off / On | Off | Classic only |
+| `loop.start` | Loop Start | Where the loop starts, within the start-to-end region. | 0 … 100 % | 0 | Relative to the start–end region |
+| `loop.xfade` | Loop Crossfade | Crossfades the end of the loop into its start, to hide the seam. | 0 … 50 % | 2 | Of the loop length |
+| `root` | Root Key | The note at which the sample plays at its original pitch. | 0 … 127 | 60 | Read from file metadata when present |
+| `transpose` | Transpose | Shifts the pitch in semitones. | −48 … +48 st | 0 | |
+| `detune` | Detune | Fine-tunes the pitch in cents. | −50 … +50 ct | 0 | |
+| `gain` | Gain | The sample's level. | −inf … +12 dB | 0 | |
+| `vel.amp` | Velocity → Volume | How much velocity changes the volume: at 0 % every note plays equally loud. | 0 … 100 % | 50 | |
+| `amp.a` | Amp Attack | How long a note takes to reach full volume. | 0.5 ms … 20 s | 0.5 ms | |
+| `amp.d` | Amp Decay | How long the volume takes to fall to the sustain level. | 0.5 ms … 20 s | 300 ms | |
+| `amp.s` | Amp Sustain | The volume held while the key stays down. | 0 … 100 % | 100 % | One-shot ignores it unless `oneshot.gate` is on |
+| `amp.r` | Amp Release | How long a note takes to fade out after the key is released. | 0.5 ms … 20 s | 50 ms | One-shot ignores it unless `oneshot.gate` is on |
+| `oneshot.gate` | Gate | In One-shot mode, releasing the key fades the sample out instead of letting it play to the end. | Off / On | Off | One-shot: note-off fades out |
+| `fade.in` | Fade In | A short fade at the start of each note, against clicks. | 0 … 100 ms | 0.5 ms | Click-free start |
+| `fade.out` | Fade Out | A short fade at the end of each note, against clicks. | 0 … 100 ms | 2 ms | Click-free end |
+| `filter.on` | Filter | Turns the filter on. | Off / On | Off | Same filter engine as Subtractive Synth |
+| `filter.type` | Filter Type | The filter: low pass at 12 or 24 dB per octave, high pass or band pass. | LP 12, LP 24, HP 12, BP 12 | LP 24 | Same filter engine as Subtractive Synth |
+| `filter.cutoff` | Cutoff | Where the filter starts to cut: lower is darker. | 20 … 20 000 Hz | 2 000 | log |
+| `filter.res` | Resonance | Emphasis at the cutoff; near the top the 24 dB low pass starts to whistle on its own. | 0 … 100 % | 20 | |
+| `filter.env` | Filter Env Amount | How far the filter envelope moves the cutoff, up or down. | −100 … +100 % | 0 | Filter envelope to cutoff |
+| `filter.key` | Filter Key Track | How much the cutoff follows the note played: at 100 % it rises an octave per octave. | 0 … 100 % | 50 | |
+| `fenv.a` | Filter Env Attack | How long the filter envelope takes to rise. | 0.5 ms … 20 s | 2 ms | |
+| `fenv.d` | Filter Env Decay | How long the filter envelope takes to fall to its sustain level. | 0.5 ms … 20 s | 400 ms | |
+| `fenv.s` | Filter Env Sustain | The filter envelope's level while the key stays down. | 0 … 100 % | 0 % | |
+| `fenv.r` | Filter Env Release | How long the filter envelope takes to fall after the key is released. | 0.5 ms … 20 s | 300 ms | |
+| `voice.mode` | Voice Mode | Poly plays chords; Mono plays one note at a time; Legato is mono without restarting the envelopes when notes overlap. | Poly, Mono, Legato | Poly | |
+| `voice.count` | Voices | How many notes can sound at once. | 1 … 32 | 16 | |
+| `voice.glide` | Glide | How long the pitch takes to slide from one note to the next. | 0 … 2 s | 0 | |
+| `voice.bend` | Bend Range | How far the pitch bend wheel bends, in semitones. | 0 … 24 st | 2 | |
 
 **Non-parameter state** (`extra`):
 - `sample.path`: absolute path;

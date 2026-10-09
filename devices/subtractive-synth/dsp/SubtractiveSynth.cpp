@@ -52,7 +52,7 @@ constexpr ParamSpec discrete(std::string_view id, std::string_view name, std::st
             .def = def, .unit = unit};
 }
 
-constexpr std::array<ParamSpec, P::NumParams> kParams{{
+constexpr std::array<ParamSpec, P::NumParams> kSpecs{{
     percent("osc1.shape", "Osc 1 Shape", "Shape", 0.0f),
     discrete("osc1.oct", "Osc 1 Octave", "Oct", -3.0f, 3.0f, 0.0f),
     {.id = "osc1.pw", .name = "Osc 1 Width", .shortName = "Width", .min = 5.0f, .max = 95.0f, .def = 50.0f,
@@ -101,6 +101,53 @@ constexpr std::array<ParamSpec, P::NumParams> kParams{{
     discrete("voice.bend", "Bend Range", "Bend", 0.0f, 24.0f, 2.0f, Unit::Semitones),
     level("out.volume", "Volume", "Volume", -6.0f, 6.0f),
 }};
+// What each parameter does, in one sentence: the same as in SPEC.md (open question B22).
+constexpr ParamDescription kDescriptions[] = {
+    {"osc1.shape", "Morphs the first oscillator from saw through square and triangle to sine."},
+    {"osc1.oct", "Shifts the first oscillator by whole octaves."},
+    {"osc1.pw", "The pulse width of the first oscillator's square: 50 % sounds hollow, narrower sounds thinner."},
+    {"osc2.wave", "The second oscillator's waveform."},
+    {"osc2.oct", "Shifts the second oscillator by whole octaves."},
+    {"osc2.semi", "Shifts the second oscillator by semitones, for intervals."},
+    {"osc2.detune", "Detunes the second oscillator slightly, for a thicker, beating sound."},
+    {"mix.osc1", "The first oscillator's level."},
+    {"mix.osc2", "The second oscillator's level."},
+    {"mix.noise", "The level of noise mixed in."},
+    {"filter.type", "The filter: low pass at 12 or 24 dB per octave, high pass or band pass."},
+    {"filter.cutoff", "Where the filter starts to cut: lower is darker."},
+    {"filter.res", "Emphasis at the cutoff; near the top the 24 dB low pass starts to whistle on its own."},
+    {"filter.key", "How much the cutoff follows the note played: at 100 % it rises an octave per octave."},
+    {"filter.env", "How far the modulation envelope moves the cutoff, up or down."},
+    {"amp.a", "How long a note takes to reach full volume."},
+    {"amp.d", "How long the volume takes to fall to the sustain level."},
+    {"amp.s", "The volume held while the key stays down."},
+    {"amp.r", "How long a note takes to fade out after the key is released."},
+    {"mod.a", "How long the modulation envelope takes to rise."},
+    {"mod.d", "How long the modulation envelope takes to fall to its sustain level."},
+    {"mod.s", "The modulation envelope's level while the key stays down."},
+    {"mod.r", "How long the modulation envelope takes to fall after the key is released."},
+    {"mod.cycle", "Loops the modulation envelope's attack and decay, so it works as a second LFO."},
+    {"lfo.wave", "The LFO's shape."},
+    {"lfo.rate", "How fast the LFO moves when it isn't synced to the tempo."},
+    {"lfo.sync", "Locks the LFO to the song's tempo, in note values."},
+    {"m1.src", "What drives this modulation slot: an envelope, the LFO, or how the note is played."},
+    {"m1.dst", "What this modulation slot changes."},
+    {"m1.amt", "How much, and in which direction, this slot modulates its target."},
+    {"m2.src", "What drives this modulation slot: an envelope, the LFO, or how the note is played."},
+    {"m2.dst", "What this modulation slot changes."},
+    {"m2.amt", "How much, and in which direction, this slot modulates its target."},
+    {"m3.src", "What drives this modulation slot: an envelope, the LFO, or how the note is played."},
+    {"m3.dst", "What this modulation slot changes."},
+    {"m3.amt", "How much, and in which direction, this slot modulates its target."},
+    {"voice.mode", "Poly plays chords; Mono plays one note at a time; Legato is mono without restarting the envelopes when notes overlap."},
+    {"voice.count", "How many notes can sound at once."},
+    {"voice.glide", "How long the pitch takes to slide from one note to the next."},
+    {"voice.drift", "Small random wandering of each voice's pitch and filter, like an analog synth."},
+    {"voice.bend", "How far the pitch bend wheel bends, in semitones."},
+    {"out.volume", "The synth's output level."},
+};
+constexpr auto kParams = describe(kSpecs, kDescriptions);
+static_assert(allDescribed(kParams), "every parameter needs a description (SPEC.md)");
 
 constexpr DeviceInfo kInfo{
     .id = "subtractive-synth",
