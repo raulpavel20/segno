@@ -173,7 +173,8 @@ TEST_CASE("mcp tools: tracks, MIDI clips and notes, each call one named undo ste
                                                        {"notes",
                                                         {{{"pitch", "C2"}, {"start", 0}, {"length", 1}, {"velocity", 90}},
                                                          {{"pitch", 51}, {"start", "1 beat"}, {"length", "1/8"}}}}});
-    CHECK(created["addedInstrument"] == true);
+    CHECK_FALSE(created.contains("addedInstrument")); // no instrument by itself (ADR 0033)
+    CHECK(daw.project()["tracks"][4]["instrument"].is_null());
     const auto clipId = created["clip"]["id"].get<std::string>();
     CHECK(created["clip"]["start"]["bbt"] == "2.1.1");
     CHECK(created["clip"]["length"] == Approx(4.0));
@@ -188,7 +189,7 @@ TEST_CASE("mcp tools: tracks, MIDI clips and notes, each call one named undo ste
     CHECK(clip["notes"][1]["length"] == Approx(0.5));
     CHECK(clip["notes"][1]["velocity"] == 100);
 
-    // One undo takes back the clip, its notes and the instrument it brought.
+    // One undo takes back the clip and its notes.
     const auto undone = daw.call("undo");
     CHECK(undone["undone"][0] == "Assistant: create midi clip");
     project = daw.project();
@@ -455,6 +456,7 @@ TEST_CASE("mcp tools: render measures a range without touching the project", "[i
 {
     Daw daw;
     const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    daw.call("add_module", {{"track", t0}, {"type", "Subtractive Synth"}}); // something to play the clip
     daw.call("create_midi_clip", {{"track", t0},
                                   {"start", 0},
                                   {"length", "1 bar"},

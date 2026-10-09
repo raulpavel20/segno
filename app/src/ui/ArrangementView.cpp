@@ -1769,13 +1769,10 @@ std::uint64_t ArrangementView::createMidiClip(int trackIndex, double seconds, bo
             end = c.start;
     if (end - start < model::minClipLength)
         return 0;
-    bool addedInstrument = false;
-    const auto id = session_.createMidiClip(track.id, start, end - start, &addedInstrument);
+    const auto id = session_.createMidiClip(track.id, start, end - start); // no instrument by itself (ADR 0033)
     if (id == 0)
         return 0;
     setSelection({.channel = track.id, .clips = {id}});
-    if (addedInstrument && onMessage)
-        onMessage("Added a Subtractive Synth to play the MIDI clip (swap it in the module chain)");
     if (onOpenClip)
         onOpenClip(id);
     return id;
@@ -1854,12 +1851,9 @@ void ArrangementView::filesDropped(const juce::StringArray& files, int x, int y)
         if (target >= 0 && target < static_cast<int>(snapshot_->tracks.size()))
             trackId = snapshot_->tracks[static_cast<size_t>(target)].id;
         else
-            trackId = session_.addTrack(); // a MIDI drop brings its instrument (ADR 0019)
-        bool addedInstrument = false;
-        const auto clip = midi ? session_.insertMidiFile(trackId, juce::File(path), seconds, &addedInstrument)
+            trackId = session_.addTrack();
+        const auto clip = midi ? session_.insertMidiFile(trackId, juce::File(path), seconds) // no instrument (ADR 0033)
                                : session_.insertAudioFile(trackId, juce::File(path), seconds);
-        if (addedInstrument && onMessage)
-            onMessage("Added a Subtractive Synth to play the MIDI clip (swap it in the module chain)");
         if (clip != 0 && !first)
             first = trackId;
         if (target >= 0)

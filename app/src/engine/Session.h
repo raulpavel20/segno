@@ -106,13 +106,11 @@ public:
     /// unless `name` is given.
     std::uint64_t addTrack(const std::string& name = {});
     /// Inserts a MIDI file as a clip at `seconds` (all of its tracks merged); returns the clip id.
-    /// A track without an instrument gets the default one (`addedInstrument` says so).
-    std::uint64_t insertMidiFile(std::uint64_t trackId, const juce::File& file, double seconds,
-                                 bool* addedInstrument = nullptr);
+    /// No instrument is added (ADR 0033): without one the clip is silent.
+    std::uint64_t insertMidiFile(std::uint64_t trackId, const juce::File& file, double seconds);
     /// An empty MIDI clip on `trackId` over [seconds, seconds + lengthSeconds), named after the
-    /// track; returns its id. A track without an instrument gets the default one, as above.
-    std::uint64_t createMidiClip(std::uint64_t trackId, double seconds, double lengthSeconds,
-                                 bool* addedInstrument = nullptr);
+    /// track; returns its id. No instrument is added, as above.
+    std::uint64_t createMidiClip(std::uint64_t trackId, double seconds, double lengthSeconds);
     /// Replaces a MIDI clip's notes (C2, the piano roll). Notes are matched by value: the ones
     /// that stay are untouched; changed ones keep their other properties.
     void setNotes(std::uint64_t clipId, const std::vector<model::Note>& notes);

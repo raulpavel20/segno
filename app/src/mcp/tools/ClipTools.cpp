@@ -58,8 +58,8 @@ void addClipTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"add_track", "Add a track",
-         "Adds an empty track at the end. Any track takes audio and MIDI clips; a MIDI clip brings the default "
-         "instrument with it when the track has none.",
+         "Adds an empty track at the end. Any track takes audio and MIDI clips; MIDI clips sound once the track "
+         "has an instrument (add_module).",
          object({{"name", string("Its name (default \"N Track\")")}}),
          result({{"track", string("The new track's id")}}, {"track"}), adds},
         [&env](const Json& args, CallContext&) {
@@ -72,24 +72,22 @@ void addClipTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"create_midi_clip", "Create a MIDI clip",
-         "Creates a MIDI clip on a track, optionally with notes. Adds the default instrument (the Synth) when the "
-         "track has none, and says so. The clip covers what was there.",
+         "Creates a MIDI clip on a track, optionally with notes. No instrument is added: on a track without one "
+         "the clip is silent until one is added (add_module). The clip covers what was there.",
          object({{"track", id(IdKind::Track, "The track")},
                  {"start", position("Where the clip starts.")},
                  {"length", length("How long it is (default one bar).")},
                  {"name", string("Its name (default: the track's)")},
                  {"notes", arrayOf(noteInput(), "Notes to put in it (see add_notes)", std::nullopt)}},
                 {"track", "start"}),
-         result({{"clip", clipResultSchema()}, {"addedInstrument", boolean("The default instrument was added")}},
-                {"clip", "addedInstrument"}),
+         result({{"clip", clipResultSchema()}}, {"clip"}),
          moves},
         [&env](const Json& args, CallContext&) {
             const auto t = track(env, args["track"]);
             const double start = positionArg(env, args["start"]);
             const double length = args.contains("length") ? lengthArg(env, args["length"]) : tempo(env).beatsPerBar();
-            bool added = false;
             const double startSeconds = seconds(env, start);
-            const auto id = env.session.createMidiClip(t.id, startSeconds, seconds(env, start + length) - startSeconds, &added);
+            const auto id = env.session.createMidiClip(t.id, startSeconds, seconds(env, start + length) - startSeconds);
             if (id == 0)
                 throw Problem{"The clip couldn't be created."};
             if (args.contains("notes") && !args["notes"].empty())
@@ -99,8 +97,9 @@ void addClipTools(Registry& registry, ToolEnv& env)
             }
             env.session.flushSnapshot();
             const auto created = clip(env, formatId(IdKind::Clip, id));
-            return ToolResult::ok({{"clip", clipJson(env, created, false)}, {"addedInstrument", added}},
-                                  added ? "The track had no instrument, so the Synth was added." : "");
+            return ToolResult::ok({{"clip", clipJson(env, created, false)}},
+                                  t.instrument.empty() ? "The track has no instrument, so the clip is silent until one "
+                                                         "is added." : "");
         }));
 
     const auto insertFile = [&env](bool midi) {
@@ -108,17 +107,15 @@ void addClipTools(Registry& registry, ToolEnv& env)
             const auto t = track(env, args["track"]);
             const auto file = readableFile(args["path"]);
             const double at = seconds(env, positionArg(env, args["start"]));
-            bool added = false;
-            const auto id = midi ? env.session.insertMidiFile(t.id, file, at, &added)
-                                 : env.session.insertAudioFile(t.id, file, at);
+            const auto id = midi ? env.session.insertMidiFile(t.id, file, at) : env.session.insertAudioFile(t.id, file, at);
             if (id == 0)
                 throw Problem{file.getFullPathName().toStdString() +
                               (midi ? " isn't a MIDI file the DAW can read." : " isn't an audio file the DAW can read.")};
             env.session.flushSnapshot();
             Json r{{"clip", clipJson(env, clip(env, formatId(IdKind::Clip, id)), false)}};
-            if (midi)
-                r["addedInstrument"] = added;
-            return ToolResult::ok(std::move(r), added ? "The track had no instrument, so the Synth was added." : "");
+            const bool silent = midi && t.instrument.empty();
+            return ToolResult::ok(std::move(r), silent ? "The track has no instrument, so the clip is silent until one "
+                                                         "is added." : "");
         };
     };
     registry.tools.push_back(make(env,
@@ -132,13 +129,13 @@ void addClipTools(Registry& registry, ToolEnv& env)
                                   insertFile(false)));
     registry.tools.push_back(make(env,
                                   {"insert_midi_file", "Insert a MIDI file",
-                                   "Inserts a MIDI file as one clip (all of its tracks merged). Adds the default "
-                                   "instrument when the track has none.",
+                                   "Inserts a MIDI file as one clip (all of its tracks merged). No instrument is "
+                                   "added.",
                                    object({{"track", id(IdKind::Track, "The track")},
                                            {"start", position("Where the clip starts.")},
                                            {"path", string("The file's absolute path")}},
                                           {"track", "start", "path"}),
-                                   result({{"clip", clipResultSchema()}, {"addedInstrument", boolean("")}}, {"clip"}),
+                                   result({{"clip", clipResultSchema()}}, {"clip"}),
                                    moves},
                                   insertFile(true)));
 

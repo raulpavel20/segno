@@ -391,7 +391,7 @@ TEST_CASE("one selection: the context panels follow the last click in the arrang
     CHECK(detail.mode() == Mode::Clip);
     CHECK(detail.showsPianoRoll());
     CHECK(inspector.sections() == std::vector{S::Clip, S::Track, S::Input, S::Mix, S::Sends});
-    CHECK(f.session->midiInputTarget() == t0);
+    CHECK_FALSE(f.session->midiInputTarget()); // no instrument came with it (ADR 0033): nothing to play
 
     // Another track's header: that track alone, in both panels, told once.
     told = 0;
@@ -825,6 +825,7 @@ TEST_CASE("piano roll: a double-click makes a clip; notes are drawn, moved, set 
     auto& detail = f.shell->detail();
     auto& roll = detail.pianoRoll();
     const auto track = f.session->snapshot()->tracks.front().id;
+    REQUIRE(f.session->addDevice(track, "fd:subtractive-synth") != 0); // previews need something to play them
     auto clipInfo = [&]() -> std::optional<fd::model::ClipInfo> {
         f.session->updateSnapshotNow();
         const auto& clips = f.session->snapshot()->tracks.front().clips;
@@ -832,7 +833,7 @@ TEST_CASE("piano roll: a double-click makes a clip; notes are drawn, moved, set 
     };
 
     // Double-click an empty spot of the first track at 2.1 s: a one-bar MIDI clip from the grid
-    // line before it, an instrument for the track, and the clip view showing it.
+    // line before it, and the clip view showing it.
     const auto& tl = view.timeline();
     const juce::Point<float> spot(static_cast<float>(fd::app::ArrangementView::headerWidth()) + static_cast<float>(tl.xForTime(2.1)),
                                   static_cast<float>(fd::app::ArrangementView::rulerHeight()) + 20.0f);

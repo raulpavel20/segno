@@ -593,7 +593,7 @@ TEST_CASE("clips never overlap on a track: placing cuts what is covered, in one 
     for (size_t i = 1; i < spans.size(); ++i)
         CHECK(spans[i].first >= spans[i - 1].second - 1e-6);
 
-    // A MIDI file dropped on a track without an instrument brings one, in the same step.
+    // A MIDI file dropped on a track without an instrument brings none (ADR 0033): it's silent.
     juce::TemporaryFile mid(".mid");
     {
         juce::MidiMessageSequence seq;
@@ -606,12 +606,12 @@ TEST_CASE("clips never overlap on a track: placing cuts what is covered, in one 
         juce::FileOutputStream out(mid.getFile());
         REQUIRE(file.writeTo(out));
     }
-    bool added = false;
     const auto other = session.snapshot()->tracks[1].id;
-    REQUIRE(session.insertMidiFile(other, mid.getFile(), 0.0, &added) != 0);
-    CHECK(added);
+    REQUIRE(session.insertMidiFile(other, mid.getFile(), 0.0) != 0);
     session.updateSnapshotNow();
-    CHECK(session.snapshot()->tracks[1].instrument == "Subtractive Synth");
+    CHECK(session.snapshot()->tracks[1].devices.empty());
+    CHECK(session.snapshot()->tracks[1].instrument.empty());
+    CHECK(session.snapshot()->tracks[1].clips.size() == 1);
     session.undo();
     session.updateSnapshotNow();
     CHECK(session.snapshot()->tracks[1].devices.empty());
@@ -627,11 +627,9 @@ TEST_CASE("MIDI clips from scratch and note edits, each one undo step", "[integr
     using fd::model::Note;
     const auto track = session.snapshot()->tracks.front().id;
 
-    // An empty clip over bar 2 (2..4 s at 120 BPM); the track gets an instrument in the same step.
-    bool added = false;
-    const auto clip = session.createMidiClip(track, 2.0, 2.0, &added);
+    // An empty clip over bar 2 (2..4 s at 120 BPM); no instrument comes with it (ADR 0033).
+    const auto clip = session.createMidiClip(track, 2.0, 2.0);
     REQUIRE(clip != 0);
-    CHECK(added);
     session.updateSnapshotNow();
     auto info = [&] {
         const auto found = fd::model::findClip(*session.snapshot(), clip);
@@ -641,7 +639,8 @@ TEST_CASE("MIDI clips from scratch and note edits, each one undo step", "[integr
     CHECK(info()->kind == fd::model::ClipInfo::Kind::Midi);
     CHECK(info()->notes.empty());
     CHECK(info()->contentStartBeat == Approx(4.0));
-    CHECK(session.snapshot()->tracks.front().kind == fd::model::TrackInfo::Kind::Instrument);
+    CHECK(session.snapshot()->tracks.front().kind == fd::model::TrackInfo::Kind::Audio);
+    CHECK(session.snapshot()->tracks.front().devices.empty());
 
     // Notes round-trip exactly (beats, MIDI velocity steps).
     const std::vector<Note> notes{{60, 0.0, 0.5, 100.0f / 127.0f}, {64, 1.0, 0.5, 80.0f / 127.0f}, {67, 2.0, 1.0, 1.0f}};

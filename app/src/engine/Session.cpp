@@ -640,14 +640,6 @@ void Session::Impl::clearUnder(te::AudioTrack& track, double start, double end, 
     }
 }
 
-bool Session::Impl::ensureInstrument(te::AudioTrack& track)
-{
-    const auto devices = chain(track.pluginList);
-    if (std::any_of(devices.begin(), devices.end(), [](auto* p) { return p->isSynth(); }))
-        return false;
-    return insertDevice(track.pluginList, "fd:subtractive-synth", 0) != nullptr;
-}
-
 std::vector<te::Plugin*> Session::Impl::chain(te::PluginList& list)
 {
     std::vector<te::Plugin*> out;
@@ -797,7 +789,7 @@ std::uint64_t Session::addTrack(const std::string& name)
     return track->itemID.getRawID();
 }
 
-std::uint64_t Session::insertMidiFile(std::uint64_t trackId, const juce::File& file, double seconds, bool* addedInstrument)
+std::uint64_t Session::insertMidiFile(std::uint64_t trackId, const juce::File& file, double seconds)
 {
     auto* track = impl_->track(trackId);
     juce::FileInputStream in(file);
@@ -821,13 +813,10 @@ std::uint64_t Session::insertMidiFile(std::uint64_t trackId, const juce::File& f
     all.addTimeToMessages(start.inSeconds());
     clip->getSequence().importMidiSequence(all, impl_->edit.get(), start, &impl_->edit->getUndoManager());
     impl_->clearUnder(*track, start.inSeconds(), start.inSeconds() + length, {clip->itemID.getRawID()});
-    const bool added = impl_->ensureInstrument(*track);
-    if (addedInstrument != nullptr)
-        *addedInstrument = added;
     return clip->itemID.getRawID();
 }
 
-std::uint64_t Session::createMidiClip(std::uint64_t trackId, double seconds, double lengthSeconds, bool* addedInstrument)
+std::uint64_t Session::createMidiClip(std::uint64_t trackId, double seconds, double lengthSeconds)
 {
     auto* track = impl_->track(trackId);
     if (track == nullptr || !(lengthSeconds > 0.0))
@@ -838,9 +827,6 @@ std::uint64_t Session::createMidiClip(std::uint64_t trackId, double seconds, dou
     if (clip == nullptr)
         return 0;
     impl_->clearUnder(*track, start.inSeconds(), start.inSeconds() + lengthSeconds, {clip->itemID.getRawID()});
-    const bool added = impl_->ensureInstrument(*track);
-    if (addedInstrument != nullptr)
-        *addedInstrument = added;
     return clip->itemID.getRawID();
 }
 
