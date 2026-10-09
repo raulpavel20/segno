@@ -18,12 +18,27 @@ PanelSection::PanelSection(DevicePanel& panel, std::string id, juce::String titl
     setWantsKeyboardFocus(true);
     setSectionTitle(title_);
     addAndMakeVisible(content_);
+    setPowerParam(powerParam);
+}
+
+void PanelSection::setPowerParam(std::optional<size_t> param)
+{
+    if (power_ != nullptr)
+    {
+        removeChildComponent(power_);
+        panel_.destroy(power_);
+        power_ = nullptr;
+    }
+    powerParam_ = param;
     if (powerParam_)
     {
         auto& power = panel_.adopt(std::make_unique<ParamToggle>(panel_.context(), *powerParam_), *this);
         power.setButtonText({}); // a square toggle without text draws as a power dot
         power_ = &power;
     }
+    resized();
+    refresh();
+    repaint();
 }
 
 PanelSection::~PanelSection() = default;

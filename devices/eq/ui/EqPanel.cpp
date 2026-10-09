@@ -444,133 +444,66 @@ private:
     juce::String hoverText_;
 };
 
-// ---------------------------------------------------------------------------
-// Controls for the selected band (rebuilt when the selection changes).
-// ---------------------------------------------------------------------------
-class BandEditor final : public juce::Component, public ui::ParamControl
-{
-public:
-    BandEditor(ui::DeviceUiContext& ctx, Selection& sel) : ctx_(ctx), sel_(sel) { rebuild(); }
-
-    void rebuild()
-    {
-        controls_.clear();
-        const int b = sel_.band;
-        title_ = "Band " + juce::String(b + 1);
-        on_ = add(std::make_unique<ui::ParamToggle>(ctx_, Eq::paramIndex(b, Eq::On)));
-        type_ = add(std::make_unique<ui::ParamComboBox>(ctx_, Eq::paramIndex(b, Eq::Type)));
-        freq_ = add(std::make_unique<ui::ParamKnob>(ctx_, Eq::paramIndex(b, Eq::Freq)));
-        gain_ = add(std::make_unique<ui::ParamKnob>(ctx_, Eq::paramIndex(b, Eq::Gain)));
-        q_ = add(std::make_unique<ui::ParamKnob>(ctx_, Eq::paramIndex(b, Eq::Q)));
-        slope_ = add(std::make_unique<ui::ParamComboBox>(ctx_, Eq::paramIndex(b, Eq::Slope)));
-        place_ = add(std::make_unique<ui::ParamSegmented>(ctx_, Eq::paramIndex(b, Eq::Place), 5));
-        for (auto* k : {freq_, gain_, q_})
-            k->setName(juce::StringArray{"Freq", "Gain", "Q"}[k == freq_ ? 0 : (k == gain_ ? 1 : 2)]);
-        on_->setButtonText("On");
-        refresh(); // sets per-type visibility (slope, gain) immediately
-        resized();
-        repaint();
-    }
-
-    void refresh() override
-    {
-        for (auto& c : controls_)
-            if (auto* pc = dynamic_cast<ui::ParamControl*>(c.get()))
-                pc->refresh();
-        const auto type = static_cast<Eq::BandType>(static_cast<int>(ctx_.params.getPlain(Eq::paramIndex(sel_.band, Eq::Type))));
-        const bool cut = type == Eq::BandType::LowCut || type == Eq::BandType::HighCut;
-        if (slope_->isVisible() != cut || gain_->isVisible() != usesGain(type))
-        {
-            slope_->setVisible(cut);
-            gain_->setVisible(usesGain(type));
-        }
-    }
-
-    void paint(juce::Graphics& g) override
-    {
-        const auto& t = ui::Theme::current();
-        g.setColour(t.textPrimary);
-        g.setFont(ui::fonts::font(t.textSm, ui::fonts::Weight::SemiBold));
-        g.drawText(title_, getLocalBounds().removeFromTop(20), juce::Justification::centredLeft);
-    }
-
-    void resized() override
-    {
-        if (controls_.empty())
-            return;
-        auto r = getLocalBounds();
-        auto top = r.removeFromTop(20);
-        top.removeFromLeft(56);
-        on_->setBounds(top.removeFromLeft(34));
-        top.removeFromLeft(6);
-        type_->setBounds(top);
-        r.removeFromTop(4);
-        place_->setBounds(r.removeFromBottom(18));
-        r.removeFromBottom(4);
-        auto slopeRow = r.removeFromBottom(18);
-        slope_->setBounds(slopeRow.removeFromRight(80));
-        const int w = r.getWidth() / 3;
-        freq_->setBounds(r.removeFromLeft(w));
-        gain_->setBounds(r.removeFromLeft(w));
-        q_->setBounds(r);
-    }
-
-private:
-    template <typename T>
-    T* add(std::unique_ptr<T> c)
-    {
-        auto* raw = c.get();
-        addAndMakeVisible(*raw);
-        controls_.push_back(std::move(c));
-        return raw;
-    }
-
-    ui::DeviceUiContext& ctx_;
-    Selection& sel_;
-    juce::String title_;
-    std::vector<std::unique_ptr<juce::Component>> controls_;
-    ui::ParamToggle* on_ = nullptr;
-    ui::ParamComboBox *type_ = nullptr, *slope_ = nullptr;
-    ui::ParamKnob *freq_ = nullptr, *gain_ = nullptr, *q_ = nullptr;
-    ui::ParamSegmented* place_ = nullptr;
-};
-
+/// Sections per devices/eq/SPEC.md, on the module grid (docs/design/device-panels.md). The
+/// BAND section shows the selected band; it is rebuilt when the selection changes.
 class EqPanel final : public ui::DevicePanel
 {
 public:
     explicit EqPanel(ui::DeviceUiContext& ctx) : DevicePanel(ctx)
     {
-        display_ = &bind(std::make_unique<EqDisplay>(ctx, selection_));
-        editor_ = &bind(std::make_unique<BandEditor>(ctx, selection_));
-        output_ = &bind(std::make_unique<ui::ParamKnob>(ctx, Eq::Output));
-        scale_ = &bind(std::make_unique<ui::ParamKnob>(ctx, Eq::Scale));
-        analyzer_ = &bind(std::make_unique<ui::ParamComboBox>(ctx, Eq::Analyzer));
-        selection_.changed = [this] { editor_->rebuild(); };
-    }
+        auto& curve = addSection("curve", "Curve", 10);
+        display_ = &own(std::make_unique<EqDisplay>(ctx, selection_));
+        curve.place(*display_, 0, 0, 10, 6);
 
-    int preferredWidth() const override { return 860; }
+        band_ = &addSection("band", "Band", 3);
 
-    void layoutBody(juce::Rectangle<int> body) override
-    {
-        const auto& t = ui::Theme::current();
-        auto globals = body.removeFromRight(64);
-        analyzer_->setBounds(globals.removeFromTop(18));
-        globals.removeFromTop(t.grid);
-        output_->setBounds(globals.removeFromTop(globals.getHeight() / 2));
-        scale_->setBounds(globals);
-        body.removeFromRight(t.grid * 3);
-        editor_->setBounds(body.removeFromRight(220));
-        body.removeFromRight(t.grid * 3);
-        display_->setBounds(body);
+        auto& output = addSection("output", "Output", 1);
+        output.knob(Eq::Output, 0, 0);
+        output.knob(Eq::Scale, 0, 3);
+
+        addHeaderCombo(Eq::Analyzer);
+        selection_.changed = [this] { rebuildBand(); };
+        rebuildBand();
     }
 
 private:
-    juce::VBlankAttachment vblank_{this, [this] { display_->tickAnalyzer(); }};
+    void rebuildBand()
+    {
+        const int b = selection_.band;
+        auto index = [b](Eq::BandParam p) { return Eq::paramIndex(b, p); };
+        band_->clear();
+        band_->setSectionTitle("Band " + juce::String(b + 1));
+        band_->setPowerParam(index(Eq::On));
+
+        band_->knob(index(Eq::Freq), 0, 0).setName("Freq");
+        auto& gain = band_->knob(index(Eq::Gain), 1, 0);
+        gain.setName("Gain");
+        band_->knob(index(Eq::Q), 2, 0).setName("Q");
+        band_->label("Type", 0, 3, 1);
+        band_->combo(index(Eq::Type), 1, 3, 2);
+        band_->label("Slope", 0, 4, 1);
+        auto& slope = band_->combo(index(Eq::Slope), 1, 4, 2);
+        band_->label("Place", 0, 5, 1);
+        band_->combo(index(Eq::Place), 1, 5, 2);
+
+        // Settings the band's type ignores dim instead of disappearing, so nothing moves.
+        auto& ctx = context();
+        auto type = [&ctx, index] { return static_cast<Eq::BandType>(static_cast<int>(ctx.params.getPlain(index(Eq::Type)))); };
+        dimWhen({&gain}, [type] { return !usesGain(type()); });
+        dimWhen({&slope}, [type] { return type() != Eq::BandType::LowCut && type() != Eq::BandType::HighCut; });
+        resized();
+    }
+
+    void tickAnalyzer()
+    {
+        if (isShowing() && !findSection("curve")->isCollapsed())
+            display_->tickAnalyzer();
+    }
+
+    juce::VBlankAttachment vblank_{this, [this] { tickAnalyzer(); }};
     Selection selection_;
     EqDisplay* display_ = nullptr;
-    BandEditor* editor_ = nullptr;
-    ui::ParamKnob *output_ = nullptr, *scale_ = nullptr;
-    ui::ParamComboBox* analyzer_ = nullptr;
+    ui::PanelSection* band_ = nullptr;
 };
 } // namespace
 

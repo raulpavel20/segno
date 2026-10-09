@@ -72,7 +72,7 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 | Section | Controls |
 |---|---|
 | `curve` CURVE [10] | Display (0, 0, 10 × 6): spectrum (pre/post, flat) and curve (solid line, flat fill), draggable band nodes |
-| `band` BAND *n* [3], power = the band's On | Freq (0, 0), Gain (1, 0), Q (2, 0) · Type (0, 3, 3 wide) · Slope (0, 4, 3 wide) · Placement (0, 5, 3 wide) |
+| `band` BAND *n* [3], power = the band's On | Freq (0, 0), Gain (1, 0), Q (2, 0) · Type, Slope and Place: a sub-label (column 0) and a 2-wide combo (columns 1–2) in rows 3, 4 and 5 |
 | `output` OUTPUT [1] | Output (0, 0) · Scale (0, 3) |
 | header | Analyzer |
 

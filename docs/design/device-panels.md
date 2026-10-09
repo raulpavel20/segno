@@ -144,7 +144,7 @@ Columns are in brackets. Each module's SPEC lists its map. The four M2 modules a
 |---|---|---|
 | Utility | LEVEL [1] Gain / Balance · STEREO [1] Width / Mono · CHANNELS [1] Ø L, Ø R, DC / Mute · meter | 240 |
 | Saturator | SHAPE [4] curve, curve buttons, Drive / Bias · COLOR ⏻ [1] Freq / Gain · OUTPUT [1] Output / Mix · in and out meters · header: Quality | 412 |
-| EQ | CURVE [10] display · BAND *n* ⏻ [3] Freq, Gain, Q / Type, Slope, Placement · OUTPUT [1] Output / Scale · header: Analyzer | 788 |
+| EQ | CURVE [10] display · BAND *n* ⏻ [3] Freq, Gain, Q / Type, Slope, Place (captioned combos) · OUTPUT [1] Output / Scale · header: Analyzer | 788 |
 | Subtractive Synth | OSC 1 [4] · OSC 2 [4] · FILTER [4] · ENVELOPES [6] · MODULATION [6] (three slots, LFO) · VOICE [3] · meter | ≈ 1550 |
 | Sampler | SAMPLE [6] · PITCH [1] · LEVEL [1] · REGION [4] · FADES [1] · ENVELOPES [6] · FILTER ⏻ [4] · VOICE [2] · meter | ≈ 1480 |
 | Compressor (draft) | CURVE [3] · HISTORY [4] · COMPRESSION [3] · TIME [2] · DETECTOR [2] · SIDECHAIN [3] · OUTPUT [1] · meters | – |

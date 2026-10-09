@@ -129,6 +129,9 @@ void DevicePanel::setMeters(std::vector<std::pair<juce::Component*, juce::String
 
 void DevicePanel::destroy(juce::Component* control)
 {
+    for (auto& d : dimming_)
+        std::erase(d.controls, control);
+    std::erase_if(dimming_, [](const Dimming& d) { return d.controls.empty(); });
     std::erase_if(controls_, [control](const auto& c) { return c.get() == control; });
 }
 

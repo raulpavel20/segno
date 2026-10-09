@@ -47,6 +47,8 @@ public:
     /// False while the section's power parameter is off (true without one).
     [[nodiscard]] bool isPoweredOn() const;
     [[nodiscard]] juce::Component* powerToggle() const noexcept { return power_; }
+    /// Binds the power toggle to another parameter (none: no toggle), e.g. the selected EQ band.
+    void setPowerParam(std::optional<size_t> param);
 
     // ---- placement, in cells (each checks the grid rules) --------------------------------
 
