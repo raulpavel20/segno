@@ -9,9 +9,10 @@
 
 namespace fd::app
 {
-/// The selected track's device chain in the detail panel (C6): our devices as their panels,
+/// The selected track's module chain in the detail panel (C6): our modules as their panels,
 /// third-party plugins as compact cards, left to right; add with the + button, reorder by
-/// dragging a header, bypass with the power toggle, delete the selected device.
+/// dragging a header (or a folded strip), bypass with the power toggle, fold a module or
+/// collapse its sections (ADR 0022), delete the selected module.
 class DeviceChain final : public juce::Component
 {
 public:
@@ -26,6 +27,12 @@ public:
 
     [[nodiscard]] bool hasSelection() const noexcept { return selected_.has_value(); }
     void deleteSelected();
+    /// The selected module's panel (null for none, or a third-party plugin's card).
+    [[nodiscard]] ui::DevicePanel* selectedPanel() const;
+    /// Folds or unfolds the selected module (ADR 0022).
+    void foldSelected();
+    /// Unfolds the selected module and expands all of its sections.
+    void expandSelected();
     /// Called when the chain is clicked (the shell routes Delete to the area used last).
     std::function<void()> onActivated;
 

@@ -564,3 +564,43 @@ TEST_CASE("MIDI clips from scratch and note edits, each one undo step", "[integr
     CHECK_FALSE(info());
     CHECK(session.snapshot()->tracks.front().devices.empty());
 }
+
+TEST_CASE("module view state is saved with the project, never undoable or unsaved", "[integration]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    tracktion::Engine engine{"fd-integration-tests"};
+    fd::engine::registerDevices(engine);
+    juce::TemporaryFile project(fd::engine::Session::fileExtension);
+    const std::string view = R"({"collapsed":["curve"],"folded":true})";
+    std::uint64_t eq = 0;
+    {
+        fd::engine::Session session(engine);
+        eq = session.addDevice(session.snapshot()->tracks[0].id, "fd:eq");
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(100); // tracktion's change notices
+        REQUIRE(session.saveAs(project.getFile()));
+        REQUIRE_FALSE(session.hasUnsavedChanges());
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(100); // the save's own updates
+        const auto version = session.snapshot()->version;
+        const bool couldUndo = session.canUndo();
+
+        session.setDeviceViewState(eq, view);
+        CHECK(session.deviceViewState(eq) == view);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(100);
+        CHECK_FALSE(session.hasUnsavedChanges());
+        CHECK(session.canUndo() == couldUndo);
+        CHECK(session.snapshot()->version == version); // the arrangement doesn't rebuild
+
+        // Undo restores a removed module with its view.
+        session.removeDevice(eq);
+        session.undo();
+        CHECK(session.deviceViewState(eq) == view);
+
+        session.setDeviceViewState(eq, {}); // back to the default...
+        CHECK(session.deviceViewState(eq).empty());
+        session.setDeviceViewState(eq, view); // ...and saved with the project
+        REQUIRE(session.saveAs(project.getFile()));
+    }
+    fd::engine::Session session(engine);
+    REQUIRE(session.open(project.getFile()));
+    CHECK(session.deviceViewState(eq) == view);
+}

@@ -14,7 +14,7 @@ public:
     PluginCard(engine::Session& session, const model::DeviceSlot& slot) : session_(session), id_(slot.id), name_(slot.name)
     {
         power_.setClickingTogglesState(true);
-        power_.setTooltip("Device on/off");
+        power_.setTooltip("Plugin on/off");
         power_.onClick = [this] { session_.setDeviceEnabled(id_, power_.getToggleState()); };
         addAndMakeVisible(power_);
         open_.setTooltip("Open the plugin's editor");
@@ -93,7 +93,7 @@ DeviceChain::DeviceChain(engine::Session& session, const ActionRegistry& actions
     viewport_.setScrollBarsShown(false, true);
     viewport_.setScrollBarThickness(6);
     addAndMakeVisible(viewport_);
-    add_.setTooltip("Add a device");
+    add_.setTooltip("Add a module");
     add_.setWantsKeyboardFocus(false);
     add_.onClick = [this] { showAddMenu(); };
     content_->addAndMakeVisible(add_);
@@ -141,6 +141,14 @@ void DeviceChain::rebuild(const std::vector<model::DeviceSlot>& devices)
                     auto panel = factory->create(slot.handle->context());
                     const auto id = d.id;
                     panel->onEnabledChange = [this, id](bool on) { session_.setDeviceEnabled(id, on); };
+                    // View state lives on the module in the project (ADR 0022): panels are
+                    // rebuilt on every track switch, so the plugin tree is the source of truth.
+                    panel->setFoldable(true);
+                    panel->setViewState(session_.deviceViewState(id));
+                    panel->onViewChanged = [this, id, p = panel.get()] {
+                        session_.setDeviceViewState(id, p->viewState());
+                        layoutSlots();
+                    };
                     slot.view = std::move(panel);
                 }
         }
@@ -197,7 +205,7 @@ void DeviceChain::paint(juce::Graphics& g)
     const auto& t = ui::Theme::current();
     g.setColour(t.textTertiary);
     g.setFont(ui::fonts::font(t.textSm));
-    g.drawText("Select a track to see its devices", getLocalBounds(), juce::Justification::centred, false);
+    g.drawText("Select a track to see its modules", getLocalBounds(), juce::Justification::centred, false);
 }
 
 void DeviceChain::showAddMenu()
@@ -247,6 +255,29 @@ void DeviceChain::showAddMenu()
                        });
 }
 
+ui::DevicePanel* DeviceChain::selectedPanel() const
+{
+    for (const auto& s : slots_)
+        if (selected_ && s.info.id == *selected_)
+            return dynamic_cast<ui::DevicePanel*>(s.view.get());
+    return nullptr;
+}
+
+void DeviceChain::foldSelected()
+{
+    if (auto* panel = selectedPanel())
+        panel->setFolded(!panel->isFolded(), true);
+}
+
+void DeviceChain::expandSelected()
+{
+    if (auto* panel = selectedPanel())
+    {
+        panel->setFolded(false, true);
+        panel->setAllSectionsCollapsed(false, true);
+    }
+}
+
 void DeviceChain::deleteSelected()
 {
     if (selected_)
@@ -284,7 +315,12 @@ void DeviceChain::mouseDown(const juce::MouseEvent& e)
         return;
     const auto& slot = slots_[static_cast<size_t>(index)];
     const auto inSlot = e.getEventRelativeTo(slot.view.get()).getPosition();
-    if (inSlot.y < ui::Theme::current().deviceHeaderHeight && inSlot.x > 24) // the header, past the power toggle
+    // Our modules: the header's background or the folded strip, never a control in it. Plugin
+    // cards: the header past the power toggle.
+    const auto* panel = dynamic_cast<const ui::DevicePanel*>(slot.view.get());
+    const bool handle = panel != nullptr ? e.eventComponent == slot.view.get() && panel->isDragHandle(inSlot)
+                                         : inSlot.y < ui::Theme::current().deviceHeaderHeight && inSlot.x > 24;
+    if (handle)
     {
         selected_ = slot.info.id;
         dragSlot_ = index;

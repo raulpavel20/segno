@@ -448,3 +448,80 @@ TEST_CASE("piano roll: a double-click makes a clip; notes are drawn, moved, set 
             png.writeImageToStream(detail.createComponentSnapshot(detail.getLocalBounds().removeFromLeft(700), true, 2.0f), *out);
     }
 }
+
+TEST_CASE("modules collapse sections and fold in the chain; header controls never drag", "[integration]")
+{
+    ShellFixture f;
+    const auto track = f.session->snapshot()->tracks[0].id;
+    const auto sat = f.session->addDevice(track, "fd:saturator");
+    f.session->addDevice(track, "fd:utility");
+    f.session->updateSnapshotNow();
+
+    fd::app::ActionRegistry actions;
+    actions.add({.id = "app.scanPlugins", .name = "Scan", .keys = {juce::KeyPress('p')}, .perform = [] {}});
+    fd::app::DeviceChain chain(*f.session, actions);
+    chain.setSize(1600, 300);
+    chain.setTrack(f.session->snapshot()->tracks[0]);
+    std::vector<fd::ui::DevicePanel*> panels;
+    std::function<void(juce::Component&)> collect = [&](juce::Component& c) {
+        for (auto* child : c.getChildren())
+        {
+            if (auto* p = dynamic_cast<fd::ui::DevicePanel*>(child))
+                panels.push_back(p);
+            collect(*child);
+        }
+    };
+    collect(chain);
+    REQUIRE(panels.size() == 2);
+    auto* saturator = panels[0];
+    auto* utility = panels[1];
+    CHECK(saturator->getHeight() == fd::ui::Theme::current().devicePanelHeight);
+
+    // A click on a header setting (Quality) neither selects nor drags the module.
+    REQUIRE_FALSE(saturator->headerControls().empty());
+    auto* quality = saturator->headerControls().front();
+    const juce::Point<float> inCombo(5.0f, 5.0f);
+    chain.mouseDown(mouseEvent(*quality, inCombo, inCombo, false));
+    CHECK_FALSE(chain.hasSelection());
+    chain.mouseUp(mouseEvent(*quality, inCombo, inCombo, false));
+
+    // Clicking a section's title collapses it; the next module moves left at once, and the
+    // view is stored on the module.
+    const int before = utility->getX();
+    auto* shape = saturator->findSection("shape");
+    REQUIRE(shape != nullptr);
+    const auto& grid = fd::ui::Theme::current().deviceGrid;
+    const juce::Point<float> title(static_cast<float>(grid.sectionPadding + 8), static_cast<float>(grid.bodyTop + 8));
+    shape->mouseUp(mouseEvent(*shape, title, title, false));
+    CHECK(shape->isCollapsed());
+    CHECK(utility->getX() == before - (grid.sectionWidth(shape->columns()) - grid.collapsedWidth));
+    CHECK(f.session->deviceViewState(sat).find("shape") != std::string::npos);
+
+    // Select the module by its header, then fold it with the action's command.
+    const juce::Point<float> header(80.0f, 10.0f);
+    chain.mouseDown(mouseEvent(*saturator, header, header, false));
+    chain.mouseUp(mouseEvent(*saturator, header, header, false));
+    REQUIRE(chain.selectedPanel() == saturator);
+    chain.foldSelected();
+    CHECK(saturator->isFolded());
+    CHECK(saturator->getWidth() == grid.foldedWidth);
+    CHECK(utility->getX() == saturator->getRight() + fd::app::DeviceChain::gap);
+
+    // Panels are rebuilt from the module's stored view (e.g. after switching tracks).
+    chain.setTrack(std::nullopt);
+    chain.setTrack(f.session->snapshot()->tracks[0]);
+    panels.clear();
+    collect(chain);
+    REQUIRE(panels.size() == 2);
+    CHECK(panels[0]->isFolded());
+    CHECK(panels[0]->findSection("shape")->isCollapsed());
+
+    // Expanding the selection brings everything back.
+    chain.mouseDown(mouseEvent(*panels[0], {10.0f, 120.0f}, {10.0f, 120.0f}, false)); // the folded strip
+    chain.mouseUp(mouseEvent(*panels[0], {10.0f, 120.0f}, {10.0f, 120.0f}, false));
+    REQUIRE(chain.selectedPanel() == panels[0]);
+    chain.expandSelected();
+    CHECK_FALSE(panels[0]->isFolded());
+    CHECK_FALSE(panels[0]->findSection("shape")->isCollapsed());
+    CHECK(f.session->deviceViewState(sat).empty());
+}

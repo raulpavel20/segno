@@ -822,7 +822,7 @@ std::uint64_t ArrangementView::createMidiClip(int trackIndex, double seconds, bo
     select(track.id);
     setClipSelection({id});
     if (addedInstrument && onMessage)
-        onMessage("Added a Subtractive Synth to play the MIDI clip (swap it in the device chain)");
+        onMessage("Added a Subtractive Synth to play the MIDI clip (swap it in the module chain)");
     if (onOpenClip)
         onOpenClip(id);
     return id;
@@ -917,7 +917,7 @@ void ArrangementView::filesDropped(const juce::StringArray& files, int x, int y)
         const auto clip = midi ? session_.insertMidiFile(trackId, juce::File(path), seconds, &addedInstrument)
                                : session_.insertAudioFile(trackId, juce::File(path), seconds);
         if (addedInstrument && onMessage)
-            onMessage("Added a Subtractive Synth to play the MIDI clip (swap it in the device chain)");
+            onMessage("Added a Subtractive Synth to play the MIDI clip (swap it in the module chain)");
         if (clip != 0 && !first)
             first = trackId;
         if (target >= 0)

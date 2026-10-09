@@ -49,6 +49,8 @@ struct Session::Impl final : private juce::ValueTree::Listener, private juce::As
     std::unique_ptr<te::Edit> edit;
     std::shared_ptr<const model::Snapshot> snapshot;
     std::uint64_t version = 0;
+    /// A module panel's view state on its plugin (ADR 0022): saved, never undoable or "unsaved".
+    static inline const juce::Identifier panelViewId{"fdPanel"};
 
 private:
     void changeListenerCallback(juce::ChangeBroadcaster*) override { midiDevicesChanged(); }
@@ -56,7 +58,7 @@ private:
     void handleAsyncUpdate() override { rebuildSnapshot(); }
     void valueTreePropertyChanged(juce::ValueTree& t, const juce::Identifier& id) override
     {
-        if (id == te::IDs::lastSignificantChange) // tracktion's own bookkeeping
+        if (id == te::IDs::lastSignificantChange || id == panelViewId) // bookkeeping and view state
             return;
         if (!inTransport(t))
             dirty = true; // includes device parameters

@@ -771,6 +771,24 @@ void Session::setDeviceEnabled(std::uint64_t deviceId, bool enabled)
     }
 }
 
+std::string Session::deviceViewState(std::uint64_t deviceId) const
+{
+    if (auto* p = impl_->plugin(deviceId))
+        return p->state.getProperty(Impl::panelViewId).toString().toStdString();
+    return {};
+}
+
+void Session::setDeviceViewState(std::uint64_t deviceId, const std::string& json)
+{
+    auto* p = impl_->plugin(deviceId);
+    if (p == nullptr)
+        return;
+    if (json.empty())
+        p->state.removeProperty(Impl::panelViewId, nullptr);
+    else
+        p->state.setProperty(Impl::panelViewId, juce::String(json), nullptr); // no undo manager
+}
+
 std::unique_ptr<DeviceHandle> Session::openDevice(std::uint64_t deviceId)
 {
     if (auto* native = dynamic_cast<DevicePlugin*>(impl_->plugin(deviceId)))

@@ -367,7 +367,7 @@ void DetailPanel::paint(juce::Graphics& g)
     auto r = getLocalBounds().reduced(12, 0);
     auto header = r.removeFromTop(headerHeight);
     g.setFont(ui::fonts::font(t.textXs, ui::fonts::Weight::SemiBold));
-    for (auto [m, label] : {std::pair{Mode::Devices, "Devices"}, std::pair{Mode::Clip, "Clip"}})
+    for (auto [m, label] : {std::pair{Mode::Devices, "Modules"}, std::pair{Mode::Clip, "Clip"}})
     {
         g.setColour(mode_ == m ? t.textPrimary : t.textTertiary);
         g.drawText(label, header.removeFromLeft(60), juce::Justification::centredLeft, false);

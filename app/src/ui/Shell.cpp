@@ -28,6 +28,7 @@ Shell::Shell(engine::Session& session) : session_(session), arrangement_(session
     registerActions();
     transport_ = std::make_unique<TransportBar>(session_, actions_);
 
+    // The module panel, the chain's margins and scrollbar (24), and the detail header.
     deviceViewHeight_ = static_cast<float>(ui::Theme::current().devicePanelHeight + 24 + DetailPanel::headerHeight);
     detailPanel_.size = deviceViewHeight_;
     for (juce::Component* c : {static_cast<juce::Component*>(transport_.get()), static_cast<juce::Component*>(&browser_),
@@ -209,7 +210,7 @@ void Shell::registerActions()
                           });
                           if (it == tracks.end())
                           {
-                              showWarning("Add an instrument to a track (+ in its device chain) to play it from the keyboard");
+                              showWarning("Add an instrument to a track (+ in its module chain) to play it from the keyboard");
                               return;
                           }
                           arrangement_.selectTrack(it->id);
@@ -217,6 +218,13 @@ void Shell::registerActions()
                       showWarning("Computer keyboard: A W S E D F ... play, Z / X octave, C / V velocity");
                   },
                   .isToggled = [this] { return computerKeyboard_; }});
+    actions_.add({.id = "module.fold", .name = "Fold module", .category = "Module", .keys = {key('m', kCmd | kAlt)},
+                  .perform = [this] { detail_.chain().foldSelected(); },
+                  .isEnabled = [this] { return detail_.chain().selectedPanel() != nullptr; }});
+    actions_.add({.id = "module.expand", .name = "Expand module sections", .category = "Module",
+                  .keys = {key('e', kCmd | kAlt)},
+                  .perform = [this] { detail_.chain().expandSelected(); },
+                  .isEnabled = [this] { return detail_.chain().selectedPanel() != nullptr; }});
     actions_.add({.id = "track.add", .name = "Add track", .category = "Track", .keys = {key('t', kCmd)},
                   .perform = [&s] { s.addTrack(); }});
 
@@ -226,7 +234,7 @@ void Shell::registerActions()
                   .perform = [this] { toggle(inspectorPanel_); }, .isToggled = [this] { return inspectorPanel_.open; }});
     actions_.add({.id = "view.detail", .name = "Show detail panel", .category = "View", .keys = {key('d', kCmd | kAlt)},
                   .perform = [this] { toggle(detailPanel_); }, .isToggled = [this] { return detailPanel_.open; }});
-    actions_.add({.id = "view.detailMode", .name = "Switch devices / clip view", .category = "View",
+    actions_.add({.id = "view.detailMode", .name = "Switch modules / clip view", .category = "View",
                   .keys = {key(juce::KeyPress::tabKey)},
                   .perform = [this] {
                       detail_.setMode(detail_.mode() == DetailPanel::Mode::Devices ? DetailPanel::Mode::Clip

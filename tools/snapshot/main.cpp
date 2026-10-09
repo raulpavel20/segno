@@ -3,7 +3,8 @@
 //
 //   fd-snapshot <out-dir> [--theme <name>] [--scale 1,2]
 //
-// Output: <out-dir>/<theme>/<device>@<scale>x.png
+// Output: <out-dir>/<theme>/<device>[-collapsed|-folded]@<scale>x.png: every panel expanded,
+// with all its sections collapsed, and folded (ADR 0022).
 
 #include <fd/device/Registry.h>
 #include <fd_device_ui/fd_device_ui.h>
@@ -12,7 +13,9 @@
 
 namespace
 {
-juce::Image renderPanel(const fd::DeviceFactory& factory, const fd::ui::PanelFactory& panelFactory, float scale)
+enum class View { Expanded, Collapsed, Folded };
+
+juce::Image renderPanel(const fd::DeviceFactory& factory, const fd::ui::PanelFactory& panelFactory, float scale, View view)
 {
     auto device = factory.create();
     if (factory.testSetup != nullptr) // e.g. a loaded sample, so its display isn't empty
@@ -21,6 +24,9 @@ juce::Image renderPanel(const fd::DeviceFactory& factory, const fd::ui::PanelFac
     fd::ui::DeviceUiContext ctx{factory.info(), binding, nullptr, device.get()};
     auto panel = panelFactory.create(ctx);
     panel->onEnabledChange = [](bool) {};
+    panel->setFoldable(view == View::Folded); // as in the DAW's chain
+    panel->setAllSectionsCollapsed(view == View::Collapsed);
+    panel->setFolded(view == View::Folded);
     panel->setSize(panel->preferredWidth(), fd::ui::Theme::current().devicePanelHeight);
 
     // A margin of app background around the panel, as it would sit in the device chain.
@@ -74,11 +80,13 @@ int main(int argc, char** argv)
             if (panelFactory == nullptr)
                 continue;
             for (const auto& s : scales)
+                for (const auto& [view, suffix] : {std::pair{View::Expanded, ""}, std::pair{View::Collapsed, "-collapsed"},
+                                                   std::pair{View::Folded, "-folded"}})
             {
                 const float scale = s.getFloatValue();
-                const auto image = renderPanel(*factory, *panelFactory, scale);
+                const auto image = renderPanel(*factory, *panelFactory, scale, view);
                 const auto file = outDir.getChildFile(theme.name)
-                                      .getChildFile(juce::String(std::string(factory->info().id)) + "@" + s + "x.png");
+                                      .getChildFile(juce::String(std::string(factory->info().id)) + suffix + "@" + s + "x.png");
                 file.getParentDirectory().createDirectory();
                 file.deleteFile();
                 juce::FileOutputStream out(file);

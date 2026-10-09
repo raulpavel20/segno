@@ -129,6 +129,10 @@ public:
     /// Moves a device to `index` within its chain.
     void moveDevice(std::uint64_t deviceId, int index);
     void setDeviceEnabled(std::uint64_t deviceId, bool enabled);
+    /// A module panel's view state (collapsed sections, folded; ADR 0022), stored with the
+    /// project on the module. Never an undo step or an unsaved change.
+    [[nodiscard]] std::string deviceViewState(std::uint64_t deviceId) const;
+    void setDeviceViewState(std::uint64_t deviceId, const std::string& json);
     /// The panel context of one of our devices; null for third-party plugins.
     [[nodiscard]] std::unique_ptr<DeviceHandle> openDevice(std::uint64_t deviceId);
     /// Opens a third-party plugin's own editor window.
