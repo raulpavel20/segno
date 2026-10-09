@@ -1,5 +1,6 @@
 // engine::Session (ADR 0018): commands are undoable and snapshots mirror the Edit.
 
+#include "engine/EngineBehaviour.h"
 #include "engine/DevicePlugin.h"
 #include "engine/Session.h"
 #include "engine/SessionImpl.h"
@@ -25,7 +26,7 @@ using Catch::Approx;
 TEST_CASE("session snapshots mirror tracks and clips; edits undo", "[integration]")
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
-    tracktion::Engine engine{"fd-integration-tests"};
+    tracktion::Engine engine{"fd-integration-tests", nullptr, fd::engine::makeEngineBehaviour()};
     fd::engine::Session session(engine);
 
     const auto first = session.snapshot();
@@ -79,7 +80,7 @@ TEST_CASE("session snapshots mirror tracks and clips; edits undo", "[integration
 TEST_CASE("session clip edits: move, trim, duplicate, split, delete; each one undo step", "[integration]")
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
-    tracktion::Engine engine{"fd-integration-tests"};
+    tracktion::Engine engine{"fd-integration-tests", nullptr, fd::engine::makeEngineBehaviour()};
     fd::engine::Session session(engine);
     juce::TemporaryFile file(".wav");
     REQUIRE(fd::testkit::writeWav(file.getFile().getFullPathName().toStdString(),
@@ -139,7 +140,7 @@ TEST_CASE("session clip edits: move, trim, duplicate, split, delete; each one un
 TEST_CASE("session transport: loop, metronome, tempo and signature", "[integration]")
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
-    tracktion::Engine engine{"fd-integration-tests"};
+    tracktion::Engine engine{"fd-integration-tests", nullptr, fd::engine::makeEngineBehaviour()};
     fd::engine::Session session(engine);
 
     session.setLoopRange(8.0, 4.0); // reversed ends are fine
@@ -166,7 +167,7 @@ TEST_CASE("session transport: loop, metronome, tempo and signature", "[integrati
 TEST_CASE("session device chains: add, move, bypass, remove; undo; panel handles", "[integration]")
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
-    tracktion::Engine engine{"fd-integration-tests"};
+    tracktion::Engine engine{"fd-integration-tests", nullptr, fd::engine::makeEngineBehaviour()};
     fd::engine::registerDevices(engine);
     fd::engine::Session session(engine);
     const auto track = session.snapshot()->tracks[0].id;
@@ -215,7 +216,7 @@ TEST_CASE("session device chains: add, move, bypass, remove; undo; panel handles
 TEST_CASE("a latency-changing setting reaches the device at once (ADR 0020)", "[integration]")
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
-    tracktion::Engine engine{"fd-integration-tests"};
+    tracktion::Engine engine{"fd-integration-tests", nullptr, fd::engine::makeEngineBehaviour()};
     fd::engine::registerDevices(engine);
     fd::engine::Session session(engine);
     const auto track = session.snapshot()->tracks[0].id;
@@ -253,7 +254,7 @@ TEST_CASE("a latency-changing setting reaches the device at once (ADR 0020)", "[
 TEST_CASE("a scanned third-party plugin can be added to a chain", "[integration]")
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
-    tracktion::Engine engine{"fd-integration-tests"};
+    tracktion::Engine engine{"fd-integration-tests", nullptr, fd::engine::makeEngineBehaviour()};
     fd::engine::Session session(engine);
 
     // Our own VST3 build stands in for a third-party plugin, registered as a scan would.
@@ -279,7 +280,7 @@ TEST_CASE("a scanned third-party plugin can be added to a chain", "[integration]
 TEST_CASE("tracks with an instrument, MIDI files and live MIDI routing", "[integration]")
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
-    tracktion::Engine engine{"fd-integration-tests"};
+    tracktion::Engine engine{"fd-integration-tests", nullptr, fd::engine::makeEngineBehaviour()};
     fd::engine::registerDevices(engine);
     fd::engine::Session session(engine);
     const auto before = session.snapshot()->tracks.size();
@@ -351,7 +352,7 @@ TEST_CASE("tracks with an instrument, MIDI files and live MIDI routing", "[integ
 TEST_CASE("a compressor on one track ducks to another track (ADR 0025)", "[integration]")
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
-    tracktion::Engine engine{"fd-integration-tests"};
+    tracktion::Engine engine{"fd-integration-tests", nullptr, fd::engine::makeEngineBehaviour()};
     fd::engine::registerDevices(engine);
     fd::engine::Session session(engine);
 
@@ -441,7 +442,7 @@ TEST_CASE("a compressor on one track ducks to another track (ADR 0025)", "[integ
 TEST_CASE("projects round-trip through a file", "[integration]")
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
-    tracktion::Engine engine{"fd-integration-tests"};
+    tracktion::Engine engine{"fd-integration-tests", nullptr, fd::engine::makeEngineBehaviour()};
     fd::engine::registerDevices(engine);
     juce::TemporaryFile wav(".wav"), project(fd::engine::Session::fileExtension);
     REQUIRE(fd::testkit::writeWav(wav.getFile().getFullPathName().toStdString(),
@@ -555,7 +556,7 @@ TEST_CASE("projects round-trip through a file", "[integration]")
 TEST_CASE("clips never overlap on a track: placing cuts what is covered, in one undo step", "[integration]")
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
-    tracktion::Engine engine{"fd-integration-tests"};
+    tracktion::Engine engine{"fd-integration-tests", nullptr, fd::engine::makeEngineBehaviour()};
     fd::engine::registerDevices(engine);
     fd::engine::Session session(engine);
     juce::TemporaryFile wav(".wav");
@@ -620,7 +621,7 @@ TEST_CASE("clips never overlap on a track: placing cuts what is covered, in one 
 TEST_CASE("MIDI clips from scratch and note edits, each one undo step", "[integration]")
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
-    tracktion::Engine engine{"fd-integration-tests"};
+    tracktion::Engine engine{"fd-integration-tests", nullptr, fd::engine::makeEngineBehaviour()};
     fd::engine::registerDevices(engine);
     fd::engine::Session session(engine);
     using fd::model::Note;
@@ -695,7 +696,7 @@ TEST_CASE("MIDI clips from scratch and note edits, each one undo step", "[integr
 TEST_CASE("module view state is saved with the project, never undoable or unsaved", "[integration]")
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
-    tracktion::Engine engine{"fd-integration-tests"};
+    tracktion::Engine engine{"fd-integration-tests", nullptr, fd::engine::makeEngineBehaviour()};
     fd::engine::registerDevices(engine);
     juce::TemporaryFile project(fd::engine::Session::fileExtension);
     const std::string view = R"({"collapsed":["curve"],"folded":true})";
@@ -735,7 +736,7 @@ TEST_CASE("module view state is saved with the project, never undoable or unsave
 TEST_CASE("notes past a MIDI clip's end lengthen it in the same undo step", "[integration]")
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
-    tracktion::Engine engine{"fd-integration-tests"};
+    tracktion::Engine engine{"fd-integration-tests", nullptr, fd::engine::makeEngineBehaviour()};
     fd::engine::registerDevices(engine);
     fd::engine::Session session(engine);
     using fd::model::Note;
@@ -765,7 +766,7 @@ TEST_CASE("notes past a MIDI clip's end lengthen it in the same undo step", "[in
 TEST_CASE("session: a new project has no undo steps, even after tracktion's own start-up work", "[integration]")
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
-    tracktion::Engine engine{"fd-integration-tests"};
+    tracktion::Engine engine{"fd-integration-tests", nullptr, fd::engine::makeEngineBehaviour()};
     fd::engine::Session session(engine);
     juce::MessageManager::getInstance()->runDispatchLoopUntil(300);
     CHECK_FALSE(session.canUndo());

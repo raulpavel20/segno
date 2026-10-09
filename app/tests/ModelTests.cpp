@@ -1,6 +1,7 @@
 // JUCE-free tests of the DAW's view models (app/src/model, ADR 0018).
 
 #include "model/Snapshot.h"
+#include "model/Taper.h"
 #include "model/Timeline.h"
 #include "model/TrackHeaderLayout.h"
 #include "model/TrackLayout.h"
@@ -463,4 +464,30 @@ TEST_CASE("track header slots appear with height and never overlap", "[fast]")
     s = layoutTrackHeader(60.0, 40.0, 3, false);
     for (const auto& b : s.buttons)
         CHECK(b.x >= m.paddingLeft);
+}
+
+TEST_CASE("the volume taper puts 0 dB at 80 % and maps both ways", "[fast]")
+{
+    using namespace fd::model;
+    CHECK(volumeDbAt(0.8) == Approx(0.0).margin(1e-9));
+    CHECK(volumeDbAt(0.64) == Approx(-6.0).margin(1e-6));
+    CHECK(volumeDbAt(1.0) == Approx(6.0).margin(1e-9));
+    CHECK(volumeDbAt(0.0) == minusInfinityDb);
+    CHECK(volumeDbAt(1.5) == Approx(6.0).margin(1e-9)); // clamped to the travel
+    CHECK(sendDbAt(1.0) == Approx(0.0).margin(1e-9));
+    CHECK(sendDbAt(0.8) == Approx(-6.0).margin(1e-6));
+    for (double db : {-60.0, -20.0, -6.0, -0.5, 0.0, 3.0, 6.0})
+        CHECK(volumeDbAt(volumePosition(db)) == Approx(db).margin(1e-9));
+    for (double db : {-60.0, -12.0, 0.0})
+        CHECK(sendDbAt(sendPosition(db)) == Approx(db).margin(1e-9));
+    CHECK(volumePosition(minusInfinityDb) == 0.0);
+    CHECK(volumePosition(12.0) == 1.0);
+    // Monotonic: more travel is always louder (the first percent or two sit at -inf).
+    double last = minusInfinityDb;
+    for (int i = 1; i <= 100; ++i)
+    {
+        const double db = volumeDbAt(i / 100.0);
+        CHECK((db > last || db == minusInfinityDb));
+        last = db;
+    }
 }

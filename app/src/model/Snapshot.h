@@ -59,24 +59,65 @@ struct DeviceSlot
     std::optional<std::uint64_t> sidechainSource; // the track feeding it, if any
 };
 
+/// The level at the bottom of a fader: silence (-inf dB).
+inline constexpr float minusInfinityDb = -100.0f;
+
+/// A track's send to a return track (C3, docs/design/mixer.md).
+struct SendInfo
+{
+    std::uint64_t returnId = 0;
+    float levelDb = minusInfinityDb; // -inf (off) .. 0
+    bool preFader = false;
+};
+
+/// A channel's mixer settings.
+struct MixInfo
+{
+    float volumeDb = 0.0f; // -inf .. +6
+    float pan = 0.0f;      // -1 (left) .. 1 (right), a balance
+    bool mute = false;
+    bool solo = false;
+    std::vector<SendInfo> sends; // tracks only: one per return track, in return order
+};
+
 struct TrackInfo
 {
     enum class Kind { Audio, Instrument };
+    /// What the channel is (ADR 0026): a track holds clips; returns and the master don't.
+    enum class Role { Track, Return, Master };
 
     std::uint64_t id = 0;
     Kind kind = Kind::Audio; // Instrument when the chain has one (ADR 0019: one kind of track)
+    Role role = Role::Track;
     std::string name;
     std::string instrument; // the first instrument's name, if any
     int colour = 0;
     std::vector<ClipInfo> clips; // sorted by start
     std::vector<DeviceSlot> devices; // the chain, in order (the engine's own mixer plugins are not listed)
+    MixInfo mix;
+
+    [[nodiscard]] bool holdsClips() const noexcept { return role == Role::Track; }
 };
 
 struct Snapshot
 {
+    /// The tracks, which hold clips, in order.
     std::vector<TrackInfo> tracks;
+    /// The return tracks (C3, ADR 0026), in order, and the master: channels without clips.
+    std::vector<TrackInfo> returns;
+    TrackInfo master{.role = TrackInfo::Role::Master};
     TempoMap tempo;
     std::uint64_t version = 0;
+
+    /// Any channel by id: a track, a return or the master.
+    [[nodiscard]] const TrackInfo* channel(std::uint64_t id) const noexcept
+    {
+        for (const auto* list : {&tracks, &returns})
+            for (const auto& t : *list)
+                if (t.id == id)
+                    return &t;
+        return master.id == id ? &master : nullptr;
+    }
 
     /// End of the last clip (seconds), 0 for an empty project.
     [[nodiscard]] double contentEnd() const noexcept

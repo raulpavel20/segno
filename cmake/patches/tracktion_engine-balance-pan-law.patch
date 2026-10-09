@@ -1,0 +1,52 @@
+A balance pan law (Segno ADR 0026).
+
+Segno's channels pan as a balance control: 0 dB at centre, the near side stays at 0 dB and the
+far side falls to silence along a quarter-cosine. tracktion's laws are all equal-power or
+linear, so this adds PanLawBalance (5, after the stored values) for VolumeAndPanPlugin.
+
+--- a/modules/tracktion_engine/utilities/tracktion_AudioUtilities.h
++++ b/modules/tracktion_engine/utilities/tracktion_AudioUtilities.h
+@@ -88,7 +88,8 @@
+     PanLaw2point5dBCenter   = 1,   // NB: don't change these numbers, they're stored in the edit.
+     PanLaw3dBCenter         = 2,
+     PanLaw4point5dBCenter   = 3,
+-    PanLaw6dBCenter         = 4
++    PanLaw6dBCenter         = 4,
++    PanLawBalance           = 5    // 0 dB at centre; the far side follows a quarter-cosine (Segno)
+ };
+ 
+ PanLaw getDefaultPanLaw() noexcept;
+--- a/modules/tracktion_engine/utilities/tracktion_AudioUtilities.cpp
++++ b/modules/tracktion_engine/utilities/tracktion_AudioUtilities.cpp
+@@ -240,6 +240,15 @@
+         leftGain  = gain - pv;
+         rightGain = gain + pv;
+     }
++    else if (panLaw == PanLawBalance)
++    {
++        // A balance control: the near side stays at 0 dB, the far side falls to silence along
++        // a quarter-cosine (-3 dB halfway), so the centre never changes level.
++        const float halfPi = juce::MathConstants<float>::pi * 0.5f;
++
++        leftGain  = gain * (pan > 0.0f ? std::cos (pan * halfPi) : 1.0f);
++        rightGain = gain * (pan < 0.0f ? std::cos (-pan * halfPi) : 1.0f);
++    }
+     else
+     {
+         const float halfPi = juce::MathConstants<float>::pi * 0.5f;
+@@ -259,6 +268,7 @@
+             case PanLaw6dBCenter:       ratio = 2.0f;         break;
+ 
+             case PanLawDefault:
++            case PanLawBalance:
+             case PanLawLinear:
+                 jassertfalse; // should have alread been handled?
+                 break;
+@@ -297,6 +307,7 @@
+     s.add (TRANS("-3.0 dB Center"));
+     s.add (TRANS("-4.5 dB Center"));
+     s.add (TRANS("-6.0 dB Center"));
++    s.add (TRANS("Balance"));
+ 
+     return s;
+ }

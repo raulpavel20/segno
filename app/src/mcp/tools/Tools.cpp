@@ -17,6 +17,7 @@ void registerAll(Registry& registry, ToolEnv& env)
     addNoteTools(registry, env);
     addModuleTools(registry, env);
     addRenderTools(registry, env);
+    addMixTools(registry, env);
     addProjectTools(registry, env);
     addResources(registry, env);
     addPrompts(registry);
@@ -287,6 +288,17 @@ model::TrackInfo track(ToolEnv& env, const Json& value)
                   " doesn't exist; read segno://project (or call get_project) for the current tracks."};
 }
 
+model::TrackInfo channel(ToolEnv& env, const Json& value)
+{
+    const auto id = parseId(value, IdKind::Track);
+    if (!id)
+        throw Problem{value.dump() + " isn't a track id: they look like \"t:3\" (read segno://project)."};
+    if (const auto* t = env.session.snapshot()->channel(*id))
+        return *t;
+    throw Problem{"Track " + formatId(IdKind::Track, *id) +
+                  " doesn't exist; read segno://project (or call get_project) for the tracks, returns and master."};
+}
+
 model::ClipInfo clip(ToolEnv& env, const Json& value)
 {
     const auto id = parseId(value, IdKind::Clip);
@@ -303,10 +315,15 @@ std::pair<model::DeviceSlot, model::TrackInfo> module(ToolEnv& env, const Json& 
     const auto id = parseId(value, IdKind::Module);
     if (!id)
         throw Problem{value.dump() + " isn't a module id: they look like \"m:7\" (read segno://project)."};
-    for (const auto& t : env.session.snapshot()->tracks)
-        for (const auto& d : t.devices)
-            if (d.id == *id)
-                return {d, t};
+    const auto snap = env.session.snapshot();
+    for (const auto* list : {&snap->tracks, &snap->returns})
+        for (const auto& t : *list)
+            for (const auto& d : t.devices)
+                if (d.id == *id)
+                    return {d, t};
+    for (const auto& d : snap->master.devices)
+        if (d.id == *id)
+            return {d, snap->master};
     throw Problem{"Module " + formatId(IdKind::Module, *id) +
                   " doesn't exist; read segno://project (or call get_project) for each track's chain."};
 }
@@ -407,6 +424,49 @@ Json moduleSummary(const model::DeviceSlot& slot)
             {"instrument", slot.instrument}};
 }
 
+std::string kindName(const model::TrackInfo& t)
+{
+    switch (t.role)
+    {
+    case model::TrackInfo::Role::Return: return "return";
+    case model::TrackInfo::Role::Master: return "master";
+    case model::TrackInfo::Role::Track: break;
+    }
+    return "track";
+}
+
+std::string panText(float pan)
+{
+    const int amount = static_cast<int>(std::lround(std::abs(pan) * 50.0f));
+    return amount == 0 ? std::string("C") : std::to_string(amount) + (pan < 0.0f ? "L" : "R");
+}
+
+Json mixJson(ToolEnv& env, const model::TrackInfo& t)
+{
+    const auto volume = t.mix.volumeDb <= model::minusInfinityDb ? Json(nullptr) : db(t.mix.volumeDb);
+    Json mix{{"volume", volume}, {"pan", rounded(t.mix.pan, 1e3)}, {"panText", panText(t.mix.pan)}};
+    if (t.role != model::TrackInfo::Role::Master)
+    {
+        mix["mute"] = t.mix.mute;
+        mix["solo"] = t.mix.solo;
+    }
+    if (t.role == model::TrackInfo::Role::Track)
+    {
+        Json sends = Json::array();
+        const auto snap = env.session.snapshot();
+        for (const auto& s : t.mix.sends)
+        {
+            const auto* r = snap->channel(s.returnId);
+            sends.push_back({{"return", formatId(IdKind::Track, s.returnId)},
+                             {"name", r != nullptr ? r->name : std::string()},
+                             {"level", s.levelDb <= model::minusInfinityDb ? Json(nullptr) : db(s.levelDb)},
+                             {"preFader", s.preFader}});
+        }
+        mix["sends"] = std::move(sends);
+    }
+    return mix;
+}
+
 Json trackJson(ToolEnv& env, const model::TrackInfo& t, bool notes)
 {
     Json clips = Json::array(), chain = Json::array();
@@ -415,11 +475,13 @@ Json trackJson(ToolEnv& env, const model::TrackInfo& t, bool notes)
     for (const auto& d : t.devices)
         chain.push_back(moduleSummary(d));
     return {{"id", formatId(IdKind::Track, t.id)},
+            {"kind", kindName(t)},
             {"name", t.name},
             {"colour", t.colour},
             {"instrument", t.instrument.empty() ? Json(nullptr) : Json(t.instrument)},
             {"clips", std::move(clips)},
-            {"chain", std::move(chain)}};
+            {"chain", std::move(chain)},
+            {"mix", mixJson(env, t)}};
 }
 
 Json projectJson(ToolEnv& env)
@@ -429,9 +491,11 @@ Json projectJson(ToolEnv& env)
     const auto t = snap->tempo;
     const auto file = s.file();
     const auto [loopStart, loopEnd] = s.loopRange();
-    Json tracks = Json::array();
+    Json tracks = Json::array(), returns = Json::array();
     for (const auto& track : snap->tracks)
         tracks.push_back(trackJson(env, track));
+    for (const auto& r : snap->returns)
+        returns.push_back(trackJson(env, r));
     return {{"name", file ? file->getFileNameWithoutExtension().toStdString() : std::string("Untitled")},
             {"file", file ? Json(file->getFullPathName().toStdString()) : Json(nullptr)},
             {"unsaved", s.hasUnsavedChanges()},
@@ -444,7 +508,9 @@ Json projectJson(ToolEnv& env)
               {"end", positionJson(t.beatsForSeconds(loopEnd), t)}}},
             {"undo", {{"available", s.canUndo()}, {"next", s.undoDescription()}}},
             {"redo", {{"available", s.canRedo()}, {"next", s.redoDescription()}}},
-            {"tracks", std::move(tracks)}};
+            {"tracks", std::move(tracks)},
+            {"returns", std::move(returns)},
+            {"master", trackJson(env, snap->master)}};
 }
 
 Json transportJson(ToolEnv& env)

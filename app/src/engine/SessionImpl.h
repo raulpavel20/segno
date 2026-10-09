@@ -23,19 +23,34 @@ struct Session::Impl final : private juce::ValueTree::Listener, public juce::Asy
     void detach();
     std::optional<juce::File> file;
     bool dirty = false; // changed since opened or saved (tracktion's own flag updates on a timer)
+    /// A track that holds clips (not a return track); null otherwise.
     [[nodiscard]] te::AudioTrack* track(std::uint64_t id) const;
+    /// A return track (ADR 0026); null otherwise.
+    [[nodiscard]] te::AudioTrack* returnTrack(std::uint64_t id) const;
+    /// A track or a return track.
+    [[nodiscard]] te::AudioTrack* channelTrack(std::uint64_t id) const;
+    /// The chain of any channel: a track, a return, or the master's plugin list.
+    [[nodiscard]] te::PluginList* plugins(std::uint64_t channelId) const;
+    [[nodiscard]] std::uint64_t masterId() const;
+    /// The tracks that hold clips, and the return tracks, each in order.
+    [[nodiscard]] std::vector<te::AudioTrack*> tracks() const;
+    [[nodiscard]] std::vector<te::AudioTrack*> returns() const;
+    [[nodiscard]] static bool isReturn(const te::Track& track);
     [[nodiscard]] te::Clip* clip(std::uint64_t id) const;
     [[nodiscard]] te::Plugin* plugin(std::uint64_t id) const;
     // Edit steps without starting an undo transaction (commands compose them).
     te::AudioTrack* insertTrack(const juce::String& name);
-    te::Plugin* insertDevice(te::AudioTrack& track, const std::string& key, int index);
+    te::Plugin* insertDevice(te::PluginList& list, const std::string& key, int index);
+    /// Every channel's volume uses the balance pan law, and the master has a volume and meter of
+    /// its own at the end of its chain (ADR 0026). Brings older projects up to date.
+    void ensureChannels(juce::UndoManager* undo);
     /// ADR 0019: clips on `track` covered by [start, end) are cut (except the ones placed).
     void clearUnder(te::AudioTrack& track, double start, double end, const std::set<std::uint64_t>& except);
     /// A MIDI clip needs an instrument (ADR 0019): adds the default one to a track without one.
     /// True if it added it.
     bool ensureInstrument(te::AudioTrack& track);
-    /// The track's user devices, in order (without tracktion's volume and meter plugins).
-    [[nodiscard]] static std::vector<te::Plugin*> chain(te::AudioTrack& track);
+    /// A chain's user devices, in order (without the mixer's plugins: volume, meter, sends).
+    [[nodiscard]] static std::vector<te::Plugin*> chain(te::PluginList& list);
 
     std::unique_ptr<PluginScanner> scanner;
 
@@ -70,13 +85,16 @@ private:
     {
         if (id == te::IDs::lastSignificantChange || id == panelViewId) // bookkeeping and view state
             return;
-        if (!inTransport(t))
+        if (!inTransport(t) && id != te::IDs::solo) // solo is a listening aid (ADR 0026)
             dirty = true; // includes device parameters
-        // Device parameters and state change constantly; only a device's power state and its
-        // sidechain source (ADR 0025) show.
+        // Device parameters and state change constantly; only a device's power state, its
+        // sidechain source (ADR 0025) and the mixer's own plugins (volume, pan, sends) show.
         for (auto p = t; p.isValid(); p = p.getParent())
             if (p.hasType(te::IDs::PLUGIN) && !(p == t && (id == te::IDs::enabled || id == te::IDs::sidechainSourceID)))
             {
+                const auto type = p[te::IDs::type].toString();
+                if (type == te::VolumeAndPanPlugin::xmlTypeName || type == te::AuxSendPlugin::xmlTypeName)
+                    break;
                 deviceStateChanged(p);
                 return;
             }

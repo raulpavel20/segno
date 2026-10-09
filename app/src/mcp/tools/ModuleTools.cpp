@@ -57,15 +57,15 @@ void addModuleTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"add_module", "Add a module",
-         "Adds a module (an instrument or effect) to a track's chain: one of ours or a scanned plugin. Returns the "
-         "new module with its parameters.",
-         object({{"track", id(IdKind::Track, "The track")},
+         "Adds a module (an instrument or effect) to a chain: a track's, a return track's or the master's; one of "
+         "ours or a scanned plugin. Returns the new module with its parameters.",
+         object({{"track", id(IdKind::Track, "The track, return track or master")},
                  {"type", string("A type from list_module_types (\"eq\", \"saturator\"), or its name")},
                  {"position", integer("Where in the chain, from 0 (default: the end)", 0)}},
                 {"track", "type"}),
          moduleResultSchema(), adds},
         [&env](const Json& args, CallContext&) {
-            const auto t = track(env, args["track"]);
+            const auto t = channel(env, args["track"]); // modules go on tracks, returns and the master
             const auto key = typeKey(env, args["type"].get<std::string>());
             const auto id = env.session.addDevice(t.id, key, args.value("position", -1));
             if (id == 0)

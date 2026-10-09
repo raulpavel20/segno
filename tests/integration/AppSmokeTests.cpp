@@ -1,6 +1,7 @@
 // Smoke tests of the DAW shell (docs/design/daw-shell.md, C1): it builds offscreen around a
 // Session, every action has a unique id and shortcut, and keys reach the registry.
 
+#include "engine/EngineBehaviour.h"
 #include "engine/DevicePlugin.h"
 #include "engine/Session.h"
 #include "mcp/McpServer.h"
@@ -19,7 +20,7 @@ struct ShellFixture
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
     fd::ui::LookAndFeel lnf;
-    tracktion::Engine engine{"fd-integration-tests"};
+    tracktion::Engine engine{"fd-integration-tests", nullptr, fd::engine::makeEngineBehaviour()};
     std::unique_ptr<fd::engine::Session> session;
     std::unique_ptr<fd::app::Shell> shell;
 
@@ -535,7 +536,7 @@ TEST_CASE("the Assistants popover turns the server on, shows setup lines and cli
     fd::ui::LookAndFeel lnf;
     juce::LookAndFeel::setDefaultLookAndFeel(&lnf);
     {
-        tracktion::Engine engine{"fd-integration-tests"};
+        tracktion::Engine engine{"fd-integration-tests", nullptr, fd::engine::makeEngineBehaviour()};
         fd::engine::registerDevices(engine);
         fd::engine::Session session(engine);
         juce::TemporaryFile folderName;

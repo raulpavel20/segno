@@ -2,6 +2,7 @@
 // test). An in-process client calls the dispatcher as a transport would; each edit must be one
 // named undo step, read-only mode must hold, and confirmations must be asked.
 
+#include "engine/EngineBehaviour.h"
 #include "engine/DevicePlugin.h"
 #include "engine/Session.h"
 #include "mcp/McpServer.h"
@@ -38,7 +39,7 @@ Json modernRequest(const std::string& method, Json params, Json capabilities = J
 struct Daw
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
-    tracktion::Engine engine{"fd-mcp-tests"};
+    tracktion::Engine engine{"fd-mcp-tests", nullptr, fd::engine::makeEngineBehaviour()};
     std::unique_ptr<fd::engine::Session> session;
     juce::TemporaryFile folderName;
     juce::File folder;
@@ -138,7 +139,7 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
           "insert_midi_file", "move_clips", "trim_clip", "duplicate_clips", "split_clips", "delete_clips", "add_notes",
           "set_notes", "remove_notes", "edit_notes", "add_module", "remove_module", "move_module", "set_module_on",
           "set_parameters", "load_sample", "set_module_view", "set_module_sidechain", "scan_plugins", "render",
-          "measure_module", "undo", "redo",
+          "measure_module", "set_mix", "add_return_track", "set_send", "measure_mix", "undo", "redo",
           "save_project", "new_project", "open_project"})
         CHECK(names.contains(name));
     for (const auto& p : registry.prompts)
@@ -535,6 +536,65 @@ TEST_CASE("mcp tools: measure_module reads a module's meters by name", "[integra
     handle.reset();
 
     CHECK(daw.fails("measure_module", {{"module", eq}}).find("no meters") != std::string::npos);
+}
+
+TEST_CASE("mcp tools: the mixer: levels, returns, sends and meters", "[integration][mcp]")
+{
+    Daw daw;
+    auto project = daw.project();
+    const auto t0 = project["tracks"][0]["id"].get<std::string>();
+    const auto master = project["master"]["id"].get<std::string>();
+    CHECK(project["master"]["kind"] == "master");
+    CHECK(project["tracks"][0]["kind"] == "track");
+    CHECK(project["tracks"][0]["mix"]["volume"] == Approx(0.0));
+    CHECK(project["returns"].empty());
+
+    const auto added = daw.call("add_return_track");
+    const auto r = added["track"].get<std::string>();
+    CHECK(added["name"] == "A Return");
+    CHECK(daw.session->undoDescription() == "Assistant: add return track");
+    project = daw.project();
+    REQUIRE(project["returns"].size() == 1);
+    CHECK(project["returns"][0]["kind"] == "return");
+    CHECK(project["tracks"][0]["mix"]["sends"][0]["return"] == r);
+    CHECK(project["tracks"][0]["mix"]["sends"][0]["level"].is_null()); // off
+
+    const auto mixed = daw.call("set_mix", {{"track", t0}, {"volume", "-6 dB"}, {"pan", "25L"}, {"mute", true}});
+    CHECK(mixed["mix"]["volume"] == Approx(-6.0));
+    CHECK(mixed["mix"]["pan"] == Approx(-0.5));
+    CHECK(mixed["mix"]["panText"] == "25L");
+    CHECK(mixed["mix"]["mute"] == true);
+    CHECK(daw.session->undoDescription() == "Assistant: set mix");
+    daw.call("undo");
+    CHECK(daw.project()["tracks"][0]["mix"]["volume"] == Approx(0.0)); // the three in one step
+
+    const auto steps = daw.session->undoDescription();
+    CHECK(daw.call("set_mix", {{"track", t0}, {"solo", true}})["mix"]["solo"] == true);
+    CHECK(daw.session->undoDescription() == steps); // solo is never an undo step
+    CHECK(daw.fails("set_mix", {{"track", master}, {"mute", true}}).find("no mute") != std::string::npos);
+    CHECK(daw.call("set_mix", {{"track", master}, {"volume", -2}})["mix"]["volume"] == Approx(-2.0));
+    CHECK(daw.call("set_mix", {{"track", r}, {"volume", "-inf"}})["mix"]["volume"].is_null());
+    CHECK(daw.fails("set_mix", {{"track", t0}, {"pan", "left"}}).find("pan") != std::string::npos);
+
+    const auto send = daw.call("set_send", {{"track", t0}, {"return", r}, {"level", -12}, {"preFader", true}});
+    CHECK(send["level"] == Approx(-12.0));
+    CHECK(send["preFader"] == true);
+    CHECK(daw.session->undoDescription() == "Assistant: set send");
+    CHECK(daw.fails("set_send", {{"track", r}, {"return", r}}).find("Only tracks send") != std::string::npos);
+    CHECK(daw.fails("set_send", {{"track", t0}, {"return", t0}}).find("isn't a return") != std::string::npos);
+
+    // Modules on the master and on returns are found like any other.
+    const auto limiter = daw.call("add_module", {{"track", master}, {"type", "limiter"}})["id"];
+    CHECK(daw.call("get_module", {{"module", limiter}})["type"] == "limiter");
+    CHECK(daw.project()["master"]["chain"][0]["id"] == limiter);
+
+    const auto measured = daw.callAway("measure_mix", {{"seconds", 0.2}});
+    REQUIRE(measured["isError"] == false);
+    const auto& channels = measured["structuredContent"]["channels"];
+    CHECK(channels.size() == daw.project()["tracks"].size() + 2); // the tracks, the return, the master
+    CHECK(channels.back()["kind"] == "master");
+    CHECK(channels[0]["peak"].is_null()); // nothing plays here
+    CHECK(measured["structuredContent"]["playing"] == false);
 }
 
 TEST_CASE("mcp tools: resources and their change notifications", "[integration][mcp]")

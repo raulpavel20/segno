@@ -12,11 +12,11 @@ namespace fd::engine
 namespace
 {
 const juce::Identifier kColourId{"fdColour"}; // index into the clip palette
+const juce::Identifier kRoleId{"fdRole"};     // "return" on a return track (ADR 0026)
 
 /// Number of colours in ui::Theme::clipColours; snapshots carry indices modulo this.
 constexpr int kPaletteSize = 16;
 
-/// tracktion's own mixer plugins on every track: part of the mixer, not the device chain.
 /// One of our devices with a sidechain bus (ADR 0025).
 bool takesSidechain(te::Plugin& p)
 {
@@ -25,9 +25,43 @@ bool takesSidechain(te::Plugin& p)
            native->device().info().buses.inputChannels > 0;
 }
 
+/// tracktion's plugins that make up the mixer (volume and pan, the meter, sends and the return
+/// input): part of the channel, not the module chain.
 bool isMixerPlugin(const te::Plugin* p)
 {
-    return dynamic_cast<const te::VolumeAndPanPlugin*>(p) != nullptr || dynamic_cast<const te::LevelMeterPlugin*>(p) != nullptr;
+    return dynamic_cast<const te::VolumeAndPanPlugin*>(p) != nullptr ||
+           dynamic_cast<const te::LevelMeterPlugin*>(p) != nullptr ||
+           dynamic_cast<const te::AuxSendPlugin*>(p) != nullptr || dynamic_cast<const te::AuxReturnPlugin*>(p) != nullptr;
+}
+
+template <typename PluginType>
+PluginType* findIn(te::PluginList& list)
+{
+    for (auto* p : list)
+        if (auto* found = dynamic_cast<PluginType*>(p))
+            return found;
+    return nullptr;
+}
+
+te::AuxSendPlugin* sendIn(te::PluginList& list, int bus)
+{
+    for (auto* p : list)
+        if (auto* send = dynamic_cast<te::AuxSendPlugin*>(p); send != nullptr && send->getBusNumber() == bus)
+            return send;
+    return nullptr;
+}
+
+/// The aux bus a return track listens to (-1 if none).
+int busOf(te::AudioTrack& returnTrack)
+{
+    auto* in = findIn<te::AuxReturnPlugin>(returnTrack.pluginList);
+    return in != nullptr ? in->busNumber.get() : -1;
+}
+
+/// The stored volume (the parameter's own value catches up asynchronously, e.g. after undo).
+float volumeDbOf(te::VolumeAndPanPlugin* v)
+{
+    return v != nullptr ? std::max(model::minusInfinityDb, te::volumeFaderPositionToDB(v->volume.get())) : 0.0f;
 }
 
 /// UI access to one of our devices (the panel's binding through the engine).
@@ -230,6 +264,7 @@ std::unique_ptr<te::Edit> Session::Impl::newEdit()
 void Session::Impl::attach(std::unique_ptr<te::Edit> e)
 {
     edit = std::move(e);
+    ensureChannels(nullptr);
     // tracktion sorts tracks by type asynchronously, through the undo manager: done now, so a
     // fresh project's history really is empty (no invisible first undo step).
     te::TrackList::sortTracksByType(edit->state, nullptr);
@@ -312,21 +347,9 @@ void Session::Impl::rebuildSnapshot()
         s->tempo.denominator = sig->denominator;
     }
 
-    int index = 0;
-    for (auto* t : te::getAudioTracks(*edit))
-    {
-        model::TrackInfo info;
-        info.id = t->itemID.getRawID();
-        info.kind = kindOf(*t);
-        info.name = t->getName().toStdString();
-        info.colour = static_cast<int>(t->state.getProperty(kColourId, index * 3 % kPaletteSize));
-        for (auto* c : t->getClips())
-        {
-            auto clip = clipInfo(*c, info.colour);
-            info.clips.push_back(std::move(clip));
-        }
-        std::sort(info.clips.begin(), info.clips.end(), [](const auto& a, const auto& b) { return a.start < b.start; });
-        for (auto* p : chain(*t))
+    // The module chain of a channel, as the views show it.
+    auto devicesOf = [](te::PluginList& list, model::TrackInfo& info) {
+        for (auto* p : chain(list))
         {
             model::DeviceSlot slot;
             slot.id = p->itemID.getRawID();
@@ -347,16 +370,71 @@ void Session::Impl::rebuildSnapshot()
                 slot.kind = model::DeviceSlot::Kind::External;
             info.devices.push_back(std::move(slot));
         }
-        s->tracks.push_back(std::move(info));
+    };
+    auto mixOf = [](te::PluginList& list) {
+        model::MixInfo mix;
+        if (auto* v = findIn<te::VolumeAndPanPlugin>(list))
+        {
+            mix.volumeDb = volumeDbOf(v);
+            mix.pan = v->pan.get();
+        }
+        return mix;
+    };
+
+    const auto returnTracks = returns();
+    int index = 0;
+    for (auto* t : te::getAudioTracks(*edit))
+    {
+        model::TrackInfo info;
+        info.id = t->itemID.getRawID();
+        info.kind = kindOf(*t);
+        info.role = isReturn(*t) ? model::TrackInfo::Role::Return : model::TrackInfo::Role::Track;
+        info.name = t->getName().toStdString();
+        info.colour = static_cast<int>(t->state.getProperty(kColourId, index * 3 % kPaletteSize));
+        for (auto* c : t->getClips())
+        {
+            auto clip = clipInfo(*c, info.colour);
+            info.clips.push_back(std::move(clip));
+        }
+        std::sort(info.clips.begin(), info.clips.end(), [](const auto& a, const auto& b) { return a.start < b.start; });
+        devicesOf(t->pluginList, info);
+        info.mix = mixOf(t->pluginList);
+        info.mix.mute = t->isMuted(false);
+        info.mix.solo = t->isSolo(false);
+        if (info.role == model::TrackInfo::Role::Track)
+        {
+            auto& volume = *t->getVolumePlugin();
+            const int volumeAt = t->pluginList.indexOf(&volume);
+            for (auto* r : returnTracks)
+            {
+                model::SendInfo send{.returnId = r->itemID.getRawID()};
+                if (auto* plugin = sendIn(t->pluginList, busOf(*r)))
+                {
+                    send.levelDb = std::max(model::minusInfinityDb, plugin->getGainDb());
+                    send.preFader = t->pluginList.indexOf(plugin) < volumeAt;
+                }
+                info.mix.sends.push_back(send);
+            }
+            s->tracks.push_back(std::move(info));
+        }
+        else
+            s->returns.push_back(std::move(info));
         ++index;
     }
+
+    auto& master = s->master;
+    master.id = masterId();
+    master.role = model::TrackInfo::Role::Master;
+    master.name = "Master";
+    devicesOf(edit->getMasterPluginList(), master);
+    master.mix = mixOf(edit->getMasterPluginList());
     snapshot = std::move(s);
     if (owner.onSnapshotChanged)
         owner.onSnapshotChanged();
     listeners.call([](Session::Listener& l) { l.snapshotChanged(); });
 }
 
-te::AudioTrack* Session::Impl::track(std::uint64_t id) const
+te::AudioTrack* Session::Impl::channelTrack(std::uint64_t id) const
 {
     for (auto* t : te::getAudioTracks(*edit))
         if (t->itemID.getRawID() == id)
@@ -364,18 +442,91 @@ te::AudioTrack* Session::Impl::track(std::uint64_t id) const
     return nullptr;
 }
 
+te::AudioTrack* Session::Impl::track(std::uint64_t id) const
+{
+    auto* t = channelTrack(id);
+    return t != nullptr && !isReturn(*t) ? t : nullptr;
+}
+
+te::AudioTrack* Session::Impl::returnTrack(std::uint64_t id) const
+{
+    auto* t = channelTrack(id);
+    return t != nullptr && isReturn(*t) ? t : nullptr;
+}
+
+bool Session::Impl::isReturn(const te::Track& track)
+{
+    return track.state[kRoleId].toString() == "return";
+}
+
+std::uint64_t Session::Impl::masterId() const
+{
+    auto* master = edit->getMasterTrack();
+    return master != nullptr ? master->itemID.getRawID() : 0;
+}
+
+te::PluginList* Session::Impl::plugins(std::uint64_t channelId) const
+{
+    if (auto* t = channelTrack(channelId))
+        return &t->pluginList;
+    return channelId != 0 && channelId == masterId() ? &edit->getMasterPluginList() : nullptr;
+}
+
+std::vector<te::AudioTrack*> Session::Impl::tracks() const
+{
+    std::vector<te::AudioTrack*> out;
+    for (auto* t : te::getAudioTracks(*edit))
+        if (!isReturn(*t))
+            out.push_back(t);
+    return out;
+}
+
+std::vector<te::AudioTrack*> Session::Impl::returns() const
+{
+    std::vector<te::AudioTrack*> out;
+    for (auto* t : te::getAudioTracks(*edit))
+        if (isReturn(*t))
+            out.push_back(t);
+    return out;
+}
+
+void Session::Impl::ensureChannels(juce::UndoManager* undo)
+{
+    for (auto* t : te::getAudioTracks(*edit))
+        if (auto* v = t->getVolumePlugin(); v != nullptr && v->getPanLaw() != te::PanLawBalance)
+            v->state.setProperty(te::IDs::panLaw, static_cast<int>(te::PanLawBalance), undo);
+    // The master: tracktion's master volume stays at unity (it starts at -3 dB); ours sits at
+    // the end of the master chain with a meter after it, as on every track.
+    const float unity = te::decibelsToVolumeFaderPosition(0.0f);
+    if (auto masterVolume = edit->getMasterVolumePlugin(); masterVolume != nullptr && masterVolume->volume.get() != unity)
+        masterVolume->state.setProperty(te::IDs::volume, unity, undo);
+    auto& list = edit->getMasterPluginList();
+    if (findIn<te::VolumeAndPanPlugin>(list) == nullptr)
+    {
+        list.insertPlugin(edit->getPluginCache().createNewPlugin(te::VolumeAndPanPlugin::xmlTypeName, {}), -1, nullptr);
+        list.insertPlugin(edit->getPluginCache().createNewPlugin(te::LevelMeterPlugin::xmlTypeName, {}), -1, nullptr);
+    }
+    if (auto* v = findIn<te::VolumeAndPanPlugin>(list); v != nullptr && v->getPanLaw() != te::PanLawBalance)
+        v->state.setProperty(te::IDs::panLaw, static_cast<int>(te::PanLawBalance), undo);
+}
+
 te::AudioTrack* Session::Impl::insertTrack(const juce::String& name)
 {
-    const int count = te::getAudioTracks(*edit).size();
-    auto track = edit->insertNewAudioTrack(te::TrackInsertPoint::getEndOfTracks(*edit), nullptr);
+    // After the last track and before the return tracks (ADR 0026).
+    const auto existing = tracks();
+    const int count = static_cast<int>(existing.size());
+    auto track = edit->insertNewAudioTrack(te::TrackInsertPoint(nullptr, existing.empty() ? nullptr : existing.back()),
+                                           nullptr);
     if (track == nullptr)
         return nullptr;
     track->setName(juce::String(count + 1) + " " + name);
     track->state.setProperty(kColourId, count * 3 % kPaletteSize, &edit->getUndoManager());
+    if (auto* v = track->getVolumePlugin())
+        v->setPanLaw(te::PanLawBalance);
     return track.get();
 }
 
-te::Plugin* Session::Impl::insertDevice(te::AudioTrack& track, const std::string& key, int index)
+te::Plugin* Session::Impl::insertDevice(te::PluginList& list, const std::string& key, int index)
 {
     te::Plugin::Ptr plugin;
     if (key.starts_with("fd:"))
@@ -388,18 +539,18 @@ te::Plugin* Session::Impl::insertDevice(te::AudioTrack& track, const std::string
 
     // Chain index -> plugin list index: before the device at `index`, or before the mixer
     // plugins at the end.
-    const auto devices = chain(track);
-    int at = track.pluginList.size();
+    const auto devices = chain(list);
+    int at = list.size();
     if (index >= 0 && index < static_cast<int>(devices.size()))
-        at = track.pluginList.indexOf(devices[static_cast<size_t>(index)]);
+        at = list.indexOf(devices[static_cast<size_t>(index)]);
     else
-        for (int i = 0; i < track.pluginList.size(); ++i)
-            if (isMixerPlugin(track.pluginList[i]))
+        for (int i = 0; i < list.size(); ++i)
+            if (isMixerPlugin(list[i]) && dynamic_cast<te::AuxReturnPlugin*>(list[i]) == nullptr)
             {
                 at = i;
                 break;
             }
-    track.pluginList.insertPlugin(plugin, at, nullptr);
+    list.insertPlugin(plugin, at, nullptr);
     return plugin.get();
 }
 
@@ -435,16 +586,16 @@ void Session::Impl::clearUnder(te::AudioTrack& track, double start, double end, 
 
 bool Session::Impl::ensureInstrument(te::AudioTrack& track)
 {
-    const auto devices = chain(track);
+    const auto devices = chain(track.pluginList);
     if (std::any_of(devices.begin(), devices.end(), [](auto* p) { return p->isSynth(); }))
         return false;
-    return insertDevice(track, "fd:subtractive-synth", 0) != nullptr;
+    return insertDevice(track.pluginList, "fd:subtractive-synth", 0) != nullptr;
 }
 
-std::vector<te::Plugin*> Session::Impl::chain(te::AudioTrack& track)
+std::vector<te::Plugin*> Session::Impl::chain(te::PluginList& list)
 {
     std::vector<te::Plugin*> out;
-    for (auto* p : track.pluginList)
+    for (auto* p : list)
         if (!isMixerPlugin(p))
             out.push_back(p);
     return out;
@@ -456,6 +607,9 @@ te::Plugin* Session::Impl::plugin(std::uint64_t id) const
         for (auto* p : t->pluginList)
             if (p->itemID.getRawID() == id)
                 return p;
+    for (auto* p : edit->getMasterPluginList())
+        if (p->itemID.getRawID() == id)
+            return p;
     return nullptr;
 }
 
@@ -846,11 +1000,11 @@ std::vector<AvailableDevice> Session::availableDevices() const
 
 std::uint64_t Session::addDevice(std::uint64_t trackId, const std::string& key, int index)
 {
-    auto* track = impl_->track(trackId);
-    if (track == nullptr)
+    auto* list = impl_->plugins(trackId); // any channel: tracks, returns, the master
+    if (list == nullptr)
         return 0;
     impl_->beginEdit("Add module");
-    auto* plugin = impl_->insertDevice(*track, key, index);
+    auto* plugin = impl_->insertDevice(*list, key, index);
     return plugin != nullptr ? plugin->itemID.getRawID() : 0;
 }
 
@@ -866,10 +1020,10 @@ void Session::removeDevice(std::uint64_t deviceId)
 void Session::moveDevice(std::uint64_t deviceId, int index)
 {
     auto* p = impl_->plugin(deviceId);
-    auto* track = p != nullptr ? dynamic_cast<te::AudioTrack*>(p->getOwnerTrack()) : nullptr;
-    if (track == nullptr)
+    auto* list = p != nullptr ? p->getOwnerList() : nullptr;
+    if (list == nullptr)
         return;
-    const auto devices = Impl::chain(*track);
+    const auto devices = Impl::chain(*list);
     index = std::clamp(index, 0, static_cast<int>(devices.size()) - 1);
     auto* target = devices[static_cast<size_t>(index)];
     if (target == p)
@@ -887,11 +1041,12 @@ std::vector<std::uint64_t> Session::sidechainSources(std::uint64_t deviceId) con
         return {};
     // A track can't feed this module if its own sound already depends on the module's track:
     // it, or a track it takes a sidechain from (and so on), is that track.
-    const auto tracks = te::getAudioTracks(*impl_->edit);
+    // Sources are tracks; returns wait for routing work with racks (ADR 0026).
+    const auto tracks = impl_->tracks();
     std::function<bool(te::Track&, int)> dependsOnOwner = [&](te::Track& t, int depth) {
         if (&t == owner)
             return true;
-        if (depth > tracks.size())
+        if (depth > static_cast<int>(tracks.size()) + 64)
             return false;
         for (auto* q : t.getAllPlugins())
             if (const auto id = q->getSidechainSourceID(); id.isValid())
@@ -929,6 +1084,202 @@ bool Session::setSidechainSource(std::uint64_t deviceId, std::optional<std::uint
         p->guessSidechainRouting();
     p->setSidechainSourceID(source);
     return true;
+}
+
+// ---- mixer (C3) -----------------------------------------------------------------------------
+
+namespace
+{
+constexpr int kMaxReturns = 32; // tracktion's aux buses
+
+juce::String returnName(int index)
+{
+    juce::String letters;
+    for (int i = index; i >= 0; i = i / 26 - 1)
+        letters = juce::String::charToString(static_cast<juce::juce_wchar>('A' + i % 26)) + letters;
+    return letters + " Return";
+}
+} // namespace
+
+std::uint64_t Session::addReturnTrack(const std::string& name)
+{
+    auto& edit = *impl_->edit;
+    const auto existing = impl_->returns();
+    // The lowest aux bus no return listens to yet.
+    std::set<int> used;
+    for (auto* r : existing)
+        used.insert(busOf(*r));
+    int bus = 0;
+    while (used.contains(bus))
+        ++bus;
+    if (bus >= kMaxReturns)
+        return 0;
+
+    impl_->beginEdit("Add return track");
+    auto* um = &edit.getUndoManager();
+    auto track = edit.insertNewAudioTrack(te::TrackInsertPoint::getEndOfTracks(edit), nullptr);
+    if (track == nullptr)
+        return 0;
+    const auto title = name.empty() ? returnName(static_cast<int>(existing.size())) : juce::String(name);
+    track->setName(title);
+    track->state.setProperty(kRoleId, "return", um);
+    track->state.setProperty(kColourId, (static_cast<int>(existing.size()) * 5 + 2) % kPaletteSize, um);
+    track->setSoloIsolate(true); // soloing a track never silences the returns (solo in place)
+    if (auto* v = track->getVolumePlugin())
+        v->setPanLaw(te::PanLawBalance);
+    auto input = edit.getPluginCache().createNewPlugin(te::AuxReturnPlugin::xmlTypeName, {});
+    if (auto* in = dynamic_cast<te::AuxReturnPlugin*>(input.get()))
+        in->busNumber = bus;
+    track->pluginList.insertPlugin(input, 0, nullptr);
+    edit.setAuxBusName(bus, title);
+    return track->itemID.getRawID();
+}
+
+void Session::setVolume(std::uint64_t channelId, float db)
+{
+    auto* list = impl_->plugins(channelId);
+    auto* volume = list != nullptr ? findIn<te::VolumeAndPanPlugin>(*list) : nullptr;
+    if (volume == nullptr)
+        return;
+    const float clamped = std::min(6.0f, db);
+    if (std::abs(volumeDbOf(volume) - std::max(model::minusInfinityDb, clamped)) < 1e-4f)
+        return;
+    impl_->beginEdit("Volume");
+    if (clamped <= model::minusInfinityDb)
+        volume->setSliderPos(0.0f);
+    else
+        volume->setVolumeDb(clamped);
+}
+
+void Session::setPan(std::uint64_t channelId, float pan)
+{
+    auto* list = impl_->plugins(channelId);
+    auto* volume = list != nullptr ? findIn<te::VolumeAndPanPlugin>(*list) : nullptr;
+    if (volume == nullptr)
+        return;
+    const float clamped = std::clamp(pan, -1.0f, 1.0f);
+    if (std::abs(volume->pan.get() - clamped) < 1e-6f)
+        return;
+    impl_->beginEdit("Pan");
+    volume->setPan(clamped);
+}
+
+void Session::setMute(std::uint64_t channelId, bool mute)
+{
+    auto* t = impl_->channelTrack(channelId);
+    if (t == nullptr || t->isMuted(false) == mute)
+        return;
+    impl_->beginEdit("Mute");
+    t->state.setProperty(te::IDs::mute, mute, &impl_->edit->getUndoManager()); // tracktion's own setter isn't undoable
+}
+
+void Session::setSolo(std::uint64_t channelId, bool solo, bool exclusive)
+{
+    auto* target = impl_->channelTrack(channelId);
+    if (target == nullptr)
+        return;
+    // A listening aid: never an undo step, and never an unsaved change on its own (tracktion
+    // marks the edit changed; the mark is taken back when there was none before).
+    auto& edit = *impl_->edit;
+    const bool wasChanged = edit.hasChangedSinceSaved();
+    const bool wasDirty = impl_->dirty;
+    if (exclusive)
+        for (auto* t : te::getAudioTracks(edit))
+            if (t != target && t->isSolo(false))
+                t->state.setProperty(te::IDs::solo, false, nullptr);
+    target->state.setProperty(te::IDs::solo, solo, nullptr);
+    if (!wasChanged)
+        edit.resetChangedStatus();
+    impl_->dirty = wasDirty;
+}
+
+bool Session::setSend(std::uint64_t trackId, std::uint64_t returnId, std::optional<float> levelDb,
+                      std::optional<bool> preFader)
+{
+    auto* t = impl_->track(trackId);
+    auto* r = impl_->returnTrack(returnId);
+    if (t == nullptr || r == nullptr)
+        return false;
+    const int bus = busOf(*r);
+    auto* send = sendIn(t->pluginList, bus);
+    auto* volume = t->getVolumePlugin();
+    const bool wantPre = preFader.value_or(send != nullptr && volume != nullptr &&
+                                           t->pluginList.indexOf(send) < t->pluginList.indexOf(volume));
+    const float level = std::clamp(levelDb.value_or(send != nullptr ? send->getGainDb() : model::minusInfinityDb),
+                                   model::minusInfinityDb, 0.0f);
+    impl_->beginEdit("Send to " + r->getName());
+    auto* um = &impl_->edit->getUndoManager();
+    if (send == nullptr)
+    {
+        auto created = impl_->edit->getPluginCache().createNewPlugin(te::AuxSendPlugin::xmlTypeName, {});
+        send = dynamic_cast<te::AuxSendPlugin*>(created.get());
+        if (send == nullptr)
+            return false;
+        send->busNumber = bus;
+        t->pluginList.insertPlugin(created, t->pluginList.indexOf(volume) + 1, nullptr);
+    }
+    if (level <= model::minusInfinityDb)
+        send->gain->setParameter(0.0f, juce::sendNotification);
+    else
+        send->setGainDb(level);
+    // Pre-fader sends sit just before the volume, post-fader ones just after it.
+    if (volume != nullptr)
+    {
+        auto parent = send->state.getParent();
+        const int sendAt = parent.indexOf(send->state);
+        const int volumeAt = parent.indexOf(volume->state);
+        if (wantPre && sendAt > volumeAt)
+            parent.moveChild(sendAt, volumeAt, um);
+        else if (!wantPre && sendAt < volumeAt)
+            parent.moveChild(sendAt, volumeAt, um);
+    }
+    return true;
+}
+
+namespace
+{
+/// Reads one channel's meter plugin through a client of its own (tracktion keeps each
+/// client's peaks apart), reporting silence while the channel isn't heard.
+class MeterReader final : public Session::LevelReader
+{
+public:
+    MeterReader(te::LevelMeterPlugin& meter, te::Track* track) : meter_(&meter), track_(track)
+    {
+        meter_->measurer.addClient(client_);
+    }
+    ~MeterReader() override { meter_->measurer.removeClient(client_); }
+
+    std::array<float, 2> takePeaks() override
+    {
+        std::array<float, 2> peaks{};
+        for (int c = 0; c < 2; ++c)
+            peaks[static_cast<size_t>(c)] = juce::Decibels::decibelsToGain(client_.getAndClearAudioLevel(c).dB, -100.0f);
+        if (track_ != nullptr && !heard())
+            return {};
+        return peaks;
+    }
+
+private:
+    bool heard() const
+    {
+        if (track_->isMuted(true))
+            return false;
+        return !track_->edit.areAnyTracksSolo() || track_->isSolo(true) || track_->isSoloIsolate(true);
+    }
+
+    juce::ReferenceCountedObjectPtr<te::LevelMeterPlugin> meter_;
+    te::Track::Ptr track_;
+    te::LevelMeasurer::Client client_;
+};
+} // namespace
+
+std::unique_ptr<Session::LevelReader> Session::levelReader(std::uint64_t channelId)
+{
+    auto* list = impl_->plugins(channelId);
+    auto* meter = list != nullptr ? findIn<te::LevelMeterPlugin>(*list) : nullptr;
+    if (meter == nullptr)
+        return nullptr;
+    return std::make_unique<MeterReader>(*meter, impl_->channelTrack(channelId));
 }
 
 void Session::setDeviceEnabled(std::uint64_t deviceId, bool enabled)

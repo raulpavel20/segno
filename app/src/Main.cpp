@@ -1,6 +1,7 @@
 // Segno: the DAW. See docs/design/daw-shell.md.
 
 #include "engine/AppBehaviour.h"
+#include "engine/EngineBehaviour.h"
 #include "engine/DevicePlugin.h"
 #include "engine/Session.h"
 #include "mcp/McpServer.h"
@@ -192,7 +193,8 @@ public:
         juce::LookAndFeel::setDefaultLookAndFeel(&lnf_);
         auto behaviour = std::make_unique<fd::engine::AppBehaviour>();
         behaviour_ = behaviour.get();
-        engine_ = std::make_unique<tracktion::Engine>(fd::ui::brand::name, std::move(behaviour), nullptr);
+        engine_ = std::make_unique<tracktion::Engine>(fd::ui::brand::name, std::move(behaviour),
+                                                      fd::engine::makeEngineBehaviour());
         fd::engine::registerDevices(*engine_);
         session_ = std::make_unique<fd::engine::Session>(*engine_);
         mcp_ = std::make_unique<fd::mcp::McpServer>(*session_, fd::mcp::McpServer::defaultDataFolder(),

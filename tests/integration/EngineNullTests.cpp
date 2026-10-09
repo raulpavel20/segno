@@ -4,6 +4,7 @@
 // Residual must be below -120 dBFS.
 
 #include "engine/DevicePlugin.h"
+#include "engine/EngineBehaviour.h"
 #include "fd/testkit/DeviceRender.h"
 #include "fd/testkit/Metrics.h"
 #include "fd/testkit/Signals.h"
@@ -44,7 +45,7 @@ struct Fixture
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
     TestUIBehaviour* ui = new TestUIBehaviour();
-    te::Engine engine{"fd-integration-tests", std::unique_ptr<te::UIBehaviour>(ui), nullptr};
+    te::Engine engine{"fd-integration-tests", std::unique_ptr<te::UIBehaviour>(ui), fd::engine::makeEngineBehaviour()};
     juce::TemporaryFile inputFile{".wav"};
     AudioBuffer input = whiteNoise(kLength, 9, 0.25f, 2);
 

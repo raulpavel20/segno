@@ -5,6 +5,7 @@
 // for the real window. The ADR 0015 budget (32 tracks zooming under 8 ms) is checked with the
 // OpenGL renderer by `Segno --benchmark` (docs/design/daw-shell.md, "Performance").
 
+#include "engine/EngineBehaviour.h"
 #include "engine/DevicePlugin.h"
 #include "engine/Session.h"
 #include "fd/testkit/WavIO.h"
@@ -23,7 +24,7 @@ TEST_CASE("arrangement paints 32 zooming tracks within the frame budget", "[.ben
     fd::ui::LookAndFeel lnf;
     juce::LookAndFeel::setDefaultLookAndFeel(&lnf);
     {
-        tracktion::Engine engine{"fd-benchmark"};
+        tracktion::Engine engine{"fd-benchmark", nullptr, fd::engine::makeEngineBehaviour()};
         fd::engine::Session session(engine);
         while (session.snapshot()->tracks.size() < 32)
         {

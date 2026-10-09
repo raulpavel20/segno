@@ -29,6 +29,7 @@ void addClipTools(Registry& registry, ToolEnv& env);
 void addNoteTools(Registry& registry, ToolEnv& env);
 void addModuleTools(Registry& registry, ToolEnv& env);
 void addRenderTools(Registry& registry, ToolEnv& env);
+void addMixTools(Registry& registry, ToolEnv& env);
 void addProjectTools(Registry& registry, ToolEnv& env);
 void addResources(Registry& registry, ToolEnv& env);
 void addPrompts(Registry& registry);
@@ -89,7 +90,9 @@ struct Problem
 [[nodiscard]] double beats(ToolEnv& env, double seconds);
 
 /// The track, clip or module an argument names (copies from the current snapshot), or a Problem.
+/// `track` is a track that holds clips; `channel` any channel: a track, a return or the master.
 model::TrackInfo track(ToolEnv& env, const Json& value);
+model::TrackInfo channel(ToolEnv& env, const Json& value);
 model::ClipInfo clip(ToolEnv& env, const Json& value);
 /// The module and the track that holds it.
 std::pair<model::DeviceSlot, model::TrackInfo> module(ToolEnv& env, const Json& value);
@@ -103,6 +106,12 @@ juce::File readableFile(const Json& value);
 Json projectJson(ToolEnv& env);
 Json transportJson(ToolEnv& env);
 Json trackJson(ToolEnv& env, const model::TrackInfo& track, bool notes = false);
+/// A channel's mix (C3): volume, pan, mute, solo and sends.
+Json mixJson(ToolEnv& env, const model::TrackInfo& channel);
+/// "track", "return" or "master".
+std::string kindName(const model::TrackInfo& channel);
+/// Pan as people write it: "C", "25L", "50R".
+std::string panText(float pan);
 Json clipJson(ToolEnv& env, const model::ClipInfo& clip, bool notes);
 Json moduleSummary(const model::DeviceSlot& slot);
 /// Everything about a module: parameters, sections, view, and non-parameter state.

@@ -6,6 +6,7 @@
 #include <fd_device_ui/fd_device_ui.h>
 #include <juce_audio_devices/juce_audio_devices.h>
 
+#include <array>
 #include <functional>
 #include <memory>
 
@@ -161,6 +162,39 @@ public:
     /// mute), or from none: it hears its input. One undo step; false if the module takes no
     /// sidechain or the track can't feed it.
     bool setSidechainSource(std::uint64_t deviceId, std::optional<std::uint64_t> trackId);
+
+    // ---- mixer (C3, ADR 0026, docs/design/mixer.md) -----------------------------------------
+    // A channel is a track, a return track or the master (the snapshot lists them apart). Each
+    // change is one undo step unless an EditGroup is open (a drag is one gesture), except solo.
+
+    /// Adds a return track after the others ("A Return", "B Return"..., or `name`); every track
+    /// can then send to it. Returns its id.
+    std::uint64_t addReturnTrack(const std::string& name = {});
+    /// Volume, -inf (minusInfinityDb or less) .. +6 dB, clamped. Any channel. "Volume".
+    void setVolume(std::uint64_t channelId, float db);
+    /// Pan, -1 (left) .. 1 (right): a balance, 0 dB at centre. Any channel. "Pan".
+    void setPan(std::uint64_t channelId, float pan);
+    /// Mute: tracks and returns. "Mute".
+    void setMute(std::uint64_t channelId, bool mute);
+    /// Solo in place: tracks and returns; `exclusive` clears every other solo first. Never an
+    /// undo step, and never an unsaved change on its own.
+    void setSolo(std::uint64_t channelId, bool solo, bool exclusive);
+    /// A track's send to a return: its level (-inf .. 0 dB, clamped) and whether it is taken
+    /// before the volume. False if either isn't a track or a return. "Send".
+    bool setSend(std::uint64_t trackId, std::uint64_t returnId, std::optional<float> levelDb,
+                 std::optional<bool> preFader);
+
+    /// A channel's level meter: its peaks after volume and pan, silent while it isn't heard.
+    /// Each reader has its own peaks, so one view never takes another's. Message thread.
+    class LevelReader
+    {
+    public:
+        virtual ~LevelReader() = default;
+        /// The loudest peak of each channel (left, right) since the last call, linear.
+        [[nodiscard]] virtual std::array<float, 2> takePeaks() = 0;
+    };
+    /// Null for an unknown channel.
+    [[nodiscard]] std::unique_ptr<LevelReader> levelReader(std::uint64_t channelId);
     /// A module panel's view state (collapsed sections, folded; ADR 0022), stored with the
     /// project on the module. Never an undo step or an unsaved change.
     [[nodiscard]] std::string deviceViewState(std::uint64_t deviceId) const;

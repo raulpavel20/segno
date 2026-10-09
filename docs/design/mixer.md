@@ -40,7 +40,7 @@ Every place edits the same channel, through the same commands: a change in one s
 
 **Gain law.** Volume is plain gain in dB; 0 dB passes the signal unchanged, so a neutral mix nulls against its sources.
 
-**Volume taper.** Every volume control (bar or fader) and every send maps its travel the same way. At position p (0 at the bottom or left, 1 at the top or right), the gain is (p / p₀)ⁿ with n = log 2 / log 1.25 ≈ 3.106:
+**Volume taper.** Every volume control (bar or fader) and every send maps its travel the same way. At position p (0 at the bottom or left, 1 at the top or right), the gain is (p / p₀)ⁿ, with n ≈ 3.096 chosen so that the top of a volume control is exactly +6 dB (n = 0.3 · ln 10 / ln 1.25):
 - volume: p₀ = 0.8, so 0 dB sits at 80 % of the travel, −6 dB at 64 %, −20 dB at 38 %, +6 dB at the top and −inf at the bottom;
 - sends: p₀ = 1, so 0 dB is at the top.
 
@@ -167,14 +167,19 @@ Each comes with a test that drives it through MCP (ADR 0021):
 | `set_send` | `track`, `return`, `level?` (dB), `preFader?` | The send as set |
 | `measure_mix` | `seconds?` (0.5) | Every channel's peak level over that window (dBFS, null when silent), and whether anything clipped. The meters' values, without taking them from the views |
 
-`get_project` and the track resources gain each track's `mix` (volume, pan, mute, solo, sends) and its `kind` ("track", "return", "master"); the master and the returns are listed after the tracks. `render` of the mix includes returns and the master chain, as now.
+`get_project` and the track resources give each channel its `kind` ("track", "return", "master") and its `mix` (volume, pan, mute, solo, sends); the return tracks are listed in `returns` and the master in `master`, beside `tracks`. `add_module`, `get_module` and the other module tools work on returns and the master too. `render` of the mix includes the returns and the master chain.
 
 ## 11. Engine (tracktion)
 
-- Each track's volume and pan are tracktion's volume plugin at the end of its chain (already there, hidden from the module chain); its level meter is the meter plugin after it.
-- A send is tracktion's aux send plugin, placed before the volume plugin (pre-fader) or after it (post-fader); a return track has an aux return plugin at the start of its chain, on the same bus.
-- The master is tracktion's master track: its plugin list is the master chain.
-- Pan uses the balance law above. If tracktion's pan laws can't express it exactly, the volume plugin's pan is left at centre and our own balance stage applies it, so the "laws exact" test holds.
+As built (C3a):
+- **Channels.** Each track's volume and pan are tracktion's volume plugin at the end of its chain (hidden from the module chain); its level meter is the meter plugin after it. The master gets the same pair at the end of the master's chain; tracktion's own master volume is kept at unity (it starts at −3 dB).
+- **Pan law.** tracktion's laws are equal-power or linear, so a small patch adds a balance law (`cmake/patches/tracktion_engine-balance-pan-law.patch`), which every channel uses.
+- **Return tracks** are audio tracks marked as returns, with an aux return plugin at the start of their chain on their own bus (named after the track). They are solo-isolated, so a solo never silences them. New tracks are inserted before them.
+- **Sends** are tracktion's aux send plugins, created when first set: just before the volume plugin (pre-fader) or just after it (post-fader).
+- **Mute** is written through the edit's undo manager (tracktion's own setter isn't undoable); **solo** is written without it, and the "changed" mark it causes is taken back when there was none before.
+- **Engine behaviour** (`engine::makeEngineBehaviour`, used for every engine, the tests' too): a track that isn't heard sends nothing to the returns, even when it keeps running to feed a sidechain.
+- **Snapshots** list `tracks`, `returns` and `master` apart, each channel with its `mix`; volume, pan and send changes refresh them.
+- **Meters** are read through `Session::levelReader`: a client of the channel's meter plugin of its own, so views and `measure_mix` never take each other's peaks.
 
 ## 12. Building it
 
