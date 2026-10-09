@@ -194,6 +194,14 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 ## Transport (C5)
 
 - **Transport bar:** play/stop, stop-and-return, loop and metronome toggles, then tempo and time signature as `ui::NumberField`s (drag, Shift for fine, wheel, or type; each edit is one undo step), the position in bars and time, and CPU load.
+- **Assistants** (C9, [mcp.md](mcp.md)): a spark button left of the settings button, with an activity light that is lit for 3 s after an assistant's request. It opens the Assistants popover (also the command palette's "Assistants"):
+  - **On**, remembered between launches; the status line says where it listens and how many assistants have connected.
+  - **Read only**: assistants can read, render and measure, but not edit.
+  - The setup lines to copy: Claude Code's `claude mcp add` command (HTTP, with the token), and the configuration for apps that start the DAW themselves (`FossDAW --mcp-stdio`).
+  - **Connected**: each client by name and version, and when it was last seen.
+  - **New token**: every client must be set up again.
+  - Escape or a click elsewhere closes it.
+- **Every assistant edit is one undo step** named after its tool ("Assistant: add notes"), in the same history as the user's edits.
 - **Loop brace:** lives in a 12 px strip above the bar numbers.
   - Drag on empty strip: draws a brace (snapped) and turns looping on.
   - Drag the brace: moves it; drag its edges: resizes it.

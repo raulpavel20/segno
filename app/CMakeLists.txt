@@ -104,5 +104,8 @@ if(FD_BUILD_TESTS)
     add_test(NAME app_ui_does_not_include_tracktion
         COMMAND ${CMAKE_COMMAND} -DROOT=${CMAKE_CURRENT_SOURCE_DIR}/src -P ${PROJECT_SOURCE_DIR}/cmake/CheckAppBoundaries.cmake)
     set_tests_properties(app_ui_does_not_include_tracktion PROPERTIES LABELS fast)
+    add_test(NAME mcp_only_in_the_daw
+        COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} -P ${PROJECT_SOURCE_DIR}/cmake/CheckMcpBoundary.cmake)
+    set_tests_properties(mcp_only_in_the_daw PROPERTIES LABELS fast)
 endif()
 set_target_properties(fd-daw PROPERTIES C_VISIBILITY_PRESET hidden CXX_VISIBILITY_PRESET hidden)

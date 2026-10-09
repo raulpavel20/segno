@@ -2,7 +2,7 @@
 
 The DAW's built-in MCP server ([ADR 0021](../decisions/0021-mcp-server.md)). An assistant the user connects can do what the user can do, read what the user can see, and render and measure the result.
 
-**Status:** approved by the product owner (2026-10-09), with the recommendations in §9. Tool names and arguments become a public interface once released (ADR 0021).
+**Status:** approved by the product owner (2026-10-09), with the recommendations in §9. Built in M2 step C9; what differs from this design, and what comes later, is in §10. Tool names and arguments become a public interface once released (ADR 0021).
 
 ## 1. Connecting
 
@@ -13,7 +13,7 @@ The DAW's built-in MCP server ([ADR 0021](../decisions/0021-mcp-server.md)). An 
 | **stdio** (clients that launch a process, like Claude Desktop) | `FossDAW --mcp-stdio` relays standard input and output to the running app's endpoint. It finds the app through a small file in the user data folder holding the port and the token. With no app running it starts one **headless** (see below). |
 | **Headless** | `FossDAW --headless [--mcp-stdio] [project.fdproj]` runs a Session without a window, with the same tools. It is for batch work and tests. |
 | **Token** | Generated per install, stored in the user data folder, and can be regenerated in the popover (which disconnects every client). |
-| **Indicator** | The transport icon lights while a client has made a request in the last few seconds; its tooltip names the client (`clientInfo`). |
+| **Indicator** | A light beside the transport icon is lit for 3 s after a client's request; the popover lists the clients by name (`clientInfo`) and when each was last seen. |
 | **Read-only mode** | Only tools marked read-only run (reading, rendering, measuring); the others return "The DAW is in read-only mode for assistants". |
 
 Setup lines the popover offers:
@@ -27,9 +27,9 @@ claude mcp add --transport http fossdaw http://127.0.0.1:7377/mcp --header "Auth
 
 | Item | Design |
 |---|---|
-| **Revisions** | 2026-07-28 (current: stateless, `server/discover`, no handshake) and 2025-11-25 (clients that still send `initialize`; the server answers both). |
-| **Capabilities** | Tools (with input and output schemas and annotations), resources and resource templates, `subscriptions/listen` change notifications (2025-11-25 clients: `resources/subscribe`), prompts, progress on long calls. The `tasks` extension is for renders and plugin scans that take longer than a few seconds. |
-| **Confirmations** | Multi round-trip requests (`input_required`) when a step can't be undone: discarding unsaved changes (new or open project), and overwriting another file when saving. 2025-11-25 clients get `elicitation/create`. |
+| **Revisions** | 2026-07-28 (current: stateless, `server/discover`, no handshake) and 2025-11-25 (clients that still send `initialize`; the server answers both). 2025-06-18 and 2025-03-26 clients are served like 2025-11-25 ones. |
+| **Capabilities** | Tools (with input and output schemas and annotations), resources and resource templates, `subscriptions/listen` change notifications (2025-11-25 clients: `resources/subscribe`), prompts, progress on long calls. The `tasks` extension is for renders and plugin scans that take longer than a few seconds (later, §10). |
+| **Confirmations** | Multi round-trip requests (`input_required`) when a step can't be undone: discarding unsaved changes (new or open project), and overwriting another file when saving. 2025-11-25 clients get `elicitation/create`. Clients that can't ask the user (no elicitation capability) get an error telling the assistant to ask, then call again with `"confirm": true`. |
 | **Left out** | Deprecated features (roots, sampling, logging), and MCP Apps. |
 | **Errors** | Bad requests are JSON-RPC errors. A tool that can't do what was asked returns `isError: true` with a sentence saying why and what to do instead, e.g. "Track t:12 doesn't exist; read fossdaw://project for the current tracks". |
 
@@ -129,8 +129,8 @@ For third-party plugins, `set_parameters` uses the plugin's own parameter names 
 
 | Tool | Arguments | Result |
 |---|---|---|
-| `render` | `start`, `end`, `what?` (the mix, or a track), `audio?` (false) | Measurements of the rendered audio: peak and true peak (dBFS), RMS, loudness (LUFS: integrated, short-term max; once the dynamics core lands, A1), clipped samples, a spectral balance in a handful of bands, and the stereo correlation. With `audio: true`, the audio itself too (see open questions) |
-| `measure_module` | `module` | What the module's displays show right now: meter levels, gain reduction, the spectrum (coarse) |
+| `render` | `start`, `end`, `what?` (the mix, or a track), `audio?` (false) | Measurements of the rendered audio: peak (dBFS), RMS, crest factor, clipped samples, the level in seven bands (sub to air, the channels' average), and the stereo correlation. True peak and loudness (LUFS) come with the dynamics core (A1). With `audio: true`, the audio itself too (16-bit WAV, 30 s at most; §9) |
+| `measure_module` | `module` | What the module's displays show right now: meter levels, gain reduction, the spectrum (coarse). **Later** (§10) |
 
 **Project:**
 
@@ -183,6 +183,18 @@ app/src/mcp/
   - parameter reads and writes through `DeviceHandle` (exist).
 - **Boundaries:** nothing below `app/` includes the MCP code; the plugins never open connections. A CTest boundary check enforces it (`CLAUDE.md`).
 
+As built:
+
+| Part | Where | Notes |
+|---|---|---|
+| Protocol | `app/src/mcp/protocol` (`Dispatcher`, `Schema`, `Encoding`, `Registry`) | Both eras on one endpoint; legacy sessions with their notification stream; MRTR state kept server-side for 10 minutes, used once; argument validation against each tool's schema (the subset in `Schema.h`). |
+| Conventions | `app/src/mcp/Conventions` | Typed ids, positions and lengths, note names, velocities. |
+| HTTP | `app/src/mcp/transport/HttpServer` | cpp-httplib; a fresh server per port tried, never `SO_REUSEPORT`, so a second DAW moves to the next port. JSON responses, or SSE for subscriptions, progress and legacy confirmations. |
+| stdio | `app/src/mcp/transport/StdioRelay`, `app/src/Main.cpp` | `--mcp-stdio` relays to the endpoint in the endpoint file, or runs headless when none answers. The protocol gets the real standard output; everything else printed goes to standard error. |
+| Tools | `app/src/mcp/tools/*` | Each body runs on the message thread (`MainThread`), with the latest snapshot published first; edits run inside `Session::EditGroup`. |
+| Server | `app/src/mcp/McpServer` | Settings (`assistants.json`), the token (`mcp-token`) and the endpoint file (`mcp-endpoint.json`: URL, port, token) in the user data folder, the latter two readable by the user only. Resource notifications: after any change, each subscribed resource is read again (at most ten times a second) and announced when its content differs. |
+| Popover | `app/src/ui/AssistantsPopover` | See daw-shell.md, "Transport". |
+
 ## 8. Testing
 
 - **Protocol** (fast): every request type for both revisions; bad JSON and bad arguments; errors; discovery; schema validation of every tool's declared input and output.
@@ -200,3 +212,17 @@ Decided with the product owner on 2026-10-09 (open questions B18–B21).
 | Q2 | **Audio in render results** (`audio: true`): assistants that accept audio could listen | Allowed, capped at 30 s of 48 kHz stereo (about 11 MB as WAV); longer renders give measurements only |
 | Q3 | **Default port** | 7377, then the next free one |
 | Q4 | **Should the stdio relay start the app when it isn't running?** | Yes, headless, so batch jobs work; a running app is preferred when there is one |
+
+## 10. Built, and later
+
+Built in M2 step C9 as designed above, except:
+
+| Item | Status |
+|---|---|
+| `measure_module` | Later, with the dynamics core (A1): the analysis bus has no names for its meter slots yet, and reading them would take the peaks the panel shows. |
+| True peak and LUFS in `render` | With the dynamics core (A1), which owns those meters. |
+| The tasks extension | Later. Long calls (render, plugin scans) stream progress notifications on their response instead. |
+| Module type reference | Gives each module's purpose (from its SPEC), its parameters (range, default, unit, choices) and its sections. What each parameter means is open question B22. |
+| Read-only mode | Transport tools (play, stop, position, loop, metronome) count as changes and are refused too. |
+
+Tests: `fd_mcp_tests` (protocol, conventions, HTTP and the relay, `[fast]`), `McpToolTests` (every tool against a real Session: one named undo step per edit, read-only mode, confirmations, render, resources and their notifications, HTTP end to end), the popover in `AppSmokeTests`. The stdio relay and headless mode were run by hand; the product owner's checks are in `manual-tests/M2.md`.

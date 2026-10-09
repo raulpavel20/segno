@@ -114,7 +114,7 @@ Role functions for colours that depend on content:
 | `PanelHeader` | A 24 px header: a section-style title or tabs on the left, captions on the right | Detail panel (Modules / Clip), inspector, browser |
 | `PropertyList` | Label and value rows on the row grid; values in `Body`, or `Value` for numbers | Inspector; export options (C8); preferences |
 | `ListRow` | One row of a list: optional dot, name, caption, shortcut on the right; hover and selected states | Command palette; browser (M3) |
-| `Popover` | Floating chrome: `surface2`, panel radius, the one shadow | Command palette; future menus that float |
+| `Popover` | Floating chrome: `surface2`, panel radius, the one shadow | Command palette; Assistants popover; future menus that float |
 | `Toast` | A message in the arrangement's corner that times out | Warnings and confirmations |
 | `EmptyState` | A centred hint where there is nothing to show | Chain without a track, clip view without a clip, empty project, empty inspector |
 | `BarLayout` | Places a bar's items left and right on the item and group gaps | The transport bar |

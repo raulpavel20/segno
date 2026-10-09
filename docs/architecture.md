@@ -63,7 +63,10 @@ tools/snapshot, tools/gallery, tools/analyze
 
 - **Engine:** tracktion_engine provides the edit model, playback graph, plugin hosting, automation, rendering, undo and time-stretch. We pin a specific commit ([ADR 0004](decisions/0004-tech-stack.md)).
 - **Our code** is the shell UI (transport, arrangement, browser, inspector, detail panel), the `DevicePlugin` adapter that registers every device as a native plugin type, and the interaction models (timeline, selection, snapping). These models are pure classes with unit tests.
-- **Assistants (MCP):** a built-in MCP server lets any assistant the user connects drive the DAW and every device in it ([ADR 0021](decisions/0021-mcp-server.md)). It is a third client of `engine::Session`, next to the UI and the tests. It reaches devices only through the host binding, so the devices and their plugin builds know nothing about it. It is off by default and only reachable from the local machine.
+- **Assistants (MCP):** a built-in MCP server lets any assistant the user connects drive the DAW and every device in it ([ADR 0021](decisions/0021-mcp-server.md)). It is a third client of `engine::Session`, next to the UI and the tests. It reaches devices only through the host binding, so the devices and their plugin builds know nothing about it. It is off by default and only reachable from the local machine. Layers ([mcp.md §7](design/mcp.md)):
+  - `app/src/mcp/protocol` and `transport` (library `fd_mcp`): JSON-RPC for both protocol eras, Streamable HTTP on cpp-httplib, the stdio relay; JUCE-free, tested as `[fast]`.
+  - `app/src/mcp/tools` and `McpServer` (`fd_app_mcp`): the tools over the Session, run on the message thread; tested against a real Session.
+  - CTest `mcp_only_in_the_daw` fails if anything below `app/` includes or links it; `app_ui_does_not_include_tracktion` keeps tracktion out of `app/src/mcp` and JUCE out of its protocol and transports.
 - **Third-party plugins:** VST3 on all platforms, AU on macOS, LV2 on Linux. CLAP hosting is added later through a custom plugin format, because neither JUCE nor tracktion_engine can host CLAP yet.
 
 ## The UI system
