@@ -42,6 +42,7 @@ Build options: `FD_BUILD_TESTS`, `FD_BUILD_TOOLS`, `FD_BUILD_PLUGINS`, `FD_BUILD
 ## Conventions
 
 - C++20; namespace `fd`. Format with `.clang-format`.
+- UI code uses colour roles, text styles, metrics and shared components from `fd_ui` (`docs/design/ui-foundations.md`, ADR 0023): no colour mixing, direct font calls or literal colours outside `modules/fd_ui`; the UI lint (`ui_tokens_only`) must pass. Time views use the shared time-view kit.
 - Module panels are declared as sections on the module grid (`docs/design/device-panels.md`, ADR 0022), never with hand-placed geometry; the layout lint (`fd_panel_tests`) must pass. The UI says "module"; code says "device".
 - Tests use Catch2 v3. Tag JUCE-free tests `[fast]`; they're registered with the CTest label `fast`.
 - License AGPL-3.0-or-later. New files are covered by `REUSE.toml`; third-party code keeps its own license.

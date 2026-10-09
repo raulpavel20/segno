@@ -37,7 +37,8 @@ libs/testkit    test signals, audio metrics, FFT, WAV I/O, golden comparison
 devices/X/dsp   each device's DSP, SPEC.md, tests, presets
 tools/render    fd-render: renders any device + state + signal/MIDI to WAV + metrics
 ──────────────────────────── JUCE line ────────────────────────────
-modules/fd_ui          design tokens, LookAndFeel, controls, visualisers
+modules/fd_ui          design tokens (colour roles, text styles, motion, metrics), LookAndFeel,
+                       controls, shared shell components (ADR 0023)
 modules/fd_device_ui   DevicePanel base and panel kit (sections on the module grid, ADR 0022),
                        parameter binding, shared displays (envelope, filter)
 modules/fd_host_juce   state ↔ JUCE, MIDI conversion

@@ -48,7 +48,7 @@ See [roadmap.md](../roadmap.md) and the device specs in `devices/*/SPEC.md`.
 
 ## Order of work
 
-0. **A3, the module panel kit** (product owner, 2026-10-09: before anything else, so every later module is built on it).
+0. **A3, the module panel kit** (product owner, 2026-10-09: before anything else, so every later module is built on it). Then **A4, the UI foundations**, before the mixer and automation build on the track headers and time views.
 1. **C1, the command palette.** It is small, makes every action reachable, and is used daily from then on.
 2. **C2, the piano roll.** Without it you can't write music in the DAW.
 3. **C9, the MCP server.** Early, so that each later step adds its own tools as it lands (cheaper than retrofitting), and so that development gets a live way to inspect and drive the running app.

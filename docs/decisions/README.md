@@ -31,6 +31,7 @@ Each file records one decision: the situation, what was decided, and what follow
 | 0020 | Reserved: latency that follows a lookahead setting (dynamics devices; an exception to 0016), to be written with step A2 | – |
 | [0021](0021-mcp-server.md) | A built-in MCP server: assistants can drive the whole DAW and every device in it; only in the DAW, never in the plugins; opt-in and local | Accepted |
 | [0022](0022-module-panels.md) | Module panels: one layout grid, titled sections with lines, collapse and fold, view state outside module state; "Modules" in the UI | Proposed |
+| [0023](0023-ui-foundations.md) | UI foundations: colours by role, text styles, motion and input tokens, shell metrics and shared components, one time-view kit, a track header layout model, and a UI lint | Accepted |
 
 ## Template
 

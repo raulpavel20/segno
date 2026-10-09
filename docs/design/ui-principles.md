@@ -219,7 +219,7 @@ Every built-in instrument and effect (a **module** in the UI; a *device* in code
 
 ## UI definition of done (applies to every UI feature)
 
-- [ ] Uses design tokens only. No hard-coded colours, sizes or fonts.
+- [ ] Uses design tokens only: colour roles, text styles, metrics and shared components ([ui-foundations.md](ui-foundations.md)). No hard-coded colours, sizes or fonts; the UI lint passes.
 - [ ] Works in compact, standard and wide layouts, and at 100% and 200% scale. Snapshots reviewed.
 - [ ] Has a keyboard path, and appears in the command palette if it is an action.
 - [ ] No new modal dialog (or a recorded exception from §1).

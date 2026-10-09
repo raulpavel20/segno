@@ -59,6 +59,8 @@ A clip is drawn with:
 - a body in the same hue at about 32 % brightness;
 - the waveform or notes in a lighter tint of the clip colour.
 
+Colour roles (lanes, grid, selection, states …), text styles, motion and shell metrics derived from these values are in [ui-foundations.md](ui-foundations.md).
+
 ## Geometry and type
 
 | Token | Value |
