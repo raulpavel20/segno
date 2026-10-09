@@ -91,7 +91,7 @@ A second main view: channel strips side by side, in place of the arrangement.
 **Layout:**
 
 ```
-┌ header: Modules  Sends  Narrow ─────────────────────────────────────────┬────────┐
+┌ MIXER ─────────────────────────────────────────── ● Modules  ● Sends  ○ Narrow ┐
 │ ▌Drums  │ ▌Bass   │ ▌Keys   │ ▌Vox    ┆ ▌A Return │ ▌B Return ┆      │ ▌Master │
 │ EQ      │ Comp    │ Synth   │ EQ      ┆ (module   │           ┆      │ Limiter │
 │ Comp    │ EQ      │         │ Comp    ┆  names)   │           ┆      │         │
@@ -118,7 +118,7 @@ A second main view: channel strips side by side, in place of the arrangement.
   7. the **fader** and the **meter**, with a dB scale between them, filling the remaining height;
   8. the **volume value**, a number field: type a level.
 - **Return strips** have no sends; the **master strip** has no sends, mute or solo.
-- **Header toggles:** Modules and Sends show or hide those sections in every strip; Narrow makes strips 64 px wide instead of 96. They are view state: saved with the project, never undo steps.
+- **The header** is a panel header titled MIXER with three view options on the right (`ui::ViewOption`: an indicator and a label, not buttons): Modules and Sends show or hide those sections in every strip; Narrow makes strips 64 px wide instead of 96. They are view state: saved with the project, never undo steps.
 - **Selection and keys** are shared with the arrangement ([selection.md](selection.md)): the selected track's strip is highlighted, and selecting a strip clears any selected clips; Left and Right move the selection, and the detail panel follows; Alt+M, Alt+S and every track action work here too. Clip edits, zoom and Tab are off.
 - **Geometry** comes from a pure layout model (`model::ChannelStripLayout`, unit-tested like the track header layout): given a strip's size and which sections show, it places every part on the 4 px grid. Strips are drawn with the shared components (`ui::Fader`, `ui::Meter`, bars, toggles), so the UI lint applies.
 - **Performance:** the view keeps 60 fps with 64 tracks: repainting every strip takes about 15 ms even in a Debug build (`[.benchmark]`), and in use only moving meters repaint.

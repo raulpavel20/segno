@@ -274,6 +274,18 @@ TEST_CASE("the mixer view: strips side by side, shared selection, a fader drag i
     CHECK(f.session->snapshot()->tracks[0].mix.volumeDb == Catch::Approx(0.0f).margin(0.01f)); // the whole drag
     CHECK(f.session->undoDescription() == before);
 
+    // The header's view options change every strip.
+    fd::ui::ViewOption* narrowOption = nullptr;
+    for (auto* option : findAll<fd::ui::ViewOption>(mixer))
+        if (option->getButtonText() == "Narrow")
+            narrowOption = option;
+    REQUIRE(narrowOption != nullptr);
+    CHECK_FALSE(narrowOption->getToggleState());
+    narrowOption->triggerClick();
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    CHECK(mixer.options().narrow);
+    CHECK(findAll<fd::app::ChannelStrip>(mixer)[0]->getWidth() == 64);
+
     // The options are view state, saved with the project; switching back keeps the arrangement's view.
     mixer.setOptions(true, true, true);
     const auto state = nlohmann::json::parse(f.session->viewStateProvider());

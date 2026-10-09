@@ -112,7 +112,8 @@ Role functions for colours that depend on content:
 
 | Component | What it is | Used by |
 |---|---|---|
-| `PanelHeader` | A 24 px header: a section-style title or tabs on the left, captions on the right | Detail panel (Modules / Clip tabs; a plain Modules title in the mixer view), inspector, browser |
+| `PanelHeader` | A 24 px header: a section-style title or tabs on the left, then context; on the right, its view options (`ViewOption`) and a caption | Detail panel (Modules / Clip tabs; a plain Modules title in the mixer view), inspector, browser, the mixer view (Modules, Sends, Narrow) |
+| `ViewOption` | A view option in a panel header: a 6 px indicator and a `Control` label, no button fill. Off: a 1 px ring and `textTertiary`; on: a filled `active` disc and `textPrimary` (the shape tells on from off, not only the colour); hover: the `hoverWash` behind it | The mixer view's Modules, Sends and Narrow; later the piano roll's and the browser's view options |
 | `PropertyList` | Label and value rows on the row grid; values in `Body`, or `Value` for numbers | Inspector; export options (C8); preferences |
 | `ListRow` | One row of a list: optional dot, name, caption, shortcut on the right; hover and selected states | Command palette; browser (M3) |
 | `Popover` | Floating chrome: `surface2`, panel radius, the one shadow | Command palette; Assistants popover; future menus that float |
@@ -121,6 +122,8 @@ Role functions for colours that depend on content:
 | `SectionStack` | Titled sections one under another: a `Section`-style caps title on the row grid, the content under it, and a 1 px `line` centred in the group gap between neighbours (a module panel's sections, stacked) | The inspector ([selection.md](selection.md) §5); later the browser and preferences |
 | `BarLayout` | Places a bar's items left and right on the item and group gaps | The transport bar |
 | `Brand` | The mark (`paintMark`), the mark and name (`paintBrand`), the app icon (`appIcon`) | The transport bar's left end; the app and window icon |
+
+**Toggle or view option.** A `Toggle` switches something on or off in the project or a device: mute, solo, Pre, power, a setting. It is a control, with a fill. A `ViewOption` only changes how a view looks (view state, never an undo step) and lives in that view's panel header, where it stays quiet until hovered.
 
 ## Time views (`app/src/ui/time`)
 

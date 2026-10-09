@@ -25,6 +25,7 @@ END_JUCE_MODULE_DECLARATION
 #include "theme/LookAndFeel.h"
 #include "controls/Knob.h"
 #include "controls/Toggle.h"
+#include "controls/ViewOption.h"
 #include "controls/Meter.h"
 #include "controls/Icons.h"
 #include "controls/NumberField.h"

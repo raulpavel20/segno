@@ -49,6 +49,28 @@ void PanelHeader::setCaption(juce::String text)
     }
 }
 
+void PanelHeader::addOption(ViewOption& option)
+{
+    options_.push_back(&option);
+    addAndMakeVisible(option);
+    resized();
+}
+
+void PanelHeader::resized()
+{
+    // Right to left, `itemGap` apart. The last one's label ends at the padding, where a caption
+    // would (the option's own padding is half the shell's).
+    const auto& s = Theme::current().shell;
+    int right = getWidth() - s.padding / 2;
+    for (auto it = options_.rbegin(); it != options_.rend(); ++it)
+    {
+        const int w = (*it)->preferredWidth();
+        (*it)->setBounds(right - w, 0, w, getHeight());
+        right -= w + s.itemGap;
+    }
+    optionsLeft_ = options_.empty() ? getWidth() : right;
+}
+
 std::vector<juce::Rectangle<int>> PanelHeader::tabAreas() const
 {
     const auto& t = Theme::current();
@@ -67,6 +89,8 @@ void PanelHeader::paint(juce::Graphics& g)
 {
     const auto& t = Theme::current();
     auto r = getLocalBounds().reduced(t.shell.padding, 0);
+    if (!options_.empty())
+        r.setRight(optionsLeft_ - t.shell.groupGap);
     if (caption_.isNotEmpty())
     {
         g.setColour(t.textTertiary);

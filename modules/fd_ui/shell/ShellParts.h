@@ -6,7 +6,8 @@ namespace fd::ui
 // Views assemble these instead of drawing their own headers, rows, popovers and hints.
 
 /// A panel's header row: a section-style title, or clickable tabs, on the left; context text
-/// after them (e.g. the track's name); a caption on the right (a hint).
+/// after them (e.g. the track's name); on the right, the panel's view options and a caption (a
+/// hint).
 class PanelHeader final : public juce::Component
 {
 public:
@@ -20,8 +21,12 @@ public:
     std::function<void(int index)> onTabSelected;
     void setContext(juce::String text);
     void setCaption(juce::String text);
+    /// A view option on the right, after any added before it (not owned; it must outlive the
+    /// header or be removed first).
+    void addOption(ViewOption& option);
 
     void paint(juce::Graphics& g) override;
+    void resized() override;
     void mouseMove(const juce::MouseEvent& e) override;
     void mouseExit(const juce::MouseEvent& e) override;
     void mouseUp(const juce::MouseEvent& e) override;
@@ -32,6 +37,8 @@ private:
     juce::String title_, context_, caption_;
     juce::StringArray tabs_;
     int selected_ = 0, hovered_ = -1;
+    std::vector<ViewOption*> options_;
+    int optionsLeft_ = 0; // the caption ends before the options
 };
 
 /// One label and value row (`number`: the value is a readout, set in the mono).

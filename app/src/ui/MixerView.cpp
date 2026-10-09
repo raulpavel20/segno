@@ -205,15 +205,16 @@ void MixerView::Content::paint(juce::Graphics& g)
 
 MixerView::MixerView(engine::Session& session) : session_(session)
 {
-    for (auto* toggle : {&modules_, &sends_, &narrow_})
+    header_.setTitle("Mixer");
+    addAndMakeVisible(header_);
+    for (auto* option : {&modules_, &sends_, &narrow_})
     {
-        toggle->setWantsKeyboardFocus(false);
-        toggle->onClick = [this] {
+        option->onClick = [this] {
             setOptions(modules_.getToggleState(), sends_.getToggleState(), narrow_.getToggleState());
             if (onViewChanged)
                 onViewChanged();
         };
-        addAndMakeVisible(*toggle);
+        header_.addOption(*option);
     }
     modules_.setTooltip("Show the modules' names");
     sends_.setTooltip("Show the sends");
@@ -356,14 +357,7 @@ void MixerView::resized()
 {
     const auto& t = ui::Theme::current();
     auto r = getLocalBounds();
-    auto header = r.removeFromTop(t.shell.panelHeaderHeight + 4).reduced(t.shell.padding, 2);
-    for (auto* toggle : {&modules_, &sends_, &narrow_})
-    {
-        const int w = static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(ui::font(ui::TextStyle::Control),
-                                                                                         toggle->getButtonText()))) + 16;
-        toggle->setBounds(header.removeFromLeft(w));
-        header.removeFromLeft(t.shell.itemGap);
-    }
+    header_.setBounds(r.removeFromTop(t.shell.panelHeaderHeight));
     const int width = static_cast<int>(model::channelStripWidth(options_));
     if (master_ != nullptr)
         master_->setBounds(r.removeFromRight(width).withTrimmedBottom(viewport_.getScrollBarThickness()));
@@ -377,7 +371,7 @@ void MixerView::paint(juce::Graphics& g)
     const auto& t = ui::Theme::current();
     g.fillAll(t.surface0);
     g.setColour(t.surface1);
-    g.fillRect(getLocalBounds().removeFromTop(t.shell.panelHeaderHeight + 4));
+    g.fillRect(getLocalBounds().removeFromTop(t.shell.panelHeaderHeight));
     if (master_ != nullptr) // the divider before the pinned master
     {
         g.setColour(t.line);

@@ -55,8 +55,8 @@ private:
 
 /// The mixer view (C3c, ADR 0026): every channel as a strip, side by side, in place of the
 /// arrangement. Tracks, then the return tracks after a divider, scroll horizontally; the master
-/// is pinned at the right. The header's toggles show or hide module names and sends and make
-/// strips narrow; they are view state (saved with the project, never undo steps).
+/// is pinned at the right. The header's view options show or hide module names and sends and
+/// make strips narrow; they are view state (saved with the project, never undo steps).
 class MixerView final : public juce::Component
 {
 public:
@@ -96,7 +96,8 @@ private:
     std::shared_ptr<const model::Snapshot> snapshot_;
     std::optional<std::uint64_t> selected_;
     model::ChannelStripOptions options_;
-    ui::Toggle modules_{"Modules"}, sends_{"Sends"}, narrow_{"Narrow"};
+    ui::PanelHeader header_;
+    ui::ViewOption modules_{"Modules"}, sends_{"Sends"}, narrow_{"Narrow"};
     juce::Viewport viewport_;
     Content content_;
     std::map<std::uint64_t, std::unique_ptr<ChannelStrip>> strips_;

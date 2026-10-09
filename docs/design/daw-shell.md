@@ -196,7 +196,7 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 - The centre shows the arrangement or the mixer view: the transport bar's "Arrange | Mix" switch or Ctrl+Alt+X. The browser and the detail panel stay; each view keeps its own scroll.
 - **Context panels** ([selection.md](selection.md), ADR 0027): the detail panel shows only the selected channel's modules (a plain "Modules" title, no clip view, no Tab); the inspector isn't shown, since the strips carry every channel control. Clip edits, zoom and Tab are off. Back in the arrangement, both panels return to what they showed.
 - Strips (`ChannelStrip`) for the tracks, then the return tracks after a divider, scroll horizontally; the master is pinned at the right. A click selects the channel (shared with the arrangement, and clearing any selected clips); a module name selects the channel and that module in the detail panel, opening it if closed; Left and Right move the selection; clicking the peak readout resets it.
-- The header's Modules, Sends and Narrow toggles, the current view and the mixer's scroll are view state, saved with the project.
+- The header's Modules, Sends and Narrow view options (`ui::ViewOption`), the current view and the mixer's scroll are view state, saved with the project.
 - Strips, header controls and the inspector hold the engine's meters: they are dropped before a project is replaced, and the inspector drops its own while the mixer view is shown.
 
 ## Mixer in the arrangement (C3b, [mixer.md](mixer.md))
