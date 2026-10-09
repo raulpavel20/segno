@@ -60,43 +60,47 @@ level ─> dB ─> gain computer (threshold, ratio, knee) ─> attack/release (d
 
 - **Gain computer:** the standard soft-knee curve (quadratic across the knee), from a pure function the display also draws (`dsp::compressorCurve`). Ratio ∞ is a limiter curve.
 - **Smoothing:** a one-pole filter on the gain reduction in dB, with branching attack and release.
-  - Auto release blends a fast and a slow release according to how long the reduction has lasted (program-dependent).
+  - Auto release blends a fast and a slow release according to how long the reduction has lasted (program-dependent): from half the Release setting after short peaks to five times it once reduction has lasted about 500 ms.
   - Times are 10–90 % for attack and to −60 dB of the reduction for release, like the other envelopes in the suite.
+  - Attack and Release glide to a new setting over 20 ms, so a jump to a fast attack never snaps the gain. Switching Auto Release hands the current gain from one smoother to the other.
 - **Detector:**
   - Peak: rectified signal through the attack/release;
-  - RMS: a 10 ms mean square before the gain computer.
+  - RMS: a 10 ms mean square before the gain computer. It runs in either mode, so switching crossfades the two levels over 10 ms.
   - Stereo link: linked uses the louder channel's level; unlinked works per channel; in between blends the two.
-- **Glue character:** feedback detection (the detector reads the output), auto release on by default, and a gentle output soft-clip. That's the bus-compressor behaviour: slower, smoother, "glued".
-- **Auto makeup** compensates the static gain at −18 dBFS input: `−curve(−18) − 18`.
-- **Sidechain filter:** a TPT state-variable filter (shared with the synths), on the detector path only. Listen sends the filtered detector signal to the output.
-- **Lookahead and latency.** The latency follows the Lookahead setting: 0, 1 or 10 ms. That makes it an exception to [ADR 0016](../../docs/decisions/0016-constant-device-latency.md), recorded in [ADR 0020](../../docs/decisions/0020-latency-follows-lookahead.md) (proposed).
+- **Glue character:** feedback detection (the detector reads the output) and a gentle output soft-clip (tanh above −1.9 dBFS, never past full scale). That's the bus-compressor behaviour: slower, smoother, "glued". Switching character crossfades over 10 ms. The Glue presets turn Auto Release on; the character itself doesn't, because a device never sets its own parameters.
+- **Auto makeup** compensates the static gain at −18 dBFS input: `−18 − curve(−18)`. Turning it on or off glides between it and the Makeup setting over 20 ms.
+- **Sidechain filter:** a biquad (the EQ's cookbook designs), on the detector path only. A change of type crossfades from the outgoing filter over 10 ms; frequency, Q and gain glide over 20 ms. Listen sends the filtered detector signal to the output, crossfading over 10 ms.
+- **Lookahead and latency.** The latency follows the Lookahead setting: 0, 1 or 10 ms. That makes it an exception to [ADR 0016](../../docs/decisions/0016-constant-device-latency.md), recorded in [ADR 0020](../../docs/decisions/0020-latency-follows-lookahead.md) (accepted).
   - The setting is not automatable.
   - Hosts see a change as a configuration change: the plugin reports new latency, and the DAW rebuilds the graph.
   - Off means zero latency, which keeps live monitoring through a compressor tight.
+  - The delay lines are sized for 10 ms in `prepare()`; a new setting takes effect at the next block, with no allocation.
 - **Dry path:** delayed by the same lookahead, so Mix never comb-filters.
 - **Analysis:**
-  - slot 0 = input level;
-  - slot 1 = output level;
-  - slot 2 = gain reduction (dB, peak-held);
-  - FIFO 0 = gain reduction history for the display.
+  - slots 0–1 = input peak, left and right (linear);
+  - slots 2–3 = output peak, left and right (linear);
+  - slot 4 = gain reduction (dB as a positive number, peak-held);
+  - slot 5 = the level the gain computer sees (linear): the curve's moving dot;
+  - FIFO 0 = history frames of (input dB, output dB, gain reduction dB), one every 10 ms; a frame is written whole or not at all.
 
 ## UI layout
 
-On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sections left to right, each `id` TITLE [columns], with controls at (column, row) and spans; knobs are 1 × 3 cells. Draft, refined when the device is built (B1).
+On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sections left to right, each `id` TITLE [columns], with controls at (column, row) and spans; knobs are 1 × 3 cells. As built (B1).
 
 | Section | Controls |
 |---|---|
-| `curve` CURVE [3] | Transfer curve (0, 0, 3 × 6), with the current input level as a moving dot |
+| `curve` CURVE [3] | Transfer curve (0, 0, 3 × 6), with the detector's level as a moving dot |
 | `history` HISTORY [4] | Scrolling history (0, 0, 4 × 6) |
-| `comp` COMPRESSION [3] | Threshold (0, 0), Ratio (1, 0), Knee (2, 0) · Makeup (0, 3) · Auto makeup toggle (1, 3, 2 wide) · Character [Clean \| Glue] (1, 4, 2 wide) |
-| `time` TIME [2] | Attack (0, 0), Release (1, 0) · Auto release toggle (0, 3, 2 wide) · Lookahead (0, 4, 2 wide) |
-| `detector` DETECTOR [2] | [Peak \| RMS] (0, 0) · Link bar (0, 1, 2 wide) |
-| `sidechain` SIDECHAIN [3] | Filter (0, 0, 2 wide) · Listen (2, 0) · Freq (0, 3), Q (1, 3), Gain (2, 3) |
+| `comp` COMPRESSION [3] | Threshold (0, 0), Ratio (1, 0), Knee (2, 0) · Makeup (0, 3) · Auto Makeup toggle (1, 3, 2 wide) · Character [Clean \| Glue] (1, 4, 2 wide) |
+| `time` TIME [2] | Attack (0, 0), Release (1, 0) · Auto Release toggle (0, 3, 2 wide) · "Lookahead" sub-label (0, 4, 2 wide) and combo (0, 5, 2 wide) |
+| `detector` DETECTOR [2] | [Peak \| RMS] (0, 0, 2 wide) · Link bar (0, 1, 2 wide) |
+| `sidechain` SIDECHAIN [3] | "Filter" sub-label (0, 0) and combo (1, 0, 2 wide) · Listen (1, 1, 2 wide) · Freq (0, 3), Q (1, 3), Gain (2, 3) |
 | `output` OUTPUT [1] | Output (0, 0) · Mix (0, 3) |
-| meter strip | In and out; gain reduction is in the history |
+| meter strip | In and out, stereo; gain reduction is in the history |
 
-- **Transfer curve:** drawn from the same function the audio path uses. Drag the threshold point; drag above it to change the ratio.
-- **History:** about 4 s of input level (dim), output level and gain reduction (from the top, in the value colour).
+- **Transfer curve:** −60 … 0 dB on both axes, drawn from the same function the audio path uses, with a flat fill below it. Drag the threshold point, or anywhere left of it, to move the threshold (along the diagonal: right or up raises it). Drag right of it, down or up, to raise or lower the ratio. Shift drags finely; double-click resets the one under the mouse. The value being changed reads out in the corner.
+- **History:** 4 s, newest at the right, on the same −60 … 0 dB scale: input level (dim fill from the bottom), output level (a line), gain reduction (from the top, in the value colour), the threshold as a dashed line, and the current reduction in the corner. Nothing is drawn in silence.
+- **Dimming:** Makeup while Auto Makeup is on; the sidechain Freq and Q while the filter is off; its Gain unless the filter is a bell.
 - The sidechain source picker is in the header (step A2).
 
 ## Factory presets
@@ -126,7 +130,7 @@ Deferred until a Live machine is available.
 
 ## Sign-off
 
-- [ ] Automated: unit, conformance and golden tests; validators
+- [x] Automated: unit, conformance and golden tests; validators (2026-10-09)
 - [ ] Snapshots reviewed (100% / 200%)
 - [ ] Sound signed off by the product owner (date):
 - [ ] Feel signed off by the product owner (date):

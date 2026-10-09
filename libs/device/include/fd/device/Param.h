@@ -53,6 +53,11 @@ inline constexpr std::uint32_t Automatable = 1u << 0;
 inline constexpr std::uint32_t Hidden = 1u << 1;
 /// The minimum value means "silence" and is displayed as -inf (e.g. a gain in dB).
 inline constexpr std::uint32_t MinusInfinityAtMin = 1u << 2;
+/// Changing it changes the device's latency (a lookahead setting, ADR 0020). Never automatable;
+/// hosts re-read latencySamples() when it changes.
+inline constexpr std::uint32_t ChangesLatency = 1u << 3;
+/// The maximum value means "infinity" and is displayed as such (a compressor's ratio: "∞:1").
+inline constexpr std::uint32_t InfinityAtMax = 1u << 4;
 } // namespace ParamFlags
 
 /// Static description of one parameter. Each device declares a constexpr table of these.

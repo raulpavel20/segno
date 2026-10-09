@@ -40,6 +40,16 @@ public:
         return count;
     }
 
+    /// Audio thread. Writes all `n` samples or none (a frame of several values must never be
+    /// split when the FIFO is full). Returns whether it wrote them.
+    bool pushFrame(const float* data, size_t n) noexcept
+    {
+        const size_t w = write_.load(std::memory_order_relaxed);
+        if (buffer_.size() - (w - read_.load(std::memory_order_acquire)) < n)
+            return false;
+        return push(data, n) == n;
+    }
+
     /// UI thread. Returns the number of samples read.
     size_t pop(float* out, size_t n) noexcept
     {

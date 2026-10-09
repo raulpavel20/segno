@@ -85,6 +85,14 @@ public:
     /// The level of the next sample (dsp::minusInfinityDb for silence).
     float processDb(float x) noexcept;
 
+    /// The next sample's level both ways, as linear amplitudes. The mean square runs whatever
+    /// the mode, so a change of mode (or a blend of the two) starts from a settled RMS.
+    struct Levels
+    {
+        float peak = 0.0f, rms = 0.0f;
+    };
+    Levels process(float x) noexcept;
+
 private:
     Mode mode_ = Mode::Peak;
     double rmsFactor_ = 0.0, meanSquare_ = 0.0;

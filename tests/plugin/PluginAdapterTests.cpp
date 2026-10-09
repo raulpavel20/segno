@@ -1,6 +1,7 @@
 // Plugin adapter tests: the JUCE AudioProcessor wrapper around a device (plugins/src).
 // Linked against the Utility plugin's shared code; the adapter itself is device-agnostic.
 
+#include "Compressor.h"
 #include "DeviceAudioProcessor.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -123,4 +124,48 @@ TEST_CASE("plugin state keeps the editor's view state beside the device state", 
         CHECK(e->getWidth() == wide);
     }
     editorOwner.reset(); // editors go before their processors
+}
+
+TEST_CASE("plugin reports a new latency when a latency-changing setting moves", "[plugin]")
+{
+    // ADR 0020: the Compressor's Lookahead sets its latency; the host hears of each change.
+    juce::ScopedJuceInitialiser_GUI juce;
+    fd::plugin::DeviceAudioProcessor p(fd::devices::compressorFactory(), nullptr);
+    struct Listener final : juce::AudioProcessorListener
+    {
+        int latencyChanges = 0;
+        void audioProcessorParameterChanged(juce::AudioProcessor*, int, float) override {}
+        void audioProcessorChanged(juce::AudioProcessor*, const ChangeDetails& details) override
+        {
+            latencyChanges += details.latencyChanged ? 1 : 0;
+        }
+    } listener;
+    p.addListener(&listener);
+    p.prepareToPlay(48000.0, 512);
+    CHECK(p.getLatencySamples() == 0);
+
+    auto& lookahead = p.parameter(fd::devices::Compressor::Lookahead);
+    CHECK_FALSE(lookahead.isAutomatable());
+    lookahead.setValueNotifyingHost(1.0f); // "10 ms"
+    p.updateLatency();
+    CHECK(p.getLatencySamples() == 480);
+    CHECK(listener.latencyChanges == 1);
+
+    p.updateLatency(); // unchanged: no further notice
+    CHECK(listener.latencyChanges == 1);
+
+    // Text from the CLAP wrapper arrives as Latin-1 bytes; "\u221E:1" must still read as infinity.
+    auto& ratio = p.parameter(fd::devices::Compressor::Ratio);
+    CHECK(ratio.getText(1.0f, 16) == juce::String(juce::CharPointer_UTF8("\xE2\x88\x9E:1")));
+    juce::String latin1;
+    for (const char b : std::string("\xE2\x88\x9E:1"))
+        latin1 += juce::String::charToString(static_cast<juce::juce_wchar>(static_cast<unsigned char>(b)));
+    CHECK(ratio.getValueForText(latin1) == Catch::Approx(1.0f));
+    CHECK(ratio.getValueForText(ratio.getText(1.0f, 16)) == Catch::Approx(1.0f));
+
+    lookahead.setValueNotifyingHost(0.5f); // "1 ms"
+    p.updateLatency();
+    CHECK(p.getLatencySamples() == 48);
+    CHECK(listener.latencyChanges == 2);
+    p.removeListener(&listener);
 }

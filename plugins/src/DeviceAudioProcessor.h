@@ -11,7 +11,7 @@ namespace fd::plugin
 /// Plugin adapter (docs/architecture.md): wraps any fd::Device as a JUCE AudioProcessor.
 /// JUCE parameters are built from the device's ParamSpec table using the *same* normalised
 /// mapping and text conversion, so hosts, presets and the DAW all agree.
-class DeviceAudioProcessor final : public juce::AudioProcessor
+class DeviceAudioProcessor final : public juce::AudioProcessor, private juce::Timer
 {
 public:
     DeviceAudioProcessor(const DeviceFactory& factory, const ui::PanelFactory* panel);
@@ -55,14 +55,20 @@ public:
     [[nodiscard]] const ui::PanelFactory* panelFactory() const noexcept { return panel_; }
     [[nodiscard]] juce::RangedAudioParameter& parameter(size_t index) const noexcept { return *params_[index]; }
 
+    /// Re-reads the device's latency after a latency-changing setting moved (ADR 0020) and
+    /// tells the host. Message thread; also polled by a timer.
+    void updateLatency();
+
 private:
     static BusesProperties busesFor(const DeviceInfo& info);
     void pullParameters() noexcept;
+    void timerCallback() override { updateLatency(); }
 
     std::unique_ptr<Device> device_;
     const ui::PanelFactory* panel_;
     juce::String name_;
     std::vector<juce::RangedAudioParameter*> params_; // owned by AudioProcessor
+    std::vector<size_t> latencyParams_;               // ParamFlags::ChangesLatency (ADR 0020)
     EventList events_;
     std::vector<float*> channelPtrs_;
     mutable juce::CriticalSection viewLock_; // state calls can come from any thread

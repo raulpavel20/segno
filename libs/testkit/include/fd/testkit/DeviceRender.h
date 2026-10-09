@@ -31,6 +31,8 @@ struct RenderOptions
     std::vector<TimedEvent> events{};
     /// Skip prepare() (the caller already prepared/reset the device).
     bool skipPrepare = false;
+    /// A sidechain signal (a key), for devices with a sidechain bus; none when null.
+    const AudioBuffer* sidechain = nullptr;
 };
 
 /// Offline render through Device::process (via fd::processRealtime). Prepares the device first

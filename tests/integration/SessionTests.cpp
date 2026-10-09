@@ -212,6 +212,43 @@ TEST_CASE("session device chains: add, move, bypass, remove; undo; panel handles
     CHECK(chain() == std::vector<std::string>{"utility", "eq", "saturator"});
 }
 
+TEST_CASE("a latency-changing setting reaches the device at once (ADR 0020)", "[integration]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    tracktion::Engine engine{"fd-integration-tests"};
+    fd::engine::registerDevices(engine);
+    fd::engine::Session session(engine);
+    const auto track = session.snapshot()->tracks[0].id;
+    const auto comp = session.addDevice(track, "fd:compressor");
+    REQUIRE(comp != 0);
+    auto handle = session.openDevice(comp);
+    REQUIRE(handle != nullptr);
+    const auto lookahead = static_cast<size_t>(std::distance(
+        handle->context().info.params.begin(),
+        std::find_if(handle->context().info.params.begin(), handle->context().info.params.end(),
+                     [](const auto& p) { return p.id == "lookahead"; })));
+    REQUIRE(lookahead < handle->context().info.params.size());
+    const auto* device = handle->context().device;
+    REQUIRE(device != nullptr);
+    CHECK(device->latencySamples() == 0);
+
+    // Without audio running: the device must learn the setting from the edit itself, so the
+    // playback graph is rebuilt around the new latency.
+    auto& params = handle->context().params;
+    {
+        // Its own undo step (in the app, tracktion's transaction timer separates them).
+        fd::engine::Session::EditGroup step(session, "Lookahead");
+        params.beginGesture(lookahead);
+        params.setPlain(lookahead, 2.0f); // 10 ms
+        params.endGesture(lookahead);
+    }
+    CHECK(device->latencySamples() > 0);
+    session.undo();
+    session.updateSnapshotNow();
+    REQUIRE(session.snapshot()->tracks[0].devices.size() == 1);
+    CHECK(device->latencySamples() == 0);
+}
+
 #if defined(FD_UTILITY_VST3_PATH)
 TEST_CASE("a scanned third-party plugin can be added to a chain", "[integration]")
 {

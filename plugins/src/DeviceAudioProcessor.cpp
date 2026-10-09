@@ -8,13 +8,31 @@ namespace
 {
 constexpr int kEditorMargin = 8;
 
+/// Typed text as UTF-8. The CLAP wrapper hands text over as a C string that JUCE reads as
+/// Latin-1, so UTF-8 ("\u221E:1") arrives one character per byte; when those bytes form valid
+/// UTF-8, that is what was meant.
+std::string utf8Of(const juce::String& s)
+{
+    std::string bytes;
+    for (auto p = s.getCharPointer(); !p.isEmpty();)
+    {
+        const auto c = p.getAndAdvance();
+        if (c > 0xFF)
+            return s.toStdString();
+        bytes.push_back(static_cast<char>(c));
+    }
+    if (juce::CharPointer_UTF8::isValidString(bytes.data(), static_cast<int>(bytes.size())))
+        return bytes;
+    return s.toStdString();
+}
+
 std::unique_ptr<juce::RangedAudioParameter> makeParameter(const ParamSpec& spec)
 {
     const juce::ParameterID id{juce::String(std::string(spec.id)), spec.sinceVersion};
     const juce::String name(std::string(spec.name));
     auto toText = [&spec](float v, int) { return juce::String(spec.toText(v)); };
     auto fromText = [&spec](const juce::String& s) {
-        const auto v = spec.fromText(s.toStdString());
+        const auto v = spec.fromText(utf8Of(s));
         return v ? *v : spec.def;
     };
     const bool automatable = spec.hasFlag(ParamFlags::Automatable);
@@ -75,10 +93,23 @@ DeviceAudioProcessor::DeviceAudioProcessor(const DeviceFactory& factory, const u
 {
     for (const auto& spec : device_->info().params)
     {
+        if (spec.hasFlag(ParamFlags::ChangesLatency))
+            latencyParams_.push_back(params_.size());
         auto p = makeParameter(spec);
         params_.push_back(p.get());
         addParameter(p.release());
     }
+    if (!latencyParams_.empty())
+        startTimer(100); // a latency-changing setting is a configuration change (ADR 0020)
+}
+
+void DeviceAudioProcessor::updateLatency()
+{
+    auto& store = device_->params();
+    for (auto i : latencyParams_)
+        store.setNormalized(i, params_[i]->getValue()); // the same value the audio thread pulls
+    if (const int latency = device_->latencySamples(); latency != getLatencySamples())
+        setLatencySamples(latency);
 }
 
 bool DeviceAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const

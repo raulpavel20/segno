@@ -112,13 +112,17 @@ void LevelDetector::prepare(double sampleRate, double rmsWindowMs) noexcept
     reset();
 }
 
-float LevelDetector::processDb(float x) noexcept
+LevelDetector::Levels LevelDetector::process(float x) noexcept
 {
-    if (mode_ == Mode::Peak)
-        return gainToDb(std::abs(x));
     const double square = static_cast<double>(x) * x;
     meanSquare_ = square + rmsFactor_ * (meanSquare_ - square);
-    return meanSquare_ > 1e-10 ? static_cast<float>(10.0 * std::log10(meanSquare_)) : minusInfinityDb;
+    return {std::abs(x), meanSquare_ > 1e-10 ? static_cast<float>(std::sqrt(meanSquare_)) : 0.0f};
+}
+
+float LevelDetector::processDb(float x) noexcept
+{
+    const auto levels = process(x);
+    return gainToDb(mode_ == Mode::Peak ? levels.peak : levels.rms);
 }
 
 void linkLevels(float* levelsDb, int numChannels, float amount) noexcept

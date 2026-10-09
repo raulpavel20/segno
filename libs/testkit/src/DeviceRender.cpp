@@ -126,6 +126,13 @@ AudioBuffer render(Device& device, const AudioBuffer& input, const RenderOptions
 
     std::vector<float*> inPtrs(static_cast<size_t>(in.numChannels()));
     std::vector<float*> outPtrs(static_cast<size_t>(out.numChannels()));
+    // The key, padded with silence to the render's length.
+    const int keyChannels = options.sidechain != nullptr ? std::min(buses.sidechainChannels, options.sidechain->numChannels()) : 0;
+    AudioBuffer key(std::max(keyChannels, 1), total);
+    for (int c = 0; c < keyChannels; ++c)
+        for (int i = 0; i < std::min(total, options.sidechain->numSamples()); ++i)
+            key.at(c, i) = options.sidechain->at(c, i);
+    std::vector<float*> keyPtrs(static_cast<size_t>(key.numChannels()));
 
     dsp::ScopedNoDenormals noDenormals;
     std::int64_t pos = 0;
@@ -150,9 +157,13 @@ AudioBuffer render(Device& device, const AudioBuffer& input, const RenderOptions
         for (int c = 0; c < out.numChannels(); ++c)
             outPtrs[static_cast<size_t>(c)] = out.channel(c) + pos;
 
+        for (int c = 0; c < key.numChannels(); ++c)
+            keyPtrs[static_cast<size_t>(c)] = key.channel(c) + pos;
+
         ProcessContext ctx;
         ctx.input = {inPtrs.data(), inChannels};
         ctx.output = {outPtrs.data(), outChannels};
+        ctx.sidechain = {keyPtrs.data(), keyChannels};
         ctx.events = &events;
         ctx.numSamples = n;
         ctx.transport.samplePosition = pos;

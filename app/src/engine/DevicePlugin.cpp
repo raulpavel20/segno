@@ -201,6 +201,17 @@ void DevicePlugin::valueTreePropertyChanged(juce::ValueTree& tree, const juce::I
 {
     if (tree == state && id == kExtraStateId) // edits, undo and redo
         applyExtraFromState(state.getProperty(kExtraStateId, "{}").toString());
+    if (tree == state)
+        for (size_t i = 0; i < device_->info().params.size(); ++i)
+            if (const auto& spec = device_->info().params[i];
+                spec.hasFlag(ParamFlags::ChangesLatency) && id.toString() == juce::String(std::string(spec.id)))
+            {
+                // A latency-changing setting (ADR 0020): the device learns it now, and the
+                // playback graph is rebuilt around its new latency. Read from the tree: on undo
+                // the cached value may not have caught up yet.
+                device_->params().set(i, static_cast<float>(static_cast<double>(tree.getProperty(id, spec.def))));
+                edit.restartPlayback();
+            }
     te::Plugin::valueTreePropertyChanged(tree, id);
 }
 

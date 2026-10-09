@@ -141,6 +141,8 @@ std::string ParamSpec::toText(float plain) const
     case Unit::Cents:
         return (v > 0 ? "+" : "") + formatNumber(v, decimals) + " ct";
     case Unit::Ratio:
+        if (hasFlag(ParamFlags::InfinityAtMax) && v >= max)
+            return "\xE2\x88\x9E:1"; // infinity sign (UTF-8)
         return formatNumber(v, decimals) + ":1";
     case Unit::Degrees:
         return formatNumber(v, decimals) + "\xC2\xB0"; // degree sign (UTF-8)
@@ -188,6 +190,8 @@ std::optional<float> ParamSpec::fromText(std::string_view text) const
     }
     if (unit == Unit::Decibels && (t == "-inf" || t == "-inf db" || t == "-inf dB"))
         return min;
+    if (hasFlag(ParamFlags::InfinityAtMax) && (t.starts_with("inf") || t.starts_with("\xE2\x88\x9E")))
+        return max;
     if (unit == Unit::Note && t[0] >= 'a' && t[0] <= 'g')
     {
         static constexpr int semis[] = {9, 11, 0, 2, 4, 5, 7}; // a b c d e f g

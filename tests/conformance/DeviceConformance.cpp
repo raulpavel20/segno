@@ -73,12 +73,17 @@ std::unique_ptr<Device> create(const DeviceFactory& f)
     return d;
 }
 
-/// Deterministic pseudo-random setting of every parameter.
+/// Deterministic pseudo-random setting of every parameter, except those that change the
+/// device's latency: they're configuration, not something that moves while audio plays (ADR 0020).
 void randomize(Device& d, std::uint32_t seed)
 {
     Rng rng(seed);
     for (size_t i = 0; i < d.params().size(); ++i)
-        d.params().setNormalized(i, rng.next01());
+    {
+        const double value = rng.next01();
+        if (!d.params().spec(i).hasFlag(ParamFlags::ChangesLatency))
+            d.params().setNormalized(i, static_cast<float>(value));
+    }
 }
 
 template <typename Fn>
@@ -246,7 +251,7 @@ TEST_CASE("conformance: reported latency matches measured latency", "[fast][conf
         const auto out = render(*d, in, {.sampleRate = kSampleRate});
         CHECK(estimateLatency(in, out, 2048) == d->latencySamples());
 
-        // ADR 0016: reported latency never depends on parameters.
+        // ADR 0016: reported latency never depends on parameters...
         for (std::uint32_t setting : {21u, 22u, 23u})
         {
             auto r = create(f);
@@ -254,6 +259,22 @@ TEST_CASE("conformance: reported latency matches measured latency", "[fast][conf
             r->prepare({kSampleRate, 512});
             INFO("setting " << setting);
             CHECK(r->latencySamples() == d->latencySamples());
+        }
+        // ...except settings marked as changing it (ADR 0020): measured, value by value.
+        for (size_t i = 0; i < d->params().size(); ++i)
+        {
+            const auto& spec = d->params().spec(i);
+            if (!spec.hasFlag(ParamFlags::ChangesLatency))
+                continue;
+            CHECK_FALSE(spec.hasFlag(ParamFlags::Automatable));
+            for (int step = 0; step < std::max(2, spec.numSteps()); ++step)
+            {
+                auto r = create(f);
+                r->params().set(i, spec.min + static_cast<float>(step));
+                INFO(spec.id << " = " << r->params().get(i));
+                const auto measured = render(*r, in, {.sampleRate = kSampleRate});
+                CHECK(estimateLatency(in, measured, 2048) == r->latencySamples());
+            }
         }
     });
 }

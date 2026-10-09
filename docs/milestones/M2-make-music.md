@@ -28,7 +28,7 @@ See [roadmap.md](../roadmap.md) and the device specs in `devices/*/SPEC.md`.
 
 | # | Device | Status |
 |---|---|---|
-| B1 | **Compressor**, with a Glue character ([SPEC](../../devices/compressor/SPEC.md)) | ☐ spec approved (2026-10-09) |
+| B1 | **Compressor**, with a Glue character ([SPEC](../../devices/compressor/SPEC.md)) | ◐ Built (2026-10-09), spec approved:<ul><li>DSP on the dynamics core: soft-knee curve up to ∞:1, peak/RMS detection with stereo link, auto release, Glue (feedback detection, soft clip), lookahead, sidechain filter with Listen, parallel mix;</li><li>[ADR 0020](../decisions/0020-latency-follows-lookahead.md) in both hosts: `ParamFlags::ChangesLatency`; the plugin reports the new latency, the DAW rebuilds the graph; conformance measures latency per setting;</li><li>switches crossfade (Character, Detector, sidechain filter, Auto Makeup, Listen) and times glide, so no change clicks;</li><li>panel: draggable transfer curve with the detector's dot, 4 s history of level and reduction, In/Out meters;</li><li>plugin (`Fcmp`); validators pass.</li></ul>Tests: every SPEC target, golden curve, a click test for each switch, latency in the plugin and the DAW. Factory presets wait for the preset system (M3), as for the M1 devices; the external sidechain comes with A2. Awaiting: sound and feel sign-off (manual-tests/M2.md) |
 | B2 | **Gate** ([SPEC](../../devices/gate/SPEC.md)) | ☐ spec approved (2026-10-09) |
 | B3 | **Limiter** ([SPEC](../../devices/limiter/SPEC.md)) | ☐ spec approved (2026-10-09; Mode clarified) |
 | B4 | **Spectrum** ([SPEC](../../devices/spectrum/SPEC.md)) | ☐ spec draft |

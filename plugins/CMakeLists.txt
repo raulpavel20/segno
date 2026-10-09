@@ -91,6 +91,10 @@ fd_add_device_plugin(ID eq NAME "EQ" CODE Feq1 KIND effect
     VST3_CATEGORIES Fx EQ
     CLAP_FEATURES audio-effect equalizer stereo mono)
 
+fd_add_device_plugin(ID compressor NAME "Compressor" CODE Fcmp KIND effect
+    VST3_CATEGORIES Fx Dynamics
+    CLAP_FEATURES audio-effect compressor stereo mono)
+
 fd_add_device_plugin(ID subtractive-synth NAME "Subtractive Synth" CODE Fsub KIND instrument
     VST3_CATEGORIES Instrument Synth
     CLAP_FEATURES instrument synthesizer stereo)
