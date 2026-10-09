@@ -24,9 +24,48 @@ int roundUpToGrid(float px)
     return (static_cast<int>(std::ceil(px)) + grid - 1) / grid * grid;
 }
 
+/// The sidechain picker (ADR 0025): the host's sources, kept up to date (tracks come, go and
+/// are renamed). A fixed width, since track names are any length.
+class SidechainPicker final : public juce::ComboBox, public ParamControl
+{
+public:
+    static constexpr int width = 128;
+
+    explicit SidechainPicker(SidechainRouting& routing) : routing_(routing)
+    {
+        setName("sidechain"); // its choices are track names: the layout lint doesn't fit them
+        setTooltip("Sidechain: what the module listens to instead of its own input");
+        onChange = [this] {
+            if (const int id = getSelectedId(); id > 0 && id - 1 != routing_.selected())
+                routing_.select(id - 1);
+        };
+        refresh();
+    }
+
+    void refresh() override
+    {
+        if (isPopupActive())
+            return;
+        if (auto sources = routing_.sources(); sources != sources_)
+        {
+            sources_ = std::move(sources);
+            clear(juce::dontSendNotification);
+            for (size_t i = 0; i < sources_.size(); ++i)
+                addItem(juce::String(sources_[i]), static_cast<int>(i) + 1);
+        }
+        setSelectedId(routing_.selected() + 1, juce::dontSendNotification);
+    }
+
+private:
+    SidechainRouting& routing_;
+    std::vector<std::string> sources_;
+};
+
 /// A header setting's width: a combo fits its widest choice and its chevron.
 int settingWidth(juce::Component& c)
 {
+    if (dynamic_cast<SidechainPicker*>(&c) != nullptr)
+        return SidechainPicker::width;
     if (auto* combo = dynamic_cast<juce::ComboBox*>(&c))
     {
         float widest = 0.0f;
@@ -52,6 +91,12 @@ DevicePanel::DevicePanel(DeviceUiContext& context) : context_(context)
     fold_.setWantsKeyboardFocus(false);
     fold_.onClick = [this] { setFolded(!folded_, true); };
     addChildComponent(fold_);
+    // A device with a sidechain bus offers the host's sources in the header (ADR 0025).
+    if (context_.sidechain != nullptr && context_.info.buses.sidechainChannels > 0)
+    {
+        headerControls_.push_back(&adopt(std::make_unique<SidechainPicker>(*context_.sidechain), *this));
+        headerCaptions_.push_back("Sidechain");
+    }
     startTimerHz(30);
 }
 

@@ -3,6 +3,7 @@
 #include "model/TempoMap.h"
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -54,6 +55,8 @@ struct DeviceSlot
     std::string deviceId; // our device id ("eq"), empty for third-party plugins
     bool enabled = true;
     bool instrument = false;
+    bool takesSidechain = false;                  // ADR 0025
+    std::optional<std::uint64_t> sidechainSource; // the track feeding it, if any
 };
 
 struct TrackInfo

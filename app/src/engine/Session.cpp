@@ -17,18 +17,79 @@ const juce::Identifier kColourId{"fdColour"}; // index into the clip palette
 constexpr int kPaletteSize = 16;
 
 /// tracktion's own mixer plugins on every track: part of the mixer, not the device chain.
+/// One of our devices with a sidechain bus (ADR 0025).
+bool takesSidechain(te::Plugin& p)
+{
+    auto* native = dynamic_cast<DevicePlugin*>(&p);
+    return native != nullptr && native->device().info().buses.sidechainChannels > 0 &&
+           native->device().info().buses.inputChannels > 0;
+}
+
 bool isMixerPlugin(const te::Plugin* p)
 {
     return dynamic_cast<const te::VolumeAndPanPlugin*>(p) != nullptr || dynamic_cast<const te::LevelMeterPlugin*>(p) != nullptr;
 }
 
 /// UI access to one of our devices (the panel's binding through the engine).
+/// The header's sidechain picker in the DAW (ADR 0025): "None", then the tracks that can feed
+/// the module, by name.
+class SessionSidechain final : public ui::SidechainRouting
+{
+public:
+    SessionSidechain(Session& session, std::uint64_t deviceId) : session_(session), deviceId_(deviceId) {}
+
+    std::vector<std::string> sources() const override
+    {
+        choices_ = session_.sidechainSources(deviceId_);
+        const auto current = source();
+        if (current && std::find(choices_.begin(), choices_.end(), *current) == choices_.end())
+            choices_.push_back(*current);
+        std::vector<std::string> names{"None"};
+        const auto snapshot = session_.snapshot();
+        for (auto id : choices_)
+        {
+            const auto it = std::find_if(snapshot->tracks.begin(), snapshot->tracks.end(),
+                                         [id](const auto& t) { return t.id == id; });
+            names.push_back(it != snapshot->tracks.end() ? it->name : std::string("Track"));
+        }
+        return names;
+    }
+
+    int selected() const override
+    {
+        const auto current = source();
+        const auto it = current ? std::find(choices_.begin(), choices_.end(), *current) : choices_.end();
+        return it != choices_.end() ? static_cast<int>(it - choices_.begin()) + 1 : 0;
+    }
+
+    void select(int index) override
+    {
+        session_.setSidechainSource(deviceId_, index >= 1 && index <= static_cast<int>(choices_.size())
+                                                   ? std::optional(choices_[static_cast<size_t>(index - 1)])
+                                                   : std::nullopt);
+    }
+
+private:
+    std::optional<std::uint64_t> source() const
+    {
+        for (const auto& t : session_.snapshot()->tracks)
+            for (const auto& d : t.devices)
+                if (d.id == deviceId_)
+                    return d.sidechainSource;
+        return std::nullopt;
+    }
+
+    Session& session_;
+    std::uint64_t deviceId_;
+    mutable std::vector<std::uint64_t> choices_;
+};
+
 class NativeDeviceHandle final : public DeviceHandle
 {
 public:
-    explicit NativeDeviceHandle(DevicePlugin& plugin)
-        : plugin_(&plugin), native_(plugin), binding_(plugin),
-          context_{plugin.device().info(), binding_, &plugin.device().analysis(), &plugin.device()}
+    NativeDeviceHandle(Session& session, DevicePlugin& plugin)
+        : plugin_(&plugin), native_(plugin), binding_(plugin), sidechain_(session, plugin.itemID.getRawID()),
+          context_{plugin.device().info(), binding_, &plugin.device().analysis(), &plugin.device(), &sidechain_}
     {
     }
     ui::DeviceUiContext& context() override { return context_; }
@@ -38,6 +99,7 @@ private:
     te::Plugin::Ptr plugin_; // keeps the device alive while its panel exists
     DevicePlugin& native_;
     DevicePluginBinding binding_;
+    SessionSidechain sidechain_;
     ui::DeviceUiContext context_;
 };
 
@@ -277,6 +339,9 @@ void Session::Impl::rebuildSnapshot()
             {
                 slot.kind = model::DeviceSlot::Kind::Native;
                 slot.deviceId = std::string(native->device().info().id);
+                slot.takesSidechain = takesSidechain(*p);
+                if (slot.takesSidechain && p->getSidechainSourceID().isValid())
+                    slot.sidechainSource = p->getSidechainSourceID().getRawID();
             }
             else
                 slot.kind = model::DeviceSlot::Kind::External;
@@ -814,6 +879,58 @@ void Session::moveDevice(std::uint64_t deviceId, int index)
     parent.moveChild(parent.indexOf(p->state), parent.indexOf(target->state), &impl_->edit->getUndoManager());
 }
 
+std::vector<std::uint64_t> Session::sidechainSources(std::uint64_t deviceId) const
+{
+    auto* p = impl_->plugin(deviceId);
+    auto* owner = p != nullptr ? p->getOwnerTrack() : nullptr;
+    if (owner == nullptr || !takesSidechain(*p))
+        return {};
+    // A track can't feed this module if its own sound already depends on the module's track:
+    // it, or a track it takes a sidechain from (and so on), is that track.
+    const auto tracks = te::getAudioTracks(*impl_->edit);
+    std::function<bool(te::Track&, int)> dependsOnOwner = [&](te::Track& t, int depth) {
+        if (&t == owner)
+            return true;
+        if (depth > tracks.size())
+            return false;
+        for (auto* q : t.getAllPlugins())
+            if (const auto id = q->getSidechainSourceID(); id.isValid())
+                if (auto* source = te::findTrackForID(*impl_->edit, id))
+                    if (dependsOnOwner(*source, depth + 1))
+                        return true;
+        return false;
+    };
+    std::vector<std::uint64_t> out;
+    for (auto* t : tracks)
+        if (!dependsOnOwner(*t, 0))
+            out.push_back(t->itemID.getRawID());
+    return out;
+}
+
+bool Session::setSidechainSource(std::uint64_t deviceId, std::optional<std::uint64_t> trackId)
+{
+    auto* p = impl_->plugin(deviceId);
+    if (p == nullptr || !takesSidechain(*p))
+        return false;
+    te::EditItemID source;
+    if (trackId)
+    {
+        const auto allowed = sidechainSources(deviceId);
+        if (std::find(allowed.begin(), allowed.end(), *trackId) == allowed.end())
+            return false;
+        source = impl_->track(*trackId)->itemID;
+    }
+    if (p->getSidechainSourceID() == source)
+        return true;
+    impl_->beginEdit("Set sidechain");
+    // The wires first (main channels to main, the source's to the sidechain), then the source,
+    // whose change rebuilds the playback graph.
+    if (source.isValid() && p->getNumWires() == 0)
+        p->guessSidechainRouting();
+    p->setSidechainSourceID(source);
+    return true;
+}
+
 void Session::setDeviceEnabled(std::uint64_t deviceId, bool enabled)
 {
     if (auto* p = impl_->plugin(deviceId); p != nullptr && p->isEnabled() != enabled)
@@ -845,7 +962,7 @@ void Session::setDeviceViewState(std::uint64_t deviceId, const std::string& json
 std::unique_ptr<DeviceHandle> Session::openDevice(std::uint64_t deviceId)
 {
     if (auto* native = dynamic_cast<DevicePlugin*>(impl_->plugin(deviceId)))
-        return std::make_unique<NativeDeviceHandle>(*native);
+        return std::make_unique<NativeDeviceHandle>(*this, *native);
     return nullptr;
 }
 
@@ -1093,9 +1210,21 @@ std::shared_ptr<Session::RenderJob> Session::render(const RenderRequest& request
     const auto tracks = te::getAllTracks(*job->copy);
     if (request.track)
     {
+        // One track, with the tracks feeding its sidechains (ADR 0025): they play into it, muted
+        // in the copy so they aren't heard themselves.
+        const auto id = te::EditItemID::fromRawID(*request.track);
+        const auto sources = te::findStemSourceTracks(*job->copy, {id});
         for (int i = 0; i < tracks.size(); ++i)
-            if (tracks[i]->itemID.getRawID() == *request.track)
+        {
+            if (tracks[i]->itemID == id)
                 params.tracksToDo.setBit(i);
+            else if (sources.contains(tracks[i]->itemID))
+            {
+                params.tracksToDo.setBit(i);
+                tracks[i]->setMute(true);
+            }
+        }
+        params.tracksToProcessWhileMuted = sources;
     }
     else
         params.tracksToDo = te::toBitSet(tracks);

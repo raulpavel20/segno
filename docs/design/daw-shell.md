@@ -183,8 +183,9 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
   - Bypass with the power toggle.
   - **Fold** a module to a 28 px strip with the chevron in its header; collapse a section by clicking its title ([device-panels.md](device-panels.md)). Both are stored per module in the project (`fdPanel`), never as undo steps or unsaved changes.
   - Click a header to select a device; Delete removes it when the chain was the last area clicked (otherwise Delete applies to clips).
+  - **Sidechain** ([ADR 0025](../decisions/0025-sidechain-routing.md)): a module with a sidechain input (Compressor, Gate) has a "Sidechain" picker in its header: None, or another track. The list leaves out any track whose sound already depends on this one through sidechains, so routing can't loop. The source is heard after its modules and fader, before its mute. A change is one undo step ("Set sidechain") and rebuilds the playback graph. Rendering one track (the MCP `render` tool) includes the tracks feeding its sidechains, muted.
 - **tracktion's own volume and meter plugins** belong to the mixer (M2) and are not shown. New devices go before them.
-- **Snapshots** ignore device parameter and state changes (only a device's power state shows), so turning a knob never rebuilds the arrangement.
+- **Snapshots** ignore device parameter and state changes (only a device's power state and sidechain source show), so turning a knob never rebuilds the arrangement.
 - **Scanning** (`Ctrl+Alt+P`): VST3, plus LV2 on Linux, in the default folders.
   - One file per tick on the message thread, as JUCE's own plugin list does, because some formats must load there.
   - A plugin that crashes the scan is skipped next time (JUCE's dead man's pedal).

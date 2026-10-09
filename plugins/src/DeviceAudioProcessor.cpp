@@ -84,6 +84,10 @@ juce::AudioProcessor::BusesProperties DeviceAudioProcessor::busesFor(const Devic
         props = props.withInput("Input", juce::AudioChannelSet::canonicalChannelSet(info.buses.inputChannels), true);
     if (info.buses.outputChannels > 0)
         props = props.withOutput("Output", juce::AudioChannelSet::canonicalChannelSet(info.buses.outputChannels), true);
+    // An auxiliary input, inactive until the host routes something to it (ADR 0025).
+    if (info.buses.sidechainChannels > 0)
+        props = props.withInput("Sidechain", juce::AudioChannelSet::canonicalChannelSet(info.buses.sidechainChannels),
+                                false);
     return props;
 }
 
@@ -117,8 +121,14 @@ bool DeviceAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) co
     const auto out = layouts.getMainOutputChannelSet();
     if (out != juce::AudioChannelSet::stereo() && out != juce::AudioChannelSet::mono())
         return false;
-    if (device_->info().buses.inputChannels > 0)
-        return layouts.getMainInputChannelSet() == out;
+    if (device_->info().buses.inputChannels > 0 && layouts.getMainInputChannelSet() != out)
+        return false;
+    if (layouts.inputBuses.size() > 1) // the sidechain: off, mono or stereo
+    {
+        const auto& sc = layouts.inputBuses.getReference(1);
+        if (!sc.isDisabled() && sc != juce::AudioChannelSet::mono() && sc != juce::AudioChannelSet::stereo())
+            return false;
+    }
     return true;
 }
 
@@ -128,6 +138,7 @@ void DeviceAudioProcessor::prepareToPlay(double sampleRate, int maxBlockSize)
     device_->prepare({.sampleRate = sampleRate, .maxBlockSize = maxBlockSize});
     events_.reserve(2048);
     channelPtrs_.resize(static_cast<size_t>(juce::jmax(getTotalNumInputChannels(), getTotalNumOutputChannels())));
+    sidechainPtrs_.resize(static_cast<size_t>(std::max(1, device_->info().buses.sidechainChannels)));
     setLatencySamples(device_->latencySamples());
 }
 
@@ -153,8 +164,19 @@ void DeviceAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
         channelPtrs_[static_cast<size_t>(c)] = buffer.getWritePointer(c);
 
     ProcessContext ctx;
-    ctx.input = {channelPtrs_.data(), juce::jmin(channels, getTotalNumInputChannels())};
-    ctx.output = {channelPtrs_.data(), juce::jmin(channels, getTotalNumOutputChannels())};
+    ctx.input = {channelPtrs_.data(), juce::jmin(channels, getMainBusNumInputChannels())};
+    ctx.output = {channelPtrs_.data(), juce::jmin(channels, getMainBusNumOutputChannels())};
+    // The sidechain, when the picker says External and the host provides the input (ADR 0025).
+    if (sidechainExternal_.load(std::memory_order_relaxed) && getBusCount(true) > 1)
+        if (const auto* bus = getBus(true, 1); bus != nullptr && bus->isEnabled())
+        {
+            const int first = bus->getChannelIndexInProcessBlockBuffer(0);
+            const int n = juce::jmin(bus->getNumberOfChannels(), static_cast<int>(sidechainPtrs_.size()),
+                                     buffer.getNumChannels() - first);
+            for (int c = 0; c < n; ++c)
+                sidechainPtrs_[static_cast<size_t>(c)] = buffer.getWritePointer(first + c);
+            ctx.sidechain = {sidechainPtrs_.data(), juce::jmax(0, n)};
+        }
     ctx.events = &events_;
     ctx.numSamples = buffer.getNumSamples();
     if (auto* ph = getPlayHead())
@@ -175,7 +197,7 @@ void DeviceAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
 void DeviceAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     pullParameters();
-    destData = host::stateToMemory(*device_, viewState());
+    destData = host::stateToMemory(*device_, {.view = viewState(), .sidechainExternal = sidechainExternal()});
 }
 
 std::string DeviceAudioProcessor::viewState() const
@@ -194,13 +216,21 @@ void DeviceAudioProcessor::setStateInformation(const void* data, int sizeInBytes
 {
     if (host::stateFromMemory(*device_, data, sizeInBytes) != ApplyResult::Ok)
         return;
-    setViewState(host::viewStateFromMemory(data, sizeInBytes));
+    const auto extras = host::extrasFromMemory(data, sizeInBytes);
+    setViewState(extras.view);
+    sidechainExternal_.store(extras.sidechainExternal);
     viewStateLoaded.sendChangeMessage(); // asynchronous: the editor applies it on the message thread
     const auto& store = device_->params();
     for (size_t i = 0; i < params_.size(); ++i)
         params_[i]->setValueNotifyingHost(store.getNormalized(i));
     // Tell hosts that values changed wholesale (CLAP: params.rescan, required after a state load).
     updateHostDisplay(ChangeDetails{}.withParameterInfoChanged(true));
+}
+
+void DeviceAudioProcessor::setSidechainExternal(bool external)
+{
+    if (sidechainExternal_.exchange(external) != external)
+        updateHostDisplay(ChangeDetails{}.withNonParameterStateChanged(true)); // the project changed
 }
 
 void DeviceAudioProcessor::applyExtraState(const nlohmann::json& patch)
@@ -215,6 +245,20 @@ juce::AudioProcessorEditor* DeviceAudioProcessor::createEditor()
 }
 
 // ---------------------------------------------------------------------------
+
+/// The header's sidechain picker in a plugin: Off, or the host's auxiliary input (ADR 0025).
+class DeviceEditor::Sidechain final : public ui::SidechainRouting
+{
+public:
+    explicit Sidechain(DeviceAudioProcessor& p) : processor_(p) {}
+
+    std::vector<std::string> sources() const override { return {"Off", "External"}; }
+    int selected() const override { return processor_.sidechainExternal() ? 1 : 0; }
+    void select(int index) override { processor_.setSidechainExternal(index == 1); }
+
+private:
+    DeviceAudioProcessor& processor_;
+};
 
 class DeviceEditor::Binding final : public ui::ParamBinding
 {
@@ -241,8 +285,9 @@ DeviceEditor::DeviceEditor(DeviceAudioProcessor& p) : juce::AudioProcessorEditor
 {
     setLookAndFeel(&lnf_);
     binding_ = std::make_unique<Binding>(p);
+    sidechain_ = std::make_unique<Sidechain>(p);
     context_ = std::make_unique<ui::DeviceUiContext>(
-        ui::DeviceUiContext{p.device().info(), *binding_, &p.device().analysis(), &p.device()});
+        ui::DeviceUiContext{p.device().info(), *binding_, &p.device().analysis(), &p.device(), sidechain_.get()});
     panel_ = p.panelFactory()->create(*context_);
     panel_->setViewState(p.viewState());
     panel_->onViewChanged = [this] {

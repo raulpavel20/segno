@@ -17,13 +17,22 @@ namespace
 {
 enum class View { Expanded, Collapsed, Folded };
 
+/// The DAW's sidechain sources (ADR 0025), so the header looks as it does there.
+struct SnapshotSidechain final : fd::ui::SidechainRouting
+{
+    std::vector<std::string> sources() const override { return {"None", "Kick"}; }
+    int selected() const override { return 0; }
+    void select(int) override {}
+};
+
 juce::Image renderPanel(const fd::DeviceFactory& factory, const fd::ui::PanelFactory& panelFactory, float scale, View view)
 {
     auto device = factory.create();
     if (factory.testSetup != nullptr) // e.g. a loaded sample, so its display isn't empty
         factory.testSetup(*device);
     fd::ui::LocalParamBinding binding(*device);
-    fd::ui::DeviceUiContext ctx{factory.info(), binding, nullptr, device.get()};
+    SnapshotSidechain sidechain;
+    fd::ui::DeviceUiContext ctx{factory.info(), binding, nullptr, device.get(), &sidechain};
     auto panel = panelFactory.create(ctx);
     panel->onEnabledChange = [](bool) {};
     panel->setFoldable(view == View::Folded); // as in the DAW's chain

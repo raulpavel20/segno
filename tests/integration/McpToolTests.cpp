@@ -137,7 +137,8 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
           "set_metronome", "set_tempo", "set_time_signature", "add_track", "create_midi_clip", "insert_audio_file",
           "insert_midi_file", "move_clips", "trim_clip", "duplicate_clips", "split_clips", "delete_clips", "add_notes",
           "set_notes", "remove_notes", "edit_notes", "add_module", "remove_module", "move_module", "set_module_on",
-          "set_parameters", "load_sample", "set_module_view", "scan_plugins", "render", "undo", "redo",
+          "set_parameters", "load_sample", "set_module_view", "set_module_sidechain", "scan_plugins", "render", "undo",
+          "redo",
           "save_project", "new_project", "open_project"})
         CHECK(names.contains(name));
     for (const auto& p : registry.prompts)
@@ -342,6 +343,29 @@ TEST_CASE("mcp tools: modules, parameters, samples and view state", "[integratio
     CHECK(module["sections"][0]["collapsed"] == true);
     CHECK(daw.fails("set_module_view", {{"module", satId}, {"collapsed", {"nope"}}}).find(sectionId) != std::string::npos);
 
+    // Sidechains (ADR 0025): another track feeds a Compressor; never its own track, never a loop.
+    const auto t1 = daw.call("add_track", {{"name", "Kick"}})["track"].get<std::string>();
+    const auto comp = daw.call("add_module", {{"track", t0}, {"type", "compressor"}})["id"].get<std::string>();
+    module = daw.call("get_module", {{"module", comp}});
+    CHECK(module["sidechain"]["source"].is_null());
+    const auto& possible = module["sidechain"]["possibleSources"];
+    CHECK(std::find(possible.begin(), possible.end(), t1) != possible.end());
+    CHECK(std::find(possible.begin(), possible.end(), t0) == possible.end());
+    const auto routed = daw.call("set_module_sidechain", {{"module", comp}, {"source", t1}});
+    CHECK(routed["source"] == t1);
+    CHECK(daw.session->undoDescription() == "Assistant: set module sidechain");
+    CHECK(daw.call("get_module", {{"module", comp}})["sidechain"]["source"] == t1);
+    CHECK_FALSE(daw.fails("set_module_sidechain", {{"module", comp}, {"source", t0}}).empty()); // its own track
+    const auto gate = daw.call("add_module", {{"track", t1}, {"type", "gate"}})["id"].get<std::string>();
+    const auto gateSources = daw.call("get_module", {{"module", gate}})["sidechain"]["possibleSources"];
+    CHECK(std::find(gateSources.begin(), gateSources.end(), t0) == gateSources.end()); // t0 hears t1: a loop
+    CHECK(daw.fails("set_module_sidechain", {{"module", gate}, {"source", t0}}).find("loop") != std::string::npos);
+    CHECK(daw.fails("set_module_sidechain", {{"module", satId}, {"source", t1}}).find("no sidechain") != std::string::npos);
+    CHECK(daw.call("set_module_sidechain", {{"module", comp}, {"source", nullptr}})["source"].is_null());
+    CHECK(daw.call("get_module", {{"module", comp}})["sidechain"]["source"].is_null());
+    daw.call("undo");
+    CHECK(daw.call("get_module", {{"module", comp}})["sidechain"]["source"] == t1);
+
     // A sample into a Sampler, with the file's root key.
     const auto sampler = daw.call("add_module", {{"track", t0}, {"type", "sampler"}})["id"];
     juce::TemporaryFile wav(".wav");
@@ -354,7 +378,7 @@ TEST_CASE("mcp tools: modules, parameters, samples and view state", "[integratio
               .find("isn't a Sampler") != std::string::npos);
 
     daw.call("remove_module", {{"module", eq["id"]}});
-    CHECK(daw.project()["tracks"][0]["chain"].size() == 2);
+    CHECK(daw.project()["tracks"][0]["chain"].size() == 3); // the Saturator, the Compressor and the Sampler
 
     const auto reference = daw.read("segno://module-type/saturator");
     CHECK_FALSE(reference["description"].get<std::string>().empty());

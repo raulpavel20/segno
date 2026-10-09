@@ -25,7 +25,8 @@ In the UI, instruments and effects are **modules**. Code and docs say *device* (
   - fold chevron (DAW only);
   - power;
   - name;
-  - **header settings** for module-wide quality and display options, which never change the sound's character (oversampling quality, analyzer), right-aligned.
+  - **header settings** for module-wide quality and display options, which never change the sound's character (oversampling quality, analyzer), right-aligned;
+  - for a module with a sidechain input, the **Sidechain** picker, first among the header settings, 128 px wide whatever the track names ([ADR 0025](../decisions/0025-sidechain-routing.md)). Its choices come from the host: None and the tracks in the DAW, Off and External in a plugin.
 
   The header background is the drag handle for reordering in the DAW.
 - **Body (204 px):**
@@ -147,8 +148,8 @@ Columns are in brackets. Each module's SPEC lists its map. The four M2 modules a
 | EQ | CURVE [10] display · BAND *n* ⏻ [3] Freq, Gain, Q / Type, Slope, Place (captioned combos) · OUTPUT [1] Output / Scale · header: Analyzer | 788 |
 | Subtractive Synth | OSC 1 [4] · OSC 2 [4] · FILTER [4] · ENVELOPES [6] · MODULATION [6] (three slots, LFO) · VOICE [3] · meter | ≈ 1550 |
 | Sampler | SAMPLE [6] · PITCH [1] · LEVEL [1] · REGION [4] · FADES [1] · ENVELOPES [6] · FILTER ⏻ [4] · VOICE [2] · meter | ≈ 1480 |
-| Compressor (draft) | CURVE [3] · HISTORY [4] · COMPRESSION [3] · TIME [2] · DETECTOR [2] · SIDECHAIN [3] · OUTPUT [1] · meters | – |
-| Gate (draft) | HISTORY [6] · GATE [3] · TIME [3] · SIDECHAIN [3] · meters | – |
+| Compressor | CURVE [3] transfer curve · HISTORY [4] · COMPRESSION [3] Threshold, Ratio, Knee / Makeup, Auto Makeup, Character · TIME [2] Attack, Release / Auto Release, Lookahead · DETECTOR [2] Peak \| RMS, Link · SIDECHAIN [3] Filter, Listen / Freq, Q, Gain · OUTPUT [1] Output / Mix · in and out meters · header: Sidechain | 1120 |
+| Gate | HISTORY [6] with threshold and return lines · GATE [3] Threshold, Return, Range / Mode (stacked), Ratio, Flip · TIME [3] Attack, Hold, Release / Lookahead · SIDECHAIN [3] Filter, Listen / Freq, Q, Gain · in and out meters · header: Sidechain | 904 |
 | Limiter (draft) | HISTORY [6] · LIMIT [3] · MODE [3] · LOUDNESS [3] · meters | – |
 | Spectrum (draft) | SPECTRUM [12] display · SETTINGS [3] | – |
 

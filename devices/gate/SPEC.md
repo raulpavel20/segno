@@ -75,7 +75,7 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 - **History:** 4 s, newest at the right, −80 … 0 dB: the detector's level (dim fill from the bottom), the output level (a line), shading where the gate was open. The threshold is a solid line and, in Gate mode, the return a dashed one below it. Drag a line up or down (Shift: finely); double-click resets it. The value being changed reads out in the corner.
 - The Mode segments are stacked because "Expander" needs two cells.
 - **Dimming:** Ratio in Gate mode; Return in Expander mode; the sidechain Freq and Q while the filter is off; its Gain unless the filter is a bell.
-- The sidechain source picker is in the header (step A2).
+- **Sidechain source:** the header's Sidechain picker ([ADR 0025](../../docs/decisions/0025-sidechain-routing.md)): None or another track in the DAW; Off or External (the host's auxiliary input) in a plugin.
 
 ## Factory presets
 

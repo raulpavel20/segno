@@ -57,32 +57,37 @@ void appendMidi(const juce::MidiBuffer& midi, EventList& out) noexcept
             out.push(*e);
 }
 
-juce::MemoryBlock stateToMemory(const Device& device, const std::string& viewState)
+juce::MemoryBlock stateToMemory(const Device& device, const PluginExtras& extras)
 {
     std::string json = serializeState(device);
-    if (!viewState.empty())
+    const auto view = extras.view.empty() ? nlohmann::json() : nlohmann::json::parse(extras.view, nullptr, false);
+    const bool hasView = view.is_object();
+    if (hasView || extras.sidechainExternal)
     {
         auto state = nlohmann::json::parse(json);
-        auto view = nlohmann::json::parse(viewState, nullptr, false);
-        if (!view.is_discarded())
-        {
-            state["view"] = std::move(view);
-            json = state.dump(2); // the same formatting as serializeState
-        }
+        if (hasView)
+            state["view"] = view;
+        if (extras.sidechainExternal)
+            state["sidechain"] = "external";
+        json = state.dump(2); // the same formatting as serializeState
     }
     return juce::MemoryBlock(json.data(), json.size());
 }
 
-std::string viewStateFromMemory(const void* data, int sizeInBytes)
+PluginExtras extrasFromMemory(const void* data, int sizeInBytes)
 {
+    PluginExtras extras;
     if (data == nullptr || sizeInBytes <= 0)
-        return {};
+        return extras;
     const auto* text = static_cast<const char*>(data);
     const auto json = nlohmann::json::parse(text, text + sizeInBytes, nullptr, false);
     if (!json.is_object())
-        return {};
-    const auto it = json.find("view");
-    return it != json.end() && it->is_object() ? it->dump() : std::string();
+        return extras;
+    if (const auto it = json.find("view"); it != json.end() && it->is_object())
+        extras.view = it->dump();
+    if (const auto it = json.find("sidechain"); it != json.end() && it->is_string())
+        extras.sidechainExternal = it->get<std::string>() == "external";
+    return extras;
 }
 
 ApplyResult stateFromMemory(Device& device, const void* data, int sizeInBytes)

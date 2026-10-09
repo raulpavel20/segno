@@ -101,7 +101,7 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 - **Transfer curve:** −60 … 0 dB on both axes, drawn from the same function the audio path uses, with a flat fill below it. Drag the threshold point, or anywhere left of it, to move the threshold (along the diagonal: right or up raises it). Drag right of it, down or up, to raise or lower the ratio. Shift drags finely; double-click resets the one under the mouse. The value being changed reads out in the corner.
 - **History:** 4 s, newest at the right, on the same −60 … 0 dB scale: input level (dim fill from the bottom), output level (a line), gain reduction (from the top, in the value colour), the threshold as a dashed line, and the current reduction in the corner. Nothing is drawn in silence.
 - **Dimming:** Makeup while Auto Makeup is on; the sidechain Freq and Q while the filter is off; its Gain unless the filter is a bell.
-- The sidechain source picker is in the header (step A2).
+- **Sidechain source:** the header's Sidechain picker ([ADR 0025](../../docs/decisions/0025-sidechain-routing.md)): None or another track in the DAW; Off or External (the host's auxiliary input) in a plugin.
 
 ## Factory presets
 

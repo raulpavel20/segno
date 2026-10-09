@@ -120,6 +120,7 @@ The project, track, clip and module resources send change notifications when the
 | `set_module_on` | `module`, `on` | – |
 | `set_parameters` | `module`, `values`: `{param id: value or text}` | Each value as set (with its text), and any that were clamped or unknown |
 | `load_sample` | `module` (a Sampler), `path` | The sample's length and root key |
+| `set_module_sidechain` | `module`, `source` (a track, or null for none) | The source; `get_module` reports `sidechain: {source, possibleSources}` for modules with a sidechain input ([ADR 0025](../decisions/0025-sidechain-routing.md)) |
 | `set_module_view` | `module`, `collapsed?` (section ids), `folded?` | – (view state: never an undo step) |
 | `scan_plugins` | – | The number found; long, so it runs as a task with progress |
 
@@ -129,7 +130,7 @@ For third-party plugins, `set_parameters` uses the plugin's own parameter names 
 
 | Tool | Arguments | Result |
 |---|---|---|
-| `render` | `start`, `end`, `what?` (the mix, or a track), `audio?` (false) | Measurements of the rendered audio: peak (dBFS) and true peak (dBTP), RMS, loudness (LUFS: integrated, the loudest 3 s and 400 ms), crest factor, clipped samples, the level in seven bands (sub to air, the channels' average), and the stereo correlation. With `audio: true`, the audio itself too (16-bit WAV, 30 s at most; §9) |
+| `render` | `start`, `end`, `what?` (the mix, or a track with whatever feeds its sidechains), `audio?` (false) | Measurements of the rendered audio: peak (dBFS) and true peak (dBTP), RMS, loudness (LUFS: integrated, the loudest 3 s and 400 ms), crest factor, clipped samples, the level in seven bands (sub to air, the channels' average), and the stereo correlation. With `audio: true`, the audio itself too (16-bit WAV, 30 s at most; §9) |
 | `measure_module` | `module` | What the module's displays show right now: meter levels, gain reduction, the spectrum (coarse). **Later** (§10) |
 
 **Project:**

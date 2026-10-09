@@ -231,6 +231,38 @@ void addModuleTools(Registry& registry, ToolEnv& env)
 
     registry.tools.push_back(make(
         env,
+        {"set_module_sidechain", "Set a module's sidechain",
+         "Sets what a module with a sidechain input (Compressor, Gate) listens to instead of its own input: another "
+         "track, heard after its modules and fader (even when muted), or none. get_module lists the tracks that "
+         "can feed it (never one that would make a loop). One undo step.",
+         object({{"module", id(IdKind::Module, "The module")},
+                 {"source", {{"type", {"string", "null"}}, {"description", "A track, or null for none"}}}},
+                {"module", "source"}),
+         result({{"source", {{"type", {"string", "null"}}, {"description", "The track it listens to, or null"}}}},
+                {"source"}),
+         changes},
+        [&env](const Json& args, CallContext&) {
+            const auto [slot, owner] = module(env, args["module"]);
+            if (!slot.takesSidechain)
+                throw Problem{"This module has no sidechain input (the Compressor and the Gate have one)."};
+            std::optional<std::uint64_t> source;
+            std::string name = "its own input";
+            if (!args["source"].is_null())
+            {
+                const auto t = track(env, args["source"]);
+                source = t.id;
+                name = t.name;
+            }
+            if (!env.session.setSidechainSource(slot.id, source))
+                throw Problem{"That track can't feed this module: it's the module's own track, or its sound already "
+                              "depends on that track through a sidechain (a loop)."};
+            return ToolResult::ok({{"module", formatId(IdKind::Module, slot.id)},
+                                   {"source", source ? Json(formatId(IdKind::Track, *source)) : Json(nullptr)}},
+                                  slot.name + " now listens to " + name + ".");
+        }));
+
+    registry.tools.push_back(make(
+        env,
         {"set_module_view", "Collapse sections or fold a module",
          "Sets how a module's panel shows: which sections are collapsed (the rest are expanded), and whether the "
          "module is folded to a strip. Section ids come from get_module. View state only: never an undo step.",

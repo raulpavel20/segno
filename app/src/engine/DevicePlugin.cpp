@@ -78,6 +78,7 @@ void DevicePlugin::initialise(const te::PluginInitialisationInfo& info)
     device_->prepare({.sampleRate = info.sampleRate, .maxBlockSize = info.blockSizeSamples});
     events_.reserve(2048);
     channelPtrs_.resize(8);
+    sidechainPtrs_.resize(2);
     // Instruments render here and are added to the track's audio (ADR 0019).
     if (isInstrument())
         instrumentOut_.setSize(2, std::max(info.blockSizeSamples, 8192));
@@ -93,7 +94,17 @@ te::Plugin::BusLayout DevicePlugin::getBusses() const
     const auto& buses = device_->info().buses;
     if (buses.inputChannels == 0)
         return BusLayout::singleInOut(te::ChannelConfiguration::none(), te::ChannelConfiguration::stereo());
-    return BusLayout::singleStereoInOut();
+    auto layout = BusLayout::singleStereoInOut();
+    if (buses.sidechainChannels > 0)
+        layout.inputs.push_back(te::ChannelConfiguration::stereo());
+    return layout;
+}
+
+void DevicePlugin::getChannelNames(juce::StringArray* ins, juce::StringArray* outs)
+{
+    te::Plugin::getChannelNames(ins, outs);
+    if (ins != nullptr && device_->info().buses.inputChannels > 0 && device_->info().buses.sidechainChannels > 0)
+        ins->addArray({"Sidechain Left", "Sidechain Right"});
 }
 
 double DevicePlugin::getLatencySeconds()
@@ -110,7 +121,12 @@ void DevicePlugin::applyToBuffer(const te::PluginRenderContext& fc)
     for (size_t i = 0; i < params_.size(); ++i)
         store.set(i, params_[i]->getCurrentValue()); // includes automation and modifiers
 
-    const int channels = juce::jmin(fc.destBuffer->getNumChannels(), static_cast<int>(channelPtrs_.size()));
+    // With a sidechain source, tracktion hands over the main channels and then the source's
+    // (ADR 0025); otherwise just the main ones.
+    const bool sidechained = getSidechainSourceID().isValid() && device_->info().buses.sidechainChannels > 0 &&
+                             fc.destBuffer->getNumChannels() >= 4;
+    const int channels =
+        juce::jmin(fc.destBuffer->getNumChannels(), sidechained ? 2 : static_cast<int>(channelPtrs_.size()));
     // An instrument adds its sound to the track's audio rather than replacing it (ADR 0019):
     // it renders into a scratch buffer that is mixed in afterwards.
     const bool adds = isInstrument() && fc.bufferNumSamples <= instrumentOut_.getNumSamples();
@@ -123,6 +139,12 @@ void DevicePlugin::applyToBuffer(const te::PluginRenderContext& fc)
 
     ProcessContext ctx;
     ctx.input = {channelPtrs_.data(), device_->info().buses.inputChannels > 0 ? channels : 0};
+    if (sidechained)
+    {
+        for (int c = 0; c < 2; ++c)
+            sidechainPtrs_[static_cast<size_t>(c)] = fc.destBuffer->getWritePointer(2 + c, fc.bufferStartSample);
+        ctx.sidechain = {sidechainPtrs_.data(), 2};
+    }
     ctx.output = {channelPtrs_.data(), std::min(channels, adds ? 2 : channels)};
     ctx.events = &events_;
     ctx.numSamples = fc.bufferNumSamples;
@@ -201,6 +223,8 @@ void DevicePlugin::valueTreePropertyChanged(juce::ValueTree& tree, const juce::I
 {
     if (tree == state && id == kExtraStateId) // edits, undo and redo
         applyExtraFromState(state.getProperty(kExtraStateId, "{}").toString());
+    if (tree == state && id == te::IDs::sidechainSourceID) // a sidechain source came or went (ADR 0025)
+        edit.restartPlayback();
     if (tree == state)
         for (size_t i = 0; i < device_->info().params.size(); ++i)
             if (const auto& spec = device_->info().params[i];

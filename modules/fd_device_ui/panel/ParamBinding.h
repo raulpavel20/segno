@@ -47,6 +47,21 @@ private:
     Device* device_ = nullptr;
 };
 
+/// Where a device's sidechain comes from (ADR 0025): host routing, never a parameter. The DAW
+/// offers its other tracks; a plugin offers Off and External (its host's auxiliary input).
+/// Message thread only.
+class SidechainRouting
+{
+public:
+    virtual ~SidechainRouting() = default;
+    /// The choices by name; the first is always "no sidechain" (the device hears its input).
+    [[nodiscard]] virtual std::vector<std::string> sources() const = 0;
+    /// The current choice, an index into sources().
+    [[nodiscard]] virtual int selected() const = 0;
+    /// Chooses a source: recorded like any edit in the host (undoable in the DAW).
+    virtual void select(int index) = 0;
+};
+
 /// Everything a device panel needs from its host.
 struct DeviceUiContext
 {
@@ -57,5 +72,8 @@ struct DeviceUiContext
     /// Read-only access for displays of non-parameter data, e.g. a loaded sample (ADR 0017).
     /// Message thread only; may be null. Never write state through it: use `params`.
     const Device* device = nullptr;
+    /// The sidechain picker's source list, for a device with a sidechain bus; null where the
+    /// host can't route one (snapshots, the gallery).
+    SidechainRouting* sidechain = nullptr;
 };
 } // namespace fd::ui

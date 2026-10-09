@@ -34,6 +34,10 @@ public:
     void applyToBuffer(const te::PluginRenderContext& context) override;
 
     BusLayout getBusses() const override;
+    /// A device with a sidechain bus lists its channels after the main ones, which is how
+    /// tracktion routes a sidechain source to it (ADR 0025).
+    void getChannelNames(juce::StringArray* ins, juce::StringArray* outs) override;
+    int getNumOutputChannelsGivenInputs(int) override { return 2; }
     bool isSynth() override { return isInstrument(); }
     bool takesMidiInput() override { return device_->info().buses.acceptsMidi; }
     bool producesAudioWhenNoAudioInput() override { return isInstrument(); }
@@ -60,7 +64,7 @@ private:
     juce::String name_, type_;
     std::vector<te::AutomatableParameter::Ptr> params_;
     std::vector<std::unique_ptr<juce::CachedValue<float>>> values_;
-    std::vector<float*> channelPtrs_;
+    std::vector<float*> channelPtrs_, sidechainPtrs_;
     EventList events_;
     juce::AudioBuffer<float> instrumentOut_; // instruments render here, then add (ADR 0019)
     te::tempo::Sequence::Position tempoPos_{te::createPosition(edit.tempoSequence)};

@@ -169,3 +169,56 @@ TEST_CASE("plugin reports a new latency when a latency-changing setting moves", 
     CHECK(listener.latencyChanges == 2);
     p.removeListener(&listener);
 }
+
+TEST_CASE("plugin sidechain: Off or an inactive input changes nothing, External listens (ADR 0025)", "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI juce;
+    using C = fd::devices::Compressor;
+    // The compressor's output level (dB RMS) on a steady tone, with a silent sidechain key.
+    auto run = [](bool inputActive, bool external) {
+        fd::plugin::DeviceAudioProcessor p(fd::devices::compressorFactory(), nullptr);
+        auto layout = p.getBusesLayout();
+        REQUIRE(layout.inputBuses.size() == 2);
+        layout.inputBuses.getReference(1) =
+            inputActive ? juce::AudioChannelSet::stereo() : juce::AudioChannelSet::disabled();
+        REQUIRE(p.setBusesLayout(layout));
+        p.setSidechainExternal(external);
+        const auto& specs = p.device().info().params;
+        for (const auto& [param, value] : {std::pair{C::Threshold, -30.0f}, std::pair{C::Ratio, 8.0f}})
+            p.parameter(param).setValueNotifyingHost(specs[param].toNormalized(value));
+        p.prepareToPlay(48000.0, 512);
+        juce::AudioBuffer<float> buffer(std::max(p.getTotalNumInputChannels(), p.getTotalNumOutputChannels()), 512);
+        juce::MidiBuffer midi;
+        double sum = 0.0;
+        int phase = 0;
+        for (int block = 0; block < 100; ++block)
+        {
+            buffer.clear(); // the key (any channels past the main two) stays silent
+            for (int i = 0; i < 512; ++i, ++phase)
+                for (int c = 0; c < 2; ++c)
+                    buffer.setSample(c, i, 0.25f * std::sin(2.0f * 3.14159265f * 1000.0f * static_cast<float>(phase) / 48000.0f));
+            p.processBlock(buffer, midi);
+            if (block >= 50)
+                for (int i = 0; i < 512; ++i)
+                    sum += double(buffer.getSample(0, i)) * buffer.getSample(0, i);
+        }
+        return 10.0 * std::log10(sum / (50 * 512));
+    };
+    const double plain = run(false, false); // compresses its own input
+    CHECK(run(true, false) == Catch::Approx(plain).margin(1e-9)); // Off: the host's input is ignored
+    CHECK(run(false, true) == Catch::Approx(plain).margin(1e-9)); // External, but the host routes nothing
+    CHECK(run(true, true) > plain + 10.0);                         // External: it hears the silent key
+
+    // The choice is plugin state, beside the device state, and only when External.
+    fd::plugin::DeviceAudioProcessor a(fd::devices::compressorFactory(), nullptr);
+    fd::plugin::DeviceAudioProcessor b(fd::devices::compressorFactory(), nullptr);
+    juce::MemoryBlock plainState, externalState;
+    a.getStateInformation(plainState);
+    CHECK_FALSE(plainState.toString().contains("sidechain"));
+    a.setSidechainExternal(true);
+    a.getStateInformation(externalState);
+    b.setStateInformation(externalState.getData(), static_cast<int>(externalState.getSize()));
+    CHECK(b.sidechainExternal());
+    b.setStateInformation(plainState.getData(), static_cast<int>(plainState.getSize()));
+    CHECK_FALSE(b.sidechainExternal());
+}

@@ -481,6 +481,15 @@ Json moduleJson(ToolEnv& env, const model::DeviceSlot& slot, const model::TrackI
             j["position"] = i;
     const auto view = viewJson(env.session.deviceViewState(slot.id));
     j["folded"] = view["folded"];
+    if (slot.takesSidechain) // ADR 0025: where its sidechain comes from, and what could feed it
+    {
+        Json choices = Json::array();
+        for (auto source : env.session.sidechainSources(slot.id))
+            choices.push_back(formatId(IdKind::Track, source));
+        j["sidechain"] = {
+            {"source", slot.sidechainSource ? Json(formatId(IdKind::Track, *slot.sidechainSource)) : Json(nullptr)},
+            {"possibleSources", std::move(choices)}};
+    }
     Json parameters = Json::array();
     if (auto handle = env.session.openDevice(slot.id))
     {

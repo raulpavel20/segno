@@ -6,6 +6,8 @@
 #include <fd_host_juce/fd_host_juce.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 
+#include <atomic>
+
 namespace fd::plugin
 {
 /// Plugin adapter (docs/architecture.md): wraps any fd::Device as a JUCE AudioProcessor.
@@ -50,6 +52,11 @@ public:
     /// Tells an open editor that a loaded state brought another view state (message thread).
     juce::ChangeBroadcaster viewStateLoaded;
 
+    /// Whether the device listens to the host's sidechain input (ADR 0025): the header's
+    /// Off/External picker, kept in the plugin state. Any thread.
+    [[nodiscard]] bool sidechainExternal() const noexcept { return sidechainExternal_.load(); }
+    void setSidechainExternal(bool external);
+
     // For the editor.
     [[nodiscard]] Device& device() noexcept { return *device_; }
     [[nodiscard]] const ui::PanelFactory* panelFactory() const noexcept { return panel_; }
@@ -70,7 +77,8 @@ private:
     std::vector<juce::RangedAudioParameter*> params_; // owned by AudioProcessor
     std::vector<size_t> latencyParams_;               // ParamFlags::ChangesLatency (ADR 0020)
     EventList events_;
-    std::vector<float*> channelPtrs_;
+    std::vector<float*> channelPtrs_, sidechainPtrs_;
+    std::atomic<bool> sidechainExternal_{false};
     mutable juce::CriticalSection viewLock_; // state calls can come from any thread
     std::string viewState_;
 
@@ -92,12 +100,14 @@ public:
 
 private:
     class Binding;
+    class Sidechain;
     void handleAsyncUpdate() override; // resize to the panel
     void changeListenerCallback(juce::ChangeBroadcaster*) override; // a state load brought a view
 
     DeviceAudioProcessor& processor_;
     ui::LookAndFeel lnf_;
     std::unique_ptr<Binding> binding_;
+    std::unique_ptr<Sidechain> sidechain_;
     std::unique_ptr<ui::DeviceUiContext> context_;
     std::unique_ptr<ui::DevicePanel> panel_;
     juce::Viewport viewport_;

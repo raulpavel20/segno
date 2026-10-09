@@ -59,6 +59,8 @@ tools/snapshot, tools/gallery, tools/analyze
 - **State and presets** use one JSON format, `{device, stateVersion, params, extra}`. It stores plain (not normalised) values and has versioned migrations. The plugin and the DAW share it, so presets move between them.
 - **The UI never computes its own DSP.** Curves and displays call the same pure functions the audio path uses, and live data reaches the UI through a lock-free analysis bus (meters, spectra, playheads).
 - **Devices never write their own parameters.** All edits go through the host binding, so automation and undo always work.
+- **Sidechains** are host routing ([ADR 0025](decisions/0025-sidechain-routing.md)). A device declares a sidechain bus and reads `ProcessContext::sidechain`, which is empty when nothing is connected; it then listens to its input. The plugin adapter exposes the bus as an inactive auxiliary input and feeds it only when the header's picker says External; the DAW adapter lists the sidechain channels after the main ones, which is how tracktion routes a source track to it.
+- **Latency** is constant for a device instance ([ADR 0016](decisions/0016-constant-device-latency.md)), except for settings marked `ParamFlags::ChangesLatency` (lookahead, [ADR 0020](decisions/0020-latency-follows-lookahead.md)), which hosts learn of on the message thread.
 
 ## The DAW
 

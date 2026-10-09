@@ -19,8 +19,18 @@ namespace
 constexpr float kTextMargin = 1.5f;
 constexpr float kKnobNameMax = 46.0f;
 
+/// A host's sidechain sources (ADR 0025), with a long track name: the picker must still fit.
+struct StubSidechain final : fd::ui::SidechainRouting
+{
+    std::vector<std::string> sources() const override { return {"None", "Drums", "A very long track name indeed"}; }
+    int selected() const override { return choice; }
+    void select(int index) override { choice = index; }
+    int choice = 2;
+};
+
 struct PanelUnderTest
 {
+    StubSidechain sidechain;
     std::unique_ptr<fd::Device> device;
     std::unique_ptr<fd::ui::LocalParamBinding> binding;
     std::unique_ptr<fd::ui::DeviceUiContext> context;
@@ -32,7 +42,8 @@ struct PanelUnderTest
         if (factory.testSetup != nullptr)
             factory.testSetup(*device);
         binding = std::make_unique<fd::ui::LocalParamBinding>(*device);
-        context = std::make_unique<fd::ui::DeviceUiContext>(fd::ui::DeviceUiContext{factory.info(), *binding, nullptr, device.get()});
+        context = std::make_unique<fd::ui::DeviceUiContext>(
+            fd::ui::DeviceUiContext{factory.info(), *binding, nullptr, device.get(), &sidechain});
         panel = panelFactory.create(*context);
         panel->onEnabledChange = [](bool) {}; // the power toggle shows, as in hosts
         panel->setFoldable(foldable);
@@ -79,6 +90,8 @@ void checkPlacementText(const PanelSection::Placement& p)
     }
     if (auto* combo = dynamic_cast<juce::ComboBox*>(c))
     {
+        if (combo->getName() == "sidechain")
+            return; // track names: user content, cut to the picker's fixed width
         const auto font = combo->getLookAndFeel().getComboBoxFont(*combo);
         for (int i = 0; i < combo->getNumItems(); ++i)
         {
@@ -120,6 +133,15 @@ void lint(const PanelUnderTest& p)
         return;
     }
     CHECK(panel.headerMinimumWidth() <= panel.getWidth());
+    // A sidechain bus brings the host's picker into the header (ADR 0025), inside the panel.
+    if (p.context->info.buses.sidechainChannels > 0)
+    {
+        REQUIRE_FALSE(panel.headerControls().empty());
+        const auto* picker = panel.headerControls().front();
+        CHECK(picker->isVisible());
+        CHECK(panel.getLocalBounds().contains(picker->getBounds()));
+        CHECK(dynamic_cast<const juce::ComboBox*>(picker)->getText() == "A very long track name indeed");
+    }
 
     // Width: the sections and the meter strip, at least what the header needs.
     int sum = 0;

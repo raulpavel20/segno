@@ -151,6 +151,16 @@ public:
     /// Moves a device to `index` within its chain.
     void moveDevice(std::uint64_t deviceId, int index);
     void setDeviceEnabled(std::uint64_t deviceId, bool enabled);
+
+    /// Sidechains (A2, ADR 0025): host routing, never a parameter. The tracks that can feed a
+    /// module's sidechain, in track order: every other track except those that already depend
+    /// on the module's track through sidechains, so routing never loops. Empty if the module
+    /// takes no sidechain.
+    [[nodiscard]] std::vector<std::uint64_t> sidechainSources(std::uint64_t deviceId) const;
+    /// Feeds a module's sidechain from a track (heard after its modules and fader, before its
+    /// mute), or from none: it hears its input. One undo step; false if the module takes no
+    /// sidechain or the track can't feed it.
+    bool setSidechainSource(std::uint64_t deviceId, std::optional<std::uint64_t> trackId);
     /// A module panel's view state (collapsed sections, folded; ADR 0022), stored with the
     /// project on the module. Never an undo step or an unsaved change.
     [[nodiscard]] std::string deviceViewState(std::uint64_t deviceId) const;

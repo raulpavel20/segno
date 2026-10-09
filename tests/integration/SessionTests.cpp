@@ -348,6 +348,96 @@ TEST_CASE("tracks with an instrument, MIDI files and live MIDI routing", "[integ
     CHECK(session.canUndo() == couldUndo);
 }
 
+TEST_CASE("a compressor on one track ducks to another track (ADR 0025)", "[integration]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    tracktion::Engine engine{"fd-integration-tests"};
+    fd::engine::registerDevices(engine);
+    fd::engine::Session session(engine);
+
+    // Track A: a steady tone; track B (the key): silent for 2 s, then loud for 2 s.
+    constexpr double rate = 48000.0;
+    juce::TemporaryFile toneWav(".wav"), keyWav(".wav"), out(".wav");
+    REQUIRE(fd::testkit::writeWav(toneWav.getFile().getFullPathName().toStdString(),
+                                  fd::testkit::sine(1000.0, rate, 4 * 48000, 0.25f, 2), rate));
+    auto key = fd::testkit::sine(100.0, rate, 4 * 48000, 0.5f, 2);
+    for (int c = 0; c < 2; ++c)
+        for (int i = 0; i < 2 * 48000; ++i)
+            key.at(c, i) = 0.0f;
+    REQUIRE(fd::testkit::writeWav(keyWav.getFile().getFullPathName().toStdString(), key, rate));
+    const auto a = session.snapshot()->tracks[0].id;
+    const auto b = session.addTrack("Key");
+    session.insertAudioFile(a, toneWav.getFile(), 0.0);
+    session.insertAudioFile(b, keyWav.getFile(), 0.0);
+    const auto comp = session.addDevice(a, "fd:compressor");
+    REQUIRE(comp != 0);
+    {
+        auto handle = session.openDevice(comp);
+        auto& params = handle->context().params;
+        for (const auto& [id, value] : std::initializer_list<std::pair<std::string_view, float>>{
+                 {"threshold", -30.0f}, {"ratio", 8.0f}, {"knee", 0.0f}, {"attack", 1.0f}, {"release", 50.0f}})
+            for (size_t i = 0; i < handle->context().info.params.size(); ++i)
+                if (handle->context().info.params[i].id == id)
+                    params.setPlain(i, value);
+    }
+
+    // RMS of track A's render in [from, to) seconds.
+    auto renderA = [&] {
+        out.getFile().deleteFile(); // the renderer appends to an existing file
+        bool done = false;
+        auto job = session.render({0.0, 4.0, a, rate}, out.getFile(), [&](const std::string& error) {
+            CHECK(error.empty());
+            done = true;
+        });
+        REQUIRE(job != nullptr);
+        for (int i = 0; i < 600 && !done; ++i)
+            juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+        REQUIRE(done);
+        const auto audio = fd::testkit::readWav(out.getFile().getFullPathName().toStdString());
+        REQUIRE(audio.has_value());
+        return [buffer = audio->buffer](double from, double to) {
+            double sum = 0.0;
+            const int i0 = static_cast<int>(from * 48000), i1 = static_cast<int>(to * 48000);
+            for (int i = i0; i < i1; ++i)
+                sum += double(buffer.at(0, i)) * buffer.at(0, i);
+            return 10.0 * std::log10(sum / (i1 - i0));
+        };
+    };
+
+    // Without a sidechain, the compressor hears the tone itself: it is turned down all along.
+    const auto own = renderA();
+    CHECK(own(2.5, 3.5) == Approx(own(0.5, 1.5)).margin(0.5));
+
+    // Fed by the key track: untouched while the key is silent, ducked while it plays.
+    const auto sources = session.sidechainSources(comp);
+    CHECK(std::find(sources.begin(), sources.end(), b) != sources.end());
+    CHECK(std::find(sources.begin(), sources.end(), a) == sources.end()); // never its own track
+    REQUIRE(session.setSidechainSource(comp, b));
+    CHECK(session.undoDescription() == "Set sidechain");
+    session.updateSnapshotNow();
+    CHECK(session.snapshot()->tracks[0].devices[0].sidechainSource == b);
+    const auto keyed = renderA();
+    CHECK(keyed(0.5, 1.5) > own(0.5, 1.5) + 10.0); // the tone alone isn't compressed now
+    CHECK(keyed(2.5, 3.5) < keyed(0.5, 1.5) - 10.0); // the key ducks it
+
+    // A loop is refused: the key track can't take a sidechain from A while A hears it.
+    const auto gate = session.addDevice(b, "fd:gate");
+    const auto gateSources = session.sidechainSources(gate);
+    CHECK(std::find(gateSources.begin(), gateSources.end(), a) == gateSources.end());
+    CHECK_FALSE(session.setSidechainSource(gate, a));
+    CHECK_FALSE(session.setSidechainSource(session.addDevice(a, "fd:eq"), b)); // no sidechain input
+
+    // None again, and back by undo.
+    REQUIRE(session.setSidechainSource(comp, std::nullopt));
+    session.updateSnapshotNow();
+    CHECK_FALSE(session.snapshot()->tracks[0].devices[0].sidechainSource.has_value());
+    session.undo(); // none
+    session.undo(); // the EQ
+    session.undo(); // the gate
+    session.updateSnapshotNow();
+    CHECK(session.snapshot()->tracks[0].devices[0].sidechainSource == b);
+}
+
 TEST_CASE("projects round-trip through a file", "[integration]")
 {
     juce::ScopedJuceInitialiser_GUI juceInit;

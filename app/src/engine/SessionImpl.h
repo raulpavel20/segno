@@ -72,9 +72,10 @@ private:
             return;
         if (!inTransport(t))
             dirty = true; // includes device parameters
-        // Device parameters and state change constantly; only a device's power state shows.
+        // Device parameters and state change constantly; only a device's power state and its
+        // sidechain source (ADR 0025) show.
         for (auto p = t; p.isValid(); p = p.getParent())
-            if (p.hasType(te::IDs::PLUGIN) && !(p == t && id == te::IDs::enabled))
+            if (p.hasType(te::IDs::PLUGIN) && !(p == t && (id == te::IDs::enabled || id == te::IDs::sidechainSourceID)))
             {
                 deviceStateChanged(p);
                 return;
