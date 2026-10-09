@@ -11,6 +11,13 @@ juce::Font nameFont()
     return fonts::font(Theme::current().textSm, fonts::Weight::SemiBold);
 }
 
+juce::Font captionFont()
+{
+    return fonts::font(Theme::current().textXs);
+}
+
+constexpr int kCaptionGap = 6;
+
 int roundUpToGrid(float px)
 {
     const int grid = Theme::current().grid;
@@ -107,6 +114,8 @@ ParamComboBox& DevicePanel::addHeaderCombo(size_t param)
 {
     auto& c = bind(std::make_unique<ParamComboBox>(context_, param));
     headerControls_.push_back(&c);
+    const auto& spec = context_.info.params[param];
+    headerCaptions_.push_back(juce::String(std::string(spec.shortName.empty() ? spec.name : spec.shortName)));
     return c;
 }
 
@@ -234,8 +243,9 @@ int DevicePanel::headerMinimumWidth() const
     if (onEnabledChange)
         w += kPower + 6;
     w += juce::GlyphArrangement::getStringWidth(nameFont(), juce::String(std::string(context_.info.name)));
-    for (auto* c : headerControls_)
-        w += static_cast<float>(settingWidth(*c) + kSettingsGap);
+    for (size_t i = 0; i < headerControls_.size(); ++i)
+        w += static_cast<float>(settingWidth(*headerControls_[i]) + kSettingsGap) +
+             juce::GlyphArrangement::getStringWidth(captionFont(), headerCaptions_[i]) + kCaptionGap;
     return roundUpToGrid(w);
 }
 
@@ -311,12 +321,16 @@ void DevicePanel::resized()
         power_.setBounds(h.removeFromLeft(kPower).withSizeKeepingCentre(kPower, kPower));
         h.removeFromLeft(6);
     }
-    for (auto it = headerControls_.rbegin(); it != headerControls_.rend(); ++it)
+    captionAreas_.assign(headerControls_.size(), {});
+    for (size_t i = headerControls_.size(); i-- > 0;)
     {
-        auto* c = *it;
+        auto* c = headerControls_[i];
         const int width = settingWidth(*c);
         c->setVisible(true);
         c->setBounds(h.removeFromRight(width).withSizeKeepingCentre(width, grid.row));
+        h.removeFromRight(kCaptionGap);
+        const int caption = static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(captionFont(), headerCaptions_[i])));
+        captionAreas_[i] = h.removeFromRight(caption);
         h.removeFromRight(kSettingsGap);
     }
     nameArea_ = h;
@@ -335,6 +349,7 @@ void DevicePanel::resized()
     {
         if (x > 0)
             separators_.push_back(x);
+        s->refresh(); // power dimming, also before the first refresh tick
         s->setVisible(true);
         s->setBounds(x, area.getY(), s->preferredWidth(), grid.bodyHeight());
         x += s->preferredWidth();
@@ -378,6 +393,10 @@ void DevicePanel::paint(juce::Graphics& g)
     g.setColour(t.textPrimary);
     g.setFont(nameFont());
     g.drawText(name, nameArea_, juce::Justification::centredLeft, true);
+    g.setColour(t.textTertiary);
+    g.setFont(captionFont());
+    for (size_t i = 0; i < captionAreas_.size(); ++i)
+        g.drawText(headerCaptions_[i], captionAreas_[i], juce::Justification::centredRight, false);
 
     // Lines between sections, from the title row to the bottom of the content.
     const auto top = static_cast<float>(t.deviceHeaderHeight + grid.bodyTop);

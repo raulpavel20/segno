@@ -35,7 +35,7 @@ In the UI, instruments and effects are **modules**. Code and docs say *device* (
   - 12 px bottom padding.
 - **Sections** sit side by side, left to right, each with 12 px padding on either side. A **1 px line** in the `line` colour separates neighbouring sections, centred in the 24 px between their contents.
 - **Meter strip:** modules with meters end with a strip at the right edge.
-  - Widths: 24 px for one meter, 40 px for an in/out pair.
+  - Widths: 24 px for one meter, 44 px for an in/out pair.
   - Labels: `OUT`, or `IN` and `OUT`, in the title row.
   - Meters are 10 px wide and fill the content height.
 
@@ -52,7 +52,7 @@ In the UI, instruments and effects are **modules**. Code and docs say *device* (
 | Section title | 20 + 4 | mono caps 10 px semibold, `textTertiary` |
 | Collapsed section | 24 | title rotated, reading upwards |
 | Folded module | 28 | DAW only |
-| Meter strip | 24 / 40 | one meter / in and out |
+| Meter strip | 24 / 44 | one meter / in and out |
 
 Three rows are exactly one knob tall (76 px), so a knob lines up with a stack of three line controls beside it.
 

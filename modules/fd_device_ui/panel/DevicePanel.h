@@ -63,7 +63,7 @@ protected:
     PanelSection& addSection(std::string id, juce::String title, int columns,
                              std::optional<size_t> powerParam = std::nullopt);
     /// A module-wide quality or display setting (oversampling, analyzer), right-aligned in the
-    /// header. Never one that shapes the sound's character.
+    /// header with its name as a caption. Never one that shapes the sound's character.
     ParamComboBox& addHeaderCombo(size_t param);
     /// The meter strip at the right edge: meters owned by the panel, each captioned ("In",
     /// "Out") in the title row.
@@ -130,6 +130,8 @@ private:
     std::vector<std::unique_ptr<juce::Component>> controls_;
     std::vector<std::unique_ptr<PanelSection>> sections_;
     std::vector<juce::Component*> headerControls_;
+    std::vector<juce::String> headerCaptions_;          // one per header control
+    std::vector<juce::Rectangle<int>> captionAreas_;    // laid out
     std::vector<std::pair<juce::Component*, juce::String>> meters_;
 
     bool foldable_ = false, folded_ = false;

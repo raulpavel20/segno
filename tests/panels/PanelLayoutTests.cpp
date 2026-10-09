@@ -229,7 +229,7 @@ TEST_CASE("module grid tokens add up to the panel height", "[ui]")
     CHECK(grid.width(1) == grid.column);
     CHECK(grid.height(2 * grid.knobRows) == grid.height(grid.rows)); // two knob rows fill the content
     CHECK(grid.meterStripWidth(1) == 24);
-    CHECK(grid.meterStripWidth(2) == 40);
+    CHECK(grid.meterStripWidth(2) == 44);
 }
 
 TEST_CASE("every module panel is laid out on the module grid", "[ui]")

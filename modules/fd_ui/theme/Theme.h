@@ -16,7 +16,7 @@ struct DeviceGrid
     int knobName = 16, knobValue = 16; // the knob block: name strip, arc area, value strip
     int collapsedWidth = 24;        // a collapsed section
     int foldedWidth = 28;           // a folded module (DAW chain)
-    int meterWidth = 10, meterGap = 6, meterStripPadding = 14; // meter strip: 6 + meters + 8
+    int meterWidth = 10, meterGap = 10, meterStripPadding = 14; // meter strip: 6 + meters + 8
     int headerPadding = 8;
 
     /// Width of `columns` cells and the gaps between them.
