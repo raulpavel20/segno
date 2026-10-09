@@ -211,5 +211,5 @@ Three parts, each its own commit with its tests, MCP tools and manual checks:
 - **Projects:** lanes, points, bends, on/off, fold state and heights survive saving and opening; a project saved before C4 sounds the same after conversion (volume, sends and every module parameter).
 - **Played values** never mark the project unsaved or rebuild a snapshot.
 - **MCP:** each tool in §11.
-- **Performance:** 64 tracks with two lanes each paint within the frame budget while playing.
+- **Performance:** 64 tracks with two lanes each paint within the frame budget while playing (`[.benchmark]`, Release, software renderer: p95 about 3 ms at 1700 × 720; the gradient fill is the largest part).
 - **Manual:** [manual-tests/M2.md](../manual-tests/M2.md), "Automation (C4)".
