@@ -242,6 +242,50 @@ void paintEmptyState(juce::Graphics& g, juce::Rectangle<int> area, const juce::S
 
 // ---- BarLayout ----------------------------------------------------------------------------------
 
+// ---- OutsideClick -----------------------------------------------------------------------------
+
+OutsideClick::OutsideClick(juce::Component& popover, std::function<void()> close)
+    : popover_(popover), close_(std::move(close))
+{
+}
+
+OutsideClick::~OutsideClick()
+{
+    detach();
+}
+
+void OutsideClick::attach()
+{
+    if (!attached_)
+        juce::Desktop::getInstance().addGlobalMouseListener(this);
+    attached_ = true;
+}
+
+void OutsideClick::detach()
+{
+    if (attached_)
+        juce::Desktop::getInstance().removeGlobalMouseListener(this);
+    attached_ = false;
+}
+
+void OutsideClick::clickedOn(juce::Component& component)
+{
+    if (!popover_.isVisible() || &component == &popover_ || popover_.isParentOf(&component))
+        return;
+    if (component.getTopLevelComponent() != popover_.getTopLevelComponent())
+        return; // another window: a menu the popover opened, a plugin's editor
+    if (ignore && ignore(component))
+        return;
+    if (close_)
+        close_();
+}
+
+void OutsideClick::mouseDown(const juce::MouseEvent& e)
+{
+    if (e.eventComponent != nullptr)
+        clickedOn(*e.eventComponent);
+}
+
 // ---- SectionStack -----------------------------------------------------------------------------
 
 juce::Rectangle<int> SectionStack::layout(juce::Rectangle<int> area, const std::vector<Section>& sections)

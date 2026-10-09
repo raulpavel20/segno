@@ -61,6 +61,33 @@ struct ListItem
 };
 void paintListRow(juce::Graphics& g, juce::Rectangle<int> row, const ListItem& item);
 
+/// Closes a popover on any mouse press outside it (docs/design/ui-foundations.md): a global
+/// mouse listener while attached. Presses in other top-level windows (a popup menu the popover
+/// opened, a plugin's window) don't count, nor do components `ignore` exempts (the button that
+/// toggles the popover itself).
+class OutsideClick final : private juce::MouseListener
+{
+public:
+    OutsideClick(juce::Component& popover, std::function<void()> close);
+    ~OutsideClick() override;
+    OutsideClick(const OutsideClick&) = delete;
+    OutsideClick& operator=(const OutsideClick&) = delete;
+
+    void attach();
+    void detach();
+    std::function<bool(const juce::Component&)> ignore;
+    /// The rule (tests call it): a press on `component` closes the popover unless it's the
+    /// popover, inside it, in another window or ignored.
+    void clickedOn(juce::Component& component);
+
+private:
+    void mouseDown(const juce::MouseEvent& e) override;
+
+    juce::Component& popover_;
+    std::function<void()> close_;
+    bool attached_ = false;
+};
+
 /// Floating chrome: the one shadow, the panel surface and radius, a hairline edge.
 void paintPopover(juce::Graphics& g, juce::Rectangle<int> bounds);
 

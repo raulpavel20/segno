@@ -28,6 +28,10 @@ juce::String ago(double lastSeen)
 AssistantsPopover::AssistantsPopover(mcp::McpServer& server) : server_(server)
 {
     setWantsKeyboardFocus(true);
+    // The transport button toggles it itself.
+    outside_.ignore = [](const juce::Component& c) {
+        return dynamic_cast<const ui::IconButton*>(&c) != nullptr && c.getName() == "assistants";
+    };
     on_.setClickingTogglesState(true);
     on_.setTooltip("Let assistants connect to this DAW (MCP)");
     on_.onClick = [this] {
@@ -68,10 +72,7 @@ AssistantsPopover::AssistantsPopover(mcp::McpServer& server) : server_(server)
     refresh();
 }
 
-AssistantsPopover::~AssistantsPopover()
-{
-    juce::Desktop::getInstance().removeGlobalMouseListener(this);
-}
+AssistantsPopover::~AssistantsPopover() = default;
 
 void AssistantsPopover::open(juce::Component& parent, juce::Rectangle<int> anchor)
 {
@@ -84,27 +85,17 @@ void AssistantsPopover::open(juce::Component& parent, juce::Rectangle<int> ancho
                   .constrainedWithin(parent.getLocalBounds()));
     setVisible(true);
     toFront(true);
-    juce::Desktop::getInstance().addGlobalMouseListener(this);
+    outside_.attach();
 }
 
 void AssistantsPopover::close()
 {
+    outside_.detach();
     if (!isVisible())
         return;
-    juce::Desktop::getInstance().removeGlobalMouseListener(this);
     setVisible(false);
     if (auto* parent = getParentComponent())
         parent->grabKeyboardFocus();
-}
-
-void AssistantsPopover::mouseDown(const juce::MouseEvent& e)
-{
-    if (!isVisible() || e.eventComponent == this || isParentOf(e.eventComponent))
-        return;
-    // The transport button toggles it itself; any other click outside closes it.
-    if (auto* button = dynamic_cast<ui::IconButton*>(e.eventComponent); button != nullptr && button->getName() == "assistants")
-        return;
-    close();
 }
 
 bool AssistantsPopover::keyPressed(const juce::KeyPress& key)

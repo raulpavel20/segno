@@ -33,11 +33,13 @@ void CommandPalette::open(juce::Component& parent)
     update();
     setVisible(true);
     toFront(false);
+    outside_.attach();
     search_.grabKeyboardFocus();
 }
 
 void CommandPalette::close()
 {
+    outside_.detach();
     if (!isVisible())
         return;
     setVisible(false);
@@ -100,15 +102,6 @@ bool CommandPalette::keyPressed(const juce::KeyPress& key, juce::Component*)
         return true;
     }
     return false;
-}
-
-void CommandPalette::textEditorFocusLost(juce::TextEditor&)
-{
-    // Clicking elsewhere closes the popover (after a click inside has been handled).
-    juce::MessageManager::callAsync([safe = juce::Component::SafePointer<CommandPalette>(this)] {
-        if (safe != nullptr && !safe->search_.hasKeyboardFocus(true))
-            safe->close();
-    });
 }
 
 juce::Rectangle<int> CommandPalette::rowArea(int row) const

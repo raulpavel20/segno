@@ -29,7 +29,6 @@ public:
     bool keyPressed(const juce::KeyPress& key) override;
 
 private:
-    void mouseDown(const juce::MouseEvent& e) override; // also global while open: closes when outside
     [[nodiscard]] int preferredHeight() const;
     [[nodiscard]] juce::String status() const;
 
@@ -38,6 +37,7 @@ private:
     juce::TextEditor httpLine_, stdioLine_;
     juce::TextButton copyHttp_{"Copy"}, copyStdio_{"Copy"}, newToken_{"New token"};
     bool failed_ = false;
+    ui::OutsideClick outside_{*this, [this] { close(); }}; // a click anywhere else closes it
 
     // Laid out by resized(): the painted parts.
     juce::Rectangle<int> title_, status_, readOnlyHint_, httpLabel_, stdioLabel_, clientsLabel_, clients_, tokenHint_;

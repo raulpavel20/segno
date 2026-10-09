@@ -1337,3 +1337,33 @@ TEST_CASE("automation lanes: a step lane says why it doesn't bend (C4b)", "[inte
     CHECK(message.contains("Character has steps"));
     CHECK(s.snapshot()->tracks[0].lane(character)->points == before); // nothing bent or moved
 }
+
+TEST_CASE("popovers close on a click anywhere outside them, not inside or in their menus", "[integration]")
+{
+    juce::ScopedJuceInitialiser_GUI init;
+    juce::Component window, popover, inside, elsewhere, menu;
+    window.setSize(400, 300);
+    window.addAndMakeVisible(popover);
+    window.addAndMakeVisible(elsewhere);
+    popover.addAndMakeVisible(inside);
+    menu.setSize(100, 100); // a window of its own, like a popup menu
+    int closed = 0;
+    fd::ui::OutsideClick outside(popover, [&] { ++closed; });
+    outside.attach();
+    outside.clickedOn(inside);
+    outside.clickedOn(popover);
+    outside.clickedOn(menu);
+    CHECK(closed == 0);
+    outside.ignore = [&](const juce::Component& c) { return &c == &elsewhere; };
+    outside.clickedOn(elsewhere);
+    CHECK(closed == 0);
+    outside.ignore = nullptr;
+    outside.clickedOn(elsewhere);
+    CHECK(closed == 1);
+    outside.clickedOn(window);
+    CHECK(closed == 2);
+    popover.setVisible(false); // closed already: nothing more to do
+    outside.clickedOn(window);
+    CHECK(closed == 2);
+    outside.detach();
+}

@@ -33,12 +33,14 @@ void LanePicker::open(juce::Component& parent, std::uint64_t channel)
     update();
     setVisible(true);
     toFront(false);
+    outside_.attach();
     if (isShowing())
         search_.grabKeyboardFocus();
 }
 
 void LanePicker::close()
 {
+    outside_.detach();
     if (!isVisible())
         return;
     setVisible(false);
@@ -96,14 +98,6 @@ bool LanePicker::keyPressed(const juce::KeyPress& key, juce::Component*)
         return true;
     }
     return false;
-}
-
-void LanePicker::textEditorFocusLost(juce::TextEditor&)
-{
-    juce::MessageManager::callAsync([safe = juce::Component::SafePointer<LanePicker>(this)] {
-        if (safe != nullptr && !safe->search_.hasKeyboardFocus(true))
-            safe->close();
-    });
 }
 
 juce::Rectangle<int> LanePicker::rowArea(int row) const

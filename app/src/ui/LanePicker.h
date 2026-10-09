@@ -41,7 +41,6 @@ private:
     void textEditorTextChanged(juce::TextEditor&) override { update(); }
     void textEditorReturnKeyPressed(juce::TextEditor&) override { chooseSelected(); }
     void textEditorEscapeKeyPressed(juce::TextEditor&) override { close(); }
-    void textEditorFocusLost(juce::TextEditor&) override;
     void update();
     [[nodiscard]] juce::Rectangle<int> rowArea(int row) const;
 
@@ -52,5 +51,6 @@ private:
     std::vector<model::PaletteItem> items_;
     std::vector<size_t> shown_;
     int selected_ = 0;
+    ui::OutsideClick outside_{*this, [this] { close(); }}; // a click anywhere else closes it
 };
 } // namespace fd::app
