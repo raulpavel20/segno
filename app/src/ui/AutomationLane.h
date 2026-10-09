@@ -45,6 +45,8 @@ struct LanePaint
     std::optional<float> current;
     /// False while the lane drives nothing: an empty one says how to give it a parameter.
     bool assigned = true;
+    /// An empty lane's hint shows only while the lane is selected (it would crowd the arrangement).
+    bool hint = false;
 };
 
 void paintAutomationLane(juce::Graphics& g, const LaneGeometry& geometry, const LanePaint& lane,

@@ -60,7 +60,7 @@ How parameters change over time in Segno: automation lanes in the arrangement, w
   A new lane is brought into sight and selected.
 - **Removing a lane:** **Remove automation lane** in its header's right-click menu, or Delete after clicking its header. Its assigned parameters keep their current values. One undo step.
 - **Showing and hiding:** Ctrl+Alt+L hides or shows every lane (view state, saved with the project).
-- **Empty lanes** (without points) draw the value now as a dashed line (its one assignment's, mapped back), with the hint "Double-click to add a point". A lane that drives nothing yet says how to assign a parameter instead.
+- **Empty lanes** (without points) draw the value now as a dashed line (its one assignment's, mapped back). While the lane is selected, a hint says "Double-click to add a point", or for a lane that drives nothing yet, how to assign a parameter; unselected lanes stay quiet.
 - **The mixer view** shows no lanes; its controls show the automation indicator (§6) and follow the played value.
 
 ## 4. Drawing a lane

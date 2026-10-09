@@ -690,6 +690,7 @@ void ArrangementView::paintLanes(juce::Graphics& g)
         if (lane->points.empty())
             paint.current = session_.laneValue(lane->id);
         paint.assigned = !lane->assignments.empty();
+        paint.hint = selection_.lane == lane->id;
         paintAutomationLane(g, laneGeometry(i), paint, visible);
     }
 

@@ -69,7 +69,7 @@ void paintAutomationLane(juce::Graphics& g, const LaneGeometry& geo, const LaneP
             const float dashes[] = {4.0f, 4.0f};
             g.drawDashedLine(juce::Line<float>(x0, y, x1, y), dashes, 2, 1.0f);
         }
-        if (area.getHeight() >= 24.0f)
+        if (lane.hint && area.getHeight() >= 24.0f)
         {
             g.setColour(t.textTertiary);
             g.setFont(ui::font(ui::TextStyle::Caption));
