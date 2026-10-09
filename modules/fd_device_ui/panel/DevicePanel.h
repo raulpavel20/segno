@@ -15,7 +15,7 @@ public:
 
     /// Natural width: the sections (expanded or collapsed) and the meter strip, at least what
     /// the header needs; the folded strip when folded. The height is fixed by the theme.
-    [[nodiscard]] virtual int preferredWidth() const;
+    [[nodiscard]] int preferredWidth() const;
 
     /// Optional bypass control in the header (null = hidden).
     std::function<void(bool enabled)> onEnabledChange;
@@ -79,20 +79,6 @@ protected:
         return ref;
     }
 
-    // ---- legacy layout (panels not yet on the grid) -----------------------------------------
-
-    /// Lays out the body below the header. Panels on the grid don't override it.
-    virtual void layoutBody(juce::Rectangle<int> body);
-    /// Registers a bound control for periodic refresh. Returns it for convenience.
-    template <typename T>
-    T& bind(std::unique_ptr<T> control)
-    {
-        auto& ref = *control;
-        addAndMakeVisible(ref);
-        controls_.push_back(std::move(control));
-        return ref;
-    }
-
     DeviceUiContext& context() noexcept { return context_; }
 
     /// Dims `controls` while `inactive()` is true: settings the current mode or switch ignores
@@ -101,7 +87,7 @@ protected:
 
 private:
     friend class PanelSection;
-    /// Owns `control` and adds it to `parent` (a section's content).
+    /// Owns `control` and adds it to `parent` (a section's content, or the panel's header).
     template <typename T>
     T& adopt(std::unique_ptr<T> control, juce::Component& parent)
     {

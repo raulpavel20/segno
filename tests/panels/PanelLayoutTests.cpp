@@ -246,11 +246,7 @@ TEST_CASE("every module panel is laid out on the module grid", "[ui]")
         DYNAMIC_SECTION(std::string(panelFactory.deviceId))
         {
             PanelUnderTest p(*factory, panelFactory, true);
-            if (p.panel->sections().empty())
-            {
-                WARN(std::string(panelFactory.deviceId) << " is not on the module grid yet");
-                continue;
-            }
+            REQUIRE_FALSE(p.panel->sections().empty()); // every panel is declared as sections
             const auto ids = [&] {
                 std::set<std::string> out;
                 for (auto* s : p.panel->sections())

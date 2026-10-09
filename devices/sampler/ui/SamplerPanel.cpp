@@ -281,152 +281,77 @@ private:
     bool dragOver_ = false;
 };
 
-/// Layout per devices/sampler/SPEC.md: waveform on the left, then pitch and level, playback
-/// region, envelopes, filter, and voice settings; two rows like the other instruments.
+/// Sections per devices/sampler/SPEC.md, on the module grid (docs/design/device-panels.md).
 class SamplerPanel final : public ui::DevicePanel, public juce::FileDragAndDropTarget
 {
 public:
     explicit SamplerPanel(ui::DeviceUiContext& ctx) : DevicePanel(ctx)
     {
-        auto knob = [&](size_t i) { return &bind(std::make_unique<ui::ParamKnob>(ctx, i)); };
-        auto bar = [&](size_t i) {
-            auto* k = knob(i);
-            k->setStyle(ui::Knob::Style::Bar);
-            return k;
-        };
-        auto toggle = [&](size_t i) { return &bind(std::make_unique<ui::ParamToggle>(ctx, i)); };
+        auto& sample = addSection("sample", "Sample", 6);
+        wave_ = &own(std::make_unique<WaveformView>(ctx));
+        sample.place(*wave_, 0, 0, 6, 6);
 
-        wave_ = &bind(std::make_unique<WaveformView>(ctx));
-        pitch_ = {knob(S::Transpose), knob(S::Detune), knob(S::Gain), knob(S::VelAmp)};
+        auto& pitch = addSection("pitch", "Pitch", 1);
+        pitch.knob(S::Transpose, 0, 0);
+        pitch.knob(S::Detune, 0, 3);
 
-        mode_ = &bind(std::make_unique<ui::ParamSegmented>(ctx, S::Mode, 2));
-        loop_ = toggle(S::Loop);
-        gate_ = toggle(S::OneShotGate);
-        start_ = bar(S::Start);
-        end_ = bar(S::End);
-        region_ = {knob(S::LoopStart), knob(S::LoopXfade), knob(S::FadeIn), knob(S::FadeOut)};
+        auto& level = addSection("level", "Level", 1);
+        level.knob(S::Gain, 0, 0);
+        level.knob(S::VelAmp, 0, 3);
 
-        ampView_ = &bind(std::make_unique<ui::EnvelopeDisplay>(ctx, "AMP", S::AmpA));
-        amp_ = {knob(S::AmpA), knob(S::AmpD), knob(S::AmpS), knob(S::AmpR)};
-        fenvView_ = &bind(std::make_unique<ui::EnvelopeDisplay>(ctx, "FILTER", S::FenvA));
-        fenv_ = {knob(S::FenvA), knob(S::FenvD), knob(S::FenvS), knob(S::FenvR)};
-
-        filterOn_ = toggle(S::FilterOn);
-        filterType_ = &bind(std::make_unique<ui::ParamSegmented>(ctx, S::FilterType, 4));
-        filterView_ = &bind(std::make_unique<ui::FilterDisplay>(ctx, S::FilterType, S::FilterCutoff, S::FilterRes,
-                                                                S::FilterOn));
-        filter_ = {knob(S::FilterCutoff), knob(S::FilterRes), knob(S::FilterEnv), knob(S::FilterKey)};
-
-        voiceMode_ = &bind(std::make_unique<ui::ParamComboBox>(ctx, S::VoiceMode));
-        voice_ = {bar(S::Root), bar(S::VoiceCount), bar(S::VoiceGlide), bar(S::VoiceBend)};
-
-        // Loop applies to Classic, Gate to One-shot: dim the one the mode ignores.
+        // Loop under Classic, Gate under One-shot: the one the mode ignores dims.
+        auto& region = addSection("region", "Region", 4);
+        region.segmented(S::Mode, 0, 0, 4, 1);
+        auto& loop = region.toggle(S::Loop, 0, 1, 2);
+        auto& gate = region.toggle(S::OneShotGate, 2, 1, 2);
+        region.bar(S::Start, 0, 2, 2);
+        region.bar(S::End, 2, 2, 2);
+        region.knob(S::LoopStart, 0, 3);
+        region.knob(S::LoopXfade, 1, 3);
         auto oneShot = [&ctx] { return juce::roundToInt(ctx.params.getPlain(S::Mode)) == 1; };
-        dimWhen({loop_}, oneShot);
-        dimWhen({gate_}, [oneShot] { return !oneShot(); });
+        dimWhen({&loop}, oneShot);
+        dimWhen({&gate}, [oneShot] { return !oneShot(); });
+
+        auto& fades = addSection("fades", "Fades", 1);
+        fades.knob(S::FadeIn, 0, 0).setName("In");
+        fades.knob(S::FadeOut, 0, 3).setName("Out");
+
+        auto& env = addSection("env", "Envelopes", 6);
+        env.place(own(std::make_unique<ui::EnvelopeDisplay>(ctx, "Amp", S::AmpA)), 0, 0, 2, 3);
+        env.place(own(std::make_unique<ui::EnvelopeDisplay>(ctx, "Filter", S::FenvA)), 0, 3, 2, 3);
+        for (size_t i = 0; i < 4; ++i)
+        {
+            env.knob(S::AmpA + i, 2 + static_cast<int>(i), 0);
+            env.knob(S::FenvA + i, 2 + static_cast<int>(i), 3);
+        }
+
+        // The section's power is the filter's On: off dims the whole section.
+        auto& filter = addSection("filter", "Filter", 4, S::FilterOn);
+        filter.segmented(S::FilterType, 0, 0, 4, 1);
+        filter.place(own(std::make_unique<ui::FilterDisplay>(ctx, S::FilterType, S::FilterCutoff, S::FilterRes)), 0, 1, 4, 2);
+        filter.knob(S::FilterCutoff, 0, 3);
+        filter.knob(S::FilterRes, 1, 3);
+        filter.knob(S::FilterEnv, 2, 3);
+        filter.knob(S::FilterKey, 3, 3);
+
+        auto& voice = addSection("voice", "Voice", 2);
+        voice.combo(S::VoiceMode, 0, 0, 2);
+        voice.bar(S::Root, 0, 1, 2);
+        voice.bar(S::VoiceCount, 0, 2, 2);
+        voice.bar(S::VoiceGlide, 0, 3, 2);
+        voice.bar(S::VoiceBend, 0, 4, 2);
 
         if (auto* bus = ctx.analysis)
             meter_.setLevelSource([bus](int) { return bus->takePeak(S::PeakOut); });
-        addAndMakeVisible(meter_);
+        setMeters({{&meter_, "Out"}});
     }
-
-    int preferredWidth() const override { return 1346; }
 
     // Dropping anywhere on the panel loads the file (the waveform view handles its own area).
     bool isInterestedInFileDrag(const juce::StringArray& files) override { return wave_->isInterestedInFileDrag(files); }
     void filesDropped(const juce::StringArray& files, int x, int y) override { wave_->filesDropped(files, x, y); }
 
-    void layoutBody(juce::Rectangle<int> body) override
-    {
-        constexpr int gap = 16, knobW = 46, regionKnobW = 50, filterKnobW = 48, cellW = 76, smallGap = 4, lineH = 18;
-        const int rowH = body.getHeight() / 2;
-        auto rows = [&](int width) {
-            auto block = body.removeFromLeft(width);
-            body.removeFromLeft(gap);
-            return std::pair{block.removeFromTop(rowH), block};
-        };
-        auto knobs = [](juce::Rectangle<int> r, auto& list, int w) {
-            for (auto* k : list)
-                k->setBounds(r.removeFromLeft(w));
-        };
-
-        meter_.setBounds(body.removeFromRight(9).reduced(0, 4));
-        body.removeFromRight(8);
-
-        wave_->setBounds(body.removeFromLeft(340).reduced(0, 3));
-        body.removeFromLeft(gap);
-
-        // Pitch and level.
-        {
-            auto [r1, r2] = rows(2 * knobW);
-            r1.setWidth(2 * knobW);
-            pitch_[0]->setBounds(r1.removeFromLeft(knobW));
-            pitch_[1]->setBounds(r1);
-            pitch_[2]->setBounds(r2.removeFromLeft(knobW));
-            pitch_[3]->setBounds(r2);
-        }
-        // Playback region: mode, loop/gate, start/end on top; loop and fades below.
-        {
-            auto [r1, r2] = rows(4 * regionKnobW);
-            r1.reduce(0, 3);
-            mode_->setBounds(r1.removeFromTop(lineH));
-            r1.removeFromTop(smallGap);
-            auto line = r1.removeFromTop(lineH);
-            loop_->setBounds(line.removeFromLeft(line.getWidth() / 2 - 2));
-            line.removeFromLeft(smallGap);
-            gate_->setBounds(line);
-            r1.removeFromTop(smallGap);
-            line = r1.removeFromTop(lineH);
-            start_->setBounds(line.removeFromLeft(line.getWidth() / 2 - 2));
-            line.removeFromLeft(smallGap);
-            end_->setBounds(line);
-            knobs(r2, region_, regionKnobW);
-        }
-        // Envelopes: amp on top, filter envelope below.
-        {
-            auto [r1, r2] = rows(cellW + smallGap + 4 * knobW);
-            ampView_->setBounds(r1.removeFromLeft(cellW).reduced(0, 3));
-            r1.removeFromLeft(smallGap);
-            knobs(r1, amp_, knobW);
-            fenvView_->setBounds(r2.removeFromLeft(cellW).reduced(0, 3));
-            r2.removeFromLeft(smallGap);
-            knobs(r2, fenv_, knobW);
-        }
-        // Filter: on/type and response on top, knobs below.
-        {
-            auto [r1, r2] = rows(4 * filterKnobW);
-            r1.reduce(0, 3);
-            auto line = r1.removeFromTop(lineH);
-            filterOn_->setBounds(line.removeFromLeft(46));
-            line.removeFromLeft(smallGap);
-            filterType_->setBounds(line);
-            r1.removeFromTop(smallGap);
-            filterView_->setBounds(r1);
-            knobs(r2, filter_, filterKnobW);
-        }
-        // Voice: mode and bars, stacked over both rows.
-        {
-            auto column = body.reduced(0, 3);
-            const int lines = 1 + static_cast<int>(voice_.size());
-            const int h = std::min(lineH + 2, (column.getHeight() - (lines - 1) * smallGap) / lines);
-            voiceMode_->setBounds(column.removeFromTop(h));
-            for (auto* b : voice_)
-            {
-                column.removeFromTop(smallGap);
-                b->setBounds(column.removeFromTop(h));
-            }
-        }
-    }
-
 private:
     WaveformView* wave_ = nullptr;
-    std::array<ui::ParamKnob*, 4> pitch_{}, region_{}, amp_{}, fenv_{}, filter_{}, voice_{};
-    ui::ParamSegmented *mode_ = nullptr, *filterType_ = nullptr;
-    ui::ParamToggle *loop_ = nullptr, *gate_ = nullptr, *filterOn_ = nullptr;
-    ui::ParamKnob *start_ = nullptr, *end_ = nullptr;
-    ui::EnvelopeDisplay *ampView_ = nullptr, *fenvView_ = nullptr;
-    ui::FilterDisplay* filterView_ = nullptr;
-    ui::ParamComboBox* voiceMode_ = nullptr;
     ui::Meter meter_{1};
 };
 } // namespace

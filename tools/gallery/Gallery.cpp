@@ -35,34 +35,12 @@ class DemoPanel final : public ui::DevicePanel
 public:
     explicit DemoPanel(ui::DeviceUiContext& ctx) : DevicePanel(ctx)
     {
-        for (size_t i = 0; i < 3; ++i)
-            knobs_.push_back(&bind(std::make_unique<ui::ParamKnob>(ctx, i)));
-        mode_ = &bind(std::make_unique<ui::ParamKnob>(ctx, 3));
-        sync_ = &bind(std::make_unique<ui::ParamToggle>(ctx, 4));
-        hq_ = &bind(std::make_unique<ui::ParamToggle>(ctx, 5));
+        auto& controls = addSection("controls", "Controls", 4);
+        for (size_t i = 0; i < 4; ++i)
+            controls.knob(i, static_cast<int>(i), 0);
+        controls.toggle(4, 0, 3, 2);
+        controls.toggle(5, 2, 3, 2);
     }
-
-    int preferredWidth() const override { return 236; }
-
-    void layoutBody(juce::Rectangle<int> body) override
-    {
-        const auto& t = ui::Theme::current();
-        auto toggles = body.removeFromBottom(20);
-        body.removeFromBottom(t.grid * 2);
-        const int w = body.getWidth() / 4;
-        for (auto* k : knobs_)
-            k->setBounds(body.removeFromLeft(w));
-        mode_->setBounds(body);
-        const int pillW = (toggles.getWidth() - t.grid) / 2;
-        sync_->setBounds(toggles.removeFromLeft(pillW));
-        hq_->setBounds(toggles.removeFromRight(pillW));
-    }
-
-private:
-    std::vector<ui::ParamKnob*> knobs_;
-    ui::ParamKnob* mode_ = nullptr;
-    ui::ParamToggle* sync_ = nullptr;
-    ui::ParamToggle* hq_ = nullptr;
 };
 
 // ---------------------------------------------------------------------------

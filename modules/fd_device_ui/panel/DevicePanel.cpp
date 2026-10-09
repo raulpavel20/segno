@@ -112,7 +112,7 @@ PanelSection& DevicePanel::addSection(std::string id, juce::String title, int co
 
 ParamComboBox& DevicePanel::addHeaderCombo(size_t param)
 {
-    auto& c = bind(std::make_unique<ParamComboBox>(context_, param));
+    auto& c = adopt(std::make_unique<ParamComboBox>(context_, param), *this);
     headerControls_.push_back(&c);
     const auto& spec = context_.info.params[param];
     headerCaptions_.push_back(juce::String(std::string(spec.shortName.empty() ? spec.name : spec.shortName)));
@@ -277,8 +277,6 @@ bool DevicePanel::isDragHandle(juce::Point<int> position) const
     return std::none_of(headerControls_.begin(), headerControls_.end(), [&](auto* c) { return onControl(*c); });
 }
 
-void DevicePanel::layoutBody(juce::Rectangle<int>) {}
-
 void DevicePanel::resized()
 {
     const auto& t = Theme::current();
@@ -304,9 +302,6 @@ void DevicePanel::resized()
             c->setVisible(false);
         for (auto& [meter, caption] : meters_)
             meter->setVisible(false);
-        if (sections_.empty())
-            for (auto& c : controls_)
-                c->setVisible(false);
         return;
     }
     fold_.setIcon(Icon::ChevronLeft);
@@ -337,14 +332,6 @@ void DevicePanel::resized()
         h.removeFromRight(kSettingsGap);
     }
     nameArea_ = h;
-
-    if (sections_.empty()) // a panel not yet on the grid
-    {
-        for (auto& c : controls_)
-            c->setVisible(true);
-        layoutBody(area.reduced(t.grid * 2, t.grid));
-        return;
-    }
 
     // Body: sections left to right, separated by lines; then the meter strip.
     int x = 0;
