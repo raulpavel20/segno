@@ -35,6 +35,11 @@ public:
     void setArcOrigin(float normalized) noexcept { origin_ = normalized; }
     /// For stepped parameters: number of discrete positions (0 = continuous).
     void setNumSteps(int steps) noexcept { steps_ = steps; }
+    /// Shows whether its parameter is automated (the indicator; automation.md §6).
+    void setAutomationState(AutomationState state);
+    [[nodiscard]] AutomationState automationState() const noexcept { return automation_; }
+    /// A right-click: the control's menu (automation, reset).
+    std::function<void()> onPopupMenu;
 
     std::function<void(float)> onValueChange;
     std::function<void()> onGestureStart;
@@ -86,6 +91,7 @@ private:
     float lastDragY_ = 0.0f;
     float lastDragX_ = 0.0f;
     Style style_ = Style::Rotary;
+    AutomationState automation_ = AutomationState::None;
     bool dragging_ = false;
     std::unique_ptr<juce::TextEditor> editor_;
 

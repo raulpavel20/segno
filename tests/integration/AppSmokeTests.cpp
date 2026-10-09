@@ -4,6 +4,7 @@
 #include "engine/EngineBehaviour.h"
 #include "engine/DevicePlugin.h"
 #include "engine/Session.h"
+#include "engine/SessionImpl.h"
 #include "mcp/McpServer.h"
 #include "model/Editing.h"
 #include "model/ChannelStripLayout.h"
@@ -1167,4 +1168,140 @@ TEST_CASE("automation lanes: rows under their track, picked, folded, edited and 
     view.setAllTrackHeights(80.0);
     const auto state = nlohmann::json::parse(s.viewStateProvider());
     CHECK(state["rowHeights"]["c" + std::to_string(t0) + "/" + freq] == Catch::Approx(80.0));
+}
+
+TEST_CASE("automated controls: the indicator, their menu, following the lane, the transport (C4c)", "[integration]")
+{
+    using fd::ui::AutomationState;
+    ShellFixture f;
+    f.shell->setSize(1800, 1000);
+    auto& s = *f.session;
+    auto& actions = f.shell->actions();
+    const auto t0 = s.snapshot()->tracks[0].id;
+    const auto eq = s.addDevice(t0, "fd:eq");
+    REQUIRE(eq != 0);
+    s.updateSnapshotNow();
+    auto handle = s.openDevice(eq);
+    REQUIRE(handle != nullptr);
+    auto& ctx = handle->context();
+    auto indexOf = [&](std::string_view id) {
+        for (size_t i = 0; i < ctx.info.params.size(); ++i)
+            if (ctx.info.params[i].id == id)
+                return i;
+        FAIL("no parameter " << id);
+        return size_t{0};
+    };
+    const auto freq = indexOf("band1.freq"), analyzer = indexOf("analyzer");
+    CHECK(ctx.params.canAutomate(freq));
+    CHECK_FALSE(ctx.params.canAutomate(analyzer)); // a setting, not automatable
+    CHECK(ctx.params.automationState(freq) == AutomationState::None);
+
+    // "Show automation lane" from a control: the lane, selected, in the arrangement (even from
+    // the mixer view).
+    REQUIRE(actions.perform("view.mixer"));
+    ctx.params.showAutomation(freq);
+    s.updateSnapshotNow();
+    CHECK_FALSE(actions.isToggled("view.mixer"));
+    const std::string lane = "m" + std::to_string(eq) + "/band1.freq";
+    CHECK(f.shell->arrangement().selection().lane == std::optional(lane));
+
+    // Points: the indicator plays; moving the knob turns the lane off; the transport's button
+    // turns every lane back on.
+    REQUIRE(s.setAutomation({t0, lane}, {{0.0, 0.2f, 0.0f}, {2.0, 0.8f, 0.0f}}));
+    fd::ui::ParamKnob knob(ctx, freq);
+    knob.refresh();
+    CHECK(knob.automationState() == AutomationState::On);
+    CHECK_FALSE(actions.isEnabled("automation.reEnable"));
+    ctx.params.beginGesture(freq);
+    ctx.params.setPlain(freq, 1000.0f);
+    ctx.params.endGesture(freq);
+    s.updateSnapshotNow();
+    knob.refresh();
+    CHECK(knob.automationState() == AutomationState::Off);
+    CHECK(actions.isEnabled("automation.reEnable"));
+    CHECK(actions.isToggled("automation.reEnable")); // the button lights
+    REQUIRE(actions.perform("automation.reEnable"));
+    s.updateSnapshotNow();
+    CHECK(ctx.params.automationState(freq) == AutomationState::On);
+    CHECK_FALSE(actions.isEnabled("automation.reEnable"));
+    ctx.params.clearAutomation(freq);
+    s.updateSnapshotNow();
+    CHECK(ctx.params.automationState(freq) == AutomationState::None);
+
+    // A mix control: the indicator, and it follows the lane while it plays.
+    REQUIRE(s.setAutomation({t0, "volume"}, {{0.0, 0.8f, 0.0f}, {4.0, 0.2f, 0.0f}}));
+    s.updateSnapshotNow();
+    fd::app::VolumeBar bar(s, t0);
+    bar.update(*s.snapshot()->channel(t0));
+    CHECK(bar.automationState() == AutomationState::On);
+    auto volume = s.impl().lane({t0, "volume"});
+    REQUIRE(volume);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(50); // tracktion readies the curve's playback
+    volume->param->updateFromAutomationSources(tracktion::TimePosition::fromSeconds(2.0)); // as playback does
+    bar.follow();
+    CHECK(bar.getValue() == Catch::Approx(0.5f).margin(0.01f));
+
+    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: indicators on, off, and the transport
+    {
+        REQUIRE(s.setAutomation({t0, "m" + std::to_string(eq) + "/band2.freq"}, {{0.0, 0.2f, 0.0f}, {2.0, 0.8f, 0.0f}}));
+        const std::string gain = "m" + std::to_string(eq) + "/output";
+        REQUIRE(s.setAutomation({t0, gain}, {{0.0, 0.2f, 0.0f}, {2.0, 0.8f, 0.0f}}));
+        s.setLaneOn({t0, gain}, false);
+        s.setAutomationArmed(true);
+        f.shell->arrangement().selectTrack(t0);
+        s.updateSnapshotNow();
+        f.shell->finishAnimations();
+        for (auto* k : findAll<fd::ui::ParamKnob>(*f.shell))
+            k->refresh();
+        for (auto* b : f.shell->getChildren())
+            if (auto* transport = dynamic_cast<fd::app::TransportBar*>(b))
+                transport->frame(0.0, s.snapshot()->tempo);
+        juce::PNGImageFormat png;
+        auto file = juce::File(dump).getChildFile("automation-controls.png");
+        file.deleteFile();
+        if (auto out = file.createOutputStream())
+            png.writeImageToStream(f.shell->createComponentSnapshot(f.shell->getLocalBounds(), true, 2.0f), *out);
+        s.setAutomationArmed(false);
+    }
+
+    // Arm: touch recording while playing.
+    REQUIRE(actions.perform("automation.arm"));
+    CHECK(s.isAutomationArmed());
+    CHECK(actions.isToggled("automation.arm"));
+    REQUIRE(actions.perform("automation.arm"));
+    CHECK_FALSE(s.isAutomationArmed());
+}
+
+TEST_CASE("controls: a right-click opens their menu; a double-click never nests gestures", "[integration]")
+{
+    juce::ScopedJuceInitialiser_GUI init;
+    fd::ui::Knob knob;
+    knob.setSize(48, 76);
+    int depth = 0, deepest = 0, menus = 0;
+    knob.onGestureStart = [&] { deepest = std::max(deepest, ++depth); };
+    knob.onGestureEnd = [&] { --depth; };
+    knob.onPopupMenu = [&] { ++menus; };
+    const juce::Point<float> p(24.0f, 38.0f);
+    const auto left = juce::ModifierKeys::leftButtonModifier;
+    knob.mouseDown(mouseEvent(knob, p, p, false, left, 1));
+    knob.mouseUp(mouseEvent(knob, p, p, false, left, 1));
+    knob.mouseDown(mouseEvent(knob, p, p, false, left, 2));
+    knob.mouseDoubleClick(mouseEvent(knob, p, p, false, left, 2));
+    knob.mouseUp(mouseEvent(knob, p, p, false, left, 2));
+    CHECK(deepest == 1);
+    CHECK(depth == 0);
+
+    const auto right = juce::ModifierKeys(juce::ModifierKeys::rightButtonModifier);
+    knob.mouseDown(mouseEvent(knob, p, p, false, right, 1));
+    CHECK(menus == 1);
+    CHECK(depth == 0); // no gesture
+
+    fd::ui::Toggle toggle("On");
+    toggle.setSize(40, 20);
+    toggle.onPopupMenu = [&] { ++menus; };
+    const juce::Point<float> q(10.0f, 10.0f);
+    toggle.mouseDown(mouseEvent(toggle, q, q, false, right, 1));
+    toggle.mouseUp(mouseEvent(toggle, q, q, false, right, 1));
+    CHECK(menus == 2);
+    CHECK_FALSE(toggle.getToggleState()); // a right-click doesn't toggle
 }

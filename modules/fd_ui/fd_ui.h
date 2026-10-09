@@ -23,6 +23,7 @@ END_JUCE_MODULE_DECLARATION
 #include "theme/Theme.h"
 #include "theme/Fonts.h"
 #include "theme/LookAndFeel.h"
+#include "controls/Automation.h"
 #include "controls/Knob.h"
 #include "controls/Toggle.h"
 #include "controls/ViewOption.h"

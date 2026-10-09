@@ -2,7 +2,7 @@
 
 How parameters change over time in Segno: automation lanes in the arrangement, breakpoints and curves, recording moves while playing, and how automated controls look and behave. The decision is [ADR 0028](../decisions/0028-automation-lanes.md). It builds on the track header kit and the time-view kit ([ui-foundations.md](ui-foundations.md), ADR 0023), the selection model ([selection.md](selection.md), ADR 0027), the mixer ([mixer.md](mixer.md), ADR 0026) and the reserved gradient (ui-principles §4).
 
-**Status:** approved by the product owner (2026-10-09), with every recommendation of §14.
+**Status:** approved by the product owner (2026-10-09), with every recommendation of §14. Built (2026-10-09) in three parts (§15); awaiting the product owner's feel check.
 
 ## 1. Principles
 
@@ -108,14 +108,14 @@ Every control of an automated parameter shows it, wherever it appears (module pa
 When you move a control whose lane plays, while not recording:
 
 - **the lane turns off** and the control keeps the value you set. The lane's on switch goes off, its curve fades, and the control's indicator becomes a ring. Nothing is lost: the points stay;
-- **the transport bar's "Automation" button lights** while any lane is off. Clicking it (or **Turn automation back on** in the palette) turns every lane back on; a lane's own switch turns just that one back on;
+- **the transport bar's "Turn automation back on" button lights** (beside Automation arm) while any lane is off. Clicking it (or Ctrl+Alt+A, or **Turn automation back on** in the palette) turns every lane back on; a lane's own switch turns just that one back on;
 - this is a listening state, like solo: saved with the project, never an undo step and never an unsaved change on its own.
 
 The alternative is that the lane always wins: the control snaps back to the curve as soon as you let go, even when stopped. That's predictable but makes it impossible to try a different value without editing the lane.
 
 ## 8. Recording
 
-- **Automation arm** (the transport bar's "Automation" button, Ctrl+Shift+A): while armed and playing, moving a control writes its moves into its lane, adding the lane if it isn't shown.
+- **Automation arm** (the transport bar's arm button, a line through two points; Ctrl+Shift+A): while armed and playing, moving a control writes its moves into its lane, adding the lane if it isn't shown.
 - **Touch** is the only mode in M2 (Q3): a lane is written while you hold the control; letting go stops writing, and the existing curve continues from there. Moves without a held gesture (typing a value, the mouse wheel) are written as they happen, and writing stops a moment after the last one.
 - **Each pass is one undo step** ("Record automation"), however many controls were moved.
 - **Thinning:** recorded moves are thinned to the points needed to redraw them within 0.2 % of the travel, so lanes stay editable.
@@ -142,7 +142,7 @@ The invariant stays: the selected channel is the channel of what was selected la
 | Action | ID | Shortcut |
 |---|---|---|
 | Automation arm | `automation.arm` | Ctrl+Shift+A |
-| Turn automation back on | `automation.reEnable` | (palette, transport button) |
+| Turn automation back on | `automation.reEnable` | Ctrl+Alt+A (and its transport button) |
 | Add automation lane… | `automation.addLane` | Ctrl+Shift+L |
 | Show last touched parameter | `automation.showLastTouched` | Alt+L |
 | Show automation lanes (all tracks) | `view.lanes` | Ctrl+Alt+L |

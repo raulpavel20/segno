@@ -530,6 +530,28 @@ std::optional<Session::LaneTarget> Session::lastTouchedParameter() const
     return std::nullopt;
 }
 
+std::optional<Session::LaneTarget> Session::moduleLane(std::uint64_t deviceId, const std::string& paramId) const
+{
+    const auto snapshot = impl_->snapshot;
+    auto find = [&](const model::TrackInfo& t) -> std::optional<LaneTarget> {
+        for (const auto& d : t.devices)
+            if (d.id == deviceId)
+                return LaneTarget{t.id, "m" + std::to_string(deviceId) + "/" + paramId};
+        return std::nullopt;
+    };
+    for (const auto* list : {&snapshot->tracks, &snapshot->returns})
+        for (const auto& t : *list)
+            if (auto target = find(t))
+                return target;
+    return find(snapshot->master);
+}
+
+void Session::revealLane(const LaneTarget& target)
+{
+    if (showLane(target) && onLaneRevealed)
+        onLaneRevealed(target);
+}
+
 Session::LaneGesture::LaneGesture(Session& session, const LaneTarget& target, const std::string& name)
     : session_(session), target_(target)
 {

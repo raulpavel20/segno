@@ -21,7 +21,9 @@ enum class Icon
     Keyboard,    // computer keyboard as MIDI input
     ChevronLeft,  // fold a module
     ChevronRight, // unfold
-    Assistant     // assistants connected over MCP (a spark)
+    Assistant,    // assistants connected over MCP (a spark)
+    AutomationArm, // automation arm: a lane's line with a point (C4)
+    AutomationOn   // turn automation back on: the line with a turning arrow
 };
 
 /// Draws `icon` fitted (aspect kept) into `area` in `colour`.

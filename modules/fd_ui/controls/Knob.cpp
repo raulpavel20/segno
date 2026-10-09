@@ -78,16 +78,21 @@ void Knob::resized()
     editor_->setBounds(block.removeFromBottom(grid.knobValue + 2).reduced(2, 0));
 }
 
+void Knob::setAutomationState(AutomationState state)
+{
+    if (state == automation_)
+        return;
+    automation_ = state;
+    repaint();
+}
+
 void Knob::paint(juce::Graphics& g)
 {
-    if (style_ == Style::Bar)
+    if (style_ == Style::Bar || style_ == Style::Fader)
     {
-        paintBar(g);
-        return;
-    }
-    if (style_ == Style::Fader)
-    {
-        paintFader(g);
+        style_ == Style::Bar ? paintBar(g) : paintFader(g);
+        // A bar or fader: the indicator at its top-left corner.
+        paintAutomationIndicator(g, {3.5f, 3.5f}, automation_);
         return;
     }
     const auto& t = Theme::current();
@@ -108,6 +113,13 @@ void Knob::paint(juce::Graphics& g)
     g.setFont(fonts::font(t.textXs, fonts::Weight::Medium));
     g.setColour(hot ? t.textPrimary : t.textSecondary);
     g.drawText(name_, nameArea, juce::Justification::centred, false);
+    if (automation_ != AutomationState::None) // left of its name
+    {
+        const float nameWidth = juce::GlyphArrangement::getStringWidth(fonts::font(t.textXs, fonts::Weight::Medium), name_);
+        paintAutomationIndicator(g, {std::max(nameArea.getX() + 3.0f, nameArea.getCentreX() - nameWidth * 0.5f - 7.0f),
+                                     nameArea.getCentreY()},
+                                 automation_);
+    }
 
     const float thickness = t.knobArcThickness;
     const float radius = (size - thickness) * 0.5f;
@@ -246,7 +258,11 @@ void Knob::paintFader(juce::Graphics& g)
 void Knob::mouseDown(const juce::MouseEvent& e)
 {
     if (e.mods.isPopupMenu())
+    {
+        if (onPopupMenu)
+            onPopupMenu();
         return;
+    }
     grabKeyboardFocus();
     dragging_ = true;
     dragAccumulator_ = value_;
@@ -280,12 +296,17 @@ void Knob::mouseUp(const juce::MouseEvent&)
         onGestureEnd();
 }
 
-void Knob::mouseDoubleClick(const juce::MouseEvent&)
+void Knob::mouseDoubleClick(const juce::MouseEvent& e)
 {
-    if (onGestureStart)
+    if (e.mods.isPopupMenu())
+        return;
+    // The double-click's second press already began a gesture (ended on release): the reset is
+    // part of it, so gestures never nest.
+    const bool own = !dragging_;
+    if (own && onGestureStart)
         onGestureStart();
     changeTo(default_);
-    if (onGestureEnd)
+    if (own && onGestureEnd)
         onGestureEnd();
 }
 

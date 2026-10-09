@@ -98,11 +98,42 @@ private:
     mutable std::vector<std::uint64_t> choices_;
 };
 
+/// A module's parameters in the DAW, with its automation (a control's menu, ADR 0028).
+class SessionDeviceBinding final : public DevicePluginBinding
+{
+public:
+    SessionDeviceBinding(Session& session, DevicePlugin& plugin) : DevicePluginBinding(plugin), session_(session) {}
+
+    void showAutomation(size_t i) override
+    {
+        if (const auto target = lane(i))
+            session_.revealLane(*target);
+    }
+    void clearAutomation(size_t i) override
+    {
+        if (const auto target = lane(i))
+            session_.setAutomation(*target, {}, std::nullopt, "Clear automation");
+    }
+    void turnAutomationOn(size_t i) override
+    {
+        if (const auto target = lane(i))
+            session_.setLaneOn(*target, true);
+    }
+
+private:
+    std::optional<Session::LaneTarget> lane(size_t i) const
+    {
+        return session_.moduleLane(plugin_.itemID.getRawID(), std::string(spec(i).id));
+    }
+
+    Session& session_;
+};
+
 class NativeDeviceHandle final : public DeviceHandle
 {
 public:
     NativeDeviceHandle(Session& session, DevicePlugin& plugin)
-        : plugin_(&plugin), native_(plugin), binding_(plugin), sidechain_(session, plugin.itemID.getRawID()),
+        : plugin_(&plugin), native_(plugin), binding_(session, plugin), sidechain_(session, plugin.itemID.getRawID()),
           context_{plugin.device().info(), binding_, &plugin.device().analysis(), &plugin.device(), &sidechain_}
     {
     }
@@ -112,7 +143,7 @@ public:
 private:
     te::Plugin::Ptr plugin_; // keeps the device alive while its panel exists
     DevicePlugin& native_;
-    DevicePluginBinding binding_;
+    SessionDeviceBinding binding_;
     SessionSidechain sidechain_;
     ui::DeviceUiContext context_;
 };

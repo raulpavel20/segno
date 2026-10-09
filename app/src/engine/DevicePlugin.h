@@ -82,7 +82,7 @@ void registerDevices(te::Engine& engine);
 
 /// UI binding for a native device: edits go through AutomatableParameter (automation
 /// recording and undo work).
-class DevicePluginBinding final : public ui::ParamBinding
+class DevicePluginBinding : public ui::ParamBinding
 {
 public:
     explicit DevicePluginBinding(DevicePlugin& plugin) : plugin_(plugin) {}
@@ -96,7 +96,21 @@ public:
     void endGesture(size_t i) override { plugin_.parameter(i).parameterChangeGestureEnd(); }
     void applyExtraState(const nlohmann::json& patch) override { plugin_.applyExtraState(patch); }
 
-private:
+    /// A lane plays (On), is off (Off), or the parameter has no automation (ADR 0028).
+    [[nodiscard]] ui::AutomationState automationState(size_t i) const override
+    {
+        auto& curve = plugin_.parameter(i).getCurve();
+        if (curve.getNumPoints() == 0)
+            return ui::AutomationState::None;
+        return curve.bypass.get() ? ui::AutomationState::Off : ui::AutomationState::On;
+    }
+    [[nodiscard]] bool canAutomate(size_t i) const override
+    {
+        const auto& s = spec(i);
+        return s.hasFlag(ParamFlags::Automatable) && !s.hasFlag(ParamFlags::ChangesLatency) && !s.hasFlag(ParamFlags::Hidden);
+    }
+
+protected:
     [[nodiscard]] const ParamSpec& spec(size_t i) const { return plugin_.device().info().params[i]; }
 
     DevicePlugin& plugin_;

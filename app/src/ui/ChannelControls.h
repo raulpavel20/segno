@@ -10,8 +10,28 @@ namespace fd::app
 {
 // The controls of one mixer channel (M2 step C3, docs/design/mixer.md), bound to the Session.
 // The track headers, the inspector and the mixer view use the same ones, so they behave the same
-// everywhere: shared fd_ui controls, edits through Session commands (a drag is one undo step),
-// values from the snapshot.
+// everywhere: shared fd_ui controls, edits through Session commands (a drag is one undo step and,
+// while recording, a touch), values from the snapshot. Automated ones show the indicator, follow
+// their lane while it plays, and offer its menu (C4, docs/design/automation.md §6).
+
+/// What a mix control needs to know about its lane.
+class LaneFollower
+{
+public:
+    LaneFollower(engine::Session& session, engine::Session::LaneTarget target);
+    /// Reads the lane from the snapshot: whether it plays, and the indicator's state.
+    [[nodiscard]] ui::AutomationState update();
+    /// While the lane plays: the parameter's value now (lane units).
+    [[nodiscard]] std::optional<float> played() const;
+    /// The control's right-click menu: its lane, and `reset`.
+    void showMenu(juce::Component& control, std::function<void()> reset) const;
+    [[nodiscard]] const engine::Session::LaneTarget& target() const noexcept { return target_; }
+
+private:
+    engine::Session& session_;
+    engine::Session::LaneTarget target_;
+    bool plays_ = false;
+};
 
 /// Volume as a bar (headers, inspector) or a fader (the mixer view), on the volume taper (0 dB at
 /// 80 %). Any channel.
@@ -22,10 +42,16 @@ public:
     /// Shows the snapshot's value (not while being dragged).
     void update(const model::TrackInfo& channel);
 
+    /// Each frame: follows the lane's played value while it plays.
+    void follow();
+
 private:
+
     engine::Session& session_;
     std::uint64_t channel_;
-    std::optional<engine::Session::EditGroup> gesture_;
+    LaneFollower lane_;
+    std::optional<engine::Session::LaneGesture> gesture_;
+    juce::VBlankAttachment vblank_{this, [this] { follow(); }};
 };
 
 /// Pan as a bipolar bar: a balance, "C", "25L", "50R". Any channel.
@@ -35,10 +61,16 @@ public:
     PanBar(engine::Session& session, std::uint64_t channel);
     void update(const model::TrackInfo& channel);
 
+    /// Each frame: follows the lane's played value while it plays.
+    void follow();
+
 private:
+
     engine::Session& session_;
     std::uint64_t channel_;
-    std::optional<engine::Session::EditGroup> gesture_;
+    LaneFollower lane_;
+    std::optional<engine::Session::LaneGesture> gesture_;
+    juce::VBlankAttachment vblank_{this, [this] { follow(); }};
 };
 
 /// A track's send to one return track, as a bar on the send taper (0 dB at the top).
@@ -50,10 +82,16 @@ public:
     void update(const model::SendInfo& send, const juce::String& returnName, bool showName = true);
     [[nodiscard]] std::uint64_t returnTrack() const noexcept { return return_; }
 
+    /// Each frame: follows the lane's played value while it plays.
+    void follow();
+
 private:
+
     engine::Session& session_;
     std::uint64_t track_, return_;
-    std::optional<engine::Session::EditGroup> gesture_;
+    LaneFollower lane_;
+    std::optional<engine::Session::LaneGesture> gesture_;
+    juce::VBlankAttachment vblank_{this, [this] { follow(); }};
 };
 
 /// Mute ("M"), solo ("S", exclusive; Ctrl+click adds) or a send's pre-fader switch ("Pre").
@@ -81,10 +119,16 @@ public:
     /// Without the unit ("-6.0"), for narrow strips.
     void setCompact(bool compact);
 
+    /// Each frame: follows the lane's played value while it plays.
+    void follow();
+
 private:
+
     engine::Session& session_;
     std::uint64_t channel_;
-    std::optional<engine::Session::EditGroup> gesture_;
+    LaneFollower lane_;
+    std::optional<engine::Session::LaneGesture> gesture_;
+    juce::VBlankAttachment vblank_{this, [this] { follow(); }};
 };
 
 /// A channel's stereo meter, through a level reader of its own. It also keeps the loudest peak

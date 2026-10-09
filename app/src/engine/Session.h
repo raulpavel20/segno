@@ -255,6 +255,12 @@ public:
     [[nodiscard]] bool isAutomationArmed() const;
     /// The parameter the user moved last, if it can be automated.
     [[nodiscard]] std::optional<LaneTarget> lastTouchedParameter() const;
+    /// The lane of a module's parameter (by the module's id and the parameter's id).
+    [[nodiscard]] std::optional<LaneTarget> moduleLane(std::uint64_t deviceId, const std::string& paramId) const;
+    /// Shows a lane and asks the views to bring it into sight and select it (a control's
+    /// "Show automation lane"; onLaneRevealed).
+    void revealLane(const LaneTarget& target);
+    std::function<void(const LaneTarget&)> onLaneRevealed;
 
     /// A gesture on a channel's mix parameter (a drag of a volume, pan or send control): one undo
     /// step named `name` and, while recording, a touch on its lane.

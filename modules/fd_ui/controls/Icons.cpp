@@ -114,6 +114,26 @@ Glyph glyph(Icon icon)
             g.solid.addRoundedRectangle(x - 1.5f, 3.5f, 3.0f, 4.5f, 0.5f);
         }
         break;
+    case Icon::AutomationArm:
+        // An automation line through its points.
+        p.startNewSubPath(1.5f, 12.0f);
+        p.lineTo(5.5f, 6.0f);
+        p.lineTo(10.0f, 10.0f);
+        p.lineTo(14.5f, 3.5f);
+        for (auto [x, y] : {std::pair{5.5f, 6.0f}, std::pair{10.0f, 10.0f}})
+            g.solid.addEllipse(x - 1.75f, y - 1.75f, 3.5f, 3.5f);
+        break;
+    case Icon::AutomationOn:
+        // The line, coming back round: a turning arrow under a short lane.
+        p.startNewSubPath(1.5f, 7.0f);
+        p.lineTo(5.0f, 3.5f);
+        p.lineTo(8.5f, 6.0f);
+        p.lineTo(14.5f, 2.0f);
+        p.addCentredArc(8.0f, 11.0f, 3.5f, 3.5f, 0.0f, 0.6f, 5.2f, true);
+        p.startNewSubPath(10.2f, 9.6f);
+        p.lineTo(11.3f, 12.2f);
+        p.lineTo(8.6f, 12.6f);
+        break;
     case Icon::Assistant:
         // A four-pointed spark, with a small one beside it.
         p.startNewSubPath(7.0f, 2.0f);

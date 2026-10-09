@@ -25,6 +25,8 @@ TransportBar::TransportBar(engine::Session& session, const ActionRegistry& actio
     add(stop_, "transport.toStart");
     add(loop_, "transport.loop");
     add(metronome_, "transport.metronome");
+    add(automationArm_, "automation.arm");
+    add(automationOn_, "automation.reEnable");
     add(keyboard_, "midi.computerKeyboard");
     for (auto* view : {&arrangeView_, &mixView_})
     {
@@ -200,6 +202,9 @@ void TransportBar::resized()
     bar.groupLeft();
     loop_.setBounds(bar.left());
     metronome_.setBounds(bar.left());
+    bar.groupLeft();
+    automationArm_.setBounds(bar.left());
+    automationOn_.setBounds(bar.left());
     bar.groupLeft();
     // Fields sized for their mono digits: "999.00", "32".
     const auto digit = juce::GlyphArrangement::getStringWidth(ui::font(ui::TextStyle::ValueMedium), "0");

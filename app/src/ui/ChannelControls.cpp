@@ -31,9 +31,55 @@ std::optional<float> parseLevel(const juce::String& text)
 }
 } // namespace
 
+// ---- LaneFollower -------------------------------------------------------------------------
+
+LaneFollower::LaneFollower(engine::Session& session, engine::Session::LaneTarget target)
+    : session_(session), target_(std::move(target))
+{
+}
+
+ui::AutomationState LaneFollower::update()
+{
+    const auto* channel = session_.snapshot()->channel(target_.channel);
+    const auto* lane = channel != nullptr ? channel->lane(target_.lane) : nullptr;
+    plays_ = lane != nullptr && !lane->points.empty() && lane->on;
+    if (lane == nullptr || lane->points.empty())
+        return ui::AutomationState::None;
+    return lane->on ? ui::AutomationState::On : ui::AutomationState::Off;
+}
+
+std::optional<float> LaneFollower::played() const
+{
+    return plays_ ? session_.laneValue(target_) : std::nullopt;
+}
+
+void LaneFollower::showMenu(juce::Component& control, std::function<void()> reset) const
+{
+    const auto* channel = session_.snapshot()->channel(target_.channel);
+    const auto* lane = channel != nullptr ? channel->lane(target_.lane) : nullptr;
+    const bool points = lane != nullptr && !lane->points.empty();
+    juce::Component::SafePointer<juce::Component> alive(&control);
+    auto& session = session_;
+    const auto target = target_;
+    juce::PopupMenu menu;
+    menu.addItem("Show automation lane", [&session, target] { session.revealLane(target); });
+    if (points)
+        menu.addItem("Clear automation",
+                     [&session, target] { session.setAutomation(target, {}, std::nullopt, "Clear automation"); });
+    if (points && !lane->on)
+        menu.addItem("Turn automation back on", [&session, target] { session.setLaneOn(target, true); });
+    menu.addSeparator();
+    menu.addItem("Reset to default", [alive, run = std::move(reset)] {
+        if (alive != nullptr)
+            run();
+    });
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&control));
+}
+
 // ---- VolumeBar ----------------------------------------------------------------------------
 
-VolumeBar::VolumeBar(engine::Session& session, std::uint64_t channel, Style style) : session_(session), channel_(channel)
+VolumeBar::VolumeBar(engine::Session& session, std::uint64_t channel, Style style)
+    : session_(session), channel_(channel), lane_(session, {channel, "volume"})
 {
     setStyle(style);
     setName("Vol");
@@ -45,20 +91,30 @@ VolumeBar::VolumeBar(engine::Session& session, std::uint64_t channel, Style styl
             return static_cast<float>(model::volumePosition(*db));
         return std::nullopt;
     };
-    onGestureStart = [this] { gesture_.emplace(session_, "Volume"); };
+    onGestureStart = [this] { gesture_.emplace(session_, lane_.target(), "Volume"); };
     onGestureEnd = [this] { gesture_.reset(); };
     onValueChange = [this](float v) { session_.setVolume(channel_, static_cast<float>(model::volumeDbAt(v))); };
+    onPopupMenu = [this] { lane_.showMenu(*this, [this] { session_.setVolume(channel_, 0.0f); }); };
 }
 
 void VolumeBar::update(const model::TrackInfo& channel)
 {
+    setAutomationState(lane_.update());
     if (!gesture_)
         setValue(static_cast<float>(model::volumePosition(channel.mix.volumeDb)), juce::dontSendNotification);
 }
 
+void VolumeBar::follow()
+{
+    // The volume lane's value is the fader's own position (the taper, ADR 0028).
+    if (const auto v = lane_.played(); v && !gesture_ && std::abs(*v - getValue()) > 1e-5f)
+        setValue(*v, juce::dontSendNotification);
+}
+
 // ---- PanBar -------------------------------------------------------------------------------
 
-PanBar::PanBar(engine::Session& session, std::uint64_t channel) : session_(session), channel_(channel)
+PanBar::PanBar(engine::Session& session, std::uint64_t channel)
+    : session_(session), channel_(channel), lane_(session, {channel, "pan"})
 {
     setStyle(Style::Bar);
     setName("Pan");
@@ -77,21 +133,29 @@ PanBar::PanBar(engine::Session& session, std::uint64_t channel) : session_(sessi
         }
         return std::nullopt;
     };
-    onGestureStart = [this] { gesture_.emplace(session_, "Pan"); };
+    onGestureStart = [this] { gesture_.emplace(session_, lane_.target(), "Pan"); };
     onGestureEnd = [this] { gesture_.reset(); };
     onValueChange = [this](float v) { session_.setPan(channel_, v * 2.0f - 1.0f); };
+    onPopupMenu = [this] { lane_.showMenu(*this, [this] { session_.setPan(channel_, 0.0f); }); };
 }
 
 void PanBar::update(const model::TrackInfo& channel)
 {
+    setAutomationState(lane_.update());
     if (!gesture_)
         setValue(channel.mix.pan * 0.5f + 0.5f, juce::dontSendNotification);
+}
+
+void PanBar::follow()
+{
+    if (const auto v = lane_.played(); v && !gesture_ && std::abs(*v - getValue()) > 1e-5f)
+        setValue(*v, juce::dontSendNotification);
 }
 
 // ---- SendBar ------------------------------------------------------------------------------
 
 SendBar::SendBar(engine::Session& session, std::uint64_t track, std::uint64_t returnTrack)
-    : session_(session), track_(track), return_(returnTrack)
+    : session_(session), track_(track), return_(returnTrack), lane_(session, {track, "send/" + std::to_string(returnTrack)})
 {
     setStyle(Style::Bar);
     setDefaultValue(0.0f);
@@ -101,11 +165,21 @@ SendBar::SendBar(engine::Session& session, std::uint64_t track, std::uint64_t re
             return static_cast<float>(model::sendPosition(*db));
         return std::nullopt;
     };
-    onGestureStart = [this] { gesture_.emplace(session_, "Send"); }; // one undo step per drag
+    onGestureStart = [this] { gesture_.emplace(session_, lane_.target(), "Send"); }; // one undo step per drag
     onGestureEnd = [this] { gesture_.reset(); };
     onValueChange = [this](float v) {
         session_.setSend(track_, return_, static_cast<float>(model::sendDbAt(v)), std::nullopt);
     };
+    onPopupMenu = [this] {
+        lane_.showMenu(*this, [this] { session_.setSend(track_, return_, model::minusInfinityDb, std::nullopt); });
+    };
+}
+
+void SendBar::follow()
+{
+    // A send lane's value is the send's own position (0 dB at the top).
+    if (const auto v = lane_.played(); v && !gesture_ && std::abs(*v - getValue()) > 1e-5f)
+        setValue(*v, juce::dontSendNotification);
 }
 
 void SendBar::update(const model::SendInfo& send, const juce::String& returnName, bool showName)
@@ -114,6 +188,7 @@ void SendBar::update(const model::SendInfo& send, const juce::String& returnName
     if (getName() != name)
         setName(name);
     setTooltip("Send to " + returnName + " (double-click: off)");
+    setAutomationState(lane_.update());
     if (!gesture_)
         setValue(static_cast<float>(model::sendPosition(send.levelDb)), juce::dontSendNotification);
 }
@@ -156,7 +231,8 @@ void ChannelToggle::clicked()
 
 // ---- VolumeField --------------------------------------------------------------------------
 
-VolumeField::VolumeField(engine::Session& session, std::uint64_t channel) : session_(session), channel_(channel)
+VolumeField::VolumeField(engine::Session& session, std::uint64_t channel)
+    : session_(session), channel_(channel), lane_(session, {channel, "volume"})
 {
     setRange(model::minusInfinityDb, 6.0, 0.1);
     setDragSensitivity(0.2);
@@ -167,9 +243,16 @@ VolumeField::VolumeField(engine::Session& session, std::uint64_t channel) : sess
             return *db;
         return std::nullopt;
     };
-    onGestureStart = [this] { gesture_.emplace(session_, "Volume"); };
+    onGestureStart = [this] { gesture_.emplace(session_, lane_.target(), "Volume"); };
     onGestureEnd = [this] { gesture_.reset(); };
     onValueChange = [this](double v) { session_.setVolume(channel_, static_cast<float>(v)); };
+}
+
+void VolumeField::follow()
+{
+    if (const auto v = lane_.played(); v && !gesture_)
+        if (const auto db = session_.lanePlain(lane_.target(), *v); db && std::abs(*db - getValue()) > 0.01)
+            setValue(std::max<double>(*db, model::minusInfinityDb), juce::dontSendNotification);
 }
 
 void VolumeField::setCompact(bool compact)
@@ -183,6 +266,7 @@ void VolumeField::setCompact(bool compact)
 
 void VolumeField::update(const model::TrackInfo& channel)
 {
+    (void)lane_.update();
     if (!gesture_)
         setValue(channel.mix.volumeDb, juce::dontSendNotification);
 }

@@ -86,6 +86,13 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     arrangement_.onActivated = [this] { lastArea_ = Area::Arrangement; };
     arrangement_.onLaneActivated = [this] { lastArea_ = Area::Lane; };
     arrangement_.onAddLane = [this](std::uint64_t channel) { lanePicker_.open(*this, channel); };
+    // "Show automation lane" on any control: the lane, in the arrangement.
+    session_.onLaneRevealed = [this](const engine::Session::LaneTarget& target) {
+        if (mixerShown_)
+            setMixerShown(false);
+        lastArea_ = Area::Lane;
+        arrangement_.selectLane(target.channel, target.lane);
+    };
     lanePicker_.onChosen = [this](const engine::Session::LaneTarget& target) {
         lastArea_ = Area::Lane;
         arrangement_.selectLane(target.channel, target.lane);
@@ -139,6 +146,7 @@ Shell::~Shell()
     session_.onProjectWillChange = nullptr;
     session_.onProjectChanged = nullptr;
     session_.viewStateProvider = nullptr;
+    session_.onLaneRevealed = nullptr;
 }
 
 // ---- actions -------------------------------------------------------------------------------
@@ -332,7 +340,13 @@ void Shell::registerActions()
                   .perform = [this] { setMixerShown(!mixerShown_); },
                   .isToggled = [this] { return mixerShown_; }});
     auto arrangeShown = [this] { return !mixerShown_; }; // actions on what only the arrangement shows
-    // Automation lanes (C4, docs/design/automation.md §3, §10).
+    // Automation lanes (C4, docs/design/automation.md §3, §7, §8, §10).
+    actions_.add({.id = "automation.arm", .name = "Automation arm", .category = "Automation", .keys = {key('a', kCmd | kShift)},
+                  .perform = [&s] { s.setAutomationArmed(!s.isAutomationArmed()); },
+                  .isToggled = [&s] { return s.isAutomationArmed(); }});
+    actions_.add({.id = "automation.reEnable", .name = "Turn automation back on", .category = "Automation",
+                  .keys = {key('a', kCmd | kAlt)}, .perform = [&s] { s.setAllLanesOn(); },
+                  .isEnabled = [&s] { return s.anyLaneOff(); }, .isToggled = [&s] { return s.anyLaneOff(); }});
     actions_.add({.id = "automation.addLane", .name = "Add automation lane...", .category = "Automation",
                   .keys = {key('l', kCmd | kShift)},
                   .perform = [this] {

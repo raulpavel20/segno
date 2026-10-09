@@ -70,6 +70,8 @@ private:
     const ActionRegistry& actions_;
     ui::IconButton play_{ui::Icon::Play}, stop_{ui::Icon::Stop};
     ui::IconButton loop_{ui::Icon::Loop}, metronome_{ui::Icon::Metronome}, keyboard_{ui::Icon::Keyboard};
+    // Automation (C4): arm (touch recording), and turn every lane back on (lit while one is off).
+    ui::IconButton automationArm_{ui::Icon::AutomationArm}, automationOn_{ui::Icon::AutomationOn};
     ui::NumberField tempoField_, numeratorField_, denominatorField_;
     ui::IconButton browser_{ui::Icon::PanelLeft}, detail_{ui::Icon::PanelBottom}, inspector_{ui::Icon::PanelRight};
     ui::IconButton settings_{ui::Icon::Settings};

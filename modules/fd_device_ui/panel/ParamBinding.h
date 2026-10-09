@@ -19,6 +19,17 @@ public:
     /// Merges `patch` into the device's non-parameter state through the host (ADR 0017), so the
     /// change is saved with the project or preset and is undoable in the DAW.
     virtual void applyExtraState(const nlohmann::json& patch) = 0;
+
+    // Automation (docs/design/automation.md §6): in the DAW only; a plugin host automates our
+    // plugins its own way, so these default to nothing there.
+    /// Whether a parameter is automated, and whether its lane plays.
+    [[nodiscard]] virtual AutomationState automationState(size_t /*index*/) const { return AutomationState::None; }
+    /// Whether the host can show a lane for it (automatable parameters in the DAW).
+    [[nodiscard]] virtual bool canAutomate(size_t /*index*/) const { return false; }
+    /// The control's menu: show its lane, clear its points, turn its lane back on.
+    virtual void showAutomation(size_t /*index*/) {}
+    virtual void clearAutomation(size_t /*index*/) {}
+    virtual void turnAutomationOn(size_t /*index*/) {}
 };
 
 /// Merges `patch` into `device`'s extra state directly (hosts call this once they have

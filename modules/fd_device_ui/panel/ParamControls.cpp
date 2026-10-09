@@ -10,6 +10,36 @@ juce::String tooltipFor(const ParamSpec& spec)
 }
 } // namespace
 
+void showParamMenu(DeviceUiContext& context, size_t index, juce::Component& control)
+{
+    auto& params = context.params;
+    const auto state = params.automationState(index);
+    juce::Component::SafePointer<juce::Component> alive(&control); // the menu outlives a closed panel
+    auto whileAlive = [alive](std::function<void()> action) {
+        return [safe = alive, run = std::move(action)] {
+            if (safe != nullptr)
+                run();
+        };
+    };
+    juce::PopupMenu menu;
+    if (params.canAutomate(index))
+    {
+        menu.addItem("Show automation lane", whileAlive([&params, index] { params.showAutomation(index); }));
+        if (state != AutomationState::None)
+            menu.addItem("Clear automation", whileAlive([&params, index] { params.clearAutomation(index); }));
+        if (state == AutomationState::Off)
+            menu.addItem("Turn automation back on", whileAlive([&params, index] { params.turnAutomationOn(index); }));
+        menu.addSeparator();
+    }
+    const auto def = context.info.params[index].def;
+    menu.addItem("Reset to default", whileAlive([&params, index, def] {
+                     params.beginGesture(index);
+                     params.setPlain(index, def);
+                     params.endGesture(index);
+                 }));
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&control));
+}
+
 ParamKnob::ParamKnob(DeviceUiContext& context, size_t paramIndex) : context_(context), index_(paramIndex)
 {
     const ParamSpec& spec = context_.info.params[index_];
@@ -32,6 +62,7 @@ ParamKnob::ParamKnob(DeviceUiContext& context, size_t paramIndex) : context_(con
     onValueChange = [this, &spec](float n) { context_.params.setPlain(index_, spec.fromNormalized(n)); };
     onGestureStart = [this] { context_.params.beginGesture(index_); };
     onGestureEnd = [this] { context_.params.endGesture(index_); };
+    onPopupMenu = [this] { showParamMenu(context_, index_, *this); };
     refresh();
 }
 
@@ -39,6 +70,7 @@ void ParamKnob::refresh()
 {
     const ParamSpec& spec = context_.info.params[index_];
     setValue(spec.toNormalized(context_.params.getPlain(index_)), juce::dontSendNotification);
+    setAutomationState(context_.params.automationState(index_));
 }
 
 ParamToggle::ParamToggle(DeviceUiContext& context, size_t paramIndex)
@@ -48,12 +80,14 @@ ParamToggle::ParamToggle(DeviceUiContext& context, size_t paramIndex)
       context_(context), index_(paramIndex)
 {
     setTooltip(tooltipFor(context.info.params[paramIndex]));
+    onPopupMenu = [this] { showParamMenu(context_, index_, *this); };
     refresh();
 }
 
 void ParamToggle::refresh()
 {
     setToggleState(context_.params.getPlain(index_) >= 0.5f, juce::dontSendNotification);
+    setAutomationState(context_.params.automationState(index_));
 }
 
 void ParamToggle::clicked()
@@ -78,6 +112,7 @@ ParamSegmented::ParamSegmented(DeviceUiContext& context, size_t paramIndex, int 
             context_.params.setPlain(index_, static_cast<float>(i));
             context_.params.endGesture(index_);
         };
+        b->onPopupMenu = [this] { showParamMenu(context_, index_, *this); };
         addAndMakeVisible(b);
     }
     refresh();
@@ -88,6 +123,16 @@ void ParamSegmented::refresh()
     const int selected = static_cast<int>(context_.params.getPlain(index_));
     for (int i = 0; i < buttons_.size(); ++i)
         buttons_[i]->setToggleState(i == selected, juce::dontSendNotification);
+    if (const auto state = context_.params.automationState(index_); state != automation_)
+    {
+        automation_ = state;
+        repaint();
+    }
+}
+
+void ParamSegmented::paintOverChildren(juce::Graphics& g)
+{
+    paintAutomationIndicator(g, {3.5f, 3.5f}, automation_);
 }
 
 void ParamSegmented::resized()
@@ -119,5 +164,15 @@ ParamComboBox::ParamComboBox(DeviceUiContext& context, size_t paramIndex) : cont
 void ParamComboBox::refresh()
 {
     setSelectedId(static_cast<int>(context_.params.getPlain(index_)) + 1, juce::dontSendNotification);
+    if (const auto state = context_.params.automationState(index_); state != automation_)
+    {
+        automation_ = state;
+        repaint();
+    }
+}
+
+void ParamComboBox::paintOverChildren(juce::Graphics& g)
+{
+    paintAutomationIndicator(g, {3.5f, 3.5f}, automation_);
 }
 } // namespace fd::ui

@@ -116,6 +116,7 @@ Role functions for colours that depend on content:
 | Component | What it is | Used by |
 |---|---|---|
 | `PanelHeader` | A 24 px header: a section-style title or tabs on the left, then context; on the right, its view options (`ViewOption`) and a caption | Detail panel (Modules / Clip tabs; a plain Modules title in the mixer view), inspector, browser, the mixer view (Modules, Sends, Narrow) |
+| `AutomationState` / `paintAutomationIndicator` | Whether a control's parameter is automated: a 4 px disc in `automation`, filled while its lane plays and a ring while it's off (left of a knob's name; a bar's, fader's, toggle's or choice's top-left corner). `Knob` and `Toggle` take the state and an `onPopupMenu` (right-click) | Every control of a parameter (C4) |
 | `ViewOption` | A view option in a panel header: a 6 px indicator and a `Control` label, no button fill. Off: a 1 px ring and `textTertiary`; on: a filled `active` disc and `textPrimary` (the shape tells on from off, not only the colour); hover: the `hoverWash` behind it | The mixer view's Modules, Sends and Narrow; later the piano roll's and the browser's view options |
 | `PropertyList` | Label and value rows on the row grid; values in `Body`, or `Value` for numbers | Inspector; export options (C8); preferences |
 | `ListRow` | One row of a list: optional dot, name, caption, shortcut on the right; hover and selected states | Command palette; browser (M3) |

@@ -86,6 +86,8 @@ app/src/
 | Add automation lane... (C4) | `automation.addLane` | Ctrl+Shift+L |
 | Show last touched parameter's lane (C4) | `automation.showLastTouched` | Alt+L |
 | Show / fold automation lanes (C4) | `view.lanes` | Ctrl+Alt+L |
+| Automation arm (C4) | `automation.arm` | Ctrl+Shift+A |
+| Turn automation back on (C4) | `automation.reEnable` | Ctrl+Alt+A |
 | Add return track (C3) | `track.addReturn` | Ctrl+Alt+T |
 | Show or hide returns and master (C3) | `view.returns` | Ctrl+Alt+R |
 | Arrangement ⇄ mixer view (C3) | `view.mixer` | Ctrl+Alt+X |
@@ -209,6 +211,14 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 - **Headers:** the lane's on switch and its parameter's bar (`ui/LaneControls`, edits through `Session::setLaneValue`), the value now (refreshed each frame while it plays); the fold chevron on a channel; dragging a row's bottom edge resizes it.
 - **Showing lanes:** the track header's right-click menu or Ctrl+Shift+L opens the lane picker (`ui/LanePicker`, a searchable list like the palette); Alt+L shows the last touched parameter's lane; Ctrl+Alt+L folds or shows every lane. Delete after clicking a lane's header removes it.
 - **Keys** follow the lane when it was used last: Delete, Ctrl+D, Ctrl+A and the arrows (↑/↓ 1 %, Shift 0.1 %; ←/→ a grid step) act on its points.
+
+## Automated controls and recording (C4c, [automation.md](automation.md) §6–§8)
+
+- **The indicator** (`ui::AutomationState`, `ui::paintAutomationIndicator`): knobs, bars, faders, toggles, segments and choices show it, from the host binding (`ParamBinding::automationState`) for module panels and from the snapshot's lanes for the mixer's controls.
+- **Right-click menus** on every control (`Knob::onPopupMenu`, `Toggle::onPopupMenu`): Show automation lane (the lane, selected, in the arrangement, leaving the mixer view), Clear automation, Turn automation back on, Reset to default. Plugin hosts get only Reset.
+- **Following:** automated mixer controls read their lane's played value each frame (`LaneFollower`); module panels refresh from the engine as before.
+- **Gestures** on mixer controls are lane gestures (`Session::LaneGesture`): one undo step, and a touch while recording. A knob's double-click reset joins the gesture its second press began, so gestures never nest.
+- **Transport:** Automation arm and Turn automation back on (lit while a lane is off), between the loop and the tempo.
 
 ## Mixer in the arrangement (C3b, [mixer.md](mixer.md))
 

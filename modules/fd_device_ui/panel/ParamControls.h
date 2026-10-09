@@ -11,6 +11,10 @@ public:
     virtual void refresh() = 0;
 };
 
+/// A parameter control's right-click menu (ui-principles §7): its automation (in the DAW) and
+/// reset to default.
+void showParamMenu(DeviceUiContext& context, size_t paramIndex, juce::Component& control);
+
 /// Knob bound to a parameter: text, ranges, default and stepping come from its ParamSpec.
 class ParamKnob final : public Knob, public ParamControl
 {
@@ -42,6 +46,7 @@ public:
     ParamSegmented(DeviceUiContext& context, size_t paramIndex, int columns);
     void refresh() override;
     void resized() override;
+    void paintOverChildren(juce::Graphics& g) override;
     /// The buttons (for the layout lint).
     [[nodiscard]] const juce::OwnedArray<Toggle>& buttons() const noexcept { return buttons_; }
 
@@ -50,6 +55,7 @@ private:
     size_t index_;
     int columns_;
     juce::OwnedArray<Toggle> buttons_;
+    AutomationState automation_ = AutomationState::None;
 };
 
 /// Flat dropdown for a Choice parameter.
@@ -58,9 +64,11 @@ class ParamComboBox final : public juce::ComboBox, public ParamControl
 public:
     ParamComboBox(DeviceUiContext& context, size_t paramIndex);
     void refresh() override;
+    void paintOverChildren(juce::Graphics& g) override;
 
 private:
     DeviceUiContext& context_;
     size_t index_;
+    AutomationState automation_ = AutomationState::None;
 };
 } // namespace fd::ui
