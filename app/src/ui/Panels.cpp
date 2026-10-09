@@ -6,11 +6,6 @@ namespace fd::app
 {
 namespace
 {
-void paintSectionLabel(juce::Graphics& g, const juce::String& text, juce::Rectangle<int> area)
-{
-    ui::paintCapsLabel(g, text, area.toFloat());
-}
-
 juce::String formatTime(double seconds)
 {
     const auto ms = static_cast<long>(std::floor(std::max(0.0, seconds) * 1000.0));
@@ -106,7 +101,7 @@ void TransportBar::frame(double positionSeconds, const model::TempoMap& tempo)
     {
         position_ = positionSeconds;
         cpu_ = cpu;
-        repaint(getLocalBounds().withTrimmedLeft(denominatorField_.getRight()).withRight(browser_.getX()));
+        repaint(readoutArea_);
     }
 }
 
@@ -118,18 +113,16 @@ void TransportBar::paint(juce::Graphics& g)
     // BPM label after the tempo field, the slash between the signature fields.
     g.setColour(t.textTertiary);
     g.setFont(ui::font(ui::TextStyle::ValueSmall));
-    g.drawText("BPM", tempoField_.getBounds().translated(tempoField_.getWidth() + 2, 0).withWidth(30),
-               juce::Justification::centredLeft, false);
+    g.drawText("BPM", bpmArea_, juce::Justification::centredLeft, false);
     g.setFont(ui::font(ui::TextStyle::ValueMedium));
-    g.drawText("/", numeratorField_.getBounds().withX(numeratorField_.getRight()).withWidth(10),
-               juce::Justification::centred, false);
+    g.drawText("/", slashArea_, juce::Justification::centred, false);
 
     // MIDI activity light beside the computer keyboard button.
     const auto light = midiLightArea().toFloat().withSizeKeepingCentre(6.0f, 6.0f);
     g.setColour(midiLit_ ? t.accentMidi : t.surface3);
     g.fillEllipse(light);
 
-    auto r = getLocalBounds().withTrimmedLeft(denominatorField_.getRight() + 20).withRight(keyboard_.getX() - 12);
+    auto r = readoutArea_;
     auto field = [&](const juce::String& value, const juce::String& unit, int width, ui::TextStyle style) {
         auto box = r.removeFromLeft(width);
         r.removeFromLeft(16);
@@ -153,40 +146,37 @@ void TransportBar::paint(juce::Graphics& g)
 
 void TransportBar::resized()
 {
+    // One rhythm for the whole bar (docs/design/ui-foundations.md): items 4 px apart, groups 12.
     const auto& t = ui::Theme::current();
-    auto r = getLocalBounds().reduced(t.grid * 2, 6);
-    auto square = [&](juce::Rectangle<int>& area, bool left) {
-        auto b = left ? area.removeFromLeft(area.getHeight()) : area.removeFromRight(area.getHeight());
-        left ? area.removeFromLeft(4) : area.removeFromRight(4);
-        return b;
-    };
-    play_.setBounds(square(r, true));
-    stop_.setBounds(square(r, true));
-    r.removeFromLeft(8);
-    loop_.setBounds(square(r, true));
-    metronome_.setBounds(square(r, true));
-    r.removeFromLeft(16);
-    // Sized for the mono digits: "999.00" plus padding.
+    ui::BarLayout bar(getLocalBounds().reduced(t.shell.barPadding, t.shell.barInset));
+    play_.setBounds(bar.left());
+    stop_.setBounds(bar.left());
+    bar.groupLeft();
+    loop_.setBounds(bar.left());
+    metronome_.setBounds(bar.left());
+    bar.groupLeft();
+    // Fields sized for their mono digits: "999.00", "32".
     const auto digit = juce::GlyphArrangement::getStringWidth(ui::font(ui::TextStyle::ValueMedium), "0");
-    tempoField_.setBounds(r.removeFromLeft(static_cast<int>(std::ceil(digit * 6.0f)) + 10));
-    r.removeFromLeft(34); // "BPM"
-    numeratorField_.setBounds(r.removeFromLeft(26));
-    r.removeFromLeft(10); // "/"
-    denominatorField_.setBounds(r.removeFromLeft(26));
-    settings_.setBounds(square(r, false));
-    r.removeFromRight(8);
-    inspector_.setBounds(square(r, false));
-    detail_.setBounds(square(r, false));
-    browser_.setBounds(square(r, false));
-    // The computer keyboard toggle sits on the right, like the MIDI section of a control bar.
-    r.removeFromRight(12);
-    r.removeFromRight(10); // activity light
-    keyboard_.setBounds(square(r, false));
-}
+    tempoField_.setBounds(bar.left(static_cast<int>(std::ceil(digit * 6.0f)) + 10));
+    bpmArea_ = bar.left(static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(ui::font(ui::TextStyle::ValueSmall), "BPM"))));
+    bar.groupLeft();
+    const int small = static_cast<int>(std::ceil(digit * 2.0f)) + 10;
+    numeratorField_.setBounds(bar.left(small));
+    slashArea_ = bar.left(static_cast<int>(std::ceil(digit)));
+    denominatorField_.setBounds(bar.left(small));
 
-juce::Rectangle<int> TransportBar::midiLightArea() const
-{
-    return keyboard_.getBounds().withX(keyboard_.getRight() + 2).withWidth(10);
+    settings_.setBounds(bar.right());
+    bar.groupRight();
+    inspector_.setBounds(bar.right());
+    detail_.setBounds(bar.right());
+    browser_.setBounds(bar.right());
+    // The computer keyboard toggle sits on the right, like the MIDI section of a control bar.
+    bar.groupRight();
+    midiLight_ = bar.right(t.shell.itemGap * 2);
+    keyboard_.setBounds(bar.right());
+    bar.groupRight();
+    bar.groupLeft();
+    readoutArea_ = bar.left(0).withRight(bar.right(0).getX()).withTop(0).withBottom(getHeight());
 }
 
 // ---- BrowserPanel --------------------------------------------------------------------------
@@ -222,8 +212,9 @@ void BrowserPanel::setRail(bool rail)
 
 void BrowserPanel::resized()
 {
-    search_.setBounds(getLocalBounds().reduced(8).removeFromTop(24));
-    expand_.setBounds(getLocalBounds().removeFromTop(44).withSizeKeepingCentre(28, 28));
+    const auto& sh = ui::Theme::current().shell;
+    search_.setBounds(getLocalBounds().reduced(sh.barPadding).removeFromTop(sh.fieldHeight));
+    expand_.setBounds(getLocalBounds().removeFromTop(sh.railWidth).withSizeKeepingCentre(sh.buttonSize, sh.buttonSize));
 }
 
 void BrowserPanel::paint(juce::Graphics& g)
@@ -232,22 +223,16 @@ void BrowserPanel::paint(juce::Graphics& g)
     g.fillAll(t.surface1);
     if (rail_)
         return;
-    auto r = getLocalBounds().reduced(12, 8).withTrimmedTop(32);
-    for (const auto& [title, items] : sections_)
+    auto r = getLocalBounds().reduced(t.shell.padding, 0).withTrimmedTop(search_.getBottom() + t.shell.barPadding);
+    for (const auto& section : sections_)
     {
-        paintSectionLabel(g, title, r.removeFromTop(22));
-        g.setFont(ui::font(ui::TextStyle::Body));
-        if (items.empty())
-        {
-            g.setColour(t.textTertiary);
-            g.drawText("Coming with the browser", r.removeFromTop(20), juce::Justification::centredLeft, false);
-        }
-        for (const auto& item : items)
-        {
-            g.setColour(t.textPrimary);
-            g.drawText(item, r.removeFromTop(20), juce::Justification::centredLeft, true);
-        }
-        r.removeFromTop(10);
+        ui::paintCapsLabel(g, section.title, r.removeFromTop(t.shell.panelHeaderHeight).toFloat());
+        if (section.items.empty())
+            ui::paintListRow(g, r.removeFromTop(t.shell.rowHeight).withTrimmedLeft(-10),
+                             {.name = "Coming with the browser", .enabled = false});
+        for (const auto& item : section.items)
+            ui::paintListRow(g, r.removeFromTop(t.shell.rowHeight).withTrimmedLeft(-10), {.name = item});
+        r.removeFromTop(t.shell.groupGap);
     }
 }
 
@@ -263,60 +248,71 @@ void InspectorPanel::setSelection(std::optional<model::TrackInfo> track, std::op
     repaint();
 }
 
+InspectorPanel::InspectorPanel()
+{
+    header_.setTitle("Inspector");
+    addAndMakeVisible(header_);
+}
+
+void InspectorPanel::resized()
+{
+    header_.setBounds(getLocalBounds().removeFromTop(ui::Theme::current().shell.panelHeaderHeight));
+}
+
 void InspectorPanel::paint(juce::Graphics& g)
 {
     const auto& t = ui::Theme::current();
     g.fillAll(t.surface1);
-    auto r = getLocalBounds().reduced(12, 8);
-    paintSectionLabel(g, "Inspector", r.removeFromTop(22));
-    g.setFont(ui::font(ui::TextStyle::Body));
+    auto r = getLocalBounds().withTrimmedTop(header_.getBottom()).reduced(t.shell.padding, 0);
     if (!track_ && clipCount_ == 0)
     {
-        g.setColour(t.textTertiary);
-        g.drawText("Nothing selected", r.removeFromTop(20), juce::Justification::centredLeft, false);
+        ui::paintEmptyState(g, r.removeFromTop(t.shell.listRowHeight * 2), "Nothing selected");
         return;
     }
-    // Names in the sans, numbers in the mono.
-    auto row = [&](const juce::String& label, const juce::String& value, bool number = false) {
-        auto line = r.removeFromTop(20);
-        g.setFont(ui::font(ui::TextStyle::Body));
-        g.setColour(t.textSecondary);
-        g.drawText(label, line.removeFromLeft(80), juce::Justification::centredLeft, false);
-        g.setColour(t.textPrimary);
-        if (number)
-            g.setFont(ui::font(ui::TextStyle::Value));
-        g.drawText(value, line, juce::Justification::centredLeft, true);
-    };
     auto position = [&](double seconds) {
         const auto bb = tempo_.barsBeatsForSeconds(seconds);
         return juce::String(bb.bar) + "." + juce::String(bb.beat) + "." + juce::String(bb.sixteenth);
     };
     if (clip_)
     {
-        row("Clip", juce::String::fromUTF8(clip_->name.c_str()));
-        row("Start", position(clip_->start), true);
-        row("Length", juce::String(clip_->length, 3) + " s", true);
-        row("Offset", juce::String(clip_->offset, 3) + " s", true);
-        r.removeFromTop(12);
+        r = ui::paintProperties(g, r, {{"Clip", juce::String::fromUTF8(clip_->name.c_str())},
+                                       {"Start", position(clip_->start), true},
+                                       {"Length", juce::String(clip_->length, 3) + " s", true},
+                                       {"Offset", juce::String(clip_->offset, 3) + " s", true}});
+        r.removeFromTop(t.shell.groupGap);
     }
     else if (clipCount_ > 1)
     {
-        row("Clips", juce::String(clipCount_) + " selected", true);
-        r.removeFromTop(12);
+        r = ui::paintProperties(g, r, {{"Clips", juce::String(clipCount_) + " selected", true}});
+        r.removeFromTop(t.shell.groupGap);
     }
     if (!track_)
         return;
-    row("Track", juce::String::fromUTF8(track_->name.c_str()));
-    row("Instrument", track_->instrument.empty() ? juce::String("None") : juce::String::fromUTF8(track_->instrument.c_str()));
-    row("Clips", juce::String(static_cast<int>(track_->clips.size())), true);
+    ui::paintProperties(g, r, {{"Track", juce::String::fromUTF8(track_->name.c_str())},
+                               {"Instrument", track_->instrument.empty() ? juce::String("None")
+                                                                         : juce::String::fromUTF8(track_->instrument.c_str())},
+                               {"Clips", juce::String(static_cast<int>(track_->clips.size())), true}});
 }
 
 // ---- DetailPanel ---------------------------------------------------------------------------
 
 DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions) : chain_(session, actions), roll_(session)
 {
+    header_.setTabs({"Modules", "Clip"}, 0);
+    header_.setCaption("Tab switches");
+    header_.onTabSelected = [this](int tab) { setMode(tab == 0 ? Mode::Devices : Mode::Clip); };
+    addAndMakeVisible(header_);
     addAndMakeVisible(chain_);
     addChildComponent(roll_);
+}
+
+void DetailPanel::updateHeader()
+{
+    header_.setSelectedTab(mode_ == Mode::Devices ? 0 : 1);
+    if (mode_ == Mode::Devices)
+        header_.setContext(track_ ? juce::String::fromUTF8(track_->name.c_str()) : juce::String());
+    else
+        header_.setContext(roll_.clip() ? juce::String::fromUTF8(roll_.clip()->name.c_str()) : juce::String());
 }
 
 void DetailPanel::setMode(Mode m)
@@ -325,6 +321,7 @@ void DetailPanel::setMode(Mode m)
         return;
     mode_ = m;
     updateVisibility();
+    updateHeader();
     repaint();
 }
 
@@ -338,7 +335,7 @@ void DetailPanel::setClip(std::optional<model::ClipInfo> clip, const model::Temp
 {
     roll_.setClip(std::move(clip), tempo);
     updateVisibility();
-    repaint(getLocalBounds().removeFromTop(headerHeight));
+    updateHeader();
 }
 
 void DetailPanel::frame(double playheadSeconds)
@@ -351,49 +348,24 @@ void DetailPanel::setSelection(std::optional<model::TrackInfo> track)
 {
     track_ = std::move(track);
     chain_.setTrack(track_);
+    updateHeader();
     repaint();
 }
 
 void DetailPanel::resized()
 {
-    chain_.setBounds(getLocalBounds().withTrimmedTop(headerHeight).reduced(4, 0).withTrimmedBottom(4));
-    roll_.setBounds(getLocalBounds().withTrimmedTop(headerHeight));
+    const auto& sh = ui::Theme::current().shell;
+    auto r = getLocalBounds();
+    header_.setBounds(r.removeFromTop(sh.panelHeaderHeight));
+    chain_.setBounds(r.reduced(sh.itemGap, 0).withTrimmedBottom(sh.itemGap));
+    roll_.setBounds(r);
 }
 
 void DetailPanel::paint(juce::Graphics& g)
 {
-    const auto& t = ui::Theme::current();
-    g.fillAll(t.surface1);
-    auto r = getLocalBounds().reduced(12, 0);
-    auto header = r.removeFromTop(headerHeight);
-    g.setFont(ui::font(ui::TextStyle::Control));
-    for (auto [m, label] : {std::pair{Mode::Devices, "Modules"}, std::pair{Mode::Clip, "Clip"}})
-    {
-        g.setColour(mode_ == m ? t.textPrimary : t.textTertiary);
-        g.drawText(label, header.removeFromLeft(60), juce::Justification::centredLeft, false);
-    }
-    g.setColour(t.textTertiary);
-    g.drawText("Tab switches", header, juce::Justification::centredRight, false);
-
-    if (mode_ == Mode::Devices)
-    {
-        if (track_)
-        {
-            g.setColour(t.textSecondary);
-            g.drawText(juce::String::fromUTF8(track_->name.c_str()), header.withTrimmedLeft(16).withTrimmedRight(100),
-                       juce::Justification::centredLeft, true);
-        }
-        return; // the chain draws the rest
-    }
-    if (const auto& clip = roll_.clip())
-    {
-        g.setColour(t.textSecondary);
-        g.drawText(juce::String::fromUTF8(clip->name.c_str()), header.withTrimmedLeft(16).withTrimmedRight(100),
-                   juce::Justification::centredLeft, true);
-        return; // the piano roll draws the rest
-    }
-    g.setFont(ui::font(ui::TextStyle::Body));
-    g.drawText("Select a MIDI clip to edit its notes. Double-click an empty spot on a track to make one.", r,
-               juce::Justification::centred, false);
+    g.fillAll(ui::Theme::current().surface1);
+    if (mode_ == Mode::Clip && !roll_.clip())
+        ui::paintEmptyState(g, getLocalBounds().withTrimmedTop(header_.getBottom()),
+                            "Select a MIDI clip to edit its notes. Double-click an empty spot on a track to make one.");
 }
 } // namespace fd::app

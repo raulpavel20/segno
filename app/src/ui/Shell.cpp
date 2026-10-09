@@ -10,7 +10,6 @@ namespace fd::app
 {
 namespace
 {
-constexpr float kRailWidth = 44.0f;
 
 juce::KeyPress key(int code, int mods = 0)
 {
@@ -28,7 +27,7 @@ Shell::Shell(engine::Session& session) : session_(session), arrangement_(session
     transport_ = std::make_unique<TransportBar>(session_, actions_);
 
     // The module panel, the chain's margins and scrollbar (24), and the detail header.
-    deviceViewHeight_ = static_cast<float>(ui::Theme::current().devicePanelHeight + 24 + DetailPanel::headerHeight);
+    deviceViewHeight_ = static_cast<float>(ui::Theme::current().devicePanelHeight + 24 + ui::Theme::current().shell.panelHeaderHeight);
     detailPanel_.size = deviceViewHeight_;
     for (juce::Component* c : {static_cast<juce::Component*>(transport_.get()), static_cast<juce::Component*>(&browser_),
                                static_cast<juce::Component*>(&inspector_), static_cast<juce::Component*>(&detail_),
@@ -700,12 +699,7 @@ void Shell::paintOverChildren(juce::Graphics& g)
     }
     if (warning_.isEmpty())
         return;
-    auto box = arrangement_.getBounds().reduced(16).removeFromBottom(36).removeFromRight(420);
-    g.setColour(t.surface3);
-    g.fillRoundedRectangle(box.toFloat(), t.radiusPanel);
-    g.setColour(t.textPrimary);
-    g.setFont(ui::font(ui::TextStyle::Body));
-    g.drawFittedText(warning_, box.reduced(12, 4), juce::Justification::centredLeft, 2);
+    ui::paintToast(g, ui::toastArea(arrangement_.getBounds()), warning_);
 }
 
 void Shell::resized()
@@ -732,18 +726,20 @@ void Shell::resized()
     detailSplit_.setVisible(detailH > 0 && detailPanel_.open && detail_.mode() == DetailPanel::Mode::Clip);
     detailSplit_.setBounds(detail_.getBounds().withHeight(5).translated(0, -3));
 
-    const float browserW = showSides ? kRailWidth + (browserPanel_.size - kRailWidth) * browserPanel_.shown : 0.0f;
+    const auto rail = static_cast<float>(ui::Theme::current().shell.railWidth);
+    const float browserW = showSides ? rail + (browserPanel_.size - rail) * browserPanel_.shown : 0.0f;
     browser_.setVisible(browserW > 0.0f);
     browser_.setRail(browserPanel_.shown < 0.5f);
     browser_.setBounds(r.removeFromLeft(juce::roundToInt(browserW)));
     browserSplit_.setVisible(showSides && browserPanel_.open);
-    browserSplit_.setBounds(r.removeFromLeft(browserW > 0.0f ? 1 : 0).withWidth(5).translated(-2, 0));
+    const int splitter = ui::Theme::current().shell.splitter;
+    browserSplit_.setBounds(r.removeFromLeft(browserW > 0.0f ? 1 : 0).withWidth(splitter).translated(-splitter / 2, 0));
 
     const int inspectorW = showSides ? juce::roundToInt(inspectorPanel_.size * inspectorPanel_.shown) : 0;
     inspector_.setVisible(inspectorW > 0);
     inspector_.setBounds(r.removeFromRight(inspectorW));
     inspectorSplit_.setVisible(showSides && inspectorPanel_.open);
-    inspectorSplit_.setBounds(r.removeFromRight(inspectorW > 0 ? 1 : 0).withWidth(5).translated(-2, 0));
+    inspectorSplit_.setBounds(r.removeFromRight(inspectorW > 0 ? 1 : 0).withWidth(splitter).translated(-splitter / 2, 0));
 
     arrangement_.setBounds(r);
     browserSplit_.toFront(false);

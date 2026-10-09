@@ -202,10 +202,7 @@ void DeviceChain::paint(juce::Graphics& g)
 {
     if (track_)
         return;
-    const auto& t = ui::Theme::current();
-    g.setColour(t.textTertiary);
-    g.setFont(ui::font(ui::TextStyle::Body));
-    g.drawText("Select a track to see its modules", getLocalBounds(), juce::Justification::centred, false);
+    ui::paintEmptyState(g, getLocalBounds(), "Select a track to see its modules");
 }
 
 void DeviceChain::showAddMenu()

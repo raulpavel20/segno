@@ -73,7 +73,9 @@ private:
     int cpu_ = -1;
     double lastMidi_ = -1.0; // last time a MIDI note was held (activity light)
     bool midiLit_ = false;
-    [[nodiscard]] juce::Rectangle<int> midiLightArea() const;
+    [[nodiscard]] juce::Rectangle<int> midiLightArea() const { return midiLight_; }
+    // Laid out by resized(): the painted parts between the controls.
+    juce::Rectangle<int> bpmArea_, slashArea_, readoutArea_, midiLight_;
 };
 
 /// Left panel: one search across devices, presets, samples, plugins and files (M3). In M1 it
@@ -91,7 +93,12 @@ private:
     const ActionRegistry& actions_;
     juce::TextEditor search_;
     ui::IconButton expand_{ui::Icon::PanelLeft}; // on the rail
-    std::vector<std::pair<juce::String, std::vector<juce::String>>> sections_;
+    struct Section
+    {
+        juce::String title;
+        std::vector<juce::String> items;
+    };
+    std::vector<Section> sections_;
     bool rail_ = false;
 };
 
@@ -99,11 +106,14 @@ private:
 class InspectorPanel final : public juce::Component
 {
 public:
+    InspectorPanel();
+    void resized() override;
     void setSelection(std::optional<model::TrackInfo> track, std::optional<model::ClipInfo> clip = std::nullopt,
                       int clipCount = 0, model::TempoMap tempo = {});
     void paint(juce::Graphics& g) override;
 
 private:
+    ui::PanelHeader header_;
     std::optional<model::TrackInfo> track_;
     std::optional<model::ClipInfo> clip_;
     int clipCount_ = 0;
@@ -115,8 +125,6 @@ private:
 class DetailPanel final : public juce::Component
 {
 public:
-    static constexpr int headerHeight = 24;
-
     DetailPanel(engine::Session& session, const ActionRegistry& actions);
 
     enum class Mode { Devices, Clip };
@@ -136,7 +144,9 @@ public:
 
 private:
     void updateVisibility();
+    void updateHeader();
 
+    ui::PanelHeader header_;
     Mode mode_ = Mode::Devices;
     std::optional<model::TrackInfo> track_;
     DeviceChain chain_;

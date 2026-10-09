@@ -367,10 +367,8 @@ void ArrangementView::paintLanes(juce::Graphics& g)
     // Empty project hint.
     if (snapshot_->contentEnd() <= 0.0 && !dropTarget_)
     {
-        g.setColour(t.textTertiary);
-        g.setFont(ui::font(ui::TextStyle::Body));
-        g.drawText("Drop audio files onto a track", area.withTrimmedTop(static_cast<int>(bottom) - area.getY() + 24).removeFromTop(24),
-                   juce::Justification::centred, false);
+        ui::paintEmptyState(g, area.withTop(static_cast<int>(bottom)).removeFromTop(t.shell.listRowHeight * 3),
+                            "Drop audio files onto a track, or double-click one to make a MIDI clip");
     }
 
     // File drop preview: the target lane and an insertion line at the snapped time.

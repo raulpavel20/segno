@@ -88,6 +88,10 @@ struct ShellMetrics
     int toastHeight = 36, toastWidth = 420;
     int keyboardWidth = 52, velocityHeight = 56;
     int railWidth = 44, splitter = 5;
+    int barPadding = 8, barInset = 6; // a bar's (the transport's) edges: sides, top and bottom
+    int itemGap = 4, groupGap = 12;   // between items in a group, between groups
+    int buttonSize = 28;              // icon buttons in bars and rails
+    int fieldHeight = 24;             // text fields (search)
     float shadowRadius = 18.0f, shadowOffset = 6.0f;
 };
 

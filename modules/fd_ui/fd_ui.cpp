@@ -9,3 +9,4 @@
 #include "controls/Icons.cpp"
 #include "controls/NumberField.cpp"
 #include "controls/Labels.cpp"
+#include "shell/ShellParts.cpp"

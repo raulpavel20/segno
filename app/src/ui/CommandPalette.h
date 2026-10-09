@@ -13,8 +13,6 @@ namespace fd::app
 class CommandPalette final : public juce::Component, private juce::KeyListener, private juce::TextEditor::Listener
 {
 public:
-    static constexpr int width = 560;
-    static constexpr int rowHeight = 28;
     static constexpr int maxRows = 12;
 
     explicit CommandPalette(const ActionRegistry& actions);

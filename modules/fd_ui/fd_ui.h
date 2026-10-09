@@ -29,3 +29,4 @@ END_JUCE_MODULE_DECLARATION
 #include "controls/Icons.h"
 #include "controls/NumberField.h"
 #include "controls/Labels.h"
+#include "shell/ShellParts.h"

@@ -67,8 +67,9 @@ void CommandPalette::update()
     selected_ = std::clamp(selected_, 0, std::max(0, static_cast<int>(shown_.size()) - 1));
     if (auto* parent = getParentComponent())
     {
-        const int h = 52 + static_cast<int>(std::max<size_t>(1, shown_.size())) * rowHeight + 8;
-        setBounds(juce::Rectangle<int>(width, h).withCentre({parent->getWidth() / 2, 0}).withY(56));
+        const auto& sh = ui::Theme::current().shell;
+        const int h = rowArea(0).getY() + static_cast<int>(std::max<size_t>(1, shown_.size())) * sh.listRowHeight + sh.barPadding;
+        setBounds(juce::Rectangle<int>(sh.popoverWidth, h).withCentre({parent->getWidth() / 2, 0}).withY(sh.popoverTop));
     }
     repaint();
 }
@@ -112,65 +113,39 @@ void CommandPalette::textEditorFocusLost(juce::TextEditor&)
 
 juce::Rectangle<int> CommandPalette::rowArea(int row) const
 {
-    return {8, 52 + row * rowHeight, getWidth() - 16, rowHeight};
+    // Below the search field: padding, the field (a list row plus 8), padding, then the rows.
+    const auto& sh = ui::Theme::current().shell;
+    const int top = 2 * sh.barPadding + sh.listRowHeight + 8;
+    return {sh.barPadding, top + row * sh.listRowHeight, getWidth() - 2 * sh.barPadding, sh.listRowHeight};
 }
 
 void CommandPalette::resized()
 {
-    search_.setBounds(getLocalBounds().reduced(8).removeFromTop(36));
+    const auto& sh = ui::Theme::current().shell;
+    search_.setBounds(getLocalBounds().reduced(sh.barPadding).removeFromTop(sh.listRowHeight + 8));
 }
 
 void CommandPalette::paint(juce::Graphics& g)
 {
-    const auto& t = ui::Theme::current();
-    const auto r = getLocalBounds().toFloat();
-    // A floating popover may cast one subtle shadow (ui-principles §4).
-    juce::DropShadow(t.roles.shadow, juce::roundToInt(t.shell.shadowRadius), {0, juce::roundToInt(t.shell.shadowOffset)})
-        .drawForRectangle(g, getLocalBounds());
-    g.setColour(t.surface1);
-    g.fillRoundedRectangle(r, t.radiusPanel);
-    g.setColour(t.line);
-    g.drawRoundedRectangle(r.reduced(0.5f), t.radiusPanel, 1.0f);
-
+    ui::paintPopover(g, getLocalBounds());
     if (shown_.empty())
     {
-        g.setColour(t.textTertiary);
-        g.setFont(ui::font(ui::TextStyle::Body));
-        g.drawText("No matching command", rowArea(0).reduced(10, 0), juce::Justification::centredLeft, false);
+        ui::paintListRow(g, rowArea(0), {.name = "No matching command", .enabled = false});
         return;
     }
     for (int i = 0; i < static_cast<int>(shown_.size()); ++i)
     {
         const auto& item = items_[shown_[static_cast<size_t>(i)]];
         const auto* action = actions_.find(item.id);
-        const bool enabled = action != nullptr && (!action->isEnabled || action->isEnabled());
-        auto row = rowArea(i);
-        if (i == selected_)
-        {
-            g.setColour(t.surface3);
-            g.fillRoundedRectangle(row.toFloat(), t.radiusControl);
-        }
-        row.reduce(10, 0);
-        if (action != nullptr && !action->keys.empty())
-        {
-            g.setColour(t.textTertiary);
-            g.setFont(ui::font(ui::TextStyle::ValueSmall));
-            g.drawText(action->keys.front().getTextDescriptionWithIcons(), row.removeFromRight(120),
-                       juce::Justification::centredRight, false);
-        }
-        if (action != nullptr && action->isToggled && action->isToggled())
-        {
-            g.setColour(t.active);
-            g.fillEllipse(row.removeFromLeft(14).toFloat().withSizeKeepingCentre(6.0f, 6.0f));
-        }
-        g.setFont(ui::font(ui::TextStyle::Name));
-        g.setColour(enabled ? t.textPrimary : t.textTertiary);
-        const auto name = juce::String::fromUTF8(item.name.c_str());
-        const int nameWidth = static_cast<int>(juce::GlyphArrangement::getStringWidth(g.getCurrentFont(), name)) + 12;
-        g.drawText(name, row.removeFromLeft(nameWidth), juce::Justification::centredLeft, false);
-        g.setColour(t.textTertiary);
-        g.setFont(ui::font(ui::TextStyle::Caption));
-        g.drawText(juce::String::fromUTF8(item.category.c_str()), row, juce::Justification::centredLeft, true);
+        ui::paintListRow(g, rowArea(i),
+                         {.name = juce::String::fromUTF8(item.name.c_str()),
+                          .caption = juce::String::fromUTF8(item.category.c_str()),
+                          .shortcut = action != nullptr && !action->keys.empty()
+                                          ? action->keys.front().getTextDescriptionWithIcons()
+                                          : juce::String(),
+                          .toggled = action != nullptr && action->isToggled && action->isToggled(),
+                          .enabled = action != nullptr && (!action->isEnabled || action->isEnabled()),
+                          .selected = i == selected_});
     }
 }
 
