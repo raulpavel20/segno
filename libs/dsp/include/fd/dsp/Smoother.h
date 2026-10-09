@@ -18,18 +18,18 @@ public:
         stepsLeft_ = 0;
     }
 
-    /// Ramp from the current value to `target` over `rampSamples` (<= 0 jumps immediately).
+    /// Ramp from the current value to `target` over `rampSamples` (<= 0 jumps immediately,
+    /// even in the middle of a ramp to the same target).
     void setTarget(float target, int rampSamples) noexcept
     {
+        if (rampSamples <= 0)
+        {
+            reset(target);
+            return;
+        }
         if (target == target_)
             return;
         target_ = target;
-        if (rampSamples <= 0)
-        {
-            current_ = target;
-            stepsLeft_ = 0;
-            return;
-        }
         stepsLeft_ = rampSamples;
         step_ = (target_ - current_) / static_cast<float>(rampSamples);
     }
@@ -66,12 +66,18 @@ public:
         stepsLeft_ = 0;
     }
 
+    /// Like LinearSmoother::setTarget, at a constant ratio.
     void setTarget(float target, int rampSamples) noexcept
     {
+        if (rampSamples <= 0)
+        {
+            reset(target);
+            return;
+        }
         if (target == target_)
             return;
         target_ = target;
-        if (rampSamples <= 0 || current_ <= 0.0f || target <= 0.0f)
+        if (current_ <= 0.0f || target <= 0.0f)
         {
             current_ = target;
             stepsLeft_ = 0;

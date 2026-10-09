@@ -208,3 +208,44 @@ TEST_CASE("dynamics: lookahead delay, sliding minimum and moving average", "[fas
         }
     }
 }
+
+TEST_CASE("dynamics: the sidechain filter filters, glides and crossfades types", "[fast]")
+{
+    SidechainFilter f;
+    f.prepare(kRate, 480);
+    // Peak level of a sine through the filter, after it settles.
+    auto levelOf = [&](double hz) {
+        float peak = 0.0f;
+        for (int n = 0; n < 9600; ++n)
+        {
+            float frame[2] = {static_cast<float>(std::sin(twoPi * hz * n / kRate)), 0.0f};
+            f.process(frame, 2);
+            if (n >= 4800)
+                peak = std::max(peak, std::abs(frame[0]));
+        }
+        return gainToDb(peak);
+    };
+    f.reset(SidechainFilter::Type::Off, 1000.0f, 0.71f, 0.0f);
+    CHECK(levelOf(100.0) == Approx(0.0f).margin(0.01));
+    f.reset(SidechainFilter::Type::HighPass, 1000.0f, 0.71f, 0.0f);
+    CHECK(levelOf(100.0) < -35.0f);
+    CHECK(levelOf(10000.0) == Approx(0.0f).margin(0.1));
+    f.reset(SidechainFilter::Type::Bell, 1000.0f, 1.0f, 12.0f);
+    CHECK(levelOf(1000.0) == Approx(12.0f).margin(0.1));
+
+    // A change of type: the output moves from one filter's to the other's within the fade,
+    // without a step.
+    f.reset(SidechainFilter::Type::Off, 1000.0f, 0.71f, 0.0f);
+    float last = 0.0f, biggestStep = 0.0f;
+    for (int n = 0; n < 4800; ++n)
+    {
+        if (n % 32 == 0)
+            f.update(n < 2400 ? SidechainFilter::Type::Off : SidechainFilter::Type::LowPass, 200.0f, 0.71f, 0.0f, 30);
+        float frame[1] = {static_cast<float>(std::sin(twoPi * 50.0 * n / kRate))};
+        f.process(frame, 1);
+        if (n > 0)
+            biggestStep = std::max(biggestStep, std::abs(frame[0] - last));
+        last = frame[0];
+    }
+    CHECK(biggestStep < 0.02f); // a 50 Hz sine moves at most 0.0066 per sample
+}

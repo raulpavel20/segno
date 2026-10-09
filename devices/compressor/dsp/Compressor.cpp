@@ -152,6 +152,7 @@ void Compressor::prepare(const ProcessSpec& spec)
         c.detector.prepare(sampleRate_, 10.0);
         c.audio.prepare(maxDelay);
     }
+    scFilter_.prepare(sampleRate_, switchSamples_);
     analysis().fifo(historyFifo).prepare(4096);
     reset();
 }
@@ -164,8 +165,6 @@ void Compressor::reset() noexcept
         c.detector.reset();
         c.gain.reset(0.0f);
         c.autoGain.reset(0.0f);
-        c.scFilter.reset();
-        c.scOutgoing.reset();
         c.feedback = 0.0f;
     }
     applyLookahead();
@@ -184,40 +183,27 @@ void Compressor::applyLookahead() noexcept
         c.audio.setDelay(latencySamples());
 }
 
-namespace
-{
-/// Ramps a smoother to `value`, or (immediate: on reset) puts it there, even mid-ramp.
-template <typename Smoother>
-void glide(Smoother& s, float value, int ramp, bool immediate) noexcept
-{
-    if (immediate)
-        s.reset(value);
-    else
-        s.setTarget(value, ramp);
-}
-} // namespace
-
 void Compressor::updateTargets(bool immediate) noexcept
 {
     const auto& p = params();
-    const int ramp = rampSamples_;
-    glide(threshold_, p.get(Threshold), ramp, immediate);
-    glide(slope_, slopeFor(p.get(Ratio)), ramp, immediate);
-    glide(knee_, p.get(Knee), ramp, immediate);
-    glide(makeup_, p.get(Makeup), ramp, immediate);
-    glide(output_, dsp::dbToGain(p.get(Output)), ramp, immediate);
-    glide(mix_, p.get(Mix) * 0.01f, ramp, immediate);
-    glide(autoMakeup_, p.getBool(MakeupAuto) ? 1.0f : 0.0f, ramp, immediate);
-    glide(listen_, p.getBool(ScListen) ? 1.0f : 0.0f, switchSamples_, immediate);
+    const int ramp = immediate ? 0 : rampSamples_;
+    threshold_.setTarget(p.get(Threshold), ramp);
+    slope_.setTarget(slopeFor(p.get(Ratio)), ramp);
+    knee_.setTarget(p.get(Knee), ramp);
+    makeup_.setTarget(p.get(Makeup), ramp);
+    output_.setTarget(dsp::dbToGain(p.get(Output)), ramp);
+    mix_.setTarget(p.get(Mix) * 0.01f, ramp);
+    autoMakeup_.setTarget(p.getBool(MakeupAuto) ? 1.0f : 0.0f, ramp);
+    listen_.setTarget(p.getBool(ScListen) ? 1.0f : 0.0f, immediate ? 0 : switchSamples_);
 }
 
 void Compressor::updateTimes(bool immediate) noexcept
 {
     // The times glide (in ticks) rather than jump, so a fast attack never snaps the gain.
     const auto& p = params();
-    const int ticks = std::max(1, rampSamples_ / grid_.interval());
-    glide(attackMs_, p.get(Attack), ticks, immediate);
-    glide(releaseMs_, p.get(Release), ticks, immediate);
+    const int ticks = immediate ? 0 : std::max(1, rampSamples_ / grid_.interval());
+    attackMs_.setTarget(p.get(Attack), ticks);
+    releaseMs_.setTarget(p.get(Release), ticks);
     const double attack = dsp::attackCoefficient(attackMs_.next(), sampleRate_);
     const double release = releaseMs_.next();
     const double fixed = dsp::releaseCoefficient(release, sampleRate_);
@@ -235,9 +221,9 @@ void Compressor::updateModes(bool immediate) noexcept
 {
     // Character and Detector crossfade (10 ms) rather than switch.
     const auto& p = params();
-    glide(glue_, p.getInt(Character) == static_cast<int>(CharacterType::Glue) ? 1.0f : 0.0f, switchSamples_,
-          immediate);
-    glide(rms_, p.getInt(Detector) == 1 ? 1.0f : 0.0f, switchSamples_, immediate);
+    const int fade = immediate ? 0 : switchSamples_;
+    glue_.setTarget(p.getInt(Character) == static_cast<int>(CharacterType::Glue) ? 1.0f : 0.0f, fade);
+    rms_.setTarget(p.getInt(Detector) == 1 ? 1.0f : 0.0f, fade);
     const bool autoRelease = p.getBool(ReleaseAuto);
     if (autoRelease != autoRelease_)
     {
@@ -258,43 +244,9 @@ void Compressor::updateSidechainFilter(bool immediate) noexcept
     const auto& p = params();
     const auto type = static_cast<ScFilterType>(p.getInt(ScFilter));
     if (immediate)
-    {
-        scType_ = scOutgoingType_ = type;
-        scFade_.reset(1.0f);
-    }
-    else if (type != scType_)
-    {
-        // A new type fades in (10 ms) while the outgoing filter keeps running.
-        scOutgoingType_ = scType_;
-        scType_ = type;
-        for (auto& c : ch_)
-        {
-            c.scOutgoing = c.scFilter;
-            c.scFilter.reset();
-        }
-        scFade_.reset(0.0f);
-        scFade_.setTarget(1.0f, switchSamples_);
-    }
-
-    const int ticks = std::max(1, rampSamples_ / grid_.interval());
-    glide(scFreq_, std::min<float>(p.get(ScFreq), static_cast<float>(sampleRate_ * 0.45)), ticks, immediate);
-    glide(scQ_, p.get(ScQ), ticks, immediate);
-    glide(scGainDb_, p.get(ScGain), ticks, immediate);
-    const float freq = scFreq_.next(), q = scQ_.next(), gainDb = scGainDb_.next();
-    if (scType_ == ScFilterType::Off)
-        return;
-    dsp::BiquadType design = dsp::BiquadType::Highpass;
-    switch (scType_)
-    {
-    case ScFilterType::Off:
-    case ScFilterType::HighPass: design = dsp::BiquadType::Highpass; break;
-    case ScFilterType::LowPass: design = dsp::BiquadType::Lowpass; break;
-    case ScFilterType::BandPass: design = dsp::BiquadType::Bandpass; break;
-    case ScFilterType::Bell: design = dsp::BiquadType::Peak; break;
-    }
-    const auto coeffs = dsp::designBiquad(design, sampleRate_, freq, q, gainDb);
-    for (auto& c : ch_)
-        c.scFilter.setCoeffs(coeffs);
+        scFilter_.reset(type, p.get(ScFreq), p.get(ScQ), p.get(ScGain));
+    else
+        scFilter_.update(type, p.get(ScFreq), p.get(ScQ), p.get(ScGain), rampSamples_ / grid_.interval());
 }
 
 void Compressor::process(ProcessContext& ctx) noexcept
@@ -334,7 +286,6 @@ void Compressor::process(ProcessContext& ctx) noexcept
             const float listen = listen_.next();
             const float glue = glue_.next();
             const float rms = rms_.next();
-            const float scFade = scFade_.next();
             const float ratio = slope > 0.0f ? 1.0f / slope : std::numeric_limits<float>::infinity();
             const float autoMakeup = autoMakeup_.next();
             const float makeup =
@@ -342,23 +293,20 @@ void Compressor::process(ProcessContext& ctx) noexcept
                     ? makeupDb + autoMakeup * (-18.0f - dsp::compressorCurve(-18.0f, threshold, ratio, knee) - makeupDb)
                     : makeupDb;
 
-            // The detector: the sidechain if one is connected, else the input (Glue: the output).
+            // The detector: the sidechain if one is connected, else the input (Glue: the output),
+            // through the sidechain filter.
             float levels[maxChannels] = {}, heard[maxChannels] = {};
             for (int c = 0; c < channels; ++c)
             {
-                auto& ch = ch_[static_cast<size_t>(c)];
                 const float x = ctx.input.channel(std::min(c, inChannels - 1))[i];
-                float source = scChannels > 0 ? ctx.sidechain.channel(std::min(c, scChannels - 1))[i]
-                                              : x + glue * (ch.feedback - x);
-                float filtered = scType_ != ScFilterType::Off ? ch.scFilter.process(source) : source;
-                if (scFade < 1.0f)
-                {
-                    const float outgoing =
-                        scOutgoingType_ != ScFilterType::Off ? ch.scOutgoing.process(source) : source;
-                    filtered = outgoing + scFade * (filtered - outgoing);
-                }
-                heard[c] = filtered;
-                const auto level = ch.detector.process(filtered);
+                heard[c] = scChannels > 0 ? ctx.sidechain.channel(std::min(c, scChannels - 1))[i]
+                                          : x + glue * (ch_[static_cast<size_t>(c)].feedback - x);
+            }
+            scFilter_.process(heard, channels);
+            for (int c = 0; c < channels; ++c)
+            {
+                auto& ch = ch_[static_cast<size_t>(c)];
+                const auto level = ch.detector.process(heard[c]);
                 levels[c] = dsp::gainToDb(level.peak + rms * (level.rms - level.peak));
                 detectorLevel = std::max(detectorLevel, levels[c]);
             }

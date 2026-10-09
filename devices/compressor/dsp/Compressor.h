@@ -41,7 +41,7 @@ public:
     };
 
     enum class CharacterType { Clean, Glue };
-    enum class ScFilterType { Off, HighPass, LowPass, BandPass, Bell };
+    using ScFilterType = dsp::SidechainFilter::Type;
 
     /// Analysis bus slots and FIFO (devices/compressor/SPEC.md, "Analysis").
     enum Analysis : int
@@ -89,9 +89,8 @@ private:
     dsp::LinearSmoother threshold_, slope_, knee_, makeup_, output_, mix_, listen_;
     dsp::LinearSmoother autoMakeup_; // 0..1: from the Makeup setting to the automatic makeup
     dsp::MultiplicativeSmoother attackMs_, releaseMs_; // advanced once per control tick
-    dsp::MultiplicativeSmoother scFreq_, scQ_;         // likewise
-    dsp::LinearSmoother scGainDb_;                     // likewise
-    dsp::LinearSmoother glue_, rms_, scFade_;          // 0..1 crossfades, per sample
+    dsp::LinearSmoother glue_, rms_;                   // 0..1 crossfades, per sample
+    dsp::SidechainFilter scFilter_;
     int appliedLookahead_ = 0;
     bool autoRelease_ = false;
 
@@ -100,13 +99,10 @@ private:
         dsp::LevelDetector detector;
         dsp::GainSmoother gain;
         dsp::AutoReleaseSmoother autoGain;
-        dsp::Biquad scFilter;
-        dsp::Biquad scOutgoing; // the previous filter type, while the new one fades in
         dsp::DelayLine audio; // the lookahead: the wet and dry paths are both delayed
         float feedback = 0.0f; // Glue: the last gain-reduced sample, for the detector
     };
     std::array<Channel, maxChannels> ch_{};
-    ScFilterType scType_ = ScFilterType::Off, scOutgoingType_ = ScFilterType::Off;
 
     // History frames for the display.
     int historyStep_ = 480, historyPos_ = 0;

@@ -125,6 +125,84 @@ float LevelDetector::processDb(float x) noexcept
     return gainToDb(mode_ == Mode::Peak ? levels.peak : levels.rms);
 }
 
+void SidechainFilter::prepare(double sampleRate, int fadeSamples) noexcept
+{
+    sampleRate_ = sampleRate;
+    fadeSamples_ = std::max(1, fadeSamples);
+}
+
+void SidechainFilter::reset(Type type, float freqHz, float q, float gainDb) noexcept
+{
+    type_ = outgoingType_ = type;
+    freq_.reset(std::min(freqHz, static_cast<float>(sampleRate_ * 0.45)));
+    q_.reset(q);
+    gainDb_.reset(gainDb);
+    fade_.reset(1.0f);
+    for (int c = 0; c < maxChannels; ++c)
+    {
+        filters_[static_cast<size_t>(c)].reset();
+        outgoing_[static_cast<size_t>(c)].reset();
+    }
+    design();
+}
+
+void SidechainFilter::update(Type type, float freqHz, float q, float gainDb, int glideTicks) noexcept
+{
+    if (type != type_)
+    {
+        // The outgoing filter keeps running while the new one fades in from rest.
+        outgoingType_ = type_;
+        type_ = type;
+        outgoing_ = filters_;
+        for (auto& f : filters_)
+            f.reset();
+        fade_.reset(0.0f);
+        fade_.setTarget(1.0f, fadeSamples_);
+    }
+    const int ticks = std::max(1, glideTicks);
+    freq_.setTarget(std::min(freqHz, static_cast<float>(sampleRate_ * 0.45)), ticks);
+    q_.setTarget(q, ticks);
+    gainDb_.setTarget(gainDb, ticks);
+    freq_.next();
+    q_.next();
+    gainDb_.next();
+    design();
+}
+
+void SidechainFilter::design() noexcept
+{
+    BiquadType kind = BiquadType::Highpass;
+    switch (type_)
+    {
+    case Type::Off:
+        return;
+    case Type::HighPass: kind = BiquadType::Highpass; break;
+    case Type::LowPass: kind = BiquadType::Lowpass; break;
+    case Type::BandPass: kind = BiquadType::Bandpass; break;
+    case Type::Bell: kind = BiquadType::Peak; break;
+    }
+    const auto coeffs = designBiquad(kind, sampleRate_, freq_.current(), q_.current(), gainDb_.current());
+    for (auto& f : filters_)
+        f.setCoeffs(coeffs);
+}
+
+void SidechainFilter::process(float* frame, int numChannels) noexcept
+{
+    const float fade = fade_.next();
+    const int n = std::min(numChannels, maxChannels);
+    for (int c = 0; c < n; ++c)
+    {
+        const float x = frame[c];
+        float y = type_ != Type::Off ? filters_[static_cast<size_t>(c)].process(x) : x;
+        if (fade < 1.0f)
+        {
+            const float out = outgoingType_ != Type::Off ? outgoing_[static_cast<size_t>(c)].process(x) : x;
+            y = out + fade * (y - out);
+        }
+        frame[c] = y;
+    }
+}
+
 void linkLevels(float* levelsDb, int numChannels, float amount) noexcept
 {
     if (numChannels < 2 || amount <= 0.0f)

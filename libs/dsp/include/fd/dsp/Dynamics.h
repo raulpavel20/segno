@@ -1,5 +1,9 @@
 #pragma once
 
+#include "fd/dsp/Filters.h"
+#include "fd/dsp/Smoother.h"
+
+#include <array>
 #include <vector>
 
 namespace fd::dsp
@@ -101,6 +105,45 @@ private:
 /// Stereo link: each channel's level moves towards the loudest channel's by `amount` (0 =
 /// independent, 1 = one level for all), in dB.
 void linkLevels(float* levelsDb, int numChannels, float amount) noexcept;
+
+// ---- sidechain filter -----------------------------------------------------------------------
+
+/// The filter on a dynamics device's detector path (Compressor, Gate): a cookbook biquad per
+/// channel. Frequency, Q and gain glide to new settings; a change of type crossfades from the
+/// outgoing filter, so neither clicks when Listen plays the result.
+class SidechainFilter
+{
+public:
+    enum class Type
+    {
+        Off,
+        HighPass,
+        LowPass,
+        BandPass,
+        Bell
+    };
+    static constexpr int maxChannels = 2;
+
+    /// `fadeSamples`: the crossfade when the type changes.
+    void prepare(double sampleRate, int fadeSamples) noexcept;
+    /// Clears the filters and puts the settings in place at once.
+    void reset(Type type, float freqHz, float q, float gainDb) noexcept;
+    /// Once per control tick: new settings, reached over `glideTicks` ticks (a new type starts
+    /// its crossfade now).
+    void update(Type type, float freqHz, float q, float gainDb, int glideTicks) noexcept;
+    /// One frame (every channel's sample at one instant), filtered in place.
+    void process(float* frame, int numChannels) noexcept;
+
+private:
+    void design() noexcept;
+
+    double sampleRate_ = 48000.0;
+    int fadeSamples_ = 480;
+    Type type_ = Type::Off, outgoingType_ = Type::Off;
+    MultiplicativeSmoother freq_, q_;
+    LinearSmoother gainDb_, fade_;
+    std::array<Biquad, maxChannels> filters_{}, outgoing_{};
+};
 
 // ---- lookahead ------------------------------------------------------------------------------
 
