@@ -14,14 +14,12 @@ class AnalysisBus
 public:
     static constexpr int numSlots = 16;
 
-    /// Audio thread: raise slot to at least `value` (peak-hold until taken).
+    /// Audio thread: raise slot to at least `value` (peak-hold until taken). Both readers see
+    /// it: the panel (takePeak) and a probe (takeProbePeak).
     void publishPeak(int slot, float value) noexcept
     {
-        auto& a = slots_[static_cast<size_t>(slot)];
-        float current = a.load(std::memory_order_relaxed);
-        while (value > current && !a.compare_exchange_weak(current, value, std::memory_order_relaxed))
-        {
-        }
+        raise(slots_[static_cast<size_t>(slot)], value);
+        raise(probes_[static_cast<size_t>(slot)], value);
     }
 
     /// Audio thread: overwrite slot.
@@ -29,6 +27,13 @@ public:
 
     /// UI: read and reset a peak slot.
     float takePeak(int slot) noexcept { return slots_[static_cast<size_t>(slot)].exchange(0.0f, std::memory_order_relaxed); }
+
+    /// A second reader of peak slots, for measurements (the MCP measure_module tool), so they
+    /// never take the peaks a panel's meters show.
+    float takeProbePeak(int slot) noexcept
+    {
+        return probes_[static_cast<size_t>(slot)].exchange(0.0f, std::memory_order_relaxed);
+    }
 
     /// UI: read without resetting.
     [[nodiscard]] float read(int slot) const noexcept { return slots_[static_cast<size_t>(slot)].load(std::memory_order_relaxed); }
@@ -52,7 +57,15 @@ public:
     }
 
 private:
-    std::array<std::atomic<float>, numSlots> slots_{};
+    static void raise(std::atomic<float>& a, float value) noexcept
+    {
+        float current = a.load(std::memory_order_relaxed);
+        while (value > current && !a.compare_exchange_weak(current, value, std::memory_order_relaxed))
+        {
+        }
+    }
+
+    std::array<std::atomic<float>, numSlots> slots_{}, probes_{};
     std::array<SampleFifo, numFifos> fifos_{};
     std::array<std::atomic<int>, numRequests> requests_{};
 };

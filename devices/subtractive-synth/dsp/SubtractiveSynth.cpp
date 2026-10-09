@@ -149,6 +149,12 @@ constexpr ParamDescription kDescriptions[] = {
 constexpr auto kParams = describe(kSpecs, kDescriptions);
 static_assert(allDescribed(kParams), "every parameter needs a description (SPEC.md)");
 
+// The meters its panel shows, by name (MCP measure_module).
+constexpr MeterSpec kMeters[] = {
+    {.slot = SubtractiveSynth::PeakOut, .id = "output", .name = "Output", .kind = MeterKind::Level},
+    {.slot = SubtractiveSynth::ActiveVoices, .id = "voices", .name = "Voices playing", .kind = MeterKind::Count},
+};
+
 constexpr DeviceInfo kInfo{
     .id = "subtractive-synth",
     .name = "Subtractive Synth",
@@ -157,6 +163,7 @@ constexpr DeviceInfo kInfo{
     .buses = {.inputChannels = 0, .outputChannels = 2, .acceptsMidi = true},
     .params = kParams,
     .stateVersion = 1,
+    .meters = kMeters,
 };
 
 double hzForPitch(double semitones)

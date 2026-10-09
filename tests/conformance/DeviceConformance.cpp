@@ -10,6 +10,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <set>
 #include <cmath>
 #include <fstream>
 #include <map>
@@ -469,4 +470,20 @@ TEST_CASE("conformance: every parameter says what it does, in the same words as 
             CHECK(spec.at(std::string(p.id)) == p.description);
         }
     }
+}
+
+TEST_CASE("conformance: meters are named, unique and on the analysis bus", "[fast][conformance]")
+{
+    forEachDevice([](const DeviceFactory& f) {
+        std::set<std::string_view> ids;
+        for (const auto& m : f.info().meters)
+        {
+            INFO(m.id);
+            CHECK(m.slot >= 0);
+            CHECK(m.slot < AnalysisBus::numSlots);
+            CHECK(ids.insert(m.id).second);
+            CHECK_FALSE(m.name.empty());
+            CHECK(std::all_of(m.id.begin(), m.id.end(), [](char c) { return (c >= 'a' && c <= 'z') || c == '_'; }));
+        }
+    });
 }

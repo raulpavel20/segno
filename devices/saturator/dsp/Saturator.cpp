@@ -45,6 +45,14 @@ constexpr ParamDescription kDescriptions[] = {
 constexpr auto kParams = describe(kSpecs, kDescriptions);
 static_assert(allDescribed(kParams), "every parameter needs a description (SPEC.md)");
 
+// The meters its panel shows, by name (MCP measure_module).
+constexpr MeterSpec kMeters[] = {
+    {.slot = Saturator::PeakInL, .id = "input_left", .name = "Input, left", .kind = MeterKind::Level},
+    {.slot = Saturator::PeakInR, .id = "input_right", .name = "Input, right", .kind = MeterKind::Level},
+    {.slot = Saturator::PeakOutL, .id = "output_left", .name = "Output, left", .kind = MeterKind::Level},
+    {.slot = Saturator::PeakOutR, .id = "output_right", .name = "Output, right", .kind = MeterKind::Level},
+};
+
 constexpr DeviceInfo kInfo{
     .id = "saturator",
     .name = "Saturator",
@@ -53,6 +61,7 @@ constexpr DeviceInfo kInfo{
     .buses = {.inputChannels = 2, .outputChannels = 2},
     .params = kParams,
     .stateVersion = 1,
+    .meters = kMeters,
 };
 
 constexpr double kColorQ = 0.7;

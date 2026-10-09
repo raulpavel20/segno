@@ -8,9 +8,13 @@
 
 #include <fd/audiofile/AudioFile.h>
 
+#include <fd/device/Device.h>
+
+#include <chrono>
 #include <cmath>
 #include <condition_variable>
 #include <mutex>
+#include <thread>
 
 namespace fd::mcp
 {
@@ -195,6 +199,111 @@ void addRenderTools(Registry& registry, ToolEnv& env)
         return result;
     };
     registry.tools.push_back(std::move(render));
+
+    Tool measure;
+    measure.name = "measure_module";
+    measure.title = "Read a module's meters";
+    measure.description =
+        "Reads what one of our modules' meters show while the project plays, over a short window (half a second "
+        "by default): levels, gain reduction, a gate opening, loudness, voices. Meters read silence when nothing "
+        "plays, so start playback first. render measures any sound, including third-party plugins'.";
+    measure.inputSchema = object({{"module", id(IdKind::Module, "The module")},
+                                  {"seconds", number("How long to watch, 0.1 to 5 (default 0.5)")}},
+                                 {"module"});
+    measure.outputSchema = result({{"module", string("")},
+                                   {"playing", boolean("Whether the project was playing")},
+                                   {"meters", arrayOf(result({{"id", string("")}, {"name", string("")}}), "",
+                                                      std::nullopt)}},
+                                  {"module", "playing", "meters"});
+    measure.annotations.readOnly = true;
+    measure.call = [&env](const Json& args, CallContext& context) -> ToolResult {
+        std::unique_ptr<engine::DeviceHandle> handle;
+        std::span<const MeterSpec> meters;
+        std::string moduleId, moduleName;
+        bool playing = false;
+        std::optional<ToolResult> refused;
+        const double seconds = std::clamp(args.value("seconds", 0.5), 0.1, 5.0);
+        const bool ran = env.main.run([&] {
+            try
+            {
+                env.session.flushSnapshot();
+                const auto [slot, owner] = module(env, args["module"]);
+                moduleId = formatId(IdKind::Module, slot.id);
+                moduleName = slot.name;
+                handle = env.session.openDevice(slot.id);
+                if (handle == nullptr || handle->context().analysis == nullptr)
+                    throw Problem{"measure_module reads our modules' meters; render measures a plugin's sound."};
+                meters = handle->context().info.meters;
+                if (meters.empty())
+                    throw Problem{"This module has no meters; render measures its sound."};
+                playing = env.session.isPlaying();
+                for (const auto& m : meters) // start the window: drop what was held before it
+                    (void)handle->context().analysis->takeProbePeak(m.slot);
+            }
+            catch (const Problem& p)
+            {
+                refused = ToolResult::error(p.message);
+            }
+        });
+        // The handle keeps the module alive; it is let go on the message thread.
+        auto release = [&] { env.main.run([&] { handle.reset(); }); };
+        if (!ran)
+            return ToolResult::error("The DAW is closing.");
+        if (refused)
+        {
+            release();
+            return *refused;
+        }
+
+        const auto until = std::chrono::steady_clock::now() + std::chrono::duration<double>(seconds);
+        while (std::chrono::steady_clock::now() < until && !context.cancelled() && env.main.isOpen())
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+        auto& bus = *handle->context().analysis;
+        auto dbOrNull = [](double v) { return v > 1e-5 ? Json(db(20.0 * std::log10(v))) : Json(nullptr); };
+        Json list = Json::array();
+        std::string summary;
+        for (const auto& m : meters)
+        {
+            Json value, unit;
+            switch (m.kind)
+            {
+            case MeterKind::Level: value = dbOrNull(bus.takeProbePeak(m.slot)); unit = "dBFS"; break;
+            case MeterKind::TruePeak: value = dbOrNull(bus.takeProbePeak(m.slot)); unit = "dBTP"; break;
+            case MeterKind::Reduction: value = db(bus.takeProbePeak(m.slot)); unit = "dB"; break;
+            case MeterKind::Flag: value = bus.takeProbePeak(m.slot) > 0.5f; unit = nullptr; break;
+            case MeterKind::Loudness:
+            {
+                const double v = bus.read(m.slot);
+                value = std::isfinite(v) && v > -70.0 ? Json(db(v)) : Json(nullptr);
+                unit = "LUFS";
+                break;
+            }
+            case MeterKind::Decibels:
+            {
+                const double v = bus.read(m.slot);
+                value = std::isfinite(v) && v > -99.0 ? Json(db(v)) : Json(nullptr);
+                unit = "dB";
+                break;
+            }
+            case MeterKind::Count: value = static_cast<int>(std::lround(bus.read(m.slot))); unit = nullptr; break;
+            }
+            Json entry{{"id", std::string(m.id)}, {"name", std::string(m.name)}, {"value", value}};
+            if (!unit.is_null())
+                entry["unit"] = unit;
+            if (summary.size() < 160)
+                summary += (summary.empty() ? "" : ", ") + std::string(m.name) + " " +
+                           (value.is_null() ? std::string("silent") : value.dump()) +
+                           (unit.is_null() || value.is_null() ? "" : " " + unit.get<std::string>());
+            list.push_back(std::move(entry));
+        }
+        release();
+        if (!playing)
+            summary = "Nothing was playing, so the meters read silence. " + summary;
+        return ToolResult::ok({{"module", moduleId}, {"seconds", seconds}, {"playing", playing}, {"meters", list}},
+                              moduleName + ": " + summary + ".");
+    };
+    registry.tools.push_back(std::move(measure));
 
     Tool scan;
     scan.name = "scan_plugins";

@@ -130,6 +130,12 @@ constexpr ParamDescription kDescriptions[] = {
 constexpr auto kParams = describe(kSpecs, kDescriptions);
 static_assert(allDescribed(kParams), "every parameter needs a description (SPEC.md)");
 
+// The meters its panel shows, by name (MCP measure_module).
+constexpr MeterSpec kMeters[] = {
+    {.slot = Sampler::PeakOut, .id = "output", .name = "Output", .kind = MeterKind::Level},
+    {.slot = Sampler::ActiveVoices, .id = "voices", .name = "Voices playing", .kind = MeterKind::Count},
+};
+
 constexpr DeviceInfo kInfo{
     .id = "sampler",
     .name = "Sampler",
@@ -138,6 +144,7 @@ constexpr DeviceInfo kInfo{
     .buses = {.inputChannels = 0, .outputChannels = 2, .acceptsMidi = true},
     .params = kParams,
     .stateVersion = 1,
+    .meters = kMeters,
 };
 
 dsp::Adsr::Settings settings(const ParamStore& p, size_t attack, double sustainOverride = -1.0)

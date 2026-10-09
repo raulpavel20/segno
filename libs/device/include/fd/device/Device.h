@@ -70,6 +70,28 @@ struct BusConfig
 };
 
 /// Static description of a device type (one constexpr instance per device).
+/// What a meter slot on the analysis bus holds, so hosts can read it by name (the MCP
+/// `measure_module` tool) and convert it to its unit.
+enum class MeterKind
+{
+    Level,     // a peak, linear (published with publishPeak): read as dBFS
+    TruePeak,  // a true peak, linear (publishPeak): read as dBTP
+    Reduction, // gain reduction in dB as a positive number (publishPeak)
+    Flag,      // 1 if it happened since last read (publishPeak), e.g. a gate opening
+    Loudness,  // LUFS, a current value (publish)
+    Decibels,  // a current value in dB (publish), e.g. a true-peak maximum
+    Count,     // a current count (publish), e.g. voices playing
+};
+
+/// A named meter: one analysis slot.
+struct MeterSpec
+{
+    int slot = 0;
+    std::string_view id;   // stable within the device, e.g. "gain_reduction"
+    std::string_view name; // for people, e.g. "Gain reduction"
+    MeterKind kind = MeterKind::Level;
+};
+
 struct DeviceInfo
 {
     std::string_view id;       // permanent (docs/ids.md)
@@ -79,6 +101,8 @@ struct DeviceInfo
     BusConfig buses{};
     std::span<const ParamSpec> params{};
     std::uint32_t stateVersion = 1;
+    /// The analysis slots its displays read, by name (none for display-only data).
+    std::span<const MeterSpec> meters{};
 };
 
 /// Base class for every instrument and effect. Hosts: the plugin adapter (plugins/) and the

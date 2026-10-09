@@ -137,8 +137,8 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
           "set_metronome", "set_tempo", "set_time_signature", "add_track", "create_midi_clip", "insert_audio_file",
           "insert_midi_file", "move_clips", "trim_clip", "duplicate_clips", "split_clips", "delete_clips", "add_notes",
           "set_notes", "remove_notes", "edit_notes", "add_module", "remove_module", "move_module", "set_module_on",
-          "set_parameters", "load_sample", "set_module_view", "set_module_sidechain", "scan_plugins", "render", "undo",
-          "redo",
+          "set_parameters", "load_sample", "set_module_view", "set_module_sidechain", "scan_plugins", "render",
+          "measure_module", "undo", "redo",
           "save_project", "new_project", "open_project"})
         CHECK(names.contains(name));
     for (const auto& p : registry.prompts)
@@ -482,6 +482,59 @@ TEST_CASE("mcp tools: render measures a range without touching the project", "[i
     CHECK(daw.session->undoDescription() == undo);
     CHECK(daw.session->hasUnsavedChanges() == unsaved);
     CHECK(daw.callAway("render", {{"start", 4}, {"end", 0}})["isError"] == true);
+}
+
+TEST_CASE("mcp tools: measure_module reads a module's meters by name", "[integration][mcp]")
+{
+    Daw daw;
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    const auto comp = daw.call("add_module", {{"track", t0}, {"type", "compressor"}})["id"].get<std::string>();
+    const auto eq = daw.call("add_module", {{"track", t0}, {"type", "eq"}})["id"].get<std::string>();
+
+    // No audio device runs here: stand in for the audio thread, publishing while it watches.
+    auto handle = daw.session->openDevice(std::stoull(comp.substr(2)));
+    REQUIRE(handle != nullptr);
+    auto slotOf = [&](std::string_view id) {
+        for (const auto& m : handle->context().info.meters)
+            if (m.id == id)
+                return m.slot;
+        FAIL("no meter " << id);
+        return 0;
+    };
+    auto& bus = *handle->context().analysis;
+    bus.publishPeak(slotOf("gain_reduction"), 20.0f); // before the window: not counted
+    auto future = std::async(std::launch::async, [&] {
+        return daw.server->dispatcher()->handle(
+            modernRequest("tools/call", {{"name", "measure_module"}, {"arguments", {{"module", comp}, {"seconds", 0.3}}}}),
+            {});
+    });
+    while (future.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready)
+    {
+        bus.publishPeak(slotOf("gain_reduction"), 4.2f);
+        bus.publishPeak(slotOf("output_left"), 0.5f);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
+    }
+    const auto out = future.get();
+    REQUIRE(out.message);
+    const auto result = (*out.message)["result"];
+    INFO(result.dump());
+    REQUIRE(result["isError"] == false);
+    const auto& measured = result["structuredContent"];
+    CHECK(measured["playing"] == false);
+    std::map<std::string, Json> byId;
+    for (const auto& m : measured["meters"])
+        byId[m["id"].get<std::string>()] = m;
+    CHECK(byId["gain_reduction"]["value"] == Approx(4.2));
+    CHECK(byId["gain_reduction"]["unit"] == "dB");
+    CHECK(byId["output_left"]["value"] == Approx(-6.0).margin(0.1));
+    CHECK(byId["output_left"]["unit"] == "dBFS");
+    CHECK(byId["input_left"]["value"].is_null()); // silent
+    CHECK(result["content"][0]["text"].get<std::string>().find("Nothing was playing") != std::string::npos);
+    // The panel's own meter still has its peak: the measurement read a copy.
+    CHECK(bus.takePeak(slotOf("gain_reduction")) == Approx(20.0f));
+    handle.reset();
+
+    CHECK(daw.fails("measure_module", {{"module", eq}}).find("no meters") != std::string::npos);
 }
 
 TEST_CASE("mcp tools: resources and their change notifications", "[integration][mcp]")

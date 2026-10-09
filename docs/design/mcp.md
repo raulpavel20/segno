@@ -131,7 +131,7 @@ For third-party plugins, `set_parameters` uses the plugin's own parameter names 
 | Tool | Arguments | Result |
 |---|---|---|
 | `render` | `start`, `end`, `what?` (the mix, or a track with whatever feeds its sidechains), `audio?` (false) | Measurements of the rendered audio: peak (dBFS) and true peak (dBTP), RMS, loudness (LUFS: integrated, the loudest 3 s and 400 ms), crest factor, clipped samples, the level in seven bands (sub to air, the channels' average), and the stereo correlation. With `audio: true`, the audio itself too (16-bit WAV, 30 s at most; §9) |
-| `measure_module` | `module` | What the module's displays show right now: meter levels, gain reduction, the spectrum (coarse). **Later** (§10) |
+| `measure_module` | `module`, `seconds?` (0.5; 0.1 to 5) | What one of our modules' meters show over that window, by name, each in its unit: levels (dBFS, dBTP), gain reduction (dB), a gate opening, loudness (LUFS), voices. Says when nothing was playing. Modules declare their meters (`DeviceInfo::meters`); the measurement reads its own copy of each peak, so the panel's meters lose nothing. Spectra (the EQ's analyzer) aren't meters: `render` measures bands |
 
 **Project:**
 
@@ -220,7 +220,7 @@ Built in M2 step C9 as designed above, except:
 
 | Item | Status |
 |---|---|
-| `measure_module` | Later, with the dynamics devices (B1–B3): the analysis bus has no names for its meter slots yet, and reading them would take the peaks the panel shows. |
+| `measure_module` | Built with the dynamics devices (B1–B3): devices name their meters (`MeterSpec`), and peak slots have a second reader for measurements. |
 | True peak and LUFS in `render` | Done with the dynamics core (A1). |
 | The tasks extension | Later. Long calls (render, plugin scans) stream progress notifications on their response instead. |
 | Module type reference | Gives each module's purpose (from its SPEC), its parameters (what each does, range, default, unit, choices) and its sections. Parameter descriptions came with B22. |

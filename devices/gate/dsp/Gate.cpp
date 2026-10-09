@@ -74,6 +74,17 @@ constexpr ParamDescription kDescriptions[] = {
 constexpr auto kParams = describe(kSpecs, kDescriptions);
 static_assert(allDescribed(kParams), "every parameter needs a description (SPEC.md)");
 
+// The meters its panel shows, by name (MCP measure_module).
+constexpr MeterSpec kMeters[] = {
+    {.slot = Gate::PeakInL, .id = "input_left", .name = "Input, left", .kind = MeterKind::Level},
+    {.slot = Gate::PeakInR, .id = "input_right", .name = "Input, right", .kind = MeterKind::Level},
+    {.slot = Gate::PeakOutL, .id = "output_left", .name = "Output, left", .kind = MeterKind::Level},
+    {.slot = Gate::PeakOutR, .id = "output_right", .name = "Output, right", .kind = MeterKind::Level},
+    {.slot = Gate::DetectorLevel, .id = "detector", .name = "What the detector hears", .kind = MeterKind::Level},
+    {.slot = Gate::GainReduction, .id = "gain_reduction", .name = "Gain reduction", .kind = MeterKind::Reduction},
+    {.slot = Gate::Open, .id = "open", .name = "Open", .kind = MeterKind::Flag},
+};
+
 constexpr DeviceInfo kInfo{
     .id = "gate",
     .name = "Gate",
@@ -82,6 +93,7 @@ constexpr DeviceInfo kInfo{
     .buses = {.inputChannels = 2, .outputChannels = 2, .sidechainChannels = 2},
     .params = kParams,
     .stateVersion = 1,
+    .meters = kMeters,
 };
 
 constexpr double kMaxLookaheadMs = 10.0;

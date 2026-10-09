@@ -41,6 +41,12 @@ constexpr ParamDescription kDescriptions[] = {
 constexpr auto kParams = describe(kSpecs, kDescriptions);
 static_assert(allDescribed(kParams), "every parameter needs a description (SPEC.md)");
 
+// The meters its panel shows, by name (MCP measure_module).
+constexpr MeterSpec kMeters[] = {
+    {.slot = Utility::PeakOutL, .id = "output_left", .name = "Output, left", .kind = MeterKind::Level},
+    {.slot = Utility::PeakOutR, .id = "output_right", .name = "Output, right", .kind = MeterKind::Level},
+};
+
 constexpr DeviceInfo kInfo{
     .id = "utility",
     .name = "Utility",
@@ -49,6 +55,7 @@ constexpr DeviceInfo kInfo{
     .buses = {.inputChannels = 2, .outputChannels = 2},
     .params = kParams,
     .stateVersion = 1,
+    .meters = kMeters,
 };
 } // namespace
 
