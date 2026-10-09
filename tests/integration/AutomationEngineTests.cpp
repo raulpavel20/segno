@@ -152,7 +152,7 @@ TEST_CASE("automation: a lane's curve is what its parameters play, through full,
     const auto t0 = a.track(0), t1 = a.track(1);
     REQUIRE(a.session->addDevice(t1, "fd:eq") != 0);
     const Target volume{t0, "volume"}, pan{t1, "pan"}, freq{t1, moduleKey(a.channel(t1), 0, "band1.freq")};
-    const auto lane = a.session->addAutomationLane(t0, volume);
+    const auto lane = a.session->addAutomationLaneAfter(t0, volume);
     REQUIRE(lane != 0);
     const AssignmentRange part{0.2f, 0.7f}, inverted{0.9f, 0.1f};
     REQUIRE(a.session->assign(lane, pan, part));
@@ -175,6 +175,34 @@ TEST_CASE("automation: a lane's curve is what its parameters play, through full,
         }
 }
 
+TEST_CASE("automation: a lane is added like a track: at the end, with the next colour, assigned later",
+          "[integration]")
+{
+    Automation a;
+    a.session->updateSnapshotNow();
+    const auto tracks = a.session->snapshot()->tracks;
+    const auto last = tracks.back().id;
+    const auto lane = a.session->addAutomationLane();
+    REQUIRE(lane != 0);
+    CHECK(a.session->undoDescription() == "Add automation lane");
+    auto info = a.lane(lane);
+    CHECK(info.after == last);
+    CHECK(info.assignments.empty());
+    CHECK(info.displayName() == "Automation lane");
+    // Tracks and lanes take turns through the palette: the lane is coloured like a fifth track
+    // would be, and the track after it like a sixth.
+    CHECK(info.colour == static_cast<int>(tracks.size()) * 3 % 16);
+    const auto track = a.session->addTrack();
+    a.session->updateSnapshotNow();
+    CHECK(a.session->snapshot()->channel(track)->colour == static_cast<int>(tracks.size() + 1) * 3 % 16);
+    // The new track goes after the lane; the next lane after that track.
+    const auto next = a.session->automateInNewLane({tracks[0].id, "volume"});
+    CHECK(a.lane(next).after == track);
+    CHECK(a.lane(lane).after == last); // it stays where it was put
+    REQUIRE(a.session->assign(lane, {tracks[1].id, "pan"}));
+    CHECK(a.lane(lane).displayName() == "Pan");
+}
+
 TEST_CASE("automation: a straight segment is a straight move of the control", "[integration]")
 {
     Automation a;
@@ -183,7 +211,7 @@ TEST_CASE("automation: a straight segment is a straight move of the control", "[
     const auto info = a.channel(t);
     // A frequency on a skewed knob: halfway along the segment is the knob's centre value.
     const Target freq{t, moduleKey(info, 0, "band1.freq")};
-    const auto lane = a.session->addAutomationLane(t, freq);
+    const auto lane = a.session->addAutomationLaneAfter(t, freq);
     REQUIRE(a.session->setLanePoints(lane, {{0.0, 0.0f, 0.0f}, {2.0, 1.0f, 0.0f}}));
     CHECK(a.played(freq, 1.0) == Approx(0.5f));
     const auto plain = a.session->paramPlain(freq, a.played(freq, 1.0));
@@ -211,7 +239,7 @@ TEST_CASE("automation: a rendered volume lane follows the drawn curve", "[integr
     const Target volume{t, "volume"};
     // Through a partial range: the lane's 0..1 is -24 dB .. +6 dB.
     const AssignmentRange range{*a.session->paramFromPlain(volume, -24.0), 1.0f};
-    const auto lane = a.session->addAutomationLane(t);
+    const auto lane = a.session->addAutomationLaneAfter(t);
     REQUIRE(a.session->assign(lane, volume, range));
     const float zero = *range.toLane(*a.session->paramFromPlain(volume, 0.0));
     const float low = *range.toLane(*a.session->paramFromPlain(volume, -12.0));
@@ -240,7 +268,7 @@ TEST_CASE("automation: one point holds; one stepped parameter steps; latency set
     Automation a;
     const auto t = a.track(0);
     const Target pan{t, "pan"};
-    const auto panLane = a.session->addAutomationLane(t, pan);
+    const auto panLane = a.session->addAutomationLaneAfter(t, pan);
     REQUIRE(a.session->setLanePoints(panLane, {{4.0, 0.25f, 0.0f}}));
     CHECK(a.param(pan).isAutomationActive()); // patched: a single point plays
     CHECK(a.played(pan, 0.0) == Approx(0.25f));
@@ -250,7 +278,7 @@ TEST_CASE("automation: one point holds; one stepped parameter steps; latency set
     const auto info = a.channel(t);
     // A choice alone on its lane over its full range: values snap to its steps and hold.
     const Target character{t, moduleKey(info, 0, "character")};
-    const auto lane = a.session->addAutomationLane(t, character);
+    const auto lane = a.session->addAutomationLaneAfter(t, character);
     REQUIRE(a.session->setLanePoints(lane, {{0.0, 0.1f, 0.0f}, {2.0, 0.9f, 0.0f}}));
     auto withSteps = a.lane(lane);
     CHECK(withSteps.rules().steps == 2); // two characters
@@ -267,7 +295,7 @@ TEST_CASE("automation: one point holds; one stepped parameter steps; latency set
     CHECK(a.played(pan, 1.0) == Approx(0.5f));
 
     const Target lookahead{t, moduleKey(info, 0, "lookahead")};
-    CHECK(a.session->addAutomationLane(t, lookahead) == 0);
+    CHECK(a.session->addAutomationLaneAfter(t, lookahead) == 0);
     CHECK_FALSE(a.session->assign(lane, lookahead));
     const auto choices = a.session->automatableParameters(t);
     CHECK(std::none_of(choices.begin(), choices.end(), [&](const auto& c) { return c.key == lookahead.key; }));
@@ -283,7 +311,7 @@ TEST_CASE("automation: one lane drives parameters on two tracks; assigning moves
     Automation a;
     const auto t0 = a.track(0), t1 = a.track(1);
     const Target v0{t0, "volume"}, v1{t1, "volume"};
-    const auto lane = a.session->addAutomationLane(t0, v0);
+    const auto lane = a.session->addAutomationLaneAfter(t0, v0);
     CHECK(a.session->undoDescription() == "Add automation lane");
     REQUIRE(a.session->assign(lane, v1, {0.0f, 0.5f}));
     CHECK(a.session->undoDescription() == "Assign parameter");
@@ -310,7 +338,7 @@ TEST_CASE("automation: one lane drives parameters on two tracks; assigning moves
     CHECK(a.curve(v1, 2.0) == Approx(0.5f));
 
     // One lane per parameter: a new lane for it takes it, bringing its curve (full range there).
-    const auto other = a.session->addAutomationLane(t1, v1);
+    const auto other = a.session->addAutomationLaneAfter(t1, v1);
     REQUIRE(other != 0);
     CHECK(a.session->laneOf(v1) == other);
     CHECK(a.lane(lane).assignments.size() == 1);
@@ -320,7 +348,7 @@ TEST_CASE("automation: one lane drives parameters on two tracks; assigning moves
     CHECK(a.session->laneOf(v1) == lane);
     CHECK_FALSE(a.exists(other));
     // Assigning it elsewhere moves it in one step.
-    const auto empty = a.session->addAutomationLane(0);
+    const auto empty = a.session->addAutomationLaneAfter(0);
     REQUIRE(a.session->assign(empty, v1));
     CHECK(a.session->laneOf(v1) == empty);
     CHECK(a.curvePoints(v1) == 0);
@@ -360,7 +388,7 @@ TEST_CASE("automation: moving an assigned control turns off its assignment, and 
     Automation a;
     const auto t0 = a.track(0), t1 = a.track(1);
     const Target v0{t0, "volume"}, v1{t1, "volume"};
-    const auto lane = a.session->addAutomationLane(t0, v0);
+    const auto lane = a.session->addAutomationLaneAfter(t0, v0);
     REQUIRE(a.session->assign(lane, v1));
     REQUIRE(a.session->setLanePoints(lane, {{0.0, 0.2f, 0.0f}, {4.0, 0.9f, 0.0f}}));
     CHECK(a.lane(lane).allOn());
@@ -393,7 +421,7 @@ TEST_CASE("automation: played values never mark the project changed or rebuild s
     Automation a;
     const auto t = a.track(0);
     const Target volume{t, "volume"};
-    const auto lane = a.session->addAutomationLane(t, volume);
+    const auto lane = a.session->addAutomationLaneAfter(t, volume);
     REQUIRE(a.session->setLanePoints(lane, {{0.0, 0.2f, 0.0f}, {4.0, 0.9f, 0.0f}}));
     juce::MessageManager::getInstance()->runDispatchLoopUntil(500); // tracktion's undo timer settles
     juce::TemporaryFile project(Session::fileExtension);
@@ -418,7 +446,7 @@ TEST_CASE("automation: editing a lane updates its curves in place, never rebuild
     Automation a;
     const auto t = a.track(0);
     const Target volume{t, "volume"}, pan{t, "pan"};
-    const auto lane = a.session->addAutomationLane(t, volume);
+    const auto lane = a.session->addAutomationLaneAfter(t, volume);
     REQUIRE(a.session->assign(lane, pan));
     REQUIRE(a.session->setLanePoints(lane, {{0.0, 0.2f, 0.0f}, {4.0, 0.9f, 0.0f}}));
     juce::MessageManager::getInstance()->runDispatchLoopUntil(50); // automation came: the graph was rebuilt
@@ -444,8 +472,8 @@ TEST_CASE("automation: lanes are saved with the project; older projects convert 
     REQUIRE(a.session->addDevice(t0, "fd:eq") != 0);
     const auto info = a.channel(t0);
     const Target freq{t0, moduleKey(info, 0, "band1.freq")}, pan{t1, "pan"}, volume{t0, "volume"};
-    const auto first = a.session->addAutomationLane(t1, pan);
-    const auto second = a.session->addAutomationLane(0, freq);
+    const auto first = a.session->addAutomationLaneAfter(t1, pan);
+    const auto second = a.session->addAutomationLaneAfter(0, freq);
     REQUIRE(a.session->assign(second, volume, {0.8f, 0.3f}));
     REQUIRE(a.session->setLanePoints(second, {{0.5, 0.3f, fd::model::curveForBend(0.4f)}, {1.5, 0.8f, 0.0f}}));
     a.session->renameAutomationLane(first, "Pan sweep");
@@ -487,7 +515,7 @@ TEST_CASE("automation: lanes are saved with the project; older projects convert 
     CHECK_FALSE(a.session->canUndo());
     CHECK(a.curve(volume, 1.5) == Approx(AssignmentRange{0.8f, 0.3f}.toTravel(0.8f)));
     // New lanes get new ids.
-    CHECK(a.session->addAutomationLane(0) > std::max(first, second));
+    CHECK(a.session->addAutomationLaneAfter(0) > std::max(first, second));
 
     // A format-2 project (ADR 0028): curves on the parameters, the shown lanes listed per track.
     // Each becomes a lane of its own after its track, sounding the same.
@@ -585,7 +613,7 @@ TEST_CASE("automation: a removed module takes its assignments; dangling ones are
     const auto eq = a.session->addDevice(t, "fd:eq");
     REQUIRE(eq != 0);
     const Target freq{t, moduleKey(a.channel(t), 0, "band1.freq")}, volume{t, "volume"};
-    const auto lane = a.session->addAutomationLane(t, freq);
+    const auto lane = a.session->addAutomationLaneAfter(t, freq);
     REQUIRE(a.session->assign(lane, volume));
     a.session->removeDevice(eq);
     CHECK(a.lane(lane).assignments.size() == 1);
@@ -653,13 +681,13 @@ TEST_CASE("automation: armed, held controls write their lanes while playing, as 
     a.session->setAutomationArmed(true);
     CHECK(a.session->isAutomationArmed());
 
-    SECTION("a control without a lane gets one under its track")
+    SECTION("a control without a lane gets one, at the end of the tracks")
     {
         record(v0, t0, {-2.0f, -4.0f, -8.0f, -12.0f}, 0.0);
         const auto lane = a.session->laneOf(v0);
         REQUIRE(lane);
         const auto info = a.lane(*lane);
-        CHECK(info.after == t0);
+        CHECK(info.after == a.session->snapshot()->tracks.back().id);
         CHECK(info.points.size() >= 2);
         CHECK(info.assignments.at(0).on); // recording isn't an override
         CHECK(*a.session->paramPlain(v0, info.points.back().value) == Approx(-12.0).margin(0.1));
@@ -670,7 +698,7 @@ TEST_CASE("automation: armed, held controls write their lanes while playing, as 
     }
     SECTION("a pass into a lane with two parameters: spliced through the range, the other follows")
     {
-        const auto lane = a.session->addAutomationLane(t0, v0);
+        const auto lane = a.session->addAutomationLaneAfter(t0, v0);
         REQUIRE(a.session->assign(lane, v1, {1.0f, 0.0f})); // inverted
         const AutomationPoints points{{0.0, 0.5f, 0.0f}, {0.1, 0.55f, 0.0f}, {5.0, 0.6f, 0.3f}, {6.0, 0.7f, 0.0f}};
         REQUIRE(a.session->setLanePoints(lane, points));

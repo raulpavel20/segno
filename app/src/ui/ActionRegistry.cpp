@@ -57,6 +57,20 @@ juce::String ActionRegistry::tooltip(std::string_view id) const
     return a->name + " (" + a->keys.front().getTextDescriptionWithIcons() + ")";
 }
 
+void ActionRegistry::addMenuItem(juce::PopupMenu& menu, std::string_view id) const
+{
+    const auto* a = find(id);
+    if (a == nullptr)
+        return;
+    juce::PopupMenu::Item item(a->name);
+    item.setEnabled(isEnabled(id));
+    item.setTicked(isToggled(id));
+    if (!a->keys.empty())
+        item.shortcutKeyDescription = a->keys.front().getTextDescriptionWithIcons();
+    item.setAction([this, key = std::string(id)] { perform(key); });
+    menu.addItem(std::move(item));
+}
+
 std::vector<std::pair<std::string, std::string>> ActionRegistry::conflicts() const
 {
     std::vector<std::pair<std::string, std::string>> out;

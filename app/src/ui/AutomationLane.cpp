@@ -73,8 +73,11 @@ void paintAutomationLane(juce::Graphics& g, const LaneGeometry& geo, const LaneP
         {
             g.setColour(t.textTertiary);
             g.setFont(ui::font(ui::TextStyle::Caption));
-            g.drawText("Double-click to add a point", area.reduced(8.0f, 0.0f).withX(std::max(area.getX(), x0) + 8.0f),
-                       juce::Justification::centredLeft, false);
+            g.drawText(lane.assigned ? "Double-click to add a point"
+                                     : juce::String::fromUTF8("Drives nothing yet: Assign parameter\xE2\x80\xA6 in the inspector, or "
+                                                              "right-click a control \xE2\x86\x92 Assign to automation lane"),
+                       area.reduced(8.0f, 0.0f).withX(std::max(area.getX(), x0) + 8.0f), juce::Justification::centredLeft,
+                       false);
         }
         return;
     }

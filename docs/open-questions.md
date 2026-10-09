@@ -61,11 +61,11 @@ Decisions still to be made. Once a question is answered, record the answer in an
 | B30 | **Automation and clips:** when a clip moves, does the automation under it stay on the timeline or move with it? (automation.md Q2) | C4 (M2) | Product owner, 2026-10-09: agreed. Stay in M2; moving with clips as an option when range editing comes |
 | B31 | **Automation write modes:** touch only, or also latch? (automation.md Q3) | C4 (M2) | Product owner, 2026-10-09: agreed. Touch only; latch with hardware controllers (B5) |
 | B32 | **Mute automation:** the engine's mute isn't a parameter. Skip in M2, or add a track "on" parameter now? (automation.md Q4) | C4 (M2) | Product owner, 2026-10-09: agreed. Skip in M2 (automate volume instead); add it with M3's track work |
-| B33 | **Where a new automation lane goes** (automation.md §3) | C4d | Product owner, 2026-10-09: agreed. Right under the selected track (or after the selected lane); it stays put |
+| B33 | **Where a new automation lane goes** (automation.md §3) | C4d | Product owner, 2026-10-09: right under the selected track at first; after testing, revised (automation.md Q18): at the end of the tracks, like a new track; it stays put |
 | B34 | **Folding lanes per track** no longer fits lanes of their own | C4d | Product owner, 2026-10-09: agreed. One show/hide for every lane (Ctrl+Alt+L) |
 | B35 | **A lane's context** (the detail panel, live MIDI) | C4d | Product owner, 2026-10-09: agreed. Its first assignment's channel; the inspector shows the lane and its assignments only |
-| B36 | **Making a lane** | C4d | Product owner, 2026-10-09: agreed. The picker chooses its first parameter, making lane and assignment in one step; "Empty automation lane" as a row |
-| B37 | **Lane names and colours** | C4d | Product owner, 2026-10-09: agreed. Named from their assignments until renamed; colour from the first parameter's channel |
+| B36 | **Making a lane** | C4d | Product owner, 2026-10-09: the picker making lane and assignment in one step at first; after testing, revised (automation.md Q18): a lane is added empty, like a track (Ctrl+Shift+L or right-click Add automation lane), and assigned afterwards |
+| B37 | **Lane names and colours** | C4d | Product owner, 2026-10-09: agreed. Named from their assignments until renamed; colour: its own, the next palette colour like a new track's (revised after testing, automation.md Q18) |
 | B38 | **Steps on a lane** | C4d | Product owner, 2026-10-09: agreed. Only when its one assignment is stepped and full-range; otherwise stepped parameters play the curve as steps |
 | B39 | **Recording into a partial range** | C4d | Product owner, 2026-10-09: agreed. Clipped to the range |
 | B40 | **Control menus** | C4d | Product owner, 2026-10-09: agreed. Remove from a lane rather than clear its points (they belong to the lane); assign to a lane; automate in a new lane |

@@ -43,6 +43,8 @@ struct LanePaint
     bool on = true;
     /// With no points: the parameter's value now, drawn dashed.
     std::optional<float> current;
+    /// False while the lane drives nothing: an empty one says how to give it a parameter.
+    bool assigned = true;
 };
 
 void paintAutomationLane(juce::Graphics& g, const LaneGeometry& geometry, const LanePaint& lane,

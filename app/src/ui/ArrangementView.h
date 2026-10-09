@@ -68,8 +68,9 @@ public:
     std::function<void()> onActivated;
     /// Called when an automation lane is clicked (Delete, Ctrl+D, Ctrl+A and arrows act on it).
     std::function<void()> onLaneActivated;
-    /// "Add automation lane..." from a track's header menu: after the track, for its parameters.
-    std::function<void(std::uint64_t track)> onAddLane;
+    /// Adds the items that make rows (Add track, Add automation lane, Add return track) to a
+    /// right-click menu: every row header's, and the empty space's below the rows.
+    std::function<void(juce::PopupMenu&)> onAddMenu;
     /// A lane header's "Assign parameter..." and "Rename...".
     std::function<void(std::uint64_t lane)> onAssignLane, onRenameLane;
     /// Something worth telling the user (shown in the shell, never modal).
@@ -93,7 +94,8 @@ public:
     [[nodiscard]] bool hasClipSelection() const noexcept { return !selection_.clips.empty(); }
 
     // Automation lanes (C4, ADR 0029, docs/design/automation.md): rows of their own.
-    /// Selects a lane alone, as a click on its header does.
+    /// Selects a lane alone, as a click on its header does, and brings it into sight (once the
+    /// snapshot has it, for a lane just made).
     void selectLane(std::uint64_t lane);
     /// Shows or hides every lane (view state).
     void setLanesVisible(bool visible);
@@ -160,7 +162,11 @@ private:
     void laneMouseDown(const juce::MouseEvent& e, int row);
     void laneMouseDrag(const juce::MouseEvent& e);
     void laneMouseUp(const juce::MouseEvent& e);
-    void headerMenu(int row);
+    /// A row's right-click menu (-1: the empty space below the rows): its own items, then the
+    /// items that make rows.
+    void rowMenu(int row);
+    /// Scrolls a row fully into sight.
+    void revealRow(int row);
     void applyLaneEdit(int row, const model::PointEdit& edit, const std::string& undoName);
     /// Bending a step lane: says why nothing bends.
     void explainSteps(const model::AutomationLaneInfo& lane);
@@ -230,6 +236,7 @@ private:
     std::optional<std::pair<std::string, model::PointEdit>> lanePreview_;
     std::optional<std::pair<int, size_t>> hoveredPoint_; // row, point
     std::optional<int> resizeRow_;
+    std::optional<std::uint64_t> laneToReveal_; // a lane selected before its row exists
     double resizeFrom_ = 0.0;
     WaveformCache waveforms_;
     WaveformTiles tiles_;

@@ -1075,7 +1075,7 @@ TEST_CASE("the Assistants popover turns the server on, shows setup lines and cli
     juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
 }
 
-TEST_CASE("automation lanes: rows among the tracks, made with the picker, edited and selected (C4d)", "[integration]")
+TEST_CASE("automation lanes: rows among the tracks, added like tracks, edited and selected (C4d)", "[integration]")
 {
     using S = fd::model::InspectorSection;
     ShellFixture f;
@@ -1089,38 +1089,41 @@ TEST_CASE("automation lanes: rows among the tracks, made with the picker, edited
     REQUIRE(eq != 0);
     s.updateSnapshotNow();
 
-    // The picker lists the selected track's parameters; choosing one makes a lane for it right
-    // under the track, and selects it.
+    // Ctrl+Shift+L adds a lane like a track: empty, at the end of the tracks, selected. The
+    // picker then assigns the selected track's volume to it.
     view.selectTrack(t0);
     REQUIRE(actions.perform("automation.addLane"));
+    CHECK(s.undoDescription() == "Add automation lane");
+    s.updateSnapshotNow();
+    REQUIRE(view.selection().lane);
+    const auto volumeLane = view.selection().lane;
+    const auto tracks = s.snapshot()->tracks.size();
+    REQUIRE(view.rows().size() > tracks);
+    CHECK(view.rows()[tracks].lane == *volumeLane);
+    REQUIRE(actions.perform("automation.assign"));
     auto& picker = f.shell->lanePicker();
     REQUIRE(picker.isOpen());
+    CHECK(picker.channel() == t0); // the track selected before
     picker.setQuery("volume");
     REQUIRE_FALSE(picker.shownLanes().empty());
     CHECK(picker.shownLanes().front() == "volume");
     picker.chooseSelected();
-    CHECK(s.undoDescription() == "Add automation lane");
     s.updateSnapshotNow();
-    const auto volumeLane = s.laneOf({t0, "volume"});
-    REQUIRE(volumeLane);
+    REQUIRE(s.laneOf({t0, "volume"}) == volumeLane);
     CHECK(view.selection().lane == volumeLane);
     CHECK(view.selection().channel == t0); // its first parameter's channel
-    const auto& rows = view.rows();
-    REQUIRE(rows.size() > 1);
-    CHECK(rows[1].isLane());
-    CHECK(rows[1].lane == *volumeLane);
 
-    // A module's parameter and another track's pan, with points (an assistant or a recording
-    // would do the same); lanes follow their track.
+    // A module's parameter and another track's pan, each in a new lane at the end (an assistant
+    // or a recording would do the same).
     const std::string freq = "m" + std::to_string(eq) + "/band1.freq";
     const auto freqLane = s.automateInNewLane({t0, freq});
     REQUIRE(s.setLanePoints(freqLane, {{0.0, 0.2f, 0.0f}, {2.0, 0.8f, fd::model::curveForBend(0.5f)}, {4.0, 0.4f, 0.0f}}));
     const auto panLane = s.automateInNewLane({t1, "pan"});
     REQUIRE(s.setLanePoints(panLane, {{1.0, 0.0f, 0.0f}, {3.0, 1.0f, 0.0f}}));
     s.updateSnapshotNow();
-    CHECK(view.rows().size() == s.snapshot()->tracks.size() + 3 + 1 + s.snapshot()->returns.size()); // 3 lanes, the master
-    CHECK(view.rows()[2].lane == freqLane);
-    CHECK(view.rows()[4].lane == panLane);
+    CHECK(view.rows().size() == tracks + 3 + 1 + s.snapshot()->returns.size()); // 3 lanes, the master
+    CHECK(view.rows()[tracks + 1].lane == freqLane);
+    CHECK(view.rows()[tracks + 2].lane == panLane);
     view.setAllTrackHeights(64.0);
 
     // Double-click in the volume lane adds a point (one undo step).
@@ -1134,7 +1137,8 @@ TEST_CASE("automation lanes: rows among the tracks, made with the picker, edited
         return static_cast<float>(fd::app::ArrangementView::headerWidth()) + static_cast<float>(view.timeline().xForTime(seconds));
     };
     auto volumePoints = [&] { return s.snapshot()->automationLane(*volumeLane)->points; };
-    const juce::Point<float> spot(laneX(1.0), rowTop(1) + 32.0f);
+    const auto volumeRow = tracks, freqRow = tracks + 1;
+    const juce::Point<float> spot(laneX(1.0), rowTop(volumeRow) + 32.0f);
     click(view, spot);
     click(view, spot, 2);
     s.updateSnapshotNow();
@@ -1155,7 +1159,8 @@ TEST_CASE("automation lanes: rows among the tracks, made with the picker, edited
 
     // Dragging the point moves it (one step); Delete removes it.
     const auto pointAt = volumePoints()[0];
-    const juce::Point<float> grab(laneX(pointAt.time), rowTop(1) + 64.0f - 1.0f - 5.0f - pointAt.value * (64.0f - 1.0f - 10.0f));
+    const juce::Point<float> grab(laneX(pointAt.time),
+                                  rowTop(volumeRow) + 64.0f - 1.0f - 5.0f - pointAt.value * (64.0f - 1.0f - 10.0f));
     drag(view, grab, grab + juce::Point<float>(0.0f, -10.0f));
     s.updateSnapshotNow();
     CHECK(volumePoints()[0].value > pointAt.value);
@@ -1165,7 +1170,7 @@ TEST_CASE("automation lanes: rows among the tracks, made with the picker, edited
     CHECK(volumePoints().empty());
 
     // The module lane: its header selects it, and its module shows below.
-    click(view, {40.0f, rowTop(2) + 20.0f});
+    click(view, {40.0f, rowTop(freqRow) + 20.0f});
     CHECK(view.selection().lane == freqLane);
     CHECK(f.shell->detail().chain().selectedDevice() == eq);
     CHECK(inspector.sections() == std::vector{S::Lane, S::Assignments});
@@ -1196,7 +1201,7 @@ TEST_CASE("automation lanes: rows among the tracks, made with the picker, edited
     CHECK(view.rows().size() == before);
 
     // Delete with a lane's header used last removes the lane, in one step.
-    click(view, {40.0f, rowTop(1) + 20.0f});
+    click(view, {40.0f, rowTop(volumeRow) + 20.0f});
     REQUIRE(view.selection().lane == volumeLane);
     REQUIRE(actions.perform("edit.delete"));
     s.updateSnapshotNow();
@@ -1221,27 +1226,52 @@ TEST_CASE("automation lanes: the picker's channel row and assign mode, the inspe
     const auto t0 = snap->tracks[0].id, t1 = snap->tracks[1].id;
     auto& picker = f.shell->lanePicker();
 
-    // An empty lane from the picker's last row, right under the selected track.
+    // Right-click menus make rows: every row header's and the empty space's end with Add track,
+    // Add automation lane and Add return track.
+    REQUIRE(view.onAddMenu);
+    juce::PopupMenu add;
+    view.onAddMenu(add);
+    REQUIRE(invoke(add, "Add track"));
+    s.updateSnapshotNow();
+    CHECK(s.snapshot()->tracks.size() == snap->tracks.size() + 1);
+    s.undo();
+    s.updateSnapshotNow();
+    // The mixer view's empty space: tracks and return tracks (lanes live in the arrangement).
+    REQUIRE(f.shell->mixer().onAddMenu);
+    juce::PopupMenu mix;
+    f.shell->mixer().onAddMenu(mix);
+    CHECK(mix.getNumItems() == 2);
+    REQUIRE(invoke(mix, "Add return track"));
+    s.updateSnapshotNow();
+    CHECK(s.snapshot()->returns.size() == snap->returns.size() + 1);
+    s.undo();
+    s.updateSnapshotNow();
+
+    // An empty lane, like a new track: at the end of the tracks, its own colour, selected.
     view.selectTrack(t0);
-    REQUIRE(actions.perform("automation.addLane"));
-    REQUIRE(picker.isOpen());
-    CHECK(picker.channel() == t0);
-    const auto rows = picker.shownLanes();
-    REQUIRE(rows.back().empty()); // "Empty automation lane"
-    picker.setSelectedRow(static_cast<int>(rows.size()) - 1);
-    picker.chooseSelected();
+    REQUIRE(invoke(add, "Add automation lane"));
     s.updateSnapshotNow();
     REQUIRE(view.selection().lane);
     const auto lane = *view.selection().lane;
     CHECK(s.snapshot()->automationLane(lane)->assignments.empty());
-    CHECK(s.snapshot()->automationLane(lane)->after == t0);
+    CHECK(s.snapshot()->automationLane(lane)->after == s.snapshot()->tracks.back().id);
     CHECK_FALSE(view.selection().channel); // nothing assigned: no channel
+    CHECK_FALSE(picker.isOpen());
+    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: a new lane, driving nothing yet
+    {
+        f.shell->finishAnimations();
+        juce::PNGImageFormat png;
+        auto file = juce::File(dump).getChildFile("automation-new-lane.png");
+        file.deleteFile();
+        if (auto out = file.createOutputStream())
+            png.writeImageToStream(f.shell->createComponentSnapshot(f.shell->getLocalBounds()), *out);
+    }
 
     // Ctrl+Alt+Shift+L assigns to the selected lane; the channel row switches to another track.
     REQUIRE(actions.isEnabled("automation.assign"));
     REQUIRE(actions.perform("automation.assign"));
     REQUIRE(picker.isOpen());
-    CHECK(picker.channel() == t0); // the track the lane follows
+    CHECK(picker.channel() == t0); // the track selected last
     picker.setChannel(t1);
     picker.setQuery("pan");
     REQUIRE(picker.shownLanes().front() == "pan");
@@ -1473,7 +1503,8 @@ TEST_CASE("automation lanes: a step lane says why it doesn't bend (C4b)", "[inte
     // On the hold between the points (the lower value, until the step at 8 s).
     const juce::Point<float> on(static_cast<float>(fd::app::ArrangementView::headerWidth()) +
                                     static_cast<float>(view.timeline().xForTime(4.0)),
-                                static_cast<float>(fd::app::ArrangementView::rulerHeight()) + 64.0f + 64.0f - 1.0f - 5.0f);
+                                static_cast<float>(fd::app::ArrangementView::rulerHeight()) +
+                                    static_cast<float>(fd::model::rowOfLane(view.rows(), lane)) * 64.0f + 64.0f - 1.0f - 5.0f);
     const juce::ModifierKeys alt(juce::ModifierKeys::leftButtonModifier | juce::ModifierKeys::altModifier);
     view.mouseDown(mouseEvent(view, on, on, false, alt));
     view.mouseDrag(mouseEvent(view, on + juce::Point<float>(0.0f, -30.0f), on, true, alt));

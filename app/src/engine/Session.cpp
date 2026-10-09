@@ -472,9 +472,16 @@ int Session::Impl::colourOf(std::uint64_t channel) const
     return -1;
 }
 
-int Session::Impl::nextLaneColour() const
+int Session::Impl::nextRowColour() const
 {
-    return (lanesTree().getNumChildren() * 5 + 3) % kPaletteSize;
+    const auto lanes = lanesTree();
+    return (static_cast<int>(tracks().size()) + (lanes.isValid() ? lanes.getNumChildren() : 0)) * 3 % kPaletteSize;
+}
+
+std::uint64_t Session::Impl::lastTrack() const
+{
+    const auto all = tracks();
+    return all.empty() ? 0 : all.back()->itemID.getRawID();
 }
 
 te::AudioTrack* Session::Impl::channelTrack(std::uint64_t id) const
@@ -558,12 +565,13 @@ te::AudioTrack* Session::Impl::insertTrack(const juce::String& name)
     // After the last track and before the return tracks (ADR 0026).
     const auto existing = tracks();
     const int count = static_cast<int>(existing.size());
+    const int colour = nextRowColour(); // tracks and lanes take turns through the palette
     auto track = edit->insertNewAudioTrack(te::TrackInsertPoint(nullptr, existing.empty() ? nullptr : existing.back()),
                                            nullptr);
     if (track == nullptr)
         return nullptr;
+    track->state.setProperty(kColourId, colour, &edit->getUndoManager());
     track->setName(juce::String(count + 1) + " " + name);
-    track->state.setProperty(kColourId, count * 3 % kPaletteSize, &edit->getUndoManager());
     if (auto* v = track->getVolumePlugin())
         v->setPanLaw(te::PanLawBalance);
     return track.get();

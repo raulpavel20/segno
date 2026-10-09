@@ -734,7 +734,7 @@ TEST_CASE("mcp tools: automation: lanes written, read, cleared and turned back o
     CHECK(lane["on"] == true);
     const auto freqLane = lane["lane"].get<std::string>();
     CHECK(freqLane.rfind("a:", 0) == 0);
-    CHECK(lane["after"] == t0);
+    CHECK(lane["after"] == project["tracks"].back()["id"]); // like a new track: at the end
 
     // It shows in the project and the module.
     project = daw.project();

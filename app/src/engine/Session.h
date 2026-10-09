@@ -220,11 +220,14 @@ public:
     /// Every parameter of a channel that can be automated, the mixer's first, then each module's.
     [[nodiscard]] std::vector<ParamChoice> automatableParameters(std::uint64_t channelId) const;
 
-    /// A new lane after `after` (a track, or a lane: right after it; 0: at the top; a return or
-    /// the master: after the last track), with `first` assigned over its full range if given (moved
-    /// from its lane, if on one). One undo step, "Add automation lane". Returns its id; 0 if `first`
-    /// can't be automated.
-    std::uint64_t addAutomationLane(std::uint64_t after, const std::optional<ParamTarget>& first = std::nullopt);
+    /// A new lane, added like a track: at the end of the tracks, with the next palette colour (the
+    /// same rotation as new tracks). With `first`, it drives that parameter over its full range
+    /// (moved from its lane, if on one, bringing its points). One undo step, "Add automation lane".
+    /// Returns its id; 0 if `first` can't be automated.
+    std::uint64_t addAutomationLane(const std::optional<ParamTarget>& first = std::nullopt);
+    /// The same, placed after `after` (a track, or a lane: right after it; 0: at the top; a return
+    /// or the master: after the last track). For assistants.
+    std::uint64_t addAutomationLaneAfter(std::uint64_t after, const std::optional<ParamTarget>& first = std::nullopt);
     /// Removes a lane; its parameters keep their values now. One undo step.
     void removeAutomationLane(std::uint64_t lane);
     /// Names a lane (empty: after its assignments). One undo step.
@@ -244,8 +247,8 @@ public:
     void setAssignmentRange(const ParamTarget& target, model::AssignmentRange range);
     /// The lane a parameter is on.
     [[nodiscard]] std::optional<std::uint64_t> laneOf(const ParamTarget& target) const;
-    /// The parameter's lane, or a new lane for it (after its track; one undo step). 0 if it can't
-    /// be automated.
+    /// A new lane for a parameter (at the end of the tracks), moving it there; one undo step. 0 if
+    /// it can't be automated.
     std::uint64_t automateInNewLane(const ParamTarget& target);
 
     /// On: the assignment plays. Off: the parameter keeps the value set by hand. Moving an

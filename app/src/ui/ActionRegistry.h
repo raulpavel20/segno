@@ -44,6 +44,10 @@ public:
     /// "Name (Shortcut)" for tooltips.
     [[nodiscard]] juce::String tooltip(std::string_view id) const;
 
+    /// Adds `id` to a right-click menu: its name and shortcut, dimmed while it can't run, ticked
+    /// while on. Choosing it performs it.
+    void addMenuItem(juce::PopupMenu& menu, std::string_view id) const;
+
     /// Pairs of action ids that share a shortcut (empty when the map is clean).
     [[nodiscard]] std::vector<std::pair<std::string, std::string>> conflicts() const;
 

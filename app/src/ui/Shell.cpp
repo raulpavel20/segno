@@ -87,7 +87,16 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     };
     arrangement_.onActivated = [this] { lastArea_ = Area::Arrangement; };
     arrangement_.onLaneActivated = [this] { lastArea_ = Area::Lane; };
-    arrangement_.onAddLane = [this](std::uint64_t track) { lanePicker_.open(*this, track, track); };
+    // Rows are made by right-click too (daw-shell.md): every row header and the empty space.
+    arrangement_.onAddMenu = [this](juce::PopupMenu& menu) {
+        actions_.addMenuItem(menu, "track.add");
+        actions_.addMenuItem(menu, "automation.addLane");
+        actions_.addMenuItem(menu, "track.addReturn");
+    };
+    mixer_.onAddMenu = [this](juce::PopupMenu& menu) {
+        actions_.addMenuItem(menu, "track.add");
+        actions_.addMenuItem(menu, "track.addReturn");
+    };
     // "Show automation lane" on any control: the lane, in the arrangement.
     session_.onLaneRevealed = [this](std::uint64_t lane) {
         if (mixerShown_)
@@ -375,17 +384,13 @@ void Shell::registerActions()
     actions_.add({.id = "automation.reEnable", .name = "Turn automation back on", .category = "Automation",
                   .keys = {key('a', kCmd | kAlt)}, .perform = [&s] { s.setAllLanesOn(); },
                   .isEnabled = [&s] { return s.anyLaneOff(); }, .isToggled = [&s] { return s.anyLaneOff(); }});
-    actions_.add({.id = "automation.addLane", .name = "Add automation lane...", .category = "Automation",
+    actions_.add({.id = "automation.addLane", .name = "Add automation lane", .category = "Automation",
                   .keys = {key('l', kCmd | kShift)},
-                  .perform = [this, &s] {
-                      // For the selected channel's parameters (else the first track's), right
-                      // under the selected track or lane (automation.md §3).
-                      const auto& sel = arrangement_.selection();
-                      const auto snap = s.snapshot();
-                      const auto channel = sel.channel ? *sel.channel
-                                           : !snap->tracks.empty() ? snap->tracks.front().id
-                                                                   : snap->master.id;
-                      lanePicker_.open(*this, channel, sel.lane ? *sel.lane : sel.channel.value_or(0));
+                  .perform = [&s] {
+                      // Like a new track: empty, at the end of the tracks, its own colour; selected,
+                      // so its parameters are assigned next (automation.md §3).
+                      if (const auto lane = s.addAutomationLane())
+                          s.revealLane(lane);
                   },
                   .isEnabled = arrangeShown});
     actions_.add({.id = "automation.assign", .name = "Assign parameter to the selected lane...", .category = "Automation",
@@ -731,6 +736,8 @@ void Shell::selectionChanged()
     const auto context = model::panelContext(arrangement_.selection(), *snapshot,
                                              mixerShown_ ? model::CentreView::Mix : model::CentreView::Arrange);
     mixer_.setSelection(context.channel ? std::optional(context.channel->id) : std::nullopt);
+    if (context.channel)
+        recentChannel_ = context.channel->id;
 
     // Live MIDI plays the selected track's instrument (auto-arm); other tracks hear nothing.
     // The piano roll previews notes through the same route.
@@ -769,11 +776,12 @@ void Shell::assignToLane(std::uint64_t lane)
     const auto* l = snapshot->automationLane(lane);
     if (l == nullptr)
         return;
-    const auto channel = !l->assignments.empty()    ? l->assignments.front().channel
-                         : l->after != 0             ? l->after
-                         : !snapshot->tracks.empty() ? snapshot->tracks.front().id
-                                                     : snapshot->master.id;
-    lanePicker_.openToAssign(*this, lane, channel);
+    // Its first parameter's channel; for a lane that drives nothing, the channel used last.
+    const auto channel = !l->assignments.empty()                                          ? l->assignments.front().channel
+                         : recentChannel_ && snapshot->channel(*recentChannel_) != nullptr ? *recentChannel_
+                         : !snapshot->tracks.empty()                                       ? snapshot->tracks.front().id
+                                                                                           : snapshot->master.id;
+    lanePicker_.open(*this, lane, channel);
 }
 
 void Shell::applyDetailMode()

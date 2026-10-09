@@ -107,6 +107,8 @@ private:
     /// For a selected lane: the channel whose module the detail panel shows, when one of its other
     /// assignments was clicked in the inspector (else its first assignment's).
     std::optional<std::uint64_t> laneDetailChannel_;
+    /// The channel selected last: the parameter picker's first channel for a lane that drives nothing.
+    std::optional<std::uint64_t> recentChannel_;
     CommandPalette palette_{actions_};
     LanePicker lanePicker_{session_};
     /// The picker, assigning a parameter to `lane` (for its first assignment's channel, else the

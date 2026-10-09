@@ -37,29 +37,13 @@ LanePicker::LanePicker(engine::Session& session) : session_(session)
     setWantsKeyboardFocus(false);
 }
 
-void LanePicker::open(juce::Component& parent, std::uint64_t channel, std::uint64_t after)
+void LanePicker::open(juce::Component& parent, std::uint64_t lane, std::uint64_t channel)
 {
-    mode_ = Mode::Add;
-    after_ = after;
-    lane_ = 0;
-    search_.setTextToShowWhenEmpty("Type a parameter to automate", ui::Theme::current().textTertiary);
-    setChannel(channel);
-    openIn(parent);
-}
-
-void LanePicker::openToAssign(juce::Component& parent, std::uint64_t lane, std::uint64_t channel)
-{
-    mode_ = Mode::Assign;
     lane_ = lane;
     const auto* l = session_.snapshot()->automationLane(lane);
     search_.setTextToShowWhenEmpty("Type a parameter for " + (l != nullptr ? utf8(l->displayName()) : juce::String("the lane")),
                                    ui::Theme::current().textTertiary);
     setChannel(channel);
-    openIn(parent);
-}
-
-void LanePicker::openIn(juce::Component& parent)
-{
     if (getParentComponent() != &parent)
         parent.addChildComponent(this);
     search_.clear();
@@ -104,8 +88,6 @@ std::vector<std::string> LanePicker::shownLanes() const
     std::vector<std::string> out;
     for (auto i : shown_)
         out.push_back(items_[i].id);
-    if (mode_ == Mode::Add)
-        out.emplace_back(); // the empty lane
     return out;
 }
 
@@ -113,16 +95,6 @@ void LanePicker::setSelectedRow(int row)
 {
     selected_ = std::clamp(row, 0, std::max(0, rowCount() - 1));
     repaint();
-}
-
-int LanePicker::rowCount() const noexcept
-{
-    return static_cast<int>(shown_.size()) + (mode_ == Mode::Add ? 1 : 0);
-}
-
-bool LanePicker::isEmptyLaneRow(int row) const noexcept
-{
-    return mode_ == Mode::Add && row == static_cast<int>(shown_.size());
 }
 
 void LanePicker::update()
@@ -144,17 +116,10 @@ void LanePicker::chooseSelected()
 {
     if (selected_ >= rowCount())
         return;
-    const auto row = selected_;
-    const auto empty = isEmptyLaneRow(row);
-    const engine::Session::ParamTarget target{channel_, empty ? std::string() : items_[shown_[static_cast<size_t>(row)]].id};
+    const engine::Session::ParamTarget target{channel_, items_[shown_[static_cast<size_t>(selected_)]].id};
     close();
-    std::uint64_t lane = 0;
-    if (mode_ == Mode::Assign)
-        lane = session_.assign(lane_, target) ? lane_ : 0;
-    else
-        lane = empty ? session_.addAutomationLane(after_) : session_.addAutomationLane(after_, target);
-    if (lane != 0 && onChosen)
-        onChosen(lane);
+    if (session_.assign(lane_, target) && onChosen)
+        onChosen(lane_);
 }
 
 void LanePicker::showChannelMenu()
@@ -229,15 +194,9 @@ void LanePicker::paint(juce::Graphics& g)
     g.setColour(t.line);
     g.fillRect(channelArea().withY(channelArea().getBottom() + t.shell.itemGap / 2).withHeight(1));
 
-    const auto* target = mode_ == Mode::Assign ? snapshot->automationLane(lane_) : nullptr;
+    const auto* target = snapshot->automationLane(lane_);
     for (int i = 0; i < rowCount(); ++i)
     {
-        if (isEmptyLaneRow(i))
-        {
-            ui::paintListRow(g, rowArea(i),
-                             {.name = "Empty automation lane", .caption = "Assign parameters later", .selected = i == selected_});
-            continue;
-        }
         const auto& c = choices_[shown_[static_cast<size_t>(i)]];
         auto caption = utf8(c.module);
         if (const auto* on = snapshot->automationLane(c.lane); on != nullptr && on != target)
@@ -249,7 +208,7 @@ void LanePicker::paint(juce::Graphics& g)
                           .toggled = target != nullptr && c.lane == target->id,
                           .selected = i == selected_});
     }
-    if (shown_.empty() && mode_ == Mode::Assign)
+    if (shown_.empty())
         ui::paintListRow(g, rowArea(0), {.name = "No parameter by that name", .enabled = false});
 }
 

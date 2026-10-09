@@ -434,10 +434,12 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
                                           [](const auto& a) { return a.on; })
                                ? juce::String("Off: the values set by hand")
                                : juce::String("Some off");
-        return {{"Name", {}}, // the field
-                {"Points", juce::String(static_cast<int>(lane_->points.size())), true},
-                {"Value", now ? juce::String::fromUTF8(session_.laneText(lane_->id, *now).c_str()) : juce::String(), true},
-                {"Plays", plays}};
+        std::vector<ui::Property> rows{{"Name", {}}, // the field
+                                       {"Points", juce::String(static_cast<int>(lane_->points.size())), true}};
+        if (now) // nothing to show for a lane without points or parameters
+            rows.push_back({"Value", juce::String::fromUTF8(session_.laneText(lane_->id, *now).c_str()), true});
+        rows.push_back({"Plays", plays});
+        return rows;
     }
     case S::Clip:
         if (!clip_)

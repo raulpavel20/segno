@@ -23,6 +23,8 @@ public:
 
     std::function<void()> onSelect;
     std::function<void(std::uint64_t module)> onSelectModule;
+    /// A right-click on the strip's background (its controls have their own menus).
+    std::function<void()> onMenu;
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -72,6 +74,9 @@ public:
     std::function<void(std::uint64_t channel, std::uint64_t module)> onSelectModule;
     /// The view's options changed (the shell saves them with its view state).
     std::function<void()> onViewChanged;
+    /// Adds the items that make channels (Add track, Add return track) to a right-click menu: a
+    /// strip's background's, and the empty space's beside the strips.
+    std::function<void(juce::PopupMenu&)> onAddMenu;
 
     [[nodiscard]] const model::ChannelStripOptions& options() const noexcept { return options_; }
     void setOptions(bool modules, bool sends, bool narrow);
@@ -86,8 +91,15 @@ private:
     struct Content : juce::Component
     {
         int dividerX = -1; // before the first return
+        std::function<void(const juce::MouseEvent&)> onMouseDown;
         void paint(juce::Graphics& g) override;
+        void mouseDown(const juce::MouseEvent& e) override
+        {
+            if (onMouseDown)
+                onMouseDown(e);
+        }
     };
+    void showAddMenu();
     void rebuild();
     void layoutStrips();
     [[nodiscard]] std::vector<std::uint64_t> order() const;

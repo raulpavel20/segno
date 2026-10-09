@@ -304,7 +304,7 @@ void addAutomationTools(Registry& registry, ToolEnv& env)
         {"add_automation_lane", "Add an automation lane",
          "Adds an automation lane: a row of its own among the tracks holding a curve that drives the parameters "
          "assigned to it, each through its own range (from and to, in the parameter's units; to below from inverts "
-         "it). It goes after a track or a lane (after; by default after its first parameter's track). A parameter "
+         "it). Like a new track it goes at the end of the tracks, or after a track or a lane (after). A parameter "
          "on another lane moves here, bringing its points. One undo step.",
          object({{"after", string("A track (\"t:3\") or a lane (\"a:12\") it goes after")},
                  {"name", string("Its name (by default named after its parameters)")},
@@ -327,17 +327,16 @@ void addAutomationTools(Registry& registry, ToolEnv& env)
                     auto resolved = param(env, p);
                     params.emplace_back(resolved, rangeOf(env, resolved, p));
                 }
-            std::uint64_t after = 0;
+            const auto first = params.empty() ? std::nullopt : std::optional(params.front().first.target);
+            std::uint64_t id = 0;
             if (args.contains("after"))
             {
                 const auto& a = args["after"];
-                after = a.is_string() && a.get<std::string>().rfind("a:", 0) == 0 ? laneArg(env, a) : channel(env, a).id;
+                id = s.addAutomationLaneAfter(
+                    a.is_string() && a.get<std::string>().rfind("a:", 0) == 0 ? laneArg(env, a) : channel(env, a).id, first);
             }
-            else if (!params.empty())
-                after = params.front().first.target.channel;
-            else if (const auto snap = s.snapshot(); !snap->tracks.empty())
-                after = snap->tracks.back().id;
-            const auto id = s.addAutomationLane(after, params.empty() ? std::nullopt : std::optional(params.front().first.target));
+            else
+                id = s.addAutomationLane(first);
             if (id == 0)
                 throw Problem{params.front().first.name + " can't be automated."};
             for (size_t i = 0; i < params.size(); ++i)

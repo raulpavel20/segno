@@ -39,12 +39,12 @@ How parameters change over time in Segno: automation lanes in the arrangement, w
 └─────────────────────────────┴────────────────────────────────────────────────────┘
 ```
 
-- **Placement: among the tracks.** A lane sits after a track (or at the top), and stays where it was put whatever it drives. A new lane goes right under the selected track, or right after the selected lane. Lanes always sit above the returns and the master. Reordering rows comes with track reordering.
+- **Placement: among the tracks.** A lane is added like a track: at the end of the tracks, after the last track and any lanes there. It stays where it was put, whatever it drives; tracks added later go after it. Lanes always sit above the returns and the master. Reordering rows comes with track reordering.
 - **The lane header** uses the track header kit (`model::TrackHeaderLayout`), so lanes look like tracks:
 
   | Slot | Contents |
   |---|---|
-  | Colour | The lane's own colour (at creation: the channel colour of its first parameter, or the next palette colour) |
+  | Colour | The lane's own colour: the next palette colour at creation, from the same rotation as new tracks |
   | Name | Its name: set by hand, or taken from its assignments ("Cutoff" for one, "Cutoff + 2" for several, "Automation lane" for none) |
   | Buttons | The lane's **on** switch (a round indicator, like a module's power): filled while every assignment plays; a ring when some or all are off (§7). A click turns all on when any is off, else all off |
   | Subtitle | What it drives: "Bass · Synth" for one assignment (its channel and module), "3 parameters" for several, "Not assigned" for none; "· Steps" when it edits as steps. The value now on the right, in the readout style: in the parameter's units for one assignment, otherwise a percentage |
@@ -53,13 +53,14 @@ How parameters change over time in Segno: automation lanes in the arrangement, w
 - **Background:** lane rows use the `subLane` role. A selected lane uses `laneSelected`, like a selected track.
 - **Heights:** lanes default to 56 px, 24 px minimum. Any row is resized by dragging its bottom edge in the header column; Alt+drag resizes all rows of that kind. Heights are view state, saved with the project.
 - **Making a lane:**
-  - **Add automation lane** (Ctrl+Shift+L, or the track header's right-click menu): the parameter picker, a searchable list like the command palette, opens for the selected track. A channel row at its top switches to another track, return or the master. Choosing a parameter makes the lane and its first assignment in one step; the last row, **Empty automation lane**, makes a lane with none;
-  - right-click any automatable control → **Automate in a new lane**;
+  - **Add automation lane** (Ctrl+Shift+L, or the right-click menu of any row header or of the empty space below the rows, next to Add track and Add return track): an empty lane, like a new track, at the end of the tracks and selected. Then assign parameters to it: **Assign parameter…** in the inspector (or its header's menu, or Ctrl+Alt+Shift+L) opens the parameter picker, a searchable list like the command palette with a channel row at its top that switches to any track, return or the master; or right-click a control → **Assign to automation lane ▸**;
+  - right-click any automatable control → **Automate in a new lane**: a new lane, at the end of the tracks, already driving it;
   - **Automate last touched parameter** (Alt+L): its lane, or a new one for it;
   - recording (§8) makes a lane for a parameter that has none.
+  A new lane is brought into sight and selected.
 - **Removing a lane:** **Remove automation lane** in its header's right-click menu, or Delete after clicking its header. Its assigned parameters keep their current values. One undo step.
 - **Showing and hiding:** Ctrl+Alt+L hides or shows every lane (view state, saved with the project).
-- **Empty lanes** (without points) draw the value now as a dashed line (its one assignment's, mapped back), with the hint "Double-click to add a point".
+- **Empty lanes** (without points) draw the value now as a dashed line (its one assignment's, mapped back), with the hint "Double-click to add a point". A lane that drives nothing yet says how to assign a parameter instead.
 - **The mixer view** shows no lanes; its controls show the automation indicator (§6) and follow the played value.
 
 ## 4. Drawing a lane
@@ -119,7 +120,7 @@ When you move a control whose assignment plays, while not recording:
 
 - **Automation arm** (the transport bar's arm button, Ctrl+Shift+A): while armed and playing, moving a control writes its moves into its lane.
   - A control on a lane: its moves are written into that lane, mapped back through its range (moves beyond the range are clipped to it). The lane's other assignments follow.
-  - A control without a lane: a new lane is made for it, under its track (a return's or the master's: after the last track).
+  - A control without a lane: a new lane is made for it, at the end of the tracks.
 - **Touch** is the only mode in M2 (B31): a lane is written while you hold the control; letting go stops writing, and the lane continues as it was. Moves without a held gesture (typing a value, the mouse wheel) are written as they happen, and writing stops a moment after the last one.
 - **Each pass is one undo step** ("Record automation"), however many controls were moved.
 - **Thinning:** recorded moves are thinned to the points needed to redraw them within 0.2 % of the travel.
@@ -146,7 +147,7 @@ Lanes and points join the one selection (ADR 0027, [selection.md](selection.md))
   - its on switch, "Bass › Cutoff" (a click shows its module below), and a remove button;
   - **Range:** from and to, as fields in the parameter's units (drag or type; to below from inverts);
 
-  then **Assign parameter…**, which opens the picker for a channel (the lane's first assignment's, or the selected track's; its channel row switches). Parameters already on another lane are marked "on Filter sweep"; choosing one moves it here.
+  then **Assign parameter…**, which opens the picker for a channel (the lane's first assignment's, or for a lane that drives nothing the channel selected last; its channel row switches). Parameters already on another lane are marked "on Filter sweep"; choosing one moves it here.
 
 Delete, Ctrl+D, Ctrl+A and the arrows act on points when a lane was used last; Delete after clicking a lane's header removes the lane.
 
@@ -156,7 +157,7 @@ Delete, Ctrl+D, Ctrl+A and the arrows act on points when a lane was used last; D
 |---|---|---|
 | Automation arm | `automation.arm` | Ctrl+Shift+A |
 | Turn automation back on | `automation.reEnable` | Ctrl+Alt+A (and its transport button) |
-| Add automation lane… | `automation.addLane` | Ctrl+Shift+L |
+| Add automation lane | `automation.addLane` | Ctrl+Shift+L |
 | Assign parameter to the selected lane… | `automation.assign` | Ctrl+Alt+Shift+L |
 | Automate last touched parameter | `automation.showLastTouched` | Alt+L |
 | Show automation lanes | `view.lanes` | Ctrl+Alt+L |
@@ -167,7 +168,7 @@ Each tool comes with a test that drives it through MCP (ADR 0021). A **lane** is
 
 | Tool | Arguments | Result |
 |---|---|---|
-| `add_automation_lane` | `after?` (a track or a lane), `name?`, `parameters?` (each with `from?`, `to?`) | The lane's id. One undo step |
+| `add_automation_lane` | `after?` (a track or a lane; by default at the end of the tracks, like a new track), `name?`, `parameters?` (each with `from?`, `to?`) | The lane's id. One undo step |
 | `set_automation_lane` | `lane`, `name` | Renames it |
 | `remove_automation_lane` | `lane` | Its parameters keep their values |
 | `assign_automation` | `lane`, a parameter, `from?`, `to?` (the parameter's units or text) | The assignment; `movedFrom` if it was on another lane |
@@ -210,11 +211,12 @@ Each tool comes with a test that drives it through MCP (ADR 0021). A **lane** is
 | Q3 | **Write modes** | Agreed (B31): touch only; latch with hardware controllers |
 | Q4 | **Mute automation** | Agreed (B32): not in M2 |
 | Q5 | **Lanes under their track, or rows of their own?** | Product owner, after testing: rows of their own among the tracks, with assignments (ADR 0029) |
-| Q6 | **Where a lane sits** | Among the tracks: under the selected track, staying put |
+| Q6 | **Where a lane sits** | Among the tracks, staying put (where a new one goes: Q18) |
 | Q7 | **A range per assignment** | Yes, in the parameter's units; inverting allowed |
 | Q8 | **Lanes per parameter** | One; assigning moves it |
 | Q9 | **The name** | "Automation lane" |
 | Q10–Q17 | Recommendations accepted with the plan (B33–B40): new lanes under the selected track; Ctrl+Alt+L instead of per-track folding; a lane's context is its first assignment's channel; the picker makes lane and assignment in one step; names come from assignments; steps only for one full-range stepped assignment; recording into a range clips; control menus remove from a lane rather than clear | Agreed |
+| Q18 | **Making a lane, after the first build** | Product owner, after testing: a lane is added like a track, not from a track: empty, at the end of the tracks, with its own palette colour; parameters are assigned afterwards (the picker's add mode and "Empty automation lane" go). Every row header and the empty space below the rows get a right-click menu with Add track, Add automation lane and Add return track (the mixer view's empty space too) |
 
 ## 15. Building it
 

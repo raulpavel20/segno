@@ -166,9 +166,12 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     bool assignTo(juce::ValueTree lane, const ParamTarget& target, model::AssignmentRange range, juce::UndoManager* um);
     /// A lane's steps: its one assignment's, when stepped and full-range (automation.md §5).
     [[nodiscard]] int laneSteps(const juce::ValueTree& lane) const;
-    /// A channel's colour (the master: -1), and a palette colour for a lane without one.
+    /// A channel's colour (the master: -1).
     [[nodiscard]] int colourOf(std::uint64_t channel) const;
-    [[nodiscard]] int nextLaneColour() const;
+    /// The colour of a new row: tracks and lanes take turns through the palette.
+    [[nodiscard]] int nextRowColour() const;
+    /// Where a new lane goes: at the end of the tracks (after the last one, and its lanes).
+    [[nodiscard]] std::uint64_t lastTrack() const;
     /// Writes every assignment of a lane to its parameter's curve (not those being recorded).
     void derive(const juce::ValueTree& lane, juce::UndoManager* um);
     void derive(const model::AutomationPoints& lanePoints, const juce::ValueTree& assign, juce::UndoManager* um);

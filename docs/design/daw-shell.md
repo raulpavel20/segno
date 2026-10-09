@@ -83,7 +83,7 @@ app/src/
 | New / open / save / save as | `file.new` / `file.open` / `file.save` / `file.saveAs` | Ctrl+N / Ctrl+O / Ctrl+S / Ctrl+Shift+S |
 | Audio settings | `app.audioSettings` | Ctrl+, |
 | Mute / solo selected tracks (C3) | `track.mute` / `track.solo` | Alt+M / Alt+S |
-| Add automation lane... (C4) | `automation.addLane` | Ctrl+Shift+L |
+| Add automation lane (C4) | `automation.addLane` | Ctrl+Shift+L |
 | Assign parameter to the selected lane... (C4) | `automation.assign` | Ctrl+Alt+Shift+L |
 | Automate last touched parameter (C4) | `automation.showLastTouched` | Alt+L |
 | Show / hide automation lanes (C4) | `view.lanes` | Ctrl+Alt+L |
@@ -210,7 +210,8 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 - **Rows:** `model::ArrangementRows` lists the arrangement's rows: lanes at the top, then each track followed by the lanes that sit after it, then the returns and the master. Lanes are rows of their own (ADR 0029): they drive assigned parameters on any channel. Every row is drawn from the track header kit; clip editing maps a lane row to the track above it.
 - **Lanes** draw the engine's curve (`model::Automation`) over the reserved gradient, with points as dots (`ui/AutomationLane`). Gestures are §5 of the design: double-click adds or deletes, drag moves (snapped; Alt free; Shift fine), a segment drags up or down (Alt bends it), Ctrl+drag draws, an empty drag box-selects. A gesture previews and applies one `Session::setLanePoints`, one undo step that also derives every assigned parameter's curve.
 - **Headers:** the lane's on switch (every assignment), what it drives, the value now (refreshed each frame), and with one assignment that parameter's bar (`ui/LaneControls`); dragging a row's bottom edge resizes it.
-- **Making lanes:** Ctrl+Shift+L or the track header's right-click menu opens the parameter picker (`ui/LanePicker`: a searchable list with a channel row at its top) to make a lane and its first assignment; Alt+L automates the last touched parameter; Ctrl+Alt+L shows or hides every lane. The inspector's ASSIGNMENTS section edits what a lane drives. Delete after clicking a lane's header removes it.
+- **Making lanes:** Ctrl+Shift+L or Add automation lane in a right-click menu adds an empty lane at the end of the tracks, with its own palette colour, selected; Assign parameter… (the inspector's ASSIGNMENTS, the lane header's menu, Ctrl+Alt+Shift+L) opens the parameter picker (`ui/LanePicker`: a searchable list with a channel row at its top) to give it parameters; Alt+L automates the last touched parameter; Ctrl+Alt+L shows or hides every lane. Delete after clicking a lane's header removes it.
+- **Adding rows by right-click:** every row header (track, lane, return, master) and the empty space below the rows have a right-click menu ending in Add track (Ctrl+T), Add automation lane (Ctrl+Shift+L) and Add return track (Ctrl+Alt+T), with their shortcuts; a lane header's menu starts with Rename…, Assign parameter…, Turn lane on/off and Remove automation lane. The mixer view's empty space offers Add track and Add return track. The items are the shell's actions (`ActionRegistry::addMenuItem`).
 - **Keys** follow the lane when it was used last: Delete, Ctrl+D, Ctrl+A and the arrows (↑/↓ 1 %, Shift 0.1 %; ←/→ a grid step) act on its points.
 
 ## Automated controls and recording (C4c, [automation.md](automation.md) §6–§8)

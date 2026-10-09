@@ -476,8 +476,8 @@ void Session::Impl::loadLanes(bool convert)
             const auto after = track(id) != nullptr ? id : all.empty() ? 0 : all.back()->itemID.getRawID();
             for (const auto* p : order)
             {
-                const int colour = colourOf(id);
-                auto lane = makeLane(after, colour >= 0 ? colour : nextLaneColour(), -1, nullptr);
+                const int colour = colourOf(id); // they sat under their channel
+                auto lane = makeLane(after, colour >= 0 ? colour : nextRowColour(), -1, nullptr);
                 model::AutomationPoints points;
                 if (p->param != nullptr)
                 {
@@ -578,12 +578,10 @@ void Session::Impl::importRecording(const Recorded& r)
     auto assign = assignTree(r.target);
     if (!assign.isValid())
     {
-        // A control without a lane gets one, under its track (§8).
+        // A control without a lane gets one, at the end of the tracks (§8).
         if (written.empty())
             return;
-        const auto [after, index] = placeFor(r.target.channel);
-        const int colour = colourOf(r.target.channel);
-        auto lane = makeLane(after, colour >= 0 ? colour : nextLaneColour(), index, um);
+        auto lane = makeLane(lastTrack(), nextRowColour(), -1, um);
         assign = juce::ValueTree(assignId);
         assign.setProperty(assignChannelId, idVar(r.target.channel), nullptr);
         assign.setProperty(keyId, juce::String(r.target.key), nullptr);
@@ -690,15 +688,20 @@ std::vector<Session::ParamChoice> Session::automatableParameters(std::uint64_t c
     return out;
 }
 
-std::uint64_t Session::addAutomationLane(std::uint64_t after, const std::optional<ParamTarget>& first)
+std::uint64_t Session::addAutomationLane(const std::optional<ParamTarget>& first)
+{
+    // Like a new track: at the end of the tracks.
+    return addAutomationLaneAfter(impl_->lastTrack(), first);
+}
+
+std::uint64_t Session::addAutomationLaneAfter(std::uint64_t after, const std::optional<ParamTarget>& first)
 {
     if (first && !impl_->param(*first))
         return 0;
     auto* um = &impl_->edit->getUndoManager();
     impl_->beginEdit("Add automation lane");
     const auto [anchor, index] = impl_->placeFor(after);
-    const int colour = first ? impl_->colourOf(first->channel) : -1;
-    auto lane = impl_->makeLane(anchor, colour >= 0 ? colour : impl_->nextLaneColour(), index, um);
+    auto lane = impl_->makeLane(anchor, impl_->nextRowColour(), index, um);
     if (first)
     {
         // A parameter on another lane brings its curve, so it sounds the same (full range here).
@@ -801,7 +804,7 @@ std::optional<std::uint64_t> Session::laneOf(const ParamTarget& target) const
 
 std::uint64_t Session::automateInNewLane(const ParamTarget& target)
 {
-    return addAutomationLane(target.channel, target);
+    return addAutomationLane(target);
 }
 
 void Session::setAssignmentOn(const ParamTarget& target, bool on)

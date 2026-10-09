@@ -179,6 +179,8 @@ void ChannelStrip::mouseDown(const juce::MouseEvent& e)
         }
     if (onSelect)
         onSelect();
+    if (e.mods.isPopupMenu() && onMenu)
+        onMenu();
 }
 
 void ChannelStrip::tick()
@@ -191,6 +193,15 @@ void ChannelStrip::tick()
 }
 
 // ---- MixerView --------------------------------------------------------------------------------
+
+void MixerView::showAddMenu()
+{
+    juce::PopupMenu menu;
+    if (onAddMenu)
+        onAddMenu(menu);
+    if (menu.getNumItems() > 0)
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMousePosition());
+}
 
 void MixerView::Content::paint(juce::Graphics& g)
 {
@@ -207,6 +218,10 @@ MixerView::MixerView(engine::Session& session) : session_(session)
 {
     header_.setTitle("Mixer");
     addAndMakeVisible(header_);
+    content_.onMouseDown = [this](const juce::MouseEvent& e) {
+        if (e.mods.isPopupMenu())
+            showAddMenu(); // the empty space beside the strips
+    };
     for (auto* option : {&modules_, &sends_, &narrow_})
     {
         option->onClick = [this] {
@@ -301,6 +316,7 @@ void MixerView::rebuild()
                 if (onSelect)
                     onSelect(id);
             };
+            strip->onMenu = [this] { showAddMenu(); };
             strip->onSelectModule = [this, id](std::uint64_t module) {
                 if (isShowing())
                     grabKeyboardFocus(); // Left and Right keep moving the selection

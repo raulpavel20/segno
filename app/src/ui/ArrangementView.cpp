@@ -108,6 +108,13 @@ void ArrangementView::syncRows()
     for (auto it = laneControls_.begin(); it != laneControls_.end();)
         it = lanes.contains(it->first) ? std::next(it) : laneControls_.erase(it);
     placeHeaderControls();
+    // A lane selected before its snapshot came: into sight now that it has a row.
+    if (laneToReveal_)
+        if (const int row = model::rowOfLane(rows_, *laneToReveal_); row >= 0)
+        {
+            laneToReveal_.reset();
+            revealRow(row);
+        }
     repaint();
 }
 
@@ -453,6 +460,12 @@ void ArrangementView::notifySelection()
 void ArrangementView::selectLane(std::uint64_t lane)
 {
     setSelection(model::withLane(*snapshot_, lane));
+    laneToReveal_ = lane;
+    if (const int row = model::rowOfLane(rows_, lane); row >= 0)
+    {
+        revealRow(row);
+        laneToReveal_.reset();
+    }
 }
 
 // ---- painting ------------------------------------------------------------------------------
@@ -676,6 +689,7 @@ void ArrangementView::paintLanes(juce::Graphics& g)
             paint.hovered = hoveredPoint_->second;
         if (lane->points.empty())
             paint.current = session_.laneValue(lane->id);
+        paint.assigned = !lane->assignments.empty();
         paintAutomationLane(g, laneGeometry(i), paint, visible);
     }
 
@@ -888,6 +902,8 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
         if (!row)
         {
             selectTrack(std::nullopt);
+            if (e.mods.isPopupMenu())
+                rowMenu(-1);
             return;
         }
         const auto* channel = rowChannel(row->track);
@@ -901,20 +917,48 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
         else
             selectTrack(channel != nullptr ? std::optional(channel->id) : std::nullopt);
         if (e.mods.isPopupMenu())
-            headerMenu(row->track);
+            rowMenu(row->track);
         return;
     }
     if (!lanes.contains(pos))
         return;
 
     auto row = layout_.hit(pos.y - lanes.getY());
+    const auto* rowChannelInfo = row ? rowChannel(row->track) : nullptr;
+    const auto rowTrack = rowChannelInfo != nullptr ? std::optional(rowChannelInfo->id) : std::nullopt;
+    if (e.mods.isPopupMenu())
+    {
+        // A right-click: the row's menu, as on its header (a clip keeps its own handling); below
+        // the rows, the items that make rows.
+        if (!row)
+        {
+            rowMenu(-1);
+            return;
+        }
+        if (const auto* lane = rowLane(row->track))
+        {
+            selectLane(lane->id);
+            if (onLaneActivated)
+                onLaneActivated();
+            rowMenu(row->track);
+            return;
+        }
+        std::vector<int> rowTracks;
+        for (const auto& r : rows_)
+            rowTracks.push_back(r.holdsClips() ? r.track : -1);
+        if (!model::hitClip(*snapshot_, layout_, rowTracks, timeline_, e.position.x - static_cast<float>(lanes.getX()),
+                            e.position.y - static_cast<float>(lanes.getY()), ui::Theme::current().input.edgeGrab))
+        {
+            selectTrack(rowTrack);
+            rowMenu(row->track);
+            return;
+        }
+    }
     if (row && rowLane(row->track) != nullptr)
     {
         laneMouseDown(e, row->track);
         return;
     }
-    const auto* rowChannelInfo = row ? rowChannel(row->track) : nullptr;
-    const auto rowTrack = rowChannelInfo != nullptr ? std::optional(rowChannelInfo->id) : std::nullopt;
     if (row && !rows_[static_cast<size_t>(row->track)].holdsClips())
     {
         selectTrack(rowTrack); // returns and the master hold no clips
@@ -1337,7 +1381,7 @@ void ArrangementView::removeSelectedLane()
     selectTrack(selection_.channel);
 }
 
-void ArrangementView::headerMenu(int row)
+void ArrangementView::rowMenu(int row)
 {
     juce::PopupMenu menu;
     if (const auto* lane = rowLane(row))
@@ -1354,22 +1398,34 @@ void ArrangementView::headerMenu(int row)
         });
         menu.addItem(on ? "Turn lane off" : "Turn lane on", !lane->points.empty() && !lane->assignments.empty(), false,
                      [this, id, on] { session_.setLaneOn(id, !on); });
-        menu.addSeparator();
         menu.addItem("Remove automation lane", [this, id] {
             session_.removeAutomationLane(id);
             if (selection_.lane == id)
                 selectTrack(selection_.channel);
         });
     }
-    else if (const auto* channel = rowChannel(row); channel != nullptr && channel->holdsClips())
+    // Rows are made from any row, or the empty space (automation.md §3, daw-shell.md).
+    if (onAddMenu)
     {
-        menu.addItem("Add automation lane...", [this, id = channel->id] {
-            if (onAddLane)
-                onAddLane(id);
-        });
+        if (menu.getNumItems() > 0)
+            menu.addSeparator();
+        onAddMenu(menu);
     }
     if (menu.getNumItems() > 0)
         menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMousePosition());
+}
+
+void ArrangementView::revealRow(int row)
+{
+    if (row < 0 || row >= layout_.trackCount())
+        return;
+    const double top = layout_.top(row), bottom = top + layout_.height(row), view = laneArea().getHeight();
+    if (top < 0.0)
+        layout_.scrollBy(top);
+    else if (bottom > view)
+        layout_.scrollBy(std::min(top, bottom - view));
+    placeHeaderControls();
+    repaint();
 }
 
 // ---- edit commands -------------------------------------------------------------------------
