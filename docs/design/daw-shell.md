@@ -71,6 +71,8 @@ app/src/
 | Add track | `track.add` | Ctrl+T |
 | Computer keyboard as MIDI | `midi.computerKeyboard` | Ctrl+Shift+K |
 | Scan for plugins | `app.scanPlugins` | Ctrl+Alt+P |
+| Fold module (the selected one) | `module.fold` | Ctrl+Alt+M |
+| Expand module sections | `module.expand` | Ctrl+Alt+E |
 | Show browser / inspector / detail | `view.browser` / `view.inspector` / `view.detail` | Ctrl+Alt+B / Ctrl+Alt+I / Ctrl+Alt+D |
 | Device chain ⇄ clip view | `view.detailMode` | Tab |
 | Focus mode | `view.focus` | Ctrl+Alt+F |

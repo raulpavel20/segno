@@ -61,7 +61,7 @@ in ──┬─> drive gain ─> [Color pre: bell +g] ─> upsample ×N ─> sha
 
 ## UI layout
 
-On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sections left to right, each `id` TITLE [columns], with controls at (column, row) and spans; knobs are 1 × 3 cells. About 412 px wide.
+On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sections left to right, each `id` TITLE [columns], with controls at (column, row) and spans; knobs are 1 × 3 cells. About 416 px wide.
 
 | Section | Controls |
 |---|---|
