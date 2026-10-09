@@ -33,8 +33,8 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0022](0022-module-panels.md) | Module panels: one layout grid, titled sections with lines, collapse and fold, view state outside module state; "Modules" in the UI | Proposed |
 | [0023](0023-ui-foundations.md) | UI foundations: colours by role, text styles, motion and input tokens, shell metrics and shared components, one time-view kit, a track header layout model, and a UI lint | Accepted |
 | [0024](0024-product-name.md) | The product is called Segno: the name, the mark and the identifiers derived from it | Accepted |
-| [0025](0025-sidechain-routing.md) | Sidechain routing is host routing, chosen in the module's header: tracks in the DAW, Off or External in plugins; never a parameter | Proposed |
-| [0026](0026-mixing-in-the-arrangement.md) | Mixing in the arrangement: track headers and the inspector, return tracks and a master below the tracks, balance pan, solo in place (never undoable) | Proposed |
+| [0025](0025-sidechain-routing.md) | Sidechain routing is host routing, chosen in the module's header: tracks in the DAW, Off or External in plugins; never a parameter | Accepted |
+| [0026](0026-mixing-in-the-arrangement.md) | Mixing in the arrangement (track headers, inspector) and in a mixer view; return tracks and a master below the tracks; one volume taper, balance pan, solo in place (never undoable) | Accepted |
 
 ## Template
 

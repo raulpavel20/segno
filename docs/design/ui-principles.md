@@ -66,6 +66,7 @@ The UI shows the controls for what you are working on, where you are working.
   - Select a track and it shows that track's device chain.
   - Select a clip and it shows the clip editor (piano roll or audio clip properties).
   - It switches automatically, and `Tab` toggles between the two views.
+- **The centre** shows the arrangement, or the **mixer view**: every channel as a strip, side by side ([mixer.md](mixer.md), ADR 0026). Arrange ⇄ Mix switches between them; the panels around stay, and the selection is shared.
 - **Inspector (right, collapsible)** shows the properties of whatever is selected: clip, track, device or note range. It replaces dozens of property dialogs.
 - **Popovers** handle quick edits next to the thing being edited, such as a clip's colour and name, fades, or a parameter's automation and modulation. They close when you click away and never block anything.
 - **Browser (left)** offers one search box across devices, presets, samples, plugins and files. Sample preview is built in.

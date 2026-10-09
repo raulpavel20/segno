@@ -1,6 +1,6 @@
 # 0025. Sidechain routing: host routing, chosen in the module's header
 
-- **Status:** Proposed
+- **Status:** Accepted (product owner, 2026-10-09)
 - **Date:** 2026-10-09
 - **Builds on:** [0006](0006-juce-free-core-and-module-boundaries.md) (one device API, a plugin adapter and a DAW adapter), [0021](0021-mcp-server.md) (every DAW feature has MCP tools), [0022](0022-module-panels.md) (the module header)
 

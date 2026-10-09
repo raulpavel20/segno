@@ -49,7 +49,8 @@ app/src/
 - **Adaptive:**
   - below 1440 logical px wide, the browser collapses to its rail and the inspector closes (the overlay inspector comes in M3);
   - the user's explicit toggles win until the window crosses the threshold again.
-- **Focus mode** shows only the transport bar and the arrangement.
+- **Focus mode** shows only the transport bar and the centre view.
+- **The centre view** is the arrangement or the mixer view (M2 C3c, [mixer.md](mixer.md) §6), switched by the Arrange | Mix switch in the transport bar or Ctrl+Alt+X.
 - Panel sizes are per window in M1; per project from C8.
 - Panels open and close with a 150 ms ease-out (instant with "reduce motion").
 
@@ -81,6 +82,10 @@ app/src/
 | Snap to grid | `view.snap` | Ctrl+4 |
 | New / open / save / save as | `file.new` / `file.open` / `file.save` / `file.saveAs` | Ctrl+N / Ctrl+O / Ctrl+S / Ctrl+Shift+S |
 | Audio settings | `app.audioSettings` | Ctrl+, |
+| Mute / solo selected tracks (C3) | `track.mute` / `track.solo` | Alt+M / Alt+S |
+| Add return track (C3) | `track.addReturn` | Ctrl+Alt+T |
+| Show or hide returns and master (C3) | `view.returns` | Ctrl+Alt+R |
+| Arrangement ⇄ mixer view (C3) | `view.mixer` | Ctrl+Alt+X |
 
 Each step adds its actions as it lands.
 
