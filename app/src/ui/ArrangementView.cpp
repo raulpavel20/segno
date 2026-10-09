@@ -1,5 +1,6 @@
 #include "ui/ArrangementView.h"
 
+#include "model/TrackHeaderLayout.h"
 #include "ui/time/TimeView.h"
 
 #include <juce_opengl/juce_opengl.h>
@@ -269,16 +270,23 @@ void ArrangementView::paintHeaders(juce::Graphics& g)
             g.setColour(t.surface2);
             g.fillRect(row);
         }
-        g.setColour(ui::Theme::current().clipColour(track.colour));
-        g.fillRect(row.withWidth(3.0f).reduced(0.0f, 1.0f));
+        // The slots of the header (docs/design/ui-foundations.md, "Track headers"); the mixer
+        // (C3) and recording (C5) add their buttons, controls and meter to the same layout.
+        const auto slots = model::layoutTrackHeader(row.getWidth(), row.getHeight(), 0, false);
+        auto at = [&row](const model::HeaderRect& r) {
+            return juce::Rectangle<float>(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.w),
+                                          static_cast<float>(r.h))
+                .translated(row.getX(), row.getY());
+        };
+        g.setColour(t.clipColour(track.colour));
+        g.fillRect(at(slots.colour));
         g.setColour(t.line);
         g.fillRect(row.removeFromBottom(1.0f)); // the track separator, continued across the lanes
 
-        auto text = row.reduced(12.0f, 6.0f);
         g.setColour(t.textPrimary);
         g.setFont(ui::font(ui::TextStyle::Name));
-        g.drawText(juce::String::fromUTF8(track.name.c_str()), text.removeFromTop(16.0f), juce::Justification::centredLeft, true);
-        if (text.getHeight() >= 12.0f)
+        g.drawText(juce::String::fromUTF8(track.name.c_str()), at(slots.name), juce::Justification::centredLeft, true);
+        if (!slots.subtitle.isEmpty())
         {
             // One kind of track (ADR 0019): show the instrument, or that MIDI has nothing to play it.
             const bool hasMidi = std::any_of(track.clips.begin(), track.clips.end(),
@@ -288,7 +296,7 @@ void ArrangementView::paintHeaders(juce::Graphics& g)
                                                          : juce::String();
             g.setColour(track.instrument.empty() && hasMidi ? t.roles.warning : t.textTertiary);
             g.setFont(ui::font(ui::TextStyle::Caption));
-            g.drawText(label, text.removeFromTop(14.0f), juce::Justification::centredLeft, true);
+            g.drawText(label, at(slots.subtitle), juce::Justification::centredLeft, true);
         }
     }
 }

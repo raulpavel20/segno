@@ -96,13 +96,16 @@ Role functions for colours that depend on content:
 | `shell.trackHeaderWidth` | 180 |
 | `shell.panelHeaderHeight` | 24 (detail panel tabs, side panel titles) |
 | `shell.padding` | 12 (inside side panels and popovers) |
-| `shell.rowHeight` / `shell.rowGap` | 20 / 0 (property rows) |
+| `shell.rowHeight` | 20 (property rows, compact list rows) |
 | `shell.propertyLabelWidth` | 80 |
 | `shell.listRowHeight` | 28 (palette and browser results) |
 | `shell.popoverWidth` | 560 |
 | `shell.toastHeight` / `shell.toastWidth` | 36 / 420 |
 | `shell.keyboardWidth` / `shell.velocityHeight` | 52 / 56 (piano roll) |
 | `shell.railWidth` / `shell.splitter` | 44 / 5 |
+| `shell.barPadding` / `shell.barInset` | 8 / 6 (a bar's sides; top and bottom) |
+| `shell.itemGap` / `shell.groupGap` | 4 / 12 (between items of a group; between groups) |
+| `shell.buttonSize` / `shell.fieldHeight` | 28 (icon buttons in bars and rails) / 24 (text fields) |
 
 ## Shared components (`modules/fd_ui/shell`)
 
@@ -113,7 +116,8 @@ Role functions for colours that depend on content:
 | `ListRow` | One row of a list: optional dot, name, caption, shortcut on the right; hover and selected states | Command palette; browser (M3) |
 | `Popover` | Floating chrome: `surface2`, panel radius, the one shadow | Command palette; future menus that float |
 | `Toast` | A message in the arrangement's corner that times out | Warnings and confirmations |
-| `EmptyState` | A centred hint where there is nothing to show | Chain without a track, clip view without a clip, empty project |
+| `EmptyState` | A centred hint where there is nothing to show | Chain without a track, clip view without a clip, empty project, empty inspector |
+| `BarLayout` | Places a bar's items left and right on the item and group gaps | The transport bar |
 
 ## Time views (`app/src/ui/time`)
 

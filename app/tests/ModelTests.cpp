@@ -2,6 +2,7 @@
 
 #include "model/Snapshot.h"
 #include "model/Timeline.h"
+#include "model/TrackHeaderLayout.h"
 #include "model/TrackLayout.h"
 
 #include <catch2/catch_approx.hpp>
@@ -419,4 +420,47 @@ TEST_CASE("a coarser line spacing gives a coarser grid", "[fast]")
     tl.setLineSpacing(24.0);
     CHECK(tl.gridStepBeats(tempo) == Approx(1.0));
     CHECK(tl.snap(0.3, tempo) == Approx(0.5)); // snapping follows
+}
+
+TEST_CASE("track header slots appear with height and never overlap", "[fast]")
+{
+    const TrackHeaderMetrics m;
+    // The smallest track: just the colour and the name.
+    auto s = layoutTrackHeader(180.0, 24.0, 3, false);
+    CHECK_FALSE(s.colour.isEmpty());
+    CHECK_FALSE(s.name.isEmpty());
+    CHECK(s.buttons.empty());
+    CHECK(s.subtitle.isEmpty());
+    CHECK(s.controls.isEmpty());
+
+    // Buttons from 32 px, right-aligned beside the name, left to right.
+    s = layoutTrackHeader(180.0, 40.0, 3, false);
+    REQUIRE(s.buttons.size() == 3);
+    CHECK(s.buttons.back().right() == Approx(180.0 - m.paddingRight));
+    CHECK(s.buttons[1].x == Approx(s.buttons[0].right() + m.buttonGap));
+    CHECK(s.name.right() <= s.buttons.front().x - m.buttonGap + 1e-9);
+    CHECK(s.subtitle.isEmpty());
+
+    // The subtitle from 48 px, the controls from 80 px, each below the last.
+    s = layoutTrackHeader(180.0, 64.0, 3, false);
+    CHECK_FALSE(s.subtitle.isEmpty());
+    CHECK(s.subtitle.y >= s.name.bottom());
+    CHECK(s.controls.isEmpty());
+    s = layoutTrackHeader(180.0, 96.0, 3, true);
+    CHECK_FALSE(s.controls.isEmpty());
+    CHECK(s.controls.y >= s.subtitle.bottom());
+    CHECK(s.controls.bottom() <= 96.0 - m.paddingY + 1e-9);
+
+    // The meter takes the right edge; everything else stays left of it.
+    CHECK_FALSE(s.meter.isEmpty());
+    CHECK(s.meter.right() == Approx(180.0 - m.paddingRight));
+    for (const auto& r : {s.name, s.subtitle, s.controls})
+        CHECK(r.right() <= s.meter.x + 1e-9);
+    for (const auto& b : s.buttons)
+        CHECK(b.right() <= s.meter.x + 1e-9);
+
+    // A header too narrow for every button keeps the ones that fit.
+    s = layoutTrackHeader(60.0, 40.0, 3, false);
+    for (const auto& b : s.buttons)
+        CHECK(b.x >= m.paddingLeft);
 }
