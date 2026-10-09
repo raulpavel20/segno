@@ -290,6 +290,14 @@ TEST_CASE("the mixer view: strips side by side, shared selection, a fader drag i
     REQUIRE(actions.perform("view.mixer"));
     CHECK(arrangement.isVisible());
     CHECK(arrangement.timeline().start() == Catch::Approx(2.0));
+
+    // A new project while the headers, the inspector and the strips hold the engine's meters:
+    // they are let go first, and come back for the new project.
+    arrangement.selectTrack(snap->tracks[0].id);
+    f.session->newProject();
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    CHECK(f.session->snapshot()->returns.empty());
+    CHECK(findAll<fd::app::ChannelMeter>(arrangement).size() == f.session->snapshot()->tracks.size() + 1);
 }
 
 TEST_CASE("every action has a unique shortcut and the shell routes keys to it", "[integration]")
