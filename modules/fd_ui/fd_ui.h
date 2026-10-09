@@ -18,6 +18,8 @@ END_JUCE_MODULE_DECLARATION
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <optional>
+
 #include "theme/Theme.h"
 #include "theme/Fonts.h"
 #include "theme/LookAndFeel.h"
@@ -26,3 +28,4 @@ END_JUCE_MODULE_DECLARATION
 #include "controls/Meter.h"
 #include "controls/Icons.h"
 #include "controls/NumberField.h"
+#include "controls/Labels.h"

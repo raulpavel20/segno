@@ -8,10 +8,7 @@ namespace
 {
 void paintSectionLabel(juce::Graphics& g, const juce::String& text, juce::Rectangle<int> area)
 {
-    const auto& t = ui::Theme::current();
-    g.setColour(t.textTertiary);
-    g.setFont(ui::fonts::mono(t.textXs - 1.0f, ui::fonts::Weight::SemiBold)); // mono: spaced already
-    g.drawText(text.toUpperCase(), area, juce::Justification::centredLeft, false);
+    ui::paintCapsLabel(g, text, area.toFloat());
 }
 
 juce::String formatTime(double seconds)

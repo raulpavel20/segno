@@ -8,3 +8,4 @@
 #include "controls/Meter.cpp"
 #include "controls/Icons.cpp"
 #include "controls/NumberField.cpp"
+#include "controls/Labels.cpp"

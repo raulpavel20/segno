@@ -23,6 +23,7 @@ public:
     Knob();
 
     void setStyle(Style style);
+    [[nodiscard]] Style style() const noexcept { return style_; }
     void setName(const juce::String& name) override;
     void setValue(float normalized, juce::NotificationType notification);
     [[nodiscard]] float getValue() const noexcept { return value_; }

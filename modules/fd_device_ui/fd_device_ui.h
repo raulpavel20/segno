@@ -21,10 +21,14 @@ END_JUCE_MODULE_DECLARATION
 #include <fd/device/Device.h>
 #include <fd/dsp/SynthBlocks.h>
 
+#include <nlohmann/json.hpp>
+
 #include <optional>
+#include <set>
 
 #include "panel/ParamBinding.h"
 #include "panel/ParamControls.h"
+#include "panel/PanelSection.h"
 #include "panel/DevicePanel.h"
 #include "panel/Displays.h"
 #include "panel/PanelRegistry.h"

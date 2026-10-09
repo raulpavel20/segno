@@ -76,6 +76,16 @@ Glyph glyph(Icon icon)
             p.lineTo(14.0f, 9.5f);
         }
         break;
+    case Icon::ChevronLeft:
+        p.startNewSubPath(10.0f, 3.5f);
+        p.lineTo(5.5f, 8.0f);
+        p.lineTo(10.0f, 12.5f);
+        break;
+    case Icon::ChevronRight:
+        p.startNewSubPath(6.0f, 3.5f);
+        p.lineTo(10.5f, 8.0f);
+        p.lineTo(6.0f, 12.5f);
+        break;
     case Icon::Plus:
         p.startNewSubPath(8.0f, 3.0f);
         p.lineTo(8.0f, 13.0f);

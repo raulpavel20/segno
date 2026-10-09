@@ -35,13 +35,15 @@ private:
     DeviceUiContext& context_;
     size_t index_;
 };
-/// Segmented buttons for a Choice parameter, laid out in `columns` columns.
+/// Segmented buttons for a Choice parameter, `columns` buttons per row.
 class ParamSegmented final : public juce::Component, public ParamControl
 {
 public:
     ParamSegmented(DeviceUiContext& context, size_t paramIndex, int columns);
     void refresh() override;
     void resized() override;
+    /// The buttons (for the layout lint).
+    [[nodiscard]] const juce::OwnedArray<Toggle>& buttons() const noexcept { return buttons_; }
 
 private:
     DeviceUiContext& context_;

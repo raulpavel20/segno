@@ -63,9 +63,19 @@ void Knob::changeTo(float normalized)
 void Knob::resized()
 {
     fit_.width = -1.0f; // refit the value text
-    if (editor_ != nullptr)
-        editor_->setBounds(style_ == Style::Bar ? getLocalBounds()
-                                                : getLocalBounds().removeFromBottom(18).reduced(2, 0));
+    if (editor_ == nullptr)
+        return;
+    if (style_ == Style::Bar)
+    {
+        editor_->setBounds(getLocalBounds());
+        return;
+    }
+    // Over the value strip of the knob block (see paint()).
+    const auto& grid = Theme::current().deviceGrid;
+    auto block = getLocalBounds();
+    if (block.getHeight() > grid.knobHeight())
+        block = block.withSizeKeepingCentre(block.getWidth(), grid.knobHeight());
+    editor_->setBounds(block.removeFromBottom(grid.knobValue + 2).reduced(2, 0));
 }
 
 void Knob::paint(juce::Graphics& g)
@@ -78,9 +88,13 @@ void Knob::paint(juce::Graphics& g)
     const auto& t = Theme::current();
     auto area = getLocalBounds().toFloat();
 
-    // Name above, value below, arc in between (flat, compact: ADR 0014).
-    const auto nameArea = area.removeFromTop(15.0f);
-    const auto valueArea = area.removeFromBottom(16.0f);
+    // A fixed block, centred: name, arc, value (docs/design/device-panels.md). Every knob looks
+    // the same whatever cell it gets.
+    const auto& grid = t.deviceGrid;
+    if (area.getHeight() > static_cast<float>(grid.knobHeight()))
+        area = area.withSizeKeepingCentre(area.getWidth(), static_cast<float>(grid.knobHeight()));
+    const auto nameArea = area.removeFromTop(static_cast<float>(grid.knobName));
+    const auto valueArea = area.removeFromBottom(static_cast<float>(grid.knobValue));
     const float size = juce::jmin(t.knobMaxDiameter, area.getWidth() - 4.0f, area.getHeight() - 2.0f);
     const auto knobArea = juce::Rectangle<float>(size, size).withCentre(area.getCentre());
 

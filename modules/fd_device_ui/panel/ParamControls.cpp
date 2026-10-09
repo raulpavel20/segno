@@ -82,12 +82,14 @@ void ParamSegmented::refresh()
 
 void ParamSegmented::resized()
 {
-    const int gap = Theme::current().grid;
+    // The grid's own gaps (docs/design/device-panels.md): segments fill whole cells when the
+    // span is a multiple of the buttons per row, and each line of buttons is one row tall.
+    const auto& grid = Theme::current().deviceGrid;
     const int rows = (buttons_.size() + columns_ - 1) / columns_;
-    const int w = (getWidth() - gap * (columns_ - 1)) / columns_;
-    const int h = (getHeight() - gap * (rows - 1)) / std::max(1, rows);
+    const int w = (getWidth() - grid.columnGap * (columns_ - 1)) / columns_;
+    const int h = (getHeight() - grid.rowGap * (rows - 1)) / std::max(1, rows);
     for (int i = 0; i < buttons_.size(); ++i)
-        buttons_[i]->setBounds((i % columns_) * (w + gap), (i / columns_) * (h + gap), w, h);
+        buttons_[i]->setBounds((i % columns_) * (w + grid.columnGap), (i / columns_) * (h + grid.rowGap), w, h);
 }
 
 ParamComboBox::ParamComboBox(DeviceUiContext& context, size_t paramIndex) : context_(context), index_(paramIndex)

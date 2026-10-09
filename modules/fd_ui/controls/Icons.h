@@ -18,7 +18,9 @@ enum class Icon
     Settings,
     Undo,
     Redo,
-    Keyboard // computer keyboard as MIDI input
+    Keyboard,    // computer keyboard as MIDI input
+    ChevronLeft, // fold a module
+    ChevronRight // unfold
 };
 
 /// Draws `icon` fitted (aspect kept) into `area` in `colour`.

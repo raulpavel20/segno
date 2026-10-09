@@ -11,6 +11,11 @@ public:
 
     void refresh() override;
     void paint(juce::Graphics& g) override;
+    void resized() override;
+
+    /// One small control in the label line, at the right (e.g. the Mod envelope's Cycle).
+    void setAccessory(juce::Component& accessory, int width);
+    [[nodiscard]] juce::Component* accessory() const noexcept { return accessory_; }
 
 protected:
     /// `area` excludes the label line (use the full bounds when there is no label).
@@ -20,6 +25,8 @@ protected:
 private:
     DeviceUiContext& context_;
     juce::String label_;
+    juce::Component* accessory_ = nullptr;
+    int accessoryWidth_ = 0;
     std::vector<size_t> params_;
     std::vector<float> last_;
 };

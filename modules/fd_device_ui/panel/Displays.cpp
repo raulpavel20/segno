@@ -4,7 +4,21 @@ MiniDisplay::MiniDisplay(DeviceUiContext& context, juce::String label, std::vect
     : context_(context), label_(std::move(label)), params_(std::move(params)),
       last_(params_.size(), std::numeric_limits<float>::quiet_NaN())
 {
-    setInterceptsMouseClicks(false, false);
+    setInterceptsMouseClicks(false, true); // an accessory takes clicks
+}
+
+void MiniDisplay::setAccessory(juce::Component& accessory, int width)
+{
+    accessory_ = &accessory;
+    accessoryWidth_ = width;
+    addAndMakeVisible(accessory);
+    resized();
+}
+
+void MiniDisplay::resized()
+{
+    if (accessory_ != nullptr)
+        accessory_->setBounds(getLocalBounds().reduced(3).removeFromTop(14).removeFromRight(accessoryWidth_));
 }
 
 void MiniDisplay::refresh()
@@ -30,11 +44,8 @@ void MiniDisplay::paint(juce::Graphics& g)
     g.setColour(t.surface0);
     g.fillRoundedRectangle(r, t.radiusControl);
     drawContent(g, label_.isEmpty() ? r.reduced(5.0f, 4.0f) : r.reduced(5.0f, 4.0f).withTrimmedTop(12.0f));
-    if (label_.isEmpty())
-        return;
-    g.setColour(t.textTertiary);
-    g.setFont(fonts::mono(t.textXs - 1.0f, fonts::Weight::SemiBold));
-    g.drawText(label_, r.reduced(5.0f, 3.0f).removeFromTop(12.0f), juce::Justification::centredLeft, false);
+    if (label_.isNotEmpty())
+        paintCapsLabel(g, label_, r.reduced(5.0f, 3.0f).removeFromTop(12.0f));
 }
 
 namespace
