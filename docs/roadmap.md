@@ -31,5 +31,5 @@ Device lists for each milestone come from [devices/device-suite.md](devices/devi
 
 - [x] All decisions accepted (ADRs 0001–0013, except 0010 which is superseded).
 - [x] Build toolchain installed (command in [dev-environment.md](dev-environment.md#build-toolchain-to-install-before-m0)).
-- [x] Hosting decided: GitHub. The product owner creates the repository later; M0 starts locally with `git init`, and CI runs once it's pushed.
+- [x] Hosting decided: GitHub (`raulpavel20/segno`). CI runs on demand for now (Actions tab, "Run workflow"), since early work is pushed straight to main; push and pull-request triggers return once changes go through pull requests.
 - [x] Repository structure confirmed: one repository ([ADR 0013](decisions/0013-single-repository.md)).

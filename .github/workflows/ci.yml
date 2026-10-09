@@ -1,10 +1,10 @@
-# CI (ADR 0003, 0007). Runs once the repository is on GitHub.
+# CI (ADR 0003, 0007). Manual for now: early development pushes straight to main, often, so
+# a full build on every push isn't worth it. Run it from the Actions tab ("Run workflow").
+# Turn push and pull_request triggers back on once changes go through pull requests.
 name: CI
 
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
