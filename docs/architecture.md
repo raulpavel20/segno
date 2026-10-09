@@ -38,7 +38,8 @@ devices/X/dsp   each device's DSP, SPEC.md, tests, presets
 tools/render    fd-render: renders any device + state + signal/MIDI to WAV + metrics
 ──────────────────────────── JUCE line ────────────────────────────
 modules/fd_ui          design tokens, LookAndFeel, controls, visualisers
-modules/fd_device_ui   DevicePanel base, parameter binding, shared displays (envelope, filter)
+modules/fd_device_ui   DevicePanel base and panel kit (sections on the module grid, ADR 0022),
+                       parameter binding, shared displays (envelope, filter)
 modules/fd_host_juce   state ↔ JUCE, MIDI conversion
 devices/X/ui           each device's panel
 plugins/               plugin adapter + per-device plugin targets

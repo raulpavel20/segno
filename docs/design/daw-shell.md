@@ -41,11 +41,11 @@ app/src/
 │ (rail 44)   │ loop strip 12 + ruler 24                           │ (collapsible) │
 │             │ track header 180 │ lanes                           │               │
 ├─────────────┴────────────────────────────────────────────────────┴───────────────┤
-│ Detail panel: device chain (device panel height + 2 × 12)  ⇄  clip view (Tab)    │
+│ Detail panel: module chain (panel height + header 24 + 24)  ⇄  clip view (Tab)    │
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- Splitters resize the browser and inspector. The detail panel's height is fixed by the device panel height.
+- Splitters resize the browser and inspector. In the module view, the detail panel's height follows the module panel height (232 px panels: 280 px).
 - **Adaptive:**
   - below 1440 logical px wide, the browser collapses to its rail and the inspector closes (the overlay inspector comes in M3);
   - the user's explicit toggles win until the window crosses the threshold again.
@@ -133,7 +133,8 @@ Waveforms come from a background-built peak cache per file, plus cached drawing 
 
 - **`.fdproj`** is tracktion's edit XML (open-questions C: "tracktion_engine's edit format plus our own sections"). The extra parts:
   - our devices' parameters and non-parameter state (`fdExtra`, ADR 0017);
-  - the UI's view state as JSON on the root (`fdView`): zoom and scroll, snap, follow, panels open and their widths.
+  - the UI's view state as JSON on the root (`fdView`): zoom and scroll, snap, follow, panels open and their widths;
+  - each module panel's view state on its plugin (`fdPanel`): collapsed sections, folded.
 - **Commands:** Ctrl+N new, Ctrl+O open, Ctrl+S save (asks for a file the first time), Ctrl+Shift+S save as. A project file on the command line opens directly.
 - **Unsaved changes** (Save / Don't save / Cancel) are asked before New, Open and Quit: the one modal the UI principles allow for this. The window title shows the project's name, with `*` while unsaved.
   - The Session tracks changes itself, because tracktion's own flag updates on a timer.
@@ -168,14 +169,17 @@ Waveforms come from a background-built peak cache per file, plus cached drawing 
 
 ## Device chain (C6)
 
-- **The chain:** the detail panel shows the selected track's devices left to right, scrolling horizontally.
+The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-module-panels.md)): the "Modules" tab, "Add module", "Module on/off".
+
+- **The chain:** the detail panel shows the selected track's modules left to right, scrolling horizontally.
   - Our devices show their panels, bound through `Session::openDevice`, which gives a `DeviceHandle`. That keeps tracktion out of the UI, and edits go through the engine (automation, undo).
   - Third-party plugins show as compact cards: power, name and "Open editor". The editor opens in a floating window, the only kind the app has.
   - Panels of devices that stay in the chain are kept across changes (their analysers keep running).
 - **Editing:** each edit is one undo step.
   - Add with the + button: our instruments and effects, then a Plugins submenu grouped by manufacturer, with "Scan for plugins" at its end.
-  - Reorder by dragging a device's header (a marker shows where it lands).
+  - Reorder by dragging a module's header background or its folded strip (a marker shows where it lands). Controls in the header (fold, power, settings) never start a drag.
   - Bypass with the power toggle.
+  - **Fold** a module to a 28 px strip with the chevron in its header; collapse a section by clicking its title ([device-panels.md](device-panels.md)). Both are stored per module in the project (`fdPanel`), never as undo steps or unsaved changes.
   - Click a header to select a device; Delete removes it when the chain was the last area clicked (otherwise Delete applies to clips).
 - **tracktion's own volume and meter plugins** belong to the mixer (M2) and are not shown. New devices go before them.
 - **Snapshots** ignore device parameter and state changes (only a device's power state shows), so turning a knob never rebuilds the arrangement.

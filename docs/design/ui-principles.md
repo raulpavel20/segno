@@ -81,7 +81,7 @@ The UI shows the controls for what you are working on, where you are working.
 ## 3. Clean and minimal
 
 **Rules**
-- **Separate with space and elevation, not lines.** Use spacing and surface tone to group things. Borders are rare, thin (1 px) and low-contrast.
+- **Separate with space and elevation first.** Use spacing and surface tone to group things. Borders are rare, thin (1 px) and low-contrast. The exception: sections inside a module panel are separated by a 1 px line, so related controls read as a group ([ADR 0022](../decisions/0022-module-panels.md)).
 - **Progressive disclosure.**
   - A device shows its essential controls by default; depth lives in an *expanded* view.
   - Secondary controls appear on hover or selection, but anything essential is always visible.
@@ -151,23 +151,26 @@ Rules:
 - **Every value is set in the mono**, so numbers don't jitter while they change, and readouts look like an instrument's.
 - Sentence case for labels. All caps only for tiny section labels, set in the mono.
 
-## 7. Devices look and behave as one product
+## 7. Modules look and behave as one product
 
-Every built-in device follows the same anatomy and interaction rules, so learning one teaches all of them.
+Every built-in instrument and effect (a **module** in the UI; a *device* in code) follows the same anatomy and interaction rules, so learning one teaches all of them. The layout spec is [device-panels.md](device-panels.md) ([ADR 0022](../decisions/0022-module-panels.md)).
 
 **Panel anatomy**
 
 ```
-┌─ ● Device name ─────────── preset ▾ ── ⤢ ─ ⋯ ┐   header: power, name, preset, expand, more
-│  ┌───────────────────────┐   ◜◝   ◜◝   ◜◝    │
-│  │  live visualiser      │   ◟◞   ◟◞   ◟◞    │   body: visualiser + controls on the 4/8 px grid
-│  │  (curve / spectrum /  │   Freq  Res  Drive │
-│  │   waveform / env)     │   ━━━━  ◉ Mode ▾   │
-│  └───────────────────────┘                    │
-└───────────────────────────────────────────────┘   fixed height (~180 px); folds to a slim vertical strip
+┌─ ‹ ● Module name ──────── preset ▾ ── settings ▾ ┐   header 28: fold, power, name, preset, settings
+│  SECTION A            │ SECTION B ⏻ │ OUTPUT    │   titled sections, 1 px lines between them
+│  ┌─────────────────┐  │  ◜◝   ◜◝    │  ◜◝       │
+│  │ live visualiser │  │  Freq Res   │  Output   │   controls on one grid: 48 px columns,
+│  │ (curve / env /  │  │  ◜◝   ◜◝    │  ◜◝       │   20 px rows; every knob 48 × 76
+│  │  waveform)      │  │  Drive Mix  │  Mix      │
+│  └─────────────────┘  │             │           │
+└──────────────────────────────────────────────────┘   fixed height 232 px; sections collapse, the module folds
 ```
 
 - **Fixed height and a horizontal chain**, so a whole chain reads left to right. The **expanded view** adds width, never height.
+- **One grid, no hand-placed geometry.** Panels declare sections and place controls on cells; the kit computes every position, and a lint test rejects anything off the grid.
+- **Sections** group what belongs together, under a short title, with a line between neighbours. Clicking a title collapses the section to a narrow strip. In the DAW, a whole module folds to a strip. Both are view state, saved with the project but never undoable.
 - **Visualisers are controls.** Wherever a device draws something (EQ curve, envelope, transfer curve, waveform markers, filter response, delay taps), you can grab it and edit it directly. Knobs are the secondary path, not the only one.
 - **Compact first, deep on demand.** Some devices are deep, but their default view stays simple: for example, the EQ's compact 3-band view or the Sampler's classic mode. Depth sits one click away in the expanded view, never in a menu.
 - **Every device shows what it is doing:**
@@ -182,7 +185,7 @@ Every built-in device follows the same anatomy and interaction rules, so learnin
   - type a number while the control is focused; the mouse wheel adjusts;
   - right-click gives automation, modulation, MIDI learn and reset;
   - modulated parameters show a modulation ring; automated ones show an indicator.
-- **One preset browser** per device header, with search, tags, favourites and A/B compare.
+- **One preset browser** per module header, with search, tags, favourites and A/B compare.
 - **Third-party plugins** appear in the chain as compact cards: power, name, a few pinned parameters, and a button to open their own editor.
 
 ## 8. Keyboard first, mouse friendly

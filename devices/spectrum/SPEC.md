@@ -47,17 +47,14 @@ State version 1.
 
 ## UI layout
 
-```
-┌─ ● Spectrum ───────────────────────────────────────────────────┐
-│ ┌──────────────────────────────────────────────────────────────┐│
-│ │ spectrum (flat fill + line), peak-hold line, frequency and dB││
-│ │ grid; hover shows the frequency, note name and level          ││
-│ └──────────────────────────────────────────────────────────────┘│
-│ [L+R|L|R|M|S]  Res ▾  Avg ◜◝  Hold ▾  Slope ◜◝  Range ▾          │
-└────────────────────────────────────────────────────────────────┘
-```
+On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sections left to right, each `id` TITLE [columns], with controls at (column, row) and spans; knobs are 1 × 3 cells. Draft, refined when the device is built (B4).
 
-The display is the device. The panel is wide, and controls sit in one row under it.
+| Section | Controls |
+|---|---|
+| `spectrum` SPECTRUM [12] | Display (0, 0, 12 × 6): flat fill and line, peak-hold line, frequency and dB grid; hover shows the frequency, note name and level |
+| `settings` SETTINGS [4] | Channel (0, 0, 2 wide), Resolution (2, 0, 2 wide) · Hold (0, 1, 2 wide), Range (2, 1, 2 wide) · Average (0, 3), Slope (1, 3) |
+
+The display is the module; SETTINGS can be collapsed to leave just the display.
 
 ## Factory presets
 

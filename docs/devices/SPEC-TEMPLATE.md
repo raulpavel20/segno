@@ -36,7 +36,7 @@ Signal flow (ASCII), algorithms, oversampling and anti-aliasing approach, latenc
 
 ## UI layout
 
-ASCII sketch of the default panel (fixed height) and the expanded view. Which visualiser is shown, and what it displays.
+The section map on the module grid ([device-panels.md](../design/device-panels.md)): each section's ID, title, width in columns and the controls in it, with their cells. Header settings, the meter strip, and the expanded view if any. Which visualiser is shown, and what it displays.
 
 ## Factory presets
 
@@ -61,6 +61,7 @@ Dated listening notes from the product owner, and the measurable checks derived 
 ## Sign-off
 
 - [ ] Automated: unit, conformance and golden tests; validators
-- [ ] Snapshots reviewed (100% / 200%)
+- [ ] Layout lint passes (`fd_panel_tests`)
+- [ ] Snapshots reviewed (100% / 200%; expanded, collapsed, folded)
 - [ ] Sound signed off by the product owner (date):
 - [ ] Feel signed off by the product owner (date):

@@ -66,8 +66,10 @@ A clip is drawn with:
 | Spacing grid | 4 px |
 | Control radius | 2.5 px |
 | Panel radius | 4 px |
-| Device panel height | 168 px (24 px header) |
-| Knob | ≤ 38 px arc diameter, 2.5 px arc, 1.5 px needle |
+| Module panel height | 232 px (28 px header); the layout grid is in [device-panels.md](device-panels.md) |
+| Module grid | Columns 48 px, 4 px apart; rows 20 px, 8 px apart; sections padded 12 px, separated by a 1 px `line` |
+| Knob | Always 48×76: name 16, arc area 44 (38 px arc, 2.5 px track, 1.5 px needle), value 16 |
+| Line controls | Toggles, combos, bars, segmented rows: 20 px tall |
 | Value bar | Knob in bar style for dense rows (mod amounts, voice counts): `surface3` bar, `value` fill at 45 % from the origin, name left and value right inside; same interaction as a knob, also follows horizontal drags |
 | Fonts | Inter (variable) for names and text; JetBrains Mono (variable) for values, numbers and readouts. Both bundled, both OFL-1.1 |
 | Type scale | 11 · 12 · 13 · 15 · 18 px |

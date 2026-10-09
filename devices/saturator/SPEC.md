@@ -61,18 +61,19 @@ in ──┬─> drive gain ─> [Color pre: bell +g] ─> upsample ×N ─> sha
 
 ## UI layout
 
-```
-┌─ ● Saturator ──────────────────────────────────────────┐
-│ ┌──────────────┐  ◜◝ Drive   ◜◝ Bias   [Soft|Warm|Tape]  ▮▮ in │
-│ │ transfer     │  ◟◞ 12 dB   ◟◞ 0.0    [Hard|Fold|Rect]  ▮▮ out│
-│ │ curve        │  ◜◝ Output  ◜◝ Mix    [Color] ◜◝Freq ◜◝Gain  │
-│ └──────────────┘  ◟◞ 0 dB    ◟◞ 100%           Quality 4× ▾  │
-└────────────────────────────────────────────────────────┘
-```
+On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sections left to right, each `id` TITLE [columns], with controls at (column, row) and spans; knobs are 1 × 3 cells. About 412 px wide.
 
-The transfer-curve display draws the active shaper at the current drive and bias, computed by the same pure function the audio path uses. You can drag on it to change drive (vertical) and bias (horizontal).
+| Section | Controls |
+|---|---|
+| `shape` SHAPE [4] | Transfer curve (0, 0, 3 × 4) · Curve buttons (0, 4, 3 × 2: three per row) · Drive (3, 0) · Bias (3, 3) |
+| `color` COLOR [1], power = Color | Freq (0, 0) · Gain (0, 3) |
+| `output` OUTPUT [1] | Output (0, 0) · Mix (0, 3) |
+| meter strip | In and out |
+| header | Quality |
 
-Freq and Gain are dimmed while Color is off: they only act when it is on. Color works through the saturation (boost before it, the same cut after), so it is heard as drive pushes the signal into the curve, not on a clean signal.
+The transfer-curve display draws the active shaper at the current drive and bias, computed by the same pure function the audio path uses. You can drag on it to change drive (vertical) and bias (horizontal), which is why Drive and Bias sit beside it in SHAPE.
+
+COLOR's content is dimmed while Color is off: Freq and Gain only act when it is on. Color works through the saturation (boost before it, the same cut after), so it is heard as drive pushes the signal into the curve, not on a clean signal.
 
 ## Factory presets
 

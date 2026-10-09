@@ -49,16 +49,16 @@ in L/R → DC filter (5 Hz one-pole HP, crossfaded) → polarity (per channel)
 - Latency 0, tail 0.
 - Analysis slots: 0 = output peak L, 1 = output peak R.
 
-## UI layout (M0 seed)
+## UI layout
 
-```
-┌─ ● Utility ─────────────────────────┐
-│  ◜◝ Gain     ◜◝ Width    [Mono]       │
-│  ◟◞ 0.0 dB   ◟◞ 100 %    [Ø L] [Ø R]  │
-│  ◜◝ Balance             [DC] [Mute]  │
-│  ◟◞ C                    ▮▮ meters     │
-└───────────────────────────────────────┘
-```
+On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sections left to right, each `id` TITLE [columns], with controls at (column, row) and spans; knobs are 1 × 3 cells. About 240 px wide.
+
+| Section | Controls |
+|---|---|
+| `level` LEVEL [1] | Gain (0, 0) · Balance (0, 3) |
+| `stereo` STEREO [1] | Width (0, 0) · Mono toggle (0, 3) |
+| `channels` CHANNELS [1] | Ø L (0, 0), Ø R (0, 1), DC (0, 2) toggles · Mute toggle (0, 3) |
+| meter strip | Output (stereo) |
 
 ## Factory presets
 

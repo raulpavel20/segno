@@ -72,20 +72,22 @@ State version 1. The defaults should sound good immediately, as a warm detuned s
 
 ## UI layout
 
-Two rows, grouped left to right (about 1160 px wide):
+On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sections left to right, each `id` TITLE [columns], with controls at (column, row) and spans; knobs are 1 × 3 cells. About 1550 px wide; sections collapse.
 
-| Group | Top row | Bottom row |
-|---|---|---|
-| Oscillators | Osc 1 wave display, Shape, Width, Oct, Level, Noise | Osc 2 Wave menu, Oct, Semi, Detune, Level, Drift |
-| Filter | Type buttons over the response display | Cutoff, Res, Key, Env |
-| Envelopes | Amp display, A, D, S, R | Mod display (with Cycle), A, D, S, R |
-| Modulation | Three slots: source, target, amount bar | LFO: Wave, Sync, Rate |
-| Voice and output | Mode, Voices bar, Bend bar | Glide, Volume; output meter at the far right |
+| Section | Controls |
+|---|---|
+| `osc1` OSC 1 [4] | Wave display (0, 0, 2 × 3) · Shape (2, 0) · Width (3, 0) · Oct (0, 3) · Level (1, 3) · Noise (2, 3) |
+| `osc2` OSC 2 [4] | Wave display (0, 0, 2 × 2) · Wave (0, 2, 2 wide) · Oct (2, 0) · Semi (3, 0) · Detune (0, 3) · Level (1, 3) |
+| `filter` FILTER [4] | Type buttons (0, 0, 4 × 1) · Response display (0, 1, 4 × 2) · Cutoff (0, 3), Res (1, 3), Key (2, 3), Env (3, 3) |
+| `env` ENVELOPES [6] | Amp display (0, 0, 2 × 3) · A D S R (2–5, 0) · Mod display with Cycle (0, 3, 2 × 3) · A D S R (2–5, 3) |
+| `mod` MODULATION [6] | Slot *n* (rows 2*n*−2 and 2*n*−1): Source (0, 2 wide) and Target (2, 2 wide), then Amount bar (0, 4 wide) · LFO sub-label (4, 0, 2 wide) · Wave (4, 1, 2 wide) · Sync (4, 2, 2 wide) · Rate (4, 3) |
+| `voice` VOICE [3] | Mode (0, 0, 2 wide) · Voices bar (0, 1, 2 wide) · Bend bar (0, 2, 2 wide) · Volume (2, 0) · Glide (0, 3) · Drift (1, 3) |
+| meter strip | Output |
 
-- Mini displays (oscillator 1 wave, filter response, envelope shapes) are drawn by the same functions the audio path uses (`osc1Mix` + `Oscillator::naiveAt`, `dsp::SynthFilter::magnitude`, the `Adsr` itself).
+- Mini displays (oscillator waves, filter response, envelope shapes) are drawn by the same functions the audio path uses (`osc1Mix` + `Oscillator::naiveAt`, `dsp::SynthFilter::magnitude`, the `Adsr` itself).
 - Envelope segment widths follow the log of their times and fill the display.
 - Mod amounts, voice count and bend range are value bars.
-- The Cycle toggle sits on the mod envelope display.
+- The Cycle toggle is the Mod envelope display's accessory.
 - To do: drag envelope segments directly on the displays.
 
 ## Factory presets

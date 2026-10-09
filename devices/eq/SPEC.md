@@ -67,23 +67,21 @@ Non-parameter state: the UI view (full or compact), stored in `extra`. State ver
 
 ## UI layout
 
-```
-┌─ ● EQ ───────────────────────────────────────────────────────────────── [Full|Compact] ┐
-│ ┌────────────────────────────────────────────────────────────────┐  ◜◝ Output  ◜◝ Scale │
-│ │ spectrum (pre/post, flat) + curve (solid line, flat fill)       │  ◟◞ 0.0 dB  ◟◞ 100 % │
-│ │   ①      ②         ③              ④   ← draggable band nodes    │  Band 3: Bell        │
-│ │ 20   100    1k       10k   20k                                 │  1.20 kHz  +3.5 dB Q 1│
-│ └────────────────────────────────────────────────────────────────┘  [Stereo|L|R|M|S]    │
-└──────────────────────────────────────────────────────────────────────────────────────┘
-```
+On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sections left to right, each `id` TITLE [columns], with controls at (column, row) and spans; knobs are 1 × 3 cells. About 788 px wide.
+
+| Section | Controls |
+|---|---|
+| `curve` CURVE [10] | Display (0, 0, 10 × 6): spectrum (pre/post, flat) and curve (solid line, flat fill), draggable band nodes |
+| `band` BAND *n* [3], power = the band's On | Freq (0, 0), Gain (1, 0), Q (2, 0) · Type (0, 3, 3 wide) · Slope (0, 4, 3 wide) · Placement (0, 5, 3 wide) |
+| `output` OUTPUT [1] | Output (0, 0) · Scale (0, 3) |
+| header | Analyzer |
 
 - **Display interactions:**
   - double-click empty space: add a Bell band there;
   - drag a node: frequency and gain; mouse wheel on a node: Q;
   - double-click a node: band on/off; right-click a node: type, slope and placement menu.
-- The selected band's details sit on the right.
-- **Compact view:** three fixed bands (low shelf, bell, high shelf) shown as knobs, plus low cut and output.
-- The panel is wider than the standard device; it is the first device with an expanded view.
+- BAND shows the selected band; its title follows it ("BAND 3"). Gain is dimmed for types without gain, and Slope for types without a slope, so nothing moves when the type changes.
+- **Compact view (later):** three fixed bands (low shelf, bell, high shelf) shown as knobs, plus low cut and output.
 
 ## Factory presets
 

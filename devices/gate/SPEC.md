@@ -57,18 +57,15 @@ The sidechain source is host routing (M2 step A2). State version 1.
 
 ## UI layout
 
-```
-┌─ ● Gate ──────────────────────────────────── [Gate|Expander] ┐
-│ ┌──────────────────────────────┐ ◜◝Thresh ◜◝Return ◜◝Range    │
-│ │ scrolling level history with │ ◜◝Attack ◜◝Hold ◜◝Release     │
-│ │ threshold and return lines,  │ ◜◝Ratio [Flip] ▭Lookahead     │
-│ │ open/closed shading          │ SC: [filter ▾] Freq Q [Listen]│
-│ └──────────────────────────────┘                                │
-└────────────────────────────────────────────────────────────────┘
-```
+On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sections left to right, each `id` TITLE [columns], with controls at (column, row) and spans; knobs are 1 × 3 cells. Draft, refined when the device is built (B2).
 
-- The history shows the detector level, the threshold and return lines (drag either to change it), and shading where the gate is open.
-- Ratio is dimmed in Gate mode.
+| Section | Controls |
+|---|---|
+| `history` HISTORY [6] | Level history (0, 0, 6 × 6) with threshold and return lines (drag either), and shading where the gate is open |
+| `gate` GATE [3] | Threshold (0, 0), Return (1, 0), Range (2, 0) · [Gate \| Expander] (0, 3, 2 wide) · Ratio (2, 3), dimmed in Gate mode · Flip (0, 4, 2 wide) |
+| `time` TIME [3] | Attack (0, 0), Hold (1, 0), Release (2, 0) · Lookahead (0, 3, 2 wide) |
+| `sidechain` SIDECHAIN [3] | Filter (0, 0, 2 wide) · Listen (2, 0) · Freq (0, 3), Q (1, 3), Gain (2, 3) |
+| meter strip | In and out |
 
 ## Factory presets
 

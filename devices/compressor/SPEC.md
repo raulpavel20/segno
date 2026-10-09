@@ -82,19 +82,22 @@ level ─> dB ─> gain computer (threshold, ratio, knee) ─> attack/release (d
 
 ## UI layout
 
-```
-┌─ ● Compressor ─────────────────────────────────── [Clean|Glue] ┐
-│ ┌──────────┐ ┌──────────────────────┐ ◜◝Thresh ◜◝Ratio ◜◝Knee  │
-│ │ transfer │ │ scrolling history:   │ ◜◝Attack ◜◝Release [Auto]│
-│ │ curve    │ │ in level, out level, │ ◜◝Makeup [Auto] ◜◝Mix    │
-│ │ (drag)   │ │ gain reduction       │ [Peak|RMS] Link  ▭Lookahd│
-│ └──────────┘ └──────────────────────┘ SC: [filter ▾] Freq Q [L]│
-└──────────────────────────────────────────────────────────────────┘
-```
+On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sections left to right, each `id` TITLE [columns], with controls at (column, row) and spans; knobs are 1 × 3 cells. Draft, refined when the device is built (B1).
 
-- **Transfer curve:** draws the curve from the same function the audio path uses, with the current input level as a moving dot. Drag the threshold point; drag above it to change the ratio.
+| Section | Controls |
+|---|---|
+| `curve` CURVE [3] | Transfer curve (0, 0, 3 × 6), with the current input level as a moving dot |
+| `history` HISTORY [4] | Scrolling history (0, 0, 4 × 6) |
+| `comp` COMPRESSION [3] | Threshold (0, 0), Ratio (1, 0), Knee (2, 0) · Makeup (0, 3) · Auto makeup toggle (1, 3, 2 wide) · Character [Clean \| Glue] (1, 4, 2 wide) |
+| `time` TIME [2] | Attack (0, 0), Release (1, 0) · Auto release toggle (0, 3, 2 wide) · Lookahead (0, 4, 2 wide) |
+| `detector` DETECTOR [2] | [Peak \| RMS] (0, 0) · Link bar (0, 1, 2 wide) |
+| `sidechain` SIDECHAIN [3] | Filter (0, 0, 2 wide) · Listen (2, 0) · Freq (0, 3), Q (1, 3), Gain (2, 3) |
+| `output` OUTPUT [1] | Output (0, 0) · Mix (0, 3) |
+| meter strip | In and out; gain reduction is in the history |
+
+- **Transfer curve:** drawn from the same function the audio path uses. Drag the threshold point; drag above it to change the ratio.
 - **History:** about 4 s of input level (dim), output level and gain reduction (from the top, in the value colour).
-- Sidechain controls sit in a row; the source picker is in the header (step A2).
+- The sidechain source picker is in the header (step A2).
 
 ## Factory presets
 

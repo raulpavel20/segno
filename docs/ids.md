@@ -32,6 +32,11 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 - A plugin code is 4 characters with **exactly one uppercase letter**. Our scheme is `F` plus 3 lowercase letters or digits. Never reuse a code, even for a removed device.
 - New devices are added to this table when their SPEC is approved.
 
+## Panel section level
+
+- A module panel's section ID (`shape`, `color`, `band`) is stored in projects and plugin state as view state ([ADR 0022](decisions/0022-module-panels.md)): lowercase, unique within the panel, listed in the device's `SPEC.md`.
+- Don't rename a section ID; unknown IDs are ignored, so a renamed section just forgets whether it was collapsed. Titles are display names and can change.
+
 ## Parameter level
 
 - A parameter ID is unique within its device: lowercase, dot-separated (`gain`, `band3.freq`).

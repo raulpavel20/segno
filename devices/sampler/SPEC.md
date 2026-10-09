@@ -81,16 +81,19 @@ Project-relative paths come with collect-and-save (M3). Embedding the audio in t
 
 ## UI layout
 
-Waveform on the left, then two-row groups (about 1350 px wide):
+On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sections left to right, each `id` TITLE [columns], with controls at (column, row) and spans; knobs are 1 × 3 cells. About 1480 px wide; sections collapse.
 
-| Group | Top row | Bottom row |
-|---|---|---|
-| Waveform | File name and length; waveform (dimmed outside Start–End); loop tint; draggable S, E and L markers; live playheads | |
-| Pitch and level | Transpose, Detune | Gain, Velocity → Volume |
-| Region | [Classic \| One-shot]; Loop and Gate (the one the mode ignores is dimmed); Start and End bars | Loop Start, X-Fade, Fade In, Fade Out |
-| Envelopes | Amp display, A, D, S, R | Filter-envelope display, A, D, S, R |
-| Filter | On, type buttons, response display (dimmed when off) | Cutoff, Res, Env, Key |
-| Voice | Mode, then Root, Voices, Glide and Bend bars, stacked across both rows | |
+| Section | Controls |
+|---|---|
+| `sample` SAMPLE [6] | Waveform (0, 0, 6 × 6): file name and length; dimmed outside Start–End; loop tint; draggable S, E and L markers; live playheads |
+| `pitch` PITCH [1] | Transpose (0, 0) · Detune (0, 3) |
+| `level` LEVEL [1] | Gain (0, 0) · Velocity → Volume (0, 3) |
+| `region` REGION [4] | [Classic \| One-shot] (0, 0, 2 cells per button) · Loop (0, 1, 2 wide), Gate (2, 1, 2 wide): the one the mode ignores is dimmed · Start bar (0, 2, 2 wide), End bar (2, 2, 2 wide) · Loop Start (0, 3), X-Fade (1, 3) |
+| `fades` FADES [1] | In (0, 0) · Out (0, 3) |
+| `env` ENVELOPES [6] | Amp display (0, 0, 2 × 3) · A D S R (2–5, 0) · Filter-envelope display (0, 3, 2 × 3) · A D S R (2–5, 3) |
+| `filter` FILTER [4], power = Filter | Type buttons (0, 0, 4 × 1) · Response display (0, 1, 4 × 2) · Cutoff (0, 3), Res (1, 3), Env (2, 3), Key (3, 3) |
+| `voice` VOICE [2] | Mode (0, 0) · Root bar (0, 1) · Voices bar (0, 2) · Glide bar (0, 3) · Bend bar (0, 4), all 2 wide |
+| meter strip | Output |
 
 - Drop a file anywhere on the panel to load it, or click the empty waveform (or double-click a loaded one) to browse. An empty Sampler shows "Drop a sample, or click to browse".
 - Dropping onto a track in the DAW comes with the DAW slice (C4/C7).

@@ -60,15 +60,15 @@ State version 1.
 
 ## UI layout
 
-```
-┌─ ● Limiter ──────────────────────────── [Standard|Maximise] ┐
-│ ┌──────────────────────────────┐ ◜◝Gain  ◜◝Ceiling ◜◝Release  │
-│ │ gain-reduction history       │ [Auto] [True Peak] [St|LR|MS]│
-│ │ (scrolling) with output level│ ▭Lookahead                   │
-│ └──────────────────────────────┘ −9.8 LUFS-S  −10.4 LUFS-I  ⟲ │
-│                                   −0.3 dBTP                  ║│
-└──────────────────────────────────────────────────────────────┘
-```
+On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sections left to right, each `id` TITLE [columns], with controls at (column, row) and spans; knobs are 1 × 3 cells. Draft, refined when the device is built (B3).
+
+| Section | Controls |
+|---|---|
+| `history` HISTORY [6] | Gain-reduction history (0, 0, 6 × 6), scrolling, with the output level |
+| `limit` LIMIT [3] | Gain (0, 0), Ceiling (1, 0), Release (2, 0) · Auto release (0, 3, 2 wide) · True Peak (0, 4, 2 wide) |
+| `mode` MODE [3] | [Standard \| Maximise] (0, 0, 3 wide) · Channels [St \| L/R \| M/S] (0, 1, 3 × 1) · Lookahead (0, 2, 2 wide) |
+| `loudness` LOUDNESS [3] | Readouts (0, 0, 3 × 6): short-term and integrated LUFS, true peak, reset |
+| meter strip | Output |
 
 ## Factory presets
 
