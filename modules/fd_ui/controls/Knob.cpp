@@ -132,7 +132,7 @@ void Knob::paint(juce::Graphics& g)
 
     if (editor_ == nullptr)
     {
-        g.setFont(fonts::mono(valueFit(valueArea.getWidth() - 2.0f).size, fonts::Weight::Regular));
+        g.setFont(fonts::mono(valueFit(valueArea.getWidth()).size, fonts::Weight::Regular));
         g.setColour(hot ? t.textPrimary : t.textPrimary.withAlpha(0.85f));
         g.drawText(valueText(), valueArea, juce::Justification::centred, false);
     }
@@ -149,29 +149,26 @@ const Knob::ValueFit& Knob::valueFit(float width)
     if (fit_.width == width)
         return fit_;
     const auto& t = Theme::current();
-    fit_ = {width, t.textXs, false};
+    fit_ = {width, t.knobValueSize, false};
     if (!textFromValue || width <= 0.0f)
         return fit_;
 
-    // The widest text over the range, measured at 10 px (mono widths scale with the size).
+    // Every knob's value is one size, so a panel reads evenly. The widest text over the range
+    // decides, once per width: if it doesn't fit, drop the spaces before units; only then shrink.
     const int samples = steps_ > 1 ? steps_ : 65;
-    const auto reference = fonts::mono(10.0f, fonts::Weight::Regular);
+    const auto font = fonts::mono(t.knobValueSize, fonts::Weight::Regular);
     float widest = 0.0f, widestCompact = 0.0f;
     for (int i = 0; i < samples; ++i)
     {
         const auto text = textFromValue(static_cast<float>(i) / static_cast<float>(juce::jmax(1, samples - 1)));
-        widest = juce::jmax(widest, juce::GlyphArrangement::getStringWidth(reference, text));
-        widestCompact = juce::jmax(widestCompact, juce::GlyphArrangement::getStringWidth(reference, text.removeCharacters(" ")));
+        widest = juce::jmax(widest, juce::GlyphArrangement::getStringWidth(font, text));
+        widestCompact = juce::jmax(widestCompact, juce::GlyphArrangement::getStringWidth(font, text.removeCharacters(" ")));
     }
-    auto sizeFor = [&](float widthAt10) { return widthAt10 > 0.0f ? 10.0f * width / widthAt10 : t.textXs; };
-    const float full = juce::jmin(t.textXs, sizeFor(widest));
-    if (full >= 9.5f)
-    {
-        fit_.size = full;
+    if (widest <= width + 0.5f) // the full column: the 4 px column gap keeps neighbours apart
         return fit_;
-    }
     fit_.compact = true;
-    fit_.size = juce::jlimit(9.0f, t.textXs, sizeFor(widestCompact));
+    if (widestCompact > width)
+        fit_.size = juce::jmax(9.0f, t.knobValueSize * width / widestCompact);
     return fit_;
 }
 

@@ -6,70 +6,34 @@ namespace fd::devices
 {
 namespace
 {
-/// Layout per devices/utility/SPEC.md: gain/balance and width/mono columns, a 2x2 grid of
-/// switches, and the output meter.
+/// Sections per devices/utility/SPEC.md, on the module grid (docs/design/device-panels.md).
 class UtilityPanel final : public ui::DevicePanel
 {
 public:
     explicit UtilityPanel(ui::DeviceUiContext& ctx) : DevicePanel(ctx)
     {
-        gain_ = &bind(std::make_unique<ui::ParamKnob>(ctx, Utility::Gain));
-        balance_ = &bind(std::make_unique<ui::ParamKnob>(ctx, Utility::Balance));
-        width_ = &bind(std::make_unique<ui::ParamKnob>(ctx, Utility::Width));
-        mono_ = &bind(std::make_unique<ui::ParamToggle>(ctx, Utility::Mono));
-        invL_ = &bind(std::make_unique<ui::ParamToggle>(ctx, Utility::InvertL));
-        invR_ = &bind(std::make_unique<ui::ParamToggle>(ctx, Utility::InvertR));
-        dc_ = &bind(std::make_unique<ui::ParamToggle>(ctx, Utility::DcFilter));
-        mute_ = &bind(std::make_unique<ui::ParamToggle>(ctx, Utility::Mute));
-        invL_->setButtonText(juce::String::fromUTF8("\xC3\x98 L")); // "Ø L"
-        invR_->setButtonText(juce::String::fromUTF8("\xC3\x98 R"));
+        auto& level = addSection("level", "Level", 1);
+        level.knob(Utility::Gain, 0, 0);
+        level.knob(Utility::Balance, 0, 3);
+
+        auto& stereo = addSection("stereo", "Stereo", 1);
+        stereo.knob(Utility::Width, 0, 0);
+        stereo.toggle(Utility::Mono, 0, 3);
+
+        auto& channels = addSection("channels", "Channels", 1);
+        channels.toggle(Utility::InvertL, 0, 0).setButtonText(juce::String::fromUTF8("\xC3\x98 L")); // "Ø L"
+        channels.toggle(Utility::InvertR, 0, 1).setButtonText(juce::String::fromUTF8("\xC3\x98 R"));
+        channels.toggle(Utility::DcFilter, 0, 2);
+        channels.toggle(Utility::Mute, 0, 3);
 
         if (auto* bus = ctx.analysis)
             meter_.setLevelSource([bus](int ch) {
                 return bus->takePeak(ch == 0 ? Utility::PeakOutL : Utility::PeakOutR);
             });
-        addAndMakeVisible(meter_);
-    }
-
-    int preferredWidth() const override { return 272; }
-
-    void layoutBody(juce::Rectangle<int> body) override
-    {
-        const auto& t = ui::Theme::current();
-        const int gap = t.grid * 3;
-
-        meter_.setBounds(body.removeFromRight(10).reduced(0, t.grid));
-        body.removeFromRight(gap);
-
-        // Bottom row: the five switches.
-        auto switches = body.removeFromBottom(22);
-        body.removeFromBottom(t.grid * 2);
-        const int pillGap = t.grid + 2;
-        const int pillW = (switches.getWidth() - 4 * pillGap) / 5;
-        for (auto* toggle : {mono_, invL_, invR_, dc_, mute_})
-        {
-            toggle->setBounds(switches.removeFromLeft(pillW));
-            switches.removeFromLeft(pillGap);
-        }
-
-        // Top row: three knobs sharing the width.
-        const int knobW = (body.getWidth() - 2 * gap) / 3;
-        for (auto* knob : {gain_, width_, balance_})
-        {
-            knob->setBounds(body.removeFromLeft(knobW));
-            body.removeFromLeft(gap);
-        }
+        setMeters({{&meter_, "Out"}});
     }
 
 private:
-    ui::ParamKnob* gain_ = nullptr;
-    ui::ParamKnob* balance_ = nullptr;
-    ui::ParamKnob* width_ = nullptr;
-    ui::ParamToggle* mono_ = nullptr;
-    ui::ParamToggle* invL_ = nullptr;
-    ui::ParamToggle* invR_ = nullptr;
-    ui::ParamToggle* dc_ = nullptr;
-    ui::ParamToggle* mute_ = nullptr;
     ui::Meter meter_{2};
 };
 } // namespace

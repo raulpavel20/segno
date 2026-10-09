@@ -82,6 +82,7 @@ struct Theme
     int deviceHeaderHeight = 28;
     DeviceGrid deviceGrid;
     float knobMaxDiameter = 38.0f;
+    float knobValueSize = 10.0f; // every knob's value text (mono), unless it can't fit
     float knobArcThickness = 2.5f;
 
     // Type scale (px, em size).

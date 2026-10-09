@@ -212,8 +212,9 @@ void PanelSection::paint(juce::Graphics& g)
     auto title = titleBounds().toFloat();
     if (power_ != nullptr)
         title.removeFromLeft(18.0f);
-    if (hot) // the collapse affordance
-        drawIcon(g, Icon::ChevronLeft, title.removeFromRight(12.0f).withSizeKeepingCentre(10.0f, 10.0f), colour);
+    // The collapse affordance, on hover, where it doesn't cover the title.
+    if (hot && juce::GlyphArrangement::getStringWidth(capsLabelFont(), title_.toUpperCase()) + 14.0f <= title.getWidth())
+        drawIcon(g, Icon::ChevronLeft, title.withLeft(title.getRight() - 12.0f).withSizeKeepingCentre(10.0f, 10.0f), colour);
     paintCapsLabel(g, title_, title, juce::Justification::centredLeft, colour);
     if (hasKeyboardFocus(false))
     {

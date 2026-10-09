@@ -111,7 +111,6 @@ void lint(const PanelUnderTest& p)
 
     REQUIRE(panel.getHeight() == t.devicePanelHeight);
     CHECK(panel.preferredWidth() % t.grid == 0);
-    CHECK(panel.headerMinimumWidth() <= panel.getWidth());
 
     if (panel.isFolded())
     {
@@ -120,6 +119,7 @@ void lint(const PanelUnderTest& p)
             CHECK_FALSE(s->isVisible());
         return;
     }
+    CHECK(panel.headerMinimumWidth() <= panel.getWidth());
 
     // Width: the sections and the meter strip, at least what the header needs.
     int sum = 0;

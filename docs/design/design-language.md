@@ -79,7 +79,7 @@ A clip is drawn with:
 - **Mono (`fonts::mono`)** for every value, number and readout: knob and field values, the transport (position, time, tempo, signature, CPU), ruler bar numbers, the inspector's numbers, note names, the velocity read-out, shortcut hints in the command palette. Fixed width, so changing numbers never jitter.
 - **Mono, all caps, 10 px semibold** for tiny section labels (INSTRUMENTS, INSPECTOR, AMP, OSC 2), with no extra letter spacing (the mono is spaced already).
 - **Sans (`fonts::font`)** for everything people name or read: track, clip, device and preset names, parameter names, buttons, menus, messages.
-- **Knob values fit their column.** Each knob sizes its value text once, to the widest text its parameter can show: smaller first (down to 9.5 px), then without the space before the unit (down to 9 px, e.g. `2.00kHz`). The size never changes while the value does.
+- **Knob values are one size: 10 px mono.** A knob whose widest possible value doesn't fit its 48 px column drops the space before the unit (`2.00kHz`); only if that still doesn't fit does it shrink, to no less than 9 px. Decided once per knob, so the size never changes while the value does.
 
 ### Icons
 

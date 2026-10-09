@@ -15,7 +15,7 @@ constexpr std::array<ParamSpec, Utility::NumParams> kParams{{
     {.id = "gain", .name = "Gain", .shortName = "Gain", .min = kGainMinDb, .max = 35.0f, .def = 0.0f,
      .skewCentre = 0.0f, .unit = Unit::Decibels,
      .flags = ParamFlags::Automatable | ParamFlags::MinusInfinityAtMin},
-    {.id = "balance", .name = "Balance", .shortName = "Bal", .min = -1.0f, .max = 1.0f, .def = 0.0f,
+    {.id = "balance", .name = "Balance", .shortName = "Balance", .min = -1.0f, .max = 1.0f, .def = 0.0f,
      .unit = Unit::Pan},
     {.id = "width", .name = "Width", .shortName = "Width", .min = 0.0f, .max = 400.0f, .def = 100.0f,
      .skewCentre = 100.0f, .unit = Unit::Percent, .decimals = 0},
