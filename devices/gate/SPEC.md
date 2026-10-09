@@ -1,6 +1,6 @@
 # Gate: device spec
 
-- **Status:** Draft (review requested; IDs can still change)
+- **Status:** Approved by the product owner (2026-10-09); IDs are permanent
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1, M2
 - **Live target:** Gate. References only ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).

@@ -28,9 +28,9 @@ See [roadmap.md](../roadmap.md) and the device specs in `devices/*/SPEC.md`.
 
 | # | Device | Status |
 |---|---|---|
-| B1 | **Compressor**, with a Glue character ([SPEC](../../devices/compressor/SPEC.md)) | ☐ spec draft |
-| B2 | **Gate** ([SPEC](../../devices/gate/SPEC.md)) | ☐ spec draft |
-| B3 | **Limiter** ([SPEC](../../devices/limiter/SPEC.md)) | ☐ spec draft |
+| B1 | **Compressor**, with a Glue character ([SPEC](../../devices/compressor/SPEC.md)) | ☐ spec approved (2026-10-09) |
+| B2 | **Gate** ([SPEC](../../devices/gate/SPEC.md)) | ☐ spec approved (2026-10-09) |
+| B3 | **Limiter** ([SPEC](../../devices/limiter/SPEC.md)) | ☐ spec approved (2026-10-09; Mode clarified) |
 | B4 | **Spectrum** ([SPEC](../../devices/spectrum/SPEC.md)) | ☐ spec draft |
 
 ### C. DAW

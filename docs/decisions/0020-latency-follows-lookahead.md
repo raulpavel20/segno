@@ -1,6 +1,6 @@
 # 0020. Latency that follows a lookahead setting (dynamics devices)
 
-- **Status:** Proposed (for the product owner, with the Compressor, Gate and Limiter SPECs)
+- **Status:** Accepted (product owner, 2026-10-09, with the Compressor, Gate and Limiter SPECs)
 - **Date:** 2026-10-09
 - **Builds on:** [0016](0016-constant-device-latency.md) (constant latency per device instance), whose exception clause this uses
 

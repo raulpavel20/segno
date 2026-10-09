@@ -24,9 +24,9 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 | EQ | `eq` | `Feq1` | `org.segnoaudio.eq` | M1 (spec draft) |
 | Subtractive Synth | `subtractive-synth` | `Fsub` | `org.segnoaudio.subtractive-synth` | M1 (spec draft) |
 | Sampler | `sampler` | `Fsmp` | `org.segnoaudio.sampler` | M1 (spec draft) |
-| Compressor | `compressor` | `Fcmp` | `org.segnoaudio.compressor` | M2 (spec draft) |
-| Gate | `gate` | `Fgat` | `org.segnoaudio.gate` | M2 (spec draft) |
-| Limiter | `limiter` | `Flim` | `org.segnoaudio.limiter` | M2 (spec draft) |
+| Compressor | `compressor` | `Fcmp` | `org.segnoaudio.compressor` | M2 (approved 2026-10-09) |
+| Gate | `gate` | `Fgat` | `org.segnoaudio.gate` | M2 (approved 2026-10-09) |
+| Limiter | `limiter` | `Flim` | `org.segnoaudio.limiter` | M2 (approved 2026-10-09) |
 | Spectrum | `spectrum` | `Fspc` | `org.segnoaudio.spectrum` | M2 (spec draft) |
 
 **Rules:**

@@ -1,6 +1,6 @@
 # Limiter: device spec
 
-- **Status:** Draft (review requested; IDs can still change)
+- **Status:** Approved by the product owner (2026-10-09); IDs are permanent
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1, M2
 - **Live target:** Limiter. References only ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
@@ -27,13 +27,13 @@ Small: a built-in loudness readout (short-term and integrated LUFS) and true-pea
 | `ceiling` | Ceiling | The highest level the output reaches. | −24 … 0 | −0.3 | dB (dBTP with True Peak on) | linear | 20 ms | Yes |
 | `release` | Release | How quickly the limiter lets go after a peak. | 1 … 1 000 | 80 | ms | centre 80 | 20 ms multiplicative | Yes |
 | `release.auto` | Auto Release | Adapts the release to the material, for loudness without pumping. | Off / On | On | toggle | – | – | Yes |
-| `mode` | Mode | Standard drives Gain into a fixed ceiling; Maximise links Gain and Ceiling, as mastering limiters do. | Standard, Maximise | Standard | choice | – | 10 ms crossfade | Yes |
+| `mode` | Mode | Standard: lowering the Ceiling limits harder; Maximise: the Ceiling moves the whole output, the limiting stays the same. | Standard, Maximise | Standard | choice | – | 10 ms crossfade | Yes |
 | `truepeak` | True Peak | Also catches peaks between samples, so the output stays under the ceiling after conversion. | Off / On | On | toggle | – | – | **No** (changes latency slightly; set before use) |
 | `link` | Channels | Whether both channels are limited together, separately, or as mid and side. | Stereo, L/R, M/S | Stereo | choice | – | 10 ms crossfade | Yes |
 | `lookahead` | Lookahead | How far ahead the limiter looks: longer is smoother, shorter adds less delay. | 1.5 ms, 3 ms, 6 ms | 3 ms | choice | – | – | **No** (sets latency) |
 
-- **Maximise** links Gain and Ceiling, as mastering limiters do: raising Gain lowers nothing else, and the ceiling stays where it is. Output level follows Gain, limited at the ceiling.
-- **Standard:** Gain drives into the limiter; the ceiling is fixed.
+- **Standard:** Gain drives into the limiter and the Ceiling caps the output; lowering the Ceiling limits harder.
+- **Maximise:** Gain and Ceiling are linked: moving the Ceiling moves the whole output, and the amount of limiting stays the same. Gain alone sets how hard it's driven. For mastering to a target peak. (Product owner, 2026-10-09.)
 
 State version 1.
 

@@ -1,6 +1,6 @@
 # Compressor: device spec
 
-- **Status:** Draft (review requested; IDs can still change)
+- **Status:** Approved by the product owner (2026-10-09); IDs are permanent
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1, M2
 - **Live target:** Compressor and Glue Compressor (one device, two characters). References only ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
