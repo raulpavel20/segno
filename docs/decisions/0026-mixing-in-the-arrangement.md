@@ -1,6 +1,6 @@
 # 0026. Mixing: in the arrangement and in a mixer view, with returns and a master
 
-- **Status:** Accepted (product owner, 2026-10-09, adding a separate mixer view to the proposal)
+- **Status:** Accepted (product owner, 2026-10-09, adding a separate mixer view to the proposal). What the context panels show in the mixer view is refined by [0027](0027-selection-and-context-panels.md): no inspector, modules only in the detail panel.
 - **Date:** 2026-10-09
 - **Builds on:** [0001](0001-arrangement-only-scope.md) (arrangement first), [0019](0019-one-kind-of-track.md) (one kind of track), [0023](0023-ui-foundations.md) (the track header kit), [0021](0021-mcp-server.md) (MCP tools for every DAW feature)
 

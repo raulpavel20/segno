@@ -9,9 +9,9 @@ How mixing works in Segno: levels, panning, mute and solo, return tracks with se
 You mix where you arrange, or in the mixer view when you want every channel at once:
 
 - **Track headers** carry mute and solo, a level meter, and (when the track is tall enough) volume and pan bars.
-- **The inspector** shows the selected track's whole channel: volume, pan, mute, solo, its sends, and a larger meter.
-- **The mixer view** (§6) shows every channel as a strip, side by side. It takes the arrangement's place in the centre of the window; the transport bar, browser, inspector and detail panel stay.
-- **The detail panel** shows the selected track's modules, in either view. Selecting the master track shows the master's chain (where the Limiter goes).
+- **The inspector** (in the arrangement) shows the selected track's whole channel: volume, pan, mute, solo, its sends, and a larger meter.
+- **The mixer view** (§6) shows every channel as a strip, side by side. It takes the arrangement's place in the centre of the window; the transport bar, browser and detail panel stay. The inspector isn't shown there: the strips already carry every channel control ([ADR 0027](../decisions/0027-selection-and-context-panels.md), [selection.md](selection.md)).
+- **The detail panel** shows the selected track's modules, in either view (the mixer view shows only modules, never the clip view). Selecting the master track shows the master's chain (where the Limiter goes).
 
 Every place edits the same channel, through the same commands: a change in one shows at once in the others.
 
@@ -110,7 +110,7 @@ A second main view: channel strips side by side, in place of the arrangement.
 - **Order:** tracks in track order, then the return tracks after a divider; the master is pinned at the right edge. The strips scroll horizontally (wheel, Shift+wheel, horizontal wheel); the master never scrolls away.
 - **A strip, top to bottom:**
   1. the track's colour (a 3 px bar) and name; a click selects the track, as in the arrangement;
-  2. **Modules:** the chain's module names, one 20 px row each, dimmed when off; a click selects the track and shows that module in the detail panel. Up to six rows; more scroll;
+  2. **Modules:** the chain's module names, one 20 px row each, dimmed when off; a click selects the track and shows that module in the detail panel (opening it if closed). Up to six rows; more scroll;
   3. **Sends:** one compact bar per return, with its Pre button;
   4. **Pan** (a bar);
   5. **Mute** and **Solo** (and Arm from C5);
@@ -119,19 +119,18 @@ A second main view: channel strips side by side, in place of the arrangement.
   8. the **volume value**, a number field: type a level.
 - **Return strips** have no sends; the **master strip** has no sends, mute or solo.
 - **Header toggles:** Modules and Sends show or hide those sections in every strip; Narrow makes strips 64 px wide instead of 96. They are view state: saved with the project, never undo steps.
-- **Selection and keys** are shared with the arrangement: the selected track's strip is highlighted; Left and Right move the selection; Alt+M, Alt+S and every track action work here too.
+- **Selection and keys** are shared with the arrangement ([selection.md](selection.md)): the selected track's strip is highlighted, and selecting a strip clears any selected clips; Left and Right move the selection, and the detail panel follows; Alt+M, Alt+S and every track action work here too. Clip edits, zoom and Tab are off.
 - **Geometry** comes from a pure layout model (`model::ChannelStripLayout`, unit-tested like the track header layout): given a strip's size and which sections show, it places every part on the 4 px grid. Strips are drawn with the shared components (`ui::Fader`, `ui::Meter`, bars, toggles), so the UI lint applies.
 - **Performance:** the view keeps 60 fps with 64 tracks: repainting every strip takes about 15 ms even in a Debug build (`[.benchmark]`), and in use only moving meters repaint.
 
-## 7. Inspector (track selected)
+## 7. Inspector (track selected, in the arrangement)
 
-From top to bottom, under the track's name and colour:
+Titled sections with a line between them ([selection.md](selection.md) §5). Under the track's own section (TRACK, RETURN or MASTER):
 
-1. **Volume** and **Pan** bars, and the meter beside them.
-2. **Mute** and **Solo** buttons.
-3. **Sends:** one bar per return track ("A Return −12.0 dB"), each with a Pre button. Hidden when there are no returns, with "Add return track" in its place.
+1. **MIX:** the **Volume** and **Pan** bars with the meter beside them, then **Mute** and **Solo**.
+2. **SENDS:** one bar per return track ("A Return −12.0 dB"), each with a Pre button. With no returns, "Add return track" in its place.
 
-For a return track: volume, pan, mute, solo. For the master: volume, pan.
+For a return track: MIX only (volume, pan, mute, solo). For the master: MIX with volume and pan. In the mixer view there is no inspector.
 
 ## 8. Editing and undo
 

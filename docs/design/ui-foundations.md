@@ -112,12 +112,13 @@ Role functions for colours that depend on content:
 
 | Component | What it is | Used by |
 |---|---|---|
-| `PanelHeader` | A 24 px header: a section-style title or tabs on the left, captions on the right | Detail panel (Modules / Clip), inspector, browser |
+| `PanelHeader` | A 24 px header: a section-style title or tabs on the left, captions on the right | Detail panel (Modules / Clip tabs; a plain Modules title in the mixer view), inspector, browser |
 | `PropertyList` | Label and value rows on the row grid; values in `Body`, or `Value` for numbers | Inspector; export options (C8); preferences |
 | `ListRow` | One row of a list: optional dot, name, caption, shortcut on the right; hover and selected states | Command palette; browser (M3) |
 | `Popover` | Floating chrome: `surface2`, panel radius, the one shadow | Command palette; Assistants popover; future menus that float |
 | `Toast` | A message in the arrangement's corner that times out | Warnings and confirmations |
 | `EmptyState` | A centred hint where there is nothing to show | Chain without a track, clip view without a clip, empty project, empty inspector |
+| `SectionStack` | Titled sections one under another: a `Section`-style caps title on the row grid, the content under it, and a 1 px `line` centred in the group gap between neighbours (a module panel's sections, stacked) | The inspector ([selection.md](selection.md) §5); later the browser and preferences |
 | `BarLayout` | Places a bar's items left and right on the item and group gaps | The transport bar |
 | `Brand` | The mark (`paintMark`), the mark and name (`paintBrand`), the app icon (`appIcon`) | The transport bar's left end; the app and window icon |
 

@@ -75,7 +75,7 @@ app/src/
 | Fold module (the selected one) | `module.fold` | Ctrl+Alt+M |
 | Expand module sections | `module.expand` | Ctrl+Alt+E |
 | Show browser / inspector / detail | `view.browser` / `view.inspector` / `view.detail` | Ctrl+Alt+B / Ctrl+Alt+I / Ctrl+Alt+D |
-| Device chain ⇄ clip view | `view.detailMode` | Tab |
+| Device chain ⇄ clip view (arrangement only) | `view.detailMode` | Tab |
 | Focus mode | `view.focus` | Ctrl+Alt+F |
 | Zoom in / out / to fit | `view.zoomIn` / `view.zoomOut` / `view.zoomFit` | = / − / Ctrl+0 |
 | Follow playhead | `view.follow` | Ctrl+Shift+F |
@@ -132,7 +132,7 @@ Waveforms come from a background-built peak cache per file, plus cached drawing 
   - the grabbed clip snaps and the rest of the selection follows by the same amount;
   - nothing moves before time zero or off the track list;
   - trims stay within the source file and leave at least 10 ms.
-- **Selection:** click; Shift or Ctrl toggles; a drag on empty lanes box-selects (Shift adds); the selected track follows the click.
+- **Selection:** click; Shift or Ctrl toggles; a drag on empty lanes box-selects (Shift adds); the selected track follows the click. One selection serves both views and the context panels; the full rules are in [selection.md](selection.md).
 - **During a drag**, clips are drawn at their new place from the model's result. On release the Session applies it as one undo step, and the preview stays until the new snapshot arrives (no flicker).
 - **Commands:** delete, duplicate (copies placed right after the selection), split at the playhead (the selected clips, or the selected track's clips under the playhead), select all.
 
@@ -193,16 +193,17 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 
 ## Mixer view (C3c, [mixer.md](mixer.md) §6)
 
-- The centre shows the arrangement or the mixer view: the transport bar's "Arrange | Mix" switch or Ctrl+Alt+X. The browser, inspector and detail panel stay; each view keeps its own scroll.
-- Strips (`ChannelStrip`) for the tracks, then the return tracks after a divider, scroll horizontally; the master is pinned at the right. A click selects the channel (shared with the arrangement); a module name selects that module in the detail panel; Left and Right move the selection; clicking the peak readout resets it.
+- The centre shows the arrangement or the mixer view: the transport bar's "Arrange | Mix" switch or Ctrl+Alt+X. The browser and the detail panel stay; each view keeps its own scroll.
+- **Context panels** ([selection.md](selection.md), ADR 0027): the detail panel shows only the selected channel's modules (a plain "Modules" title, no clip view, no Tab); the inspector isn't shown, since the strips carry every channel control. Clip edits, zoom and Tab are off. Back in the arrangement, both panels return to what they showed.
+- Strips (`ChannelStrip`) for the tracks, then the return tracks after a divider, scroll horizontally; the master is pinned at the right. A click selects the channel (shared with the arrangement, and clearing any selected clips); a module name selects the channel and that module in the detail panel, opening it if closed; Left and Right move the selection; clicking the peak readout resets it.
 - The header's Modules, Sends and Narrow toggles, the current view and the mixer's scroll are view state, saved with the project.
-- Strips, header controls and the inspector hold the engine's meters: they are dropped before a project is replaced.
+- Strips, header controls and the inspector hold the engine's meters: they are dropped before a project is replaced, and the inspector drops its own while the mixer view is shown.
 
 ## Mixer in the arrangement (C3b, [mixer.md](mixer.md))
 
-- **Rows:** the tracks, then (after a 2 px divider) the return tracks and the master, on sub-lane backgrounds; they scroll with the tracks. Ctrl+Alt+R hides and shows them. Clicking one selects it: the inspector shows its channel and the detail panel its chain. They hold no clips.
+- **Rows:** the tracks, then (after a 2 px divider) the return tracks and the master, on sub-lane backgrounds; they scroll with the tracks. Ctrl+Alt+R hides and shows them. Clicking one selects it (and clears any selected clips): the inspector shows its channel and the detail panel its chain. They hold no clips.
 - **Header controls** fill the track header kit's slots: mute and solo (not on the master), volume and pan bars (values only; from 80 px tall), and the meter on the right edge. They are shared components (`ui/ChannelControls`) on a layer that clips to the header column, one set per channel, placed every frame from the layout.
-- **Inspector:** the channel's volume and pan bars with its meter, mute and solo, and a track's sends (a bar and a Pre switch per return, or "Add return track").
+- **Inspector:** titled sections with a line between them ([selection.md](selection.md) §5): the clip (if one is selected), the track, return or master, then MIX (volume and pan bars with the meter, mute and solo) and, for a track, SENDS (a bar and a Pre switch per return, or "Add return track").
 - **Snapshots** ignore device parameter and state changes (only a device's power state and sidechain source show), so turning a knob never rebuilds the arrangement.
 - **Scanning** (`Ctrl+Alt+P`): VST3, plus LV2 on Linux, in the default folders.
   - One file per tick on the message thread, as JUCE's own plugin list does, because some formats must load there.
@@ -267,7 +268,7 @@ A software-renderer benchmark also runs offscreen in the integration tests (`"[.
   - Ctrl+Shift+M creates one at the playhead on the selected track;
   - a track without an instrument gets the default one, in the same undo step (ADR 0019);
   - double-clicking a MIDI clip opens it in the clip view.
-- **Where it lives:** the detail panel follows the selection. A single MIDI clip shows the clip view with the piano roll; anything else shows the devices. Tab switches until the selection changes.
+- **Where it lives:** the detail panel follows the selection ([selection.md](selection.md) §4). In the arrangement, a single MIDI clip shows the clip view with the piano roll; anything else shows the modules. Tab switches until the selection changes. The mixer view never shows the clip view.
   - The clip view's height can be dragged at its top edge (default 320 px; saved with the view). The device view keeps the device panel height. The panel eases between the two.
   - While a clip is open, live MIDI goes to the clip's track, so previews and the computer keyboard play its instrument.
 - **Layout:**
