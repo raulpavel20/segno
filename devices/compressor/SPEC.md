@@ -69,7 +69,7 @@ level ─> dB ─> gain computer (threshold, ratio, knee) ─> attack/release (d
 - **Glue character:** feedback detection (the detector reads the output), auto release on by default, and a gentle output soft-clip. That's the bus-compressor behaviour: slower, smoother, "glued".
 - **Auto makeup** compensates the static gain at −18 dBFS input: `−curve(−18) − 18`.
 - **Sidechain filter:** a TPT state-variable filter (shared with the synths), on the detector path only. Listen sends the filtered detector signal to the output.
-- **Lookahead and latency.** The latency follows the Lookahead setting: 0, 1 or 10 ms. That makes it an exception to [ADR 0016](../../docs/decisions/0016-constant-device-latency.md); to be recorded as ADR 0020 with step A2, after review.
+- **Lookahead and latency.** The latency follows the Lookahead setting: 0, 1 or 10 ms. That makes it an exception to [ADR 0016](../../docs/decisions/0016-constant-device-latency.md), recorded in [ADR 0020](../../docs/decisions/0020-latency-follows-lookahead.md) (proposed).
   - The setting is not automatable.
   - Hosts see a change as a configuration change: the plugin reports new latency, and the DAW rebuilds the graph.
   - Off means zero latency, which keeps live monitoring through a compressor tight.

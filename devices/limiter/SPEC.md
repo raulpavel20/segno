@@ -49,7 +49,7 @@ State version 1.
   - Stereo: one gain for both channels;
   - L/R: independent;
   - M/S: limit mid and side separately, then decode.
-- **Latency:** the lookahead (plus the true-peak interpolator), constant for a given setting. As in the Compressor, the setting is not automatable and hosts see a change as a configuration change (ADR 0020).
+- **Latency:** the lookahead (plus the true-peak interpolator), constant for a given setting. As in the Compressor, the setting is not automatable and hosts see a change as a configuration change ([ADR 0020](../../docs/decisions/0020-latency-follows-lookahead.md)).
 - **Loudness:** K-weighted momentary (400 ms), short-term (3 s) and integrated (gated) LUFS of the output, from the shared dynamics core. A reset button clears the integrated value.
 - **Analysis:**
   - slots 0–1 = output true peak;

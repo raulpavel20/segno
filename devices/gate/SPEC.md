@@ -47,7 +47,7 @@ The sidechain source is host routing (M2 step A2). State version 1.
 - **Gate:** opens when the level rises above Threshold and closes when it falls below Threshold − Return (hysteresis, so it doesn't chatter). Hold keeps it open after the level drops. The gain moves between 0 dB and Range with the attack and release times.
 - **Expander:** downward expansion below the threshold at Ratio (the gain computer's expansion curve), limited by Range, with the same attack, hold and release.
 - **Flip** inverts the gain: the output is the input minus the gated signal, so only what the gate removes is heard.
-- **Lookahead:** opens before a transient arrives (no clicks on drums). Latency follows the setting, as in the Compressor (ADR 0020, to be written).
+- **Lookahead:** opens before a transient arrives (no clicks on drums). Latency follows the setting, as in the Compressor ([ADR 0020](../../docs/decisions/0020-latency-follows-lookahead.md)).
 - **No zipper or click:** gain changes are smoothed per sample in dB; Range −inf closes to silence.
 - **Analysis:**
   - slot 0 = detector level;
