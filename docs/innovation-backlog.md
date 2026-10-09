@@ -36,6 +36,7 @@ To schedule an idea, it needs:
 | **Reference track A/B** built into the master channel, with loudness matching | Every mix engineer does this with a third-party plugin today | 📌 M3 |
 | **Sidechain by drag:** drag from any track onto a device's sidechain input | Removes routing dialogs | 💡 |
 | **Gain-staging assistant:** see levels across the project and auto-level on import | Common beginner problem, and a time saver | 💡 |
+| **Mixer tab in the detail panel:** every channel as a strip side by side (volume, pan, sends, meters, the chain's modules as names), next to the arrangement rather than instead of it | Mixing many tracks at once without a separate view ([mixer.md](design/mixer.md) §1) | 💡 after C3 |
 
 ## Sound design and modulation
 
