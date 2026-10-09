@@ -56,7 +56,7 @@ What the context panels show follows from the selection:
 | One clip | That clip (and its track) |
 | Several clips | The clips (and the selected track) |
 | A channel, no clips | That channel |
-| A take lane (C5b) | That take (and its track) |
+| A take (its strip under a clip, C5b) | That take (and its track) |
 | Nothing | Nothing |
 
 ## 4. The detail panel
@@ -83,7 +83,7 @@ What the context panels show follows from the selection:
 | **POINTS** | Several points | Selected: how many |
 | **LANE** | A lane (C4) | Name (a field), Points, Value now, whether it plays |
 | **ASSIGNMENTS** | A lane (C4) | Each assignment: on switch, "Track › Parameter" (shows its module), remove; its range as from and to fields in the parameter's units. Then "Assign parameter…". A lane shows no TRACK, MIX or SENDS: it belongs to no track |
-| **TAKE** | A take lane (C5b), above its track's sections | Name (a field), Star, Start, Length, In use (all of it, partly, no), "Use this take" |
+| **TAKE** | A take (C5b), above its track's sections | Name (a field), Star, Start, Length, In use (all of it, partly, no), "Use this take" |
 | **CLIP** | One clip | Name, Start (bars.beats.16ths), Length, Offset |
 | **CLIPS** | Several clips | Selected: how many |
 | **TRACK** | A track (also under TAKE, CLIP or CLIPS) | Name, Instrument, Clips |

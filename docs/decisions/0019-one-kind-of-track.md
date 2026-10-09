@@ -1,6 +1,6 @@
 # 0019. One kind of track: audio and MIDI clips together, never overlapping
 
-- **Status:** Accepted (product owner, 2026-10-09)
+- **Status:** Accepted (product owner, 2026-10-09). Item 4 (a MIDI clip brings the default instrument) superseded by [0033](0033-no-instrument-by-itself.md): Segno never adds an instrument by itself.
 - **Date:** 2026-10-09
 - **Builds on:** [0018](0018-daw-app-structure.md) (Session, snapshots)
 

@@ -27,7 +27,7 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0016](0016-constant-device-latency.md) | Constant, whole-sample latency per device instance; parameters never change latency | Accepted |
 | [0017](0017-heavy-data-and-non-parameter-state.md) | Heavy data via `AssetHandoff` (frees never on the audio thread); synchronous load in `readExtraState`; UI edits to extra state through the host binding | Accepted |
 | [0018](0018-daw-app-structure.md) | DAW app: `Session` facade over tracktion, immutable snapshots for views, JUCE-free tested `app/src/model`, own `ActionRegistry` | Accepted |
-| [0019](0019-one-kind-of-track.md) | One kind of track: audio and MIDI clips together, never overlapping (the placed clip wins); instruments add to the track's audio, never mute it | Accepted |
+| [0019](0019-one-kind-of-track.md) | One kind of track: audio and MIDI clips together, never overlapping (the placed clip wins); instruments add to the track's audio, never mute it | Accepted; item 4 (a default instrument with MIDI) superseded by 0033 |
 | [0020](0020-latency-follows-lookahead.md) | Lookahead latency follows its setting (dynamics devices): non-automatable, zero when off, hosts told on the message thread; an exception under 0016 | Accepted |
 | [0021](0021-mcp-server.md) | A built-in MCP server: assistants can drive the whole DAW and every device in it; only in the DAW, never in the plugins; opt-in and local | Accepted |
 | [0022](0022-module-panels.md) | Module panels: one layout grid, titled sections with lines, collapse and fold, view state outside module state; "Modules" in the UI | Proposed |
@@ -39,8 +39,9 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0028](0028-automation-lanes.md) | Automation: every lane visible, as rows like tracks under their track; a straight line is a straight move of the control (normalised parameters, the volume taper); the drawn curve is what plays; moving an automated control turns its lane off | Accepted; placement and ownership superseded by 0029 |
 | [0029](0029-independent-automation-lanes.md) | Automation lanes are rows of their own among the tracks, driving assigned parameters on any channel, each through its own range; one lane per parameter; the lane is the source of truth; popovers close on any outside click | Accepted |
 | [0030](0030-projects-are-folders.md) | A project is a folder: `Name.segno` with `Recordings/` (later bounces and collected samples); clips refer to files relative to it; files are never deleted implicitly | Accepted |
-| [0031](0031-recording-keeps-every-take.md) | Recording keeps every pass and loop lap on take lanes under the track (Segno's own state); the track's main lane is plain clips; choosing and comping write clips; takes move to new tracks | Accepted; where takes live and show superseded by 0032 if accepted |
-| [0032](0032-takes-belong-to-clips.md) | Takes belong to clips: a clip shows its takes from two on ("3/4 ▾") and opens them under itself; a clip and its takes are edited as one; no take rows | Proposed |
+| [0031](0031-recording-keeps-every-take.md) | Recording keeps every pass and loop lap on take lanes under the track (Segno's own state); the track's main lane is plain clips; choosing and comping write clips; takes move to new tracks | Accepted; where takes live and show superseded by 0032 |
+| [0032](0032-takes-belong-to-clips.md) | Takes belong to clips: a clip shows its takes from two on ("3/4 ▾") and opens them under itself; a clip and its takes are edited as one; no take rows | Accepted |
+| [0033](0033-no-instrument-by-itself.md) | Segno never adds an instrument by itself: a MIDI clip on a track without one is silent until you add one (supersedes 0019 item 4) | Accepted |
 
 ## Template
 

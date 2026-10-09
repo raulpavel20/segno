@@ -92,9 +92,9 @@ The project, track, clip and module resources send change notifications when the
 | Tool | Arguments | Result |
 |---|---|---|
 | `add_track` | `name?` | The track id |
-| `create_midi_clip` | `track`, `start`, `length?` (default a bar), `notes?` | The clip id; adds the default instrument when the track has none (ADR 0019), and says so |
+| `create_midi_clip` | `track`, `start`, `length?` (default a bar), `notes?` | The clip id. No instrument is added (ADR 0033): on a track without one the clip is silent |
 | `insert_audio_file` | `track`, `start`, `path` | The clip id |
-| `insert_midi_file` | `track`, `start`, `path` | The clip id (and whether an instrument was added) |
+| `insert_midi_file` | `track`, `start`, `path` | The clip id (no instrument is added) |
 | `move_clips` | `clips`, `by` (beats), `to_track?` | New positions (placing cuts what it covers, ADR 0019) |
 | `trim_clip` | `clip`, `start?`, `end?` | The new extent |
 | `duplicate_clips` | `clips`, `times?` (default 1) | The new clip ids, placed after the originals |

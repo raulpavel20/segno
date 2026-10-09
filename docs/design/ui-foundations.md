@@ -47,7 +47,7 @@ Role functions for colours that depend on content:
 |---|---|---|
 | `clipBody(colour, selected)` | the clip colour at 32 % brightness (42 % selected) | Clip bodies |
 | `clipContent(colour)` | the clip colour, 25 % towards white | Waveforms and notes drawn on clips |
-| `clipDimmed(colour)` | the clip colour, 60 % towards `subLane` | Clips that don't play: the unused parts of take lanes (C5b) |
+| `clipDimmed(colour)` | the clip colour, 60 % towards `subLane` | Clips that don't play: the unused parts of a clip's takes (C5b) |
 | `noteFill(colour, velocity, selected)` | control tone → clip colour by velocity (35–100 %); selected 30 % towards white | Piano roll notes and velocity stems |
 | `faded(colour)` | 40 % alpha | Content that exists but doesn't play (notes outside a clip) |
 | `fill(colour)` | `curveFill`'s alpha in that colour | Fills under coloured curves |
@@ -111,6 +111,7 @@ Role functions for colours that depend on content:
 | `shell.barPadding` / `shell.barInset` | 8 / 6 (a bar's sides; top and bottom) |
 | `shell.itemGap` / `shell.groupGap` | 4 / 12 (between items of a group; between groups) |
 | `shell.buttonSize` / `shell.fieldHeight` | 28 (icon buttons in bars and rails) / 24 (text fields) |
+| `shell.takeStripHeight` | 24 (a take's strip under its clip, C5b) |
 
 ## Shared components (`modules/fd_ui/shell`)
 
@@ -125,9 +126,10 @@ Role functions for colours that depend on content:
 | `Toast` | A message in the arrangement's corner that times out | Warnings and confirmations |
 | `EmptyState` | A centred hint where there is nothing to show | Chain without a track, clip view without a clip, empty project, empty inspector |
 | `SectionStack` | Titled sections one under another: a `Section`-style caps title on the row grid, the content under it, and a 1 px `line` centred in the group gap between neighbours (a module panel's sections, stacked) | The inspector ([selection.md](selection.md) §5); later the browser and preferences |
-| `BarLayout` | Places a bar's items left and right on the item and group gaps | The transport bar |
+| `BarLayout` | Places a bar's items left and right on the item and group gaps | Small bars |
+| `model::layoutTopBar` (app) | The top bar's three sections: left and right items on the item and group gaps, the centre cluster on the bar's middle (moved in only when the sides need the room), and items dropped by priority when it's narrow; pure, `[fast]`-tested | The top bar |
 | `OutsideClick` | Closes a popover on any mouse press outside it (other top-level windows, such as its popup menus, excepted); popovers also close on Escape | The command palette, the lane picker, the Assistants popover |
-| `Brand` | The mark (`paintMark`), the mark and name (`paintBrand`), the app icon (`appIcon`) | The transport bar's left end; the app and window icon |
+| `Brand` | The mark (`paintMark`), the mark and name (`paintBrand`), the app icon (`appIcon`) | The top bar's left end; the app and window icon |
 
 **Toggle or view option.** A `Toggle` switches something on or off in the project or a device: mute, solo, Pre, power, a setting. It is a control, with a fill. A `ViewOption` only changes how a view looks (view state, never an undo step) and lives in that view's panel header, where it stays quiet until hovered.
 

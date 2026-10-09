@@ -113,12 +113,12 @@ Every control of an assigned parameter shows it, wherever it appears (module pan
 When you move a control whose assignment plays, while not recording:
 
 - **its assignment turns off** and the control keeps the value you set. The lane's other assignments keep playing. The control's indicator becomes a ring, the lane's on switch a ring, and a lane with every assignment off fades. Nothing is lost: the points and the assignment stay;
-- **the transport bar's "Turn automation back on" button lights** while any assignment is off. Clicking it (or Ctrl+Alt+A) turns every one back on; the lane's on switch turns its own back on, and an assignment's switch in the inspector turns just that one back on;
+- **you turn it back on where it is:** the lane's on switch (a ring while partly off) turns its assignments back on, an assignment's switch in the inspector turns just that one back on, and the control's menu has "Turn automation back on". There is no button for it in the top bar (product owner, after trying C5b); "Turn all automation back on" turns every one back on from the command palette or Ctrl+Alt+A;
 - this is a listening state, like solo: saved with the project, never an undo step and never an unsaved change on its own.
 
 ## 8. Recording
 
-- **Automation arm** (the transport bar's arm button, Ctrl+Shift+A): while armed and playing, moving a control writes its moves into its lane.
+- **Automation arm** (the top bar's arm button beside Record and Capture, lit in the `record` colour because it records; Ctrl+Shift+A): while armed and playing, moving a control writes its moves into its lane.
   - A control on a lane: its moves are written into that lane, mapped back through its range (moves beyond the range are clipped to it). The lane's other assignments follow.
   - A control without a lane: a new lane is made for it, at the end of the tracks.
 - **Touch** is the only mode in M2 (B31): a lane is written while you hold the control; letting go stops writing, and the lane continues as it was. Moves without a held gesture (typing a value, the mouse wheel) are written as they happen, and writing stops a moment after the last one.
@@ -156,7 +156,7 @@ Delete, Ctrl+D, Ctrl+A and the arrows act on points when a lane was used last; D
 | Action | ID | Shortcut |
 |---|---|---|
 | Automation arm | `automation.arm` | Ctrl+Shift+A |
-| Turn automation back on | `automation.reEnable` | Ctrl+Alt+A (and its transport button) |
+| Turn all automation back on | `automation.reEnable` | Ctrl+Alt+A (palette; no button) |
 | Add automation lane | `automation.addLane` | Ctrl+Shift+L |
 | Assign parameter to the selected lane… | `automation.assign` | Ctrl+Alt+Shift+L |
 | Automate last touched parameter | `automation.showLastTouched` | Alt+L |

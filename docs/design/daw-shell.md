@@ -36,7 +36,7 @@ app/src/
 ## Layout (C1)
 
 ```
-┌ TransportBar 40 ──────────────────────────────────────────────────────────────┐
+┌ Top bar 40 (TransportBar) ─────────────────────────────────────────────────────┐
 ├ Browser 220 ┬ Arrangement ───────────────────────────────────────┬ Inspector 260 ┤
 │ (rail 44)   │ loop strip 12 + ruler 24                           │ (collapsible) │
 │             │ track header 180 │ lanes                           │               │
@@ -49,8 +49,8 @@ app/src/
 - **Adaptive:**
   - below 1440 logical px wide, the browser collapses to its rail and the inspector closes (the overlay inspector comes in M3);
   - the user's explicit toggles win until the window crosses the threshold again.
-- **Focus mode** shows only the transport bar and the centre view.
-- **The centre view** is the arrangement or the mixer view (M2 C3c, [mixer.md](mixer.md) §6), switched by the Arrange | Mix switch in the transport bar or Ctrl+Alt+X.
+- **Focus mode** shows only the top bar and the centre view.
+- **The centre view** is the arrangement or the mixer view (M2 C3c, [mixer.md](mixer.md) §6), switched by the Arrange | Mix switch in the top bar or Ctrl+Alt+X.
 - Panel sizes are per window in M1; per project from C8.
 - Panels open and close with a 150 ms ease-out (instant with "reduce motion").
 
@@ -95,11 +95,10 @@ app/src/
 | Record (C5) | `transport.record` | Ctrl+R, F9 |
 | Arm selected track (C5) | `track.arm` | Alt+R |
 | Count-in on/off (C5) | `transport.countIn` | Ctrl+Alt+C |
-| Punch in/out (C5) | `transport.punch` | Ctrl+Alt+U |
 | Capture MIDI (C5b) | `transport.capture` | Ctrl+Shift+R |
-| Show takes of the selected track (C5b) | `view.takes` | Ctrl+Alt+K |
-| Previous / next take for the selected clips (C5b) | `take.previous` / `take.next` | Alt+↑ / Alt+↓ |
-| Spread takes to new tracks (C5b) | `take.spread` | Ctrl+Alt+Shift+K |
+| Show takes of the selected clip (C5b) | `view.takes` | Ctrl+Alt+K |
+| Previous / next take of the selected clip (C5b) | `take.previous` / `take.next` | Alt+↑ / Alt+↓ |
+| Spread the selected clip's takes to new tracks (C5b) | `take.spread` | Ctrl+Alt+Shift+K |
 
 Each step adds its actions as it lands.
 
@@ -173,7 +172,7 @@ Waveforms come from a background-built peak cache per file, plus cached drawing 
   - third-party instruments get the incoming audio added back by a tracktion patch (`cmake/patches/tracktion_engine-instrument-audio-passthrough.patch`).
 
   Render tests check that audio passes through a silent instrument, ours and a hosted VST3, to below −120 dBFS.
-- **MIDI needs an instrument:** a MIDI file dropped on a track without one adds the Subtractive Synth, in the same undo step, and says so.
+- **No instrument by itself** ([ADR 0033](../decisions/0033-no-instrument-by-itself.md)): a MIDI clip on a track without an instrument (drawn, dropped, captured or recorded) is silent until you add one; the header says "No instrument".
 
 ## Instrument tracks and live MIDI (C7)
 
@@ -181,12 +180,12 @@ Waveforms come from a background-built peak cache per file, plus cached drawing 
 - **Live MIDI follows the selection.** Selecting an instrument track routes live MIDI to it, with monitoring always on; selecting anything else routes it nowhere. This is not an edit, so it adds no undo step.
   - Only tracktion's virtual inputs are routed: "All MIDI Ins" (every physical device, merged) and our "Computer keyboard". Routing physical devices too would double every note.
   - The device list arrives asynchronously and changes when devices are plugged in; the Session re-applies the routing each time.
-- **Computer keyboard** (Ctrl+Shift+K, or the keyboard button at the right of the transport bar, with a MIDI activity light beside it):
+- **Computer keyboard** (Ctrl+Shift+K, or the keyboard button in the top bar's right section, with a MIDI activity light beside it):
   - turning it on selects the first track with an instrument if none is selected, or says how to add one;
   - A W S E D F T G Y H U J K O L P ; play from C (C3 at the start);
   - Z / X shift octaves, C / V change velocity;
   - keys held with Ctrl or Alt stay shortcuts.
-- **MIDI files:** `.mid` dropped on a track becomes a clip with all of the file's tracks merged. Dropped below the tracks, it creates an instrument track. The clip shows its notes across its own pitch range; editing them is the piano roll (M2).
+- **MIDI files:** `.mid` dropped on a track becomes a clip with all of the file's tracks merged. Dropped below the tracks, it creates a track. No instrument comes with it (ADR 0033). The clip shows its notes across its own pitch range; editing them is the piano roll (M2).
 
 ## Device chain (C6)
 
@@ -207,7 +206,7 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 
 ## Mixer view (C3c, [mixer.md](mixer.md) §6)
 
-- The centre shows the arrangement or the mixer view: the transport bar's "Arrange | Mix" switch or Ctrl+Alt+X. The browser and the detail panel stay; each view keeps its own scroll.
+- The centre shows the arrangement or the mixer view: the top bar's "Arrange | Mix" switch or Ctrl+Alt+X. The browser and the detail panel stay; each view keeps its own scroll.
 - **Context panels** ([selection.md](selection.md), ADR 0027): the detail panel shows only the selected channel's modules (a plain "Modules" title, no clip view, no Tab); the inspector isn't shown, since the strips carry every channel control. Clip edits, zoom and Tab are off. Back in the arrangement, both panels return to what they showed.
 - Strips (`ChannelStrip`) for the tracks, then the return tracks after a divider, scroll horizontally; the master is pinned at the right. A click selects the channel (shared with the arrangement, and clearing any selected clips); a module name selects the channel and that module in the detail panel, opening it if closed; Left and Right move the selection; clicking the peak readout resets it.
 - The header's Modules, Sends and Narrow view options (`ui::ViewOption`), the current view and the mixer's scroll are view state, saved with the project.
@@ -228,7 +227,7 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 - **Right-click menus** on every control (`Knob::onPopupMenu`, `Toggle::onPopupMenu`): Show automation lane (the lane, selected, in the arrangement, leaving the mixer view), Turn automation back on, Remove from automation lane, Assign to automation lane ▸, Automate in a new lane, Reset to default (`ui/AutomationMenu`, added through `ParamBinding::addAutomationItems` for module panels). Plugin hosts get only Reset.
 - **Following:** automated mixer controls read their lane's played value each frame (`LaneFollower`); module panels refresh from the engine as before.
 - **Gestures** on mixer controls are parameter gestures (`Session::ParamGesture`): one undo step, and a touch while recording. A knob's double-click reset joins the gesture its second press began, so gestures never nest.
-- **Transport:** Automation arm and Turn automation back on (lit while a lane is off), between the loop and the tempo.
+- **Top bar:** Automation arm, in the `record` colour when on, beside Record and Capture. There is no "Turn automation back on" button: the lane's own switch turns a parameter back on, and "Turn all automation back on" is in the palette (Ctrl+Alt+A).
 
 ## Mixer in the arrangement (C3b, [mixer.md](mixer.md))
 
@@ -244,7 +243,17 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 
 ## Transport (C5)
 
-- **Transport bar:** the mark and name at the left (the segno sign and SEGNO, [ADR 0024](../decisions/0024-product-name.md)), then play/stop, stop-and-return, loop and metronome toggles, then tempo and time signature as `ui::NumberField`s (drag, Shift for fine, wheel, or type; each edit is one undo step), the position in bars and time, and CPU load.
+- **Top bar** (`TransportBar`, laid out by the pure `model::layoutTopBar`, `[fast]`-tested): three sections over the whole width, like Live's.
+
+  ```
+  ◆ SEGNO  120.00 BPM  4/4  ♪ 1·2    ▶ ■ ● ⊙ ⟿  ▕ 3. 1. 1   0:04.000 ▏ ⟲ ⇉    CPU 3 %  ⌨•   Arrange|Mix  ◧ ▭ ◨   ✦•  ⚙
+  └ left: brand · song ───────────┘ └ centre, on the window's middle ──────────┘ └ right: status · view · app ──────────┘
+  ```
+
+  - **Left:** the mark and name ([ADR 0024](../decisions/0024-product-name.md)); then the song: tempo and time signature as `ui::NumberField`s (drag, Shift for fine, wheel, or type; each edit is one undo step), the metronome and the count-in (right-click: its length).
+  - **Centre**, centred on the bar and moved in only when the sides need the room: play/stop, stop-and-return, Record, Capture MIDI, Automation arm; the position display (an inset `surface0` well: bars.beats.16ths in `ValueLarge`, the time in `ValueMedium`; the count-in countdown); Loop and Follow playhead.
+  - **Right:** status (CPU load, the computer keyboard and its MIDI light), view (Arrange | Mix, then the browser, detail and inspector toggles), app (assistants and their light, settings).
+  - Items are `itemGap` apart within a group and `groupGap` between groups. When the window is narrow, items drop in this order: the time, the CPU load, the wordmark (the mark stays), the panel toggles.
 - **Assistants** (C9, [mcp.md](mcp.md)): a spark button left of the settings button, with an activity light that is lit for 3 s after an assistant's request. It opens the Assistants popover (also the command palette's "Assistants"):
   - **On**, remembered between launches; the status line says where it listens and how many assistants have connected.
   - **Read only**: assistants can read, render and measure, but not edit.
@@ -265,19 +274,19 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 
 - **Arm buttons:** the third button of a track's header (after M and S), in the inspector's INPUT section and in mixer strips (wide ones): a dot in the `record` colour, filled when armed by its button and a ring when the selection arms the track for live MIDI (`ChannelToggle::Kind::Arm`, `ui::Toggle::setArmStyle`). A click arms that track alone, Ctrl+click one more. An armed track's subtitle shows what it records from ("Input 1", "All MIDI").
 - **INPUT** (the inspector, between TRACK and MIX; `ui/TrackInputs`): Record (the arm button), Audio, MIDI, Channel (with a MIDI input), Monitor, and Records (with both inputs), as choices. Each is one undo step. Mixer strips show the input as a row under the name; a click opens the same choices as a menu.
-- **Record** (the transport bar, between stop and loop; `ui::IconButton::setRecordAccent`): lit while recording; its right-click menu holds Count-in ▸, Punch in/out, MIDI loop recording ▸ and Recording settings…. During a count-in the position display counts the beats down in the `record` colour.
+- **Record** (the top bar's centre, after stop; `ui::IconButton::setRecordAccent`): lit while recording; its right-click menu holds Count-in ▸, MIDI loop recording ▸ (Each lap: a new take / add to the clip) and Recording settings…. While looping, only the brace records (there is no punch toggle). During a count-in the position display counts the beats down in the `record` colour.
 - **While recording,** each recording track's clip grows to the playhead in the `record` colour, with its waveform as it's written (tracktion's recording thumbnails, `Session::drawLiveWaveform`). When the pass ends, its clips are selected.
 - **Save As** makes the project's folder (`model::projectFileFor`: `Name/Name.segno`), asking before replacing a project of that name; it starts beside the current project's folder.
 
-## Takes and Capture MIDI (C5b, [recording.md](recording.md) §6, §8)
+## Takes and Capture MIDI (C5b, [recording.md](recording.md) §6, §8, ADR 0032)
 
-- **Take lanes** are rows under their track (`model::ArrangementRow::Kind::Take`, 40 px by default, key `t<track>/<take>`), above any automation lane after it. Each header has the take's name and a star (`ui::IconButton::setIconShowsState`: an outlined star, filled in `active` when on), with the track's colour strip dimmed. Clips are drawn with `clipDimmed`, and the parts the main lane plays (`model::inUse`) in full colour; the name of a take in use is brighter.
-- **Showing them:** a track with takes shows "Takes · N" at the right of its subtitle, lit while its take lanes show; a click (or Ctrl+Alt+K) shows or hides them. They open by themselves after a pass that made several takes. Showing takes is view state, never an undo step.
-- **Clicks:** a click on a take lane selects the take; a click on its clip also uses it (the cursor is a hand there). Alt+drag-resizing a take lane resizes every take lane.
-- **Menus:** a take lane's: Use this take, Star, Rename…, Copy to new track, Move to new track, Delete take. A track's: Show takes, Spread takes to new tracks, Delete unused takes, then the add items.
-- **Selection:** a take is selected with its track as the context (`Selection::take`); the inspector shows TAKE (name field, star, start, length, how much is in use, "Use this take") above the track's sections, and the detail panel the track's modules. Delete deletes the take.
-- **Alt+↑ / Alt+↓** use the previous or next take that covers the selected clips' range (or the main clip under the playhead), skipping takes too short for it; the clip now playing stays selected, so the keys step on while it plays.
-- **Capture MIDI** (the transport bar, beside Record; `ui::Icon::Capture`): dim until something was played; it makes a clip of it and selects it.
+- **Takes belong to clips.** A clip with two takes or more ends its title strip with a badge (`model::badge`: "3/4", ★ first for a starred take, "Comp" when its parts play different takes, then `Icon::ChevronDown`; just the chevron on a narrow clip). One take shows nothing.
+- **The take menu** (a click on the badge, or a right-click on a take's strip): Show/Hide takes; the takes, the one playing ticked; Star, Rename take…; Copy / Move take to new track, Spread takes to new tracks; Delete take, Keep only this take.
+- **Strips:** open takes draw under their clip, newest on top, 24 px each (`shell.takeStripHeight`), across the clip's range. The track's row grows by its tallest open set (`TrackLayout`'s extra height; the header and the user's row height stay the base height). Each strip: the take's clips dimmed (`clipDimmed`), the parts the clip plays in full colour, the name and a star (`ui::IconButton::setIconShowsState`'s style, painted). A click uses and selects the take; a click on the star toggles it; Delete deletes the selected take.
+- **Clips with parts:** a clip playing several takes draws as one clip with a line where the take changes; its parts select, move, split and delete together (`model::clipGroups`), and only its outer edges trim.
+- **Selection:** a take is selected with its track as the context (`Selection::take`); the inspector shows TAKE above the track's sections.
+- **Alt+↑ / Alt+↓** play the selected clip's previous or next take; the clip stays selected, so the keys step on while it plays. Ctrl+Alt+K opens or closes its takes; Ctrl+Alt+Shift+K spreads them to new tracks.
+- **Capture MIDI** (the top bar, beside Record; `ui::Icon::Capture`): lit while there's a phrase to capture; its tooltip names where it goes. It makes a clip of the last phrase and selects it.
 
 ## Waveforms (C3)
 
@@ -315,7 +324,7 @@ A software-renderer benchmark also runs offscreen in the integration tests (`"[.
   - double-click an empty spot on a lane creates a one-bar MIDI clip from the grid line at or before it (Alt: exactly there);
   - it never covers another clip: it starts after a clip it lands in and ends where the next one starts;
   - Ctrl+Shift+M creates one at the playhead on the selected track;
-  - a track without an instrument gets the default one, in the same undo step (ADR 0019);
+  - no instrument comes with it ([ADR 0033](../decisions/0033-no-instrument-by-itself.md)): on a track without one, the clip is silent until you add one;
   - double-clicking a MIDI clip opens it in the clip view.
 - **Where it lives:** the detail panel follows the selection ([selection.md](selection.md) §4). In the arrangement, a single MIDI clip shows the clip view with the piano roll; anything else shows the modules. Tab switches until the selection changes. The mixer view never shows the clip view.
   - The clip view's height can be dragged at its top edge (default 320 px; saved with the view). The device view keeps the device panel height. The panel eases between the two.
