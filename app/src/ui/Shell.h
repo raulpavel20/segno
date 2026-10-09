@@ -29,7 +29,7 @@ public:
     /// Runs `then` once unsaved changes are saved or discarded; nothing if cancelled. The one
     /// modal dialog the UI principles allow besides confirming destruction.
     void confirmDiscard(std::function<void()> then);
-    /// "FossDAW - name" with a mark while there are unsaved changes.
+    /// "Segno - name" with a mark while there are unsaved changes.
     std::function<void(const juce::String&)> onTitleChanged;
 
     /// Ends every eased layout change at once (tests and snapshots, which get no frames).

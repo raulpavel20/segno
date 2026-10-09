@@ -3,7 +3,7 @@
 //   build/rel/tests/integration/fd_integration_tests_artefacts/Release/fd_integration_tests "[.benchmark]"
 // It reports only: offscreen software painting at 4K is bound by fill rate, which the GPU does
 // for the real window. The ADR 0015 budget (32 tracks zooming under 8 ms) is checked with the
-// OpenGL renderer by `FossDAW --benchmark` (docs/design/daw-shell.md, "Performance").
+// OpenGL renderer by `Segno --benchmark` (docs/design/daw-shell.md, "Performance").
 
 #include "engine/DevicePlugin.h"
 #include "engine/Session.h"

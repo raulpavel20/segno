@@ -71,6 +71,7 @@ juce::Font font(TextStyle style)
     case TextStyle::ValueMedium: return fonts::mono(t.textMd, Weight::Medium);
     case TextStyle::ValueLarge: return fonts::mono(t.textLg, Weight::Medium);
     case TextStyle::Micro: return fonts::mono(t.textXs - 2.0f, Weight::SemiBold);
+    case TextStyle::Wordmark: return fonts::mono(t.textLg, Weight::Bold).withExtraKerningFactor(0.16f);
     }
     return fonts::font(t.textSm);
 }

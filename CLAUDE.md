@@ -1,6 +1,6 @@
-# foss-daw
+# Segno
 
-FOSS music production suite: a device suite (instruments and effects shipped as plugins) plus an arrangement DAW on tracktion_engine. Both are built from one device library in this monorepo.
+Segno ([ADR 0024](docs/decisions/0024-product-name.md)) is a FOSS music production suite: a device suite (instruments and effects shipped as plugins) plus an arrangement DAW on tracktion_engine. Both are built from one device library in this monorepo.
 
 **Read `docs/` first.** It is the source of truth for product direction and decisions:
 - `docs/vision.md`

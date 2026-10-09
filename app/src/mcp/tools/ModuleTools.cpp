@@ -31,7 +31,7 @@ std::string typeKey(ToolEnv& env, const std::string& type)
     for (const auto& d : devices)
         if (lower(d.name) == lower(type))
             return d.key;
-    throw Problem{"There's no module type \"" + type + "\"; list_module_types (or fossdaw://modules) lists them."};
+    throw Problem{"There's no module type \"" + type + "\"; list_module_types (or segno://modules) lists them."};
 }
 
 std::size_t parameterIndex(const DeviceInfo& info, const std::string& key)

@@ -169,6 +169,6 @@ private:
 
 inline ServerIdentity identity()
 {
-    return {"fossdaw-test", "FossDAW (test)", "0.0.1", "Test instructions."};
+    return {"segno-test", "Segno (test)", "0.0.1", "Test instructions."};
 }
 } // namespace fd::mcp::test

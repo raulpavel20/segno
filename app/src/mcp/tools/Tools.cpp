@@ -278,36 +278,36 @@ model::TrackInfo track(ToolEnv& env, const Json& value)
 {
     const auto id = parseId(value, IdKind::Track);
     if (!id)
-        throw Problem{value.dump() + " isn't a track id: they look like \"t:3\" (read fossdaw://project)."};
+        throw Problem{value.dump() + " isn't a track id: they look like \"t:3\" (read segno://project)."};
     for (const auto& t : env.session.snapshot()->tracks)
         if (t.id == *id)
             return t;
     throw Problem{"Track " + formatId(IdKind::Track, *id) +
-                  " doesn't exist; read fossdaw://project (or call get_project) for the current tracks."};
+                  " doesn't exist; read segno://project (or call get_project) for the current tracks."};
 }
 
 model::ClipInfo clip(ToolEnv& env, const Json& value)
 {
     const auto id = parseId(value, IdKind::Clip);
     if (!id)
-        throw Problem{value.dump() + " isn't a clip id: they look like \"c:12\" (read fossdaw://project)."};
+        throw Problem{value.dump() + " isn't a clip id: they look like \"c:12\" (read segno://project)."};
     if (const auto found = model::findClip(*env.session.snapshot(), *id))
         return *found->first;
     throw Problem{"Clip " + formatId(IdKind::Clip, *id) +
-                  " doesn't exist; read fossdaw://project (or call get_project) for the current clips."};
+                  " doesn't exist; read segno://project (or call get_project) for the current clips."};
 }
 
 std::pair<model::DeviceSlot, model::TrackInfo> module(ToolEnv& env, const Json& value)
 {
     const auto id = parseId(value, IdKind::Module);
     if (!id)
-        throw Problem{value.dump() + " isn't a module id: they look like \"m:7\" (read fossdaw://project)."};
+        throw Problem{value.dump() + " isn't a module id: they look like \"m:7\" (read segno://project)."};
     for (const auto& t : env.session.snapshot()->tracks)
         for (const auto& d : t.devices)
             if (d.id == *id)
                 return {d, t};
     throw Problem{"Module " + formatId(IdKind::Module, *id) +
-                  " doesn't exist; read fossdaw://project (or call get_project) for each track's chain."};
+                  " doesn't exist; read segno://project (or call get_project) for each track's chain."};
 }
 
 double positionArg(ToolEnv& env, const Json& value)

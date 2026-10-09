@@ -2,9 +2,11 @@
 // Used for UI review (Claude reads the PNGs) and golden-image tests (ADR 0007).
 //
 //   fd-snapshot <out-dir> [--theme <name>] [--scale 1,2]
+//   fd-snapshot --app-icon <file.png> [size]
 //
 // Output: <out-dir>/<theme>/<device>[-collapsed|-folded]@<scale>x.png: every panel expanded,
-// with all its sections collapsed, and folded (ADR 0022).
+// with all its sections collapsed, and folded (ADR 0022). --app-icon writes the app icon
+// (ADR 0024) from the same mark the DAW draws; app/resources/AppIcon.png is made with it.
 
 #include <fd/device/Registry.h>
 #include <fd_device_ui/fd_device_ui.h>
@@ -46,9 +48,25 @@ int main(int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
 
+    if (argc >= 3 && juce::String(argv[1]) == "--app-icon")
+    {
+        const auto file = juce::File::getCurrentWorkingDirectory().getChildFile(argv[2]);
+        const int size = argc >= 4 ? juce::String(argv[3]).getIntValue() : 1024;
+        file.deleteFile(); // streams append
+        juce::PNGImageFormat png;
+        auto out = file.createOutputStream();
+        if (out == nullptr || !png.writeImageToStream(fd::ui::appIcon(size), *out))
+        {
+            std::cerr << "couldn't write " << file.getFullPathName() << "\n";
+            return 1;
+        }
+        std::cout << "wrote " << file.getFullPathName() << "\n";
+        return 0;
+    }
     if (argc < 2)
     {
-        std::cerr << "usage: fd-snapshot <out-dir> [--theme <name>] [--scale 1,2]\n";
+        std::cerr << "usage: fd-snapshot <out-dir> [--theme <name>] [--scale 1,2]\n"
+                     "       fd-snapshot --app-icon <file.png> [size]\n";
         return 2;
     }
     const juce::File outDir = juce::File::getCurrentWorkingDirectory().getChildFile(argv[1]);

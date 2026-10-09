@@ -489,7 +489,7 @@ void Shell::applyViewState(const std::string& json)
 
 void Shell::updateTitle()
 {
-    auto title = juce::String("FossDAW - ") +
+    auto title = juce::String(ui::brand::name) + " - " +
                  (session_.file() ? session_.file()->getFileNameWithoutExtension() : juce::String("Untitled"));
     if (session_.hasUnsavedChanges())
         title << " *";

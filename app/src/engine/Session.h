@@ -190,7 +190,7 @@ public:
     bool save();
     [[nodiscard]] std::optional<juce::File> file() const;
     [[nodiscard]] bool hasUnsavedChanges() const;
-    static constexpr const char* fileExtension = ".fdproj";
+    static constexpr const char* fileExtension = ".segno";
 
     /// The UI's view state (JSON), stored with the project when saving.
     std::function<std::string()> viewStateProvider;

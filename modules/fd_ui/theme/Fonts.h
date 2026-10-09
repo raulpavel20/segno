@@ -39,7 +39,8 @@ enum class TextStyle
     ValueSmall,  // Mono 10: knob values, display axis labels
     ValueMedium, // Mono 13 medium: number fields
     ValueLarge,  // Mono 15 medium: the transport position
-    Micro        // Mono 9 semibold: labels inside small graphics
+    Micro,       // Mono 9 semibold: labels inside small graphics
+    Wordmark     // Mono 15 bold, all caps, tracked: the product's name beside its mark
 };
 
 [[nodiscard]] juce::Font font(TextStyle style);

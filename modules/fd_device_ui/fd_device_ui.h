@@ -2,9 +2,9 @@
 BEGIN_JUCE_MODULE_DECLARATION
 
   ID:                 fd_device_ui
-  vendor:             foss-daw
+  vendor:             segno
   version:            0.0.1
-  name:               foss-daw device UI
+  name:               Segno device UI
   description:        DevicePanel base, host-agnostic parameter binding, shared displays, panel registry
   license:            AGPLv3
   minimumCppStandard: 20

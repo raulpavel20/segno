@@ -54,9 +54,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif()
 
 juce_add_gui_app(fd-daw
-    PRODUCT_NAME "FossDAW"
-    COMPANY_NAME "FossDAW"
-    BUNDLE_ID "org.fossdaw.daw"
+    PRODUCT_NAME "Segno"
+    COMPANY_NAME "Segno"
+    BUNDLE_ID "org.segnoaudio.segno"
+    ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/resources/AppIcon.png"
     MICROPHONE_PERMISSION_ENABLED TRUE
     NEEDS_CURL FALSE
     NEEDS_WEB_BROWSER FALSE)

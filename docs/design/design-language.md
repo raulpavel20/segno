@@ -87,6 +87,14 @@ Colour roles (lanes, grid, selection, states …), text styles, motion and shell
 
 Line icons drawn in code (`ui::Icon`, `modules/fd_ui/controls/Icons.cpp`): 1.5 px stroke on a 16 px grid. Transport glyphs (play, stop, record) are filled. Every icon has a tooltip with its shortcut.
 
+### Brand
+
+The product is Segno ([ADR 0024](../decisions/0024-product-name.md)). Code: `modules/fd_ui/shell/Brand`.
+- **Mark:** the segno sign (𝄋), drawn in code like the icons: a monoline S of two bowls joined by a diagonal spine, a slash across the spine, a dot on either side. 1.6 px stroke on the 16 px grid, round caps, in `active`.
+- **Wordmark:** the mark, then "SEGNO" in the mono, bold, all caps, with extra letter spacing (text style `Wordmark`, 15 px). Its only place in the DAW is the top left of the transport bar, as tall as the bar's buttons.
+- **App icon:** the mark in `active` on a `surface2` rounded square with a `line` edge (`fd-snapshot --app-icon`).
+- The mark is never redrawn by hand, recoloured per view or used as a button.
+
 ## Still open
 
 - **Light theme:** a later milestone (M7). It is built from the same token names.

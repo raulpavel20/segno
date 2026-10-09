@@ -162,7 +162,7 @@ struct HttpServer::Impl
         if (!expected.empty() && !constantTimeEquals(httplib::get_bearer_token_auth(req), expected))
         {
             res.status = 401;
-            res.set_header("WWW-Authenticate", "Bearer realm=\"fossdaw\"");
+            res.set_header("WWW-Authenticate", "Bearer realm=\"segno\"");
             res.set_content("This needs the DAW's assistant token: open the Assistants popover in the DAW and copy "
                             "the setup line.",
                             "text/plain");

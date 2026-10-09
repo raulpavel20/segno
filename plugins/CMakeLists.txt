@@ -1,10 +1,11 @@
 # The device suite as plugins (ADR 0002, 0003). One plugin per device, all built from the
 # generic adapter in src/. Codes and IDs are permanent: they must match docs/ids.md.
 
-set(FD_VENDOR_NAME "FossDAW")          # placeholder until naming (docs/ids.md)
-set(FD_MANUFACTURER_CODE "Fdaw")       # placeholder until naming
-set(FD_ID_PREFIX "org.fossdaw")        # placeholder until naming
-set(FD_LV2_PREFIX "https://fossdaw.org/plugins") # placeholder until naming
+# The vendor-level identifiers (ADR 0024, docs/ids.md). Frozen at the first public release.
+set(FD_VENDOR_NAME "Segno")
+set(FD_MANUFACTURER_CODE "Sgno")
+set(FD_ID_PREFIX "org.segnoaudio")
+set(FD_LV2_PREFIX "https://segnoaudio.org/plugins")
 
 # fd_add_device_plugin(ID <device-id> NAME <display> CODE <4cc> KIND effect|instrument
 #                      VST3_CATEGORIES ... CLAP_FEATURES ...)

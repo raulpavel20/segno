@@ -145,7 +145,7 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
         Json args{{"module", "m:1"}};
         CHECK_FALSE(std::regex_search(p.get(args).dump(), vendors));
     }
-    CHECK_FALSE(std::regex_search(daw.read("fossdaw://modules").dump(), vendors));
+    CHECK_FALSE(std::regex_search(daw.read("segno://modules").dump(), vendors));
 }
 
 TEST_CASE("mcp tools: tracks, MIDI clips and notes, each call one named undo step", "[integration][mcp]")
@@ -356,7 +356,7 @@ TEST_CASE("mcp tools: modules, parameters, samples and view state", "[integratio
     daw.call("remove_module", {{"module", eq["id"]}});
     CHECK(daw.project()["tracks"][0]["chain"].size() == 2);
 
-    const auto reference = daw.read("fossdaw://module-type/saturator");
+    const auto reference = daw.read("segno://module-type/saturator");
     CHECK_FALSE(reference["description"].get<std::string>().empty());
     CHECK_FALSE(reference["sections"].empty());
 }
@@ -375,7 +375,7 @@ TEST_CASE("mcp tools: transport, tempo and signature", "[integration][mcp]")
     CHECK(daw.call("set_metronome", {{"on", true}})["metronome"] == true);
     CHECK(daw.call("play")["playing"] == true);
     CHECK(daw.call("stop")["playing"] == false);
-    CHECK(daw.read("fossdaw://transport")["metronome"] == true);
+    CHECK(daw.read("segno://transport")["metronome"] == true);
     CHECK(daw.fails("set_time_signature", {{"numerator", 3}, {"denominator", 5}}).find("denominator") != std::string::npos);
 }
 
@@ -408,15 +408,15 @@ TEST_CASE("mcp tools: read-only mode and confirmations", "[integration][mcp]")
     // Saving: to a new file, then over another existing one only when confirmed.
     const auto path = daw.folder.getChildFile("song").getFullPathName().toStdString();
     const auto saved = daw.call("save_project", {{"path", path}});
-    CHECK(saved["file"] == path + ".fdproj");
+    CHECK(saved["file"] == path + ".segno");
     CHECK(daw.project()["unsaved"] == false);
-    const auto other = daw.folder.getChildFile("other.fdproj");
+    const auto other = daw.folder.getChildFile("other.segno");
     REQUIRE(other.replaceWithText("x"));
     CHECK(daw.fails("save_project", {{"path", other.getFullPathName().toStdString()}}).find("Overwrite") != std::string::npos);
     CHECK(daw.call("save_project", {{"path", other.getFullPathName().toStdString()}, {"confirm", true}})["file"] ==
           other.getFullPathName().toStdString());
-    const auto opened = daw.call("open_project", {{"path", path + ".fdproj"}});
-    CHECK(opened["file"] == path + ".fdproj");
+    const auto opened = daw.call("open_project", {{"path", path + ".segno"}});
+    CHECK(opened["file"] == path + ".segno");
 }
 
 TEST_CASE("mcp tools: render measures a range without touching the project", "[integration][mcp]")
@@ -460,14 +460,14 @@ TEST_CASE("mcp tools: render measures a range without touching the project", "[i
 TEST_CASE("mcp tools: resources and their change notifications", "[integration][mcp]")
 {
     Daw daw;
-    const auto project = daw.read("fossdaw://project");
+    const auto project = daw.read("segno://project");
     const auto t0 = project["tracks"][0]["id"].get<std::string>();
-    CHECK(daw.read("fossdaw://track/" + t0)["id"] == t0);
+    CHECK(daw.read("segno://track/" + t0)["id"] == t0);
     const auto clipId = daw.call("create_midi_clip", {{"track", t0}, {"start", 0}})["clip"]["id"].get<std::string>();
-    CHECK(daw.read("fossdaw://clip/" + clipId)["notes"].is_array());
-    CHECK(daw.read("fossdaw://modules")["types"].size() >= 5);
-    CHECK(daw.read("fossdaw://module-type/eq")["parameters"].size() > 3);
-    const auto missing = daw.server->dispatcher()->handle(modernRequest("resources/read", {{"uri", "fossdaw://clip/c:999999"}}), {});
+    CHECK(daw.read("segno://clip/" + clipId)["notes"].is_array());
+    CHECK(daw.read("segno://modules")["types"].size() >= 5);
+    CHECK(daw.read("segno://module-type/eq")["parameters"].size() > 3);
+    const auto missing = daw.server->dispatcher()->handle(modernRequest("resources/read", {{"uri", "segno://clip/c:999999"}}), {});
     CHECK((*missing.message)["error"]["code"] == fd::mcp::codes::invalidParams);
 
     // A subscription hears about the clip it watches.
@@ -492,7 +492,7 @@ TEST_CASE("mcp tools: resources and their change notifications", "[integration][
     } stream;
     auto listening = std::async(std::launch::async, [&] {
         return daw.server->dispatcher()->handle(
-            modernRequest("subscriptions/listen", {{"notifications", {{"resourceSubscriptions", {"fossdaw://clip/" + clipId}}}}}),
+            modernRequest("subscriptions/listen", {{"notifications", {{"resourceSubscriptions", {"segno://clip/" + clipId}}}}}),
             {}, &stream);
     });
     const auto pump = [&](auto until) {
@@ -505,9 +505,9 @@ TEST_CASE("mcp tools: resources and their change notifications", "[integration][
     pump([&] { return stream.count() >= 2; });
     REQUIRE(stream.count() >= 2);
     CHECK(stream.sent[1]["method"] == "notifications/resources/updated");
-    CHECK(stream.sent[1]["params"]["uri"] == "fossdaw://clip/" + clipId);
+    CHECK(stream.sent[1]["params"]["uri"] == "segno://clip/" + clipId);
     stream.open = false;
-    daw.server->dispatcher()->resourceUpdated("fossdaw://clip/" + clipId);
+    daw.server->dispatcher()->resourceUpdated("segno://clip/" + clipId);
     listening.get();
 }
 
@@ -519,7 +519,7 @@ TEST_CASE("mcp server: HTTP end to end, token file and endpoint file", "[integra
     CHECK(endpoint["token"] == daw.server->token());
     CHECK(daw.server->token().size() == 64);
     CHECK(daw.server->httpSetupLine().find(daw.server->token()) != std::string::npos);
-    CHECK(Json::parse(daw.server->stdioSetupLine())["mcpServers"]["fossdaw"]["args"][0] == "--mcp-stdio");
+    CHECK(Json::parse(daw.server->stdioSetupLine())["mcpServers"]["segno"]["args"][0] == "--mcp-stdio");
 
     auto request = modernRequest("tools/call", {{"name", "add_track"}, {"arguments", {{"name", "Over HTTP"}}}});
     auto response = std::async(std::launch::async, [&] {

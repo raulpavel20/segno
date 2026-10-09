@@ -99,7 +99,7 @@ public:
     {
         auto& pm = engine_.getPluginManager();
         const auto pedal = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-                               .getChildFile("FossDAW")
+                               .getChildFile(ui::brand::name)
                                .getChildFile("plugin-scan-in-progress.txt");
         pedal.getParentDirectory().createDirectory();
         for (auto* format : pm.pluginFormatManager.getFormats())

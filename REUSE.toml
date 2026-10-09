@@ -1,5 +1,5 @@
 version = 1
-SPDX-PackageName = "foss-daw"
+SPDX-PackageName = "segno"
 SPDX-PackageDownloadLocation = "https://github.com/"
 
 # Our own code, docs and data. Third-party files (fetched by CPM into the build
@@ -7,7 +7,7 @@ SPDX-PackageDownloadLocation = "https://github.com/"
 [[annotations]]
 path = ["**"]
 precedence = "aggregate"
-SPDX-FileCopyrightText = "2026 foss-daw contributors"
+SPDX-FileCopyrightText = "2026 Segno contributors"
 SPDX-License-Identifier = "AGPL-3.0-or-later"
 
 [[annotations]]
@@ -20,5 +20,5 @@ SPDX-License-Identifier = "MIT"
 [[annotations]]
 path = ["cmake/patches/tracktion_engine-*.patch"]
 precedence = "override"
-SPDX-FileCopyrightText = "Tracktion Corporation and foss-daw contributors"
+SPDX-FileCopyrightText = "Tracktion Corporation and Segno contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"

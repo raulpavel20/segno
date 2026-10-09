@@ -117,6 +117,8 @@ void TransportBar::paint(juce::Graphics& g)
 {
     const auto& t = ui::Theme::current();
     g.fillAll(t.surface1);
+    if (!brandArea_.isEmpty())
+        ui::paintBrand(g, brandArea_);
 
     // BPM label after the tempo field, the slash between the signature fields.
     g.setColour(t.textTertiary);
@@ -163,6 +165,9 @@ void TransportBar::resized()
     // One rhythm for the whole bar (docs/design/ui-foundations.md): items 4 px apart, groups 12.
     const auto& t = ui::Theme::current();
     ui::BarLayout bar(getLocalBounds().reduced(t.shell.barPadding, t.shell.barInset));
+    // The mark and name at the top left (ADR 0024), the height of the bar's buttons.
+    brandArea_ = bar.left(ui::brandWidth(bar.remaining().getHeight()));
+    bar.groupLeft();
     play_.setBounds(bar.left());
     stop_.setBounds(bar.left());
     bar.groupLeft();

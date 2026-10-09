@@ -1,4 +1,4 @@
-// foss-daw: the DAW. See docs/design/daw-shell.md.
+// Segno: the DAW. See docs/design/daw-shell.md.
 
 #include "engine/AppBehaviour.h"
 #include "engine/DevicePlugin.h"
@@ -124,9 +124,10 @@ class MainWindow final : public juce::DocumentWindow
 {
 public:
     MainWindow(fd::engine::Session& session, fd::mcp::McpServer& assistants, bool openGL, int displayIndex)
-        : DocumentWindow("FossDAW", fd::ui::Theme::current().surface0, allButtons)
+        : DocumentWindow(fd::ui::brand::name, fd::ui::Theme::current().surface0, allButtons)
     {
         setUsingNativeTitleBar(true);
+        setIcon(fd::ui::appIcon(256)); // the taskbar and window icon (ADR 0024)
         auto* shell = new fd::app::Shell(session, &assistants);
         shell_ = shell;
         setContentOwned(shell, false);
@@ -166,7 +167,7 @@ private:
 class Application final : public juce::JUCEApplication
 {
 public:
-    const juce::String getApplicationName() override { return "FossDAW"; }
+    const juce::String getApplicationName() override { return fd::ui::brand::name; }
     const juce::String getApplicationVersion() override { return "0.0.1"; }
     bool moreThanOneInstanceAllowed() override { return true; }
 
@@ -191,7 +192,7 @@ public:
         juce::LookAndFeel::setDefaultLookAndFeel(&lnf_);
         auto behaviour = std::make_unique<fd::engine::AppBehaviour>();
         behaviour_ = behaviour.get();
-        engine_ = std::make_unique<tracktion::Engine>("FossDAW", std::move(behaviour), nullptr);
+        engine_ = std::make_unique<tracktion::Engine>(fd::ui::brand::name, std::move(behaviour), nullptr);
         fd::engine::registerDevices(*engine_);
         session_ = std::make_unique<fd::engine::Session>(*engine_);
         mcp_ = std::make_unique<fd::mcp::McpServer>(*session_, fd::mcp::McpServer::defaultDataFolder(),
@@ -207,17 +208,17 @@ public:
         if (headless)
         {
             // --headless: a Session without a window, serving assistants (batch work, tests).
-            behaviour_->onWarning = [](const juce::String& m) { std::cerr << "FossDAW: " << m << std::endl; };
+            behaviour_->onWarning = [](const juce::String& m) { std::cerr << "Segno: " << m << std::endl; };
             termination_ = std::make_unique<TerminationWatcher>();
             openProjectArgument();
             if (!mcp_->start())
             {
-                std::cerr << "FossDAW: no free port for assistants from " << mcp_->settings().port << " on" << std::endl;
+                std::cerr << "Segno: no free port for assistants from " << mcp_->settings().port << " on" << std::endl;
                 setApplicationReturnValue(1);
                 quit();
                 return;
             }
-            std::cerr << "FossDAW: serving assistants on " << mcp_->url() << std::endl;
+            std::cerr << "Segno: serving assistants on " << mcp_->url() << std::endl;
             if (stdio)
                 startRelay({"127.0.0.1", mcp_->port(), mcp_->token(), "/mcp"});
             return;

@@ -72,6 +72,7 @@ Role functions for colours that depend on content:
 | `ValueMedium` | Mono 13 medium | Number fields (tempo, signature) |
 | `ValueLarge` | Mono 15 medium | The transport position |
 | `Micro` | Mono 9 semibold | Labels inside small graphics (note names, EQ node numbers) |
+| `Wordmark` | Mono 15 bold, all caps, tracked | The product's name beside its mark ([ADR 0024](../decisions/0024-product-name.md)) |
 
 ## Motion and input
 
@@ -118,6 +119,7 @@ Role functions for colours that depend on content:
 | `Toast` | A message in the arrangement's corner that times out | Warnings and confirmations |
 | `EmptyState` | A centred hint where there is nothing to show | Chain without a track, clip view without a clip, empty project, empty inspector |
 | `BarLayout` | Places a bar's items left and right on the item and group gaps | The transport bar |
+| `Brand` | The mark (`paintMark`), the mark and name (`paintBrand`), the app icon (`appIcon`) | The transport bar's left end; the app and window icon |
 
 ## Time views (`app/src/ui/time`)
 

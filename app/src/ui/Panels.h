@@ -40,7 +40,8 @@ private:
     int last_ = 0;
 };
 
-/// Top bar (ui-principles §2): transport, tempo and position, CPU, panel toggles.
+/// Top bar (ui-principles §2): the product's mark and name, transport, tempo and position, CPU,
+/// panel toggles.
 class TransportBar final : public juce::Component
 {
 public:
@@ -81,7 +82,7 @@ private:
     bool assistantLit_ = false;
     [[nodiscard]] juce::Rectangle<int> midiLightArea() const { return midiLight_; }
     // Laid out by resized(): the painted parts between the controls.
-    juce::Rectangle<int> bpmArea_, slashArea_, readoutArea_, midiLight_, assistantLight_;
+    juce::Rectangle<int> brandArea_, bpmArea_, slashArea_, readoutArea_, midiLight_, assistantLight_;
 };
 
 /// Left panel: one search across devices, presets, samples, plugins and files (M3). In M1 it

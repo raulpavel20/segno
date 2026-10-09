@@ -90,7 +90,7 @@ struct Resource
 
 struct ResourceTemplate
 {
-    std::string uriTemplate; // RFC 6570, e.g. "fossdaw://track/{id}"
+    std::string uriTemplate; // RFC 6570, e.g. "segno://track/{id}"
     std::string name;
     std::string title;
     std::string description;

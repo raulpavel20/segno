@@ -18,7 +18,7 @@ struct RelayTarget
 /// True if an MCP endpoint answers at `target` (any HTTP answer).
 [[nodiscard]] bool probe(const RelayTarget& target, std::chrono::milliseconds timeout = std::chrono::milliseconds(500));
 
-/// The stdio bridge (`FossDAW --mcp-stdio`, mcp.md §1): reads newline-delimited JSON-RPC
+/// The stdio bridge (`Segno --mcp-stdio`, mcp.md §1): reads newline-delimited JSON-RPC
 /// messages from `in`, POSTs each to the DAW's Streamable HTTP endpoint, and writes everything
 /// the DAW answers (a JSON response, or the messages of an SSE stream) to `out`, one per line.
 /// Requests run concurrently (a subscription stays open while other requests go through);

@@ -72,7 +72,7 @@ public:
     [[nodiscard]] Dispatcher* dispatcher() noexcept { return dispatcher_.get(); }
     [[nodiscard]] const Registry& registry() const noexcept { return registry_; }
 
-    /// `<user data>/FossDAW`.
+    /// `<user data>/Segno`.
     [[nodiscard]] static juce::File defaultDataFolder();
     /// Where a running server writes its port and token (the stdio relay reads it).
     [[nodiscard]] static juce::File endpointFile(const juce::File& dataFolder);

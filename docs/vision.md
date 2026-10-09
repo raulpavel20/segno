@@ -2,7 +2,7 @@
 
 ## One line
 
-A free and open-source music production suite: a **comprehensive set of modern, professional instruments and effects**, and an **arrangement-focused DAW** built around them, with a UI that looks and feels current.
+**Segno** is a free and open-source music production suite: a **comprehensive set of modern, professional instruments and effects**, and an **arrangement-focused DAW** built around them, with a UI that looks and feels current.
 
 ## The problem
 

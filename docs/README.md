@@ -2,7 +2,7 @@
 
 These documents define what this project is and the direction it is taking. They also record each decision and why it was made. Read them before working on the code. Keep them current: when a decision changes, the docs change in the same commit.
 
-> Working name: **foss-daw**. The product name is still to be decided (see [ADR 0008](decisions/0008-naming-and-trade-dress.md)).
+> The product is **Segno** ([ADR 0024](decisions/0024-product-name.md)). Code keeps its `fd` prefix; users never see it.
 
 ## Start here
 

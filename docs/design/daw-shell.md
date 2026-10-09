@@ -133,7 +133,7 @@ Waveforms come from a background-built peak cache per file, plus cached drawing 
 
 ## Projects (C8)
 
-- **`.fdproj`** is tracktion's edit XML (open-questions C: "tracktion_engine's edit format plus our own sections"). The extra parts:
+- **`.segno`** (project files; `.fdproj` before ADR 0024) is tracktion's edit XML (open-questions C: "tracktion_engine's edit format plus our own sections"). The extra parts:
   - our devices' parameters and non-parameter state (`fdExtra`, ADR 0017);
   - the UI's view state as JSON on the root (`fdView`): zoom and scroll, snap, follow, panels open and their widths;
   - each module panel's view state on its plugin (`fdPanel`): collapsed sections, folded.
@@ -193,11 +193,11 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 
 ## Transport (C5)
 
-- **Transport bar:** play/stop, stop-and-return, loop and metronome toggles, then tempo and time signature as `ui::NumberField`s (drag, Shift for fine, wheel, or type; each edit is one undo step), the position in bars and time, and CPU load.
+- **Transport bar:** the mark and name at the left (the segno sign and SEGNO, [ADR 0024](../decisions/0024-product-name.md)), then play/stop, stop-and-return, loop and metronome toggles, then tempo and time signature as `ui::NumberField`s (drag, Shift for fine, wheel, or type; each edit is one undo step), the position in bars and time, and CPU load.
 - **Assistants** (C9, [mcp.md](mcp.md)): a spark button left of the settings button, with an activity light that is lit for 3 s after an assistant's request. It opens the Assistants popover (also the command palette's "Assistants"):
   - **On**, remembered between launches; the status line says where it listens and how many assistants have connected.
   - **Read only**: assistants can read, render and measure, but not edit.
-  - The setup lines to copy: Claude Code's `claude mcp add` command (HTTP, with the token), and the configuration for apps that start the DAW themselves (`FossDAW --mcp-stdio`).
+  - The setup lines to copy: Claude Code's `claude mcp add` command (HTTP, with the token), and the configuration for apps that start the DAW themselves (`Segno --mcp-stdio`).
   - **Connected**: each client by name and version, and when it was last seen.
   - **New token**: every client must be set up again.
   - Escape or a click elsewhere closes it.
@@ -230,7 +230,7 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 
 ## Performance
 
-The arrangement's budget (ADR 0015): 32 visible tracks zooming continuously, under 8 ms per frame, in Release on the reference machine. `FossDAW --benchmark [--display N] [--software]` fills a project with 32 tracks of 8 clips, shows them all (focus mode), zooms in and out for 6 s, and prints paint time and frame rate. `--stats` shows the same numbers live.
+The arrangement's budget (ADR 0015): 32 visible tracks zooming continuously, under 8 ms per frame, in Release on the reference machine. `Segno --benchmark [--display N] [--software]` fills a project with 32 tracks of 8 clips, shows them all (focus mode), zooms in and out for 6 s, and prints paint time and frame rate. `--stats` shows the same numbers live.
 
 | 2026-10-10, Release | Paint avg | Paint p95 | Frames |
 |---|---|---|---|

@@ -10,3 +10,4 @@
 #include "controls/NumberField.cpp"
 #include "controls/Labels.cpp"
 #include "shell/ShellParts.cpp"
+#include "shell/Brand.cpp"

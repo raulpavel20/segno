@@ -9,17 +9,17 @@ using namespace tools;
 void addResources(Registry& registry, ToolEnv& env)
 {
     registry.resources = {
-        {"fossdaw://project", "project", "The project",
+        {"segno://project", "project", "The project",
          "Name, file, unsaved state, tempo, time signature, loop, and every track with its clips and module chain"},
-        {"fossdaw://transport", "transport", "The transport", "Playing, position, loop and metronome (no change notifications)"},
-        {"fossdaw://modules", "modules", "Module types", "Every module type that can be added: ours and scanned plugins"},
+        {"segno://transport", "transport", "The transport", "Playing, position, loop and metronome (no change notifications)"},
+        {"segno://modules", "modules", "Module types", "Every module type that can be added: ours and scanned plugins"},
     };
     registry.templates = {
-        {"fossdaw://track/{id}", "track", "A track", "One track: name, colour, instrument, clips and chain"},
-        {"fossdaw://clip/{id}", "clip", "A clip", "One clip, with every note of a MIDI clip"},
-        {"fossdaw://module/{id}", "module", "A module",
+        {"segno://track/{id}", "track", "A track", "One track: name, colour, instrument, clips and chain"},
+        {"segno://clip/{id}", "clip", "A clip", "One clip, with every note of a MIDI clip"},
+        {"segno://module/{id}", "module", "A module",
          "One module in a chain: every parameter, its sections and its other state"},
-        {"fossdaw://module-type/{type}", "module-type", "A module type",
+        {"segno://module-type/{type}", "module-type", "A module type",
          "What a module type does, its parameters and its sections"},
     };
     registry.readResource = [&env](const std::string& uri) -> std::optional<ResourceContents> {
@@ -32,22 +32,22 @@ void addResources(Registry& registry, ToolEnv& env)
             try
             {
                 Json j;
-                if (uri == "fossdaw://project")
+                if (uri == "segno://project")
                     j = projectJson(env);
-                else if (uri == "fossdaw://transport")
+                else if (uri == "segno://transport")
                     j = transportJson(env);
-                else if (uri == "fossdaw://modules")
+                else if (uri == "segno://modules")
                     j = {{"types", moduleTypesJson(env)}};
-                else if (const auto id = after("fossdaw://track/"))
+                else if (const auto id = after("segno://track/"))
                     j = trackJson(env, track(env, *id));
-                else if (const auto c = after("fossdaw://clip/"))
+                else if (const auto c = after("segno://clip/"))
                     j = clipJson(env, clip(env, *c), true);
-                else if (const auto m = after("fossdaw://module/"))
+                else if (const auto m = after("segno://module/"))
                 {
                     const auto [slot, owner] = module(env, *m);
                     j = moduleJson(env, slot, owner);
                 }
-                else if (const auto type = after("fossdaw://module-type/"))
+                else if (const auto type = after("segno://module-type/"))
                     j = moduleTypeJson(env, *type);
                 if (!j.is_null())
                     out = ResourceContents{uri, "application/json", j.dump()};
@@ -76,7 +76,7 @@ void addPrompts(Registry& registry)
              const auto style = args.value("style", std::string());
              const auto tempo = args.value("tempo", std::string());
              return user("Start a new piece in the DAW" + (style.empty() ? std::string() : " in the style of " + style) +
-                         ". Read fossdaw://project first. Set the tempo" +
+                         ". Read segno://project first. Set the tempo" +
                          (tempo.empty() ? std::string(" to suit it") : " to " + tempo + " BPM") +
                          ". On one track, create a 4-bar MIDI clip with a drum pattern (C1 kick, D1 snare, F#1 "
                          "closed hat) and put a Sampler or the Synth on it; on another, a 4-bar bassline that fits. "
@@ -91,7 +91,7 @@ void addPrompts(Registry& registry)
          {{"range", "The part to check, such as \"9.1.1 to 17.1.1\" (default: the whole song)", false}},
          [user](const Json& args) {
              const auto range = args.value("range", std::string());
-             return user("Check my mix. Read fossdaw://project, then render " +
+             return user("Check my mix. Read segno://project, then render " +
                          (range.empty() ? std::string("the whole song (from 1.1.1 to the project's end)") : range) +
                          " and each track on its own. Report the levels, clipping, stereo correlation and spectral "
                          "balance, and point out problems: clipping, too much or too little low end, harshness, "
@@ -106,7 +106,7 @@ void addPrompts(Registry& registry)
          {{"module", "The module's id, such as \"m:7\"", true}},
          [user](const Json& args) {
              const auto m = args.value("module", std::string());
-             return user("Explain module " + m + ": read it with get_module and its type with fossdaw://module-type/"
+             return user("Explain module " + m + ": read it with get_module and its type with segno://module-type/"
                          "{type}. Say what it does in its track's chain, what its current settings do to the sound, "
                          "and two or three things worth trying, as set_parameters values I can approve.");
          }});

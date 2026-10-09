@@ -2,30 +2,32 @@
 
 Identifiers stored in users' projects, presets and plugin scans **can never change after a public release** ([ADR 0008](decisions/0008-naming-and-trade-dress.md)). Display names can change at any time.
 
-> **Placeholder phase.** The product name and organisation domain have not been chosen. The vendor-level values below (`fossdaw`, `Fdaw`) are placeholders and will be replaced **once**, before the first public build. Device and parameter IDs are not affected by that replacement.
+> **Named, not yet released.** The product is Segno ([ADR 0024](decisions/0024-product-name.md)). The vendor-level values below freeze at the first public release; before it, the domain `segnoaudio.org` must be registered and a trademark search done. Device and parameter IDs are not affected by the name.
 
-## Vendor level (placeholders)
+## Vendor level
 
 | What | Value | Rules |
 |---|---|---|
-| Vendor display name | `FossDAW` | Shown in hosts' plugin lists |
-| Plugin manufacturer code (VST3/AU) | `Fdaw` | 4 characters, at least one uppercase |
-| Reverse-DNS prefix (CLAP IDs, bundle IDs) | `org.fossdaw` | |
-| LV2 URI prefix | `https://fossdaw.org/plugins/` | Must be a URI we control at release time |
+| Vendor display name | `Segno` | Shown in hosts' plugin lists; plugins are named "Segno <Module>" |
+| Plugin manufacturer code (VST3/AU) | `Sgno` | 4 characters, at least one uppercase |
+| Reverse-DNS prefix (CLAP IDs, bundle IDs) | `org.segnoaudio` | The DAW app is `org.segnoaudio.segno` |
+| LV2 URI prefix | `https://segnoaudio.org/plugins/` | Must be a URI we control at release time |
+| Project file extension | `.segno` | |
+| MCP server name and resource scheme | `segno`, `segno://` | Part of the MCP interface (ADR 0021) |
 
 ## Device level (permanent once the SPEC is approved)
 
 | Device | Device ID | Plugin code | CLAP ID | Status |
 |---|---|---|---|---|
-| Utility | `utility` | `Futl` | `org.fossdaw.utility` | M0 |
-| Saturator | `saturator` | `Fsat` | `org.fossdaw.saturator` | M1 (spec draft) |
-| EQ | `eq` | `Feq1` | `org.fossdaw.eq` | M1 (spec draft) |
-| Subtractive Synth | `subtractive-synth` | `Fsub` | `org.fossdaw.subtractive-synth` | M1 (spec draft) |
-| Sampler | `sampler` | `Fsmp` | `org.fossdaw.sampler` | M1 (spec draft) |
-| Compressor | `compressor` | `Fcmp` | `org.fossdaw.compressor` | M2 (spec draft) |
-| Gate | `gate` | `Fgat` | `org.fossdaw.gate` | M2 (spec draft) |
-| Limiter | `limiter` | `Flim` | `org.fossdaw.limiter` | M2 (spec draft) |
-| Spectrum | `spectrum` | `Fspc` | `org.fossdaw.spectrum` | M2 (spec draft) |
+| Utility | `utility` | `Futl` | `org.segnoaudio.utility` | M0 |
+| Saturator | `saturator` | `Fsat` | `org.segnoaudio.saturator` | M1 (spec draft) |
+| EQ | `eq` | `Feq1` | `org.segnoaudio.eq` | M1 (spec draft) |
+| Subtractive Synth | `subtractive-synth` | `Fsub` | `org.segnoaudio.subtractive-synth` | M1 (spec draft) |
+| Sampler | `sampler` | `Fsmp` | `org.segnoaudio.sampler` | M1 (spec draft) |
+| Compressor | `compressor` | `Fcmp` | `org.segnoaudio.compressor` | M2 (spec draft) |
+| Gate | `gate` | `Fgat` | `org.segnoaudio.gate` | M2 (spec draft) |
+| Limiter | `limiter` | `Flim` | `org.segnoaudio.limiter` | M2 (spec draft) |
+| Spectrum | `spectrum` | `Fspc` | `org.segnoaudio.spectrum` | M2 (spec draft) |
 
 **Rules:**
 - The device ID is kebab-case and describes the function. It is used in state JSON, the registry, CLAP and LV2 IDs, and file names.

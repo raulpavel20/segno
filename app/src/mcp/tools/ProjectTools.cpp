@@ -78,7 +78,7 @@ void addProjectTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"save_project", "Save the project",
-         "Saves the project to its file, or to a new path (\".fdproj\" is added). Saving over another existing file "
+         "Saves the project to its file, or to a new path (\".segno\" is added). Saving over another existing file "
          "asks the user first.",
          object({{"path", string("Where to save (default: its own file)")},
                  {"confirm", boolean("The user agreed to overwrite (only for clients that can't ask them)")}}),

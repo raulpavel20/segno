@@ -34,4 +34,4 @@ endforeach()
 
 add_compile_options(${_fd_san_flags} -fno-omit-frame-pointer)
 add_link_options(${_fd_san_flags})
-message(STATUS "foss-daw: sanitizers enabled: ${FD_SANITIZE}")
+message(STATUS "segno: sanitizers enabled: ${FD_SANITIZE}")

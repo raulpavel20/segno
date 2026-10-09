@@ -14,7 +14,7 @@ class Window final : public juce::DocumentWindow, private juce::Timer
 {
 public:
     Window(bool benchmark, double secondsPerRun, int displayIndex)
-        : DocumentWindow("foss-daw rendering spike", fd::ui::Theme::current().surface0, allButtons),
+        : DocumentWindow("Segno rendering spike", fd::ui::Theme::current().surface0, allButtons),
           secondsPerRun_(secondsPerRun)
     {
         setUsingNativeTitleBar(true);

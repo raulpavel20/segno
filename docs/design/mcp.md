@@ -10,8 +10,8 @@ The DAW's built-in MCP server ([ADR 0021](../decisions/0021-mcp-server.md)). An 
 |---|---|
 | **Off by default** | Turned on in the DAW's **Assistants** popover, opened from a new icon in the transport bar. The popover also shows the token, the port, the read-only switch, the connected clients, and a ready-to-copy setup line per client. |
 | **HTTP** (Claude Code and other HTTP clients) | Streamable HTTP on `http://127.0.0.1:<port>/mcp`. Only the loopback interface; the `Origin` header is checked (DNS rebinding); every request needs `Authorization: Bearer <token>`. The default port is 7377; if it's taken, the next free one is used and shown. |
-| **stdio** (clients that launch a process, like Claude Desktop) | `FossDAW --mcp-stdio` relays standard input and output to the running app's endpoint. It finds the app through a small file in the user data folder holding the port and the token. With no app running it starts one **headless** (see below). |
-| **Headless** | `FossDAW --headless [--mcp-stdio] [project.fdproj]` runs a Session without a window, with the same tools. It is for batch work and tests. |
+| **stdio** (clients that launch a process, like Claude Desktop) | `Segno --mcp-stdio` relays standard input and output to the running app's endpoint. It finds the app through a small file in the user data folder holding the port and the token. With no app running it starts one **headless** (see below). |
+| **Headless** | `Segno --headless [--mcp-stdio] [project.segno]` runs a Session without a window, with the same tools. It is for batch work and tests. |
 | **Token** | Generated per install, stored in the user data folder, and can be regenerated in the popover (which disconnects every client). |
 | **Indicator** | A light beside the transport icon is lit for 3 s after a client's request; the popover lists the clients by name (`clientInfo`) and when each was last seen. |
 | **Read-only mode** | Only tools marked read-only run (reading, rendering, measuring); the others return "The DAW is in read-only mode for assistants". |
@@ -19,8 +19,8 @@ The DAW's built-in MCP server ([ADR 0021](../decisions/0021-mcp-server.md)). An 
 Setup lines the popover offers:
 
 ```
-claude mcp add --transport http fossdaw http://127.0.0.1:7377/mcp --header "Authorization: Bearer <token>"
-{"mcpServers": {"fossdaw": {"command": "/path/to/FossDAW", "args": ["--mcp-stdio"]}}}
+claude mcp add --transport http segno http://127.0.0.1:7377/mcp --header "Authorization: Bearer <token>"
+{"mcpServers": {"segno": {"command": "/path/to/Segno", "args": ["--mcp-stdio"]}}}
 ```
 
 ## 2. Protocol
@@ -31,7 +31,7 @@ claude mcp add --transport http fossdaw http://127.0.0.1:7377/mcp --header "Auth
 | **Capabilities** | Tools (with input and output schemas and annotations), resources and resource templates, `subscriptions/listen` change notifications (2025-11-25 clients: `resources/subscribe`), prompts, progress on long calls. The `tasks` extension is for renders and plugin scans that take longer than a few seconds (later, §10). |
 | **Confirmations** | Multi round-trip requests (`input_required`) when a step can't be undone: discarding unsaved changes (new or open project), and overwriting another file when saving. 2025-11-25 clients get `elicitation/create`. Clients that can't ask the user (no elicitation capability) get an error telling the assistant to ask, then call again with `"confirm": true`. |
 | **Left out** | Deprecated features (roots, sampling, logging), and MCP Apps. |
-| **Errors** | Bad requests are JSON-RPC errors. A tool that can't do what was asked returns `isError: true` with a sentence saying why and what to do instead, e.g. "Track t:12 doesn't exist; read fossdaw://project for the current tracks". |
+| **Errors** | Bad requests are JSON-RPC errors. A tool that can't do what was asked returns `isError: true` with a sentence saying why and what to do instead, e.g. "Track t:12 doesn't exist; read segno://project for the current tracks". |
 
 ## 3. Conventions (every tool)
 
@@ -55,13 +55,13 @@ claude mcp add --transport http fossdaw http://127.0.0.1:7377/mcp --header "Auth
 
 | URI | Content |
 |---|---|
-| `fossdaw://project` | Name, file, unsaved state, tempo, time signature, length, loop, and every track with its clips (no notes) and its chain (module names and ids) |
-| `fossdaw://track/{id}` | One track: name, colour, instrument, clips, chain |
-| `fossdaw://clip/{id}` | One clip: kind, position, length, offset, source file; for MIDI, every note |
-| `fossdaw://module/{id}` | One module in a chain: type, on/off, every parameter (id, name, value, text, unit, range, default, automatable), its sections (id, title, collapsed) and its non-parameter state (e.g. the Sampler's sample) |
-| `fossdaw://modules` | The catalogue: every module type that can be added (ours and scanned plugins), with kind and short description |
-| `fossdaw://module-type/{type}` | One type's reference: what it does, each parameter's meaning (the SPEC's user-facing text), and its sections |
-| `fossdaw://transport` | Playing, position, loop, metronome |
+| `segno://project` | Name, file, unsaved state, tempo, time signature, length, loop, and every track with its clips (no notes) and its chain (module names and ids) |
+| `segno://track/{id}` | One track: name, colour, instrument, clips, chain |
+| `segno://clip/{id}` | One clip: kind, position, length, offset, source file; for MIDI, every note |
+| `segno://module/{id}` | One module in a chain: type, on/off, every parameter (id, name, value, text, unit, range, default, automatable), its sections (id, title, collapsed) and its non-parameter state (e.g. the Sampler's sample) |
+| `segno://modules` | The catalogue: every module type that can be added (ours and scanned plugins), with kind and short description |
+| `segno://module-type/{type}` | One type's reference: what it does, each parameter's meaning (the SPEC's user-facing text), and its sections |
+| `segno://transport` | Playing, position, loop, metronome |
 
 The project, track, clip and module resources send change notifications when the snapshot changes or a module's parameters change. The transport doesn't (it changes constantly); assistants read it when they need it.
 
@@ -71,10 +71,10 @@ The project, track, clip and module resources send change notifications when the
 
 | Tool | Arguments | Result |
 |---|---|---|
-| `get_project` | – | As `fossdaw://project` |
-| `get_clip` | `clip` | As `fossdaw://clip/{id}`, notes included |
-| `get_module` | `module` | As `fossdaw://module/{id}` |
-| `list_module_types` | `kind?` (instrument, effect) | As `fossdaw://modules` |
+| `get_project` | – | As `segno://project` |
+| `get_clip` | `clip` | As `segno://clip/{id}`, notes included |
+| `get_module` | `module` | As `segno://module/{id}` |
+| `list_module_types` | `kind?` (instrument, effect) | As `segno://modules` |
 
 **Transport:**
 

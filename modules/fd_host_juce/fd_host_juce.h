@@ -2,9 +2,9 @@
 BEGIN_JUCE_MODULE_DECLARATION
 
   ID:                 fd_host_juce
-  vendor:             foss-daw
+  vendor:             segno
   version:            0.0.1
-  name:               foss-daw JUCE host helpers
+  name:               Segno JUCE host helpers
   description:        Conversions between JUCE and the JUCE-free device API (MIDI, state)
   license:            AGPLv3
   minimumCppStandard: 20

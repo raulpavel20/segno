@@ -28,7 +28,7 @@ Any assistant that speaks MCP can then use them: Claude, others, or local models
 4. **MCP inside the device plugins too.** Plugins run inside other DAWs, often many instances at once. The host owns the project, the undo history and the parameters. A network listener inside a plugin would surprise both users and hosts.
 
 ## Decision
-1. **FossDAW includes a fully featured MCP server.** An assistant can do everything a user can do in the DAW and read everything the user can see:
+1. **Segno includes a fully featured MCP server.** An assistant can do everything a user can do in the DAW and read everything the user can see:
    - **tools** for every editing, transport, device and project command. They use musical units (bars, beats, note names), and device values in their own units (dB, Hz, ms, %);
    - **resources** for the project and its parts: tracks, clips, notes, device chains, device states;
    - **change notifications**, so an assistant sees the user's edits;

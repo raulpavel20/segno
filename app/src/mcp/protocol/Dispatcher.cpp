@@ -643,7 +643,7 @@ std::optional<Json> Dispatcher::askClient(Stream& stream, const std::string& met
         std::lock_guard lock(mutex_);
         if (shutDown_)
             return std::nullopt;
-        requestId = "fossdaw-" + std::to_string(nextRequest_++);
+        requestId = "segno-" + std::to_string(nextRequest_++);
         clientRequests_[requestId] = request;
     }
     const bool sent =

@@ -44,7 +44,7 @@ class Window final : public juce::DocumentWindow
 {
 public:
     explicit Window(fd::ui::LookAndFeel& lnf)
-        : DocumentWindow("foss-daw theme gallery", fd::ui::Theme::current().surface0, allButtons)
+        : DocumentWindow("Segno theme gallery", fd::ui::Theme::current().surface0, allButtons)
     {
         setUsingNativeTitleBar(true);
         setContentOwned(new fd::gallery::GalleryComponent(lnf), false);

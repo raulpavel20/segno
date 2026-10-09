@@ -83,7 +83,7 @@ std::span<const DeviceFactory* const> allDevices()
     add_library(fd::registry ALIAS fd_registry)
     target_link_libraries(fd_registry PUBLIC fd::device ${libs})
     list(LENGTH ids n)
-    message(STATUS "foss-daw: ${n} device(s) registered: ${ids}")
+    message(STATUS "segno: ${n} device(s) registered: ${ids}")
 endfunction()
 
 # ---------------------------------------------------------------------------

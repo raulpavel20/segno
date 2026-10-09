@@ -51,7 +51,7 @@ void addReadTools(Registry& registry, ToolEnv& env)
         env,
         {"get_project", "Get the project",
          "The open project: name, file, unsaved changes, tempo, time signature, loop, undo, and every track with its "
-         "clips (without notes) and its module chain. The same as the fossdaw://project resource.",
+         "clips (without notes) and its module chain. The same as the segno://project resource.",
          object({}), projectResultSchema(), reading},
         [&env](const Json&, CallContext&) { return ToolResult::ok(projectJson(env)); }));
 
@@ -78,7 +78,7 @@ void addReadTools(Registry& registry, ToolEnv& env)
         env,
         {"list_module_types", "List module types",
          "Every module that can be added to a chain: our instruments and effects, and scanned third-party plugins. "
-         "Use a type with add_module; read fossdaw://module-type/{type} for its parameters.",
+         "Use a type with add_module; read segno://module-type/{type} for its parameters.",
          object({{"kind", {{"enum", {"instrument", "effect"}}, {"description", "Only instruments or only effects"}}}}),
          result({{"types", arrayOf(result({{"type", string("")}, {"name", string("")}, {"kind", string("")}}), "",
                                    std::nullopt)}},

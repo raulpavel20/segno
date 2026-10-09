@@ -50,7 +50,7 @@ TEST_CASE("mcp: server/discover lists the versions and capabilities", "[fast][mc
     CHECK(r["capabilities"]["resources"]["subscribe"] == true);
     CHECK(r["capabilities"]["prompts"].is_object());
     CHECK(r["instructions"] == "Test instructions.");
-    CHECK(r["_meta"]["io.modelcontextprotocol/serverInfo"]["name"] == "fossdaw-test");
+    CHECK(r["_meta"]["io.modelcontextprotocol/serverInfo"]["name"] == "segno-test");
     CHECK((*out.message)["id"] == 1);
 }
 
@@ -229,7 +229,7 @@ TEST_CASE("mcp: legacy clients: initialize, sessions, and results without result
                                {});
     const auto r = resultOf(init);
     CHECK(r["protocolVersion"] == "2025-11-25");
-    CHECK(r["serverInfo"]["name"] == "fossdaw-test");
+    CHECK(r["serverInfo"]["name"] == "segno-test");
     CHECK(r["capabilities"]["tools"].is_object());
     CHECK_FALSE(r.contains("resultType"));
     REQUIRE_FALSE(init.newSession.empty());
@@ -464,7 +464,7 @@ TEST_CASE("mcp: encodings", "[fast][mcp]")
     CHECK(encodeHeaderValue("get_project") == "get_project");
     CHECK(encodeHeaderValue(" padded ") == "=?base64?IHBhZGRlZCA=?=");
     CHECK(encodeHeaderValue("=?base64?literal?=") == "=?base64?PT9iYXNlNjQ/bGl0ZXJhbD89?=");
-    CHECK(decodeHeaderValue(encodeHeaderValue("fossdaw://track/t:1")).value() == "fossdaw://track/t:1");
+    CHECK(decodeHeaderValue(encodeHeaderValue("segno://track/t:1")).value() == "segno://track/t:1");
     CHECK(randomHex(16).size() == 32);
     CHECK(randomHex(16) != randomHex(16));
     CHECK(constantTimeEquals("abc", "abc"));

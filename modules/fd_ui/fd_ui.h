@@ -2,9 +2,9 @@
 BEGIN_JUCE_MODULE_DECLARATION
 
   ID:                 fd_ui
-  vendor:             foss-daw
+  vendor:             segno
   version:            0.0.1
-  name:               foss-daw UI
+  name:               Segno UI
   description:        Design tokens, fonts, LookAndFeel and controls (docs/design/ui-principles.md)
   license:            AGPLv3
   minimumCppStandard: 20
@@ -30,3 +30,4 @@ END_JUCE_MODULE_DECLARATION
 #include "controls/NumberField.h"
 #include "controls/Labels.h"
 #include "shell/ShellParts.h"
+#include "shell/Brand.h"

@@ -421,7 +421,7 @@ TEST_CASE("projects round-trip through a file", "[integration]")
     reopened.newProject();
     CHECK_FALSE(reopened.file());
     CHECK(reopened.snapshot()->tracks.size() == 4);
-    CHECK_FALSE(reopened.open(juce::File("/nonexistent.fdproj"), &error));
+    CHECK_FALSE(reopened.open(juce::File("/nonexistent.segno"), &error));
     CHECK_FALSE(error.empty());
 }
 

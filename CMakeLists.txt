@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(foss_daw VERSION 0.0.1 LANGUAGES C CXX)
+project(segno VERSION 0.0.1 LANGUAGES C CXX)
 
 # ---------------------------------------------------------------------------
 # Options (ADR 0013: the suite and the DAW build independently)

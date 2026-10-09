@@ -13,8 +13,8 @@ namespace
 constexpr double kActiveSeconds = 3.0;
 
 constexpr const char* kInstructions =
-    "FossDAW is a music production app: an arrangement DAW with its own instruments and effects (modules). Read "
-    "fossdaw://project (or call get_project) first: it lists the tracks, their clips and their module chains. Ids "
+    "Segno is a music production app: an arrangement DAW with its own instruments and effects (modules). Read "
+    "segno://project (or call get_project) first: it lists the tracks, their clips and their module chains. Ids "
     "are typed strings: \"t:\" tracks, \"c:\" clips, \"m:\" modules. Positions are beats (quarter notes) from the "
     "song's start or \"bar.beat.sixteenth\" such as \"5.1.1\"; note times count from their clip's start; pitches "
     "are MIDI numbers or names with C3 = 60. Every call that edits is one undo step the user can take back. Check "
@@ -52,7 +52,7 @@ T valueOr(const Json& object, const char* key, T fallback)
 
 juce::File McpServer::defaultDataFolder()
 {
-    return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory).getChildFile("FossDAW");
+    return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory).getChildFile(ui::brand::name);
 }
 
 juce::File McpServer::endpointFile(const juce::File& dataFolder)
@@ -141,7 +141,7 @@ bool McpServer::start(std::optional<int> port)
     if (isRunning())
         return true;
     main_.reopen();
-    dispatcher_ = std::make_unique<Dispatcher>(ServerIdentity{"fossdaw", "FossDAW", appVersion_, kInstructions}, registry_);
+    dispatcher_ = std::make_unique<Dispatcher>(ServerIdentity{"segno", ui::brand::name, appVersion_, kInstructions}, registry_);
     dispatcher_->setReadOnly(settings_.readOnly);
     dispatcher_->onActivity = [this](const Json& info, const std::string&) {
         {
@@ -209,13 +209,13 @@ std::string McpServer::url() const
 
 std::string McpServer::httpSetupLine() const
 {
-    return "claude mcp add --transport http fossdaw " + url() + " --header \"Authorization: Bearer " + token_ + "\"";
+    return "claude mcp add --transport http segno " + url() + " --header \"Authorization: Bearer " + token_ + "\"";
 }
 
 std::string McpServer::stdioSetupLine() const
 {
     const auto exe = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getFullPathName().toStdString();
-    const Json config{{"mcpServers", {{"fossdaw", {{"command", exe}, {"args", {"--mcp-stdio"}}}}}}};
+    const Json config{{"mcpServers", {{"segno", {{"command", exe}, {"args", {"--mcp-stdio"}}}}}}};
     return config.dump();
 }
 
@@ -272,7 +272,7 @@ void McpServer::publishResourceChanges()
 {
     for (const auto& uri : dispatcher_->watchedResources())
     {
-        if (uri == "fossdaw://transport")
+        if (uri == "segno://transport")
             continue; // changes constantly; read when needed (mcp.md §4)
         const auto contents = registry_.readResource(uri);
         const auto text = contents ? contents->text : std::string();
