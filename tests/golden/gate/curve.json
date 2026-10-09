@@ -1,0 +1,30 @@
+{
+  "expander.r2.in-30": {
+    "tol": 0.05,
+    "value": 0.0
+  },
+  "expander.r2.in-50": {
+    "tol": 0.05,
+    "value": -10.00000051464746
+  },
+  "expander.r2.in-70": {
+    "tol": 0.05,
+    "value": -30.00000076555545
+  },
+  "expander.r4.in-30": {
+    "tol": 0.05,
+    "value": 0.0
+  },
+  "expander.r4.in-50": {
+    "tol": 0.05,
+    "value": -30.00000076744014
+  },
+  "expander.r4.in-70": {
+    "tol": 0.05,
+    "value": -30.00000076555545
+  },
+  "gate.hit_rms_db": {
+    "tol": 0.05,
+    "value": -15.996488067994061
+  }
+}

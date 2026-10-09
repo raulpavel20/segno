@@ -95,6 +95,10 @@ fd_add_device_plugin(ID compressor NAME "Compressor" CODE Fcmp KIND effect
     VST3_CATEGORIES Fx Dynamics
     CLAP_FEATURES audio-effect compressor stereo mono)
 
+fd_add_device_plugin(ID gate NAME "Gate" CODE Fgat KIND effect
+    VST3_CATEGORIES Fx Dynamics
+    CLAP_FEATURES audio-effect gate expander stereo mono)
+
 fd_add_device_plugin(ID subtractive-synth NAME "Subtractive Synth" CODE Fsub KIND instrument
     VST3_CATEGORIES Instrument Synth
     CLAP_FEATURES instrument synthesizer stereo)
