@@ -129,7 +129,7 @@ For third-party plugins, `set_parameters` uses the plugin's own parameter names 
 
 | Tool | Arguments | Result |
 |---|---|---|
-| `render` | `start`, `end`, `what?` (the mix, or a track), `audio?` (false) | Measurements of the rendered audio: peak (dBFS), RMS, crest factor, clipped samples, the level in seven bands (sub to air, the channels' average), and the stereo correlation. True peak and loudness (LUFS) come with the dynamics core (A1). With `audio: true`, the audio itself too (16-bit WAV, 30 s at most; §9) |
+| `render` | `start`, `end`, `what?` (the mix, or a track), `audio?` (false) | Measurements of the rendered audio: peak (dBFS) and true peak (dBTP), RMS, loudness (LUFS: integrated, the loudest 3 s and 400 ms), crest factor, clipped samples, the level in seven bands (sub to air, the channels' average), and the stereo correlation. With `audio: true`, the audio itself too (16-bit WAV, 30 s at most; §9) |
 | `measure_module` | `module` | What the module's displays show right now: meter levels, gain reduction, the spectrum (coarse). **Later** (§10) |
 
 **Project:**
@@ -219,8 +219,8 @@ Built in M2 step C9 as designed above, except:
 
 | Item | Status |
 |---|---|
-| `measure_module` | Later, with the dynamics core (A1): the analysis bus has no names for its meter slots yet, and reading them would take the peaks the panel shows. |
-| True peak and LUFS in `render` | With the dynamics core (A1), which owns those meters. |
+| `measure_module` | Later, with the dynamics devices (B1–B3): the analysis bus has no names for its meter slots yet, and reading them would take the peaks the panel shows. |
+| True peak and LUFS in `render` | Done with the dynamics core (A1). |
 | The tasks extension | Later. Long calls (render, plugin scans) stream progress notifications on their response instead. |
 | Module type reference | Gives each module's purpose (from its SPEC), its parameters (what each does, range, default, unit, choices) and its sections. Parameter descriptions came with B22. |
 | Read-only mode | Transport tools (play, stop, position, loop, metronome) count as changes and are refused too. |

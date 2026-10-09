@@ -47,6 +47,10 @@ TEST_CASE("audio measurements: levels of a sine", "[fast]")
     CHECK(*m.correlation == Approx(1.0));
     CHECK(band(m, "mids") == Approx(-6.0).margin(0.3)); // relative to a full-scale sine
     CHECK(band(m, "bass") < -50.0);
+    CHECK(m.truePeakDb == Approx(-6.02).margin(0.2));
+    CHECK(m.integratedLufs == Approx(-6.02).margin(0.1)); // a stereo 1 kHz sine: LUFS = its dBFS
+    CHECK(m.momentaryMaxLufs == Approx(-6.02).margin(0.1));
+    CHECK(std::isinf(m.shortTermMaxLufs)); // only 1 s
     CHECK(band(m, "air") < -50.0);
 }
 

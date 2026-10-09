@@ -29,7 +29,8 @@ Nothing below the line may include JUCE. This keeps the DSP and its tests fast, 
 
 ```
 libs/dsp        DSP building blocks: filters, oscillators, oversampling, ADAA shapers,
-                dynamics detectors, delay lines, smoothing (+ reused libraries, see ADR 0004)
+                smoothing, the dynamics core (gain curves, detection, attack/release, lookahead,
+                true peak, BS.1770 loudness; M2 A1) (+ reused libraries, see ADR 0004)
 libs/device     Device API: ParamSpec / ParamStore, EventList, State (JSON), Registry, AnalysisBus,
                 VoiceManager, AssetHandoff (heavy data to the audio thread)
 libs/audiofile  audio file decoding (WAV/AIFF/FLAC/MP3 via dr_libs) and WAV writing

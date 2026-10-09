@@ -8,8 +8,8 @@
 namespace fd::model
 {
 /// Measurements of rendered audio (the MCP render tool, docs/design/mcp.md §5; later bounce and
-/// export). Levels in dBFS (-inf for silence). Loudness (LUFS) and true peak come with the
-/// dynamics core (M2 A1), which owns those meters.
+/// export). Levels in dBFS (-inf for silence); loudness and true peak by the dynamics core's
+/// meters (ITU-R BS.1770, EBU R 128).
 struct AudioMeasurements
 {
     struct Band
@@ -23,6 +23,10 @@ struct AudioMeasurements
     double sampleRate = 0.0;
     int channels = 0;
     double peakDb = 0.0;          // sample peak over all channels
+    double truePeakDb = 0.0;      // dBTP: 4x oversampled
+    double integratedLufs = 0.0;  // gated, over the whole range (-inf: silent or under 400 ms)
+    double shortTermMaxLufs = 0.0; // the loudest 3 s (-inf: under 3 s)
+    double momentaryMaxLufs = 0.0; // the loudest 400 ms
     double rmsDb = 0.0;           // over all channels
     std::vector<double> channelPeakDb, channelRmsDb;
     double crestDb = 0.0;         // peak over RMS (0 for silence)

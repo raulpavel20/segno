@@ -1,6 +1,7 @@
 #include "model/AudioMeasure.h"
 
 #include <fd/dsp/Fft.h>
+#include <fd/dsp/Loudness.h>
 
 #include <algorithm>
 #include <cmath>
@@ -78,6 +79,24 @@ AudioMeasurements measureAudio(const std::vector<std::vector<float>>& channels, 
     m.rmsDb = toDb(rms);
     m.silent = peak < 1e-6;
     m.crestDb = m.silent ? 0.0 : m.peakDb - m.rmsDb;
+
+    // Loudness and true peak: the first two channels (left and right) for loudness, all for peaks.
+    std::vector<const float*> pointers;
+    for (const auto& c : channels)
+        pointers.push_back(c.data());
+    dsp::LoudnessMeter loudness;
+    loudness.prepare(sampleRate > 0.0 ? sampleRate : 48000.0, std::clamp(static_cast<int>(channels.size()), 1, 2));
+    dsp::TruePeakDetector truePeak;
+    truePeak.prepare(std::max(1, static_cast<int>(channels.size())));
+    if (!channels.empty())
+    {
+        loudness.process(pointers.data(), static_cast<int>(frames));
+        truePeak.process(pointers.data(), static_cast<int>(channels.size()), static_cast<int>(frames));
+    }
+    m.truePeakDb = std::max(m.peakDb, toDb(truePeak.peak()));
+    m.integratedLufs = loudness.integrated();
+    m.shortTermMaxLufs = loudness.maxShortTerm();
+    m.momentaryMaxLufs = loudness.maxMomentary();
 
     if (channels.size() == 2 && !m.silent)
     {

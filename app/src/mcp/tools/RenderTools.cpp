@@ -8,6 +8,7 @@
 
 #include <fd/audiofile/AudioFile.h>
 
+#include <cmath>
 #include <condition_variable>
 #include <mutex>
 
@@ -55,7 +56,12 @@ Json measurementsJson(const model::AudioMeasurements& m)
             {"sampleRate", m.sampleRate},
             {"silent", m.silent},
             {"peak", db(m.peakDb)},
+            {"truePeak", db(m.truePeakDb)},
             {"rms", db(m.rmsDb)},
+            {"loudness",
+             {{"integrated", db(m.integratedLufs)},
+              {"shortTermMax", db(m.shortTermMaxLufs)},
+              {"momentaryMax", db(m.momentaryMaxLufs)}}},
             {"crest", db(m.crestDb)},
             {"clippedSamples", m.clippedSamples},
             {"correlation", m.correlation ? Json(std::round(*m.correlation * 100.0) / 100.0) : Json(nullptr)},
@@ -68,10 +74,12 @@ std::string describe(const model::AudioMeasurements& m)
     if (m.silent)
         return "The range is silent.";
     const auto f = [](double v) { return juce::String(v, 1).toStdString(); };
-    std::string s = "Peak " + f(m.peakDb) + " dBFS, RMS " + f(m.rmsDb) + " dBFS";
+    std::string s = "Peak " + f(m.peakDb) + " dBFS (true peak " + f(m.truePeakDb) + " dBTP), RMS " + f(m.rmsDb) + " dBFS";
+    if (std::isfinite(m.integratedLufs))
+        s += ", " + f(m.integratedLufs) + " LUFS integrated";
     if (m.clippedSamples > 0)
         s += ", " + std::to_string(m.clippedSamples) + " clipped samples";
-    return s + ". (Loudness in LUFS and true peak aren't measured yet.)";
+    return s + ".";
 }
 } // namespace
 
@@ -82,9 +90,10 @@ void addRenderTools(Registry& registry, ToolEnv& env)
     render.title = "Render and measure";
     render.description =
         "Renders a range of the song (the mix, or one track through its chain) offline, without touching the "
-        "project or playback, and measures it: peak and RMS (dBFS), crest factor, clipped samples, stereo "
-        "correlation, and the level in seven frequency bands. With \"audio\": true, also returns the audio (16-bit "
-        "WAV) when the range is 30 seconds or shorter. Ranges up to 10 minutes.";
+        "project or playback, and measures it: peak and true peak, RMS, loudness (LUFS integrated, loudest 3 s and "
+        "400 ms), crest factor, clipped samples, stereo correlation, and the level in seven frequency bands. With "
+        "\"audio\": true, also returns the audio (16-bit WAV) when the range is 30 seconds or shorter. Ranges up to "
+        "10 minutes.";
     render.inputSchema = object({{"start", position("Where to start.")},
                                  {"end", position("Where to stop.")},
                                  {"what", id(IdKind::Track, "A track, or \"mix\" (the default) for the whole song")},
@@ -94,10 +103,16 @@ void addRenderTools(Registry& registry, ToolEnv& env)
                                   {"start", positionResult()},
                                   {"end", positionResult()},
                                   {"peak", {{"type", {"number", "null"}}, {"description", "dBFS; null when silent"}}},
+                                  {"truePeak", {{"type", {"number", "null"}}, {"description", "dBTP"}}},
+                                  {"loudness",
+                                   result({{"integrated", {{"type", {"number", "null"}}, {"description", "LUFS"}}},
+                                           {"shortTermMax", {{"type", {"number", "null"}}, {"description", "LUFS"}}},
+                                           {"momentaryMax", {{"type", {"number", "null"}}, {"description", "LUFS"}}}})},
                                   {"rms", {{"type", {"number", "null"}}, {"description", "dBFS"}}},
                                   {"clippedSamples", integer("")},
                                   {"spectrum", arrayOf(result({{"band", string("")}}), "", std::nullopt)}},
-                                 {"what", "start", "end", "peak", "rms", "clippedSamples", "spectrum"});
+                                 {"what", "start", "end", "peak", "truePeak", "rms", "loudness", "clippedSamples",
+                                  "spectrum"});
     render.annotations.readOnly = true;
     render.annotations.idempotent = true;
     render.call = [&env](const Json& args, CallContext& context) -> ToolResult {
