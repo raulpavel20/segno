@@ -542,7 +542,10 @@ void ArrangementView::paintHeaders(juce::Graphics& g)
                 }
                 g.setColour(t.textTertiary);
                 g.setFont(ui::font(ui::TextStyle::Caption));
-                g.drawText(juce::String::fromUTF8(lane->module.c_str()), subtitle.withTrimmedRight(60.0f),
+                // A stepped parameter's lane says so: it holds each value, it never curves.
+                const auto module = juce::String::fromUTF8(lane->module.c_str());
+                g.drawText(lane->steps >= 2 ? module + juce::String::fromUTF8(" \xC2\xB7 Steps") : module,
+                           subtitle.withTrimmedRight(60.0f),
                            juce::Justification::centredLeft, true);
             }
             continue;
@@ -1170,7 +1173,9 @@ void ArrangementView::laneMouseDown(const juce::MouseEvent& e, int row)
     if (e.getNumberOfClicks() >= 2)
     {
         drag_ = Drag::None;
-        if (hitPoint && e.mods.isAltDown()) // Alt + double-click straightens the segment after it
+        if (hitPoint && e.mods.isAltDown() && rules.stepped())
+            explainSteps(*lane);
+        else if (hitPoint && e.mods.isAltDown()) // Alt + double-click straightens the segment after it
             applyLaneEdit(row, model::bendSegment(points, *hitPoint, 0.0f, rules), "Bend");
         else if (hitPoint)
             applyLaneEdit(row, model::deletePoints(points, {*hitPoint}), "Delete point");
@@ -1208,6 +1213,12 @@ void ArrangementView::laneMouseDown(const juce::MouseEvent& e, int row)
     }
     if (const auto segment = model::hitSegment(points, map, e.position.x, e.position.y, 4.0))
     {
+        if (e.mods.isAltDown() && rules.stepped())
+        {
+            explainSteps(*lane); // nothing to bend: say why, rather than do nothing
+            drag_ = Drag::None;
+            return;
+        }
         laneDrag_.kind = e.mods.isAltDown() ? LaneDrag::Kind::Bend : LaneDrag::Kind::Segment;
         laneDrag_.index = *segment;
         laneDrag_.bend = model::bendOf(points[*segment]);
@@ -1218,6 +1229,13 @@ void ArrangementView::laneMouseDown(const juce::MouseEvent& e, int row)
     laneDrag_.kind = LaneDrag::Kind::Box;
     laneDrag_.boxBase = additive && sameLane ? selection_.points : std::set<size_t>{};
     setQuietly({.channel = target.channel, .lane = target.lane, .points = laneDrag_.boxBase});
+}
+
+void ArrangementView::explainSteps(const model::LaneInfo& lane)
+{
+    if (onMessage)
+        onMessage(juce::String::fromUTF8(lane.name.c_str()) +
+                  " has steps: it holds each value until the next point, so its lane can't curve");
 }
 
 void ArrangementView::laneMouseDrag(const juce::MouseEvent& e)

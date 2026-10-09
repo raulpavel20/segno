@@ -1305,3 +1305,35 @@ TEST_CASE("controls: a right-click opens their menu; a double-click never nests 
     CHECK(menus == 2);
     CHECK_FALSE(toggle.getToggleState()); // a right-click doesn't toggle
 }
+
+TEST_CASE("automation lanes: a step lane says why it doesn't bend (C4b)", "[integration]")
+{
+    ShellFixture f;
+    auto& s = *f.session;
+    const auto t0 = s.snapshot()->tracks[0].id;
+    const auto comp = s.addDevice(t0, "fd:compressor");
+    REQUIRE(comp != 0);
+    const std::string character = "m" + std::to_string(comp) + "/character"; // a choice: two characters
+    REQUIRE(s.setAutomation({t0, character}, {{0.0, 0.0f, 0.0f}, {8.0, 1.0f, 0.0f}}));
+    s.updateSnapshotNow();
+    const auto before = s.snapshot()->tracks[0].lane(character)->points;
+    REQUIRE(s.snapshot()->tracks[0].lane(character)->steps == 2);
+
+    fd::app::ArrangementView view(s);
+    view.setSize(1200, 600);
+    view.setSnapshot(s.snapshot());
+    view.setAllTrackHeights(64.0f);
+    juce::String message;
+    view.onMessage = [&](const juce::String& m) { message = m; };
+    // On the hold between the points (the lower value, until the step at 8 s).
+    const juce::Point<float> on(static_cast<float>(fd::app::ArrangementView::headerWidth()) +
+                                    static_cast<float>(view.timeline().xForTime(4.0)),
+                                static_cast<float>(fd::app::ArrangementView::rulerHeight()) + 64.0f + 64.0f - 1.0f - 5.0f);
+    const juce::ModifierKeys alt(juce::ModifierKeys::leftButtonModifier | juce::ModifierKeys::altModifier);
+    view.mouseDown(mouseEvent(view, on, on, false, alt));
+    view.mouseDrag(mouseEvent(view, on + juce::Point<float>(0.0f, -30.0f), on, true, alt));
+    view.mouseUp(mouseEvent(view, on + juce::Point<float>(0.0f, -30.0f), on, true, alt));
+    s.updateSnapshotNow();
+    CHECK(message.contains("Character has steps"));
+    CHECK(s.snapshot()->tracks[0].lane(character)->points == before); // nothing bent or moved
+}

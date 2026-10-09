@@ -156,6 +156,8 @@ private:
     void laneMouseUp(const juce::MouseEvent& e);
     void headerMenu(int row);
     void applyLaneEdit(int row, const model::PointEdit& edit, const std::string& undoName);
+    /// Bending a step lane: says why nothing bends.
+    void explainSteps(const model::LaneInfo& lane);
     [[nodiscard]] double gridStepSeconds() const;
     /// Places each visible row's mixer controls in its header's slots.
     void placeHeaderControls();

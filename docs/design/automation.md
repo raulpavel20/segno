@@ -48,7 +48,7 @@ How parameters change over time in Segno: automation lanes in the arrangement, b
   | Colour | The track's colour, so lanes read as part of their track |
   | Name | The parameter's name ("Cutoff", "Volume", "Send A"), indented 12 px from the track's name |
   | Buttons | The lane's **on** switch (a round indicator, like a module's power): on, the lane plays; off, the parameter keeps the value you set (§7) |
-  | Subtitle | The module's name ("Synth", "Mixer"), and the parameter's current value on the right, in the readout style |
+  | Subtitle | The module's name ("Synth", "Mixer"), with "· Steps" for a stepped parameter, and the parameter's current value on the right, in the readout style |
   | Controls (height ≥ 80) | The parameter's own control as a bar: dragging it is the same as dragging the knob in the module |
 
 - **Background:** lane rows use the `subLane` role (already reserved for automation). A selected lane uses `laneSelected`, like a selected track.
@@ -82,7 +82,7 @@ The same gestures as clips and notes (daw-shell.md, the piano roll):
 | Drag on an empty spot | Box-select points (Shift adds) |
 | Drag a point (or the selection) | Move in time (snapped; Alt: free) and value (Shift: fine). Points never pass their neighbours; a step parameter's values snap to its steps |
 | Drag a segment (the line between two points) | Move both its points up or down together |
-| Alt + drag a segment | Bend it: up or down curves the segment (−100 % … +100 %); Alt + double-click straightens it |
+| Alt + drag a segment | Bend it: up or down curves the segment (−100 % … +100 %); Alt + double-click straightens it. On a step lane, a message says it holds each value instead |
 | Ctrl + drag across the lane | Draw: one point per grid step it passes (freehand with snap off) |
 | Double-click a point, Delete | Delete the selected points |
 | Ctrl+D | Duplicate the selection after itself (its span rounded up to the grid), as with notes |
