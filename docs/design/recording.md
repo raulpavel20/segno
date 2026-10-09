@@ -4,6 +4,8 @@ How Segno records audio and MIDI: projects as folders, inputs and arming, monito
 
 **Status:** approved by the product owner (2026-10-10), with every recommendation of §16. Built in parts (§17): C5a and C5b built (2026-10-10); C5c after C6's fades, with selecting several take lanes at once (§6: for now a take lane is selected alone). What comes after M2 is mapped in §15.
 
+**Revision proposed (2026-10-10, §19):** after trying C5b, takes move onto their clips ([ADR 0032](../decisions/0032-takes-belong-to-clips.md), proposed), Capture MIDI captures the last phrase onto any track, and the automation buttons move next to Record.
+
 **Where the field is (2026):** every current DAW keeps loop takes and lets you comp them (Live 12's take lanes, Logic's take folders with swipe comping, Cubase's lanes, Studio One's layers, Reaper's fixed lanes, Bitwig's comp lanes); most capture MIDI played while not recording (Live, Logic, Cubase, Bitwig, Reaper). Segno matches that (ADR 0011) and goes further where the integrated DAW helps: nothing a pass replaces is ever lost, takes move to new tracks in one action for doubles and layers, and assistants can compare takes by rendering and measuring them (§12).
 
 ## 1. Principles
@@ -246,3 +248,89 @@ Every feature comes with its tools and a test through MCP (ADR 0021). Assistants
 - **MCP:** each tool in §12.
 - **Performance:** recording 16 tracks at once at 48 kHz keeps the frame budget and never drops audio (Release).
 - **Manual:** `manual-tests/M2.md`, "Recording (C5)".
+
+## 19. Review of C5b (product owner, 2026-10-10): proposed
+
+Trying C5b, the product owner found:
+- **Takes in the wrong place:** a take is another version of a clip, so takes belong on the clip, not under the track.
+- **Clutter:** "Takes · N" showed for a single take; it also sat too close to the header's buttons and didn't say it opens something.
+- **Capture MIDI:** with a track without an instrument selected, it did nothing; and it wasn't clear what it captures.
+- **Two unexplained buttons** after the metronome: Automation arm and Turn automation back on (C4).
+
+What changes, once approved. It supersedes §6, §8 and §10–§14 where they differ; they're rewritten when this is built.
+
+### 19.1 Takes belong to clips (ADR 0032)
+
+```
+┌ header ───────────┬ lanes ──────────────────────────────────────────────────┐
+│▌ Vocals   M S ●   │ ▐ Vocals ─────────── ★ 3/4 ▾ ▌   ▐ Vocals ─────────────▌ │
+│                   │ ▐ ∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿ ▌   ▐ ∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿ ▌ │
+│                   │ ░ Take 4 ░░░░░░░░░░░░░░░░░░░░░    one take: a plain clip  │
+│                   │ █ Take 3 ★ ██████████████████                            │
+│                   │ ░ Take 2 ░░░░░░░░░░░░░░░░░░░░░                            │
+│                   │ ░ Take 1 ░░░░░░░░░░░░░░░░░░░░░                            │
+└───────────────────┴──────────────────────────────────────────────────────────┘
+```
+
+- **A pass makes a clip with its takes:** what it recorded, one take per loop lap. A clip with a single take looks and acts like any clip: nothing about takes shows.
+- **Recording over a clip adds to its takes;** what a pass records over that has no takes yet is kept as a take of the new clip first ("Before take N"), so nothing is lost.
+- **The badge:** from two takes, the clip's title strip ends with the take it plays and how many, and a chevron: "3/4 ▾" (★ first when that take is starred; "Comp ▾" when its parts play different takes). On a narrow clip it shrinks to "▾" before the name is cut. A click opens the take menu:
+  - the takes, newest first, the one playing ticked, starred ones with ★: choosing one plays it;
+  - Show takes / Hide takes;
+  - Star, Rename take…;
+  - Copy take to new track, Move take to new track, Spread takes to new tracks;
+  - Delete take, Keep only this take (the others are deleted; files stay).
+- **Takes open under their clip** (the menu, a double-click on the badge, or Ctrl+Alt+K on a selected clip): one thin strip per take (24 px, a new shell metric) across the clip's time range. The track's row grows by the tallest open stack and shrinks back when they close; the header column shows nothing more. Each strip shows its take's name and star (a click on the star toggles it), the parts the clip plays in the track's colour and the rest dimmed (`clipDimmed`).
+  - A click on a strip plays that take and selects it (TAKE in the inspector, as built); right-click opens its menu; Delete deletes it.
+  - They open by themselves after a pass that made several takes, for the clips it made.
+- **Alt+↑ / Alt+↓** on a selected clip play its previous or next take, as built.
+- **A clip and its takes are edited as one,** in the same undo step:
+
+| Command on the clip | Its takes |
+|---|---|
+| Move (in time or to another track) | Move with it |
+| Trim its start or end | Trimmed to the same range (files untouched: trimming back brings them back) |
+| Split | Split at the same point; the right halves become the right clip's takes |
+| Duplicate | Copied |
+| Delete | Deleted with it (undo brings them back; files stay) |
+| Another clip placed over part of it (ADR 0019) | The clip is cut; its takes stay whole, so choosing a take there fills it again |
+| Copy, move or spread takes to new tracks | The new tracks get plain clips |
+
+- **A pass over part of a clip with takes** joins its takes (they widen to cover both); the clip plays the new take where it recorded and its earlier take elsewhere. Those parts draw as one clip (one title strip, a thin line where the take changes) and select, move, trim at the outer edges, split and delete together. Moving the line between parts is comping (C5c).
+- **What goes:** take rows, "Takes · N" in the track header, and the takes items in the track's menu (they're in the clip's take menu; `view.takes` and `take.spread` act on the selected clip).
+- **Model and engine:** a track's `FDTAKES` holds a `STACK` per clip with takes, with its `TAKE`s and their clips; a main-lane clip names the take clip it plays (`fdTake`), and through it its stack. Whether a stack is open is view state on it. The snapshot gives each track its stacks (takes, range, open) and each clip its stack. Every clip command carries the stacks of the clips it edits (engine tests for each row of the table).
+- **MCP:** the take tools stay; `get_takes` lists takes per clip (`track` or `clip`).
+
+### 19.2 Capture MIDI
+
+**As built (C5b):** tracktion keeps the last 60 seconds of each MIDI input and, on Capture, turns all of it into a clip on the tracks the input is routed to: the armed track, or the selected track only if it has an instrument (live MIDI follows only those). So:
+- with a track without an instrument selected, nothing is routed and nothing happens;
+- a note, 30 s of silence and then a phrase come back as one clip with the 30 s gap in it.
+
+**Proposed:**
+- **Segno listens to every MIDI input and the computer keyboard** all the time, whether or not anything is armed or has an instrument: the last 2 minutes of notes, pedal, bends and controllers (a tap on each MIDI input in the engine patch, read through a lock-free queue).
+- **It captures the last phrase:** what was played since the last pause of 2 bars or more (at the project tempo) with no note or pedal held. While the transport plays, nothing from before it started. In the example above: just the phrase.
+- **Never twice:** a capture, or a recording pass, uses up what was played before it.
+- **Where it goes:** each armed MIDI track gets what came in on its input; with none armed, the selected track, whatever it holds. A track without an instrument gets the default one in the same undo step, as a drawn MIDI clip does (ADR 0019), and says so. With nothing (or a return or the master) selected, a new track.
+- **The button** lights while there's a phrase to capture; its tooltip names where it goes ("Capture MIDI to Bass (Ctrl+Shift+R)").
+- **Placement** as built: while playing, where it was played; stopped, at the playhead on the beat of the first note; trimmed to whole beats. One undo step.
+
+### 19.3 The automation buttons in the transport bar
+
+They're C4's (automation.md §7–§8): **Automation arm** (Ctrl+Shift+A: while armed and playing, moving a control records into its lane) and **Turn automation back on** (Ctrl+Alt+A: moving an automated control by hand turns its automation off; this turns every one back on).
+- **Move them next to Record and Capture:** arm is a way of recording, so it reads better there.
+- **Turn automation back on shows only while some automation is off,** lit in the automation colour; its place stays reserved so nothing in the bar moves when it appears.
+
+### 19.4 Decisions
+
+| # | Question | Recommendation |
+|---|---|---|
+| R1 | Where takes live | On their clip (ADR 0032) |
+| R2 | A clip with one take | Shows nothing about takes |
+| R3 | Seeing every take | Under the clip; the track's row grows while they're open |
+| R4 | A pass over part of a clip with takes | Joins its takes; the clip plays both parts, as one clip |
+| R5 | What Capture MIDI takes | The last phrase (after a pause of 2 bars), and only since playback started while playing |
+| R6 | Where it goes | Armed tracks, else the selected track (getting the default instrument if it has none), else a new track |
+| R7 | The automation buttons | Next to Record; "Turn automation back on" only while needed |
+
+**Building it** (C5b revised, before C7): takes on clips (model, engine clip commands, drawing, menus, MCP, tests), then Capture MIDI, then the transport bar.
