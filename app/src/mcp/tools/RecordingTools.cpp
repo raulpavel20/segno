@@ -192,12 +192,12 @@ void addRecordingTools(Registry& registry, ToolEnv& env)
          "Starts recording the armed tracks from the playhead (or from \"from\"), as the Record button does: each "
          "track records its input (audio into the project's Recordings folder, or MIDI). With bars, it stops by "
          "itself after that many bars; otherwise stop ends it. countIn (\"off\", \"1 beat\", \"2 beats\", \"1 bar\", "
-         "\"2 bars\") applies to this recording; punch records only inside the loop. Each pass is one undo step. "
+         "\"2 bars\") applies to this recording. While looping, only the loop records (a lead-in before it "
+         "is heard), a take per lap. Each pass is one undo step. "
          "While recording, calling it again punches out and keeps playing.",
          object({{"from", position("Where to start (default: the playhead)")},
                  {"bars", number("Stop after this many bars")},
-                 {"countIn", string("The count-in for this recording")},
-                 {"punch", boolean("Record only inside the loop")}}),
+                 {"countIn", string("The count-in for this recording")}}),
          result({{"recording", boolean("")}, {"tracks", arrayOf(string(""), "The tracks recording", 0)}}), transport, false},
         [&env](const Json& args, CallContext&) {
             auto& s = env.session;
@@ -208,8 +208,6 @@ void addRecordingTools(Registry& registry, ToolEnv& env)
             }
             if (args.contains("from"))
                 s.setPosition(seconds(env, positionArg(env, args["from"])));
-            if (args.contains("punch"))
-                s.setPunch(args["punch"].get<bool>());
             const auto previous = s.countIn();
             if (args.contains("countIn"))
                 s.setCountIn(*countInArg(args["countIn"]));

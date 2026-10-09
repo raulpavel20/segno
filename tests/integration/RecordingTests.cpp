@@ -257,21 +257,35 @@ TEST_CASE("recording: monitoring per track: Auto while armed, In always, Off nev
     CHECK(r.info(t).input.monitor == fd::model::Monitor::In);
 }
 
-TEST_CASE("recording: punch records only inside the loop brace; settings round-trip", "[integration]")
+TEST_CASE("recording: while looping only the brace records, after a lead-in; settings round-trip", "[integration]")
 {
     Recording r;
     r.input = sine;
     const auto t = r.track(0);
     r.session->setAudioInput(t, r.session->audioInputs().front().id);
     r.session->setArmed(t, true, true);
-    r.session->setLoopRange(1.0, 2.0);
-    r.session->setPunch(true);
-    CHECK(r.session->punch());
-    r.recordFor(2.5);
-    const auto clips = r.info(t).clips;
-    REQUIRE(clips.size() == 1);
-    CHECK(clips[0].start == Approx(1.0).margin(0.02));
-    CHECK(clips[0].end() == Approx(2.0).margin(0.02));
+    // Not looping: from the playhead, through the brace and past it.
+    r.session->setLoopRange(4.0, 6.0);
+    r.session->setPosition(3.0);
+    r.recordFor(4.0);
+    REQUIRE(r.info(t).clips.size() == 1);
+    CHECK(r.info(t).clips[0].start == Approx(3.0).margin(0.02));
+    CHECK(r.info(t).clips[0].end() == Approx(7.0).margin(0.05));
+    r.session->undo();
+
+    // Looping: the lead-in from 3 s is heard, only the brace records, a take per lap.
+    r.session->setLooping(true);
+    r.session->setPosition(3.0);
+    r.recordFor(5.5); // a second of lead-in, then two laps and a quarter
+    r.session->setLooping(false);
+    const auto info = r.info(t);
+    REQUIRE(info.clips.size() == 1);
+    CHECK(info.clips[0].start == Approx(4.0).margin(0.02));
+    CHECK(info.clips[0].end() == Approx(6.0).margin(0.02));
+    CHECK(info.takes.size() == 3);
+    for (const auto& take : info.takes)
+        for (const auto& c : take.clips)
+            CHECK(c.start >= 4.0 - 0.02);
 
     r.session->setCountIn(fd::model::CountIn::OneBar);
     CHECK(r.session->countIn() == fd::model::CountIn::OneBar);

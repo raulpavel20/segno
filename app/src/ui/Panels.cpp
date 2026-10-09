@@ -44,6 +44,7 @@ TransportBar::TransportBar(engine::Session& session, const ActionRegistry& actio
     add(loop_, "transport.loop");
     add(metronome_, "transport.metronome");
     add(automationArm_, "automation.arm");
+    automationArm_.setRecordAccent(true); // it records (automation.md §8)
     add(automationOn_, "automation.reEnable");
     add(keyboard_, "midi.computerKeyboard");
     for (auto* view : {&arrangeView_, &mixView_})
@@ -169,11 +170,10 @@ void TransportBar::showRecordMenu()
                                       std::pair{C::OneBar, "1 bar"}, std::pair{C::TwoBars, "2 bars"}})
         countIn.addItem(name, true, now == value, [this, v = value] { session_.setCountIn(v); });
     const bool overdub = session_.midiOverdub();
-    midi.addItem("New takes", true, !overdub, [this] { session_.setMidiOverdub(false); });
-    midi.addItem("Overdub: laps merge into one clip", true, overdub, [this] { session_.setMidiOverdub(true); });
+    midi.addItem("Each lap: a new take", true, !overdub, [this] { session_.setMidiOverdub(false); });
+    midi.addItem("Each lap: add to the clip (overdub)", true, overdub, [this] { session_.setMidiOverdub(true); });
     juce::PopupMenu menu;
     menu.addSubMenu("Count-in", countIn);
-    actions_.addMenuItem(menu, "transport.punch");
     menu.addSubMenu("MIDI loop recording", midi);
     menu.addSeparator();
     juce::PopupMenu::Item settings(juce::String::fromUTF8("Recording settings\xE2\x80\xA6"));

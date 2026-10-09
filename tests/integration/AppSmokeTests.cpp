@@ -1607,14 +1607,12 @@ TEST_CASE("recording: arm buttons, the INPUT section, Record and its menu, the r
     CHECK(s.snapshot()->tracks[0].input.audio == s.audioInputs().front().id);
     CHECK(s.undoDescription() == "Track input");
 
-    // The Record button's menu, and the count-in and punch toggles.
+    // The count-in toggle (no punch toggle: looping is punching).
     REQUIRE(actions.perform("transport.countIn"));
     CHECK(s.countIn() == fd::model::CountIn::OneBar);
     REQUIRE(actions.perform("transport.countIn"));
     CHECK(s.countIn() == fd::model::CountIn::Off);
-    REQUIRE(actions.perform("transport.punch"));
-    CHECK(s.punch());
-    REQUIRE(actions.perform("transport.punch"));
+    CHECK(actions.find("transport.punch") == nullptr);
 
     // Record: a pass, drawn while it grows, then its clip is selected.
     REQUIRE(actions.perform("transport.record"));

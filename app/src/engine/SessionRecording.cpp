@@ -1,5 +1,6 @@
 // Recording (M2 step C5, ADRs 0030 and 0031, docs/design/recording.md): inputs per track,
-// arming, monitoring, Record with count-in and punch, and project folders for the recordings.
+// arming, monitoring, Record with count-in (recording inside the loop brace while looping), and
+// project folders for the recordings.
 
 #include "engine/SessionImpl.h"
 
@@ -216,7 +217,8 @@ void Session::Impl::beginPass(const juce::String& name)
 
 void Session::Impl::recordingAboutToStart(te::InputDeviceInstance&, te::EditItemID target)
 {
-    // From the playhead when Record was pressed (or now, punching in), or the punch range's start.
+    // From the playhead when Record was pressed (or now, punching in), or while looping the brace's
+    // start.
     auto start = recordFrom.value_or(edit->getTransport().getPosition().inSeconds());
     if (edit->recordingPunchInOut)
         start = std::max(start, edit->getTransport().getLoopRange().getStart().inSeconds());
@@ -346,7 +348,14 @@ void Session::record()
     impl_->applyAutomationMode();
     impl_->applyInputs();
     impl_->beginPass("Record");
-    impl_->recordFrom = transport.isPlaying() ? std::nullopt : std::optional(position());
+    // Looping is punching (recording.md §5): only the brace records. tracktion's loop recording
+    // starts at the brace; from a playhead before it, playback rolls in from the playhead, a lead-in
+    // that's heard but not recorded (the loop-record-lead-in patch).
+    impl_->edit->recordingPunchInOut = false; // no separate punch (projects before C5b's review)
+    if (transport.isPlaying())
+        impl_->recordFrom.reset();
+    else
+        impl_->recordFrom = isLooping() ? loopRange().first : position();
     impl_->lastCaptureAt = juce::Time::getMillisecondCounterHiRes() * 0.001; // recorded, not captured
     transport.record(false, true); // with nothing armed it still plays (and records automation)
 }
@@ -440,15 +449,6 @@ model::CountIn Session::countIn() const
     return model::CountIn::Off;
 }
 
-void Session::setPunch(bool on)
-{
-    impl_->edit->recordingPunchInOut = on;
-}
-
-bool Session::punch() const
-{
-    return impl_->edit->recordingPunchInOut.get();
-}
 
 void Session::setMidiOverdub(bool on)
 {

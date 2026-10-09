@@ -361,9 +361,6 @@ public:
     /// The count-in before recording from stopped (a setting kept between projects).
     void setCountIn(model::CountIn countIn);
     [[nodiscard]] model::CountIn countIn() const;
-    /// Punch in/out: record only inside the loop brace (saved with the project, never an undo step).
-    void setPunch(bool on);
-    [[nodiscard]] bool punch() const;
     /// MIDI loop recording: each lap a take (off), or merged into one clip (on). Saved with the project.
     void setMidiOverdub(bool on);
     [[nodiscard]] bool midiOverdub() const;

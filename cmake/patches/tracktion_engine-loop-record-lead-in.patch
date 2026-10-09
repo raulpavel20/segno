@@ -1,0 +1,42 @@
+A lead-in before loop recording (Segno: docs/design/recording.md §5).
+
+tracktion's loop recording always starts at the loop (or the count-in before it). Segno records
+inside the loop brace while looping and lets you start earlier: playback rolls into the loop from
+the playhead, so the bars before it are heard but not recorded. The count-in's clicks keep their
+own range.
+
+diff '--color=auto' -ru a/modules/tracktion_engine/playback/tracktion_TransportControl.cpp b/modules/tracktion_engine/playback/tracktion_TransportControl.cpp
+--- a/modules/tracktion_engine/playback/tracktion_TransportControl.cpp	2026-10-10 02:52:14.205315278 +0300
++++ b/modules/tracktion_engine/playback/tracktion_TransportControl.cpp	2026-10-10 02:52:14.217056091 +0300
+@@ -1475,6 +1475,7 @@
+             else
+             {
+                 const auto loopRange = getLoopRange();
++                const auto playheadStart = position.get(); // Segno: a lead-in into the loop starts here
+                 transportState->startTime   = position.get();
+                 transportState->endTime     = Edit::getMaximumEditEnd();
+ 
+@@ -1528,6 +1529,14 @@
+                     prerollStart = prerollStart - toDuration (ts.toTime (BeatPosition::fromBeats (beatsUntilNextLinkCycle)));
+                 }
+ 
++                // Segno: loop recording from a playhead before the loop rolls in from there, so the
++                // bars before the loop are a lead-in that's heard but not recorded. The count-in's
++                // clicks keep their own range.
++                const auto countInStart = prerollStart;
++
++                if (looping && playheadStart < prerollStart)
++                    prerollStart = playheadStart;
++
+                 playingFlag = std::make_unique<PlayingFlag> (engine);
+                 transportState->safeRecording = engine.getPropertyStorage().getProperty (SettingID::safeRecord, false);
+ 
+@@ -1589,7 +1598,7 @@
+                     {
+                         // As the pre-roll will be "num count in beats - 0.5" we have to add that back on before our calculation
+                         // We also roll back 0.5 beats the end time to avoid hearing a block that starts directly or just before a beat
+-                        const auto clickStartBeat = ts.toBeats (prerollStart);
++                        const auto clickStartBeat = ts.toBeats (countInStart);
+                         const auto clickEndBeat = ts.toBeats (transportState->startTime.get());
+ 
+                         edit.setClickTrackRange (ts.toTime ({ BeatPosition::fromBeats (std::ceil (clickStartBeat.inBeats() + 0.5)),

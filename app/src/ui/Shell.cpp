@@ -265,9 +265,6 @@ void Shell::registerActions()
                       }
                   },
                   .isToggled = [&s] { return s.countIn() != model::CountIn::Off; }});
-    actions_.add({.id = "transport.punch", .name = "Punch in/out (record inside the loop)", .category = "Transport",
-                  .keys = {key('u', kCmd | kAlt)}, .perform = [&s] { s.setPunch(!s.punch()); },
-                  .isToggled = [&s] { return s.punch(); }});
     actions_.add({.id = "transport.capture", .name = "Capture MIDI", .category = "Transport",
                   .keys = {key('r', kCmd | kShift)},
                   .perform = [this, &s] {

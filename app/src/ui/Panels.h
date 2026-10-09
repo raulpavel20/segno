@@ -71,7 +71,7 @@ private:
     engine::Session& session_;
     const ActionRegistry& actions_;
     ui::IconButton play_{ui::Icon::Play}, stop_{ui::Icon::Stop}, record_{ui::Icon::Record};
-    /// The Record button's menu (recording.md §9): count-in, punch, MIDI loop recording.
+    /// The Record button's menu (recording.md §9): count-in, MIDI loop recording, settings.
     void showRecordMenu();
     /// Capture MIDI (recording.md §8): dim until something was played to capture.
     ui::IconButton capture_{ui::Icon::Capture};
