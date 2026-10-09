@@ -1,6 +1,7 @@
 #include "engine/SessionImpl.h"
 
 #include "engine/DevicePlugin.h"
+#include "engine/EngineBehaviour.h"
 #include "model/NoteEditing.h"
 
 #include <fd/device/Registry.h>
@@ -245,6 +246,10 @@ Session::Impl::Impl(Session& o, te::Engine& e) : owner(o), engine(e)
                      [](const auto& d) { return d->getName() == computerKeyboardName; }))
         (void)devices.createVirtualMidiDevice(computerKeyboardName);
     devices.addChangeListener(this);
+    // Recorded audio goes to this project's folder (ADR 0030).
+    setRecordingFiles(engine, [this](te::Track& t, const juce::String& extension) {
+        return edit != nullptr && &t.edit == edit.get() ? recordingFile(t, extension) : juce::File();
+    });
     attach(newEdit());
 }
 
@@ -299,6 +304,7 @@ void Session::Impl::attach(std::unique_ptr<te::Edit> e)
     edit->state.addListener(this);
     edit->getParameterChangeHandler().addListener(*this); // moved controls (automation, §7)
     edit->getTransport().addChangeListener(this);          // a recording pass ends with playback
+    edit->getTransport().addListener(this);                // recorded clips (recording.md §5)
 }
 
 void Session::Impl::detach()
@@ -308,17 +314,20 @@ void Session::Impl::detach()
     cancelPendingUpdate();
     endRecordingPass();
     lastTouched.reset();
+    edit->getTransport().removeListener(this);
     edit->getTransport().removeChangeListener(this);
     edit->getParameterChangeHandler().removeListener(*this);
     edit->state.removeListener(this);
     edit->getTransport().stop(false, true);
     edit.reset();
+    unsavedFolder.reset(); // a new project records into a new temporary folder
 }
 
 Session::Impl::~Impl()
 {
     renders.clear(); // cancels them (their Edit copies go before the engine)
     engine.getDeviceManager().removeChangeListener(this);
+    setRecordingFiles(engine, {});
     detach();
 }
 
@@ -334,24 +343,7 @@ void Session::Impl::midiDevicesChanged()
             in->setMonitorMode(te::InputDevice::MonitorMode::on);
     }
     edit->getTransport().ensureContextAllocated(true); // instances for new inputs
-    applyMidiTarget();
-}
-
-void Session::Impl::applyMidiTarget()
-{
-    // Only the virtual inputs: "All MIDI Ins" (every physical device, merged) and the computer
-    // keyboard. Routing the physical devices too would play every note twice.
-    auto* target = midiTarget ? track(*midiTarget) : nullptr;
-    for (auto* instance : edit->getAllInputDevices())
-    {
-        if (instance->getInputDevice().getDeviceType() != te::InputDevice::virtualMidiDevice)
-            continue;
-        for (auto id : instance->getTargets())
-            if (target == nullptr || id != target->itemID)
-                (void)instance->removeTarget(id, nullptr);
-        if (target != nullptr && !instance->getTargets().contains(target->itemID))
-            (void)instance->setTarget(target->itemID, true, nullptr, 0);
-    }
+    applyInputs();
 }
 
 void Session::Impl::changed(juce::ValueTree& tree)
@@ -427,6 +419,8 @@ void Session::Impl::rebuildSnapshot()
         std::sort(info.clips.begin(), info.clips.end(), [](const auto& a, const auto& b) { return a.start < b.start; });
         devicesOf(t->pluginList, info);
         info.mix = mixOf(t->pluginList);
+        if (!isReturn(*t))
+            info.input = inputOf(*t);
         info.mix.mute = t->isMuted(false);
         info.mix.solo = t->isSolo(false);
         if (info.role == model::TrackInfo::Role::Track)
@@ -901,8 +895,11 @@ void Session::setNotes(std::uint64_t clipId, const std::vector<model::Note>& not
 
 void Session::setMidiInputTarget(std::optional<std::uint64_t> trackId)
 {
+    if (impl_->midiTarget == trackId)
+        return;
     impl_->midiTarget = trackId;
-    impl_->applyMidiTarget();
+    impl_->applyInputs();       // the selection softly arms it (recording.md §4)
+    impl_->triggerAsyncUpdate(); // the header shows it
 }
 
 std::optional<std::uint64_t> Session::midiInputTarget() const
@@ -1470,6 +1467,8 @@ bool Session::open(const juce::File& file, std::string* error)
 bool Session::saveAs(const juce::File& file)
 {
     auto& edit = *impl_->edit;
+    (void)file.getParentDirectory().createDirectory();
+    impl_->moveToProject(file); // recordings into its folder, paths relative to it (ADR 0030)
     if (viewStateProvider)
         edit.state.setProperty(kViewStateId, juce::String(viewStateProvider()), nullptr);
     edit.flushState(); // device states (and our devices' extra state) into the tree

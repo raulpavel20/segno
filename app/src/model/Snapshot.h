@@ -1,6 +1,7 @@
 #pragma once
 
 #include "model/Automation.h"
+#include "model/Recording.h"
 #include "model/TempoMap.h"
 
 #include <cstdint>
@@ -139,6 +140,7 @@ struct TrackInfo
     std::vector<ClipInfo> clips; // sorted by start
     std::vector<DeviceSlot> devices; // the chain, in order (the engine's own mixer plugins are not listed)
     MixInfo mix;
+    InputInfo input; // tracks only (C5): what it listens to and records, and whether it's armed
 
     [[nodiscard]] bool holdsClips() const noexcept { return role == Role::Track; }
 };

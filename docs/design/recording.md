@@ -28,7 +28,7 @@ Song/
 
 - **Saving a new project** asks for a name and a place, and creates the folder `Name/` holding `Name.segno`.
 - **Before the first save,** recordings go to a temporary project folder (`Documents/Segno/Unsaved/<date and time>/`). Saving moves them into the new project folder. If Segno quits without saving, they stay there, and crash recovery (M7) finds them.
-- **Clips refer to files relative to the project folder** (tracktion's relative source paths), so a project folder can be moved, copied or zipped as a whole.
+- **Clips refer to files in the project folder relative to it**, so a project folder can be moved, copied or zipped as a whole; files elsewhere keep their full path.
 - **Opening a project** opens `Name.segno`; Segno finds the folder from it. A loose `.segno` from before C5 keeps working, with its recordings in a `Recordings` folder beside it, until it is saved with Save As.
 - **Files outside the folder** (audio dropped from elsewhere) stay where they are until "Collect all and save" (later, §15).
 - **Nothing is deleted behind your back:** undo, deleting clips and deleting takes never delete files. "Remove unused recordings" (later, §15) cleans up on request, to the system's trash.
@@ -39,7 +39,7 @@ A track can listen to an audio input and a MIDI input (ADR 0019); it records one
 
 | Setting | Choices | Default |
 |---|---|---|
-| **Audio input** | None, each mono input (In 1, In 2…), each stereo pair (In 1/2, In 3/4…), with the driver's names | None |
+| **Audio input** | None, or each audio input as the audio device presents it: mono inputs, or stereo pairs where the device is set up so (Audio settings), with the driver's names | None |
 | **MIDI input** | All MIDI inputs, each MIDI device, Computer keyboard, None | All MIDI inputs |
 | **MIDI channel** | All, 1–16 | All |
 | **Monitor** | Auto, In, Off (§4) | Auto |
@@ -81,7 +81,7 @@ A track can listen to an audio input and a MIDI input (ADR 0019); it records one
 - **While recording,** each recording track shows its new clip growing in the `record` colour, drawing the waveform or the notes as they arrive.
 - **When a pass ends,** each track has a clip named after the track. It is selected, so the inspector shows it.
 - **One undo step per pass** ("Record"): clips, takes, and any automation recorded in the same pass (automation arm, automation.md §8).
-- **Files:** WAV, 24-bit, at the project's sample rate (Audio settings: WAV, AIFF or FLAC; 16, 24 or 32-bit float). Named after the track and the pass: `Recordings/Vocals 3.wav`; loop laps `Vocals 3 take 2.wav`.
+- **Files:** WAV, 24-bit, at the project's sample rate (Audio settings: WAV, AIFF or FLAC; 16, 24 or 32-bit float). Named after the track and the pass: `Recordings/Vocals 3.wav`; loop laps `Vocals 3_take_2.wav`.
 - **In time:** recordings are moved back by the latency the interface reports. Audio settings add a manual **recording offset** (audio and MIDI, ±500 ms) for interfaces that report it wrongly; a measured round-trip test comes later (§15).
 - **Disk:** recording warns when the disk holds less than ten minutes at the current settings. If writing fails, recording stops and keeps what was written.
 
@@ -181,9 +181,9 @@ Every feature comes with its tools and a test through MCP (ADR 0021). Assistants
 - **Inputs:** each track's inputs are tracktion input-device instances targeting its track (`InputDeviceInstance::setTarget`), armed with `setRecordingEnabled`. Audio inputs are tracktion's wave inputs per channel or pair; MIDI uses the virtual "All MIDI Ins", single devices or the computer keyboard, as live MIDI does today.
 - **Recording:** `TransportControl::record` and `stopRecording`; `TransportControl::Listener::recordingFinished` hands over the new clips. Segno then turns tracktion's per-clip loop takes into take lanes, keeps what the pass replaced, and updates the main lane, all inside the pass's undo step.
 - **Take lanes are Segno's own state** in the project (an `FDTAKES` element per track with its lanes and their clips, not played), written through the undo manager, like automation lanes (ADR 0029). The main lane holds ordinary tracktion clips. tracktion's own take switching and comp manager need a tracktion Project for audio and would render comps; Segno's take lanes need neither, and a comp is plain clips.
-- **Files:** `EngineBehaviour::getFileForNewAudioRecording` names each file in the project's `Recordings` folder; tracktion splits loop recordings into one file per lap. Format and bit depth through `WaveInputDevice`.
+- **Files:** `EngineBehaviour::getFileForNewAudioRecording` names each file in the project's `Recordings` folder; tracktion splits loop recordings into one file per lap. Format and bit depth through `WaveInputDevice`. Segno writes relative source paths itself (relative to the project's folder): tracktion resolves them from the folder but writes them from the project file.
 - **MIDI modes:** New takes is tracktion's "neither merge nor replace" (a clip per lap); Overdub is its merge. Replacing is always Segno's (through take lanes), never tracktion's.
-- **Monitoring:** tracktion's monitor mode is per input device, not per track. Segno needs it per track: a small engine patch (a mode per destination), or gating the live input per track (decided in a spike, §17).
+- **Monitoring and MIDI channels per track:** tracktion sets monitoring per input device, and its MIDI channel setting rewrites channels. A small engine patch (`cmake/patches/tracktion_engine-per-track-inputs.patch`) gives each track's input destination its own monitoring and MIDI channel (heard and recorded); Segno routes every track's inputs from its settings (`Session::Impl::applyInputs`).
 - **Count-in** is `Edit::setCountInMode` (a global setting in tracktion, matching a setting kept between projects); **punch** is `Edit::recordingPunchInOut` with the loop range.
 - **Latency:** tracktion moves audio by the driver's reported input and output latency and the graph's latency, plus the manual offset (`setRecordAdjustmentMs`); MIDI by its manual offset (`setManualAdjustmentMs`) minus the graph's latency.
 - **Capture MIDI:** tracktion's retrospective MIDI buffer (`RetrospectiveMidiBuffer`, `TransportControl::applyRetrospectiveRecord`), set to 60 s.

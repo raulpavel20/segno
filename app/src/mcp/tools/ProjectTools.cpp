@@ -78,8 +78,9 @@ void addProjectTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"save_project", "Save the project",
-         "Saves the project to its file, or to a new path (\".segno\" is added). Saving over another existing file "
-         "asks the user first.",
+         "Saves the project to its file, or to a new path: a project is a folder, so \"~/Music/Song\" saves "
+         "\"~/Music/Song/Song.segno\" with its recordings beside it in \"Recordings\". Saving over another existing "
+         "project asks the user first.",
          object({{"path", string("Where to save (default: its own file)")},
                  {"confirm", boolean("The user agreed to overwrite (only for clients that can't ask them)")}}),
          fileResult, saving, false},
@@ -87,7 +88,11 @@ void addProjectTools(Registry& registry, ToolEnv& env)
             const auto current = env.session.file();
             juce::File file;
             if (args.contains("path"))
+            {
                 file = projectFile(args["path"]);
+                if (!current || file != *current) // a project is a folder (ADR 0030)
+                    file = juce::File(model::projectFileFor(file.getFullPathName().toStdString()).string());
+            }
             else if (current)
                 file = *current;
             else

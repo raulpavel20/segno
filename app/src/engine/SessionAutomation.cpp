@@ -544,6 +544,8 @@ void Session::Impl::endRecordingPass()
     recorded.clear();
     // tracktion closes the step once edits pause; the pass's name stays on it.
     recordingPass.reset();
+    if (auto clips = std::exchange(recordedClips, {}); !clips.empty() && owner.onRecorded)
+        owner.onRecorded(clips);
 }
 
 void Session::Impl::startRecording(Recorded& r)
@@ -644,17 +646,7 @@ void Session::Impl::pluginParameterChanged(te::AutomatableParameter& p, bool isF
     lastTouched = {p.automatableEditElement.itemID.getRawID(), p.paramID};
     if (p.isCurrentlyRecording())
     {
-        // A recording pass is one undo step, however many controls move (§8); a held control's
-        // gesture step becomes the pass, so its first move is part of it.
-        if (recordingPass == nullptr)
-        {
-            auto& um = edit->getUndoManager();
-            if (groupDepth > 0)
-                um.setCurrentTransactionName("Record automation");
-            else
-                um.beginNewTransaction("Record automation");
-            recordingPass = std::make_unique<te::Edit::UndoTransactionInhibitor>(*edit);
-        }
+        beginPass("Record automation"); // joins a Record pass if one is open
         if (std::none_of(recorded.begin(), recorded.end(), [&p](const auto& r) { return r.param.get() == &p; }))
             if (const auto target = targetOf(p))
             {

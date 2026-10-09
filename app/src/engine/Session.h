@@ -315,6 +315,57 @@ public:
         bool touching_ = false;
     };
 
+    // ---- recording (C5, ADRs 0030 and 0031, docs/design/recording.md) -------------------------
+    // A track listens to an audio input and a MIDI input, and records one kind at a time. Its
+    // inputs are edits (one undo step each); arming is a listening state (saved, never an undo
+    // step or an unsaved change). Recorded audio goes to the project folder's Recordings.
+
+    /// An input a track can listen to.
+    struct InputChoice
+    {
+        std::string id;   // what model::InputInfo stores: an audio input's name; "all", "keyboard" or a MIDI device's name
+        std::string name; // as shown
+    };
+    [[nodiscard]] std::vector<InputChoice> audioInputs() const;
+    [[nodiscard]] std::vector<InputChoice> midiInputs() const;
+    /// A track's inputs ("" for none), MIDI channel (0: all), monitoring and what it records (nullopt:
+    /// follows its inputs). Each one undo step, "Track input".
+    void setAudioInput(std::uint64_t trackId, const std::string& input);
+    void setMidiInput(std::uint64_t trackId, const std::string& input);
+    void setMidiChannel(std::uint64_t trackId, int channel);
+    void setMonitor(std::uint64_t trackId, model::Monitor monitor);
+    void setRecordKind(std::uint64_t trackId, std::optional<model::RecordKind> kind);
+    /// Arms a track by its arm button; `exclusive` disarms every other track first.
+    void setArmed(std::uint64_t trackId, bool armed, bool exclusive);
+
+    /// Record (§5): from stopped, plays from the playhead after the count-in and records the armed
+    /// tracks (or, with none armed, the softly armed one); while playing, punches in; while
+    /// recording, punches out and keeps playing. Each pass is one undo step, "Record".
+    void record();
+    /// Records as record() does, then stops playback when the playhead reaches `seconds` (an
+    /// assistant's "record 8 bars").
+    void recordUntil(double seconds);
+    [[nodiscard]] bool isRecording() const;
+    /// The clips the last pass made, once it has ended.
+    std::function<void(const std::vector<std::uint64_t>& clips)> onRecorded;
+    /// The count-in before recording from stopped (a setting kept between projects).
+    void setCountIn(model::CountIn countIn);
+    [[nodiscard]] model::CountIn countIn() const;
+    /// Punch in/out: record only inside the loop brace (saved with the project, never an undo step).
+    void setPunch(bool on);
+    [[nodiscard]] bool punch() const;
+    /// MIDI loop recording: each lap a take (off), or merged into one clip (on). Saved with the project.
+    void setMidiOverdub(bool on);
+    [[nodiscard]] bool midiOverdub() const;
+    /// Manual recording offsets in ms (±500), added to the latency the interface reports.
+    void setRecordingOffsets(double audioMs, double midiMs);
+    [[nodiscard]] std::pair<double, double> recordingOffsets() const;
+    /// Where recorded audio goes: `Recordings` in the project's folder; before the first save, in a
+    /// temporary project folder under the unsaved root (ADR 0030), moved in when saved.
+    [[nodiscard]] juce::File recordingsFolder() const;
+    /// The folder unsaved projects record into (default: Documents/Segno/Unsaved).
+    void setUnsavedRoot(const juce::File& folder);
+
     /// A module panel's view state (collapsed sections, folded; ADR 0022), stored with the
     /// project on the module. Never an undo step or an unsaved change.
     [[nodiscard]] std::string deviceViewState(std::uint64_t deviceId) const;

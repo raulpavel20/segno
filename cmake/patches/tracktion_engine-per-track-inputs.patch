@@ -1,0 +1,110 @@
+Inputs per track (Segno: docs/design/recording.md §3, §4).
+
+tracktion sets monitoring per input device, and its MIDI channel setting rewrites the channel of
+incoming messages. Segno chooses both per track, so a track's input destination may carry:
+- "fdMonitor" ("on", "off" or "automatic"): its own monitoring, used instead of the device's;
+- "fdChannel" (1-16): that track hears and records only that MIDI channel (the live MIDI node
+  and the recording context for the target skip other channels).
+
+diff '--color=auto' -ru a/modules/tracktion_engine/playback/devices/tracktion_InputDevice.cpp b/modules/tracktion_engine/playback/devices/tracktion_InputDevice.cpp
+--- a/modules/tracktion_engine/playback/devices/tracktion_InputDevice.cpp
++++ b/modules/tracktion_engine/playback/devices/tracktion_InputDevice.cpp
+@@ -190,7 +190,14 @@
+         if (dest->targetID != t.itemID)
+             continue;
+ 
+-        switch (owner.getMonitorMode())
++        // A destination may choose its own monitoring (Segno: per track), else the device's.
++        const auto own = dest->state.getProperty ("fdMonitor").toString();
++        const auto mode = own == "on"        ? InputDevice::MonitorMode::on
++                        : own == "off"       ? InputDevice::MonitorMode::off
++                        : own == "automatic" ? InputDevice::MonitorMode::automatic
++                                             : owner.getMonitorMode();
++
++        switch (mode)
+         {
+             case InputDevice::MonitorMode::on:          return true;
+             case InputDevice::MonitorMode::automatic:   return isRecordingEnabled (t.itemID);
+diff '--color=auto' -ru a/modules/tracktion_engine/playback/devices/tracktion_MidiInputDevice.cpp b/modules/tracktion_engine/playback/devices/tracktion_MidiInputDevice.cpp
+--- a/modules/tracktion_engine/playback/devices/tracktion_MidiInputDevice.cpp
++++ b/modules/tracktion_engine/playback/devices/tracktion_MidiInputDevice.cpp
+@@ -838,6 +838,7 @@
+ 
+         detail::ScopedActiveRecordingDevice scopedActiveRecordingDevice;
+         const TimeRange punchRange;
++        int channel = 0; // the destination's "fdChannel" (Segno): 1-16 records only that channel
+         juce::MidiMessageSequence recorded;
+         TimePosition unloopedStopTime;
+ 
+@@ -862,6 +863,11 @@
+             auto recContext = std::make_unique<MidiRecordingContext> (context,
+                                                                       targetID,
+                                                                       params.punchRange);
++
++            for (auto dest : destinations)
++                if (dest->targetID == targetID)
++                    recContext->channel = juce::jlimit (0, 16, static_cast<int> (dest->state.getProperty ("fdChannel", 0)));
++
+             results.emplace_back (std::move (recContext));
+         }
+ 
+@@ -1047,13 +1053,20 @@
+             auto m1 = juce::MidiMessage (message, context.globalStreamTimeToEditTime (message.getTimeStamp()).inSeconds());
+             auto m2 = juce::MidiMessage (message, context.globalStreamTimeToEditTimeUnlooped (message.getTimeStamp()).inSeconds());
+ 
++            auto wanted = [&message] (const MidiRecordingContext& c)
++            {
++                return c.channel == 0 || message.getChannel() == 0 || message.getChannel() == c.channel;
++            };
++
+             for (auto& recContext : recordingContexts)
+-                recContext->liveNotes->push (m1);
++                if (wanted (*recContext))
++                    recContext->liveNotes->push (m1);
+ 
+             const std::shared_lock sl (contextLock);
+ 
+             for (auto& recContext : recordingContexts)
+-                recContext->recorded.addEvent (m2);
++                if (wanted (*recContext))
++                    recContext->recorded.addEvent (m2);
+         }
+ 
+         juce::ScopedLock sl (consumerLock);
+diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_MidiInputDeviceNode.cpp b/modules/tracktion_engine/playback/graph/tracktion_MidiInputDeviceNode.cpp
+--- a/modules/tracktion_engine/playback/graph/tracktion_MidiInputDeviceNode.cpp
++++ b/modules/tracktion_engine/playback/graph/tracktion_MidiInputDeviceNode.cpp
+@@ -45,6 +45,12 @@
+     if (! state)
+         state = std::make_shared<NodeState>();
+ 
++    channelFilter = 0;
++
++    for (auto dest : instance.destinations)
++        if (dest->targetID == targetID)
++            channelFilter = juce::jlimit (0, 16, static_cast<int> (dest->state.getProperty ("fdChannel", 0)));
++
+     {
+         auto channelToUse = midiInputDevice.getChannelToUse();
+         auto programToUse = midiInputDevice.getProgramToUse();
+@@ -83,6 +89,9 @@
+     if (state->activeNode.load (std::memory_order_acquire) != this)
+         return;
+ 
++    if (channelFilter > 0 && message.getChannel() > 0 && message.getChannel() != channelFilter)
++        return; // another channel: not this track's
++
+     auto channelToUse = midiInputDevice.getChannelToUse().getChannelNumber();
+ 
+     {
+diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_MidiInputDeviceNode.h b/modules/tracktion_engine/playback/graph/tracktion_MidiInputDeviceNode.h
+--- a/modules/tracktion_engine/playback/graph/tracktion_MidiInputDeviceNode.h
++++ b/modules/tracktion_engine/playback/graph/tracktion_MidiInputDeviceNode.h
+@@ -42,6 +42,7 @@
+ 
+     unsigned int maxExpectedMsPerBuffer = 0;
+     double sampleRate = 44100.0;
++    int channelFilter = 0; // the destination's "fdChannel": 1-16 plays only that channel (Segno), 0 all
+ 
+     LambdaTimer loopOverdubsChecker { [this] { updateLoopOverdubs(); } };
+ 

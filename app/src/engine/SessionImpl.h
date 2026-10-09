@@ -44,7 +44,8 @@ struct Session::Impl final : private juce::ValueTree::Listener,
                              public juce::AsyncUpdater,
                              private juce::ChangeListener,
                              private te::ParameterChangeHandler::Listener,
-                             private te::AutomatableParameter::Listener
+                             private te::AutomatableParameter::Listener,
+                             private te::TransportControl::Listener
 {
     Impl(Session& owner, te::Engine& engine);
     ~Impl() override;
@@ -86,9 +87,43 @@ struct Session::Impl final : private juce::ValueTree::Listener,
 
     std::unique_ptr<PluginScanner> scanner;
 
-    std::optional<std::uint64_t> midiTarget; // the track live MIDI plays (C7)
+    std::optional<std::uint64_t> midiTarget; // the track live MIDI plays (C7): softly armed (C5)
     void midiDevicesChanged();
-    void applyMidiTarget();
+
+    // ---- recording (C5, ADRs 0030 and 0031) ----------------------------------------------------
+    static inline const juce::Identifier audioInId{"fdAudioIn"}, midiInId{"fdMidiIn"}, midiChannelId{"fdMidiChannel"},
+        monitorId{"fdMonitor"}, recordsId{"fdRecords"}, armedId{"fdArmed"}, overdubId{"fdMidiOverdub"};
+    /// A track's inputs and arm state (softly armed: the live MIDI target, while none is armed).
+    [[nodiscard]] model::InputInfo inputOf(const te::AudioTrack& track) const;
+    [[nodiscard]] bool anyArmed() const;
+    /// Routes every track's inputs to tracktion's input destinations: a destination where a track
+    /// hears or records an input, with its own monitoring and MIDI channel (the per-track inputs
+    /// patch). Never while recording (tracktion refuses); arming then only punches in or out.
+    void applyInputs();
+    /// The project's folder: the project file's, or before the first save a temporary one under
+    /// `unsavedRoot`, made when first needed.
+    juce::File projectFolder();
+    juce::File unsavedRoot = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
+                                 .getChildFile("Segno")
+                                 .getChildFile("Unsaved");
+    std::optional<juce::File> unsavedFolder;
+    /// A new recording's file: `<Track> <n>.<extension>` in Recordings.
+    juce::File recordingFile(te::Track& track, const juce::String& extension);
+    /// Saving to `file`: recordings made before the first save move into its folder, and every
+    /// source path becomes relative to it (ADR 0030).
+    void moveToProject(const juce::File& file);
+    /// One undo step for a recording pass (audio, MIDI and automation together).
+    void beginPass(const juce::String& name);
+    std::vector<std::uint64_t> recordedClips; // made in the pass now ending
+    /// Stops playback once the playhead passes `stopAt` (recordUntil).
+    struct StopAt final : juce::Timer
+    {
+        explicit StopAt(Impl& i) : impl(i) {}
+        void timerCallback() override;
+        Impl& impl;
+        double seconds = 0.0;
+    };
+    StopAt stopAt{*this};
     /// Starts a command's undo step, named for undo menus and assistants ("Add track"); inside
     /// an EditGroup the group's step takes the edits instead.
     void beginEdit(const juce::String& name)
@@ -209,12 +244,15 @@ struct Session::Impl final : private juce::ValueTree::Listener,
 
 private:
     void changeListenerCallback(juce::ChangeBroadcaster* source) override;
+    void recordingFinished(te::InputDeviceInstance& instance, te::EditItemID target,
+                           const juce::ReferenceCountedArray<te::Clip>& clips) override;
     void pluginParameterChanged(te::AutomatableParameter& param, bool isFollowingAutomation) override;
     void curveHasChanged(te::AutomatableParameter&) override {}
     void recordingStatusChanged(te::AutomatableParameter& param) override;
     void changed(juce::ValueTree& tree);
     void handleAsyncUpdate() override
     {
+        applyInputs(); // tracks, inputs or instruments may have changed (undo too)
         if (std::exchange(restartPending, false) && edit != nullptr)
             edit->restartPlayback(); // fine-grained automation needs a new graph (automation.md §13)
         rebuildSnapshot();
@@ -223,6 +261,13 @@ private:
     {
         if (id == te::IDs::lastSignificantChange || id == panelViewId || id == te::IDs::automationMode) // bookkeeping and view state
             return;
+        // Arming is a listening state, like solo; input routing follows the tracks' inputs.
+        if (id == armedId || inInputs(t))
+        {
+            if (id == armedId)
+                changed(t);
+            return;
+        }
         // An assignment's on switch: shown at once, never an unsaved change.
         if (id == te::IDs::bypass)
         {
@@ -257,11 +302,15 @@ private:
     }
     void valueTreeChildAdded(juce::ValueTree& t, juce::ValueTree& child) override
     {
+        if (inInputs(t) || child.hasType(te::IDs::INPUTDEVICES))
+            return; // routing, rebuilt from the tracks' inputs
         restartPending = restartPending || child.hasType(te::IDs::AUTOMATIONCURVE);
         structureChanged(t);
     }
     void valueTreeChildRemoved(juce::ValueTree& t, juce::ValueTree& child, int) override
     {
+        if (inInputs(t) || child.hasType(te::IDs::INPUTDEVICES))
+            return;
         restartPending = restartPending || child.hasType(te::IDs::AUTOMATIONCURVE);
         structureChanged(t);
     }
@@ -276,6 +325,13 @@ private:
         if (!inTransport(t))
             dirty = true;
         changed(t);
+    }
+    static bool inInputs(juce::ValueTree t)
+    {
+        for (; t.isValid(); t = t.getParent())
+            if (t.hasType(te::IDs::INPUTDEVICES))
+                return true;
+        return false;
     }
     static bool inTransport(juce::ValueTree t)
     {

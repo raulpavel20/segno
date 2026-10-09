@@ -19,6 +19,7 @@ void registerAll(Registry& registry, ToolEnv& env)
     addRenderTools(registry, env);
     addMixTools(registry, env);
     addAutomationTools(registry, env);
+    addRecordingTools(registry, env);
     addProjectTools(registry, env);
     addResources(registry, env);
     addPrompts(registry);
@@ -482,7 +483,33 @@ Json trackJson(ToolEnv& env, const model::TrackInfo& t, bool notes)
             {"instrument", t.instrument.empty() ? Json(nullptr) : Json(t.instrument)},
             {"clips", std::move(clips)},
             {"chain", std::move(chain)},
-            {"mix", mixJson(env, t)}};
+            {"mix", mixJson(env, t)},
+            {"input", t.holdsClips() ? inputJson(t.input) : Json(nullptr)}};
+}
+
+Json inputJson(const model::InputInfo& in)
+{
+    auto monitor = in.monitor == model::Monitor::In ? "in" : in.monitor == model::Monitor::Off ? "off" : "auto";
+    Json records = nullptr;
+    if (in.records)
+        records = *in.records == model::RecordKind::Audio ? "audio" : "midi";
+    return {{"audio", in.audio.empty() ? Json(nullptr) : Json(in.audio)},
+            {"midi", in.midi.empty() ? Json(nullptr) : Json(in.midi)},
+            {"channel", in.channel == 0 ? Json("all") : Json(in.channel)},
+            {"monitor", monitor},
+            {"records", records},
+            {"armed", in.armed},
+            {"selectedForLiveMidi", in.softArmed}};
+}
+
+Json inputsJson(ToolEnv& env)
+{
+    Json audio = Json::array(), midi = Json::array();
+    for (const auto& i : env.session.audioInputs())
+        audio.push_back(i.id);
+    for (const auto& i : env.session.midiInputs())
+        midi.push_back({{"id", i.id}, {"name", i.name}});
+    return {{"audio", std::move(audio)}, {"midi", std::move(midi)}};
 }
 
 Json projectJson(ToolEnv& env)
@@ -512,7 +539,8 @@ Json projectJson(ToolEnv& env)
             {"tracks", std::move(tracks)},
             {"returns", std::move(returns)},
             {"master", trackJson(env, snap->master)},
-            {"automationLanes", automationLanesJson(env)}};
+            {"automationLanes", automationLanesJson(env)},
+            {"inputs", inputsJson(env)}};
 }
 
 Json transportJson(ToolEnv& env)
@@ -521,6 +549,7 @@ Json transportJson(ToolEnv& env)
     const auto t = tempo(env);
     const auto [loopStart, loopEnd] = s.loopRange();
     return {{"playing", s.isPlaying()},
+            {"recording", s.isRecording()},
             {"position", positionJson(t.beatsForSeconds(s.position()), t)},
             {"loop",
              {{"on", s.isLooping()},

@@ -12,6 +12,7 @@
 #include "fd/testkit/WavIO.h"
 
 #include <tracktion_engine/tracktion_engine.h>
+#include <tracktion_engine/testing/tracktion_EnginePlayer.h>
 
 #include <httplib.h>
 
@@ -141,7 +142,8 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
           "set_parameters", "load_sample", "set_module_view", "set_module_sidechain", "scan_plugins", "render",
           "measure_module", "set_mix", "add_return_track", "set_send", "measure_mix", "get_automation",
           "set_automation", "clear_automation", "set_automation_on", "add_automation_lane", "set_automation_lane",
-          "remove_automation_lane", "assign_automation", "unassign_automation", "undo", "redo",
+          "remove_automation_lane", "assign_automation", "unassign_automation", "set_track_input", "arm_tracks",
+          "record", "undo", "redo",
           "save_project", "new_project", "open_project"})
         CHECK(names.contains(name));
     for (const auto& p : registry.prompts)
@@ -432,18 +434,20 @@ TEST_CASE("mcp tools: read-only mode and confirmations", "[integration][mcp]")
     const auto done = daw.server->dispatcher()->handle(retry, {});
     CHECK((*done.message)["result"]["structuredContent"]["tracks"].size() == 4);
 
-    // Saving: to a new file, then over another existing one only when confirmed.
+    // Saving: a project is a folder (ADR 0030); over another existing project only when confirmed.
     const auto path = daw.folder.getChildFile("song").getFullPathName().toStdString();
     const auto saved = daw.call("save_project", {{"path", path}});
-    CHECK(saved["file"] == path + ".segno");
+    const auto songFile = daw.folder.getChildFile("song").getChildFile("song.segno").getFullPathName().toStdString();
+    CHECK(saved["file"] == songFile);
     CHECK(daw.project()["unsaved"] == false);
-    const auto other = daw.folder.getChildFile("other.segno");
+    const auto other = daw.folder.getChildFile("other").getChildFile("other.segno");
+    REQUIRE(other.getParentDirectory().createDirectory());
     REQUIRE(other.replaceWithText("x"));
-    CHECK(daw.fails("save_project", {{"path", other.getFullPathName().toStdString()}}).find("Overwrite") != std::string::npos);
-    CHECK(daw.call("save_project", {{"path", other.getFullPathName().toStdString()}, {"confirm", true}})["file"] ==
-          other.getFullPathName().toStdString());
-    const auto opened = daw.call("open_project", {{"path", path + ".segno"}});
-    CHECK(opened["file"] == path + ".segno");
+    const auto otherPath = daw.folder.getChildFile("other").getFullPathName().toStdString();
+    CHECK(daw.fails("save_project", {{"path", otherPath}}).find("Overwrite") != std::string::npos);
+    CHECK(daw.call("save_project", {{"path", otherPath}, {"confirm", true}})["file"] == other.getFullPathName().toStdString());
+    const auto opened = daw.call("open_project", {{"path", songFile}});
+    CHECK(opened["file"] == songFile);
 }
 
 TEST_CASE("mcp tools: render measures a range without touching the project", "[integration][mcp]")
@@ -832,4 +836,55 @@ TEST_CASE("mcp tools: automation lanes of their own: added, assigned with ranges
     CHECK(daw.session->undoDescription() == "Assistant: remove automation lane");
     CHECK(daw.project()["automationLanes"].size() == 1);
     CHECK(daw.fails("get_automation", {{"lane", id}}).find("isn't an automation lane") != std::string::npos);
+}
+
+TEST_CASE("mcp tools: recording: inputs set, tracks armed, a few bars recorded", "[integration][mcp]")
+{
+    Daw daw;
+    daw.session->setUnsavedRoot(daw.folder.getChildFile("Unsaved"));
+    tracktion::HostedAudioDeviceInterface::Parameters io;
+    io.sampleRate = 48000.0;
+    io.blockSize = 480;
+    io.inputChannels = 2;
+    io.outputChannels = 2;
+    tracktion::test_utilities::EnginePlayer player(daw.engine, io);
+    juce::AudioBuffer<float> in(2, 480);
+    std::int64_t clock = 0;
+    auto pump = [&](double seconds) {
+        for (int b = 0; b < static_cast<int>(seconds * 100.0); ++b)
+        {
+            for (int c = 0; c < 2; ++c)
+                for (int s = 0; s < 480; ++s)
+                    in.setSample(c, s, 0.4f * std::sin(static_cast<float>(clock + s) * 0.03f));
+            clock += 480;
+            player.process(in);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil(1);
+        }
+    };
+    pump(0.1);
+    auto project = daw.project();
+    REQUIRE_FALSE(project["inputs"]["audio"].empty());
+    CHECK(project["inputs"]["midi"][0]["id"] == "all");
+    const auto t0 = project["tracks"][0]["id"].get<std::string>();
+    CHECK(project["tracks"][0]["input"]["midi"] == "all");
+    CHECK(project["tracks"][0]["input"]["armed"] == false);
+
+    const auto input = project["inputs"]["audio"][0].get<std::string>();
+    auto set = daw.call("set_track_input", {{"track", t0}, {"audioInput", input}, {"monitor", "off"}, {"records", "audio"}});
+    CHECK(set["input"]["audio"] == input);
+    CHECK(set["input"]["monitor"] == "off");
+    CHECK(daw.fails("set_track_input", {{"track", t0}, {"audioInput", "Nowhere"}}).find("no audio input") != std::string::npos);
+    CHECK(daw.call("arm_tracks", {{"tracks", Json::array({t0})}, {"exclusive", true}})["armed"].size() == 1);
+
+    // Two bars at 120 BPM: four seconds, then it stops by itself.
+    const auto started = daw.call("record", {{"from", "1.1.1"}, {"bars", 2}});
+    CHECK(started["recording"] == true);
+    CHECK(started["tracks"] == Json::array({t0}));
+    pump(4.5);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(100);
+    CHECK_FALSE(daw.session->isRecording());
+    project = daw.project();
+    REQUIRE(project["tracks"][0]["clips"].size() == 1);
+    CHECK(project["tracks"][0]["clips"][0]["length"] == Approx(8.0).margin(0.25)); // beats
+    CHECK(daw.session->undoDescription() == "Record"); // the pass: one undo step
 }

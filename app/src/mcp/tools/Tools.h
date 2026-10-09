@@ -31,6 +31,7 @@ void addModuleTools(Registry& registry, ToolEnv& env);
 void addRenderTools(Registry& registry, ToolEnv& env);
 void addMixTools(Registry& registry, ToolEnv& env);
 void addAutomationTools(Registry& registry, ToolEnv& env);
+void addRecordingTools(Registry& registry, ToolEnv& env);
 void addProjectTools(Registry& registry, ToolEnv& env);
 void addResources(Registry& registry, ToolEnv& env);
 void addPrompts(Registry& registry);
@@ -107,6 +108,9 @@ juce::File readableFile(const Json& value);
 Json projectJson(ToolEnv& env);
 Json transportJson(ToolEnv& env);
 Json trackJson(ToolEnv& env, const model::TrackInfo& track, bool notes = false);
+/// A track's inputs and arm state (recording.md §12), and the inputs there are.
+Json inputJson(const model::InputInfo& input);
+Json inputsJson(ToolEnv& env);
 /// A channel's mix (C3): volume, pan, mute, solo and sends.
 Json mixJson(ToolEnv& env, const model::TrackInfo& channel);
 /// "track", "return" or "master".
