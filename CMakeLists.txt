@@ -10,7 +10,7 @@ option(FD_BUILD_TOOLS "Build developer tools (fd-render, snapshot, gallery)" ON)
 option(FD_BUILD_PLUGINS "Build the device suite as plugins (needs JUCE)" ON)
 option(FD_BUILD_APP "Build the DAW (needs JUCE + tracktion_engine)" ON)
 option(FD_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
-set(FD_SANITIZE "" CACHE STRING "Semicolon-separated sanitizers: address;undefined | realtime")
+set(FD_SANITIZE "" CACHE STRING "Semicolon-separated sanitizers: address;undefined | realtime | thread")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

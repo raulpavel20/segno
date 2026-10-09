@@ -3,6 +3,7 @@
 #
 #   -DFD_SANITIZE="address;undefined"   (asan preset)
 #   -DFD_SANITIZE="realtime"            (rtsan preset, clang 20+; functions marked FD_NONBLOCKING)
+#   -DFD_SANITIZE="thread"              (by hand: the MCP server's threads, fd_mcp_tests)
 
 if(NOT FD_SANITIZE)
     return()
@@ -21,6 +22,8 @@ foreach(_san IN LISTS FD_SANITIZE)
         list(APPEND _fd_san_flags -fsanitize=address)
     elseif(_san STREQUAL "undefined")
         list(APPEND _fd_san_flags -fsanitize=undefined -fno-sanitize-recover=undefined)
+    elseif(_san STREQUAL "thread")
+        list(APPEND _fd_san_flags -fsanitize=thread)
     elseif(_san STREQUAL "realtime")
         list(APPEND _fd_san_flags -fsanitize=realtime)
         add_compile_definitions(FD_RTSAN=1)
