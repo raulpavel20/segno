@@ -73,6 +73,8 @@ private:
     ui::IconButton play_{ui::Icon::Play}, stop_{ui::Icon::Stop}, record_{ui::Icon::Record};
     /// The Record button's menu (recording.md §9): count-in, punch, MIDI loop recording.
     void showRecordMenu();
+    /// Capture MIDI (recording.md §8): dim until something was played to capture.
+    ui::IconButton capture_{ui::Icon::Capture};
     ui::IconButton loop_{ui::Icon::Loop}, metronome_{ui::Icon::Metronome}, keyboard_{ui::Icon::Keyboard};
     // Automation (C4): arm (touch recording), and turn every lane back on (lit while one is off).
     ui::IconButton automationArm_{ui::Icon::AutomationArm}, automationOn_{ui::Icon::AutomationOn};
@@ -135,6 +137,8 @@ public:
     [[nodiscard]] LaneAssignments& assignments() noexcept { return assignments_; }
     /// Puts the keyboard in the lane's name field (Rename).
     void focusLaneName();
+    /// Puts the keyboard in the take's name field (Rename).
+    void focusTakeName();
     void resized() override;
     void paint(juce::Graphics& g) override;
 
@@ -161,6 +165,11 @@ private:
     /// The lane's name, typed (one undo step); empty: named after its assignments.
     juce::TextEditor laneName_;
     LaneAssignments assignments_{session_};
+    /// The selected take (recording.md §10): its name typed, its star, and "Use this take".
+    std::optional<model::TakeInfo> take_;
+    juce::TextEditor takeName_;
+    ui::IconButton takeStar_{ui::Icon::Star, "Favourite"};
+    ui::Toggle useTake_{"Use this take"};
     TrackInputSection input_{session_};
     model::TempoMap tempo_;
 };

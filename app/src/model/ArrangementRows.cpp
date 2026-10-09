@@ -6,6 +6,8 @@ namespace fd::model
 {
 std::string ArrangementRow::key() const
 {
+    if (isTake())
+        return "t" + std::to_string(channel) + "/" + std::to_string(take);
     return isLane() ? "a" + std::to_string(lane) : "c" + std::to_string(channel);
 }
 
@@ -24,6 +26,9 @@ std::vector<ArrangementRow> arrangementRows(const Snapshot& snapshot, bool mixRo
     {
         const auto& t = snapshot.tracks[static_cast<size_t>(i)];
         rows.push_back({.kind = ArrangementRow::Kind::Track, .channel = t.id, .track = i});
+        if (t.showTakes)
+            for (const auto& take : t.takes)
+                rows.push_back({.kind = ArrangementRow::Kind::Take, .channel = t.id, .take = take.id, .track = i});
         lanesAfter(t.id, i);
     }
     // A lane whose track is gone sits after the last track.

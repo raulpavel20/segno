@@ -159,6 +159,9 @@ struct Theme
     [[nodiscard]] juce::Colour clipColour(int index) const;
     /// A clip's body: its colour at low brightness (a step up when selected).
     [[nodiscard]] juce::Colour clipBody(juce::Colour clip, bool selected) const;
+    /// A clip the main lane doesn't play (a take lane's, recording.md §6): its colour faded into
+    /// the sub-lane, then drawn like any clip.
+    [[nodiscard]] juce::Colour clipDimmed(juce::Colour clip) const;
     /// Content drawn on a clip (waveform, notes): its colour towards white.
     [[nodiscard]] juce::Colour clipContent(juce::Colour clip) const;
     /// A note: from the control tone to the clip colour by velocity; lighter when selected.

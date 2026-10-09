@@ -1,5 +1,6 @@
 #include "ui/ArrangementView.h"
 
+#include "model/Takes.h"
 #include "model/TrackHeaderLayout.h"
 #include "ui/time/TimeView.h"
 
@@ -39,6 +40,35 @@ ArrangementView::HeaderControls::HeaderControls(engine::Session& session, const 
     pan.setName({});
 }
 
+ArrangementView::TakesButton::TakesButton() : juce::Button("Takes")
+{
+    setTooltip("Show or hide the track's take lanes (Ctrl+Alt+K)");
+}
+
+void ArrangementView::TakesButton::update(const model::TrackInfo& track)
+{
+    const auto text = juce::String::fromUTF8("Takes \xC2\xB7 ") + juce::String(static_cast<int>(track.takes.size()));
+    if (text != text_ || getToggleState() != track.showTakes)
+    {
+        text_ = text;
+        setToggleState(track.showTakes, juce::dontSendNotification);
+        repaint();
+    }
+}
+
+int ArrangementView::TakesButton::preferredWidth() const
+{
+    return static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(ui::font(ui::TextStyle::Caption), text_)));
+}
+
+void ArrangementView::TakesButton::paintButton(juce::Graphics& g, bool highlighted, bool)
+{
+    const auto& t = ui::Theme::current();
+    g.setColour(getToggleState() ? t.active : highlighted ? t.textPrimary : t.textSecondary);
+    g.setFont(ui::font(ui::TextStyle::Caption));
+    g.drawText(text_, getLocalBounds(), juce::Justification::centredRight, false);
+}
+
 ArrangementView::ArrangementView(engine::Session& session) : session_(session)
 {
     headerLayer_.setInterceptsMouseClicks(false, true); // the header's background still selects
@@ -55,8 +85,13 @@ void ArrangementView::setSnapshot(std::shared_ptr<const model::Snapshot> snapsho
     lanePreview_.reset();
     hoveredPoint_.reset();
     for (const auto& t : snapshot_->tracks)
+    {
         for (const auto& c : t.clips)
             waveforms_.request(c.sourcePath);
+        for (const auto& take : t.takes)
+            for (const auto& c : take.clips)
+                waveforms_.request(c.sourcePath);
+    }
     // Drop what's gone. The owner reads the selection after a new snapshot, so this tells no one.
     selection_ = notified_ = model::pruned(selection_, *snapshot_);
     syncRows();
@@ -69,7 +104,7 @@ void ArrangementView::syncRows()
     // Mixer controls for every channel row, lane controls for every lane row: made for new rows,
     // dropped for gone ones.
     std::set<std::uint64_t> shown;
-    std::set<std::string> lanes;
+    std::set<std::string> lanes, stars;
     for (int i = 0; i < static_cast<int>(rows_.size()); ++i)
     {
         if (const auto* lane = rowLane(i))
@@ -88,6 +123,25 @@ void ArrangementView::syncRows()
             laneTexts_[key] = value ? session_.laneText(lane->id, *value) : std::string();
             continue;
         }
+        if (const auto* take = rowTake(i))
+        {
+            // A take lane's star (its favourites, recording.md §6).
+            const auto key = rows_[static_cast<size_t>(i)].key();
+            stars.insert(key);
+            auto& star = takeStars_[key];
+            if (star == nullptr)
+            {
+                star = std::make_unique<ui::IconButton>(ui::Icon::Star, "Favourite");
+                star->setIconShowsState(true);
+                star->setTooltip("Star: mark the take as a favourite");
+                headerLayer_.addChildComponent(*star);
+            }
+            star->setToggleState(take->star, juce::dontSendNotification);
+            star->onClick = [this, track = rowTakeTrack(i).id, id = take->id, on = take->star] {
+                session_.setTakeStar(track, id, !on);
+            };
+            continue;
+        }
         const auto* channel = rowChannel(i);
         if (channel == nullptr)
             continue;
@@ -102,7 +156,10 @@ void ArrangementView::syncRows()
                 headerLayer_.addChildComponent(controls->solo);
             }
             if (channel->holdsClips()) // tracks record (recording.md §4)
+            {
                 headerLayer_.addChildComponent(controls->arm);
+                headerLayer_.addChildComponent(controls->takes);
+            }
             headerLayer_.addChildComponent(controls->volume);
             headerLayer_.addChildComponent(controls->pan);
             headerLayer_.addChildComponent(controls->meter);
@@ -110,6 +167,8 @@ void ArrangementView::syncRows()
         controls->mute.update(channel->mix.mute);
         controls->solo.update(channel->mix.solo);
         controls->arm.updateArm(channel->input);
+        controls->takes.update(*channel);
+        controls->takes.onClick = [this, id = channel->id, show = !channel->showTakes] { session_.showTakes(id, show); };
         controls->volume.update(*channel);
         controls->pan.update(*channel);
     }
@@ -117,6 +176,8 @@ void ArrangementView::syncRows()
         it = shown.contains(it->first) ? std::next(it) : headerControls_.erase(it);
     for (auto it = laneControls_.begin(); it != laneControls_.end();)
         it = lanes.contains(it->first) ? std::next(it) : laneControls_.erase(it);
+    for (auto it = takeStars_.begin(); it != takeStars_.end();)
+        it = stars.contains(it->first) ? std::next(it) : takeStars_.erase(it);
     placeHeaderControls();
     // A lane selected before its snapshot came: into sight now that it has a row.
     if (laneToReveal_)
@@ -130,9 +191,37 @@ void ArrangementView::syncRows()
 
 const model::TrackInfo* ArrangementView::rowChannel(int row) const noexcept
 {
-    if (row < 0 || row >= static_cast<int>(rows_.size()) || rows_[static_cast<size_t>(row)].isLane())
+    if (row < 0 || row >= static_cast<int>(rows_.size()) || rows_[static_cast<size_t>(row)].isLane() ||
+        rows_[static_cast<size_t>(row)].isTake())
         return nullptr;
     return snapshot_->channel(rows_[static_cast<size_t>(row)].channel);
+}
+
+const model::TakeInfo* ArrangementView::rowTake(int row) const noexcept
+{
+    if (row < 0 || row >= static_cast<int>(rows_.size()) || !rows_[static_cast<size_t>(row)].isTake())
+        return nullptr;
+    for (const auto& take : rowTakeTrack(row).takes)
+        if (take.id == rows_[static_cast<size_t>(row)].take)
+            return &take;
+    return nullptr;
+}
+
+const model::TrackInfo& ArrangementView::rowTakeTrack(int row) const noexcept
+{
+    return snapshot_->tracks[static_cast<size_t>(rows_[static_cast<size_t>(row)].track)];
+}
+
+const model::ClipInfo* ArrangementView::takeClipAt(int row, float x) const
+{
+    const auto* take = rowTake(row);
+    if (take == nullptr)
+        return nullptr;
+    const double seconds = timeline_.timeForX(x - static_cast<float>(laneArea().getX()));
+    for (const auto& c : take->clips)
+        if (seconds >= c.start && seconds < c.end())
+            return &c;
+    return nullptr;
 }
 
 const model::AutomationLaneInfo* ArrangementView::rowLane(int row) const noexcept
@@ -151,7 +240,9 @@ bool ArrangementView::rowSelected(const model::ArrangementRow& row) const noexce
 {
     if (row.isLane())
         return selection_.lane == row.lane;
-    return !selection_.lane && selection_.channel == row.channel;
+    if (row.isTake())
+        return selection_.take == row.take;
+    return !selection_.lane && !selection_.take && selection_.channel == row.channel;
 }
 
 juce::Rectangle<float> ArrangementView::rowBounds(int row, juce::Rectangle<int> column) const
@@ -198,6 +289,7 @@ void ArrangementView::syncLayout()
         const auto it = heights_.find(row.key());
         layout_.setHeight(i, it != heights_.end() ? it->second
                              : row.isLane()    ? model::kLaneDefaultHeight
+                             : row.isTake()    ? model::kTakeDefaultHeight
                                                : model::TrackLayout::defaultHeight);
     }
     layout_.setViewportHeight(laneArea().getHeight());
@@ -219,7 +311,8 @@ void ArrangementView::placeHeaderControls()
     {
         const auto* channel = rowChannel(i);
         const auto* lane = rowLane(i);
-        if (channel == nullptr && lane == nullptr)
+        const auto* take = rowTake(i);
+        if (channel == nullptr && lane == nullptr && take == nullptr)
             continue;
         const double top = layout_.top(i), height = layout_.height(i);
         const bool visible = top + height > 0.0 && top < area.getHeight();
@@ -232,6 +325,16 @@ void ArrangementView::placeHeaderControls()
                 comp.setBounds(bounds);
         };
         const model::HeaderRect none{};
+        if (take != nullptr)
+        {
+            if (const auto it = takeStars_.find(rows_[static_cast<size_t>(i)].key()); it != takeStars_.end())
+            {
+                const auto slots = model::layoutTrackHeader(area.getWidth(), height, 1, false);
+                show(*it->second, slots.buttons.empty() ? none : slots.buttons[0],
+                     slots.buttons.empty() ? juce::Rectangle<int>() : at(slots.buttons[0]));
+            }
+            continue;
+        }
         if (lane != nullptr)
         {
             const auto it = laneControls_.find(rows_[static_cast<size_t>(i)].key());
@@ -258,6 +361,13 @@ void ArrangementView::placeHeaderControls()
         if (channel->holdsClips())
             show(c.arm, slots.buttons.size() > 2 ? slots.buttons[2] : none,
                  slots.buttons.size() > 2 ? at(slots.buttons[2]) : juce::Rectangle<int>());
+        // "Takes · N" at the right of the subtitle, once the track has takes.
+        if (channel->holdsClips())
+        {
+            const auto subtitle = at(slots.subtitle);
+            show(c.takes, channel->takes.empty() ? none : slots.subtitle,
+                 subtitle.withLeft(subtitle.getRight() - std::min(subtitle.getWidth() / 2, c.takes.preferredWidth())));
+        }
         auto controls = at(slots.controls);
         const int gap = ui::Theme::current().shell.itemGap;
         show(c.volume, slots.controls, controls.removeFromLeft((controls.getWidth() - gap) / 2));
@@ -480,6 +590,14 @@ void ArrangementView::selectLane(std::uint64_t lane)
     }
 }
 
+void ArrangementView::selectTake(std::uint64_t track, std::uint64_t take)
+{
+    setSelection({.channel = track, .take = take});
+    for (int i = 0; i < static_cast<int>(rows_.size()); ++i)
+        if (rows_[static_cast<size_t>(i)].isTake() && rows_[static_cast<size_t>(i)].take == take)
+            revealRow(i);
+}
+
 // ---- painting ------------------------------------------------------------------------------
 
 void ArrangementView::paint(juce::Graphics& g)
@@ -562,6 +680,23 @@ void ArrangementView::paintHeaders(juce::Graphics& g)
             g.drawText(drives, subtitle.withTrimmedRight(60.0f), juce::Justification::centredLeft, true);
             continue;
         }
+        if (const auto* take = rowTake(i))
+        {
+            // A take lane (recording.md §6): a thin row in its track's colour, dimmed; its name
+            // brighter while the main lane plays some of it.
+            const auto& track = rowTakeTrack(i);
+            g.setColour(selected ? t.surface2 : t.roles.subLane);
+            g.fillRect(row);
+            const auto slots = model::layoutTrackHeader(row.getWidth(), row.getHeight(), 1, false);
+            g.setColour(t.clipDimmed(t.clipColour(track.colour)));
+            g.fillRect(at(slots.colour));
+            g.setColour(t.line);
+            g.fillRect(juce::Rectangle<float>(row).removeFromBottom(1.0f));
+            g.setColour(model::isUsed(*take, track.clips) ? t.textPrimary : t.textSecondary);
+            g.setFont(ui::font(ui::TextStyle::Body));
+            g.drawText(juce::String::fromUTF8(take->name.c_str()), at(slots.name), juce::Justification::centredLeft, true);
+            continue;
+        }
         const auto* channel = rowChannel(i);
         if (channel == nullptr)
             continue;
@@ -606,9 +741,12 @@ void ArrangementView::paintHeaders(juce::Graphics& g)
             const auto input = juce::String::fromUTF8(model::inputSummary(track.input, !track.instrument.empty()).c_str());
             label = label.isEmpty() ? input : input + juce::String::fromUTF8(" \xC2\xB7 ") + label;
         }
+        auto subtitle = at(slots.subtitle);
+        if (const auto it = headerControls_.find(track.id); it != headerControls_.end() && it->second->takes.isVisible())
+            subtitle.setRight(static_cast<float>(it->second->takes.getX() - t.shell.itemGap)); // "Takes · N" is there
         g.setColour(track.instrument.empty() && hasMidi ? t.roles.warning : t.textTertiary);
         g.setFont(ui::font(ui::TextStyle::Caption));
-        g.drawText(label, at(slots.subtitle), juce::Justification::centredLeft, true);
+        g.drawText(label, subtitle, juce::Justification::centredLeft, true);
     }
 }
 
@@ -670,6 +808,12 @@ void ArrangementView::paintLanes(juce::Graphics& g)
             if (!moving.contains(clip.id))
                 paintClip(g, clip, y, h, area, visible, selection_.clips.contains(clip.id));
     }
+    // Take lanes: every take, dimmed where the main lane doesn't play it.
+    for (int i = 0; i < layout_.trackCount(); ++i)
+        if (const auto* take = rowTake(i); take != nullptr && rowVisible(i))
+            for (const auto& clip : take->clips)
+                paintTakeClip(g, clip, rowTakeTrack(i), static_cast<float>(area.getY() + layout_.top(i)),
+                              static_cast<float>(layout_.height(i)), area, visible);
     for (const auto& e : preview_)
     {
         const auto found = model::findClip(*snapshot_, e.clip);
@@ -782,8 +926,23 @@ void ArrangementView::paintLanes(juce::Graphics& g)
     time::paintPlayhead(g, timeline_, area, playhead_);
 }
 
+void ArrangementView::paintTakeClip(juce::Graphics& g, const model::ClipInfo& clip, const model::TrackInfo& track, float y,
+                                    float h, juce::Rectangle<int> area, juce::Rectangle<int> visible)
+{
+    paintClip(g, clip, y, h, area, visible, false, true);
+    for (const auto& [from, to] : model::inUse(clip, track.clips))
+    {
+        const auto used = juce::Rectangle<float>(laneX(from), y, laneX(to) - laneX(from), h).getSmallestIntegerContainer();
+        if (!used.intersects(visible))
+            continue;
+        juce::Graphics::ScopedSaveState saved(g);
+        g.reduceClipRegion(used);
+        paintClip(g, clip, y, h, area, visible.getIntersection(used), false);
+    }
+}
+
 void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, float y, float h,
-                                juce::Rectangle<int> area, juce::Rectangle<int> visible, bool selected)
+                                juce::Rectangle<int> area, juce::Rectangle<int> visible, bool selected, bool dimmed)
 {
     const auto& t = ui::Theme::current();
     if (clip.end() < timeline_.start() || clip.start > timeline_.end())
@@ -793,7 +952,7 @@ void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, 
     const auto box = juce::Rectangle<float>(x0, y + 1.0f, std::max(1.0f, x1 - x0), h - 3.0f);
     if (!box.intersects(visible.toFloat()))
         return;
-    const auto colour = ui::Theme::current().clipColour(clip.colour);
+    const auto colour = dimmed ? t.clipDimmed(t.clipColour(clip.colour)) : t.clipColour(clip.colour);
     g.setColour(t.clipBody(colour, selected));
     g.fillRect(box);
     const float strip = std::min(15.0f, box.getHeight() * 0.35f);
@@ -904,6 +1063,11 @@ void ArrangementView::mouseMove(const juce::MouseEvent& e)
             else if (model::hitSegment(points, map, e.position.x, e.position.y, 4.0))
                 cursor = juce::MouseCursor::UpDownResizeCursor;
         }
+        else if (row && rowTake(row->track) != nullptr)
+        {
+            if (takeClipAt(row->track, e.position.x) != nullptr) // a click uses the take
+                cursor = juce::MouseCursor::PointingHandCursor;
+        }
         else
         {
             std::vector<int> rowTracks;
@@ -968,13 +1132,16 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
             return;
         }
         const auto* channel = rowChannel(row->track);
-        // A header selects its channel alone, or its lane (selection.md §2, automation.md §9).
+        // A header selects its channel alone, or its lane or take (selection.md §2, automation.md
+        // §9, recording.md §10).
         if (const auto* lane = rowLane(row->track))
         {
             selectLane(lane->id);
             if (onLaneActivated)
                 onLaneActivated();
         }
+        else if (const auto* take = rowTake(row->track))
+            selectTake(rowTakeTrack(row->track).id, take->id);
         else
             selectTrack(channel != nullptr ? std::optional(channel->id) : std::nullopt);
         if (e.mods.isPopupMenu())
@@ -1004,6 +1171,12 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
             rowMenu(row->track);
             return;
         }
+        if (const auto* take = rowTake(row->track))
+        {
+            selectTake(rowTakeTrack(row->track).id, take->id);
+            rowMenu(row->track);
+            return;
+        }
         std::vector<int> rowTracks;
         for (const auto& r : rows_)
             rowTracks.push_back(r.holdsClips() ? r.track : -1);
@@ -1018,6 +1191,17 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
     if (row && rowLane(row->track) != nullptr)
     {
         laneMouseDown(e, row->track);
+        return;
+    }
+    if (const auto* take = row ? rowTake(row->track) : nullptr)
+    {
+        // A take lane: selects the take; a click on its clip uses it (recording.md §6).
+        const auto track = rowTakeTrack(row->track).id;
+        const auto id = take->id;
+        const bool onClip = takeClipAt(row->track, e.position.x) != nullptr;
+        selectTake(track, id);
+        if (onClip)
+            session_.useTake(track, id);
         return;
     }
     if (row && !rows_[static_cast<size_t>(row->track)].holdsClips())
@@ -1095,11 +1279,15 @@ void ArrangementView::mouseDrag(const juce::MouseEvent& e)
     }
     if (drag_ == Drag::Resize && resizeRow_)
     {
-        // Alt: every row of the same kind (tracks, or lanes) takes the height.
+        // Alt: every row of the same kind (channels, lanes or take lanes) takes the height.
         const double height = resizeFrom_ + (e.position.y - dragStart_.y);
-        const bool lane = rows_[static_cast<size_t>(*resizeRow_)].isLane();
+        auto kindOf = [this](int i) {
+            const auto& r = rows_[static_cast<size_t>(i)];
+            return r.isLane() ? 1 : r.isTake() ? 2 : 0; // channels, lanes, take lanes
+        };
+        const int kind = kindOf(*resizeRow_);
         for (int i = 0; i < layout_.trackCount(); ++i)
-            if (i == *resizeRow_ || (e.mods.isAltDown() && rows_[static_cast<size_t>(i)].isLane() == lane))
+            if (i == *resizeRow_ || (e.mods.isAltDown() && kindOf(i) == kind))
             {
                 layout_.setHeight(i, height);
                 heights_[rows_[static_cast<size_t>(i)].key()] = layout_.height(i);
@@ -1465,6 +1653,38 @@ void ArrangementView::rowMenu(int row)
                 selectTrack(selection_.channel);
         });
     }
+    else if (const auto* take = rowTake(row))
+    {
+        // A take lane's menu (recording.md §6).
+        const auto track = rowTakeTrack(row).id;
+        const auto id = take->id;
+        const bool star = take->star;
+        menu.addItem("Use this take", [this, track, id] { session_.useTake(track, id); });
+        menu.addItem(star ? "Remove star" : "Star", [this, track, id, star] { session_.setTakeStar(track, id, !star); });
+        menu.addItem("Rename...", [this, track, id] {
+            if (onRenameTake)
+                onRenameTake(track, id);
+        });
+        menu.addSeparator();
+        auto toTrack = [this, track, id](bool move) {
+            const auto made = session_.takesToTracks(track, {id}, move);
+            if (!made.empty())
+            {
+                session_.updateSnapshotNow();
+                selectTrack(made.front());
+            }
+        };
+        menu.addItem("Copy to new track", [toTrack] { toTrack(false); });
+        menu.addItem("Move to new track", [toTrack] { toTrack(true); });
+        menu.addSeparator();
+        menu.addItem("Delete take", [this, track, id] {
+            session_.deleteTakes(track, {id});
+            if (selection_.take == id)
+                selectTrack(track);
+        });
+    }
+    else if (const auto* channel = rowChannel(row); channel != nullptr && channel->holdsClips() && onTrackMenu)
+        onTrackMenu(menu);
     // Rows are made from any row, or the empty space (automation.md §3, daw-shell.md).
     if (onAddMenu)
     {
@@ -1493,6 +1713,12 @@ void ArrangementView::revealRow(int row)
 
 void ArrangementView::deleteSelection()
 {
+    if (selection_.take && selection_.channel && selection_.clips.empty())
+    {
+        session_.deleteTakes(*selection_.channel, {*selection_.take});
+        selectTrack(selection_.channel);
+        return;
+    }
     session_.deleteClips({selection_.clips.begin(), selection_.clips.end()});
     selectTrack(selection_.channel);
 }

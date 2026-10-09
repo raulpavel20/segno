@@ -282,9 +282,10 @@ TEST_CASE("recording: punch records only inside the loop brace; settings round-t
 
 TEST_CASE("recording: the recording offset moves recordings earlier", "[integration]")
 {
-    Recording r;
+    // Declared before the recording, whose input reads it until it goes.
     const auto clickAt = static_cast<std::int64_t>(0.5 * kRate);
     std::int64_t passStart = 0;
+    Recording r;
     // A click 0.5 s into each pass's input.
     r.input = [&](std::int64_t s, int) { return s - passStart == clickAt ? 1.0f : 0.0f; };
     const auto t = r.track(0);
@@ -344,6 +345,7 @@ TEST_CASE("takes: a loop pass keeps every lap on a take lane; the main lane play
     CHECK(main.length == Approx(2.0).margin(0.01));
     CHECK(main.fromTake == info.takes[2].clips.at(0).id); // the third lap: the last complete one
     CHECK(main.sourcePath == info.takes[2].clips[0].sourcePath);
+    CHECK(info.takes[3].clips.at(0).length == Approx(0.5).margin(0.05)); // the half lap ends where it stopped
     std::set<std::string> files;
     for (const auto& take : info.takes)
         files.insert(take.clips.at(0).sourcePath);

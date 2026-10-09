@@ -1,5 +1,7 @@
 #include "ui/Panels.h"
 
+#include "model/Takes.h"
+
 #include <fd/device/Registry.h>
 
 #include <algorithm>
@@ -9,6 +11,18 @@ namespace fd::app
 {
 namespace
 {
+/// An inspector name field: typed, Return or leaving it commits, Escape restores.
+void styleNameField(juce::TextEditor& field)
+{
+    const auto& t = ui::Theme::current();
+    field.setFont(ui::font(ui::TextStyle::Body));
+    field.setIndents(4, 0);
+    field.setJustification(juce::Justification::centredLeft);
+    field.setColour(juce::TextEditor::backgroundColourId, t.surface2);
+    field.setColour(juce::TextEditor::outlineColourId, juce::Colours::transparentBlack);
+    field.setColour(juce::TextEditor::focusedOutlineColourId, juce::Colours::transparentBlack);
+}
+
 juce::String formatTime(double seconds)
 {
     const auto ms = static_cast<long>(std::floor(std::max(0.0, seconds) * 1000.0));
@@ -26,6 +40,7 @@ TransportBar::TransportBar(engine::Session& session, const ActionRegistry& actio
     add(record_, "transport.record");
     record_.setRecordAccent(true);
     record_.onPopupMenu = [this] { showRecordMenu(); };
+    add(capture_, "transport.capture");
     add(loop_, "transport.loop");
     add(metronome_, "transport.metronome");
     add(automationArm_, "automation.arm");
@@ -238,6 +253,7 @@ void TransportBar::resized()
     play_.setBounds(bar.left());
     stop_.setBounds(bar.left());
     record_.setBounds(bar.left());
+    capture_.setBounds(bar.left());
     bar.groupLeft();
     loop_.setBounds(bar.left());
     metronome_.setBounds(bar.left());
@@ -370,13 +386,7 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
     };
     addChildComponent(pointValue_);
 
-    const auto& t = ui::Theme::current();
-    laneName_.setFont(ui::font(ui::TextStyle::Body));
-    laneName_.setIndents(4, 0);
-    laneName_.setJustification(juce::Justification::centredLeft);
-    laneName_.setColour(juce::TextEditor::backgroundColourId, t.surface2);
-    laneName_.setColour(juce::TextEditor::outlineColourId, juce::Colours::transparentBlack);
-    laneName_.setColour(juce::TextEditor::focusedOutlineColourId, juce::Colours::transparentBlack);
+    styleNameField(laneName_);
     laneName_.setTooltip("The lane's name: type to rename it (empty: named after what it drives)");
     auto rename = [this] {
         if (lane_ && laneName_.getText().toStdString() != lane_->name)
@@ -394,6 +404,37 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
     addChildComponent(laneName_);
     addChildComponent(assignments_);
     addChildComponent(input_);
+
+    styleNameField(takeName_);
+    takeName_.setTooltip("The take's name: type to rename it");
+    auto renameTake = [this] {
+        const auto name = takeName_.getText().trim().toStdString();
+        if (take_ && channel_ && !name.empty() && name != take_->name)
+            session_.renameTake(channel_->id, take_->id, name);
+    };
+    takeName_.onReturnKey = [renameTake] {
+        renameTake();
+        juce::Component::unfocusAllComponents();
+    };
+    takeName_.onFocusLost = renameTake;
+    takeName_.onEscapeKey = [this] {
+        takeName_.setText(take_ ? juce::String::fromUTF8(take_->name.c_str()) : juce::String(), false);
+        unfocusAllComponents();
+    };
+    addChildComponent(takeName_);
+    takeStar_.setIconShowsState(true);
+    takeStar_.setTooltip("Star: mark the take as a favourite");
+    takeStar_.onClick = [this] {
+        if (take_ && channel_)
+            session_.setTakeStar(channel_->id, take_->id, !take_->star);
+    };
+    addChildComponent(takeStar_);
+    useTake_.setTooltip("The main lane plays this take across its time range (or click it on its take lane)");
+    useTake_.onClick = [this] {
+        if (take_ && channel_)
+            session_.useTake(channel_->id, take_->id);
+    };
+    addChildComponent(useTake_);
 }
 
 void InspectorPanel::setContext(const model::PanelContext& context, const model::TempoMap& tempo,
@@ -419,6 +460,16 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
         laneName_.setText(juce::String::fromUTF8(lane_->name.c_str()), false);
         laneName_.setTextToShowWhenEmpty(juce::String::fromUTF8(lane_->displayName().c_str()), ui::Theme::current().textTertiary);
     }
+    take_ = context.take;
+    takeName_.setVisible(has(model::InspectorSection::Take));
+    takeStar_.setVisible(has(model::InspectorSection::Take));
+    useTake_.setVisible(has(model::InspectorSection::Take));
+    if (take_)
+    {
+        if (!takeName_.hasKeyboardFocus(true))
+            takeName_.setText(juce::String::fromUTF8(take_->name.c_str()), false);
+        takeStar_.setToggleState(take_->star, juce::dontSendNotification);
+    }
     assignments_.setLane(has(model::InspectorSection::Assignments) ? lane_ : std::nullopt);
     assignments_.setVisible(has(model::InspectorSection::Assignments));
     input_.setTrack(has(model::InspectorSection::Input) ? channel_ : std::nullopt);
@@ -435,6 +486,15 @@ void InspectorPanel::focusLaneName()
     {
         laneName_.grabKeyboardFocus();
         laneName_.selectAll();
+    }
+}
+
+void InspectorPanel::focusTakeName()
+{
+    if (takeName_.isVisible() && takeName_.isShowing())
+    {
+        takeName_.grabKeyboardFocus();
+        takeName_.selectAll();
     }
 }
 
@@ -483,6 +543,27 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
         rows.push_back({"Plays", plays});
         return rows;
     }
+    case S::Take:
+    {
+        if (!take_ || !channel_ || take_->clips.empty())
+            return {};
+        // How much of it the main lane plays.
+        double length = 0.0, used = 0.0;
+        for (const auto& c : take_->clips)
+        {
+            length += c.length;
+            for (const auto& [from, to] : model::inUse(c, channel_->clips))
+                used += to - from;
+        }
+        const auto plays = used <= 1e-6 ? juce::String("No") : used >= length - 1e-3 ? juce::String("All of it")
+                                                                                    : juce::String("Partly");
+        return {{"Name", {}},      // the field
+                {"Star", {}},      // the button
+                {"Start", position(take_->clips.front().start), true},
+                {"Length", juce::String(take_->clips.back().end() - take_->clips.front().start, 3) + " s", true},
+                {"In use", plays},
+                {{}, {}}};         // "Use this take"
+    }
     case S::Clip:
         if (!clip_)
             return {};
@@ -516,7 +597,7 @@ void InspectorPanel::resized()
     auto r = getLocalBounds().withTrimmedTop(header_.getBottom() + t.shell.itemGap).reduced(t.shell.padding, 0);
 
     static const std::map<S, juce::String> titles{{S::Point, "Point"}, {S::Points, "Points"}, {S::Lane, "Lane"},
-                                                  {S::Assignments, "Assignments"}, {S::Input, "Input"},
+                                                  {S::Assignments, "Assignments"}, {S::Input, "Input"}, {S::Take, "Take"},
                                                   {S::Clip, "Clip"},   {S::Clips, "Clips"},   {S::Track, "Track"},
                                                   {S::Return, "Return"}, {S::Master, "Master"}, {S::Mix, "Mix"},
                                                   {S::Sends, "Sends"}};
@@ -549,6 +630,14 @@ void InspectorPanel::resized()
                                     .withTrimmedLeft(t.shell.propertyLabelWidth)
                                     .withHeight(t.shell.rowHeight)
                                     .reduced(0, 2));
+        else if (sections_[i] == S::Take) // the Name, Star and last rows
+        {
+            const auto content = stack_.content(i).withTrimmedLeft(t.shell.propertyLabelWidth);
+            auto row = [&](int n) { return content.withY(content.getY() + n * t.shell.rowHeight).withHeight(t.shell.rowHeight); };
+            takeName_.setBounds(row(0).reduced(0, 2));
+            takeStar_.setBounds(row(1).withWidth(t.shell.rowHeight));
+            useTake_.setBounds(row(5).reduced(0, 2));
+        }
         else if (sections_[i] == S::Point) // the Value row
             pointValue_.setBounds(stack_.content(i)
                                       .withTrimmedLeft(t.shell.propertyLabelWidth)

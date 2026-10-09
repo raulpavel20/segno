@@ -57,6 +57,11 @@ Selection pruned(const Selection& selection, const Snapshot& snapshot)
         s.channel = selection.channel;
     if (!s.clips.empty() && !(s.channel && holdsAny(*snapshot.channel(*s.channel), s.clips)))
         s.channel = topmostHolding(snapshot, s.clips);
+    // A take stays while its track has it.
+    if (selection.take && s.clips.empty() && s.channel)
+        if (const auto* t = snapshot.channel(*s.channel);
+            t != nullptr && std::any_of(t->takes.begin(), t->takes.end(), [&](const auto& k) { return k.id == *selection.take; }))
+            s.take = selection.take;
     // A lane stays while it exists (its channel following its assignments); points while they do.
     if (selection.lane && s.clips.empty())
         if (const auto* lane = snapshot.automationLane(*selection.lane))
@@ -102,6 +107,18 @@ PanelContext panelContext(const Selection& selection, const Snapshot& snapshot, 
         if (ctx.pointCount != 1)
             ctx.point.reset();
     }
+    else if (const auto* take = [&]() -> const TakeInfo* {
+                 if (!selection.take || channel == nullptr || !selection.clips.empty())
+                     return nullptr;
+                 for (const auto& k : channel->takes)
+                     if (k.id == *selection.take)
+                         return &k;
+                 return nullptr;
+             }())
+    {
+        ctx.subject = Subject::Take;
+        ctx.take = *take;
+    }
     else if (ctx.clipCount == 1)
     {
         ctx.subject = Subject::Clip;
@@ -136,6 +153,8 @@ PanelContext panelContext(const Selection& selection, const Snapshot& snapshot, 
         ctx.inspector.insert(ctx.inspector.end(), {InspectorSection::Lane, InspectorSection::Assignments});
         return ctx;
     }
+    if (ctx.subject == Subject::Take)
+        ctx.inspector.push_back(InspectorSection::Take);
     if (ctx.subject == Subject::Clip)
         ctx.inspector.push_back(InspectorSection::Clip);
     else if (ctx.subject == Subject::Clips)

@@ -2,7 +2,7 @@
 
 How Segno records audio and MIDI: projects as folders, inputs and arming, monitoring, the record button with count-in and punch, takes on take lanes and comping, capturing MIDI played without recording, and what comes later. The proposed decisions are [ADR 0030](../decisions/0030-projects-are-folders.md) (a project is a folder) and [ADR 0031](../decisions/0031-recording-keeps-every-take.md) (every take is kept, on take lanes; the track plays plain clips). It builds on one kind of track ([ADR 0019](../decisions/0019-one-kind-of-track.md)), live MIDI following the selection ([daw-shell.md](daw-shell.md)), the track header kit and time-view kit ([ui-foundations.md](ui-foundations.md), ADR 0023), the selection model ([selection.md](selection.md), ADR 0027), the mixer ([mixer.md](mixer.md)) and automation recording ([automation.md](automation.md) §8).
 
-**Status:** approved by the product owner (2026-10-10), with every recommendation of §16. Built in parts (§17): C5a and C5b first; C5c after C6's fades. What comes after M2 is mapped in §15.
+**Status:** approved by the product owner (2026-10-10), with every recommendation of §16. Built in parts (§17): C5a and C5b built (2026-10-10); C5c after C6's fades, with selecting several take lanes at once (§6: for now a take lane is selected alone). What comes after M2 is mapped in §15.
 
 **Where the field is (2026):** every current DAW keeps loop takes and lets you comp them (Live 12's take lanes, Logic's take folders with swipe comping, Cubase's lanes, Studio One's layers, Reaper's fixed lanes, Bitwig's comp lanes); most capture MIDI played while not recording (Live, Logic, Cubase, Bitwig, Reaper). Segno matches that (ADR 0011) and goes further where the integrated DAW helps: nothing a pass replaces is ever lost, takes move to new tracks in one action for doubles and layers, and assistants can compare takes by rendering and measuring them (§12).
 
@@ -106,6 +106,7 @@ Takes live on **take lanes** under their track, as in Live 12, Cubase and Reaper
 - **Take lane menu:** Rename, Star, Delete take, **Copy to new track**, **Move to new track** (the new track copies this track's chain and mix: a double or a layer in one action). Selecting several take lanes copies or moves each to its own track.
 - **The track's menu:** Show takes, **Spread takes to new tracks** (every take on its own track, for stacking), Delete unused takes (those the main lane no longer uses; files stay).
 - **MIDI takes** work the same. In Overdub mode laps merge into one clip and make no takes.
+- **A lap cut short** (the pass stopped mid-lap) is kept too; its clip ends where its recording does, so choosing among takes for a full range skips it.
 - **Takes and editing:** moving, splitting or deleting clips in the main lane leaves take lanes as they are; take lanes keep their time position.
 
 ## 7. Comping
@@ -196,7 +197,7 @@ Every feature comes with its tools and a test through MCP (ADR 0021). Assistants
 |---|---|---|
 | **C5a Recording** | Project folders; inputs; arm buttons and soft arm; monitoring; Record, count-in, punch; several tracks at once; latency placement and offsets; input metering; live drawing; MCP | M2 |
 | **C5b Takes** | Take lanes for every pass and lap; what a pass replaces kept; choosing and auditioning takes; stars; copy, move and spread takes to new tracks; delete unused takes; MIDI overdub; Capture MIDI; MCP | M2 |
-| **C5c Comping** | Swipe comping on take lanes with crossfades (after C6's fades); what's in use shown; MCP `use_take` with ranges | M2, after C6 |
+| **C5c Comping** | Swipe comping on take lanes with crossfades (after C6's fades); MCP `use_take` with ranges; selecting several take lanes to copy or move them together (what's in use is shown since C5b) | M2, after C6 |
 | Collect all and save; remove unused recordings | Copy outside files into the project folder; clean up unused files to the trash | M3 (with the browser) |
 | Reduced latency when monitoring | Bypass modules that add latency on monitored tracks | M3 |
 | Round-trip latency test | Play a click, record it back through a loopback, set the offset | M3 |

@@ -150,6 +150,11 @@ juce::Colour Theme::clipBody(juce::Colour clip, bool selected) const
     return clip.withBrightness(selected ? 0.42f : 0.32f);
 }
 
+juce::Colour Theme::clipDimmed(juce::Colour clip) const
+{
+    return clip.interpolatedWith(roles.subLane, 0.6f);
+}
+
 juce::Colour Theme::clipContent(juce::Colour clip) const
 {
     return clip.interpolatedWith(juce::Colours::white, 0.25f);

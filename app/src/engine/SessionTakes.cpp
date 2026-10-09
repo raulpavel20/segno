@@ -49,7 +49,11 @@ std::vector<Lap> lapsOf(te::Edit& edit, te::Clip& c)
             auto s = plain(c.state.createCopy());
             s.setProperty(te::IDs::source, source, nullptr);
             const auto file = te::SourceFileReference::findFileFromString(edit, source);
-            out.push_back({s, te::AudioFile(edit.engine, file).getLength() >= length - 0.05});
+            const double recorded = te::AudioFile(edit.engine, file).getLength() - static_cast<double>(s[te::IDs::offset]);
+            const bool complete = recorded >= length - 0.05;
+            if (!complete) // a lap stopped short: its clip ends where its recording does
+                s.setProperty(te::IDs::length, std::max(0.01, recorded), nullptr);
+            out.push_back({s, complete});
         }
     }
     else if (dynamic_cast<te::MidiClip*>(&c) != nullptr && takes.isValid())
@@ -200,6 +204,8 @@ std::vector<std::uint64_t> Session::Impl::importTakes(te::AudioTrack& track, con
             if (laps[i].complete || !chosen.isValid())
                 chosen = take.getChild(0);
         }
+        if (laps.size() > 1) // several takes to choose from: their lanes open (view state)
+            track.state.setProperty(showTakesId, true, nullptr);
         c->removeFromParent();
         if (chosen.isValid())
             if (auto* placed = useTakeClip(track, chosen, um))

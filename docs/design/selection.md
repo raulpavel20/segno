@@ -56,6 +56,7 @@ What the context panels show follows from the selection:
 | One clip | That clip (and its track) |
 | Several clips | The clips (and the selected track) |
 | A channel, no clips | That channel |
+| A take lane (C5b) | That take (and its track) |
 | Nothing | Nothing |
 
 ## 4. The detail panel
@@ -64,7 +65,7 @@ What the context panels show follows from the selection:
 |---|---|---|
 | One MIDI clip | **Clip** view: the piano roll | **Modules** of its track |
 | A lane (C4) | **Modules** of its first assignment's channel, that module selected (none without an assignment) | the same |
-| One audio clip, several clips | **Modules** of the selected track | **Modules** of the selected track |
+| One audio clip, several clips, a take | **Modules** of the selected track | **Modules** of the selected track |
 | A channel | **Modules** of that channel (a return's or the master's chain too) | **Modules** of that channel |
 | Nothing | "Select a track to see its modules" | the same |
 
@@ -82,9 +83,10 @@ What the context panels show follows from the selection:
 | **POINTS** | Several points | Selected: how many |
 | **LANE** | A lane (C4) | Name (a field), Points, Value now, whether it plays |
 | **ASSIGNMENTS** | A lane (C4) | Each assignment: on switch, "Track › Parameter" (shows its module), remove; its range as from and to fields in the parameter's units. Then "Assign parameter…". A lane shows no TRACK, MIX or SENDS: it belongs to no track |
+| **TAKE** | A take lane (C5b), above its track's sections | Name (a field), Star, Start, Length, In use (all of it, partly, no), "Use this take" |
 | **CLIP** | One clip | Name, Start (bars.beats.16ths), Length, Offset |
 | **CLIPS** | Several clips | Selected: how many |
-| **TRACK** | A track (also under CLIP or CLIPS) | Name, Instrument, Clips |
+| **TRACK** | A track (also under TAKE, CLIP or CLIPS) | Name, Instrument, Clips |
 | **RETURN** | A return track | Name, Modules |
 | **MASTER** | The master | Modules |
 | **MIX** | Any channel | Volume and pan bars with the meter beside them; mute and solo (not on the master) |

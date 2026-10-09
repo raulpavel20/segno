@@ -1642,3 +1642,163 @@ TEST_CASE("recording: arm buttons, the INPUT section, Record and its menu, the r
     CHECK_FALSE(findAll<fd::app::InputButton>(f.shell->mixer()).empty());
     root.deleteRecursively();
 }
+
+TEST_CASE("takes: take lanes open after a loop pass; clicks, stars, the TAKE section, Alt+arrows, Delete, spread; "
+          "Capture MIDI (C5b)",
+          "[integration]")
+{
+    using S = fd::model::InspectorSection;
+    ShellFixture f;
+    f.shell->setSize(1800, 1000);
+    auto& s = *f.session;
+    auto& actions = f.shell->actions();
+    const auto root = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("fd-shell-" + juce::Uuid().toString());
+    s.setUnsavedRoot(root);
+    tracktion::HostedAudioDeviceInterface::Parameters io;
+    io.sampleRate = 48000.0;
+    io.blockSize = 480;
+    io.inputChannels = 2;
+    io.outputChannels = 2;
+    tracktion::test_utilities::EnginePlayer player(f.engine, io);
+    juce::AudioBuffer<float> in(2, 480);
+    std::int64_t clock = 0;
+    auto pump = [&](double seconds) {
+        for (int b = 0; b < static_cast<int>(seconds * 100.0); ++b)
+        {
+            for (int c = 0; c < 2; ++c)
+                for (int i = 0; i < 480; ++i)
+                    in.setSample(c, i, 0.4f * std::sin(static_cast<float>(clock + i) * 0.03f));
+            clock += 480;
+            player.process(in);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil(1);
+        }
+    };
+    pump(0.1);
+    s.updateSnapshotNow();
+    const auto t0 = s.snapshot()->tracks[0].id;
+    auto track = [&] { return *s.snapshot()->channel(t0); };
+
+    // A loop pass of two laps and a half: three takes, their lanes open under the track.
+    s.setAudioInput(t0, s.audioInputs().front().id);
+    s.setArmed(t0, true, true);
+    s.setLoopRange(4.0, 6.0);
+    s.setLooping(true);
+    s.setPosition(4.0);
+    REQUIRE(actions.perform("transport.record"));
+    pump(5.0);
+    REQUIRE(actions.perform("transport.playStop"));
+    s.setLooping(false);
+    s.setArmed(t0, false, false);
+    pump(0.1);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(50);
+    s.updateSnapshotNow();
+    REQUIRE(track().takes.size() == 3);
+    CHECK(track().showTakes);
+    auto& view = f.shell->arrangement();
+    REQUIRE(view.rows().size() > 4);
+    CHECK(view.rows()[1].isTake());
+    CHECK(view.rows()[3].take == track().takes[2].id);
+    REQUIRE(track().clips.size() == 1);
+    CHECK(track().clips[0].fromTake == track().takes[1].clips.at(0).id); // the last complete lap
+    view.frame(0.0, s.position());
+    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: take lanes
+    {
+        juce::PNGImageFormat png;
+        auto file = juce::File(dump).getChildFile("takes.png");
+        file.deleteFile();
+        if (auto out = file.createOutputStream())
+            png.writeImageToStream(f.shell->createComponentSnapshot(f.shell->getLocalBounds()), *out);
+    }
+
+    // Each take lane's header has a star.
+    std::vector<fd::ui::IconButton*> stars;
+    for (auto* b : findAll<fd::ui::IconButton>(view))
+        if (b->getName() == "Favourite" && b->isVisible())
+            stars.push_back(b);
+    REQUIRE(stars.size() == 3);
+    stars[0]->triggerClick();
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    s.updateSnapshotNow();
+    CHECK(track().takes[0].star);
+
+    // A click on a take uses it (one undo step) and selects it; rows: the track (64), takes (40).
+    auto rowTop = [&](int row) {
+        return static_cast<float>(fd::app::ArrangementView::rulerHeight()) + (row == 0 ? 0.0f : 64.0f + 40.0f * static_cast<float>(row - 1));
+    };
+    const auto laneX = [&](double seconds) {
+        return static_cast<float>(fd::app::ArrangementView::headerWidth()) + static_cast<float>(view.timeline().xForTime(seconds));
+    };
+    click(view, {laneX(5.0), rowTop(1) + 20.0f});
+    s.updateSnapshotNow();
+    CHECK(view.selection().take == track().takes[0].id);
+    CHECK(s.undoDescription() == "Use take");
+    REQUIRE(track().clips.size() == 1);
+    CHECK(track().clips[0].fromTake == track().takes[0].clips.at(0).id);
+
+    // The inspector shows TAKE first; its "Use this take" uses the selected take.
+    auto& inspector = f.shell->inspector();
+    REQUIRE_FALSE(inspector.sections().empty());
+    CHECK(inspector.sections().front() == S::Take);
+    view.selectTake(t0, track().takes[1].id);
+    fd::ui::Toggle* use = nullptr;
+    for (auto* t : findAll<fd::ui::Toggle>(inspector))
+        if (t->getButtonText() == "Use this take" && t->isVisible())
+            use = t;
+    REQUIRE(use != nullptr);
+    use->triggerClick();
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    s.updateSnapshotNow();
+    CHECK(track().clips.at(0).fromTake == track().takes[1].clips.at(0).id);
+
+    // Alt+Down / Alt+Up: the next or previous take covering the selected clip (the third lap is
+    // short, so it's skipped); the clip now playing stays selected.
+    view.setSelection(fd::model::withClips(*s.snapshot(), {track().clips.at(0).id}, t0, t0));
+    REQUIRE(actions.perform("take.next"));
+    s.updateSnapshotNow();
+    CHECK(track().clips.at(0).fromTake == track().takes[0].clips.at(0).id);
+    CHECK(view.selection().clips == std::set{track().clips.at(0).id});
+    REQUIRE(actions.perform("take.previous"));
+    s.updateSnapshotNow();
+    CHECK(track().clips.at(0).fromTake == track().takes[1].clips.at(0).id);
+
+    // Delete with a take selected deletes it (one undo step).
+    view.selectTake(t0, track().takes[2].id);
+    REQUIRE(actions.perform("edit.delete"));
+    s.updateSnapshotNow();
+    CHECK(track().takes.size() == 2);
+    CHECK(s.undoDescription() == "Delete take");
+
+    // The track's menu: hide its takes; spread them to new tracks.
+    CHECK(view.selection().channel == t0);
+    REQUIRE(actions.perform("view.takes"));
+    s.updateSnapshotNow();
+    CHECK_FALSE(track().showTakes);
+    CHECK_FALSE(view.rows()[1].isTake());
+    const auto before = s.snapshot()->tracks.size();
+    REQUIRE(actions.perform("take.spread"));
+    s.updateSnapshotNow();
+    CHECK(s.snapshot()->tracks.size() == before + 2);
+
+    // Capture MIDI: dim until something is played, then the played notes become a selected clip.
+    const auto keys = s.snapshot()->tracks.back().id;
+    REQUIRE(s.addDevice(keys, "fd:subtractive-synth") != 0);
+    view.selectTrack(keys);
+    s.setMidiInputTarget(keys);
+    pump(0.2);
+    CHECK_FALSE(actions.isEnabled("transport.capture"));
+    for (int note : {60, 64})
+    {
+        s.computerKeyboardNote(note, 0.8f);
+        pump(0.15);
+        s.computerKeyboardNote(note, 0.0f);
+        pump(0.1);
+    }
+    CHECK(actions.isEnabled("transport.capture"));
+    s.setPosition(8.0);
+    REQUIRE(actions.perform("transport.capture"));
+    s.updateSnapshotNow();
+    CHECK(s.undoDescription() == "Capture MIDI");
+    REQUIRE(view.selection().clips.size() == 1);
+    CHECK(s.snapshot()->channel(keys)->clips.size() == 1);
+    root.deleteRecursively();
+}

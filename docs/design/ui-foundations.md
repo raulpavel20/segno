@@ -47,6 +47,7 @@ Role functions for colours that depend on content:
 |---|---|---|
 | `clipBody(colour, selected)` | the clip colour at 32 % brightness (42 % selected) | Clip bodies |
 | `clipContent(colour)` | the clip colour, 25 % towards white | Waveforms and notes drawn on clips |
+| `clipDimmed(colour)` | the clip colour, 60 % towards `subLane` | Clips that don't play: the unused parts of take lanes (C5b) |
 | `noteFill(colour, velocity, selected)` | control tone → clip colour by velocity (35–100 %); selected 30 % towards white | Piano roll notes and velocity stems |
 | `faded(colour)` | 40 % alpha | Content that exists but doesn't play (notes outside a clip) |
 | `fill(colour)` | `curveFill`'s alpha in that colour | Fills under coloured curves |

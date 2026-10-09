@@ -96,6 +96,10 @@ app/src/
 | Arm selected track (C5) | `track.arm` | Alt+R |
 | Count-in on/off (C5) | `transport.countIn` | Ctrl+Alt+C |
 | Punch in/out (C5) | `transport.punch` | Ctrl+Alt+U |
+| Capture MIDI (C5b) | `transport.capture` | Ctrl+Shift+R |
+| Show takes of the selected track (C5b) | `view.takes` | Ctrl+Alt+K |
+| Previous / next take for the selected clips (C5b) | `take.previous` / `take.next` | Alt+↑ / Alt+↓ |
+| Spread takes to new tracks (C5b) | `take.spread` | Ctrl+Alt+Shift+K |
 
 Each step adds its actions as it lands.
 
@@ -264,6 +268,16 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 - **Record** (the transport bar, between stop and loop; `ui::IconButton::setRecordAccent`): lit while recording; its right-click menu holds Count-in ▸, Punch in/out, MIDI loop recording ▸ and Recording settings…. During a count-in the position display counts the beats down in the `record` colour.
 - **While recording,** each recording track's clip grows to the playhead in the `record` colour, with its waveform as it's written (tracktion's recording thumbnails, `Session::drawLiveWaveform`). When the pass ends, its clips are selected.
 - **Save As** makes the project's folder (`model::projectFileFor`: `Name/Name.segno`), asking before replacing a project of that name; it starts beside the current project's folder.
+
+## Takes and Capture MIDI (C5b, [recording.md](recording.md) §6, §8)
+
+- **Take lanes** are rows under their track (`model::ArrangementRow::Kind::Take`, 40 px by default, key `t<track>/<take>`), above any automation lane after it. Each header has the take's name and a star (`ui::IconButton::setIconShowsState`: an outlined star, filled in `active` when on), with the track's colour strip dimmed. Clips are drawn with `clipDimmed`, and the parts the main lane plays (`model::inUse`) in full colour; the name of a take in use is brighter.
+- **Showing them:** a track with takes shows "Takes · N" at the right of its subtitle, lit while its take lanes show; a click (or Ctrl+Alt+K) shows or hides them. They open by themselves after a pass that made several takes. Showing takes is view state, never an undo step.
+- **Clicks:** a click on a take lane selects the take; a click on its clip also uses it (the cursor is a hand there). Alt+drag-resizing a take lane resizes every take lane.
+- **Menus:** a take lane's: Use this take, Star, Rename…, Copy to new track, Move to new track, Delete take. A track's: Show takes, Spread takes to new tracks, Delete unused takes, then the add items.
+- **Selection:** a take is selected with its track as the context (`Selection::take`); the inspector shows TAKE (name field, star, start, length, how much is in use, "Use this take") above the track's sections, and the detail panel the track's modules. Delete deletes the take.
+- **Alt+↑ / Alt+↓** use the previous or next take that covers the selected clips' range (or the main clip under the playhead), skipping takes too short for it; the clip now playing stays selected, so the keys step on while it plays.
+- **Capture MIDI** (the transport bar, beside Record; `ui::Icon::Capture`): dim until something was played; it makes a clip of it and selects it.
 
 ## Waveforms (C3)
 

@@ -7,32 +7,36 @@
 
 namespace fd::model
 {
-/// One row of the arrangement (docs/design/automation.md §3, §12): a track (it holds clips), an
-/// automation lane among the tracks, a return track or the master.
+/// One row of the arrangement (docs/design/automation.md §3, §12; recording.md §6): a track (it
+/// holds clips), one of a track's take lanes under it, an automation lane among the tracks, a
+/// return track or the master.
 struct ArrangementRow
 {
-    enum class Kind { Track, Lane, Return, Master };
+    enum class Kind { Track, Take, Lane, Return, Master };
     Kind kind = Kind::Track;
-    std::uint64_t channel = 0; // a track, return or master row: its channel
+    std::uint64_t channel = 0; // a track, take, return or master row: its channel
     std::uint64_t lane = 0;    // a lane row: its lane (AutomationLaneInfo::id)
+    std::uint64_t take = 0;    // a take row: its take (TakeInfo::id)
     /// The index in Snapshot::tracks of a track row; for a lane row, of the track above it (the
     /// first track for lanes at the top); -1 for return tracks and the master.
     int track = -1;
 
     [[nodiscard]] bool holdsClips() const noexcept { return kind == Kind::Track; }
     [[nodiscard]] bool isLane() const noexcept { return kind == Kind::Lane; }
-    /// Stable while the row exists (row heights are kept by it): "c12", "a40".
+    [[nodiscard]] bool isTake() const noexcept { return kind == Kind::Take; }
+    /// Stable while the row exists (row heights are kept by it): "c12", "a40", "t12/51".
     [[nodiscard]] std::string key() const;
 
     friend bool operator==(const ArrangementRow&, const ArrangementRow&) = default;
 };
 
-/// Default heights: a track's, and a lane's (name and subtitle).
+/// Default heights: a track's, a lane's (name and subtitle) and a take lane's.
 inline constexpr double kLaneDefaultHeight = 56.0;
+inline constexpr double kTakeDefaultHeight = 40.0;
 
-/// The rows, top to bottom: the lanes at the top, then each track followed by the lanes after it
-/// (`lanes`: shown), lanes whose track is gone, then (when `mixRows`) the return tracks and the
-/// master.
+/// The rows, top to bottom: the lanes at the top, then each track followed by its take lanes
+/// (when it shows them) and the lanes after it (`lanes`: shown), lanes whose track is gone, then
+/// (when `mixRows`) the return tracks and the master.
 [[nodiscard]] std::vector<ArrangementRow> arrangementRows(const Snapshot& snapshot, bool mixRows, bool lanes = true);
 
 /// The row index of the first return or master row (rows.size() when there is none).

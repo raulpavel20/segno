@@ -248,3 +248,18 @@ TEST_CASE("selection: a lane and its points are the subject", "[fast]")
     // Clips win over a lane (they never mix).
     CHECK(pruned({.channel = 1, .clips = {11}, .lane = 40}, s) == Selection{.channel = 1, .clips = {11}});
 }
+
+TEST_CASE("selection: a take of a track is the subject, with its track", "[fast]")
+{
+    auto s = project();
+    s.tracks[0].takes = {{.id = 51, .name = "Take 1"}};
+    const Selection take{.channel = 1, .take = 51};
+    const auto c = panelContext(take, s, CentreView::Arrange);
+    CHECK(c.subject == Subject::Take);
+    CHECK(c.take->name == "Take 1");
+    CHECK(c.channel->id == 1);
+    CHECK(c.inspector == std::vector{Section::Take, Section::Track, Section::Input, Section::Mix, Section::Sends});
+    CHECK(pruned(take, s) == take);
+    s.tracks[0].takes.clear();
+    CHECK(pruned(take, s) == Selection{.channel = 1}); // deleted
+}

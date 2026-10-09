@@ -111,6 +111,23 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         arrangement_.selectLane(lane);
     };
     arrangement_.onAssignLane = [this](std::uint64_t lane) { assignToLane(lane); };
+    // A track's own menu: its takes (recording.md §6).
+    arrangement_.onTrackMenu = [this](juce::PopupMenu& menu) {
+        actions_.addMenuItem(menu, "view.takes");
+        actions_.addMenuItem(menu, "take.spread");
+        const auto t = selectedTrackInfo();
+        menu.addItem("Delete unused takes", t && !t->takes.empty(), false, [this, id = t ? t->id : 0] {
+            session_.deleteUnusedTakes(id);
+        });
+    };
+    arrangement_.onRenameTake = [this](std::uint64_t track, std::uint64_t take) {
+        // The inspector's name field, for the take.
+        lastArea_ = Area::Arrangement;
+        arrangement_.selectTake(track, take);
+        if (!inspectorPanel_.open)
+            toggle(inspectorPanel_);
+        inspector_.focusTakeName();
+    };
     arrangement_.onRenameLane = [this](std::uint64_t lane) {
         // The inspector's name field, for the lane.
         lastArea_ = Area::Lane;
@@ -251,6 +268,105 @@ void Shell::registerActions()
     actions_.add({.id = "transport.punch", .name = "Punch in/out (record inside the loop)", .category = "Transport",
                   .keys = {key('u', kCmd | kAlt)}, .perform = [&s] { s.setPunch(!s.punch()); },
                   .isToggled = [&s] { return s.punch(); }});
+    actions_.add({.id = "transport.capture", .name = "Capture MIDI", .category = "Transport",
+                  .keys = {key('r', kCmd | kShift)},
+                  .perform = [this, &s] {
+                      // What was just played, as a clip, selected (recording.md §8).
+                      if (const auto clip = s.captureMidi(); clip != 0)
+                      {
+                          s.updateSnapshotNow();
+                          lastArea_ = Area::Arrangement;
+                          const auto found = model::findClip(*s.snapshot(), clip);
+                          const auto track = found ? std::optional(s.snapshot()->tracks[static_cast<size_t>(found->second)].id)
+                                                   : std::nullopt;
+                          arrangement_.setSelection(model::withClips(*s.snapshot(), {clip}, track, track));
+                      }
+                      else
+                          showWarning("Nothing played to capture: play an armed or selected MIDI track first");
+                  },
+                  .isEnabled = [&s] { return s.canCaptureMidi(); }});
+    // Takes (C5b, recording.md §6, §11): the selected track's.
+    auto takesTrack = [this]() -> std::optional<model::TrackInfo> {
+        if (auto t = selectedTrackInfo(); t && t->holdsClips() && !t->takes.empty())
+            return t;
+        return std::nullopt;
+    };
+    actions_.add({.id = "view.takes", .name = "Show takes of the selected track", .category = "View",
+                  .keys = {key('k', kCmd | kAlt)},
+                  .perform = [&s, takesTrack] {
+                      if (const auto t = takesTrack())
+                          s.showTakes(t->id, !t->showTakes);
+                  },
+                  .isEnabled = [takesTrack] { return takesTrack().has_value(); },
+                  .isToggled = [takesTrack] { return takesTrack() && takesTrack()->showTakes; }});
+    actions_.add({.id = "take.spread", .name = "Spread takes to new tracks", .category = "Track",
+                  .keys = {key('k', kCmd | kAlt | kShift)},
+                  .perform = [this, &s, takesTrack] {
+                      if (const auto t = takesTrack())
+                      {
+                          std::vector<std::uint64_t> takes;
+                          for (const auto& k : t->takes)
+                              takes.push_back(k.id);
+                          if (const auto made = s.takesToTracks(t->id, takes, false); !made.empty())
+                          {
+                              s.updateSnapshotNow();
+                              arrangement_.selectTrack(made.front());
+                          }
+                      }
+                  },
+                  .isEnabled = [takesTrack] { return takesTrack().has_value(); }});
+    auto stepTake = [this, &s, takesTrack](int direction) {
+        return [this, &s, takesTrack, direction] {
+            // The selected clips' range on their track, or the main clip under the playhead.
+            const auto snapshot = s.snapshot();
+            std::optional<std::uint64_t> track;
+            double from = 0.0, to = 0.0;
+            for (const auto id : arrangement_.selection().clips)
+                if (const auto found = model::findClip(*snapshot, id))
+                {
+                    const auto clipTrack = snapshot->tracks[static_cast<size_t>(found->second)].id;
+                    if (track && *track != clipTrack)
+                        continue;
+                    from = track ? std::min(from, found->first->start) : found->first->start;
+                    to = track ? std::max(to, found->first->end()) : found->first->end();
+                    track = clipTrack;
+                }
+            if (!track)
+                if (const auto t = takesTrack())
+                    for (const auto& c : t->clips)
+                        if (c.start <= s.position() && c.end() > s.position())
+                        {
+                            track = t->id;
+                            from = c.start;
+                            to = c.end();
+                        }
+            if (!track || !s.stepTake(*track, from, to, direction))
+            {
+                showWarning("No other take covers this range");
+                return;
+            }
+            // The take now playing there stays selected, for the next step.
+            s.updateSnapshotNow();
+            std::set<std::uint64_t> clips;
+            if (const auto* t = s.snapshot()->channel(*track))
+                for (const auto& c : t->clips)
+                    if (c.start >= from - 1e-6 && c.end() <= to + 1e-6)
+                        clips.insert(c.id);
+            lastArea_ = Area::Arrangement;
+            arrangement_.setSelection(model::withClips(*s.snapshot(), std::move(clips), track, track));
+        };
+    };
+    auto canStepTake = [this, takesTrack] {
+        const auto& clips = arrangement_.selection().clips;
+        if (!clips.empty())
+            if (const auto found = model::findClip(*session_.snapshot(), *clips.begin()))
+                return !session_.snapshot()->tracks[static_cast<size_t>(found->second)].takes.empty();
+        return takesTrack().has_value();
+    };
+    actions_.add({.id = "take.previous", .name = "Previous take", .category = "Track", .keys = {key(juce::KeyPress::upKey, kAlt)},
+                  .perform = stepTake(-1), .isEnabled = canStepTake});
+    actions_.add({.id = "take.next", .name = "Next take", .category = "Track", .keys = {key(juce::KeyPress::downKey, kAlt)},
+                  .perform = stepTake(1), .isEnabled = canStepTake});
     actions_.add({.id = "view.follow", .name = "Follow playhead", .category = "View", .keys = {key('f', kCmd | kShift)},
                   .perform = [this] { arrangement_.setFollowEnabled(!arrangement_.isFollowEnabled()); },
                   .isToggled = [this] { return arrangement_.isFollowEnabled(); }});
@@ -280,7 +396,7 @@ void Shell::registerActions()
                   .isEnabled = [this, &roll, clipsShown] {
                       return (notesActive() && roll.hasSelection()) ||
                              (lastArea_ == Area::Detail && detail_.chain().hasSelection()) || laneActive() ||
-                             (clipsShown() && arrangement_.hasClipSelection());
+                             (clipsShown() && (arrangement_.hasClipSelection() || arrangement_.hasTakeSelection()));
                   }});
     actions_.add({.id = "edit.duplicate", .name = "Duplicate", .category = "Edit", .keys = {key('d', kCmd)},
                   .perform = [this, &roll, clipsShown] {

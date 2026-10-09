@@ -24,7 +24,9 @@ enum class Icon
     Assistant,    // assistants connected over MCP (a spark)
     AutomationArm, // automation arm: a lane's line with a point (C4)
     AutomationOn,  // turn automation back on: the line with a turning arrow
-    Close          // remove or close: a cross
+    Close,         // remove or close: a cross
+    Star,          // a favourite (a take, C5b): outlined; filled when on
+    Capture        // capture MIDI (C5b): a turning arrow back round a dot, recording what was played
 };
 
 /// Draws `icon` fitted (aspect kept) into `area` in `colour`.
@@ -40,6 +42,8 @@ public:
     void setIcon(Icon icon);
     /// On in the `record` colour instead of `active` (the transport's Record button).
     void setRecordAccent(bool record);
+    /// Shows its on state in the icon instead of a fill: a star is filled in `active` when on.
+    void setIconShowsState(bool iconShowsState);
     /// A right-click: the button's menu (it doesn't click).
     std::function<void()> onPopupMenu;
 
@@ -49,6 +53,6 @@ public:
 
 private:
     Icon icon_;
-    bool record_ = false, popup_ = false;
+    bool record_ = false, popup_ = false, iconShowsState_ = false;
 };
 } // namespace fd::ui
