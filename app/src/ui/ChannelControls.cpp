@@ -1,6 +1,7 @@
 #include "ui/ChannelControls.h"
 
 #include "model/Taper.h"
+#include "ui/AutomationMenu.h"
 
 #include <cmath>
 
@@ -55,23 +56,9 @@ std::optional<float> LaneFollower::played() const
 
 void LaneFollower::showMenu(juce::Component& control, std::function<void()> reset) const
 {
-    const auto snapshot = session_.snapshot();
-    const auto [lane, assignment] = snapshot->assignmentOf(target_.channel, target_.key);
     juce::Component::SafePointer<juce::Component> alive(&control);
-    auto& session = session_;
-    const auto target = target_;
     juce::PopupMenu menu;
-    if (lane != nullptr)
-    {
-        menu.addItem("Show automation lane", [&session, id = lane->id] { session.revealLane(id); });
-        if (!lane->points.empty() && !assignment->on)
-            menu.addItem("Turn automation back on", [&session, target] { session.setAssignmentOn(target, true); });
-        menu.addItem("Remove from automation lane", [&session, target] { session.unassign(target); });
-    }
-    menu.addItem("Automate in a new lane", [&session, target] {
-        if (const auto id = session.automateInNewLane(target))
-            session.revealLane(id);
-    });
+    addAutomationItems(session_, target_, menu);
     menu.addSeparator();
     menu.addItem("Reset to default", [alive, run = std::move(reset)] {
         if (alive != nullptr)

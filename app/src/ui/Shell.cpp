@@ -1,5 +1,7 @@
 #include "ui/Shell.h"
 
+#include "ui/AutomationMenu.h"
+
 #include "fd/audiofile/AudioFile.h"
 
 #include <nlohmann/json.hpp>
@@ -99,6 +101,29 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         lastArea_ = Area::Lane;
         arrangement_.selectLane(lane);
     };
+    arrangement_.onAssignLane = [this](std::uint64_t lane) { assignToLane(lane); };
+    arrangement_.onRenameLane = [this](std::uint64_t lane) {
+        // The inspector's name field, for the lane.
+        lastArea_ = Area::Lane;
+        arrangement_.selectLane(lane);
+        if (!inspectorPanel_.open)
+            toggle(inspectorPanel_);
+        inspector_.focusLaneName();
+    };
+    inspector_.assignments().onAssign = [this](std::uint64_t lane) { assignToLane(lane); };
+    inspector_.assignments().onShowParameter = [this](std::uint64_t channel, std::uint64_t module) {
+        laneDetailChannel_ = channel;
+        updateTitle(); // the detail panel shows that channel's chain
+        if (module != 0)
+        {
+            if (!detailPanel_.open)
+                toggle(detailPanel_);
+            detail_.selectModule(module);
+        }
+    };
+    session_.automationMenu = [this](const engine::Session::ParamTarget& target, juce::PopupMenu& menu) {
+        addAutomationItems(session_, target, menu);
+    };
     arrangement_.onMessage = [this](const juce::String& m) { showWarning(m); };
     detail_.chain().onActivated = [this] { lastArea_ = Area::Detail; };
     detail_.pianoRoll().onActivated = [this] { lastArea_ = Area::Clip; };
@@ -149,6 +174,7 @@ Shell::~Shell()
     session_.onProjectChanged = nullptr;
     session_.viewStateProvider = nullptr;
     session_.onLaneRevealed = nullptr;
+    session_.automationMenu = nullptr;
 }
 
 // ---- actions -------------------------------------------------------------------------------
@@ -362,6 +388,13 @@ void Shell::registerActions()
                       lanePicker_.open(*this, channel, sel.lane ? *sel.lane : sel.channel.value_or(0));
                   },
                   .isEnabled = arrangeShown});
+    actions_.add({.id = "automation.assign", .name = "Assign parameter to the selected lane...", .category = "Automation",
+                  .keys = {key('l', kCmd | kAlt | kShift)},
+                  .perform = [this] {
+                      if (const auto lane = arrangement_.selection().lane)
+                          assignToLane(*lane);
+                  },
+                  .isEnabled = [this, arrangeShown] { return arrangeShown() && arrangement_.hasLaneSelection(); }});
     actions_.add({.id = "automation.showLastTouched", .name = "Automate last touched parameter", .category = "Automation",
                   .keys = {key('l', kAlt)},
                   .perform = [&s] {
@@ -704,7 +737,17 @@ void Shell::selectionChanged()
     if (context.midiInputTarget != session_.midiInputTarget())
         session_.setMidiInputTarget(context.midiInputTarget);
     inspector_.setContext(context, snapshot->tempo, snapshot->returns);
-    detail_.setSelection(context.channel);
+    // A lane's context is its first assignment's channel, or another of its assignments' when
+    // the inspector showed that one's module (automation.md §9).
+    auto detailChannel = context.channel;
+    if (context.key != subject_)
+        laneDetailChannel_.reset();
+    if (context.lane && laneDetailChannel_ && context.lane->assignments.size() > 1)
+        for (const auto& a : context.lane->assignments)
+            if (a.channel == *laneDetailChannel_)
+                if (const auto* c = snapshot->channel(a.channel))
+                    detailChannel = *c;
+    detail_.setSelection(detailChannel);
     detail_.setClip(context.midiClip, snapshot->tempo);
 
     // The detail panel follows the subject: a MIDI clip opens the clip view, anything else the
@@ -718,6 +761,19 @@ void Shell::selectionChanged()
             detail_.chain().selectDevice(context.lane->assignments.front().device);
     }
     applyDetailMode();
+}
+
+void Shell::assignToLane(std::uint64_t lane)
+{
+    const auto snapshot = session_.snapshot();
+    const auto* l = snapshot->automationLane(lane);
+    if (l == nullptr)
+        return;
+    const auto channel = !l->assignments.empty()    ? l->assignments.front().channel
+                         : l->after != 0             ? l->after
+                         : !snapshot->tracks.empty() ? snapshot->tracks.front().id
+                                                     : snapshot->master.id;
+    lanePicker_.openToAssign(*this, lane, channel);
 }
 
 void Shell::applyDetailMode()

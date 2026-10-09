@@ -92,6 +92,12 @@ Glyph glyph(Icon icon)
         p.startNewSubPath(3.0f, 8.0f);
         p.lineTo(13.0f, 8.0f);
         break;
+    case Icon::Close:
+        p.startNewSubPath(4.5f, 4.5f);
+        p.lineTo(11.5f, 11.5f);
+        p.startNewSubPath(11.5f, 4.5f);
+        p.lineTo(4.5f, 11.5f);
+        break;
     case Icon::Settings:
         // Three sliders.
         for (int i = 0; i < 3; ++i)

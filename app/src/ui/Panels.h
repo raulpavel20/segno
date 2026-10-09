@@ -5,6 +5,7 @@
 #include "ui/ChannelInspector.h"
 #include "ui/ActionRegistry.h"
 #include "ui/DeviceChain.h"
+#include "ui/LaneAssignments.h"
 #include "ui/PianoRoll.h"
 
 #include <fd_ui/fd_ui.h>
@@ -128,6 +129,9 @@ public:
     /// Shows nothing and drops its meters (before the project is replaced).
     void clear();
     [[nodiscard]] const std::vector<model::InspectorSection>& sections() const noexcept { return sections_; }
+    [[nodiscard]] LaneAssignments& assignments() noexcept { return assignments_; }
+    /// Puts the keyboard in the lane's name field (Rename).
+    void focusLaneName();
     void resized() override;
     void paint(juce::Graphics& g) override;
 
@@ -151,6 +155,9 @@ private:
     /// The selected point's value, typed or dragged (automation.md §9): one undo step each.
     ui::NumberField pointValue_;
     std::optional<engine::Session::EditGroup> pointGesture_;
+    /// The lane's name, typed (one undo step); empty: named after its assignments.
+    juce::TextEditor laneName_;
+    LaneAssignments assignments_{session_};
     model::TempoMap tempo_;
 };
 

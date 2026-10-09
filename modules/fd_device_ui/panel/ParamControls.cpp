@@ -13,7 +13,6 @@ juce::String tooltipFor(const ParamSpec& spec)
 void showParamMenu(DeviceUiContext& context, size_t index, juce::Component& control)
 {
     auto& params = context.params;
-    const auto state = params.automationState(index);
     juce::Component::SafePointer<juce::Component> alive(&control); // the menu outlives a closed panel
     auto whileAlive = [alive](std::function<void()> action) {
         return [safe = alive, run = std::move(action)] {
@@ -24,12 +23,9 @@ void showParamMenu(DeviceUiContext& context, size_t index, juce::Component& cont
     juce::PopupMenu menu;
     if (params.canAutomate(index))
     {
-        menu.addItem("Show automation lane", whileAlive([&params, index] { params.showAutomation(index); }));
-        if (state != AutomationState::None)
-            menu.addItem("Clear automation", whileAlive([&params, index] { params.clearAutomation(index); }));
-        if (state == AutomationState::Off)
-            menu.addItem("Turn automation back on", whileAlive([&params, index] { params.turnAutomationOn(index); }));
-        menu.addSeparator();
+        params.addAutomationItems(index, menu); // they act through the session, not the panel
+        if (menu.getNumItems() > 0)
+            menu.addSeparator();
     }
     const auto def = context.info.params[index].def;
     menu.addItem("Reset to default", whileAlive([&params, index, def] {

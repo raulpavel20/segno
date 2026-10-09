@@ -330,6 +330,30 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
         session_.setLanePoints(lane_->id, points, std::nullopt, "Point value");
     };
     addChildComponent(pointValue_);
+
+    const auto& t = ui::Theme::current();
+    laneName_.setFont(ui::font(ui::TextStyle::Body));
+    laneName_.setIndents(4, 0);
+    laneName_.setJustification(juce::Justification::centredLeft);
+    laneName_.setColour(juce::TextEditor::backgroundColourId, t.surface2);
+    laneName_.setColour(juce::TextEditor::outlineColourId, juce::Colours::transparentBlack);
+    laneName_.setColour(juce::TextEditor::focusedOutlineColourId, juce::Colours::transparentBlack);
+    laneName_.setTooltip("The lane's name: type to rename it (empty: named after what it drives)");
+    auto rename = [this] {
+        if (lane_ && laneName_.getText().toStdString() != lane_->name)
+            session_.renameAutomationLane(lane_->id, laneName_.getText().trim().toStdString());
+    };
+    laneName_.onReturnKey = [rename] {
+        rename();
+        juce::Component::unfocusAllComponents();
+    };
+    laneName_.onFocusLost = rename;
+    laneName_.onEscapeKey = [this] {
+        laneName_.setText(lane_ ? juce::String::fromUTF8(lane_->name.c_str()) : juce::String(), false);
+        unfocusAllComponents();
+    };
+    addChildComponent(laneName_);
+    addChildComponent(assignments_);
 }
 
 void InspectorPanel::setContext(const model::PanelContext& context, const model::TempoMap& tempo,
@@ -349,10 +373,27 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
         pointValue_.setValue(point_->value, juce::dontSendNotification);
     tempo_ = tempo;
     auto has = [this](model::InspectorSection s) { return std::find(sections_.begin(), sections_.end(), s) != sections_.end(); };
+    laneName_.setVisible(has(model::InspectorSection::Lane));
+    if (lane_ && !laneName_.hasKeyboardFocus(true))
+    {
+        laneName_.setText(juce::String::fromUTF8(lane_->name.c_str()), false);
+        laneName_.setTextToShowWhenEmpty(juce::String::fromUTF8(lane_->displayName().c_str()), ui::Theme::current().textTertiary);
+    }
+    assignments_.setLane(has(model::InspectorSection::Assignments) ? lane_ : std::nullopt);
+    assignments_.setVisible(has(model::InspectorSection::Assignments));
     mix_.setChannel(has(model::InspectorSection::Mix) ? channel_ : std::nullopt);
     sends_.setChannel(has(model::InspectorSection::Sends) ? channel_ : std::nullopt, returns);
     resized();
     repaint();
+}
+
+void InspectorPanel::focusLaneName()
+{
+    if (laneName_.isVisible() && laneName_.isShowing())
+    {
+        laneName_.grabKeyboardFocus();
+        laneName_.selectAll();
+    }
 }
 
 void InspectorPanel::clear()
@@ -393,28 +434,10 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
                                           [](const auto& a) { return a.on; })
                                ? juce::String("Off: the values set by hand")
                                : juce::String("Some off");
-        return {{"Name", juce::String::fromUTF8(lane_->displayName().c_str())},
+        return {{"Name", {}}, // the field
                 {"Points", juce::String(static_cast<int>(lane_->points.size())), true},
                 {"Value", now ? juce::String::fromUTF8(session_.laneText(lane_->id, *now).c_str()) : juce::String(), true},
                 {"Plays", plays}};
-    }
-    case S::Assignments:
-    {
-        if (!lane_)
-            return {};
-        if (lane_->assignments.empty())
-            return {{"None", "Assign a parameter"}};
-        std::vector<ui::Property> rows;
-        for (const auto& a : lane_->assignments)
-        {
-            const engine::Session::ParamTarget target{a.channel, a.key};
-            auto range = juce::String::fromUTF8(session_.paramText(target, a.range.from).c_str()) +
-                         juce::String::fromUTF8(" \xE2\x80\x93 ") +
-                         juce::String::fromUTF8(session_.paramText(target, a.range.to).c_str());
-            rows.push_back({juce::String::fromUTF8((a.channelName + " \xE2\x80\xBA " + a.name).c_str()),
-                            a.on ? range : range + " (off)", true});
-        }
-        return rows;
     }
     case S::Clip:
         if (!clip_)
@@ -434,7 +457,8 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
     case S::Return: return {{"Name", name}, {"Modules", modules, true}};
     case S::Master: return {{"Modules", modules, true}};
     case S::Mix:
-    case S::Sends: break;
+    case S::Sends:
+    case S::Assignments: break; // components
     }
     return {};
 }
@@ -454,19 +478,28 @@ void InspectorPanel::resized()
     std::vector<ui::SectionStack::Section> sections;
     for (const auto s : sections_)
     {
-        const int height = s == S::Mix     ? mix_.preferredHeight()
-                           : s == S::Sends ? sends_.preferredHeight()
-                                           : static_cast<int>(properties(s).size()) * t.shell.rowHeight;
+        const int height = s == S::Mix           ? mix_.preferredHeight()
+                           : s == S::Sends       ? sends_.preferredHeight()
+                           : s == S::Assignments ? assignments_.preferredHeight()
+                                                 : static_cast<int>(properties(s).size()) * t.shell.rowHeight;
         sections.push_back({titles.at(s), height});
     }
     stack_.layout(r, sections);
     mix_.setBounds({});
     sends_.setBounds({});
+    assignments_.setBounds({});
     for (size_t i = 0; i < sections_.size(); ++i)
         if (sections_[i] == S::Mix)
             mix_.setBounds(stack_.content(i));
         else if (sections_[i] == S::Sends)
             sends_.setBounds(stack_.content(i));
+        else if (sections_[i] == S::Assignments)
+            assignments_.setBounds(stack_.content(i));
+        else if (sections_[i] == S::Lane) // the Name row
+            laneName_.setBounds(stack_.content(i)
+                                    .withTrimmedLeft(t.shell.propertyLabelWidth)
+                                    .withHeight(t.shell.rowHeight)
+                                    .reduced(0, 2));
         else if (sections_[i] == S::Point) // the Value row
             pointValue_.setBounds(stack_.content(i)
                                       .withTrimmedLeft(t.shell.propertyLabelWidth)

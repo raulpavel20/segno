@@ -2,11 +2,29 @@
 
 namespace fd::app
 {
+namespace
+{
+juce::String utf8(const std::string& s)
+{
+    return juce::String::fromUTF8(s.c_str());
+}
+
+juce::String kindOf(const model::TrackInfo& channel)
+{
+    switch (channel.role)
+    {
+    case model::TrackInfo::Role::Track: return "Track";
+    case model::TrackInfo::Role::Return: return "Return track";
+    case model::TrackInfo::Role::Master: return "Master";
+    }
+    return {};
+}
+} // namespace
+
 LanePicker::LanePicker(engine::Session& session) : session_(session)
 {
     const auto& t = ui::Theme::current();
     search_.setFont(ui::font(ui::TextStyle::Field));
-    search_.setTextToShowWhenEmpty("Type a parameter", t.textTertiary);
     search_.setIndents(10, 0);
     search_.setJustification(juce::Justification::centredLeft);
     search_.setColour(juce::TextEditor::backgroundColourId, t.surface2);
@@ -21,12 +39,27 @@ LanePicker::LanePicker(engine::Session& session) : session_(session)
 
 void LanePicker::open(juce::Component& parent, std::uint64_t channel, std::uint64_t after)
 {
-    channel_ = channel;
+    mode_ = Mode::Add;
     after_ = after;
-    choices_ = session_.automatableParameters(channel);
-    items_.clear();
-    for (const auto& c : choices_)
-        items_.push_back({c.key, c.name, c.module});
+    lane_ = 0;
+    search_.setTextToShowWhenEmpty("Type a parameter to automate", ui::Theme::current().textTertiary);
+    setChannel(channel);
+    openIn(parent);
+}
+
+void LanePicker::openToAssign(juce::Component& parent, std::uint64_t lane, std::uint64_t channel)
+{
+    mode_ = Mode::Assign;
+    lane_ = lane;
+    const auto* l = session_.snapshot()->automationLane(lane);
+    search_.setTextToShowWhenEmpty("Type a parameter for " + (l != nullptr ? utf8(l->displayName()) : juce::String("the lane")),
+                                   ui::Theme::current().textTertiary);
+    setChannel(channel);
+    openIn(parent);
+}
+
+void LanePicker::openIn(juce::Component& parent)
+{
     if (getParentComponent() != &parent)
         parent.addChildComponent(this);
     search_.clear();
@@ -49,6 +82,17 @@ void LanePicker::close()
         parent->grabKeyboardFocus();
 }
 
+void LanePicker::setChannel(std::uint64_t channel)
+{
+    channel_ = channel;
+    choices_ = session_.automatableParameters(channel);
+    items_.clear();
+    for (const auto& c : choices_)
+        items_.push_back({c.key, c.name, c.module});
+    selected_ = 0;
+    update();
+}
+
 void LanePicker::setQuery(const juce::String& text)
 {
     search_.setText(text, true);
@@ -60,7 +104,25 @@ std::vector<std::string> LanePicker::shownLanes() const
     std::vector<std::string> out;
     for (auto i : shown_)
         out.push_back(items_[i].id);
+    if (mode_ == Mode::Add)
+        out.emplace_back(); // the empty lane
     return out;
+}
+
+void LanePicker::setSelectedRow(int row)
+{
+    selected_ = std::clamp(row, 0, std::max(0, rowCount() - 1));
+    repaint();
+}
+
+int LanePicker::rowCount() const noexcept
+{
+    return static_cast<int>(shown_.size()) + (mode_ == Mode::Add ? 1 : 0);
+}
+
+bool LanePicker::isEmptyLaneRow(int row) const noexcept
+{
+    return mode_ == Mode::Add && row == static_cast<int>(shown_.size());
 }
 
 void LanePicker::update()
@@ -68,11 +130,11 @@ void LanePicker::update()
     shown_ = model::rankPalette(search_.getText().toStdString(), items_, {});
     if (shown_.size() > static_cast<size_t>(maxRows))
         shown_.resize(static_cast<size_t>(maxRows));
-    selected_ = std::clamp(selected_, 0, std::max(0, static_cast<int>(shown_.size()) - 1));
+    selected_ = std::clamp(selected_, 0, std::max(0, rowCount() - 1));
     if (auto* parent = getParentComponent())
     {
         const auto& sh = ui::Theme::current().shell;
-        const int h = rowArea(0).getY() + static_cast<int>(std::max<size_t>(1, shown_.size())) * sh.listRowHeight + sh.barPadding;
+        const int h = rowArea(0).getY() + std::max(1, rowCount()) * sh.listRowHeight + sh.barPadding;
         setBounds(juce::Rectangle<int>(sh.popoverWidth, h).withCentre({parent->getWidth() / 2, 0}).withY(sh.popoverTop));
     }
     repaint();
@@ -80,19 +142,52 @@ void LanePicker::update()
 
 void LanePicker::chooseSelected()
 {
-    if (shown_.empty())
+    if (selected_ >= rowCount())
         return;
-    const engine::Session::ParamTarget target{channel_, items_[shown_[static_cast<size_t>(selected_)]].id};
+    const auto row = selected_;
+    const auto empty = isEmptyLaneRow(row);
+    const engine::Session::ParamTarget target{channel_, empty ? std::string() : items_[shown_[static_cast<size_t>(row)]].id};
     close();
-    if (const auto lane = session_.addAutomationLane(after_, target); lane != 0 && onChosen)
+    std::uint64_t lane = 0;
+    if (mode_ == Mode::Assign)
+        lane = session_.assign(lane_, target) ? lane_ : 0;
+    else
+        lane = empty ? session_.addAutomationLane(after_) : session_.addAutomationLane(after_, target);
+    if (lane != 0 && onChosen)
         onChosen(lane);
+}
+
+void LanePicker::showChannelMenu()
+{
+    // Every channel: the tracks, the return tracks, the master.
+    const auto snapshot = session_.snapshot();
+    juce::PopupMenu menu;
+    auto add = [&](const model::TrackInfo& c) {
+        menu.addItem(utf8(c.name), true, c.id == channel_, [this, safe = juce::Component::SafePointer(this), id = c.id] {
+            if (safe != nullptr && isOpen())
+            {
+                setChannel(id);
+                search_.grabKeyboardFocus();
+            }
+        });
+    };
+    for (const auto& t : snapshot->tracks)
+        add(t);
+    if (!snapshot->returns.empty())
+        menu.addSeparator();
+    for (const auto& r : snapshot->returns)
+        add(r);
+    menu.addSeparator();
+    add(snapshot->master);
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withTargetScreenArea(
+        localAreaToGlobal(channelArea())));
 }
 
 bool LanePicker::keyPressed(const juce::KeyPress& key, juce::Component*)
 {
     if (key == juce::KeyPress::downKey || key == juce::KeyPress::upKey)
     {
-        const int n = static_cast<int>(shown_.size());
+        const int n = rowCount();
         if (n > 0)
             selected_ = (selected_ + (key == juce::KeyPress::downKey ? 1 : n - 1)) % n;
         repaint();
@@ -101,10 +196,18 @@ bool LanePicker::keyPressed(const juce::KeyPress& key, juce::Component*)
     return false;
 }
 
-juce::Rectangle<int> LanePicker::rowArea(int row) const
+juce::Rectangle<int> LanePicker::channelArea() const
 {
     const auto& sh = ui::Theme::current().shell;
     const int top = 2 * sh.barPadding + sh.listRowHeight + 8;
+    return {sh.barPadding, top, getWidth() - 2 * sh.barPadding, sh.listRowHeight};
+}
+
+juce::Rectangle<int> LanePicker::rowArea(int row) const
+{
+    const auto& sh = ui::Theme::current().shell;
+    const auto channel = channelArea();
+    const int top = channel.getBottom() + sh.itemGap;
     return {sh.barPadding, top + row * sh.listRowHeight, getWidth() - 2 * sh.barPadding, sh.listRowHeight};
 }
 
@@ -116,27 +219,43 @@ void LanePicker::resized()
 
 void LanePicker::paint(juce::Graphics& g)
 {
+    const auto& t = ui::Theme::current();
     ui::paintPopover(g, getLocalBounds());
-    if (shown_.empty())
+    // The channel row: whose parameters these are; a click switches.
+    const auto snapshot = session_.snapshot();
+    if (const auto* c = snapshot->channel(channel_))
+        ui::paintListRow(g, channelArea(),
+                         {.name = utf8(c->name), .caption = kindOf(*c), .shortcut = juce::String::fromUTF8("Switch \xE2\x96\xBE")});
+    g.setColour(t.line);
+    g.fillRect(channelArea().withY(channelArea().getBottom() + t.shell.itemGap / 2).withHeight(1));
+
+    const auto* target = mode_ == Mode::Assign ? snapshot->automationLane(lane_) : nullptr;
+    for (int i = 0; i < rowCount(); ++i)
     {
-        ui::paintListRow(g, rowArea(0), {.name = "No parameter by that name", .enabled = false});
-        return;
-    }
-    for (int i = 0; i < static_cast<int>(shown_.size()); ++i)
-    {
+        if (isEmptyLaneRow(i))
+        {
+            ui::paintListRow(g, rowArea(i),
+                             {.name = "Empty automation lane", .caption = "Assign parameters later", .selected = i == selected_});
+            continue;
+        }
         const auto& c = choices_[shown_[static_cast<size_t>(i)]];
+        auto caption = utf8(c.module);
+        if (const auto* on = snapshot->automationLane(c.lane); on != nullptr && on != target)
+            caption += juce::String::fromUTF8(" \xC2\xB7 on ") + utf8(on->displayName());
         ui::paintListRow(g, rowArea(i),
-                         {.name = juce::String::fromUTF8(c.name.c_str()),
-                          .caption = juce::String::fromUTF8(c.module.c_str()),
-                          .shortcut = juce::String::fromUTF8(c.valueText.c_str()),
-                          .toggled = c.lane != 0,
+                         {.name = utf8(c.name),
+                          .caption = caption,
+                          .shortcut = utf8(c.valueText),
+                          .toggled = target != nullptr && c.lane == target->id,
                           .selected = i == selected_});
     }
+    if (shown_.empty() && mode_ == Mode::Assign)
+        ui::paintListRow(g, rowArea(0), {.name = "No parameter by that name", .enabled = false});
 }
 
 void LanePicker::mouseMove(const juce::MouseEvent& e)
 {
-    for (int i = 0; i < static_cast<int>(shown_.size()); ++i)
+    for (int i = 0; i < rowCount(); ++i)
         if (rowArea(i).contains(e.getPosition()) && selected_ != i)
         {
             selected_ = i;
@@ -146,7 +265,12 @@ void LanePicker::mouseMove(const juce::MouseEvent& e)
 
 void LanePicker::mouseDown(const juce::MouseEvent& e)
 {
-    for (int i = 0; i < static_cast<int>(shown_.size()); ++i)
+    if (channelArea().contains(e.getPosition()))
+    {
+        showChannelMenu();
+        return;
+    }
+    for (int i = 0; i < rowCount(); ++i)
         if (rowArea(i).contains(e.getPosition()))
         {
             selected_ = i;

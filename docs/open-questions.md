@@ -69,7 +69,7 @@ Decisions still to be made. Once a question is answered, record the answer in an
 | B38 | **Steps on a lane** | C4d | Product owner, 2026-10-09: agreed. Only when its one assignment is stepped and full-range; otherwise stepped parameters play the curve as steps |
 | B39 | **Recording into a partial range** | C4d | Product owner, 2026-10-09: agreed. Clipped to the range |
 | B40 | **Control menus** | C4d | Product owner, 2026-10-09: agreed. Remove from a lane rather than clear its points (they belong to the lane); assign to a lane; automate in a new lane |
-| B41 | **Deleting a track or module** (not built yet) must take its lane assignments, and re-anchor lanes that sit after a deleted track, in the same undo step | When track and module deletion arrive | Until then, opening a project prunes dangling assignments, and a lane whose track is gone sits after the last track |
+| B41 | **Deleting a track** (not built yet) must take its lane assignments, and re-anchor lanes that sit after it, in the same undo step | When track deletion arrives | Removing a module already takes its assignments in the same step (C4d). Until track deletion, opening a project prunes dangling assignments, and a lane whose track is gone sits after the last track |
 
 ---
 

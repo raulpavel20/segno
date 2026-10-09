@@ -292,6 +292,9 @@ public:
     /// lane"; onLaneRevealed).
     void revealLane(std::uint64_t lane);
     std::function<void(std::uint64_t lane)> onLaneRevealed;
+    /// Adds a parameter's automation items to a control's menu (set by the UI, which owns the
+    /// menu's wording; module panels reach it through their binding).
+    std::function<void(const ParamTarget& target, juce::PopupMenu& menu)> automationMenu;
 
     /// A gesture on a channel's mix parameter (a drag of a volume, pan or send control): one undo
     /// step named `name` and, while recording, a touch on its parameter.

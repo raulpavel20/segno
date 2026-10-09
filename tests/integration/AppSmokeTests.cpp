@@ -9,6 +9,7 @@
 #include "model/Editing.h"
 #include "model/ChannelStripLayout.h"
 #include "model/Selection.h"
+#include "ui/AutomationMenu.h"
 #include "ui/ChannelControls.h"
 #include "ui/ChannelInspector.h"
 #include "ui/DeviceChain.h"
@@ -130,6 +131,28 @@ TEST_CASE("DAW shell builds and paints offscreen at standard and compact widths"
 namespace
 {
 /// Every child of `root` (depth first) of type T.
+/// Runs a menu item by its text, in submenus too ("Assign to automation lane" > "Swell"); false
+/// if there's none.
+bool invoke(const juce::PopupMenu& menu, const juce::String& text, const juce::String& in = {})
+{
+    for (juce::PopupMenu::MenuItemIterator it(menu); it.next();)
+    {
+        auto& item = it.getItem();
+        if (item.subMenu != nullptr)
+        {
+            if ((in.isEmpty() || item.text == in) && invoke(*item.subMenu, text))
+                return true;
+            continue;
+        }
+        if (in.isEmpty() && item.text == text && item.isEnabled && item.action)
+        {
+            item.action();
+            return true;
+        }
+    }
+    return false;
+}
+
 template <typename T>
 std::vector<T*> findAll(juce::Component& root)
 {
@@ -1120,8 +1143,10 @@ TEST_CASE("automation lanes: rows among the tracks, made with the picker, edited
     CHECK(view.selection().points == std::set<size_t>{0});
     auto& inspector = f.shell->inspector();
     CHECK(inspector.sections() == std::vector{S::Point, S::Lane, S::Assignments}); // a lane belongs to no track
-    // The inspector's value field types a point's value.
+    // The inspector's value field types a point's value (the others are the assignments' ranges).
     auto fields = findAll<fd::ui::NumberField>(inspector);
+    fields.erase(std::remove_if(fields.begin(), fields.end(), [&](auto* field) { return field->getParentComponent() != &inspector; }),
+                 fields.end());
     REQUIRE(fields.size() == 1);
     fields[0]->setValue(0.25, juce::sendNotification);
     s.updateSnapshotNow();
@@ -1184,6 +1209,101 @@ TEST_CASE("automation lanes: rows among the tracks, made with the picker, edited
     CHECK(state["rowHeights"]["a" + std::to_string(freqLane)] == Catch::Approx(80.0));
 }
 
+TEST_CASE("automation lanes: the picker's channel row and assign mode, the inspector's assignments, menus (C4d)",
+          "[integration]")
+{
+    ShellFixture f;
+    f.shell->setSize(1800, 1000);
+    auto& view = f.shell->arrangement();
+    auto& actions = f.shell->actions();
+    auto& s = *f.session;
+    const auto snap = s.snapshot();
+    const auto t0 = snap->tracks[0].id, t1 = snap->tracks[1].id;
+    auto& picker = f.shell->lanePicker();
+
+    // An empty lane from the picker's last row, right under the selected track.
+    view.selectTrack(t0);
+    REQUIRE(actions.perform("automation.addLane"));
+    REQUIRE(picker.isOpen());
+    CHECK(picker.channel() == t0);
+    const auto rows = picker.shownLanes();
+    REQUIRE(rows.back().empty()); // "Empty automation lane"
+    picker.setSelectedRow(static_cast<int>(rows.size()) - 1);
+    picker.chooseSelected();
+    s.updateSnapshotNow();
+    REQUIRE(view.selection().lane);
+    const auto lane = *view.selection().lane;
+    CHECK(s.snapshot()->automationLane(lane)->assignments.empty());
+    CHECK(s.snapshot()->automationLane(lane)->after == t0);
+    CHECK_FALSE(view.selection().channel); // nothing assigned: no channel
+
+    // Ctrl+Alt+Shift+L assigns to the selected lane; the channel row switches to another track.
+    REQUIRE(actions.isEnabled("automation.assign"));
+    REQUIRE(actions.perform("automation.assign"));
+    REQUIRE(picker.isOpen());
+    CHECK(picker.channel() == t0); // the track the lane follows
+    picker.setChannel(t1);
+    picker.setQuery("pan");
+    REQUIRE(picker.shownLanes().front() == "pan");
+    picker.chooseSelected();
+    CHECK(s.undoDescription() == "Assign parameter");
+    s.updateSnapshotNow();
+    REQUIRE(s.laneOf({t1, "pan"}) == lane);
+    CHECK(view.selection().channel == t1); // now its first assignment's channel
+
+    // The inspector edits what it drives: a second parameter, its range (typed, in its units)
+    // and on switch, and taking it off.
+    REQUIRE(s.assign(lane, {t0, "volume"}));
+    s.updateSnapshotNow();
+    auto& assignments = f.shell->inspector().assignments();
+    REQUIRE(assignments.isVisible());
+    auto fields = findAll<fd::ui::NumberField>(assignments);
+    REQUIRE(fields.size() == 4); // from and to, for each
+    fields[3]->setValue(*s.paramFromText({t0, "volume"}, "-6 dB"), juce::sendNotification);
+    s.updateSnapshotNow();
+    const auto* volume = s.snapshot()->automationLane(lane)->assignment(t0, "volume");
+    REQUIRE(volume != nullptr);
+    CHECK(*s.paramPlain({t0, "volume"}, volume->range.to) == Catch::Approx(-6.0).margin(0.05));
+    CHECK(s.undoDescription() == "Assignment range");
+    auto toggles = findAll<fd::ui::Toggle>(assignments); // the on switches, and Assign parameter...
+    toggles.erase(std::remove_if(toggles.begin(), toggles.end(), [](auto* t) { return t->getButtonText().isNotEmpty(); }),
+                  toggles.end());
+    REQUIRE(toggles.size() == 2);
+    toggles[1]->onClick(); // the volume's on switch
+    s.updateSnapshotNow();
+    CHECK_FALSE(s.snapshot()->automationLane(lane)->assignment(t0, "volume")->on);
+    auto removes = findAll<fd::ui::IconButton>(assignments);
+    REQUIRE(removes.size() == 2);
+    removes[1]->onClick();
+    s.updateSnapshotNow();
+    CHECK(s.snapshot()->automationLane(lane)->assignments.size() == 1);
+
+    // The lane's name, typed in the inspector.
+    auto editors = findAll<juce::TextEditor>(f.shell->inspector());
+    REQUIRE_FALSE(editors.empty());
+    editors[0]->setText("Wobble", false);
+    editors[0]->onReturnKey();
+    s.updateSnapshotNow();
+    CHECK(s.snapshot()->automationLane(lane)->displayName() == "Wobble");
+    CHECK(s.undoDescription() == "Rename automation lane");
+
+    // A mixer control's menu: assigning it to a lane moves it there, with that lane ticked.
+    fd::app::VolumeBar bar(s, t1);
+    juce::PopupMenu menu;
+    fd::app::addAutomationItems(s, {t1, "volume"}, menu);
+    REQUIRE(invoke(menu, "Wobble", "Assign to automation lane"));
+    CHECK(s.laneOf({t1, "volume"}) == lane);
+    s.updateSnapshotNow();
+    juce::PopupMenu again;
+    fd::app::addAutomationItems(s, {t1, "volume"}, again);
+    bool ticked = false;
+    for (juce::PopupMenu::MenuItemIterator it(again, true); it.next();)
+        ticked = ticked || (it.getItem().text == "Wobble" && it.getItem().isTicked);
+    CHECK(ticked);
+    REQUIRE(invoke(again, "Automate in a new lane"));
+    CHECK(s.laneOf({t1, "volume"}) != lane);
+}
+
 TEST_CASE("automated controls: the indicator, their menu, following the lane, the transport (C4c)", "[integration]")
 {
     using fd::ui::AutomationState;
@@ -1212,10 +1332,16 @@ TEST_CASE("automated controls: the indicator, their menu, following the lane, th
 
     // "Show automation lane" from a control: its lane, selected, in the arrangement (even from
     // the mixer view).
-    const auto lane = s.automateInNewLane({t0, "m" + std::to_string(eq) + "/band1.freq"});
+    juce::PopupMenu fresh;
+    ctx.params.addAutomationItems(freq, fresh);
+    REQUIRE(invoke(fresh, "Automate in a new lane"));
+    s.updateSnapshotNow();
+    const auto lane = s.laneOf({t0, "m" + std::to_string(eq) + "/band1.freq"}).value_or(0);
     REQUIRE(lane != 0);
     REQUIRE(actions.perform("view.mixer"));
-    ctx.params.showAutomation(freq);
+    juce::PopupMenu menu;
+    ctx.params.addAutomationItems(freq, menu);
+    REQUIRE(invoke(menu, "Show automation lane"));
     s.updateSnapshotNow();
     CHECK_FALSE(actions.isToggled("view.mixer"));
     CHECK(f.shell->arrangement().selection().lane == lane);
@@ -1239,7 +1365,9 @@ TEST_CASE("automated controls: the indicator, their menu, following the lane, th
     s.updateSnapshotNow();
     CHECK(ctx.params.automationState(freq) == AutomationState::On);
     CHECK_FALSE(actions.isEnabled("automation.reEnable"));
-    ctx.params.clearAutomation(freq);
+    juce::PopupMenu assigned;
+    ctx.params.addAutomationItems(freq, assigned);
+    REQUIRE(invoke(assigned, "Remove from automation lane"));
     s.updateSnapshotNow();
     CHECK(ctx.params.automationState(freq) == AutomationState::None);
 

@@ -70,6 +70,8 @@ public:
     std::function<void()> onLaneActivated;
     /// "Add automation lane..." from a track's header menu: after the track, for its parameters.
     std::function<void(std::uint64_t track)> onAddLane;
+    /// A lane header's "Assign parameter..." and "Rename...".
+    std::function<void(std::uint64_t lane)> onAssignLane, onRenameLane;
     /// Something worth telling the user (shown in the shell, never modal).
     std::function<void(const juce::String&)> onMessage;
     /// A clip was double-clicked or created: show it in the clip view.

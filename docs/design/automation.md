@@ -2,7 +2,7 @@
 
 How parameters change over time in Segno: automation lanes in the arrangement, what they drive, breakpoints and curves, recording moves while playing, and how automated controls look and behave. The decisions are [ADR 0028](../decisions/0028-automation-lanes.md) (the engine, the scale, the controls) and [ADR 0029](../decisions/0029-independent-automation-lanes.md) (lanes are rows of their own, with assignments). It builds on the track header kit and the time-view kit ([ui-foundations.md](ui-foundations.md), ADR 0023), the selection model ([selection.md](selection.md), ADR 0027), the mixer ([mixer.md](mixer.md), ADR 0026) and the reserved gradient (ui-principles §4).
 
-**Status:** C4a–C4c approved and built (2026-10-09). After the product owner's first test, lanes became independent rows with assignments (ADR 0029, approved 2026-10-09, with every recommendation of §14): part C4d (§15).
+**Status:** C4a–C4c approved and built (2026-10-09). After the product owner's first test, lanes became independent rows with assignments (ADR 0029, approved 2026-10-09, with every recommendation of §14): part C4d (§15), built 2026-10-09, awaiting the product owner's feel check.
 
 ## 1. Principles
 
@@ -177,7 +177,7 @@ Each tool comes with a test that drives it through MCP (ADR 0021). A **lane** is
 | `clear_automation` | `lane` or a parameter, `from?`, `to?` | Removes points; by parameter it refuses on a lane with other assignments (use the lane, or `unassign_automation`) |
 | `set_automation_on` | `lane`, a parameter, or `all` | Turns assignments back on (or off). Not an undo step |
 
-`get_project` lists `automationLanes` (id, name, after, point count, whether it plays, and each assignment's track, module, parameter, return, range as values and text, and on), and `get_module` gives each parameter's `automation` (its lane, point count, range, on). Assistants never read or change whether lanes are shown (view state).
+`get_project` lists `automationLanes` (`lane`, its id; name, after, point count, whether it plays, and each assignment's track, module, parameter, return, range as values and text, and on), and `get_module` gives each parameter's `automation` (its lane, point count, range, on). Assistants never read or change whether lanes are shown (view state).
 
 ## 12. Model and view
 
@@ -223,7 +223,7 @@ Each tool comes with a test that drives it through MCP (ADR 0021). A **lane** is
 | **C4a Engine and model** | Engine patches; normalised parameters and the taper; per-parameter curves; recording passes; MCP | Built |
 | **C4b Lanes in the arrangement** | Rows; lane headers; drawing; editing; selection | Built (rows under their track, superseded by C4d) |
 | **C4c Controls and recording** | The indicator, menus, following, the transport buttons | Built |
-| **C4d Independent lanes** | Lanes as rows of their own with assignments and ranges; storage, derivation, conversion, recording into lanes; the picker's channel row and modes; the inspector's assignments; control menus; MCP lane tools; popovers that close on an outside click | Building |
+| **C4d Independent lanes** | Lanes as rows of their own with assignments and ranges; storage, derivation, conversion, recording into lanes; the picker's channel row and modes; the inspector's assignments; control menus; MCP lane tools; popovers that close on an outside click | Built |
 
 ## 16. Tests (Done when)
 
@@ -236,5 +236,5 @@ Each tool comes with a test that drives it through MCP (ADR 0021). A **lane** is
 - **Projects:** lanes, ids, order, ranges and on/off survive saving and opening without an unsaved mark; a format-2 project converts and sounds the same; deleted modules' assignments are pruned.
 - **Played values** never mark the project unsaved or rebuild a snapshot; editing a lane never rebuilds the playback graph.
 - **MCP:** each tool in §11.
-- **Performance:** 64 tracks with two lanes each within the frame budget (Release benchmark).
+- **Performance:** 64 tracks with two lanes each within the frame budget (`[.benchmark]`, Release, software renderer: p95 about 3.5 ms at 1700 × 720).
 - **Manual:** [manual-tests/M2.md](../manual-tests/M2.md), "Automation (C4)".

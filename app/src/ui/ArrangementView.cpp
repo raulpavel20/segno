@@ -1344,8 +1344,17 @@ void ArrangementView::headerMenu(int row)
     {
         const auto id = lane->id;
         const bool on = lane->allOn();
+        menu.addItem("Rename...", [this, id] {
+            if (onRenameLane)
+                onRenameLane(id);
+        });
+        menu.addItem("Assign parameter...", [this, id] {
+            if (onAssignLane)
+                onAssignLane(id);
+        });
         menu.addItem(on ? "Turn lane off" : "Turn lane on", !lane->points.empty() && !lane->assignments.empty(), false,
                      [this, id, on] { session_.setLaneOn(id, !on); });
+        menu.addSeparator();
         menu.addItem("Remove automation lane", [this, id] {
             session_.removeAutomationLane(id);
             if (selection_.lane == id)

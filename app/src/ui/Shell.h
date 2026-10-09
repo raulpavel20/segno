@@ -104,8 +104,14 @@ private:
     // The arrangement's detail mode: picked when the subject changes, then Tab's (selection.md §4).
     DetailPanel::Mode arrangeMode_ = DetailPanel::Mode::Devices;
     std::optional<model::PanelContext::Key> subject_;
+    /// For a selected lane: the channel whose module the detail panel shows, when one of its other
+    /// assignments was clicked in the inspector (else its first assignment's).
+    std::optional<std::uint64_t> laneDetailChannel_;
     CommandPalette palette_{actions_};
     LanePicker lanePicker_{session_};
+    /// The picker, assigning a parameter to `lane` (for its first assignment's channel, else the
+    /// track it follows).
+    void assignToLane(std::uint64_t lane);
 
     Panel browserPanel_{.open = true, .shown = 1.0f, .size = 220.0f};
     Panel inspectorPanel_{.open = true, .shown = 1.0f, .size = 260.0f};

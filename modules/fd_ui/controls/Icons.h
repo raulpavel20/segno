@@ -23,7 +23,8 @@ enum class Icon
     ChevronRight, // unfold
     Assistant,    // assistants connected over MCP (a spark)
     AutomationArm, // automation arm: a lane's line with a point (C4)
-    AutomationOn   // turn automation back on: the line with a turning arrow
+    AutomationOn,  // turn automation back on: the line with a turning arrow
+    Close          // remove or close: a cross
 };
 
 /// Draws `icon` fitted (aspect kept) into `area` in `colour`.

@@ -95,6 +95,8 @@ target_sources(fd_app_ui INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ArrangementView.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/AutomationLane.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/LaneControls.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/LaneAssignments.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/AutomationMenu.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/LanePicker.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ChannelControls.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ChannelInspector.cpp"

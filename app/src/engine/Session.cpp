@@ -104,21 +104,10 @@ class SessionDeviceBinding final : public DevicePluginBinding
 public:
     SessionDeviceBinding(Session& session, DevicePlugin& plugin) : DevicePluginBinding(plugin), session_(session) {}
 
-    void showAutomation(size_t i) override
+    void addAutomationItems(size_t i, juce::PopupMenu& menu) override
     {
-        if (const auto t = target(i))
-            if (const auto lane = session_.laneOf(*t))
-                session_.revealLane(*lane);
-    }
-    void clearAutomation(size_t i) override
-    {
-        if (const auto t = target(i))
-            session_.unassign(*t);
-    }
-    void turnAutomationOn(size_t i) override
-    {
-        if (const auto t = target(i))
-            session_.setAssignmentOn(*t, true);
+        if (const auto t = target(i); t && session_.automationMenu)
+            session_.automationMenu(*t, menu);
     }
 
 private:
