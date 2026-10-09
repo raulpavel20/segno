@@ -2,7 +2,7 @@
 
 What you select, and what the context panels (the detail panel at the bottom and the inspector at the right) show for it, in the arrangement and in the mixer view. The decision is [ADR 0027](../decisions/0027-selection-and-context-panels.md). It refines how the panels behave around the mixer view ([ADR 0026](../decisions/0026-mixing-in-the-arrangement.md), [mixer.md](mixer.md)) and builds on the shell ([daw-shell.md](daw-shell.md)) and the UI principles ("context, not dialogs").
 
-**Status:** approved by the product owner (2026-10-09), after the feel check of the mixer found the panels confusing.
+**Status:** approved by the product owner (2026-10-09), after the feel check of the mixer found the panels confusing. Built (2026-10-09); awaiting the product owner's feel check.
 
 ## 1. One selection
 

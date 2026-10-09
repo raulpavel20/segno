@@ -26,6 +26,9 @@ public:
     void setTrack(std::optional<model::TrackInfo> track);
 
     [[nodiscard]] bool hasSelection() const noexcept { return selected_.has_value(); }
+    /// The channel whose chain is shown, and the selected module (nullopt: none).
+    [[nodiscard]] std::optional<std::uint64_t> track() const noexcept { return track_; }
+    [[nodiscard]] std::optional<std::uint64_t> selectedDevice() const noexcept { return selected_; }
     void deleteSelected();
     /// Selects a module and scrolls it into view (the mixer view's module names).
     void selectDevice(std::uint64_t id);

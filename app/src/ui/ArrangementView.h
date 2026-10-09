@@ -3,6 +3,7 @@
 #include "engine/Session.h"
 #include "ui/ChannelControls.h"
 #include "model/Editing.h"
+#include "model/Selection.h"
 #include "model/Timeline.h"
 #include "model/TrackLayout.h"
 #include "ui/WaveformCache.h"
@@ -48,12 +49,18 @@ public:
     void setSnapEnabled(bool on) noexcept { snap_ = on; }
     [[nodiscard]] bool isSnapEnabled() const noexcept { return snap_; }
 
-    /// The selected channel: a track, a return track or the master.
-    [[nodiscard]] std::optional<std::uint64_t> selectedTrack() const noexcept { return selectedTrack_; }
-    void selectTrack(std::optional<std::uint64_t> track) { select(track); }
-    [[nodiscard]] const std::set<std::uint64_t>& selectedClips() const noexcept { return selectedClips_; }
-    /// Track or clip selection changed.
-    std::function<void(std::optional<std::uint64_t>)> onSelectionChanged;
+    /// The window's one selection (docs/design/selection.md, ADR 0027): a channel (a track, a
+    /// return track or the master) and clips, the channel always the one of what was selected
+    /// last. The mixer view shares it.
+    [[nodiscard]] const model::Selection& selection() const noexcept { return selection_; }
+    void setSelection(model::Selection selection);
+    /// Selects a channel alone (clearing the clips), as a click on its header does.
+    void selectTrack(std::optional<std::uint64_t> channel) { setSelection({.channel = channel}); }
+    [[nodiscard]] std::optional<std::uint64_t> selectedTrack() const noexcept { return selection_.channel; }
+    [[nodiscard]] const std::set<std::uint64_t>& selectedClips() const noexcept { return selection_.clips; }
+    /// The selection changed: once per action (a drag tells when it ends). A new snapshot prunes
+    /// it without telling; the owner reads it after setSnapshot().
+    std::function<void()> onSelectionChanged;
     /// Called when the arrangement is clicked (the shell routes Delete to the area used last).
     std::function<void()> onActivated;
     /// Something worth telling the user (shown in the shell, never modal).
@@ -74,7 +81,7 @@ public:
     std::uint64_t createMidiClip(int trackIndex, double seconds, bool bypassSnap = false);
     /// The same at the playhead on the selected track.
     std::uint64_t createMidiClipAtPlayhead();
-    [[nodiscard]] bool hasClipSelection() const noexcept { return !selectedClips_.empty(); }
+    [[nodiscard]] bool hasClipSelection() const noexcept { return !selection_.clips.empty(); }
 
     [[nodiscard]] const model::Timeline& timeline() const noexcept { return timeline_; }
     [[nodiscard]] WaveformCache& waveforms() noexcept { return waveforms_; }
@@ -120,8 +127,12 @@ private:
     [[nodiscard]] juce::Rectangle<int> laneArea() const;
     [[nodiscard]] float laneX(double seconds) const;
     [[nodiscard]] double snapped(double seconds, bool bypass) const;
-    void select(std::optional<std::uint64_t> track);
-    void setClipSelection(std::set<std::uint64_t> clips);
+    /// Shows a selection without telling the owner yet (during a gesture); notifySelection()
+    /// tells it, once, if anything changed since it was last told.
+    void setQuietly(model::Selection selection);
+    void notifySelection();
+    /// The rows and their header controls, for the current snapshot.
+    void syncRows();
     [[nodiscard]] std::function<double(double)> snapFunction(bool bypass) const;
     void paintClip(juce::Graphics& g, const model::ClipInfo& clip, float y, float h, juce::Rectangle<int> area,
                    juce::Rectangle<int> visible, bool selected);
@@ -160,9 +171,7 @@ private:
     double lastPaintMs_ = 0.0;
     time::PlayheadTracker playheadTracker_;
     bool snap_ = true;
-    std::optional<std::uint64_t> selectedTrack_;
-
-    std::set<std::uint64_t> selectedClips_;
+    model::Selection selection_, notified_;
 
     [[nodiscard]] juce::Rectangle<int> loopStripArea() const;
     enum class LoopZone { None, Body, Start, End };
@@ -185,6 +194,7 @@ private:
     bool dragMoved_ = false;
     std::vector<model::ClipEdit> preview_; // where dragged clips will land
     std::set<std::uint64_t> boxBase_;      // selection before a Shift box drag
+    std::optional<std::uint64_t> boxChannel_; // the channel while a box holds no clips
     std::optional<std::uint64_t> clickedInSelection_; // a click without a drag selects just it
 
     // File drag preview: target track index (or -1 = new track) and snapped time.

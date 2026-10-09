@@ -41,6 +41,12 @@ bool ActionRegistry::isToggled(std::string_view id) const
     return a != nullptr && a->isToggled && a->isToggled();
 }
 
+bool ActionRegistry::isEnabled(std::string_view id) const
+{
+    const auto* a = find(id);
+    return a != nullptr && (!a->isEnabled || a->isEnabled());
+}
+
 juce::String ActionRegistry::tooltip(std::string_view id) const
 {
     const auto* a = find(id);

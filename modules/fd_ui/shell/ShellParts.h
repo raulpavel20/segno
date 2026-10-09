@@ -64,6 +64,34 @@ void paintToast(juce::Graphics& g, juce::Rectangle<int> area, const juce::String
 /// A centred hint where there is nothing to show.
 void paintEmptyState(juce::Graphics& g, juce::Rectangle<int> area, const juce::String& text);
 
+/// Titled sections one under another (the inspector): each a caps title on the row grid with its
+/// content under it, and a 1 px line centred in the group gap between neighbours, like a module
+/// panel's sections turned vertical. A layout helper: the owner keeps its components and places
+/// them in content(i); paint() draws the titles and lines.
+class SectionStack
+{
+public:
+    struct Section
+    {
+        juce::String title;
+        int contentHeight = 0;
+    };
+    /// Places `sections` from the top of `area`; returns what's left below them.
+    juce::Rectangle<int> layout(juce::Rectangle<int> area, const std::vector<Section>& sections);
+    /// Where section `index`'s content goes (empty if there is no such section).
+    [[nodiscard]] juce::Rectangle<int> content(size_t index) const;
+    [[nodiscard]] size_t size() const noexcept { return placed_.size(); }
+    void paint(juce::Graphics& g) const;
+
+private:
+    struct Placed
+    {
+        juce::String title;
+        juce::Rectangle<int> titleArea, contentArea, line;
+    };
+    std::vector<Placed> placed_;
+};
+
 /// Lays out a bar (the transport) left to right and right to left, on the shell's gaps: items
 /// within a group are `itemGap` apart, groups `groupGap`.
 class BarLayout

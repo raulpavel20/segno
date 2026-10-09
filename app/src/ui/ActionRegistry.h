@@ -38,6 +38,8 @@ public:
     bool handleKey(const juce::KeyPress& key) const;
 
     [[nodiscard]] bool isToggled(std::string_view id) const;
+    /// True if `id` exists and can run now (buttons bound to it dim otherwise).
+    [[nodiscard]] bool isEnabled(std::string_view id) const;
 
     /// "Name (Shortcut)" for tooltips.
     [[nodiscard]] juce::String tooltip(std::string_view id) const;

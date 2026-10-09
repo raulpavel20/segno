@@ -63,8 +63,9 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         resized();
     };
 
-    arrangement_.onSelectionChanged = [this](auto track) { selectionChanged(track); };
-    // The mixer view shares the arrangement's selection (C3c).
+    arrangement_.onSelectionChanged = [this] { selectionChanged(); };
+    // The mixer view shares the arrangement's selection (C3c, selection.md): a strip selects its
+    // channel alone.
     addChildComponent(mixer_);
     mixer_.setSnapshot(session_.snapshot());
     mixer_.onSelect = [this](std::uint64_t channel) {
@@ -72,11 +73,15 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         arrangement_.selectTrack(channel);
     };
     mixer_.onSelectModule = [this](std::uint64_t channel, std::uint64_t module) {
-        arrangement_.selectTrack(channel);
+        lastArea_ = Area::Detail;
+        arrangement_.selectTrack(channel); // the chain now shows this channel
         if (!detailPanel_.open)
             toggle(detailPanel_);
         detail_.selectModule(module);
-        lastArea_ = Area::Detail;
+    };
+    detail_.onModeChosen = [this](DetailPanel::Mode m) {
+        arrangeMode_ = m;
+        applyDetailMode();
     };
     arrangement_.onActivated = [this] { lastArea_ = Area::Arrangement; };
     arrangement_.onMessage = [this](const juce::String& m) { showWarning(m); };
@@ -87,28 +92,31 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         const auto found = model::findClip(*session_.snapshot(), id);
         if (found && found->first->kind != model::ClipInfo::Kind::Midi)
             return;
-        detail_.setMode(DetailPanel::Mode::Clip);
+        arrangeMode_ = DetailPanel::Mode::Clip;
+        applyDetailMode();
         if (!detailPanel_.open)
             toggle(detailPanel_);
     };
     session_.onSnapshotChanged = [this] {
         arrangement_.setSnapshot(session_.snapshot());
         mixer_.setSnapshot(session_.snapshot());
-        selectionChanged(arrangement_.selectedTrack());
+        selectionChanged();
     };
     // New/open: drop every panel, handle and meter before the old project goes away.
     session_.onProjectWillChange = [this] {
+        subject_.reset();
         arrangement_.selectTrack(std::nullopt);
         arrangement_.releaseChannelControls();
         mixer_.clear();
-        inspector_.setSelection(std::nullopt);
+        inspector_.clear();
         detail_.setSelection(std::nullopt);
+        detail_.setClip(std::nullopt, {});
     };
     session_.onProjectChanged = [this] {
         arrangement_.setSnapshot(session_.snapshot());
         mixer_.setSnapshot(session_.snapshot());
         applyViewState(session_.savedViewState());
-        selectionChanged(std::nullopt);
+        selectionChanged();
         updateTitle();
     };
     session_.viewStateProvider = [this] { return viewState(); };
@@ -167,39 +175,45 @@ void Shell::registerActions()
     actions_.add({.id = "edit.redo", .name = "Redo", .category = "Edit", .keys = {key('z', kCmd | kShift), key('y', kCmd)},
                   .perform = [&s] { s.redo(); }, .isEnabled = [&s] { return s.canRedo(); }});
     // Delete, Duplicate and Select all act on the selection in the area used last: notes in the
-    // piano roll, a device in the chain, else clips.
+    // piano roll, a device in the chain, else clips. Clips only while the arrangement shows them
+    // (selection.md §6).
     auto& roll = detail_.pianoRoll();
+    auto clipsShown = [this] { return !mixerShown_; };
     actions_.add({.id = "edit.delete", .name = "Delete", .category = "Edit",
                   .keys = {key(juce::KeyPress::deleteKey), key(juce::KeyPress::backspaceKey)},
-                  .perform = [this, &roll] {
+                  .perform = [this, &roll, clipsShown] {
                       if (notesActive() && roll.hasSelection())
                           roll.deleteSelection();
                       else if (lastArea_ == Area::Detail && detail_.chain().hasSelection())
                           detail_.chain().deleteSelected();
-                      else
+                      else if (clipsShown())
                           arrangement_.deleteSelection();
                   },
-                  .isEnabled = [this, &roll] {
+                  .isEnabled = [this, &roll, clipsShown] {
                       return (notesActive() && roll.hasSelection()) ||
-                             (lastArea_ == Area::Detail && detail_.chain().hasSelection()) || arrangement_.hasClipSelection();
+                             (lastArea_ == Area::Detail && detail_.chain().hasSelection()) ||
+                             (clipsShown() && arrangement_.hasClipSelection());
                   }});
     actions_.add({.id = "edit.duplicate", .name = "Duplicate", .category = "Edit", .keys = {key('d', kCmd)},
-                  .perform = [this, &roll] {
+                  .perform = [this, &roll, clipsShown] {
                       if (notesActive() && roll.hasSelection())
                           roll.duplicateSelection();
-                      else
+                      else if (clipsShown())
                           arrangement_.duplicateSelection();
                   },
-                  .isEnabled = [this, &roll] { return (notesActive() && roll.hasSelection()) || arrangement_.hasClipSelection(); }});
+                  .isEnabled = [this, &roll, clipsShown] {
+                      return (notesActive() && roll.hasSelection()) || (clipsShown() && arrangement_.hasClipSelection());
+                  }});
     actions_.add({.id = "edit.split", .name = "Split at playhead", .category = "Edit", .keys = {key('e', kCmd)},
-                  .perform = [this] { arrangement_.splitAtPlayhead(); }});
+                  .perform = [this] { arrangement_.splitAtPlayhead(); }, .isEnabled = clipsShown});
     actions_.add({.id = "edit.selectAll", .name = "Select all", .category = "Edit", .keys = {key('a', kCmd)},
-                  .perform = [this, &roll] {
+                  .perform = [this, &roll, clipsShown] {
                       if (notesActive())
                           roll.selectAll();
-                      else
+                      else if (clipsShown())
                           arrangement_.selectAllClips();
-                  }});
+                  },
+                  .isEnabled = [this, clipsShown] { return notesActive() || clipsShown(); }});
 
     // Notes (C2): the piano roll's selection, while it was used last.
     auto notesSelected = [this, &roll] { return notesActive() && roll.hasSelection(); };
@@ -222,7 +236,7 @@ void Shell::registerActions()
                   .isEnabled = [this, &roll] { return detail_.showsPianoRoll() && !roll.notes().empty(); }});
     actions_.add({.id = "clip.newMidi", .name = "New MIDI clip", .category = "Clip", .keys = {key('m', kCmd | kShift)},
                   .perform = [this] { arrangement_.createMidiClipAtPlayhead(); },
-                  .isEnabled = [this] { return !session_.snapshot()->tracks.empty(); }});
+                  .isEnabled = [this] { return !mixerShown_ && !session_.snapshot()->tracks.empty(); }});
     actions_.add({.id = "midi.computerKeyboard", .name = "Computer keyboard as MIDI", .category = "MIDI",
                   .keys = {key('k', kCmd | kShift)},
                   .perform = [this] {
@@ -291,32 +305,33 @@ void Shell::registerActions()
                       }
                   }});
     actions_.add({.id = "view.mixer", .name = "Mixer view", .category = "View", .keys = {key('x', kCmd | kAlt)},
-                  .perform = [this] {
-                      mixerShown_ = !mixerShown_;
-                      resized();
-                      if (mixerShown_)
-                          mixer_.grabKeyboardFocus();
-                  },
+                  .perform = [this] { setMixerShown(!mixerShown_); },
                   .isToggled = [this] { return mixerShown_; }});
+    auto arrangeShown = [this] { return !mixerShown_; }; // actions on what only the arrangement shows
     actions_.add({.id = "view.returns", .name = "Show returns and master", .category = "View",
                   .keys = {key('r', kCmd | kAlt)},
                   .perform = [this] { arrangement_.setMixRowsVisible(!arrangement_.mixRowsVisible()); },
+                  .isEnabled = arrangeShown,
                   .isToggled = [this] { return arrangement_.mixRowsVisible(); }});
 
     actions_.add({.id = "view.browser", .name = "Show browser", .category = "View", .keys = {key('b', kCmd | kAlt)},
                   .perform = [this] { toggle(browserPanel_); }, .isToggled = [this] { return browserPanel_.open; }});
+    // The inspector belongs to the arrangement (ADR 0027): the mixer's strips show every channel control.
     actions_.add({.id = "view.inspector", .name = "Show inspector", .category = "View", .keys = {key('i', kCmd | kAlt)},
-                  .perform = [this] { toggle(inspectorPanel_); }, .isToggled = [this] { return inspectorPanel_.open; }});
+                  .perform = [this] { toggle(inspectorPanel_); }, .isEnabled = arrangeShown,
+                  .isToggled = [this] { return inspectorPanel_.open && !mixerShown_; }});
     actions_.add({.id = "view.detail", .name = "Show detail panel", .category = "View", .keys = {key('d', kCmd | kAlt)},
                   .perform = [this] { toggle(detailPanel_); }, .isToggled = [this] { return detailPanel_.open; }});
     actions_.add({.id = "view.detailMode", .name = "Switch modules / clip view", .category = "View",
                   .keys = {key(juce::KeyPress::tabKey)},
                   .perform = [this] {
-                      detail_.setMode(detail_.mode() == DetailPanel::Mode::Devices ? DetailPanel::Mode::Clip
-                                                                                   : DetailPanel::Mode::Devices);
+                      arrangeMode_ = arrangeMode_ == DetailPanel::Mode::Devices ? DetailPanel::Mode::Clip
+                                                                                : DetailPanel::Mode::Devices;
+                      applyDetailMode();
                       if (!detailPanel_.open)
                           toggle(detailPanel_);
-                  }});
+                  },
+                  .isEnabled = arrangeShown});
     actions_.add({.id = "view.focus", .name = "Focus mode", .category = "View", .keys = {key('f', kCmd | kAlt)},
                   .perform = [this] {
                       focusMode_ = !focusMode_;
@@ -324,11 +339,11 @@ void Shell::registerActions()
                   },
                   .isToggled = [this] { return focusMode_; }});
     actions_.add({.id = "view.zoomIn", .name = "Zoom in", .category = "View", .keys = {key('='), key('+')},
-                  .perform = [this] { arrangement_.zoomIn(); }});
+                  .perform = [this] { arrangement_.zoomIn(); }, .isEnabled = arrangeShown});
     actions_.add({.id = "view.zoomOut", .name = "Zoom out", .category = "View", .keys = {key('-')},
-                  .perform = [this] { arrangement_.zoomOut(); }});
+                  .perform = [this] { arrangement_.zoomOut(); }, .isEnabled = arrangeShown});
     actions_.add({.id = "view.zoomFit", .name = "Zoom to fit", .category = "View", .keys = {key('0', kCmd)},
-                  .perform = [this] { arrangement_.zoomToFit(); }});
+                  .perform = [this] { arrangement_.zoomToFit(); }, .isEnabled = arrangeShown});
     actions_.add({.id = "view.snap", .name = "Snap to grid", .category = "View", .keys = {key('4', kCmd)},
                   .perform = [this] { arrangement_.setSnapEnabled(!arrangement_.isSnapEnabled()); },
                   .isToggled = [this] { return arrangement_.isSnapEnabled(); }});
@@ -385,7 +400,10 @@ bool Shell::keyPressed(const juce::KeyPress& k)
         return false; // typing goes to the text field
     if (computerKeyboard_ && handleComputerKeyboard(k))
         return true;
-    return actions_.handleKey(k);
+    if (actions_.handleKey(k))
+        return true;
+    // Tab is the clip view's key; in the mixer view it must not move focus off the strips.
+    return mixerShown_ && k.getKeyCode() == juce::KeyPress::tabKey;
 }
 
 bool Shell::handleComputerKeyboard(const juce::KeyPress& k)
@@ -594,41 +612,44 @@ std::optional<model::TrackInfo> Shell::selectedTrackInfo() const
     return std::nullopt;
 }
 
-void Shell::selectionChanged(std::optional<std::uint64_t>)
+void Shell::selectionChanged()
 {
     const auto snapshot = session_.snapshot();
-    auto info = selectedTrackInfo();
-    const auto& clips = arrangement_.selectedClips();
-    std::optional<model::ClipInfo> clip;
-    if (clips.size() == 1)
-        if (const auto found = model::findClip(*snapshot, *clips.begin()))
-        {
-            clip = *found->first;
-            info = snapshot->tracks[static_cast<size_t>(found->second)]; // the clip's track
-        }
-
-    mixer_.setSelection(arrangement_.selectedTrack());
+    const auto context = model::panelContext(arrangement_.selection(), *snapshot,
+                                             mixerShown_ ? model::CentreView::Mix : model::CentreView::Arrange);
+    mixer_.setSelection(context.channel ? std::optional(context.channel->id) : std::nullopt);
 
     // Live MIDI plays the selected track's instrument (auto-arm); other tracks hear nothing.
     // The piano roll previews notes through the same route.
-    const auto target = info && info->holdsClips() && info->kind == model::TrackInfo::Kind::Instrument
-                             ? std::optional(info->id)
-                             : std::nullopt;
-    if (target != session_.midiInputTarget())
-        session_.setMidiInputTarget(target);
-    inspector_.setSelection(info, clip, static_cast<int>(clips.size()), snapshot->tempo);
-    detail_.setSelection(info);
+    if (context.midiInputTarget != session_.midiInputTarget())
+        session_.setMidiInputTarget(context.midiInputTarget);
+    inspector_.setContext(context, snapshot->tempo, snapshot->returns);
+    detail_.setSelection(context.channel);
+    detail_.setClip(context.midiClip, snapshot->tempo);
 
-    // The detail panel follows the selection: a MIDI clip opens the clip view, anything else the
-    // devices (Tab switches until the selection changes).
-    const auto midi = clip && clip->kind == model::ClipInfo::Kind::Midi ? clip : std::nullopt;
-    const auto midiId = midi ? std::optional(midi->id) : std::nullopt;
-    if (midiId != shownMidiClip_)
+    // The detail panel follows the subject: a MIDI clip opens the clip view, anything else the
+    // modules; Tab switches until the subject changes.
+    if (context.key != subject_)
     {
-        shownMidiClip_ = midiId;
-        detail_.setMode(midiId ? DetailPanel::Mode::Clip : DetailPanel::Mode::Devices);
+        subject_ = context.key;
+        arrangeMode_ = context.opensClipView ? DetailPanel::Mode::Clip : DetailPanel::Mode::Devices;
     }
-    detail_.setClip(midi, snapshot->tempo);
+    applyDetailMode();
+}
+
+void Shell::applyDetailMode()
+{
+    detail_.setClipViewAvailable(!mixerShown_);
+    detail_.setMode(mixerShown_ ? DetailPanel::Mode::Devices : arrangeMode_);
+}
+
+void Shell::setMixerShown(bool shown)
+{
+    mixerShown_ = shown;
+    selectionChanged(); // the panels show what this view needs
+    resized();
+    if (mixerShown_ && mixer_.isShowing())
+        mixer_.grabKeyboardFocus();
 }
 
 void Shell::showWarning(const juce::String& message)
@@ -837,10 +858,12 @@ void Shell::resized()
     const int splitter = ui::Theme::current().shell.splitter;
     browserSplit_.setBounds(r.removeFromLeft(browserW > 0.0f ? 1 : 0).withWidth(splitter).translated(-splitter / 2, 0));
 
-    const int inspectorW = showSides ? juce::roundToInt(inspectorPanel_.size * inspectorPanel_.shown) : 0;
+    // The inspector belongs to the arrangement (ADR 0027).
+    const bool inspectorShown = showSides && !mixerShown_;
+    const int inspectorW = inspectorShown ? juce::roundToInt(inspectorPanel_.size * inspectorPanel_.shown) : 0;
     inspector_.setVisible(inspectorW > 0);
     inspector_.setBounds(r.removeFromRight(inspectorW));
-    inspectorSplit_.setVisible(showSides && inspectorPanel_.open);
+    inspectorSplit_.setVisible(inspectorShown && inspectorPanel_.open);
     inspectorSplit_.setBounds(r.removeFromRight(inspectorW > 0 ? 1 : 0).withWidth(splitter).translated(-splitter / 2, 0));
 
     // The centre: the arrangement or the mixer view (C3c), whichever is current.

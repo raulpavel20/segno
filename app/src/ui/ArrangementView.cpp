@@ -43,18 +43,17 @@ void ArrangementView::setSnapshot(std::shared_ptr<const model::Snapshot> snapsho
 {
     snapshot_ = std::move(snapshot);
     preview_.clear();
-    std::set<std::uint64_t> existing;
     for (const auto& t : snapshot_->tracks)
         for (const auto& c : t.clips)
-        {
             waveforms_.request(c.sourcePath);
-            if (selectedClips_.contains(c.id))
-                existing.insert(c.id);
-        }
-    selectedClips_ = std::move(existing);
+    // Drop what's gone. The owner reads the selection after a new snapshot, so this tells no one.
+    selection_ = notified_ = model::pruned(selection_, *snapshot_);
+    syncRows();
+}
+
+void ArrangementView::syncRows()
+{
     syncLayout();
-    if (selectedTrack_ && snapshot_->channel(*selectedTrack_) == nullptr)
-        select(std::nullopt);
 
     // Mixer controls for every row's channel: made for new channels, dropped for gone ones.
     std::set<std::uint64_t> shown;
@@ -106,10 +105,10 @@ void ArrangementView::setMixRowsVisible(bool visible)
     if (visible == showMixRows_)
         return;
     showMixRows_ = visible;
-    if (!visible && selectedTrack_)
-        if (const auto* channel = snapshot_->channel(*selectedTrack_); channel != nullptr && !channel->holdsClips())
-            select(std::nullopt);
-    setSnapshot(snapshot_);
+    if (!visible && selection_.channel)
+        if (const auto* channel = snapshot_->channel(*selection_.channel); channel != nullptr && !channel->holdsClips())
+            selectTrack(std::nullopt);
+    syncRows(); // not setSnapshot: pruning against this snapshot could drop a clip made since
 }
 
 void ArrangementView::syncLayout()
@@ -310,14 +309,27 @@ void ArrangementView::zoomToFit()
     repaint();
 }
 
-void ArrangementView::select(std::optional<std::uint64_t> track)
+void ArrangementView::setSelection(model::Selection selection)
 {
-    if (track == selectedTrack_)
+    setQuietly(std::move(selection));
+    notifySelection();
+}
+
+void ArrangementView::setQuietly(model::Selection selection)
+{
+    if (selection == selection_)
         return;
-    selectedTrack_ = track;
+    selection_ = std::move(selection);
     repaint();
+}
+
+void ArrangementView::notifySelection()
+{
+    if (selection_ == notified_)
+        return;
+    notified_ = selection_;
     if (onSelectionChanged)
-        onSelectionChanged(selectedTrack_);
+        onSelectionChanged();
 }
 
 // ---- painting ------------------------------------------------------------------------------
@@ -366,7 +378,7 @@ void ArrangementView::paintHeaders(juce::Graphics& g)
                                                 static_cast<float>(area.getWidth()), static_cast<float>(layout_.height(i)));
         if (row.getBottom() < static_cast<float>(area.getY()) || row.getY() > static_cast<float>(area.getBottom()))
             continue;
-        const bool selected = selectedTrack_ == track.id;
+        const bool selected = selection_.channel == track.id;
         if (selected)
         {
             g.setColour(t.surface2);
@@ -427,7 +439,7 @@ void ArrangementView::paintLanes(juce::Graphics& g)
         if (y > static_cast<float>(area.getBottom()) || y + h < static_cast<float>(area.getY()))
             continue;
         const auto* channel = rowChannel(i);
-        const bool selected = channel != nullptr && selectedTrack_ == channel->id;
+        const bool selected = channel != nullptr && selection_.channel == channel->id;
         g.setColour(selected ? t.roles.laneSelected : i < clipRows() ? t.roles.lane : t.roles.subLane);
         g.fillRect(juce::Rectangle<float>(static_cast<float>(area.getX()), y, static_cast<float>(area.getWidth()), h));
     }
@@ -465,7 +477,7 @@ void ArrangementView::paintLanes(juce::Graphics& g)
             continue;
         for (const auto& clip : track.clips)
             if (!moving.contains(clip.id))
-                paintClip(g, clip, y, h, area, visible, selectedClips_.contains(clip.id));
+                paintClip(g, clip, y, h, area, visible, selection_.clips.contains(clip.id));
     }
     for (const auto& e : preview_)
     {
@@ -642,46 +654,59 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
     const bool additive = e.mods.isShiftDown() || e.mods.isCommandDown();
     if (headerArea().contains(pos))
     {
+        // A header selects its channel alone (selection.md §2).
         const auto row = layout_.hit(pos.y - lanes.getY());
         const auto* channel = row ? rowChannel(row->track) : nullptr;
-        select(channel != nullptr ? std::optional(channel->id) : std::nullopt);
+        selectTrack(channel != nullptr ? std::optional(channel->id) : std::nullopt);
         return;
     }
     if (!lanes.contains(pos))
         return;
 
     auto row = layout_.hit(pos.y - lanes.getY());
-    if (row)
-        if (const auto* channel = rowChannel(row->track))
-            select(channel->id);
+    const auto* rowChannelInfo = row ? rowChannel(row->track) : nullptr;
+    const auto rowTrack = rowChannelInfo != nullptr ? std::optional(rowChannelInfo->id) : std::nullopt;
     if (row && row->track >= clipRows())
-        return; // returns and the master hold no clips
+    {
+        selectTrack(rowTrack); // returns and the master hold no clips
+        return;
+    }
     const auto hit = model::hitClip(*snapshot_, layout_, timeline_, e.position.x - static_cast<float>(lanes.getX()),
                                     e.position.y - static_cast<float>(lanes.getY()), ui::Theme::current().input.edgeGrab);
     if (e.getNumberOfClicks() >= 2 && row)
     {
         // Double-click: open a clip in the clip view, or make a MIDI clip on an empty spot.
         drag_ = Drag::None;
-        if (hit && onOpenClip)
-            onOpenClip(hit->clip);
-        else if (!hit)
+        if (hit)
+        {
+            setSelection(model::withClips(*snapshot_, {hit->clip}, rowTrack, rowTrack));
+            if (onOpenClip)
+                onOpenClip(hit->clip);
+        }
+        else
             createMidiClip(row->track, timeline_.timeForX(e.position.x - static_cast<float>(lanes.getX())), e.mods.isAltDown());
         return;
     }
     clickedInSelection_.reset();
     if (hit)
     {
-        if (!additive && selectedClips_.size() > 1 && selectedClips_.contains(hit->clip))
+        if (!additive && selection_.clips.size() > 1 && selection_.clips.contains(hit->clip))
             clickedInSelection_ = hit->clip; // stays a group for a drag; just this clip for a click
-        auto selection = selectedClips_;
-        if (additive && selection.contains(hit->clip))
-            selection.erase(hit->clip);
+        auto clips = selection_.clips;
+        if (additive && clips.contains(hit->clip))
+            clips.erase(hit->clip);
         else if (additive)
-            selection.insert(hit->clip);
-        else if (!selection.contains(hit->clip))
-            selection = {hit->clip};
-        setClipSelection(std::move(selection));
-        if (!selectedClips_.contains(hit->clip))
+            clips.insert(hit->clip);
+        else if (!clips.contains(hit->clip))
+            clips = {hit->clip};
+        // The clip's track; if Shift-click removed it, the topmost remaining clip's.
+        const bool kept = clips.contains(hit->clip);
+        auto next = model::withClips(*snapshot_, std::move(clips), kept ? rowTrack : std::nullopt, rowTrack);
+        if (clickedInSelection_)
+            setQuietly(std::move(next)); // told at mouseUp, once it's a click or a drag
+        else
+            setSelection(std::move(next));
+        if (!kept)
             return; // Shift-click removed it
         drag_ = Drag::Clip;
         dragStartTrack_ = hit->track;
@@ -691,11 +716,13 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
                      .anchor = hit->clip};
         return;
     }
-    // Empty lane: box selection (Shift adds to the selection).
+    // Empty lane: box selection (Shift adds to the selection), told at mouseUp since a box changes
+    // the selection on every move.
     drag_ = Drag::Box;
-    boxBase_ = additive ? selectedClips_ : std::set<std::uint64_t>{};
+    boxBase_ = additive ? selection_.clips : std::set<std::uint64_t>{};
+    boxChannel_ = rowTrack ? rowTrack : selection_.channel;
     if (!additive)
-        setClipSelection({});
+        setQuietly({.channel = boxChannel_});
 }
 
 void ArrangementView::mouseDrag(const juce::MouseEvent& e)
@@ -747,7 +774,7 @@ void ArrangementView::mouseDrag(const juce::MouseEvent& e)
         if (clipDrag_.kind == model::DragKind::Move)
             if (const auto row = layout_.hit(e.position.y - static_cast<float>(lanes.getY())))
                 clipDrag_.deltaTracks = std::min(row->track, clipRows() - 1) - dragStartTrack_;
-        preview_ = model::dragClips(*snapshot_, selectedClips_, clipDrag_, snapFunction(e.mods.isAltDown()));
+        preview_ = model::dragClips(*snapshot_, selection_.clips, clipDrag_, snapFunction(e.mods.isAltDown()));
         repaint();
     }
     else if (drag_ == Drag::Box)
@@ -761,7 +788,7 @@ void ArrangementView::mouseDrag(const juce::MouseEvent& e)
         auto selection = boxBase_;
         for (auto id : model::clipsInBox(*snapshot_, t0, t1, trackAt(dragStart_.y), trackAt(e.position.y)))
             selection.insert(id);
-        setClipSelection(std::move(selection));
+        setQuietly(model::withClips(*snapshot_, std::move(selection), std::nullopt, boxChannel_));
         repaint();
     }
 }
@@ -787,10 +814,17 @@ void ArrangementView::mouseUp(const juce::MouseEvent& e)
         loopPreview_.reset();
     }
     if (drag_ == Drag::Clip && dragMoved_ && !preview_.empty())
+    {
         session_.applyClipEdits(preview_); // one undo step; the snapshot follows
+        // The channel follows the grabbed clip to its new track (the snapshot is still the old one).
+        for (const auto& edit : preview_)
+            if (edit.clip == clipDrag_.anchor)
+                setQuietly({.channel = edit.track, .clips = selection_.clips});
+    }
     if (drag_ == Drag::Clip && !dragMoved_ && clickedInSelection_)
-        setClipSelection({*clickedInSelection_});
+        setQuietly({.channel = selection_.channel, .clips = {*clickedInSelection_}});
     clickedInSelection_.reset();
+    notifySelection(); // once per gesture
     // Keep drawing the preview until the new snapshot arrives (no flicker back).
     if (drag_ != Drag::Clip || !dragMoved_)
         preview_.clear();
@@ -800,42 +834,32 @@ void ArrangementView::mouseUp(const juce::MouseEvent& e)
 
 // ---- edit commands -------------------------------------------------------------------------
 
-void ArrangementView::setClipSelection(std::set<std::uint64_t> clips)
-{
-    if (clips == selectedClips_)
-        return;
-    selectedClips_ = std::move(clips);
-    repaint();
-    if (onSelectionChanged)
-        onSelectionChanged(selectedTrack_);
-}
-
 void ArrangementView::deleteSelection()
 {
-    session_.deleteClips({selectedClips_.begin(), selectedClips_.end()});
-    setClipSelection({});
+    session_.deleteClips({selection_.clips.begin(), selection_.clips.end()});
+    selectTrack(selection_.channel);
 }
 
 void ArrangementView::duplicateSelection()
 {
-    const auto created = session_.duplicateClips(model::duplicatePlacements(*snapshot_, selectedClips_));
-    setClipSelection({created.begin(), created.end()});
+    const auto created = session_.duplicateClips(model::duplicatePlacements(*snapshot_, selection_.clips));
+    setSelection({.channel = selection_.channel, .clips = {created.begin(), created.end()}});
 }
 
 void ArrangementView::splitAtPlayhead()
 {
-    std::vector<std::uint64_t> targets(selectedClips_.begin(), selectedClips_.end());
-    if (targets.empty() && selectedTrack_)
+    std::vector<std::uint64_t> targets(selection_.clips.begin(), selection_.clips.end());
+    if (targets.empty() && selection_.channel)
         for (const auto& t : snapshot_->tracks)
-            if (t.id == *selectedTrack_)
+            if (t.id == *selection_.channel)
                 for (const auto& c : t.clips)
                     targets.push_back(c.id);
     const auto right = session_.splitClips(targets, playhead_);
-    if (!selectedClips_.empty())
+    if (!selection_.clips.empty())
     {
-        auto selection = selectedClips_;
-        selection.insert(right.begin(), right.end());
-        setClipSelection(std::move(selection));
+        auto clips = selection_.clips;
+        clips.insert(right.begin(), right.end());
+        setSelection({.channel = selection_.channel, .clips = std::move(clips)});
     }
 }
 
@@ -866,8 +890,7 @@ std::uint64_t ArrangementView::createMidiClip(int trackIndex, double seconds, bo
     const auto id = session_.createMidiClip(track.id, start, end - start, &addedInstrument);
     if (id == 0)
         return 0;
-    select(track.id);
-    setClipSelection({id});
+    setSelection({.channel = track.id, .clips = {id}});
     if (addedInstrument && onMessage)
         onMessage("Added a Subtractive Synth to play the MIDI clip (swap it in the module chain)");
     if (onOpenClip)
@@ -878,9 +901,9 @@ std::uint64_t ArrangementView::createMidiClip(int trackIndex, double seconds, bo
 std::uint64_t ArrangementView::createMidiClipAtPlayhead()
 {
     int index = 0;
-    if (selectedTrack_)
+    if (selection_.channel)
         for (size_t i = 0; i < snapshot_->tracks.size(); ++i)
-            if (snapshot_->tracks[i].id == *selectedTrack_)
+            if (snapshot_->tracks[i].id == *selection_.channel)
                 index = static_cast<int>(i);
     return createMidiClip(index, playhead_);
 }
@@ -891,7 +914,7 @@ void ArrangementView::selectAllClips()
     for (const auto& t : snapshot_->tracks)
         for (const auto& c : t.clips)
             all.insert(c.id);
-    setClipSelection(std::move(all));
+    setSelection(model::withClips(*snapshot_, std::move(all), selection_.channel, selection_.channel));
 }
 
 void ArrangementView::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)
@@ -959,7 +982,7 @@ void ArrangementView::filesDropped(const juce::StringArray& files, int x, int y)
             ++target;
     }
     if (first)
-        select(first);
+        selectTrack(first);
     repaint();
 }
 } // namespace fd::app

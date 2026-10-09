@@ -218,6 +218,48 @@ void paintEmptyState(juce::Graphics& g, juce::Rectangle<int> area, const juce::S
 
 // ---- BarLayout ----------------------------------------------------------------------------------
 
+// ---- SectionStack -----------------------------------------------------------------------------
+
+juce::Rectangle<int> SectionStack::layout(juce::Rectangle<int> area, const std::vector<Section>& sections)
+{
+    const auto& s = Theme::current().shell;
+    placed_.clear();
+    for (const auto& section : sections)
+    {
+        Placed p{.title = section.title};
+        if (!placed_.empty())
+        {
+            // The line between neighbours, in the middle of the group gap.
+            const auto gap = area.removeFromTop(s.groupGap);
+            p.line = gap.withHeight(1).withY(gap.getCentreY());
+        }
+        p.titleArea = area.removeFromTop(s.rowHeight);
+        area.removeFromTop(s.itemGap);
+        p.contentArea = area.removeFromTop(section.contentHeight);
+        placed_.push_back(std::move(p));
+    }
+    return area;
+}
+
+juce::Rectangle<int> SectionStack::content(size_t index) const
+{
+    return index < placed_.size() ? placed_[index].contentArea : juce::Rectangle<int>();
+}
+
+void SectionStack::paint(juce::Graphics& g) const
+{
+    const auto& t = Theme::current();
+    for (const auto& p : placed_)
+    {
+        if (!p.line.isEmpty())
+        {
+            g.setColour(t.line);
+            g.fillRect(p.line);
+        }
+        paintCapsLabel(g, p.title, p.titleArea.toFloat());
+    }
+}
+
 juce::Rectangle<int> BarLayout::left(int width)
 {
     const auto& s = Theme::current().shell;

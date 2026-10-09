@@ -6,6 +6,8 @@
 #include "engine/Session.h"
 #include "mcp/McpServer.h"
 #include "model/Editing.h"
+#include "model/ChannelStripLayout.h"
+#include "model/Selection.h"
 #include "ui/ChannelControls.h"
 #include "ui/ChannelInspector.h"
 #include "ui/DeviceChain.h"
@@ -193,14 +195,14 @@ TEST_CASE("the mixer in the arrangement: header controls, returns and master, th
     // there is a send to the return.
     view.selectTrack(std::nullopt);
     view.selectTrack(first);
-    auto inspectors = findAll<fd::app::ChannelInspector>(*f.shell);
-    REQUIRE(inspectors.size() == 1);
-    auto bars = findAll<fd::app::VolumeBar>(*inspectors[0]);
+    auto mixes = findAll<fd::app::ChannelMix>(f.shell->inspector());
+    REQUIRE(mixes.size() == 1);
+    auto bars = findAll<fd::app::VolumeBar>(*mixes[0]);
     REQUIRE(bars.size() == 1);
     bars[0]->setValue(0.64f, juce::sendNotification); // -6 dB on the taper
     f.session->updateSnapshotNow();
     CHECK(f.session->snapshot()->tracks[0].mix.volumeDb == Catch::Approx(-6.0f).margin(0.01f));
-    CHECK(findAll<fd::app::SendBar>(*inspectors[0]).size() == 1);
+    CHECK(findAll<fd::app::SendBar>(f.shell->inspector()).size() == 1);
 
     if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review
     {
@@ -298,6 +300,259 @@ TEST_CASE("the mixer view: strips side by side, shared selection, a fader drag i
     juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
     CHECK(f.session->snapshot()->returns.empty());
     CHECK(findAll<fd::app::ChannelMeter>(arrangement).size() == f.session->snapshot()->tracks.size() + 1);
+}
+
+namespace
+{
+constexpr float kRowHeight = 64.0f;
+
+/// Where a row's header is, and a time in its lane, once every row is kRowHeight tall.
+juce::Point<float> headerOf(int row)
+{
+    return {40.0f, static_cast<float>(fd::app::ArrangementView::rulerHeight()) + kRowHeight * (static_cast<float>(row) + 0.5f)};
+}
+
+juce::Point<float> laneAt(const fd::app::ArrangementView& view, double seconds, int row)
+{
+    return {static_cast<float>(fd::app::ArrangementView::headerWidth()) + static_cast<float>(view.timeline().xForTime(seconds)),
+            headerOf(row).y};
+}
+} // namespace
+
+TEST_CASE("one selection: the context panels follow the last click in the arrangement (A5)", "[integration]")
+{
+    using S = fd::model::InspectorSection;
+    using Mode = fd::app::DetailPanel::Mode;
+    using Selection = fd::model::Selection;
+    ShellFixture f;
+    f.shell->setSize(1800, 1000);
+    auto& actions = f.shell->actions();
+    auto& view = f.shell->arrangement();
+    auto& detail = f.shell->detail();
+    auto& inspector = f.shell->inspector();
+    REQUIRE(actions.perform("track.addReturn"));
+    f.session->updateSnapshotNow();
+    const auto snap = f.session->snapshot();
+    REQUIRE(snap->tracks.size() >= 2);
+    const auto t0 = snap->tracks[0].id, t1 = snap->tracks[1].id;
+    const auto rows = static_cast<int>(snap->tracks.size());
+    view.setAllTrackHeights(kRowHeight);
+    int told = 0;
+    const auto shellHandler = view.onSelectionChanged;
+    view.onSelectionChanged = [&] {
+        ++told;
+        shellHandler();
+    };
+
+    // A MIDI clip on the first track: the clip view, and the clip's sections in the inspector.
+    const auto clip = view.createMidiClip(0, 0.0);
+    REQUIRE(clip != 0);
+    f.session->updateSnapshotNow();
+    CHECK(view.selection() == Selection{.channel = t0, .clips = {clip}});
+    CHECK(detail.mode() == Mode::Clip);
+    CHECK(detail.showsPianoRoll());
+    CHECK(inspector.sections() == std::vector{S::Clip, S::Track, S::Mix, S::Sends});
+    CHECK(f.session->midiInputTarget() == t0);
+
+    // Another track's header: that track alone, in both panels, told once.
+    told = 0;
+    click(view, headerOf(1));
+    CHECK(told == 1);
+    CHECK(view.selection() == Selection{.channel = t1});
+    CHECK(detail.mode() == Mode::Devices);
+    CHECK(detail.chain().track() == t1);
+    CHECK(inspector.sections() == std::vector{S::Track, S::Mix, S::Sends});
+    CHECK(f.session->midiInputTarget() != t0);
+
+    // The clip again, then its own track's header: the track alone.
+    const auto onClip = laneAt(view, 0.5, 0);
+    click(view, onClip);
+    CHECK(view.selection() == Selection{.channel = t0, .clips = {clip}});
+    CHECK(detail.mode() == Mode::Clip);
+    click(view, headerOf(0));
+    CHECK(view.selection() == Selection{.channel = t0});
+    CHECK(detail.mode() == Mode::Devices);
+    CHECK(detail.chain().track() == t0);
+
+    // Tab picks the other view until the subject changes; a new snapshot doesn't change it.
+    click(view, onClip);
+    REQUIRE(actions.perform("view.detailMode"));
+    CHECK(detail.mode() == Mode::Devices);
+    f.session->updateSnapshotNow();
+    CHECK(detail.mode() == Mode::Devices);
+
+    // The return and master rows, by lane and by header: their channel alone.
+    click(view, laneAt(view, 6.0, rows));
+    CHECK(view.selection() == Selection{.channel = snap->returns[0].id});
+    CHECK(detail.chain().track() == snap->returns[0].id);
+    CHECK(inspector.sections() == std::vector{S::Return, S::Mix});
+    click(view, onClip);
+    click(view, headerOf(rows + 1));
+    CHECK(view.selection() == Selection{.channel = snap->master.id});
+    CHECK(inspector.sections() == std::vector{S::Master, S::Mix});
+
+    // An empty spot in a lane: that track, no clips.
+    click(view, onClip);
+    click(view, laneAt(view, 6.0, 1));
+    CHECK(view.selection() == Selection{.channel = t1});
+
+    // Track actions act on what the panels show.
+    click(view, onClip);
+    REQUIRE(actions.perform("track.mute"));
+    f.session->updateSnapshotNow();
+    CHECK(f.session->snapshot()->tracks[0].mix.mute);
+    CHECK_FALSE(f.session->snapshot()->tracks[1].mix.mute);
+}
+
+TEST_CASE("one selection in the mixer view: modules only, no inspector, the chain follows (A5)", "[integration]")
+{
+    using Mode = fd::app::DetailPanel::Mode;
+    using Selection = fd::model::Selection;
+    ShellFixture f;
+    f.shell->setSize(1800, 1000);
+    auto& actions = f.shell->actions();
+    auto& view = f.shell->arrangement();
+    auto& detail = f.shell->detail();
+    auto& inspector = f.shell->inspector();
+    auto& mixer = f.shell->mixer();
+    REQUIRE(actions.perform("track.addReturn"));
+    f.session->updateSnapshotNow();
+    const auto snap = f.session->snapshot();
+    REQUIRE(snap->tracks.size() >= 3);
+    const auto t0 = snap->tracks[0].id, t1 = snap->tracks[1].id, t2 = snap->tracks[2].id;
+    const auto eq = f.session->addDevice(t1, "fd:eq");
+    REQUIRE(eq != 0);
+    REQUIRE(f.session->addDevice(t1, "fd:compressor") != 0);
+    view.setAllTrackHeights(kRowHeight);
+    const auto clip = view.createMidiClip(0, 0.0);
+    REQUIRE(clip != 0);
+    f.session->updateSnapshotNow();
+    REQUIRE(detail.mode() == Mode::Clip);
+    REQUIRE(inspector.isVisible());
+    const int arrangeWidth = view.getWidth();
+
+    // Mix: the clip's track's modules under a plain title, and no inspector.
+    REQUIRE(actions.perform("view.mixer"));
+    CHECK_FALSE(detail.clipViewAvailable());
+    CHECK(detail.mode() == Mode::Devices);
+    CHECK(detail.chain().track() == t0);
+    CHECK_FALSE(inspector.isVisible());
+    CHECK(inspector.sections().empty()); // its meters are let go
+    CHECK(mixer.getWidth() > arrangeWidth);
+    CHECK_FALSE(actions.isToggled("view.inspector"));
+    CHECK(nlohmann::json::parse(f.session->viewStateProvider())["inspector"] == true); // the arrangement's
+
+    // Nothing acts on the arrangement's content you can't see; Tab keeps the focus on the strips.
+    for (const auto* id : {"view.detailMode", "view.inspector", "edit.delete", "edit.duplicate", "edit.split",
+                           "edit.selectAll", "clip.newMidi", "view.zoomIn", "view.zoomFit", "view.returns"})
+    {
+        INFO(id);
+        CHECK_FALSE(actions.perform(id));
+    }
+    f.session->updateSnapshotNow();
+    CHECK(fd::model::findClip(*f.session->snapshot(), clip));
+    CHECK(f.shell->keyPressed(juce::KeyPress(juce::KeyPress::tabKey)));
+    CHECK(detail.mode() == Mode::Devices);
+
+    // A module name on another strip, with the panel closed: it opens on that module.
+    auto stripOf = [&](std::uint64_t id) -> fd::app::ChannelStrip& {
+        for (auto* s : findAll<fd::app::ChannelStrip>(mixer))
+            if (s->channel() == id)
+                return *s;
+        FAIL("no strip");
+        throw;
+    };
+    REQUIRE(actions.perform("view.detail"));
+    REQUIRE_FALSE(actions.isToggled("view.detail"));
+    auto& strip = stripOf(t1);
+    const auto slots = fd::model::layoutChannelStrip(strip.getHeight(), mixer.options());
+    const auto& name = slots.modules.at(0);
+    click(strip, {static_cast<float>(name.x + name.w / 2), static_cast<float>(name.y + name.h / 2)});
+    CHECK(actions.isToggled("view.detail"));
+    CHECK(view.selection() == Selection{.channel = t1}); // the clip is no longer selected
+    CHECK(detail.chain().track() == t1);
+    CHECK(detail.chain().selectedDevice() == eq);
+
+    // Delete removes that module: the chain was used last.
+    REQUIRE(actions.perform("edit.delete"));
+    f.session->updateSnapshotNow();
+    CHECK(f.session->snapshot()->tracks[1].devices.size() == 1);
+
+    // The arrow keys and other strips: the chain follows every time.
+    CHECK(mixer.keyPressed(juce::KeyPress(juce::KeyPress::rightKey)));
+    CHECK(detail.chain().track() == t2);
+    click(stripOf(t0), {20.0f, 12.0f});
+    CHECK(detail.chain().track() == t0);
+    CHECK(view.selection() == Selection{.channel = t0});
+
+    // Back in the arrangement: the inspector as it was, the clip view for a MIDI clip again.
+    REQUIRE(actions.perform("view.mixer"));
+    CHECK(inspector.isVisible());
+    CHECK(detail.clipViewAvailable());
+    CHECK(inspector.sections().size() == 3);
+    click(view, laneAt(view, 0.5, 0));
+    CHECK(detail.mode() == Mode::Clip);
+    REQUIRE(actions.perform("view.mixer"));
+    CHECK(detail.mode() == Mode::Devices);
+    REQUIRE(actions.perform("view.mixer"));
+    CHECK(detail.mode() == Mode::Clip);
+    CHECK(detail.showsPianoRoll());
+    // Tab's choice survives the trip too.
+    REQUIRE(actions.perform("view.detailMode"));
+    REQUIRE(actions.perform("view.mixer"));
+    REQUIRE(actions.perform("view.mixer"));
+    CHECK(detail.mode() == Mode::Devices);
+}
+
+TEST_CASE("the arrangement's selection: the channel follows the clicked clip, told once per gesture (A5)", "[integration]")
+{
+    using Selection = fd::model::Selection;
+    ShellFixture f;
+    const auto snap = f.session->snapshot();
+    REQUIRE(snap->tracks.size() >= 3);
+    const auto t0 = snap->tracks[0].id, t1 = snap->tracks[1].id, t2 = snap->tracks[2].id;
+    const auto a = f.session->createMidiClip(t0, 0.0, 1.0);
+    const auto b = f.session->createMidiClip(t2, 0.0, 1.0);
+    const auto c = f.session->createMidiClip(t2, 4.0, 1.0);
+    f.session->updateSnapshotNow();
+
+    fd::app::ArrangementView view(*f.session);
+    view.setSize(1200, 600);
+    view.setSnapshot(f.session->snapshot());
+    view.setAllTrackHeights(kRowHeight);
+    int told = 0;
+    view.onSelectionChanged = [&] { ++told; };
+    const juce::ModifierKeys shift(juce::ModifierKeys::leftButtonModifier | juce::ModifierKeys::shiftModifier);
+    auto shiftClick = [&](juce::Point<float> p) {
+        view.mouseDown(mouseEvent(view, p, p, false, shift));
+        view.mouseUp(mouseEvent(view, p, p, false, shift));
+    };
+
+    click(view, laneAt(view, 0.5, 2));
+    CHECK(view.selection() == Selection{.channel = t2, .clips = {b}});
+    CHECK(told == 1);
+    shiftClick(laneAt(view, 0.5, 0)); // adds a: its track
+    CHECK(view.selection() == Selection{.channel = t0, .clips = {a, b}});
+    CHECK(told == 2);
+    shiftClick(laneAt(view, 0.5, 0)); // removes a: the remaining clip's track
+    CHECK(view.selection() == Selection{.channel = t2, .clips = {b}});
+    CHECK(told == 3);
+
+    // A box over a and b: the topmost clip's track, told once when it ends.
+    told = 0;
+    drag(view, laneAt(view, 1.5, 0), laneAt(view, 0.2, 2));
+    CHECK(view.selection() == Selection{.channel = t0, .clips = {a, b}});
+    CHECK(told == 1);
+
+    // A clip dragged to another track takes the channel along.
+    click(view, laneAt(view, 4.5, 2));
+    told = 0;
+    drag(view, laneAt(view, 4.5, 2), laneAt(view, 4.5, 1));
+    CHECK(view.selection().channel == t1);
+    CHECK(told == 1);
+    f.session->updateSnapshotNow();
+    view.setSnapshot(f.session->snapshot());
+    CHECK(view.selection() == Selection{.channel = t1, .clips = {c}});
 }
 
 TEST_CASE("every action has a unique shortcut and the shell routes keys to it", "[integration]")

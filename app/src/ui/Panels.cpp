@@ -2,6 +2,9 @@
 
 #include <fd/device/Registry.h>
 
+#include <algorithm>
+#include <map>
+
 namespace fd::app
 {
 namespace
@@ -88,8 +91,12 @@ ui::IconButton& TransportBar::add(ui::IconButton& b, std::string id)
 void TransportBar::frame(double positionSeconds, const model::TempoMap& tempo)
 {
     for (auto& [button, id] : bound_)
+    {
         if (button->getToggleState() != actions_.isToggled(id))
             button->setToggleState(actions_.isToggled(id), juce::dontSendNotification);
+        if (button->isEnabled() != actions_.isEnabled(id))
+            button->setEnabled(actions_.isEnabled(id)); // e.g. the inspector in the mixer view
+    }
     const bool mix = actions_.isToggled("view.mixer");
     if (mixView_.getToggleState() != mix)
     {
@@ -287,87 +294,110 @@ void BrowserPanel::paint(juce::Graphics& g)
 
 // ---- InspectorPanel ------------------------------------------------------------------------
 
-void InspectorPanel::setSelection(std::optional<model::TrackInfo> track, std::optional<model::ClipInfo> clip,
-                                  int clipCount, model::TempoMap tempo)
-{
-    track_ = std::move(track);
-    clip_ = std::move(clip);
-    clipCount_ = clipCount;
-    tempo_ = tempo;
-    channel_.setChannel(track_, session_.snapshot()->returns);
-    resized();
-    repaint();
-}
-
 InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
 {
     header_.setTitle("Inspector");
     addAndMakeVisible(header_);
-    addAndMakeVisible(channel_);
+    addAndMakeVisible(mix_);
+    addAndMakeVisible(sends_);
 }
 
-std::vector<ui::Property> InspectorPanel::clipProperties() const
+void InspectorPanel::setContext(const model::PanelContext& context, const model::TempoMap& tempo,
+                                const std::vector<model::TrackInfo>& returns)
 {
+    sections_ = context.inspector;
+    channel_ = context.channel;
+    clip_ = context.clip;
+    clipCount_ = context.clipCount;
+    tempo_ = tempo;
+    auto has = [this](model::InspectorSection s) { return std::find(sections_.begin(), sections_.end(), s) != sections_.end(); };
+    mix_.setChannel(has(model::InspectorSection::Mix) ? channel_ : std::nullopt);
+    sends_.setChannel(has(model::InspectorSection::Sends) ? channel_ : std::nullopt, returns);
+    resized();
+    repaint();
+}
+
+void InspectorPanel::clear()
+{
+    setContext({}, {}, {});
+}
+
+std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection section) const
+{
+    using S = model::InspectorSection;
     auto position = [&](double seconds) {
         const auto bb = tempo_.barsBeatsForSeconds(seconds);
         return juce::String(bb.bar) + "." + juce::String(bb.beat) + "." + juce::String(bb.sixteenth);
     };
-    if (clip_)
-        return {{"Clip", juce::String::fromUTF8(clip_->name.c_str())},
+    const auto name = channel_ ? juce::String::fromUTF8(channel_->name.c_str()) : juce::String();
+    const auto modules = channel_ ? juce::String(static_cast<int>(channel_->devices.size())) : juce::String();
+    switch (section)
+    {
+    case S::Clip:
+        if (!clip_)
+            return {};
+        return {{"Name", juce::String::fromUTF8(clip_->name.c_str())},
                 {"Start", position(clip_->start), true},
                 {"Length", juce::String(clip_->length, 3) + " s", true},
                 {"Offset", juce::String(clip_->offset, 3) + " s", true}};
-    if (clipCount_ > 1)
-        return {{"Clips", juce::String(clipCount_) + " selected", true}};
-    return {};
-}
-
-std::vector<ui::Property> InspectorPanel::channelProperties() const
-{
-    if (!track_)
-        return {};
-    const auto name = juce::String::fromUTF8(track_->name.c_str());
-    const auto modules = juce::String(static_cast<int>(track_->devices.size()));
-    switch (track_->role)
-    {
-    case model::TrackInfo::Role::Return: return {{"Return", name}, {"Modules", modules, true}};
-    case model::TrackInfo::Role::Master: return {{"Master", "The mix"}, {"Modules", modules, true}};
-    case model::TrackInfo::Role::Track: break;
+    case S::Clips: return {{"Selected", juce::String(clipCount_), true}};
+    case S::Track:
+        if (!channel_)
+            return {};
+        return {{"Name", name},
+                {"Instrument", channel_->instrument.empty() ? juce::String("None")
+                                                            : juce::String::fromUTF8(channel_->instrument.c_str())},
+                {"Clips", juce::String(static_cast<int>(channel_->clips.size())), true}};
+    case S::Return: return {{"Name", name}, {"Modules", modules, true}};
+    case S::Master: return {{"Modules", modules, true}};
+    case S::Mix:
+    case S::Sends: break;
     }
-    return {{"Track", name},
-            {"Instrument", track_->instrument.empty() ? juce::String("None")
-                                                      : juce::String::fromUTF8(track_->instrument.c_str())},
-            {"Clips", juce::String(static_cast<int>(track_->clips.size())), true}};
+    return {};
 }
 
 void InspectorPanel::resized()
 {
+    using S = model::InspectorSection;
     const auto& t = ui::Theme::current();
     header_.setBounds(getLocalBounds().removeFromTop(t.shell.panelHeaderHeight));
-    // The channel's controls, under the property rows.
-    auto r = getLocalBounds().withTrimmedTop(header_.getBottom()).reduced(t.shell.padding, 0);
-    if (const auto clipRows = static_cast<int>(clipProperties().size()); clipRows > 0)
-        r.removeFromTop(clipRows * t.shell.rowHeight + t.shell.groupGap);
-    r.removeFromTop(static_cast<int>(channelProperties().size()) * t.shell.rowHeight + t.shell.groupGap);
-    channel_.setBounds(r.withHeight(channel_.preferredHeight()));
+    auto r = getLocalBounds().withTrimmedTop(header_.getBottom() + t.shell.itemGap).reduced(t.shell.padding, 0);
+
+    static const std::map<S, juce::String> titles{{S::Clip, "Clip"},     {S::Clips, "Clips"}, {S::Track, "Track"},
+                                                  {S::Return, "Return"}, {S::Master, "Master"}, {S::Mix, "Mix"},
+                                                  {S::Sends, "Sends"}};
+    std::vector<ui::SectionStack::Section> sections;
+    for (const auto s : sections_)
+    {
+        const int height = s == S::Mix     ? mix_.preferredHeight()
+                           : s == S::Sends ? sends_.preferredHeight()
+                                           : static_cast<int>(properties(s).size()) * t.shell.rowHeight;
+        sections.push_back({titles.at(s), height});
+    }
+    stack_.layout(r, sections);
+    mix_.setBounds({});
+    sends_.setBounds({});
+    for (size_t i = 0; i < sections_.size(); ++i)
+        if (sections_[i] == S::Mix)
+            mix_.setBounds(stack_.content(i));
+        else if (sections_[i] == S::Sends)
+            sends_.setBounds(stack_.content(i));
 }
 
 void InspectorPanel::paint(juce::Graphics& g)
 {
     const auto& t = ui::Theme::current();
     g.fillAll(t.surface1);
-    auto r = getLocalBounds().withTrimmedTop(header_.getBottom()).reduced(t.shell.padding, 0);
-    if (!track_ && clipCount_ == 0)
+    if (sections_.empty())
     {
+        auto r = getLocalBounds().withTrimmedTop(header_.getBottom()).reduced(t.shell.padding, 0);
         ui::paintEmptyState(g, r.removeFromTop(t.shell.listRowHeight * 2), "Nothing selected");
         return;
     }
-    if (const auto rows = clipProperties(); !rows.empty())
-    {
-        r = ui::paintProperties(g, r, rows);
-        r.removeFromTop(t.shell.groupGap);
-    }
-    ui::paintProperties(g, r, channelProperties());
+    stack_.paint(g);
+    for (size_t i = 0; i < sections_.size(); ++i)
+        if (const auto rows = properties(sections_[i]); !rows.empty())
+            ui::paintProperties(g, stack_.content(i), rows);
 }
 
 // ---- DetailPanel ---------------------------------------------------------------------------
@@ -376,7 +406,10 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
 {
     header_.setTabs({"Modules", "Clip"}, 0);
     header_.setCaption("Tab switches");
-    header_.onTabSelected = [this](int tab) { setMode(tab == 0 ? Mode::Devices : Mode::Clip); };
+    header_.onTabSelected = [this](int tab) {
+        const auto m = tab == 0 ? Mode::Devices : Mode::Clip;
+        onModeChosen ? onModeChosen(m) : setMode(m);
+    };
     addAndMakeVisible(header_);
     addAndMakeVisible(chain_);
     addChildComponent(roll_);
@@ -393,12 +426,33 @@ void DetailPanel::updateHeader()
 
 void DetailPanel::setMode(Mode m)
 {
+    if (m == Mode::Clip && !clipViewAvailable_)
+        m = Mode::Devices;
     if (mode_ == m)
         return;
     mode_ = m;
     updateVisibility();
     updateHeader();
     repaint();
+}
+
+void DetailPanel::setClipViewAvailable(bool available)
+{
+    if (available == clipViewAvailable_)
+        return;
+    clipViewAvailable_ = available;
+    if (available)
+    {
+        header_.setTabs({"Modules", "Clip"}, mode_ == Mode::Devices ? 0 : 1);
+        header_.setCaption("Tab switches");
+    }
+    else
+    {
+        setMode(Mode::Devices);
+        header_.setTitle("Modules");
+        header_.setCaption({});
+    }
+    updateHeader();
 }
 
 void DetailPanel::updateVisibility()

@@ -37,6 +37,8 @@ public:
     void finishAnimations();
     [[nodiscard]] DetailPanel& detail() noexcept { return detail_; }
     [[nodiscard]] ArrangementView& arrangement() noexcept { return arrangement_; }
+    [[nodiscard]] InspectorPanel& inspector() noexcept { return inspector_; }
+    [[nodiscard]] MixerView& mixer() noexcept { return mixer_; }
 
     /// Frame statistics overlay (paint time of the arrangement, frame rate): --stats.
     void setStatsVisible(bool visible);
@@ -67,7 +69,13 @@ private:
     std::unique_ptr<juce::FileChooser> chooser_;
     juce::String title_;
     void onFrame(double timestamp);
-    void selectionChanged(std::optional<std::uint64_t> track);
+    /// The selection or the project changed: the context panels follow the subject, per view
+    /// (docs/design/selection.md).
+    void selectionChanged();
+    /// The detail panel's mode for the current view: the arrangement's (Modules or Clip), or
+    /// Modules in the mixer view.
+    void applyDetailMode();
+    void setMixerShown(bool shown);
     void showAudioSettings();
     void toggle(Panel& p);
     [[nodiscard]] std::optional<model::TrackInfo> selectedTrackInfo() const;
@@ -89,7 +97,9 @@ private:
     Splitter browserSplit_, inspectorSplit_;
     Splitter detailSplit_{true}; // the clip view's top edge
     float deviceViewHeight_ = 0.0f, clipViewHeight_ = 320.0f; // the detail panel's height per mode
-    std::optional<std::uint64_t> shownMidiClip_; // the selection's MIDI clip (the mode follows it)
+    // The arrangement's detail mode: picked when the subject changes, then Tab's (selection.md §4).
+    DetailPanel::Mode arrangeMode_ = DetailPanel::Mode::Devices;
+    std::optional<model::PanelContext::Key> subject_;
     CommandPalette palette_{actions_};
 
     Panel browserPanel_{.open = true, .shown = 1.0f, .size = 220.0f};

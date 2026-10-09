@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/Session.h"
+#include "model/Selection.h"
 #include "ui/ChannelInspector.h"
 #include "ui/ActionRegistry.h"
 #include "ui/DeviceChain.h"
@@ -112,40 +113,54 @@ private:
     bool rail_ = false;
 };
 
-/// Right panel: properties of the selection (filled in as editing lands).
+/// Right panel, in the arrangement: the properties of the selection's subject in titled sections
+/// (docs/design/selection.md §5): CLIP or CLIPS, then TRACK, RETURN or MASTER, then MIX and SENDS.
 class InspectorPanel final : public juce::Component
 {
 public:
     explicit InspectorPanel(engine::Session& session);
+    /// Shows a subject (model::panelContext decides the sections) with the project's tempo and
+    /// return tracks.
+    void setContext(const model::PanelContext& context, const model::TempoMap& tempo,
+                    const std::vector<model::TrackInfo>& returns);
+    /// Shows nothing and drops its meters (before the project is replaced).
+    void clear();
+    [[nodiscard]] const std::vector<model::InspectorSection>& sections() const noexcept { return sections_; }
     void resized() override;
-    /// What is selected: a channel (a track, a return track or the master) and the clips.
-    void setSelection(std::optional<model::TrackInfo> track, std::optional<model::ClipInfo> clip = std::nullopt,
-                      int clipCount = 0, model::TempoMap tempo = {});
     void paint(juce::Graphics& g) override;
 
 private:
-    /// The property rows painted at the top: the clip's, then the channel's.
-    [[nodiscard]] std::vector<ui::Property> clipProperties() const;
-    [[nodiscard]] std::vector<ui::Property> channelProperties() const;
+    /// A section's property rows (none for MIX and SENDS, which are components).
+    [[nodiscard]] std::vector<ui::Property> properties(model::InspectorSection section) const;
 
     engine::Session& session_;
     ui::PanelHeader header_;
-    ChannelInspector channel_{session_};
-    std::optional<model::TrackInfo> track_;
+    ChannelMix mix_{session_};
+    ChannelSends sends_{session_};
+    ui::SectionStack stack_;
+    std::vector<model::InspectorSection> sections_;
+    std::optional<model::TrackInfo> channel_;
     std::optional<model::ClipInfo> clip_;
     int clipCount_ = 0;
     model::TempoMap tempo_;
 };
 
 /// Bottom panel: the selected track's device chain (C6) or the clip view, which shows the
-/// selected MIDI clip in the piano roll (M2 C2); Tab switches.
+/// selected MIDI clip in the piano roll (M2 C2); Tab switches. In the mixer view it shows only
+/// the chain, under a plain "Modules" title (docs/design/selection.md §4).
 class DetailPanel final : public juce::Component
 {
 public:
     DetailPanel(engine::Session& session, const ActionRegistry& actions);
 
     enum class Mode { Devices, Clip };
+    /// Clip is ignored while the clip view isn't available.
     void setMode(Mode m);
+    /// The arrangement: Modules and Clip tabs. The mixer view: modules only, no tabs.
+    void setClipViewAvailable(bool available);
+    [[nodiscard]] bool clipViewAvailable() const noexcept { return clipViewAvailable_; }
+    /// A tab was clicked. The shell owns the mode, so it decides.
+    std::function<void(Mode)> onModeChosen;
     [[nodiscard]] Mode mode() const noexcept { return mode_; }
     void setSelection(std::optional<model::TrackInfo> track);
     /// The MIDI clip the clip view edits (nullopt: none).
@@ -167,6 +182,7 @@ private:
 
     ui::PanelHeader header_;
     Mode mode_ = Mode::Devices;
+    bool clipViewAvailable_ = true;
     std::optional<model::TrackInfo> track_;
     DeviceChain chain_;
     PianoRoll roll_;

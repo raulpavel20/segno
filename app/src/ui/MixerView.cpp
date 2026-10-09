@@ -222,6 +222,7 @@ MixerView::MixerView(engine::Session& session) : session_(session)
     viewport_.setViewedComponent(&content_, false);
     viewport_.setScrollBarsShown(false, true);
     viewport_.setScrollBarThickness(6);
+    viewport_.setWantsKeyboardFocus(false); // the view takes the arrow keys, not the viewport
     addAndMakeVisible(viewport_);
     setWantsKeyboardFocus(true);
 }
@@ -294,11 +295,14 @@ void MixerView::rebuild()
             strip = std::make_unique<ChannelStrip>(session_, t);
             const auto id = t.id;
             strip->onSelect = [this, id] {
-                grabKeyboardFocus();
+                if (isShowing())
+                    grabKeyboardFocus();
                 if (onSelect)
                     onSelect(id);
             };
             strip->onSelectModule = [this, id](std::uint64_t module) {
+                if (isShowing())
+                    grabKeyboardFocus(); // Left and Right keep moving the selection
                 if (onSelectModule)
                     onSelectModule(id, module);
             };
