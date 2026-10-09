@@ -9,7 +9,7 @@ juce_add_modules(ALIAS_NAMESPACE tracktion
 add_library(fd_app_model STATIC src/model/Timeline.cpp src/model/TrackLayout.cpp src/model/Peaks.cpp
     src/model/Editing.cpp src/model/Fuzzy.cpp src/model/NoteEditing.cpp
     src/model/TrackHeaderLayout.cpp src/model/AudioMeasure.cpp src/model/Taper.cpp src/model/ChannelStripLayout.cpp src/model/Selection.cpp
-    src/model/Automation.cpp src/model/ArrangementRows.cpp src/model/Snapshot.cpp src/model/Recording.cpp)
+    src/model/Automation.cpp src/model/ArrangementRows.cpp src/model/Snapshot.cpp src/model/Recording.cpp src/model/Takes.cpp)
 target_include_directories(fd_app_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(fd_app_model PUBLIC fd::audiofile PRIVATE fd::dsp fd::warnings)
 
@@ -39,6 +39,7 @@ target_sources(fd_engine INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/Session.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionAutomation.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionRecording.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionTakes.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/PluginWindow.cpp")
 target_include_directories(fd_engine INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(fd_engine INTERFACE

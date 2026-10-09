@@ -143,7 +143,8 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
           "measure_module", "set_mix", "add_return_track", "set_send", "measure_mix", "get_automation",
           "set_automation", "clear_automation", "set_automation_on", "add_automation_lane", "set_automation_lane",
           "remove_automation_lane", "assign_automation", "unassign_automation", "set_track_input", "arm_tracks",
-          "record", "undo", "redo",
+          "record", "get_takes", "use_take", "set_take", "move_takes_to_tracks", "delete_takes", "capture_midi",
+          "undo", "redo",
           "save_project", "new_project", "open_project"})
         CHECK(names.contains(name));
     for (const auto& p : registry.prompts)
@@ -887,4 +888,29 @@ TEST_CASE("mcp tools: recording: inputs set, tracks armed, a few bars recorded",
     REQUIRE(project["tracks"][0]["clips"].size() == 1);
     CHECK(project["tracks"][0]["clips"][0]["length"] == Approx(8.0).margin(0.25)); // beats
     CHECK(daw.session->undoDescription() == "Record"); // the pass: one undo step
+
+    // A loop pass: a take per lap (ADR 0031), then the take tools.
+    daw.call("set_loop", {{"start", "9.1.1"}, {"end", "10.1.1"}, {"on", true}});
+    daw.call("record", {{"from", "9.1.1"}, {"bars", 3}});
+    pump(6.5);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(100);
+    daw.call("set_loop", {{"start", "9.1.1"}, {"end", "10.1.1"}, {"on", false}});
+    auto takes = daw.call("get_takes", {{"track", t0}});
+    REQUIRE(takes["takes"].size() >= 4); // the first pass, and three laps
+    const auto lap1 = takes["takes"][1]["id"].get<std::string>();
+    CHECK(takes["takes"].back()["playing"] == true);
+    takes = daw.call("use_take", {{"track", t0}, {"take", lap1}});
+    CHECK(takes["takes"][1]["playing"] == true);
+    CHECK(daw.session->undoDescription() == "Assistant: use take");
+    CHECK(daw.call("set_take", {{"track", t0}, {"take", lap1}, {"name", "Best"}, {"star", true}})["takes"][1]["star"] == true);
+    const auto tracks = daw.call("move_takes_to_tracks", {{"track", t0}, {"takes", Json::array({lap1})}})["tracks"];
+    REQUIRE(tracks.size() == 1);
+    CHECK(daw.project()["tracks"][1]["id"] == tracks[0]);
+    CHECK(daw.fails("use_take", {{"track", t0}, {"take", "k:999999"}}).find("isn't one of") != std::string::npos);
+    const auto left = daw.call("delete_takes", {{"track", t0}, {"unused", true}})["takes"];
+    for (const auto& take : left)
+        CHECK(take["playing"] == true);
+
+    // Capture MIDI: nothing played yet.
+    CHECK(daw.call("capture_midi")["clip"].is_null());
 }

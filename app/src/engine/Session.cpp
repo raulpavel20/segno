@@ -161,6 +161,7 @@ model::ClipInfo clipInfo(te::Clip& c, int trackColour)
     clip.length = pos.getLength().inSeconds();
     clip.offset = pos.getOffset().inSeconds();
     clip.colour = static_cast<int>(c.state.getProperty(kColourId, trackColour));
+    clip.fromTake = static_cast<std::uint64_t>(static_cast<juce::int64>(c.state["fdTake"])); // ADR 0031
     if (auto* midi = dynamic_cast<te::MidiClip*>(&c))
     {
         // Notes count beats from the content start (the clip's start minus its offset).
@@ -327,6 +328,8 @@ Session::Impl::~Impl()
 {
     renders.clear(); // cancels them (their Edit copies go before the engine)
     engine.getDeviceManager().removeChangeListener(this);
+    for (auto& in : engine.getDeviceManager().getMidiInDevices())
+        in->keyboardState.removeListener(this);
     setRecordingFiles(engine, {});
     detach();
 }
@@ -337,6 +340,10 @@ void Session::Impl::midiDevicesChanged()
         return;
     for (auto& in : engine.getDeviceManager().getMidiInDevices())
     {
+        // Capture MIDI keeps the last minute (recording.md §8), and lights when there's something.
+        in->updateRetrospectiveBufferLength(60.0);
+        in->keyboardState.removeListener(this);
+        in->keyboardState.addListener(this);
         if (!in->isEnabled())
             in->setEnabled(true);
         if (in->getMonitorMode() != te::InputDevice::MonitorMode::on)
@@ -420,7 +427,11 @@ void Session::Impl::rebuildSnapshot()
         devicesOf(t->pluginList, info);
         info.mix = mixOf(t->pluginList);
         if (!isReturn(*t))
+        {
             info.input = inputOf(*t);
+            info.takes = takeInfos(*t, info.colour);
+            info.showTakes = t->state[showTakesId];
+        }
         info.mix.mute = t->isMuted(false);
         info.mix.solo = t->isSolo(false);
         if (info.role == model::TrackInfo::Role::Track)
@@ -918,6 +929,8 @@ bool Session::midiNotesHeld() const
 
 void Session::computerKeyboardNote(int note, float velocity)
 {
+    if (velocity > 0.0f) // Capture MIDI lights (devices tell through their keyboard state)
+        impl_->lastNoteAt = juce::Time::getMillisecondCounterHiRes() * 0.001;
     for (auto& in : impl_->engine.getDeviceManager().getMidiInDevices())
         if (in->getName() == computerKeyboardName)
             if (auto* keyboard = dynamic_cast<te::VirtualMidiInputDevice*>(in.get()))

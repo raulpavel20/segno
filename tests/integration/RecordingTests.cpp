@@ -320,3 +320,160 @@ TEST_CASE("recording: the recording offset moves recordings earlier", "[integrat
     REQUIRE(clips.size() == 2);
     CHECK(clickIn(clips[1].id) == Approx(plain - 0.020).margin(0.002));
 }
+
+TEST_CASE("takes: a loop pass keeps every lap on a take lane; the main lane plays the newest complete one",
+          "[integration]")
+{
+    Recording r;
+    r.input = sine;
+    const auto t = r.track(0);
+    r.session->setAudioInput(t, r.session->audioInputs().front().id);
+    r.session->setArmed(t, true, true);
+    r.session->setLoopRange(4.0, 6.0);
+    r.session->setLooping(true);
+    r.session->setPosition(4.0);
+    r.recordFor(6.5); // three laps and a half
+    r.session->setLooping(false);
+    auto info = r.info(t);
+    REQUIRE(info.takes.size() == 4);
+    CHECK(info.takes[0].name == "Take 1");
+    CHECK(info.takes[3].name == "Take 4");
+    REQUIRE(info.clips.size() == 1);
+    const auto& main = info.clips[0];
+    CHECK(main.start == Approx(4.0).margin(0.01));
+    CHECK(main.length == Approx(2.0).margin(0.01));
+    CHECK(main.fromTake == info.takes[2].clips.at(0).id); // the third lap: the last complete one
+    CHECK(main.sourcePath == info.takes[2].clips[0].sourcePath);
+    std::set<std::string> files;
+    for (const auto& take : info.takes)
+        files.insert(take.clips.at(0).sourcePath);
+    CHECK(files.size() == 4); // a file per lap
+    CHECK(r.session->undoDescription() == "Record");
+    r.session->undo();
+    CHECK(r.info(t).takes.empty());
+    CHECK(r.info(t).clips.empty());
+}
+
+TEST_CASE("takes: what a pass records over is kept as a take first", "[integration]")
+{
+    Recording r;
+    r.input = sine;
+    const auto t = r.track(0);
+    juce::TemporaryFile wav(".wav");
+    {
+        juce::WavAudioFormat format;
+        std::unique_ptr<juce::OutputStream> stream(wav.getFile().createOutputStream().release());
+        auto writer = format.createWriterFor(stream, juce::AudioFormatWriterOptions{}
+                                                         .withSampleRate(kRate)
+                                                         .withNumChannels(1)
+                                                         .withBitsPerSample(24));
+        REQUIRE(writer != nullptr);
+        juce::AudioBuffer<float> data(1, static_cast<int>(kRate * 3));
+        data.clear();
+        writer->writeFromAudioSampleBuffer(data, 0, data.getNumSamples());
+    }
+    REQUIRE(r.session->insertAudioFile(t, wav.getFile(), 0.0) != 0);
+    r.session->setAudioInput(t, r.session->audioInputs().front().id);
+    r.session->setArmed(t, true, true);
+    r.session->setPosition(1.0);
+    r.recordFor(1.0);
+    auto info = r.info(t);
+    REQUIRE(info.takes.size() == 2);
+    CHECK(info.takes[0].name == "Before take 1");
+    REQUIRE(info.takes[0].clips.size() == 1);
+    CHECK(juce::File(info.takes[0].clips[0].sourcePath) == wav.getFile());
+    CHECK(info.takes[1].name == "Take 1");
+    // The main lane: what was there before, cut around the new recording (ADR 0019).
+    REQUIRE(info.clips.size() == 3);
+    CHECK(info.clips[1].fromTake == info.takes[1].clips.at(0).id);
+}
+
+TEST_CASE("takes: use, step through, star, rename, delete, and copy or move to new tracks", "[integration]")
+{
+    Recording r;
+    r.input = sine;
+    const auto t = r.track(0);
+    r.session->setAudioInput(t, r.session->audioInputs().front().id);
+    r.session->setArmed(t, true, true);
+    r.session->setLoopRange(2.0, 4.0);
+    r.session->setLooping(true);
+    r.session->setPosition(2.0);
+    r.recordFor(6.0); // three laps
+    r.session->setLooping(false);
+    auto info = r.info(t);
+    REQUIRE(info.takes.size() >= 3);
+    const auto take1 = info.takes[0].id, take2 = info.takes[1].id;
+
+    REQUIRE(r.session->useTake(t, take1));
+    CHECK(r.session->undoDescription() == "Use take");
+    info = r.info(t);
+    REQUIRE(info.clips.size() == 1);
+    CHECK(info.clips[0].fromTake == info.takes[0].clips.at(0).id);
+    REQUIRE(r.session->stepTake(t, 2.0, 4.0, 1)); // Alt+↓: the next take
+    CHECK(r.info(t).clips.at(0).fromTake == r.info(t).takes[1].clips.at(0).id);
+
+    r.session->setTakeStar(t, take2, true);
+    r.session->renameTake(t, take2, "Keeper");
+    CHECK(r.info(t).takes[1].star);
+    CHECK(r.info(t).takes[1].name == "Keeper");
+    r.session->showTakes(t, true);
+    CHECK(r.info(t).showTakes);
+
+    // Delete unused takes: every one but the one playing; their files stay.
+    const auto unusedFile = juce::File(r.info(t).takes[0].clips.at(0).sourcePath);
+    r.session->deleteUnusedTakes(t);
+    REQUIRE(r.info(t).takes.size() == 1);
+    CHECK(r.info(t).takes[0].id == take2);
+    CHECK(unusedFile.existsAsFile());
+    r.session->undo();
+    REQUIRE(r.info(t).takes.size() >= 3);
+
+    // Copies on new tracks: each plays its take, with the track's modules and mix.
+    r.session->setVolume(t, -6.0f);
+    const auto tracksBefore = r.session->snapshot()->tracks.size();
+    const auto made = r.session->takesToTracks(t, {take1, take2}, false);
+    REQUIRE(made.size() == 2);
+    CHECK(r.session->undoDescription() == "Copy takes to new tracks");
+    r.session->updateSnapshotNow();
+    CHECK(r.session->snapshot()->tracks.size() == tracksBefore + 2);
+    const auto copy = r.info(made[0]);
+    REQUIRE(copy.clips.size() == 1);
+    CHECK(copy.clips[0].sourcePath == r.info(t).takes[0].clips.at(0).sourcePath);
+    CHECK(copy.takes.empty());
+    CHECK(copy.mix.volumeDb == Approx(-6.0f).margin(0.01f));
+    CHECK_FALSE(copy.input.armed);
+    r.session->updateSnapshotNow();
+    CHECK(r.session->snapshot()->tracks[1].id == made[0]); // right after the track
+    const auto takesBefore = r.info(t).takes.size();
+    r.session->takesToTracks(t, {take1}, true); // moved: off this track
+    CHECK(r.info(t).takes.size() == takesBefore - 1);
+}
+
+TEST_CASE("takes: Capture MIDI turns what was just played into a clip at the playhead", "[integration]")
+{
+    Recording r;
+    const auto t = r.track(1);
+    REQUIRE(r.session->addDevice(t, "fd:subtractive-synth") != 0);
+    r.session->setMidiInputTarget(t);
+    r.pump(0.2);
+    CHECK_FALSE(r.session->canCaptureMidi());
+    for (int note : {60, 62, 64})
+    {
+        r.session->computerKeyboardNote(note, 0.8f);
+        r.pump(0.15);
+        r.session->computerKeyboardNote(note, 0.0f);
+        r.pump(0.1);
+    }
+    CHECK(r.session->canCaptureMidi());
+    r.session->setPosition(8.0); // bar 5
+    const auto clip = r.session->captureMidi();
+    REQUIRE(clip != 0);
+    CHECK(r.session->undoDescription() == "Capture MIDI");
+    CHECK_FALSE(r.session->canCaptureMidi());
+    const auto info = r.info(t);
+    REQUIRE(info.clips.size() == 1);
+    CHECK(info.clips[0].start == Approx(8.0).margin(0.001));
+    REQUIRE(info.clips[0].notes.size() == 3);
+    CHECK(info.clips[0].notes[0].pitch == 60);
+    CHECK(info.clips[0].notes[2].pitch == 64);
+}

@@ -1,10 +1,12 @@
 #pragma once
 
 #include "engine/Session.h"
+#include "model/Takes.h"
 
 #include <tracktion_engine/tracktion_engine.h>
 
 #include <algorithm>
+#include <atomic>
 #include <map>
 #include <set>
 #include <utility>
@@ -46,7 +48,8 @@ struct Session::Impl final : private juce::ValueTree::Listener,
                              private juce::ChangeListener,
                              private te::ParameterChangeHandler::Listener,
                              private te::AutomatableParameter::Listener,
-                             private te::TransportControl::Listener
+                             private te::TransportControl::Listener,
+                             private juce::MidiKeyboardState::Listener
 {
     Impl(Session& owner, te::Engine& engine);
     ~Impl() override;
@@ -115,17 +118,41 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     void moveToProject(const juce::File& file);
     /// One undo step for a recording pass (audio, MIDI and automation together).
     void beginPass(const juce::String& name);
+
+    // ---- takes (C5b, ADR 0031) ------------------------------------------------------------------
+    // A track's take lanes: FDTAKES with a TAKE (id, name, star) per lane, each holding the states
+    // of its clips (plain clips, never played). Main-lane clips made from a take carry "fdTake".
+    static inline const juce::Identifier takesId{"FDTAKES"}, takeId{"TAKE"}, starId{"star"}, fromTakeId{"fdTake"},
+        showTakesId{"fdShowTakes"};
+    [[nodiscard]] juce::ValueTree takesOf(te::AudioTrack& track, juce::UndoManager* um);
+    [[nodiscard]] juce::ValueTree takeTree(te::AudioTrack& track, std::uint64_t take);
+    [[nodiscard]] std::vector<model::TakeInfo> takeInfos(te::AudioTrack& track, int colour) const;
+    /// A stored clip's info (a take's), as the snapshot shows clips.
+    [[nodiscard]] model::ClipInfo storedClipInfo(const juce::ValueTree& clip, int colour) const;
+    /// A take lane holding copies of `clips` (new ids). Returns it.
+    juce::ValueTree addTake(te::AudioTrack& track, const juce::String& name, const std::vector<juce::ValueTree>& clips,
+                            juce::UndoManager* um);
+    /// A take clip's copy in the main lane, cutting what it covers. Returns the new clip.
+    te::Clip* useTakeClip(te::AudioTrack& track, const juce::ValueTree& takeClip, juce::UndoManager* um);
+    /// A pass's clips become take lanes (one per loop lap), what they recorded over is kept as a
+    /// take, and the main lane plays the newest complete lap. Returns the main-lane clips.
+    std::vector<std::uint64_t> importTakes(te::AudioTrack& track, const juce::ReferenceCountedArray<te::Clip>& clips);
+    /// MIDI played while not recording, for Capture MIDI's button.
+    std::atomic<double> lastNoteAt{-1.0};
+    double lastCaptureAt = -1.0;
     std::vector<std::uint64_t> recordedClips; // made in the pass now ending
     std::optional<double> recordFrom;         // where the pass records from (the count-in ends there)
     std::map<std::uint64_t, juce::File> liveFiles;  // audio being recorded, by track
     std::map<std::uint64_t, double> liveStarts;     // recordings in progress: where each starts
-    /// Stops playback once the playhead passes `stopAt` (recordUntil).
+    /// Stops playback after `seconds` of recording (recordUntil), however the loop wraps: counted
+    /// on tracktion's unlooped position from where the pass starts recording.
     struct StopAt final : juce::Timer
     {
         explicit StopAt(Impl& i) : impl(i) {}
         void timerCallback() override;
         Impl& impl;
         double seconds = 0.0;
+        std::optional<double> startedAt;
     };
     StopAt stopAt{*this};
     /// Starts a command's undo step, named for undo menus and assistants ("Add track"); inside
@@ -251,6 +278,11 @@ private:
     void recordingFinished(te::InputDeviceInstance& instance, te::EditItemID target,
                            const juce::ReferenceCountedArray<te::Clip>& clips) override;
     void recordingAboutToStart(te::InputDeviceInstance& instance, te::EditItemID target) override;
+    void handleNoteOn(juce::MidiKeyboardState*, int, int, float) override
+    {
+        lastNoteAt = juce::Time::getMillisecondCounterHiRes() * 0.001; // any thread
+    }
+    void handleNoteOff(juce::MidiKeyboardState*, int, int, float) override {}
     void pluginParameterChanged(te::AutomatableParameter& param, bool isFollowingAutomation) override;
     void curveHasChanged(te::AutomatableParameter&) override {}
     void recordingStatusChanged(te::AutomatableParameter& param) override;
@@ -266,11 +298,13 @@ private:
     {
         if (id == te::IDs::lastSignificantChange || id == panelViewId || id == te::IDs::automationMode) // bookkeeping and view state
             return;
-        // Arming is a listening state, like solo; input routing follows the tracks' inputs.
-        if (id == armedId || inInputs(t))
+        // Arming is a listening state, like solo; showing takes is view state; input routing
+        // follows the tracks' inputs.
+        if (id == armedId || id == showTakesId || inInputs(t))
         {
-            if (id == armedId)
-                changed(t);
+            if (id != armedId && id != showTakesId)
+                return;
+            changed(t);
             return;
         }
         // An assignment's on switch: shown at once, never an unsaved change.

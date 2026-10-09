@@ -2,6 +2,8 @@
 
 #include "mcp/tools/Tools.h"
 
+#include "model/Takes.h"
+
 namespace fd::mcp
 {
 using namespace tools;
@@ -30,6 +32,48 @@ std::optional<model::CountIn> countInArg(const Json& value)
     if (v == "2 bars")
         return model::CountIn::TwoBars;
     throw Problem{"countIn is \"off\", \"1 beat\", \"2 beats\", \"1 bar\" or \"2 bars\"."};
+}
+
+std::uint64_t takeArg(const model::TrackInfo& track, const Json& value)
+{
+    const auto id = parseId(value, IdKind::Take);
+    if (!id || std::none_of(track.takes.begin(), track.takes.end(), [&](const auto& t) { return t.id == *id; }))
+        throw Problem{value.dump() + " isn't one of " + track.name + "'s takes (get_takes lists them)."};
+    return *id;
+}
+
+Json takesJson(ToolEnv& env, std::uint64_t trackId)
+{
+    env.session.flushSnapshot();
+    const auto* t = env.session.snapshot()->channel(trackId);
+    const auto tm = tempo(env);
+    Json takes = Json::array();
+    if (t != nullptr)
+        for (const auto& take : t->takes)
+        {
+            Json clips = Json::array();
+            for (const auto& c : take.clips)
+            {
+                Json used = Json::array();
+                for (const auto& [from, to] : model::inUse(c, t->clips))
+                    used.push_back({{"from", positionJson(tm.beatsForSeconds(from), tm)}, {"to", positionJson(tm.beatsForSeconds(to), tm)}});
+                Json clip{{"kind", c.kind == model::ClipInfo::Kind::Midi ? "midi" : "audio"},
+                          {"start", positionJson(tm.beatsForSeconds(c.start), tm)},
+                          {"end", positionJson(tm.beatsForSeconds(c.end()), tm)},
+                          {"used", std::move(used)}};
+                if (!c.sourcePath.empty())
+                    clip["file"] = c.sourcePath;
+                else
+                    clip["notes"] = c.notes.size();
+                clips.push_back(std::move(clip));
+            }
+            takes.push_back({{"id", formatId(IdKind::Take, take.id)},
+                             {"name", take.name},
+                             {"star", take.star},
+                             {"playing", model::isUsed(take, t->clips)},
+                             {"clips", std::move(clips)}});
+        }
+    return {{"track", formatId(IdKind::Track, trackId)}, {"takes", std::move(takes)}};
 }
 
 Json trackInputResult(ToolEnv& env, std::uint64_t track)
@@ -189,6 +233,123 @@ void addRecordingTools(Registry& registry, ToolEnv& env)
             return ToolResult::ok({{"recording", true}, {"tracks", tracks}},
                                   tracks.empty() ? "Recording, but no track is armed (arm_tracks)."
                                                  : "Recording " + std::to_string(tracks.size()) + " tracks.");
+        }));
+
+    const auto takesResult = result({{"track", string("")}, {"takes", arrayOf(result({{"id", string("")}, {"name", string("")}}), "", 0)}},
+                                     {"track", "takes"});
+    ToolAnnotations reads;
+    reads.readOnly = true;
+    ToolAnnotations removes;
+    removes.destructive = true;
+
+    registry.tools.push_back(make(
+        env,
+        {"get_takes", "List a track's takes",
+         "Lists a track's take lanes: every recording pass and loop lap is kept as a take (ADR 0031). Each take: its "
+         "id, name, star, whether the track plays it, and its clips (where, the audio file or the number of notes, and "
+         "which parts the track plays). To compare takes, render each one's time range (render) and measure it.",
+         object({{"track", id(IdKind::Track, "The track")}}, {"track"}), takesResult, reads, false},
+        [&env](const Json& args, CallContext&) {
+            const auto t = clipTrack(env, args["track"]);
+            const auto j = takesJson(env, t.id);
+            return ToolResult::ok(j, t.name + " has " + std::to_string(j["takes"].size()) + " takes.");
+        }));
+
+    registry.tools.push_back(make(
+        env,
+        {"use_take", "Use a take",
+         "Makes the track play a take: its clips replace what the track plays across their time ranges. One undo step.",
+         object({{"track", id(IdKind::Track, "The track")}, {"take", id(IdKind::Take, "The take")}}, {"track", "take"}),
+         takesResult, ToolAnnotations{}},
+        [&env](const Json& args, CallContext&) {
+            const auto t = clipTrack(env, args["track"]);
+            const auto take = takeArg(t, args["take"]);
+            env.session.useTake(t.id, take);
+            return ToolResult::ok(takesJson(env, t.id), "Playing " + formatId(IdKind::Take, take) + ".");
+        }));
+
+    registry.tools.push_back(make(
+        env,
+        {"set_take", "Rename or star a take",
+         "Renames a take and/or stars it (a favourite). One undo step each.",
+         object({{"track", id(IdKind::Track, "The track")},
+                 {"take", id(IdKind::Take, "The take")},
+                 {"name", string("Its new name")},
+                 {"star", boolean("A favourite")}},
+                {"track", "take"}),
+         takesResult, changes},
+        [&env](const Json& args, CallContext&) {
+            const auto t = clipTrack(env, args["track"]);
+            const auto take = takeArg(t, args["take"]);
+            if (args.contains("name"))
+                env.session.renameTake(t.id, take, args["name"].get<std::string>());
+            if (args.contains("star"))
+                env.session.setTakeStar(t.id, take, args["star"].get<bool>());
+            return ToolResult::ok(takesJson(env, t.id), "Done.");
+        }));
+
+    registry.tools.push_back(make(
+        env,
+        {"move_takes_to_tracks", "Takes onto new tracks",
+         "Puts takes onto new tracks right after the track, each copying its modules and mix and playing one take (for "
+         "doubles and layers). copy (default true) keeps them on this track too. One undo step.",
+         object({{"track", id(IdKind::Track, "The track")},
+                 {"takes", ids(IdKind::Take, "The takes")},
+                 {"copy", boolean("Keep them on this track too (default true)")}},
+                {"track", "takes"}),
+         result({{"tracks", arrayOf(string(""), "The new tracks", 0)}}), ToolAnnotations{}},
+        [&env](const Json& args, CallContext&) {
+            const auto t = clipTrack(env, args["track"]);
+            std::vector<std::uint64_t> takes;
+            for (const auto& v : args["takes"])
+                takes.push_back(takeArg(t, v));
+            const auto made = env.session.takesToTracks(t.id, takes, !args.value("copy", true));
+            env.session.flushSnapshot();
+            Json tracks = Json::array();
+            for (auto id : made)
+                tracks.push_back(formatId(IdKind::Track, id));
+            return ToolResult::ok({{"tracks", tracks}}, std::to_string(made.size()) + " new tracks.");
+        }));
+
+    registry.tools.push_back(make(
+        env,
+        {"delete_takes", "Delete takes",
+         "Deletes take lanes: the given takes, or with unused every take the track doesn't play. Their files stay. One "
+         "undo step.",
+         object({{"track", id(IdKind::Track, "The track")},
+                 {"takes", ids(IdKind::Take, "The takes")},
+                 {"unused", boolean("Every take the track doesn't play")}},
+                {"track"}),
+         takesResult, removes},
+        [&env](const Json& args, CallContext&) {
+            const auto t = clipTrack(env, args["track"]);
+            if (args.value("unused", false))
+                env.session.deleteUnusedTakes(t.id);
+            else if (args.contains("takes"))
+            {
+                std::vector<std::uint64_t> takes;
+                for (const auto& v : args["takes"])
+                    takes.push_back(takeArg(t, v));
+                env.session.deleteTakes(t.id, takes);
+            }
+            else
+                throw Problem{"Give takes, or unused: true."};
+            return ToolResult::ok(takesJson(env, t.id), "Deleted.");
+        }));
+
+    registry.tools.push_back(make(
+        env,
+        {"capture_midi", "Capture MIDI",
+         "Turns the MIDI just played (the last minute, not recorded) into a clip on the track it was played into: "
+         "where it was played if the song was playing, else at the playhead. One undo step.",
+         object({}), result({{"clip", {{"type", {"string", "null"}}, {"description", "The new clip, or null"}}}}),
+         ToolAnnotations{}},
+        [&env](const Json&, CallContext&) {
+            const auto clip = env.session.captureMidi();
+            env.session.flushSnapshot();
+            if (clip == 0)
+                return ToolResult::ok({{"clip", nullptr}}, "Nothing was played to capture.");
+            return ToolResult::ok({{"clip", formatId(IdKind::Clip, clip)}}, "Captured " + formatId(IdKind::Clip, clip) + ".");
         }));
 }
 } // namespace fd::mcp

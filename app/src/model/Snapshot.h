@@ -43,6 +43,8 @@ struct ClipInfo
     // MIDI clips: the notes in time order (noteOrder) and the song beat of their zero.
     std::vector<Note> notes;
     double contentStartBeat = 0.0;
+    /// A main-lane clip made from a take (ADR 0031): that take clip's id (0: not from a take).
+    std::uint64_t fromTake = 0;
 
     [[nodiscard]] double end() const noexcept { return start + length; }
 };
@@ -125,6 +127,16 @@ struct AutomationLaneInfo
     [[nodiscard]] const AssignmentInfo* assignment(std::uint64_t channel, const std::string& key) const noexcept;
 };
 
+/// A take lane (ADR 0031, recording.md §6): a recording pass or a loop lap, kept under its track.
+/// Its clips don't play; the main lane plays copies of what's chosen.
+struct TakeInfo
+{
+    std::uint64_t id = 0;
+    std::string name; // "Take 3", "Before take 3"
+    bool star = false;
+    std::vector<ClipInfo> clips; // sorted by start
+};
+
 struct TrackInfo
 {
     enum class Kind { Audio, Instrument };
@@ -141,6 +153,8 @@ struct TrackInfo
     std::vector<DeviceSlot> devices; // the chain, in order (the engine's own mixer plugins are not listed)
     MixInfo mix;
     InputInfo input; // tracks only (C5): what it listens to and records, and whether it's armed
+    std::vector<TakeInfo> takes; // tracks only (C5b): its take lanes, oldest first
+    bool showTakes = false;      // its take lanes are shown (view state)
 
     [[nodiscard]] bool holdsClips() const noexcept { return role == Role::Track; }
 };

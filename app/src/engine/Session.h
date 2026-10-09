@@ -378,6 +378,33 @@ public:
     /// The folder unsaved projects record into (default: Documents/Segno/Unsaved).
     void setUnsavedRoot(const juce::File& folder);
 
+    // ---- takes (C5b, ADR 0031, docs/design/recording.md §6, §8) ------------------------------
+    // Every pass and loop lap is kept on a take lane under its track; the main lane plays plain
+    // clips made from them. Take edits are undo steps; showing take lanes is view state.
+
+    void showTakes(std::uint64_t trackId, bool show);
+    /// Uses a take: its clips replace the main lane across their ranges, cutting what they cover
+    /// (ADR 0019). One undo step, "Use take". False if there's no such take.
+    bool useTake(std::uint64_t trackId, std::uint64_t takeId);
+    /// Uses the next (+1) or previous (-1) take that covers [from, to] (Alt+↓ / Alt+↑).
+    bool stepTake(std::uint64_t trackId, double from, double to, int direction);
+    void renameTake(std::uint64_t trackId, std::uint64_t takeId, const std::string& name);
+    void setTakeStar(std::uint64_t trackId, std::uint64_t takeId, bool star);
+    /// Deletes take lanes (their files stay). One undo step.
+    void deleteTakes(std::uint64_t trackId, const std::vector<std::uint64_t>& takeIds);
+    /// Deletes the take lanes the main lane doesn't play.
+    void deleteUnusedTakes(std::uint64_t trackId);
+    /// New tracks after this one, copying its modules and mix, each playing one of the takes;
+    /// `move` also takes them off this track. One undo step. Returns the new tracks.
+    std::vector<std::uint64_t> takesToTracks(std::uint64_t trackId, const std::vector<std::uint64_t>& takeIds, bool move);
+
+    /// Capture MIDI (§8): turns what was just played into the armed (or selected) track into a
+    /// clip: where it was played while playing, or at the playhead when stopped. One undo step.
+    /// Returns the clip; 0 if there was nothing to capture.
+    std::uint64_t captureMidi();
+    /// Whether there's MIDI played since the last capture or recording, in the last minute.
+    [[nodiscard]] bool canCaptureMidi() const;
+
     /// A module panel's view state (collapsed sections, folded; ADR 0022), stored with the
     /// project on the module. Never an undo step or an unsaved change.
     [[nodiscard]] std::string deviceViewState(std::uint64_t deviceId) const;

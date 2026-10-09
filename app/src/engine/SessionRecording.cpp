@@ -226,16 +226,24 @@ void Session::Impl::recordingAboutToStart(te::InputDeviceInstance&, te::EditItem
 void Session::Impl::recordingFinished(te::InputDeviceInstance&, te::EditItemID target,
                                       const juce::ReferenceCountedArray<te::Clip>& clips)
 {
-    // Clips are named after their track (§5).
+    // Clips are named after their track (§5); a pass becomes take lanes, the main lane playing the
+    // newest complete lap (ADR 0031). An overdub merges into the clip that was there instead.
     auto* t = track(target.getRawID());
     for (auto* c : clips)
-    {
-        if (c == nullptr)
-            continue;
-        if (t != nullptr)
+        if (c != nullptr && t != nullptr)
             c->setName(t->getName());
-        recordedClips.push_back(c->itemID.getRawID());
+    const bool overdub = edit->state[overdubId] && std::any_of(clips.begin(), clips.end(), [](auto* c) {
+                             return dynamic_cast<te::MidiClip*>(c) != nullptr;
+                         });
+    if (t != nullptr && !overdub)
+    {
+        const auto placed = importTakes(*t, clips);
+        recordedClips.insert(recordedClips.end(), placed.begin(), placed.end());
     }
+    else
+        for (auto* c : clips)
+            if (c != nullptr)
+                recordedClips.push_back(c->itemID.getRawID());
     liveStarts.erase(target.getRawID());
     liveFiles.erase(target.getRawID());
 }
@@ -339,6 +347,7 @@ void Session::record()
     impl_->applyInputs();
     impl_->beginPass("Record");
     impl_->recordFrom = transport.isPlaying() ? std::nullopt : std::optional(position());
+    impl_->lastCaptureAt = juce::Time::getMillisecondCounterHiRes() * 0.001; // recorded, not captured
     transport.record(false, true); // with nothing armed it still plays (and records automation)
 }
 
@@ -369,19 +378,33 @@ void Session::drawLiveWaveform(juce::Graphics& g, std::uint64_t track, juce::Rec
 
 void Session::recordUntil(double seconds)
 {
+    const double from = position();
     record();
-    impl_->stopAt.seconds = seconds;
+    impl_->stopAt.seconds = std::max(0.0, seconds - from);
+    impl_->stopAt.startedAt.reset();
     impl_->stopAt.startTimer(5);
 }
 
 void Session::Impl::StopAt::timerCallback()
 {
     auto& transport = impl.edit->getTransport();
-    if (!transport.isPlaying() || transport.getPosition().inSeconds() >= seconds)
+    if (!transport.isPlaying())
     {
         stopTimer();
-        if (transport.isPlaying())
-            transport.stop(false, false);
+        return;
+    }
+    auto* context = impl.edit->getCurrentPlaybackContext();
+    const double unlooped = context != nullptr ? context->getUnloopedPosition().inSeconds() : transport.getPosition().inSeconds();
+    if (!startedAt)
+    {
+        if (impl.recordFrom && transport.getPosition().inSeconds() < *impl.recordFrom - 1e-3)
+            return; // still counting in
+        startedAt = unlooped;
+    }
+    if (unlooped - *startedAt >= seconds)
+    {
+        stopTimer();
+        transport.stop(false, false);
     }
 }
 
