@@ -43,7 +43,8 @@ inline int busOf(te::AudioTrack& returnTrack)
 struct Session::Impl final : private juce::ValueTree::Listener,
                              public juce::AsyncUpdater,
                              private juce::ChangeListener,
-                             private te::ParameterChangeHandler::Listener
+                             private te::ParameterChangeHandler::Listener,
+                             private te::AutomatableParameter::Listener
 {
     Impl(Session& owner, te::Engine& engine);
     ~Impl() override;
@@ -108,11 +109,11 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// A module panel's view state on its plugin (ADR 0022): saved, never undoable or "unsaved".
     static inline const juce::Identifier panelViewId{"fdPanel"};
 
-    // ---- automation (C4, ADR 0028) ----------------------------------------------------------
+    // ---- automation (C4, ADRs 0028 and 0029) ------------------------------------------------
 
-    /// A parameter that can have a lane, and how its engine value maps to the lane's 0..1:
-    /// lane = (value - offset) / scale.
-    struct Lane
+    /// A parameter that can be automated, and how its engine value maps to its control's travel
+    /// (0..1): travel = (value - offset) / scale.
+    struct Param
     {
         enum class Kind { Volume, Pan, Send, Module, External };
         Kind kind = Kind::Module;
@@ -124,19 +125,59 @@ struct Session::Impl final : private juce::ValueTree::Listener,
         DevicePlugin* native = nullptr; // our module
         size_t index = 0;               // its parameter's index
 
-        [[nodiscard]] float toLane(float value) const noexcept { return std::clamp((value - offset) / scale, 0.0f, 1.0f); }
-        [[nodiscard]] float toEngine(float lane) const noexcept { return offset + std::clamp(lane, 0.0f, 1.0f) * scale; }
+        [[nodiscard]] float toTravel(float value) const noexcept { return std::clamp((value - offset) / scale, 0.0f, 1.0f); }
+        [[nodiscard]] float toEngine(float travel) const noexcept { return offset + std::clamp(travel, 0.0f, 1.0f) * scale; }
     };
     /// Every parameter of a channel that can be automated: volume, pan and sends, then each
     /// module's (ours: those flagged Automatable).
-    [[nodiscard]] std::vector<Lane> lanesOf(std::uint64_t channelId) const;
-    [[nodiscard]] std::optional<Lane> lane(const LaneTarget& target) const;
-    /// The track (or the master track) whose state holds a channel's lane view state.
-    [[nodiscard]] te::Track* stateTrack(std::uint64_t channelId) const;
-    [[nodiscard]] static std::vector<std::string> shownLanes(const te::Track& track);
-    static void setShownLanes(te::Track& track, const std::vector<std::string>& keys);
-    /// The channel's lanes for the snapshot: the shown ones in order, then any other with points.
-    [[nodiscard]] std::vector<model::LaneInfo> laneInfos(std::uint64_t channelId) const;
+    [[nodiscard]] std::vector<Param> paramsOf(std::uint64_t channelId) const;
+    [[nodiscard]] std::optional<Param> param(const ParamTarget& target) const;
+    /// Where an engine parameter is: its channel and key.
+    [[nodiscard]] std::optional<ParamTarget> targetOf(const te::AutomatableParameter& param) const;
+    /// Every channel: the tracks, the returns, the master.
+    [[nodiscard]] std::vector<std::uint64_t> channels() const;
+
+    // Lanes (ADR 0029) are Segno's own state in the edit: FDAUTOMATION holds a LANE per lane (id,
+    // name, colour, after), each with its POINTS (POINT t v c) and ASSIGN entries (channel, key,
+    // from, to), written through the undo manager. Each assigned parameter's curve is derived:
+    // the lane through the range, onto the parameter's own values (automation.md §13).
+    static inline const juce::Identifier automationId{"FDAUTOMATION"}, laneId{"LANE"}, pointsId{"POINTS"},
+        assignId{"ASSIGN"}, nameId{"name"}, colourId{"colour"}, afterId{"after"}, assignChannelId{"channel"}, keyId{"key"},
+        fromId{"from"}, toId{"to"};
+    [[nodiscard]] juce::ValueTree lanesTree() const { return edit->state.getChildWithName(automationId); }
+    [[nodiscard]] juce::ValueTree laneTree(std::uint64_t id) const;
+    /// A parameter's ASSIGN entry, on whichever lane it is.
+    [[nodiscard]] juce::ValueTree assignTree(const ParamTarget& target) const;
+    [[nodiscard]] static std::uint64_t idOf(const juce::ValueTree& lane);
+    [[nodiscard]] static model::AutomationPoints pointsOf(const juce::ValueTree& lane);
+    [[nodiscard]] static ParamTarget targetIn(const juce::ValueTree& assign);
+    [[nodiscard]] static model::AssignmentRange rangeOf(const juce::ValueTree& assign);
+    /// Writes points in place: existing ones change, extra ones are added or removed.
+    static void writePoints(juce::ValueTree points, const model::AutomationPoints& with, juce::UndoManager* um);
+    /// The same for a parameter's curve (engine values), so a curve with points is never emptied
+    /// and attached again: the playback graph isn't rebuilt (automation.md §13).
+    static void writeCurve(te::AutomationCurve& curve, const model::AutomationPoints& with, juce::UndoManager* um);
+    /// A new lane at `index` of FDAUTOMATION (-1: the end).
+    juce::ValueTree makeLane(std::uint64_t after, int colour, int index, juce::UndoManager* um);
+    /// A new lane's place for `after` (a track, a lane, a return or the master, or 0): its anchor
+    /// track and index.
+    [[nodiscard]] std::pair<std::uint64_t, int> placeFor(std::uint64_t after) const;
+    /// Assigns a parameter to a lane (moving it). False if it can't be automated.
+    bool assignTo(juce::ValueTree lane, const ParamTarget& target, model::AssignmentRange range, juce::UndoManager* um);
+    /// A lane's steps: its one assignment's, when stepped and full-range (automation.md §5).
+    [[nodiscard]] int laneSteps(const juce::ValueTree& lane) const;
+    /// A channel's colour (the master: -1), and a palette colour for a lane without one.
+    [[nodiscard]] int colourOf(std::uint64_t channel) const;
+    [[nodiscard]] int nextLaneColour() const;
+    /// Writes every assignment of a lane to its parameter's curve (not those being recorded).
+    void derive(const juce::ValueTree& lane, juce::UndoManager* um);
+    void derive(const model::AutomationPoints& lanePoints, const juce::ValueTree& assign, juce::UndoManager* um);
+    /// The lanes for the snapshot, in row order; assignments whose parameter is gone are left out.
+    [[nodiscard]] std::vector<model::AutomationLaneInfo> laneInfos() const;
+    /// Opening a project: converts format 2, drops assignments whose channel or module is gone,
+    /// and derives every curve. Without undo.
+    void loadLanes(bool convert);
+
     /// True while the parameter plays its lane (points, on, not being recorded): its played
     /// values never dirty the project or rebuild snapshots.
     [[nodiscard]] static bool followsLane(const te::AutomatableParameter& param);
@@ -146,16 +187,28 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     void applyAutomationMode();
     void endRecordingPass();
 
-    static inline const juce::Identifier lanesId{"fdLanes"};             // shown lanes, view state
-    static inline const juce::Identifier lanesFoldedId{"fdLanesFolded"}; // view state
     bool armed = false;
     std::optional<std::pair<std::uint64_t, juce::String>> lastTouched; // plugin id, parameter id
     std::unique_ptr<te::Edit::UndoTransactionInhibitor> recordingPass;  // one undo step per pass
+    /// A parameter recorded in this pass, and its lane when its recording began (§8).
+    struct Recorded
+    {
+        te::AutomatableParameter::Ptr param;
+        ParamTarget target;
+        std::uint64_t lane = 0;
+        model::AutomationPoints laneAtStart;
+    };
+    std::vector<Recorded> recorded;
+    void startRecording(Recorded& r);
+    /// Splices a parameter's recorded pass into its lane (a new lane if it has none).
+    void importRecording(const Recorded& r);
     bool restartPending = false; // the playback graph is rebuilt when automation comes or goes
 
 private:
     void changeListenerCallback(juce::ChangeBroadcaster* source) override;
     void pluginParameterChanged(te::AutomatableParameter& param, bool isFollowingAutomation) override;
+    void curveHasChanged(te::AutomatableParameter&) override {}
+    void recordingStatusChanged(te::AutomatableParameter& param) override;
     void changed(juce::ValueTree& tree);
     void handleAsyncUpdate() override
     {
@@ -167,8 +220,8 @@ private:
     {
         if (id == te::IDs::lastSignificantChange || id == panelViewId || id == te::IDs::automationMode) // bookkeeping and view state
             return;
-        // Lane view state and a lane's on switch: shown at once, never an unsaved change.
-        if (id == lanesId || id == lanesFoldedId || id == te::IDs::bypass)
+        // An assignment's on switch: shown at once, never an unsaved change.
+        if (id == te::IDs::bypass)
         {
             changed(t);
             return;

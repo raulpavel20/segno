@@ -1,11 +1,13 @@
-// Automation (M2 step C4, ADR 0028, docs/design/automation.md): lanes over tracktion's
-// automation curves, in the control's units.
+// Automation (M2 step C4, ADRs 0028 and 0029, docs/design/automation.md): automation lanes of
+// their own, driving the parameters assigned to them through tracktion's automation curves.
 
 #include "engine/SessionImpl.h"
 
 #include "engine/DevicePlugin.h"
 
 #include <cmath>
+#include <cstdlib>
+#include <map>
 
 namespace fd::engine
 {
@@ -54,29 +56,63 @@ std::optional<float> parsePan(const std::string& text)
     return std::nullopt;
 }
 
+/// A lane value of a lane without one assignment to read it by: a percentage.
+std::string percentText(float value)
+{
+    return std::to_string(juce::roundToInt(std::clamp(value, 0.0f, 1.0f) * 100.0f)) + " %";
+}
+
+std::optional<float> parsePercent(const std::string& text)
+{
+    const auto t = juce::String(text).trim();
+    if (!t.containsAnyOf("0123456789"))
+        return std::nullopt;
+    return std::clamp(t.getFloatValue() / 100.0f, 0.0f, 1.0f);
+}
+
 /// Send levels top out at 0 dB: the lower part of the fader taper (0 dB at 80 %).
 const float kSendTop = te::decibelsToVolumeFaderPosition(0.0f);
+
+std::uint64_t idProperty(const juce::var& v)
+{
+    return static_cast<std::uint64_t>(static_cast<juce::int64>(v));
+}
+
+juce::var idVar(std::uint64_t id)
+{
+    return static_cast<juce::int64>(id);
+}
+
+/// Commands that compose others: the inner ones join the outer one's undo step.
+struct Nested
+{
+    explicit Nested(int& depth) : depth_(depth) { ++depth_; }
+    ~Nested() { --depth_; }
+    Nested(const Nested&) = delete;
+    Nested& operator=(const Nested&) = delete;
+    int& depth_;
+};
 } // namespace
 
-// ---- lanes ---------------------------------------------------------------------------------
+// ---- parameters ----------------------------------------------------------------------------
 
-std::vector<Session::Impl::Lane> Session::Impl::lanesOf(std::uint64_t channelId) const
+std::vector<Session::Impl::Param> Session::Impl::paramsOf(std::uint64_t channelId) const
 {
-    std::vector<Lane> out;
+    std::vector<Param> out;
     auto* list = plugins(channelId);
     if (list == nullptr)
         return out;
     if (auto* v = findIn<te::VolumeAndPanPlugin>(*list))
     {
-        out.push_back({.kind = Lane::Kind::Volume, .param = v->volParam.get(), .key = "volume", .name = "Volume", .module = "Mixer"});
-        out.push_back({.kind = Lane::Kind::Pan, .param = v->panParam.get(), .key = "pan", .name = "Pan", .module = "Mixer",
+        out.push_back({.kind = Param::Kind::Volume, .param = v->volParam.get(), .key = "volume", .name = "Volume", .module = "Mixer"});
+        out.push_back({.kind = Param::Kind::Pan, .param = v->panParam.get(), .key = "pan", .name = "Pan", .module = "Mixer",
                        .offset = -1.0f, .scale = 2.0f});
     }
     if (auto* t = track(channelId))
         for (auto* r : returns())
         {
             auto* send = sendIn(t->pluginList, busOf(*r));
-            out.push_back({.kind = Lane::Kind::Send,
+            out.push_back({.kind = Param::Kind::Send,
                            .param = send != nullptr ? send->gain.get() : nullptr,
                            .key = "send/" + std::to_string(r->itemID.getRawID()),
                            .name = "Send " + r->getName().toStdString(),
@@ -97,7 +133,7 @@ std::vector<Session::Impl::Lane> Session::Impl::lanesOf(std::uint64_t channelId)
                     spec.hasFlag(ParamFlags::ChangesLatency))
                     continue;
                 const juce::String id(std::string(spec.id));
-                out.push_back({.kind = Lane::Kind::Module,
+                out.push_back({.kind = Param::Kind::Module,
                                .param = &native->parameter(i),
                                .key = moduleKey(*p, id),
                                .name = std::string(spec.name),
@@ -116,7 +152,7 @@ std::vector<Session::Impl::Lane> Session::Impl::lanesOf(std::uint64_t channelId)
             if (param->paramID == "dry level" || param->paramID == "wet level")
                 continue;
             const auto range = param->getValueRange();
-            out.push_back({.kind = Lane::Kind::External,
+            out.push_back({.kind = Param::Kind::External,
                            .param = param,
                            .key = moduleKey(*p, param->paramID),
                            .name = param->getParameterName().toStdString(),
@@ -131,67 +167,30 @@ std::vector<Session::Impl::Lane> Session::Impl::lanesOf(std::uint64_t channelId)
     return out;
 }
 
-std::optional<Session::Impl::Lane> Session::Impl::lane(const LaneTarget& target) const
+std::optional<Session::Impl::Param> Session::Impl::param(const ParamTarget& target) const
 {
-    for (auto& l : lanesOf(target.channel))
-        if (l.key == target.lane)
-            return l;
+    for (auto& p : paramsOf(target.channel))
+        if (p.key == target.key)
+            return p;
     return std::nullopt;
 }
 
-te::Track* Session::Impl::stateTrack(std::uint64_t channelId) const
+std::vector<std::uint64_t> Session::Impl::channels() const
 {
-    if (auto* t = channelTrack(channelId))
-        return t;
-    return channelId != 0 && channelId == masterId() ? edit->getMasterTrack() : nullptr;
-}
-
-std::vector<std::string> Session::Impl::shownLanes(const te::Track& track)
-{
-    std::vector<std::string> keys;
-    for (const auto& k : juce::StringArray::fromLines(track.state[lanesId].toString()))
-        if (k.isNotEmpty())
-            keys.push_back(k.toStdString());
-    return keys;
-}
-
-void Session::Impl::setShownLanes(te::Track& track, const std::vector<std::string>& keys)
-{
-    juce::StringArray lines;
-    for (const auto& k : keys)
-        lines.add(juce::String(k));
-    track.state.setProperty(lanesId, lines.joinIntoString("\n"), nullptr); // view state
-}
-
-std::vector<model::LaneInfo> Session::Impl::laneInfos(std::uint64_t channelId) const
-{
-    std::vector<model::LaneInfo> out;
-    auto* state = stateTrack(channelId);
-    if (state == nullptr)
-        return out;
-    const auto all = lanesOf(channelId);
-    auto info = [](const Lane& l) {
-        model::LaneInfo i{.key = l.key, .device = l.device, .paramId = l.paramId, .name = l.name, .module = l.module,
-                          .steps = l.steps};
-        if (l.param == nullptr)
-            return i;
-        auto& curve = l.param->getCurve();
-        i.on = !curve.bypass.get();
-        for (int p = 0; p < curve.getNumPoints(); ++p)
-            i.points.push_back({.time = te::toUnderlying(curve.getPointPosition(p)),
-                                .value = l.toLane(curve.getPointValue(p)),
-                                .curve = curve.getPointCurve(p)});
-        return i;
-    };
-    std::set<std::string> listed;
-    for (const auto& key : shownLanes(*state))
-        for (const auto& l : all)
-            if (l.key == key && listed.insert(key).second)
-                out.push_back(info(l));
-    for (const auto& l : all)
-        if (l.param != nullptr && l.param->getCurve().getNumPoints() > 0 && listed.insert(l.key).second)
-            out.push_back(info(l));
+    std::vector<std::uint64_t> out;
+    for (auto* t : te::getAudioTracks(*edit))
+        out.push_back(t->itemID.getRawID());
+    out.push_back(masterId());
     return out;
+}
+
+std::optional<Session::ParamTarget> Session::Impl::targetOf(const te::AutomatableParameter& p) const
+{
+    for (auto id : channels())
+        for (const auto& candidate : paramsOf(id))
+            if (candidate.param == &p)
+                return ParamTarget{id, candidate.key};
+    return std::nullopt;
 }
 
 bool Session::Impl::followsLane(const te::AutomatableParameter& param)
@@ -214,6 +213,316 @@ te::AutomatableParameter* Session::Impl::parameterFor(const juce::ValueTree& plu
     return p->getAutomatableParameterByID(id.toString()).get();
 }
 
+// ---- lanes ---------------------------------------------------------------------------------
+
+juce::ValueTree Session::Impl::laneTree(std::uint64_t id) const
+{
+    for (auto lane : lanesTree())
+        if (idOf(lane) == id)
+            return lane;
+    return {};
+}
+
+juce::ValueTree Session::Impl::assignTree(const ParamTarget& target) const
+{
+    for (auto lane : lanesTree())
+        for (auto a : lane)
+            if (a.hasType(assignId) && targetIn(a) == target)
+                return a;
+    return {};
+}
+
+std::uint64_t Session::Impl::idOf(const juce::ValueTree& lane)
+{
+    return te::EditItemID::fromID(lane).getRawID();
+}
+
+model::AutomationPoints Session::Impl::pointsOf(const juce::ValueTree& lane)
+{
+    model::AutomationPoints out;
+    for (auto p : lane.getChildWithName(pointsId))
+        out.push_back({.time = static_cast<double>(p[te::IDs::t]),
+                       .value = static_cast<float>(p[te::IDs::v]),
+                       .curve = static_cast<float>(p[te::IDs::c])});
+    return out;
+}
+
+Session::ParamTarget Session::Impl::targetIn(const juce::ValueTree& assign)
+{
+    return {idProperty(assign[assignChannelId]), assign[keyId].toString().toStdString()};
+}
+
+model::AssignmentRange Session::Impl::rangeOf(const juce::ValueTree& assign)
+{
+    return {static_cast<float>(assign.getProperty(fromId, 0.0f)), static_cast<float>(assign.getProperty(toId, 1.0f))};
+}
+
+void Session::Impl::writePoints(juce::ValueTree points, const model::AutomationPoints& with, juce::UndoManager* um)
+{
+    const int n = static_cast<int>(with.size());
+    for (int i = 0; i < n; ++i)
+    {
+        const auto& p = with[static_cast<size_t>(i)];
+        const bool added = i >= points.getNumChildren();
+        auto child = added ? juce::ValueTree(te::IDs::POINT) : points.getChild(i);
+        child.setProperty(te::IDs::t, p.time, added ? nullptr : um);
+        child.setProperty(te::IDs::v, p.value, added ? nullptr : um);
+        child.setProperty(te::IDs::c, p.curve, added ? nullptr : um);
+        if (added)
+            points.appendChild(child, um);
+    }
+    while (points.getNumChildren() > n)
+        points.removeChild(points.getNumChildren() - 1, um);
+}
+
+void Session::Impl::writeCurve(te::AutomationCurve& curve, const model::AutomationPoints& with, juce::UndoManager* um)
+{
+    const int n = static_cast<int>(with.size());
+    const int kept = std::min(n, curve.getNumPoints());
+    for (int i = 0; i < kept; ++i)
+    {
+        const auto& p = with[static_cast<size_t>(i)];
+        if (te::toUnderlying(curve.getPointTime(i)) != p.time)
+            curve.setPointPosition(i, te::TimePosition::fromSeconds(p.time), um);
+        if (curve.getPointValue(i) != p.value)
+            curve.setPointValue(i, p.value, um);
+        if (curve.getPointCurve(i) != p.curve)
+            curve.setCurveValue(i, p.curve, um);
+    }
+    for (int i = kept; i < n; ++i) // after the others: in order
+    {
+        const auto& p = with[static_cast<size_t>(i)];
+        curve.addPoint(te::TimePosition::fromSeconds(p.time), p.value, p.curve, um);
+    }
+    while (curve.getNumPoints() > n)
+        curve.removePoint(curve.getNumPoints() - 1, um);
+}
+
+juce::ValueTree Session::Impl::makeLane(std::uint64_t after, int colour, int index, juce::UndoManager* um)
+{
+    juce::ValueTree lane(laneId);
+    edit->createNewItemID().writeID(lane, nullptr);
+    lane.setProperty(afterId, idVar(after), nullptr);
+    lane.setProperty(colourId, colour, nullptr);
+    lane.appendChild(juce::ValueTree(pointsId), nullptr);
+    lanesTree().addChild(lane, index, um);
+    return lane;
+}
+
+std::pair<std::uint64_t, int> Session::Impl::placeFor(std::uint64_t after) const
+{
+    // Right after a lane, with the same track; at the end of a track's lanes; returns and the
+    // master have none (lanes sit above them): after the last track.
+    if (after == 0)
+        return {0, -1};
+    if (const auto lane = laneTree(after); lane.isValid())
+        return {idProperty(lane[afterId]), lanesTree().indexOf(lane) + 1};
+    if (track(after) != nullptr)
+        return {after, -1};
+    const auto all = tracks();
+    return {all.empty() ? 0 : all.back()->itemID.getRawID(), -1};
+}
+
+bool Session::Impl::assignTo(juce::ValueTree lane, const ParamTarget& target, model::AssignmentRange range,
+                             juce::UndoManager* um)
+{
+    auto p = param(target);
+    if (!p)
+        return false;
+    if (p->kind == Param::Kind::Send && p->param == nullptr)
+    {
+        // A send is made when first used (ADR 0026); automating it uses it.
+        Nested nested(groupDepth);
+        if (!owner.setSend(target.channel, p->returnId, std::nullopt, std::nullopt) || !(p = param(target)) ||
+            p->param == nullptr)
+            return false;
+    }
+    auto assign = assignTree(target);
+    if (assign.isValid() && assign.getParent() != lane)
+    {
+        assign.getParent().removeChild(assign, um); // one lane per parameter: it moves
+        assign = {};
+    }
+    if (!assign.isValid())
+    {
+        assign = juce::ValueTree(assignId);
+        assign.setProperty(assignChannelId, idVar(target.channel), nullptr);
+        assign.setProperty(keyId, juce::String(target.key), nullptr);
+        lane.appendChild(assign, um);
+    }
+    assign.setProperty(fromId, range.from, um);
+    assign.setProperty(toId, range.to, um);
+    if (p->param->getCurve().bypass.get()) // assigning is a choice to hear it
+        p->param->getCurve().bypass = false;
+    derive(pointsOf(lane), assign, um);
+    return true;
+}
+
+void Session::Impl::derive(const juce::ValueTree& lane, juce::UndoManager* um)
+{
+    const auto points = pointsOf(lane);
+    for (auto a : lane)
+        if (a.hasType(assignId))
+            derive(points, a, um);
+}
+
+void Session::Impl::derive(const model::AutomationPoints& lanePoints, const juce::ValueTree& assign, juce::UndoManager* um)
+{
+    const auto p = param(targetIn(assign));
+    if (!p || p->param == nullptr || p->param->isCurrentlyRecording()) // a pass is imported when it ends
+        return;
+    const auto range = rangeOf(assign);
+    writeCurve(p->param->getCurve(),
+               model::mapValues(lanePoints, [&](float v) { return p->toEngine(range.toTravel(v)); }), um);
+}
+
+int Session::Impl::laneSteps(const juce::ValueTree& lane) const
+{
+    // Steps only for one full-range stepped assignment (automation.md §5).
+    juce::ValueTree only;
+    for (auto a : lane)
+        if (a.hasType(assignId))
+        {
+            if (only.isValid())
+                return 0;
+            only = a;
+        }
+    if (!only.isValid())
+        return 0;
+    const auto p = param(targetIn(only));
+    return p && p->steps >= 2 && rangeOf(only).full() ? p->steps : 0;
+}
+
+std::vector<model::AutomationLaneInfo> Session::Impl::laneInfos() const
+{
+    std::map<std::uint64_t, std::vector<Param>> params; // by channel, for this snapshot
+    std::vector<model::AutomationLaneInfo> out;
+    for (auto lane : lanesTree())
+    {
+        model::AutomationLaneInfo info{.id = idOf(lane),
+                                       .name = lane[nameId].toString().toStdString(),
+                                       .colour = static_cast<int>(lane[colourId]),
+                                       .after = idProperty(lane[afterId]),
+                                       .points = pointsOf(lane)};
+        for (auto a : lane)
+        {
+            if (!a.hasType(assignId))
+                continue;
+            const auto target = targetIn(a);
+            auto [it, made] = params.try_emplace(target.channel);
+            if (made)
+                it->second = paramsOf(target.channel);
+            const auto found = std::find_if(it->second.begin(), it->second.end(),
+                                            [&](const auto& p) { return p.key == target.key; });
+            if (found == it->second.end())
+                continue; // its parameter is gone (undo can bring it back)
+            const auto* t = channelTrack(target.channel);
+            info.assignments.push_back({.channel = target.channel,
+                                        .key = target.key,
+                                        .range = rangeOf(a),
+                                        .on = found->param == nullptr || !found->param->getCurve().bypass.get(),
+                                        .name = found->name,
+                                        .module = found->module,
+                                        .channelName = t != nullptr ? t->getName().toStdString() : std::string("Master"),
+                                        .device = found->device,
+                                        .paramId = found->paramId,
+                                        .steps = found->steps});
+        }
+        out.push_back(std::move(info));
+    }
+    // Row order: those at the top, then each track's in track order, then those whose track is gone.
+    const auto all = tracks();
+    auto rank = [&all](std::uint64_t after) {
+        if (after == 0)
+            return -1;
+        for (size_t i = 0; i < all.size(); ++i)
+            if (all[i]->itemID.getRawID() == after)
+                return static_cast<int>(i);
+        return static_cast<int>(all.size());
+    };
+    std::stable_sort(out.begin(), out.end(), [&](const auto& a, const auto& b) { return rank(a.after) < rank(b.after); });
+    return out;
+}
+
+void Session::Impl::loadLanes(bool convert)
+{
+    auto root = lanesTree();
+    if (!root.isValid())
+        edit->state.appendChild(juce::ValueTree(automationId), nullptr);
+    root = lanesTree();
+    if (convert)
+    {
+        // Format 2 (ADR 0028): a parameter's lane sat under its channel, shown or with points. Each
+        // becomes a lane of its own after its track (returns and the master: the last track's).
+        static const juce::Identifier shownId{"fdLanes"}, foldedId{"fdLanesFolded"};
+        const auto all = tracks();
+        for (auto id : channels())
+        {
+            te::Track* state = channelTrack(id);
+            if (state == nullptr)
+                state = edit->getMasterTrack();
+            if (state == nullptr)
+                continue;
+            const auto params = paramsOf(id);
+            std::vector<const Param*> order;
+            for (const auto& key : juce::StringArray::fromLines(state->state[shownId].toString()))
+                for (const auto& p : params)
+                    if (p.key == key.toStdString() && std::find(order.begin(), order.end(), &p) == order.end())
+                        order.push_back(&p);
+            for (const auto& p : params)
+                if (p.param != nullptr && p.param->getCurve().getNumPoints() > 0 &&
+                    std::find(order.begin(), order.end(), &p) == order.end())
+                    order.push_back(&p);
+            const auto after = track(id) != nullptr ? id : all.empty() ? 0 : all.back()->itemID.getRawID();
+            for (const auto* p : order)
+            {
+                const int colour = colourOf(id);
+                auto lane = makeLane(after, colour >= 0 ? colour : nextLaneColour(), -1, nullptr);
+                model::AutomationPoints points;
+                if (p->param != nullptr)
+                {
+                    auto& curve = p->param->getCurve();
+                    for (int i = 0; i < curve.getNumPoints(); ++i)
+                        points.push_back({.time = te::toUnderlying(curve.getPointTime(i)),
+                                          .value = p->toTravel(curve.getPointValue(i)),
+                                          .curve = curve.getPointCurve(i)});
+                }
+                writePoints(lane.getChildWithName(pointsId), points, nullptr);
+                juce::ValueTree assign(assignId);
+                assign.setProperty(assignChannelId, idVar(id), nullptr);
+                assign.setProperty(keyId, juce::String(p->key), nullptr);
+                assign.setProperty(fromId, 0.0f, nullptr);
+                assign.setProperty(toId, 1.0f, nullptr);
+                lane.appendChild(assign, nullptr);
+            }
+            state->state.removeProperty(shownId, nullptr);
+            state->state.removeProperty(foldedId, nullptr);
+        }
+    }
+    // Assignments whose channel or module is gone; a third-party plugin that failed to load keeps
+    // its assignments (its parameters come back with it).
+    for (auto lane : root)
+        for (int i = lane.getNumChildren(); --i >= 0;)
+            if (auto a = lane.getChild(i); a.hasType(assignId))
+            {
+                const auto target = targetIn(a);
+                bool keep = param(target).has_value();
+                if (!keep && target.key.rfind('m', 0) == 0)
+                {
+                    const auto device = std::strtoull(target.key.c_str() + 1, nullptr, 10);
+                    auto* list = plugins(target.channel);
+                    keep = list != nullptr && plugin(device) != nullptr && plugin(device)->getOwnerList() == list &&
+                           dynamic_cast<DevicePlugin*>(plugin(device)) == nullptr;
+                }
+                if (!keep)
+                    lane.removeChild(i, nullptr);
+            }
+    for (auto lane : root)
+        derive(lane, nullptr);
+}
+
+// ---- playback, override and recording ------------------------------------------------------
+
 void Session::Impl::applyAutomationMode()
 {
     const auto mode = armed ? te::AutomationMode::touch : te::AutomationMode::read;
@@ -226,8 +535,97 @@ void Session::Impl::applyAutomationMode()
 
 void Session::Impl::endRecordingPass()
 {
+    // Each recorded parameter's pass goes into its lane at its punch-out, inside the pass's undo
+    // step: punched out here, before the step closes, whichever of tracktion's listeners runs first.
+    if (edit != nullptr && !recorded.empty())
+        edit->getAutomationRecordManager().punchOut(false);
+    for (auto& r : recorded)
+        r.param->removeListener(this);
+    recorded.clear();
     // tracktion closes the step once edits pause; the pass's name stays on it.
     recordingPass.reset();
+}
+
+void Session::Impl::startRecording(Recorded& r)
+{
+    const auto lane = assignTree(r.target).getParent();
+    r.lane = lane.isValid() ? idOf(lane) : 0;
+    r.laneAtStart = lane.isValid() ? pointsOf(lane) : model::AutomationPoints{};
+}
+
+void Session::Impl::recordingStatusChanged(te::AutomatableParameter& p)
+{
+    const auto it = std::find_if(recorded.begin(), recorded.end(), [&p](const auto& r) { return r.param.get() == &p; });
+    if (it == recorded.end())
+        return;
+    if (p.isCurrentlyRecording())
+        startRecording(*it); // touched again in the same pass
+    else
+        importRecording(*it); // punched out: tracktion has written and thinned it
+}
+
+void Session::Impl::importRecording(const Recorded& r)
+{
+    auto* um = &edit->getUndoManager();
+    const auto p = param(r.target);
+    if (!p || p->param == nullptr)
+        return;
+    auto& curve = p->param->getCurve();
+    model::AutomationPoints written; // engine values
+    for (int i = 0; i < curve.getNumPoints(); ++i)
+        written.push_back({te::toUnderlying(curve.getPointTime(i)), curve.getPointValue(i), curve.getPointCurve(i)});
+
+    auto assign = assignTree(r.target);
+    if (!assign.isValid())
+    {
+        // A control without a lane gets one, under its track (§8).
+        if (written.empty())
+            return;
+        const auto [after, index] = placeFor(r.target.channel);
+        const int colour = colourOf(r.target.channel);
+        auto lane = makeLane(after, colour >= 0 ? colour : nextLaneColour(), index, um);
+        assign = juce::ValueTree(assignId);
+        assign.setProperty(assignChannelId, idVar(r.target.channel), nullptr);
+        assign.setProperty(keyId, juce::String(r.target.key), nullptr);
+        assign.setProperty(fromId, 0.0f, nullptr);
+        assign.setProperty(toId, 1.0f, nullptr);
+        lane.appendChild(assign, um);
+        auto points = model::mapValues(written, [&](float v) { return p->toTravel(v); });
+        if (const int steps = laneSteps(lane); steps >= 2)
+            for (auto& q : points)
+                q = {q.time, model::snapToSteps(q.value, steps), model::kStepCurve};
+        writePoints(lane.getChildWithName(pointsId), points, um);
+        derive(lane, um);
+        return;
+    }
+    auto lane = assign.getParent();
+    const auto range = rangeOf(assign);
+    if (!range.toLane(0.5f)) // an empty range can't be written back: the lane stays
+    {
+        derive(lane, um);
+        return;
+    }
+    // Back through the range: what the lane wrote stays the lane's own; moves beyond the range
+    // are clipped to it.
+    auto toEngine = [&](float v) { return p->toEngine(range.toTravel(v)); };
+    auto toLane = [&](float v) { return *range.toLane(p->toTravel(v)); };
+    const auto now = pointsOf(lane);
+    const auto& start = r.lane == idOf(lane) ? r.laneAtStart : now;
+    auto points = model::spliceRecorded(start, model::mapValues(start, toEngine), written, toLane);
+    if (now != start)
+    {
+        // Another control on this lane was recorded in this pass: this one wins where it wrote.
+        model::AutomationPoints fresh;
+        for (const auto& q : points)
+            if (std::find(start.begin(), start.end(), q) == start.end())
+                fresh.push_back(q);
+        points = fresh.empty() ? now : model::replaceRange(now, fresh.front().time, fresh.back().time, fresh);
+    }
+    if (const int steps = laneSteps(lane); steps >= 2)
+        for (auto& q : points)
+            q = {q.time, model::snapToSteps(q.value, steps), model::kStepCurve};
+    writePoints(lane.getChildWithName(pointsId), points, um);
+    derive(lane, um); // the lane's other assignments follow
 }
 
 void Session::Impl::changeListenerCallback(juce::ChangeBroadcaster* source)
@@ -241,263 +639,353 @@ void Session::Impl::changeListenerCallback(juce::ChangeBroadcaster* source)
     midiDevicesChanged();
 }
 
-void Session::Impl::pluginParameterChanged(te::AutomatableParameter& param, bool isFollowingAutomation)
+void Session::Impl::pluginParameterChanged(te::AutomatableParameter& p, bool isFollowingAutomation)
 {
     if (isFollowingAutomation)
         return; // played values (also on the audio thread)
-    lastTouched = {param.automatableEditElement.itemID.getRawID(), param.paramID};
-    if (param.isCurrentlyRecording())
+    lastTouched = {p.automatableEditElement.itemID.getRawID(), p.paramID};
+    if (p.isCurrentlyRecording())
     {
-        // A recording pass is one undo step, however many controls move (§8).
+        // A recording pass is one undo step, however many controls move (§8); a held control's
+        // gesture step becomes the pass, so its first move is part of it.
         if (recordingPass == nullptr)
         {
-            edit->getUndoManager().beginNewTransaction("Record automation");
+            auto& um = edit->getUndoManager();
+            if (groupDepth > 0)
+                um.setCurrentTransactionName("Record automation");
+            else
+                um.beginNewTransaction("Record automation");
             recordingPass = std::make_unique<te::Edit::UndoTransactionInhibitor>(*edit);
         }
+        if (std::none_of(recorded.begin(), recorded.end(), [&p](const auto& r) { return r.param.get() == &p; }))
+            if (const auto target = targetOf(p))
+            {
+                Recorded r{.param = &p, .target = *target};
+                startRecording(r);
+                p.addListener(this);
+                recorded.push_back(std::move(r));
+            }
         dirty = true;
         return;
     }
-    // Moving an automated control turns its lane off; the control keeps the value (§7).
-    if (auto& curve = param.getCurve(); curve.getNumPoints() > 0 && !curve.bypass.get())
+    // Moving an assigned control turns its assignment off; the control keeps the value (§7).
+    if (auto& curve = p.getCurve(); curve.getNumPoints() > 0 && !curve.bypass.get())
         curve.bypass = true;
     dirty = true; // the value itself (its write was taken for a played one)
 }
 
-// ---- Session -------------------------------------------------------------------------------
+// ---- Session: lanes ------------------------------------------------------------------------
 
-std::vector<Session::LaneChoice> Session::automatableParameters(std::uint64_t channelId) const
+std::vector<Session::ParamChoice> Session::automatableParameters(std::uint64_t channelId) const
 {
-    std::vector<LaneChoice> out;
-    const auto* channel = impl_->snapshot->channel(channelId);
-    for (const auto& l : impl_->lanesOf(channelId))
+    std::vector<ParamChoice> out;
+    for (const auto& p : impl_->paramsOf(channelId))
     {
-        LaneChoice c{.lane = l.key, .name = l.name, .module = l.module};
-        if (l.param != nullptr)
-            c.valueText = laneText({channelId, l.key}, l.toLane(l.param->getCurrentValue()));
-        c.shown = channel != nullptr && channel->lane(l.key) != nullptr;
+        ParamChoice c{.key = p.key, .name = p.name, .module = p.module};
+        if (p.param != nullptr)
+            c.valueText = paramText({channelId, p.key}, p.toTravel(p.param->getCurrentValue()));
+        c.lane = laneOf({channelId, p.key}).value_or(0);
         out.push_back(std::move(c));
     }
     return out;
 }
 
-bool Session::setAutomation(const LaneTarget& target, const model::AutomationPoints& points,
+std::uint64_t Session::addAutomationLane(std::uint64_t after, const std::optional<ParamTarget>& first)
+{
+    if (first && !impl_->param(*first))
+        return 0;
+    auto* um = &impl_->edit->getUndoManager();
+    impl_->beginEdit("Add automation lane");
+    const auto [anchor, index] = impl_->placeFor(after);
+    const int colour = first ? impl_->colourOf(first->channel) : -1;
+    auto lane = impl_->makeLane(anchor, colour >= 0 ? colour : impl_->nextLaneColour(), index, um);
+    if (first)
+    {
+        // A parameter on another lane brings its curve, so it sounds the same (full range here).
+        model::AutomationPoints points;
+        if (const auto old = impl_->assignTree(*first); old.isValid())
+        {
+            const auto range = Impl::rangeOf(old);
+            points = model::mapValues(Impl::pointsOf(old.getParent()), [&](float v) { return range.toTravel(v); });
+        }
+        Impl::writePoints(lane.getChildWithName(Impl::pointsId), points, um);
+        if (!impl_->assignTo(lane, *first, {}, um))
+            return 0;
+    }
+    return Impl::idOf(lane);
+}
+
+void Session::removeAutomationLane(std::uint64_t id)
+{
+    auto lane = impl_->laneTree(id);
+    if (!lane.isValid())
+        return;
+    auto* um = &impl_->edit->getUndoManager();
+    impl_->beginEdit("Remove automation lane");
+    for (auto a : lane)
+        if (a.hasType(Impl::assignId))
+            if (const auto p = impl_->param(Impl::targetIn(a)); p && p->param != nullptr)
+                Impl::writeCurve(p->param->getCurve(), {}, um); // it keeps its value now
+    impl_->lanesTree().removeChild(lane, um);
+}
+
+void Session::renameAutomationLane(std::uint64_t id, const std::string& name)
+{
+    auto lane = impl_->laneTree(id);
+    if (!lane.isValid() || lane[Impl::nameId].toString().toStdString() == name)
+        return;
+    impl_->beginEdit("Rename automation lane");
+    lane.setProperty(Impl::nameId, juce::String(name), &impl_->edit->getUndoManager());
+}
+
+bool Session::setLanePoints(std::uint64_t id, const model::AutomationPoints& points,
                             std::optional<std::pair<double, double>> range, const std::string& undoName)
 {
-    auto l = impl_->lane(target);
-    if (!l)
+    auto lane = impl_->laneTree(id);
+    if (!lane.isValid())
         return false;
-    impl_->beginEdit(juce::String(undoName));
-    if (l->kind == Impl::Lane::Kind::Send && l->param == nullptr)
-    {
-        // A send is made when first used (ADR 0026); automating it uses it.
-        EditGroup group(*this, undoName);
-        if (!setSend(target.channel, l->returnId, std::nullopt, std::nullopt) || !(l = impl_->lane(target)) ||
-            l->param == nullptr)
-            return false;
-    }
-    auto& curve = l->param->getCurve();
     auto* um = &impl_->edit->getUndoManager();
-    if (range)
-        curve.removePoints(te::EditTimeRange(te::TimePosition::fromSeconds(std::max(0.0, range->first)),
-                                             te::TimePosition::fromSeconds(range->second + 1e-9)),
-                           um);
-    else
-        while (curve.getNumPoints() > 0)
-            curve.removePoint(curve.getNumPoints() - 1, um);
-    const bool stepped = l->steps >= 2;
-    for (const auto& p : points)
+    impl_->beginEdit(juce::String(undoName));
+    auto all = range ? model::replaceRange(Impl::pointsOf(lane), std::max(0.0, range->first), range->second, points) : points;
+    const int steps = impl_->laneSteps(lane);
+    for (auto& p : all)
     {
-        const float value = stepped ? model::snapToSteps(p.value, l->steps) : std::clamp(p.value, 0.0f, 1.0f);
-        curve.addPoint(te::TimePosition::fromSeconds(std::max(0.0, p.time)), l->toEngine(value),
-                       stepped ? model::kStepCurve : std::clamp(p.curve, -0.5f, 0.5f), um);
+        p.time = std::max(0.0, p.time);
+        p.value = steps >= 2 ? model::snapToSteps(p.value, steps) : std::clamp(p.value, 0.0f, 1.0f);
+        p.curve = steps >= 2 ? model::kStepCurve : std::clamp(p.curve, -0.5f, 0.5f);
     }
-    showLane(target);
+    std::stable_sort(all.begin(), all.end(), [](const auto& a, const auto& b) { return a.time < b.time; });
+    Impl::writePoints(lane.getChildWithName(Impl::pointsId), all, um);
+    impl_->derive(lane, um);
     return true;
 }
 
-bool Session::showLane(const LaneTarget& target)
+bool Session::assign(std::uint64_t id, const ParamTarget& target, model::AssignmentRange range)
 {
-    auto* state = impl_->stateTrack(target.channel);
-    if (state == nullptr || !impl_->lane(target))
+    auto lane = impl_->laneTree(id);
+    if (!lane.isValid() || !impl_->param(target))
         return false;
-    auto keys = Impl::shownLanes(*state);
-    if (std::find(keys.begin(), keys.end(), target.lane) == keys.end())
-    {
-        keys.push_back(target.lane);
-        Impl::setShownLanes(*state, keys);
-    }
-    setLanesFolded(target.channel, false);
-    return true;
+    impl_->beginEdit("Assign parameter");
+    return impl_->assignTo(lane, target, range, &impl_->edit->getUndoManager());
 }
 
-void Session::removeLane(const LaneTarget& target)
+void Session::unassign(const ParamTarget& target)
 {
-    auto* state = impl_->stateTrack(target.channel);
-    if (state == nullptr)
+    auto a = impl_->assignTree(target);
+    if (!a.isValid())
         return;
-    if (auto l = impl_->lane(target); l && l->param != nullptr && l->param->getCurve().getNumPoints() > 0)
-    {
-        impl_->beginEdit("Remove automation");
-        auto& curve = l->param->getCurve();
-        while (curve.getNumPoints() > 0)
-            curve.removePoint(curve.getNumPoints() - 1, &impl_->edit->getUndoManager());
-    }
-    auto keys = Impl::shownLanes(*state);
-    keys.erase(std::remove(keys.begin(), keys.end(), target.lane), keys.end());
-    Impl::setShownLanes(*state, keys);
+    auto* um = &impl_->edit->getUndoManager();
+    impl_->beginEdit("Remove from automation lane");
+    if (const auto p = impl_->param(target); p && p->param != nullptr)
+        Impl::writeCurve(p->param->getCurve(), {}, um); // it keeps its value now
+    a.getParent().removeChild(a, um);
 }
 
-void Session::setLanesFolded(std::uint64_t channelId, bool folded)
+void Session::setAssignmentRange(const ParamTarget& target, model::AssignmentRange range)
 {
-    if (auto* state = impl_->stateTrack(channelId); state != nullptr && static_cast<bool>(state->state[Impl::lanesFoldedId]) != folded)
-        state->state.setProperty(Impl::lanesFoldedId, folded, nullptr); // view state
+    auto a = impl_->assignTree(target);
+    if (!a.isValid() || Impl::rangeOf(a) == range)
+        return;
+    auto* um = &impl_->edit->getUndoManager();
+    impl_->beginEdit("Assignment range");
+    a.setProperty(Impl::fromId, std::clamp(range.from, 0.0f, 1.0f), um);
+    a.setProperty(Impl::toId, std::clamp(range.to, 0.0f, 1.0f), um);
+    impl_->derive(Impl::pointsOf(a.getParent()), a, um);
 }
 
-void Session::setLaneOn(const LaneTarget& target, bool on)
+std::optional<std::uint64_t> Session::laneOf(const ParamTarget& target) const
 {
-    if (auto l = impl_->lane(target); l && l->param != nullptr && l->param->getCurve().bypass.get() == on)
-        l->param->getCurve().bypass = !on;
+    const auto a = impl_->assignTree(target);
+    return a.isValid() ? std::optional(Impl::idOf(a.getParent())) : std::nullopt;
+}
+
+std::uint64_t Session::automateInNewLane(const ParamTarget& target)
+{
+    return addAutomationLane(target.channel, target);
+}
+
+void Session::setAssignmentOn(const ParamTarget& target, bool on)
+{
+    if (auto p = impl_->param(target); p && p->param != nullptr && p->param->getCurve().bypass.get() == on)
+        p->param->getCurve().bypass = !on;
+}
+
+void Session::setLaneOn(std::uint64_t id, bool on)
+{
+    for (auto a : impl_->laneTree(id))
+        if (a.hasType(Impl::assignId))
+            setAssignmentOn(Impl::targetIn(a), on);
 }
 
 void Session::setAllLanesOn()
 {
-    const auto snapshot = impl_->snapshot;
-    std::vector<std::uint64_t> channels;
-    for (const auto* list : {&snapshot->tracks, &snapshot->returns})
-        for (const auto& t : *list)
-            channels.push_back(t.id);
-    channels.push_back(snapshot->master.id);
-    for (auto id : channels)
-        for (auto& l : impl_->lanesOf(id))
-            if (l.param != nullptr && l.param->getCurve().bypass.get())
-                l.param->getCurve().bypass = false;
+    for (auto lane : impl_->lanesTree())
+        setLaneOn(Impl::idOf(lane), true);
 }
 
 bool Session::anyLaneOff() const
 {
     const auto snapshot = impl_->snapshot;
-    auto off = [](const model::TrackInfo& t) {
-        return std::any_of(t.lanes.begin(), t.lanes.end(), [](const auto& l) { return !l.on && !l.points.empty(); });
-    };
-    return std::any_of(snapshot->tracks.begin(), snapshot->tracks.end(), off) ||
-           std::any_of(snapshot->returns.begin(), snapshot->returns.end(), off) || off(snapshot->master);
+    return std::any_of(snapshot->automationLanes.begin(), snapshot->automationLanes.end(),
+                       [](const auto& l) { return !l.points.empty() && l.anyOff(); });
 }
 
-void Session::setLaneValue(const LaneTarget& target, float value)
+std::optional<float> Session::laneValue(std::uint64_t id) const
 {
-    auto l = impl_->lane(target);
-    if (!l)
-        return;
-    if (l->param == nullptr) // a send not made yet: making it sets its level
-    {
-        if (l->kind == Impl::Lane::Kind::Send)
-            setSend(target.channel, l->returnId, te::volumeFaderPositionToDB(l->toEngine(value)), std::nullopt);
-        return;
-    }
-    const float v = l->steps >= 2 ? model::snapToSteps(value, l->steps) : std::clamp(value, 0.0f, 1.0f);
-    if (std::abs(l->toLane(l->param->getCurrentValue()) - v) < 1e-6f)
-        return;
-    impl_->beginEdit(juce::String(l->name));
-    l->param->setParameter(l->toEngine(v), juce::sendNotification);
-}
-
-std::optional<float> Session::laneValue(const LaneTarget& target) const
-{
-    auto l = impl_->lane(target);
-    if (!l)
+    const auto* lane = impl_->snapshot->automationLane(id);
+    if (lane == nullptr)
         return std::nullopt;
-    if (l->param == nullptr)
-        return 0.0f; // a send not made yet: off
-    return l->toLane(l->param->getCurrentValue());
+    if (!lane->points.empty())
+        return model::automationValueAt(lane->points, position());
+    if (lane->assignments.empty())
+        return std::nullopt;
+    const auto& a = lane->assignments.front();
+    const auto travel = paramValue({a.channel, a.key});
+    return travel ? a.range.toLane(*travel) : std::nullopt;
 }
 
-std::string Session::laneText(const LaneTarget& target, float value) const
+std::string Session::laneText(std::uint64_t id, float value) const
 {
-    auto l = impl_->lane(target);
-    if (!l)
-        return {};
-    switch (l->kind)
+    const auto* lane = impl_->snapshot->automationLane(id);
+    if (lane == nullptr || lane->assignments.size() != 1)
+        return percentText(value);
+    const auto& a = lane->assignments.front();
+    return paramText({a.channel, a.key}, a.range.toTravel(value));
+}
+
+std::optional<float> Session::laneFromText(std::uint64_t id, const std::string& text) const
+{
+    const auto* lane = impl_->snapshot->automationLane(id);
+    if (lane == nullptr || lane->assignments.size() != 1)
+        return parsePercent(text);
+    const auto& a = lane->assignments.front();
+    const auto travel = paramFromText({a.channel, a.key}, text);
+    return travel ? a.range.toLane(*travel) : std::nullopt;
+}
+
+// ---- Session: parameters -------------------------------------------------------------------
+
+void Session::setParamValue(const ParamTarget& target, float travel)
+{
+    auto p = impl_->param(target);
+    if (!p)
+        return;
+    if (p->param == nullptr) // a send not made yet: making it sets its level
     {
-    case Impl::Lane::Kind::Volume:
-    case Impl::Lane::Kind::Send: return levelText(te::volumeFaderPositionToDB(l->toEngine(value)));
-    case Impl::Lane::Kind::Pan: return panText(l->toEngine(value));
-    case Impl::Lane::Kind::Module:
-    {
-        const auto& spec = l->native->device().info().params[l->index];
-        return spec.toText(spec.fromNormalized(value));
+        if (p->kind == Impl::Param::Kind::Send)
+            setSend(target.channel, p->returnId, te::volumeFaderPositionToDB(p->toEngine(travel)), std::nullopt);
+        return;
     }
-    case Impl::Lane::Kind::External: return l->param->valueToString(l->toEngine(value)).toStdString();
+    const float v = p->steps >= 2 ? model::snapToSteps(travel, p->steps) : std::clamp(travel, 0.0f, 1.0f);
+    if (std::abs(p->toTravel(p->param->getCurrentValue()) - v) < 1e-6f)
+        return;
+    impl_->beginEdit(juce::String(p->name));
+    p->param->setParameter(p->toEngine(v), juce::sendNotification);
+}
+
+std::optional<float> Session::paramValue(const ParamTarget& target) const
+{
+    auto p = impl_->param(target);
+    if (!p)
+        return std::nullopt;
+    if (p->param == nullptr)
+        return 0.0f; // a send not made yet: off
+    return p->toTravel(p->param->getCurrentValue());
+}
+
+std::string Session::paramText(const ParamTarget& target, float travel) const
+{
+    auto p = impl_->param(target);
+    if (!p)
+        return {};
+    switch (p->kind)
+    {
+    case Impl::Param::Kind::Volume:
+    case Impl::Param::Kind::Send: return levelText(te::volumeFaderPositionToDB(p->toEngine(travel)));
+    case Impl::Param::Kind::Pan: return panText(p->toEngine(travel));
+    case Impl::Param::Kind::Module:
+    {
+        const auto& spec = p->native->device().info().params[p->index];
+        return spec.toText(spec.fromNormalized(travel));
+    }
+    case Impl::Param::Kind::External: return p->param->valueToString(p->toEngine(travel)).toStdString();
     }
     return {};
 }
 
-std::optional<double> Session::lanePlain(const LaneTarget& target, float value) const
+std::optional<double> Session::paramPlain(const ParamTarget& target, float travel) const
 {
-    auto l = impl_->lane(target);
-    if (!l)
+    auto p = impl_->param(target);
+    if (!p)
         return std::nullopt;
-    switch (l->kind)
+    switch (p->kind)
     {
-    case Impl::Lane::Kind::Volume:
-    case Impl::Lane::Kind::Send: return te::volumeFaderPositionToDB(l->toEngine(value));
-    case Impl::Lane::Kind::Pan: return l->toEngine(value);
-    case Impl::Lane::Kind::Module:
+    case Impl::Param::Kind::Volume:
+    case Impl::Param::Kind::Send: return te::volumeFaderPositionToDB(p->toEngine(travel));
+    case Impl::Param::Kind::Pan: return p->toEngine(travel);
+    case Impl::Param::Kind::Module:
     {
-        const auto& spec = l->native->device().info().params[l->index];
-        return spec.fromNormalized(value);
+        const auto& spec = p->native->device().info().params[p->index];
+        return spec.fromNormalized(travel);
     }
-    case Impl::Lane::Kind::External: return std::clamp(value, 0.0f, 1.0f); // normalised (mcp.md)
+    case Impl::Param::Kind::External: return std::clamp(travel, 0.0f, 1.0f); // normalised (mcp.md)
     }
     return std::nullopt;
 }
 
-std::optional<float> Session::laneFromPlain(const LaneTarget& target, double plain) const
+std::optional<float> Session::paramFromPlain(const ParamTarget& target, double plain) const
 {
-    auto l = impl_->lane(target);
-    if (!l)
+    auto p = impl_->param(target);
+    if (!p)
         return std::nullopt;
     const auto v = static_cast<float>(plain);
-    switch (l->kind)
+    switch (p->kind)
     {
-    case Impl::Lane::Kind::Volume: return l->toLane(te::decibelsToVolumeFaderPosition(std::min(v, 6.0f)));
-    case Impl::Lane::Kind::Send: return l->toLane(te::decibelsToVolumeFaderPosition(std::min(v, 0.0f)));
-    case Impl::Lane::Kind::Pan: return l->toLane(std::clamp(v, -1.0f, 1.0f));
-    case Impl::Lane::Kind::Module:
+    case Impl::Param::Kind::Volume: return p->toTravel(te::decibelsToVolumeFaderPosition(std::min(v, 6.0f)));
+    case Impl::Param::Kind::Send: return p->toTravel(te::decibelsToVolumeFaderPosition(std::min(v, 0.0f)));
+    case Impl::Param::Kind::Pan: return p->toTravel(std::clamp(v, -1.0f, 1.0f));
+    case Impl::Param::Kind::Module:
     {
-        const auto& spec = l->native->device().info().params[l->index];
+        const auto& spec = p->native->device().info().params[p->index];
         return spec.toNormalized(v);
     }
-    case Impl::Lane::Kind::External: return std::clamp(v, 0.0f, 1.0f);
+    case Impl::Param::Kind::External: return std::clamp(v, 0.0f, 1.0f);
     }
     return std::nullopt;
 }
 
-std::optional<float> Session::laneFromText(const LaneTarget& target, const std::string& text) const
+std::optional<float> Session::paramFromText(const ParamTarget& target, const std::string& text) const
 {
-    auto l = impl_->lane(target);
-    if (!l)
+    auto p = impl_->param(target);
+    if (!p)
         return std::nullopt;
-    switch (l->kind)
+    switch (p->kind)
     {
-    case Impl::Lane::Kind::Volume:
-    case Impl::Lane::Kind::Send:
+    case Impl::Param::Kind::Volume:
+    case Impl::Param::Kind::Send:
         if (const auto db = parseLevel(text))
-            return laneFromPlain(target, *db);
+            return paramFromPlain(target, *db);
         return std::nullopt;
-    case Impl::Lane::Kind::Pan:
+    case Impl::Param::Kind::Pan:
         if (const auto pan = parsePan(text))
-            return laneFromPlain(target, *pan);
+            return paramFromPlain(target, *pan);
         return std::nullopt;
-    case Impl::Lane::Kind::Module:
+    case Impl::Param::Kind::Module:
     {
-        const auto& spec = l->native->device().info().params[l->index];
+        const auto& spec = p->native->device().info().params[p->index];
         if (const auto v = spec.fromText(text))
             return spec.toNormalized(*v);
         return std::nullopt;
     }
-    case Impl::Lane::Kind::External: return l->toLane(l->param->stringToValue(juce::String(text)));
+    case Impl::Param::Kind::External: return p->toTravel(p->param->stringToValue(juce::String(text)));
     }
     return std::nullopt;
+}
+
+std::pair<std::string, std::string> Session::paramName(const ParamTarget& target) const
+{
+    const auto p = impl_->param(target);
+    return p ? std::pair{p->name, p->module} : std::pair<std::string, std::string>{};
 }
 
 void Session::setAutomationArmed(bool armed)
@@ -511,32 +999,26 @@ bool Session::isAutomationArmed() const
     return impl_->armed;
 }
 
-std::optional<Session::LaneTarget> Session::lastTouchedParameter() const
+std::optional<Session::ParamTarget> Session::lastTouchedParameter() const
 {
     if (!impl_->lastTouched)
         return std::nullopt;
     const auto [pluginId, paramId] = *impl_->lastTouched;
-    const auto snapshot = impl_->snapshot;
-    std::vector<std::uint64_t> channels;
-    for (const auto* list : {&snapshot->tracks, &snapshot->returns})
-        for (const auto& t : *list)
-            channels.push_back(t.id);
-    channels.push_back(snapshot->master.id);
-    for (auto id : channels)
-        for (const auto& l : impl_->lanesOf(id))
-            if (l.param != nullptr && l.param->automatableEditElement.itemID.getRawID() == pluginId &&
-                l.param->paramID == paramId)
-                return LaneTarget{id, l.key};
+    for (auto id : impl_->channels())
+        for (const auto& p : impl_->paramsOf(id))
+            if (p.param != nullptr && p.param->automatableEditElement.itemID.getRawID() == pluginId &&
+                p.param->paramID == paramId)
+                return ParamTarget{id, p.key};
     return std::nullopt;
 }
 
-std::optional<Session::LaneTarget> Session::moduleLane(std::uint64_t deviceId, const std::string& paramId) const
+std::optional<Session::ParamTarget> Session::moduleParameter(std::uint64_t deviceId, const std::string& paramId) const
 {
     const auto snapshot = impl_->snapshot;
-    auto find = [&](const model::TrackInfo& t) -> std::optional<LaneTarget> {
+    auto find = [&](const model::TrackInfo& t) -> std::optional<ParamTarget> {
         for (const auto& d : t.devices)
             if (d.id == deviceId)
-                return LaneTarget{t.id, "m" + std::to_string(deviceId) + "/" + paramId};
+                return ParamTarget{t.id, "m" + std::to_string(deviceId) + "/" + paramId};
         return std::nullopt;
     };
     for (const auto* list : {&snapshot->tracks, &snapshot->returns})
@@ -546,31 +1028,31 @@ std::optional<Session::LaneTarget> Session::moduleLane(std::uint64_t deviceId, c
     return find(snapshot->master);
 }
 
-void Session::revealLane(const LaneTarget& target)
+void Session::revealLane(std::uint64_t lane)
 {
-    if (showLane(target) && onLaneRevealed)
-        onLaneRevealed(target);
+    if (onLaneRevealed && impl_->laneTree(lane).isValid())
+        onLaneRevealed(lane);
 }
 
-Session::LaneGesture::LaneGesture(Session& session, const LaneTarget& target, const std::string& name)
+Session::ParamGesture::ParamGesture(Session& session, const ParamTarget& target, const std::string& name)
     : session_(session), target_(target)
 {
     auto& impl = session_.impl();
     if (impl.groupDepth++ == 0)
         impl.edit->getUndoManager().beginNewTransaction(juce::String(name));
-    if (auto l = impl.lane(target_); l && l->param != nullptr)
+    if (auto p = impl.param(target_); p && p->param != nullptr)
     {
-        l->param->parameterChangeGestureBegin(); // a touch, while recording
+        p->param->parameterChangeGestureBegin(); // a touch, while recording
         touching_ = true;
     }
 }
 
-Session::LaneGesture::~LaneGesture()
+Session::ParamGesture::~ParamGesture()
 {
     auto& impl = session_.impl();
     if (touching_)
-        if (auto l = impl.lane(target_); l && l->param != nullptr)
-            l->param->parameterChangeGestureEnd();
+        if (auto p = impl.param(target_); p && p->param != nullptr)
+            p->param->parameterChangeGestureEnd();
     --impl.groupDepth;
 }
 } // namespace fd::engine

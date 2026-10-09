@@ -1,5 +1,5 @@
-// The arrangement's rows (M2 step C4, docs/design/automation.md §3): tracks with their lanes,
-// then returns and the master with theirs.
+// The arrangement's rows (M2 step C4, ADR 0029, docs/design/automation.md §3): automation lanes
+// among the tracks, then returns and the master.
 
 #include "model/ArrangementRows.h"
 
@@ -10,50 +10,58 @@ using Kind = ArrangementRow::Kind;
 
 namespace
 {
+/// Lane 40 at the top; Keys (1) with lanes 41 and 42; Drums (2); lane 43 after a deleted track.
 Snapshot project()
 {
     Snapshot s;
-    s.tracks.push_back({.id = 1, .name = "Keys", .lanes = {{.key = "volume"}, {.key = "m7/cutoff"}}});
-    s.tracks.push_back({.id = 2, .name = "Drums", .lanes = {{.key = "pan"}}, .lanesFolded = true});
-    s.returns.push_back({.id = 5, .role = TrackInfo::Role::Return, .lanes = {{.key = "volume"}}});
+    s.tracks.push_back({.id = 1, .name = "Keys"});
+    s.tracks.push_back({.id = 2, .name = "Drums"});
+    s.returns.push_back({.id = 5, .role = TrackInfo::Role::Return});
     s.master.id = 9;
-    s.master.lanes = {{.key = "volume"}};
+    s.automationLanes = {{.id = 40}, {.id = 41, .after = 1}, {.id = 42, .after = 1}, {.id = 43, .after = 3}};
     return s;
 }
 } // namespace
 
-TEST_CASE("arrangement rows: lanes follow their channel unless folded", "[fast]")
+TEST_CASE("arrangement rows: lanes sit among the tracks, after the track they follow", "[fast]")
 {
     const auto s = project();
     const auto rows = arrangementRows(s, true);
     REQUIRE(rows.size() == 8);
-    CHECK(rows[0] == ArrangementRow{.kind = Kind::Track, .channel = 1, .track = 0});
-    CHECK(rows[1] == ArrangementRow{.kind = Kind::Lane, .channel = 1, .lane = "volume", .track = 0});
-    CHECK(rows[2].lane == "m7/cutoff");
-    CHECK(rows[3] == ArrangementRow{.kind = Kind::Track, .channel = 2, .track = 1}); // folded: no lane rows
-    CHECK(rows[4] == ArrangementRow{.kind = Kind::Return, .channel = 5});
-    CHECK(rows[5] == ArrangementRow{.kind = Kind::Lane, .channel = 5, .lane = "volume"});
-    CHECK(rows[6].kind == Kind::Master);
-    CHECK(rows[7].isLane());
-    CHECK(firstMixRow(rows) == 4);
-    CHECK(rows[2].key() == "c1/m7/cutoff");
-    CHECK(rows[0].key() == "c1");
+    CHECK(rows[0] == ArrangementRow{.kind = Kind::Lane, .lane = 40, .track = 0});
+    CHECK(rows[1] == ArrangementRow{.kind = Kind::Track, .channel = 1, .track = 0});
+    CHECK(rows[2] == ArrangementRow{.kind = Kind::Lane, .lane = 41, .track = 0});
+    CHECK(rows[3].lane == 42);
+    CHECK(rows[4] == ArrangementRow{.kind = Kind::Track, .channel = 2, .track = 1});
+    CHECK(rows[5] == ArrangementRow{.kind = Kind::Lane, .lane = 43, .track = 1}); // its track is gone
+    CHECK(rows[6] == ArrangementRow{.kind = Kind::Return, .channel = 5});
+    CHECK(rows[7].kind == Kind::Master);
+    CHECK(firstMixRow(rows) == 6);
+    CHECK(rows[2].key() == "a41");
+    CHECK(rows[1].key() == "c1");
+    CHECK(rowOfLane(rows, 42) == 3);
+    CHECK(rowOfLane(rows, 7) == -1);
 
-    // Without the mix rows: tracks and their lanes only.
-    const auto tracksOnly = arrangementRows(s, false);
-    CHECK(tracksOnly.size() == 4);
-    CHECK(firstMixRow(tracksOnly) == 4);
+    // Without the mix rows: tracks and lanes; without lanes: the tracks alone.
+    CHECK(arrangementRows(s, false).size() == 6);
+    const auto tracksOnly = arrangementRows(s, false, false);
+    CHECK(tracksOnly.size() == 2);
+    CHECK(firstMixRow(tracksOnly) == 2);
 }
 
 TEST_CASE("arrangement rows: clips move between tracks across lane rows", "[fast]")
 {
     const auto rows = arrangementRows(project(), true);
-    CHECK(clipTrackOf(rows, 0, 2) == 0);
-    CHECK(clipTrackOf(rows, 2, 2) == 0); // a lane of the first track
-    CHECK(clipTrackOf(rows, 3, 2) == 1);
-    CHECK(clipTrackOf(rows, 5, 2) == 1); // below the tracks: the last
+    CHECK(clipTrackOf(rows, 0, 2) == 0); // a lane at the top: the first track
+    CHECK(clipTrackOf(rows, 3, 2) == 0); // a lane of the first track
+    CHECK(clipTrackOf(rows, 4, 2) == 1);
+    CHECK(clipTrackOf(rows, 6, 2) == 1); // below the tracks: the last
     CHECK(clipTrackOf(rows, -1, 2) == 0);
     CHECK(clipTrackOf(rows, 0, 0) == -1);
-    CHECK(rowOfTrack(rows, 1) == 3);
+    CHECK(rowOfTrack(rows, 1) == 4);
     CHECK(rowOfTrack(rows, 4) == -1);
+
+    Snapshot empty;
+    empty.automationLanes = {{.id = 40}};
+    CHECK(arrangementRows(empty, false) == std::vector{ArrangementRow{.kind = Kind::Lane, .lane = 40}});
 }

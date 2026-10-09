@@ -13,10 +13,10 @@ namespace
 {
 const juce::Identifier kColourId{"fdColour"}; // index into the clip palette
 const juce::Identifier kRoleId{"fdRole"};     // "return" on a return track (ADR 0026)
-// The project format: 2 since mixer levels sit on Segno's taper (ADR 0028). Older projects are
-// converted when opened.
+// The project format: 2 since mixer levels sit on Segno's taper (ADR 0028), 3 since automation
+// lanes are rows of their own (ADR 0029). Older projects are converted when opened.
 const juce::Identifier kFormatId{"fdFormat"};
-constexpr int kFormat = 2;
+constexpr int kFormat = 3;
 
 /// Number of colours in ui::Theme::clipColours; snapshots carry indices modulo this.
 constexpr int kPaletteSize = 16;
@@ -106,24 +106,25 @@ public:
 
     void showAutomation(size_t i) override
     {
-        if (const auto target = lane(i))
-            session_.revealLane(*target);
+        if (const auto t = target(i))
+            if (const auto lane = session_.laneOf(*t))
+                session_.revealLane(*lane);
     }
     void clearAutomation(size_t i) override
     {
-        if (const auto target = lane(i))
-            session_.setAutomation(*target, {}, std::nullopt, "Clear automation");
+        if (const auto t = target(i))
+            session_.unassign(*t);
     }
     void turnAutomationOn(size_t i) override
     {
-        if (const auto target = lane(i))
-            session_.setLaneOn(*target, true);
+        if (const auto t = target(i))
+            session_.setAssignmentOn(*t, true);
     }
 
 private:
-    std::optional<Session::LaneTarget> lane(size_t i) const
+    std::optional<Session::ParamTarget> target(size_t i) const
     {
-        return session_.moduleLane(plugin_.itemID.getRawID(), std::string(spec(i).id));
+        return session_.moduleParameter(plugin_.itemID.getRawID(), std::string(spec(i).id));
     }
 
     Session& session_;
@@ -276,7 +277,8 @@ std::unique_ptr<te::Edit> Session::Impl::newEdit()
 void Session::Impl::attach(std::unique_ptr<te::Edit> e)
 {
     edit = std::move(e);
-    if (static_cast<int>(edit->state.getProperty(kFormatId, 0)) < kFormat)
+    const int format = edit->state.getProperty(kFormatId, 0);
+    if (format < 2)
     {
         // Before ADR 0028 the mixer's levels sat on tracktion's own fader curve: the same levels
         // in dB move onto Segno's taper (modules convert their own parameters).
@@ -291,11 +293,12 @@ void Session::Impl::attach(std::unique_ptr<te::Edit> e)
         for (auto* t : te::getAudioTracks(*edit))
             convert(t->pluginList);
         convert(edit->getMasterPluginList());
-        edit->state.setProperty(kFormatId, kFormat, nullptr);
     }
     ensureChannels(nullptr);
-    // tracktion sorts tracks by type asynchronously, through the undo manager: done now, so a
-    // fresh project's history really is empty (no invisible first undo step).
+    loadLanes(format < 3); // ADR 0029: lanes of their own, every curve derived from them
+    edit->state.setProperty(kFormatId, kFormat, nullptr);
+    // tracktion sorts the edit's children by type asynchronously, through the undo manager: done
+    // now, so a fresh project's history really is empty (no invisible first undo step).
     te::TrackList::sortTracksByType(edit->state, nullptr);
     edit->getUndoManager().clearUndoHistory();
     edit->resetChangedStatus();
@@ -435,8 +438,6 @@ void Session::Impl::rebuildSnapshot()
         std::sort(info.clips.begin(), info.clips.end(), [](const auto& a, const auto& b) { return a.start < b.start; });
         devicesOf(t->pluginList, info);
         info.mix = mixOf(t->pluginList);
-        info.lanes = laneInfos(info.id);
-        info.lanesFolded = t->state[lanesFoldedId];
         info.mix.mute = t->isMuted(false);
         info.mix.solo = t->isSolo(false);
         if (info.role == model::TrackInfo::Role::Track)
@@ -466,13 +467,25 @@ void Session::Impl::rebuildSnapshot()
     master.name = "Master";
     devicesOf(edit->getMasterPluginList(), master);
     master.mix = mixOf(edit->getMasterPluginList());
-    master.lanes = laneInfos(master.id);
-    if (auto* m = edit->getMasterTrack())
-        master.lanesFolded = m->state[lanesFoldedId];
+    s->automationLanes = laneInfos();
     snapshot = std::move(s);
     if (owner.onSnapshotChanged)
         owner.onSnapshotChanged();
     listeners.call([](Session::Listener& l) { l.snapshotChanged(); });
+}
+
+int Session::Impl::colourOf(std::uint64_t channel) const
+{
+    const auto all = te::getAudioTracks(*edit);
+    for (int i = 0; i < all.size(); ++i)
+        if (all[i]->itemID.getRawID() == channel)
+            return static_cast<int>(all[i]->state.getProperty(kColourId, i * 3 % kPaletteSize));
+    return -1;
+}
+
+int Session::Impl::nextLaneColour() const
+{
+    return (lanesTree().getNumChildren() * 5 + 3) % kPaletteSize;
 }
 
 te::AudioTrack* Session::Impl::channelTrack(std::uint64_t id) const
@@ -1055,6 +1068,13 @@ void Session::removeDevice(std::uint64_t deviceId)
     if (auto* p = impl_->plugin(deviceId))
     {
         impl_->beginEdit("Remove module");
+        // Its parameters leave their lanes in the same step (ADR 0029).
+        const auto prefix = "m" + std::to_string(deviceId) + "/";
+        for (auto lane : impl_->lanesTree())
+            for (int i = lane.getNumChildren(); --i >= 0;)
+                if (lane.getChild(i).hasType(Impl::assignId) &&
+                    lane.getChild(i)[Impl::keyId].toString().startsWith(juce::String(prefix)))
+                    lane.removeChild(i, &impl_->edit->getUndoManager());
         p->removeFromParent();
     }
 }

@@ -11,12 +11,14 @@ namespace fd::mcp
 {
 /// The conventions every tool follows (docs/design/mcp.md §3). JUCE-free.
 
-/// Ids are strings with a type prefix: "t:12" a track, "c:7" a clip, "m:3" a module.
+/// Ids are strings with a type prefix: "t:12" a track, "c:7" a clip, "m:3" a module, "a:40" an
+/// automation lane.
 enum class IdKind : char
 {
     Track = 't',
     Clip = 'c',
-    Module = 'm'
+    Module = 'm',
+    Lane = 'a'
 };
 [[nodiscard]] std::string formatId(IdKind kind, std::uint64_t id);
 /// "t:12" (or a bare number) -> 12; nullopt if it isn't an id of that kind.

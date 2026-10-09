@@ -140,7 +140,8 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
           "set_notes", "remove_notes", "edit_notes", "add_module", "remove_module", "move_module", "set_module_on",
           "set_parameters", "load_sample", "set_module_view", "set_module_sidechain", "scan_plugins", "render",
           "measure_module", "set_mix", "add_return_track", "set_send", "measure_mix", "get_automation",
-          "set_automation", "clear_automation", "set_automation_on", "undo", "redo",
+          "set_automation", "clear_automation", "set_automation_on", "add_automation_lane", "set_automation_lane",
+          "remove_automation_lane", "assign_automation", "unassign_automation", "undo", "redo",
           "save_project", "new_project", "open_project"})
         CHECK(names.contains(name));
     for (const auto& p : registry.prompts)
@@ -719,7 +720,7 @@ TEST_CASE("mcp tools: automation: lanes written, read, cleared and turned back o
     const auto t0 = project["tracks"][0]["id"].get<std::string>();
     const auto eq = daw.call("add_module", {{"track", t0}, {"type", "eq"}})["id"].get<std::string>();
 
-    // A module's parameter, by name, with values as text and numbers, and a bend.
+    // A module's parameter, by id, with values as text and numbers, and a bend: it gets a lane.
     auto lane = daw.call("set_automation", {{"module", eq},
                                             {"parameter", "band1.freq"},
                                             {"points", Json::array({{{"position", "1.1.1"}, {"value", "200 Hz"}, {"bend", 0.5}},
@@ -731,17 +732,22 @@ TEST_CASE("mcp tools: automation: lanes written, read, cleared and turned back o
     CHECK(lane["points"][1]["position"]["beats"] == Approx(8.0));
     CHECK(lane["points"][1]["text"] == "2.00 kHz");
     CHECK(lane["on"] == true);
+    const auto freqLane = lane["lane"].get<std::string>();
+    CHECK(freqLane.rfind("a:", 0) == 0);
+    CHECK(lane["after"] == t0);
 
     // It shows in the project and the module.
     project = daw.project();
-    REQUIRE(project["tracks"][0]["lanes"].size() == 1);
-    CHECK(project["tracks"][0]["lanes"][0]["parameter"] == "band1.freq");
-    CHECK(project["tracks"][0]["lanes"][0]["moduleId"] == eq);
+    REQUIRE(project["automationLanes"].size() == 1);
+    CHECK(project["automationLanes"][0]["lane"] == freqLane);
+    CHECK(project["automationLanes"][0]["points"] == 2);
+    CHECK(project["automationLanes"][0]["assignments"][0]["parameter"] == "band1.freq");
+    CHECK(project["automationLanes"][0]["assignments"][0]["module"] == eq);
     const auto module = daw.call("get_module", {{"module", eq}});
     bool marked = false;
     for (const auto& p : module["parameters"])
         if (p["id"] == "band1.freq")
-            marked = p.contains("automation") && p["automation"]["points"] == 2;
+            marked = p.contains("automation") && p["automation"]["points"] == 2 && p["automation"]["lane"] == freqLane;
     CHECK(marked);
 
     // A channel's volume: a range replaces just its part.
@@ -754,10 +760,11 @@ TEST_CASE("mcp tools: automation: lanes written, read, cleared and turned back o
     CHECK(volume["points"][1]["text"] == "-inf dB");
     CHECK(volume["points"][2]["value"] == Approx(-12.0).margin(0.05));
     CHECK(daw.call("get_automation", {{"track", t0}, {"parameter", "volume"}, {"from", 6}, {"to", 10}})["points"].size() == 1);
+    const auto volumeLane = volume["lane"].get<std::string>();
 
-    // Moving the fader turns the lane off; set_automation_on turns it back on.
+    // Moving the fader turns its assignment off; set_automation_on turns it back on.
     daw.call("set_mix", {{"track", t0}, {"volume", -3}});
-    CHECK(daw.call("get_automation", {{"track", t0}, {"parameter", "volume"}})["on"] == false);
+    CHECK(daw.call("get_automation", {{"lane", volumeLane}})["on"] == false);
     const auto steps = daw.session->undoDescription();
     CHECK(daw.call("set_automation_on", {{"all", true}})["on"] == true);
     CHECK(daw.call("get_automation", {{"track", t0}, {"parameter", "volume"}})["on"] == true);
@@ -770,4 +777,59 @@ TEST_CASE("mcp tools: automation: lanes written, read, cleared and turned back o
     CHECK(daw.fails("set_automation", {{"module", comp}, {"parameter", "lookahead"}, {"points", Json::array()}})
               .find("can't be automated") != std::string::npos);
     CHECK(daw.fails("get_automation", {{"track", t0}, {"parameter", "send"}}).find("return") != std::string::npos);
+}
+
+TEST_CASE("mcp tools: automation lanes of their own: added, assigned with ranges, renamed and removed",
+          "[integration][mcp]")
+{
+    Daw daw;
+    auto project = daw.project();
+    const auto t0 = project["tracks"][0]["id"].get<std::string>();
+    const auto t1 = project["tracks"][1]["id"].get<std::string>();
+
+    // A lane driving two tracks' volumes, one over part of its range and inverted: one step.
+    auto lane = daw.call("add_automation_lane",
+                         {{"after", t0},
+                          {"name", "Swell"},
+                          {"parameters", Json::array({{{"track", t0}, {"parameter", "volume"}},
+                                                      {{"track", t1}, {"parameter", "volume"}, {"from", "0 dB"}, {"to", "-24 dB"}}})}});
+    CHECK(daw.session->undoDescription() == "Assistant: add automation lane");
+    const auto id = lane["lane"].get<std::string>();
+    CHECK(lane["name"] == "Swell");
+    REQUIRE(lane["assignments"].size() == 2);
+    CHECK(lane["assignments"][1]["from"]["value"] == Approx(0.0).margin(0.01));
+    CHECK(lane["assignments"][1]["to"]["text"] == "-24.0 dB");
+
+    // By lane, values are 0 to 1 (it drives several); by a parameter, its own units in its range.
+    daw.call("set_automation", {{"lane", id}, {"points", Json::array({{{"position", 0}, {"value", 0.0}}, {{"position", 8}, {"value", 1.0}}})}});
+    auto read = daw.call("get_automation", {{"track", t1}, {"parameter", "volume"}});
+    REQUIRE(read["points"].size() == 2);
+    CHECK(read["points"][0]["text"] == "0.0 dB"); // inverted: the lane's bottom is its top
+    CHECK(read["points"][1]["value"] == Approx(-24.0).margin(0.05));
+    CHECK(daw.fails("set_automation", {{"track", t1}, {"parameter", "volume"},
+                                       {"points", Json::array({{{"position", 0}, {"value", "+3 dB"}}})}})
+              .find("outside") != std::string::npos);
+    CHECK(daw.fails("set_automation", {{"lane", id}, {"points", Json::array({{{"position", 0}, {"value", 5}}})}})
+              .find("0 to 1") != std::string::npos);
+    // Clearing by a parameter of a shared lane is refused.
+    CHECK(daw.fails("clear_automation", {{"track", t0}, {"parameter", "volume"}}).find("shares") != std::string::npos);
+
+    // Assigning moves a parameter between lanes; unassigning takes it off.
+    const auto other = daw.call("add_automation_lane", {})["lane"].get<std::string>();
+    auto moved = daw.call("assign_automation", {{"lane", other}, {"track", t1}, {"parameter", "volume"}});
+    CHECK(moved["movedFrom"] == id);
+    CHECK(daw.call("get_automation", {{"lane", id}})["assignments"].size() == 1);
+    CHECK(daw.call("unassign_automation", {{"track", t1}, {"parameter", "volume"}})["lane"] == other);
+    CHECK(daw.call("get_automation", {{"track", t1}, {"parameter", "volume"}})["lane"].is_null());
+
+    // Renaming and removing; the project lists what's left, in row order.
+    CHECK(daw.call("set_automation_lane", {{"lane", other}, {"name", "Spare"}})["name"] == "Spare");
+    project = daw.project();
+    REQUIRE(project["automationLanes"].size() == 2);
+    CHECK(project["automationLanes"][0]["lane"] == id); // after the first track
+    CHECK(daw.call("set_automation_on", {{"lane", id}, {"on", false}})["on"] == false);
+    daw.call("remove_automation_lane", {{"lane", id}});
+    CHECK(daw.session->undoDescription() == "Assistant: remove automation lane");
+    CHECK(daw.project()["automationLanes"].size() == 1);
+    CHECK(daw.fails("get_automation", {{"lane", id}}).find("isn't an automation lane") != std::string::npos);
 }

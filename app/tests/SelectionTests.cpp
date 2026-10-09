@@ -210,28 +210,41 @@ TEST_CASE("selection: after a change to the project", "[fast]")
 TEST_CASE("selection: a lane and its points are the subject", "[fast]")
 {
     auto s = project();
-    s.tracks[0].lanes.push_back({.key = "volume", .name = "Volume", .module = "Mixer",
-                                 .points = {{0.0, 0.5f, 0.0f}, {1.0, 0.7f, 0.0f}}});
-    const Selection lane{.channel = 1, .lane = "volume"};
+    s.automationLanes.push_back({.id = 40,
+                                 .after = 1,
+                                 .points = {{0.0, 0.5f, 0.0f}, {1.0, 0.7f, 0.0f}},
+                                 .assignments = {{.channel = 2, .key = "volume", .name = "Volume", .module = "Mixer"},
+                                                 {.channel = 1, .key = "pan", .name = "Pan", .module = "Mixer"}}});
+    s.automationLanes.push_back({.id = 41});
+    const auto lane = withLane(s, 40);
+    CHECK(lane == Selection{.channel = 2, .lane = 40}); // its first assignment's channel
+    CHECK(withLane(s, 41) == Selection{.lane = 41});   // none: no channel
     auto c = panelContext(lane, s, CentreView::Arrange);
     CHECK(c.subject == Subject::Lane);
-    CHECK(c.lane->key == "volume");
-    CHECK(c.channel->id == 1);
-    CHECK(c.inspector == std::vector{Section::Lane, Section::Track, Section::Mix, Section::Sends});
+    CHECK(c.lane->id == 40);
+    CHECK(c.channel->id == 2);
+    // A lane belongs to no track: its own sections only.
+    CHECK(c.inspector == std::vector{Section::Lane, Section::Assignments});
 
-    c = panelContext({.channel = 1, .lane = "volume", .points = {1}}, s, CentreView::Arrange);
+    c = panelContext(withLane(s, 40, {1}), s, CentreView::Arrange);
     CHECK(c.pointCount == 1);
     CHECK(c.point->value == 0.7f);
     CHECK(c.inspector.front() == Section::Point);
-    c = panelContext({.channel = 1, .lane = "volume", .points = {0, 1}}, s, CentreView::Arrange);
+    c = panelContext(withLane(s, 40, {0, 1}), s, CentreView::Arrange);
     CHECK(c.inspector.front() == Section::Points);
     CHECK_FALSE(c.point);
     CHECK(panelContext(lane, s, CentreView::Mix).inspector.empty());
+    c = panelContext(withLane(s, 41), s, CentreView::Arrange);
+    CHECK(c.subject == Subject::Lane);
+    CHECK_FALSE(c.channel);
 
-    // Pruning: points that are gone, and the lane when it goes.
-    CHECK(pruned({.channel = 1, .lane = "volume", .points = {1, 5}}, s) ==
-          Selection{.channel = 1, .lane = "volume", .points = {1}});
-    CHECK(pruned({.channel = 1, .lane = "pan", .points = {0}}, s) == Selection{.channel = 1});
+    // Pruning: points that are gone, the lane when it goes, and the channel follows the first
+    // assignment.
+    CHECK(pruned({.channel = 2, .lane = 40, .points = {1, 5}}, s) == Selection{.channel = 2, .lane = 40, .points = {1}});
+    CHECK(pruned({.channel = 2, .lane = 99, .points = {0}}, s) == Selection{.channel = 2});
+    auto reassigned = s;
+    reassigned.automationLanes[0].assignments.erase(reassigned.automationLanes[0].assignments.begin());
+    CHECK(pruned(lane, reassigned) == Selection{.channel = 1, .lane = 40});
     // Clips win over a lane (they never mix).
-    CHECK(pruned({.channel = 1, .clips = {11}, .lane = "volume"}, s) == Selection{.channel = 1, .clips = {11}});
+    CHECK(pruned({.channel = 1, .clips = {11}, .lane = 40}, s) == Selection{.channel = 1, .clips = {11}});
 }

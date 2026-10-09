@@ -1,29 +1,42 @@
 #include "model/ArrangementRows.h"
 
+#include <algorithm>
+
 namespace fd::model
 {
 std::string ArrangementRow::key() const
 {
-    auto k = "c" + std::to_string(channel);
-    return lane.empty() ? k : k + "/" + lane;
+    return isLane() ? "a" + std::to_string(lane) : "c" + std::to_string(channel);
 }
 
-std::vector<ArrangementRow> arrangementRows(const Snapshot& snapshot, bool mixRows)
+std::vector<ArrangementRow> arrangementRows(const Snapshot& snapshot, bool mixRows, bool lanes)
 {
     std::vector<ArrangementRow> rows;
-    auto add = [&rows](const TrackInfo& channel, ArrangementRow::Kind kind, int track) {
-        rows.push_back({.kind = kind, .channel = channel.id, .track = track});
-        if (!channel.lanesFolded)
-            for (const auto& lane : channel.lanes)
-                rows.push_back({.kind = ArrangementRow::Kind::Lane, .channel = channel.id, .lane = lane.key, .track = track});
+    const int last = static_cast<int>(snapshot.tracks.size()) - 1;
+    auto lanesAfter = [&](std::uint64_t after, int track) {
+        if (lanes)
+            for (const auto& l : snapshot.automationLanes)
+                if (l.after == after)
+                    rows.push_back({.kind = ArrangementRow::Kind::Lane, .lane = l.id, .track = track});
     };
-    for (size_t i = 0; i < snapshot.tracks.size(); ++i)
-        add(snapshot.tracks[i], ArrangementRow::Kind::Track, static_cast<int>(i));
+    lanesAfter(0, last >= 0 ? 0 : -1);
+    for (int i = 0; i <= last; ++i)
+    {
+        const auto& t = snapshot.tracks[static_cast<size_t>(i)];
+        rows.push_back({.kind = ArrangementRow::Kind::Track, .channel = t.id, .track = i});
+        lanesAfter(t.id, i);
+    }
+    // A lane whose track is gone sits after the last track.
+    if (lanes)
+        for (const auto& l : snapshot.automationLanes)
+            if (l.after != 0 && std::none_of(snapshot.tracks.begin(), snapshot.tracks.end(),
+                                             [&](const auto& t) { return t.id == l.after; }))
+                rows.push_back({.kind = ArrangementRow::Kind::Lane, .lane = l.id, .track = last});
     if (mixRows)
     {
         for (const auto& r : snapshot.returns)
-            add(r, ArrangementRow::Kind::Return, -1);
-        add(snapshot.master, ArrangementRow::Kind::Master, -1);
+            rows.push_back({.kind = ArrangementRow::Kind::Return, .channel = r.id});
+        rows.push_back({.kind = ArrangementRow::Kind::Master, .channel = snapshot.master.id});
     }
     return rows;
 }
@@ -51,6 +64,14 @@ int rowOfTrack(const std::vector<ArrangementRow>& rows, int track)
 {
     for (size_t i = 0; i < rows.size(); ++i)
         if (rows[i].holdsClips() && rows[i].track == track)
+            return static_cast<int>(i);
+    return -1;
+}
+
+int rowOfLane(const std::vector<ArrangementRow>& rows, std::uint64_t lane)
+{
+    for (size_t i = 0; i < rows.size(); ++i)
+        if (rows[i].isLane() && rows[i].lane == lane)
             return static_cast<int>(i);
     return -1;
 }

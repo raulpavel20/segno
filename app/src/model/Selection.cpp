@@ -38,6 +38,15 @@ Selection withClips(const Snapshot& snapshot, std::set<std::uint64_t> clips, std
     return s;
 }
 
+Selection withLane(const Snapshot& snapshot, std::uint64_t lane, std::set<size_t> points)
+{
+    Selection s{.lane = lane, .points = std::move(points)};
+    if (const auto* l = snapshot.automationLane(lane); l != nullptr && !l->assignments.empty() &&
+                                                       snapshot.channel(l->assignments.front().channel) != nullptr)
+        s.channel = l->assignments.front().channel;
+    return s;
+}
+
 Selection pruned(const Selection& selection, const Snapshot& snapshot)
 {
     Selection s;
@@ -48,14 +57,15 @@ Selection pruned(const Selection& selection, const Snapshot& snapshot)
         s.channel = selection.channel;
     if (!s.clips.empty() && !(s.channel && holdsAny(*snapshot.channel(*s.channel), s.clips)))
         s.channel = topmostHolding(snapshot, s.clips);
-    // A lane stays while its channel shows it; points while they exist.
-    if (selection.lane && s.channel && s.clips.empty())
-        if (const auto* lane = snapshot.channel(*s.channel)->lane(*selection.lane))
+    // A lane stays while it exists (its channel following its assignments); points while they do.
+    if (selection.lane && s.clips.empty())
+        if (const auto* lane = snapshot.automationLane(*selection.lane))
         {
-            s.lane = selection.lane;
+            std::set<size_t> points;
             for (const auto i : selection.points)
                 if (i < lane->points.size())
-                    s.points.insert(i);
+                    points.insert(i);
+            return withLane(snapshot, lane->id, std::move(points));
         }
     return s;
 }
@@ -75,11 +85,13 @@ PanelContext panelContext(const Selection& selection, const Snapshot& snapshot, 
         }
 
     const TrackInfo* channel = selection.channel ? snapshot.channel(*selection.channel) : nullptr;
-    const LaneInfo* lane = channel != nullptr && selection.lane && selection.clips.empty() ? channel->lane(*selection.lane)
-                                                                                           : nullptr;
+    const AutomationLaneInfo* lane =
+        selection.lane && selection.clips.empty() ? snapshot.automationLane(*selection.lane) : nullptr;
     if (lane != nullptr)
     {
         ctx.subject = Subject::Lane;
+        // Its context is its first assignment's channel (automation.md §9).
+        channel = lane->assignments.empty() ? nullptr : snapshot.channel(lane->assignments.front().channel);
         ctx.lane = *lane;
         for (const auto i : selection.points)
             if (i < lane->points.size())
@@ -116,11 +128,13 @@ PanelContext panelContext(const Selection& selection, const Snapshot& snapshot, 
         return ctx;
     if (ctx.subject == Subject::Lane)
     {
+        // A lane belongs to no track: no track, mix or send sections.
         if (ctx.pointCount == 1)
             ctx.inspector.push_back(InspectorSection::Point);
         else if (ctx.pointCount > 1)
             ctx.inspector.push_back(InspectorSection::Points);
-        ctx.inspector.push_back(InspectorSection::Lane);
+        ctx.inspector.insert(ctx.inspector.end(), {InspectorSection::Lane, InspectorSection::Assignments});
+        return ctx;
     }
     if (ctx.subject == Subject::Clip)
         ctx.inspector.push_back(InspectorSection::Clip);

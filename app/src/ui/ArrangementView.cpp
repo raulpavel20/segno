@@ -19,8 +19,6 @@ bool isMidiFile(const juce::String& path)
     return juce::File(path).hasFileExtension("mid;midi");
 }
 
-/// A lane's name sits this far right of its track's, so lanes read as their track's children.
-constexpr float kLaneIndent = 12.0f;
 /// How close to a row's bottom edge (in the header column) a drag resizes the row.
 constexpr float kResizeGrab = 3.0f;
 } // namespace
@@ -67,9 +65,6 @@ void ArrangementView::syncRows()
     std::set<std::string> lanes;
     for (int i = 0; i < static_cast<int>(rows_.size()); ++i)
     {
-        const auto* channel = rowChannel(i);
-        if (channel == nullptr)
-            continue;
         if (const auto* lane = rowLane(i))
         {
             const auto key = rows_[static_cast<size_t>(i)].key();
@@ -77,15 +72,18 @@ void ArrangementView::syncRows()
             auto& controls = laneControls_[key];
             if (controls == nullptr)
             {
-                controls = std::make_unique<LaneControls>(session_, laneTarget(i));
+                controls = std::make_unique<LaneControls>(session_, lane->id);
                 headerLayer_.addChildComponent(controls->on);
                 headerLayer_.addChildComponent(controls->bar);
             }
             controls->update(*lane);
-            const auto value = session_.laneValue(laneTarget(i)); // the header's readout
-            laneTexts_[key] = value ? session_.laneText(laneTarget(i), *value) : std::string();
+            const auto value = session_.laneValue(lane->id); // the header's readout
+            laneTexts_[key] = value ? session_.laneText(lane->id, *value) : std::string();
             continue;
         }
+        const auto* channel = rowChannel(i);
+        if (channel == nullptr)
+            continue;
         shown.insert(channel->id);
         auto& controls = headerControls_[channel->id];
         if (controls == nullptr)
@@ -115,23 +113,28 @@ void ArrangementView::syncRows()
 
 const model::TrackInfo* ArrangementView::rowChannel(int row) const noexcept
 {
-    if (row < 0 || row >= static_cast<int>(rows_.size()))
+    if (row < 0 || row >= static_cast<int>(rows_.size()) || rows_[static_cast<size_t>(row)].isLane())
         return nullptr;
     return snapshot_->channel(rows_[static_cast<size_t>(row)].channel);
 }
 
-const model::LaneInfo* ArrangementView::rowLane(int row) const noexcept
+const model::AutomationLaneInfo* ArrangementView::rowLane(int row) const noexcept
 {
     if (row < 0 || row >= static_cast<int>(rows_.size()) || !rows_[static_cast<size_t>(row)].isLane())
         return nullptr;
-    const auto* channel = rowChannel(row);
-    return channel != nullptr ? channel->lane(rows_[static_cast<size_t>(row)].lane) : nullptr;
+    return snapshot_->automationLane(rows_[static_cast<size_t>(row)].lane);
 }
 
-engine::Session::LaneTarget ArrangementView::laneTarget(int row) const
+const model::AutomationLaneInfo* ArrangementView::selectedLane() const noexcept
 {
-    const auto& r = rows_[static_cast<size_t>(row)];
-    return {r.channel, r.lane};
+    return selection_.lane ? snapshot_->automationLane(*selection_.lane) : nullptr;
+}
+
+bool ArrangementView::rowSelected(const model::ArrangementRow& row) const noexcept
+{
+    if (row.isLane())
+        return selection_.lane == row.lane;
+    return !selection_.lane && selection_.channel == row.channel;
 }
 
 juce::Rectangle<float> ArrangementView::rowBounds(int row, juce::Rectangle<int> column) const
@@ -147,18 +150,6 @@ LaneGeometry ArrangementView::laneGeometry(int row) const
             .timeline = &timeline_};
 }
 
-juce::Rectangle<float> ArrangementView::chevronArea(int row) const
-{
-    const auto* channel = rowChannel(row);
-    if (channel == nullptr || rowLane(row) != nullptr || channel->lanes.empty())
-        return {};
-    const auto r = rowBounds(row, headerArea());
-    const auto slots = model::layoutTrackHeader(r.getWidth(), r.getHeight(), 0, false);
-    // In the left padding, beside the name (which doesn't move).
-    return juce::Rectangle<float>(3.0f, static_cast<float>(slots.name.y), 9.0f, static_cast<float>(slots.name.h))
-        .translated(r.getX(), r.getY());
-}
-
 void ArrangementView::setMixRowsVisible(bool visible)
 {
     if (visible == showMixRows_)
@@ -170,9 +161,19 @@ void ArrangementView::setMixRowsVisible(bool visible)
     syncRows(); // not setSnapshot: pruning against this snapshot could drop a clip made since
 }
 
+void ArrangementView::setLanesVisible(bool visible)
+{
+    if (visible == showLanes_)
+        return;
+    showLanes_ = visible;
+    if (!visible && selection_.lane)
+        setSelection({.channel = selection_.channel});
+    syncRows();
+}
+
 void ArrangementView::syncLayout()
 {
-    rows_ = model::arrangementRows(*snapshot_, showMixRows_);
+    rows_ = model::arrangementRows(*snapshot_, showMixRows_, showLanes_);
     layout_.setTrackCount(static_cast<int>(rows_.size()));
     for (int i = 0; i < static_cast<int>(rows_.size()); ++i)
     {
@@ -200,12 +201,13 @@ void ArrangementView::placeHeaderControls()
     for (int i = 0; i < layout_.trackCount(); ++i)
     {
         const auto* channel = rowChannel(i);
-        if (channel == nullptr)
+        const auto* lane = rowLane(i);
+        if (channel == nullptr && lane == nullptr)
             continue;
         const double top = layout_.top(i), height = layout_.height(i);
         const bool visible = top + height > 0.0 && top < area.getHeight();
-        auto at = [top](const model::HeaderRect& r, float indent = 0.0f) {
-            return juce::Rectangle<double>(r.x + indent, r.y + top, std::max(0.0, r.w - indent), r.h).toNearestInt();
+        auto at = [top](const model::HeaderRect& r) {
+            return juce::Rectangle<double>(r.x, r.y + top, r.w, r.h).toNearestInt();
         };
         auto show = [visible](juce::Component& comp, const model::HeaderRect& r, juce::Rectangle<int> bounds) {
             comp.setVisible(visible && !r.isEmpty());
@@ -213,17 +215,18 @@ void ArrangementView::placeHeaderControls()
                 comp.setBounds(bounds);
         };
         const model::HeaderRect none{};
-        if (rowLane(i) != nullptr)
+        if (lane != nullptr)
         {
             const auto it = laneControls_.find(rows_[static_cast<size_t>(i)].key());
             if (it == laneControls_.end())
                 continue;
             const auto slots = model::layoutTrackHeader(area.getWidth(), height, 1, false);
-            // The on switch only means something with points to play.
-            const bool playable = !rowLane(i)->points.empty();
+            // The on switch only means something with points to play and parameters to play them;
+            // the bar only with one parameter to move.
+            const bool playable = !lane->points.empty() && !lane->assignments.empty();
             show(it->second->on, slots.buttons.empty() || !playable ? none : slots.buttons[0],
                  slots.buttons.empty() ? juce::Rectangle<int>() : at(slots.buttons[0]));
-            show(it->second->bar, slots.controls, at(slots.controls, kLaneIndent));
+            show(it->second->bar, lane->assignments.size() == 1 ? slots.controls : none, at(slots.controls));
             if (it->second->bar.isVisible())
                 it->second->bar.refresh(); // follows the played value
             continue;
@@ -316,14 +319,13 @@ void ArrangementView::frame(double dt, double playheadSeconds)
     // Lane headers show their parameter's value now (it moves while automation plays).
     const auto header = headerArea();
     for (int i = 0; i < layout_.trackCount(); ++i)
-        if (rowLane(i) != nullptr)
+        if (const auto* lane = rowLane(i))
         {
             const auto bounds = rowBounds(i, header);
             if (bounds.getBottom() < static_cast<float>(header.getY()) || bounds.getY() > static_cast<float>(header.getBottom()))
                 continue;
-            const auto target = laneTarget(i);
-            const auto value = session_.laneValue(target);
-            auto text = value ? session_.laneText(target, *value) : std::string();
+            const auto value = session_.laneValue(lane->id);
+            auto text = value ? session_.laneText(lane->id, *value) : std::string();
             if (auto& shown = laneTexts_[rows_[static_cast<size_t>(i)].key()]; shown != text)
             {
                 shown = std::move(text);
@@ -448,9 +450,9 @@ void ArrangementView::notifySelection()
         onSelectionChanged();
 }
 
-void ArrangementView::selectLane(std::uint64_t channel, const std::string& lane)
+void ArrangementView::selectLane(std::uint64_t lane)
 {
-    setSelection({.channel = channel, .lane = lane});
+    setSelection(model::withLane(*snapshot_, lane));
 }
 
 // ---- painting ------------------------------------------------------------------------------
@@ -491,31 +493,63 @@ void ArrangementView::paintHeaders(juce::Graphics& g)
     const int mixRow = model::firstMixRow(rows_);
     for (int i = 0; i < layout_.trackCount(); ++i)
     {
+        auto row = rowBounds(i, area);
+        if (row.getBottom() < static_cast<float>(area.getY()) || row.getY() > static_cast<float>(area.getBottom()))
+            continue;
+        const bool selected = rowSelected(rows_[static_cast<size_t>(i)]);
+        auto at = [&row](const model::HeaderRect& r) {
+            return juce::Rectangle<float>(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.w),
+                                          static_cast<float>(r.h))
+                .translated(row.getX(), row.getY());
+        };
+        if (const auto* lane = rowLane(i))
+        {
+            // An automation lane (automation.md §3): the track header kit, with its own colour, its
+            // name, what it drives and its value now.
+            g.setColour(selected ? t.surface2 : t.roles.subLane);
+            g.fillRect(row);
+            const auto slots = model::layoutTrackHeader(row.getWidth(), row.getHeight(), 1, false);
+            g.setColour(t.clipColour(lane->colour));
+            g.fillRect(at(slots.colour));
+            g.setColour(t.line);
+            g.fillRect(juce::Rectangle<float>(row).removeFromBottom(1.0f));
+            g.setColour(t.textPrimary);
+            g.setFont(ui::font(ui::TextStyle::Name));
+            g.drawText(juce::String::fromUTF8(lane->displayName().c_str()), at(slots.name), juce::Justification::centredLeft,
+                       true);
+            if (slots.subtitle.isEmpty())
+                continue;
+            auto subtitle = at(slots.subtitle);
+            if (const auto it = laneTexts_.find(rows_[static_cast<size_t>(i)].key()); it != laneTexts_.end() && !it->second.empty())
+            {
+                g.setColour(t.textSecondary);
+                g.setFont(ui::font(ui::TextStyle::Value));
+                g.drawText(juce::String::fromUTF8(it->second.c_str()), subtitle, juce::Justification::centredRight, false);
+            }
+            const auto& as = lane->assignments;
+            auto drives = as.empty()      ? juce::String("Not assigned")
+                          : as.size() == 1 ? juce::String::fromUTF8((as[0].channelName + " \xC2\xB7 " + as[0].module).c_str())
+                                           : juce::String(static_cast<int>(as.size())) + " parameters";
+            if (lane->rules().stepped()) // it holds each value, it never curves
+                drives += juce::String::fromUTF8(" \xC2\xB7 Steps");
+            g.setColour(as.empty() ? t.textTertiary : t.textSecondary);
+            g.setFont(ui::font(ui::TextStyle::Caption));
+            g.drawText(drives, subtitle.withTrimmedRight(60.0f), juce::Justification::centredLeft, true);
+            continue;
+        }
         const auto* channel = rowChannel(i);
         if (channel == nullptr)
             continue;
         const auto& track = *channel;
-        auto row = rowBounds(i, area);
-        if (row.getBottom() < static_cast<float>(area.getY()) || row.getY() > static_cast<float>(area.getBottom()))
-            continue;
-        const auto* lane = rowLane(i);
         const bool master = track.role == model::TrackInfo::Role::Master;
-        const bool selected = selection_.channel == track.id &&
-                              (lane != nullptr ? selection_.lane == lane->key : !selection_.lane.has_value());
-        if (selected || lane != nullptr)
+        if (selected)
         {
-            g.setColour(selected ? t.surface2 : t.roles.subLane);
+            g.setColour(t.surface2);
             g.fillRect(row);
         }
         // The slots of the header (docs/design/ui-foundations.md, "Track headers"); the mixer
-        // (C3), lanes (C4) and recording (C5) add their buttons, controls and meter to it.
-        const auto slots = lane != nullptr ? model::layoutTrackHeader(row.getWidth(), row.getHeight(), 1, false)
-                                           : model::layoutTrackHeader(row.getWidth(), row.getHeight(), master ? 0 : 2, true);
-        auto at = [&row](const model::HeaderRect& r, float indent = 0.0f) {
-            return juce::Rectangle<float>(static_cast<float>(r.x) + indent, static_cast<float>(r.y),
-                                          std::max(0.0f, static_cast<float>(r.w) - indent), static_cast<float>(r.h))
-                .translated(row.getX(), row.getY());
-        };
+        // (C3) and recording (C5) add their buttons, controls and meter to it.
+        const auto slots = model::layoutTrackHeader(row.getWidth(), row.getHeight(), master ? 0 : 2, true);
         g.setColour(master ? t.textTertiary : t.clipColour(track.colour));
         g.fillRect(at(slots.colour));
         g.setColour(t.line);
@@ -523,64 +557,16 @@ void ArrangementView::paintHeaders(juce::Graphics& g)
             g.fillRect(row.withHeight(2.0f)); // the divider above the returns and the master
         g.fillRect(juce::Rectangle<float>(row).removeFromBottom(1.0f)); // the row separator, continued across the lanes
 
-        if (lane != nullptr)
-        {
-            // A lane: the parameter, its module and its value now, under its track (§3).
-            g.setColour(t.textSecondary);
-            g.setFont(ui::font(ui::TextStyle::Name));
-            g.drawText(juce::String::fromUTF8(lane->name.c_str()), at(slots.name, kLaneIndent), juce::Justification::centredLeft,
-                       true);
-            if (!slots.subtitle.isEmpty())
-            {
-                auto subtitle = at(slots.subtitle, kLaneIndent);
-                const auto it = laneTexts_.find(rows_[static_cast<size_t>(i)].key());
-                if (it != laneTexts_.end() && !it->second.empty())
-                {
-                    g.setColour(t.textSecondary);
-                    g.setFont(ui::font(ui::TextStyle::Value));
-                    g.drawText(juce::String::fromUTF8(it->second.c_str()), subtitle, juce::Justification::centredRight, false);
-                }
-                g.setColour(t.textTertiary);
-                g.setFont(ui::font(ui::TextStyle::Caption));
-                // A stepped parameter's lane says so: it holds each value, it never curves.
-                const auto module = juce::String::fromUTF8(lane->module.c_str());
-                g.drawText(lane->steps >= 2 ? module + juce::String::fromUTF8(" \xC2\xB7 Steps") : module,
-                           subtitle.withTrimmedRight(60.0f),
-                           juce::Justification::centredLeft, true);
-            }
-            continue;
-        }
-
-        // The fold chevron: ▾ shows the channel's lanes, ▸ folds them.
-        if (const auto chevron = chevronArea(i); !chevron.isEmpty())
-        {
-            const auto c = chevron.getCentre();
-            juce::Path p;
-            if (track.lanesFolded)
-                p.addTriangle(c.x - 1.5f, c.y - 3.0f, c.x - 1.5f, c.y + 3.0f, c.x + 2.0f, c.y);
-            else
-                p.addTriangle(c.x - 3.0f, c.y - 1.5f, c.x + 3.0f, c.y - 1.5f, c.x, c.y + 2.0f);
-            g.setColour(t.textTertiary);
-            g.fillPath(p);
-        }
-
         g.setColour(t.textPrimary);
         g.setFont(ui::font(ui::TextStyle::Name));
         g.drawText(juce::String::fromUTF8(track.name.c_str()), at(slots.name), juce::Justification::centredLeft, true);
         if (slots.subtitle.isEmpty())
             continue;
-        const auto folded = track.lanesFolded && !track.lanes.empty()
-                                ? juce::String::fromUTF8("\xC2\xB7 ") + juce::String(static_cast<int>(track.lanes.size())) +
-                                      (track.lanes.size() == 1 ? " lane" : " lanes")
-                                : juce::String();
-        auto joined = [&folded](juce::String label) {
-            return folded.isEmpty() ? label : label.isEmpty() ? folded : label + " " + folded;
-        };
         if (!track.holdsClips())
         {
             g.setColour(t.textTertiary);
             g.setFont(ui::font(ui::TextStyle::Caption));
-            g.drawText(joined(master ? "Master" : "Return"), at(slots.subtitle), juce::Justification::centredLeft, true);
+            g.drawText(master ? "Master" : "Return", at(slots.subtitle), juce::Justification::centredLeft, true);
             continue;
         }
         // One kind of track (ADR 0019): show the instrument, or that MIDI has nothing to play it.
@@ -591,7 +577,7 @@ void ArrangementView::paintHeaders(juce::Graphics& g)
                                                      : juce::String();
         g.setColour(track.instrument.empty() && hasMidi ? t.roles.warning : t.textTertiary);
         g.setFont(ui::font(ui::TextStyle::Caption));
-        g.drawText(joined(label), at(slots.subtitle), juce::Justification::centredLeft, true);
+        g.drawText(label, at(slots.subtitle), juce::Justification::centredLeft, true);
     }
 }
 
@@ -613,9 +599,7 @@ void ArrangementView::paintLanes(juce::Graphics& g)
         if (!rowVisible(i))
             continue;
         const auto& r = rows_[static_cast<size_t>(i)];
-        const bool selected = selection_.channel == r.channel &&
-                              (r.isLane() ? selection_.lane == r.lane : !selection_.lane.has_value());
-        g.setColour(selected ? t.roles.laneSelected : r.holdsClips() ? t.roles.lane : t.roles.subLane);
+        g.setColour(rowSelected(r) ? t.roles.laneSelected : r.holdsClips() ? t.roles.lane : t.roles.subLane);
         g.fillRect(rowBounds(i, area));
     }
 
@@ -680,15 +664,18 @@ void ArrangementView::paintLanes(juce::Graphics& g)
             continue;
         const auto key = rows_[static_cast<size_t>(i)].key();
         const bool previewing = lanePreview_ && lanePreview_->first == key;
-        LanePaint paint{.points = previewing ? &lanePreview_->second.points : &lane->points, .on = lane->on};
+        // Faded when every assignment is off (a lane without any draws as it is).
+        const bool on = lane->assignments.empty() ||
+                        std::any_of(lane->assignments.begin(), lane->assignments.end(), [](const auto& a) { return a.on; });
+        LanePaint paint{.points = previewing ? &lanePreview_->second.points : &lane->points, .on = on};
         if (previewing)
             paint.selected = lanePreview_->second.selection;
-        else if (selection_.channel == rows_[static_cast<size_t>(i)].channel && selection_.lane == lane->key)
+        else if (selection_.lane == lane->id)
             paint.selected = selection_.points;
         if (hoveredPoint_ && hoveredPoint_->first == i)
             paint.hovered = hoveredPoint_->second;
         if (lane->points.empty())
-            paint.current = session_.laneValue(laneTarget(i));
+            paint.current = session_.laneValue(lane->id);
         paintAutomationLane(g, laneGeometry(i), paint, visible);
     }
 
@@ -904,27 +891,10 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
             return;
         }
         const auto* channel = rowChannel(row->track);
-        // The fold chevron (Alt: every channel).
-        if (const auto chevron = chevronArea(row->track); chevron.contains(e.position) && channel != nullptr)
-        {
-            const bool fold = !channel->lanesFolded;
-            if (e.mods.isAltDown())
-            {
-                for (const auto* list : {&snapshot_->tracks, &snapshot_->returns})
-                    for (const auto& t : *list)
-                        if (!t.lanes.empty())
-                            session_.setLanesFolded(t.id, fold);
-                if (!snapshot_->master.lanes.empty())
-                    session_.setLanesFolded(snapshot_->master.id, fold);
-            }
-            else
-                session_.setLanesFolded(channel->id, fold);
-            return;
-        }
         // A header selects its channel alone, or its lane (selection.md §2, automation.md §9).
-        if (rowLane(row->track) != nullptr)
+        if (const auto* lane = rowLane(row->track))
         {
-            selectLane(rows_[static_cast<size_t>(row->track)].channel, rows_[static_cast<size_t>(row->track)].lane);
+            selectLane(lane->id);
             if (onLaneActivated)
                 onLaneActivated();
         }
@@ -1144,10 +1114,10 @@ void ArrangementView::mouseUp(const juce::MouseEvent& e)
 
 void ArrangementView::applyLaneEdit(int row, const model::PointEdit& edit, const std::string& undoName)
 {
-    const auto target = laneTarget(row);
+    const auto id = rows_[static_cast<size_t>(row)].lane;
     lanePreview_ = std::pair{rows_[static_cast<size_t>(row)].key(), edit}; // until the snapshot has it
-    session_.setAutomation(target, edit.points, std::nullopt, undoName);
-    setQuietly({.channel = target.channel, .lane = target.lane, .points = edit.selection});
+    session_.setLanePoints(id, edit.points, std::nullopt, undoName);
+    setQuietly(model::withLane(*snapshot_, id, edit.selection));
     repaint();
 }
 
@@ -1158,7 +1128,7 @@ void ArrangementView::laneMouseDown(const juce::MouseEvent& e, int row)
         return;
     if (onLaneActivated)
         onLaneActivated();
-    const auto target = laneTarget(row);
+    const auto id = lane->id;
     const auto geo = laneGeometry(row);
     const auto map = geo.mapping();
     const auto rules = lane->rules();
@@ -1166,7 +1136,7 @@ void ArrangementView::laneMouseDown(const juce::MouseEvent& e, int row)
     const auto grab = ui::Theme::current().input.edgeGrab;
     const auto hitPoint = model::hitPoint(points, map, e.position.x, e.position.y, grab);
     const bool additive = e.mods.isShiftDown() || e.mods.isCommandDown();
-    const bool sameLane = selection_.channel == target.channel && selection_.lane == target.lane;
+    const bool sameLane = selection_.lane == id;
     drag_ = Drag::Lane;
     laneDrag_ = {.row = row, .base = points};
 
@@ -1197,7 +1167,7 @@ void ArrangementView::laneMouseDown(const juce::MouseEvent& e, int row)
             selection.insert(*hitPoint);
         else
             selection = {*hitPoint};
-        setQuietly({.channel = target.channel, .lane = target.lane, .points = selection});
+        setQuietly(model::withLane(*snapshot_, id, selection));
         laneDrag_.kind = selection.contains(*hitPoint) ? LaneDrag::Kind::Points : LaneDrag::Kind::None;
         laneDrag_.selection = selection;
         laneDrag_.index = *hitPoint;
@@ -1208,7 +1178,7 @@ void ArrangementView::laneMouseDown(const juce::MouseEvent& e, int row)
         laneDrag_.kind = LaneDrag::Kind::Draw;
         const double at = snapped(geo.time(e.position.x), e.mods.isAltDown());
         laneDrag_.drawn = {{at, geo.value(e.position.y), 0.0f}};
-        setQuietly({.channel = target.channel, .lane = target.lane});
+        setQuietly(model::withLane(*snapshot_, id));
         return;
     }
     if (const auto segment = model::hitSegment(points, map, e.position.x, e.position.y, 4.0))
@@ -1222,19 +1192,19 @@ void ArrangementView::laneMouseDown(const juce::MouseEvent& e, int row)
         laneDrag_.kind = e.mods.isAltDown() ? LaneDrag::Kind::Bend : LaneDrag::Kind::Segment;
         laneDrag_.index = *segment;
         laneDrag_.bend = model::bendOf(points[*segment]);
-        setQuietly({.channel = target.channel, .lane = target.lane, .points = {*segment, *segment + 1}});
+        setQuietly(model::withLane(*snapshot_, id, {*segment, *segment + 1}));
         return;
     }
     // An empty spot: box-select points (Shift adds).
     laneDrag_.kind = LaneDrag::Kind::Box;
     laneDrag_.boxBase = additive && sameLane ? selection_.points : std::set<size_t>{};
-    setQuietly({.channel = target.channel, .lane = target.lane, .points = laneDrag_.boxBase});
+    setQuietly(model::withLane(*snapshot_, id, laneDrag_.boxBase));
 }
 
-void ArrangementView::explainSteps(const model::LaneInfo& lane)
+void ArrangementView::explainSteps(const model::AutomationLaneInfo& lane)
 {
-    if (onMessage)
-        onMessage(juce::String::fromUTF8(lane.name.c_str()) +
+    if (onMessage && !lane.assignments.empty())
+        onMessage(juce::String::fromUTF8(lane.assignments.front().name.c_str()) +
                   " has steps: it holds each value until the next point, so its lane can't curve");
 }
 
@@ -1319,94 +1289,78 @@ void ArrangementView::laneMouseUp(const juce::MouseEvent&)
 
 void ArrangementView::deletePoints()
 {
-    if (!hasPointSelection() || !selection_.channel)
+    const auto* lane = selectedLane();
+    if (!hasPointSelection() || lane == nullptr)
         return;
-    const auto* channel = snapshot_->channel(*selection_.channel);
-    const auto* lane = channel != nullptr ? channel->lane(*selection_.lane) : nullptr;
-    if (lane == nullptr)
-        return;
-    session_.setAutomation({*selection_.channel, lane->key}, model::deletePoints(lane->points, selection_.points).points,
-                           std::nullopt, "Delete points");
-    setSelection({.channel = selection_.channel, .lane = selection_.lane});
+    session_.setLanePoints(lane->id, model::deletePoints(lane->points, selection_.points).points, std::nullopt,
+                           "Delete points");
+    setSelection(model::withLane(*snapshot_, lane->id));
 }
 
 void ArrangementView::duplicatePoints()
 {
-    if (!hasPointSelection() || !selection_.channel)
-        return;
-    const auto* channel = snapshot_->channel(*selection_.channel);
-    const auto* lane = channel != nullptr ? channel->lane(*selection_.lane) : nullptr;
-    if (lane == nullptr)
+    const auto* lane = selectedLane();
+    if (!hasPointSelection() || lane == nullptr)
         return;
     const auto edit = model::duplicatePoints(lane->points, selection_.points, gridStepSeconds(), lane->rules());
-    session_.setAutomation({*selection_.channel, lane->key}, edit.points, std::nullopt, "Duplicate points");
-    setSelection({.channel = selection_.channel, .lane = selection_.lane, .points = edit.selection});
+    session_.setLanePoints(lane->id, edit.points, std::nullopt, "Duplicate points");
+    setSelection(model::withLane(*snapshot_, lane->id, edit.selection));
 }
 
 void ArrangementView::selectAllPoints()
 {
-    if (!selection_.lane || !selection_.channel)
-        return;
-    const auto* channel = snapshot_->channel(*selection_.channel);
-    const auto* lane = channel != nullptr ? channel->lane(*selection_.lane) : nullptr;
+    const auto* lane = selectedLane();
     if (lane == nullptr)
         return;
     std::set<size_t> all;
     for (size_t i = 0; i < lane->points.size(); ++i)
         all.insert(i);
-    setSelection({.channel = selection_.channel, .lane = selection_.lane, .points = std::move(all)});
+    setSelection(model::withLane(*snapshot_, lane->id, std::move(all)));
 }
 
 void ArrangementView::nudgePoints(int gridSteps, float value)
 {
-    if (!hasPointSelection() || !selection_.channel)
-        return;
-    const auto* channel = snapshot_->channel(*selection_.channel);
-    const auto* lane = channel != nullptr ? channel->lane(*selection_.lane) : nullptr;
-    if (lane == nullptr)
+    const auto* lane = selectedLane();
+    if (!hasPointSelection() || lane == nullptr)
         return;
     const auto edit =
         model::movePoints(lane->points, selection_.points, gridSteps * gridStepSeconds(), value, lane->rules());
-    session_.setAutomation({*selection_.channel, lane->key}, edit.points, std::nullopt, "Nudge points");
-    setSelection({.channel = selection_.channel, .lane = selection_.lane, .points = edit.selection});
+    session_.setLanePoints(lane->id, edit.points, std::nullopt, "Nudge points");
+    setSelection(model::withLane(*snapshot_, lane->id, edit.selection));
 }
 
 void ArrangementView::removeSelectedLane()
 {
-    if (!selection_.lane || !selection_.channel)
+    if (!selection_.lane)
         return;
-    session_.removeLane({*selection_.channel, *selection_.lane});
+    session_.removeAutomationLane(*selection_.lane);
     selectTrack(selection_.channel);
 }
 
 void ArrangementView::headerMenu(int row)
 {
-    const auto* channel = rowChannel(row);
-    if (channel == nullptr)
-        return;
     juce::PopupMenu menu;
     if (const auto* lane = rowLane(row))
     {
-        const auto target = laneTarget(row);
-        menu.addItem(lane->on ? "Turn lane off" : "Turn lane on", !lane->points.empty(),
-                     false, [this, target, on = lane->on] { session_.setLaneOn(target, !on); });
-        menu.addItem("Remove lane", [this, target] {
-            session_.removeLane(target);
-            selectTrack(target.channel);
+        const auto id = lane->id;
+        const bool on = lane->allOn();
+        menu.addItem(on ? "Turn lane off" : "Turn lane on", !lane->points.empty() && !lane->assignments.empty(), false,
+                     [this, id, on] { session_.setLaneOn(id, !on); });
+        menu.addItem("Remove automation lane", [this, id] {
+            session_.removeAutomationLane(id);
+            if (selection_.lane == id)
+                selectTrack(selection_.channel);
         });
     }
-    else
+    else if (const auto* channel = rowChannel(row); channel != nullptr && channel->holdsClips())
     {
-        const auto id = channel->id;
-        menu.addItem("Add automation lane...", [this, id] {
+        menu.addItem("Add automation lane...", [this, id = channel->id] {
             if (onAddLane)
                 onAddLane(id);
         });
-        if (!channel->lanes.empty())
-            menu.addItem(channel->lanesFolded ? "Show lanes" : "Fold lanes",
-                         [this, id, folded = channel->lanesFolded] { session_.setLanesFolded(id, !folded); });
     }
-    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMousePosition());
+    if (menu.getNumItems() > 0)
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMousePosition());
 }
 
 // ---- edit commands -------------------------------------------------------------------------

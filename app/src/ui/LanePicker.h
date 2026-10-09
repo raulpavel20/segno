@@ -8,8 +8,8 @@
 namespace fd::app
 {
 /// "Add automation lane" (docs/design/automation.md §3): a searchable list of a channel's
-/// parameters, like the command palette: name, module and current value; lanes already shown
-/// are marked. Choosing one shows its lane.
+/// parameters, like the command palette: name, module and current value; parameters already on a
+/// lane are marked. Choosing one makes a lane for it (moving it from its lane).
 class LanePicker final : public juce::Component, private juce::KeyListener, private juce::TextEditor::Listener
 {
 public:
@@ -17,17 +17,18 @@ public:
 
     explicit LanePicker(engine::Session& session);
 
-    /// Shows the picker inside `parent` (top centre) for a channel's parameters.
-    void open(juce::Component& parent, std::uint64_t channel);
+    /// Shows the picker inside `parent` (top centre) for a channel's parameters; the new lane goes
+    /// after `after` (a track or a lane; 0: at the top).
+    void open(juce::Component& parent, std::uint64_t channel, std::uint64_t after);
     void close();
     [[nodiscard]] bool isOpen() const noexcept { return isVisible(); }
-    /// Shows the selected parameter's lane (Enter).
+    /// Makes a lane for the selected parameter (Enter).
     void chooseSelected();
     void setQuery(const juce::String& text);
     [[nodiscard]] std::vector<std::string> shownLanes() const;
 
-    /// A lane was shown from the picker.
-    std::function<void(const engine::Session::LaneTarget&)> onChosen;
+    /// A lane was made from the picker.
+    std::function<void(std::uint64_t lane)> onChosen;
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -45,9 +46,9 @@ private:
     [[nodiscard]] juce::Rectangle<int> rowArea(int row) const;
 
     engine::Session& session_;
-    std::uint64_t channel_ = 0;
+    std::uint64_t channel_ = 0, after_ = 0;
     juce::TextEditor search_;
-    std::vector<engine::Session::LaneChoice> choices_;
+    std::vector<engine::Session::ParamChoice> choices_;
     std::vector<model::PaletteItem> items_;
     std::vector<size_t> shown_;
     int selected_ = 0;

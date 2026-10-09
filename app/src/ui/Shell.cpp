@@ -85,17 +85,19 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     };
     arrangement_.onActivated = [this] { lastArea_ = Area::Arrangement; };
     arrangement_.onLaneActivated = [this] { lastArea_ = Area::Lane; };
-    arrangement_.onAddLane = [this](std::uint64_t channel) { lanePicker_.open(*this, channel); };
+    arrangement_.onAddLane = [this](std::uint64_t track) { lanePicker_.open(*this, track, track); };
     // "Show automation lane" on any control: the lane, in the arrangement.
-    session_.onLaneRevealed = [this](const engine::Session::LaneTarget& target) {
+    session_.onLaneRevealed = [this](std::uint64_t lane) {
         if (mixerShown_)
             setMixerShown(false);
+        arrangement_.setLanesVisible(true);
         lastArea_ = Area::Lane;
-        arrangement_.selectLane(target.channel, target.lane);
+        arrangement_.selectLane(lane);
     };
-    lanePicker_.onChosen = [this](const engine::Session::LaneTarget& target) {
+    lanePicker_.onChosen = [this](std::uint64_t lane) {
+        arrangement_.setLanesVisible(true);
         lastArea_ = Area::Lane;
-        arrangement_.selectLane(target.channel, target.lane);
+        arrangement_.selectLane(lane);
     };
     arrangement_.onMessage = [this](const juce::String& m) { showWarning(m); };
     detail_.chain().onActivated = [this] { lastArea_ = Area::Detail; };
@@ -349,36 +351,29 @@ void Shell::registerActions()
                   .isEnabled = [&s] { return s.anyLaneOff(); }, .isToggled = [&s] { return s.anyLaneOff(); }});
     actions_.add({.id = "automation.addLane", .name = "Add automation lane...", .category = "Automation",
                   .keys = {key('l', kCmd | kShift)},
-                  .perform = [this] {
-                      if (const auto c = selectedTrackInfo())
-                          lanePicker_.open(*this, c->id);
-                  },
-                  .isEnabled = [this, arrangeShown] { return arrangeShown() && selectedTrackInfo().has_value(); }});
-    actions_.add({.id = "automation.showLastTouched", .name = "Show last touched parameter", .category = "Automation",
-                  .keys = {key('l', kAlt)},
                   .perform = [this, &s] {
-                      if (const auto target = s.lastTouchedParameter(); target && s.showLane(*target))
-                          arrangement_.selectLane(target->channel, target->lane);
+                      // For the selected channel's parameters (else the first track's), right
+                      // under the selected track or lane (automation.md §3).
+                      const auto& sel = arrangement_.selection();
+                      const auto snap = s.snapshot();
+                      const auto channel = sel.channel ? *sel.channel
+                                           : !snap->tracks.empty() ? snap->tracks.front().id
+                                                                   : snap->master.id;
+                      lanePicker_.open(*this, channel, sel.lane ? *sel.lane : sel.channel.value_or(0));
+                  },
+                  .isEnabled = arrangeShown});
+    actions_.add({.id = "automation.showLastTouched", .name = "Automate last touched parameter", .category = "Automation",
+                  .keys = {key('l', kAlt)},
+                  .perform = [&s] {
+                      // Its lane, or a new one for it.
+                      if (const auto target = s.lastTouchedParameter())
+                          if (const auto lane = s.laneOf(*target) ? *s.laneOf(*target) : s.automateInNewLane(*target))
+                              s.revealLane(lane);
                   },
                   .isEnabled = [&s, arrangeShown] { return arrangeShown() && s.lastTouchedParameter().has_value(); }});
-    auto anyLanesShown = [this] {
-        const auto snap = session_.snapshot();
-        auto shown = [](const model::TrackInfo& t) { return !t.lanes.empty() && !t.lanesFolded; };
-        return std::any_of(snap->tracks.begin(), snap->tracks.end(), shown) ||
-               std::any_of(snap->returns.begin(), snap->returns.end(), shown) || shown(snap->master);
-    };
     actions_.add({.id = "view.lanes", .name = "Show automation lanes", .category = "View", .keys = {key('l', kCmd | kAlt)},
-                  .perform = [&s, anyLanesShown] {
-                      const bool fold = anyLanesShown();
-                      const auto snap = s.snapshot();
-                      for (const auto* list : {&snap->tracks, &snap->returns})
-                          for (const auto& t : *list)
-                              if (!t.lanes.empty())
-                                  s.setLanesFolded(t.id, fold);
-                      if (!snap->master.lanes.empty())
-                          s.setLanesFolded(snap->master.id, fold);
-                  },
-                  .isEnabled = arrangeShown, .isToggled = anyLanesShown});
+                  .perform = [this] { arrangement_.setLanesVisible(!arrangement_.lanesVisible()); },
+                  .isEnabled = arrangeShown, .isToggled = [this] { return arrangement_.lanesVisible(); }});
     actions_.add({.id = "view.returns", .name = "Show returns and master", .category = "View",
                   .keys = {key('r', kCmd | kAlt)},
                   .perform = [this] { arrangement_.setMixRowsVisible(!arrangement_.mixRowsVisible()); },
@@ -628,6 +623,7 @@ std::string Shell::viewState() const
                           {"clipViewHeight", clipViewHeight_},
                           {"view", mixerShown_ ? "mix" : "arrange"},
                           {"returns", arrangement_.mixRowsVisible()},
+                          {"lanes", arrangement_.lanesVisible()},
                           {"mixerModules", mixer_.options().modules},
                           {"mixerSends", mixer_.options().sends},
                           {"mixerNarrow", mixer_.options().narrow},
@@ -653,6 +649,7 @@ void Shell::applyViewState(const std::string& json)
     clipViewHeight_ = get("clipViewHeight", clipViewHeight_);
     mixerShown_ = v.value("view", std::string("arrange")) == "mix";
     arrangement_.setMixRowsVisible(get("returns", true));
+    arrangement_.setLanesVisible(get("lanes", true));
     mixer_.setOptions(get("mixerModules", true), get("mixerSends", true), get("mixerNarrow", false));
     mixer_.setScrollX(get("mixerScroll", 0));
     arrangement_.setRowHeights(get("rowHeights", std::map<std::string, double>{}));
@@ -716,9 +713,9 @@ void Shell::selectionChanged()
     {
         subject_ = context.key;
         arrangeMode_ = context.opensClipView ? DetailPanel::Mode::Clip : DetailPanel::Mode::Devices;
-        // A lane shows its module below (automation.md §9).
-        if (context.lane && context.lane->device != 0)
-            detail_.chain().selectDevice(context.lane->device);
+        // A lane shows its first assignment's module below (automation.md §9).
+        if (context.lane && !context.lane->assignments.empty() && context.lane->assignments.front().device != 0)
+            detail_.chain().selectDevice(context.lane->assignments.front().device);
     }
     applyDetailMode();
 }

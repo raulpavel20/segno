@@ -1,6 +1,7 @@
 // Automation lanes' curve and point editing (M2 step C4, docs/design/automation.md).
 
 #include "model/Automation.h"
+#include "model/Snapshot.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -243,4 +244,25 @@ TEST_CASE("automation: a recorded pass splices into its lane, mapped back throug
     {
         CHECK(spliceRecorded(lane, derived, derived, back) == lane);
     }
+}
+
+TEST_CASE("automation: a lane is named after its assignments and edits as steps for one stepped one", "[fast]")
+{
+    AutomationLaneInfo lane{.id = 1};
+    CHECK(lane.displayName() == "Automation lane");
+    CHECK(lane.allOn());
+    lane.assignments.push_back({.channel = 2, .key = "m3/mode", .name = "Mode", .steps = 3});
+    CHECK(lane.displayName() == "Mode");
+    CHECK(lane.rules().steps == 3);
+    lane.assignments[0].range = {0.0f, 0.5f}; // part of a stepped parameter: it curves
+    CHECK_FALSE(lane.rules().stepped());
+    lane.assignments[0].range = {};
+    lane.assignments.push_back({.channel = 2, .key = "volume", .on = false, .name = "Volume"});
+    CHECK(lane.displayName() == "Mode + 1");
+    CHECK_FALSE(lane.rules().stepped());
+    CHECK(lane.anyOff());
+    CHECK(lane.assignment(2, "volume")->name == "Volume");
+    CHECK(lane.assignment(3, "volume") == nullptr);
+    lane.name = "Sweep";
+    CHECK(lane.displayName() == "Sweep");
 }

@@ -11,25 +11,25 @@ namespace fd::app
 // The controls of one mixer channel (M2 step C3, docs/design/mixer.md), bound to the Session.
 // The track headers, the inspector and the mixer view use the same ones, so they behave the same
 // everywhere: shared fd_ui controls, edits through Session commands (a drag is one undo step and,
-// while recording, a touch), values from the snapshot. Automated ones show the indicator, follow
+// while recording, a touch), values from the snapshot. Assigned ones show the indicator, follow
 // their lane while it plays, and offer its menu (C4, docs/design/automation.md §6).
 
-/// What a mix control needs to know about its lane.
+/// What a mix control needs to know about its automation.
 class LaneFollower
 {
 public:
-    LaneFollower(engine::Session& session, engine::Session::LaneTarget target);
-    /// Reads the lane from the snapshot: whether it plays, and the indicator's state.
+    LaneFollower(engine::Session& session, engine::Session::ParamTarget target);
+    /// Reads its assignment from the snapshot: whether it plays, and the indicator's state.
     [[nodiscard]] ui::AutomationState update();
-    /// While the lane plays: the parameter's value now (lane units).
+    /// While its lane plays: the parameter's value now (the control's travel).
     [[nodiscard]] std::optional<float> played() const;
-    /// The control's right-click menu: its lane, and `reset`.
+    /// The control's right-click menu: its automation, and `reset`.
     void showMenu(juce::Component& control, std::function<void()> reset) const;
-    [[nodiscard]] const engine::Session::LaneTarget& target() const noexcept { return target_; }
+    [[nodiscard]] const engine::Session::ParamTarget& target() const noexcept { return target_; }
 
 private:
     engine::Session& session_;
-    engine::Session::LaneTarget target_;
+    engine::Session::ParamTarget target_;
     bool plays_ = false;
 };
 
@@ -50,7 +50,7 @@ private:
     engine::Session& session_;
     std::uint64_t channel_;
     LaneFollower lane_;
-    std::optional<engine::Session::LaneGesture> gesture_;
+    std::optional<engine::Session::ParamGesture> gesture_;
     juce::VBlankAttachment vblank_{this, [this] { follow(); }};
 };
 
@@ -69,7 +69,7 @@ private:
     engine::Session& session_;
     std::uint64_t channel_;
     LaneFollower lane_;
-    std::optional<engine::Session::LaneGesture> gesture_;
+    std::optional<engine::Session::ParamGesture> gesture_;
     juce::VBlankAttachment vblank_{this, [this] { follow(); }};
 };
 
@@ -90,7 +90,7 @@ private:
     engine::Session& session_;
     std::uint64_t track_, return_;
     LaneFollower lane_;
-    std::optional<engine::Session::LaneGesture> gesture_;
+    std::optional<engine::Session::ParamGesture> gesture_;
     juce::VBlankAttachment vblank_{this, [this] { follow(); }};
 };
 
@@ -127,7 +127,7 @@ private:
     engine::Session& session_;
     std::uint64_t channel_;
     LaneFollower lane_;
-    std::optional<engine::Session::LaneGesture> gesture_;
+    std::optional<engine::Session::ParamGesture> gesture_;
     juce::VBlankAttachment vblank_{this, [this] { follow(); }};
 };
 

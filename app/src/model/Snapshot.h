@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace fd::model
@@ -81,22 +82,46 @@ struct MixInfo
     std::vector<SendInfo> sends; // tracks only: one per return track, in return order
 };
 
-/// One automation lane of a channel (C4, ADR 0028, docs/design/automation.md): a parameter's
-/// points in the control's units (0..1 of its travel), whether it plays, and what it is.
-struct LaneInfo
+/// A parameter driven by an automation lane (C4, ADR 0029, docs/design/automation.md): which
+/// one, through which range of its control's travel, and whether it plays.
+struct AssignmentInfo
 {
+    std::uint64_t channel = 0; // a track, a return track or the master
     /// Names the parameter within its channel, as long as it exists: "volume", "pan",
     /// "send/<return id>", or "m<module id>/<parameter id>".
     std::string key;
+    AssignmentRange range;
+    bool on = true; // off: the parameter keeps the value set by hand (§7)
+    std::string name;        // "Cutoff", "Volume", "Send A"
+    std::string module;      // "Synth", "Mixer"
+    std::string channelName; // "Bass"
     std::uint64_t device = 0; // the module (0: the mixer's volume, pan or a send)
     std::string paramId;      // the module's parameter id
-    std::string name;         // "Cutoff", "Volume", "Send A"
-    std::string module;       // "Synth", "Mixer"
     int steps = 0;            // a stepped parameter's number of values (0: continuous)
-    bool on = true;           // off: the parameter keeps the value set by hand (§7)
-    AutomationPoints points;
 
-    [[nodiscard]] LaneRules rules() const noexcept { return {.steps = steps}; }
+    [[nodiscard]] bool stepped() const noexcept { return steps >= 2; }
+};
+
+/// An automation lane (ADR 0029): a row of its own among the tracks, holding a curve in 0..1 that
+/// drives its assignments.
+struct AutomationLaneInfo
+{
+    std::uint64_t id = 0;
+    std::string name; // set by hand; empty: named after its assignments (displayName)
+    int colour = 0;   // index into the clip palette
+    std::uint64_t after = 0; // the track it sits after (0: at the top)
+    AutomationPoints points;
+    std::vector<AssignmentInfo> assignments;
+
+    /// Its name, or "Cutoff", "Cutoff + 2", "Automation lane".
+    [[nodiscard]] std::string displayName() const;
+    /// Steps only for one full-range stepped assignment (§5).
+    [[nodiscard]] LaneRules rules() const noexcept;
+    /// Every assignment plays (true without assignments).
+    [[nodiscard]] bool allOn() const noexcept;
+    /// Some assignment is off.
+    [[nodiscard]] bool anyOff() const noexcept;
+    [[nodiscard]] const AssignmentInfo* assignment(std::uint64_t channel, const std::string& key) const noexcept;
 };
 
 struct TrackInfo
@@ -114,18 +139,6 @@ struct TrackInfo
     std::vector<ClipInfo> clips; // sorted by start
     std::vector<DeviceSlot> devices; // the chain, in order (the engine's own mixer plugins are not listed)
     MixInfo mix;
-    /// Its automation lanes, in the order they were shown (C4): every parameter with points, and
-    /// the empty lanes the user added. Folded lanes are still listed.
-    std::vector<LaneInfo> lanes;
-    bool lanesFolded = false;
-
-    [[nodiscard]] const LaneInfo* lane(const std::string& key) const noexcept
-    {
-        for (const auto& l : lanes)
-            if (l.key == key)
-                return &l;
-        return nullptr;
-    }
 
     [[nodiscard]] bool holdsClips() const noexcept { return role == Role::Track; }
 };
@@ -137,6 +150,8 @@ struct Snapshot
     /// The return tracks (C3, ADR 0026), in order, and the master: channels without clips.
     std::vector<TrackInfo> returns;
     TrackInfo master{.role = TrackInfo::Role::Master};
+    /// The automation lanes in row order (C4, ADR 0029): those at the top, then each track's.
+    std::vector<AutomationLaneInfo> automationLanes;
     TempoMap tempo;
     std::uint64_t version = 0;
 
@@ -148,6 +163,24 @@ struct Snapshot
                 if (t.id == id)
                     return &t;
         return master.id == id ? &master : nullptr;
+    }
+
+    [[nodiscard]] const AutomationLaneInfo* automationLane(std::uint64_t id) const noexcept
+    {
+        for (const auto& l : automationLanes)
+            if (l.id == id)
+                return &l;
+        return nullptr;
+    }
+
+    /// The lane a parameter is assigned to, and its assignment; nulls if it has none.
+    [[nodiscard]] std::pair<const AutomationLaneInfo*, const AssignmentInfo*> assignmentOf(std::uint64_t channel,
+                                                                                          const std::string& key) const noexcept
+    {
+        for (const auto& l : automationLanes)
+            if (const auto* a = l.assignment(channel, key))
+                return {&l, a};
+        return {nullptr, nullptr};
     }
 
     /// End of the last clip (seconds), 0 for an empty project.

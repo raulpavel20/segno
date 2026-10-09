@@ -475,21 +475,6 @@ Json trackJson(ToolEnv& env, const model::TrackInfo& t, bool notes)
         clips.push_back(clipJson(env, c, notes));
     for (const auto& d : t.devices)
         chain.push_back(moduleSummary(d));
-    // Its automation lanes (C4): what each automates, how many points, whether it plays.
-    Json lanes = Json::array();
-    for (const auto& l : t.lanes)
-    {
-        Json lane{{"parameter", l.device != 0 ? l.paramId : l.key.rfind("send/", 0) == 0 ? std::string("send") : l.key},
-                  {"name", l.name},
-                  {"module", l.module},
-                  {"points", l.points.size()},
-                  {"on", l.on}};
-        if (l.device != 0)
-            lane["moduleId"] = formatId(IdKind::Module, l.device);
-        if (l.key.rfind("send/", 0) == 0)
-            lane["return"] = formatId(IdKind::Track, std::stoull(l.key.substr(5)));
-        lanes.push_back(std::move(lane));
-    }
     return {{"id", formatId(IdKind::Track, t.id)},
             {"kind", kindName(t)},
             {"name", t.name},
@@ -497,8 +482,7 @@ Json trackJson(ToolEnv& env, const model::TrackInfo& t, bool notes)
             {"instrument", t.instrument.empty() ? Json(nullptr) : Json(t.instrument)},
             {"clips", std::move(clips)},
             {"chain", std::move(chain)},
-            {"mix", mixJson(env, t)},
-            {"lanes", std::move(lanes)}};
+            {"mix", mixJson(env, t)}};
 }
 
 Json projectJson(ToolEnv& env)
@@ -527,7 +511,8 @@ Json projectJson(ToolEnv& env)
             {"redo", {{"available", s.canRedo()}, {"next", s.redoDescription()}}},
             {"tracks", std::move(tracks)},
             {"returns", std::move(returns)},
-            {"master", trackJson(env, snap->master)}};
+            {"master", trackJson(env, snap->master)},
+            {"automationLanes", automationLanesJson(env)}};
 }
 
 Json transportJson(ToolEnv& env)
@@ -581,10 +566,10 @@ Json moduleJson(ToolEnv& env, const model::DeviceSlot& slot, const model::TrackI
             if (const auto& spec = context.info.params[i]; !spec.hasFlag(ParamFlags::Hidden))
             {
                 auto p = parameterJson(spec, context.params.getPlain(i));
-                // Its automation (C4): the lane's points and whether it plays.
-                if (const auto* lane = t.lane("m" + std::to_string(slot.id) + "/" + std::string(spec.id));
-                    lane != nullptr && !lane->points.empty())
-                    p["automation"] = {{"points", lane->points.size()}, {"on", lane->on}};
+                // Its automation (C4): its lane, points, range and whether it plays.
+                if (auto a = parameterAutomationJson(env, {t.id, "m" + std::to_string(slot.id) + "/" + std::string(spec.id)});
+                    !a.is_null())
+                    p["automation"] = std::move(a);
                 parameters.push_back(std::move(p));
             }
         Json sections = Json::array();

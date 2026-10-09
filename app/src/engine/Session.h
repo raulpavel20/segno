@@ -195,86 +195,117 @@ public:
     };
     /// Null for an unknown channel.
     [[nodiscard]] std::unique_ptr<LevelReader> levelReader(std::uint64_t channelId);
-    // ---- automation (C4, ADR 0028, docs/design/automation.md) --------------------------------
-    // A lane is one parameter's automation on a channel, named by its key (model::LaneInfo).
-    // Lane values are the control's travel (0..1); times are seconds. Points are edits (undoable,
-    // unsaved changes); which lanes show and whether they're folded are view state; a lane's on
-    // switch is a listening state (saved, never undoable).
+    // ---- automation (C4, ADRs 0028 and 0029, docs/design/automation.md) ----------------------
+    // An automation lane is a row of its own among the tracks (model::AutomationLaneInfo): a curve
+    // in 0..1 that drives the parameters assigned to it, each through its own range of the
+    // control's travel. A parameter is on at most one lane. Times are seconds. Lane edits are undo
+    // steps (their parameters follow in the same step); an assignment's on switch is a listening
+    // state (saved, never undoable).
 
-    struct LaneTarget
+    /// A parameter that can be automated: a channel and the parameter's key there ("volume",
+    /// "pan", "send/<return id>", "m<module id>/<parameter id>").
+    struct ParamTarget
     {
         std::uint64_t channel = 0; // a track, a return track or the master
-        std::string lane;          // the lane's key
+        std::string key;
 
-        friend bool operator==(const LaneTarget&, const LaneTarget&) = default;
+        friend bool operator==(const ParamTarget&, const ParamTarget&) = default;
     };
-    /// A parameter that can have a lane (the add-lane list).
-    struct LaneChoice
+    /// A parameter that can be assigned (the parameter picker).
+    struct ParamChoice
     {
-        std::string lane, name, module, valueText;
-        bool shown = false;
+        std::string key, name, module, valueText;
+        std::uint64_t lane = 0; // the lane it's on (0: none)
     };
     /// Every parameter of a channel that can be automated, the mixer's first, then each module's.
-    [[nodiscard]] std::vector<LaneChoice> automatableParameters(std::uint64_t channelId) const;
+    [[nodiscard]] std::vector<ParamChoice> automatableParameters(std::uint64_t channelId) const;
 
-    /// Replaces a lane's points: all of them, or those in [from, to] when `range` is given. Shows
-    /// the lane. One undo step named `undoName`, unless an EditGroup names it. False if there's
-    /// no such parameter.
-    bool setAutomation(const LaneTarget& target, const model::AutomationPoints& points,
+    /// A new lane after `after` (a track, or a lane: right after it; 0: at the top; a return or
+    /// the master: after the last track), with `first` assigned over its full range if given (moved
+    /// from its lane, if on one). One undo step, "Add automation lane". Returns its id; 0 if `first`
+    /// can't be automated.
+    std::uint64_t addAutomationLane(std::uint64_t after, const std::optional<ParamTarget>& first = std::nullopt);
+    /// Removes a lane; its parameters keep their values now. One undo step.
+    void removeAutomationLane(std::uint64_t lane);
+    /// Names a lane (empty: after its assignments). One undo step.
+    void renameAutomationLane(std::uint64_t lane, const std::string& name);
+    /// Replaces a lane's points: all of them, or those in [from, to] when `range` is given; its
+    /// parameters follow. One undo step named `undoName`, unless an EditGroup names it. False if
+    /// there's no such lane.
+    bool setLanePoints(std::uint64_t lane, const model::AutomationPoints& points,
                        std::optional<std::pair<double, double>> range = std::nullopt,
                        const std::string& undoName = "Edit automation");
-    /// Shows a lane (empty if it has no points) and unfolds its channel's lanes. View state.
-    bool showLane(const LaneTarget& target);
-    /// Removes a lane and its points (one undo step, "Remove automation", if it had any).
-    void removeLane(const LaneTarget& target);
-    void setLanesFolded(std::uint64_t channelId, bool folded);
-    /// On: the lane plays. Off: the parameter keeps the value set by hand. Moving an automated
-    /// control turns its lane off. Saved, never an undo step or an unsaved change.
-    void setLaneOn(const LaneTarget& target, bool on);
-    /// Turns every lane back on.
+    /// Assigns a parameter to a lane through `range` (moving it from its lane, if on another).
+    /// One undo step, "Assign parameter". False if there's no such lane or it can't be automated.
+    bool assign(std::uint64_t lane, const ParamTarget& target, model::AssignmentRange range = {});
+    /// Takes a parameter off its lane; it keeps its value now. One undo step.
+    void unassign(const ParamTarget& target);
+    /// An assignment's range. One undo step, "Assignment range".
+    void setAssignmentRange(const ParamTarget& target, model::AssignmentRange range);
+    /// The lane a parameter is on.
+    [[nodiscard]] std::optional<std::uint64_t> laneOf(const ParamTarget& target) const;
+    /// The parameter's lane, or a new lane for it (after its track; one undo step). 0 if it can't
+    /// be automated.
+    std::uint64_t automateInNewLane(const ParamTarget& target);
+
+    /// On: the assignment plays. Off: the parameter keeps the value set by hand. Moving an
+    /// assigned control turns its assignment off. Saved, never an undo step or an unsaved change.
+    void setAssignmentOn(const ParamTarget& target, bool on);
+    /// Every assignment of a lane.
+    void setLaneOn(std::uint64_t lane, bool on);
+    /// Turns every assignment back on.
     void setAllLanesOn();
-    /// True while any lane is off (the transport bar's Automation button lights).
+    /// True while any assignment of a lane with points is off (the transport bar's button lights).
     [[nodiscard]] bool anyLaneOff() const;
 
-    /// Sets a lane's parameter by hand, in lane units, as its control would: one undo step named
-    /// after the parameter (unless a group is open). An automated lane turns off (§7).
-    void setLaneValue(const LaneTarget& target, float value);
-    /// The parameter's value now (played or set by hand), in lane units; nullopt if unknown.
-    [[nodiscard]] std::optional<float> laneValue(const LaneTarget& target) const;
-    /// A lane value as the control shows it ("1.20 kHz", "-6.0 dB", "25L").
-    [[nodiscard]] std::string laneText(const LaneTarget& target, float value) const;
-    /// A lane value as a plain value in the parameter's unit (dB, Hz, -1..1 for pan; 0..1 for a
+    /// A lane's value now: its curve at the playhead, or without points its first assignment's
+    /// value mapped back through its range; nullopt if neither.
+    [[nodiscard]] std::optional<float> laneValue(std::uint64_t lane) const;
+    /// A lane value as its one assignment's control shows it ("1.20 kHz"), else a percentage.
+    [[nodiscard]] std::string laneText(std::uint64_t lane, float value) const;
+    [[nodiscard]] std::optional<float> laneFromText(std::uint64_t lane, const std::string& text) const;
+
+    /// Sets a parameter by hand, in its control's travel (0..1), as its control would: one undo
+    /// step named after the parameter (unless a group is open). Its assignment turns off (§7).
+    void setParamValue(const ParamTarget& target, float travel);
+    /// The parameter's value now (played or set by hand), in its control's travel.
+    [[nodiscard]] std::optional<float> paramValue(const ParamTarget& target) const;
+    /// A travel as the control shows it ("1.20 kHz", "-6.0 dB", "25L").
+    [[nodiscard]] std::string paramText(const ParamTarget& target, float travel) const;
+    /// A travel as a plain value in the parameter's unit (dB, Hz, -1..1 for pan; 0..1 for a
     /// third-party plugin's parameter), and back (clamped). For assistants (ADR 0021).
-    [[nodiscard]] std::optional<double> lanePlain(const LaneTarget& target, float value) const;
-    [[nodiscard]] std::optional<float> laneFromPlain(const LaneTarget& target, double plain) const;
-    [[nodiscard]] std::optional<float> laneFromText(const LaneTarget& target, const std::string& text) const;
+    [[nodiscard]] std::optional<double> paramPlain(const ParamTarget& target, float travel) const;
+    [[nodiscard]] std::optional<float> paramFromPlain(const ParamTarget& target, double plain) const;
+    [[nodiscard]] std::optional<float> paramFromText(const ParamTarget& target, const std::string& text) const;
+    /// A parameter's name and module ("Cutoff", "Synth"); empty if unknown.
+    [[nodiscard]] std::pair<std::string, std::string> paramName(const ParamTarget& target) const;
 
     /// Automation arm (§8): while armed and playing, moving a control writes its lane (touch).
     /// Each pass is one undo step, "Record automation".
     void setAutomationArmed(bool armed);
     [[nodiscard]] bool isAutomationArmed() const;
     /// The parameter the user moved last, if it can be automated.
-    [[nodiscard]] std::optional<LaneTarget> lastTouchedParameter() const;
-    /// The lane of a module's parameter (by the module's id and the parameter's id).
-    [[nodiscard]] std::optional<LaneTarget> moduleLane(std::uint64_t deviceId, const std::string& paramId) const;
-    /// Shows a lane and asks the views to bring it into sight and select it (a control's
-    /// "Show automation lane"; onLaneRevealed).
-    void revealLane(const LaneTarget& target);
-    std::function<void(const LaneTarget&)> onLaneRevealed;
+    [[nodiscard]] std::optional<ParamTarget> lastTouchedParameter() const;
+    /// A module's parameter (by the module's id and the parameter's id).
+    [[nodiscard]] std::optional<ParamTarget> moduleParameter(std::uint64_t deviceId, const std::string& paramId) const;
+    /// Asks the views to bring a lane into sight and select it (a control's "Show automation
+    /// lane"; onLaneRevealed).
+    void revealLane(std::uint64_t lane);
+    std::function<void(std::uint64_t lane)> onLaneRevealed;
 
     /// A gesture on a channel's mix parameter (a drag of a volume, pan or send control): one undo
-    /// step named `name` and, while recording, a touch on its lane.
-    class LaneGesture
+    /// step named `name` and, while recording, a touch on its parameter.
+    class ParamGesture
     {
     public:
-        LaneGesture(Session& session, const LaneTarget& target, const std::string& name);
-        ~LaneGesture();
-        LaneGesture(const LaneGesture&) = delete;
-        LaneGesture& operator=(const LaneGesture&) = delete;
+        ParamGesture(Session& session, const ParamTarget& target, const std::string& name);
+        ~ParamGesture();
+        ParamGesture(const ParamGesture&) = delete;
+        ParamGesture& operator=(const ParamGesture&) = delete;
 
     private:
         Session& session_;
-        LaneTarget target_;
+        ParamTarget target_;
         bool touching_ = false;
     };
 

@@ -158,7 +158,9 @@ TEST_CASE("the arrangement paints 64 tracks with two automation lanes each withi
                 for (int i = 0; i < 128; ++i)
                     points.push_back({i * 1.0, 0.5f + 0.4f * std::sin(static_cast<float>(i) * 0.7f + static_cast<float>(t.id % 7)),
                                       i % 2 == 0 ? fd::model::curveForBend(0.6f) : 0.0f});
-                REQUIRE(session.setAutomation({t.id, lane}, points));
+                const auto id = session.automateInNewLane({t.id, lane});
+                REQUIRE(id != 0);
+                REQUIRE(session.setLanePoints(id, points));
             }
         session.updateSnapshotNow();
 

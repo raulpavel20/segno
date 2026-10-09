@@ -19,13 +19,14 @@ LanePicker::LanePicker(engine::Session& session) : session_(session)
     setWantsKeyboardFocus(false);
 }
 
-void LanePicker::open(juce::Component& parent, std::uint64_t channel)
+void LanePicker::open(juce::Component& parent, std::uint64_t channel, std::uint64_t after)
 {
     channel_ = channel;
+    after_ = after;
     choices_ = session_.automatableParameters(channel);
     items_.clear();
     for (const auto& c : choices_)
-        items_.push_back({c.lane, c.name, c.module});
+        items_.push_back({c.key, c.name, c.module});
     if (getParentComponent() != &parent)
         parent.addChildComponent(this);
     search_.clear();
@@ -81,10 +82,10 @@ void LanePicker::chooseSelected()
 {
     if (shown_.empty())
         return;
-    const engine::Session::LaneTarget target{channel_, items_[shown_[static_cast<size_t>(selected_)]].id};
+    const engine::Session::ParamTarget target{channel_, items_[shown_[static_cast<size_t>(selected_)]].id};
     close();
-    if (session_.showLane(target) && onChosen)
-        onChosen(target);
+    if (const auto lane = session_.addAutomationLane(after_, target); lane != 0 && onChosen)
+        onChosen(lane);
 }
 
 bool LanePicker::keyPressed(const juce::KeyPress& key, juce::Component*)
@@ -128,7 +129,7 @@ void LanePicker::paint(juce::Graphics& g)
                          {.name = juce::String::fromUTF8(c.name.c_str()),
                           .caption = juce::String::fromUTF8(c.module.c_str()),
                           .shortcut = juce::String::fromUTF8(c.valueText.c_str()),
-                          .toggled = c.shown,
+                          .toggled = c.lane != 0,
                           .selected = i == selected_});
     }
 }

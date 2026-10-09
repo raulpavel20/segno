@@ -1052,7 +1052,7 @@ TEST_CASE("the Assistants popover turns the server on, shows setup lines and cli
     juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
 }
 
-TEST_CASE("automation lanes: rows under their track, picked, folded, edited and selected (C4b)", "[integration]")
+TEST_CASE("automation lanes: rows among the tracks, made with the picker, edited and selected (C4d)", "[integration]")
 {
     using S = fd::model::InspectorSection;
     ShellFixture f;
@@ -1066,7 +1066,8 @@ TEST_CASE("automation lanes: rows under their track, picked, folded, edited and 
     REQUIRE(eq != 0);
     s.updateSnapshotNow();
 
-    // The lane picker lists the track's parameters; choosing one shows its lane and selects it.
+    // The picker lists the selected track's parameters; choosing one makes a lane for it right
+    // under the track, and selects it.
     view.selectTrack(t0);
     REQUIRE(actions.perform("automation.addLane"));
     auto& picker = f.shell->lanePicker();
@@ -1075,20 +1076,28 @@ TEST_CASE("automation lanes: rows under their track, picked, folded, edited and 
     REQUIRE_FALSE(picker.shownLanes().empty());
     CHECK(picker.shownLanes().front() == "volume");
     picker.chooseSelected();
+    CHECK(s.undoDescription() == "Add automation lane");
     s.updateSnapshotNow();
-    REQUIRE(s.snapshot()->tracks[0].lane("volume") != nullptr);
-    CHECK(view.selection().lane == std::optional<std::string>("volume"));
+    const auto volumeLane = s.laneOf({t0, "volume"});
+    REQUIRE(volumeLane);
+    CHECK(view.selection().lane == volumeLane);
+    CHECK(view.selection().channel == t0); // its first parameter's channel
     const auto& rows = view.rows();
     REQUIRE(rows.size() > 1);
     CHECK(rows[1].isLane());
-    CHECK(rows[1].lane == "volume");
+    CHECK(rows[1].lane == *volumeLane);
 
-    // A module's parameter, with points (an assistant or a recording would do the same).
+    // A module's parameter and another track's pan, with points (an assistant or a recording
+    // would do the same); lanes follow their track.
     const std::string freq = "m" + std::to_string(eq) + "/band1.freq";
-    REQUIRE(s.setAutomation({t0, freq}, {{0.0, 0.2f, 0.0f}, {2.0, 0.8f, fd::model::curveForBend(0.5f)}, {4.0, 0.4f, 0.0f}}));
-    REQUIRE(s.setAutomation({t1, "pan"}, {{1.0, 0.0f, 0.0f}, {3.0, 1.0f, 0.0f}}));
+    const auto freqLane = s.automateInNewLane({t0, freq});
+    REQUIRE(s.setLanePoints(freqLane, {{0.0, 0.2f, 0.0f}, {2.0, 0.8f, fd::model::curveForBend(0.5f)}, {4.0, 0.4f, 0.0f}}));
+    const auto panLane = s.automateInNewLane({t1, "pan"});
+    REQUIRE(s.setLanePoints(panLane, {{1.0, 0.0f, 0.0f}, {3.0, 1.0f, 0.0f}}));
     s.updateSnapshotNow();
     CHECK(view.rows().size() == s.snapshot()->tracks.size() + 3 + 1 + s.snapshot()->returns.size()); // 3 lanes, the master
+    CHECK(view.rows()[2].lane == freqLane);
+    CHECK(view.rows()[4].lane == panLane);
     view.setAllTrackHeights(64.0);
 
     // Double-click in the volume lane adds a point (one undo step).
@@ -1101,39 +1110,45 @@ TEST_CASE("automation lanes: rows under their track, picked, folded, edited and 
     const auto laneX = [&](double seconds) {
         return static_cast<float>(fd::app::ArrangementView::headerWidth()) + static_cast<float>(view.timeline().xForTime(seconds));
     };
+    auto volumePoints = [&] { return s.snapshot()->automationLane(*volumeLane)->points; };
     const juce::Point<float> spot(laneX(1.0), rowTop(1) + 32.0f);
     click(view, spot);
     click(view, spot, 2);
     s.updateSnapshotNow();
-    REQUIRE(s.snapshot()->tracks[0].lane("volume")->points.size() == 1);
+    REQUIRE(volumePoints().size() == 1);
     CHECK(s.undoDescription() == "Add point");
     CHECK(view.selection().points == std::set<size_t>{0});
     auto& inspector = f.shell->inspector();
-    CHECK(inspector.sections() == std::vector{S::Point, S::Lane, S::Track, S::Mix, S::Sends});
+    CHECK(inspector.sections() == std::vector{S::Point, S::Lane, S::Assignments}); // a lane belongs to no track
     // The inspector's value field types a point's value.
     auto fields = findAll<fd::ui::NumberField>(inspector);
     REQUIRE(fields.size() == 1);
     fields[0]->setValue(0.25, juce::sendNotification);
     s.updateSnapshotNow();
-    CHECK(s.snapshot()->tracks[0].lane("volume")->points[0].value == Catch::Approx(0.25f));
+    CHECK(volumePoints()[0].value == Catch::Approx(0.25f));
     CHECK(s.undoDescription() == "Point value");
 
     // Dragging the point moves it (one step); Delete removes it.
-    const auto pointAt = s.snapshot()->tracks[0].lane("volume")->points[0];
+    const auto pointAt = volumePoints()[0];
     const juce::Point<float> grab(laneX(pointAt.time), rowTop(1) + 64.0f - 1.0f - 5.0f - pointAt.value * (64.0f - 1.0f - 10.0f));
     drag(view, grab, grab + juce::Point<float>(0.0f, -10.0f));
     s.updateSnapshotNow();
-    CHECK(s.snapshot()->tracks[0].lane("volume")->points[0].value > pointAt.value);
+    CHECK(volumePoints()[0].value > pointAt.value);
     CHECK(s.undoDescription() == "Move points");
     REQUIRE(actions.perform("edit.delete"));
     s.updateSnapshotNow();
-    CHECK(s.snapshot()->tracks[0].lane("volume")->points.empty());
+    CHECK(volumePoints().empty());
 
-    // The module lane: its header selects it, and the module shows below.
+    // The module lane: its header selects it, and its module shows below.
     click(view, {40.0f, rowTop(2) + 20.0f});
-    CHECK(view.selection().lane == std::optional<std::string>(freq));
+    CHECK(view.selection().lane == freqLane);
     CHECK(f.shell->detail().chain().selectedDevice() == eq);
-    CHECK(inspector.sections() == std::vector{S::Lane, S::Track, S::Mix, S::Sends});
+    CHECK(inspector.sections() == std::vector{S::Lane, S::Assignments});
+
+    // A lane driving two parameters, one inverted over part of its range.
+    REQUIRE(s.assign(freqLane, {t1, "volume"}, {0.8f, 0.2f}));
+    s.updateSnapshotNow();
+    CHECK(s.snapshot()->automationLane(freqLane)->displayName().ends_with(" + 1"));
 
     if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review
     {
@@ -1144,30 +1159,29 @@ TEST_CASE("automation lanes: rows under their track, picked, folded, edited and 
             png.writeImageToStream(f.shell->createComponentSnapshot(f.shell->getLocalBounds()), *out);
     }
 
-    // Folding: the chevron folds a track's lanes away; Ctrl+Alt+L shows every lane again.
+    // Ctrl+Alt+L hides every lane, and shows them again.
     const auto before = view.rows().size();
-    s.setLanesFolded(t0, true);
-    s.updateSnapshotNow();
-    CHECK(view.rows().size() == before - 2);
-    CHECK(actions.isToggled("view.lanes")); // the second track's lane still shows
-    REQUIRE(actions.perform("view.lanes")); // folds them all
-    s.updateSnapshotNow();
-    CHECK_FALSE(actions.isToggled("view.lanes"));
+    CHECK(actions.isToggled("view.lanes"));
     REQUIRE(actions.perform("view.lanes"));
-    s.updateSnapshotNow();
+    CHECK(view.rows().size() == before - 3);
+    CHECK_FALSE(view.selection().lane); // a hidden lane isn't selected
+    CHECK_FALSE(actions.isToggled("view.lanes"));
+    CHECK(nlohmann::json::parse(s.viewStateProvider())["lanes"] == false);
+    REQUIRE(actions.perform("view.lanes"));
     CHECK(view.rows().size() == before);
 
     // Delete with a lane's header used last removes the lane, in one step.
     click(view, {40.0f, rowTop(1) + 20.0f});
-    REQUIRE(view.selection().lane == std::optional<std::string>("volume"));
+    REQUIRE(view.selection().lane == volumeLane);
     REQUIRE(actions.perform("edit.delete"));
     s.updateSnapshotNow();
-    CHECK(s.snapshot()->tracks[0].lane("volume") == nullptr);
+    CHECK(s.snapshot()->automationLane(*volumeLane) == nullptr);
+    CHECK(s.undoDescription() == "Remove automation lane");
 
     // Row heights are view state, saved with the project.
     view.setAllTrackHeights(80.0);
     const auto state = nlohmann::json::parse(s.viewStateProvider());
-    CHECK(state["rowHeights"]["c" + std::to_string(t0) + "/" + freq] == Catch::Approx(80.0));
+    CHECK(state["rowHeights"]["a" + std::to_string(freqLane)] == Catch::Approx(80.0));
 }
 
 TEST_CASE("automated controls: the indicator, their menu, following the lane, the transport (C4c)", "[integration]")
@@ -1196,18 +1210,19 @@ TEST_CASE("automated controls: the indicator, their menu, following the lane, th
     CHECK_FALSE(ctx.params.canAutomate(analyzer)); // a setting, not automatable
     CHECK(ctx.params.automationState(freq) == AutomationState::None);
 
-    // "Show automation lane" from a control: the lane, selected, in the arrangement (even from
+    // "Show automation lane" from a control: its lane, selected, in the arrangement (even from
     // the mixer view).
+    const auto lane = s.automateInNewLane({t0, "m" + std::to_string(eq) + "/band1.freq"});
+    REQUIRE(lane != 0);
     REQUIRE(actions.perform("view.mixer"));
     ctx.params.showAutomation(freq);
     s.updateSnapshotNow();
     CHECK_FALSE(actions.isToggled("view.mixer"));
-    const std::string lane = "m" + std::to_string(eq) + "/band1.freq";
-    CHECK(f.shell->arrangement().selection().lane == std::optional(lane));
+    CHECK(f.shell->arrangement().selection().lane == lane);
 
-    // Points: the indicator plays; moving the knob turns the lane off; the transport's button
-    // turns every lane back on.
-    REQUIRE(s.setAutomation({t0, lane}, {{0.0, 0.2f, 0.0f}, {2.0, 0.8f, 0.0f}}));
+    // Points: the indicator plays; moving the knob turns its assignment off; the transport's
+    // button turns every one back on.
+    REQUIRE(s.setLanePoints(lane, {{0.0, 0.2f, 0.0f}, {2.0, 0.8f, 0.0f}}));
     fd::ui::ParamKnob knob(ctx, freq);
     knob.refresh();
     CHECK(knob.automationState() == AutomationState::On);
@@ -1229,12 +1244,12 @@ TEST_CASE("automated controls: the indicator, their menu, following the lane, th
     CHECK(ctx.params.automationState(freq) == AutomationState::None);
 
     // A mix control: the indicator, and it follows the lane while it plays.
-    REQUIRE(s.setAutomation({t0, "volume"}, {{0.0, 0.8f, 0.0f}, {4.0, 0.2f, 0.0f}}));
+    REQUIRE(s.setLanePoints(s.automateInNewLane({t0, "volume"}), {{0.0, 0.8f, 0.0f}, {4.0, 0.2f, 0.0f}}));
     s.updateSnapshotNow();
     fd::app::VolumeBar bar(s, t0);
     bar.update(*s.snapshot()->channel(t0));
     CHECK(bar.automationState() == AutomationState::On);
-    auto volume = s.impl().lane({t0, "volume"});
+    auto volume = s.impl().param({t0, "volume"});
     REQUIRE(volume);
     juce::MessageManager::getInstance()->runDispatchLoopUntil(50); // tracktion readies the curve's playback
     volume->param->updateFromAutomationSources(tracktion::TimePosition::fromSeconds(2.0)); // as playback does
@@ -1243,10 +1258,11 @@ TEST_CASE("automated controls: the indicator, their menu, following the lane, th
 
     if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: indicators on, off, and the transport
     {
-        REQUIRE(s.setAutomation({t0, "m" + std::to_string(eq) + "/band2.freq"}, {{0.0, 0.2f, 0.0f}, {2.0, 0.8f, 0.0f}}));
-        const std::string gain = "m" + std::to_string(eq) + "/output";
-        REQUIRE(s.setAutomation({t0, gain}, {{0.0, 0.2f, 0.0f}, {2.0, 0.8f, 0.0f}}));
-        s.setLaneOn({t0, gain}, false);
+        REQUIRE(s.setLanePoints(s.automateInNewLane({t0, "m" + std::to_string(eq) + "/band2.freq"}),
+                                {{0.0, 0.2f, 0.0f}, {2.0, 0.8f, 0.0f}}));
+        const fd::engine::Session::ParamTarget gain{t0, "m" + std::to_string(eq) + "/output"};
+        REQUIRE(s.setLanePoints(s.automateInNewLane(gain), {{0.0, 0.2f, 0.0f}, {2.0, 0.8f, 0.0f}}));
+        s.setAssignmentOn(gain, false);
         s.setAutomationArmed(true);
         f.shell->arrangement().selectTrack(t0);
         s.updateSnapshotNow();
@@ -1314,10 +1330,11 @@ TEST_CASE("automation lanes: a step lane says why it doesn't bend (C4b)", "[inte
     const auto comp = s.addDevice(t0, "fd:compressor");
     REQUIRE(comp != 0);
     const std::string character = "m" + std::to_string(comp) + "/character"; // a choice: two characters
-    REQUIRE(s.setAutomation({t0, character}, {{0.0, 0.0f, 0.0f}, {8.0, 1.0f, 0.0f}}));
+    const auto lane = s.automateInNewLane({t0, character});
+    REQUIRE(s.setLanePoints(lane, {{0.0, 0.0f, 0.0f}, {8.0, 1.0f, 0.0f}}));
     s.updateSnapshotNow();
-    const auto before = s.snapshot()->tracks[0].lane(character)->points;
-    REQUIRE(s.snapshot()->tracks[0].lane(character)->steps == 2);
+    const auto before = s.snapshot()->automationLane(lane)->points;
+    REQUIRE(s.snapshot()->automationLane(lane)->rules().steps == 2);
 
     fd::app::ArrangementView view(s);
     view.setSize(1200, 600);
@@ -1335,7 +1352,7 @@ TEST_CASE("automation lanes: a step lane says why it doesn't bend (C4b)", "[inte
     view.mouseUp(mouseEvent(view, on + juce::Point<float>(0.0f, -30.0f), on, true, alt));
     s.updateSnapshotNow();
     CHECK(message.contains("Character has steps"));
-    CHECK(s.snapshot()->tracks[0].lane(character)->points == before); // nothing bent or moved
+    CHECK(s.snapshot()->automationLane(lane)->points == before); // nothing bent or moved
 }
 
 TEST_CASE("popovers close on a click anywhere outside them, not inside or in their menus", "[integration]")

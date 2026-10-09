@@ -68,8 +68,8 @@ public:
     std::function<void()> onActivated;
     /// Called when an automation lane is clicked (Delete, Ctrl+D, Ctrl+A and arrows act on it).
     std::function<void()> onLaneActivated;
-    /// "Add automation lane..." on a channel (its header's menu).
-    std::function<void(std::uint64_t channel)> onAddLane;
+    /// "Add automation lane..." from a track's header menu: after the track, for its parameters.
+    std::function<void(std::uint64_t track)> onAddLane;
     /// Something worth telling the user (shown in the shell, never modal).
     std::function<void(const juce::String&)> onMessage;
     /// A clip was double-clicked or created: show it in the clip view.
@@ -90,9 +90,12 @@ public:
     std::uint64_t createMidiClipAtPlayhead();
     [[nodiscard]] bool hasClipSelection() const noexcept { return !selection_.clips.empty(); }
 
-    // Automation lanes (C4, docs/design/automation.md): rows under their channel.
+    // Automation lanes (C4, ADR 0029, docs/design/automation.md): rows of their own.
     /// Selects a lane alone, as a click on its header does.
-    void selectLane(std::uint64_t channel, const std::string& lane);
+    void selectLane(std::uint64_t lane);
+    /// Shows or hides every lane (view state).
+    void setLanesVisible(bool visible);
+    [[nodiscard]] bool lanesVisible() const noexcept { return showLanes_; }
     [[nodiscard]] bool hasLaneSelection() const noexcept { return selection_.lane.has_value(); }
     [[nodiscard]] bool hasPointSelection() const noexcept { return selection_.lane && !selection_.points.empty(); }
     /// Point commands on the selected lane, each one undo step.
@@ -101,7 +104,7 @@ public:
     void selectAllPoints();
     /// Moves the selected points by grid steps and by a value (lane units).
     void nudgePoints(int gridSteps, float value);
-    /// Removes the selected lane (its points: one undo step).
+    /// Removes the selected lane (one undo step).
     void removeSelectedLane();
     /// The rows as drawn.
     [[nodiscard]] const std::vector<model::ArrangementRow>& rows() const noexcept { return rows_; }
@@ -142,22 +145,23 @@ public:
     void filesDropped(const juce::StringArray& files, int x, int y) override;
 
 private:
-    /// The channel a row belongs to (a lane row: its channel).
+    /// The channel of a track, return or master row (null for lane rows).
     [[nodiscard]] const model::TrackInfo* rowChannel(int row) const noexcept;
     /// A lane row's lane (null for other rows).
-    [[nodiscard]] const model::LaneInfo* rowLane(int row) const noexcept;
+    [[nodiscard]] const model::AutomationLaneInfo* rowLane(int row) const noexcept;
     [[nodiscard]] juce::Rectangle<float> rowBounds(int row, juce::Rectangle<int> column) const;
     [[nodiscard]] LaneGeometry laneGeometry(int row) const;
-    [[nodiscard]] engine::Session::LaneTarget laneTarget(int row) const;
-    /// The fold chevron in a channel row's header (empty when it has no lanes).
-    [[nodiscard]] juce::Rectangle<float> chevronArea(int row) const;
+    /// The selected lane, if the snapshot has it.
+    [[nodiscard]] const model::AutomationLaneInfo* selectedLane() const noexcept;
+    /// Whether a row shows as selected.
+    [[nodiscard]] bool rowSelected(const model::ArrangementRow& row) const noexcept;
     void laneMouseDown(const juce::MouseEvent& e, int row);
     void laneMouseDrag(const juce::MouseEvent& e);
     void laneMouseUp(const juce::MouseEvent& e);
     void headerMenu(int row);
     void applyLaneEdit(int row, const model::PointEdit& edit, const std::string& undoName);
     /// Bending a step lane: says why nothing bends.
-    void explainSteps(const model::LaneInfo& lane);
+    void explainSteps(const model::AutomationLaneInfo& lane);
     [[nodiscard]] double gridStepSeconds() const;
     /// Places each visible row's mixer controls in its header's slots.
     void placeHeaderControls();
@@ -188,6 +192,7 @@ private:
     engine::Session& session_;
     std::shared_ptr<const model::Snapshot> snapshot_;
     bool showMixRows_ = true;
+    bool showLanes_ = true;
 
     /// One channel's controls in its header: mute, solo, volume, pan and the meter.
     struct HeaderControls

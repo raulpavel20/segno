@@ -33,41 +33,45 @@ std::optional<float> parseLevel(const juce::String& text)
 
 // ---- LaneFollower -------------------------------------------------------------------------
 
-LaneFollower::LaneFollower(engine::Session& session, engine::Session::LaneTarget target)
+LaneFollower::LaneFollower(engine::Session& session, engine::Session::ParamTarget target)
     : session_(session), target_(std::move(target))
 {
 }
 
 ui::AutomationState LaneFollower::update()
 {
-    const auto* channel = session_.snapshot()->channel(target_.channel);
-    const auto* lane = channel != nullptr ? channel->lane(target_.lane) : nullptr;
-    plays_ = lane != nullptr && !lane->points.empty() && lane->on;
+    const auto snapshot = session_.snapshot();
+    const auto [lane, assignment] = snapshot->assignmentOf(target_.channel, target_.key);
+    plays_ = lane != nullptr && !lane->points.empty() && assignment->on;
     if (lane == nullptr || lane->points.empty())
         return ui::AutomationState::None;
-    return lane->on ? ui::AutomationState::On : ui::AutomationState::Off;
+    return assignment->on ? ui::AutomationState::On : ui::AutomationState::Off;
 }
 
 std::optional<float> LaneFollower::played() const
 {
-    return plays_ ? session_.laneValue(target_) : std::nullopt;
+    return plays_ ? session_.paramValue(target_) : std::nullopt;
 }
 
 void LaneFollower::showMenu(juce::Component& control, std::function<void()> reset) const
 {
-    const auto* channel = session_.snapshot()->channel(target_.channel);
-    const auto* lane = channel != nullptr ? channel->lane(target_.lane) : nullptr;
-    const bool points = lane != nullptr && !lane->points.empty();
+    const auto snapshot = session_.snapshot();
+    const auto [lane, assignment] = snapshot->assignmentOf(target_.channel, target_.key);
     juce::Component::SafePointer<juce::Component> alive(&control);
     auto& session = session_;
     const auto target = target_;
     juce::PopupMenu menu;
-    menu.addItem("Show automation lane", [&session, target] { session.revealLane(target); });
-    if (points)
-        menu.addItem("Clear automation",
-                     [&session, target] { session.setAutomation(target, {}, std::nullopt, "Clear automation"); });
-    if (points && !lane->on)
-        menu.addItem("Turn automation back on", [&session, target] { session.setLaneOn(target, true); });
+    if (lane != nullptr)
+    {
+        menu.addItem("Show automation lane", [&session, id = lane->id] { session.revealLane(id); });
+        if (!lane->points.empty() && !assignment->on)
+            menu.addItem("Turn automation back on", [&session, target] { session.setAssignmentOn(target, true); });
+        menu.addItem("Remove from automation lane", [&session, target] { session.unassign(target); });
+    }
+    menu.addItem("Automate in a new lane", [&session, target] {
+        if (const auto id = session.automateInNewLane(target))
+            session.revealLane(id);
+    });
     menu.addSeparator();
     menu.addItem("Reset to default", [alive, run = std::move(reset)] {
         if (alive != nullptr)
@@ -251,7 +255,7 @@ VolumeField::VolumeField(engine::Session& session, std::uint64_t channel)
 void VolumeField::follow()
 {
     if (const auto v = lane_.played(); v && !gesture_)
-        if (const auto db = session_.lanePlain(lane_.target(), *v); db && std::abs(*db - getValue()) > 0.01)
+        if (const auto db = session_.paramPlain(lane_.target(), *v); db && std::abs(*db - getValue()) > 0.01)
             setValue(std::max<double>(*db, model::minusInfinityDb), juce::dontSendNotification);
 }
 

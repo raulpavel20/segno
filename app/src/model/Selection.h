@@ -17,9 +17,9 @@ struct Selection
 {
     std::optional<std::uint64_t> channel; // a track, a return track or the master
     std::set<std::uint64_t> clips;
-    /// An automation lane of the channel (its key), and points on it by index (C4,
-    /// docs/design/automation.md §9). Never together with clips.
-    std::optional<std::string> lane;
+    /// An automation lane (its id), and points on it by index (C4, docs/design/automation.md §9).
+    /// Never together with clips; the channel is then its first assignment's.
+    std::optional<std::uint64_t> lane;
     std::set<size_t> points;
 
     friend bool operator==(const Selection&, const Selection&) = default;
@@ -29,6 +29,9 @@ struct Selection
 /// one, else `otherwise` (no clips, or none in the snapshot yet).
 [[nodiscard]] Selection withClips(const Snapshot& snapshot, std::set<std::uint64_t> clips,
                                   std::optional<std::uint64_t> prefer, std::optional<std::uint64_t> otherwise);
+
+/// A lane and points on it, with its first assignment's channel (none if it has none).
+[[nodiscard]] Selection withLane(const Snapshot& snapshot, std::uint64_t lane, std::set<size_t> points = {});
 
 /// The selection after the project changed: clips, channels, lanes and points that are gone are
 /// dropped, and if the channel no longer holds any of the clips (they moved), it follows them.
@@ -41,7 +44,7 @@ enum class CentreView { Arrange, Mix };
 enum class Subject { Nothing, Channel, Clip, Clips, Lane };
 
 /// The inspector's sections, top to bottom (selection.md §5).
-enum class InspectorSection { Point, Points, Lane, Clip, Clips, Track, Return, Master, Mix, Sends };
+enum class InspectorSection { Point, Points, Lane, Assignments, Clip, Clips, Track, Return, Master, Mix, Sends };
 
 /// Everything the context panels need for a selection in a view: the rules of selection.md §3-5
 /// in one place.
@@ -52,7 +55,7 @@ struct PanelContext
     std::optional<ClipInfo> clip;     // the one selected clip
     int clipCount = 0;                // selected clips in the snapshot
     std::optional<ClipInfo> midiClip; // the one selected clip when it's MIDI: the clip view's
-    std::optional<LaneInfo> lane;     // the selected lane
+    std::optional<AutomationLaneInfo> lane; // the selected lane
     std::optional<AutomationPoint> point; // its one selected point
     int pointCount = 0;               // its selected points
 

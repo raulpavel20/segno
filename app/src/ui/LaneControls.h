@@ -8,31 +8,34 @@
 
 namespace fd::app
 {
-/// The parameter of an automation lane as a bar (docs/design/automation.md §3): the lane header's
-/// control, the same as moving the knob or fader it stands for (an automated lane turns off).
-/// Works in lane units: the control's travel.
+/// A lane's one assigned parameter as a bar (docs/design/automation.md §3): the lane header's
+/// control, the same as moving the knob or fader it stands for (its assignment turns off). Works
+/// in the control's travel.
 class LaneBar final : public ui::Knob
 {
 public:
-    LaneBar(engine::Session& session, engine::Session::LaneTarget target);
+    explicit LaneBar(engine::Session& session);
+    /// The parameter it moves (none: nothing to move).
+    void setTarget(const std::optional<engine::Session::ParamTarget>& target, int steps);
+    [[nodiscard]] const std::optional<engine::Session::ParamTarget>& target() const noexcept { return target_; }
     /// Follows the parameter's value now (played or set), unless being dragged.
     void refresh();
-    void setStepped(int steps);
 
 private:
     engine::Session& session_;
-    engine::Session::LaneTarget target_;
-    std::optional<engine::Session::LaneGesture> gesture_;
+    std::optional<engine::Session::ParamTarget> target_;
+    std::optional<engine::Session::ParamGesture> gesture_;
 };
 
-/// One lane's controls in its header: the on switch and the bar.
+/// One lane's controls in its header: the on switch and its one assignment's bar.
 struct LaneControls
 {
-    LaneControls(engine::Session& session, const engine::Session::LaneTarget& target);
-    void update(const model::LaneInfo& lane);
+    LaneControls(engine::Session& session, std::uint64_t lane);
+    void update(const model::AutomationLaneInfo& lane);
 
     engine::Session& session;
-    engine::Session::LaneTarget target;
+    std::uint64_t lane;
+    bool allOn = true;
     ui::Toggle on; // a round indicator, like a module's power
     LaneBar bar;
 };

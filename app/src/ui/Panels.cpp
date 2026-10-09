@@ -311,24 +311,23 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
     pointValue_.setDragSensitivity(0.005);
     pointValue_.setTooltip("The point's value: drag or type");
     pointValue_.textFromValue = [this](double v) {
-        return channel_ && lane_ ? juce::String::fromUTF8(session_.laneText({channel_->id, lane_->key}, static_cast<float>(v)).c_str())
-                                 : juce::String();
+        return lane_ ? juce::String::fromUTF8(session_.laneText(lane_->id, static_cast<float>(v)).c_str()) : juce::String();
     };
     pointValue_.valueFromText = [this](const juce::String& text) -> std::optional<double> {
-        if (!channel_ || !lane_)
+        if (!lane_)
             return std::nullopt;
-        if (const auto v = session_.laneFromText({channel_->id, lane_->key}, text.toStdString()))
+        if (const auto v = session_.laneFromText(lane_->id, text.toStdString()))
             return *v;
         return std::nullopt;
     };
     pointValue_.onGestureStart = [this] { pointGesture_.emplace(session_, "Point value"); };
     pointValue_.onGestureEnd = [this] { pointGesture_.reset(); };
     pointValue_.onValueChange = [this](double v) {
-        if (!channel_ || !lane_ || !pointIndex_ || *pointIndex_ >= lane_->points.size())
+        if (!lane_ || !pointIndex_ || *pointIndex_ >= lane_->points.size())
             return;
         auto points = lane_->points;
-        points[*pointIndex_].value = model::snapToSteps(static_cast<float>(v), lane_->steps);
-        session_.setAutomation({channel_->id, lane_->key}, points, std::nullopt, "Point value");
+        points[*pointIndex_].value = model::snapToSteps(static_cast<float>(v), lane_->rules().steps);
+        session_.setLanePoints(lane_->id, points, std::nullopt, "Point value");
     };
     addChildComponent(pointValue_);
 }
@@ -374,28 +373,48 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
     {
     case S::Point:
     {
-        if (!point_ || !lane_ || !channel_)
+        if (!point_ || !lane_)
             return {};
-        const engine::Session::LaneTarget target{channel_->id, lane_->key};
-        juce::ignoreUnused(target);
         return {{"Time", position(point_->time), true},
                 {"Value", {}, true}, // the field
-                {"Bend", lane_->steps >= 2 ? juce::String("Step")
-                                           : juce::String(juce::roundToInt(model::bendOf(*point_) * 100.0f)) + " %",
+                {"Bend", lane_->rules().stepped() ? juce::String("Step")
+                                                  : juce::String(juce::roundToInt(model::bendOf(*point_) * 100.0f)) + " %",
                  true}};
     }
     case S::Points: return {{"Selected", juce::String(pointCount_), true}};
     case S::Lane:
     {
-        if (!lane_ || !channel_)
+        if (!lane_)
             return {};
-        const engine::Session::LaneTarget target{channel_->id, lane_->key};
-        const auto now = session_.laneValue(target);
-        return {{"Parameter", juce::String::fromUTF8(lane_->name.c_str())},
-                {"Module", juce::String::fromUTF8(lane_->module.c_str())},
+        const auto now = session_.laneValue(lane_->id);
+        const auto plays = lane_->points.empty() || lane_->assignments.empty() ? juce::String("Nothing to play")
+                           : lane_->allOn()                                     ? juce::String("On")
+                           : std::none_of(lane_->assignments.begin(), lane_->assignments.end(),
+                                          [](const auto& a) { return a.on; })
+                               ? juce::String("Off: the values set by hand")
+                               : juce::String("Some off");
+        return {{"Name", juce::String::fromUTF8(lane_->displayName().c_str())},
                 {"Points", juce::String(static_cast<int>(lane_->points.size())), true},
-                {"Value", now ? juce::String::fromUTF8(session_.laneText(target, *now).c_str()) : juce::String(), true},
-                {"Plays", lane_->points.empty() ? juce::String("No points") : lane_->on ? juce::String("On") : juce::String("Off: the value set by hand")}};
+                {"Value", now ? juce::String::fromUTF8(session_.laneText(lane_->id, *now).c_str()) : juce::String(), true},
+                {"Plays", plays}};
+    }
+    case S::Assignments:
+    {
+        if (!lane_)
+            return {};
+        if (lane_->assignments.empty())
+            return {{"None", "Assign a parameter"}};
+        std::vector<ui::Property> rows;
+        for (const auto& a : lane_->assignments)
+        {
+            const engine::Session::ParamTarget target{a.channel, a.key};
+            auto range = juce::String::fromUTF8(session_.paramText(target, a.range.from).c_str()) +
+                         juce::String::fromUTF8(" \xE2\x80\x93 ") +
+                         juce::String::fromUTF8(session_.paramText(target, a.range.to).c_str());
+            rows.push_back({juce::String::fromUTF8((a.channelName + " \xE2\x80\xBA " + a.name).c_str()),
+                            a.on ? range : range + " (off)", true});
+        }
+        return rows;
     }
     case S::Clip:
         if (!clip_)
@@ -428,6 +447,7 @@ void InspectorPanel::resized()
     auto r = getLocalBounds().withTrimmedTop(header_.getBottom() + t.shell.itemGap).reduced(t.shell.padding, 0);
 
     static const std::map<S, juce::String> titles{{S::Point, "Point"}, {S::Points, "Points"}, {S::Lane, "Lane"},
+                                                  {S::Assignments, "Assignments"},
                                                   {S::Clip, "Clip"},   {S::Clips, "Clips"},   {S::Track, "Track"},
                                                   {S::Return, "Return"}, {S::Master, "Master"}, {S::Mix, "Mix"},
                                                   {S::Sends, "Sends"}};

@@ -117,6 +117,10 @@ Json clipJson(ToolEnv& env, const model::ClipInfo& clip, bool notes);
 Json moduleSummary(const model::DeviceSlot& slot);
 /// Everything about a module: parameters, sections, view, and non-parameter state.
 Json moduleJson(ToolEnv& env, const model::DeviceSlot& slot, const model::TrackInfo& track);
+/// The automation lanes (C4, ADR 0029), in row order, with their assignments.
+Json automationLanesJson(ToolEnv& env);
+/// A parameter's automation (its lane, points, range, on); null without a lane.
+Json parameterAutomationJson(ToolEnv& env, const engine::Session::ParamTarget& target);
 /// The module catalogue (our modules and scanned plugins).
 Json moduleTypesJson(ToolEnv& env, const std::string& kind = {});
 /// One type's reference; null if there's no such type.
