@@ -19,18 +19,6 @@ juce::String noteName(int pitch)
     return juce::String(names[pitch % 12]) + juce::String(pitch / 12 - 2);
 }
 
-juce::Colour paletteColour(int index)
-{
-    const auto& colours = ui::Theme::current().clipColours;
-    return colours.isEmpty() ? juce::Colours::grey : colours[index % colours.size()];
-}
-
-/// A note's fill: velocity moves it from the control tone to the clip colour.
-juce::Colour noteFill(juce::Colour clip, float velocity, bool selected)
-{
-    auto c = ui::Theme::current().surface3.interpolatedWith(clip, 0.35f + 0.65f * velocity);
-    return selected ? c.interpolatedWith(juce::Colours::white, 0.3f) : c;
-}
 } // namespace
 
 PianoRoll::PianoRoll(engine::Session& session) : session_(session)
@@ -335,8 +323,8 @@ void PianoRoll::paintRows(juce::Graphics& g)
     const auto geo = geometry();
 
     // Rows: black keys a tone darker; a line under every C (octaves) and between E and F.
-    const auto white = t.surface1.interpolatedWith(t.surface2, 0.7f);
-    const auto black = t.surface0.interpolatedWith(t.surface1, 0.3f);
+    const auto white = t.roles.keyRowLight;
+    const auto black = t.roles.keyRowDark;
     const int highest = std::min(127, static_cast<int>(std::ceil(topEdge_)) - 1);
     const int lowest = std::max(0, static_cast<int>(std::floor(topEdge_ - 1.0 - area.getHeight() / rowHeight_)));
     const auto x = static_cast<float>(area.getX()), w = static_cast<float>(area.getWidth());
@@ -348,7 +336,7 @@ void PianoRoll::paintRows(juce::Graphics& g)
         g.fillRect(x, y, w, rh);
         if (p % 12 == 0 || p % 12 == 5)
         {
-            g.setColour(p % 12 == 0 ? t.line : t.surface3.withAlpha(0.35f));
+            g.setColour(p % 12 == 0 ? t.roles.gridOctave : t.roles.gridMinor);
             g.fillRect(x, y + rh - 1.0f, w, 1.0f);
         }
     }
@@ -356,7 +344,7 @@ void PianoRoll::paintRows(juce::Graphics& g)
     // Outside the clip: notes there are kept but don't play.
     const float clipX0 = static_cast<float>(area.getX() + timeline_.xForTime(clip_->start));
     const float clipX1 = static_cast<float>(area.getX() + timeline_.xForTime(clip_->end()));
-    g.setColour(t.surface0.withAlpha(0.55f));
+    g.setColour(t.roles.shade);
     if (clipX0 > x)
         g.fillRect(x, static_cast<float>(area.getY()), clipX0 - x, static_cast<float>(area.getHeight()));
     if (clipX1 < x + w)
@@ -366,9 +354,9 @@ void PianoRoll::paintRows(juce::Graphics& g)
     {
         switch (line.kind)
         {
-        case model::Timeline::LineKind::Bar: g.setColour(t.surface3); break;
-        case model::Timeline::LineKind::Beat: g.setColour(t.surface3.withAlpha(0.55f)); break;
-        case model::Timeline::LineKind::Subdivision: g.setColour(t.surface3.withAlpha(0.28f)); break;
+        case model::Timeline::LineKind::Bar: g.setColour(t.roles.gridBar); break;
+        case model::Timeline::LineKind::Beat: g.setColour(t.roles.gridBeat); break;
+        case model::Timeline::LineKind::Subdivision: g.setColour(t.roles.gridSub); break;
         }
         g.fillRect(static_cast<float>(area.getX() + timeline_.xForTime(line.seconds)), static_cast<float>(area.getY()), 1.0f,
                    static_cast<float>(area.getHeight()));
@@ -384,10 +372,10 @@ void PianoRoll::paintNotes(juce::Graphics& g)
     const auto geo = geometry();
     const auto& notes = shownNotes();
     const auto& selection = shownSelection();
-    const auto colour = paletteColour(clip_->colour);
+    const auto colour = t.clipColour(clip_->colour);
     const double clipStart = beatForSeconds(clip_->start), clipEnd = beatForSeconds(clip_->end());
     const bool labels = rowHeight_ >= 10.0;
-    g.setFont(ui::fonts::mono(t.textXs - 2.0f, ui::fonts::Weight::SemiBold));
+    g.setFont(ui::font(ui::TextStyle::Micro));
 
     for (int pass = 0; pass < 2; ++pass) // selected notes on top
         for (std::size_t i = 0; i < notes.size(); ++i)
@@ -406,8 +394,8 @@ void PianoRoll::paintNotes(juce::Graphics& g)
             if (!r.intersects(area.toFloat()))
                 continue;
             const bool inside = n.start < clipEnd && n.start + n.length > clipStart;
-            auto fill = noteFill(colour, n.velocity, selected);
-            g.setColour(inside ? fill : fill.withAlpha(0.4f));
+            auto fill = t.noteFill(colour, n.velocity, selected);
+            g.setColour(inside ? fill : t.faded(fill));
             g.fillRoundedRectangle(r, 2.0f);
             if (selected)
             {
@@ -416,7 +404,7 @@ void PianoRoll::paintNotes(juce::Graphics& g)
             }
             if (labels && r.getWidth() > 30.0f)
             {
-                g.setColour(t.surface0.withAlpha(0.85f));
+                g.setColour(t.roles.onClip);
                 g.drawText(noteName(n.pitch), r.reduced(4.0f, 0.0f), juce::Justification::centredLeft, false);
             }
         }
@@ -424,9 +412,9 @@ void PianoRoll::paintNotes(juce::Graphics& g)
     if (gesture_ == Gesture::Box && moved_)
     {
         const auto box = juce::Rectangle<float>(dragStart_, lastDrag_);
-        g.setColour(t.active.withAlpha(0.10f));
+        g.setColour(t.roles.selectionFill);
         g.fillRect(box);
-        g.setColour(t.active.withAlpha(0.6f));
+        g.setColour(t.roles.selectionStroke);
         g.drawRect(box, 1.0f);
     }
 }
@@ -437,7 +425,7 @@ void PianoRoll::paintVelocities(juce::Graphics& g)
     const auto area = velocityArea();
     g.setColour(t.line);
     g.fillRect(getLocalBounds().withY(area.getY() - 1).withHeight(1));
-    g.setColour(t.surface0.interpolatedWith(t.surface1, 0.35f));
+    g.setColour(t.roles.subLane);
     g.fillRect(area);
 
     juce::Graphics::ScopedSaveState saved(g);
@@ -445,7 +433,7 @@ void PianoRoll::paintVelocities(juce::Graphics& g)
     for (const auto& line : lines_)
         if (line.kind != model::Timeline::LineKind::Subdivision)
         {
-            g.setColour(t.surface3.withAlpha(line.kind == model::Timeline::LineKind::Bar ? 0.6f : 0.3f));
+            g.setColour(line.kind == model::Timeline::LineKind::Bar ? t.roles.gridBar : t.roles.gridBeat);
             g.fillRect(static_cast<float>(area.getX() + timeline_.xForTime(line.seconds)), static_cast<float>(area.getY()),
                        1.0f, static_cast<float>(area.getHeight()));
         }
@@ -454,7 +442,7 @@ void PianoRoll::paintVelocities(juce::Graphics& g)
     const auto inner = area.reduced(0, 5).toFloat();
     const auto& notes = shownNotes();
     const auto& selection = shownSelection();
-    const auto colour = paletteColour(clip_->colour);
+    const auto colour = t.clipColour(clip_->colour);
     for (int pass = 0; pass < 2; ++pass)
         for (std::size_t i = 0; i < notes.size(); ++i)
         {
@@ -465,7 +453,7 @@ void PianoRoll::paintVelocities(juce::Graphics& g)
             if (x < static_cast<float>(area.getX()) - 4.0f || x > static_cast<float>(area.getRight()) + 4.0f)
                 continue;
             const float top = inner.getBottom() - notes[i].velocity * inner.getHeight();
-            g.setColour(selected ? t.textPrimary : noteFill(colour, notes[i].velocity, false));
+            g.setColour(selected ? t.textPrimary : t.noteFill(colour, notes[i].velocity, false));
             g.fillRect(x, top, 1.0f, inner.getBottom() - top);
             g.fillRect(x - 2.0f, top - 1.0f, 5.0f, 3.0f);
         }
@@ -485,7 +473,7 @@ void PianoRoll::paintVelocities(juce::Graphics& g)
         if (nearest)
         {
             g.setColour(t.textSecondary);
-            g.setFont(ui::fonts::mono(t.textXs, ui::fonts::Weight::Medium));
+            g.setFont(ui::font(ui::TextStyle::Value));
             g.drawText("Velocity " + juce::String(juce::roundToInt(notes[*nearest].velocity * 127.0f)),
                        area.reduced(6, 2).removeFromTop(14), juce::Justification::topRight, false);
         }
@@ -499,8 +487,8 @@ void PianoRoll::paintKeys(juce::Graphics& g)
     juce::Graphics::ScopedSaveState saved(g);
     g.reduceClipRegion(area);
     const auto geo = geometry();
-    const auto whiteKey = t.textTertiary.interpolatedWith(t.textSecondary, 0.25f);
-    const auto blackKey = t.surface0;
+    const auto whiteKey = t.roles.keyWhite;
+    const auto blackKey = t.roles.keyBlack;
     g.setColour(whiteKey);
     g.fillRect(area);
 
@@ -508,7 +496,7 @@ void PianoRoll::paintKeys(juce::Graphics& g)
     const auto rh = static_cast<float>(rowHeight_);
     const int highest = std::min(127, static_cast<int>(std::ceil(topEdge_)) - 1);
     const int lowest = std::max(0, static_cast<int>(std::floor(topEdge_ - 1.0 - area.getHeight() / rowHeight_)));
-    g.setFont(ui::fonts::mono(t.textXs - 2.0f, ui::fonts::Weight::Medium));
+    g.setFont(ui::font(ui::TextStyle::Micro));
     for (int p = lowest; p <= highest; ++p)
     {
         const float y = static_cast<float>(area.getY() + geo.yForPitch(p));
@@ -517,7 +505,7 @@ void PianoRoll::paintKeys(juce::Graphics& g)
         {
             g.setColour(held ? t.active : blackKey);
             g.fillRect(x, y, w * 0.62f, rh);
-            g.setColour(t.surface1.withAlpha(0.6f)); // where the white keys meet, beside it
+            g.setColour(t.roles.keySeam); // where the white keys meet, beside it
             g.fillRect(x + w * 0.62f, y + rh * 0.5f, w * 0.38f, 1.0f);
             continue;
         }
@@ -528,7 +516,7 @@ void PianoRoll::paintKeys(juce::Graphics& g)
         }
         if (p % 12 == 0 || p % 12 == 5)
         {
-            g.setColour(t.surface1.withAlpha(0.6f));
+            g.setColour(t.roles.keySeam);
             g.fillRect(x, y + rh - 1.0f, w, 1.0f);
         }
         if (p % 12 == 0 && rowHeight_ >= 8.0)
@@ -553,10 +541,10 @@ void PianoRoll::paintRuler(juce::Graphics& g)
     // The clip's extent, in its colour, along the bottom.
     const float clipX0 = static_cast<float>(area.getX() + timeline_.xForTime(clip_->start));
     const float clipX1 = static_cast<float>(area.getX() + timeline_.xForTime(clip_->end()));
-    g.setColour(paletteColour(clip_->colour));
+    g.setColour(t.clipColour(clip_->colour));
     g.fillRect(clipX0, static_cast<float>(area.getBottom()) - 3.0f, clipX1 - clipX0, 3.0f);
 
-    g.setFont(ui::fonts::mono(t.textXs, ui::fonts::Weight::Medium));
+    g.setFont(ui::font(ui::TextStyle::Value));
     for (const auto& line : lines_)
     {
         const float lx = static_cast<float>(area.getX() + timeline_.xForTime(line.seconds));

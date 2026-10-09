@@ -120,7 +120,7 @@ void Knob::paint(juce::Graphics& g)
     {
         juce::Path arc;
         arc.addCentredArc(centre.x, centre.y, radius, radius, 0.0f, a0, a1, true);
-        g.setColour(hot ? t.value.brighter(0.15f) : t.value);
+        g.setColour(hot ? t.roles.valueHot : t.value);
         g.strokePath(arc, stroke);
     }
 
@@ -133,7 +133,7 @@ void Knob::paint(juce::Graphics& g)
     if (editor_ == nullptr)
     {
         g.setFont(fonts::mono(valueFit(valueArea.getWidth()).size, fonts::Weight::Regular));
-        g.setColour(hot ? t.textPrimary : t.textPrimary.withAlpha(0.85f));
+        g.setColour(hot ? t.textPrimary : t.roles.valueText);
         g.drawText(valueText(), valueArea, juce::Justification::centred, false);
     }
 }
@@ -186,7 +186,7 @@ void Knob::paintBar(juce::Graphics& g)
     const float x1 = r.getX() + r.getWidth() * juce::jmax(origin_, value_);
     if (x1 - x0 > 0.5f)
     {
-        g.setColour((hot ? t.value.brighter(0.15f) : t.value).withAlpha(0.45f));
+        g.setColour((hot ? t.roles.valueHot : t.value).withAlpha(0.45f));
         g.saveState();
         g.reduceClipRegion(juce::Rectangle<float>(x0, r.getY(), x1 - x0, r.getHeight()).getSmallestIntegerContainer());
         g.fillRoundedRectangle(r, t.radiusControl);

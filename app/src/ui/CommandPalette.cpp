@@ -5,7 +5,7 @@ namespace fd::app
 CommandPalette::CommandPalette(const ActionRegistry& actions) : actions_(actions)
 {
     const auto& t = ui::Theme::current();
-    search_.setFont(ui::fonts::font(t.textMd));
+    search_.setFont(ui::font(ui::TextStyle::Field));
     search_.setTextToShowWhenEmpty("Type a command", t.textTertiary);
     search_.setIndents(10, 0);
     search_.setJustification(juce::Justification::centredLeft);
@@ -125,7 +125,8 @@ void CommandPalette::paint(juce::Graphics& g)
     const auto& t = ui::Theme::current();
     const auto r = getLocalBounds().toFloat();
     // A floating popover may cast one subtle shadow (ui-principles §4).
-    juce::DropShadow(juce::Colours::black.withAlpha(0.5f), 18, {0, 6}).drawForRectangle(g, getLocalBounds());
+    juce::DropShadow(t.roles.shadow, juce::roundToInt(t.shell.shadowRadius), {0, juce::roundToInt(t.shell.shadowOffset)})
+        .drawForRectangle(g, getLocalBounds());
     g.setColour(t.surface1);
     g.fillRoundedRectangle(r, t.radiusPanel);
     g.setColour(t.line);
@@ -134,7 +135,7 @@ void CommandPalette::paint(juce::Graphics& g)
     if (shown_.empty())
     {
         g.setColour(t.textTertiary);
-        g.setFont(ui::fonts::font(t.textSm));
+        g.setFont(ui::font(ui::TextStyle::Body));
         g.drawText("No matching command", rowArea(0).reduced(10, 0), juce::Justification::centredLeft, false);
         return;
     }
@@ -153,7 +154,7 @@ void CommandPalette::paint(juce::Graphics& g)
         if (action != nullptr && !action->keys.empty())
         {
             g.setColour(t.textTertiary);
-            g.setFont(ui::fonts::mono(t.textXs - 1.0f, ui::fonts::Weight::Medium));
+            g.setFont(ui::font(ui::TextStyle::ValueSmall));
             g.drawText(action->keys.front().getTextDescriptionWithIcons(), row.removeFromRight(120),
                        juce::Justification::centredRight, false);
         }
@@ -162,13 +163,13 @@ void CommandPalette::paint(juce::Graphics& g)
             g.setColour(t.active);
             g.fillEllipse(row.removeFromLeft(14).toFloat().withSizeKeepingCentre(6.0f, 6.0f));
         }
-        g.setFont(ui::fonts::font(t.textSm, ui::fonts::Weight::Medium));
+        g.setFont(ui::font(ui::TextStyle::Name));
         g.setColour(enabled ? t.textPrimary : t.textTertiary);
         const auto name = juce::String::fromUTF8(item.name.c_str());
         const int nameWidth = static_cast<int>(juce::GlyphArrangement::getStringWidth(g.getCurrentFont(), name)) + 12;
         g.drawText(name, row.removeFromLeft(nameWidth), juce::Justification::centredLeft, false);
         g.setColour(t.textTertiary);
-        g.setFont(ui::fonts::font(t.textXs));
+        g.setFont(ui::font(ui::TextStyle::Caption));
         g.drawText(juce::String::fromUTF8(item.category.c_str()), row, juce::Justification::centredLeft, true);
     }
 }

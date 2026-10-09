@@ -11,7 +11,6 @@ namespace fd::app
 namespace
 {
 constexpr float kRailWidth = 44.0f;
-constexpr double kPanelTimeConstant = 0.04; // s; ~150 ms to settle (ease-out)
 
 juce::KeyPress key(int code, int mods = 0)
 {
@@ -551,7 +550,7 @@ void Shell::onFrame(double timestamp)
         const float target = p->open ? 1.0f : 0.0f;
         if (p->shown != target)
         {
-            const auto k = static_cast<float>(1.0 - std::exp(-dt / kPanelTimeConstant));
+            const auto k = static_cast<float>(1.0 - std::exp(-dt / ui::Theme::current().motion.panel));
             p->shown += (target - p->shown) * k;
             if (std::abs(p->shown - target) < 0.01f)
                 p->shown = target;
@@ -563,7 +562,7 @@ void Shell::onFrame(double timestamp)
     const float detailTarget = detail_.mode() == DetailPanel::Mode::Clip ? clipViewHeight_ : deviceViewHeight_;
     if (detailPanel_.size != detailTarget)
     {
-        const auto k = static_cast<float>(1.0 - std::exp(-dt / kPanelTimeConstant));
+        const auto k = static_cast<float>(1.0 - std::exp(-dt / ui::Theme::current().motion.panel));
         detailPanel_.size += (detailTarget - detailPanel_.size) * k;
         if (std::abs(detailPanel_.size - detailTarget) < 0.5f)
             detailPanel_.size = detailTarget;
@@ -690,10 +689,10 @@ void Shell::paintOverChildren(juce::Graphics& g)
     if (statsVisible_)
     {
         auto box = getLocalBounds().removeFromBottom(28).removeFromLeft(360).reduced(6, 4);
-        g.setColour(t.surface3.withAlpha(0.9f));
+        g.setColour(t.roles.overlay);
         g.fillRect(box);
         g.setColour(t.textPrimary);
-        g.setFont(ui::fonts::mono(t.textXs, ui::fonts::Weight::Regular));
+        g.setFont(ui::font(ui::TextStyle::Value));
         const double paint = stats_.paintMs.empty() ? 0.0 : stats_.paintMs.back();
         const double frame = stats_.frameMs.empty() ? 0.0 : stats_.frameMs.back();
         g.drawText("paint " + juce::String(paint, 2) + " ms   frame " + juce::String(frame, 2) + " ms",
@@ -705,7 +704,7 @@ void Shell::paintOverChildren(juce::Graphics& g)
     g.setColour(t.surface3);
     g.fillRoundedRectangle(box.toFloat(), t.radiusPanel);
     g.setColour(t.textPrimary);
-    g.setFont(ui::fonts::font(t.textSm));
+    g.setFont(ui::font(ui::TextStyle::Body));
     g.drawFittedText(warning_, box.reduced(12, 4), juce::Justification::centredLeft, 2);
 }
 

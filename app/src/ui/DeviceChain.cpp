@@ -32,10 +32,10 @@ public:
         g.fillRoundedRectangle(getLocalBounds().toFloat(), t.radiusPanel);
         auto header = getLocalBounds().removeFromTop(t.deviceHeaderHeight).reduced(t.grid * 2, 0).withTrimmedLeft(18);
         g.setColour(t.textPrimary);
-        g.setFont(ui::fonts::font(t.textSm, ui::fonts::Weight::SemiBold));
+        g.setFont(ui::font(ui::TextStyle::Title));
         g.drawText(juce::String::fromUTF8(name_.c_str()), header, juce::Justification::centredLeft, true);
         g.setColour(t.textTertiary);
-        g.setFont(ui::fonts::font(t.textXs));
+        g.setFont(ui::font(ui::TextStyle::Caption));
         g.drawText("Plugin", getLocalBounds().withTrimmedTop(t.deviceHeaderHeight).reduced(t.grid * 2).removeFromTop(16),
                    juce::Justification::centredLeft, false);
     }
@@ -204,7 +204,7 @@ void DeviceChain::paint(juce::Graphics& g)
         return;
     const auto& t = ui::Theme::current();
     g.setColour(t.textTertiary);
-    g.setFont(ui::fonts::font(t.textSm));
+    g.setFont(ui::font(ui::TextStyle::Body));
     g.drawText("Select a track to see its modules", getLocalBounds(), juce::Justification::centred, false);
 }
 

@@ -212,7 +212,7 @@ void PanelSection::paint(juce::Graphics& g)
         const auto strip = titleBounds().toFloat();
         if (hot)
         {
-            g.setColour(t.surface3.withAlpha(0.35f));
+            g.setColour(t.roles.hoverWash);
             g.fillRoundedRectangle(strip.reduced(2.0f, 0.0f), t.radiusControl);
         }
         auto textArea = strip.withTrimmedTop(power_ != nullptr ? static_cast<float>(grid.titleHeight) + 4.0f : 4.0f);
@@ -233,7 +233,7 @@ void PanelSection::paint(juce::Graphics& g)
     paintCapsLabel(g, title_, title, juce::Justification::centredLeft, colour);
     if (hasKeyboardFocus(false))
     {
-        g.setColour(t.active.withAlpha(0.7f));
+        g.setColour(t.roles.focusRing);
         g.drawRoundedRectangle(titleBounds().toFloat().expanded(2.0f, 0.0f), t.radiusControl, 1.0f);
     }
 }

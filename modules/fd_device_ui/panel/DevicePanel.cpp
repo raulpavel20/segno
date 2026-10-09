@@ -8,12 +8,12 @@ constexpr int kSettingsGap = 8;
 
 juce::Font nameFont()
 {
-    return fonts::font(Theme::current().textSm, fonts::Weight::SemiBold);
+    return font(TextStyle::Title);
 }
 
 juce::Font captionFont()
 {
-    return fonts::font(Theme::current().textXs);
+    return font(TextStyle::Caption);
 }
 
 constexpr int kCaptionGap = 6;

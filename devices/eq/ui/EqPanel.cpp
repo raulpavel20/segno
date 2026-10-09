@@ -124,7 +124,7 @@ public:
         g.fillRoundedRectangle(r, t.radiusControl);
 
         // Grid: decades and 0 dB.
-        g.setFont(ui::fonts::mono(t.textXs - 1.0f, ui::fonts::Weight::Regular));
+        g.setFont(ui::font(ui::TextStyle::ValueSmall));
         for (double f : {50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0, 5000.0, 10000.0})
         {
             const float x = xOf(f);
@@ -141,14 +141,14 @@ public:
         // Spectrum (flat).
         const int mode = static_cast<int>(ctx_.params.getPlain(Eq::Analyzer));
         if (ctx_.analysis != nullptr && (mode == 2 || mode == 3))
-            paintSpectrum(g, post_, t.textTertiary.withAlpha(0.22f), t.textTertiary.withAlpha(0.5f));
+            paintSpectrum(g, post_, t.roles.spectrumFill, t.roles.spectrumLine);
         if (ctx_.analysis != nullptr && (mode == 1 || mode == 3))
-            paintSpectrum(g, pre_, juce::Colours::transparentBlack, t.textTertiary.withAlpha(0.35f));
+            paintSpectrum(g, pre_, juce::Colours::transparentBlack, t.roles.spectrumPre);
 
         // Selected band's own curve.
         if (isOn(sel_.band))
         {
-            g.setColour(t.active.withAlpha(0.45f));
+            g.setColour(t.roles.selectionCurve);
             g.strokePath(curvePath({sel_.band}), juce::PathStrokeType(1.0f));
         }
 
@@ -160,7 +160,7 @@ public:
         fill.lineTo(r.getWidth(), yOfDb(0.0));
         fill.lineTo(0.0f, yOfDb(0.0));
         fill.closeSubPath();
-        g.setColour(t.value.withAlpha(0.12f));
+        g.setColour(t.roles.curveFill);
         g.fillPath(fill);
         g.setColour(t.value);
         g.strokePath(curve, juce::PathStrokeType(1.5f));
@@ -178,7 +178,7 @@ public:
             g.setColour(selected ? t.onActive : t.value);
             if (!selected)
                 g.drawEllipse(box.reduced(0.5f), 1.2f);
-            g.setFont(ui::fonts::mono(9.0f, ui::fonts::Weight::Bold));
+            g.setFont(ui::font(ui::TextStyle::Micro));
             g.setColour(selected ? t.onActive : t.textPrimary);
             g.drawText(juce::String(b + 1), box, juce::Justification::centred, false);
         }
@@ -186,7 +186,7 @@ public:
         if (!hoverText_.isEmpty())
         {
             g.setColour(t.textSecondary);
-            g.setFont(ui::fonts::mono(t.textXs, ui::fonts::Weight::Regular));
+            g.setFont(ui::font(ui::TextStyle::Value));
             g.drawText(hoverText_, r.reduced(6.0f, 4.0f), juce::Justification::topRight, false);
         }
     }

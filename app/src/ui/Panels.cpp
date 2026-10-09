@@ -117,10 +117,10 @@ void TransportBar::paint(juce::Graphics& g)
 
     // BPM label after the tempo field, the slash between the signature fields.
     g.setColour(t.textTertiary);
-    g.setFont(ui::fonts::mono(t.textXs - 1.0f));
+    g.setFont(ui::font(ui::TextStyle::ValueSmall));
     g.drawText("BPM", tempoField_.getBounds().translated(tempoField_.getWidth() + 2, 0).withWidth(30),
                juce::Justification::centredLeft, false);
-    g.setFont(ui::fonts::mono(t.textMd, ui::fonts::Weight::Medium));
+    g.setFont(ui::font(ui::TextStyle::ValueMedium));
     g.drawText("/", numeratorField_.getBounds().withX(numeratorField_.getRight()).withWidth(10),
                juce::Justification::centred, false);
 
@@ -130,24 +130,24 @@ void TransportBar::paint(juce::Graphics& g)
     g.fillEllipse(light);
 
     auto r = getLocalBounds().withTrimmedLeft(denominatorField_.getRight() + 20).withRight(keyboard_.getX() - 12);
-    auto field = [&](const juce::String& value, const juce::String& unit, int width, float size) {
+    auto field = [&](const juce::String& value, const juce::String& unit, int width, ui::TextStyle style) {
         auto box = r.removeFromLeft(width);
         r.removeFromLeft(16);
         g.setColour(t.textPrimary);
-        g.setFont(ui::fonts::mono(size, ui::fonts::Weight::Medium));
-        const int valueWidth = static_cast<int>(
-            juce::GlyphArrangement::getStringWidth(ui::fonts::mono(size, ui::fonts::Weight::Medium), value)) + 4;
+        g.setFont(ui::font(style));
+        const int valueWidth = static_cast<int>(juce::GlyphArrangement::getStringWidth(ui::font(style), value)) + 4;
         g.drawText(value, box.removeFromLeft(valueWidth), juce::Justification::centredLeft, false);
         g.setColour(t.textTertiary);
-        g.setFont(ui::fonts::font(t.textXs));
+        g.setFont(ui::font(ui::TextStyle::Caption));
         g.drawText(unit, box, juce::Justification::centredLeft, false);
     };
     const auto bb = tempo_.barsBeatsForSeconds(std::max(0.0, position_));
-    field(juce::String(bb.bar) + ". " + juce::String(bb.beat) + ". " + juce::String(bb.sixteenth), "", 84, t.textLg);
-    field(formatTime(position_), "", 84, t.textSm);
+    field(juce::String(bb.bar) + ". " + juce::String(bb.beat) + ". " + juce::String(bb.sixteenth), "", 84,
+          ui::TextStyle::ValueLarge);
+    field(formatTime(position_), "", 84, ui::TextStyle::ValueMedium);
 
     g.setColour(t.textTertiary);
-    g.setFont(ui::fonts::mono(t.textXs, ui::fonts::Weight::Regular));
+    g.setFont(ui::font(ui::TextStyle::Value));
     g.drawText("CPU " + juce::String(std::max(0, cpu_)) + " %", r, juce::Justification::centredRight, false);
 }
 
@@ -167,7 +167,7 @@ void TransportBar::resized()
     metronome_.setBounds(square(r, true));
     r.removeFromLeft(16);
     // Sized for the mono digits: "999.00" plus padding.
-    const auto digit = juce::GlyphArrangement::getStringWidth(ui::fonts::mono(t.textMd, ui::fonts::Weight::Medium), "0");
+    const auto digit = juce::GlyphArrangement::getStringWidth(ui::font(ui::TextStyle::ValueMedium), "0");
     tempoField_.setBounds(r.removeFromLeft(static_cast<int>(std::ceil(digit * 6.0f)) + 10));
     r.removeFromLeft(34); // "BPM"
     numeratorField_.setBounds(r.removeFromLeft(26));
@@ -236,7 +236,7 @@ void BrowserPanel::paint(juce::Graphics& g)
     for (const auto& [title, items] : sections_)
     {
         paintSectionLabel(g, title, r.removeFromTop(22));
-        g.setFont(ui::fonts::font(t.textSm));
+        g.setFont(ui::font(ui::TextStyle::Body));
         if (items.empty())
         {
             g.setColour(t.textTertiary);
@@ -269,7 +269,7 @@ void InspectorPanel::paint(juce::Graphics& g)
     g.fillAll(t.surface1);
     auto r = getLocalBounds().reduced(12, 8);
     paintSectionLabel(g, "Inspector", r.removeFromTop(22));
-    g.setFont(ui::fonts::font(t.textSm));
+    g.setFont(ui::font(ui::TextStyle::Body));
     if (!track_ && clipCount_ == 0)
     {
         g.setColour(t.textTertiary);
@@ -279,12 +279,12 @@ void InspectorPanel::paint(juce::Graphics& g)
     // Names in the sans, numbers in the mono.
     auto row = [&](const juce::String& label, const juce::String& value, bool number = false) {
         auto line = r.removeFromTop(20);
-        g.setFont(ui::fonts::font(t.textSm));
+        g.setFont(ui::font(ui::TextStyle::Body));
         g.setColour(t.textSecondary);
         g.drawText(label, line.removeFromLeft(80), juce::Justification::centredLeft, false);
         g.setColour(t.textPrimary);
         if (number)
-            g.setFont(ui::fonts::mono(t.textSm));
+            g.setFont(ui::font(ui::TextStyle::Value));
         g.drawText(value, line, juce::Justification::centredLeft, true);
     };
     auto position = [&](double seconds) {
@@ -366,7 +366,7 @@ void DetailPanel::paint(juce::Graphics& g)
     g.fillAll(t.surface1);
     auto r = getLocalBounds().reduced(12, 0);
     auto header = r.removeFromTop(headerHeight);
-    g.setFont(ui::fonts::font(t.textXs, ui::fonts::Weight::SemiBold));
+    g.setFont(ui::font(ui::TextStyle::Control));
     for (auto [m, label] : {std::pair{Mode::Devices, "Modules"}, std::pair{Mode::Clip, "Clip"}})
     {
         g.setColour(mode_ == m ? t.textPrimary : t.textTertiary);
@@ -392,7 +392,7 @@ void DetailPanel::paint(juce::Graphics& g)
                    juce::Justification::centredLeft, true);
         return; // the piano roll draws the rest
     }
-    g.setFont(ui::fonts::font(t.textSm));
+    g.setFont(ui::font(ui::TextStyle::Body));
     g.drawText("Select a MIDI clip to edit its notes. Double-click an empty spot on a track to make one.", r,
                juce::Justification::centred, false);
 }

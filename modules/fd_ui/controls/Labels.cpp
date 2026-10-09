@@ -2,7 +2,7 @@ namespace fd::ui
 {
 juce::Font capsLabelFont()
 {
-    return fonts::mono(Theme::current().textXs - 1.0f, fonts::Weight::SemiBold);
+    return font(TextStyle::Section);
 }
 
 void paintCapsLabel(juce::Graphics& g, const juce::String& text, juce::Rectangle<float> area,

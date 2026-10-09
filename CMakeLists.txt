@@ -43,6 +43,10 @@ include(FdTesting)
 
 if(FD_BUILD_TESTS)
     enable_testing()
+    # ADR 0023: UI code uses colour roles, text styles and components from fd_ui.
+    add_test(NAME ui_tokens_only
+        COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} -P ${PROJECT_SOURCE_DIR}/cmake/CheckUiTokens.cmake)
+    set_tests_properties(ui_tokens_only PROPERTIES LABELS fast)
 endif()
 
 # ---------------------------------------------------------------------------

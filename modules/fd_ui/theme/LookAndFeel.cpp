@@ -19,7 +19,7 @@ void LookAndFeel::applyTheme()
     setColour(juce::TextEditor::textColourId, t.textPrimary);
     setColour(juce::TextEditor::outlineColourId, t.line);
     setColour(juce::TextEditor::focusedOutlineColourId, t.active);
-    setColour(juce::TextEditor::highlightColourId, t.active.withAlpha(0.35f));
+    setColour(juce::TextEditor::highlightColourId, t.roles.textHighlight);
     setColour(juce::CaretComponent::caretColourId, t.active);
     setColour(juce::TextButton::buttonColourId, t.surface3);
     setColour(juce::TextButton::buttonOnColourId, t.active);
@@ -68,12 +68,7 @@ void LookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& button, 
 {
     const auto& t = Theme::current();
     const auto bounds = button.getLocalBounds().toFloat();
-    auto colour = button.getToggleState() ? t.active : backgroundColour;
-    if (down)
-        colour = colour.brighter(0.12f);
-    else if (highlighted)
-        colour = colour.brighter(0.06f);
-    g.setColour(colour);
+    g.setColour(t.lift(button.getToggleState() ? t.active : backgroundColour, highlighted, down));
     g.fillRoundedRectangle(bounds, t.radiusControl);
 }
 
@@ -112,7 +107,7 @@ void LookAndFeel::drawComboBox(juce::Graphics& g, int width, int height, bool is
 {
     const auto& t = Theme::current();
     const auto bounds = juce::Rectangle<float>(0, 0, static_cast<float>(width), static_cast<float>(height));
-    g.setColour(t.surface3.brighter(isButtonDown ? 0.12f : (box.isMouseOver(true) ? 0.06f : 0.0f)));
+    g.setColour(t.lift(t.surface3, box.isMouseOver(true), isButtonDown));
     g.fillRoundedRectangle(bounds, t.radiusControl);
     // Small flat chevron on the right.
     const float cx = static_cast<float>(width) - 9.0f, cy = static_cast<float>(height) * 0.5f;

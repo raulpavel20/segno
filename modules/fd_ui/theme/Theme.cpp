@@ -7,6 +7,50 @@ juce::Colour hex(juce::uint32 rgb)
     return juce::Colour(0xff000000u | rgb);
 }
 
+/// Every role, from the base palette (docs/design/ui-foundations.md). Called last by each theme.
+void deriveRoles(Theme& t)
+{
+    auto& r = t.roles;
+    r.lane = t.surface0.interpolatedWith(t.surface1, 0.45f);
+    r.laneSelected = t.surface1.interpolatedWith(t.surface2, 0.4f);
+    r.subLane = t.surface0.interpolatedWith(t.surface1, 0.35f);
+    r.strip = t.surface0.interpolatedWith(t.surface1, 0.5f);
+    r.keyRowLight = t.surface1.interpolatedWith(t.surface2, 0.7f);
+    r.keyRowDark = t.surface0.interpolatedWith(t.surface1, 0.3f);
+    r.shade = t.surface0.withAlpha(0.55f);
+    r.gridBar = t.surface3;
+    r.gridBeat = t.surface3.withAlpha(0.55f);
+    r.gridSub = t.surface3.withAlpha(0.28f);
+    r.gridOctave = t.line;
+    r.gridMinor = t.surface3.withAlpha(0.35f);
+    r.selectionFill = t.active.withAlpha(0.10f);
+    r.selectionStroke = t.active.withAlpha(0.6f);
+    r.dropTarget = t.active.withAlpha(0.12f);
+    r.textHighlight = t.active.withAlpha(0.35f);
+    r.playhead = t.textPrimary;
+    r.marker = t.textPrimary.withAlpha(0.8f);
+    r.loopInactive = t.textTertiary.withAlpha(0.7f);
+    r.onClip = t.surface0;
+    r.keyWhite = t.textTertiary.interpolatedWith(t.textSecondary, 0.25f);
+    r.keyBlack = t.surface0;
+    r.keySeam = t.surface1.withAlpha(0.6f);
+    r.curveFill = t.value.withAlpha(r.fillAlpha);
+    r.selectionCurve = t.active.withAlpha(0.45f);
+    r.spectrumFill = t.textTertiary.withAlpha(0.22f);
+    r.spectrumLine = t.textTertiary.withAlpha(0.5f);
+    r.spectrumPre = t.textTertiary.withAlpha(0.35f);
+    r.outside = t.textTertiary.withAlpha(0.6f);
+    r.loopTint = t.value.withAlpha(0.10f);
+    r.focusRing = t.active.withAlpha(0.7f);
+    r.hoverWash = t.surface3.withAlpha(0.35f);
+    r.dropWell = t.surface1.brighter(0.08f);
+    r.valueHot = t.value.brighter(0.15f);
+    r.valueText = t.textPrimary.withAlpha(0.85f);
+    r.warning = t.meterHot.withAlpha(0.8f);
+    r.overlay = t.surface3.withAlpha(0.9f);
+    r.shadow = juce::Colours::black.withAlpha(0.5f);
+}
+
 /// Shared by all candidates: deep neutral surfaces (no tint), text, meters and clip colours.
 Theme base()
 {
@@ -44,6 +88,7 @@ Theme makeCarbon()
     t.onActive = hex(0x1A1105);
     t.effectStart = hex(0xF0A33C);
     t.effectEnd = hex(0xF06A3C);
+    deriveRoles(t);
     return t;
 }
 
@@ -57,6 +102,7 @@ Theme makeSteel()
     t.onActive = hex(0x050D1A);
     t.effectStart = hex(0x4E95F5);
     t.effectEnd = hex(0x9A78F0);
+    deriveRoles(t);
     return t;
 }
 
@@ -70,11 +116,38 @@ Theme makeSignal()
     t.onActive = hex(0x111604);
     t.effectStart = hex(0xB5EA3F);
     t.effectEnd = hex(0x3FD6C2);
+    deriveRoles(t);
     return t;
 }
 
 const Theme* gCurrent = nullptr;
 } // namespace
+
+juce::Colour Theme::clipColour(int index) const
+{
+    return clipColours.isEmpty() ? textTertiary : clipColours[((index % clipColours.size()) + clipColours.size()) % clipColours.size()];
+}
+
+juce::Colour Theme::clipBody(juce::Colour clip, bool selected) const
+{
+    return clip.withBrightness(selected ? 0.42f : 0.32f);
+}
+
+juce::Colour Theme::clipContent(juce::Colour clip) const
+{
+    return clip.interpolatedWith(juce::Colours::white, 0.25f);
+}
+
+juce::Colour Theme::noteFill(juce::Colour clip, float velocity, bool selected) const
+{
+    const auto c = surface3.interpolatedWith(clip, 0.35f + 0.65f * velocity);
+    return selected ? c.interpolatedWith(juce::Colours::white, 0.3f) : c;
+}
+
+juce::Colour Theme::lift(juce::Colour c, bool hovered, bool pressed) const
+{
+    return c.brighter(pressed ? roles.pressedLift : (hovered ? roles.hoverLift : 0.0f));
+}
 
 const juce::Array<Theme>& Theme::candidates()
 {

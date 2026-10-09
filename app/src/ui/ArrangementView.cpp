@@ -16,11 +16,6 @@ bool isMidiFile(const juce::String& path)
     return juce::File(path).hasFileExtension("mid;midi");
 }
 
-juce::Colour paletteColour(int index)
-{
-    const auto& colours = ui::Theme::current().clipColours;
-    return colours.isEmpty() ? juce::Colours::grey : colours[index % colours.size()];
-}
 } // namespace
 
 ArrangementView::ArrangementView(engine::Session& session) : session_(session)
@@ -261,17 +256,17 @@ void ArrangementView::paintRuler(juce::Graphics& g)
 
     // Loop strip and brace: flat; the active colour when looping is on.
     const auto strip = loopStripArea();
-    g.setColour(t.surface0.interpolatedWith(t.surface1, 0.5f));
+    g.setColour(t.roles.strip);
     g.fillRect(strip);
     const auto [loopStart, loopEnd] = loopPreview_.value_or(loop_);
     if (loopEnd > loopStart)
     {
         const auto brace = juce::Rectangle<float>(laneX(loopStart), static_cast<float>(strip.getY()) + 2.0f,
                                                   laneX(loopEnd) - laneX(loopStart), static_cast<float>(strip.getHeight()) - 4.0f);
-        g.setColour(looping_ ? t.active : t.textTertiary.withAlpha(0.7f));
+        g.setColour(looping_ ? t.active : t.roles.loopInactive);
         g.fillRect(brace);
     }
-    g.setFont(ui::fonts::mono(t.textXs, ui::fonts::Weight::Medium));
+    g.setFont(ui::font(ui::TextStyle::Value));
     for (const auto& line : grid_)
     {
         const float x = laneX(line.seconds);
@@ -321,14 +316,14 @@ void ArrangementView::paintHeaders(juce::Graphics& g)
             g.setColour(t.surface2);
             g.fillRect(row);
         }
-        g.setColour(paletteColour(track.colour));
+        g.setColour(ui::Theme::current().clipColour(track.colour));
         g.fillRect(row.withWidth(3.0f).reduced(0.0f, 1.0f));
         g.setColour(t.line);
         g.fillRect(row.removeFromBottom(1.0f)); // the track separator, continued across the lanes
 
         auto text = row.reduced(12.0f, 6.0f);
-        g.setColour(selected ? t.textPrimary : t.textPrimary.withAlpha(0.9f));
-        g.setFont(ui::fonts::font(t.textSm, ui::fonts::Weight::Medium));
+        g.setColour(t.textPrimary);
+        g.setFont(ui::font(ui::TextStyle::Name));
         g.drawText(juce::String::fromUTF8(track.name.c_str()), text.removeFromTop(16.0f), juce::Justification::centredLeft, true);
         if (text.getHeight() >= 12.0f)
         {
@@ -338,8 +333,8 @@ void ArrangementView::paintHeaders(juce::Graphics& g)
             const auto label = !track.instrument.empty() ? juce::String::fromUTF8(track.instrument.c_str())
                                : hasMidi                 ? juce::String("No instrument")
                                                          : juce::String();
-            g.setColour(track.instrument.empty() && hasMidi ? t.meterHot.withAlpha(0.8f) : t.textTertiary);
-            g.setFont(ui::fonts::font(t.textXs));
+            g.setColour(track.instrument.empty() && hasMidi ? t.roles.warning : t.textTertiary);
+            g.setFont(ui::font(ui::TextStyle::Caption));
             g.drawText(label, text.removeFromTop(14.0f), juce::Justification::centredLeft, true);
         }
     }
@@ -353,7 +348,6 @@ void ArrangementView::paintLanes(juce::Graphics& g)
     g.reduceClipRegion(area);
 
     // Lane backgrounds: close tone steps; the selected track a step lighter.
-    const auto laneTone = t.surface0.interpolatedWith(t.surface1, 0.45f);
     for (int i = 0; i < layout_.trackCount(); ++i)
     {
         const float y = static_cast<float>(area.getY() + layout_.top(i));
@@ -361,7 +355,7 @@ void ArrangementView::paintLanes(juce::Graphics& g)
         if (y > static_cast<float>(area.getBottom()) || y + h < static_cast<float>(area.getY()))
             continue;
         const bool selected = selectedTrack_ == snapshot_->tracks[static_cast<size_t>(i)].id;
-        g.setColour(selected ? t.surface1.interpolatedWith(t.surface2, 0.4f) : laneTone);
+        g.setColour(selected ? t.roles.laneSelected : t.roles.lane);
         g.fillRect(juce::Rectangle<float>(static_cast<float>(area.getX()), y, static_cast<float>(area.getWidth()), h));
     }
 
@@ -372,9 +366,9 @@ void ArrangementView::paintLanes(juce::Graphics& g)
     {
         switch (line.kind)
         {
-        case model::Timeline::LineKind::Bar: g.setColour(t.surface3); break;
-        case model::Timeline::LineKind::Beat: g.setColour(t.surface3.withAlpha(0.55f)); break;
-        case model::Timeline::LineKind::Subdivision: g.setColour(t.surface3.withAlpha(0.28f)); break;
+        case model::Timeline::LineKind::Bar: g.setColour(t.roles.gridBar); break;
+        case model::Timeline::LineKind::Beat: g.setColour(t.roles.gridBeat); break;
+        case model::Timeline::LineKind::Subdivision: g.setColour(t.roles.gridSub); break;
         }
         g.fillRect(laneX(line.seconds), static_cast<float>(area.getY()), 1.0f, bottom - static_cast<float>(area.getY()));
     }
@@ -426,9 +420,9 @@ void ArrangementView::paintLanes(juce::Graphics& g)
     if (drag_ == Drag::Box)
     {
         const auto box = juce::Rectangle<float>(dragStart_, lastDrag_);
-        g.setColour(t.active.withAlpha(0.10f));
+        g.setColour(t.roles.selectionFill);
         g.fillRect(box);
-        g.setColour(t.active.withAlpha(0.6f));
+        g.setColour(t.roles.selectionStroke);
         g.drawRect(box, 1.0f);
     }
 
@@ -436,7 +430,7 @@ void ArrangementView::paintLanes(juce::Graphics& g)
     if (snapshot_->contentEnd() <= 0.0 && !dropTarget_)
     {
         g.setColour(t.textTertiary);
-        g.setFont(ui::fonts::font(t.textSm));
+        g.setFont(ui::font(ui::TextStyle::Body));
         g.drawText("Drop audio files onto a track", area.withTrimmedTop(static_cast<int>(bottom) - area.getY() + 24).removeFromTop(24),
                    juce::Justification::centred, false);
     }
@@ -448,7 +442,7 @@ void ArrangementView::paintLanes(juce::Graphics& g)
         const float y = index >= 0 ? static_cast<float>(area.getY() + layout_.top(index)) : bottom;
         const float h = index >= 0 ? static_cast<float>(layout_.height(index)) : static_cast<float>(model::TrackLayout::defaultHeight);
         const float x = laneX(seconds);
-        g.setColour(t.active.withAlpha(0.12f));
+        g.setColour(t.roles.dropTarget);
         g.fillRect(juce::Rectangle<float>(x, y, static_cast<float>(area.getRight()) - x, h - 1.0f));
         g.setColour(t.active);
         g.fillRect(x - 1.0f, y, 2.0f, h - 1.0f);
@@ -470,8 +464,8 @@ void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, 
     const auto box = juce::Rectangle<float>(x0, y + 1.0f, std::max(1.0f, x1 - x0), h - 3.0f);
     if (!box.intersects(visible.toFloat()))
         return;
-    const auto colour = paletteColour(clip.colour);
-    g.setColour(colour.withBrightness(selected ? 0.42f : 0.32f));
+    const auto colour = ui::Theme::current().clipColour(clip.colour);
+    g.setColour(t.clipBody(colour, selected));
     g.fillRect(box);
     const float strip = std::min(15.0f, box.getHeight() * 0.35f);
     const auto title = box.withHeight(strip);
@@ -484,7 +478,7 @@ void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, 
     if (title.getWidth() > 16.0f && strip >= 10.0f)
     {
         g.setColour(t.surface0);
-        g.setFont(ui::fonts::font(t.textXs, ui::fonts::Weight::SemiBold));
+        g.setFont(ui::font(ui::TextStyle::Control));
         g.drawText(juce::String::fromUTF8(clip.name.c_str()), title.reduced(4.0f, 0.0f), juce::Justification::centredLeft,
                    true);
     }
@@ -510,7 +504,7 @@ void ArrangementView::paintNotes(juce::Graphics& g, const model::ClipInfo& clip,
     const int span = std::max(12, hi - lo + 1);
     lo = std::max(0, (lo + hi) / 2 - span / 2);
     const float row = body.getHeight() / static_cast<float>(span);
-    g.setColour(colour.interpolatedWith(juce::Colours::white, 0.25f));
+    g.setColour(ui::Theme::current().clipContent(colour));
     juce::Graphics::ScopedSaveState saved(g);
     g.reduceClipRegion(body.getSmallestIntegerContainer());
     const double contentStart = clip.start - clip.offset; // follows the clip while it is dragged
@@ -530,7 +524,7 @@ void ArrangementView::paintWaveform(juce::Graphics& g, const model::ClipInfo& cl
     const auto* peaks = waveforms_.find(clip.sourcePath);
     if (peaks == nullptr)
         return;
-    const auto tint = colour.interpolatedWith(juce::Colours::white, 0.25f);
+    const auto tint = ui::Theme::current().clipContent(colour);
     // Tiles pay off on the GPU; the software renderer scales images slowly (measured).
     if (juce::OpenGLContext::getCurrentContext() != nullptr)
         tiles_.draw(g, *peaks, clip, body, visible, timeline_, laneArea().getX(), tint, zoomSettled_);

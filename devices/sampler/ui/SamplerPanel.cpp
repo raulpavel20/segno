@@ -51,9 +51,9 @@ public:
     {
         const auto& t = ui::Theme::current();
         const auto r = getLocalBounds().toFloat();
-        g.setColour(dragOver_ ? t.surface1.brighter(0.08f) : t.surface0);
+        g.setColour(dragOver_ ? t.roles.dropWell : t.surface0);
         g.fillRoundedRectangle(r, t.radiusControl);
-        g.setFont(ui::fonts::font(t.textXs, ui::fonts::Weight::Medium));
+        g.setFont(ui::font(ui::TextStyle::Label));
 
         if (sample_ == nullptr)
         {
@@ -87,7 +87,7 @@ public:
                 mx = std::max(mx, hi[b]);
             }
             const bool inside = f1 > region.start && f0 < region.end;
-            g.setColour(inside ? t.value : t.textTertiary.withAlpha(0.6f));
+            g.setColour(inside ? t.value : t.roles.outside);
             const float px = wave.getX() + static_cast<float>(x);
             g.fillRect(px, mid - mx * half, 1.0f, std::max(1.0f, (mx - mn) * half));
         }
@@ -95,7 +95,7 @@ public:
         // Loop region tint, markers and playheads.
         if (loop)
         {
-            g.setColour(t.value.withAlpha(0.10f));
+            g.setColour(t.roles.loopTint);
             g.fillRect(juce::Rectangle<float>(xFor(region.loopStart), wave.getY(),
                                               xFor(region.end) - xFor(region.loopStart), wave.getHeight()));
         }
@@ -103,7 +103,7 @@ public:
         drawMarker(g, S::End, "E", t.textPrimary);
         if (loop)
             drawMarker(g, S::LoopStart, "L", t.active);
-        g.setColour(t.textPrimary.withAlpha(0.8f));
+        g.setColour(t.roles.marker);
         for (float p : playheads_)
             if (p >= 0.0f)
                 g.fillRect(xFor(static_cast<double>(p) * sample_->frames), wave.getY(), 1.0f, wave.getHeight());

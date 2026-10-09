@@ -123,7 +123,7 @@ void EnvelopeDisplay::drawContent(juce::Graphics& g, juce::Rectangle<float> area
     auto fill = p;
     fill.lineTo(x, area.getBottom());
     fill.closeSubPath();
-    g.setColour(t.value.withAlpha(0.14f));
+    g.setColour(t.roles.curveFill);
     g.fillPath(fill);
     g.setColour(t.value);
     g.strokePath(p, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved));
@@ -166,7 +166,7 @@ void FilterDisplay::drawContent(juce::Graphics& g, juce::Rectangle<float> area)
     fill.lineTo(area.getBottomRight());
     fill.lineTo(area.getBottomLeft());
     fill.closeSubPath();
-    g.setColour(colour.withAlpha(0.14f));
+    g.setColour(t.fill(colour));
     g.fillPath(fill);
     g.setColour(colour);
     g.strokePath(curve, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved));

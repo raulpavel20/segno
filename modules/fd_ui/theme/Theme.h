@@ -36,6 +36,61 @@ struct DeviceGrid
     [[nodiscard]] constexpr int knobHeight() const noexcept { return height(knobRows); }
 };
 
+/// Colours by role (docs/design/ui-foundations.md, ADR 0023): every colour a view draws.
+/// Derived from the base palette in Theme.cpp, the only place colours are mixed.
+struct ColourRoles
+{
+    juce::Colour lane, laneSelected, subLane, strip;
+    juce::Colour keyRowLight, keyRowDark, shade;
+    juce::Colour gridBar, gridBeat, gridSub, gridOctave, gridMinor;
+    juce::Colour selectionFill, selectionStroke, dropTarget, textHighlight;
+    juce::Colour playhead, marker, loopInactive, onClip;
+    juce::Colour keyWhite, keyBlack, keySeam;
+    juce::Colour curveFill, selectionCurve, spectrumFill, spectrumLine, spectrumPre, outside, loopTint;
+    juce::Colour focusRing, hoverWash, dropWell, valueHot, valueText, warning, overlay, shadow;
+
+    // States.
+    float hoverLift = 0.06f, pressedLift = 0.12f;
+    float dimAlpha = 0.35f;   // ignored or switched off; never compounded
+    float fadedAlpha = 0.4f;  // exists but doesn't play
+    float fillAlpha = 0.14f;  // the flat fill under a curve
+};
+
+/// Animation and input constants (docs/design/ui-foundations.md): one feel everywhere.
+struct Motion
+{
+    double panel = 0.04;  // s, time constant: panels opening and resizing (~150 ms to settle)
+    double follow = 0.05; // s: the view following the playhead
+    double settle = 0.15; // s: detail that waits until motion stops
+};
+
+struct Input
+{
+    int dragThreshold = 3;      // px: a press becomes a drag
+    float edgeGrab = 6.0f;      // px: grabbing an edge (at most a third of the target)
+    double wheelScroll = 400.0; // px per wheel unit
+    double wheelZoom = 2.0;     // zoom factor per wheel unit (Ctrl)
+    double rulerZoom = 0.012;   // log zoom per px dragged vertically on a ruler
+};
+
+/// The shell's sizes (docs/design/ui-foundations.md).
+struct ShellMetrics
+{
+    int transportHeight = 40;
+    int rulerHeight = 24, loopStripHeight = 12;
+    int trackHeaderWidth = 180;
+    int panelHeaderHeight = 24;
+    int padding = 12;
+    int rowHeight = 20;
+    int propertyLabelWidth = 80;
+    int listRowHeight = 28;
+    int popoverWidth = 560, popoverTop = 56;
+    int toastHeight = 36, toastWidth = 420;
+    int keyboardWidth = 52, velocityHeight = 56;
+    int railWidth = 44, splitter = 5;
+    float shadowRadius = 18.0f, shadowOffset = 6.0f;
+};
+
 /// Design tokens (docs/design/ui-principles.md §4–5, ADR 0014). The only source of colours,
 /// sizes and type sizes for every component. Flat: no token is meant for a gradient except
 /// effectStart/effectEnd, which are reserved for the listed accent effects (automation,
@@ -84,6 +139,27 @@ struct Theme
     float knobMaxDiameter = 38.0f;
     float knobValueSize = 10.0f; // every knob's value text (mono), unless it can't fit
     float knobArcThickness = 2.5f;
+
+    ColourRoles roles;
+    Motion motion;
+    Input input;
+    ShellMetrics shell;
+
+    // Role functions: colours that depend on content (docs/design/ui-foundations.md).
+    /// Clip/track colour `index` of the palette (wraps).
+    [[nodiscard]] juce::Colour clipColour(int index) const;
+    /// A clip's body: its colour at low brightness (a step up when selected).
+    [[nodiscard]] juce::Colour clipBody(juce::Colour clip, bool selected) const;
+    /// Content drawn on a clip (waveform, notes): its colour towards white.
+    [[nodiscard]] juce::Colour clipContent(juce::Colour clip) const;
+    /// A note: from the control tone to the clip colour by velocity; lighter when selected.
+    [[nodiscard]] juce::Colour noteFill(juce::Colour clip, float velocity, bool selected) const;
+    /// Content that exists but doesn't play.
+    [[nodiscard]] juce::Colour faded(juce::Colour c) const { return c.withMultipliedAlpha(roles.fadedAlpha); }
+    /// The flat fill under a curve drawn in `c`.
+    [[nodiscard]] juce::Colour fill(juce::Colour c) const { return c.withMultipliedAlpha(roles.fillAlpha); }
+    /// Hover and press states of any surface or fill.
+    [[nodiscard]] juce::Colour lift(juce::Colour c, bool hovered, bool pressed) const;
 
     // Type scale (px, em size).
     float textXs = 11.0f;
