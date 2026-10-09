@@ -57,7 +57,8 @@ target_sources(fd_app_ui INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/WaveformTiles.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/DeviceChain.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/CommandPalette.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/PianoRoll.cpp")
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/PianoRoll.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/time/TimeView.cpp")
 target_link_libraries(fd_app_ui INTERFACE fd_engine juce::juce_opengl)
 
 target_sources(fd-daw PRIVATE src/Main.cpp)

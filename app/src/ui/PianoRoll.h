@@ -3,6 +3,7 @@
 #include "engine/Session.h"
 #include "model/NoteEditing.h"
 #include "model/Timeline.h"
+#include "ui/time/TimeView.h"
 
 #include <fd_ui/fd_ui.h>
 
@@ -18,9 +19,6 @@ namespace fd::app
 class PianoRoll final : public juce::Component
 {
 public:
-    static constexpr int keyboardWidth = 52;
-    static constexpr int rulerHeight = 20;
-    static constexpr int velocityHeight = 56;
     /// The closest grid lines get (px). Coarser than the arrangement's: a drawn note is one step.
     static constexpr double lineSpacing = 56.0;
 
@@ -110,7 +108,7 @@ private:
     bool needsFit_ = false;
     double lastGridHeight_ = 0.0;
     double playhead_ = 0.0;
-    float drawnPlayheadX_ = -1.0f;
+    time::PlayheadTracker playheadTracker_;
 
     Gesture gesture_ = Gesture::None;
     juce::Point<float> dragStart_, lastDrag_;
@@ -119,7 +117,7 @@ private:
     model::NoteEdit base_;           // the notes a gesture started from
     std::optional<std::size_t> clickedInSelection_; // a click without a drag selects just it
     std::set<std::size_t> boxBase_;  // selection before a Shift box drag
-    float rulerAnchorX_ = 0.0f;
+    time::RulerGesture rulerGesture_;
     float drawVelocity_ = 100.0f / 127.0f;
     std::optional<int> previewPitch_; // the note sounding now
 };

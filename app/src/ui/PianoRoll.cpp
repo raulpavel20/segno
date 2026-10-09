@@ -1,5 +1,7 @@
 #include "ui/PianoRoll.h"
 
+#include "ui/time/TimeView.h"
+
 #include <cmath>
 
 namespace fd::app
@@ -37,22 +39,26 @@ PianoRoll::~PianoRoll()
 
 juce::Rectangle<int> PianoRoll::rulerArea() const
 {
-    return getLocalBounds().removeFromTop(rulerHeight).withTrimmedLeft(keyboardWidth);
+    const auto& s = ui::Theme::current().shell;
+    return getLocalBounds().removeFromTop(s.rulerHeight).withTrimmedLeft(s.keyboardWidth);
 }
 
 juce::Rectangle<int> PianoRoll::velocityArea() const
 {
-    return getLocalBounds().removeFromBottom(velocityHeight).withTrimmedLeft(keyboardWidth);
+    const auto& s = ui::Theme::current().shell;
+    return getLocalBounds().removeFromBottom(s.velocityHeight).withTrimmedLeft(s.keyboardWidth);
 }
 
 juce::Rectangle<int> PianoRoll::keysArea() const
 {
-    return getLocalBounds().withTrimmedTop(rulerHeight).withTrimmedBottom(velocityHeight + 1).removeFromLeft(keyboardWidth);
+    const auto& s = ui::Theme::current().shell;
+    return getLocalBounds().withTrimmedTop(s.rulerHeight).withTrimmedBottom(s.velocityHeight + 1).removeFromLeft(s.keyboardWidth);
 }
 
 juce::Rectangle<int> PianoRoll::gridArea() const
 {
-    return getLocalBounds().withTrimmedTop(rulerHeight).withTrimmedBottom(velocityHeight + 1).withTrimmedLeft(keyboardWidth);
+    const auto& s = ui::Theme::current().shell;
+    return getLocalBounds().withTrimmedTop(s.rulerHeight).withTrimmedBottom(s.velocityHeight + 1).withTrimmedLeft(s.keyboardWidth);
 }
 
 double PianoRoll::contentStartSeconds() const
@@ -195,15 +201,7 @@ void PianoRoll::setClip(std::optional<model::ClipInfo> clip, const model::TempoM
 void PianoRoll::frame(double playheadSeconds)
 {
     playhead_ = playheadSeconds;
-    const auto area = gridArea();
-    const float x = static_cast<float>(area.getX() + timeline_.xForTime(playhead_));
-    if (std::abs(x - drawnPlayheadX_) >= 0.5f)
-    {
-        for (float px : {drawnPlayheadX_, x})
-            if (px >= static_cast<float>(area.getX()) - 8.0f)
-                repaint(juce::Rectangle<int>(static_cast<int>(px) - 6, 0, 13, getHeight()));
-        drawnPlayheadX_ = x;
-    }
+    playheadTracker_.update(*this, timeline_, gridArea(), playhead_);
 }
 
 const std::vector<model::Note>& PianoRoll::shownNotes() const
@@ -305,13 +303,11 @@ void PianoRoll::paint(juce::Graphics& g)
     paintKeys(g);
     paintRuler(g);
 
-    const auto area = gridArea();
-    const float px = static_cast<float>(area.getX() + timeline_.xForTime(playhead_));
-    if (px >= static_cast<float>(area.getX()))
-    {
-        g.setColour(t.textPrimary);
-        g.fillRect(px, static_cast<float>(rulerHeight), 1.0f, static_cast<float>(getHeight() - rulerHeight));
-    }
+    // The playhead through the grid and the velocity lane.
+    juce::Graphics::ScopedSaveState saved(g);
+    const auto lanes = gridArea().withBottom(getHeight());
+    g.reduceClipRegion(lanes);
+    time::paintPlayhead(g, timeline_, lanes, playhead_);
 }
 
 void PianoRoll::paintRows(juce::Graphics& g)
@@ -350,17 +346,7 @@ void PianoRoll::paintRows(juce::Graphics& g)
     if (clipX1 < x + w)
         g.fillRect(clipX1, static_cast<float>(area.getY()), x + w - clipX1, static_cast<float>(area.getHeight()));
 
-    for (const auto& line : lines_)
-    {
-        switch (line.kind)
-        {
-        case model::Timeline::LineKind::Bar: g.setColour(t.roles.gridBar); break;
-        case model::Timeline::LineKind::Beat: g.setColour(t.roles.gridBeat); break;
-        case model::Timeline::LineKind::Subdivision: g.setColour(t.roles.gridSub); break;
-        }
-        g.fillRect(static_cast<float>(area.getX() + timeline_.xForTime(line.seconds)), static_cast<float>(area.getY()), 1.0f,
-                   static_cast<float>(area.getHeight()));
-    }
+    time::paintGrid(g, lines_, timeline_, area);
 }
 
 void PianoRoll::paintNotes(juce::Graphics& g)
@@ -410,13 +396,7 @@ void PianoRoll::paintNotes(juce::Graphics& g)
         }
 
     if (gesture_ == Gesture::Box && moved_)
-    {
-        const auto box = juce::Rectangle<float>(dragStart_, lastDrag_);
-        g.setColour(t.roles.selectionFill);
-        g.fillRect(box);
-        g.setColour(t.roles.selectionStroke);
-        g.drawRect(box, 1.0f);
-    }
+        time::paintBoxSelection(g, juce::Rectangle<float>(dragStart_, lastDrag_));
 }
 
 void PianoRoll::paintVelocities(juce::Graphics& g)
@@ -430,13 +410,7 @@ void PianoRoll::paintVelocities(juce::Graphics& g)
 
     juce::Graphics::ScopedSaveState saved(g);
     g.reduceClipRegion(area);
-    for (const auto& line : lines_)
-        if (line.kind != model::Timeline::LineKind::Subdivision)
-        {
-            g.setColour(line.kind == model::Timeline::LineKind::Bar ? t.roles.gridBar : t.roles.gridBeat);
-            g.fillRect(static_cast<float>(area.getX() + timeline_.xForTime(line.seconds)), static_cast<float>(area.getY()),
-                       1.0f, static_cast<float>(area.getHeight()));
-        }
+    time::paintGrid(g, lines_, timeline_, area, false);
 
     const auto geo = geometry();
     const auto inner = area.reduced(0, 5).toFloat();
@@ -532,34 +506,10 @@ void PianoRoll::paintKeys(juce::Graphics& g)
 void PianoRoll::paintRuler(juce::Graphics& g)
 {
     const auto& t = ui::Theme::current();
-    const auto area = rulerArea();
     g.setColour(t.surface1);
-    g.fillRect(getLocalBounds().removeFromTop(rulerHeight));
-    juce::Graphics::ScopedSaveState saved(g);
-    g.reduceClipRegion(area);
-
-    // The clip's extent, in its colour, along the bottom.
-    const float clipX0 = static_cast<float>(area.getX() + timeline_.xForTime(clip_->start));
-    const float clipX1 = static_cast<float>(area.getX() + timeline_.xForTime(clip_->end()));
-    g.setColour(t.clipColour(clip_->colour));
-    g.fillRect(clipX0, static_cast<float>(area.getBottom()) - 3.0f, clipX1 - clipX0, 3.0f);
-
-    g.setFont(ui::font(ui::TextStyle::Value));
-    for (const auto& line : lines_)
-    {
-        const float lx = static_cast<float>(area.getX() + timeline_.xForTime(line.seconds));
-        const float tick = line.kind == model::Timeline::LineKind::Bar ? 8.0f
-                           : line.kind == model::Timeline::LineKind::Beat ? 4.0f
-                                                                           : 2.0f;
-        g.setColour(line.kind == model::Timeline::LineKind::Bar ? t.textTertiary : t.surface3);
-        g.fillRect(lx, static_cast<float>(area.getBottom()) - 3.0f - tick, 1.0f, tick);
-        if (line.label)
-        {
-            g.setColour(t.textSecondary);
-            g.drawText(juce::String(line.bar), juce::Rectangle<float>(lx + 4.0f, static_cast<float>(area.getY()) + 1.0f, 48.0f, 13.0f),
-                       juce::Justification::centredLeft, false);
-        }
-    }
+    g.fillRect(getLocalBounds().removeFromTop(t.shell.rulerHeight)); // the corner above the keys too
+    time::paintRuler(g, lines_, timeline_, rulerArea(),
+                     {.range = std::pair{clip_->start, clip_->end()}, .rangeColour = t.clipColour(clip_->colour)});
 }
 
 // ---- input ---------------------------------------------------------------------------------
@@ -596,7 +546,7 @@ void PianoRoll::mouseMove(const juce::MouseEvent& e)
     else if (clip_ && gridArea().contains(pos))
     {
         const auto local = e.position - gridArea().getPosition().toFloat();
-        if (const auto hit = model::hitNote(notes_, geometry(), local.x, local.y))
+        if (const auto hit = model::hitNote(notes_, geometry(), local.x, local.y, ui::Theme::current().input.edgeGrab))
             cursor = hit->zone == model::NoteHit::Zone::Body ? juce::MouseCursor::NormalCursor
                                                               : juce::MouseCursor::LeftRightResizeCursor;
     }
@@ -628,7 +578,7 @@ void PianoRoll::mouseDown(const juce::MouseEvent& e)
     if (rulerArea().contains(pos))
     {
         gesture_ = Gesture::Ruler;
-        rulerAnchorX_ = local.x;
+        rulerGesture_.begin(local.x);
         return;
     }
     if (velocityArea().contains(pos))
@@ -651,7 +601,7 @@ void PianoRoll::mouseDown(const juce::MouseEvent& e)
     if (!area.contains(pos))
         return;
 
-    const auto hit = model::hitNote(notes_, geo, local.x, local.y);
+    const auto hit = model::hitNote(notes_, geo, local.x, local.y, ui::Theme::current().input.edgeGrab);
     if (e.getNumberOfClicks() >= 2)
     {
         if (hit)
@@ -728,20 +678,12 @@ void PianoRoll::mouseDrag(const juce::MouseEvent& e)
     }
     if (gesture_ == Gesture::Ruler)
     {
-        // As the arrangement's ruler: vertical zooms around the press point, horizontal scrolls.
-        const auto delta = e.position - previous;
-        if (delta.y != 0.0f)
-            timeline_.zoomAround(rulerAnchorX_, std::exp(static_cast<double>(delta.y) * 0.012));
-        if (delta.x != 0.0f)
-        {
-            timeline_.scrollBy(-static_cast<double>(delta.x));
-            rulerAnchorX_ = local.x;
-        }
+        rulerGesture_.drag(timeline_, e.position - previous, local.x);
         repaint();
         return;
     }
     const bool immediate = gesture_ == Gesture::Draw || gesture_ == Gesture::Velocity || gesture_ == Gesture::VelocityOffset;
-    if (!immediate && !moved_ && e.getDistanceFromDragStart() < 3)
+    if (!immediate && !moved_ && e.getDistanceFromDragStart() < ui::Theme::current().input.dragThreshold)
         return; // a click, not a drag
     moved_ = true;
     const double deltaBeats = (e.position.x - dragStart_.x) / geo.pixelsPerBeat;
@@ -796,13 +738,11 @@ void PianoRoll::mouseDrag(const juce::MouseEvent& e)
 
 void PianoRoll::mouseUp(const juce::MouseEvent& e)
 {
-    if (gesture_ == Gesture::Ruler && e.getDistanceFromDragStart() < 3)
+    if (gesture_ == Gesture::Ruler && e.getDistanceFromDragStart() < ui::Theme::current().input.dragThreshold)
     {
         // A click in the ruler moves the playhead (snapped; Alt for free).
-        double seconds = timeline_.timeForX(e.position.x - static_cast<float>(gridArea().getX()));
-        if (snap_ && !e.mods.isAltDown())
-            seconds = timeline_.snap(seconds, tempo_);
-        session_.setPosition(std::max(0.0, seconds));
+        session_.setPosition(time::rulerTime(timeline_, tempo_, e.position.x - static_cast<float>(gridArea().getX()),
+                                             !snap_ || e.mods.isAltDown()));
     }
     if (gesture_ == Gesture::Notes && !moved_ && clickedInSelection_)
         selection_ = {*clickedInSelection_};
@@ -824,33 +764,24 @@ void PianoRoll::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheel
         return;
     const auto area = gridArea();
     const double x = e.position.x - static_cast<float>(area.getX());
-    const double y = e.position.y - static_cast<float>(area.getY());
-    const double dy = wheel.deltaY * (wheel.isReversed ? -1.0 : 1.0);
-    const double dx = wheel.deltaX * (wheel.isReversed ? -1.0 : 1.0);
-    if (e.mods.isCommandDown())
-        timeline_.zoomAround(std::max(0.0, x), std::pow(2.0, dy * 2.0));
-    else if (e.mods.isAltDown())
+    if (e.mods.isAltDown() && !e.mods.isCommandDown())
     {
-        // Row height, keeping the pitch under the mouse in place.
+        // Row height (this view's own axis), keeping the pitch under the mouse in place.
+        const double y = e.position.y - static_cast<float>(area.getY());
+        const double dy = wheel.deltaY * (wheel.isReversed ? -1.0 : 1.0);
         const double pitch = topEdge_ - y / rowHeight_;
         rowHeight_ = std::clamp(rowHeight_ * std::pow(2.0, dy), 6.0, 32.0);
         topEdge_ = pitch + y / rowHeight_;
     }
-    else if (e.mods.isShiftDown())
-        timeline_.scrollBy(-dy * 400.0);
     else
-    {
-        if (dx != 0.0)
-            timeline_.scrollBy(-dx * 400.0);
-        topEdge_ += dy * 400.0 / rowHeight_;
-    }
+        time::applyWheel(timeline_, x, e.mods, wheel, [this](double pixels) { topEdge_ -= pixels / rowHeight_; });
     clampPitchView();
     repaint();
 }
 
 void PianoRoll::mouseMagnify(const juce::MouseEvent& e, float scaleFactor)
 {
-    timeline_.zoomAround(std::max(0.0f, e.position.x - static_cast<float>(gridArea().getX())), scaleFactor);
+    time::applyMagnify(timeline_, e.position.x - static_cast<float>(gridArea().getX()), scaleFactor);
     repaint();
 }
 } // namespace fd::app

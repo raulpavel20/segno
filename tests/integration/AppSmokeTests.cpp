@@ -94,7 +94,7 @@ TEST_CASE("DAW shell builds and paints offscreen at standard and compact widths"
         for (auto* child : f.shell->getChildren())
             if (auto* view = dynamic_cast<fd::app::ArrangementView*>(child))
             {
-                const juce::Point<float> header(40.0f, fd::app::ArrangementView::rulerHeight + 20.0f);
+                const juce::Point<float> header(40.0f, static_cast<float>(fd::app::ArrangementView::rulerHeight()) + 20.0f);
                 view->mouseDown(mouseEvent(*view, header, header, false));
                 view->mouseUp(mouseEvent(*view, header, header, false));
             }
@@ -167,8 +167,8 @@ TEST_CASE("dragging a clip moves it, snapped, onto another track in one undo ste
     view.setSize(1200, 600);
     view.setSnapshot(f.session->snapshot());
     const auto& tl = view.timeline();
-    const float laneX = fd::app::ArrangementView::headerWidth;
-    const float top = fd::app::ArrangementView::rulerHeight;
+    const auto laneX = static_cast<float>(fd::app::ArrangementView::headerWidth());
+    const auto top = static_cast<float>(fd::app::ArrangementView::rulerHeight());
 
     // Grab the clip in the middle of its body (0.5 s), drag right ~1.3 s and down one track.
     const juce::Point<float> down(laneX + static_cast<float>(tl.xForTime(0.5)), top + 30.0f);
@@ -204,7 +204,7 @@ TEST_CASE("the loop brace is drawn, toggled and resized with the mouse", "[integ
     const auto& tl = view.timeline();
     const auto tempo = f.session->snapshot()->tempo;
     const double bar = tempo.secondsForBeats(tempo.beatsPerBar());
-    auto xAt = [&](double seconds) { return fd::app::ArrangementView::headerWidth + static_cast<float>(tl.xForTime(seconds)); };
+    auto xAt = [&](double seconds) { return static_cast<float>(fd::app::ArrangementView::headerWidth()) + static_cast<float>(tl.xForTime(seconds)); };
     const float y = 6.0f; // inside the loop strip
 
     // Draw bars 2-4 (snapped).
@@ -355,8 +355,8 @@ TEST_CASE("piano roll: a double-click makes a clip; notes are drawn, moved, set 
     // Double-click an empty spot of the first track at 2.1 s: a one-bar MIDI clip from the grid
     // line before it, an instrument for the track, and the clip view showing it.
     const auto& tl = view.timeline();
-    const juce::Point<float> spot(fd::app::ArrangementView::headerWidth + static_cast<float>(tl.xForTime(2.1)),
-                                  fd::app::ArrangementView::rulerHeight + 20.0f);
+    const juce::Point<float> spot(static_cast<float>(fd::app::ArrangementView::headerWidth()) + static_cast<float>(tl.xForTime(2.1)),
+                                  static_cast<float>(fd::app::ArrangementView::rulerHeight()) + 20.0f);
     click(view, spot);
     click(view, spot, 2);
     auto clip = clipInfo();

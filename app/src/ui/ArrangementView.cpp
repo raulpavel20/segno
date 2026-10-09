@@ -1,5 +1,7 @@
 #include "ui/ArrangementView.h"
 
+#include "ui/time/TimeView.h"
+
 #include <juce_opengl/juce_opengl.h>
 
 namespace fd::app
@@ -59,12 +61,12 @@ void ArrangementView::syncLayout()
 
 juce::Rectangle<int> ArrangementView::rulerArea() const
 {
-    return getLocalBounds().removeFromTop(rulerHeight).withTrimmedLeft(headerWidth);
+    return getLocalBounds().removeFromTop(rulerHeight()).withTrimmedLeft(headerWidth());
 }
 
 juce::Rectangle<int> ArrangementView::loopStripArea() const
 {
-    return rulerArea().removeFromTop(loopStripHeight);
+    return rulerArea().removeFromTop(loopStripHeight());
 }
 
 ArrangementView::LoopZone ArrangementView::loopZoneAt(float x) const
@@ -73,21 +75,22 @@ ArrangementView::LoopZone ArrangementView::loopZoneAt(float x) const
     if (!(b > a))
         return LoopZone::None;
     const float x0 = laneX(a), x1 = laneX(b);
-    if (std::abs(x - x0) <= 5.0f)
+    const float edge = std::min(ui::Theme::current().input.edgeGrab, (x1 - x0) / 3.0f);
+    if (std::abs(x - x0) <= edge)
         return LoopZone::Start;
-    if (std::abs(x - x1) <= 5.0f)
+    if (std::abs(x - x1) <= edge)
         return LoopZone::End;
     return x > x0 && x < x1 ? LoopZone::Body : LoopZone::None;
 }
 
 juce::Rectangle<int> ArrangementView::headerArea() const
 {
-    return getLocalBounds().withTrimmedTop(rulerHeight).removeFromLeft(headerWidth);
+    return getLocalBounds().withTrimmedTop(rulerHeight()).removeFromLeft(headerWidth());
 }
 
 juce::Rectangle<int> ArrangementView::laneArea() const
 {
-    return getLocalBounds().withTrimmedTop(rulerHeight).withTrimmedLeft(headerWidth);
+    return getLocalBounds().withTrimmedTop(rulerHeight()).withTrimmedLeft(headerWidth());
 }
 
 float ArrangementView::laneX(double seconds) const
@@ -124,7 +127,7 @@ void ArrangementView::frame(double dt, double playheadSeconds)
         lastZoomChange_ = now;
         zoomSettled_ = false;
     }
-    else if (!zoomSettled_ && now - lastZoomChange_ > 0.15)
+    else if (!zoomSettled_ && now - lastZoomChange_ > ui::Theme::current().motion.settle)
     {
         zoomSettled_ = true;
         repaint();
@@ -152,7 +155,7 @@ void ArrangementView::frame(double dt, double playheadSeconds)
     }
     if (scrollTarget_)
     {
-        const double k = 1.0 - std::exp(-dt / 0.05);
+        const double k = 1.0 - std::exp(-dt / ui::Theme::current().motion.follow);
         double start = timeline_.start() + (*scrollTarget_ - timeline_.start()) * k;
         if (std::abs(*scrollTarget_ - start) * timeline_.pixelsPerSecond() < 0.5)
         {
@@ -164,15 +167,7 @@ void ArrangementView::frame(double dt, double playheadSeconds)
     }
 
     playhead_ = playheadSeconds;
-    const float x = laneX(playhead_);
-    if (std::abs(x - drawnPlayheadX_) >= 0.5f)
-    {
-        // Invalidate only the old and new playhead strips (the GL thread redraws them).
-        for (float px : {drawnPlayheadX_, x})
-            if (px >= static_cast<float>(laneArea().getX()) - 8.0f)
-                repaint(juce::Rectangle<int>(static_cast<int>(px) - 6, 0, 13, getHeight()));
-        drawnPlayheadX_ = x;
-    }
+    playheadTracker_.update(*this, timeline_, laneArea(), playhead_);
 }
 
 void ArrangementView::zoomAt(double laneXPos, double factor)
@@ -240,57 +235,15 @@ void ArrangementView::paint(juce::Graphics& g)
 
     // Corner above the headers.
     g.setColour(t.surface1);
-    g.fillRect(getLocalBounds().removeFromTop(rulerHeight).removeFromLeft(headerWidth));
+    g.fillRect(getLocalBounds().removeFromTop(rulerHeight()).removeFromLeft(headerWidth()));
     lastPaintMs_ = juce::Time::getMillisecondCounterHiRes() - start;
 }
 
 void ArrangementView::paintRuler(juce::Graphics& g)
 {
-    const auto& t = ui::Theme::current();
-    const auto area = rulerArea();
-    g.setColour(t.surface1);
-    g.fillRect(area);
-
-    juce::Graphics::ScopedSaveState saved(g);
-    g.reduceClipRegion(area);
-
-    // Loop strip and brace: flat; the active colour when looping is on.
-    const auto strip = loopStripArea();
-    g.setColour(t.roles.strip);
-    g.fillRect(strip);
-    const auto [loopStart, loopEnd] = loopPreview_.value_or(loop_);
-    if (loopEnd > loopStart)
-    {
-        const auto brace = juce::Rectangle<float>(laneX(loopStart), static_cast<float>(strip.getY()) + 2.0f,
-                                                  laneX(loopEnd) - laneX(loopStart), static_cast<float>(strip.getHeight()) - 4.0f);
-        g.setColour(looping_ ? t.active : t.roles.loopInactive);
-        g.fillRect(brace);
-    }
-    g.setFont(ui::font(ui::TextStyle::Value));
-    for (const auto& line : grid_)
-    {
-        const float x = laneX(line.seconds);
-        const float tick = line.kind == model::Timeline::LineKind::Bar ? 9.0f
-                           : line.kind == model::Timeline::LineKind::Beat ? 5.0f
-                                                                           : 3.0f;
-        g.setColour(line.kind == model::Timeline::LineKind::Bar ? t.textTertiary : t.surface3);
-        g.fillRect(x, static_cast<float>(area.getBottom()) - tick, 1.0f, tick);
-        if (line.label)
-        {
-            g.setColour(t.textSecondary);
-            g.drawText(juce::String(line.bar),
-                       juce::Rectangle<float>(x + 4.0f, static_cast<float>(area.getY() + loopStripHeight) + 1.0f, 48.0f, 14.0f),
-                       juce::Justification::centredLeft, false);
-        }
-    }
-
-    // Playhead marker.
-    const float px = laneX(playhead_);
-    juce::Path marker;
-    marker.addTriangle(px - 5.0f, static_cast<float>(area.getBottom()) - 8.0f, px + 5.0f,
-                       static_cast<float>(area.getBottom()) - 8.0f, px, static_cast<float>(area.getBottom()));
-    g.setColour(t.textPrimary);
-    g.fillPath(marker);
+    auto area = rulerArea();
+    time::paintLoopStrip(g, timeline_, area.removeFromTop(loopStripHeight()), loopPreview_.value_or(loop_), looping_);
+    time::paintRuler(g, grid_, timeline_, area, {.playhead = playhead_});
 }
 
 void ArrangementView::paintHeaders(juce::Graphics& g)
@@ -362,16 +315,7 @@ void ArrangementView::paintLanes(juce::Graphics& g)
     // Grid: bar, beat and subdivision lines at falling contrast, all quieter than the track
     // separators (the strongest lines in the arrangement).
     const float bottom = static_cast<float>(area.getY() + std::min<double>(layout_.top(layout_.trackCount()), area.getHeight()));
-    for (const auto& line : grid_)
-    {
-        switch (line.kind)
-        {
-        case model::Timeline::LineKind::Bar: g.setColour(t.roles.gridBar); break;
-        case model::Timeline::LineKind::Beat: g.setColour(t.roles.gridBeat); break;
-        case model::Timeline::LineKind::Subdivision: g.setColour(t.roles.gridSub); break;
-        }
-        g.fillRect(laneX(line.seconds), static_cast<float>(area.getY()), 1.0f, bottom - static_cast<float>(area.getY()));
-    }
+    time::paintGrid(g, grid_, timeline_, area.withBottom(static_cast<int>(bottom)));
 
     // Track separators: one pixel of `line`, a step lighter than the lanes, across the width.
     g.setColour(t.line);
@@ -418,13 +362,7 @@ void ArrangementView::paintLanes(juce::Graphics& g)
 
     // Box selection.
     if (drag_ == Drag::Box)
-    {
-        const auto box = juce::Rectangle<float>(dragStart_, lastDrag_);
-        g.setColour(t.roles.selectionFill);
-        g.fillRect(box);
-        g.setColour(t.roles.selectionStroke);
-        g.drawRect(box, 1.0f);
-    }
+        time::paintBoxSelection(g, juce::Rectangle<float>(dragStart_, lastDrag_));
 
     // Empty project hint.
     if (snapshot_->contentEnd() <= 0.0 && !dropTarget_)
@@ -448,9 +386,7 @@ void ArrangementView::paintLanes(juce::Graphics& g)
         g.fillRect(x - 1.0f, y, 2.0f, h - 1.0f);
     }
 
-    // Playhead.
-    g.setColour(t.textPrimary);
-    g.fillRect(laneX(playhead_), static_cast<float>(area.getY()), 1.0f, static_cast<float>(area.getHeight()));
+    time::paintPlayhead(g, timeline_, area, playhead_);
 }
 
 void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, float y, float h,
@@ -553,7 +489,7 @@ void ArrangementView::mouseMove(const juce::MouseEvent& e)
     }
     else if (lanes.contains(e.getPosition()))
         if (const auto hit = model::hitClip(*snapshot_, layout_, timeline_, e.position.x - static_cast<float>(lanes.getX()),
-                                            e.position.y - static_cast<float>(lanes.getY())))
+                                            e.position.y - static_cast<float>(lanes.getY()), ui::Theme::current().input.edgeGrab))
             cursor = hit->zone == model::ClipHit::Zone::Body ? juce::MouseCursor::NormalCursor
                                                               : juce::MouseCursor::LeftRightResizeCursor;
     setMouseCursor(cursor);
@@ -578,7 +514,7 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
     if (rulerArea().contains(pos))
     {
         drag_ = Drag::Ruler;
-        rulerAnchorX_ = e.position.x - static_cast<float>(lanes.getX());
+        rulerGesture_.begin(e.position.x - static_cast<float>(lanes.getX()));
         return;
     }
     drag_ = Drag::None;
@@ -596,7 +532,7 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
     if (row)
         select(snapshot_->tracks[static_cast<size_t>(row->track)].id);
     const auto hit = model::hitClip(*snapshot_, layout_, timeline_, e.position.x - static_cast<float>(lanes.getX()),
-                                    e.position.y - static_cast<float>(lanes.getY()));
+                                    e.position.y - static_cast<float>(lanes.getY()), ui::Theme::current().input.edgeGrab);
     if (e.getNumberOfClicks() >= 2 && row)
     {
         // Double-click: open a clip in the clip view, or make a MIDI clip on an empty spot.
@@ -642,21 +578,13 @@ void ArrangementView::mouseDrag(const juce::MouseEvent& e)
     const auto lanes = laneArea();
     if (drag_ == Drag::Ruler)
     {
-        // One gesture: vertical zooms around the press point, horizontal scrolls.
-        const auto delta = e.position - lastDrag_;
+        rulerGesture_.drag(timeline_, e.position - lastDrag_, e.position.x - static_cast<float>(lanes.getX()));
         lastDrag_ = e.position;
-        if (delta.y != 0.0f)
-            timeline_.zoomAround(rulerAnchorX_, std::exp(static_cast<double>(delta.y) * 0.012));
-        if (delta.x != 0.0f)
-        {
-            timeline_.scrollBy(-static_cast<double>(delta.x));
-            rulerAnchorX_ = e.position.x - static_cast<float>(lanes.getX());
-        }
         repaint();
         return;
     }
     lastDrag_ = e.position;
-    if (!dragMoved_ && e.getDistanceFromDragStart() < 3)
+    if (!dragMoved_ && e.getDistanceFromDragStart() < ui::Theme::current().input.dragThreshold)
         return; // a click, not a drag
     dragMoved_ = true;
 
@@ -715,11 +643,11 @@ void ArrangementView::mouseDrag(const juce::MouseEvent& e)
 
 void ArrangementView::mouseUp(const juce::MouseEvent& e)
 {
-    if (drag_ == Drag::Ruler && e.getDistanceFromDragStart() < 3)
+    if (drag_ == Drag::Ruler && e.getDistanceFromDragStart() < ui::Theme::current().input.dragThreshold)
     {
         // A click in the ruler moves the playhead (snapped; Alt for free).
-        const double seconds = timeline_.timeForX(e.position.x - static_cast<float>(laneArea().getX()));
-        session_.setPosition(snapped(seconds, e.mods.isAltDown()));
+        session_.setPosition(time::rulerTime(timeline_, snapshot_->tempo, e.position.x - static_cast<float>(laneArea().getX()),
+                                             !snap_ || e.mods.isAltDown()));
     }
     if (drag_ == Drag::Loop)
     {
@@ -843,26 +771,14 @@ void ArrangementView::selectAllClips()
 
 void ArrangementView::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)
 {
-    const double x = e.position.x - static_cast<float>(laneArea().getX());
-    const double dy = wheel.deltaY * (wheel.isReversed ? -1.0 : 1.0);
-    const double dx = wheel.deltaX * (wheel.isReversed ? -1.0 : 1.0);
-    if (e.mods.isCommandDown())
-        timeline_.zoomAround(std::max(0.0, x), std::pow(2.0, dy * 2.0));
-    else if (e.mods.isShiftDown())
-        timeline_.scrollBy(-dy * 400.0);
-    else
-    {
-        if (dx != 0.0)
-            timeline_.scrollBy(-dx * 400.0);
-        if (dy != 0.0)
-            layout_.scrollBy(-dy * 400.0);
-    }
+    time::applyWheel(timeline_, e.position.x - static_cast<float>(laneArea().getX()), e.mods, wheel,
+                     [this](double pixels) { layout_.scrollBy(pixels); });
     repaint();
 }
 
 void ArrangementView::mouseMagnify(const juce::MouseEvent& e, float scaleFactor)
 {
-    timeline_.zoomAround(std::max(0.0f, e.position.x - static_cast<float>(laneArea().getX())), scaleFactor);
+    time::applyMagnify(timeline_, e.position.x - static_cast<float>(laneArea().getX()), scaleFactor);
     repaint();
 }
 

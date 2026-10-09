@@ -668,7 +668,7 @@ void Shell::runBenchmark(double seconds, std::function<void(juce::String)> done)
     // All 32 tracks on screen: focus mode, tracks shrunk to fit.
     focusMode_ = true;
     resized();
-    arrangement_.setAllTrackHeights((arrangement_.getHeight() - ArrangementView::rulerHeight) / 32.0);
+    arrangement_.setAllTrackHeights((arrangement_.getHeight() - ArrangementView::rulerHeight()) / 32.0);
     arrangement_.zoomToFit();
 
     // Let the zoom-to-fit settle, then measure.

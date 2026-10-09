@@ -6,6 +6,7 @@
 #include "model/TrackLayout.h"
 #include "ui/WaveformCache.h"
 #include "ui/WaveformTiles.h"
+#include "ui/time/TimeView.h"
 
 #include <fd_ui/fd_ui.h>
 
@@ -19,9 +20,15 @@ namespace fd::app
 class ArrangementView final : public juce::Component, public juce::FileDragAndDropTarget
 {
 public:
-    static constexpr int headerWidth = 180;
-    static constexpr int rulerHeight = 36;
-    static constexpr int loopStripHeight = 12; // top of the ruler: the loop brace
+    /// The track header column's width (shell metrics, docs/design/ui-foundations.md).
+    [[nodiscard]] static int headerWidth() { return ui::Theme::current().shell.trackHeaderWidth; }
+    /// The ruler zone: the loop strip on top of the ruler row.
+    [[nodiscard]] static int rulerHeight()
+    {
+        const auto& s = ui::Theme::current().shell;
+        return s.loopStripHeight + s.rulerHeight;
+    }
+    [[nodiscard]] static int loopStripHeight() { return ui::Theme::current().shell.loopStripHeight; }
 
     explicit ArrangementView(engine::Session& session);
 
@@ -122,7 +129,7 @@ private:
     std::vector<model::Timeline::GridLine> grid_; // paint scratch
     double playhead_ = 0.0;
     double lastPaintMs_ = 0.0;
-    float drawnPlayheadX_ = -1.0f;
+    time::PlayheadTracker playheadTracker_;
     bool snap_ = true;
     std::optional<std::uint64_t> selectedTrack_;
 
@@ -143,7 +150,7 @@ private:
     enum class Drag { None, Ruler, Clip, Box, Loop };
     Drag drag_ = Drag::None;
     juce::Point<float> lastDrag_, dragStart_;
-    float rulerAnchorX_ = 0.0f;
+    time::RulerGesture rulerGesture_;
     model::Drag clipDrag_;
     int dragStartTrack_ = 0;
     bool dragMoved_ = false;
