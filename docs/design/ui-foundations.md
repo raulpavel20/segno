@@ -125,6 +125,7 @@ Role functions for colours that depend on content:
 | `EmptyState` | A centred hint where there is nothing to show | Chain without a track, clip view without a clip, empty project, empty inspector |
 | `SectionStack` | Titled sections one under another: a `Section`-style caps title on the row grid, the content under it, and a 1 px `line` centred in the group gap between neighbours (a module panel's sections, stacked) | The inspector ([selection.md](selection.md) §5); later the browser and preferences |
 | `BarLayout` | Places a bar's items left and right on the item and group gaps | The transport bar |
+| `OutsideClick` | Closes a popover on any mouse press outside it (other top-level windows, such as its popup menus, excepted); popovers also close on Escape | The command palette, the lane picker, the Assistants popover |
 | `Brand` | The mark (`paintMark`), the mark and name (`paintBrand`), the app icon (`appIcon`) | The transport bar's left end; the app and window icon |
 
 **Toggle or view option.** A `Toggle` switches something on or off in the project or a device: mute, solo, Pre, power, a setting. It is a control, with a fill. A `ViewOption` only changes how a view looks (view state, never an undo step) and lives in that view's panel header, where it stays quiet until hovered.
@@ -156,7 +157,7 @@ A pure layout model: given the header's size, it says where each slot goes. The 
 
 Padding: 12 px left (after the colour strip), 6 px top and bottom, 8 px right.
 
-**Automation lanes** (C4, [automation.md](automation.md) §3) are rows of their own under their channel, with the same kit: the channel's colour strip, the parameter's name and the module's name indented 12 px, the lane's on switch in the buttons slot (only when it has points), the parameter's value on the right of the subtitle row, and its control as a bar in the controls slot (height ≥ 80). Lane headers sit on `subLane`. A channel with lanes shows a fold chevron in its left padding (the name doesn't move). Any row is resized by dragging its bottom edge in the header column (Alt: every row of its kind); heights are view state, by row (`model::ArrangementRows`).
+**Automation lanes** (C4, [automation.md](automation.md) §3, ADR 0029) are rows of their own among the tracks, with the same kit: the lane's colour strip, its name, its on switch in the buttons slot, what it drives in the subtitle ("Bass · Synth", "3 parameters") with the value now on the right, and with one assignment that parameter's control as a bar in the controls slot (height ≥ 80). Lane headers sit on `subLane`. Any row is resized by dragging its bottom edge in the header column (Alt: every row of its kind); heights are view state, by row (`model::ArrangementRows`).
 
 ## Channel strips (`model::ChannelStripLayout`)
 

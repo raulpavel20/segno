@@ -1,6 +1,6 @@
 # 0028. Automation: every lane visible, as rows like tracks, on the control's scale
 
-- **Status:** Accepted (product owner, 2026-10-09, with every recommendation of the design's review)
+- **Status:** Accepted (product owner, 2026-10-09, with every recommendation of the design's review). Where lanes sit and what they belong to (lanes under their track, per-track folding, the lane's context, the per-track MCP listing) superseded by [0029](0029-independent-automation-lanes.md): lanes are rows of their own with assignments.
 - **Date:** 2026-10-09
 - **Builds on:** [0014](0014-flat-darker-ableton-adjacent.md) (the reserved gradient), [0016](0016-constant-device-latency.md) and [0020](0020-latency-follows-lookahead.md) (what can't be automated), [0021](0021-mcp-server.md) (MCP tools for every DAW feature), [0023](0023-ui-foundations.md) (the track header and time-view kits), [0026](0026-mixing-in-the-arrangement.md) (the mixer and its taper), [0027](0027-selection-and-context-panels.md) (one selection)
 

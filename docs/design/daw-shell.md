@@ -84,8 +84,9 @@ app/src/
 | Audio settings | `app.audioSettings` | Ctrl+, |
 | Mute / solo selected tracks (C3) | `track.mute` / `track.solo` | Alt+M / Alt+S |
 | Add automation lane... (C4) | `automation.addLane` | Ctrl+Shift+L |
-| Show last touched parameter's lane (C4) | `automation.showLastTouched` | Alt+L |
-| Show / fold automation lanes (C4) | `view.lanes` | Ctrl+Alt+L |
+| Assign parameter to the selected lane... (C4) | `automation.assign` | Ctrl+Alt+Shift+L |
+| Automate last touched parameter (C4) | `automation.showLastTouched` | Alt+L |
+| Show / hide automation lanes (C4) | `view.lanes` | Ctrl+Alt+L |
 | Automation arm (C4) | `automation.arm` | Ctrl+Shift+A |
 | Turn automation back on (C4) | `automation.reEnable` | Ctrl+Alt+A |
 | Add return track (C3) | `track.addReturn` | Ctrl+Alt+T |
@@ -204,20 +205,20 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 - The header's Modules, Sends and Narrow view options (`ui::ViewOption`), the current view and the mixer's scroll are view state, saved with the project.
 - Strips, header controls and the inspector hold the engine's meters: they are dropped before a project is replaced, and the inspector drops its own while the mixer view is shown.
 
-## Automation lanes (C4b, [automation.md](automation.md))
+## Automation lanes (C4b, C4d, [automation.md](automation.md))
 
-- **Rows:** `model::ArrangementRows` lists the arrangement's rows: each track with its unfolded lanes, then the returns and the master with theirs. Every row is drawn from the track header kit; clip editing maps rows to tracks (a drag across a lane row moves a clip to the lane's track).
-- **Lanes** draw the engine's curve (`model::Automation`) over the reserved gradient, with points as dots (`ui/AutomationLane`). Gestures are §5 of the design: double-click adds or deletes, drag moves (snapped; Alt free; Shift fine), a segment drags up or down (Alt bends it), Ctrl+drag draws, an empty drag box-selects. A gesture previews and applies one `Session::setAutomation`, one undo step.
-- **Headers:** the lane's on switch and its parameter's bar (`ui/LaneControls`, edits through `Session::setLaneValue`), the value now (refreshed each frame while it plays); the fold chevron on a channel; dragging a row's bottom edge resizes it.
-- **Showing lanes:** the track header's right-click menu or Ctrl+Shift+L opens the lane picker (`ui/LanePicker`, a searchable list like the palette); Alt+L shows the last touched parameter's lane; Ctrl+Alt+L folds or shows every lane. Delete after clicking a lane's header removes it.
+- **Rows:** `model::ArrangementRows` lists the arrangement's rows: lanes at the top, then each track followed by the lanes that sit after it, then the returns and the master. Lanes are rows of their own (ADR 0029): they drive assigned parameters on any channel. Every row is drawn from the track header kit; clip editing maps a lane row to the track above it.
+- **Lanes** draw the engine's curve (`model::Automation`) over the reserved gradient, with points as dots (`ui/AutomationLane`). Gestures are §5 of the design: double-click adds or deletes, drag moves (snapped; Alt free; Shift fine), a segment drags up or down (Alt bends it), Ctrl+drag draws, an empty drag box-selects. A gesture previews and applies one `Session::setLanePoints`, one undo step that also derives every assigned parameter's curve.
+- **Headers:** the lane's on switch (every assignment), what it drives, the value now (refreshed each frame), and with one assignment that parameter's bar (`ui/LaneControls`); dragging a row's bottom edge resizes it.
+- **Making lanes:** Ctrl+Shift+L or the track header's right-click menu opens the parameter picker (`ui/LanePicker`: a searchable list with a channel row at its top) to make a lane and its first assignment; Alt+L automates the last touched parameter; Ctrl+Alt+L shows or hides every lane. The inspector's ASSIGNMENTS section edits what a lane drives. Delete after clicking a lane's header removes it.
 - **Keys** follow the lane when it was used last: Delete, Ctrl+D, Ctrl+A and the arrows (↑/↓ 1 %, Shift 0.1 %; ←/→ a grid step) act on its points.
 
 ## Automated controls and recording (C4c, [automation.md](automation.md) §6–§8)
 
 - **The indicator** (`ui::AutomationState`, `ui::paintAutomationIndicator`): knobs, bars, faders, toggles, segments and choices show it, from the host binding (`ParamBinding::automationState`) for module panels and from the snapshot's lanes for the mixer's controls.
-- **Right-click menus** on every control (`Knob::onPopupMenu`, `Toggle::onPopupMenu`): Show automation lane (the lane, selected, in the arrangement, leaving the mixer view), Clear automation, Turn automation back on, Reset to default. Plugin hosts get only Reset.
+- **Right-click menus** on every control (`Knob::onPopupMenu`, `Toggle::onPopupMenu`): Show automation lane (the lane, selected, in the arrangement, leaving the mixer view), Turn automation back on, Remove from automation lane, Assign to automation lane ▸, Automate in a new lane, Reset to default (`ui/AutomationMenu`, added through `ParamBinding::addAutomationItems` for module panels). Plugin hosts get only Reset.
 - **Following:** automated mixer controls read their lane's played value each frame (`LaneFollower`); module panels refresh from the engine as before.
-- **Gestures** on mixer controls are lane gestures (`Session::LaneGesture`): one undo step, and a touch while recording. A knob's double-click reset joins the gesture its second press began, so gestures never nest.
+- **Gestures** on mixer controls are parameter gestures (`Session::ParamGesture`): one undo step, and a touch while recording. A knob's double-click reset joins the gesture its second press began, so gestures never nest.
 - **Transport:** Automation arm and Turn automation back on (lit while a lane is off), between the loop and the tempo.
 
 ## Mixer in the arrangement (C3b, [mixer.md](mixer.md))

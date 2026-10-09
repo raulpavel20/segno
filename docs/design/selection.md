@@ -31,8 +31,8 @@ The selection is view state: it is not saved, not an undo step, and assistants n
 | A drag box over clips (Shift adds) | The track of the topmost selected clip (none: the track the box started on) | The clips in the box |
 | Dragging clips to another track | The grabbed clip's new track | Unchanged |
 | A header's mute, solo, volume or pan control | Unchanged (the control takes the click) | Unchanged |
-| An automation lane's header, or an empty spot in it (C4) | The lane's channel, and that lane | None |
-| A point in a lane, or a box of points (C4) | The lane's channel, the lane and those points | None |
+| An automation lane's header, or an empty spot in it (C4) | Its first assignment's channel (none without one), and that lane | None |
+| A point in a lane, or a box of points (C4) | The same, the lane and those points | None |
 
 **Mixer view**
 
@@ -63,7 +63,7 @@ What the context panels show follows from the selection:
 | Subject | Arrangement | Mixer view |
 |---|---|---|
 | One MIDI clip | **Clip** view: the piano roll | **Modules** of its track |
-| A lane (C4) | **Modules** of its channel, the lane's module selected | the same |
+| A lane (C4) | **Modules** of its first assignment's channel, that module selected (none without an assignment) | the same |
 | One audio clip, several clips | **Modules** of the selected track | **Modules** of the selected track |
 | A channel | **Modules** of that channel (a return's or the master's chain too) | **Modules** of that channel |
 | Nothing | "Select a track to see its modules" | the same |
@@ -80,7 +80,8 @@ What the context panels show follows from the selection:
 |---|---|---|
 | **POINT** | One selected point of a lane (C4) | Time, Value (a field to drag or type), Bend |
 | **POINTS** | Several points | Selected: how many |
-| **LANE** | A lane (C4) | Parameter, Module, Points, Value now, whether it plays |
+| **LANE** | A lane (C4) | Name (a field), Points, Value now, whether it plays |
+| **ASSIGNMENTS** | A lane (C4) | Each assignment: on switch, "Track › Parameter" (shows its module), remove; its range as from and to fields in the parameter's units. Then "Assign parameter…". A lane shows no TRACK, MIX or SENDS: it belongs to no track |
 | **CLIP** | One clip | Name, Start (bars.beats.16ths), Length, Offset |
 | **CLIPS** | Several clips | Selected: how many |
 | **TRACK** | A track (also under CLIP or CLIPS) | Name, Instrument, Clips |
