@@ -8,13 +8,13 @@ juce_add_modules(ALIAS_NAMESPACE tracktion
 # fd_app_model: JUCE-free view models of the DAW (ADR 0018), tested as [fast].
 add_library(fd_app_model STATIC src/model/Timeline.cpp src/model/TrackLayout.cpp src/model/Peaks.cpp
     src/model/Editing.cpp src/model/Fuzzy.cpp src/model/NoteEditing.cpp
-    src/model/TrackHeaderLayout.cpp src/model/AudioMeasure.cpp src/model/Taper.cpp src/model/ChannelStripLayout.cpp)
+    src/model/TrackHeaderLayout.cpp src/model/AudioMeasure.cpp src/model/Taper.cpp src/model/ChannelStripLayout.cpp src/model/Selection.cpp)
 target_include_directories(fd_app_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(fd_app_model PUBLIC fd::audiofile PRIVATE fd::dsp fd::warnings)
 
 if(FD_BUILD_TESTS)
     fd_add_test(NAME fd_app_model_tests SOURCES tests/ModelTests.cpp tests/NoteEditingTests.cpp tests/AudioMeasureTests.cpp
-        LIBS fd_app_model)
+        tests/SelectionTests.cpp LIBS fd_app_model)
 endif()
 
 # fd_mcp: the MCP server's protocol layer and transports (ADR 0021, docs/design/mcp.md). JUCE-free,
