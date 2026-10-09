@@ -2,7 +2,7 @@
 
 The DAW's built-in MCP server ([ADR 0021](../decisions/0021-mcp-server.md)). An assistant the user connects can do what the user can do, read what the user can see, and render and measure the result.
 
-**Status:** draft for product-owner review. Nothing here is built yet. Tool names and arguments become a public interface once released (ADR 0021), so this catalogue is the thing to review.
+**Status:** approved by the product owner (2026-10-09), with the recommendations in §9. Tool names and arguments become a public interface once released (ADR 0021).
 
 ## 1. Connecting
 
@@ -190,11 +190,13 @@ app/src/mcp/
 - **HTTP:** a loopback test with the token and with a wrong `Origin`; the stdio relay against a headless app.
 - **Real assistants:** a session with Claude Code that builds a short loop (a drum pattern, a bassline, a filter sweep's settings), checked by ear. Product owner: setup from the popover in both clients.
 
-## 9. Open questions
+## 9. Decisions
 
-| # | Question | Recommendation |
+Decided with the product owner on 2026-10-09 (open questions B18–B21).
+
+| # | Question | Decision |
 |---|---|---|
-| Q1 | **Which files may an assistant read?** (`insert_audio_file`, `load_sample`, `open_project` take paths) | Any file the user's account can read, as the DAW itself can; the popover can narrow it to chosen folders |
-| Q2 | **Audio in render results** (`audio: true`): assistants that accept audio could listen | Allowed, capped at 30 s of 48 kHz stereo (about 11 MB as WAV, less as FLAC); longer renders give measurements only |
+| Q1 | **Which files may an assistant read?** (`insert_audio_file`, `load_sample`, `open_project` take paths) | Any file the user's account can read, as the DAW itself can; the popover can narrow it to chosen folders later |
+| Q2 | **Audio in render results** (`audio: true`): assistants that accept audio could listen | Allowed, capped at 30 s of 48 kHz stereo (about 11 MB as WAV); longer renders give measurements only |
 | Q3 | **Default port** | 7377, then the next free one |
 | Q4 | **Should the stdio relay start the app when it isn't running?** | Yes, headless, so batch jobs work; a running app is preferred when there is one |

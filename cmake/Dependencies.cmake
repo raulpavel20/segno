@@ -12,6 +12,8 @@
 # | clap-juce-extensions  | 7adee3a1         | MIT                | plugins (CLAP)               |
 # | tracktion_engine      | 6e4423f1 (develop)| GPL-3.0+ / comm.  | app (+ cmake/patches/)       |
 # | Inter (font)          | 4.1              | OFL-1.1            | modules/fd_ui (bundled font) |
+# | JetBrains Mono (font) | 2.304            | OFL-1.1            | modules/fd_ui (bundled font) |
+# | cpp-httplib           | v0.57.1          | MIT                | app (MCP server, ADR 0021)   |
 
 # --- Core (always) ---------------------------------------------------------
 
@@ -93,4 +95,16 @@ if(FD_BUILD_APP)
         # Local fixes until upstreamed; each patch file explains itself.
         PATCHES "${CMAKE_CURRENT_LIST_DIR}/patches/tracktion_engine-atomic-state-init.patch"
                 "${CMAKE_CURRENT_LIST_DIR}/patches/tracktion_engine-instrument-audio-passthrough.patch")
+
+    # The MCP server's HTTP transport (ADR 0021). Header-only; built without TLS or compression
+    # (it serves the loopback interface only).
+    CPMAddPackage(
+        NAME cpp_httplib
+        URL https://github.com/yhirose/cpp-httplib/archive/refs/tags/v0.57.1.tar.gz
+        URL_HASH SHA256=5c9e56b6638eb415dc451ac57531e84931fcb50e261ca3dd74eec6b484fb4712
+        DOWNLOAD_ONLY YES)
+    find_package(Threads REQUIRED)
+    add_library(fd_dep_httplib INTERFACE)
+    target_include_directories(fd_dep_httplib SYSTEM INTERFACE "${cpp_httplib_SOURCE_DIR}")
+    target_link_libraries(fd_dep_httplib INTERFACE Threads::Threads $<$<PLATFORM_ID:Windows>:ws2_32>)
 endif()

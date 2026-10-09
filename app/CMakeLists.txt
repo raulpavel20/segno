@@ -16,6 +16,18 @@ if(FD_BUILD_TESTS)
     fd_add_test(NAME fd_app_model_tests SOURCES tests/ModelTests.cpp tests/NoteEditingTests.cpp LIBS fd_app_model)
 endif()
 
+# fd_mcp: the MCP server's protocol layer and transports (ADR 0021, docs/design/mcp.md). JUCE-free,
+# tested as [fast]; the tools over the Session live in fd_app_mcp below.
+add_library(fd_mcp STATIC src/mcp/protocol/Dispatcher.cpp src/mcp/protocol/Schema.cpp src/mcp/protocol/Encoding.cpp
+    src/mcp/Conventions.cpp src/mcp/transport/HttpServer.cpp src/mcp/transport/StdioRelay.cpp)
+target_include_directories(fd_mcp PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_link_libraries(fd_mcp PUBLIC fd_app_model nlohmann_json::nlohmann_json PRIVATE fd_dep_httplib fd::warnings)
+
+if(FD_BUILD_TESTS)
+    fd_add_test(NAME fd_mcp_tests SOURCES tests/McpProtocolTests.cpp tests/McpConventionsTests.cpp tests/McpHttpTests.cpp
+        LIBS fd_mcp fd_dep_httplib)
+endif()
+
 # fd_engine: the tracktion adapter, compiled into each consumer (the app and its tests).
 add_library(fd_engine INTERFACE)
 target_sources(fd_engine INTERFACE
