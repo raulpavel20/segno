@@ -57,10 +57,10 @@ Decisions still to be made. Once a question is answered, record the answer in an
 | B26 | **Mixer: solo exclusive on click and Ctrl+click to add, or the other way round?** (mixer.md Q2) | C3 (M2) | Product owner, 2026-10-09: agreed. Exclusive on click, Ctrl+click adds |
 | B27 | **Mixer: balance pan (0 dB at centre) or a −3 dB constant-power law?** (mixer.md Q3) | C3 (M2) | Product owner, 2026-10-09: agreed. Balance, 0 dB at centre. Also: a separate mixer view in M2 (mixer.md §6) |
 | B28 | **Limiter M/S: the mid is limited to the ceiling and the side takes the room left** (so the decoded output stays under the ceiling and the centre keeps its level). The approved SPEC said "limit mid and side separately", which alone can't keep the decoded channels under the ceiling. | B3 sign-off | Product owner, 2026-10-09: agreed, as built |
-| B29 | **Automation: moving an automated control** when not recording. Does its lane turn off (kept, faded) until turned back on, or does the lane always win (the control snaps back)? ([automation.md](design/automation.md) Q1) | C4 (M2) | Turn off, with a switch per lane and one "Automation" button in the transport bar to turn them all back on |
-| B30 | **Automation and clips:** when a clip moves, does the automation under it stay on the timeline or move with it? (automation.md Q2) | C4 (M2) | Stay in M2; moving with clips as an option when range editing comes |
-| B31 | **Automation write modes:** touch only, or also latch? (automation.md Q3) | C4 (M2) | Touch only; latch with hardware controllers (B5) |
-| B32 | **Mute automation:** the engine's mute isn't a parameter. Skip in M2, or add a track "on" parameter now? (automation.md Q4) | C4 (M2) | Skip in M2 (automate volume instead); add it with M3's track work |
+| B29 | **Automation: moving an automated control** when not recording. Does its lane turn off (kept, faded) until turned back on, or does the lane always win (the control snaps back)? ([automation.md](design/automation.md) Q1) | C4 (M2) | Product owner, 2026-10-09: agreed. Turn off, with a switch per lane and one "Automation" button in the transport bar to turn them all back on |
+| B30 | **Automation and clips:** when a clip moves, does the automation under it stay on the timeline or move with it? (automation.md Q2) | C4 (M2) | Product owner, 2026-10-09: agreed. Stay in M2; moving with clips as an option when range editing comes |
+| B31 | **Automation write modes:** touch only, or also latch? (automation.md Q3) | C4 (M2) | Product owner, 2026-10-09: agreed. Touch only; latch with hardware controllers (B5) |
+| B32 | **Mute automation:** the engine's mute isn't a parameter. Skip in M2, or add a track "on" parameter now? (automation.md Q4) | C4 (M2) | Product owner, 2026-10-09: agreed. Skip in M2 (automate volume instead); add it with M3's track work |
 
 ---
 

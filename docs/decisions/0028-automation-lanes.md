@@ -1,6 +1,6 @@
 # 0028. Automation: every lane visible, as rows like tracks, on the control's scale
 
-- **Status:** Proposed
+- **Status:** Accepted (product owner, 2026-10-09, with every recommendation of the design's review)
 - **Date:** 2026-10-09
 - **Builds on:** [0014](0014-flat-darker-ableton-adjacent.md) (the reserved gradient), [0016](0016-constant-device-latency.md) and [0020](0020-latency-follows-lookahead.md) (what can't be automated), [0021](0021-mcp-server.md) (MCP tools for every DAW feature), [0023](0023-ui-foundations.md) (the track header and time-view kits), [0026](0026-mixing-in-the-arrangement.md) (the mixer and its taper), [0027](0027-selection-and-context-panels.md) (one selection)
 
@@ -21,7 +21,7 @@ The design is in [design/automation.md](../design/automation.md).
 - **A straight line is a straight move of the control.** Lanes span the control's travel. Our modules' parameters automate in normalised units (as plugin hosts already do); volume and sends automate on our taper (tracktion's fader mapping is patched to it). Projects saved earlier are converted when opened.
 - **What you see is what plays.** One curve function in `model::Automation`, equal to the engine's; tracktion is patched so playback uses the drawn bend formula and a one-point lane holds its value.
 - **Editing** uses the gestures of clips and notes; every gesture is one undo step.
-- **Moving an automated control** while not recording turns its lane off (kept, faded) until turned back on, per lane or all at once from the transport bar. Lane on/off is a listening state, like solo: saved, never undoable (pending review, Q1).
+- **Moving an automated control** while not recording turns its lane off (kept, faded) until turned back on, per lane or all at once from the transport bar. Lane on/off is a listening state, like solo: saved, never undoable.
 - **Recording:** Automation arm and touch writing; one undo step per pass; lanes appear for what was written.
 - **Automated controls show an indicator** (filled while the lane plays, a ring while it's off), and every control gets a right-click menu (show lane, clear, turn back on, reset). The host binding carries both, so module panels stay the same in plugin hosts, where they offer only reset.
 - **Lanes and points join the one selection**; the context panels show a lane's module and a LANE or POINT section.

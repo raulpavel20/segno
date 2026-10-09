@@ -1,8 +1,8 @@
 # Automation: design (M2 step C4)
 
-How parameters change over time in Segno: automation lanes in the arrangement, breakpoints and curves, recording moves while playing, and how automated controls look and behave. The decision is [ADR 0028](../decisions/0028-automation-lanes.md) (proposed). It builds on the track header kit and the time-view kit ([ui-foundations.md](ui-foundations.md), ADR 0023), the selection model ([selection.md](selection.md), ADR 0027), the mixer ([mixer.md](mixer.md), ADR 0026) and the reserved gradient (ui-principles §4).
+How parameters change over time in Segno: automation lanes in the arrangement, breakpoints and curves, recording moves while playing, and how automated controls look and behave. The decision is [ADR 0028](../decisions/0028-automation-lanes.md). It builds on the track header kit and the time-view kit ([ui-foundations.md](ui-foundations.md), ADR 0023), the selection model ([selection.md](selection.md), ADR 0027), the mixer ([mixer.md](mixer.md), ADR 0026) and the reserved gradient (ui-principles §4).
 
-**Status:** draft for the product owner's review. The questions are in §14.
+**Status:** approved by the product owner (2026-10-09), with every recommendation of §14.
 
 ## 1. Principles
 
@@ -181,14 +181,14 @@ Each tool comes with a test that drives it through MCP (ADR 0021). A **target** 
 - **Modes:** tracktion's tracks read automation by default; arming sets every track to touch, disarming back to read. Recording writes through the edit's undo manager, and the Session closes one transaction per pass.
 - **Lane on/off** is tracktion's curve bypass (not undoable, which matches §7).
 
-## 14. Questions for review
+## 14. Decisions from the review (product owner, 2026-10-09)
 
-| # | Question | Recommendation |
+| # | Question | Answer |
 |---|---|---|
-| Q1 | **Moving an automated control** when not recording: does its lane turn off until turned back on (§7), or does the lane always win (the control snaps back)? | Turn off, with a per-lane switch and one "Automation" button to turn every lane back on |
-| Q2 | **Automation and clips:** when a clip moves, does the automation under it stay on the timeline, or move with it? | Stay in M2 (simpler, and what you see in the lanes doesn't change by surprise); moving with clips as an option when range editing comes |
-| Q3 | **Write modes:** touch only in M2, or also latch (keep writing the last value until you stop)? | Touch only; latch when hardware controllers arrive (B5) |
-| Q4 | **Mute automation:** the engine's mute isn't a parameter. Skip it in M2, or add a track "on" parameter now? | Skip in M2 (automate volume to silence instead); add it with M3's track work |
+| Q1 | **Moving an automated control** when not recording: does its lane turn off until turned back on (§7), or does the lane always win (the control snaps back)? | Agreed (B29): turn off, with a per-lane switch and one "Automation" button to turn every lane back on |
+| Q2 | **Automation and clips:** when a clip moves, does the automation under it stay on the timeline, or move with it? | Agreed (B30): stay in M2; moving with clips as an option when range editing comes |
+| Q3 | **Write modes:** touch only in M2, or also latch (keep writing the last value until you stop)? | Agreed (B31): touch only; latch when hardware controllers arrive (B5) |
+| Q4 | **Mute automation:** the engine's mute isn't a parameter. Skip it in M2, or add a track "on" parameter now? | Agreed (B32): skip in M2 (automate volume to silence instead); add it with M3's track work |
 
 ## 15. Building it
 
