@@ -1,5 +1,7 @@
 # Roadmap
 
+The product is **Segno** ([ADR 0024](decisions/0024-product-name.md)); before the first public build, register `segnoaudio.org` and run a trademark search (M7 packaging at the latest).
+
 Device lists for each milestone come from [devices/device-suite.md](devices/device-suite.md); DAW innovations come from [innovation-backlog.md](innovation-backlog.md). *(Italics)* mark which stage of a staged device a milestone ships ([ADR 0011](decisions/0011-calibrated-ambition-and-consolidation.md)). Every milestone ends with **automated checks green** and **product-owner sign-off**: sound, feel and the manual checklist in `docs/manual-tests/Mx.md`.
 
 **Status legend:** ☐ not started · ◐ in progress · ☑ done
