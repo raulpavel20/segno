@@ -2,6 +2,7 @@
 
 #include "ui/ActionRegistry.h"
 #include "ui/ArrangementView.h"
+#include "ui/MixerView.h"
 #include "ui/AssistantsPopover.h"
 #include "ui/CommandPalette.h"
 #include "ui/Panels.h"
@@ -83,6 +84,8 @@ private:
     Area lastArea_ = Area::Arrangement; // where Delete, Duplicate and Select all apply
     [[nodiscard]] bool notesActive() const; // the piano roll was used last and shows a clip
     ArrangementView arrangement_;
+    MixerView mixer_{session_};
+    bool mixerShown_ = false; // the centre shows the mixer view instead of the arrangement
     Splitter browserSplit_, inspectorSplit_;
     Splitter detailSplit_{true}; // the clip view's top edge
     float deviceViewHeight_ = 0.0f, clipViewHeight_ = 320.0f; // the detail panel's height per mode

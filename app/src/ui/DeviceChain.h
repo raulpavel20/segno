@@ -27,6 +27,8 @@ public:
 
     [[nodiscard]] bool hasSelection() const noexcept { return selected_.has_value(); }
     void deleteSelected();
+    /// Selects a module and scrolls it into view (the mixer view's module names).
+    void selectDevice(std::uint64_t id);
     /// The selected module's panel (null for none, or a third-party plugin's card).
     [[nodiscard]] ui::DevicePanel* selectedPanel() const;
     /// Folds or unfolds the selected module (ADR 0022).

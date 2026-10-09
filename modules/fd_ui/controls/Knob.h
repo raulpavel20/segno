@@ -3,7 +3,9 @@
 namespace fd::ui
 {
 /// Rotary control: a flat value arc (ui-principles §4, §7). The Bar style draws the same control
-/// as a compact horizontal bar with the name and value inside, for dense rows (mod amounts).
+/// as a compact horizontal bar with the name and value inside, for dense rows (mod amounts). The
+/// Fader style is a vertical fader (the mixer view): a thin track, filled up to a flat cap; its
+/// travel follows the mouse one to one.
 ///
 /// Interaction (identical everywhere):
 ///   drag vertically to change (a bar also follows horizontal drags); Shift = fine;
@@ -17,7 +19,8 @@ public:
     enum class Style
     {
         Rotary,
-        Bar
+        Bar,
+        Fader
     };
 
     Knob();
@@ -54,6 +57,9 @@ public:
 
 private:
     void paintBar(juce::Graphics& g);
+    void paintFader(juce::Graphics& g);
+    /// A fader's travel in pixels: the cap's centre moves over it.
+    [[nodiscard]] float faderTravel() const noexcept;
     void changeTo(float normalized);
     [[nodiscard]] float quantize(float normalized) const noexcept;
     void showEditor(const juce::String& initialText);

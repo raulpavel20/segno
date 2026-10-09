@@ -136,6 +136,7 @@ struct Theme
     // Geometry (logical px).
     int grid = 4;
     float radiusControl = 2.5f;
+    int faderCapHeight = 12; // a vertical fader's cap (the mixer view)
     float radiusPanel = 4.0f;
     int devicePanelHeight = 232;  // = deviceHeaderHeight + deviceGrid.bodyHeight()
     int deviceHeaderHeight = 28;

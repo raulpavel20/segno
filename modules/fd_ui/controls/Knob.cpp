@@ -85,6 +85,11 @@ void Knob::paint(juce::Graphics& g)
         paintBar(g);
         return;
     }
+    if (style_ == Style::Fader)
+    {
+        paintFader(g);
+        return;
+    }
     const auto& t = Theme::current();
     auto area = getLocalBounds().toFloat();
 
@@ -212,6 +217,32 @@ void Knob::paintBar(juce::Graphics& g)
                juce::Justification::centredRight, false);
 }
 
+float Knob::faderTravel() const noexcept
+{
+    return std::max(1.0f, static_cast<float>(getHeight()) - static_cast<float>(Theme::current().faderCapHeight));
+}
+
+void Knob::paintFader(juce::Graphics& g)
+{
+    const auto& t = Theme::current();
+    const auto r = getLocalBounds().toFloat();
+    const bool hot = isMouseOverOrDragging() || hasKeyboardFocus(false);
+    const float cap = static_cast<float>(t.faderCapHeight);
+    const float capY = r.getY() + (1.0f - value_) * faderTravel(); // the cap's top
+    const float trackW = 4.0f;
+    const auto track = juce::Rectangle<float>(r.getCentreX() - trackW * 0.5f, r.getY() + cap * 0.5f, trackW,
+                                              faderTravel());
+    g.setColour(t.surface3);
+    g.fillRoundedRectangle(track, trackW * 0.5f);
+    g.setColour(hot ? t.roles.valueHot : t.value);
+    g.fillRoundedRectangle(track.withTop(capY + cap * 0.5f), trackW * 0.5f);
+    const auto capArea = juce::Rectangle<float>(r.getX() + 2.0f, capY, r.getWidth() - 4.0f, cap);
+    g.setColour(t.lift(t.surface3, hot, dragging_));
+    g.fillRoundedRectangle(capArea, t.radiusControl);
+    g.setColour(hot ? t.roles.valueHot : t.value);
+    g.fillRect(capArea.withSizeKeepingCentre(capArea.getWidth() - 6.0f, 1.0f)); // the cap's mark
+}
+
 void Knob::mouseDown(const juce::MouseEvent& e)
 {
     if (e.mods.isPopupMenu())
@@ -230,7 +261,7 @@ void Knob::mouseDrag(const juce::MouseEvent& e)
     if (!dragging_)
         return;
     // Accumulate relative movement so pressing or releasing Shift mid-drag never jumps.
-    float delta = (lastDragY_ - e.position.y) / kPixelsForFullRange;
+    float delta = (lastDragY_ - e.position.y) / (style_ == Style::Fader ? faderTravel() : kPixelsForFullRange);
     if (style_ == Style::Bar)
         delta += (e.position.x - lastDragX_) / kPixelsForFullRange;
     lastDragY_ = e.position.y;

@@ -9,9 +9,12 @@
 #include "ui/ChannelControls.h"
 #include "ui/ChannelInspector.h"
 #include "ui/DeviceChain.h"
+#include "ui/MixerView.h"
 #include "ui/Shell.h"
 
 using fd::mcp::Json;
+
+#include <nlohmann/json.hpp>
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -209,6 +212,84 @@ TEST_CASE("the mixer in the arrangement: header controls, returns and master, th
         if (auto out = file.createOutputStream())
             png.writeImageToStream(f.shell->createComponentSnapshot(f.shell->getLocalBounds()), *out);
     }
+}
+
+TEST_CASE("the mixer view: strips side by side, shared selection, a fader drag is one step (C3c)", "[integration]")
+{
+    ShellFixture f;
+    f.shell->setSize(1800, 900);
+    auto& actions = f.shell->actions();
+    REQUIRE(actions.perform("track.addReturn"));
+    const auto t0 = f.session->snapshot()->tracks[0].id;
+    REQUIRE(f.session->addDevice(t0, "fd:eq") != 0);
+    REQUIRE(f.session->addDevice(t0, "fd:compressor") != 0);
+    f.session->updateSnapshotNow();
+    auto snap = f.session->snapshot();
+    REQUIRE(f.session->addDevice(snap->master.id, "fd:limiter") != 0);
+    f.session->updateSnapshotNow();
+    snap = f.session->snapshot();
+
+    auto& arrangement = f.shell->arrangement();
+    arrangement.setView(2.0, 80.0);
+    REQUIRE(actions.perform("view.mixer"));
+    CHECK(actions.isToggled("view.mixer"));
+    auto mixers = findAll<fd::app::MixerView>(*f.shell);
+    REQUIRE(mixers.size() == 1);
+    auto& mixer = *mixers[0];
+    CHECK(mixer.isVisible());
+    CHECK_FALSE(arrangement.isVisible());
+    mixer.setSnapshot(snap);
+
+    // A strip per channel: the tracks, the return, and the master.
+    const auto strips = findAll<fd::app::ChannelStrip>(mixer);
+    CHECK(strips.size() == snap->tracks.size() + snap->returns.size() + 1);
+
+    // A click on a strip selects its channel everywhere.
+    fd::app::ChannelStrip* second = nullptr;
+    for (auto* s : strips)
+        if (s->channel() == snap->tracks[1].id)
+            second = s;
+    REQUIRE(second != nullptr);
+    click(*second, {20.0f, 12.0f});
+    CHECK(arrangement.selectedTrack() == snap->tracks[1].id);
+    // Left and Right move the selection along the strips.
+    CHECK(mixer.keyPressed(juce::KeyPress(juce::KeyPress::rightKey)));
+    CHECK(arrangement.selectedTrack() == snap->tracks[2].id);
+
+    // A fader drag is one undo step, on the taper.
+    auto faders = findAll<fd::app::VolumeBar>(*strips[0]);
+    REQUIRE(faders.size() == 1);
+    auto& fader = *faders[0];
+    CHECK(fader.style() == fd::ui::Knob::Style::Fader);
+    const auto before = f.session->undoDescription();
+    const auto h = static_cast<float>(fader.getHeight());
+    drag(fader, {12.0f, h * 0.5f}, {12.0f, h * 0.3f});
+    f.session->updateSnapshotNow();
+    CHECK(f.session->snapshot()->tracks[0].mix.volumeDb > 0.0f);
+    CHECK(f.session->undoDescription() == "Volume");
+    f.session->undo();
+    f.session->updateSnapshotNow();
+    CHECK(f.session->snapshot()->tracks[0].mix.volumeDb == Catch::Approx(0.0f).margin(0.01f)); // the whole drag
+    CHECK(f.session->undoDescription() == before);
+
+    // The options are view state, saved with the project; switching back keeps the arrangement's view.
+    mixer.setOptions(true, true, true);
+    const auto state = nlohmann::json::parse(f.session->viewStateProvider());
+    CHECK(state["view"] == "mix");
+    CHECK(state["mixerNarrow"] == true);
+    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review, wide and narrow
+        for (bool narrow : {false, true})
+        {
+            mixer.setOptions(true, true, narrow);
+            auto file = juce::File(dump).getChildFile(narrow ? "mixer-view-narrow.png" : "mixer-view.png");
+            file.deleteFile();
+            juce::PNGImageFormat png;
+            if (auto out = file.createOutputStream())
+                png.writeImageToStream(f.shell->createComponentSnapshot(f.shell->getLocalBounds()), *out);
+        }
+    REQUIRE(actions.perform("view.mixer"));
+    CHECK(arrangement.isVisible());
+    CHECK(arrangement.timeline().start() == Catch::Approx(2.0));
 }
 
 TEST_CASE("every action has a unique shortcut and the shell routes keys to it", "[integration]")

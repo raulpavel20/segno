@@ -148,6 +148,12 @@ A pure layout model: given the header's size, it says where each slot goes. The 
 
 Padding: 12 px left (after the colour strip), 6 px top and bottom, 8 px right. Automation lanes (C4) sit under their track's lane with the same header column: a `subLane` background and a lane name in the header.
 
+## Channel strips (`model::ChannelStripLayout`)
+
+The mixer view's strips (C3c, [mixer.md](mixer.md) §6) are placed by a pure layout model like the track headers: given a strip's height and the view's options (module names, sends, narrow, the number of returns), it places every part on the 4 px grid. Rows a strip doesn't use keep their space, so every fader and meter starts at the same height. Strip width: 96 px (narrow: 64, without the dB scale or Pre switches).
+
+The controls are shared (`ui/ChannelControls`): volume and send bars on the volume taper, the pan bar, mute, solo and Pre toggles, the meter, the typed volume, and the fader, which is the shared `Knob` in its Fader style (a thin track filled to a flat cap, `faderCapHeight`; its travel follows the mouse one to one).
+
 ## The UI lint
 
 `ui_tokens_only` (a CTest check, label `fast`) fails when a file in `app/src/ui`, `modules/fd_device_ui` or `devices/*/ui` does any of these:

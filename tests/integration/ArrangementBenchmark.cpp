@@ -10,6 +10,7 @@
 #include "engine/Session.h"
 #include "fd/testkit/WavIO.h"
 #include "ui/ArrangementView.h"
+#include "ui/MixerView.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -79,6 +80,59 @@ TEST_CASE("arrangement paints 32 zooming tracks within the frame budget", "[.ben
         std::cout << "arrangement paint, 32 tracks x 8 clips, " << image.getWidth() << "x" << image.getHeight()
                   << ": avg " << avg << " ms, p95 " << p95 << " ms" << std::endl;
         CHECK(p95 > 0.0);
+    }
+    juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
+}
+
+TEST_CASE("the mixer view paints 64 strips within the frame budget", "[.benchmark]")
+{
+    // Every strip drawn every frame (the worst case; meters only repaint themselves when they
+    // move). Budget: 60 fps (docs/design/mixer.md §6).
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    fd::ui::LookAndFeel lnf;
+    juce::LookAndFeel::setDefaultLookAndFeel(&lnf);
+    {
+        tracktion::Engine engine{"fd-benchmark", nullptr, fd::engine::makeEngineBehaviour()};
+        fd::engine::registerDevices(engine);
+        fd::engine::Session session(engine);
+        while (session.snapshot()->tracks.size() < 64)
+        {
+            session.addTrack();
+            session.updateSnapshotNow();
+        }
+        for (int i = 0; i < 4; ++i)
+            session.addReturnTrack();
+        for (const auto& t : session.snapshot()->tracks)
+        {
+            session.addDevice(t.id, "fd:eq");
+            session.addDevice(t.id, "fd:compressor");
+        }
+        session.updateSnapshotNow();
+
+        fd::app::MixerView view(session);
+        view.setSize(1700, 720);
+        view.setSnapshot(session.snapshot());
+        view.setOptions(true, true, true); // narrow: the most strips on screen
+        juce::Image image(juce::Image::ARGB, view.getWidth(), view.getHeight(), true);
+        std::vector<double> times;
+        for (int frame = 0; frame < 120; ++frame)
+        {
+            view.setScrollX((frame * 37) % 2000);
+            const auto t0 = std::chrono::steady_clock::now();
+            {
+                juce::Graphics g(image);
+                view.paintEntireComponent(g, true);
+            }
+            times.push_back(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
+        }
+        std::sort(times.begin(), times.end());
+        double sum = 0.0;
+        for (double t : times)
+            sum += t;
+        std::cout << "mixer view paint, 64 tracks + 4 returns, " << image.getWidth() << "x" << image.getHeight()
+                  << ": avg " << sum / static_cast<double>(times.size()) << " ms, p95 "
+                  << times[times.size() * 95 / 100] << " ms" << std::endl;
+        CHECK(times[times.size() * 95 / 100] < 16.7);
     }
     juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
 }

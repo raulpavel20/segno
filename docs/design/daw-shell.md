@@ -191,6 +191,13 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
   - **Sidechain** ([ADR 0025](../decisions/0025-sidechain-routing.md)): a module with a sidechain input (Compressor, Gate) has a "Sidechain" picker in its header: None, or another track. The list leaves out any track whose sound already depends on this one through sidechains, so routing can't loop. The source is heard after its modules and fader, before its mute. A change is one undo step ("Set sidechain") and rebuilds the playback graph. Rendering one track (the MCP `render` tool) includes the tracks feeding its sidechains, muted.
 - **tracktion's own volume and meter plugins** belong to the mixer and are not shown, nor are the sends and return inputs. New devices go before them.
 
+## Mixer view (C3c, [mixer.md](mixer.md) §6)
+
+- The centre shows the arrangement or the mixer view: the transport bar's "Arrange | Mix" switch or Ctrl+Alt+X. The browser, inspector and detail panel stay; each view keeps its own scroll.
+- Strips (`ChannelStrip`) for the tracks, then the return tracks after a divider, scroll horizontally; the master is pinned at the right. A click selects the channel (shared with the arrangement); a module name selects that module in the detail panel; Left and Right move the selection; clicking the peak readout resets it.
+- The header's Modules, Sends and Narrow toggles, the current view and the mixer's scroll are view state, saved with the project.
+- Strips, header controls and the inspector hold the engine's meters: they are dropped before a project is replaced.
+
 ## Mixer in the arrangement (C3b, [mixer.md](mixer.md))
 
 - **Rows:** the tracks, then (after a 2 px divider) the return tracks and the master, on sub-lane backgrounds; they scroll with the tracks. Ctrl+Alt+R hides and shows them. Clicking one selects it: the inspector shows its channel and the detail panel its chain. They hold no clips.

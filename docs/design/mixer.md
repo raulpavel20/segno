@@ -2,7 +2,7 @@
 
 How mixing works in Segno: levels, panning, mute and solo, return tracks with sends, the master track, meters, and the mixer view. The decisions are in [ADR 0026](../decisions/0026-mixing-in-the-arrangement.md). It builds on the track header kit ([ui-foundations.md](ui-foundations.md), ADR 0023), one kind of track ([ADR 0019](../decisions/0019-one-kind-of-track.md)) and the arrangement-first scope ([ADR 0001](../decisions/0001-arrangement-only-scope.md)).
 
-**Status:** approved by the product owner (2026-10-09), with a separate mixer view added (§6). Built in three parts (§12).
+**Status:** approved by the product owner (2026-10-09), with a separate mixer view added (§6). Built in three parts (§12), all built (2026-10-09); awaiting the product owner's feel check.
 
 ## 1. Where you mix
 
@@ -121,7 +121,7 @@ A second main view: channel strips side by side, in place of the arrangement.
 - **Header toggles:** Modules and Sends show or hide those sections in every strip; Narrow makes strips 64 px wide instead of 96. They are view state: saved with the project, never undo steps.
 - **Selection and keys** are shared with the arrangement: the selected track's strip is highlighted; Left and Right move the selection; Alt+M, Alt+S and every track action work here too.
 - **Geometry** comes from a pure layout model (`model::ChannelStripLayout`, unit-tested like the track header layout): given a strip's size and which sections show, it places every part on the 4 px grid. Strips are drawn with the shared components (`ui::Fader`, `ui::Meter`, bars, toggles), so the UI lint applies.
-- **Performance:** only visible strips are laid out and their meters updated; the view keeps 60 fps with 64 tracks.
+- **Performance:** the view keeps 60 fps with 64 tracks: repainting every strip takes about 15 ms even in a Debug build (`[.benchmark]`), and in use only moving meters repaint.
 
 ## 7. Inspector (track selected)
 

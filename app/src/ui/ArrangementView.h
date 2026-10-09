@@ -86,6 +86,9 @@ public:
     void setAllTrackHeights(double height);
     /// Return tracks and the master, below the tracks (C3, docs/design/mixer.md §2).
     void setMixRowsVisible(bool visible);
+    /// Drops the mixer controls in the headers (before the project is replaced: they hold the
+    /// engine's meters). setSnapshot() makes them again.
+    void releaseChannelControls() { headerControls_.clear(); }
     [[nodiscard]] bool mixRowsVisible() const noexcept { return showMixRows_; }
 
     /// Wall time of the last paint, ms (frame statistics).

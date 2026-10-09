@@ -1,6 +1,7 @@
 // JUCE-free tests of the DAW's view models (app/src/model, ADR 0018).
 
 #include "model/Snapshot.h"
+#include "model/ChannelStripLayout.h"
 #include "model/Taper.h"
 #include "model/Timeline.h"
 #include "model/TrackHeaderLayout.h"
@@ -490,4 +491,57 @@ TEST_CASE("the volume taper puts 0 dB at 80 % and maps both ways", "[fast]")
         CHECK((db > last || db == minusInfinityDb));
         last = db;
     }
+}
+
+TEST_CASE("channel strips line up on the grid in every combination", "[fast]")
+{
+    using namespace fd::model;
+    auto onGrid = [](double v) { return std::fmod(v, 4.0) == 0.0; };
+    auto check = [&](const HeaderRect& r, double width) {
+        if (r.isEmpty())
+            return;
+        CHECK(r.x >= 0.0);
+        CHECK(r.right() <= width);
+        CHECK(onGrid(r.x));
+        CHECK(onGrid(r.y));
+        CHECK(onGrid(r.w));
+        CHECK(onGrid(r.h));
+    };
+    for (bool modules : {false, true})
+        for (bool sends : {false, true})
+            for (bool narrow : {false, true})
+                for (int sendRows : {0, 1, 3})
+                {
+                    INFO("modules " << modules << ", sends " << sends << ", narrow " << narrow << ", " << sendRows << " returns");
+                    const ChannelStripOptions o{.modules = modules, .sends = sends, .narrow = narrow, .sendRows = sendRows};
+                    const double width = channelStripWidth(o);
+                    CHECK(width == (narrow ? 64.0 : 96.0));
+                    const auto s = layoutChannelStrip(600.0, o);
+                    for (const auto* r : {&s.name, &s.pan, &s.mute, &s.solo, &s.readout, &s.fader, &s.scale, &s.meter, &s.value})
+                        check(*r, width);
+                    for (const auto& r : s.modules)
+                        check(r, width);
+                    for (const auto& r : s.sends)
+                        check(r, width);
+                    CHECK(s.modules.size() == (modules ? 6u : 0u));
+                    CHECK(s.sends.size() == (sends ? static_cast<size_t>(sendRows) : 0u));
+                    CHECK(s.scale.isEmpty() == narrow);           // no scale when narrow
+                    for (const auto& pre : s.sendPre)
+                        CHECK(pre.isEmpty() == narrow);           // nor Pre switches
+                    // Top to bottom, never overlapping; the fader fills down to the value row.
+                    CHECK(s.name.bottom() <= (modules ? s.modules.front().y : s.pan.y));
+                    CHECK(s.pan.bottom() <= s.mute.y);
+                    CHECK(s.mute.bottom() <= s.readout.y);
+                    CHECK(s.readout.bottom() <= s.fader.y);
+                    CHECK(s.fader.bottom() <= s.value.y);
+                    CHECK(s.value.bottom() <= 600.0 - 8.0);
+                    CHECK(s.fader.h >= 80.0);
+                    CHECK(s.meter.y == s.fader.y);
+                    CHECK(s.meter.h == s.fader.h);
+                }
+    // Strips with the same options line up: a fader starts at the same height whatever the strip
+    // shows (a return reserves the sends' space), and a short strip keeps a usable fader.
+    const ChannelStripOptions o{.sendRows = 2};
+    CHECK(layoutChannelStrip(500.0, o).fader.y == layoutChannelStrip(700.0, o).fader.y);
+    CHECK(layoutChannelStrip(100.0, o).fader.h == 80.0);
 }

@@ -33,9 +33,9 @@ std::optional<float> parseLevel(const juce::String& text)
 
 // ---- VolumeBar ----------------------------------------------------------------------------
 
-VolumeBar::VolumeBar(engine::Session& session, std::uint64_t channel) : session_(session), channel_(channel)
+VolumeBar::VolumeBar(engine::Session& session, std::uint64_t channel, Style style) : session_(session), channel_(channel)
 {
-    setStyle(Style::Bar);
+    setStyle(style);
     setName("Vol");
     setTooltip("Volume (double-click: 0 dB)");
     setDefaultValue(static_cast<float>(model::volumePosition(0.0)));
@@ -101,20 +101,19 @@ SendBar::SendBar(engine::Session& session, std::uint64_t track, std::uint64_t re
             return static_cast<float>(model::sendPosition(*db));
         return std::nullopt;
     };
-    onGestureStart = [this] { gesture_.emplace(session_, "Send"); };
+    onGestureStart = [this] { gesture_.emplace(session_, "Send"); }; // one undo step per drag
     onGestureEnd = [this] { gesture_.reset(); };
     onValueChange = [this](float v) {
         session_.setSend(track_, return_, static_cast<float>(model::sendDbAt(v)), std::nullopt);
     };
 }
 
-void SendBar::update(const model::SendInfo& send, const juce::String& returnName)
+void SendBar::update(const model::SendInfo& send, const juce::String& returnName, bool showName)
 {
-    if (getName() != returnName)
-    {
-        setName(returnName);
-        setTooltip("Send to " + returnName + " (double-click: off)");
-    }
+    const auto name = showName ? returnName : juce::String();
+    if (getName() != name)
+        setName(name);
+    setTooltip("Send to " + returnName + " (double-click: off)");
     if (!gesture_)
         setValue(static_cast<float>(model::sendPosition(send.levelDb)), juce::dontSendNotification);
 }
@@ -155,6 +154,39 @@ void ChannelToggle::clicked()
     setToggleState(on, juce::dontSendNotification); // at once; the snapshot confirms
 }
 
+// ---- VolumeField --------------------------------------------------------------------------
+
+VolumeField::VolumeField(engine::Session& session, std::uint64_t channel) : session_(session), channel_(channel)
+{
+    setRange(model::minusInfinityDb, 6.0, 0.1);
+    setDragSensitivity(0.2);
+    setTooltip("Volume: drag or type (\"-6\", \"-inf\")");
+    textFromValue = [](double v) { return levelText(static_cast<float>(v)); };
+    valueFromText = [](const juce::String& text) -> std::optional<double> {
+        if (const auto db = parseLevel(text))
+            return *db;
+        return std::nullopt;
+    };
+    onGestureStart = [this] { gesture_.emplace(session_, "Volume"); };
+    onGestureEnd = [this] { gesture_.reset(); };
+    onValueChange = [this](double v) { session_.setVolume(channel_, static_cast<float>(v)); };
+}
+
+void VolumeField::setCompact(bool compact)
+{
+    textFromValue = compact ? std::function<juce::String(double)>([](double v) {
+        return v <= model::minusInfinityDb ? juce::String("-inf") : juce::String(v, 1);
+    })
+                            : std::function<juce::String(double)>([](double v) { return levelText(static_cast<float>(v)); });
+    repaint();
+}
+
+void VolumeField::update(const model::TrackInfo& channel)
+{
+    if (!gesture_)
+        setValue(channel.mix.volumeDb, juce::dontSendNotification);
+}
+
 // ---- ChannelMeter -------------------------------------------------------------------------
 
 ChannelMeter::ChannelMeter(engine::Session& session, std::uint64_t channel)
@@ -164,7 +196,10 @@ ChannelMeter::ChannelMeter(engine::Session& session, std::uint64_t channel)
         if (reader_ == nullptr)
             return 0.0f;
         if (c == 0)
+        {
             latest_ = reader_->takePeaks(); // both channels at once
+            held_ = std::max({held_, latest_[0], latest_[1]});
+        }
         return latest_[static_cast<size_t>(std::clamp(c, 0, 1))];
     });
 }

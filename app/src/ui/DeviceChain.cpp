@@ -361,4 +361,17 @@ void DeviceChain::mouseUp(const juce::MouseEvent&)
     insertAt_ = -1;
     content_->repaint();
 }
+void DeviceChain::selectDevice(std::uint64_t id)
+{
+    for (const auto& s : slots_)
+        if (s.info.id == id)
+        {
+            selected_ = id;
+            const auto b = s.view->getBounds();
+            if (b.getX() < viewport_.getViewPositionX() || b.getRight() > viewport_.getViewPositionX() + viewport_.getViewWidth())
+                viewport_.setViewPosition(std::max(0, b.getX() - 8), 0);
+            content_->repaint();
+            return;
+        }
+}
 } // namespace fd::app

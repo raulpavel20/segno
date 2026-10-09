@@ -72,6 +72,8 @@ private:
     ui::NumberField tempoField_, numeratorField_, denominatorField_;
     ui::IconButton browser_{ui::Icon::PanelLeft}, detail_{ui::Icon::PanelBottom}, inspector_{ui::Icon::PanelRight};
     ui::IconButton settings_{ui::Icon::Settings};
+    // The centre view: the arrangement or the mixer (C3c), a two-part switch.
+    ui::Toggle arrangeView_{"Arrange"}, mixView_{"Mix"};
     ui::IconButton assistants_{ui::Icon::Assistant, "assistants"};
     std::vector<std::pair<ui::IconButton*, std::string>> bound_;
     model::TempoMap tempo_;
@@ -151,6 +153,8 @@ public:
     /// True while the clip view is showing a clip in the piano roll.
     [[nodiscard]] bool showsPianoRoll() const noexcept { return mode_ == Mode::Clip && roll_.clip().has_value(); }
     [[nodiscard]] DeviceChain& chain() noexcept { return chain_; }
+    /// Shows the module view with `id` selected.
+    void selectModule(std::uint64_t id);
     [[nodiscard]] PianoRoll& pianoRoll() noexcept { return roll_; }
     /// Once per display frame.
     void frame(double playheadSeconds);

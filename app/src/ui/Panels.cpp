@@ -23,6 +23,18 @@ TransportBar::TransportBar(engine::Session& session, const ActionRegistry& actio
     add(loop_, "transport.loop");
     add(metronome_, "transport.metronome");
     add(keyboard_, "midi.computerKeyboard");
+    for (auto* view : {&arrangeView_, &mixView_})
+    {
+        view->setClickingTogglesState(false);
+        view->setWantsKeyboardFocus(false);
+        view->onClick = [this, view] {
+            if ((view == &mixView_) != actions_.isToggled("view.mixer"))
+                actions_.perform("view.mixer");
+        };
+        addAndMakeVisible(*view);
+    }
+    arrangeView_.setTooltip("Arrangement (" + actions_.tooltip("view.mixer").fromFirstOccurrenceOf("(", false, false));
+    mixView_.setTooltip(actions_.tooltip("view.mixer"));
 
     // Tempo and time signature: drag or type (each edit is one undo step).
     tempoField_.setRange(20.0, 999.0, 0.01);
@@ -78,6 +90,14 @@ void TransportBar::frame(double positionSeconds, const model::TempoMap& tempo)
     for (auto& [button, id] : bound_)
         if (button->getToggleState() != actions_.isToggled(id))
             button->setToggleState(actions_.isToggled(id), juce::dontSendNotification);
+    const bool mix = actions_.isToggled("view.mixer");
+    if (mixView_.getToggleState() != mix)
+    {
+        mixView_.setToggleState(mix, juce::dontSendNotification);
+        arrangeView_.setToggleState(!mix, juce::dontSendNotification);
+    }
+    else if (!mix && !arrangeView_.getToggleState())
+        arrangeView_.setToggleState(true, juce::dontSendNotification);
     if (!tempoShown_ || !(tempo == tempo_))
     {
         tempoShown_ = true;
@@ -191,6 +211,10 @@ void TransportBar::resized()
         assistantLight_ = bar.right(t.shell.itemGap * 2);
         assistants_.setBounds(bar.right());
     }
+    bar.groupRight();
+    for (auto* view : {&mixView_, &arrangeView_}) // right to left: "Arrange | Mix"
+        view->setBounds(bar.right(static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(
+                                      ui::font(ui::TextStyle::Control), view->getButtonText()))) + 16));
     bar.groupRight();
     inspector_.setBounds(bar.right());
     detail_.setBounds(bar.right());
@@ -419,5 +443,10 @@ void DetailPanel::paint(juce::Graphics& g)
     if (mode_ == Mode::Clip && !roll_.clip())
         ui::paintEmptyState(g, getLocalBounds().withTrimmedTop(header_.getBottom()),
                             "Select a MIDI clip to edit its notes. Double-click an empty spot on a track to make one.");
+}
+void DetailPanel::selectModule(std::uint64_t id)
+{
+    setMode(Mode::Devices);
+    chain_.selectDevice(id);
 }
 } // namespace fd::app

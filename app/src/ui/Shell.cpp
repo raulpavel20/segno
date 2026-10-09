@@ -64,6 +64,20 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     };
 
     arrangement_.onSelectionChanged = [this](auto track) { selectionChanged(track); };
+    // The mixer view shares the arrangement's selection (C3c).
+    addChildComponent(mixer_);
+    mixer_.setSnapshot(session_.snapshot());
+    mixer_.onSelect = [this](std::uint64_t channel) {
+        lastArea_ = Area::Arrangement;
+        arrangement_.selectTrack(channel);
+    };
+    mixer_.onSelectModule = [this](std::uint64_t channel, std::uint64_t module) {
+        arrangement_.selectTrack(channel);
+        if (!detailPanel_.open)
+            toggle(detailPanel_);
+        detail_.selectModule(module);
+        lastArea_ = Area::Detail;
+    };
     arrangement_.onActivated = [this] { lastArea_ = Area::Arrangement; };
     arrangement_.onMessage = [this](const juce::String& m) { showWarning(m); };
     detail_.chain().onActivated = [this] { lastArea_ = Area::Detail; };
@@ -79,15 +93,20 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     };
     session_.onSnapshotChanged = [this] {
         arrangement_.setSnapshot(session_.snapshot());
+        mixer_.setSnapshot(session_.snapshot());
         selectionChanged(arrangement_.selectedTrack());
     };
-    // New/open: drop every panel and handle before the old project goes away.
+    // New/open: drop every panel, handle and meter before the old project goes away.
     session_.onProjectWillChange = [this] {
         arrangement_.selectTrack(std::nullopt);
+        arrangement_.releaseChannelControls();
+        mixer_.clear();
+        inspector_.setSelection(std::nullopt);
         detail_.setSelection(std::nullopt);
     };
     session_.onProjectChanged = [this] {
         arrangement_.setSnapshot(session_.snapshot());
+        mixer_.setSnapshot(session_.snapshot());
         applyViewState(session_.savedViewState());
         selectionChanged(std::nullopt);
         updateTitle();
@@ -271,6 +290,14 @@ void Shell::registerActions()
                           arrangement_.selectTrack(id);
                       }
                   }});
+    actions_.add({.id = "view.mixer", .name = "Mixer view", .category = "View", .keys = {key('x', kCmd | kAlt)},
+                  .perform = [this] {
+                      mixerShown_ = !mixerShown_;
+                      resized();
+                      if (mixerShown_)
+                          mixer_.grabKeyboardFocus();
+                  },
+                  .isToggled = [this] { return mixerShown_; }});
     actions_.add({.id = "view.returns", .name = "Show returns and master", .category = "View",
                   .keys = {key('r', kCmd | kAlt)},
                   .perform = [this] { arrangement_.setMixRowsVisible(!arrangement_.mixRowsVisible()); },
@@ -499,7 +526,13 @@ std::string Shell::viewState() const
                           {"detail", detailPanel_.open},
                           {"browserWidth", browserPanel_.size},
                           {"inspectorWidth", inspectorPanel_.size},
-                          {"clipViewHeight", clipViewHeight_}}
+                          {"clipViewHeight", clipViewHeight_},
+                          {"view", mixerShown_ ? "mix" : "arrange"},
+                          {"returns", arrangement_.mixRowsVisible()},
+                          {"mixerModules", mixer_.options().modules},
+                          {"mixerSends", mixer_.options().sends},
+                          {"mixerNarrow", mixer_.options().narrow},
+                          {"mixerScroll", mixer_.scrollX()}}
         .dump();
 }
 
@@ -518,6 +551,10 @@ void Shell::applyViewState(const std::string& json)
     browserPanel_.size = get("browserWidth", browserPanel_.size);
     inspectorPanel_.size = get("inspectorWidth", inspectorPanel_.size);
     clipViewHeight_ = get("clipViewHeight", clipViewHeight_);
+    mixerShown_ = v.value("view", std::string("arrange")) == "mix";
+    arrangement_.setMixRowsVisible(get("returns", true));
+    mixer_.setOptions(get("mixerModules", true), get("mixerSends", true), get("mixerNarrow", false));
+    mixer_.setScrollX(get("mixerScroll", 0));
     resized();
 }
 
@@ -569,6 +606,8 @@ void Shell::selectionChanged(std::optional<std::uint64_t>)
             clip = *found->first;
             info = snapshot->tracks[static_cast<size_t>(found->second)]; // the clip's track
         }
+
+    mixer_.setSelection(arrangement_.selectedTrack());
 
     // Live MIDI plays the selected track's instrument (auto-arm); other tracks hear nothing.
     // The piano roll previews notes through the same route.
@@ -804,7 +843,11 @@ void Shell::resized()
     inspectorSplit_.setVisible(showSides && inspectorPanel_.open);
     inspectorSplit_.setBounds(r.removeFromRight(inspectorW > 0 ? 1 : 0).withWidth(splitter).translated(-splitter / 2, 0));
 
+    // The centre: the arrangement or the mixer view (C3c), whichever is current.
+    arrangement_.setVisible(!mixerShown_);
+    mixer_.setVisible(mixerShown_);
     arrangement_.setBounds(r);
+    mixer_.setBounds(r);
     browserSplit_.toFront(false);
     inspectorSplit_.toFront(false);
     detailSplit_.toFront(false);

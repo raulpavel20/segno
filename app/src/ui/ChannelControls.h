@@ -13,11 +13,12 @@ namespace fd::app
 // everywhere: shared fd_ui controls, edits through Session commands (a drag is one undo step),
 // values from the snapshot.
 
-/// Volume as a bar, on the volume taper (0 dB at 80 %). Any channel.
+/// Volume as a bar (headers, inspector) or a fader (the mixer view), on the volume taper (0 dB at
+/// 80 %). Any channel.
 class VolumeBar final : public ui::Knob
 {
 public:
-    VolumeBar(engine::Session& session, std::uint64_t channel);
+    VolumeBar(engine::Session& session, std::uint64_t channel, Style style = Style::Bar);
     /// Shows the snapshot's value (not while being dragged).
     void update(const model::TrackInfo& channel);
 
@@ -45,7 +46,8 @@ class SendBar final : public ui::Knob
 {
 public:
     SendBar(engine::Session& session, std::uint64_t track, std::uint64_t returnTrack);
-    void update(const model::SendInfo& send, const juce::String& returnName);
+    /// `showName`: the return's name inside the bar (off where it's narrow; the tooltip names it).
+    void update(const model::SendInfo& send, const juce::String& returnName, bool showName = true);
     [[nodiscard]] std::uint64_t returnTrack() const noexcept { return return_; }
 
 private:
@@ -70,15 +72,35 @@ private:
     std::uint64_t channel_, return_;
 };
 
-/// A channel's stereo meter, through a level reader of its own.
+/// The volume as a number you drag or type ("-6.0", "-inf"): the mixer view's value row.
+class VolumeField final : public ui::NumberField
+{
+public:
+    VolumeField(engine::Session& session, std::uint64_t channel);
+    void update(const model::TrackInfo& channel);
+    /// Without the unit ("-6.0"), for narrow strips.
+    void setCompact(bool compact);
+
+private:
+    engine::Session& session_;
+    std::uint64_t channel_;
+    std::optional<engine::Session::EditGroup> gesture_;
+};
+
+/// A channel's stereo meter, through a level reader of its own. It also keeps the loudest peak
+/// since it was last reset (the mixer view's peak readout).
 class ChannelMeter final : public ui::Meter
 {
 public:
     ChannelMeter(engine::Session& session, std::uint64_t channel);
+    /// The loudest peak since resetHeld(), linear (0 for silence).
+    [[nodiscard]] float heldPeak() const noexcept { return held_; }
+    void resetHeld() noexcept { held_ = 0.0f; }
 
 private:
     std::unique_ptr<engine::Session::LevelReader> reader_;
     std::array<float, 2> latest_{};
+    float held_ = 0.0f;
 };
 
 /// "-6.0 dB", "-inf dB".
