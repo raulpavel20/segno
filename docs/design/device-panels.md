@@ -149,6 +149,7 @@ Columns are in brackets. Each module's SPEC lists its map. The four M2 modules a
 | Subtractive Synth | OSC 1 [4] · OSC 2 [4] · FILTER [4] · ENVELOPES [6] · MODULATION [6] (three slots, LFO) · VOICE [3] · meter | ≈ 1550 |
 | Sampler | SAMPLE [6] · PITCH [1] · LEVEL [1] · REGION [4] · FADES [1] · ENVELOPES [6] · FILTER ⏻ [4] · VOICE [2] · meter | ≈ 1480 |
 | Compressor | CURVE [3] transfer curve · HISTORY [4] · COMPRESSION [3] Threshold, Ratio, Knee / Makeup, Auto Makeup, Character · TIME [2] Attack, Release / Auto Release, Lookahead · DETECTOR [2] Peak \| RMS, Link · SIDECHAIN [3] Filter, Listen / Freq, Q, Gain · OUTPUT [1] Output / Mix · in and out meters · header: Sidechain | 1120 |
+| Limiter | HISTORY [6] · LIMIT [3] Gain, Ceiling, Release / Auto Release, True Peak · MODE [3] Mode (stacked), Channels, Lookahead · LOUDNESS [3] readouts, Reset · output meter | 884 |
 | Gate | HISTORY [6] with threshold and return lines · GATE [3] Threshold, Return, Range / Mode (stacked), Ratio, Flip · TIME [3] Attack, Hold, Release / Lookahead · SIDECHAIN [3] Filter, Listen / Freq, Q, Gain · in and out meters · header: Sidechain | 904 |
 | Limiter (draft) | HISTORY [6] · LIMIT [3] · MODE [3] · LOUDNESS [3] · meters | – |
 | Spectrum (draft) | SPECTRUM [12] display · SETTINGS [3] | – |

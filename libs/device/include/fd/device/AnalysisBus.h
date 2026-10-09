@@ -38,8 +38,22 @@ public:
     static constexpr int numFifos = 4;
     [[nodiscard]] SampleFifo& fifo(int index) noexcept { return fifos_[static_cast<size_t>(index)]; }
 
+    /// Display commands, the one way back: the UI asks (e.g. "reset the loudness meter") and
+    /// the audio thread acts at its next block. Only for what displays show, never for state:
+    /// state changes go through the host binding. Wait-free; requests are never lost.
+    static constexpr int numRequests = 4;
+    /// UI: asks for `index`.
+    void request(int index) noexcept { requests_[static_cast<size_t>(index)].fetch_add(1, std::memory_order_relaxed); }
+    /// Audio thread: whether `index` was asked for since last taken.
+    [[nodiscard]] bool takeRequest(int index) noexcept
+    {
+        auto& r = requests_[static_cast<size_t>(index)];
+        return r.load(std::memory_order_relaxed) > 0 && r.exchange(0, std::memory_order_relaxed) > 0;
+    }
+
 private:
     std::array<std::atomic<float>, numSlots> slots_{};
     std::array<SampleFifo, numFifos> fifos_{};
+    std::array<std::atomic<int>, numRequests> requests_{};
 };
 } // namespace fd

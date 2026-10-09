@@ -226,134 +226,6 @@ private:
     juce::String readout_;
 };
 
-/// About four seconds of input level (dim, from the bottom), output level (a line) and gain
-/// reduction (from the top, in the value colour), scrolling right to left. Frames come from the
-/// device's history FIFO, one every 10 ms.
-class HistoryDisplay final : public juce::Component, public ui::ParamControl
-{
-public:
-    explicit HistoryDisplay(ui::DeviceUiContext& ctx) : ctx_(ctx), threshold_(ctx.params.getPlain(C::Threshold)) {}
-
-    void refresh() override
-    {
-        if (const float threshold = ctx_.params.getPlain(C::Threshold); threshold != threshold_)
-        {
-            threshold_ = threshold;
-            repaint();
-        }
-    }
-
-    /// Every frame: take the new history frames. `visible` false only drains the FIFO.
-    void tick(bool visible)
-    {
-        if (ctx_.analysis == nullptr)
-            return;
-        auto& fifo = ctx_.analysis->fifo(C::historyFifo);
-        bool any = false;
-        float frame[3];
-        while (fifo.pop(frame, 3) == 3)
-        {
-            frames_[static_cast<size_t>(write_)] = {frame[0], frame[1], frame[2]};
-            write_ = (write_ + 1) % kFrames;
-            any = true;
-        }
-        if (any && visible)
-            repaint();
-    }
-
-    void paint(juce::Graphics& g) override
-    {
-        const auto& t = ui::Theme::current();
-        const auto r = getLocalBounds().toFloat();
-        g.setColour(t.surface0);
-        g.fillRoundedRectangle(r, t.radiusControl);
-        const auto area = r.reduced(1.0f);
-
-        g.setColour(t.line);
-        for (float db = -12.0f; db > kFloorDb; db -= 12.0f)
-            g.fillRect(area.getX(), yOfLevel(area, db), area.getWidth(), 1.0f);
-
-        // The threshold, for reading the input against it.
-        g.setColour(t.textTertiary);
-        const float ty = yOfLevel(area, threshold_);
-        const float dashes[] = {3.0f, 3.0f};
-        g.drawDashedLine({area.getX(), ty, area.getRight(), ty}, dashes, 2, 1.0f);
-
-        // One column per pixel: the loudest frame it covers. The output and reduction lines
-        // break where there is nothing to show, so silence draws nothing at the edges.
-        const int width = static_cast<int>(area.getWidth());
-        juce::Path input, output, reduction, reductionLine;
-        input.startNewSubPath(area.getX(), area.getBottom());
-        reduction.startNewSubPath(area.getX(), area.getY());
-        bool outputOn = false, reductionOn = false;
-        float currentReduction = 0.0f;
-        for (int x = 0; x < width; ++x)
-        {
-            const int from = x * kFrames / width, to = std::max(from + 1, (x + 1) * kFrames / width);
-            float in = kFloorDb, out = kFloorDb, gr = 0.0f;
-            for (int f = from; f < to; ++f)
-            {
-                const auto& frame = frames_[static_cast<size_t>((write_ + f) % kFrames)];
-                in = std::max(in, frame[0]);
-                out = std::max(out, frame[1]);
-                gr = std::max(gr, frame[2]);
-            }
-            const float px = area.getX() + static_cast<float>(x);
-            input.lineTo(px, yOfLevel(area, in));
-            const auto o = juce::Point<float>(px, yOfLevel(area, out));
-            const bool hasOutput = out > kFloorDb;
-            if (hasOutput)
-                outputOn ? output.lineTo(o) : output.startNewSubPath(o);
-            outputOn = hasOutput;
-            const float grY = area.getY() + std::min(gr, -kFloorDb) / -kFloorDb * area.getHeight();
-            const auto rp = juce::Point<float>(px, grY);
-            reduction.lineTo(rp);
-            const bool hasReduction = gr >= 0.05f;
-            if (hasReduction)
-                reductionOn ? reductionLine.lineTo(rp) : reductionLine.startNewSubPath(rp);
-            reductionOn = hasReduction;
-            currentReduction = gr;
-        }
-        input.lineTo(area.getRight(), area.getBottom());
-        input.closeSubPath();
-        g.setColour(t.roles.spectrumFill);
-        g.fillPath(input);
-        g.setColour(t.textSecondary);
-        g.strokePath(output, juce::PathStrokeType(1.0f));
-
-        reduction.lineTo(area.getRight(), area.getY());
-        reduction.closeSubPath();
-        g.setColour(t.roles.curveFill);
-        g.fillPath(reduction);
-        g.setColour(t.value);
-        g.strokePath(reductionLine, juce::PathStrokeType(1.5f));
-
-        g.setColour(t.textSecondary);
-        g.setFont(ui::font(ui::TextStyle::ValueSmall));
-        const auto text =
-            currentReduction >= 0.05f ? "-" + juce::String(currentReduction, 1) + " dB" : juce::String("0.0 dB");
-        g.drawText(text, r.reduced(6.0f, 4.0f), juce::Justification::bottomRight, false);
-    }
-
-private:
-    static constexpr int kFrames = 400; // 4 s at one frame per 10 ms
-
-    [[nodiscard]] static float yOfLevel(juce::Rectangle<float> area, float db)
-    {
-        return area.getBottom() - juce::jlimit(0.0f, 1.0f, (db - kFloorDb) / -kFloorDb) * area.getHeight();
-    }
-
-    ui::DeviceUiContext& ctx_;
-    std::array<std::array<float, 3>, kFrames> frames_ = [] {
-        std::array<std::array<float, 3>, kFrames> a{};
-        for (auto& f : a)
-            f = {kFloorDb, kFloorDb, 0.0f};
-        return a;
-    }();
-    int write_ = 0;
-    float threshold_;
-};
-
 /// Sections per devices/compressor/SPEC.md, on the module grid (docs/design/device-panels.md).
 class CompressorPanel final : public ui::DevicePanel
 {
@@ -365,7 +237,8 @@ public:
         curve.place(*curve_, 0, 0, 3, 6);
 
         auto& history = addSection("history", "History", 4);
-        history_ = &own(std::make_unique<HistoryDisplay>(ctx));
+        history_ = &own(std::make_unique<ui::DynamicsHistory>(
+            ctx, C::historyFifo, [&ctx] { return ctx.params.getPlain(C::Threshold); }, kFloorDb));
         history.place(*history_, 0, 0, 4, 6);
 
         auto& comp = addSection("comp", "Compression", 3);
@@ -427,7 +300,7 @@ private:
 
     juce::VBlankAttachment vblank_{this, [this] { tick(); }};
     CurveDisplay* curve_ = nullptr;
-    HistoryDisplay* history_ = nullptr;
+    ui::DynamicsHistory* history_ = nullptr;
     ui::Meter meterIn_{2}, meterOut_{2};
 };
 } // namespace

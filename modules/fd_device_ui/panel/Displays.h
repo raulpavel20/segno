@@ -60,4 +60,32 @@ private:
     size_t type_, cutoff_, resonance_;
     std::optional<size_t> enabled_;
 };
+
+/// A dynamics device's last four seconds, scrolling right to left: the input level (a dim fill
+/// from the bottom), the output level (a line) and the gain reduction (from the top, in the value
+/// colour), with a dashed reference line (the threshold, the ceiling) and the current reduction
+/// in the corner. Frames of (input dB, output dB, reduction dB) come from one of the device's
+/// FIFOs, one every 10 ms (Compressor, Limiter).
+class DynamicsHistory final : public juce::Component, public ParamControl
+{
+public:
+    DynamicsHistory(DeviceUiContext& context, int fifo, std::function<float()> referenceDb, float floorDb = -60.0f);
+
+    /// Repaints when the reference moves.
+    void refresh() override;
+    /// Every frame: takes the new frames. `visible` false only drains the FIFO.
+    void tick(bool visible);
+    void paint(juce::Graphics& g) override;
+
+private:
+    static constexpr int kFrames = 400; // 4 s at one frame per 10 ms
+    [[nodiscard]] float yOf(juce::Rectangle<float> area, float db) const;
+
+    DeviceUiContext& context_;
+    int fifo_;
+    std::function<float()> referenceDb_;
+    float floorDb_, reference_;
+    std::vector<std::array<float, 3>> frames_;
+    int write_ = 0;
+};
 } // namespace fd::ui

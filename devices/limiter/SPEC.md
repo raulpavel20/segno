@@ -39,36 +39,48 @@ State version 1.
 
 ## DSP design
 
-- **Lookahead peak limiter:**
-  - the gain needed for each sample is held as a running minimum over the lookahead window;
-  - it is smoothed by an attack ramp spanning the window, so the gain reaches its value exactly when the peak arrives;
-  - then it releases exponentially (auto release blends fast and slow by recent activity).
+- **Lookahead peak limiter.** Five gain computers run side by side (linked, left, right, mid, side), so a change of Channels can crossfade. Each one:
+  - takes the gain each sample needs to stay under the threshold;
+  - holds the smallest over the lookahead plus 10 ms (the hold, so the gain doesn't ripple on low notes);
+  - ramps it over the lookahead (a moving average), so the gain reaches its value exactly when the peak arrives;
+  - then releases exponentially in dB (to −60 dB of the change in the Release time). Auto release blends from a quarter of Release after short peaks to four times it once limiting has lasted about 400 ms.
+- **The ceiling:**
+  - Standard limits at the ceiling.
+  - Maximise limits at full scale and then moves the whole output down to the ceiling, so the limiting doesn't change with it.
+  - Switching crossfades over 10 ms. The makeup and the ceiling are delayed with the audio they apply to.
+  - A last clamp at the ceiling catches what smoothing can't foresee (the ceiling moving quickly).
   - The output never exceeds the ceiling.
-- **True peak:** detection runs on a 4× oversampled copy (ITU-R BS.1770 interpolation), so inter-sample peaks count too.
+- **True peak:** left, right, mid and side each run through a 4× oversampling interpolator (ITU-R BS.1770, `dsp::TruePeakDetector`), and the larger of the sample and the values between samples counts. It adds the interpolator's delay (8 samples) to the latency.
 - **Channels:**
   - Stereo: one gain for both channels;
   - L/R: independent;
-  - M/S: limit mid and side separately, then decode.
-- **Latency:** the lookahead (plus the true-peak interpolator), constant for a given setting. As in the Compressor, the setting is not automatable and hosts see a change as a configuration change ([ADR 0020](../../docs/decisions/0020-latency-follows-lookahead.md)).
-- **Loudness:** K-weighted momentary (400 ms), short-term (3 s) and integrated (gated) LUFS of the output, from the shared dynamics core. A reset button clears the integrated value.
+  - M/S: the mid is limited to the threshold and the side takes the room left, then both are decoded; the decoded channels stay under the ceiling and the centre keeps its level.
+  - Switching crossfades over 10 ms.
+- **Latency:** the lookahead (72, 144 or 288 samples at 48 kHz) plus, with True Peak on, the interpolator. Both settings are configuration, not automatable; hosts see a change as a configuration change ([ADR 0020](../../docs/decisions/0020-latency-follows-lookahead.md)).
+- **Loudness:** K-weighted short-term (3 s) and integrated (gated) LUFS of the output, from the shared dynamics core; the integrated value is published every 100 ms. The readout's Reset clears it and the true-peak maximum: a display command (`AnalysisBus::request`), not a parameter.
 - **Analysis:**
-  - slots 0–1 = output true peak;
-  - slot 2 = gain reduction;
+  - slots 0–1 = the output's true peak, left and right (linear, peak-held);
+  - slot 2 = gain reduction (dB as a positive number, peak-held);
   - slot 3 = short-term LUFS;
   - slot 4 = integrated LUFS;
-  - FIFO 0 = gain-reduction history.
+  - slot 5 = the loudest true peak since the last reset (dBTP);
+  - request 0 = reset the loudness readout;
+  - FIFO 0 = history frames of (input dB after Gain, output dB, gain reduction dB), one every 10 ms.
 
 ## UI layout
 
-On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sections left to right, each `id` TITLE [columns], with controls at (column, row) and spans; knobs are 1 × 3 cells. Draft, refined when the device is built (B3).
+On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sections left to right, each `id` TITLE [columns], with controls at (column, row) and spans; knobs are 1 × 3 cells. As built (B3).
 
 | Section | Controls |
 |---|---|
-| `history` HISTORY [6] | Gain-reduction history (0, 0, 6 × 6), scrolling, with the output level |
-| `limit` LIMIT [3] | Gain (0, 0), Ceiling (1, 0), Release (2, 0) · Auto release (0, 3, 2 wide) · True Peak (0, 4, 2 wide) |
-| `mode` MODE [3] | [Standard \| Maximise] (0, 0, 3 wide) · Channels [St \| L/R \| M/S] (0, 1, 3 × 1) · Lookahead (0, 2, 2 wide) |
-| `loudness` LOUDNESS [3] | Readouts (0, 0, 3 × 6): short-term and integrated LUFS, true peak, reset |
-| meter strip | Output |
+| `history` HISTORY [6] | Level and gain-reduction history (0, 0, 6 × 6), −36 … 0 dB, with the ceiling as a dashed line |
+| `limit` LIMIT [3] | Gain (0, 0), Ceiling (1, 0), Release (2, 0) · Auto Release (0, 3, 2 wide) · True Peak (0, 4, 2 wide) |
+| `mode` MODE [3] | [Standard \| Maximise] stacked (0, 0, 3 wide, 2 rows) · Channels [Stereo \| L/R \| M/S] (0, 2, 3 wide) · "Lookahead" sub-label (0, 3, 2 wide) and combo (0, 4, 2 wide) |
+| `loudness` LOUDNESS [3] | Readouts (0, 0, 3 × 5): short-term and integrated LUFS, the true-peak maximum · Reset (0, 5, 3 wide) |
+| meter strip | Output (true peak), stereo |
+
+- The history is the Compressor's (`ui::DynamicsHistory`): input after Gain (dim fill), output (a line), gain reduction from the top.
+- The Mode segments are stacked because "Maximise" needs two cells.
 
 ## Factory presets
 
@@ -96,7 +108,7 @@ Deferred until a Live machine is available.
 
 ## Sign-off
 
-- [ ] Automated: unit, conformance and golden tests; validators
+- [x] Automated: unit, conformance and golden tests; validators (2026-10-09)
 - [ ] Snapshots reviewed (100% / 200%)
 - [ ] Sound signed off by the product owner (date):
 - [ ] Feel signed off by the product owner (date):

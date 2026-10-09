@@ -171,4 +171,117 @@ void FilterDisplay::drawContent(juce::Graphics& g, juce::Rectangle<float> area)
     g.setColour(colour);
     g.strokePath(curve, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved));
 }
+
+// ---- DynamicsHistory ---------------------------------------------------------------------
+
+DynamicsHistory::DynamicsHistory(DeviceUiContext& context, int fifo, std::function<float()> referenceDb, float floorDb)
+    : context_(context), fifo_(fifo), referenceDb_(std::move(referenceDb)), floorDb_(floorDb),
+      reference_(referenceDb_()), frames_(kFrames, {floorDb, floorDb, 0.0f})
+{
+}
+
+void DynamicsHistory::refresh()
+{
+    if (const float reference = referenceDb_(); reference != reference_)
+    {
+        reference_ = reference;
+        repaint();
+    }
+}
+
+void DynamicsHistory::tick(bool visible)
+{
+    if (context_.analysis == nullptr)
+        return;
+    auto& fifo = context_.analysis->fifo(fifo_);
+    bool any = false;
+    float frame[3];
+    while (fifo.pop(frame, 3) == 3)
+    {
+        frames_[static_cast<size_t>(write_)] = {frame[0], frame[1], frame[2]};
+        write_ = (write_ + 1) % kFrames;
+        any = true;
+    }
+    if (any && visible)
+        repaint();
+}
+
+float DynamicsHistory::yOf(juce::Rectangle<float> area, float db) const
+{
+    return area.getBottom() - juce::jlimit(0.0f, 1.0f, (db - floorDb_) / -floorDb_) * area.getHeight();
+}
+
+void DynamicsHistory::paint(juce::Graphics& g)
+{
+    const auto& t = Theme::current();
+    const auto r = getLocalBounds().toFloat();
+    g.setColour(t.surface0);
+    g.fillRoundedRectangle(r, t.radiusControl);
+    const auto area = r.reduced(1.0f);
+
+    g.setColour(t.line);
+    for (float db = -12.0f; db > floorDb_; db -= 12.0f)
+        g.fillRect(area.getX(), yOf(area, db), area.getWidth(), 1.0f);
+
+    // The reference, for reading the input against it.
+    g.setColour(t.textTertiary);
+    const float ry = yOf(area, reference_);
+    const float dashes[] = {3.0f, 3.0f};
+    g.drawDashedLine({area.getX(), ry, area.getRight(), ry}, dashes, 2, 1.0f);
+
+    // One column per pixel: the loudest frame it covers. The output and reduction lines break
+    // where there is nothing to show, so silence draws nothing at the edges.
+    const int width = static_cast<int>(area.getWidth());
+    juce::Path input, output, reduction, reductionLine;
+    input.startNewSubPath(area.getX(), area.getBottom());
+    reduction.startNewSubPath(area.getX(), area.getY());
+    bool outputOn = false, reductionOn = false;
+    float currentReduction = 0.0f;
+    for (int x = 0; x < width; ++x)
+    {
+        const int from = x * kFrames / width, to = std::max(from + 1, (x + 1) * kFrames / width);
+        float in = floorDb_, out = floorDb_, gr = 0.0f;
+        for (int f = from; f < to; ++f)
+        {
+            const auto& frame = frames_[static_cast<size_t>((write_ + f) % kFrames)];
+            in = std::max(in, frame[0]);
+            out = std::max(out, frame[1]);
+            gr = std::max(gr, frame[2]);
+        }
+        const float px = area.getX() + static_cast<float>(x);
+        input.lineTo(px, yOf(area, in));
+        const auto o = juce::Point<float>(px, yOf(area, out));
+        const bool hasOutput = out > floorDb_;
+        if (hasOutput)
+            outputOn ? output.lineTo(o) : output.startNewSubPath(o);
+        outputOn = hasOutput;
+        const float grY = area.getY() + std::min(gr, -floorDb_) / -floorDb_ * area.getHeight();
+        const auto rp = juce::Point<float>(px, grY);
+        reduction.lineTo(rp);
+        const bool hasReduction = gr >= 0.05f;
+        if (hasReduction)
+            reductionOn ? reductionLine.lineTo(rp) : reductionLine.startNewSubPath(rp);
+        reductionOn = hasReduction;
+        currentReduction = gr;
+    }
+    input.lineTo(area.getRight(), area.getBottom());
+    input.closeSubPath();
+    g.setColour(t.roles.spectrumFill);
+    g.fillPath(input);
+    g.setColour(t.textSecondary);
+    g.strokePath(output, juce::PathStrokeType(1.0f));
+
+    reduction.lineTo(area.getRight(), area.getY());
+    reduction.closeSubPath();
+    g.setColour(t.roles.curveFill);
+    g.fillPath(reduction);
+    g.setColour(t.value);
+    g.strokePath(reductionLine, juce::PathStrokeType(1.5f));
+
+    g.setColour(t.textSecondary);
+    g.setFont(font(TextStyle::ValueSmall));
+    const auto text =
+        currentReduction >= 0.05f ? "-" + juce::String(currentReduction, 1) + " dB" : juce::String("0.0 dB");
+    g.drawText(text, r.reduced(6.0f, 4.0f), juce::Justification::bottomRight, false);
+}
 } // namespace fd::ui
