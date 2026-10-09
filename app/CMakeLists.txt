@@ -8,12 +8,13 @@ juce_add_modules(ALIAS_NAMESPACE tracktion
 # fd_app_model: JUCE-free view models of the DAW (ADR 0018), tested as [fast].
 add_library(fd_app_model STATIC src/model/Timeline.cpp src/model/TrackLayout.cpp src/model/Peaks.cpp
     src/model/Editing.cpp src/model/Fuzzy.cpp src/model/NoteEditing.cpp
-    src/model/TrackHeaderLayout.cpp)
+    src/model/TrackHeaderLayout.cpp src/model/AudioMeasure.cpp)
 target_include_directories(fd_app_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
-target_link_libraries(fd_app_model PUBLIC fd::audiofile PRIVATE fd::warnings)
+target_link_libraries(fd_app_model PUBLIC fd::audiofile PRIVATE fd::dsp fd::warnings)
 
 if(FD_BUILD_TESTS)
-    fd_add_test(NAME fd_app_model_tests SOURCES tests/ModelTests.cpp tests/NoteEditingTests.cpp LIBS fd_app_model)
+    fd_add_test(NAME fd_app_model_tests SOURCES tests/ModelTests.cpp tests/NoteEditingTests.cpp tests/AudioMeasureTests.cpp
+        LIBS fd_app_model)
 endif()
 
 # fd_mcp: the MCP server's protocol layer and transports (ADR 0021, docs/design/mcp.md). JUCE-free,
@@ -59,6 +60,26 @@ juce_add_gui_app(fd-daw
     MICROPHONE_PERMISSION_ENABLED TRUE
     NEEDS_CURL FALSE
     NEEDS_WEB_BROWSER FALSE)
+# fd_app_mcp: the MCP tools over the Session, and the server that owns them (ADR 0021). Each
+# module's purpose comes from its SPEC, for the module reference.
+include(${PROJECT_SOURCE_DIR}/cmake/ModulePurposes.cmake)
+fd_generate_module_purposes("${CMAKE_CURRENT_BINARY_DIR}/generated/ModulePurposes.h")
+add_library(fd_app_mcp INTERFACE)
+target_sources(fd_app_mcp INTERFACE
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/McpServer.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/MainThread.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/Tools.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/ReadTools.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/TransportTools.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/ClipTools.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/NoteTools.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/ModuleTools.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/RenderTools.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/ProjectTools.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/Resources.cpp")
+target_include_directories(fd_app_mcp INTERFACE "${CMAKE_CURRENT_BINARY_DIR}/generated")
+target_link_libraries(fd_app_mcp INTERFACE fd_engine fd_mcp)
+
 # fd_app_ui: the shell's components, compiled into the app and its tests.
 add_library(fd_app_ui INTERFACE)
 target_sources(fd_app_ui INTERFACE
@@ -72,7 +93,7 @@ target_sources(fd_app_ui INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/CommandPalette.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/PianoRoll.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/time/TimeView.cpp")
-target_link_libraries(fd_app_ui INTERFACE fd_engine juce::juce_opengl)
+target_link_libraries(fd_app_ui INTERFACE fd_engine fd_app_mcp juce::juce_opengl)
 
 target_sources(fd-daw PRIVATE src/Main.cpp)
 target_link_libraries(fd-daw PRIVATE fd_app_ui juce::juce_opengl juce::juce_recommended_config_flags fd::warnings_juce)

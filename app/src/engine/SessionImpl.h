@@ -12,7 +12,7 @@ namespace te = tracktion;
 
 class PluginScanner;
 
-struct Session::Impl final : private juce::ValueTree::Listener, private juce::AsyncUpdater, private juce::ChangeListener
+struct Session::Impl final : private juce::ValueTree::Listener, public juce::AsyncUpdater, private juce::ChangeListener
 {
     Impl(Session& owner, te::Engine& engine);
     ~Impl() override;
@@ -42,7 +42,17 @@ struct Session::Impl final : private juce::ValueTree::Listener, private juce::As
     std::optional<std::uint64_t> midiTarget; // the track live MIDI plays (C7)
     void midiDevicesChanged();
     void applyMidiTarget();
-    void beginEdit() { edit->getUndoManager().beginNewTransaction(); }
+    /// Starts a command's undo step, named for undo menus and assistants ("Add track"); inside
+    /// an EditGroup the group's step takes the edits instead.
+    void beginEdit(const juce::String& name)
+    {
+        if (groupDepth == 0)
+            edit->getUndoManager().beginNewTransaction(name);
+    }
+    int groupDepth = 0;
+    juce::ListenerList<Session::Listener> listeners;
+    struct Render;
+    std::vector<std::shared_ptr<Render>> renders; // offline renders in flight (each on an Edit copy)
 
     Session& owner;
     te::Engine& engine;
@@ -65,12 +75,20 @@ private:
         // Device parameters and state change constantly; only a device's power state shows.
         for (auto p = t; p.isValid(); p = p.getParent())
             if (p.hasType(te::IDs::PLUGIN) && !(p == t && id == te::IDs::enabled))
+            {
+                deviceStateChanged(p);
                 return;
+            }
         changed(t);
     }
     void valueTreeChildAdded(juce::ValueTree& t, juce::ValueTree&) override { structureChanged(t); }
     void valueTreeChildRemoved(juce::ValueTree& t, juce::ValueTree&, int) override { structureChanged(t); }
     void valueTreeChildOrderChanged(juce::ValueTree& t, int, int) override { structureChanged(t); }
+    void deviceStateChanged(const juce::ValueTree& plugin)
+    {
+        const auto id = te::EditItemID::fromID(plugin).getRawID();
+        listeners.call([id](Session::Listener& l) { l.deviceStateChanged(id); });
+    }
     void structureChanged(juce::ValueTree& t)
     {
         if (!inTransport(t))

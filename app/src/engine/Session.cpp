@@ -5,6 +5,8 @@
 
 #include <fd/device/Registry.h>
 
+#include <atomic>
+
 namespace fd::engine
 {
 namespace
@@ -166,6 +168,9 @@ std::unique_ptr<te::Edit> Session::Impl::newEdit()
 void Session::Impl::attach(std::unique_ptr<te::Edit> e)
 {
     edit = std::move(e);
+    // tracktion sorts tracks by type asynchronously, through the undo manager: done now, so a
+    // fresh project's history really is empty (no invisible first undo step).
+    te::TrackList::sortTracksByType(edit->state, nullptr);
     edit->getUndoManager().clearUndoHistory();
     edit->resetChangedStatus();
     dirty = false;
@@ -187,6 +192,7 @@ void Session::Impl::detach()
 
 Session::Impl::~Impl()
 {
+    renders.clear(); // cancels them (their Edit copies go before the engine)
     engine.getDeviceManager().removeChangeListener(this);
     detach();
 }
@@ -282,6 +288,7 @@ void Session::Impl::rebuildSnapshot()
     snapshot = std::move(s);
     if (owner.onSnapshotChanged)
         owner.onSnapshotChanged();
+    listeners.call([](Session::Listener& l) { l.snapshotChanged(); });
 }
 
 te::AudioTrack* Session::Impl::track(std::uint64_t id) const
@@ -407,6 +414,25 @@ void Session::updateSnapshotNow()
     impl_->rebuildSnapshot();
 }
 
+void Session::flushSnapshot()
+{
+    if (impl_->isUpdatePending())
+    {
+        impl_->cancelPendingUpdate();
+        impl_->rebuildSnapshot();
+    }
+}
+
+void Session::addListener(Listener* listener)
+{
+    impl_->listeners.add(listener);
+}
+
+void Session::removeListener(Listener* listener)
+{
+    impl_->listeners.remove(listener);
+}
+
 void Session::play()
 {
     impl_->edit->getTransport().play(false);
@@ -470,7 +496,7 @@ void Session::setTempo(double bpm)
 {
     if (auto* tempo = impl_->edit->tempoSequence.getTempo(0))
     {
-        impl_->beginEdit();
+        impl_->beginEdit("Tempo");
         tempo->setBpm(std::clamp(bpm, 20.0, 999.0));
     }
 }
@@ -479,16 +505,20 @@ void Session::setTimeSignature(int numerator, int denominator)
 {
     if (auto* sig = impl_->edit->tempoSequence.getTimeSig(0))
     {
-        impl_->beginEdit();
+        impl_->beginEdit("Time signature");
         sig->setStringTimeSig(juce::String(std::clamp(numerator, 1, 32)) + "/" + juce::String(denominator));
     }
 }
 
-std::uint64_t Session::addTrack()
+std::uint64_t Session::addTrack(const std::string& name)
 {
-    impl_->beginEdit();
+    impl_->beginEdit("Add track");
     auto* track = impl_->insertTrack("Track");
-    return track != nullptr ? track->itemID.getRawID() : 0;
+    if (track == nullptr)
+        return 0;
+    if (!name.empty())
+        track->setName(juce::String(name));
+    return track->itemID.getRawID();
 }
 
 std::uint64_t Session::insertMidiFile(std::uint64_t trackId, const juce::File& file, double seconds, bool* addedInstrument)
@@ -505,7 +535,7 @@ std::uint64_t Session::insertMidiFile(std::uint64_t trackId, const juce::File& f
     all.updateMatchedPairs();
     const double length = std::max(0.1, all.getEndTime());
 
-    impl_->beginEdit();
+    impl_->beginEdit("Insert MIDI file");
     const auto start = te::TimePosition::fromSeconds(std::max(0.0, seconds));
     auto clip = track->insertMIDIClip(file.getFileNameWithoutExtension(), {start, start + te::TimeDuration::fromSeconds(length)},
                                       nullptr);
@@ -526,7 +556,7 @@ std::uint64_t Session::createMidiClip(std::uint64_t trackId, double seconds, dou
     auto* track = impl_->track(trackId);
     if (track == nullptr || !(lengthSeconds > 0.0))
         return 0;
-    impl_->beginEdit();
+    impl_->beginEdit("Create MIDI clip");
     const auto start = te::TimePosition::fromSeconds(std::max(0.0, seconds));
     auto clip = track->insertMIDIClip(track->getName(), {start, start + te::TimeDuration::fromSeconds(lengthSeconds)}, nullptr);
     if (clip == nullptr)
@@ -556,7 +586,7 @@ void Session::setNotes(std::uint64_t clipId, const std::vector<model::Note>& not
             changed.push_back(n);
     if (added.empty() && changed.empty())
         return;
-    impl_->beginEdit();
+    impl_->beginEdit("Edit notes");
 
     // The rest pair up in time order: a moved note keeps its other properties (colour, mute).
     std::sort(added.begin(), added.end(), model::noteOrder);
@@ -638,7 +668,7 @@ std::uint64_t Session::insertAudioFile(std::uint64_t trackId, const juce::File& 
     const te::AudioFile audio(impl_->engine, file);
     if (track == nullptr || !audio.isValid())
         return 0;
-    impl_->beginEdit();
+    impl_->beginEdit("Insert audio file");
     const auto start = te::TimePosition::fromSeconds(std::max(0.0, seconds));
     auto clip = track->insertWaveClip(file.getFileNameWithoutExtension(), file,
                                       {{start, te::TimeDuration::fromSeconds(audio.getLength())}, {}}, false);
@@ -652,7 +682,7 @@ void Session::applyClipEdits(const std::vector<model::ClipEdit>& edits)
 {
     if (edits.empty())
         return;
-    impl_->beginEdit();
+    impl_->beginEdit("Move clips");
     for (const auto& e : edits)
     {
         auto* c = impl_->clip(e.clip);
@@ -678,7 +708,7 @@ std::vector<std::uint64_t> Session::duplicateClips(const std::vector<model::Clip
     std::vector<std::uint64_t> created;
     if (placements.empty())
         return created;
-    impl_->beginEdit();
+    impl_->beginEdit("Duplicate clips");
     for (const auto& p : placements)
     {
         auto* source = impl_->clip(p.clip);
@@ -705,7 +735,7 @@ void Session::deleteClips(const std::vector<std::uint64_t>& ids)
 {
     if (ids.empty())
         return;
-    impl_->beginEdit();
+    impl_->beginEdit("Delete clips");
     for (auto id : ids)
         if (auto* c = impl_->clip(id))
             c->removeFromParent();
@@ -724,7 +754,7 @@ std::vector<std::uint64_t> Session::splitClips(const std::vector<std::uint64_t>&
             continue;
         if (!begun)
         {
-            impl_->beginEdit();
+            impl_->beginEdit("Split clips");
             begun = true;
         }
         if (auto* track = c->getClipTrack())
@@ -754,7 +784,7 @@ std::uint64_t Session::addDevice(std::uint64_t trackId, const std::string& key, 
     auto* track = impl_->track(trackId);
     if (track == nullptr)
         return 0;
-    impl_->beginEdit();
+    impl_->beginEdit("Add module");
     auto* plugin = impl_->insertDevice(*track, key, index);
     return plugin != nullptr ? plugin->itemID.getRawID() : 0;
 }
@@ -763,7 +793,7 @@ void Session::removeDevice(std::uint64_t deviceId)
 {
     if (auto* p = impl_->plugin(deviceId))
     {
-        impl_->beginEdit();
+        impl_->beginEdit("Remove module");
         p->removeFromParent();
     }
 }
@@ -780,7 +810,7 @@ void Session::moveDevice(std::uint64_t deviceId, int index)
     if (target == p)
         return;
     auto parent = p->state.getParent();
-    impl_->beginEdit();
+    impl_->beginEdit("Move module");
     parent.moveChild(parent.indexOf(p->state), parent.indexOf(target->state), &impl_->edit->getUndoManager());
 }
 
@@ -788,7 +818,7 @@ void Session::setDeviceEnabled(std::uint64_t deviceId, bool enabled)
 {
     if (auto* p = impl_->plugin(deviceId); p != nullptr && p->isEnabled() != enabled)
     {
-        impl_->beginEdit();
+        impl_->beginEdit("Module on/off");
         p->setEnabled(enabled);
     }
 }
@@ -809,6 +839,7 @@ void Session::setDeviceViewState(std::uint64_t deviceId, const std::string& json
         p->state.removeProperty(Impl::panelViewId, nullptr);
     else
         p->state.setProperty(Impl::panelViewId, juce::String(json), nullptr); // no undo manager
+    impl_->listeners.call([deviceId](Listener& l) { l.deviceViewChanged(deviceId); });
 }
 
 std::unique_ptr<DeviceHandle> Session::openDevice(std::uint64_t deviceId)
@@ -816,6 +847,30 @@ std::unique_ptr<DeviceHandle> Session::openDevice(std::uint64_t deviceId)
     if (auto* native = dynamic_cast<DevicePlugin*>(impl_->plugin(deviceId)))
         return std::make_unique<NativeDeviceHandle>(*native);
     return nullptr;
+}
+
+std::vector<Session::PluginParameter> Session::pluginParameters(std::uint64_t deviceId) const
+{
+    std::vector<PluginParameter> out;
+    if (auto* p = impl_->plugin(deviceId))
+        for (auto* param : p->getAutomatableParameters())
+            out.push_back({param->paramID.toStdString(), param->getParameterName().toStdString(),
+                           param->getCurrentNormalisedValue(), param->getCurrentValueAsString().toStdString()});
+    return out;
+}
+
+bool Session::setPluginParameter(std::uint64_t deviceId, const std::string& parameterId, float value)
+{
+    auto* p = impl_->plugin(deviceId);
+    if (p == nullptr)
+        return false;
+    for (auto* param : p->getAutomatableParameters())
+        if (param->paramID.toStdString() == parameterId)
+        {
+            param->setNormalisedParameter(std::clamp(value, 0.0f, 1.0f), juce::sendNotification);
+            return true;
+        }
+    return false;
 }
 
 void Session::showPluginEditor(std::uint64_t deviceId)
@@ -852,6 +907,7 @@ void Session::replaceEdit(std::unique_ptr<te::Edit> edit, std::optional<juce::Fi
     impl_->attach(std::move(edit));
     if (onProjectChanged)
         onProjectChanged();
+    impl_->listeners.call([](Listener& l) { l.projectReplaced(); });
 }
 
 void Session::newProject()
@@ -930,6 +986,137 @@ bool Session::canUndo() const
 bool Session::canRedo() const
 {
     return impl_->edit->getUndoManager().canRedo();
+}
+
+std::string Session::undoDescription() const
+{
+    return impl_->edit->getUndoManager().getUndoDescription().toStdString();
+}
+
+std::string Session::redoDescription() const
+{
+    return impl_->edit->getUndoManager().getRedoDescription().toStdString();
+}
+
+Session::EditGroup::EditGroup(Session& session, const std::string& name) : session_(session)
+{
+    auto& impl = session_.impl();
+    if (impl.groupDepth++ == 0)
+        impl.edit->getUndoManager().beginNewTransaction(juce::String(name));
+}
+
+Session::EditGroup::~EditGroup()
+{
+    // The step stays open, as after any command: tracktion's own follow-ups (it re-sorts clips
+    // and tracks asynchronously, through the undo manager) join it, and tracktion closes it
+    // once edits pause. The next command or group starts a new one.
+    --session_.impl().groupDepth;
+}
+
+// ---- offline rendering ---------------------------------------------------------------------
+
+namespace
+{
+/// What a render's caller holds: progress and cancelling, from any thread. The render itself
+/// (an Edit copy and its graph) stays on the message thread.
+struct RenderProgress final : Session::RenderJob
+{
+    std::atomic<float> fraction{0.0f};
+    std::atomic<bool> cancelled{false};
+    float progress() const override { return fraction; }
+    void cancel() override { cancelled = true; }
+};
+} // namespace
+
+struct Session::Impl::Render final : private juce::Timer
+{
+    Render() { startTimer(50); }
+    ~Render() override { stopTimer(); }
+
+    std::shared_ptr<RenderProgress> state = std::make_shared<RenderProgress>();
+    std::unique_ptr<te::Edit> copy;
+    std::shared_ptr<te::EditRenderer::Handle> handle; // after `copy`: goes first
+    std::function<void(const std::string&)> done;
+
+private:
+    void timerCallback() override
+    {
+        if (handle == nullptr)
+            return;
+        state->fraction = handle->getProgress();
+        if (state->cancelled)
+            handle->cancel();
+    }
+};
+
+std::shared_ptr<Session::RenderJob> Session::render(const RenderRequest& request, const juce::File& destination,
+                                                    std::function<void(const std::string& error)> done)
+{
+    auto& impl = *impl_;
+    if (!(request.end > request.start) || (request.track && impl.track(*request.track) == nullptr))
+        return nullptr;
+
+    // A copy of the project: our devices' state is all in its tree; third-party plugins get
+    // their live state copied over, so nothing in the open project is touched.
+    te::Edit::Options options{impl.engine, impl.edit->state.createCopy(), te::ProjectItemID::createNewID(te::ProjectID{})};
+    options.role = te::Edit::forRendering;
+    options.numUndoLevelsToStore = 0;
+    options.numAudioTracks = 0;
+    if (impl.file)
+        options.editFileRetriever = [f = *impl.file] { return f; };
+    auto job = std::make_shared<Impl::Render>();
+    job->copy = te::Edit::createEdit(std::move(options));
+    if (job->copy == nullptr)
+        return nullptr;
+    for (auto* p : te::getAllPlugins(*job->copy, false))
+        if (auto* copied = dynamic_cast<te::ExternalPlugin*>(p))
+            if (auto* live = dynamic_cast<te::ExternalPlugin*>(impl.plugin(p->itemID.getRawID())))
+                if (auto* from = live->getAudioPluginInstance())
+                    if (auto* to = copied->getAudioPluginInstance())
+                    {
+                        juce::MemoryBlock state;
+                        from->getStateInformation(state);
+                        to->setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+                    }
+
+    te::Renderer::Parameters params(*job->copy);
+    params.destFile = destination;
+    params.audioFormat = impl.engine.getAudioFileFormatManager().getWavFormat();
+    params.bitDepth = 32;
+    params.sampleRateForAudio = request.sampleRate;
+    params.blockSizeForAudio = 512;
+    params.time = {te::TimePosition::fromSeconds(request.start), te::TimePosition::fromSeconds(request.end)};
+    params.canRenderInMono = false;
+    params.checkNodesForAudio = false; // silence is a result too
+    params.usePlugins = true;
+    params.useMasterPlugins = !request.track.has_value();
+    const auto tracks = te::getAllTracks(*job->copy);
+    if (request.track)
+    {
+        for (int i = 0; i < tracks.size(); ++i)
+            if (tracks[i]->itemID.getRawID() == *request.track)
+                params.tracksToDo.setBit(i);
+    }
+    else
+        params.tracksToDo = te::toBitSet(tracks);
+
+    job->done = std::move(done);
+    std::weak_ptr<Impl::Render> weak = job;
+    Impl* owner = &impl;
+    job->handle = te::EditRenderer::render(params, [weak, owner](auto result) {
+        const std::string error = result ? std::string() : std::string(result.error());
+        juce::MessageManager::callAsync([weak, owner, error] {
+            auto finished = weak.lock();
+            if (finished == nullptr)
+                return; // the session has gone
+            auto callback = std::move(finished->done);
+            std::erase(owner->renders, finished);
+            if (callback)
+                callback(error);
+        }); // `finished`, the last reference, takes the Edit copy with it here
+    });
+    impl.renders.push_back(job);
+    return job->state;
 }
 
 juce::AudioDeviceManager& Session::deviceManager()

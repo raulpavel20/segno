@@ -97,10 +97,12 @@ DeviceChain::DeviceChain(engine::Session& session, const ActionRegistry& actions
     add_.setWantsKeyboardFocus(false);
     add_.onClick = [this] { showAddMenu(); };
     content_->addAndMakeVisible(add_);
+    session_.addListener(this);
 }
 
 DeviceChain::~DeviceChain()
 {
+    session_.removeListener(this);
     for (auto& s : slots_)
         s.view->removeMouseListener(this);
     slots_.clear(); // panels before their handles' bindings
@@ -173,6 +175,17 @@ void DeviceChain::rebuild(const std::vector<model::DeviceSlot>& devices)
         selected_.reset();
     add_.setVisible(track_.has_value());
     layoutSlots();
+}
+
+void DeviceChain::deviceViewChanged(std::uint64_t deviceId)
+{
+    for (auto& s : slots_)
+        if (auto* panel = dynamic_cast<ui::DevicePanel*>(s.view.get()); panel != nullptr && s.info.id == deviceId)
+            if (const auto stored = session_.deviceViewState(deviceId); stored != panel->viewState())
+            {
+                panel->setViewState(stored);
+                layoutSlots();
+            }
 }
 
 void DeviceChain::layoutSlots()

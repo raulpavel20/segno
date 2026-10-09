@@ -634,3 +634,27 @@ TEST_CASE("notes past a MIDI clip's end lengthen it in the same undo step", "[in
     CHECK(info().length == Approx(2.0));
     CHECK(info().notes.size() == 1);
 }
+
+TEST_CASE("session: a new project has no undo steps, even after tracktion's own start-up work", "[integration]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    tracktion::Engine engine{"fd-integration-tests"};
+    fd::engine::Session session(engine);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(300);
+    CHECK_FALSE(session.canUndo());
+
+    // A named group stays one step, and tracktion's follow-ups join it.
+    const auto track = session.snapshot()->tracks[0].id;
+    {
+        fd::engine::Session::EditGroup group(session, "Assistant: test");
+        session.createMidiClip(track, 0.0, 2.0);
+        session.createMidiClip(track, 4.0, 2.0);
+    }
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(500);
+    CHECK(session.undoDescription() == "Assistant: test");
+    session.undo();
+    session.updateSnapshotNow();
+    CHECK(session.snapshot()->tracks[0].clips.empty());
+    CHECK_FALSE(session.canUndo());
+    CHECK(session.redoDescription() == "Assistant: test");
+}

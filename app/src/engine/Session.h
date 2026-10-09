@@ -56,6 +56,27 @@ public:
     std::function<void()> onSnapshotChanged;
     /// Rebuilds the snapshot now (tests; the UI waits for the coalesced update).
     void updateSnapshotNow();
+    /// Publishes a pending snapshot now, if edits are waiting for one (tools that read right
+    /// after editing).
+    void flushSnapshot();
+
+    /// Changes beyond the snapshot callback, for any number of listeners (the MCP server, the
+    /// module chain). Message thread.
+    class Listener
+    {
+    public:
+        virtual ~Listener() = default;
+        /// A new snapshot was published.
+        virtual void snapshotChanged() {}
+        /// A module's parameters or state changed (often, while a knob turns: coalesce).
+        virtual void deviceStateChanged(std::uint64_t /*deviceId*/) {}
+        /// A module's view state was set (setDeviceViewState).
+        virtual void deviceViewChanged(std::uint64_t /*deviceId*/) {}
+        /// The project was replaced (new or open).
+        virtual void projectReplaced() {}
+    };
+    void addListener(Listener* listener);
+    void removeListener(Listener* listener);
 
     // ---- transport ----------------------------------------------------------------------
 
@@ -80,8 +101,9 @@ public:
 
     // ---- editing (each call is one undoable step) --------------------------------------
 
-    /// A new, empty track (any track takes audio and MIDI clips, ADR 0019).
-    std::uint64_t addTrack();
+    /// A new, empty track (any track takes audio and MIDI clips, ADR 0019), named "N Track"
+    /// unless `name` is given.
+    std::uint64_t addTrack(const std::string& name = {});
     /// Inserts a MIDI file as a clip at `seconds` (all of its tracks merged); returns the clip id.
     /// A track without an instrument gets the default one (`addedInstrument` says so).
     std::uint64_t insertMidiFile(std::uint64_t trackId, const juce::File& file, double seconds,
@@ -135,6 +157,18 @@ public:
     void setDeviceViewState(std::uint64_t deviceId, const std::string& json);
     /// The panel context of one of our devices; null for third-party plugins.
     [[nodiscard]] std::unique_ptr<DeviceHandle> openDevice(std::uint64_t deviceId);
+    /// A third-party plugin's parameters (ours are read through openDevice()).
+    struct PluginParameter
+    {
+        std::string id;
+        std::string name;
+        float value = 0.0f; // normalised, 0..1
+        std::string text;   // the plugin's own display of the value
+    };
+    [[nodiscard]] std::vector<PluginParameter> pluginParameters(std::uint64_t deviceId) const;
+    /// Sets a third-party plugin's parameter (normalised 0..1, clamped); false if it has no
+    /// such parameter. Recorded like the user's edits.
+    bool setPluginParameter(std::uint64_t deviceId, const std::string& parameterId, float value);
     /// Opens a third-party plugin's own editor window.
     void showPluginEditor(std::uint64_t deviceId);
 
@@ -171,6 +205,46 @@ public:
     void redo();
     [[nodiscard]] bool canUndo() const;
     [[nodiscard]] bool canRedo() const;
+    /// The step undo() or redo() would take back, by name ("Add track"); empty if unnamed.
+    [[nodiscard]] std::string undoDescription() const;
+    [[nodiscard]] std::string redoDescription() const;
+
+    /// Makes the commands run while it exists one undo step named `name` ("Assistant: add
+    /// notes"; ADR 0021: one assistant call, one step). Groups nest: the outermost names it.
+    class EditGroup
+    {
+    public:
+        EditGroup(Session& session, const std::string& name);
+        ~EditGroup();
+        EditGroup(const EditGroup&) = delete;
+        EditGroup& operator=(const EditGroup&) = delete;
+
+    private:
+        Session& session_;
+    };
+
+    // ---- offline rendering (the MCP render tool; bounce and export later) ----------------
+
+    struct RenderRequest
+    {
+        double start = 0.0, end = 0.0;      // seconds
+        std::optional<std::uint64_t> track; // one track through its chain; the mix when empty
+        double sampleRate = 48000.0;
+    };
+    /// A render in flight.
+    class RenderJob
+    {
+    public:
+        virtual ~RenderJob() = default;
+        [[nodiscard]] virtual float progress() const = 0; // 0..1, any thread
+        virtual void cancel() = 0;                         // any thread
+    };
+    /// Renders a range to a stereo 32-bit float WAV, offline, on a copy of the project: the
+    /// project, its undo history and its playback are untouched. `done` runs on the message
+    /// thread with an empty string on success, or why it failed. Null (with `done` not called)
+    /// if the request names nothing to render.
+    std::shared_ptr<RenderJob> render(const RenderRequest& request, const juce::File& destination,
+                                      std::function<void(const std::string& error)> done);
 
     // ---- engine ------------------------------------------------------------------------
 

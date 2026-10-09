@@ -13,7 +13,7 @@ namespace fd::app
 /// third-party plugins as compact cards, left to right; add with the + button, reorder by
 /// dragging a header (or a folded strip), bypass with the power toggle, fold a module or
 /// collapse its sections (ADR 0022), delete the selected module.
-class DeviceChain final : public juce::Component
+class DeviceChain final : public juce::Component, private engine::Session::Listener
 {
 public:
     static constexpr int gap = 8;
@@ -52,6 +52,8 @@ private:
     class Content;
 
     void rebuild(const std::vector<model::DeviceSlot>& devices);
+    /// A module's view state set elsewhere (an assistant, undo): the panel follows.
+    void deviceViewChanged(std::uint64_t deviceId) override;
     void layoutSlots();
     void showAddMenu();
     [[nodiscard]] int slotIndexOf(const juce::Component* c) const;
