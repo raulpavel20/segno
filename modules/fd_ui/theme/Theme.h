@@ -48,6 +48,9 @@ struct ColourRoles
     juce::Colour keyWhite, keyBlack, keySeam;
     juce::Colour curveFill, selectionCurve, spectrumFill, spectrumLine, spectrumPre, outside, loopTint;
     juce::Colour focusRing, hoverWash, dropWell, valueHot, valueText, warning, overlay, shadow;
+    // Automation (docs/design/automation.md §4): the line and points, the reserved gradient under
+    // the curve (top to the lane's floor), and a lane that's off.
+    juce::Colour automation, automationFillTop, automationFillBottom, automationOff, automationOffFill;
 
     // States.
     float hoverLift = 0.06f, pressedLift = 0.12f;

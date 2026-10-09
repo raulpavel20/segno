@@ -18,11 +18,22 @@ std::optional<std::pair<const ClipInfo*, int>> findClip(const Snapshot& snapshot
 std::optional<ClipHit> hitClip(const Snapshot& snapshot, const TrackLayout& layout, const Timeline& timeline,
                                double x, double y, double edgePixels)
 {
+    return hitClip(snapshot, layout, {}, timeline, x, y, edgePixels);
+}
+
+std::optional<ClipHit> hitClip(const Snapshot& snapshot, const TrackLayout& layout, const std::vector<int>& rowTracks,
+                               const Timeline& timeline, double x, double y, double edgePixels)
+{
     const auto row = layout.hit(y);
-    if (!row || row->track >= static_cast<int>(snapshot.tracks.size()))
+    if (!row)
+        return std::nullopt;
+    const int track = rowTracks.empty() ? row->track
+                      : row->track < static_cast<int>(rowTracks.size()) ? rowTracks[static_cast<size_t>(row->track)]
+                                                                       : -1;
+    if (track < 0 || track >= static_cast<int>(snapshot.tracks.size()))
         return std::nullopt;
     const double t = timeline.timeForX(x);
-    const auto& clips = snapshot.tracks[static_cast<size_t>(row->track)].clips;
+    const auto& clips = snapshot.tracks[static_cast<size_t>(track)].clips;
     // Later clips are drawn on top: search from the end.
     for (auto it = clips.rbegin(); it != clips.rend(); ++it)
     {
@@ -30,7 +41,7 @@ std::optional<ClipHit> hitClip(const Snapshot& snapshot, const TrackLayout& layo
             continue;
         const double x0 = timeline.xForTime(it->start), x1 = timeline.xForTime(it->end());
         const double edge = std::min(edgePixels, (x1 - x0) / 3.0);
-        ClipHit hit{it->id, row->track, ClipHit::Zone::Body};
+        ClipHit hit{it->id, track, ClipHit::Zone::Body};
         if (x - x0 < edge)
             hit.zone = ClipHit::Zone::StartEdge;
         else if (x1 - x < edge)

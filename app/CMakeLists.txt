@@ -9,13 +9,14 @@ juce_add_modules(ALIAS_NAMESPACE tracktion
 add_library(fd_app_model STATIC src/model/Timeline.cpp src/model/TrackLayout.cpp src/model/Peaks.cpp
     src/model/Editing.cpp src/model/Fuzzy.cpp src/model/NoteEditing.cpp
     src/model/TrackHeaderLayout.cpp src/model/AudioMeasure.cpp src/model/Taper.cpp src/model/ChannelStripLayout.cpp src/model/Selection.cpp
-    src/model/Automation.cpp)
+    src/model/Automation.cpp src/model/ArrangementRows.cpp)
 target_include_directories(fd_app_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(fd_app_model PUBLIC fd::audiofile PRIVATE fd::dsp fd::warnings)
 
 if(FD_BUILD_TESTS)
     fd_add_test(NAME fd_app_model_tests SOURCES tests/ModelTests.cpp tests/NoteEditingTests.cpp tests/AudioMeasureTests.cpp
-        tests/SelectionTests.cpp tests/AutomationTests.cpp LIBS fd_app_model)
+        tests/SelectionTests.cpp tests/AutomationTests.cpp
+        tests/ArrangementRowsTests.cpp LIBS fd_app_model)
 endif()
 
 # fd_mcp: the MCP server's protocol layer and transports (ADR 0021, docs/design/mcp.md). JUCE-free,
@@ -92,6 +93,9 @@ target_sources(fd_app_ui INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/Shell.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/Panels.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ArrangementView.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/AutomationLane.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/LaneControls.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/LanePicker.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ChannelControls.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ChannelInspector.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/MixerView.cpp"

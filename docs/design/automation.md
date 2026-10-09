@@ -144,7 +144,7 @@ The invariant stays: the selected channel is the channel of what was selected la
 | Automation arm | `automation.arm` | Ctrl+Shift+A |
 | Turn automation back on | `automation.reEnable` | (palette, transport button) |
 | Add automation lane… | `automation.addLane` | Ctrl+Shift+L |
-| Show last touched parameter | `automation.showLastTouched` | (palette) |
+| Show last touched parameter | `automation.showLastTouched` | Alt+L |
 | Show automation lanes (all tracks) | `view.lanes` | Ctrl+Alt+L |
 
 ## 11. Assistants (MCP)

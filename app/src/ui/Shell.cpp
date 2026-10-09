@@ -84,6 +84,12 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         applyDetailMode();
     };
     arrangement_.onActivated = [this] { lastArea_ = Area::Arrangement; };
+    arrangement_.onLaneActivated = [this] { lastArea_ = Area::Lane; };
+    arrangement_.onAddLane = [this](std::uint64_t channel) { lanePicker_.open(*this, channel); };
+    lanePicker_.onChosen = [this](const engine::Session::LaneTarget& target) {
+        lastArea_ = Area::Lane;
+        arrangement_.selectLane(target.channel, target.lane);
+    };
     arrangement_.onMessage = [this](const juce::String& m) { showWarning(m); };
     detail_.chain().onActivated = [this] { lastArea_ = Area::Detail; };
     detail_.pianoRoll().onActivated = [this] { lastArea_ = Area::Clip; };
@@ -175,8 +181,8 @@ void Shell::registerActions()
     actions_.add({.id = "edit.redo", .name = "Redo", .category = "Edit", .keys = {key('z', kCmd | kShift), key('y', kCmd)},
                   .perform = [&s] { s.redo(); }, .isEnabled = [&s] { return s.canRedo(); }});
     // Delete, Duplicate and Select all act on the selection in the area used last: notes in the
-    // piano roll, a device in the chain, else clips. Clips only while the arrangement shows them
-    // (selection.md §6).
+    // piano roll, a device in the chain, a lane's points (or the lane), else clips. Clips and
+    // lanes only while the arrangement shows them (selection.md §6, automation.md §9).
     auto& roll = detail_.pianoRoll();
     auto clipsShown = [this] { return !mixerShown_; };
     actions_.add({.id = "edit.delete", .name = "Delete", .category = "Edit",
@@ -186,23 +192,30 @@ void Shell::registerActions()
                           roll.deleteSelection();
                       else if (lastArea_ == Area::Detail && detail_.chain().hasSelection())
                           detail_.chain().deleteSelected();
+                      else if (laneActive() && arrangement_.hasPointSelection())
+                          arrangement_.deletePoints();
+                      else if (laneActive())
+                          arrangement_.removeSelectedLane();
                       else if (clipsShown())
                           arrangement_.deleteSelection();
                   },
                   .isEnabled = [this, &roll, clipsShown] {
                       return (notesActive() && roll.hasSelection()) ||
-                             (lastArea_ == Area::Detail && detail_.chain().hasSelection()) ||
+                             (lastArea_ == Area::Detail && detail_.chain().hasSelection()) || laneActive() ||
                              (clipsShown() && arrangement_.hasClipSelection());
                   }});
     actions_.add({.id = "edit.duplicate", .name = "Duplicate", .category = "Edit", .keys = {key('d', kCmd)},
                   .perform = [this, &roll, clipsShown] {
                       if (notesActive() && roll.hasSelection())
                           roll.duplicateSelection();
+                      else if (pointsActive())
+                          arrangement_.duplicatePoints();
                       else if (clipsShown())
                           arrangement_.duplicateSelection();
                   },
                   .isEnabled = [this, &roll, clipsShown] {
-                      return (notesActive() && roll.hasSelection()) || (clipsShown() && arrangement_.hasClipSelection());
+                      return (notesActive() && roll.hasSelection()) || pointsActive() ||
+                             (clipsShown() && arrangement_.hasClipSelection());
                   }});
     actions_.add({.id = "edit.split", .name = "Split at playhead", .category = "Edit", .keys = {key('e', kCmd)},
                   .perform = [this] { arrangement_.splitAtPlayhead(); }, .isEnabled = clipsShown});
@@ -210,27 +223,38 @@ void Shell::registerActions()
                   .perform = [this, &roll, clipsShown] {
                       if (notesActive())
                           roll.selectAll();
+                      else if (laneActive())
+                          arrangement_.selectAllPoints();
                       else if (clipsShown())
                           arrangement_.selectAllClips();
                   },
                   .isEnabled = [this, clipsShown] { return notesActive() || clipsShown(); }});
 
-    // Notes (C2): the piano roll's selection, while it was used last.
-    auto notesSelected = [this, &roll] { return notesActive() && roll.hasSelection(); };
-    actions_.add({.id = "notes.up", .name = "Transpose up", .category = "Notes", .keys = {key(juce::KeyPress::upKey)},
-                  .perform = [&roll] { roll.transpose(1); }, .isEnabled = notesSelected});
-    actions_.add({.id = "notes.down", .name = "Transpose down", .category = "Notes", .keys = {key(juce::KeyPress::downKey)},
-                  .perform = [&roll] { roll.transpose(-1); }, .isEnabled = notesSelected});
-    actions_.add({.id = "notes.octaveUp", .name = "Transpose up an octave", .category = "Notes",
-                  .keys = {key(juce::KeyPress::upKey, kShift)}, .perform = [&roll] { roll.transpose(12); },
-                  .isEnabled = notesSelected});
-    actions_.add({.id = "notes.octaveDown", .name = "Transpose down an octave", .category = "Notes",
-                  .keys = {key(juce::KeyPress::downKey, kShift)}, .perform = [&roll] { roll.transpose(-12); },
+    // The arrows: the piano roll's notes (C2), or a lane's points (C4), whichever was used last.
+    auto notesSelected = [this, &roll] { return (notesActive() && roll.hasSelection()) || pointsActive(); };
+    auto arrow = [this, &roll](int semitones, int steps, float value) {
+        return [this, &roll, semitones, steps, value] {
+            if (pointsActive())
+                arrangement_.nudgePoints(steps, value);
+            else if (semitones != 0)
+                roll.transpose(semitones);
+            else
+                roll.nudge(steps);
+        };
+    };
+    actions_.add({.id = "notes.up", .name = "Transpose up / raise points", .category = "Notes",
+                  .keys = {key(juce::KeyPress::upKey)}, .perform = arrow(1, 0, 0.01f), .isEnabled = notesSelected});
+    actions_.add({.id = "notes.down", .name = "Transpose down / lower points", .category = "Notes",
+                  .keys = {key(juce::KeyPress::downKey)}, .perform = arrow(-1, 0, -0.01f), .isEnabled = notesSelected});
+    actions_.add({.id = "notes.octaveUp", .name = "Transpose up an octave / raise points a little", .category = "Notes",
+                  .keys = {key(juce::KeyPress::upKey, kShift)}, .perform = arrow(12, 0, 0.001f), .isEnabled = notesSelected});
+    actions_.add({.id = "notes.octaveDown", .name = "Transpose down an octave / lower points a little", .category = "Notes",
+                  .keys = {key(juce::KeyPress::downKey, kShift)}, .perform = arrow(-12, 0, -0.001f),
                   .isEnabled = notesSelected});
     actions_.add({.id = "notes.later", .name = "Nudge later", .category = "Notes", .keys = {key(juce::KeyPress::rightKey)},
-                  .perform = [&roll] { roll.nudge(1); }, .isEnabled = notesSelected});
+                  .perform = arrow(0, 1, 0.0f), .isEnabled = notesSelected});
     actions_.add({.id = "notes.earlier", .name = "Nudge earlier", .category = "Notes", .keys = {key(juce::KeyPress::leftKey)},
-                  .perform = [&roll] { roll.nudge(-1); }, .isEnabled = notesSelected});
+                  .perform = arrow(0, -1, 0.0f), .isEnabled = notesSelected});
     actions_.add({.id = "notes.quantise", .name = "Quantise", .category = "Notes", .keys = {key('u', kCmd)},
                   .perform = [&roll] { roll.quantise(); },
                   .isEnabled = [this, &roll] { return detail_.showsPianoRoll() && !roll.notes().empty(); }});
@@ -308,6 +332,39 @@ void Shell::registerActions()
                   .perform = [this] { setMixerShown(!mixerShown_); },
                   .isToggled = [this] { return mixerShown_; }});
     auto arrangeShown = [this] { return !mixerShown_; }; // actions on what only the arrangement shows
+    // Automation lanes (C4, docs/design/automation.md §3, §10).
+    actions_.add({.id = "automation.addLane", .name = "Add automation lane...", .category = "Automation",
+                  .keys = {key('l', kCmd | kShift)},
+                  .perform = [this] {
+                      if (const auto c = selectedTrackInfo())
+                          lanePicker_.open(*this, c->id);
+                  },
+                  .isEnabled = [this, arrangeShown] { return arrangeShown() && selectedTrackInfo().has_value(); }});
+    actions_.add({.id = "automation.showLastTouched", .name = "Show last touched parameter", .category = "Automation",
+                  .keys = {key('l', kAlt)},
+                  .perform = [this, &s] {
+                      if (const auto target = s.lastTouchedParameter(); target && s.showLane(*target))
+                          arrangement_.selectLane(target->channel, target->lane);
+                  },
+                  .isEnabled = [&s, arrangeShown] { return arrangeShown() && s.lastTouchedParameter().has_value(); }});
+    auto anyLanesShown = [this] {
+        const auto snap = session_.snapshot();
+        auto shown = [](const model::TrackInfo& t) { return !t.lanes.empty() && !t.lanesFolded; };
+        return std::any_of(snap->tracks.begin(), snap->tracks.end(), shown) ||
+               std::any_of(snap->returns.begin(), snap->returns.end(), shown) || shown(snap->master);
+    };
+    actions_.add({.id = "view.lanes", .name = "Show automation lanes", .category = "View", .keys = {key('l', kCmd | kAlt)},
+                  .perform = [&s, anyLanesShown] {
+                      const bool fold = anyLanesShown();
+                      const auto snap = s.snapshot();
+                      for (const auto* list : {&snap->tracks, &snap->returns})
+                          for (const auto& t : *list)
+                              if (!t.lanes.empty())
+                                  s.setLanesFolded(t.id, fold);
+                      if (!snap->master.lanes.empty())
+                          s.setLanesFolded(snap->master.id, fold);
+                  },
+                  .isEnabled = arrangeShown, .isToggled = anyLanesShown});
     actions_.add({.id = "view.returns", .name = "Show returns and master", .category = "View",
                   .keys = {key('r', kCmd | kAlt)},
                   .perform = [this] { arrangement_.setMixRowsVisible(!arrangement_.mixRowsVisible()); },
@@ -392,6 +449,16 @@ void Shell::registerActions()
 bool Shell::notesActive() const
 {
     return lastArea_ == Area::Clip && detail_.showsPianoRoll();
+}
+
+bool Shell::laneActive() const
+{
+    return lastArea_ == Area::Lane && !mixerShown_ && arrangement_.hasLaneSelection();
+}
+
+bool Shell::pointsActive() const
+{
+    return laneActive() && arrangement_.hasPointSelection();
 }
 
 bool Shell::keyPressed(const juce::KeyPress& k)
@@ -550,7 +617,8 @@ std::string Shell::viewState() const
                           {"mixerModules", mixer_.options().modules},
                           {"mixerSends", mixer_.options().sends},
                           {"mixerNarrow", mixer_.options().narrow},
-                          {"mixerScroll", mixer_.scrollX()}}
+                          {"mixerScroll", mixer_.scrollX()},
+                          {"rowHeights", arrangement_.rowHeights()}}
         .dump();
 }
 
@@ -573,6 +641,7 @@ void Shell::applyViewState(const std::string& json)
     arrangement_.setMixRowsVisible(get("returns", true));
     mixer_.setOptions(get("mixerModules", true), get("mixerSends", true), get("mixerNarrow", false));
     mixer_.setScrollX(get("mixerScroll", 0));
+    arrangement_.setRowHeights(get("rowHeights", std::map<std::string, double>{}));
     resized();
 }
 
@@ -633,6 +702,9 @@ void Shell::selectionChanged()
     {
         subject_ = context.key;
         arrangeMode_ = context.opensClipView ? DetailPanel::Mode::Clip : DetailPanel::Mode::Devices;
+        // A lane shows its module below (automation.md §9).
+        if (context.lane && context.lane->device != 0)
+            detail_.chain().selectDevice(context.lane->device);
     }
     applyDetailMode();
 }

@@ -26,6 +26,11 @@ struct ClipHit
 /// the lanes. The edges are the outer `edgePixels` of a clip (less for very short clips).
 [[nodiscard]] std::optional<ClipHit> hitClip(const Snapshot& snapshot, const TrackLayout& layout,
                                              const Timeline& timeline, double x, double y, double edgePixels = 6.0);
+/// The same where rows aren't all tracks (lanes, returns): `rowTracks[row]` is the row's track
+/// index in the snapshot, or -1 for a row without clips. ClipHit::track is the track index.
+[[nodiscard]] std::optional<ClipHit> hitClip(const Snapshot& snapshot, const TrackLayout& layout,
+                                             const std::vector<int>& rowTracks, const Timeline& timeline, double x,
+                                             double y, double edgePixels = 6.0);
 
 /// Where a clip goes: its track and placement.
 struct ClipEdit

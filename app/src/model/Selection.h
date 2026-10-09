@@ -17,6 +17,10 @@ struct Selection
 {
     std::optional<std::uint64_t> channel; // a track, a return track or the master
     std::set<std::uint64_t> clips;
+    /// An automation lane of the channel (its key), and points on it by index (C4,
+    /// docs/design/automation.md §9). Never together with clips.
+    std::optional<std::string> lane;
+    std::set<size_t> points;
 
     friend bool operator==(const Selection&, const Selection&) = default;
 };
@@ -26,18 +30,18 @@ struct Selection
 [[nodiscard]] Selection withClips(const Snapshot& snapshot, std::set<std::uint64_t> clips,
                                   std::optional<std::uint64_t> prefer, std::optional<std::uint64_t> otherwise);
 
-/// The selection after the project changed: clips and channels that are gone are dropped, and if
-/// the channel no longer holds any of the clips (they moved), it follows them.
+/// The selection after the project changed: clips, channels, lanes and points that are gone are
+/// dropped, and if the channel no longer holds any of the clips (they moved), it follows them.
 [[nodiscard]] Selection pruned(const Selection& selection, const Snapshot& snapshot);
 
 /// The view in the centre of the window.
 enum class CentreView { Arrange, Mix };
 
 /// What the context panels show (selection.md §3).
-enum class Subject { Nothing, Channel, Clip, Clips };
+enum class Subject { Nothing, Channel, Clip, Clips, Lane };
 
 /// The inspector's sections, top to bottom (selection.md §5).
-enum class InspectorSection { Clip, Clips, Track, Return, Master, Mix, Sends };
+enum class InspectorSection { Point, Points, Lane, Clip, Clips, Track, Return, Master, Mix, Sends };
 
 /// Everything the context panels need for a selection in a view: the rules of selection.md §3-5
 /// in one place.
@@ -48,6 +52,9 @@ struct PanelContext
     std::optional<ClipInfo> clip;     // the one selected clip
     int clipCount = 0;                // selected clips in the snapshot
     std::optional<ClipInfo> midiClip; // the one selected clip when it's MIDI: the clip view's
+    std::optional<LaneInfo> lane;     // the selected lane
+    std::optional<AutomationPoint> point; // its one selected point
+    int pointCount = 0;               // its selected points
 
     bool clipViewOffered = false; // the detail panel has its Clip tab (the arrangement only)
     bool opensClipView = false;   // a change to this subject opens the clip view (in the arrangement)

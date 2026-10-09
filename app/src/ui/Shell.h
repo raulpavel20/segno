@@ -5,6 +5,7 @@
 #include "ui/MixerView.h"
 #include "ui/AssistantsPopover.h"
 #include "ui/CommandPalette.h"
+#include "ui/LanePicker.h"
 #include "ui/Panels.h"
 
 #include <map>
@@ -39,6 +40,7 @@ public:
     [[nodiscard]] ArrangementView& arrangement() noexcept { return arrangement_; }
     [[nodiscard]] InspectorPanel& inspector() noexcept { return inspector_; }
     [[nodiscard]] MixerView& mixer() noexcept { return mixer_; }
+    [[nodiscard]] LanePicker& lanePicker() noexcept { return lanePicker_; }
 
     /// Frame statistics overlay (paint time of the arrangement, frame rate): --stats.
     void setStatsVisible(bool visible);
@@ -88,9 +90,11 @@ private:
     BrowserPanel browser_{actions_};
     InspectorPanel inspector_{session_};
     DetailPanel detail_{session_, actions_};
-    enum class Area { Arrangement, Detail, Clip };
+    enum class Area { Arrangement, Detail, Clip, Lane };
     Area lastArea_ = Area::Arrangement; // where Delete, Duplicate and Select all apply
     [[nodiscard]] bool notesActive() const; // the piano roll was used last and shows a clip
+    [[nodiscard]] bool laneActive() const;   // an automation lane was used last and is selected
+    [[nodiscard]] bool pointsActive() const; // ... with points selected
     ArrangementView arrangement_;
     MixerView mixer_{session_};
     bool mixerShown_ = false; // the centre shows the mixer view instead of the arrangement
@@ -101,6 +105,7 @@ private:
     DetailPanel::Mode arrangeMode_ = DetailPanel::Mode::Devices;
     std::optional<model::PanelContext::Key> subject_;
     CommandPalette palette_{actions_};
+    LanePicker lanePicker_{session_};
 
     Panel browserPanel_{.open = true, .shown = 1.0f, .size = 220.0f};
     Panel inspectorPanel_{.open = true, .shown = 1.0f, .size = 260.0f};

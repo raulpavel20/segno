@@ -142,6 +142,13 @@ private:
     std::optional<model::TrackInfo> channel_;
     std::optional<model::ClipInfo> clip_;
     int clipCount_ = 0;
+    std::optional<model::LaneInfo> lane_;
+    std::optional<model::AutomationPoint> point_;
+    int pointCount_ = 0;
+    std::optional<size_t> pointIndex_;
+    /// The selected point's value, typed or dragged (automation.md §9): one undo step each.
+    ui::NumberField pointValue_;
+    std::optional<engine::Session::EditGroup> pointGesture_;
     model::TempoMap tempo_;
 };
 

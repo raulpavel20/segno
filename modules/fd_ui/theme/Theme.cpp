@@ -48,6 +48,11 @@ void deriveRoles(Theme& t)
     r.valueText = t.textPrimary.withAlpha(0.85f);
     r.warning = t.meterHot.withAlpha(0.8f);
     r.overlay = t.surface3.withAlpha(0.9f);
+    r.automation = t.effectStart;
+    r.automationFillTop = t.effectStart.withAlpha(0.40f); // the reserved gradient (ui-principles §4)
+    r.automationFillBottom = t.effectEnd.withAlpha(0.04f);
+    r.automationOff = t.effectStart.withAlpha(r.fadedAlpha);
+    r.automationOffFill = t.effectStart.withAlpha(0.06f);
     r.shadow = juce::Colours::black.withAlpha(0.5f);
 }
 

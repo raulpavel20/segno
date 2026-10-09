@@ -1050,3 +1050,121 @@ TEST_CASE("the Assistants popover turns the server on, shows setup lines and cli
     }
     juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
 }
+
+TEST_CASE("automation lanes: rows under their track, picked, folded, edited and selected (C4b)", "[integration]")
+{
+    using S = fd::model::InspectorSection;
+    ShellFixture f;
+    f.shell->setSize(1800, 1000);
+    auto& view = f.shell->arrangement();
+    auto& actions = f.shell->actions();
+    auto& s = *f.session;
+    const auto snap = s.snapshot();
+    const auto t0 = snap->tracks[0].id, t1 = snap->tracks[1].id;
+    const auto eq = s.addDevice(t0, "fd:eq");
+    REQUIRE(eq != 0);
+    s.updateSnapshotNow();
+
+    // The lane picker lists the track's parameters; choosing one shows its lane and selects it.
+    view.selectTrack(t0);
+    REQUIRE(actions.perform("automation.addLane"));
+    auto& picker = f.shell->lanePicker();
+    REQUIRE(picker.isOpen());
+    picker.setQuery("volume");
+    REQUIRE_FALSE(picker.shownLanes().empty());
+    CHECK(picker.shownLanes().front() == "volume");
+    picker.chooseSelected();
+    s.updateSnapshotNow();
+    REQUIRE(s.snapshot()->tracks[0].lane("volume") != nullptr);
+    CHECK(view.selection().lane == std::optional<std::string>("volume"));
+    const auto& rows = view.rows();
+    REQUIRE(rows.size() > 1);
+    CHECK(rows[1].isLane());
+    CHECK(rows[1].lane == "volume");
+
+    // A module's parameter, with points (an assistant or a recording would do the same).
+    const std::string freq = "m" + std::to_string(eq) + "/band1.freq";
+    REQUIRE(s.setAutomation({t0, freq}, {{0.0, 0.2f, 0.0f}, {2.0, 0.8f, fd::model::curveForBend(0.5f)}, {4.0, 0.4f, 0.0f}}));
+    REQUIRE(s.setAutomation({t1, "pan"}, {{1.0, 0.0f, 0.0f}, {3.0, 1.0f, 0.0f}}));
+    s.updateSnapshotNow();
+    CHECK(view.rows().size() == s.snapshot()->tracks.size() + 3 + 1 + s.snapshot()->returns.size()); // 3 lanes, the master
+    view.setAllTrackHeights(64.0);
+
+    // Double-click in the volume lane adds a point (one undo step).
+    auto rowTop = [&](size_t row) {
+        float y = static_cast<float>(fd::app::ArrangementView::rulerHeight());
+        for (size_t i = 0; i < row; ++i)
+            y += 64.0f;
+        return y;
+    };
+    const auto laneX = [&](double seconds) {
+        return static_cast<float>(fd::app::ArrangementView::headerWidth()) + static_cast<float>(view.timeline().xForTime(seconds));
+    };
+    const juce::Point<float> spot(laneX(1.0), rowTop(1) + 32.0f);
+    click(view, spot);
+    click(view, spot, 2);
+    s.updateSnapshotNow();
+    REQUIRE(s.snapshot()->tracks[0].lane("volume")->points.size() == 1);
+    CHECK(s.undoDescription() == "Add point");
+    CHECK(view.selection().points == std::set<size_t>{0});
+    auto& inspector = f.shell->inspector();
+    CHECK(inspector.sections() == std::vector{S::Point, S::Lane, S::Track, S::Mix, S::Sends});
+    // The inspector's value field types a point's value.
+    auto fields = findAll<fd::ui::NumberField>(inspector);
+    REQUIRE(fields.size() == 1);
+    fields[0]->setValue(0.25, juce::sendNotification);
+    s.updateSnapshotNow();
+    CHECK(s.snapshot()->tracks[0].lane("volume")->points[0].value == Catch::Approx(0.25f));
+    CHECK(s.undoDescription() == "Point value");
+
+    // Dragging the point moves it (one step); Delete removes it.
+    const auto pointAt = s.snapshot()->tracks[0].lane("volume")->points[0];
+    const juce::Point<float> grab(laneX(pointAt.time), rowTop(1) + 64.0f - 1.0f - 5.0f - pointAt.value * (64.0f - 1.0f - 10.0f));
+    drag(view, grab, grab + juce::Point<float>(0.0f, -10.0f));
+    s.updateSnapshotNow();
+    CHECK(s.snapshot()->tracks[0].lane("volume")->points[0].value > pointAt.value);
+    CHECK(s.undoDescription() == "Move points");
+    REQUIRE(actions.perform("edit.delete"));
+    s.updateSnapshotNow();
+    CHECK(s.snapshot()->tracks[0].lane("volume")->points.empty());
+
+    // The module lane: its header selects it, and the module shows below.
+    click(view, {40.0f, rowTop(2) + 20.0f});
+    CHECK(view.selection().lane == std::optional<std::string>(freq));
+    CHECK(f.shell->detail().chain().selectedDevice() == eq);
+    CHECK(inspector.sections() == std::vector{S::Lane, S::Track, S::Mix, S::Sends});
+
+    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review
+    {
+        juce::PNGImageFormat png;
+        auto file = juce::File(dump).getChildFile("automation-lanes.png");
+        file.deleteFile();
+        if (auto out = file.createOutputStream())
+            png.writeImageToStream(f.shell->createComponentSnapshot(f.shell->getLocalBounds()), *out);
+    }
+
+    // Folding: the chevron folds a track's lanes away; Ctrl+Alt+L shows every lane again.
+    const auto before = view.rows().size();
+    s.setLanesFolded(t0, true);
+    s.updateSnapshotNow();
+    CHECK(view.rows().size() == before - 2);
+    CHECK(actions.isToggled("view.lanes")); // the second track's lane still shows
+    REQUIRE(actions.perform("view.lanes")); // folds them all
+    s.updateSnapshotNow();
+    CHECK_FALSE(actions.isToggled("view.lanes"));
+    REQUIRE(actions.perform("view.lanes"));
+    s.updateSnapshotNow();
+    CHECK(view.rows().size() == before);
+
+    // Delete with a lane's header used last removes the lane, in one step.
+    click(view, {40.0f, rowTop(1) + 20.0f});
+    REQUIRE(view.selection().lane == std::optional<std::string>("volume"));
+    REQUIRE(actions.perform("edit.delete"));
+    s.updateSnapshotNow();
+    CHECK(s.snapshot()->tracks[0].lane("volume") == nullptr);
+
+    // Row heights are view state, saved with the project.
+    view.setAllTrackHeights(80.0);
+    const auto state = nlohmann::json::parse(s.viewStateProvider());
+    CHECK(state["rowHeights"]["c" + std::to_string(t0) + "/" + freq] == Catch::Approx(80.0));
+}

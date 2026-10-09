@@ -136,3 +136,59 @@ TEST_CASE("the mixer view paints 64 strips within the frame budget", "[.benchmar
     }
     juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
 }
+
+TEST_CASE("the arrangement paints 64 tracks with two automation lanes each within the frame budget", "[.benchmark]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    fd::ui::LookAndFeel lnf;
+    juce::LookAndFeel::setDefaultLookAndFeel(&lnf);
+    {
+        tracktion::Engine engine{"fd-benchmark", nullptr, fd::engine::makeEngineBehaviour()};
+        fd::engine::Session session(engine);
+        while (session.snapshot()->tracks.size() < 64)
+        {
+            session.addTrack();
+            session.updateSnapshotNow();
+        }
+        // Two lanes per track, with a point every half bar over 64 bars, half of them bent.
+        for (const auto& t : session.snapshot()->tracks)
+            for (const char* lane : {"volume", "pan"})
+            {
+                fd::model::AutomationPoints points;
+                for (int i = 0; i < 128; ++i)
+                    points.push_back({i * 1.0, 0.5f + 0.4f * std::sin(static_cast<float>(i) * 0.7f + static_cast<float>(t.id % 7)),
+                                      i % 2 == 0 ? fd::model::curveForBend(0.6f) : 0.0f});
+                REQUIRE(session.setAutomation({t.id, lane}, points));
+            }
+        session.updateSnapshotNow();
+
+        fd::app::ArrangementView view(session);
+        view.setSize(1700, 720);
+        view.setSnapshot(session.snapshot());
+        view.setAllTrackHeights(48.0);
+        view.zoomToFit();
+        for (int i = 0; i < 60; ++i)
+            view.frame(1.0 / 60.0, 0.0);
+        juce::Image image(juce::Image::ARGB, view.getWidth(), view.getHeight(), true);
+        std::vector<double> times;
+        for (int frame = 0; frame < 120; ++frame)
+        {
+            view.zoomAt(800.0, frame < 60 ? 1.02 : 1.0 / 1.02);
+            const auto t0 = std::chrono::steady_clock::now();
+            {
+                juce::Graphics g(image);
+                view.paintEntireComponent(g, true);
+            }
+            times.push_back(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
+        }
+        std::sort(times.begin(), times.end());
+        double sum = 0.0;
+        for (double t : times)
+            sum += t;
+        const double p95 = times[times.size() * 95 / 100];
+        std::cout << "arrangement paint, 64 tracks + 128 lanes, 1700x720: avg " << sum / static_cast<double>(times.size())
+                  << " ms, p95 " << p95 << " ms\n";
+        CHECK(p95 < 16.7);
+    }
+    juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
+}

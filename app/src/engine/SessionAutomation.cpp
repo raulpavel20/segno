@@ -383,6 +383,24 @@ bool Session::anyLaneOff() const
            std::any_of(snapshot->returns.begin(), snapshot->returns.end(), off) || off(snapshot->master);
 }
 
+void Session::setLaneValue(const LaneTarget& target, float value)
+{
+    auto l = impl_->lane(target);
+    if (!l)
+        return;
+    if (l->param == nullptr) // a send not made yet: making it sets its level
+    {
+        if (l->kind == Impl::Lane::Kind::Send)
+            setSend(target.channel, l->returnId, te::volumeFaderPositionToDB(l->toEngine(value)), std::nullopt);
+        return;
+    }
+    const float v = l->steps >= 2 ? model::snapToSteps(value, l->steps) : std::clamp(value, 0.0f, 1.0f);
+    if (std::abs(l->toLane(l->param->getCurrentValue()) - v) < 1e-6f)
+        return;
+    impl_->beginEdit(juce::String(l->name));
+    l->param->setParameter(l->toEngine(v), juce::sendNotification);
+}
+
 std::optional<float> Session::laneValue(const LaneTarget& target) const
 {
     auto l = impl_->lane(target);

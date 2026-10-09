@@ -48,6 +48,15 @@ Selection pruned(const Selection& selection, const Snapshot& snapshot)
         s.channel = selection.channel;
     if (!s.clips.empty() && !(s.channel && holdsAny(*snapshot.channel(*s.channel), s.clips)))
         s.channel = topmostHolding(snapshot, s.clips);
+    // A lane stays while its channel shows it; points while they exist.
+    if (selection.lane && s.channel && s.clips.empty())
+        if (const auto* lane = snapshot.channel(*s.channel)->lane(*selection.lane))
+        {
+            s.lane = selection.lane;
+            for (const auto i : selection.points)
+                if (i < lane->points.size())
+                    s.points.insert(i);
+        }
     return s;
 }
 
@@ -66,7 +75,22 @@ PanelContext panelContext(const Selection& selection, const Snapshot& snapshot, 
         }
 
     const TrackInfo* channel = selection.channel ? snapshot.channel(*selection.channel) : nullptr;
-    if (ctx.clipCount == 1)
+    const LaneInfo* lane = channel != nullptr && selection.lane && selection.clips.empty() ? channel->lane(*selection.lane)
+                                                                                           : nullptr;
+    if (lane != nullptr)
+    {
+        ctx.subject = Subject::Lane;
+        ctx.lane = *lane;
+        for (const auto i : selection.points)
+            if (i < lane->points.size())
+            {
+                ++ctx.pointCount;
+                ctx.point = lane->points[i];
+            }
+        if (ctx.pointCount != 1)
+            ctx.point.reset();
+    }
+    else if (ctx.clipCount == 1)
     {
         ctx.subject = Subject::Clip;
         ctx.clip = *single->first;
@@ -90,6 +114,14 @@ PanelContext panelContext(const Selection& selection, const Snapshot& snapshot, 
     // control (ADR 0027).
     if (view == CentreView::Mix || ctx.subject == Subject::Nothing)
         return ctx;
+    if (ctx.subject == Subject::Lane)
+    {
+        if (ctx.pointCount == 1)
+            ctx.inspector.push_back(InspectorSection::Point);
+        else if (ctx.pointCount > 1)
+            ctx.inspector.push_back(InspectorSection::Points);
+        ctx.inspector.push_back(InspectorSection::Lane);
+    }
     if (ctx.subject == Subject::Clip)
         ctx.inspector.push_back(InspectorSection::Clip);
     else if (ctx.subject == Subject::Clips)

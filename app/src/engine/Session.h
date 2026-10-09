@@ -236,6 +236,9 @@ public:
     /// True while any lane is off (the transport bar's Automation button lights).
     [[nodiscard]] bool anyLaneOff() const;
 
+    /// Sets a lane's parameter by hand, in lane units, as its control would: one undo step named
+    /// after the parameter (unless a group is open). An automated lane turns off (§7).
+    void setLaneValue(const LaneTarget& target, float value);
     /// The parameter's value now (played or set by hand), in lane units; nullopt if unknown.
     [[nodiscard]] std::optional<float> laneValue(const LaneTarget& target) const;
     /// A lane value as the control shows it ("1.20 kHz", "-6.0 dB", "25L").

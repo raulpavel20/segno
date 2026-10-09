@@ -206,3 +206,32 @@ TEST_CASE("selection: after a change to the project", "[fast]")
         CHECK(pruned({.channel = 1, .clips = {11}}, s) == Selection{.channel = 2, .clips = {11}});
     }
 }
+
+TEST_CASE("selection: a lane and its points are the subject", "[fast]")
+{
+    auto s = project();
+    s.tracks[0].lanes.push_back({.key = "volume", .name = "Volume", .module = "Mixer",
+                                 .points = {{0.0, 0.5f, 0.0f}, {1.0, 0.7f, 0.0f}}});
+    const Selection lane{.channel = 1, .lane = "volume"};
+    auto c = panelContext(lane, s, CentreView::Arrange);
+    CHECK(c.subject == Subject::Lane);
+    CHECK(c.lane->key == "volume");
+    CHECK(c.channel->id == 1);
+    CHECK(c.inspector == std::vector{Section::Lane, Section::Track, Section::Mix, Section::Sends});
+
+    c = panelContext({.channel = 1, .lane = "volume", .points = {1}}, s, CentreView::Arrange);
+    CHECK(c.pointCount == 1);
+    CHECK(c.point->value == 0.7f);
+    CHECK(c.inspector.front() == Section::Point);
+    c = panelContext({.channel = 1, .lane = "volume", .points = {0, 1}}, s, CentreView::Arrange);
+    CHECK(c.inspector.front() == Section::Points);
+    CHECK_FALSE(c.point);
+    CHECK(panelContext(lane, s, CentreView::Mix).inspector.empty());
+
+    // Pruning: points that are gone, and the lane when it goes.
+    CHECK(pruned({.channel = 1, .lane = "volume", .points = {1, 5}}, s) ==
+          Selection{.channel = 1, .lane = "volume", .points = {1}});
+    CHECK(pruned({.channel = 1, .lane = "pan", .points = {0}}, s) == Selection{.channel = 1});
+    // Clips win over a lane (they never mix).
+    CHECK(pruned({.channel = 1, .clips = {11}, .lane = "volume"}, s) == Selection{.channel = 1, .clips = {11}});
+}

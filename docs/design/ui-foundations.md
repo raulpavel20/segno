@@ -38,6 +38,9 @@ Roles are derived from the base palette in `Theme.cpp` (`deriveRoles`), the only
 | `valueText` | textPrimary at 85 % | Knob values at rest |
 | `warning` | meterHot at 80 % | Inline warnings ("No instrument") |
 | `overlay` | surface3 at 90 % | Diagnostic overlays (frame statistics) |
+| `automation` | effectStart | An automation lane's line and points (C4) |
+| `automationFillTop` / `automationFillBottom` | effectStart at 40 % / effectEnd at 4 % | The reserved gradient under an automation curve, from the curve to the lane's floor (ui-principles §4) |
+| `automationOff` / `automationOffFill` | effectStart at 40 % (`fadedAlpha`) / 6 % | A lane that's off (the parameter keeps its own value); an empty lane's dashed line |
 | `shadow` | black at 50 % | The one shadow, under popovers |
 
 Role functions for colours that depend on content:
@@ -150,7 +153,9 @@ A pure layout model: given the header's size, it says where each slot goes. The 
 | Controls (volume and pan bars) | 20 px row | Height ≥ 80 |
 | Meter | 8 px strip on the right edge, full height | When the mixer provides one (C3) |
 
-Padding: 12 px left (after the colour strip), 6 px top and bottom, 8 px right. Automation lanes (C4) sit under their track's lane with the same header column: a `subLane` background and a lane name in the header.
+Padding: 12 px left (after the colour strip), 6 px top and bottom, 8 px right.
+
+**Automation lanes** (C4, [automation.md](automation.md) §3) are rows of their own under their channel, with the same kit: the channel's colour strip, the parameter's name and the module's name indented 12 px, the lane's on switch in the buttons slot (only when it has points), the parameter's value on the right of the subtitle row, and its control as a bar in the controls slot (height ≥ 80). Lane headers sit on `subLane`. A channel with lanes shows a fold chevron in its left padding (the name doesn't move). Any row is resized by dragging its bottom edge in the header column (Alt: every row of its kind); heights are view state, by row (`model::ArrangementRows`).
 
 ## Channel strips (`model::ChannelStripLayout`)
 
