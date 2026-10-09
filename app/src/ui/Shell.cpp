@@ -21,10 +21,24 @@ constexpr int kAlt = juce::ModifierKeys::altModifier;
 constexpr int kShift = juce::ModifierKeys::shiftModifier;
 } // namespace
 
-Shell::Shell(engine::Session& session) : session_(session), arrangement_(session)
+Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
+    : session_(session), assistants_(assistants), arrangement_(session)
 {
+    if (assistants_ != nullptr)
+    {
+        assistantsPopover_ = std::make_unique<AssistantsPopover>(*assistants_);
+        assistantsPopover_->onMessage = [this](const juce::String& m) { showWarning(m); };
+    }
     registerActions();
     transport_ = std::make_unique<TransportBar>(session_, actions_);
+    if (assistants_ != nullptr)
+    {
+        transport_->assistantsActive = [this] { return assistants_->isActive(); };
+        assistants_->onStatusChanged = [this] {
+            assistantsPopover_->refresh();
+            transport_->repaint();
+        };
+    }
 
     // The module panel, the chain's margins and scrollbar (24), and the detail header.
     deviceViewHeight_ = static_cast<float>(ui::Theme::current().devicePanelHeight + 24 + ui::Theme::current().shell.panelHeaderHeight);
@@ -86,6 +100,8 @@ Shell::Shell(engine::Session& session) : session_(session), arrangement_(session
 
 Shell::~Shell()
 {
+    if (assistants_ != nullptr)
+        assistants_->onStatusChanged = nullptr;
     session_.onSnapshotChanged = nullptr;
     session_.onProjectWillChange = nullptr;
     session_.onProjectChanged = nullptr;
@@ -257,6 +273,18 @@ void Shell::registerActions()
                   .isToggled = [this] { return arrangement_.isSnapEnabled(); }});
     actions_.add({.id = "app.commandPalette", .name = "Command palette", .category = "App", .keys = {key('k', kCmd)},
                   .perform = [this] { palette_.isOpen() ? palette_.close() : palette_.open(*this); }});
+    if (assistantsPopover_ != nullptr)
+        actions_.add({.id = "app.assistants",
+                      .name = "Assistants",
+                      .category = "App",
+                      .perform =
+                          [this] {
+                              if (assistantsPopover_->isOpen())
+                                  assistantsPopover_->close();
+                              else
+                                  assistantsPopover_->open(*this, transport_->assistantsButtonBounds().withBottom(transport_->getBottom()));
+                          },
+                      .isToggled = [this] { return assistantsPopover_->isOpen(); }});
     actions_.add({.id = "file.new", .name = "New project", .category = "File", .keys = {key('n', kCmd)},
                   .perform = [this] { confirmDiscard([this] { session_.newProject(); }); }});
     actions_.add({.id = "file.open", .name = "Open project", .category = "File", .keys = {key('o', kCmd)},

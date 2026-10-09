@@ -2,6 +2,7 @@
 
 #include "ui/ActionRegistry.h"
 #include "ui/ArrangementView.h"
+#include "ui/AssistantsPopover.h"
 #include "ui/CommandPalette.h"
 #include "ui/Panels.h"
 
@@ -16,7 +17,8 @@ class Shell final : public juce::Component
 public:
     static constexpr int compactWidth = 1440;
 
-    explicit Shell(engine::Session& session);
+    /// `assistants`: the app's MCP server (the Assistants popover); null hides it.
+    explicit Shell(engine::Session& session, mcp::McpServer* assistants = nullptr);
     ~Shell() override;
 
     [[nodiscard]] const ActionRegistry& actions() const noexcept { return actions_; }
@@ -70,6 +72,8 @@ private:
     [[nodiscard]] std::optional<model::TrackInfo> selectedTrackInfo() const;
 
     engine::Session& session_;
+    mcp::McpServer* assistants_ = nullptr;
+    std::unique_ptr<AssistantsPopover> assistantsPopover_;
     ActionRegistry actions_;
     std::unique_ptr<TransportBar> transport_;
     BrowserPanel browser_{actions_};

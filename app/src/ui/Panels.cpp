@@ -59,6 +59,8 @@ TransportBar::TransportBar(engine::Session& session, const ActionRegistry& actio
     add(detail_, "view.detail");
     add(inspector_, "view.inspector");
     add(settings_, "app.audioSettings");
+    if (actions_.find("app.assistants") != nullptr)
+        add(assistants_, "app.assistants");
 }
 
 ui::IconButton& TransportBar::add(ui::IconButton& b, std::string id)
@@ -96,6 +98,12 @@ void TransportBar::frame(double positionSeconds, const model::TempoMap& tempo)
         repaint(midiLightArea());
     }
 
+    if (const bool assistant = assistantsActive && assistantsActive(); assistant != assistantLit_)
+    {
+        assistantLit_ = assistant;
+        repaint(assistantLight_);
+    }
+
     const int cpu = static_cast<int>(std::lround(session_.cpuUsage() * 100.0));
     if (positionSeconds != position_ || cpu != cpu_)
     {
@@ -121,6 +129,12 @@ void TransportBar::paint(juce::Graphics& g)
     const auto light = midiLightArea().toFloat().withSizeKeepingCentre(6.0f, 6.0f);
     g.setColour(midiLit_ ? t.accentMidi : t.surface3);
     g.fillEllipse(light);
+    // Assistant activity beside the assistants button: lit after a request.
+    if (assistants_.isVisible())
+    {
+        g.setColour(assistantLit_ ? t.active : t.surface3);
+        g.fillEllipse(assistantLight_.toFloat().withSizeKeepingCentre(6.0f, 6.0f));
+    }
 
     auto r = readoutArea_;
     auto field = [&](const juce::String& value, const juce::String& unit, int width, ui::TextStyle style) {
@@ -166,6 +180,12 @@ void TransportBar::resized()
     denominatorField_.setBounds(bar.left(small));
 
     settings_.setBounds(bar.right());
+    if (assistants_.isVisible())
+    {
+        bar.groupRight();
+        assistantLight_ = bar.right(t.shell.itemGap * 2);
+        assistants_.setBounds(bar.right());
+    }
     bar.groupRight();
     inspector_.setBounds(bar.right());
     detail_.setBounds(bar.right());

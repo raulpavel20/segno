@@ -3,9 +3,12 @@
 
 #include "engine/DevicePlugin.h"
 #include "engine/Session.h"
+#include "mcp/McpServer.h"
 #include "model/Editing.h"
 #include "ui/DeviceChain.h"
 #include "ui/Shell.h"
+
+using fd::mcp::Json;
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -524,4 +527,77 @@ TEST_CASE("modules collapse sections and fold in the chain; header controls neve
     CHECK_FALSE(panels[0]->isFolded());
     CHECK_FALSE(panels[0]->findSection("shape")->isCollapsed());
     CHECK(f.session->deviceViewState(sat).empty());
+}
+
+TEST_CASE("the Assistants popover turns the server on, shows setup lines and clients", "[integration][mcp]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    fd::ui::LookAndFeel lnf;
+    juce::LookAndFeel::setDefaultLookAndFeel(&lnf);
+    {
+        tracktion::Engine engine{"fd-integration-tests"};
+        fd::engine::registerDevices(engine);
+        fd::engine::Session session(engine);
+        juce::TemporaryFile folderName;
+        const auto folder = folderName.getFile();
+        REQUIRE(folder.createDirectory());
+        {
+            fd::mcp::McpServer server(session, folder, "test");
+            fd::app::Shell shell(session, &server);
+            shell.setBounds(0, 0, 1600, 900);
+            shell.finishAnimations();
+            REQUIRE(shell.actions().find("app.assistants") != nullptr);
+            CHECK(shell.actions().conflicts().empty());
+
+            shell.actions().perform("app.assistants");
+            CHECK(shell.actions().isToggled("app.assistants"));
+            auto* popover = dynamic_cast<fd::app::AssistantsPopover*>(shell.getChildComponent(shell.getNumChildComponents() - 1));
+            REQUIRE(popover != nullptr);
+            CHECK(popover->getRight() <= shell.getWidth());
+            CHECK(popover->getY() >= fd::app::TransportBar::height);
+
+            // On (the settings port may be taken on a developer machine: any free port will do).
+            CHECK_FALSE(server.isRunning());
+            server.setEnabled(true);
+            if (!server.isRunning())
+                REQUIRE(server.start(0));
+            juce::MessageManager::getInstance()->runDispatchLoopUntil(50);
+            CHECK(Json::parse(folder.getChildFile("assistants.json").loadFileAsString().toStdString())["enabled"] == true);
+
+            // A client calls: it's listed, and the transport's light is on.
+            const auto out = server.dispatcher()->handle(
+                {{"jsonrpc", "2.0"},
+                 {"id", 1},
+                 {"method", "tools/call"},
+                 {"params",
+                  {{"name", "get_project"},
+                   {"arguments", Json::object()},
+                   {"_meta",
+                    {{"io.modelcontextprotocol/protocolVersion", fd::mcp::modernVersion},
+                     {"io.modelcontextprotocol/clientInfo", {{"name", "Claude Code"}, {"version", "3.0"}}},
+                     {"io.modelcontextprotocol/clientCapabilities", Json::object()}}}}}},
+                {});
+            REQUIRE(out.message);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil(50);
+            CHECK(server.clients().at(0).name == "Claude Code");
+            CHECK(server.isActive());
+
+            if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review
+            {
+                juce::PNGImageFormat png;
+                const auto area = popover->getBounds().expanded(24).getUnion(juce::Rectangle<int>(shell.getWidth() - 640, 0, 640, 40));
+                const auto file = juce::File(dump).getChildFile("assistants@2x.png");
+                file.deleteFile(); // streams append
+                if (auto outFile = file.createOutputStream())
+                    png.writeImageToStream(shell.createComponentSnapshot(area.constrainedWithin(shell.getLocalBounds()), true, 2.0f), *outFile);
+            }
+
+            shell.actions().perform("app.assistants");
+            CHECK_FALSE(shell.actions().isToggled("app.assistants"));
+            server.setEnabled(false);
+            CHECK_FALSE(server.isRunning());
+        }
+        folder.deleteRecursively();
+    }
+    juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
 }

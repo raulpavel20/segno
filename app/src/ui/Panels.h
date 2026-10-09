@@ -55,6 +55,10 @@ public:
     void resized() override;
 
     ui::IconButton& settingsButton() noexcept { return settings_; }
+    /// The assistants button (shown when the app has an MCP server), and whether an assistant
+    /// made a request in the last few seconds (its light).
+    [[nodiscard]] juce::Rectangle<int> assistantsButtonBounds() const { return assistants_.getBounds(); }
+    std::function<bool()> assistantsActive;
 
 private:
     ui::IconButton& add(ui::IconButton& b, std::string id);
@@ -66,6 +70,7 @@ private:
     ui::NumberField tempoField_, numeratorField_, denominatorField_;
     ui::IconButton browser_{ui::Icon::PanelLeft}, detail_{ui::Icon::PanelBottom}, inspector_{ui::Icon::PanelRight};
     ui::IconButton settings_{ui::Icon::Settings};
+    ui::IconButton assistants_{ui::Icon::Assistant, "assistants"};
     std::vector<std::pair<ui::IconButton*, std::string>> bound_;
     model::TempoMap tempo_;
     bool tempoShown_ = false; // the fields show tempo_
@@ -73,9 +78,10 @@ private:
     int cpu_ = -1;
     double lastMidi_ = -1.0; // last time a MIDI note was held (activity light)
     bool midiLit_ = false;
+    bool assistantLit_ = false;
     [[nodiscard]] juce::Rectangle<int> midiLightArea() const { return midiLight_; }
     // Laid out by resized(): the painted parts between the controls.
-    juce::Rectangle<int> bpmArea_, slashArea_, readoutArea_, midiLight_;
+    juce::Rectangle<int> bpmArea_, slashArea_, readoutArea_, midiLight_, assistantLight_;
 };
 
 /// Left panel: one search across devices, presets, samples, plugins and files (M3). In M1 it

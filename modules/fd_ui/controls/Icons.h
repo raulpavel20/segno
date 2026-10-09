@@ -19,8 +19,9 @@ enum class Icon
     Undo,
     Redo,
     Keyboard,    // computer keyboard as MIDI input
-    ChevronLeft, // fold a module
-    ChevronRight // unfold
+    ChevronLeft,  // fold a module
+    ChevronRight, // unfold
+    Assistant     // assistants connected over MCP (a spark)
 };
 
 /// Draws `icon` fitted (aspect kept) into `area` in `colour`.

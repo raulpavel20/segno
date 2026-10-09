@@ -114,6 +114,22 @@ Glyph glyph(Icon icon)
             g.solid.addRoundedRectangle(x - 1.5f, 3.5f, 3.0f, 4.5f, 0.5f);
         }
         break;
+    case Icon::Assistant:
+        // A four-pointed spark, with a small one beside it.
+        p.startNewSubPath(7.0f, 2.0f);
+        p.quadraticTo(7.6f, 8.4f, 13.0f, 9.0f);
+        p.quadraticTo(7.6f, 9.6f, 7.0f, 15.0f);
+        p.quadraticTo(6.4f, 9.6f, 1.0f, 9.0f);
+        p.quadraticTo(6.4f, 8.4f, 7.0f, 2.0f);
+        p.closeSubPath();
+        p.startNewSubPath(12.5f, 1.0f);
+        p.quadraticTo(12.8f, 3.2f, 15.0f, 3.5f);
+        p.quadraticTo(12.8f, 3.8f, 12.5f, 6.0f);
+        p.quadraticTo(12.2f, 3.8f, 10.0f, 3.5f);
+        p.quadraticTo(12.2f, 3.2f, 12.5f, 1.0f);
+        p.closeSubPath();
+        g.filled = true;
+        break;
     case Icon::Undo:
     case Icon::Redo:
     {
