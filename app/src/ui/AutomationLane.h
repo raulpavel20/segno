@@ -41,6 +41,7 @@ struct LanePaint
     std::set<size_t> selected;
     std::optional<size_t> hovered;
     bool on = true;
+    juce::Colour colour; // the lane's own (its row colour)
     /// With no points: the parameter's value now, drawn dashed.
     std::optional<float> current;
     /// False while the lane drives nothing: an empty one says how to give it a parameter.

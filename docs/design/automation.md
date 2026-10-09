@@ -66,10 +66,10 @@ How parameters change over time in Segno: automation lanes in the arrangement, w
 ## 4. Drawing a lane
 
 - **Grid and playhead:** the arrangement's (the time-view kit); lanes scroll and zoom with the tracks.
-- **The curve:** a 1.5 px line in the `automation` colour over the reserved gradient fill (ui-principles §4), from `automationFillTop` under the line to `automationFillBottom` at the lane's floor. Before the first point and after the last, the line runs flat to the lane's edges.
-- **Points:** 6 px dots in the `automation` colour; a hovered point grows to 8 px; selected points get a `textPrimary` ring.
+- **The curve:** a 1.5 px line in the lane's own colour (its row colour, like a track's) over the reserved gradient fill (ui-principles §4): the same colour, faint under the line (20 %) and fading out at the lane's floor (`automationLine`, `automationFillTop`, `automationFillBottom`). Before the first point and after the last, the line runs flat to the lane's edges.
+- **Points:** 6 px dots in the lane's colour; a hovered point grows to 8 px; selected points get a `textPrimary` ring.
 - **Value scale:** a lane runs from 0 at its floor to 1 at its top. With one assignment, values read in that parameter's units across its range ("1.20 kHz", "−6.0 dB", "25L"); otherwise as a percentage.
-- **Off lanes** (every assignment off) draw faded (`automationOff`, `automationOffFill`).
+- **Off lanes** (every assignment off) draw faded: the line at `fadedAlpha`, a flat faint fill.
 
 ## 5. Editing points
 

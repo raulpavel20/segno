@@ -106,7 +106,7 @@ Decision record: [ADR 0014](../decisions/0014-flat-darker-ableton-adjacent.md).
 - **Density close to Ableton:** small type, compact controls, information-dense panels, colour only where it means something (active states, clip/track colours, meters). Modern and minimal: one spacing grid, fewer lines, Inter for text and a mono for values.
 
 **Gradients are a reserved accent effect.** They're allowed only where listed here:
-1. **Automation:** the fill under automation curves and lanes.
+1. **Automation:** the fill under an automation lane's curve, in the lane's own colour, fading out towards the lane's floor.
 2. **Modulation:** the modulation range shown on a modulated control.
 
 Additions to this list are made here, deliberately. Gradients are never used on surfaces, panels, headers, controls, clips or text.
@@ -137,7 +137,7 @@ The dark theme is the primary design target. A light theme comes later; everythi
 **Colour roles** (tokens):
 - `value`: knob arcs, slider and fader fills, curve lines.
 - `active`: on states, device power, selection.
-- `effectStart` → `effectEnd`: the only gradient colours (automation, modulation).
+- `effectStart` → `effectEnd`: the modulation gradient, and the automation indicator on controls. An automation lane's gradient is in the lane's own colour (its row colour, like a track's).
 - Role accents: instrument, MIDI and modulation tags; record/alert.
 - Meter zones.
 

@@ -680,7 +680,9 @@ void ArrangementView::paintLanes(juce::Graphics& g)
         // Faded when every assignment is off (a lane without any draws as it is).
         const bool on = lane->assignments.empty() ||
                         std::any_of(lane->assignments.begin(), lane->assignments.end(), [](const auto& a) { return a.on; });
-        LanePaint paint{.points = previewing ? &lanePreview_->second.points : &lane->points, .on = on};
+        LanePaint paint{.points = previewing ? &lanePreview_->second.points : &lane->points,
+                        .on = on,
+                        .colour = t.clipColour(lane->colour)};
         if (previewing)
             paint.selected = lanePreview_->second.selection;
         else if (selection_.lane == lane->id)

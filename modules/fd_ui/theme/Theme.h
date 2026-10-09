@@ -48,9 +48,9 @@ struct ColourRoles
     juce::Colour keyWhite, keyBlack, keySeam;
     juce::Colour curveFill, selectionCurve, spectrumFill, spectrumLine, spectrumPre, outside, loopTint;
     juce::Colour focusRing, hoverWash, dropWell, valueHot, valueText, warning, overlay, shadow;
-    // Automation (docs/design/automation.md §4): the line and points, the reserved gradient under
-    // the curve (top to the lane's floor), and a lane that's off.
-    juce::Colour automation, automationFillTop, automationFillBottom, automationOff, automationOffFill;
+    // Automation (docs/design/automation.md §6): the indicator on automated controls. Lanes draw in
+    // their own colour (Theme::automationLine and the fill functions).
+    juce::Colour automation;
 
     // States.
     float hoverLift = 0.06f, pressedLift = 0.12f;
@@ -99,9 +99,10 @@ struct ShellMetrics
 };
 
 /// Design tokens (docs/design/ui-principles.md §4–5, ADR 0014). The only source of colours,
-/// sizes and type sizes for every component. Flat: no token is meant for a gradient except
-/// effectStart/effectEnd, which are reserved for the listed accent effects (automation,
-/// modulation). The default theme is "Steel" (docs/design/design-language.md).
+/// sizes and type sizes for every component. Flat: gradients are only the listed accent effects
+/// (ui-principles §4): modulation (effectStart/effectEnd) and the fill under an automation lane's
+/// curve (in the lane's colour, automationFillTop/Bottom). The default theme is "Steel"
+/// (docs/design/design-language.md).
 struct Theme
 {
     juce::String name;
@@ -168,6 +169,12 @@ struct Theme
     [[nodiscard]] juce::Colour fill(juce::Colour c) const { return c.withMultipliedAlpha(roles.fillAlpha); }
     /// Hover and press states of any surface or fill.
     [[nodiscard]] juce::Colour lift(juce::Colour c, bool hovered, bool pressed) const;
+    /// An automation lane drawn in its colour (automation.md §4): its line and points (faded while
+    /// off), and the reserved gradient under the curve, from the line to the lane's floor (a flat
+    /// faint fill while off).
+    [[nodiscard]] juce::Colour automationLine(juce::Colour lane, bool on) const;
+    [[nodiscard]] juce::Colour automationFillTop(juce::Colour lane, bool on) const;
+    [[nodiscard]] juce::Colour automationFillBottom(juce::Colour lane, bool on) const;
 
     // Type scale (px, em size).
     float textXs = 11.0f;

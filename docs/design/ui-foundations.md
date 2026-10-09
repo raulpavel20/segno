@@ -38,9 +38,7 @@ Roles are derived from the base palette in `Theme.cpp` (`deriveRoles`), the only
 | `valueText` | textPrimary at 85 % | Knob values at rest |
 | `warning` | meterHot at 80 % | Inline warnings ("No instrument") |
 | `overlay` | surface3 at 90 % | Diagnostic overlays (frame statistics) |
-| `automation` | effectStart | An automation lane's line and points (C4) |
-| `automationFillTop` / `automationFillBottom` | effectStart at 40 % / effectEnd at 4 % | The reserved gradient under an automation curve, from the curve to the lane's floor (ui-principles §4) |
-| `automationOff` / `automationOffFill` | effectStart at 40 % (`fadedAlpha`) / 6 % | A lane that's off (the parameter keeps its own value); an empty lane's dashed line |
+| `automation` | effectStart | The automation indicator on controls (C4) |
 | `shadow` | black at 50 % | The one shadow, under popovers |
 
 Role functions for colours that depend on content:
@@ -53,6 +51,8 @@ Role functions for colours that depend on content:
 | `faded(colour)` | 40 % alpha | Content that exists but doesn't play (notes outside a clip) |
 | `fill(colour)` | `curveFill`'s alpha in that colour | Fills under coloured curves |
 | `lift(colour, hovered, pressed)` | +6 % hovered, +12 % pressed | Every hover and press state |
+| `automationLine(colour, on)` | the lane's colour; `faded` while off | An automation lane's line and points, and an empty lane's dashed line (C4) |
+| `automationFillTop(colour, on)` / `automationFillBottom(colour, on)` | the lane's colour at 20 % / 0 %; a flat 5 % while off | The reserved gradient under a lane's curve, from the line to the lane's floor (ui-principles §4) |
 
 **States:** hover lifts by 6 % and press by 12 %. Dimmed (ignored or switched off) is 35 % alpha, never compounded. Focus is a 1 px `focusRing`. Selection is the `active` colour, or a `textPrimary` outline on content.
 

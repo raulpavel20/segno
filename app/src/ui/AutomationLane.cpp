@@ -65,7 +65,7 @@ void paintAutomationLane(juce::Graphics& g, const LaneGeometry& geo, const LaneP
         if (lane.current)
         {
             const float y = geo.y(*lane.current);
-            g.setColour(t.roles.automationOff);
+            g.setColour(t.automationLine(lane.colour, false));
             const float dashes[] = {4.0f, 4.0f};
             g.drawDashedLine(juce::Line<float>(x0, y, x1, y), dashes, 2, 1.0f);
         }
@@ -88,13 +88,10 @@ void paintAutomationLane(juce::Graphics& g, const LaneGeometry& geo, const LaneP
     fill.lineTo(x1, area.getBottom());
     fill.lineTo(x0, area.getBottom());
     fill.closeSubPath();
-    if (lane.on)
-        g.setGradientFill(juce::ColourGradient(t.roles.automationFillTop, 0.0f, area.getY(), t.roles.automationFillBottom,
-                                               0.0f, area.getBottom(), false));
-    else
-        g.setColour(t.roles.automationOffFill);
+    g.setGradientFill(juce::ColourGradient(t.automationFillTop(lane.colour, lane.on), 0.0f, area.getY(),
+                                           t.automationFillBottom(lane.colour, lane.on), 0.0f, area.getBottom(), false));
     g.fillPath(fill);
-    g.setColour(lane.on ? t.roles.automation : t.roles.automationOff);
+    g.setColour(t.automationLine(lane.colour, lane.on));
     g.strokePath(line, juce::PathStrokeType(1.5f));
 
     // Points: dots, larger under the mouse, ringed when selected.
@@ -105,7 +102,7 @@ void paintAutomationLane(juce::Graphics& g, const LaneGeometry& geo, const LaneP
             continue;
         const float d = lane.hovered == i ? 8.0f : 6.0f;
         const auto dot = juce::Rectangle<float>(d, d).withCentre({px, geo.y(points[i].value)});
-        g.setColour(lane.on ? t.roles.automation : t.roles.automationOff);
+        g.setColour(t.automationLine(lane.colour, lane.on));
         g.fillEllipse(dot);
         if (lane.selected.contains(i))
         {
