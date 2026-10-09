@@ -70,6 +70,7 @@ Decisions still to be made. Once a question is answered, record the answer in an
 | B39 | **Recording into a partial range** | C4d | Product owner, 2026-10-09: agreed. Clipped to the range |
 | B40 | **Control menus** | C4d | Product owner, 2026-10-09: agreed. Remove from a lane rather than clear its points (they belong to the lane); assign to a lane; automate in a new lane |
 | B41 | **Deleting a track** (not built yet) must take its lane assignments, and re-anchor lanes that sit after it, in the same undo step | When track deletion arrives | Removing a module already takes its assignments in the same step (C4d). Until track deletion, opening a project prunes dangling assignments, and a lane whose track is gone sits after the last track |
+| B42 | **Recording** ([recording.md](design/recording.md) §16, Q1–Q16): project folders (ADR 0030), what a track records with two inputs, arming, monitoring, shortcuts, count-in, punch, loop takes and MIDI overdub, take lanes and comping (ADR 0031), keeping what a pass replaces, stacking takes on new tracks, Capture MIDI, file format, files and undo | C5 (M2) | Recommendations in the design; awaiting the product owner's review |
 
 ---
 

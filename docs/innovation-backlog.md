@@ -15,7 +15,11 @@ To schedule an idea, it needs:
 |---|---|---|
 | **Arranger track:** song sections (intro, verse, drop…) that you can move, duplicate and reorder with all their content | Arrangement is our core workflow, and Live only offers locators | 📌 M3 |
 | **Project-wide key and scale**, shared by the piano roll, MIDI effects, pitch devices and tuner | Live 12's scale awareness, extended to everything | 📌 M4 |
-| **Take lanes and comping** for audio and MIDI | Standard in modern DAWs | 💡 |
+| **Take lanes and comping** for audio and MIDI | Standard in modern DAWs | 📌 M2 (C5b, C5c; [recording.md](design/recording.md)) |
+| **Capture audio:** armed audio inputs are always buffered, so a moment played before pressing Record can be kept, as Capture MIDI does for notes | Nothing played is lost, not only MIDI | 💡 ([recording.md](design/recording.md) §15) |
+| **Stack mode** for loop recording: each lap goes straight onto a new track instead of a take lane | Doubles and layered parts while you play | 💡 |
+| **Tempo from captured MIDI:** capturing into an empty, stopped project sets the tempo from what was played | Start from a played idea without a click | 💡 |
+| **Take ranking by assistants:** an assistant renders and measures each take (level, timing against the grid, pitch) and suggests the best | Faster choices among many takes; the user decides | 💡 (the tools exist with C5b) |
 | **Clip gain and clip effects:** gain envelopes and effects on individual clips, not only tracks | Fast fixes without automation lanes | 💡 |
 | **Project versions:** named snapshots of a whole project with instant A/B (e.g. "mix v3 vs v4") | Safe experimentation, comparing mixes | 💡 |
 | **Undo history panel**, including branches | Lets you see and revisit earlier states | 💡 |
