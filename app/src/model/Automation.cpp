@@ -96,6 +96,75 @@ float curveFor(const LaneRules& rules)
 }
 } // namespace
 
+float AssignmentRange::toTravel(float lane) const noexcept
+{
+    return from + clamp01(lane) * (to - from);
+}
+
+std::optional<float> AssignmentRange::toLane(float travel) const noexcept
+{
+    if (std::abs(to - from) < 1e-6f)
+        return std::nullopt;
+    return clamp01((travel - from) / (to - from));
+}
+
+bool AssignmentRange::full() const noexcept
+{
+    return std::abs(from) < 1e-6f && std::abs(to - 1.0f) < 1e-6f;
+}
+
+AutomationPoints mapValues(const AutomationPoints& points, const std::function<float(float)>& f)
+{
+    AutomationPoints out = points;
+    for (auto& p : out)
+        p.value = f(p.value);
+    return out;
+}
+
+AutomationPoints replaceRange(const AutomationPoints& points, double t0, double t1, AutomationPoints with)
+{
+    AutomationPoints out;
+    for (const auto& p : points)
+        if (p.time < t0 || p.time > t1)
+            out.push_back(p);
+    out.insert(out.end(), with.begin(), with.end());
+    std::stable_sort(out.begin(), out.end(), [](const auto& a, const auto& b) { return a.time < b.time; });
+    return out;
+}
+
+AutomationPoints spliceRecorded(const AutomationPoints& lane, const AutomationPoints& derived,
+                                const AutomationPoints& recorded, const std::function<float(float)>& toLane)
+{
+    constexpr double eps = 1e-6;
+    auto same = [](const AutomationPoint& a, const AutomationPoint& b) {
+        return std::abs(a.time - b.time) < eps && std::abs(a.value - b.value) < 1e-6f && a.curve == b.curve;
+    };
+    const size_t n = std::min(lane.size(), derived.size());
+    size_t prefix = 0;
+    while (prefix < n && prefix < recorded.size() && same(recorded[prefix], derived[prefix]))
+        ++prefix;
+    size_t suffix = 0;
+    while (suffix < n - prefix && suffix < recorded.size() - prefix &&
+           same(recorded[recorded.size() - 1 - suffix], derived[n - 1 - suffix]))
+        ++suffix;
+
+    AutomationPoints out(lane.begin(), lane.begin() + static_cast<std::ptrdiff_t>(prefix));
+    for (size_t i = prefix; i < recorded.size() - suffix; ++i)
+    {
+        const auto& r = recorded[i];
+        // A point the pass didn't touch (between a loop's laps) stays the lane's own.
+        const auto it = std::find_if(derived.begin() + static_cast<std::ptrdiff_t>(prefix),
+                                     derived.begin() + static_cast<std::ptrdiff_t>(n - suffix),
+                                     [&](const auto& d) { return same(d, r); });
+        if (it != derived.begin() + static_cast<std::ptrdiff_t>(n - suffix))
+            out.push_back(lane[static_cast<size_t>(it - derived.begin())]);
+        else
+            out.push_back({r.time, toLane(r.value), r.curve});
+    }
+    out.insert(out.end(), lane.begin() + static_cast<std::ptrdiff_t>(n - suffix), lane.begin() + static_cast<std::ptrdiff_t>(n));
+    return out;
+}
+
 float automationValueAt(const AutomationPoints& points, double seconds, float fallback)
 {
     if (points.empty())

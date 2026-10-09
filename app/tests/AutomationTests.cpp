@@ -133,3 +133,114 @@ TEST_CASE("automation: hit testing in pixels", "[fast]")
     CHECK_FALSE(hitSegment(pts, map, 50.0, 100.0, 4.0)); // before the first point
     CHECK(pointsInBox(pts, 0.5, 1.5, -0.1f, 0.5f) == std::set<size_t>{0});
 }
+
+TEST_CASE("automation: an assignment's range maps the lane onto part of a control's travel", "[fast]")
+{
+    const AssignmentRange full;
+    CHECK(full.full());
+    CHECK(full.toTravel(0.3f) == Approx(0.3f));
+
+    const AssignmentRange part{0.2f, 0.6f};
+    CHECK_FALSE(part.full());
+    CHECK(part.toTravel(0.0f) == Approx(0.2f));
+    CHECK(part.toTravel(0.5f) == Approx(0.4f));
+    CHECK(part.toTravel(2.0f) == Approx(0.6f)); // lane values are clamped
+    CHECK(*part.toLane(0.4f) == Approx(0.5f));
+    CHECK(*part.toLane(0.9f) == Approx(1.0f)); // outside the range: its nearest end
+
+    const AssignmentRange inverted{1.0f, 0.0f};
+    CHECK(inverted.toTravel(0.25f) == Approx(0.75f));
+    CHECK(*inverted.toLane(0.75f) == Approx(0.25f));
+
+    CHECK_FALSE((AssignmentRange{0.5f, 0.5f}.toLane(0.5f)));
+}
+
+TEST_CASE("automation: a curve mapped through a range plays the range of the curve, bends included", "[fast]")
+{
+    // The engine's bends are linear in values, so a + k·v of the curve is the curve of a + k·v,
+    // also inverted (k < 0) and with bends past ±0.5 (the engine's sharper shape).
+    AutomationPoints pts;
+    unsigned seed = 12345;
+    auto random = [&seed] {
+        seed = seed * 1664525u + 1013904223u;
+        return static_cast<float>(seed >> 8) / static_cast<float>(1u << 24);
+    };
+    for (int i = 0; i < 24; ++i)
+        pts.push_back({i * 0.5, random(), curveForBend(random() * 2.0f - 1.0f)});
+    pts[7].curve = kStepCurve;
+
+    for (const AssignmentRange range : {AssignmentRange{0.1f, 0.7f}, AssignmentRange{0.9f, 0.2f}, AssignmentRange{1.0f, 0.0f}})
+    {
+        const auto mapped = mapValues(pts, [&](float v) { return range.toTravel(v); });
+        REQUIRE(mapped.size() == pts.size());
+        for (size_t i = 0; i < pts.size(); ++i)
+        {
+            CHECK(mapped[i].time == pts[i].time);
+            CHECK(mapped[i].curve == pts[i].curve);
+        }
+        for (double t = -0.5; t < 12.5; t += 0.013)
+            CHECK(automationValueAt(mapped, t) == Approx(range.toTravel(automationValueAt(pts, t))).margin(1e-5));
+    }
+}
+
+TEST_CASE("automation: replacing a time range keeps what lies outside it", "[fast]")
+{
+    const AutomationPoints pts{{0.0, 0.1f, 0.0f}, {1.0, 0.2f, 0.0f}, {2.0, 0.3f, 0.0f}, {3.0, 0.4f, 0.0f}};
+    const auto out = replaceRange(pts, 1.0, 2.0, {{1.5, 0.9f, 0.0f}, {1.2, 0.8f, 0.0f}});
+    REQUIRE(out.size() == 4);
+    CHECK(out[0] == pts[0]);
+    CHECK(out[1] == AutomationPoint{1.2, 0.8f, 0.0f});
+    CHECK(out[2] == AutomationPoint{1.5, 0.9f, 0.0f});
+    CHECK(out[3] == pts[3]);
+}
+
+TEST_CASE("automation: a recorded pass splices into its lane, mapped back through the range", "[fast]")
+{
+    const AssignmentRange range{0.2f, 0.6f};
+    auto forward = [&](float v) { return range.toTravel(v); };
+    auto back = [&](float v) { return *range.toLane(v); };
+    // Lane values whose round trip through the range isn't exact in floats: kept points must be
+    // the lane's own, not mapped back.
+    const AutomationPoints lane{{0.0, 0.1f, 0.0f}, {1.0, 0.333f, curveForBend(0.4f)}, {2.0, 0.7f, 0.0f},
+                                {3.0, 0.9f, 0.0f}, {4.0, 0.111f, 0.0f}, {5.0, 0.77f, 0.0f}};
+    const auto derived = mapValues(lane, forward);
+
+    SECTION("one pass in the middle")
+    {
+        auto recorded = replaceRange(derived, 1.5, 3.5, {{1.5, 0.3f, 0.0f}, {2.5, 0.5f, 0.0f}, {3.5, 0.4f, 0.0f}});
+        const auto out = spliceRecorded(lane, derived, recorded, back);
+        REQUIRE(out.size() == 7);
+        CHECK(out[0] == lane[0]);
+        CHECK(out[1] == lane[1]);
+        CHECK(out[2].time == 1.5);
+        CHECK(out[2].value == Approx(0.25f));
+        CHECK(out[3].value == Approx(0.75f));
+        CHECK(out[4].value == Approx(0.5f));
+        CHECK(out[5] == lane[4]);
+        CHECK(out[6] == lane[5]);
+    }
+    SECTION("a loop's two laps keep the points between them")
+    {
+        auto recorded = replaceRange(derived, 0.0, 1.5, {{0.0, 0.6f, 0.0f}, {1.5, 0.6f, 0.0f}});
+        recorded = replaceRange(recorded, 3.5, 5.0, {{3.5, 0.2f, 0.0f}, {5.0, 0.2f, 0.0f}});
+        const auto out = spliceRecorded(lane, derived, recorded, back);
+        REQUIRE(out.size() == 6);
+        CHECK(out[0].value == Approx(1.0f));
+        CHECK(out[1].value == Approx(1.0f));
+        CHECK(out[2] == lane[2]);
+        CHECK(out[3] == lane[3]);
+        CHECK(out[4].value == Approx(0.0f));
+        CHECK(out[5].value == Approx(0.0f));
+    }
+    SECTION("an empty lane takes the whole pass")
+    {
+        const auto out = spliceRecorded({}, {}, {{1.0, 0.4f, 0.0f}, {2.0, 0.6f, 0.0f}}, back);
+        REQUIRE(out.size() == 2);
+        CHECK(out[0].value == Approx(0.5f));
+        CHECK(out[1].value == Approx(1.0f));
+    }
+    SECTION("an untouched curve is the lane exactly")
+    {
+        CHECK(spliceRecorded(lane, derived, derived, back) == lane);
+    }
+}

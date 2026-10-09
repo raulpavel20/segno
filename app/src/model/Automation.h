@@ -44,6 +44,35 @@ inline constexpr float kStepCurve = 1.0f;
 /// than 2: unchanged), clamped to 0 … 1.
 [[nodiscard]] float snapToSteps(float value, int steps) noexcept;
 
+/// An assignment's range (ADR 0029): a lane value v drives its parameter at
+/// from + v × (to − from) of the control's travel; `to` below `from` inverts it.
+struct AssignmentRange
+{
+    float from = 0.0f, to = 1.0f;
+
+    [[nodiscard]] float toTravel(float lane) const noexcept;
+    /// The lane value that drives `travel`, clamped to the range; nullopt for an empty range.
+    [[nodiscard]] std::optional<float> toLane(float travel) const noexcept;
+    [[nodiscard]] bool full() const noexcept;
+
+    friend bool operator==(const AssignmentRange&, const AssignmentRange&) = default;
+};
+
+/// The points with their values mapped by `f` (times and curves kept). For a linear map
+/// (a + k·v, k may be negative) the curve maps exactly: the engine's bends are linear in values.
+[[nodiscard]] AutomationPoints mapValues(const AutomationPoints& points, const std::function<float(float)>& f);
+
+/// `points` with those in [t0, t1] replaced by `with`.
+[[nodiscard]] AutomationPoints replaceRange(const AutomationPoints& points, double t0, double t1, AutomationPoints with);
+
+/// A recorded pass back into its lane (automation.md §8). `derived` is what the lane wrote to the
+/// parameter's curve (its points mapped forward), `recorded` the curve after the pass. Points the
+/// two share at the start and the end, and any shared point in between (a loop's laps), stay the
+/// lane's own exactly; the rest of `recorded` is mapped back with `toLane`.
+[[nodiscard]] AutomationPoints spliceRecorded(const AutomationPoints& lane, const AutomationPoints& derived,
+                                              const AutomationPoints& recorded,
+                                              const std::function<float(float)>& toLane);
+
 /// The result of an edit: the new points, and which of them are selected.
 struct PointEdit
 {
