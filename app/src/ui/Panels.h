@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/Session.h"
+#include "ui/ChannelInspector.h"
 #include "ui/ActionRegistry.h"
 #include "ui/DeviceChain.h"
 #include "ui/PianoRoll.h"
@@ -113,14 +114,21 @@ private:
 class InspectorPanel final : public juce::Component
 {
 public:
-    InspectorPanel();
+    explicit InspectorPanel(engine::Session& session);
     void resized() override;
+    /// What is selected: a channel (a track, a return track or the master) and the clips.
     void setSelection(std::optional<model::TrackInfo> track, std::optional<model::ClipInfo> clip = std::nullopt,
                       int clipCount = 0, model::TempoMap tempo = {});
     void paint(juce::Graphics& g) override;
 
 private:
+    /// The property rows painted at the top: the clip's, then the channel's.
+    [[nodiscard]] std::vector<ui::Property> clipProperties() const;
+    [[nodiscard]] std::vector<ui::Property> channelProperties() const;
+
+    engine::Session& session_;
     ui::PanelHeader header_;
+    ChannelInspector channel_{session_};
     std::optional<model::TrackInfo> track_;
     std::optional<model::ClipInfo> clip_;
     int clipCount_ = 0;

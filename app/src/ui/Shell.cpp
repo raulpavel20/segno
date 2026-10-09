@@ -241,6 +241,40 @@ void Shell::registerActions()
                   .isEnabled = [this] { return detail_.chain().selectedPanel() != nullptr; }});
     actions_.add({.id = "track.add", .name = "Add track", .category = "Track", .keys = {key('t', kCmd)},
                   .perform = [&s] { s.addTrack(); }});
+    // The mixer (C3, docs/design/mixer.md §9): the selected channel.
+    auto selectedChannel = [this]() -> std::optional<model::TrackInfo> { return selectedTrackInfo(); };
+    actions_.add({.id = "track.mute", .name = "Mute selected track", .category = "Track", .keys = {key('m', kAlt)},
+                  .perform = [&s, selectedChannel] {
+                      if (const auto c = selectedChannel(); c && c->role != model::TrackInfo::Role::Master)
+                          s.setMute(c->id, !c->mix.mute);
+                  },
+                  .isEnabled = [selectedChannel] {
+                      const auto c = selectedChannel();
+                      return c && c->role != model::TrackInfo::Role::Master;
+                  }});
+    actions_.add({.id = "track.solo", .name = "Solo selected track", .category = "Track", .keys = {key('s', kAlt)},
+                  .perform = [&s, selectedChannel] {
+                      if (const auto c = selectedChannel(); c && c->role != model::TrackInfo::Role::Master)
+                          s.setSolo(c->id, !c->mix.solo, true);
+                  },
+                  .isEnabled = [selectedChannel] {
+                      const auto c = selectedChannel();
+                      return c && c->role != model::TrackInfo::Role::Master;
+                  }});
+    actions_.add({.id = "track.addReturn", .name = "Add return track", .category = "Track",
+                  .keys = {key('t', kCmd | kAlt)},
+                  .perform = [this, &s] {
+                      if (const auto id = s.addReturnTrack(); id != 0)
+                      {
+                          arrangement_.setMixRowsVisible(true);
+                          s.updateSnapshotNow();
+                          arrangement_.selectTrack(id);
+                      }
+                  }});
+    actions_.add({.id = "view.returns", .name = "Show returns and master", .category = "View",
+                  .keys = {key('r', kCmd | kAlt)},
+                  .perform = [this] { arrangement_.setMixRowsVisible(!arrangement_.mixRowsVisible()); },
+                  .isToggled = [this] { return arrangement_.mixRowsVisible(); }});
 
     actions_.add({.id = "view.browser", .name = "Show browser", .category = "View", .keys = {key('b', kCmd | kAlt)},
                   .perform = [this] { toggle(browserPanel_); }, .isToggled = [this] { return browserPanel_.open; }});
@@ -518,9 +552,8 @@ std::optional<model::TrackInfo> Shell::selectedTrackInfo() const
     const auto id = arrangement_.selectedTrack();
     if (!id)
         return std::nullopt;
-    for (const auto& t : session_.snapshot()->tracks)
-        if (t.id == *id)
-            return t;
+    if (const auto* channel = session_.snapshot()->channel(*id))
+        return *channel; // a track, a return track or the master
     return std::nullopt;
 }
 
@@ -539,7 +572,9 @@ void Shell::selectionChanged(std::optional<std::uint64_t>)
 
     // Live MIDI plays the selected track's instrument (auto-arm); other tracks hear nothing.
     // The piano roll previews notes through the same route.
-    const auto target = info && info->kind == model::TrackInfo::Kind::Instrument ? std::optional(info->id) : std::nullopt;
+    const auto target = info && info->holdsClips() && info->kind == model::TrackInfo::Kind::Instrument
+                             ? std::optional(info->id)
+                             : std::nullopt;
     if (target != session_.midiInputTarget())
         session_.setMidiInputTarget(target);
     inspector_.setSelection(info, clip, static_cast<int>(clips.size()), snapshot->tempo);

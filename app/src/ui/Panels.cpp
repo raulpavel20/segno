@@ -270,18 +270,62 @@ void InspectorPanel::setSelection(std::optional<model::TrackInfo> track, std::op
     clip_ = std::move(clip);
     clipCount_ = clipCount;
     tempo_ = tempo;
+    channel_.setChannel(track_, session_.snapshot()->returns);
+    resized();
     repaint();
 }
 
-InspectorPanel::InspectorPanel()
+InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
 {
     header_.setTitle("Inspector");
     addAndMakeVisible(header_);
+    addAndMakeVisible(channel_);
+}
+
+std::vector<ui::Property> InspectorPanel::clipProperties() const
+{
+    auto position = [&](double seconds) {
+        const auto bb = tempo_.barsBeatsForSeconds(seconds);
+        return juce::String(bb.bar) + "." + juce::String(bb.beat) + "." + juce::String(bb.sixteenth);
+    };
+    if (clip_)
+        return {{"Clip", juce::String::fromUTF8(clip_->name.c_str())},
+                {"Start", position(clip_->start), true},
+                {"Length", juce::String(clip_->length, 3) + " s", true},
+                {"Offset", juce::String(clip_->offset, 3) + " s", true}};
+    if (clipCount_ > 1)
+        return {{"Clips", juce::String(clipCount_) + " selected", true}};
+    return {};
+}
+
+std::vector<ui::Property> InspectorPanel::channelProperties() const
+{
+    if (!track_)
+        return {};
+    const auto name = juce::String::fromUTF8(track_->name.c_str());
+    const auto modules = juce::String(static_cast<int>(track_->devices.size()));
+    switch (track_->role)
+    {
+    case model::TrackInfo::Role::Return: return {{"Return", name}, {"Modules", modules, true}};
+    case model::TrackInfo::Role::Master: return {{"Master", "The mix"}, {"Modules", modules, true}};
+    case model::TrackInfo::Role::Track: break;
+    }
+    return {{"Track", name},
+            {"Instrument", track_->instrument.empty() ? juce::String("None")
+                                                      : juce::String::fromUTF8(track_->instrument.c_str())},
+            {"Clips", juce::String(static_cast<int>(track_->clips.size())), true}};
 }
 
 void InspectorPanel::resized()
 {
-    header_.setBounds(getLocalBounds().removeFromTop(ui::Theme::current().shell.panelHeaderHeight));
+    const auto& t = ui::Theme::current();
+    header_.setBounds(getLocalBounds().removeFromTop(t.shell.panelHeaderHeight));
+    // The channel's controls, under the property rows.
+    auto r = getLocalBounds().withTrimmedTop(header_.getBottom()).reduced(t.shell.padding, 0);
+    if (const auto clipRows = static_cast<int>(clipProperties().size()); clipRows > 0)
+        r.removeFromTop(clipRows * t.shell.rowHeight + t.shell.groupGap);
+    r.removeFromTop(static_cast<int>(channelProperties().size()) * t.shell.rowHeight + t.shell.groupGap);
+    channel_.setBounds(r.withHeight(channel_.preferredHeight()));
 }
 
 void InspectorPanel::paint(juce::Graphics& g)
@@ -294,29 +338,12 @@ void InspectorPanel::paint(juce::Graphics& g)
         ui::paintEmptyState(g, r.removeFromTop(t.shell.listRowHeight * 2), "Nothing selected");
         return;
     }
-    auto position = [&](double seconds) {
-        const auto bb = tempo_.barsBeatsForSeconds(seconds);
-        return juce::String(bb.bar) + "." + juce::String(bb.beat) + "." + juce::String(bb.sixteenth);
-    };
-    if (clip_)
+    if (const auto rows = clipProperties(); !rows.empty())
     {
-        r = ui::paintProperties(g, r, {{"Clip", juce::String::fromUTF8(clip_->name.c_str())},
-                                       {"Start", position(clip_->start), true},
-                                       {"Length", juce::String(clip_->length, 3) + " s", true},
-                                       {"Offset", juce::String(clip_->offset, 3) + " s", true}});
+        r = ui::paintProperties(g, r, rows);
         r.removeFromTop(t.shell.groupGap);
     }
-    else if (clipCount_ > 1)
-    {
-        r = ui::paintProperties(g, r, {{"Clips", juce::String(clipCount_) + " selected", true}});
-        r.removeFromTop(t.shell.groupGap);
-    }
-    if (!track_)
-        return;
-    ui::paintProperties(g, r, {{"Track", juce::String::fromUTF8(track_->name.c_str())},
-                               {"Instrument", track_->instrument.empty() ? juce::String("None")
-                                                                         : juce::String::fromUTF8(track_->instrument.c_str())},
-                               {"Clips", juce::String(static_cast<int>(track_->clips.size())), true}});
+    ui::paintProperties(g, r, channelProperties());
 }
 
 // ---- DetailPanel ---------------------------------------------------------------------------

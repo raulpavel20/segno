@@ -189,7 +189,13 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
   - **Fold** a module to a 28 px strip with the chevron in its header; collapse a section by clicking its title ([device-panels.md](device-panels.md)). Both are stored per module in the project (`fdPanel`), never as undo steps or unsaved changes.
   - Click a header to select a device; Delete removes it when the chain was the last area clicked (otherwise Delete applies to clips).
   - **Sidechain** ([ADR 0025](../decisions/0025-sidechain-routing.md)): a module with a sidechain input (Compressor, Gate) has a "Sidechain" picker in its header: None, or another track. The list leaves out any track whose sound already depends on this one through sidechains, so routing can't loop. The source is heard after its modules and fader, before its mute. A change is one undo step ("Set sidechain") and rebuilds the playback graph. Rendering one track (the MCP `render` tool) includes the tracks feeding its sidechains, muted.
-- **tracktion's own volume and meter plugins** belong to the mixer (M2) and are not shown. New devices go before them.
+- **tracktion's own volume and meter plugins** belong to the mixer and are not shown, nor are the sends and return inputs. New devices go before them.
+
+## Mixer in the arrangement (C3b, [mixer.md](mixer.md))
+
+- **Rows:** the tracks, then (after a 2 px divider) the return tracks and the master, on sub-lane backgrounds; they scroll with the tracks. Ctrl+Alt+R hides and shows them. Clicking one selects it: the inspector shows its channel and the detail panel its chain. They hold no clips.
+- **Header controls** fill the track header kit's slots: mute and solo (not on the master), volume and pan bars (values only; from 80 px tall), and the meter on the right edge. They are shared components (`ui/ChannelControls`) on a layer that clips to the header column, one set per channel, placed every frame from the layout.
+- **Inspector:** the channel's volume and pan bars with its meter, mute and solo, and a track's sends (a bar and a Pre switch per return, or "Add return track").
 - **Snapshots** ignore device parameter and state changes (only a device's power state and sidechain source show), so turning a knob never rebuilds the arrangement.
 - **Scanning** (`Ctrl+Alt+P`): VST3, plus LV2 on Linux, in the default folders.
   - One file per tick on the message thread, as JUCE's own plugin list does, because some formats must load there.

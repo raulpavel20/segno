@@ -89,6 +89,8 @@ target_sources(fd_app_ui INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/Shell.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/Panels.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ArrangementView.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ChannelControls.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ChannelInspector.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ActionRegistry.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/WaveformCache.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/WaveformTiles.cpp"

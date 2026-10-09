@@ -21,8 +21,19 @@ bool isMidiFile(const juce::String& path)
 
 } // namespace
 
+ArrangementView::HeaderControls::HeaderControls(engine::Session& session, const model::TrackInfo& channel)
+    : mute(session, ChannelToggle::Kind::Mute, channel.id), solo(session, ChannelToggle::Kind::Solo, channel.id),
+      volume(session, channel.id), pan(session, channel.id), meter(session, channel.id)
+{
+    // Header bars are narrow: values only; the tooltips name them.
+    volume.setName({});
+    pan.setName({});
+}
+
 ArrangementView::ArrangementView(engine::Session& session) : session_(session)
 {
+    headerLayer_.setInterceptsMouseClicks(false, true); // the header's background still selects
+    addAndMakeVisible(headerLayer_);
     waveforms_.onReady = [this] { repaint(); };
     setSnapshot(session_.snapshot());
     setWantsKeyboardFocus(false);
@@ -42,20 +53,106 @@ void ArrangementView::setSnapshot(std::shared_ptr<const model::Snapshot> snapsho
         }
     selectedClips_ = std::move(existing);
     syncLayout();
-    if (selectedTrack_)
-    {
-        const bool exists = std::any_of(snapshot_->tracks.begin(), snapshot_->tracks.end(),
-                                        [&](const auto& t) { return t.id == *selectedTrack_; });
-        if (!exists)
-            select(std::nullopt);
-    }
+    if (selectedTrack_ && snapshot_->channel(*selectedTrack_) == nullptr)
+        select(std::nullopt);
+
+    // Mixer controls for every row's channel: made for new channels, dropped for gone ones.
+    std::set<std::uint64_t> shown;
+    for (int i = 0; i < layout_.trackCount(); ++i)
+        if (const auto* channel = rowChannel(i))
+        {
+            shown.insert(channel->id);
+            auto& controls = headerControls_[channel->id];
+            if (controls == nullptr)
+            {
+                controls = std::make_unique<HeaderControls>(session_, *channel);
+                if (channel->role != model::TrackInfo::Role::Master) // the master has no mute or solo
+                {
+                    headerLayer_.addChildComponent(controls->mute);
+                    headerLayer_.addChildComponent(controls->solo);
+                }
+                headerLayer_.addChildComponent(controls->volume);
+                headerLayer_.addChildComponent(controls->pan);
+                headerLayer_.addChildComponent(controls->meter);
+            }
+            controls->mute.update(channel->mix.mute);
+            controls->solo.update(channel->mix.solo);
+            controls->volume.update(*channel);
+            controls->pan.update(*channel);
+        }
+    for (auto it = headerControls_.begin(); it != headerControls_.end();)
+        it = shown.contains(it->first) ? std::next(it) : headerControls_.erase(it);
+    placeHeaderControls();
     repaint();
+}
+
+const model::TrackInfo* ArrangementView::rowChannel(int row) const noexcept
+{
+    const int tracks = clipRows();
+    if (row < 0)
+        return nullptr;
+    if (row < tracks)
+        return &snapshot_->tracks[static_cast<size_t>(row)];
+    if (!showMixRows_)
+        return nullptr;
+    const int returns = static_cast<int>(snapshot_->returns.size());
+    if (row < tracks + returns)
+        return &snapshot_->returns[static_cast<size_t>(row - tracks)];
+    return row == tracks + returns ? &snapshot_->master : nullptr;
+}
+
+void ArrangementView::setMixRowsVisible(bool visible)
+{
+    if (visible == showMixRows_)
+        return;
+    showMixRows_ = visible;
+    if (!visible && selectedTrack_)
+        if (const auto* channel = snapshot_->channel(*selectedTrack_); channel != nullptr && !channel->holdsClips())
+            select(std::nullopt);
+    setSnapshot(snapshot_);
 }
 
 void ArrangementView::syncLayout()
 {
-    layout_.setTrackCount(static_cast<int>(snapshot_->tracks.size()));
+    const int mixRows = showMixRows_ ? static_cast<int>(snapshot_->returns.size()) + 1 : 0;
+    layout_.setTrackCount(clipRows() + mixRows);
     layout_.setViewportHeight(laneArea().getHeight());
+    headerLayer_.setBounds(headerArea());
+}
+
+void ArrangementView::placeHeaderControls()
+{
+    const auto area = headerArea();
+    for (int i = 0; i < layout_.trackCount(); ++i)
+    {
+        const auto* channel = rowChannel(i);
+        if (channel == nullptr)
+            continue;
+        auto it = headerControls_.find(channel->id);
+        if (it == headerControls_.end())
+            continue;
+        auto& c = *it->second;
+        const double top = layout_.top(i), height = layout_.height(i);
+        const bool visible = top + height > 0.0 && top < area.getHeight();
+        const bool master = channel->role == model::TrackInfo::Role::Master;
+        const auto slots = model::layoutTrackHeader(area.getWidth(), height, master ? 0 : 2, true);
+        auto at = [top](const model::HeaderRect& r) {
+            return juce::Rectangle<double>(r.x, r.y + top, r.w, r.h).toNearestInt();
+        };
+        auto show = [visible](juce::Component& comp, const model::HeaderRect& r, juce::Rectangle<int> bounds) {
+            comp.setVisible(visible && !r.isEmpty());
+            if (comp.isVisible())
+                comp.setBounds(bounds);
+        };
+        const model::HeaderRect none{};
+        show(c.mute, slots.buttons.size() > 0 ? slots.buttons[0] : none, slots.buttons.size() > 0 ? at(slots.buttons[0]) : juce::Rectangle<int>());
+        show(c.solo, slots.buttons.size() > 1 ? slots.buttons[1] : none, slots.buttons.size() > 1 ? at(slots.buttons[1]) : juce::Rectangle<int>());
+        auto controls = at(slots.controls);
+        const int gap = ui::Theme::current().shell.itemGap;
+        show(c.volume, slots.controls, controls.removeFromLeft((controls.getWidth() - gap) / 2));
+        show(c.pan, slots.controls, controls.withTrimmedLeft(gap));
+        show(c.meter, slots.meter, at(slots.meter));
+    }
 }
 
 // ---- geometry ------------------------------------------------------------------------------
@@ -111,12 +208,14 @@ void ArrangementView::resized()
     if (first) // open on 32 bars
         timeline_.setView(0.0, laneArea().getWidth() / snapshot_->tempo.secondsForBeats(32.0 * snapshot_->tempo.beatsPerBar()));
     syncLayout();
+    placeHeaderControls();
 }
 
 // ---- per frame -----------------------------------------------------------------------------
 
 void ArrangementView::frame(double dt, double playheadSeconds)
 {
+    placeHeaderControls(); // follows scrolling and row heights (moves only what changed)
     if (timeline_.advance(dt) || timeline_.isAnimating())
         repaint();
 
@@ -258,7 +357,10 @@ void ArrangementView::paintHeaders(juce::Graphics& g)
     g.reduceClipRegion(area);
     for (int i = 0; i < layout_.trackCount(); ++i)
     {
-        const auto& track = snapshot_->tracks[static_cast<size_t>(i)];
+        const auto* channel = rowChannel(i);
+        if (channel == nullptr)
+            continue;
+        const auto& track = *channel;
         auto row = juce::Rectangle<float>(static_cast<float>(area.getX()),
                                                 static_cast<float>(area.getY() + layout_.top(i)),
                                                 static_cast<float>(area.getWidth()), static_cast<float>(layout_.height(i)));
@@ -272,21 +374,30 @@ void ArrangementView::paintHeaders(juce::Graphics& g)
         }
         // The slots of the header (docs/design/ui-foundations.md, "Track headers"); the mixer
         // (C3) and recording (C5) add their buttons, controls and meter to the same layout.
-        const auto slots = model::layoutTrackHeader(row.getWidth(), row.getHeight(), 0, false);
+        const bool master = track.role == model::TrackInfo::Role::Master;
+        const auto slots = model::layoutTrackHeader(row.getWidth(), row.getHeight(), master ? 0 : 2, true);
         auto at = [&row](const model::HeaderRect& r) {
             return juce::Rectangle<float>(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.w),
                                           static_cast<float>(r.h))
                 .translated(row.getX(), row.getY());
         };
-        g.setColour(t.clipColour(track.colour));
+        g.setColour(master ? t.textTertiary : t.clipColour(track.colour));
         g.fillRect(at(slots.colour));
         g.setColour(t.line);
+        if (i == clipRows())
+            g.fillRect(row.withHeight(2.0f)); // the divider above the returns and the master
         g.fillRect(row.removeFromBottom(1.0f)); // the track separator, continued across the lanes
 
         g.setColour(t.textPrimary);
         g.setFont(ui::font(ui::TextStyle::Name));
         g.drawText(juce::String::fromUTF8(track.name.c_str()), at(slots.name), juce::Justification::centredLeft, true);
-        if (!slots.subtitle.isEmpty())
+        if (!slots.subtitle.isEmpty() && !track.holdsClips())
+        {
+            g.setColour(t.textTertiary);
+            g.setFont(ui::font(ui::TextStyle::Caption));
+            g.drawText(master ? "Master" : "Return", at(slots.subtitle), juce::Justification::centredLeft, true);
+        }
+        else if (!slots.subtitle.isEmpty())
         {
             // One kind of track (ADR 0019): show the instrument, or that MIDI has nothing to play it.
             const bool hasMidi = std::any_of(track.clips.begin(), track.clips.end(),
@@ -315,8 +426,9 @@ void ArrangementView::paintLanes(juce::Graphics& g)
         const float h = static_cast<float>(layout_.height(i));
         if (y > static_cast<float>(area.getBottom()) || y + h < static_cast<float>(area.getY()))
             continue;
-        const bool selected = selectedTrack_ == snapshot_->tracks[static_cast<size_t>(i)].id;
-        g.setColour(selected ? t.roles.laneSelected : t.roles.lane);
+        const auto* channel = rowChannel(i);
+        const bool selected = channel != nullptr && selectedTrack_ == channel->id;
+        g.setColour(selected ? t.roles.laneSelected : i < clipRows() ? t.roles.lane : t.roles.subLane);
         g.fillRect(juce::Rectangle<float>(static_cast<float>(area.getX()), y, static_cast<float>(area.getWidth()), h));
     }
 
@@ -333,6 +445,9 @@ void ArrangementView::paintLanes(juce::Graphics& g)
         if (y >= static_cast<float>(area.getY()) && y <= static_cast<float>(area.getBottom()))
             g.fillRect(static_cast<float>(area.getX()), y, static_cast<float>(area.getWidth()), 1.0f);
     }
+    if (clipRows() < layout_.trackCount()) // the divider above the returns and the master
+        g.fillRect(static_cast<float>(area.getX()), static_cast<float>(area.getY() + layout_.top(clipRows())),
+                   static_cast<float>(area.getWidth()), 2.0f);
 
     // Clips: a solid title strip with dark text over a dark body of the same hue. Only what
     // intersects the invalidated area is drawn (a playhead-only repaint touches a few columns).
@@ -341,7 +456,7 @@ void ArrangementView::paintLanes(juce::Graphics& g)
     std::set<std::uint64_t> moving;
     for (const auto& e : preview_)
         moving.insert(e.clip);
-    for (int i = 0; i < layout_.trackCount(); ++i)
+    for (int i = 0; i < clipRows(); ++i)
     {
         const auto& track = snapshot_->tracks[static_cast<size_t>(i)];
         const float y = static_cast<float>(area.getY() + layout_.top(i));
@@ -356,9 +471,9 @@ void ArrangementView::paintLanes(juce::Graphics& g)
     {
         const auto found = model::findClip(*snapshot_, e.clip);
         int index = 0;
-        while (index < layout_.trackCount() && snapshot_->tracks[static_cast<size_t>(index)].id != e.track)
+        while (index < clipRows() && snapshot_->tracks[static_cast<size_t>(index)].id != e.track)
             ++index;
-        if (!found || index >= layout_.trackCount())
+        if (!found || index >= clipRows())
             continue;
         auto clip = *found->first;
         clip.start = e.start;
@@ -528,15 +643,19 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
     if (headerArea().contains(pos))
     {
         const auto row = layout_.hit(pos.y - lanes.getY());
-        select(row ? std::optional(snapshot_->tracks[static_cast<size_t>(row->track)].id) : std::nullopt);
+        const auto* channel = row ? rowChannel(row->track) : nullptr;
+        select(channel != nullptr ? std::optional(channel->id) : std::nullopt);
         return;
     }
     if (!lanes.contains(pos))
         return;
 
-    const auto row = layout_.hit(pos.y - lanes.getY());
+    auto row = layout_.hit(pos.y - lanes.getY());
     if (row)
-        select(snapshot_->tracks[static_cast<size_t>(row->track)].id);
+        if (const auto* channel = rowChannel(row->track))
+            select(channel->id);
+    if (row && row->track >= clipRows())
+        return; // returns and the master hold no clips
     const auto hit = model::hitClip(*snapshot_, layout_, timeline_, e.position.x - static_cast<float>(lanes.getX()),
                                     e.position.y - static_cast<float>(lanes.getY()), ui::Theme::current().input.edgeGrab);
     if (e.getNumberOfClicks() >= 2 && row)
@@ -627,7 +746,7 @@ void ArrangementView::mouseDrag(const juce::MouseEvent& e)
         clipDrag_.deltaSeconds = (e.position.x - dragStart_.x) / timeline_.pixelsPerSecond();
         if (clipDrag_.kind == model::DragKind::Move)
             if (const auto row = layout_.hit(e.position.y - static_cast<float>(lanes.getY())))
-                clipDrag_.deltaTracks = row->track - dragStartTrack_;
+                clipDrag_.deltaTracks = std::min(row->track, clipRows() - 1) - dragStartTrack_;
         preview_ = model::dragClips(*snapshot_, selectedClips_, clipDrag_, snapFunction(e.mods.isAltDown()));
         repaint();
     }
@@ -637,7 +756,7 @@ void ArrangementView::mouseDrag(const juce::MouseEvent& e)
         const double t1 = timeline_.timeForX(e.position.x - static_cast<float>(lanes.getX()));
         auto trackAt = [&](float y) {
             const auto row = layout_.hit(y - static_cast<float>(lanes.getY()));
-            return row ? row->track : (y < static_cast<float>(lanes.getY()) ? 0 : layout_.trackCount() - 1);
+            return std::min(row ? row->track : (y < static_cast<float>(lanes.getY()) ? 0 : clipRows() - 1), clipRows() - 1);
         };
         auto selection = boxBase_;
         for (auto id : model::clipsInBox(*snapshot_, t0, t1, trackAt(dragStart_.y), trackAt(e.position.y)))
@@ -800,7 +919,7 @@ void ArrangementView::fileDragMove(const juce::StringArray&, int x, int y)
     const auto lanes = laneArea();
     const auto hit = layout_.hit(y - lanes.getY());
     const double seconds = snapped(timeline_.timeForX(std::max(0, x - lanes.getX())), juce::ModifierKeys::currentModifiers.isAltDown());
-    dropTarget_ = std::pair{hit ? hit->track : -1, seconds};
+    dropTarget_ = std::pair{hit && hit->track < clipRows() ? hit->track : -1, seconds};
     repaint();
 }
 

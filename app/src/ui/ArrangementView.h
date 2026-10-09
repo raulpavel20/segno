@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/Session.h"
+#include "ui/ChannelControls.h"
 #include "model/Editing.h"
 #include "model/Timeline.h"
 #include "model/TrackLayout.h"
@@ -10,6 +11,7 @@
 
 #include <fd_ui/fd_ui.h>
 
+#include <map>
 #include <optional>
 #include <set>
 
@@ -46,6 +48,7 @@ public:
     void setSnapEnabled(bool on) noexcept { snap_ = on; }
     [[nodiscard]] bool isSnapEnabled() const noexcept { return snap_; }
 
+    /// The selected channel: a track, a return track or the master.
     [[nodiscard]] std::optional<std::uint64_t> selectedTrack() const noexcept { return selectedTrack_; }
     void selectTrack(std::optional<std::uint64_t> track) { select(track); }
     [[nodiscard]] const std::set<std::uint64_t>& selectedClips() const noexcept { return selectedClips_; }
@@ -81,6 +84,10 @@ public:
     void setView(double startSeconds, double pixelsPerSecond);
     /// Sets every track's height (clamped to the layout's limits).
     void setAllTrackHeights(double height);
+    /// Return tracks and the master, below the tracks (C3, docs/design/mixer.md §2).
+    void setMixRowsVisible(bool visible);
+    [[nodiscard]] bool mixRowsVisible() const noexcept { return showMixRows_; }
+
     /// Wall time of the last paint, ms (frame statistics).
     [[nodiscard]] double lastPaintMs() const noexcept { return lastPaintMs_; }
 
@@ -99,6 +106,12 @@ public:
     void filesDropped(const juce::StringArray& files, int x, int y) override;
 
 private:
+    /// Rows: the tracks (which hold clips), then the return tracks and the master when shown.
+    [[nodiscard]] int clipRows() const noexcept { return static_cast<int>(snapshot_->tracks.size()); }
+    [[nodiscard]] const model::TrackInfo* rowChannel(int row) const noexcept;
+    /// Places each visible row's mixer controls in its header's slots.
+    void placeHeaderControls();
+
     [[nodiscard]] juce::Rectangle<int> rulerArea() const;
     [[nodiscard]] juce::Rectangle<int> headerArea() const;
     [[nodiscard]] juce::Rectangle<int> laneArea() const;
@@ -120,6 +133,19 @@ private:
 
     engine::Session& session_;
     std::shared_ptr<const model::Snapshot> snapshot_;
+    bool showMixRows_ = true;
+
+    /// One channel's controls in its header: mute, solo, volume, pan and the meter.
+    struct HeaderControls
+    {
+        HeaderControls(engine::Session& session, const model::TrackInfo& channel);
+        ChannelToggle mute, solo;
+        VolumeBar volume;
+        PanBar pan;
+        ChannelMeter meter;
+    };
+    juce::Component headerLayer_; // clips the controls to the header column
+    std::map<std::uint64_t, std::unique_ptr<HeaderControls>> headerControls_;
     WaveformCache waveforms_;
     WaveformTiles tiles_;
     double lastPixelsPerSecond_ = 0.0, lastZoomChange_ = 0.0;

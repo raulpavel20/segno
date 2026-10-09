@@ -77,7 +77,7 @@ private:
     ActionRegistry actions_;
     std::unique_ptr<TransportBar> transport_;
     BrowserPanel browser_{actions_};
-    InspectorPanel inspector_;
+    InspectorPanel inspector_{session_};
     DetailPanel detail_{session_, actions_};
     enum class Area { Arrangement, Detail, Clip };
     Area lastArea_ = Area::Arrangement; // where Delete, Duplicate and Select all apply

@@ -142,7 +142,7 @@ For a return track: volume, pan, mute, solo. For the master: volume, pan.
 | Solo | Never | No (saved with the next save) |
 | Add return track | "Add return track" | Yes |
 
-Selecting several tracks and changing one's volume, pan or mute changes them all, by the same amount (volume, in dB) or to the same state (mute), in one step.
+Selecting several tracks and changing one's volume, pan or mute changes them all, by the same amount (volume, in dB) or to the same state (mute), in one step. (This waits for the arrangement to select several tracks; it selects one today.)
 
 ## 9. Keyboard and actions
 

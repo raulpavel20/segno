@@ -6,6 +6,8 @@
 #include "engine/Session.h"
 #include "mcp/McpServer.h"
 #include "model/Editing.h"
+#include "ui/ChannelControls.h"
+#include "ui/ChannelInspector.h"
 #include "ui/DeviceChain.h"
 #include "ui/Shell.h"
 
@@ -117,6 +119,96 @@ TEST_CASE("DAW shell builds and paints offscreen at standard and compact widths"
         }
     }
     CHECK_FALSE(f.session->isPlaying()); // never starts making sound by itself
+}
+
+namespace
+{
+/// Every child of `root` (depth first) of type T.
+template <typename T>
+std::vector<T*> findAll(juce::Component& root)
+{
+    std::vector<T*> found;
+    for (auto* child : root.getChildren())
+    {
+        if (auto* t = dynamic_cast<T*>(child))
+            found.push_back(t);
+        auto deeper = findAll<T>(*child);
+        found.insert(found.end(), deeper.begin(), deeper.end());
+    }
+    return found;
+}
+} // namespace
+
+TEST_CASE("the mixer in the arrangement: header controls, returns and master, the inspector (C3b)", "[integration]")
+{
+    ShellFixture f;
+    f.shell->setSize(1800, 900);
+    auto& view = f.shell->arrangement();
+    view.setAllTrackHeights(96.0); // tall enough for the volume and pan row
+    auto& actions = f.shell->actions();
+    REQUIRE(actions.perform("track.addReturn"));
+    f.session->updateSnapshotNow();
+    auto snap = f.session->snapshot();
+    REQUIRE(snap->returns.size() == 1);
+    CHECK(view.selectedTrack() == snap->returns[0].id); // the new return is selected
+    view.setSnapshot(snap);
+    view.resized();
+    view.frame(1.0 / 60.0, 0.0);
+
+    // Every row has its controls: two toggles per track and return, none on the master.
+    const auto toggles = findAll<fd::app::ChannelToggle>(view);
+    CHECK(toggles.size() == 2 * (snap->tracks.size() + snap->returns.size()));
+    CHECK(findAll<fd::app::VolumeBar>(view).size() == snap->tracks.size() + snap->returns.size() + 1);
+    CHECK(findAll<fd::app::ChannelMeter>(view).size() == snap->tracks.size() + snap->returns.size() + 1);
+
+    // The first track's mute toggle mutes it (one undo step).
+    const auto first = snap->tracks[0].id;
+    fd::app::ChannelToggle* mute = nullptr;
+    for (auto* t : toggles)
+        if (t->getButtonText() == "M" && t->isVisible() && t->getY() < 40)
+            mute = t;
+    REQUIRE(mute != nullptr);
+    mute->triggerClick();
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    f.session->updateSnapshotNow();
+    CHECK(f.session->snapshot()->tracks[0].mix.mute);
+    CHECK(f.session->undoDescription() == "Mute");
+
+    // Alt+S solos the selected channel; Ctrl+Alt+R hides and shows the returns and master.
+    view.selectTrack(first);
+    REQUIRE(actions.perform("track.solo"));
+    f.session->updateSnapshotNow();
+    CHECK(f.session->snapshot()->tracks[0].mix.solo);
+    REQUIRE(actions.perform("view.returns"));
+    CHECK_FALSE(view.mixRowsVisible());
+    view.setSnapshot(f.session->snapshot());
+    CHECK(findAll<fd::app::VolumeBar>(view).size() == f.session->snapshot()->tracks.size());
+    REQUIRE(actions.perform("view.returns"));
+    CHECK(view.mixRowsVisible());
+
+    // The inspector shows the selected track's channel: its volume bar edits the volume, and
+    // there is a send to the return.
+    view.selectTrack(std::nullopt);
+    view.selectTrack(first);
+    auto inspectors = findAll<fd::app::ChannelInspector>(*f.shell);
+    REQUIRE(inspectors.size() == 1);
+    auto bars = findAll<fd::app::VolumeBar>(*inspectors[0]);
+    REQUIRE(bars.size() == 1);
+    bars[0]->setValue(0.64f, juce::sendNotification); // -6 dB on the taper
+    f.session->updateSnapshotNow();
+    CHECK(f.session->snapshot()->tracks[0].mix.volumeDb == Catch::Approx(-6.0f).margin(0.01f));
+    CHECK(findAll<fd::app::SendBar>(*inspectors[0]).size() == 1);
+
+    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review
+    {
+        view.setSnapshot(f.session->snapshot());
+        view.frame(1.0 / 60.0, 0.0);
+        auto file = juce::File(dump).getChildFile("mixer-arrangement.png");
+        file.deleteFile();
+        juce::PNGImageFormat png;
+        if (auto out = file.createOutputStream())
+            png.writeImageToStream(f.shell->createComponentSnapshot(f.shell->getLocalBounds()), *out);
+    }
 }
 
 TEST_CASE("every action has a unique shortcut and the shell routes keys to it", "[integration]")
