@@ -13,6 +13,10 @@ namespace
 {
 const juce::Identifier kColourId{"fdColour"}; // index into the clip palette
 const juce::Identifier kRoleId{"fdRole"};     // "return" on a return track (ADR 0026)
+// The project format: 2 since mixer levels sit on Segno's taper (ADR 0028). Older projects are
+// converted when opened.
+const juce::Identifier kFormatId{"fdFormat"};
+constexpr int kFormat = 2;
 
 /// Number of colours in ui::Theme::clipColours; snapshots carry indices modulo this.
 constexpr int kPaletteSize = 16;
@@ -32,30 +36,6 @@ bool isMixerPlugin(const te::Plugin* p)
     return dynamic_cast<const te::VolumeAndPanPlugin*>(p) != nullptr ||
            dynamic_cast<const te::LevelMeterPlugin*>(p) != nullptr ||
            dynamic_cast<const te::AuxSendPlugin*>(p) != nullptr || dynamic_cast<const te::AuxReturnPlugin*>(p) != nullptr;
-}
-
-template <typename PluginType>
-PluginType* findIn(te::PluginList& list)
-{
-    for (auto* p : list)
-        if (auto* found = dynamic_cast<PluginType*>(p))
-            return found;
-    return nullptr;
-}
-
-te::AuxSendPlugin* sendIn(te::PluginList& list, int bus)
-{
-    for (auto* p : list)
-        if (auto* send = dynamic_cast<te::AuxSendPlugin*>(p); send != nullptr && send->getBusNumber() == bus)
-            return send;
-    return nullptr;
-}
-
-/// The aux bus a return track listens to (-1 if none).
-int busOf(te::AudioTrack& returnTrack)
-{
-    auto* in = findIn<te::AuxReturnPlugin>(returnTrack.pluginList);
-    return in != nullptr ? in->busNumber.get() : -1;
 }
 
 /// The stored volume (the parameter's own value catches up asynchronously, e.g. after undo).
@@ -250,6 +230,7 @@ Session::Impl::Impl(Session& o, te::Engine& e) : owner(o), engine(e)
 std::unique_ptr<te::Edit> Session::Impl::newEdit()
 {
     auto e = te::Edit::createSingleTrackEdit(engine);
+    e->state.setProperty(kFormatId, kFormat, nullptr);
     e->ensureNumberOfAudioTracks(4);
     int i = 0;
     for (auto* t : te::getAudioTracks(*e))
@@ -264,6 +245,23 @@ std::unique_ptr<te::Edit> Session::Impl::newEdit()
 void Session::Impl::attach(std::unique_ptr<te::Edit> e)
 {
     edit = std::move(e);
+    if (static_cast<int>(edit->state.getProperty(kFormatId, 0)) < kFormat)
+    {
+        // Before ADR 0028 the mixer's levels sat on tracktion's own fader curve: the same levels
+        // in dB move onto Segno's taper (modules convert their own parameters).
+        auto oldDb = [](float position) { return position > 0.0f ? 20.0f * std::log(position) + 6.0f : -100.0f; };
+        auto convert = [&](te::PluginList& list) {
+            for (auto* p : list)
+                if (auto* v = dynamic_cast<te::VolumeAndPanPlugin*>(p))
+                    v->setVolumeDb(oldDb(v->volParam->getCurrentValue()));
+                else if (auto* send = dynamic_cast<te::AuxSendPlugin*>(p))
+                    send->setGainDb(oldDb(send->gain->getCurrentValue()));
+        };
+        for (auto* t : te::getAudioTracks(*edit))
+            convert(t->pluginList);
+        convert(edit->getMasterPluginList());
+        edit->state.setProperty(kFormatId, kFormat, nullptr);
+    }
     ensureChannels(nullptr);
     // tracktion sorts tracks by type asynchronously, through the undo manager: done now, so a
     // fresh project's history really is empty (no invisible first undo step).
@@ -273,8 +271,11 @@ void Session::Impl::attach(std::unique_ptr<te::Edit> e)
     dirty = false;
     midiTarget.reset();
     midiDevicesChanged(); // playback context and input routing for this edit
+    applyAutomationMode();
     rebuildSnapshot();
     edit->state.addListener(this);
+    edit->getParameterChangeHandler().addListener(*this); // moved controls (automation, §7)
+    edit->getTransport().addChangeListener(this);          // a recording pass ends with playback
 }
 
 void Session::Impl::detach()
@@ -282,6 +283,10 @@ void Session::Impl::detach()
     if (edit == nullptr)
         return;
     cancelPendingUpdate();
+    endRecordingPass();
+    lastTouched.reset();
+    edit->getTransport().removeChangeListener(this);
+    edit->getParameterChangeHandler().removeListener(*this);
     edit->state.removeListener(this);
     edit->getTransport().stop(false, true);
     edit.reset();
@@ -399,6 +404,8 @@ void Session::Impl::rebuildSnapshot()
         std::sort(info.clips.begin(), info.clips.end(), [](const auto& a, const auto& b) { return a.start < b.start; });
         devicesOf(t->pluginList, info);
         info.mix = mixOf(t->pluginList);
+        info.lanes = laneInfos(info.id);
+        info.lanesFolded = t->state[lanesFoldedId];
         info.mix.mute = t->isMuted(false);
         info.mix.solo = t->isSolo(false);
         if (info.role == model::TrackInfo::Role::Track)
@@ -428,6 +435,9 @@ void Session::Impl::rebuildSnapshot()
     master.name = "Master";
     devicesOf(edit->getMasterPluginList(), master);
     master.mix = mixOf(edit->getMasterPluginList());
+    master.lanes = laneInfos(master.id);
+    if (auto* m = edit->getMasterTrack())
+        master.lanesFolded = m->state[lanesFoldedId];
     snapshot = std::move(s);
     if (owner.onSnapshotChanged)
         owner.onSnapshotChanged();
@@ -654,6 +664,7 @@ void Session::removeListener(Listener* listener)
 
 void Session::play()
 {
+    impl_->applyAutomationMode(); // tracks added since arming write too
     impl_->edit->getTransport().play(false);
 }
 
@@ -1209,6 +1220,7 @@ bool Session::setSend(std::uint64_t trackId, std::uint64_t returnId, std::option
                                    model::minusInfinityDb, 0.0f);
     impl_->beginEdit("Send to " + r->getName());
     auto* um = &impl_->edit->getUndoManager();
+    const bool isNew = send == nullptr;
     if (send == nullptr)
     {
         auto created = impl_->edit->getPluginCache().createNewPlugin(te::AuxSendPlugin::xmlTypeName, {});
@@ -1218,10 +1230,15 @@ bool Session::setSend(std::uint64_t trackId, std::uint64_t returnId, std::option
         send->busNumber = bus;
         t->pluginList.insertPlugin(created, t->pluginList.indexOf(volume) + 1, nullptr);
     }
-    if (level <= model::minusInfinityDb)
-        send->gain->setParameter(0.0f, juce::sendNotification);
-    else
-        send->setGainDb(level);
+    // Only a new level (or a new send) touches the gain: switching pre/post isn't a move of the
+    // send's control (it would turn its automation off).
+    if (levelDb || isNew)
+    {
+        if (level <= model::minusInfinityDb)
+            send->gain->setParameter(0.0f, juce::sendNotification);
+        else
+            send->setGainDb(level);
+    }
     // Pre-fader sends sit just before the volume, post-fader ones just after it.
     if (volume != nullptr)
     {

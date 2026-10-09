@@ -139,7 +139,8 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
           "insert_midi_file", "move_clips", "trim_clip", "duplicate_clips", "split_clips", "delete_clips", "add_notes",
           "set_notes", "remove_notes", "edit_notes", "add_module", "remove_module", "move_module", "set_module_on",
           "set_parameters", "load_sample", "set_module_view", "set_module_sidechain", "scan_plugins", "render",
-          "measure_module", "set_mix", "add_return_track", "set_send", "measure_mix", "undo", "redo",
+          "measure_module", "set_mix", "add_return_track", "set_send", "measure_mix", "get_automation",
+          "set_automation", "clear_automation", "set_automation_on", "undo", "redo",
           "save_project", "new_project", "open_project"})
         CHECK(names.contains(name));
     for (const auto& p : registry.prompts)
@@ -709,4 +710,64 @@ TEST_CASE("mcp tools: parameters say what they do (B22)", "[integration][mcp]")
     const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
     const auto eq = daw.call("add_module", {{"track", t0}, {"type", "eq"}});
     CHECK(eq["parameters"][0]["description"] == "Turns the band on or off.");
+}
+
+TEST_CASE("mcp tools: automation: lanes written, read, cleared and turned back on", "[integration][mcp]")
+{
+    Daw daw;
+    auto project = daw.project();
+    const auto t0 = project["tracks"][0]["id"].get<std::string>();
+    const auto eq = daw.call("add_module", {{"track", t0}, {"type", "eq"}})["id"].get<std::string>();
+
+    // A module's parameter, by name, with values as text and numbers, and a bend.
+    auto lane = daw.call("set_automation", {{"module", eq},
+                                            {"parameter", "band1.freq"},
+                                            {"points", Json::array({{{"position", "1.1.1"}, {"value", "200 Hz"}, {"bend", 0.5}},
+                                                                    {{"position", 8}, {"value", 2000}}})}});
+    CHECK(daw.session->undoDescription() == "Assistant: set automation");
+    REQUIRE(lane["points"].size() == 2);
+    CHECK(lane["points"][0]["value"] == Approx(200.0).margin(0.5));
+    CHECK(lane["points"][0]["bend"] == Approx(0.5));
+    CHECK(lane["points"][1]["position"]["beats"] == Approx(8.0));
+    CHECK(lane["points"][1]["text"] == "2.00 kHz");
+    CHECK(lane["on"] == true);
+
+    // It shows in the project and the module.
+    project = daw.project();
+    REQUIRE(project["tracks"][0]["lanes"].size() == 1);
+    CHECK(project["tracks"][0]["lanes"][0]["parameter"] == "band1.freq");
+    CHECK(project["tracks"][0]["lanes"][0]["moduleId"] == eq);
+    const auto module = daw.call("get_module", {{"module", eq}});
+    bool marked = false;
+    for (const auto& p : module["parameters"])
+        if (p["id"] == "band1.freq")
+            marked = p.contains("automation") && p["automation"]["points"] == 2;
+    CHECK(marked);
+
+    // A channel's volume: a range replaces just its part.
+    daw.call("set_automation", {{"track", t0}, {"parameter", "volume"},
+                                {"points", Json::array({{{"position", 0}, {"value", "0 dB"}}, {{"position", 16}, {"value", -12}}})}});
+    daw.call("set_automation", {{"track", t0}, {"parameter", "volume"}, {"from", 4}, {"to", 12},
+                                {"points", Json::array({{{"position", 8}, {"value", "-inf"}}})}});
+    auto volume = daw.call("get_automation", {{"track", t0}, {"parameter", "volume"}});
+    REQUIRE(volume["points"].size() == 3);
+    CHECK(volume["points"][1]["text"] == "-inf dB");
+    CHECK(volume["points"][2]["value"] == Approx(-12.0).margin(0.05));
+    CHECK(daw.call("get_automation", {{"track", t0}, {"parameter", "volume"}, {"from", 6}, {"to", 10}})["points"].size() == 1);
+
+    // Moving the fader turns the lane off; set_automation_on turns it back on.
+    daw.call("set_mix", {{"track", t0}, {"volume", -3}});
+    CHECK(daw.call("get_automation", {{"track", t0}, {"parameter", "volume"}})["on"] == false);
+    const auto steps = daw.session->undoDescription();
+    CHECK(daw.call("set_automation_on", {{"all", true}})["on"] == true);
+    CHECK(daw.call("get_automation", {{"track", t0}, {"parameter", "volume"}})["on"] == true);
+    CHECK(daw.session->undoDescription() == steps); // not an undo step
+
+    // Clearing; refusing what can't be automated.
+    CHECK(daw.call("clear_automation", {{"track", t0}, {"parameter", "volume"}})["points"].empty());
+    CHECK(daw.session->undoDescription() == "Assistant: clear automation");
+    const auto comp = daw.call("add_module", {{"track", t0}, {"type", "compressor"}})["id"].get<std::string>();
+    CHECK(daw.fails("set_automation", {{"module", comp}, {"parameter", "lookahead"}, {"points", Json::array()}})
+              .find("can't be automated") != std::string::npos);
+    CHECK(daw.fails("get_automation", {{"track", t0}, {"parameter", "send"}}).find("return") != std::string::npos);
 }

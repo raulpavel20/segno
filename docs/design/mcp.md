@@ -124,6 +124,10 @@ The project, track, clip and module resources send change notifications when the
 | `add_return_track` | `name?` | The return's id and name |
 | `set_send` | `track`, `return`, `level?` (dB), `preFader?` | The send as set |
 | `measure_mix` | `seconds?` (0.5) | Every channel's peak over the window (dBFS), and whether anything clipped |
+| `get_automation` | a lane (`module` + `parameter`, or `track` + `volume`/`pan`/`send` + `return`), `from?`, `to?` | Its points (position, value in the parameter's unit and as text, bend), whether it plays, its range (C4, [automation.md](automation.md) §11) |
+| `set_automation` | a lane, `points` (position, value or text, `bend?`), `from?`, `to?` | Replaces the lane's points (or those in the range); shows the lane |
+| `clear_automation` | a lane, `from?`, `to?` | Removes points |
+| `set_automation_on` | a lane and `on?`, or `all` | Turns lanes back on (not an undo step) |
 | `set_module_sidechain` | `module`, `source` (a track, or null for none) | The source; `get_module` reports `sidechain: {source, possibleSources}` for modules with a sidechain input ([ADR 0025](../decisions/0025-sidechain-routing.md)) |
 | `set_module_view` | `module`, `collapsed?` (section ids), `folded?` | – (view state: never an undo step) |
 | `scan_plugins` | – | The number found; long, so it runs as a task with progress |
@@ -165,7 +169,7 @@ Every DAW feature ships with its tools (the coverage rule, ADR 0021). Today:
 | Projects, undo | Project tools |
 | Live MIDI (computer keyboard, inputs) | Not a tool: a live performance input, not an edit. A `preview_note` tool may come later |
 
-Not in the DAW yet, so no tools yet: renaming, deleting and reordering tracks; clip names and colours; automation (C4), recording (C5), fades (C6), bounce (C7), export (C8). Each brings its tools with it.
+Not in the DAW yet, so no tools yet: renaming, deleting and reordering tracks; clip names and colours; recording (C5), fades (C6), bounce (C7), export (C8). Each brings its tools with it. Automation (C4) has its four tools, and `get_project` lists each channel's lanes.
 
 ## 7. Architecture
 

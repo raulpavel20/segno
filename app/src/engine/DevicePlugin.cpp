@@ -9,6 +9,47 @@ namespace fd::engine
 namespace
 {
 const juce::Identifier kExtraStateId{"fdExtra"};
+// Parameter values in the plugin's state are normalised (ADR 0028). Projects saved before then
+// hold plain values, converted when the module is loaded.
+const juce::Identifier kNormalisedId{"fdNormalised"};
+
+/// A module's parameter in tracktion: normalised (0..1, the control's travel), stepped kinds
+/// discrete, so automation holds their values as steps.
+class DeviceParameter final : public te::AutomatableParameter
+{
+public:
+    DeviceParameter(const ParamSpec& spec, te::Plugin& owner)
+        : te::AutomatableParameter(juce::String(std::string(spec.id)), juce::String(std::string(spec.name)), owner,
+                                   juce::NormalisableRange<float>(0.0f, 1.0f)),
+          spec_(spec)
+    {
+        valueToStringFunction = [&spec](float n) { return juce::String(spec.toText(spec.fromNormalized(n))); };
+        stringToValueFunction = [&spec](const juce::String& s) {
+            const auto v = spec.fromText(s.toStdString());
+            return spec.toNormalized(v ? *v : spec.def);
+        };
+    }
+
+    bool isDiscrete() const override { return spec_.isStepped(); }
+    int getNumberOfStates() const override { return spec_.numSteps(); }
+    float getValueForState(int state) const override
+    {
+        const int last = spec_.numSteps() - 1;
+        return last > 0 ? juce::jlimit(0.0f, 1.0f, static_cast<float>(state) / static_cast<float>(last)) : 0.0f;
+    }
+    int getStateForValue(float value) const override
+    {
+        return juce::roundToInt(juce::jlimit(0.0f, 1.0f, value) * static_cast<float>(std::max(0, spec_.numSteps() - 1)));
+    }
+    float snapToState(float value) const override
+    {
+        return spec_.isStepped() ? spec_.toNormalized(spec_.fromNormalized(value)) : value;
+    }
+    std::optional<float> getDefaultValue() const override { return spec_.toNormalized(spec_.def); }
+
+private:
+    const ParamSpec& spec_;
+};
 
 class DeviceBuiltInType final : public te::PluginManager::BuiltInType
 {
@@ -35,28 +76,25 @@ DevicePlugin::DevicePlugin(te::PluginCreationInfo info, const DeviceFactory& fac
       type_(typeNameFor(factory.info().id))
 {
     auto* um = getUndoManager();
+    // A module saved before ADR 0028 holds plain values: convert them once (not an edit).
+    if (!static_cast<bool>(state.getProperty(kNormalisedId, false)))
+    {
+        for (const auto& spec : device_->info().params)
+            if (const juce::Identifier id(juce::String(std::string(spec.id))); state.hasProperty(id))
+                state.setProperty(id, spec.toNormalized(static_cast<float>(static_cast<double>(state[id]))), nullptr);
+        state.setProperty(kNormalisedId, true, nullptr);
+    }
     for (const auto& spec : device_->info().params)
     {
-        const juce::String id(std::string(spec.id));
         auto value = std::make_unique<juce::CachedValue<float>>();
-        value->referTo(state, juce::Identifier(id), um, spec.def);
-
-        // Same normalised mapping and text as ParamSpec (and the plugin adapter).
-        juce::NormalisableRange<float> range(
-            spec.min, spec.max, [&spec](float, float, float n) { return spec.fromNormalized(n); },
-            [&spec](float, float, float v) { return spec.toNormalized(v); },
-            [&spec](float, float, float v) { return spec.sanitize(v); });
-        auto* param = addParam(
-            id, juce::String(std::string(spec.name)), range,
-            [&spec](float v) { return juce::String(spec.toText(v)); },
-            [&spec](const juce::String& s) {
-                const auto v = spec.fromText(s.toStdString());
-                return v ? *v : spec.def;
-            });
+        value->referTo(state, juce::Identifier(juce::String(std::string(spec.id))), um, spec.toNormalized(spec.def));
+        auto* param = new DeviceParameter(spec, *this);
+        addAutomatableParameter(*param);
         param->attachToCurrentValue(*value);
         params_.emplace_back(param);
         values_.push_back(std::move(value));
     }
+    pulled_.assign(params_.size(), -1.0f);
 
     // A device recreated from a saved project gets its non-parameter state back (ADR 0017).
     if (state.hasProperty(kExtraStateId))
@@ -73,8 +111,12 @@ DevicePlugin::~DevicePlugin()
 void DevicePlugin::initialise(const te::PluginInitialisationInfo& info)
 {
     sampleRate_ = info.sampleRate;
+    const auto specs = device_->info().params;
     for (size_t i = 0; i < params_.size(); ++i)
-        device_->params().set(i, params_[i]->getCurrentValue());
+    {
+        pulled_[i] = params_[i]->getCurrentValue();
+        device_->params().set(i, specs[i].fromNormalized(pulled_[i]));
+    }
     device_->prepare({.sampleRate = info.sampleRate, .maxBlockSize = info.blockSizeSamples});
     events_.reserve(2048);
     channelPtrs_.resize(8);
@@ -118,8 +160,13 @@ void DevicePlugin::applyToBuffer(const te::PluginRenderContext& fc)
         return;
 
     auto& store = device_->params();
+    const auto specs = device_->info().params;
     for (size_t i = 0; i < params_.size(); ++i)
-        store.set(i, params_[i]->getCurrentValue()); // includes automation and modifiers
+        if (const float n = params_[i]->getCurrentValue(); n != pulled_[i]) // includes automation and modifiers
+        {
+            pulled_[i] = n;
+            store.set(i, specs[i].fromNormalized(n));
+        }
 
     // With a sidechain source, tracktion hands over the main channels and then the source's
     // (ADR 0025); otherwise just the main ones.
@@ -189,9 +236,14 @@ void DevicePlugin::convertMidi(const te::PluginRenderContext& fc) noexcept
 
 void DevicePlugin::restorePluginStateFromValueTree(const juce::ValueTree& v)
 {
-    for (auto& value : values_)
-        if (v.hasProperty(value->getPropertyID()))
-            *value = static_cast<float>(v[value->getPropertyID()]);
+    const bool normalised = v.getProperty(kNormalisedId, false);
+    const auto specs = device_->info().params;
+    for (size_t i = 0; i < values_.size(); ++i)
+        if (auto& value = *values_[i]; v.hasProperty(value.getPropertyID()))
+        {
+            const auto stored = static_cast<float>(static_cast<double>(v[value.getPropertyID()]));
+            value = normalised ? stored : specs[i].toNormalized(stored);
+        }
     for (auto& p : params_)
         p->updateFromAttachedValue();
 
@@ -233,7 +285,8 @@ void DevicePlugin::valueTreePropertyChanged(juce::ValueTree& tree, const juce::I
                 // A latency-changing setting (ADR 0020): the device learns it now, and the
                 // playback graph is rebuilt around its new latency. Read from the tree: on undo
                 // the cached value may not have caught up yet.
-                device_->params().set(i, static_cast<float>(static_cast<double>(tree.getProperty(id, spec.def))));
+                device_->params().set(
+                    i, spec.fromNormalized(static_cast<float>(static_cast<double>(tree.getProperty(id, spec.toNormalized(spec.def))))));
                 edit.restartPlayback();
             }
     te::Plugin::valueTreePropertyChanged(tree, id);

@@ -116,8 +116,12 @@ TEST_CASE("native device in tracktion matches the offline device render", "[inte
     te::getAudioTracks(*edit)[0]->pluginList.insertPlugin(plugin, 0, nullptr);
 
     auto& native = dynamic_cast<fd::engine::DevicePlugin&>(*plugin);
-    for (auto [id, value] : kSettings)
-        native.parameter(*native.device().params().indexOf(id)).setParameter(value, juce::sendNotificationSync);
+    for (auto [id, value] : kSettings) // tracktion holds normalised values (ADR 0028)
+    {
+        const auto index = *native.device().params().indexOf(id);
+        native.parameter(index).setParameter(native.device().info().params[index].toNormalized(value),
+                                             juce::sendNotificationSync);
+    }
     const auto inEngine = f.render(*edit);
 
     auto device = fd::findDevice("utility")->create();
@@ -167,6 +171,13 @@ TEST_CASE("native instrument in tracktion matches the offline render of the same
     const auto inEngine = f.render(*edit);
 
     auto device = fd::findDevice("subtractive-synth")->create();
+    // The DAW holds parameters normalised, as plugin hosts do (ADR 0028): the reference gets the
+    // same values back from that round trip.
+    for (size_t i = 0; i < device->info().params.size(); ++i)
+    {
+        const auto& spec = device->info().params[i];
+        device->params().set(i, spec.fromNormalized(spec.toNormalized(spec.def)));
+    }
     RenderOptions o;
     o.sampleRate = kSampleRate;
     o.events = events;

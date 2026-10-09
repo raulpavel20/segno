@@ -30,6 +30,7 @@ void addNoteTools(Registry& registry, ToolEnv& env);
 void addModuleTools(Registry& registry, ToolEnv& env);
 void addRenderTools(Registry& registry, ToolEnv& env);
 void addMixTools(Registry& registry, ToolEnv& env);
+void addAutomationTools(Registry& registry, ToolEnv& env);
 void addProjectTools(Registry& registry, ToolEnv& env);
 void addResources(Registry& registry, ToolEnv& env);
 void addPrompts(Registry& registry);

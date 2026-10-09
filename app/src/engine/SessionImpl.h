@@ -4,15 +4,46 @@
 
 #include <tracktion_engine/tracktion_engine.h>
 
+#include <algorithm>
 #include <set>
+#include <utility>
 
 namespace fd::engine
 {
 namespace te = tracktion;
 
 class PluginScanner;
+class DevicePlugin;
 
-struct Session::Impl final : private juce::ValueTree::Listener, public juce::AsyncUpdater, private juce::ChangeListener
+template <typename PluginType>
+PluginType* findIn(te::PluginList& list)
+{
+    for (auto* p : list)
+        if (auto* found = dynamic_cast<PluginType*>(p))
+            return found;
+    return nullptr;
+}
+
+/// A track's send on aux bus `bus`, if it has one.
+inline te::AuxSendPlugin* sendIn(te::PluginList& list, int bus)
+{
+    for (auto* p : list)
+        if (auto* send = dynamic_cast<te::AuxSendPlugin*>(p); send != nullptr && send->getBusNumber() == bus)
+            return send;
+    return nullptr;
+}
+
+/// The aux bus a return track listens to (-1 if none).
+inline int busOf(te::AudioTrack& returnTrack)
+{
+    auto* in = findIn<te::AuxReturnPlugin>(returnTrack.pluginList);
+    return in != nullptr ? in->busNumber.get() : -1;
+}
+
+struct Session::Impl final : private juce::ValueTree::Listener,
+                             public juce::AsyncUpdater,
+                             private juce::ChangeListener,
+                             private te::ParameterChangeHandler::Listener
 {
     Impl(Session& owner, te::Engine& engine);
     ~Impl() override;
@@ -77,16 +108,84 @@ struct Session::Impl final : private juce::ValueTree::Listener, public juce::Asy
     /// A module panel's view state on its plugin (ADR 0022): saved, never undoable or "unsaved".
     static inline const juce::Identifier panelViewId{"fdPanel"};
 
+    // ---- automation (C4, ADR 0028) ----------------------------------------------------------
+
+    /// A parameter that can have a lane, and how its engine value maps to the lane's 0..1:
+    /// lane = (value - offset) / scale.
+    struct Lane
+    {
+        enum class Kind { Volume, Pan, Send, Module, External };
+        Kind kind = Kind::Module;
+        te::AutomatableParameter* param = nullptr; // null for a send not made yet
+        std::string key, name, module, paramId;
+        std::uint64_t device = 0, returnId = 0;
+        int steps = 0;
+        float offset = 0.0f, scale = 1.0f;
+        DevicePlugin* native = nullptr; // our module
+        size_t index = 0;               // its parameter's index
+
+        [[nodiscard]] float toLane(float value) const noexcept { return std::clamp((value - offset) / scale, 0.0f, 1.0f); }
+        [[nodiscard]] float toEngine(float lane) const noexcept { return offset + std::clamp(lane, 0.0f, 1.0f) * scale; }
+    };
+    /// Every parameter of a channel that can be automated: volume, pan and sends, then each
+    /// module's (ours: those flagged Automatable).
+    [[nodiscard]] std::vector<Lane> lanesOf(std::uint64_t channelId) const;
+    [[nodiscard]] std::optional<Lane> lane(const LaneTarget& target) const;
+    /// The track (or the master track) whose state holds a channel's lane view state.
+    [[nodiscard]] te::Track* stateTrack(std::uint64_t channelId) const;
+    [[nodiscard]] static std::vector<std::string> shownLanes(const te::Track& track);
+    static void setShownLanes(te::Track& track, const std::vector<std::string>& keys);
+    /// The channel's lanes for the snapshot: the shown ones in order, then any other with points.
+    [[nodiscard]] std::vector<model::LaneInfo> laneInfos(std::uint64_t channelId) const;
+    /// True while the parameter plays its lane (points, on, not being recorded): its played
+    /// values never dirty the project or rebuild snapshots.
+    [[nodiscard]] static bool followsLane(const te::AutomatableParameter& param);
+    /// The parameter a plugin property belongs to, if any.
+    [[nodiscard]] te::AutomatableParameter* parameterFor(const juce::ValueTree& pluginState, const juce::Identifier& id) const;
+    /// Every track reads, or (armed) touch-writes, automation.
+    void applyAutomationMode();
+    void endRecordingPass();
+
+    static inline const juce::Identifier lanesId{"fdLanes"};             // shown lanes, view state
+    static inline const juce::Identifier lanesFoldedId{"fdLanesFolded"}; // view state
+    bool armed = false;
+    std::optional<std::pair<std::uint64_t, juce::String>> lastTouched; // plugin id, parameter id
+    std::unique_ptr<te::Edit::UndoTransactionInhibitor> recordingPass;  // one undo step per pass
+    bool restartPending = false; // the playback graph is rebuilt when automation comes or goes
+
 private:
-    void changeListenerCallback(juce::ChangeBroadcaster*) override { midiDevicesChanged(); }
+    void changeListenerCallback(juce::ChangeBroadcaster* source) override;
+    void pluginParameterChanged(te::AutomatableParameter& param, bool isFollowingAutomation) override;
     void changed(juce::ValueTree& tree);
-    void handleAsyncUpdate() override { rebuildSnapshot(); }
+    void handleAsyncUpdate() override
+    {
+        if (std::exchange(restartPending, false) && edit != nullptr)
+            edit->restartPlayback(); // fine-grained automation needs a new graph (automation.md §13)
+        rebuildSnapshot();
+    }
     void valueTreePropertyChanged(juce::ValueTree& t, const juce::Identifier& id) override
     {
-        if (id == te::IDs::lastSignificantChange || id == panelViewId) // bookkeeping and view state
+        if (id == te::IDs::lastSignificantChange || id == panelViewId || id == te::IDs::automationMode) // bookkeeping and view state
             return;
+        // Lane view state and a lane's on switch: shown at once, never an unsaved change.
+        if (id == lanesId || id == lanesFoldedId || id == te::IDs::bypass)
+        {
+            changed(t);
+            return;
+        }
+        // A parameter playing its lane: tracktion writes each played value back (ADR 0028).
+        if (t.hasType(te::IDs::PLUGIN))
+            if (auto* param = parameterFor(t, id); param != nullptr && followsLane(*param))
+                return;
         if (!inTransport(t) && id != te::IDs::solo) // solo is a listening aid (ADR 0026)
             dirty = true; // includes device parameters
+        // A lane's points.
+        for (auto p = t; p.isValid() && !p.hasType(te::IDs::PLUGIN); p = p.getParent())
+            if (p.hasType(te::IDs::AUTOMATIONCURVE))
+            {
+                changed(t);
+                return;
+            }
         // Device parameters and state change constantly; only a device's power state, its
         // sidechain source (ADR 0025) and the mixer's own plugins (volume, pan, sends) show.
         for (auto p = t; p.isValid(); p = p.getParent())
@@ -100,8 +199,16 @@ private:
             }
         changed(t);
     }
-    void valueTreeChildAdded(juce::ValueTree& t, juce::ValueTree&) override { structureChanged(t); }
-    void valueTreeChildRemoved(juce::ValueTree& t, juce::ValueTree&, int) override { structureChanged(t); }
+    void valueTreeChildAdded(juce::ValueTree& t, juce::ValueTree& child) override
+    {
+        restartPending = restartPending || child.hasType(te::IDs::AUTOMATIONCURVE);
+        structureChanged(t);
+    }
+    void valueTreeChildRemoved(juce::ValueTree& t, juce::ValueTree& child, int) override
+    {
+        restartPending = restartPending || child.hasType(te::IDs::AUTOMATIONCURVE);
+        structureChanged(t);
+    }
     void valueTreeChildOrderChanged(juce::ValueTree& t, int, int) override { structureChanged(t); }
     void deviceStateChanged(const juce::ValueTree& plugin)
     {

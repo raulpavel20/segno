@@ -1,0 +1,72 @@
+Automation plays as drawn, and one-point curves hold (Segno ADR 0028).
+
+- AutomationIterator (playback) bends a segment with the curve value as given, while
+  AutomationCurve::getValueAt and getBezierPoint (drawing, queries) double it; playback now
+  doubles it too, so what plays is what's drawn.
+- A curve with a single point is treated as empty and never plays; it now holds its value.
+- Moving a parameter whose curve has one point moved that point; the DAW decides what a move
+  does to automation instead (docs/design/automation.md §7).
+
+--- a/modules/tracktion_engine/model/automation/tracktion_AutomatableParameter.h
++++ b/modules/tracktion_engine/model/automation/tracktion_AutomatableParameter.h
+@@ -425,7 +425,7 @@
+     AutomationIterator (Edit&, const AutomationCurve&);
+     AutomationIterator (const AutomatableParameter&);
+ 
+-    bool isEmpty() const noexcept               { return points.size() <= 1; }
++    bool isEmpty() const noexcept               { return points.isEmpty(); } // Segno: one point holds its value
+ 
+     void setPosition (EditPosition) noexcept;
+     float getCurrentValue() noexcept            { return currentValue; }
+--- a/modules/tracktion_engine/model/automation/tracktion_AutomatableParameter.cpp
++++ b/modules/tracktion_engine/model/automation/tracktion_AutomatableParameter.cpp
+@@ -1451,11 +1451,9 @@
+ 
+                         arm.postAutomationChange (*this, time, value);
+                     }
+-                    else
+-                    {
+-                        if (numPoints == 1)
+-                            curve.movePoint (*this, 0, curve.getPointTime (0), value, false, &ed.getUndoManager());
+-                    }
++                    // Segno: moving a parameter never edits its one-point curve; the DAW
++                    // decides what a move does to its automation (docs/design/automation.md §7).
++                    juce::ignoreUnused (numPoints);
+                 }
+             }
+ 
+@@ -1798,19 +1796,21 @@
+     const auto v1 = p1.value;
+     const auto v2 = p2.value;
+ 
+-    const auto c = p1.curve;
++    // Segno: the same bend as AutomationCurve::getValueAt and getBezierPoint (twice the curve
++    // value), so what plays is what's drawn.
++    const auto c = juce::jlimit (-1.0f, 1.0f, p1.curve * 2.0f);
+ 
+     float v = p2.value;
+ 
+     if (t2 != t1)
+     {
+-        if (c == 0.0f)
++        if (p1.curve == 0.0f)
+         {
+             v = v1 + (v2 - v1) * (float) ((t - t1) / (t2 - t1));
+         }
+-        else if (c >= -0.5 && c <= 0.5)
++        else if (p1.curve >= -0.5 && p1.curve <= 0.5)
+         {
+-            auto bp = getBezierPoint (p1.time, p1.value, p2.time, p2.value, p1.curve);
++            auto bp = getBezierPoint (p1.time, p1.value, p2.time, p2.value, c);
+             v = float (getBezierYFromX (t, t1, v1, bp.first, bp.second, t2, v2));
+         }
+         else
+@@ -1818,7 +1818,7 @@
+             double x1end = 0, x2end = 0;
+             double y1end = 0, y2end = 0;
+ 
+-            auto bp = getBezierPoint (p1.time, p1.value, p2.time, p2.value, p1.curve);
++            auto bp = getBezierPoint (p1.time, p1.value, p2.time, p2.value, c);
+             getBezierEnds (p1.time, p1.value,
+                            p2.time, p2.value,
+                            p1.curve,

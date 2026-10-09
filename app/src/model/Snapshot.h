@@ -1,5 +1,6 @@
 #pragma once
 
+#include "model/Automation.h"
 #include "model/TempoMap.h"
 
 #include <cstdint>
@@ -80,6 +81,24 @@ struct MixInfo
     std::vector<SendInfo> sends; // tracks only: one per return track, in return order
 };
 
+/// One automation lane of a channel (C4, ADR 0028, docs/design/automation.md): a parameter's
+/// points in the control's units (0..1 of its travel), whether it plays, and what it is.
+struct LaneInfo
+{
+    /// Names the parameter within its channel, as long as it exists: "volume", "pan",
+    /// "send/<return id>", or "m<module id>/<parameter id>".
+    std::string key;
+    std::uint64_t device = 0; // the module (0: the mixer's volume, pan or a send)
+    std::string paramId;      // the module's parameter id
+    std::string name;         // "Cutoff", "Volume", "Send A"
+    std::string module;       // "Synth", "Mixer"
+    int steps = 0;            // a stepped parameter's number of values (0: continuous)
+    bool on = true;           // off: the parameter keeps the value set by hand (§7)
+    AutomationPoints points;
+
+    [[nodiscard]] LaneRules rules() const noexcept { return {.steps = steps}; }
+};
+
 struct TrackInfo
 {
     enum class Kind { Audio, Instrument };
@@ -95,6 +114,18 @@ struct TrackInfo
     std::vector<ClipInfo> clips; // sorted by start
     std::vector<DeviceSlot> devices; // the chain, in order (the engine's own mixer plugins are not listed)
     MixInfo mix;
+    /// Its automation lanes, in the order they were shown (C4): every parameter with points, and
+    /// the empty lanes the user added. Folded lanes are still listed.
+    std::vector<LaneInfo> lanes;
+    bool lanesFolded = false;
+
+    [[nodiscard]] const LaneInfo* lane(const std::string& key) const noexcept
+    {
+        for (const auto& l : lanes)
+            if (l.key == key)
+                return &l;
+        return nullptr;
+    }
 
     [[nodiscard]] bool holdsClips() const noexcept { return role == Role::Track; }
 };

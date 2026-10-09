@@ -1,0 +1,51 @@
+Segno's volume taper for every fader position (Segno ADR 0026, ADR 0028).
+
+tracktion maps fader positions to gain with its own curve. Segno's faders, sends and volume
+automation use one taper: 0 dB at 80 % of the travel and +6 dB at the top. Using it here makes
+the stored position the fader's own, so a straight automation segment is a straight fader move.
+
+--- a/modules/tracktion_engine/utilities/tracktion_AudioUtilities.cpp
++++ b/modules/tracktion_engine/utilities/tracktion_AudioUtilities.cpp
+@@ -132,26 +132,37 @@
+     return (gain > 0.0f) ? 20.0f * std::log10 (gain) : -100.0f;
+ }
+ 
+-static const float volScaleFactor = 20.0f;
++// Segno's volume taper (docs/design/mixer.md §3): the gain at fader position p is (p / 0.8)^n,
++// so 0 dB sits at 80 % of the travel and the top is exactly +6 dB (n = 0.3 ln 10 / ln 1.25). Every
++// fader, send and automation lane of volume uses it, so a straight automation segment is a
++// straight fader move (docs/design/automation.md §13).
++static constexpr double segnoTaperZeroAt = 0.8;
++static const double segnoTaperExponent = 0.3 * std::log (10.0) / std::log (1.25);
+ 
+ float decibelsToVolumeFaderPosition (float db) noexcept
+ {
+-    return (db > -100.0f) ? std::exp ((db - 6.0f) * (1.0f / volScaleFactor)) : 0.0f;
++    if (db <= -100.0f)
++        return 0.0f;
++
++    return (float) juce::jlimit (0.0, 1.0, segnoTaperZeroAt * std::pow (10.0, db / (20.0 * segnoTaperExponent)));
+ }
+ 
+ float volumeFaderPositionToDB (float pos) noexcept
+ {
+-    return (pos > 0.0f) ? (volScaleFactor * std::log (pos)) + 6.0f : -100.0f;
++    if (! (pos > 0.0f))
++        return -100.0f;
++
++    return (float) juce::jmax (-100.0, 20.0 * segnoTaperExponent * std::log10 (pos / segnoTaperZeroAt));
+ }
+ 
+ float volumeFaderPositionToGain (float pos) noexcept
+ {
+-    return (pos > 0.0f) ? std::pow (10.0f, ((volScaleFactor * logf (pos)) + 6.0f) * (1.0f / 20.0f)) : 0.0f;
++    return (pos > 0.0f) ? (float) std::pow (pos / segnoTaperZeroAt, segnoTaperExponent) : 0.0f;
+ }
+ 
+ float gainToVolumeFaderPosition (float gain) noexcept
+ {
+-    return (gain > 0.0f) ? std::exp (((20.0f * std::log10 (gain)) - 6.0f) * (1.0f / volScaleFactor)) : 0.0f;
++    return (gain > 0.0f) ? (float) (segnoTaperZeroAt * std::pow ((double) gain, 1.0 / segnoTaperExponent)) : 0.0f;
+ }
+ 
+ juce::String gainToDbString (float gain, float infLevel, int decPlaces)

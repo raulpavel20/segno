@@ -12,9 +12,11 @@ namespace te = tracktion;
 /// DAW adapter (docs/architecture.md): one tracktion_engine plugin type that wraps any
 /// fd::Device, so every device runs natively in the DAW, in the docked device chain.
 ///
-/// Parameters become te::AutomatableParameters (automation, modifiers and macros for free) with
-/// the same normalised mapping as ParamSpec. Their plain values are pulled into the device's
-/// ParamStore before every block. All tracktion API use stays in app/src/engine (ADR 0004).
+/// Parameters become te::AutomatableParameters (automation, modifiers and macros for free) in
+/// normalised units, the control's travel, as plugin hosts automate them: a straight automation
+/// segment is a straight move of the knob (ADR 0028). They are converted to plain values for the
+/// device's ParamStore before every block. All tracktion API use stays in app/src/engine
+/// (ADR 0004).
 class DevicePlugin final : public te::Plugin
 {
 public:
@@ -63,7 +65,8 @@ private:
     std::unique_ptr<Device> device_;
     juce::String name_, type_;
     std::vector<te::AutomatableParameter::Ptr> params_;
-    std::vector<std::unique_ptr<juce::CachedValue<float>>> values_;
+    std::vector<std::unique_ptr<juce::CachedValue<float>>> values_; // normalised
+    std::vector<float> pulled_; // the normalised values last pulled into the ParamStore (audio thread)
     std::vector<float*> channelPtrs_, sidechainPtrs_;
     EventList events_;
     juce::AudioBuffer<float> instrumentOut_; // instruments render here, then add (ADR 0019)
@@ -84,13 +87,18 @@ class DevicePluginBinding final : public ui::ParamBinding
 public:
     explicit DevicePluginBinding(DevicePlugin& plugin) : plugin_(plugin) {}
 
-    float getPlain(size_t i) const override { return plugin_.parameter(i).getCurrentValue(); }
-    void setPlain(size_t i, float plain) override { plugin_.parameter(i).setParameter(plain, juce::sendNotification); }
+    float getPlain(size_t i) const override { return spec(i).fromNormalized(plugin_.parameter(i).getCurrentValue()); }
+    void setPlain(size_t i, float plain) override
+    {
+        plugin_.parameter(i).setParameter(spec(i).toNormalized(plain), juce::sendNotification);
+    }
     void beginGesture(size_t i) override { plugin_.parameter(i).parameterChangeGestureBegin(); }
     void endGesture(size_t i) override { plugin_.parameter(i).parameterChangeGestureEnd(); }
     void applyExtraState(const nlohmann::json& patch) override { plugin_.applyExtraState(patch); }
 
 private:
+    [[nodiscard]] const ParamSpec& spec(size_t i) const { return plugin_.device().info().params[i]; }
+
     DevicePlugin& plugin_;
 };
 } // namespace fd::engine
