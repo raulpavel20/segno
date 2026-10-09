@@ -1,6 +1,8 @@
 // Plugin adapter tests: the JUCE AudioProcessor wrapper around a device (plugins/src).
 // Linked against the Utility plugin's shared code; the adapter itself is device-agnostic.
 
+#include "DeviceAudioProcessor.h"
+
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include <catch2/catch_approx.hpp>
@@ -66,4 +68,59 @@ TEST_CASE("plugin parameters use the device's normalised mapping and text", "[pl
     CHECK(gain->getText(0.5f, 32) == "0.0 dB");
     CHECK(gain->getText(0.0f, 32) == "-inf dB");
     CHECK(gain->getValueForText("-6 dB") == Catch::Approx(gain->convertTo0to1(-6.0f)));
+}
+
+TEST_CASE("plugin state keeps the editor's view state beside the device state", "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI juce;
+    auto a = makePlugin();
+    auto* processor = dynamic_cast<fd::plugin::DeviceAudioProcessor*>(a.get());
+    REQUIRE(processor != nullptr);
+
+    // With every section expanded, the state is just the device state.
+    juce::MemoryBlock plain;
+    a->getStateInformation(plain);
+    CHECK_FALSE(plain.toString().contains("\"view\""));
+
+    // Collapsing a section narrows the editor (asynchronously) and stores the view.
+    std::unique_ptr<juce::AudioProcessorEditor> editorOwner(processor->createEditor());
+    auto* editor = dynamic_cast<fd::plugin::DeviceEditor*>(editorOwner.get());
+    REQUIRE(editor != nullptr);
+    const int wide = editor->getWidth();
+    CHECK(editor->getHeight() == fd::ui::Theme::current().devicePanelHeight + 16);
+    auto& panel = editor->panel();
+    REQUIRE_FALSE(panel.sections().empty());
+    panel.sections().front()->setCollapsed(true, true);
+    editor->handleUpdateNowIfNeeded(); // the deferred resize
+    CHECK(editor->getWidth() == wide - (panel.sections().front()->getWidth() == 24
+                                            ? fd::ui::Theme::current().deviceGrid.sectionWidth(panel.sections().front()->columns()) - 24
+                                            : 0));
+    CHECK(editor->getWidth() < wide);
+    REQUIRE_FALSE(processor->viewState().empty());
+
+    juce::MemoryBlock withView;
+    a->getStateInformation(withView);
+    CHECK(withView.toString().contains("\"view\""));
+
+    // Another instance takes both; saving again gives the same bytes.
+    auto b = makePlugin();
+    auto* other = dynamic_cast<fd::plugin::DeviceAudioProcessor*>(b.get());
+    b->setStateInformation(withView.getData(), static_cast<int>(withView.getSize()));
+    CHECK(other->viewState() == processor->viewState());
+    juce::MemoryBlock again;
+    b->getStateInformation(again);
+    CHECK(again == withView);
+
+    // An editor opened later starts collapsed; an open one follows a loaded state.
+    {
+        std::unique_ptr<juce::AudioProcessorEditor> later(other->createEditor());
+        auto* e = dynamic_cast<fd::plugin::DeviceEditor*>(later.get());
+        CHECK(e->panel().sections().front()->isCollapsed());
+        CHECK(e->getWidth() == editor->getWidth());
+        b->setStateInformation(plain.getData(), static_cast<int>(plain.getSize()));
+        other->viewStateLoaded.dispatchPendingMessages(); // the asynchronous notice
+        CHECK_FALSE(e->panel().sections().front()->isCollapsed());
+        CHECK(e->getWidth() == wide);
+    }
+    editorOwner.reset(); // editors go before their processors
 }

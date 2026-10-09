@@ -57,10 +57,32 @@ void appendMidi(const juce::MidiBuffer& midi, EventList& out) noexcept
             out.push(*e);
 }
 
-juce::MemoryBlock stateToMemory(const Device& device)
+juce::MemoryBlock stateToMemory(const Device& device, const std::string& viewState)
 {
-    const std::string json = serializeState(device);
+    std::string json = serializeState(device);
+    if (!viewState.empty())
+    {
+        auto state = nlohmann::json::parse(json);
+        auto view = nlohmann::json::parse(viewState, nullptr, false);
+        if (!view.is_discarded())
+        {
+            state["view"] = std::move(view);
+            json = state.dump(2); // the same formatting as serializeState
+        }
+    }
     return juce::MemoryBlock(json.data(), json.size());
+}
+
+std::string viewStateFromMemory(const void* data, int sizeInBytes)
+{
+    if (data == nullptr || sizeInBytes <= 0)
+        return {};
+    const auto* text = static_cast<const char*>(data);
+    const auto json = nlohmann::json::parse(text, text + sizeInBytes, nullptr, false);
+    if (!json.is_object())
+        return {};
+    const auto it = json.find("view");
+    return it != json.end() && it->is_object() ? it->dump() : std::string();
 }
 
 ApplyResult stateFromMemory(Device& device, const void* data, int sizeInBytes)

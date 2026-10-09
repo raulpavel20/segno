@@ -144,13 +144,27 @@ void DeviceAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
 void DeviceAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     pullParameters();
-    destData = host::stateToMemory(*device_);
+    destData = host::stateToMemory(*device_, viewState());
+}
+
+std::string DeviceAudioProcessor::viewState() const
+{
+    const juce::ScopedLock lock(viewLock_);
+    return viewState_;
+}
+
+void DeviceAudioProcessor::setViewState(std::string state)
+{
+    const juce::ScopedLock lock(viewLock_);
+    viewState_ = std::move(state);
 }
 
 void DeviceAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
     if (host::stateFromMemory(*device_, data, sizeInBytes) != ApplyResult::Ok)
         return;
+    setViewState(host::viewStateFromMemory(data, sizeInBytes));
+    viewStateLoaded.sendChangeMessage(); // asynchronous: the editor applies it on the message thread
     const auto& store = device_->params();
     for (size_t i = 0; i < params_.size(); ++i)
         params_[i]->setValueNotifyingHost(store.getNormalized(i));
@@ -192,21 +206,55 @@ private:
     DeviceAudioProcessor& processor_;
 };
 
-DeviceEditor::DeviceEditor(DeviceAudioProcessor& p) : juce::AudioProcessorEditor(p)
+DeviceEditor::DeviceEditor(DeviceAudioProcessor& p) : juce::AudioProcessorEditor(p), processor_(p)
 {
     setLookAndFeel(&lnf_);
     binding_ = std::make_unique<Binding>(p);
     context_ = std::make_unique<ui::DeviceUiContext>(
         ui::DeviceUiContext{p.device().info(), *binding_, &p.device().analysis(), &p.device()});
     panel_ = p.panelFactory()->create(*context_);
-    addAndMakeVisible(*panel_);
-    setSize(panel_->preferredWidth() + 2 * kEditorMargin, ui::Theme::current().devicePanelHeight + 2 * kEditorMargin);
+    panel_->setViewState(p.viewState());
+    panel_->onViewChanged = [this] {
+        processor_.setViewState(panel_->viewState());
+        triggerAsyncUpdate(); // resize outside the mouse event (hosts resize synchronously)
+    };
+    viewport_.setViewedComponent(panel_.get(), false);
+    viewport_.setScrollBarsShown(false, true);
+    viewport_.setScrollBarThickness(6);
+    addAndMakeVisible(viewport_);
+    p.viewStateLoaded.addChangeListener(this);
+    handleAsyncUpdate();
 }
 
 DeviceEditor::~DeviceEditor()
 {
+    processor_.viewStateLoaded.removeChangeListener(this);
+    viewport_.setViewedComponent(nullptr, false);
     panel_.reset();
     setLookAndFeel(nullptr);
+}
+
+void DeviceEditor::changeListenerCallback(juce::ChangeBroadcaster*)
+{
+    panel_->setViewState(processor_.viewState());
+    handleAsyncUpdate();
+}
+
+void DeviceEditor::handleAsyncUpdate()
+{
+    // The panel's width, but never wider than the screen it is on (it scrolls instead).
+    const int panelWidth = panel_->preferredWidth();
+    int width = panelWidth + 2 * kEditorMargin;
+    const auto& displays = juce::Desktop::getInstance().getDisplays();
+    const auto* display = isOnDesktop() ? displays.getDisplayForRect(getScreenBounds()) : displays.getPrimaryDisplay();
+    if (display != nullptr)
+        width = std::min(width, static_cast<int>(display->userBounds.getWidth()) - 32);
+    const bool scrolls = width < panelWidth + 2 * kEditorMargin;
+    const int height = ui::Theme::current().devicePanelHeight + 2 * kEditorMargin + (scrolls ? 8 : 0);
+    if (getWidth() != width || getHeight() != height)
+        setSize(width, height);
+    else
+        resized();
 }
 
 void DeviceEditor::paint(juce::Graphics& g)
@@ -216,6 +264,8 @@ void DeviceEditor::paint(juce::Graphics& g)
 
 void DeviceEditor::resized()
 {
-    panel_->setBounds(getLocalBounds().reduced(kEditorMargin));
+    // Laid out from the left at whatever size the host granted.
+    viewport_.setBounds(getLocalBounds().reduced(kEditorMargin, 0).withTrimmedTop(kEditorMargin));
+    panel_->setSize(panel_->preferredWidth(), ui::Theme::current().devicePanelHeight);
 }
 } // namespace fd::plugin

@@ -43,6 +43,13 @@ public:
     void applyExtraState(const nlohmann::json& patch);
     void setStateInformation(const void* data, int sizeInBytes) override;
 
+    /// The editor panel's view state (ADR 0022): kept with the plugin state, outside the
+    /// device state, so presets ignore it. Any thread.
+    [[nodiscard]] std::string viewState() const;
+    void setViewState(std::string state);
+    /// Tells an open editor that a loaded state brought another view state (message thread).
+    juce::ChangeBroadcaster viewStateLoaded;
+
     // For the editor.
     [[nodiscard]] Device& device() noexcept { return *device_; }
     [[nodiscard]] const ui::PanelFactory* panelFactory() const noexcept { return panel_; }
@@ -58,12 +65,15 @@ private:
     std::vector<juce::RangedAudioParameter*> params_; // owned by AudioProcessor
     EventList events_;
     std::vector<float*> channelPtrs_;
+    mutable juce::CriticalSection viewLock_; // state calls can come from any thread
+    std::string viewState_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DeviceAudioProcessor)
 };
 
-/// Editor: the device's DevicePanel, the same one the DAW uses.
-class DeviceEditor final : public juce::AudioProcessorEditor
+/// Editor: the device's DevicePanel, the same one the DAW uses. Its size follows the panel:
+/// collapsing a section asks the host for a narrower window. Wider than the screen, it scrolls.
+class DeviceEditor final : public juce::AudioProcessorEditor, public juce::AsyncUpdater, private juce::ChangeListener
 {
 public:
     explicit DeviceEditor(DeviceAudioProcessor& processor);
@@ -72,12 +82,18 @@ public:
     void paint(juce::Graphics& g) override;
     void resized() override;
 
+    [[nodiscard]] ui::DevicePanel& panel() noexcept { return *panel_; }
+
 private:
     class Binding;
+    void handleAsyncUpdate() override; // resize to the panel
+    void changeListenerCallback(juce::ChangeBroadcaster*) override; // a state load brought a view
 
+    DeviceAudioProcessor& processor_;
     ui::LookAndFeel lnf_;
     std::unique_ptr<Binding> binding_;
     std::unique_ptr<ui::DeviceUiContext> context_;
     std::unique_ptr<ui::DevicePanel> panel_;
+    juce::Viewport viewport_;
 };
 } // namespace fd::plugin
