@@ -2,7 +2,7 @@
 
 How Segno records audio and MIDI: projects as folders, inputs and arming, monitoring, the record button with count-in and punch, takes on take lanes and comping, capturing MIDI played without recording, and what comes later. The proposed decisions are [ADR 0030](../decisions/0030-projects-are-folders.md) (a project is a folder) and [ADR 0031](../decisions/0031-recording-keeps-every-take.md) (every take is kept, on take lanes; the track plays plain clips). It builds on one kind of track ([ADR 0019](../decisions/0019-one-kind-of-track.md)), live MIDI following the selection ([daw-shell.md](daw-shell.md)), the track header kit and time-view kit ([ui-foundations.md](ui-foundations.md), ADR 0023), the selection model ([selection.md](selection.md), ADR 0027), the mixer ([mixer.md](mixer.md)) and automation recording ([automation.md](automation.md) §8).
 
-**Status:** draft for the product owner's review (2026-10-09). Every question in §16 has a recommendation; the build is split into parts (§17), with what comes after M2 mapped in §15.
+**Status:** approved by the product owner (2026-10-10), with every recommendation of §16. Built in parts (§17): C5a and C5b first; C5c after C6's fades. What comes after M2 is mapped in §15.
 
 **Where the field is (2026):** every current DAW keeps loop takes and lets you comp them (Live 12's take lanes, Logic's take folders with swipe comping, Cubase's lanes, Studio One's layers, Reaper's fixed lanes, Bitwig's comp lanes); most capture MIDI played while not recording (Live, Logic, Cubase, Bitwig, Reaper). Segno matches that (ADR 0011) and goes further where the integrated DAW helps: nothing a pass replaces is ever lost, takes move to new tracks in one action for doubles and layers, and assistants can compare takes by rendering and measuring them (§12).
 
@@ -208,9 +208,9 @@ Every feature comes with its tools and a test through MCP (ADR 0021). Assistants
 | Recovery of unsaved recordings | Crash recovery finds them | M7 |
 | **Ideas beyond the field** | **Capture audio** (armed audio inputs always buffered, like Capture MIDI); **stack mode** (each loop lap straight onto a new track); **tempo from captured MIDI**; **record trigger** (start when the input crosses a level); assistants that **rank takes** by analysis | [innovation-backlog.md](../innovation-backlog.md) |
 
-## 16. Decisions for the review (recommendations)
+## 16. Decisions from the review (product owner, 2026-10-10: every recommendation agreed)
 
-| # | Question | Recommendation |
+| # | Question | Answer |
 |---|---|---|
 | Q1 | **Project format** for recordings | A project is a folder holding `Name.segno` and `Recordings/` (ADR 0030) |
 | Q2 | **What a track records** when it has both inputs | One kind at a time (ADR 0019: no overlaps); a "Records" choice, MIDI by default with an instrument |

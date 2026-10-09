@@ -1,6 +1,6 @@
 # 0031. Recording keeps every take, on take lanes; the track plays plain clips
 
-- **Status:** Proposed (awaiting the product owner's review)
+- **Status:** Accepted (product owner, 2026-10-10)
 - **Date:** 2026-10-09
 - **Builds on:** [0019](0019-one-kind-of-track.md) (one kind of track, no overlaps), [0029](0029-independent-automation-lanes.md) (Segno's own state in the project, derived playback), [0030](0030-projects-are-folders.md) (project folders)
 

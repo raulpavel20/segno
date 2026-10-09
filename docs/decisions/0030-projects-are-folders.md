@@ -1,6 +1,6 @@
 # 0030. A project is a folder
 
-- **Status:** Proposed (awaiting the product owner's review)
+- **Status:** Accepted (product owner, 2026-10-10)
 - **Date:** 2026-10-09
 - **Builds on:** [0018](0018-daw-app-structure.md) (the Session saves and opens projects)
 
