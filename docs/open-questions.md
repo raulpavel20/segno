@@ -46,6 +46,10 @@ Decisions still to be made. Once a question is answered, record the answer in an
 | B15 | **Notes past the clip's end.** Notes drawn or moved outside the clip are kept but don't play (drawn faded). Should drawing past the end lengthen the clip instead? | C2 feel check (M2) | Product owner, 2026-10-09: agreed; built. Lengthen it to the end of the bar the note ends in when nothing is in the way; leave it as is when another clip follows |
 | B16 | **Assistants to test MCP with.** Which assistants do you use or want supported first? | C9 (M2) | Claude Code (connects over HTTP) and Claude Desktop (launches the stdio bridge) first, plus one client running a local model |
 | B17 | **MCP from other devices** on your network (a tablet or a second computer driving the DAW) | After C9 | Local machine only for now; network access later, behind its own switch and token |
+| B18 | **MCP: which files may an assistant read?** (inserting audio, loading samples, opening projects take paths; [mcp.md](design/mcp.md) Q1) | C9 (M2) | Any file the user's account can read, as the DAW itself can; the Assistants popover can narrow it to chosen folders |
+| B19 | **MCP: audio in render results**, so assistants that accept audio can listen (mcp.md Q2) | C9 (M2) | Allowed, capped at 30 s of 48 kHz stereo; longer renders give measurements only |
+| B20 | **MCP: default port** (mcp.md Q3) | C9 (M2) | 7377, then the next free one |
+| B21 | **MCP: should the stdio relay start the app when it isn't running?** (mcp.md Q4) | C9 (M2) | Yes, headless, so batch jobs work; a running app is preferred |
 
 ---
 

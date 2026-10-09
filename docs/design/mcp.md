@@ -1,0 +1,200 @@
+# MCP server: design (M2 step C9)
+
+The DAW's built-in MCP server ([ADR 0021](../decisions/0021-mcp-server.md)). An assistant the user connects can do what the user can do, read what the user can see, and render and measure the result.
+
+**Status:** draft for product-owner review. Nothing here is built yet. Tool names and arguments become a public interface once released (ADR 0021), so this catalogue is the thing to review.
+
+## 1. Connecting
+
+| Item | Design |
+|---|---|
+| **Off by default** | Turned on in the DAW's **Assistants** popover, opened from a new icon in the transport bar. The popover also shows the token, the port, the read-only switch, the connected clients, and a ready-to-copy setup line per client. |
+| **HTTP** (Claude Code and other HTTP clients) | Streamable HTTP on `http://127.0.0.1:<port>/mcp`. Only the loopback interface; the `Origin` header is checked (DNS rebinding); every request needs `Authorization: Bearer <token>`. The default port is 7377; if it's taken, the next free one is used and shown. |
+| **stdio** (clients that launch a process, like Claude Desktop) | `FossDAW --mcp-stdio` relays standard input and output to the running app's endpoint. It finds the app through a small file in the user data folder holding the port and the token. With no app running it starts one **headless** (see below). |
+| **Headless** | `FossDAW --headless [--mcp-stdio] [project.fdproj]` runs a Session without a window, with the same tools. It is for batch work and tests. |
+| **Token** | Generated per install, stored in the user data folder, and can be regenerated in the popover (which disconnects every client). |
+| **Indicator** | The transport icon lights while a client has made a request in the last few seconds; its tooltip names the client (`clientInfo`). |
+| **Read-only mode** | Only tools marked read-only run (reading, rendering, measuring); the others return "The DAW is in read-only mode for assistants". |
+
+Setup lines the popover offers:
+
+```
+claude mcp add --transport http fossdaw http://127.0.0.1:7377/mcp --header "Authorization: Bearer <token>"
+{"mcpServers": {"fossdaw": {"command": "/path/to/FossDAW", "args": ["--mcp-stdio"]}}}
+```
+
+## 2. Protocol
+
+| Item | Design |
+|---|---|
+| **Revisions** | 2026-07-28 (current: stateless, `server/discover`, no handshake) and 2025-11-25 (clients that still send `initialize`; the server answers both). |
+| **Capabilities** | Tools (with input and output schemas and annotations), resources and resource templates, `subscriptions/listen` change notifications (2025-11-25 clients: `resources/subscribe`), prompts, progress on long calls. The `tasks` extension is for renders and plugin scans that take longer than a few seconds. |
+| **Confirmations** | Multi round-trip requests (`input_required`) when a step can't be undone: discarding unsaved changes (new or open project), and overwriting another file when saving. 2025-11-25 clients get `elicitation/create`. |
+| **Left out** | Deprecated features (roots, sampling, logging), and MCP Apps. |
+| **Errors** | Bad requests are JSON-RPC errors. A tool that can't do what was asked returns `isError: true` with a sentence saying why and what to do instead, e.g. "Track t:12 doesn't exist; read fossdaw://project for the current tracks". |
+
+## 3. Conventions (every tool)
+
+- **One call, one undo step,** named after the tool: "Assistant: add notes". Ctrl+Z in the DAW takes back exactly what one call did. Read-only tools never touch the undo history.
+- **The same paths as the user's edits.** Tools call `engine::Session` and the module host binding (ADR 0021): automation, undo and dirty state behave as for the user's own edits.
+- **Ids** are strings with a type prefix: `t:` track, `c:` clip, `m:` module (an instrument or effect in a chain). They come from snapshots, and they stay the same within a project, across saves.
+- **Time is musical.**
+  - Positions and lengths are in **beats** (quarter notes) from the song's start; results also give the `bar.beat.sixteenth` form.
+  - Inputs accept a number of beats or a string such as `"5.1.1"` (bar 5) or `"2 bars"`.
+  - Seconds appear only where they are the natural unit (render length, measurements).
+- **Notes:** `{pitch, start, length, velocity}`.
+  - Pitch is a MIDI number, or a name with C3 = 60 ("D#4").
+  - Start and length are in beats from the clip's start.
+  - Velocity is 1–127.
+- **Parameter values** are plain values in the parameter's unit (dB, Hz, ms, %), or text the parameter understands ("12 dB", "LP 24", "C3"). Results give the value, its text, the range and the default. Values out of range are clamped, and the result says so.
+- **Batches over loops.** A tool takes many items where it makes sense (set several parameters, add many notes), so one musical idea is one undo step.
+- **Annotations:** every tool declares `readOnlyHint`, `destructiveHint` and `idempotentHint` honestly.
+- **No vendor names** in tools, results or prompts (ADR 0008).
+
+## 4. Resources (read)
+
+| URI | Content |
+|---|---|
+| `fossdaw://project` | Name, file, unsaved state, tempo, time signature, length, loop, and every track with its clips (no notes) and its chain (module names and ids) |
+| `fossdaw://track/{id}` | One track: name, colour, instrument, clips, chain |
+| `fossdaw://clip/{id}` | One clip: kind, position, length, offset, source file; for MIDI, every note |
+| `fossdaw://module/{id}` | One module in a chain: type, on/off, every parameter (id, name, value, text, unit, range, default, automatable), its sections (id, title, collapsed) and its non-parameter state (e.g. the Sampler's sample) |
+| `fossdaw://modules` | The catalogue: every module type that can be added (ours and scanned plugins), with kind and short description |
+| `fossdaw://module-type/{type}` | One type's reference: what it does, each parameter's meaning (the SPEC's user-facing text), and its sections |
+| `fossdaw://transport` | Playing, position, loop, metronome |
+
+The project, track, clip and module resources send change notifications when the snapshot changes or a module's parameters change. The transport doesn't (it changes constantly); assistants read it when they need it.
+
+## 5. Tools
+
+**Read** (read-only; resources by another route, for clients that prefer tools):
+
+| Tool | Arguments | Result |
+|---|---|---|
+| `get_project` | – | As `fossdaw://project` |
+| `get_clip` | `clip` | As `fossdaw://clip/{id}`, notes included |
+| `get_module` | `module` | As `fossdaw://module/{id}` |
+| `list_module_types` | `kind?` (instrument, effect) | As `fossdaw://modules` |
+
+**Transport:**
+
+| Tool | Arguments | Undo |
+|---|---|---|
+| `play` / `stop` | – | No (transport) |
+| `set_position` | `at` | No |
+| `set_loop` | `start`, `end`, `on?` | No |
+| `set_metronome` | `on` | No |
+| `set_tempo` | `bpm` | Yes |
+| `set_time_signature` | `numerator`, `denominator` | Yes |
+
+**Tracks and clips:**
+
+| Tool | Arguments | Result |
+|---|---|---|
+| `add_track` | `name?` | The track id |
+| `create_midi_clip` | `track`, `start`, `length?` (default a bar), `notes?` | The clip id; adds the default instrument when the track has none (ADR 0019), and says so |
+| `insert_audio_file` | `track`, `start`, `path` | The clip id |
+| `insert_midi_file` | `track`, `start`, `path` | The clip id (and whether an instrument was added) |
+| `move_clips` | `clips`, `by` (beats), `to_track?` | New positions (placing cuts what it covers, ADR 0019) |
+| `trim_clip` | `clip`, `start?`, `end?` | The new extent |
+| `duplicate_clips` | `clips`, `times?` (default 1) | The new clip ids, placed after the originals |
+| `split_clips` | `clips`, `at` | The new right-hand clip ids |
+| `delete_clips` | `clips` | – (undoable, so no confirmation) |
+
+**Notes** (MIDI clips; every tool is one undo step; notes past the clip's end lengthen it as in the piano roll, B15):
+
+| Tool | Arguments |
+|---|---|
+| `add_notes` | `clip`, `notes` |
+| `set_notes` | `clip`, `notes`: replaces them all |
+| `remove_notes` | `clip`, `where`: all, or a filter (pitch range, time range) |
+| `edit_notes` | `clip`, `where`, `transpose?`, `shift?` (beats), `velocity?` (set, or ± with a sign), `quantise?` (grid in beats) |
+
+**Modules** (ours, and third-party plugins as far as their parameters go):
+
+| Tool | Arguments | Result |
+|---|---|---|
+| `add_module` | `track`, `type`, `position?` | The module id, with its parameters |
+| `remove_module` | `module` | – |
+| `move_module` | `module`, `position` | – |
+| `set_module_on` | `module`, `on` | – |
+| `set_parameters` | `module`, `values`: `{param id: value or text}` | Each value as set (with its text), and any that were clamped or unknown |
+| `load_sample` | `module` (a Sampler), `path` | The sample's length and root key |
+| `set_module_view` | `module`, `collapsed?` (section ids), `folded?` | – (view state: never an undo step) |
+| `scan_plugins` | – | The number found; long, so it runs as a task with progress |
+
+For third-party plugins, `set_parameters` uses the plugin's own parameter names and normalised values (0–1), on a best-effort basis.
+
+**Render and measure** (read-only; nothing in the project changes):
+
+| Tool | Arguments | Result |
+|---|---|---|
+| `render` | `start`, `end`, `what?` (the mix, or a track), `audio?` (false) | Measurements of the rendered audio: peak and true peak (dBFS), RMS, loudness (LUFS: integrated, short-term max; once the dynamics core lands, A1), clipped samples, a spectral balance in a handful of bands, and the stereo correlation. With `audio: true`, the audio itself too (see open questions) |
+| `measure_module` | `module` | What the module's displays show right now: meter levels, gain reduction, the spectrum (coarse) |
+
+**Project:**
+
+| Tool | Arguments | Notes |
+|---|---|---|
+| `undo` / `redo` | `steps?` | Says what was undone |
+| `save_project` | `path?` | Confirms before overwriting another file |
+| `new_project` / `open_project` | `path` | Confirm before discarding unsaved changes |
+
+**Prompts:** a few named starting points, optional for clients:
+- `start-a-track` (tempo, a drum pattern and a bassline as starting material);
+- `check-the-mix` (render, measure and suggest);
+- `explain-module` (what a module in the chain does and what to try).
+
+## 6. Coverage
+
+Every DAW feature ships with its tools (the coverage rule, ADR 0021). Today:
+
+| Feature | Tools |
+|---|---|
+| Transport, tempo, signature, loop, metronome | Transport tools |
+| Tracks (add) | `add_track` |
+| Audio and MIDI clips: insert, move, trim, duplicate, split, delete | Track and clip tools |
+| Piano roll | Note tools |
+| Module chains: add, remove, reorder, bypass, parameters, Sampler sample, collapse and fold | Module tools |
+| Plugin scanning | `scan_plugins` |
+| Projects, undo | Project tools |
+| Live MIDI (computer keyboard, inputs) | Not a tool: a live performance input, not an edit. A `preview_note` tool may come later |
+
+Not in the DAW yet, so no tools yet: renaming, deleting and reordering tracks; clip names and colours; the mixer (C3), automation (C4), recording (C5), fades (C6), bounce (C7), export (C8). Each brings its tools with it.
+
+## 7. Architecture
+
+```
+app/src/mcp/
+  protocol/   JSON-RPC 2.0, revisions, discovery, the tool/resource/prompt registry with JSON schemas,
+              result building. JUCE-free and unit-tested like app/src/model.
+  tools/      one file per area (transport, clips, notes, modules, render, project): thin, over
+              engine::Session and the module host binding.
+  transport/  Streamable HTTP (on cpp-httplib, MIT, pinned in cmake/Dependencies.cmake), the stdio
+              relay, the token and Origin checks.
+  McpServer   owns the above; runs every tool on the message thread.
+```
+
+- **Threads:** HTTP requests arrive on the server's thread. Each tool call is posted to the message thread, where the Session lives, and the reply waits for it. Renders run on a worker, with progress on the response stream.
+- **Session support to add in C9:**
+  - named undo steps (`Session::beginEdit(name)`);
+  - an offline render of a range, also used later by bounce (C7) and export (C8);
+  - snapshot change notifications for resources (`onSnapshotChanged` exists);
+  - parameter reads and writes through `DeviceHandle` (exist).
+- **Boundaries:** nothing below `app/` includes the MCP code; the plugins never open connections. A CTest boundary check enforces it (`CLAUDE.md`).
+
+## 8. Testing
+
+- **Protocol** (fast): every request type for both revisions; bad JSON and bad arguments; errors; discovery; schema validation of every tool's declared input and output.
+- **Tools:** an in-process client drives every tool against a real Session. It checks the effect, one named undo step, read-only refusals, and confirmations.
+- **HTTP:** a loopback test with the token and with a wrong `Origin`; the stdio relay against a headless app.
+- **Real assistants:** a session with Claude Code that builds a short loop (a drum pattern, a bassline, a filter sweep's settings), checked by ear. Product owner: setup from the popover in both clients.
+
+## 9. Open questions
+
+| # | Question | Recommendation |
+|---|---|---|
+| Q1 | **Which files may an assistant read?** (`insert_audio_file`, `load_sample`, `open_project` take paths) | Any file the user's account can read, as the DAW itself can; the popover can narrow it to chosen folders |
+| Q2 | **Audio in render results** (`audio: true`): assistants that accept audio could listen | Allowed, capped at 30 s of 48 kHz stereo (about 11 MB as WAV, less as FLAC); longer renders give measurements only |
+| Q3 | **Default port** | 7377, then the next free one |
+| Q4 | **Should the stdio relay start the app when it isn't running?** | Yes, headless, so batch jobs work; a running app is preferred when there is one |
