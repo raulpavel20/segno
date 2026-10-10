@@ -111,7 +111,18 @@ Role functions for colours that depend on content:
 | `shell.barPadding` / `shell.barInset` | 8 / 6 (a bar's sides; top and bottom) |
 | `shell.itemGap` / `shell.groupGap` | 4 / 12 (between items of a group; between groups) |
 | `shell.buttonSize` / `shell.fieldHeight` | 28 (icon buttons in bars and rails) / 24 (text fields) |
+| `shell.fieldTextInset` | 6 (text from the left edge of a combo box, name field or input button) |
+| `shell.buttonTextPadding` | 8 (a text button's padding each side of its label; `ui::Toggle::widthFor`) |
+| `shell.propertyFieldInset` | 1 (a field in a property row, from the row's top and bottom) |
+| `shell.lightSize` | 6 (an activity light: MIDI input, assistants) |
+| `shell.clipGap` | 1 (a clip from its row's top, and from the separator line below it) |
+| `shell.clipTitleHeight` / `shell.clipTitleShare` | 15 / 35 % (a clip's title strip: at most this tall, and at most this share of the clip) |
+| `shell.clipTitleMinText` | 10 (a title strip shorter than this shows no text) |
+| `shell.clipTextInset` | 4 (a clip's name and badge, from its edges) |
+| `shell.laneTextInset` | 8 (text in a lane, a hint or a take's name, from its visible left edge) |
 | `shell.takeStripHeight` | 24 (a take's strip under its clip, C5b) |
+
+Components size themselves for their text: `ui::Toggle::widthFor(label)` and `ui::NumberField::widthFor(widest value)`; bars ask them rather than adding padding by hand. Every clip the arrangement draws (clips, recordings in progress, take strips) takes its box and title from one place (`ArrangementView::clipBox`, `titleOf`).
 
 ## Shared components (`modules/fd_ui/shell`)
 

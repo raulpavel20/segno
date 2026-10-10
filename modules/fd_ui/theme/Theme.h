@@ -95,7 +95,19 @@ struct ShellMetrics
     int itemGap = 4, groupGap = 12;   // between items in a group, between groups
     int buttonSize = 28;              // icon buttons in bars and rails
     int fieldHeight = 24;             // text fields (search)
-    int takeStripHeight = 24;         // a take's strip under its clip (recording.md §6)
+    // Text inside controls and rows.
+    int fieldTextInset = 6;     // text from a combo box's, input button's or field's left edge
+    int buttonTextPadding = 8;  // a text button's padding on each side of its label (ui::Toggle::widthFor)
+    int propertyFieldInset = 1; // a field in a property row, from the row's top and bottom
+    int lightSize = 6;          // an activity light (MIDI input, assistants)
+    // Clips and lanes in time views.
+    int clipGap = 1;              // a clip from its row's top, and from the separator line below it
+    int clipTitleHeight = 15;     // a clip's title strip: at most this...
+    float clipTitleShare = 0.35f; // ...and at most this share of the clip's height
+    int clipTitleMinText = 10;    // a title strip shorter than this shows no text
+    int clipTextInset = 4;        // a clip's name and badge, from its edges
+    int laneTextInset = 8;        // text in a lane (a hint, a take's name), from its visible left edge
+    int takeStripHeight = 24;     // a take's strip under its clip (recording.md §6)
     float shadowRadius = 18.0f, shadowOffset = 6.0f;
 };
 

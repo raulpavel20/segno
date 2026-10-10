@@ -16,6 +16,10 @@ public:
     /// Value change per pixel of vertical drag (before Shift's 1/10).
     void setDragSensitivity(double perPixel) noexcept { perPixel_ = perPixel; }
     void setFontSize(float size) noexcept { fontSize_ = size; }
+    /// Where its text sits (left by default; a numerator sits right, against its slash).
+    void setJustification(juce::Justification justification);
+    /// The width it needs to show `sample` (its widest value).
+    [[nodiscard]] int widthFor(const juce::String& sample) const;
 
     std::function<juce::String(double)> textFromValue;
     std::function<std::optional<double>(const juce::String&)> valueFromText;
@@ -45,6 +49,7 @@ private:
     double accumulator_ = 0.0;
     float lastY_ = 0.0f;
     float fontSize_ = 13.0f;
+    juce::Justification justification_ = juce::Justification::centredLeft;
     bool dragging_ = false;
     std::unique_ptr<juce::TextEditor> editor_;
 

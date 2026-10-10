@@ -47,6 +47,12 @@ void Toggle::mouseUp(const juce::MouseEvent& e)
     juce::Button::mouseUp(e);
 }
 
+int Toggle::widthFor(const juce::String& text)
+{
+    return static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(font(TextStyle::Control), text))) +
+           2 * Theme::current().shell.buttonTextPadding;
+}
+
 void Toggle::paintButton(juce::Graphics& g, bool highlighted, bool down)
 {
     const auto& t = Theme::current();

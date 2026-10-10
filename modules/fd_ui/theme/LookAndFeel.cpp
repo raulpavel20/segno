@@ -126,9 +126,11 @@ juce::Font LookAndFeel::getComboBoxFont(juce::ComboBox&)
 
 void LookAndFeel::positionComboBoxText(juce::ComboBox& box, juce::Label& label)
 {
-    // Text from 6 px up to the chevron's 14 px: a combo fits its widest choice + 26 px
-    // (docs/design/device-panels.md), with 6 px to spare. No extra label insets.
-    label.setBounds(6, 0, box.getWidth() - 20, box.getHeight());
+    // Text from the field inset (6 px) up to the chevron's 14 px: a combo fits its widest choice
+    // + 26 px (docs/design/device-panels.md), with 6 px to spare. No extra label insets.
+    constexpr int chevron = 14;
+    const int inset = Theme::current().shell.fieldTextInset;
+    label.setBounds(inset, 0, box.getWidth() - inset - chevron, box.getHeight());
     label.setBorderSize({});
     label.setMinimumHorizontalScale(1.0f);
     label.setFont(getComboBoxFont(box));

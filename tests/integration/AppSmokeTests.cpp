@@ -62,6 +62,17 @@ juce::MouseEvent mouseEvent(juce::Component& c, juce::Point<float> pos, juce::Po
             juce::Time::getCurrentTime(), down, juce::Time::getCurrentTime(), clicks, dragged};
 }
 
+/// Writes a screenshot for review into `dir`, replacing any earlier one (a file's output stream
+/// appends, which would leave the old picture in front).
+void dumpPng(const char* dir, const juce::String& name, const juce::Image& image)
+{
+    const auto file = juce::File(dir).getChildFile(name);
+    file.deleteFile();
+    juce::PNGImageFormat png;
+    if (auto out = file.createOutputStream())
+        png.writeImageToStream(image, *out);
+}
+
 /// A click (or, with clicks = 2, the second click of a double-click) at `pos`.
 void click(juce::Component& c, juce::Point<float> pos, int clicks = 1)
 {
@@ -103,7 +114,7 @@ TEST_CASE("DAW shell builds and paints offscreen at standard and compact widths"
     f.session->updateSnapshotNow();
     f.session->setPosition(3.0);
 
-    for (int width : {1800, 1200})
+    for (int width : {1800, 1200, 1024}) // 1024: the window's minimum
     {
         f.shell->setSize(width, 900);
         // Select the first track (its chain shows in the detail panel).
@@ -135,11 +146,16 @@ TEST_CASE("DAW shell builds and paints offscreen at standard and compact widths"
         if (const char* dump = std::getenv("FD_DUMP_DIR"))
         {
             juce::PNGImageFormat png;
-            auto out = juce::File(dump).getChildFile("shell-" + juce::String(width) + ".png").createOutputStream();
+            // Replaced, not appended to (an output stream appends to an existing file).
+            const auto shellFile = juce::File(dump).getChildFile("shell-" + juce::String(width) + ".png");
+            const auto topFile = juce::File(dump).getChildFile("transport-" + juce::String(width) + "@2x.png");
+            shellFile.deleteFile();
+            topFile.deleteFile();
+            auto out = shellFile.createOutputStream();
             if (out != nullptr)
                 png.writeImageToStream(image, *out);
             // The transport bar at 2x, as on the reference displays.
-            auto top = juce::File(dump).getChildFile("transport-" + juce::String(width) + "@2x.png").createOutputStream();
+            auto top = topFile.createOutputStream();
             if (top != nullptr)
                 png.writeImageToStream(f.shell->createComponentSnapshot(f.shell->getLocalBounds().removeFromTop(40), true, 2.0f), *top);
         }
@@ -673,11 +689,7 @@ TEST_CASE("dragging a clip moves it, snapped, onto another track in one undo ste
     view.mouseDrag(mouseEvent(view, (down + to) * 0.5f, down, true));
     view.mouseDrag(mouseEvent(view, to, down, true));
     if (const char* dump = std::getenv("FD_DUMP_DIR")) // the drag preview, for review
-    {
-        juce::PNGImageFormat png;
-        if (auto out = juce::File(dump).getChildFile("arrangement-drag.png").createOutputStream())
-            png.writeImageToStream(view.createComponentSnapshot(view.getLocalBounds(), true, 2.0f), *out);
-    }
+        dumpPng(dump, "arrangement-drag.png", view.createComponentSnapshot(view.getLocalBounds(), true, 2.0f));
     view.mouseUp(mouseEvent(view, to, down, true));
     f.session->updateSnapshotNow();
 
@@ -818,11 +830,7 @@ TEST_CASE("the command palette finds and runs any action", "[integration]")
 
     palette.setQuery("to");
     if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review
-    {
-        juce::PNGImageFormat png;
-        if (auto out = juce::File(dump).getChildFile("palette.png").createOutputStream())
-            png.writeImageToStream(f.shell->createComponentSnapshot({500, 0, 800, 520}, true, 2.0f), *out);
-    }
+        dumpPng(dump, "palette.png", f.shell->createComponentSnapshot({500, 0, 800, 520}, true, 2.0f));
     palette.setQuery("brows");
     REQUIRE_FALSE(palette.shownIds().empty());
     CHECK(palette.shownIds().front() == "view.browser");
@@ -937,11 +945,8 @@ TEST_CASE("piano roll: a double-click makes a clip; notes are drawn, moved, set 
         detail.setClip(clip, f.session->snapshot()->tempo);
         roll.selectAll();
         click(roll, roll.pointFor(3.0 + 0.1, 72), 1); // one selected
-        juce::PNGImageFormat png;
-        if (auto out = juce::File(dump).getChildFile("piano-roll.png").createOutputStream())
-            png.writeImageToStream(f.shell->createComponentSnapshot(f.shell->getLocalBounds()), *out);
-        if (auto out = juce::File(dump).getChildFile("piano-roll@2x.png").createOutputStream())
-            png.writeImageToStream(detail.createComponentSnapshot(detail.getLocalBounds().removeFromLeft(700), true, 2.0f), *out);
+        dumpPng(dump, "piano-roll.png", f.shell->createComponentSnapshot(f.shell->getLocalBounds()));
+        dumpPng(dump, "piano-roll@2x.png", detail.createComponentSnapshot(detail.getLocalBounds().removeFromLeft(700), true, 2.0f));
     }
 }
 
@@ -1797,6 +1802,30 @@ TEST_CASE("takes: takes open under their clip after a loop pass; strips, the bad
     REQUIRE(actions.perform("take.spread"));
     s.updateSnapshotNow();
     CHECK(s.snapshot()->tracks.size() == before + 2);
+
+    // A pass over part of the clip joins its takes: one clip playing two, "Comp" on its badge.
+    s.setArmed(t0, true, true);
+    s.setPosition(5.0);
+    REQUIRE(actions.perform("transport.record"));
+    pump(2.0);
+    REQUIRE(actions.perform("transport.playStop"));
+    s.setArmed(t0, false, false);
+    pump(0.1);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(50);
+    s.updateSnapshotNow();
+    CHECK(fd::model::badge(stack(), track().clips, false)->comp);
+    s.setTakesOpen(stack().id, true);
+    s.updateSnapshotNow();
+    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: a comp, and a narrow clip's badge
+        for (const auto& [name, zoom] : {std::pair{"takes-comp.png", 150.0}, std::pair{"takes-narrow.png", 24.0}})
+        {
+            view.setView(3.5, zoom);
+            juce::PNGImageFormat png;
+            auto file = juce::File(dump).getChildFile(name);
+            file.deleteFile();
+            if (auto out = file.createOutputStream())
+                png.writeImageToStream(f.shell->createComponentSnapshot(f.shell->getLocalBounds()), *out);
+        }
 
     // Capture MIDI: dim until something is played; then the phrase becomes a selected clip on the
     // selected track, which has no instrument and gets none (ADR 0033); its tooltip names it.

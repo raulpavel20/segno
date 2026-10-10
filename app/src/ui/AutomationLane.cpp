@@ -69,15 +69,17 @@ void paintAutomationLane(juce::Graphics& g, const LaneGeometry& geo, const LaneP
             const float dashes[] = {4.0f, 4.0f};
             g.drawDashedLine(juce::Line<float>(x0, y, x1, y), dashes, 2, 1.0f);
         }
-        if (lane.hint && area.getHeight() >= 24.0f)
+        const auto hintFont = ui::font(ui::TextStyle::Caption);
+        if (lane.hint && area.getHeight() >= hintFont.getHeight() + static_cast<float>(2 * t.shell.itemGap)) // room for it
         {
             g.setColour(t.textTertiary);
-            g.setFont(ui::font(ui::TextStyle::Caption));
+            g.setFont(hintFont);
             g.drawText(lane.assigned ? "Double-click to add a point"
                                      : juce::String::fromUTF8("Drives nothing yet: Assign parameter\xE2\x80\xA6 in the inspector, or "
                                                               "right-click a control \xE2\x86\x92 Assign to automation lane"),
-                       area.reduced(8.0f, 0.0f).withX(std::max(area.getX(), x0) + 8.0f), juce::Justification::centredLeft,
-                       false);
+                       area.withLeft(std::max(area.getX(), x0) + static_cast<float>(t.shell.laneTextInset))
+                           .withTrimmedRight(static_cast<float>(t.shell.laneTextInset)),
+                       juce::Justification::centredLeft, false);
         }
         return;
     }

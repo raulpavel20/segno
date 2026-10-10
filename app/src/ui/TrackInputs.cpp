@@ -74,7 +74,7 @@ void InputButton::paint(juce::Graphics& g)
     g.fillRoundedRectangle(r, t.radiusControl);
     g.setColour(t.textSecondary);
     g.setFont(ui::font(ui::TextStyle::Caption));
-    g.drawText(text_, getLocalBounds().reduced(6, 0), juce::Justification::centredLeft, true);
+    g.drawText(text_, getLocalBounds().reduced(t.shell.fieldTextInset, 0), juce::Justification::centredLeft, true);
 }
 
 void InputButton::mouseDown(const juce::MouseEvent&)
@@ -217,7 +217,7 @@ void TrackInputSection::resized()
     for (const auto& row : rows())
     {
         row.box->setVisible(true);
-        row.box->setBounds(r.removeFromTop(s.rowHeight).withTrimmedLeft(s.propertyLabelWidth).reduced(0, 1));
+        row.box->setBounds(r.removeFromTop(s.rowHeight).withTrimmedLeft(s.propertyLabelWidth).reduced(0, s.propertyFieldInset));
     }
 }
 

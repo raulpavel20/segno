@@ -17,7 +17,7 @@ void styleNameField(juce::TextEditor& field)
 {
     const auto& t = ui::Theme::current();
     field.setFont(ui::font(ui::TextStyle::Body));
-    field.setIndents(4, 0);
+    field.setIndents(t.shell.fieldTextInset, 0); // its text where a combo box's starts
     field.setJustification(juce::Justification::centredLeft);
     field.setColour(juce::TextEditor::backgroundColourId, t.surface2);
     field.setColour(juce::TextEditor::outlineColourId, juce::Colours::transparentBlack);
@@ -71,6 +71,7 @@ TransportBar::TransportBar(engine::Session& session, const ActionRegistry& actio
     tempoField_.textFromValue = [](double v) { return juce::String(v, 2); };
     tempoField_.onValueChange = [this](double v) { session_.setTempo(v); };
     numeratorField_.setRange(1.0, 32.0, 1.0);
+    numeratorField_.setJustification(juce::Justification::centredRight); // against the slash
     numeratorField_.setDragSensitivity(0.1);
     numeratorField_.setTooltip("Beats per bar");
     numeratorField_.textFromValue = [](double v) { return juce::String(juce::roundToInt(v)); };
@@ -213,42 +214,45 @@ void TransportBar::paint(juce::Graphics& g)
     g.drawText("/", slashArea_, juce::Justification::centred, false);
 
     // MIDI activity light beside the computer keyboard button.
-    const auto light = midiLightArea().toFloat().withSizeKeepingCentre(6.0f, 6.0f);
+    const auto lightSize = static_cast<float>(t.shell.lightSize);
+    const auto light = midiLightArea().toFloat().withSizeKeepingCentre(lightSize, lightSize);
     g.setColour(midiLit_ ? t.accentMidi : t.surface3);
     g.fillEllipse(light);
     // Assistant activity beside the assistants button: lit after a request.
     if (assistants_.isVisible())
     {
         g.setColour(assistantLit_ ? t.active : t.surface3);
-        g.fillEllipse(assistantLight_.toFloat().withSizeKeepingCentre(6.0f, 6.0f));
+        g.fillEllipse(assistantLight_.toFloat().withSizeKeepingCentre(lightSize, lightSize));
     }
 
     // The position, in an inset well at the centre: bars.beats.16ths, then the time.
     g.setColour(t.surface0);
     g.fillRoundedRectangle(wellArea_.toFloat(), t.radiusControl);
-    const int inset = t.shell.itemGap * 2;
-    // During a count-in (or a lead-in) the bars count the beats down to the recording (recording.md §9).
+    // The bars sit right, against the time (centred when the time is dropped, in a narrow window);
+    // both keep the field inset from the well's edges.
+    const int inset = t.shell.fieldTextInset;
+    const auto barsText = barsArea_.reduced(inset, 0);
+    const auto barsJustification = timeArea_.isEmpty() ? juce::Justification::centred : juce::Justification::centredRight;
     if (const auto from = session_.recordingFrom(); from && session_.isPlaying() && position_ < *from - 1e-3)
     {
         const auto beats = static_cast<int>(std::ceil(tempo_.beatsForSeconds(*from) - tempo_.beatsForSeconds(position_) - 1e-6));
         g.setColour(t.record);
         g.setFont(ui::font(ui::TextStyle::ValueLarge));
-        g.drawText(juce::String::fromUTF8("\xE2\x88\x92") + juce::String(beats), barsArea_.withTrimmedLeft(inset),
-                   juce::Justification::centredLeft, false);
+        g.drawText(juce::String::fromUTF8("\xE2\x88\x92") + juce::String(beats), barsText, barsJustification, false);
     }
     else
     {
         const auto bb = tempo_.barsBeatsForSeconds(std::max(0.0, position_));
         g.setColour(t.textPrimary);
         g.setFont(ui::font(ui::TextStyle::ValueLarge));
-        g.drawText(juce::String(bb.bar) + ". " + juce::String(bb.beat) + ". " + juce::String(bb.sixteenth),
-                   barsArea_.withTrimmedLeft(inset), juce::Justification::centredLeft, false);
+        g.drawText(juce::String(bb.bar) + ". " + juce::String(bb.beat) + ". " + juce::String(bb.sixteenth), barsText,
+                   barsJustification, false);
     }
     if (!timeArea_.isEmpty())
     {
         g.setColour(t.textSecondary);
         g.setFont(ui::font(ui::TextStyle::ValueMedium));
-        g.drawText(formatTime(position_), timeArea_, juce::Justification::centredLeft, false);
+        g.drawText(formatTime(position_), timeArea_.withTrimmedRight(inset), juce::Justification::centredLeft, false);
     }
 
     if (!cpuArea_.isEmpty())
@@ -271,10 +275,9 @@ void TransportBar::resized()
         return static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(ui::font(style), text)));
     };
     const auto digit = juce::GlyphArrangement::getStringWidth(ui::font(ui::TextStyle::ValueMedium), "0");
-    const int small = static_cast<int>(std::ceil(digit * 2.0f)) + 10; // "32"
-    const int inset = t.shell.itemGap * 2;
+    const int inset = t.shell.fieldTextInset; // the position's text from its well's edges
     const int mark = ui::brandMarkWidth(h);
-    const int light = t.shell.itemGap * 2;
+    const int light = 2 * t.shell.itemGap; // a light's slot (the light is shell.lightSize)
 
     using S = model::BarSection;
     struct Entry
@@ -295,11 +298,11 @@ void TransportBar::resized()
         // Left: the brand, then the song.
         {{S::Left, static_cast<double>(mark)}, area(markArea)},
         {{S::Left, static_cast<double>(ui::brandWidth(h) - mark - t.shell.itemGap), false, 2}, area(wordArea)},
-        {{S::Left, std::ceil(digit * 6.0f) + 10.0, true}, button(tempoField_)},
+        {{S::Left, static_cast<double>(tempoField_.widthFor("999.00")), true}, button(tempoField_)},
         {{S::Left, static_cast<double>(textWidth(ui::TextStyle::ValueSmall, "BPM"))}, area(bpmArea_)},
-        {{S::Left, static_cast<double>(small), true}, button(numeratorField_)},
+        {{S::Left, static_cast<double>(numeratorField_.widthFor("32")), true}, button(numeratorField_)},
         {{S::Left, std::ceil(digit)}, area(slashArea_)},
-        {{S::Left, static_cast<double>(small)}, button(denominatorField_)},
+        {{S::Left, static_cast<double>(denominatorField_.widthFor("16"))}, button(denominatorField_)},
         {{S::Left, static_cast<double>(h), true}, button(metronome_)},
         {{S::Left, static_cast<double>(h)}, button(countIn_)},
         // Centre: the transport, the position, the loop.
@@ -308,7 +311,7 @@ void TransportBar::resized()
         {{S::Centre, static_cast<double>(h)}, button(record_)},
         {{S::Centre, static_cast<double>(h)}, button(capture_)},
         {{S::Centre, static_cast<double>(h)}, button(automationArm_)},
-        {{S::Centre, static_cast<double>(textWidth(ui::TextStyle::ValueLarge, "000. 00. 00") + inset), true}, area(barsArea_)},
+        {{S::Centre, static_cast<double>(textWidth(ui::TextStyle::ValueLarge, "000. 00. 00") + 2 * inset), true}, area(barsArea_)},
         {{S::Centre, static_cast<double>(textWidth(ui::TextStyle::ValueMedium, "00:00.000") + inset), false, 4}, area(timeArea_)},
         {{S::Centre, static_cast<double>(h), true}, button(loop_)},
         {{S::Centre, static_cast<double>(h)}, button(follow_)},
@@ -316,8 +319,8 @@ void TransportBar::resized()
         {{S::Right, static_cast<double>(textWidth(ui::TextStyle::Value, "CPU 100 %")), false, 3}, area(cpuArea_)},
         {{S::Right, static_cast<double>(h), true}, button(keyboard_)},
         {{S::Right, static_cast<double>(light)}, area(midiLight_)},
-        {{S::Right, static_cast<double>(textWidth(ui::TextStyle::Control, arrangeView_.getButtonText()) + 16), true}, button(arrangeView_)},
-        {{S::Right, static_cast<double>(textWidth(ui::TextStyle::Control, mixView_.getButtonText()) + 16)}, button(mixView_)},
+        {{S::Right, static_cast<double>(ui::Toggle::widthFor(arrangeView_.getButtonText())), true}, button(arrangeView_)},
+        {{S::Right, static_cast<double>(ui::Toggle::widthFor(mixView_.getButtonText()))}, button(mixView_)},
         {{S::Right, static_cast<double>(h), true, 1}, button(browser_)},
         {{S::Right, static_cast<double>(h), false, 1}, button(detail_)},
         {{S::Right, static_cast<double>(h), false, 1}, button(inspector_)},
@@ -667,13 +670,13 @@ void InspectorPanel::resized()
             laneName_.setBounds(stack_.content(i)
                                     .withTrimmedLeft(t.shell.propertyLabelWidth)
                                     .withHeight(t.shell.rowHeight)
-                                    .reduced(0, 2));
+                                    .reduced(0, t.shell.propertyFieldInset));
         else if (sections_[i] == S::Take) // the Name row and the last
         {
             const auto content = stack_.content(i).withTrimmedLeft(t.shell.propertyLabelWidth);
             auto row = [&](int n) { return content.withY(content.getY() + n * t.shell.rowHeight).withHeight(t.shell.rowHeight); };
-            takeName_.setBounds(row(0).reduced(0, 2));
-            useTake_.setBounds(row(4).reduced(0, 2));
+            takeName_.setBounds(row(0).reduced(0, t.shell.propertyFieldInset));
+            useTake_.setBounds(row(4).reduced(0, t.shell.propertyFieldInset));
         }
         else if (sections_[i] == S::Point) // the Value row
             pointValue_.setBounds(stack_.content(i)

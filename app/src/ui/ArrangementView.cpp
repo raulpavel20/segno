@@ -594,7 +594,7 @@ void ArrangementView::paintHeaders(juce::Graphics& g)
         // Its own height: open takes grow the row below it (ADR 0032), and the colour runs down it.
         const auto slots = model::layoutTrackHeader(row.getWidth(), layout_.baseHeight(i), buttonsOf(track), true);
         g.setColour(master ? t.textTertiary : t.clipColour(track.colour));
-        g.fillRect(at(slots.colour).withHeight(row.getHeight() - 2.0f));
+        g.fillRect(at(model::layoutTrackHeader(row.getWidth(), row.getHeight(), 0, false).colour));
         g.setColour(t.line);
         if (i == mixRow)
             g.fillRect(row.withHeight(2.0f)); // the divider above the returns and the master
@@ -686,7 +686,7 @@ void ArrangementView::paintLanes(juce::Graphics& g)
         const float h = static_cast<float>(layout_.baseHeight(i)); // open takes below (ADR 0032)
         for (const auto& group : model::clipGroups(track)) // a clip's parts draw as one clip
             if (std::none_of(group.parts.begin(), group.parts.end(), [&](const auto* c) { return moving.contains(c->id); }))
-                paintGroup(g, group, track, y, h, area, visible);
+                paintGroup(g, group, track, y, h, visible);
         paintStrips(g, i, track, area, visible);
     }
     for (const auto& e : preview_)
@@ -702,8 +702,8 @@ void ArrangementView::paintLanes(juce::Graphics& g)
         clip.start = e.start;
         clip.length = e.length;
         clip.offset = e.offset;
-        paintClip(g, clip, static_cast<float>(area.getY() + layout_.top(row)), static_cast<float>(layout_.baseHeight(row)), area,
-                  visible, true);
+        paintClip(g, clip, static_cast<float>(area.getY() + layout_.top(row)), static_cast<float>(layout_.baseHeight(row)), visible,
+                  true);
     }
 
     // Recordings in progress (recording.md §5): a clip growing to the playhead in the record colour,
@@ -717,18 +717,16 @@ void ArrangementView::paintLanes(juce::Graphics& g)
         const int row = model::rowOfTrack(rows_, index);
         if (row < 0 || !rowVisible(row) || playhead_ <= rec.start)
             continue;
-        const float y = static_cast<float>(area.getY() + layout_.top(row));
-        const float h = static_cast<float>(layout_.baseHeight(row));
-        const float x0 = std::max(laneX(rec.start), static_cast<float>(area.getX()) - 2.0f);
-        const float x1 = std::min(laneX(playhead_), static_cast<float>(area.getRight()) + 2.0f);
-        if (x1 <= x0)
+        const auto box = clipBox(rec.start, playhead_, static_cast<float>(area.getY() + layout_.top(row)),
+                                 static_cast<float>(layout_.baseHeight(row)));
+        if (box.getWidth() <= 1.0f)
             continue;
-        const auto box = juce::Rectangle<float>(x0, y + 1.0f, x1 - x0, h - 3.0f);
         g.setColour(t.clipBody(t.record, false));
         g.fillRect(box);
-        const float strip = std::min(15.0f, box.getHeight() * 0.35f);
+        const auto title = titleOf(box);
+        const float strip = title.getHeight();
         g.setColour(t.record);
-        g.fillRect(box.withHeight(strip));
+        g.fillRect(title);
         if (rec.audio)
         {
             g.setColour(t.clipContent(t.record));
@@ -738,11 +736,12 @@ void ArrangementView::paintLanes(juce::Graphics& g)
                                           .toNearestInt(),
                                       playhead_ - rec.start);
         }
-        if (box.getWidth() > 16.0f && strip >= 10.0f)
+        if (titleShowsText(title))
         {
             g.setColour(t.surface0);
             g.setFont(ui::font(ui::TextStyle::Control));
-            g.drawText("Recording", box.withHeight(strip).reduced(4.0f, 0.0f), juce::Justification::centredLeft, true);
+            g.drawText("Recording", title.reduced(static_cast<float>(t.shell.clipTextInset), 0.0f), juce::Justification::centredLeft,
+                       true);
         }
     }
 
@@ -801,12 +800,34 @@ void ArrangementView::paintLanes(juce::Graphics& g)
     time::paintPlayhead(g, timeline_, area, playhead_);
 }
 
+juce::Rectangle<float> ArrangementView::clipBox(double start, double end, float y, float h) const
+{
+    // Cut just outside the lanes, so an edge out of sight never draws.
+    constexpr float offscreen = 2.0f;
+    const auto area = laneArea();
+    const auto& s = ui::Theme::current().shell;
+    const float x0 = std::max(laneX(start), static_cast<float>(area.getX()) - offscreen);
+    const float x1 = std::min(laneX(end), static_cast<float>(area.getRight()) + offscreen);
+    // Above it the clip gap; below it the gap and the row's separator line.
+    return {x0, y + static_cast<float>(s.clipGap), std::max(1.0f, x1 - x0), h - static_cast<float>(2 * s.clipGap + 1)};
+}
+
+juce::Rectangle<float> ArrangementView::titleOf(juce::Rectangle<float> box)
+{
+    const auto& s = ui::Theme::current().shell;
+    return box.withHeight(std::min(static_cast<float>(s.clipTitleHeight), box.getHeight() * s.clipTitleShare));
+}
+
+bool ArrangementView::titleShowsText(juce::Rectangle<float> title)
+{
+    // Tall enough for text, and wide enough for more than its insets.
+    const auto& s = ui::Theme::current().shell;
+    return title.getHeight() >= static_cast<float>(s.clipTitleMinText) && title.getWidth() > static_cast<float>(4 * s.clipTextInset);
+}
+
 juce::Rectangle<float> ArrangementView::groupBox(const model::ClipGroup& group, float y, float h) const
 {
-    const auto area = laneArea();
-    const float x0 = std::max(laneX(group.start()), static_cast<float>(area.getX()) - 2.0f);
-    const float x1 = std::min(laneX(group.end()), static_cast<float>(area.getRight()) + 2.0f);
-    return {x0, y + 1.0f, std::max(1.0f, x1 - x0), h - 3.0f};
+    return clipBox(group.start(), group.end(), y, h);
 }
 
 std::optional<std::pair<model::Badge, juce::Rectangle<float>>> ArrangementView::badgeOf(const model::ClipGroup& group,
@@ -815,54 +836,64 @@ std::optional<std::pair<model::Badge, juce::Rectangle<float>>> ArrangementView::
 {
     if (group.stack == nullptr)
         return std::nullopt;
-    const float strip = std::min(15.0f, box.getHeight() * 0.35f);
-    if (strip < 10.0f)
+    const auto& s = ui::Theme::current().shell;
+    const auto title = titleOf(box);
+    if (!titleShowsText(title))
         return std::nullopt;
-    // Narrow clips show just the chevron, before their name is cut.
-    auto badge = model::badge(*group.stack, track.clips, box.getWidth() < 96.0f);
+    // [inset][text][item gap][chevron][inset]; the chevron as tall as the title less an inset.
+    const float inset = static_cast<float>(s.clipTextInset), chevron = title.getHeight() - inset;
+    auto widthOf = [&](const model::Badge& b) {
+        float width = inset + chevron + inset;
+        if (!b.text.empty())
+            width += juce::GlyphArrangement::getStringWidth(ui::font(ui::TextStyle::Control), juce::String(b.text)) +
+                     static_cast<float>(s.itemGap);
+        return width;
+    };
+    auto badge = model::badge(*group.stack, track.clips, false);
     if (!badge)
         return std::nullopt;
-    const float icon = strip - 4.0f;
-    float width = icon + 6.0f;
-    if (!badge->text.empty())
-        width += juce::GlyphArrangement::getStringWidth(ui::font(ui::TextStyle::Control), juce::String(badge->text)) + 4.0f;
+    // A badge takes at most half of its clip's title: narrower, just the chevron.
+    if (widthOf(*badge) * 2.0f > title.getWidth())
+        badge = model::badge(*group.stack, track.clips, true);
+    const float width = widthOf(*badge);
     // At the title's right end, kept inside the lanes so it stays reachable.
-    const float right = std::min(box.getRight(), static_cast<float>(laneArea().getRight()) - 2.0f);
-    const auto area = juce::Rectangle<float>(right - width, box.getY(), width, strip);
-    if (area.getX() < box.getX())
+    const float right = std::min(title.getRight(), static_cast<float>(laneArea().getRight()) - inset);
+    const auto area = juce::Rectangle<float>(right - width, title.getY(), width, title.getHeight());
+    if (area.getX() < title.getX())
         return std::nullopt;
     return std::pair{*badge, area};
 }
 
 void ArrangementView::paintGroup(juce::Graphics& g, const model::ClipGroup& group, const model::TrackInfo& track, float y,
-                                 float h, juce::Rectangle<int> area, juce::Rectangle<int> visible)
+                                 float h, juce::Rectangle<int> visible)
 {
     const auto& t = ui::Theme::current();
     const bool selected = selection_.clips.contains(group.parts.front()->id);
     for (const auto* part : group.parts)
-        paintClip(g, *part, y, h, area, visible, selected && group.parts.size() == 1);
+        paintClip(g, *part, y, h, visible, selected && group.parts.size() == 1);
     if (group.end() < timeline_.start() || group.start() > timeline_.end())
         return;
     const auto box = groupBox(group, y, h);
     if (!box.intersects(visible.toFloat()))
         return;
     const auto colour = t.clipColour(group.parts.front()->colour);
-    const float strip = std::min(15.0f, box.getHeight() * 0.35f);
+    const auto title = titleOf(box);
+    const float inset = static_cast<float>(t.shell.clipTextInset);
     if (group.parts.size() > 1)
     {
         // One clip playing several takes: one title, a line where the take changes, one outline.
         g.setColour(colour);
-        g.fillRect(box.withHeight(strip));
-        if (box.getWidth() > 16.0f && strip >= 10.0f)
+        g.fillRect(title);
+        if (titleShowsText(title))
         {
             g.setColour(t.surface0);
             g.setFont(ui::font(ui::TextStyle::Control));
-            g.drawText(juce::String::fromUTF8(group.parts.front()->name.c_str()), box.withHeight(strip).reduced(4.0f, 0.0f),
+            g.drawText(juce::String::fromUTF8(group.parts.front()->name.c_str()), title.reduced(inset, 0.0f),
                        juce::Justification::centredLeft, true);
         }
         g.setColour(t.surface0);
         for (size_t i = 1; i < group.parts.size(); ++i)
-            g.fillRect(laneX(group.parts[i]->start) - 0.5f, box.getY() + strip, 1.0f, box.getHeight() - strip);
+            g.fillRect(laneX(group.parts[i]->start) - 0.5f, title.getBottom(), 1.0f, box.getBottom() - title.getBottom());
         if (selected)
         {
             g.setColour(t.textPrimary);
@@ -874,19 +905,18 @@ void ArrangementView::paintGroup(juce::Graphics& g, const model::ClipGroup& grou
     if (const auto badge = badgeOf(group, track, box))
     {
         const auto& [b, rect] = *badge;
-        g.setColour(colour);
+        g.setColour(colour); // over the end of the clip's name
         g.fillRect(rect);
-        auto r = rect.reduced(2.0f, 2.0f);
-        const float icon = r.getHeight();
+        auto r = rect.reduced(inset, 0.0f);
+        const float chevron = rect.getHeight() - inset;
+        ui::drawIcon(g, ui::Icon::ChevronDown, r.removeFromRight(chevron).withSizeKeepingCentre(chevron, chevron), t.surface0);
         if (!b.text.empty())
         {
             g.setColour(t.surface0);
             g.setFont(ui::font(ui::TextStyle::Control));
-            const auto text = juce::String(b.text);
-            g.drawText(text, r.removeFromLeft(juce::GlyphArrangement::getStringWidth(ui::font(ui::TextStyle::Control), text) + 4.0f),
-                       juce::Justification::centredRight, false);
+            g.drawText(juce::String(b.text), r.withTrimmedRight(static_cast<float>(t.shell.itemGap)), juce::Justification::centredRight,
+                       false);
         }
-        ui::drawIcon(g, ui::Icon::ChevronDown, r.removeFromRight(icon), t.surface0);
     }
 }
 
@@ -917,15 +947,13 @@ void ArrangementView::paintStrips(juce::Graphics& g, int row, const model::Track
                 juce::Graphics::ScopedSaveState saved(g);
                 g.reduceClipRegion(rect.getSmallestIntegerContainer());
                 auto body = [&](const model::ClipInfo& c, juce::Colour colour, juce::Rectangle<int> within) {
-                    const float cx0 = std::max(laneX(c.start), static_cast<float>(area.getX()) - 2.0f);
-                    const float cx1 = std::min(laneX(c.end()), static_cast<float>(area.getRight()) + 2.0f);
-                    const auto box = juce::Rectangle<float>(cx0, rect.getY() + 1.0f, std::max(1.0f, cx1 - cx0), rect.getHeight() - 3.0f);
+                    const auto box = clipBox(c.start, c.end(), rect.getY(), rect.getHeight());
                     if (!box.intersects(within.toFloat()))
                         return;
                     g.setColour(t.clipBody(colour, false));
                     g.fillRect(box);
                     if (c.kind == model::ClipInfo::Kind::Midi)
-                        paintNotes(g, c, box.reduced(0.0f, 2.0f), colour);
+                        paintNotes(g, c, box, colour);
                     else
                         paintWaveform(g, c, box, within, colour);
                 };
@@ -943,12 +971,18 @@ void ArrangementView::paintStrips(juce::Graphics& g, int row, const model::Track
                     }
                 }
             }
-            // Its name, at the left of what's in sight, on a backing that keeps it legible.
+            // Its name, at the left of what's in sight, on a backing as tall as its clips that keeps
+            // it legible.
             const auto label = stripLabel(rect);
             const auto name = juce::String::fromUTF8(take.name.c_str());
             const float nameWidth = juce::GlyphArrangement::getStringWidth(ui::font(ui::TextStyle::Caption), name);
+            const auto clips = clipBox(stack.start, stack.end, rect.getY(), rect.getHeight());
             g.setColour(t.roles.subLane);
-            g.fillRoundedRectangle(label.withWidth(nameWidth).expanded(4.0f, 1.0f), t.radiusControl);
+            g.fillRoundedRectangle(label.withWidth(std::min(nameWidth, label.getWidth())) // never past the strip
+                                       .withY(clips.getY())
+                                       .withHeight(clips.getHeight())
+                                       .expanded(static_cast<float>(t.shell.clipTextInset), 0.0f),
+                                   t.radiusControl);
             g.setColour(playing && stack.takes[*playing].id == take.id ? t.textPrimary : t.textSecondary);
             g.setFont(ui::font(ui::TextStyle::Caption));
             g.drawText(name, label, juce::Justification::centredLeft, true);
@@ -965,10 +999,11 @@ void ArrangementView::paintStrips(juce::Graphics& g, int row, const model::Track
 
 juce::Rectangle<float> ArrangementView::stripLabel(juce::Rectangle<float> strip) const
 {
-    // From the left of what's in sight, centred in the strip.
-    auto body = strip.reduced(0.0f, 4.0f);
-    body.setLeft(std::max(body.getX(), static_cast<float>(laneArea().getX())) + 8.0f);
-    return body;
+    // The lane's text inset from the left of what's in sight, the strip's full height.
+    auto label = strip;
+    label.setLeft(std::max(strip.getX(), static_cast<float>(laneArea().getX())) +
+                  static_cast<float>(ui::Theme::current().shell.laneTextInset));
+    return label;
 }
 
 std::optional<ArrangementView::StripAt> ArrangementView::stripAt(juce::Point<float> p) const
@@ -1055,34 +1090,32 @@ void ArrangementView::takeMenu(std::uint64_t trackId, std::uint64_t stackId, std
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMousePosition());
 }
 
-void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, float y, float h,
-                                juce::Rectangle<int> area, juce::Rectangle<int> visible, bool selected, bool dimmed)
+void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, float y, float h, juce::Rectangle<int> visible,
+                                bool selected, bool dimmed)
 {
     const auto& t = ui::Theme::current();
     if (clip.end() < timeline_.start() || clip.start > timeline_.end())
         return;
-    const float x0 = std::max(laneX(clip.start), static_cast<float>(area.getX()) - 2.0f);
-    const float x1 = std::min(laneX(clip.end()), static_cast<float>(area.getRight()) + 2.0f);
-    const auto box = juce::Rectangle<float>(x0, y + 1.0f, std::max(1.0f, x1 - x0), h - 3.0f);
+    const auto box = clipBox(clip.start, clip.end(), y, h);
     if (!box.intersects(visible.toFloat()))
         return;
     const auto colour = dimmed ? t.clipDimmed(t.clipColour(clip.colour)) : t.clipColour(clip.colour);
     g.setColour(t.clipBody(colour, selected));
     g.fillRect(box);
-    const float strip = std::min(15.0f, box.getHeight() * 0.35f);
-    const auto title = box.withHeight(strip);
+    const auto title = titleOf(box);
+    const float strip = title.getHeight();
     g.setColour(colour);
     g.fillRect(title);
     if (clip.kind == model::ClipInfo::Kind::Midi)
-        paintNotes(g, clip, box.withTrimmedTop(strip).reduced(0.0f, 2.0f), colour);
+        paintNotes(g, clip, box.withTrimmedTop(strip), colour);
     else
         paintWaveform(g, clip, box.withTrimmedTop(strip), visible, colour);
-    if (title.getWidth() > 16.0f && strip >= 10.0f)
+    if (titleShowsText(title))
     {
         g.setColour(t.surface0);
         g.setFont(ui::font(ui::TextStyle::Control));
-        g.drawText(juce::String::fromUTF8(clip.name.c_str()), title.reduced(4.0f, 0.0f), juce::Justification::centredLeft,
-                   true);
+        g.drawText(juce::String::fromUTF8(clip.name.c_str()), title.reduced(static_cast<float>(t.shell.clipTextInset), 0.0f),
+                   juce::Justification::centredLeft, true);
     }
     if (selected)
     {
@@ -1094,7 +1127,9 @@ void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, 
 void ArrangementView::paintNotes(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body,
                                  juce::Colour colour)
 {
-    // A preview of the notes across the clip's own pitch range (the piano roll edits them).
+    // A preview of the notes across the clip's own pitch range (the piano roll edits them), clear of
+    // the body's edges by twice the clip gap.
+    body = body.reduced(0.0f, static_cast<float>(2 * ui::Theme::current().shell.clipGap));
     if (clip.notes.empty() || body.getHeight() < 4.0f)
         return;
     int lo = 127, hi = 0;

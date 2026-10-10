@@ -7,6 +7,8 @@ class Toggle : public juce::Button
 {
 public:
     explicit Toggle(const juce::String& text = {});
+    /// The width a text toggle needs for `text`: its label and the button padding each side.
+    [[nodiscard]] static int widthFor(const juce::String& text);
 
     /// Shows whether its parameter is automated (automation.md §6).
     void setAutomationState(AutomationState state);
