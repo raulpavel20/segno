@@ -2,7 +2,7 @@
 
 How Segno records audio and MIDI: projects as folders, inputs and arming, monitoring, the record button with count-in and punch, takes on take lanes and comping, capturing MIDI played without recording, and what comes later. The decisions are [ADR 0030](../decisions/0030-projects-are-folders.md) (a project is a folder), [ADR 0031](../decisions/0031-recording-keeps-every-take.md) (every take is kept; the track plays plain clips), [ADR 0032](../decisions/0032-takes-belong-to-clips.md) (takes belong to clips) and [ADR 0033](../decisions/0033-no-instrument-by-itself.md) (Segno never adds an instrument by itself). It builds on one kind of track ([ADR 0019](../decisions/0019-one-kind-of-track.md)), live MIDI following the selection ([daw-shell.md](daw-shell.md)), the track header kit and time-view kit ([ui-foundations.md](ui-foundations.md), ADR 0023), the selection model ([selection.md](selection.md), ADR 0027), the mixer ([mixer.md](mixer.md)) and automation recording ([automation.md](automation.md) §8).
 
-**Status:** approved by the product owner (2026-10-10), with every recommendation of §16. Built in parts (§17): C5a and C5b built and signed off (2026-10-10); C5c after C6's fades, with selecting several take lanes at once (§6: for now a take lane is selected alone). What comes after M2 is mapped in §15.
+**Status:** approved by the product owner (2026-10-10), with every recommendation of §16. Built in parts (§17): C5a and C5b built and signed off (2026-10-10); C5c (comping, §7) built (2026-10-10), awaiting the product owner's feel check. What comes after M2 is mapped in §15.
 
 **Revised after trying C5b (product owner, 2026-10-10, §19):** takes belong to their clips (ADR 0032); Capture MIDI captures the last phrase onto any track and never adds an instrument (ADR 0033); punch is the loop brace; the top bar is sectioned, with automation arm in red beside Record and no "Turn automation back on" button. The sections below describe the revised design, built the same day (C5b revised).
 
@@ -140,6 +140,7 @@ Choose the best parts of several takes into one performance, as Logic's swipe co
   - The swipe snaps to the grid (Alt: free) and stays inside the clip's range.
   - Where the take has no audio, nothing changes.
   - While dragging, the stretch shows on the strip in full colour with an outline. Releasing applies it, as one undo step ("Comp").
+- **Drag the line between two takes** (in the clip's body) to move where one hands over to the other: the take on the side it moves away from plays up to its new place, snapped (Alt: free), within the two parts. While dragging, a line shows where it's going; releasing applies it, one undo step ("Comp").
 - **A click on a strip** (no drag) plays that take alone across the clip (§6, ADR 0037), so it replaces a comp; Ctrl+Z brings the comp back. Named comps to switch between, as in Logic, aren't in M2.
 - **Joins:**
   - each new join between two takes gets a 10 ms equal-power crossfade (fades.md §5), centred and fitted to the spare audio;
@@ -233,7 +234,7 @@ Every feature comes with its tools and a test through MCP (ADR 0021). Assistants
 |---|---|---|
 | **C5a Recording** | Project folders; inputs; arm buttons and soft arm; monitoring; Record, count-in, punch; several tracks at once; latency placement and offsets; input metering; live drawing; MCP | M2 |
 | **C5b Takes** | Every pass and lap kept as the clip's takes; what a pass replaces kept; choosing and auditioning takes; copy, move and spread takes to new tracks; keep only one take; MIDI overdub; Capture MIDI; MCP | M2 |
-| **C5c Comping** | Swipe comping across a clip's take strips with crossfades (after C6's fades); MCP `use_take` with ranges; selecting several takes to copy or move them together (what's in use is shown since C5b) | M2, after C6 |
+| **C5c Comping** | Swipe comping across a clip's take strips with crossfades (after C6's fades); dragging the line between two takes; MCP `use_take` with ranges; selecting several takes to copy or move them together (what's in use is shown since C5b) | M2: built (2026-10-10) |
 | Collect all and save; remove unused recordings | Copy outside files into the project folder; clean up unused files to the trash | M3 (with the browser) |
 | Reduced latency when monitoring | Bypass modules that add latency on monitored tracks | M3 |
 | Round-trip latency test | Play a click, record it back through a loopback, set the offset | M3 |

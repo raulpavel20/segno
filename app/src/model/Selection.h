@@ -21,8 +21,9 @@ struct Selection
     /// Never together with clips; the channel is then its first assignment's.
     std::optional<std::uint64_t> lane;
     std::set<size_t> points;
-    /// One of the channel's take lanes (recording.md §10). Never together with clips or a lane.
-    std::optional<std::uint64_t> take;
+    /// Takes of the channel's clips (recording.md §6, §7): one, or several (Ctrl+click). Never
+    /// together with clips or a lane.
+    std::set<std::uint64_t> takes;
 
     friend bool operator==(const Selection&, const Selection&) = default;
 };
@@ -43,10 +44,10 @@ struct Selection
 enum class CentreView { Arrange, Mix };
 
 /// What the context panels show (selection.md §3).
-enum class Subject { Nothing, Channel, Clip, Clips, Lane, Take };
+enum class Subject { Nothing, Channel, Clip, Clips, Lane, Take, Takes };
 
 /// The inspector's sections, top to bottom (selection.md §5).
-enum class InspectorSection { Point, Points, Lane, Assignments, Take, Clip, Clips, Track, Input, Return, Master, Mix, Sends };
+enum class InspectorSection { Point, Points, Lane, Assignments, Take, Takes, Clip, Clips, Track, Input, Return, Master, Mix, Sends };
 
 /// Everything the context panels need for a selection in a view: the rules of selection.md §3-5
 /// in one place.
@@ -58,7 +59,8 @@ struct PanelContext
     int clipCount = 0;                // selected clips in the snapshot
     std::optional<ClipInfo> midiClip; // the one selected clip when it's MIDI: the clip view's
     std::optional<AutomationLaneInfo> lane; // the selected lane
-    std::optional<TakeInfo> take;           // the selected take
+    std::optional<TakeInfo> take;           // the one selected take
+    int takeCount = 0;                      // selected takes
     std::optional<AutomationPoint> point; // its one selected point
     int pointCount = 0;               // its selected points
 

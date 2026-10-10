@@ -1746,8 +1746,36 @@ TEST_CASE("takes: takes open under their clip after a loop pass; strips, the bad
     // A click on a take's strip, on its clip: the clip plays it (one undo step), and it's selected.
     click(view, {laneX(5.0), stripMiddle(0)});
     s.updateSnapshotNow();
-    CHECK(view.selection().take == stack().takes[0].id);
+    CHECK(view.selection().takes == std::set{stack().takes[0].id});
     CHECK(s.undoDescription() == "Use take");
+    // Ctrl+click adds a take to the selected ones, and uses nothing; again, takes it out.
+    {
+        const auto ctrl = juce::ModifierKeys(juce::ModifierKeys::leftButtonModifier | juce::ModifierKeys::commandModifier);
+        const juce::Point<float> at(laneX(5.0), stripMiddle(1));
+        view.mouseDown(mouseEvent(view, at, at, false, ctrl));
+        view.mouseUp(mouseEvent(view, at, at, false, ctrl));
+        s.updateSnapshotNow();
+        CHECK(view.selection().takes == std::set{stack().takes[0].id, stack().takes[1].id});
+        CHECK(track().clips[0].fromTake == stack().takes[0].clips.at(0).id);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+        CHECK(f.shell->inspector().sections().front() == S::Takes);
+        if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: two takes selected
+            dumpPng(dump, "takes-two@2x.png",
+                    view.createComponentSnapshot(juce::Rectangle<int>(static_cast<int>(laneX(3.5)), 0, 500, 170), true, 2.0f));
+        view.mouseDown(mouseEvent(view, at, at, false, ctrl));
+        view.mouseUp(mouseEvent(view, at, at, false, ctrl));
+        CHECK(view.selection().takes == std::set{stack().takes[0].id});
+        // Delete deletes every selected take, in one undo step.
+        view.selectTake(t0, stack().takes[1].id, true);
+        REQUIRE(actions.perform("edit.delete"));
+        s.updateSnapshotNow();
+        CHECK(stack().takes.size() == 1);
+        CHECK(s.undoDescription() == "Delete takes");
+        s.undo();
+        s.updateSnapshotNow();
+        REQUIRE(stack().takes.size() == 3);
+        view.selectTake(t0, stack().takes[0].id);
+    }
     REQUIRE(track().clips.size() == 1);
     CHECK(track().clips[0].fromTake == stack().takes[0].clips.at(0).id);
     CHECK(fd::model::badge(stack(), track().clips, false)->text == "1/3");
@@ -1808,6 +1836,27 @@ TEST_CASE("takes: takes open under their clip after a loop pass; strips, the bad
         if (const char* dump = std::getenv("FD_DUMP_DIR"))
             dumpPng(dump, "takes-comped@2x.png",
                     view.createComponentSnapshot(juce::Rectangle<int>(static_cast<int>(laneX(3.5)), 0, 500, 170), true, 2.0f));
+        // The line between two takes, dragged in the body from 5.5 to 5: the take after it plays
+        // from there (one undo step).
+        const float body = static_cast<float>(fd::app::ArrangementView::rulerHeight()) + 40.0f;
+        const juce::Point<float> join(laneX(5.5), body), moved(laneX(5.0), body);
+        s.setPosition(0.0); // the playhead out of the way
+        view.frame(0.0, 0.0);
+        view.mouseDown(mouseEvent(view, join, join, false));
+        view.mouseDrag(mouseEvent(view, moved, join, true));
+        if (const char* dump = std::getenv("FD_DUMP_DIR"))
+            dumpPng(dump, "takes-join@2x.png",
+                    view.createComponentSnapshot(juce::Rectangle<int>(static_cast<int>(laneX(3.5)), 0, 500, 170), true, 2.0f));
+        view.mouseUp(mouseEvent(view, moved, join, true));
+        s.updateSnapshotNow();
+        CHECK(s.undoDescription() == "Comp");
+        REQUIRE(track().clips.size() == 3);
+        CHECK(track().clips[1].end() == Catch::Approx(5.0));
+        CHECK(track().clips[2].start == Catch::Approx(5.0));
+        CHECK(track().clips[2].fromTake == stack().takes[1].clips.at(0).id);
+        s.undo();
+        s.updateSnapshotNow();
+        CHECK(track().clips[1].end() == Catch::Approx(5.5));
         s.undo();
         s.updateSnapshotNow();
         REQUIRE(track().clips.size() == 1);

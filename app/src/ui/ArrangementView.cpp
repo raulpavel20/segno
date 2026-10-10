@@ -501,9 +501,17 @@ void ArrangementView::selectLane(std::uint64_t lane)
     }
 }
 
-void ArrangementView::selectTake(std::uint64_t track, std::uint64_t take)
+void ArrangementView::selectTake(std::uint64_t track, std::uint64_t take, bool add)
 {
-    setSelection({.channel = track, .take = take});
+    auto takes = add && selection_.channel == track && selection_.clips.empty() ? selection_.takes : std::set<std::uint64_t>{};
+    if (add && takes.contains(take))
+        takes.erase(take);
+    else
+        takes.insert(take);
+    if (takes.empty())
+        selectTrack(track);
+    else
+        setSelection({.channel = track, .takes = std::move(takes)});
 }
 
 // ---- painting ------------------------------------------------------------------------------
@@ -698,6 +706,16 @@ void ArrangementView::paintLanes(juce::Graphics& g)
         for (const auto& group : model::clipGroups(track)) // a clip's parts draw as one clip
             if (std::none_of(group.parts.begin(), group.parts.end(), [&](const auto* c) { return moving.contains(c->id); }))
                 paintGroup(g, group, track, y, h, visible);
+        if (joinDrag_ && joinDrag_->moved && joinDrag_->track == track.id)
+        {
+            // Where the line between two takes is going: in the body, as the line it moves.
+            const auto& theme = ui::Theme::current();
+            const auto box = clipBox(joinDrag_->join.from, joinDrag_->join.to, y, h);
+            const auto title = titleOf(box);
+            g.setColour(theme.textPrimary);
+            g.fillRect(std::round(laneX(joinDrag_->to)) - static_cast<float>(theme.shell.clipGap), title.getBottom(),
+                       static_cast<float>(theme.shell.clipGap), box.getBottom() - title.getBottom());
+        }
         if (preview_.empty()) // fades and their handles stay put while clips are dragged
         {
             paintCrossfades(g, track, y, h);
@@ -840,6 +858,27 @@ bool ArrangementView::titleShowsText(juce::Rectangle<float> title)
     // Tall enough for text, and wide enough for more than its insets.
     const auto& s = ui::Theme::current().shell;
     return title.getHeight() >= static_cast<float>(s.clipTitleMinText) && title.getWidth() > static_cast<float>(4 * s.clipTextInset);
+}
+
+std::optional<std::pair<std::uint64_t, model::CompJoin>> ArrangementView::joinAt(juce::Point<float> pos) const
+{
+    const auto lanes = laneArea();
+    const auto row = layout_.hit(pos.y - static_cast<float>(lanes.getY()));
+    if (!lanes.contains(pos.toInt()) || !row || !rows_[static_cast<size_t>(row->track)].holdsClips() ||
+        row->offset >= layout_.baseHeight(row->track))
+        return std::nullopt;
+    const auto& track = snapshot_->tracks[static_cast<size_t>(rows_[static_cast<size_t>(row->track)].track)];
+    const float x = pos.x - static_cast<float>(lanes.getX()), grab = ui::Theme::current().input.edgeGrab;
+    const double at = timeline_.timeForX(x);
+    const auto join = model::compJoinAt(track, at, timeline_.timeForX(x + grab) - at);
+    if (!join)
+        return std::nullopt;
+    // In the body: the title strip stays one, for selecting and moving the clip.
+    const float y = static_cast<float>(lanes.getY() + layout_.top(row->track));
+    const auto title = titleOf(clipBox(join->from, join->to, y, static_cast<float>(layout_.baseHeight(row->track))));
+    if (pos.y < title.getBottom())
+        return std::nullopt;
+    return std::pair{track.id, *join};
 }
 
 bool ArrangementView::seamAfter(const model::TrackInfo& track, double end, std::uint64_t stack) const
@@ -1055,10 +1094,10 @@ void ArrangementView::paintStrips(juce::Graphics& g, int row, const model::Track
             g.drawText(name, label, juce::Justification::centredLeft, true);
             g.setColour(t.line);
             g.fillRect(rect.withTop(rect.getBottom() - 1.0f));
-            if (selection_.take == take.id)
+            if (selection_.takes.contains(take.id))
             {
                 g.setColour(t.textPrimary);
-                g.drawRect(rect, 1.0f);
+                g.drawRect(rect, static_cast<float>(t.shell.clipOutline));
             }
         }
     }
@@ -1141,16 +1180,22 @@ void ArrangementView::takeMenu(std::uint64_t trackId, std::uint64_t stackId, std
             selectTrack(made.front());
         }
     };
-    menu.addItem("Copy " + takeName + " to new track", [toTracks, target] { toTracks({target}, false); });
-    menu.addItem("Move " + takeName + " to new track", [toTracks, target] { toTracks({target}, true); });
+    // The selected takes when the clicked one is among several of them; else just it.
+    std::vector<std::uint64_t> chosen{target};
+    if (selection_.takes.size() > 1 && selection_.takes.contains(target) && selection_.channel == trackId)
+        chosen.assign(selection_.takes.begin(), selection_.takes.end());
+    const auto what = chosen.size() > 1 ? juce::String(static_cast<int>(chosen.size())) + " takes" : takeName;
+    const auto where = chosen.size() > 1 ? juce::String(" to new tracks") : juce::String(" to new track");
+    menu.addItem("Copy " + what + where, [toTracks, chosen] { toTracks(chosen, false); });
+    menu.addItem("Move " + what + where, [toTracks, chosen] { toTracks(chosen, true); });
     std::vector<std::uint64_t> all;
     for (const auto& k : stack->takes)
         all.push_back(k.id);
     menu.addItem("Spread takes to new tracks", [toTracks, all] { toTracks(all, false); });
     menu.addSeparator();
-    menu.addItem("Delete " + takeName, [this, trackId, target] {
-        session_.deleteTakes(trackId, {target});
-        if (selection_.take == target)
+    menu.addItem("Delete " + what, [this, trackId, chosen] {
+        session_.deleteTakes(trackId, chosen);
+        if (std::any_of(chosen.begin(), chosen.end(), [this](auto id) { return selection_.takes.contains(id); }))
             selectTrack(trackId);
     });
     menu.addItem("Keep only " + takeName, [this, trackId, target] { session_.keepOnlyTake(trackId, target); });
@@ -1310,6 +1355,8 @@ void ArrangementView::mouseMove(const juce::MouseEvent& e)
             if (hit)
                 cursor = hit->zone == model::ClipHit::Zone::Body ? juce::MouseCursor::NormalCursor
                                                                   : juce::MouseCursor::LeftRightResizeCursor;
+            if (joinAt(e.position)) // the line between two takes of a comp moves
+                cursor = juce::MouseCursor::LeftRightResizeCursor;
             hoveredClip = hit ? std::optional(hit->clip) : std::nullopt;
             if (hoveredClip != hoveredClip_) // its fade handles show (fades.md §3)
             {
@@ -1416,10 +1463,12 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
             rowMenu(row->track);
             return;
         }
-        // A take's strip, or a clip's badge: the clip's take menu.
+        // A take's strip, or a clip's badge: the clip's take menu (for the selected takes, if it's
+        // one of them).
         if (const auto strip = stripAt(e.position))
         {
-            selectTake(strip->track, strip->hit.take);
+            if (!selection_.takes.contains(strip->hit.take))
+                selectTake(strip->track, strip->hit.take);
             takeMenu(strip->track, strip->hit.stack, strip->hit.take);
             return;
         }
@@ -1458,8 +1507,14 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
     }
     if (const auto strip = stripAt(e.position))
     {
-        // A take's strip (recording.md §6, §7): it selects the take; on release, a click on the
-        // take's clip plays it, and a drag across the strip comps that stretch of it in.
+        // A take's strip (recording.md §6, §7): it selects the take (Ctrl: adds it to the selected
+        // takes, and nothing more); on release, a click on the take's clip plays it, and a drag
+        // across the strip comps that stretch of it in.
+        if (e.mods.isCommandDown())
+        {
+            selectTake(strip->track, strip->hit.take, true);
+            return;
+        }
         selectTake(strip->track, strip->hit.take);
         const double at = snapped(timeline_.timeForX(e.position.x - static_cast<float>(lanes.getX())), e.mods.isAltDown());
         swipe_ = TakeSwipe{.track = strip->track, .take = strip->hit.take, .onClip = strip->hit.onClip, .from = at, .to = at};
@@ -1468,6 +1523,14 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
     }
     if (fadeMouseDown(e)) // a fade's or crossfade's handle
         return;
+    if (const auto join = joinAt(e.position); join && e.getNumberOfClicks() == 1)
+    {
+        // The line between two takes of a comp (recording.md §7): drag it to move where one hands
+        // over to the other.
+        joinDrag_ = JoinDrag{.track = join->first, .join = join->second, .to = join->second.at};
+        drag_ = Drag::Join;
+        return;
+    }
     if (const auto badge = badgeAt(e.position))
     {
         // A click shows or hides the clip's takes (right-click: its take menu).
@@ -1550,6 +1613,14 @@ void ArrangementView::mouseDrag(const juce::MouseEvent& e)
     if (drag_ == Drag::Fade)
     {
         fadeMouseDrag(e);
+        return;
+    }
+    if (drag_ == Drag::Join && joinDrag_)
+    {
+        const double at = snapped(timeline_.timeForX(e.position.x - static_cast<float>(lanes.getX())), e.mods.isAltDown());
+        joinDrag_->to = std::clamp(at, joinDrag_->join.from, joinDrag_->join.to);
+        joinDrag_->moved = joinDrag_->moved || e.getDistanceFromDragStart() >= ui::Theme::current().input.dragThreshold;
+        repaint();
         return;
     }
     if (drag_ == Drag::Swipe && swipe_)
@@ -1667,6 +1738,16 @@ void ArrangementView::mouseUp(const juce::MouseEvent& e)
         laneMouseUp(e);
     if (drag_ == Drag::Fade)
         fadeMouseUp();
+    if (drag_ == Drag::Join && joinDrag_)
+    {
+        // The take on the side the line moved away from plays up to its new place (one undo step).
+        const auto& j = joinDrag_->join;
+        if (joinDrag_->moved && joinDrag_->to > j.at + 1e-9)
+            session_.compTake(joinDrag_->track, j.leftTake, j.at, joinDrag_->to);
+        else if (joinDrag_->moved && joinDrag_->to < j.at - 1e-9)
+            session_.compTake(joinDrag_->track, j.rightTake, joinDrag_->to, j.at);
+        joinDrag_.reset();
+    }
     if (drag_ == Drag::Swipe && swipe_)
     {
         if (swipe_->swiping) // comps that stretch in (one undo step)
@@ -1995,9 +2076,9 @@ void ArrangementView::revealRow(int row)
 
 void ArrangementView::deleteSelection()
 {
-    if (selection_.take && selection_.channel && selection_.clips.empty())
+    if (!selection_.takes.empty() && selection_.channel && selection_.clips.empty())
     {
-        session_.deleteTakes(*selection_.channel, {*selection_.take});
+        session_.deleteTakes(*selection_.channel, {selection_.takes.begin(), selection_.takes.end()});
         selectTrack(selection_.channel);
         return;
     }

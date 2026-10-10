@@ -223,6 +223,37 @@ std::vector<SwipePiece> swipePieces(const TakeStackInfo& stack, std::uint64_t ta
     return out;
 }
 
+std::optional<CompJoin> compJoinAt(const TrackInfo& track, double seconds, double tolerance)
+{
+    std::optional<CompJoin> best;
+    for (const auto& stack : track.stacks)
+    {
+        std::vector<const ClipInfo*> parts;
+        for (const auto& c : track.clips)
+            if (c.stack == stack.id)
+                parts.push_back(&c);
+        std::sort(parts.begin(), parts.end(), [](auto* a, auto* b) { return a->start < b->start; });
+        auto takeOf = [&](const ClipInfo& part) -> std::uint64_t {
+            for (const auto& k : stack.takes)
+                for (const auto& c : k.clips)
+                    if (c.id == part.fromTake)
+                        return k.id;
+            return 0;
+        };
+        for (size_t i = 0; i + 1 < parts.size(); ++i)
+        {
+            const auto& a = *parts[i];
+            const auto& b = *parts[i + 1];
+            const double d = std::abs(a.end() - seconds);
+            if (std::abs(a.end() - b.start) > 1e-6 || d > tolerance || (best && d >= std::abs(best->at - seconds)))
+                continue;
+            best = CompJoin{.stack = stack.id, .left = a.id, .right = b.id, .leftTake = takeOf(a), .rightTake = takeOf(b),
+                            .at = a.end(), .from = a.start, .to = b.end()};
+        }
+    }
+    return best;
+}
+
 std::vector<std::pair<std::uint64_t, std::uint64_t>> seamlessParts(std::vector<ClipInfo> parts)
 {
     constexpr double kNear = 1e-6;

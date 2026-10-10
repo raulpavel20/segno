@@ -253,13 +253,24 @@ TEST_CASE("selection: a take of a clip is the subject, with its track", "[fast]"
 {
     auto s = project();
     s.tracks[0].stacks = {{.id = 50, .takes = {{.id = 51, .name = "Take 1"}}}};
-    const Selection take{.channel = 1, .take = 51};
+    const Selection take{.channel = 1, .takes = {51}};
     const auto c = panelContext(take, s, CentreView::Arrange);
     CHECK(c.subject == Subject::Take);
     CHECK(c.take->name == "Take 1");
     CHECK(c.channel->id == 1);
     CHECK(c.inspector == std::vector{Section::Take, Section::Track, Section::Input, Section::Mix, Section::Sends});
     CHECK(pruned(take, s) == take);
+
+    // Several takes (Ctrl+click): counted, in a section of their own; a deleted one drops out.
+    s.tracks[0].stacks[0].takes.push_back({.id = 52, .name = "Take 2"});
+    const Selection takes{.channel = 1, .takes = {51, 52}};
+    const auto many = panelContext(takes, s, CentreView::Arrange);
+    CHECK(many.subject == Subject::Takes);
+    CHECK(many.takeCount == 2);
+    CHECK_FALSE(many.take);
+    CHECK(many.inspector == std::vector{Section::Takes, Section::Track, Section::Input, Section::Mix, Section::Sends});
+    s.tracks[0].stacks[0].takes.pop_back();
+    CHECK(pruned(takes, s) == take);
     s.tracks[0].stacks.clear();
     CHECK(pruned(take, s) == Selection{.channel = 1}); // deleted
 }

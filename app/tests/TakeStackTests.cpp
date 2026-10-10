@@ -289,6 +289,30 @@ TEST_CASE("comping: what a swipe uses; parts that play on seamlessly", "[fast]")
                                       ClipInfo{.id = 5, .start = 4.5, .length = 1.0, .offset = 5.0, .fromTake = 200}};
     CHECK(seamlessParts(parts) == std::vector<std::pair<std::uint64_t, std::uint64_t>>{{1, 2}});
     CHECK(seamlessParts({parts[1], parts[0]}) == std::vector<std::pair<std::uint64_t, std::uint64_t>>{{1, 2}});
+
+    // The joins between a comp's parts: the nearest within reach, with the takes either side.
+    TrackInfo track;
+    track.stacks.push_back({.id = 7,
+                            .start = 0.0,
+                            .end = 6.0,
+                            .takes = {{.id = 70, .clips = {ClipInfo{.id = 700, .start = 0.0, .length = 6.0}}},
+                                      {.id = 71, .clips = {ClipInfo{.id = 710, .start = 0.0, .length = 6.0}}}}});
+    track.clips = {ClipInfo{.id = 1, .start = 0.0, .length = 2.0, .fromTake = 700, .stack = 7},
+                   ClipInfo{.id = 2, .start = 2.0, .length = 2.0, .fromTake = 710, .stack = 7},
+                   ClipInfo{.id = 3, .start = 4.0, .length = 2.0, .fromTake = 700, .stack = 7},
+                   ClipInfo{.id = 4, .start = 6.0, .length = 1.0}}; // another clip, touching
+    auto join = compJoinAt(track, 4.03, 0.05);
+    REQUIRE(join);
+    CHECK(join->left == 2);
+    CHECK(join->right == 3);
+    CHECK(join->leftTake == 71);
+    CHECK(join->rightTake == 70);
+    CHECK(join->at == 4.0);
+    CHECK(join->from == 2.0);
+    CHECK(join->to == 6.0);
+    CHECK(compJoinAt(track, 1.98, 0.05)->at == 2.0);
+    CHECK_FALSE(compJoinAt(track, 3.0, 0.05));
+    CHECK_FALSE(compJoinAt(track, 6.0, 0.05)); // the clip's own edge: a trim, not a join
 }
 
 TEST_CASE("take stacks: rows grow by their extra height; clips aren't hit in it", "[fast]")

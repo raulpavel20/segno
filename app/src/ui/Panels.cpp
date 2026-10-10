@@ -539,6 +539,7 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
         laneName_.setTextToShowWhenEmpty(juce::String::fromUTF8(lane_->displayName().c_str()), ui::Theme::current().textTertiary);
     }
     take_ = context.take;
+    takeCount_ = context.takeCount;
     takeName_.setVisible(has(model::InspectorSection::Take));
     useTake_.setVisible(has(model::InspectorSection::Take));
     clipMute_.setVisible(has(model::InspectorSection::Clip) && clip_.has_value());
@@ -667,6 +668,7 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
         return rows;
     }
     case S::Clips: return {{"Selected", juce::String(clipCount_), true}};
+    case S::Takes: return {{"Selected", juce::String(takeCount_), true}};
     case S::Track:
         if (!channel_)
             return {};
@@ -692,7 +694,7 @@ void InspectorPanel::resized()
     auto r = getLocalBounds().withTrimmedTop(header_.getBottom() + t.shell.itemGap).reduced(t.shell.padding, 0);
 
     static const std::map<S, juce::String> titles{{S::Point, "Point"}, {S::Points, "Points"}, {S::Lane, "Lane"},
-                                                  {S::Assignments, "Assignments"}, {S::Input, "Input"}, {S::Take, "Take"},
+                                                  {S::Assignments, "Assignments"}, {S::Input, "Input"}, {S::Take, "Take"}, {S::Takes, "Takes"},
                                                   {S::Clip, "Clip"},   {S::Clips, "Clips"},   {S::Track, "Track"},
                                                   {S::Return, "Return"}, {S::Master, "Master"}, {S::Mix, "Mix"},
                                                   {S::Sends, "Sends"}};

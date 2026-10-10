@@ -95,6 +95,16 @@ struct SwipePiece
 };
 [[nodiscard]] std::vector<SwipePiece> swipePieces(const TakeStackInfo& stack, std::uint64_t take, double from, double to);
 
+/// A join between two parts of a clip with takes, within `tolerance` seconds of `seconds`:
+/// dragging it moves where one take hands over to the next (recording.md §7).
+struct CompJoin
+{
+    std::uint64_t stack = 0, left = 0, right = 0; // the parts either side
+    std::uint64_t leftTake = 0, rightTake = 0;    // the takes they play
+    double at = 0.0, from = 0.0, to = 0.0;        // the join, and how far it can move: the parts' far ends
+};
+[[nodiscard]] std::optional<CompJoin> compJoinAt(const TrackInfo& track, double seconds, double tolerance);
+
 /// Neighbouring parts that play on seamlessly from one take clip (one stretch of it, cut in two),
 /// to join into one: each pair (earlier, later), in time order. `parts`: a clip's parts.
 [[nodiscard]] std::vector<std::pair<std::uint64_t, std::uint64_t>> seamlessParts(std::vector<ClipInfo> parts);

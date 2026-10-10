@@ -62,10 +62,12 @@ Selection pruned(const Selection& selection, const Snapshot& snapshot)
         s.channel = selection.channel;
     if (!s.clips.empty() && !(s.channel && holdsAny(*snapshot.channel(*s.channel), s.clips)))
         s.channel = topmostHolding(snapshot, s.clips);
-    // A take stays while its track has it.
-    if (selection.take && s.clips.empty() && s.channel)
-        if (const auto* t = snapshot.channel(*s.channel); t != nullptr && t->take(*selection.take) != nullptr)
-            s.take = selection.take;
+    // Takes stay while their track has them.
+    if (s.clips.empty() && s.channel)
+        if (const auto* t = snapshot.channel(*s.channel))
+            for (const auto id : selection.takes)
+                if (t->take(id) != nullptr)
+                    s.takes.insert(id);
     // A lane stays while it exists (its channel following its assignments); points while they do.
     if (selection.lane && s.clips.empty())
         if (const auto* lane = snapshot.automationLane(*selection.lane))
@@ -115,14 +117,18 @@ PanelContext panelContext(const Selection& selection, const Snapshot& snapshot, 
         if (ctx.pointCount != 1)
             ctx.point.reset();
     }
-    else if (const auto* take = [&]() -> const TakeInfo* {
-                 if (!selection.take || channel == nullptr || !selection.clips.empty())
-                     return nullptr;
-                 return channel->take(*selection.take);
-             }())
+    else if (channel != nullptr && selection.clips.empty() &&
+             std::any_of(selection.takes.begin(), selection.takes.end(), [&](auto id) { return channel->take(id) != nullptr; }))
     {
-        ctx.subject = Subject::Take;
-        ctx.take = *take;
+        for (const auto id : selection.takes)
+            if (const auto* take = channel->take(id))
+            {
+                ++ctx.takeCount;
+                ctx.take = *take;
+            }
+        ctx.subject = ctx.takeCount == 1 ? Subject::Take : Subject::Takes;
+        if (ctx.takeCount != 1)
+            ctx.take.reset();
     }
     else if (ctx.clipCount == 1)
     {
@@ -160,6 +166,8 @@ PanelContext panelContext(const Selection& selection, const Snapshot& snapshot, 
     }
     if (ctx.subject == Subject::Take)
         ctx.inspector.push_back(InspectorSection::Take);
+    else if (ctx.subject == Subject::Takes)
+        ctx.inspector.push_back(InspectorSection::Takes);
     if (ctx.subject == Subject::Clip)
         ctx.inspector.push_back(InspectorSection::Clip);
     else if (ctx.subject == Subject::Clips)

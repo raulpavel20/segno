@@ -120,8 +120,9 @@ public:
     void removeSelectedLane();
     // Takes (C5b, ADR 0032, docs/design/recording.md §6): under their clip.
     /// Selects a take (with its track), as a click on its strip does.
-    void selectTake(std::uint64_t track, std::uint64_t take);
-    [[nodiscard]] bool hasTakeSelection() const noexcept { return selection_.take.has_value(); }
+    /// Selects a take of a track's clips; `add`: toggles it in the selected takes of that track.
+    void selectTake(std::uint64_t track, std::uint64_t take, bool add = false);
+    [[nodiscard]] bool hasTakeSelection() const noexcept { return !selection_.takes.empty(); }
 
     /// The rows as drawn.
     [[nodiscard]] const std::vector<model::ArrangementRow>& rows() const noexcept { return rows_; }
@@ -369,7 +370,19 @@ private:
     LoopZone loopDrag_ = LoopZone::None;
     std::pair<double, double> loopAtDragStart_{0.0, 0.0};
 
-    enum class Drag { None, Ruler, Clip, Box, Loop, Lane, Resize, Fade, Swipe };
+    enum class Drag { None, Ruler, Clip, Box, Loop, Lane, Resize, Fade, Swipe, Join };
+    /// The line between two takes of a comp, being dragged (recording.md §7): on release, the
+    /// take on the side it moved away from plays up to its new place.
+    struct JoinDrag
+    {
+        std::uint64_t track = 0;
+        model::CompJoin join;
+        double to = 0.0;     // where it's going (snapped, within the two parts)
+        bool moved = false;  // dragged past the threshold
+    };
+    std::optional<JoinDrag> joinDrag_;
+    /// The join between two parts of a comp under `pos`, in a clip's body: its track and it.
+    [[nodiscard]] std::optional<std::pair<std::uint64_t, model::CompJoin>> joinAt(juce::Point<float> pos) const;
     /// A press on a take's strip (recording.md §6, §7): a click uses the take, a drag across it
     /// comps that stretch of it in.
     struct TakeSwipe
