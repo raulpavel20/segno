@@ -25,6 +25,6 @@ The design is [design/bounce.md](../design/bounce.md).
 - A clip's takes can be of both kinds (the MIDI it came from, and the audio bounce). The take code copies clip states whatever their kind; tests cover the mixed stacks.
 - Clip mute is new state: in the snapshot, the project (tracktion's own clip mute), drawing, the inspector, a shortcut and MCP.
 - The clip gets a right-click menu, built from the action registry.
-- A new shared `Progress` component shows work in progress on what it changes; export (C8) uses it too.
+- A new shared `ui::paintProgress` shows work in progress on what it changes; export (C8) uses it too.
 - Freeze isn't built in M2; it's revisited with racks (M4).
 - `Session::render` gains clip filtering, tails and a cut chain, which export (C8) can use as well.
