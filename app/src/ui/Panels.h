@@ -179,6 +179,9 @@ private:
     ui::Toggle useTake_{"Use this take"};
     /// The selected clip's mute (bounce.md §6), as on a track's mute button.
     ui::Toggle clipMute_{"M"};
+    /// An audio clip's fade lengths, dragged or typed in ms (fades.md §3): one undo step each.
+    ui::NumberField fadeIn_, fadeOut_;
+    std::optional<engine::Session::EditGroup> fadeGesture_;
     TrackInputSection input_{session_};
     model::TempoMap tempo_;
 };

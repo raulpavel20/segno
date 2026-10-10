@@ -54,6 +54,8 @@ void ArrangementView::setSnapshot(std::shared_ptr<const model::Snapshot> snapsho
     snapshot_ = std::move(snapshot);
     preview_.clear();
     lanePreview_.reset();
+    if (!fadeDrag_)
+        fadePreview_.reset();
     hoveredPoint_.reset();
     for (const auto& t : snapshot_->tracks)
     {
@@ -687,12 +689,17 @@ void ArrangementView::paintLanes(juce::Graphics& g)
         const auto& r = rows_[static_cast<size_t>(i)];
         if (!r.holdsClips() || !rowVisible(i))
             continue;
-        const auto& track = snapshot_->tracks[static_cast<size_t>(r.track)];
+        const auto& track = shownTrack(snapshot_->tracks[static_cast<size_t>(r.track)]);
         const float y = static_cast<float>(area.getY() + layout_.top(i));
         const float h = static_cast<float>(layout_.baseHeight(i)); // open takes below (ADR 0032)
         for (const auto& group : model::clipGroups(track)) // a clip's parts draw as one clip
             if (std::none_of(group.parts.begin(), group.parts.end(), [&](const auto* c) { return moving.contains(c->id); }))
                 paintGroup(g, group, track, y, h, visible);
+        if (preview_.empty()) // fades and their handles stay put while clips are dragged
+        {
+            paintCrossfades(g, track, y, h);
+            paintFadeHandles(g, track, y, h);
+        }
         paintStrips(g, i, track, area, visible);
     }
     for (const auto& e : preview_)
@@ -1138,7 +1145,10 @@ void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, 
     if (clip.kind == model::ClipInfo::Kind::Midi)
         paintNotes(g, clip, box.withTrimmedTop(strip), colour);
     else
+    {
         paintWaveform(g, clip, box.withTrimmedTop(strip), visible, colour);
+        paintFades(g, clip, box.withTrimmedTop(strip));
+    }
     if (titleShowsText(title))
         paintTitleText(g, title, clip.name, clip.muted);
     if (selected)
@@ -1207,6 +1217,7 @@ void ArrangementView::mouseMove(const juce::MouseEvent& e)
     const auto lanes = laneArea();
     auto cursor = juce::MouseCursor::NormalCursor;
     std::optional<std::pair<int, size_t>> hovered;
+    std::optional<std::uint64_t> hoveredClip;
     if (loopStripArea().contains(e.getPosition()))
     {
         const auto zone = loopZoneAt(e.position.x);
@@ -1248,12 +1259,27 @@ void ArrangementView::mouseMove(const juce::MouseEvent& e)
             std::vector<int> rowTracks;
             for (const auto& r : rows_)
                 rowTracks.push_back(r.holdsClips() ? r.track : -1);
-            if (const auto hit = model::hitClip(*snapshot_, layout_, rowTracks, timeline_,
-                                                e.position.x - static_cast<float>(lanes.getX()),
-                                                e.position.y - static_cast<float>(lanes.getY()), ui::Theme::current().input.edgeGrab))
+            const auto hit = model::hitClip(*snapshot_, layout_, rowTracks, timeline_, e.position.x - static_cast<float>(lanes.getX()),
+                                            e.position.y - static_cast<float>(lanes.getY()), ui::Theme::current().input.edgeGrab);
+            if (hit)
                 cursor = hit->zone == model::ClipHit::Zone::Body ? juce::MouseCursor::NormalCursor
                                                                   : juce::MouseCursor::LeftRightResizeCursor;
+            hoveredClip = hit ? std::optional(hit->clip) : std::nullopt;
+            if (hoveredClip != hoveredClip_) // its fade handles show (fades.md §3)
+            {
+                hoveredClip_ = hoveredClip;
+                repaint(lanes);
+            }
+            using K = model::FadeHandle::Kind;
+            if (const auto grip = fadeGripAt(e.position))
+                cursor = grip->handle.kind == K::BendIn || grip->handle.kind == K::BendOut ? juce::MouseCursor::UpDownResizeCursor
+                                                                                             : juce::MouseCursor::LeftRightResizeCursor;
         }
+    }
+    if (!hoveredClip && hoveredClip_) // off the clips
+    {
+        hoveredClip_.reset();
+        repaint(lanes);
     }
     if (hovered != hoveredPoint_)
     {
@@ -1367,6 +1393,12 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
             rowMenu(row->track);
             return;
         }
+        // A fade or crossfade: its menu (fades.md §6).
+        if (const auto region = fadeRegionAt(e.position))
+        {
+            fadeMenu(*region);
+            return;
+        }
         // A clip: its menu, for the selection it's in (or just it).
         if (!selection_.clips.contains(hit->clip))
             setSelection(model::withClips(*snapshot_, {hit->clip}, rowTrack, rowTrack));
@@ -1387,6 +1419,8 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
             session_.useTake(strip->track, strip->hit.take);
         return;
     }
+    if (fadeMouseDown(e)) // a fade's or crossfade's handle
+        return;
     if (const auto badge = badgeAt(e.position))
     {
         // A click shows or hides the clip's takes (right-click: its take menu).
@@ -1466,6 +1500,11 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
 void ArrangementView::mouseDrag(const juce::MouseEvent& e)
 {
     const auto lanes = laneArea();
+    if (drag_ == Drag::Fade)
+    {
+        fadeMouseDrag(e);
+        return;
+    }
     if (drag_ == Drag::Ruler)
     {
         rulerGesture_.drag(timeline_, e.position - lastDrag_, e.position.x - static_cast<float>(lanes.getX()));
@@ -1553,6 +1592,15 @@ void ArrangementView::mouseDrag(const juce::MouseEvent& e)
     }
 }
 
+void ArrangementView::mouseExit(const juce::MouseEvent&)
+{
+    if (hoveredClip_)
+    {
+        hoveredClip_.reset();
+        repaint(laneArea());
+    }
+}
+
 void ArrangementView::mouseUp(const juce::MouseEvent& e)
 {
     if (drag_ == Drag::Ruler && e.getDistanceFromDragStart() < ui::Theme::current().input.dragThreshold)
@@ -1563,6 +1611,8 @@ void ArrangementView::mouseUp(const juce::MouseEvent& e)
     }
     if (drag_ == Drag::Lane)
         laneMouseUp(e);
+    if (drag_ == Drag::Fade)
+        fadeMouseUp();
     if (drag_ == Drag::Resize)
         resizeRow_.reset();
     if (drag_ == Drag::Loop)
@@ -1725,7 +1775,7 @@ void ArrangementView::laneMouseDrag(const juce::MouseEvent& e)
         // Up bows the segment up: early for a rising segment, late for a falling one.
         const auto& a = laneDrag_.base[laneDrag_.index];
         const auto& b = laneDrag_.base[laneDrag_.index + 1];
-        const float up = static_cast<float>(dragStart_.y - e.position.y) / 60.0f * fine;
+        const float up = static_cast<float>(dragStart_.y - e.position.y) / ui::Theme::current().input.bendTravel * fine;
         const float bend = std::clamp(laneDrag_.bend + (b.value >= a.value ? -up : up), -1.0f, 1.0f);
         lanePreview_ = std::pair{key, model::bendSegment(laneDrag_.base, laneDrag_.index, bend, rules)};
         break;

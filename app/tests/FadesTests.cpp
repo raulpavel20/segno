@@ -1,6 +1,7 @@
 // Clip fades and crossfades (M2 step C6, ADR 0036, docs/design/fades.md): curves, where a
 // crossfade sits, seamless joins and edge fades, and what each clip plays.
 #include "model/Automation.h"
+#include "model/FadeEditing.h"
 #include "model/Fades.h"
 
 #include <catch2/catch_approx.hpp>
@@ -179,4 +180,138 @@ TEST_CASE("fades: a crossfade extends both clips into their spare audio, and goe
     track[1].start = 5.0;
     track[1].muted = true;
     CHECK_FALSE(crossfadeOut(track, 0));
+}
+
+namespace
+{
+ClipInfo audioClip(std::uint64_t id, double start, double length, double offset, std::string file, double sourceLength = 10.0)
+{
+    return {.id = id, .kind = ClipInfo::Kind::Audio, .start = start, .length = length, .offset = offset, .sourceLength = sourceLength,
+            .sourcePath = std::move(file)};
+}
+
+const FadeHandle* handleOf(const std::vector<FadeHandle>& handles, FadeHandle::Kind kind, std::uint64_t clip)
+{
+    for (const auto& h : handles)
+        if (h.kind == kind && h.clip == clip)
+            return &h;
+    return nullptr;
+}
+} // namespace
+
+TEST_CASE("fade editing: handles at the fades' ends, bend dots on fades, a crossfade's grips at a join", "[fast]")
+{
+    using K = FadeHandle::Kind;
+    TrackInfo t{.id = 1};
+    t.clips = {audioClip(10, 0.0, 2.0, 0.0, "a.wav"), audioClip(11, 2.0, 2.0, 5.0, "b.wav")};
+    t.clips[0].fadeIn = {.length = 0.5, .bend = 0.4f};
+    auto h = fadeHandles(t);
+    REQUIRE(handleOf(h, K::FadeIn, 10) != nullptr);
+    CHECK(handleOf(h, K::FadeIn, 10)->time == Approx(0.5));
+    CHECK(handleOf(h, K::FadeIn, 10)->height == 0.0f);
+    REQUIRE(handleOf(h, K::BendIn, 10) != nullptr);
+    CHECK(handleOf(h, K::BendIn, 10)->time == Approx(0.25));
+    CHECK(handleOf(h, K::BendIn, 10)->height == Approx(1.0f - fadeInGain(0.5, 0.4f)));
+    CHECK(handleOf(h, K::FadeOut, 10)->time == Approx(2.0)); // no fade: at the corner
+    CHECK(handleOf(h, K::BendOut, 10) == nullptr);
+
+    // A crossfade at the join: its grips replace the two fades' handles there.
+    t.clips[0].crossfadeOut = Crossfade{.length = 0.1, .from = -0.05};
+    h = fadeHandles(t);
+    CHECK(handleOf(h, K::FadeOut, 10) == nullptr);
+    CHECK(handleOf(h, K::FadeIn, 11) == nullptr);
+    CHECK(handleOf(h, K::CrossStart, 10)->time == Approx(1.95));
+    CHECK(handleOf(h, K::CrossEnd, 10)->time == Approx(2.05));
+    CHECK(handleOf(h, K::CrossMiddle, 10)->time == Approx(2.0));
+    CHECK(handleOf(h, K::FadeOut, 11) != nullptr);
+}
+
+TEST_CASE("fade editing: dragging fades, across a join into a crossfade, and a crossfade's grips", "[fast]")
+{
+    using K = FadeHandle::Kind;
+    TrackInfo t{.id = 1};
+    t.clips = {audioClip(10, 0.0, 2.0, 0.0, "a.wav"), audioClip(11, 2.0, 2.0, 5.0, "b.wav")};
+    const auto handles = fadeHandles(t);
+
+    // A fade-in handle dragged in sets the fade; never past the fade-out, keeping its bend.
+    t.clips[1].fadeOut = {.length = 0.5};
+    auto e = dragFade(t, *handleOf(fadeHandles(t), K::FadeIn, 11), 2.3);
+    CHECK(e.clip == 11);
+    REQUIRE(e.in);
+    CHECK(e.in->length == Approx(0.3));
+    e = dragFade(t, *handleOf(fadeHandles(t), K::FadeIn, 11), 3.9);
+    CHECK(e.in->length == Approx(1.5));
+    e = dragFade(t, *handleOf(handles, K::FadeOut, 10), 1.2);
+    CHECK(e.out->length == Approx(0.8));
+
+    // Past the join into the clip that meets it: a crossfade, twice as long, centred.
+    e = dragFade(t, *handleOf(handles, K::FadeOut, 10), 2.04);
+    CHECK(e.crossClip == 10);
+    REQUIRE(e.crossfade);
+    CHECK(e.crossfade->length == Approx(0.08));
+    CHECK(e.crossfade->from == Approx(-0.04));
+    e = dragFade(t, *handleOf(handles, K::FadeIn, 11), 1.97);
+    CHECK(e.crossClip == 10);
+    CHECK(e.crossfade->length == Approx(0.06));
+    // Not into empty space, a seamless neighbour or one without spare audio.
+    TrackInfo apart{.id = 2, .clips = {audioClip(20, 0.0, 2.0, 0.0, "a.wav"), audioClip(21, 3.0, 1.0, 0.0, "b.wav")}};
+    e = dragFade(apart, *handleOf(fadeHandles(apart), K::FadeOut, 20), 2.5);
+    CHECK(e.crossClip == 0);
+    CHECK(e.out->length == 0.0);
+    TrackInfo split{.id = 3, .clips = {audioClip(30, 0.0, 2.0, 0.0, "a.wav"), audioClip(31, 2.0, 2.0, 2.0, "a.wav")}};
+    CHECK(dragFade(split, *handleOf(fadeHandles(split), K::FadeOut, 30), 2.05).crossClip == 0);
+
+    // A crossfade's start keeps its end; its end keeps its start; its middle moves it.
+    t.clips[0].crossfadeOut = Crossfade{.length = 0.1, .from = -0.05};
+    const auto x = fadeHandles(t);
+    e = dragFade(t, *handleOf(x, K::CrossStart, 10), 1.9);
+    REQUIRE(e.crossfade);
+    CHECK(e.crossfade->from == Approx(-0.1));
+    CHECK(e.crossfade->length == Approx(0.15));
+    e = dragFade(t, *handleOf(x, K::CrossEnd, 10), 2.0);
+    CHECK(e.crossfade->from == Approx(-0.05));
+    CHECK(e.crossfade->length == Approx(0.05));
+    e = dragFade(t, *handleOf(x, K::CrossMiddle, 10), 2.03, 2.0);
+    CHECK(e.crossfade->from == Approx(-0.02));
+    CHECK(e.crossfade->length == Approx(0.1));
+
+    // Previewing an edit: the clips as they'll play.
+    const auto clips = withEdit(fadeClips(t), {.clip = 11, .in = Fade{0.2, 0.0f}});
+    CHECK(clips[1].in.length == Approx(0.2));
+    const auto crossed = withEdit(fadeClips(t), {.crossClip = 10});
+    CHECK_FALSE(crossed[0].crossOut); // removed
+}
+
+TEST_CASE("fade editing: bends follow the dot like an automation segment's", "[fast]")
+{
+    TrackInfo t{.id = 1, .clips = {audioClip(10, 0.0, 2.0, 1.0, "a.wav")}};
+    t.clips[0].fadeIn = {.length = 0.5};
+    t.clips[0].fadeOut = {.length = 0.5};
+    const auto h = fadeHandles(t);
+    const auto e = bendFade(t, *handleOf(h, FadeHandle::Kind::BendIn, 10), 0.7f);
+    REQUIRE(e.in);
+    CHECK(e.in->bend == Approx(0.7f));
+    CHECK(e.in->length == Approx(0.5));
+    // Up bows the line up: a rising fade-in bends one way, a falling fade-out the other.
+    CHECK(bendFor(0.0f, 30.0f, 60.0f, true) == Approx(-0.5f));
+    CHECK(bendFor(0.0f, 30.0f, 60.0f, false) == Approx(0.5f));
+    CHECK(bendFor(0.9f, -60.0f, 60.0f, true) == 1.0f);
+    CHECK(fadeInGain(0.5, bendFor(0.0f, 30.0f, 60.0f, true)) > 0.5f); // bowed up
+}
+
+TEST_CASE("fade editing: a clip with takes fades at its outer edges; a previewed edit plays as it will", "[fast]")
+{
+    using K = FadeHandle::Kind;
+    TrackInfo t{.id = 1, .clips = {audioClip(10, 0.0, 1.0, 1.0, "a.wav"), audioClip(11, 1.0, 1.0, 3.0, "b.wav")}};
+    t.clips[0].stack = t.clips[1].stack = 100; // a comp of two takes
+    const auto h = fadeHandles(t);
+    CHECK(handleOf(h, K::FadeIn, 10) != nullptr);
+    CHECK(handleOf(h, K::FadeOut, 10) == nullptr); // the join between its parts
+    CHECK(handleOf(h, K::FadeIn, 11) == nullptr);
+    CHECK(handleOf(h, K::FadeOut, 11) != nullptr);
+
+    const auto previewed = withFadeEdit(t, {.crossClip = 10, .crossfade = Crossfade{.length = 0.02, .from = -0.01}}, true);
+    REQUIRE(previewed.clips[0].crossfadeOut);
+    CHECK(previewed.clips[0].playback.out.kind == Ramp::Kind::Cross);
+    CHECK(previewed.clips[1].playback.extendStart == Approx(0.01));
 }

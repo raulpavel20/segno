@@ -26,6 +26,7 @@ Json projectResultSchema()
                    {"file", {{"type", {"string", "null"}}, {"description", "Its file, or null before it's saved"}}},
                    {"unsaved", boolean("Changes since it was opened or saved")},
                    {"tempo", number("Beats per minute")},
+                   {"edgeFades", boolean("Cut edges of audio clips fade 4 ms (set_edge_fades)")},
                    {"timeSignature", result({{"numerator", integer("")}, {"denominator", integer("")}})},
                    {"tracks", arrayOf(result({{"id", string("")}, {"name", string("")}}), "Every track", std::nullopt)}},
                   {"name", "file", "unsaved", "tempo", "timeSignature", "tracks"});

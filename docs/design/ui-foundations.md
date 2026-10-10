@@ -87,6 +87,7 @@ Role functions for colours that depend on content:
 | `motion.zoom` | 80 ms (the `Timeline` model's own constant) | Animated zoom |
 | `motion.settle` | 150 ms | Detail that waits for motion to stop (exact-zoom waveforms) |
 | `motion.progressDelay` | 250 ms | Work done sooner shows no progress, so quick bounces don't flicker |
+| `input.bendTravel` | 60 px | Dragged for a whole bend: automation segments and fades alike |
 | `input.dragThreshold` | 3 px | A press becomes a drag |
 | `input.edgeGrab` | 6 px (a third of the target at most) | Grabbing a clip's, note's or loop brace's edge |
 | `input.wheelScroll` | 400 px per wheel unit | Scrolling |
@@ -123,6 +124,7 @@ Role functions for colours that depend on content:
 | `shell.laneTextInset` | 8 (text in a lane, a hint or a take's name, from its visible left edge) |
 | `shell.takeStripHeight` | 24 (a take's strip under its clip, C5b) |
 | `shell.progressHeight` | 2 (the progress line along the bottom of what's being worked on, C7) |
+| `shell.fadeHandleSize` | 7 (a fade's or crossfade's handle on a clip, C6; a fade narrower than this draws only its handle) |
 
 Components size themselves for their text: `ui::Toggle::widthFor(label)` and `ui::NumberField::widthFor(widest value)`; bars ask them rather than adding padding by hand. Every clip the arrangement draws (clips, recordings in progress, take strips) takes its box and title from one place (`ArrangementView::clipBox`, `titleOf`).
 

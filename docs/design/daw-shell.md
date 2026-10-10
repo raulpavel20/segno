@@ -102,6 +102,8 @@ app/src/
 | Bounce in place (C7) | `clip.bounce` | Ctrl+B |
 | Bounce to new track (C7) | `clip.bounceToTrack` | Ctrl+Shift+B |
 | Mute clips (C7) | `clip.mute` | 0 |
+| Crossfade the selected clips' joins (C6) | `clip.crossfade` | Ctrl+Shift+X |
+| Edge fades on or off (C6) | `project.edgeFades` | Ctrl+Alt+Shift+E |
 
 Each step adds its actions as it lands. An action that can't run now dims in menus and the palette; if it says why (`Action::whyNot`), pressing its shortcut shows the reason as a toast instead of doing nothing.
 
@@ -297,6 +299,14 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 - **Ctrl+B / Ctrl+Shift+B** bounce the selected clips; clips that can't be bounced are left out, and when none can, the shortcut's toast says why. The bounced clips are selected when they land; a tail cut by a clip that isn't bounced is reported in a toast.
 - **While a bounce renders,** its clips show a progress line along their bottom (`ui::paintProgress`, after `motion.progressDelay`); Escape cancels it.
 - **Muted clips** draw dimmed (`clipDimmed`) with "M" before their name, as on a track's mute button. 0 mutes the selected clips (unmutes them when all are muted); the inspector's CLIP has a Mute toggle.
+
+## Fades and crossfades (C6, [fades.md](fades.md), ADR 0036)
+
+- **Drawn on audio clips** with the functions the audio plays (`model::Fades`): a fade's curve in `textPrimary` over its shaded part (`faded(surface0)`); a crossfade's two curves over its span at the join. Fades narrower than a handle draw only their handle.
+- **Handles** (`model::FadeEditing`) show on the clip under the pointer and on selected clips: squares at the fades' ends hanging from the top of the body (`shell.fadeHandleSize`), a dot in the middle of each fade to bend it, a crossfade's ends and its middle. Drag a fade's square to set its length (past the clip's edge into a clip that meets it: a crossfade), its dot (or Alt + drag on the fade) to bend it (`input.bendTravel`, as automation), a crossfade's ends to resize it and its middle to move it. A double-click removes a fade or crossfade, or straightens a bend. Each gesture previews what it will play and is one undo step on release.
+- **Right-click** on a fade: Straighten, Remove; on a crossfade: its shapes, each with when to use it, and Remove crossfade.
+- **Ctrl+Shift+X** crossfades the joins between the selected clips (a join that can't be crossfaded says why); the clip menu has Crossfade. Ctrl+Alt+Shift+E (or the palette) turns the project's edge fades on or off.
+- **The inspector's CLIP** has an audio clip's Fade in and Fade out lengths in ms, to drag or type.
 
 ## Waveforms (C3)
 

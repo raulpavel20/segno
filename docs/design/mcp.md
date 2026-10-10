@@ -101,6 +101,9 @@ The project, track, clip and module resources send change notifications when the
 | `split_clips` | `clips`, `at` | The new right-hand clip ids |
 | `delete_clips` | `clips` | – (undoable, so no confirmation) |
 | `mute_clips` | `clips`, `muted?` (true) | The clips; muted ones keep their place and play nothing (C7) |
+| `set_fades` | `clips`, `in?`, `out?` (ms or text: "10 ms", "0.5 s", "1/16"), `inBend?`, `outBend?` | The clips' fades ([fades.md](fades.md) §7) |
+| `crossfade` | `clips`, `length?` (10 ms), `shape?`, `remove?` | Each join between them: its crossfade, or why it couldn't be made |
+| `set_edge_fades` | `on` | The project's edge fades on or off |
 | `bounce_clips` | `clips`, `newTrack?` (false) | Renders them to audio ([bounce.md](bounce.md) §11): in place, through each clip's instrument, keeping its source as a take; or to a new track through the whole chain, muting the source. Waits for the render (with progress); one undo step when it lands. The bounced clips, the new tracks, and any audible tails a clip that wasn't bounced cut |
 
 **Notes** (MIDI clips; every tool is one undo step; notes past the clip's end lengthen it as in the piano roll, B15):
@@ -174,7 +177,7 @@ Every DAW feature ships with its tools (the coverage rule, ADR 0021). Today:
 | Projects, undo | Project tools |
 | Live MIDI (computer keyboard, inputs) | Not a tool: a live performance input, not an edit. A `preview_note` tool may come later |
 
-Not in the DAW yet, so no tools yet: renaming, deleting and reordering tracks; clip names and colours; fades (C6), export (C8). Each brings its tools with it; recording (C5) and bounce (C7) brought theirs. Automation (C4) has its lane tools, and `get_project` lists the automation lanes with their assignments.
+Not in the DAW yet, so no tools yet: renaming, deleting and reordering tracks; clip names and colours; export (C8). Each brings its tools with it; recording (C5), fades (C6) and bounce (C7) brought theirs. Automation (C4) has its lane tools, and `get_project` lists the automation lanes with their assignments.
 
 ## 7. Architecture
 

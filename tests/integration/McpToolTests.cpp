@@ -144,7 +144,7 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
           "set_automation", "clear_automation", "set_automation_on", "add_automation_lane", "set_automation_lane",
           "remove_automation_lane", "assign_automation", "unassign_automation", "set_track_input", "arm_tracks",
           "record", "get_takes", "use_take", "set_take", "move_takes_to_tracks", "delete_takes", "capture_midi",
-          "bounce_clips", "mute_clips",
+          "bounce_clips", "mute_clips", "set_fades", "crossfade", "set_edge_fades",
           "undo", "redo",
           "save_project", "new_project", "open_project"})
         CHECK(names.contains(name));
@@ -990,3 +990,58 @@ TEST_CASE("mcp tools: bounce clips in place and to a new track, and mute clips",
     const auto project = daw.project();
     CHECK(project["tracks"][1]["id"] == out["tracks"][0]); // right after the source
 }
+
+TEST_CASE("mcp tools: fades, crossfades and edge fades", "[integration][mcp]")
+{
+    Daw daw;
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    // A 4 s sine in two files: the same audio, so a crossfade between them can be heard as one.
+    fd::testkit::AudioBuffer sine(2, 4 * 48000);
+    for (int c = 0; c < 2; ++c)
+        for (int i = 0; i < sine.numSamples(); ++i)
+            sine.at(c, i) = 0.5f * std::sin(static_cast<float>(i) * 0.05f);
+    const auto a = daw.folder.getChildFile("a.wav"), b = daw.folder.getChildFile("b.wav");
+    REQUIRE(fd::testkit::writeWav(a.getFullPathName().toStdString(), sine, 48000.0));
+    REQUIRE(fd::testkit::writeWav(b.getFullPathName().toStdString(), sine, 48000.0));
+    const auto first = daw.call("insert_audio_file", {{"track", t0}, {"start", 0}, {"path", a.getFullPathName().toStdString()}})["clip"]["id"]
+                           .get<std::string>();
+    CHECK(daw.call("get_clip", {{"clip", first}})["fadeIn"]["ms"] == 0.0);
+    CHECK(daw.project()["edgeFades"] == true);
+
+    // Fades: lengths in ms or text, bends.
+    auto r = daw.call("set_fades", {{"clips", {first}}, {"in", 120}, {"out", "0.5 s"}, {"outBend", 0.4}});
+    CHECK(r["clips"][0]["fadeIn"]["ms"] == 120.0);
+    CHECK(r["clips"][0]["fadeOut"]["ms"] == 500.0);
+    CHECK(r["clips"][0]["fadeOut"]["bend"] == Approx(0.4));
+    CHECK(daw.session->undoDescription() == "Assistant: set fades");
+
+    // A split is seamless: nothing to crossfade.
+    const auto halves = daw.call("split_clips", {{"clips", {first}}, {"at", "2.1.1"}})["clips"];
+    REQUIRE(halves.size() == 1);
+    const auto second = halves[0]["id"].get<std::string>();
+    r = daw.call("crossfade", {{"clips", {first, second}}});
+    REQUIRE(r["joins"].size() == 1);
+    CHECK(r["joins"][0].contains("why"));
+    // The second half replaced by the copy from its start: it has no audio before it, so the
+    // crossfade sits after the join, in the first half's spare audio.
+    daw.call("delete_clips", {{"clips", {second}}});
+    const auto copy = daw.call("insert_audio_file", {{"track", t0}, {"start", "2.1.1"}, {"path", b.getFullPathName().toStdString()}})["clip"]["id"]
+                          .get<std::string>();
+    r = daw.call("crossfade", {{"clips", {first, copy}}, {"length", "20 ms"}, {"shape", "equal gain"}});
+    REQUIRE(r["joins"].size() == 1);
+    REQUIRE(r["joins"][0].contains("crossfade"));
+    CHECK(r["joins"][0]["crossfade"]["ms"] == 20.0);
+    CHECK(r["joins"][0]["crossfade"]["startMs"] == 0.0);
+    CHECK(r["joins"][0]["crossfade"]["shape"] == "Equal gain");
+    CHECK(daw.call("get_clip", {{"clip", first}})["crossfadeOut"]["ms"] == 20.0);
+    CHECK(daw.fails("crossfade", {{"clips", {first}}, {"shape", "wobbly"}}).find("equal power") != std::string::npos);
+    r = daw.call("crossfade", {{"clips", {first, copy}}, {"remove", true}});
+    CHECK(r["joins"].size() == 1);
+    CHECK_FALSE(daw.call("get_clip", {{"clip", first}}).contains("crossfadeOut"));
+
+    // Edge fades.
+    CHECK(daw.call("set_edge_fades", {{"on", false}})["on"] == false);
+    CHECK(daw.project()["edgeFades"] == false);
+    CHECK(daw.session->undoDescription() == "Assistant: set edge fades");
+}
+

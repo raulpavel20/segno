@@ -116,6 +116,7 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         actions_.addMenuItem(menu, "clip.bounce");
         actions_.addMenuItem(menu, "clip.bounceToTrack");
         actions_.addMenuItem(menu, "clip.mute");
+        actions_.addMenuItem(menu, "clip.crossfade");
         menu.addSeparator();
         actions_.addMenuItem(menu, "edit.split");
         actions_.addMenuItem(menu, "edit.duplicate");
@@ -541,6 +542,30 @@ void Shell::registerActions()
                   },
                   .isEnabled = [this, clipsShown] { return clipsShown() && arrangement_.hasClipSelection(); },
                   .isToggled = allMuted});
+
+    // Crossfades (C6, fades.md §4): every join between the selected clips that meet; a join that
+    // can't take one says why.
+    actions_.add({.id = "clip.crossfade", .name = "Crossfade", .category = "Clip", .keys = {key('x', kCmd | kShift)},
+                  .perform = [this] {
+                      const auto& selected = arrangement_.selection().clips;
+                      const auto results = session_.crossfade({selected.begin(), selected.end()});
+                      if (results.empty())
+                          showWarning("Select audio clips that meet to crossfade them.");
+                      for (const auto& r : results)
+                          if (!r.crossfade)
+                          {
+                              showWarning(juce::String::fromUTF8(r.why.c_str()));
+                              break;
+                          }
+                  },
+                  .isEnabled = [this, clipsShown] { return clipsShown() && arrangement_.selection().clips.size() >= 2; },
+                  .whyNot = [this, clipsShown] {
+                      return clipsShown() && arrangement_.hasClipSelection() ? juce::String("Select the clips on both sides of a join.")
+                                                                             : juce::String();
+                  }});
+    actions_.add({.id = "project.edgeFades", .name = "Edge fades", .category = "Project", .keys = {key('e', kCmd | kAlt | kShift)},
+                  .perform = [this] { session_.setEdgeFades(!session_.edgeFades()); },
+                  .isToggled = [this] { return session_.edgeFades(); }});
     actions_.add({.id = "midi.computerKeyboard", .name = "Computer keyboard as MIDI", .category = "MIDI",
                   .keys = {key('k', kCmd | kShift)},
                   .perform = [this] {

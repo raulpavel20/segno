@@ -1,6 +1,7 @@
 // Smoke tests of the DAW shell (docs/design/daw-shell.md, C1): it builds offscreen around a
 // Session, every action has a unique id and shortcut, and keys reach the registry.
 
+#include "fd/testkit/WavIO.h"
 #include "engine/EngineBehaviour.h"
 #include "engine/DevicePlugin.h"
 #include "engine/Session.h"
@@ -1174,7 +1175,8 @@ TEST_CASE("automation lanes: rows among the tracks, added like tracks, edited an
     CHECK(inspector.sections() == std::vector{S::Point, S::Lane, S::Assignments}); // a lane belongs to no track
     // The inspector's value field types a point's value (the others are the assignments' ranges).
     auto fields = findAll<fd::ui::NumberField>(inspector);
-    fields.erase(std::remove_if(fields.begin(), fields.end(), [&](auto* field) { return field->getParentComponent() != &inspector; }),
+    fields.erase(std::remove_if(fields.begin(), fields.end(),
+                                [&](auto* field) { return field->getParentComponent() != &inspector || !field->isVisible(); }),
                  fields.end());
     REQUIRE(fields.size() == 1);
     fields[0]->setValue(0.25, juce::sendNotification);
@@ -1915,8 +1917,8 @@ TEST_CASE("bounce: Ctrl+B bounces the selected clips in place, 0 mutes, the clip
                 names.push_back(it.getItem().text);
                 enabled.push_back(it.getItem().isEnabled);
             }
-        CHECK(names == std::vector<juce::String>{"Bounce in place", "Bounce to new track", "Mute clips", "Split at playhead",
-                                                 "Duplicate", "Delete"});
+        CHECK(names == std::vector<juce::String>{"Bounce in place", "Bounce to new track", "Mute clips", "Crossfade",
+                                                 "Split at playhead", "Duplicate", "Delete"});
         CHECK_FALSE(enabled[0]); // no instrument on this clip's track
         CHECK(enabled[2]);
     }
@@ -1992,6 +1994,113 @@ TEST_CASE("bounce: Ctrl+B bounces the selected clips in place, 0 mutes, the clip
     // Cancelled, or landed just before Escape: either way nothing is left half done.
     const auto after = track(t0);
     CHECK(std::all_of(after.clips.begin(), after.clips.end(), [](const auto& c) { return !c.muted; }));
+    root.deleteRecursively();
+}
+
+TEST_CASE("fades: drawn on clips, handles on hover, a handle drag sets a fade, Ctrl+Shift+X crossfades (C6)", "[integration]")
+{
+    ShellFixture f;
+    f.shell->setSize(1800, 1000);
+    auto& s = *f.session;
+    auto& actions = f.shell->actions();
+    const auto root = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("fd-shell-" + juce::Uuid().toString());
+    REQUIRE(root.createDirectory());
+    s.setUnsavedRoot(root.getChildFile("Unsaved"));
+    s.updateSnapshotNow();
+    const auto t0 = s.snapshot()->tracks[0].id;
+    // A 4 s sine in two files; the first up to 2 s, the copy from 2 s: they meet at 2 s.
+    fd::testkit::AudioBuffer sine(2, 4 * 48000);
+    for (int c = 0; c < 2; ++c)
+        for (int i = 0; i < sine.numSamples(); ++i)
+            sine.at(c, i) = 0.5f * std::sin(static_cast<float>(i) * 0.01f);
+    const auto fa = root.getChildFile("a.wav"), fb = root.getChildFile("b.wav");
+    REQUIRE(fd::testkit::writeWav(fa.getFullPathName().toStdString(), sine, 48000.0));
+    REQUIRE(fd::testkit::writeWav(fb.getFullPathName().toStdString(), sine, 48000.0));
+    const auto a = s.insertAudioFile(t0, fa, 0.0);
+    s.applyClipEdits({{.clip = a, .track = t0, .start = 0.0, .length = 2.0, .offset = 0.0}});
+    const auto b = s.insertAudioFile(t0, fb, 2.0);
+    s.applyClipEdits({{.clip = b, .track = t0, .start = 2.0, .length = 2.0, .offset = 2.0}});
+    s.setFades({a}, fd::model::Fade{0.5, 0.4f}, std::nullopt);
+    s.setFades({b}, std::nullopt, fd::model::Fade{0.8, 0.0f});
+    s.updateSnapshotNow();
+    auto clipOf = [&](std::uint64_t id) {
+        s.updateSnapshotNow();
+        return *fd::model::findClip(*s.snapshot(), id)->first;
+    };
+
+    auto& view = f.shell->arrangement();
+    view.setView(0.0, 400.0); // 4 s across 1600 px
+    for (int i = 0; i < 50; ++i) // the waveforms build in the background
+    {
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
+        view.frame(0.02, s.position());
+    }
+    const float lanesX = static_cast<float>(fd::app::ArrangementView::headerWidth());
+    auto laneX = [&](double seconds) { return lanesX + static_cast<float>(view.timeline().xForTime(seconds)); };
+    const auto& theme = fd::ui::Theme::current();
+    const float rowTop = static_cast<float>(fd::app::ArrangementView::rulerHeight());
+    const float bodyTop = rowTop + static_cast<float>(theme.shell.clipGap) + static_cast<float>(theme.shell.clipTitleHeight);
+    const float handleY = bodyTop + static_cast<float>(theme.shell.fadeHandleSize) * 0.5f;
+
+    // The pointer over a clip shows its handles; a drag of its fade-in handle sets the fade (one step).
+    view.mouseMove(mouseEvent(view, {laneX(1.0), rowTop + 40.0f}, {laneX(1.0), rowTop + 40.0f}, false, {}));
+    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: fades, a hovered clip's handles
+        dumpPng(dump, "fades@2x.png", view.createComponentSnapshot(view.getLocalBounds().withHeight(130).withWidth(1000), true, 2.0f));
+    drag(view, {laneX(0.5), handleY}, {laneX(0.8), handleY});
+    CHECK(clipOf(a).fadeIn.length == Catch::Approx(0.8).margin(0.01));
+    CHECK(clipOf(a).fadeIn.bend == Catch::Approx(0.4f)); // its bend kept
+    CHECK(s.undoDescription() == "Fades");
+
+    // Its fade-out handle (at its corner) dragged past the join makes a crossfade there.
+    drag(view, {laneX(2.0) - 2.0f, handleY}, {laneX(2.1), handleY});
+    REQUIRE(clipOf(a).crossfadeOut);
+    CHECK(clipOf(a).crossfadeOut->length == Catch::Approx(0.2).margin(0.01));
+    CHECK(s.undoDescription() == "Crossfade");
+    view.mouseMove(mouseEvent(view, {laneX(2.5), rowTop + 40.0f}, {laneX(2.5), rowTop + 40.0f}, false, {}));
+    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: the crossfade and its grips
+        dumpPng(dump, "crossfade@2x.png",
+                view.createComponentSnapshot(juce::Rectangle<int>(static_cast<int>(laneX(1.5)), 0, 500, 130), true, 2.0f));
+
+    // A double-click on its middle (where its curves cross) removes it; Ctrl+Shift+X on the two
+    // clips makes a 10 ms one.
+    const float bodyHeight = 64.0f - static_cast<float>(2 * theme.shell.clipGap + 1 + theme.shell.clipTitleHeight);
+    const juce::Point<float> middle(laneX(2.0), bodyTop + bodyHeight * (1.0f - fd::model::crossfadeGains(0.5, fd::model::CrossfadeShape::EqualPower).out));
+    click(view, middle);
+    click(view, middle, 2);
+    s.updateSnapshotNow();
+    CHECK_FALSE(clipOf(a).crossfadeOut);
+    CHECK(s.undoDescription() == "Remove crossfade");
+    s.updateSnapshotNow();
+    view.setSelection(fd::model::withClips(*s.snapshot(), {a, b}, t0, t0));
+    REQUIRE(actions.isEnabled("clip.crossfade"));
+    REQUIRE(actions.handleKey(juce::KeyPress('x', juce::ModifierKeys::commandModifier | juce::ModifierKeys::shiftModifier, 0)));
+    REQUIRE(clipOf(a).crossfadeOut);
+    CHECK(clipOf(a).crossfadeOut->length == Catch::Approx(fd::model::kCrossfadeSeconds));
+
+    // The inspector's CLIP shows an audio clip's fades, and typing one sets it.
+    view.setSelection(fd::model::withClips(*s.snapshot(), {b}, t0, t0));
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    std::vector<fd::ui::NumberField*> fields;
+    for (auto* field : findAll<fd::ui::NumberField>(f.shell->inspector()))
+        if (field->isVisible() && field->getParentComponent() == &f.shell->inspector())
+            fields.push_back(field);
+    REQUIRE(fields.size() == 2); // fade in, fade out
+    fields[0]->setValue(25.0, juce::sendNotification);
+    CHECK(clipOf(b).fadeIn.length == Catch::Approx(0.025));
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+    {
+        dumpPng(dump, "fades-inspector@2x.png",
+                f.shell->inspector().createComponentSnapshot(f.shell->inspector().getLocalBounds().withHeight(300), true, 2.0f));
+        dumpPng(dump, "fades-window.png", f.shell->createComponentSnapshot(f.shell->getLocalBounds()));
+        f.shell->setSize(1024, 800);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+        dumpPng(dump, "fades-compact.png", f.shell->createComponentSnapshot(f.shell->getLocalBounds()));
+    }
+
+    // Edge fades toggle from the palette's action, one undo step.
+    REQUIRE(actions.perform("project.edgeFades"));
+    CHECK_FALSE(s.edgeFades());
+    CHECK(s.undoDescription() == "Edge fades");
     root.deleteRecursively();
 }
 

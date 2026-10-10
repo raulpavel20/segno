@@ -75,6 +75,7 @@ struct Input
     double wheelScroll = 400.0; // px per wheel unit
     double wheelZoom = 2.0;     // zoom factor per wheel unit (Ctrl)
     double rulerZoom = 0.012;   // log zoom per px dragged vertically on a ruler
+    float bendTravel = 60.0f;   // px dragged for a whole bend (automation segments, fades)
 };
 
 /// The shell's sizes (docs/design/ui-foundations.md).
@@ -110,6 +111,7 @@ struct ShellMetrics
     int laneTextInset = 8;        // text in a lane (a hint, a take's name), from its visible left edge
     int takeStripHeight = 24;     // a take's strip under its clip (recording.md §6)
     int progressHeight = 2;       // the progress line along the bottom of what's being worked on
+    int fadeHandleSize = 7;       // a fade's or crossfade's handle on a clip (fades.md §3)
     float shadowRadius = 18.0f, shadowOffset = 6.0f;
 };
 

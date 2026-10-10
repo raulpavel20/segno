@@ -30,6 +30,39 @@ double signedBeats(ToolEnv& env, const Json& value)
     throw Problem{"Give the amount in beats (a number, negative to move earlier) or text such as \"-1 bar\"."};
 }
 
+/// A fade or crossfade length in seconds: a number of milliseconds, or text such as "10 ms",
+/// "0.5 s" or a musical length ("1/16", "1 beat").
+double fadeSeconds(ToolEnv& env, const Json& value)
+{
+    if (value.is_number())
+        return std::max(0.0, value.get<double>() / 1000.0);
+    if (value.is_string())
+    {
+        const auto text = juce::String(value.get<std::string>()).trim().toLowerCase();
+        // A plain number before the unit ("10 ms", "0.5s"); anything else is a musical length.
+        auto numberBefore = [&text](int suffix) -> std::optional<double> {
+            const auto n = text.dropLastCharacters(suffix).trim();
+            if (n.isNotEmpty() && n.containsOnly("0123456789."))
+                return n.getDoubleValue();
+            return std::nullopt;
+        };
+        if (text.endsWith("ms"))
+            if (const auto ms = numberBefore(2))
+                return *ms / 1000.0;
+        if (text.endsWith("s"))
+            if (const auto s = numberBefore(1))
+                return *s;
+        return seconds(env, lengthArg(env, value));
+    }
+    throw Problem{"Give the length in ms (a number) or as text such as \"10 ms\", \"0.5 s\" or \"1/16\"."};
+}
+
+/// Seconds as milliseconds for results, to the microsecond.
+double msOf(double seconds)
+{
+    return std::round(seconds * 1e6) / 1e3;
+}
+
 std::vector<std::uint64_t> clipIds(ToolEnv& env, const Json& list)
 {
     std::vector<std::uint64_t> out;
@@ -233,6 +266,120 @@ void addClipTools(Registry& registry, ToolEnv& env)
             return ToolResult::ok({{"clips", clipsJson(env, created)}},
                                   created.empty() ? "None of the clips contains that position." : "");
         }));
+
+    // Fades and crossfades (fades.md §7).
+    ToolAnnotations fades;
+    fades.idempotent = true;
+    registry.tools.push_back(make(
+        env,
+        {"set_fades", "Set clip fades",
+         "Sets audio clips' fade-in and fade-out (a clip with takes: at its outer edges). Lengths are times, not beats: "
+         "a number of milliseconds, or text such as \"10 ms\", \"0.5 s\" or a musical length (\"1/16\"); 0 removes a "
+         "fade. A bend (-1 to 1) curves it as an automation segment bends. Cut edges keep a 4 ms edge fade (see "
+         "set_edge_fades).",
+         object({{"clips", ids(IdKind::Clip, "The audio clips")},
+                 {"in", length("The fade-in's length")},
+                 {"out", length("The fade-out's length")},
+                 {"inBend", number("The fade-in's bend, -1 to 1 (default: as it is)")},
+                 {"outBend", number("The fade-out's bend, -1 to 1")}},
+                {"clips"}),
+         result({{"clips", arrayOf(clipResultSchema(), "The clips", std::nullopt)}}, {"clips"}), fades},
+        [&env](const Json& args, CallContext&) {
+            const auto ids = clipIds(env, args["clips"]);
+            std::optional<model::Fade> in, out;
+            for (const auto id : ids)
+            {
+                const auto c = clip(env, formatId(IdKind::Clip, id));
+                if (c.kind != model::ClipInfo::Kind::Audio)
+                    throw Problem{"Only audio clips fade: " + c.name + " is a MIDI clip."};
+                if (args.contains("in") || args.contains("inBend"))
+                    in = model::Fade{args.contains("in") ? fadeSeconds(env, args["in"]) : c.fadeIn.length,
+                                     args.contains("inBend") ? std::clamp(args["inBend"].get<float>(), -1.0f, 1.0f) : c.fadeIn.bend};
+                if (args.contains("out") || args.contains("outBend"))
+                    out = model::Fade{args.contains("out") ? fadeSeconds(env, args["out"]) : c.fadeOut.length,
+                                      args.contains("outBend") ? std::clamp(args["outBend"].get<float>(), -1.0f, 1.0f) : c.fadeOut.bend};
+                env.session.setFades({id}, in, out);
+            }
+            return ToolResult::ok({{"clips", clipsJson(env, ids)}});
+        }));
+
+    registry.tools.push_back(make(
+        env,
+        {"crossfade", "Crossfade clips",
+         "Crossfades every join between the given audio clips that meet: the clips stay edge to edge and each plays its "
+         "spare audio past the join while the crossfade lasts, centred on it unless only one side has spare audio. "
+         "Shapes: \"equal power\" (the default, for different material), \"equal gain\" (for the same material) and "
+         "\"s-curve\". A join that has a crossfade keeps it (taking a new shape or length if given); with \"remove\": "
+         "true, its crossfade goes. A join without spare audio, or a seamless one, says why.",
+         object({{"clips", ids(IdKind::Clip, "The audio clips on both sides of each join")},
+                 {"length", length("The crossfade's length (default 10 ms): ms, or text such as \"20 ms\"")},
+                 {"shape", string("\"equal power\", \"equal gain\" or \"s-curve\"")},
+                 {"remove", boolean("Remove the joins' crossfades instead")}},
+                {"clips"}),
+         result({{"joins", arrayOf(result({{"out", string("The clip before the join")}, {"in", string("The clip after it")}}),
+                                   "Each join between the clips", std::nullopt)}},
+                {"joins"}),
+         fades},
+        [&env](const Json& args, CallContext&) {
+            const auto ids = clipIds(env, args["clips"]);
+            std::optional<model::CrossfadeShape> shape;
+            if (args.contains("shape"))
+            {
+                shape = model::shapeFromName(args["shape"].get<std::string>());
+                if (!shape)
+                    throw Problem{"The shape is \"equal power\", \"equal gain\" or \"s-curve\"."};
+            }
+            Json joins = Json::array();
+            if (args.value("remove", false))
+            {
+                env.session.flushSnapshot();
+                for (const auto id : ids)
+                    if (const auto c = clip(env, formatId(IdKind::Clip, id)); c.crossfadeOut)
+                        if (env.session.setCrossfade(id, std::nullopt, "Remove crossfade"))
+                            joins.push_back({{"out", formatId(IdKind::Clip, id)}, {"removed", true}});
+                return ToolResult::ok({{"joins", joins}}, joins.empty() ? "None of the clips had a crossfade." : "");
+            }
+            const double length = args.contains("length") ? fadeSeconds(env, args["length"]) : model::kCrossfadeSeconds;
+            // A join with a crossfade takes a new length when given (kept centred where it was).
+            if (args.contains("length"))
+            {
+                env.session.flushSnapshot();
+                for (const auto id : ids)
+                    if (const auto c = clip(env, formatId(IdKind::Clip, id)); c.crossfadeOut)
+                        env.session.setCrossfade(id, model::Crossfade{length, c.crossfadeOut->from + (c.crossfadeOut->length - length) * 0.5,
+                                                                      shape.value_or(c.crossfadeOut->shape)});
+            }
+            std::string why;
+            for (const auto& r : env.session.crossfade(ids, length, shape))
+            {
+                Json j{{"out", formatId(IdKind::Clip, r.out)}, {"in", formatId(IdKind::Clip, r.in)}};
+                if (r.crossfade)
+                    j["crossfade"] = {{"ms", msOf(r.crossfade->length)},
+                                      {"startMs", msOf(r.crossfade->from)},
+                                      {"shape", model::shapeName(r.crossfade->shape)}};
+                else
+                {
+                    j["why"] = r.why;
+                    why = r.why;
+                }
+                joins.push_back(std::move(j));
+            }
+            if (joins.empty())
+                throw Problem{"None of these clips meet another of them: select clips on both sides of a join."};
+            return ToolResult::ok({{"joins", joins}}, why);
+        }));
+
+    registry.tools.push_back(make(env,
+                                  {"set_edge_fades", "Edge fades on or off",
+                                   "Turns the project's edge fades on or off: every cut edge of an audio clip (trimmed or "
+                                   "split, not a file's own start or end) fades 4 ms so edits don't click. Off for "
+                                   "sample-accurate cuts, such as a drum hit at its attack.",
+                                   object({{"on", boolean("On (the default for new projects) or off")}}, {"on"}),
+                                   result({{"on", boolean("")}}, {"on"}), fades},
+                                  [&env](const Json& args, CallContext&) {
+                                      env.session.setEdgeFades(args["on"].get<bool>());
+                                      return ToolResult::ok({{"on", env.session.edgeFades()}});
+                                  }));
 
     ToolAnnotations mutes;
     mutes.idempotent = true;

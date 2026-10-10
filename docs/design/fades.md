@@ -2,7 +2,7 @@
 
 How audio clips start and stop without clicks: **edge fades** that need no thought, **fades** you draw on a clip, and **crossfades** where two audio clips meet. The decision is [ADR 0036](../decisions/0036-crossfades-at-the-boundary.md). It builds on one kind of track and its rule that clips never overlap ([ADR 0019](../decisions/0019-one-kind-of-track.md): "blending between neighbouring audio clips is a crossfade at the boundary, not an overlap"), takes on clips ([ADR 0032](../decisions/0032-takes-belong-to-clips.md)), automation's bends ([automation.md](automation.md) §5), the time-view kit ([ui-foundations.md](ui-foundations.md)) and bounce ([bounce.md](bounce.md), whose cut tails already fade).
 
-**Status:** approved by the product owner (2026-10-10), with every recommendation of §12. Being built (§10).
+**Status:** approved by the product owner (2026-10-10), with every recommendation of §12. Built (2026-10-10); awaiting the product owner's feel check (manual-tests/M2.md, "Fades (C6)"). What building settled is noted where it applies: thin fades show by their handle (§3), the inspector types lengths (§3), removing a crossfade (§4), its storage (§8), the edge-fade toggle's shortcut and MCP tool (§6, §7).
 
 **Where the field is (2026):** fades are non-destructive clip properties everywhere: a length and a curve, set with handles at a clip's top corners and in an inspector, linear by default (Studio One, Pro Tools). Crossfades come in two models:
 - **Real overlap on the lane:** REAPER, Cubase, Studio One and Logic's X-Fade mode crossfade where clips overlap.
@@ -45,11 +45,11 @@ Segno follows the edge-to-edge model, which ADR 0019 already chose, and combines
 | Double-click a fade handle | Removes the fade (a cut edge keeps its 4 ms edge fade) |
 | Drag a fade-out handle past the clip's end into the clip after it (or a fade-in handle back into the one before) | Makes a crossfade there (§4) |
 
-**Drawn:** the faded part of the clip is shaded (the curve's area above it in `surface0` at the faded alpha), with the curve as a line in `textPrimary`. The waveform stays the source's; the shading shows the fade.
+**Drawn:** the faded part of the clip is shaded (the area above the curve, `faded(surface0)`), with the curve as a line in `textPrimary`. The waveform stays the source's; the shading shows the fade. A fade narrower than a handle (`shell.fadeHandleSize`) draws nothing but its handle: a 4 ms edge fade shows once zoomed in, and never as a glitch-like sliver.
 
 **The curve:** a fade is a segment from silence to full level (fade-in) or back (fade-out) with a bend, the same function as an automation segment (`model::automationValueAt`). Its gain is that curve as a level, so a straight fade is a straight ramp of gain. New fades start straight (linear), the common default. Lengths are times, not beats: a fade keeps its duration when the tempo changes.
 
-**In the inspector:** CLIP gains Fade in and Fade out (lengths you can type, in ms) and their bends.
+**In the inspector:** an audio clip's CLIP gains Fade in and Fade out, lengths in ms to drag or type ("12", "0.5 s"); bends are made on the clip.
 
 **With edits:**
 - moving and duplicating keep a clip's fades;
@@ -76,7 +76,7 @@ Segno follows the edge-to-edge model, which ADR 0019 already chose, and combines
 - a crossfade belongs to the join. Moving either clip away from the other removes it (undo brings it back); moving them together keeps it;
 - trimming at the join (the join moves) keeps the crossfade, limited to the handles at its new place;
 - deleting either clip removes it;
-- selecting the crossfade (a click on its span) and pressing Delete removes it.
+- a double-click on any of its grips, or Remove crossfade in its right-click menu, removes it.
 
 ## 5. Comping joins (C5c)
 
@@ -90,21 +90,23 @@ Comping (recording.md §7) makes clips that meet at joins and play parts of diff
 | Action | ID | Shortcut |
 |---|---|---|
 | Crossfade the selected clips' joins | `clip.crossfade` | Ctrl+Shift+X |
-| Edge fades on or off (the project) | `project.edgeFades` | (palette) |
+| Edge fades on or off (the project) | `project.edgeFades` | Ctrl+Alt+Shift+E (every action has a shortcut) |
 
 ## 7. Assistants (MCP)
 
 | Tool | Arguments | Result |
 |---|---|---|
-| `set_fades` | `clips`, `in?` / `out?` (a length in beats, ms or text such as "10 ms"; 0 removes), `inBend?` / `outBend?` (−1 … 1) | The clips' fades as set. One undo step |
-| `crossfade` | `clips` (their joins), `length?`, `shape?` ("equal power", "equal gain", "s-curve"), or `remove: true` | Each join: its crossfade's span and shape, or why it couldn't be made |
+| `set_fades` | `clips`, `in?` / `out?` (a number of ms, or text: "10 ms", "0.5 s", a musical length such as "1/16"; 0 removes), `inBend?` / `outBend?` (−1 … 1) | The clips' fades as set. One undo step |
+| `crossfade` | `clips` (their joins), `length?` (default 10 ms), `shape?` ("equal power", "equal gain", "s-curve"), or `remove: true` | Each join: its crossfade (length, start relative to the join, shape), or why it couldn't be made |
+| `set_edge_fades` | `on` | The setting. One undo step |
 
-Clip results gain `fadeIn`, `fadeOut` (length and bend) and `crossfadeIn` / `crossfadeOut` where they have one. `get_project` reports the edge-fade setting; `set_project` (or the palette action) changes it.
+Clip results gain `fadeIn` and `fadeOut` (ms and bend) and `crossfadeOut` where a clip has one. `get_project` reports `edgeFades`.
 
 ## 8. Model and engine
 
 - **`model::Fades`** (JUCE-free, `[fast]`): the gain of a fade at a time (the automation segment function) and of each crossfade shape; where a crossfade sits for given handles; which edges are seamless; each clip's *playback*: how far it plays past its start and end (crossfade handles) and the fades it plays with (its own, edge fades, crossfades), from its neighbours on the track. The arrangement draws the same functions.
-- **Storage** on the clip's state, undoable: the fade lengths in tracktion's own `fadeIn` and `fadeOut` (so its copies and splits carry them), and Segno's bends, crossfade lengths, offsets and shapes as `fd…` properties. A crossfade is stored on both clips (each its half); the model drops it when they no longer meet.
+- **Storage** on the clip's state, undoable: the fade lengths in tracktion's own `fadeIn` and `fadeOut` (so its copies and splits carry them), and Segno's bends and the crossfade as `fd…` properties. A crossfade is stored once, on the clip before the join; the clip after it plays its half from there. After every clip edit, a crossfade whose clips no longer meet, or meet seamlessly, is removed (`settleFades`), so it never comes back unasked.
+- **Editing** (`model::FadeEditing`, `[fast]`): the handles a track's clips show and what dragging, bending and double-clicking them does; a gesture previews what it will play (`withFadeEdit`) and lands as one undo step on release.
 - **Engine:** a small tracktion patch (`cmake/patches/tracktion_engine-clip-playback-hook.patch`) lets the engine behaviour adjust where an audio clip's node plays (its range reaching into the handles, its offset moved to match) and supply its fade node. Segno's behaviour asks `model::Fades` for the clip's playback and builds a fade node that applies the model's gain. Offline renders (the render tool, bounce, export) build the same graph, so they hear the same thing.
 - **The bounce's cut fade** (bounce.md §7) becomes a plain fade-out the user can see and change.
 

@@ -6,6 +6,7 @@
 #include "ui/LaneControls.h"
 #include "model/ArrangementRows.h"
 #include "model/Editing.h"
+#include "model/FadeEditing.h"
 #include "model/Selection.h"
 #include "model/Takes.h"
 #include "model/Timeline.h"
@@ -151,6 +152,7 @@ public:
     void mouseDown(const juce::MouseEvent& e) override;
     void mouseDrag(const juce::MouseEvent& e) override;
     void mouseUp(const juce::MouseEvent& e) override;
+    void mouseExit(const juce::MouseEvent& e) override;
     void mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override;
     void mouseMagnify(const juce::MouseEvent& e, float scaleFactor) override;
 
@@ -230,6 +232,45 @@ private:
     /// A clip's take menu; `take`: the strip right-clicked (else the take it plays).
     void takeMenu(std::uint64_t track, std::uint64_t stack, std::optional<std::uint64_t> take);
     void clipMenu();
+
+    // Fades and crossfades (C6, fades.md §3, §4; ArrangementFades.cpp).
+    struct FadeGrip
+    {
+        model::FadeHandle handle;
+        std::uint64_t track = 0;
+    };
+    struct FadeRegion
+    {
+        enum class Kind { In, Out, Cross };
+        Kind kind = Kind::In;
+        std::uint64_t clip = 0, track = 0;
+    };
+    struct FadeDrag
+    {
+        model::FadeHandle handle;
+        std::uint64_t track = 0;
+        double grabbedAt = 0.0;
+        float baseBend = 0.0f;
+        std::optional<model::FadeEdit> edit;
+    };
+    /// The track as it's drawn: with a fade gesture's preview, if one is on it.
+    [[nodiscard]] const model::TrackInfo& shownTrack(const model::TrackInfo& track) const;
+    [[nodiscard]] juce::Rectangle<float> bodyOf(const model::ClipInfo& clip, float y, float h) const;
+    void paintFades(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body);
+    void paintCrossfades(juce::Graphics& g, const model::TrackInfo& track, float y, float h);
+    void paintFadeHandles(juce::Graphics& g, const model::TrackInfo& track, float y, float h);
+    [[nodiscard]] bool showsFadeHandles(const model::TrackInfo& track, const model::FadeHandle& handle) const;
+    [[nodiscard]] std::optional<juce::Point<float>> handlePoint(const model::TrackInfo& track, const model::FadeHandle& handle,
+                                                                float y, float h) const;
+    [[nodiscard]] std::optional<FadeGrip> fadeGripAt(juce::Point<float> pos) const;
+    [[nodiscard]] std::optional<FadeRegion> fadeRegionAt(juce::Point<float> pos) const;
+    void fadeMenu(const FadeRegion& region);
+    bool fadeMouseDown(const juce::MouseEvent& e);
+    void fadeMouseDrag(const juce::MouseEvent& e);
+    void fadeMouseUp();
+    std::optional<std::uint64_t> hoveredClip_; // its fade handles show
+    std::optional<FadeDrag> fadeDrag_;
+    std::optional<model::TrackInfo> fadePreview_;
     /// A clip's name in its title strip, after "M" when it's muted (bounce.md §6).
     static void paintTitleText(juce::Graphics& g, juce::Rectangle<float> title, const std::string& name, bool muted);
     /// The progress of the bounce a clip is part of, once it has run for motion.progressDelay.
@@ -311,7 +352,7 @@ private:
     LoopZone loopDrag_ = LoopZone::None;
     std::pair<double, double> loopAtDragStart_{0.0, 0.0};
 
-    enum class Drag { None, Ruler, Clip, Box, Loop, Lane, Resize };
+    enum class Drag { None, Ruler, Clip, Box, Loop, Lane, Resize, Fade };
     Drag drag_ = Drag::None;
     juce::Point<float> lastDrag_, dragStart_;
     time::RulerGesture rulerGesture_;

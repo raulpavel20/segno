@@ -405,6 +405,14 @@ Json clipJson(ToolEnv& env, const model::ClipInfo& c, bool notes)
     }
     if (c.kind == model::ClipInfo::Kind::Audio)
     {
+        // Fades and the crossfade into the next clip (fades.md §7), in ms.
+        auto ms = [](double seconds) { return rounded(seconds * 1000.0, 1e3); };
+        j["fadeIn"] = {{"ms", ms(c.fadeIn.length)}, {"bend", rounded(c.fadeIn.bend, 1e3)}};
+        j["fadeOut"] = {{"ms", ms(c.fadeOut.length)}, {"bend", rounded(c.fadeOut.bend, 1e3)}};
+        if (c.crossfadeOut)
+            j["crossfadeOut"] = {{"ms", ms(c.crossfadeOut->length)},
+                                 {"startMs", ms(c.crossfadeOut->from)},
+                                 {"shape", model::shapeName(c.crossfadeOut->shape)}};
         j["source"] = c.sourcePath;
         j["sourceOffsetSeconds"] = roundTime(c.offset);
         j["sourceSeconds"] = roundTime(c.sourceLength);
@@ -536,6 +544,7 @@ Json projectJson(ToolEnv& env)
             {"unsaved", s.hasUnsavedChanges()},
             {"tempo", rounded(t.bpm, 1e3)},
             {"timeSignature", {{"numerator", t.numerator}, {"denominator", t.denominator}}},
+            {"edgeFades", snap->edgeFades},
             {"end", positionJson(t.beatsForSeconds(snap->contentEnd()), t)},
             {"loop",
              {{"on", s.isLooping()},

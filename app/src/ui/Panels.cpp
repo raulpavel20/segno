@@ -416,7 +416,7 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
     addAndMakeVisible(sends_);
 
     pointValue_.setRange(0.0, 1.0, 0.0);
-    pointValue_.setFontSize(ui::Theme::current().textMd);
+    pointValue_.setFontSize(ui::Theme::current().textXs); // a property row's number (the Value style)
     pointValue_.setDragSensitivity(0.005);
     pointValue_.setTooltip("The point's value: drag or type");
     pointValue_.textFromValue = [this](double v) {
@@ -482,6 +482,31 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
             session_.useTake(channel_->id, take_->id);
     };
     addChildComponent(useTake_);
+    // Fade lengths (fades.md §3): in ms, dragged or typed ("12", "12 ms", "0.5 s").
+    for (auto* field : {&fadeIn_, &fadeOut_})
+    {
+        const bool in = field == &fadeIn_;
+        field->setFontSize(ui::Theme::current().textXs); // a property row's number (the Value style)
+        field->setDragSensitivity(1.0);
+        field->setTooltip(in ? "The fade-in's length: drag or type" : "The fade-out's length: drag or type");
+        field->textFromValue = [](double ms) { return juce::String(juce::roundToInt(ms)) + " ms"; };
+        field->valueFromText = [](const juce::String& text) -> std::optional<double> {
+            const auto t = text.trim().toLowerCase();
+            if (t.isEmpty() || !(t[0] == '.' || juce::CharacterFunctions::isDigit(t[0])))
+                return std::nullopt;
+            const double v = t.getDoubleValue();
+            return t.endsWith("ms") || !t.endsWith("s") ? v : v * 1000.0;
+        };
+        field->onGestureStart = [this] { fadeGesture_.emplace(session_, "Fades"); };
+        field->onGestureEnd = [this] { fadeGesture_.reset(); };
+        field->onValueChange = [this, in](double ms) {
+            if (!clip_)
+                return;
+            const auto fade = model::Fade{ms / 1000.0, in ? clip_->fadeIn.bend : clip_->fadeOut.bend};
+            session_.setFades({clip_->id}, in ? std::optional(fade) : std::nullopt, in ? std::nullopt : std::optional(fade));
+        };
+        addChildComponent(*field);
+    }
     clipMute_.setTooltip("Mute the clip: it keeps its place and plays nothing (0)");
     clipMute_.onClick = [this] {
         if (clip_)
@@ -518,6 +543,18 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
     useTake_.setVisible(has(model::InspectorSection::Take));
     clipMute_.setVisible(has(model::InspectorSection::Clip) && clip_.has_value());
     clipMute_.setToggleState(clip_ && clip_->muted, juce::dontSendNotification);
+    const bool audio = has(model::InspectorSection::Clip) && clip_ && clip_->kind == model::ClipInfo::Kind::Audio;
+    for (auto* field : {&fadeIn_, &fadeOut_})
+    {
+        field->setVisible(audio);
+        if (audio)
+            field->setRange(0.0, clip_->length * 1000.0, 1.0);
+    }
+    if (audio && !fadeGesture_)
+    {
+        fadeIn_.setValue(clip_->fadeIn.length * 1000.0, juce::dontSendNotification);
+        fadeOut_.setValue(clip_->fadeOut.length * 1000.0, juce::dontSendNotification);
+    }
     if (take_ && !takeName_.hasKeyboardFocus(true))
         takeName_.setText(juce::String::fromUTF8(take_->name.c_str()), false);
     assignments_.setLane(has(model::InspectorSection::Assignments) ? lane_ : std::nullopt);
@@ -614,13 +651,21 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
                 {{}, {}}};         // "Use this take"
     }
     case S::Clip:
+    {
         if (!clip_)
             return {};
-        return {{"Name", juce::String::fromUTF8(clip_->name.c_str())},
-                {"Start", position(clip_->start), true},
-                {"Length", juce::String(clip_->length, 3) + " s", true},
-                {"Offset", juce::String(clip_->offset, 3) + " s", true},
-                {"Mute", {}}}; // the toggle
+        std::vector<ui::Property> rows{{"Name", juce::String::fromUTF8(clip_->name.c_str())},
+                                       {"Start", position(clip_->start), true},
+                                       {"Length", juce::String(clip_->length, 3) + " s", true},
+                                       {"Offset", juce::String(clip_->offset, 3) + " s", true},
+                                       {"Mute", {}}}; // the toggle
+        if (clip_->kind == model::ClipInfo::Kind::Audio) // its fades (fades.md §3): the fields
+        {
+            rows.push_back({"Fade in", {}});
+            rows.push_back({"Fade out", {}});
+        }
+        return rows;
+    }
     case S::Clips: return {{"Selected", juce::String(clipCount_), true}};
     case S::Track:
         if (!channel_)
@@ -694,6 +739,8 @@ void InspectorPanel::resized()
                                     .withHeight(t.shell.rowHeight)
                                     .withWidth(ui::Toggle::widthFor(clipMute_.getButtonText()))
                                     .reduced(0, t.shell.propertyFieldInset));
+            fadeIn_.setBounds(content.withY(content.getY() + 5 * t.shell.rowHeight).withHeight(t.shell.rowHeight));
+            fadeOut_.setBounds(content.withY(content.getY() + 6 * t.shell.rowHeight).withHeight(t.shell.rowHeight));
         }
         else if (sections_[i] == S::Point) // the Value row
             pointValue_.setBounds(stack_.content(i)
