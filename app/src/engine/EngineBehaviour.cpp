@@ -28,7 +28,7 @@ public:
                                                                     std::unique_ptr<tracktion::graph::Node>& input,
                                                                     tracktion::ProcessState& state) override
     {
-        auto [clips, index] = fadeTrackOf(clip);
+        auto [clips, index] = fadeNeighboursOf(clip);
         const auto playback = model::clipPlayback(clips, index, edgeFadesOn(clip.edit));
         // Nothing to fade: no node, unless tracktion would apply its own curves to tiny fades.
         if (!playback.any() && clip.getFadeIn() == tracktion::TimeDuration() && clip.getFadeOut() == tracktion::TimeDuration())

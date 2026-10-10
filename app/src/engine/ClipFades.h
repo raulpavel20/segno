@@ -24,8 +24,9 @@ inline const juce::Identifier edgeFades{"fdEdgeFades"};
 /// The clip as fades see it. Clips that play stretched, synced or looped have no spare audio to
 /// crossfade with.
 [[nodiscard]] model::FadeClip fadeClipOf(tracktion::AudioClipBase& clip);
-/// Its track's audio clips in time order, and its place among them.
-[[nodiscard]] std::pair<std::vector<model::FadeClip>, size_t> fadeTrackOf(tracktion::AudioClipBase& clip);
+/// The clip with the audio clips just before and after it on its track (what its playback depends
+/// on), and its place among them: cheap, for the engine's graph building.
+[[nodiscard]] std::pair<std::vector<model::FadeClip>, size_t> fadeNeighboursOf(tracktion::AudioClipBase& clip);
 /// What the clip plays (model::clipPlayback with the project's edge fades).
 [[nodiscard]] model::ClipPlayback playbackOf(tracktion::AudioClipBase& clip);
 [[nodiscard]] bool edgeFadesOn(const tracktion::Edit& edit);

@@ -29,23 +29,27 @@ model::FadeClip fadeClipOf(te::AudioClipBase& clip)
     return c;
 }
 
-std::pair<std::vector<model::FadeClip>, size_t> fadeTrackOf(te::AudioClipBase& clip)
+std::pair<std::vector<model::FadeClip>, size_t> fadeNeighboursOf(te::AudioClipBase& clip)
 {
-    std::vector<model::FadeClip> clips;
-    size_t index = 0;
+    te::AudioClipBase *prev = nullptr, *next = nullptr;
+    const auto at = clip.getPosition().getStart();
     if (auto* track = clip.getClipTrack())
-    {
         for (auto* c : track->getClips())
-            if (auto* audio = dynamic_cast<te::AudioClipBase*>(c))
-                clips.push_back(fadeClipOf(*audio));
-        std::sort(clips.begin(), clips.end(), [](const auto& a, const auto& b) { return a.start < b.start; });
-    }
-    else
-        clips.push_back(fadeClipOf(clip));
-    for (size_t i = 0; i < clips.size(); ++i)
-        if (clips[i].id == clip.itemID.getRawID())
-            index = i;
-    return {std::move(clips), index};
+            if (auto* audio = dynamic_cast<te::AudioClipBase*>(c); audio != nullptr && audio != &clip)
+            {
+                const auto start = audio->getPosition().getStart();
+                if (start < at && (prev == nullptr || start > prev->getPosition().getStart()))
+                    prev = audio;
+                else if (start > at && (next == nullptr || start < next->getPosition().getStart()))
+                    next = audio;
+            }
+    std::vector<model::FadeClip> clips;
+    if (prev != nullptr)
+        clips.push_back(fadeClipOf(*prev));
+    clips.push_back(fadeClipOf(clip));
+    if (next != nullptr)
+        clips.push_back(fadeClipOf(*next));
+    return {std::move(clips), prev != nullptr ? 1u : 0u};
 }
 
 bool edgeFadesOn(const te::Edit& edit)
@@ -55,7 +59,7 @@ bool edgeFadesOn(const te::Edit& edit)
 
 model::ClipPlayback playbackOf(te::AudioClipBase& clip)
 {
-    const auto [clips, index] = fadeTrackOf(clip);
+    const auto [clips, index] = fadeNeighboursOf(clip);
     return model::clipPlayback(clips, index, edgeFadesOn(clip.edit));
 }
 
