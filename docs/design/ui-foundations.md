@@ -168,6 +168,27 @@ The mixer view's strips (C3c, [mixer.md](mixer.md) §6) are placed by a pure lay
 
 The controls are shared (`ui/ChannelControls`): volume and send bars on the volume taper, the pan bar, mute, solo and Pre toggles, the meter, the typed volume, and the fader, which is the shared `Knob` in its Fader style (a thin track filled to a flat cap, `faderCapHeight`; its travel follows the mouse one to one).
 
+## Layout quality (a review checklist)
+
+The lints catch colours and fonts; they can't see a cramped or inconsistent layout. Every UI change, however small, is checked against this list before it's called done. The product owner rejects sloppy UI outright (2026-10-10: text touching its neighbours, and margins drifting from the standard set at the start).
+
+1. **Every size comes from a system.** Paddings, gaps, offsets and sizes come from `ShellMetrics`, `TrackHeaderMetrics`, the module grid, or a layout model (`model::layoutTrackHeader`, `model::layoutTopBar`, `model::ChannelStripLayout`, `ui::SectionStack`, `ui::BarLayout`). No literal paddings or offsets in views. A size the systems don't have becomes a named metric in `fd_ui`, listed in this document.
+2. **Nothing touches.** Text and controls keep at least `itemGap` from their neighbours, and their container's padding from its edges. Text is elided or clipped to its own slot; it never runs into a button, a badge or another text.
+3. **The tightest case is checked:** the shortest row height, the narrowest clip, the longest name, and the smallest window (1024 px wide).
+4. **Text stays legible.** It never sits on busy content (waveforms, notes, a clip's colour) without a backing, and it keeps its text style's colour roles.
+5. **One look per thing.**
+   - A control reuses the shared component (`IconButton`, `Toggle`, `NumberField`, `PanelHeader`, the track header kit) and its interaction: the hover lift, a right-click menu, a tooltip with the shortcut.
+   - The same affordance looks the same everywhere (a chevron for something that opens).
+   - A new variant goes into `fd_ui`, not into one view.
+6. **Aligned to the rhythm.** Items in a row share a centre line. Bars use `itemGap` within a group and `groupGap` between groups. Rows and sections start on the same edges as their neighbours.
+7. **Nothing without a reason to be there.**
+   - State shows only when it matters: a take badge from two takes, a light only while lit.
+   - A feature that adds clutter without earning its place goes, as stars on takes did.
+8. **Reviewed by eye, zoomed in.**
+   - Dump screenshots (`FD_DUMP_DIR=… fd_integration_tests "<the test>"`) at standard and compact widths, and crop and enlarge the changed area.
+   - Look for touching, overlap, misalignment, clipping and uneven gaps, and compare with the same element elsewhere.
+   - Where it's cheap, a test checks it: the top bar's controls never overlap, and the header slots never overlap.
+
 ## The UI lint
 
 `ui_tokens_only` (a CTest check, label `fast`) fails when a file in `app/src/ui`, `modules/fd_device_ui` or `devices/*/ui` does any of these:

@@ -38,6 +38,14 @@ Build options: `FD_BUILD_TESTS`, `FD_BUILD_TOOLS`, `FD_BUILD_PLUGINS`, `FD_BUILD
 - **Golden test files** change only with a reason stated in the commit message.
 - **MCP lives only in the DAW** (ADR 0021). Nothing in `libs/`, `devices/`, `modules/`, `plugins/` or `tools/` includes `app/src/mcp`; the plugins never open connections. MCP edits go through `engine::Session` and the device host binding, like the UI's. The CTest checks `mcp_only_in_the_daw` and `app_ui_does_not_include_tracktion` enforce it.
 - **Every DAW feature ships with its MCP tools** and a test that drives it through MCP (ADR 0021). Released tool names and arguments change only after a deprecation period.
+- **UI quality is part of correctness.** Sloppy UI (text touching other elements, uneven margins, one-off looks, hand-placed numbers) doesn't ship, however small the feature. Every UI change goes through the checklist in `docs/design/ui-foundations.md` ("Layout quality"):
+  - spacing comes from the shared metrics and layout systems, never from literal numbers in a view;
+  - nothing touches or overlaps, at the tightest sizes too;
+  - the same thing looks and behaves the same everywhere, built from the shared components;
+  - nothing shows that doesn't earn its place;
+  - screenshots of the changed area are reviewed, zoomed in, at standard and compact widths.
+
+  When a system doesn't cover a need, extend the system (with its docs and tests) instead of working around it.
 
 ## Conventions
 
