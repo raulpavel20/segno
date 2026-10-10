@@ -177,7 +177,7 @@ Every DAW feature ships with its tools (the coverage rule, ADR 0021). Today:
 | Projects, undo | Project tools |
 | Live MIDI (computer keyboard, inputs) | Not a tool: a live performance input, not an edit. A `preview_note` tool may come later |
 
-Not in the DAW yet, so no tools yet: renaming, deleting and reordering tracks; clip names and colours; export (C8). Each brings its tools with it; recording (C5), fades (C6) and bounce (C7) brought theirs. Automation (C4) has its lane tools, and `get_project` lists the automation lanes with their assignments.
+Not in the DAW yet, so no tools yet: renaming, deleting and reordering tracks; clip names and colours. Each brings its tools with it; recording (C5), fades (C6) and bounce (C7) brought theirs. Automation (C4) has its lane tools, and `get_project` lists the automation lanes with their assignments.
 
 ## 7. Architecture
 

@@ -144,7 +144,7 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
           "set_automation", "clear_automation", "set_automation_on", "add_automation_lane", "set_automation_lane",
           "remove_automation_lane", "assign_automation", "unassign_automation", "set_track_input", "arm_tracks",
           "record", "get_takes", "use_take", "audition_take", "set_take", "move_takes_to_tracks", "delete_takes", "capture_midi",
-          "bounce_clips", "mute_clips", "set_fades", "crossfade", "set_edge_fades",
+          "bounce_clips", "mute_clips", "set_fades", "crossfade", "set_edge_fades", "export_audio",
           "undo", "redo",
           "save_project", "new_project", "open_project"})
         CHECK(names.contains(name));
@@ -1091,3 +1091,55 @@ TEST_CASE("mcp tools: fades, crossfades and edge fades", "[integration][mcp]")
     CHECK(daw.session->undoDescription() == "Assistant: set edge fades");
 }
 
+
+TEST_CASE("mcp tools: export audio with the project's settings, only where the user chose", "[integration][mcp]")
+{
+    Daw daw;
+    daw.session->setUnsavedRoot(daw.folder.getChildFile("Unsaved"));
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    daw.call("add_module", {{"track", t0}, {"type", "subtractive-synth"}});
+    const Json notes = Json::array({{{"pitch", "C3"}, {"start", 0}, {"length", 2}}});
+    daw.call("create_midi_clip", {{"track", t0}, {"start", 0}, {"notes", notes}});
+
+    // With the project's settings (the panel's): the mix into the project's Exports, with its report.
+    auto r = daw.callAway("export_audio", Json::object());
+    INFO(r.dump().substr(0, 2000));
+    REQUIRE(r["isError"] == false);
+    auto files = r["structuredContent"]["files"];
+    REQUIRE(files.size() == 1);
+    const juce::File mix(juce::String(files[0]["file"].get<std::string>()));
+    CHECK(mix.existsAsFile());
+    CHECK(mix.getParentDirectory() == daw.session->exportsFolder());
+    CHECK(files[0]["track"].is_null());
+    CHECK(files[0]["loudness"]["integrated"].is_number());
+    CHECK(files[0]["seconds"].get<double>() > 1.0);
+
+    // Stems, normalised to a loudness, as FLAC; read-only mode allows it (the project stays as it is).
+    daw.server->setReadOnly(true);
+    r = daw.callAway("export_audio", {{"what", "tracks"}, {"normalise", "loudness"}, {"target", -18}, {"format", "flac"}});
+    daw.server->setReadOnly(false);
+    REQUIRE(r["isError"] == false);
+    files = r["structuredContent"]["files"];
+    REQUIRE(files.size() == daw.project()["tracks"].size());
+    CHECK(files[0]["track"].is_string());
+    CHECK(juce::String(files[0]["file"].get<std::string>()).endsWith(".flac"));
+    CHECK(files[0]["loudness"]["integrated"].get<double>() == Catch::Approx(-18.0).margin(0.3));
+
+    // Files go where the user chose in the panel; an assistant can name a file, never a path.
+    const auto chosen = daw.folder.getChildFile("Chosen");
+    auto settings = daw.session->exportSettings();
+    settings.folder = chosen.getFullPathName().toStdString();
+    daw.session->setExportSettings(settings);
+    r = daw.callAway("export_audio", {{"name", "Demo"}});
+    REQUIRE(r["isError"] == false);
+    CHECK(juce::File(juce::String(r["structuredContent"]["files"][0]["file"].get<std::string>())) == chosen.getChildFile("Demo.wav"));
+    r = daw.callAway("export_audio", {{"name", "../Demo"}});
+    REQUIRE(r["isError"] == true);
+    CHECK(r["content"][0]["text"].get<std::string>().find("not a path") != std::string::npos);
+    // Refusals say why.
+    r = daw.callAway("export_audio", {{"range", "loop"}});
+    REQUIRE(r["isError"] == true);
+    CHECK(r["content"][0]["text"].get<std::string>().find("loop") != std::string::npos);
+    r = daw.callAway("export_audio", {{"format", "flac"}, {"bitDepth", 32}});
+    REQUIRE(r["isError"] == true);
+}

@@ -315,6 +315,31 @@ juce::File Session::exportFolder(const model::ExportSettings& settings)
     return juce::File::isAbsolutePath(path) ? juce::File(path) : impl_->projectFolder().getChildFile(path);
 }
 
+namespace
+{
+const juce::Identifier kExportId{"fdExport"};
+} // namespace
+
+model::ExportSettings Session::exportSettings() const
+{
+    return model::exportSettingsFromJson(impl_->edit->state.getProperty(kExportId).toString().toStdString());
+}
+
+void Session::setExportSettings(const model::ExportSettings& settings)
+{
+    // Kept with the project, as the view is: never an undo step or an unsaved change (as solo).
+    auto& edit = *impl_->edit;
+    const auto text = juce::String(model::toJson(model::validated(settings)));
+    if (edit.state.getProperty(kExportId).toString() == text)
+        return;
+    const bool wasChanged = edit.hasChangedSinceSaved();
+    const bool wasDirty = impl_->dirty;
+    edit.state.setProperty(kExportId, text, nullptr);
+    if (!wasChanged)
+        edit.resetChangedStatus();
+    impl_->dirty = wasDirty;
+}
+
 std::string Session::projectName() const
 {
     return impl_->file ? impl_->file->getFileNameWithoutExtension().toStdString() : std::string("Untitled");

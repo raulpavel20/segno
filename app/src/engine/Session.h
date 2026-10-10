@@ -512,6 +512,10 @@ public:
     [[nodiscard]] juce::File exportFolder(const model::ExportSettings& settings);
     /// The project's name for its files ("Untitled" before the first save).
     [[nodiscard]] std::string projectName() const;
+    /// The project's export settings (export.md §9): kept with it, never an undo step or an
+    /// unsaved change. The panel and assistants export with them.
+    [[nodiscard]] model::ExportSettings exportSettings() const;
+    void setExportSettings(const model::ExportSettings& settings);
 
     // ---- fades and crossfades (C6, ADR 0036, docs/design/fades.md) ---------------------------
     // Fades belong to audio clips; a crossfade belongs to the join between two audio clips that

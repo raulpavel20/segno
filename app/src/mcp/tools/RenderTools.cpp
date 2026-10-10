@@ -306,6 +306,139 @@ void addRenderTools(Registry& registry, ToolEnv& env)
     };
     registry.tools.push_back(std::move(bounce));
 
+    Tool exporting;
+    exporting.name = "export_audio";
+    exporting.title = "Export audio files";
+    exporting.description =
+        "Exports the mix, or tracks as stems, of the song (bar 1 to the last clip, then the tail until silent) or "
+        "the loop, as WAV, FLAC or AIFF, offline (playback goes on), and waits for the files. Stems are each track "
+        "(and, with all tracks, each return track) through its modules and fader, adding up to the mix; with "
+        "throughReturns, each track as heard through the returns and master. Dither is automatic below 32-bit "
+        "float. normalise: \"off\", \"peak\" (true peak at -1 dBTP) or \"loudness\" (to target LUFS, -14 by "
+        "default, never above -1 dBTP). Unset arguments use the project's export settings (the export panel's), "
+        "which also say where the files go: the project's Exports folder, or the folder the user chose. Files are "
+        "never overwritten. Each file is reported with its loudness, true peak and clipping. Doesn't change the "
+        "project.";
+    exporting.inputSchema =
+        object({{"what", {{"type", "string"}, {"enum", Json::array({"mix", "tracks"})}, {"description", "The mix, or tracks as stems"}}},
+                {"tracks", ids(IdKind::Track, "The tracks or return tracks as stems (default: all of them)")},
+                {"throughReturns", boolean("Stems through the returns and master")},
+                {"range", {{"type", "string"}, {"enum", Json::array({"song", "loop"})}, {"description", "The song, or the loop"}}},
+                {"format", {{"type", "string"}, {"enum", Json::array({"wav", "flac", "aiff"})}, {"description", ""}}},
+                {"bitDepth", integer("16, 24, or 32 (float, WAV only)", 16, 32)},
+                {"sampleRate", number("44100, 48000, 88200 or 96000 (default: the project's)")},
+                {"dither", boolean("Dither below 32-bit float (default true)")},
+                {"normalise", {{"type", "string"}, {"enum", Json::array({"off", "peak", "loudness"})}, {"description", ""}}},
+                {"target", number("The loudness target in LUFS (normalise: loudness)")},
+                {"name", string("The file's name, without extension (default: the project's; stems add the track's)")}});
+    exporting.outputSchema =
+        result({{"files", arrayOf(result({{"file", string("")}, {"track", {{"type", {"string", "null"}}}}}), "The files", std::nullopt)}},
+               {"files"});
+    exporting.annotations.readOnly = true; // the project stays as it is
+    exporting.call = [&env](const Json& args, CallContext& context) -> ToolResult {
+        struct Done
+        {
+            std::mutex mutex;
+            std::condition_variable changed;
+            std::optional<engine::Session::ExportResult> result;
+        };
+        auto done = std::make_shared<Done>();
+        std::shared_ptr<engine::Session::RenderJob> job;
+        std::optional<ToolResult> refused;
+        const bool ran = env.main.run([&] {
+            try
+            {
+                env.session.flushSnapshot();
+                auto s = env.session.exportSettings(); // where files go is the user's choice, never the assistant's
+                std::vector<std::uint64_t> tracks;
+                if (args.contains("what"))
+                    s.what = args["what"] == "mix" ? model::ExportWhat::Mix : model::ExportWhat::AllTracks;
+                if (args.contains("tracks"))
+                {
+                    s.what = model::ExportWhat::SelectedTracks;
+                    for (const auto& value : args["tracks"])
+                        tracks.push_back(channel(env, value).id);
+                }
+                s.throughReturns = args.value("throughReturns", s.throughReturns);
+                if (args.contains("range"))
+                    s.range = args["range"] == "loop" ? model::ExportRange::Loop : model::ExportRange::Song;
+                if (args.contains("format"))
+                    s.format = args["format"] == "flac" ? model::ExportFormat::Flac
+                               : args["format"] == "aiff" ? model::ExportFormat::Aiff
+                                                          : model::ExportFormat::Wav;
+                s.bitDepth = args.value("bitDepth", s.bitDepth);
+                if (args.contains("sampleRate"))
+                {
+                    s.sampleRate = args["sampleRate"].get<double>();
+                    if (model::validated(s).sampleRate != s.sampleRate)
+                        throw Problem{"Choose 44100, 48000, 88200 or 96000."};
+                }
+                if (const auto depths = model::bitDepthsFor(s.format); std::find(depths.begin(), depths.end(), s.bitDepth) == depths.end())
+                    throw Problem{model::formatName(s.format) + " holds 16 or 24 bits."};
+                s.dither = args.value("dither", s.dither);
+                if (args.contains("normalise"))
+                    s.normalise = args["normalise"] == "peak"       ? model::ExportNormalise::Peak
+                                  : args["normalise"] == "loudness" ? model::ExportNormalise::Loudness
+                                                                    : model::ExportNormalise::Off;
+                s.loudnessTarget = args.value("target", s.loudnessTarget);
+                s.name = args.value("name", s.name);
+                if (s.name.find_first_of("/\\") != std::string::npos)
+                    throw Problem{"A name, not a path: files go where the project's export settings say."};
+                if (const auto why = env.session.exportRefusal(s, tracks); !why.empty())
+                    throw Problem{why};
+                job = env.session.exportAudio(s, tracks, [done](const engine::Session::ExportResult& r) {
+                    {
+                        std::lock_guard lock(done->mutex);
+                        done->result = r;
+                    }
+                    done->changed.notify_all();
+                });
+                if (job == nullptr)
+                    throw Problem{"There's nothing to export."};
+            }
+            catch (const Problem& p)
+            {
+                refused = ToolResult::error(p.message);
+            }
+        });
+        if (!ran)
+            return ToolResult::error("The DAW is closing.");
+        if (refused)
+            return *refused;
+        for (;;)
+        {
+            {
+                std::unique_lock lock(done->mutex);
+                if (done->changed.wait_for(lock, std::chrono::milliseconds(200), [&] { return done->result.has_value(); }))
+                    break;
+            }
+            context.progress(job->progress(), 1.0, "Exporting");
+            if (context.cancelled() || !env.main.isOpen())
+                job->cancel();
+            if (!env.main.isOpen())
+                return ToolResult::error("The DAW is closing.");
+        }
+        const auto r = *done->result;
+        if (r.cancelled)
+            return ToolResult::error("The export was cancelled; no file was left.");
+        if (!r.error.empty())
+            return ToolResult::error(r.error);
+        Json files = Json::array();
+        std::string summary;
+        for (const auto& f : r.files)
+        {
+            Json file = measurementsJson(f.measured);
+            file["file"] = f.file.getFullPathName().toStdString();
+            file["track"] = f.track.empty() ? Json(nullptr) : Json(f.track);
+            file["seconds"] = f.measured.seconds;
+            file["ceilingHeld"] = f.ceilingHeld;
+            files.push_back(std::move(file));
+            summary += f.file.getFileName().toStdString() + ": " + describe(f.measured) + (f.ceilingHeld ? " (held by the -1 dBTP ceiling)" : "") + " ";
+        }
+        return ToolResult::ok({{"files", std::move(files)}}, summary);
+    };
+    registry.tools.push_back(std::move(exporting));
+
     Tool measure;
     measure.name = "measure_module";
     measure.title = "Read a module's meters";

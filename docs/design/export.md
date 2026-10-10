@@ -128,8 +128,8 @@ After every export, for each file: its name, length, sample peak, true peak, int
 
 ## 9. Remembered settings
 
-- **With the project,** in its view state (`fdView`, as zoom and panels are). Changing an export setting is neither an undo step nor an unsaved change.
-- **For new projects,** the last settings used become the defaults (the app's settings), except the location and name, which belong to the project.
+- **With the project** (`fdExport` on its root, `Session::exportSettings`), so the panel and assistants share them. Changing an export setting is neither an undo step nor an unsaved change, as the view's state isn't.
+- **For new projects,** the last settings used will become the defaults (except the location and name, which belong to the project) once the app has preferences to keep them in (M3); until then a new project starts from the defaults in §4. (Settled while building.)
 
 ## 10. Keys and actions
 
@@ -143,7 +143,7 @@ Ctrl+Shift+E is free: Ctrl+E is split, and Ctrl+Shift+R, Live's export key, is C
 
 | Tool | Arguments | Result |
 |---|---|---|
-| `export_audio` | `what` ("mix" or "tracks"), `tracks?` (default all), `throughReturns?`, `range` ("song", "loop", or `{start, end}`), `format?`, `bitDepth?`, `sampleRate?`, `dither?`, `normalise?` (`{mode: "off"/"peak"/"loudness", target?}`), `name?` | Waits for the export. Each file's path and report (§8). Never an undo step |
+| `export_audio` | `what?` ("mix" or "tracks"), `tracks?` (default all), `throughReturns?`, `range?` ("song" or "loop"), `format?`, `bitDepth?`, `sampleRate?`, `dither?`, `normalise?` ("off", "peak", "loudness"), `target?` (LUFS), `name?` | Waits for the export. Each file's path and report (§8). Never an undo step |
 
 - Without arguments it uses the project's remembered settings, as Ctrl+Shift+E then Enter does.
 - **An assistant exports only into the project's `Exports/` folder, or the location the user chose in the panel.** It can't pick a path on disk itself.
