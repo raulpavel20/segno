@@ -111,6 +111,17 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         actions_.addMenuItem(menu, "track.add");
         actions_.addMenuItem(menu, "track.addReturn");
     };
+    // A clip's menu (bounce.md §10): bounce and mute, then the edits.
+    arrangement_.onClipMenu = [this](juce::PopupMenu& menu) {
+        actions_.addMenuItem(menu, "clip.bounce");
+        actions_.addMenuItem(menu, "clip.bounceToTrack");
+        actions_.addMenuItem(menu, "clip.mute");
+        menu.addSeparator();
+        actions_.addMenuItem(menu, "edit.split");
+        actions_.addMenuItem(menu, "edit.duplicate");
+        actions_.addMenuItem(menu, "edit.delete");
+    };
+    actions_.onRefused = [this](const juce::String& why) { showWarning(why); };
     // "Show automation lane" on any control: the lane, in the arrangement.
     session_.onLaneRevealed = [this](std::uint64_t lane) {
         if (mixerShown_)
@@ -456,6 +467,80 @@ void Shell::registerActions()
     actions_.add({.id = "clip.newMidi", .name = "New MIDI clip", .category = "Clip", .keys = {key('m', kCmd | kShift)},
                   .perform = [this] { arrangement_.createMidiClipAtPlayhead(); },
                   .isEnabled = [this] { return !mixerShown_ && !session_.snapshot()->tracks.empty(); }});
+
+    // Bounce (C7, ADR 0035, docs/design/bounce.md): the selected clips, offline; the result lands
+    // as one undo step and is selected. Clips that can't be bounced are left out; when none can,
+    // the shortcut says why.
+    auto bounceable = [this](model::BounceMode mode) {
+        std::pair<std::vector<std::uint64_t>, std::string> out;
+        const auto& selected = arrangement_.selection().clips;
+        for (const auto& t : session_.snapshot()->tracks)
+            for (const auto& c : t.clips)
+                if (selected.contains(c.id))
+                {
+                    if (const auto refusal = model::bounceRefusal(t, c, mode); refusal == model::BounceRefusal::None)
+                        out.first.push_back(c.id);
+                    else if (out.second.empty())
+                        out.second = model::refusalText(refusal);
+                }
+        return out;
+    };
+    auto bounce = [this, bounceable](model::BounceMode mode) {
+        const auto clips = bounceable(mode).first;
+        session_.bounce(clips, mode, [this](const engine::Session::BounceResult& r) {
+            if (r.cancelled)
+                return;
+            if (!r.error.empty())
+            {
+                showWarning(juce::String::fromUTF8(r.error.c_str()));
+                return;
+            }
+            session_.updateSnapshotNow();
+            arrangement_.setSelection(model::withClips(*session_.snapshot(), {r.clips.begin(), r.clips.end()}, std::nullopt,
+                                                       std::nullopt));
+            if (!r.cutTails.empty())
+                showWarning(juce::String::fromUTF8((r.cutTails.front().clip + "'s tail stops where " + r.cutTails.front().next +
+                                                    " starts. Bounce both to keep it.")
+                                                       .c_str()));
+        });
+    };
+    auto canBounce = [this, clipsShown, bounceable](model::BounceMode mode) {
+        return clipsShown() && arrangement_.hasClipSelection() && !bounceable(mode).first.empty();
+    };
+    auto whyNotBounce = [this, clipsShown, bounceable](model::BounceMode mode) {
+        return clipsShown() && arrangement_.hasClipSelection() ? juce::String::fromUTF8(bounceable(mode).second.c_str())
+                                                                : juce::String();
+    };
+    actions_.add({.id = "clip.bounce", .name = "Bounce in place", .category = "Clip", .keys = {key('b', kCmd)},
+                  .perform = [bounce] { bounce(model::BounceMode::InPlace); },
+                  .isEnabled = [canBounce] { return canBounce(model::BounceMode::InPlace); },
+                  .whyNot = [whyNotBounce] { return whyNotBounce(model::BounceMode::InPlace); }});
+    actions_.add({.id = "clip.bounceToTrack", .name = "Bounce to new track", .category = "Clip",
+                  .keys = {key('b', kCmd | kShift)},
+                  .perform = [bounce] { bounce(model::BounceMode::NewTrack); },
+                  .isEnabled = [canBounce] { return canBounce(model::BounceMode::NewTrack); },
+                  .whyNot = [whyNotBounce] { return whyNotBounce(model::BounceMode::NewTrack); }});
+    // Clip mute (bounce.md §6): every selected clip, on unless all of them are muted already.
+    auto allMuted = [this] {
+        const auto& selected = arrangement_.selection().clips;
+        bool any = false;
+        for (const auto& t : session_.snapshot()->tracks)
+            for (const auto& c : t.clips)
+                if (selected.contains(c.id))
+                {
+                    if (!c.muted)
+                        return false;
+                    any = true;
+                }
+        return any;
+    };
+    actions_.add({.id = "clip.mute", .name = "Mute clips", .category = "Clip", .keys = {key('0')},
+                  .perform = [this, allMuted] {
+                      const auto& selected = arrangement_.selection().clips;
+                      session_.setClipsMuted({selected.begin(), selected.end()}, !allMuted());
+                  },
+                  .isEnabled = [this, clipsShown] { return clipsShown() && arrangement_.hasClipSelection(); },
+                  .isToggled = allMuted});
     actions_.add({.id = "midi.computerKeyboard", .name = "Computer keyboard as MIDI", .category = "MIDI",
                   .keys = {key('k', kCmd | kShift)},
                   .perform = [this] {
@@ -663,6 +748,9 @@ bool Shell::keyPressed(const juce::KeyPress& k)
     if (dynamic_cast<juce::TextEditor*>(juce::Component::getCurrentlyFocusedComponent()) != nullptr)
         return false; // typing goes to the text field
     if (computerKeyboard_ && handleComputerKeyboard(k))
+        return true;
+    // Escape cancels bounces in progress (bounce.md §8); popovers take it first, being focused.
+    if (k == juce::KeyPress::escapeKey && session_.cancelBounces())
         return true;
     if (actions_.handleKey(k))
         return true;

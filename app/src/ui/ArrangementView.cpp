@@ -380,6 +380,12 @@ void ArrangementView::frame(double dt, double playheadSeconds)
     if (tiles_.wantsRepaint())
         repaint();
 
+    // Bounces in progress draw their progress on their clips (bounce.md §8).
+    auto bouncing = session_.bouncing();
+    if (!bouncing.empty() || !bouncing_.empty())
+        repaint(laneArea());
+    bouncing_ = std::move(bouncing);
+
     // Loop brace state (live from the transport, like the playhead).
     const auto loop = session_.loopRange();
     const bool looping = session_.isLooping();
@@ -876,7 +882,8 @@ void ArrangementView::paintGroup(juce::Graphics& g, const model::ClipGroup& grou
     const auto box = groupBox(group, y, h);
     if (!box.intersects(visible.toFloat()))
         return;
-    const auto colour = t.clipColour(group.parts.front()->colour);
+    const bool muted = std::all_of(group.parts.begin(), group.parts.end(), [](const auto* p) { return p->muted; });
+    const auto colour = muted ? t.clipDimmed(t.clipColour(group.parts.front()->colour)) : t.clipColour(group.parts.front()->colour);
     const auto title = titleOf(box);
     const float inset = static_cast<float>(t.shell.clipTextInset);
     if (group.parts.size() > 1)
@@ -885,20 +892,10 @@ void ArrangementView::paintGroup(juce::Graphics& g, const model::ClipGroup& grou
         g.setColour(colour);
         g.fillRect(title);
         if (titleShowsText(title))
-        {
-            g.setColour(t.surface0);
-            g.setFont(ui::font(ui::TextStyle::Control));
-            g.drawText(juce::String::fromUTF8(group.parts.front()->name.c_str()), title.reduced(inset, 0.0f),
-                       juce::Justification::centredLeft, true);
-        }
+            paintTitleText(g, title, group.parts.front()->name, muted);
         g.setColour(t.surface0);
         for (size_t i = 1; i < group.parts.size(); ++i)
             g.fillRect(laneX(group.parts[i]->start) - 0.5f, title.getBottom(), 1.0f, box.getBottom() - title.getBottom());
-        if (selected)
-        {
-            g.setColour(t.textPrimary);
-            g.drawRect(box, 1.0f);
-        }
     }
     // The badge: the take it plays and how many, with a chevron (a click shows or hides its
     // takes; right-click, the take menu).
@@ -918,6 +915,38 @@ void ArrangementView::paintGroup(juce::Graphics& g, const model::ClipGroup& grou
                        false);
         }
     }
+    if (const auto progress = bounceProgress(group.parts.front()->id))
+        ui::paintProgress(g, box, *progress);
+    if (selected) // the outline again, over the badge and the progress
+    {
+        g.setColour(t.textPrimary);
+        g.drawRect(box, 1.0f);
+    }
+}
+
+void ArrangementView::paintTitleText(juce::Graphics& g, juce::Rectangle<float> title, const std::string& name, bool muted)
+{
+    const auto& t = ui::Theme::current();
+    auto text = title.reduced(static_cast<float>(t.shell.clipTextInset), 0.0f);
+    g.setColour(t.surface0);
+    g.setFont(ui::font(ui::TextStyle::Control));
+    if (muted)
+    {
+        // "M", as on a track's mute button, then the name.
+        const juce::String mark("M");
+        const float width = juce::GlyphArrangement::getStringWidth(ui::font(ui::TextStyle::Control), mark);
+        g.drawText(mark, text.removeFromLeft(width), juce::Justification::centredLeft, false);
+        text.removeFromLeft(static_cast<float>(t.shell.itemGap));
+    }
+    g.drawText(juce::String::fromUTF8(name.c_str()), text, juce::Justification::centredLeft, true);
+}
+
+std::optional<float> ArrangementView::bounceProgress(std::uint64_t clip) const
+{
+    for (const auto& b : bouncing_)
+        if (b.clip == clip && b.seconds >= ui::Theme::current().motion.progressDelay)
+            return b.progress;
+    return std::nullopt;
 }
 
 void ArrangementView::paintStrips(juce::Graphics& g, int row, const model::TrackInfo& track, juce::Rectangle<int> area,
@@ -1099,7 +1128,7 @@ void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, 
     const auto box = clipBox(clip.start, clip.end(), y, h);
     if (!box.intersects(visible.toFloat()))
         return;
-    const auto colour = dimmed ? t.clipDimmed(t.clipColour(clip.colour)) : t.clipColour(clip.colour);
+    const auto colour = dimmed || clip.muted ? t.clipDimmed(t.clipColour(clip.colour)) : t.clipColour(clip.colour);
     g.setColour(t.clipBody(colour, selected));
     g.fillRect(box);
     const auto title = titleOf(box);
@@ -1111,12 +1140,7 @@ void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, 
     else
         paintWaveform(g, clip, box.withTrimmedTop(strip), visible, colour);
     if (titleShowsText(title))
-    {
-        g.setColour(t.surface0);
-        g.setFont(ui::font(ui::TextStyle::Control));
-        g.drawText(juce::String::fromUTF8(clip.name.c_str()), title.reduced(static_cast<float>(t.shell.clipTextInset), 0.0f),
-                   juce::Justification::centredLeft, true);
-    }
+        paintTitleText(g, title, clip.name, clip.muted);
     if (selected)
     {
         g.setColour(t.textPrimary);
@@ -1335,13 +1359,19 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
         std::vector<int> rowTracks;
         for (const auto& r : rows_)
             rowTracks.push_back(r.holdsClips() ? r.track : -1);
-        if (!model::hitClip(*snapshot_, layout_, rowTracks, timeline_, e.position.x - static_cast<float>(lanes.getX()),
-                            e.position.y - static_cast<float>(lanes.getY()), ui::Theme::current().input.edgeGrab))
+        const auto hit = model::hitClip(*snapshot_, layout_, rowTracks, timeline_, e.position.x - static_cast<float>(lanes.getX()),
+                                        e.position.y - static_cast<float>(lanes.getY()), ui::Theme::current().input.edgeGrab);
+        if (!hit)
         {
             selectTrack(rowTrack);
             rowMenu(row->track);
             return;
         }
+        // A clip: its menu, for the selection it's in (or just it).
+        if (!selection_.clips.contains(hit->clip))
+            setSelection(model::withClips(*snapshot_, {hit->clip}, rowTrack, rowTrack));
+        clipMenu();
+        return;
     }
     if (row && rowLane(row->track) != nullptr)
     {
@@ -1791,6 +1821,15 @@ void ArrangementView::removeSelectedLane()
         return;
     session_.removeAutomationLane(*selection_.lane);
     selectTrack(selection_.channel);
+}
+
+void ArrangementView::clipMenu()
+{
+    juce::PopupMenu menu;
+    if (onClipMenu)
+        onClipMenu(menu);
+    if (menu.getNumItems() > 0)
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMousePosition());
 }
 
 void ArrangementView::rowMenu(int row)

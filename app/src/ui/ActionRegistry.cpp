@@ -20,8 +20,16 @@ const Action* ActionRegistry::find(std::string_view id) const
 bool ActionRegistry::perform(std::string_view id) const
 {
     const auto* a = find(id);
-    if (a == nullptr || !a->perform || (a->isEnabled && !a->isEnabled()))
+    if (a == nullptr || !a->perform)
         return false;
+    if (a->isEnabled && !a->isEnabled())
+    {
+        const auto why = a->whyNot ? a->whyNot() : juce::String();
+        if (why.isEmpty() || !onRefused)
+            return false;
+        onRefused(why);
+        return true;
+    }
     a->perform();
     return true;
 }

@@ -27,6 +27,8 @@ public:
     [[nodiscard]] CommandPalette& palette() noexcept { return palette_; }
     /// Shows a warning in the window (engine warnings; never a modal dialog).
     void showWarning(const juce::String& message);
+    /// The warning shown last (tests).
+    [[nodiscard]] const juce::String& lastWarning() const noexcept { return warning_; }
 
     /// Runs `then` once unsaved changes are saved or discarded; nothing if cancelled. The one
     /// modal dialog the UI principles allow besides confirming destruction.

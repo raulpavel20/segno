@@ -427,7 +427,12 @@ public:
     {
         std::vector<std::uint64_t> clips;  // the bounced clips: on their tracks, or on the new ones
         std::vector<std::uint64_t> tracks; // the new tracks (a bounce to a new track)
-        std::vector<std::string> cutTails; // clips whose audible tail a clip that isn't bounced cut
+        /// A bounced clip whose audible tail a clip that isn't bounced cut (its name, the other's).
+        struct CutTail
+        {
+            std::string clip, next;
+        };
+        std::vector<CutTail> cutTails;
         std::string error;                 // why nothing landed; empty on success
         bool cancelled = false;            // cancelled (Escape, cancel()): nothing to say
     };

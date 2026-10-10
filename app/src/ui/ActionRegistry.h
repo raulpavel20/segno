@@ -18,6 +18,9 @@ struct Action
     std::function<void()> perform;
     std::function<bool()> isEnabled; // null = always
     std::function<bool()> isToggled; // null = not a toggle
+    /// While it can't run: why, said when its shortcut is pressed anyway (null or empty: nothing
+    /// to say, the key goes elsewhere).
+    std::function<juce::String()> whyNot;
 };
 
 /// Every action in the app, looked up by id or key press. The command palette (M2) lists it;
@@ -31,8 +34,11 @@ public:
     [[nodiscard]] const Action* find(std::string_view id) const;
     [[nodiscard]] const std::vector<Action>& all() const noexcept { return actions_; }
 
-    /// Performs `id` if it exists and is enabled. Returns true if it ran.
+    /// Performs `id` if it exists and is enabled. Returns true if it ran, or if it couldn't and
+    /// said why (onRefused).
     bool perform(std::string_view id) const;
+    /// Tells the user why an action couldn't run (a toast).
+    std::function<void(const juce::String&)> onRefused;
 
     /// Performs the action bound to `key`, if any. Returns true if one was found and enabled.
     bool handleKey(const juce::KeyPress& key) const;

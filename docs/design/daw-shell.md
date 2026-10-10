@@ -99,8 +99,11 @@ app/src/
 | Show takes of the selected clip (C5b) | `view.takes` | Ctrl+Alt+K |
 | Previous / next take of the selected clip (C5b) | `take.previous` / `take.next` | Alt+↑ / Alt+↓ |
 | Spread the selected clip's takes to new tracks (C5b) | `take.spread` | Ctrl+Alt+Shift+K |
+| Bounce in place (C7) | `clip.bounce` | Ctrl+B |
+| Bounce to new track (C7) | `clip.bounceToTrack` | Ctrl+Shift+B |
+| Mute clips (C7) | `clip.mute` | 0 |
 
-Each step adds its actions as it lands.
+Each step adds its actions as it lands. An action that can't run now dims in menus and the palette; if it says why (`Action::whyNot`), pressing its shortcut shows the reason as a toast instead of doing nothing.
 
 **Command palette** (Ctrl+K, M2 step C1): a popover at the top of the window listing every action by fuzzy search (`model::rankPalette`, tested). It matches names, and categories at a slightly lower score; word starts and consecutive letters rank higher; equal matches go to the most recently used. Each row shows the shortcut, a dot for toggles that are on, and a dimmed name for actions that can't run now. Arrows move, Enter runs, Escape or a click elsewhere closes. Recent use is kept for the session; saving it with the user's settings comes with preferences.
 
@@ -288,6 +291,13 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 - **Alt+↑ / Alt+↓** play the selected clip's previous or next take; the clip stays selected, so the keys step on while it plays. Ctrl+Alt+K opens or closes its takes; Ctrl+Alt+Shift+K spreads them to new tracks.
 - **Capture MIDI** (the top bar, beside Record; `ui::Icon::Capture`): lit while there's a phrase to capture; its tooltip names where it goes. It makes a clip of the last phrase and selects it.
 
+## Bounce and clip mute (C7, [bounce.md](bounce.md), ADR 0035)
+
+- **A clip's menu** (right-click on a clip; it's selected first unless it's in the selection): Bounce in place, Bounce to new track, Mute clips, then Split at playhead, Duplicate, Delete, from the action registry. The take badge keeps its own menu.
+- **Ctrl+B / Ctrl+Shift+B** bounce the selected clips; clips that can't be bounced are left out, and when none can, the shortcut's toast says why. The bounced clips are selected when they land; a tail cut by a clip that isn't bounced is reported in a toast.
+- **While a bounce renders,** its clips show a progress line along their bottom (`ui::paintProgress`, after `motion.progressDelay`); Escape cancels it.
+- **Muted clips** draw dimmed (`clipDimmed`) with "M" before their name, as on a track's mute button. 0 mutes the selected clips (unmutes them when all are muted); the inspector's CLIP has a Mute toggle.
+
 ## Waveforms (C3)
 
 - **Peaks** (`model::Peaks`):
@@ -300,6 +310,7 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
   - when the zoom settles (150 ms), they are re-rendered at the exact zoom, up to 12 per frame, and level tiles stand in until then;
   - least recently used tiles are evicted beyond 192 MB, and the GL texture cache is raised to 256 MB to match.
 - **Software renderer:** waveforms are drawn directly as one polygon per clip, because scaling images costs more there than drawing.
+- **Edges:** both draw within the whole pixels inside the clip, so a waveform never spills past a fractional clip edge onto the outline; the clip's body fills the partial pixels.
 - **What we measured:**
   - Under OpenGL, filling paths dominated the frame (about 4.5 ms of 6 ms with 32 visible tracks).
   - One rectangle per column was slower than one polygon per clip.

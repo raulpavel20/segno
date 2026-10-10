@@ -100,6 +100,7 @@ TEST_CASE("bounce: selected clips form runs per track, within the tail allowance
     CHECK(runs[0].renderEnd == Approx(5.0 + kBounceTailSeconds));
     CHECK(runs[0].pieces[0].name == "A");
     CHECK(runs[0].pieces[0].limit == 3.0); // the next clip
+    CHECK(runs[0].pieces[0].limitName == "B");
     CHECK(runs[0].pieces[0].limitIsBounced);
     CHECK(runs[0].pieces[1].limit == 30.0);
     CHECK_FALSE(runs[0].pieces[1].limitIsBounced);

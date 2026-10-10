@@ -100,6 +100,8 @@ The project, track, clip and module resources send change notifications when the
 | `duplicate_clips` | `clips`, `times?` (default 1) | The new clip ids, placed after the originals |
 | `split_clips` | `clips`, `at` | The new right-hand clip ids |
 | `delete_clips` | `clips` | – (undoable, so no confirmation) |
+| `mute_clips` | `clips`, `muted?` (true) | The clips; muted ones keep their place and play nothing (C7) |
+| `bounce_clips` | `clips`, `newTrack?` (false) | Renders them to audio ([bounce.md](bounce.md) §11): in place, through each clip's instrument, keeping its source as a take; or to a new track through the whole chain, muting the source. Waits for the render (with progress); one undo step when it lands. The bounced clips, the new tracks, and any audible tails a clip that wasn't bounced cut |
 
 **Notes** (MIDI clips; every tool is one undo step; notes past the clip's end lengthen it as in the piano roll, B15):
 
@@ -172,7 +174,7 @@ Every DAW feature ships with its tools (the coverage rule, ADR 0021). Today:
 | Projects, undo | Project tools |
 | Live MIDI (computer keyboard, inputs) | Not a tool: a live performance input, not an edit. A `preview_note` tool may come later |
 
-Not in the DAW yet, so no tools yet: renaming, deleting and reordering tracks; clip names and colours; recording (C5), fades (C6), bounce (C7), export (C8). Each brings its tools with it. Automation (C4) has its lane tools, and `get_project` lists the automation lanes with their assignments.
+Not in the DAW yet, so no tools yet: renaming, deleting and reordering tracks; clip names and colours; fades (C6), export (C8). Each brings its tools with it; recording (C5) and bounce (C7) brought theirs. Automation (C4) has its lane tools, and `get_project` lists the automation lanes with their assignments.
 
 ## 7. Architecture
 
@@ -190,7 +192,7 @@ app/src/mcp/
 - **Threads:** HTTP requests arrive on the server's thread. Each tool call is posted to the message thread, where the Session lives, and the reply waits for it. Renders run on a worker, with progress on the response stream.
 - **Session support to add in C9:**
   - named undo steps (`Session::beginEdit(name)`);
-  - an offline render of a range, also used later by bounce (C7) and export (C8);
+  - an offline render of a range (`Session::Impl::renderCopy`), shared by bounce (C7) and later export (C8);
   - snapshot change notifications for resources (`onSnapshotChanged` exists);
   - parameter reads and writes through `DeviceHandle` (exist).
 - **Boundaries:** nothing below `app/` includes the MCP code; the plugins never open connections. A CTest boundary check enforces it (`CLAUDE.md`).

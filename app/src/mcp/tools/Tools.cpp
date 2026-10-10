@@ -393,7 +393,8 @@ Json clipJson(ToolEnv& env, const model::ClipInfo& c, bool notes)
            {"name", c.name},
            {"start", positionJson(start, t)},
            {"end", positionJson(end, t)},
-           {"length", rounded(end - start, 1e6)}};
+           {"length", rounded(end - start, 1e6)},
+           {"muted", c.muted}};
     if (const auto found = model::findClip(*env.session.snapshot(), c.id))
     {
         const auto& track = env.session.snapshot()->tracks[static_cast<size_t>(found->second)];

@@ -110,6 +110,8 @@ std::vector<BounceRun> bounceRuns(const Snapshot& snapshot, const std::set<std::
             piece.start = group.start();
             piece.end = group.end();
             piece.limit = g + 1 < groups.size() ? groups[g + 1].start() : kInfinity;
+            if (g + 1 < groups.size())
+                piece.limitName = groups[g + 1].parts.front()->name;
             const bool midi =
                 std::any_of(group.parts.begin(), group.parts.end(), [](const auto* c) { return c->kind == ClipInfo::Kind::Midi; });
             pieces.push_back(std::move(piece));
@@ -136,6 +138,7 @@ std::vector<BounceRun> bounceRuns(const Snapshot& snapshot, const std::set<std::
             if (mode == BounceMode::NewTrack)
             {
                 piece.limit = next ? run.pieces[i + 1].start : kInfinity;
+                piece.limitName = next ? run.pieces[i + 1].name : std::string();
                 piece.limitIsBounced = next;
             }
             else

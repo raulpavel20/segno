@@ -354,7 +354,7 @@ struct Session::Impl::Bounce final : std::enable_shared_from_this<Bounce>, Sessi
                 stack.setProperty(toId, std::max(end.end, static_cast<double>(stack[toId])), um);
                 result.clips.push_back(clip->itemID.getRawID());
                 if (end.cut && end.audible)
-                    result.cutTails.push_back(piece.name);
+                    result.cutTails.push_back({piece.name, piece.limitName});
             }
             impl.settle(*track, um);
         }

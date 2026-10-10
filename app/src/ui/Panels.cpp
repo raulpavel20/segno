@@ -482,6 +482,12 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
             session_.useTake(channel_->id, take_->id);
     };
     addChildComponent(useTake_);
+    clipMute_.setTooltip("Mute the clip: it keeps its place and plays nothing (0)");
+    clipMute_.onClick = [this] {
+        if (clip_)
+            session_.setClipsMuted({clip_->id}, !clip_->muted);
+    };
+    addChildComponent(clipMute_);
 }
 
 void InspectorPanel::setContext(const model::PanelContext& context, const model::TempoMap& tempo,
@@ -510,6 +516,8 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
     take_ = context.take;
     takeName_.setVisible(has(model::InspectorSection::Take));
     useTake_.setVisible(has(model::InspectorSection::Take));
+    clipMute_.setVisible(has(model::InspectorSection::Clip) && clip_.has_value());
+    clipMute_.setToggleState(clip_ && clip_->muted, juce::dontSendNotification);
     if (take_ && !takeName_.hasKeyboardFocus(true))
         takeName_.setText(juce::String::fromUTF8(take_->name.c_str()), false);
     assignments_.setLane(has(model::InspectorSection::Assignments) ? lane_ : std::nullopt);
@@ -611,7 +619,8 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
         return {{"Name", juce::String::fromUTF8(clip_->name.c_str())},
                 {"Start", position(clip_->start), true},
                 {"Length", juce::String(clip_->length, 3) + " s", true},
-                {"Offset", juce::String(clip_->offset, 3) + " s", true}};
+                {"Offset", juce::String(clip_->offset, 3) + " s", true},
+                {"Mute", {}}}; // the toggle
     case S::Clips: return {{"Selected", juce::String(clipCount_), true}};
     case S::Track:
         if (!channel_)
@@ -677,6 +686,14 @@ void InspectorPanel::resized()
             auto row = [&](int n) { return content.withY(content.getY() + n * t.shell.rowHeight).withHeight(t.shell.rowHeight); };
             takeName_.setBounds(row(0).reduced(0, t.shell.propertyFieldInset));
             useTake_.setBounds(row(4).reduced(0, t.shell.propertyFieldInset));
+        }
+        else if (sections_[i] == S::Clip) // the Mute row
+        {
+            const auto content = stack_.content(i).withTrimmedLeft(t.shell.propertyLabelWidth);
+            clipMute_.setBounds(content.withY(content.getY() + 4 * t.shell.rowHeight)
+                                    .withHeight(t.shell.rowHeight)
+                                    .withWidth(ui::Toggle::widthFor(clipMute_.getButtonText()))
+                                    .reduced(0, t.shell.propertyFieldInset));
         }
         else if (sections_[i] == S::Point) // the Value row
             pointValue_.setBounds(stack_.content(i)

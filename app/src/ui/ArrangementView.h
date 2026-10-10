@@ -72,6 +72,8 @@ public:
     /// Adds the items that make rows (Add track, Add automation lane, Add return track) to a
     /// right-click menu: every row header's, and the empty space's below the rows.
     std::function<void(juce::PopupMenu&)> onAddMenu;
+    /// Fills a clip's right-click menu (the clip is selected first; bounce.md §10).
+    std::function<void(juce::PopupMenu&)> onClipMenu;
     /// A lane header's "Assign parameter..." and "Rename...".
     std::function<void(std::uint64_t lane)> onAssignLane, onRenameLane;
     /// A take's "Rename..." (its clip's take menu).
@@ -227,6 +229,12 @@ private:
     [[nodiscard]] std::optional<std::pair<std::uint64_t, std::uint64_t>> badgeAt(juce::Point<float> p) const;
     /// A clip's take menu; `take`: the strip right-clicked (else the take it plays).
     void takeMenu(std::uint64_t track, std::uint64_t stack, std::optional<std::uint64_t> take);
+    void clipMenu();
+    /// A clip's name in its title strip, after "M" when it's muted (bounce.md §6).
+    static void paintTitleText(juce::Graphics& g, juce::Rectangle<float> title, const std::string& name, bool muted);
+    /// The progress of the bounce a clip is part of, once it has run for motion.progressDelay.
+    [[nodiscard]] std::optional<float> bounceProgress(std::uint64_t clip) const;
+    std::vector<engine::Session::Bouncing> bouncing_; // read every frame
     void syncLayout();
 
     void paintRuler(juce::Graphics& g);

@@ -295,7 +295,9 @@ TEST_CASE("bounce in place: tails run until silent, stop at the next clip, and c
     result = b.bounce({alone});
     REQUIRE(result.clips.size() == 1);
     CHECK(b.clip(result.clips[0]).end() == Approx(1.5));
-    CHECK(result.cutTails == std::vector<std::string>{b.clip(next).name});
+    REQUIRE(result.cutTails.size() == 1);
+    CHECK(result.cutTails[0].clip == b.clip(result.clips[0]).name);
+    CHECK(result.cutTails[0].next == b.clip(next).name);
     b.session->undo();
 
     // Both bounced together: the first's tail carries on in the second's bounce, and it nulls.

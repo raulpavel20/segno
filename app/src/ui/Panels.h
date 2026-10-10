@@ -177,6 +177,8 @@ private:
     std::optional<model::TakeInfo> take_;
     juce::TextEditor takeName_;
     ui::Toggle useTake_{"Use this take"};
+    /// The selected clip's mute (bounce.md §6), as on a track's mute button.
+    ui::Toggle clipMute_{"M"};
     TrackInputSection input_{session_};
     model::TempoMap tempo_;
 };

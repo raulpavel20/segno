@@ -6,6 +6,15 @@ namespace fd::app
 {
 namespace
 {
+/// The whole pixels inside `area`: a waveform never spills past its clip's fractional edges onto
+/// its outline (the clip's body fills the partial pixels).
+juce::Rectangle<int> wholePixelsIn(juce::Rectangle<float> area)
+{
+    const int x0 = static_cast<int>(std::ceil(area.getX())), x1 = static_cast<int>(std::floor(area.getRight()));
+    const int y0 = static_cast<int>(std::ceil(area.getY())), y1 = static_cast<int>(std::floor(area.getBottom()));
+    return {x0, y0, std::max(0, x1 - x0), std::max(0, y1 - y0)};
+}
+
 /// Fills the outline of `columns` waveform columns starting at x0, each `columnWidth` wide.
 /// `frameAt(c)` is the first source frame of column c (and of c + 1 for its end). The outline
 /// goes along the top edge and back along the bottom; points where an edge doesn't change are
@@ -127,7 +136,7 @@ void WaveformTiles::drawDirect(juce::Graphics& g, const model::Peaks& peaks, con
     const int x0 = static_cast<int>(std::floor(area.getX()));
     const int x1 = static_cast<int>(std::ceil(area.getRight()));
     juce::Graphics::ScopedSaveState saved(g);
-    g.reduceClipRegion(area.getSmallestIntegerContainer());
+    g.reduceClipRegion(wholePixelsIn(area));
     g.setColour(colour);
     fillColumns(g, peaks, x1 - x0, static_cast<float>(x0), 1.0f, body.getCentreY(), body.getHeight() * 0.5f - 1.0f,
                 [&](int c) {
@@ -157,7 +166,7 @@ void WaveformTiles::draw(juce::Graphics& g, const model::Peaks& peaks, const mod
     const double levelPps = std::exp2(std::ceil(std::log2(pps) - 1e-9)); // >= pps: drawn scaled down <= 2x
 
     juce::Graphics::ScopedSaveState saved(g);
-    g.reduceClipRegion(area.getSmallestIntegerContainer());
+    g.reduceClipRegion(wholePixelsIn(area));
     g.setColour(colour);
 
     auto drawTile = [&](const Tile& tile, double renderPps, long index) {

@@ -1860,3 +1860,138 @@ TEST_CASE("takes: takes open under their clip after a loop pass; strips, the bad
     CHECK(s.snapshot()->channel(keys)->instrument.empty());
     root.deleteRecursively();
 }
+
+TEST_CASE("bounce: Ctrl+B bounces the selected clips in place, 0 mutes, the clip menu and refusals (C7)", "[integration]")
+{
+    ShellFixture f;
+    f.shell->setSize(1800, 1000);
+    auto& s = *f.session;
+    auto& actions = f.shell->actions();
+    const auto root = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("fd-shell-" + juce::Uuid().toString());
+    s.setUnsavedRoot(root);
+    s.updateSnapshotNow();
+    const auto t0 = s.snapshot()->tracks[0].id, t1 = s.snapshot()->tracks[1].id;
+    REQUIRE(s.addDevice(t0, "fd:subtractive-synth") != 0);
+    std::vector<fd::model::Note> notes;
+    for (int i = 0; i < 8; ++i)
+        notes.push_back({.pitch = 48 + (i * 5) % 12, .start = i * 0.5, .length = 0.4, .velocity = 0.8f});
+    const auto clip = s.createMidiClip(t0, 0.5, 2.0);
+    s.setNotes(clip, notes);
+    const auto silent = s.createMidiClip(t1, 0.5, 2.0); // no instrument there
+    s.setNotes(silent, notes);
+    s.updateSnapshotNow();
+    auto& view = f.shell->arrangement();
+    view.setView(0.0, 150.0);
+    auto track = [&](std::uint64_t id) {
+        s.updateSnapshotNow();
+        return *s.snapshot()->channel(id);
+    };
+    auto waitForBounces = [&] {
+        for (int i = 0; i < 3000 && !s.bouncing().empty(); ++i)
+            juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+        s.updateSnapshotNow();
+    };
+    const juce::KeyPress ctrlB('b', juce::ModifierKeys::commandModifier, 0);
+
+    // A clip that can't be bounced: dimmed in menus, and the shortcut says why; nothing changes.
+    view.setSelection(fd::model::withClips(*s.snapshot(), {silent}, t1, t1));
+    CHECK_FALSE(actions.isEnabled("clip.bounce"));
+    CHECK(actions.handleKey(ctrlB));
+    CHECK(f.shell->lastWarning() == juce::String(fd::model::refusalText(fd::model::BounceRefusal::NoInstrument)));
+    CHECK(s.bouncing().empty());
+    CHECK(actions.isEnabled("clip.mute")); // muting needs no instrument
+
+    // The clip's menu: bounce and mute, then the edits; each with its shortcut, dimmed when it can't run.
+    {
+        juce::PopupMenu menu;
+        REQUIRE(view.onClipMenu);
+        view.onClipMenu(menu);
+        std::vector<juce::String> names;
+        std::vector<bool> enabled;
+        for (juce::PopupMenu::MenuItemIterator it(menu); it.next();)
+            if (!it.getItem().isSeparator)
+            {
+                names.push_back(it.getItem().text);
+                enabled.push_back(it.getItem().isEnabled);
+            }
+        CHECK(names == std::vector<juce::String>{"Bounce in place", "Bounce to new track", "Mute clips", "Split at playhead",
+                                                 "Duplicate", "Delete"});
+        CHECK_FALSE(enabled[0]); // no instrument on this clip's track
+        CHECK(enabled[2]);
+    }
+
+    // Ctrl+B: bounced in place, and the bounce is selected.
+    view.setSelection(fd::model::withClips(*s.snapshot(), {clip}, t0, t0));
+    REQUIRE(actions.isEnabled("clip.bounce"));
+    REQUIRE(actions.handleKey(ctrlB));
+    CHECK(s.bouncing().size() == 1);
+    waitForBounces();
+    REQUIRE(track(t0).clips.size() == 1);
+    const auto bounced = track(t0).clips[0];
+    CHECK(bounced.kind == fd::model::ClipInfo::Kind::Audio);
+    CHECK(view.selection().clips == std::set{bounced.id});
+    CHECK(view.selection().channel == t0);
+    CHECK(s.undoDescription() == "Bounce in place");
+
+    // 0 mutes the selected clips, and again unmutes them; the inspector's CLIP shows it.
+    REQUIRE(actions.handleKey(juce::KeyPress('0')));
+    CHECK(track(t0).clips[0].muted);
+    CHECK(actions.isToggled("clip.mute"));
+    CHECK_FALSE(actions.isEnabled("clip.bounce")); // a muted clip plays nothing to bounce
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    fd::ui::Toggle* mute = nullptr;
+    for (auto* t : findAll<fd::ui::Toggle>(f.shell->inspector()))
+        if (t->getButtonText() == "M" && t->isVisible() && t->getParentComponent() == &f.shell->inspector())
+            mute = t;
+    REQUIRE(mute != nullptr);
+    CHECK(mute->getToggleState());
+    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: a muted bounce with its takes open
+    {
+        s.setTakesOpen(track(t0).stacks.at(0).id, true);
+        s.updateSnapshotNow();
+        view.frame(0.0, s.position());
+        dumpPng(dump, "bounce-muted.png", f.shell->createComponentSnapshot(f.shell->getLocalBounds()));
+        dumpPng(dump, "bounce-muted@2x.png",
+                view.createComponentSnapshot(view.getLocalBounds().withHeight(220).withWidth(900), true, 2.0f));
+        dumpPng(dump, "bounce-inspector@2x.png",
+                f.shell->inspector().createComponentSnapshot(f.shell->inspector().getLocalBounds().withHeight(320), true, 2.0f));
+        f.shell->setSize(1024, 800); // the window's minimum
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+        dumpPng(dump, "bounce-compact.png", f.shell->createComponentSnapshot(f.shell->getLocalBounds()));
+        f.shell->setSize(1800, 1000);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    }
+    mute->triggerClick();
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    CHECK_FALSE(track(t0).clips[0].muted);
+    CHECK(s.undoDescription() == "Unmute clips");
+
+    // A long part: its progress shows on the clip while it renders; Escape cancels it.
+    const auto longClip = s.createMidiClip(t0, 10.0, 60.0);
+    std::vector<fd::model::Note> many;
+    for (int i = 0; i < 120; ++i)
+        many.push_back({.pitch = 48 + (i * 7) % 24, .start = i * 1.0, .length = 0.8, .velocity = 0.8f});
+    s.setNotes(longClip, many);
+    s.updateSnapshotNow();
+    view.setSelection(fd::model::withClips(*s.snapshot(), {longClip}, t0, t0));
+    REQUIRE(actions.perform("clip.bounce"));
+    for (int i = 0; i < 300 && !s.bouncing().empty() && s.bouncing().front().progress < 0.3f; ++i)
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
+    if (!s.bouncing().empty() && s.bouncing().front().seconds >= fd::ui::Theme::current().motion.progressDelay)
+    {
+        view.setView(8.0, 40.0);
+        view.frame(0.0, s.position());
+        if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: the progress line
+            dumpPng(dump, "bounce-progress@2x.png",
+                    view.createComponentSnapshot(view.getLocalBounds().withHeight(160).withWidth(900), true, 2.0f));
+    }
+    CHECK(f.shell->keyPressed(juce::KeyPress(juce::KeyPress::escapeKey)) == !s.bouncing().empty());
+    waitForBounces();
+    CHECK(s.bouncing().empty());
+    // Cancelled, or landed just before Escape: either way nothing is left half done.
+    const auto after = track(t0);
+    CHECK(std::all_of(after.clips.begin(), after.clips.end(), [](const auto& c) { return !c.muted; }));
+    root.deleteRecursively();
+}
+

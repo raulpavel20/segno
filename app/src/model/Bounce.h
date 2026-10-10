@@ -52,6 +52,7 @@ struct BouncePiece
     /// Where the next clip on its track starts: a bounce in place never runs past it. In a bounce
     /// to a new track only the next piece of the run limits it. Infinity: nothing follows.
     double limit = 0.0;
+    std::string limitName; // the clip there (to say whose start cut a tail)
     /// The limit is the next piece of the same run: the tail carries on in that piece's bounce.
     bool limitIsBounced = false;
 };

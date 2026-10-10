@@ -234,6 +234,22 @@ void addClipTools(Registry& registry, ToolEnv& env)
                                   created.empty() ? "None of the clips contains that position." : "");
         }));
 
+    ToolAnnotations mutes;
+    mutes.idempotent = true;
+    registry.tools.push_back(make(env,
+                                  {"mute_clips", "Mute or unmute clips",
+                                   "Mutes clips: they keep their place and play nothing (a clip with takes, all of it). "
+                                   "With \"muted\": false, unmutes them.",
+                                   object({{"clips", ids(IdKind::Clip, "The clips")},
+                                           {"muted", boolean("Muted (default true) or not")}},
+                                          {"clips"}),
+                                   result({{"clips", arrayOf(clipResultSchema(), "The clips", std::nullopt)}}, {"clips"}), mutes},
+                                  [&env](const Json& args, CallContext&) {
+                                      const auto ids = clipIds(env, args["clips"]);
+                                      env.session.setClipsMuted(ids, args.value("muted", true));
+                                      return ToolResult::ok({{"clips", clipsJson(env, ids)}});
+                                  }));
+
     ToolAnnotations deletes;
     deletes.destructive = true;
     registry.tools.push_back(make(env,

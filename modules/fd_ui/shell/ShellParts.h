@@ -98,6 +98,11 @@ void paintToast(juce::Graphics& g, juce::Rectangle<int> area, const juce::String
 /// A centred hint where there is nothing to show.
 void paintEmptyState(juce::Graphics& g, juce::Rectangle<int> area, const juce::String& text);
 
+/// Work in progress on what it changes (a bounce on its clips, an export): a line along the
+/// bottom of `area`: a `surface3` track, `fraction` (0..1) of it in `value` from the left. Callers
+/// show it only after motion.progressDelay.
+void paintProgress(juce::Graphics& g, juce::Rectangle<float> area, float fraction);
+
 /// Titled sections one under another (the inspector): each a caps title on the row grid with its
 /// content under it, and a 1 px line centred in the group gap between neighbours, like a module
 /// panel's sections turned vertical. A layout helper: the owner keeps its components and places

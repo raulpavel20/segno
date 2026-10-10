@@ -240,6 +240,16 @@ void paintEmptyState(juce::Graphics& g, juce::Rectangle<int> area, const juce::S
     g.drawFittedText(text, area.reduced(t.shell.padding), juce::Justification::centred, 2);
 }
 
+void paintProgress(juce::Graphics& g, juce::Rectangle<float> area, float fraction)
+{
+    const auto& t = Theme::current();
+    const auto line = area.removeFromBottom(static_cast<float>(t.shell.progressHeight));
+    g.setColour(t.surface3); // the track, as under a knob's arc
+    g.fillRect(line);
+    g.setColour(t.value);
+    g.fillRect(line.withWidth(line.getWidth() * std::clamp(fraction, 0.0f, 1.0f)));
+}
+
 // ---- BarLayout ----------------------------------------------------------------------------------
 
 // ---- OutsideClick -----------------------------------------------------------------------------

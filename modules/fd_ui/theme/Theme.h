@@ -65,6 +65,7 @@ struct Motion
     double panel = 0.04;  // s, time constant: panels opening and resizing (~150 ms to settle)
     double follow = 0.05; // s: the view following the playhead
     double settle = 0.15; // s: detail that waits until motion stops
+    double progressDelay = 0.25; // s: work done sooner shows no progress (no flicker)
 };
 
 struct Input
@@ -108,6 +109,7 @@ struct ShellMetrics
     int clipTextInset = 4;        // a clip's name and badge, from its edges
     int laneTextInset = 8;        // text in a lane (a hint, a take's name), from its visible left edge
     int takeStripHeight = 24;     // a take's strip under its clip (recording.md §6)
+    int progressHeight = 2;       // the progress line along the bottom of what's being worked on
     float shadowRadius = 18.0f, shadowOffset = 6.0f;
 };
 

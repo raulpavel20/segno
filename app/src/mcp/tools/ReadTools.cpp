@@ -15,7 +15,8 @@ Json clipResultSchema()
                    {"track", string("The track it's on")},
                    {"start", positionResult()},
                    {"end", positionResult()},
-                   {"length", number("Beats")}},
+                   {"length", number("Beats")},
+                   {"muted", boolean("Muted: it keeps its place and plays nothing")}},
                   {"id", "kind", "start", "end", "length"});
 }
 

@@ -1,5 +1,6 @@
-// Long work (mcp.md §5): rendering and measuring a range, and scanning for plugins. These start
-// on the message thread and are waited for on the transport's thread, with progress.
+// Long work (mcp.md §5): rendering and measuring a range, bouncing clips (bounce.md §11), and
+// scanning for plugins. These start on the message thread and are waited for on the transport's
+// thread, with progress.
 
 #include "mcp/tools/Tools.h"
 
@@ -199,6 +200,111 @@ void addRenderTools(Registry& registry, ToolEnv& env)
         return result;
     };
     registry.tools.push_back(std::move(render));
+
+    Tool bounce;
+    bounce.name = "bounce_clips";
+    bounce.title = "Bounce clips to audio";
+    bounce.description =
+        "Renders clips to audio offline (playback goes on) and lands them as one undo step. In place (the "
+        "default): a MIDI clip through its track's modules up to and including its instrument, an audio clip as "
+        "it plays; the modules after it, the mixer and sends keep running on the bounce, so the track sounds the "
+        "same. The clip keeps its source as a take, \"Before bounce\" (use_take brings the MIDI back). With "
+        "\"newTrack\": the clips through the track's whole chain before the fader, onto a new track right after "
+        "it that copies its volume, pan, sends and the lanes driving them; the source clips are muted. A bounce "
+        "runs past its clip until its tail is silent (10 s at most), never past the next clip. Refused for a MIDI "
+        "clip on a track without an instrument, a muted clip, and (in place) a MIDI clip after audio modules on "
+        "its track. render the track before and after: the measurements match (an instrument's own randomness, such "
+        "as drift, moves them by a hair).";
+    bounce.inputSchema = object({{"clips", ids(IdKind::Clip, "The clips (a clip with takes is bounced whole)")},
+                                 {"newTrack", boolean("Onto a new track, through the whole chain (default false: in place)")}},
+                                {"clips"});
+    bounce.outputSchema = result({{"clips", arrayOf(clipResultSchema(), "The bounced clips", std::nullopt)},
+                                  {"tracks", arrayOf(string("A new track's id"), "The new tracks (newTrack)", std::nullopt)},
+                                  {"cutTails", arrayOf(result({{"clip", string("")}, {"next", string("")}}),
+                                                       "Audible tails a clip that wasn't bounced cut", std::nullopt)}},
+                                 {"clips"});
+    bounce.call = [&env](const Json& args, CallContext& context) -> ToolResult {
+        struct Landed
+        {
+            std::mutex mutex;
+            std::condition_variable changed;
+            std::optional<engine::Session::BounceResult> result;
+        };
+        auto landed = std::make_shared<Landed>();
+        std::shared_ptr<engine::Session::RenderJob> job;
+        std::optional<ToolResult> refused;
+        const bool ran = env.main.run([&] {
+            try
+            {
+                env.session.flushSnapshot();
+                std::vector<std::uint64_t> clips;
+                for (const auto& value : args["clips"])
+                    clips.push_back(clip(env, value).id);
+                const auto mode = args.value("newTrack", false) ? model::BounceMode::NewTrack : model::BounceMode::InPlace;
+                if (const auto why = env.session.bounceRefusal(clips, mode); !why.empty())
+                    throw Problem{why};
+                job = env.session.bounce(
+                    clips, mode,
+                    [landed](const engine::Session::BounceResult& r) {
+                        {
+                            std::lock_guard lock(landed->mutex);
+                            landed->result = r;
+                        }
+                        landed->changed.notify_all();
+                    },
+                    "Assistant: bounce clips"); // one call, one step (ADR 0021), though it lands later
+                if (job == nullptr)
+                    throw Problem{"There's nothing to bounce."};
+            }
+            catch (const Problem& p)
+            {
+                refused = ToolResult::error(p.message);
+            }
+        });
+        if (!ran)
+            return ToolResult::error("The DAW is closing.");
+        if (refused)
+            return *refused;
+        for (;;)
+        {
+            {
+                std::unique_lock lock(landed->mutex);
+                if (landed->changed.wait_for(lock, std::chrono::milliseconds(200), [&] { return landed->result.has_value(); }))
+                    break;
+            }
+            context.progress(job->progress(), 1.0, "Bouncing");
+            if (context.cancelled() || !env.main.isOpen())
+                job->cancel();
+            if (!env.main.isOpen())
+                return ToolResult::error("The DAW is closing.");
+        }
+        const auto r = *landed->result;
+        if (r.cancelled)
+            return ToolResult::error("The bounce was cancelled; nothing changed.");
+        if (!r.error.empty())
+            return ToolResult::error(r.error);
+        Json out;
+        std::string summary;
+        env.main.run([&] {
+            env.session.flushSnapshot();
+            Json clips = Json::array();
+            for (const auto id : r.clips)
+                if (const auto found = model::findClip(*env.session.snapshot(), id))
+                    clips.push_back(clipJson(env, *found->first, false));
+            Json tracks = Json::array();
+            for (const auto id : r.tracks)
+                tracks.push_back(formatId(IdKind::Track, id));
+            Json cut = Json::array();
+            for (const auto& c : r.cutTails)
+            {
+                cut.push_back({{"clip", c.clip}, {"next", c.next}});
+                summary += c.clip + "'s tail stops where " + c.next + " starts; bounce both to keep it. ";
+            }
+            out = {{"clips", std::move(clips)}, {"tracks", std::move(tracks)}, {"cutTails", std::move(cut)}};
+        });
+        return ToolResult::ok(std::move(out), summary);
+    };
+    registry.tools.push_back(std::move(bounce));
 
     Tool measure;
     measure.name = "measure_module";

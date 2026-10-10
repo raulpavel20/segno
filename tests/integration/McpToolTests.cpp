@@ -144,6 +144,7 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
           "set_automation", "clear_automation", "set_automation_on", "add_automation_lane", "set_automation_lane",
           "remove_automation_lane", "assign_automation", "unassign_automation", "set_track_input", "arm_tracks",
           "record", "get_takes", "use_take", "set_take", "move_takes_to_tracks", "delete_takes", "capture_midi",
+          "bounce_clips", "mute_clips",
           "undo", "redo",
           "save_project", "new_project", "open_project"})
         CHECK(names.contains(name));
@@ -936,4 +937,56 @@ TEST_CASE("mcp tools: recording: inputs set, tracks armed, a few bars recorded",
     const auto captured = daw.call("capture_midi", {{"track", t1}});
     CHECK(captured["track"] == t1);
     CHECK_FALSE(captured["clip"].is_null());
+}
+
+TEST_CASE("mcp tools: bounce clips in place and to a new track, and mute clips", "[integration][mcp]")
+{
+    Daw daw;
+    daw.session->setUnsavedRoot(daw.folder.getChildFile("Unsaved"));
+    const auto tracks = daw.project()["tracks"];
+    const auto t0 = tracks[0]["id"].get<std::string>(), t1 = tracks[1]["id"].get<std::string>();
+    daw.call("add_module", {{"track", t0}, {"type", "subtractive-synth"}});
+    const Json notes = Json::array({{{"pitch", "C3"}, {"start", 0}, {"length", 1}}, {{"pitch", "E3"}, {"start", 2}, {"length", 1}}});
+    const auto clip = daw.call("create_midi_clip", {{"track", t0}, {"start", 0}, {"notes", notes}})["clip"]["id"].get<std::string>();
+    const auto silent = daw.call("create_midi_clip", {{"track", t1}, {"start", 0}, {"notes", notes}})["clip"]["id"].get<std::string>();
+
+    // Refused, with the reason: no instrument on the second track.
+    CHECK(daw.fails("bounce_clips", {{"clips", {silent}}}).find("instrument") != std::string::npos);
+
+    // In place: an audio clip with the MIDI kept as its take.
+    auto r = daw.callAway("bounce_clips", {{"clips", {clip}}});
+    INFO(r.dump().substr(0, 2000));
+    REQUIRE(r["isError"] == false);
+    auto out = r["structuredContent"];
+    REQUIRE(out["clips"].size() == 1);
+    const auto bounced = out["clips"][0]["id"].get<std::string>();
+    CHECK(out["clips"][0]["kind"] == "audio");
+    CHECK(out["clips"][0]["track"] == t0);
+    CHECK(out["clips"][0]["takes"] == 2);
+    CHECK(out["clips"][0]["muted"] == false);
+    CHECK(out["tracks"].empty());
+    CHECK(daw.session->undoDescription() == "Assistant: bounce clips");
+    const auto takes = daw.call("get_takes", {{"clip", bounced}});
+    REQUIRE(takes["clips"].size() == 1);
+    REQUIRE(takes["clips"][0]["takes"].size() == 2);
+    CHECK(takes["clips"][0]["takes"][0]["name"] == "Before bounce");
+    CHECK(takes["clips"][0]["takes"][1]["name"] == "Bounce");
+
+    // Muted, it can't be bounced; unmuted, to a new track.
+    auto muted = daw.call("mute_clips", {{"clips", {bounced}}});
+    CHECK(muted["clips"][0]["muted"] == true);
+    CHECK(daw.session->undoDescription() == "Assistant: mute clips");
+    CHECK(daw.fails("bounce_clips", {{"clips", {bounced}}, {"newTrack", true}}).find("muted") != std::string::npos);
+    muted = daw.call("mute_clips", {{"clips", {bounced}}, {"muted", false}});
+    CHECK(muted["clips"][0]["muted"] == false);
+    r = daw.callAway("bounce_clips", {{"clips", {bounced}}, {"newTrack", true}});
+    INFO(r.dump().substr(0, 2000));
+    REQUIRE(r["isError"] == false);
+    out = r["structuredContent"];
+    REQUIRE(out["tracks"].size() == 1);
+    REQUIRE(out["clips"].size() == 1);
+    CHECK(out["clips"][0]["track"] == out["tracks"][0]);
+    CHECK(daw.call("get_clip", {{"clip", bounced}})["muted"] == true); // the source, muted
+    const auto project = daw.project();
+    CHECK(project["tracks"][1]["id"] == out["tracks"][0]); // right after the source
 }

@@ -2,7 +2,7 @@
 
 How Segno turns clips into audio: **Bounce in place** renders a part on its own track and keeps what it came from, and **Bounce to new track** prints what a track's modules make of it. The decision is [ADR 0035](../decisions/0035-bounce-keeps-its-source.md). It builds on one kind of track and its signal flow ([ADR 0019](../decisions/0019-one-kind-of-track.md)), projects as folders ([ADR 0030](../decisions/0030-projects-are-folders.md)), takes on clips ([ADR 0032](../decisions/0032-takes-belong-to-clips.md)), no instrument added by itself ([ADR 0033](../decisions/0033-no-instrument-by-itself.md)), lanes that drive parameters on any channel ([ADR 0029](../decisions/0029-independent-automation-lanes.md)), and the offline render the MCP `render` tool already uses (`Session::render`, [mcp.md](mcp.md) §7).
 
-**Status:** approved by the product owner (2026-10-10), with every recommendation of §14. Built in two parts (§15): C7a, then C7b.
+**Status:** approved by the product owner (2026-10-10), with every recommendation of §14. C7a and C7b built (2026-10-10); awaiting the product owner's feel check (manual-tests/M2.md, "Bounce (C7)"). What building it settled is noted where it applies: the silence threshold (§7), randomness in instruments (§3), and takes of both kinds (§4).
 
 **Where the field is (2026):** every current DAW renders MIDI to audio, in two families.
 - **Commit in place.** The part becomes audio on its own track:
@@ -49,6 +49,7 @@ Both work on the selected clips, on one track or several. A clip with takes coun
 - **MIDI clips** feed the track's first instrument. The render covers the modules up to and including it. From M4, MIDI modules before the instrument (Arpeggiator, Chord) shape the notes and are part of the render. The result is the instrument's sound alone; everything after the instrument keeps running on the bounce exactly as it ran on the instrument.
 - **Audio clips** enter at the start of the chain, so nothing is rendered but the clip itself. Today that copies the audio as it plays. With clip fades (C6) it bakes the fades, and with comping (C5c) it joins a comp's parts into one file. One rule covers every clip, and the command grows more useful as clips gain properties.
 - **Automation** of the instrument's own parameters is baked in, because the instrument played it. The lanes stay: they now drive an instrument that plays nothing there, and they apply again if the MIDI comes back (§4). Automation of later modules and of the mixer stays live.
+- **Randomness** in an instrument (the Synth's Drift, its noise) runs from where a render starts. A bounce renders from its clip, so it keeps one performance of it, the one playing from the clip's start would give; a render from the song's start is another, equally right. The null tests turn Drift off.
 
 **When bounce in place isn't offered** (the menu item is dimmed; the shortcut shows a toast saying why):
 - **A MIDI clip on a track without an instrument.** It is silent (ADR 0033): "Add an instrument to bounce this clip."
@@ -64,7 +65,7 @@ The bounced clip's takes follow ADR 0032:
 - **A clip with takes** gets "Bounce" as its newest take and plays it. Its other takes, MIDI or audio, stay as they were. A second bounce of the same clip is "Bounce 2".
 - **A comp** (C5c) keeps its parts as one take, "Before bounce", so the comp can come back too.
 
-**Going back** is choosing a take: click the "Before bounce" strip, or press Alt+↑. The clip is MIDI again and the instrument plays it, with its automation. To commit for good, use "Keep only Bounce" in the take menu; the files stay (ADR 0030). A clip's takes can now be of both kinds. The take code copies clip states whatever their kind, and the strips already draw notes and waveforms.
+**Going back** is choosing a take: click the "Before bounce" strip, or press Alt+↑. The clip is MIDI again and the instrument plays it, with its automation. A clip never plays MIDI and audio takes together: choosing a take of one kind clears the clip's parts of the other, so the bounce's tail goes when the MIDI comes back (and the instrument's own tail rings instead). To commit for good, use "Keep only Bounce" in the take menu; the files stay (ADR 0030). A clip's takes can now be of both kinds. The take code copies clip states whatever their kind, and the strips already draw notes and waveforms.
 
 **The range** of the clip's takes grows to cover the tail (§7). The "Before bounce" take is shorter than the range, as a partial pass already is in recording.
 
@@ -85,7 +86,7 @@ Clips can be muted. Bounce to new track needs it, and every current DAW has it.
 
 ## 7. Tails
 
-- **How long:** a bounce runs past its clip's end until the sound stays below −90 dBFS, for at most 10 s, and never past the next clip on its track. The clip ends there, and never before its source's end, so the arrangement keeps its shape. tracktion's own early stop (at about −78 dBFS) isn't used: it cuts quiet release tails. Segno renders the allowance and trims the clip itself.
+- **How long:** a bounce runs past its clip's end until the sound stays below −100 dBFS, for at most 10 s, and never past the next clip on its track. The clip ends there, and never before its source's end, so the arrangement keeps its shape. tracktion's own early stop (at about −78 dBFS) isn't used: it cuts quiet release tails. Segno renders the allowance and trims the clip itself.
 - **Clips bounced together on a track render in one pass.** Each bounce runs from its clip's start to the next bounced clip's start, so a tail that rings into the next clip is part of that clip's bounce. The bounces join without a seam and the run nulls. The clips point into one file per run, at offsets, as recorded loop laps do.
 - **A tail cut by a clip that isn't bounced:** the clip ends with a 4 ms fade-out, so the cut doesn't click. The fade is tracktion's own clip fade, which C6 will show and make editable, at the length C6 uses for its automatic edge fades. The file keeps the whole tail, as Logic's do, so moving the next clip away and trimming the bounce out brings the tail back. When what's cut is audible (above −60 dBFS), a toast says so: "Pad 1's tail stops where Pad 2 starts. Bounce both to keep it."
 - **To a new track,** the tail can run under the source track's next clip: the bounce is on another track, so nothing overlaps. Only the next bounced clip, or 10 s, ends it.
@@ -94,7 +95,7 @@ Clips can be muted. Bounce to new track needs it, and every current DAW has it.
 
 - **Offline, on a copy** (`Session::render`): the project, its undo history and playback are untouched while it renders. Several bounces can run at once.
 - **When it's done,** the result is applied as one undo step ("Bounce in place", "Bounce to new track"), and the bounced clips are selected. Undo takes the clips back and leaves the files; redo uses them again.
-- **Progress** shows as a thin line along the bottom of each clip being bounced: the new shared `Progress` component, which export (C8) will use too. It appears only after a short delay (a motion token, 250 ms), so quick bounces don't flicker.
+- **Progress** shows as a thin line along the bottom of each clip being bounced: the new shared `ui::paintProgress` (a `surface3` track filled in `value`), which export (C8) will use too. It appears only after a short delay (a motion token, 250 ms), so quick bounces don't flicker.
 - **Escape** cancels the bounces in progress, unless a popover is open, which closes first. Nothing changes.
 - **Editing while it renders** is allowed. If a clip being bounced is moved, edited or deleted, or a module the bounce renders changes, that bounce is dropped and a toast says why. Its file is removed, since nothing ever referred to it. Other edits don't affect it.
 
@@ -128,7 +129,7 @@ Every feature comes with its tools and a test through MCP (ADR 0021).
 | `bounce_clips` | `clips`, `newTrack?` (false) | Waits for the render. The new clips (id, track, start and length in beats, file), the new tracks if any, and any tails cut. One undo step, "Assistant: bounce clips". Refused, with the reason, for MIDI clips without an instrument or with audio modules before it, and for muted clips |
 | `mute_clips` | `clips`, `muted?` (true) | The clips and their state. One undo step |
 
-Clip results gain `muted`, and `get_takes` lists bounce takes like any other. **Checking a bounce:** `render` the track before and after, and compare. An assistant can bounce a part, measure that it nulls, and report.
+Clip results gain `muted`, and `get_takes` lists bounce takes like any other. **Checking a bounce:** `render` the track before and after, and compare the measurements: they match, but for a hair of an instrument's randomness (§3). An assistant can bounce a part, check it, and report.
 
 ## 12. Model and engine
 
@@ -139,14 +140,14 @@ Clip results gain `muted`, and `get_takes` lists bounce takes like any other. **
 - **The render** extends `Session::render` on its Edit copy:
   - only the bounced clips play (`Renderer::Parameters::allowedClips`);
   - for in place, the modules after the instrument and the mixer's own plugins are turned off in the copy (and every module, for audio clips);
-  - the range runs to the tail allowance, and the clip ends are trimmed afterwards at −90 dBFS; a tail cut by the next clip gets its fade-out through tracktion's clip fade (`AudioClipBase::setFadeOut`);
+  - the range runs to the tail allowance, and the clip ends are trimmed afterwards at −100 dBFS; a tail cut by the next clip gets its fade-out through tracktion's clip fade (`AudioClipBase::setFadeOut`);
   - the file is written at the engine's sample rate into `Bounces/`.
 - **Watching for changes:** the Session's existing notifications (snapshot and module state changes) tell a running bounce when one of its clips or rendered modules changed; it then cancels.
 - **Clip mute** is tracktion's `Clip::setMuted`, with `ClipInfo::muted` in the snapshot and the dimmed drawing in the arrangement's one clip painter (`clipBox`, `titleOf`).
 
 ## 13. Tests (Done when)
 
-- **Nulls:** a Synth part on a track with an EQ, a Compressor and a volume lane, bounced in place, renders the same as before the bounce, to below −100 dBFS; likewise our VST3 as a third-party instrument (the stand-in used by the chain tests). A bounce to a new track nulls against the mix before it, with a send to a return and a lane on the source's volume.
+- **Nulls:** a Synth part (Drift off, §3) on a track with an EQ, a Compressor and a volume lane, bounced in place, renders the same as before the bounce, to below −100 dBFS; likewise our VST3 as a third-party instrument (the stand-in used by the chain tests). A bounce to a new track nulls against the mix before it, with a send to a return and a lane on the source's volume.
 - **Tails:** a long-release pad's bounce runs until silent; a tail ends at the next clip with its fade and the toast; two touching clips bounced together null as a run; 10 s at most.
 - **Takes:** a plain clip gets "Before bounce" and "Bounce", plays the bounce, and plays the MIDI again after choosing it (one undo step); a recorded clip with takes gains "Bounce"; "Keep only" keeps the file.
 - **When it isn't offered:** no instrument; audio modules before the instrument; a muted clip. Each is refused with its reason, in the UI and through MCP.
@@ -166,7 +167,7 @@ Clip results gain `muted`, and `get_takes` lists bounce takes like any other. **
 | Q2 | **Where the source goes** | It becomes a take of the bounced clip ("Before bounce"), so going back is one click at any time (§4). This replaces "the MIDI is kept, muted" in the M2 plan: on one lane without overlaps (ADR 0019), a take is where a kept clip belongs |
 | Q3 | **Audio modules before the instrument** | Bounce in place isn't offered there, with the reason, because the bounce would pass through them and sound different; bounce to a new track still works (§3) |
 | Q4 | **Several clips** | One bounce per clip, keeping the arrangement's clips. Clips bounced together on a track render in one pass, so tails carry over and the run nulls (§7) |
-| Q5 | **Tails** | Until silent (−90 dBFS), 10 s at most, never past the next clip. Where a clip that isn't bounced cuts a tail: a 4 ms fade on the clip, the whole tail kept in the file, and a toast when the cut is audible (§7) |
+| Q5 | **Tails** | Until silent (−100 dBFS, lowered from the reviewed −90 when building showed that cutting at −90 misses the −100 dB null), 10 s at most, never past the next clip. Where a clip that isn't bounced cuts a tail: a 4 ms fade on the clip, the whole tail kept in the file, and a toast when the cut is audible (§7) |
 | Q6 | **Printing effects** | A second command, Bounce to new track: the whole chain before the fader, onto a new track that copies the mix and joins the source's lanes, with the source clips muted (§5) |
 | Q7 | **Clip mute** | Added with C7 (key 0, the clip menu, the inspector), since printing to a new track needs it (§6) |
 | Q8 | **Time ranges** | Clips only in M2; ranges with range selection, when range editing comes (ADR 0028) |

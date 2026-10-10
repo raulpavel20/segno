@@ -86,6 +86,7 @@ Role functions for colours that depend on content:
 | `motion.follow` | 50 ms | The view following the playhead |
 | `motion.zoom` | 80 ms (the `Timeline` model's own constant) | Animated zoom |
 | `motion.settle` | 150 ms | Detail that waits for motion to stop (exact-zoom waveforms) |
+| `motion.progressDelay` | 250 ms | Work done sooner shows no progress, so quick bounces don't flicker |
 | `input.dragThreshold` | 3 px | A press becomes a drag |
 | `input.edgeGrab` | 6 px (a third of the target at most) | Grabbing a clip's, note's or loop brace's edge |
 | `input.wheelScroll` | 400 px per wheel unit | Scrolling |
@@ -121,6 +122,7 @@ Role functions for colours that depend on content:
 | `shell.clipTextInset` | 4 (a clip's name and badge, from its edges) |
 | `shell.laneTextInset` | 8 (text in a lane, a hint or a take's name, from its visible left edge) |
 | `shell.takeStripHeight` | 24 (a take's strip under its clip, C5b) |
+| `shell.progressHeight` | 2 (the progress line along the bottom of what's being worked on, C7) |
 
 Components size themselves for their text: `ui::Toggle::widthFor(label)` and `ui::NumberField::widthFor(widest value)`; bars ask them rather than adding padding by hand. Every clip the arrangement draws (clips, recordings in progress, take strips) takes its box and title from one place (`ArrangementView::clipBox`, `titleOf`).
 
@@ -136,6 +138,7 @@ Components size themselves for their text: `ui::Toggle::widthFor(label)` and `ui
 | `Popover` | Floating chrome: `surface2`, panel radius, the one shadow | Command palette; Assistants popover; future menus that float |
 | `Toast` | A message in the arrangement's corner that times out | Warnings and confirmations |
 | `EmptyState` | A centred hint where there is nothing to show | Chain without a track, clip view without a clip, empty project, empty inspector |
+| `paintProgress` | Work in progress on what it changes: a `shell.progressHeight` line along its bottom, a `surface3` track filled in `value` from the left; shown only after `motion.progressDelay` | Clips being bounced (C7); export (C8) |
 | `SectionStack` | Titled sections one under another: a `Section`-style caps title on the row grid, the content under it, and a 1 px `line` centred in the group gap between neighbours (a module panel's sections, stacked) | The inspector ([selection.md](selection.md) §5); later the browser and preferences |
 | `BarLayout` | Places a bar's items left and right on the item and group gaps | Small bars |
 | `model::layoutTopBar` (app) | The top bar's three sections: left and right items on the item and group gaps, the centre cluster on the bar's middle (moved in only when the sides need the room), and items dropped by priority when it's narrow; pure, `[fast]`-tested | The top bar |
