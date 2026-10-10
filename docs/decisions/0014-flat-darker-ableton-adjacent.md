@@ -1,6 +1,6 @@
 # 0014. Flat, darker and closer to Ableton; gradients only as an accent effect
 
-- **Status:** Accepted
+- **Status:** Accepted; "almost no menu diving" amended by [0040](0040-a-menu-bar-and-everything-by-mouse.md) (2026-10-11): a traditional menu bar holds every action, and everything is reachable with the mouse
 - **Date:** 2026-10-09
 - **Supersedes:** [0009](0009-dark-first-design-language.md)
 

@@ -22,7 +22,7 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0011](0011-calibrated-ambition-and-consolidation.md) | Match Live by default; go beyond selectively (mainly the mixing core); merge only devices that do the same job | Accepted |
 | [0012](0012-ui-toolkit-juce-everywhere.md) | JUCE is the only UI toolkit; standard vs OpenGL rendering decided by an M0 spike | Accepted |
 | [0013](0013-single-repository.md) | One repository (monorepo) for suite + DAW, with independent builds and releases | Accepted |
-| [0014](0014-flat-darker-ableton-adjacent.md) | Flat everywhere, darker, close to Ableton's visual grammar; gradients only as a listed accent effect | Accepted |
+| [0014](0014-flat-darker-ableton-adjacent.md) | Flat everywhere, darker, close to Ableton's visual grammar; gradients only as a listed accent effect | Accepted; "almost no menu diving" amended by 0040 |
 | [0015](0015-rendering-opengl-for-the-daw.md) | OpenGL renderer for the DAW window (GL-thread driven), software for plugin editors; cached heavy views; frame budgets | Accepted |
 | [0016](0016-constant-device-latency.md) | Constant, whole-sample latency per device instance; parameters never change latency | Accepted |
 | [0017](0017-heavy-data-and-non-parameter-state.md) | Heavy data via `AssetHandoff` (frees never on the audio thread); synchronous load in `readExtraState`; UI edits to extra state through the host binding | Accepted |
@@ -48,6 +48,7 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0037](0037-a-pass-makes-its-own-clip.md) | A recording pass makes its own clip: clips it covers in part are cut, clips it covers entirely give it their takes, what it replaced is kept as "Before take N"; choosing a take plays it alone; a clip's range never reaches over another clip | Accepted; strip clicks and Alt+↑/↓ on comps superseded by 0038 |
 | [0038](0038-comping-you-can-listen-through.md) | Comping you can listen through: a take auditions without changing the clip; a click on a strip, or Alt+↑/↓, changes only the section of the comp it's in; a whole take is a deliberate choice | Accepted |
 | [0039](0039-export-in-the-background.md) | Export is a popover panel and renders in the background: the mix or stems that add up to it, the song with its tail or the loop, WAV/FLAC/AIFF with automatic dither and loudness normalising; files in the project's Exports or anywhere chosen, never overwritten; a loudness report | Accepted |
+| [0040](0040-a-menu-bar-and-everything-by-mouse.md) | A traditional menu bar (File … Help) holds every action with its shortcut, so everything can be done with the mouse; on Linux and Windows it sits in a title bar of our own with the project's name and the window buttons (the system's as an option); the macOS menu bar on macOS | Proposed; the menu bar and the mouse for everything decided by the product owner (2026-10-11) |
 
 ## Template
 

@@ -26,7 +26,7 @@ The two are developed in parallel from one shared device library (see [ADR 0002]
 ## What defines it (the pillars)
 
 1. **Comprehensive devices: Live-level, and beyond where it counts.** Every role Live Suite's devices cover, we cover too, with Live-level features and sound. We go further selectively, mainly in the mixing core: one unlimited-band EQ instead of three simple ones. Instruments stay close to Live's stock instruments. Devices are merged only when they do the same job. Every device sounds professional, shows what it is doing, and works the same way as every other device. See [devices/device-suite.md](devices/device-suite.md).
-2. **A modern UI.** Deep dark theme first, flat and minimal, close to Ableton's visual grammar but cleaner, adaptive single-window layout, context panels instead of dialogs, almost no menu diving. See [design/ui-principles.md](design/ui-principles.md).
+2. **A modern UI.** Deep dark theme first, flat and minimal, close to Ableton's visual grammar but cleaner, adaptive single-window layout, context panels instead of dialogs, shallow menus where people expect them, with every command reachable by the mouse. See [design/ui-principles.md](design/ui-principles.md).
 3. **Arrangement first.** The timeline is the centre of the DAW. Everything is designed around composing, arranging and mixing on it. See [ADR 0001](decisions/0001-arrangement-only-scope.md).
 4. **Runs on Linux, Windows and macOS, as plugins and as a DAW.** No platform is second-class; Linux especially. See [ADR 0003](decisions/0003-platforms-and-plugin-formats.md).
 5. **Free and open.** AGPL-3.0. Presets and state are stored in open, documented formats. Projects can be exchanged with other DAWs via DAWproject (later).
@@ -61,5 +61,5 @@ The aim is to stay focused, not to rule these out forever. Revisiting any of the
 
 - A full track can be produced, from sound design through mixing to master, **using only our devices**.
 - In blind A/B tests, each core device holds up against its Live Suite counterpart. The EQ can match the features of the best commercial EQs.
-- A new user can create a track, add instruments and effects, record, arrange and export **without opening a menu bar or a modal dialog**.
+- A new user can create a track, add instruments and effects, record, arrange and export **without a modal dialog, and with the mouse alone**. Every command is in a menu bar where they'd look for it in any app, with its shortcut beside it; the frequent ones are one click away where they work ([ADR 0040](decisions/0040-a-menu-bar-and-everything-by-mouse.md)).
 - The UI stays smooth (60 fps or more) with a large project open, on a mid-range laptop running Linux.

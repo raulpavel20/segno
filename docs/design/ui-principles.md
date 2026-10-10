@@ -2,33 +2,35 @@
 
 "Modern UI" is the main thing that sets this project apart, so it cannot stay a matter of taste. This document turns it into principles, concrete rules and a checklist. The chosen values (theme "Steel") are recorded in [design-language.md](design-language.md). This document defines the constraints those values must satisfy.
 
-Decision records: [ADR 0009](../decisions/0009-dark-first-design-language.md), superseded by [ADR 0014](../decisions/0014-flat-darker-ableton-adjacent.md).
+Decision records: [ADR 0009](../decisions/0009-dark-first-design-language.md), superseded by [ADR 0014](../decisions/0014-flat-darker-ableton-adjacent.md); menus and the mouse: [ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md).
 
 ## Summary
 
 - **Deep dark, clean and minimal, close to Ableton's visual grammar.** Dense and neutral; content (waveforms, curves, meters) is the brightest thing on screen; chrome recedes.
 - **Flat everything.** Solid colours on surfaces and controls; no bevels, gloss, glows or 3D. Gradients are a reserved accent effect (automation, modulation).
 - **Context, not dialogs.** Whatever you select, its controls appear in place, in a panel or popover, never behind a modal.
-- **Almost no menu diving.** Every frequent action takes one click or one key. Every action can be found by search.
+- **Nothing hidden.** A menu bar holds every command with its shortcut, as in any desktop app, so everything can be done with the mouse. Frequent actions are also one click away where you work, and have a key. Every action can be found by search.
 - **One window that adapts.** Panels collapse, resize and reflow to fit a laptop screen or an ultrawide monitor.
 - **Devices are designed together** and behave like one product.
 
 ---
 
-## 1. Little to no menu diving
+## 1. Nothing hidden
 
-People should not have to remember where things are hidden.
+People should not have to remember where things are hidden, and nothing should be reachable only by those who know a key or a right-click. Product owner, 2026-10-11: "Everything has to be accessible with the mouse in some way", and the menus should be where people expect them, "otherwise all users will be lost" ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)).
 
 **Rules**
-- Every **frequent action** is reachable in **one click or one shortcut**. "Frequent" means used in most sessions: add a track, add a device, split, duplicate, quantise, loop, record, export.
-- **Every action** is reachable from the **command palette** (`Ctrl/Cmd+K`): fuzzy search, showing the action's shortcut, recently used items first.
+- **Everything can be done with the mouse.** Every action is in the **menu bar** (File, Edit, Track, Clip, Transport, View, Options, Help: [menu-bar.md](menu-bar.md)), with its shortcut beside it, so the menus also teach the keys. A shortcut, the command palette or a right-click menu is never the only way to do something; a property is also in the inspector.
+- Every **frequent action** is **visible where you work** (a button, or the right-click menu of the thing it acts on) **and has a shortcut**. "Frequent" means used in most sessions: add a track, add a device, split, duplicate, quantise, loop, record, undo. Export is in File, where every app keeps it.
+- **Every action** is also in the **command palette** (`Ctrl/Cmd+K`): fuzzy search, showing the action's shortcut, recently used items first. The palette has a button in the top bar.
+- **Menus are traditional and shallow.** File comes first and Help last; names and order follow common use, as in other DAWs. At most one level of submenus, in the menu bar and in right-click menus.
 - **No modal dialogs for editing.** Modals are allowed only for:
   - confirming destructive actions;
   - unsaved-changes prompts;
   - first-run audio device setup.
 
   Everything else is edited in place, in a panel, or in a popover.
-- **Context menus are shortcuts, never the only way** to do something. Each context menu has at most one level of submenus.
+- **Context menus are shortcuts, never the only way** to do something: what they offer is also in the menu bar or the inspector. One menu builder serves both, so the items read the same.
 - **Drag and drop works wherever it makes sense:**
   - files → arrangement;
   - device → chain;
@@ -47,6 +49,8 @@ The UI shows the controls for what you are working on, where you are working.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
+│ ◆ SEGNO  File Edit Track Clip Transport View Options Help   My song    – ▢ ✕ │  Title bar: menus, title, window buttons
+├──────────────────────────────────────────────────────────────────────────────┤
 │ ▶ ■ ●   120.00 BPM  4/4   1 . 1 . 1   ⟲ loop   metronome   CPU ▁▃   ⌕ Ctrl+K   │  Transport bar
 ├──────────┬───────────────────────────────────────────────────────┬───────────┤
 │ Browser  │  Arrangement                                          │ Inspector │
@@ -89,7 +93,7 @@ The UI shows the controls for what you are working on, where you are working.
   - Secondary controls appear on hover or selection, but anything essential is always visible.
 - **Few, consistent icons.** One line-icon set (1.5 px stroke on a 16 px grid). Every icon has a tooltip that includes its shortcut. When the meaning isn't obvious, use a text label rather than an icon.
 - **Quiet chrome, loud content.** Waveforms, curves, meters and clip colours are the most vivid things on screen. Panels, headers and toolbars recede.
-- **One way to do each thing.** Avoid duplicate controls for the same action in different places, except for the command palette and shortcuts.
+- **One way to do each thing.** Avoid duplicate controls for the same action in different places. The menu bar, right-click menus, the command palette and shortcuts are routes to an action, not copies of it, so they don't count.
 
 ## 4. Flat, minimal, close to Ableton's visual grammar
 
@@ -190,10 +194,11 @@ Every built-in instrument and effect (a **module** in the UI; a *device* in code
 - **One preset browser** per module header, with search, tags, favourites and A/B compare.
 - **Third-party plugins** appear in the chain as compact cards: power, name, a few pinned parameters, and a button to open their own editor.
 
-## 8. Keyboard first, mouse friendly
+## 8. Keyboard and mouse, both complete
 
-- Complete shortcut coverage for editing, navigation and transport. Every shortcut can be remapped.
-- Tooltips show shortcuts, so users learn them gradually.
+- **Everything with the mouse:** every action is in the menu bar (§1). Gestures with a modifier (Shift for fine, Alt to bypass snap) refine a mouse gesture; they aren't commands of their own.
+- **Everything with the keyboard:** complete shortcut coverage for editing, navigation and transport, and the command palette for the rest. Every shortcut can be remapped. The menu bar opens from the keyboard too (F10).
+- Menus and tooltips show shortcuts, so users learn them gradually.
 - Focus is always visible and the arrow keys move it predictably.
 
 ## 9. Performance is part of the UI
@@ -211,7 +216,8 @@ Every built-in instrument and effect (a **module** in the UI; a *device* in code
 | Bevels, embossing, glossy or photoreal 3D knobs | Flat controls; thin value arcs; gradients only as a listed accent effect |
 | Grey OS-default widgets mixed with custom ones | One custom component library, used everywhere |
 | Chains of modal dialogs and tabbed property dialogs | Context panels, inspector, popovers |
-| Menus three levels deep; features only reachable from menus | One click, one shortcut, command palette |
+| Menus three levels deep; features only reachable from menus | A traditional menu bar with everything, one submenu level at most; frequent actions one click away too; a shortcut for each; command palette |
+| Features only a key or a right-click away, that only those who know find | Every action in the menu bar with its shortcut beside it; right-click menus as shortcuts to it |
 | Floating windows everywhere | Single docked window; only third-party plugin editors float |
 | Toolbars full of cryptic icons | Few icons, always with tooltips and shortcuts; text labels where clearer |
 | Tiny fixed-size bitmap text, blurry on HiDPI | Bundled variable font; vector rendering; 75–200% UI scale |
@@ -224,7 +230,7 @@ Every built-in instrument and effect (a **module** in the UI; a *device* in code
 - [ ] Uses design tokens only: colour roles, text styles, metrics and shared components ([ui-foundations.md](ui-foundations.md)). No hard-coded colours, sizes or fonts; the UI lint passes.
 - [ ] Passes the layout quality checklist ([ui-foundations.md](ui-foundations.md), "Layout quality"): spacing from the systems, nothing touching or overlapping at the tightest sizes, one look per thing, nothing without its place; screenshots of the changed area reviewed zoomed in.
 - [ ] Works in compact, standard and wide layouts, and at 100% and 200% scale. Snapshots reviewed.
-- [ ] Has a keyboard path, and appears in the command palette if it is an action.
+- [ ] Has a mouse path and a keyboard path: an action is in the menu bar (with its shortcut) and the command palette; nothing is only a key or only in a right-click menu ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)). Its design doc says where it is in the menu bar.
 - [ ] No new modal dialog (or a recorded exception from §1).
 - [ ] Follows the device interaction rules (§7) where they apply.
 - [ ] Meets the paint-time budget.
@@ -239,4 +245,4 @@ Live is a reference, not a template ([ADR 0011](../decisions/0011-calibrated-amb
 - **Bitwig Studio:** the inspector panel and how modulation is shown.
 - **FabFilter plugins:** interactive visualisers and direct manipulation.
 - **Vital:** how modulation is visualised.
-- **Linear, Figma, VS Code, Zed:** command palettes, care in dark UI, panel systems.
+- **Linear, Figma, VS Code, Zed:** command palettes, care in dark UI, panel systems. VS Code: a menu bar in a title bar of its own, with the system's title bar as an option.

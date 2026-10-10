@@ -36,7 +36,8 @@ app/src/
 ## Layout (C1)
 
 ```
-┌ Top bar 40 (TransportBar) ─────────────────────────────────────────────────────┐
+┌ Title bar 28 (C10): ◆ SEGNO  File Edit … Help      My song      – ▢ ✕ ─────────┐
+├ Top bar 40 (TransportBar) ─────────────────────────────────────────────────────┤
 ├ Browser 220 ┬ Arrangement ───────────────────────────────────────┬ Inspector 260 ┤
 │ (rail 44)   │ loop strip 12 + ruler 24                           │ (collapsible) │
 │             │ track header 180 │ lanes                           │               │
@@ -45,6 +46,7 @@ app/src/
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
+- **The window's top** (C10, planned: [menu-bar.md](menu-bar.md), [ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)): on Linux and Windows, a title bar of our own, 28 px, with the brand and the menu bar on the left, the project's name in the middle and the window buttons on the right. It moves, snaps and maximises the window like the system's. Options > "Use the system title bar" brings the system's back, and the menu bar keeps its own row. On macOS the menus are in the system menu bar and the window keeps its title bar.
 - Splitters resize the browser and inspector. In the module view, the detail panel's height follows the module panel height (232 px panels: 280 px).
 - **Adaptive:**
   - below 1440 logical px wide, the browser collapses to its rail and the inspector closes (the overlay inspector comes in M3);
@@ -56,7 +58,7 @@ app/src/
 
 ## Actions and shortcuts (C1)
 
-`ActionRegistry` holds every action; the shell routes key presses to it unless a text field has focus. "Ctrl" means Cmd on macOS. Shortcuts are defaults; remapping comes with preferences.
+`ActionRegistry` holds every action; the shell routes key presses to it unless a text field has focus. "Ctrl" means Cmd on macOS. Shortcuts are defaults; remapping comes with preferences. From C10 every action is also in the menu bar, with its shortcut ([menu-bar.md](menu-bar.md) §5); a test fails if one isn't, so a new action can't be keyboard-only.
 
 | Action | ID | Default |
 |---|---|---|
@@ -260,6 +262,7 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
   - **Centre**, centred on the bar and moved in only when the sides need the room: play/stop, stop-and-return, Record, Capture MIDI, Automation arm; the position display (an inset `surface0` well: bars.beats.16ths in `ValueLarge`, the time in `ValueMedium`; the count-in countdown); Loop and Follow playhead.
   - **Right:** status (CPU load, the computer keyboard and its MIDI light), view (Arrange | Mix, then the browser, detail and inspector toggles), app (assistants and their light, settings).
   - Items are `itemGap` apart within a group and `groupGap` between groups. When the window is narrow, items drop in this order: the time, the CPU load, the wordmark (the mark stays), the panel toggles.
+  - **From C10** (planned, [menu-bar.md](menu-bar.md) §7): on Linux and Windows the brand moves to the title bar's left end; Undo and Redo (`Icon::Undo`, `Icon::Redo`) join the left section after the song; a search button opens the command palette, first in the app group. When the window is narrow, Undo and Redo drop last, after the panel toggles; the menu bar still has everything that drops.
 - **Assistants** (C9, [mcp.md](mcp.md)): a spark button left of the settings button, with an activity light that is lit for 3 s after an assistant's request. It opens the Assistants popover (also the command palette's "Assistants"):
   - **On**, remembered between launches; the status line says where it listens and how many assistants have connected.
   - **Read only**: assistants can read, render and measure, but not edit.
