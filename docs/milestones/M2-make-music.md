@@ -11,7 +11,7 @@
 
 See [roadmap.md](../roadmap.md) and the device specs in `devices/*/SPEC.md`.
 
-**Status:** ◐ in progress (started 2026-10-09). Everything built up to 2026-10-10 (A2–A5, B1–B3, C1–C4, C5a, C5b, C9) is signed off by the product owner, as is M1 (its framework freeze is [ADR 0034](../decisions/0034-device-api-frozen.md)). C7 (bounce, [design](../design/bounce.md)) built and signed off the same day. C6 (fades and crossfades, [design](../design/fades.md)) built the same day, awaiting its feel check. Next: C5c, comping, on C6's crossfades.
+**Status:** ◐ in progress (started 2026-10-09). Everything built up to 2026-10-10 (A2–A5, B1–B3, C1–C4, C5a, C5b, C9) is signed off by the product owner, as is M1 (its framework freeze is [ADR 0034](../decisions/0034-device-api-frozen.md)). C7 (bounce, [design](../design/bounce.md)) built and signed off the same day. C6 (fades and crossfades, [design](../design/fades.md)) built and signed off the same day, with the review's fixes ([ADR 0037](../decisions/0037-a-pass-makes-its-own-clip.md): a pass makes its own clip; seams between clips). C5c (comping) built the same day, awaiting its feel check. Next: C8 export, then B4 Spectrum.
 
 ## Steps
 
