@@ -4,7 +4,7 @@ How Segno records audio and MIDI: projects as folders, inputs and arming, monito
 
 **Status:** approved by the product owner (2026-10-10), with every recommendation of §16. Built in parts (§17): C5a and C5b built (2026-10-10); C5c after C6's fades, with selecting several take lanes at once (§6: for now a take lane is selected alone). What comes after M2 is mapped in §15.
 
-**Revised after trying C5b (product owner, 2026-10-10, §19):** takes belong to their clips (ADR 0032); Capture MIDI captures the last phrase onto any track and never adds an instrument (ADR 0033); punch is the loop brace; the top bar is sectioned, with automation arm in red beside Record and no "Turn automation back on" button. The sections below describe the revised design; C5b's take rows are being replaced.
+**Revised after trying C5b (product owner, 2026-10-10, §19):** takes belong to their clips (ADR 0032); Capture MIDI captures the last phrase onto any track and never adds an instrument (ADR 0033); punch is the loop brace; the top bar is sectioned, with automation arm in red beside Record and no "Turn automation back on" button. The sections below describe the revised design, built the same day (C5b revised).
 
 **Where the field is (2026):** every current DAW keeps loop takes and lets you comp them (Live 12's take lanes, Logic's take folders with swipe comping, Cubase's lanes, Studio One's layers, Reaper's fixed lanes, Bitwig's comp lanes); most capture MIDI played while not recording (Live, Logic, Cubase, Bitwig, Reaper). Segno matches that (ADR 0011) and goes further where the integrated DAW helps: nothing a pass replaces is ever lost, takes move to new tracks in one action for doubles and layers, and assistants can compare takes by rendering and measuring them (§12).
 
@@ -291,4 +291,4 @@ Trying C5b, the product owner found takes in the wrong place (a take is another 
 
 **Storage details** (from the implementation review): a clip's takes keep their own range (`from`/`to`), so trimming the clip and trimming back out loses nothing; a clip cut in two by another clip keeps its takes on its left part.
 
-**Building it** (before C7): no instrument added; punch, arm and labels; the top bar; takes on clips (model, engine, clip commands, MCP, arrangement); Capture MIDI.
+**Built** (2026-10-10, before C7): no instrument added; punch tied to the loop (with a lead-in, through a small engine patch), arm in red, the new labels; the sectioned top bar; takes on clips (model, engine and every clip command, the C5b conversion, MCP, the arrangement); Capture MIDI on its own buffer.

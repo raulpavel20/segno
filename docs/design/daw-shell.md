@@ -246,7 +246,7 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 - **Top bar** (`TransportBar`, laid out by the pure `model::layoutTopBar`, `[fast]`-tested): three sections over the whole width, like Live's.
 
   ```
-  ◆ SEGNO  120.00 BPM  4/4  ♪ 1·2    ▶ ■ ● ⊙ ⟿  ▕ 3. 1. 1   0:04.000 ▏ ⟲ ⇉    CPU 3 %  ⌨•   Arrange|Mix  ◧ ▭ ◨   ✦•  ⚙
+  ◆ SEGNO  120.00 BPM  4/4  ♪ ··|    ▶ ■ ● ⊙ ⟿  ▕ 3. 1. 1   0:04.000 ▏ ⟲ ⇉    CPU 3 %  ⌨•   Arrange|Mix  ◧ ▭ ◨   ✦•  ⚙
   └ left: brand · song ───────────┘ └ centre, on the window's middle ──────────┘ └ right: status · view · app ──────────┘
   ```
 
