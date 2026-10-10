@@ -45,6 +45,8 @@ struct ClipInfo
     double contentStartBeat = 0.0;
     /// A main-lane clip made from a take (ADR 0031): that take clip's id (0: not from a take).
     std::uint64_t fromTake = 0;
+    /// The takes it plays from (ADR 0032): its stack's id (0: a plain clip).
+    std::uint64_t stack = 0;
 
     [[nodiscard]] double end() const noexcept { return start + length; }
 };
@@ -127,14 +129,33 @@ struct AutomationLaneInfo
     [[nodiscard]] const AssignmentInfo* assignment(std::uint64_t channel, const std::string& key) const noexcept;
 };
 
-/// A take lane (ADR 0031, recording.md §6): a recording pass or a loop lap, kept under its track.
-/// Its clips don't play; the main lane plays copies of what's chosen.
+/// A take (ADR 0031, recording.md §6): a recording pass or a loop lap, kept with its clip. Its
+/// clips don't play; the main lane plays copies of what's chosen.
 struct TakeInfo
 {
     std::uint64_t id = 0;
     std::string name; // "Take 3", "Before take 3"
     bool star = false;
     std::vector<ClipInfo> clips; // sorted by start
+};
+
+/// A clip's takes (ADR 0032): the stack of takes behind the main-lane clip that plays from them
+/// (its parts, more than one when it plays several takes).
+struct TakeStackInfo
+{
+    std::uint64_t id = 0;
+    double start = 0.0, end = 0.0; // the clip's range (stored: trimming the clip never trims takes)
+    bool open = false;             // its takes are shown under the clip (view state)
+    std::vector<TakeInfo> takes;   // oldest first
+    std::vector<std::uint64_t> parts; // the main-lane clips playing from it, in time order
+
+    [[nodiscard]] const TakeInfo* take(std::uint64_t takeId) const noexcept
+    {
+        for (const auto& t : takes)
+            if (t.id == takeId)
+                return &t;
+        return nullptr;
+    }
 };
 
 struct TrackInfo
@@ -155,8 +176,34 @@ struct TrackInfo
     InputInfo input; // tracks only (C5): what it listens to and records, and whether it's armed
     std::vector<TakeInfo> takes; // tracks only (C5b): its take lanes, oldest first
     bool showTakes = false;      // its take lanes are shown (view state)
+    std::vector<TakeStackInfo> stacks; // tracks only: its clips' takes (ADR 0032), by start
 
     [[nodiscard]] bool holdsClips() const noexcept { return role == Role::Track; }
+    [[nodiscard]] const TakeStackInfo* stack(std::uint64_t stackId) const noexcept
+    {
+        for (const auto& s : stacks)
+            if (s.id == stackId)
+                return &s;
+        return nullptr;
+    }
+    /// The stack holding a take, if any.
+    [[nodiscard]] const TakeStackInfo* stackOfTake(std::uint64_t take) const noexcept
+    {
+        for (const auto& s : stacks)
+            if (s.take(take) != nullptr)
+                return &s;
+        return nullptr;
+    }
+    /// A take by id, in any of its stacks (or, from C5b, its take lanes).
+    [[nodiscard]] const TakeInfo* take(std::uint64_t takeId) const noexcept
+    {
+        if (const auto* s = stackOfTake(takeId))
+            return s->take(takeId);
+        for (const auto& t : takes)
+            if (t.id == takeId)
+                return &t;
+        return nullptr;
+    }
 };
 
 struct Snapshot

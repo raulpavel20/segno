@@ -8,6 +8,7 @@ namespace fd::model
 void TrackLayout::setTrackCount(int count)
 {
     heights_.resize(static_cast<size_t>(std::max(0, count)), defaultHeight);
+    extras_.resize(heights_.size(), 0.0);
     clampScroll();
 }
 
@@ -15,6 +16,13 @@ void TrackLayout::setHeight(int track, double height)
 {
     if (track >= 0 && track < trackCount())
         heights_[static_cast<size_t>(track)] = std::clamp(height, minHeight, maxHeight);
+    clampScroll();
+}
+
+void TrackLayout::setExtra(int track, double extra)
+{
+    if (track >= 0 && track < trackCount())
+        extras_[static_cast<size_t>(track)] = std::max(0.0, extra);
     clampScroll();
 }
 
@@ -26,7 +34,7 @@ void TrackLayout::setViewportHeight(double h) noexcept
 
 double TrackLayout::contentHeight() const noexcept
 {
-    return std::accumulate(heights_.begin(), heights_.end(), 0.0);
+    return std::accumulate(heights_.begin(), heights_.end(), 0.0) + std::accumulate(extras_.begin(), extras_.end(), 0.0);
 }
 
 void TrackLayout::scrollBy(double dy) noexcept
@@ -51,7 +59,7 @@ double TrackLayout::top(int track) const noexcept
 {
     double y = -scroll_;
     for (int i = 0; i < track && i < trackCount(); ++i)
-        y += heights_[static_cast<size_t>(i)];
+        y += height(i);
     return y;
 }
 
@@ -62,7 +70,7 @@ std::optional<TrackLayout::Hit> TrackLayout::hit(double y) const noexcept
         return std::nullopt;
     for (int i = 0; i < trackCount(); ++i)
     {
-        const double h = heights_[static_cast<size_t>(i)];
+        const double h = height(i);
         if (y < t + h)
             return Hit{i, y - t};
         t += h;

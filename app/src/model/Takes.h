@@ -3,6 +3,8 @@
 #include "model/Snapshot.h"
 
 #include <optional>
+#include <set>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -29,4 +31,61 @@ namespace fd::model
 
 /// The number for a new take: one more than the highest "Take N".
 [[nodiscard]] int nextTakeNumber(const std::vector<TakeInfo>& takes);
+
+// ---- takes on clips (ADR 0032, recording.md §6) ------------------------------------------------
+
+/// The take the clip plays (its index), when all its parts play one take; nullopt for a comp
+/// (parts playing different takes) or a stack without parts.
+[[nodiscard]] std::optional<size_t> playingTake(const TakeStackInfo& stack, const std::vector<ClipInfo>& trackClips);
+
+/// What the clip's title strip ends with: "3/4" (the take it plays and how many), "Comp", or on a
+/// narrow clip nothing but the chevron. None below two takes: a single take shows nothing.
+struct Badge
+{
+    std::string text;
+    bool star = false; // the take it plays is starred
+    bool comp = false;
+};
+[[nodiscard]] std::optional<Badge> badge(const TakeStackInfo& stack, const std::vector<ClipInfo>& trackClips, bool narrow);
+
+/// Whether a stack shows takes at all (two or more) and so has a badge and strips.
+[[nodiscard]] inline bool hasTakesToShow(const TakeStackInfo& stack) noexcept { return stack.takes.size() >= 2; }
+
+/// How much a track's row grows for its open takes: its tallest open stack, a strip per take.
+[[nodiscard]] double takeStripsHeight(const TrackInfo& track, double strip);
+
+/// The take strip at `seconds`, `below` pixels under the clips (strips are newest on top).
+struct StripHit
+{
+    std::uint64_t stack = 0, take = 0;
+    bool onClip = false; // over one of the take's clips (not a gap in it)
+};
+[[nodiscard]] std::optional<StripHit> hitStrip(const TrackInfo& track, double seconds, double below, double strip);
+
+/// The clips of a track as the user sees them: a plain clip alone, or a stack's parts together.
+struct ClipGroup
+{
+    std::vector<const ClipInfo*> parts; // in time order
+    const TakeStackInfo* stack = nullptr;
+    [[nodiscard]] double start() const noexcept { return parts.front()->start; }
+    [[nodiscard]] double end() const noexcept { return parts.back()->end(); }
+};
+[[nodiscard]] std::vector<ClipGroup> clipGroups(const TrackInfo& track);
+
+/// The clips selected with `clip`: itself, or all of its stack's parts.
+[[nodiscard]] std::vector<std::uint64_t> clipGroup(const Snapshot& snapshot, std::uint64_t clip);
+/// A selection grown to whole groups.
+[[nodiscard]] std::set<std::uint64_t> withGroups(const Snapshot& snapshot, std::set<std::uint64_t> clips);
+
+/// Whether a clip's start (or end) edge is between two parts of its stack: not a trim handle.
+[[nodiscard]] bool isInnerEdge(const TrackInfo& track, const ClipInfo& clip, bool startEdge);
+
+/// The take to play instead where a part played one of `deleted` (over [from, to]): the newest
+/// other take covering it, else the newest other overlapping it; nullopt if none.
+[[nodiscard]] std::optional<size_t> replacementTake(const TakeStackInfo& stack, const std::set<std::uint64_t>& deleted,
+                                                    double from, double to);
+
+/// Groups of indices of `spans` that overlap, directly or through others (opening C5b projects:
+/// overlapping take lanes become one clip's takes). Each group in index order; groups by first index.
+[[nodiscard]] std::vector<std::vector<size_t>> overlapGroups(const std::vector<std::pair<double, double>>& spans);
 } // namespace fd::model

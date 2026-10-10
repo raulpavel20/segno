@@ -1,5 +1,7 @@
 #include "model/Editing.h"
 
+#include "model/Takes.h"
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -25,7 +27,7 @@ std::optional<ClipHit> hitClip(const Snapshot& snapshot, const TrackLayout& layo
                                const Timeline& timeline, double x, double y, double edgePixels)
 {
     const auto row = layout.hit(y);
-    if (!row)
+    if (!row || row->offset >= layout.baseHeight(row->track))
         return std::nullopt;
     const int track = rowTracks.empty() ? row->track
                       : row->track < static_cast<int>(rowTracks.size()) ? rowTracks[static_cast<size_t>(row->track)]
@@ -42,9 +44,10 @@ std::optional<ClipHit> hitClip(const Snapshot& snapshot, const TrackLayout& layo
         const double x0 = timeline.xForTime(it->start), x1 = timeline.xForTime(it->end());
         const double edge = std::min(edgePixels, (x1 - x0) / 3.0);
         ClipHit hit{it->id, track, ClipHit::Zone::Body};
-        if (x - x0 < edge)
+        const auto& owner = snapshot.tracks[static_cast<size_t>(track)];
+        if (x - x0 < edge && !isInnerEdge(owner, *it, true))
             hit.zone = ClipHit::Zone::StartEdge;
-        else if (x1 - x < edge)
+        else if (x1 - x < edge && !isInnerEdge(owner, *it, false))
             hit.zone = ClipHit::Zone::EndEdge;
         return hit;
     }
@@ -89,6 +92,8 @@ std::vector<ClipEdit> dragClips(const Snapshot& snapshot, const std::set<std::ui
         const double delta = snap(a.start + drag.deltaSeconds) - a.start;
         for (const auto& [c, t] : clips)
         {
+            if (isInnerEdge(snapshot.tracks[static_cast<size_t>(t)], *c, true))
+                continue; // between two of its parts: comping (C5c), not a trim
             // Not before the source's start (or time zero), not past the end minus the minimum.
             const double earliest = std::max(0.0, c->start - c->offset);
             const double start = std::clamp(c->start + delta, earliest, c->end() - minClipLength);
@@ -102,6 +107,8 @@ std::vector<ClipEdit> dragClips(const Snapshot& snapshot, const std::set<std::ui
         const double delta = snap(a.end() + drag.deltaSeconds) - a.end();
         for (const auto& [c, t] : clips)
         {
+            if (isInnerEdge(snapshot.tracks[static_cast<size_t>(t)], *c, false))
+                continue;
             double end = std::max(c->start + minClipLength, c->end() + delta);
             if (c->sourceLength > 0.0)
                 end = std::min(end, c->start - c->offset + c->sourceLength); // not past the source

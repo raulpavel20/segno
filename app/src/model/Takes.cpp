@@ -1,6 +1,11 @@
 #include "model/Takes.h"
 
+#include "model/Editing.h"
+
 #include <algorithm>
+#include <cmath>
+#include <functional>
+#include <map>
 #include <string>
 
 namespace fd::model
@@ -60,5 +65,166 @@ int nextTakeNumber(const std::vector<TakeInfo>& takes)
         if (t.name.rfind("Take ", 0) == 0)
             highest = std::max(highest, std::atoi(t.name.c_str() + 5));
     return highest + 1;
+}
+
+std::optional<size_t> playingTake(const TakeStackInfo& stack, const std::vector<ClipInfo>& trackClips)
+{
+    std::optional<size_t> playing;
+    for (const auto& c : trackClips)
+    {
+        if (c.stack != stack.id)
+            continue;
+        std::optional<size_t> of;
+        for (size_t i = 0; i < stack.takes.size() && !of; ++i)
+            for (const auto& tc : stack.takes[i].clips)
+                if (tc.id == c.fromTake)
+                    of = i;
+        if (!of || (playing && *playing != *of))
+            return std::nullopt;
+        playing = of;
+    }
+    return playing;
+}
+
+std::optional<Badge> badge(const TakeStackInfo& stack, const std::vector<ClipInfo>& trackClips, bool narrow)
+{
+    if (!hasTakesToShow(stack))
+        return std::nullopt;
+    Badge b;
+    const auto playing = playingTake(stack, trackClips);
+    b.comp = !playing.has_value();
+    if (narrow)
+        return b;
+    if (playing)
+    {
+        b.text = std::to_string(*playing + 1) + "/" + std::to_string(stack.takes.size());
+        b.star = stack.takes[*playing].star;
+    }
+    else
+        b.text = "Comp";
+    return b;
+}
+
+double takeStripsHeight(const TrackInfo& track, double strip)
+{
+    double h = 0.0;
+    for (const auto& s : track.stacks)
+        if (s.open && hasTakesToShow(s))
+            h = std::max(h, static_cast<double>(s.takes.size()) * strip);
+    return h;
+}
+
+std::optional<StripHit> hitStrip(const TrackInfo& track, double seconds, double below, double strip)
+{
+    if (below < 0.0 || strip <= 0.0)
+        return std::nullopt;
+    for (const auto& s : track.stacks)
+    {
+        if (!s.open || !hasTakesToShow(s) || seconds < s.start || seconds >= s.end)
+            continue;
+        const auto row = static_cast<size_t>(std::floor(below / strip));
+        if (row >= s.takes.size())
+            return std::nullopt;
+        const auto& take = s.takes[s.takes.size() - 1 - row]; // newest on top
+        StripHit hit{.stack = s.id, .take = take.id};
+        for (const auto& c : take.clips)
+            if (seconds >= c.start && seconds < c.end())
+                hit.onClip = true;
+        return hit;
+    }
+    return std::nullopt;
+}
+
+std::vector<ClipGroup> clipGroups(const TrackInfo& track)
+{
+    std::vector<ClipGroup> out;
+    std::map<std::uint64_t, size_t> byStack;
+    for (const auto& c : track.clips) // sorted by start
+    {
+        const auto* stack = c.stack != 0 ? track.stack(c.stack) : nullptr;
+        if (stack != nullptr)
+            if (const auto it = byStack.find(stack->id); it != byStack.end())
+            {
+                out[it->second].parts.push_back(&c);
+                continue;
+            }
+        out.push_back({.parts = {&c}, .stack = stack});
+        if (stack != nullptr)
+            byStack[stack->id] = out.size() - 1;
+    }
+    return out;
+}
+
+std::vector<std::uint64_t> clipGroup(const Snapshot& snapshot, std::uint64_t clip)
+{
+    const auto found = findClip(snapshot, clip);
+    if (!found)
+        return {};
+    if (found->first->stack == 0)
+        return {clip};
+    std::vector<std::uint64_t> out;
+    for (const auto& c : snapshot.tracks[static_cast<size_t>(found->second)].clips)
+        if (c.stack == found->first->stack)
+            out.push_back(c.id);
+    return out;
+}
+
+std::set<std::uint64_t> withGroups(const Snapshot& snapshot, std::set<std::uint64_t> clips)
+{
+    auto out = clips;
+    for (const auto id : clips)
+        for (const auto part : clipGroup(snapshot, id))
+            out.insert(part);
+    return out;
+}
+
+bool isInnerEdge(const TrackInfo& track, const ClipInfo& clip, bool startEdge)
+{
+    if (clip.stack == 0)
+        return false;
+    for (const auto& c : track.clips)
+        if (c.id != clip.id && c.stack == clip.stack && (startEdge ? c.start < clip.start : c.start > clip.start))
+            return true;
+    return false;
+}
+
+std::optional<size_t> replacementTake(const TakeStackInfo& stack, const std::set<std::uint64_t>& deleted, double from, double to)
+{
+    std::optional<size_t> overlapping;
+    for (size_t k = stack.takes.size(); k-- > 0;)
+    {
+        const auto& t = stack.takes[k];
+        if (deleted.contains(t.id))
+            continue;
+        for (const auto& c : t.clips)
+        {
+            if (c.start <= from + 1e-6 && c.end() >= to - 1e-6)
+                return k;
+            if (!overlapping && c.start < to && c.end() > from)
+                overlapping = k;
+        }
+    }
+    return overlapping;
+}
+
+std::vector<std::vector<size_t>> overlapGroups(const std::vector<std::pair<double, double>>& spans)
+{
+    // Union-find over overlapping pairs.
+    std::vector<size_t> parent(spans.size());
+    for (size_t i = 0; i < parent.size(); ++i)
+        parent[i] = i;
+    std::function<size_t(size_t)> root = [&](size_t i) { return parent[i] == i ? i : parent[i] = root(parent[i]); };
+    for (size_t a = 0; a < spans.size(); ++a)
+        for (size_t b = a + 1; b < spans.size(); ++b)
+            if (spans[a].first < spans[b].second && spans[b].first < spans[a].second)
+                parent[root(b)] = root(a);
+    std::map<size_t, std::vector<size_t>> groups;
+    for (size_t i = 0; i < spans.size(); ++i)
+        groups[root(i)].push_back(i);
+    std::vector<std::vector<size_t>> out;
+    for (auto& [r, g] : groups)
+        out.push_back(std::move(g));
+    std::sort(out.begin(), out.end(), [](const auto& x, const auto& y) { return x.front() < y.front(); });
+    return out;
 }
 } // namespace fd::model

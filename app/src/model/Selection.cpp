@@ -1,6 +1,9 @@
 #include "model/Selection.h"
 
 #include "model/Editing.h"
+#include "model/Takes.h"
+
+#include <set>
 
 namespace fd::model
 {
@@ -26,7 +29,8 @@ std::optional<std::uint64_t> topmostHolding(const Snapshot& snapshot, const std:
 Selection withClips(const Snapshot& snapshot, std::set<std::uint64_t> clips, std::optional<std::uint64_t> prefer,
                     std::optional<std::uint64_t> otherwise)
 {
-    Selection s{.channel = otherwise, .clips = std::move(clips)};
+    // A clip's parts select together (ADR 0032).
+    Selection s{.channel = otherwise, .clips = withGroups(snapshot, std::move(clips))};
     if (prefer)
         if (const auto* t = snapshot.channel(*prefer); t != nullptr && holdsAny(*t, s.clips))
         {
@@ -53,14 +57,14 @@ Selection pruned(const Selection& selection, const Snapshot& snapshot)
     for (const auto id : selection.clips)
         if (findClip(snapshot, id))
             s.clips.insert(id);
+    s.clips = withGroups(snapshot, std::move(s.clips));
     if (selection.channel && snapshot.channel(*selection.channel) != nullptr)
         s.channel = selection.channel;
     if (!s.clips.empty() && !(s.channel && holdsAny(*snapshot.channel(*s.channel), s.clips)))
         s.channel = topmostHolding(snapshot, s.clips);
     // A take stays while its track has it.
     if (selection.take && s.clips.empty() && s.channel)
-        if (const auto* t = snapshot.channel(*s.channel);
-            t != nullptr && std::any_of(t->takes.begin(), t->takes.end(), [&](const auto& k) { return k.id == *selection.take; }))
+        if (const auto* t = snapshot.channel(*s.channel); t != nullptr && t->take(*selection.take) != nullptr)
             s.take = selection.take;
     // A lane stays while it exists (its channel following its assignments); points while they do.
     if (selection.lane && s.clips.empty())
@@ -81,13 +85,17 @@ PanelContext panelContext(const Selection& selection, const Snapshot& snapshot, 
     ctx.key.selection = selection;
     ctx.clipViewOffered = view == CentreView::Arrange;
 
-    std::optional<std::pair<const ClipInfo*, int>> single;
+    // Clips count as the user sees them: a clip's parts are one clip (its first part stands for it).
+    std::optional<std::pair<const ClipInfo*, int>> single; // the earliest selected clip
+    std::set<std::pair<int, std::uint64_t>> groups;        // (track, stack or clip)
     for (const auto id : selection.clips)
         if (const auto found = findClip(snapshot, id))
         {
-            ++ctx.clipCount;
-            single = found;
+            groups.insert({found->second, found->first->stack != 0 ? found->first->stack : found->first->id});
+            if (!single || found->first->start < single->first->start)
+                single = found;
         }
+    ctx.clipCount = static_cast<int>(groups.size());
 
     const TrackInfo* channel = selection.channel ? snapshot.channel(*selection.channel) : nullptr;
     const AutomationLaneInfo* lane =
@@ -110,10 +118,7 @@ PanelContext panelContext(const Selection& selection, const Snapshot& snapshot, 
     else if (const auto* take = [&]() -> const TakeInfo* {
                  if (!selection.take || channel == nullptr || !selection.clips.empty())
                      return nullptr;
-                 for (const auto& k : channel->takes)
-                     if (k.id == *selection.take)
-                         return &k;
-                 return nullptr;
+                 return channel->take(*selection.take);
              }())
     {
         ctx.subject = Subject::Take;

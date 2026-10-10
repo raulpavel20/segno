@@ -23,7 +23,9 @@ struct ClipHit
 };
 
 /// The clip under (x, y): x in lane pixels (0 = timeline x 0), y in view pixels from the top of
-/// the lanes. The edges are the outer `edgePixels` of a clip (less for very short clips).
+/// the lanes. The edges are the outer `edgePixels` of a clip (less for very short clips); an edge
+/// between two parts of one clip's takes is its body (ADR 0032). Below a row's own height (its
+/// open takes) there are no clips.
 [[nodiscard]] std::optional<ClipHit> hitClip(const Snapshot& snapshot, const TrackLayout& layout,
                                              const Timeline& timeline, double x, double y, double edgePixels = 6.0);
 /// The same where rows aren't all tracks (lanes, returns): `rowTracks[row]` is the row's track
@@ -55,7 +57,8 @@ inline constexpr double minClipLength = 0.01;
 
 /// Placements of the selected clips for a drag. `snap` maps a time to the grid (identity when
 /// snapping is off). Constraints: nothing before time zero or outside the track list; trims
-/// stay within the source material and never shorter than minClipLength.
+/// stay within the source material and never shorter than minClipLength. Trims leave the edges
+/// between a clip's parts alone (only its outer edges trim).
 [[nodiscard]] std::vector<ClipEdit> dragClips(const Snapshot& snapshot, const std::set<std::uint64_t>& selection,
                                               const Drag& drag, const std::function<double(double)>& snap);
 
