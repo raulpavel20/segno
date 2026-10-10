@@ -378,17 +378,22 @@ public:
     // clips made from them. Take edits are undo steps; showing take lanes is view state.
 
     void showTakes(std::uint64_t trackId, bool show);
+    /// Opens (or closes) a clip's takes under it (by its stack, TakeStackInfo::id); opening one
+    /// closes any it overlaps on its track. View state, never an undo step.
+    void setTakesOpen(std::uint64_t stackId, bool open);
     /// Uses a take: its clips replace the main lane across their ranges, cutting what they cover
     /// (ADR 0019). One undo step, "Use take". False if there's no such take.
     bool useTake(std::uint64_t trackId, std::uint64_t takeId);
-    /// Uses the next (+1) or previous (-1) take that covers [from, to] (Alt+↓ / Alt+↑).
-    bool stepTake(std::uint64_t trackId, double from, double to, int direction);
+    /// The clip plays its next (+1) or previous (-1) take that covers its range (Alt+↓ / Alt+↑).
+    bool stepTake(std::uint64_t clipId, int direction);
     void renameTake(std::uint64_t trackId, std::uint64_t takeId, const std::string& name);
     void setTakeStar(std::uint64_t trackId, std::uint64_t takeId, bool star);
     /// Deletes take lanes (their files stay). One undo step.
     void deleteTakes(std::uint64_t trackId, const std::vector<std::uint64_t>& takeIds);
     /// Deletes the take lanes the main lane doesn't play.
     void deleteUnusedTakes(std::uint64_t trackId);
+    /// The clip plays this take, and its other takes are deleted (files stay). One undo step.
+    bool keepOnlyTake(std::uint64_t trackId, std::uint64_t takeId);
     /// New tracks after this one, copying its modules and mix, each playing one of the takes;
     /// `move` also takes them off this track. One undo step. Returns the new tracks.
     std::vector<std::uint64_t> takesToTracks(std::uint64_t trackId, const std::vector<std::uint64_t>& takeIds, bool move);

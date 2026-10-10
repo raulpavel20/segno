@@ -17,7 +17,7 @@ const juce::Identifier kRoleId{"fdRole"};     // "return" on a return track (ADR
 // The project format: 2 since mixer levels sit on Segno's taper (ADR 0028), 3 since automation
 // lanes are rows of their own (ADR 0029). Older projects are converted when opened.
 const juce::Identifier kFormatId{"fdFormat"};
-constexpr int kFormat = 3;
+constexpr int kFormat = 4;
 
 /// Number of colours in ui::Theme::clipColours; snapshots carry indices modulo this.
 constexpr int kPaletteSize = 16;
@@ -291,6 +291,7 @@ void Session::Impl::attach(std::unique_ptr<te::Edit> e)
     }
     ensureChannels(nullptr);
     loadLanes(format < 3); // ADR 0029: lanes of their own, every curve derived from them
+    loadTakes(format < 4); // ADR 0032: takes belong to clips
     edit->state.setProperty(kFormatId, kFormat, nullptr);
     // tracktion sorts the edit's children by type asynchronously, through the undo manager: done
     // now, so a fresh project's history really is empty (no invisible first undo step).
@@ -430,7 +431,14 @@ void Session::Impl::rebuildSnapshot()
         {
             info.input = inputOf(*t);
             info.takes = takeInfos(*t, info.colour);
-            info.showTakes = t->state[showTakesId];
+            info.stacks = stackInfos(*t, info.colour);
+            for (const auto& stack : info.stacks)
+            {
+                info.showTakes = info.showTakes || (stack.open && model::hasTakesToShow(stack));
+                for (auto& c : info.clips)
+                    if (std::find(stack.parts.begin(), stack.parts.end(), c.id) != stack.parts.end())
+                        c.stack = stack.id;
+            }
         }
         info.mix.mute = t->isMuted(false);
         info.mix.solo = t->isSolo(false);
@@ -638,6 +646,7 @@ void Session::Impl::clearUnder(te::AudioTrack& track, double start, double end, 
         }
         }
     }
+    settle(track, &edit->getUndoManager()); // takes follow (ADR 0032): a cut-off tail is a plain clip
 }
 
 std::vector<te::Plugin*> Session::Impl::chain(te::PluginList& list)
@@ -945,11 +954,41 @@ std::uint64_t Session::insertAudioFile(std::uint64_t trackId, const juce::File& 
     return clip->itemID.getRawID();
 }
 
-void Session::applyClipEdits(const std::vector<model::ClipEdit>& edits)
+void Session::applyClipEdits(const std::vector<model::ClipEdit>& asked)
 {
-    if (edits.empty())
+    if (asked.empty())
         return;
+    // A clip and its takes move as one (ADR 0032): its other parts follow, its takes shift.
+    std::vector<model::ClipPlace> places;
+    std::set<te::AudioTrack*> involved;
+    for (const auto& e : asked)
+    {
+        if (auto* c = impl_->clip(e.clip))
+            if (auto* source = dynamic_cast<te::AudioTrack*>(c->getClipTrack()))
+                involved.insert(source);
+        if (auto* target = impl_->track(e.track))
+            involved.insert(target);
+    }
+    for (auto* t : involved)
+    {
+        const auto p = impl_->places(*t);
+        places.insert(places.end(), p.begin(), p.end());
+    }
+    const auto grouped = model::groupEdits(places, asked);
+    const auto& edits = grouped.edits;
+    auto* um = &impl_->edit->getUndoManager();
     impl_->beginEdit("Move clips");
+    for (const auto& m : grouped.moves) // while their clips are still where they were
+        if (auto* target = impl_->track(m.toTrack))
+            impl_->moveStack(m.stack, *target, m.delta, um);
+    for (const auto& trim : grouped.trims)
+        if (auto [track, stack] = impl_->findStack(trim.stack); track != nullptr)
+        {
+            if (trim.start)
+                stack.setProperty(Impl::fromId, *trim.start, um);
+            if (trim.end)
+                stack.setProperty(Impl::toId, *trim.end, um);
+        }
     for (const auto& e : edits)
     {
         auto* c = impl_->clip(e.clip);
@@ -961,21 +1000,60 @@ void Session::applyClipEdits(const std::vector<model::ClipEdit>& edits)
         c->setPosition({{te::TimePosition::fromSeconds(e.start), te::TimePosition::fromSeconds(e.start + e.length)},
                         te::TimeDuration::fromSeconds(e.offset)});
     }
-    // No overlaps (ADR 0019): the placed clips cut what they cover, in the same undo step.
+    // No overlaps (ADR 0019): the placed clips cut what they cover, in the same undo step; a clip's
+    // parts clear the gaps between them too.
     std::set<std::uint64_t> placed;
     for (const auto& e : edits)
         placed.insert(e.clip);
+    std::map<std::pair<std::uint64_t, std::uint64_t>, std::pair<double, double>> spans; // (track, stack or clip)
     for (const auto& e : edits)
-        if (auto* target = impl_->track(e.track))
-            impl_->clearUnder(*target, e.start, e.start + e.length, placed);
+    {
+        std::uint64_t stack = 0;
+        for (const auto& p : places)
+            if (p.clip == e.clip)
+                stack = p.stack;
+        const auto key = std::pair{e.track, stack != 0 ? stack : e.clip};
+        auto [it, fresh] = spans.try_emplace(key, e.start, e.start + e.length);
+        if (!fresh)
+            it->second = {std::min(it->second.first, e.start), std::max(it->second.second, e.start + e.length)};
+    }
+    for (const auto& [key, span] : spans)
+        if (auto* target = impl_->track(key.first))
+            impl_->clearUnder(*target, span.first, span.second, placed);
+    for (auto* t : involved)
+        impl_->settle(*t, um);
 }
 
-std::vector<std::uint64_t> Session::duplicateClips(const std::vector<model::ClipEdit>& placements)
+std::vector<std::uint64_t> Session::duplicateClips(const std::vector<model::ClipEdit>& asked)
 {
     std::vector<std::uint64_t> created;
-    if (placements.empty())
+    if (asked.empty())
         return created;
+    // A clip's copy brings a copy of its takes (ADR 0032), once for all of its parts.
+    std::vector<model::ClipPlace> places;
+    std::set<te::AudioTrack*> sources;
+    for (const auto& p : asked)
+        if (auto* c = impl_->clip(p.clip))
+            if (auto* source = dynamic_cast<te::AudioTrack*>(c->getClipTrack()))
+                sources.insert(source);
+    for (auto* t : sources)
+    {
+        const auto p = impl_->places(*t);
+        places.insert(places.end(), p.begin(), p.end());
+    }
+    const auto [placements, copies] = model::groupPlacements(places, asked);
+    auto* um = &impl_->edit->getUndoManager();
     impl_->beginEdit("Duplicate clips");
+    std::map<std::uint64_t, std::uint64_t> takeClips; // a take clip -> its copy's (per stack copy)
+    std::vector<std::tuple<std::uint64_t, std::uint64_t, double, std::map<std::uint64_t, std::uint64_t>>> copied;
+    for (const auto& copy : copies)
+        if (auto [track, stack] = impl_->findStack(copy.stack); track != nullptr)
+            if (auto* target = impl_->track(copy.toTrack))
+            {
+                std::map<std::uint64_t, std::uint64_t> map;
+                impl_->copyStack(stack, *target, copy.delta, map, um);
+                copied.emplace_back(copy.stack, copy.toTrack, copy.delta, std::move(map));
+            }
     for (const auto& p : placements)
     {
         auto* source = impl_->clip(p.clip);
@@ -988,6 +1066,21 @@ std::vector<std::uint64_t> Session::duplicateClips(const std::vector<model::Clip
                 copy->moveTo(*target);
             copy->setPosition({{te::TimePosition::fromSeconds(p.start), te::TimePosition::fromSeconds(p.start + p.length)},
                                te::TimeDuration::fromSeconds(p.offset)});
+            // The copy plays from the copied takes.
+            const auto from = static_cast<std::uint64_t>(static_cast<juce::int64>(copy->state[Impl::fromTakeId]));
+            if (from != 0)
+            {
+                const double delta = p.start - source->getPosition().getStart().inSeconds();
+                std::uint64_t to = 0;
+                for (const auto& [stack, track, d, map] : copied)
+                    if (track == p.track && std::abs(d - delta) < 1e-9)
+                        if (const auto it = map.find(from); it != map.end())
+                            to = it->second;
+                if (to != 0)
+                    copy->state.setProperty(Impl::fromTakeId, static_cast<juce::int64>(to), um);
+                else
+                    copy->state.removeProperty(Impl::fromTakeId, um);
+            }
             created.push_back(copy->itemID.getRawID());
         }
     }
@@ -998,35 +1091,57 @@ std::vector<std::uint64_t> Session::duplicateClips(const std::vector<model::Clip
     return created;
 }
 
-void Session::deleteClips(const std::vector<std::uint64_t>& ids)
+void Session::deleteClips(const std::vector<std::uint64_t>& asked)
 {
-    if (ids.empty())
+    if (asked.empty())
         return;
+    // A clip goes with all of its parts and its takes (ADR 0032; undo brings them back).
+    std::vector<model::ClipPlace> places;
+    std::set<te::AudioTrack*> tracks;
+    for (auto id : asked)
+        if (auto* c = impl_->clip(id))
+            if (auto* t = dynamic_cast<te::AudioTrack*>(c->getClipTrack()))
+                tracks.insert(t);
+    for (auto* t : tracks)
+    {
+        const auto p = impl_->places(*t);
+        places.insert(places.end(), p.begin(), p.end());
+    }
     impl_->beginEdit("Delete clips");
-    for (auto id : ids)
+    for (auto id : model::withParts(places, asked))
         if (auto* c = impl_->clip(id))
             c->removeFromParent();
+    for (auto* t : tracks)
+        impl_->settle(*t, &impl_->edit->getUndoManager());
 }
 
 std::vector<std::uint64_t> Session::splitClips(const std::vector<std::uint64_t>& ids, double seconds)
 {
     std::vector<std::uint64_t> created;
     const auto at = te::TimePosition::fromSeconds(seconds);
-    bool begun = false;
+    // A clip's takes split with it (ADR 0032): the right halves become the right clip's takes.
+    std::set<te::AudioTrack*> tracks;
     for (auto id : ids)
+        if (auto* c = impl_->clip(id))
+            if (auto* t = dynamic_cast<te::AudioTrack*>(c->getClipTrack()))
+                tracks.insert(t);
+    auto* um = &impl_->edit->getUndoManager();
+    bool begun = false;
+    for (auto* track : tracks)
     {
-        auto* c = impl_->clip(id);
-        if (c == nullptr || !c->getEditTimeRange().containsInclusive(at) || c->getPosition().getStart() == at ||
-            c->getPosition().getEnd() == at)
+        const auto plan = model::splitPlan(impl_->places(*track), impl_->stackRanges(*track), ids, seconds);
+        if (plan.clips.empty() && plan.stacks.empty())
             continue;
-        if (!begun)
-        {
+        if (!std::exchange(begun, true))
             impl_->beginEdit("Split clips");
-            begun = true;
-        }
-        if (auto* track = c->getClipTrack())
-            if (auto* right = track->splitClip(*c, at))
-                created.push_back(right->itemID.getRawID());
+        for (auto id : plan.clips)
+            if (auto* c = impl_->clip(id))
+                if (auto* right = track->splitClip(*c, at))
+                    created.push_back(right->itemID.getRawID());
+        for (auto id : plan.stacks)
+            if (auto stack = impl_->stackTree(*track, id); stack.isValid())
+                impl_->splitStack(*track, stack, seconds, um);
+        impl_->settle(*track, um);
     }
     return created;
 }

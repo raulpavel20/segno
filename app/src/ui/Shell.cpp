@@ -2,6 +2,8 @@
 
 #include "ui/AutomationMenu.h"
 
+#include "model/Takes.h"
+
 #include "fd/audiofile/AudioFile.h"
 
 #include <nlohmann/json.hpp>
@@ -312,54 +314,48 @@ void Shell::registerActions()
                       }
                   },
                   .isEnabled = [takesTrack] { return takesTrack().has_value(); }});
-    auto stepTake = [this, &s, takesTrack](int direction) {
-        return [this, &s, takesTrack, direction] {
-            // The selected clips' range on their track, or the main clip under the playhead.
-            const auto snapshot = s.snapshot();
-            std::optional<std::uint64_t> track;
-            double from = 0.0, to = 0.0;
-            for (const auto id : arrangement_.selection().clips)
-                if (const auto found = model::findClip(*snapshot, id))
-                {
-                    const auto clipTrack = snapshot->tracks[static_cast<size_t>(found->second)].id;
-                    if (track && *track != clipTrack)
-                        continue;
-                    from = track ? std::min(from, found->first->start) : found->first->start;
-                    to = track ? std::max(to, found->first->end()) : found->first->end();
-                    track = clipTrack;
-                }
-            if (!track)
-                if (const auto t = takesTrack())
-                    for (const auto& c : t->clips)
-                        if (c.start <= s.position() && c.end() > s.position())
-                        {
-                            track = t->id;
-                            from = c.start;
-                            to = c.end();
-                        }
-            if (!track || !s.stepTake(*track, from, to, direction))
+    // The clip whose takes the keys step through: the selected one, or the one under the playhead
+    // on the selected track; only a clip with two takes or more (ADR 0032).
+    struct TakesClip
+    {
+        std::uint64_t clip = 0, stack = 0, track = 0;
+    };
+    auto takesClip = [this, &s]() -> std::optional<TakesClip> {
+        const auto snapshot = s.snapshot();
+        auto of = [&](const model::TrackInfo& t, const model::ClipInfo& c) -> std::optional<TakesClip> {
+            if (const auto* stack = c.stack != 0 ? t.stack(c.stack) : nullptr; stack != nullptr && model::hasTakesToShow(*stack))
+                return TakesClip{c.id, stack->id, t.id};
+            return std::nullopt;
+        };
+        for (const auto id : arrangement_.selection().clips)
+            if (const auto found = model::findClip(*snapshot, id))
+                if (const auto c = of(snapshot->tracks[static_cast<size_t>(found->second)], *found->first))
+                    return c;
+        if (const auto t = selectedTrackInfo(); t && t->holdsClips())
+            for (const auto& c : t->clips)
+                if (c.start <= s.position() && c.end() > s.position())
+                    return of(*t, c);
+        return std::nullopt;
+    };
+    auto stepTake = [this, &s, takesClip](int direction) {
+        return [this, &s, takesClip, direction] {
+            const auto target = takesClip();
+            if (!target || !s.stepTake(target->clip, direction))
             {
-                showWarning("No other take covers this range");
+                showWarning("No other take covers this clip");
                 return;
             }
-            // The take now playing there stays selected, for the next step.
+            // The clip stays selected (now playing another take), for the next step.
             s.updateSnapshotNow();
             std::set<std::uint64_t> clips;
-            if (const auto* t = s.snapshot()->channel(*track))
-                for (const auto& c : t->clips)
-                    if (c.start >= from - 1e-6 && c.end() <= to + 1e-6)
-                        clips.insert(c.id);
+            if (const auto* t = s.snapshot()->channel(target->track))
+                if (const auto* stack = t->stack(target->stack))
+                    clips.insert(stack->parts.begin(), stack->parts.end());
             lastArea_ = Area::Arrangement;
-            arrangement_.setSelection(model::withClips(*s.snapshot(), std::move(clips), track, track));
+            arrangement_.setSelection(model::withClips(*s.snapshot(), std::move(clips), target->track, target->track));
         };
     };
-    auto canStepTake = [this, takesTrack] {
-        const auto& clips = arrangement_.selection().clips;
-        if (!clips.empty())
-            if (const auto found = model::findClip(*session_.snapshot(), *clips.begin()))
-                return !session_.snapshot()->tracks[static_cast<size_t>(found->second)].takes.empty();
-        return takesTrack().has_value();
-    };
+    auto canStepTake = [takesClip] { return takesClip().has_value(); };
     actions_.add({.id = "take.previous", .name = "Previous take", .category = "Track", .keys = {key(juce::KeyPress::upKey, kAlt)},
                   .perform = stepTake(-1), .isEnabled = canStepTake});
     actions_.add({.id = "take.next", .name = "Next take", .category = "Track", .keys = {key(juce::KeyPress::downKey, kAlt)},

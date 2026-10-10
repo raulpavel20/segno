@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/Session.h"
+#include "model/StackEdits.h"
 #include "model/Takes.h"
 
 #include <tracktion_engine/tracktion_engine.h>
@@ -116,23 +117,59 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// One undo step for a recording pass (audio, MIDI and automation together).
     void beginPass(const juce::String& name);
 
-    // ---- takes (C5b, ADR 0031) ------------------------------------------------------------------
-    // A track's take lanes: FDTAKES with a TAKE (id, name, star) per lane, each holding the states
-    // of its clips (plain clips, never played). Main-lane clips made from a take carry "fdTake".
-    static inline const juce::Identifier takesId{"FDTAKES"}, takeId{"TAKE"}, starId{"star"}, fromTakeId{"fdTake"},
-        showTakesId{"fdShowTakes"};
+    // ---- takes (C5b, ADRs 0031 and 0032) ---------------------------------------------------------
+    // A track's FDTAKES holds a STACK per clip with takes: its range (from, to), whether it's open
+    // (fdOpen, view state), and its TAKEs (id, name, star) holding the states of their clips (plain
+    // clips with absolute times, never played). A main-lane clip made from a take carries "fdTake",
+    // the take clip it plays; through it, its stack. Every edit goes through the undo manager.
+    static inline const juce::Identifier takesId{"FDTAKES"}, stackId{"STACK"}, takeId{"TAKE"}, starId{"star"},
+        fromTakeId{"fdTake"}, showTakesId{"fdShowTakes"}, stackOpenId{"fdOpen"};
     [[nodiscard]] juce::ValueTree takesOf(te::AudioTrack& track, juce::UndoManager* um);
     [[nodiscard]] juce::ValueTree takeTree(te::AudioTrack& track, std::uint64_t take);
+    [[nodiscard]] juce::ValueTree stackTree(te::AudioTrack& track, std::uint64_t stack);
+    /// A stack anywhere, with its track.
+    [[nodiscard]] std::pair<te::AudioTrack*, juce::ValueTree> findStack(std::uint64_t stack);
+    /// The stack a main-lane clip plays from (invalid for a plain clip, or one whose take is gone).
+    [[nodiscard]] juce::ValueTree stackOf(te::Clip& clip);
+    /// Every take, flat (the C5b take rows, until they go).
     [[nodiscard]] std::vector<model::TakeInfo> takeInfos(te::AudioTrack& track, int colour) const;
+    [[nodiscard]] std::vector<model::TakeStackInfo> stackInfos(te::AudioTrack& track, int colour) const;
+    [[nodiscard]] model::TakeInfo takeInfo(const juce::ValueTree& take, int colour) const;
     /// A stored clip's info (a take's), as the snapshot shows clips.
     [[nodiscard]] model::ClipInfo storedClipInfo(const juce::ValueTree& clip, int colour) const;
-    /// A take lane holding copies of `clips` (new ids). Returns it.
-    juce::ValueTree addTake(te::AudioTrack& track, const juce::String& name, const std::vector<juce::ValueTree>& clips,
+    /// A new stack over [from, to].
+    juce::ValueTree makeStack(te::AudioTrack& track, double from, double to, juce::UndoManager* um);
+    /// A take in `stack` holding copies of `clips` (new ids). Returns it.
+    juce::ValueTree addTake(juce::ValueTree stack, const juce::String& name, const std::vector<juce::ValueTree>& clips,
                             juce::UndoManager* um);
-    /// A take clip's copy in the main lane, cutting what it covers. Returns the new clip.
-    te::Clip* useTakeClip(te::AudioTrack& track, const juce::ValueTree& takeClip, juce::UndoManager* um);
-    /// A pass's clips become take lanes (one per loop lap), what they recorded over is kept as a
-    /// take, and the main lane plays the newest complete lap. Returns the main-lane clips.
+    /// A take clip's copy in the main lane over [from, to] (its part of it), cutting what it covers;
+    /// `asTake` false: a plain clip. Returns the new clip (null if nothing of it is in the range).
+    te::Clip* useTakeClip(te::AudioTrack& track, const juce::ValueTree& takeClip, double from, double to, bool asTake = true);
+    /// A take's clips over the stack's range.
+    void fillFromTake(te::AudioTrack& track, const juce::ValueTree& take);
+    /// Opens (or closes) a stack's takes; opening closes the others it overlaps. View state.
+    void openStack(te::AudioTrack& track, juce::ValueTree stack, bool open);
+    /// Moves a stack by `delta` seconds, to `target` if it's another track.
+    void moveStack(std::uint64_t stack, te::AudioTrack& target, double delta, juce::UndoManager* um);
+    /// A copy of a stack, `delta` later on `target`; `map` gets each take clip's new id.
+    juce::ValueTree copyStack(const juce::ValueTree& stack, te::AudioTrack& target, double delta,
+                              std::map<std::uint64_t, std::uint64_t>& map, juce::UndoManager* um);
+    /// Splits a stack at `at`: its right halves become a new stack, and main clips at or after
+    /// `at` play from them. Returns the new stack.
+    juce::ValueTree splitStack(te::AudioTrack& track, juce::ValueTree stack, double at, juce::UndoManager* um);
+    /// Deletes takes: parts playing them switch to another take of their stack, or become plain.
+    void removeTakes(te::AudioTrack& track, const std::set<std::uint64_t>& takes, juce::UndoManager* um);
+    /// A track's main clips and stacks, as model::StackEdits sees them.
+    [[nodiscard]] std::vector<model::ClipPlace> places(te::AudioTrack& track);
+    [[nodiscard]] std::vector<model::StackRange> stackRanges(te::AudioTrack& track);
+    /// After any edit of a track's clips (model::settleStacks): emptied stacks go, cut-off parts
+    /// become plain, ranges cover their parts.
+    void settle(te::AudioTrack& track, juce::UndoManager* um);
+    /// Opening a project: C5b's take lanes (format 3) become their clips' stacks.
+    void loadTakes(bool convert);
+    /// A pass's clips with their takes (one per loop lap): what they recorded over is kept as a
+    /// take, a clip with takes they cover joins them, and the clip plays the newest complete lap.
+    /// Returns the main-lane clips.
     std::vector<std::uint64_t> importTakes(te::AudioTrack& track, const juce::ReferenceCountedArray<te::Clip>& clips);
     /// MIDI played while not recording, for Capture MIDI's button.
     std::atomic<double> lastNoteAt{-1.0};
@@ -297,9 +334,9 @@ private:
             return;
         // Arming is a listening state, like solo; showing takes is view state; input routing
         // follows the tracks' inputs.
-        if (id == armedId || id == showTakesId || inInputs(t))
+        if (id == armedId || id == showTakesId || id == stackOpenId || inInputs(t))
         {
-            if (id != armedId && id != showTakesId)
+            if (id != armedId && id != showTakesId && id != stackOpenId)
                 return;
             changed(t);
             return;
