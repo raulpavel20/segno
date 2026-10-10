@@ -1658,7 +1658,7 @@ TEST_CASE("recording: arm buttons, the INPUT section, Record and its menu, the r
     root.deleteRecursively();
 }
 
-TEST_CASE("takes: take lanes open after a loop pass; clicks, stars, the TAKE section, Alt+arrows, Delete, spread; "
+TEST_CASE("takes: takes open under their clip after a loop pass; strips, stars, the TAKE section, Alt+arrows, Delete, "
           "Capture MIDI (C5b)",
           "[integration]")
 {
@@ -1707,16 +1707,20 @@ TEST_CASE("takes: take lanes open after a loop pass; clicks, stars, the TAKE sec
     pump(0.1);
     juce::MessageManager::getInstance()->runDispatchLoopUntil(50);
     s.updateSnapshotNow();
-    REQUIRE(track().takes.size() == 3);
-    CHECK(track().showTakes);
+    // One clip with its three takes (ADR 0032), opened under it: no rows of their own.
+    auto stack = [&] { return track().stacks.at(0); };
+    REQUIRE(track().stacks.size() == 1);
+    REQUIRE(stack().takes.size() == 3);
+    CHECK(stack().open);
     auto& view = f.shell->arrangement();
-    REQUIRE(view.rows().size() > 4);
-    CHECK(view.rows()[1].isTake());
-    CHECK(view.rows()[3].take == track().takes[2].id);
+    for (const auto& row : view.rows())
+        CHECK((row.kind != fd::model::ArrangementRow::Kind::Track || row.channel != t0 || row.track == 0));
     REQUIRE(track().clips.size() == 1);
-    CHECK(track().clips[0].fromTake == track().takes[1].clips.at(0).id); // the last complete lap
+    CHECK(track().clips[0].fromTake == stack().takes[1].clips.at(0).id); // the last complete lap
+    CHECK(fd::model::badge(stack(), track().clips, false)->text == "2/3");
+    view.setView(0.0, 150.0); // 4..6 s well in sight
     view.frame(0.0, s.position());
-    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: take lanes
+    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: takes under their clip
     {
         juce::PNGImageFormat png;
         auto file = juce::File(dump).getChildFile("takes.png");
@@ -1725,36 +1729,31 @@ TEST_CASE("takes: take lanes open after a loop pass; clicks, stars, the TAKE sec
             png.writeImageToStream(f.shell->createComponentSnapshot(f.shell->getLocalBounds()), *out);
     }
 
-    // Each take lane's header has a star.
-    std::vector<fd::ui::IconButton*> stars;
-    for (auto* b : findAll<fd::ui::IconButton>(view))
-        if (b->getName() == "Favourite" && b->isVisible())
-            stars.push_back(b);
-    REQUIRE(stars.size() == 3);
-    stars[0]->triggerClick();
-    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
-    s.updateSnapshotNow();
-    CHECK(track().takes[0].star);
-
-    // A click on a take uses it (one undo step) and selects it; rows: the track (64), takes (40).
-    auto rowTop = [&](int row) {
-        return static_cast<float>(fd::app::ArrangementView::rulerHeight()) + (row == 0 ? 0.0f : 64.0f + 40.0f * static_cast<float>(row - 1));
-    };
+    // The track's row is its own 64 px and a 24 px strip per take below, newest on top.
+    const float strip = static_cast<float>(fd::ui::Theme::current().shell.takeStripHeight);
+    const float stripsTop = static_cast<float>(fd::app::ArrangementView::rulerHeight()) + 64.0f;
+    auto stripMiddle = [&](size_t take) { return stripsTop + strip * static_cast<float>(2 - take) + strip * 0.6f; };
     const auto laneX = [&](double seconds) {
         return static_cast<float>(fd::app::ArrangementView::headerWidth()) + static_cast<float>(view.timeline().xForTime(seconds));
     };
-    click(view, {laneX(5.0), rowTop(1) + 20.0f});
+    // A click on a take's strip, on its clip: the clip plays it (one undo step), and it's selected.
+    click(view, {laneX(5.0), stripMiddle(0)});
     s.updateSnapshotNow();
-    CHECK(view.selection().take == track().takes[0].id);
+    CHECK(view.selection().take == stack().takes[0].id);
     CHECK(s.undoDescription() == "Use take");
     REQUIRE(track().clips.size() == 1);
-    CHECK(track().clips[0].fromTake == track().takes[0].clips.at(0).id);
+    CHECK(track().clips[0].fromTake == stack().takes[0].clips.at(0).id);
+    CHECK(fd::model::badge(stack(), track().clips, false)->text == "1/3");
+    // Its star, at the strip's left: a click stars the take.
+    click(view, {laneX(4.0) + 10.0f, stripMiddle(1)});
+    s.updateSnapshotNow();
+    CHECK(stack().takes[1].star);
 
     // The inspector shows TAKE first; its "Use this take" uses the selected take.
     auto& inspector = f.shell->inspector();
     REQUIRE_FALSE(inspector.sections().empty());
     CHECK(inspector.sections().front() == S::Take);
-    view.selectTake(t0, track().takes[1].id);
+    view.selectTake(t0, stack().takes[1].id);
     fd::ui::Toggle* use = nullptr;
     for (auto* t : findAll<fd::ui::Toggle>(inspector))
         if (t->getButtonText() == "Use this take" && t->isVisible())
@@ -1763,32 +1762,32 @@ TEST_CASE("takes: take lanes open after a loop pass; clicks, stars, the TAKE sec
     use->triggerClick();
     juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
     s.updateSnapshotNow();
-    CHECK(track().clips.at(0).fromTake == track().takes[1].clips.at(0).id);
+    CHECK(track().clips.at(0).fromTake == stack().takes[1].clips.at(0).id);
 
-    // Alt+Down / Alt+Up: the next or previous take covering the selected clip (the third lap is
-    // short, so it's skipped); the clip now playing stays selected.
+    // Alt+Down / Alt+Up: the clip's next or previous take covering it (the third lap is short, so
+    // it's skipped); the clip stays selected.
     view.setSelection(fd::model::withClips(*s.snapshot(), {track().clips.at(0).id}, t0, t0));
     REQUIRE(actions.perform("take.next"));
     s.updateSnapshotNow();
-    CHECK(track().clips.at(0).fromTake == track().takes[0].clips.at(0).id);
+    CHECK(track().clips.at(0).fromTake == stack().takes[0].clips.at(0).id);
     CHECK(view.selection().clips == std::set{track().clips.at(0).id});
     REQUIRE(actions.perform("take.previous"));
     s.updateSnapshotNow();
-    CHECK(track().clips.at(0).fromTake == track().takes[1].clips.at(0).id);
+    CHECK(track().clips.at(0).fromTake == stack().takes[1].clips.at(0).id);
 
     // Delete with a take selected deletes it (one undo step).
-    view.selectTake(t0, track().takes[2].id);
+    view.selectTake(t0, stack().takes[2].id);
     REQUIRE(actions.perform("edit.delete"));
     s.updateSnapshotNow();
-    CHECK(track().takes.size() == 2);
+    CHECK(stack().takes.size() == 2);
     CHECK(s.undoDescription() == "Delete take");
 
-    // The track's menu: hide its takes; spread them to new tracks.
-    CHECK(view.selection().channel == t0);
+    // Ctrl+Alt+K with the clip selected closes its takes (the row shrinks back); spread them.
+    view.setSelection(fd::model::withClips(*s.snapshot(), {track().clips.at(0).id}, t0, t0));
     REQUIRE(actions.perform("view.takes"));
     s.updateSnapshotNow();
-    CHECK_FALSE(track().showTakes);
-    CHECK_FALSE(view.rows()[1].isTake());
+    CHECK_FALSE(stack().open);
+    CHECK(fd::model::takeStripsHeight(track(), strip) == 0.0);
     const auto before = s.snapshot()->tracks.size();
     REQUIRE(actions.perform("take.spread"));
     s.updateSnapshotNow();

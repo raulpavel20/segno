@@ -113,15 +113,6 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         arrangement_.selectLane(lane);
     };
     arrangement_.onAssignLane = [this](std::uint64_t lane) { assignToLane(lane); };
-    // A track's own menu: its takes (recording.md §6).
-    arrangement_.onTrackMenu = [this](juce::PopupMenu& menu) {
-        actions_.addMenuItem(menu, "view.takes");
-        actions_.addMenuItem(menu, "take.spread");
-        const auto t = selectedTrackInfo();
-        menu.addItem("Delete unused takes", t && !t->takes.empty(), false, [this, id = t ? t->id : 0] {
-            session_.deleteUnusedTakes(id);
-        });
-    };
     arrangement_.onRenameTake = [this](std::uint64_t track, std::uint64_t take) {
         // The inspector's name field, for the take.
         lastArea_ = Area::Arrangement;
@@ -284,36 +275,6 @@ void Shell::registerActions()
                           showWarning("Nothing played to capture: play an armed or selected MIDI track first");
                   },
                   .isEnabled = [&s] { return s.canCaptureMidi(); }});
-    // Takes (C5b, recording.md §6, §11): the selected track's.
-    auto takesTrack = [this]() -> std::optional<model::TrackInfo> {
-        if (auto t = selectedTrackInfo(); t && t->holdsClips() && !t->takes.empty())
-            return t;
-        return std::nullopt;
-    };
-    actions_.add({.id = "view.takes", .name = "Show takes of the selected track", .category = "View",
-                  .keys = {key('k', kCmd | kAlt)},
-                  .perform = [&s, takesTrack] {
-                      if (const auto t = takesTrack())
-                          s.showTakes(t->id, !t->showTakes);
-                  },
-                  .isEnabled = [takesTrack] { return takesTrack().has_value(); },
-                  .isToggled = [takesTrack] { return takesTrack() && takesTrack()->showTakes; }});
-    actions_.add({.id = "take.spread", .name = "Spread takes to new tracks", .category = "Track",
-                  .keys = {key('k', kCmd | kAlt | kShift)},
-                  .perform = [this, &s, takesTrack] {
-                      if (const auto t = takesTrack())
-                      {
-                          std::vector<std::uint64_t> takes;
-                          for (const auto& k : t->takes)
-                              takes.push_back(k.id);
-                          if (const auto made = s.takesToTracks(t->id, takes, false); !made.empty())
-                          {
-                              s.updateSnapshotNow();
-                              arrangement_.selectTrack(made.front());
-                          }
-                      }
-                  },
-                  .isEnabled = [takesTrack] { return takesTrack().has_value(); }});
     // The clip whose takes the keys step through: the selected one, or the one under the playhead
     // on the selected track; only a clip with two takes or more (ADR 0032).
     struct TakesClip
@@ -356,6 +317,39 @@ void Shell::registerActions()
         };
     };
     auto canStepTake = [takesClip] { return takesClip().has_value(); };
+    actions_.add({.id = "view.takes", .name = "Show takes of the selected clip", .category = "View",
+                  .keys = {key('k', kCmd | kAlt)},
+                  .perform = [&s, takesClip] {
+                      if (const auto c = takesClip())
+                          if (const auto* t = s.snapshot()->channel(c->track))
+                              if (const auto* stack = t->stack(c->stack))
+                                  s.setTakesOpen(stack->id, !stack->open);
+                  },
+                  .isEnabled = canStepTake,
+                  .isToggled = [&s, takesClip] {
+                      const auto c = takesClip();
+                      const auto* t = c ? s.snapshot()->channel(c->track) : nullptr;
+                      const auto* stack = t != nullptr ? t->stack(c->stack) : nullptr;
+                      return stack != nullptr && stack->open;
+                  }});
+    actions_.add({.id = "take.spread", .name = "Spread the selected clip's takes to new tracks", .category = "Track",
+                  .keys = {key('k', kCmd | kAlt | kShift)},
+                  .perform = [this, &s, takesClip] {
+                      const auto c = takesClip();
+                      const auto* t = c ? s.snapshot()->channel(c->track) : nullptr;
+                      const auto* stack = t != nullptr ? t->stack(c->stack) : nullptr;
+                      if (stack == nullptr)
+                          return;
+                      std::vector<std::uint64_t> takes;
+                      for (const auto& k : stack->takes)
+                          takes.push_back(k.id);
+                      if (const auto made = s.takesToTracks(c->track, takes, false); !made.empty())
+                      {
+                          s.updateSnapshotNow();
+                          arrangement_.selectTrack(made.front());
+                      }
+                  },
+                  .isEnabled = canStepTake});
     actions_.add({.id = "take.previous", .name = "Previous take", .category = "Track", .keys = {key(juce::KeyPress::upKey, kAlt)},
                   .perform = stepTake(-1), .isEnabled = canStepTake});
     actions_.add({.id = "take.next", .name = "Next take", .category = "Track", .keys = {key(juce::KeyPress::downKey, kAlt)},

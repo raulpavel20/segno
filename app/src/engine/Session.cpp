@@ -430,11 +430,9 @@ void Session::Impl::rebuildSnapshot()
         if (!isReturn(*t))
         {
             info.input = inputOf(*t);
-            info.takes = takeInfos(*t, info.colour);
             info.stacks = stackInfos(*t, info.colour);
             for (const auto& stack : info.stacks)
             {
-                info.showTakes = info.showTakes || (stack.open && model::hasTakesToShow(stack));
                 for (auto& c : info.clips)
                     if (std::find(stack.parts.begin(), stack.parts.end(), c.id) != stack.parts.end())
                         c.stack = stack.id;

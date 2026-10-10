@@ -192,8 +192,8 @@ TEST_CASE("recording: while looping only the brace records, after a lead-in; set
     REQUIRE(info.clips.size() == 1);
     CHECK(info.clips[0].start == Approx(4.0).margin(0.02));
     CHECK(info.clips[0].end() == Approx(6.0).margin(0.02));
-    CHECK(info.takes.size() == 3);
-    for (const auto& take : info.takes)
+    CHECK(allTakes(info).size() == 3);
+    for (const auto& take : allTakes(info))
         for (const auto& c : take.clips)
             CHECK(c.start >= 4.0 - 0.02);
 
@@ -260,23 +260,23 @@ TEST_CASE("takes: a loop pass keeps every lap on a take lane; the main lane play
     r.recordFor(6.5); // three laps and a half
     r.session->setLooping(false);
     auto info = r.info(t);
-    REQUIRE(info.takes.size() == 4);
-    CHECK(info.takes[0].name == "Take 1");
-    CHECK(info.takes[3].name == "Take 4");
+    REQUIRE(allTakes(info).size() == 4);
+    CHECK(allTakes(info)[0].name == "Take 1");
+    CHECK(allTakes(info)[3].name == "Take 4");
     REQUIRE(info.clips.size() == 1);
     const auto& main = info.clips[0];
     CHECK(main.start == Approx(4.0).margin(0.01));
     CHECK(main.length == Approx(2.0).margin(0.01));
-    CHECK(main.fromTake == info.takes[2].clips.at(0).id); // the third lap: the last complete one
-    CHECK(main.sourcePath == info.takes[2].clips[0].sourcePath);
-    CHECK(info.takes[3].clips.at(0).length == Approx(0.5).margin(0.05)); // the half lap ends where it stopped
+    CHECK(main.fromTake == allTakes(info)[2].clips.at(0).id); // the third lap: the last complete one
+    CHECK(main.sourcePath == allTakes(info)[2].clips[0].sourcePath);
+    CHECK(allTakes(info)[3].clips.at(0).length == Approx(0.5).margin(0.05)); // the half lap ends where it stopped
     std::set<std::string> files;
-    for (const auto& take : info.takes)
+    for (const auto& take : allTakes(info))
         files.insert(take.clips.at(0).sourcePath);
     CHECK(files.size() == 4); // a file per lap
     CHECK(r.session->undoDescription() == "Record");
     r.session->undo();
-    CHECK(r.info(t).takes.empty());
+    CHECK(allTakes(r.info(t)).empty());
     CHECK(r.info(t).clips.empty());
 }
 
@@ -304,14 +304,14 @@ TEST_CASE("takes: what a pass records over is kept as a take first", "[integrati
     r.session->setPosition(1.0);
     r.recordFor(1.0);
     auto info = r.info(t);
-    REQUIRE(info.takes.size() == 2);
-    CHECK(info.takes[0].name == "Before take 1");
-    REQUIRE(info.takes[0].clips.size() == 1);
-    CHECK(juce::File(info.takes[0].clips[0].sourcePath) == wav.getFile());
-    CHECK(info.takes[1].name == "Take 1");
+    REQUIRE(allTakes(info).size() == 2);
+    CHECK(allTakes(info)[0].name == "Before take 1");
+    REQUIRE(allTakes(info)[0].clips.size() == 1);
+    CHECK(juce::File(allTakes(info)[0].clips[0].sourcePath) == wav.getFile());
+    CHECK(allTakes(info)[1].name == "Take 1");
     // The main lane: what was there before, cut around the new recording (ADR 0019).
     REQUIRE(info.clips.size() == 3);
-    CHECK(info.clips[1].fromTake == info.takes[1].clips.at(0).id);
+    CHECK(info.clips[1].fromTake == allTakes(info)[1].clips.at(0).id);
 }
 
 TEST_CASE("takes: use, step through, star, rename, delete, and copy or move to new tracks", "[integration]")
@@ -327,32 +327,32 @@ TEST_CASE("takes: use, step through, star, rename, delete, and copy or move to n
     r.recordFor(6.0); // three laps
     r.session->setLooping(false);
     auto info = r.info(t);
-    REQUIRE(info.takes.size() >= 3);
-    const auto take1 = info.takes[0].id, take2 = info.takes[1].id;
+    REQUIRE(allTakes(info).size() >= 3);
+    const auto take1 = allTakes(info)[0].id, take2 = allTakes(info)[1].id;
 
     REQUIRE(r.session->useTake(t, take1));
     CHECK(r.session->undoDescription() == "Use take");
     info = r.info(t);
     REQUIRE(info.clips.size() == 1);
-    CHECK(info.clips[0].fromTake == info.takes[0].clips.at(0).id);
+    CHECK(info.clips[0].fromTake == allTakes(info)[0].clips.at(0).id);
     REQUIRE(r.session->stepTake(info.clips[0].id, 1)); // Alt+↓: the next take
-    CHECK(r.info(t).clips.at(0).fromTake == r.info(t).takes[1].clips.at(0).id);
+    CHECK(r.info(t).clips.at(0).fromTake == allTakes(r.info(t))[1].clips.at(0).id);
 
     r.session->setTakeStar(t, take2, true);
     r.session->renameTake(t, take2, "Keeper");
-    CHECK(r.info(t).takes[1].star);
-    CHECK(r.info(t).takes[1].name == "Keeper");
-    r.session->showTakes(t, true);
-    CHECK(r.info(t).showTakes);
+    CHECK(allTakes(r.info(t))[1].star);
+    CHECK(allTakes(r.info(t))[1].name == "Keeper");
+    r.session->setTakesOpen(r.info(t).stacks.at(0).id, false);
+    CHECK_FALSE(r.info(t).stacks.at(0).open);
 
     // Delete unused takes: every one but the one playing; their files stay.
-    const auto unusedFile = juce::File(r.info(t).takes[0].clips.at(0).sourcePath);
+    const auto unusedFile = juce::File(allTakes(r.info(t))[0].clips.at(0).sourcePath);
     r.session->deleteUnusedTakes(t);
-    REQUIRE(r.info(t).takes.size() == 1);
-    CHECK(r.info(t).takes[0].id == take2);
+    REQUIRE(allTakes(r.info(t)).size() == 1);
+    CHECK(allTakes(r.info(t))[0].id == take2);
     CHECK(unusedFile.existsAsFile());
     r.session->undo();
-    REQUIRE(r.info(t).takes.size() >= 3);
+    REQUIRE(allTakes(r.info(t)).size() >= 3);
 
     // Copies on new tracks: each plays its take, with the track's modules and mix.
     r.session->setVolume(t, -6.0f);
@@ -364,15 +364,15 @@ TEST_CASE("takes: use, step through, star, rename, delete, and copy or move to n
     CHECK(r.session->snapshot()->tracks.size() == tracksBefore + 2);
     const auto copy = r.info(made[0]);
     REQUIRE(copy.clips.size() == 1);
-    CHECK(copy.clips[0].sourcePath == r.info(t).takes[0].clips.at(0).sourcePath);
-    CHECK(copy.takes.empty());
+    CHECK(copy.clips[0].sourcePath == allTakes(r.info(t))[0].clips.at(0).sourcePath);
+    CHECK(allTakes(copy).empty());
     CHECK(copy.mix.volumeDb == Approx(-6.0f).margin(0.01f));
     CHECK_FALSE(copy.input.armed);
     r.session->updateSnapshotNow();
     CHECK(r.session->snapshot()->tracks[1].id == made[0]); // right after the track
-    const auto takesBefore = r.info(t).takes.size();
+    const auto takesBefore = allTakes(r.info(t)).size();
     r.session->takesToTracks(t, {take1}, true); // moved: off this track
-    CHECK(r.info(t).takes.size() == takesBefore - 1);
+    CHECK(allTakes(r.info(t)).size() == takesBefore - 1);
 }
 
 TEST_CASE("takes: Capture MIDI turns what was just played into a clip at the playhead", "[integration]")

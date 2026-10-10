@@ -95,6 +95,7 @@ struct ShellMetrics
     int itemGap = 4, groupGap = 12;   // between items in a group, between groups
     int buttonSize = 28;              // icon buttons in bars and rails
     int fieldHeight = 24;             // text fields (search)
+    int takeStripHeight = 24;         // a take's strip under its clip (recording.md §6)
     float shadowRadius = 18.0f, shadowOffset = 6.0f;
 };
 

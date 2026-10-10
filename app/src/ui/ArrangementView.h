@@ -7,6 +7,7 @@
 #include "model/ArrangementRows.h"
 #include "model/Editing.h"
 #include "model/Selection.h"
+#include "model/Takes.h"
 #include "model/Timeline.h"
 #include "model/TrackLayout.h"
 #include "ui/WaveformCache.h"
@@ -73,9 +74,7 @@ public:
     std::function<void(juce::PopupMenu&)> onAddMenu;
     /// A lane header's "Assign parameter..." and "Rename...".
     std::function<void(std::uint64_t lane)> onAssignLane, onRenameLane;
-    /// Adds a track's own items (its takes) to its header's right-click menu; the track is selected.
-    std::function<void(juce::PopupMenu&)> onTrackMenu;
-    /// A take lane's "Rename...".
+    /// A take's "Rename..." (its clip's take menu).
     std::function<void(std::uint64_t track, std::uint64_t take)> onRenameTake;
     /// Something worth telling the user (shown in the shell, never modal).
     std::function<void(const juce::String&)> onMessage;
@@ -115,9 +114,8 @@ public:
     void nudgePoints(int gridSteps, float value);
     /// Removes the selected lane (one undo step).
     void removeSelectedLane();
-    // Take lanes (C5b, ADR 0031, docs/design/recording.md §6): rows under their track.
-    /// Selects a take lane alone, as a click on its header does, and brings it into sight (when
-    /// its track shows its takes).
+    // Takes (C5b, ADR 0032, docs/design/recording.md §6): under their clip.
+    /// Selects a take (with its track), as a click on its strip does.
     void selectTake(std::uint64_t track, std::uint64_t take);
     [[nodiscard]] bool hasTakeSelection() const noexcept { return selection_.take.has_value(); }
 
@@ -160,13 +158,8 @@ public:
     void filesDropped(const juce::StringArray& files, int x, int y) override;
 
 private:
-    /// The channel of a track, return or master row (null for lane and take rows).
+    /// The channel of a track, return or master row (null for lane rows).
     [[nodiscard]] const model::TrackInfo* rowChannel(int row) const noexcept;
-    /// A take row's take (null for other rows); its track is rowTakeTrack().
-    [[nodiscard]] const model::TakeInfo* rowTake(int row) const noexcept;
-    [[nodiscard]] const model::TrackInfo& rowTakeTrack(int row) const noexcept;
-    /// The take clip under a lane-area x on a take row, if any.
-    [[nodiscard]] const model::ClipInfo* takeClipAt(int row, float x) const;
     /// A lane row's lane (null for other rows).
     [[nodiscard]] const model::AutomationLaneInfo* rowLane(int row) const noexcept;
     [[nodiscard]] juce::Rectangle<float> rowBounds(int row, juce::Rectangle<int> column) const;
@@ -204,9 +197,33 @@ private:
     [[nodiscard]] std::function<double(double)> snapFunction(bool bypass) const;
     void paintClip(juce::Graphics& g, const model::ClipInfo& clip, float y, float h, juce::Rectangle<int> area,
                    juce::Rectangle<int> visible, bool selected, bool dimmed = false);
-    /// A take lane's clip: dimmed, with the parts the main lane plays in full colour.
-    void paintTakeClip(juce::Graphics& g, const model::ClipInfo& clip, const model::TrackInfo& track, float y, float h,
-                       juce::Rectangle<int> area, juce::Rectangle<int> visible);
+    // A clip with takes (ADR 0032): its parts as one clip, its badge, and its takes' strips.
+    [[nodiscard]] juce::Rectangle<float> groupBox(const model::ClipGroup& group, float y, float h) const;
+    /// A clip's badge and where it sits in its title strip (none below two takes, or too small).
+    [[nodiscard]] std::optional<std::pair<model::Badge, juce::Rectangle<float>>>
+    badgeOf(const model::ClipGroup& group, const model::TrackInfo& track, juce::Rectangle<float> box) const;
+    void paintGroup(juce::Graphics& g, const model::ClipGroup& group, const model::TrackInfo& track, float y, float h,
+                    juce::Rectangle<int> area, juce::Rectangle<int> visible);
+    /// A track row's open takes, below its clips: a strip per take, newest on top.
+    void paintStrips(juce::Graphics& g, int row, const model::TrackInfo& track, juce::Rectangle<int> area,
+                     juce::Rectangle<int> visible);
+    struct StripLabel
+    {
+        juce::Rectangle<float> star, name;
+    };
+    [[nodiscard]] StripLabel stripLabel(juce::Rectangle<float> strip) const;
+    /// The take strip under a point (and its star's area).
+    struct StripAt
+    {
+        std::uint64_t track = 0;
+        model::StripHit hit;
+        juce::Rectangle<float> star;
+    };
+    [[nodiscard]] std::optional<StripAt> stripAt(juce::Point<float> p) const;
+    /// The badge under a point: its track and stack.
+    [[nodiscard]] std::optional<std::pair<std::uint64_t, std::uint64_t>> badgeAt(juce::Point<float> p) const;
+    /// A clip's take menu; `take`: the strip right-clicked (else the take it plays).
+    void takeMenu(std::uint64_t track, std::uint64_t stack, std::optional<std::uint64_t> take);
     void syncLayout();
 
     void paintRuler(juce::Graphics& g);
@@ -221,27 +238,12 @@ private:
     bool showMixRows_ = true;
     bool showLanes_ = true;
 
-    /// "Takes · N" in a track's header (recording.md §6): shows or hides its take lanes.
-    class TakesButton final : public juce::Button
-    {
-    public:
-        TakesButton();
-        void update(const model::TrackInfo& track);
-        /// The width its text needs.
-        [[nodiscard]] int preferredWidth() const;
-        void paintButton(juce::Graphics& g, bool highlighted, bool down) override;
-
-    private:
-        juce::String text_;
-    };
-
     /// One channel's controls in its header: mute, solo, volume, pan and the meter (and for a
-    /// track its arm button and takes).
+    /// track its arm button).
     struct HeaderControls
     {
         HeaderControls(engine::Session& session, const model::TrackInfo& channel);
         ChannelToggle mute, solo, arm;
-        TakesButton takes;
         VolumeBar volume;
         PanBar pan;
         ChannelMeter meter;
@@ -252,7 +254,6 @@ private:
     std::map<std::string, double> heights_; // by row key: set by hand (dragging a row's bottom edge)
     std::map<std::string, std::unique_ptr<LaneControls>> laneControls_; // by row key
     std::map<std::string, std::string> laneTexts_; // the value each lane header shows (repainted on change)
-    std::map<std::string, std::unique_ptr<ui::IconButton>> takeStars_; // each take row's star, by row key
 
     /// A gesture on a lane's points.
     struct LaneDrag

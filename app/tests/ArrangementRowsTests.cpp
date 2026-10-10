@@ -65,19 +65,3 @@ TEST_CASE("arrangement rows: clips move between tracks across lane rows", "[fast
     empty.automationLanes = {{.id = 40}};
     CHECK(arrangementRows(empty, false) == std::vector{ArrangementRow{.kind = Kind::Lane, .lane = 40}});
 }
-
-TEST_CASE("arrangement rows: a track's take lanes follow it while shown", "[fast]")
-{
-    auto s = project();
-    s.tracks[0].takes = {{.id = 51, .name = "Take 1"}, {.id = 52, .name = "Take 2"}};
-    CHECK(arrangementRows(s, false).size() == 6); // hidden
-    s.tracks[0].showTakes = true;
-    const auto rows = arrangementRows(s, false);
-    REQUIRE(rows.size() == 8);
-    CHECK(rows[1].holdsClips()); // Keys, after the lane at the top
-    CHECK(rows[2] == ArrangementRow{.kind = Kind::Take, .channel = 1, .take = 51, .track = 0});
-    CHECK(rows[3].take == 52);
-    CHECK(rows[4].lane == 41); // automation lanes after the take lanes
-    CHECK(rows[2].key() == "t1/51");
-    CHECK(clipTrackOf(rows, 3, 2) == 0);
-}

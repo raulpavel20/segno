@@ -98,6 +98,15 @@ struct Recording
     float outputLevel() const { return lastOutput.getMagnitude(0, 0, lastOutput.getNumSamples()); }
 };
 
+/// Every take of a track, its clips' in order (ADR 0032: takes belong to clips).
+inline std::vector<fd::model::TakeInfo> allTakes(const fd::model::TrackInfo& track)
+{
+    std::vector<fd::model::TakeInfo> out;
+    for (const auto& s : track.stacks)
+        out.insert(out.end(), s.takes.begin(), s.takes.end());
+    return out;
+}
+
 inline float sine(std::int64_t sample, int)
 {
     return 0.5f * std::sin(static_cast<float>(sample) * 0.05f);

@@ -174,8 +174,6 @@ struct TrackInfo
     std::vector<DeviceSlot> devices; // the chain, in order (the engine's own mixer plugins are not listed)
     MixInfo mix;
     InputInfo input; // tracks only (C5): what it listens to and records, and whether it's armed
-    std::vector<TakeInfo> takes; // tracks only (C5b): its take lanes, oldest first
-    bool showTakes = false;      // its take lanes are shown (view state)
     std::vector<TakeStackInfo> stacks; // tracks only: its clips' takes (ADR 0032), by start
 
     [[nodiscard]] bool holdsClips() const noexcept { return role == Role::Track; }
@@ -194,15 +192,11 @@ struct TrackInfo
                 return &s;
         return nullptr;
     }
-    /// A take by id, in any of its stacks (or, from C5b, its take lanes).
+    /// A take by id, in any of its stacks.
     [[nodiscard]] const TakeInfo* take(std::uint64_t takeId) const noexcept
     {
-        if (const auto* s = stackOfTake(takeId))
-            return s->take(takeId);
-        for (const auto& t : takes)
-            if (t.id == takeId)
-                return &t;
-        return nullptr;
+        const auto* s = stackOfTake(takeId);
+        return s != nullptr ? s->take(takeId) : nullptr;
     }
 };
 

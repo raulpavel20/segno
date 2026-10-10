@@ -621,14 +621,6 @@ std::vector<std::uint64_t> Session::Impl::importTakes(te::AudioTrack& track, con
 
 // ---- Session -------------------------------------------------------------------------------
 
-void Session::showTakes(std::uint64_t trackId, bool show)
-{
-    if (auto* t = impl_->track(trackId))
-        for (auto s : t->state.getChildWithName(Impl::takesId))
-            if (s.getNumChildren() >= 2 || !show)
-                impl_->openStack(*t, s, show);
-}
-
 void Session::setTakesOpen(std::uint64_t stackId, bool open)
 {
     if (auto [track, stack] = impl_->findStack(stackId); track != nullptr)

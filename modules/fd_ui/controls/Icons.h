@@ -34,6 +34,8 @@ enum class Icon
 
 /// Draws `icon` fitted (aspect kept) into `area` in `colour`.
 void drawIcon(juce::Graphics& g, Icon icon, juce::Rectangle<float> area, juce::Colour colour);
+/// The same, filled (a starred star).
+void fillIcon(juce::Graphics& g, Icon icon, juce::Rectangle<float> area, juce::Colour colour);
 
 /// Flat icon button (ui-principles §4): dim when off, `active` fill when on (toggles),
 /// `surface3` on hover. Tooltip text should include the shortcut.

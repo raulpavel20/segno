@@ -241,6 +241,16 @@ void drawIcon(juce::Graphics& g, Icon icon, juce::Rectangle<float> area, juce::C
                                                           juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 }
 
+void fillIcon(juce::Graphics& g, Icon icon, juce::Rectangle<float> area, juce::Colour colour)
+{
+    const float size = std::min(area.getWidth(), area.getHeight());
+    const auto box = juce::Rectangle<float>(size, size).withCentre(area.getCentre());
+    auto shape = glyph(icon).path;
+    shape.applyTransform(juce::AffineTransform::scale(size / 16.0f).translated(box.getX(), box.getY()));
+    g.setColour(colour);
+    g.fillPath(shape);
+}
+
 IconButton::IconButton(Icon icon, const juce::String& name) : juce::Button(name), icon_(icon) {}
 
 void IconButton::setIcon(Icon icon)
