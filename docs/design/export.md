@@ -2,14 +2,14 @@
 
 How Segno turns a project into audio files to share: **the mix**, or **each track as a stem**, of the whole song or the loop, as WAV, FLAC or AIFF.
 
-The proposed decision is ADR 0039 (§14). It builds on:
+The decision is [ADR 0039](../decisions/0039-export-in-the-background.md) (§14). It builds on:
 - the offline render the MCP `render` tool and bounce already use (`Session::render`, [mcp.md](mcp.md) §7, [bounce.md](bounce.md) §8);
 - the loudness and true-peak measurements of `model::AudioMeasure` (EBU R 128);
 - projects as folders ([ADR 0030](../decisions/0030-projects-are-folders.md));
 - the shared popover, property rows and progress line ([ui-foundations.md](ui-foundations.md));
 - the rule that nothing is modal ([ui-principles.md](ui-principles.md) §2).
 
-**Status:** proposed (2026-10-10). The questions in §13 await the product owner's review.
+**Status:** approved by the product owner (2026-10-10), with every recommendation of §13 ([ADR 0039](../decisions/0039-export-in-the-background.md)).
 
 **Where the field is (2026)**, from the manuals of Live 12, Logic, Bitwig 5, REAPER 7, Pro Tools, Studio Pro 8 (Studio One) and Cubase 14:
 - **What every DAW offers:**
@@ -164,7 +164,7 @@ Ctrl+Shift+E is free: Ctrl+E is split, and Ctrl+Shift+R, Live's export key, is C
   - `done` gets the files and their reports.
 - **The panel** is a `ui::Popover` of shell parts. The location uses `juce::FileChooser` asynchronously, and **Show** uses `juce::File::revealToUser`.
 
-## 13. Questions and recommendations
+## 13. Decisions from the review (product owner, 2026-10-10: every recommendation agreed)
 
 | # | Question | Recommendation |
 |---|---|---|
@@ -184,7 +184,7 @@ Ctrl+Shift+E is free: Ctrl+E is split, and Ctrl+Shift+R, Live's export key, is C
 | Q14 | **Shortcut** | Ctrl+Shift+E (§10) |
 | Q15 | **Assistants** | `export_audio`, into the project's exports or the chosen location only, allowed in read-only mode (§11) |
 
-## 14. Proposed ADR 0039: Export renders in the background; files land where you choose
+## 14. ADR 0039: Export renders in the background; files land where you choose
 
 - Export is a popover panel, not a modal dialog. The render runs offline on a copy of the project in the background, with progress in the window and cancel.
 - It exports the mix, or tracks as stems that add up to the mix (optionally through the returns and master), of the song (with its tail) or the loop, as WAV, FLAC or AIFF.
