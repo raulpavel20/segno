@@ -1,0 +1,155 @@
+Audio clips that play past their edges, and a host fade node (Segno: docs/design/fades.md, ADR 0036).
+
+Segno's crossfades sit at the join between two clips that meet without overlapping: while one lasts,
+each clip plays some of its source past its edge. EngineBehaviour::getAudioClipExtension lets the
+host extend the range an audio clip's node plays (its source offset moved to match, and the track's
+scheduling widened through getHead/getTail), and createAudioClipFadeNode lets it apply the clip's fades
+with its own node over that range. With neither overridden, nothing changes.
+
+diff '--color=auto' -ru a/modules/tracktion_engine/model/clips/tracktion_AudioClipBase.cpp b/modules/tracktion_engine/model/clips/tracktion_AudioClipBase.cpp
+--- a/modules/tracktion_engine/model/clips/tracktion_AudioClipBase.cpp	2026-10-10 12:44:36.370888433 +0300
++++ b/modules/tracktion_engine/model/clips/tracktion_AudioClipBase.cpp	2026-10-10 12:45:14.356957441 +0300
+@@ -1211,8 +1211,17 @@
+    #endif
+ }
+ 
+-TimeDuration AudioClipBase::getHead() const  { return araProxy != nullptr ? araProxy->getHead() : TimeDuration(); }
+-TimeDuration AudioClipBase::getTail() const  { return araProxy != nullptr ? araProxy->getTail() : TimeDuration(); }
++TimeDuration AudioClipBase::getHead() const
++{
++    return (araProxy != nullptr ? araProxy->getHead() : TimeDuration())
++           + edit.engine.getEngineBehaviour().getAudioClipExtension (*const_cast<AudioClipBase*> (this)).start;
++}
++
++TimeDuration AudioClipBase::getTail() const
++{
++    return (araProxy != nullptr ? araProxy->getTail() : TimeDuration())
++           + edit.engine.getEngineBehaviour().getAudioClipExtension (*const_cast<AudioClipBase*> (this)).end;
++}
+ 
+ void AudioClipBase::loadARAState()
+ {
+diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp
+--- a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp	2026-10-10 12:44:36.379646263 +0300
++++ b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp	2026-10-10 12:45:14.357663149 +0300
+@@ -365,6 +365,10 @@
+ std::unique_ptr<tracktion::graph::Node> createFadeNodeForClip (AudioClipBase& clip, EditTimeRange clipTimeRangeToUse,
+                                                                std::unique_ptr<Node> node, const CreateNodeParams& params)
+ {
++    if (auto custom = clip.edit.engine.getEngineBehaviour().createAudioClipFadeNode (clip, toTime (clipTimeRangeToUse, clip.edit.tempoSequence),
++                                                                                     node, params.processState))
++        return custom;
++
+     auto fIn = clip.getFadeIn();
+     auto fOut = clip.getFadeOut();
+ 
+@@ -427,6 +431,14 @@
+ 
+     std::unique_ptr<Node> node;
+ 
++    // A range starting before the clip (EngineBehaviour::getAudioClipExtension) plays its
++    // source from that much earlier.
++    const auto offsetForRange = [&clip, &clipTimeRangeToUse]
++    {
++        const auto pos = clip.getPosition();
++        return pos.getOffset() - (pos.getStart() - toTime (clipTimeRangeToUse, clip.edit.tempoSequence).getStart());
++    };
++
+     if (clip.canUseProxy())
+     {
+         assert (role != ClipRole::launcher);
+@@ -437,7 +449,7 @@
+ 
+         if (! clip.usesTimeStretchedProxy())
+         {
+-            nodeOffset = clip.getPosition().getOffset();
++            nodeOffset = offsetForRange();
+             loopRange = clip.getLoopRange();
+             speed = clip.getSpeedRatio();
+         }
+@@ -605,7 +617,7 @@
+             assert (! clipTimeRangeToUse.isBeats());
+             node = makeNode<WaveNodeRealTime> (playFile,
+                                                toTime (clipTimeRangeToUse, clip.edit.tempoSequence),
+-                                               clip.getPosition().getOffset(),
++                                               offsetForRange(),
+                                                clip.getLoopRange(),
+                                                clip.getLiveClipLevel(),
+                                                clip.getSpeedRatio(),
+@@ -645,17 +657,25 @@
+ std::unique_ptr<tracktion::graph::Node> createNodeForAudioClip (AudioClipBase& clip, bool includeARA,
+                                                                 const CreateNodeParams& params, ClipRole role)
+ {
++    // The clip's range, with what the behaviour has it play before and after it.
++    const auto extendedRange = [&clip]
++    {
++        const auto range = clip.getEditTimeRange();
++        const auto extension = clip.edit.engine.getEngineBehaviour().getAudioClipExtension (clip);
++        return TimeRange (range.getStart() - extension.start, range.getEnd() + extension.end);
++    };
++
+     if (clip.canUseProxy())
+     {
+         assert (role == ClipRole::arranger);
+-        return createNodeForAudioClip (clip, clip.itemID, clip.getEditTimeRange(), includeARA, params, role);
++        return createNodeForAudioClip (clip, clip.itemID, extendedRange(), includeARA, params, role);
+     }
+ 
+     if (clip.getAutoTempo() || clip.getAutoPitch() || role == ClipRole::launcher)
+         return createNodeForAudioClip (clip, clip.itemID, clip.getEditBeatRange(), includeARA, params, role);
+ 
+     assert (role == ClipRole::arranger);
+-    return createNodeForAudioClip (clip, clip.itemID, clip.getEditTimeRange(), includeARA, params, role);
++    return createNodeForAudioClip (clip, clip.itemID, extendedRange(), includeARA, params, role);
+ }
+ 
+ std::unique_ptr<tracktion::graph::Node> createNodeForMidiClip (MidiClip& clip, const TrackMuteState& trackMuteState,
+diff '--color=auto' -ru a/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h b/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h
+--- a/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h	2026-10-10 12:44:36.363020104 +0300
++++ b/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h	2026-10-10 12:45:30.773184334 +0300
+@@ -8,6 +8,8 @@
+     Tracktion Engine uses a GPL/commercial licence - see LICENCE.md for details.
+ */
+ 
++namespace tracktion::inline graph { class Node; }
++
+ namespace tracktion::inline engine {
+ 
+ /**
+@@ -27,6 +29,15 @@
+     Defaults applied to newly created Edits.
+     @see EngineBehaviour::getEditDefaults
+ */
++struct ProcessState;
++
++/** How much of an audio clip's source plays before its start and after its end
++    (@see EngineBehaviour::getAudioClipExtension). */
++struct AudioClipExtension
++{
++    TimeDuration start, end;
++};
++
+ struct EditDefaults
+ {
+     TimecodeType timecodeType = TimecodeType::barsBeats;   /**< The timecode display format new Edits start with. */
+@@ -144,6 +155,20 @@
+     /// 0 = normal, 1 = high, 2 = realtime
+     virtual void setProcessPriority (int /*level*/)                                 {}
+ 
++    /// Lets the behaviour have an audio clip play some of its source before its start and
++    /// after its end (crossfades between clips that meet without overlapping). The clip's
++    /// node plays the extended range, its source offset moved to match, and the track
++    /// schedules it over that range. Only for clips played in time (not tempo-synced,
++    /// not looped, not from a time-stretched proxy). Default: none.
++    virtual AudioClipExtension getAudioClipExtension (AudioClipBase&)                 { return {}; }
++
++    /// Lets the behaviour apply an audio clip's fades with its own node, over the time the
++    /// clip plays (its range with any extension). Return nullptr, leaving `input` alone,
++    /// for the engine's own fades.
++    virtual std::unique_ptr<tracktion::graph::Node> createAudioClipFadeNode (AudioClipBase&, TimeRange /*played*/,
++                                                                             std::unique_ptr<tracktion::graph::Node>& /*input*/,
++                                                                             ProcessState&)  { return {}; }
++
+     /// If implemented, this lets the behaviour determine exactly which file a new
+     /// auto recording for the given track should be made to.
+     virtual juce::File getFileForNewAudioRecording (Track&, const juce::String& fileExtension)  { (void) fileExtension; return {}; }

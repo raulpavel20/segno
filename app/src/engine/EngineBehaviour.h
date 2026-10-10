@@ -12,7 +12,9 @@ namespace fd::engine
 /// - a track that isn't heard (muted, or silenced by another's solo) sends nothing to the
 ///   return tracks, even when it keeps running to feed a sidechain (ADR 0025, ADR 0026);
 /// - a new audio recording's file is named by whoever set `setRecordingFiles` (the Session: its
-///   project's Recordings folder, ADR 0030).
+///   project's Recordings folder, ADR 0030);
+/// - audio clips play their fades and crossfades through Segno's fade node, and a crossfade's
+///   spare audio past their edges (ADR 0036, the clip-playback patch).
 [[nodiscard]] std::unique_ptr<tracktion::EngineBehaviour> makeEngineBehaviour();
 
 /// The file for a new audio recording on a track ("wav" or another extension); an empty file lets

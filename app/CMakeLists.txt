@@ -10,14 +10,14 @@ add_library(fd_app_model STATIC src/model/Timeline.cpp src/model/TrackLayout.cpp
     src/model/Editing.cpp src/model/Fuzzy.cpp src/model/NoteEditing.cpp
     src/model/TrackHeaderLayout.cpp src/model/AudioMeasure.cpp src/model/Taper.cpp src/model/ChannelStripLayout.cpp src/model/Selection.cpp
     src/model/Automation.cpp src/model/ArrangementRows.cpp src/model/Snapshot.cpp src/model/Recording.cpp src/model/Takes.cpp
-    src/model/TopBarLayout.cpp src/model/StackEdits.cpp src/model/Capture.cpp src/model/Bounce.cpp)
+    src/model/TopBarLayout.cpp src/model/StackEdits.cpp src/model/Capture.cpp src/model/Bounce.cpp src/model/Fades.cpp)
 target_include_directories(fd_app_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(fd_app_model PUBLIC fd::audiofile PRIVATE fd::dsp fd::warnings)
 
 if(FD_BUILD_TESTS)
     fd_add_test(NAME fd_app_model_tests SOURCES tests/ModelTests.cpp tests/NoteEditingTests.cpp tests/AudioMeasureTests.cpp
         tests/SelectionTests.cpp tests/AutomationTests.cpp
-        tests/ArrangementRowsTests.cpp tests/RecordingTests.cpp tests/TakeStackTests.cpp tests/CaptureTests.cpp tests/BounceTests.cpp LIBS fd_app_model)
+        tests/ArrangementRowsTests.cpp tests/RecordingTests.cpp tests/TakeStackTests.cpp tests/CaptureTests.cpp tests/BounceTests.cpp tests/FadesTests.cpp LIBS fd_app_model)
 endif()
 
 # fd_mcp: the MCP server's protocol layer and transports (ADR 0021, docs/design/mcp.md). JUCE-free,
@@ -42,6 +42,8 @@ target_sources(fd_engine INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionRecording.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionTakes.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionBounce.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/ClipFades.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionFades.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/MidiTap.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/PluginWindow.cpp")
 target_include_directories(fd_engine INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/src")

@@ -461,6 +461,33 @@ public:
     /// Where bounced audio goes: `Bounces` in the project's folder (ADR 0030), as recordings.
     [[nodiscard]] juce::File bouncesFolder() const;
 
+    // ---- fades and crossfades (C6, ADR 0036, docs/design/fades.md) ---------------------------
+    // Fades belong to audio clips; a crossfade belongs to the join between two audio clips that
+    // meet, stored on the earlier one, and each clip plays its spare audio past the join.
+
+    /// Sets audio clips' fades (a clip with takes: its first part's fade-in, its last part's
+    /// fade-out); nullopt leaves one as it is, a zero length removes it. One undo step, "Fades".
+    void setFades(const std::vector<std::uint64_t>& clips, std::optional<model::Fade> in, std::optional<model::Fade> out);
+    /// What crossfading one join came to.
+    struct CrossfadeResult
+    {
+        std::uint64_t out = 0, in = 0;                // the clips before and after the join
+        std::optional<model::Crossfade> crossfade; // as made (or kept)
+        std::string why;                           // why it couldn't be made
+    };
+    /// Crossfades every join between the given audio clips that meet (Ctrl+Shift+X): a join gets a
+    /// crossfade of `length` fitted to the spare audio, or keeps the one it has (taking `shape` if
+    /// given). One undo step, "Crossfade". Empty if no two of them meet.
+    std::vector<CrossfadeResult> crossfade(const std::vector<std::uint64_t>& clips, double length = model::kCrossfadeSeconds,
+                                           std::optional<model::CrossfadeShape> shape = std::nullopt);
+    /// Sets (fitted to the spare audio) or removes the crossfade at the end of `clip`, into the clip
+    /// that starts there. One undo step named `undoName`. False if there's no such join or no spare
+    /// audio for it.
+    bool setCrossfade(std::uint64_t clip, std::optional<model::Crossfade> crossfade, const std::string& undoName = "Crossfade");
+    /// The project's edge fades (fades.md §2). One undo step, "Edge fades".
+    void setEdgeFades(bool on);
+    [[nodiscard]] bool edgeFades() const;
+
     /// A module panel's view state (collapsed sections, folded; ADR 0022), stored with the
     /// project on the module. Never an undo step or an unsaved change.
     [[nodiscard]] std::string deviceViewState(std::uint64_t deviceId) const;

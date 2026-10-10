@@ -1,6 +1,6 @@
 # 0036. Crossfades sit at the boundary; every clip edge is click-free
 
-- **Status:** Proposed
+- **Status:** Accepted (product owner, 2026-10-10, with every recommendation of design/fades.md §12)
 - **Date:** 2026-10-10
 - **Builds on:** [0019](0019-one-kind-of-track.md) (one kind of track; clips never overlap; "blending between neighbouring audio clips is a crossfade at the boundary, not an overlap"), [0028](0028-automation-lanes.md) (bends), [0032](0032-takes-belong-to-clips.md) (takes on clips)
 

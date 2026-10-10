@@ -36,6 +36,11 @@ inline constexpr float kStepCurve = 1.0f;
 /// `fallback` without points.
 [[nodiscard]] float automationValueAt(const AutomationPoints& points, double seconds, float fallback = 0.0f);
 
+/// The value at `seconds` within one segment from (t1, v1) to (t2, v2) with the engine's `curve`:
+/// what automationValueAt plays between two points, and what a clip's fade plays (fades.md §3).
+/// Allocation-free (the audio thread uses it).
+[[nodiscard]] float segmentValueAt(double t1, float v1, double t2, float v2, float curve, double seconds) noexcept;
+
 /// The UI's bend (−1 … 1) of a point's segment, and the curve value for a bend.
 [[nodiscard]] float bendOf(const AutomationPoint& point) noexcept;
 [[nodiscard]] float curveForBend(float bend) noexcept;

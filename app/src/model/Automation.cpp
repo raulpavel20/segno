@@ -179,19 +179,22 @@ float automationValueAt(const AutomationPoints& points, double seconds, float fa
 
     const auto& p1 = points[index - 1];
     const auto& p2 = points[index];
-    const double t1 = p1.time, t2 = p2.time;
-    const float v1 = p1.value, v2 = p2.value;
-    if (p1.curve == 0.0f)
+    return segmentValueAt(p1.time, p1.value, p2.time, p2.value, p1.curve, seconds);
+}
+
+float segmentValueAt(double t1, float v1, double t2, float v2, float curve, double seconds) noexcept
+{
+    if (curve == 0.0f)
     {
         const auto alpha = static_cast<float>((seconds - t1) / (t2 - t1));
         return v1 + alpha * (v2 - v1);
     }
-    const auto [bx, by] = bezierPoint(t1, v1, t2, v2, std::clamp(p1.curve * 2.0f, -1.0f, 1.0f));
+    const auto [bx, by] = bezierPoint(t1, v1, t2, v2, std::clamp(curve * 2.0f, -1.0f, 1.0f));
     const auto yb = static_cast<float>(by); // the engine keeps the control point's value as a float
-    if (p1.curve >= -0.5f && p1.curve <= 0.5f)
+    if (curve >= -0.5f && curve <= 0.5f)
         return static_cast<float>(bezierYFromX(seconds, t1, v1, bx, yb, t2, v2));
 
-    const auto ends = bezierEnds(t1, v1, t2, v2, p1.curve);
+    const auto ends = bezierEnds(t1, v1, t2, v2, curve);
     if (seconds >= t1 && seconds <= ends.x1)
         return v1;
     if (seconds >= ends.x2 && seconds <= t2)

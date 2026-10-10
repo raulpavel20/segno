@@ -190,6 +190,8 @@ model::ClipInfo Session::Impl::storedClipInfo(const juce::ValueTree& tree, int c
     info.offset = tree[te::IDs::offset];
     info.colour = static_cast<int>(tree.getProperty(kClipColourId, colour));
     info.muted = tree[te::IDs::mute];
+    info.fadeIn = {static_cast<double>(tree.getProperty(te::IDs::fadeIn, 0.0)), static_cast<float>(tree.getProperty("fdFadeInBend", 0.0f))};
+    info.fadeOut = {static_cast<double>(tree.getProperty(te::IDs::fadeOut, 0.0)), static_cast<float>(tree.getProperty("fdFadeOutBend", 0.0f))};
     if (info.kind == model::ClipInfo::Kind::Midi)
     {
         info.contentStartBeat = edit->tempoSequence.toBeats(te::TimePosition::fromSeconds(info.start - info.offset)).inBeats();
@@ -505,6 +507,7 @@ void Session::Impl::settle(te::AudioTrack& track, juce::UndoManager* um)
             s.setProperty(fromId, r.start, um);
             s.setProperty(toId, r.end, um);
         }
+    settleFades(track, um);
 }
 
 void Session::Impl::loadTakes(bool convert)

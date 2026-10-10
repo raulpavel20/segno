@@ -1,6 +1,7 @@
 #pragma once
 
 #include "model/Automation.h"
+#include "model/Fades.h"
 #include "model/Recording.h"
 #include "model/TempoMap.h"
 
@@ -49,6 +50,11 @@ struct ClipInfo
     std::uint64_t stack = 0;
     /// Muted (ADR 0035): it keeps its place and plays nothing.
     bool muted = false;
+    /// Audio clips (C6, ADR 0036): its fades as set, the crossfade at its end into the clip that
+    /// starts there (as it fits now), and what it plays: fades, edge fades and crossfades together.
+    Fade fadeIn, fadeOut;
+    std::optional<Crossfade> crossfadeOut;
+    ClipPlayback playback;
 
     [[nodiscard]] double end() const noexcept { return start + length; }
 };
@@ -212,6 +218,7 @@ struct Snapshot
     /// The automation lanes in row order (C4, ADR 0029): those at the top, then each track's.
     std::vector<AutomationLaneInfo> automationLanes;
     TempoMap tempo;
+    bool edgeFades = true; // the project's edge fades (fades.md §2)
     std::uint64_t version = 0;
 
     /// Any channel by id: a track, a return or the master.

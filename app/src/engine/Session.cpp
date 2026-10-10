@@ -1,5 +1,6 @@
 #include "engine/SessionImpl.h"
 
+#include "engine/ClipFades.h"
 #include "engine/DevicePlugin.h"
 #include "engine/EngineBehaviour.h"
 #include "model/NoteEditing.h"
@@ -432,6 +433,7 @@ void Session::Impl::rebuildSnapshot()
             info.clips.push_back(std::move(clip));
         }
         std::sort(info.clips.begin(), info.clips.end(), [](const auto& a, const auto& b) { return a.start < b.start; });
+        fillFades(*t, info.clips);
         devicesOf(t->pluginList, info);
         info.mix = mixOf(t->pluginList);
         if (!isReturn(*t))
@@ -468,6 +470,7 @@ void Session::Impl::rebuildSnapshot()
         ++index;
     }
 
+    s->edgeFades = edgeFadesOn(*edit);
     auto& master = s->master;
     master.id = masterId();
     master.role = model::TrackInfo::Role::Master;

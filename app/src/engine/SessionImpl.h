@@ -165,6 +165,11 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// After any edit of a track's clips (model::settleStacks): emptied stacks go, cut-off parts
     /// become plain, ranges cover their parts.
     void settle(te::AudioTrack& track, juce::UndoManager* um);
+    /// After any edit of a track's clips (fades.md §4): a crossfade whose clips no longer meet, or
+    /// meet seamlessly, goes; a bend without its fade goes. Called by settle().
+    void settleFades(te::AudioTrack& track, juce::UndoManager* um);
+    /// A track's audio clips in the snapshot get their fades, crossfades and playback.
+    void fillFades(te::AudioTrack& track, std::vector<model::ClipInfo>& clips) const;
     /// Opening a project: C5b's take lanes (format 3) become their clips' stacks.
     void loadTakes(bool convert);
     /// A pass's clips with their takes (one per loop lap): what they recorded over is kept as a
@@ -374,6 +379,9 @@ private:
                 return;
         if (!inTransport(t) && id != te::IDs::solo) // solo is a listening aid (ADR 0026)
             dirty = true; // includes device parameters
+        // What a clip plays depends on its fades and its neighbours (ADR 0036): playback is rebuilt.
+        if (affectsFades(t, id))
+            restartPending = true;
         // A lane's points.
         for (auto p = t; p.isValid() && !p.hasType(te::IDs::PLUGIN); p = p.getParent())
             if (p.hasType(te::IDs::AUTOMATIONCURVE))
@@ -419,6 +427,18 @@ private:
         if (!inTransport(t))
             dirty = true;
         changed(t);
+    }
+    static bool affectsFades(const juce::ValueTree& t, const juce::Identifier& id)
+    {
+        static const juce::Identifier edgeFades{"fdEdgeFades"};
+        if (id == edgeFades)
+            return true;
+        if (!t.hasType(te::IDs::AUDIOCLIP))
+            return false;
+        static const std::array<juce::Identifier, 10> ids{te::IDs::fadeIn, te::IDs::fadeOut, te::IDs::mute, te::IDs::start, te::IDs::length,
+                                                          te::IDs::offset, "fdFadeInBend", "fdFadeOutBend", "fdXLength", "fdXFrom"};
+        static const juce::Identifier shape{"fdXShape"};
+        return id == shape || std::find(ids.begin(), ids.end(), id) != ids.end();
     }
     static bool inInputs(juce::ValueTree t)
     {
