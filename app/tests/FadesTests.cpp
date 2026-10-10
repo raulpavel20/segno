@@ -345,3 +345,64 @@ TEST_CASE("fades: a crossfade's placement, and what it sounds like", "[fast]")
         CHECK(rising[2 * f] == Approx(crossfadeGains(static_cast<double>(f) / 100.0, CrossfadeShape::EqualPower).in).margin(1e-6));
 }
 
+
+TEST_CASE("fades: a clip's two crossfades share it and never overlap", "[fast]")
+{
+    // A comp: A, a short B (0.4 s) and C, from three files with spare audio all round.
+    std::vector<FadeClip> clips{clip(1, 0.0, 2.0, 2.0, "a.wav"), clip(2, 2.0, 0.4, 4.0, "b.wav"), clip(3, 2.4, 2.0, 4.4, "c.wav")};
+    clips[0].crossOut = Crossfade{.length = 0.6, .from = -0.3};
+    clips[1].crossOut = Crossfade{.length = 0.6, .from = -0.3};
+    // As they play (and are drawn): each reaches 0.3 s into B, which has 0.4: they share it.
+    const auto ab = crossfadeOut(clips, 0), bc = crossfadeOut(clips, 1);
+    REQUIRE(ab);
+    REQUIRE(bc);
+    CHECK(crossfadeReachBefore(*ab) == Approx(0.3));
+    CHECK(crossfadeReachAfter(*ab) == Approx(0.2));
+    CHECK(crossfadeReachBefore(*bc) == Approx(0.2));
+    CHECK(crossfadeReachAfter(*bc) == Approx(0.3));
+    CHECK(crossfadeReachAfter(*ab) + crossfadeReachBefore(*bc) <= 0.4 + 1e-9);
+    const auto b = clipPlayback(clips, 1, true);
+    CHECK(b.extendStart == Approx(0.3));
+    CHECK(b.extendEnd == Approx(0.3));
+    CHECK(b.in.length + b.out.length <= 0.4 + 0.3 + 0.3 + 1e-9);
+
+    // Placing one: it stops where the other begins, keeping its own side.
+    clips[1].crossOut.reset();
+    const auto placed = placeCrossfadeOn(clips, 1, 0.6, -0.3);
+    REQUIRE(placed);
+    CHECK(crossfadeReachBefore(*placed) == Approx(0.1)); // B's 0.4 less A|B's 0.3
+    CHECK(crossfadeReachAfter(*placed) == Approx(0.3));
+    // With room, as asked.
+    clips[0].crossOut.reset();
+    const auto whole = placeCrossfadeOn(clips, 1, 0.6, -0.3);
+    REQUIRE(whole);
+    CHECK(whole->length == Approx(0.6));
+    CHECK(whole->from == Approx(-0.3));
+}
+
+TEST_CASE("fade editing: a crossfade's end stops at the next crossfade; a fade stops at a crossfade", "[fast]")
+{
+    TrackInfo t{.id = 1,
+                .clips = {audioClip(1, 0.0, 2.0, 2.0, "a.wav"), audioClip(2, 2.0, 0.4, 4.0, "b.wav"), audioClip(3, 2.4, 2.0, 4.4, "c.wav")}};
+    t.clips[0].crossfadeOut = Crossfade{.length = 0.2, .from = -0.1};
+    t.clips[1].crossfadeOut = Crossfade{.length = 0.2, .from = -0.1};
+    // A|B's end dragged far into C: it stops where B|C begins (2.3).
+    const auto end = handleOf(fadeHandles(t), FadeHandle::Kind::CrossEnd, 1);
+    REQUIRE(end);
+    auto e = dragFade(t, *end, 3.5);
+    REQUIRE(e.crossfade);
+    CHECK(2.0 + e.crossfade->from + e.crossfade->length == Approx(2.3));
+    // B|C's start dragged back into A: it stops where A|B ends (2.1).
+    const auto start = handleOf(fadeHandles(t), FadeHandle::Kind::CrossStart, 2);
+    REQUIRE(start);
+    e = dragFade(t, *start, 1.0);
+    REQUIRE(e.crossfade);
+    CHECK(2.4 + e.crossfade->from == Approx(2.1));
+
+    // C's fade-out stops at the crossfade into it (0.1 s of it): C is 2 s, so at most 1.9.
+    const auto fadeOut = handleOf(fadeHandles(t), FadeHandle::Kind::FadeOut, 3);
+    REQUIRE(fadeOut);
+    e = dragFade(t, *fadeOut, 0.0);
+    REQUIRE(e.out);
+    CHECK(e.out->length == Approx(1.9));
+}

@@ -145,9 +145,20 @@ struct ClipPlayback
 /// too: they don't play, so nothing meets them); `edgeFades` is the project's setting (§2).
 [[nodiscard]] ClipPlayback clipPlayback(const std::vector<FadeClip>& clips, size_t index, bool edgeFades);
 
-/// The crossfade in effect at the end of `clips[index]` (its stored one, fitted to the spare audio
-/// now), if any.
+/// The crossfade in effect at the end of `clips[index]`: its stored one, fitted to the spare audio
+/// now, and sharing its clips with the crossfades at their other ends (where their reaches into a
+/// clip would overlap, each keeps its share: fades.md §4). None if there's none.
 [[nodiscard]] std::optional<Crossfade> crossfadeOut(const std::vector<FadeClip>& clips, size_t index);
+
+/// A new crossfade at the end of `clips[index]` (into the next clip): placeCrossfade, then stopped
+/// where the crossfades at the two clips' other ends begin, so it never overlaps them.
+[[nodiscard]] std::optional<Crossfade> placeCrossfadeOn(const std::vector<FadeClip>& clips, size_t index, double length,
+                                                        std::optional<double> from = std::nullopt,
+                                                        CrossfadeShape shape = CrossfadeShape::EqualPower);
+
+/// How far a crossfade reaches into the clip before its join, and into the clip after it.
+[[nodiscard]] double crossfadeReachBefore(const Crossfade& crossfade) noexcept;
+[[nodiscard]] double crossfadeReachAfter(const Crossfade& crossfade) noexcept;
 
 /// The gain of a clip's playback at `seconds` on the timeline (0 outside what it plays).
 /// Allocation-free.

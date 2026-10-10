@@ -178,7 +178,10 @@ std::vector<float> crossfadeSum(const std::vector<float>& outgoing, const std::v
     return out;
 }
 
-std::optional<Crossfade> crossfadeOut(const std::vector<FadeClip>& clips, size_t index)
+namespace
+{
+/// The crossfade stored at the end of `clips[index]`, fitted to the spare audio (before sharing).
+std::optional<Crossfade> fitted(const std::vector<FadeClip>& clips, size_t index)
 {
     if (index + 1 >= clips.size())
         return std::nullopt;
@@ -187,6 +190,70 @@ std::optional<Crossfade> crossfadeOut(const std::vector<FadeClip>& clips, size_t
     if (!c.crossOut || c.muted || next.muted)
         return std::nullopt;
     return placeCrossfade(c, next, c.crossOut->length, c.crossOut->from, c.crossOut->shape);
+}
+
+/// How far a crossfade reaches into the clip before its join, and into the clip after it.
+double reachBefore(const Crossfade& x) noexcept
+{
+    return std::max(0.0, -x.from);
+}
+double reachAfter(const Crossfade& x) noexcept
+{
+    return std::max(0.0, x.from + x.length);
+}
+
+/// The share of their reaches two crossfades keep in a clip `length` long: all of them, or as
+/// much as fits, in proportion.
+double share(double length, double in, double out) noexcept
+{
+    return in + out > length && in + out > 0.0 ? std::max(0.0, length) / (in + out) : 1.0;
+}
+} // namespace
+
+std::optional<Crossfade> crossfadeOut(const std::vector<FadeClip>& clips, size_t index)
+{
+    const auto x = fitted(clips, index);
+    if (!x)
+        return std::nullopt;
+    // A clip's two crossfades share it: where their reaches into it overlap, each keeps its share.
+    const auto prev = index > 0 ? fitted(clips, index - 1) : std::nullopt;
+    const auto next = fitted(clips, index + 1);
+    const double before = reachBefore(*x), after = reachAfter(*x);
+    const double b = before * share(clips[index].length, prev ? reachAfter(*prev) : 0.0, before);
+    const double a = after * share(clips[index + 1].length, after, next ? reachBefore(*next) : 0.0);
+    if (a + b < kShortestFade)
+        return std::nullopt;
+    return Crossfade{.length = a + b, .from = -b, .shape = x->shape};
+}
+
+std::optional<Crossfade> placeCrossfadeOn(const std::vector<FadeClip>& clips, size_t index, double length,
+                                          std::optional<double> from, CrossfadeShape shape)
+{
+    if (index + 1 >= clips.size())
+        return std::nullopt;
+    const auto x = placeCrossfade(clips[index], clips[index + 1], length, from, shape);
+    if (!x)
+        return std::nullopt;
+    // Up to the crossfades at the two clips' other ends, as they play without this one.
+    auto without = clips;
+    without[index].crossOut.reset();
+    const auto prev = index > 0 ? crossfadeOut(without, index - 1) : std::nullopt;
+    const auto next = crossfadeOut(without, index + 1);
+    const double b = std::min(reachBefore(*x), std::max(0.0, clips[index].length - (prev ? reachAfter(*prev) : 0.0)));
+    const double a = std::min(reachAfter(*x), std::max(0.0, clips[index + 1].length - (next ? reachBefore(*next) : 0.0)));
+    if (a + b < kShortestFade)
+        return std::nullopt;
+    return Crossfade{.length = a + b, .from = -b, .shape = shape};
+}
+
+double crossfadeReachBefore(const Crossfade& crossfade) noexcept
+{
+    return reachBefore(crossfade);
+}
+
+double crossfadeReachAfter(const Crossfade& crossfade) noexcept
+{
+    return reachAfter(crossfade);
 }
 
 ClipPlayback clipPlayback(const std::vector<FadeClip>& clips, size_t index, bool edgeFades)

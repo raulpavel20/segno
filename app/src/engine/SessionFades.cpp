@@ -74,7 +74,9 @@ void Session::Impl::crossfadeJoinsAt(te::AudioTrack& track, const std::set<std::
         if (!parts.contains(a.id) || !parts.contains(b.id) || !model::meet(a, b) ||
             std::none_of(times.begin(), times.end(), [&](double at) { return std::abs(at - a.end()) < 1e-6; }))
             continue;
-        writeCrossfade(t.engine[i]->state, model::seamless(a, b) ? std::nullopt : model::placeCrossfade(a, b, length), um);
+        const auto x = model::seamless(a, b) ? std::nullopt : model::placeCrossfadeOn(t.clips, i, length);
+        writeCrossfade(t.engine[i]->state, x, um);
+        t.clips[i].crossOut = x; // the next join makes room for it
     }
 }
 
@@ -182,7 +184,8 @@ std::vector<Session::CrossfadeResult> Session::crossfade(const std::vector<std::
             {
                 const auto existing = model::crossfadeOut(t.clips, i);
                 r.crossfade = existing ? std::optional(model::Crossfade{existing->length, existing->from, shape.value_or(existing->shape)})
-                                       : model::placeCrossfade(a, b, length, std::nullopt, shape.value_or(model::CrossfadeShape::EqualPower));
+                                       : model::placeCrossfadeOn(t.clips, i, length, std::nullopt,
+                                                                 shape.value_or(model::CrossfadeShape::EqualPower));
                 if (!r.crossfade)
                     r.why = "No audio beyond these clips' edges to crossfade: trim them shorter first.";
                 else
@@ -193,6 +196,7 @@ std::vector<Session::CrossfadeResult> Session::crossfade(const std::vector<std::
                         begun = true;
                     }
                     writeCrossfade(t.engine[i]->state, r.crossfade, um);
+                    t.clips[i].crossOut = r.crossfade; // the next join makes room for it
                 }
             }
             out.push_back(std::move(r));
@@ -223,7 +227,7 @@ bool Session::setCrossfade(std::uint64_t clipId, std::optional<model::Crossfade>
     }
     if (i + 1 >= t.clips.size() || model::seamless(*it, t.clips[i + 1]))
         return false;
-    const auto fitted = model::placeCrossfade(*it, t.clips[i + 1], crossfade->length, crossfade->from, crossfade->shape);
+    const auto fitted = model::placeCrossfadeOn(t.clips, i, crossfade->length, crossfade->from, crossfade->shape);
     if (!fitted)
         return false;
     impl_->beginEdit(juce::String(undoName));

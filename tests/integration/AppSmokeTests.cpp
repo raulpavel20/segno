@@ -2127,6 +2127,84 @@ TEST_CASE("bounce: Ctrl+B bounces the selected clips in place, 0 mutes, the clip
     root.deleteRecursively();
 }
 
+TEST_CASE("fades: two crossfades in a short clip meet and never overlap; their grips split by side (C6)", "[integration]")
+{
+    ShellFixture f;
+    f.shell->setSize(1800, 1000);
+    auto& s = *f.session;
+    const auto root = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("fd-shell-" + juce::Uuid().toString());
+    REQUIRE(root.createDirectory());
+    s.setUnsavedRoot(root.getChildFile("Unsaved"));
+    s.updateSnapshotNow();
+    const auto t0 = s.snapshot()->tracks[0].id;
+    // Three 4 s files: A plays 0..2, a short B 2..2.4, C 2.4..4, each with audio past its edges.
+    fd::testkit::AudioBuffer tone(2, 4 * 48000);
+    for (int c = 0; c < 2; ++c)
+        for (int i = 0; i < tone.numSamples(); ++i)
+            tone.at(c, i) = 0.5f * std::sin(static_cast<float>(i) * 0.02f);
+    std::vector<std::uint64_t> ids;
+    for (const auto& [name, start, length] : {std::tuple{"a.wav", 0.0, 2.0}, std::tuple{"b.wav", 2.0, 0.4}, std::tuple{"c.wav", 2.4, 1.6}})
+    {
+        const auto file = root.getChildFile(name);
+        REQUIRE(fd::testkit::writeWav(file.getFullPathName().toStdString(), tone, 48000.0));
+        const auto id = s.insertAudioFile(t0, file, start);
+        s.applyClipEdits({{.clip = id, .track = t0, .start = start, .length = length, .offset = 1.0}});
+        ids.push_back(id);
+    }
+    // Two long crossfades: the second stops where the first ends, inside B.
+    REQUIRE(s.setCrossfade(ids[0], fd::model::Crossfade{.length = 0.6, .from = -0.3}));
+    REQUIRE(s.setCrossfade(ids[1], fd::model::Crossfade{.length = 0.6, .from = -0.3}));
+    s.updateSnapshotNow();
+    auto clipOf = [&](std::uint64_t id) {
+        s.updateSnapshotNow();
+        return *fd::model::findClip(*s.snapshot(), id)->first;
+    };
+    auto endOf = [&](std::uint64_t id) {
+        const auto c = clipOf(id);
+        return c.end() + c.crossfadeOut->from + c.crossfadeOut->length;
+    };
+    auto startOf = [&](std::uint64_t id) {
+        const auto c = clipOf(id);
+        return c.end() + c.crossfadeOut->from;
+    };
+    REQUIRE(clipOf(ids[1]).crossfadeOut);
+    CHECK(endOf(ids[0]) == Catch::Approx(2.3));
+    CHECK(startOf(ids[1]) == Catch::Approx(2.3));
+
+    auto& view = f.shell->arrangement();
+    view.setView(1.5, 400.0);
+    view.setSelection(fd::model::withClips(*s.snapshot(), {ids[1]}, t0, t0)); // both crossfades' grips show
+    for (int i = 0; i < 50; ++i)
+    {
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
+        view.frame(0.02, s.position());
+    }
+    const auto& theme = fd::ui::Theme::current();
+    const float lanesX = static_cast<float>(fd::app::ArrangementView::headerWidth());
+    auto laneX = [&](double seconds) { return lanesX + static_cast<float>(view.timeline().xForTime(seconds)); };
+    const float rowTop = static_cast<float>(fd::app::ArrangementView::rulerHeight());
+    const float handleY = rowTop + static_cast<float>(theme.shell.clipGap + theme.shell.clipTitleHeight) +
+                          static_cast<float>(theme.shell.fadeHandleSize) * 0.5f;
+    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: two crossfades meeting in B
+        dumpPng(dump, "crossfades-meet@2x.png",
+                view.createComponentSnapshot(juce::Rectangle<int>(static_cast<int>(laneX(1.6)), 0, 420, 130), true, 2.0f));
+
+    // On the spot where they meet: left of it drags the first one's end, right of it the second's start.
+    const float spot = laneX(2.3);
+    drag(view, {spot - 2.0f, handleY}, {spot - 40.0f, handleY});
+    CHECK(endOf(ids[0]) == Catch::Approx(2.2).margin(0.01));
+    CHECK(startOf(ids[1]) == Catch::Approx(2.3));
+    s.undo();
+    drag(view, {spot + 2.0f, handleY}, {spot + 40.0f, handleY});
+    CHECK(startOf(ids[1]) == Catch::Approx(2.4).margin(0.01));
+    CHECK(endOf(ids[0]) == Catch::Approx(2.3));
+    s.undo();
+    // Dragged past each other, they stop where the other begins.
+    drag(view, {spot - 2.0f, handleY}, {laneX(3.0), handleY});
+    CHECK(endOf(ids[0]) == Catch::Approx(2.3));
+    root.deleteRecursively();
+}
+
 TEST_CASE("fades: drawn on clips, handles on hover, a handle drag sets a fade, Ctrl+Shift+X crossfades (C6)", "[integration]")
 {
     ShellFixture f;

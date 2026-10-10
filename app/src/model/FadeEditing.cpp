@@ -104,28 +104,37 @@ FadeEdit dragFade(const TrackInfo& track, const FadeHandle& handle, double secon
     switch (handle.kind)
     {
     case K::FadeIn:
+    {
         // Back past the start into a clip that meets it: a crossfade there (§3).
         if (seconds < c.start - kNear && i > 0 && joinable(clips[i - 1], c))
-            if (const auto x = placeCrossfade(clips[i - 1], c, 2.0 * (c.start - seconds)))
+            if (const auto x = placeCrossfadeOn(clips, i - 1, 2.0 * (c.start - seconds)))
             {
                 edit.crossClip = clips[i - 1].id;
                 edit.crossfade = x;
                 return edit;
             }
+        // Up to what fades the clip out: its fade-out, or the crossfade at its end.
+        const auto crossOut = crossfadeOut(clips, i);
+        const double other = crossOut ? crossfadeReachBefore(*crossOut) : c.out.length;
         edit.clip = c.id;
-        edit.in = Fade{std::clamp(seconds - c.start, 0.0, std::max(0.0, c.length - c.out.length)), c.in.bend};
+        edit.in = Fade{std::clamp(seconds - c.start, 0.0, std::max(0.0, c.length - other)), c.in.bend};
         return edit;
+    }
     case K::FadeOut:
+    {
         if (seconds > c.end() + kNear && i + 1 < clips.size() && joinable(c, clips[i + 1]))
-            if (const auto x = placeCrossfade(c, clips[i + 1], 2.0 * (seconds - c.end())))
+            if (const auto x = placeCrossfadeOn(clips, i, 2.0 * (seconds - c.end())))
             {
                 edit.crossClip = c.id;
                 edit.crossfade = x;
                 return edit;
             }
+        const auto crossIn = i > 0 ? crossfadeOut(clips, i - 1) : std::nullopt;
+        const double other = crossIn ? crossfadeReachAfter(*crossIn) : c.in.length;
         edit.clip = c.id;
-        edit.out = Fade{std::clamp(c.end() - seconds, 0.0, std::max(0.0, c.length - c.in.length)), c.out.bend};
+        edit.out = Fade{std::clamp(c.end() - seconds, 0.0, std::max(0.0, c.length - other)), c.out.bend};
         return edit;
+    }
     case K::CrossStart:
     case K::CrossEnd:
     {
@@ -143,7 +152,8 @@ FadeEdit dragFade(const TrackInfo& track, const FadeHandle& handle, double secon
         else
             length = std::max(seconds, start + kShortestFade) - start;
         edit.crossClip = c.id;
-        edit.crossfade = placeCrossfade(c, clips[i + 1], length, from, x->shape).value_or(*x);
+        // Up to the crossfades at the two clips' other ends: it never overlaps them (fades.md §4).
+        edit.crossfade = placeCrossfadeOn(clips, i, length, from, x->shape).value_or(*x);
         return edit;
     }
     case K::BendIn:

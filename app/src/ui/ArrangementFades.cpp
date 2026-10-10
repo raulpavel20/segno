@@ -225,8 +225,13 @@ std::optional<ArrangementView::FadeGrip> ArrangementView::fadeGripAt(juce::Point
     const auto& t = ui::Theme::current();
     const float grab = t.input.edgeGrab, size = static_cast<float>(t.shell.fadeHandleSize);
     using K = model::FadeHandle::Kind;
-    std::optional<FadeGrip> best;
-    float bestDistance = 0.0f;
+    struct Near
+    {
+        model::FadeHandle handle;
+        juce::Point<float> at;
+        float distance;
+    };
+    std::vector<Near> near;
     for (const auto& handle : model::fadeHandles(track))
     {
         if (!showsFadeHandles(track, handle))
@@ -236,17 +241,37 @@ std::optional<ArrangementView::FadeGrip> ArrangementView::fadeGripAt(juce::Point
             continue;
         if (handle.kind != K::BendIn && handle.kind != K::BendOut)
             at->y += size * 0.5f; // the square hangs from the top of the body
-        const float d = at->getDistanceFrom(pos);
-        // A short crossfade's two ends sit on one spot: the one on the pointer's side of it.
-        const bool tie = best && std::abs(d - bestDistance) < 1.0f && best->handle.clip == handle.clip &&
-                         best->handle.kind == K::CrossStart && handle.kind == K::CrossEnd;
-        if (d <= grab && (!best || d < bestDistance || (tie && pos.x >= at->x)))
-        {
-            best = FadeGrip{handle, track.id};
-            bestDistance = d;
-        }
+        if (const float d = at->getDistanceFrom(pos); d <= grab)
+            near.push_back({handle, *at, d});
     }
-    return best;
+    if (near.empty())
+        return std::nullopt;
+    std::sort(near.begin(), near.end(), [](const auto& a, const auto& b) { return a.distance < b.distance; });
+    // Crossfade grips on one spot (a short crossfade's two ends, or two crossfades meeting): the
+    // crossfade on the pointer's side of it, and of a crossfade's two ends, its start on the left.
+    const bool left = pos.x < near.front().at.x;
+    auto isCross = [](const Near& n) { return n.handle.kind == K::CrossStart || n.handle.kind == K::CrossEnd; };
+    auto centreOf = [&](const Near& n) {
+        for (const auto& c : track.clips)
+            if (c.id == n.handle.clip && c.crossfadeOut)
+                return laneX(c.end() + c.crossfadeOut->from + c.crossfadeOut->length * 0.5);
+        return n.at.x;
+    };
+    std::vector<Near> ties;
+    for (const auto& n : near)
+        if (isCross(n) && n.distance < near.front().distance + 1.0f && std::abs(n.at.x - near.front().at.x) < 1.0f)
+            ties.push_back(n);
+    if (!isCross(near.front()) || ties.size() < 2)
+        return FadeGrip{near.front().handle, track.id};
+    std::vector<Near> side;
+    for (const auto& n : ties)
+        if (left ? centreOf(n) < n.at.x - 0.5f : centreOf(n) > n.at.x + 0.5f)
+            side.push_back(n);
+    const auto& pool = side.empty() ? ties : side;
+    for (const auto& n : pool)
+        if (n.handle.kind == (left ? K::CrossStart : K::CrossEnd))
+            return FadeGrip{n.handle, track.id};
+    return FadeGrip{pool.front().handle, track.id};
 }
 
 std::optional<ArrangementView::FadeRegion> ArrangementView::fadeRegionAt(juce::Point<float> pos) const
