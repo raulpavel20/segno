@@ -473,13 +473,6 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
         unfocusAllComponents();
     };
     addChildComponent(takeName_);
-    takeStar_.setIconShowsState(true);
-    takeStar_.setTooltip("Star: mark the take as a favourite");
-    takeStar_.onClick = [this] {
-        if (take_ && channel_)
-            session_.setTakeStar(channel_->id, take_->id, !take_->star);
-    };
-    addChildComponent(takeStar_);
     useTake_.setTooltip("The main lane plays this take across its time range (or click it on its take lane)");
     useTake_.onClick = [this] {
         if (take_ && channel_)
@@ -513,14 +506,9 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
     }
     take_ = context.take;
     takeName_.setVisible(has(model::InspectorSection::Take));
-    takeStar_.setVisible(has(model::InspectorSection::Take));
     useTake_.setVisible(has(model::InspectorSection::Take));
-    if (take_)
-    {
-        if (!takeName_.hasKeyboardFocus(true))
-            takeName_.setText(juce::String::fromUTF8(take_->name.c_str()), false);
-        takeStar_.setToggleState(take_->star, juce::dontSendNotification);
-    }
+    if (take_ && !takeName_.hasKeyboardFocus(true))
+        takeName_.setText(juce::String::fromUTF8(take_->name.c_str()), false);
     assignments_.setLane(has(model::InspectorSection::Assignments) ? lane_ : std::nullopt);
     assignments_.setVisible(has(model::InspectorSection::Assignments));
     input_.setTrack(has(model::InspectorSection::Input) ? channel_ : std::nullopt);
@@ -608,8 +596,7 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
         }
         const auto plays = used <= 1e-6 ? juce::String("No") : used >= length - 1e-3 ? juce::String("All of it")
                                                                                     : juce::String("Partly");
-        return {{"Name", {}},      // the field
-                {"Star", {}},      // the button
+        return {{"Name", {}}, // the field
                 {"Start", position(take_->clips.front().start), true},
                 {"Length", juce::String(take_->clips.back().end() - take_->clips.front().start, 3) + " s", true},
                 {"In use", plays},
@@ -681,13 +668,12 @@ void InspectorPanel::resized()
                                     .withTrimmedLeft(t.shell.propertyLabelWidth)
                                     .withHeight(t.shell.rowHeight)
                                     .reduced(0, 2));
-        else if (sections_[i] == S::Take) // the Name, Star and last rows
+        else if (sections_[i] == S::Take) // the Name row and the last
         {
             const auto content = stack_.content(i).withTrimmedLeft(t.shell.propertyLabelWidth);
             auto row = [&](int n) { return content.withY(content.getY() + n * t.shell.rowHeight).withHeight(t.shell.rowHeight); };
             takeName_.setBounds(row(0).reduced(0, 2));
-            takeStar_.setBounds(row(1).withWidth(t.shell.rowHeight));
-            useTake_.setBounds(row(5).reduced(0, 2));
+            useTake_.setBounds(row(4).reduced(0, 2));
         }
         else if (sections_[i] == S::Point) // the Value row
             pointValue_.setBounds(stack_.content(i)

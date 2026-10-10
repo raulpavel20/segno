@@ -25,7 +25,6 @@ TrackInfo trackWithTakes(int playing = 1)
     TakeStackInfo s{.id = 100, .start = 4.0, .end = 6.0};
     for (std::uint64_t k = 0; k < 3; ++k)
         s.takes.push_back({.id = 200 + k, .name = "Take " + std::to_string(k + 1), .clips = {clip(300 + k, 4.0, 2.0)}});
-    s.takes[1].star = true;
     s.parts = {10};
     t.stacks.push_back(s);
     t.clips.push_back(clip(10, 4.0, 2.0, 100, 300 + static_cast<std::uint64_t>(playing)));
@@ -39,7 +38,6 @@ TEST_CASE("take stacks: the badge shows the take a clip plays from two takes on"
     auto b = badge(t.stacks[0], t.clips, false);
     REQUIRE(b);
     CHECK(b->text == "2/3");
-    CHECK(b->star);
     CHECK_FALSE(b->comp);
     CHECK(playingTake(t.stacks[0], t.clips) == 1u);
 

@@ -98,7 +98,6 @@ std::optional<Badge> badge(const TakeStackInfo& stack, const std::vector<ClipInf
     if (playing)
     {
         b.text = std::to_string(*playing + 1) + "/" + std::to_string(stack.takes.size());
-        b.star = stack.takes[*playing].star;
     }
     else
         b.text = "Comp";

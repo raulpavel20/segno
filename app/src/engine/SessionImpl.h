@@ -119,10 +119,10 @@ struct Session::Impl final : private juce::ValueTree::Listener,
 
     // ---- takes (C5b, ADRs 0031 and 0032) ---------------------------------------------------------
     // A track's FDTAKES holds a STACK per clip with takes: its range (from, to), whether it's open
-    // (fdOpen, view state), and its TAKEs (id, name, star) holding the states of their clips (plain
+    // (fdOpen, view state), and its TAKEs (id, name) holding the states of their clips (plain
     // clips with absolute times, never played). A main-lane clip made from a take carries "fdTake",
     // the take clip it plays; through it, its stack. Every edit goes through the undo manager.
-    static inline const juce::Identifier takesId{"FDTAKES"}, stackId{"STACK"}, takeId{"TAKE"}, starId{"star"},
+    static inline const juce::Identifier takesId{"FDTAKES"}, stackId{"STACK"}, takeId{"TAKE"},
         fromTakeId{"fdTake"}, showTakesId{"fdShowTakes"}, stackOpenId{"fdOpen"};
     [[nodiscard]] juce::ValueTree takesOf(te::AudioTrack& track, juce::UndoManager* um);
     [[nodiscard]] juce::ValueTree takeTree(te::AudioTrack& track, std::uint64_t take);

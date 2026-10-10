@@ -98,22 +98,6 @@ Glyph glyph(Icon icon)
         p.startNewSubPath(11.5f, 4.5f);
         p.lineTo(4.5f, 11.5f);
         break;
-    case Icon::Star:
-    {
-        // Five points round the centre, inner corners at 0.42 of the radius.
-        for (int i = 0; i < 10; ++i)
-        {
-            const float a = juce::MathConstants<float>::pi * (static_cast<float>(i) / 5.0f - 0.5f);
-            const float r = i % 2 == 0 ? 6.5f : 2.75f;
-            const float x = 8.0f + r * std::cos(a), y = 8.6f + r * std::sin(a);
-            if (i == 0)
-                p.startNewSubPath(x, y);
-            else
-                p.lineTo(x, y);
-        }
-        p.closeSubPath();
-        break;
-    }
     case Icon::Capture:
         // An arrow turning back round a dot: what was just played, kept.
         p.addCentredArc(8.0f, 8.0f, 5.5f, 5.5f, 0.0f, -2.2f, 2.6f, true);
@@ -241,16 +225,6 @@ void drawIcon(juce::Graphics& g, Icon icon, juce::Rectangle<float> area, juce::C
                                                           juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 }
 
-void fillIcon(juce::Graphics& g, Icon icon, juce::Rectangle<float> area, juce::Colour colour)
-{
-    const float size = std::min(area.getWidth(), area.getHeight());
-    const auto box = juce::Rectangle<float>(size, size).withCentre(area.getCentre());
-    auto shape = glyph(icon).path;
-    shape.applyTransform(juce::AffineTransform::scale(size / 16.0f).translated(box.getX(), box.getY()));
-    g.setColour(colour);
-    g.fillPath(shape);
-}
-
 IconButton::IconButton(Icon icon, const juce::String& name) : juce::Button(name), icon_(icon) {}
 
 void IconButton::setIcon(Icon icon)
@@ -262,12 +236,6 @@ void IconButton::setIcon(Icon icon)
 void IconButton::setRecordAccent(bool record)
 {
     record_ = record;
-    repaint();
-}
-
-void IconButton::setIconShowsState(bool iconShowsState)
-{
-    iconShowsState_ = iconShowsState;
     repaint();
 }
 
@@ -294,26 +262,6 @@ void IconButton::paintButton(juce::Graphics& g, bool highlighted, bool down)
     const auto& t = Theme::current();
     const auto r = getLocalBounds().toFloat();
     const bool on = getToggleState();
-    if (iconShowsState_)
-    {
-        if (highlighted || down)
-        {
-            g.setColour(t.surface3);
-            g.fillRoundedRectangle(r, t.radiusControl);
-        }
-        const auto area = r.reduced(r.getHeight() * 0.2f);
-        if (on)
-        {
-            auto shape = glyph(icon_).path;
-            const float size = std::min(area.getWidth(), area.getHeight());
-            const auto box = juce::Rectangle<float>(size, size).withCentre(area.getCentre());
-            shape.applyTransform(juce::AffineTransform::scale(size / 16.0f).translated(box.getX(), box.getY()));
-            g.setColour(t.active);
-            g.fillPath(shape);
-        }
-        drawIcon(g, icon_, area, on ? t.active : highlighted ? t.textPrimary : t.textTertiary);
-        return;
-    }
     if (on)
     {
         const auto fill = record_ ? t.record : t.active;

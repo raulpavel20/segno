@@ -314,7 +314,7 @@ TEST_CASE("takes: what a pass records over is kept as a take first", "[integrati
     CHECK(info.clips[1].fromTake == allTakes(info)[1].clips.at(0).id);
 }
 
-TEST_CASE("takes: use, step through, star, rename, delete, and copy or move to new tracks", "[integration]")
+TEST_CASE("takes: use, step through, rename, delete, and copy or move to new tracks", "[integration]")
 {
     Recording r;
     r.input = sine;
@@ -338,9 +338,7 @@ TEST_CASE("takes: use, step through, star, rename, delete, and copy or move to n
     REQUIRE(r.session->stepTake(info.clips[0].id, 1)); // Alt+↓: the next take
     CHECK(r.info(t).clips.at(0).fromTake == allTakes(r.info(t))[1].clips.at(0).id);
 
-    r.session->setTakeStar(t, take2, true);
     r.session->renameTake(t, take2, "Keeper");
-    CHECK(allTakes(r.info(t))[1].star);
     CHECK(allTakes(r.info(t))[1].name == "Keeper");
     r.session->setTakesOpen(r.info(t).stacks.at(0).id, false);
     CHECK_FALSE(r.info(t).stacks.at(0).open);

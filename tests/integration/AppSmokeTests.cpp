@@ -1658,7 +1658,7 @@ TEST_CASE("recording: arm buttons, the INPUT section, Record and its menu, the r
     root.deleteRecursively();
 }
 
-TEST_CASE("takes: takes open under their clip after a loop pass; strips, stars, the TAKE section, Alt+arrows, Delete, "
+TEST_CASE("takes: takes open under their clip after a loop pass; strips, the badge, the TAKE section, Alt+arrows, Delete, "
           "Capture MIDI (C5b)",
           "[integration]")
 {
@@ -1744,10 +1744,15 @@ TEST_CASE("takes: takes open under their clip after a loop pass; strips, stars, 
     REQUIRE(track().clips.size() == 1);
     CHECK(track().clips[0].fromTake == stack().takes[0].clips.at(0).id);
     CHECK(fd::model::badge(stack(), track().clips, false)->text == "1/3");
-    // Its star, at the strip's left: a click stars the take.
-    click(view, {laneX(4.0) + 10.0f, stripMiddle(1)});
+    // A click on the clip's badge (the title's right end) hides its takes, and another shows them.
+    const juce::Point<float> badge(laneX(6.0) - 8.0f, static_cast<float>(fd::app::ArrangementView::rulerHeight()) + 8.0f);
+    click(view, badge);
     s.updateSnapshotNow();
-    CHECK(stack().takes[1].star);
+    CHECK_FALSE(stack().open);
+    CHECK(fd::model::takeStripsHeight(track(), strip) == 0.0);
+    click(view, badge);
+    s.updateSnapshotNow();
+    CHECK(stack().open);
 
     // The inspector shows TAKE first; its "Use this take" uses the selected take.
     auto& inspector = f.shell->inspector();

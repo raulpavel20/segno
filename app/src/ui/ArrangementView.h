@@ -207,17 +207,13 @@ private:
     /// A track row's open takes, below its clips: a strip per take, newest on top.
     void paintStrips(juce::Graphics& g, int row, const model::TrackInfo& track, juce::Rectangle<int> area,
                      juce::Rectangle<int> visible);
-    struct StripLabel
-    {
-        juce::Rectangle<float> star, name;
-    };
-    [[nodiscard]] StripLabel stripLabel(juce::Rectangle<float> strip) const;
-    /// The take strip under a point (and its star's area).
+    /// Where a strip's take name goes.
+    [[nodiscard]] juce::Rectangle<float> stripLabel(juce::Rectangle<float> strip) const;
+    /// The take strip under a point.
     struct StripAt
     {
         std::uint64_t track = 0;
         model::StripHit hit;
-        juce::Rectangle<float> star;
     };
     [[nodiscard]] std::optional<StripAt> stripAt(juce::Point<float> p) const;
     /// The badge under a point: its track and stack.

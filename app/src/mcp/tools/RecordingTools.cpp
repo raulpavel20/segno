@@ -69,7 +69,6 @@ Json takesJson(ToolEnv& env, std::uint64_t trackId, std::uint64_t onlyStack = 0)
         }
         return Json{{"id", formatId(IdKind::Take, take.id)},
                     {"name", take.name},
-                    {"star", take.star},
                     {"playing", model::isUsed(take, t->clips)},
                     {"clips", std::move(clipList)}};
     };
@@ -272,7 +271,7 @@ void addRecordingTools(Registry& registry, ToolEnv& env)
          "Lists the takes of a clip, or of every clip on a track: every recording pass and loop lap is kept as a take "
          "of the clip it made (ADR 0032). Per clip with takes: its parts (the clips playing from them; several when it "
          "plays more than one take), its range, whether they're shown, the take it plays (or \"comp\"), and its takes. "
-         "Each take: its id, name, star, whether the clip plays it, and its clips (where, the audio file or the number "
+         "Each take: its id, name, whether the clip plays it, and its clips (where, the audio file or the number "
          "of notes, and which parts are played). \"takes\" also lists every take of the track, flat. To compare "
          "takes, render each one's time range (render) and measure it.",
          object({{"track", id(IdKind::Track, "The track")}, {"clip", id(IdKind::Clip, "A clip: just its takes")}}),
@@ -313,12 +312,12 @@ void addRecordingTools(Registry& registry, ToolEnv& env)
 
     registry.tools.push_back(make(
         env,
-        {"set_take", "Rename or star a take",
-         "Renames a take and/or stars it (a favourite). One undo step each.",
+        {"set_take", "Rename a take",
+         "Renames a take. One undo step.",
          object({{"track", id(IdKind::Track, "The track")},
                  {"take", id(IdKind::Take, "The take")},
                  {"name", string("Its new name")},
-                 {"star", boolean("A favourite")}},
+},
                 {"track", "take"}),
          takesResult, changes},
         [&env](const Json& args, CallContext&) {
@@ -326,8 +325,6 @@ void addRecordingTools(Registry& registry, ToolEnv& env)
             const auto take = takeArg(t, args["take"]);
             if (args.contains("name"))
                 env.session.renameTake(t.id, take, args["name"].get<std::string>());
-            if (args.contains("star"))
-                env.session.setTakeStar(t.id, take, args["star"].get<bool>());
             return ToolResult::ok(takesJson(env, t.id), "Done.");
         }));
 

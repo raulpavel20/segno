@@ -43,7 +43,6 @@ namespace fd::model
 struct Badge
 {
     std::string text;
-    bool star = false; // the take it plays is starred
     bool comp = false;
 };
 [[nodiscard]] std::optional<Badge> badge(const TakeStackInfo& stack, const std::vector<ClipInfo>& trackClips, bool narrow);

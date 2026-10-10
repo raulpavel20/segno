@@ -135,7 +135,6 @@ struct TakeInfo
 {
     std::uint64_t id = 0;
     std::string name; // "Take 3", "Before take 3"
-    bool star = false;
     std::vector<ClipInfo> clips; // sorted by start
 };
 

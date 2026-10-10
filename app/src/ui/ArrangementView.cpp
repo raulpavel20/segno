@@ -826,8 +826,6 @@ std::optional<std::pair<model::Badge, juce::Rectangle<float>>> ArrangementView::
     float width = icon + 6.0f;
     if (!badge->text.empty())
         width += juce::GlyphArrangement::getStringWidth(ui::font(ui::TextStyle::Control), juce::String(badge->text)) + 4.0f;
-    if (badge->star)
-        width += icon;
     // At the title's right end, kept inside the lanes so it stays reachable.
     const float right = std::min(box.getRight(), static_cast<float>(laneArea().getRight()) - 2.0f);
     const auto area = juce::Rectangle<float>(right - width, box.getY(), width, strip);
@@ -871,7 +869,8 @@ void ArrangementView::paintGroup(juce::Graphics& g, const model::ClipGroup& grou
             g.drawRect(box, 1.0f);
         }
     }
-    // The badge: the take it plays and how many, with a chevron (a click opens the take menu).
+    // The badge: the take it plays and how many, with a chevron (a click shows or hides its
+    // takes; right-click, the take menu).
     if (const auto badge = badgeOf(group, track, box))
     {
         const auto& [b, rect] = *badge;
@@ -879,8 +878,6 @@ void ArrangementView::paintGroup(juce::Graphics& g, const model::ClipGroup& grou
         g.fillRect(rect);
         auto r = rect.reduced(2.0f, 2.0f);
         const float icon = r.getHeight();
-        if (b.star)
-            ui::fillIcon(g, ui::Icon::Star, r.removeFromLeft(icon), t.surface0);
         if (!b.text.empty())
         {
             g.setColour(t.surface0);
@@ -946,19 +943,15 @@ void ArrangementView::paintStrips(juce::Graphics& g, int row, const model::Track
                     }
                 }
             }
-            // Its star and name, at the left of what's in sight, on a backing that keeps them legible.
+            // Its name, at the left of what's in sight, on a backing that keeps it legible.
             const auto label = stripLabel(rect);
             const auto name = juce::String::fromUTF8(take.name.c_str());
             const float nameWidth = juce::GlyphArrangement::getStringWidth(ui::font(ui::TextStyle::Caption), name);
             g.setColour(t.roles.subLane);
-            g.fillRoundedRectangle(label.star.getUnion(label.name.withWidth(nameWidth)).expanded(3.0f, 1.0f), t.radiusControl);
-            if (take.star)
-                ui::fillIcon(g, ui::Icon::Star, label.star, t.active);
-            else
-                ui::drawIcon(g, ui::Icon::Star, label.star, t.textTertiary);
+            g.fillRoundedRectangle(label.withWidth(nameWidth).expanded(4.0f, 1.0f), t.radiusControl);
             g.setColour(playing && stack.takes[*playing].id == take.id ? t.textPrimary : t.textSecondary);
             g.setFont(ui::font(ui::TextStyle::Caption));
-            g.drawText(name, label.name, juce::Justification::centredLeft, true);
+            g.drawText(name, label, juce::Justification::centredLeft, true);
             g.setColour(t.line);
             g.fillRect(rect.withTop(rect.getBottom() - 1.0f));
             if (selection_.take == take.id)
@@ -970,13 +963,12 @@ void ArrangementView::paintStrips(juce::Graphics& g, int row, const model::Track
     }
 }
 
-ArrangementView::StripLabel ArrangementView::stripLabel(juce::Rectangle<float> strip) const
+juce::Rectangle<float> ArrangementView::stripLabel(juce::Rectangle<float> strip) const
 {
     // From the left of what's in sight, centred in the strip.
     auto body = strip.reduced(0.0f, 4.0f);
-    body.setLeft(std::max(body.getX(), static_cast<float>(laneArea().getX())) + 6.0f);
-    const float icon = std::min(12.0f, body.getHeight());
-    return {.star = body.removeFromLeft(icon).withSizeKeepingCentre(icon, icon), .name = body.withTrimmedLeft(4.0f)};
+    body.setLeft(std::max(body.getX(), static_cast<float>(laneArea().getX())) + 8.0f);
+    return body;
 }
 
 std::optional<ArrangementView::StripAt> ArrangementView::stripAt(juce::Point<float> p) const
@@ -993,11 +985,7 @@ std::optional<ArrangementView::StripAt> ArrangementView::stripAt(juce::Point<flo
     const auto hit = model::hitStrip(track, timeline_.timeForX(p.x - static_cast<float>(lanes.getX())), below, strip);
     if (!hit)
         return std::nullopt;
-    const auto* stack = track.stack(hit->stack);
-    const float y = static_cast<float>(lanes.getY() + layout_.top(row->track) + layout_.baseHeight(row->track) +
-                                       std::floor(below / strip) * strip);
-    const auto rect = juce::Rectangle<float>(laneX(stack->start), y, laneX(stack->end) - laneX(stack->start), static_cast<float>(strip));
-    return StripAt{.track = track.id, .hit = *hit, .star = stripLabel(rect).star};
+    return StripAt{.track = track.id, .hit = *hit};
 }
 
 std::optional<std::pair<std::uint64_t, std::uint64_t>> ArrangementView::badgeAt(juce::Point<float> p) const
@@ -1034,13 +1022,10 @@ void ArrangementView::takeMenu(std::uint64_t trackId, std::uint64_t stackId, std
     for (size_t k = stack->takes.size(); k-- > 0;) // newest first
     {
         const auto& option = stack->takes[k];
-        const auto name = juce::String::fromUTF8(option.name.c_str()) + (option.star ? ", starred" : "");
-        menu.addItem(name, true, playing == k, [this, trackId, id = option.id] { session_.useTake(trackId, id); });
+        menu.addItem(juce::String::fromUTF8(option.name.c_str()), true, playing == k, [this, trackId, id = option.id] { session_.useTake(trackId, id); });
     }
     menu.addSeparator();
     const auto takeName = juce::String::fromUTF8(take->name.c_str());
-    menu.addItem(take->star ? "Remove star from " + takeName : "Star " + takeName,
-                 [this, trackId, target, star = take->star] { session_.setTakeStar(trackId, target, !star); });
     menu.addItem("Rename " + takeName + "...", [this, trackId, target] {
         if (onRenameTake)
             onRenameTake(trackId, target);
@@ -1194,7 +1179,7 @@ void ArrangementView::mouseMove(const juce::MouseEvent& e)
         }
         else if (const auto strip = stripAt(e.position))
         {
-            if (strip->hit.onClip || strip->star.contains(e.position)) // a click uses the take, or stars it
+            if (strip->hit.onClip) // a click uses the take
                 cursor = juce::MouseCursor::PointingHandCursor;
         }
         else if (badgeAt(e.position)) // the clip's take menu
@@ -1330,15 +1315,8 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
     }
     if (const auto strip = stripAt(e.position))
     {
-        // A take's strip (recording.md §6): its star toggles it; elsewhere it selects the take, and
-        // on the take's clip the clip plays it.
-        const auto* track = snapshot_->channel(strip->track);
-        const auto* take = track != nullptr ? track->take(strip->hit.take) : nullptr;
-        if (take != nullptr && strip->star.contains(e.position))
-        {
-            session_.setTakeStar(strip->track, take->id, !take->star);
-            return;
-        }
+        // A take's strip (recording.md §6): it selects the take, and on the take's clip the clip
+        // plays it.
         selectTake(strip->track, strip->hit.take);
         if (strip->hit.onClip)
             session_.useTake(strip->track, strip->hit.take);
@@ -1346,7 +1324,10 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
     }
     if (const auto badge = badgeAt(e.position))
     {
-        takeMenu(badge->first, badge->second, std::nullopt); // its takes
+        // A click shows or hides the clip's takes (right-click: its take menu).
+        if (const auto* track = snapshot_->channel(badge->first))
+            if (const auto* stack = track->stack(badge->second))
+                session_.setTakesOpen(stack->id, !stack->open);
         return;
     }
     if (row && layout_.baseHeight(row->track) <= row->offset)

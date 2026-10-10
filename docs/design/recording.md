@@ -92,10 +92,10 @@ A take is another version of a clip, so takes belong to their clip, as in Logic'
 
 ```
 ┌ header ───────────┬ lanes ──────────────────────────────────────────────────┐
-│▌ Vocals   M S ●   │ ▐ Vocals ─────────── ★ 3/4 ▾ ▌   ▐ Vocals ─────────────▌ │
+│▌ Vocals   M S ●   │ ▐ Vocals ───────────── 3/4 ▾ ▌   ▐ Vocals ─────────────▌ │
 │                   │ ▐ ∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿ ▌   ▐ ∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿ ▌ │
 │                   │ ░ Take 4 ░░░░░░░░░░░░░░░░░░░░░    one take: a plain clip  │
-│                   │ █ Take 3 ★ ██████████████████                            │
+│                   │ █ Take 3 ████████████████████                            │
 │                   │ ░ Take 2 ░░░░░░░░░░░░░░░░░░░░░                            │
 │                   │ ░ Take 1 ░░░░░░░░░░░░░░░░░░░░░                            │
 └───────────────────┴──────────────────────────────────────────────────────────┘
@@ -104,14 +104,14 @@ A take is another version of a clip, so takes belong to their clip, as in Logic'
 - **A pass makes a clip with its takes:** what it recorded, one take per loop lap; the clip plays the newest complete lap. A lap cut short is kept too, ending where its recording does.
 - **One take shows nothing:** such a clip looks and acts like any clip.
 - **Recording over a clip adds to its takes.** What a pass records over that has no takes yet is kept as a take of the clip first ("Before take N", trimmed to the pass), so nothing is lost. A pass over part of a clip with takes joins them: the clip's range widens to cover both, and it plays the new take where it recorded and its earlier take elsewhere.
-- **The badge:** from two takes, the clip's title strip ends with the take it plays and how many, then a chevron: "3/4 ▾" (★ first when that take is starred; "Comp ▾" when its parts play different takes). On a narrow clip it shrinks to the chevron before the clip's name is cut. A click opens the **take menu**:
+- **The badge:** from two takes, the clip's title strip ends with the take it plays and how many, then a chevron: "3/4 ▾" ("Comp ▾" when its parts play different takes). On a narrow clip it shrinks to the chevron before the clip's name is cut. **A click shows or hides the clip's takes; a right-click opens the take menu:**
   - Show takes / Hide takes;
-  - the takes, newest first, the one playing ticked and starred ones with ★: choosing one plays it;
-  - Star, Rename take…;
+  - the takes, newest first, the one playing ticked: choosing one plays it;
+  - Rename take…;
   - Copy take to new track, Move take to new track, Spread takes to new tracks (new tracks copy this track's chain and mix: a double or a layer in one action);
   - Delete take, Keep only this take (the others are deleted; files stay).
-- **Takes open under their clip** (the menu, or Ctrl+Alt+K with the clip selected): one strip per take (24 px), newest on top, across the clip's range. The track's row grows by the tallest open set of takes and shrinks back when they close; the header column shows nothing more. Opening a clip's takes closes any overlapping ones already open on that track. They open by themselves after a pass that made several takes.
-  - Each strip shows its take's name and star (a click on the star toggles it), the parts the clip plays in the track's colour and the rest dimmed.
+- **Takes open under their clip** (a click on the badge, the menu, or Ctrl+Alt+K with the clip selected): one strip per take (24 px), newest on top, across the clip's range. The track's row grows by the tallest open set of takes and shrinks back when they close; the header column shows nothing more. Opening a clip's takes closes any overlapping ones already open on that track. They open by themselves after a pass that made several takes.
+  - Each strip shows its take's name, the parts the clip plays in the track's colour and the rest dimmed.
   - A click on a strip plays that take and selects it; right-click opens the take menu for it; Delete deletes it.
 - **Choosing while it plays:** Alt+↑ / Alt+↓ on a selected clip play its previous or next take (skipping takes too short for its range), so you can audition them in turn.
 - **A clip and its takes are edited as one,** in the same undo step:
@@ -158,7 +158,7 @@ The top bar ([daw-shell.md](daw-shell.md), "Top bar") puts the transport in its 
 ## 10. Selection and the context panels
 
 - **A track's inspector** gains INPUT (audio input, MIDI input and channel, Monitor, Records) between TRACK and MIX.
-- **A take** (a click on its strip) is selected with its track as the context: the inspector shows TAKE (name, star, start, length, how much of it is in use, "Use this take") above the track's sections, and the detail panel the track's modules.
+- **A take** (a click on its strip) is selected with its track as the context: the inspector shows TAKE (name, start, length, how much of it is in use, "Use this take") above the track's sections, and the detail panel the track's modules.
 - **Delete** with a take selected deletes the take (one undo step; the file stays).
 - **A clip with several parts** is selected whole (§6): the inspector's CLIP shows it as one clip.
 
@@ -184,7 +184,7 @@ Every feature comes with its tools and a test through MCP (ADR 0021). Assistants
 | `arm_tracks` | `tracks`, `on?` | Which tracks are armed. Not an undo step |
 | `record` | `countIn?`, `bars?` (stop after this many bars) | Starts recording (inside the loop brace while looping); `stop` ends it. The result lists each recording track |
 | `capture_midi` | `track?` (used when nothing is armed) | The clips made and their tracks |
-| `get_takes` | `track` or `clip` | Per clip with takes: its range, parts, whether open, the take it plays (or "comp"), and each take's name, star, clips, file and the parts in use |
+| `get_takes` | `track` or `clip` | Per clip with takes: its range, parts, whether open, the take it plays (or "comp"), and each take's name, clips, file and the parts in use |
 | `use_take` | `track`, `take` (C5c: `from?`, `to?`) | The clip plays that take across its range. One undo step |
 | `move_takes_to_tracks` | `track`, `takes`, `copy?` | The new tracks, with plain clips |
 | `delete_takes` | `track`, `takes`, `unused` or `keep` | Files stay |
@@ -193,7 +193,7 @@ Every feature comes with its tools and a test through MCP (ADR 0021). Assistants
 
 ## 13. Model and view
 
-- **`model::Takes`** (JUCE-free, `[fast]` tests): what a clip plays of each take, the badge ("3/4", ★, "Comp"), the strips' height and hit-testing, a clip's parts as one group, stepping through takes, take numbering, and which take replaces a deleted one.
+- **`model::Takes`** (JUCE-free, `[fast]` tests): what a clip plays of each take, the badge ("3/4", "Comp"), the strips' height and hit-testing, a clip's parts as one group, stepping through takes, take numbering, and which take replaces a deleted one.
 - **`model::StackEdits`** (`[fast]`): what each clip command does to the clips' takes (moves, outer trims, splits, copies) and how a track's takes settle afterwards (an emptied set goes; parts cut off become plain clips).
 - **`model::Capture`** (`[fast]`): the last phrase, where a capture goes and where it lands.
 - **The snapshot:** `TrackInfo` gains its inputs, monitor mode, armed state and `stacks` (each clip's takes: range, open, takes, parts); `ClipInfo` its stack and the take clip it plays. Recording in progress is read every frame (`liveRecordings`).
@@ -204,7 +204,7 @@ Every feature comes with its tools and a test through MCP (ADR 0021). Assistants
 
 - **Inputs:** each track's inputs are tracktion input-device instances targeting its track (`InputDeviceInstance::setTarget`), armed with `setRecordingEnabled`. Audio inputs are tracktion's wave inputs per channel or pair; MIDI uses the virtual "All MIDI Ins", single devices or the computer keyboard, as live MIDI does today.
 - **Recording:** `TransportControl::record` and `stopRecording`; `TransportControl::Listener::recordingFinished` hands over the new clips. Segno then turns tracktion's per-clip loop takes into the clip's takes, keeps what the pass replaced, and updates the main lane, all inside the pass's undo step. While looping, tracktion's loop recording records only the brace; a small patch (`cmake/patches/tracktion_engine-loop-record-lead-in.patch`) rolls playback into the loop from a playhead before it, the lead-in, keeping the count-in's clicks to their own range. tracktion's own punch (`Edit::recordingPunchInOut`) stays off: it can't be combined with loop recording and punches out after one lap.
-- **Takes are Segno's own state** in the project, written through the undo manager like automation lanes (ADR 0029): a track's `FDTAKES` holds a `STACK` per clip with takes (its range `from`/`to`, and `fdOpen`, view state), its `TAKE`s (name, star) and their clip states (absolute times, not played). A main-lane clip names the take clip it plays (`fdTake`), and through it its stack. Every clip command carries the stacks of the clips it edits in the same undo step. tracktion's own take switching and comp manager need a tracktion Project for audio and would render comps; Segno's takes need neither, and a comp is plain clips.
+- **Takes are Segno's own state** in the project, written through the undo manager like automation lanes (ADR 0029): a track's `FDTAKES` holds a `STACK` per clip with takes (its range `from`/`to`, and `fdOpen`, view state), its `TAKE`s (name) and their clip states (absolute times, not played). A main-lane clip names the take clip it plays (`fdTake`), and through it its stack. Every clip command carries the stacks of the clips it edits in the same undo step. tracktion's own take switching and comp manager need a tracktion Project for audio and would render comps; Segno's takes need neither, and a comp is plain clips.
 - **Projects from C5b** (format 3, take lanes per track) are converted when opened: overlapping takes become one clip's takes.
 - **Files:** `EngineBehaviour::getFileForNewAudioRecording` names each file in the project's `Recordings` folder; tracktion splits loop recordings into one file per lap. Format and bit depth through `WaveInputDevice`. Segno writes relative source paths itself (relative to the project's folder): tracktion resolves them from the folder but writes them from the project file.
 - **MIDI modes:** "a new take" is tracktion's "neither merge nor replace" (a clip per lap); overdub is its merge. Replacing is always Segno's (through takes), never tracktion's.
@@ -220,7 +220,7 @@ Every feature comes with its tools and a test through MCP (ADR 0021). Assistants
 | Part | Scope | When |
 |---|---|---|
 | **C5a Recording** | Project folders; inputs; arm buttons and soft arm; monitoring; Record, count-in, punch; several tracks at once; latency placement and offsets; input metering; live drawing; MCP | M2 |
-| **C5b Takes** | Every pass and lap kept as the clip's takes; what a pass replaces kept; choosing and auditioning takes; stars; copy, move and spread takes to new tracks; keep only one take; MIDI overdub; Capture MIDI; MCP | M2 |
+| **C5b Takes** | Every pass and lap kept as the clip's takes; what a pass replaces kept; choosing and auditioning takes; copy, move and spread takes to new tracks; keep only one take; MIDI overdub; Capture MIDI; MCP | M2 |
 | **C5c Comping** | Swipe comping across a clip's take strips with crossfades (after C6's fades); MCP `use_take` with ranges; selecting several takes to copy or move them together (what's in use is shown since C5b) | M2, after C6 |
 | Collect all and save; remove unused recordings | Copy outside files into the project folder; clean up unused files to the trash | M3 (with the browser) |
 | Reduced latency when monitoring | Bypass modules that add latency on monitored tracks | M3 |
@@ -288,6 +288,8 @@ Trying C5b, the product owner found takes in the wrong place (a take is another 
 | R8 | Punch in/out | Tied to the loop: while looping, only the brace records. The punch toggle, its shortcut and its menu item go |
 | R9 | The top bar | Three sections over the whole width: song settings left (tempo, signature, metronome, count-in), the transport centred (play, stop, record, capture, automation arm, the position, loop, follow), views and app right ([daw-shell.md](daw-shell.md), "Top bar") |
 | R10 | The MIDI loop recording labels | "Each lap: a new take" and "Each lap: add to the clip (overdub)" |
+| R11 | Stars on takes | Removed after trying them (product owner, 2026-10-10): clutter that didn't earn its place |
+| R12 | The badge's clicks | A click shows or hides the clip's takes; a right-click opens the take menu |
 
 **Storage details** (from the implementation review): a clip's takes keep their own range (`from`/`to`), so trimming the clip and trimming back out loses nothing; a clip cut in two by another clip keeps its takes on its left part.
 

@@ -173,10 +173,9 @@ private:
     /// The lane's name, typed (one undo step); empty: named after its assignments.
     juce::TextEditor laneName_;
     LaneAssignments assignments_{session_};
-    /// The selected take (recording.md §10): its name typed, its star, and "Use this take".
+    /// The selected take (recording.md §10): its name typed, and "Use this take".
     std::optional<model::TakeInfo> take_;
     juce::TextEditor takeName_;
-    ui::IconButton takeStar_{ui::Icon::Star, "Favourite"};
     ui::Toggle useTake_{"Use this take"};
     TrackInputSection input_{session_};
     model::TempoMap tempo_;

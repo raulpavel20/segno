@@ -911,7 +911,7 @@ TEST_CASE("mcp tools: recording: inputs set, tracks armed, a few bars recorded",
     takes = daw.call("use_take", {{"track", t0}, {"take", lap1}});
     CHECK(takes["takes"][1]["playing"] == true);
     CHECK(daw.session->undoDescription() == "Assistant: use take");
-    CHECK(daw.call("set_take", {{"track", t0}, {"take", lap1}, {"name", "Best"}, {"star", true}})["takes"][1]["star"] == true);
+    CHECK(daw.call("set_take", {{"track", t0}, {"take", lap1}, {"name", "Best"}})["takes"][1]["name"] == "Best");
     const auto tracks = daw.call("move_takes_to_tracks", {{"track", t0}, {"takes", Json::array({lap1})}})["tracks"];
     REQUIRE(tracks.size() == 1);
     CHECK(daw.project()["tracks"][1]["id"] == tracks[0]);

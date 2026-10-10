@@ -209,7 +209,7 @@ model::ClipInfo Session::Impl::storedClipInfo(const juce::ValueTree& tree, int c
 
 model::TakeInfo Session::Impl::takeInfo(const juce::ValueTree& take, int colour) const
 {
-    model::TakeInfo info{.id = idOf(take), .name = take[te::IDs::name].toString().toStdString(), .star = take[starId]};
+    model::TakeInfo info{.id = idOf(take), .name = take[te::IDs::name].toString().toStdString()};
     for (auto c : take)
         info.clips.push_back(storedClipInfo(c, colour));
     std::sort(info.clips.begin(), info.clips.end(), [](const auto& a, const auto& b) { return a.start < b.start; });
@@ -360,7 +360,7 @@ juce::ValueTree Session::Impl::splitStack(te::AudioTrack& track, juce::ValueTree
     for (auto take : stack)
     {
         juce::ValueTree rightTake(takeId);
-        rightTake.copyPropertiesFrom(take, nullptr); // its name and star
+        rightTake.copyPropertiesFrom(take, nullptr); // its name
         edit->createNewItemID().writeID(rightTake, nullptr);
         std::vector<juce::ValueTree> whole;
         for (auto clip : take)
@@ -675,16 +675,6 @@ void Session::renameTake(std::uint64_t trackId, std::uint64_t takeId, const std:
         return;
     impl_->beginEdit("Rename take");
     take.setProperty(te::IDs::name, juce::String(name), &impl_->edit->getUndoManager());
-}
-
-void Session::setTakeStar(std::uint64_t trackId, std::uint64_t takeId, bool star)
-{
-    auto* t = impl_->track(trackId);
-    auto take = t != nullptr ? impl_->takeTree(*t, takeId) : juce::ValueTree();
-    if (!take.isValid() || static_cast<bool>(take[Impl::starId]) == star)
-        return;
-    impl_->beginEdit(star ? "Star take" : "Unstar take");
-    take.setProperty(Impl::starId, star, &impl_->edit->getUndoManager());
 }
 
 void Session::deleteTakes(std::uint64_t trackId, const std::vector<std::uint64_t>& takeIds)

@@ -387,7 +387,6 @@ public:
     /// The clip plays its next (+1) or previous (-1) take that covers its range (Alt+↓ / Alt+↑).
     bool stepTake(std::uint64_t clipId, int direction);
     void renameTake(std::uint64_t trackId, std::uint64_t takeId, const std::string& name);
-    void setTakeStar(std::uint64_t trackId, std::uint64_t takeId, bool star);
     /// Deletes takes (their files stay): a clip playing one plays another of its takes. One undo step.
     void deleteTakes(std::uint64_t trackId, const std::vector<std::uint64_t>& takeIds);
     /// Deletes the takes the clips don't play.
