@@ -37,43 +37,66 @@ std::optional<model::CountIn> countInArg(const Json& value)
 std::uint64_t takeArg(const model::TrackInfo& track, const Json& value)
 {
     const auto id = parseId(value, IdKind::Take);
-    if (!id || std::none_of(track.takes.begin(), track.takes.end(), [&](const auto& t) { return t.id == *id; }))
+    if (!id || track.take(*id) == nullptr)
         throw Problem{value.dump() + " isn't one of " + track.name + "'s takes (get_takes lists them)."};
     return *id;
 }
 
-Json takesJson(ToolEnv& env, std::uint64_t trackId)
+/// A track's takes (ADR 0032): per clip with takes, and flat. `onlyStack` (non-zero) limits it to
+/// one clip's.
+Json takesJson(ToolEnv& env, std::uint64_t trackId, std::uint64_t onlyStack = 0)
 {
     env.session.flushSnapshot();
     const auto* t = env.session.snapshot()->channel(trackId);
     const auto tm = tempo(env);
-    Json takes = Json::array();
-    if (t != nullptr)
-        for (const auto& take : t->takes)
+    Json takes = Json::array(), clips = Json::array();
+    auto takeJson = [&](const model::TakeInfo& take) {
+        Json clipList = Json::array();
+        for (const auto& c : take.clips)
         {
-            Json clips = Json::array();
-            for (const auto& c : take.clips)
-            {
-                Json used = Json::array();
-                for (const auto& [from, to] : model::inUse(c, t->clips))
-                    used.push_back({{"from", positionJson(tm.beatsForSeconds(from), tm)}, {"to", positionJson(tm.beatsForSeconds(to), tm)}});
-                Json clip{{"kind", c.kind == model::ClipInfo::Kind::Midi ? "midi" : "audio"},
-                          {"start", positionJson(tm.beatsForSeconds(c.start), tm)},
-                          {"end", positionJson(tm.beatsForSeconds(c.end()), tm)},
-                          {"used", std::move(used)}};
-                if (!c.sourcePath.empty())
-                    clip["file"] = c.sourcePath;
-                else
-                    clip["notes"] = c.notes.size();
-                clips.push_back(std::move(clip));
-            }
-            takes.push_back({{"id", formatId(IdKind::Take, take.id)},
-                             {"name", take.name},
-                             {"star", take.star},
-                             {"playing", model::isUsed(take, t->clips)},
-                             {"clips", std::move(clips)}});
+            Json used = Json::array();
+            for (const auto& [from, to] : model::inUse(c, t->clips))
+                used.push_back({{"from", positionJson(tm.beatsForSeconds(from), tm)}, {"to", positionJson(tm.beatsForSeconds(to), tm)}});
+            Json clip{{"kind", c.kind == model::ClipInfo::Kind::Midi ? "midi" : "audio"},
+                      {"start", positionJson(tm.beatsForSeconds(c.start), tm)},
+                      {"end", positionJson(tm.beatsForSeconds(c.end()), tm)},
+                      {"used", std::move(used)}};
+            if (!c.sourcePath.empty())
+                clip["file"] = c.sourcePath;
+            else
+                clip["notes"] = c.notes.size();
+            clipList.push_back(std::move(clip));
         }
-    return {{"track", formatId(IdKind::Track, trackId)}, {"takes", std::move(takes)}};
+        return Json{{"id", formatId(IdKind::Take, take.id)},
+                    {"name", take.name},
+                    {"star", take.star},
+                    {"playing", model::isUsed(take, t->clips)},
+                    {"clips", std::move(clipList)}};
+    };
+    if (t != nullptr)
+        for (const auto& s : t->stacks)
+        {
+            if (onlyStack != 0 && s.id != onlyStack)
+                continue;
+            Json list = Json::array(), parts = Json::array();
+            for (const auto& take : s.takes)
+            {
+                list.push_back(takeJson(take));
+                takes.push_back(list.back());
+            }
+            for (const auto part : s.parts)
+                parts.push_back(formatId(IdKind::Clip, part));
+            const auto playing = model::playingTake(s, t->clips);
+            clips.push_back({{"clip", s.parts.empty() ? Json(nullptr) : Json(formatId(IdKind::Clip, s.parts.front()))},
+                             {"parts", std::move(parts)},
+                             {"start", positionJson(tm.beatsForSeconds(s.start), tm)},
+                             {"end", positionJson(tm.beatsForSeconds(s.end), tm)},
+                             {"open", s.open},
+                             {"playing", playing ? Json(formatId(IdKind::Take, s.takes[*playing].id))
+                                         : s.parts.empty() ? Json(nullptr) : Json("comp")},
+                             {"takes", std::move(list)}});
+        }
+    return {{"track", formatId(IdKind::Track, trackId)}, {"clips", std::move(clips)}, {"takes", std::move(takes)}};
 }
 
 Json trackInputResult(ToolEnv& env, std::uint64_t track)
@@ -233,8 +256,11 @@ void addRecordingTools(Registry& registry, ToolEnv& env)
                                                  : "Recording " + std::to_string(tracks.size()) + " tracks.");
         }));
 
-    const auto takesResult = result({{"track", string("")}, {"takes", arrayOf(result({{"id", string("")}, {"name", string("")}}), "", 0)}},
-                                     {"track", "takes"});
+    const auto takesResult =
+        result({{"track", string("")},
+                {"clips", arrayOf(result({{"clip", {{"type", {"string", "null"}}}}, {"parts", arrayOf(string(""), "", 0)}}), "", 0)},
+                {"takes", arrayOf(result({{"id", string("")}, {"name", string("")}}), "", 0)}},
+               {"track", "clips", "takes"});
     ToolAnnotations reads;
     reads.readOnly = true;
     ToolAnnotations removes;
@@ -242,21 +268,40 @@ void addRecordingTools(Registry& registry, ToolEnv& env)
 
     registry.tools.push_back(make(
         env,
-        {"get_takes", "List a track's takes",
-         "Lists a track's take lanes: every recording pass and loop lap is kept as a take (ADR 0031). Each take: its "
-         "id, name, star, whether the track plays it, and its clips (where, the audio file or the number of notes, and "
-         "which parts the track plays). To compare takes, render each one's time range (render) and measure it.",
-         object({{"track", id(IdKind::Track, "The track")}}, {"track"}), takesResult, reads, false},
+        {"get_takes", "List takes",
+         "Lists the takes of a clip, or of every clip on a track: every recording pass and loop lap is kept as a take "
+         "of the clip it made (ADR 0032). Per clip with takes: its parts (the clips playing from them; several when it "
+         "plays more than one take), its range, whether they're shown, the take it plays (or \"comp\"), and its takes. "
+         "Each take: its id, name, star, whether the clip plays it, and its clips (where, the audio file or the number "
+         "of notes, and which parts are played). \"takes\" also lists every take of the track, flat. To compare "
+         "takes, render each one's time range (render) and measure it.",
+         object({{"track", id(IdKind::Track, "The track")}, {"clip", id(IdKind::Clip, "A clip: just its takes")}}),
+         takesResult, reads, false},
         [&env](const Json& args, CallContext&) {
-            const auto t = clipTrack(env, args["track"]);
-            const auto j = takesJson(env, t.id);
-            return ToolResult::ok(j, t.name + " has " + std::to_string(j["takes"].size()) + " takes.");
+            std::uint64_t only = 0;
+            model::TrackInfo t;
+            if (args.contains("clip"))
+            {
+                const auto c = clip(env, args["clip"]);
+                const auto found = model::findClip(*env.session.snapshot(), c.id);
+                t = env.session.snapshot()->tracks.at(static_cast<size_t>(found->second));
+                if (c.stack == 0)
+                    throw Problem{formatId(IdKind::Clip, c.id) + " has no takes."};
+                only = c.stack;
+            }
+            else if (args.contains("track"))
+                t = clipTrack(env, args["track"]);
+            else
+                throw Problem{"Give a track or a clip."};
+            const auto j = takesJson(env, t.id, only);
+            return ToolResult::ok(j, t.name + ": " + std::to_string(j["clips"].size()) + " clips with " +
+                                         std::to_string(j["takes"].size()) + " takes.");
         }));
 
     registry.tools.push_back(make(
         env,
         {"use_take", "Use a take",
-         "Makes the track play a take: its clips replace what the track plays across their time ranges. One undo step.",
+         "Makes a clip play one of its takes, across the clip's range (cutting what's there). One undo step.",
          object({{"track", id(IdKind::Track, "The track")}, {"take", id(IdKind::Take, "The take")}}, {"track", "take"}),
          takesResult, ToolAnnotations{}},
         [&env](const Json& args, CallContext&) {
@@ -289,8 +334,8 @@ void addRecordingTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"move_takes_to_tracks", "Takes onto new tracks",
-         "Puts takes onto new tracks right after the track, each copying its modules and mix and playing one take (for "
-         "doubles and layers). copy (default true) keeps them on this track too. One undo step.",
+         "Puts takes onto new tracks right after the track, each copying its modules and mix and playing one take as a "
+         "plain clip (for doubles and layers). copy (default true) keeps them on this track too. One undo step.",
          object({{"track", id(IdKind::Track, "The track")},
                  {"takes", ids(IdKind::Take, "The takes")},
                  {"copy", boolean("Keep them on this track too (default true)")}},
@@ -312,17 +357,21 @@ void addRecordingTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"delete_takes", "Delete takes",
-         "Deletes take lanes: the given takes, or with unused every take the track doesn't play. Their files stay. One "
-         "undo step.",
+         "Deletes takes: the given ones, with unused every take its clip doesn't play, or with keep every take of "
+         "that one's clip but it (which the clip then plays). A clip playing a deleted take plays another. Files "
+         "stay. One undo step.",
          object({{"track", id(IdKind::Track, "The track")},
                  {"takes", ids(IdKind::Take, "The takes")},
-                 {"unused", boolean("Every take the track doesn't play")}},
+                 {"unused", boolean("Every take the track doesn't play")},
+                 {"keep", id(IdKind::Take, "Keep only this take of its clip")}},
                 {"track"}),
          takesResult, removes},
         [&env](const Json& args, CallContext&) {
             const auto t = clipTrack(env, args["track"]);
             if (args.value("unused", false))
                 env.session.deleteUnusedTakes(t.id);
+            else if (args.contains("keep"))
+                env.session.keepOnlyTake(t.id, takeArg(t, args["keep"]));
             else if (args.contains("takes"))
             {
                 std::vector<std::uint64_t> takes;
@@ -331,7 +380,7 @@ void addRecordingTools(Registry& registry, ToolEnv& env)
                 env.session.deleteTakes(t.id, takes);
             }
             else
-                throw Problem{"Give takes, or unused: true."};
+                throw Problem{"Give takes, keep, or unused: true."};
             return ToolResult::ok(takesJson(env, t.id), "Deleted.");
         }));
 

@@ -395,7 +395,13 @@ Json clipJson(ToolEnv& env, const model::ClipInfo& c, bool notes)
            {"end", positionJson(end, t)},
            {"length", rounded(end - start, 1e6)}};
     if (const auto found = model::findClip(*env.session.snapshot(), c.id))
-        j["track"] = formatId(IdKind::Track, env.session.snapshot()->tracks[static_cast<size_t>(found->second)].id);
+    {
+        const auto& track = env.session.snapshot()->tracks[static_cast<size_t>(found->second)];
+        j["track"] = formatId(IdKind::Track, track.id);
+        // A clip with takes to choose from (ADR 0032): get_takes lists them.
+        if (const auto* stack = c.stack != 0 ? track.stack(c.stack) : nullptr; stack != nullptr && stack->takes.size() >= 2)
+            j["takes"] = stack->takes.size();
+    }
     if (c.kind == model::ClipInfo::Kind::Audio)
     {
         j["source"] = c.sourcePath;

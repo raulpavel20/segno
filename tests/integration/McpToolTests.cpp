@@ -899,6 +899,13 @@ TEST_CASE("mcp tools: recording: inputs set, tracks armed, a few bars recorded",
     daw.call("set_loop", {{"start", "9.1.1"}, {"end", "10.1.1"}, {"on", false}});
     auto takes = daw.call("get_takes", {{"track", t0}});
     REQUIRE(takes["takes"].size() >= 4); // the first pass, and three laps
+    REQUIRE(takes["clips"].size() == 2);  // two clips, each with its takes (ADR 0032)
+    CHECK(takes["clips"][1]["takes"].size() >= 3);
+    CHECK(takes["clips"][1]["playing"] == takes["clips"][1]["takes"].back()["id"]);
+    const auto looped = takes["clips"][1]["clip"].get<std::string>();
+    CHECK(daw.call("get_clip", {{"clip", looped}})["takes"] >= 3);
+    CHECK(daw.call("get_takes", {{"clip", looped}})["clips"].size() == 1);
+    CHECK(daw.fails("get_takes", Json::object()).find("track or a clip") != std::string::npos);
     const auto lap1 = takes["takes"][1]["id"].get<std::string>();
     CHECK(takes["takes"].back()["playing"] == true);
     takes = daw.call("use_take", {{"track", t0}, {"take", lap1}});
@@ -912,6 +919,11 @@ TEST_CASE("mcp tools: recording: inputs set, tracks armed, a few bars recorded",
     const auto left = daw.call("delete_takes", {{"track", t0}, {"unused", true}})["takes"];
     for (const auto& take : left)
         CHECK(take["playing"] == true);
+    daw.call("undo");
+    const auto kept = daw.call("delete_takes", {{"track", t0}, {"keep", lap1}});
+    REQUIRE(kept["clips"].size() == 2);
+    CHECK(kept["clips"][1]["takes"].size() == 1);
+    CHECK(kept["clips"][1]["playing"] == lap1);
 
     // Capture MIDI: nothing played yet.
     CHECK(daw.call("capture_midi")["clip"].is_null());
