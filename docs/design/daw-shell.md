@@ -46,7 +46,8 @@ app/src/
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **The window's top** (C10, planned: [menu-bar.md](menu-bar.md), [ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)): on Linux and Windows, a title bar of our own, 28 px, with the brand and the menu bar on the left, the project's name in the middle and the window buttons on the right. It moves, snaps and maximises the window like the system's. Options > "Use the system title bar" brings the system's back, and the menu bar keeps its own row. On macOS the menus are in the system menu bar and the window keeps its title bar.
+- **The window's top** (C10: [menu-bar.md](menu-bar.md), [ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)): on Linux and Windows, a title bar of our own, 28 px, with the brand and the menu bar on the left, the project's name in the middle and the window buttons on the right. It moves, snaps and maximises the window like the system's. Options > "Use the system title bar" brings the system's back, and the menu bar keeps its own row. On macOS the menus are in the system menu bar and the window keeps its title bar. `WindowContent` holds the title bar over the shell. The window's title puts the document first ("Song * – Segno").
+- **The menu bar** (C10, [menu-bar.md](menu-bar.md) §5): File, Edit, Track, Clip, Transport, View, Options, Help, every action in it once (`ShellMenus` over `model::menuBar`), with its shortcut. F10 opens File; Alt+letter opens a menu, underlined while Alt is held. File > Open recent lists the last 10 projects (`Segno/app.json`).
 - Splitters resize the browser and inspector. In the module view, the detail panel's height follows the module panel height (232 px panels: 280 px).
 - **Adaptive:**
   - below 1440 logical px wide, the browser collapses to its rail and the inspector closes (the overlay inspector comes in M3);
@@ -58,7 +59,7 @@ app/src/
 
 ## Actions and shortcuts (C1)
 
-`ActionRegistry` holds every action; the shell routes key presses to it unless a text field has focus. "Ctrl" means Cmd on macOS. Shortcuts are defaults; remapping comes with preferences. From C10 every action is also in the menu bar, with its shortcut ([menu-bar.md](menu-bar.md) §5); a test fails if one isn't, so a new action can't be keyboard-only.
+`ActionRegistry` holds every action; the shell routes key presses to it unless a text field has focus. "Ctrl" means Cmd on macOS. Shortcuts are defaults; remapping comes with preferences. They read "Ctrl+Shift+E", "Alt+↑" in menus, tooltips and the palette (`ActionRegistry::shortcutText`). From C10 every action is also in the menu bar, with its shortcut ([menu-bar.md](menu-bar.md) §5); a test fails if one isn't, so a new action can't be keyboard-only.
 
 | Action | ID | Default |
 |---|---|---|
@@ -107,6 +108,13 @@ app/src/
 | Mute clips (C7) | `clip.mute` | 0 |
 | Crossfade the selected clips' joins (C6) | `clip.crossfade` | Ctrl+Shift+X |
 | Edge fades on or off (C6) | `project.edgeFades` | Ctrl+Alt+Shift+E |
+| Quit (C10) | `app.quit` | Ctrl+Q |
+| Full screen (C10) | `view.fullScreen` | F11 |
+| Cancel bounces (C10) | `clip.cancelBounces` | Escape |
+| Computer keyboard: octave down / up, velocity down / up (C10; while it plays) | `midi.octaveDown` / `midi.octaveUp` / `midi.velocityDown` / `midi.velocityUp` | Z / X / C / V |
+| The take menu's commands on the selected take (C10): use it for the whole clip, rename, copy or move to a new track, delete, keep only it | `take.useWhole`, `take.rename`, `take.copyToTrack`, `take.moveToTrack`, `take.delete`, `take.keepOnly` | (menus only) |
+| Use the system title bar (C10; Linux, Windows) | `app.systemTitleBar` | (menus only) |
+| About Segno (C10) | `app.about` | (menus only) |
 
 Each step adds its actions as it lands. An action that can't run now dims in menus and the palette; if it says why (`Action::whyNot`), pressing its shortcut shows the reason as a toast instead of doing nothing.
 
@@ -262,7 +270,7 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
   - **Centre**, centred on the bar and moved in only when the sides need the room: play/stop, stop-and-return, Record, Capture MIDI, Automation arm; the position display (an inset `surface0` well: bars.beats.16ths in `ValueLarge`, the time in `ValueMedium`; the count-in countdown); Loop and Follow playhead.
   - **Right:** status (CPU load, the computer keyboard and its MIDI light), view (Arrange | Mix, then the browser, detail and inspector toggles), app (assistants and their light, settings).
   - Items are `itemGap` apart within a group and `groupGap` between groups. When the window is narrow, items drop in this order: the time, the CPU load, the wordmark (the mark stays), the panel toggles.
-  - **From C10** (planned, [menu-bar.md](menu-bar.md) §7): on Linux and Windows the brand moves to the title bar's left end; Undo and Redo (`Icon::Undo`, `Icon::Redo`) join the left section after the song; a search button opens the command palette, first in the app group. When the window is narrow, Undo and Redo drop last, after the panel toggles; the menu bar still has everything that drops.
+  - **From C10** ([menu-bar.md](menu-bar.md) §7): on Linux and Windows the brand moves to the title bar's left end; Undo and Redo (`Icon::Undo`, `Icon::Redo`) join the left section after the song; a search button opens the command palette, first in the app group. When the window is narrow, Undo and Redo drop last, after the panel toggles; the menu bar still has everything that drops.
 - **Assistants** (C9, [mcp.md](mcp.md)): a spark button left of the settings button, with an activity light that is lit for 3 s after an assistant's request. It opens the Assistants popover (also the command palette's "Assistants"):
   - **On**, remembered between launches; the status line says where it listens and how many assistants have connected.
   - **Read only**: assistants can read, render and measure, but not edit.
@@ -299,7 +307,8 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 
 ## Bounce and clip mute (C7, [bounce.md](bounce.md), ADR 0035)
 
-- **A clip's menu** (right-click on a clip; it's selected first unless it's in the selection): Bounce in place, Bounce to new track, Mute clips, then Split at playhead, Duplicate, Delete, from the action registry. The take badge keeps its own menu.
+- **A clip's menu** (right-click on a clip; it's selected first unless it's in the selection): Bounce in place, Bounce to new track, Mute clips, then Split at playhead, Duplicate, Delete, from the action registry; while a bounce runs, Cancel bounces first (C10). The take badge keeps its own menu.
+- **More right-click menus** (C10, so nothing is a key alone): notes in the piano roll (Quantise, Duplicate, Delete; the note under the pointer is selected first); the computer keyboard button (on/off, octave and velocity); the title bar's caption on Linux (Minimise, Maximise, Close, Use the system title bar).
 - **Ctrl+B / Ctrl+Shift+B** bounce the selected clips; clips that can't be bounced are left out, and when none can, the shortcut's toast says why. The bounced clips are selected when they land; a tail cut by a clip that isn't bounced is reported in a toast.
 - **While a bounce renders,** its clips show a progress line along their bottom (`ui::paintProgress`, after `motion.progressDelay`); Escape cancels it.
 - **Muted clips** draw dimmed (`clipDimmed`) with "M" before their name, as on a track's mute button. 0 mutes the selected clips (unmutes them when all are muted); the inspector's CLIP has a Mute toggle.

@@ -9,7 +9,11 @@ The decision is [ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.
 
 It builds on the action registry ([daw-shell.md](daw-shell.md), [ADR 0018](../decisions/0018-daw-app-structure.md)), the command palette (C1), the top bar's layout (`model::layoutTopBar`) and the shared components ([ui-foundations.md](ui-foundations.md)).
 
-**Status:** approved by the product owner (2026-10-11), with every recommendation of §11 ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)).
+**Status:** approved by the product owner (2026-10-11), with every recommendation of §11 ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)). Built (2026-10-11); awaiting the product owner's feel check (manual-tests/M2.md, "Menu bar and title bar (C10)"), which starts with §13's window check on GNOME. What building settled is noted where it applies:
+- the title bar's place in the window, and the drag (§4);
+- how shortcuts read, the actions without one, Clip > Fades, and the take items (§5);
+- the fade row of the audit (§8);
+- the settings file (§9).
 
 ## 1. Why
 
@@ -130,6 +134,9 @@ The product owner, 2026-10-11:
     - Windows shows the system's window menu (from the caption).
     - On Linux the row shows a small menu of its own: Minimise, Maximise or Restore, Close, and Use the system title bar. The system's own window menu (Move to monitor…) comes later (§14).
   - **Full screen** (View > Full screen, F11): the row stays, with its menus and name; the window buttons hide.
+- **Built:**
+  - The row is part of the window's content, above the shell (`WindowContent`), not inside the shell, so popovers, toasts and the shell's tests keep their coordinates.
+  - On Linux the window manager's move starts once a drag passes the drag threshold (`input.dragThreshold`), not on the press, so a double-click still reaches the row.
 - **What JUCE gives us** (9.0.3, as pinned):
   - non-native title bars (`setUsingNativeTitleBar(false)`);
   - `Component::findControlAtPoint` (Windows hit-testing: caption, buttons, edges);
@@ -156,6 +163,8 @@ The product owner, 2026-10-11:
 **Rules:**
 - **Items are actions.** Each item has its action's name and shortcut. It's dimmed while the action can't run, and ticked while a toggle is on (`ActionRegistry::addMenuItem`, as the right-click menus already do).
 - **Each action is in the menu bar exactly once.** Right-click menus repeat items; the menu bar doesn't.
+- **Shortcuts read the usual way** on Linux and Windows: "Ctrl+Shift+E", "Alt+↑", "Space", "Esc", "Del", "F11" (`ActionRegistry::shortcutText`). macOS uses its own symbols. Menus, tooltips and the command palette all show this form. *Built:* JUCE's own text ("ctrl + shift + E", "cursor up") was what showed before.
+- **Rare actions have no shortcut** and live in the menus alone: the take items, About and the title bar option. The shell test lists them.
 - **"…"** ends the name of an item that asks for more before it acts: Open project…, Save as…, Export…, Assign parameter to the selected lane…, Audio settings…, Rename take…, Command palette…, Assistants…
   - Action names change to match. IDs don't change.
 - **Lists filled when a menu opens** (not actions): Open recent, the count-in's length, MIDI loop recording. They're built by the same builders as the right-click menus that show them.
@@ -220,8 +229,9 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 | — | | |
 | Mute clips | 0 | |
 | Crossfade | Ctrl+Shift+X | |
+| Fades ▸ | | *Built* (§8): the crossfades at either end of the selected clips (the three shapes, each with when to use it; Before, Centred on or After the join, dimmed where the spare audio can't hold it; Remove crossfade), then Straighten fades and Remove fades for the selected clips. Each choice is one undo step |
 | — | | |
-| Takes ▸ | | Show takes of the selected clip (Ctrl+Alt+K); Previous take (Alt+↑); Next take (Alt+↓); — ; Use this take for the whole clip, Rename take…, Copy take to new track, Move take to new track, Spread the selected clip's takes to new tracks (Ctrl+Alt+Shift+K); — ; Delete take, Keep only this take. The take items act on the selected take; they're *new* as actions, from the take menu, which keeps them |
+| Takes ▸ | | Show takes of the selected clip (Ctrl+Alt+K); Previous take (Alt+↑); Next take (Alt+↓); — ; Use this take for the whole clip, Rename take…, Copy take to new track, Move take to new track, Spread the selected clip's takes to new tracks (Ctrl+Alt+Shift+K); — ; Delete take, Keep only this take. The take items act on the selected takes, else the take the selected clip plays; they're *new* as actions. *Built:* the take menu (right-click on the badge or a strip) keeps its own items, which act on the strip clicked and name it ("Keep only Take 2"), so it isn't the same builder |
 | Notes ▸ | | Quantise (Ctrl+U); — ; Transpose up / raise points (↑), Transpose down / lower points (↓), Transpose up an octave / raise points a little (Shift+↑), Transpose down an octave / lower points a little (Shift+↓); — ; Nudge later (→), Nudge earlier (←). They act on the selected notes, or on the selected automation points, as now |
 
 **Transport**
@@ -236,7 +246,7 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 | Automation arm | Ctrl+Shift+A | |
 | — | | |
 | Count-in | Ctrl+Alt+C | |
-| Count-in length ▸ | | 1 beat, 2 beats, 1 bar, 2 bars (the Record button's menu, shared) |
+| Count-in length ▸ | | Off, 1 beat, 2 beats, 1 bar, 2 bars (the Record button's list, one builder) |
 | MIDI loop recording ▸ | | Each lap: a new take / add to the clip (shared) |
 | — | | |
 | Loop | Ctrl+L | |
@@ -333,7 +343,7 @@ Preferences (M3) arrive here as Settings… (Ctrl+,), and Audio settings becomes
 | Cancel bounces | Escape only | Clip > Cancel bounces; a bouncing clip's right-click menu |
 | Count-in length, MIDI loop recording | The Record button's right-click menu | Transport |
 | Take: rename, copy/move to a new track, delete, keep only this take | The take menu (right-click) | Clip > Takes; the inspector's TAKE |
-| Crossfade shape, Before/Centred/After, straighten a fade | Right-click on the fade (shape also in the inspector) | The inspector's fade rows gain what they lack (checked when C10 is built) |
+| Crossfade shape, Before/Centred/After, remove a crossfade; straighten or remove a fade | Right-click on the fade (the inspector has only the fades' lengths) | Clip > Fades, for the selected clips (*built*: the menu bar rather than new inspector rows) |
 | Reset a control to its default | Right-click, double-click | Unchanged: double-click is the mouse route |
 | Mixer: select the next strip | ←/→ | Unchanged: click the strip |
 
@@ -352,11 +362,12 @@ Preferences (M3) arrive here as Settings… (Ctrl+,), and Audio settings becomes
   - The menus as data: titles with their mnemonic letter. Each entry is an action id, a separator, a submenu (a title and entries), or a named list filled when it opens ("recent", "countIn", "midiLoop").
   - A macOS variant with the app menu.
   - Pure checks used by the tests: one submenu level, no empty menus, no stray separators, no id twice.
-- **`model::RecentProjects`**: add (moves to the front), cap at 10, drop missing, clear. It's kept in the app's data folder (`Segno/`, where the assistants' settings are), as JSON, with the title bar option.
-- **`ui::MenuBar`** (`app/src/ui`): a `juce::MenuBarModel` over `model::MenuBar`.
+- **`model::RecentProjects`** and **`model::AppSettings`** (`app/src/model/AppSettings.{h,cpp}`): add (moves to the front), cap at 10, drop missing, clear. They're kept in the app's data folder (`Segno/app.json`, beside the assistants' settings), as JSON, with the title bar option. Without a settings file (tests) nothing is kept.
+- **`ShellMenus`** (`app/src/ui/ShellMenus.{h,cpp}`, owned by the shell): a `juce::MenuBarModel` over `model::MenuBar`.
   - Each `juce::PopupMenu` is built with `ActionRegistry::addMenuItem` (name, shortcut, dimmed, ticked).
-  - The named lists come from the builders the right-click menus use (`TransportBar::countInMenu`, the MIDI loop menu, the take menu's items).
+  - The named lists: Open recent (the shell's), and the builders the Record button's menu uses (`TransportBar::countInMenu`, `midiLoopMenu`); Clip > Fades (the shell's, from the selection).
   - On macOS it's set with `setMacMainMenu`.
+- **`WindowContent`** (`app/src/ui`): the title bar over the shell (the shell alone on macOS), and the hit-testing the window asks for.
 - **`TitleBar`** (`app/src/ui`): the brand, a `juce::MenuBarComponent`, the name and `ui::WindowButtons`, laid out by `model::layoutTopBar`. It reports where its caption and buttons are for `findControlAtPoint`.
 - **`ui::WindowButtons`** (`modules/fd_ui/shell`): minimise, maximise/restore and close, with the shared look.
 - **`MainWindow`** (`Main.cpp`):

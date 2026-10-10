@@ -100,6 +100,9 @@ Role functions for colours that depend on content:
 | Token | Value |
 |---|---|
 | `shell.transportHeight` | 40 |
+| `shell.titleBarHeight` | 28 (the title bar on Linux and Windows: the brand, the menus, the name, the window buttons; ADR 0040) |
+| `shell.windowButtonWidth` | 40 (a window button, as tall as the title bar) |
+| `shell.resizeBorder` | 4 (Linux: the resize grips just inside the window's edges, outside its content) |
 | `shell.rulerHeight` / `shell.loopStripHeight` | 24 / 12 |
 | `shell.trackHeaderWidth` | 180 |
 | `shell.panelHeaderHeight` | 24 (detail panel tabs, side panel titles) |
@@ -150,7 +153,11 @@ Components size themselves for their text: `ui::Toggle::widthFor(label)` and `ui
 | `BarLayout` | Places a bar's items left and right on the item and group gaps | Small bars |
 | `model::layoutTopBar` (app) | The top bar's three sections: left and right items on the item and group gaps, the centre cluster on the bar's middle (moved in only when the sides need the room), and items dropped by priority when it's narrow; pure, `[fast]`-tested | The top bar |
 | `OutsideClick` | Closes a popover on any mouse press outside it (other top-level windows, such as its popup menus, excepted); popovers also close on Escape | The command palette, the lane picker, the Assistants popover |
-| `Brand` | The mark (`paintMark`), the mark and name (`paintBrand`), the app icon (`appIcon`) | The top bar's left end; the app and window icon |
+| `Brand` | The mark (`paintMark`), the mark and name (`paintBrand`), the app icon (`appIcon`) | The title bar's left end (the top bar's on macOS); the app and window icon |
+| `WindowButtons` | Minimise, maximise (restore while maximised) and close, each `windowButtonWidth` wide and as tall as their bar: a glyph in `textSecondary`, `textPrimary` on the hover wash when hovered, Close on `record` (red); where each one is answers the system's hit-testing | The title bar (C10) |
+| The menu bar's look (`LookAndFeel`) | Titles in `Field`, padded like text buttons, `itemGap` apart: `textSecondary`; hovered, `textPrimary` on the hover wash; open, on its menu's `surface2` down to the bar's bottom so the two read as one. A model that is a `MenuMnemonics` gets its Alt letters underlined while the bar's `mnemonicsShown` is set | The title bar's menus (C10) |
+| `TitleBar` (app) | The brand and the menus on the left, the project's name in the middle (`model::placeTitle`: centred, moved in, elided before the wordmark drops; a dot while unsaved), the window buttons on the right; `model::layoutTopBar` places it | The window's top, Linux and Windows (C10) |
+| `ActionRegistry::shortcutText` (app) | A shortcut as people read it: "Ctrl+Shift+E", "Alt+↑", "Space", "Esc", "F11" (the system's symbols on macOS) | Menus, tooltips and the command palette |
 
 **Toggle or view option.** A `Toggle` switches something on or off in the project or a device: mute, solo, Pre, power, a setting. It is a control, with a fill. A `ViewOption` only changes how a view looks (view state, never an undo step) and lives in that view's panel header, where it stays quiet until hovered.
 
@@ -191,7 +198,7 @@ The controls are shared (`ui/ChannelControls`): volume and send bars on the volu
 
 ## Layout quality (a review checklist)
 
-The lints catch colours and fonts; they can't see a cramped or inconsistent layout. Every UI change, however small, is checked against this list before it's called done. The product owner rejects sloppy UI outright (2026-10-10: text touching its neighbours, and margins drifting from the standard set at the start).
+The lints catch colours and fonts; they can't see a cramped or inconsistent layout. Nor can they see a command only a key or a right-click reaches: every action goes in the menu bar (ADR 0040), and the shell's test fails on one that isn't. Every UI change, however small, is checked against this list before it's called done. The product owner rejects sloppy UI outright (2026-10-10: text touching its neighbours, and margins drifting from the standard set at the start).
 
 1. **Every size comes from a system.** Paddings, gaps, offsets and sizes come from `ShellMetrics`, `TrackHeaderMetrics`, the module grid, or a layout model (`model::layoutTrackHeader`, `model::layoutTopBar`, `model::ChannelStripLayout`, `ui::SectionStack`, `ui::BarLayout`). No literal paddings or offsets in views. A size the systems don't have becomes a named metric in `fd_ui`, listed in this document.
 2. **Nothing touches.** Text and controls keep at least `itemGap` from their neighbours, and their container's padding from its edges. Text is elided or clipped to its own slot; it never runs into a button, a badge or another text.
