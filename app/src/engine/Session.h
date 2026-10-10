@@ -1,5 +1,6 @@
 #pragma once
 
+#include "model/Bounce.h"
 #include "model/Editing.h"
 #include "model/Snapshot.h"
 
@@ -413,6 +414,48 @@ public:
     };
     [[nodiscard]] CaptureTarget captureTarget(std::optional<std::uint64_t> selected) const;
 
+    // ---- bounce (C7, ADR 0035, docs/design/bounce.md) ------------------------------------------
+    // Bounce in place renders a clip up to where it enters its track's chain (a MIDI clip through
+    // its instrument) and keeps the source as a take; bounce to a new track renders the whole
+    // chain before the fader onto a new track and mutes the source. Both render offline on a copy
+    // of the project; bounced audio goes to the project folder's Bounces.
+
+    class RenderJob; // a render in flight (below)
+    /// Why `clips` can't be bounced in `mode`: the first refusal's text; empty if every clip can.
+    [[nodiscard]] std::string bounceRefusal(const std::vector<std::uint64_t>& clips, model::BounceMode mode);
+    struct BounceResult
+    {
+        std::vector<std::uint64_t> clips;  // the bounced clips: on their tracks, or on the new ones
+        std::vector<std::uint64_t> tracks; // the new tracks (a bounce to a new track)
+        std::vector<std::string> cutTails; // clips whose audible tail a clip that isn't bounced cut
+        std::string error;                 // why nothing landed; empty on success
+        bool cancelled = false;            // cancelled (Escape, cancel()): nothing to say
+    };
+    /// Bounces the clips (any part of a clip with takes means all of it; refused clips are left
+    /// out). Playback and editing go on meanwhile. When it's done the result lands as one undo step,
+    /// `undoName` or else "Bounce in place" / "Bounce to new track", unless a clip or a module it
+    /// renders changed: then nothing changes and `error` says why. `done` runs on the message
+    /// thread. Null (with `done` not called) if there's nothing to bounce.
+    std::shared_ptr<RenderJob> bounce(const std::vector<std::uint64_t>& clips, model::BounceMode mode,
+                                      std::function<void(const BounceResult&)> done, const std::string& undoName = {});
+    /// A clip being bounced now: its bounce's progress (0..1) and how long it has been running.
+    struct Bouncing
+    {
+        std::uint64_t clip = 0;
+        float progress = 0.0f;
+        double seconds = 0.0;
+    };
+    [[nodiscard]] std::vector<Bouncing> bouncing() const;
+    /// Cancels every bounce in progress (Escape); false if there were none.
+    bool cancelBounces();
+    /// Mutes or unmutes clips, every part of each (ADR 0035). One undo step, "Mute clips" or
+    /// "Unmute clips".
+    void setClipsMuted(const std::vector<std::uint64_t>& clips, bool muted);
+    /// The rate the engine runs at: bounces are written at it.
+    [[nodiscard]] double sampleRate() const;
+    /// Where bounced audio goes: `Bounces` in the project's folder (ADR 0030), as recordings.
+    [[nodiscard]] juce::File bouncesFolder() const;
+
     /// A module panel's view state (collapsed sections, folded; ADR 0022), stored with the
     /// project on the module. Never an undo step or an unsaved change.
     [[nodiscard]] std::string deviceViewState(std::uint64_t deviceId) const;
@@ -485,7 +528,7 @@ public:
         Session& session_;
     };
 
-    // ---- offline rendering (the MCP render tool; bounce and export later) ----------------
+    // ---- offline rendering (the MCP render tool and bounce; export later) ------------------
 
     struct RenderRequest
     {

@@ -2,7 +2,7 @@
 
 How Segno turns clips into audio: **Bounce in place** renders a part on its own track and keeps what it came from, and **Bounce to new track** prints what a track's modules make of it. The decision is [ADR 0035](../decisions/0035-bounce-keeps-its-source.md). It builds on one kind of track and its signal flow ([ADR 0019](../decisions/0019-one-kind-of-track.md)), projects as folders ([ADR 0030](../decisions/0030-projects-are-folders.md)), takes on clips ([ADR 0032](../decisions/0032-takes-belong-to-clips.md)), no instrument added by itself ([ADR 0033](../decisions/0033-no-instrument-by-itself.md)), lanes that drive parameters on any channel ([ADR 0029](../decisions/0029-independent-automation-lanes.md)), and the offline render the MCP `render` tool already uses (`Session::render`, [mcp.md](mcp.md) §7).
 
-**Status:** proposed (2026-10-10). The recommendations in §14 await the product owner's review. Nothing is built yet.
+**Status:** approved by the product owner (2026-10-10), with every recommendation of §14. Built in two parts (§15): C7a, then C7b.
 
 **Where the field is (2026):** every current DAW renders MIDI to audio, in two families.
 - **Commit in place.** The part becomes audio on its own track:
@@ -158,7 +158,7 @@ Clip results gain `muted`, and `get_takes` lists bounce takes like any other. **
 - **MCP:** `bounce_clips` in both modes and refused cases; `mute_clips`.
 - **Manual:** `manual-tests/M2.md`, "Bounce (C7)".
 
-## 14. Questions and recommendations (for review)
+## 14. Decisions from the review (product owner, 2026-10-10: every recommendation agreed)
 
 | # | Question | Recommendation |
 |---|---|---|

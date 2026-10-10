@@ -352,8 +352,11 @@ TEST_CASE("takes: use, step through, rename, delete, and copy or move to new tra
     r.session->undo();
     REQUIRE(allTakes(r.info(t)).size() >= 3);
 
-    // Copies on new tracks: each plays its take, with the track's modules and mix.
+    // Copies on new tracks: each plays its take, with the track's modules and mix (automation
+    // stays behind: here a lane on the track's pan).
     r.session->setVolume(t, -6.0f);
+    const auto panLane = r.session->addAutomationLane(Session::ParamTarget{t, "pan"});
+    REQUIRE(r.session->setLanePoints(panLane, {{0.0, 0.2f, 0.0f}, {2.0, 0.8f, 0.0f}}));
     const auto tracksBefore = r.session->snapshot()->tracks.size();
     const auto made = r.session->takesToTracks(t, {take1, take2}, false);
     REQUIRE(made.size() == 2);
@@ -366,6 +369,23 @@ TEST_CASE("takes: use, step through, rename, delete, and copy or move to new tra
     CHECK(allTakes(copy).empty());
     CHECK(copy.mix.volumeDb == Approx(-6.0f).margin(0.01f));
     CHECK_FALSE(copy.input.armed);
+    {
+        // The copy's pan has no curve, and a lane assigned to it later writes into the project.
+        auto* made0 = dynamic_cast<te::AudioTrack*>(te::findTrackForID(*r.session->impl().edit, te::EditItemID::fromRawID(made[0])));
+        REQUIRE(made0 != nullptr);
+        auto& pan = *made0->getVolumePlugin()->panParam;
+        CHECK(pan.getCurve().getNumPoints() == 0);
+        const auto lane = r.session->addAutomationLane(Session::ParamTarget{made[0], "pan"});
+        REQUIRE(r.session->setLanePoints(lane, {{0.0, 0.0f, 0.0f}, {1.0, 1.0f, 0.0f}}));
+        CHECK(pan.getCurve().getNumPoints() == 2);
+        int inTree = 0; // in the project's tree, not a detached copy
+        for (auto curve : made0->getVolumePlugin()->state)
+            if (curve.hasType(te::IDs::AUTOMATIONCURVE) && curve[te::IDs::paramID].toString() == "pan")
+                inTree = curve.getNumChildren();
+        CHECK(inTree == 2);
+        r.session->undo();
+        r.session->undo();
+    }
     r.session->updateSnapshotNow();
     CHECK(r.session->snapshot()->tracks[1].id == made[0]); // right after the track
     const auto takesBefore = allTakes(r.info(t)).size();

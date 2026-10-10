@@ -212,6 +212,19 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     juce::ListenerList<Session::Listener> listeners;
     struct Render;
     std::vector<std::shared_ptr<Render>> renders; // offline renders in flight (each on an Edit copy)
+    /// Renders a copy of the project offline (the render tool, bounces; ADR 0021, 0035): `setup`
+    /// sets the copy and the renderer up (32-bit float WAV, plugins on, silence allowed) and may
+    /// refuse (false: null returned). `done` runs on the message thread, with why it failed or
+    /// empty. The job's progress and cancel work from any thread.
+    std::shared_ptr<Session::RenderJob> renderCopy(const std::function<bool(te::Edit&, te::Renderer::Parameters&)>& setup,
+                                                   std::function<void(const std::string&)> done);
+    /// Renders one track of `copy`, with the tracks feeding its sidechains playing into it, muted.
+    static void renderOneTrack(te::Edit& copy, te::Renderer::Parameters& params, std::uint64_t trackId);
+    // Bounces in flight (C7, ADR 0035): each renders its runs one after another, then lands.
+    struct Bounce;
+    std::vector<std::shared_ptr<Bounce>> bounces;
+    /// `Bounces` in the project's folder.
+    juce::File bouncesFolder();
 
     Session& owner;
     te::Engine& engine;

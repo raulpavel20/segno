@@ -162,6 +162,7 @@ model::ClipInfo clipInfo(te::Clip& c, int trackColour)
     clip.offset = pos.getOffset().inSeconds();
     clip.colour = static_cast<int>(c.state.getProperty(kColourId, trackColour));
     clip.fromTake = static_cast<std::uint64_t>(static_cast<juce::int64>(c.state["fdTake"])); // ADR 0031
+    clip.muted = c.isMuted(); // ADR 0035
     if (auto* midi = dynamic_cast<te::MidiClip*>(&c))
     {
         // Notes count beats from the content start (the clip's start minus its offset).
@@ -327,6 +328,7 @@ void Session::Impl::detach()
 
 Session::Impl::~Impl()
 {
+    bounces.clear(); // nothing lands any more
     renders.clear(); // cancels them (their Edit copies go before the engine)
     engine.getDeviceManager().removeChangeListener(this);
     tapDrain.stopTimer();
@@ -389,12 +391,18 @@ void Session::Impl::rebuildSnapshot()
             {
                 slot.kind = model::DeviceSlot::Kind::Native;
                 slot.deviceId = std::string(native->device().info().id);
+                slot.midiEffect = native->device().info().kind == DeviceKind::MidiEffect;
                 slot.takesSidechain = takesSidechain(*p);
                 if (slot.takesSidechain && p->getSidechainSourceID().isValid())
                     slot.sidechainSource = p->getSidechainSourceID().getRawID();
             }
             else
+            {
                 slot.kind = model::DeviceSlot::Kind::External;
+                if (auto* external = dynamic_cast<te::ExternalPlugin*>(p))
+                    if (auto* instance = external->getAudioPluginInstance())
+                        slot.midiEffect = instance->isMidiEffect();
+            }
             info.devices.push_back(std::move(slot));
         }
     };
@@ -1700,28 +1708,24 @@ private:
     }
 };
 
-std::shared_ptr<Session::RenderJob> Session::render(const RenderRequest& request, const juce::File& destination,
-                                                    std::function<void(const std::string& error)> done)
+std::shared_ptr<Session::RenderJob> Session::Impl::renderCopy(const std::function<bool(te::Edit&, te::Renderer::Parameters&)>& setup,
+                                                              std::function<void(const std::string&)> done)
 {
-    auto& impl = *impl_;
-    if (!(request.end > request.start) || (request.track && impl.track(*request.track) == nullptr))
-        return nullptr;
-
     // A copy of the project: our devices' state is all in its tree; third-party plugins get
     // their live state copied over, so nothing in the open project is touched.
-    te::Edit::Options options{impl.engine, impl.edit->state.createCopy(), te::ProjectItemID::createNewID(te::ProjectID{})};
+    te::Edit::Options options{engine, edit->state.createCopy(), te::ProjectItemID::createNewID(te::ProjectID{})};
     options.role = te::Edit::forRendering;
     options.numUndoLevelsToStore = 0;
     options.numAudioTracks = 0;
-    if (impl.file)
-        options.editFileRetriever = [f = *impl.file] { return f; };
-    auto job = std::make_shared<Impl::Render>();
+    if (file)
+        options.editFileRetriever = [f = *file] { return f; };
+    auto job = std::make_shared<Render>();
     job->copy = te::Edit::createEdit(std::move(options));
     if (job->copy == nullptr)
         return nullptr;
     for (auto* p : te::getAllPlugins(*job->copy, false))
         if (auto* copied = dynamic_cast<te::ExternalPlugin*>(p))
-            if (auto* live = dynamic_cast<te::ExternalPlugin*>(impl.plugin(p->itemID.getRawID())))
+            if (auto* live = dynamic_cast<te::ExternalPlugin*>(plugin(p->itemID.getRawID())))
                 if (auto* from = live->getAudioPluginInstance())
                     if (auto* to = copied->getAudioPluginInstance())
                     {
@@ -1731,55 +1735,73 @@ std::shared_ptr<Session::RenderJob> Session::render(const RenderRequest& request
                     }
 
     te::Renderer::Parameters params(*job->copy);
-    params.destFile = destination;
-    params.audioFormat = impl.engine.getAudioFileFormatManager().getWavFormat();
+    params.audioFormat = engine.getAudioFileFormatManager().getWavFormat();
     params.bitDepth = 32;
-    params.sampleRateForAudio = request.sampleRate;
     params.blockSizeForAudio = 512;
-    params.time = {te::TimePosition::fromSeconds(request.start), te::TimePosition::fromSeconds(request.end)};
     params.canRenderInMono = false;
     params.checkNodesForAudio = false; // silence is a result too
     params.usePlugins = true;
-    params.useMasterPlugins = !request.track.has_value();
-    const auto tracks = te::getAllTracks(*job->copy);
-    if (request.track)
-    {
-        // One track, with the tracks feeding its sidechains (ADR 0025): they play into it, muted
-        // in the copy so they aren't heard themselves.
-        const auto id = te::EditItemID::fromRawID(*request.track);
-        const auto sources = te::findStemSourceTracks(*job->copy, {id});
-        for (int i = 0; i < tracks.size(); ++i)
-        {
-            if (tracks[i]->itemID == id)
-                params.tracksToDo.setBit(i);
-            else if (sources.contains(tracks[i]->itemID))
-            {
-                params.tracksToDo.setBit(i);
-                tracks[i]->setMute(true);
-            }
-        }
-        params.tracksToProcessWhileMuted = sources;
-    }
-    else
-        params.tracksToDo = te::toBitSet(tracks);
+    if (!setup(*job->copy, params))
+        return nullptr;
 
     job->done = std::move(done);
-    std::weak_ptr<Impl::Render> weak = job;
-    Impl* owner = &impl;
-    job->handle = te::EditRenderer::render(params, [weak, owner](auto result) {
+    std::weak_ptr<Render> weak = job;
+    Impl* self = this;
+    job->handle = te::EditRenderer::render(params, [weak, self](auto result) {
         const std::string error = result ? std::string() : std::string(result.error());
-        juce::MessageManager::callAsync([weak, owner, error] {
+        juce::MessageManager::callAsync([weak, self, error] {
             auto finished = weak.lock();
             if (finished == nullptr)
                 return; // the session has gone
             auto callback = std::move(finished->done);
-            std::erase(owner->renders, finished);
+            std::erase(self->renders, finished);
             if (callback)
                 callback(error);
         }); // `finished`, the last reference, takes the Edit copy with it here
     });
-    impl.renders.push_back(job);
+    renders.push_back(job);
     return job->state;
+}
+
+void Session::Impl::renderOneTrack(te::Edit& copy, te::Renderer::Parameters& params, std::uint64_t trackId)
+{
+    // One track, with the tracks feeding its sidechains (ADR 0025): they play into it, muted in
+    // the copy so they aren't heard themselves.
+    const auto tracks = te::getAllTracks(copy);
+    const auto id = te::EditItemID::fromRawID(trackId);
+    const auto sources = te::findStemSourceTracks(copy, {id});
+    for (int i = 0; i < tracks.size(); ++i)
+    {
+        if (tracks[i]->itemID == id)
+            params.tracksToDo.setBit(i);
+        else if (sources.contains(tracks[i]->itemID))
+        {
+            params.tracksToDo.setBit(i);
+            tracks[i]->setMute(true);
+        }
+    }
+    params.tracksToProcessWhileMuted = sources;
+}
+
+std::shared_ptr<Session::RenderJob> Session::render(const RenderRequest& request, const juce::File& destination,
+                                                    std::function<void(const std::string& error)> done)
+{
+    auto& impl = *impl_;
+    if (!(request.end > request.start) || (request.track && impl.track(*request.track) == nullptr))
+        return nullptr;
+    return impl.renderCopy(
+        [&](te::Edit& copy, te::Renderer::Parameters& params) {
+            params.destFile = destination;
+            params.sampleRateForAudio = request.sampleRate;
+            params.time = {te::TimePosition::fromSeconds(request.start), te::TimePosition::fromSeconds(request.end)};
+            params.useMasterPlugins = !request.track.has_value();
+            if (request.track)
+                impl.renderOneTrack(copy, params, *request.track);
+            else
+                params.tracksToDo = te::toBitSet(te::getAllTracks(copy));
+            return true;
+        },
+        std::move(done));
 }
 
 juce::AudioDeviceManager& Session::deviceManager()

@@ -1,6 +1,6 @@
 # 0035. Bounce keeps its source: in place as a take, to a new track muted
 
-- **Status:** Proposed
+- **Status:** Accepted (product owner, 2026-10-10, with every recommendation of design/bounce.md §14)
 - **Date:** 2026-10-10
 - **Builds on:** [0019](0019-one-kind-of-track.md) (one kind of track, no overlaps, the signal flow), [0029](0029-independent-automation-lanes.md) (lanes drive parameters on any channel), [0030](0030-projects-are-folders.md) (project folders; files never deleted implicitly), [0032](0032-takes-belong-to-clips.md) (takes on clips), [0033](0033-no-instrument-by-itself.md) (no instrument by itself)
 

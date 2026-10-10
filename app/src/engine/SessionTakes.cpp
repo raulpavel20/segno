@@ -189,6 +189,7 @@ model::ClipInfo Session::Impl::storedClipInfo(const juce::ValueTree& tree, int c
     info.length = tree[te::IDs::length];
     info.offset = tree[te::IDs::offset];
     info.colour = static_cast<int>(tree.getProperty(kClipColourId, colour));
+    info.muted = tree[te::IDs::mute];
     if (info.kind == model::ClipInfo::Kind::Midi)
     {
         info.contentStartBeat = edit->tempoSequence.toBeats(te::TimePosition::fromSeconds(info.start - info.offset)).inBeats();
@@ -299,6 +300,19 @@ void Session::Impl::fillFromTake(te::AudioTrack& track, const juce::ValueTree& t
     const auto stack = take.getParent();
     for (auto clip : take)
         useTakeClip(track, clip, stack[fromId], stack[toId]);
+    // A clip never plays MIDI and audio takes together (ADR 0035): parts of the other kind go,
+    // such as a bounce's tail after its MIDI comes back.
+    if (take.getNumChildren() == 0)
+        return;
+    const auto kind = take.getChild(0).getType();
+    std::vector<te::Clip*> other;
+    for (auto* c : track.getClips())
+        if (c->state.getType() != kind && stackOf(*c) == stack)
+            other.push_back(c);
+    for (auto* c : other)
+        c->removeFromParent();
+    if (!other.empty())
+        settle(track, &edit->getUndoManager());
 }
 
 void Session::Impl::openStack(te::AudioTrack& track, juce::ValueTree stack, bool open)
@@ -753,7 +767,12 @@ std::vector<std::uint64_t> Session::takesToTracks(std::uint64_t trackId, const s
             c->removeFromParent();
         if (auto lanes = track->state.getChildWithName(Impl::takesId); lanes.isValid())
             track->state.removeChild(lanes, um);
-        te::AutomationCurve::removeAllAutomationCurvesRecursively(track->state);
+        // Curves are cleared in place: removing their trees would leave the copied parameters
+        // writing to curves no longer in the project, so lanes assigned later wouldn't play.
+        for (auto* p : track->pluginList)
+            for (auto* param : p->getAutomatableParameters())
+                if (param->getCurve().getNumPoints() > 0)
+                    param->getCurve().clear(um);
         track->state.setProperty(Impl::armedId, false, nullptr);
         track->setName(t->getName() + " " + take[te::IDs::name].toString());
         for (auto clip : take) // plain clips: the new track has no takes

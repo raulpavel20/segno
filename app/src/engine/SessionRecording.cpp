@@ -163,14 +163,16 @@ void Session::Impl::moveToProject(const juce::File& to)
     };
     collect(edit->state);
 
-    // Recordings made before the first save move into the project's folder.
+    // Recordings and bounces made before the first save move into the project's folder.
     std::map<juce::String, juce::File> moved;
     if (!file && unsavedFolder)
     {
-        const auto from = unsavedFolder->getChildFile("Recordings");
-        const auto into = to.getParentDirectory().getChildFile("Recordings");
-        if (from.isDirectory() && from != into)
+        for (const auto* sub : {"Recordings", "Bounces"})
         {
+            const auto from = unsavedFolder->getChildFile(sub);
+            const auto into = to.getParentDirectory().getChildFile(sub);
+            if (!from.isDirectory() || from == into)
+                continue;
             (void)into.createDirectory();
             for (const auto& f : from.findChildFiles(juce::File::findFiles, false))
             {

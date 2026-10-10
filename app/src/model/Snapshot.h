@@ -47,6 +47,8 @@ struct ClipInfo
     std::uint64_t fromTake = 0;
     /// The takes it plays from (ADR 0032): its stack's id (0: a plain clip).
     std::uint64_t stack = 0;
+    /// Muted (ADR 0035): it keeps its place and plays nothing.
+    bool muted = false;
 
     [[nodiscard]] double end() const noexcept { return start + length; }
 };
@@ -62,6 +64,7 @@ struct DeviceSlot
     std::string deviceId; // our device id ("eq"), empty for third-party plugins
     bool enabled = true;
     bool instrument = false;
+    bool midiEffect = false; // processes MIDI only (an arpeggiator), never audio
     bool takesSidechain = false;                  // ADR 0025
     std::optional<std::uint64_t> sidechainSource; // the track feeding it, if any
 };
