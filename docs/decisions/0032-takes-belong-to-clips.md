@@ -1,6 +1,6 @@
 # 0032. Takes belong to clips
 
-- **Status:** Accepted (product owner, 2026-10-10, after trying C5b)
+- **Status:** Accepted (product owner, 2026-10-10, after trying C5b); a pass over part of a clip, and a clip's range when another clip cuts it, superseded by [0037](0037-a-pass-makes-its-own-clip.md)
 - **Date:** 2026-10-10
 - **Supersedes in part:** [0031](0031-recording-keeps-every-take.md): where takes live and how they show (take lanes as rows under the track, "Takes · N" in the track header). The rest of 0031 stands: every pass and lap is kept, what a pass replaces is kept, the main lane plays plain clips, takes are Segno's own state, takes move to new tracks, a pass is one undo step.
 - **Builds on:** [0019](0019-one-kind-of-track.md) (one kind of track, no overlaps), [0023](0023-ui-foundations.md) (UI foundations)

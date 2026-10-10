@@ -103,10 +103,13 @@ A take is another version of a clip, so takes belong to their clip, as in Logic'
 
 - **A pass makes a clip with its takes:** what it recorded, one take per loop lap; the clip plays the newest complete lap. A lap cut short is kept too, ending where its recording does.
 - **One take shows nothing:** such a clip looks and acts like any clip.
-- **Recording over a clip adds to its takes.** What a pass records over that has no takes yet is kept as a take of the clip first ("Before take N", trimmed to the pass), so nothing is lost. A pass over part of a clip with takes joins them: the clip's range widens to cover both, and it plays the new take where it recorded and its earlier take elsewhere.
+- **Recording over clips makes a clip of its own** (ADR 0037), as in Live's main lane and REAPER:
+  - a clip the pass covers in part is cut, as any placed clip cuts one (ADR 0019): trimmed at an edge, split around a punch inside it;
+  - a clip it covers entirely gives the new clip its takes, so another loop pass over the same range adds takes to the same clip;
+  - what played over the pass's range before it is kept as a take of the new clip, "Before take N", so nothing is lost and choosing it brings that back. It's left out when it would only repeat one of the clip's takes (a second loop pass over a clip playing take 3).
 - **The badge:** from two takes, the clip's title strip ends with the take it plays and how many, then a chevron: "3/4 ▾" ("Comp ▾" when its parts play different takes). On a narrow clip it shrinks to the chevron before the clip's name is cut. **A click shows or hides the clip's takes; a right-click opens the take menu:**
   - Show takes / Hide takes;
-  - the takes, newest first, the one playing ticked: choosing one plays it;
+  - the takes, newest first, the one playing ticked: choosing one plays it alone across the clip's range (where it has no audio, nothing plays, and the clip shows only what plays; choosing a longer take fills the range again), whatever played before;
   - Rename take…;
   - Copy take to new track, Move take to new track, Spread takes to new tracks (new tracks copy this track's chain and mix: a double or a layer in one action);
   - Delete take, Keep only this take (the others are deleted; files stay).
@@ -123,9 +126,9 @@ A take is another version of a clip, so takes belong to their clip, as in Logic'
 | Split | Split at the same point; the right halves become the right clip's takes |
 | Duplicate | Copied |
 | Delete | Deleted with it (undo brings them back; files stay) |
-| Another clip placed over part of it (ADR 0019) | The clip is cut; its takes stay whole, so choosing a take there fills it again. A clip cut in two keeps its takes on the left part; the right part becomes a plain clip |
+| Another clip placed over part of it (ADR 0019) | The clip is cut, and its range with it (ADR 0037): choosing a take never reaches the other clip. Its takes stay whole, so trimming back out brings them back. A clip cut in two keeps its takes on the left part; the right part becomes a plain clip |
 
-- **A clip playing parts of several takes** (a partial pass, or comping in C5c) draws as one clip: one title strip, a thin line where the take changes. Its parts select, move, split and delete together; only its outer edges trim. Moving the line between parts is comping (§7).
+- **A clip playing parts of several takes** (comping in C5c, or a project from before ADR 0037) draws as one clip: one title strip, a thin line where the take changes. Its parts select, move, split and delete together; only its outer edges trim. Moving the line between parts is comping (§7).
 - **MIDI takes** work the same. In overdub mode laps merge into one clip and make no takes.
 
 ## 7. Comping
@@ -281,7 +284,7 @@ Trying C5b, the product owner found takes in the wrong place (a take is another 
 | R1 | Where takes live | On their clip (ADR 0032) |
 | R2 | A clip with one take | Shows nothing about takes |
 | R3 | Seeing every take | Under the clip; the track's row grows while they're open |
-| R4 | A pass over part of a clip with takes | Joins its takes; the clip plays both parts, as one clip |
+| R4 | A pass over part of a clip with takes | Joins its takes; the clip plays both parts, as one clip (superseded by §20, ADR 0037: a pass makes its own clip) |
 | R5 | What Capture MIDI takes | The last phrase (after a pause of 2 bars), and only since playback started while playing |
 | R6 | Where it goes | Armed tracks, else the selected track, else a new track. **No instrument is added** (ADR 0033: Segno never adds an instrument by itself, for drawn clips and dropped MIDI files either) |
 | R7 | The automation buttons | Automation arm lights in `record`, beside Record and Capture. **No "Turn automation back on" button:** moving a control turns off just its parameter's assignment, and the lane's own switch turns it back on; "Turn all automation back on" stays in the palette (Ctrl+Alt+A) |
@@ -294,3 +297,17 @@ Trying C5b, the product owner found takes in the wrong place (a take is another 
 **Storage details** (from the implementation review): a clip's takes keep their own range (`from`/`to`), so trimming the clip and trimming back out loses nothing; a clip cut in two by another clip keeps its takes on its left part.
 
 **Built** (2026-10-10, before C7): no instrument added; punch tied to the loop (with a lead-in, through a small engine patch), arm in red, the new labels; the sectioned top bar; takes on clips (model, engine and every clip command, the C5b conversion, MCP, the arrangement); Capture MIDI on its own buffer.
+
+## 20. Review of recording over clips (product owner, 2026-10-10: agreed)
+
+Trying C5b and C6, the product owner recorded a take, a pass inside it, and a longer pass over everything. The inner pass joined the take instead of making a clip, which made a comp, and choosing takes then gave results that depended on the order of clicks: a take was laid only where it had audio, over whatever played before. A survey of Live 12, Logic, Pro Tools, Cubase, Studio One, REAPER and Bitwig is summed up in [ADR 0037](../decisions/0037-a-pass-makes-its-own-clip.md).
+
+| # | Question | Decision |
+|---|---|---|
+| P1 | A pass over part of a clip | Makes its own clip; the clip it covers in part is cut (trimmed, or split around it) |
+| P2 | A pass over a whole clip | Its takes join the new clip, so loop passes over the same range add up on one clip |
+| P3 | What a pass replaces | Kept as "Before take N" of the new clip: what played over the pass's range, so choosing it brings that back; left out when it would only repeat one of the clip's takes |
+| P4 | Choosing a take | Plays it alone across the clip's range, wherever the choice comes from; nothing plays where it has no audio; never depends on what played before |
+| P5 | A clip's range when another clip cuts it | Shrinks to the part that stays, so choosing a take only ever changes the clip you see; trimming back out brings the takes back |
+
+Also from the same review: a selected clip with takes, and its crossfades, draw lighter like any selected clip (they stayed dark); a crossfade's waveform no longer blinks while its ends are dragged.

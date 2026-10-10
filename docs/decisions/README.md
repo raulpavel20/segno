@@ -40,11 +40,12 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0029](0029-independent-automation-lanes.md) | Automation lanes are rows of their own among the tracks, driving assigned parameters on any channel, each through its own range; one lane per parameter; the lane is the source of truth; popovers close on any outside click | Accepted |
 | [0030](0030-projects-are-folders.md) | A project is a folder: `Name.segno` with `Recordings/` (later bounces and collected samples); clips refer to files relative to it; files are never deleted implicitly | Accepted |
 | [0031](0031-recording-keeps-every-take.md) | Recording keeps every pass and loop lap on take lanes under the track (Segno's own state); the track's main lane is plain clips; choosing and comping write clips; takes move to new tracks | Accepted; where takes live and show superseded by 0032 |
-| [0032](0032-takes-belong-to-clips.md) | Takes belong to clips: a clip shows its takes from two on ("3/4 ▾") and opens them under itself; a clip and its takes are edited as one; no take rows | Accepted |
+| [0032](0032-takes-belong-to-clips.md) | Takes belong to clips: a clip shows its takes from two on ("3/4 ▾") and opens them under itself; a clip and its takes are edited as one; no take rows | Accepted; a pass over part of a clip and the range on a cut superseded by 0037 |
 | [0033](0033-no-instrument-by-itself.md) | Segno never adds an instrument by itself: a MIDI clip on a track without one is silent until you add one (supersedes 0019 item 4) | Accepted |
 | [0034](0034-device-api-frozen.md) | The device API (`libs/device`) and the device state format are frozen: additions that keep devices and saved states unchanged are allowed; anything else needs an ADR and a migration | Accepted |
 | [0035](0035-bounce-keeps-its-source.md) | Bounce in place renders up to where the clip enters the chain and keeps the source as a take; bounce to a new track prints the whole chain before the fader with the source muted; clips can be muted | Accepted |
 | [0036](0036-crossfades-at-the-boundary.md) | Crossfades belong to the join between two audio clips, which stay edge to edge and play their spare audio past it; every audio clip edge fades a few ms unless seamless; fades bend like automation | Accepted |
+| [0037](0037-a-pass-makes-its-own-clip.md) | A recording pass makes its own clip: clips it covers in part are cut, clips it covers entirely give it their takes, what it replaced is kept as "Before take N"; choosing a take plays it alone; a clip's range never reaches over another clip | Accepted |
 
 ## Template
 
