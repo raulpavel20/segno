@@ -9,7 +9,10 @@ namespace
 class Behaviour final : public tracktion::EngineBehaviour
 {
 public:
-    bool shouldProcessAuxSendWhenTrackIsMuted(tracktion::AuxSendPlugin&) override { return false; }
+    bool shouldProcessAuxSendWhenTrackIsMuted(tracktion::AuxSendPlugin& send) override
+    {
+        return send.edit.state.getProperty(sendsWhileMutedId, false);
+    }
 
     juce::File getFileForNewAudioRecording(tracktion::Track& track, const juce::String& extension) override
     {

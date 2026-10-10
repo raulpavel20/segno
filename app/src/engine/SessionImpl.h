@@ -256,6 +256,11 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     // Bounces in flight (C7, ADR 0035): each renders its runs one after another, then lands.
     struct Bounce;
     std::vector<std::shared_ptr<Bounce>> bounces;
+    // The export in flight (C8, ADR 0039): it renders its files one after another, each finished
+    // (measured, normalised, dithered, written) on its own thread.
+    struct Export;
+    std::shared_ptr<Export> exporting;
+    std::unique_ptr<juce::ThreadPool> exportThread;
     /// `Bounces` in the project's folder.
     juce::File bouncesFolder();
 

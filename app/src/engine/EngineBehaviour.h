@@ -17,6 +17,11 @@ namespace fd::engine
 ///   spare audio past their edges (ADR 0036, the clip-playback patch).
 [[nodiscard]] std::unique_ptr<tracktion::EngineBehaviour> makeEngineBehaviour();
 
+/// On an Edit's root: its muted tracks still feed the return tracks. Only render copies that
+/// export a return track's stem set it (export.md §12): the tracks sending to it are muted there
+/// so only the return is heard.
+inline const juce::Identifier sendsWhileMutedId{"fdSendsWhileMuted"};
+
 /// The file for a new audio recording on a track ("wav" or another extension); an empty file lets
 /// tracktion choose. One per engine: the last one set wins.
 using RecordingFiles = std::function<juce::File(tracktion::Track& track, const juce::String& extension)>;

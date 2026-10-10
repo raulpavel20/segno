@@ -1,6 +1,8 @@
 #pragma once
 
+#include "model/AudioMeasure.h"
 #include "model/Bounce.h"
+#include "model/Export.h"
 #include "model/Editing.h"
 #include "model/Snapshot.h"
 
@@ -475,6 +477,41 @@ public:
     [[nodiscard]] double sampleRate() const;
     /// Where bounced audio goes: `Bounces` in the project's folder (ADR 0030), as recordings.
     [[nodiscard]] juce::File bouncesFolder() const;
+
+    // ---- export (C8, ADR 0039, docs/design/export.md) ------------------------------------------
+    // The mix or stems of the song or the loop, rendered offline on a copy of the project in the
+    // background, then measured, normalised, dithered and written as WAV, FLAC or AIFF.
+
+    /// One exported file: where it is, whose it is (empty: the mix), and what it measures as written.
+    struct ExportedFile
+    {
+        juce::File file;
+        std::string track;
+        model::AudioMeasurements measured;
+        bool ceilingHeld = false; // normalising to a loudness was held by the true-peak ceiling
+    };
+    struct ExportResult
+    {
+        std::vector<ExportedFile> files;
+        std::string error; // empty: done
+        bool cancelled = false;
+    };
+    /// Why an export can't run now (empty: it can): nothing to export, no loop, no tracks, a
+    /// folder that can't be made, or one already running. `tracks`: the stems for SelectedTracks.
+    [[nodiscard]] std::string exportRefusal(const model::ExportSettings& settings, const std::vector<std::uint64_t>& tracks);
+    /// Exports in the background (export.md §7): playback and editing go on, and the project as it
+    /// was when it started is what's exported. A cancelled or failed export leaves no file. `done`
+    /// runs on the message thread. Null, with `done` not called, when refused.
+    std::shared_ptr<RenderJob> exportAudio(const model::ExportSettings& settings, const std::vector<std::uint64_t>& tracks,
+                                           std::function<void(const ExportResult&)> done);
+    [[nodiscard]] bool isExporting() const;
+    /// Where exports go by default: `Exports/` in the project's folder (ADR 0030).
+    [[nodiscard]] juce::File exportsFolder();
+    /// The folder `settings` names: the default when empty, else absolute or relative to the
+    /// project's folder.
+    [[nodiscard]] juce::File exportFolder(const model::ExportSettings& settings);
+    /// The project's name for its files ("Untitled" before the first save).
+    [[nodiscard]] std::string projectName() const;
 
     // ---- fades and crossfades (C6, ADR 0036, docs/design/fades.md) ---------------------------
     // Fades belong to audio clips; a crossfade belongs to the join between two audio clips that
