@@ -1852,6 +1852,19 @@ TEST_CASE("takes: takes open under their clip after a loop pass; strips, the bad
         CHECK(s.undoDescription() == "Comp");
         REQUIRE(track().clips.size() == 3);
         CHECK(track().clips[1].end() == Catch::Approx(5.0));
+        {
+            // On the strips, what the clip plays (the first take over 4.5..5) is outlined in the
+            // clip's colour; the rest of the takes' audio is neutral.
+            view.setSnapshot(s.snapshot());
+            const auto image = view.createComponentSnapshot(view.getLocalBounds());
+            const auto& theme = fd::ui::Theme::current();
+            auto stripTop = [&](size_t take) { return static_cast<int>(stripsTop + strip * static_cast<float>(2 - take)); };
+            const int x = static_cast<int>(laneX(4.75)), gap = theme.shell.clipGap;
+            const auto colour = theme.clipColour(track().clips[1].colour);
+            CHECK(image.getPixelAt(x, stripTop(0) + gap) == colour);                      // its border
+            CHECK(image.getPixelAt(x, stripTop(0) + gap + 2) == theme.clipBody(colour, false)); // its body
+            CHECK(image.getPixelAt(x, stripTop(1) + gap + 2) == theme.roles.takeUnused);  // the second take there
+        }
         CHECK(track().clips[2].start == Catch::Approx(5.0));
         CHECK(track().clips[2].fromTake == stack().takes[1].clips.at(0).id);
         s.undo();

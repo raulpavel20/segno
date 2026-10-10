@@ -299,9 +299,10 @@ private:
     void paintRuler(juce::Graphics& g);
     void paintHeaders(juce::Graphics& g);
     void paintLanes(juce::Graphics& g);
-    void paintNotes(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body, juce::Colour colour);
+    /// A clip's notes or waveform in `content` (clipContent of its colour, or a role).
+    void paintNotes(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body, juce::Colour content);
     void paintWaveform(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body,
-                       juce::Rectangle<int> visible, juce::Colour colour);
+                       juce::Rectangle<int> visible, juce::Colour content);
 
     engine::Session& session_;
     std::shared_ptr<const model::Snapshot> snapshot_;

@@ -25,6 +25,7 @@ Roles are derived from the base palette in `Theme.cpp` (`deriveRoles`), the only
 | `marker` | textPrimary at 80 % | Live playheads inside a display (Sampler) |
 | `loopInactive` | textTertiary at 70 % | The loop brace while looping is off |
 | `onClip` | surface0 | Text on a clip's title strip and on notes |
+| `takeUnused` / `takeUnusedContent` | surface2 / textTertiary 35 % towards surface2 | The audio of a clip's takes that it doesn't play, on their strips: no clip colour (recording.md §6) |
 | `keyWhite` / `keyBlack` / `keySeam` | textTertiary → textSecondary 25 % / surface0 / surface1 at 60 % | The piano roll keyboard |
 | `curveFill` | value at 14 % | The flat fill under any curve |
 | `selectionCurve` | active at 45 % | The selected band's own curve (EQ) |
@@ -47,7 +48,7 @@ Role functions for colours that depend on content:
 |---|---|---|
 | `clipBody(colour, selected)` | the clip colour at 32 % brightness (42 % selected) | Clip bodies |
 | `clipContent(colour)` | the clip colour, 25 % towards white | Waveforms and notes drawn on clips |
-| `clipDimmed(colour)` | the clip colour, 60 % towards `subLane` | Clips that don't play: the unused parts of a clip's takes (C5b) |
+| `clipDimmed(colour)` | the clip colour, 60 % towards `subLane` | Muted clips |
 | `noteFill(colour, velocity, selected)` | control tone → clip colour by velocity (35–100 %); selected 30 % towards white | Piano roll notes and velocity stems |
 | `faded(colour)` | 40 % alpha | Content that exists but doesn't play (notes outside a clip) |
 | `fill(colour)` | `curveFill`'s alpha in that colour | Fills under coloured curves |

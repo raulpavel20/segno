@@ -31,6 +31,8 @@ void deriveRoles(Theme& t)
     r.marker = t.textPrimary.withAlpha(0.8f);
     r.loopInactive = t.textTertiary.withAlpha(0.7f);
     r.onClip = t.surface0;
+    r.takeUnused = t.surface2;
+    r.takeUnusedContent = t.textTertiary.interpolatedWith(t.surface2, 0.35f);
     r.keyWhite = t.textTertiary.interpolatedWith(t.textSecondary, 0.25f);
     r.keyBlack = t.surface0;
     r.keySeam = t.surface1.withAlpha(0.6f);

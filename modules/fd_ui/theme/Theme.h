@@ -45,6 +45,7 @@ struct ColourRoles
     juce::Colour gridBar, gridBeat, gridSub, gridOctave, gridMinor;
     juce::Colour selectionFill, selectionStroke, dropTarget, textHighlight;
     juce::Colour playhead, marker, loopInactive, onClip;
+    juce::Colour takeUnused, takeUnusedContent; // the parts of a clip's takes it doesn't play: no clip colour
     juce::Colour keyWhite, keyBlack, keySeam;
     juce::Colour curveFill, selectionCurve, spectrumFill, spectrumLine, spectrumPre, outside, loopTint;
     juce::Colour focusRing, hoverWash, dropWell, valueHot, valueText, warning, overlay, shadow;

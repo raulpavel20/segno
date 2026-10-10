@@ -1021,7 +1021,6 @@ void ArrangementView::paintStrips(juce::Graphics& g, int row, const model::Track
         if (!stack.open || !model::hasTakesToShow(stack) || stack.end < timeline_.start() || stack.start > timeline_.end())
             continue;
         const float x0 = laneX(stack.start), x1 = laneX(stack.end);
-        const auto playing = model::playingTake(stack, track.clips);
         const auto n = stack.takes.size();
         for (size_t k = 0; k < n; ++k)
         {
@@ -1032,32 +1031,35 @@ void ArrangementView::paintStrips(juce::Graphics& g, int row, const model::Track
             g.setColour(t.roles.subLane);
             g.fillRect(rect);
             {
-                // Its clips as plain bodies with their waveform or notes: dimmed, but for the parts
-                // the clip plays, in full colour.
+                // Its clips: where it has audio, neutral and dim; the parts the clip plays as the clip
+                // looks, each outlined in the clip's colour (recording.md §6).
                 juce::Graphics::ScopedSaveState saved(g);
                 g.reduceClipRegion(rect.getSmallestIntegerContainer());
-                auto body = [&](const model::ClipInfo& c, juce::Colour colour, juce::Rectangle<int> within) {
+                auto body = [&](const model::ClipInfo& c, juce::Colour fill, juce::Colour content, juce::Rectangle<int> within) {
                     const auto box = clipBox(c.start, c.end(), rect.getY(), rect.getHeight());
                     if (!box.intersects(within.toFloat()))
                         return;
-                    g.setColour(t.clipBody(colour, false));
+                    g.setColour(fill);
                     g.fillRect(box);
                     if (c.kind == model::ClipInfo::Kind::Midi)
-                        paintNotes(g, c, box, colour);
+                        paintNotes(g, c, box, content);
                     else
-                        paintWaveform(g, c, box, within, colour);
+                        paintWaveform(g, c, box, within, content);
                 };
                 for (const auto& c : take.clips)
                 {
                     const auto colour = t.clipColour(c.colour);
-                    body(c, t.clipDimmed(colour), visible);
+                    body(c, t.roles.takeUnused, t.roles.takeUnusedContent, visible);
                     for (const auto& [from, to] : model::inUse(c, track.clips))
                     {
-                        const auto used = juce::Rectangle<float>(laneX(from), rect.getY(), laneX(to) - laneX(from), rect.getHeight())
-                                              .getSmallestIntegerContainer();
-                        juce::Graphics::ScopedSaveState inner(g);
-                        g.reduceClipRegion(used);
-                        body(c, colour, visible.getIntersection(used));
+                        const auto used = clipBox(from, to, rect.getY(), rect.getHeight());
+                        {
+                            juce::Graphics::ScopedSaveState inner(g);
+                            g.reduceClipRegion(used.getSmallestIntegerContainer());
+                            body(c, t.clipBody(colour, false), t.clipContent(colour), visible.getIntersection(used.getSmallestIntegerContainer()));
+                        }
+                        g.setColour(colour);
+                        g.drawRect(used, static_cast<float>(t.shell.clipOutline));
                     }
                 }
                 // The stretch being swiped (recording.md §7): what it will use, in full colour and
@@ -1071,7 +1073,8 @@ void ArrangementView::paintStrips(juce::Graphics& g, int row, const model::Track
                                 {
                                     juce::Graphics::ScopedSaveState inner(g);
                                     g.reduceClipRegion(box.getSmallestIntegerContainer());
-                                    body(c, t.clipColour(c.colour), visible.getIntersection(box.getSmallestIntegerContainer()));
+                                    body(c, t.clipBody(t.clipColour(c.colour), false), t.clipContent(t.clipColour(c.colour)),
+                                         visible.getIntersection(box.getSmallestIntegerContainer()));
                                 }
                                 g.setColour(t.textPrimary);
                                 g.drawRect(box, static_cast<float>(t.shell.clipOutline));
@@ -1089,7 +1092,7 @@ void ArrangementView::paintStrips(juce::Graphics& g, int row, const model::Track
                                        .withHeight(clips.getHeight())
                                        .expanded(static_cast<float>(t.shell.clipTextInset), 0.0f),
                                    t.radiusControl);
-            g.setColour(playing && stack.takes[*playing].id == take.id ? t.textPrimary : t.textSecondary);
+            g.setColour(model::isUsed(take, track.clips) ? t.textPrimary : t.textSecondary); // bright while the clip plays some of it
             g.setFont(ui::font(ui::TextStyle::Caption));
             g.drawText(name, label, juce::Justification::centredLeft, true);
             g.setColour(t.line);
@@ -1234,10 +1237,10 @@ void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, 
     g.setColour(colour);
     g.fillRect(title);
     if (clip.kind == model::ClipInfo::Kind::Midi)
-        paintNotes(g, clip, box.withTrimmedTop(strip), colour);
+        paintNotes(g, clip, box.withTrimmedTop(strip), t.clipContent(colour));
     else
     {
-        paintWaveform(g, clip, box.withTrimmedTop(strip), visible, colour);
+        paintWaveform(g, clip, box.withTrimmedTop(strip), visible, t.clipContent(colour));
         paintFades(g, clip, box.withTrimmedTop(strip), colour, selected);
     }
     if (titleShowsText(title))
@@ -1250,7 +1253,7 @@ void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, 
 }
 
 void ArrangementView::paintNotes(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body,
-                                 juce::Colour colour)
+                                 juce::Colour content)
 {
     // A preview of the notes across the clip's own pitch range (the piano roll edits them), clear of
     // the body's edges by twice the clip gap.
@@ -1266,7 +1269,7 @@ void ArrangementView::paintNotes(juce::Graphics& g, const model::ClipInfo& clip,
     const int span = std::max(12, hi - lo + 1);
     lo = std::max(0, (lo + hi) / 2 - span / 2);
     const float row = body.getHeight() / static_cast<float>(span);
-    g.setColour(ui::Theme::current().clipContent(colour));
+    g.setColour(content);
     juce::Graphics::ScopedSaveState saved(g);
     g.reduceClipRegion(body.getSmallestIntegerContainer());
     const double contentStart = clip.start - clip.offset; // follows the clip while it is dragged
@@ -1281,12 +1284,12 @@ void ArrangementView::paintNotes(juce::Graphics& g, const model::ClipInfo& clip,
 }
 
 void ArrangementView::paintWaveform(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body,
-                                    juce::Rectangle<int> visible, juce::Colour colour)
+                                    juce::Rectangle<int> visible, juce::Colour content)
 {
     const auto* peaks = waveforms_.find(clip.sourcePath);
     if (peaks == nullptr)
         return;
-    const auto tint = ui::Theme::current().clipContent(colour);
+    const auto tint = content;
     // Tiles pay off on the GPU; the software renderer scales images slowly (measured).
     if (juce::OpenGLContext::getCurrentContext() != nullptr)
         tiles_.draw(g, *peaks, clip, body, visible, timeline_, laneArea().getX(), tint, zoomSettled_);

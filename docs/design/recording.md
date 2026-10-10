@@ -115,7 +115,7 @@ A take is another version of a clip, so takes belong to their clip, as in Logic'
   - Copy take to new track, Move take to new track, Spread takes to new tracks (new tracks copy this track's chain and mix: a double or a layer in one action);
   - Delete take, Keep only this take (the others are deleted; files stay).
 - **Takes open under their clip** (a click on the badge, the menu, or Ctrl+Alt+K with the clip selected): one strip per take (24 px), newest on top, across the clip's range. The track's row grows by the tallest open set of takes and shrinks back when they close; the header column shows nothing more. Opening a clip's takes closes any overlapping ones already open on that track. They open by themselves after a pass that made several takes.
-  - Each strip shows its take's name, the parts the clip plays in the track's colour and the rest dimmed.
+  - Each strip shows its take's name (bright while the clip plays any of it) and its audio: the parts the clip plays look as they do in the clip, its colour, its waveform, outlined in its colour; the rest is neutral grey with a dim waveform (`takeUnused`), so what's in use stands out at a glance (revised after trying C5c: dimming alone was too weak).
   - A click on a strip plays that take and selects it; right-click opens the take menu for it; Delete deletes it.
 - **Choosing while it plays:** Alt+↑ / Alt+↓ on a selected clip play its previous or next take (skipping takes too short for its range), so you can audition them in turn.
 - **A clip and its takes are edited as one,** in the same undo step:
@@ -145,7 +145,7 @@ Choose the best parts of several takes into one performance, as Logic's swipe co
 - **Joins:**
   - each new join between two takes gets a 10 ms equal-power crossfade (fades.md §5), centred and fitted to the spare audio;
   - a stretch that meets a part of the same take, where it plays on seamlessly, joins it into one part, so swiping a take back over itself leaves no lines behind.
-- **Strips show what's in use** (since C5b), and the badge says "Comp ▾" while the parts play different takes.
+- **Strips show what's in use** (§6: in the clip's colour and outlined; the rest neutral), and the badge says "Comp ▾" while the parts play different takes.
 - **The main lane stays plain clips:** comping makes clips that point into the take files, so a comp is edited, faded, bounced or exported like any clip, and needs no rendering.
 - **Several takes:** Ctrl+click on strips selects several takes. Delete, and the take menu's Copy and Move to new track, act on all of them.
 - **Flatten** is just "Delete unused takes" (§6).
