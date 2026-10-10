@@ -32,7 +32,7 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0021](0021-mcp-server.md) | A built-in MCP server: assistants can drive the whole DAW and every device in it; only in the DAW, never in the plugins; opt-in and local | Accepted |
 | [0022](0022-module-panels.md) | Module panels: one layout grid, titled sections with lines, collapse and fold, view state outside module state; "Modules" in the UI | Accepted |
 | [0023](0023-ui-foundations.md) | UI foundations: colours by role, text styles, motion and input tokens, shell metrics and shared components, one time-view kit, a track header layout model, and a UI lint | Accepted |
-| [0024](0024-product-name.md) | The product is called Segno: the name, the mark and the identifiers derived from it | Accepted |
+| [0024](0024-product-name.md) | The product is called Segno: the name, the mark and the identifiers derived from it | Accepted; the wordmark's place amended by 0040 |
 | [0025](0025-sidechain-routing.md) | Sidechain routing is host routing, chosen in the module's header: tracks in the DAW, Off or External in plugins; never a parameter | Accepted |
 | [0026](0026-mixing-in-the-arrangement.md) | Mixing in the arrangement (track headers, inspector) and in a mixer view; return tracks and a master below the tracks; one volume taper, balance pan, solo in place (never undoable) | Accepted |
 | [0027](0027-selection-and-context-panels.md) | One selection shared by both views; the detail panel and inspector follow the subject, per view (the mixer view: modules only, no inspector); inspector sections with titles and lines | Accepted |
@@ -48,7 +48,7 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0037](0037-a-pass-makes-its-own-clip.md) | A recording pass makes its own clip: clips it covers in part are cut, clips it covers entirely give it their takes, what it replaced is kept as "Before take N"; choosing a take plays it alone; a clip's range never reaches over another clip | Accepted; strip clicks and Alt+↑/↓ on comps superseded by 0038 |
 | [0038](0038-comping-you-can-listen-through.md) | Comping you can listen through: a take auditions without changing the clip; a click on a strip, or Alt+↑/↓, changes only the section of the comp it's in; a whole take is a deliberate choice | Accepted |
 | [0039](0039-export-in-the-background.md) | Export is a popover panel and renders in the background: the mix or stems that add up to it, the song with its tail or the loop, WAV/FLAC/AIFF with automatic dither and loudness normalising; files in the project's Exports or anywhere chosen, never overwritten; a loudness report | Accepted |
-| [0040](0040-a-menu-bar-and-everything-by-mouse.md) | A traditional menu bar (File … Help) holds every action with its shortcut, so everything can be done with the mouse; on Linux and Windows it sits in a title bar of our own with the project's name and the window buttons (the system's as an option); the macOS menu bar on macOS | Proposed; the menu bar and the mouse for everything decided by the product owner (2026-10-11) |
+| [0040](0040-a-menu-bar-and-everything-by-mouse.md) | A traditional menu bar (File … Help) holds every action with its shortcut, so everything can be done with the mouse; on Linux and Windows it sits in a title bar of our own with the project's name and the window buttons (the system's as an option); the macOS menu bar on macOS | Accepted |
 
 ## Template
 

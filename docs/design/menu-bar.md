@@ -9,7 +9,7 @@ The decision is [ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.
 
 It builds on the action registry ([daw-shell.md](daw-shell.md), [ADR 0018](../decisions/0018-daw-app-structure.md)), the command palette (C1), the top bar's layout (`model::layoutTopBar`) and the shared components ([ui-foundations.md](ui-foundations.md)).
 
-**Status:** proposed (2026-10-11), awaiting the product owner's review of §11. Two points are already decided by the product owner: there is a menu bar, and everything is reachable with the mouse.
+**Status:** approved by the product owner (2026-10-11), with every recommendation of §11 ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)).
 
 ## 1. Why
 
@@ -381,7 +381,7 @@ No new tools. The menu bar is a new route to existing actions, whose features al
 
 Quit, Full screen, About and the title bar option are matters of the window, not of the project. ADR 0021's rule (every feature with its tools) is unchanged.
 
-## 11. Decisions to review
+## 11. Decisions from the review (product owner, 2026-10-11: every recommendation agreed)
 
 | # | Question | Recommendation |
 |---|---|---|

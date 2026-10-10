@@ -1,6 +1,6 @@
 # 0024. The product is called Segno
 
-- **Status:** Accepted (product owner, 2026-10-09)
+- **Status:** Accepted (product owner, 2026-10-09); where the wordmark sits amended by [0040](0040-a-menu-bar-and-everything-by-mouse.md): at the title bar's left end on Linux and Windows, in the top bar on macOS
 - **Date:** 2026-10-09
 - **Builds on:** [0008](0008-naming-and-trade-dress.md) (own names, identifiers separate from names)
 

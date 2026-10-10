@@ -1,6 +1,6 @@
 # 0040. A menu bar in a title bar of our own; everything reachable with the mouse
 
-- **Status:** Proposed (2026-10-11). The product owner decided that there is a traditional menu bar and that everything is reachable with the mouse; the details ([design/menu-bar.md](../design/menu-bar.md) §11) await review
+- **Status:** Accepted (product owner, 2026-10-11, with every recommendation of [design/menu-bar.md](../design/menu-bar.md) §11)
 - **Date:** 2026-10-11
 - **Amends:**
   - [0014](0014-flat-darker-ableton-adjacent.md): "almost no menu diving", and through it [0009](0009-dark-first-design-language.md)'s "every frequent action is one click or one shortcut away; every action can be found in a command palette";
