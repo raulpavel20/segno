@@ -327,7 +327,7 @@ void Shell::registerActions()
     auto stepTake = [this, &s, takesClip](int direction) {
         return [this, &s, takesClip, direction] {
             const auto target = takesClip();
-            if (!target || !s.stepTake(target->clip, direction))
+            if (!target || !s.stepTake(target->clip, direction, s.position())) // the section at the playhead
             {
                 showWarning("No other take covers this clip");
                 return;

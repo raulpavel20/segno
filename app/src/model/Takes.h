@@ -105,6 +105,17 @@ struct CompJoin
 };
 [[nodiscard]] std::optional<CompJoin> compJoinAt(const TrackInfo& track, double seconds, double tolerance);
 
+/// A clip's sections (ADR 0038, recording.md §7): the stretches between the lines where its take
+/// changes, and gaps where nothing plays, in time order; the first runs from the clip's start, the
+/// last to its end. A clip that isn't a comp is one section.
+[[nodiscard]] std::vector<std::pair<double, double>> sections(const TakeStackInfo& stack, const std::vector<ClipInfo>& trackClips);
+/// The section at `seconds`; nullopt outside the clip's range.
+[[nodiscard]] std::optional<std::pair<double, double>> sectionAt(const TakeStackInfo& stack, const std::vector<ClipInfo>& trackClips,
+                                                                 double seconds);
+/// The take a section plays, if one take plays all of it.
+[[nodiscard]] std::optional<size_t> sectionTake(const TakeStackInfo& stack, const std::vector<ClipInfo>& trackClips,
+                                                std::pair<double, double> section);
+
 /// Neighbouring parts that play on seamlessly from one take clip (one stretch of it, cut in two),
 /// to join into one: each pair (earlier, later), in time order. `parts`: a clip's parts.
 [[nodiscard]] std::vector<std::pair<std::uint64_t, std::uint64_t>> seamlessParts(std::vector<ClipInfo> parts);

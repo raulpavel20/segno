@@ -223,6 +223,54 @@ std::vector<SwipePiece> swipePieces(const TakeStackInfo& stack, std::uint64_t ta
     return out;
 }
 
+std::vector<std::pair<double, double>> sections(const TakeStackInfo& stack, const std::vector<ClipInfo>& trackClips)
+{
+    constexpr double kNear = 1e-6;
+    std::vector<const ClipInfo*> parts;
+    for (const auto& c : trackClips)
+        if (c.stack == stack.id)
+            parts.push_back(&c);
+    std::sort(parts.begin(), parts.end(), [](auto* a, auto* b) { return a->start < b->start; });
+    // Where one part ends and the next begins: a line between them, or both edges of a gap.
+    std::vector<double> cuts;
+    for (size_t i = 0; i + 1 < parts.size(); ++i)
+    {
+        cuts.push_back(parts[i]->end());
+        if (parts[i + 1]->start > parts[i]->end() + kNear)
+            cuts.push_back(parts[i + 1]->start);
+    }
+    std::vector<std::pair<double, double>> out;
+    double from = stack.start;
+    for (const double at : cuts)
+        if (at > from + kNear && at < stack.end - kNear)
+        {
+            out.emplace_back(from, at);
+            from = at;
+        }
+    if (stack.end > from + kNear)
+        out.emplace_back(from, stack.end);
+    return out;
+}
+
+std::optional<std::pair<double, double>> sectionAt(const TakeStackInfo& stack, const std::vector<ClipInfo>& trackClips, double seconds)
+{
+    for (const auto& s : sections(stack, trackClips))
+        if (seconds >= s.first && seconds < s.second)
+            return s;
+    return std::nullopt;
+}
+
+std::optional<size_t> sectionTake(const TakeStackInfo& stack, const std::vector<ClipInfo>& trackClips, std::pair<double, double> section)
+{
+    std::vector<ClipInfo> within;
+    for (const auto& c : trackClips)
+        if (c.stack == stack.id && c.start < section.second - 1e-6 && c.end() > section.first + 1e-6)
+            within.push_back(c);
+    if (within.empty())
+        return std::nullopt;
+    return playingTake(stack, within);
+}
+
 std::optional<CompJoin> compJoinAt(const TrackInfo& track, double seconds, double tolerance)
 {
     std::optional<CompJoin> best;

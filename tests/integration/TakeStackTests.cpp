@@ -307,6 +307,23 @@ TEST_CASE("take stacks: comping uses a stretch of a take, crossfaded at its join
     CHECK(p[0].end() == Approx(4.2));
     CHECK_FALSE(r.session->compTake(t, first, 1.0, 2.0));
 
+    // Stepping a section (Alt+↑/↓, ADR 0038): only the section at the playhead changes; with the
+    // playhead outside the clip, the first section.
+    {
+        p = parts();
+        REQUIRE(p.size() == 4); // the first lap 4..4.2, the second 4.2..4.8, the short lap 4.8..5, the second 5..6
+        REQUIRE(r.session->stepTake(p[3].id, 1, 5.5)); // 5..6: the next take covering it (past the short lap) is the first
+        CHECK(r.session->undoDescription() == "Use take");
+        const auto stepped = parts();
+        CHECK(takeOf(stepped.back()) == first);
+        CHECK(stepped.back().start == Approx(5.0).margin(0.02));
+        CHECK(takeOf(stepped.front()) == first); // untouched
+        r.session->undo();
+        REQUIRE(r.session->stepTake(p[0].id, 1, 9.0)); // outside: the first section, 4..4.2
+        CHECK(takeOf(parts().front()) == second);
+        r.session->undo();
+    }
+
     // Undo takes back one swipe at a time.
     r.session->undo();
     p = parts();

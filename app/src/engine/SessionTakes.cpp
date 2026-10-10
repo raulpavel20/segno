@@ -753,7 +753,7 @@ bool Session::useTake(std::uint64_t trackId, std::uint64_t takeId)
     return true;
 }
 
-bool Session::compTake(std::uint64_t trackId, std::uint64_t takeId, double from, double to)
+bool Session::compTake(std::uint64_t trackId, std::uint64_t takeId, double from, double to, const std::string& undoName)
 {
     auto* t = impl_->track(trackId);
     const auto take = t != nullptr ? impl_->takeTree(*t, takeId) : juce::ValueTree();
@@ -768,7 +768,7 @@ bool Session::compTake(std::uint64_t trackId, std::uint64_t takeId, double from,
     if (pieces.empty() || impl_->partsOf(*t, stack).empty())
         return false;
     auto* um = &impl_->edit->getUndoManager();
-    impl_->beginEdit("Comp");
+    impl_->beginEdit(juce::String(undoName));
     const auto ends = impl_->clipEnds(*t, stack);
     std::vector<double> edges;
     for (const auto& piece : pieces)
@@ -788,7 +788,7 @@ bool Session::compTake(std::uint64_t trackId, std::uint64_t takeId, double from,
     return true;
 }
 
-bool Session::stepTake(std::uint64_t clipId, int direction)
+bool Session::stepTake(std::uint64_t clipId, int direction, std::optional<double> at)
 {
     auto* c = impl_->clip(clipId);
     auto* t = c != nullptr ? dynamic_cast<te::AudioTrack*>(c->getClipTrack()) : nullptr;
@@ -809,12 +809,22 @@ bool Session::stepTake(std::uint64_t clipId, int direction)
                         .fromTake = idProperty(clip->state[Impl::fromTakeId]),
                         .stack = std::find(info.parts.begin(), info.parts.end(), id) != info.parts.end() ? info.id : 0});
     }
-    const auto next = model::stepTake(info.takes, model::playingTake(info, main), info.start, info.end, direction);
+    // The section at `at` (the first when it's outside the clip; ADR 0038); a clip that isn't a
+    // comp is one section, and plays the take alone.
+    const auto all = model::sections(info, main);
+    if (all.empty())
+        return false;
+    const auto section = at ? model::sectionAt(info, main, *at).value_or(all.front()) : all.front();
+    const auto next = model::stepTake(info.takes, model::sectionTake(info, main, section), section.first, section.second, direction);
     if (!next)
         return false;
-    impl_->beginEdit("Use take");
-    impl_->fillFromTake(*t, stack.getChild(static_cast<int>(*next)));
-    return true;
+    if (all.size() == 1)
+    {
+        impl_->beginEdit("Use take");
+        impl_->fillFromTake(*t, stack.getChild(static_cast<int>(*next)));
+        return true;
+    }
+    return compTake(t->itemID.getRawID(), info.takes[*next].id, section.first, section.second, "Use take");
 }
 
 void Session::renameTake(std::uint64_t trackId, std::uint64_t takeId, const std::string& name)

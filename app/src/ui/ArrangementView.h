@@ -120,6 +120,9 @@ public:
     void removeSelectedLane();
     // Takes (C5b, ADR 0032, docs/design/recording.md §6): under their clip.
     /// Selects a take (with its track), as a click on its strip does.
+    /// A click on a take's strip (ADR 0038): that take for the section of its clip at `seconds`;
+    /// on a clip that isn't a comp, the whole take.
+    void useTakeAt(std::uint64_t track, std::uint64_t take, double seconds);
     /// Selects a take of a track's clips; `add`: toggles it in the selected takes of that track.
     void selectTake(std::uint64_t track, std::uint64_t take, bool add = false);
     [[nodiscard]] bool hasTakeSelection() const noexcept { return !selection_.takes.empty(); }
@@ -390,6 +393,7 @@ private:
     {
         std::uint64_t track = 0, take = 0;
         bool onClip = false;    // pressed on one of the take's clips (a click uses it)
+        double at = 0.0;        // where it was pressed (seconds): a click uses the take for the section there
         double from = 0.0, to = 0.0; // the stretch, snapped (seconds; either order)
         bool swiping = false;   // dragged past the threshold
     };

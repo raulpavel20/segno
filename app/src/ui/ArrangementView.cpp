@@ -501,6 +501,22 @@ void ArrangementView::selectLane(std::uint64_t lane)
     }
 }
 
+void ArrangementView::useTakeAt(std::uint64_t trackId, std::uint64_t take, double seconds)
+{
+    const auto* track = snapshot_->channel(trackId);
+    if (track == nullptr)
+        return;
+    for (const auto& stack : track->stacks)
+        if (stack.take(take) != nullptr)
+        {
+            if (model::sections(stack, track->clips).size() <= 1)
+                session_.useTake(trackId, take);
+            else if (const auto section = model::sectionAt(stack, track->clips, seconds))
+                session_.compTake(trackId, take, section->first, section->second, "Use take");
+            return;
+        }
+}
+
 void ArrangementView::selectTake(std::uint64_t track, std::uint64_t take, bool add)
 {
     auto takes = add && selection_.channel == track && selection_.clips.empty() ? selection_.takes : std::set<std::uint64_t>{};
@@ -1162,7 +1178,7 @@ void ArrangementView::takeMenu(std::uint64_t trackId, std::uint64_t stackId, std
     juce::PopupMenu menu;
     menu.addItem(stack->open ? "Hide takes" : "Show takes",
                  [this, stackId, open = stack->open] { session_.setTakesOpen(stackId, !open); });
-    menu.addSeparator();
+    menu.addSectionHeader("Use for the whole clip"); // a click on a strip uses one section (ADR 0038)
     for (size_t k = stack->takes.size(); k-- > 0;) // newest first
     {
         const auto& option = stack->takes[k];
@@ -1519,8 +1535,9 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
             return;
         }
         selectTake(strip->track, strip->hit.take);
-        const double at = snapped(timeline_.timeForX(e.position.x - static_cast<float>(lanes.getX())), e.mods.isAltDown());
-        swipe_ = TakeSwipe{.track = strip->track, .take = strip->hit.take, .onClip = strip->hit.onClip, .from = at, .to = at};
+        const double time = timeline_.timeForX(e.position.x - static_cast<float>(lanes.getX()));
+        const double at = snapped(time, e.mods.isAltDown());
+        swipe_ = TakeSwipe{.track = strip->track, .take = strip->hit.take, .onClip = strip->hit.onClip, .at = time, .from = at, .to = at};
         drag_ = Drag::Swipe;
         return;
     }
@@ -1755,8 +1772,8 @@ void ArrangementView::mouseUp(const juce::MouseEvent& e)
     {
         if (swipe_->swiping) // comps that stretch in (one undo step)
             session_.compTake(swipe_->track, swipe_->take, swipe_->from, swipe_->to);
-        else if (swipe_->onClip)
-            session_.useTake(swipe_->track, swipe_->take);
+        else if (swipe_->onClip) // the take for the section there (ADR 0038)
+            useTakeAt(swipe_->track, swipe_->take, swipe_->at);
         swipe_.reset();
     }
     if (drag_ == Drag::Resize)

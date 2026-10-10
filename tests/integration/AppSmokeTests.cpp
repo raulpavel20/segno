@@ -1836,6 +1836,19 @@ TEST_CASE("takes: takes open under their clip after a loop pass; strips, the bad
         if (const char* dump = std::getenv("FD_DUMP_DIR"))
             dumpPng(dump, "takes-comped@2x.png",
                     view.createComponentSnapshot(juce::Rectangle<int>(static_cast<int>(laneX(3.5)), 0, 500, 170), true, 2.0f));
+        // A click on a strip uses that take for the section under it only (ADR 0038): the third
+        // take for 4..4.5; the others stay.
+        click(view, {laneX(4.25), stripMiddle(2)});
+        s.updateSnapshotNow();
+        REQUIRE(track().clips.size() == 3);
+        CHECK(track().clips[0].fromTake == stack().takes[2].clips.at(0).id);
+        CHECK(track().clips[0].end() == Catch::Approx(4.5));
+        CHECK(track().clips[1].fromTake == stack().takes[0].clips.at(0).id);
+        CHECK(track().clips[2].fromTake == stack().takes[1].clips.at(0).id);
+        CHECK(s.undoDescription() == "Use take");
+        s.undo();
+        s.updateSnapshotNow();
+        CHECK(track().clips[0].fromTake == stack().takes[1].clips.at(0).id);
         // The line between two takes, dragged in the body from 5.5 to 5: the take after it plays
         // from there (one undo step).
         const float body = static_cast<float>(fd::app::ArrangementView::rulerHeight()) + 40.0f;

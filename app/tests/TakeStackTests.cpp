@@ -315,6 +315,33 @@ TEST_CASE("comping: what a swipe uses; parts that play on seamlessly", "[fast]")
     CHECK_FALSE(compJoinAt(track, 6.0, 0.05)); // the clip's own edge: a trim, not a join
 }
 
+TEST_CASE("comping: a clip's sections, between its lines and around its gaps", "[fast]")
+{
+    TakeStackInfo stack{.id = 7, .start = 0.0, .end = 10.0};
+    stack.takes = {{.id = 70, .clips = {ClipInfo{.id = 700, .start = 0.0, .length = 10.0}}},
+                   {.id = 71, .clips = {ClipInfo{.id = 710, .start = 0.0, .length = 10.0}}}};
+    using Sections = std::vector<std::pair<double, double>>;
+    // Not a comp: one section, even where its take leaves a gap.
+    std::vector<ClipInfo> clips{ClipInfo{.id = 1, .start = 3.0, .length = 3.0, .fromTake = 700, .stack = 7}};
+    CHECK(sections(stack, clips) == Sections{{0.0, 10.0}});
+    CHECK(sectionTake(stack, clips, {0.0, 10.0}) == 0u);
+    // A comp: a section per part, the first from the clip's start and the last to its end.
+    clips = {ClipInfo{.id = 1, .start = 0.0, .length = 4.5, .fromTake = 700, .stack = 7},
+             ClipInfo{.id = 2, .start = 4.5, .length = 1.0, .fromTake = 710, .stack = 7},
+             ClipInfo{.id = 3, .start = 5.5, .length = 4.5, .fromTake = 700, .stack = 7},
+             ClipInfo{.id = 4, .start = 10.0, .length = 2.0}}; // another clip after it
+    CHECK(sections(stack, clips) == Sections{{0.0, 4.5}, {4.5, 5.5}, {5.5, 10.0}});
+    CHECK(sectionAt(stack, clips, 5.0) == std::pair{4.5, 5.5});
+    CHECK(sectionAt(stack, clips, 4.5) == std::pair{4.5, 5.5});
+    CHECK_FALSE(sectionAt(stack, clips, 10.5));
+    CHECK(sectionTake(stack, clips, {4.5, 5.5}) == 1u);
+    // A gap between parts is a section of its own, where nothing plays.
+    clips = {ClipInfo{.id = 1, .start = 3.0, .length = 1.0, .fromTake = 700, .stack = 7},
+             ClipInfo{.id = 2, .start = 5.0, .length = 1.0, .fromTake = 710, .stack = 7}};
+    CHECK(sections(stack, clips) == Sections{{0.0, 4.0}, {4.0, 5.0}, {5.0, 10.0}});
+    CHECK_FALSE(sectionTake(stack, clips, {4.0, 5.0}));
+}
+
 TEST_CASE("take stacks: rows grow by their extra height; clips aren't hit in it", "[fast]")
 {
     TrackLayout layout;
