@@ -1818,6 +1818,23 @@ TEST_CASE("takes: takes open under their clip after a loop pass; strips, the bad
     CHECK(fd::model::badge(stack(), track().clips, false)->comp);
     s.setTakesOpen(stack().id, true);
     s.updateSnapshotNow();
+    {
+        // Selected, every part of it is lighter, and so is a crossfade at its join (drawn as its
+        // clip's body): just under the title, clear of the waveform.
+        REQUIRE(track().clips.size() == 2);
+        const auto parts = std::vector{track().clips[0].id, track().clips[1].id};
+        REQUIRE(s.crossfade(parts, 0.2).size() == 1);
+        s.updateSnapshotNow();
+        const auto x = *track().clips[0].crossfadeOut;
+        view.setSelection(fd::model::withClips(*s.snapshot(), {parts[0]}, t0, t0));
+        view.setSnapshot(s.snapshot());
+        const auto& theme = fd::ui::Theme::current();
+        const auto image = view.createComponentSnapshot(view.getLocalBounds());
+        const int y = fd::app::ArrangementView::rulerHeight() + theme.shell.clipGap + theme.shell.clipTitleHeight + 2;
+        const auto lighter = theme.clipBody(theme.clipColour(track().clips[0].colour), true);
+        for (const double at : {4.5, 6.5, track().clips[0].end() + x.from + x.length * 0.5})
+            CHECK(image.getPixelAt(static_cast<int>(laneX(at)), y) == lighter);
+    }
     if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: a comp, and a narrow clip's badge
         for (const auto& [name, zoom] : {std::pair{"takes-comp.png", 150.0}, std::pair{"takes-narrow.png", 24.0}})
         {

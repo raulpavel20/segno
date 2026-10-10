@@ -120,7 +120,7 @@ void ArrangementView::paintCrossfades(juce::Graphics& g, const model::TrackInfo&
                 juce::Graphics::ScopedSaveState sideState(g);
                 g.reduceClipRegion(part.getSmallestIntegerContainer());
                 const auto colour = t.clipColour(side->colour);
-                g.setColour(t.clipBody(colour, side->stack == 0 && selection_.clips.contains(side->id)));
+                g.setColour(t.clipBody(colour, drawnSelected(track, *side))); // as its clip's body
                 g.fillRect(part);
                 WaveformTiles::drawDirect(g, *sum, sumClip, span, part.getSmallestIntegerContainer(), timeline_, laneArea().getX(),
                                           t.clipContent(colour));

@@ -884,9 +884,9 @@ void ArrangementView::paintGroup(juce::Graphics& g, const model::ClipGroup& grou
                                  float h, juce::Rectangle<int> visible)
 {
     const auto& t = ui::Theme::current();
-    const bool selected = selection_.clips.contains(group.parts.front()->id);
-    for (const auto* part : group.parts)
-        paintClip(g, *part, y, h, visible, selected && group.parts.size() == 1);
+    const bool selected = drawnSelected(track, *group.parts.front());
+    for (const auto* part : group.parts) // lighter together; one outline, at the end
+        paintClip(g, *part, y, h, visible, selected, false, false);
     if (group.end() < timeline_.start() || group.start() > timeline_.end())
         return;
     const auto box = groupBox(group, y, h);
@@ -1129,8 +1129,17 @@ void ArrangementView::takeMenu(std::uint64_t trackId, std::uint64_t stackId, std
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMousePosition());
 }
 
+bool ArrangementView::drawnSelected(const model::TrackInfo& track, const model::ClipInfo& clip) const
+{
+    if (selection_.clips.contains(clip.id))
+        return true;
+    return clip.stack != 0 && std::any_of(track.clips.begin(), track.clips.end(), [&](const auto& c) {
+               return c.stack == clip.stack && selection_.clips.contains(c.id);
+           });
+}
+
 void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, float y, float h, juce::Rectangle<int> visible,
-                                bool selected, bool dimmed)
+                                bool selected, bool dimmed, bool outline)
 {
     const auto& t = ui::Theme::current();
     if (clip.end() < timeline_.start() || clip.start > timeline_.end())
@@ -1154,7 +1163,7 @@ void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, 
     }
     if (titleShowsText(title))
         paintTitleText(g, title, clip.name, clip.muted);
-    if (selected)
+    if (selected && outline)
     {
         g.setColour(t.textPrimary);
         g.drawRect(box, 1.0f);

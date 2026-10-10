@@ -200,8 +200,12 @@ private:
     /// The rows and their header controls, for the current snapshot.
     void syncRows();
     [[nodiscard]] std::function<double(double)> snapFunction(bool bypass) const;
+    /// A clip: its body (lighter when `selected`), title, contents and fades; its outline when
+    /// `selected` and `outline` (a clip with takes draws one outline around all its parts).
     void paintClip(juce::Graphics& g, const model::ClipInfo& clip, float y, float h, juce::Rectangle<int> visible, bool selected,
-                   bool dimmed = false);
+                   bool dimmed = false, bool outline = true);
+    /// Whether a clip draws as selected: it, or another part of the same clip (ADR 0032), is.
+    [[nodiscard]] bool drawnSelected(const model::TrackInfo& track, const model::ClipInfo& clip) const;
     // Clip geometry, for every clip drawn (the shell's clip metrics, ui-foundations.md).
     /// A clip from `start` to `end` (seconds) in a row at `y`, `h` high.
     [[nodiscard]] juce::Rectangle<float> clipBox(double start, double end, float y, float h) const;
