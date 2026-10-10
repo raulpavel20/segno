@@ -26,7 +26,10 @@ enum class Icon
     AutomationOn,  // turn automation back on: the line with a turning arrow
     Close,         // remove or close: a cross
     Star,          // a favourite (a take, C5b): outlined; filled when on
-    Capture        // capture MIDI (C5b): a turning arrow back round a dot, recording what was played
+    Capture,       // capture MIDI (C5b): a turning arrow back round a dot, recording what was played
+    Follow,        // follow the playhead: the playhead line with an arrow going on
+    CountIn,       // count-in: beats leading into the downbeat
+    ChevronDown    // opens a menu (a clip's takes)
 };
 
 /// Draws `icon` fitted (aspect kept) into `area` in `colour`.

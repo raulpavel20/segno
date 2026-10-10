@@ -122,6 +122,28 @@ Glyph glyph(Icon icon)
         p.lineTo(5.4f, 3.9f);
         g.solid.addEllipse(5.5f, 5.5f, 5.0f, 5.0f);
         break;
+    case Icon::Follow:
+        // The playhead, and the view going on with it.
+        p.startNewSubPath(4.5f, 2.5f);
+        p.lineTo(4.5f, 13.5f);
+        p.startNewSubPath(7.5f, 8.0f);
+        p.lineTo(13.5f, 8.0f);
+        p.startNewSubPath(11.0f, 5.5f);
+        p.lineTo(13.5f, 8.0f);
+        p.lineTo(11.0f, 10.5f);
+        break;
+    case Icon::CountIn:
+        // Three beats into the downbeat.
+        for (float x : {2.75f, 6.0f, 9.25f})
+            g.solid.addEllipse(x - 1.25f, 9.75f, 2.5f, 2.5f);
+        p.startNewSubPath(13.25f, 3.0f);
+        p.lineTo(13.25f, 13.0f);
+        break;
+    case Icon::ChevronDown:
+        p.startNewSubPath(3.5f, 6.0f);
+        p.lineTo(8.0f, 10.5f);
+        p.lineTo(12.5f, 6.0f);
+        break;
     case Icon::Settings:
         // Three sliders.
         for (int i = 0; i < 3; ++i)

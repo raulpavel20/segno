@@ -1,6 +1,7 @@
 #include "ui/Panels.h"
 
 #include "model/Takes.h"
+#include "model/TopBarLayout.h"
 
 #include <fd/device/Registry.h>
 
@@ -42,10 +43,13 @@ TransportBar::TransportBar(engine::Session& session, const ActionRegistry& actio
     record_.onPopupMenu = [this] { showRecordMenu(); };
     add(capture_, "transport.capture");
     add(loop_, "transport.loop");
+    add(follow_, "view.follow");
     add(metronome_, "transport.metronome");
+    add(countIn_, "transport.countIn");
+    countIn_.setTooltip(actions_.tooltip("transport.countIn") + "; right-click for its length");
+    countIn_.onPopupMenu = [this] { countInMenu().showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&countIn_)); };
     add(automationArm_, "automation.arm");
     automationArm_.setRecordAccent(true); // it records (automation.md §8)
-    add(automationOn_, "automation.reEnable");
     add(keyboard_, "midi.computerKeyboard");
     for (auto* view : {&arrangeView_, &mixView_})
     {
@@ -157,18 +161,25 @@ void TransportBar::frame(double positionSeconds, const model::TempoMap& tempo)
     {
         position_ = positionSeconds;
         cpu_ = cpu;
-        repaint(readoutArea_);
+        repaint(wellArea_);
+        repaint(cpuArea_);
     }
 }
 
-void TransportBar::showRecordMenu()
+juce::PopupMenu TransportBar::countInMenu()
 {
     using C = model::CountIn;
-    juce::PopupMenu countIn, midi;
+    juce::PopupMenu countIn;
     const auto now = session_.countIn();
     for (const auto& [value, name] : {std::pair{C::Off, "Off"}, std::pair{C::OneBeat, "1 beat"}, std::pair{C::TwoBeats, "2 beats"},
                                       std::pair{C::OneBar, "1 bar"}, std::pair{C::TwoBars, "2 bars"}})
         countIn.addItem(name, true, now == value, [this, v = value] { session_.setCountIn(v); });
+    return countIn;
+}
+
+void TransportBar::showRecordMenu()
+{
+    juce::PopupMenu countIn = countInMenu(), midi;
     const bool overdub = session_.midiOverdub();
     midi.addItem("Each lap: a new take", true, !overdub, [this] { session_.setMidiOverdub(false); });
     midi.addItem("Each lap: add to the clip (overdub)", true, overdub, [this] { session_.setMidiOverdub(true); });
@@ -186,7 +197,9 @@ void TransportBar::paint(juce::Graphics& g)
 {
     const auto& t = ui::Theme::current();
     g.fillAll(t.surface1);
-    if (!brandArea_.isEmpty())
+    if (markOnly_)
+        ui::paintMark(g, brandArea_.toFloat(), t.active);
+    else if (!brandArea_.isEmpty())
         ui::paintBrand(g, brandArea_);
 
     // BPM label after the tempo field, the slash between the signature fields.
@@ -207,92 +220,127 @@ void TransportBar::paint(juce::Graphics& g)
         g.fillEllipse(assistantLight_.toFloat().withSizeKeepingCentre(6.0f, 6.0f));
     }
 
-    auto r = readoutArea_;
-    auto field = [&](const juce::String& value, const juce::String& unit, int width, ui::TextStyle style) {
-        auto box = r.removeFromLeft(width);
-        r.removeFromLeft(16);
-        g.setColour(t.textPrimary);
-        g.setFont(ui::font(style));
-        const int valueWidth = static_cast<int>(juce::GlyphArrangement::getStringWidth(ui::font(style), value)) + 4;
-        g.drawText(value, box.removeFromLeft(valueWidth), juce::Justification::centredLeft, false);
-        g.setColour(t.textTertiary);
-        g.setFont(ui::font(ui::TextStyle::Caption));
-        g.drawText(unit, box, juce::Justification::centredLeft, false);
-    };
-    // During a count-in the position counts the beats down to the recording (recording.md §9).
+    // The position, in an inset well at the centre: bars.beats.16ths, then the time.
+    g.setColour(t.surface0);
+    g.fillRoundedRectangle(wellArea_.toFloat(), t.radiusControl);
+    const int inset = t.shell.itemGap * 2;
+    // During a count-in (or a lead-in) the bars count the beats down to the recording (recording.md §9).
     if (const auto from = session_.recordingFrom(); from && session_.isPlaying() && position_ < *from - 1e-3)
     {
         const auto beats = static_cast<int>(std::ceil(tempo_.beatsForSeconds(*from) - tempo_.beatsForSeconds(position_) - 1e-6));
-        auto box = r.removeFromLeft(84);
-        r.removeFromLeft(16);
         g.setColour(t.record);
         g.setFont(ui::font(ui::TextStyle::ValueLarge));
-        g.drawText(juce::String::fromUTF8("\xE2\x88\x92") + juce::String(beats), box, juce::Justification::centredLeft, false);
+        g.drawText(juce::String::fromUTF8("\xE2\x88\x92") + juce::String(beats), barsArea_.withTrimmedLeft(inset),
+                   juce::Justification::centredLeft, false);
     }
     else
     {
         const auto bb = tempo_.barsBeatsForSeconds(std::max(0.0, position_));
-        field(juce::String(bb.bar) + ". " + juce::String(bb.beat) + ". " + juce::String(bb.sixteenth), "", 84,
-              ui::TextStyle::ValueLarge);
+        g.setColour(t.textPrimary);
+        g.setFont(ui::font(ui::TextStyle::ValueLarge));
+        g.drawText(juce::String(bb.bar) + ". " + juce::String(bb.beat) + ". " + juce::String(bb.sixteenth),
+                   barsArea_.withTrimmedLeft(inset), juce::Justification::centredLeft, false);
     }
-    field(formatTime(position_), "", 84, ui::TextStyle::ValueMedium);
+    if (!timeArea_.isEmpty())
+    {
+        g.setColour(t.textSecondary);
+        g.setFont(ui::font(ui::TextStyle::ValueMedium));
+        g.drawText(formatTime(position_), timeArea_, juce::Justification::centredLeft, false);
+    }
 
-    g.setColour(t.textTertiary);
-    g.setFont(ui::font(ui::TextStyle::Value));
-    g.drawText("CPU " + juce::String(std::max(0, cpu_)) + " %", r, juce::Justification::centredRight, false);
+    if (!cpuArea_.isEmpty())
+    {
+        g.setColour(t.textTertiary);
+        g.setFont(ui::font(ui::TextStyle::Value));
+        g.drawText("CPU " + juce::String(std::max(0, cpu_)) + " %", cpuArea_, juce::Justification::centredLeft, false);
+    }
 }
 
 void TransportBar::resized()
 {
-    // One rhythm for the whole bar (docs/design/ui-foundations.md): items 4 px apart, groups 12.
+    // Three sections over the whole width (daw-shell.md, "Top bar"): the brand and the song on the
+    // left, the transport centred on the window, status, views and app on the right. One rhythm:
+    // items 4 px apart, groups 12; model::layoutTopBar places them and drops what doesn't fit.
     const auto& t = ui::Theme::current();
-    ui::BarLayout bar(getLocalBounds().reduced(t.shell.barPadding, t.shell.barInset));
-    // The mark and name at the top left (ADR 0024), the height of the bar's buttons.
-    brandArea_ = bar.left(ui::brandWidth(bar.remaining().getHeight()));
-    bar.groupLeft();
-    play_.setBounds(bar.left());
-    stop_.setBounds(bar.left());
-    record_.setBounds(bar.left());
-    capture_.setBounds(bar.left());
-    bar.groupLeft();
-    loop_.setBounds(bar.left());
-    metronome_.setBounds(bar.left());
-    bar.groupLeft();
-    automationArm_.setBounds(bar.left());
-    automationOn_.setBounds(bar.left());
-    bar.groupLeft();
-    // Fields sized for their mono digits: "999.00", "32".
+    const auto inner = getLocalBounds().reduced(t.shell.barPadding, t.shell.barInset);
+    const int h = inner.getHeight();
+    auto textWidth = [](ui::TextStyle style, const juce::String& text) {
+        return static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(ui::font(style), text)));
+    };
     const auto digit = juce::GlyphArrangement::getStringWidth(ui::font(ui::TextStyle::ValueMedium), "0");
-    tempoField_.setBounds(bar.left(static_cast<int>(std::ceil(digit * 6.0f)) + 10));
-    bpmArea_ = bar.left(static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(ui::font(ui::TextStyle::ValueSmall), "BPM"))));
-    bar.groupLeft();
-    const int small = static_cast<int>(std::ceil(digit * 2.0f)) + 10;
-    numeratorField_.setBounds(bar.left(small));
-    slashArea_ = bar.left(static_cast<int>(std::ceil(digit)));
-    denominatorField_.setBounds(bar.left(small));
+    const int small = static_cast<int>(std::ceil(digit * 2.0f)) + 10; // "32"
+    const int inset = t.shell.itemGap * 2;
+    const int mark = ui::brandMarkWidth(h);
+    const int light = t.shell.itemGap * 2;
 
-    settings_.setBounds(bar.right());
-    if (assistants_.isVisible())
+    using S = model::BarSection;
+    struct Entry
     {
-        bar.groupRight();
-        assistantLight_ = bar.right(t.shell.itemGap * 2);
-        assistants_.setBounds(bar.right());
+        model::BarItem item;
+        std::function<void(juce::Rectangle<int>)> place; // empty rectangle: dropped
+    };
+    auto button = [](juce::Component& c) {
+        return [&c](juce::Rectangle<int> r) {
+            c.setVisible(!r.isEmpty());
+            c.setBounds(r);
+        };
+    };
+    auto area = [](juce::Rectangle<int>& a) { return [&a](juce::Rectangle<int> r) { a = r; }; };
+    juce::Rectangle<int> markArea, wordArea;
+    const bool assistants = actions_.find("app.assistants") != nullptr;
+    std::vector<Entry> entries{
+        // Left: the brand, then the song.
+        {{S::Left, static_cast<double>(mark)}, area(markArea)},
+        {{S::Left, static_cast<double>(ui::brandWidth(h) - mark - t.shell.itemGap), false, 2}, area(wordArea)},
+        {{S::Left, std::ceil(digit * 6.0f) + 10.0, true}, button(tempoField_)},
+        {{S::Left, static_cast<double>(textWidth(ui::TextStyle::ValueSmall, "BPM"))}, area(bpmArea_)},
+        {{S::Left, static_cast<double>(small), true}, button(numeratorField_)},
+        {{S::Left, std::ceil(digit)}, area(slashArea_)},
+        {{S::Left, static_cast<double>(small)}, button(denominatorField_)},
+        {{S::Left, static_cast<double>(h), true}, button(metronome_)},
+        {{S::Left, static_cast<double>(h)}, button(countIn_)},
+        // Centre: the transport, the position, the loop.
+        {{S::Centre, static_cast<double>(h)}, button(play_)},
+        {{S::Centre, static_cast<double>(h)}, button(stop_)},
+        {{S::Centre, static_cast<double>(h)}, button(record_)},
+        {{S::Centre, static_cast<double>(h)}, button(capture_)},
+        {{S::Centre, static_cast<double>(h)}, button(automationArm_)},
+        {{S::Centre, static_cast<double>(textWidth(ui::TextStyle::ValueLarge, "000. 00. 00") + inset), true}, area(barsArea_)},
+        {{S::Centre, static_cast<double>(textWidth(ui::TextStyle::ValueMedium, "00:00.000") + inset), false, 4}, area(timeArea_)},
+        {{S::Centre, static_cast<double>(h), true}, button(loop_)},
+        {{S::Centre, static_cast<double>(h)}, button(follow_)},
+        // Right: status, views, app.
+        {{S::Right, static_cast<double>(textWidth(ui::TextStyle::Value, "CPU 100 %")), false, 3}, area(cpuArea_)},
+        {{S::Right, static_cast<double>(h), true}, button(keyboard_)},
+        {{S::Right, static_cast<double>(light)}, area(midiLight_)},
+        {{S::Right, static_cast<double>(textWidth(ui::TextStyle::Control, arrangeView_.getButtonText()) + 16), true}, button(arrangeView_)},
+        {{S::Right, static_cast<double>(textWidth(ui::TextStyle::Control, mixView_.getButtonText()) + 16)}, button(mixView_)},
+        {{S::Right, static_cast<double>(h), true, 1}, button(browser_)},
+        {{S::Right, static_cast<double>(h), false, 1}, button(detail_)},
+        {{S::Right, static_cast<double>(h), false, 1}, button(inspector_)},
+    };
+    if (assistants)
+    {
+        entries.push_back({{S::Right, static_cast<double>(h), true}, button(assistants_)});
+        entries.push_back({{S::Right, static_cast<double>(light)}, area(assistantLight_)});
     }
-    bar.groupRight();
-    for (auto* view : {&mixView_, &arrangeView_}) // right to left: "Arrange | Mix"
-        view->setBounds(bar.right(static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(
-                                      ui::font(ui::TextStyle::Control), view->getButtonText()))) + 16));
-    bar.groupRight();
-    inspector_.setBounds(bar.right());
-    detail_.setBounds(bar.right());
-    browser_.setBounds(bar.right());
-    // The computer keyboard toggle sits on the right, like the MIDI section of a control bar.
-    bar.groupRight();
-    midiLight_ = bar.right(t.shell.itemGap * 2);
-    keyboard_.setBounds(bar.right());
-    bar.groupRight();
-    bar.groupLeft();
-    readoutArea_ = bar.left(0).withRight(bar.right(0).getX()).withTop(0).withBottom(getHeight());
+    entries.push_back({{S::Right, static_cast<double>(h), !assistants}, button(settings_)});
+
+    std::vector<model::BarItem> items;
+    for (const auto& e : entries)
+        items.push_back(e.item);
+    const auto slots = model::layoutTopBar(getWidth(), items,
+                                           {.padding = static_cast<double>(t.shell.barPadding),
+                                            .itemGap = static_cast<double>(t.shell.itemGap),
+                                            .groupGap = static_cast<double>(t.shell.groupGap),
+                                            .sectionGap = 2.0 * t.shell.groupGap});
+    for (size_t i = 0; i < entries.size(); ++i)
+        entries[i].place(slots[i].shown ? juce::Rectangle<int>(juce::roundToInt(slots[i].x), inner.getY(),
+                                                               juce::roundToInt(slots[i].width), h)
+                                        : juce::Rectangle<int>());
+    markOnly_ = wordArea.isEmpty();
+    brandArea_ = markOnly_ ? markArea : markArea.getUnion(wordArea);
+    wellArea_ = timeArea_.isEmpty() ? barsArea_ : barsArea_.getUnion(timeArea_);
 }
 
 // ---- BrowserPanel --------------------------------------------------------------------------

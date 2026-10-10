@@ -61,6 +61,11 @@ void paintMark(juce::Graphics& g, juce::Rectangle<float> area, juce::Colour colo
     g.fillPath(m.dots);
 }
 
+int brandMarkWidth(int height)
+{
+    return static_cast<int>(std::ceil(markWidth(static_cast<float>(height))));
+}
+
 int brandWidth(int height)
 {
     const auto h = static_cast<float>(height);

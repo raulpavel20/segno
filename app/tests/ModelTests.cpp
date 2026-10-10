@@ -4,12 +4,14 @@
 #include "model/ChannelStripLayout.h"
 #include "model/Taper.h"
 #include "model/Timeline.h"
+#include "model/TopBarLayout.h"
 #include "model/TrackHeaderLayout.h"
 #include "model/TrackLayout.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <vector>
 
 using namespace fd::model;
@@ -548,4 +550,63 @@ TEST_CASE("channel strips line up on the grid in every combination", "[fast]")
     const ChannelStripOptions o{.sendRows = 2};
     CHECK(layoutChannelStrip(500.0, o).fader.y == layoutChannelStrip(700.0, o).fader.y);
     CHECK(layoutChannelStrip(100.0, o).fader.h == 80.0);
+}
+
+TEST_CASE("top bar: three sections, the centre on the middle, items dropped by priority", "[fast]")
+{
+    using S = BarSection;
+    const BarMetrics m;
+    // Roughly the real bar: brand and song left, the transport centred, status, views and app right.
+    const std::vector<BarItem> items{
+        {S::Left, 23.0},
+        {S::Left, 80.0, false, 2}, // the wordmark
+        {S::Left, 80.0, true},     {S::Left, 26.0},       {S::Left, 34.0, true}, {S::Left, 9.0}, {S::Left, 34.0},
+        {S::Left, 28.0, true},     {S::Left, 28.0},
+        {S::Centre, 28.0},         {S::Centre, 28.0},     {S::Centre, 28.0},     {S::Centre, 28.0}, {S::Centre, 28.0},
+        {S::Centre, 100.0, true},  {S::Centre, 84.0, false, 4}, // the position: bars, then the time
+        {S::Centre, 28.0, true},   {S::Centre, 28.0},
+        {S::Right, 70.0, false, 3}, // CPU
+        {S::Right, 28.0, true},    {S::Right, 8.0},
+        {S::Right, 70.0, true},    {S::Right, 40.0},
+        {S::Right, 28.0, true, 1}, {S::Right, 28.0, false, 1}, {S::Right, 28.0, false, 1},
+        {S::Right, 28.0, true},    {S::Right, 8.0},       {S::Right, 28.0}};
+    auto noOverlaps = [&](const std::vector<BarSlot>& slots, double width) {
+        double last = 0.0;
+        for (const auto& s : slots)
+            if (s.shown)
+            {
+                CHECK(s.x >= last - 1e-9);
+                last = s.right();
+            }
+        CHECK(last <= width - m.padding + 1e-9);
+    };
+
+    // Wide: everything shows; the centre sits on the middle; the right section ends at the edge.
+    auto slots = layoutTopBar(1800.0, items);
+    CHECK(std::all_of(slots.begin(), slots.end(), [](const auto& s) { return s.shown; }));
+    CHECK(slots[0].x == Approx(m.padding));
+    CHECK((slots[9].x + slots[17].right()) * 0.5 == Approx(900.0));
+    CHECK(slots.back().right() == Approx(1800.0 - m.padding));
+    CHECK(slots[1].x == Approx(slots[0].right() + m.itemGap));
+    CHECK(slots[2].x == Approx(slots[1].right() + m.groupGap));
+    noOverlaps(slots, 1800.0);
+
+    // Narrower: the time goes first, then the CPU load, then the wordmark, then the panel toggles.
+    for (double width : {1440.0, 1200.0, 1100.0, 1024.0}) // down to the window's minimum
+        noOverlaps(layoutTopBar(width, items), width);
+    slots = layoutTopBar(1024.0, items);
+    CHECK_FALSE(slots[15].shown); // the time
+    CHECK(slots[14].shown);       // the bars stay
+    // Dropped in order: never the CPU before the time, nor the panel toggles before the wordmark.
+    for (double width = 1800.0; width > 600.0; width -= 10.0)
+    {
+        slots = layoutTopBar(width, items);
+        if (!slots[18].shown)
+            CHECK_FALSE(slots[15].shown);
+        if (!slots[1].shown)
+            CHECK_FALSE(slots[18].shown);
+        if (!slots[23].shown)
+            CHECK_FALSE(slots[1].shown);
+        CHECK(slots[0].shown); // the mark always shows
+    }
 }

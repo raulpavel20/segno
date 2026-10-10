@@ -73,11 +73,14 @@ private:
     ui::IconButton play_{ui::Icon::Play}, stop_{ui::Icon::Stop}, record_{ui::Icon::Record};
     /// The Record button's menu (recording.md §9): count-in, MIDI loop recording, settings.
     void showRecordMenu();
+    /// The count-in lengths (the Record button's and the count-in button's right-click menus).
+    [[nodiscard]] juce::PopupMenu countInMenu();
     /// Capture MIDI (recording.md §8): dim until something was played to capture.
     ui::IconButton capture_{ui::Icon::Capture};
-    ui::IconButton loop_{ui::Icon::Loop}, metronome_{ui::Icon::Metronome}, keyboard_{ui::Icon::Keyboard};
-    // Automation (C4): arm (touch recording), and turn every lane back on (lit while one is off).
-    ui::IconButton automationArm_{ui::Icon::AutomationArm}, automationOn_{ui::Icon::AutomationOn};
+    ui::IconButton loop_{ui::Icon::Loop}, follow_{ui::Icon::Follow}, metronome_{ui::Icon::Metronome},
+        countIn_{ui::Icon::CountIn}, keyboard_{ui::Icon::Keyboard};
+    // Automation arm (C4): touch recording, in the record colour (lanes turn themselves back on).
+    ui::IconButton automationArm_{ui::Icon::AutomationArm};
     ui::NumberField tempoField_, numeratorField_, denominatorField_;
     ui::IconButton browser_{ui::Icon::PanelLeft}, detail_{ui::Icon::PanelBottom}, inspector_{ui::Icon::PanelRight};
     ui::IconButton settings_{ui::Icon::Settings};
@@ -93,8 +96,11 @@ private:
     bool midiLit_ = false;
     bool assistantLit_ = false;
     [[nodiscard]] juce::Rectangle<int> midiLightArea() const { return midiLight_; }
-    // Laid out by resized(): the painted parts between the controls.
-    juce::Rectangle<int> brandArea_, bpmArea_, slashArea_, readoutArea_, midiLight_, assistantLight_;
+    // Laid out by resized() from model::layoutTopBar: the painted parts between the controls. The
+    // brand is the mark alone when the name doesn't fit; the position sits in an inset well.
+    juce::Rectangle<int> brandArea_, bpmArea_, slashArea_, barsArea_, timeArea_, wellArea_, cpuArea_, midiLight_,
+        assistantLight_;
+    bool markOnly_ = false;
 };
 
 /// Left panel: one search across devices, presets, samples, plugins and files (M3). In M1 it

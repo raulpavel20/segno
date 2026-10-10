@@ -18,6 +18,8 @@ void paintMark(juce::Graphics& g, juce::Rectangle<float> area, juce::Colour colo
 void paintBrand(juce::Graphics& g, juce::Rectangle<int> area);
 /// The width paintBrand takes for a given height.
 [[nodiscard]] int brandWidth(int height);
+/// The width of the mark alone at a given height (the top bar keeps it when the name doesn't fit).
+[[nodiscard]] int brandMarkWidth(int height);
 
 /// The app icon at `size` pixels: the mark on a dark rounded square.
 [[nodiscard]] juce::Image appIcon(int size);

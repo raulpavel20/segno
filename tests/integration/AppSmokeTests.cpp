@@ -116,6 +116,22 @@ TEST_CASE("DAW shell builds and paints offscreen at standard and compact widths"
             }
         const auto image = f.shell->createComponentSnapshot(f.shell->getLocalBounds());
         CHECK(image.isValid());
+        // The top bar's controls never overlap, at either width (model::layoutTopBar).
+        for (auto* child : f.shell->getChildren())
+            if (auto* bar = dynamic_cast<fd::app::TransportBar*>(child))
+            {
+                std::vector<juce::Rectangle<int>> shown;
+                for (auto* c : bar->getChildren())
+                    if (c->isVisible())
+                        shown.push_back(c->getBounds());
+                CHECK(shown.size() >= 19); // every control (no assistants button without MCP)
+                for (size_t a = 0; a < shown.size(); ++a)
+                {
+                    CHECK(bar->getLocalBounds().contains(shown[a]));
+                    for (size_t b = a + 1; b < shown.size(); ++b)
+                        CHECK_FALSE(shown[a].intersects(shown[b]));
+                }
+            }
         if (const char* dump = std::getenv("FD_DUMP_DIR"))
         {
             juce::PNGImageFormat png;
