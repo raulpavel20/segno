@@ -51,6 +51,18 @@ TransportBar::TransportBar(engine::Session& session, const ActionRegistry& actio
     add(automationArm_, "automation.arm");
     automationArm_.setRecordAccent(true); // it records (automation.md §8)
     add(keyboard_, "midi.computerKeyboard");
+    // Its octave and velocity, by mouse too (menu-bar.md §8).
+    keyboard_.onPopupMenu = [this] {
+        juce::PopupMenu menu;
+        actions_.addMenuItem(menu, "midi.computerKeyboard");
+        menu.addSeparator();
+        for (const auto* id : {"midi.octaveDown", "midi.octaveUp", "midi.velocityDown", "midi.velocityUp"})
+            actions_.addMenuItem(menu, id);
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&keyboard_));
+    };
+    add(undo_, "edit.undo");
+    add(redo_, "edit.redo");
+    add(search_, "app.commandPalette");
     for (auto* view : {&arrangeView_, &mixView_})
     {
         view->setClickingTogglesState(false);
@@ -104,6 +116,15 @@ TransportBar::TransportBar(engine::Session& session, const ActionRegistry& actio
         add(assistants_, "app.assistants");
 }
 
+void TransportBar::setBrandShown(bool shown)
+{
+    if (brandShown_ == shown)
+        return;
+    brandShown_ = shown;
+    resized();
+    repaint();
+}
+
 ui::IconButton& TransportBar::add(ui::IconButton& b, std::string id)
 {
     b.setWantsKeyboardFocus(false);
@@ -123,6 +144,10 @@ void TransportBar::frame(double positionSeconds, const model::TempoMap& tempo)
         if (button->isEnabled() != actions_.isEnabled(id))
             button->setEnabled(actions_.isEnabled(id)); // e.g. the inspector in the mixer view
     }
+    // Undo and Redo name their step ("Undo Add track (Ctrl+Z)").
+    for (const auto& [button, id] : {std::pair{&undo_, "edit.undo"}, std::pair{&redo_, "edit.redo"}})
+        if (const auto tip = actions_.tooltip(id); tip != button->getTooltip())
+            button->setTooltip(tip);
     if (captureTooltip)
         if (const auto tip = captureTooltip(); tip != capture_.getTooltip())
             capture_.setTooltip(tip);
@@ -181,15 +206,20 @@ juce::PopupMenu TransportBar::countInMenu()
     return countIn;
 }
 
-void TransportBar::showRecordMenu()
+juce::PopupMenu TransportBar::midiLoopMenu()
 {
-    juce::PopupMenu countIn = countInMenu(), midi;
+    juce::PopupMenu midi;
     const bool overdub = session_.midiOverdub();
     midi.addItem("Each lap: a new take", true, !overdub, [this] { session_.setMidiOverdub(false); });
     midi.addItem("Each lap: add to the clip (overdub)", true, overdub, [this] { session_.setMidiOverdub(true); });
+    return midi;
+}
+
+void TransportBar::showRecordMenu()
+{
     juce::PopupMenu menu;
-    menu.addSubMenu("Count-in", countIn);
-    menu.addSubMenu("MIDI loop recording", midi);
+    menu.addSubMenu("Count-in", countInMenu());
+    menu.addSubMenu("MIDI loop recording", midiLoopMenu());
     menu.addSeparator();
     juce::PopupMenu::Item settings(juce::String::fromUTF8("Recording settings\xE2\x80\xA6"));
     settings.setAction([this] { actions_.perform("app.audioSettings"); });
@@ -201,7 +231,7 @@ void TransportBar::paint(juce::Graphics& g)
 {
     const auto& t = ui::Theme::current();
     g.fillAll(t.surface1);
-    if (markOnly_)
+    if (!brandArea_.isEmpty() && markOnly_)
         ui::paintMark(g, brandArea_.toFloat(), t.active);
     else if (!brandArea_.isEmpty())
         ui::paintBrand(g, brandArea_);
@@ -294,10 +324,24 @@ void TransportBar::resized()
     auto area = [](juce::Rectangle<int>& a) { return [&a](juce::Rectangle<int> r) { a = r; }; };
     juce::Rectangle<int> markArea, wordArea;
     const bool assistants = actions_.find("app.assistants") != nullptr;
-    std::vector<Entry> entries{
-        // Left: the brand, then the song.
-        {{S::Left, static_cast<double>(mark)}, area(markArea)},
-        {{S::Left, static_cast<double>(ui::brandWidth(h) - mark - t.shell.itemGap), false, 2}, area(wordArea)},
+    // Items drop when it's narrow, highest first (daw-shell.md, "Top bar"): the time, the CPU load,
+    // the wordmark, the panel toggles, then Undo and Redo; the menu bar has them all.
+    enum Drop
+    {
+        kUndo = 1,
+        kPanels = 2,
+        kWordmark = 3,
+        kCpu = 4,
+        kTime = 5,
+    };
+    std::vector<Entry> entries;
+    if (brandShown_)
+    {
+        entries.push_back({{S::Left, static_cast<double>(mark)}, area(markArea)});
+        entries.push_back({{S::Left, static_cast<double>(ui::brandWidth(h) - mark - t.shell.itemGap), false, kWordmark}, area(wordArea)});
+    }
+    entries.insert(entries.end(), {
+        // Left: the song, then Undo and Redo.
         {{S::Left, static_cast<double>(tempoField_.widthFor("999.00")), true}, button(tempoField_)},
         {{S::Left, static_cast<double>(textWidth(ui::TextStyle::ValueSmall, "BPM"))}, area(bpmArea_)},
         {{S::Left, static_cast<double>(numeratorField_.widthFor("32")), true}, button(numeratorField_)},
@@ -305,6 +349,8 @@ void TransportBar::resized()
         {{S::Left, static_cast<double>(denominatorField_.widthFor("16"))}, button(denominatorField_)},
         {{S::Left, static_cast<double>(h), true}, button(metronome_)},
         {{S::Left, static_cast<double>(h)}, button(countIn_)},
+        {{S::Left, static_cast<double>(h), true, kUndo}, button(undo_)},
+        {{S::Left, static_cast<double>(h), false, kUndo}, button(redo_)},
         // Centre: the transport, the position, the loop.
         {{S::Centre, static_cast<double>(h)}, button(play_)},
         {{S::Centre, static_cast<double>(h)}, button(stop_)},
@@ -312,25 +358,27 @@ void TransportBar::resized()
         {{S::Centre, static_cast<double>(h)}, button(capture_)},
         {{S::Centre, static_cast<double>(h)}, button(automationArm_)},
         {{S::Centre, static_cast<double>(textWidth(ui::TextStyle::ValueLarge, "000. 00. 00") + 2 * inset), true}, area(barsArea_)},
-        {{S::Centre, static_cast<double>(textWidth(ui::TextStyle::ValueMedium, "00:00.000") + inset), false, 4}, area(timeArea_)},
+        {{S::Centre, static_cast<double>(textWidth(ui::TextStyle::ValueMedium, "00:00.000") + inset), false, kTime}, area(timeArea_)},
         {{S::Centre, static_cast<double>(h), true}, button(loop_)},
         {{S::Centre, static_cast<double>(h)}, button(follow_)},
         // Right: status, views, app.
-        {{S::Right, static_cast<double>(textWidth(ui::TextStyle::Value, "CPU 100 %")), false, 3}, area(cpuArea_)},
+        {{S::Right, static_cast<double>(textWidth(ui::TextStyle::Value, "CPU 100 %")), false, kCpu}, area(cpuArea_)},
         {{S::Right, static_cast<double>(h), true}, button(keyboard_)},
         {{S::Right, static_cast<double>(light)}, area(midiLight_)},
         {{S::Right, static_cast<double>(ui::Toggle::widthFor(arrangeView_.getButtonText())), true}, button(arrangeView_)},
         {{S::Right, static_cast<double>(ui::Toggle::widthFor(mixView_.getButtonText()))}, button(mixView_)},
-        {{S::Right, static_cast<double>(h), true, 1}, button(browser_)},
-        {{S::Right, static_cast<double>(h), false, 1}, button(detail_)},
-        {{S::Right, static_cast<double>(h), false, 1}, button(inspector_)},
-    };
+        {{S::Right, static_cast<double>(h), true, kPanels}, button(browser_)},
+        {{S::Right, static_cast<double>(h), false, kPanels}, button(detail_)},
+        {{S::Right, static_cast<double>(h), false, kPanels}, button(inspector_)},
+        // App: the command palette, assistants, settings.
+        {{S::Right, static_cast<double>(h), true}, button(search_)},
+    });
     if (assistants)
     {
-        entries.push_back({{S::Right, static_cast<double>(h), true}, button(assistants_)});
+        entries.push_back({{S::Right, static_cast<double>(h)}, button(assistants_)});
         entries.push_back({{S::Right, static_cast<double>(light)}, area(assistantLight_)});
     }
-    entries.push_back({{S::Right, static_cast<double>(h), !assistants}, button(settings_)});
+    entries.push_back({{S::Right, static_cast<double>(h)}, button(settings_)});
 
     std::vector<model::BarItem> items;
     for (const auto& e : entries)
@@ -345,7 +393,7 @@ void TransportBar::resized()
                                                                juce::roundToInt(slots[i].width), h)
                                         : juce::Rectangle<int>());
     markOnly_ = wordArea.isEmpty();
-    brandArea_ = markOnly_ ? markArea : markArea.getUnion(wordArea);
+    brandArea_ = !brandShown_ ? juce::Rectangle<int>() : markOnly_ ? markArea : markArea.getUnion(wordArea);
     wellArea_ = timeArea_.isEmpty() ? barsArea_ : barsArea_.getUnion(timeArea_);
 }
 

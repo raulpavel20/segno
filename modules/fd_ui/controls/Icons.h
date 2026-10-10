@@ -29,7 +29,11 @@ enum class Icon
     Follow,        // follow the playhead: the playhead line with an arrow going on
     CountIn,       // count-in: beats leading into the downbeat
     ChevronDown,   // opens a menu (a clip's takes)
-    Audition       // hear a take in place of its clip (ADR 0038): a speaker with a sound wave
+    Audition,      // hear a take in place of its clip (ADR 0038): a speaker with a sound wave
+    Minimise,      // the window buttons (ADR 0040): a line,
+    Maximise,      // a square,
+    Restore,       // two squares (a maximised window back to its size); Close closes
+    Search         // the command palette (ADR 0040): a magnifier
 };
 
 /// Draws `icon` fitted (aspect kept) into `area` in `colour`.

@@ -198,6 +198,26 @@ Glyph glyph(Icon icon)
         p.closeSubPath();
         g.filled = true;
         break;
+    case Icon::Minimise:
+        p.startNewSubPath(4.5f, 8.0f);
+        p.lineTo(11.5f, 8.0f);
+        break;
+    case Icon::Maximise:
+        p.addRectangle(4.5f, 4.5f, 7.0f, 7.0f);
+        break;
+    case Icon::Restore:
+        p.addRectangle(4.5f, 6.5f, 5.0f, 5.0f);
+        p.startNewSubPath(6.5f, 6.5f);
+        p.lineTo(6.5f, 4.5f);
+        p.lineTo(11.5f, 4.5f);
+        p.lineTo(11.5f, 9.5f);
+        p.lineTo(9.5f, 9.5f);
+        break;
+    case Icon::Search:
+        p.addEllipse(2.5f, 2.5f, 8.5f, 8.5f);
+        p.startNewSubPath(9.8f, 9.8f);
+        p.lineTo(13.5f, 13.5f);
+        break;
     case Icon::Undo:
     case Icon::Redo:
     {

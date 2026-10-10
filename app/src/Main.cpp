@@ -6,7 +6,7 @@
 #include "engine/Session.h"
 #include "mcp/McpServer.h"
 #include "mcp/transport/StdioRelay.h"
-#include "ui/Shell.h"
+#include "ui/WindowContent.h"
 
 #include <juce_opengl/juce_opengl.h>
 
@@ -121,18 +121,73 @@ std::optional<fd::mcp::RelayTarget> runningDaw()
     target.token = json["token"].get<std::string>();
     return fd::mcp::probe(target) ? std::optional(target) : std::nullopt;
 }
+/// The main window (ADR 0040, docs/design/menu-bar.md §4). On Linux and Windows, a title bar of
+/// ours with the menus, the project's name and the window buttons, which moves, snaps, maximises
+/// and resizes the window through the system; the system's title bar is an option. On macOS, the
+/// system's title bar and menu bar.
 class MainWindow final : public juce::DocumentWindow
 {
 public:
-    MainWindow(fd::engine::Session& session, fd::mcp::McpServer& assistants, bool openGL, int displayIndex)
+    MainWindow(fd::engine::Session& session, fd::mcp::McpServer& assistants, bool openGL, int displayIndex,
+               const juce::File& settingsFile)
         : DocumentWindow(fd::ui::brand::name, fd::ui::Theme::current().surface0, allButtons)
     {
-        setUsingNativeTitleBar(true);
         setIcon(fd::ui::appIcon(256)); // the taskbar and window icon (ADR 0024)
-        auto* shell = new fd::app::Shell(session, &assistants);
-        shell_ = shell;
-        setContentOwned(shell, false);
-        setResizable(true, true);
+        auto* content = new fd::app::WindowContent(session, &assistants, !kMac);
+        content_ = content;
+        auto& shell = content->shell();
+        shell.setSettingsFile(settingsFile);
+        shell.setVersion(juce::JUCEApplication::getInstance()->getApplicationVersion());
+        setUsingNativeTitleBar(kMac || shell.settings().systemTitleBar);
+        setTitleBarHeight(0); // ours is in the content
+        content->setOwnsWindow(!isUsingNativeTitleBar());
+        content->onTitleChanged = [this](const juce::String& title) { setName(title); };
+
+        // What the window does for the shell's actions (Quit, Full screen, the title bar option).
+        shell.window.quit = [] { juce::JUCEApplication::getInstance()->systemRequestedQuit(); };
+        shell.window.isFullScreen = [this] { return isKioskMode(); };
+        shell.window.setFullScreen = [this](bool on) {
+            juce::Desktop::getInstance().setKioskModeComponent(on ? this : nullptr, false);
+            updateWindowState();
+        };
+        if (!kMac)
+            shell.window.setSystemTitleBar = [this](bool system) {
+                setUsingNativeTitleBar(system);
+                setTitleBarHeight(0);
+                content_->setOwnsWindow(!system);
+            };
+        if (auto* bar = content->titleBar())
+        {
+            bar->onMinimise = [this] { minimiseButtonPressed(); };
+            bar->onMaximise = [this] { maximiseButtonPressed(); };
+            bar->onClose = [this] { closeButtonPressed(); };
+            // Linux: the window manager moves the window, so its snapping and tiling work (on
+            // Windows the system drags the caption itself, from findControlAtPoint).
+            bar->onCaptionDrag = [this](const juce::MouseEvent& e) {
+                if (auto* peer = getPeer(); peer != nullptr && !isKioskMode())
+                    peer->startHostManagedResize(peer->globalToLocal(e.getScreenPosition()), {});
+            };
+            bar->onCaptionDoubleClick = [this] {
+                if (!isKioskMode())
+                    maximiseButtonPressed();
+            };
+            bar->onCaptionMenu = [this] {
+                juce::PopupMenu menu;
+                menu.addItem("Minimise", [this] { minimiseButtonPressed(); });
+                menu.addItem(isFullScreen() ? "Restore" : "Maximise", [this] { maximiseButtonPressed(); });
+                menu.addItem("Close", [this] { closeButtonPressed(); });
+                menu.addSeparator();
+                content_->shell().actions().addMenuItem(menu, "app.systemTitleBar");
+                menu.showMenuAsync(juce::PopupMenu::Options().withMousePosition());
+            };
+        }
+#if JUCE_MAC
+        appMenu_ = shell.menus().appMenu();
+        juce::MenuBarModel::setMacMainMenu(&shell.menus(), &appMenu_);
+#endif
+
+        setContentOwned(content, false);
+        setResizable(true, false);
         setResizeLimits(1024, 640, 16384, 16384);
         // --display N opens on another display (benchmarks); the primary display by default.
         const auto& displays = juce::Desktop::getInstance().getDisplays().displays;
@@ -149,20 +204,72 @@ public:
             gl_.setComponentPaintingEnabled(true);
             gl_.setImageCacheSize(256u * 1024u * 1024u); // waveform tiles stay on the GPU
             gl_.setContinuousRepainting(true);
-            gl_.attachTo(*shell);
+            gl_.attachTo(*content);
         }
         setVisible(true);
-        shell->grabKeyboardFocus();
+        shell.grabKeyboardFocus();
     }
 
-    ~MainWindow() override { gl_.detach(); }
+    ~MainWindow() override
+    {
+#if JUCE_MAC
+        juce::MenuBarModel::setMacMainMenu(nullptr);
+#endif
+        gl_.detach();
+    }
 
-    [[nodiscard]] fd::app::Shell& shell() const { return *shell_; }
+    [[nodiscard]] fd::app::Shell& shell() const { return content_->shell(); }
     void closeButtonPressed() override { juce::JUCEApplication::getInstance()->systemRequestedQuit(); }
 
+    /// Windows asks what each point of a window without its title bar is: our title bar's caption
+    /// and buttons (snapping, the snap layouts over Maximise), the resize edges, else the content.
+    WindowControlKind findControlAtPoint(juce::Point<float> p) const override
+    {
+        if (isUsingNativeTitleBar() || isKioskMode())
+            return WindowControlKind::client;
+        if (const auto edge = DocumentWindow::findControlAtPoint(p); edge != WindowControlKind::client)
+            return edge;
+        return content_->controlAt(content_->getLocalPoint(this, p));
+    }
+
+    /// Linux: the resize grips just inside the window's edges, outside the content; Windows: a
+    /// 1 px outline (the system resizes from outside the window). None while maximised.
+    juce::BorderSize<int> getBorderThickness() const override
+    {
+        if (isUsingNativeTitleBar() || isKioskMode() || isFullScreen())
+            return {};
+        return juce::BorderSize<int>(kLinux ? fd::ui::Theme::current().shell.resizeBorder : 1);
+    }
+
+    void resized() override
+    {
+        DocumentWindow::resized();
+        updateWindowState();
+    }
+
 private:
+#if JUCE_MAC
+    static constexpr bool kMac = true;
+#else
+    static constexpr bool kMac = false;
+#endif
+#if JUCE_LINUX || JUCE_BSD
+    static constexpr bool kLinux = true;
+#else
+    static constexpr bool kLinux = false;
+#endif
+
+    void updateWindowState()
+    {
+        if (content_ != nullptr)
+            content_->setWindowState(isFullScreen(), isKioskMode());
+    }
+
     juce::OpenGLContext gl_;
-    fd::app::Shell* shell_ = nullptr;
+    fd::app::WindowContent* content_ = nullptr;
+#if JUCE_MAC
+    juce::PopupMenu appMenu_;
+#endif
 };
 
 class Application final : public juce::JUCEApplication
@@ -227,9 +334,9 @@ public:
         }
 
         const int display = args.contains("--display") ? args[args.indexOf("--display") + 1].getIntValue() : -1;
-        window_ = std::make_unique<MainWindow>(*session_, *mcp_, !commandLine.contains("--software"), display);
+        window_ = std::make_unique<MainWindow>(*session_, *mcp_, !commandLine.contains("--software"), display,
+                                               fd::mcp::McpServer::defaultDataFolder().getChildFile("app.json"));
         behaviour_->onWarning = [this](const juce::String& m) { window_->shell().showWarning(m); };
-        window_->shell().onTitleChanged = [this](const juce::String& title) { window_->setName(title); };
         openProjectArgument();
         if (mcp_->settings().enabled && !mcp_->start())
             window_->shell().showWarning("The assistant server couldn't start: no free port from " +

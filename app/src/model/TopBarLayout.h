@@ -38,4 +38,10 @@ struct BarSlot
 
 /// The slots of `items` (given left to right, sections in order) in a bar `width` wide.
 [[nodiscard]] std::vector<BarSlot> layoutTopBar(double width, const std::vector<BarItem>& items, const BarMetrics& metrics = {});
+
+/// A title between a bar's sides (the title bar's project name, docs/design/menu-bar.md §4): as
+/// wide as its text up to the room between `leftEnd` and `rightStart` (each kept `gap` away),
+/// centred on the bar when it fits there, moved in when a side needs the room. Narrower than its
+/// text means the caller elides it; not shown when there's no room at all.
+[[nodiscard]] BarSlot placeTitle(double width, double leftEnd, double rightStart, double textWidth, double gap);
 } // namespace fd::model

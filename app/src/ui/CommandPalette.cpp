@@ -17,6 +17,10 @@ CommandPalette::CommandPalette(const ActionRegistry& actions) : actions_(actions
     addAndMakeVisible(search_);
     setVisible(false);
     setWantsKeyboardFocus(false);
+    // The top bar's search button toggles it itself.
+    outside_.ignore = [](const juce::Component& c) {
+        return dynamic_cast<const ui::IconButton*>(&c) != nullptr && c.getName() == "palette";
+    };
 }
 
 void CommandPalette::open(juce::Component& parent)
@@ -133,9 +137,7 @@ void CommandPalette::paint(juce::Graphics& g)
         ui::paintListRow(g, rowArea(i),
                          {.name = juce::String::fromUTF8(item.name.c_str()),
                           .caption = juce::String::fromUTF8(item.category.c_str()),
-                          .shortcut = action != nullptr && !action->keys.empty()
-                                          ? action->keys.front().getTextDescriptionWithIcons()
-                                          : juce::String(),
+                          .shortcut = actions_.shortcut(item.id),
                           .toggled = action != nullptr && action->isToggled && action->isToggled(),
                           .enabled = action != nullptr && (!action->isEnabled || action->isEnabled()),
                           .selected = i == selected_});

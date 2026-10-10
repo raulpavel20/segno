@@ -252,7 +252,7 @@ void DeviceChain::showAddMenu()
     }
     if (!byVendor.empty())
         plugins.addSeparator();
-    plugins.addItem(-1, "Scan for plugins (" + actions_.find("app.scanPlugins")->keys.front().getTextDescriptionWithIcons() + ")");
+    plugins.addItem(-1, "Scan for plugins (" + actions_.shortcut("app.scanPlugins") + ")");
     menu.addSeparator();
     menu.addSubMenu("Plugins", plugins);
 

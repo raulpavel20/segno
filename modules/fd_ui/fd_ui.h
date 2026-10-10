@@ -33,3 +33,4 @@ END_JUCE_MODULE_DECLARATION
 #include "controls/Labels.h"
 #include "shell/ShellParts.h"
 #include "shell/Brand.h"
+#include "shell/WindowButtons.h"

@@ -136,4 +136,71 @@ void LookAndFeel::positionComboBoxText(juce::ComboBox& box, juce::Label& label)
     label.setFont(getComboBoxFont(box));
     label.setJustificationType(juce::Justification::centredLeft);
 }
+
+juce::Font LookAndFeel::getMenuBarFont(juce::MenuBarComponent&, int, const juce::String&)
+{
+    return font(TextStyle::Field);
+}
+
+int LookAndFeel::getMenuBarItemWidth(juce::MenuBarComponent& bar, int itemIndex, const juce::String& itemText)
+{
+    // The title padded like a text button, and half the item gap each side between titles.
+    const auto& sh = Theme::current().shell;
+    const auto text = juce::GlyphArrangement::getStringWidth(getMenuBarFont(bar, itemIndex, itemText), itemText);
+    return static_cast<int>(std::ceil(text)) + 2 * sh.buttonTextPadding + sh.itemGap;
+}
+
+void LookAndFeel::drawMenuBarBackground(juce::Graphics&, int, int, bool, juce::MenuBarComponent&)
+{
+    // The title bar paints behind it.
+}
+
+void LookAndFeel::drawMenuBarItem(juce::Graphics& g, int width, int height, int itemIndex, const juce::String& itemText,
+                                  bool isMouseOverItem, bool isMenuOpen, bool, juce::MenuBarComponent& bar)
+{
+    const auto& t = Theme::current();
+    const auto& sh = t.shell;
+    const auto item = juce::Rectangle<int>(0, 0, width, height).reduced(sh.itemGap / 2, 0);
+    if (isMenuOpen)
+    {
+        // Down to the bar's bottom edge, where its menu opens: the title and the menu read as one.
+        g.setColour(t.surface2);
+        g.fillRect(item.withTrimmedTop(sh.itemGap));
+    }
+    else if (isMouseOverItem)
+    {
+        g.setColour(t.roles.hoverWash);
+        g.fillRoundedRectangle(item.reduced(0, sh.itemGap).toFloat(), t.radiusControl);
+    }
+    const auto f = getMenuBarFont(bar, itemIndex, itemText);
+    g.setColour(isMenuOpen || isMouseOverItem ? t.textPrimary : t.textSecondary);
+    g.setFont(f);
+    g.drawText(itemText, item, juce::Justification::centred, false);
+
+    // While Alt is held: the letter that opens it, underlined.
+    const auto* mnemonics = dynamic_cast<const MenuMnemonics*>(bar.getModel());
+    if (mnemonics == nullptr || !static_cast<bool>(bar.getProperties()[mnemonicsShown]))
+        return;
+    const int letter = mnemonics->mnemonicIndex(itemIndex);
+    if (letter < 0 || letter >= itemText.length())
+        return;
+    auto widthOf = [&f](const juce::String& s) { return juce::GlyphArrangement::getStringWidth(f, s); };
+    const float left = static_cast<float>(item.getCentreX()) - widthOf(itemText) * 0.5f + widthOf(itemText.substring(0, letter));
+    const float baseline = static_cast<float>(item.getCentreY()) + (f.getAscent() - f.getDescent()) * 0.5f;
+    g.fillRect(juce::Rectangle<float>(left, baseline + 1.0f, widthOf(itemText.substring(letter, letter + 1)), 1.0f));
+}
+
+void LookAndFeel::fillResizableWindowBackground(juce::Graphics& g, int, int, const juce::BorderSize<int>&, juce::ResizableWindow&)
+{
+    g.fillAll(Theme::current().surface0);
+}
+
+void LookAndFeel::drawResizableWindowBorder(juce::Graphics& g, int w, int h, const juce::BorderSize<int>& border,
+                                            juce::ResizableWindow&)
+{
+    if (border.isEmpty())
+        return;
+    g.setColour(Theme::current().line);
+    g.drawRect(0, 0, w, h, 1);
+}
 } // namespace fd::ui

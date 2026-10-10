@@ -602,6 +602,19 @@ void PianoRoll::mouseDown(const juce::MouseEvent& e)
         return;
 
     const auto hit = model::hitNote(notes_, geo, local.x, local.y, ui::Theme::current().input.edgeGrab);
+    if (e.mods.isPopupMenu())
+    {
+        // The notes' menu, on the note under the pointer (selected first unless it's in the
+        // selection), else on the selection.
+        if (hit && !selection_.contains(hit->index))
+        {
+            selection_ = {hit->index};
+            repaint();
+        }
+        if (onMenu)
+            onMenu();
+        return;
+    }
     if (e.getNumberOfClicks() >= 2)
     {
         if (hit)

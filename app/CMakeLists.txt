@@ -10,14 +10,16 @@ add_library(fd_app_model STATIC src/model/Timeline.cpp src/model/TrackLayout.cpp
     src/model/Editing.cpp src/model/Fuzzy.cpp src/model/NoteEditing.cpp
     src/model/TrackHeaderLayout.cpp src/model/AudioMeasure.cpp src/model/Taper.cpp src/model/ChannelStripLayout.cpp src/model/Selection.cpp
     src/model/Automation.cpp src/model/ArrangementRows.cpp src/model/Snapshot.cpp src/model/Recording.cpp src/model/Takes.cpp
-    src/model/TopBarLayout.cpp src/model/StackEdits.cpp src/model/Capture.cpp src/model/Bounce.cpp src/model/Fades.cpp src/model/FadeEditing.cpp src/model/Export.cpp)
+    src/model/TopBarLayout.cpp src/model/StackEdits.cpp src/model/Capture.cpp src/model/Bounce.cpp src/model/Fades.cpp src/model/FadeEditing.cpp src/model/Export.cpp
+    src/model/MenuBar.cpp src/model/AppSettings.cpp)
 target_include_directories(fd_app_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(fd_app_model PUBLIC fd::audiofile PRIVATE fd::dsp nlohmann_json::nlohmann_json fd::warnings)
 
 if(FD_BUILD_TESTS)
     fd_add_test(NAME fd_app_model_tests SOURCES tests/ModelTests.cpp tests/NoteEditingTests.cpp tests/AudioMeasureTests.cpp
         tests/SelectionTests.cpp tests/AutomationTests.cpp
-        tests/ArrangementRowsTests.cpp tests/RecordingTests.cpp tests/TakeStackTests.cpp tests/CaptureTests.cpp tests/BounceTests.cpp tests/FadesTests.cpp tests/ExportTests.cpp LIBS fd_app_model)
+        tests/ArrangementRowsTests.cpp tests/RecordingTests.cpp tests/TakeStackTests.cpp tests/CaptureTests.cpp tests/BounceTests.cpp tests/FadesTests.cpp tests/ExportTests.cpp
+        tests/MenuBarTests.cpp LIBS fd_app_model)
 endif()
 
 # fd_mcp: the MCP server's protocol layer and transports (ADR 0021, docs/design/mcp.md). JUCE-free,
@@ -121,6 +123,10 @@ target_sources(fd_app_ui INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/PianoRoll.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/AssistantsPopover.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ExportPopover.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/AboutPopover.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ShellMenus.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/TitleBar.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/WindowContent.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/time/TimeView.cpp")
 target_link_libraries(fd_app_ui INTERFACE fd_engine fd_app_mcp juce::juce_opengl)
 

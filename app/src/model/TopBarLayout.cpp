@@ -85,4 +85,14 @@ std::vector<BarSlot> layoutTopBar(double width, const std::vector<BarItem>& item
     }
     return slots;
 }
+
+BarSlot placeTitle(double width, double leftEnd, double rightStart, double textWidth, double gap)
+{
+    const double from = leftEnd + gap, to = rightStart - gap;
+    const double w = std::min(textWidth, to - from);
+    if (w <= 0.0)
+        return {};
+    const double x = std::clamp((width - w) * 0.5, from, to - w);
+    return {x, w, true};
+}
 } // namespace fd::model

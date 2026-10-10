@@ -2,6 +2,8 @@
 
 #include "ui/AutomationMenu.h"
 
+#include "model/FadeEditing.h"
+#include "model/Fades.h"
 #include "model/Takes.h"
 
 #include "fd/audiofile/AudioFile.h"
@@ -23,6 +25,18 @@ juce::KeyPress key(int code, int mods = 0)
 constexpr int kCmd = juce::ModifierKeys::commandModifier;
 constexpr int kAlt = juce::ModifierKeys::altModifier;
 constexpr int kShift = juce::ModifierKeys::shiftModifier;
+
+/// An item that asks for more before it acts ends with an ellipsis (menu-bar.md §5).
+juce::String asks(const char* name)
+{
+    return juce::String(name) + juce::String::fromUTF8("\xE2\x80\xA6");
+}
+
+#if JUCE_MAC
+constexpr auto kMenuPlatform = model::MenuPlatform::Mac;
+#else
+constexpr auto kMenuPlatform = model::MenuPlatform::Windowed;
+#endif
 } // namespace
 
 Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
@@ -80,6 +94,21 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     }
     registerActions();
     transport_ = std::make_unique<TransportBar>(session_, actions_);
+    // The menu bar (ADR 0040): every action; its lists from the builders the right-click menus use.
+    // The brand is in the title bar, except on macOS, which has none of ours.
+    menus_ = std::make_unique<ShellMenus>(actions_, kMenuPlatform);
+    menus_->fillList = [this](const std::string& list) {
+        if (list == "recent")
+            return recentMenu();
+        if (list == "countIn")
+            return transport_->countInMenu();
+        if (list == "midiLoop")
+            return transport_->midiLoopMenu();
+        if (list == "fades")
+            return fadesMenu();
+        return juce::PopupMenu();
+    };
+    transport_->setBrandShown(kMenuPlatform == model::MenuPlatform::Mac);
     // The capture button says where it will go (recording.md §9).
     transport_->captureTooltip = [this] {
         const auto selected = selectedTrackInfo();
@@ -156,8 +185,13 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         actions_.addMenuItem(menu, "track.add");
         actions_.addMenuItem(menu, "track.addReturn");
     };
-    // A clip's menu (bounce.md §10): bounce and mute, then the edits.
+    // A clip's menu (bounce.md §10): bounce and mute, then the edits; while bouncing, cancel first.
     arrangement_.onClipMenu = [this](juce::PopupMenu& menu) {
+        if (!session_.bouncing().empty())
+        {
+            actions_.addMenuItem(menu, "clip.cancelBounces");
+            menu.addSeparator();
+        }
         actions_.addMenuItem(menu, "clip.bounce");
         actions_.addMenuItem(menu, "clip.bounceToTrack");
         actions_.addMenuItem(menu, "clip.mute");
@@ -222,6 +256,15 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     arrangement_.onMessage = [this](const juce::String& m) { showWarning(m); };
     detail_.chain().onActivated = [this] { lastArea_ = Area::Detail; };
     detail_.pianoRoll().onActivated = [this] { lastArea_ = Area::Clip; };
+    // The notes' menu (menu-bar.md §8): quantise, then the edits.
+    detail_.pianoRoll().onMenu = [this] {
+        juce::PopupMenu menu;
+        actions_.addMenuItem(menu, "notes.quantise");
+        menu.addSeparator();
+        actions_.addMenuItem(menu, "edit.duplicate");
+        actions_.addMenuItem(menu, "edit.delete");
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&detail_.pianoRoll()).withMousePosition());
+    };
     arrangement_.onOpenClip = [this](std::uint64_t id) {
         // MIDI clips open in the clip view (a clip made just now isn't in the snapshot yet).
         const auto found = model::findClip(*session_.snapshot(), id);
@@ -421,6 +464,70 @@ void Shell::registerActions()
                       }
                   },
                   .isEnabled = canStepTake});
+    struct TakeTarget
+    {
+        std::uint64_t track = 0;
+        std::vector<std::uint64_t> takes;
+    };
+    // The takes they act on: the selected ones, else the one the selected clip plays.
+    auto takeTarget = [this, &s, takesClip]() -> std::optional<TakeTarget> {
+        const auto& sel = arrangement_.selection();
+        if (!sel.takes.empty() && sel.channel)
+            return TakeTarget{*sel.channel, {sel.takes.begin(), sel.takes.end()}};
+        if (const auto c = takesClip())
+            if (const auto* t = s.snapshot()->channel(c->track))
+                if (const auto* stack = t->stack(c->stack))
+                    if (const auto playing = model::playingTake(*stack, t->clips))
+                        return TakeTarget{c->track, {stack->takes[*playing].id}};
+        return std::nullopt;
+    };
+    auto oneTake = [takeTarget] {
+        const auto t = takeTarget();
+        return t && t->takes.size() == 1;
+    };
+    auto someTakes = [takeTarget] { return takeTarget().has_value(); };
+    auto takesToTracks = [this, &s, takeTarget](bool move) {
+        return [this, &s, takeTarget, move] {
+            if (const auto t = takeTarget())
+                if (const auto made = s.takesToTracks(t->track, t->takes, move); !made.empty())
+                {
+                    s.updateSnapshotNow();
+                    arrangement_.selectTrack(made.front());
+                }
+        };
+    };
+    actions_.add({.id = "take.useWhole", .name = "Use this take for the whole clip", .category = "Track",
+                  .perform = [&s, takeTarget] {
+                      if (const auto t = takeTarget())
+                          s.useTake(t->track, t->takes.front());
+                  },
+                  .isEnabled = oneTake});
+    actions_.add({.id = "take.rename", .name = asks("Rename take"), .category = "Track",
+                  .perform = [this, takeTarget] {
+                      if (const auto t = takeTarget(); t && arrangement_.onRenameTake)
+                          arrangement_.onRenameTake(t->track, t->takes.front());
+                  },
+                  .isEnabled = oneTake});
+    actions_.add({.id = "take.copyToTrack", .name = "Copy take to new track", .category = "Track",
+                  .perform = takesToTracks(false), .isEnabled = someTakes});
+    actions_.add({.id = "take.moveToTrack", .name = "Move take to new track", .category = "Track",
+                  .perform = takesToTracks(true), .isEnabled = someTakes});
+    actions_.add({.id = "take.delete", .name = "Delete take", .category = "Track",
+                  .perform = [this, &s, takeTarget] {
+                      if (const auto t = takeTarget())
+                      {
+                          s.deleteTakes(t->track, t->takes);
+                          if (!arrangement_.selection().takes.empty())
+                              arrangement_.selectTrack(t->track);
+                      }
+                  },
+                  .isEnabled = someTakes});
+    actions_.add({.id = "take.keepOnly", .name = "Keep only this take", .category = "Track",
+                  .perform = [&s, takeTarget] {
+                      if (const auto t = takeTarget())
+                          s.keepOnlyTake(t->track, t->takes.front());
+                  },
+                  .isEnabled = oneTake});
     actions_.add({.id = "take.previous", .name = "Previous take", .category = "Track", .keys = {key(juce::KeyPress::upKey, kAlt)},
                   .perform = stepTake(-1), .isEnabled = canStepTake});
     actions_.add({.id = "take.next", .name = "Next take", .category = "Track", .keys = {key(juce::KeyPress::downKey, kAlt)},
@@ -429,9 +536,17 @@ void Shell::registerActions()
                   .perform = [this] { arrangement_.setFollowEnabled(!arrangement_.isFollowEnabled()); },
                   .isToggled = [this] { return arrangement_.isFollowEnabled(); }});
     actions_.add({.id = "edit.undo", .name = "Undo", .category = "Edit", .keys = {key('z', kCmd)},
-                  .perform = [&s] { s.undo(); }, .isEnabled = [&s] { return s.canUndo(); }});
+                  .perform = [&s] { s.undo(); }, .isEnabled = [&s] { return s.canUndo(); },
+                  .label = [&s] {
+                      const auto step = s.canUndo() ? s.undoDescription() : std::string();
+                      return step.empty() ? juce::String("Undo") : "Undo " + juce::String::fromUTF8(step.c_str());
+                  }});
     actions_.add({.id = "edit.redo", .name = "Redo", .category = "Edit", .keys = {key('z', kCmd | kShift), key('y', kCmd)},
-                  .perform = [&s] { s.redo(); }, .isEnabled = [&s] { return s.canRedo(); }});
+                  .perform = [&s] { s.redo(); }, .isEnabled = [&s] { return s.canRedo(); },
+                  .label = [&s] {
+                      const auto step = s.canRedo() ? s.redoDescription() : std::string();
+                      return step.empty() ? juce::String("Redo") : "Redo " + juce::String::fromUTF8(step.c_str());
+                  }});
     // Delete, Duplicate and Select all act on the selection in the area used last: notes in the
     // piano roll, a device in the chain, a lane's points (or the lane), else clips. Clips and
     // lanes only while the arrangement shows them (selection.md §6, automation.md §9).
@@ -566,6 +681,9 @@ void Shell::registerActions()
                   .perform = [bounce] { bounce(model::BounceMode::NewTrack); },
                   .isEnabled = [canBounce] { return canBounce(model::BounceMode::NewTrack); },
                   .whyNot = [whyNotBounce] { return whyNotBounce(model::BounceMode::NewTrack); }});
+    actions_.add({.id = "clip.cancelBounces", .name = "Cancel bounces", .category = "Clip",
+                  .keys = {key(juce::KeyPress::escapeKey)}, .perform = [this] { session_.cancelBounces(); },
+                  .isEnabled = [this] { return !session_.bouncing().empty(); }});
     // Clip mute (bounce.md §6): every selected clip, on unless all of them are muted already.
     auto allMuted = [this] {
         const auto& selected = arrangement_.selection().clips;
@@ -608,7 +726,7 @@ void Shell::registerActions()
                       return clipsShown() && arrangement_.hasClipSelection() ? juce::String("Select the clips on both sides of a join.")
                                                                              : juce::String();
                   }});
-    actions_.add({.id = "project.export", .name = "Export...", .category = "Project", .keys = {key('e', kCmd | kShift)},
+    actions_.add({.id = "project.export", .name = asks("Export"), .category = "Project", .keys = {key('e', kCmd | kShift)},
                   .perform = [this] { exportPanel_.isOpen() ? exportPanel_.close() : exportPanel_.open(*this); }});
     actions_.add({.id = "project.edgeFades", .name = "Edge fades", .category = "Project", .keys = {key('e', kCmd | kAlt | kShift)},
                   .perform = [this] { session_.setEdgeFades(!session_.edgeFades()); },
@@ -641,6 +759,15 @@ void Shell::registerActions()
                       showWarning("Computer keyboard: A W S E D F ... play, Z / X octave, C / V velocity");
                   },
                   .isToggled = [this] { return computerKeyboard_; }});
+    auto keyboardOn = [this] { return computerKeyboard_; };
+    actions_.add({.id = "midi.octaveDown", .name = "Octave down", .category = "Computer keyboard", .keys = {key('z')},
+                  .perform = [this] { shiftKeyboardOctave(-1); }, .isEnabled = keyboardOn});
+    actions_.add({.id = "midi.octaveUp", .name = "Octave up", .category = "Computer keyboard", .keys = {key('x')},
+                  .perform = [this] { shiftKeyboardOctave(1); }, .isEnabled = keyboardOn});
+    actions_.add({.id = "midi.velocityDown", .name = "Velocity down", .category = "Computer keyboard", .keys = {key('c')},
+                  .perform = [this] { shiftKeyboardVelocity(-1); }, .isEnabled = keyboardOn});
+    actions_.add({.id = "midi.velocityUp", .name = "Velocity up", .category = "Computer keyboard", .keys = {key('v')},
+                  .perform = [this] { shiftKeyboardVelocity(1); }, .isEnabled = keyboardOn});
     actions_.add({.id = "module.fold", .name = "Fold module", .category = "Module", .keys = {key('m', kCmd | kAlt)},
                   .perform = [this] { detail_.chain().foldSelected(); },
                   .isEnabled = [this] { return detail_.chain().selectedPanel() != nullptr; }});
@@ -700,7 +827,7 @@ void Shell::registerActions()
                           s.revealLane(lane);
                   },
                   .isEnabled = arrangeShown});
-    actions_.add({.id = "automation.assign", .name = "Assign parameter to the selected lane...", .category = "Automation",
+    actions_.add({.id = "automation.assign", .name = asks("Assign parameter to the selected lane"), .category = "Automation",
                   .keys = {key('l', kCmd | kAlt | kShift)},
                   .perform = [this] {
                       if (const auto lane = arrangement_.selection().lane)
@@ -758,11 +885,16 @@ void Shell::registerActions()
     actions_.add({.id = "view.snap", .name = "Snap to grid", .category = "View", .keys = {key('4', kCmd)},
                   .perform = [this] { arrangement_.setSnapEnabled(!arrangement_.isSnapEnabled()); },
                   .isToggled = [this] { return arrangement_.isSnapEnabled(); }});
-    actions_.add({.id = "app.commandPalette", .name = "Command palette", .category = "App", .keys = {key('k', kCmd)},
+    actions_.add({.id = "view.fullScreen", .name = "Full screen", .category = "View",
+                  .keys = {juce::KeyPress(juce::KeyPress::F11Key)},
+                  .perform = [this] { window.setFullScreen(!window.isFullScreen()); },
+                  .isEnabled = [this] { return window.setFullScreen != nullptr && window.isFullScreen != nullptr; },
+                  .isToggled = [this] { return window.isFullScreen && window.isFullScreen(); }});
+    actions_.add({.id = "app.commandPalette", .name = asks("Command palette"), .category = "App", .keys = {key('k', kCmd)},
                   .perform = [this] { palette_.isOpen() ? palette_.close() : palette_.open(*this); }});
     if (assistantsPopover_ != nullptr)
         actions_.add({.id = "app.assistants",
-                      .name = "Assistants",
+                      .name = asks("Assistants"),
                       .category = "App",
                       .perform =
                           [this] {
@@ -774,7 +906,7 @@ void Shell::registerActions()
                       .isToggled = [this] { return assistantsPopover_->isOpen(); }});
     actions_.add({.id = "file.new", .name = "New project", .category = "File", .keys = {key('n', kCmd)},
                   .perform = [this] { confirmDiscard([this] { session_.newProject(); }); }});
-    actions_.add({.id = "file.open", .name = "Open project", .category = "File", .keys = {key('o', kCmd)},
+    actions_.add({.id = "file.open", .name = asks("Open project"), .category = "File", .keys = {key('o', kCmd)},
                   .perform = [this] { confirmDiscard([this] { openProject(); }); }});
     actions_.add({.id = "file.save", .name = "Save", .category = "File", .keys = {key('s', kCmd)},
                   .perform = [this] {
@@ -787,7 +919,7 @@ void Shell::registerActions()
                       else
                           saveProjectAs();
                   }});
-    actions_.add({.id = "file.saveAs", .name = "Save as", .category = "File", .keys = {key('s', kCmd | kShift)},
+    actions_.add({.id = "file.saveAs", .name = asks("Save as"), .category = "File", .keys = {key('s', kCmd | kShift)},
                   .perform = [this] { saveProjectAs(); }});
     actions_.add({.id = "app.scanPlugins", .name = "Scan for plugins", .category = "App", .keys = {key('p', kCmd | kAlt)},
                   .perform = [this] {
@@ -796,8 +928,21 @@ void Shell::registerActions()
                                            [this](int found) { showWarning("Plugin scan finished: " + juce::String(found) + " plugins"); });
                   },
                   .isEnabled = [this] { return !session_.isScanning(); }});
-    actions_.add({.id = "app.audioSettings", .name = "Audio settings", .category = "App", .keys = {key(',', kCmd)},
+    actions_.add({.id = "app.audioSettings", .name = asks("Audio settings"), .category = "App", .keys = {key(',', kCmd)},
                   .perform = [this] { showAudioSettings(); }});
+    actions_.add({.id = "app.systemTitleBar", .name = "Use the system title bar", .category = "App",
+                  .perform = [this] {
+                      settings_.systemTitleBar = !settings_.systemTitleBar;
+                      saveSettings();
+                      window.setSystemTitleBar(settings_.systemTitleBar);
+                  },
+                  .isEnabled = [this] { return window.setSystemTitleBar != nullptr; },
+                  .isToggled = [this] { return settings_.systemTitleBar; }});
+    actions_.add({.id = "app.about", .name = "About Segno", .category = "Help",
+                  .perform = [this] { about_.isOpen() ? about_.close() : about_.open(*this); },
+                  .isToggled = [this] { return about_.isOpen(); }});
+    actions_.add({.id = "app.quit", .name = "Quit", .category = "File", .keys = {key('q', kCmd)},
+                  .perform = [this] { window.quit(); }, .isEnabled = [this] { return window.quit != nullptr; }});
 }
 
 bool Shell::notesActive() const
@@ -829,6 +974,23 @@ bool Shell::keyPressed(const juce::KeyPress& k)
         if (exportPanel_.cancel() || bounces)
             return true;
     }
+    // The menu bar from the keyboard (menu-bar.md §5): F10 opens File, Alt+letter its menu.
+    if (onOpenMenu)
+    {
+        if (k == juce::KeyPress(juce::KeyPress::F10Key))
+        {
+            onOpenMenu(0);
+            return true;
+        }
+        const auto mods = k.getModifiers();
+        if (mods.isAltDown() && !mods.isCommandDown() && !mods.isShiftDown() && k.getKeyCode() > 0 && k.getKeyCode() < 128)
+            if (const int menu = menus_->menuForMnemonic(juce::CharacterFunctions::toLowerCase(static_cast<juce::juce_wchar>(k.getKeyCode())));
+                menu >= 0)
+            {
+                onOpenMenu(menu);
+                return true;
+            }
+    }
     if (actions_.handleKey(k))
         return true;
     // Tab is the clip view's key; in the mixer view it must not move focus off the strips.
@@ -846,14 +1008,12 @@ bool Shell::handleComputerKeyboard(const juce::KeyPress& k)
     const auto c = juce::CharacterFunctions::toLowerCase(k.getTextCharacter());
     if (c == 'z' || c == 'x')
     {
-        keyboardOctave_ = juce::jlimit(-4, 4, keyboardOctave_ + (c == 'x' ? 1 : -1));
-        showWarning("Computer keyboard: C" + juce::String(3 + keyboardOctave_));
+        shiftKeyboardOctave(c == 'x' ? 1 : -1);
         return true;
     }
     if (c == 'c' || c == 'v')
     {
-        keyboardVelocity_ = juce::jlimit(0.1f, 1.0f, keyboardVelocity_ + (c == 'v' ? 0.1f : -0.1f));
-        showWarning("Computer keyboard velocity: " + juce::String(juce::roundToInt(keyboardVelocity_ * 127.0f)));
+        shiftKeyboardVelocity(c == 'v' ? 1 : -1);
         return true;
     }
     const auto it = semitones.find(c);
@@ -866,6 +1026,18 @@ bool Shell::handleComputerKeyboard(const juce::KeyPress& k)
         session_.computerKeyboardNote(note, keyboardVelocity_);
     }
     return true;
+}
+
+void Shell::shiftKeyboardOctave(int octaves)
+{
+    keyboardOctave_ = juce::jlimit(-4, 4, keyboardOctave_ + octaves);
+    showWarning("Computer keyboard: C" + juce::String(3 + keyboardOctave_));
+}
+
+void Shell::shiftKeyboardVelocity(int steps)
+{
+    keyboardVelocity_ = juce::jlimit(0.1f, 1.0f, keyboardVelocity_ + 0.1f * static_cast<float>(steps));
+    showWarning("Computer keyboard velocity: " + juce::String(juce::roundToInt(keyboardVelocity_ * 127.0f)));
 }
 
 bool Shell::keyStateChanged(bool)
@@ -1033,18 +1205,175 @@ void Shell::applyViewState(const std::string& json)
     resized();
 }
 
+juce::String Shell::projectName() const
+{
+    return session_.file() ? session_.file()->getFileNameWithoutExtension() : juce::String("Untitled");
+}
+
+bool Shell::hasUnsavedChanges() const
+{
+    return session_.hasUnsavedChanges();
+}
+
 void Shell::updateTitle()
 {
-    auto title = juce::String(ui::brand::name) + " - " +
-                 (session_.file() ? session_.file()->getFileNameWithoutExtension() : juce::String("Untitled"));
-    if (session_.hasUnsavedChanges())
+    // A project opened or saved under a new name goes to the front of Open recent.
+    if (const auto file = session_.file(); file != titleFile_)
+    {
+        titleFile_ = file;
+        if (file)
+        {
+            settings_.recent.add(file->getFullPathName().toStdString());
+            saveSettings();
+        }
+    }
+    // The document first, the convention on Windows and GNOME (menu-bar.md §4).
+    auto title = projectName();
+    if (hasUnsavedChanges())
         title << " *";
+    title << juce::String::fromUTF8(" \xE2\x80\x93 ") << ui::brand::name;
     if (title != title_)
     {
         title_ = title;
         if (onTitleChanged)
             onTitleChanged(title_);
     }
+}
+
+void Shell::setSettingsFile(const juce::File& file)
+{
+    settingsFile_ = file;
+    settings_ = model::appSettingsFromJson(file.loadFileAsString().toStdString());
+    if (titleFile_) // the project already open
+        settings_.recent.add(titleFile_->getFullPathName().toStdString());
+}
+
+void Shell::saveSettings() const
+{
+    if (!settingsFile_)
+        return;
+    settingsFile_->getParentDirectory().createDirectory();
+    settingsFile_->replaceWithText(juce::String::fromUTF8(model::toJson(settings_).c_str()));
+}
+
+void Shell::openFile(const juce::File& file)
+{
+    confirmDiscard([this, file] {
+        std::string error;
+        if (!session_.open(file, &error))
+        {
+            showWarning(juce::String::fromUTF8(error.c_str()));
+            settings_.recent.remove(file.getFullPathName().toStdString());
+            saveSettings();
+        }
+    });
+}
+
+juce::PopupMenu Shell::recentMenu()
+{
+    juce::PopupMenu menu;
+    const auto paths = settings_.recent.existing([](const std::string& p) { return juce::File(juce::String::fromUTF8(p.c_str())).existsAsFile(); });
+    if (paths.empty())
+        menu.addItem(juce::PopupMenu::Item("No recent projects").setEnabled(false));
+    const auto home = juce::File::getSpecialLocation(juce::File::userHomeDirectory).getFullPathName();
+    for (const auto& path : paths)
+    {
+        const juce::File file(juce::String::fromUTF8(path.c_str()));
+        // The name, and where it is (home as ~) on the right where shortcuts go.
+        juce::PopupMenu::Item item(file.getFileNameWithoutExtension());
+        auto folder = file.getParentDirectory().getFullPathName();
+        if (folder.startsWith(home))
+            folder = "~" + folder.substring(home.length());
+        item.shortcutKeyDescription = folder;
+        item.setAction([this, file] { openFile(file); });
+        menu.addItem(std::move(item));
+    }
+    menu.addSeparator();
+    menu.addItem(juce::PopupMenu::Item("Clear the list").setEnabled(!settings_.recent.paths.empty()).setAction([this] {
+        settings_.recent.clear();
+        saveSettings();
+    }));
+    return menu;
+}
+
+juce::PopupMenu Shell::fadesMenu()
+{
+    // The selected audio clips (their fades), and every crossfade at either end of one.
+    const auto snapshot = session_.snapshot();
+    const auto& selected = arrangement_.selection().clips;
+    std::vector<model::FadeClip> clips;
+    std::vector<std::pair<model::FadeClip, model::FadeClip>> joins;
+    if (!mixerShown_)
+        for (const auto& t : snapshot->tracks)
+        {
+            const auto fc = model::fadeClips(t);
+            for (size_t i = 0; i < fc.size(); ++i)
+            {
+                if (selected.contains(fc[i].id))
+                    clips.push_back(fc[i]);
+                if (fc[i].crossOut && i + 1 < fc.size() && (selected.contains(fc[i].id) || selected.contains(fc[i + 1].id)))
+                    joins.emplace_back(fc[i], fc[i + 1]);
+            }
+        }
+    auto all = [&joins](auto&& test) {
+        return !joins.empty() && std::all_of(joins.begin(), joins.end(), [&](const auto& j) { return test(j.first, j.second); });
+    };
+    juce::PopupMenu menu;
+    // Shapes, each with the line that says when to use it (fades.md §4), as on the crossfade.
+    const std::array<std::pair<model::CrossfadeShape, const char*>, 3> shapes{
+        std::pair{model::CrossfadeShape::EqualPower, "Equal power: different material"},
+        std::pair{model::CrossfadeShape::EqualGain, "Equal gain: the same material"},
+        std::pair{model::CrossfadeShape::SCurve, "S-curve"}};
+    for (const auto& [shape, name] : shapes)
+        menu.addItem(name, !joins.empty(), all([s = shape](const auto& out, const auto&) { return out.crossOut->shape == s; }),
+                     [this, joins, s = shape] {
+                         const engine::Session::EditGroup group(session_, "Crossfade shape");
+                         for (const auto& [out, in] : joins)
+                             session_.setCrossfade(out.id, model::Crossfade{out.crossOut->length, out.crossOut->from, s},
+                                                   "Crossfade shape");
+                     });
+    menu.addSeparator();
+    const std::array<std::pair<model::CrossfadePlacement, const char*>, 3> placements{
+        std::pair{model::CrossfadePlacement::Before, "Before the join"},
+        std::pair{model::CrossfadePlacement::Centred, "Centred on the join"},
+        std::pair{model::CrossfadePlacement::After, "After the join"}};
+    for (const auto& [placement, name] : placements)
+    {
+        auto placed = [p = placement](const model::FadeClip& out, const model::FadeClip& in) {
+            return model::placeCrossfadeAt(out, in, out.crossOut->length, p, out.crossOut->shape);
+        };
+        menu.addItem(name, all([&placed](const auto& out, const auto& in) { return placed(out, in).has_value(); }),
+                     all([p = placement](const auto& out, const auto&) { return model::placementOf(*out.crossOut) == p; }),
+                     [this, joins, placed] {
+                         const engine::Session::EditGroup group(session_, "Crossfade placement");
+                         for (const auto& [out, in] : joins)
+                             session_.setCrossfade(out.id, placed(out, in), "Crossfade placement");
+                     });
+    }
+    menu.addSeparator();
+    menu.addItem(joins.size() > 1 ? "Remove crossfades" : "Remove crossfade", !joins.empty(), false, [this, joins] {
+        const engine::Session::EditGroup group(session_, "Remove crossfade");
+        for (const auto& j : joins)
+            session_.setCrossfade(j.first.id, std::nullopt, "Remove crossfade");
+    });
+    menu.addSeparator();
+    // Fades: straightened (their bend), or removed.
+    const bool bent = std::any_of(clips.begin(), clips.end(), [](const auto& c) {
+        return (c.in.length > 0.0 && c.in.bend != 0.0f) || (c.out.length > 0.0 && c.out.bend != 0.0f);
+    });
+    const bool faded = std::any_of(clips.begin(), clips.end(), [](const auto& c) { return c.in.length > 0.0 || c.out.length > 0.0; });
+    menu.addItem("Straighten fades", bent, false, [this, clips] {
+        const engine::Session::EditGroup group(session_, "Straighten fades");
+        for (const auto& c : clips)
+            session_.setFades({c.id}, model::Fade{c.in.length, 0.0f}, model::Fade{c.out.length, 0.0f});
+    });
+    menu.addItem("Remove fades", faded, false, [this, clips] {
+        std::vector<std::uint64_t> ids;
+        for (const auto& c : clips)
+            ids.push_back(c.id);
+        session_.setFades(ids, model::Fade{}, model::Fade{});
+    });
+    return menu;
 }
 
 void Shell::showAudioSettings()
@@ -1217,6 +1546,14 @@ void Shell::onFrame(double timestamp)
     }
 
     updateTitle(); // cheap: notifies only when it changes
+    // Alt held (and no mouse button: Alt-drags bypass snapping): the menus' letters underlined.
+    const auto mods = juce::ModifierKeys::currentModifiers;
+    if (const bool alt = mods.isAltDown() && !mods.isAnyMouseButtonDown(); alt != mnemonicsShown_)
+    {
+        mnemonicsShown_ = alt;
+        if (onMnemonicsShown)
+            onMnemonicsShown(alt);
+    }
 
     const double position = session_.position();
     arrangement_.frame(dt, position);

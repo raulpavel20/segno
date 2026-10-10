@@ -55,14 +55,74 @@ bool ActionRegistry::isEnabled(std::string_view id) const
     return a != nullptr && (!a->isEnabled || a->isEnabled());
 }
 
+juce::String ActionRegistry::label(std::string_view id) const
+{
+    const auto* a = find(id);
+    if (a == nullptr)
+        return {};
+    if (a->label)
+        if (auto now = a->label(); now.isNotEmpty())
+            return now;
+    return a->name;
+}
+
+juce::String ActionRegistry::shortcutText(const juce::KeyPress& key)
+{
+#if JUCE_MAC
+    return key.getTextDescriptionWithIcons();
+#else
+    juce::String out;
+    const auto mods = key.getModifiers();
+    if (mods.isCtrlDown())
+        out << "Ctrl+";
+    if (mods.isAltDown())
+        out << "Alt+";
+    if (mods.isShiftDown())
+        out << "Shift+";
+    const int code = key.getKeyCode();
+    using K = juce::KeyPress;
+    const std::pair<int, const char*> named[] = {
+        {K::spaceKey, "Space"},
+        {K::escapeKey, "Esc"},
+        {K::returnKey, "Enter"},
+        {K::tabKey, "Tab"},
+        {K::deleteKey, "Del"},
+        {K::backspaceKey, "Backspace"},
+        {K::homeKey, "Home"},
+        {K::endKey, "End"},
+        {K::pageUpKey, "PgUp"},
+        {K::pageDownKey, "PgDn"},
+        {K::upKey, "\xE2\x86\x91"},    // ↑
+        {K::downKey, "\xE2\x86\x93"},  // ↓
+        {K::leftKey, "\xE2\x86\x90"},  // ←
+        {K::rightKey, "\xE2\x86\x92"}, // →
+    };
+    for (const auto& [k, name] : named)
+        if (code == k)
+            return out + juce::String::fromUTF8(name);
+    const int f[] = {K::F1Key, K::F2Key, K::F3Key, K::F4Key, K::F5Key, K::F6Key,
+                     K::F7Key, K::F8Key, K::F9Key, K::F10Key, K::F11Key, K::F12Key};
+    for (int i = 0; i < 12; ++i)
+        if (code == f[i])
+            return out + "F" + juce::String(i + 1);
+    return out + juce::String::charToString(juce::CharacterFunctions::toUpperCase(static_cast<juce::juce_wchar>(code)));
+#endif
+}
+
+juce::String ActionRegistry::shortcut(std::string_view id) const
+{
+    const auto* a = find(id);
+    return a == nullptr || a->keys.empty() ? juce::String() : shortcutText(a->keys.front());
+}
+
 juce::String ActionRegistry::tooltip(std::string_view id) const
 {
     const auto* a = find(id);
     if (a == nullptr)
         return {};
     if (a->keys.empty())
-        return a->name;
-    return a->name + " (" + a->keys.front().getTextDescriptionWithIcons() + ")";
+        return label(id);
+    return label(id) + " (" + shortcut(id) + ")";
 }
 
 void ActionRegistry::addMenuItem(juce::PopupMenu& menu, std::string_view id) const
@@ -70,11 +130,11 @@ void ActionRegistry::addMenuItem(juce::PopupMenu& menu, std::string_view id) con
     const auto* a = find(id);
     if (a == nullptr)
         return;
-    juce::PopupMenu::Item item(a->name);
+    juce::PopupMenu::Item item(label(id));
     item.setEnabled(isEnabled(id));
     item.setTicked(isToggled(id));
     if (!a->keys.empty())
-        item.shortcutKeyDescription = a->keys.front().getTextDescriptionWithIcons();
+        item.shortcutKeyDescription = shortcut(id);
     item.setAction([this, key = std::string(id)] { perform(key); });
     menu.addItem(std::move(item));
 }

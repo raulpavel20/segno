@@ -17,6 +17,8 @@
 #include "ui/MixerView.h"
 #include "ui/Shell.h"
 #include "ui/TrackInputs.h"
+#include "ui/WindowContent.h"
+#include "model/MenuBar.h"
 
 #include <tracktion_engine/testing/tracktion_EnginePlayer.h>
 
@@ -632,12 +634,15 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
     ShellFixture f;
     const auto& actions = f.shell->actions();
     CHECK(actions.conflicts().empty());
+    // ui-principles §1: a shortcut for every action but the rare ones the menus hold alone.
+    const std::set<std::string> menuOnly{"take.useWhole", "take.rename",    "take.copyToTrack",   "take.moveToTrack",
+                                         "take.delete",   "take.keepOnly", "app.systemTitleBar", "app.about"};
     for (const auto& a : actions.all())
     {
         INFO(a.id);
         CHECK_FALSE(a.name.isEmpty());
         CHECK(a.perform != nullptr);
-        CHECK_FALSE(a.keys.empty()); // ui-principles §1: one shortcut for every frequent action
+        CHECK(a.keys.empty() == menuOnly.contains(a.id));
     }
 
     // Undo is disabled with nothing to undo; adding a track enables it.
@@ -2522,5 +2527,358 @@ TEST_CASE("export: Ctrl+Shift+E opens the panel, Enter exports in the background
     REQUIRE(panel.keyPressed(juce::KeyPress(juce::KeyPress::returnKey)));
     CHECK(f.shell->lastWarning().contains("loop"));
     CHECK_FALSE(panel.progress());
+    root.deleteRecursively();
+}
+
+namespace
+{
+/// The item named `text` in `menu` or its submenus, or null.
+const juce::PopupMenu::Item* findItem(const juce::PopupMenu& menu, const juce::String& text)
+{
+    for (juce::PopupMenu::MenuItemIterator it(menu, true); it.next();)
+        if (it.getItem().text == text)
+            return &it.getItem();
+    return nullptr;
+}
+
+/// A menu as its popup draws it (for review: a real popup would open a window on the desktop).
+juce::Image renderMenu(const juce::PopupMenu& menu, juce::LookAndFeel& lnf, float scale)
+{
+    const juce::PopupMenu::Options options;
+    std::vector<std::pair<const juce::PopupMenu::Item*, int>> rows;
+    int w = 0, h = 0;
+    for (juce::PopupMenu::MenuItemIterator it(menu); it.next();)
+    {
+        const auto& item = it.getItem();
+        int iw = 0, ih = 0;
+        const auto text = item.shortcutKeyDescription.isNotEmpty() ? item.text + "   " + item.shortcutKeyDescription : item.text;
+        lnf.getIdealPopupMenuItemSizeWithOptions(text, item.isSeparator, options.getStandardItemHeight(), iw, ih, options);
+        rows.emplace_back(&item, ih);
+        w = std::max(w, iw);
+        h += ih;
+    }
+    const int border = lnf.getPopupMenuBorderSizeWithOptions(options);
+    juce::Image image(juce::Image::ARGB, juce::roundToInt(static_cast<float>(w + 2 * border) * scale),
+                      juce::roundToInt(static_cast<float>(h + 2 * border) * scale), true);
+    juce::Graphics g(image);
+    g.addTransform(juce::AffineTransform::scale(scale));
+    lnf.drawPopupMenuBackgroundWithOptions(g, w + 2 * border, h + 2 * border, options);
+    int y = border;
+    for (const auto& [item, rowHeight] : rows)
+    {
+        lnf.drawPopupMenuItemWithOptions(g, {border, y, w, rowHeight}, false, *item, options);
+        y += rowHeight;
+    }
+    return image;
+}
+} // namespace
+
+TEST_CASE("menu bar: every action in a menu once; items show their action's name, key, state (C10)", "[integration]")
+{
+    ShellFixture f;
+    auto& s = *f.session;
+    const auto& actions = f.shell->actions();
+    auto& menus = f.shell->menus();
+    CHECK(menus.getMenuBarNames() == juce::StringArray{"File", "Edit", "Track", "Clip", "Transport", "View", "Options", "Help"});
+
+    // ADR 0040: every action is in the menu bar exactly once, and every item is an action (the
+    // assistants' only with a server; the fixture has none).
+    const auto placed = fd::model::menuActions(menus.menus());
+    for (const auto& a : actions.all())
+    {
+        INFO(a.id);
+        CHECK(std::count(placed.begin(), placed.end(), a.id) == 1);
+    }
+    for (const auto& id : placed)
+    {
+        INFO(id);
+        CHECK((actions.find(id) != nullptr || id == "app.assistants"));
+    }
+    CHECK(fd::model::menuProblems(menus.menus()).empty());
+
+    // Each menu builds, without stray separators where an action is missing.
+    for (int i = 0; i < menus.getMenuBarNames().size(); ++i)
+    {
+        const auto menu = menus.menu(i);
+        CHECK(menu.getNumItems() > 0);
+        juce::PopupMenu::MenuItemIterator it(menu);
+        REQUIRE(it.next());
+        CHECK_FALSE(it.getItem().isSeparator);
+    }
+
+    // Items are their actions: the name and shortcut, dimmed while they can't run, ticked while on.
+    const auto* undo = findItem(menus.menu(1), "Undo");
+    REQUIRE(undo != nullptr);
+    CHECK_FALSE(undo->isEnabled);
+    CHECK(undo->shortcutKeyDescription.isNotEmpty());
+    actions.perform("track.add");
+    s.updateSnapshotNow();
+    const auto* named = findItem(menus.menu(1), "Undo Add track"); // it names its step
+    REQUIRE(named != nullptr);
+    CHECK(named->isEnabled);
+    CHECK(actions.tooltip("edit.undo").startsWith("Undo Add track ("));
+    CHECK_FALSE(findItem(menus.menu(4), "Loop")->isTicked);
+    actions.perform("transport.loop");
+    CHECK(findItem(menus.menu(4), "Loop")->isTicked);
+    actions.perform("transport.loop");
+
+    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: each menu and submenu
+        for (int i = 0; i < menus.getMenuBarNames().size(); ++i)
+        {
+            const auto menu = menus.menu(i);
+            const auto name = menus.getMenuBarNames()[i];
+            dumpPng(dump, "menu-" + name + "@2x.png", renderMenu(menu, f.lnf, 2.0f));
+            for (juce::PopupMenu::MenuItemIterator it(menu); it.next();)
+                if (it.getItem().subMenu != nullptr)
+                    dumpPng(dump, "menu-" + name + "-" + it.getItem().text.removeCharacters(" ") + "@2x.png",
+                            renderMenu(*it.getItem().subMenu, f.lnf, 2.0f));
+        }
+
+    // Choosing an item runs its action: File > Export… opens the export panel.
+    CHECK(invoke(menus.menu(0), juce::String::fromUTF8("Export\xE2\x80\xA6")));
+    CHECK(f.shell->exportPanel().isOpen());
+    f.shell->exportPanel().close();
+    // The lists the Record button's menu shows, in Transport too: one builder.
+    CHECK(invoke(menus.menu(4), "2 bars", "Count-in length"));
+    CHECK(s.countIn() == fd::model::CountIn::TwoBars);
+    CHECK(invoke(menus.menu(4), "Each lap: add to the clip (overdub)", "MIDI loop recording"));
+    CHECK(s.midiOverdub());
+    // Back as the other tests expect them: the count-in is kept in the engine's settings file.
+    s.setCountIn(fd::model::CountIn::Off);
+    s.setMidiOverdub(false);
+
+    // What only a key reached has a mouse route, dimmed until it can run.
+    CHECK_FALSE(actions.isEnabled("clip.cancelBounces"));
+    CHECK_FALSE(actions.isEnabled("midi.octaveUp"));
+    CHECK_FALSE(actions.isEnabled("take.copyToTrack"));
+    actions.perform("midi.computerKeyboard");
+    REQUIRE(actions.isEnabled("midi.octaveUp"));
+    CHECK(invoke(menus.menu(6), "Octave up", "Computer keyboard"));
+    CHECK(f.shell->lastWarning().contains("C4"));
+    actions.perform("midi.computerKeyboard");
+    // Without a window (tests), what needs one is dimmed.
+    CHECK_FALSE(actions.isEnabled("app.quit"));
+    CHECK_FALSE(actions.isEnabled("view.fullScreen"));
+    CHECK_FALSE(actions.isEnabled("app.systemTitleBar"));
+
+    // The keyboard: F10 opens File, Alt+letter its menu; Alt+R stays Arm.
+    int opened = -1;
+    f.shell->onOpenMenu = [&opened](int menu) { opened = menu; };
+    CHECK(f.shell->keyPressed(juce::KeyPress(juce::KeyPress::F10Key)));
+    CHECK(opened == 0);
+    CHECK(f.shell->keyPressed(juce::KeyPress('p', juce::ModifierKeys::altModifier, 0)));
+    CHECK(opened == 4);
+    CHECK(f.shell->keyPressed(juce::KeyPress('h', juce::ModifierKeys::altModifier, 0)));
+    CHECK(opened == 7);
+    opened = -1;
+    f.shell->keyPressed(juce::KeyPress('r', juce::ModifierKeys::altModifier, 0));
+    CHECK(opened == -1);
+
+    // The window's title puts the document first.
+    CHECK(f.shell->projectName() == "Untitled");
+
+    // Help > About Segno: the licence notice, inside the window, nothing touching.
+    CHECK(invoke(menus.menu(7), "About Segno"));
+    auto& about = f.shell->about();
+    REQUIRE(about.isOpen());
+    CHECK(about.paragraphs().joinIntoString(" ").contains("GNU Affero General Public License"));
+    CHECK(about.paragraphs().joinIntoString(" ").contains("no warranty"));
+    CHECK(f.shell->getLocalBounds().contains(about.getBounds()));
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "about@2x.png", about.createComponentSnapshot(about.getLocalBounds(), true, 2.0f));
+    CHECK(about.keyPressed(juce::KeyPress(juce::KeyPress::escapeKey)));
+    CHECK_FALSE(about.isOpen());
+}
+
+TEST_CASE("menu bar: Open recent lists the projects opened, kept between launches (C10)", "[integration]")
+{
+    ShellFixture f;
+    auto& s = *f.session;
+    const auto root = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("fd-recent-" + juce::Uuid().toString());
+    REQUIRE(root.createDirectory());
+    const auto settings = root.getChildFile("app.json");
+    f.shell->setSettingsFile(settings);
+    auto recent = [&f] {
+        juce::StringArray names;
+        const auto file = f.shell->menus().menu(0);
+        if (const auto* item = findItem(file, "Open recent"); item != nullptr && item->subMenu != nullptr)
+            for (juce::PopupMenu::MenuItemIterator it(*item->subMenu); it.next();)
+                if (!it.getItem().isSeparator)
+                    names.add(it.getItem().text);
+        return names;
+    };
+    CHECK(recent() == juce::StringArray{"No recent projects", "Clear the list"});
+
+    // Opening a project puts it first; a project gone from disk isn't listed.
+    const auto song = root.getChildFile("Song").getChildFile("Song.segno");
+    const auto other = root.getChildFile("Other").getChildFile("Other.segno");
+    REQUIRE(s.saveAs(other));
+    REQUIRE(s.saveAs(song));
+    REQUIRE(s.open(other));
+    REQUIRE(s.open(song));
+    CHECK(recent() == juce::StringArray{"Song", "Other", "Clear the list"});
+    CHECK(settings.loadFileAsString().contains("Song.segno")); // kept for the next launch
+    other.getParentDirectory().deleteRecursively();
+    CHECK(recent() == juce::StringArray{"Song", "Clear the list"});
+    const auto* item = findItem(f.shell->menus().menu(0), "Song");
+    REQUIRE(item != nullptr);
+    CHECK(item->shortcutKeyDescription.endsWith("Song")); // where it is
+
+    // A new shell reads the list back; Clear the list empties it.
+    fd::app::Shell again(s);
+    again.setSettingsFile(settings);
+    CHECK(again.settings().recent.paths.front() == song.getFullPathName().toStdString());
+    CHECK(invoke(again.menus().menu(0), "Clear the list", "Open recent"));
+    CHECK(again.settings().recent.paths.empty());
+    root.deleteRecursively();
+}
+
+TEST_CASE("title bar: brand, menus, name and window buttons never touch; the caption moves the window (C10)",
+          "[integration]")
+{
+    ShellFixture f;
+    fd::app::WindowContent content(*f.session, nullptr, true);
+    auto* bar = content.titleBar();
+    REQUIRE(bar != nullptr);
+    const auto& sh = fd::ui::Theme::current().shell;
+    using K = juce::Component::WindowControlKind;
+    for (int width : {2560, 1600, 1280, 1024}) // 1024: the window's minimum
+    {
+        INFO(width);
+        content.setSize(width, 900);
+        CHECK(bar->getHeight() == sh.titleBarHeight);
+        CHECK(content.shell().getY() == sh.titleBarHeight);
+        // Every part inside the bar, none touching another; the menus whole at every width.
+        const auto menusBounds = bar->menuBar().getBounds();
+        const auto buttons = bar->windowButtons().getBounds();
+        CHECK(buttons.getRight() == width);
+        CHECK(buttons.getWidth() == fd::ui::WindowButtons::widthFor());
+        std::vector<juce::Rectangle<int>> parts{bar->brandArea(), menusBounds, buttons};
+        if (!bar->titleArea().isEmpty())
+            parts.push_back(bar->titleArea());
+        for (size_t a = 0; a < parts.size(); ++a)
+        {
+            CHECK(bar->getLocalBounds().contains(parts[a]));
+            for (size_t b = a + 1; b < parts.size(); ++b)
+                CHECK_FALSE(parts[a].intersects(parts[b]));
+        }
+        int menusWidth = 0;
+        const auto names = f.shell->menus().getMenuBarNames();
+        for (int i = 0; i < names.size(); ++i)
+            menusWidth += bar->getLookAndFeel().getMenuBarItemWidth(bar->menuBar(), i, names[i]);
+        CHECK(menusBounds.getWidth() == menusWidth);
+        CHECK_FALSE(bar->titleArea().isEmpty()); // the name fits from 1024 up
+        // What the system asks (Windows): the caption, the buttons, the menus and the content.
+        const float mid = static_cast<float>(sh.titleBarHeight) * 0.5f;
+        CHECK(content.controlAt({static_cast<float>(bar->brandArea().getCentreX()), mid}) == K::caption);
+        CHECK(content.controlAt({static_cast<float>(bar->titleArea().getCentreX()), mid}) == K::caption);
+        CHECK(content.controlAt({static_cast<float>(menusBounds.getX() + 4), mid}) == K::client);
+        CHECK(content.controlAt({static_cast<float>(width - 1), mid}) == K::close);
+        CHECK(content.controlAt({static_cast<float>(width - sh.windowButtonWidth - 1), mid}) == K::maximise);
+        CHECK(content.controlAt({static_cast<float>(width - 2 * sh.windowButtonWidth - 1), mid}) == K::minimise);
+        CHECK(content.controlAt({static_cast<float>(width / 2), 200.0f}) == K::client);
+        if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        {
+            dumpPng(dump, "titlebar-" + juce::String(width) + "@2x.png",
+                    bar->createComponentSnapshot(bar->getLocalBounds(), true, 2.0f));
+            dumpPng(dump, "window-" + juce::String(width) + ".png", content.createComponentSnapshot(content.getLocalBounds()));
+        }
+    }
+    // The buttons' clicks go to the window; dragging the caption hands the move to it (Linux).
+    int minimised = 0, maximised = 0, closed = 0, moves = 0, doubles = 0;
+    bar->onMinimise = [&] { ++minimised; };
+    bar->onMaximise = [&] { ++maximised; };
+    bar->onClose = [&] { ++closed; };
+    bar->onCaptionDrag = [&](const juce::MouseEvent&) { ++moves; };
+    bar->onCaptionDoubleClick = [&] { ++doubles; };
+    auto& wb = bar->windowButtons();
+    for (const auto part : {fd::ui::WindowButtons::Part::Minimise, fd::ui::WindowButtons::Part::Maximise,
+                            fd::ui::WindowButtons::Part::Close})
+        click(wb, wb.area(part).getCentre().toFloat());
+    CHECK((minimised == 1 && maximised == 1 && closed == 1));
+    const auto caption = bar->titleArea().getCentre().toFloat();
+    drag(*bar, caption, caption + juce::Point<float>(40.0f, 10.0f));
+    CHECK(moves == 1); // once per drag
+    click(*bar, caption, 2);
+    CHECK(doubles == 1);
+    // Maximised: Restore; the unsaved dot after the name.
+    content.setWindowState(true, false);
+    CHECK(wb.isMaximised());
+    f.session->addTrack();
+    bar->setTitle("A long project name that has to give way to the menus and buttons", true);
+    content.setSize(1024, 900);
+    CHECK(bar->titleArea().getRight() < bar->windowButtons().getX());
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+    {
+        dumpPng(dump, "titlebar-unsaved-1024@2x.png", bar->createComponentSnapshot(bar->getLocalBounds(), true, 2.0f));
+        bar->setMnemonicsShown(true);
+        dumpPng(dump, "titlebar-mnemonics@2x.png", bar->createComponentSnapshot(bar->getLocalBounds().withWidth(600), true, 2.0f));
+        bar->setMnemonicsShown(false);
+    }
+    // Full screen: no window buttons. The system's title bar: the menus alone, every point the
+    // content's.
+    content.setWindowState(false, true);
+    CHECK_FALSE(bar->windowButtons().isVisible());
+    content.setWindowState(false, false);
+    content.setOwnsWindow(false);
+    CHECK_FALSE(bar->windowButtons().isVisible());
+    CHECK(bar->titleArea().isEmpty());
+    CHECK(content.controlAt({static_cast<float>(bar->brandArea().getCentreX()), 10.0f}) == K::client);
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "titlebar-system@2x.png", bar->createComponentSnapshot(bar->getLocalBounds(), true, 2.0f));
+}
+
+TEST_CASE("menu bar: Clip > Fades sets the selected clips' crossfades and fades by mouse (C10)", "[integration]")
+{
+    ShellFixture f;
+    auto& s = *f.session;
+    const auto root = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("fd-shell-" + juce::Uuid().toString());
+    REQUIRE(root.createDirectory());
+    s.setUnsavedRoot(root.getChildFile("Unsaved"));
+    s.updateSnapshotNow();
+    const auto t0 = s.snapshot()->tracks[0].id;
+    // Two clips that meet at 2 s, each with audio past its edges, crossfaded; the first faded in.
+    fd::testkit::AudioBuffer tone(2, 4 * 48000);
+    for (int c = 0; c < 2; ++c)
+        for (int i = 0; i < tone.numSamples(); ++i)
+            tone.at(c, i) = 0.5f * std::sin(static_cast<float>(i) * 0.02f);
+    std::vector<std::uint64_t> ids;
+    for (const auto& [name, start] : {std::pair{"a.wav", 0.0}, std::pair{"b.wav", 2.0}})
+    {
+        const auto file = root.getChildFile(name);
+        REQUIRE(fd::testkit::writeWav(file.getFullPathName().toStdString(), tone, 48000.0));
+        const auto id = s.insertAudioFile(t0, file, start);
+        s.applyClipEdits({{.clip = id, .track = t0, .start = start, .length = 2.0, .offset = 1.0}});
+        ids.push_back(id);
+    }
+    REQUIRE(s.setCrossfade(ids[0], fd::model::Crossfade{.length = 0.2, .from = -0.1}));
+    s.setFades({ids[0]}, fd::model::Fade{0.5, 0.4f}, std::nullopt);
+    s.updateSnapshotNow();
+    auto clipOf = [&](std::uint64_t id) {
+        s.updateSnapshotNow();
+        return *fd::model::findClip(*s.snapshot(), id)->first;
+    };
+    auto& menus = f.shell->menus();
+    // Nothing selected: nothing to act on.
+    CHECK_FALSE(findItem(menus.menu(3), "Remove crossfade")->isEnabled);
+
+    // The second clip selected: the crossfade at its start; the first: its fade too.
+    f.shell->arrangement().setSelection(fd::model::withClips(*s.snapshot(), {ids[1]}, t0, t0));
+    CHECK(findItem(menus.menu(3), "Equal power: different material")->isTicked);
+    CHECK(findItem(menus.menu(3), "Centred on the join")->isTicked);
+    CHECK(invoke(menus.menu(3), "Equal gain: the same material", "Fades"));
+    CHECK(clipOf(ids[0]).crossfadeOut->shape == fd::model::CrossfadeShape::EqualGain);
+    CHECK(s.undoDescription() == "Crossfade shape");
+    CHECK(invoke(menus.menu(3), "After the join", "Fades"));
+    CHECK(clipOf(ids[0]).crossfadeOut->from == Catch::Approx(0.0));
+    f.shell->arrangement().setSelection(fd::model::withClips(*s.snapshot(), {ids[0]}, t0, t0));
+    CHECK(invoke(menus.menu(3), "Straighten fades", "Fades"));
+    CHECK(clipOf(ids[0]).fadeIn.bend == 0.0f);
+    CHECK(clipOf(ids[0]).fadeIn.length == Catch::Approx(0.5));
+    CHECK(invoke(menus.menu(3), "Remove crossfade", "Fades"));
+    CHECK_FALSE(clipOf(ids[0]).crossfadeOut.has_value());
+    CHECK(invoke(menus.menu(3), "Remove fades", "Fades"));
+    CHECK(clipOf(ids[0]).fadeIn.length == 0.0);
+    CHECK_FALSE(findItem(menus.menu(3), "Remove fades")->isEnabled);
     root.deleteRecursively();
 }

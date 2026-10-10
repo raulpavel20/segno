@@ -83,6 +83,9 @@ struct Input
 struct ShellMetrics
 {
     int transportHeight = 40;
+    int titleBarHeight = 28;    // the title bar: the brand, the menus, the name, the window buttons (ADR 0040)
+    int windowButtonWidth = 40; // a window button (minimise, maximise, close), the title bar's height
+    int resizeBorder = 4;       // Linux: the resize grips inside the window's edges, outside the content
     int rulerHeight = 24, loopStripHeight = 12;
     int trackHeaderWidth = 180;
     int panelHeaderHeight = 24;

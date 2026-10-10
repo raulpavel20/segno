@@ -49,6 +49,8 @@ public:
 
     /// Called when the piano roll is clicked (the shell routes commands to the area used last).
     std::function<void()> onActivated;
+    /// A right-click in the grid: the notes' menu (the shell's, from its actions).
+    std::function<void()> onMenu;
 
     // Geometry, in component coordinates (tests drive the mouse with it).
     [[nodiscard]] juce::Rectangle<int> gridArea() const;

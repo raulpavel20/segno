@@ -1,5 +1,7 @@
 #pragma once
 
+#include "model/AppSettings.h"
+#include "ui/AboutPopover.h"
 #include "ui/ActionRegistry.h"
 #include "ui/ArrangementView.h"
 #include "ui/MixerView.h"
@@ -8,6 +10,7 @@
 #include "ui/ExportPopover.h"
 #include "ui/LanePicker.h"
 #include "ui/Panels.h"
+#include "ui/ShellMenus.h"
 
 #include <map>
 
@@ -38,8 +41,37 @@ public:
     /// Runs `then` once unsaved changes are saved or discarded; nothing if cancelled. The one
     /// modal dialog the UI principles allow besides confirming destruction.
     void confirmDiscard(std::function<void()> then);
-    /// "Segno - name" with a mark while there are unsaved changes.
+    /// The window's title ("name * - Segno": the document first) changed, or the unsaved mark.
     std::function<void(const juce::String&)> onTitleChanged;
+    /// The project's name ("Untitled" before it's saved), for the title bar.
+    [[nodiscard]] juce::String projectName() const;
+    [[nodiscard]] bool hasUnsavedChanges() const;
+
+    /// The menu bar (ADR 0040, docs/design/menu-bar.md): every action in File ... Help.
+    [[nodiscard]] ShellMenus& menus() noexcept { return *menus_; }
+    /// F10 or Alt+letter: open menu `index` (the title bar's; none on macOS).
+    std::function<void(int index)> onOpenMenu;
+    /// Alt held or let go: the menu bar underlines each menu's letter while it's held.
+    std::function<void(bool shown)> onMnemonicsShown;
+    /// What the window does for the shell (the main window sets them; without them, as in tests,
+    /// the actions that need them are dimmed).
+    struct WindowHooks
+    {
+        std::function<void()> quit;
+        std::function<bool()> isFullScreen;
+        std::function<void(bool)> setFullScreen;
+        /// The system's title bar instead of ours (Linux, Windows).
+        std::function<void(bool)> setSystemTitleBar;
+    };
+    WindowHooks window;
+
+    /// What the app remembers between launches (recent projects, the title bar option), read from
+    /// and written to `file` (the app's data folder). Without one, as in tests, nothing is kept.
+    void setSettingsFile(const juce::File& file);
+    [[nodiscard]] const model::AppSettings& settings() const noexcept { return settings_; }
+    /// Help > About Segno.
+    [[nodiscard]] AboutPopover& about() noexcept { return about_; }
+    void setVersion(const juce::String& version) { about_.setVersion(version); }
 
     /// Ends every eased layout change at once (tests and snapshots, which get no frames).
     void finishAnimations();
@@ -77,6 +109,20 @@ private:
     void updateTitle();
     std::unique_ptr<juce::FileChooser> chooser_;
     juce::String title_;
+    std::optional<juce::File> titleFile_; // the project file the title was made for (recent projects)
+    model::AppSettings settings_;
+    std::optional<juce::File> settingsFile_;
+    void saveSettings() const;
+    /// Opens `file`, after asking about unsaved changes (Open recent).
+    void openFile(const juce::File& file);
+    /// File > Open recent: the projects still on disk, then Clear the list.
+    [[nodiscard]] juce::PopupMenu recentMenu();
+    /// Clip > Fades: the selected clips' fades and the crossfades at their ends, as a fade's
+    /// right-click menu offers them (menu-bar.md §8).
+    [[nodiscard]] juce::PopupMenu fadesMenu();
+    std::unique_ptr<ShellMenus> menus_;
+    AboutPopover about_;
+    bool mnemonicsShown_ = false;
     void onFrame(double timestamp);
     /// The selection or the project changed: the context panels follow the subject, per view
     /// (docs/design/selection.md).
@@ -159,6 +205,8 @@ private:
     float keyboardVelocity_ = 0.8f;
     std::map<int, int> heldKeys_; // key code -> note
     bool handleComputerKeyboard(const juce::KeyPress& key);
+    void shiftKeyboardOctave(int octaves);
+    void shiftKeyboardVelocity(int steps);
 
     juce::String warning_;
     double warningUntil_ = 0.0;

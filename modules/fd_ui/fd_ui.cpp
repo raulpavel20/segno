@@ -13,3 +13,4 @@
 #include "controls/Labels.cpp"
 #include "shell/ShellParts.cpp"
 #include "shell/Brand.cpp"
+#include "shell/WindowButtons.cpp"

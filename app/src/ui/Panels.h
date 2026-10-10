@@ -44,8 +44,8 @@ private:
     int last_ = 0;
 };
 
-/// Top bar (ui-principles §2): the product's mark and name, transport, tempo and position, CPU,
-/// panel toggles.
+/// Top bar (ui-principles §2): the product's mark and name (macOS; elsewhere in the title bar),
+/// the song, Undo and Redo, transport and position, CPU, views, the command palette and app.
 class TransportBar final : public juce::Component
 {
 public:
@@ -60,6 +60,12 @@ public:
     void resized() override;
 
     ui::IconButton& settingsButton() noexcept { return settings_; }
+    /// The brand at the left end: on macOS, where there's no title bar of ours (ADR 0040).
+    void setBrandShown(bool shown);
+    /// The count-in's lengths, and MIDI loop recording's choices: the Record button's menu, and
+    /// the menu bar's Transport (one builder for both).
+    [[nodiscard]] juce::PopupMenu countInMenu();
+    [[nodiscard]] juce::PopupMenu midiLoopMenu();
     /// The assistants button (shown when the app has an MCP server), and whether an assistant
     /// made a request in the last few seconds (its light).
     [[nodiscard]] juce::Rectangle<int> assistantsButtonBounds() const { return assistants_.getBounds(); }
@@ -75,8 +81,6 @@ private:
     ui::IconButton play_{ui::Icon::Play}, stop_{ui::Icon::Stop}, record_{ui::Icon::Record};
     /// The Record button's menu (recording.md §9): count-in, MIDI loop recording, settings.
     void showRecordMenu();
-    /// The count-in lengths (the Record button's and the count-in button's right-click menus).
-    [[nodiscard]] juce::PopupMenu countInMenu();
     /// Capture MIDI (recording.md §8): dim until something was played to capture.
     ui::IconButton capture_{ui::Icon::Capture};
     ui::IconButton loop_{ui::Icon::Loop}, follow_{ui::Icon::Follow}, metronome_{ui::Icon::Metronome},
@@ -86,6 +90,9 @@ private:
     ui::NumberField tempoField_, numeratorField_, denominatorField_;
     ui::IconButton browser_{ui::Icon::PanelLeft}, detail_{ui::Icon::PanelBottom}, inspector_{ui::Icon::PanelRight};
     ui::IconButton settings_{ui::Icon::Settings};
+    // Undo and Redo after the song; the command palette first in the app group (ADR 0040).
+    ui::IconButton undo_{ui::Icon::Undo}, redo_{ui::Icon::Redo}, search_{ui::Icon::Search, "palette"};
+    bool brandShown_ = true;
     // The centre view: the arrangement or the mixer (C3c), a two-part switch.
     ui::Toggle arrangeView_{"Arrange"}, mixView_{"Mix"};
     ui::IconButton assistants_{ui::Icon::Assistant, "assistants"};
