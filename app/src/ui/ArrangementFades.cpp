@@ -103,15 +103,15 @@ void ArrangementView::paintCrossfades(juce::Graphics& g, const model::TrackInfo&
         g.reduceClipRegion(laneArea());
         // The waveform the crossfade plays, built from both clips' audio: on each side of the join
         // in that clip's colour (fades.md §3).
-        const CrossfadeSums::Key key{.out = c.sourcePath,
+        const CrossfadeSums::Join at{.out = c.sourcePath,
                                      .in = next.sourcePath,
-                                     .outFrom = c.offset + (from - c.start),
-                                     .inFrom = next.offset + (from - next.start),
-                                     .length = x.length,
-                                     .shape = x.shape};
-        if (const auto* sum = sums_.get(key))
+                                     .outAt = c.offset + (join - c.start),
+                                     .inAt = next.offset + (join - next.start)};
+        // While a drag outgrows the audio read around the join, the last sum stays where it was made.
+        if (const auto sum = sums_.get(at, x.from, x.length, x.shape); sum.peaks != nullptr)
         {
-            const model::ClipInfo sumClip{.kind = model::ClipInfo::Kind::Audio, .start = from, .length = x.length};
+            const model::ClipInfo sumClip{.kind = model::ClipInfo::Kind::Audio, .start = join + sum.from, .length = sum.length};
+            const auto sumSpan = span.withX(laneX(sumClip.start)).withRight(laneX(sumClip.end()));
             for (const auto* side : {&c, &next})
             {
                 const auto part = side == &c ? span.withRight(xj) : span.withLeft(xj);
@@ -122,8 +122,8 @@ void ArrangementView::paintCrossfades(juce::Graphics& g, const model::TrackInfo&
                 const auto colour = t.clipColour(side->colour);
                 g.setColour(t.clipBody(colour, drawnSelected(track, *side))); // as its clip's body
                 g.fillRect(part);
-                WaveformTiles::drawDirect(g, *sum, sumClip, span, part.getSmallestIntegerContainer(), timeline_, laneArea().getX(),
-                                          t.clipContent(colour));
+                WaveformTiles::drawDirect(g, *sum.peaks, sumClip, sumSpan, part.getSmallestIntegerContainer(), timeline_,
+                                          laneArea().getX(), t.clipContent(colour));
             }
         }
         if (x1 - x0 < static_cast<float>(t.shell.fadeHandleSize)) // as a fade: its grips show it
