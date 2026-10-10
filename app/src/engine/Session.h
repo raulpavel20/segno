@@ -386,6 +386,12 @@ public:
     /// before; where it has no audio, nothing plays. One undo step, "Use take". False if there's no
     /// such take.
     bool useTake(std::uint64_t trackId, std::uint64_t takeId);
+    /// Auditions a take (ADR 0038, recording.md §7): plays it in place of its clip, across the
+    /// clip's range, changing nothing, until stopAudition() or anything that changes the project (a
+    /// command, undo, save, a render or bounce, recording). One take at a time. A listening aid:
+    /// never an undo step or an unsaved change, never saved. False if there's no such take.
+    bool auditionTake(std::uint64_t trackId, std::uint64_t takeId);
+    void stopAudition();
     /// Comping (recording.md §7): the clip plays the take over [from, to] (either order, within its
     /// range; where the take has no audio, nothing changes), cutting what played there; new joins
     /// between takes get a 10 ms crossfade, and parts of one take that meet become one. One undo

@@ -738,8 +738,70 @@ std::vector<std::uint64_t> Session::Impl::importTakes(te::AudioTrack& track, con
 
 void Session::setTakesOpen(std::uint64_t stackId, bool open)
 {
+    if (!open && impl_->audition && impl_->audition->stack == stackId) // its strips go: so does the audition
+        impl_->stopAudition();
     if (auto [track, stack] = impl_->findStack(stackId); track != nullptr)
         impl_->openStack(*track, stack, open);
+}
+
+bool Session::auditionTake(std::uint64_t trackId, std::uint64_t takeId)
+{
+    auto* t = impl_->track(trackId);
+    const auto take = t != nullptr ? impl_->takeTree(*t, takeId) : juce::ValueTree();
+    if (!take.isValid())
+        return false;
+    impl_->stopAudition();
+    // A listening aid: never an undo step, and never an unsaved change (as solo).
+    auto& edit = *impl_->edit;
+    const bool wasChanged = edit.hasChangedSinceSaved();
+    const bool wasDirty = impl_->dirty;
+    const auto stack = take.getParent();
+    const double from = stack[Impl::fromId], to = stack[Impl::toId];
+    Impl::Audition audition{.track = trackId, .stack = idOf(stack), .take = takeId};
+    for (auto* c : impl_->partsOf(*t, stack))
+        if (!c->isMuted())
+        {
+            c->state.setProperty(te::IDs::mute, true, nullptr);
+            audition.muted.push_back(c->itemID.getRawID());
+        }
+    for (auto clip : take)
+        if (auto copy = trimmedState(clip, from, to); copy.isValid())
+        {
+            te::EditItemID::remapIDs(copy, nullptr, edit);
+            copy.removeProperty(Impl::fromTakeId, nullptr);
+            copy.setProperty(Impl::auditionId, true, nullptr);
+            t->state.appendChild(copy, nullptr);
+            audition.added.push_back(idOf(copy));
+        }
+    impl_->audition = std::move(audition);
+    if (!wasChanged)
+        edit.resetChangedStatus();
+    impl_->dirty = wasDirty;
+    return true;
+}
+
+void Session::stopAudition()
+{
+    impl_->stopAudition();
+}
+
+void Session::Impl::stopAudition()
+{
+    if (!audition || edit == nullptr)
+        return;
+    const auto a = std::move(*audition);
+    audition.reset();
+    const bool wasChanged = edit->hasChangedSinceSaved();
+    const bool wasDirty = dirty;
+    for (const auto id : a.added)
+        if (auto* c = clip(id))
+            c->state.getParent().removeChild(c->state, nullptr);
+    for (const auto id : a.muted)
+        if (auto* c = clip(id))
+            c->state.setProperty(te::IDs::mute, false, nullptr);
+    if (!wasChanged)
+        edit->resetChangedStatus();
+    dirty = wasDirty;
 }
 
 bool Session::useTake(std::uint64_t trackId, std::uint64_t takeId)

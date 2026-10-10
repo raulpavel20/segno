@@ -429,9 +429,15 @@ void Session::Impl::rebuildSnapshot()
         info.colour = static_cast<int>(t->state.getProperty(kColourId, index * 3 % kPaletteSize));
         for (auto* c : t->getClips())
         {
+            if (c->state.hasProperty(auditionId)) // an audition's copy: not the project (ADR 0038)
+                continue;
             auto clip = clipInfo(*c, info.colour);
+            if (audition && std::find(audition->muted.begin(), audition->muted.end(), clip.id) != audition->muted.end())
+                clip.muted = false; // muted only while its take is auditioned
             info.clips.push_back(std::move(clip));
         }
+        if (audition && audition->track == info.id)
+            info.audition = audition->take;
         std::sort(info.clips.begin(), info.clips.end(), [](const auto& a, const auto& b) { return a.start < b.start; });
         fillFades(*t, info.clips);
         devicesOf(t->pluginList, info);
@@ -1562,6 +1568,7 @@ void Session::replaceEdit(std::unique_ptr<te::Edit> edit, std::optional<juce::Fi
 {
     if (onProjectWillChange)
         onProjectWillChange(); // the UI drops its device handles and panels first
+    impl_->stopAudition();
     impl_->detach();
     impl_->file = std::move(file);
     impl_->attach(std::move(edit));
@@ -1596,6 +1603,7 @@ bool Session::open(const juce::File& file, std::string* error)
 
 bool Session::saveAs(const juce::File& file)
 {
+    impl_->stopAudition(); // never saved
     auto& edit = *impl_->edit;
     (void)file.getParentDirectory().createDirectory();
     impl_->moveToProject(file); // recordings into its folder, paths relative to it (ADR 0030)
@@ -1632,11 +1640,13 @@ std::string Session::savedViewState() const
 
 void Session::undo()
 {
+    impl_->stopAudition();
     impl_->edit->getUndoManager().undo();
 }
 
 void Session::redo()
 {
+    impl_->stopAudition();
     impl_->edit->getUndoManager().redo();
 }
 
@@ -1714,6 +1724,7 @@ private:
 std::shared_ptr<Session::RenderJob> Session::Impl::renderCopy(const std::function<bool(te::Edit&, te::Renderer::Parameters&)>& setup,
                                                               std::function<void(const std::string&)> done)
 {
+    stopAudition(); // a render hears the project as it is
     // A copy of the project: our devices' state is all in its tree; third-party plugins get
     // their live state copied over, so nothing in the open project is touched.
     te::Edit::Options options{engine, edit->state.createCopy(), te::ProjectItemID::createNewID(te::ProjectID{})};

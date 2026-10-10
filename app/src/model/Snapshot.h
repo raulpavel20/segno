@@ -183,6 +183,7 @@ struct TrackInfo
     MixInfo mix;
     InputInfo input; // tracks only (C5): what it listens to and records, and whether it's armed
     std::vector<TakeStackInfo> stacks; // tracks only: its clips' takes (ADR 0032), by start
+    std::uint64_t audition = 0;        // the take heard in place of its clip (ADR 0038); 0: none
 
     [[nodiscard]] bool holdsClips() const noexcept { return role == Role::Track; }
     [[nodiscard]] const TakeStackInfo* stack(std::uint64_t stackId) const noexcept

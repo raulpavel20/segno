@@ -28,7 +28,8 @@ enum class Icon
     Capture,       // capture MIDI (C5b): a turning arrow back round a dot, recording what was played
     Follow,        // follow the playhead: the playhead line with an arrow going on
     CountIn,       // count-in: beats leading into the downbeat
-    ChevronDown    // opens a menu (a clip's takes)
+    ChevronDown,   // opens a menu (a clip's takes)
+    Audition       // hear a take in place of its clip (ADR 0038): a speaker with a sound wave
 };
 
 /// Draws `icon` fitted (aspect kept) into `area` in `colour`.

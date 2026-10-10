@@ -128,6 +128,18 @@ Glyph glyph(Icon icon)
         p.lineTo(8.0f, 10.5f);
         p.lineTo(12.5f, 6.0f);
         break;
+    case Icon::Audition:
+        // A speaker, and the sound coming from it.
+        g.solid.startNewSubPath(2.0f, 6.0f);
+        g.solid.lineTo(4.5f, 6.0f);
+        g.solid.lineTo(8.5f, 2.5f);
+        g.solid.lineTo(8.5f, 13.5f);
+        g.solid.lineTo(4.5f, 10.0f);
+        g.solid.lineTo(2.0f, 10.0f);
+        g.solid.closeSubPath();
+        p.addCentredArc(9.0f, 8.0f, 2.5f, 2.5f, 0.0f, 0.75f, 2.39f, true);
+        p.addCentredArc(9.0f, 8.0f, 5.0f, 5.0f, 0.0f, 0.75f, 2.39f, true);
+        break;
     case Icon::Settings:
         // Three sliders.
         for (int i = 0; i < 3; ++i)

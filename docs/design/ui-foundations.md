@@ -125,6 +125,7 @@ Role functions for colours that depend on content:
 | `shell.clipTextInset` | 4 (a clip's name and badge, from its edges) |
 | `shell.laneTextInset` | 8 (text in a lane, a hint or a take's name, from its visible left edge) |
 | `shell.takeStripHeight` | 24 (a take's strip under its clip, C5b) |
+| `shell.takeIconSize` | 12 (the audition button, `Icon::Audition`, at the start of a take strip's name chip; ADR 0038) |
 | `shell.progressHeight` | 2 (the progress line along the bottom of what's being worked on, C7) |
 | `shell.fadeHandleSize` | 7 (a fade's or crossfade's handle on a clip, C6; a fade narrower than this draws only its handle) |
 

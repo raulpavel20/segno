@@ -95,7 +95,10 @@ Json takesJson(ToolEnv& env, std::uint64_t trackId, std::uint64_t onlyStack = 0)
                                          : s.parts.empty() ? Json(nullptr) : Json("comp")},
                              {"takes", std::move(list)}});
         }
-    return {{"track", formatId(IdKind::Track, trackId)}, {"clips", std::move(clips)}, {"takes", std::move(takes)}};
+    return {{"track", formatId(IdKind::Track, trackId)},
+            {"clips", std::move(clips)},
+            {"takes", std::move(takes)},
+            {"auditioning", t != nullptr && t->audition != 0 ? Json(formatId(IdKind::Take, t->audition)) : Json(nullptr)}};
 }
 
 Json trackInputResult(ToolEnv& env, std::uint64_t track)
@@ -326,6 +329,31 @@ void addRecordingTools(Registry& registry, ToolEnv& env)
             }
             env.session.useTake(t.id, take);
             return ToolResult::ok(takesJson(env, t.id), "Playing " + formatId(IdKind::Take, take) + ".");
+        }));
+
+    registry.tools.push_back(make(
+        env,
+        {"audition_take", "Audition a take",
+         "Plays a take in place of its clip, across the clip's range, without changing anything (as soloing a take "
+         "lane): to compare takes while comping. One take at a time; it lasts until stop, auditioning another take, "
+         "or anything that changes the project (an edit, undo, save, a render, recording). Never an undo step.",
+         object({{"track", id(IdKind::Track, "The track")},
+                 {"take", id(IdKind::Take, "The take to hear")},
+                 {"stop", boolean("Stop auditioning instead")}},
+                {"track"}),
+         takesResult, transport},
+        [&env](const Json& args, CallContext&) {
+            const auto t = clipTrack(env, args["track"]);
+            if (args.value("stop", false))
+            {
+                env.session.stopAudition();
+                return ToolResult::ok(takesJson(env, t.id), "Stopped auditioning.");
+            }
+            if (!args.contains("take"))
+                throw Problem{"Give a take, or stop: true."};
+            const auto take = takeArg(t, args["take"]);
+            env.session.auditionTake(t.id, take);
+            return ToolResult::ok(takesJson(env, t.id), "Auditioning " + formatId(IdKind::Take, take) + ".");
         }));
 
     registry.tools.push_back(make(

@@ -951,15 +951,19 @@ void ArrangementView::paintGroup(juce::Graphics& g, const model::ClipGroup& grou
     const auto& t = ui::Theme::current();
     const bool selected = drawnSelected(track, *group.parts.front());
     const bool seam = seamAfter(track, group.end(), group.parts.front()->stack);
+    // While one of its takes is auditioned, the clip isn't what you hear (ADR 0038): dimmed.
+    const bool auditioned = group.stack != nullptr && track.audition != 0 && group.stack->take(track.audition) != nullptr;
     for (const auto* part : group.parts) // lighter together; one outline, at the end; a seam after the last
-        paintClip(g, *part, y, h, visible, {.selected = selected, .outline = false, .seam = seam && part == group.parts.back()});
+        paintClip(g, *part, y, h, visible,
+                  {.selected = selected, .dimmed = auditioned, .outline = false, .seam = seam && part == group.parts.back()});
     if (group.end() < timeline_.start() || group.start() > timeline_.end())
         return;
     const auto box = groupBox(group, track, y, h);
     if (!box.intersects(visible.toFloat()))
         return;
     const bool muted = std::all_of(group.parts.begin(), group.parts.end(), [](const auto* p) { return p->muted; });
-    const auto colour = muted ? t.clipDimmed(t.clipColour(group.parts.front()->colour)) : t.clipColour(group.parts.front()->colour);
+    const bool silent = muted || auditioned; // not what you hear
+    const auto colour = silent ? t.clipDimmed(t.clipColour(group.parts.front()->colour)) : t.clipColour(group.parts.front()->colour);
     const auto title = titleOf(box);
     const float inset = static_cast<float>(t.shell.clipTextInset);
     if (group.parts.size() > 1)
@@ -1078,6 +1082,10 @@ void ArrangementView::paintStrips(juce::Graphics& g, int row, const model::Track
                         g.drawRect(used, static_cast<float>(t.shell.clipOutline));
                     }
                 }
+                // Auditioned (ADR 0038): all of its audio is what you hear.
+                if (track.audition == take.id)
+                    for (const auto& c : take.clips)
+                        body(c, t.clipBody(t.clipColour(c.colour), false), t.clipContent(t.clipColour(c.colour)), visible);
                 // The stretch being swiped (recording.md §7): what it will use, in full colour and
                 // outlined, until the release comps it in.
                 if (swipe_ && swipe_->swiping && swipe_->take == take.id)
@@ -1096,26 +1104,22 @@ void ArrangementView::paintStrips(juce::Graphics& g, int row, const model::Track
                                 g.drawRect(box, static_cast<float>(t.shell.clipOutline));
                             }
             }
-            // Its name, at the left of what's in sight, on a backing as tall as its clips that keeps
-            // it legible.
-            const auto label = stripLabel(rect);
+            // Its audition button and name, on a backing that keeps them legible.
             const auto name = juce::String::fromUTF8(take.name.c_str());
-            const float nameWidth = juce::GlyphArrangement::getStringWidth(ui::font(ui::TextStyle::Caption), name);
-            const auto clips = clipBox(stack.start, stack.end, rect.getY(), rect.getHeight());
+            const auto chip = stripChip(rect, stack, name);
+            const bool auditioned = track.audition == take.id;
             g.setColour(t.roles.subLane);
-            g.fillRoundedRectangle(label.withWidth(std::min(nameWidth, label.getWidth())) // never past the strip
-                                       .withY(clips.getY())
-                                       .withHeight(clips.getHeight())
-                                       .expanded(static_cast<float>(t.shell.clipTextInset), 0.0f),
-                                   t.radiusControl);
-            g.setColour(model::isUsed(take, track.clips) ? t.textPrimary : t.textSecondary); // bright while the clip plays some of it
+            g.fillRoundedRectangle(chip.backing, t.radiusControl);
+            const auto text = model::isUsed(take, track.clips) ? t.textPrimary : t.textSecondary; // bright while the clip plays some of it
+            ui::drawIcon(g, ui::Icon::Audition, chip.button, auditioned ? t.active : text);
+            g.setColour(text);
             g.setFont(ui::font(ui::TextStyle::Caption));
-            g.drawText(name, label, juce::Justification::centredLeft, true);
+            g.drawText(name, chip.name, juce::Justification::centredLeft, true);
             g.setColour(t.line);
             g.fillRect(rect.withTop(rect.getBottom() - 1.0f));
-            if (selection_.takes.contains(take.id))
+            if (auditioned || selection_.takes.contains(take.id))
             {
-                g.setColour(t.textPrimary);
+                g.setColour(auditioned ? t.active : t.textPrimary); // auditioned: what you hear
                 g.drawRect(rect, static_cast<float>(t.shell.clipOutline));
             }
         }
@@ -1129,6 +1133,61 @@ juce::Rectangle<float> ArrangementView::stripLabel(juce::Rectangle<float> strip)
     label.setLeft(std::max(strip.getX(), static_cast<float>(laneArea().getX())) +
                   static_cast<float>(ui::Theme::current().shell.laneTextInset));
     return label;
+}
+
+ArrangementView::StripChip ArrangementView::stripChip(juce::Rectangle<float> strip, const model::TakeStackInfo& stack,
+                                                     const juce::String& name) const
+{
+    const auto& s = ui::Theme::current().shell;
+    const auto label = stripLabel(strip);
+    const auto clips = clipBox(stack.start, stack.end, strip.getY(), strip.getHeight());
+    const float icon = static_cast<float>(s.takeIconSize), inset = static_cast<float>(s.clipTextInset);
+    StripChip chip;
+    chip.button = juce::Rectangle<float>(label.getX(), clips.getCentreY() - icon * 0.5f, icon, icon);
+    chip.name = label.withTrimmedLeft(icon + static_cast<float>(s.itemGap));
+    const float nameWidth = std::min(juce::GlyphArrangement::getStringWidth(ui::font(ui::TextStyle::Caption), name),
+                                     std::max(0.0f, chip.name.getWidth()));
+    // Never past the strip.
+    const float right = std::min(chip.name.getX() + nameWidth, label.getRight());
+    chip.backing = juce::Rectangle<float>(label.getX(), clips.getY(), std::max(icon, right - label.getX()), clips.getHeight())
+                       .expanded(inset, 0.0f);
+    chip.hit = chip.backing.withWidth(inset + icon + static_cast<float>(s.itemGap) * 0.5f);
+    return chip;
+}
+
+std::optional<std::pair<std::uint64_t, std::uint64_t>> ArrangementView::auditionButtonAt(juce::Point<float> p) const
+{
+    const auto at = stripAt(p);
+    if (!at)
+        return std::nullopt;
+    const auto lanes = laneArea();
+    const auto row = layout_.hit(p.y - static_cast<float>(lanes.getY()));
+    const auto* track = snapshot_->channel(at->track);
+    const auto* stack = track != nullptr ? track->stack(at->hit.stack) : nullptr;
+    if (!row || stack == nullptr)
+        return std::nullopt;
+    const float strip = static_cast<float>(ui::Theme::current().shell.takeStripHeight);
+    const float top = static_cast<float>(lanes.getY() + layout_.top(row->track) + layout_.baseHeight(row->track));
+    const auto n = stack->takes.size();
+    for (size_t k = 0; k < n; ++k)
+        if (const auto& take = stack->takes[n - 1 - k]; take.id == at->hit.take)
+        {
+            const auto rect = juce::Rectangle<float>(laneX(stack->start), top + static_cast<float>(k) * strip,
+                                                     laneX(stack->end) - laneX(stack->start), strip);
+            if (stripChip(rect, *stack, juce::String::fromUTF8(take.name.c_str())).hit.contains(p))
+                return std::pair{at->track, take.id};
+        }
+    return std::nullopt;
+}
+
+juce::String ArrangementView::getTooltip()
+{
+    const auto button = auditionButtonAt(getMouseXYRelative().toFloat());
+    if (!button)
+        return {};
+    const auto* track = snapshot_->channel(button->first);
+    return track != nullptr && track->audition == button->second ? "Stop auditioning"
+                                                                  : "Audition: hear this take in place of the clip";
 }
 
 std::optional<ArrangementView::StripAt> ArrangementView::stripAt(juce::Point<float> p) const
@@ -1359,7 +1418,7 @@ void ArrangementView::mouseMove(const juce::MouseEvent& e)
         }
         else if (const auto strip = stripAt(e.position))
         {
-            if (strip->hit.onClip) // a click uses the take
+            if (strip->hit.onClip || auditionButtonAt(e.position)) // a click uses the take, or auditions it
                 cursor = juce::MouseCursor::PointingHandCursor;
         }
         else if (badgeAt(e.position)) // the clip's take menu
@@ -1522,6 +1581,16 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
     if (row && rowLane(row->track) != nullptr)
     {
         laneMouseDown(e, row->track);
+        return;
+    }
+    if (const auto button = auditionButtonAt(e.position))
+    {
+        // A take's audition button (ADR 0038): hear it in place of its clip, or stop.
+        const auto* track = snapshot_->channel(button->first);
+        if (track != nullptr && track->audition == button->second)
+            session_.stopAudition();
+        else
+            session_.auditionTake(button->first, button->second);
         return;
     }
     if (const auto strip = stripAt(e.position))

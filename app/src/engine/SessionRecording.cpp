@@ -335,6 +335,7 @@ void Session::setArmed(std::uint64_t trackId, bool armed, bool exclusive)
 
 void Session::record()
 {
+    impl_->stopAudition(); // a pass records over the project as it is
     auto& transport = impl_->edit->getTransport();
     if (transport.isRecording())
     {

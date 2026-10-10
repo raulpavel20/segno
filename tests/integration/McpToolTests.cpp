@@ -143,7 +143,7 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
           "measure_module", "set_mix", "add_return_track", "set_send", "measure_mix", "get_automation",
           "set_automation", "clear_automation", "set_automation_on", "add_automation_lane", "set_automation_lane",
           "remove_automation_lane", "assign_automation", "unassign_automation", "set_track_input", "arm_tracks",
-          "record", "get_takes", "use_take", "set_take", "move_takes_to_tracks", "delete_takes", "capture_midi",
+          "record", "get_takes", "use_take", "audition_take", "set_take", "move_takes_to_tracks", "delete_takes", "capture_midi",
           "bounce_clips", "mute_clips", "set_fades", "crossfade", "set_edge_fades",
           "undo", "redo",
           "save_project", "new_project", "open_project"})
@@ -957,6 +957,13 @@ TEST_CASE("mcp tools: recording: inputs set, tracks armed, a few bars recorded",
           std::string::npos);
     CHECK(daw.fails("use_take", {{"track", t0}, {"take", punch["takes"][1]["id"]}, {"from", "20.1.1"}, {"to", "21.1.1"}})
               .find("no audio there") != std::string::npos);
+    // Auditioning a take: heard in place of its clip, nothing changed, never an undo step.
+    const auto heard = daw.call("audition_take", {{"track", t0}, {"take", punch["takes"][0]["id"]}});
+    CHECK(heard["auditioning"] == punch["takes"][0]["id"]);
+    CHECK(daw.call("get_takes", {{"track", t0}})["clips"][1]["playing"] == "comp");
+    CHECK(daw.session->undoDescription() == "Assistant: use take");
+    CHECK(daw.call("audition_take", {{"track", t0}, {"stop", true}})["auditioning"].is_null());
+    CHECK(daw.fails("audition_take", {{"track", t0}}).find("stop") != std::string::npos);
 
     // Capture MIDI: nothing played yet; then a phrase onto the track asked for (none armed).
     CHECK(daw.call("capture_midi")["clip"].is_null());

@@ -26,9 +26,11 @@ namespace fd::app
 {
 /// The arrangement (docs/design/daw-shell.md, C2): ruler, track headers and lanes with the grid,
 /// clips and playhead. Draws only from the Session's snapshot and its own view models.
-class ArrangementView final : public juce::Component, public juce::FileDragAndDropTarget
+class ArrangementView final : public juce::Component, public juce::FileDragAndDropTarget, public juce::TooltipClient
 {
 public:
+    /// What a take strip's audition button does (the rest of the view has no tooltips).
+    juce::String getTooltip() override;
     /// The track header column's width (shell metrics, docs/design/ui-foundations.md).
     [[nodiscard]] static int headerWidth() { return ui::Theme::current().shell.trackHeaderWidth; }
     /// The ruler zone: the loop strip on top of the ruler row.
@@ -245,6 +247,15 @@ private:
         model::StripHit hit;
     };
     [[nodiscard]] std::optional<StripAt> stripAt(juce::Point<float> p) const;
+    /// A take strip's name chip (recording.md §6): its audition button (ADR 0038) and its name, on
+    /// a backing as tall as its clips, at the left of what's in sight.
+    struct StripChip
+    {
+        juce::Rectangle<float> button, name, backing, hit; // `hit`: where a click auditions
+    };
+    [[nodiscard]] StripChip stripChip(juce::Rectangle<float> strip, const model::TakeStackInfo& stack, const juce::String& name) const;
+    /// The audition button under a point: its track and take.
+    [[nodiscard]] std::optional<std::pair<std::uint64_t, std::uint64_t>> auditionButtonAt(juce::Point<float> p) const;
     /// The badge under a point: its track and stack.
     [[nodiscard]] std::optional<std::pair<std::uint64_t, std::uint64_t>> badgeAt(juce::Point<float> p) const;
     /// A clip's take menu; `take`: the strip right-clicked (else the take it plays).

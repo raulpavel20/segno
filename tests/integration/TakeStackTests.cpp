@@ -532,3 +532,68 @@ TEST_CASE("take stacks: a C5b project's take lanes become its clips' takes", "[i
     CHECK_FALSE(r.session->canUndo());
     CHECK_FALSE(r.session->hasUnsavedChanges());
 }
+
+TEST_CASE("take stacks: auditioning a take plays it in place of its clip, changing nothing", "[integration]")
+{
+    Recording r;
+    const auto t = r.track(0);
+    r.session->setAudioInput(t, r.session->audioInputs().front().id);
+    // A sine take, then a silent pass over all of it: one clip with both, playing the silence.
+    r.input = sine;
+    pass(r, t, 0.0, 2.0);
+    r.input = [](std::int64_t, int) { return 0.0f; };
+    pass(r, t, 0.0, 2.5);
+    auto info = r.info(t);
+    REQUIRE(info.stacks.size() == 1);
+    REQUIRE(info.stacks[0].takes.size() == 2);
+    const auto loud = info.stacks[0].takes[0].id, quiet = info.stacks[0].takes[1].id;
+    REQUIRE(r.session->useTake(t, loud)); // the clip plays the sine
+    const auto undoBefore = r.session->undoDescription();
+    const auto unsavedBefore = r.session->hasUnsavedChanges();
+    auto level = [&] {
+        r.session->setPosition(0.5);
+        r.session->play();
+        r.pump(0.3);
+        const float out = r.outputLevel();
+        r.session->stop();
+        r.pump(0.05);
+        return out;
+    };
+    REQUIRE(level() > 0.1f);
+
+    // Auditioning the silent take: silence, and nothing else changed.
+    REQUIRE(r.session->auditionTake(t, quiet));
+    info = r.info(t);
+    CHECK(info.audition == quiet);
+    REQUIRE(info.clips.size() == 1);
+    CHECK_FALSE(info.clips[0].muted);
+    CHECK(info.clips[0].fromTake == info.stacks[0].takes[0].clips.at(0).id);
+    CHECK(level() < 0.001f);
+    CHECK(r.session->undoDescription() == undoBefore);
+    CHECK(r.session->hasUnsavedChanges() == unsavedBefore);
+    // It lasts through play and stop; stopping it brings the clip back.
+    CHECK(r.info(t).audition == quiet);
+    r.session->stopAudition();
+    CHECK(r.info(t).audition == 0);
+    CHECK(level() > 0.1f);
+    CHECK(r.session->hasUnsavedChanges() == unsavedBefore);
+
+    // An edit, undo, closing the takes and saving each end it; a saved file has none of it.
+    REQUIRE(r.session->auditionTake(t, quiet));
+    r.session->renameTake(t, loud, "Best");
+    CHECK(r.info(t).audition == 0);
+    CHECK(level() > 0.1f);
+    REQUIRE(r.session->auditionTake(t, quiet));
+    r.session->undo();
+    CHECK(r.info(t).audition == 0);
+    REQUIRE(r.session->auditionTake(t, quiet));
+    r.session->setTakesOpen(r.info(t).stacks[0].id, false);
+    CHECK(r.info(t).audition == 0);
+    REQUIRE(r.session->auditionTake(t, quiet));
+    const auto file = r.root.getChildFile("Audition").getChildFile("Audition.segno");
+    REQUIRE(r.session->saveAs(file));
+    CHECK(r.info(t).audition == 0);
+    CHECK_FALSE(file.loadFileAsString().contains("fdAudition"));
+    CHECK(r.info(t).clips.size() == 1);
+    CHECK_FALSE(r.info(t).clips[0].muted);
+}

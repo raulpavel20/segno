@@ -123,7 +123,17 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     // clips with absolute times, never played). A main-lane clip made from a take carries "fdTake",
     // the take clip it plays; through it, its stack. Every edit goes through the undo manager.
     static inline const juce::Identifier takesId{"FDTAKES"}, stackId{"STACK"}, takeId{"TAKE"},
-        fromTakeId{"fdTake"}, showTakesId{"fdShowTakes"}, stackOpenId{"fdOpen"};
+        fromTakeId{"fdTake"}, showTakesId{"fdShowTakes"}, stackOpenId{"fdOpen"}, auditionId{"fdAudition"};
+    /// A take heard in place of its clip (ADR 0038): copies of its clips on the track and the
+    /// clip's parts muted, all outside the undo history; never in the snapshot or a saved file.
+    struct Audition
+    {
+        std::uint64_t track = 0, stack = 0, take = 0;
+        std::vector<std::uint64_t> added, muted; // the copies; the parts muted for it
+    };
+    std::optional<Audition> audition;
+    /// Ends the audition, if any: what changes the project, saves or renders it, first does this.
+    void stopAudition();
     [[nodiscard]] juce::ValueTree takesOf(te::AudioTrack& track, juce::UndoManager* um);
     [[nodiscard]] juce::ValueTree takeTree(te::AudioTrack& track, std::uint64_t take);
     [[nodiscard]] juce::ValueTree stackTree(te::AudioTrack& track, std::uint64_t stack);
@@ -227,6 +237,7 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// an EditGroup the group's step takes the edits instead.
     void beginEdit(const juce::String& name)
     {
+        stopAudition(); // an edit ends an audition (ADR 0038)
         if (groupDepth == 0)
             edit->getUndoManager().beginNewTransaction(name);
     }

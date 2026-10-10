@@ -1748,6 +1748,34 @@ TEST_CASE("takes: takes open under their clip after a loop pass; strips, the bad
     s.updateSnapshotNow();
     CHECK(view.selection().takes == std::set{stack().takes[0].id});
     CHECK(s.undoDescription() == "Use take");
+    // The speaker in a strip's name chip auditions its take: heard in place of the clip, changing
+    // nothing; a second click stops it (ADR 0038).
+    {
+        const auto& theme = fd::ui::Theme::current();
+        const juce::Point<float> speaker(laneX(4.0) + static_cast<float>(theme.shell.laneTextInset + theme.shell.takeIconSize / 2),
+                                         stripMiddle(2));
+        const auto playing = track().clips.at(0).fromTake;
+        click(view, speaker);
+        s.updateSnapshotNow();
+        CHECK(track().audition == stack().takes[2].id);
+        REQUIRE(track().clips.size() == 1);
+        CHECK(track().clips[0].fromTake == playing); // the clip as it was
+        view.setSnapshot(s.snapshot());
+        if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: an auditioned take
+        {
+            dumpPng(dump, "takes-audition@2x.png",
+                    view.createComponentSnapshot(juce::Rectangle<int>(static_cast<int>(laneX(3.5)), 0, 500, 170), true, 2.0f));
+            f.shell->setSize(1024, 800);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+            dumpPng(dump, "takes-audition-compact.png", f.shell->createComponentSnapshot(f.shell->getLocalBounds()));
+            f.shell->setSize(1800, 1000);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+            view.setView(0.0, 150.0);
+        }
+        click(view, speaker);
+        s.updateSnapshotNow();
+        CHECK(track().audition == 0);
+    }
     // Ctrl+click adds a take to the selected ones, and uses nothing; again, takes it out.
     {
         const auto ctrl = juce::ModifierKeys(juce::ModifierKeys::leftButtonModifier | juce::ModifierKeys::commandModifier);

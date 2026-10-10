@@ -112,6 +112,7 @@ struct ShellMetrics
     int clipTextInset = 4;        // a clip's name and badge, from its edges
     int laneTextInset = 8;        // text in a lane (a hint, a take's name), from its visible left edge
     int takeStripHeight = 24;     // a take's strip under its clip (recording.md §6)
+    int takeIconSize = 12;        // the audition button in a take strip's name chip (ADR 0038)
     int progressHeight = 2;       // the progress line along the bottom of what's being worked on
     int fadeHandleSize = 7;       // a fade's or crossfade's handle on a clip (fades.md §3)
     float shadowRadius = 18.0f, shadowOffset = 6.0f;
