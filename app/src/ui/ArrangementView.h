@@ -369,7 +369,17 @@ private:
     LoopZone loopDrag_ = LoopZone::None;
     std::pair<double, double> loopAtDragStart_{0.0, 0.0};
 
-    enum class Drag { None, Ruler, Clip, Box, Loop, Lane, Resize, Fade };
+    enum class Drag { None, Ruler, Clip, Box, Loop, Lane, Resize, Fade, Swipe };
+    /// A press on a take's strip (recording.md §6, §7): a click uses the take, a drag across it
+    /// comps that stretch of it in.
+    struct TakeSwipe
+    {
+        std::uint64_t track = 0, take = 0;
+        bool onClip = false;    // pressed on one of the take's clips (a click uses it)
+        double from = 0.0, to = 0.0; // the stretch, snapped (seconds; either order)
+        bool swiping = false;   // dragged past the threshold
+    };
+    std::optional<TakeSwipe> swipe_;
     Drag drag_ = Drag::None;
     juce::Point<float> lastDrag_, dragStart_;
     time::RulerGesture rulerGesture_;

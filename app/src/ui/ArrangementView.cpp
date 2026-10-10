@@ -1021,6 +1021,22 @@ void ArrangementView::paintStrips(juce::Graphics& g, int row, const model::Track
                         body(c, colour, visible.getIntersection(used));
                     }
                 }
+                // The stretch being swiped (recording.md §7): what it will use, in full colour and
+                // outlined, until the release comps it in.
+                if (swipe_ && swipe_->swiping && swipe_->take == take.id)
+                    for (const auto& piece : model::swipePieces(stack, take.id, swipe_->from, swipe_->to))
+                        for (const auto& c : take.clips)
+                            if (c.id == piece.takeClip)
+                            {
+                                const auto box = clipBox(piece.from, piece.to, rect.getY(), rect.getHeight());
+                                {
+                                    juce::Graphics::ScopedSaveState inner(g);
+                                    g.reduceClipRegion(box.getSmallestIntegerContainer());
+                                    body(c, t.clipColour(c.colour), visible.getIntersection(box.getSmallestIntegerContainer()));
+                                }
+                                g.setColour(t.textPrimary);
+                                g.drawRect(box, static_cast<float>(t.shell.clipOutline));
+                            }
             }
             // Its name, at the left of what's in sight, on a backing as tall as its clips that keeps
             // it legible.
@@ -1442,11 +1458,12 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
     }
     if (const auto strip = stripAt(e.position))
     {
-        // A take's strip (recording.md §6): it selects the take, and on the take's clip the clip
-        // plays it.
+        // A take's strip (recording.md §6, §7): it selects the take; on release, a click on the
+        // take's clip plays it, and a drag across the strip comps that stretch of it in.
         selectTake(strip->track, strip->hit.take);
-        if (strip->hit.onClip)
-            session_.useTake(strip->track, strip->hit.take);
+        const double at = snapped(timeline_.timeForX(e.position.x - static_cast<float>(lanes.getX())), e.mods.isAltDown());
+        swipe_ = TakeSwipe{.track = strip->track, .take = strip->hit.take, .onClip = strip->hit.onClip, .from = at, .to = at};
+        drag_ = Drag::Swipe;
         return;
     }
     if (fadeMouseDown(e)) // a fade's or crossfade's handle
@@ -1533,6 +1550,13 @@ void ArrangementView::mouseDrag(const juce::MouseEvent& e)
     if (drag_ == Drag::Fade)
     {
         fadeMouseDrag(e);
+        return;
+    }
+    if (drag_ == Drag::Swipe && swipe_)
+    {
+        swipe_->swiping = swipe_->swiping || e.getDistanceFromDragStart() >= ui::Theme::current().input.dragThreshold;
+        swipe_->to = snapped(timeline_.timeForX(e.position.x - static_cast<float>(lanes.getX())), e.mods.isAltDown());
+        repaint();
         return;
     }
     if (drag_ == Drag::Ruler)
@@ -1643,6 +1667,14 @@ void ArrangementView::mouseUp(const juce::MouseEvent& e)
         laneMouseUp(e);
     if (drag_ == Drag::Fade)
         fadeMouseUp();
+    if (drag_ == Drag::Swipe && swipe_)
+    {
+        if (swipe_->swiping) // comps that stretch in (one undo step)
+            session_.compTake(swipe_->track, swipe_->take, swipe_->from, swipe_->to);
+        else if (swipe_->onClip)
+            session_.useTake(swipe_->track, swipe_->take);
+        swipe_.reset();
+    }
     if (drag_ == Drag::Resize)
         resizeRow_.reset();
     if (drag_ == Drag::Loop)

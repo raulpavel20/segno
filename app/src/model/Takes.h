@@ -84,6 +84,21 @@ struct ClipGroup
 [[nodiscard]] std::optional<size_t> replacementTake(const TakeStackInfo& stack, const std::set<std::uint64_t>& deleted,
                                                     double from, double to);
 
+// ---- comping (recording.md §7) -------------------------------------------------------------
+
+/// What a swipe across a take uses: over [from, to] (either order) within the clip's range, each of
+/// the take's clips there, trimmed to it. Where the take has no audio, nothing.
+struct SwipePiece
+{
+    std::uint64_t takeClip = 0;
+    double from = 0.0, to = 0.0;
+};
+[[nodiscard]] std::vector<SwipePiece> swipePieces(const TakeStackInfo& stack, std::uint64_t take, double from, double to);
+
+/// Neighbouring parts that play on seamlessly from one take clip (one stretch of it, cut in two),
+/// to join into one: each pair (earlier, later), in time order. `parts`: a clip's parts.
+[[nodiscard]] std::vector<std::pair<std::uint64_t, std::uint64_t>> seamlessParts(std::vector<ClipInfo> parts);
+
 /// Groups of indices of `spans` that overlap, directly or through others (opening C5b projects:
 /// overlapping take lanes become one clip's takes). Each group in index order; groups by first index.
 [[nodiscard]] std::vector<std::vector<size_t>> overlapGroups(const std::vector<std::pair<double, double>>& spans);

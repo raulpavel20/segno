@@ -1787,6 +1787,32 @@ TEST_CASE("takes: takes open under their clip after a loop pass; strips, the bad
     s.updateSnapshotNow();
     CHECK(track().clips.at(0).fromTake == stack().takes[1].clips.at(0).id);
 
+    // A drag across a strip comps that stretch of its take in, on release (recording.md §7): one
+    // undo step, "Comp" on the badge; while dragging, the stretch shows on the strip.
+    {
+        const juce::Point<float> from(laneX(4.5), stripMiddle(0)), to(laneX(5.5), stripMiddle(0));
+        view.mouseDown(mouseEvent(view, from, from, false));
+        view.mouseDrag(mouseEvent(view, to, from, true));
+        s.updateSnapshotNow();
+        CHECK(track().clips.size() == 1); // nothing yet
+        if (const char* dump = std::getenv("FD_DUMP_DIR"))
+            dumpPng(dump, "takes-swipe@2x.png",
+                    view.createComponentSnapshot(juce::Rectangle<int>(static_cast<int>(laneX(3.5)), 0, 500, 170), true, 2.0f));
+        view.mouseUp(mouseEvent(view, to, from, true));
+        s.updateSnapshotNow();
+        CHECK(s.undoDescription() == "Comp");
+        REQUIRE(track().clips.size() == 3);
+        CHECK(track().clips[1].fromTake == stack().takes[0].clips.at(0).id);
+        CHECK(track().clips[1].start == Catch::Approx(4.5));
+        CHECK(fd::model::badge(stack(), track().clips, false)->comp);
+        if (const char* dump = std::getenv("FD_DUMP_DIR"))
+            dumpPng(dump, "takes-comped@2x.png",
+                    view.createComponentSnapshot(juce::Rectangle<int>(static_cast<int>(laneX(3.5)), 0, 500, 170), true, 2.0f));
+        s.undo();
+        s.updateSnapshotNow();
+        REQUIRE(track().clips.size() == 1);
+    }
+
     // Delete with a take selected deletes it (one undo step).
     view.selectTake(t0, stack().takes[2].id);
     REQUIRE(actions.perform("edit.delete"));

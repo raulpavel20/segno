@@ -150,6 +150,15 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     bool fillFromTake(te::AudioTrack& track, const juce::ValueTree& take);
     /// A stack's clips in the main lane, in time order.
     [[nodiscard]] std::vector<te::Clip*> partsOf(te::AudioTrack& track, const juce::ValueTree& stack);
+    /// A clip's own fades: its first part's fade-in, its last part's fade-out and crossfade into
+    /// the next clip (copies of the two parts' states), to keep while its parts change.
+    [[nodiscard]] std::pair<juce::ValueTree, juce::ValueTree> clipEnds(te::AudioTrack& track, const juce::ValueTree& stack);
+    /// Puts a clip's own fades back on its parts' ends; inner edges between its parts fade only
+    /// by their crossfades.
+    void restoreEnds(te::AudioTrack& track, const juce::ValueTree& stack, const std::pair<juce::ValueTree, juce::ValueTree>& ends,
+                     juce::UndoManager* um);
+    /// Joins a clip's neighbouring parts that play on seamlessly from one take clip into one part.
+    void joinSeamlessParts(te::AudioTrack& track, const juce::ValueTree& stack, juce::UndoManager* um);
     /// Opens (or closes) a stack's takes; opening closes the others it overlaps. View state.
     void openStack(te::AudioTrack& track, juce::ValueTree stack, bool open);
     /// Moves a stack by `delta` seconds, to `target` if it's another track.
@@ -171,6 +180,11 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// After any edit of a track's clips (fades.md §4): a crossfade whose clips no longer meet, or
     /// meet seamlessly, goes; a bend without its fade goes. Called by settle().
     void settleFades(te::AudioTrack& track, juce::UndoManager* um);
+    /// Comp joins (fades.md §5): a crossfade of `length` (equal power, centred, fitted to the spare
+    /// audio) at each join between two of `parts` at one of `times`; none where they play on
+    /// seamlessly.
+    void crossfadeJoinsAt(te::AudioTrack& track, const std::set<std::uint64_t>& parts, const std::vector<double>& times,
+                          double length, juce::UndoManager* um);
     /// A track's audio clips in the snapshot get their fades, crossfades and playback.
     void fillFades(te::AudioTrack& track, std::vector<model::ClipInfo>& clips) const;
     /// Opening a project: C5b's take lanes (format 3) become their clips' stacks.

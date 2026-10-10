@@ -63,6 +63,21 @@ void Session::Impl::settleFades(te::AudioTrack& track, juce::UndoManager* um)
     }
 }
 
+void Session::Impl::crossfadeJoinsAt(te::AudioTrack& track, const std::set<std::uint64_t>& parts, const std::vector<double>& times,
+                                     double length, juce::UndoManager* um)
+{
+    auto t = fadeTrack(track);
+    for (size_t i = 0; i + 1 < t.clips.size(); ++i)
+    {
+        const auto& a = t.clips[i];
+        const auto& b = t.clips[i + 1];
+        if (!parts.contains(a.id) || !parts.contains(b.id) || !model::meet(a, b) ||
+            std::none_of(times.begin(), times.end(), [&](double at) { return std::abs(at - a.end()) < 1e-6; }))
+            continue;
+        writeCrossfade(t.engine[i]->state, model::seamless(a, b) ? std::nullopt : model::placeCrossfade(a, b, length), um);
+    }
+}
+
 void Session::Impl::fillFades(te::AudioTrack& track, std::vector<model::ClipInfo>& clips) const
 {
     const auto t = fadeTrack(track);

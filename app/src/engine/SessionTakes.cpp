@@ -309,34 +309,76 @@ bool Session::Impl::fillFromTake(te::AudioTrack& track, const juce::ValueTree& t
     auto parts = partsOf(track, stack);
     if (!any || parts.empty())
         return false;
-    // The clip's fades are its own: its first part's fade-in, its last part's fade-out and the
-    // crossfade into the next clip. They stay on its new ends.
-    const auto first = parts.front()->state.createCopy(), last = parts.back()->state.createCopy();
+    const auto ends = clipEnds(track, stack);
     // Nothing of what played stays (a bounce's audio tail goes when its MIDI comes back, ADR 0035).
     for (auto* c : parts)
         c->removeFromParent();
     for (auto clip : take)
         useTakeClip(track, clip, from, to);
-    parts = partsOf(track, stack);
-    auto keep = [&](const juce::ValueTree& was, te::Clip* now, std::initializer_list<juce::Identifier> ids) {
-        if (dynamic_cast<te::AudioClipBase*>(now) == nullptr)
-            return;
+    restoreEnds(track, stack, ends, um);
+    settle(track, um);
+    return true;
+}
+
+std::pair<juce::ValueTree, juce::ValueTree> Session::Impl::clipEnds(te::AudioTrack& track, const juce::ValueTree& stack)
+{
+    const auto parts = partsOf(track, stack);
+    if (parts.empty())
+        return {};
+    return {parts.front()->state.createCopy(), parts.back()->state.createCopy()};
+}
+
+void Session::Impl::restoreEnds(te::AudioTrack& track, const juce::ValueTree& stack,
+                                const std::pair<juce::ValueTree, juce::ValueTree>& ends, juce::UndoManager* um)
+{
+    const auto parts = partsOf(track, stack);
+    auto set = [&](const juce::ValueTree& was, te::Clip* now, std::initializer_list<juce::Identifier> ids) {
         for (const auto& id : ids)
         {
-            if (was.hasProperty(id))
+            if (was.isValid() && was.hasProperty(id))
                 now->state.setProperty(id, was[id], um);
             else
                 now->state.removeProperty(id, um);
         }
     };
-    if (!parts.empty())
+    const std::initializer_list<juce::Identifier> in{te::IDs::fadeIn, fadeIds::inBend},
+        out{te::IDs::fadeOut, fadeIds::outBend};
+    for (size_t i = 0; i < parts.size(); ++i)
     {
-        keep(first, parts.front(), {te::IDs::fadeIn, fadeIds::inBend});
-        keep(last, parts.back(),
-             {te::IDs::fadeOut, fadeIds::outBend, fadeIds::crossLength, fadeIds::crossFrom, fadeIds::crossShape});
+        if (dynamic_cast<te::AudioClipBase*>(parts[i]) == nullptr)
+            continue;
+        set(i == 0 ? ends.first : juce::ValueTree(), parts[i], in);
+        set(i + 1 == parts.size() ? ends.second : juce::ValueTree(), parts[i], out);
+        if (i + 1 == parts.size())
+            set(ends.second, parts[i], {fadeIds::crossLength, fadeIds::crossFrom, fadeIds::crossShape});
     }
-    settle(track, um);
-    return true;
+}
+
+void Session::Impl::joinSeamlessParts(te::AudioTrack& track, const juce::ValueTree& stack, juce::UndoManager* um)
+{
+    juce::ignoreUnused(um); // clip positions and removal go through the edit's undo manager
+    for (;;)
+    {
+        std::vector<model::ClipInfo> infos;
+        for (auto* c : partsOf(track, stack))
+        {
+            const auto pos = c->getPosition();
+            infos.push_back({.id = c->itemID.getRawID(),
+                             .start = pos.getStart().inSeconds(),
+                             .length = pos.getLength().inSeconds(),
+                             .offset = pos.getOffset().inSeconds(),
+                             .fromTake = idProperty(c->state[fromTakeId])});
+        }
+        const auto pairs = model::seamlessParts(infos);
+        if (pairs.empty())
+            return;
+        auto* a = clip(pairs.front().first);
+        auto* b = clip(pairs.front().second);
+        const auto pos = a->getPosition();
+        const auto end = b->getPosition().getEnd();
+        b->removeFromParent();
+        a->setPosition({{pos.getStart(), end}, pos.getOffset()});
+    }
 }
 
 std::vector<te::Clip*> Session::Impl::partsOf(te::AudioTrack& track, const juce::ValueTree& stack)
@@ -708,6 +750,41 @@ bool Session::useTake(std::uint64_t trackId, std::uint64_t takeId)
         return false;
     impl_->beginEdit("Use take");
     impl_->fillFromTake(*t, take);
+    return true;
+}
+
+bool Session::compTake(std::uint64_t trackId, std::uint64_t takeId, double from, double to)
+{
+    auto* t = impl_->track(trackId);
+    const auto take = t != nullptr ? impl_->takeTree(*t, takeId) : juce::ValueTree();
+    if (!take.isValid())
+        return false;
+    const auto stack = take.getParent();
+    model::TakeStackInfo info;
+    for (const auto& s : impl_->stackInfos(*t, 0))
+        if (s.id == idOf(stack))
+            info = s;
+    const auto pieces = model::swipePieces(info, takeId, from, to);
+    if (pieces.empty() || impl_->partsOf(*t, stack).empty())
+        return false;
+    auto* um = &impl_->edit->getUndoManager();
+    impl_->beginEdit("Comp");
+    const auto ends = impl_->clipEnds(*t, stack);
+    std::vector<double> edges;
+    for (const auto& piece : pieces)
+        for (auto clip : take)
+            if (idOf(clip) == piece.takeClip && impl_->useTakeClip(*t, clip, piece.from, piece.to) != nullptr)
+            {
+                edges.push_back(piece.from);
+                edges.push_back(piece.to);
+            }
+    impl_->joinSeamlessParts(*t, stack, um);
+    impl_->restoreEnds(*t, stack, ends, um);
+    std::set<std::uint64_t> parts;
+    for (auto* c : impl_->partsOf(*t, stack))
+        parts.insert(c->itemID.getRawID());
+    impl_->crossfadeJoinsAt(*t, parts, edges, model::kCrossfadeSeconds, um);
+    impl_->settle(*t, um);
     return true;
 }
 

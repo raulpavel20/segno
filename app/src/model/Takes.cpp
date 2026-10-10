@@ -206,6 +206,39 @@ std::optional<size_t> replacementTake(const TakeStackInfo& stack, const std::set
     return overlapping;
 }
 
+std::vector<SwipePiece> swipePieces(const TakeStackInfo& stack, std::uint64_t take, double from, double to)
+{
+    constexpr double kShortest = 1e-3; // a sliver of a take is no stretch of it
+    std::vector<SwipePiece> out;
+    const auto* t = stack.take(take);
+    if (t == nullptr)
+        return out;
+    const double a = std::max(std::min(from, to), stack.start), b = std::min(std::max(from, to), stack.end);
+    for (const auto& c : t->clips)
+    {
+        const double x = std::max(a, c.start), y = std::min(b, c.end());
+        if (y - x >= kShortest)
+            out.push_back({c.id, x, y});
+    }
+    return out;
+}
+
+std::vector<std::pair<std::uint64_t, std::uint64_t>> seamlessParts(std::vector<ClipInfo> parts)
+{
+    constexpr double kNear = 1e-6;
+    std::sort(parts.begin(), parts.end(), [](const auto& a, const auto& b) { return a.start < b.start; });
+    std::vector<std::pair<std::uint64_t, std::uint64_t>> out;
+    for (size_t i = 0; i + 1 < parts.size(); ++i)
+    {
+        const auto& a = parts[i];
+        const auto& b = parts[i + 1];
+        if (a.fromTake != 0 && a.fromTake == b.fromTake && std::abs(a.end() - b.start) < kNear &&
+            std::abs(a.offset + a.length - b.offset) < kNear)
+            out.emplace_back(a.id, b.id);
+    }
+    return out;
+}
+
 std::vector<std::vector<size_t>> overlapGroups(const std::vector<std::pair<double, double>>& spans)
 {
     // Union-find over overlapping pairs.

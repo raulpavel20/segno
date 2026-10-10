@@ -386,6 +386,11 @@ public:
     /// before; where it has no audio, nothing plays. One undo step, "Use take". False if there's no
     /// such take.
     bool useTake(std::uint64_t trackId, std::uint64_t takeId);
+    /// Comping (recording.md §7): the clip plays the take over [from, to] (either order, within its
+    /// range; where the take has no audio, nothing changes), cutting what played there; new joins
+    /// between takes get a 10 ms crossfade, and parts of one take that meet become one. One undo
+    /// step, "Comp". False if nothing changed.
+    bool compTake(std::uint64_t trackId, std::uint64_t takeId, double from, double to);
     /// The clip plays its next (+1) or previous (-1) take that covers its range (Alt+↓ / Alt+↑).
     bool stepTake(std::uint64_t clipId, int direction);
     void renameTake(std::uint64_t trackId, std::uint64_t takeId, const std::string& name);

@@ -228,6 +228,99 @@ TEST_CASE("take stacks: a pass over a whole clip adds to its takes; choosing a t
     CHECK(info.clips[0].fadeOut.bend == Approx(-0.25f));
 }
 
+TEST_CASE("take stacks: comping uses a stretch of a take, crossfaded at its joins", "[integration]")
+{
+    Recording r;
+    const auto t = r.track(0);
+    threeTakes(r, t); // over 4..6: two whole laps and a short one (4..5); it plays the second
+    auto info = r.info(t);
+    const auto stack = info.stacks.at(0);
+    const auto first = stack.takes[0].id, second = stack.takes[1].id, shortLap = stack.takes[2].id;
+    r.session->setFades({info.clips.at(0).id}, fd::model::Fade{0.05, 0.0f}, fd::model::Fade{0.1, 0.0f});
+    auto parts = [&] {
+        std::vector<fd::model::ClipInfo> out;
+        for (const auto& c : r.info(t).clips)
+            out.push_back(c);
+        return out;
+    };
+    auto takeOf = [&](const fd::model::ClipInfo& part) {
+        const auto now = r.info(t);
+        for (const auto& k : now.stacks.at(0).takes)
+            for (const auto& c : k.clips)
+                if (c.id == part.fromTake)
+                    return k.id;
+        return std::uint64_t{0};
+    };
+
+    // The first lap over 4.5..5: three parts, one clip, "Comp"; 10 ms crossfades at the two joins;
+    // the clip's own fades stay at its ends; one undo step.
+    REQUIRE(r.session->compTake(t, first, 4.5, 5.0));
+    CHECK(r.session->undoDescription() == "Comp");
+    auto p = parts();
+    REQUIRE(p.size() == 3);
+    CHECK(takeOf(p[0]) == second);
+    CHECK(takeOf(p[1]) == first);
+    CHECK(takeOf(p[2]) == second);
+    CHECK(p[1].start == Approx(4.5));
+    CHECK(p[1].end() == Approx(5.0));
+    const auto lap1 = r.info(t).stacks.at(0).takes[0].clips.at(0);
+    CHECK(p[1].offset == Approx(lap1.offset + (4.5 - lap1.start)).margin(1e-6));
+    CHECK(fd::model::badge(r.info(t).stacks.at(0), p, false)->comp);
+    CHECK(fd::model::clipGroups(r.info(t)).size() == 1);
+    for (size_t i : {0u, 1u})
+    {
+        REQUIRE(p[i].crossfadeOut);
+        CHECK(p[i].crossfadeOut->length == Approx(fd::model::kCrossfadeSeconds));
+        CHECK(p[i].crossfadeOut->shape == fd::model::CrossfadeShape::EqualPower);
+    }
+    CHECK(p[0].fadeIn.length == Approx(0.05));
+    CHECK(p[0].fadeOut.length == 0.0);
+    CHECK(p[1].fadeIn.length == 0.0);
+    CHECK(p[1].fadeOut.length == 0.0);
+    CHECK(p[2].fadeIn.length == 0.0);
+    CHECK(p[2].fadeOut.length == Approx(0.1));
+
+    // The second lap back over it (swiped backwards): one part again, no lines, no crossfades.
+    REQUIRE(r.session->compTake(t, second, 5.2, 4.4));
+    p = parts();
+    REQUIRE(p.size() == 1);
+    CHECK(takeOf(p[0]) == second);
+    CHECK(p[0].start == Approx(4.0).margin(0.02));
+    CHECK(p[0].end() == Approx(6.0).margin(0.02));
+    CHECK_FALSE(p[0].crossfadeOut);
+    CHECK(p[0].fadeIn.length == Approx(0.05));
+    CHECK(p[0].fadeOut.length == Approx(0.1));
+    CHECK(fd::model::badge(r.info(t).stacks.at(0), p, false)->text == "2/3");
+
+    // The short lap over 4.8..5.5: it has audio only up to 5, so only 4.8..5 changes.
+    REQUIRE(r.session->compTake(t, shortLap, 4.8, 5.5));
+    p = parts();
+    REQUIRE(p.size() == 3);
+    CHECK(takeOf(p[1]) == shortLap);
+    CHECK(p[1].start == Approx(4.8));
+    CHECK(p[1].end() == Approx(5.0).margin(0.02));
+    // Before the clip's range: only what's inside it; all of it outside: nothing.
+    REQUIRE(r.session->compTake(t, first, 3.0, 4.2));
+    p = parts();
+    CHECK(takeOf(p[0]) == first);
+    CHECK(p[0].start == Approx(4.0).margin(0.02));
+    CHECK(p[0].end() == Approx(4.2));
+    CHECK_FALSE(r.session->compTake(t, first, 1.0, 2.0));
+
+    // Undo takes back one swipe at a time.
+    r.session->undo();
+    p = parts();
+    REQUIRE(p.size() == 3);
+    CHECK(takeOf(p[0]) == second);
+    r.session->undo();
+    r.session->undo();
+    r.session->undo();
+    p = parts();
+    REQUIRE(p.size() == 1);
+    CHECK(takeOf(p[0]) == second);
+    CHECK_FALSE(p[0].crossfadeOut);
+}
+
 TEST_CASE("take stacks: moving, trimming, splitting, duplicating and deleting a clip carry its takes", "[integration]")
 {
     Recording r;

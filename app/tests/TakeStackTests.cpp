@@ -256,6 +256,41 @@ TEST_CASE("stack edits: a clip's range stays clear of other clips; what a pass c
     CHECK(cover.before == std::vector<std::uint64_t>{10, 11});
 }
 
+TEST_CASE("comping: what a swipe uses; parts that play on seamlessly", "[fast]")
+{
+    // A clip over 4..8 with a take whose audio is two pieces, 3..5 and 6..9.
+    TakeStackInfo stack{.id = 1, .start = 4.0, .end = 8.0};
+    stack.takes.push_back({.id = 10, .clips = {ClipInfo{.id = 100, .start = 3.0, .length = 2.0}, ClipInfo{.id = 101, .start = 6.0, .length = 3.0}}});
+    auto pieces = swipePieces(stack, 10, 4.5, 7.0);
+    REQUIRE(pieces.size() == 2);
+    CHECK(pieces[0].takeClip == 100);
+    CHECK(pieces[0].from == 4.5);
+    CHECK(pieces[0].to == 5.0);
+    CHECK(pieces[1].takeClip == 101);
+    CHECK(pieces[1].from == 6.0);
+    CHECK(pieces[1].to == 7.0);
+    // Backwards, and past the clip's range: clamped to it.
+    pieces = swipePieces(stack, 10, 9.5, 2.0);
+    REQUIRE(pieces.size() == 2);
+    CHECK(pieces[0].from == 4.0);
+    CHECK(pieces[1].to == 8.0);
+    // Only where the take has no audio, outside the range, a sliver, or another take: nothing.
+    CHECK(swipePieces(stack, 10, 5.2, 5.8).empty());
+    CHECK(swipePieces(stack, 10, 1.0, 3.5).empty());
+    CHECK(swipePieces(stack, 10, 4.5, 4.5005).empty());
+    CHECK(swipePieces(stack, 11, 4.0, 8.0).empty());
+
+    // Parts of one take clip, cut and meeting where it plays on: joined; another take, a gap, or a
+    // jump in the take's audio: not.
+    const std::vector<ClipInfo> parts{ClipInfo{.id = 1, .start = 0.0, .length = 1.0, .offset = 0.0, .fromTake = 100},
+                                      ClipInfo{.id = 2, .start = 1.0, .length = 1.0, .offset = 1.0, .fromTake = 100},
+                                      ClipInfo{.id = 3, .start = 2.0, .length = 1.0, .offset = 2.0, .fromTake = 200},
+                                      ClipInfo{.id = 4, .start = 3.0, .length = 1.0, .offset = 3.5, .fromTake = 200},
+                                      ClipInfo{.id = 5, .start = 4.5, .length = 1.0, .offset = 5.0, .fromTake = 200}};
+    CHECK(seamlessParts(parts) == std::vector<std::pair<std::uint64_t, std::uint64_t>>{{1, 2}});
+    CHECK(seamlessParts({parts[1], parts[0]}) == std::vector<std::pair<std::uint64_t, std::uint64_t>>{{1, 2}});
+}
+
 TEST_CASE("take stacks: rows grow by their extra height; clips aren't hit in it", "[fast]")
 {
     TrackLayout layout;

@@ -303,12 +303,27 @@ void addRecordingTools(Registry& registry, ToolEnv& env)
         env,
         {"use_take", "Use a take",
          "Makes a clip play one of its takes alone, across the clip's range: where the take has no audio, nothing "
-         "plays, whichever take played before. One undo step.",
-         object({{"track", id(IdKind::Track, "The track")}, {"take", id(IdKind::Take, "The take")}}, {"track", "take"}),
+         "plays, whichever take played before. With from and to, comps it in: the clip plays the take only there "
+         "(within its range, where the take has audio), cutting what played, with 10 ms crossfades at the new "
+         "joins. One undo step.",
+         object({{"track", id(IdKind::Track, "The track")},
+                 {"take", id(IdKind::Take, "The take")},
+                 {"from", position("Where to start using it (with to)")},
+                 {"to", position("Where to stop using it (with from)")}},
+                {"track", "take"}),
          takesResult, ToolAnnotations{}},
         [&env](const Json& args, CallContext&) {
             const auto t = clipTrack(env, args["track"]);
             const auto take = takeArg(t, args["take"]);
+            if (args.contains("from") != args.contains("to"))
+                throw Problem{"Give both from and to, or neither."};
+            if (args.contains("from"))
+            {
+                const double from = seconds(env, positionArg(env, args["from"])), to = seconds(env, positionArg(env, args["to"]));
+                if (!env.session.compTake(t.id, take, from, to))
+                    throw Problem{"That take has no audio there within its clip's range."};
+                return ToolResult::ok(takesJson(env, t.id), "Comped " + formatId(IdKind::Take, take) + " in.");
+            }
             env.session.useTake(t.id, take);
             return ToolResult::ok(takesJson(env, t.id), "Playing " + formatId(IdKind::Take, take) + ".");
         }));

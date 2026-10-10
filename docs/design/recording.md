@@ -134,13 +134,21 @@ A take is another version of a clip, so takes belong to their clip, as in Logic'
 
 ## 7. Comping
 
-Choose the best parts of several takes into one performance, as Logic's swipe comping and Live 12's take lanes do.
+Choose the best parts of several takes into one performance, as Logic's swipe comping and Live 12's take lanes do. Settled for building after ADR 0037 (product owner, 2026-10-10).
 
-- **Drag across a take's strip** to use that range of the take: the main lane takes it, cutting what was there (ADR 0019), with short crossfades at the joins (C6's clip fades).
-- **Strips show what's in use:** the parts of each take that the clip plays are drawn in the track colour, the rest dimmed (since C5b).
-- **Every swipe is one undo step.** Double-click a part to use the whole take there.
+- **Drag across a take's strip** to use that stretch of it. The clip plays that take there, cutting what played (ADR 0019), and every other part stays.
+  - The swipe snaps to the grid (Alt: free) and stays inside the clip's range.
+  - Where the take has no audio, nothing changes.
+  - While dragging, the stretch shows on the strip in full colour with an outline. Releasing applies it, as one undo step ("Comp").
+- **A click on a strip** (no drag) plays that take alone across the clip (§6, ADR 0037), so it replaces a comp; Ctrl+Z brings the comp back. Named comps to switch between, as in Logic, aren't in M2.
+- **Joins:**
+  - each new join between two takes gets a 10 ms equal-power crossfade (fades.md §5), centred and fitted to the spare audio;
+  - a stretch that meets a part of the same take, where it plays on seamlessly, joins it into one part, so swiping a take back over itself leaves no lines behind.
+- **Strips show what's in use** (since C5b), and the badge says "Comp ▾" while the parts play different takes.
 - **The main lane stays plain clips:** comping makes clips that point into the take files, so a comp is edited, faded, bounced or exported like any clip, and needs no rendering.
+- **Several takes:** Ctrl+click on strips selects several takes. Delete, and the take menu's Copy and Move to new track, act on all of them.
 - **Flatten** is just "Delete unused takes" (§6).
+- **Assistants:** `use_take` with `from` and `to` comps that stretch (§12).
 
 ## 8. Capture MIDI
 
@@ -189,7 +197,7 @@ Every feature comes with its tools and a test through MCP (ADR 0021). Assistants
 | `record` | `countIn?`, `bars?` (stop after this many bars) | Starts recording (inside the loop brace while looping); `stop` ends it. The result lists each recording track |
 | `capture_midi` | `track?` (used when nothing is armed) | The clips made and their tracks |
 | `get_takes` | `track` or `clip` | Per clip with takes: its range, parts, whether open, the take it plays (or "comp"), and each take's name, clips, file and the parts in use |
-| `use_take` | `track`, `take` (C5c: `from?`, `to?`) | The clip plays that take alone across its range (ADR 0037). One undo step |
+| `use_take` | `track`, `take`, `from?`, `to?` | The clip plays that take alone across its range (ADR 0037); with `from` and `to`, only there, comping it in (§7). One undo step |
 | `move_takes_to_tracks` | `track`, `takes`, `copy?` | The new tracks, with plain clips |
 | `delete_takes` | `track`, `takes`, `unused` or `keep` | Files stay |
 

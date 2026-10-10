@@ -949,6 +949,14 @@ TEST_CASE("mcp tools: recording: inputs set, tracks armed, a few bars recorded",
         REQUIRE(used["clips"].size() == 3);
         CHECK(used["clips"][1]["playing"] == k);
     }
+    // Comping a stretch of its take back in (bar 2, beat 3 to the end): a comp, one undo step.
+    const auto comped = daw.call("use_take", {{"track", t0}, {"take", punch["takes"][1]["id"]}, {"from", "2.3.1"}, {"to", "3.1.1"}});
+    CHECK(comped["clips"][1]["playing"] == "comp");
+    CHECK(daw.session->undoDescription() == "Assistant: use take");
+    CHECK(daw.fails("use_take", {{"track", t0}, {"take", punch["takes"][1]["id"]}, {"from", "2.3.1"}}).find("both") !=
+          std::string::npos);
+    CHECK(daw.fails("use_take", {{"track", t0}, {"take", punch["takes"][1]["id"]}, {"from", "20.1.1"}, {"to", "21.1.1"}})
+              .find("no audio there") != std::string::npos);
 
     // Capture MIDI: nothing played yet; then a phrase onto the track asked for (none armed).
     CHECK(daw.call("capture_midi")["clip"].is_null());
