@@ -64,6 +64,8 @@ public:
     /// made a request in the last few seconds (its light).
     [[nodiscard]] juce::Rectangle<int> assistantsButtonBounds() const { return assistants_.getBounds(); }
     std::function<bool()> assistantsActive;
+    /// The capture button's tooltip: where a capture goes now (checked every frame).
+    std::function<juce::String()> captureTooltip;
 
 private:
     ui::IconButton& add(ui::IconButton& b, std::string id);

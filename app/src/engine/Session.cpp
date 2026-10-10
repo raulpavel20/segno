@@ -329,8 +329,7 @@ Session::Impl::~Impl()
 {
     renders.clear(); // cancels them (their Edit copies go before the engine)
     engine.getDeviceManager().removeChangeListener(this);
-    for (auto& in : engine.getDeviceManager().getMidiInDevices())
-        in->keyboardState.removeListener(this);
+    tapDrain.stopTimer();
     setRecordingFiles(engine, {});
     detach();
 }
@@ -341,16 +340,16 @@ void Session::Impl::midiDevicesChanged()
         return;
     for (auto& in : engine.getDeviceManager().getMidiInDevices())
     {
-        // Capture MIDI keeps the last minute (recording.md §8), and lights when there's something.
-        in->updateRetrospectiveBufferLength(60.0);
-        in->keyboardState.removeListener(this);
-        in->keyboardState.addListener(this);
+        in->updateRetrospectiveBufferLength(0.0); // Capture MIDI has its own (MidiTap)
         if (!in->isEnabled())
             in->setEnabled(true);
         if (in->getMonitorMode() != te::InputDevice::MonitorMode::on)
             in->setMonitorMode(te::InputDevice::MonitorMode::on);
     }
     edit->getTransport().ensureContextAllocated(true); // instances for new inputs
+    tap.syncDevices();
+    if (!tapDrain.isTimerRunning())
+        tapDrain.startTimer(10);
     applyInputs();
 }
 
@@ -710,11 +709,18 @@ void Session::removeListener(Listener* listener)
 void Session::play()
 {
     impl_->applyAutomationMode(); // tracks added since arming write too
+    if (!isPlaying()) // Capture MIDI: what's played from now on is in the song
+    {
+        impl_->drainTap();
+        impl_->playStartedAt = impl_->tap.now();
+        impl_->wasPlaying = true;
+    }
     impl_->edit->getTransport().play(false);
 }
 
 void Session::stop()
 {
+    impl_->drainTap(); // what was played keeps its place in the song (Capture MIDI)
     impl_->edit->getTransport().stop(false, false);
 }
 
@@ -730,6 +736,8 @@ double Session::position() const
 
 void Session::setPosition(double seconds)
 {
+    if (isPlaying())
+        impl_->drainTap(); // before the jump: what was played keeps its place (Capture MIDI)
     impl_->edit->getTransport().setPosition(te::TimePosition::fromSeconds(std::max(0.0, seconds)));
 }
 
@@ -922,8 +930,6 @@ bool Session::midiNotesHeld() const
 
 void Session::computerKeyboardNote(int note, float velocity)
 {
-    if (velocity > 0.0f) // Capture MIDI lights (devices tell through their keyboard state)
-        impl_->lastNoteAt = juce::Time::getMillisecondCounterHiRes() * 0.001;
     for (auto& in : impl_->engine.getDeviceManager().getMidiInDevices())
         if (in->getName() == computerKeyboardName)
             if (auto* keyboard = dynamic_cast<te::VirtualMidiInputDevice*>(in.get()))
@@ -932,6 +938,7 @@ void Session::computerKeyboardNote(int note, float velocity)
                                    ? juce::MidiMessage::noteOn(1, juce::jlimit(0, 127, note), velocity)
                                    : juce::MidiMessage::noteOff(1, juce::jlimit(0, 127, note));
                 message.setTimeStamp(juce::Time::getMillisecondCounterHiRes() * 0.001);
+                impl_->tap.pushKeyboard(message); // Capture MIDI hears it, whatever it plays
                 keyboard->handleIncomingMidiMessage(message, te::MPESourceID{1});
             }
 }

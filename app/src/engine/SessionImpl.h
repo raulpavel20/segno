@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/MidiTap.h"
 #include "engine/Session.h"
 #include "model/StackEdits.h"
 #include "model/Takes.h"
@@ -49,8 +50,7 @@ struct Session::Impl final : private juce::ValueTree::Listener,
                              private juce::ChangeListener,
                              private te::ParameterChangeHandler::Listener,
                              private te::AutomatableParameter::Listener,
-                             private te::TransportControl::Listener,
-                             private juce::MidiKeyboardState::Listener
+                             private te::TransportControl::Listener
 {
     Impl(Session& owner, te::Engine& engine);
     ~Impl() override;
@@ -171,9 +171,21 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// take, a clip with takes they cover joins them, and the clip plays the newest complete lap.
     /// Returns the main-lane clips.
     std::vector<std::uint64_t> importTakes(te::AudioTrack& track, const juce::ReferenceCountedArray<te::Clip>& clips);
-    /// MIDI played while not recording, for Capture MIDI's button.
-    std::atomic<double> lastNoteAt{-1.0};
-    double lastCaptureAt = -1.0;
+    // Capture MIDI (recording.md §8): everything played, on the input clock (MidiTap::now).
+    double consumedUntil = -1e300; // a capture or a pass used up what was played before
+    double playStartedAt = 1e300;  // while playing, nothing played before starting counts
+    bool wasPlaying = false;
+    /// Moves what was played into the tap's events, with where in the song (while playing).
+    void drainTap();
+    /// The last phrase now (empty: nothing to capture).
+    [[nodiscard]] std::vector<model::MidiEvent> phrase();
+    struct TapDrain final : juce::Timer
+    {
+        explicit TapDrain(Impl& i) : impl(i) {}
+        void timerCallback() override { impl.drainTap(); }
+        Impl& impl;
+    };
+    TapDrain tapDrain{*this};
     std::vector<std::uint64_t> recordedClips; // made in the pass now ending
     std::optional<double> recordFrom;         // where the pass records from (the count-in ends there)
     std::map<std::uint64_t, juce::File> liveFiles;  // audio being recorded, by track
@@ -203,6 +215,7 @@ struct Session::Impl final : private juce::ValueTree::Listener,
 
     Session& owner;
     te::Engine& engine;
+    MidiTap tap{engine}; // Capture MIDI: everything played (after the engine it listens to)
     std::unique_ptr<te::Edit> edit;
     std::shared_ptr<const model::Snapshot> snapshot;
     std::uint64_t version = 0;
@@ -312,11 +325,6 @@ private:
     void recordingFinished(te::InputDeviceInstance& instance, te::EditItemID target,
                            const juce::ReferenceCountedArray<te::Clip>& clips) override;
     void recordingAboutToStart(te::InputDeviceInstance& instance, te::EditItemID target) override;
-    void handleNoteOn(juce::MidiKeyboardState*, int, int, float) override
-    {
-        lastNoteAt = juce::Time::getMillisecondCounterHiRes() * 0.001; // any thread
-    }
-    void handleNoteOff(juce::MidiKeyboardState*, int, int, float) override {}
     void pluginParameterChanged(te::AutomatableParameter& param, bool isFollowingAutomation) override;
     void curveHasChanged(te::AutomatableParameter&) override {}
     void recordingStatusChanged(te::AutomatableParameter& param) override;

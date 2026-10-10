@@ -122,6 +122,9 @@ void TransportBar::frame(double positionSeconds, const model::TempoMap& tempo)
         if (button->isEnabled() != actions_.isEnabled(id))
             button->setEnabled(actions_.isEnabled(id)); // e.g. the inspector in the mixer view
     }
+    if (captureTooltip)
+        if (const auto tip = captureTooltip(); tip != capture_.getTooltip())
+            capture_.setTooltip(tip);
     const bool mix = actions_.isToggled("view.mixer");
     if (mixView_.getToggleState() != mix)
     {

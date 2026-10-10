@@ -398,12 +398,21 @@ public:
     /// plain clip; `move` also takes them off this track. One undo step. Returns the new tracks.
     std::vector<std::uint64_t> takesToTracks(std::uint64_t trackId, const std::vector<std::uint64_t>& takeIds, bool move);
 
-    /// Capture MIDI (§8): turns what was just played into the armed (or selected) track into a
-    /// clip: where it was played while playing, or at the playhead when stopped. One undo step.
-    /// Returns the clip; 0 if there was nothing to capture.
-    std::uint64_t captureMidi();
-    /// Whether there's MIDI played since the last capture or recording, in the last minute.
+    /// Capture MIDI (§8): the last phrase played (since a pause of two bars; while playing, since
+    /// it started; never what a capture or a pass used up) becomes a clip on each armed MIDI track
+    /// (what its input took), else on `selected`, else on a new track; never with an instrument
+    /// added (ADR 0033). Where it was played while playing, else at the playhead. One undo step.
+    /// Returns the first clip made; 0 if there was nothing to capture.
+    std::uint64_t captureMidi(std::optional<std::uint64_t> selected = std::nullopt);
+    /// Whether there's a phrase to capture.
     [[nodiscard]] bool canCaptureMidi() const;
+    /// Where a capture would go now (the button's tooltip).
+    struct CaptureTarget
+    {
+        std::vector<std::uint64_t> tracks;
+        bool newTrack = false;
+    };
+    [[nodiscard]] CaptureTarget captureTarget(std::optional<std::uint64_t> selected) const;
 
     /// A module panel's view state (collapsed sections, folded; ADR 0022), stored with the
     /// project on the module. Never an undo step or an unsaved change.

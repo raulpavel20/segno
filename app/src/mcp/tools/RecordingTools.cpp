@@ -387,16 +387,26 @@ void addRecordingTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"capture_midi", "Capture MIDI",
-         "Turns the MIDI just played (the last minute, not recorded) into a clip on the track it was played into: "
-         "where it was played if the song was playing, else at the playhead. One undo step.",
-         object({}), result({{"clip", {{"type", {"string", "null"}}, {"description", "The new clip, or null"}}}}),
+         "Turns the last phrase played (not recorded: since a pause of two bars, or since playback started) into "
+         "a clip on each armed MIDI track, else on track, else on a new track. No instrument is added. Where it was "
+         "played if the song was playing, else at the playhead. One undo step.",
+         object({{"track", id(IdKind::Track, "The track, when no track is armed")}}),
+         result({{"clip", {{"type", {"string", "null"}}, {"description", "The first clip made, or null"}}},
+                 {"track", {{"type", {"string", "null"}}, {"description", "Its track"}}}}),
          ToolAnnotations{}},
-        [&env](const Json&, CallContext&) {
-            const auto clip = env.session.captureMidi();
+        [&env](const Json& args, CallContext&) {
+            std::optional<std::uint64_t> selected;
+            if (args.contains("track"))
+                selected = clipTrack(env, args["track"]).id;
+            const auto clip = env.session.captureMidi(selected);
             env.session.flushSnapshot();
             if (clip == 0)
-                return ToolResult::ok({{"clip", nullptr}}, "Nothing was played to capture.");
-            return ToolResult::ok({{"clip", formatId(IdKind::Clip, clip)}}, "Captured " + formatId(IdKind::Clip, clip) + ".");
+                return ToolResult::ok({{"clip", nullptr}, {"track", nullptr}}, "Nothing was played to capture.");
+            const auto found = model::findClip(*env.session.snapshot(), clip);
+            const auto track = found ? Json(formatId(IdKind::Track, env.session.snapshot()->tracks[static_cast<size_t>(found->second)].id))
+                                     : Json(nullptr);
+            return ToolResult::ok({{"clip", formatId(IdKind::Clip, clip)}, {"track", track}},
+                                  "Captured " + formatId(IdKind::Clip, clip) + ".");
         }));
 }
 } // namespace fd::mcp

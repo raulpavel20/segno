@@ -925,6 +925,15 @@ TEST_CASE("mcp tools: recording: inputs set, tracks armed, a few bars recorded",
     CHECK(kept["clips"][1]["takes"].size() == 1);
     CHECK(kept["clips"][1]["playing"] == lap1);
 
-    // Capture MIDI: nothing played yet.
+    // Capture MIDI: nothing played yet; then a phrase onto the track asked for (none armed).
     CHECK(daw.call("capture_midi")["clip"].is_null());
+    daw.call("arm_tracks", {{"tracks", Json::array({t0})}, {"on", false}});
+    daw.session->computerKeyboardNote(60, 0.8f);
+    pump(0.2);
+    daw.session->computerKeyboardNote(60, 0.0f);
+    pump(0.1);
+    const auto t1 = daw.project()["tracks"][1]["id"].get<std::string>();
+    const auto captured = daw.call("capture_midi", {{"track", t1}});
+    CHECK(captured["track"] == t1);
+    CHECK_FALSE(captured["clip"].is_null());
 }

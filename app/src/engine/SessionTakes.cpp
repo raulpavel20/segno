@@ -778,57 +778,122 @@ std::vector<std::uint64_t> Session::takesToTracks(std::uint64_t trackId, const s
     return out;
 }
 
-std::uint64_t Session::captureMidi()
+// ---- Capture MIDI (recording.md §8) --------------------------------------------------------
+
+void Session::Impl::drainTap()
 {
-    if (impl_->edit->getCurrentPlaybackContext() == nullptr || isRecording())
-        return 0;
-    impl_->beginEdit("Capture MIDI");
-    // MIDI inputs only (tracktion's audio capture needs its own project system).
-    juce::Array<te::Clip*> clips;
-    for (auto* instance : impl_->edit->getAllInputDevices())
-    {
-        const auto type = instance->getInputDevice().getDeviceType();
-        if (type == te::InputDevice::physicalMidiDevice || type == te::InputDevice::virtualMidiDevice)
-            clips.addArray(instance->applyRetrospectiveRecord(true));
-    }
-    impl_->lastCaptureAt = juce::Time::getMillisecondCounterHiRes() * 0.001;
-    std::uint64_t made = 0;
-    const bool stopped = !isPlaying();
-    for (auto* c : clips)
-    {
-        auto* midi = dynamic_cast<te::MidiClip*>(c);
-        auto* track = midi != nullptr ? dynamic_cast<te::AudioTrack*>(midi->getTrack()) : nullptr;
-        if (track == nullptr || midi->getSequence().getNumNotes() == 0)
-            continue;
-        // Trimmed to its notes, on whole beats (§8).
-        auto& tempo = impl_->edit->tempoSequence;
-        const auto pos = midi->getPosition();
-        const double content = tempo.toBeats(pos.getStart() - pos.getOffset()).inBeats();
-        double first = 1e9, last = 0.0;
-        for (auto* n : midi->getSequence().getNotes())
-        {
-            first = std::min(first, n->getStartBeat().inBeats());
-            last = std::max(last, n->getEndBeat().inBeats());
-        }
-        const double from = std::floor(content + first), to = std::ceil(content + last);
-        // Stopped: at the playhead (on its beat), the first note's place in its beat kept.
-        const double at = stopped ? std::floor(tempo.toBeats(impl_->edit->getTransport().getPosition()).inBeats()) : from;
-        const auto start = tempo.toTime(te::BeatPosition::fromBeats(at));
-        const auto end = tempo.toTime(te::BeatPosition::fromBeats(at + (to - from)));
-        const auto offset = tempo.toTime(te::BeatPosition::fromBeats(from)) - tempo.toTime(te::BeatPosition::fromBeats(content));
-        midi->setPosition({{start, end}, offset});
-        midi->setName(track->getName());
-        impl_->clearUnder(*track, start.inSeconds(), end.inSeconds(), {midi->itemID.getRawID()});
-        if (made == 0)
-            made = midi->itemID.getRawID();
-    }
-    return made;
+    if (edit == nullptr)
+        return;
+    auto& transport = edit->getTransport();
+    const bool playing = transport.isPlaying();
+    const double now = tap.now();
+    if (playing && !wasPlaying)
+        playStartedAt = now; // started elsewhere than play() (assistants, the engine)
+    wasPlaying = playing;
+    // The playhead now, from the audio (the transport's own position follows it on a timer).
+    const auto* context = edit->getCurrentPlaybackContext();
+    const double position = (context != nullptr ? context->getPosition() : transport.getPosition()).inSeconds();
+    tap.drain([&](double time) -> std::optional<double> {
+        if (!playing || time < playStartedAt)
+            return std::nullopt;
+        return position - (now - time); // the song ran with the input clock since
+    });
+}
+
+std::vector<model::MidiEvent> Session::Impl::phrase()
+{
+    drainTap();
+    const auto& tempo = owner.snapshot()->tempo;
+    // A pause of two bars ends a phrase; while playing, what came before starting doesn't count.
+    const double pause = tempo.secondsForBeats(2.0 * tempo.beatsPerBar());
+    const double notBefore = std::max(consumedUntil, edit->getTransport().isPlaying() ? playStartedAt : -1e300);
+    return model::lastPhrase(tap.events(), pause, notBefore, tempo.secondsForBeats(1.0));
 }
 
 bool Session::canCaptureMidi() const
 {
-    const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
-    const double last = impl_->lastNoteAt.load();
-    return !isRecording() && last > impl_->lastCaptureAt && now - last < 60.0;
+    return !isRecording() && !impl_->phrase().empty();
+}
+
+Session::CaptureTarget Session::captureTarget(std::optional<std::uint64_t> selected) const
+{
+    const auto d = model::captureDestinations(*snapshot(), selected);
+    if (!d.armed.empty())
+        return {.tracks = d.armed};
+    if (d.track)
+        return {.tracks = {*d.track}};
+    return {.newTrack = true};
+}
+
+std::uint64_t Session::captureMidi(std::optional<std::uint64_t> selected)
+{
+    if (isRecording())
+        return 0;
+    const auto phrase = impl_->phrase();
+    if (phrase.empty())
+        return 0;
+    flushSnapshot();
+    const auto snap = snapshot();
+    const auto destinations = model::captureDestinations(*snap, selected);
+    // What each track gets: an armed track what its input took; otherwise all of it.
+    std::vector<std::pair<std::uint64_t, std::vector<model::MidiEvent>>> work;
+    for (const auto id : destinations.armed)
+        if (const auto* t = snap->channel(id))
+        {
+            std::vector<model::MidiEvent> taken;
+            for (const auto& e : phrase)
+                if (model::inputTakes(t->input, impl_->tap.sourceName(e.source), e.channel()))
+                    taken.push_back(e);
+            if (std::any_of(taken.begin(), taken.end(), [](const auto& e) { return e.isNoteOn(); }))
+                work.emplace_back(id, std::move(taken));
+        }
+    if (destinations.armed.empty())
+        work.emplace_back(destinations.track.value_or(0), phrase);
+    if (work.empty())
+        return 0;
+
+    EditGroup group(*this, "Capture MIDI");
+    const auto& tempo = snap->tempo;
+    const double now = impl_->tap.now();
+    std::uint64_t made = 0;
+    for (auto& [trackId, events] : work)
+    {
+        if (trackId == 0)
+            trackId = addTrack(); // nothing selected: a new track (no instrument, ADR 0033)
+        auto* track = impl_->track(trackId);
+        if (track == nullptr)
+            continue;
+        const auto placed = model::placeCapture(events, tempo, position(), now);
+        const auto start = te::TimePosition::fromSeconds(placed.start), end = te::TimePosition::fromSeconds(placed.end);
+        auto clip = track->insertMIDIClip(track->getName(), {start, end}, nullptr);
+        if (clip == nullptr)
+            continue;
+        // Notes, pedal, bends and controllers at their places, on the clip's channel (tracktion
+        // imports only that one); notes still held end with the clip.
+        juce::MidiMessageSequence sequence;
+        const int channel = clip->getMidiChannel().getChannelNumber();
+        std::set<int> held;
+        for (size_t i = 0; i < events.size(); ++i)
+        {
+            const auto& e = events[i];
+            juce::MidiMessage m(e.bytes, e.size, placed.times[i]);
+            if (m.getChannel() > 0)
+                m.setChannel(std::max(1, channel));
+            if (e.isNoteOn())
+                held.insert(e.bytes[1]);
+            else if (e.isNoteOff())
+                held.erase(e.bytes[1]);
+            sequence.addEvent(m);
+        }
+        for (const int note : held)
+            sequence.addEvent(juce::MidiMessage::noteOff(std::max(1, channel), note), placed.end);
+        sequence.updateMatchedPairs();
+        clip->getSequence().importMidiSequence(sequence, impl_->edit.get(), start, &impl_->edit->getUndoManager());
+        impl_->clearUnder(*track, placed.start, placed.end, {clip->itemID.getRawID()});
+        if (made == 0)
+            made = clip->itemID.getRawID();
+    }
+    impl_->consumedUntil = now; // never captured twice
+    return made;
 }
 } // namespace fd::engine

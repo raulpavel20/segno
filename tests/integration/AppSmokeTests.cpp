@@ -1793,11 +1793,10 @@ TEST_CASE("takes: takes open under their clip after a loop pass; strips, stars, 
     s.updateSnapshotNow();
     CHECK(s.snapshot()->tracks.size() == before + 2);
 
-    // Capture MIDI: dim until something is played, then the played notes become a selected clip.
+    // Capture MIDI: dim until something is played; then the phrase becomes a selected clip on the
+    // selected track, which has no instrument and gets none (ADR 0033); its tooltip names it.
     const auto keys = s.snapshot()->tracks.back().id;
-    REQUIRE(s.addDevice(keys, "fd:subtractive-synth") != 0);
     view.selectTrack(keys);
-    s.setMidiInputTarget(keys);
     pump(0.2);
     CHECK_FALSE(actions.isEnabled("transport.capture"));
     for (int note : {60, 64})
@@ -1808,11 +1807,22 @@ TEST_CASE("takes: takes open under their clip after a loop pass; strips, stars, 
         pump(0.1);
     }
     CHECK(actions.isEnabled("transport.capture"));
+    for (auto* child : f.shell->getChildren())
+        if (auto* bar = dynamic_cast<fd::app::TransportBar*>(child))
+        {
+            bar->frame(s.position(), s.snapshot()->tempo);
+            const auto name = juce::String::fromUTF8(s.snapshot()->channel(keys)->name.c_str());
+            const auto buttons = findAll<fd::ui::IconButton>(*bar);
+            CHECK(std::any_of(buttons.begin(), buttons.end(), [&](auto* b) {
+                return b->getTooltip().startsWith("Capture MIDI to " + name);
+            }));
+        }
     s.setPosition(8.0);
     REQUIRE(actions.perform("transport.capture"));
     s.updateSnapshotNow();
     CHECK(s.undoDescription() == "Capture MIDI");
     REQUIRE(view.selection().clips.size() == 1);
     CHECK(s.snapshot()->channel(keys)->clips.size() == 1);
+    CHECK(s.snapshot()->channel(keys)->instrument.empty());
     root.deleteRecursively();
 }

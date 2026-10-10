@@ -375,31 +375,96 @@ TEST_CASE("takes: use, step through, star, rename, delete, and copy or move to n
     CHECK(allTakes(r.info(t)).size() == takesBefore - 1);
 }
 
-TEST_CASE("takes: Capture MIDI turns what was just played into a clip at the playhead", "[integration]")
+namespace
+{
+/// Plays notes on the computer keyboard, each held `hold` seconds with `gap` between them.
+void playNotes(Recording& r, std::initializer_list<int> notes, double hold = 0.15, double gap = 0.1)
+{
+    for (int note : notes)
+    {
+        r.session->computerKeyboardNote(note, 0.8f);
+        r.pump(hold);
+        r.session->computerKeyboardNote(note, 0.0f);
+        r.pump(gap);
+    }
+}
+} // namespace
+
+TEST_CASE("capture: the last phrase becomes a clip at the playhead, on a track without an instrument", "[integration]")
 {
     Recording r;
     const auto t = r.track(1);
-    REQUIRE(r.session->addDevice(t, "fd:subtractive-synth") != 0);
-    r.session->setMidiInputTarget(t);
     r.pump(0.2);
     CHECK_FALSE(r.session->canCaptureMidi());
-    for (int note : {60, 62, 64})
-    {
-        r.session->computerKeyboardNote(note, 0.8f);
-        r.pump(0.15);
-        r.session->computerKeyboardNote(note, 0.0f);
-        r.pump(0.1);
-    }
+    // A note, a pause longer than two bars (4 s at 120 BPM), then the phrase.
+    playNotes(r, {48});
+    r.pump(5.0);
+    playNotes(r, {60, 62, 64});
     CHECK(r.session->canCaptureMidi());
     r.session->setPosition(8.0); // bar 5
-    const auto clip = r.session->captureMidi();
+    const auto clip = r.session->captureMidi(t);
     REQUIRE(clip != 0);
     CHECK(r.session->undoDescription() == "Capture MIDI");
-    CHECK_FALSE(r.session->canCaptureMidi());
+    CHECK_FALSE(r.session->canCaptureMidi()); // used up
     const auto info = r.info(t);
     REQUIRE(info.clips.size() == 1);
     CHECK(info.clips[0].start == Approx(8.0).margin(0.001));
-    REQUIRE(info.clips[0].notes.size() == 3);
+    REQUIRE(info.clips[0].notes.size() == 3); // not the note before the pause
     CHECK(info.clips[0].notes[0].pitch == 60);
+    CHECK(info.clips[0].notes[0].start == Approx(0.0).margin(0.02)); // on the playhead's beat
     CHECK(info.clips[0].notes[2].pitch == 64);
+    // No instrument was added (ADR 0033): the clip is silent until one is.
+    CHECK(info.devices.empty());
+    CHECK(info.instrument.empty());
+}
+
+TEST_CASE("capture: while playing it lands where it was played; nothing selected makes a track", "[integration]")
+{
+    Recording r;
+    r.session->setPosition(2.2);
+    r.session->play();
+    r.pump(1.0); // at 3.2 s
+    playNotes(r, {60, 67}, 0.2, 0.05);
+    r.pump(0.3);
+    r.session->stop();
+    r.pump(0.1);
+    const auto tracksBefore = r.session->snapshot()->tracks.size();
+    const auto clip = r.session->captureMidi(std::nullopt);
+    REQUIRE(clip != 0);
+    r.session->updateSnapshotNow();
+    REQUIRE(r.session->snapshot()->tracks.size() == tracksBefore + 1);
+    const auto& made = r.session->snapshot()->tracks.back();
+    REQUIRE(made.clips.size() == 1);
+    const auto& c = made.clips[0];
+    CHECK(c.start == Approx(3.0).margin(0.01)); // the beat before the first note (3.2 s)
+    REQUIRE(c.notes.size() == 2);
+    CHECK(c.start + r.session->snapshot()->tempo.secondsForBeats(c.notes[0].start) == Approx(3.2).margin(0.03));
+    CHECK(made.instrument.empty());
+    r.session->undo(); // one step: the track and its clip
+    r.session->updateSnapshotNow();
+    CHECK(r.session->snapshot()->tracks.size() == tracksBefore);
+}
+
+TEST_CASE("capture: armed MIDI tracks get what their input takes; a pass uses it up", "[integration]")
+{
+    Recording r;
+    const auto a = r.track(0), b = r.track(1), c = r.track(2);
+    r.session->setMidiInput(a, "keyboard");
+    r.session->setMidiInput(b, "keyboard");
+    r.session->setMidiChannel(b, 2); // the keyboard plays channel 1
+    r.session->setArmed(a, true, true);
+    r.session->setArmed(b, true, false);
+    playNotes(r, {60, 64});
+    REQUIRE(r.session->captureMidi(c) != 0); // the selected track doesn't matter while some are armed
+    CHECK(r.info(a).clips.size() == 1);
+    CHECK(r.info(b).clips.empty());
+    CHECK(r.info(c).clips.empty());
+
+    // A recording pass records what's played: it's used up for Capture.
+    playNotes(r, {62});
+    CHECK(r.session->canCaptureMidi());
+    r.session->setArmed(b, false, false);
+    r.session->setArmed(a, false, false);
+    r.recordFor(0.5);
+    CHECK_FALSE(r.session->canCaptureMidi());
 }

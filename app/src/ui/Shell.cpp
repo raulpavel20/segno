@@ -35,6 +35,18 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     }
     registerActions();
     transport_ = std::make_unique<TransportBar>(session_, actions_);
+    // The capture button says where it will go (recording.md §9).
+    transport_->captureTooltip = [this] {
+        const auto selected = selectedTrackInfo();
+        const auto target = session_.captureTarget(selected ? std::optional(selected->id) : std::nullopt);
+        juce::String where = "a new track";
+        if (target.tracks.size() == 1)
+            if (const auto* t = session_.snapshot()->channel(target.tracks.front()))
+                where = juce::String::fromUTF8(t->name.c_str());
+        if (target.tracks.size() > 1)
+            where = juce::String(static_cast<int>(target.tracks.size())) + " armed tracks";
+        return "Capture MIDI to " + where + " " + actions_.tooltip("transport.capture").fromFirstOccurrenceOf("(", true, false);
+    };
     if (assistants_ != nullptr)
     {
         transport_->assistantsActive = [this] { return assistants_->isActive(); };
@@ -261,8 +273,10 @@ void Shell::registerActions()
     actions_.add({.id = "transport.capture", .name = "Capture MIDI", .category = "Transport",
                   .keys = {key('r', kCmd | kShift)},
                   .perform = [this, &s] {
-                      // What was just played, as a clip, selected (recording.md §8).
-                      if (const auto clip = s.captureMidi(); clip != 0)
+                      // What was just played, as a clip, selected (recording.md §8): onto the
+                      // armed MIDI tracks, else the selected track, else a new one.
+                      const auto selected = selectedTrackInfo();
+                      if (const auto clip = s.captureMidi(selected ? std::optional(selected->id) : std::nullopt); clip != 0)
                       {
                           s.updateSnapshotNow();
                           lastArea_ = Area::Arrangement;
@@ -272,7 +286,7 @@ void Shell::registerActions()
                           arrangement_.setSelection(model::withClips(*s.snapshot(), {clip}, track, track));
                       }
                       else
-                          showWarning("Nothing played to capture: play an armed or selected MIDI track first");
+                          showWarning("Nothing played to capture");
                   },
                   .isEnabled = [&s] { return s.canCaptureMidi(); }});
     // The clip whose takes the keys step through: the selected one, or the one under the playhead

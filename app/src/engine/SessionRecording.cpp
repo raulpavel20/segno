@@ -356,7 +356,14 @@ void Session::record()
         impl_->recordFrom.reset();
     else
         impl_->recordFrom = isLooping() ? loopRange().first : position();
-    impl_->lastCaptureAt = juce::Time::getMillisecondCounterHiRes() * 0.001; // recorded, not captured
+    // Capture MIDI: the pass records what's played; what came before is used up.
+    impl_->drainTap();
+    impl_->consumedUntil = impl_->tap.now();
+    if (!transport.isPlaying())
+    {
+        impl_->playStartedAt = impl_->consumedUntil;
+        impl_->wasPlaying = true;
+    }
     transport.record(false, true); // with nothing armed it still plays (and records automation)
 }
 
