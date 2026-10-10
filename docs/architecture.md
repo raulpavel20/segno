@@ -52,6 +52,8 @@ tools/snapshot, tools/gallery, tools/analyze
 
 ## Device contract (key points)
 
+The contract is frozen since M1's sign-off ([ADR 0034](decisions/0034-device-api-frozen.md)): additions that leave existing devices and saved states unchanged are listed here as they land; anything else needs an ADR and a migration.
+
 - **Parameters** are declared in a static table with fields: permanent ID, range, default, skew, unit, smoothing, flags. Both adapters build their host parameters from this table, so automation, undo and presets work identically in both.
 - **`process()`** runs on the audio thread and is `noexcept`. It never allocates, locks or does I/O. This is enforced by an allocation hook in the tests and by RealtimeSanitizer.
 - **Control-rate updates** happen on a grid aligned to absolute sample position. Output is therefore identical whatever the host's block size, and the tests check this bit for bit.

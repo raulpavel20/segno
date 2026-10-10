@@ -1,6 +1,6 @@
 # 0022. Module panels: one layout system, sections, collapse and fold; "Modules" in the UI
 
-- **Status:** Proposed. The product owner decided the term, the height, the sections with separators and collapsing on 2026-10-09; the grid values await sign-off on snapshots and in the app.
+- **Status:** Accepted (product owner, 2026-10-10). The term, the height, the sections with separators and collapsing were decided on 2026-10-09; the grid values were signed off with M2's module panels on 2026-10-10.
 - **Date:** 2026-10-09
 - **Builds on:** [0014](0014-flat-darker-ableton-adjacent.md) (flat, Ableton-adjacent grammar), [0008](0008-naming-and-trade-dress.md) (own names), [0018](0018-daw-app-structure.md) (Session, snapshots), [0021](0021-mcp-server.md) (MCP coverage)
 

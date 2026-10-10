@@ -20,10 +20,10 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 | Device | Device ID | Plugin code | CLAP ID | Status |
 |---|---|---|---|---|
 | Utility | `utility` | `Futl` | `org.segnoaudio.utility` | M0 |
-| Saturator | `saturator` | `Fsat` | `org.segnoaudio.saturator` | M1 (spec draft) |
-| EQ | `eq` | `Feq1` | `org.segnoaudio.eq` | M1 (spec draft) |
-| Subtractive Synth | `subtractive-synth` | `Fsub` | `org.segnoaudio.subtractive-synth` | M1 (spec draft) |
-| Sampler | `sampler` | `Fsmp` | `org.segnoaudio.sampler` | M1 (spec draft) |
+| Saturator | `saturator` | `Fsat` | `org.segnoaudio.saturator` | M1 (approved 2026-10-10) |
+| EQ | `eq` | `Feq1` | `org.segnoaudio.eq` | M1 (approved 2026-10-10) |
+| Subtractive Synth | `subtractive-synth` | `Fsub` | `org.segnoaudio.subtractive-synth` | M1 (approved 2026-10-10) |
+| Sampler | `sampler` | `Fsmp` | `org.segnoaudio.sampler` | M1 (approved 2026-10-10) |
 | Compressor | `compressor` | `Fcmp` | `org.segnoaudio.compressor` | M2 (approved 2026-10-09) |
 | Gate | `gate` | `Fgat` | `org.segnoaudio.gate` | M2 (approved 2026-10-09) |
 | Limiter | `limiter` | `Flim` | `org.segnoaudio.limiter` | M2 (approved 2026-10-09) |

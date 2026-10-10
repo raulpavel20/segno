@@ -2,7 +2,7 @@
 
 How parameters change over time in Segno: automation lanes in the arrangement, what they drive, breakpoints and curves, recording moves while playing, and how automated controls look and behave. The decisions are [ADR 0028](../decisions/0028-automation-lanes.md) (the engine, the scale, the controls) and [ADR 0029](../decisions/0029-independent-automation-lanes.md) (lanes are rows of their own, with assignments). It builds on the track header kit and the time-view kit ([ui-foundations.md](ui-foundations.md), ADR 0023), the selection model ([selection.md](selection.md), ADR 0027), the mixer ([mixer.md](mixer.md), ADR 0026) and the reserved gradient (ui-principles §4).
 
-**Status:** C4a–C4c approved and built (2026-10-09). After the product owner's first test, lanes became independent rows with assignments (ADR 0029, approved 2026-10-09, with every recommendation of §14): part C4d (§15), built 2026-10-09, awaiting the product owner's feel check.
+**Status:** C4a–C4c approved and built (2026-10-09). After the product owner's first test, lanes became independent rows with assignments (ADR 0029, approved 2026-10-09, with every recommendation of §14): part C4d (§15), built 2026-10-09; signed off by the product owner (2026-10-10).
 
 ## 1. Principles
 

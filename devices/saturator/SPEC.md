@@ -1,6 +1,6 @@
 # Saturator: device spec
 
-- **Status:** Draft (review requested; IDs can still change)
+- **Status:** Approved by the product owner (2026-10-10, with the M1 sign-off); IDs are permanent
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1, M1
 - **Live target:** Saturator. References only; nothing is copied ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).

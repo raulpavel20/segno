@@ -1,6 +1,6 @@
 # Subtractive Synth: device spec
 
-- **Status:** Draft (review requested; IDs can still change)
+- **Status:** Approved by the product owner (2026-10-10, with the M1 sign-off); IDs are permanent
 - **Type:** Instrument
 - **Tier / milestone:** Tier 1, M1 (core) → M5 (stage 2)
 - **Live target:** Drift (core), Analog (stage 2). References only ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).

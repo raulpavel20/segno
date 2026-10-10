@@ -1,6 +1,6 @@
 # Sampler: device spec
 
-- **Status:** Draft (review requested; IDs can still change)
+- **Status:** Approved by the product owner (2026-10-10, with the M1 sign-off); IDs are permanent
 - **Type:** Instrument
 - **Tier / milestone:** Tier 1, M1 (classic/one-shot) → M4 (slice) → M5 (multisample)
 - **Live target:** Simpler (M1, M4), Sampler (M5). References only ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
