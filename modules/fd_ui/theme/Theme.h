@@ -91,6 +91,7 @@ struct ShellMetrics
     int propertyLabelWidth = 80;
     int listRowHeight = 28;
     int popoverWidth = 560, popoverTop = 56;
+    int formPopoverWidth = 420;   // a popover of property rows (the export panel)
     int toastHeight = 36, toastWidth = 420;
     int keyboardWidth = 52, velocityHeight = 56;
     int railWidth = 44, splitter = 5;

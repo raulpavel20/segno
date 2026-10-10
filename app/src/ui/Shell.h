@@ -5,6 +5,7 @@
 #include "ui/MixerView.h"
 #include "ui/AssistantsPopover.h"
 #include "ui/CommandPalette.h"
+#include "ui/ExportPopover.h"
 #include "ui/LanePicker.h"
 #include "ui/Panels.h"
 
@@ -27,6 +28,10 @@ public:
     [[nodiscard]] CommandPalette& palette() noexcept { return palette_; }
     /// Shows a warning in the window (engine warnings; never a modal dialog).
     void showWarning(const juce::String& message);
+    /// Shows a message with an action ("Show"): a click on the toast runs it.
+    void showToast(const juce::String& message, const juce::String& action, std::function<void()> run);
+    /// The export panel (export.md §6).
+    [[nodiscard]] ExportPopover& exportPanel() noexcept { return exportPanel_; }
     /// The warning shown last (tests).
     [[nodiscard]] const juce::String& lastWarning() const noexcept { return warning_; }
 
@@ -113,6 +118,7 @@ private:
     std::optional<std::uint64_t> recentChannel_;
     model::CountIn lastCountIn_ = model::CountIn::OneBar; // what the count-in toggle turns back on
     CommandPalette palette_{actions_};
+    ExportPopover exportPanel_{session_};
     LanePicker lanePicker_{session_};
     /// The picker, assigning a parameter to `lane` (for its first assignment's channel, else the
     /// track it follows).
@@ -156,6 +162,20 @@ private:
 
     juce::String warning_;
     double warningUntil_ = 0.0;
+    // A toast's action ("Show"), and the click that runs it while it shows.
+    juce::String toastAction_;
+    std::function<void()> toastRun_;
+    struct ToastClick final : juce::Component
+    {
+        std::function<void()> onClick;
+        void mouseUp(const juce::MouseEvent&) override
+        {
+            if (onClick)
+                onClick();
+        }
+    };
+    ToastClick toastClick_;
+    bool exportProgressShown_ = false;
     double lastFrame_ = 0.0;
     juce::VBlankAttachment vblank_{this, [this](double t) { onFrame(t); }};
 };

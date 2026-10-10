@@ -120,6 +120,7 @@ target_sources(fd_app_ui INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/CommandPalette.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/PianoRoll.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/AssistantsPopover.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ExportPopover.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/time/TimeView.cpp")
 target_link_libraries(fd_app_ui INTERFACE fd_engine fd_app_mcp juce::juce_opengl)
 

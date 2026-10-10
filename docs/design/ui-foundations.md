@@ -108,6 +108,7 @@ Role functions for colours that depend on content:
 | `shell.propertyLabelWidth` | 80 |
 | `shell.listRowHeight` | 28 (palette and browser results) |
 | `shell.popoverWidth` | 560 |
+| `shell.formPopoverWidth` | 420 (a popover of property rows: the export panel, C8) |
 | `shell.toastHeight` / `shell.toastWidth` | 36 / 420 |
 | `shell.keyboardWidth` / `shell.velocityHeight` | 52 / 56 (piano roll) |
 | `shell.railWidth` / `shell.splitter` | 44 / 5 |

@@ -93,7 +93,8 @@ void paintPopover(juce::Graphics& g, juce::Rectangle<int> bounds);
 
 /// A message in the corner of `host` (bottom right) that the caller times out.
 [[nodiscard]] juce::Rectangle<int> toastArea(juce::Rectangle<int> host);
-void paintToast(juce::Graphics& g, juce::Rectangle<int> area, const juce::String& text);
+/// A toast; with `action`, its label ("Show") on the right in `active`: a click on the toast runs it.
+void paintToast(juce::Graphics& g, juce::Rectangle<int> area, const juce::String& text, const juce::String& action = {});
 
 /// A centred hint where there is nothing to show.
 void paintEmptyState(juce::Graphics& g, juce::Rectangle<int> area, const juce::String& text);

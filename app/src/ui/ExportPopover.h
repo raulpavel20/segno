@@ -1,0 +1,76 @@
+#pragma once
+
+#include "engine/Session.h"
+
+#include <fd_ui/fd_ui.h>
+
+#include <functional>
+#include <memory>
+#include <optional>
+#include <vector>
+
+namespace fd::app
+{
+/// The export panel (docs/design/export.md §6, ADR 0039): what to export, the range, the format,
+/// where the files go, and Export. A popover at the top of the window (Ctrl+Shift+E): the export
+/// runs in the background, so it can close at once; Escape or a click elsewhere closes it. Every
+/// choice is the project's export settings (Session::exportSettings), so it opens as it was left.
+class ExportPopover final : public juce::Component
+{
+public:
+    explicit ExportPopover(engine::Session& session);
+    ~ExportPopover() override;
+
+    void open(juce::Component& parent);
+    void close();
+    [[nodiscard]] bool isOpen() const noexcept { return isVisible(); }
+
+    /// Exports with the panel's settings (Enter); false, saying why through onMessage, if it can't.
+    bool exportNow();
+    /// Cancels the export running, if any (Escape with no popover open); true if there was one.
+    bool cancel();
+    /// How far the export running is (0..1); none while none runs.
+    [[nodiscard]] std::optional<float> progress() const;
+
+    /// The tracks "Selected tracks" exports: the shell's selection.
+    std::function<std::vector<std::uint64_t>()> selectedTracks;
+    /// A refusal or failure to say (the shell's toast).
+    std::function<void(const juce::String&)> onMessage;
+    /// An export finished: its files and their reports (the shell's toast, with Show).
+    std::function<void(const engine::Session::ExportResult&)> onExported;
+
+    void paint(juce::Graphics& g) override;
+    void resized() override;
+    bool keyPressed(const juce::KeyPress& key) override;
+
+private:
+    /// The settings into the controls; the controls into the settings.
+    void load();
+    void store();
+    /// The controls that depend on others (depths a format holds, the target with loudness).
+    void updateEnabled();
+    [[nodiscard]] int preferredHeight() const;
+    [[nodiscard]] juce::String report() const;
+    void chooseFolder();
+
+    engine::Session& session_;
+    juce::ComboBox what_, range_, format_, depth_, rate_, dither_, normalise_;
+    ui::Toggle through_{"Through the returns and master"};
+    ui::NumberField target_;
+    juce::TextEditor name_;
+    juce::TextButton choose_{"Choose..."}, defaultFolder_{"Exports folder"}, export_{"Export"}, show_{"Show"};
+    std::unique_ptr<juce::FileChooser> chooser_;
+    std::shared_ptr<engine::Session::RenderJob> job_;
+    std::optional<engine::Session::ExportResult> last_;
+    bool loading_ = false;
+    ui::OutsideClick outside_{*this, [this] { close(); }};
+
+    // Laid out by resized(): the painted parts, and each row's label.
+    juce::Rectangle<int> title_, folder_, extension_, report_, progressLine_;
+    std::vector<std::pair<juce::String, juce::Rectangle<int>>> labels_;
+    std::vector<int> separators_;
+    /// Rows shown only where they apply: through the returns (stems), the loudness target.
+    [[nodiscard]] bool showsThrough() const;
+    [[nodiscard]] bool showsTarget() const;
+};
+} // namespace fd::app

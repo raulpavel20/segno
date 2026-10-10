@@ -2430,3 +2430,97 @@ TEST_CASE("fades: drawn on clips, handles on hover, a handle drag sets a fade, C
     root.deleteRecursively();
 }
 
+
+TEST_CASE("export: Ctrl+Shift+E opens the panel, Enter exports in the background, a toast with Show (C8)", "[integration]")
+{
+    ShellFixture f;
+    f.shell->setSize(1800, 1000);
+    auto& s = *f.session;
+    auto& actions = f.shell->actions();
+    const auto root = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("fd-shell-" + juce::Uuid().toString());
+    REQUIRE(root.createDirectory());
+    s.setUnsavedRoot(root.getChildFile("Unsaved"));
+    s.updateSnapshotNow();
+    fd::testkit::AudioBuffer tone(2, 48000);
+    for (int c = 0; c < 2; ++c)
+        for (int i = 0; i < tone.numSamples(); ++i)
+            tone.at(c, i) = 0.2f * std::sin(static_cast<float>(i) * 0.05f);
+    const auto file = root.getChildFile("tone.wav");
+    REQUIRE(fd::testkit::writeWav(file.getFullPathName().toStdString(), tone, 48000.0));
+    REQUIRE(s.insertAudioFile(s.snapshot()->tracks[0].id, file, 0.0) != 0);
+    s.updateSnapshotNow();
+
+    // Ctrl+Shift+E: the panel, as the project's settings say.
+    REQUIRE(actions.handleKey(juce::KeyPress('e', juce::ModifierKeys::commandModifier | juce::ModifierKeys::shiftModifier, 0)));
+    auto& panel = f.shell->exportPanel();
+    REQUIRE(panel.isOpen());
+    // Nothing touches: every control inside the padding, none overlapping another.
+    {
+        const auto& theme = fd::ui::Theme::current();
+        const auto inside = panel.getLocalBounds().reduced(theme.shell.padding);
+        std::vector<juce::Rectangle<int>> shown;
+        for (auto* child : panel.getChildren())
+            if (child->isVisible())
+            {
+                INFO(child->getName() << " " << child->getBounds().toString());
+                CHECK(inside.contains(child->getBounds()));
+                for (const auto& other : shown)
+                    CHECK_FALSE(other.intersects(child->getBounds()));
+                shown.push_back(child->getBounds());
+            }
+    }
+    // A choice is the project's at once; a format holds only its depths.
+    auto boxes = findAll<juce::ComboBox>(panel);
+    REQUIRE(boxes.size() == 7); // what, range, format, depth, rate, dither, normalise
+    boxes[2]->setSelectedId(2, juce::sendNotificationSync); // FLAC
+    CHECK(s.exportSettings().format == fd::model::ExportFormat::Flac);
+    CHECK_FALSE(boxes[3]->isItemEnabled(32));
+    boxes[2]->setSelectedId(1, juce::sendNotificationSync); // WAV again
+    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: the panel, and the window
+    {
+        dumpPng(dump, "export-panel@2x.png", panel.createComponentSnapshot(panel.getLocalBounds(), true, 2.0f));
+        dumpPng(dump, "export-window.png", f.shell->createComponentSnapshot(f.shell->getLocalBounds()));
+    }
+    // Stems and a loudness target: their rows appear, and the panel grows to hold them.
+    const int small = panel.getHeight();
+    boxes[0]->setSelectedId(3, juce::sendNotificationSync); // all tracks
+    boxes[6]->setSelectedId(3, juce::sendNotificationSync); // loudness
+    CHECK(panel.getHeight() == small + 2 * fd::ui::Theme::current().shell.rowHeight);
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "export-stems@2x.png", panel.createComponentSnapshot(panel.getLocalBounds(), true, 2.0f));
+    boxes[0]->setSelectedId(1, juce::sendNotificationSync);
+    boxes[6]->setSelectedId(1, juce::sendNotificationSync);
+    CHECK(panel.getHeight() == small);
+
+    // Enter: it exports in the background; the panel shows its progress, then its report.
+    REQUIRE(panel.keyPressed(juce::KeyPress(juce::KeyPress::returnKey)));
+    CHECK(panel.progress().has_value());
+    for (int i = 0; i < 1000 && panel.progress(); ++i)
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
+    REQUIRE_FALSE(panel.progress());
+    CHECK(s.exportsFolder().getChildFile("Untitled.wav").existsAsFile());
+    CHECK(f.shell->lastWarning().startsWith("Exported Untitled.wav"));
+    CHECK(f.shell->lastWarning().contains("LUFS"));
+    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: the report, and the toast
+    {
+        dumpPng(dump, "export-report@2x.png", panel.createComponentSnapshot(panel.getLocalBounds(), true, 2.0f));
+        panel.close();
+        dumpPng(dump, "export-toast.png", f.shell->createComponentSnapshot(f.shell->getLocalBounds()));
+        f.shell->setSize(1024, 800);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+        actions.perform("project.export");
+        dumpPng(dump, "export-compact.png", f.shell->createComponentSnapshot(f.shell->getLocalBounds()));
+    }
+    // Escape closes it; Ctrl+Shift+E again, it's as it was left.
+    if (!panel.isOpen())
+        actions.perform("project.export");
+    REQUIRE(panel.keyPressed(juce::KeyPress(juce::KeyPress::escapeKey)));
+    CHECK_FALSE(panel.isOpen());
+    // With nothing to export, Enter says why.
+    s.setExportSettings({.range = fd::model::ExportRange::Loop});
+    actions.perform("project.export");
+    REQUIRE(panel.keyPressed(juce::KeyPress(juce::KeyPress::returnKey)));
+    CHECK(f.shell->lastWarning().contains("loop"));
+    CHECK_FALSE(panel.progress());
+    root.deleteRecursively();
+}

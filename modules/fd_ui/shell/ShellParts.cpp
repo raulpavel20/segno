@@ -222,14 +222,23 @@ juce::Rectangle<int> toastArea(juce::Rectangle<int> host)
     return host.reduced(s.padding + 4).removeFromBottom(s.toastHeight).removeFromRight(s.toastWidth);
 }
 
-void paintToast(juce::Graphics& g, juce::Rectangle<int> area, const juce::String& text)
+void paintToast(juce::Graphics& g, juce::Rectangle<int> area, const juce::String& text, const juce::String& action)
 {
     const auto& t = Theme::current();
     g.setColour(t.surface3);
     g.fillRoundedRectangle(area.toFloat(), t.radiusPanel);
+    auto inside = area.reduced(t.shell.padding, 4);
+    if (action.isNotEmpty())
+    {
+        g.setColour(t.active);
+        g.setFont(font(TextStyle::Control));
+        const int width = static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(font(TextStyle::Control), action)));
+        g.drawText(action, inside.removeFromRight(width), juce::Justification::centredRight, false);
+        inside.removeFromRight(t.shell.groupGap);
+    }
     g.setColour(t.textPrimary);
     g.setFont(font(TextStyle::Body));
-    g.drawFittedText(text, area.reduced(t.shell.padding, 4), juce::Justification::centredLeft, 2);
+    g.drawFittedText(text, inside, juce::Justification::centredLeft, 2);
 }
 
 void paintEmptyState(juce::Graphics& g, juce::Rectangle<int> area, const juce::String& text)

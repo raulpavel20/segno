@@ -9,7 +9,7 @@ The decision is [ADR 0039](../decisions/0039-export-in-the-background.md) (§14)
 - the shared popover, property rows and progress line ([ui-foundations.md](ui-foundations.md));
 - the rule that nothing is modal ([ui-principles.md](ui-principles.md) §2).
 
-**Status:** approved by the product owner (2026-10-10), with every recommendation of §13 ([ADR 0039](../decisions/0039-export-in-the-background.md)).
+**Status:** approved by the product owner (2026-10-10), with every recommendation of §13 ([ADR 0039](../decisions/0039-export-in-the-background.md)). Built (2026-10-10); awaiting the product owner's feel check (manual-tests/M2.md, "Export (C8)"). What building settled is noted where it applies: the save dialog (§5), rows that show only where they apply and the selected tracks (§6), and the defaults for new projects (§9).
 
 **Where the field is (2026)**, from the manuals of Live 12, Logic, Bitwig 5, REAPER 7, Pro Tools, Studio Pro 8 (Studio One) and Cubase 14:
 - **What every DAW offers:**
@@ -87,7 +87,7 @@ Segno does the baseline, and goes further in three ways:
   - stems after the project and track: `Song - Bass.wav`;
   - a loop export adds the loop's bars: `Song - Bars 9-17.wav`.
   - The name is a field in the panel (stems add their track's name to it).
-- **Never overwritten silently:** if a file exists, a number is added (`Song 2.wav`) and the report names the file. In the save dialog you can still choose to replace a file, and the system dialog asks first.
+- **Never overwritten:** if a file exists, a number is added (`Song 2.wav`) and the report names the file. The save dialog picks the folder and the name only, so an export never replaces a file, even one picked there. (Settled while building: replacing a file is a decision the file manager is better at.)
 
 ## 6. The export panel
 
@@ -107,6 +107,8 @@ A popover at the top of the window, like the command palette ([daw-shell.md](daw
 └──────────────────────────────────────────────────────────┘
 ```
 
+- **Rows show only where they apply** (settled while building): "Through the returns and master" with stems, the loudness target with Loudness; the panel grows and shrinks with them. Its width is `shell.formPopoverWidth`.
+- **Selected tracks** are the selected track and the tracks of the selected clips.
 - **Enter exports;** Escape or a click elsewhere closes the panel. The export goes on in the background either way.
 - **The last export's report** stays at the bottom (§8), with **Show**, which reveals the file in the file manager.
 - Every choice is kept with the project (§9). Opened again, the panel is as you left it, so exporting again is Ctrl+Shift+E, Enter.

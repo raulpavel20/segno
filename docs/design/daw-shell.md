@@ -99,6 +99,7 @@ app/src/
 | Show takes of the selected clip (C5b) | `view.takes` | Ctrl+Alt+K |
 | Previous / next take of the selected clip (C5b) | `take.previous` / `take.next` | Alt+↑ / Alt+↓ |
 | Spread the selected clip's takes to new tracks (C5b) | `take.spread` | Ctrl+Alt+Shift+K |
+| Export… (C8, the export panel) | `project.export` | Ctrl+Shift+E |
 | Bounce in place (C7) | `clip.bounce` | Ctrl+B |
 | Bounce to new track (C7) | `clip.bounceToTrack` | Ctrl+Shift+B |
 | Mute clips (C7) | `clip.mute` | 0 |

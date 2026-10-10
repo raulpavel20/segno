@@ -28,6 +28,51 @@ constexpr int kShift = juce::ModifierKeys::shiftModifier;
 Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     : session_(session), assistants_(assistants), arrangement_(session)
 {
+    // The export panel (export.md §6): stems of the selected tracks; the result in a toast.
+    exportPanel_.selectedTracks = [this] {
+        std::vector<std::uint64_t> out;
+        const auto& sel = arrangement_.selection();
+        if (sel.channel)
+            out.push_back(*sel.channel);
+        for (const auto id : sel.clips)
+            if (const auto found = model::findClip(*session_.snapshot(), id))
+            {
+                const auto track = session_.snapshot()->tracks[static_cast<size_t>(found->second)].id;
+                if (std::find(out.begin(), out.end(), track) == out.end())
+                    out.push_back(track);
+            }
+        return out;
+    };
+    exportPanel_.onMessage = [this](const juce::String& m) { showWarning(m); };
+    exportPanel_.onExported = [this](const engine::Session::ExportResult& r) {
+        if (r.cancelled)
+        {
+            showWarning("Export cancelled: no file was left");
+            return;
+        }
+        if (!r.error.empty() || r.files.empty())
+            return; // the panel said why
+        const auto& f = r.files.front();
+        const auto& m = f.measured;
+        const auto minus = juce::String::fromUTF8("\xe2\x88\x92"), dot = juce::String::fromUTF8(" \xc2\xb7 ");
+        auto text = "Exported " + f.file.getFileName();
+        if (r.files.size() > 1)
+            text += " and " + juce::String(static_cast<int>(r.files.size()) - 1) + " more";
+        else if (std::isfinite(m.integratedLufs) && std::isfinite(m.truePeakDb))
+            text += dot + juce::String(m.integratedLufs, 1).replace("-", minus) + " LUFS" + dot +
+                    juce::String(m.truePeakDb, 1).replace("-", minus) + " dBTP";
+        showToast(text, "Show", [file = f.file] { file.revealToUser(); });
+    };
+    addChildComponent(toastClick_);
+    toastClick_.setMouseCursor(juce::MouseCursor::PointingHandCursor);
+    toastClick_.onClick = [this] {
+        if (auto run = toastRun_)
+            run();
+        warning_.clear();
+        toastClick_.setVisible(false);
+        repaint();
+    };
+
     if (assistants_ != nullptr)
     {
         assistantsPopover_ = std::make_unique<AssistantsPopover>(*assistants_);
@@ -563,6 +608,8 @@ void Shell::registerActions()
                       return clipsShown() && arrangement_.hasClipSelection() ? juce::String("Select the clips on both sides of a join.")
                                                                              : juce::String();
                   }});
+    actions_.add({.id = "project.export", .name = "Export...", .category = "Project", .keys = {key('e', kCmd | kShift)},
+                  .perform = [this] { exportPanel_.isOpen() ? exportPanel_.close() : exportPanel_.open(*this); }});
     actions_.add({.id = "project.edgeFades", .name = "Edge fades", .category = "Project", .keys = {key('e', kCmd | kAlt | kShift)},
                   .perform = [this] { session_.setEdgeFades(!session_.edgeFades()); },
                   .isToggled = [this] { return session_.edgeFades(); }});
@@ -774,9 +821,14 @@ bool Shell::keyPressed(const juce::KeyPress& k)
         return false; // typing goes to the text field
     if (computerKeyboard_ && handleComputerKeyboard(k))
         return true;
-    // Escape cancels bounces in progress (bounce.md §8); popovers take it first, being focused.
-    if (k == juce::KeyPress::escapeKey && session_.cancelBounces())
-        return true;
+    // Escape cancels bounces and an export in progress (bounce.md §8, export.md §7); popovers
+    // take it first, being focused.
+    if (k == juce::KeyPress::escapeKey)
+    {
+        const bool bounces = session_.cancelBounces();
+        if (exportPanel_.cancel() || bounces)
+            return true;
+    }
     if (actions_.handleKey(k))
         return true;
     // Tab is the clip view's key; in the mixer view it must not move focus off the strips.
@@ -1090,7 +1142,21 @@ void Shell::showWarning(const juce::String& message)
 {
     warning_ = message;
     warningUntil_ = juce::Time::getMillisecondCounterHiRes() * 0.001 + 5.0;
+    toastAction_.clear();
+    toastRun_ = nullptr;
+    toastClick_.setVisible(false);
     repaint();
+}
+
+void Shell::showToast(const juce::String& message, const juce::String& action, std::function<void()> run)
+{
+    showWarning(message);
+    warningUntil_ = juce::Time::getMillisecondCounterHiRes() * 0.001 + 8.0; // time to reach it
+    toastAction_ = action;
+    toastRun_ = std::move(run);
+    toastClick_.setBounds(ui::toastArea(arrangement_.getBounds()));
+    toastClick_.setVisible(true);
+    toastClick_.toFront(false);
 }
 
 // ---- frames and layout ---------------------------------------------------------------------
@@ -1162,7 +1228,14 @@ void Shell::onFrame(double timestamp)
     if (warning_.isNotEmpty() && timestamp > 0.0 && juce::Time::getMillisecondCounterHiRes() * 0.001 > warningUntil_)
     {
         warning_.clear();
+        toastClick_.setVisible(false);
         repaint();
+    }
+    // An export running with its panel closed: its progress along the top bar (export.md §7).
+    if (exportPanel_.progress() || exportProgressShown_)
+    {
+        exportProgressShown_ = exportPanel_.progress().has_value() && !exportPanel_.isOpen();
+        repaint(transport_->getBounds());
     }
 }
 
@@ -1254,9 +1327,14 @@ void Shell::paintOverChildren(juce::Graphics& g)
         g.drawText("paint " + juce::String(paint, 2) + " ms   frame " + juce::String(frame, 2) + " ms",
                    box.reduced(6, 0), juce::Justification::centredLeft, false);
     }
+    if (const auto progress = exportPanel_.progress(); progress && !exportPanel_.isOpen())
+    {
+        const auto bar = transport_->getBounds().toFloat();
+        ui::paintProgress(g, bar.withTop(bar.getBottom() - static_cast<float>(t.shell.progressHeight)), *progress);
+    }
     if (warning_.isEmpty())
         return;
-    ui::paintToast(g, ui::toastArea(arrangement_.getBounds()), warning_);
+    ui::paintToast(g, ui::toastArea(arrangement_.getBounds()), warning_, toastAction_);
 }
 
 void Shell::resized()
