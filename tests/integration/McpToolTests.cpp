@@ -1032,7 +1032,14 @@ TEST_CASE("mcp tools: fades, crossfades and edge fades", "[integration][mcp]")
     REQUIRE(r["joins"][0].contains("crossfade"));
     CHECK(r["joins"][0]["crossfade"]["ms"] == 20.0);
     CHECK(r["joins"][0]["crossfade"]["startMs"] == 0.0);
+    CHECK(r["joins"][0]["crossfade"]["placement"] == "after"); // the only place it fits
     CHECK(r["joins"][0]["crossfade"]["shape"] == "Equal gain");
+    // Asked to sit before the join: there's no audio before the copy's start, so it stays after and says so.
+    r = daw.call("crossfade", {{"clips", {first, copy}}, {"placement", "before"}});
+    CHECK(r["joins"][0]["crossfade"]["placement"] == "after");
+    CHECK(daw.callResult("crossfade", {{"clips", {first, copy}}, {"placement", "before"}})["content"][0]["text"].get<std::string>().find(
+              "spare audio") != std::string::npos);
+    CHECK(daw.fails("crossfade", {{"clips", {first, copy}}, {"placement", "sideways"}}).find("before") != std::string::npos);
     CHECK(daw.call("get_clip", {{"clip", first}})["crossfadeOut"]["ms"] == 20.0);
     CHECK(daw.fails("crossfade", {{"clips", {first}}, {"shape", "wobbly"}}).find("equal power") != std::string::npos);
     r = daw.call("crossfade", {{"clips", {first, copy}}, {"remove", true}});

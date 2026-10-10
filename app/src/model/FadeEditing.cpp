@@ -86,16 +86,12 @@ std::vector<FadeHandle> fadeHandles(const TrackInfo& track)
             const double from = c.end() + crossOut->from;
             out.push_back({.kind = K::CrossStart, .clip = c.id, .time = from});
             out.push_back({.kind = K::CrossEnd, .clip = c.id, .time = from + crossOut->length});
-            out.push_back({.kind = K::CrossMiddle,
-                           .clip = c.id,
-                           .time = from + crossOut->length * 0.5,
-                           .height = 1.0f - crossfadeGains(0.5, crossOut->shape).out});
         }
     }
     return out;
 }
 
-FadeEdit dragFade(const TrackInfo& track, const FadeHandle& handle, double seconds, double grabbedAt)
+FadeEdit dragFade(const TrackInfo& track, const FadeHandle& handle, double seconds)
 {
     using K = FadeHandle::Kind;
     const auto clips = fadeClips(track);
@@ -132,7 +128,6 @@ FadeEdit dragFade(const TrackInfo& track, const FadeHandle& handle, double secon
         return edit;
     case K::CrossStart:
     case K::CrossEnd:
-    case K::CrossMiddle:
     {
         const auto x = crossfadeOut(clips, i);
         if (!x || i + 1 >= clips.size())
@@ -145,10 +140,8 @@ FadeEdit dragFade(const TrackInfo& track, const FadeHandle& handle, double secon
             from = s - join;
             length = end - s;
         }
-        else if (handle.kind == K::CrossEnd)
-            length = std::max(seconds, start + kShortestFade) - start;
         else
-            from = x->from + (seconds - grabbedAt);
+            length = std::max(seconds, start + kShortestFade) - start;
         edit.crossClip = c.id;
         edit.crossfade = placeCrossfade(c, clips[i + 1], length, from, x->shape).value_or(*x);
         return edit;

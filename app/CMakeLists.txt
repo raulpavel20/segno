@@ -102,6 +102,7 @@ target_sources(fd_app_ui INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/Panels.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ArrangementView.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ArrangementFades.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/CrossfadeSums.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/AutomationLane.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/LaneControls.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/LaneAssignments.cpp"

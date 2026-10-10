@@ -39,14 +39,31 @@ juce::Rectangle<float> ArrangementView::bodyOf(const model::ClipInfo& clip, floa
     return box.withTrimmedTop(titleOf(box).getHeight());
 }
 
-void ArrangementView::paintFades(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body)
+void ArrangementView::paintFades(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body, juce::Colour colour,
+                                 bool selected)
 {
     if (clip.kind != model::ClipInfo::Kind::Audio || body.getHeight() < 2.0f)
         return;
     const auto& t = ui::Theme::current();
-    auto draw = [&](float x0, float x1, const model::Ramp& ramp, bool fadingIn) {
-        // Narrower than a handle it would read as a glitch: an edge fade shows once zoomed in.
-        if (ramp.kind != model::Ramp::Kind::Fade || x1 - x0 < static_cast<float>(t.shell.fadeHandleSize))
+    const auto* peaks = waveforms_.find(clip.sourcePath);
+    auto draw = [&](double from, double to, const model::Ramp& ramp, bool fadingIn) {
+        const float x0 = laneX(from), x1 = laneX(to);
+        if (ramp.kind != model::Ramp::Kind::Fade || x1 - x0 < 1.0f)
+            return;
+        const auto region = juce::Rectangle<float>(x0, body.getY(), x1 - x0, body.getHeight()).getIntersection(body);
+        juce::Graphics::ScopedSaveState saved(g);
+        g.reduceClipRegion(region.getSmallestIntegerContainer());
+        // The waveform as the fade plays it (fades.md §3).
+        if (peaks != nullptr)
+        {
+            g.setColour(t.clipBody(colour, selected));
+            g.fillRect(region);
+            WaveformTiles::drawDirect(g, *peaks, clip, body, region.getSmallestIntegerContainer(), timeline_, laneArea().getX(),
+                                      t.clipContent(colour),
+                                      [&](double seconds) { return model::rampGain(ramp, (seconds - from) / (to - from), fadingIn); });
+        }
+        // Narrower than a handle, the curve would read as a glitch: an edge fade shows once zoomed in.
+        if (x1 - x0 < static_cast<float>(t.shell.fadeHandleSize))
             return;
         const auto curve = rampPath(x0, x1, body, [&](double a) { return model::rampGain(ramp, a, fadingIn); });
         // What the fade takes away is shaded: the area above its curve.
@@ -54,38 +71,63 @@ void ArrangementView::paintFades(juce::Graphics& g, const model::ClipInfo& clip,
         shade.lineTo(x1, body.getY());
         shade.lineTo(x0, body.getY());
         shade.closeSubPath();
-        juce::Graphics::ScopedSaveState saved(g);
-        g.reduceClipRegion(body.getSmallestIntegerContainer());
         g.setColour(t.faded(t.surface0));
         g.fillPath(shade);
         g.setColour(t.textPrimary);
         g.strokePath(curve, juce::PathStrokeType(1.0f));
     };
     const auto& p = clip.playback;
-    draw(laneX(clip.start), laneX(clip.start + p.in.length), p.in, true);
-    draw(laneX(clip.end() - p.out.length), laneX(clip.end()), p.out, false);
+    draw(clip.start, clip.start + p.in.length, p.in, true);
+    draw(clip.end() - p.out.length, clip.end(), p.out, false);
 }
 
 void ArrangementView::paintCrossfades(juce::Graphics& g, const model::TrackInfo& track, float y, float h)
 {
     const auto& t = ui::Theme::current();
-    for (const auto& c : track.clips)
+    for (size_t i = 0; i + 1 < track.clips.size(); ++i)
     {
+        const auto& c = track.clips[i];
+        const auto& next = track.clips[i + 1];
         if (!c.crossfadeOut)
             continue;
         const auto& x = *c.crossfadeOut;
-        const double from = c.end() + x.from;
+        const double join = c.end(), from = join + x.from;
         if (from + x.length < timeline_.start() || from > timeline_.end())
             continue;
         const auto body = bodyOf(c, y, h);
-        const float x0 = laneX(from), x1 = laneX(from + x.length);
-        if (x1 - x0 < static_cast<float>(t.shell.fadeHandleSize)) // as a fade: its grips show it
+        const float x0 = laneX(from), xj = laneX(join), x1 = laneX(from + x.length);
+        if (x1 - x0 < 1.0f)
             continue;
-        const auto span = juce::Rectangle<float>(x0, body.getY(), std::max(1.0f, x1 - x0), body.getHeight());
+        const auto span = juce::Rectangle<float>(x0, body.getY(), x1 - x0, body.getHeight());
         juce::Graphics::ScopedSaveState saved(g);
         g.reduceClipRegion(laneArea());
-        g.setColour(t.faded(t.surface0)); // the span, shaded as fades are
-        g.fillRect(span);
+        // The waveform the crossfade plays, built from both clips' audio: on each side of the join
+        // in that clip's colour (fades.md §3).
+        const CrossfadeSums::Key key{.out = c.sourcePath,
+                                     .in = next.sourcePath,
+                                     .outFrom = c.offset + (from - c.start),
+                                     .inFrom = next.offset + (from - next.start),
+                                     .length = x.length,
+                                     .shape = x.shape};
+        if (const auto* sum = sums_.get(key))
+        {
+            const model::ClipInfo sumClip{.kind = model::ClipInfo::Kind::Audio, .start = from, .length = x.length};
+            for (const auto* side : {&c, &next})
+            {
+                const auto part = side == &c ? span.withRight(xj) : span.withLeft(xj);
+                if (part.getWidth() <= 0.0f)
+                    continue;
+                juce::Graphics::ScopedSaveState sideState(g);
+                g.reduceClipRegion(part.getSmallestIntegerContainer());
+                const auto colour = t.clipColour(side->colour);
+                g.setColour(t.clipBody(colour, side->stack == 0 && selection_.clips.contains(side->id)));
+                g.fillRect(part);
+                WaveformTiles::drawDirect(g, *sum, sumClip, span, part.getSmallestIntegerContainer(), timeline_, laneArea().getX(),
+                                          t.clipContent(colour));
+            }
+        }
+        if (x1 - x0 < static_cast<float>(t.shell.fadeHandleSize)) // as a fade: its grips show it
+            continue;
         g.setColour(t.textPrimary);
         g.strokePath(rampPath(x0, x1, span, [&](double a) { return model::crossfadeGains(a, x.shape).out; }), juce::PathStrokeType(1.0f));
         g.strokePath(rampPath(x0, x1, span, [&](double a) { return model::crossfadeGains(a, x.shape).in; }), juce::PathStrokeType(1.0f));
@@ -99,7 +141,7 @@ bool ArrangementView::showsFadeHandles(const model::TrackInfo& track, const mode
         return true;
     // A crossfade's grips show for the clip after the join too.
     using K = model::FadeHandle::Kind;
-    if (handle.kind != K::CrossStart && handle.kind != K::CrossEnd && handle.kind != K::CrossMiddle)
+    if (handle.kind != K::CrossStart && handle.kind != K::CrossEnd)
         return false;
     for (size_t i = 0; i + 1 < track.clips.size(); ++i)
         if (track.clips[i].id == handle.clip)
@@ -129,7 +171,7 @@ void ArrangementView::paintFadeHandles(juce::Graphics& g, const model::TrackInfo
         const auto at = handlePoint(track, handle, y, h);
         if (!at)
             continue;
-        const bool dot = handle.kind == K::BendIn || handle.kind == K::BendOut || handle.kind == K::CrossMiddle;
+        const bool dot = handle.kind == K::BendIn || handle.kind == K::BendOut;
         auto r = juce::Rectangle<float>(size, size).withCentre(*at);
         if (!dot) // a square hangs from the top of the body
             r = r.withY(at->y);
@@ -157,6 +199,7 @@ std::optional<ArrangementView::FadeGrip> ArrangementView::fadeGripAt(juce::Point
     const float h = static_cast<float>(layout_.baseHeight(row->track));
     const auto& t = ui::Theme::current();
     const float grab = t.input.edgeGrab, size = static_cast<float>(t.shell.fadeHandleSize);
+    using K = model::FadeHandle::Kind;
     std::optional<FadeGrip> best;
     float bestDistance = 0.0f;
     for (const auto& handle : model::fadeHandles(track))
@@ -166,11 +209,13 @@ std::optional<ArrangementView::FadeGrip> ArrangementView::fadeGripAt(juce::Point
         auto at = handlePoint(track, handle, y, h);
         if (!at)
             continue;
-        using K = model::FadeHandle::Kind;
-        if (handle.kind != K::BendIn && handle.kind != K::BendOut && handle.kind != K::CrossMiddle)
+        if (handle.kind != K::BendIn && handle.kind != K::BendOut)
             at->y += size * 0.5f; // the square hangs from the top of the body
         const float d = at->getDistanceFrom(pos);
-        if (d <= grab && (!best || d < bestDistance))
+        // A short crossfade's two ends sit on one spot: the one on the pointer's side of it.
+        const bool tie = best && std::abs(d - bestDistance) < 1.0f && best->handle.clip == handle.clip &&
+                         best->handle.kind == K::CrossStart && handle.kind == K::CrossEnd;
+        if (d <= grab && (!best || d < bestDistance || (tie && pos.x >= at->x)))
         {
             best = FadeGrip{handle, track.id};
             bestDistance = d;
@@ -229,6 +274,24 @@ void ArrangementView::fadeMenu(const FadeRegion& region)
                 session_.setCrossfade(clip, model::Crossfade{x.length, x.from, chosen}, "Crossfade shape");
             });
         menu.addSeparator();
+        // Where it sits against the join, where the spare audio allows it whole.
+        const auto clips = model::fadeClips(*track);
+        const auto at = std::find_if(clips.begin(), clips.end(), [&](const auto& f) { return f.id == clip; });
+        const std::array<std::pair<model::CrossfadePlacement, const char*>, 3> placements{
+            std::pair{model::CrossfadePlacement::Before, "Before the join"},
+            std::pair{model::CrossfadePlacement::Centred, "Centred on the join"},
+            std::pair{model::CrossfadePlacement::After, "After the join"}};
+        for (const auto& option : placements)
+        {
+            const auto placed = at != clips.end() && at + 1 != clips.end()
+                                    ? model::placeCrossfadeAt(*at, *(at + 1), x.length, option.first, x.shape)
+                                    : std::nullopt;
+            menu.addItem(option.second, placed.has_value(), model::placementOf(x) == option.first, [this, clip, placed] {
+                if (placed)
+                    session_.setCrossfade(clip, placed, "Crossfade placement");
+            });
+        }
+        menu.addSeparator();
         menu.addItem("Remove crossfade", [this, clip] { session_.setCrossfade(clip, std::nullopt, "Remove crossfade"); });
     }
     else
@@ -271,16 +334,15 @@ bool ArrangementView::fadeMouseDown(const juce::MouseEvent& e)
         case K::BendIn: session_.setFades({h.clip}, model::Fade{it->fadeIn.length, 0.0f}, std::nullopt); break;
         case K::BendOut: session_.setFades({h.clip}, std::nullopt, model::Fade{it->fadeOut.length, 0.0f}); break;
         case K::CrossStart:
-        case K::CrossEnd:
-        case K::CrossMiddle: session_.setCrossfade(h.clip, std::nullopt, "Remove crossfade"); break;
+        case K::CrossEnd: session_.setCrossfade(h.clip, std::nullopt, "Remove crossfade"); break;
         }
         return true;
     }
     drag_ = Drag::Fade;
     fadeDrag_ = FadeDrag{.handle = h,
                          .track = grip->track,
-                         .grabbedAt = timeline_.timeForX(e.position.x - static_cast<float>(laneArea().getX())),
-                         .baseBend = h.kind == K::BendIn ? it->fadeIn.bend : it->fadeOut.bend};
+                         .baseBend = h.kind == K::BendIn ? it->fadeIn.bend : it->fadeOut.bend,
+                         .pointer = e.position};
     return true;
 }
 
@@ -300,10 +362,33 @@ void ArrangementView::fadeMouseDrag(const juce::MouseEvent& e)
         edit = model::bendFade(*track, h, model::bendFor(fadeDrag_->baseBend, up, ui::Theme::current().input.bendTravel, h.kind == K::BendIn));
     }
     else
-        edit = model::dragFade(*track, h, timeline_.timeForX(e.position.x - static_cast<float>(laneArea().getX())), fadeDrag_->grabbedAt);
+        edit = model::dragFade(*track, h, timeline_.timeForX(e.position.x - static_cast<float>(laneArea().getX())));
     fadeDrag_->edit = edit;
+    fadeDrag_->pointer = e.position;
     fadePreview_ = model::withFadeEdit(*track, edit, snapshot_->edgeFades);
     repaint(laneArea());
+}
+
+juce::String ArrangementView::fadeDragText() const
+{
+    if (!fadeDrag_ || !fadeDrag_->edit)
+        return {};
+    using K = model::FadeHandle::Kind;
+    const auto& e = *fadeDrag_->edit;
+    auto ms = [](double seconds) { return juce::String(juce::roundToInt(seconds * 1000.0)) + " ms"; };
+    auto percent = [](float bend) { return juce::String(juce::roundToInt(bend * 100.0f)) + " %"; };
+    if (e.crossClip != 0)
+        return e.crossfade ? "Crossfade " + ms(e.crossfade->length) : juce::String("No crossfade");
+    const auto kind = fadeDrag_->handle.kind;
+    if (kind == K::BendIn && e.in)
+        return "Bend " + percent(e.in->bend);
+    if (kind == K::BendOut && e.out)
+        return "Bend " + percent(e.out->bend);
+    if (e.in)
+        return "Fade in " + ms(e.in->length);
+    if (e.out)
+        return "Fade out " + ms(e.out->length);
+    return {};
 }
 
 void ArrangementView::fadeMouseUp()

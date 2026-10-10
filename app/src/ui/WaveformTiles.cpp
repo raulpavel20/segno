@@ -21,7 +21,7 @@ juce::Rectangle<int> wholePixelsIn(juce::Rectangle<float> area)
 /// skipped.
 template <typename FrameAt>
 void fillColumns(juce::Graphics& g, const model::Peaks& peaks, int columns, float x0, float columnWidth, float mid,
-                 float half, FrameAt&& frameAt)
+                 float half, FrameAt&& frameAt, const std::function<float(int column)>& gainAt = {})
 {
     if (columns <= 0)
         return;
@@ -30,7 +30,13 @@ void fillColumns(juce::Graphics& g, const model::Peaks& peaks, int columns, floa
     for (int c = 0; c < columns; ++c)
     {
         const std::int64_t to = std::max(from + 1, frameAt(c + 1));
-        const auto [lo, hi] = peaks.range(from, to);
+        auto [lo, hi] = peaks.range(from, to);
+        if (gainAt)
+        {
+            const float gain = gainAt(c);
+            lo *= gain;
+            hi *= gain;
+        }
         from = to;
         const float top = mid - std::clamp(hi, -1.0f, 1.0f) * half;
         col[static_cast<size_t>(c)] = {top, std::max(mid - std::clamp(lo, -1.0f, 1.0f) * half, top + 1.0f)};
@@ -128,7 +134,7 @@ void WaveformTiles::evict()
 
 void WaveformTiles::drawDirect(juce::Graphics& g, const model::Peaks& peaks, const model::ClipInfo& clip,
                                juce::Rectangle<float> body, juce::Rectangle<int> visible, const model::Timeline& timeline,
-                               int lanesX, juce::Colour colour)
+                               int lanesX, juce::Colour colour, const std::function<float(double seconds)>& gain)
 {
     const auto area = body.getIntersection(visible.toFloat());
     if (body.getHeight() < 4.0f || area.isEmpty())
@@ -142,7 +148,9 @@ void WaveformTiles::drawDirect(juce::Graphics& g, const model::Peaks& peaks, con
                 [&](int c) {
                     const double file = timeline.timeForX(x0 + c - lanesX) - clip.start + clip.offset;
                     return static_cast<std::int64_t>(std::floor(file * peaks.sampleRate));
-                });
+                },
+                gain ? std::function<float(int)>([&](int c) { return gain(timeline.timeForX(static_cast<float>(x0 + c - lanesX) + 0.5f)); })
+                     : std::function<float(int)>());
 }
 
 void WaveformTiles::draw(juce::Graphics& g, const model::Peaks& peaks, const model::ClipInfo& clip,

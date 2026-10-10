@@ -45,7 +45,9 @@ Segno follows the edge-to-edge model, which ADR 0019 already chose, and combines
 | Double-click a fade handle | Removes the fade (a cut edge keeps its 4 ms edge fade) |
 | Drag a fade-out handle past the clip's end into the clip after it (or a fade-in handle back into the one before) | Makes a crossfade there (§4) |
 
-**Drawn:** the faded part of the clip is shaded (the area above the curve, `faded(surface0)`), with the curve as a line in `textPrimary`. The waveform stays the source's; the shading shows the fade. A fade narrower than a handle (`shell.fadeHandleSize`) draws nothing but its handle: a 4 ms edge fade shows once zoomed in, and never as a glitch-like sliver.
+**Drawn:** the waveform shows what's heard: through a fade it's scaled by the fade's gain, so it grows from silence along the curve (revised after trying C6: the source's waveform under a fade didn't show what plays). Over it, the faded part is shaded (the area above the curve, `faded(surface0)`) and the curve is a line in `textPrimary`. A fade narrower than a handle (`shell.fadeHandleSize`) draws no curve, only its handle: a 4 ms edge fade shows once zoomed in, never as a glitch-like sliver.
+
+**While dragging** a fade's square or dot, or a crossfade's end, a tag by the pointer says what it's becoming ("Fade in 120 ms", "Bend −40 %", "Crossfade 24 ms"; `ui::paintValueTag`), so even a change too small to see at this zoom shows.
 
 **The curve:** a fade is a segment from silence to full level (fade-in) or back (fade-out) with a bend, the same function as an automation segment (`model::automationValueAt`). Its gain is that curve as a level, so a straight fade is a straight ramp of gain. New fades start straight (linear), the common default. Lengths are times, not beats: a fade keeps its duration when the tempo changes.
 
@@ -66,11 +68,11 @@ Segno follows the edge-to-edge model, which ADR 0019 already chose, and combines
 - drag a fade handle across the join (§3): the crossfade's length follows the drag;
 - or select clips and press Ctrl+Shift+X (**Crossfade**): every join between selected clips that meet gets a 10 ms crossfade (enough to hide a join without smearing it), and a join that has one keeps it. With no joins in the selection, it says so.
 
-**Where it sits:** centred on the join, playing each clip's handle: the first clip's audio after its end, the second's before its start. Drag its middle sideways to move it before or after the join (Pro Tools' pre and post crossfades), within the handles. If one side has no spare audio (a file starts or ends exactly there), it slides to the side that has it. If neither has enough, it's as long as the handles allow, and with none at all it can't be made: "No audio beyond these clips' edges to crossfade: trim them shorter first." Recordings, splits, bounces and comps always have handles; separate files placed edge to edge may not.
+**Where it sits:** centred on the join, playing each clip's handle: the first clip's audio after its end, the second's before its start. Its right-click menu moves it **Before the join**, **Centred on the join** or **After the join** (Pro Tools' pre, centred and post crossfades); a placement the spare audio can't hold is dimmed. (A draggable middle, built first, was dropped after trying it: it looked like a fade's bend dot, and a short crossfade moves less than a pixel, so dragging it seemed to do nothing.) If one side has no spare audio (a file starts or ends exactly there), it slides to the side that has it. If neither has enough, it's as long as the handles allow, and with none at all it can't be made: "No audio beyond these clips' edges to crossfade: trim them shorter first." Recordings, splits, bounces and comps always have handles; separate files placed edge to edge may not.
 
 **Shapes:** Equal power (the default: constant loudness across different material, such as two takes), Equal gain (straight ramps, for the same material, which would bulge with equal power: a split of one recording, a loop to itself), and S-curve. The crossfade's right-click menu and the inspector choose, each with that one line of guidance.
 
-**Drawn:** both curves across the crossfade's span over the join, the span shaded as fades are, a handle at each end to resize it, and its middle to drag it sideways.
+**Drawn:** across the crossfade's span, the waveform it plays: both clips' audio through its gains, summed, built from the files' samples in the background (`ui::CrossfadeSums`), on each side of the join in that clip's colour. So equal power over the same material shows its bulge, and equal gain shows the seam disappear. Over it, both curves, and a handle at each end to resize it (drawn on the clip under the pointer and on selected clips).
 
 **With edits:**
 - a crossfade belongs to the join. Moving either clip away from the other removes it (undo brings it back); moving them together keeps it;
@@ -97,7 +99,7 @@ Comping (recording.md §7) makes clips that meet at joins and play parts of diff
 | Tool | Arguments | Result |
 |---|---|---|
 | `set_fades` | `clips`, `in?` / `out?` (a number of ms, or text: "10 ms", "0.5 s", a musical length such as "1/16"; 0 removes), `inBend?` / `outBend?` (−1 … 1) | The clips' fades as set. One undo step |
-| `crossfade` | `clips` (their joins), `length?` (default 10 ms), `shape?` ("equal power", "equal gain", "s-curve"), or `remove: true` | Each join: its crossfade (length, start relative to the join, shape), or why it couldn't be made |
+| `crossfade` | `clips` (their joins), `length?` (default 10 ms), `shape?` ("equal power", "equal gain", "s-curve"), `placement?` ("before", "centred", "after"), or `remove: true` | Each join: its crossfade (length, start relative to the join, placement, shape), or why it couldn't be made or placed |
 | `set_edge_fades` | `on` | The setting. One undo step |
 
 Clip results gain `fadeIn` and `fadeOut` (ms and bend) and `crossfadeOut` where a clip has one. `get_project` reports `edgeFades`.
@@ -145,7 +147,7 @@ Clip results gain `fadeIn` and `fadeOut` (ms and bend) and `crossfadeOut` where 
 | Q3 | **Fade curve** | One bendable curve shared with automation; new fades start linear; lengths in time, not beats (§3) |
 | Q4 | **Crossfades and the no-overlap rule** | At the boundary, playing each clip's handle; clips never overlap (ADR 0036, §4) |
 | Q5 | **Making a crossfade** | Drag a fade handle across the join, or Ctrl+Shift+X on selected clips with the default length (§4) |
-| Q6 | **Placement** | Centred, draggable before or after the join within the handles, sliding to the side with spare audio; refused without any (§4) |
+| Q6 | **Placement** | Centred, sliding to the side with spare audio; refused without any. Before, centred or after from its menu (a draggable middle was tried and dropped, §4) |
 | Q7 | **Crossfade shapes** | Equal power (default), equal gain, S-curve (§4) |
 | Q8 | **Default crossfade length** | 10 ms, for Ctrl+Shift+X and comp joins (§4, §5) |
 | Q9 | **Comp joins** | Automatic 10 ms equal-power crossfades (§5) |

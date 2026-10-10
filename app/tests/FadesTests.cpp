@@ -222,7 +222,6 @@ TEST_CASE("fade editing: handles at the fades' ends, bend dots on fades, a cross
     CHECK(handleOf(h, K::FadeIn, 11) == nullptr);
     CHECK(handleOf(h, K::CrossStart, 10)->time == Approx(1.95));
     CHECK(handleOf(h, K::CrossEnd, 10)->time == Approx(2.05));
-    CHECK(handleOf(h, K::CrossMiddle, 10)->time == Approx(2.0));
     CHECK(handleOf(h, K::FadeOut, 11) != nullptr);
 }
 
@@ -261,7 +260,7 @@ TEST_CASE("fade editing: dragging fades, across a join into a crossfade, and a c
     TrackInfo split{.id = 3, .clips = {audioClip(30, 0.0, 2.0, 0.0, "a.wav"), audioClip(31, 2.0, 2.0, 2.0, "a.wav")}};
     CHECK(dragFade(split, *handleOf(fadeHandles(split), K::FadeOut, 30), 2.05).crossClip == 0);
 
-    // A crossfade's start keeps its end; its end keeps its start; its middle moves it.
+    // A crossfade's start keeps its end; its end keeps its start.
     t.clips[0].crossfadeOut = Crossfade{.length = 0.1, .from = -0.05};
     const auto x = fadeHandles(t);
     e = dragFade(t, *handleOf(x, K::CrossStart, 10), 1.9);
@@ -271,9 +270,6 @@ TEST_CASE("fade editing: dragging fades, across a join into a crossfade, and a c
     e = dragFade(t, *handleOf(x, K::CrossEnd, 10), 2.0);
     CHECK(e.crossfade->from == Approx(-0.05));
     CHECK(e.crossfade->length == Approx(0.05));
-    e = dragFade(t, *handleOf(x, K::CrossMiddle, 10), 2.03, 2.0);
-    CHECK(e.crossfade->from == Approx(-0.02));
-    CHECK(e.crossfade->length == Approx(0.1));
 
     // Previewing an edit: the clips as they'll play.
     const auto clips = withEdit(fadeClips(t), {.clip = 11, .in = Fade{0.2, 0.0f}});
@@ -315,3 +311,37 @@ TEST_CASE("fade editing: a clip with takes fades at its outer edges; a previewed
     CHECK(previewed.clips[0].playback.out.kind == Ramp::Kind::Cross);
     CHECK(previewed.clips[1].playback.extendStart == Approx(0.01));
 }
+
+TEST_CASE("fades: a crossfade's placement, and what it sounds like", "[fast]")
+{
+    // Placement: before, centred on or after the join, where the spare audio allows it whole.
+    const auto a = clip(1, 0.0, 5.0, 0.0), b = clip(2, 5.0, 5.0, 5.0, "b.wav");
+    for (const auto p : {CrossfadePlacement::Before, CrossfadePlacement::Centred, CrossfadePlacement::After})
+    {
+        const auto x = placeCrossfadeAt(a, b, 0.02, p, CrossfadeShape::EqualPower);
+        REQUIRE(x);
+        CHECK(placementOf(*x) == p);
+        CHECK(x->from == Approx(placementFrom(p, 0.02)));
+    }
+    CHECK_FALSE(placementOf(Crossfade{.length = 0.02, .from = -0.003}));
+    // The second clip starts its file: nothing before the join, so only "after" fits.
+    const auto fresh = clip(3, 5.0, 5.0, 0.0, "c.wav");
+    CHECK_FALSE(placeCrossfadeAt(a, fresh, 0.02, CrossfadePlacement::Before, CrossfadeShape::EqualPower));
+    CHECK_FALSE(placeCrossfadeAt(a, fresh, 0.02, CrossfadePlacement::Centred, CrossfadeShape::EqualPower));
+    CHECK(placeCrossfadeAt(a, fresh, 0.02, CrossfadePlacement::After, CrossfadeShape::EqualPower));
+
+    // The sum: the same material through equal gain comes back as it was; equal power from
+    // silence to a tone follows the incoming gain.
+    std::vector<float> tone(2 * 101), silence(2 * 101, 0.0f);
+    for (size_t i = 0; i < tone.size(); ++i)
+        tone[i] = std::sin(static_cast<float>(i) * 0.3f);
+    const auto same = crossfadeSum(tone, tone, 2, CrossfadeShape::EqualGain);
+    REQUIRE(same.size() == tone.size());
+    for (size_t i = 0; i < tone.size(); ++i)
+        CHECK(same[i] == Approx(tone[i]).margin(1e-6));
+    std::vector<float> ones(2 * 101, 1.0f);
+    const auto rising = crossfadeSum(silence, ones, 2, CrossfadeShape::EqualPower);
+    for (size_t f = 0; f <= 100; f += 25)
+        CHECK(rising[2 * f] == Approx(crossfadeGains(static_cast<double>(f) / 100.0, CrossfadeShape::EqualPower).in).margin(1e-6));
+}
+

@@ -240,6 +240,21 @@ void paintEmptyState(juce::Graphics& g, juce::Rectangle<int> area, const juce::S
     g.drawFittedText(text, area.reduced(t.shell.padding), juce::Justification::centred, 2);
 }
 
+void paintValueTag(juce::Graphics& g, juce::Point<float> anchor, juce::Rectangle<int> within, const juce::String& text)
+{
+    const auto& t = Theme::current();
+    const auto f = font(TextStyle::Value);
+    const float width = juce::GlyphArrangement::getStringWidth(f, text) + 2.0f * static_cast<float>(t.shell.fieldTextInset);
+    const float height = static_cast<float>(t.shell.rowHeight), gap = static_cast<float>(t.shell.itemGap);
+    auto tag = juce::Rectangle<float>(anchor.x + gap, anchor.y - gap - height, width, height);
+    tag = tag.constrainedWithin(within.toFloat());
+    g.setColour(t.surface3);
+    g.fillRoundedRectangle(tag, t.radiusControl);
+    g.setColour(t.textPrimary);
+    g.setFont(f);
+    g.drawText(text, tag, juce::Justification::centred, false);
+}
+
 void paintProgress(juce::Graphics& g, juce::Rectangle<float> area, float fraction)
 {
     const auto& t = Theme::current();

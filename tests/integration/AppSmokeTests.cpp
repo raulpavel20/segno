@@ -2057,16 +2057,32 @@ TEST_CASE("fades: drawn on clips, handles on hover, a handle drag sets a fade, C
     CHECK(clipOf(a).crossfadeOut->length == Catch::Approx(0.2).margin(0.01));
     CHECK(s.undoDescription() == "Crossfade");
     view.mouseMove(mouseEvent(view, {laneX(2.5), rowTop + 40.0f}, {laneX(2.5), rowTop + 40.0f}, false, {}));
-    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: the crossfade and its grips
-        dumpPng(dump, "crossfade@2x.png",
-                view.createComponentSnapshot(juce::Rectangle<int>(static_cast<int>(laneX(1.5)), 0, 500, 130), true, 2.0f));
+    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: the crossfade, the sum it plays, its grips
+    {
+        const auto area = juce::Rectangle<int>(static_cast<int>(laneX(1.5)), 0, 500, 130);
+        (void)view.createComponentSnapshot(area); // asks for the sum, built in the background
+        for (int i = 0; i < 30; ++i)
+            juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
+        dumpPng(dump, "crossfade@2x.png", view.createComponentSnapshot(area, true, 2.0f));
+    }
 
-    // A double-click on its middle (where its curves cross) removes it; Ctrl+Shift+X on the two
-    // clips makes a 10 ms one.
-    const float bodyHeight = 64.0f - static_cast<float>(2 * theme.shell.clipGap + 1 + theme.shell.clipTitleHeight);
-    const juce::Point<float> middle(laneX(2.0), bodyTop + bodyHeight * (1.0f - fd::model::crossfadeGains(0.5, fd::model::CrossfadeShape::EqualPower).out));
-    click(view, middle);
-    click(view, middle, 2);
+    // Dragging its end shows what it's becoming next to the pointer (for review).
+    {
+        const juce::Point<float> end(laneX(2.1), handleY), to(laneX(2.2), handleY);
+        view.mouseDown(mouseEvent(view, end, end, false));
+        view.mouseDrag(mouseEvent(view, to, end, true));
+        if (const char* dump = std::getenv("FD_DUMP_DIR"))
+            dumpPng(dump, "crossfade-drag@2x.png",
+                    view.createComponentSnapshot(juce::Rectangle<int>(static_cast<int>(laneX(1.6)), 0, 500, 130), true, 2.0f));
+        view.mouseUp(mouseEvent(view, to, end, true));
+        CHECK(clipOf(a).crossfadeOut->length == Catch::Approx(0.3).margin(0.01)); // its start stayed put
+        CHECK(s.undoDescription() == "Crossfade");
+    }
+
+    // A double-click on either end removes it; Ctrl+Shift+X on the two clips makes a 10 ms one.
+    const juce::Point<float> end(laneX(2.2), handleY);
+    click(view, end);
+    click(view, end, 2);
     s.updateSnapshotNow();
     CHECK_FALSE(clipOf(a).crossfadeOut);
     CHECK(s.undoDescription() == "Remove crossfade");

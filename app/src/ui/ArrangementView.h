@@ -11,6 +11,7 @@
 #include "model/Takes.h"
 #include "model/Timeline.h"
 #include "model/TrackLayout.h"
+#include "ui/CrossfadeSums.h"
 #include "ui/WaveformCache.h"
 #include "ui/WaveformTiles.h"
 #include "ui/time/TimeView.h"
@@ -249,14 +250,17 @@ private:
     {
         model::FadeHandle handle;
         std::uint64_t track = 0;
-        double grabbedAt = 0.0;
         float baseBend = 0.0f;
         std::optional<model::FadeEdit> edit;
+        juce::Point<float> pointer; // where its value tag shows
     };
+    /// What a fade gesture is changing, for its value tag ("Fade in 120 ms").
+    [[nodiscard]] juce::String fadeDragText() const;
+    CrossfadeSums sums_; // what crossfades play, drawn across them
     /// The track as it's drawn: with a fade gesture's preview, if one is on it.
     [[nodiscard]] const model::TrackInfo& shownTrack(const model::TrackInfo& track) const;
     [[nodiscard]] juce::Rectangle<float> bodyOf(const model::ClipInfo& clip, float y, float h) const;
-    void paintFades(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body);
+    void paintFades(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body, juce::Colour colour, bool selected);
     void paintCrossfades(juce::Graphics& g, const model::TrackInfo& track, float y, float h);
     void paintFadeHandles(juce::Graphics& g, const model::TrackInfo& track, float y, float h);
     [[nodiscard]] bool showsFadeHandles(const model::TrackInfo& track, const model::FadeHandle& handle) const;

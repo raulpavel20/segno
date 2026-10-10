@@ -309,11 +309,13 @@ void addClipTools(Registry& registry, ToolEnv& env)
          "Crossfades every join between the given audio clips that meet: the clips stay edge to edge and each plays its "
          "spare audio past the join while the crossfade lasts, centred on it unless only one side has spare audio. "
          "Shapes: \"equal power\" (the default, for different material), \"equal gain\" (for the same material) and "
-         "\"s-curve\". A join that has a crossfade keeps it (taking a new shape or length if given); with \"remove\": "
-         "true, its crossfade goes. A join without spare audio, or a seamless one, says why.",
+         "\"s-curve\". \"placement\" sits it \"before\" the join, \"centred\" on it or \"after\" it, where the spare "
+         "audio allows. A join that has a crossfade keeps it (taking a new shape, length or placement if given); with "
+         "\"remove\": true, its crossfade goes. A join without spare audio, or a seamless one, says why.",
          object({{"clips", ids(IdKind::Clip, "The audio clips on both sides of each join")},
                  {"length", length("The crossfade's length (default 10 ms): ms, or text such as \"20 ms\"")},
                  {"shape", string("\"equal power\", \"equal gain\" or \"s-curve\"")},
+                 {"placement", string("\"before\", \"centred\" or \"after\" the join (default: centred where it fits)")},
                  {"remove", boolean("Remove the joins' crossfades instead")}},
                 {"clips"}),
          result({{"joins", arrayOf(result({{"out", string("The clip before the join")}, {"in", string("The clip after it")}}),
@@ -329,6 +331,19 @@ void addClipTools(Registry& registry, ToolEnv& env)
                 if (!shape)
                     throw Problem{"The shape is \"equal power\", \"equal gain\" or \"s-curve\"."};
             }
+            std::optional<model::CrossfadePlacement> placement;
+            if (args.contains("placement"))
+            {
+                const auto p = juce::String(args["placement"].get<std::string>()).trim().toLowerCase();
+                placement = p == "before" ? std::optional(model::CrossfadePlacement::Before)
+                            : p == "after" ? std::optional(model::CrossfadePlacement::After)
+                            : p == "centred" || p == "centered" || p == "centre" || p == "center"
+                                ? std::optional(model::CrossfadePlacement::Centred)
+                                : std::nullopt;
+                if (!placement)
+                    throw Problem{"The placement is \"before\", \"centred\" or \"after\" the join."};
+            }
+            static constexpr const char* placementNames[] = {"before", "centred", "after"};
             Json joins = Json::array();
             if (args.value("remove", false))
             {
@@ -350,13 +365,28 @@ void addClipTools(Registry& registry, ToolEnv& env)
                                                                       shape.value_or(c.crossfadeOut->shape)});
             }
             std::string why;
-            for (const auto& r : env.session.crossfade(ids, length, shape))
+            for (auto r : env.session.crossfade(ids, length, shape))
             {
                 Json j{{"out", formatId(IdKind::Clip, r.out)}, {"in", formatId(IdKind::Clip, r.in)}};
+                // Placed as asked, as far as the spare audio lets it.
+                if (r.crossfade && placement)
+                {
+                    const auto wanted = model::placementFrom(*placement, r.crossfade->length);
+                    env.session.setCrossfade(r.out, model::Crossfade{r.crossfade->length, wanted, r.crossfade->shape});
+                    env.session.flushSnapshot();
+                    r.crossfade = clip(env, formatId(IdKind::Clip, r.out)).crossfadeOut;
+                    if (r.crossfade && model::placementOf(*r.crossfade) != placement)
+                        why = "Not enough spare audio to sit the crossfade " + std::string(placementNames[static_cast<int>(*placement)]) +
+                              (*placement == model::CrossfadePlacement::Centred ? " on" : "") + " the join; it sits as near as it can.";
+                }
                 if (r.crossfade)
+                {
+                    const auto at = model::placementOf(*r.crossfade);
                     j["crossfade"] = {{"ms", msOf(r.crossfade->length)},
                                       {"startMs", msOf(r.crossfade->from)},
+                                      {"placement", at ? Json(placementNames[static_cast<int>(*at)]) : Json(nullptr)},
                                       {"shape", model::shapeName(r.crossfade->shape)}};
+                }
                 else
                 {
                     j["why"] = r.why;

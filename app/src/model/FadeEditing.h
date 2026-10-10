@@ -25,9 +25,8 @@ struct FadeHandle
         FadeOut,
         BendIn,      // the dot in the middle of a fade's line: drag up or down to bend it
         BendOut,
-        CrossStart,  // a crossfade's ends: drag to resize it
+        CrossStart, // a crossfade's ends: drag to resize it (where it sits: its menu)
         CrossEnd,
-        CrossMiddle, // its middle: drag sideways to move it
     };
     Kind kind = Kind::FadeIn;
     std::uint64_t clip = 0; // the clip (a crossfade's: the clip before the join)
@@ -54,9 +53,8 @@ struct FadeEdit
 
 /// Dragging a fade or crossfade handle (not a bend dot) to `seconds`. A fade handle dragged past
 /// its clip's edge into a clip that meets it makes a crossfade there, twice as long as it's
-/// dragged past, centred on the join (§3); a crossfade's end keeps the other end where it is; its
-/// middle moves it by `seconds - grabbedAt`.
-[[nodiscard]] FadeEdit dragFade(const TrackInfo& track, const FadeHandle& handle, double seconds, double grabbedAt = 0.0);
+/// dragged past, centred on the join (§3); a crossfade's end keeps the other end where it is.
+[[nodiscard]] FadeEdit dragFade(const TrackInfo& track, const FadeHandle& handle, double seconds);
 
 /// Bending a fade (a BendIn or BendOut handle) to `bend`.
 [[nodiscard]] FadeEdit bendFade(const TrackInfo& track, const FadeHandle& handle, float bend);

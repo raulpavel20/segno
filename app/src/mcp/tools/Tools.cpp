@@ -410,9 +410,14 @@ Json clipJson(ToolEnv& env, const model::ClipInfo& c, bool notes)
         j["fadeIn"] = {{"ms", ms(c.fadeIn.length)}, {"bend", rounded(c.fadeIn.bend, 1e3)}};
         j["fadeOut"] = {{"ms", ms(c.fadeOut.length)}, {"bend", rounded(c.fadeOut.bend, 1e3)}};
         if (c.crossfadeOut)
+        {
+            static constexpr const char* placements[] = {"before", "centred", "after"};
+            const auto at = model::placementOf(*c.crossfadeOut);
             j["crossfadeOut"] = {{"ms", ms(c.crossfadeOut->length)},
                                  {"startMs", ms(c.crossfadeOut->from)},
+                                 {"placement", at ? Json(placements[static_cast<int>(*at)]) : Json(nullptr)},
                                  {"shape", model::shapeName(c.crossfadeOut->shape)}};
+        }
         j["source"] = c.sourcePath;
         j["sourceOffsetSeconds"] = roundTime(c.offset);
         j["sourceSeconds"] = roundTime(c.sourceLength);

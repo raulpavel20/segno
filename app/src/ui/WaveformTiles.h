@@ -38,9 +38,11 @@ public:
               juce::Rectangle<int> visible, const model::Timeline& timeline, int lanesX, juce::Colour colour, bool exact);
 
     /// Draws without tiles (the software renderer, where scaling images costs more than drawing).
+    /// With `gain`, each column is scaled by it at the column's time on the timeline: the waveform
+    /// as a fade plays it (fades.md §3).
     static void drawDirect(juce::Graphics& g, const model::Peaks& peaks, const model::ClipInfo& clip,
                            juce::Rectangle<float> body, juce::Rectangle<int> visible, const model::Timeline& timeline,
-                           int lanesX, juce::Colour colour);
+                           int lanesX, juce::Colour colour, const std::function<float(double seconds)>& gain = {});
 
     /// True if the last paint had to fall back (missing tiles): paint again soon.
     [[nodiscard]] bool wantsRepaint() const noexcept { return incomplete_; }

@@ -45,6 +45,7 @@ ArrangementView::ArrangementView(engine::Session& session) : session_(session)
     headerLayer_.setInterceptsMouseClicks(false, true); // the header's background still selects
     addAndMakeVisible(headerLayer_);
     waveforms_.onReady = [this] { repaint(); };
+    sums_.onReady = [this] { repaint(laneArea()); };
     setSnapshot(session_.snapshot());
     setWantsKeyboardFocus(false);
 }
@@ -515,6 +516,8 @@ void ArrangementView::paint(juce::Graphics& g)
     g.fillAll(t.surface0);
     timeline_.gridLines(snapshot_->tempo, grid_);
     paintLanes(g);
+    if (fadeDrag_ && fadeDrag_->edit) // what a fade gesture is changing (fades.md §3)
+        ui::paintValueTag(g, fadeDrag_->pointer, laneArea(), fadeDragText());
     paintHeaders(g);
     paintRuler(g);
 
@@ -1147,7 +1150,7 @@ void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, 
     else
     {
         paintWaveform(g, clip, box.withTrimmedTop(strip), visible, colour);
-        paintFades(g, clip, box.withTrimmedTop(strip));
+        paintFades(g, clip, box.withTrimmedTop(strip), colour, selected);
     }
     if (titleShowsText(title))
         paintTitleText(g, title, clip.name, clip.muted);

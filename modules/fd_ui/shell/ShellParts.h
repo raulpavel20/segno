@@ -103,6 +103,11 @@ void paintEmptyState(juce::Graphics& g, juce::Rectangle<int> area, const juce::S
 /// show it only after motion.progressDelay.
 void paintProgress(juce::Graphics& g, juce::Rectangle<float> area, float fraction);
 
+/// What a gesture is changing, next to the pointer while it drags (a fade's length): `text` in
+/// the `Value` style on a `surface3` tag a row high, above and right of `anchor` by the item gap,
+/// kept within `within`.
+void paintValueTag(juce::Graphics& g, juce::Point<float> anchor, juce::Rectangle<int> within, const juce::String& text);
+
 /// Titled sections one under another (the inspector): each a caps title on the row grid with its
 /// content under it, and a 1 px line centred in the group gap between neighbours, like a module
 /// panel's sections turned vertical. A layout helper: the owner keeps its components and places

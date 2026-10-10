@@ -48,6 +48,19 @@ struct Crossfade
     friend bool operator==(const Crossfade&, const Crossfade&) = default;
 };
 
+/// Where a crossfade sits against its join (fades.md §4): wholly before it, centred on it, or wholly
+/// after it (Pro Tools' pre, centred and post crossfades).
+enum class CrossfadePlacement
+{
+    Before,
+    Centred,
+    After,
+};
+/// A crossfade's placement, if it sits at one of the three (its start −length, −length/2 or 0).
+[[nodiscard]] std::optional<CrossfadePlacement> placementOf(const Crossfade& crossfade) noexcept;
+/// Where a crossfade of `length` would start for `placement` (relative to the join).
+[[nodiscard]] double placementFrom(CrossfadePlacement placement, double length) noexcept;
+
 /// A fade's gain (0 … 1) at `alpha` (0 … 1 through it): the automation segment from silence to
 /// full level (fade-in) or back (fade-out), bent by `bend`. Allocation-free.
 [[nodiscard]] float fadeInGain(double alpha, float bend) noexcept;
@@ -92,6 +105,17 @@ struct FadeClip
 [[nodiscard]] std::optional<Crossfade> placeCrossfade(const FadeClip& out, const FadeClip& in, double length,
                                                       std::optional<double> from = std::nullopt,
                                                       CrossfadeShape shape = CrossfadeShape::EqualPower);
+
+/// A crossfade at `placement` between two clips that meet, if their spare audio lets it sit there
+/// whole (`length` and its start as asked); nullopt otherwise.
+[[nodiscard]] std::optional<Crossfade> placeCrossfadeAt(const FadeClip& out, const FadeClip& in, double length,
+                                                        CrossfadePlacement placement, CrossfadeShape shape);
+
+/// What a crossfade sounds like: `outgoing` and `incoming` (interleaved, `channels` per frame, as
+/// many frames each) through the shape's gains from the crossfade's start (alpha 0 at the first
+/// frame) to its end, summed. What the arrangement draws across a crossfade (fades.md §3).
+[[nodiscard]] std::vector<float> crossfadeSum(const std::vector<float>& outgoing, const std::vector<float>& incoming, int channels,
+                                              CrossfadeShape shape);
 
 /// A gain ramp at one end of what a clip plays.
 struct Ramp

@@ -131,6 +131,53 @@ std::optional<Crossfade> placeCrossfade(const FadeClip& out, const FadeClip& in,
     return Crossfade{.length = l, .from = std::clamp(centre - l * 0.5, lo, hi), .shape = shape};
 }
 
+std::optional<CrossfadePlacement> placementOf(const Crossfade& crossfade) noexcept
+{
+    for (const auto p : {CrossfadePlacement::Before, CrossfadePlacement::Centred, CrossfadePlacement::After})
+        if (std::abs(crossfade.from - placementFrom(p, crossfade.length)) < kSame)
+            return p;
+    return std::nullopt;
+}
+
+double placementFrom(CrossfadePlacement placement, double length) noexcept
+{
+    switch (placement)
+    {
+    case CrossfadePlacement::Before: return -length;
+    case CrossfadePlacement::Centred: return -length * 0.5;
+    case CrossfadePlacement::After: return 0.0;
+    }
+    return -length * 0.5;
+}
+
+std::optional<Crossfade> placeCrossfadeAt(const FadeClip& out, const FadeClip& in, double length, CrossfadePlacement placement,
+                                          CrossfadeShape shape)
+{
+    const double from = placementFrom(placement, length);
+    const auto x = placeCrossfade(out, in, length, from, shape);
+    if (!x || std::abs(x->length - length) > kSame || std::abs(x->from - from) > kSame)
+        return std::nullopt;
+    return x;
+}
+
+std::vector<float> crossfadeSum(const std::vector<float>& outgoing, const std::vector<float>& incoming, int channels,
+                                CrossfadeShape shape)
+{
+    const auto frames = channels > 0 ? std::min(outgoing.size(), incoming.size()) / static_cast<size_t>(channels) : 0;
+    std::vector<float> out(frames * static_cast<size_t>(std::max(0, channels)));
+    for (size_t f = 0; f < frames; ++f)
+    {
+        const double alpha = frames > 1 ? static_cast<double>(f) / static_cast<double>(frames - 1) : 0.0;
+        const auto g = crossfadeGains(alpha, shape);
+        for (int c = 0; c < channels; ++c)
+        {
+            const auto i = f * static_cast<size_t>(channels) + static_cast<size_t>(c);
+            out[i] = outgoing[i] * g.out + incoming[i] * g.in;
+        }
+    }
+    return out;
+}
+
 std::optional<Crossfade> crossfadeOut(const std::vector<FadeClip>& clips, size_t index)
 {
     if (index + 1 >= clips.size())

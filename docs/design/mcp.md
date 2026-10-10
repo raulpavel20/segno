@@ -102,7 +102,7 @@ The project, track, clip and module resources send change notifications when the
 | `delete_clips` | `clips` | – (undoable, so no confirmation) |
 | `mute_clips` | `clips`, `muted?` (true) | The clips; muted ones keep their place and play nothing (C7) |
 | `set_fades` | `clips`, `in?`, `out?` (ms or text: "10 ms", "0.5 s", "1/16"), `inBend?`, `outBend?` | The clips' fades ([fades.md](fades.md) §7) |
-| `crossfade` | `clips`, `length?` (10 ms), `shape?`, `remove?` | Each join between them: its crossfade, or why it couldn't be made |
+| `crossfade` | `clips`, `length?` (10 ms), `shape?`, `placement?` ("before", "centred", "after"), `remove?` | Each join between them: its crossfade (with its placement), or why it couldn't be made or placed |
 | `set_edge_fades` | `on` | The project's edge fades on or off |
 | `bounce_clips` | `clips`, `newTrack?` (false) | Renders them to audio ([bounce.md](bounce.md) §11): in place, through each clip's instrument, keeping its source as a take; or to a new track through the whole chain, muting the source. Waits for the render (with progress); one undo step when it lands. The bounced clips, the new tracks, and any audible tails a clip that wasn't bounced cut |
 
