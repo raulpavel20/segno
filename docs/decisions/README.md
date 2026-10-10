@@ -45,7 +45,8 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0034](0034-device-api-frozen.md) | The device API (`libs/device`) and the device state format are frozen: additions that keep devices and saved states unchanged are allowed; anything else needs an ADR and a migration | Accepted |
 | [0035](0035-bounce-keeps-its-source.md) | Bounce in place renders up to where the clip enters the chain and keeps the source as a take; bounce to a new track prints the whole chain before the fader with the source muted; clips can be muted | Accepted |
 | [0036](0036-crossfades-at-the-boundary.md) | Crossfades belong to the join between two audio clips, which stay edge to edge and play their spare audio past it; every audio clip edge fades a few ms unless seamless; fades bend like automation | Accepted |
-| [0037](0037-a-pass-makes-its-own-clip.md) | A recording pass makes its own clip: clips it covers in part are cut, clips it covers entirely give it their takes, what it replaced is kept as "Before take N"; choosing a take plays it alone; a clip's range never reaches over another clip | Accepted |
+| [0037](0037-a-pass-makes-its-own-clip.md) | A recording pass makes its own clip: clips it covers in part are cut, clips it covers entirely give it their takes, what it replaced is kept as "Before take N"; choosing a take plays it alone; a clip's range never reaches over another clip | Accepted; strip clicks and Alt+↑/↓ on comps superseded by 0038 |
+| [0038](0038-comping-you-can-listen-through.md) | Comping you can listen through: a take auditions without changing the clip; a click on a strip, or Alt+↑/↓, changes only the section of the comp it's in; a whole take is a deliberate choice | Accepted |
 
 ## Template
 

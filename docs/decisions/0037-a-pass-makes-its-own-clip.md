@@ -1,6 +1,6 @@
 # 0037. A pass makes its own clip; a take plays alone
 
-- **Status:** Accepted (product owner, 2026-10-10, after trying C5b and C6)
+- **Status:** Accepted (product owner, 2026-10-10, after trying C5b and C6); a click on a strip and Alt+↑/↓ on a comp superseded by [0038](0038-comping-you-can-listen-through.md)
 - **Date:** 2026-10-10
 - **Supersedes in part:** [0032](0032-takes-belong-to-clips.md): "a later pass over that clip adds its takes to it" for a pass over *part* of a clip; a clip playing parts of several takes after such a pass; and "another clip placed over part of the clip leaves the range … whole". The rest of 0032 stands: takes belong to clips, one take shows nothing, takes open under their clip, a clip and its takes are edited as one, the storage.
 - **Builds on:** [0019](0019-one-kind-of-track.md) (clips never overlap; the placed clip wins), [0031](0031-recording-keeps-every-take.md) (every pass is kept; what a pass replaces is kept)

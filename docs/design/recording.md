@@ -110,14 +110,15 @@ A take is another version of a clip, so takes belong to their clip, as in Logic'
   - takes are numbered along the track ("Take 4" after a clip with three), so their names stay apart when one clip's takes join another's.
 - **The badge:** from two takes, the clip's title strip ends with the take it plays and how many, then a chevron: "3/4 ▾" ("Comp ▾" when its parts play different takes). On a narrow clip it shrinks to the chevron before the clip's name is cut. **A click shows or hides the clip's takes; a right-click opens the take menu:**
   - Show takes / Hide takes;
-  - the takes, newest first, the one playing ticked: choosing one plays it alone across the clip's range (where it has no audio, nothing plays, and the clip shows only what plays; choosing a longer take fills the range again), whatever played before; the clip keeps its fades;
+  - the takes, newest first, as "Use Take 3 for the whole clip", ticked when it plays all of it: choosing one plays it alone across the clip's range (where it has no audio, nothing plays, and the clip shows only what plays; choosing a longer take fills the range again), whatever played before; the clip keeps its fades;
   - Rename take…;
   - Copy take to new track, Move take to new track, Spread takes to new tracks (new tracks copy this track's chain and mix: a double or a layer in one action);
   - Delete take, Keep only this take (the others are deleted; files stay).
 - **Takes open under their clip** (a click on the badge, the menu, or Ctrl+Alt+K with the clip selected): one strip per take (24 px), newest on top, across the clip's range. The track's row grows by the tallest open set of takes and shrinks back when they close; the header column shows nothing more. Opening a clip's takes closes any overlapping ones already open on that track. They open by themselves after a pass that made several takes.
+  - Each strip's name chip starts with a speaker button: it **auditions** the take (§7).
   - Each strip shows its take's name (bright while the clip plays any of it) and its audio: the parts the clip plays look as they do in the clip, its colour, its waveform, outlined in its colour; the rest is neutral grey with a dim waveform (`takeUnused`), so what's in use stands out at a glance (revised after trying C5c: dimming alone was too weak).
-  - A click on a strip plays that take and selects it; right-click opens the take menu for it; Delete deletes it.
-- **Choosing while it plays:** Alt+↑ / Alt+↓ on a selected clip play its previous or next take (skipping takes too short for its range), so you can audition them in turn.
+  - A click on a strip uses that take for the section of the clip under the pointer, and selects it (§7; on a clip that isn't a comp, the whole take); right-click opens the take menu for it; Delete deletes it.
+- **Choosing while it plays:** Alt+↑ / Alt+↓ on a selected clip use its previous or next take for the section at the playhead (the first section when the playhead is outside the clip; on a clip that isn't a comp, the whole clip), skipping takes that don't cover it, so you can try them in turn (§7).
 - **A clip and its takes are edited as one,** in the same undo step:
 
 | Command on the clip | Its takes |
@@ -141,7 +142,13 @@ Choose the best parts of several takes into one performance, as Logic's swipe co
   - Where the take has no audio, nothing changes.
   - While dragging, the stretch shows on the strip in full colour with an outline. Releasing applies it, as one undo step ("Comp").
 - **Drag the line between two takes** (in the clip's body) to move where one hands over to the other: the take on the side it moves away from plays up to its new place, snapped (Alt: free), within the two parts. While dragging, a line shows where it's going; releasing applies it, one undo step ("Comp").
-- **A click on a strip** (no drag) plays that take alone across the clip (§6, ADR 0037), so it replaces a comp; Ctrl+Z brings the comp back. Named comps to switch between, as in Logic, aren't in M2.
+- **Audition** (ADR 0038): the speaker button on a take's strip plays that take in place of the clip, across its range, without changing anything, as Live's take-lane audition and the other DAWs' lane solo do.
+  - One take per track at a time. It lasts through play and stop, and ends with the button, by auditioning another take, closing the takes, or anything that changes the project (an edit, undo, save, a bounce or render, recording).
+  - While it plays: the button is lit (`active`), the strip shows all of its audio as heard and is outlined in `active`, and the clip is dimmed.
+  - A listening aid, like solo: never an undo step or an unsaved change, never saved.
+- **A click on a strip** (no drag) uses that take for the section under the pointer (ADR 0038), as Logic's, REAPER's and Bitwig's comping do. A clip's sections are the stretches between the lines where its take changes, and gaps where nothing plays; the first runs from the clip's start, the last to its end. Other sections never change; new joins get the 10 ms crossfade. A clip that isn't a comp is one section, so a click plays the whole take.
+- **Alt+↑ / Alt+↓** step the section at the playhead through the takes that cover it (§6).
+- **A whole take** stays a deliberate choice: the take menu ("Use Take 3 for the whole clip"), the inspector's "Use this take", `use_take` without a range. Several comps kept side by side (Logic's comp list, REAPER's comp lanes) aren't in M2 (open question B47).
 - **Joins:**
   - each new join between two takes gets a 10 ms equal-power crossfade (fades.md §5), centred and fitted to the spare audio;
   - a stretch that meets a part of the same take, where it plays on seamlessly, joins it into one part, so swiping a take back over itself leaves no lines behind.
@@ -199,6 +206,7 @@ Every feature comes with its tools and a test through MCP (ADR 0021). Assistants
 | `capture_midi` | `track?` (used when nothing is armed) | The clips made and their tracks |
 | `get_takes` | `track` or `clip` | Per clip with takes: its range, parts, whether open, the take it plays (or "comp"), and each take's name, clips, file and the parts in use |
 | `use_take` | `track`, `take`, `from?`, `to?` | The clip plays that take alone across its range (ADR 0037); with `from` and `to`, only there, comping it in (§7). One undo step |
+| `audition_take` | `track`, `take` or `stop` | Plays a take in place of its clip without changing anything, until stopped or anything changes the project (§7, ADR 0038). Never an undo step |
 | `move_takes_to_tracks` | `track`, `takes`, `copy?` | The new tracks, with plain clips |
 | `delete_takes` | `track`, `takes`, `unused` or `keep` | Files stay |
 
@@ -321,3 +329,16 @@ Trying C5b and C6, the product owner recorded a take, a pass inside it, and a lo
 | P5 | A clip's range when another clip cuts it | Shrinks to the part that stays, so choosing a take only ever changes the clip you see; trimming back out brings the takes back |
 
 Also from the same review: a selected clip with takes, and its crossfades, draw lighter like any selected clip (they stayed dark); a crossfade's waveform no longer blinks while its ends are dragged.
+
+## 21. Review of comping (product owner, 2026-10-10: agreed)
+
+Trying C5c, the product owner found that a click on a strip (or Alt+↑/↓) replaced the whole comp with one take, so you couldn't listen to other takes while comping without losing your work, and that two long crossfades at nearby joins crossed each other. A survey of Live 12, Logic, Pro Tools, Cubase, Studio Pro, REAPER and Bitwig is summed up in [ADR 0038](../decisions/0038-comping-you-can-listen-through.md).
+
+| # | Question | Decision |
+|---|---|---|
+| C1 | Hearing a take while comping | Audition: a speaker button on each strip plays it in place of the clip, changing nothing |
+| C2 | A click on a strip | Uses that take for the section under the pointer; a clip that isn't a comp is one section |
+| C3 | Alt+↑ / Alt+↓ | Step the section at the playhead |
+| C4 | A whole take | From the take menu ("for the whole clip"), the inspector or an assistant |
+| C5 | Several comps kept | Not in M2 (B47) |
+| C6 | Crossfades at nearby joins | A clip's two ends share it: they meet, never cross (fades.md §4) |
