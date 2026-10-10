@@ -215,7 +215,9 @@ void addRecordingTools(Registry& registry, ToolEnv& env)
          "track records its input (audio into the project's Recordings folder, or MIDI). With bars, it stops by "
          "itself after that many bars; otherwise stop ends it. countIn (\"off\", \"1 beat\", \"2 beats\", \"1 bar\", "
          "\"2 bars\") applies to this recording. While looping, only the loop records (a lead-in before it "
-         "is heard), a take per lap. Each pass is one undo step. "
+         "is heard), a take per lap. A pass makes its own clip: clips it covers in part are cut, clips it covers "
+         "entirely give it their takes, and what it records over is kept as a take, \"Before take N\". Each pass is "
+         "one undo step. "
          "While recording, calling it again punches out and keeps playing.",
          object({{"from", position("Where to start (default: the playhead)")},
                  {"bars", number("Stop after this many bars")},
@@ -300,7 +302,8 @@ void addRecordingTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"use_take", "Use a take",
-         "Makes a clip play one of its takes, across the clip's range (cutting what's there). One undo step.",
+         "Makes a clip play one of its takes alone, across the clip's range: where the take has no audio, nothing "
+         "plays, whichever take played before. One undo step.",
          object({{"track", id(IdKind::Track, "The track")}, {"take", id(IdKind::Take, "The take")}}, {"track", "take"}),
          takesResult, ToolAnnotations{}},
         [&env](const Json& args, CallContext&) {
@@ -368,7 +371,10 @@ void addRecordingTools(Registry& registry, ToolEnv& env)
             if (args.value("unused", false))
                 env.session.deleteUnusedTakes(t.id);
             else if (args.contains("keep"))
-                env.session.keepOnlyTake(t.id, takeArg(t, args["keep"]));
+            {
+                if (!env.session.keepOnlyTake(t.id, takeArg(t, args["keep"])))
+                    throw Problem{"That take has nothing in its clip's range, so nothing was deleted."};
+            }
             else if (args.contains("takes"))
             {
                 std::vector<std::uint64_t> takes;

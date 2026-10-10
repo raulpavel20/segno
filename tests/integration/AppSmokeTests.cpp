@@ -1805,19 +1805,36 @@ TEST_CASE("takes: takes open under their clip after a loop pass; strips, the bad
     s.updateSnapshotNow();
     CHECK(s.snapshot()->tracks.size() == before + 2);
 
-    // A pass over part of the clip joins its takes: one clip playing two, "Comp" on its badge.
-    s.setArmed(t0, true, true);
-    s.setPosition(5.0);
-    REQUIRE(actions.perform("transport.record"));
-    pump(2.0);
-    REQUIRE(actions.perform("transport.playStop"));
-    s.setArmed(t0, false, false);
-    pump(0.1);
-    juce::MessageManager::getInstance()->runDispatchLoopUntil(50);
-    s.updateSnapshotNow();
-    CHECK(fd::model::badge(stack(), track().clips, false)->comp);
+    // A pass over part of the clip makes its own clip (ADR 0037): the first is cut where it starts,
+    // and what it recorded over is the new clip's "Before take".
+    auto recordPass = [&](double from, double seconds) {
+        s.setArmed(t0, true, true);
+        s.setPosition(from);
+        REQUIRE(actions.perform("transport.record"));
+        pump(seconds);
+        REQUIRE(actions.perform("transport.playStop"));
+        s.setArmed(t0, false, false);
+        pump(0.1);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(50);
+        s.updateSnapshotNow();
+    };
+    recordPass(5.0, 2.0);
+    REQUIRE(track().clips.size() == 2);
+    REQUIRE(track().stacks.size() == 2);
+    CHECK(track().stacks[1].takes.front().name.starts_with("Before take"));
+    CHECK(fd::model::clipGroups(track()).size() == 2);
+    // A pass over both makes one clip with all their takes; what played before it is two parts,
+    // drawn as one clip when chosen.
+    recordPass(3.5, 4.0);
+    REQUIRE(track().clips.size() == 1);
+    REQUIRE(track().stacks.size() == 1);
+    const auto replaced = stack().takes.at(stack().takes.size() - 2);
+    CHECK(replaced.name.starts_with("Before take"));
+    REQUIRE(replaced.clips.size() == 2);
+    REQUIRE(s.useTake(t0, replaced.id));
     s.setTakesOpen(stack().id, true);
     s.updateSnapshotNow();
+    CHECK(fd::model::clipGroups(track()).size() == 1);
     {
         // Selected, every part of it is lighter, and so is a crossfade at its join (drawn as its
         // clip's body): just under the title, clear of the waveform.
@@ -1835,8 +1852,8 @@ TEST_CASE("takes: takes open under their clip after a loop pass; strips, the bad
         for (const double at : {4.5, 6.5, track().clips[0].end() + x.from + x.length * 0.5})
             CHECK(image.getPixelAt(static_cast<int>(laneX(at)), y) == lighter);
     }
-    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: a comp, and a narrow clip's badge
-        for (const auto& [name, zoom] : {std::pair{"takes-comp.png", 150.0}, std::pair{"takes-narrow.png", 24.0}})
+    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: a clip in parts, and a narrow clip's badge
+        for (const auto& [name, zoom] : {std::pair{"takes-parts.png", 150.0}, std::pair{"takes-narrow.png", 24.0}})
         {
             view.setView(3.5, zoom);
             juce::PNGImageFormat png;

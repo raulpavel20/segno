@@ -1,6 +1,7 @@
 // Take lanes and Capture MIDI (M2 step C5b, ADR 0031, docs/design/recording.md §6, §8): every pass
 // and loop lap kept under its track; the main lane plays plain clips made from them.
 
+#include "engine/ClipFades.h"
 #include "engine/SessionImpl.h"
 
 #include "model/NoteEditing.h"
@@ -297,24 +298,56 @@ te::Clip* Session::Impl::useTakeClip(te::AudioTrack& track, const juce::ValueTre
     return clip;
 }
 
-void Session::Impl::fillFromTake(te::AudioTrack& track, const juce::ValueTree& take)
+bool Session::Impl::fillFromTake(te::AudioTrack& track, const juce::ValueTree& take)
 {
+    auto* um = &edit->getUndoManager();
     const auto stack = take.getParent();
+    const double from = stack[fromId], to = stack[toId];
+    bool any = false;
     for (auto clip : take)
-        useTakeClip(track, clip, stack[fromId], stack[toId]);
-    // A clip never plays MIDI and audio takes together (ADR 0035): parts of the other kind go,
-    // such as a bounce's tail after its MIDI comes back.
-    if (take.getNumChildren() == 0)
-        return;
-    const auto kind = take.getChild(0).getType();
-    std::vector<te::Clip*> other;
-    for (auto* c : track.getClips())
-        if (c->state.getType() != kind && stackOf(*c) == stack)
-            other.push_back(c);
-    for (auto* c : other)
+        any = any || trimmedState(clip, from, to).isValid();
+    auto parts = partsOf(track, stack);
+    if (!any || parts.empty())
+        return false;
+    // The clip's fades are its own: its first part's fade-in, its last part's fade-out and the
+    // crossfade into the next clip. They stay on its new ends.
+    const auto first = parts.front()->state.createCopy(), last = parts.back()->state.createCopy();
+    // Nothing of what played stays (a bounce's audio tail goes when its MIDI comes back, ADR 0035).
+    for (auto* c : parts)
         c->removeFromParent();
-    if (!other.empty())
-        settle(track, &edit->getUndoManager());
+    for (auto clip : take)
+        useTakeClip(track, clip, from, to);
+    parts = partsOf(track, stack);
+    auto keep = [&](const juce::ValueTree& was, te::Clip* now, std::initializer_list<juce::Identifier> ids) {
+        if (dynamic_cast<te::AudioClipBase*>(now) == nullptr)
+            return;
+        for (const auto& id : ids)
+        {
+            if (was.hasProperty(id))
+                now->state.setProperty(id, was[id], um);
+            else
+                now->state.removeProperty(id, um);
+        }
+    };
+    if (!parts.empty())
+    {
+        keep(first, parts.front(), {te::IDs::fadeIn, fadeIds::inBend});
+        keep(last, parts.back(),
+             {te::IDs::fadeOut, fadeIds::outBend, fadeIds::crossLength, fadeIds::crossFrom, fadeIds::crossShape});
+    }
+    settle(track, um);
+    return true;
+}
+
+std::vector<te::Clip*> Session::Impl::partsOf(te::AudioTrack& track, const juce::ValueTree& stack)
+{
+    std::vector<te::Clip*> out;
+    for (auto* c : track.getClips())
+        if (stackOf(*c) == stack)
+            out.push_back(c);
+    std::sort(out.begin(), out.end(),
+              [](auto* a, auto* b) { return a->getPosition().getStart() < b->getPosition().getStart(); });
+    return out;
 }
 
 void Session::Impl::openStack(te::AudioTrack& track, juce::ValueTree stack, bool open)
@@ -462,23 +495,24 @@ void Session::Impl::removeTakes(te::AudioTrack& track, const std::set<std::uint6
 
 std::vector<model::ClipPlace> Session::Impl::places(te::AudioTrack& track)
 {
-    std::map<std::uint64_t, std::uint64_t> stackOfClip; // take clip -> stack
+    std::map<std::uint64_t, std::pair<std::uint64_t, std::uint64_t>> owners; // take clip -> stack, take
     for (auto s : track.state.getChildWithName(takesId))
         for (auto take : s)
             for (auto clip : take)
-                stackOfClip[idOf(clip)] = idOf(s);
+                owners[idOf(clip)] = {idOf(s), idOf(take)};
     std::vector<model::ClipPlace> out;
     for (auto* c : track.getClips())
     {
         const auto from = idProperty(c->state[fromTakeId]);
-        const auto it = stackOfClip.find(from);
+        const auto it = owners.find(from);
         const auto pos = c->getPosition();
         out.push_back({.clip = c->itemID.getRawID(),
                        .track = track.itemID.getRawID(),
-                       .stack = from == 0 ? 0 : it != stackOfClip.end() ? it->second : kDangling,
+                       .stack = from == 0 ? 0 : it != owners.end() ? it->second.first : kDangling,
                        .start = pos.getStart().inSeconds(),
                        .length = pos.getLength().inSeconds(),
-                       .offset = pos.getOffset().inSeconds()});
+                       .offset = pos.getOffset().inSeconds(),
+                       .take = it != owners.end() ? it->second.second : 0});
     }
     return out;
 }
@@ -575,20 +609,30 @@ std::vector<std::uint64_t> Session::Impl::importTakes(te::AudioTrack& track, con
             continue;
         const auto range = c->getPosition().time;
         const double a = range.getStart().inSeconds(), b = range.getEnd().inSeconds();
-        // What the pass recorded over: a clip with takes joins them; a plain clip is kept as a take.
+        // A pass makes its own clip (ADR 0037): the clips it covers entirely give it their takes;
+        // what played over its range is kept as a take; placing it cuts the rest (ADR 0019).
+        auto others = places(track);
+        std::erase_if(others, [&](const auto& p) { return pass.contains(p.clip); });
+        const auto cover = model::passCover(others, a, b);
         std::vector<juce::ValueTree> joined, covered;
-        for (auto* other : track.getClips())
-        {
-            if (pass.contains(other->itemID.getRawID()) || !other->getPosition().time.overlaps(range))
-                continue;
-            if (auto s = stackOf(*other); s.isValid())
-            {
-                if (std::find(joined.begin(), joined.end(), s) == joined.end())
-                    joined.push_back(s);
-            }
-            else if (auto trimmed = trimmedState(other->state, a, b); trimmed.isValid())
-                covered.push_back(trimmed);
-        }
+        for (const auto id : cover.join)
+            if (auto s = stackTree(track, id); s.isValid())
+                joined.push_back(s);
+        for (const auto id : cover.before)
+            if (auto* other = clip(id))
+                if (auto trimmed = trimmedState(other->state, a, b); trimmed.isValid())
+                {
+                    // As it played, but for fades at edges the pass cut, and joins it doesn't keep.
+                    if (startOf(trimmed) > startOf(other->state) + 1e-9)
+                        for (const auto& property : {te::IDs::fadeIn, fadeIds::inBend})
+                            trimmed.removeProperty(property, nullptr);
+                    if (endOf(trimmed) < endOf(other->state) - 1e-9)
+                        for (const auto& property : {te::IDs::fadeOut, fadeIds::outBend})
+                            trimmed.removeProperty(property, nullptr);
+                    for (const auto& property : {fadeIds::crossLength, fadeIds::crossFrom, fadeIds::crossShape})
+                        trimmed.removeProperty(property, nullptr);
+                    covered.push_back(trimmed);
+                }
         juce::ValueTree stack;
         if (joined.empty())
             stack = makeStack(track, a, b, um);
@@ -613,7 +657,13 @@ std::vector<std::uint64_t> Session::Impl::importTakes(te::AudioTrack& track, con
             stack.setProperty(fromId, from, um);
             stack.setProperty(toId, to, um);
         }
-        const int n = model::nextTakeNumber(namesOf(stack));
+        // Numbered along the track: takes keep their names when they join another clip's.
+        std::vector<model::TakeInfo> names;
+        for (auto other : track.state.getChildWithName(takesId))
+            if (other.hasType(stackId))
+                for (const auto& k : namesOf(other))
+                    names.push_back(k);
+        const int n = model::nextTakeNumber(names);
         if (!covered.empty())
             addTake(stack, "Before take " + juce::String(n), covered, um);
         // A take per lap; the clip plays the newest complete one.
@@ -628,7 +678,13 @@ std::vector<std::uint64_t> Session::Impl::importTakes(te::AudioTrack& track, con
         c->removeFromParent();
         if (chosen.isValid())
             if (auto* placed = useTakeClip(track, chosen, a, b))
+            {
                 out.push_back(placed->itemID.getRawID());
+                // It plays the new take alone: slivers of the clips it took in (within the slack) go.
+                for (auto* rest : partsOf(track, stack))
+                    if (rest != placed)
+                        rest->removeFromParent();
+            }
         if (laps.size() > 1) // several takes to choose from: they open under the clip (view state)
             openStack(track, stack, true);
     }
@@ -737,7 +793,8 @@ bool Session::keepOnlyTake(std::uint64_t trackId, std::uint64_t takeId)
     if (!take.isValid())
         return false;
     impl_->beginEdit("Keep only this take");
-    impl_->fillFromTake(*t, take);
+    if (!impl_->fillFromTake(*t, take)) // nothing of it in the clip's range: the others stay
+        return false;
     std::set<std::uint64_t> others;
     for (auto other : take.getParent())
         if (other != take)

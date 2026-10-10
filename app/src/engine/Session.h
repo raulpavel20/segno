@@ -382,8 +382,9 @@ public:
     /// Opens (or closes) a clip's takes under it (by its stack, TakeStackInfo::id); opening one
     /// closes any it overlaps on its track. View state, never an undo step.
     void setTakesOpen(std::uint64_t stackId, bool open);
-    /// Uses a take: the clip plays it across its range, cutting what's there (ADR 0019). One undo
-    /// step, "Use take". False if there's no such take.
+    /// Uses a take: the clip plays it alone across its range (ADR 0037), whichever take played
+    /// before; where it has no audio, nothing plays. One undo step, "Use take". False if there's no
+    /// such take.
     bool useTake(std::uint64_t trackId, std::uint64_t takeId);
     /// The clip plays its next (+1) or previous (-1) take that covers its range (Alt+↓ / Alt+↑).
     bool stepTake(std::uint64_t clipId, int direction);
@@ -392,7 +393,8 @@ public:
     void deleteTakes(std::uint64_t trackId, const std::vector<std::uint64_t>& takeIds);
     /// Deletes the takes the clips don't play.
     void deleteUnusedTakes(std::uint64_t trackId);
-    /// The clip plays this take, and its other takes are deleted (files stay). One undo step.
+    /// The clip plays this take, and its other takes are deleted (files stay). One undo step. False,
+    /// changing nothing, if there is no such take or nothing of it is in the clip's range.
     bool keepOnlyTake(std::uint64_t trackId, std::uint64_t takeId);
     /// New tracks after this one, copying its modules and mix, each playing one of the takes as a
     /// plain clip; `move` also takes them off this track. One undo step. Returns the new tracks.

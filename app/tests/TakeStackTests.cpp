@@ -214,6 +214,48 @@ TEST_CASE("stack edits: duplicates copy the stack once; splits; settling", "[fas
     CHECK(trimmed.offset == Approx(1.5));
 }
 
+TEST_CASE("stack edits: a clip's range stays clear of other clips; what a pass covers (ADR 0037)", "[fast]")
+{
+    // A range reaching over the clips around its part shrinks to between them; touching, to the part.
+    const std::vector<StackRange> stacks{{100, 0.0, 10.0}};
+    auto settle = settleStacks({{8, 1, 0, 1.0, 1.0, 0.0}, {10, 1, 100, 3.0, 2.0, 0.0}, {9, 1, 0, 6.0, 1.0, 0.0}}, stacks);
+    REQUIRE(settle.ranges.size() == 1);
+    CHECK(settle.ranges[0] == StackRange{100, 2.0, 6.0});
+    settle = settleStacks({{8, 1, 0, 1.0, 2.0, 0.0}, {10, 1, 100, 3.0, 2.0, 0.0}, {9, 1, 0, 5.0, 1.0, 0.0}}, stacks);
+    REQUIRE(settle.ranges.size() == 1);
+    CHECK(settle.ranges[0] == StackRange{100, 3.0, 5.0});
+    settle = settleStacks({{10, 1, 100, 3.0, 2.0, 0.0}}, stacks);
+    CHECK(settle.ranges.empty());
+
+    // A track: a clip with takes over 0..4 (playing take 1000), another over 5..6 (take 2000), a plain clip over 7..9.
+    const std::vector<ClipPlace> track{
+        {10, 1, 100, 0.0, 4.0, 0.0, 1000}, {20, 1, 200, 5.0, 1.0, 0.0, 2000}, {30, 1, 0, 7.0, 2.0, 0.0}};
+    // Inside a clip: nothing joins (placing the pass cuts it); what played there is kept.
+    auto cover = passCover(track, 1.0, 2.0);
+    CHECK(cover.join.empty());
+    CHECK(cover.before == std::vector<std::uint64_t>{10});
+    // Over a whole clip and part of another: the whole one's takes join; both played.
+    cover = passCover(track, 4.5, 8.0);
+    CHECK(cover.join == std::vector<std::uint64_t>{200});
+    CHECK(cover.before == std::vector<std::uint64_t>{20, 30});
+    // Over just the clip with takes: it joins, and what played is its own take, so nothing is kept
+    // twice; within a millisecond counts as covered.
+    for (const double from : {5.0, 5.0005, 4.9})
+    {
+        cover = passCover(track, from, 6.0);
+        CHECK(cover.join == std::vector<std::uint64_t>{200});
+        CHECK(cover.before.empty());
+    }
+    // Touching isn't covering.
+    cover = passCover(track, 4.0, 5.0);
+    CHECK(cover.join.empty());
+    CHECK(cover.before.empty());
+    // A clip in parts playing two takes, covered whole: it joins, and what played is kept.
+    cover = passCover({{10, 1, 100, 0.0, 1.0, 0.0, 1000}, {11, 1, 100, 1.0, 1.0, 1.0, 1001}}, 0.0, 2.0);
+    CHECK(cover.join == std::vector<std::uint64_t>{100});
+    CHECK(cover.before == std::vector<std::uint64_t>{10, 11});
+}
+
 TEST_CASE("take stacks: rows grow by their extra height; clips aren't hit in it", "[fast]")
 {
     TrackLayout layout;

@@ -181,6 +181,7 @@ StackSettle settleStacks(const std::vector<ClipPlace>& trackClips, const std::ve
     {
         bool started = false, broken = false;
         double from = 1e300, to = -1e300;
+        std::set<std::uint64_t> parts;
         for (const auto& c : clips)
         {
             if (c.stack != s.id)
@@ -194,6 +195,7 @@ StackSettle settleStacks(const std::vector<ClipPlace>& trackClips, const std::ve
                 continue;
             }
             started = true;
+            parts.insert(c.clip);
             from = std::min(from, c.start);
             to = std::max(to, c.end());
         }
@@ -202,10 +204,51 @@ StackSettle settleStacks(const std::vector<ClipPlace>& trackClips, const std::ve
             out.remove.push_back(s.id);
             continue;
         }
-        const StackRange widened{s.id, std::min(s.start, from), std::max(s.end, to)};
-        if (!(widened == s))
-            out.ranges.push_back(widened);
+        // Over its parts, and between the other clips around them.
+        StackRange settled{s.id, std::min(s.start, from), std::max(s.end, to)};
+        for (const auto& c : clips)
+            if (!parts.contains(c.clip))
+            {
+                if (c.end() <= from + kEps)
+                    settled.start = std::max(settled.start, c.end());
+                else if (c.start >= to - kEps)
+                    settled.end = std::min(settled.end, c.start);
+            }
+        if (!(settled == s))
+            out.ranges.push_back(settled);
     }
+    return out;
+}
+
+PassCover passCover(const std::vector<ClipPlace>& trackClips, double from, double to)
+{
+    constexpr double kSlack = 1e-3;
+    auto clips = trackClips;
+    std::sort(clips.begin(), clips.end(), [](const auto& a, const auto& b) { return a.start < b.start; });
+    std::map<std::uint64_t, std::pair<double, double>> extent; // a stack's parts, from first to last
+    for (const auto& c : clips)
+        if (c.stack != 0)
+        {
+            auto [it, fresh] = extent.try_emplace(c.stack, c.start, c.end());
+            it->second = {std::min(it->second.first, c.start), std::max(it->second.second, c.end())};
+        }
+    PassCover out;
+    const ClipPlace* first = nullptr;
+    bool oneTake = true;
+    for (const auto& c : clips)
+    {
+        if (!(c.start < to - kSlack && c.end() > from + kSlack))
+            continue;
+        out.before.push_back(c.clip);
+        first = first != nullptr ? first : &c;
+        oneTake = oneTake && c.take != 0 && c.take == first->take;
+        if (c.stack == 0 || std::find(out.join.begin(), out.join.end(), c.stack) != out.join.end())
+            continue;
+        if (const auto [a, b] = extent.at(c.stack); a >= from - kSlack && b <= to + kSlack)
+            out.join.push_back(c.stack);
+    }
+    if (first != nullptr && oneTake && std::find(out.join.begin(), out.join.end(), first->stack) != out.join.end())
+        out.before.clear(); // what played is a take the clip gets anyway
     return out;
 }
 

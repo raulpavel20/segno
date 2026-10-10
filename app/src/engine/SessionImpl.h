@@ -145,8 +145,11 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// A take clip's copy in the main lane over [from, to] (its part of it), cutting what it covers;
     /// `asTake` false: a plain clip. Returns the new clip (null if nothing of it is in the range).
     te::Clip* useTakeClip(te::AudioTrack& track, const juce::ValueTree& takeClip, double from, double to, bool asTake = true);
-    /// A take's clips over the stack's range.
-    void fillFromTake(te::AudioTrack& track, const juce::ValueTree& take);
+    /// The take alone over its stack's range (ADR 0037): the clip's parts go and the take's clips
+    /// fill the range; the clip keeps its fades. False, changing nothing, if the take has nothing there.
+    bool fillFromTake(te::AudioTrack& track, const juce::ValueTree& take);
+    /// A stack's clips in the main lane, in time order.
+    [[nodiscard]] std::vector<te::Clip*> partsOf(te::AudioTrack& track, const juce::ValueTree& stack);
     /// Opens (or closes) a stack's takes; opening closes the others it overlaps. View state.
     void openStack(te::AudioTrack& track, juce::ValueTree stack, bool open);
     /// Moves a stack by `delta` seconds, to `target` if it's another track.
@@ -163,7 +166,7 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     [[nodiscard]] std::vector<model::ClipPlace> places(te::AudioTrack& track);
     [[nodiscard]] std::vector<model::StackRange> stackRanges(te::AudioTrack& track);
     /// After any edit of a track's clips (model::settleStacks): emptied stacks go, cut-off parts
-    /// become plain, ranges cover their parts.
+    /// become plain, ranges cover their parts and stay clear of other clips.
     void settle(te::AudioTrack& track, juce::UndoManager* um);
     /// After any edit of a track's clips (fades.md §4): a crossfade whose clips no longer meet, or
     /// meet seamlessly, goes; a bend without its fade goes. Called by settle().

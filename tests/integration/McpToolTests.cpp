@@ -926,6 +926,30 @@ TEST_CASE("mcp tools: recording: inputs set, tracks armed, a few bars recorded",
     CHECK(kept["clips"][1]["takes"].size() == 1);
     CHECK(kept["clips"][1]["playing"] == lap1);
 
+    // A pass over the end of the first clip makes its own clip (ADR 0037); its "Before take" plays
+    // what was there, alone, and its own take comes back.
+    daw.call("record", {{"from", "2.1.1"}, {"bars", 1}});
+    pump(2.5);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(100);
+    takes = daw.call("get_takes", {{"track", t0}});
+    REQUIRE(takes["clips"].size() == 3);
+    const auto punch = takes["clips"][1];
+    REQUIRE(punch["takes"].size() == 2);
+    auto nameOf = [&](const Json& id) {
+        for (const auto& take : takes["takes"])
+            if (take["id"] == id)
+                return take["name"].get<std::string>();
+        return std::string();
+    };
+    CHECK(nameOf(punch["takes"][0]["id"]).starts_with("Before take"));
+    CHECK(punch["playing"] == punch["takes"][1]["id"]);
+    for (const auto& k : {punch["takes"][0]["id"], punch["takes"][1]["id"], punch["takes"][0]["id"]})
+    {
+        const auto used = daw.call("use_take", {{"track", t0}, {"take", k}});
+        REQUIRE(used["clips"].size() == 3);
+        CHECK(used["clips"][1]["playing"] == k);
+    }
+
     // Capture MIDI: nothing played yet; then a phrase onto the track asked for (none armed).
     CHECK(daw.call("capture_midi")["clip"].is_null());
     daw.call("arm_tracks", {{"tracks", Json::array({t0})}, {"on", false}});

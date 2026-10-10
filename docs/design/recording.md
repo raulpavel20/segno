@@ -107,9 +107,10 @@ A take is another version of a clip, so takes belong to their clip, as in Logic'
   - a clip the pass covers in part is cut, as any placed clip cuts one (ADR 0019): trimmed at an edge, split around a punch inside it;
   - a clip it covers entirely gives the new clip its takes, so another loop pass over the same range adds takes to the same clip;
   - what played over the pass's range before it is kept as a take of the new clip, "Before take N", so nothing is lost and choosing it brings that back. It's left out when it would only repeat one of the clip's takes (a second loop pass over a clip playing take 3).
+  - takes are numbered along the track ("Take 4" after a clip with three), so their names stay apart when one clip's takes join another's.
 - **The badge:** from two takes, the clip's title strip ends with the take it plays and how many, then a chevron: "3/4 ▾" ("Comp ▾" when its parts play different takes). On a narrow clip it shrinks to the chevron before the clip's name is cut. **A click shows or hides the clip's takes; a right-click opens the take menu:**
   - Show takes / Hide takes;
-  - the takes, newest first, the one playing ticked: choosing one plays it alone across the clip's range (where it has no audio, nothing plays, and the clip shows only what plays; choosing a longer take fills the range again), whatever played before;
+  - the takes, newest first, the one playing ticked: choosing one plays it alone across the clip's range (where it has no audio, nothing plays, and the clip shows only what plays; choosing a longer take fills the range again), whatever played before; the clip keeps its fades;
   - Rename take…;
   - Copy take to new track, Move take to new track, Spread takes to new tracks (new tracks copy this track's chain and mix: a double or a layer in one action);
   - Delete take, Keep only this take (the others are deleted; files stay).
@@ -188,7 +189,7 @@ Every feature comes with its tools and a test through MCP (ADR 0021). Assistants
 | `record` | `countIn?`, `bars?` (stop after this many bars) | Starts recording (inside the loop brace while looping); `stop` ends it. The result lists each recording track |
 | `capture_midi` | `track?` (used when nothing is armed) | The clips made and their tracks |
 | `get_takes` | `track` or `clip` | Per clip with takes: its range, parts, whether open, the take it plays (or "comp"), and each take's name, clips, file and the parts in use |
-| `use_take` | `track`, `take` (C5c: `from?`, `to?`) | The clip plays that take across its range. One undo step |
+| `use_take` | `track`, `take` (C5c: `from?`, `to?`) | The clip plays that take alone across its range (ADR 0037). One undo step |
 | `move_takes_to_tracks` | `track`, `takes`, `copy?` | The new tracks, with plain clips |
 | `delete_takes` | `track`, `takes`, `unused` or `keep` | Files stay |
 
