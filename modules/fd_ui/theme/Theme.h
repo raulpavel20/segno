@@ -103,7 +103,8 @@ struct ShellMetrics
     int propertyFieldInset = 1; // a field in a property row, from the row's top and bottom
     int lightSize = 6;          // an activity light (MIDI input, assistants)
     // Clips and lanes in time views.
-    int clipGap = 1;              // a clip from its row's top, and from the separator line below it
+    int clipGap = 1;              // a clip from its row's top, from the separator line below it, and from a clip touching its end (the seam)
+    int clipOutline = 1;          // a selected clip's outline; a fade's square sits inside it
     int clipTitleHeight = 15;     // a clip's title strip: at most this...
     float clipTitleShare = 0.35f; // ...and at most this share of the clip's height
     int clipTitleMinText = 10;    // a title strip shorter than this shows no text

@@ -117,7 +117,8 @@ Role functions for colours that depend on content:
 | `shell.buttonTextPadding` | 8 (a text button's padding each side of its label; `ui::Toggle::widthFor`) |
 | `shell.propertyFieldInset` | 1 (a field in a property row, from the row's top and bottom) |
 | `shell.lightSize` | 6 (an activity light: MIDI input, assistants) |
-| `shell.clipGap` | 1 (a clip from its row's top, and from the separator line below it) |
+| `shell.clipGap` | 1 (a clip from its row's top, from the separator line below it, and from a clip touching its end: the seam) |
+| `shell.clipOutline` | 1 (a selected clip's outline; a fade's square sits inside it) |
 | `shell.clipTitleHeight` / `shell.clipTitleShare` | 15 / 35 % (a clip's title strip: at most this tall, and at most this share of the clip) |
 | `shell.clipTitleMinText` | 10 (a title strip shorter than this shows no text) |
 | `shell.clipTextInset` | 4 (a clip's name and badge, from its edges) |
@@ -126,7 +127,7 @@ Role functions for colours that depend on content:
 | `shell.progressHeight` | 2 (the progress line along the bottom of what's being worked on, C7) |
 | `shell.fadeHandleSize` | 7 (a fade's or crossfade's handle on a clip, C6; a fade narrower than this draws only its handle) |
 
-Components size themselves for their text: `ui::Toggle::widthFor(label)` and `ui::NumberField::widthFor(widest value)`; bars ask them rather than adding padding by hand. Every clip the arrangement draws (clips, recordings in progress, take strips) takes its box and title from one place (`ArrangementView::clipBox`, `titleOf`).
+Components size themselves for their text: `ui::Toggle::widthFor(label)` and `ui::NumberField::widthFor(widest value)`; bars ask them rather than adding padding by hand. Every clip the arrangement draws (clips, recordings in progress, take strips) takes its box and title from one place (`ArrangementView::clipBox`, `titleOf`), with its edges on whole pixels.
 
 ## Shared components (`modules/fd_ui/shell`)
 

@@ -1845,12 +1845,20 @@ TEST_CASE("takes: takes open under their clip after a loop pass; strips, the bad
         const auto x = *track().clips[0].crossfadeOut;
         view.setSelection(fd::model::withClips(*s.snapshot(), {parts[0]}, t0, t0));
         view.setSnapshot(s.snapshot());
+        s.setPosition(0.0); // the playhead out of the way
+        view.frame(0.0, 0.0);
         const auto& theme = fd::ui::Theme::current();
         const auto image = view.createComponentSnapshot(view.getLocalBounds());
         const int y = fd::app::ArrangementView::rulerHeight() + theme.shell.clipGap + theme.shell.clipTitleHeight + 2;
         const auto lighter = theme.clipBody(theme.clipColour(track().clips[0].colour), true);
         for (const double at : {4.5, 6.5, track().clips[0].end() + x.from + x.length * 0.5})
             CHECK(image.getPixelAt(static_cast<int>(laneX(at)), y) == lighter);
+        // One clip in parts: no seam through its title; the line where the take changes, in its
+        // body only, stays under the crossfade.
+        const int inner = static_cast<int>(std::round(laneX(track().clips[1].start))) - theme.shell.clipGap;
+        const int titleY = fd::app::ArrangementView::rulerHeight() + theme.shell.clipGap + 4;
+        CHECK(image.getPixelAt(inner, titleY) == theme.clipColour(track().clips[0].colour));
+        CHECK(image.getPixelAt(inner, y + 20) == theme.surface0); // below the crossfade's grip, between its curves
     }
     if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: a clip in parts, and a narrow clip's badge
         for (const auto& [name, zoom] : {std::pair{"takes-parts.png", 150.0}, std::pair{"takes-narrow.png", 24.0}})
@@ -2075,6 +2083,17 @@ TEST_CASE("fades: drawn on clips, handles on hover, a handle drag sets a fade, C
     const float rowTop = static_cast<float>(fd::app::ArrangementView::rulerHeight());
     const float bodyTop = rowTop + static_cast<float>(theme.shell.clipGap) + static_cast<float>(theme.shell.clipTitleHeight);
     const float handleY = bodyTop + static_cast<float>(theme.shell.fadeHandleSize) * 0.5f;
+    // Where two clips meet, a seam of the canvas separates them, through the title and the body.
+    auto pixel = [&](double seconds, int dx, float y) {
+        const auto image = view.createComponentSnapshot(view.getLocalBounds());
+        return image.getPixelAt(static_cast<int>(std::round(laneX(seconds))) + dx, static_cast<int>(y));
+    };
+    const float titleY = rowTop + static_cast<float>(theme.shell.clipGap) + 4.0f;
+    const auto clipColour = theme.clipColour(clipOf(a).colour);
+    CHECK(pixel(2.0, -1, titleY) == theme.surface0);
+    CHECK(pixel(2.0, -1, bodyTop + 2.0f) == theme.surface0);
+    CHECK(pixel(2.0, -2, titleY) == clipColour);
+    CHECK(pixel(2.0, 0, titleY) == clipColour);
 
     // The pointer over a clip shows its handles; a drag of its fade-in handle sets the fade (one step).
     view.mouseMove(mouseEvent(view, {laneX(1.0), rowTop + 40.0f}, {laneX(1.0), rowTop + 40.0f}, false, {}));
@@ -2090,6 +2109,9 @@ TEST_CASE("fades: drawn on clips, handles on hover, a handle drag sets a fade, C
     REQUIRE(clipOf(a).crossfadeOut);
     CHECK(clipOf(a).crossfadeOut->length == Catch::Approx(0.2).margin(0.01));
     CHECK(s.undoDescription() == "Crossfade");
+    view.setSnapshot(s.snapshot());
+    CHECK(pixel(2.0, -1, titleY) == theme.surface0); // the crossfade keeps the seam
+    CHECK(pixel(2.0, -1, bodyTop + 2.0f) == theme.surface0);
     view.mouseMove(mouseEvent(view, {laneX(2.5), rowTop + 40.0f}, {laneX(2.5), rowTop + 40.0f}, false, {}));
     if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: the crossfade, the sum it plays, its grips
     {
@@ -2151,6 +2173,53 @@ TEST_CASE("fades: drawn on clips, handles on hover, a handle drag sets a fade, C
     REQUIRE(actions.perform("project.edgeFades"));
     CHECK_FALSE(s.edgeFades());
     CHECK(s.undoDescription() == "Edge fades");
+    REQUIRE(actions.perform("project.edgeFades"));
+
+    // Many clips edge to edge, one with a crossfade, one selected: each its own tile (for review,
+    // at the standard and compact widths, and zoomed out).
+    REQUIRE(s.splitClips({b}, 2.5).size() == 1);
+    s.updateSnapshotNow();
+    for (const double at : {2.8, 3.1, 3.6})
+        for (const auto& c : s.snapshot()->tracks[0].clips)
+            if (c.start < at && c.end() > at)
+            {
+                REQUIRE(s.splitClips({c.id}, at).size() == 1);
+                s.updateSnapshotNow();
+                break;
+            }
+    const auto& clips = s.snapshot()->tracks[0].clips;
+    REQUIRE(clips.size() == 6);
+    REQUIRE(s.setCrossfade(a, fd::model::Crossfade{.length = 0.1, .from = -0.05}));
+    s.updateSnapshotNow();
+    view.setSelection(fd::model::withClips(*s.snapshot(), {s.snapshot()->tracks[0].clips[4].id}, t0, t0));
+    view.setSnapshot(s.snapshot());
+    view.setView(0.0, 250.0); // all of it in sight
+    for (const auto& c : s.snapshot()->tracks[0].clips) // a seam at every join
+        if (c.start > 0.0)
+        {
+            const auto seam = pixel(c.start, -1, titleY);
+            INFO("the join at " << c.start << " s: " << seam.toDisplayString(true) << ", left "
+                                << pixel(c.start, -2, titleY).toDisplayString(true) << ", right "
+                                << pixel(c.start, 0, titleY).toDisplayString(true));
+            CHECK(seam == theme.surface0);
+        }
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+    {
+        f.shell->setSize(1800, 1000);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+        view.setView(1.5, 600.0);
+        (void)view.createComponentSnapshot(view.getLocalBounds()); // asks for the crossfade's sum
+        s.updateSnapshotNow();
+        for (int i = 0; i < 30; ++i)
+            juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
+        dumpPng(dump, "seams@2x.png", view.createComponentSnapshot(view.getLocalBounds().withHeight(130).withWidth(1500), true, 2.0f));
+        view.setView(0.0, 60.0);
+        dumpPng(dump, "seams-out@2x.png", view.createComponentSnapshot(view.getLocalBounds().withHeight(130).withWidth(700), true, 2.0f));
+        f.shell->setSize(1024, 800);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+        view.setView(0.0, 200.0);
+        dumpPng(dump, "seams-compact.png", f.shell->createComponentSnapshot(f.shell->getLocalBounds()));
+    }
     root.deleteRecursively();
 }
 

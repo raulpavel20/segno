@@ -36,7 +36,7 @@ Segno follows the edge-to-edge model, which ADR 0019 already chose, and combines
 
 ## 3. Fades
 
-**Making them.** Each audio clip has a fade-in and a fade-out handle: small squares at the top corners of its body, under the title strip. They show when the pointer is over the clip, and always on the selected clips.
+**Making them.** Each audio clip has a fade-in and a fade-out handle: small squares at the top corners of its body, under the title strip, always inside the clip (and inside a selected clip's outline), so at a join each square sits on its own side of the seam. They show when the pointer is over the clip, and always on the selected clips.
 
 | Gesture | Does |
 |---|---|
@@ -72,7 +72,7 @@ Segno follows the edge-to-edge model, which ADR 0019 already chose, and combines
 
 **Shapes:** Equal power (the default: constant loudness across different material, such as two takes), Equal gain (straight ramps, for the same material, which would bulge with equal power: a split of one recording, a loop to itself), and S-curve. The crossfade's right-click menu and the inspector choose, each with that one line of guidance.
 
-**Drawn:** across the crossfade's span, the waveform it plays: both clips' audio through its gains, summed, built from the files' samples in the background (`ui::CrossfadeSums`), on each side of the join in that clip's colour. So equal power over the same material shows its bulge, and equal gain shows the seam disappear. Over it, both curves, and a handle at each end to resize it (drawn on the clip under the pointer and on selected clips).
+**Drawn:** across the crossfade's span, the waveform it plays: both clips' audio through its gains, summed, built from the files' samples in the background (`ui::CrossfadeSums`), on each side of the join in that clip's colour. So equal power over the same material shows its bulge, and equal gain shows the seam disappear. Over it, both curves, and a handle at each end to resize it (drawn on the clip under the pointer and on selected clips); a crossfade narrower than two handles shows one in its middle, and a drag from its left half moves the start, from its right half the end. The seam between the two clips (daw-shell.md, arrangement layers) stays visible through it.
 
 **With edits:**
 - a crossfade belongs to the join. Moving either clip away from the other removes it (undo brings it back); moving them together keeps it;

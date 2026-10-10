@@ -137,7 +137,7 @@ Layers, back to front:
 1. lane background (one tone step above the canvas; the selected track a step lighter);
 2. grid lines (bar, beat, subdivision at falling contrast, all quieter than the track separators);
 3. track separators: one pixel of `line`, lighter than the lanes, continued through the headers;
-4. clips: flat clip colour, name, and the waveform in a lighter tint (C3);
+4. clips: flat clip colour, name, and the waveform in a lighter tint (C3). **Every clip is its own tile:** where one touches the next on screen, it stops a `shell.clipGap` short and that pixel is the canvas (`surface0`), through the title strip and the body (`ArrangementView::seamAfter`), so clips edge to edge, split pieces and clips joined by a crossfade stay apart (the crossfade's curves cross the seam). The parts of one clip with takes join without a seam: one title strip, and the same line in the body only where the take changes. Clip edges sit on whole pixels, so seams and outlines are crisp;
 5. selection;
 6. loop brace (C5);
 7. playhead.

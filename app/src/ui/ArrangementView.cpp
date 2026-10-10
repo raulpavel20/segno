@@ -719,7 +719,7 @@ void ArrangementView::paintLanes(juce::Graphics& g)
         clip.length = e.length;
         clip.offset = e.offset;
         paintClip(g, clip, static_cast<float>(area.getY() + layout_.top(row)), static_cast<float>(layout_.baseHeight(row)), visible,
-                  true);
+                  {.selected = true});
     }
 
     // Recordings in progress (recording.md §5): a clip growing to the playhead in the record colour,
@@ -816,14 +816,15 @@ void ArrangementView::paintLanes(juce::Graphics& g)
     time::paintPlayhead(g, timeline_, area, playhead_);
 }
 
-juce::Rectangle<float> ArrangementView::clipBox(double start, double end, float y, float h) const
+juce::Rectangle<float> ArrangementView::clipBox(double start, double end, float y, float h, bool seam) const
 {
     // Cut just outside the lanes, so an edge out of sight never draws.
     constexpr float offscreen = 2.0f;
     const auto area = laneArea();
     const auto& s = ui::Theme::current().shell;
-    const float x0 = std::max(laneX(start), static_cast<float>(area.getX()) - offscreen);
-    const float x1 = std::min(laneX(end), static_cast<float>(area.getRight()) + offscreen);
+    const float x0 = std::max(std::round(laneX(start)), static_cast<float>(area.getX()) - offscreen);
+    const float x1 = std::min(std::round(laneX(end)) - (seam ? static_cast<float>(s.clipGap) : 0.0f),
+                              static_cast<float>(area.getRight()) + offscreen);
     // Above it the clip gap; below it the gap and the row's separator line.
     return {x0, y + static_cast<float>(s.clipGap), std::max(1.0f, x1 - x0), h - static_cast<float>(2 * s.clipGap + 1)};
 }
@@ -841,9 +842,18 @@ bool ArrangementView::titleShowsText(juce::Rectangle<float> title)
     return title.getHeight() >= static_cast<float>(s.clipTitleMinText) && title.getWidth() > static_cast<float>(4 * s.clipTextInset);
 }
 
-juce::Rectangle<float> ArrangementView::groupBox(const model::ClipGroup& group, float y, float h) const
+bool ArrangementView::seamAfter(const model::TrackInfo& track, double end, std::uint64_t stack) const
 {
-    return clipBox(group.start(), group.end(), y, h);
+    const float x = std::round(laneX(end));
+    return std::any_of(track.clips.begin(), track.clips.end(), [&](const auto& c) {
+        return c.start >= end - 1e-9 && std::round(laneX(c.start)) <= x && (stack == 0 || c.stack != stack);
+    });
+}
+
+juce::Rectangle<float> ArrangementView::groupBox(const model::ClipGroup& group, const model::TrackInfo& track, float y,
+                                                 float h) const
+{
+    return clipBox(group.start(), group.end(), y, h, seamAfter(track, group.end(), group.parts.front()->stack));
 }
 
 std::optional<std::pair<model::Badge, juce::Rectangle<float>>> ArrangementView::badgeOf(const model::ClipGroup& group,
@@ -885,11 +895,12 @@ void ArrangementView::paintGroup(juce::Graphics& g, const model::ClipGroup& grou
 {
     const auto& t = ui::Theme::current();
     const bool selected = drawnSelected(track, *group.parts.front());
-    for (const auto* part : group.parts) // lighter together; one outline, at the end
-        paintClip(g, *part, y, h, visible, selected, false, false);
+    const bool seam = seamAfter(track, group.end(), group.parts.front()->stack);
+    for (const auto* part : group.parts) // lighter together; one outline, at the end; a seam after the last
+        paintClip(g, *part, y, h, visible, {.selected = selected, .outline = false, .seam = seam && part == group.parts.back()});
     if (group.end() < timeline_.start() || group.start() > timeline_.end())
         return;
-    const auto box = groupBox(group, y, h);
+    const auto box = groupBox(group, track, y, h);
     if (!box.intersects(visible.toFloat()))
         return;
     const bool muted = std::all_of(group.parts.begin(), group.parts.end(), [](const auto* p) { return p->muted; });
@@ -904,8 +915,9 @@ void ArrangementView::paintGroup(juce::Graphics& g, const model::ClipGroup& grou
         if (titleShowsText(title))
             paintTitleText(g, title, group.parts.front()->name, muted);
         g.setColour(t.surface0);
-        for (size_t i = 1; i < group.parts.size(); ++i)
-            g.fillRect(laneX(group.parts[i]->start) - 0.5f, title.getBottom(), 1.0f, box.getBottom() - title.getBottom());
+        for (size_t i = 1; i < group.parts.size(); ++i) // where a seam would be, but in the body only
+            g.fillRect(std::round(laneX(group.parts[i]->start)) - static_cast<float>(t.shell.clipGap), title.getBottom(),
+                       static_cast<float>(t.shell.clipGap), box.getBottom() - title.getBottom());
     }
     // The badge: the take it plays and how many, with a chevron (a click shows or hides its
     // takes; right-click, the take menu).
@@ -930,7 +942,7 @@ void ArrangementView::paintGroup(juce::Graphics& g, const model::ClipGroup& grou
     if (selected) // the outline again, over the badge and the progress
     {
         g.setColour(t.textPrimary);
-        g.drawRect(box, 1.0f);
+        g.drawRect(box, static_cast<float>(t.shell.clipOutline));
     }
 }
 
@@ -1072,7 +1084,7 @@ std::optional<std::pair<std::uint64_t, std::uint64_t>> ArrangementView::badgeAt(
     const float y = static_cast<float>(lanes.getY() + layout_.top(row->track));
     const float h = static_cast<float>(layout_.baseHeight(row->track));
     for (const auto& group : model::clipGroups(track))
-        if (const auto badge = badgeOf(group, track, groupBox(group, y, h)); badge && badge->second.contains(p))
+        if (const auto badge = badgeOf(group, track, groupBox(group, track, y, h)); badge && badge->second.contains(p))
             return std::pair{track.id, group.stack->id};
     return std::nullopt;
 }
@@ -1139,15 +1151,21 @@ bool ArrangementView::drawnSelected(const model::TrackInfo& track, const model::
 }
 
 void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, float y, float h, juce::Rectangle<int> visible,
-                                bool selected, bool dimmed, bool outline)
+                                ClipLook look)
 {
     const auto& t = ui::Theme::current();
     if (clip.end() < timeline_.start() || clip.start > timeline_.end())
         return;
-    const auto box = clipBox(clip.start, clip.end(), y, h);
+    const auto box = clipBox(clip.start, clip.end(), y, h, look.seam);
     if (!box.intersects(visible.toFloat()))
         return;
-    const auto colour = dimmed || clip.muted ? t.clipDimmed(t.clipColour(clip.colour)) : t.clipColour(clip.colour);
+    const bool selected = look.selected;
+    if (look.seam) // the canvas between it and the clip it touches, through the title and the body
+    {
+        g.setColour(t.surface0);
+        g.fillRect(box.withX(box.getRight()).withWidth(static_cast<float>(t.shell.clipGap)));
+    }
+    const auto colour = look.dimmed || clip.muted ? t.clipDimmed(t.clipColour(clip.colour)) : t.clipColour(clip.colour);
     g.setColour(t.clipBody(colour, selected));
     g.fillRect(box);
     const auto title = titleOf(box);
@@ -1163,10 +1181,10 @@ void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, 
     }
     if (titleShowsText(title))
         paintTitleText(g, title, clip.name, clip.muted);
-    if (selected && outline)
+    if (selected && look.outline)
     {
         g.setColour(t.textPrimary);
-        g.drawRect(box, 1.0f);
+        g.drawRect(box, static_cast<float>(t.shell.clipOutline));
     }
 }
 

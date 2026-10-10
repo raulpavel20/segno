@@ -200,21 +200,30 @@ private:
     /// The rows and their header controls, for the current snapshot.
     void syncRows();
     [[nodiscard]] std::function<double(double)> snapFunction(bool bypass) const;
-    /// A clip: its body (lighter when `selected`), title, contents and fades; its outline when
-    /// `selected` and `outline` (a clip with takes draws one outline around all its parts).
-    void paintClip(juce::Graphics& g, const model::ClipInfo& clip, float y, float h, juce::Rectangle<int> visible, bool selected,
-                   bool dimmed = false, bool outline = true);
+    /// How a clip draws: lighter when selected, dimmed, its outline when selected (a clip with takes
+    /// draws one outline around all its parts), and a seam after it where the next clip touches it.
+    struct ClipLook
+    {
+        bool selected = false, dimmed = false, outline = true, seam = false;
+    };
+    /// A clip: its body, title, contents and fades, as `look` says.
+    void paintClip(juce::Graphics& g, const model::ClipInfo& clip, float y, float h, juce::Rectangle<int> visible, ClipLook look);
     /// Whether a clip draws as selected: it, or another part of the same clip (ADR 0032), is.
     [[nodiscard]] bool drawnSelected(const model::TrackInfo& track, const model::ClipInfo& clip) const;
     // Clip geometry, for every clip drawn (the shell's clip metrics, ui-foundations.md).
     /// A clip from `start` to `end` (seconds) in a row at `y`, `h` high.
-    [[nodiscard]] juce::Rectangle<float> clipBox(double start, double end, float y, float h) const;
+    /// Its edges on whole pixels; with `seam`, it stops a clip gap short of its end.
+    [[nodiscard]] juce::Rectangle<float> clipBox(double start, double end, float y, float h, bool seam = false) const;
+    /// Whether another clip starts where one ending at `end` does, on screen: a seam (a clip gap of
+    /// the canvas) separates them. Parts of one clip (`stack`) join without one.
+    [[nodiscard]] bool seamAfter(const model::TrackInfo& track, double end, std::uint64_t stack) const;
     /// A clip box's title strip.
     [[nodiscard]] static juce::Rectangle<float> titleOf(juce::Rectangle<float> box);
     /// Whether a title strip has room for its text.
     [[nodiscard]] static bool titleShowsText(juce::Rectangle<float> title);
     // A clip with takes (ADR 0032): its parts as one clip, its badge, and its takes' strips.
-    [[nodiscard]] juce::Rectangle<float> groupBox(const model::ClipGroup& group, float y, float h) const;
+    [[nodiscard]] juce::Rectangle<float> groupBox(const model::ClipGroup& group, const model::TrackInfo& track, float y,
+                                                  float h) const;
     /// A clip's badge and where it sits in its title strip (none below two takes, or too small).
     [[nodiscard]] std::optional<std::pair<model::Badge, juce::Rectangle<float>>>
     badgeOf(const model::ClipGroup& group, const model::TrackInfo& track, juce::Rectangle<float> box) const;

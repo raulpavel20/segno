@@ -112,9 +112,12 @@ void ArrangementView::paintCrossfades(juce::Graphics& g, const model::TrackInfo&
         {
             const model::ClipInfo sumClip{.kind = model::ClipInfo::Kind::Audio, .start = join + sum.from, .length = sum.length};
             const auto sumSpan = span.withX(laneX(sumClip.start)).withRight(laneX(sumClip.end()));
+            // Each side up to its clip's edge: the seam between two clips, or the line between two
+            // parts of one, stays (crossed by the curves).
+            const float inLeft = std::round(xj), outRight = inLeft - static_cast<float>(t.shell.clipGap);
             for (const auto* side : {&c, &next})
             {
-                const auto part = side == &c ? span.withRight(xj) : span.withLeft(xj);
+                const auto part = side == &c ? span.withRight(outRight) : span.withLeft(inLeft);
                 if (part.getWidth() <= 0.0f)
                     continue;
                 juce::Graphics::ScopedSaveState sideState(g);
@@ -156,7 +159,29 @@ std::optional<juce::Point<float>> ArrangementView::handlePoint(const model::Trac
     if (it == track.clips.end())
         return std::nullopt;
     const auto body = bodyOf(*it, y, h);
-    return juce::Point<float>(laneX(handle.time), body.getY() + body.getHeight() * handle.height);
+    const auto& s = ui::Theme::current().shell;
+    const float size = static_cast<float>(s.fadeHandleSize);
+    float x = laneX(handle.time);
+    using K = model::FadeHandle::Kind;
+    if (handle.kind == K::FadeIn || handle.kind == K::FadeOut)
+    {
+        // A fade's square stays on its own clip, inside its outline: in its corner while the fade
+        // is shorter than it.
+        const auto box = clipBox(it->start, it->end(), y, h, seamAfter(track, it->end(), it->stack))
+                             .reduced(static_cast<float>(s.clipOutline), 0.0f);
+        const float half = size * 0.5f;
+        x = std::clamp(x, box.getX() + half, std::max(box.getX() + half, box.getRight() - half));
+    }
+    else if ((handle.kind == K::CrossStart || handle.kind == K::CrossEnd) && it->crossfadeOut)
+    {
+        // A crossfade narrower than two squares shows one, in its middle (the pointer's side of it
+        // picks which end a drag moves).
+        const double from = it->end() + it->crossfadeOut->from;
+        const float x0 = laneX(from), x1 = laneX(from + it->crossfadeOut->length);
+        if (x1 - x0 < 2.0f * size)
+            x = (x0 + x1) * 0.5f;
+    }
+    return juce::Point<float>(x, body.getY() + body.getHeight() * handle.height);
 }
 
 void ArrangementView::paintFadeHandles(juce::Graphics& g, const model::TrackInfo& track, float y, float h)
