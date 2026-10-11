@@ -9,7 +9,7 @@
 
 See [roadmap.md](../roadmap.md) and the device specs in `devices/*/SPEC.md`.
 
-**Status:** ☐ draft plan, for the product owner's review (2026-10-11). The questions are under "For review"; nothing is built until the plan is approved.
+**Status:** ◐ plan approved by the product owner (2026-10-11), with every recommendation under "For review" (CLAP hosting moved to M4). Next: A1, presets ([design](../design/presets.md), for review).
 
 ## Steps
 
@@ -48,7 +48,7 @@ Each: SPEC approved → built → validators → sign-off by ear and feel, with 
 | C2 | **Browser** (ui-principles.md: one search box across devices, presets, plugins, samples and files):<ul><li>places: your folders, the project's folder;</li><li>previews built in, in time with the song when it plays;</li><li>drag onto a track, the arrangement, the module chain;</li><li>collect and save (copy outside files into the project), remove unused recordings and bounces;</li><li>the compact-width rail.</li></ul> | Search results under 50 ms on 10 000 files; previews play from a click and stop at the next; drags land where dropped; collect and save leaves a project that opens on another machine; frame budget held while scrolling results; MCP `search`, `preview`; screenshots | ☐ |
 | C3 | **Arranger track:** song sections (intro, verse, drop…) as a row above the tracks; move, duplicate, reorder and delete a section with all its content (clips, takes, automation, tempo and time-signature changes) | Pure models under `[fast]` tests (what moves, where clips split at section edges); each command one undo step; a moved section renders the same as before; MCP tools; screenshots | ☐ |
 | C4 | **Reference track A/B on the master:** a reference song plays in place of the mix, matched to its loudness, without passing through the master's modules; one click switches | The switch is sample-accurate and click-free; loudness matched within 0.5 LU; never exported; MCP tools | ☐ |
-| C5 | **Plugin hosting:** scanning in a separate process, so a plugin that crashes the scan never takes the DAW down; CLAP hosting (see "For review", Q4) | A crashing test plugin is skipped and reported; scanning runs in the background with progress; CLAP: a CLAP plugin loads, automates, saves and renders like a VST3 one | ☐ |
+| C5 | **Plugin scanning** in a separate process, so a plugin that crashes the scan never takes the DAW down. ~~CLAP hosting~~ moved to M4 (Q4) | A crashing test plugin is skipped and reported; scanning runs in the background with progress | ☐ |
 | C6 | **Inspector at compact widths:** below 1440 px the inspector opens as an overlay (it closes today); module and note-range sections (selection.md) | Layout tests at compact widths; screenshots | ☐ |
 | C7 | **Loose ends from M2:**<ul><li>mute automation: a track "on" parameter (B32);</li><li>notes after a change while playing (B55): a moved clip's sounding notes chased on its new track, MIDI effects added or removed mid-note, a MIDI device unplugged with keys held, the sustain pedal;</li><li>the Subtractive Synth's envelopes dragged on their displays (carried from M1);</li><li>recording: lower-latency monitoring, a round-trip latency test (recording.md);</li><li>export: MP3, Ogg and Opus; adding an export to the project (export.md).</li></ul> | Each with its tests and manual checks | ☐ |
 | C8 | **MIDI learn** (B5, due in M2, not built): map a controller's knob, fader or button to any parameter by moving it; mappings kept with the project, listed in Settings | A mapped CC moves its parameter, with automation recording as for the mouse; one undo step per mapping | ☐ |
@@ -70,6 +70,8 @@ Each: SPEC approved → built → validators → sign-off by ear and feel, with 
 - B47, keeping several comps of a clip, stays open; not in M3 unless asked.
 
 ## For review (product owner)
+
+Agreed by the product owner on 2026-10-11: every recommendation below.
 
 | # | Question | Recommendation |
 |---|---|---|
