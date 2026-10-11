@@ -85,7 +85,7 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 
 ## Factory presets
 
-Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `devices/eq/presets/`, made with `fd-presets` from recipes); the product owner signs them off by ear. 18 presets, each checked by the conformance suite: it loads, plays cleanly under 0 dBFS and differs from the rest.
+Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `devices/eq/presets/`, made with `fd-presets` from recipes); signed off by the product owner by ear (2026-10-11). 18 presets, each checked by the conformance suite: it loads, plays cleanly under 0 dBFS and differs from the rest.
 
 - **Low cut 80 Hz** (Clean): Clears rumble and low mud below 80 Hz, 24 dB per octave.
 - **Subsonic cut** (Master, Bus, Clean): Takes out what you can't hear below 30 Hz, which still uses headroom.

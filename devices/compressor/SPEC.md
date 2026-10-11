@@ -105,7 +105,7 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 
 ## Factory presets
 
-Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `devices/compressor/presets/`, made with `fd-presets` from recipes); the product owner signs them off by ear. 15 presets, each checked by the conformance suite: it loads, plays cleanly under 0 dBFS and differs from the rest.
+Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `devices/compressor/presets/`, made with `fd-presets` from recipes); signed off by the product owner by ear (2026-10-11). 15 presets, each checked by the conformance suite: it loads, plays cleanly under 0 dBFS and differs from the rest.
 
 - **Gentle vocal** (Vocals, Subtle): Evens out a vocal without squashing it; ignores the lows below 100 Hz.
 - **Vocal leveler** (Vocals): Holds a vocal firmly in place, quick to catch loud words.

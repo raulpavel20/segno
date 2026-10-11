@@ -130,7 +130,7 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 
 ## Factory presets
 
-Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `devices/spectrum/presets/`, made with `fd-presets` from recipes); the product owner signs them off by ear. 6 presets, each checked by the conformance suite: it loads, plays cleanly under 0 dBFS and differs from the rest.
+Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `devices/spectrum/presets/`, made with `fd-presets` from recipes); signed off by the product owner by ear (2026-10-11). 6 presets, each checked by the conformance suite: it loads, plays cleanly under 0 dBFS and differs from the rest.
 
 - **Mixing** (Mix): Tilted 4.5 dB per octave so a full, balanced mix looks about flat, and averaged to show its overall balance.
 - **Flat** (Check): No tilt: the spectrum as measured, for test tones and noise.

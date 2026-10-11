@@ -98,7 +98,7 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 
 ## Factory presets
 
-Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `devices/subtractive-synth/presets/`, made with `fd-presets` from recipes); the product owner signs them off by ear. 35 presets, each checked by the conformance suite: it loads, plays cleanly under 0 dBFS and differs from the rest.
+Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `devices/subtractive-synth/presets/`, made with `fd-presets` from recipes); signed off by the product owner by ear (2026-10-11). 35 presets, each checked by the conformance suite: it loads, plays cleanly under 0 dBFS and differs from the rest.
 
 - **Sub bass** (Bass, Clean): A pure sine sub, one note at a time; play it low.
 - **Warm bass** (Bass, Warm): Saw and a square an octave down, a soft filter bite on each note.

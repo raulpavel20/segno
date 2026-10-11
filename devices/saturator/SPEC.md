@@ -77,7 +77,7 @@ COLOR's content is dimmed while Color is off: Freq and Gain only act when it is 
 
 ## Factory presets
 
-Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `devices/saturator/presets/`, made with `fd-presets` from recipes); the product owner signs them off by ear. 15 presets, each checked by the conformance suite: it loads, plays cleanly under 0 dBFS and differs from the rest.
+Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `devices/saturator/presets/`, made with `fd-presets` from recipes); signed off by the product owner by ear (2026-10-11). 15 presets, each checked by the conformance suite: it loads, plays cleanly under 0 dBFS and differs from the rest.
 
 - **Gentle warmth** (Warm, Subtle): A little even-harmonic warmth, hardly louder.
 - **Asymmetric tube** (Warm): An uneven curve, like an overdriven valve: rich even harmonics.

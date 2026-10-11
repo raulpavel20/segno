@@ -62,7 +62,7 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 
 ## Factory presets
 
-Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `devices/utility/presets/`, made with `fd-presets` from recipes); the product owner signs them off by ear. 5 presets, each checked by the conformance suite: it loads, plays cleanly under 0 dBFS and differs from the rest.
+Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `devices/utility/presets/`, made with `fd-presets` from recipes); signed off by the product owner by ear (2026-10-11). 5 presets, each checked by the conformance suite: it loads, plays cleanly under 0 dBFS and differs from the rest.
 
 - **Mono check** (Check, Stereo): Sums both channels to mono, to hear how the mix holds up on one speaker.
 - **Invert polarity** (Fix): Flips both channels' polarity, to line one microphone up against another.

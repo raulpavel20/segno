@@ -7,7 +7,7 @@ How Segno keeps a module's settings to use again: **presets**, found and saved i
 - the menu bar as the complete list ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)), and assistants' tools ([ADR 0021](../decisions/0021-mcp-server.md));
 - the M3 plan's answers: user presets in one folder shared by the plugins and the DAW (Q3); factory presets drafted by Claude and curated by the product owner (Q2, B4).
 
-**Status:** approved by the product owner (2026-10-11), with every recommendation of §15. Claude builds and names the factory presets; the product owner signs them off by ear (§13).
+**Status:** approved by the product owner (2026-10-11), with every recommendation of §15. Claude builds and names the factory presets; the product owner signs them off by ear (§13). Built and signed off (2026-10-11), with the factory sets for every module but the Sampler (§21).
 
 ## 1. Why
 
