@@ -1,12 +1,12 @@
 # Settings: design (M3 step C1)
 
-How Segno keeps what you choose once, for every project: your audio interface, MIDI inputs, recording, where your files live, plugin folders, export defaults, keyboard shortcuts, the interface's size and the assistants. It all goes on **one searchable page**, as [ui-principles.md §1](ui-principles.md) already says, and the "Audio settings" popover goes away into it. The decision is the proposed [ADR 0045](../decisions/0045-settings-are-one-page.md) (§15). It builds on:
+How Segno keeps what you choose once, for every project: your audio interface, MIDI inputs, recording, where your files live, plugin folders, export defaults, keyboard shortcuts, the interface's size and the assistants. It all goes on **one searchable page**, as [ui-principles.md §1](ui-principles.md) already says, and the "Audio settings" popover goes away into it. The decision is [ADR 0045](../decisions/0045-settings-are-one-page.md) (§15). It builds on:
 - ui-principles §1: "Preferences are one searchable page, not a set of tabs. Common settings (audio device, buffer size, theme, UI scale) are also reachable from the command palette";
 - the menu bar ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md), [menu-bar.md](menu-bar.md) §5): "Preferences arrive as Settings… (Ctrl+,), and Audio settings becomes their first section";
 - the shared components: `SectionStack`, `PropertyList`, the shell metrics ([ui-foundations.md](ui-foundations.md), ADR 0023);
 - what earlier designs left for Settings: export defaults ([export.md](export.md) §9), the recording file format and offsets ([recording.md](recording.md) §5, Q15), the presets folder ([presets.md](presets.md) §5), remapping shortcuts ([daw-shell.md](daw-shell.md)), the assistants' switch ([ADR 0021](../decisions/0021-mcp-server.md)).
 
-**Status:** draft for the product owner's review (2026-10-11). The questions are in §13.
+**Status:** approved by the product owner (2026-10-11), with every recommendation of §13 but one: no reset button per setting (S3, §6).
 
 ## 1. Why
 
@@ -48,7 +48,7 @@ What you set once has no home yet, or a poor one:
 
 Sources: the [Live 12 manual](https://www.ableton.com/en/live-manual/12/first-steps/), [Bitwig's Dashboard](https://www.bitwig.com/userguide/latest/the_dashboard/), [Logic's settings](https://support.apple.com/guide/logicpro/logic-pro-settings-overview-lgcp53689108/mac) and [key commands](https://support.apple.com/guide/logicpro/assign-key-commands-lgcp41ff6979/mac), the [Fender Studio Pro manual](https://fenderstudiopromanual.fender.com/en/Content/Setup_Topics/General_Options.htm), [Cubase's preferences](https://archive.steinberg.help/nuendo/v11/en/cubase_nuendo/topics/preferences/preferences_the_preferences_dialog_r.html), the [REAPER 7 guide](https://www.reaper.fm/userguide/ReaperUserGuide781c.pdf), [VS Code's settings](https://code.visualstudio.com/docs/configure/settings) and [key bindings](https://code.visualstudio.com/docs/configure/keybindings), [macOS search](https://support.apple.com/guide/mac-help/find-system-settings-mchl8d10839d/mac), [JetBrains' settings](https://www.jetbrains.com/help/idea/settings-preferences-dialog.html).
 
-**Segno** takes the modern pattern most DAWs haven't: one searchable page in the main window, applied as you go, help text under every setting, and a mark and reset on what you've changed.
+**Segno** takes the modern pattern most DAWs haven't: one searchable page in the main window, applied as you go, help text under every setting, and a filter for what you've changed.
 
 ## 3. Principles
 
@@ -100,7 +100,10 @@ Sources: the [Live 12 manual](https://www.ableton.com/en/live-manual/12/first-st
 
 - **At once:** every change is applied and saved as you make it.
 - **Audio:** changing the device, rate or buffer restarts the audio for a moment; playing goes on from where it was.
-- **Reset:** each section ends with "Reset Audio settings" (a text button), and a setting changed from its default shows a small reset button beside its control. The Keys section resets per action and as a whole.
+- **Reset** (revised with the product owner: no button per setting, which would be a great many):
+  - each choice marks its default, "48 kHz (default)", and a number's description gives it, so going back is choosing it;
+  - a section's title row shows one **Reset** only while something in the section differs from its defaults;
+  - Keys has one **Reset all shortcuts**, shown the same way.
 - **Nothing needs a restart.** The one setting that would (the interface's size, on some systems) applies to new windows at once and to the main window after a relaunch, and says so under its row.
 - **Not in the project's undo:** settings are yours, not edits to the song.
 
@@ -144,18 +147,18 @@ Sources: the [Live 12 manual](https://www.ableton.com/en/live-manual/12/first-st
 │ KEYS                                                                    │
 │  ⌕ Search actions or press keys                                        │
 │  Edit                                                                   │
-│    Undo                                    Ctrl+Z                  ⟲    │
+│    Undo                                    Ctrl+Z                       │
 │    Duplicate                               Ctrl+D                       │
 │  Module                                                                 │
 │    Save preset                             (none)                       │
-│    Previous preset                         Alt+, (yours)           ⟲    │
+│    Previous preset                         Alt+,      (default: none)   │
 ```
 
 - **Every action,** grouped by its menu, with its shortcut. Search by name, or press the keys to find what's on them.
 - **Changing one:** click its shortcut, press the new keys. Escape cancels; Backspace clears it.
 - **A conflict** shows in place: "Ctrl+D is Duplicate's: Replace?". Replacing takes it from the other action; the other is left without.
 - **The menus, tooltips and the command palette** show the shortcuts as you set them.
-- **Reset** per action (⟲, shown when changed) and for every action.
+- **Reset all shortcuts** in the section's title row, shown only while some differ from the defaults. A single shortcut goes back by setting its default key again; a changed one shows its default as its caption.
 - **No other DAW's key map** (ADR 0008 keeps other vendors' names out of the UI).
 
 ## 9. Storage
@@ -199,7 +202,7 @@ Sources: the [Live 12 manual](https://www.ableton.com/en/live-manual/12/first-st
 |---|---|---|
 | S1 | **Where Settings open** | In the centre, in place of the arrangement or mixer, the top bar still playing (§4). Not a separate window, not a modal dialog |
 | S2 | **One page or tabs** | One scrolling, searchable page with a section index (ui-principles §1) |
-| S3 | **Applying** | At once, saved as you go; no OK, Apply or Cancel; a reset per setting and per section (§6) |
+| S3 | **Applying** | At once, saved as you go; no OK, Apply or Cancel. *Revised by the product owner: no reset per setting; defaults marked in the choices, one Reset per section shown only when something differs* (§6) |
 | S4 | **The sections** | Audio, MIDI, Recording, Library, Plugins, Export, Keys, Display, Assistants (§7) |
 | S5 | **Interface size** | 75 to 200 % in steps, or Automatic (the system's) (§7) |
 | S6 | **The Segno folder** | Movable, with its presets and unsaved projects moved along (§7, presets.md §5) |
@@ -225,10 +228,10 @@ Sources: the [Live 12 manual](https://www.ableton.com/en/live-manual/12/first-st
 - **MCP:** `get_settings`, `set_settings`, and the refusals.
 - **Manual (manual-tests/M3.md):** setting up an interface from scratch, a buffer change while playing, remapping a key.
 
-## 15. Proposed ADR 0045: Settings are one searchable page, applied as you change them
+## 15. ADR 0045: Settings are one searchable page, applied as you change them
 
 - Settings are one page in the centre of the window, beside the arrangement and the mixer: searchable, in sections with an index, never a modal dialog.
-- Every change applies and is saved at once; there is no OK or Cancel.
+- Every change applies and is saved at once; there is no OK or Cancel. Defaults are marked in the choices; a section's Reset shows only while something in it is changed.
 - Settings are per user, in one readable `settings.json` in the system's place for app settings.
 - A setting with a natural place elsewhere keeps it there, and that place opens the page at its row.
 - Every action's shortcut can be changed there.

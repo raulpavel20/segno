@@ -53,7 +53,7 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0042](0042-every-row-moves-on-its-own.md) | Every track and lane moves on its own, droppable anywhere among the tracks and lanes; several at once comes with multi-track selection | Accepted |
 | [0043](0043-a-clips-colour-is-its-own.md) | A clip's colour is its own: a new clip takes its track's colour once; after that, recolouring or moving either leaves the other | Accepted |
 | [0044](0044-presets-are-files.md) | Presets are `.segnopreset` files of the module's state, factory ones built in, yours in `Documents/Segno/Presets` shared by the plugins and the DAW; in every module's header with A/B and defaults; one undo step to load; automation keeps playing | Accepted |
-| [0045](0045-settings-are-one-page.md) | Settings are one searchable page in the centre of the window, applied as you change them, kept per user in one `settings.json`; shortcuts remappable there; JACK on in Linux builds | Proposed |
+| [0045](0045-settings-are-one-page.md) | Settings are one searchable page in the centre of the window, applied as you change them, kept per user in one `settings.json`; shortcuts remappable there; JACK on in Linux builds | Accepted |
 
 ## Template
 
