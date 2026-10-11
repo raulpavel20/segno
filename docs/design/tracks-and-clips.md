@@ -12,7 +12,7 @@ The decision is [ADR 0041](../decisions/0041-tracks-and-clips-managed-in-place.m
 
 It settles open questions B41 (what deleting a track takes with it), B50 (cut, copy and paste) and B52 (renaming).
 
-**Status:** proposed (2026-10-11), awaiting the product owner's review of §13.
+**Status:** approved by the product owner (2026-10-11), with every recommendation of §13 ([ADR 0041](../decisions/0041-tracks-and-clips-managed-in-place.md)). Building.
 
 ## 1. Why
 
@@ -195,7 +195,7 @@ From the manuals of Live 12, Bitwig 5, Studio One (now Fender Studio Pro), Logic
   - the swatch grid (`ui::ColourGrid`, in fd_ui);
   - the clipboard (one per app).
 
-## 13. Decisions to review
+## 13. Decisions from the review (product owner, 2026-10-11: every recommendation agreed)
 
 | # | Question | Recommendation |
 |---|---|---|

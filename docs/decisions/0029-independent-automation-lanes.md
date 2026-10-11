@@ -1,6 +1,6 @@
 # 0029. Automation lanes are rows of their own, with assignments
 
-- **Status:** Accepted (product owner, 2026-10-09)
+- **Status:** Accepted (product owner, 2026-10-09); lanes right after a track move with it, and a lane that drives only a deleted track goes with it: amended by [0041](0041-tracks-and-clips-managed-in-place.md)
 - **Date:** 2026-10-09
 - **Supersedes in part:** [0028](0028-automation-lanes.md) (where lanes sit and what they belong to)
 - **Builds on:** [0027](0027-selection-and-context-panels.md) (one selection), [0021](0021-mcp-server.md) (MCP tools for every DAW feature)

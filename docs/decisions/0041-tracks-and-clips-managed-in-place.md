@@ -1,6 +1,6 @@
 # 0041. Tracks and clips are managed in place
 
-- **Status:** Proposed (2026-10-11), awaiting the product owner's review of [design/tracks-and-clips.md](../design/tracks-and-clips.md) §13
+- **Status:** Accepted (product owner, 2026-10-11, with every recommendation of [design/tracks-and-clips.md](../design/tracks-and-clips.md) §13)
 - **Date:** 2026-10-11
 - **Amends:** [0029](0029-independent-automation-lanes.md): "a lane stays where it was put, whatever it drives". The lanes right after a track now move with it, and a lane that drives only a deleted track goes with it. The rest of 0029 stands.
 - **Builds on:** [0019](0019-one-kind-of-track.md) (clips never overlap), [0025](0025-sidechain-routing.md) (sidechains), [0027](0027-selection-and-context-panels.md) (one selection), [0032](0032-takes-belong-to-clips.md) (takes on clips), [0040](0040-a-menu-bar-and-everything-by-mouse.md) (the menu bar, never the catch-all), [0021](0021-mcp-server.md) (assistants' tools)
