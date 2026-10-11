@@ -26,12 +26,20 @@ public:
     std::function<void(std::uint64_t module)> onSelectModule;
     /// A right-click on the strip's background (its controls have their own menus).
     std::function<void()> onMenu;
+    /// Its name (tracks-and-clips.md §4, §6): a double-click renames it; dragging it moves the
+    /// strip (the events are the strip's).
+    std::function<void()> onRename;
+    std::function<void(const juce::MouseEvent&)> onNameDrag, onNameDrop;
+    [[nodiscard]] juce::Rectangle<int> nameArea() const { return at(slots_.name); }
 
     void paint(juce::Graphics& g) override;
     void resized() override;
     void mouseDown(const juce::MouseEvent& e) override;
+    void mouseDrag(const juce::MouseEvent& e) override;
+    void mouseUp(const juce::MouseEvent& e) override;
 
 private:
+    bool nameDrag_ = false, nameMoving_ = false;
     struct Send
     {
         std::unique_ptr<SendBar> level;
@@ -84,6 +92,11 @@ public:
     void setOptions(bool modules, bool sends, bool narrow);
     [[nodiscard]] int scrollX() const;
     void setScrollX(int x);
+    /// Renames a channel's strip in place (F2, tracks-and-clips.md §4). False for the master.
+    bool renameChannel(std::uint64_t channel);
+    [[nodiscard]] ui::NameEditor& nameEditor() noexcept { return names_; }
+    /// Where a dragged strip would land (content x; -1: none being dragged; tests).
+    [[nodiscard]] int dropX() const noexcept { return content_.dropX; }
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -93,6 +106,8 @@ private:
     struct Content : juce::Component
     {
         int dividerX = -1; // before the first return
+        int dropX = -1;    // where a dragged strip lands (tracks-and-clips.md §6)
+        void paintOverChildren(juce::Graphics& g) override;
         std::function<void(const juce::MouseEvent&)> onMouseDown;
         void paint(juce::Graphics& g) override;
         void mouseDown(const juce::MouseEvent& e) override
@@ -102,6 +117,8 @@ private:
         }
     };
     void showAddMenu();
+    /// A strip's name dragged: where it would land among its kind, then dropped there.
+    void dragStrip(std::uint64_t channel, const juce::MouseEvent& e, bool drop);
     void rebuild();
     void layoutStrips();
     [[nodiscard]] std::vector<std::uint64_t> order() const;
@@ -116,5 +133,6 @@ private:
     Content content_;
     std::map<std::uint64_t, std::unique_ptr<ChannelStrip>> strips_;
     std::unique_ptr<ChannelStrip> master_;
+    ui::NameEditor names_{content_};
 };
 } // namespace fd::app

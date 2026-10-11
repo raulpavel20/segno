@@ -39,7 +39,7 @@ How parameters change over time in Segno: automation lanes in the arrangement, w
 └─────────────────────────────┴────────────────────────────────────────────────────┘
 ```
 
-- **Placement: among the tracks.** A lane is added like a track: at the end of the tracks, after the last track and any lanes there. It stays where it was put, whatever it drives; tracks added later go after it. Lanes always sit above the returns and the master. Reordering rows comes with track reordering.
+- **Placement: among the tracks.** A lane is added like a track: at the end of the tracks, after the last track and any lanes there. It stays where it was put, whatever it drives; tracks added later go after it. Lanes always sit above the returns and the master. Reordering came with C11 ([tracks-and-clips.md](tracks-and-clips.md) §6, ADR 0041): the lanes right after a track move with it, and a lane dragged by its header moves alone.
 - **The lane header** uses the track header kit (`model::TrackHeaderLayout`), so lanes look like tracks:
 
   | Slot | Contents |

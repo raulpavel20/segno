@@ -10,6 +10,7 @@
 #include "model/Selection.h"
 #include "model/Takes.h"
 #include "model/Timeline.h"
+#include "model/TrackEdits.h"
 #include "model/TrackLayout.h"
 #include "ui/CrossfadeSums.h"
 #include "ui/WaveformCache.h"
@@ -64,6 +65,29 @@ public:
     [[nodiscard]] bool cancelAt(juce::Point<float> p) const;
     /// The cancel button's tooltip (the shell's action, with its key).
     juce::String cancelTooltip;
+
+    // Tracks and clips (C11, ADR 0041, docs/design/tracks-and-clips.md).
+    /// A track's or return's header was clicked last (it alone selected): Delete and Duplicate
+    /// act on the track (§5, §7).
+    [[nodiscard]] bool headerActive() const noexcept;
+    /// Renames in place (§4): a channel's or lane's name in its header, a clip's title (with the
+    /// other clips `with` it, renamed together). False if it isn't shown or can't be renamed.
+    bool renameChannel(std::uint64_t channel);
+    bool renameLane(std::uint64_t lane);
+    bool renameClips(std::uint64_t clip, const std::vector<std::uint64_t>& with);
+    /// F2: renames what's selected (clips, a lane, a channel). False if nothing can be.
+    bool renameSelection();
+    [[nodiscard]] ui::NameEditor& nameEditor() noexcept { return names_; }
+    /// Where a row's name is in its header, and a clip's title (view coordinates; tests).
+    [[nodiscard]] std::optional<juce::Rectangle<int>> nameArea(int row) const;
+    [[nodiscard]] std::optional<juce::Rectangle<int>> clipTitleArea(std::uint64_t clip) const;
+    /// A header being dragged to a new place (§6): Escape cancels it. True if one was.
+    bool cancelRowDrag();
+    /// Where a dragged header would land now (tests), if one is being dragged.
+    [[nodiscard]] std::optional<model::RowDrop> rowDrop() const;
+    /// A channel header's right-click items (rename, duplicate, delete, colour): the shell's,
+    /// before the items that make rows.
+    std::function<void(juce::PopupMenu&, std::uint64_t channel)> onHeaderMenu;
 
     /// The window's one selection (docs/design/selection.md, ADR 0027): a channel (a track, a
     /// return track or the master) and clips, the channel always the one of what was selected
@@ -126,6 +150,11 @@ public:
     void selectAllPoints();
     /// Moves the selected points by grid steps and by a value (lane units).
     void nudgePoints(int gridSteps, float value);
+    /// The selected points, the earliest at time 0 (cut, copy: tracks-and-clips.md §9).
+    [[nodiscard]] model::AutomationPoints copyPoints() const;
+    /// Pastes points at `seconds` on the selected lane, replacing what was over their span;
+    /// they're selected. False without a selected lane. One undo step, "Paste".
+    bool pastePoints(const model::AutomationPoints& points, double seconds);
     /// Removes the selected lane (one undo step).
     void removeSelectedLane();
     // Takes (C5b, ADR 0032, docs/design/recording.md §6): under their clip.
@@ -394,7 +423,21 @@ private:
     LoopZone loopDrag_ = LoopZone::None;
     std::pair<double, double> loopAtDragStart_{0.0, 0.0};
 
-    enum class Drag { None, Ruler, Clip, Box, Loop, Lane, Resize, Fade, Swipe, Join };
+    enum class Drag { None, Ruler, Clip, Box, Loop, Lane, Resize, Fade, Swipe, Join, Row };
+    /// A header dragged to reorder its row (§6): moving once past the drag threshold.
+    struct RowDrag
+    {
+        int row = 0;
+        bool moving = false;
+        model::RowDrop drop;
+    };
+    std::optional<RowDrag> rowDrag_;
+    /// The row boundary nearest `y` (view coordinates): b is above row b.
+    [[nodiscard]] std::size_t boundaryAt(float y) const;
+    [[nodiscard]] float boundaryY(std::size_t boundary) const;
+    bool renameRow(int row);
+    ui::NameEditor names_{*this};
+    bool headerActive_ = false;
     /// The line between two takes of a comp, being dragged (recording.md §7): on release, the
     /// take on the side it moved away from plays up to its new place.
     struct JoinDrag

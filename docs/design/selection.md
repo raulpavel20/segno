@@ -100,7 +100,7 @@ So a selected clip reads top to bottom as CLIP, TRACK, MIX, SENDS; a track as TR
 
 ## 6. Keys and the area used last
 
-Delete, Duplicate and Select all act on the area used last: notes in the clip view, a module in the chain, otherwise clips ([daw-shell.md](daw-shell.md)). In the mixer view, actions on arrangement content you can't see are off:
+Delete, Duplicate and Select all act on the area used last: notes in the clip view, a module in the chain, otherwise clips ([daw-shell.md](daw-shell.md)). A track's or return's header clicked last (it alone selected): Delete deletes it and Duplicate duplicates it (C11, [tracks-and-clips.md](tracks-and-clips.md) §5, §7). Cut, Copy and Paste follow the same rule: notes, an automation lane's points, otherwise clips (§9). In the mixer view, actions on arrangement content you can't see are off:
 
 | Off in the mixer view | Still on |
 |---|---|

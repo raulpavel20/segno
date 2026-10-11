@@ -621,6 +621,48 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
         };
         addChildComponent(*button);
     }
+    // Names typed in place of the painted ones; colours from the palette (tracks-and-clips.md §4, §8).
+    for (auto* field : {&channelName_, &clipName_})
+    {
+        styleNameField(*field);
+        const bool clip = field == &clipName_;
+        field->setTooltip(clip ? "The clip's name: type to rename it" : "Its name: type to rename it");
+        auto commit = [this, field, clip] {
+            const auto name = field->getText().trim();
+            if (name.isEmpty())
+                return;
+            if (clip && clip_ && name.toStdString() != clip_->name)
+                session_.renameClips(clipParts(), name.toStdString());
+            else if (!clip && channel_ && name.toStdString() != channel_->name)
+                session_.renameTrack(channel_->id, name.toStdString());
+        };
+        field->onReturnKey = [commit] {
+            commit();
+            juce::Component::unfocusAllComponents();
+        };
+        field->onFocusLost = commit;
+        field->onEscapeKey = [this, field, clip] {
+            field->setText(clip ? (clip_ ? juce::String::fromUTF8(clip_->name.c_str()) : juce::String())
+                                : (channel_ ? juce::String::fromUTF8(channel_->name.c_str()) : juce::String()),
+                           false);
+            unfocusAllComponents();
+        };
+        addChildComponent(*field);
+    }
+    channelColour_.onChosen = [this](std::optional<int> c) {
+        if (channel_ && c)
+            session_.setTrackColour(channel_->id, *c);
+    };
+    clipColour_.onChosen = [this](std::optional<int> c) {
+        if (clip_)
+            session_.setClipColour(clipParts(), c);
+    };
+    laneColour_.onChosen = [this](std::optional<int> c) {
+        if (lane_ && c)
+            session_.setLaneColour(lane_->id, *c);
+    };
+    for (auto* swatch : {&channelColour_, &clipColour_, &laneColour_})
+        addChildComponent(*swatch);
     clipMute_.setTooltip("Mute the clip: it keeps its place and plays nothing (0)");
     clipMute_.onClick = [this] {
         if (clip_)
@@ -659,6 +701,28 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
     for (auto* button : {&copyTake_, &moveTake_, &keepTake_})
         button->setVisible(has(model::InspectorSection::Take));
     clipMute_.setVisible(has(model::InspectorSection::Clip) && clip_.has_value());
+    // Names and colours.
+    const bool channelShown = (has(model::InspectorSection::Track) || has(model::InspectorSection::Return)) && channel_;
+    channelName_.setVisible(channelShown);
+    channelColour_.setVisible(channelShown);
+    if (channelShown)
+    {
+        if (!channelName_.hasKeyboardFocus(true))
+            channelName_.setText(juce::String::fromUTF8(channel_->name.c_str()), false);
+        channelColour_.setColour(channel_->colour);
+    }
+    const bool clipShown = has(model::InspectorSection::Clip) && clip_;
+    clipName_.setVisible(clipShown);
+    clipColour_.setVisible(clipShown);
+    if (clipShown)
+    {
+        if (!clipName_.hasKeyboardFocus(true))
+            clipName_.setText(juce::String::fromUTF8(clip_->name.c_str()), false);
+        clipColour_.setColour(clip_->colour, true, !clip_->ownColour);
+    }
+    laneColour_.setVisible(has(model::InspectorSection::Lane) && lane_);
+    if (lane_)
+        laneColour_.setColour(lane_->colour);
     clipMute_.setToggleState(clip_ && clip_->muted, juce::dontSendNotification);
     const bool audio = has(model::InspectorSection::Clip) && clip_ && clip_->kind == model::ClipInfo::Kind::Audio;
     for (auto* field : {&fadeIn_, &fadeOut_})
@@ -706,6 +770,19 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
     sends_.setChannel(has(model::InspectorSection::Sends) ? channel_ : std::nullopt, returns);
     resized();
     repaint();
+}
+
+std::vector<std::uint64_t> InspectorPanel::clipParts() const
+{
+    std::vector<std::uint64_t> out;
+    if (!clip_)
+        return out;
+    out.push_back(clip_->id);
+    if (channel_ && clip_->stack != 0)
+        for (const auto& c : channel_->clips)
+            if (c.stack == clip_->stack && c.id != clip_->id)
+                out.push_back(c.id);
+    return out;
 }
 
 void InspectorPanel::setActions(const ActionRegistry& actions)
@@ -809,7 +886,8 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
                                           [](const auto& a) { return a.on; })
                                ? juce::String("Off: the values set by hand")
                                : juce::String("Some off");
-        std::vector<ui::Property> rows{{"Name", {}}, // the field
+        std::vector<ui::Property> rows{{"Name", {}},   // the field
+                                       {"Colour", {}}, // the swatch
                                        {"Points", juce::String(static_cast<int>(lane_->points.size())), true}};
         if (now) // nothing to show for a lane without points or parameters
             rows.push_back({"Value", juce::String::fromUTF8(session_.laneText(lane_->id, *now).c_str()), true});
@@ -842,7 +920,8 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
     {
         if (!clip_)
             return {};
-        std::vector<ui::Property> rows{{"Name", juce::String::fromUTF8(clip_->name.c_str())},
+        std::vector<ui::Property> rows{{"Name", {}},   // the field
+                                       {"Colour", {}}, // the swatch
                                        {"Start", position(clip_->start), true},
                                        {"Length", juce::String(clip_->length, 3) + " s", true},
                                        {"Offset", juce::String(clip_->offset, 3) + " s", true},
@@ -869,11 +948,12 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
     case S::Track:
         if (!channel_)
             return {};
-        return {{"Name", name},
+        return {{"Name", {}},   // the field
+                {"Colour", {}}, // the swatch
                 {"Instrument", channel_->instrument.empty() ? juce::String("None")
                                                             : juce::String::fromUTF8(channel_->instrument.c_str())},
                 {"Clips", juce::String(static_cast<int>(channel_->clips.size())), true}};
-    case S::Return: return {{"Name", name}, {"Modules", modules, true}};
+    case S::Return: return {{"Name", {}}, {"Colour", {}}, {"Modules", modules, true}}; // the field, the swatch
     case S::Master: return {{"Modules", modules, true}};
     case S::Mix:
     case S::Sends:
@@ -919,11 +999,18 @@ void InspectorPanel::resized()
             assignments_.setBounds(stack_.content(i));
         else if (sections_[i] == S::Input)
             input_.setBounds(stack_.content(i));
-        else if (sections_[i] == S::Lane) // the Name row
-            laneName_.setBounds(stack_.content(i)
-                                    .withTrimmedLeft(t.shell.propertyLabelWidth)
-                                    .withHeight(t.shell.rowHeight)
-                                    .reduced(0, t.shell.propertyFieldInset));
+        else if (sections_[i] == S::Lane) // the Name and Colour rows
+        {
+            const auto content = stack_.content(i).withTrimmedLeft(t.shell.propertyLabelWidth).withHeight(t.shell.rowHeight);
+            laneName_.setBounds(content.reduced(0, t.shell.propertyFieldInset));
+            laneColour_.setBounds(content.translated(0, t.shell.rowHeight));
+        }
+        else if (sections_[i] == S::Track || sections_[i] == S::Return) // the Name and Colour rows
+        {
+            const auto content = stack_.content(i).withTrimmedLeft(t.shell.propertyLabelWidth).withHeight(t.shell.rowHeight);
+            channelName_.setBounds(content.reduced(0, t.shell.propertyFieldInset));
+            channelColour_.setBounds(content.translated(0, t.shell.rowHeight));
+        }
         else if (sections_[i] == S::Take) // the Name row and the last
         {
             const auto content = stack_.content(i).withTrimmedLeft(t.shell.propertyLabelWidth);
@@ -937,23 +1024,25 @@ void InspectorPanel::resized()
             moveTake_.setBounds(commands.removeFromLeft(ui::Toggle::widthFor(moveTake_.getButtonText())));
             keepTake_.setBounds(row(6).reduced(0, t.shell.propertyFieldInset).withWidth(ui::Toggle::widthFor(keepTake_.getButtonText())));
         }
-        else if (sections_[i] == S::Clip) // the Mute row
+        else if (sections_[i] == S::Clip) // Name, Colour, Mute, the fades and crossfades
         {
             const auto content = stack_.content(i).withTrimmedLeft(t.shell.propertyLabelWidth);
-            clipMute_.setBounds(content.withY(content.getY() + 4 * t.shell.rowHeight)
+            clipName_.setBounds(content.withHeight(t.shell.rowHeight).reduced(0, t.shell.propertyFieldInset));
+            clipColour_.setBounds(content.withY(content.getY() + t.shell.rowHeight).withHeight(t.shell.rowHeight));
+            clipMute_.setBounds(content.withY(content.getY() + 5 * t.shell.rowHeight)
                                     .withHeight(t.shell.rowHeight)
                                     .withWidth(ui::Toggle::widthFor(clipMute_.getButtonText()))
                                     .reduced(0, t.shell.propertyFieldInset));
             auto row = [&](int n) { return content.withY(content.getY() + n * t.shell.rowHeight).withHeight(t.shell.rowHeight); };
             // A fade's length, then its curve, halves of the value column.
             const int half = (content.getWidth() - t.shell.itemGap) / 2;
-            for (const auto& [length, curve, n] : {std::tuple{&fadeIn_, &fadeInCurve_, 5}, std::tuple{&fadeOut_, &fadeOutCurve_, 6}})
+            for (const auto& [length, curve, n] : {std::tuple{&fadeIn_, &fadeInCurve_, 6}, std::tuple{&fadeOut_, &fadeOutCurve_, 7}})
             {
                 length->setBounds(row(n).withWidth(half));
                 curve->setBounds(row(n).withTrimmedLeft(half + t.shell.itemGap));
             }
             // Each crossfade's shape, then where it sits.
-            int n = 7;
+            int n = 8;
             for (const auto& [join, shape, place] : {std::tuple{&crossIn_, &crossInShape_, &crossInPlace_},
                                                     std::tuple{&crossOut_, &crossOutShape_, &crossOutPlace_}})
                 if (join->has_value())

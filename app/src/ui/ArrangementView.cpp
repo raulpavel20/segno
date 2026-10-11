@@ -565,6 +565,16 @@ void ArrangementView::paint(juce::Graphics& g)
     // Corner above the headers.
     g.setColour(t.surface1);
     g.fillRect(getLocalBounds().removeFromTop(rulerHeight()).removeFromLeft(headerWidth()));
+    // Where a dragged header lands (tracks-and-clips.md §6): a line across the rows.
+    if (rowDrag_ && rowDrag_->moving)
+    {
+        juce::Graphics::ScopedSaveState saved(g);
+        g.reduceClipRegion(getLocalBounds().withTrimmedTop(rulerHeight()));
+        const auto y = boundaryY(rowDrag_->drop.boundary);
+        g.setColour(t.active);
+        g.fillRect(juce::Rectangle<float>(0.0f, y - static_cast<float>(t.shell.dropLine) * 0.5f, static_cast<float>(getWidth()),
+                                          static_cast<float>(t.shell.dropLine)));
+    }
     lastPaintMs_ = juce::Time::getMillisecondCounterHiRes() - start;
 }
 
@@ -1523,6 +1533,7 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
 {
     if (onActivated)
         onActivated();
+    headerActive_ = false;
     const auto pos = e.getPosition();
     const auto lanes = laneArea();
     lastDrag_ = dragStart_ = e.position;
@@ -1570,16 +1581,36 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
         const auto* channel = rowChannel(row->track);
         // A header selects its channel alone, or its lane or take (selection.md §2, automation.md
         // §9, recording.md §10).
-        if (const auto* lane = rowLane(row->track))
+        const auto* lane = rowLane(row->track);
+        if (lane != nullptr)
         {
             selectLane(lane->id);
             if (onLaneActivated)
                 onLaneActivated();
         }
         else
+        {
             selectTrack(channel != nullptr ? std::optional(channel->id) : std::nullopt);
+            headerActive_ = channel != nullptr; // Delete and Duplicate act on the track (tracks-and-clips.md §5)
+        }
         if (e.mods.isPopupMenu())
+        {
             rowMenu(row->track);
+            return;
+        }
+        // A double-click on its name renames it there (§4); a press may start a drag (§6).
+        if (e.getNumberOfClicks() >= 2)
+        {
+            if (const auto name = nameArea(row->track); name && name->contains(pos))
+                renameRow(row->track);
+            return;
+        }
+        const bool movable = lane != nullptr || (channel != nullptr && channel->role != model::TrackInfo::Role::Master);
+        if (e.mods.isLeftButtonDown() && movable)
+        {
+            drag_ = Drag::Row;
+            rowDrag_ = RowDrag{.row = row->track};
+        }
         return;
     }
     if (!lanes.contains(pos))
@@ -1711,6 +1742,11 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
     {
         // Double-click: open a clip in the clip view, or make a MIDI clip on an empty spot.
         drag_ = Drag::None;
+        if (const auto title = hit ? clipTitleArea(hit->clip) : std::nullopt; title && title->contains(pos))
+        {
+            renameClips(hit->clip, {}); // on its title strip: its name (§4)
+            return;
+        }
         if (hit)
         {
             setSelection(model::withClips(*snapshot_, {hit->clip}, rowTrack, rowTrack));
@@ -1762,6 +1798,15 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
 
 void ArrangementView::mouseDrag(const juce::MouseEvent& e)
 {
+    if (drag_ == Drag::Row && rowDrag_)
+    {
+        if (!rowDrag_->moving && e.getDistanceFromDragStart() < ui::Theme::current().input.dragThreshold)
+            return;
+        rowDrag_->moving = true;
+        rowDrag_->drop = model::dropRow(rows_, *snapshot_, static_cast<std::size_t>(rowDrag_->row), boundaryAt(e.position.y));
+        repaint();
+        return;
+    }
     const auto lanes = laneArea();
     if (drag_ == Drag::Fade)
     {
@@ -1881,6 +1926,23 @@ void ArrangementView::mouseExit(const juce::MouseEvent&)
 
 void ArrangementView::mouseUp(const juce::MouseEvent& e)
 {
+    if (drag_ == Drag::Row)
+    {
+        // A header dropped somewhere new: its row moves there (one undo step).
+        drag_ = Drag::None;
+        const auto dragged = std::exchange(rowDrag_, std::nullopt);
+        repaint();
+        if (!dragged || !dragged->moving || !dragged->drop.moves || dragged->row >= static_cast<int>(rows_.size()))
+            return;
+        const auto& r = rows_[static_cast<std::size_t>(dragged->row)];
+        if (r.kind == model::ArrangementRow::Kind::Lane)
+            session_.moveLane(r.lane, dragged->drop.laneAfter, dragged->drop.beforeLane);
+        else if (r.kind == model::ArrangementRow::Kind::Return)
+            session_.moveTrack(r.channel, dragged->drop.beforeReturn);
+        else if (r.kind == model::ArrangementRow::Kind::Track)
+            session_.moveTrack(r.channel, dragged->drop.beforeTrack);
+        return;
+    }
     if (drag_ == Drag::Ruler && e.getDistanceFromDragStart() < ui::Theme::current().input.dragThreshold)
     {
         // A click in the ruler moves the playhead (snapped; Alt for free).
@@ -2139,6 +2201,53 @@ void ArrangementView::duplicatePoints()
     setSelection(model::withLane(*snapshot_, lane->id, edit.selection));
 }
 
+model::AutomationPoints ArrangementView::copyPoints() const
+{
+    model::AutomationPoints out;
+    const auto* lane = selectedLane();
+    if (lane == nullptr)
+        return out;
+    for (const auto i : selection_.points)
+        if (i < lane->points.size())
+            out.push_back(lane->points[i]);
+    std::sort(out.begin(), out.end(), [](const auto& a, const auto& b) { return a.time < b.time; });
+    if (!out.empty())
+    {
+        const double first = out.front().time;
+        for (auto& p : out)
+            p.time -= first;
+    }
+    return out;
+}
+
+bool ArrangementView::pastePoints(const model::AutomationPoints& points, double seconds)
+{
+    const auto* lane = selectedLane();
+    if (lane == nullptr || points.empty())
+        return false;
+    const double from = std::max(0.0, seconds), to = from + points.back().time;
+    model::AutomationPoints merged;
+    for (const auto& p : lane->points)
+        if (p.time < from - 1e-9 || p.time > to + 1e-9)
+            merged.push_back(p);
+    for (auto p : points)
+    {
+        p.time += from;
+        merged.push_back(p);
+    }
+    std::stable_sort(merged.begin(), merged.end(), [](const auto& a, const auto& b) { return a.time < b.time; });
+    std::set<size_t> pasted;
+    for (size_t i = 0; i < merged.size(); ++i)
+        if (merged[i].time >= from - 1e-9 && merged[i].time <= to + 1e-9)
+            pasted.insert(i);
+    const auto id = lane->id;
+    session_.setLanePoints(id, merged, std::nullopt, "Paste");
+    session_.updateSnapshotNow();
+    setSnapshot(session_.snapshot());
+    setSelection(model::withLane(*snapshot_, id, std::move(pasted)));
+    return true;
+}
+
 void ArrangementView::selectAllPoints()
 {
     const auto* lane = selectedLane();
@@ -2185,10 +2294,7 @@ void ArrangementView::rowMenu(int row)
     {
         const auto id = lane->id;
         const bool on = lane->allOn();
-        menu.addItem("Rename...", [this, id] {
-            if (onRenameLane)
-                onRenameLane(id);
-        });
+        menu.addItem(juce::String::fromUTF8("Rename\xE2\x80\xA6"), [this, id] { renameLane(id); });
         menu.addItem("Assign parameter...", [this, id] {
             if (onAssignLane)
                 onAssignLane(id);
@@ -2201,6 +2307,10 @@ void ArrangementView::rowMenu(int row)
                 selectTrack(selection_.channel);
         });
     }
+    // A track's or return's own items (tracks-and-clips.md §10): the shell's.
+    if (const auto* channel = row >= 0 ? rowChannel(row) : nullptr;
+        channel != nullptr && channel->role != model::TrackInfo::Role::Master && onHeaderMenu)
+        onHeaderMenu(menu, channel->id);
     // Rows are made from any row, or the empty space (automation.md §3, daw-shell.md).
     if (onAddMenu)
     {
@@ -2378,5 +2488,190 @@ void ArrangementView::filesDropped(const juce::StringArray& files, int x, int y)
     if (first)
         selectTrack(first);
     repaint();
+}
+} // namespace fd::app
+
+namespace fd::app
+{
+// ---- tracks and clips (C11, ADR 0041, docs/design/tracks-and-clips.md) ------------------------
+
+bool ArrangementView::headerActive() const noexcept
+{
+    return headerActive_ && selection_.channel && selection_.clips.empty() && !selection_.lane && selection_.takes.empty();
+}
+
+std::optional<juce::Rectangle<int>> ArrangementView::nameArea(int row) const
+{
+    if (row < 0 || row >= layout_.trackCount())
+        return std::nullopt;
+    const auto bounds = rowBounds(row, headerArea());
+    model::TrackHeaderSlots slots;
+    if (rowLane(row) != nullptr)
+        slots = model::layoutTrackHeader(bounds.getWidth(), bounds.getHeight(), 1, false);
+    else if (const auto* channel = rowChannel(row))
+        slots = model::layoutTrackHeader(bounds.getWidth(), layout_.baseHeight(row), buttonsOf(*channel), true);
+    else
+        return std::nullopt;
+    const auto& r = slots.name;
+    return juce::Rectangle<double>(r.x, r.y, r.w, r.h).translated(bounds.getX(), bounds.getY()).toNearestInt();
+}
+
+std::optional<juce::Rectangle<int>> ArrangementView::clipTitleArea(std::uint64_t clip) const
+{
+    const auto lanes = laneArea();
+    for (int i = 0; i < layout_.trackCount(); ++i)
+    {
+        const auto* track = rows_[static_cast<std::size_t>(i)].holdsClips() ? rowChannel(i) : nullptr;
+        if (track == nullptr)
+            continue;
+        for (const auto& group : model::clipGroups(*track))
+            if (std::any_of(group.parts.begin(), group.parts.end(), [clip](const auto* p) { return p->id == clip; }))
+            {
+                const float y = static_cast<float>(lanes.getY() + layout_.top(i));
+                const auto title = titleOf(groupBox(group, *track, y, static_cast<float>(layout_.baseHeight(i))));
+                const auto shown = title.getIntersection(lanes.toFloat()).toNearestInt();
+                return shown.isEmpty() ? std::nullopt : std::optional(shown);
+            }
+    }
+    return std::nullopt;
+}
+
+bool ArrangementView::renameRow(int row)
+{
+    const auto area = nameArea(row);
+    if (!area)
+        return false;
+    const auto& sh = ui::Theme::current().shell;
+    // Over the name, its text where it was drawn (the field insets its text), a row high.
+    const auto field = area->withLeft(area->getX() - sh.fieldTextInset).withSizeKeepingCentre(area->getWidth() + sh.fieldTextInset, sh.rowHeight);
+    // Tab keeps it and goes on to the next row's name (Shift+Tab: the one before), as in Live.
+    auto next = [this, row](int direction) {
+        for (int i = row + direction; i >= 0 && i < layout_.trackCount(); i += direction)
+            if (const auto* c = rowChannel(i); rowLane(i) != nullptr || (c != nullptr && c->role != model::TrackInfo::Role::Master))
+            {
+                revealRow(i);
+                renameRow(i);
+                return;
+            }
+    };
+    if (const auto* lane = rowLane(row))
+    {
+        const auto id = lane->id;
+        names_.show(field, juce::String::fromUTF8(lane->displayName().c_str()), ui::TextStyle::Name,
+                    [this, id](const juce::String& name) { session_.renameAutomationLane(id, name.toStdString()); }, next);
+        return true;
+    }
+    const auto* channel = rowChannel(row);
+    if (channel == nullptr || channel->role == model::TrackInfo::Role::Master)
+        return false;
+    const auto id = channel->id;
+    names_.show(field, juce::String::fromUTF8(channel->name.c_str()), ui::TextStyle::Name,
+                [this, id](const juce::String& name) { session_.renameTrack(id, name.toStdString()); }, next);
+    return true;
+}
+
+bool ArrangementView::renameChannel(std::uint64_t channel)
+{
+    for (int i = 0; i < layout_.trackCount(); ++i)
+        if (rowLane(i) == nullptr)
+            if (const auto* c = rowChannel(i); c != nullptr && c->id == channel)
+            {
+                revealRow(i);
+                return renameRow(i);
+            }
+    return false;
+}
+
+bool ArrangementView::renameLane(std::uint64_t lane)
+{
+    const int row = model::rowOfLane(rows_, lane);
+    if (row < 0)
+        return false;
+    revealRow(row);
+    return renameRow(row);
+}
+
+bool ArrangementView::renameClips(std::uint64_t clip, const std::vector<std::uint64_t>& with)
+{
+    const auto title = clipTitleArea(clip);
+    const auto found = model::findClip(*snapshot_, clip);
+    if (!title || !found)
+        return false;
+    // The clip with every part of it (a comp), and the others asked for.
+    std::vector<std::uint64_t> ids{clip};
+    ids.insert(ids.end(), with.begin(), with.end());
+    for (const auto& t : snapshot_->tracks)
+        for (const auto& c : t.clips)
+            for (const auto id : std::vector<std::uint64_t>(ids))
+                if (const auto other = model::findClip(*snapshot_, id);
+                    other && other->first->stack != 0 && c.stack == other->first->stack && c.id != id &&
+                    std::find(ids.begin(), ids.end(), c.id) == ids.end())
+                    ids.push_back(c.id);
+    const auto& sh = ui::Theme::current().shell;
+    names_.show(title->withHeight(std::max(title->getHeight(), sh.rowHeight)), juce::String::fromUTF8(found->first->name.c_str()),
+                ui::TextStyle::Control,
+                [this, ids](const juce::String& name) { session_.renameClips(ids, name.toStdString()); });
+    return true;
+}
+
+bool ArrangementView::renameSelection()
+{
+    if (!selection_.clips.empty())
+    {
+        // The earliest selected clip's title, all of them renamed.
+        std::vector<std::uint64_t> ids(selection_.clips.begin(), selection_.clips.end());
+        std::sort(ids.begin(), ids.end(), [this](auto a, auto b) {
+            const auto x = model::findClip(*snapshot_, a), y = model::findClip(*snapshot_, b);
+            return x && y ? x->first->start < y->first->start : a < b;
+        });
+        for (const auto id : ids)
+            if (renameClips(id, ids))
+                return true;
+        return false;
+    }
+    if (selection_.lane)
+        return renameLane(*selection_.lane);
+    if (selection_.channel)
+        return renameChannel(*selection_.channel);
+    return false;
+}
+
+float ArrangementView::boundaryY(std::size_t boundary) const
+{
+    const auto lanes = laneArea();
+    const int n = layout_.trackCount();
+    if (n == 0)
+        return static_cast<float>(lanes.getY());
+    if (boundary < static_cast<std::size_t>(n))
+        return static_cast<float>(lanes.getY() + layout_.top(static_cast<int>(boundary)));
+    return static_cast<float>(lanes.getY() + layout_.top(n - 1) + layout_.height(n - 1));
+}
+
+std::size_t ArrangementView::boundaryAt(float y) const
+{
+    std::size_t best = 0;
+    float distance = std::numeric_limits<float>::max();
+    for (std::size_t b = 0; b <= static_cast<std::size_t>(layout_.trackCount()); ++b)
+        if (const auto d = std::abs(boundaryY(b) - y); d < distance)
+        {
+            distance = d;
+            best = b;
+        }
+    return best;
+}
+
+bool ArrangementView::cancelRowDrag()
+{
+    if (!rowDrag_)
+        return false;
+    rowDrag_.reset();
+    drag_ = Drag::None;
+    repaint();
+    return true;
+}
+
+std::optional<model::RowDrop> ArrangementView::rowDrop() const
+{
+    return rowDrag_ && rowDrag_->moving ? std::optional(rowDrag_->drop) : std::nullopt;
 }
 } // namespace fd::app

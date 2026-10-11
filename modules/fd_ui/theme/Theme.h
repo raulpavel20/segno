@@ -118,6 +118,7 @@ struct ShellMetrics
     int takeStripHeight = 24;     // a take's strip under its clip (recording.md §6)
     int takeIconSize = 12;        // the audition button in a take strip's name chip (ADR 0038)
     int clipButtonSize = 12;      // a button on a clip: cancel its bounce (menu-bar.md §15)
+    int dropLine = 2;             // where a dragged module or row lands: a line in `active`
     int progressHeight = 2;       // the progress line along the bottom of what's being worked on
     int fadeHandleSize = 7;       // a fade's or crossfade's handle on a clip (fades.md §3)
     float shadowRadius = 18.0f, shadowOffset = 6.0f;

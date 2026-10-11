@@ -169,15 +169,15 @@ Every DAW feature ships with its tools (the coverage rule, ADR 0021). Today:
 | Feature | Tools |
 |---|---|
 | Transport, tempo, signature, loop, metronome | Transport tools |
-| Tracks (add) | `add_track` |
-| Audio and MIDI clips: insert, move, trim, duplicate, split, delete | Track and clip tools |
+| Tracks: add, rename, recolour, move, duplicate, delete (C11) | `add_track`, `set_track`, `move_track`, `duplicate_track`, `delete_tracks` |
+| Audio and MIDI clips: insert, move, trim, duplicate, split, delete; rename and recolour, copy to a place (C11) | Track and clip tools; `set_clips`, `copy_clips` |
 | Piano roll | Note tools |
 | Module chains: add, remove, reorder, bypass, parameters, Sampler sample, collapse and fold | Module tools |
 | Plugin scanning | `scan_plugins` |
 | Projects, undo | Project tools |
 | Live MIDI (computer keyboard, inputs) | Not a tool: a live performance input, not an edit. A `preview_note` tool may come later |
 
-Not in the DAW yet, so no tools yet: renaming, deleting and reordering tracks; clip names and colours. Each brings its tools with it; recording (C5), fades (C6) and bounce (C7) brought theirs. Automation (C4) has its lane tools, and `get_project` lists the automation lanes with their assignments.
+Each feature brings its tools with it: managing tracks and clips (C11) brought `set_track`, `delete_tracks`, `move_track`, `duplicate_track`, `set_clips` and `copy_clips` (clips report their colour); recording (C5), fades (C6) and bounce (C7) brought theirs. Automation (C4) has its lane tools, and `get_project` lists the automation lanes with their assignments.
 
 ## 7. Architecture
 

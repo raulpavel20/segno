@@ -105,6 +105,10 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
             return transport_->countInMenu();
         if (list == "midiLoop")
             return transport_->midiLoopMenu();
+        if (list == "trackColour")
+            return trackColourMenu();
+        if (list == "clipColour")
+            return clipColourMenu();
         return juce::PopupMenu();
     };
     transport_->setBrandShown(kMenuPlatform == model::MenuPlatform::Mac);
@@ -184,6 +188,13 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         actions_.addMenuItem(menu, "track.add");
         actions_.addMenuItem(menu, "track.addReturn");
     };
+    // A track's or return's own header items (tracks-and-clips.md §10).
+    arrangement_.onHeaderMenu = [this](juce::PopupMenu& menu, std::uint64_t) {
+        actions_.addMenuItem(menu, "edit.rename");
+        actions_.addMenuItem(menu, "track.duplicate");
+        actions_.addMenuItem(menu, "track.delete");
+        menu.addSubMenu("Colour", trackColourMenu());
+    };
     // A clip's menu (bounce.md §10): bounce and mute, then the edits; while bouncing, cancel first.
     arrangement_.onClipMenu = [this](juce::PopupMenu& menu) {
         if (!session_.bouncing().empty())
@@ -199,6 +210,12 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         actions_.addMenuItem(menu, "edit.split");
         actions_.addMenuItem(menu, "edit.duplicate");
         actions_.addMenuItem(menu, "edit.delete");
+        menu.addSeparator();
+        actions_.addMenuItem(menu, "edit.cut");
+        actions_.addMenuItem(menu, "edit.copy");
+        actions_.addMenuItem(menu, "edit.paste");
+        menu.addSeparator();
+        menu.addSubMenu("Colour", clipColourMenu());
     };
     actions_.onRefused = [this](const juce::String& why) { showWarning(why); };
     // "Show automation lane" on any control: the lane, in the arrangement.
@@ -259,6 +276,10 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     detail_.pianoRoll().onMenu = [this] {
         juce::PopupMenu menu;
         actions_.addMenuItem(menu, "notes.quantise");
+        menu.addSeparator();
+        actions_.addMenuItem(menu, "edit.cut");
+        actions_.addMenuItem(menu, "edit.copy");
+        actions_.addMenuItem(menu, "edit.paste");
         menu.addSeparator();
         actions_.addMenuItem(menu, "edit.duplicate");
         actions_.addMenuItem(menu, "edit.delete");
@@ -547,12 +568,14 @@ void Shell::registerActions()
                           arrangement_.deletePoints();
                       else if (laneActive())
                           arrangement_.removeSelectedLane();
+                      else if (trackHeaderActive()) // its header (tracks-and-clips.md §5)
+                          deleteChannel(*commandChannel());
                       else if (clipsShown())
                           arrangement_.deleteSelection();
                   },
                   .isEnabled = [this, &roll, clipsShown] {
                       return (notesActive() && roll.hasSelection()) ||
-                             (lastArea_ == Area::Detail && detail_.chain().hasSelection()) || laneActive() ||
+                             (lastArea_ == Area::Detail && detail_.chain().hasSelection()) || laneActive() || trackHeaderActive() ||
                              (clipsShown() && (arrangement_.hasClipSelection() || arrangement_.hasTakeSelection()));
                   }});
     actions_.add({.id = "edit.duplicate", .name = "Duplicate", .category = "Edit", .keys = {key('d', kCmd)},
@@ -561,12 +584,68 @@ void Shell::registerActions()
                           roll.duplicateSelection();
                       else if (pointsActive())
                           arrangement_.duplicatePoints();
+                      else if (trackHeaderActive()) // its header (tracks-and-clips.md §7)
+                          duplicateChannel(*commandChannel());
                       else if (clipsShown())
                           arrangement_.duplicateSelection();
                   },
                   .isEnabled = [this, &roll, clipsShown] {
-                      return (notesActive() && roll.hasSelection()) || pointsActive() ||
+                      return (notesActive() && roll.hasSelection()) || pointsActive() || trackHeaderActive() ||
                              (clipsShown() && arrangement_.hasClipSelection());
+                  }});
+    // Cut, copy and paste (tracks-and-clips.md §9): clips, notes or points, from the area used
+    // last; pasted at the playhead.
+    actions_.add({.id = "edit.cut", .name = "Cut", .category = "Edit", .keys = {key('x', kCmd)},
+                  .perform = [this, &roll] {
+                      const bool notes = notesActive() && roll.hasSelection(), points = pointsActive();
+                      if (!copySelection())
+                          return;
+                      const engine::Session::EditGroup group(session_, "Cut");
+                      if (notes)
+                          roll.deleteSelection();
+                      else if (points)
+                          arrangement_.deletePoints();
+                      else
+                          arrangement_.deleteSelection();
+                  },
+                  .isEnabled = [this] { return canCopy(); }});
+    actions_.add({.id = "edit.copy", .name = "Copy", .category = "Edit", .keys = {key('c', kCmd)},
+                  .perform = [this] { copySelection(); }, .isEnabled = [this] { return canCopy(); }});
+    actions_.add({.id = "edit.paste", .name = "Paste", .category = "Edit", .keys = {key('v', kCmd)},
+                  .perform = [this] { paste(); }, .isEnabled = [this] { return held_ != Held::None; },
+                  .whyNot = [] { return juce::String("Nothing to paste yet: copy or cut something first"); }});
+    // F2: renames what's selected where its name is (tracks-and-clips.md §4).
+    actions_.add({.id = "edit.rename", .name = asks("Rename"), .category = "Edit", .keys = {juce::KeyPress(juce::KeyPress::F2Key)},
+                  .perform = [this] {
+                      const auto& sel = arrangement_.selection();
+                      if (mixerShown_ && sel.channel)
+                          mixer_.renameChannel(*sel.channel);
+                      else if (!mixerShown_)
+                          arrangement_.renameSelection();
+                  },
+                  .isEnabled = [this] {
+                      const auto& sel = arrangement_.selection();
+                      if (!sel.clips.empty() || sel.lane)
+                          return !mixerShown_;
+                      return commandChannel().has_value();
+                  }});
+    // The selected track's or return's own commands (Delete and Ctrl+D do these from its header).
+    auto channelCommand = [this] { return commandChannel().has_value() && !session_.isRecording(); };
+    actions_.add({.id = "track.duplicate", .name = "Duplicate track", .category = "Track",
+                  .perform = [this] {
+                      if (const auto c = commandChannel())
+                          duplicateChannel(*c);
+                  },
+                  .isEnabled = channelCommand});
+    actions_.add({.id = "track.delete", .name = "Delete track", .category = "Track",
+                  .perform = [this] {
+                      if (const auto c = commandChannel())
+                          deleteChannel(*c);
+                  },
+                  .isEnabled = channelCommand,
+                  .whyNot = [this] {
+                      return session_.isRecording() ? juce::String("Stop recording first: tracks can't be deleted while a pass records")
+                                                    : juce::String();
                   }});
     actions_.add({.id = "edit.split", .name = "Split at playhead", .category = "Edit", .keys = {key('e', kCmd)},
                   .perform = [this] { arrangement_.splitAtPlayhead(); }, .isEnabled = clipsShown});
@@ -954,6 +1033,8 @@ bool Shell::keyPressed(const juce::KeyPress& k)
     // take it first, being focused.
     if (k == juce::KeyPress::escapeKey)
     {
+        if (arrangement_.cancelRowDrag())
+            return true;
         const bool bounces = session_.cancelBounces();
         if (exportPanel_.cancel() || bounces)
             return true;
@@ -1278,6 +1359,194 @@ juce::PopupMenu Shell::recentMenu()
         saveSettings();
     }));
     return menu;
+}
+
+std::optional<std::uint64_t> Shell::commandChannel() const
+{
+    const auto& sel = arrangement_.selection();
+    if (!sel.channel || sel.lane)
+        return std::nullopt;
+    const auto* c = session_.snapshot()->channel(*sel.channel);
+    return c != nullptr && c->role != model::TrackInfo::Role::Master ? std::optional(c->id) : std::nullopt;
+}
+
+bool Shell::trackHeaderActive() const
+{
+    return lastArea_ == Area::Arrangement && !mixerShown_ && arrangement_.headerActive() && commandChannel().has_value();
+}
+
+void Shell::deleteChannel(std::uint64_t channel)
+{
+    const auto snapshot = session_.snapshot();
+    const auto* c = snapshot->channel(channel);
+    if (c == nullptr)
+        return;
+    const auto name = juce::String::fromUTF8(c->name.c_str());
+    // Then the one above it is selected (the one below, for the first).
+    const auto& kind = c->role == model::TrackInfo::Role::Return ? snapshot->returns : snapshot->tracks;
+    std::optional<std::uint64_t> next;
+    for (size_t i = 0; i < kind.size(); ++i)
+        if (kind[i].id == channel)
+            next = i > 0 ? std::optional(kind[i - 1].id) : i + 1 < kind.size() ? std::optional(kind[i + 1].id) : std::nullopt;
+    std::string why;
+    if (!session_.deleteTrack(channel, &why))
+    {
+        if (!why.empty())
+            showWarning(juce::String::fromUTF8(why.c_str()));
+        return;
+    }
+    session_.updateSnapshotNow();
+    arrangement_.selectTrack(next);
+    // Nothing asked first: what went, with Undo (tracks-and-clips.md §5).
+    showToast("Deleted " + name, "Undo", [this] { session_.undo(); });
+}
+
+void Shell::duplicateChannel(std::uint64_t channel)
+{
+    const auto copy = session_.duplicateTrack(channel);
+    if (copy == 0)
+    {
+        showWarning(session_.isRecording() ? "Stop recording first" : "There's no room for another return track (32 at most)");
+        return;
+    }
+    session_.updateSnapshotNow();
+    arrangement_.selectTrack(copy);
+}
+
+juce::PopupMenu Shell::trackColourMenu()
+{
+    juce::PopupMenu menu;
+    const auto snapshot = session_.snapshot();
+    if (const auto lane = arrangement_.selection().lane)
+    {
+        for (const auto& l : snapshot->automationLanes)
+            if (l.id == *lane)
+                ui::addColourGrid(menu, l.colour, [this, id = l.id](std::optional<int> c) {
+                    if (c)
+                        session_.setLaneColour(id, *c);
+                });
+        return menu;
+    }
+    if (const auto c = commandChannel())
+        ui::addColourGrid(menu, snapshot->channel(*c)->colour, [this, id = *c](std::optional<int> colour) {
+            if (colour)
+                session_.setTrackColour(id, *colour);
+        });
+    else
+        menu.addItem(juce::PopupMenu::Item("Select a track first").setEnabled(false));
+    return menu;
+}
+
+juce::PopupMenu Shell::clipColourMenu()
+{
+    juce::PopupMenu menu;
+    const auto snapshot = session_.snapshot();
+    // The selected clips, with every part of a comp.
+    std::vector<std::uint64_t> ids;
+    const model::ClipInfo* first = nullptr;
+    if (!mixerShown_)
+        for (const auto& t : snapshot->tracks)
+            for (const auto& c : t.clips)
+                if (arrangement_.selection().clips.contains(c.id) ||
+                    (c.stack != 0 && std::any_of(t.clips.begin(), t.clips.end(), [&](const auto& o) {
+                         return o.stack == c.stack && arrangement_.selection().clips.contains(o.id);
+                     })))
+                {
+                    ids.push_back(c.id);
+                    if (first == nullptr)
+                        first = &c;
+                }
+    if (first == nullptr)
+    {
+        menu.addItem(juce::PopupMenu::Item("Select clips first").setEnabled(false));
+        return menu;
+    }
+    ui::addColourGrid(
+        menu, first->colour, [this, ids](std::optional<int> c) { session_.setClipColour(ids, c); }, true, !first->ownColour);
+    return menu;
+}
+
+bool Shell::canCopy() const
+{
+    return (notesActive() && detail_.pianoRoll().hasSelection()) || pointsActive() ||
+           (!mixerShown_ && lastArea_ != Area::Clip && arrangement_.hasClipSelection());
+}
+
+bool Shell::copySelection()
+{
+    auto& roll = detail_.pianoRoll();
+    if (notesActive() && roll.hasSelection())
+    {
+        heldNotes_ = roll.copySelection();
+        held_ = Held::Notes;
+        return true;
+    }
+    if (pointsActive())
+    {
+        heldPoints_ = arrangement_.copyPoints();
+        held_ = Held::Points;
+        return true;
+    }
+    if (!mixerShown_ && arrangement_.hasClipSelection())
+    {
+        const auto& sel = arrangement_.selection().clips;
+        heldClips_ = session_.copyClips({sel.begin(), sel.end()});
+        held_ = heldClips_.empty() ? held_ : Held::Clips;
+        return !heldClips_.empty();
+    }
+    return false;
+}
+
+void Shell::paste()
+{
+    const double at = session_.position();
+    switch (held_)
+    {
+    case Held::None:
+        return;
+    case Held::Notes:
+        if (!detail_.showsPianoRoll())
+        {
+            showWarning("Notes paste into the clip view: open a MIDI clip there first");
+            return;
+        }
+        {
+            const engine::Session::EditGroup group(session_, "Paste");
+            detail_.pianoRoll().pasteNotes(heldNotes_, at);
+        }
+        lastArea_ = Area::Clip;
+        return;
+    case Held::Points:
+        if (mixerShown_ || !arrangement_.pastePoints(heldPoints_, at))
+            showWarning("Points paste onto an automation lane: select one first");
+        else
+            lastArea_ = Area::Lane;
+        return;
+    case Held::Clips:
+    {
+        // On the selected track (else the first), rows kept (tracks-and-clips.md §9).
+        const auto snapshot = session_.snapshot();
+        std::uint64_t target = 0;
+        if (const auto c = arrangement_.selection().channel)
+            if (const auto* info = snapshot->channel(*c); info != nullptr && info->holdsClips())
+                target = info->id;
+        if (target == 0 && !snapshot->tracks.empty())
+            target = snapshot->tracks.front().id;
+        if (target == 0 || mixerShown_)
+        {
+            showWarning("Clips paste onto a track in the arrangement");
+            return;
+        }
+        const auto result = session_.pasteClips(heldClips_, target, at);
+        session_.updateSnapshotNow();
+        lastArea_ = Area::Arrangement;
+        arrangement_.setSelection(model::withClips(*session_.snapshot(), {result.clips.begin(), result.clips.end()}, target, target));
+        if (result.rowsLeftOut > 0)
+            showWarning(juce::String(result.rowsLeftOut) + (result.rowsLeftOut == 1 ? " row" : " rows") +
+                        " had no track below: left out");
+        return;
+    }
+    }
 }
 
 void Shell::showAudioSettings()

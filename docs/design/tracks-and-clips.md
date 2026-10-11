@@ -12,7 +12,7 @@ The decision is [ADR 0041](../decisions/0041-tracks-and-clips-managed-in-place.m
 
 It settles open questions B41 (what deleting a track takes with it), B50 (cut, copy and paste) and B52 (renaming).
 
-**Status:** approved by the product owner (2026-10-11), with every recommendation of §13 ([ADR 0041](../decisions/0041-tracks-and-clips-managed-in-place.md)). Building.
+**Status:** approved by the product owner (2026-10-11), with every recommendation of §13 ([ADR 0041](../decisions/0041-tracks-and-clips-managed-in-place.md)). Built (2026-10-11); awaiting the product owner's feel check (manual-tests/M2.md, "Tracks and clips (C11)"). What building settled is noted in §17.
 
 ## 1. Why
 
@@ -249,3 +249,24 @@ This amends ADR 0029's "lanes stay where they were put": the lanes right after a
   - Paste at original position (Studio One, Logic, Cubase);
   - moving tracks with the keyboard;
   - colours beyond the palette.
+
+## 17. Settled while building
+
+- **Renaming:**
+  - Tab goes on to the next row with a name, a lane's as well as a track's, bringing it into sight.
+  - A clip's title is renamed with every part of a comp.
+  - The lane header's Rename… now edits in place too.
+- **"Its header was clicked last"** is the arrangement's to tell (`ArrangementView::headerActive`): a click anywhere else ends it, and a click on a clip in the track never deletes the track.
+- **Colours:**
+  - The snapshot says whether a clip has a colour of its own (`ClipInfo::ownColour`), so the grid ticks "Track colour" and the inspector's swatch says so.
+  - Lanes take colours from the same grid (Track > Colour with a lane selected, the inspector's swatch).
+  - Track > Colour and Clip > Colour are lists in the menu bar, as ADR 0040 allows for lists.
+- **Pasting:**
+  - Notes paste as one undo step, "Paste", and are selected; at the clip's start when the playhead isn't over the clip.
+  - Points replace those over their span, keeping their values in the lane's 0..1, and are selected.
+- **The drop line** is one metric, `shell.dropLine`, shared with the module chain's (it was a 2 hand-placed there).
+- **Assistants:** clips report their colour in every result that lists them.
+- **Engine:**
+  - a duplicate is tracktion's state copied with new ids, its clips' take references re-pointed to the copied takes;
+  - a return's copy takes the lowest free aux bus;
+  - deleting a track clears live MIDI's target if it was that track.

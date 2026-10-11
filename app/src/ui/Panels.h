@@ -193,6 +193,12 @@ private:
     const ActionRegistry* actions_ = nullptr;
     /// The selected clip's mute (bounce.md §6), as on a track's mute button.
     ui::Toggle clipMute_{"M"};
+    /// Names typed and colours chosen (tracks-and-clips.md §4, §8): a track's or return's, a
+    /// clip's (with its parts), a lane's colour. Each one undo step.
+    juce::TextEditor channelName_, clipName_;
+    ui::ColourSwatch channelColour_, clipColour_, laneColour_;
+    /// The selected clip and every part of it (a comp).
+    [[nodiscard]] std::vector<std::uint64_t> clipParts() const;
     /// An audio clip's fade lengths, dragged or typed in ms (fades.md §3), and beside each its
     /// curve (−100 … 100 %, 0 straight; menu-bar.md §15): one undo step each.
     ui::NumberField fadeIn_, fadeOut_, fadeInCurve_, fadeOutCurve_;
@@ -238,6 +244,7 @@ public:
     /// Shows the module view with `id` selected.
     void selectModule(std::uint64_t id);
     [[nodiscard]] PianoRoll& pianoRoll() noexcept { return roll_; }
+    [[nodiscard]] const PianoRoll& pianoRoll() const noexcept { return roll_; }
     /// Once per display frame.
     void frame(double playheadSeconds);
     void paint(juce::Graphics& g) override;

@@ -132,6 +132,7 @@ Role functions for colours that depend on content:
 | `shell.takeIconSize` | 12 (the audition button, `Icon::Audition`, at the start of a take strip's name chip; ADR 0038) |
 | `shell.progressHeight` | 2 (the progress line along the bottom of what's being worked on, C7) |
 | `shell.clipButtonSize` | 12 (a button on a clip, on a `surface2` chip: cancel its bounce; menu-bar.md §15) |
+| `shell.dropLine` | 2 (where a dragged module, row or strip lands: a line in `active`) |
 | `shell.fadeHandleSize` | 7 (a fade's or crossfade's handle on a clip, C6; a fade narrower than this draws only its handle) |
 
 Components size themselves for their text: `ui::Toggle::widthFor(label)` and `ui::NumberField::widthFor(widest value)`; bars ask them rather than adding padding by hand. Every clip the arrangement draws (clips, recordings in progress, take strips) takes its box and title from one place (`ArrangementView::clipBox`, `titleOf`), with its edges on whole pixels.
@@ -155,6 +156,9 @@ Components size themselves for their text: `ui::Toggle::widthFor(label)` and `ui
 | `model::layoutTopBar` (app) | The top bar's three sections: left and right items on the item and group gaps, the centre cluster on the bar's middle (moved in only when the sides need the room), and items dropped by priority when it's narrow; pure, `[fast]`-tested | The top bar |
 | `OutsideClick` | Closes a popover on any mouse press outside it (other top-level windows, such as its popup menus, excepted); popovers also close on Escape | The command palette, the lane picker, the Assistants popover |
 | `Brand` | The mark (`paintMark`), the mark and name (`paintBrand`), the app icon (`appIcon`) | The title bar's left end (the top bar's on macOS); the app and window icon |
+| `NameEditor` | A name edited in place (C11): a field over the name's own area in its text style, on `surface2` with the focus ring, its text where the name was, selected; Return or a click away keeps it, Escape or an empty name restores it, Tab and Shift+Tab go on | Track and lane headers, clip titles, mixer strips |
+| `ColourGrid` / `addColourGrid` | The 16 palette colours as a 4 × 4 grid in a menu, a row high each, `itemGap` apart, padded like a text button, the current one ringed; optionally "Track colour" first | Right-click and menu bar Colour ▸ (C11) |
+| `ColourSwatch` | A colour as a property value: its swatch a row high (and "Track colour" while a clip follows its track), the hover wash; a click opens the grid | The inspector's Colour rows (C11) |
 | `WindowButtons` | Minimise, maximise (restore while maximised) and close, each `windowButtonWidth` wide and as tall as their bar: a glyph in `textSecondary`, `textPrimary` on the hover wash when hovered, Close on `record` (red); where each one is answers the system's hit-testing | The title bar (C10) |
 | The menu bar's look (`LookAndFeel`) | Titles in `Field`, padded like text buttons, `itemGap` apart: `textSecondary`; hovered, `textPrimary` on the hover wash; open, on its menu's `surface2` down to the bar's bottom so the two read as one. A model that is a `MenuMnemonics` gets its Alt letters underlined while the bar's `mnemonicsShown` is set | The title bar's menus (C10) |
 | `TitleBar` (app) | The brand and the menus on the left, the project's name in the middle (`model::placeTitle`: centred, moved in, elided before the wordmark drops; a dot while unsaved), the window buttons on the right; `model::layoutTopBar` places it | The window's top, Linux and Windows (C10) |

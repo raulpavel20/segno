@@ -115,6 +115,9 @@ app/src/
 | The take menu's commands on the selected takes (C10): use it for the whole clip, rename, copy or move to a new track, keep only it (the inspector's TAKE has Copy, Move and Keep only too; Delete deletes takes) | `take.useWhole`, `take.rename`, `take.copyToTrack`, `take.moveToTrack`, `take.keepOnly` | (menus only) |
 | Use the system title bar (C10; Linux, Windows) | `app.systemTitleBar` | (menus only) |
 | About Segno (C10) | `app.about` | (menus only) |
+| Cut / copy / paste (C11): clips, notes or points, from the area used last; paste at the playhead | `edit.cut` / `edit.copy` / `edit.paste` | Ctrl+X / Ctrl+C / Ctrl+V |
+| Rename… what's selected, where its name is (C11) | `edit.rename` | F2 |
+| Duplicate / delete the selected track or return (C11; Ctrl+D and Delete do it from its header) | `track.duplicate` / `track.delete` | (menus only) |
 
 Each step adds its actions as it lands. An action that can't run now dims in menus and the palette; if it says why (`Action::whyNot`), pressing its shortcut shows the reason as a toast instead of doing nothing.
 
@@ -309,6 +312,12 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 
 - **A clip's menu** (right-click on a clip; it's selected first unless it's in the selection): Bounce in place, Bounce to new track, Mute clips, then Split at playhead, Duplicate, Delete, from the action registry; while a bounce runs, Cancel bounces first (C10). The take badge keeps its own menu.
 - **Where you work** (C10 review, [menu-bar.md](menu-bar.md) §15): Snap in the corner above the track headers; Quantise in the clip view's header; a × on a clip being bounced cancels it; the inspector's CLIP sets each fade's curve and each crossfade's shape and position; its TAKE copies or moves the take to a new track or keeps only it.
+- **Tracks and clips** (C11, [tracks-and-clips.md](tracks-and-clips.md), ADR 0041):
+  - a double-click on a header's or a mixer strip's name, or on a clip's title strip, renames it in place (`ui::NameEditor`); F2 renames the selection; Tab goes on to the next row's name;
+  - Delete and Ctrl+D act on a track whose header was clicked last; deleting says what went in a toast with Undo;
+  - dragging a header (its background) or a strip's name moves it, a line in `active` showing where; Escape cancels;
+  - a header's right-click menu starts with Rename…, Duplicate track, Delete track and Colour ▸; a clip's ends with Cut, Copy, Paste and Colour ▸;
+  - the inspector's Name rows are fields and its Colour rows swatches (`ui::ColourSwatch`), the palette a 4 × 4 grid (`ui::ColourGrid`).
 - **More right-click menus** (C10, so nothing is a key alone): notes in the piano roll (Quantise, Duplicate, Delete; the note under the pointer is selected first); the computer keyboard button (on/off, octave and velocity); the title bar's caption on Linux (Minimise, Maximise, Close, Use the system title bar).
 - **Ctrl+B / Ctrl+Shift+B** bounce the selected clips; clips that can't be bounced are left out, and when none can, the shortcut's toast says why. The bounced clips are selected when they land; a tail cut by a clip that isn't bounced is reported in a toast.
 - **While a bounce renders,** its clips show a progress line along their bottom (`ui::paintProgress`, after `motion.progressDelay`); Escape cancels it.

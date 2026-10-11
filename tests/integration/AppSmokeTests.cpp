@@ -636,7 +636,8 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
     CHECK(actions.conflicts().empty());
     // ui-principles §1: a shortcut for every action but the rare ones the menus hold alone.
     const std::set<std::string> menuOnly{"take.useWhole", "take.rename",        "take.copyToTrack", "take.moveToTrack",
-                                         "take.keepOnly", "app.systemTitleBar", "app.about"};
+                                         "take.keepOnly", "app.systemTitleBar", "app.about",
+                                         "track.duplicate", "track.delete"};
     for (const auto& a : actions.all())
     {
         INFO(a.id);
@@ -2094,7 +2095,8 @@ TEST_CASE("bounce: Ctrl+B bounces the selected clips in place, 0 mutes, the clip
                 enabled.push_back(it.getItem().isEnabled);
             }
         CHECK(names == std::vector<juce::String>{"Bounce in place", "Bounce to new track", "Mute clips", "Crossfade",
-                                                 "Split at playhead", "Duplicate", "Delete"});
+                                                 "Split at playhead", "Duplicate", "Delete", "Cut", "Copy", "Paste",
+                                                 "Colour"}); // the clipboard and colour: tracks-and-clips.md §10
         CHECK_FALSE(enabled[0]); // no instrument on this clip's track
         CHECK(enabled[2]);
     }
@@ -2993,4 +2995,231 @@ TEST_CASE("snap and quantise where they're used; the take's commands in its insp
         CHECK(std::find(takeButtons.begin(), takeButtons.end(), juce::String(name)) != takeButtons.end());
     CHECK_FALSE(actions.isEnabled("take.copyToTrack")); // no take selected: they act on selected takes only
     CHECK(actions.find("take.delete") == nullptr);       // Delete deletes selected takes
+}
+
+namespace
+{
+/// The arrangement row of a channel (not a lane).
+int rowOf(fd::app::ArrangementView& view, std::uint64_t channel)
+{
+    const auto& rows = view.rows();
+    for (size_t i = 0; i < rows.size(); ++i)
+        if (!rows[i].isLane() && rows[i].channel == channel)
+            return static_cast<int>(i);
+    return -1;
+}
+} // namespace
+
+TEST_CASE("tracks: renamed where their names are, deleted and duplicated from their header, dragged to a new place (C11)",
+          "[integration]")
+{
+    ShellFixture f;
+    auto& s = *f.session;
+    const auto& actions = f.shell->actions();
+    f.shell->setSize(1600, 900);
+    f.shell->finishAnimations();
+    auto& view = f.shell->arrangement();
+    auto ids = [&s] {
+        s.updateSnapshotNow();
+        std::vector<std::uint64_t> out;
+        for (const auto& t : s.snapshot()->tracks)
+            out.push_back(t.id);
+        return out;
+    };
+    auto name = [&s](std::uint64_t id) {
+        s.updateSnapshotNow();
+        return s.snapshot()->channel(id)->name;
+    };
+    auto sync = [&] {
+        s.updateSnapshotNow();
+        view.setSnapshot(s.snapshot());
+    };
+    auto tracks = ids();
+    REQUIRE(tracks.size() >= 3);
+    const auto t0 = tracks[0], t1 = tracks[1];
+
+    // A double-click on a header's name: the field over it; Return keeps the name.
+    sync();
+    auto area = view.nameArea(rowOf(view, t0));
+    REQUIRE(area.has_value());
+    click(view, area->getCentre().toFloat(), 2);
+    auto& editor = view.nameEditor();
+    REQUIRE(editor.isEditing());
+    CHECK(editor.field().getText() == juce::String::fromUTF8(name(t0).c_str()));
+    CHECK(view.getLocalBounds().contains(editor.field().getBounds()));
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "rename-track@2x.png", view.createComponentSnapshot(area->expanded(60, 30), true, 2.0f));
+    editor.field().setText("Bass", false);
+    editor.field().onReturnKey();
+    CHECK_FALSE(editor.isEditing());
+    CHECK(name(t0) == "Bass");
+    CHECK(s.undoDescription() == "Rename track");
+    // Escape restores; an empty name changes nothing.
+    sync();
+    REQUIRE(view.renameChannel(t0));
+    editor.field().setText("Nope", false);
+    editor.field().onEscapeKey();
+    CHECK(name(t0) == "Bass");
+    REQUIRE(view.renameChannel(t0));
+    editor.field().setText("   ", false);
+    editor.field().onReturnKey();
+    CHECK(name(t0) == "Bass");
+
+    // F2 on a selected clip: its title; every selected clip takes the name.
+    const auto clip = s.createMidiClip(t1, 2.0, 2.0);
+    sync();
+    view.setSelection(fd::model::withClips(*s.snapshot(), {clip}, t1, t1));
+    REQUIRE(actions.perform("edit.rename"));
+    REQUIRE(editor.isEditing());
+    editor.field().setText("Riff", false);
+    editor.field().onReturnKey();
+    s.updateSnapshotNow();
+    CHECK(fd::model::findClip(*s.snapshot(), clip)->first->name == "Riff");
+    // A double-click on a clip's title renames it too (its body still opens it).
+    sync();
+    const auto title = view.clipTitleArea(clip);
+    REQUIRE(title.has_value());
+    click(view, title->getCentre().toFloat(), 2);
+    CHECK(editor.isEditing());
+    editor.cancel();
+
+    // The inspector's Name row is a field; its Colour row a swatch.
+    sync();
+    view.selectTrack(t1);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    juce::TextEditor* nameField = nullptr;
+    for (auto* field : findAll<juce::TextEditor>(f.shell->inspector()))
+        if (field->isVisible() && field->getText() == juce::String::fromUTF8(name(t1).c_str()))
+            nameField = field;
+    REQUIRE(nameField != nullptr);
+    nameField->setText("Keys", false);
+    nameField->onReturnKey();
+    CHECK(name(t1) == "Keys");
+    auto swatches = findAll<fd::ui::ColourSwatch>(f.shell->inspector());
+    const auto swatch = std::find_if(swatches.begin(), swatches.end(), [](auto* sw) { return sw->isVisible(); });
+    REQUIRE(swatch != swatches.end());
+    (*swatch)->onChosen(9);
+    s.updateSnapshotNow();
+    CHECK(s.snapshot()->channel(t1)->colour == 9);
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "inspector-track@2x.png",
+                f.shell->inspector().createComponentSnapshot(f.shell->inspector().getLocalBounds().withHeight(220), true, 2.0f));
+
+    // Delete and Ctrl+D act on a track whose header was clicked last.
+    sync();
+    area = view.nameArea(rowOf(view, t1));
+    click(view, area->getCentre().toFloat());
+    REQUIRE(view.headerActive());
+    REQUIRE(actions.handleKey(juce::KeyPress('d', juce::ModifierKeys::commandModifier, 0)));
+    tracks = ids();
+    CHECK(name(tracks[2]) == "Keys 2"); // right after it
+    CHECK(view.selection().channel == tracks[2]);
+    sync();
+    click(view, view.nameArea(rowOf(view, tracks[2]))->getCentre().toFloat());
+    REQUIRE(actions.handleKey(juce::KeyPress(juce::KeyPress::deleteKey)));
+    CHECK(ids().size() == tracks.size() - 1);
+    CHECK(f.shell->lastWarning() == "Deleted Keys 2");
+    CHECK(view.selection().channel == t1); // the one above
+    s.undo();
+    CHECK(ids().size() == tracks.size());
+    s.undo(); // the duplicate
+    // A click on a clip: Delete deletes the clip, not its track.
+    sync();
+    view.setSelection(fd::model::withClips(*s.snapshot(), {clip}, t1, t1));
+    CHECK_FALSE(view.headerActive());
+
+    // Dragging a header: a line where it lands, then it moves there (one undo step).
+    sync();
+    tracks = ids();
+    const auto from = view.nameArea(rowOf(view, t0))->getCentre().toFloat();
+    const auto below = view.nameArea(rowOf(view, tracks[2]))->getBottom() + 30; // past the third track's middle
+    view.mouseDown(mouseEvent(view, from, from, false));
+    const juce::Point<float> to(from.x, static_cast<float>(below));
+    view.mouseDrag(mouseEvent(view, to, from, true));
+    REQUIRE(view.rowDrop().has_value());
+    CHECK(view.rowDrop()->moves);
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "drag-track@2x.png", view.createComponentSnapshot(view.getLocalBounds().withHeight(320).withWidth(700), true, 2.0f));
+    view.mouseUp(mouseEvent(view, to, from, true));
+    CHECK(ids()[0] == t1);
+    CHECK(s.undoDescription() == "Move track");
+    // Escape cancels a drag.
+    sync();
+    const auto again = view.nameArea(rowOf(view, t1))->getCentre().toFloat();
+    view.mouseDown(mouseEvent(view, again, again, false));
+    view.mouseDrag(mouseEvent(view, again + juce::Point<float>(0.0f, 200.0f), again, true));
+    REQUIRE(f.shell->keyPressed(juce::KeyPress(juce::KeyPress::escapeKey)));
+    CHECK_FALSE(view.rowDrop().has_value());
+    view.mouseUp(mouseEvent(view, again + juce::Point<float>(0.0f, 200.0f), again, true));
+    CHECK(ids()[0] == t1);
+
+    // The mixer: a double-click on a strip's name renames it; dragging the name moves it.
+    actions.perform("view.mixer");
+    f.shell->finishAnimations();
+    auto& mixer = f.shell->mixer();
+    mixer.setSnapshot(s.snapshot());
+    REQUIRE(mixer.renameChannel(t0));
+    REQUIRE(mixer.nameEditor().isEditing());
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "rename-strip@2x.png", mixer.createComponentSnapshot(mixer.getLocalBounds().withHeight(120).withWidth(400), true, 2.0f));
+    mixer.nameEditor().field().setText("Low", false);
+    mixer.nameEditor().field().onReturnKey();
+    CHECK(name(t0) == "Low");
+    actions.perform("view.mixer");
+}
+
+TEST_CASE("clipboard: Ctrl+C and Ctrl+V paste clips at the playhead on the selected track; Ctrl+X cuts (C11)", "[integration]")
+{
+    ShellFixture f;
+    auto& s = *f.session;
+    const auto& actions = f.shell->actions();
+    f.shell->setSize(1600, 900);
+    auto& view = f.shell->arrangement();
+    s.updateSnapshotNow();
+    const auto t0 = s.snapshot()->tracks[0].id, t2 = s.snapshot()->tracks[2].id;
+    const auto clip = s.createMidiClip(t0, 0.0, 2.0);
+    s.setNotes(clip, {{.pitch = 60, .start = 0.0, .length = 1.0}, {.pitch = 64, .start = 1.0, .length = 1.0}});
+    s.updateSnapshotNow();
+    view.setSnapshot(s.snapshot());
+    CHECK_FALSE(actions.isEnabled("edit.paste"));
+    view.setSelection(fd::model::withClips(*s.snapshot(), {clip}, t0, t0));
+    REQUIRE(actions.handleKey(juce::KeyPress('c', juce::ModifierKeys::commandModifier, 0)));
+    // The playhead at 8 s on the third track.
+    s.setPosition(8.0);
+    view.selectTrack(t2);
+    REQUIRE(actions.handleKey(juce::KeyPress('v', juce::ModifierKeys::commandModifier, 0)));
+    s.updateSnapshotNow();
+    const auto* third = s.snapshot()->channel(t2);
+    REQUIRE(third->clips.size() == 1);
+    CHECK(third->clips[0].start == Catch::Approx(8.0));
+    CHECK(s.undoDescription() == "Paste");
+    CHECK(view.selection().clips.contains(third->clips[0].id)); // the copy, selected
+
+    // Ctrl+X: gone, and it still pastes.
+    view.setSelection(fd::model::withClips(*s.snapshot(), {clip}, t0, t0));
+    REQUIRE(actions.handleKey(juce::KeyPress('x', juce::ModifierKeys::commandModifier, 0)));
+    s.updateSnapshotNow();
+    CHECK(s.snapshot()->channel(t0)->clips.empty());
+    CHECK(s.undoDescription() == "Cut");
+    s.setPosition(4.0);
+    view.selectTrack(t0);
+    REQUIRE(actions.perform("edit.paste"));
+    s.updateSnapshotNow();
+    REQUIRE(s.snapshot()->channel(t0)->clips.size() == 1);
+    CHECK(s.snapshot()->channel(t0)->clips[0].notes.size() == 2);
+
+    // The clip's menu has them, and its colour.
+    juce::PopupMenu menu;
+    view.onClipMenu(menu);
+    CHECK(findItem(menu, "Copy") != nullptr);
+    CHECK(findItem(menu, "Colour") != nullptr);
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+    {
+        dumpPng(dump, "clip-menu@2x.png", renderMenu(menu, f.lnf, 2.0f));
+        fd::ui::ColourGrid grid(5, [](int) {});
+        int w = 0, h = 0;
+        grid.getIdealSize(w, h);
+        grid.setSize(w, h);
+        dumpPng(dump, "colour-grid@2x.png", grid.createComponentSnapshot(grid.getLocalBounds(), true, 2.0f));
+    }
 }

@@ -14,3 +14,5 @@
 #include "shell/ShellParts.cpp"
 #include "shell/Brand.cpp"
 #include "shell/WindowButtons.cpp"
+#include "shell/NameEditor.cpp"
+#include "shell/ColourGrid.cpp"

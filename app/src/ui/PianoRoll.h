@@ -46,6 +46,11 @@ public:
     void nudge(int gridSteps);
     /// Quantises the selection, or every note when nothing is selected.
     void quantise();
+    /// The selected notes, the earliest starting at 0 (cut, copy: tracks-and-clips.md §9).
+    [[nodiscard]] std::vector<model::Note> copySelection() const;
+    /// Adds `notes` at `seconds` (the playhead) in the clip, or at its start when the playhead
+    /// isn't over it; they're selected. One undo step.
+    void pasteNotes(const std::vector<model::Note>& notes, double seconds);
 
     /// Called when the piano roll is clicked (the shell routes commands to the area used last).
     std::function<void()> onActivated;

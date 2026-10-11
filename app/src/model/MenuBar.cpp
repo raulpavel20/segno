@@ -80,13 +80,15 @@ std::vector<Menu> menuBar(MenuPlatform platform)
     menus.push_back(
         {"Edit",
          'e',
-         {action("edit.undo"), action("edit.redo"), separator(), action("edit.delete"),
-          action("edit.duplicate"), action("edit.split"), separator(), action("edit.selectAll")}});
+         {action("edit.undo"), action("edit.redo"), separator(), action("edit.cut"), action("edit.copy"),
+          action("edit.paste"), separator(), action("edit.delete"), action("edit.duplicate"), action("edit.split"),
+          separator(), action("edit.rename"), action("edit.selectAll")}});
 
     menus.push_back(
         {"Track",
          't',
-         {action("track.add"), action("track.addReturn"), separator(), action("track.arm"),
+         {action("track.add"), action("track.addReturn"), separator(), action("track.duplicate"),
+          action("track.delete"), submenu("Colour", {list("trackColour")}), separator(), action("track.arm"),
           action("track.mute"), action("track.solo"), separator(), action("automation.addLane"),
           action("automation.assign"), action("automation.showLastTouched")}});
 
@@ -95,7 +97,7 @@ std::vector<Menu> menuBar(MenuPlatform platform)
          'c',
          {action("clip.newMidi"), separator(), action("clip.bounce"), action("clip.bounceToTrack"),
           action("clip.cancelBounces"), separator(), action("clip.mute"), action("clip.crossfade"),
-          separator(),
+          submenu("Colour", {list("clipColour")}), separator(),
           submenu("Takes", {action("view.takes"), action("take.previous"), action("take.next"), separator(),
                             action("take.useWhole"), action("take.rename"), action("take.copyToTrack"),
                             action("take.moveToTrack"), action("take.spread"), separator(),

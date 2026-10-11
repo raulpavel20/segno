@@ -119,6 +119,27 @@ private:
     [[nodiscard]] juce::PopupMenu recentMenu();
     std::unique_ptr<ShellMenus> menus_;
     AboutPopover about_;
+
+    // Tracks and clips (C11, ADR 0041, docs/design/tracks-and-clips.md).
+    /// The track or return the track commands act on: the selected one (never the master).
+    [[nodiscard]] std::optional<std::uint64_t> commandChannel() const;
+    /// Its header was clicked last: Delete and Duplicate act on it (§5, §7).
+    [[nodiscard]] bool trackHeaderActive() const;
+    /// Deletes a channel, selecting the one above it; the toast says what went, with Undo.
+    void deleteChannel(std::uint64_t channel);
+    void duplicateChannel(std::uint64_t channel);
+    /// Track > Colour and Clip > Colour (and the right-click menus): the palette for the selection.
+    [[nodiscard]] juce::PopupMenu trackColourMenu();
+    [[nodiscard]] juce::PopupMenu clipColourMenu();
+    /// The clipboard (§9): what Cut and Copy kept from the area used last.
+    enum class Held { None, Clips, Notes, Points };
+    Held held_ = Held::None;
+    engine::Session::ClipClipboard heldClips_;
+    std::vector<model::Note> heldNotes_;
+    model::AutomationPoints heldPoints_;
+    [[nodiscard]] bool canCopy() const;
+    bool copySelection();
+    void paste();
     bool mnemonicsShown_ = false;
     void onFrame(double timestamp);
     /// The selection or the project changed: the context panels follow the subject, per view

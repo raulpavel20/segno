@@ -241,6 +241,37 @@ void PianoRoll::duplicateSelection()
         commit(model::duplicateNotes(notes_, selection_, gridStep(), tempo_.beatsPerBar()));
 }
 
+std::vector<model::Note> PianoRoll::copySelection() const
+{
+    std::vector<model::Note> out;
+    for (const auto i : selection_)
+        if (i < notes_.size())
+            out.push_back(notes_[i]);
+    if (out.empty())
+        return out;
+    const auto first = std::min_element(out.begin(), out.end(), [](const auto& a, const auto& b) { return a.start < b.start; })->start;
+    for (auto& n : out)
+        n.start -= first;
+    return out;
+}
+
+void PianoRoll::pasteNotes(const std::vector<model::Note>& notes, double seconds)
+{
+    if (!clip_ || notes.empty())
+        return;
+    const bool over = seconds >= clip_->start && seconds < clip_->end();
+    const double at = beatForSeconds(over ? seconds : clip_->start);
+    model::NoteEdit edit{notes_, {}};
+    for (const auto& n : notes)
+    {
+        auto pasted = n;
+        pasted.start = std::max(0.0, n.start + at);
+        edit.selection.insert(edit.notes.size());
+        edit.notes.push_back(pasted);
+    }
+    commit(std::move(edit));
+}
+
 void PianoRoll::selectAll()
 {
     selection_.clear();

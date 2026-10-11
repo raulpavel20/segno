@@ -192,6 +192,33 @@ void ChannelStrip::mouseDown(const juce::MouseEvent& e)
         onSelect();
     if (e.mods.isPopupMenu() && onMenu)
         onMenu();
+    // Its name: a double-click renames it, a drag moves it (not the master's).
+    nameDrag_ = nameMoving_ = false;
+    if (info_.role == model::TrackInfo::Role::Master || !at(slots_.name).contains(pos) || !e.mods.isLeftButtonDown())
+        return;
+    if (e.getNumberOfClicks() >= 2)
+    {
+        if (onRename)
+            onRename();
+        return;
+    }
+    nameDrag_ = true;
+}
+
+void ChannelStrip::mouseDrag(const juce::MouseEvent& e)
+{
+    if (!nameDrag_ || (!nameMoving_ && e.getDistanceFromDragStart() < ui::Theme::current().input.dragThreshold))
+        return;
+    nameMoving_ = true;
+    if (onNameDrag)
+        onNameDrag(e);
+}
+
+void ChannelStrip::mouseUp(const juce::MouseEvent& e)
+{
+    if (nameMoving_ && onNameDrop)
+        onNameDrop(e);
+    nameDrag_ = nameMoving_ = false;
 }
 
 void ChannelStrip::tick()
@@ -289,6 +316,62 @@ void MixerView::setSelection(std::optional<std::uint64_t> channel)
     rebuild();
 }
 
+void MixerView::Content::paintOverChildren(juce::Graphics& g)
+{
+    if (dropX < 0)
+        return;
+    const auto& t = ui::Theme::current();
+    g.setColour(t.active);
+    g.fillRect(dropX - t.shell.dropLine / 2, 0, t.shell.dropLine, getHeight());
+}
+
+bool MixerView::renameChannel(std::uint64_t channel)
+{
+    const auto it = strips_.find(channel);
+    const auto* info = snapshot_ != nullptr ? snapshot_->channel(channel) : nullptr;
+    if (it == strips_.end() || info == nullptr)
+        return false;
+    auto& strip = *it->second;
+    // In sight, then the field over its name, its text where the name was drawn.
+    viewport_.setViewPosition(std::clamp(viewport_.getViewPositionX(), strip.getRight() - viewport_.getViewWidth(), strip.getX()), 0);
+    const auto& sh = ui::Theme::current().shell;
+    const auto name = strip.nameArea().translated(strip.getX(), strip.getY());
+    const auto field = name.withLeft(name.getX() - sh.fieldTextInset).withSizeKeepingCentre(name.getWidth() + sh.fieldTextInset, sh.rowHeight);
+    names_.show(field.constrainedWithin(strip.getBounds()), juce::String::fromUTF8(info->name.c_str()), ui::TextStyle::Name,
+                [this, channel](const juce::String& n) { session_.renameTrack(channel, n.toStdString()); });
+    return true;
+}
+
+void MixerView::dragStrip(std::uint64_t channel, const juce::MouseEvent& e, bool drop)
+{
+    const auto* info = snapshot_ != nullptr ? snapshot_->channel(channel) : nullptr;
+    if (info == nullptr)
+        return;
+    // Among its kind: the edge nearest the pointer, a strip's left or the last one's right.
+    const auto& kind = info->role == model::TrackInfo::Role::Return ? snapshot_->returns : snapshot_->tracks;
+    const float x = e.getEventRelativeTo(&content_).position.x;
+    std::uint64_t before = 0;
+    int edge = -1;
+    float distance = std::numeric_limits<float>::max();
+    for (size_t i = 0; i <= kind.size() && !kind.empty(); ++i)
+    {
+        const auto at = strips_.find(i < kind.size() ? kind[i].id : kind.back().id);
+        if (at == strips_.end())
+            continue;
+        const int ex = i < kind.size() ? at->second->getX() : at->second->getRight();
+        if (const auto d = std::abs(static_cast<float>(ex) - x); d < distance)
+        {
+            distance = d;
+            edge = ex;
+            before = i < kind.size() ? kind[i].id : 0;
+        }
+    }
+    content_.dropX = drop ? -1 : edge;
+    content_.repaint();
+    if (drop)
+        session_.moveTrack(channel, before);
+}
+
 void MixerView::clear()
 {
     strips_.clear();
@@ -328,6 +411,12 @@ void MixerView::rebuild()
                     onSelect(id);
             };
             strip->onMenu = [this] { showAddMenu(); };
+            if (t.role != model::TrackInfo::Role::Master)
+            {
+                strip->onRename = [this, id] { renameChannel(id); };
+                strip->onNameDrag = [this, id](const juce::MouseEvent& e) { dragStrip(id, e, false); };
+                strip->onNameDrop = [this, id](const juce::MouseEvent& e) { dragStrip(id, e, true); };
+            }
             strip->onSelectModule = [this, id](std::uint64_t module) {
                 if (isShowing())
                     grabKeyboardFocus(); // Left and Right keep moving the selection

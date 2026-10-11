@@ -162,6 +162,7 @@ model::ClipInfo clipInfo(te::Clip& c, int trackColour)
     clip.length = pos.getLength().inSeconds();
     clip.offset = pos.getOffset().inSeconds();
     clip.colour = static_cast<int>(c.state.getProperty(kColourId, trackColour));
+    clip.ownColour = c.state.hasProperty(kColourId);
     clip.fromTake = static_cast<std::uint64_t>(static_cast<juce::int64>(c.state["fdTake"])); // ADR 0031
     clip.muted = c.isMuted(); // ADR 0035
     if (auto* midi = dynamic_cast<te::MidiClip*>(&c))

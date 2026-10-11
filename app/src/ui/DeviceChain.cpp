@@ -78,7 +78,7 @@ public:
             for (int i = 0; i < owner_.insertAt_ && i < static_cast<int>(owner_.slots_.size()); ++i)
                 x = owner_.slots_[static_cast<size_t>(i)].view->getRight() + gap / 2;
             g.setColour(t.active);
-            g.fillRect(x - 1, 0, 2, getHeight());
+            g.fillRect(x - t.shell.dropLine / 2, 0, t.shell.dropLine, getHeight());
         }
     }
 
