@@ -23,6 +23,8 @@ public:
     void refresh();
     /// Called when a start failed (no free port), for the shell to say so.
     std::function<void(const juce::String&)> onMessage;
+    /// "All assistant settings…": Settings, at Assistants (settings.md §10).
+    std::function<void()> onAllSettings;
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -36,6 +38,7 @@ private:
     ui::Toggle on_{"On"}, readOnly_{"Read only"};
     juce::TextEditor httpLine_, stdioLine_;
     juce::TextButton copyHttp_{"Copy"}, copyStdio_{"Copy"}, newToken_{"New token"};
+    juce::TextButton allSettings_{juce::String::fromUTF8("All assistant settings\xE2\x80\xA6")};
     bool failed_ = false;
     ui::OutsideClick outside_{*this, [this] { close(); }}; // a click anywhere else closes it
 

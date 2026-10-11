@@ -19,6 +19,8 @@ struct ToolEnv
 
     /// A module type's sections ({id, title}, in order), read from its panel once.
     std::map<std::string, Json> sections;
+    /// The app's settings (ADR 0045): get_settings and set_settings.
+    model::SettingsStore* settings = nullptr;
 };
 
 /// The tool, resource and prompt catalogue. The functions run on transport threads; each
@@ -35,6 +37,7 @@ void addAutomationTools(Registry& registry, ToolEnv& env);
 void addRecordingTools(Registry& registry, ToolEnv& env);
 void addProjectTools(Registry& registry, ToolEnv& env);
 void addTrackTools(Registry& registry, ToolEnv& env);
+void addSettingsTools(Registry& registry, ToolEnv& env);
 void addResources(Registry& registry, ToolEnv& env);
 void addPrompts(Registry& registry);
 /// Everything above.

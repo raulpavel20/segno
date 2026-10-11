@@ -6,7 +6,7 @@ How Segno keeps what you choose once, for every project: your audio interface, M
 - the shared components: `SectionStack`, `PropertyList`, the shell metrics ([ui-foundations.md](ui-foundations.md), ADR 0023);
 - what earlier designs left for Settings: export defaults ([export.md](export.md) §9), the recording file format and offsets ([recording.md](recording.md) §5, Q15), the presets folder ([presets.md](presets.md) §5), remapping shortcuts ([daw-shell.md](daw-shell.md)), the assistants' switch ([ADR 0021](../decisions/0021-mcp-server.md)).
 
-**Status:** approved by the product owner (2026-10-11), with every recommendation of §13 but one: no reset button per setting (S3, §6).
+**Status:** approved by the product owner (2026-10-11), with every recommendation of §13 but one: no reset button per setting (S3, §6). Built the same day, for review; what was settled while building is in §17.
 
 ## 1. Why
 
@@ -242,3 +242,20 @@ Sources: the [Live 12 manual](https://www.ableton.com/en/live-manual/12/first-st
 - **C1 (M3):** everything above.
 - **With their steps:** browser places (C2), the plugin scanner in its own process (C5), lower-latency monitoring and the round-trip latency test (C7), MIDI learn's mappings (C8).
 - **Later:** the light theme and a Theme setting (M7); importing and exporting settings; per-device MIDI controller setups.
+
+## 17. Settled while building
+
+- **Moving the Segno folder** moves your presets (its Presets folder). An unsaved project's recordings stay where that project uses them; new unsaved projects start in the new place. Reset moves the folder back to `Documents/Segno`.
+- **Defaults marked in the choices:** 48 kHz and 256 samples where the device offers them (Audio's Reset sets those), WAV and 24-bit, 1 bar, "0 ms (default)", "Automatic (default)", "The project's (default)". On or off settings read On or Off, as the Assistants popover's switch does.
+- **The interface's size applies at once** to every window (the toolkit's global scale), so there's no relaunch and no note under the row.
+- **Keys:**
+  - the shortcut sits at the controls' right edge, `shell.settingsKeyWidth` wide, so long action names have room; the list's rows are an item gap apart, grouped under the menu each action is in;
+  - a changed shortcut shows its default under it ("Default: Ctrl+Alt+F");
+  - the page sets one key per action (Record keeps Ctrl+R and F9 until you change it);
+  - the search finds a shortcut by its keys typed as text ("ctrl+z"); pressing the keys into the search isn't built (open question B59).
+- **While Settings show,** the shortcuts that act on the hidden arrangement or mixer (Edit, Clip, Notes, Track, Module, Automation, Project) don't run, so Delete never deletes clips you can't see; playing, the views, files and the computer keyboard still do. The menu bar's items still act.
+- **Export defaults:** an export from the panel makes its settings a new project's (its folder and name left out); Settings > Export shows and changes them, dither included.
+- **JACK:** on in the DAW and the standalone plugins (Linux). The first launch, with no audio device chosen yet, takes JACK when a JACK server (or PipeWire's) answers, else the system's default (ALSA); after that the engine keeps what you choose.
+- **The command palette** lists every setting as "Settings: <name>", opening the page at its row, marked for a moment.
+- **Assistants:** `set_settings` checks everything before changing anything, so a refused call changes nothing; read-only mode refuses it.
+- **Not on the page yet:** browser places (C2); which files assistants may read (open question B18).

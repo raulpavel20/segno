@@ -64,6 +64,14 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         }
         if (!r.error.empty() || r.files.empty())
             return; // the panel said why
+        // The settings used last are a new project's (export.md §9), but for where and the name.
+        store_->change(
+            [this](model::AppSettings& st)
+            {
+                st.exportDefaults = session_.exportSettings();
+                st.exportDefaults.folder.clear();
+                st.exportDefaults.name.clear();
+            });
         const auto& f = r.files.front();
         const auto& m = f.measured;
         const auto minus = juce::String::fromUTF8("\xe2\x88\x92"), dot = juce::String::fromUTF8(" \xc2\xb7 ");
@@ -89,8 +97,12 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     {
         assistantsPopover_ = std::make_unique<AssistantsPopover>(*assistants_);
         assistantsPopover_->onMessage = [this](const juce::String& m) { showWarning(m); };
+        assistantsPopover_->onAllSettings = [this] { showSettings("assistants.enabled"); };
     }
     registerActions();
+    // Shortcuts you change (Settings > Keys) are kept in the settings.
+    actions_.onKeysChanged = [this]
+    { store_->change([this](model::AppSettings& st) { st.keys = actions_.keyMap(); }); };
     inspector_.setActions(actions_);
     arrangement_.snapToggle().setTooltip(actions_.tooltip("view.snap"));
     arrangement_.cancelTooltip = actions_.tooltip("clip.cancelBounces");
@@ -112,6 +124,7 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         return juce::PopupMenu();
     };
     transport_->setBrandShown(kMenuPlatform == model::MenuPlatform::Mac);
+    transport_->onRecordingSettings = [this] { showSettings("recording.format"); };
     // The capture button says where it will go (recording.md §9).
     transport_->captureTooltip = [this] {
         const auto selected = selectedTrackInfo();
@@ -161,6 +174,17 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     // channel alone.
     addChildComponent(mixer_);
     mixer_.setSnapshot(session_.snapshot());
+    // Settings (settings.md §4): a third view in the centre; every setting in the palette too.
+    addChildComponent(settingsView_);
+    settingsView_.onClose = [this] { closeSettings(); };
+    palette_.entries = [this]
+    {
+        std::vector<CommandPalette::Entry> out;
+        for (const auto& info : model::settingsCatalogue())
+            out.push_back({"settings:" + info.id, "Settings: " + info.name, "Settings",
+                           [this, id = info.id] { showSettings(id); }});
+        return out;
+    };
     mixer_.onSelect = [this](std::uint64_t channel) {
         lastArea_ = Area::Arrangement;
         arrangement_.selectTrack(channel);
@@ -326,6 +350,7 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
 Shell::~Shell()
 {
     releaseComputerKeyboard();
+    store_->removeListener(storeListener_);
     if (assistants_ != nullptr)
         assistants_->onStatusChanged = nullptr;
     session_.onSnapshotChanged = nullptr;
@@ -976,9 +1001,19 @@ void Shell::registerActions()
                           arrangement_.selectTrack(id);
                       }
                   }});
-    actions_.add({.id = "view.mixer", .name = "Mixer view", .category = "View", .keys = {key('x', kCmd | kAlt)},
-                  .perform = [this] { setMixerShown(!mixerShown_); },
-                  .isToggled = [this] { return mixerShown_; }});
+    actions_.add({.id = "view.mixer",
+                  .name = "Mixer view",
+                  .category = "View",
+                  .keys = {key('x', kCmd | kAlt)},
+                  .perform =
+                      [this]
+                  {
+                      // From Settings, to the mixer; else between the arrangement and the mixer.
+                      const bool mixer = settingsShown_ || !mixerShown_;
+                      closeSettings();
+                      setMixerShown(mixer);
+                  },
+                  .isToggled = [this] { return mixerShown_ && !settingsShown_; }});
     auto arrangeShown = [this] { return !mixerShown_; }; // actions on what only the arrangement shows
     // Automation lanes (C4, docs/design/automation.md §3, §7, §8, §10).
     actions_.add({.id = "automation.arm", .name = "Automation arm", .category = "Automation", .keys = {key('a', kCmd | kShift)},
@@ -1097,16 +1132,23 @@ void Shell::registerActions()
                                            [this](int found) { showWarning("Plugin scan finished: " + juce::String(found) + " plugins"); });
                   },
                   .isEnabled = [this] { return !session_.isScanning(); }});
-    actions_.add({.id = "app.audioSettings", .name = asks("Audio settings"), .category = "App", .keys = {key(',', kCmd)},
-                  .perform = [this] { showAudioSettings(); }});
-    actions_.add({.id = "app.systemTitleBar", .name = "Use the system title bar", .category = "App",
-                  .perform = [this] {
-                      settings_.systemTitleBar = !settings_.systemTitleBar;
-                      saveSettings();
-                      window.setSystemTitleBar(settings_.systemTitleBar);
+    actions_.add({.id = "app.settings",
+                  .name = asks("Settings"),
+                  .category = "App",
+                  .keys = {key(',', kCmd)},
+                  .perform = [this] { settingsShown_ ? closeSettings() : showSettings(); },
+                  .isToggled = [this] { return settingsShown_; }});
+    actions_.add({.id = "app.systemTitleBar",
+                  .name = "Use the system title bar",
+                  .category = "App",
+                  .perform =
+                      [this]
+                  {
+                      store_->change([](model::AppSettings& st)
+                                     { st.display.systemTitleBar = !st.display.systemTitleBar; });
                   },
                   .isEnabled = [this] { return window.setSystemTitleBar != nullptr; },
-                  .isToggled = [this] { return settings_.systemTitleBar; }});
+                  .isToggled = [this] { return settings().display.systemTitleBar; }});
     actions_.add({.id = "app.about", .name = "About Segno", .category = "Help",
                   .perform = [this] { about_.isOpen() ? about_.close() : about_.open(*this); },
                   .isToggled = [this] { return about_.isOpen(); }});
@@ -1161,6 +1203,15 @@ bool Shell::keyPressed(const juce::KeyPress& k)
                 onOpenMenu(menu);
                 return true;
             }
+    }
+    // While Settings show, the keys that act on the hidden arrangement's or mixer's selection
+    // don't run (Delete mustn't delete clips you can't see); playing and the views still do.
+    if (settingsShown_)
+    {
+        static const juce::StringArray kept{
+            "App", "File", "Help", "Transport", "View", "MIDI", "Computer keyboard"};
+        if (const auto* a = actions_.actionOn(k); a != nullptr && !kept.contains(a->category))
+            return false;
     }
     if (actions_.handleKey(k))
         return true;
@@ -1412,10 +1463,8 @@ void Shell::updateTitle()
     {
         titleFile_ = file;
         if (file)
-        {
-            settings_.recent.add(file->getFullPathName().toStdString());
-            saveSettings();
-        }
+            store_->change([&](model::AppSettings& s)
+                           { s.recent.add(file->getFullPathName().toStdString()); });
     }
     // The document first, the convention on Windows and GNOME (menu-bar.md §4).
     auto title = projectName();
@@ -1430,20 +1479,32 @@ void Shell::updateTitle()
     }
 }
 
-void Shell::setSettingsFile(const juce::File& file)
+void Shell::setSettingsStore(model::SettingsStore& store)
 {
-    settingsFile_ = file;
-    settings_ = model::appSettingsFromJson(file.loadFileAsString().toStdString());
+    store_->removeListener(storeListener_);
+    store_ = &store;
+    storeListener_ = store_->addListener([this](const model::AppSettings& s) { applySettings(s); });
+    settingsView_.setStore(store);
     if (titleFile_) // the project already open
-        settings_.recent.add(titleFile_->getFullPathName().toStdString());
+        store_->change([this](model::AppSettings& s)
+                       { s.recent.add(titleFile_->getFullPathName().toStdString()); });
+    applySettings(store_->get());
+    // The computer keyboard as MIDI from launch (settings.md §7).
+    if (settings().midi.computerKeyboard && !computerKeyboard_)
+        actions_.perform("midi.computerKeyboard");
 }
 
-void Shell::saveSettings() const
+void Shell::applySettings(const model::AppSettings& s)
 {
-    if (!settingsFile_)
-        return;
-    settingsFile_->getParentDirectory().createDirectory();
-    settingsFile_->replaceWithText(juce::String::fromUTF8(model::toJson(settings_).c_str()));
+    actions_.setKeyMap(s.keys);
+    if (window.setSystemTitleBar)
+        window.setSystemTitleBar(s.display.systemTitleBar);
+    if (const auto scale = static_cast<float>(model::interfaceScale(s));
+        juce::Desktop::getInstance().getGlobalScaleFactor() != scale)
+        juce::Desktop::getInstance().setGlobalScaleFactor(scale);
+    engine::applySettings(session_, s);
+    settingsView_.setSystemTitleBarOption(window.setSystemTitleBar != nullptr);
+    settingsView_.refresh();
 }
 
 void Shell::openFile(const juce::File& file)
@@ -1453,8 +1514,8 @@ void Shell::openFile(const juce::File& file)
         if (!session_.open(file, &error))
         {
             showWarning(juce::String::fromUTF8(error.c_str()));
-            settings_.recent.remove(file.getFullPathName().toStdString());
-            saveSettings();
+            store_->change([&](model::AppSettings& s)
+                           { s.recent.remove(file.getFullPathName().toStdString()); });
         }
     });
 }
@@ -1462,7 +1523,8 @@ void Shell::openFile(const juce::File& file)
 juce::PopupMenu Shell::recentMenu()
 {
     juce::PopupMenu menu;
-    const auto paths = settings_.recent.existing([](const std::string& p) { return juce::File(juce::String::fromUTF8(p.c_str())).existsAsFile(); });
+    const auto paths = settings().recent.existing(
+        [](const std::string& p) { return juce::File(juce::String::fromUTF8(p.c_str())).existsAsFile(); });
     if (paths.empty())
         menu.addItem(juce::PopupMenu::Item("No recent projects").setEnabled(false));
     const auto home = juce::File::getSpecialLocation(juce::File::userHomeDirectory).getFullPathName();
@@ -1479,10 +1541,9 @@ juce::PopupMenu Shell::recentMenu()
         menu.addItem(std::move(item));
     }
     menu.addSeparator();
-    menu.addItem(juce::PopupMenu::Item("Clear the list").setEnabled(!settings_.recent.paths.empty()).setAction([this] {
-        settings_.recent.clear();
-        saveSettings();
-    }));
+    menu.addItem(juce::PopupMenu::Item("Clear the list")
+                     .setEnabled(!settings().recent.paths.empty())
+                     .setAction([this] { store_->change([](model::AppSettings& s) { s.recent.clear(); }); }));
     return menu;
 }
 
@@ -1669,14 +1730,29 @@ void Shell::paste()
     }
 }
 
-void Shell::showAudioSettings()
+void Shell::showSettings(const std::string& at)
 {
-    auto selector = std::make_unique<juce::AudioDeviceSelectorComponent>(session_.deviceManager(), 0, 2, 2, 2, false,
-                                                                         false, true, false);
-    selector->setSize(500, 380);
-    // A popover next to its button, closed by clicking away (ui-principles §2: no modal dialog).
-    auto& anchor = transport_->settingsButton();
-    juce::CallOutBox::launchAsynchronously(std::move(selector), getLocalArea(&anchor, anchor.getLocalBounds()), this);
+    if (!settingsShown_)
+    {
+        settingsShown_ = true;
+        resized();
+    }
+    if (!at.empty())
+        settingsView_.showSetting(at);
+    if (isShowing())
+        ui::takeFocus(settingsView_); // Escape closes them
+    repaint();
+}
+
+void Shell::closeSettings()
+{
+    if (!settingsShown_)
+        return;
+    settingsShown_ = false;
+    resized();
+    if (isShowing())
+        grabKeyboardFocus(); // the shortcuts work again at once
+    repaint();
 }
 
 // ---- selection -----------------------------------------------------------------------------
@@ -1983,7 +2059,11 @@ void Shell::resized()
     r.removeFromTop(1);
 
     const bool showSides = !focusMode_;
-    const int detailH = showSides ? std::min(juce::roundToInt(detailPanel_.size * detailPanel_.shown), std::max(0, r.getHeight() - 160)) : 0;
+    // The detail panel hides while Settings show: nothing there acts on them (settings.md §4).
+    const int detailH = showSides && !settingsShown_
+                            ? std::min(juce::roundToInt(detailPanel_.size * detailPanel_.shown),
+                                       std::max(0, r.getHeight() - 160))
+                            : 0;
     detail_.setVisible(detailH > 0);
     detail_.setBounds(r.removeFromBottom(detailH));
     if (detailH > 0)
@@ -2008,11 +2088,13 @@ void Shell::resized()
     inspectorSplit_.setVisible(inspectorShown && inspectorPanel_.open);
     inspectorSplit_.setBounds(r.removeFromRight(inspectorW > 0 ? 1 : 0).withWidth(splitter).translated(-splitter / 2, 0));
 
-    // The centre: the arrangement or the mixer view (C3c), whichever is current.
-    arrangement_.setVisible(!mixerShown_);
-    mixer_.setVisible(mixerShown_);
+    // The centre: the arrangement or the mixer view (C3c), whichever is current, or Settings.
+    arrangement_.setVisible(!mixerShown_ && !settingsShown_);
+    mixer_.setVisible(mixerShown_ && !settingsShown_);
+    settingsView_.setVisible(settingsShown_);
     arrangement_.setBounds(r);
     mixer_.setBounds(r);
+    settingsView_.setBounds(r);
     browserSplit_.toFront(false);
     inspectorSplit_.toFront(false);
     detailSplit_.toFront(false);

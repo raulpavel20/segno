@@ -133,6 +133,8 @@ public:
     juce::Rectangle<int> layout(juce::Rectangle<int> area, const std::vector<Section>& sections);
     /// Where section `index`'s content goes (empty if there is no such section).
     [[nodiscard]] juce::Rectangle<int> content(size_t index) const;
+    /// Section `index`'s title row (for a command at its right: Settings' Reset).
+    [[nodiscard]] juce::Rectangle<int> titleArea(size_t index) const;
     [[nodiscard]] size_t size() const noexcept { return placed_.size(); }
     void paint(juce::Graphics& g) const;
 

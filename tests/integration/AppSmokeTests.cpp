@@ -1078,7 +1078,9 @@ TEST_CASE("the Assistants popover turns the server on, shows setup lines and cli
             if (!server.isRunning())
                 REQUIRE(server.start(0));
             juce::MessageManager::getInstance()->runDispatchLoopUntil(50);
-            CHECK(Json::parse(folder.getChildFile("assistants.json").loadFileAsString().toStdString())["enabled"] == true);
+            CHECK(Json::parse(folder.getChildFile("settings.json")
+                                  .loadFileAsString()
+                                  .toStdString())["assistants"]["enabled"] == true);
 
             // A client calls: it's listed, and the transport's light is on.
             const auto out = server.dispatcher()->handle(
@@ -2726,12 +2728,13 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
 
 TEST_CASE("menu bar: Open recent lists the projects opened, kept between launches (C10)", "[integration]")
 {
-    ShellFixture f;
-    auto& s = *f.session;
     const auto root = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("fd-recent-" + juce::Uuid().toString());
     REQUIRE(root.createDirectory());
-    const auto settings = root.getChildFile("app.json");
-    f.shell->setSettingsFile(settings);
+    fd::model::SettingsStore store(root.getFullPathName().toStdString()); // outlives the shell
+    const auto settings = root.getChildFile("settings.json");
+    ShellFixture f;
+    auto& s = *f.session;
+    f.shell->setSettingsStore(store);
     auto recent = [&f] {
         juce::StringArray names;
         const auto file = f.shell->menus().menu(0);
@@ -2759,8 +2762,9 @@ TEST_CASE("menu bar: Open recent lists the projects opened, kept between launche
     CHECK(item->shortcutKeyDescription.endsWith("Song")); // where it is
 
     // A new shell reads the list back; Clear the list empties it.
+    fd::model::SettingsStore storeAgain(root.getFullPathName().toStdString());
     fd::app::Shell again(s);
-    again.setSettingsFile(settings);
+    again.setSettingsStore(storeAgain);
     CHECK(again.settings().recent.paths.front() == song.getFullPathName().toStdString());
     CHECK(invoke(again.menus().menu(0), "Clear the list", "Open recent"));
     CHECK(again.settings().recent.paths.empty());

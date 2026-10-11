@@ -62,9 +62,16 @@ AssistantsPopover::AssistantsPopover(mcp::McpServer& server) : server_(server)
         server_.regenerateToken();
         refresh();
     };
-    for (juce::Component* c : {static_cast<juce::Component*>(&on_), static_cast<juce::Component*>(&readOnly_),
-                               static_cast<juce::Component*>(&copyHttp_), static_cast<juce::Component*>(&copyStdio_),
-                               static_cast<juce::Component*>(&newToken_)})
+    allSettings_.onClick = [this]
+    {
+        close();
+        if (onAllSettings)
+            onAllSettings();
+    };
+    for (juce::Component* c :
+         {static_cast<juce::Component*>(&on_), static_cast<juce::Component*>(&readOnly_),
+          static_cast<juce::Component*>(&copyHttp_), static_cast<juce::Component*>(&copyStdio_),
+          static_cast<juce::Component*>(&newToken_), static_cast<juce::Component*>(&allSettings_)})
     {
         c->setWantsKeyboardFocus(false);
         addAndMakeVisible(c);
@@ -148,12 +155,13 @@ int AssistantsPopover::preferredHeight() const
 {
     const auto& sh = ui::Theme::current().shell;
     const int clients = std::clamp(static_cast<int>(server_.clients().size()), 1, kMaxClients);
-    return sh.padding * 2 + sh.buttonSize + sh.rowHeight          // title, status
-           + 4 * (sh.groupGap + 1)                                // separators
-           + sh.fieldHeight                                       // read only
-           + 2 * (sh.rowHeight + sh.fieldHeight + sh.itemGap)     // setup lines
-           + sh.rowHeight + clients * sh.listRowHeight            // clients
-           + sh.fieldHeight;                                      // token
+    return sh.padding * 2 + sh.buttonSize + sh.rowHeight      // title, status
+           + 5 * (sh.groupGap + 1)                            // separators
+           + sh.fieldHeight                                   // read only
+           + 2 * (sh.rowHeight + sh.fieldHeight + sh.itemGap) // setup lines
+           + sh.rowHeight + clients * sh.listRowHeight        // clients
+           + sh.fieldHeight                                   // token
+           + sh.fieldHeight;                                  // all assistant settings
 }
 
 void AssistantsPopover::resized()
@@ -200,6 +208,10 @@ void AssistantsPopover::resized()
     newToken_.setBounds(token.removeFromLeft(buttonWidth(newToken_.getButtonText())));
     token.removeFromLeft(sh.groupGap);
     tokenHint_ = token;
+    separator();
+
+    allSettings_.setBounds(
+        r.removeFromTop(sh.fieldHeight).withWidth(buttonWidth(allSettings_.getButtonText())));
 }
 
 void AssistantsPopover::paint(juce::Graphics& g)

@@ -139,7 +139,7 @@ std::vector<Menu> menuBar(MenuPlatform platform)
                            action("midi.octaveUp"), action("midi.velocityDown"), action("midi.velocityUp")}),
                   separator()}};
     if (!mac)
-        options.entries.push_back(action("app.audioSettings"));
+        options.entries.push_back(action("app.settings"));
     options.entries.push_back(action("app.scanPlugins"));
     options.entries.push_back(action("app.assistants"));
     if (!mac)
@@ -161,7 +161,7 @@ std::vector<Menu> menuBar(MenuPlatform platform)
 
 std::vector<MenuEntry> macAppMenu()
 {
-    return {action("app.about"), separator(), action("app.audioSettings")};
+    return {action("app.about"), separator(), action("app.settings")};
 }
 
 std::vector<std::string> menuActions(const std::vector<Menu>& menus)

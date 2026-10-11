@@ -115,6 +115,9 @@ Role functions for colours that depend on content:
 | `shell.listTextInset` | 10 (a list row's text from its edges; its headings line up with it) |
 | `shell.listIconSize` | 12 (an icon button at the end of a list row: a preset's star) |
 | `shell.presetListWidth` / `shell.presetListRows` | 320 / 10 (a module's preset list, [presets.md](presets.md) §7: rows shown before it scrolls) |
+| `shell.settingsIndexWidth` / `shell.settingsColumnWidth` | 160 / 720 (Settings: the index of sections, and the most the page's column takes, [settings.md](settings.md) §4) |
+| `shell.settingsLabelWidth` / `shell.settingsControlWidth` | 200 / 280 (a setting's name, then its controls) |
+| `shell.settingsKeyWidth` | 160 (a shortcut in Settings > Keys, at the controls' right edge, so long action names get the rest) |
 | `shell.popoverWidth` | 560 |
 | `shell.formPopoverWidth` | 420 (a popover of property rows: the export panel, C8) |
 | `shell.toastHeight` / `shell.toastWidth` | 36 / 420 |
@@ -157,7 +160,7 @@ Components size themselves for their text: `ui::Toggle::widthFor(label)` and `ui
 | `EmptyState` | A centred hint where there is nothing to show | Chain without a track, clip view without a clip, empty project, empty inspector |
 | `paintValueTag` | What a gesture is changing, next to the pointer while it drags: `Value` text on a `surface3` tag a row high, kept in its area | Fade and crossfade drags (C6) |
 | `paintProgress` | Work in progress on what it changes: a `shell.progressHeight` line along its bottom, a `surface3` track filled in `value` from the left; shown only after `motion.progressDelay` | Clips being bounced (C7); export (C8) |
-| `SectionStack` | Titled sections one under another: a `Section`-style caps title on the row grid, the content under it, and a 1 px `line` centred in the group gap between neighbours (a module panel's sections, stacked) | The inspector ([selection.md](selection.md) §5); later the browser and preferences |
+| `SectionStack` | Titled sections one under another: a `Section`-style caps title on the row grid, the content under it, and a 1 px `line` centred in the group gap between neighbours (a module panel's sections, stacked). `titleArea(i)` is a section's title row, for a command at its right | The inspector ([selection.md](selection.md) §5); Settings, each section's Reset in its title row ([settings.md](settings.md) §6); later the browser |
 | `BarLayout` | Places a bar's items left and right on the item and group gaps | Small bars |
 | `model::layoutTopBar` (app) | The top bar's three sections: left and right items on the item and group gaps, the centre cluster on the bar's middle (moved in only when the sides need the room), and items dropped by priority when it's narrow; pure, `[fast]`-tested | The top bar |
 | `OutsideClick` | Closes a popover on any mouse press outside it (other top-level windows, such as its popup menus, excepted); popovers also close on Escape | The command palette, the lane picker, the Assistants popover |

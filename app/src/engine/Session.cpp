@@ -201,7 +201,8 @@ model::TrackInfo::Kind kindOf(te::AudioTrack& t)
 class PluginScanner final : private juce::Timer
 {
 public:
-    PluginScanner(te::Engine& engine, std::function<void(const juce::String&)> progress, std::function<void(int)> done)
+    PluginScanner(te::Engine& engine, const std::vector<std::string>& folders,
+                  std::function<void(const juce::String&)> progress, std::function<void(int)> done)
         : engine_(engine), progress_(std::move(progress)), done_(std::move(done))
     {
         auto& pm = engine_.getPluginManager();
@@ -211,8 +212,15 @@ public:
         pedal.getParentDirectory().createDirectory();
         for (auto* format : pm.pluginFormatManager.getFormats())
             if (format->canScanForPlugins() && !format->getName().containsIgnoreCase("internal"))
+            {
+                // The system's folders, and yours (Settings > Plugins).
+                auto path = format->getDefaultLocationsToSearch();
+                for (const auto& folder : folders)
+                    if (const juce::File f(juce::String::fromUTF8(folder.c_str())); f.isDirectory())
+                        path.addIfNotAlreadyThere(f);
                 scanners_.push_back(std::make_unique<juce::PluginDirectoryScanner>(
-                    pm.knownPluginList, *format, format->getDefaultLocationsToSearch(), true, pedal, false));
+                    pm.knownPluginList, *format, path, true, pedal, false));
+            }
         startTimer(5);
     }
 
@@ -1558,7 +1566,8 @@ void Session::scanPlugins(std::function<void(const juce::String&)> onProgress, s
 {
     if (isScanning())
         return;
-    impl_->scanner = std::make_unique<PluginScanner>(impl_->engine, std::move(onProgress), std::move(onDone));
+    impl_->scanner = std::make_unique<PluginScanner>(impl_->engine, impl_->pluginFolders,
+                                                     std::move(onProgress), std::move(onDone));
 }
 
 bool Session::isScanning() const

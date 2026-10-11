@@ -10,6 +10,7 @@
 #include "ui/ExportPopover.h"
 #include "ui/LanePicker.h"
 #include "ui/Panels.h"
+#include "ui/SettingsView.h"
 #include "ui/ShellMenus.h"
 
 #include <map>
@@ -65,10 +66,17 @@ public:
     };
     WindowHooks window;
 
-    /// What the app remembers between launches (recent projects, the title bar option), read from
-    /// and written to `file` (the app's data folder). Without one, as in tests, nothing is kept.
-    void setSettingsFile(const juce::File& file);
-    [[nodiscard]] const model::AppSettings& settings() const noexcept { return settings_; }
+    /// Settings (ADR 0045): the app's, shared with the assistants' server. Without one, as in
+    /// tests, the shell keeps its own and saves nothing.
+    void setSettingsStore(model::SettingsStore& store);
+    [[nodiscard]] const model::AppSettings& settings() const noexcept { return store_->get(); }
+    [[nodiscard]] model::SettingsStore& settingsStore() noexcept { return *store_; }
+    /// Settings, in the centre in place of the arrangement or the mixer (settings.md §4); `at`:
+    /// the setting to scroll to and mark (a catalogue id). Closing brings back the view before.
+    void showSettings(const std::string& at = {});
+    void closeSettings();
+    [[nodiscard]] bool settingsShown() const noexcept { return settingsShown_; }
+    [[nodiscard]] SettingsView& settingsView() noexcept { return settingsView_; }
     /// Help > About Segno.
     [[nodiscard]] AboutPopover& about() noexcept { return about_; }
     void setVersion(const juce::String& version) { about_.setVersion(version); }
@@ -120,9 +128,11 @@ private:
     std::unique_ptr<juce::FileChooser> chooser_;
     juce::String title_;
     std::optional<juce::File> titleFile_; // the project file the title was made for (recent projects)
-    model::AppSettings settings_;
-    std::optional<juce::File> settingsFile_;
-    void saveSettings() const;
+    model::SettingsStore ownStore_{{}};
+    model::SettingsStore* store_ = &ownStore_;
+    int storeListener_ = 0;
+    /// What the settings say for the shell, the window and the engine (at once, and on a change).
+    void applySettings(const model::AppSettings& settings);
     /// Opens `file`, after asking about unsaved changes (Open recent).
     void openFile(const juce::File& file);
     /// File > Open recent: the projects still on disk, then Clear the list.
@@ -159,7 +169,6 @@ private:
     /// Modules in the mixer view.
     void applyDetailMode();
     void setMixerShown(bool shown);
-    void showAudioSettings();
     void toggle(Panel& p);
     [[nodiscard]] std::optional<model::TrackInfo> selectedTrackInfo() const;
 
@@ -179,6 +188,8 @@ private:
     ArrangementView arrangement_;
     MixerView mixer_{session_};
     bool mixerShown_ = false; // the centre shows the mixer view instead of the arrangement
+    SettingsView settingsView_{session_, actions_};
+    bool settingsShown_ = false; // Settings in the centre, over whichever view was there
     Splitter browserSplit_, inspectorSplit_;
     Splitter detailSplit_{true}; // the clip view's top edge
     float deviceViewHeight_ = 0.0f, clipViewHeight_ = 320.0f; // the detail panel's height per mode

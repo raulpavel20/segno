@@ -40,16 +40,23 @@ Json modernRequest(const std::string& method, Json params, Json capabilities = J
 struct Daw
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
-    tracktion::Engine engine{"fd-mcp-tests", nullptr, fd::engine::makeEngineBehaviour()};
+    /// What the engine keeps between runs (its Settings.xml) is per name: a test that changes it
+    /// (the count-in, the recording format) uses a name of its own.
+    tracktion::Engine engine;
     std::unique_ptr<fd::engine::Session> session;
     juce::TemporaryFile folderName;
     juce::File folder;
     std::unique_ptr<fd::mcp::McpServer> server;
 
-    Daw()
+    explicit Daw(const juce::String& engineName = "fd-mcp-tests")
+        : engine(engineName, nullptr, fd::engine::makeEngineBehaviour())
     {
         fd::engine::registerDevices(engine);
         session = std::make_unique<fd::engine::Session>(engine);
+        // The engine keeps these between runs: start from what the tests expect, whatever an
+        // earlier run left.
+        session->setRecordingFormat(fd::model::RecordingFormat::Wav, 24);
+        session->setCountIn(fd::model::CountIn::Off);
         folder = folderName.getFile();
         REQUIRE(folder.createDirectory());
         server = std::make_unique<fd::mcp::McpServer>(*session, folder, "test");
@@ -184,6 +191,8 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
                              "assign_automation",
                              "unassign_automation",
                              "set_track_input",
+                             "get_settings",
+                             "set_settings",
                              "arm_tracks",
                              "record",
                              "get_takes",
@@ -470,6 +479,61 @@ TEST_CASE("mcp tools: transport, tempo and signature", "[integration][mcp]")
     CHECK(daw.call("stop")["playing"] == false);
     CHECK(daw.read("segno://transport")["metronome"] == true);
     CHECK(daw.fails("set_time_signature", {{"numerator", 3}, {"denominator", 5}}).find("denominator") != std::string::npos);
+}
+
+TEST_CASE("mcp tools: get_settings and set_settings, never the assistants' own or the keys (C1)",
+          "[integration][mcp]")
+{
+    Daw daw("fd-mcp-settings-tests");
+    daw.session->setCountIn(fd::model::CountIn::OneBar); // the engine keeps it between runs
+    auto settings = daw.call("get_settings");
+    CHECK(settings["recording"]["format"] == "wav");
+    CHECK(settings["recording"]["bitDepth"] == 24);
+    CHECK(settings["recording"]["countIn"] == "1 bar");
+    CHECK(settings["export"]["sampleRate"] == "project");
+    CHECK(settings["display"]["interfaceSize"] == "automatic");
+    CHECK(settings["keys"].empty());
+    CHECK(settings.contains("audio"));
+
+    const auto set = daw.call(
+        "set_settings",
+        {{"recording", {{"format", "flac"}, {"bitDepth", 16}, {"countIn", "2 bars"}, {"audioOffsetMs", 12}}},
+         {"export", {{"format", "aiff"}, {"sampleRate", 96000}, {"normalise", "loudness"}}},
+         {"display", {{"interfaceSize", 125}}}});
+    CHECK(set["recording"]["format"] == "flac");
+    CHECK(set["recording"]["bitDepth"] == 16);
+    CHECK(set["recording"]["countIn"] == "2 bars");
+    CHECK(set["recording"]["audioOffsetMs"] == Approx(12.0));
+    CHECK(set["export"]["format"] == "aiff");
+    CHECK(set["export"]["bitDepth"] == 24);
+    CHECK(set["display"]["interfaceSize"] == 125);
+    CHECK(daw.session->countIn() == fd::model::CountIn::TwoBars);
+    CHECK(daw.session->exportSettings().format == fd::model::ExportFormat::Aiff); // a new project's start
+    CHECK(daw.session->undoDescription().empty());                                // not an undo step
+    CHECK(daw.folder.getChildFile("settings.json").loadFileAsString().contains("\"flac\"")); // kept
+
+    // Refused: their own settings, the keys, what isn't offered; nothing changes.
+    CHECK(daw.fails("set_settings", {{"assistants", {{"readOnly", false}}}}).find("can't change their own") !=
+          std::string::npos);
+    CHECK(daw.fails("set_settings", {{"keys", {{"edit.undo", {"Ctrl+U"}}}}}).find("shortcuts") !=
+          std::string::npos);
+    CHECK(daw.fails("set_settings", {{"recording", {{"format", "mp3"}}}}).find("\"wav\"") !=
+          std::string::npos);
+    CHECK(daw.fails("set_settings", {{"recording", {{"bitDepth", 32}}}}).find("16 or 24") !=
+          std::string::npos);
+    CHECK(daw.fails("set_settings", {{"display", {{"interfaceSize", 110}}}}).find("125") !=
+          std::string::npos);
+    CHECK(daw.fails("set_settings", {{"midi", {{"inputs", {{{"name", "Nowhere"}, {"enabled", false}}}}}}})
+              .find("no MIDI input") != std::string::npos);
+    CHECK(daw.fails("set_settings",
+                    {{"recording", {{"countIn", "3 bars"}}}, {"display", {{"interfaceSize", 150}}}})
+              .find("countIn") != std::string::npos);
+    CHECK(daw.call("get_settings")["display"]["interfaceSize"] == 125); // the refused call changed nothing
+    // Read-only mode refuses changes and allows reading.
+    daw.server->setReadOnly(true);
+    CHECK(daw.fails("set_settings", {{"display", {{"interfaceSize", 150}}}}).find("read-only") !=
+          std::string::npos);
+    CHECK(daw.call("get_settings")["assistants"]["readOnly"] == true);
 }
 
 TEST_CASE("mcp tools: read-only mode and confirmations", "[integration][mcp]")

@@ -36,7 +36,10 @@ public:
         double lastSeen = 0.0; // seconds, juce::Time::getMillisecondCounterHiRes() / 1000
     };
 
-    McpServer(engine::Session& session, juce::File dataFolder, std::string appVersion);
+    /// `settings`: the app's (its Assistants section, ADR 0045); null: one of its own, in
+    /// `dataFolder` (tests, the headless server).
+    McpServer(engine::Session& session, juce::File dataFolder, std::string appVersion,
+              model::SettingsStore* settings = nullptr);
     ~McpServer() override;
     McpServer(const McpServer&) = delete;
     McpServer& operator=(const McpServer&) = delete;
@@ -87,12 +90,17 @@ private:
     void publishResourceChanges();
     void watch(const std::vector<std::string>& uris);
     void loadSettings();
-    void saveSettings() const;
+    void saveSettings();
+    /// The Assistants section changed elsewhere (the Settings page): follow it.
+    void settingsChanged(const model::AppSettings::Assistants& assistants);
     void writeEndpoint() const;
 
     engine::Session& session_;
     juce::File dataFolder_;
     std::string appVersion_;
+    std::unique_ptr<model::SettingsStore> ownStore_;
+    model::SettingsStore* store_ = nullptr;
+    int storeListener_ = 0;
     Settings settings_;
     std::string token_;
 

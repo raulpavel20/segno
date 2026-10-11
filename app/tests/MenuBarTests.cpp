@@ -40,16 +40,16 @@ TEST_CASE("menu bar: traditional menus, well made, each action once", "[fast]")
         CHECK(menus[1].entries[0].id == "edit.undo");
         CHECK(menus[1].entries[1].id == "edit.redo");
     }
-    // On macOS the application menu has About, Audio settings and Quit; no title bar option.
+    // On macOS the application menu has About, Settings and Quit; no title bar option.
     const auto mac = menuActions(menuBar(MenuPlatform::Mac));
     CHECK_FALSE(contains(mac, "app.quit"));
     CHECK_FALSE(contains(mac, "app.about"));
-    CHECK_FALSE(contains(mac, "app.audioSettings"));
+    CHECK_FALSE(contains(mac, "app.settings"));
     CHECK_FALSE(contains(mac, "app.systemTitleBar"));
     CHECK(menuActions({{"Segno", 's', macAppMenu()}}) ==
-          std::vector<std::string>{"app.about", "app.audioSettings"});
+          std::vector<std::string>{"app.about", "app.settings"});
     const auto windowed = menuActions(menuBar(MenuPlatform::Windowed));
-    for (const auto* id : {"app.quit", "app.about", "app.audioSettings", "app.systemTitleBar"})
+    for (const auto* id : {"app.quit", "app.about", "app.settings", "app.systemTitleBar"})
         CHECK(contains(windowed, id));
 
     // Mnemonics avoid the Alt shortcuts in use (Alt+R, M, S, L).
@@ -104,11 +104,13 @@ TEST_CASE("recent projects: newest first, once each, ten at most; settings kept 
     r.remove("/p/11.segno");
     CHECK(r.paths.size() == RecentProjects::kMax - 1);
 
-    const AppSettings s{.recent = r, .systemTitleBar = true};
+    AppSettings s{.recent = r};
+    s.display.systemTitleBar = true;
     CHECK(appSettingsFromJson(toJson(s)) == s);
     CHECK(appSettingsFromJson("not json") == AppSettings{});
-    CHECK(appSettingsFromJson(R"({"systemTitleBar": "yes", "recentProjects": [1, "/a.segno"]})") ==
-          AppSettings{.recent = {.paths = {"/a.segno"}}});
+    CHECK(
+        appSettingsFromJson(R"({"display": {"systemTitleBar": "yes"}, "recentProjects": [1, "/a.segno"]})") ==
+        AppSettings{.recent = {.paths = {"/a.segno"}}});
     r.clear();
     CHECK(r.paths.empty());
 }

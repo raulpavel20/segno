@@ -158,7 +158,7 @@ The product owner, 2026-10-11:
 - It takes effect at once (the window is recreated) and is remembered in the app's data folder.
 
 **macOS: the system menu bar.**
-- The same menus go to the menu bar at the top of the screen (`MenuBarModel::setMacMainMenu`), headed by the app menu: About Segno, Audio settings… (Cmd+,), Services, Hide, Quit Segno (Cmd+Q).
+- The same menus go to the menu bar at the top of the screen (`MenuBarModel::setMacMainMenu`), headed by the app menu: About Segno, Settings… (Cmd+,), Services, Hide, Quit Segno (Cmd+Q).
 - The window keeps its native title bar and traffic lights. There's no in-window menu row, and the brand stays in the top bar.
 - A unified title bar (content under the traffic lights) comes later (§14). JUCE can't do it without a small piece of Objective-C++, which must reapply its settings after full screen.
 
@@ -171,7 +171,7 @@ The product owner, 2026-10-11:
 - **Each action is in the menu bar exactly once.** Right-click menus repeat items; the menu bar doesn't.
 - **Shortcuts read the usual way** on Linux and Windows: "Ctrl+Shift+E", "Alt+↑", "Space", "Esc", "Del", "F11" (`ActionRegistry::shortcutText`). macOS uses its own symbols. Menus, tooltips and the command palette all show this form. *Built:* JUCE's own text ("ctrl + shift + E", "cursor up") was what showed before.
 - **Rare actions have no shortcut** and live in the menus alone: the take items, About and the title bar option. The shell test lists them.
-- **"…"** ends the name of an item that asks for more before it acts: Open project…, Save as…, Export…, Assign parameter to the selected lane…, Audio settings…, Rename take…, Command palette…, Assistants…
+- **"…"** ends the name of an item that asks for more before it acts: Open project…, Save as…, Export…, Assign parameter to the selected lane…, Settings…, Rename take…, Command palette…, Assistants…
   - Action names change to match. IDs don't change.
 - **Lists filled when a menu opens** (not actions): Open recent, the count-in's length, MIDI loop recording. They're built by the same builders as the right-click menus that show them.
 - **At most one level of submenus.** Separators group items; a menu never starts or ends with one, and never has two in a row.
@@ -308,13 +308,13 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 | — | | |
 | Computer keyboard ▸ | | Computer keyboard as MIDI (Ctrl+Shift+K); — ; Octave down (Z), Octave up (X), Velocity down (C), Velocity up (V): *new* as actions, enabled while it plays (today the keys only) |
 | — | | |
-| Audio settings… | Ctrl+, | In the app menu on macOS. Recording settings… in the Record button's menu opens the same |
+| Settings… | Ctrl+, | `app.settings` (M3 C1, [settings.md](settings.md), ADR 0045; it was Audio settings…, `app.audioSettings`). In the app menu on macOS. Recording settings… in the Record button's menu opens the page at Recording |
 | Scan for plugins | Ctrl+Alt+P | |
 | Assistants… | | |
 | — | | |
 | Use the system title bar | | *new* (`app.systemTitleBar`); Linux and Windows |
 
-Preferences (M3) arrive here as Settings… (Ctrl+,), and Audio settings becomes their first section.
+*Built (M3 C1):* Settings… replaced Audio settings…; audio is the page's first section.
 
 **Help**
 

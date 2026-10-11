@@ -25,7 +25,9 @@ constexpr int kBlock = 480; // 10 ms
 struct Recording
 {
     juce::ScopedJuceInitialiser_GUI init;
-    te::Engine engine{"fd-recording-tests", nullptr, fd::engine::makeEngineBehaviour()};
+    /// What the engine keeps between runs (its Settings.xml, as the count-in) is per name: a test
+    /// that changes it uses a name of its own, so tests running alongside don't read it.
+    te::Engine engine;
     std::unique_ptr<Session> session;
     std::unique_ptr<te::test_utilities::EnginePlayer> player;
     juce::File root = juce::File::getSpecialLocation(juce::File::tempDirectory)
@@ -34,7 +36,8 @@ struct Recording
     std::function<float(std::int64_t sample, int channel)> input = [](std::int64_t, int) { return 0.0f; };
     juce::AudioBuffer<float> lastOutput;
 
-    Recording()
+    explicit Recording(const juce::String& engineName = "fd-recording-tests")
+        : engine(engineName, nullptr, fd::engine::makeEngineBehaviour())
     {
         fd::engine::registerDevices(engine);
         session = std::make_unique<Session>(engine);
@@ -44,6 +47,7 @@ struct Recording
         io.inputChannels = 2;
         io.outputChannels = 2;
         player = std::make_unique<te::test_utilities::EnginePlayer>(engine, io);
+        session->setRecordingFormat(fd::model::RecordingFormat::Wav, 24); // whatever an earlier run left
         session->setUnsavedRoot(root.getChildFile("Unsaved"));
         pump(0.1);
     }

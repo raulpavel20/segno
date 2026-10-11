@@ -3,6 +3,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <functional>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -14,7 +15,7 @@ struct Action
     std::string id;          // stable: "transport.playStop"
     juce::String name;       // "Play / stop"
     juce::String category;   // "Transport"
-    std::vector<juce::KeyPress> keys; // default shortcuts
+    std::vector<juce::KeyPress> keys; // default shortcuts (yours, where changed, are the registry's)
     std::function<void()> perform;
     std::function<bool()> isEnabled; // null = always
     std::function<bool()> isToggled; // null = not a toggle
@@ -66,7 +67,29 @@ public:
     /// Pairs of action ids that share a shortcut (empty when the map is clean).
     [[nodiscard]] std::vector<std::pair<std::string, std::string>> conflicts() const;
 
+    // ---- your shortcuts (Settings > Keys, ADR 0045) -----------------------------------------
+
+    /// An action's keys now: yours where you changed them, else its defaults.
+    [[nodiscard]] std::vector<juce::KeyPress> keysOf(std::string_view id) const;
+    /// The action a key runs now, if any.
+    [[nodiscard]] const Action* actionOn(const juce::KeyPress& key) const;
+    /// Sets your keys for `id` (empty: none). A key another action has is taken from it (the page
+    /// asks first). Tells onKeysChanged.
+    void setKeys(std::string_view id, std::vector<juce::KeyPress> keys);
+    /// Back to the defaults: one action's, or every one's.
+    void resetKeys(std::string_view id);
+    void resetAllKeys();
+    [[nodiscard]] bool keysChanged(std::string_view id) const;
+    [[nodiscard]] bool anyKeysChanged() const { return !overrides_.empty(); }
+    /// Your changes as Settings keeps them (each key's text description), and back; keys for
+    /// actions that don't exist (any more) are kept, so they come back if the action does.
+    [[nodiscard]] std::map<std::string, std::vector<std::string>> keyMap() const;
+    void setKeyMap(const std::map<std::string, std::vector<std::string>>& map);
+    std::function<void()> onKeysChanged;
+
 private:
     std::vector<Action> actions_;
+    std::map<std::string, std::vector<juce::KeyPress>, std::less<>> overrides_;
+    std::map<std::string, std::vector<std::string>> unknownKeys_; // for actions this build lacks
 };
 } // namespace fd::app

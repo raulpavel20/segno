@@ -129,16 +129,15 @@ class MainWindow final : public juce::DocumentWindow
 {
 public:
     MainWindow(fd::engine::Session& session, fd::mcp::McpServer& assistants, bool openGL, int displayIndex,
-               const juce::File& settingsFile)
+               fd::model::SettingsStore& settings)
         : DocumentWindow(fd::ui::brand::name, fd::ui::Theme::current().surface0, allButtons)
     {
         setIcon(fd::ui::appIcon(256)); // the taskbar and window icon (ADR 0024)
         auto* content = new fd::app::WindowContent(session, &assistants, !kMac);
         content_ = content;
         auto& shell = content->shell();
-        shell.setSettingsFile(settingsFile);
         shell.setVersion(juce::JUCEApplication::getInstance()->getApplicationVersion());
-        setUsingNativeTitleBar(kMac || shell.settings().systemTitleBar);
+        setUsingNativeTitleBar(kMac || settings.get().display.systemTitleBar);
         setTitleBarHeight(0); // ours is in the content
         content->setOwnsWindow(!isUsingNativeTitleBar());
         content->onTitleChanged = [this](const juce::String& title) { setName(title); };
@@ -156,6 +155,7 @@ public:
                 setTitleBarHeight(0);
                 content_->setOwnsWindow(!system);
             };
+        shell.setSettingsStore(settings); // once the window does what they ask (the title bar)
         if (auto* bar = content->titleBar())
         {
             bar->onMinimise = [this] { minimiseButtonPressed(); };
@@ -304,8 +304,12 @@ public:
                                                       fd::engine::makeEngineBehaviour());
         fd::engine::registerDevices(*engine_);
         session_ = std::make_unique<fd::engine::Session>(*engine_);
-        mcp_ = std::make_unique<fd::mcp::McpServer>(*session_, fd::mcp::McpServer::defaultDataFolder(),
-                                                     getApplicationVersion().toStdString());
+        session_->preferAudioServerOnFirstLaunch();
+        // Settings (ADR 0045): one file, shared by the window and the assistants' server.
+        const auto dataFolder = fd::mcp::McpServer::defaultDataFolder();
+        settings_ = std::make_unique<fd::model::SettingsStore>(dataFolder.getFullPathName().toStdString());
+        mcp_ = std::make_unique<fd::mcp::McpServer>(*session_, dataFolder,
+                                                    getApplicationVersion().toStdString(), settings_.get());
         // A project file on the command line opens directly.
         const auto openProjectArgument = [this, &args] {
             for (const auto& arg : args)
@@ -319,6 +323,7 @@ public:
             // --headless: a Session without a window, serving assistants (batch work, tests).
             behaviour_->onWarning = [](const juce::String& m) { std::cerr << "Segno: " << m << std::endl; };
             termination_ = std::make_unique<TerminationWatcher>();
+            fd::engine::applySettings(*session_, settings_->get());
             openProjectArgument();
             if (!mcp_->start())
             {
@@ -335,7 +340,7 @@ public:
 
         const int display = args.contains("--display") ? args[args.indexOf("--display") + 1].getIntValue() : -1;
         window_ = std::make_unique<MainWindow>(*session_, *mcp_, !commandLine.contains("--software"), display,
-                                               fd::mcp::McpServer::defaultDataFolder().getChildFile("app.json"));
+                                               *settings_);
         behaviour_->onWarning = [this](const juce::String& m) { window_->shell().showWarning(m); };
         openProjectArgument();
         if (mcp_->settings().enabled && !mcp_->start())
@@ -363,6 +368,7 @@ public:
         window_.reset();
         mcp_.reset(); // before the session its tools use
         session_.reset();
+        settings_.reset(); // after everything listening to it
         engine_.reset();
         juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
     }
@@ -389,6 +395,7 @@ private:
     fd::engine::AppBehaviour* behaviour_ = nullptr;
     std::unique_ptr<tracktion::Engine> engine_;
     std::unique_ptr<fd::engine::Session> session_;
+    std::unique_ptr<fd::model::SettingsStore> settings_;
     std::unique_ptr<fd::mcp::McpServer> mcp_;
     std::unique_ptr<MainWindow> window_;
     std::unique_ptr<std::ostream> protocolOut_; // the real standard output (--mcp-stdio)

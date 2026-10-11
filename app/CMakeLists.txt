@@ -11,15 +11,15 @@ add_library(fd_app_model STATIC src/model/Timeline.cpp src/model/TrackLayout.cpp
     src/model/TrackHeaderLayout.cpp src/model/AudioMeasure.cpp src/model/Taper.cpp src/model/ChannelStripLayout.cpp src/model/Selection.cpp
     src/model/Automation.cpp src/model/ArrangementRows.cpp src/model/Snapshot.cpp src/model/Recording.cpp src/model/Takes.cpp
     src/model/TopBarLayout.cpp src/model/StackEdits.cpp src/model/Capture.cpp src/model/Bounce.cpp src/model/Fades.cpp src/model/FadeEditing.cpp src/model/Export.cpp
-    src/model/MenuBar.cpp src/model/AppSettings.cpp src/model/TrackEdits.cpp)
+    src/model/MenuBar.cpp src/model/AppSettings.cpp src/model/SettingsCatalogue.cpp src/model/TrackEdits.cpp)
 target_include_directories(fd_app_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
-target_link_libraries(fd_app_model PUBLIC fd::audiofile PRIVATE fd::dsp nlohmann_json::nlohmann_json fd::warnings)
+target_link_libraries(fd_app_model PUBLIC fd::audiofile nlohmann_json::nlohmann_json PRIVATE fd::dsp fd::warnings)
 
 if(FD_BUILD_TESTS)
     fd_add_test(NAME fd_app_model_tests SOURCES tests/ModelTests.cpp tests/NoteEditingTests.cpp tests/AudioMeasureTests.cpp
         tests/SelectionTests.cpp tests/AutomationTests.cpp
         tests/ArrangementRowsTests.cpp tests/RecordingTests.cpp tests/TakeStackTests.cpp tests/CaptureTests.cpp tests/BounceTests.cpp tests/FadesTests.cpp tests/ExportTests.cpp
-        tests/MenuBarTests.cpp tests/TrackEditsTests.cpp LIBS fd_app_model)
+        tests/MenuBarTests.cpp tests/TrackEditsTests.cpp tests/SettingsTests.cpp LIBS fd_app_model)
 endif()
 
 # fd_mcp: the MCP server's protocol layer and transports (ADR 0021, docs/design/mcp.md). JUCE-free,
@@ -50,6 +50,7 @@ target_sources(fd_engine INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionTracks.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionNotes.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionPresets.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionSettings.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/MidiTap.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/PluginWindow.cpp")
 target_include_directories(fd_engine INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/src")
@@ -60,6 +61,7 @@ target_link_libraries(fd_engine INTERFACE
 target_compile_definitions(fd_engine INTERFACE
     JUCE_PLUGINHOST_VST3=1
     $<$<PLATFORM_ID:Linux>:JUCE_PLUGINHOST_LV2=1>
+    $<$<PLATFORM_ID:Linux>:JUCE_JACK=1>
     $<$<PLATFORM_ID:Darwin>:JUCE_PLUGINHOST_AU=1>
     JUCE_MODAL_LOOPS_PERMITTED=1
     JUCE_STRICT_REFCOUNTEDPOINTER=1
@@ -97,6 +99,7 @@ target_sources(fd_app_mcp INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/MixTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/AutomationTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/RecordingTools.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/SettingsTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/ProjectTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/TrackTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/Resources.cpp")
@@ -129,6 +132,7 @@ target_sources(fd_app_ui INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/AssistantsPopover.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ExportPopover.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/AboutPopover.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/SettingsView.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ShellMenus.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/TitleBar.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/WindowContent.cpp"

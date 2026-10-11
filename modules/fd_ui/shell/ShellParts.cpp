@@ -370,6 +370,11 @@ juce::Rectangle<int> SectionStack::content(size_t index) const
     return index < placed_.size() ? placed_[index].contentArea : juce::Rectangle<int>();
 }
 
+juce::Rectangle<int> SectionStack::titleArea(size_t index) const
+{
+    return index < placed_.size() ? placed_[index].titleArea : juce::Rectangle<int>();
+}
+
 void SectionStack::paint(juce::Graphics& g) const
 {
     const auto& t = Theme::current();

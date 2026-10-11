@@ -129,6 +129,9 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     std::optional<juce::File> unsavedFolder;
     // Presets (ADR 0044): made when first asked for, in presetsFolder.
     std::unique_ptr<PresetLibrary> presets;
+    // Settings (ADR 0045).
+    std::vector<std::string> pluginFolders;
+    model::ExportSettings exportDefaults;
     juce::File presetsFolder = ui::defaultPresetsFolder();
     /// Sets a whole module state and its preset memo in the current undo step (ADR 0044).
     void applyModuleState(DevicePlugin& plugin, const DeviceState& state, const PresetMemo& memo);

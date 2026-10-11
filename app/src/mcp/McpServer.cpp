@@ -60,11 +60,19 @@ juce::File McpServer::endpointFile(const juce::File& dataFolder)
     return dataFolder.getChildFile("mcp-endpoint.json");
 }
 
-McpServer::McpServer(engine::Session& session, juce::File dataFolder, std::string appVersion)
+McpServer::McpServer(engine::Session& session, juce::File dataFolder, std::string appVersion,
+                     model::SettingsStore* settings)
     : session_(session), dataFolder_(std::move(dataFolder)), appVersion_(std::move(appVersion)),
       env_{session, main_, dataFolder_.getChildFile("renders"), {}}
 {
     (void)dataFolder_.createDirectory();
+    if (settings == nullptr)
+        ownStore_ = std::make_unique<model::SettingsStore>(
+            std::filesystem::path(dataFolder_.getFullPathName().toStdString()));
+    store_ = settings != nullptr ? settings : ownStore_.get();
+    env_.settings = store_;
+    storeListener_ =
+        store_->addListener([this](const model::AppSettings& s) { settingsChanged(s.assistants); });
     loadSettings();
     registerAll(registry_, env_);
     session_.addListener(this);
@@ -73,6 +81,7 @@ McpServer::McpServer(engine::Session& session, juce::File dataFolder, std::strin
 
 McpServer::~McpServer()
 {
+    store_->removeListener(storeListener_);
     stopTimer();
     session_.removeListener(this);
     stop();
@@ -83,19 +92,42 @@ McpServer::~McpServer()
 
 void McpServer::loadSettings()
 {
-    const auto json = Json::parse(dataFolder_.getChildFile("assistants.json").loadFileAsString().toStdString(), nullptr, false);
-    settings_.enabled = valueOr(json, "enabled", false);
-    settings_.readOnly = valueOr(json, "readOnly", false);
-    settings_.port = std::clamp(valueOr(json, "port", defaultPort), 1024, 65535);
+    const auto& a = store_->get().assistants;
+    settings_ = {.enabled = a.enabled, .readOnly = a.readOnly, .port = a.port};
     token_ = dataFolder_.getChildFile("mcp-token").loadFileAsString().trim().toStdString();
     if (token_.size() < 32)
         regenerateToken();
 }
 
-void McpServer::saveSettings() const
+void McpServer::saveSettings()
 {
-    const Json json{{"enabled", settings_.enabled}, {"readOnly", settings_.readOnly}, {"port", settings_.port}};
-    (void)dataFolder_.getChildFile("assistants.json").replaceWithText(json.dump(2));
+    store_->change(
+        [this](model::AppSettings& s)
+        {
+            s.assistants = {
+                .enabled = settings_.enabled, .readOnly = settings_.readOnly, .port = settings_.port};
+        });
+}
+
+void McpServer::settingsChanged(const model::AppSettings::Assistants& a)
+{
+    if (a.readOnly != settings_.readOnly)
+    {
+        settings_.readOnly = a.readOnly;
+        if (dispatcher_ != nullptr)
+            dispatcher_->setReadOnly(a.readOnly);
+        triggerAsyncUpdate();
+    }
+    settings_.port = a.port;
+    if (a.enabled != settings_.enabled)
+    {
+        settings_.enabled = a.enabled;
+        if (a.enabled)
+            (void)start();
+        else
+            stop();
+        triggerAsyncUpdate();
+    }
 }
 
 void McpServer::regenerateToken()

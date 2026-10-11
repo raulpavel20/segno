@@ -30,6 +30,9 @@ void CommandPalette::open(juce::Component& parent)
     for (const auto& a : actions_.all())
         if (a.id != "app.commandPalette")
             items_.push_back({a.id, a.name.toStdString(), a.category.toStdString()});
+    entries_ = entries ? entries() : std::vector<Entry>{};
+    for (const auto& e : entries_)
+        items_.push_back({e.id, e.name, e.category});
     if (getParentComponent() != &parent)
         parent.addChildComponent(this);
     search_.clear();
@@ -86,7 +89,10 @@ void CommandPalette::performSelected()
         return;
     const auto id = items_[shown_[static_cast<size_t>(selected_)]].id;
     close();
-    if (actions_.perform(id))
+    const auto* extra = entry(id);
+    if (extra != nullptr && extra->perform)
+        extra->perform();
+    if (extra != nullptr || actions_.perform(id))
     {
         std::erase(recent_, id);
         recent_.insert(recent_.begin(), id);
@@ -106,6 +112,14 @@ bool CommandPalette::keyPressed(const juce::KeyPress& key, juce::Component*)
         return true;
     }
     return false;
+}
+
+const CommandPalette::Entry* CommandPalette::entry(const std::string& id) const
+{
+    for (const auto& e : entries_)
+        if (e.id == id)
+            return &e;
+    return nullptr;
 }
 
 juce::Rectangle<int> CommandPalette::rowArea(int row) const
@@ -139,7 +153,8 @@ void CommandPalette::paint(juce::Graphics& g)
                           .caption = juce::String::fromUTF8(item.category.c_str()),
                           .shortcut = actions_.shortcut(item.id),
                           .toggled = action != nullptr && action->isToggled && action->isToggled(),
-                          .enabled = action != nullptr && (!action->isEnabled || action->isEnabled()),
+                          .enabled = entry(item.id) != nullptr ||
+                                     (action != nullptr && (!action->isEnabled || action->isEnabled())),
                           .selected = i == selected_});
     }
 }

@@ -34,7 +34,7 @@ struct Menu
 };
 
 /// Linux and Windows: the menus in the window, File first, Help last. macOS: the system menu bar,
-/// whose application menu holds About, Audio settings and Quit (macAppMenu); the window's own
+/// whose application menu holds About, Settings and Quit (macAppMenu); the window's own
 /// title bar option doesn't apply.
 enum class MenuPlatform
 {

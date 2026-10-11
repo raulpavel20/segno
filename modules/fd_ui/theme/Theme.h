@@ -105,6 +105,12 @@ struct ShellMetrics
     int presetListWidth = 320,
         presetListRows = 10; // a module's preset list (presets.md §7): rows shown before it scrolls
     int listIconSize = 12;   // an icon button at the end of a list row (a preset's star)
+    // The Settings page (settings.md §4): its index, its column (at most this wide), a setting's
+    // name and control columns.
+    int settingsIndexWidth = 160, settingsColumnWidth = 720, settingsLabelWidth = 200,
+        settingsControlWidth = 280;
+    int settingsKeyWidth =
+        160; // a shortcut in Settings > Keys, at the controls' right edge: long names get the rest
     int toastHeight = 36, toastWidth = 420;
     int keyboardWidth = 52, velocityHeight = 56;
     int railWidth = 44, splitter = 5;

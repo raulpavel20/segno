@@ -65,7 +65,8 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
     target_sources(${target} PRIVATE "${entry}" "${CMAKE_CURRENT_SOURCE_DIR}/src/DeviceAudioProcessor.cpp")
     target_include_directories(${target} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
     target_compile_definitions(${target} PUBLIC
-        JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0 JUCE_MODAL_LOOPS_PERMITTED=0)
+        JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0 JUCE_MODAL_LOOPS_PERMITTED=0
+        $<$<PLATFORM_ID:Linux>:JUCE_JACK=1>) # the standalones (settings.md S11)
     target_link_libraries(${target}
         PRIVATE
             fd_device_${cid}_dsp fd_device_${cid}_ui fd::fd_host_juce fd::fd_device_ui

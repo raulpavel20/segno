@@ -36,11 +36,111 @@ bool ActionRegistry::perform(std::string_view id) const
 
 bool ActionRegistry::handleKey(const juce::KeyPress& key) const
 {
+    const auto* a = actionOn(key);
+    return a != nullptr && perform(a->id);
+}
+
+std::vector<juce::KeyPress> ActionRegistry::keysOf(std::string_view id) const
+{
+    if (const auto it = overrides_.find(id); it != overrides_.end())
+        return it->second;
+    const auto* a = find(id);
+    return a != nullptr ? a->keys : std::vector<juce::KeyPress>{};
+}
+
+const Action* ActionRegistry::actionOn(const juce::KeyPress& key) const
+{
     for (const auto& a : actions_)
-        for (const auto& k : a.keys)
+        for (const auto& k : keysOf(a.id))
             if (k == key)
-                return perform(a.id);
-    return false;
+                return &a;
+    return nullptr;
+}
+
+void ActionRegistry::setKeys(std::string_view id, std::vector<juce::KeyPress> keys)
+{
+    const auto* action = find(id);
+    if (action == nullptr)
+        return;
+    // A key moves: whoever had it loses it.
+    for (const auto& other : actions_)
+        if (other.id != id)
+        {
+            auto theirs = keysOf(other.id);
+            const auto before = theirs.size();
+            std::erase_if(theirs, [&](const juce::KeyPress& k)
+                          { return std::find(keys.begin(), keys.end(), k) != keys.end(); });
+            if (theirs.size() != before)
+            {
+                if (theirs == other.keys)
+                    overrides_.erase(other.id);
+                else
+                    overrides_[other.id] = std::move(theirs);
+            }
+        }
+    if (keys == action->keys)
+        overrides_.erase(std::string(id));
+    else
+        overrides_[std::string(id)] = std::move(keys);
+    if (onKeysChanged)
+        onKeysChanged();
+}
+
+void ActionRegistry::resetKeys(std::string_view id)
+{
+    const auto* action = find(id);
+    if (action == nullptr || !keysChanged(id))
+        return;
+    setKeys(id, action->keys); // its keys come back, taken from whoever had them since
+}
+
+void ActionRegistry::resetAllKeys()
+{
+    if (overrides_.empty() && unknownKeys_.empty())
+        return;
+    overrides_.clear();
+    unknownKeys_.clear();
+    if (onKeysChanged)
+        onKeysChanged();
+}
+
+bool ActionRegistry::keysChanged(std::string_view id) const
+{
+    return overrides_.find(id) != overrides_.end();
+}
+
+std::map<std::string, std::vector<std::string>> ActionRegistry::keyMap() const
+{
+    auto out = unknownKeys_;
+    for (const auto& [id, keys] : overrides_)
+    {
+        auto& list = out[id];
+        list.clear();
+        for (const auto& k : keys)
+            list.push_back(k.getTextDescription().toStdString());
+    }
+    return out;
+}
+
+void ActionRegistry::setKeyMap(const std::map<std::string, std::vector<std::string>>& map)
+{
+    overrides_.clear();
+    unknownKeys_.clear();
+    for (const auto& [id, keys] : map)
+    {
+        if (find(id) == nullptr)
+        {
+            unknownKeys_[id] = keys;
+            continue;
+        }
+        std::vector<juce::KeyPress> list;
+        for (const auto& k : keys)
+            if (const auto key = juce::KeyPress::createFromDescription(juce::String::fromUTF8(k.c_str()));
+                key.isValid())
+                list.push_back(key);
+        if (list != find(id)->keys)
+            overrides_[id] = std::move(list);
+    }
 }
 
 bool ActionRegistry::isToggled(std::string_view id) const
@@ -111,8 +211,8 @@ juce::String ActionRegistry::shortcutText(const juce::KeyPress& key)
 
 juce::String ActionRegistry::shortcut(std::string_view id) const
 {
-    const auto* a = find(id);
-    return a == nullptr || a->keys.empty() ? juce::String() : shortcutText(a->keys.front());
+    const auto keys = keysOf(id);
+    return keys.empty() ? juce::String() : shortcutText(keys.front());
 }
 
 juce::String ActionRegistry::tooltip(std::string_view id) const
@@ -120,7 +220,7 @@ juce::String ActionRegistry::tooltip(std::string_view id) const
     const auto* a = find(id);
     if (a == nullptr)
         return {};
-    if (a->keys.empty())
+    if (keysOf(id).empty())
         return label(id);
     return label(id) + " (" + shortcut(id) + ")";
 }
@@ -133,7 +233,7 @@ void ActionRegistry::addMenuItem(juce::PopupMenu& menu, std::string_view id) con
     juce::PopupMenu::Item item(label(id));
     item.setEnabled(isEnabled(id));
     item.setTicked(isToggled(id));
-    if (!a->keys.empty())
+    if (!keysOf(id).empty())
         item.shortcutKeyDescription = shortcut(id);
     item.setAction([this, key = std::string(id)] { perform(key); });
     menu.addItem(std::move(item));
@@ -144,8 +244,8 @@ std::vector<std::pair<std::string, std::string>> ActionRegistry::conflicts() con
     std::vector<std::pair<std::string, std::string>> out;
     for (size_t i = 0; i < actions_.size(); ++i)
         for (size_t j = i + 1; j < actions_.size(); ++j)
-            for (const auto& a : actions_[i].keys)
-                for (const auto& b : actions_[j].keys)
+            for (const auto& a : keysOf(actions_[i].id))
+                for (const auto& b : keysOf(actions_[j].id))
                     if (a == b)
                         out.emplace_back(actions_[i].id, actions_[j].id);
     return out;

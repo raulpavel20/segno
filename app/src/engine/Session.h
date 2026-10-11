@@ -1,5 +1,6 @@
 #pragma once
 
+#include "model/AppSettings.h"
 #include "model/AudioMeasure.h"
 #include "model/Bounce.h"
 #include "model/Export.h"
@@ -376,6 +377,19 @@ public:
     [[nodiscard]] juce::File recordingsFolder() const;
     /// The folder unsaved projects record into (default: Documents/Segno/Unsaved).
     void setUnsavedRoot(const juce::File& folder);
+    /// The file new recordings are written as (Settings, ADR 0045): on every audio input.
+    void setRecordingFormat(model::RecordingFormat format, int bitDepth);
+    [[nodiscard]] std::pair<model::RecordingFormat, int> recordingFormat() const;
+
+    /// MIDI devices (Settings > MIDI): the keyboards and controllers connected, each on or off (an
+    /// off one is ignored everywhere). The computer keyboard isn't one of them.
+    struct MidiDevice
+    {
+        std::string name;
+        bool enabled = true;
+    };
+    [[nodiscard]] std::vector<MidiDevice> midiDevices() const;
+    void setMidiDeviceEnabled(const std::string& name, bool enabled);
 
     // ---- takes (C5b, ADRs 0031 and 0032, docs/design/recording.md §6, §8) --------------------
     // Every pass and loop lap is kept as a take of the clip it made; the clip is plain clips made
@@ -583,6 +597,21 @@ public:
     void scanPlugins(std::function<void(const juce::String& current)> onProgress,
                      std::function<void(int found)> onDone);
     [[nodiscard]] bool isScanning() const;
+    /// Folders scanned besides the system's (Settings > Plugins).
+    void setPluginFolders(std::vector<std::string> folders);
+    [[nodiscard]] const std::vector<std::string>& pluginFolders() const;
+    /// Plugins that crashed a scan, left out until tried again.
+    [[nodiscard]] std::vector<std::string> skippedPlugins() const;
+    void retrySkippedPlugin(const std::string& file);
+
+    // ---- settings (C1, ADR 0045) ----------------------------------------------------------
+
+    /// What a project's export starts from until it has its own (the last export's, Settings).
+    void setExportDefaults(const model::ExportSettings& defaults);
+    /// Linux, the first launch (no audio device chosen yet): JACK where a JACK server (or
+    /// PipeWire's) runs, else the system's default, ALSA (settings.md §7, S11). Returns whether
+    /// it chose JACK.
+    bool preferAudioServerOnFirstLaunch();
 
     // ---- projects (C8) -------------------------------------------------------------------
 
@@ -724,4 +753,7 @@ private:
 
     std::unique_ptr<Impl> impl_;
 };
+/// Applies what Settings keep for the engine (ADR 0045): the recording format, the Segno folder
+/// (presets and unsaved projects), plugin folders and export defaults.
+void applySettings(Session& session, const model::AppSettings& settings);
 } // namespace fd::engine

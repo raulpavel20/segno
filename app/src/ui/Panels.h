@@ -73,6 +73,8 @@ public:
     std::function<bool()> assistantsActive;
     /// The capture button's tooltip: where a capture goes now (checked every frame).
     std::function<juce::String()> captureTooltip;
+    /// The Record button's "Recording settings…": Settings, at Recording.
+    std::function<void()> onRecordingSettings;
 
 private:
     ui::IconButton& add(ui::IconButton& b, std::string id);

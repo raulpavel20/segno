@@ -144,6 +144,8 @@ The project, track, clip and module resources send change notifications when the
 | `save_preset` | `module`, `name`, `tags?`, `description?`, `author?`, `replace?` | Saves one of yours (refused for a name in use unless `replace`); assistants never delete presets |
 | `compare` | `module`, `action` (switch, copy) | A/B: which shows now |
 | `scan_plugins` | – | The number found; long, so it runs as a task with progress |
+| `get_settings` | – | Every setting, by section ([settings.md](settings.md) §11): audio (driver, devices, rate, buffer, its latency, the rates and buffers offered), MIDI inputs, recording, library and plugin folders, a new project's export settings, the shortcuts changed, the interface's size, the assistants' switches. Read-only |
+| `set_settings` | `recording?`, `export?`, `display?`, `midi?`, `audio?` (each an object of the settings it changes) | Changes them at once, for every project (not an undo step); everything is checked first, so a refused call changes nothing. `assistants` and `keys` are refused: an assistant never changes its own permissions or your shortcuts |
 
 For third-party plugins, `set_parameters` uses the plugin's own parameter names and normalised values (0–1), on a best-effort basis.
 
@@ -180,6 +182,7 @@ Every DAW feature ships with its tools (the coverage rule, ADR 0021). Today:
 | Module chains: add, remove, reorder, bypass, parameters, Sampler sample, collapse and fold | Module tools |
 | Presets and A/B (M3 A1, ADR 0044) | `list_presets`, `load_preset`, `save_preset`, `compare`; `add_module` takes a `preset` |
 | Plugin scanning | `scan_plugins` |
+| Settings (M3 C1, ADR 0045) | `get_settings`, `set_settings` (never the assistants' own or the shortcuts) |
 | Projects, undo | Project tools |
 | Live MIDI (computer keyboard, inputs) | Not a tool: a live performance input, not an edit. A `preview_note` tool may come later |
 

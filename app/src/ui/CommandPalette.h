@@ -22,6 +22,14 @@ public:
     void close();
     [[nodiscard]] bool isOpen() const noexcept { return isVisible(); }
 
+    /// Entries besides the actions (each setting, "Settings: Buffer size"): asked for each time
+    /// the palette opens. Their ids mustn't be actions'.
+    struct Entry
+    {
+        std::string id, name, category;
+        std::function<void()> perform;
+    };
+    std::function<std::vector<Entry>()> entries;
     /// Action ids performed from the palette, most recent first.
     [[nodiscard]] const std::vector<std::string>& recent() const noexcept { return recent_; }
     /// Runs the selected action (Enter).
@@ -49,6 +57,8 @@ private:
     const ActionRegistry& actions_;
     juce::TextEditor search_;
     std::vector<model::PaletteItem> items_;
+    std::vector<Entry> entries_; // the extra entries, as the palette opened
+    [[nodiscard]] const Entry* entry(const std::string& id) const;
     std::vector<size_t> shown_;
     std::vector<std::string> recent_;
     int selected_ = 0;

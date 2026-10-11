@@ -112,7 +112,7 @@ TransportBar::TransportBar(engine::Session& session, const ActionRegistry& actio
     add(browser_, "view.browser");
     add(detail_, "view.detail");
     add(inspector_, "view.inspector");
-    add(settings_, "app.audioSettings");
+    add(settings_, "app.settings");
     if (actions_.find("app.assistants") != nullptr)
         add(assistants_, "app.assistants");
 }
@@ -223,7 +223,12 @@ void TransportBar::showRecordMenu()
     menu.addSubMenu("MIDI loop recording", midiLoopMenu());
     menu.addSeparator();
     juce::PopupMenu::Item settings(juce::String::fromUTF8("Recording settings\xE2\x80\xA6"));
-    settings.setAction([this] { actions_.perform("app.audioSettings"); });
+    settings.setAction(
+        [this]
+        {
+            if (onRecordingSettings)
+                onRecordingSettings();
+        });
     menu.addItem(std::move(settings));
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&record_));
 }

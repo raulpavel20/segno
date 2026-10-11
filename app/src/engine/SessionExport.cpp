@@ -322,6 +322,9 @@ const juce::Identifier kExportId{"fdExport"};
 
 model::ExportSettings Session::exportSettings() const
 {
+    // A project that hasn't exported starts from the defaults (the last export's, ADR 0045).
+    if (!impl_->edit->state.hasProperty(kExportId))
+        return impl_->exportDefaults;
     return model::exportSettingsFromJson(impl_->edit->state.getProperty(kExportId).toString().toStdString());
 }
 

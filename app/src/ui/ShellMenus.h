@@ -23,7 +23,7 @@ public:
     [[nodiscard]] const std::vector<model::Menu>& menus() const noexcept { return menus_; }
     /// Menu `index` as it is now.
     [[nodiscard]] juce::PopupMenu menu(int index) const;
-    /// macOS: the application menu's items (About, Audio settings).
+    /// macOS: the application menu's items (About, Settings).
     [[nodiscard]] juce::PopupMenu appMenu() const;
     /// The menu Alt+`letter` opens, or -1.
     [[nodiscard]] int menuForMnemonic(juce::juce_wchar letter) const;
