@@ -252,7 +252,7 @@ Sources: the [Live 12 manual](https://www.ableton.com/en/live-manual/12/first-st
   - the shortcut sits at the controls' right edge, `shell.settingsKeyWidth` wide, so long action names have room; the list's rows are an item gap apart, grouped under the menu each action is in;
   - a changed shortcut shows its default under it ("Default: Ctrl+Alt+F");
   - the page sets one key per action (Record keeps Ctrl+R and F9 until you change it);
-  - the search finds a shortcut by its keys typed as text ("ctrl+z"); pressing the keys into the search isn't built (open question B59).
+  - the search finds a shortcut by its keys typed as text ("ctrl+z"); finding one by pressing its keys was dropped by the product owner (B59).
 - **While Settings show,** the shortcuts that act on the hidden arrangement or mixer (Edit, Clip, Notes, Track, Module, Automation, Project) don't run, so Delete never deletes clips you can't see; playing, the views, files and the computer keyboard still do. The menu bar's items still act.
 - **Export defaults:** an export from the panel makes its settings a new project's (its folder and name left out); Settings > Export shows and changes them, dither included.
 - **JACK:** on in the DAW and the standalone plugins (Linux). The first launch, with no audio device chosen yet, takes JACK when a JACK server (or PipeWire's) answers, else the system's default (ALSA); after that the engine keeps what you choose.
