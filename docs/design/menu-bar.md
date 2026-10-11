@@ -238,6 +238,24 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 | Takes ▸ | | Show takes of the selected clip (Ctrl+Alt+K); Previous take (Alt+↑); Next take (Alt+↓); — ; Use this take for the whole clip, Rename take…, Copy take to new track, Move take to new track, Spread the selected clip's takes to new tracks (Ctrl+Alt+Shift+K); — ; Keep only this take. The take items act on the selected takes only (§15); they're *new* as actions, and Copy, Move and Keep only are also in the inspector's TAKE section. Delete and Edit > Delete delete selected takes, so there's no Delete take. *Built:* the take menu (right-click on the badge or a strip) keeps its own items, which act on the strip clicked and name it ("Keep only Take 2"), so it isn't the same builder |
 | Notes ▸ | | Quantise (Ctrl+U); — ; Transpose up / raise points (↑), Transpose down / lower points (↓), Transpose up an octave / raise points a little (Shift+↑), Transpose down an octave / lower points a little (Shift+↓); — ; Nudge later (→), Nudge earlier (←). They act on the selected notes, or on the selected automation points, as now |
 
+**Module** (added with presets, [ADR 0044](../decisions/0044-presets-are-files.md), [presets.md](presets.md) §10; Alt+D)
+
+| Item | Shortcut | |
+|---|---|---|
+| Previous preset / Next preset | | The selected module's |
+| — | | |
+| Save preset | | Writes over yours; on a factory preset, opens Save as |
+| Save preset as… | | |
+| Revert to preset | | While changed |
+| — | | |
+| Compare A/B | | Ticked on B |
+| Copy A to B | | "Copy B to A" while B shows |
+| — | | |
+| Use as the default for a new *module* | | Names the module ("…a new Compressor") |
+| Clear the default | | |
+| — | | |
+| Show presets folder | | |
+
 **Transport**
 
 | Item | Shortcut | |
@@ -308,7 +326,7 @@ Preferences (M3) arrive here as Settings… (Ctrl+,), and Audio settings becomes
 
 **Keyboard access:**
 - F10 opens File; the arrows move between menus and items, Enter runs, and Escape closes.
-- Alt+letter opens a menu (Windows and Linux): **F**ile, **E**dit, **T**rack, **C**lip, Trans**p**ort, **V**iew, **O**ptions, **H**elp. These letters avoid the Alt shortcuts already taken (Alt+R, Alt+M, Alt+S, Alt+L).
+- Alt+letter opens a menu (Windows and Linux): **F**ile, **E**dit, **T**rack, **C**lip, Mo**d**ule, Trans**p**ort, **V**iew, **O**ptions, **H**elp. These letters avoid the Alt shortcuts already taken (Alt+R, Alt+M, Alt+S, Alt+L).
 - While Alt is held, the letters are underlined.
 - The computer keyboard ignores Alt, as it does now.
 

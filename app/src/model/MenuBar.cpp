@@ -106,6 +106,15 @@ std::vector<Menu> menuBar(MenuPlatform platform)
                             action("notes.octaveUp"), action("notes.octaveDown"), separator(),
                             action("notes.later"), action("notes.earlier")})}});
 
+    // Presets act on the selected module (ADR 0044, presets.md §10).
+    menus.push_back({"Module",
+                     'd',
+                     {action("module.previousPreset"), action("module.nextPreset"), separator(),
+                      action("module.savePreset"), action("module.savePresetAs"),
+                      action("module.revertPreset"), separator(), action("module.compare"),
+                      action("module.copyCompare"), separator(), action("module.useAsDefault"),
+                      action("module.clearDefault"), separator(), action("module.presetsFolder")}});
+
     menus.push_back(
         {"Transport",
          'p',

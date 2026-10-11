@@ -126,8 +126,11 @@ class NativeDeviceHandle final : public DeviceHandle
 {
 public:
     NativeDeviceHandle(Session& session, DevicePlugin& plugin)
-        : plugin_(&plugin), native_(plugin), binding_(session, plugin), sidechain_(session, plugin.itemID.getRawID()),
-          context_{plugin.device().info(), binding_, &plugin.device().analysis(), &plugin.device(), &sidechain_}
+        : plugin_(&plugin), native_(plugin), binding_(session, plugin),
+          sidechain_(session, plugin.itemID.getRawID()),
+          presets_(session.presetHost(plugin.itemID.getRawID())),
+          context_{plugin.device().info(), binding_,    &plugin.device().analysis(),
+                   &plugin.device(),       &sidechain_, presets_.get()}
     {
     }
     ui::DeviceUiContext& context() override { return context_; }
@@ -138,6 +141,7 @@ private:
     DevicePlugin& native_;
     SessionDeviceBinding binding_;
     SessionSidechain sidechain_;
+    std::unique_ptr<PresetHost> presets_;
     ui::DeviceUiContext context_;
 };
 
@@ -1200,6 +1204,15 @@ std::uint64_t Session::addDevice(std::uint64_t trackId, const std::string& key, 
         return 0;
     impl_->beginEdit("Add module");
     auto* plugin = impl_->insertDevice(*list, key, index);
+    // A new module starts from your default, if you set one (ADR 0044), in the same step.
+    if (auto* native = dynamic_cast<DevicePlugin*>(plugin))
+        if (const auto start = PresetController::startingPoint(native->device().info(), presetLibrary()))
+        {
+            auto state = start->first;
+            if (state.stateVersion < native->device().info().stateVersion)
+                native->device().migrateState(state);
+            impl_->applyModuleState(*native, state, start->second);
+        }
     return plugin != nullptr ? plugin->itemID.getRawID() : 0;
 }
 

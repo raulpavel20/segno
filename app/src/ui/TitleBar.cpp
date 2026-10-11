@@ -4,15 +4,6 @@
 
 namespace fd::app
 {
-namespace
-{
-const juce::String& unsavedMark()
-{
-    static const auto mark = juce::String::fromUTF8(" \xE2\x80\xA2"); // " •"
-    return mark;
-}
-} // namespace
-
 TitleBar::TitleBar(juce::MenuBarModel& menus) : menuBar_(&menus)
 {
     addAndMakeVisible(menuBar_);
@@ -137,10 +128,9 @@ void TitleBar::resized()
     if (owns_ && name_.isNotEmpty())
     {
         const auto f = ui::font(ui::TextStyle::Body);
-        const auto text =
-            juce::GlyphArrangement::getStringWidth(f, name_ + (unsaved_ ? unsavedMark() : juce::String()));
+        const auto text = ui::nameWithMarkWidth(f, name_, unsaved_);
         if (const auto slot = model::placeTitle(getWidth(), menuBar_.getRight(), getWidth() - buttonsWidth,
-                                                std::ceil(text), 2.0 * sh.groupGap);
+                                                text, 2.0 * sh.groupGap);
             slot.shown)
             title_ = {x(slot), 0, w(slot), getHeight()};
     }
@@ -160,13 +150,7 @@ void TitleBar::paint(juce::Graphics& g)
     const auto f = ui::font(ui::TextStyle::Body);
     g.setFont(f);
     g.setColour(t.textSecondary);
-    const int dot =
-        unsaved_ ? static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(f, unsavedMark()))) : 0;
-    auto area = title_;
-    const auto dotArea = area.removeFromRight(dot);
-    g.drawText(name_, area, juce::Justification::centredLeft, true);
-    if (unsaved_)
-        g.drawText(unsavedMark(), dotArea, juce::Justification::centredLeft, false);
+    ui::paintNameWithMark(g, name_, unsaved_, title_);
 }
 
 void TitleBar::mouseDown(const juce::MouseEvent& e)

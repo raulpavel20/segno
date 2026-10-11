@@ -16,6 +16,7 @@ void registerAll(Registry& registry, ToolEnv& env)
     addClipTools(registry, env);
     addNoteTools(registry, env);
     addModuleTools(registry, env);
+    addPresetTools(registry, env);
     addRenderTools(registry, env);
     addMixTools(registry, env);
     addAutomationTools(registry, env);

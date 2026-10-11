@@ -127,6 +127,13 @@ struct Session::Impl final : private juce::ValueTree::Listener,
                                  .getChildFile("Segno")
                                  .getChildFile("Unsaved");
     std::optional<juce::File> unsavedFolder;
+    // Presets (ADR 0044): made when first asked for, in presetsFolder.
+    std::unique_ptr<PresetLibrary> presets;
+    juce::File presetsFolder = ui::defaultPresetsFolder();
+    /// Sets a whole module state and its preset memo in the current undo step (ADR 0044).
+    void applyModuleState(DevicePlugin& plugin, const DeviceState& state, const PresetMemo& memo);
+    /// The memo a module keeps beside its state (`fdPreset`).
+    [[nodiscard]] static PresetMemo presetMemo(const DevicePlugin& plugin);
     /// A new recording's file: `<Track> <n>.<extension>` in Recordings.
     juce::File recordingFile(te::Track& track, const juce::String& extension);
     /// Saving to `file`: recordings made before the first save move into its folder, and every

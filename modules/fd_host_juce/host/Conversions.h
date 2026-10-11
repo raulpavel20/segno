@@ -14,10 +14,11 @@ struct PluginExtras
 {
     std::string view;               // a panel's view state, "" when all default
     bool sidechainExternal = false; // the sidechain picker on External
+    std::string preset;             // the PresetMemo (ADR 0044): which preset, A/B; "" when none
 };
 
 /// Device state as UTF-8 JSON in a MemoryBlock (plugin get/setStateInformation). The extras go
-/// under top-level keys that device state readers ignore ("view", "sidechain"), each only when
+/// under top-level keys that device state readers ignore ("view", "sidechain", "preset"), each only when
 /// not the default; without them the bytes are exactly the device state.
 [[nodiscard]] juce::MemoryBlock stateToMemory(const Device& device, const PluginExtras& extras = {});
 ApplyResult stateFromMemory(Device& device, const void* data, int sizeInBytes);

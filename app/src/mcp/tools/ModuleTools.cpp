@@ -57,22 +57,52 @@ void addModuleTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"add_module", "Add a module",
-         "Adds a module (an instrument or effect) to a chain: a track's, a return track's or the master's; one of "
-         "ours or a scanned plugin. Returns the new module with its parameters.",
+         "Adds a module (an instrument or effect) to a chain: a track's, a return track's or the master's; "
+         "one of "
+         "ours or a scanned plugin. One of ours starts from your default for it, if you set one, or from a "
+         "preset "
+         "you name (list_presets). Returns the new module with its parameters.",
          object({{"track", id(IdKind::Track, "The track, return track or master")},
                  {"type", string("A type from list_module_types (\"eq\", \"saturator\"), or its name")},
-                 {"position", integer("Where in the chain, from 0 (default: the end)", 0)}},
+                 {"position", integer("Where in the chain, from 0 (default: the end)", 0)},
+                 {"preset", string("One of ours: a preset to start from, by its id or name (list_presets)")}},
                 {"track", "type"}),
          moduleResultSchema(), adds},
-        [&env](const Json& args, CallContext&) {
+        [&env](const Json& args, CallContext&)
+        {
             const auto t = channel(env, args["track"]); // modules go on tracks, returns and the master
             const auto key = typeKey(env, args["type"].get<std::string>());
+            // A preset is found before the module is made: a wrong name adds nothing.
+            const Preset* preset = nullptr;
+            const DeviceInfo* info = nullptr;
+            if (args.contains("preset"))
+            {
+                const auto* factory = key.starts_with("fd:") ? findDevice(key.substr(3)) : nullptr;
+                if (factory == nullptr)
+                    throw Problem{"Presets are for Segno's own modules."};
+                info = &factory->info();
+                auto& library = env.session.presetLibrary();
+                library.rescan();
+                const auto wanted = args["preset"].get<std::string>();
+                for (const auto* p : library.presetsFor(*info))
+                    if ((p->key() == wanted || p->name == wanted) && (preset == nullptr || preset->isYours()))
+                        preset = p;
+                if (preset == nullptr || presetTooNew(*info, *preset))
+                    throw Problem{"There's no preset \"" + wanted + "\" for the " + std::string(info->name) +
+                                  " that this Segno can load; list_presets lists them."};
+            }
             const auto id = env.session.addDevice(t.id, key, args.value("position", -1));
             if (id == 0)
                 throw Problem{"The module couldn't be created (" + key + ")."};
+            if (preset != nullptr)
+                if (auto host = env.session.presetHost(id))
+                    PresetController(*info, *host).load(*preset);
             env.session.flushSnapshot();
             const auto [slot, owner] = module(env, formatId(IdKind::Module, id));
-            return ToolResult::ok(moduleJson(env, slot, owner));
+            auto json = moduleJson(env, slot, owner);
+            if (preset != nullptr)
+                json["preset"] = preset->name;
+            return ToolResult::ok(json);
         }));
 
     registry.tools.push_back(make(env,

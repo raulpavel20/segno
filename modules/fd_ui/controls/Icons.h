@@ -18,10 +18,10 @@ enum class Icon
     Settings,
     Undo,
     Redo,
-    Keyboard,    // computer keyboard as MIDI input
-    ChevronLeft,  // fold a module
-    ChevronRight, // unfold
-    Assistant,    // assistants connected over MCP (a spark)
+    Keyboard,      // computer keyboard as MIDI input
+    ChevronLeft,   // fold a module
+    ChevronRight,  // unfold
+    Assistant,     // assistants connected over MCP (a spark)
     AutomationArm, // automation arm: a lane's line with a point (C4)
     AutomationOn,  // turn automation back on: the line with a turning arrow
     Close,         // remove or close: a cross
@@ -33,7 +33,9 @@ enum class Icon
     Minimise,      // the window buttons (ADR 0040): a line,
     Maximise,      // a square,
     Restore,       // two squares (a maximised window back to its size); Close closes
-    Search         // the command palette (ADR 0040): a magnifier
+    Search,        // the command palette (ADR 0040): a magnifier
+    Star,          // a preset not starred (ADR 0044): an outline
+    StarFilled     // a favourite preset
 };
 
 /// Draws `icon` fitted (aspect kept) into `area` in `colour`.

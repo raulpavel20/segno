@@ -112,6 +112,9 @@ Role functions for colours that depend on content:
 | `shell.rowHeight` | 20 (property rows, compact list rows) |
 | `shell.propertyLabelWidth` | 80 |
 | `shell.listRowHeight` | 28 (palette and browser results) |
+| `shell.listTextInset` | 10 (a list row's text from its edges; its headings line up with it) |
+| `shell.listIconSize` | 12 (an icon button at the end of a list row: a preset's star) |
+| `shell.presetListWidth` / `shell.presetListRows` | 320 / 10 (a module's preset list, [presets.md](presets.md) §7: rows shown before it scrolls) |
 | `shell.popoverWidth` | 560 |
 | `shell.formPopoverWidth` | 420 (a popover of property rows: the export panel, C8) |
 | `shell.toastHeight` / `shell.toastWidth` | 36 / 420 |
@@ -147,7 +150,8 @@ Components size themselves for their text: `ui::Toggle::widthFor(label)` and `ui
 | `AutomationState` / `paintAutomationIndicator` | Whether a control's parameter is automated: a 4 px disc in `automation`, filled while its lane plays and a ring while it's off (left of a knob's name; a bar's, fader's, toggle's or choice's top-left corner). `Knob` and `Toggle` take the state and an `onPopupMenu` (right-click) | Every control of a parameter (C4) |
 | `ViewOption` | A view option: a 6 px indicator and a `Control` label, no button fill. Off: a 1 px ring and `textTertiary`; on: a filled `active` disc and `textPrimary` (the shape tells on from off, not only the colour); hover: the `hoverWash` behind it. Its own padding is half the shell's: aligned on a text edge, it starts that much before it | The mixer view's Modules, Sends and Narrow; the arrangement's Snap, in the corner above the headers (C11 review); later the piano roll's and the browser's view options |
 | `PropertyList` | Label and value rows on the row grid; values in `Body`, or `Value` for numbers | Inspector; export options (C8); preferences |
-| `ListRow` | One row of a list: optional dot, name, caption, shortcut on the right; hover and selected states | Command palette; browser (M3) |
+| `ListRow` | One row of a list: optional dot, name, caption, shortcut on the right; hover and selected states; room kept at the right (`trailing`) for a control the caller draws there, whose area it returns | Command palette; the preset list; browser (M3) |
+| `modifiedMark` / `paintNameWithMark` | What follows a name while what it names has changes not kept: " •" right after the name, never cut away (the name is cut instead) | The title bar's project name while unsaved; a module's preset while it differs from the preset (ADR 0044) |
 | `Popover` | Floating chrome: `surface2`, panel radius, the one shadow | Command palette; Assistants popover; future menus that float |
 | `Toast` | A message in the arrangement's corner that times out | Warnings and confirmations |
 | `EmptyState` | A centred hint where there is nothing to show | Chain without a track, clip view without a clip, empty project, empty inspector |
@@ -163,6 +167,7 @@ Components size themselves for their text: `ui::Toggle::widthFor(label)` and `ui
 | `EndEditingOnClickAway` | A press anywhere else in the window ends typing in a text field and keeps what was typed: the focus goes home (the shell), and the field's focus loss keeps it. Presses in other windows (menus) don't count, nor does the press that opened the field (`tookFocusOnThisPress`) | Installed once by the shell: every text field (C11 review) |
 | `ColourGrid` / `addColourGrid` | The 16 palette colours as a 4 × 4 grid in a menu, a row high each, `itemGap` apart, padded like a text button, the current one ringed | Right-click and menu bar Colour ▸ (C11) |
 | `ColourSwatch` | A colour as a property value: its swatch a row high, the hover wash; a click opens the grid | The inspector's Colour rows (C11) |
+| `PresetBar` / `PresetField` / `PresetList` (`fd_device_ui`) | A module's presets in its header ([presets.md](presets.md), ADR 0044): previous and next (`deviceGrid.headerButton`), the preset's name in a combo's look with the modified mark, and the A/B toggle; the list is a `Popover` with a search field, tag toggles and a Favourites view option, `ListRow`s grouped under caps headings with a star each (`Icon::Star`, `StarFilled`), Save and Save as… below; the save form is property rows in place of the list | Every module's header, in the DAW and the plugins |
 | `WindowButtons` | Minimise, maximise (restore while maximised) and close, each `windowButtonWidth` wide and as tall as their bar: a glyph in `textSecondary`, `textPrimary` on the hover wash when hovered, Close on `record` (red); where each one is answers the system's hit-testing | The title bar (C10) |
 | The menu bar's look (`LookAndFeel`) | Titles in `Field`, padded like text buttons, `itemGap` apart: `textSecondary`; hovered, `textPrimary` on the hover wash; open, on its menu's `surface2` down to the bar's bottom so the two read as one. A model that is a `MenuMnemonics` gets its Alt letters underlined while the bar's `mnemonicsShown` is set | The title bar's menus (C10) |
 | `TitleBar` (app) | The brand and the menus on the left, the project's name in the middle (`model::placeTitle`: centred, moved in, elided before the wordmark drops; a dot while unsaved), the window buttons on the right; `model::layoutTopBar` places it | The window's top, Linux and Windows (C10) |

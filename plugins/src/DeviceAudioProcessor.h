@@ -16,7 +16,10 @@ namespace fd::plugin
 class DeviceAudioProcessor final : public juce::AudioProcessor, private juce::Timer
 {
 public:
-    DeviceAudioProcessor(const DeviceFactory& factory, const ui::PanelFactory* panel);
+    /// `presets`: the device's factory presets (ADR 0044).
+    DeviceAudioProcessor(const DeviceFactory& factory, const ui::PanelFactory* panel,
+                         std::span<const FactoryPresetFile> presets = {});
+    ~DeviceAudioProcessor() override;
 
     // juce::AudioProcessor
     const juce::String getName() const override { return name_; }
@@ -34,10 +37,13 @@ public:
     bool isMidiEffect() const override { return device_->info().kind == DeviceKind::MidiEffect; }
     double getTailLengthSeconds() const override { return device_->tailSeconds(); }
 
-    int getNumPrograms() override { return 1; }
-    int getCurrentProgram() override { return 0; }
-    void setCurrentProgram(int) override {}
-    const juce::String getProgramName(int) override { return {}; }
+    // The host's program list: Default settings and the factory presets (presets.md §12).
+    int getNumPrograms() override;
+    int getCurrentProgram() override;
+    /// Loads a program unless it's the one loaded (some hosts set the program again after a
+    /// state load).
+    void setCurrentProgram(int index) override;
+    const juce::String getProgramName(int index) override;
     void changeProgramName(int, const juce::String&) override {}
 
     void getStateInformation(juce::MemoryBlock& destData) override;
@@ -51,6 +57,10 @@ public:
     void setViewState(std::string state);
     /// Tells an open editor that a loaded state brought another view state (message thread).
     juce::ChangeBroadcaster viewStateLoaded;
+
+    /// Presets (ADR 0044): the header's, kept beside the device state like the view. Message
+    /// thread.
+    [[nodiscard]] PresetHost& presets() noexcept;
 
     /// Whether the device listens to the host's sidechain input (ADR 0025): the header's
     /// Off/External picker, kept in the plugin state. Any thread.
@@ -67,7 +77,11 @@ public:
     void updateLatency();
 
 private:
+    class Presets;
+    friend class Presets;
     static BusesProperties busesFor(const DeviceInfo& info);
+    /// The program list: Default settings, then the factory presets.
+    [[nodiscard]] std::vector<const Preset*> programs();
     void pullParameters() noexcept;
     void timerCallback() override { updateLatency(); }
 
@@ -81,6 +95,8 @@ private:
     std::atomic<bool> sidechainExternal_{false};
     mutable juce::CriticalSection viewLock_; // state calls can come from any thread
     std::string viewState_;
+    std::string presetMemo_; // the PresetMemo's JSON, under viewLock_
+    std::unique_ptr<Presets> presets_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DeviceAudioProcessor)
 };
@@ -97,6 +113,8 @@ public:
     void resized() override;
 
     [[nodiscard]] ui::DevicePanel& panel() noexcept { return *panel_; }
+    /// How tall it is beside the panel while the preset list needs room below the header.
+    [[nodiscard]] int popoverRoom() const noexcept { return popoverRoom_; }
 
 private:
     class Binding;
@@ -111,5 +129,6 @@ private:
     std::unique_ptr<ui::DeviceUiContext> context_;
     std::unique_ptr<ui::DevicePanel> panel_;
     juce::Viewport viewport_;
+    int popoverRoom_ = 0; // px below the header the preset list asked for (0: none)
 };
 } // namespace fd::plugin

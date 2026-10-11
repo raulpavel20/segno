@@ -83,7 +83,8 @@ TEST_CASE("plugin state keeps the editor's view state beside the device state", 
     a->getStateInformation(plain);
     CHECK_FALSE(plain.toString().contains("\"view\""));
 
-    // Collapsing a section narrows the editor (asynchronously) and stores the view.
+    // Collapsing a section narrows the editor (asynchronously) to the panel, never below what its
+    // header needs, and stores the view.
     std::unique_ptr<juce::AudioProcessorEditor> editorOwner(processor->createEditor());
     auto* editor = dynamic_cast<fd::plugin::DeviceEditor*>(editorOwner.get());
     REQUIRE(editor != nullptr);
@@ -93,10 +94,9 @@ TEST_CASE("plugin state keeps the editor's view state beside the device state", 
     REQUIRE_FALSE(panel.sections().empty());
     panel.sections().front()->setCollapsed(true, true);
     editor->handleUpdateNowIfNeeded(); // the deferred resize
-    CHECK(editor->getWidth() == wide - (panel.sections().front()->getWidth() == 24
-                                            ? fd::ui::Theme::current().deviceGrid.sectionWidth(panel.sections().front()->columns()) - 24
-                                            : 0));
-    CHECK(editor->getWidth() < wide);
+    CHECK(editor->getWidth() == panel.preferredWidth() + 16);
+    CHECK(panel.preferredWidth() >= panel.headerMinimumWidth());
+    CHECK(editor->getWidth() <= wide);
     REQUIRE_FALSE(processor->viewState().empty());
 
     juce::MemoryBlock withView;
@@ -221,4 +221,75 @@ TEST_CASE("plugin sidechain: Off or an inactive input changes nothing, External 
     CHECK(b.sidechainExternal());
     b.setStateInformation(plainState.getData(), static_cast<int>(plainState.getSize()));
     CHECK_FALSE(b.sidechainExternal());
+}
+
+TEST_CASE(
+    "plugin presets: the program list, a load through the host's parameters, the memo kept in the state "
+    "(ADR 0044)",
+    "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI juce;
+    auto a = makePlugin();
+    auto& processor = dynamic_cast<fd::plugin::DeviceAudioProcessor&>(*a);
+    const auto& info = processor.device().info();
+    auto& host = processor.presets();
+
+    // The host's program list: Default settings, then the factory presets.
+    REQUIRE(a->getNumPrograms() >= 1);
+    CHECK(a->getProgramName(0) == "Default settings");
+    CHECK(a->getCurrentProgram() == 0);
+
+    // A preset of yours, as the DAW writes one (the same format and folder).
+    auto state = host.state();
+    state.params["gain"] = -6.0f;
+    const auto name = "Plugin test " + juce::Uuid().toString().toStdString();
+    const auto saved = host.library().save(info, state, name, {"Test"}, {}, {}, true);
+    REQUIRE(saved.preset != nullptr);
+    const auto key = saved.preset->key();
+
+    // A load sets each parameter as a gesture, so hosts record it like a hand on the control.
+    struct Gestures final : juce::AudioProcessorListener
+    {
+        void audioProcessorParameterChanged(juce::AudioProcessor*, int, float) override {}
+        void audioProcessorChanged(juce::AudioProcessor*, const ChangeDetails&) override {}
+        void audioProcessorParameterChangeGestureBegin(juce::AudioProcessor*, int) override { ++begun; }
+        void audioProcessorParameterChangeGestureEnd(juce::AudioProcessor*, int) override { ++ended; }
+        int begun = 0, ended = 0;
+    } gestures;
+    a->addListener(&gestures);
+    fd::PresetController c(info, host);
+    REQUIRE(c.load(*host.library().find(info, key)));
+    a->removeListener(&gestures);
+    CHECK(gestures.begun >= 1);
+    CHECK(gestures.begun == gestures.ended);
+    CHECK(processor.parameter(0).getValue() ==
+          Catch::Approx(info.params[0].toNormalized(-6.0f)).margin(1e-6));
+    CHECK(c.loadedName() == name);
+
+    // Kept with the plugin's state, beside the device state.
+    juce::MemoryBlock block;
+    a->getStateInformation(block);
+    auto b = makePlugin();
+    b->setStateInformation(block.getData(), static_cast<int>(block.getSize()));
+    auto& other = dynamic_cast<fd::plugin::DeviceAudioProcessor&>(*b);
+    CHECK(fd::PresetController(info, other.presets()).loadedName() == name);
+
+    // Escape after browsing puts back what was there (plugins have no undo of their own).
+    host.beginBrowsing();
+    c.load(*host.library().find(info, ""));
+    CHECK(processor.parameter(0).getValue() ==
+          Catch::Approx(info.params[0].toNormalized(info.params[0].def)).margin(1e-6));
+    host.endBrowsing(false);
+    CHECK(processor.parameter(0).getValue() ==
+          Catch::Approx(info.params[0].toNormalized(-6.0f)).margin(1e-6));
+    CHECK(c.loadedName() == name);
+
+    // A program the host sets again (after a state load) changes nothing: one of yours isn't a
+    // program, so the host sees the first, and setting it again keeps yours.
+    CHECK(a->getCurrentProgram() == 0);
+    a->setCurrentProgram(0);
+    CHECK(c.loadedName() == name);
+
+    REQUIRE(host.library().remove(info, *host.library().find(info, key),
+                                  [](const std::filesystem::path& f) { return std::filesystem::remove(f); }));
 }

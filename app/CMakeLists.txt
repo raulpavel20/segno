@@ -49,6 +49,7 @@ target_sources(fd_engine INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionFades.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionTracks.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionNotes.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionPresets.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/MidiTap.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/PluginWindow.cpp")
 target_include_directories(fd_engine INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/src")
@@ -91,6 +92,7 @@ target_sources(fd_app_mcp INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/ClipTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/NoteTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/ModuleTools.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/PresetTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/RenderTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/MixTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/AutomationTools.cpp"

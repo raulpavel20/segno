@@ -2,11 +2,10 @@
 // registered panel and checks it against the module grid: expanded, with each section
 // collapsed, with all collapsed, and folded. A module isn't done until this passes.
 
+#include <catch2/catch_test_macros.hpp>
 #include <fd/device/Registry.h>
 #include <fd_device_ui/fd_device_ui.h>
-
-#include <catch2/catch_test_macros.hpp>
-
+#include <filesystem>
 #include <map>
 #include <set>
 
@@ -28,9 +27,24 @@ struct StubSidechain final : fd::ui::SidechainRouting
     int choice = 2;
 };
 
+/// A host's presets (ADR 0044) with a long name loaded: the header must still lay out.
+struct StubPresets final : fd::PresetHost
+{
+    fd::PresetLibrary presets{{}, std::filesystem::temp_directory_path() / "fd-panel-tests-no-presets"};
+    fd::PresetMemo current{.preset = "user/Somewhere/A preset with a name far too long for its field"};
+    const fd::Device* device = nullptr;
+    fd::PresetLibrary& library() override { return presets; }
+    fd::DeviceState state() const override { return fd::captureState(*device); }
+    fd::PresetMemo memo() const override { return current; }
+    void apply(const fd::DeviceState&, const fd::PresetMemo& m, const std::string&) override { current = m; }
+    void setMemo(const fd::PresetMemo& m) override { current = m; }
+    bool trash(const std::filesystem::path&) override { return false; }
+};
+
 struct PanelUnderTest
 {
     StubSidechain sidechain;
+    StubPresets presets;
     std::unique_ptr<fd::Device> device;
     std::unique_ptr<fd::ui::LocalParamBinding> binding;
     std::unique_ptr<fd::ui::DeviceUiContext> context;
@@ -42,8 +56,9 @@ struct PanelUnderTest
         if (factory.testSetup != nullptr)
             factory.testSetup(*device);
         binding = std::make_unique<fd::ui::LocalParamBinding>(*device);
+        presets.device = device.get();
         context = std::make_unique<fd::ui::DeviceUiContext>(
-            fd::ui::DeviceUiContext{factory.info(), *binding, nullptr, device.get(), &sidechain});
+            fd::ui::DeviceUiContext{factory.info(), *binding, nullptr, device.get(), &sidechain, &presets});
         panel = panelFactory.create(*context);
         panel->onEnabledChange = [](bool) {}; // the power toggle shows, as in hosts
         panel->setFoldable(foldable);
@@ -130,6 +145,7 @@ void lint(const PanelUnderTest& p)
         CHECK(panel.preferredWidth() == grid.foldedWidth);
         for (auto* s : panel.sections())
             CHECK_FALSE(s->isVisible());
+        CHECK_FALSE(panel.presetBar()->isVisible());
         return;
     }
     CHECK(panel.headerMinimumWidth() <= panel.getWidth());
@@ -226,6 +242,40 @@ void lint(const PanelUnderTest& p)
         CHECK(c->getHeight() == grid.row);
         CHECK(c->getRight() <= panel.getWidth());
         checkPlacementText({c, PanelSection::Kind::Line, 0, 0, 2, 1});
+    }
+
+    // The presets (ADR 0044): in the header between the name and the settings, touching neither,
+    // the field between its narrowest and widest, its parts apart.
+    {
+        INFO("presets");
+        auto* bar = panel.presetBar();
+        REQUIRE(bar != nullptr);
+        CHECK(bar->isVisible());
+        CHECK(bar->getY() >= 0);
+        CHECK(bar->getBottom() <= t.deviceHeaderHeight);
+        CHECK(bar->getWidth() >= bar->minimumWidth());
+        CHECK(bar->getWidth() <= bar->maximumWidth());
+        CHECK(bar->getRight() <= panel.getWidth() - grid.headerPadding);
+        const auto name =
+            width(fd::ui::font(fd::ui::TextStyle::Title), juce::String(std::string(p.context->info.name)));
+        CHECK(name <= static_cast<float>(panel.nameArea().getWidth()) + kTextMargin);
+        CHECK(panel.nameArea().getRight() < bar->getX());
+        for (auto* c : panel.headerControls())
+            CHECK(bar->getRight() < c->getX());
+        const auto field = bar->field().getWidth();
+        CHECK(field >= grid.presetFieldMin);
+        CHECK(field <= grid.presetFieldMax);
+        CHECK(bar->field().getHeight() == grid.row);
+        std::vector<juce::Rectangle<int>> parts;
+        for (auto* c : bar->getChildren())
+        {
+            CHECK(bar->getLocalBounds().contains(c->getBounds()));
+            for (const auto& other : parts)
+                CHECK_FALSE(other.intersects(c->getBounds()));
+            parts.push_back(c->getBounds());
+        }
+        CHECK(width(fd::ui::font(fd::ui::TextStyle::Control), "B") + 8.0f <=
+              static_cast<float>(bar->compareButton().getWidth()) + kTextMargin);
     }
 
     // Every bound control lives in a section or the header: nothing hand-placed.

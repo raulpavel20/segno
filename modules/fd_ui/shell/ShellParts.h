@@ -63,8 +63,11 @@ struct ListItem
 {
     juce::String name, caption, shortcut;
     bool toggled = false, enabled = true, selected = false;
+    /// Room kept at the right for a control the caller draws there (a preset's star).
+    int trailing = 0;
 };
-void paintListRow(juce::Graphics& g, juce::Rectangle<int> row, const ListItem& item);
+/// Returns the room kept for `trailing` (empty without), where the caller draws its control.
+juce::Rectangle<int> paintListRow(juce::Graphics& g, juce::Rectangle<int> row, const ListItem& item);
 
 /// Closes a popover on any mouse press outside it (docs/design/ui-foundations.md): a global
 /// mouse listener while attached. Presses in other top-level windows (a popup menu the popover

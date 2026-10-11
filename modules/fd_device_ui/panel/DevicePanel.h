@@ -44,10 +44,14 @@ public:
     [[nodiscard]] PanelSection* findSection(std::string_view id) const;
     /// The module-wide settings in the header (for the layout lint).
     [[nodiscard]] const std::vector<juce::Component*>& headerControls() const noexcept { return headerControls_; }
+    /// The header's presets (ADR 0044): null where the host has none (snapshots, the gallery).
+    [[nodiscard]] PresetBar* presetBar() const noexcept { return presetBar_.get(); }
     /// The meters of the meter strip (for the layout lint).
     [[nodiscard]] std::vector<juce::Component*> meters() const;
-    /// The width the header needs: fold, power, name and settings.
+    /// The width the header needs: fold, power, name, presets and settings.
     [[nodiscard]] int headerMinimumWidth() const;
+    /// Where the header's name is drawn (for the layout lint).
+    [[nodiscard]] juce::Rectangle<int> nameArea() const noexcept { return nameArea_; }
 
     /// True where a mouse-down may start reordering in a chain: the header's background, or
     /// anywhere on the folded strip, never on a control.
@@ -123,6 +127,7 @@ private:
     std::vector<juce::Rectangle<int>> captionAreas_;    // laid out
     std::vector<std::pair<juce::Component*, juce::String>> meters_;
 
+    std::unique_ptr<PresetBar> presetBar_;
     bool foldable_ = false, folded_ = false;
     juce::Rectangle<int> nameArea_;
     std::vector<int> separators_; // x of the lines between sections

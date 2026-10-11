@@ -52,11 +52,13 @@ namespace fd::devices
 {
 const DeviceFactory& @camel@Factory();
 const ui::PanelFactory& @camel@PanelFactory();
+std::span<const FactoryPresetFile> @camel@FactoryPresets();
 } // namespace fd::devices
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new fd::plugin::DeviceAudioProcessor(fd::devices::@camel@Factory(), &fd::devices::@camel@PanelFactory());
+    return new fd::plugin::DeviceAudioProcessor(fd::devices::@camel@Factory(), &fd::devices::@camel@PanelFactory(),
+                                                fd::devices::@camel@FactoryPresets());
 }
 ]] @ONLY)
 

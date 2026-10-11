@@ -85,5 +85,11 @@ struct DeviceUiContext
     /// The sidechain picker's source list, for a device with a sidechain bus; null where the
     /// host can't route one (snapshots, the gallery).
     SidechainRouting* sidechain = nullptr;
+    /// Presets (ADR 0044): the header's preset bar; null where there are none (snapshots, the
+    /// gallery).
+    PresetHost* presets = nullptr;
+    /// Asks the host for `height` px below the module's header while the preset list is open (0:
+    /// done), where its window is too small to hold it: a plugin's editor grows. Empty in the DAW.
+    std::function<void(int height)> popoverRoom;
 };
 } // namespace fd::ui

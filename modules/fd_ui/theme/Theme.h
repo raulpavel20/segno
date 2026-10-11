@@ -20,6 +20,8 @@ struct DeviceGrid
     int displayInset = 6;       // a display's text and marks, from its well's edges
     int displayTextHeight = 14; // a display's line of text (a legend, a readout, an axis label)
     int headerPadding = 8;
+    int headerButton = 16;                          // a header's icon buttons: fold, previous and next preset
+    int presetFieldMin = 112, presetFieldMax = 200; // the preset's name field (presets.md §6)
 
     /// Width of `columns` cells and the gaps between them.
     [[nodiscard]] constexpr int width(int columns) const noexcept { return columns * (column + columnGap) - columnGap; }
@@ -97,8 +99,12 @@ struct ShellMetrics
     int rowHeight = 20;
     int propertyLabelWidth = 80;
     int listRowHeight = 28;
+    int listTextInset = 10; // a list row's text from its edges (palette and preset rows, their headings)
     int popoverWidth = 560, popoverTop = 56;
     int formPopoverWidth = 420;   // a popover of property rows (the export panel)
+    int presetListWidth = 320,
+        presetListRows = 10; // a module's preset list (presets.md §7): rows shown before it scrolls
+    int listIconSize = 12;   // an icon button at the end of a list row (a preset's star)
     int toastHeight = 36, toastWidth = 420;
     int keyboardWidth = 52, velocityHeight = 56;
     int railWidth = 44, splitter = 5;

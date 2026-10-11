@@ -139,6 +139,10 @@ The project, track, clip and module resources send change notifications when the
 | `set_automation_on` | `lane`, a parameter and `on?`, or `all` | Turns assignments back on (not an undo step) |
 | `set_module_sidechain` | `module`, `source` (a track, or null for none) | The source; `get_module` reports `sidechain: {source, possibleSources}` for modules with a sidechain input ([ADR 0025](../decisions/0025-sidechain-routing.md)) |
 | `set_module_view` | `module`, `collapsed?` (section ids), `folded?` | – (view state: never an undo step) |
+| `list_presets` | `module` or `type` | A module's presets (Default settings, factory, yours: id, name, source, tags, description, author, favourite), and for a module the one it came from, whether it changed since, and whether A or B shows ([presets.md](presets.md) §14) |
+| `load_preset` | `module`, `preset` (id or name), `source?` (factory, yours) | Loads it into the setting shown; one undo step |
+| `save_preset` | `module`, `name`, `tags?`, `description?`, `author?`, `replace?` | Saves one of yours (refused for a name in use unless `replace`); assistants never delete presets |
+| `compare` | `module`, `action` (switch, copy) | A/B: which shows now |
 | `scan_plugins` | – | The number found; long, so it runs as a task with progress |
 
 For third-party plugins, `set_parameters` uses the plugin's own parameter names and normalised values (0–1), on a best-effort basis.
@@ -174,6 +178,7 @@ Every DAW feature ships with its tools (the coverage rule, ADR 0021). Today:
 | Audio and MIDI clips: insert, move, trim, duplicate, split, delete; rename and recolour, copy to a place (C11) | Track and clip tools; `set_clips`, `copy_clips` |
 | Piano roll | Note tools |
 | Module chains: add, remove, reorder, bypass, parameters, Sampler sample, collapse and fold | Module tools |
+| Presets and A/B (M3 A1, ADR 0044) | `list_presets`, `load_preset`, `save_preset`, `compare`; `add_module` takes a `preset` |
 | Plugin scanning | `scan_plugins` |
 | Projects, undo | Project tools |
 | Live MIDI (computer keyboard, inputs) | Not a tool: a live performance input, not an edit. A `preview_note` tool may come later |

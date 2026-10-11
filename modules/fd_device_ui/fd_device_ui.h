@@ -16,9 +16,11 @@ END_JUCE_MODULE_DECLARATION
 #pragma once
 #define FD_DEVICE_UI_H_INCLUDED
 
+// clang-format off: the order matters (each part needs the ones before it)
 #include <fd_ui/fd_ui.h>
 
 #include <fd/device/Device.h>
+#include <fd/device/Presets.h>
 #include <fd/dsp/Spectrum.h>
 #include <fd/dsp/SynthBlocks.h>
 
@@ -30,6 +32,8 @@ END_JUCE_MODULE_DECLARATION
 #include "panel/ParamBinding.h"
 #include "panel/ParamControls.h"
 #include "panel/PanelSection.h"
+#include "panel/PresetBar.h"
 #include "panel/DevicePanel.h"
 #include "panel/Displays.h"
 #include "panel/PanelRegistry.h"
+// clang-format on

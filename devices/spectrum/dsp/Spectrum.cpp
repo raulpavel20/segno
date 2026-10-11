@@ -3,6 +3,7 @@
 #include "fd/audiofile/AudioFile.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <nlohmann/json.hpp>
@@ -120,6 +121,10 @@ constexpr ParamDescription kDescriptions[] = {
 constexpr auto kParams = describe(kSpecs, kDescriptions);
 static_assert(allDescribed(kParams), "every parameter needs a description (SPEC.md)");
 
+// The snapshot is a picture of this mix at one moment: presets leave it out (ADR 0044). The
+// reference stays, so a preset can hold a target curve.
+constexpr std::array<std::string_view, 2> kSessionKeys{"snapshot.curve", "snapshot.channel"};
+
 constexpr DeviceInfo kInfo{
     .id = "spectrum",
     .name = "Spectrum",
@@ -128,6 +133,7 @@ constexpr DeviceInfo kInfo{
     .buses = {.inputChannels = 2, .outputChannels = 2, .sidechainChannels = 2},
     .params = kParams,
     .stateVersion = 1,
+    .sessionExtraKeys = kSessionKeys,
 };
 
 /// A curve as stored: dB rounded to hundredths, so projects stay small and readable.

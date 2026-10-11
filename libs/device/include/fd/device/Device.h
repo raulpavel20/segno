@@ -103,6 +103,9 @@ struct DeviceInfo
     std::uint32_t stateVersion = 1;
     /// The analysis slots its displays read, by name (none for display-only data).
     std::span<const MeterSpec> meters{};
+    /// Extra-state keys that belong to the session, not the sound: presets leave them out, and
+    /// loading a preset leaves them as they are (ADR 0044; the Spectrum's snapshot).
+    std::span<const std::string_view> sessionExtraKeys{};
 };
 
 /// Base class for every instrument and effect. Hosts: the plugin adapter (plugins/) and the

@@ -213,6 +213,11 @@ Glyph glyph(Icon icon)
         p.lineTo(11.5f, 9.5f);
         p.lineTo(9.5f, 9.5f);
         break;
+    case Icon::Star:
+    case Icon::StarFilled:
+        p.addStar({8.0f, 8.3f}, 5, 2.6f, 6.0f);
+        g.filled = icon == Icon::StarFilled;
+        break;
     case Icon::Search:
         p.addEllipse(2.5f, 2.5f, 8.5f, 8.5f);
         p.startNewSubPath(9.8f, 9.8f);

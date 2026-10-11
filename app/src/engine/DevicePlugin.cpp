@@ -263,6 +263,12 @@ void DevicePlugin::flushPluginStateToValueTree()
     }
 }
 
+void DevicePlugin::setStoredValue(size_t index, float normalised)
+{
+    values_[index]->setValue(normalised, getUndoManager());
+    params_[index]->updateFromAttachedValue();
+}
+
 void DevicePlugin::applyExtraState(const nlohmann::json& patch)
 {
     nlohmann::json extra = nlohmann::json::object();

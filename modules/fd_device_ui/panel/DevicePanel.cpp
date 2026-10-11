@@ -97,6 +97,12 @@ DevicePanel::DevicePanel(DeviceUiContext& context) : context_(context)
         headerControls_.push_back(&adopt(std::make_unique<SidechainPicker>(*context_.sidechain), *this));
         headerCaptions_.push_back("Sidechain");
     }
+    // Presets, where the host has them (ADR 0044).
+    if (context_.presets != nullptr)
+    {
+        presetBar_ = std::make_unique<PresetBar>(context_);
+        addAndMakeVisible(*presetBar_);
+    }
     startTimerHz(30);
 }
 
@@ -132,6 +138,8 @@ void DevicePanel::timerCallback()
             pc->refresh();
     for (auto& s : sections_)
         s->refresh();
+    if (presetBar_ != nullptr)
+        presetBar_->refresh();
     updateDimming();
 }
 
@@ -306,6 +314,8 @@ int DevicePanel::headerMinimumWidth() const
     for (size_t i = 0; i < headerControls_.size(); ++i)
         w += static_cast<float>(settingWidth(*headerControls_[i]) + kSettingsGap) +
              juce::GlyphArrangement::getStringWidth(captionFont(), headerCaptions_[i]) + kCaptionGap;
+    if (presetBar_ != nullptr)
+        w += static_cast<float>(presetBar_->minimumWidth() + kSettingsGap);
     return roundUpToGrid(w);
 }
 
@@ -325,7 +335,7 @@ int DevicePanel::preferredWidth() const
 bool DevicePanel::isDragHandle(juce::Point<int> position) const
 {
     auto onControl = [&](const juce::Component& c) { return c.isVisible() && c.getBounds().contains(position); };
-    if (onControl(power_) || onControl(fold_))
+    if (onControl(power_) || onControl(fold_) || (presetBar_ != nullptr && onControl(*presetBar_)))
         return false;
     if (folded_)
         return getLocalBounds().contains(position);
@@ -357,6 +367,8 @@ void DevicePanel::resized()
             s->setVisible(false);
         for (auto* c : headerControls_)
             c->setVisible(false);
+        if (presetBar_ != nullptr)
+            presetBar_->setVisible(false);
         for (auto& [meter, caption] : meters_)
             meter->setVisible(false);
         return;
@@ -388,6 +400,17 @@ void DevicePanel::resized()
         captionAreas_[i] = h.removeFromRight(caption);
         h.removeFromRight(kSettingsGap);
     }
+    // The presets, right-aligned before the settings; the field takes the room the name leaves.
+    if (presetBar_ != nullptr)
+    {
+        const int name = static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(
+            nameFont(), juce::String(std::string(context_.info.name)))));
+        const int width = std::clamp(h.getWidth() - name - kSettingsGap, presetBar_->minimumWidth(),
+                                     presetBar_->maximumWidth());
+        presetBar_->setVisible(true);
+        presetBar_->setBounds(h.removeFromRight(width).withSizeKeepingCentre(width, grid.row));
+        h.removeFromRight(kSettingsGap);
+    }
     nameArea_ = h;
 
     // Body: sections left to right, separated by lines; then the meter strip.
@@ -403,6 +426,8 @@ void DevicePanel::resized()
     }
     if (!meters_.empty())
     {
+        // At the right edge, where a wider header leaves room after the sections.
+        x = std::max(x, getWidth() - grid.meterStripWidth(static_cast<int>(meters_.size())));
         separators_.push_back(x);
         int mx = x + grid.meterStripPadding - 8; // 6 px after the line, 8 px before the edge
         for (auto& [meter, caption] : meters_)

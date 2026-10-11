@@ -837,6 +837,113 @@ void Shell::registerActions()
                   .keys = {key('e', kCmd | kAlt)},
                   .perform = [this] { detail_.chain().expandSelected(); },
                   .isEnabled = [this] { return detail_.chain().selectedPanel() != nullptr; }});
+    // Presets (ADR 0044, presets.md §10): the selected module's, as its header has them.
+    auto presets = [this]() -> ui::PresetBar*
+    {
+        auto* panel = detail_.chain().selectedPanel();
+        return panel != nullptr ? panel->presetBar() : nullptr;
+    };
+    auto onPresets = [presets](std::function<void(ui::PresetBar&)> f)
+    {
+        return [presets, f]
+        {
+            if (auto* bar = presets())
+            {
+                f(*bar);
+                bar->refresh();
+            }
+        };
+    };
+    auto hasPresets = [presets] { return presets() != nullptr; };
+    actions_.add({.id = "module.previousPreset",
+                  .name = "Previous preset",
+                  .category = "Module",
+                  .perform = onPresets([](ui::PresetBar& b) { b.step(-1); }),
+                  .isEnabled = hasPresets});
+    actions_.add({.id = "module.nextPreset",
+                  .name = "Next preset",
+                  .category = "Module",
+                  .perform = onPresets([](ui::PresetBar& b) { b.step(+1); }),
+                  .isEnabled = hasPresets});
+    actions_.add({.id = "module.savePreset",
+                  .name = "Save preset",
+                  .category = "Module",
+                  .perform = onPresets(
+                      [](ui::PresetBar& b)
+                      {
+                          if (b.controller().canSave())
+                              b.controller().save();
+                          else
+                              b.openList(true); // a factory preset: one of yours
+                      }),
+                  .isEnabled = hasPresets});
+    actions_.add({.id = "module.savePresetAs",
+                  .name = juce::String::fromUTF8("Save preset as\xE2\x80\xA6"),
+                  .category = "Module",
+                  .perform = onPresets([](ui::PresetBar& b) { b.openList(true); }),
+                  .isEnabled = hasPresets});
+    actions_.add({.id = "module.revertPreset",
+                  .name = "Revert to preset",
+                  .category = "Module",
+                  .perform = onPresets([](ui::PresetBar& b) { b.controller().revert(); }),
+                  .isEnabled = [presets]
+                  {
+                      auto* bar = presets();
+                      return bar != nullptr && bar->controller().modified();
+                  }});
+    actions_.add({.id = "module.compare",
+                  .name = "Compare A/B",
+                  .category = "Module",
+                  .perform = onPresets([](ui::PresetBar& b) { b.controller().switchCompare(); }),
+                  .isEnabled = hasPresets,
+                  .isToggled = [presets]
+                  {
+                      auto* bar = presets();
+                      return bar != nullptr && bar->controller().onB();
+                  }});
+    actions_.add({.id = "module.copyCompare",
+                  .name = "Copy A to B",
+                  .category = "Module",
+                  .perform = onPresets([](ui::PresetBar& b) { b.controller().copyCompare(); }),
+                  .isEnabled = hasPresets,
+                  .label = [presets]
+                  {
+                      auto* bar = presets();
+                      return juce::String(bar != nullptr && bar->controller().onB() ? "Copy B to A"
+                                                                                    : "Copy A to B");
+                  }});
+    actions_.add({.id = "module.useAsDefault",
+                  .name = "Use as the default for a new module",
+                  .category = "Module",
+                  .perform = onPresets([](ui::PresetBar& b) { b.controller().useAsDefault(); }),
+                  .isEnabled = hasPresets,
+                  .label = [presets]
+                  {
+                      auto* bar = presets();
+                      return bar != nullptr ? "Use as the default for a new " +
+                                                  juce::String(std::string(bar->context().info.name))
+                                            : juce::String("Use as the default for a new module");
+                  }});
+    actions_.add({.id = "module.clearDefault",
+                  .name = "Clear the default",
+                  .category = "Module",
+                  .perform = onPresets([](ui::PresetBar& b) { b.controller().clearDefault(); }),
+                  .isEnabled = [presets]
+                  {
+                      auto* bar = presets();
+                      return bar != nullptr && bar->controller().hasDefault();
+                  }});
+    actions_.add({.id = "module.presetsFolder",
+                  .name = "Show presets folder",
+                  .category = "Module",
+                  .perform = [&s]
+                  {
+                      const juce::File folder(
+                          juce::String::fromUTF8(s.presetLibrary().root().string().c_str()));
+                      if (!folder.isDirectory())
+                          folder.createDirectory();
+                      folder.startAsProcess();
+                  }});
     actions_.add({.id = "track.add", .name = "Add track", .category = "Track", .keys = {key('t', kCmd)},
                   .perform = [&s] { s.addTrack(); }});
     // The mixer (C3, docs/design/mixer.md §9): the selected channel.

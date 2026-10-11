@@ -75,7 +75,117 @@ std::unique_ptr<juce::RangedAudioParameter> makeParameter(const ParamSpec& spec)
             .withStringFromValueFunction(toText)
             .withValueFromStringFunction(fromText));
 }
+/// Every preset this plugin offers (ADR 0044): its module's factory set and yours, in the folder
+/// the DAW reads too. One per plugin binary, shared by its instances.
+PresetLibrary& libraryOf(std::span<const FactoryPresetFile> factory)
+{
+    static PresetLibrary presets(
+        factory, std::filesystem::path(ui::defaultPresetsFolder().getFullPathName().toStdString()));
+    return presets;
+}
 } // namespace
+
+/// The plugin's side of presets: the state through the host's parameters (each load a gesture,
+/// so hosts record it as a hand on the controls), the memo beside the device state. Plugins have
+/// no undo of their own: Escape after browsing puts back the state from before it.
+class DeviceAudioProcessor::Presets final : public PresetHost
+{
+public:
+    Presets(DeviceAudioProcessor& p, std::span<const FactoryPresetFile> factory) : p_(p), factory_(factory) {}
+
+    PresetLibrary& library() override { return libraryOf(factory_); }
+
+    DeviceState state() const override
+    {
+        const auto& info = p_.device_->info();
+        DeviceState s;
+        s.deviceId = std::string(info.id);
+        s.stateVersion = info.stateVersion;
+        for (size_t i = 0; i < info.params.size(); ++i)
+            s.params[std::string(info.params[i].id)] =
+                info.params[i].fromNormalized(p_.params_[i]->getValue());
+        p_.device_->writeExtraState(s.extra);
+        return s;
+    }
+
+    DeviceState migrated(DeviceState s) const override
+    {
+        if (s.stateVersion < p_.device_->info().stateVersion)
+            p_.device_->migrateState(s);
+        return s;
+    }
+
+    PresetMemo memo() const override
+    {
+        const juce::ScopedLock lock(p_.viewLock_);
+        return p_.presetMemo_.empty()
+                   ? PresetMemo{}
+                   : PresetMemo::fromJson(nlohmann::json::parse(p_.presetMemo_, nullptr, false));
+    }
+
+    void apply(const DeviceState& state, const PresetMemo& memo, const std::string&) override
+    {
+        const auto& info = p_.device_->info();
+        for (size_t i = 0; i < info.params.size(); ++i)
+        {
+            const auto& spec = info.params[i];
+            const auto it = state.params.find(std::string(spec.id));
+            const float normalised =
+                spec.toNormalized(spec.sanitize(it != state.params.end() ? it->second : spec.def));
+            if (auto* param = p_.params_[i]; std::abs(param->getValue() - normalised) > 1e-7f)
+            {
+                param->beginChangeGesture();
+                param->setValueNotifyingHost(normalised);
+                param->endChangeGesture();
+            }
+        }
+        nlohmann::json extra = nlohmann::json::object();
+        p_.device_->writeExtraState(extra);
+        if (const auto patch = extraPatch(info, extra, state.extra); !patch.empty())
+            p_.applyExtraState(patch);
+        setMemo(memo);
+    }
+
+    void setMemo(const PresetMemo& memo) override
+    {
+        {
+            const juce::ScopedLock lock(p_.viewLock_);
+            p_.presetMemo_ = memo.empty() ? std::string() : memo.toJson().dump();
+        }
+        p_.updateHostDisplay(ChangeDetails{}.withNonParameterStateChanged(true).withProgramChanged(true));
+    }
+
+    void beginBrowsing() override
+    {
+        before_ = state();
+        memoBefore_ = memo();
+    }
+
+    void endBrowsing(bool keep) override
+    {
+        if (auto before = std::exchange(before_, std::nullopt); before && !keep)
+            apply(*before, memoBefore_, {});
+    }
+
+    bool trash(const std::filesystem::path& file) override
+    {
+        return juce::File(juce::String::fromUTF8(file.string().c_str())).moveToTrash();
+    }
+
+    void reveal(const std::filesystem::path& folder) override
+    {
+        const juce::File f(juce::String::fromUTF8(folder.string().c_str()));
+        if (!f.isDirectory())
+            f.createDirectory();
+        f.startAsProcess();
+    }
+
+private:
+    DeviceAudioProcessor& p_;
+    std::span<const FactoryPresetFile> factory_;
+    std::optional<DeviceState> before_;
+    PresetMemo memoBefore_;
+};
 
 juce::AudioProcessor::BusesProperties DeviceAudioProcessor::busesFor(const DeviceInfo& info)
 {
@@ -91,9 +201,10 @@ juce::AudioProcessor::BusesProperties DeviceAudioProcessor::busesFor(const Devic
     return props;
 }
 
-DeviceAudioProcessor::DeviceAudioProcessor(const DeviceFactory& factory, const ui::PanelFactory* panel)
+DeviceAudioProcessor::DeviceAudioProcessor(const DeviceFactory& factory, const ui::PanelFactory* panel,
+                                           std::span<const FactoryPresetFile> presets)
     : juce::AudioProcessor(busesFor(factory.info())), device_(factory.create()), panel_(panel),
-      name_(std::string(factory.info().name))
+      name_(std::string(factory.info().name)), presets_(std::make_unique<Presets>(*this, presets))
 {
     for (const auto& spec : device_->info().params)
     {
@@ -105,6 +216,55 @@ DeviceAudioProcessor::DeviceAudioProcessor(const DeviceFactory& factory, const u
     }
     if (!latencyParams_.empty())
         startTimer(100); // a latency-changing setting is a configuration change (ADR 0020)
+    // A new instance starts from your default, if you set one (a host's saved state replaces it).
+    if (const auto start = PresetController::startingPoint(device_->info(), presets_->library()))
+        presets_->apply(presets_->migrated(start->first), start->second, {});
+}
+
+DeviceAudioProcessor::~DeviceAudioProcessor() = default;
+
+PresetHost& DeviceAudioProcessor::presets() noexcept
+{
+    return *presets_;
+}
+
+std::vector<const Preset*> DeviceAudioProcessor::programs()
+{
+    auto all = presets_->library().presetsFor(device_->info());
+    std::erase_if(all, [](const Preset* p)
+                  { return p->source != Preset::Source::Builtin && p->source != Preset::Source::Factory; });
+    return all;
+}
+
+int DeviceAudioProcessor::getNumPrograms()
+{
+    return static_cast<int>(programs().size());
+}
+
+int DeviceAudioProcessor::getCurrentProgram()
+{
+    const auto key = presets_->memo().preset;
+    const auto list = programs();
+    for (size_t i = 0; i < list.size(); ++i)
+        if (list[i]->key() == key)
+            return static_cast<int>(i);
+    return 0;
+}
+
+void DeviceAudioProcessor::setCurrentProgram(int index)
+{
+    const auto list = programs();
+    if (index < 0 || index >= static_cast<int>(list.size()) || index == getCurrentProgram())
+        return;
+    PresetController(device_->info(), *presets_).load(*list[static_cast<size_t>(index)]);
+}
+
+const juce::String DeviceAudioProcessor::getProgramName(int index)
+{
+    const auto list = programs();
+    return index >= 0 && index < static_cast<int>(list.size())
+               ? juce::String::fromUTF8(list[static_cast<size_t>(index)]->name.c_str())
+               : juce::String();
 }
 
 void DeviceAudioProcessor::updateLatency()
@@ -197,7 +357,13 @@ void DeviceAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
 void DeviceAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     pullParameters();
-    destData = host::stateToMemory(*device_, {.view = viewState(), .sidechainExternal = sidechainExternal()});
+    std::string memo;
+    {
+        const juce::ScopedLock lock(viewLock_);
+        memo = presetMemo_;
+    }
+    destData = host::stateToMemory(
+        *device_, {.view = viewState(), .sidechainExternal = sidechainExternal(), .preset = memo});
 }
 
 std::string DeviceAudioProcessor::viewState() const
@@ -218,6 +384,10 @@ void DeviceAudioProcessor::setStateInformation(const void* data, int sizeInBytes
         return;
     const auto extras = host::extrasFromMemory(data, sizeInBytes);
     setViewState(extras.view);
+    {
+        const juce::ScopedLock lock(viewLock_);
+        presetMemo_ = extras.preset;
+    }
     sidechainExternal_.store(extras.sidechainExternal);
     viewStateLoaded.sendChangeMessage(); // asynchronous: the editor applies it on the message thread
     const auto& store = device_->params();
@@ -287,7 +457,14 @@ DeviceEditor::DeviceEditor(DeviceAudioProcessor& p) : juce::AudioProcessorEditor
     binding_ = std::make_unique<Binding>(p);
     sidechain_ = std::make_unique<Sidechain>(p);
     context_ = std::make_unique<ui::DeviceUiContext>(
-        ui::DeviceUiContext{p.device().info(), *binding_, &p.device().analysis(), &p.device(), sidechain_.get()});
+        ui::DeviceUiContext{p.device().info(), *binding_, &p.device().analysis(), &p.device(),
+                            sidechain_.get(), &p.presets(), [this](int height)
+                            {
+                                // The preset list needs room below the header: the window grows
+                                // while it's open.
+                                popoverRoom_ = height;
+                                handleAsyncUpdate();
+                            }});
     panel_ = p.panelFactory()->create(*context_);
     panel_->setViewState(p.viewState());
     panel_->onViewChanged = [this] {
@@ -326,7 +503,10 @@ void DeviceEditor::handleAsyncUpdate()
     if (display != nullptr)
         width = std::min(width, static_cast<int>(display->userBounds.getWidth()) - 32);
     const bool scrolls = width < panelWidth + 2 * kEditorMargin;
-    const int height = ui::Theme::current().devicePanelHeight + 2 * kEditorMargin + (scrolls ? 8 : 0);
+    const auto& t = ui::Theme::current();
+    const int height =
+        std::max(t.devicePanelHeight + 2 * kEditorMargin + (scrolls ? 8 : 0),
+                 popoverRoom_ > 0 ? kEditorMargin + t.deviceHeaderHeight + popoverRoom_ + kEditorMargin : 0);
     if (getWidth() != width || getHeight() != height)
         setSize(width, height);
     else

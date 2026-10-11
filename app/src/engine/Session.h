@@ -551,6 +551,17 @@ public:
     void setDeviceViewState(std::uint64_t deviceId, const std::string& json);
     /// The panel context of one of our devices; null for third-party plugins.
     [[nodiscard]] std::unique_ptr<DeviceHandle> openDevice(std::uint64_t deviceId);
+
+    // ---- presets (M3 A1, ADR 0044, docs/design/presets.md) -------------------------------
+
+    /// Every preset: the factory set and yours (Documents/Segno/Presets).
+    [[nodiscard]] PresetLibrary& presetLibrary();
+    /// Where yours live (tests use their own folder).
+    void setPresetsFolder(const juce::File& folder);
+    /// One of our modules, for presets (the Module menu, assistants); null for third-party
+    /// plugins. Loading, reverting and A/B are each one undo step; what loads while browsing is
+    /// one, and going back undoes it.
+    [[nodiscard]] std::unique_ptr<PresetHost> presetHost(std::uint64_t deviceId);
     /// A third-party plugin's parameters (ours are read through openDevice()).
     struct PluginParameter
     {

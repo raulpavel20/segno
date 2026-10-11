@@ -25,6 +25,7 @@ In the UI, instruments and effects are **modules**. Code and docs say *device* (
   - fold chevron (DAW only);
   - power;
   - name;
+  - the **presets** ([presets.md](presets.md), ADR 0044), right-aligned before the header settings: previous and next, the preset's name (`deviceGrid.presetFieldMin` to `presetFieldMax` wide, taking the room the name leaves), the A/B toggle. Where the host has none (the gallery, snapshots) they don't show;
   - **header settings** for module-wide quality and display options, which never change the sound's character (oversampling quality, analyzer), right-aligned;
   - for a module with a sidechain input, the **Sidechain** picker, first among the header settings, 128 px wide whatever the track names ([ADR 0025](../decisions/0025-sidechain-routing.md)). Its choices come from the host: None and the tracks in the DAW, Off and External in a plugin.
 
@@ -46,6 +47,8 @@ In the UI, instruments and effects are **modules**. Code and docs say *device* (
 |---|---|---|
 | Panel height | 232 | `Theme::devicePanelHeight` |
 | Header | 28 | `Theme::deviceHeaderHeight` |
+| Header buttons | 16 | `DeviceGrid::headerButton`: fold, previous and next preset |
+| Preset field | 112 to 200 | `DeviceGrid::presetFieldMin`, `presetFieldMax` (ADR 0044) |
 | Column | 48 wide, 4 apart | span of *n* columns = 52*n* − 4 (48, 100, 152, 204, 256, 308…) |
 | Row | 20 tall, 8 apart | span of *m* rows = 28*m* − 8 (20, 48, 76, 104, 132, 160) |
 | Content | 6 rows | 160 px |
@@ -89,7 +92,7 @@ Each control is placed by its top-left cell and its span: `(column, row, columns
 
 ## Folding and widths
 
-- A panel's width is computed: the sum of its sections (expanded or collapsed) plus the meter strip. It is never less than the header needs.
+- A panel's width is computed: the sum of its sections (expanded or collapsed) plus the meter strip. It is never less than the header needs; where the header needs more, the meter strip sits at the right edge and the room is left after the last section.
 - **In the DAW chain:** the fold chevron folds the whole module to a 28 px strip showing its power and its name, rotated. Click the strip to unfold it; drag it to reorder.
 - **Width changes:**
   - the DAW chain relays out at once;

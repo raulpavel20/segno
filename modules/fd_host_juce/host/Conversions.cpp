@@ -62,13 +62,18 @@ juce::MemoryBlock stateToMemory(const Device& device, const PluginExtras& extras
     std::string json = serializeState(device);
     const auto view = extras.view.empty() ? nlohmann::json() : nlohmann::json::parse(extras.view, nullptr, false);
     const bool hasView = view.is_object();
-    if (hasView || extras.sidechainExternal)
+    const auto preset =
+        extras.preset.empty() ? nlohmann::json() : nlohmann::json::parse(extras.preset, nullptr, false);
+    const bool hasPreset = preset.is_object() && !preset.empty();
+    if (hasView || extras.sidechainExternal || hasPreset)
     {
         auto state = nlohmann::json::parse(json);
         if (hasView)
             state["view"] = view;
         if (extras.sidechainExternal)
             state["sidechain"] = "external";
+        if (hasPreset)
+            state["preset"] = preset;
         json = state.dump(2); // the same formatting as serializeState
     }
     return juce::MemoryBlock(json.data(), json.size());
@@ -87,6 +92,8 @@ PluginExtras extrasFromMemory(const void* data, int sizeInBytes)
         extras.view = it->dump();
     if (const auto it = json.find("sidechain"); it != json.end() && it->is_string())
         extras.sidechainExternal = it->get<std::string>() == "external";
+    if (const auto it = json.find("preset"); it != json.end() && it->is_object())
+        extras.preset = it->dump();
     return extras;
 }
 

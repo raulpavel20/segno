@@ -134,19 +134,80 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
         CHECK_FALSE(std::regex_search(t.description + t.inputSchema.dump(), vendors));
     }
     // The catalogue of docs/design/mcp.md §5 (measure_module comes with the dynamics core, A1).
-    for (const auto* name :
-         {"get_project", "get_clip", "get_module", "list_module_types", "play", "stop", "set_position", "set_loop",
-          "set_metronome", "set_tempo", "set_time_signature", "add_track", "create_midi_clip", "insert_audio_file",
-          "insert_midi_file", "move_clips", "trim_clip", "duplicate_clips", "split_clips", "delete_clips", "add_notes",
-          "set_notes", "remove_notes", "edit_notes", "add_module", "remove_module", "move_module", "set_module_on",
-          "set_parameters", "load_sample", "set_module_view", "set_module_sidechain", "scan_plugins", "render",
-          "measure_module", "set_mix", "add_return_track", "set_send", "measure_mix", "get_automation",
-          "set_automation", "clear_automation", "set_automation_on", "add_automation_lane", "set_automation_lane",
-          "remove_automation_lane", "move_automation_lane", "assign_automation", "unassign_automation", "set_track_input", "arm_tracks",
-          "record", "get_takes", "use_take", "audition_take", "set_take", "move_takes_to_tracks", "delete_takes", "capture_midi",
-          "bounce_clips", "mute_clips", "set_fades", "crossfade", "set_edge_fades", "export_audio",
-          "undo", "redo",
-          "save_project", "new_project", "open_project"})
+    for (const auto* name : {"get_project",
+                             "get_clip",
+                             "get_module",
+                             "list_module_types",
+                             "play",
+                             "stop",
+                             "set_position",
+                             "set_loop",
+                             "set_metronome",
+                             "set_tempo",
+                             "set_time_signature",
+                             "add_track",
+                             "create_midi_clip",
+                             "insert_audio_file",
+                             "insert_midi_file",
+                             "move_clips",
+                             "trim_clip",
+                             "duplicate_clips",
+                             "split_clips",
+                             "delete_clips",
+                             "add_notes",
+                             "set_notes",
+                             "remove_notes",
+                             "edit_notes",
+                             "add_module",
+                             "remove_module",
+                             "move_module",
+                             "set_module_on",
+                             "set_parameters",
+                             "load_sample",
+                             "set_module_view",
+                             "set_module_sidechain",
+                             "scan_plugins",
+                             "render",
+                             "measure_module",
+                             "set_mix",
+                             "add_return_track",
+                             "set_send",
+                             "measure_mix",
+                             "get_automation",
+                             "set_automation",
+                             "clear_automation",
+                             "set_automation_on",
+                             "add_automation_lane",
+                             "set_automation_lane",
+                             "remove_automation_lane",
+                             "move_automation_lane",
+                             "assign_automation",
+                             "unassign_automation",
+                             "set_track_input",
+                             "arm_tracks",
+                             "record",
+                             "get_takes",
+                             "use_take",
+                             "audition_take",
+                             "set_take",
+                             "move_takes_to_tracks",
+                             "delete_takes",
+                             "capture_midi",
+                             "bounce_clips",
+                             "mute_clips",
+                             "set_fades",
+                             "crossfade",
+                             "set_edge_fades",
+                             "export_audio",
+                             "list_presets",
+                             "load_preset",
+                             "save_preset",
+                             "compare",
+                             "undo",
+                             "redo",
+                             "save_project",
+                             "new_project",
+                             "open_project"})
         CHECK(names.contains(name));
     for (const auto& p : registry.prompts)
     {
@@ -1223,4 +1284,61 @@ TEST_CASE("mcp tools: tracks renamed, recoloured, moved, duplicated and deleted;
     for (const auto& t : daw.project()["tracks"])
         CHECK(t["id"] != copy);
     CHECK(daw.fails("delete_tracks", {{"tracks", {master}}}).find("master") != std::string::npos);
+}
+
+TEST_CASE("mcp tools: presets listed, loaded and saved; A/B; a module added from a preset (A1)",
+          "[integration][mcp]")
+{
+    Daw daw;
+    daw.session->setPresetsFolder(daw.folder.getChildFile("Presets"));
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    const auto comp =
+        daw.call("add_module", {{"track", t0}, {"type", "compressor"}})["id"].get<std::string>();
+
+    auto r = daw.call("list_presets", {{"module", comp}});
+    REQUIRE_FALSE(r["presets"].empty());
+    CHECK(r["presets"][0]["name"] == "Default settings");
+    CHECK(r["loaded"] == "Default settings");
+    CHECK(r["modified"] == false);
+    CHECK(r["showing"] == "A");
+    CHECK(daw.call("list_presets", {{"type", "compressor"}})["presets"].size() == r["presets"].size());
+    CHECK(daw.fails("list_presets", {}).find("module") != std::string::npos);
+
+    // Saved as one of yours: the module now came from it.
+    daw.call("set_parameters", {{"module", comp}, {"values", {{"threshold", -30.0}}}});
+    r = daw.call("save_preset",
+                 {{"module", comp}, {"name", "Hard"}, {"tags", {"Heavy"}}, {"description", "Lots"}});
+    CHECK(r["preset"]["name"] == "Hard");
+    CHECK(r["preset"]["source"] == "yours");
+    CHECK(daw.fails("save_preset", {{"module", comp}, {"name", "Hard"}}).find("replace") !=
+          std::string::npos);
+    CHECK_FALSE(daw.fails("save_preset", {{"module", comp}, {"name", "a/b"}}).empty());
+    r = daw.call("list_presets", {{"module", comp}});
+    CHECK(r["loaded"] == "Hard");
+
+    // Loaded by name or id: one undo step.
+    daw.call("load_preset", {{"module", comp}, {"preset", "Default settings"}});
+    CHECK(daw.session->undoDescription() == "Assistant: load preset");
+    CHECK(daw.call("list_presets", {{"module", comp}})["loaded"] == "Default settings");
+    r = daw.call("load_preset", {{"module", comp}, {"preset", "user/Compressor/Hard"}});
+    CHECK(r["preset"] == "Hard");
+    CHECK(daw.fails("load_preset", {{"module", comp}, {"preset", "Nothing like it"}}).find("list_presets") !=
+          std::string::npos);
+
+    // A/B.
+    r = daw.call("compare", {{"module", comp}, {"action", "switch"}});
+    CHECK(r["showing"] == "B");
+    daw.call("load_preset", {{"module", comp}, {"preset", "Default settings"}});
+    r = daw.call("compare", {{"module", comp}, {"action", "switch"}});
+    CHECK(r["showing"] == "A");
+    CHECK(r["preset"] == "Hard");
+
+    // A module added from a preset; a wrong one adds nothing.
+    const auto modules = daw.project()["tracks"][1]["chain"].size();
+    const auto t1 = daw.project()["tracks"][1]["id"].get<std::string>();
+    r = daw.call("add_module", {{"track", t1}, {"type", "compressor"}, {"preset", "Hard"}});
+    CHECK(r["preset"] == "Hard");
+    CHECK(daw.call("list_presets", {{"module", r["id"]}})["loaded"] == "Hard");
+    CHECK_FALSE(daw.fails("add_module", {{"track", t1}, {"type", "compressor"}, {"preset", "Nope"}}).empty());
+    CHECK(daw.project()["tracks"][1]["chain"].size() == modules + 1);
 }

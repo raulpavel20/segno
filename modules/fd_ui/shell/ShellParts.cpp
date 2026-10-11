@@ -191,7 +191,7 @@ juce::Rectangle<int> paintProperties(juce::Graphics& g, juce::Rectangle<int> are
     return area;
 }
 
-void paintListRow(juce::Graphics& g, juce::Rectangle<int> row, const ListItem& item)
+juce::Rectangle<int> paintListRow(juce::Graphics& g, juce::Rectangle<int> row, const ListItem& item)
 {
     const auto& t = Theme::current();
     if (item.selected)
@@ -199,7 +199,8 @@ void paintListRow(juce::Graphics& g, juce::Rectangle<int> row, const ListItem& i
         g.setColour(t.surface3);
         g.fillRoundedRectangle(row.toFloat(), t.radiusControl);
     }
-    row.reduce(10, 0);
+    row.reduce(t.shell.listTextInset, 0);
+    const auto trailing = row.removeFromRight(item.trailing);
     if (item.shortcut.isNotEmpty())
     {
         g.setColour(t.textTertiary);
@@ -221,6 +222,7 @@ void paintListRow(juce::Graphics& g, juce::Rectangle<int> row, const ListItem& i
         g.setFont(font(TextStyle::Caption));
         g.drawText(item.caption, row, juce::Justification::centredLeft, true);
     }
+    return trailing;
 }
 
 void paintPopover(juce::Graphics& g, juce::Rectangle<int> bounds)

@@ -350,7 +350,7 @@ The commands act on the **selected module**, or the one whose header was used la
 
 ## 19. What comes when
 
-- **A1 (M3):** everything above.
+- **A1 (M3):** everything above; built (§20).
 - **With the browser (C2):** presets in the browser's search; dragging one onto a track adds its module with it; the browser filtered to the selected module's presets.
 - **Later:**
   - CLAP preset discovery and LV2 preset bundles;
@@ -358,3 +358,16 @@ The commands act on the **selected module**, or the one whose header was used la
   - a preset's sound previewed before loading;
   - sharing and packs;
   - morphing between A and B.
+
+## 20. Settled while building (2026-10-11)
+
+- **The host interface:** each host implements `PresetHost` (`fd/device/Presets.h`): its state, its memo (which preset, A/B), one edit per load, browsing. That replaced §17's `ParamBinding::applyState`: the memo and browsing needed a host's side anyway.
+- **The DAW's state is the stored values,** what the project keeps. A load writes them in its undo step: tracktion's own parameter setter writes them later, after the step has closed, so undo took back only the name. A parameter whose lane plays follows the lane over a preset, as §11 says; tracktion keeps the stored value up to date with the lane.
+- **The memo** is `fdPreset` on the module in the project (undone with the state), and `preset` beside the device state in a plugin's state.
+- **The plugins' program list** is Default settings and the factory presets. One of yours isn't a program, so the host sees the first; a host setting the program it reads again changes nothing, which keeps a host that resets the program after loading a state from undoing it.
+- **Escape in a plugin** puts back the state from when the list opened (plugins have no undo of their own).
+- **A plugin's window grows** while its list is open, when the list doesn't fit under the header (`DeviceUiContext::popoverRoom`), and shrinks back as it closes.
+- **Headers:** Utility's panel is 280 px in the DAW and 256 in a plugin. Where the header makes a panel wider than its sections, the meter strip sits at the right edge, the room after the last section (device-panels.md).
+- **Words:** "Use as the default for a new Compressor" (no plurals to get wrong); the save form's Description is "About".
+- **The modified mark** is the title bar's, shared (`paintNameWithMark`): right after the name, which is cut instead of the mark.
+- **Tests never touch your presets:** CTest gives every test an empty folder of its own (`SEGNO_PRESETS_FOLDER`), and tests that write presets set their own.

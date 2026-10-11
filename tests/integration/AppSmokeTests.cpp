@@ -637,9 +637,13 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
     const auto& actions = f.shell->actions();
     CHECK(actions.conflicts().empty());
     // ui-principles §1: a shortcut for every action but the rare ones the menus hold alone.
-    const std::set<std::string> menuOnly{"take.useWhole", "take.rename",        "take.copyToTrack", "take.moveToTrack",
-                                         "take.keepOnly", "app.systemTitleBar", "app.about",
-                                         "track.duplicate", "track.delete"};
+    const std::set<std::string> menuOnly{
+        "take.useWhole", "take.rename", "take.copyToTrack", "take.moveToTrack", "take.keepOnly",
+        "app.systemTitleBar", "app.about", "track.duplicate", "track.delete",
+        // Presets (presets.md §10): on screen in the header; keys come with remapping.
+        "module.previousPreset", "module.nextPreset", "module.savePreset", "module.savePresetAs",
+        "module.revertPreset", "module.compare", "module.copyCompare", "module.useAsDefault",
+        "module.clearDefault", "module.presetsFolder"};
     for (const auto& a : actions.all())
     {
         INFO(a.id);
@@ -1004,7 +1008,12 @@ TEST_CASE("modules collapse sections and fold in the chain; header controls neve
     const juce::Point<float> title(static_cast<float>(grid.sectionPadding + 8), static_cast<float>(grid.bodyTop + 8));
     shape->mouseUp(mouseEvent(*shape, title, title, false));
     CHECK(shape->isCollapsed());
-    CHECK(utility->getX() == before - (grid.sectionWidth(shape->columns()) - grid.collapsedWidth));
+    CHECK(utility->getX() < before); // narrower, down to what its header needs
+    CHECK(utility->getX() == saturator->getX() + saturator->preferredWidth() + fd::app::DeviceChain::gap);
+    CHECK(saturator->preferredWidth() ==
+          std::max(saturator->headerMinimumWidth(),
+                   before - fd::app::DeviceChain::gap - saturator->getX() -
+                       (grid.sectionWidth(shape->columns()) - grid.collapsedWidth)));
     CHECK(f.session->deviceViewState(sat).find("shape") != std::string::npos);
 
     // Select the module by its header, then fold it with the action's command.
@@ -2595,7 +2604,8 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     auto& s = *f.session;
     const auto& actions = f.shell->actions();
     auto& menus = f.shell->menus();
-    CHECK(menus.getMenuBarNames() == juce::StringArray{"File", "Edit", "Track", "Clip", "Transport", "View", "Options", "Help"});
+    CHECK(menus.getMenuBarNames() == juce::StringArray{"File", "Edit", "Track", "Clip", "Module", "Transport",
+                                                       "View", "Options", "Help"});
 
     // ADR 0040: every action is in the menu bar exactly once, and every item is an action (the
     // assistants' only with a server; the fixture has none).
@@ -2633,9 +2643,9 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     REQUIRE(named != nullptr);
     CHECK(named->isEnabled);
     CHECK(actions.tooltip("edit.undo").startsWith("Undo Add track ("));
-    CHECK_FALSE(findItem(menus.menu(4), "Loop")->isTicked);
+    CHECK_FALSE(findItem(menus.menu(5), "Loop")->isTicked);
     actions.perform("transport.loop");
-    CHECK(findItem(menus.menu(4), "Loop")->isTicked);
+    CHECK(findItem(menus.menu(5), "Loop")->isTicked);
     actions.perform("transport.loop");
 
     if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: each menu and submenu
@@ -2655,9 +2665,9 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     CHECK(f.shell->exportPanel().isOpen());
     f.shell->exportPanel().close();
     // The lists the Record button's menu shows, in Transport too: one builder.
-    CHECK(invoke(menus.menu(4), "2 bars", "Count-in length"));
+    CHECK(invoke(menus.menu(5), "2 bars", "Count-in length"));
     CHECK(s.countIn() == fd::model::CountIn::TwoBars);
-    CHECK(invoke(menus.menu(4), "Each lap: add to the clip (overdub)", "MIDI loop recording"));
+    CHECK(invoke(menus.menu(5), "Each lap: add to the clip (overdub)", "MIDI loop recording"));
     CHECK(s.midiOverdub());
     // Back as the other tests expect them: the count-in is kept in the engine's settings file.
     s.setCountIn(fd::model::CountIn::Off);
@@ -2669,7 +2679,7 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     CHECK_FALSE(actions.isEnabled("take.copyToTrack"));
     actions.perform("midi.computerKeyboard");
     REQUIRE(actions.isEnabled("midi.octaveUp"));
-    CHECK(invoke(menus.menu(6), "Octave up", "Computer keyboard"));
+    CHECK(invoke(menus.menu(7), "Octave up", "Computer keyboard"));
     CHECK(f.shell->lastWarning().contains("C4"));
     // A key held when the keys stop reaching the shell (a text field elsewhere, another window,
     // the app in the background) ends its note: its release would never arrive.
@@ -2688,10 +2698,12 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     f.shell->onOpenMenu = [&opened](int menu) { opened = menu; };
     CHECK(f.shell->keyPressed(juce::KeyPress(juce::KeyPress::F10Key)));
     CHECK(opened == 0);
+    CHECK(f.shell->keyPressed(juce::KeyPress('d', juce::ModifierKeys::altModifier, 0)));
+    CHECK(opened == 4); // Module
     CHECK(f.shell->keyPressed(juce::KeyPress('p', juce::ModifierKeys::altModifier, 0)));
-    CHECK(opened == 4);
+    CHECK(opened == 5);
     CHECK(f.shell->keyPressed(juce::KeyPress('h', juce::ModifierKeys::altModifier, 0)));
-    CHECK(opened == 7);
+    CHECK(opened == 8);
     opened = -1;
     f.shell->keyPressed(juce::KeyPress('r', juce::ModifierKeys::altModifier, 0));
     CHECK(opened == -1);
@@ -2700,7 +2712,7 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     CHECK(f.shell->projectName() == "Untitled");
 
     // Help > About Segno: the licence notice, inside the window, nothing touching.
-    CHECK(invoke(menus.menu(7), "About Segno"));
+    CHECK(invoke(menus.menu(8), "About Segno"));
     auto& about = f.shell->about();
     REQUIRE(about.isOpen());
     CHECK(about.paragraphs().joinIntoString(" ").contains("GNU Affero General Public License"));
@@ -3541,4 +3553,169 @@ TEST_CASE("names: typing on a showing window: renaming takes the focus by every 
             CHECK(editor.field().hasKeyboardFocus(false));
         }
     }
+}
+
+TEST_CASE("presets: the header's bar, the list and the save form, by mouse and keys; the Module menu (A1)",
+          "[integration]")
+{
+    ShellFixture f;
+    juce::TemporaryFile folderName;
+    const auto folder = folderName.getFile();
+    f.session->setPresetsFolder(folder);
+    f.shell->setSize(1800, 1000);
+    auto& s = *f.session;
+    auto& actions = f.shell->actions();
+    const auto t0 = s.snapshot()->tracks[0].id;
+    const auto comp = s.addDevice(t0, "fd:compressor");
+    REQUIRE(s.addDevice(t0, "fd:utility") != 0);
+    s.updateSnapshotNow();
+    f.shell->arrangement().selectTrack(t0); // its modules show below, as a click on its header does
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    auto& chain = f.shell->detail().chain();
+    REQUIRE(chain.track() == t0);
+    const auto panels = findAll<fd::ui::DevicePanel>(chain);
+    REQUIRE(panels.size() == 2);
+    auto* compressor = panels[0];
+    auto* utility = panels[1];
+    auto* bar = compressor->presetBar();
+    REQUIRE(bar != nullptr);
+    REQUIRE(utility->presetBar() != nullptr);
+    auto type = [](juce::TextEditor& field, const juce::String& text)
+    {
+        field.setText(text, true);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(
+            20); // fields tell of changes asynchronously
+    };
+    CHECK(bar->field().presetName() == "Default settings");
+
+    // Two presets of yours, tagged.
+    const auto& info = fd::findDevice("compressor")->info();
+    auto& library = s.presetLibrary();
+    auto host = s.presetHost(comp);
+    auto state = host->state();
+    state.params["threshold"] = -10.0f;
+    REQUIRE(
+        library.save(info, state, "Glue", {"Bus", "Subtle"}, "Gentle glue for a bus", "Me", false).preset);
+    state.params["threshold"] = -40.0f;
+    REQUIRE(library.save(info, state, "Smash", {"Drums", "Heavy"}, "", "Me", false).preset);
+    const float defaultThreshold = host->state().params.at("threshold");
+
+    // The Module menu acts on the selected module.
+    CHECK_FALSE(actions.isEnabled("module.savePresetAs"));
+    const juce::Point<float> header(60.0f, 10.0f);
+    chain.mouseDown(mouseEvent(*compressor, header, header, false));
+    chain.mouseUp(mouseEvent(*compressor, header, header, false));
+    REQUIRE(chain.selectedPanel() == compressor);
+    CHECK(actions.isEnabled("module.savePresetAs"));
+    CHECK_FALSE(actions.isEnabled("module.revertPreset"));
+    CHECK(actions.label("module.useAsDefault") == "Use as the default for a new Compressor");
+    CHECK(actions.label("module.copyCompare") == "Copy A to B");
+
+    // The list: Default settings and yours, the tags in use.
+    bar->openList();
+    REQUIRE(bar->isListOpen());
+    auto& list = bar->list();
+    CHECK(list.shown().size() == 3);
+    CHECK(list.highlighted() == 0); // the loaded one
+    const auto tags = list.tagFilters();
+    REQUIRE(tags.size() == 4);
+    CHECK(f.shell->getLocalBounds().contains(
+        list.getBounds().reduced(juce::roundToInt(fd::ui::Theme::current().shell.shadowRadius))));
+
+    // Browsing loads as it goes; Escape goes back.
+    list.highlight(1);
+    CHECK(host->state().params.at("threshold") == Catch::Approx(-10.0f).margin(0.01f));
+    CHECK(bar->field().presetName() == "Glue");
+    list.highlight(2);
+    CHECK(bar->field().presetName() == "Smash");
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(
+            dump, "preset-list@2x.png",
+            f.shell->createComponentSnapshot(list.getBounds().getUnion(f.shell->getLocalArea(
+                                                 compressor, compressor->getLocalBounds().withHeight(28))),
+                                             true, 2.0f));
+    list.close(false);
+    CHECK_FALSE(bar->isListOpen());
+    CHECK(host->state().params.at("threshold") == Catch::Approx(defaultThreshold).margin(0.01f));
+    CHECK(bar->field().presetName() == "Default settings");
+
+    // Enter keeps what's loaded, as one undo step.
+    bar->openList();
+    list.highlight(1);
+    list.highlight(2);
+    list.highlight(1);
+    list.close(true);
+    CHECK(bar->field().presetName() == "Glue");
+    CHECK(s.undoDescription() == "Load preset Glue");
+
+    // Search, tags and favourites narrow the list; previous and next step through it as filtered.
+    bar->openList();
+    type(list.searchField(), "smash");
+    REQUIRE(list.shown().size() == 1);
+    CHECK(list.shown()[0]->name == "Smash");
+    type(list.searchField(), "");
+    list.setTagFilter("Bus", true);
+    REQUIRE(list.shown().size() == 1);
+    CHECK(list.shown()[0]->name == "Glue");
+    list.setTagFilter("Bus", false);
+    list.setFavourite(2, true);
+    list.setFavouritesOnly(true);
+    CHECK(list.shown().size() == 1);
+    list.setFavouritesOnly(false);
+    CHECK(library.isFavourite(info.id, "user/Compressor/Smash"));
+
+    // Save as…: the form in place, the name in use asks to replace.
+    list.saveAsButton().onClick();
+    REQUIRE(list.isShowingForm());
+    CHECK(list.nameField().getText() == "Glue");
+    CHECK(list.tagsField().getText() == "Bus, Subtle");
+    list.confirmButton().onClick();
+    CHECK(list.isShowingForm());
+    CHECK(list.confirmButton().getButtonText() == "Replace");
+    CHECK(list.problem().contains("Glue"));
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "preset-form@2x.png", f.shell->createComponentSnapshot(list.getBounds(), true, 2.0f));
+    type(list.nameField(), "Warm glue");
+    CHECK(list.confirmButton().getButtonText() == "Save");
+    type(list.tagsField(), "Bus, Warm");
+    list.confirmButton().onClick();
+    CHECK_FALSE(list.isShowingForm());
+    CHECK(bar->controller().loadedName() == "Warm glue");
+    const auto* warm = library.find(info, "user/Compressor/Warm glue");
+    REQUIRE(warm != nullptr);
+    CHECK(warm->tags == std::vector<std::string>{"Bus", "Warm"});
+    list.close(true);
+
+    // Changed since it loaded: the mark, and Revert.
+    auto handle = s.openDevice(comp);
+    handle->context().params.setPlain(0, -25.0f);
+    for (int i = 0; i < 9; ++i)
+        bar->refresh();
+    CHECK(bar->field().isModified());
+    CHECK(actions.isEnabled("module.revertPreset"));
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+    {
+        dumpPng(
+            dump, "preset-header@2x.png",
+            f.shell->createComponentSnapshot(
+                f.shell->getLocalArea(compressor, compressor->getLocalBounds().withHeight(28)), true, 2.0f));
+        dumpPng(dump, "preset-header-narrow@2x.png",
+                f.shell->createComponentSnapshot(f.shell->getLocalArea(utility, utility->getLocalBounds()),
+                                                 true, 2.0f));
+    }
+    REQUIRE(actions.perform("module.revertPreset"));
+    for (int i = 0; i < 9; ++i)
+        bar->refresh();
+    CHECK_FALSE(bar->field().isModified());
+
+    // A/B from the header button: one undo step, and the menu follows.
+    bar->compareButton().onClick();
+    CHECK(bar->compareButton().getButtonText() == "B");
+    CHECK(s.undoDescription() == "Compare B");
+    CHECK(actions.isToggled("module.compare"));
+    CHECK(actions.label("module.copyCompare") == "Copy B to A");
+
+    // Previous and next, from the menu bar.
+    REQUIRE(actions.perform("module.nextPreset"));
+    CHECK(bar->field().presetName() == "Default settings"); // past the last: the first
 }
