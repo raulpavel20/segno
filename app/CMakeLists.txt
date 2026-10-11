@@ -48,6 +48,7 @@ target_sources(fd_engine INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/ClipFades.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionFades.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionTracks.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionNotes.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/MidiTap.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/PluginWindow.cpp")
 target_include_directories(fd_engine INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/src")

@@ -481,13 +481,8 @@ void Sampler::tick() noexcept
 {
     const auto& p = params();
     const int interval = grid_.interval();
-    const int count = p.getInt(VoiceCount);
-    if (count < voices_.voiceCount())
-        for (int i = count; i < voices_.voiceCount(); ++i)
-            if (voice_[static_cast<size_t>(i)].sounding)
-                voiceRelease(i);
-    voices_.setVoiceCount(count);
-    voices_.setMode(static_cast<VoiceManager::Mode>(p.getInt(VoiceMode)));
+    voices_.setVoiceCount(p.getInt(VoiceCount), *this); // releases what a smaller count leaves out
+    voices_.setMode(static_cast<VoiceManager::Mode>(p.getInt(VoiceMode)), *this);
 
     const bool oneShot = static_cast<PlayMode>(p.getInt(Mode)) == PlayMode::OneShot;
     const auto ampSettings = settings(p, AmpA, oneShot ? 1.0 : -1.0); // one-shots hold full level

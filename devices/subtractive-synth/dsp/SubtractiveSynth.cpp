@@ -384,13 +384,8 @@ void SubtractiveSynth::tick(const TransportInfo& transport) noexcept
     const int interval = grid_.interval();
     volume_.setTarget(dsp::dbToGain(p.get(OutVolume), -70.0f), dsp::msToSamples(20.0, sampleRate_));
 
-    const int count = p.getInt(VoiceCount);
-    if (count < voices_.voiceCount())
-        for (int i = count; i < voices_.voiceCount(); ++i)
-            if (voice_[static_cast<size_t>(i)].sounding)
-                voiceRelease(i);
-    voices_.setVoiceCount(count);
-    voices_.setMode(static_cast<VoiceManager::Mode>(p.getInt(VoiceMode)));
+    voices_.setVoiceCount(p.getInt(VoiceCount), *this); // releases what a smaller count leaves out
+    voices_.setMode(static_cast<VoiceManager::Mode>(p.getInt(VoiceMode)), *this);
 
     const int sync = p.getInt(LfoSync);
     const double rate = sync > 0 ? (transport.tempoBpm / 60.0) / kSyncBeats[sync] : p.get(LfoRate);

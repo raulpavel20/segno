@@ -325,6 +325,7 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
 
 Shell::~Shell()
 {
+    releaseComputerKeyboard();
     if (assistants_ != nullptr)
         assistants_->onStatusChanged = nullptr;
     session_.onSnapshotChanged = nullptr;
@@ -798,9 +799,7 @@ void Shell::registerActions()
                   .keys = {key('k', kCmd | kShift)},
                   .perform = [this] {
                       computerKeyboard_ = !computerKeyboard_;
-                      for (const auto& [code, note] : heldKeys_)
-                          session_.computerKeyboardNote(note, 0.0f);
-                      heldKeys_.clear();
+                      releaseComputerKeyboard();
                       if (!computerKeyboard_)
                           return;
                       // Playing needs an instrument track selected (live MIDI follows the
@@ -1103,6 +1102,25 @@ void Shell::shiftKeyboardVelocity(int steps)
 {
     keyboardVelocity_ = juce::jlimit(0.1f, 1.0f, keyboardVelocity_ + 0.1f * static_cast<float>(steps));
     showWarning("Computer keyboard velocity: " + juce::String(juce::roundToInt(keyboardVelocity_ * 127.0f)));
+}
+
+void Shell::releaseComputerKeyboard()
+{
+    for (const auto& [code, note] : heldKeys_)
+        session_.computerKeyboardNote(note, 0.0f);
+    heldKeys_.clear();
+}
+
+void Shell::focusLost(FocusChangeType)
+{
+    if (!hasKeyboardFocus(true))
+        releaseComputerKeyboard();
+}
+
+void Shell::focusOfChildComponentChanged(FocusChangeType)
+{
+    if (!hasKeyboardFocus(true)) // another window took the keys, or the app is in the background
+        releaseComputerKeyboard();
 }
 
 bool Shell::keyStateChanged(bool)

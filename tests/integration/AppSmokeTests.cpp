@@ -2671,6 +2671,12 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     REQUIRE(actions.isEnabled("midi.octaveUp"));
     CHECK(invoke(menus.menu(6), "Octave up", "Computer keyboard"));
     CHECK(f.shell->lastWarning().contains("C4"));
+    // A key held when the keys stop reaching the shell (a text field elsewhere, another window,
+    // the app in the background) ends its note: its release would never arrive.
+    REQUIRE(f.shell->keyPressed(juce::KeyPress('a', {}, 'a')));
+    CHECK(f.shell->computerKeyboardHolds());
+    f.shell->focusLost(juce::Component::focusChangedByMouseClick);
+    CHECK_FALSE(f.shell->computerKeyboardHolds());
     actions.perform("midi.computerKeyboard");
     // Without a window (tests), what needs one is dimmed.
     CHECK_FALSE(actions.isEnabled("app.quit"));

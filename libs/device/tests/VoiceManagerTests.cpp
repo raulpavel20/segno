@@ -102,3 +102,39 @@ TEST_CASE("all notes off releases everything, even sustained notes", "[fast]")
     vm.handle({.type = EventType::AllNotesOff}, log);
     CHECK(log.events == std::vector<std::string>{"start 0 60", "start 1 62", "release 0", "release 1"});
 }
+
+TEST_CASE("held notes never stick when the mode or the voice count changes", "[fast]")
+{
+    VoiceManager vm;
+    vm.setVoiceCount(8);
+    Log log;
+    vm.handle(on(60), log);
+    vm.handle(on(64), log);
+    vm.handle(on(67), log);
+    REQUIRE(vm.activeVoices() == 3);
+
+    // Poly to Mono with three keys held: only the first voice gets note-offs now, so the others go.
+    vm.setMode(VoiceManager::Mode::Mono, log);
+    CHECK(log.events.back() == "release 2");
+    CHECK_FALSE(vm.voice(1).gate);
+    CHECK_FALSE(vm.voice(2).gate);
+    CHECK(vm.voice(0).gate);
+    vm.voiceFinished(1);
+    vm.voiceFinished(2);
+    CHECK(vm.activeVoices() == 1);
+    vm.handle(off(60), log); // the first voice's own note-off still ends it
+    CHECK_FALSE(vm.voice(0).gate);
+
+    // A lower count releases the voices above it, and they're freed when they finish.
+    vm.setMode(VoiceManager::Mode::Poly, log);
+    vm.reset();
+    vm.handle(on(60), log);
+    vm.handle(on(62), log);
+    vm.handle(on(64), log);
+    vm.setVoiceCount(1, log);
+    CHECK(log.events.back() == "release 2");
+    vm.voiceFinished(1);
+    vm.voiceFinished(2);
+    vm.setVoiceCount(8, log);
+    CHECK(vm.activeVoices() == 1); // they don't come back
+}

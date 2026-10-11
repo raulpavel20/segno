@@ -1,0 +1,219 @@
+No note outlives what plays it: a track's clips end the notes they no longer play (Segno).
+
+MIDI clips play through MidiNode, which keeps no record of the notes it started, and the
+CombiningNode only ends notes of LoopingMidiNodes that vanish from a rebuilt graph. Instrument
+plugins survive rebuilds without a reset, so any change to a track's MIDI while it plays (a clip
+moved to another track, moved, trimmed or deleted; a sounding note deleted, transposed or
+shortened; takes switched; undo) left the instrument holding the note until the playhead jumped.
+
+- CombiningNode follows the notes its clips start and end, and takes the list over from its
+  predecessor (by track) when the graph is rebuilt. The new graph's first block ends every listed
+  note the clips don't play at the playhead any more; a note still played is left alone. A jump
+  clears the list (PluginNode sends all-notes-off then); stopping ends what's held.
+- MidiNode::addNotesPlayingAt gives the notes a clip plays at a moment, nothing while muted or
+  when it's about to chase them (its note-ons come just after the note-offs).
+- TimedNode::nodes() gives the nodes without copying them (getNodes() allocates).
+
+To upstream (tracktion_engine develop).
+
+--- a/modules/tracktion_engine/playback/graph/tracktion_CombiningNode.h
++++ b/modules/tracktion_engine/playback/graph/tracktion_CombiningNode.h
+@@ -75,8 +75,18 @@
+ 
+     tracktion::graph::NodeProperties nodeProperties;
+ 
++    // Segno: the notes this track's clips started and haven't ended, followed across graph
++    // rebuilds of the same track, so a note whose clip moved, went or changed under it ends.
++    std::shared_ptr<ActiveNoteList> notesOn;
++    MPESourceID noteOffSourceID = createUniqueMPESourceID();
++    std::atomic<bool> wasPlaying { false };
++    bool endStaleNotes = false;
++
+     void prefetchGroup (juce::Range<int64_t>, TimeRange, BeatRange);
+     void queueNoteOffsForClipsNoLongerPresent (const CombiningNode&);
++    void followNotes (const MidiMessageArray&) noexcept;
++    void endNotes (MidiMessageArray&, const ActiveNoteList& stillPlayed) noexcept;
++    void endNotesNoLongerPlayed (MidiMessageArray&) noexcept;
+ 
+     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CombiningNode)
+ };
+--- a/modules/tracktion_engine/playback/graph/tracktion_CombiningNode.cpp
++++ b/modules/tracktion_engine/playback/graph/tracktion_CombiningNode.cpp
+@@ -52,6 +52,12 @@
+         return nodesToProcess;
+     }
+ 
++    /** Segno: the nodes, without copying them (for the audio thread). */
++    const std::vector<Node*>& nodes() const noexcept
++    {
++        return nodesToProcess;
++    }
++
+     void prepareToPlay (const tracktion::graph::PlaybackInitialisationInfo& info,
+                         choc::buffer::ChannelArrayView<float> view)
+     {
+@@ -261,8 +267,19 @@
+                                                     [id = itemID] (auto& cn) { return cn.itemID == id; }))
+         {
+             queueNoteOffsForClipsNoLongerPresent (*oldNode);
++
++            // Segno: carry on following what this track's clips play. The old graph keeps
++            // processing until the swap and the new one starts after it, so they never share the
++            // list at once; the new graph's first block ends what's stale.
++            notesOn = oldNode->notesOn;
++            noteOffSourceID = oldNode->noteOffSourceID;
++            wasPlaying = oldNode->wasPlaying.load();
++            endStaleNotes = true;
+         }
+     }
++
++    if (! notesOn)
++        notesOn = std::make_shared<ActiveNoteList>();
+ }
+ 
+ bool CombiningNode::isReadyToProcess()
+@@ -303,6 +320,20 @@
+     // Merge any note-offs from clips that have been deleted
+     pc.buffers.midi.mergeFromAndClear (noteOffEventsToSend);
+ 
++    // Segno: no note outlives what plays it. A jump ends everything (PluginNode sends all-notes-off);
++    // stopping ends what's held; the first block after a rebuild ends what the clips don't play now.
++    const bool playing = getPlayHead().isPlaying();
++
++    if (getPlayHeadState().didPlayheadJump())
++        notesOn->reset();
++    else if (wasPlaying && ! playing)
++        endNotes (pc.buffers.midi, {});
++
++    wasPlaying = playing;
++
++    if (std::exchange (endStaleNotes, false))
++        endNotesNoLongerPlayed (pc.buffers.midi);
++
+     // Then process the list
+     if (auto g = groups[combining_node_utils::timeToGroupIndex (getEditTimeRange().getStart())])
+     {
+@@ -325,6 +356,8 @@
+ 
+     if (pc.buffers.midi.size() > initialEvents)
+         pc.buffers.midi.sortByTimestamp();
++
++    followNotes (pc.buffers.midi);
+ }
+ 
+ size_t CombiningNode::getAllocatedBytes() const
+@@ -354,6 +387,64 @@
+     }
+ }
+ 
++void CombiningNode::followNotes (const MidiMessageArray& midi) noexcept
++{
++    for (const auto& m : midi)
++    {
++        if (m.isNoteOn())
++            notesOn->startNote (m.getChannel(), m.getNoteNumber());
++        else if (m.isNoteOff())
++            notesOn->clearNote (m.getChannel(), m.getNoteNumber());
++        else if (m.isAllNotesOff() || m.isAllSoundOff())
++            for (int note = 0; note < 128; ++note)
++                notesOn->clearNote (m.getChannel(), note);
++    }
++}
++
++void CombiningNode::endNotes (MidiMessageArray& dest, const ActiveNoteList& stillPlayed) noexcept
++{
++    notesOn->iterate ([&] (int channel, int note)
++                      {
++                          if (stillPlayed.isNoteActive (channel, note))
++                              return;
++
++                          dest.addMidiMessage (juce::MidiMessage::noteOff (channel, note), 0.0, noteOffSourceID);
++                          notesOn->clearNote (channel, note);
++                      });
++}
++
++void CombiningNode::endNotesNoLongerPlayed (MidiMessageArray& dest) noexcept
++{
++    if (! notesOn->areAnyNotesActive())
++        return;
++
++    // What the clips play at the playhead now. A clip about to chase its notes (new, or after a
++    // loop wrap) counts for nothing: its note-ons come just after these note-offs.
++    ActiveNoteList played;
++
++    if (getPlayHead().isPlaying() && getPlayHeadState().isContiguousWithPreviousBlock())
++    {
++        const auto time = getEditTimeRange().getStart();
++        const auto beat = getEditBeatRange().getStart();
++
++        if (auto g = groups[combining_node_utils::timeToGroupIndex (time)])
++        {
++            for (auto tan : *g)
++            {
++                for (auto n : tan->nodes())
++                {
++                    if (auto midiNode = dynamic_cast<MidiNode*> (n))
++                        midiNode->addNotesPlayingAt (time, beat, played);
++                    else if (auto loopingMidiNode = dynamic_cast<LoopingMidiNode*> (n))
++                        loopingMidiNode->getActiveNoteList()->iterate ([&] (int c, int k) { played.startNote (c, k); });
++                }
++            }
++        }
++    }
++
++    endNotes (dest, played);
++}
++
+ void CombiningNode::queueNoteOffsForClipsNoLongerPresent (const CombiningNode& oldCombiningNode)
+ {
+     // Find any LoopingMidiNodes that are no longer present
+--- a/modules/tracktion_engine/playback/graph/tracktion_MidiNode.h
++++ b/modules/tracktion_engine/playback/graph/tracktion_MidiNode.h
+@@ -32,6 +32,12 @@
+     bool isReadyToProcess() override;
+     void process (ProcessContext&) override;
+ 
++    /** Segno: adds the notes this clip plays at an edit time (and beat), for its track's
++        CombiningNode to end notes nothing plays any more. Nothing while it's muted, or when it's
++        about to chase its notes (it sends them again itself).
++    */
++    void addNotesPlayingAt (TimePosition, BeatPosition, ActiveNoteList&) const noexcept;
++
+ private:
+     //==============================================================================
+     std::vector<juce::MidiMessageSequence> ms;
+--- a/modules/tracktion_engine/playback/graph/tracktion_MidiNode.cpp
++++ b/modules/tracktion_engine/playback/graph/tracktion_MidiNode.cpp
+@@ -111,6 +111,32 @@
+     }
+ }
+ 
++void MidiNode::addNotesPlayingAt (TimePosition time, BeatPosition beat, ActiveNoteList& out) const noexcept
++{
++    if (shouldCreateMessagesForTime || ms.empty() || clipLevel.isMute() || (shouldBeMutedDelegate && shouldBeMutedDelegate()))
++        return;
++
++    const auto now = timeBase == MidiList::TimeBase::beats ? beat.inBeats() : time.inSeconds();
++
++    if (now < editRange.getStart() || now >= editRange.getEnd())
++        return;
++
++    const auto local = now - editRange.getStart();
++    const auto& sequence = ms[currentSequence];
++
++    for (int i = 0; i < sequence.getNumEvents(); ++i)
++    {
++        const auto* meh = sequence.getEventPointer (i);
++
++        if (meh->message.getTimeStamp() > local)
++            break;
++
++        if (meh->message.isNoteOn() && meh->noteOffObject != nullptr
++            && meh->noteOffObject->message.getTimeStamp() > local)
++            out.startNote (meh->message.getChannel(), meh->message.getNoteNumber());
++    }
++}
++
+ void MidiNode::processSection (Node::ProcessContext& pc,
+                                juce::Range<double> sectionEditRange,
+                                double secondsPerTimeBase,

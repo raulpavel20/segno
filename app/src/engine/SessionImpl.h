@@ -398,6 +398,9 @@ private:
     void curveHasChanged(te::AutomatableParameter&) override {}
     void recordingStatusChanged(te::AutomatableParameter& param) override;
     void changed(juce::ValueTree& tree);
+    /// A module turned on or off: its track's notes end, so none it held while off plays on
+    /// (SessionNotes.cpp).
+    void endNotesOnPowerChange(const juce::ValueTree& pluginState);
     void handleAsyncUpdate() override
     {
         applyInputs(); // tracks, inputs or instruments may have changed (undo too)
@@ -409,6 +412,8 @@ private:
     {
         if (id == te::IDs::lastSignificantChange || id == panelViewId || id == te::IDs::automationMode) // bookkeeping and view state
             return;
+        if (id == te::IDs::enabled && t.hasType(te::IDs::PLUGIN)) // undo and MCP too
+            endNotesOnPowerChange(t);
         // Arming is a listening state, like solo; showing takes is view state; input routing
         // follows the tracks' inputs.
         if (id == armedId || id == showTakesId || id == stackOpenId || inInputs(t))

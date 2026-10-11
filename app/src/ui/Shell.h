@@ -94,6 +94,14 @@ public:
     void resized() override;
     bool keyPressed(const juce::KeyPress& key) override;
     bool keyStateChanged(bool isKeyDown) override;
+    /// The keys stop reaching the shell: the computer keyboard's held notes end, since their
+    /// releases won't arrive here.
+    void focusLost(FocusChangeType) override;
+    void focusOfChildComponentChanged(FocusChangeType) override;
+    /// Ends every note the computer keyboard holds.
+    void releaseComputerKeyboard();
+    /// Whether the computer keyboard holds a note (tests).
+    [[nodiscard]] bool computerKeyboardHolds() const noexcept { return !heldKeys_.empty(); }
 
 private:
     struct Panel

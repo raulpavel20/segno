@@ -11,6 +11,30 @@ void VoiceManager::setMode(Mode m) noexcept
     }
 }
 
+void VoiceManager::setVoiceCount(int n, Listener& l) noexcept
+{
+    const int before = voiceCount_;
+    setVoiceCount(n);
+    for (int v = voiceCount_; v < before; ++v)
+        if (auto& voice = voices_[static_cast<size_t>(v)]; voice.active && (voice.gate || voice.sustained))
+        {
+            voice.gate = voice.sustained = false;
+            l.voiceRelease(v);
+        }
+}
+
+void VoiceManager::setMode(Mode m, Listener& l) noexcept
+{
+    if (m != mode_ && m != Mode::Poly)
+        for (int v = 1; v < maxVoices; ++v)
+            if (auto& voice = voices_[static_cast<size_t>(v)]; voice.active && (voice.gate || voice.sustained))
+            {
+                voice.gate = voice.sustained = false;
+                l.voiceRelease(v);
+            }
+    setMode(m);
+}
+
 void VoiceManager::reset() noexcept
 {
     voices_ = {};

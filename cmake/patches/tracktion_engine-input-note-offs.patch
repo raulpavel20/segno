@@ -1,0 +1,67 @@
+A held note ends on the track an input stops reaching (Segno). Applies after per-track-inputs.
+
+When a MIDI input's destination went (the live input following the selection to another track,
+an input changed), its held notes were sent as note-offs to the tracks it still reached, cutting
+notes there, while the track it left kept them sounding for good. Now they go to that track only.
+A destination whose monitoring turns off, or whose channel filter ("fdChannel") changes, ends the
+held notes it no longer hears on its track.
+
+--- a/modules/tracktion_engine/playback/devices/tracktion_MidiInputDevice.cpp
++++ b/modules/tracktion_engine/playback/devices/tracktion_MidiInputDevice.cpp
+@@ -1517,13 +1517,35 @@
+ 
+     void valueTreeChildRemoved (juce::ValueTree& p, juce::ValueTree& c, int index) override
+     {
++        // Segno: the held notes end on the track this input stops reaching, not on the ones it
++        // still reaches (they keep playing them).
+         if (p == state && c.hasType (IDs::INPUTDEVICEDESTINATION))
+-            injectNoteOffsToTrack();
++            if (auto track = findAudioTrackForID (edit, EditItemID::fromVar (c[IDs::targetID])))
++                injectNoteOffsToTrack (*track, 0);
+ 
+         InputDeviceInstance::valueTreeChildRemoved (p, c, index);
+     }
+ 
+-    void injectNoteOffsToTrack()
++    void valueTreePropertyChanged (juce::ValueTree& v, const juce::Identifier& id) override
++    {
++        // Segno: a destination that stops hearing a held note (its monitoring off, or another
++        // channel) ends it on its track.
++        if (v.getParent() == state && v.hasType (IDs::INPUTDEVICEDESTINATION))
++        {
++            if (auto track = findAudioTrackForID (edit, EditItemID::fromVar (v[IDs::targetID])))
++            {
++                if (id == juce::Identifier ("fdMonitor") && ! isLivePlayEnabled (*track))
++                    injectNoteOffsToTrack (*track, 0);
++                else if (id == juce::Identifier ("fdChannel"))
++                    injectNoteOffsToTrack (*track, juce::jlimit (0, 16, static_cast<int> (v.getProperty (id, 0))));
++            }
++        }
++
++        InputDeviceInstance::valueTreePropertyChanged (v, id);
++    }
++
++    /** Segno: note-offs for the held notes to `track`, all but those on `keptChannel` (0: all). */
++    void injectNoteOffsToTrack (AudioTrack& track, int keptChannel)
+     {
+         ActiveNoteList notes;
+ 
+@@ -1534,13 +1556,11 @@
+             notes = activeNotes;
+         }
+ 
+-        for (auto t : getTargetTracks (*this))
+-        {
+-            notes.iterate ([&] (auto channel, auto noteNumber)
+-                           {
+-                               t->injectLiveMidiMessage (juce::MidiMessage::noteOff (channel, noteNumber), midiSourceID);
+-                           });
+-        }
++        notes.iterate ([&] (auto channel, auto noteNumber)
++                       {
++                           if (channel != keptChannel)
++                               track.injectLiveMidiMessage (juce::MidiMessage::noteOff (channel, noteNumber), midiSourceID);
++                       });
+     }
+ 
+     MidiRecordingContext* getContextForID (EditItemID targetID) const

@@ -206,6 +206,20 @@ Waveforms come from a background-built peak cache per file, plus cached drawing 
   - keys held with Ctrl or Alt stay shortcuts.
 - **MIDI files:** `.mid` dropped on a track becomes a clip with all of the file's tracks merged. Dropped below the tracks, it creates a track. No instrument comes with it (ADR 0033). The clip shows its notes across its own pitch range; editing them is the piano roll (M2).
 
+## No stuck notes (found in the M2 song test)
+
+**The rule:** an instrument sounds only what the project plays at the playhead, or what a player holds. Whatever changes while the song plays, no note is left hanging.
+
+- **What clips play** is followed in the engine, per track (`cmake/patches/tracktion_engine-midi-note-continuity.patch`).
+  - A track's clips remember the notes they started. When the playback graph is rebuilt after a change, the track ends every remembered note its clips no longer play at the playhead; one they still play is left alone.
+  - That covers: a clip moved to another track, moved, trimmed or deleted; a sounding note deleted, transposed or shortened; takes switched or comped; an audition ended; a bounce; undo; assistants' edits; a tempo change; a loop wrap after an edit.
+  - A playhead jump (play, stop, seek) already ends every note.
+- **Live input** (`cmake/patches/tracktion_engine-input-note-offs.patch`): when an input stops reaching a track, the keys held on it end on that track. That happens when the selection moves (live MIDI follows it, including after a clip drag), when monitoring turns off, or when the track's MIDI channel changes. Other tracks it still reaches keep their notes.
+- **A module turned off and on:** a module turned off is skipped, so it keeps what it held. An instrument turned back on, or a MIDI effect turned on or off, ends its track's notes (`Session::Impl::endNotesOnPowerChange`; undo and assistants too).
+- **The computer keyboard** ends the notes it holds when the keys stop reaching the shell: a text field elsewhere, another window, the app in the background. Its releases would never arrive.
+- **Instruments:** changing Voice Mode to Mono or Legato with keys held, or lowering the voice count, releases the voices it leaves out (`VoiceManager::setMode` and `setVoiceCount` with a listener).
+- **Tests:** `tests/integration/NoteContinuityTests.cpp` plays each case in real time and checks the instrument falls silent, and that what still plays keeps playing.
+
 ## Device chain (C6)
 
 The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-module-panels.md)): the "Modules" tab, "Add module", "Module on/off".

@@ -51,6 +51,12 @@ public:
 
     void setVoiceCount(int n) noexcept { voiceCount_ = n < 1 ? 1 : (n > maxVoices ? maxVoices : n); }
     void setMode(Mode m) noexcept;
+    /// As above, while notes may be held: the voices above a lower count are released through
+    /// `l` (and freed when they finish), and going to Mono or Legato releases every voice but the
+    /// first (in those modes only the first gets note-offs). Instruments call these from their
+    /// parameter tick.
+    void setVoiceCount(int n, Listener& l) noexcept;
+    void setMode(Mode m, Listener& l) noexcept;
     void reset() noexcept;
 
     void handle(const Event& e, Listener& l) noexcept;
