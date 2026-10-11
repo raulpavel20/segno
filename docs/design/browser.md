@@ -8,7 +8,7 @@ How you find what goes into a song: modules and their presets, plugins, samples,
 - the menu bar as the complete list ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)) and assistants' tools ([ADR 0021](../decisions/0021-mcp-server.md));
 - the shared components: `ListRow`, `PanelHeader`, `ViewOption`, the waveform cache and the shell metrics ([ui-foundations.md](ui-foundations.md), ADR 0023).
 
-**Status:** proposed, for review by the product owner (§16).
+**Status:** approved by the product owner (2026-10-11), with every recommendation of §16.
 
 ## 1. Why
 
