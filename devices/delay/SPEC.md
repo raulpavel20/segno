@@ -1,6 +1,6 @@
 # Delay: device spec
 
-- **Status:** Draft, for review by the product owner (questions D1–D10 at the end)
+- **Status:** Approved by the product owner (2026-10-12, with every recommendation of D1–D10); IDs are permanent
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1, M3 (B1)
 - **Live target:** Delay and Echo, in one module. References only; nothing is copied ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).

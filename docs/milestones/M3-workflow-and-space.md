@@ -28,7 +28,7 @@ Each: SPEC approved → built → validators → sign-off by ear and feel, with 
 
 | # | Device | Notes |
 |---|---|---|
-| B1 | **Delay** | Live's Delay and Echo in one: clean and character modes (tape, analog-style), ping-pong, a filter in the feedback path, modulation, ducking, freeze, sync and swing. On A2. ◐ [SPEC](../../devices/delay/SPEC.md) drafted (2026-10-12), for review (D1–D10) |
+| B1 | **Delay** | Live's Delay and Echo in one: clean and character modes (tape, analog-style), ping-pong, a filter in the feedback path, modulation, ducking, freeze, sync and swing. On A2. ◐ [SPEC](../../devices/delay/SPEC.md) approved (2026-10-12, every recommendation of D1–D10); building |
 | B2 | **Chorus & Ensemble** | Chorus, ensemble, vibrato. On A2 |
 | B3 | **Phaser & Flanger** | Phaser, flanger, doubler; sync; an envelope follower. On A2 and the dynamics detector |
 | B4 | **Auto Pan & Tremolo** | LFO panning and tremolo, sync, shapes. On A2's LFOs |
