@@ -105,12 +105,12 @@ void addTrackTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(
         make(env,
              {"move_track", "Move a track",
-              "Moves a track before another track (or to the end), the automation lanes right after it "
-              "moving with it; "
-              "or a return track among the returns. One undo step.",
+              "Moves a track right above another track, or to the end of the tracks and lanes; nothing else "
+              "moves, the automation lanes that were after it included (move_automation_lane moves a lane). "
+              "Or a return track among the returns. One undo step.",
               object({{"track", id(IdKind::Track, "The track or return track")},
                       {"before", id(IdKind::Track,
-                                    "The track (or return) to put it before; leave it out for the end")}},
+                                    "The track (or return) to put it above; leave it out for the end")}},
                      {"track"}),
               result({{"order", arrayOf(string("A track's id"), "The tracks (or returns) in their order now",
                                         std::nullopt)}},

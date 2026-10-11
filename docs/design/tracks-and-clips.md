@@ -104,9 +104,10 @@ From the manuals of Live 12, Bitwig 5, Studio One (now Fender Studio Pro), Logic
   - a 2 px line in `active` shows where it will land;
   - Escape cancels;
   - it's one undo step, "Move track".
-- **Lanes:**
-  - the lanes sitting right after a track move with it, since you put them under it;
-  - dragging a lane's header moves the lane alone, to sit after the track above where it's dropped. This is ADR 0029's "reordering rows comes with track reordering".
+- **Every track and lane moves on its own** ([ADR 0042](../decisions/0042-every-row-moves-on-its-own.md), §19):
+  - dragging a header moves that row alone; every other row stays where it is, the lanes after a moved track included;
+  - a track or a lane can be dropped between any two rows among the tracks and lanes, at the top or at the end;
+  - this is ADR 0029's "reordering rows comes with track reordering", with a lane staying where it was put.
 - **Return tracks** reorder among themselves, below the tracks and lanes. The master stays last.
 - **The mixer view:** drag a strip by its name, along the strips; tracks among tracks, returns among returns.
 - **One track at a time**, while the selection holds one channel (ADR 0027). Several at once comes with multi-track selection (§16).
@@ -170,7 +171,8 @@ From the manuals of Live 12, Bitwig 5, Studio One (now Fender Studio Pro), Logic
 |---|---|
 | `set_track` | A track's or return's name and/or colour |
 | `delete_tracks` | Tracks or returns, as §5 (refused while recording) |
-| `move_track` | A track or return to a position among its kind |
+| `move_track` | A track right above another (the lanes stay), or a return among the returns |
+| `move_automation_lane` | A lane right above a track or another lane, or at the end (§19) |
 | `duplicate_track` | As §7; returns the copy |
 | `set_clips` | Clips' name and/or colour (`null` colour: follow the track) |
 | `copy_clips` | Copies clips to a position and a track (the clipboard's counterpart: an assistant names where) |
@@ -202,13 +204,13 @@ From the manuals of Live 12, Bitwig 5, Studio One (now Fender Studio Pro), Logic
 | Q1 | **Renaming** | A double-click on the name where it is (track header, mixer strip, clip title strip, lane header); F2 for the selection; the inspector's Name rows become fields. Master: not renamed (§4) |
 | Q2 | **Deleting a track** | Delete with its header selected, Track > Delete track, the header's menu; no question, a toast with Undo; refused while recording (§5) |
 | Q3 | **What a deleted track takes** | Its clips and takes, modules, sidechains fed from it, lanes that drive only it, its assignments in shared lanes; sends to a deleted return; lanes after it re-anchor (§5, B41) |
-| Q4 | **Reordering** | Drag the header (or a mixer strip's name); the lanes after a track move with it; a lane moves alone; returns among returns; one track at a time (§6) |
+| Q4 | **Reordering** | Drag the header (or a mixer strip's name); ~~the lanes after a track move with it~~ every track and lane moves alone (ADR 0042, §19); returns among returns; one track at a time (§6) |
 | Q5 | **Duplicating a track** | Ctrl+D on its header, Track > Duplicate track; right after it, "Bass 2"; everything but arm and solo; lanes that drive only it are copied for the copy (§7) |
 | Q6 | **Colours** | A 4 × 4 swatch grid from the right-click and the inspector; clips follow their track's colour until given their own; "Track colour" brings that back (§8) |
 | Q7 | **Paste** | Clips at the playhead on the selected track, rows kept, cutting what they land on (as Live and Logic, ADR 0019); notes at the playhead in the shown clip; points at the playhead on the selected lane; the playhead stays; Duplicate lays copies one after another (§9) |
 | Q8 | **Where the clipboard lives** | In the app, across projects, while it runs; the system clipboard later (§9) |
 | Q9 | **Keys** | Ctrl+X/C/V; F2 rename (the system's rename key; Ctrl+R, Live's, is Record here), with Tab to the next track's name; Delete and Ctrl+D route to the track when its header was used last; no keys of their own for the track commands (§10) |
-| Q10 | **Assistants** | `set_track`, `delete_tracks`, `move_track`, `duplicate_track`, `set_clips`, `copy_clips` (§11) |
+| Q10 | **Assistants** | `set_track`, `delete_tracks`, `move_track`, `duplicate_track`, `set_clips`, `copy_clips` (§11); `move_automation_lane` since §19 |
 
 ## 14. ADR 0041: Tracks and clips are managed in place
 
@@ -218,7 +220,7 @@ From the manuals of Live 12, Bitwig 5, Studio One (now Fender Studio Pro), Logic
 - The clipboard holds clips, notes or points from the area used last and pastes at the playhead.
 - The menu bar lists every command (ADR 0040), and assistants have tools for each (ADR 0021).
 
-This amends ADR 0029's "lanes stay where they were put": the lanes right after a track move with it.
+This amended ADR 0029's "lanes stay where they were put": the lanes right after a track moved with it. [ADR 0042](../decisions/0042-every-row-moves-on-its-own.md) took that back the same day (§19).
 
 ## 15. Tests (Done when)
 
@@ -313,3 +315,13 @@ Six things came back from trying it. Each is fixed, with a test that would have 
 - **Found on the way:**
   - The window's title bar outlived the shell whose menus it showed, which tripped an assertion on quit.
   - Snap's place had been 3 px right of the names; it now comes from the header layout.
+
+## 19. Every row moves on its own (product owner, 2026-10-11; ADR 0042)
+
+- **Why:** the lanes after a track moved with it (§6 as built). That assumed the user keeps a track's lanes under it, which nothing says: a lane may drive another track, several, or none. Whether carrying them helps or gets in the way was a guess. Moving several rows is a selection's job, and comes with multi-track selection.
+- **Now:**
+  - a dragged track or lane moves alone; every other row keeps its place;
+  - it can land between any two rows among the tracks and lanes: a track between two lanes too, no longer snapping past them;
+  - returns still move among the returns.
+- **How it's kept:** a lane is still stored as "after a track". A move rewrites the lanes around it, so each sits after the track now above it, in the same order (`model::moveRow`). Deleting a track already worked this way (B41).
+- **Assistants:** `move_track` keeps its name and arguments: the track lands right above the given one, and the lanes stay. `move_automation_lane` moves a lane right above a track or another lane, or to the end.

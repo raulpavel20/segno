@@ -164,13 +164,77 @@ bool Session::deleteTrack(std::uint64_t channelId, std::string* why)
     return true;
 }
 
+std::vector<model::RowRef> Session::Impl::rowOrder() const
+{
+    const auto all = tracks();
+    std::set<std::uint64_t> shown;
+    for (auto* t : all)
+        shown.insert(t->itemID.getRawID());
+    std::vector<model::RowRef> out;
+    auto lanesAfter = [&](auto anchored)
+    {
+        for (const auto& lane : lanesTree())
+            if (anchored(idProperty(lane[afterId])))
+                out.push_back({.id = idOf(lane), .lane = true});
+    };
+    lanesAfter([](std::uint64_t after) { return after == 0; });
+    for (auto* t : all)
+    {
+        const auto id = t->itemID.getRawID();
+        out.push_back({.id = id});
+        lanesAfter([id](std::uint64_t after) { return after == id; });
+    }
+    lanesAfter([&shown](std::uint64_t after) { return after != 0 && !shown.contains(after); });
+    return out;
+}
+
+void Session::Impl::placeRows(const model::RowOrder& order, te::Track* moved, juce::UndoManager* um)
+{
+    if (moved != nullptr)
+    {
+        // After the track before it in the new order; first, after what comes before the first
+        // track now (another kind of track).
+        const auto id = moved->itemID.getRawID();
+        const auto at = std::find(order.tracks.begin(), order.tracks.end(), id);
+        te::Track* preceding = nullptr;
+        if (at != order.tracks.begin() && at != order.tracks.end())
+            preceding = track(*std::prev(at));
+        else if (const auto all = tracks(); !all.empty())
+            preceding = trackBefore(*edit, all.front() == moved && all.size() > 1 ? *all[1] : *all.front(), moved);
+        edit->moveTrack(moved, te::TrackInsertPoint(nullptr, preceding));
+    }
+    // Each lane after its track, the lanes in row order.
+    auto lanes = lanesTree();
+    for (int i = 0; i < static_cast<int>(order.lanes.size()); ++i)
+    {
+        const auto& [id, after] = order.lanes[static_cast<size_t>(i)];
+        auto lane = laneTree(id);
+        if (!lane.isValid())
+            continue;
+        if (idProperty(lane[afterId]) != after)
+            lane.setProperty(afterId, idVar(after), um);
+        if (const int now = lanes.indexOf(lane); now != i)
+            lanes.moveChild(now, i, um);
+    }
+}
+
 bool Session::moveTrack(std::uint64_t channelId, std::uint64_t before)
 {
     auto* t = impl_->channelTrack(channelId);
     if (t == nullptr || before == channelId)
         return false;
-    const bool isReturn = Impl::isReturn(*t);
-    const auto kind = isReturn ? impl_->returns() : impl_->tracks();
+    if (!Impl::isReturn(*t))
+    {
+        // Right above a track or a lane; everything else stays where it is (ADR 0042).
+        const auto order = model::moveRow(impl_->rowOrder(), channelId, before);
+        if (!order)
+            return false;
+        impl_->beginEdit("Move track");
+        impl_->placeRows(*order, t, &impl_->edit->getUndoManager());
+        return true;
+    }
+    // A return among the returns.
+    const auto kind = impl_->returns();
     std::vector<te::AudioTrack*> others;
     for (auto* k : kind)
         if (k != t)
@@ -188,8 +252,8 @@ bool Session::moveTrack(std::uint64_t channelId, std::uint64_t before)
     const auto now = static_cast<std::size_t>(std::find(kind.begin(), kind.end(), t) - kind.begin());
     if (now == at)
         return false;
-    // After the one before its place among its kind; at the front, after what comes before the
-    // first of its kind now (another kind of track, or for returns the last track).
+    // After the one before its place among the returns; first, after what comes before the first
+    // return now (the last track).
     te::Track* preceding =
         at > 0 ? others[at - 1] : (others.empty() ? nullptr : trackBefore(*impl_->edit, *others.front(), t));
     impl_->beginEdit("Move track");
@@ -197,36 +261,16 @@ bool Session::moveTrack(std::uint64_t channelId, std::uint64_t before)
     return true;
 }
 
-bool Session::moveLane(std::uint64_t lane, std::uint64_t after, std::uint64_t beforeLane)
+bool Session::moveLane(std::uint64_t lane, std::uint64_t before)
 {
-    auto tree = impl_->laneTree(lane);
-    if (!tree.isValid() || beforeLane == lane || (after != 0 && impl_->track(after) == nullptr))
+    if (!impl_->laneTree(lane).isValid())
         return false;
-    auto lanes = impl_->lanesTree();
-    // Its index among the lanes: before `beforeLane`, or after the last lane sitting after `after`.
-    int index = -1;
-    if (beforeLane != 0)
-    {
-        const auto target = impl_->laneTree(beforeLane);
-        if (!target.isValid())
-            return false;
-        index = lanes.indexOf(target);
-    }
-    else
-        for (int i = 0; i < lanes.getNumChildren(); ++i)
-            if (lanes.getChild(i) != tree && idProperty(lanes.getChild(i)[Impl::afterId]) == after)
-                index = i + 1;
-    const int now = lanes.indexOf(tree);
-    if (index < 0)
-        index = lanes.getNumChildren();
-    if (index > now)
-        --index; // moving it out first shifts the ones after it
-    if (idProperty(tree[Impl::afterId]) == after && index == now)
+    // Right above a track or a lane; everything else stays where it is (ADR 0042).
+    const auto order = model::moveRow(impl_->rowOrder(), lane, before);
+    if (!order)
         return false;
     impl_->beginEdit("Move automation lane");
-    auto* um = &impl_->edit->getUndoManager();
-    tree.setProperty(Impl::afterId, idVar(after), um);
-    lanes.moveChild(now, std::clamp(index, 0, lanes.getNumChildren() - 1), um);
+    impl_->placeRows(*order, nullptr, &impl_->edit->getUndoManager());
     return true;
 }
 

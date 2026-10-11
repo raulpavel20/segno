@@ -1802,7 +1802,7 @@ void ArrangementView::mouseDrag(const juce::MouseEvent& e)
         if (!rowDrag_->moving && e.getDistanceFromDragStart() < ui::Theme::current().input.dragThreshold)
             return;
         rowDrag_->moving = true;
-        rowDrag_->drop = model::dropRow(rows_, *snapshot_, static_cast<std::size_t>(rowDrag_->row), boundaryAt(e.position.y));
+        rowDrag_->drop = model::dropRow(rows_, static_cast<std::size_t>(rowDrag_->row), boundaryAt(e.position.y));
         repaint();
         return;
     }
@@ -1927,7 +1927,7 @@ void ArrangementView::mouseUp(const juce::MouseEvent& e)
 {
     if (drag_ == Drag::Row)
     {
-        // A header dropped somewhere new: its row moves there (one undo step).
+        // A header dropped somewhere new: that row alone moves there (one undo step, ADR 0042).
         drag_ = Drag::None;
         const auto dragged = std::exchange(rowDrag_, std::nullopt);
         repaint();
@@ -1935,11 +1935,9 @@ void ArrangementView::mouseUp(const juce::MouseEvent& e)
             return;
         const auto& r = rows_[static_cast<std::size_t>(dragged->row)];
         if (r.kind == model::ArrangementRow::Kind::Lane)
-            session_.moveLane(r.lane, dragged->drop.laneAfter, dragged->drop.beforeLane);
-        else if (r.kind == model::ArrangementRow::Kind::Return)
-            session_.moveTrack(r.channel, dragged->drop.beforeReturn);
-        else if (r.kind == model::ArrangementRow::Kind::Track)
-            session_.moveTrack(r.channel, dragged->drop.beforeTrack);
+            session_.moveLane(r.lane, dragged->drop.before);
+        else if (r.kind != model::ArrangementRow::Kind::Master)
+            session_.moveTrack(r.channel, dragged->drop.before);
         return;
     }
     if (drag_ == Drag::Ruler && e.getDistanceFromDragStart() < ui::Theme::current().input.dragThreshold)

@@ -3169,6 +3169,41 @@ TEST_CASE("tracks: renamed where their names are, deleted and duplicated from th
     view.mouseUp(mouseEvent(view, again + juce::Point<float>(0.0f, 200.0f), again, true));
     CHECK(ids()[0] == t1);
 
+    // Every row moves alone (ADR 0042): a track dropped between two lanes lands there, and the
+    // lanes stay where they were.
+    const auto first = s.addAutomationLaneAfter(t1, fd::engine::Session::ParamTarget{t1, "volume"});
+    const auto second = s.addAutomationLaneAfter(first, fd::engine::Session::ParamTarget{t1, "pan"});
+    sync();
+    const auto rowsNow = [&view] {
+        std::vector<std::uint64_t> out;
+        for (const auto& row : view.rows())
+            if (!row.holdsClips() && !row.isLane())
+                break;
+            else
+                out.push_back(row.isLane() ? row.lane : row.channel);
+        return out;
+    };
+    REQUIRE(rowsNow()[0] == t1);
+    REQUIRE(rowsNow()[1] == first);
+    REQUIRE(rowsNow()[2] == second);
+    const auto last = ids().back();
+    const auto grab = view.nameArea(rowOf(view, last))->getCentre().toFloat();
+    const auto between = juce::Point<float>(grab.x, static_cast<float>(view.nameArea(fd::model::rowOfLane(view.rows(), second))->getY() - 4));
+    view.mouseDown(mouseEvent(view, grab, grab, false));
+    view.mouseDrag(mouseEvent(view, between, grab, true));
+    REQUIRE(view.rowDrop().has_value());
+    CHECK(view.rowDrop()->before == second);
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "drag-between-lanes@2x.png", view.createComponentSnapshot(view.getLocalBounds().withHeight(320).withWidth(700), true, 2.0f));
+    view.mouseUp(mouseEvent(view, between, grab, true));
+    sync();
+    CHECK(rowsNow()[0] == t1);
+    CHECK(rowsNow()[1] == first);
+    CHECK(rowsNow()[2] == last);
+    CHECK(rowsNow()[3] == second);
+    s.undo();
+    sync();
+
     // The mixer: a double-click on a strip's name renames it; dragging the name moves it.
     actions.perform("view.mixer");
     f.shell->finishAnimations();

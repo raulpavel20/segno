@@ -131,6 +131,7 @@ The project, track, clip and module resources send change notifications when the
 | `measure_mix` | `seconds?` (0.5) | Every channel's peak over the window (dBFS), and whether anything clipped |
 | `add_automation_lane` | `after?`, `name?`, `parameters?` (each with `from?`, `to?`) | A lane of its own ("a:12"), at the end of the tracks unless `after` says where, assigned to those parameters (C4, [automation.md](automation.md) §11); named `name`, else the next number, "Automation 3" ([tracks-and-clips.md](tracks-and-clips.md) §18) |
 | `set_automation_lane` / `remove_automation_lane` | `lane`, `name` / `lane` | Renames it (never empty: refused) / deletes it ("Delete an automation lane"; the released name stays) |
+| `move_automation_lane` | `lane`, `before?` (a track or a lane) | Moves the lane right above that row, or to the end of the tracks and lanes; nothing else moves ([ADR 0042](../decisions/0042-every-row-moves-on-its-own.md)) |
 | `assign_automation` / `unassign_automation` | `lane` and a parameter (`module` + `parameter`, or `track` + `volume`/`pan`/`send` + `return`), `from?`, `to?` / a parameter | What a lane drives, each through its range; `movedFrom` when the parameter was on another lane |
 | `get_automation` | `lane` or a parameter, `from?`, `to?` | Points (position, lane value, value and text in the parameter's units, bend), assignments with ranges, whether it plays |
 | `set_automation` | `lane` or a parameter, `points` (position, value or text, `bend?`), `from?`, `to?` | Replaces the points (or those in the range); by parameter, through its range, making a lane if it has none |
@@ -169,7 +170,7 @@ Every DAW feature ships with its tools (the coverage rule, ADR 0021). Today:
 | Feature | Tools |
 |---|---|
 | Transport, tempo, signature, loop, metronome | Transport tools |
-| Tracks: add, rename, recolour, move, duplicate, delete (C11) | `add_track`, `set_track`, `move_track`, `duplicate_track`, `delete_tracks` |
+| Tracks: add, rename, recolour, move, duplicate, delete (C11) | `add_track`, `set_track`, `move_track`, `duplicate_track`, `delete_tracks`; lanes move with `move_automation_lane` (ADR 0042) |
 | Audio and MIDI clips: insert, move, trim, duplicate, split, delete; rename and recolour, copy to a place (C11) | Track and clip tools; `set_clips`, `copy_clips` |
 | Piano roll | Note tools |
 | Module chains: add, remove, reorder, bypass, parameters, Sampler sample, collapse and fold | Module tools |

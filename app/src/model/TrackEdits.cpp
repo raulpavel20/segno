@@ -96,55 +96,22 @@ std::string laneCopyName(const std::string& name, const std::vector<std::string>
     return highest({name}, "Automation ", "", number) >= 0 ? nextLaneName(taken) : nextCopyName(name, taken);
 }
 
-RowDrop dropRow(const std::vector<ArrangementRow>& rows, const Snapshot& snapshot, std::size_t dragged,
-                std::size_t boundary)
+RowDrop dropRow(const std::vector<ArrangementRow>& rows, std::size_t dragged, std::size_t boundary)
 {
     RowDrop d;
     if (dragged >= rows.size())
         return d;
     boundary = std::min(boundary, rows.size());
-    const auto& row = rows[dragged];
     const auto mix = static_cast<std::size_t>(firstMixRow(rows)); // the tracks and lanes end there
-    auto anchorOf = [&snapshot](std::uint64_t lane) -> std::uint64_t
-    {
-        for (const auto& l : snapshot.automationLanes)
-            if (l.id == lane)
-                return l.after;
-        return 0;
-    };
-    switch (row.kind)
+    switch (rows[dragged].kind)
     {
     case ArrangementRow::Kind::Track:
-    {
-        // Before the first track at or below the boundary: among a track's lanes, after them.
-        std::size_t b = std::min(boundary, mix);
-        while (b < mix && rows[b].kind != ArrangementRow::Kind::Track)
-            ++b;
-        d.boundary = b;
-        d.beforeTrack = b < mix ? rows[b].channel : 0;
-        std::uint64_t next = 0; // the track after it now: before that one is where it is
-        for (auto i = dragged + 1; i < mix; ++i)
-            if (rows[i].kind == ArrangementRow::Kind::Track)
-            {
-                next = rows[i].channel;
-                break;
-            }
-        d.moves = d.beforeTrack != row.channel && d.beforeTrack != next;
-        break;
-    }
     case ArrangementRow::Kind::Lane:
     {
         const auto b = std::min(boundary, mix);
         d.boundary = b;
-        for (auto i = b; i-- > 0;)
-            if (rows[i].kind == ArrangementRow::Kind::Track)
-            {
-                d.laneAfter = rows[i].channel;
-                break;
-            }
-        if (b < mix && rows[b].kind == ArrangementRow::Kind::Lane && rows[b].lane != row.lane &&
-            anchorOf(rows[b].lane) == d.laneAfter)
-            d.beforeLane = rows[b].lane;
+        if (b < mix)
+            d.before = rows[b].isLane() ? rows[b].lane : rows[b].channel;
         d.moves = b != dragged && b != dragged + 1;
         break;
     }
@@ -155,7 +122,7 @@ RowDrop dropRow(const std::vector<ArrangementRow>& rows, const Snapshot& snapsho
             ++last;
         const auto b = std::clamp(boundary, mix, last);
         d.boundary = b;
-        d.beforeReturn = b < last ? rows[b].channel : 0;
+        d.before = b < last ? rows[b].channel : 0;
         d.moves = b != dragged && b != dragged + 1;
         break;
     }
@@ -164,6 +131,33 @@ RowDrop dropRow(const std::vector<ArrangementRow>& rows, const Snapshot& snapsho
         break;
     }
     return d;
+}
+
+std::optional<RowOrder> moveRow(const std::vector<RowRef>& rows, std::uint64_t row, std::uint64_t before)
+{
+    auto find = [](const std::vector<RowRef>& in, std::uint64_t id)
+    { return std::find_if(in.begin(), in.end(), [id](const RowRef& r) { return r.id == id; }); };
+    const auto moved = find(rows, row);
+    if (moved == rows.end() || before == row || (before != 0 && find(rows, before) == rows.end()))
+        return std::nullopt;
+    // Right above the row after it, or last while it's last: where it is.
+    if (const auto next = std::next(moved); (next == rows.end() ? 0 : next->id) == before)
+        return std::nullopt;
+    auto order = rows;
+    const auto dragged = *moved;
+    order.erase(find(order, row));
+    order.insert(before == 0 ? order.end() : find(order, before), dragged);
+    RowOrder out;
+    std::uint64_t above = 0; // the track above: 0 at the top
+    for (const auto& r : order)
+        if (r.lane)
+            out.lanes.emplace_back(r.id, above);
+        else
+        {
+            out.tracks.push_back(r.id);
+            above = r.id;
+        }
+    return out;
 }
 
 std::pair<std::vector<PastePlace>, int> pastePlacement(const std::vector<PasteItem>& items,

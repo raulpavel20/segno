@@ -4,6 +4,7 @@
 #include "model/Snapshot.h"
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -33,24 +34,41 @@ namespace fd::model
 /// new lane gets; a copy's ("Filter 2") for a name the user gave.
 [[nodiscard]] std::string laneCopyName(const std::string& name, const std::vector<std::string>& taken);
 
-/// Where a dragged row lands (§6), for the boundary nearest the pointer: boundary b is above
+/// Where a dragged row lands (§6, §19), for the boundary nearest the pointer: boundary b is above
 /// rows[b] (rows.size(): below the last row).
-/// - A track lands before a track (with the lanes right after it moving along): a boundary among
-///   another track's lanes snaps to after them. It stays among the tracks.
-/// - A lane lands at the boundary, after the track above it (0: at the top), before the lane
-///   below it if that one sits after the same track.
+/// - A track or a lane lands at any boundary among the tracks and lanes (ADR 0042): right above
+///   the row there, or after the last of them.
 /// - A return lands among the returns.
 struct RowDrop
 {
-    std::size_t boundary = 0;       // where the line is drawn, snapped
-    bool moves = false;             // false: it would land where it is
-    std::uint64_t beforeTrack = 0;  // a track: before this one (0: after the last track)
-    std::uint64_t laneAfter = 0;    // a lane: the track it sits after (0: at the top)
-    std::uint64_t beforeLane = 0;   // a lane: before this lane (0: after the others there)
-    std::uint64_t beforeReturn = 0; // a return: before this one (0: the last)
+    std::size_t boundary = 0; // where the line is drawn
+    bool moves = false;       // false: it would land where it is
+    std::uint64_t before = 0; // the track, lane or return it lands right above (0: the last of its part)
 };
-[[nodiscard]] RowDrop dropRow(const std::vector<ArrangementRow>& rows, const Snapshot& snapshot,
-                              std::size_t dragged, std::size_t boundary);
+[[nodiscard]] RowDrop dropRow(const std::vector<ArrangementRow>& rows, std::size_t dragged, std::size_t boundary);
+
+/// A track or a lane, in the arrangement's order above the returns.
+struct RowRef
+{
+    std::uint64_t id = 0;
+    bool lane = false;
+
+    friend bool operator==(const RowRef&, const RowRef&) = default;
+};
+
+/// The tracks and lanes as the project keeps them: the tracks in their order, and the lanes in
+/// theirs, each after a track (0: at the top).
+struct RowOrder
+{
+    std::vector<std::uint64_t> tracks;
+    std::vector<std::pair<std::uint64_t, std::uint64_t>> lanes; // the lane, the track it sits after
+};
+
+/// The order after moving `row` right above `before` (0: after the last row), every other row
+/// keeping its place (§19, ADR 0042): each lane then sits after the track now above it. Nullopt
+/// when either isn't there, or it wouldn't move.
+[[nodiscard]] std::optional<RowOrder> moveRow(const std::vector<RowRef>& rows, std::uint64_t row,
+                                              std::uint64_t before);
 
 /// Clips being pasted (§9): each on the row `row` below the target track, `offset` seconds after
 /// the paste point.

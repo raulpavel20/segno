@@ -2,6 +2,7 @@
 // their own, the parameters they drive, and their points.
 
 #include "mcp/tools/Tools.h"
+#include "model/ArrangementRows.h"
 
 #include <algorithm>
 #include <cctype>
@@ -376,6 +377,33 @@ void addAutomationTools(Registry& registry, ToolEnv& env)
             env.session.removeAutomationLane(id);
             env.session.flushSnapshot();
             return ToolResult::ok({{"removed", formatId(IdKind::Lane, id)}}, "Deleted " + name + ".");
+        }));
+
+    registry.tools.push_back(make(
+        env,
+        {"move_automation_lane", "Move an automation lane",
+         "Moves an automation lane right above a track or another lane, or to the end of the tracks and lanes; "
+         "nothing else moves. One undo step.",
+         object({{"lane", string("The lane (\"a:12\")")},
+                 {"before", string("The track (\"t:3\") or lane (\"a:12\") to put it above; leave it out for the end")}},
+                {"lane"}),
+         result({{"rows", arrayOf(string("A track's or lane's id"), "The tracks and lanes in their order now", std::nullopt)}},
+                {"rows"}),
+         changes},
+        [&env](const Json& args, CallContext&) {
+            const auto id = laneArg(env, args["lane"]);
+            std::uint64_t before = 0;
+            if (args.contains("before"))
+            {
+                const auto& b = args["before"];
+                before = b.is_string() && b.get<std::string>().rfind("a:", 0) == 0 ? laneArg(env, b) : track(env, b).id;
+            }
+            env.session.moveLane(id, before);
+            env.session.flushSnapshot();
+            Json rows = Json::array();
+            for (const auto& r : model::arrangementRows(*env.session.snapshot(), false))
+                rows.push_back(r.isLane() ? formatId(IdKind::Lane, r.lane) : formatId(IdKind::Track, r.channel));
+            return ToolResult::ok({{"rows", rows}});
         }));
 
     registry.tools.push_back(make(

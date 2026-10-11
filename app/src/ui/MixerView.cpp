@@ -368,7 +368,11 @@ void MixerView::dragStrip(std::uint64_t channel, const juce::MouseEvent& e, bool
     }
     content_.dropX = drop ? -1 : edge;
     content_.repaint();
-    if (drop)
+    // Its own edges leave it where it is: the strip after it is no place to land, since the lanes
+    // after it in the arrangement would then sit above it (ADR 0042).
+    const auto own = std::find_if(kind.begin(), kind.end(), [channel](const auto& k) { return k.id == channel; });
+    const auto next = own == kind.end() || std::next(own) == kind.end() ? std::uint64_t{0} : std::next(own)->id;
+    if (drop && before != channel && before != next)
         session_.moveTrack(channel, before);
 }
 

@@ -631,13 +631,13 @@ public:
     /// after the track above), the sidechains it feeds (back to Off), and for a return, the sends
     /// to it. One undo step. False for the master, or while recording (`why` says so).
     bool deleteTrack(std::uint64_t channelId, std::string* why = nullptr);
-    /// Moves a track before another (0: after the last track), the lanes right after it with it;
-    /// or a return before another return (0: the last). One undo step, "Move track". False if it
-    /// doesn't move.
+    /// Moves a track right above another track or a lane (0: after the last of them), or a
+    /// return before another return (0: the last). Nothing else moves: the lanes that were after
+    /// it stay where they are (ADR 0042). One undo step, "Move track". False if it doesn't move.
     bool moveTrack(std::uint64_t channelId, std::uint64_t before);
-    /// Moves a lane to sit after a track (0: at the top), before another lane there (0: after
-    /// them). One undo step, "Move automation lane".
-    bool moveLane(std::uint64_t lane, std::uint64_t after, std::uint64_t beforeLane);
+    /// Moves a lane right above a track or another lane (0: after the last of them); nothing else
+    /// moves (ADR 0042). One undo step, "Move automation lane". False if it doesn't move.
+    bool moveLane(std::uint64_t lane, std::uint64_t before);
     /// Duplicates a track or return right after it (§7): its clips and takes, modules, mix, sends,
     /// input and colour, named with the next free number, not armed or soloed; lanes that drive
     /// only it are copied for the copy. A return's copy listens to a bus of its own. Returns the

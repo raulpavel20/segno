@@ -191,7 +191,8 @@ TEST_CASE("tracks: deleting one takes its clips, the lanes only it drives, its a
     CHECK_FALSE(s.deleteTrack(s.snapshot()->master.id));
 }
 
-TEST_CASE("tracks: moved before another, the lanes after them along; lanes and returns move alone",
+TEST_CASE("tracks: a moved track or lane moves alone, every other row staying where it was (ADR 0042); "
+          "returns among the returns",
           "[integration]")
 {
     Recording r;
@@ -200,32 +201,49 @@ TEST_CASE("tracks: moved before another, the lanes after them along; lanes and r
     REQUIRE(ids.size() >= 3);
     const auto t1 = ids[0], t2 = ids[1], t3 = ids[2];
     const auto lane = s.addAutomationLaneAfter(t1, ParamTarget{t1, "volume"});
+    // The rows as the arrangement shows them: tracks by their ids, lanes by theirs.
+    auto order = [&s] {
+        s.updateSnapshotNow();
+        std::vector<std::uint64_t> out;
+        for (const auto& row : fd::model::arrangementRows(*s.snapshot(), false))
+            out.push_back(row.isLane() ? row.lane : row.channel);
+        return out;
+    };
+    auto rest = std::vector<std::uint64_t>(ids.begin() + 3, ids.end());
+    auto with = [](std::vector<std::uint64_t> head, const std::vector<std::uint64_t>& tail) {
+        head.insert(head.end(), tail.begin(), tail.end());
+        return head;
+    };
+    REQUIRE(order() == with({t1, lane, t2, t3}, rest));
 
-    // T1 after T3: its lane comes along.
+    // T1 after T3: its lane stays where it was, now after T2.
     REQUIRE(s.moveTrack(t1, ids.size() > 3 ? ids[3] : 0));
-    ids = trackIds(r);
-    CHECK(ids[0] == t2);
-    CHECK(ids[1] == t3);
-    CHECK(ids[2] == t1);
-    CHECK(laneOf(r, lane)->after == t1);
-    auto rows = fd::model::arrangementRows(*s.snapshot(), true);
-    CHECK(rows[3].lane == lane); // right under T1
+    CHECK(order() == with({lane, t2, t3, t1}, rest));
+    CHECK(laneOf(r, lane)->after == 0); // at the top now
     CHECK(s.undoDescription() == "Move track");
     CHECK_FALSE(s.moveTrack(t1, ids.size() > 3 ? ids[3] : 0)); // already there
-    // To the front.
-    REQUIRE(s.moveTrack(t1, t2));
-    CHECK(trackIds(r).front() == t1);
     s.undo();
-    s.undo();
-    CHECK(trackIds(r).front() == t1);
-    CHECK(trackIds(r)[1] == t2);
+    CHECK(order() == with({t1, lane, t2, t3}, rest));
+    CHECK(laneOf(r, lane)->after == t1);
 
-    // A lane alone: after T3, then to the top.
-    REQUIRE(s.moveLane(lane, t3, 0));
+    // T3 between T1 and its lane: the lane now sits after T3, still where it was.
+    REQUIRE(s.moveTrack(t3, lane));
+    CHECK(order() == with({t1, t3, lane, t2}, rest));
     CHECK(laneOf(r, lane)->after == t3);
+    s.undo();
+
+    // A lane alone: above T3, then to the top, then to the end.
+    REQUIRE(s.moveLane(lane, t3));
+    CHECK(order() == with({t1, t2, lane, t3}, rest));
+    CHECK(laneOf(r, lane)->after == t2);
     CHECK(s.undoDescription() == "Move automation lane");
-    REQUIRE(s.moveLane(lane, 0, 0));
+    REQUIRE(s.moveLane(lane, t1));
+    CHECK(order() == with({lane, t1, t2, t3}, rest));
     CHECK(laneOf(r, lane)->after == 0);
+    REQUIRE(s.moveLane(lane, 0));
+    CHECK(order().back() == lane);
+    CHECK_FALSE(s.moveLane(lane, 0)); // already there
+    CHECK_FALSE(s.moveLane(t1, 0));   // not a lane
 
     // Returns among the returns.
     const auto a = s.addReturnTrack(), b = s.addReturnTrack();

@@ -4,6 +4,7 @@
 #include "engine/Session.h"
 #include "model/StackEdits.h"
 #include "model/Takes.h"
+#include "model/TrackEdits.h"
 
 #include <tracktion_engine/tracktion_engine.h>
 
@@ -81,6 +82,12 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// Every track's and return's name, and every lane's (for the names the app gives).
     [[nodiscard]] std::vector<std::string> trackNames() const;
     [[nodiscard]] std::vector<std::string> laneNames() const;
+    /// The tracks and lanes in the arrangement's order: the lanes at the top, each track and the
+    /// lanes after it, then lanes whose track is gone.
+    [[nodiscard]] std::vector<model::RowRef> rowOrder() const;
+    /// Puts the tracks and lanes in `order` (tracks-and-clips.md §19): `moved`, if a track moved,
+    /// to its new place; each lane after its track, in order.
+    void placeRows(const model::RowOrder& order, te::Track* moved, juce::UndoManager* um);
     te::Plugin* insertDevice(te::PluginList& list, const std::string& key, int index);
     /// Every channel's volume uses the balance pan law, and the master has a volume and meter of
     /// its own at the end of its chain (ADR 0026). Brings older projects up to date.

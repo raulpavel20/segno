@@ -142,7 +142,7 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
           "set_parameters", "load_sample", "set_module_view", "set_module_sidechain", "scan_plugins", "render",
           "measure_module", "set_mix", "add_return_track", "set_send", "measure_mix", "get_automation",
           "set_automation", "clear_automation", "set_automation_on", "add_automation_lane", "set_automation_lane",
-          "remove_automation_lane", "assign_automation", "unassign_automation", "set_track_input", "arm_tracks",
+          "remove_automation_lane", "move_automation_lane", "assign_automation", "unassign_automation", "set_track_input", "arm_tracks",
           "record", "get_takes", "use_take", "audition_take", "set_take", "move_takes_to_tracks", "delete_takes", "capture_midi",
           "bounce_clips", "mute_clips", "set_fades", "crossfade", "set_edge_fades", "export_audio",
           "undo", "redo",
@@ -838,6 +838,18 @@ TEST_CASE("mcp tools: automation lanes of their own: added, assigned with ranges
     project = daw.project();
     REQUIRE(project["automationLanes"].size() == 2);
     CHECK(project["automationLanes"][0]["lane"] == id); // after the first track
+
+    // Moving a lane: right above a track or a lane, or to the end; nothing else moves (ADR 0042).
+    auto rows = daw.call("move_automation_lane", {{"lane", other}, {"before", t0}})["rows"];
+    CHECK(rows[0] == other);
+    CHECK(rows[1] == t0);
+    CHECK(daw.session->undoDescription() == "Assistant: move automation lane");
+    rows = daw.call("move_automation_lane", {{"lane", other}, {"before", id}})["rows"];
+    CHECK(rows[1] == other);
+    CHECK(rows[2] == id);
+    rows = daw.call("move_automation_lane", {{"lane", other}})["rows"];
+    CHECK(rows.back() == other);
+    CHECK(daw.fails("move_automation_lane", {{"lane", t0}}).find("isn't a lane id") != std::string::npos);
     CHECK(daw.call("set_automation_on", {{"lane", id}, {"on", false}})["on"] == false);
     daw.call("remove_automation_lane", {{"lane", id}});
     CHECK(daw.session->undoDescription() == "Assistant: remove automation lane");
@@ -1166,11 +1178,16 @@ TEST_CASE("mcp tools: tracks renamed, recoloured, moved, duplicated and deleted;
     const auto master = daw.project()["master"]["id"].get<std::string>();
     CHECK(daw.fails("set_track", {{"track", master}, {"name", "Main"}}).find("master") != std::string::npos);
 
-    // Move: Bass to the end, then before the first again.
+    // Move: Bass to the end, then above the first again; a lane after it stays where it was (ADR 0042).
+    const auto lane = daw.call("add_automation_lane", {{"after", t0}})["lane"].get<std::string>();
     r = daw.call("move_track", {{"track", t0}});
     CHECK(r["order"].back() == t0);
+    daw.session->updateSnapshotNow();
+    REQUIRE(daw.session->snapshot()->automationLanes.size() == 1);
+    CHECK(daw.session->snapshot()->automationLanes[0].after == 0); // where it was: now at the top
     r = daw.call("move_track", {{"track", t0}, {"before", t1}});
     CHECK(r["order"][0] == t0);
+    daw.call("remove_automation_lane", {{"lane", lane}});
 
     // Duplicate: "Bass 2", right after it.
     const auto clip = daw.call("create_midi_clip", {{"track", t0}, {"start", "1.1.1"}, {"length", "1 bar"}})["clip"]["id"].get<std::string>();
