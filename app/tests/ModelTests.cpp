@@ -449,11 +449,19 @@ TEST_CASE("track header slots appear with height and never overlap", "[fast]")
     s = layoutTrackHeader(180.0, 64.0, 3, false);
     CHECK_FALSE(s.subtitle.isEmpty());
     CHECK(s.subtitle.y >= s.name.bottom());
+    // It runs under the buttons, so it clears them by a gap: nothing touches.
+    CHECK(s.subtitle.y >= s.buttons.front().bottom() + m.buttonGap - 1e-9);
+    // At the smallest height that shows it, it still fits above the bottom padding.
+    s = layoutTrackHeader(180.0, m.subtitleMinHeight, 3, false);
+    CHECK_FALSE(s.subtitle.isEmpty());
+    CHECK(s.subtitle.bottom() <= m.subtitleMinHeight - m.paddingY + 1e-9);
     CHECK(s.controls.isEmpty());
     s = layoutTrackHeader(180.0, 96.0, 3, true);
     CHECK_FALSE(s.controls.isEmpty());
     CHECK(s.controls.y >= s.subtitle.bottom());
     CHECK(s.controls.bottom() <= 96.0 - m.paddingY + 1e-9);
+    s = layoutTrackHeader(180.0, m.controlsMinHeight, 3, true);
+    CHECK(s.controls.bottom() <= m.controlsMinHeight - m.paddingY + 1e-9);
 
     // The meter takes the right edge; everything else stays left of it.
     CHECK_FALSE(s.meter.isEmpty());

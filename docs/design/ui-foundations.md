@@ -202,7 +202,7 @@ A pure layout model: given the header's size, it says where each slot goes. The 
 | Colour | 3 px strip on the left edge | Always |
 | Name | 16 px row (`Name`) | Always |
 | Buttons (mute, solo, arm) | 20 × 20 each, 4 apart, right-aligned in the name row | Height ≥ 32 |
-| Subtitle (instrument, "No instrument") | 14 px row (`Caption`) | Height ≥ 48 |
+| Subtitle (instrument, "No instrument") | 14 px row (`Caption`), below the name and 4 px below the buttons (which stand taller than the name's row, and it runs under them) | Height ≥ 48 |
 | Controls (volume and pan bars) | 20 px row | Height ≥ 80 |
 | Meter | 8 px strip on the right edge, full height | When the mixer provides one (C3) |
 

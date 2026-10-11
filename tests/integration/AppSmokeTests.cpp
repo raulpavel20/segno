@@ -631,6 +631,27 @@ TEST_CASE("the arrangement's selection: the channel follows the clicked clip, to
     CHECK(view.selection() == Selection{.channel = t1, .clips = {c}});
 }
 
+TEST_CASE("track headers: the instrument's name clears the mute and solo buttons", "[integration]")
+{
+    ShellFixture f;
+    auto& s = *f.session;
+    s.updateSnapshotNow();
+    const auto t0 = s.snapshot()->tracks[0].id;
+    REQUIRE(s.addDevice(t0, "fd:subtractive-synth") != 0);
+    s.updateSnapshotNow();
+    f.shell->arrangement().setSnapshot(s.snapshot());
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    // The layout model keeps them apart (ModelTests); here, as drawn, for review.
+    const auto headers = f.shell->arrangement()
+                             .getLocalBounds()
+                             .withWidth(fd::ui::Theme::current().shell.trackHeaderWidth + 40)
+                             .withHeight(200);
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "track-headers@2x.png",
+                f.shell->arrangement().createComponentSnapshot(headers, true, 2.0f));
+    CHECK(f.shell->arrangement().getHeight() > 0);
+}
+
 TEST_CASE("every action has a unique shortcut and the shell routes keys to it", "[integration]")
 {
     ShellFixture f;

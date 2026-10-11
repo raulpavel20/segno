@@ -35,6 +35,10 @@ TrackHeaderSlots layoutTrackHeader(double width, double height, int buttons, boo
     }
     s.name = {left, y, std::max(0.0, nameRight - left), m.nameHeight};
     y += m.nameHeight;
+    // The buttons stand taller than the name's row: what's below clears them by a gap, as it
+    // runs under them.
+    if (!s.buttons.empty())
+        y = std::max(y, s.buttons.front().bottom() + m.buttonGap);
 
     if (height >= m.subtitleMinHeight)
     {
