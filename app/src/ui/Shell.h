@@ -6,6 +6,8 @@
 #include "ui/ArrangementView.h"
 #include "ui/MixerView.h"
 #include "ui/AssistantsPopover.h"
+#include "ui/BrowserDrops.h"
+#include "ui/BrowserPanel.h"
 #include "ui/CommandPalette.h"
 #include "ui/ExportPopover.h"
 #include "ui/LanePicker.h"
@@ -19,7 +21,7 @@ namespace fd::app
 {
 /// The window content (docs/design/daw-shell.md, C1): transport bar, browser, arrangement,
 /// inspector and detail panel; adaptive layout; every action in the registry; per-frame updates.
-class Shell final : public juce::Component
+class Shell final : public juce::Component, public juce::DragAndDropContainer
 {
 public:
     static constexpr int compactWidth = 1440;
@@ -77,6 +79,17 @@ public:
     void closeSettings();
     [[nodiscard]] bool settingsShown() const noexcept { return settingsShown_; }
     [[nodiscard]] SettingsView& settingsView() noexcept { return settingsView_; }
+    /// The browser (ADR 0046).
+    [[nodiscard]] BrowserPanel& browser() noexcept { return browser_; }
+    /// Puts something from the browser on the selection (double-click or Enter, §10).
+    void loadFromBrowser(const std::string& item);
+    /// File > Collect files and save; File > Remove unused files… (browser.md §12).
+    void collectFiles();
+    void removeUnusedFiles();
+    /// At compact widths: the browser over the arrangement, at a part, until a click elsewhere.
+    void showBrowserOverlay(BrowserPanel::Part part);
+    void closeBrowserOverlay();
+    [[nodiscard]] bool browserOverlayShown() const noexcept { return browserOverlay_; }
     /// Help > About Segno.
     [[nodiscard]] AboutPopover& about() noexcept { return about_; }
     void setVersion(const juce::String& version) { about_.setVersion(version); }
@@ -177,7 +190,11 @@ private:
     std::unique_ptr<AssistantsPopover> assistantsPopover_;
     ActionRegistry actions_;
     std::unique_ptr<TransportBar> transport_;
-    BrowserPanel browser_{actions_};
+    BrowserPanel browser_{session_, actions_};
+    bool browserOverlay_ = false;
+    ui::OutsideClick browserOutside_{browser_, [this] { closeBrowserOverlay(); }};
+    /// What a drop or a double-click from the browser did: select what it made, say what it replaced.
+    void browserResult(const browser::Result& result);
     InspectorPanel inspector_{session_};
     DetailPanel detail_{session_, actions_};
     enum class Area { Arrangement, Detail, Clip, Lane };

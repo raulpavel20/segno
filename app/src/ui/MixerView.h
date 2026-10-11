@@ -69,7 +69,7 @@ private:
 /// arrangement. Tracks, then the return tracks after a divider, scroll horizontally; the master
 /// is pinned at the right. The header's view options show or hide module names and sends and
 /// make strips narrow; they are view state (saved with the project, never undo steps).
-class MixerView final : public juce::Component
+class MixerView final : public juce::Component, public juce::DragAndDropTarget
 {
 public:
     explicit MixerView(engine::Session& session);
@@ -87,6 +87,14 @@ public:
     /// Adds the items that make channels (Add track, Add return track) to a right-click menu: a
     /// strip's background's, and the empty space's beside the strips.
     std::function<void(juce::PopupMenu&)> onAddMenu;
+    /// Something from the browser dropped (browser.md §10): on a channel's strip, or beside the
+    /// strips (0: a new track).
+    std::function<void(const std::string& item, std::uint64_t channel)> onBrowserDrop;
+    bool isInterestedInDragSource(const SourceDetails& details) override;
+    void itemDragMove(const SourceDetails& details) override;
+    void itemDragExit(const SourceDetails& details) override;
+    void itemDropped(const SourceDetails& details) override;
+    void paintOverChildren(juce::Graphics& g) override;
 
     [[nodiscard]] const model::ChannelStripOptions& options() const noexcept { return options_; }
     void setOptions(bool modules, bool sends, bool narrow);
@@ -133,6 +141,9 @@ private:
     Content content_;
     std::map<std::uint64_t, std::unique_ptr<ChannelStrip>> strips_;
     std::unique_ptr<ChannelStrip> master_;
+    /// The strip a browser drag is over (0: the empty space, a new track); none while not dragging.
+    std::optional<std::uint64_t> browserTarget_;
+    [[nodiscard]] std::uint64_t stripAt(juce::Point<int> position) const;
     ui::NameEditor names_{content_};
 };
 } // namespace fd::app

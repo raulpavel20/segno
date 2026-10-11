@@ -69,7 +69,8 @@ std::vector<Menu> menuBar(MenuPlatform platform)
     Menu file{"File",
               'f',
               {action("file.new"), action("file.open"), submenu("Open recent", {list("recent")}), separator(),
-               action("file.save"), action("file.saveAs"), separator(), action("project.export")}};
+               action("file.save"), action("file.saveAs"), separator(), action("file.collect"),
+               action("file.removeUnused"), separator(), action("project.export")}};
     if (!mac) // the application menu's on macOS
     {
         file.entries.push_back(separator());
@@ -125,11 +126,27 @@ std::vector<Menu> menuBar(MenuPlatform platform)
 
     menus.push_back({"View",
                      'v',
-                     {action("view.mixer"), separator(), action("view.browser"), action("view.inspector"),
-                      action("view.detail"), action("view.detailMode"), separator(), action("view.lanes"),
-                      action("view.returns"), action("module.fold"), action("module.expand"), separator(),
-                      action("view.zoomIn"), action("view.zoomOut"), action("view.zoomFit"),
-                      action("view.follow"), separator(), action("view.focus"), action("view.fullScreen")}});
+                     {action("view.mixer"),
+                      separator(),
+                      action("view.browser"),
+                      action("browser.search"),
+                      action("browser.preview"),
+                      action("view.inspector"),
+                      action("view.detail"),
+                      action("view.detailMode"),
+                      separator(),
+                      action("view.lanes"),
+                      action("view.returns"),
+                      action("module.fold"),
+                      action("module.expand"),
+                      separator(),
+                      action("view.zoomIn"),
+                      action("view.zoomOut"),
+                      action("view.zoomFit"),
+                      action("view.follow"),
+                      separator(),
+                      action("view.focus"),
+                      action("view.fullScreen")}});
 
     Menu options{"Options",
                  'o',

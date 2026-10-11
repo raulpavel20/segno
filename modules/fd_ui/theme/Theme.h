@@ -109,8 +109,10 @@ struct ShellMetrics
     // name and control columns.
     int settingsIndexWidth = 160, settingsColumnWidth = 720, settingsLabelWidth = 200,
         settingsControlWidth = 280;
-    int settingsKeyWidth =
-        160; // a shortcut in Settings > Keys, at the controls' right edge: long names get the rest
+    // A shortcut in Settings > Keys, at the controls' right edge, so long names get the rest.
+    int settingsKeyWidth = 160;
+    int browserIndent = 12;     // a browser row in from its parent (ADR 0046)
+    int browserWaveHeight = 32; // the preview strip's waveform
     int toastHeight = 36, toastWidth = 420;
     int keyboardWidth = 52, velocityHeight = 56;
     int railWidth = 44, splitter = 5;

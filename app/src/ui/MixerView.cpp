@@ -1,6 +1,7 @@
 #include "ui/MixerView.h"
 
 #include "model/Taper.h"
+#include "ui/BrowserDrops.h"
 
 #include <cmath>
 #include <set>
@@ -314,6 +315,63 @@ void MixerView::setSelection(std::optional<std::uint64_t> channel)
         return;
     selected_ = channel;
     rebuild();
+}
+
+// ---- drops from the browser (browser.md §10) -----------------------------------------------
+
+std::uint64_t MixerView::stripAt(juce::Point<int> position) const
+{
+    for (const auto& [channel, strip] : strips_)
+        if (strip->isShowing() && getLocalArea(strip.get(), strip->getLocalBounds()).contains(position))
+            return channel;
+    if (master_ != nullptr && getLocalArea(master_.get(), master_->getLocalBounds()).contains(position))
+        return master_->channel();
+    return 0;
+}
+
+bool MixerView::isInterestedInDragSource(const SourceDetails& details)
+{
+    return browser::itemOf(details.description).has_value();
+}
+
+void MixerView::itemDragMove(const SourceDetails& details)
+{
+    const auto target = stripAt(details.localPosition);
+    if (browserTarget_ != target)
+    {
+        browserTarget_ = target;
+        repaint();
+    }
+}
+
+void MixerView::itemDragExit(const SourceDetails&)
+{
+    browserTarget_.reset();
+    repaint();
+}
+
+void MixerView::itemDropped(const SourceDetails& details)
+{
+    const auto target = stripAt(details.localPosition);
+    browserTarget_.reset();
+    repaint();
+    if (const auto item = browser::itemOf(details.description); item && onBrowserDrop)
+        onBrowserDrop(*item, target);
+}
+
+void MixerView::paintOverChildren(juce::Graphics& g)
+{
+    if (!browserTarget_ || *browserTarget_ == 0)
+        return;
+    const juce::Component* strip =
+        master_ != nullptr && master_->channel() == *browserTarget_ ? master_.get() : nullptr;
+    if (const auto it = strips_.find(*browserTarget_); it != strips_.end())
+        strip = it->second.get();
+    if (strip == nullptr)
+        return;
+    const auto& t = ui::Theme::current();
+    g.setColour(t.active);
+    g.drawRect(getLocalArea(strip, strip->getLocalBounds()), t.shell.dropLine);
 }
 
 void MixerView::Content::paintOverChildren(juce::Graphics& g)

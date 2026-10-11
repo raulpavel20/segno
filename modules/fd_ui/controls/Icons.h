@@ -35,7 +35,11 @@ enum class Icon
     Restore,       // two squares (a maximised window back to its size); Close closes
     Search,        // the command palette (ADR 0040): a magnifier
     Star,          // a preset not starred (ADR 0044): an outline
-    StarFilled     // a favourite preset
+    StarFilled,    // a favourite preset
+    Note,          // instruments (the browser's rail, ADR 0046): an eighth note
+    Knob,          // audio effects: a knob with its pointer
+    Plug,          // plugins: a plug with two prongs
+    Folder         // places and folders: a folder with its tab
 };
 
 /// Draws `icon` fitted (aspect kept) into `area` in `colour`.

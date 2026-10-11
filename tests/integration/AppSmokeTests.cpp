@@ -643,7 +643,10 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         // Presets (presets.md §10): on screen in the header; keys come with remapping.
         "module.previousPreset", "module.nextPreset", "module.savePreset", "module.savePresetAs",
         "module.revertPreset", "module.compare", "module.copyCompare", "module.useAsDefault",
-        "module.clearDefault", "module.presetsFolder"};
+        "module.clearDefault", "module.presetsFolder",
+        // The browser and a project's files (browser.md §14): the switch is on screen; the
+        // others are rare.
+        "browser.preview", "file.collect", "file.removeUnused"};
     for (const auto& a : actions.all())
     {
         INFO(a.id);
@@ -844,7 +847,7 @@ TEST_CASE("the command palette finds and runs any action", "[integration]")
     palette.setQuery("to");
     if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review
         dumpPng(dump, "palette.png", f.shell->createComponentSnapshot({500, 0, 800, 520}, true, 2.0f));
-    palette.setQuery("brows");
+    palette.setQuery("show brows");
     REQUIRE_FALSE(palette.shownIds().empty());
     CHECK(palette.shownIds().front() == "view.browser");
     const bool before = f.shell->actions().isToggled("view.browser");

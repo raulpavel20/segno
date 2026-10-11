@@ -22,6 +22,7 @@ void registerAll(Registry& registry, ToolEnv& env)
     addAutomationTools(registry, env);
     addRecordingTools(registry, env);
     addSettingsTools(registry, env);
+    addBrowserTools(registry, env);
     addProjectTools(registry, env);
     addTrackTools(registry, env);
     addResources(registry, env);

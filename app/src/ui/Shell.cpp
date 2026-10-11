@@ -100,6 +100,38 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         assistantsPopover_->onAllSettings = [this] { showSettings("assistants.enabled"); };
     }
     registerActions();
+    // The browser (ADR 0046): what it holds goes where it's dropped, or on the selection.
+    browser_.onLoad = [this](const std::string& item) { loadFromBrowser(item); };
+    browser_.onOpenProject = [this](const juce::File& project) { openFile(project); };
+    browser_.onRailOpen = [this](BrowserPanel::Part part) { showBrowserOverlay(part); };
+    browser_.onDragOut = [this] { closeBrowserOverlay(); };
+    browser_.onDone = [this]
+    {
+        if (isShowing())
+            grabKeyboardFocus();
+    };
+    browser_.selectedTrack = [this]() -> std::optional<std::uint64_t>
+    {
+        if (const auto t = selectedTrackInfo(); t && t->holdsClips())
+            return t->id;
+        return std::nullopt;
+    };
+    arrangement_.onBrowserDrop = [this](const std::string& item, std::uint64_t track, double seconds)
+    {
+        browserResult(track != 0 ? browser::onChannel(session_, item, track, seconds)
+                                 : browser::newTrack(session_, item, seconds));
+    };
+    mixer_.onBrowserDrop = [this](const std::string& item, std::uint64_t channel)
+    {
+        const auto* c = session_.snapshot()->channel(channel);
+        if (c == nullptr)
+            browserResult(browser::newTrack(session_, item, session_.position()));
+        else if (browser::fitsChannel(item, c->holdsClips()))
+            browserResult(browser::onChannel(session_, item, channel, session_.position()));
+    };
+    detail_.chain().onBrowserDrop =
+        [this](const std::string& item, std::uint64_t track, int index, std::optional<std::uint64_t> on)
+    { browserResult(browser::inChain(session_, item, track, index, on)); };
     // Shortcuts you change (Settings > Keys) are kept in the settings.
     actions_.onKeysChanged = [this]
     { store_->change([this](model::AppSettings& st) { st.keys = actions_.keyMap(); }); };
@@ -1059,6 +1091,30 @@ void Shell::registerActions()
     actions_.add({.id = "view.browser", .name = "Show browser", .category = "View", .keys = {key('b', kCmd | kAlt)},
                   .perform = [this] { toggle(browserPanel_); }, .isToggled = [this] { return browserPanel_.open; }});
     // The inspector belongs to the arrangement (ADR 0027): the mixer's strips show every channel control.
+    actions_.add({.id = "browser.search",
+                  .name = "Search the browser",
+                  .category = "View",
+                  .keys = {key('f', kCmd)},
+                  .perform = [this]
+                  {
+                      // Shown, then the keyboard in its search; folded to its rail, over the arrangement.
+                      if (browser_.isRail())
+                          showBrowserOverlay(BrowserPanel::Part::Search);
+                      else
+                          browser_.focusSearch();
+                  }});
+    actions_.add({.id = "browser.preview",
+                  .name = "Preview in the browser",
+                  .category = "View",
+                  .perform =
+                      [this]
+                  {
+                      store_->change([](model::AppSettings& st)
+                                     { st.browser.preview = !st.browser.preview; });
+                      if (!settings().browser.preview)
+                          session_.stopPreview();
+                  },
+                  .isToggled = [this] { return settings().browser.preview; }});
     actions_.add({.id = "view.inspector", .name = "Show inspector", .category = "View", .keys = {key('i', kCmd | kAlt)},
                   .perform = [this] { toggle(inspectorPanel_); }, .isEnabled = arrangeShown,
                   .isToggled = [this] { return inspectorPanel_.open && !mixerShown_; }});
@@ -1125,6 +1181,14 @@ void Shell::registerActions()
                   }});
     actions_.add({.id = "file.saveAs", .name = asks("Save as"), .category = "File", .keys = {key('s', kCmd | kShift)},
                   .perform = [this] { saveProjectAs(); }});
+    actions_.add({.id = "file.collect",
+                  .name = "Collect files and save",
+                  .category = "File",
+                  .perform = [this] { collectFiles(); }});
+    actions_.add({.id = "file.removeUnused",
+                  .name = asks("Remove unused files"),
+                  .category = "File",
+                  .perform = [this] { removeUnusedFiles(); }});
     actions_.add({.id = "app.scanPlugins", .name = "Scan for plugins", .category = "App", .keys = {key('p', kCmd | kAlt)},
                   .perform = [this] {
                       showWarning("Scanning for plugins...");
@@ -1485,6 +1549,7 @@ void Shell::setSettingsStore(model::SettingsStore& store)
     store_ = &store;
     storeListener_ = store_->addListener([this](const model::AppSettings& s) { applySettings(s); });
     settingsView_.setStore(store);
+    browser_.setStore(store);
     if (titleFile_) // the project already open
         store_->change([this](model::AppSettings& s)
                        { s.recent.add(titleFile_->getFullPathName().toStdString()); });
@@ -1742,6 +1807,118 @@ void Shell::showSettings(const std::string& at)
     if (isShowing())
         ui::takeFocus(settingsView_); // Escape closes them
     repaint();
+}
+
+// ---- the browser (M3 C2, ADR 0046) ---------------------------------------------------------
+
+void Shell::loadFromBrowser(const std::string& item)
+{
+    if (const auto ref = browser::parse(item); ref && ref->kind == model::BrowserKind::Project)
+    {
+        openFile(ref->file);
+        return;
+    }
+    const auto track = selectedTrackInfo();
+    browserResult(browser::onSelection(session_, item, track ? std::optional(track->id) : std::nullopt,
+                                       detail_.chain().selectedDevice(), session_.position()));
+}
+
+void Shell::browserResult(const browser::Result& result)
+{
+    if (!result.done)
+        return;
+    session_.updateSnapshotNow();
+    if (result.track != 0)
+    {
+        lastArea_ = Area::Arrangement;
+        arrangement_.selectTrack(result.track);
+    }
+    if (result.module != 0)
+        detail_.selectModule(result.module);
+    if (result.toast.isNotEmpty())
+        showToast(result.toast, "Undo", [this] { session_.undo(); });
+}
+
+void Shell::collectFiles()
+{
+    if (!session_.file())
+    {
+        saveProjectAs([this] { collectFiles(); }); // a project needs its folder first
+        return;
+    }
+    const auto collected = session_.collectFiles();
+    if (!session_.save())
+    {
+        showWarning("Could not save " + session_.file()->getFullPathName());
+        return;
+    }
+    updateTitle();
+    const auto samples = session_.file()->getParentDirectory().getChildFile("Samples");
+    auto message = collected.copied == 0 ? juce::String("Every file is already in the project's folder")
+                                         : "Collected " + juce::String(collected.copied) +
+                                               (collected.copied == 1 ? " file" : " files") + " into Samples";
+    if (!collected.failed.empty())
+        message << "; " << juce::String(collected.failed.size()) << " couldn't be copied";
+    if (collected.copied > 0)
+        showToast(message, "Show", [samples] { samples.revealToUser(); });
+    else
+        showWarning(message);
+}
+
+void Shell::removeUnusedFiles()
+{
+    const auto files = session_.unusedFiles();
+    if (files.empty())
+    {
+        showWarning("No unused files: the project uses everything in its Recordings, Bounces and Samples");
+        return;
+    }
+    juce::int64 bytes = 0;
+    juce::StringArray names;
+    for (const auto& f : files)
+    {
+        bytes += f.getSize();
+        if (names.size() < 8)
+            names.add(f.getFileName());
+    }
+    if (files.size() > 8)
+        names.add("and " + juce::String(files.size() - 8) + " more");
+    const auto count = juce::String(files.size()) + (files.size() == 1 ? " file" : " files");
+    auto options =
+        juce::MessageBoxOptions()
+            .withIconType(juce::MessageBoxIconType::NoIcon)
+            .withTitle("Remove unused files")
+            .withMessage("Move " + count + " (" + juce::File::descriptionOfSizeInBytes(bytes) +
+                         ") that nothing in this project uses to the trash?\n\n" + names.joinIntoString("\n"))
+            .withButton("Move to trash")
+            .withButton("Cancel")
+            .withAssociatedComponent(this);
+    juce::AlertWindow::showAsync(options,
+                                 [this, files](int result)
+                                 {
+                                     if (result != 1)
+                                         return;
+                                     const int removed = session_.removeUnusedFiles(files);
+                                     showWarning(juce::String(removed) + (removed == 1 ? " file" : " files") +
+                                                 " moved to the trash");
+                                 });
+}
+
+void Shell::showBrowserOverlay(BrowserPanel::Part part)
+{
+    browserOverlay_ = true;
+    resized();
+    browserOutside_.attach();
+    browser_.showPart(part);
+}
+
+void Shell::closeBrowserOverlay()
+{
+    if (!browserOverlay_)
+        return;
+    browserOverlay_ = false;
+    browserOutside_.detach();
+    resized();
 }
 
 void Shell::closeSettings()
@@ -2074,8 +2251,18 @@ void Shell::resized()
     const auto rail = static_cast<float>(ui::Theme::current().shell.railWidth);
     const float browserW = showSides ? rail + (browserPanel_.size - rail) * browserPanel_.shown : 0.0f;
     browser_.setVisible(browserW > 0.0f);
-    browser_.setRail(browserPanel_.shown < 0.5f);
+    // Folded to its rail, the browser can show over the arrangement (browser.md §15).
+    const bool overlay = browserOverlay_ && browserPanel_.shown < 0.5f && browserW > 0.0f;
+    browser_.setRail(browserPanel_.shown < 0.5f && !overlay);
+    browser_.setOverlay(overlay);
     browser_.setBounds(r.removeFromLeft(juce::roundToInt(browserW)));
+    if (overlay)
+    {
+        browser_.setBounds(browser_.getBounds().withWidth(juce::roundToInt(browserPanel_.size)));
+        browser_.toFront(false);
+    }
+    else
+        browserOverlay_ = false;
     browserSplit_.setVisible(showSides && browserPanel_.open);
     const int splitter = ui::Theme::current().shell.splitter;
     browserSplit_.setBounds(r.removeFromLeft(browserW > 0.0f ? 1 : 0).withWidth(splitter).translated(-splitter / 2, 0));

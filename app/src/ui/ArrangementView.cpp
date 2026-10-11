@@ -2,6 +2,7 @@
 
 #include "model/Takes.h"
 #include "model/TrackHeaderLayout.h"
+#include "ui/BrowserDrops.h"
 #include "ui/time/TimeView.h"
 
 #include <juce_opengl/juce_opengl.h>
@@ -2490,6 +2491,37 @@ void ArrangementView::filesDropped(const juce::StringArray& files, int x, int y)
     if (first)
         selectTrack(first);
     repaint();
+}
+
+// ---- drops from the browser (browser.md §10) -----------------------------------------------
+
+bool ArrangementView::isInterestedInDragSource(const SourceDetails& details)
+{
+    return browser::itemOf(details.description).has_value();
+}
+
+void ArrangementView::itemDragMove(const SourceDetails& details)
+{
+    fileDragMove({}, details.localPosition.x, details.localPosition.y);
+}
+
+void ArrangementView::itemDragExit(const SourceDetails&)
+{
+    fileDragExit({});
+}
+
+void ArrangementView::itemDropped(const SourceDetails& details)
+{
+    itemDragMove(details);
+    const auto [index, seconds] = *dropTarget_;
+    dropTarget_.reset();
+    repaint();
+    const auto item = browser::itemOf(details.description);
+    std::uint64_t track = 0;
+    if (index >= 0 && index < static_cast<int>(snapshot_->tracks.size()))
+        track = snapshot_->tracks[static_cast<size_t>(index)].id;
+    if (item && onBrowserDrop)
+        onBrowserDrop(*item, track, seconds);
 }
 } // namespace fd::app
 

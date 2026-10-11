@@ -193,6 +193,10 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
                              "set_track_input",
                              "get_settings",
                              "set_settings",
+                             "search",
+                             "browse",
+                             "preview",
+                             "collect_files",
                              "arm_tracks",
                              "record",
                              "get_takes",
@@ -534,6 +538,68 @@ TEST_CASE("mcp tools: get_settings and set_settings, never the assistants' own o
     CHECK(daw.fails("set_settings", {{"display", {{"interfaceSize", 150}}}}).find("read-only") !=
           std::string::npos);
     CHECK(daw.call("get_settings")["assistants"]["readOnly"] == true);
+}
+
+TEST_CASE("mcp tools: search, browse, preview and collect_files, as the browser does (C2)",
+          "[integration][mcp]")
+{
+    Daw daw("fd-mcp-browser-tests");
+    auto& s = *daw.session;
+    const auto place = daw.folder.getChildFile("Sounds");
+    REQUIRE(place.createDirectory());
+    const auto kick = place.getChildFile("Kick 120 bpm.wav");
+    REQUIRE(fd::testkit::writeWav(kick.getFullPathName().toStdString(),
+                                  fd::testkit::sine(220.0, 48000.0, 24000, 0.5f, 2), 48000.0));
+    s.setPresetsFolder(daw.folder.getChildFile("Segno").getChildFile("Presets"));
+    s.setSegnoFolder(daw.folder.getChildFile("Segno"));
+    s.setBrowserPlaces({place.getFullPathName().toStdString()});
+    s.waitForBrowserIndex();
+
+    // search: modules, presets, files, best first, with ids the other tools take.
+    auto found = daw.call("search", {{"query", "bus glue"}});
+    REQUIRE_FALSE(found["results"].empty());
+    CHECK(found["results"][0]["id"] == "preset:fd:compressor|factory/Bus glue");
+    CHECK(found["results"][0]["from"] == "Compressor");
+    found = daw.call("search", {{"query", "kick"}, {"kinds", {"sample"}}});
+    REQUIRE(found["results"].size() == 1);
+    CHECK(found["results"][0]["path"] == kick.getFullPathName().toStdString());
+    found = daw.call("search", {{"query", "compressor"}, {"kinds", {"module"}}});
+    REQUIRE(found["results"].size() == 1);
+    CHECK(found["results"][0]["type"] == "fd:compressor");
+    CHECK(daw.call("search", {{"query", "subtractive"}, {"limit", 3}})["results"].size() == 3);
+
+    // browse: the places, then one's files.
+    const auto places = daw.call("browse")["places"];
+    CHECK(std::any_of(places.begin(), places.end(),
+                      [&](const Json& p) { return p["path"] == place.getFullPathName().toStdString(); }));
+    const auto files = daw.call("browse", {{"folder", place.getFullPathName().toStdString()}})["files"];
+    REQUIRE(files.size() == 1);
+    CHECK(files[0]["tempo"] == Approx(120.0));
+    CHECK(daw.fails("browse", {{"folder", "/"}}).find("places") != std::string::npos);
+
+    // preview: a sample, an instrument's preset; an effect's preset refused.
+    CHECK(daw.call("preview", {{"item", kick.getFullPathName().toStdString()}})["playing"] == true);
+    CHECK(s.isPreviewing());
+    CHECK(daw.call("preview", {{"item", "preset:fd:subtractive-synth|factory/Sub bass"}})["playing"] == true);
+    CHECK(daw.fails("preview", {{"item", "preset:fd:compressor|factory/Bus glue"}}).find("instruments") !=
+          std::string::npos);
+    CHECK(daw.call("preview", {{"stop", true}})["playing"] == false);
+    CHECK_FALSE(s.isPreviewing());
+    // Read-only mode lets assistants look and listen.
+    daw.server->setReadOnly(true);
+    CHECK(daw.call("search", {{"query", "kick"}, {"kinds", {"sample"}}})["total"] == 1);
+    CHECK(daw.fails("collect_files").find("read-only") != std::string::npos);
+    daw.server->setReadOnly(false);
+
+    // collect_files: only a saved project; then the outside file is copied in, and it's saved.
+    CHECK(daw.fails("collect_files").find("Save the project first") != std::string::npos);
+    const auto song = daw.folder.getChildFile("Song").getChildFile("Song.segno");
+    REQUIRE(s.saveAs(song));
+    REQUIRE(s.insertAudioFile(s.snapshot()->tracks.front().id, kick, 0.0) != 0);
+    const auto collected = daw.call("collect_files");
+    CHECK(collected["copied"] == 1);
+    CHECK(song.getParentDirectory().getChildFile("Samples").getChildFile(kick.getFileName()).existsAsFile());
+    CHECK_FALSE(s.hasUnsavedChanges());
 }
 
 TEST_CASE("mcp tools: read-only mode and confirmations", "[integration][mcp]")

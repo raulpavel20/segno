@@ -104,6 +104,7 @@ target_sources(fd_app_mcp INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/AutomationTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/RecordingTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/SettingsTools.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/BrowserTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/ProjectTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/TrackTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/Resources.cpp")
@@ -137,6 +138,8 @@ target_sources(fd_app_ui INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ExportPopover.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/AboutPopover.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/SettingsView.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/BrowserPanel.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/BrowserDrops.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ShellMenus.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/TitleBar.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/WindowContent.cpp"

@@ -225,6 +225,61 @@ juce::Rectangle<int> paintListRow(juce::Graphics& g, juce::Rectangle<int> row, c
     return trailing;
 }
 
+juce::Rectangle<int> treeRowMark(juce::Rectangle<int> row, const TreeItem& item)
+{
+    const auto& s = Theme::current().shell;
+    return {row.getX() + s.listTextInset + item.depth * s.browserIndent, row.getY(),
+            item.flat ? 0 : s.listIconSize, row.getHeight()};
+}
+
+juce::Rectangle<int> treeRowStar(juce::Rectangle<int> row)
+{
+    const auto& s = Theme::current().shell;
+    return {row.getRight() - s.listTextInset - s.listIconSize, row.getY(), s.listIconSize, row.getHeight()};
+}
+
+void paintTreeRow(juce::Graphics& g, juce::Rectangle<int> row, const TreeItem& item)
+{
+    const auto& t = Theme::current();
+    const auto& s = t.shell;
+    if (item.selected || item.hovered)
+    {
+        g.setColour(item.selected ? t.surface3 : t.roles.hoverWash);
+        g.fillRoundedRectangle(row.toFloat(), t.radiusControl);
+    }
+    const auto icon = [](juce::Rectangle<int> area)
+    {
+        const auto size = static_cast<float>(Theme::current().shell.listIconSize);
+        return area.toFloat().withSizeKeepingCentre(size, size);
+    };
+    const auto mark = treeRowMark(row, item);
+    if (item.mark == TreeItem::Mark::Closed || item.mark == TreeItem::Mark::Open)
+        drawIcon(g, item.mark == TreeItem::Mark::Open ? Icon::ChevronDown : Icon::ChevronRight, icon(mark),
+                 t.textTertiary);
+    if (item.mark == TreeItem::Mark::Add)
+        drawIcon(g, Icon::Plus, icon(mark), t.textSecondary);
+    auto text = row.withLeft(item.flat ? row.getX() + s.listTextInset : mark.getRight() + s.itemGap)
+                    .withTrimmedRight(s.listTextInset);
+    // The star's column, kept on every row.
+    text.removeFromRight(s.listIconSize + s.itemGap);
+    if (item.starrable && (item.starred || item.hovered))
+        drawIcon(g, item.starred ? Icon::StarFilled : Icon::Star, icon(treeRowStar(row)),
+                 item.starred ? t.active : t.textTertiary);
+    if (item.caption.isNotEmpty())
+    {
+        const auto f = font(TextStyle::Caption);
+        const int w =
+            std::min(text.getWidth() / 2, juce::GlyphArrangement::getStringWidthInt(f, item.caption));
+        g.setFont(f);
+        g.setColour(t.textTertiary);
+        g.drawText(item.caption, text.removeFromRight(w), juce::Justification::centredRight, true);
+        text.removeFromRight(s.itemGap);
+    }
+    g.setFont(font(TextStyle::Name));
+    g.setColour(item.dim ? t.textTertiary : item.secondary ? t.textSecondary : t.textPrimary);
+    g.drawText(item.name, text, juce::Justification::centredLeft, true);
+}
+
 void paintPopover(juce::Graphics& g, juce::Rectangle<int> bounds)
 {
     const auto& t = Theme::current();

@@ -377,6 +377,8 @@ std::string SettingsView::signature() const
                std::to_string(d->getInputChannelNames().size()) + "|";
     for (const auto& m : session_.midiDevices())
         out += m.name + ",";
+    for (const auto& f : settings().browser.places)
+        out += f + ";";
     for (const auto& f : settings().plugins.folders)
         out += f + ";";
     for (const auto& f : session_.skippedPlugins())
@@ -903,6 +905,56 @@ void SettingsView::addLibrary()
         };
         r.changed = [this] { return !settings().library.newProjects.empty(); };
         r.reset = [this] { store_->change([](model::AppSettings& s) { s.library.newProjects.clear(); }); };
+    }
+    {
+        // The browser's places (browser.md §9): each with Remove, then Add….
+        const auto& sh = ui::Theme::current().shell;
+        auto& r = addRow("library.places", SettingsSection::Library);
+        const auto places = settings().browser.places;
+        for (const auto& f : places)
+        {
+            auto& where = static_cast<Readout&>(*components_.emplace_back(std::make_unique<Readout>()));
+            where.setText(path(juce::File(text(f))));
+            content_->addAndMakeVisible(where);
+            r.controls.push_back(&where);
+            auto& remove = toggle(r, "Remove", false);
+            remove.onClick = [this, f]
+            { change([&f](model::AppSettings& st) { std::erase(st.browser.places, f); }); };
+        }
+        auto& add = toggle(r, juce::String::fromUTF8("Add\xE2\x80\xA6"), false);
+        add.onClick = [this]
+        {
+            chooseFolder("A folder for the browser",
+                         [this](const juce::File& f)
+                         {
+                             change(
+                                 [&f](model::AppSettings& st)
+                                 {
+                                     const auto p = f.getFullPathName().toStdString();
+                                     if (std::find(st.browser.places.begin(), st.browser.places.end(), p) ==
+                                         st.browser.places.end())
+                                         st.browser.places.push_back(p);
+                                 });
+                         });
+        };
+        r.lines = static_cast<int>(places.size()) + 1;
+        r.place = [&r, &sh](juce::Rectangle<int> area)
+        {
+            for (size_t i = 0; i + 1 < r.controls.size(); i += 2)
+            {
+                auto line = area.removeFromTop(sh.fieldHeight);
+                area.removeFromTop(sh.itemGap);
+                auto* removeButton = static_cast<ui::Toggle*>(r.controls[i + 1]);
+                removeButton->setBounds(
+                    line.removeFromRight(ui::Toggle::widthFor(removeButton->getButtonText())));
+                r.controls[i]->setBounds(line.withTrimmedRight(sh.itemGap));
+            }
+            auto* addButton = static_cast<ui::Toggle*>(r.controls.back());
+            addButton->setBounds(area.removeFromTop(sh.fieldHeight)
+                                     .withWidth(ui::Toggle::widthFor(addButton->getButtonText())));
+        };
+        r.changed = [this] { return !settings().browser.places.empty(); };
+        r.reset = [this] { store_->change([](model::AppSettings& s) { s.browser.places.clear(); }); };
     }
 }
 

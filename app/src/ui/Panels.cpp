@@ -403,63 +403,6 @@ void TransportBar::resized()
     wellArea_ = timeArea_.isEmpty() ? barsArea_ : barsArea_.getUnion(timeArea_);
 }
 
-// ---- BrowserPanel --------------------------------------------------------------------------
-
-BrowserPanel::BrowserPanel(const ActionRegistry& actions) : actions_(actions)
-{
-    expand_.setWantsKeyboardFocus(false);
-    expand_.onClick = [this] { actions_.perform("view.browser"); };
-    addChildComponent(expand_);
-
-    search_.setTextToShowWhenEmpty("Search", ui::Theme::current().textTertiary);
-    search_.setTooltip("Search arrives with the browser (M3)");
-    search_.setEnabled(false);
-    addAndMakeVisible(search_);
-
-    std::vector<juce::String> instruments, effects;
-    for (const auto* f : fd::allDevices())
-    {
-        const auto name = juce::String(std::string(f->info().name));
-        (f->info().kind == DeviceKind::Instrument ? instruments : effects).push_back(name);
-    }
-    sections_ = {{"Instruments", instruments}, {"Audio effects", effects}, {"Samples", {}}, {"Plugins", {}}};
-}
-
-void BrowserPanel::setRail(bool rail)
-{
-    rail_ = rail;
-    search_.setVisible(!rail);
-    expand_.setVisible(rail);
-    expand_.setTooltip(actions_.tooltip("view.browser")); // actions are registered after construction
-    repaint();
-}
-
-void BrowserPanel::resized()
-{
-    const auto& sh = ui::Theme::current().shell;
-    search_.setBounds(getLocalBounds().reduced(sh.barPadding).removeFromTop(sh.fieldHeight));
-    expand_.setBounds(getLocalBounds().removeFromTop(sh.railWidth).withSizeKeepingCentre(sh.buttonSize, sh.buttonSize));
-}
-
-void BrowserPanel::paint(juce::Graphics& g)
-{
-    const auto& t = ui::Theme::current();
-    g.fillAll(t.surface1);
-    if (rail_)
-        return;
-    auto r = getLocalBounds().reduced(t.shell.padding, 0).withTrimmedTop(search_.getBottom() + t.shell.barPadding);
-    for (const auto& section : sections_)
-    {
-        ui::paintCapsLabel(g, section.title, r.removeFromTop(t.shell.panelHeaderHeight).toFloat());
-        if (section.items.empty())
-            ui::paintListRow(g, r.removeFromTop(t.shell.rowHeight).withTrimmedLeft(-10),
-                             {.name = "Coming with the browser", .enabled = false});
-        for (const auto& item : section.items)
-            ui::paintListRow(g, r.removeFromTop(t.shell.rowHeight).withTrimmedLeft(-10), {.name = item});
-        r.removeFromTop(t.shell.groupGap);
-    }
-}
-
 // ---- InspectorPanel ------------------------------------------------------------------------
 
 InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)

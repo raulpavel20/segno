@@ -69,6 +69,33 @@ struct ListItem
 /// Returns the room kept for `trailing` (empty without), where the caller draws its control.
 juce::Rectangle<int> paintListRow(juce::Graphics& g, juce::Rectangle<int> row, const ListItem& item);
 
+/// One row of a tree (the browser, ADR 0046): a ListRow's look, indented by depth, with a
+/// disclosure (or a + for a command row), the name, a caption at the right (a count, a length),
+/// and a star column kept on every row so captions line up. A flat row (a search result) has no
+/// disclosure column.
+struct TreeItem
+{
+    enum class Mark
+    {
+        None,
+        Closed,
+        Open,
+        Add,
+    };
+    juce::String name, caption;
+    int depth = 0;
+    Mark mark = Mark::None;
+    bool flat = false;
+    bool selected = false, hovered = false;
+    bool dim = false;       // gone, or "All 240 samples"
+    bool secondary = false; // a command row ("Add folder…")
+    bool starrable = false, starred = false;
+};
+void paintTreeRow(juce::Graphics& g, juce::Rectangle<int> row, const TreeItem& item);
+/// Where a tree row's disclosure and star are (for clicks).
+[[nodiscard]] juce::Rectangle<int> treeRowMark(juce::Rectangle<int> row, const TreeItem& item);
+[[nodiscard]] juce::Rectangle<int> treeRowStar(juce::Rectangle<int> row);
+
 /// Closes a popover on any mouse press outside it (docs/design/ui-foundations.md): a global
 /// mouse listener while attached. Presses in other top-level windows (a popup menu the popover
 /// opened, a plugin's window) don't count, nor do components `ignore` exempts (the button that

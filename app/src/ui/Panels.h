@@ -115,30 +115,6 @@ private:
     bool markOnly_ = false;
 };
 
-/// Left panel: one search across devices, presets, samples, plugins and files (M3). In M1 it
-/// lists the built-in devices.
-class BrowserPanel final : public juce::Component
-{
-public:
-    explicit BrowserPanel(const ActionRegistry& actions);
-    void paint(juce::Graphics& g) override;
-    void resized() override;
-    /// Narrow rail when collapsed (ui-principles §2, compact width).
-    void setRail(bool rail);
-
-private:
-    const ActionRegistry& actions_;
-    juce::TextEditor search_;
-    ui::IconButton expand_{ui::Icon::PanelLeft}; // on the rail
-    struct Section
-    {
-        juce::String title;
-        std::vector<juce::String> items;
-    };
-    std::vector<Section> sections_;
-    bool rail_ = false;
-};
-
 /// Right panel, in the arrangement: the properties of the selection's subject in titled sections
 /// (docs/design/selection.md §5): CLIP or CLIPS, then TRACK, RETURN or MASTER, then MIX and SENDS.
 class InspectorPanel final : public juce::Component

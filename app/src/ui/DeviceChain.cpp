@@ -1,5 +1,7 @@
 #include "ui/DeviceChain.h"
 
+#include "ui/BrowserDrops.h"
+
 #include <map>
 
 namespace fd::app
@@ -72,7 +74,14 @@ public:
                     g.setColour(t.active);
                     g.drawRoundedRectangle(s.view->getBounds().toFloat().reduced(0.5f), t.radiusPanel, 1.0f);
                 }
-        if (owner_.dragging_ && owner_.insertAt_ >= 0)
+        if (owner_.browserOn_)
+            for (const auto& s : owner_.slots_)
+                if (s.info.id == *owner_.browserOn_)
+                {
+                    g.setColour(t.active);
+                    g.drawRect(s.view->getBounds(), t.shell.dropLine);
+                }
+        if ((owner_.dragging_ || owner_.browserDrag_) && owner_.insertAt_ >= 0)
         {
             int x = gap / 2;
             for (int i = 0; i < owner_.insertAt_ && i < static_cast<int>(owner_.slots_.size()); ++i)
@@ -361,6 +370,53 @@ void DeviceChain::mouseUp(const juce::MouseEvent&)
     insertAt_ = -1;
     content_->repaint();
 }
+// ---- drops from the browser (browser.md §10) -----------------------------------------------
+
+bool DeviceChain::isInterestedInDragSource(const SourceDetails& details)
+{
+    const auto item = browser::itemOf(details.description);
+    if (!item || !track_)
+        return false;
+    const auto ref = browser::parse(*item);
+    return ref && ref->kind != model::BrowserKind::Midi && ref->kind != model::BrowserKind::Project &&
+           ref->kind != model::BrowserKind::Folder;
+}
+
+void DeviceChain::itemDragMove(const SourceDetails& details)
+{
+    const auto item = browser::itemOf(details.description);
+    const auto inContent = content_->getLocalPoint(this, details.localPosition);
+    browserDrag_ = true;
+    browserOn_.reset();
+    insertAt_ = insertIndexAt(inContent.x);
+    if (item)
+        for (const auto& s : slots_)
+            if (s.view->getBounds().contains(inContent) && browser::landsOn(*item, s.info))
+            {
+                browserOn_ = s.info.id;
+                insertAt_ = -1;
+            }
+    content_->repaint();
+}
+
+void DeviceChain::itemDragExit(const SourceDetails&)
+{
+    browserDrag_ = false;
+    browserOn_.reset();
+    insertAt_ = -1;
+    content_->repaint();
+}
+
+void DeviceChain::itemDropped(const SourceDetails& details)
+{
+    itemDragMove(details);
+    const auto on = browserOn_;
+    const int index = insertAt_;
+    itemDragExit(details);
+    if (const auto item = browser::itemOf(details.description); item && track_ && onBrowserDrop)
+        onBrowserDrop(*item, *track_, index, on);
+}
+
 void DeviceChain::selectDevice(std::uint64_t id)
 {
     for (const auto& s : slots_)

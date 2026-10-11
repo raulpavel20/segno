@@ -27,7 +27,10 @@ namespace fd::app
 {
 /// The arrangement (docs/design/daw-shell.md, C2): ruler, track headers and lanes with the grid,
 /// clips and playhead. Draws only from the Session's snapshot and its own view models.
-class ArrangementView final : public juce::Component, public juce::FileDragAndDropTarget, public juce::TooltipClient
+class ArrangementView final : public juce::Component,
+                              public juce::FileDragAndDropTarget,
+                              public juce::DragAndDropTarget,
+                              public juce::TooltipClient
 {
 public:
     /// What a take strip's audition button does (the rest of the view has no tooltips).
@@ -118,6 +121,9 @@ public:
     std::function<void(const juce::String&)> onMessage;
     /// A clip was double-clicked or created: show it in the clip view.
     std::function<void(std::uint64_t clip)> onOpenClip;
+    /// Something from the browser dropped (browser.md §10): on a track (0: below the tracks, a new
+    /// one) at `seconds`.
+    std::function<void(const std::string& item, std::uint64_t track, double seconds)> onBrowserDrop;
 
     // Edit commands on the selection (C4), each one undo step.
     /// Deletes the selected clips, or the selected take lane.
@@ -204,6 +210,10 @@ public:
     void fileDragMove(const juce::StringArray& files, int x, int y) override;
     void fileDragExit(const juce::StringArray& files) override;
     void filesDropped(const juce::StringArray& files, int x, int y) override;
+    bool isInterestedInDragSource(const SourceDetails& details) override;
+    void itemDragMove(const SourceDetails& details) override;
+    void itemDragExit(const SourceDetails& details) override;
+    void itemDropped(const SourceDetails& details) override;
 
 private:
     /// The channel of a track, return or master row (null for lane rows).

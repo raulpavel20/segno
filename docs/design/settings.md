@@ -258,4 +258,4 @@ Sources: the [Live 12 manual](https://www.ableton.com/en/live-manual/12/first-st
 - **JACK:** on in the DAW and the standalone plugins (Linux). The first launch, with no audio device chosen yet, takes JACK when a JACK server (or PipeWire's) answers, else the system's default (ALSA); after that the engine keeps what you choose.
 - **The command palette** lists every setting as "Settings: <name>", opening the page at its row, marked for a moment.
 - **Assistants:** `set_settings` checks everything before changing anything, so a refused call changes nothing; read-only mode refuses it.
-- **Not on the page yet:** browser places (C2); which files assistants may read (open question B18).
+- **Not on the page yet:** which files assistants may read (open question B18). Browser places came with the browser (C2): Library > Browser places, each with Remove, then Add….

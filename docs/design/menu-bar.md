@@ -188,6 +188,9 @@ The product owner, 2026-10-11:
 | Save | Ctrl+S | |
 | Save as… | Ctrl+Shift+S | |
 | — | | |
+| Collect files and save | | `file.collect` (M3 C2, [browser.md](browser.md) §12): copies outside files into the project's Samples |
+| Remove unused files… | | `file.removeUnused` (M3 C2): files nothing uses, to the trash after a confirmation |
+| — | | |
 | Export… | Ctrl+Shift+E | |
 | — | | |
 | Quit | Ctrl+Q | *new* (`app.quit`); asks about unsaved changes, as closing the window does. In the app menu on macOS |
@@ -282,6 +285,8 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 | Mixer view | Ctrl+Alt+X | Ticked in the mixer view |
 | — | | |
 | Show browser | Ctrl+Alt+B | |
+| Search the browser | Ctrl+F | `browser.search` (M3 C2, [browser.md](browser.md) §14): the keyboard in its search; folded to its rail, it opens over the arrangement |
+| Preview in the browser | | `browser.preview`, a toggle; also the Preview switch in the browser's header |
 | Show inspector | Ctrl+Alt+I | |
 | Show detail panel | Ctrl+Alt+D | |
 | Switch modules / clip view | Tab | |

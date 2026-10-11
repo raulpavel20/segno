@@ -13,7 +13,9 @@ namespace fd::app
 /// third-party plugins as compact cards, left to right; add with the + button, reorder by
 /// dragging a header (or a folded strip), bypass with the power toggle, fold a module or
 /// collapse its sections (ADR 0022), delete the selected module.
-class DeviceChain final : public juce::Component, private engine::Session::Listener
+class DeviceChain final : public juce::Component,
+                          public juce::DragAndDropTarget,
+                          private engine::Session::Listener
 {
 public:
     static constexpr int gap = 8;
@@ -40,6 +42,15 @@ public:
     void expandSelected();
     /// Called when the chain is clicked (the shell routes Delete to the area used last).
     std::function<void()> onActivated;
+    /// Something from the browser dropped (browser.md §10): at `index` in the chain, or onto a
+    /// module it lands on (a preset of its kind, a sample on a Sampler).
+    std::function<void(const std::string& item, std::uint64_t track, int index,
+                       std::optional<std::uint64_t> onModule)>
+        onBrowserDrop;
+    bool isInterestedInDragSource(const SourceDetails& details) override;
+    void itemDragMove(const SourceDetails& details) override;
+    void itemDragExit(const SourceDetails& details) override;
+    void itemDropped(const SourceDetails& details) override;
 
     void resized() override;
     void paint(juce::Graphics& g) override;
@@ -78,5 +89,8 @@ private:
     int dragSlot_ = -1;
     bool dragging_ = false;
     int insertAt_ = -1;
+    // A browser drag: where it would land, or the module it would go into.
+    bool browserDrag_ = false;
+    std::optional<std::uint64_t> browserOn_;
 };
 } // namespace fd::app

@@ -118,6 +118,8 @@ Role functions for colours that depend on content:
 | `shell.settingsIndexWidth` / `shell.settingsColumnWidth` | 160 / 720 (Settings: the index of sections, and the most the page's column takes, [settings.md](settings.md) §4) |
 | `shell.settingsLabelWidth` / `shell.settingsControlWidth` | 200 / 280 (a setting's name, then its controls) |
 | `shell.settingsKeyWidth` | 160 (a shortcut in Settings > Keys, at the controls' right edge, so long action names get the rest) |
+| `shell.browserIndent` | 12 (a browser row in from its parent, [browser.md](browser.md) §4) |
+| `shell.browserWaveHeight` | 32 (the browser's preview strip: a sample's waveform) |
 | `shell.popoverWidth` | 560 |
 | `shell.formPopoverWidth` | 420 (a popover of property rows: the export panel, C8) |
 | `shell.toastHeight` / `shell.toastWidth` | 36 / 420 |
@@ -153,7 +155,8 @@ Components size themselves for their text: `ui::Toggle::widthFor(label)` and `ui
 | `AutomationState` / `paintAutomationIndicator` | Whether a control's parameter is automated: a 4 px disc in `automation`, filled while its lane plays and a ring while it's off (left of a knob's name; a bar's, fader's, toggle's or choice's top-left corner). `Knob` and `Toggle` take the state and an `onPopupMenu` (right-click) | Every control of a parameter (C4) |
 | `ViewOption` | A view option: a 6 px indicator and a `Control` label, no button fill. Off: a 1 px ring and `textTertiary`; on: a filled `active` disc and `textPrimary` (the shape tells on from off, not only the colour); hover: the `hoverWash` behind it. Its own padding is half the shell's: aligned on a text edge, it starts that much before it | The mixer view's Modules, Sends and Narrow; the arrangement's Snap, in the corner above the headers (C11 review); later the piano roll's and the browser's view options |
 | `PropertyList` | Label and value rows on the row grid; values in `Body`, or `Value` for numbers | Inspector; export options (C8); preferences |
-| `ListRow` | One row of a list: optional dot, name, caption, shortcut on the right; hover and selected states; room kept at the right (`trailing`) for a control the caller draws there, whose area it returns | Command palette; the preset list; browser (M3) |
+| `ListRow` | One row of a list: optional dot, name, caption, shortcut on the right; hover and selected states; room kept at the right (`trailing`) for a control the caller draws there, whose area it returns | Command palette; the preset list |
+| `TreeRow` (`paintTreeRow`) | A ListRow in a tree: indented by `shell.browserIndent` per level, a disclosure (`ChevronRight`/`ChevronDown`) or a `+` for a command row, the name, a caption at the right (a count, a length), and a star column kept on every row so captions line up; `treeRowMark` and `treeRowStar` say where to click. A flat row (a search result) has no disclosure column | The browser ([browser.md](browser.md), ADR 0046) |
 | `modifiedMark` / `paintNameWithMark` | What follows a name while what it names has changes not kept: " •" right after the name, never cut away (the name is cut instead) | The title bar's project name while unsaved; a module's preset while it differs from the preset (ADR 0044) |
 | `Popover` | Floating chrome: `surface2`, panel radius, the one shadow | Command palette; Assistants popover; future menus that float |
 | `Toast` | A message in the arrangement's corner that times out | Warnings and confirmations |

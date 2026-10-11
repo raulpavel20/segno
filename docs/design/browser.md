@@ -8,7 +8,7 @@ How you find what goes into a song: modules and their presets, plugins, samples,
 - the menu bar as the complete list ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)) and assistants' tools ([ADR 0021](../decisions/0021-mcp-server.md));
 - the shared components: `ListRow`, `PanelHeader`, `ViewOption`, the waveform cache and the shell metrics ([ui-foundations.md](ui-foundations.md), ADR 0023).
 
-**Status:** approved by the product owner (2026-10-11), with every recommendation of §16.
+**Status:** approved by the product owner (2026-10-11), with every recommendation of §16. Built (2026-10-12), for review; what was settled while building is in §21.
 
 ## 1. Why
 
@@ -269,3 +269,18 @@ As in Live, at the product owner's suggestion:
 - **C2 (M3):** everything above.
 - **With other steps:** the Sampler's factory presets and hot-swapping its sound from the browser (B11, when the sounds arrive); the out-of-process plugin scan feeding the Plugins folder (C5); MIDI effects as a category (M4).
 - **Later:** similar sounds, tagging your samples by their sound, coloured collections, plugins' own presets, effects' preset previews, importing tracks from another project, packs to download.
+
+## 21. Settled while building (2026-10-12)
+
+- **R8, the fallback:** previews don't stretch loops to the song's tempo. About 56 places in 20 files (fades, takes, splits, crossfades, waveforms, bounce) take an audio clip to play at its file's speed, so clips that follow the tempo are M4's warping, and previews wait for it too, so a preview never promises what a drop won't do. **In time** now means: while the song plays, a loop that is a whole number of beats (two or more) at the song's tempo starts at once from the point that lines up with the bar, and loops; anything else plays once, from its start.
+- **A file's tempo** comes from its loop metadata (a WAV's acid chunk, an AIFF's beat count) or a tempo in its name; the engine's tempo detector isn't run (a one-shot would get a wrong tempo, and tempos only label files until M4).
+- **The preview** is an audio callback of its own on the device, added after the engine's output, at −6 dB to start (the strip's number); a MIDI file plays on the selected track's instrument as live MIDI, up to 16 bars.
+- **An instrument preset's phrase** is about two seconds rendered offline through a module of its own: Bass a C1, Pad a C3 major chord, anything else a C3.
+- **Modules' folders:** Yours first (your default shows there as "Your default"), then an instrument's factory presets in folders by first tag, A to Z (Subtractive Synth: Bass, Brass, Drums, FX, Keys, Lead, Pad, Pluck); an effect's A to Z. The Sampler has no presets yet, so it has no folder to open.
+- **An effect dropped ahead of the instrument** goes right after it, so the instrument stays first.
+- **The panel:** the shared header (Browser, and the Preview view option), the search, the results' tags as toggles on one line, the tree drawn with a new shared `TreeRow`, and the preview strip at the foot: the name and volume, a sample's waveform with the playhead, then play and what it is (length, tempo, sample rate, in that order so a narrow panel cuts the least).
+- **The rail's icons** are new: `Note` (instruments), `Knob` (audio effects), `Plug` (plugins), `Folder` (places), beside Search and the star. Over the arrangement, the panel has a hairline at its edge.
+- **Remove unused files** counts a file as used if anything used it since the project opened, so undo can never bring back a clip whose file is gone.
+- **Collect files and save** needs the project saved once; before that it asks for a name first, as Save as… does.
+- **Tests** never touch your Segno folder: CTest gives them their own (the parent of their presets folder).
+

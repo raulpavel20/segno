@@ -218,6 +218,43 @@ Glyph glyph(Icon icon)
         p.addStar({8.0f, 8.3f}, 5, 2.6f, 6.0f);
         g.filled = icon == Icon::StarFilled;
         break;
+    case Icon::Note:
+        // An eighth note: a filled head, its stem and flag.
+        g.solid.addEllipse(2.5f, 10.0f, 5.0f, 3.8f);
+        p.startNewSubPath(7.2f, 11.8f);
+        p.lineTo(7.2f, 2.5f);
+        p.quadraticTo(9.0f, 5.5f, 12.5f, 6.5f);
+        break;
+    case Icon::Knob:
+        // A knob: its ring and pointer, and the ticks of its travel.
+        p.addEllipse(3.0f, 3.0f, 10.0f, 10.0f);
+        p.startNewSubPath(8.0f, 8.0f);
+        p.lineTo(5.2f, 5.2f);
+        p.startNewSubPath(1.8f, 13.2f);
+        p.lineTo(2.8f, 12.2f);
+        p.startNewSubPath(14.2f, 13.2f);
+        p.lineTo(13.2f, 12.2f);
+        break;
+    case Icon::Plug:
+        // A plug: two prongs, the body, and the cable.
+        p.startNewSubPath(6.0f, 1.5f);
+        p.lineTo(6.0f, 4.5f);
+        p.startNewSubPath(10.0f, 1.5f);
+        p.lineTo(10.0f, 4.5f);
+        p.addRoundedRectangle(3.5f, 4.5f, 9.0f, 5.5f, 1.5f);
+        p.startNewSubPath(8.0f, 10.0f);
+        p.lineTo(8.0f, 14.5f);
+        break;
+    case Icon::Folder:
+        // A folder: its body and tab.
+        p.startNewSubPath(1.5f, 4.0f);
+        p.lineTo(6.0f, 4.0f);
+        p.lineTo(7.5f, 5.5f);
+        p.lineTo(14.5f, 5.5f);
+        p.lineTo(14.5f, 13.0f);
+        p.lineTo(1.5f, 13.0f);
+        p.closeSubPath();
+        break;
     case Icon::Search:
         p.addEllipse(2.5f, 2.5f, 8.5f, 8.5f);
         p.startNewSubPath(9.8f, 9.8f);
