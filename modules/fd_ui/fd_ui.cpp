@@ -7,6 +7,7 @@
 #include "controls/Knob.cpp"
 #include "controls/Toggle.cpp"
 #include "controls/ViewOption.cpp"
+#include "controls/ViewChoice.cpp"
 #include "controls/Meter.cpp"
 #include "controls/Icons.cpp"
 #include "controls/NumberField.cpp"

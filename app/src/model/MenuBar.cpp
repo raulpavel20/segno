@@ -150,7 +150,8 @@ std::vector<Menu> menuBar(MenuPlatform platform)
 
     Menu options{"Options",
                  'o',
-                 {action("view.snap"), action("project.edgeFades"), separator(),
+                 {action("grid.narrower"), action("grid.wider"), action("grid.triplets"), action("view.snap"),
+                  action("grid.fixed"), separator(), action("project.edgeFades"), separator(),
                   submenu("Computer keyboard",
                           {action("midi.computerKeyboard"), separator(), action("midi.octaveDown"),
                            action("midi.octaveUp"), action("midi.velocityDown"), action("midi.velocityUp")}),

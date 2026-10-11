@@ -339,6 +339,8 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         menu.addSeparator();
         actions_.addMenuItem(menu, "edit.duplicate");
         actions_.addMenuItem(menu, "edit.delete");
+        menu.addSeparator();
+        menu.addSubMenu("Grid", detail_.pianoRoll().gridMenu()); // where you edit (ADR 0047)
         menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&detail_.pianoRoll()).withMousePosition());
     };
     arrangement_.onOpenClip = [this](std::uint64_t id) {
@@ -1142,9 +1144,73 @@ void Shell::registerActions()
                   .perform = [this] { arrangement_.zoomOut(); }, .isEnabled = arrangeShown});
     actions_.add({.id = "view.zoomFit", .name = "Zoom to fit", .category = "View", .keys = {key('0', kCmd)},
                   .perform = [this] { arrangement_.zoomToFit(); }, .isEnabled = arrangeShown});
-    actions_.add({.id = "view.snap", .name = "Snap to grid", .category = "View", .keys = {key('4', kCmd)},
-                  .perform = [this] { arrangement_.setSnapEnabled(!arrangement_.isSnapEnabled()); },
-                  .isToggled = [this] { return arrangement_.isSnapEnabled(); }});
+    // The grid (ADR 0047): the editor used last's, the piano roll after working on notes, as
+    // Delete does; else the arrangement's.
+    auto& gridRoll = detail_.pianoRoll();
+    auto gridGet = [this, &gridRoll] { return notesActive() ? gridRoll.grid() : arrangement_.grid(); };
+    auto gridSet = [this, &gridRoll](const model::GridSettings& g)
+    {
+        if (notesActive())
+            gridRoll.setGrid(g);
+        else
+            arrangement_.setGrid(g);
+    };
+    actions_.add({.id = "grid.narrower",
+                  .name = "Narrower grid",
+                  .category = "View",
+                  .keys = {key('1', kCmd)},
+                  .perform = [gridGet, gridSet] { gridSet(gridGet().narrower()); },
+                  .isEnabled = [gridGet] { return gridGet().canNarrow(); }});
+    actions_.add({.id = "grid.wider",
+                  .name = "Wider grid",
+                  .category = "View",
+                  .keys = {key('2', kCmd)},
+                  .perform = [gridGet, gridSet] { gridSet(gridGet().wider()); },
+                  .isEnabled = [gridGet] { return gridGet().canWiden(); }});
+    actions_.add({.id = "grid.triplets",
+                  .name = "Triplet grid",
+                  .category = "View",
+                  .keys = {key('3', kCmd)},
+                  .perform =
+                      [gridGet, gridSet]
+                  {
+                      auto g = gridGet();
+                      g.triplets = !g.triplets;
+                      gridSet(g);
+                  },
+                  .isToggled = [gridGet] { return gridGet().triplets; }});
+    actions_.add({.id = "view.snap",
+                  .name = "Snap to grid",
+                  .category = "View",
+                  .keys = {key('4', kCmd)},
+                  .perform =
+                      [gridGet, gridSet]
+                  {
+                      auto g = gridGet();
+                      g.snap = !g.snap;
+                      gridSet(g);
+                  },
+                  .isToggled = [gridGet] { return gridGet().snap; }});
+    actions_.add({.id = "grid.fixed",
+                  .name = "Fixed grid",
+                  .category = "View",
+                  .keys = {key('5', kCmd)},
+                  .perform =
+                      [this, &gridRoll, gridGet, gridSet]
+                  {
+                      auto g = gridGet();
+                      if (g.mode == model::GridSettings::Mode::Fixed)
+                          g.mode = model::GridSettings::Mode::Adaptive;
+                      else
+                      {
+                          // Fixed at the step showing, so nothing moves.
+                          const auto& tl = notesActive() ? gridRoll.timeline() : arrangement_.timeline();
+                          g.value = tl.fixedValueNearStep(session_.snapshot()->tempo);
+                          g.mode = model::GridSettings::Mode::Fixed;
+                      }
+                      gridSet(g);
+                  },
+                  .isToggled = [gridGet] { return gridGet().mode == model::GridSettings::Mode::Fixed; }});
     actions_.add({.id = "view.fullScreen", .name = "Full screen", .category = "View",
                   .keys = {juce::KeyPress(juce::KeyPress::F11Key)},
                   .perform = [this] { window.setFullScreen(!window.isFullScreen()); },
@@ -1465,35 +1531,39 @@ void Shell::saveProjectAs(std::function<void()> then)
 std::string Shell::viewState() const
 {
     const auto& tl = arrangement_.timeline();
-    return nlohmann::json{{"start", tl.start()},
-                          {"pixelsPerSecond", tl.pixelsPerSecond()},
-                          {"snap", arrangement_.isSnapEnabled()},
-                          {"follow", arrangement_.isFollowEnabled()},
-                          {"browser", browserPanel_.open},
-                          {"inspector", inspectorPanel_.open},
-                          {"detail", detailPanel_.open},
-                          {"browserWidth", browserPanel_.size},
-                          {"inspectorWidth", inspectorPanel_.size},
-                          {"clipViewHeight", clipViewHeight_},
-                          {"view", mixerShown_ ? "mix" : "arrange"},
-                          {"returns", arrangement_.mixRowsVisible()},
-                          {"lanes", arrangement_.lanesVisible()},
-                          {"mixerModules", mixer_.options().modules},
-                          {"mixerSends", mixer_.options().sends},
-                          {"mixerNarrow", mixer_.options().narrow},
-                          {"mixerScroll", mixer_.scrollX()},
-                          {"rowHeights", arrangement_.rowHeights()}}
+    return nlohmann::json{
+        {"start", tl.start()},
+        {"pixelsPerSecond", tl.pixelsPerSecond()},
+        {"grid", model::gridsToViewState({arrangement_.grid(), detail_.pianoRoll().grid()})},
+        {"follow", arrangement_.isFollowEnabled()},
+        {"browser", browserPanel_.open},
+        {"inspector", inspectorPanel_.open},
+        {"detail", detailPanel_.open},
+        {"browserWidth", browserPanel_.size},
+        {"inspectorWidth", inspectorPanel_.size},
+        {"clipViewHeight", clipViewHeight_},
+        {"view", mixerShown_ ? "mix" : "arrange"},
+        {"returns", arrangement_.mixRowsVisible()},
+        {"lanes", arrangement_.lanesVisible()},
+        {"mixerModules", mixer_.options().modules},
+        {"mixerSends", mixer_.options().sends},
+        {"mixerNarrow", mixer_.options().narrow},
+        {"mixerScroll", mixer_.scrollX()},
+        {"rowHeights", arrangement_.rowHeights()}}
         .dump();
 }
 
 void Shell::applyViewState(const std::string& json)
 {
     const auto v = nlohmann::json::parse(json, nullptr, false);
+    // The editors' grids (ADR 0047): a new project's are the defaults.
+    const auto grids = model::gridsFromViewState(v);
+    arrangement_.setGrid(grids.arrangement);
+    detail_.pianoRoll().setGrid(grids.pianoRoll);
     if (!v.is_object())
         return;
     auto get = [&](const char* key, auto fallback) { return v.contains(key) ? v[key].get<decltype(fallback)>() : fallback; };
     arrangement_.setView(get("start", 0.0), get("pixelsPerSecond", arrangement_.timeline().pixelsPerSecond()));
-    arrangement_.setSnapEnabled(get("snap", true));
     arrangement_.setFollowEnabled(get("follow", true));
     browserPanel_.open = get("browser", browserPanel_.open);
     inspectorPanel_.open = get("inspector", inspectorPanel_.open);
@@ -2103,7 +2173,6 @@ void Shell::onFrame(double timestamp)
 
     const double position = session_.position();
     arrangement_.frame(dt, position);
-    detail_.pianoRoll().setSnapEnabled(arrangement_.isSnapEnabled());
     if (detail_.isVisible())
         detail_.frame(position);
     transport_->frame(position, session_.snapshot()->tempo);

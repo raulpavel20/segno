@@ -51,8 +51,15 @@ void PanelHeader::setCaption(juce::String text)
 
 void PanelHeader::addOption(ViewOption& option)
 {
-    options_.push_back(&option);
+    options_.push_back({&option, [&option] { return option.preferredWidth(); }});
     addAndMakeVisible(option);
+    resized();
+}
+
+void PanelHeader::addOption(ViewChoice& choice)
+{
+    options_.push_back({&choice, [&choice] { return choice.preferredWidth(); }});
+    addAndMakeVisible(choice);
     resized();
 }
 
@@ -69,17 +76,20 @@ void PanelHeader::resized()
     // would (the option's own padding is half the shell's).
     const auto& s = Theme::current().shell;
     int right = getWidth() - s.padding / 2;
+    bool options = false;
     for (auto it = options_.rbegin(); it != options_.rend(); ++it)
-    {
-        const int w = (*it)->preferredWidth();
-        (*it)->setBounds(right - w, 0, w, getHeight());
-        right -= w + s.itemGap;
-    }
+        if (it->component->isVisible())
+        {
+            const int w = it->width();
+            it->component->setBounds(right - w, 0, w, getHeight());
+            right -= w + s.itemGap;
+            options = true;
+        }
     // Commands left of them, a group apart (from the padding when there are none), centred.
     const bool commands = std::any_of(commands_.begin(), commands_.end(), [](auto* c) { return c->isVisible(); });
     if (commands)
     {
-        right = options_.empty() ? getWidth() - s.padding : right + s.itemGap - s.groupGap;
+        right = !options ? getWidth() - s.padding : right + s.itemGap - s.groupGap;
         for (auto it = commands_.rbegin(); it != commands_.rend(); ++it)
             if ((*it)->isVisible())
             {
@@ -88,7 +98,7 @@ void PanelHeader::resized()
                 right -= w + s.itemGap;
             }
     }
-    optionsLeft_ = options_.empty() && !commands ? getWidth() : right;
+    optionsLeft_ = !options && !commands ? getWidth() : right;
 }
 
 std::vector<juce::Rectangle<int>> PanelHeader::tabAreas() const

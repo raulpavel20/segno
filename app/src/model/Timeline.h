@@ -1,28 +1,30 @@
 #pragma once
 
+#include "model/Grid.h"
 #include "model/TempoMap.h"
 
+#include <string>
 #include <vector>
 
 namespace fd::model
 {
-/// Horizontal mapping of the arrangement: seconds <-> pixels, zoom and scroll, the adaptive
-/// grid and snapping (docs/design/daw-shell.md, "Timeline"). Pure and unit-tested; views own one
-/// and draw from it.
+/// Horizontal mapping of a time view: seconds <-> pixels, zoom and scroll, the grid and snapping
+/// (docs/design/daw-shell.md, "Timeline"). Pure and unit-tested; views own one and draw from it.
 class Timeline
 {
 public:
     static constexpr double minPixelsPerSecond = 0.5;
     static constexpr double maxPixelsPerSecond = 20000.0;
-    static constexpr double minLineSpacing = 10.0;  // px between the finest grid lines
+    static constexpr double minDrawSpacing = 7.0;   // px: closer lines (a fixed grid) are thinned on screen
     static constexpr double minLabelSpacing = 56.0; // px between bar labels
     static constexpr double zoomTimeConstant = 0.08; // s, animated zoom
 
     void setWidth(double pixels) noexcept { width_ = pixels > 1.0 ? pixels : 1.0; }
-    /// The closest the finest grid lines may get (px): minLineSpacing by default; the piano roll
-    /// uses a coarser grid, since it is also the note length it draws.
-    void setLineSpacing(double pixels) noexcept { lineSpacing_ = pixels > 1.0 ? pixels : 1.0; }
     [[nodiscard]] double width() const noexcept { return width_; }
+
+    /// The view's grid (ADR 0047): adaptive at a width, or fixed; triplets; snap.
+    void setGrid(const GridSettings& grid) noexcept { grid_ = grid; }
+    [[nodiscard]] const GridSettings& grid() const noexcept { return grid_; }
 
     /// Sets the view directly (clamped); stops any animation.
     void setView(double startSeconds, double pixelsPerSecond) noexcept;
@@ -61,21 +63,29 @@ public:
         bool label = false; // bar lines that get a number
     };
 
-    /// The current grid step in quarter notes: the finest step of the ladder whose lines are
-    /// at least the line spacing apart.
+    /// The step the grid snaps to now, in quarter notes: adaptive, the finest step of the ladder
+    /// whose lines are at least the width's spacing apart; fixed, its value. Triplets make a step
+    /// shorter than a bar two thirds as long.
     [[nodiscard]] double gridStepBeats(const TempoMap& tempo) const noexcept;
+    /// That step's name: "1/16", "1/8T", "1 bar", "2 bars".
+    [[nodiscard]] std::string gridStepName(const TempoMap& tempo) const;
+    /// The fixed value nearest the step showing now (Fixed grid starts there, so nothing moves).
+    [[nodiscard]] GridSettings::Value fixedValueNearStep(const TempoMap& tempo) const noexcept;
 
-    /// Grid lines in [start, end] (cleared and refilled; reuse the vector across frames).
+    /// Grid lines in [start, end] (cleared and refilled; reuse the vector across frames). Lines
+    /// below a bar restart at every bar; lines closer than minDrawSpacing are thinned.
     void gridLines(const TempoMap& tempo, std::vector<GridLine>& out) const;
 
-    /// The nearest line of the current grid.
+    /// The nearest line of the grid (its step, though thinned lines aren't drawn).
     [[nodiscard]] double snap(double seconds, const TempoMap& tempo) const noexcept;
+    /// The line at or before `seconds`.
+    [[nodiscard]] double snapFloor(double seconds, const TempoMap& tempo) const noexcept;
 
 private:
     void clampView() noexcept;
 
     double width_ = 1000.0;
-    double lineSpacing_ = minLineSpacing;
+    GridSettings grid_;
     double start_ = 0.0;
     double pps_ = 50.0;
 

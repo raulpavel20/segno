@@ -1550,6 +1550,30 @@ void Session::setDeviceViewState(std::uint64_t deviceId, const std::string& json
     impl_->listeners.call([deviceId](Listener& l) { l.deviceViewChanged(deviceId); });
 }
 
+model::GridSettings Session::grid(GridEditor editor) const
+{
+    return impl_->grids[static_cast<size_t>(editor)];
+}
+
+void Session::setGrid(GridEditor editor, const model::GridSettings& grid)
+{
+    auto& g = impl_->grids[static_cast<size_t>(editor)];
+    if (g == grid)
+        return;
+    g = grid;
+    impl_->listeners.call([](Listener& l) { l.gridChanged(); });
+}
+
+std::string Session::gridStep(GridEditor editor) const
+{
+    return impl_->gridSteps[static_cast<size_t>(editor)];
+}
+
+void Session::setGridStep(GridEditor editor, std::string step)
+{
+    impl_->gridSteps[static_cast<size_t>(editor)] = std::move(step);
+}
+
 std::unique_ptr<DeviceHandle> Session::openDevice(std::uint64_t deviceId)
 {
     if (auto* native = dynamic_cast<DevicePlugin*>(impl_->plugin(deviceId)))
@@ -1614,6 +1638,8 @@ void Session::replaceEdit(std::unique_ptr<te::Edit> edit, std::optional<juce::Fi
     impl_->stopAudition();
     impl_->detach();
     impl_->file = std::move(file);
+    impl_->grids = {model::GridSettings::arrangement(), model::GridSettings::pianoRoll()};
+    impl_->gridSteps = {};
     impl_->attach(std::move(edit));
     if (onProjectChanged)
         onProjectChanged();

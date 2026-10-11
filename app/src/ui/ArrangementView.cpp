@@ -3,6 +3,7 @@
 #include "model/Takes.h"
 #include "model/TrackHeaderLayout.h"
 #include "ui/BrowserDrops.h"
+#include "ui/GridMenu.h"
 #include "ui/time/TimeView.h"
 
 #include <juce_opengl/juce_opengl.h>
@@ -50,15 +51,57 @@ ArrangementView::ArrangementView(engine::Session& session) : session_(session)
     setSnapshot(session_.snapshot());
     setWantsKeyboardFocus(false);
     snapToggle_.setClickingTogglesState(false); // the action toggles it
-    snapToggle_.setToggleState(snap_, juce::dontSendNotification);
-    snapToggle_.onClick = [this] { setSnapEnabled(!snap_); };
+    snapToggle_.onClick = [this] { setSnapEnabled(!isSnapEnabled()); };
     addAndMakeVisible(snapToggle_);
+    gridChoice_.setTooltip(
+        "The grid: the step it snaps to. Click to set it: adaptive or fixed, triplets, snap");
+    gridChoice_.onClick = [this] { gridChoice_.showMenu(gridMenu()); };
+    addAndMakeVisible(gridChoice_);
+    syncGrid();
 }
 
 void ArrangementView::setSnapEnabled(bool on)
 {
-    snap_ = on;
-    snapToggle_.setToggleState(on, juce::dontSendNotification);
+    auto g = grid();
+    g.snap = on;
+    setGrid(g);
+}
+
+void ArrangementView::setGrid(const model::GridSettings& grid)
+{
+    session_.setGrid(engine::Session::GridEditor::Arrangement, grid);
+    syncGrid();
+}
+
+juce::PopupMenu ArrangementView::gridMenu()
+{
+    return app::gridMenu(grid(),
+                         [safe = juce::Component::SafePointer(this)](const model::GridSettings& g)
+                         {
+                             if (safe != nullptr)
+                                 safe->setGrid(g);
+                         });
+}
+
+void ArrangementView::syncGrid()
+{
+    const auto g = session_.grid(engine::Session::GridEditor::Arrangement);
+    if (g != timeline_.grid())
+    {
+        timeline_.setGrid(g);
+        repaint();
+    }
+    snapToggle_.setToggleState(g.snap, juce::dontSendNotification);
+    const auto step = timeline_.gridStepName(snapshot_->tempo);
+    if (gridChoice_.value() != juce::String(step))
+    {
+        gridChoice_.setValue(step);
+        session_.setGridStep(engine::Session::GridEditor::Arrangement, step);
+    }
+    // Beside Snap (ADR 0047), as wide as its step.
+    const auto& sh = ui::Theme::current().shell;
+    gridChoice_.setBounds(snapToggle_.getRight() + sh.itemGap, snapToggle_.getY(),
+                          gridChoice_.preferredWidth(), snapToggle_.getHeight());
 }
 
 void ArrangementView::setSnapshot(std::shared_ptr<const model::Snapshot> snapshot)
@@ -335,7 +378,7 @@ float ArrangementView::laneX(double seconds) const
 
 double ArrangementView::snapped(double seconds, bool bypass) const
 {
-    return snap_ && !bypass ? timeline_.snap(seconds, snapshot_->tempo) : std::max(0.0, seconds);
+    return isSnapEnabled() && !bypass ? timeline_.snap(seconds, snapshot_->tempo) : std::max(0.0, seconds);
 }
 
 double ArrangementView::gridStepSeconds() const
@@ -357,6 +400,7 @@ void ArrangementView::resized()
     const auto names = model::layoutTrackHeader(headerArea().getWidth(), sh.rulerHeight, 0, false).name;
     const int x = juce::roundToInt(names.x) - sh.padding / 2;
     snapToggle_.setBounds(x, loopStripHeight(), snapToggle_.preferredWidth(), sh.rulerHeight);
+    syncGrid(); // the step follows the width too, and places its chip
 }
 
 // ---- per frame -----------------------------------------------------------------------------
@@ -366,6 +410,7 @@ void ArrangementView::frame(double dt, double playheadSeconds)
     placeHeaderControls(); // follows scrolling and row heights (moves only what changed)
     if (timeline_.advance(dt) || timeline_.isAnimating())
         repaint();
+    syncGrid(); // set by an assistant, a project opened; the step follows the zoom
 
     // Lane headers show their parameter's value now (it moves while automation plays).
     const auto header = headerArea();
@@ -1445,7 +1490,7 @@ void ArrangementView::paintWaveform(juce::Graphics& g, const model::ClipInfo& cl
 
 std::function<double(double)> ArrangementView::snapFunction(bool bypass) const
 {
-    if (!snap_ || bypass)
+    if (!isSnapEnabled() || bypass)
         return [](double t) { return std::max(0.0, t); };
     return [this](double t) { return timeline_.snap(t, snapshot_->tempo); };
 }
@@ -1625,7 +1670,7 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
         // the rows, the items that make rows.
         if (!row)
         {
-            rowMenu(-1);
+            rowMenu(-1, true);
             return;
         }
         if (const auto* lane = rowLane(row->track))
@@ -1633,7 +1678,7 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
             selectLane(lane->id);
             if (onLaneActivated)
                 onLaneActivated();
-            rowMenu(row->track);
+            rowMenu(row->track, true);
             return;
         }
         // A take's strip, or a clip's badge: the clip's take menu (for the selected takes, if it's
@@ -1658,7 +1703,7 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
         if (!hit)
         {
             selectTrack(rowTrack);
-            rowMenu(row->track);
+            rowMenu(row->track, true);
             return;
         }
         // A fade or crossfade: its menu (fades.md §6).
@@ -1944,8 +1989,9 @@ void ArrangementView::mouseUp(const juce::MouseEvent& e)
     if (drag_ == Drag::Ruler && e.getDistanceFromDragStart() < ui::Theme::current().input.dragThreshold)
     {
         // A click in the ruler moves the playhead (snapped; Alt for free).
-        session_.setPosition(time::rulerTime(timeline_, snapshot_->tempo, e.position.x - static_cast<float>(laneArea().getX()),
-                                             !snap_ || e.mods.isAltDown()));
+        session_.setPosition(time::rulerTime(timeline_, snapshot_->tempo,
+                                             e.position.x - static_cast<float>(laneArea().getX()),
+                                             !isSnapEnabled() || e.mods.isAltDown()));
     }
     if (drag_ == Drag::Lane)
         laneMouseUp(e);
@@ -2285,7 +2331,7 @@ void ArrangementView::clipMenu()
         menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMousePosition());
 }
 
-void ArrangementView::rowMenu(int row)
+void ArrangementView::rowMenu(int row, bool fromLanes)
 {
     juce::PopupMenu menu;
     if (const auto* lane = rowLane(row))
@@ -2320,6 +2366,13 @@ void ArrangementView::rowMenu(int row)
         if (menu.getNumItems() > 0)
             menu.addSeparator();
         onAddMenu(menu);
+    }
+    // The grid, where you edit (ADR 0047).
+    if (fromLanes)
+    {
+        if (menu.getNumItems() > 0)
+            menu.addSeparator();
+        menu.addSubMenu("Grid", gridMenu());
     }
     if (menu.getNumItems() > 0)
         menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMousePosition());
@@ -2382,11 +2435,8 @@ std::uint64_t ArrangementView::createMidiClip(int trackIndex, double seconds, bo
     const auto& track = snapshot_->tracks[static_cast<size_t>(trackIndex)];
     const auto& tempo = snapshot_->tempo;
     double start = std::max(0.0, seconds);
-    if (snap_ && !bypassSnap)
-    {
-        const double step = tempo.secondsForBeats(timeline_.gridStepBeats(tempo));
-        start = std::floor(start / step + 1e-9) * step;
-    }
+    if (isSnapEnabled() && !bypassSnap)
+        start = timeline_.snapFloor(start + 1e-9, tempo);
     // Never over another clip (ADR 0019 would cut it): start after the one it lands in, end
     // before the next.
     for (const auto& c : track.clips) // sorted by start

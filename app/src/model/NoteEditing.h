@@ -24,11 +24,12 @@ inline constexpr double minNoteLength = 1.0 / 64.0;
 [[nodiscard]] float midiVelocity(float velocity) noexcept;
 
 /// The grid notes snap to. `origin` is the song beat of the clip's content start, so lines
-/// fall on the song's grid, not the clip's.
+/// fall on the song's grid, not the clip's; lines below a bar restart at every bar (ADR 0047).
 struct BeatGrid
 {
     double step = 0.25; // beats; 0 = no snapping
     double origin = 0.0;
+    double bar = 0.0; // beats per bar; 0 = the lines never restart
 
     [[nodiscard]] double round(double beat) const noexcept;
     /// The grid line at or before `beat`.

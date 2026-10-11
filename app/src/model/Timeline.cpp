@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 
 namespace fd::model
 {
@@ -14,37 +15,114 @@ double clampPps(double pps) noexcept
     return std::clamp(pps, Timeline::minPixelsPerSecond, Timeline::maxPixelsPerSecond);
 }
 
-// Grid arithmetic in ticks of a 1/32 note (1/8 quarter), so bar and beat tests are exact.
-constexpr std::int64_t kTicksPerQuarter = 8;
+// Grid arithmetic in ticks of 1/24 quarter note, so bars, beats and triplets are exact: a 1/32
+// note is 3 ticks, its triplet 2.
+constexpr std::int64_t kTicksPerQuarter = 24, kTicksPerWhole = 4 * kTicksPerQuarter;
 
 std::int64_t barTicks(const TempoMap& t) noexcept
 {
-    return std::max<std::int64_t>(1, static_cast<std::int64_t>(t.numerator) * 32 / std::max(1, t.denominator));
+    return std::max<std::int64_t>(1, static_cast<std::int64_t>(t.numerator) * kTicksPerWhole /
+                                         std::max(1, t.denominator));
 }
 
 std::int64_t beatTicks(const TempoMap& t) noexcept
 {
-    return std::max<std::int64_t>(1, 32 / std::max(1, t.denominator));
+    return std::max<std::int64_t>(1, kTicksPerWhole / std::max(1, t.denominator));
 }
 
-/// The step ladder in ticks: 1/32, 1/16, 1/8 note, a beat, then 1, 2, 4 ... 256 bars.
-std::int64_t stepTicks(const TempoMap& t, double pixelsPerTick, double spacing) noexcept
+/// A step's triplet, where triplets are on and it's shorter than a bar.
+std::int64_t tripletOf(std::int64_t step, const GridSettings& g, const TempoMap& t) noexcept
 {
-    const std::array<std::int64_t, 3> subdivisions{1, 2, 4};
-    for (auto s : subdivisions)
-        if (s < beatTicks(t) && s * pixelsPerTick >= spacing)
-            return s;
-    if (beatTicks(t) * pixelsPerTick >= spacing)
-        return beatTicks(t);
+    return g.triplets && step < barTicks(t) && step % 3 == 0 ? step * 2 / 3 : step;
+}
+
+std::int64_t fixedTicks(GridSettings::Value v, const TempoMap& t) noexcept
+{
+    using V = GridSettings::Value;
+    const std::int64_t bar = barTicks(t);
+    switch (v)
+    {
+    case V::Bars8:
+        return 8 * bar;
+    case V::Bars4:
+        return 4 * bar;
+    case V::Bars2:
+        return 2 * bar;
+    case V::Bar:
+        return bar;
+    case V::Half:
+        return kTicksPerWhole / 2;
+    case V::Quarter:
+        return kTicksPerWhole / 4;
+    case V::Eighth:
+        return kTicksPerWhole / 8;
+    case V::Sixteenth:
+        return kTicksPerWhole / 16;
+    case V::ThirtySecond:
+        return kTicksPerWhole / 32;
+    }
+    return bar;
+}
+
+/// The step in ticks. Adaptive: from the ladder 1/32, 1/16, 1/8 note (those shorter than a beat),
+/// a beat, then 1, 2, 4 ... 256 bars, the first whose lines are the width's spacing apart; with
+/// triplets, the steps below a bar as triplets. Fixed: its value; one longer than a bar that
+/// isn't whole bars (a half note in 3/8) is a bar. Every step is below a bar or whole bars.
+std::int64_t stepTicks(const TempoMap& t, double pixelsPerTick, const GridSettings& g) noexcept
+{
+    const std::int64_t bar = barTicks(t), beat = beatTicks(t);
+    if (g.mode == GridSettings::Mode::Fixed)
+    {
+        const std::int64_t step = tripletOf(fixedTicks(g.value, t), g, t);
+        return step > bar && step % bar != 0 ? bar : step;
+    }
+    const double spacing = g.spacing();
+    for (const std::int64_t s : {kTicksPerWhole / 32, kTicksPerWhole / 16, kTicksPerWhole / 8, beat})
+        if (s <= beat && s < bar && tripletOf(s, g, t) * pixelsPerTick >= spacing)
+            return tripletOf(s, g, t);
     std::int64_t bars = 1;
-    while (bars < 256 && bars * barTicks(t) * pixelsPerTick < spacing)
+    while (bars < 256 && bars * bar * pixelsPerTick < spacing)
         bars *= 2;
-    return bars * barTicks(t);
+    return bars * bar;
+}
+
+/// The step drawn: the step, doubled (up to a bar, then in bars) while its lines would be closer
+/// than minDrawSpacing. Its lines are always among the step's.
+std::int64_t drawTicks(std::int64_t step, std::int64_t bar, double pixelsPerTick) noexcept
+{
+    while (step * pixelsPerTick < Timeline::minDrawSpacing && step < (bar << 20))
+        step = step < bar && step * 2 > bar ? bar : step * 2;
+    return step;
 }
 
 double pixelsPerTick(const Timeline& tl, const TempoMap& t) noexcept
 {
     return tl.pixelsPerSecond() * t.secondsForBeats(1.0) / kTicksPerQuarter;
+}
+
+/// "1/16", "1/8T", "1 bar", "2 bars"; a step that is none of these, in beats.
+std::string stepName(std::int64_t step, const TempoMap& t)
+{
+    const std::int64_t bar = barTicks(t);
+    if (step >= bar && step % bar == 0)
+        return step == bar ? "1 bar" : std::to_string(step / bar) + " bars";
+    const auto plain = [](std::int64_t ticks) -> std::int64_t
+    {
+        // 1/n of a whole note, n a power of two: the n, else 0.
+        if (ticks <= 0 || kTicksPerWhole % ticks != 0)
+            return 0;
+        const std::int64_t n = kTicksPerWhole / ticks;
+        return (n & (n - 1)) == 0 ? n : 0;
+    };
+    if (const auto n = plain(step))
+        return "1/" + std::to_string(n);
+    if (step % 2 == 0)
+        if (const auto n = plain(step * 3 / 2))
+            return "1/" + std::to_string(n) + "T";
+    const double beats = static_cast<double>(step) / kTicksPerQuarter;
+    char text[32];
+    std::snprintf(text, sizeof(text), "%g beats", beats);
+    return text;
 }
 } // namespace
 
@@ -131,15 +209,41 @@ bool Timeline::advance(double dt) noexcept
 
 double Timeline::gridStepBeats(const TempoMap& tempo) const noexcept
 {
-    return static_cast<double>(stepTicks(tempo, pixelsPerTick(*this, tempo), lineSpacing_)) / kTicksPerQuarter;
+    return static_cast<double>(stepTicks(tempo, pixelsPerTick(*this, tempo), grid_)) / kTicksPerQuarter;
+}
+
+std::string Timeline::gridStepName(const TempoMap& tempo) const
+{
+    return stepName(stepTicks(tempo, pixelsPerTick(*this, tempo), grid_), tempo);
+}
+
+GridSettings::Value Timeline::fixedValueNearStep(const TempoMap& tempo) const noexcept
+{
+    std::int64_t step = stepTicks(tempo, pixelsPerTick(*this, tempo), grid_);
+    if (grid_.triplets && step < barTicks(tempo) && step % 2 == 0)
+        step = step * 3 / 2; // the value its triplet came from
+    auto best = GridSettings::Value::Sixteenth;
+    double bestError = 1e9;
+    for (int i = 0; i < GridSettings::numValues; ++i)
+    {
+        const auto v = static_cast<GridSettings::Value>(i);
+        const double error =
+            std::abs(std::log(static_cast<double>(fixedTicks(v, tempo)) / static_cast<double>(step)));
+        if (error < bestError - 1e-9)
+        {
+            bestError = error;
+            best = v;
+        }
+    }
+    return best;
 }
 
 void Timeline::gridLines(const TempoMap& tempo, std::vector<GridLine>& out) const
 {
     out.clear();
     const double ppt = pixelsPerTick(*this, tempo);
-    const std::int64_t step = stepTicks(tempo, ppt, lineSpacing_);
     const std::int64_t bar = barTicks(tempo), beat = beatTicks(tempo);
+    const std::int64_t step = drawTicks(stepTicks(tempo, ppt, grid_), bar, ppt);
 
     // Bar labels every 1, 2, 4 ... bars so they stay readable.
     std::int64_t labelBars = 1;
@@ -147,12 +251,8 @@ void Timeline::gridLines(const TempoMap& tempo, std::vector<GridLine>& out) cons
         labelBars *= 2;
 
     const double secondsPerTick = tempo.secondsForBeats(1.0) / kTicksPerQuarter;
-    auto first = static_cast<std::int64_t>(std::floor(start_ / secondsPerTick / static_cast<double>(step)));
-    const auto last = static_cast<std::int64_t>(std::ceil(end() / secondsPerTick / static_cast<double>(step)));
-    first = std::max<std::int64_t>(0, first);
-    for (std::int64_t i = first; i <= last; ++i)
+    const auto add = [&](std::int64_t tick)
     {
-        const std::int64_t tick = i * step;
         GridLine line;
         line.seconds = static_cast<double>(tick) * secondsPerTick;
         if (tick % bar == 0)
@@ -162,14 +262,36 @@ void Timeline::gridLines(const TempoMap& tempo, std::vector<GridLine>& out) cons
             line.label = (tick / bar) % labelBars == 0;
         }
         else
-            line.kind = tick % beat == 0 ? LineKind::Beat : LineKind::Subdivision;
+            line.kind = (tick % bar) % beat == 0 ? LineKind::Beat : LineKind::Subdivision;
         out.push_back(line);
+    };
+    const auto lastTick = static_cast<std::int64_t>(std::ceil(end() / secondsPerTick));
+    if (step % bar == 0)
+    {
+        // Whole bars, from the song's start.
+        const auto first = std::max<std::int64_t>(
+            0, static_cast<std::int64_t>(std::floor(start_ / secondsPerTick / static_cast<double>(step))));
+        for (std::int64_t tick = first * step; tick <= lastTick + step; tick += step)
+            add(tick);
+        return;
     }
+    // Below a bar: the lines start again at every bar.
+    const auto firstBar = std::max<std::int64_t>(
+        0, static_cast<std::int64_t>(std::floor(start_ / secondsPerTick / static_cast<double>(bar))));
+    for (std::int64_t b = firstBar; b * bar <= lastTick; ++b)
+        for (std::int64_t offset = 0; offset < bar; offset += step)
+            add(b * bar + offset);
 }
 
 double Timeline::snap(double seconds, const TempoMap& tempo) const noexcept
 {
-    const double stepSeconds = tempo.secondsForBeats(gridStepBeats(tempo));
-    return std::max(0.0, std::round(seconds / stepSeconds) * stepSeconds);
+    const double beat = gridRound(tempo.beatsForSeconds(seconds), gridStepBeats(tempo), tempo.beatsPerBar());
+    return std::max(0.0, tempo.secondsForBeats(beat));
+}
+
+double Timeline::snapFloor(double seconds, const TempoMap& tempo) const noexcept
+{
+    const double beat = gridFloor(tempo.beatsForSeconds(seconds), gridStepBeats(tempo), tempo.beatsPerBar());
+    return std::max(0.0, tempo.secondsForBeats(beat));
 }
 } // namespace fd::model

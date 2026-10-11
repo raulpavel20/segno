@@ -1,5 +1,6 @@
 #include "ui/PianoRoll.h"
 
+#include "ui/GridMenu.h"
 #include "ui/time/TimeView.h"
 
 #include <cmath>
@@ -25,8 +26,47 @@ juce::String noteName(int pitch)
 
 PianoRoll::PianoRoll(engine::Session& session) : session_(session)
 {
-    timeline_.setLineSpacing(lineSpacing);
+    syncGrid();
     setWantsKeyboardFocus(false);
+}
+
+void PianoRoll::setGrid(const model::GridSettings& grid)
+{
+    session_.setGrid(engine::Session::GridEditor::PianoRoll, grid);
+    syncGrid();
+}
+
+void PianoRoll::setSnapEnabled(bool on)
+{
+    auto g = grid();
+    g.snap = on;
+    setGrid(g);
+}
+
+juce::PopupMenu PianoRoll::gridMenu()
+{
+    return app::gridMenu(grid(),
+                         [safe = juce::Component::SafePointer(this)](const model::GridSettings& g)
+                         {
+                             if (safe != nullptr)
+                                 safe->setGrid(g);
+                         });
+}
+
+juce::String PianoRoll::gridStepName() const
+{
+    return timeline_.gridStepName(tempo_);
+}
+
+void PianoRoll::syncGrid()
+{
+    if (const auto g = session_.grid(engine::Session::GridEditor::PianoRoll); g != timeline_.grid())
+    {
+        timeline_.setGrid(g);
+        repaint();
+    }
+    session_.setGridStep(engine::Session::GridEditor::PianoRoll,
+                         clip_ ? timeline_.gridStepName(tempo_) : std::string());
 }
 
 PianoRoll::~PianoRoll()
@@ -89,9 +129,11 @@ double PianoRoll::gridStep() const
     return timeline_.gridStepBeats(tempo_);
 }
 
-model::BeatGrid PianoRoll::grid(bool bypass) const
+model::BeatGrid PianoRoll::beatGrid(bool bypass) const
 {
-    return {.step = snap_ && !bypass ? gridStep() : 0.0, .origin = clip_ ? clip_->contentStartBeat : 0.0};
+    return {.step = isSnapEnabled() && !bypass ? gridStep() : 0.0,
+            .origin = clip_ ? clip_->contentStartBeat : 0.0,
+            .bar = tempo_.beatsPerBar()};
 }
 
 juce::Point<float> PianoRoll::pointFor(double beat, int pitch) const
@@ -161,6 +203,7 @@ void PianoRoll::setClip(std::optional<model::ClipInfo> clip, const model::TempoM
         selection_.clear();
         preview_.reset();
         gesture_ = Gesture::None;
+        syncGrid(); // no clip: no step to report
         repaint();
         return;
     }
@@ -200,6 +243,7 @@ void PianoRoll::setClip(std::optional<model::ClipInfo> clip, const model::TempoM
 
 void PianoRoll::frame(double playheadSeconds)
 {
+    syncGrid(); // set by an assistant, a project opened; the step follows the zoom
     playhead_ = playheadSeconds;
     playheadTracker_.update(*this, timeline_, gridArea(), playhead_);
 }
@@ -295,7 +339,9 @@ void PianoRoll::nudge(int gridSteps)
 void PianoRoll::quantise()
 {
     if (clip_ && !notes_.empty())
-        commit(model::quantiseNotes(notes_, selection_, {.step = gridStep(), .origin = clip_->contentStartBeat}));
+        commit(model::quantiseNotes(
+            notes_, selection_,
+            {.step = gridStep(), .origin = clip_->contentStartBeat, .bar = tempo_.beatsPerBar()}));
 }
 
 // ---- hearing notes -------------------------------------------------------------------------
@@ -654,7 +700,7 @@ void PianoRoll::mouseDown(const juce::MouseEvent& e)
             return;
         }
         // Draw a note one grid step long in the step under the mouse; dragging lengthens it.
-        const auto snapping = grid(e.mods.isAltDown());
+        const auto snapping = beatGrid(e.mods.isAltDown());
         const double beat = std::max(0.0, geo.beatForX(local.x));
         const model::Note note{.pitch = std::clamp(geo.pitchForY(local.y), 0, 127),
                                .start = std::max(0.0, snapping.floor(beat)),
@@ -739,7 +785,7 @@ void PianoRoll::mouseDrag(const juce::MouseEvent& e)
         drag_.deltaBeats = deltaBeats;
         if (drag_.kind == model::NoteDragKind::Move)
             drag_.deltaPitch = -static_cast<int>(std::lround((e.position.y - dragStart_.y) / rowHeight_));
-        preview_ = model::dragNotes(base_.notes, base_.selection, drag_, grid(e.mods.isAltDown()));
+        preview_ = model::dragNotes(base_.notes, base_.selection, drag_, beatGrid(e.mods.isAltDown()));
         if (drag_.kind == model::NoteDragKind::Move)
         {
             const auto& anchor = base_.notes[drag_.anchor];
@@ -785,8 +831,9 @@ void PianoRoll::mouseUp(const juce::MouseEvent& e)
     if (gesture_ == Gesture::Ruler && e.getDistanceFromDragStart() < ui::Theme::current().input.dragThreshold)
     {
         // A click in the ruler moves the playhead (snapped; Alt for free).
-        session_.setPosition(time::rulerTime(timeline_, tempo_, e.position.x - static_cast<float>(gridArea().getX()),
-                                             !snap_ || e.mods.isAltDown()));
+        session_.setPosition(time::rulerTime(timeline_, tempo_,
+                                             e.position.x - static_cast<float>(gridArea().getX()),
+                                             !isSnapEnabled() || e.mods.isAltDown()));
     }
     if (gesture_ == Gesture::Notes && !moved_ && clickedInSelection_)
         selection_ = {*clickedInSelection_};

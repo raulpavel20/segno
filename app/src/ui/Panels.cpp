@@ -3,10 +3,12 @@
 #include "model/FadeEditing.h"
 #include "model/Takes.h"
 #include "model/TopBarLayout.h"
+#include "ui/GridMenu.h"
 
 #include <fd/device/Registry.h>
 
 #include <algorithm>
+#include <initializer_list>
 #include <map>
 
 namespace fd::app
@@ -1051,6 +1053,16 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
     quantise_.setSize(ui::Toggle::widthFor(quantise_.getButtonText()), ui::Theme::current().shell.rowHeight);
     header_.addCommand(quantise_);
     quantise_.setVisible(false);
+    snap_.setClickingTogglesState(false); // the piano roll's, which the Session keeps
+    snap_.onClick = [this] { roll_.setSnapEnabled(!roll_.isSnapEnabled()); };
+    grid_.setTooltip(
+        "The piano roll's grid: the step it snaps to, and a drawn note's length. Click to set it: "
+        "adaptive or fixed, triplets, snap");
+    grid_.onClick = [this] { grid_.showMenu(roll_.gridMenu()); };
+    header_.addOption(snap_);
+    header_.addOption(grid_);
+    snap_.setVisible(false);
+    grid_.setVisible(false);
     header_.resized();
 }
 
@@ -1100,7 +1112,8 @@ void DetailPanel::updateVisibility()
     roll_.setVisible(showsPianoRoll());
     if (quantise_.isVisible() != showsPianoRoll())
     {
-        quantise_.setVisible(showsPianoRoll());
+        for (auto* c : std::initializer_list<juce::Component*>{&quantise_, &snap_, &grid_})
+            c->setVisible(showsPianoRoll());
         header_.resized();
         header_.repaint();
     }
@@ -1116,7 +1129,17 @@ void DetailPanel::setClip(std::optional<model::ClipInfo> clip, const model::Temp
 void DetailPanel::frame(double playheadSeconds)
 {
     if (roll_.isVisible())
+    {
         roll_.frame(playheadSeconds);
+        snap_.setToggleState(roll_.isSnapEnabled(), juce::dontSendNotification);
+        if (const auto step = roll_.gridStepName(); step != grid_.value())
+        {
+            grid_.setValue(step);
+            header_.resized(); // as wide as its step
+        }
+        if (const auto tip = actions_.tooltip("view.snap"); tip != snap_.getTooltip())
+            snap_.setTooltip(tip);
+    }
     if (const bool can = actions_.isEnabled("notes.quantise"); quantise_.isEnabled() != can)
         quantise_.setEnabled(can);
     // Its tooltip names its key: the actions are registered after the panel is made.

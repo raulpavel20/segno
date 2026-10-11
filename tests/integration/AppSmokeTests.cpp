@@ -3756,3 +3756,162 @@ TEST_CASE("presets: the header's bar, the list and the save form, by mouse and k
     REQUIRE(actions.perform("module.nextPreset"));
     CHECK(bar->field().presetName() == "Default settings"); // past the last: the first
 }
+
+TEST_CASE("each editor has its own grid: set where you edit, from Options, kept with the project (ADR 0047)",
+          "[integration]")
+{
+    using G = fd::model::GridSettings;
+    using Editor = fd::engine::Session::GridEditor;
+    ShellFixture f;
+    f.shell->setSize(1800, 1000);
+    auto& s = *f.session;
+    const auto& actions = f.shell->actions();
+    auto& view = f.shell->arrangement();
+    auto& detail = f.shell->detail();
+    auto& roll = detail.pianoRoll();
+    const auto tempo = [&] { return s.snapshot()->tempo; };
+    const auto track = s.snapshot()->tracks.front().id;
+    REQUIRE(s.addDevice(track, "fd:subtractive-synth") != 0);
+
+    // The defaults: Narrow in the arrangement, Wide in the piano roll.
+    CHECK(view.grid() == G::arrangement());
+    CHECK(roll.grid() == G::pianoRoll());
+
+    // The arrangement's step beside its Snap, the ruler's row high, inside the header's width,
+    // touching nothing; it reads the step the grid snaps to.
+    auto& chip = view.gridChoice();
+    REQUIRE(chip.isVisible());
+    CHECK(chip.getX() >= view.snapToggle().getRight() + fd::ui::Theme::current().shell.itemGap);
+    CHECK(chip.getRight() <= fd::app::ArrangementView::headerWidth());
+    CHECK(chip.getHeight() == fd::ui::Theme::current().shell.rulerHeight);
+    CHECK(chip.getWidth() == chip.preferredWidth()); // as wide as its step
+    CHECK(chip.value() == juce::String(view.timeline().gridStepName(tempo())));
+    CHECK(s.gridStep(Editor::Arrangement) == chip.value().toStdString());
+
+    // Options act on the editor used last: the arrangement here.
+    REQUIRE(actions.perform("grid.narrower"));
+    CHECK(view.grid().width == G::Width::Narrowest);
+    CHECK_FALSE(actions.isEnabled("grid.narrower")); // the narrowest
+    REQUIRE(actions.perform("grid.wider"));
+    REQUIRE(actions.perform("grid.wider"));
+    CHECK(view.grid().width == G::Width::Medium);
+    REQUIRE(actions.perform("grid.triplets"));
+    CHECK(view.grid().triplets);
+    CHECK(actions.isToggled("grid.triplets"));
+    CHECK(roll.grid() == G::pianoRoll()); // the piano roll's stays as it was
+    REQUIRE(actions.perform("grid.triplets"));
+    // Fixed starts at the step showing, so nothing moves.
+    const double before = view.timeline().gridStepBeats(tempo());
+    REQUIRE(actions.perform("grid.fixed"));
+    CHECK(view.grid().mode == G::Mode::Fixed);
+    CHECK(view.timeline().gridStepBeats(tempo()) == Catch::Approx(before));
+    CHECK(chip.value() == juce::String(view.timeline().gridStepName(tempo())));
+    REQUIRE(actions.perform("grid.fixed"));
+    CHECK(view.grid().mode == G::Mode::Adaptive);
+
+    // Open a MIDI clip in the piano roll (a double-click on the first track) and work there.
+    const auto& tl = view.timeline();
+    const juce::Point<float> spot(static_cast<float>(fd::app::ArrangementView::headerWidth()) +
+                                      static_cast<float>(tl.xForTime(2.1)),
+                                  static_cast<float>(fd::app::ArrangementView::rulerHeight()) + 20.0f);
+    click(view, spot);
+    click(view, spot, 2);
+    s.updateSnapshotNow();
+    REQUIRE(detail.showsPianoRoll());
+    f.shell->finishAnimations();
+    detail.frame(0.0);
+    // Its own Snap and step in the clip view's header.
+    fd::ui::ViewChoice* rollChip = nullptr;
+    std::function<void(juce::Component&)> findChip = [&](juce::Component& c)
+    {
+        for (auto* child : c.getChildren())
+        {
+            if (auto* v = dynamic_cast<fd::ui::ViewChoice*>(child))
+                rollChip = v;
+            findChip(*child);
+        }
+    };
+    findChip(detail);
+    REQUIRE(rollChip != nullptr);
+    CHECK(rollChip->isVisible());
+    CHECK(rollChip->value() == roll.gridStepName());
+
+    // A fixed 1/16 draws sixteenths at any zoom.
+    auto sixteenths = roll.grid();
+    sixteenths.mode = G::Mode::Fixed;
+    sixteenths.value = G::Value::Sixteenth;
+    roll.setGrid(sixteenths);
+    CHECK(s.grid(Editor::PianoRoll) == sixteenths);
+    CHECK(view.grid().mode == G::Mode::Adaptive); // the arrangement's stays
+    const auto clipNotes = [&]
+    {
+        s.updateSnapshotNow();
+        return s.snapshot()->tracks.front().clips.front().notes;
+    };
+    for (const auto& [zoom, pitch] : {std::pair{1.0f, 60}, std::pair{4.0f, 62}})
+    {
+        INFO("zoom " << zoom);
+        if (zoom != 1.0f)
+            roll.mouseMagnify(mouseEvent(roll, roll.pointFor(0.5, 60), roll.pointFor(0.5, 60), false), zoom);
+        const auto at = roll.pointFor(0.6, pitch);
+        click(roll, at);
+        click(roll, at, 2);
+        const auto notes = clipNotes();
+        const auto it =
+            std::find_if(notes.begin(), notes.end(), [pitch](const auto& n) { return n.pitch == pitch; });
+        REQUIRE(it != notes.end());
+        CHECK(it->length == Catch::Approx(0.25));
+        CHECK(it->start == Catch::Approx(0.5));
+    }
+
+    // Working on notes, Options act on the piano roll: its Snap off leaves the arrangement's on.
+    click(roll, roll.pointFor(3.0, 70));
+    REQUIRE(actions.perform("view.snap"));
+    CHECK_FALSE(roll.isSnapEnabled());
+    CHECK(view.isSnapEnabled());
+    CHECK_FALSE(actions.isToggled("view.snap"));
+    REQUIRE(actions.perform("grid.wider"));
+    CHECK(roll.grid().value == G::Value::Eighth);
+    CHECK(view.grid().width == G::Width::Medium);
+
+    // For review, zoomed in: the arrangement's corner and the clip view's header, at a standard
+    // and a compact width.
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        for (const int width : {1800, 1280})
+        {
+            f.shell->setSize(width, 1000);
+            f.shell->finishAnimations();
+            view.frame(0.0, 0.0);
+            detail.frame(0.0);
+            const auto corner = view.getBoundsInParent().getTopLeft();
+            dumpPng(dump, "grid-corner-" + juce::String(width) + "@2x.png",
+                    f.shell->createComponentSnapshot({corner.x, corner.y,
+                                                      fd::app::ArrangementView::headerWidth() + 160,
+                                                      fd::app::ArrangementView::rulerHeight() + 24},
+                                                     true, 2.0f));
+            const auto header = detail.getBoundsInParent();
+            dumpPng(
+                dump, "grid-clip-header-" + juce::String(width) + "@2x.png",
+                f.shell->createComponentSnapshot(
+                    header.withHeight(fd::ui::Theme::current().shell.panelHeaderHeight + 40), true, 2.0f));
+        }
+
+    // An assistant (through the Session) sets a grid: the editor follows on its next frame.
+    auto widest = view.grid();
+    widest.width = G::Width::Widest;
+    s.setGrid(Editor::Arrangement, widest);
+    view.frame(0.0, 0.0);
+    CHECK(view.grid() == widest);
+
+    // Kept with the project, never an undo step or an unsaved change.
+    CHECK(s.undoDescription().find("rid") == std::string::npos); // the last step is the last note
+    juce::TemporaryFile project(fd::engine::Session::fileExtension);
+    REQUIRE(s.saveAs(project.getFile()));
+    const auto savedRoll = roll.grid();
+    s.newProject();
+    CHECK(view.grid() == G::arrangement());
+    CHECK(roll.grid() == G::pianoRoll());
+    REQUIRE(s.open(project.getFile()));
+    CHECK(view.grid() == widest);
+    CHECK(roll.grid() == savedRoll);
+}

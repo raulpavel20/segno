@@ -302,6 +302,10 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     }
     int groupDepth = 0;
     juce::ListenerList<Session::Listener> listeners;
+    /// The editors' grids and the steps they show (ADR 0047), by Session::GridEditor.
+    std::array<model::GridSettings, 2> grids{model::GridSettings::arrangement(),
+                                             model::GridSettings::pianoRoll()};
+    std::array<std::string, 2> gridSteps;
     struct Render;
     std::vector<std::shared_ptr<Render>> renders; // offline renders in flight (each on an Edit copy)
     /// Renders a copy of the project offline (the render tool, bounces; ADR 0021, 0035): `setup`

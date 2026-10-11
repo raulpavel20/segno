@@ -6,7 +6,7 @@ juce_add_modules(ALIAS_NAMESPACE tracktion
     "${tracktion_engine_SOURCE_DIR}/modules/tracktion_engine")
 
 # fd_app_model: JUCE-free view models of the DAW (ADR 0018), tested as [fast].
-add_library(fd_app_model STATIC src/model/Timeline.cpp src/model/TrackLayout.cpp src/model/Peaks.cpp
+add_library(fd_app_model STATIC src/model/Timeline.cpp src/model/Grid.cpp src/model/TrackLayout.cpp src/model/Peaks.cpp
     src/model/Editing.cpp src/model/Fuzzy.cpp src/model/NoteEditing.cpp
     src/model/TrackHeaderLayout.cpp src/model/AudioMeasure.cpp src/model/Taper.cpp src/model/ChannelStripLayout.cpp src/model/Selection.cpp
     src/model/Automation.cpp src/model/ArrangementRows.cpp src/model/Snapshot.cpp src/model/Recording.cpp src/model/Takes.cpp
@@ -105,6 +105,7 @@ target_sources(fd_app_mcp INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/RecordingTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/SettingsTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/BrowserTools.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/GridTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/ProjectTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/TrackTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/Resources.cpp")
@@ -117,6 +118,7 @@ target_sources(fd_app_ui INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/Shell.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/Panels.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ArrangementView.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/GridMenu.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ArrangementFades.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/CrossfadeSums.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/AutomationLane.cpp"

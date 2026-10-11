@@ -6,6 +6,7 @@
 #include "model/Browser.h"
 #include "model/Export.h"
 #include "model/Editing.h"
+#include "model/Grid.h"
 #include "model/Snapshot.h"
 
 #include <fd_device_ui/fd_device_ui.h>
@@ -81,6 +82,8 @@ public:
         virtual void deviceStateChanged(std::uint64_t /*deviceId*/) {}
         /// A module's view state was set (setDeviceViewState).
         virtual void deviceViewChanged(std::uint64_t /*deviceId*/) {}
+        /// An editor's grid was set (setGrid).
+        virtual void gridChanged() {}
         /// The project was replaced (new or open).
         virtual void projectReplaced() {}
     };
@@ -567,6 +570,22 @@ public:
     /// project on the module. Never an undo step or an unsaved change.
     [[nodiscard]] std::string deviceViewState(std::uint64_t deviceId) const;
     void setDeviceViewState(std::uint64_t deviceId, const std::string& json);
+    /// The editors with a grid of their own (ADR 0047).
+    enum class GridEditor
+    {
+        Arrangement,
+        PianoRoll
+    };
+    /// An editor's grid: view state, kept with the project in the UI's view state; never an undo
+    /// step or an unsaved change. A new or opened project starts at the defaults until the UI
+    /// applies its saved view state.
+    [[nodiscard]] model::GridSettings grid(GridEditor editor) const;
+    void setGrid(GridEditor editor, const model::GridSettings& grid);
+    /// The step the editor shows now ("1/16", "1/8T"; an adaptive grid's follows its zoom), as
+    /// the UI publishes it for assistants; empty while it shows none.
+    [[nodiscard]] std::string gridStep(GridEditor editor) const;
+    void setGridStep(GridEditor editor, std::string step);
+
     /// The panel context of one of our devices; null for third-party plugins.
     [[nodiscard]] std::unique_ptr<DeviceHandle> openDevice(std::uint64_t deviceId);
 

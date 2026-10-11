@@ -19,9 +19,6 @@ namespace fd::app
 class PianoRoll final : public juce::Component
 {
 public:
-    /// The closest grid lines get (px). Coarser than the arrangement's: a drawn note is one step.
-    static constexpr double lineSpacing = 56.0;
-
     explicit PianoRoll(engine::Session& session);
     ~PianoRoll() override;
 
@@ -31,7 +28,18 @@ public:
     [[nodiscard]] const std::optional<model::ClipInfo>& clip() const noexcept { return clip_; }
     /// Once per display frame: the playhead.
     void frame(double playheadSeconds);
-    void setSnapEnabled(bool on) noexcept { snap_ = on; }
+
+    /// The piano roll's grid (ADR 0047), its own and kept by the Session: setting it here changes
+    /// the Session's; the view follows the Session's every frame (assistants set it there too).
+    /// Wide by default: its step is also the length of a drawn note.
+    void setGrid(const model::GridSettings& grid);
+    [[nodiscard]] const model::GridSettings& grid() const noexcept { return timeline_.grid(); }
+    void setSnapEnabled(bool on);
+    [[nodiscard]] bool isSnapEnabled() const noexcept { return timeline_.grid().snap; }
+    /// The grid's menu (the clip view header's step chip; a Grid submenu on right-click).
+    [[nodiscard]] juce::PopupMenu gridMenu();
+    /// The step it snaps to now ("1/16", "1/8T"), for the header's chip.
+    [[nodiscard]] juce::String gridStepName() const;
 
     [[nodiscard]] const std::vector<model::Note>& notes() const noexcept { return notes_; }
     [[nodiscard]] const std::set<std::size_t>& selection() const noexcept { return selection_; }
@@ -79,7 +87,8 @@ private:
     enum class Gesture { None, Notes, Draw, Box, Velocity, VelocityOffset, Keys, Ruler };
 
     [[nodiscard]] model::NoteGeometry geometry() const; // grid-local coordinates
-    [[nodiscard]] model::BeatGrid grid(bool bypass) const;
+    [[nodiscard]] model::BeatGrid beatGrid(bool bypass) const;
+    void syncGrid();
     [[nodiscard]] double gridStep() const;
     [[nodiscard]] double contentStartSeconds() const;
     [[nodiscard]] double beatForSeconds(double seconds) const;
@@ -111,7 +120,6 @@ private:
     std::vector<model::Timeline::GridLine> lines_; // paint scratch
     double rowHeight_ = 12.0;
     double topEdge_ = 84.0; // see NoteGeometry
-    bool snap_ = true;
     bool needsFit_ = false;
     double lastGridHeight_ = 0.0;
     double playhead_ = 0.0;

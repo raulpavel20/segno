@@ -172,6 +172,8 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
                              "set_parameters",
                              "load_sample",
                              "set_module_view",
+                             "get_grid",
+                             "set_grid",
                              "set_module_sidechain",
                              "scan_plugins",
                              "render",
@@ -465,6 +467,52 @@ TEST_CASE("mcp tools: modules, parameters, samples and view state", "[integratio
     const auto reference = daw.read("segno://module-type/saturator");
     CHECK_FALSE(reference["description"].get<std::string>().empty());
     CHECK_FALSE(reference["sections"].empty());
+}
+
+TEST_CASE("mcp tools: each editor's grid, never an undo step (ADR 0047)", "[integration][mcp]")
+{
+    using Editor = fd::engine::Session::GridEditor;
+    Daw daw;
+    auto grids = daw.call("get_grid");
+    CHECK(grids["arrangement"]["mode"] == "adaptive");
+    CHECK(grids["arrangement"]["width"] == "narrow");
+    CHECK(grids["arrangement"]["snap"] == true);
+    CHECK(grids["piano_roll"]["width"] == "wide");
+    CHECK(grids["piano_roll"]["step"].is_null()); // no editor shows it here
+
+    int changes = 0;
+    struct Listener final : fd::engine::Session::Listener
+    {
+        int& count;
+        explicit Listener(int& c) : count(c) {}
+        void gridChanged() override { ++count; }
+    } listener{changes};
+    daw.session->addListener(&listener);
+    const auto steps = daw.session->undoDescription();
+    // The piano roll at fixed 1/16 triplets: its step is known at once; the arrangement's stays.
+    const auto roll = daw.call(
+        "set_grid", {{"editor", "piano_roll"}, {"mode", "fixed"}, {"value", "1/16"}, {"triplets", true}});
+    CHECK(roll["mode"] == "fixed");
+    CHECK(roll["step"] == "1/16T");
+    CHECK(changes == 1);
+    CHECK(daw.session->grid(Editor::PianoRoll).triplets);
+    CHECK(daw.session->grid(Editor::Arrangement) == fd::model::GridSettings::arrangement());
+    // Only what's given changes; an adaptive step follows the editor's zoom.
+    const auto arrange =
+        daw.call("set_grid", {{"editor", "arrangement"}, {"width", "widest"}, {"snap", false}});
+    CHECK(arrange["width"] == "widest");
+    CHECK(arrange["snap"] == false);
+    CHECK(arrange["mode"] == "adaptive");
+    CHECK(arrange["step"].is_null());
+    daw.session->setGridStep(Editor::Arrangement, "2 bars"); // as the editor publishes it
+    grids = daw.call("get_grid");
+    CHECK(grids["arrangement"]["step"] == "2 bars");
+    CHECK(grids["piano_roll"]["value"] == "1/16");
+    daw.session->removeListener(&listener);
+    CHECK(changes == 2);
+    CHECK(daw.session->undoDescription() == steps); // view state: never an undo step
+    CHECK_FALSE(daw.fails("set_grid", {{"editor", "mixer"}}).empty());
+    CHECK_FALSE(daw.fails("set_grid", {{"editor", "arrangement"}, {"value", "1/64"}}).empty());
 }
 
 TEST_CASE("mcp tools: transport, tempo and signature", "[integration][mcp]")

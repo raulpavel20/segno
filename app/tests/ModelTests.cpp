@@ -2,6 +2,7 @@
 
 #include "model/Snapshot.h"
 #include "model/ChannelStripLayout.h"
+#include "model/NoteEditing.h"
 #include "model/Taper.h"
 #include "model/Timeline.h"
 #include "model/TopBarLayout.h"
@@ -10,8 +11,11 @@
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <cmath>
+#include <utility>
 #include <vector>
 
 using namespace fd::model;
@@ -90,11 +94,32 @@ TEST_CASE("zoom to fit shows the range with a small margin", "[fast]")
     CHECK(tl.end() - tl.start() == Approx(10.4).epsilon(0.01));
 }
 
+namespace
+{
+GridSettings adaptive(GridSettings::Width width, bool triplets = false)
+{
+    GridSettings g;
+    g.width = width;
+    g.triplets = triplets;
+    return g;
+}
+
+GridSettings fixed(GridSettings::Value value, bool triplets = false)
+{
+    GridSettings g;
+    g.mode = GridSettings::Mode::Fixed;
+    g.value = value;
+    g.triplets = triplets;
+    return g;
+}
+} // namespace
+
 TEST_CASE("adaptive grid picks the finest readable step", "[fast]")
 {
     const TempoMap tempo; // 120 BPM, 4/4: a beat is 0.5 s, a bar 2 s
     Timeline tl;
     tl.setWidth(1000.0);
+    tl.setGrid(adaptive(GridSettings::Width::Narrowest)); // lines at least 7 px apart
 
     tl.setView(0.0, 200.0); // a 1/32 note (1/16 s) is 12.5 px: finest step
     CHECK(tl.gridStepBeats(tempo) == Approx(0.125));
@@ -102,8 +127,8 @@ TEST_CASE("adaptive grid picks the finest readable step", "[fast]")
     CHECK(tl.gridStepBeats(tempo) == Approx(0.5));
     tl.setView(0.0, 8.0); // beat = 4 px, bar = 16 px
     CHECK(tl.gridStepBeats(tempo) == Approx(4.0));
-    tl.setView(0.0, 1.0); // bar = 2 px: 8 bars = 16 px
-    CHECK(tl.gridStepBeats(tempo) == Approx(32.0));
+    tl.setView(0.0, 1.0); // bar = 2 px: 4 bars = 8 px
+    CHECK(tl.gridStepBeats(tempo) == Approx(16.0));
 
     // Line kinds and labels at 40 px/s: bars every 80 px, so every bar is labelled.
     tl.setView(0.0, 40.0);
@@ -159,6 +184,7 @@ TEST_CASE("snapping goes to the nearest line of the visible grid", "[fast]")
     const TempoMap tempo;
     Timeline tl;
     tl.setWidth(1000.0);
+    tl.setGrid(adaptive(GridSettings::Width::Narrowest));
     tl.setView(0.0, 40.0); // 1/8-note grid: 0.25 s
     CHECK(tl.snap(1.1, tempo) == Approx(1.0));
     CHECK(tl.snap(1.2, tempo) == Approx(1.25));
@@ -414,16 +440,200 @@ TEST_CASE("the palette ranks matches, then recent use", "[fast]")
     CHECK(all.front() == "Snap to grid");
 }
 
-TEST_CASE("a coarser line spacing gives a coarser grid", "[fast]")
+TEST_CASE("a wider grid is coarser at the same zoom", "[fast]")
 {
+    using W = GridSettings::Width;
     Timeline tl;
     tl.setWidth(1000.0);
-    const TempoMap tempo; // 120 BPM: 0.5 s per beat
-    tl.setView(0.0, 60.0); // 30 px per beat: 1/8 notes are 15 px apart
-    CHECK(tl.gridStepBeats(tempo) == Approx(0.5));
-    tl.setLineSpacing(24.0);
-    CHECK(tl.gridStepBeats(tempo) == Approx(1.0));
+    const TempoMap tempo;  // 120 BPM: 0.5 s per beat
+    tl.setView(0.0, 60.0); // 30 px per beat: 1/16 notes are 7.5 px apart, 1/8 15, bars 120
+    const std::vector<std::pair<W, double>> steps{
+        {W::Narrowest, 0.25}, {W::Narrow, 0.5}, {W::Medium, 1.0}, {W::Wide, 4.0}, {W::Widest, 4.0}};
+    for (const auto& [width, beats] : steps)
+    {
+        tl.setGrid(adaptive(width));
+        INFO(widthName(width));
+        CHECK(tl.gridStepBeats(tempo) == Approx(beats));
+    }
+    tl.setGrid(adaptive(W::Medium));
     CHECK(tl.snap(0.3, tempo) == Approx(0.5)); // snapping follows
+    // The editors' defaults: the arrangement Narrow, the piano roll Wide.
+    CHECK(GridSettings::arrangement().width == W::Narrow);
+    CHECK(GridSettings::pianoRoll().width == W::Wide);
+}
+
+TEST_CASE("a fixed grid keeps its value at every zoom, thinning only what's drawn", "[fast]")
+{
+    const TempoMap tempo;
+    Timeline tl;
+    tl.setWidth(1000.0);
+    tl.setGrid(fixed(GridSettings::Value::Sixteenth));
+    for (const double pps : {1.0, 60.0, 2000.0})
+    {
+        INFO(pps << " px/s");
+        tl.setView(0.0, pps);
+        CHECK(tl.gridStepBeats(tempo) == Approx(0.25));
+        CHECK(tl.gridStepName(tempo) == "1/16");
+        // Drawn lines are never closer than 7 px; the ones drawn are on the grid.
+        std::vector<Timeline::GridLine> lines;
+        tl.gridLines(tempo, lines);
+        REQUIRE(lines.size() > 2);
+        for (size_t i = 1; i < lines.size(); ++i)
+        {
+            CHECK((lines[i].seconds - lines[i - 1].seconds) * pps >= Timeline::minDrawSpacing - 1e-9);
+            const double beats = tempo.beatsForSeconds(lines[i].seconds);
+            CHECK(std::abs(beats / 0.25 - std::round(beats / 0.25)) < 1e-9);
+        }
+    }
+    // Zoomed out, a sixteenth still snaps.
+    tl.setView(0.0, 1.0);
+    CHECK(tl.snap(tempo.secondsForBeats(1.3), tempo) == Approx(tempo.secondsForBeats(1.25)));
+    CHECK(tl.snapFloor(tempo.secondsForBeats(1.49), tempo) == Approx(tempo.secondsForBeats(1.25)));
+
+    // Bars, and a value longer than a bar that isn't whole bars, which is a bar.
+    tl.setGrid(fixed(GridSettings::Value::Bars2));
+    CHECK(tl.gridStepBeats(tempo) == Approx(8.0));
+    CHECK(tl.gridStepName(tempo) == "2 bars");
+    tl.setGrid(fixed(GridSettings::Value::Half));
+    const TempoMap threeEight{.bpm = 120.0, .numerator = 3, .denominator = 8};
+    CHECK(tl.gridStepBeats(threeEight) == Approx(1.5));
+    CHECK(tl.gridStepName(threeEight) == "1 bar");
+}
+
+TEST_CASE("triplets make every step below a bar two thirds as long", "[fast]")
+{
+    const TempoMap tempo;
+    Timeline tl;
+    tl.setWidth(1000.0);
+    tl.setView(0.0, 60.0); // 30 px per beat
+
+    tl.setGrid(fixed(GridSettings::Value::Eighth, true));
+    CHECK(tl.gridStepBeats(tempo) == Approx(1.0 / 3.0));
+    CHECK(tl.gridStepName(tempo) == "1/8T");
+    std::vector<Timeline::GridLine> lines;
+    tl.gridLines(tempo, lines);
+    REQUIRE(lines.size() >= 13);
+    CHECK(lines[0].kind == Timeline::LineKind::Bar);
+    CHECK(lines[1].kind == Timeline::LineKind::Subdivision);
+    CHECK(lines[3].kind == Timeline::LineKind::Beat); // three to a beat
+    CHECK(lines[12].kind == Timeline::LineKind::Bar);
+
+    // Adaptive: the triplet ladder. 1/8T is 10 px, under Narrow's 14; 1/4T is 20.
+    tl.setGrid(adaptive(GridSettings::Width::Narrow, true));
+    CHECK(tl.gridStepBeats(tempo) == Approx(2.0 / 3.0));
+    CHECK(tl.gridStepName(tempo) == "1/4T");
+    // Bars stay bars.
+    tl.setGrid(fixed(GridSettings::Value::Bar, true));
+    CHECK(tl.gridStepBeats(tempo) == Approx(4.0));
+    for (const auto& [value, name] : std::vector<std::pair<GridSettings::Value, const char*>>{
+             {GridSettings::Value::Half, "1/2T"},
+             {GridSettings::Value::Sixteenth, "1/16T"},
+             {GridSettings::Value::ThirtySecond, "1/32T"}})
+    {
+        tl.setGrid(fixed(value, true));
+        CHECK(tl.gridStepName(tempo) == name);
+    }
+}
+
+TEST_CASE("grid lines below a bar restart at every bar, and snapping uses them", "[fast]")
+{
+    // 3/4 with quarter-note triplets: 2/3 of a beat doesn't divide a bar of 3 beats.
+    const TempoMap waltz{.bpm = 60.0, .numerator = 3, .denominator = 4}; // a beat is a second
+    Timeline tl;
+    tl.setWidth(1000.0);
+    tl.setView(0.0, 100.0);
+    tl.setGrid(fixed(GridSettings::Value::Quarter, true));
+    std::vector<Timeline::GridLine> lines;
+    tl.gridLines(waltz, lines);
+    const std::vector<double> firstBar{0.0, 2.0 / 3.0, 4.0 / 3.0, 2.0, 8.0 / 3.0, 3.0};
+    REQUIRE(lines.size() > firstBar.size());
+    for (size_t i = 0; i < firstBar.size(); ++i)
+        CHECK(lines[i].seconds == Approx(firstBar[i]));
+    CHECK(lines[5].kind == Timeline::LineKind::Bar);
+    CHECK(lines[3].kind == Timeline::LineKind::Beat);
+    // The nearest drawn line: the next bar, not a line past it.
+    CHECK(tl.snap(2.9, waltz) == Approx(3.0));
+    CHECK(tl.snap(2.75, waltz) == Approx(8.0 / 3.0));
+    CHECK(tl.snap(3.4, waltz) == Approx(3.0 + 2.0 / 3.0));
+    CHECK(tl.snapFloor(2.99, waltz) == Approx(8.0 / 3.0));
+
+    // The piano roll's grid does the same, from the clip's song beat.
+    const BeatGrid grid{.step = 2.0 / 3.0, .origin = 1.0, .bar = 3.0};
+    CHECK(grid.round(1.9) == Approx(2.0)); // song beat 2.9: the bar line at 3
+    CHECK(grid.floor(1.9) == Approx(8.0 / 3.0 - 1.0));
+    CHECK(grid.next(1.7) == Approx(2.0));
+    CHECK(grid.next(2.0) == Approx(2.0 + 2.0 / 3.0));
+}
+
+TEST_CASE("narrower and wider step through the widths or the fixed values, stopping at the ends", "[fast]")
+{
+    using W = GridSettings::Width;
+    using V = GridSettings::Value;
+    auto g = adaptive(W::Narrow);
+    CHECK(g.narrower().width == W::Narrowest);
+    CHECK_FALSE(g.narrower().canNarrow());
+    CHECK(g.narrower().narrower() == g.narrower());
+    for (int i = 0; i < 3; ++i)
+        g = g.wider();
+    CHECK(g.width == W::Widest);
+    CHECK_FALSE(g.canWiden());
+
+    auto f = fixed(V::Sixteenth);
+    CHECK(f.narrower().value == V::ThirtySecond);
+    CHECK_FALSE(f.narrower().canNarrow());
+    CHECK(f.wider().value == V::Eighth);
+    CHECK_FALSE(fixed(V::Bars8).canWiden());
+    CHECK(f.wider().width == f.width); // the width waits for adaptive
+}
+
+TEST_CASE("a fixed grid starts at the step showing", "[fast]")
+{
+    const TempoMap tempo;
+    Timeline tl;
+    tl.setWidth(1000.0);
+    tl.setView(0.0, 60.0);
+    tl.setGrid(adaptive(GridSettings::Width::Narrow));
+    CHECK(tl.fixedValueNearStep(tempo) == GridSettings::Value::Eighth);
+    tl.setGrid(adaptive(GridSettings::Width::Narrow, true)); // 1/4T: from a quarter
+    CHECK(tl.fixedValueNearStep(tempo) == GridSettings::Value::Quarter);
+    tl.setView(0.0, 0.5); // bars a pixel wide: 16 bars, the nearest value 8 bars
+    tl.setGrid(adaptive(GridSettings::Width::Medium));
+    CHECK(tl.fixedValueNearStep(tempo) == GridSettings::Value::Bars8);
+}
+
+TEST_CASE("an editor's grid is saved as what differs from its default", "[fast]")
+{
+    CHECK(gridToJson(GridSettings::pianoRoll(), GridSettings::pianoRoll()).empty());
+    auto g = fixed(GridSettings::Value::Sixteenth, true);
+    g.snap = false;
+    const auto j = gridToJson(g, GridSettings::arrangement());
+    CHECK(j.dump() == R"({"mode":"fixed","snap":false,"triplets":true})");
+    CHECK(gridFromJson(j, GridSettings::arrangement()) == g);
+    // Tolerant: unknown names and wrong types keep the defaults.
+    const auto junk = nlohmann::json::parse(R"({"mode":"sideways","width":3,"value":"1/16","snap":"no"})");
+    CHECK(gridFromJson(junk, GridSettings::pianoRoll()) == GridSettings::pianoRoll());
+    CHECK(gridFromJson(nlohmann::json(), GridSettings::arrangement()) == GridSettings::arrangement());
+    for (int i = 0; i < GridSettings::numValues; ++i)
+    {
+        const auto v = static_cast<GridSettings::Value>(i);
+        CHECK(valueFromName(valueName(v)) == v);
+    }
+    CHECK(widthFromName("widest") == GridSettings::Width::Widest);
+    CHECK(modeFromName("fixed") == GridSettings::Mode::Fixed);
+
+    // Both editors in the view state, and back.
+    EditorGrids grids;
+    grids.pianoRoll = fixed(GridSettings::Value::Eighth);
+    const auto state = nlohmann::json{{"follow", true}, {"grid", gridsToViewState(grids)}};
+    CHECK(gridsFromViewState(state) == grids);
+    CHECK(gridsToViewState({}).dump() == R"({"arrangement":{},"pianoRoll":{}})");
+    // A project saved before the grid had one Snap for both editors, at their defaults.
+    const auto old = gridsFromViewState(nlohmann::json::parse(R"({"snap": false, "follow": true})"));
+    CHECK_FALSE(old.arrangement.snap);
+    CHECK_FALSE(old.pianoRoll.snap);
+    CHECK(old.arrangement.width == GridSettings::Width::Narrow);
+    CHECK(old.pianoRoll.width == GridSettings::Width::Wide);
+    CHECK(gridsFromViewState(nlohmann::json()) == EditorGrids{});
 }
 
 TEST_CASE("track header slots appear with height and never overlap", "[fast]")

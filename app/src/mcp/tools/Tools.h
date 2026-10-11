@@ -39,6 +39,7 @@ void addProjectTools(Registry& registry, ToolEnv& env);
 void addTrackTools(Registry& registry, ToolEnv& env);
 void addSettingsTools(Registry& registry, ToolEnv& env);
 void addBrowserTools(Registry& registry, ToolEnv& env);
+void addGridTools(Registry& registry, ToolEnv& env);
 void addResources(Registry& registry, ToolEnv& env);
 void addPrompts(Registry& registry);
 /// Everything above.

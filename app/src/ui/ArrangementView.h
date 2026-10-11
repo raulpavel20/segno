@@ -59,9 +59,17 @@ public:
     void setFollowEnabled(bool on) noexcept { follow_ = on; }
     [[nodiscard]] bool isFollowEnabled() const noexcept { return follow_; }
     void setSnapEnabled(bool on);
-    [[nodiscard]] bool isSnapEnabled() const noexcept { return snap_; }
-    /// Snap, in the corner above the track headers (menu-bar.md §15); its tooltip is the shell's.
+    [[nodiscard]] bool isSnapEnabled() const noexcept { return timeline_.grid().snap; }
+    /// The arrangement's grid (ADR 0047), kept by the Session: setting it here changes the
+    /// Session's; the view follows the Session's every frame (assistants set it there too).
+    void setGrid(const model::GridSettings& grid);
+    [[nodiscard]] const model::GridSettings& grid() const noexcept { return timeline_.grid(); }
+    /// The grid's menu (the step chip's; a Grid submenu on right-click).
+    [[nodiscard]] juce::PopupMenu gridMenu();
+    /// Snap and the grid's step, in the corner above the track headers (menu-bar.md §15); Snap's
+    /// tooltip is the shell's.
     [[nodiscard]] ui::ViewOption& snapToggle() noexcept { return snapToggle_; }
+    [[nodiscard]] ui::ViewChoice& gridChoice() noexcept { return gridChoice_; }
     /// A clip being bounced shows a cancel button at its progress (menu-bar.md §15): where it is
     /// for the clip box `box`, and whether `p` is on one (tests drive it).
     [[nodiscard]] static juce::Rectangle<float> cancelButton(juce::Rectangle<float> box);
@@ -231,7 +239,10 @@ private:
     void laneMouseUp(const juce::MouseEvent& e);
     /// A row's right-click menu (-1: the empty space below the rows): its own items, then the
     /// items that make rows.
-    void rowMenu(int row);
+    /// A row's menu (or, for -1, the empty space's); from the lanes it ends with the Grid.
+    void rowMenu(int row, bool fromLanes = false);
+    /// The timeline's grid as the Session has it, and the chip's step.
+    void syncGrid();
     /// Scrolls a row fully into sight.
     void revealRow(int row);
     void applyLaneEdit(int row, const model::PointEdit& edit, const std::string& undoName);
@@ -417,8 +428,8 @@ private:
     double playhead_ = 0.0;
     double lastPaintMs_ = 0.0;
     time::PlayheadTracker playheadTracker_;
-    bool snap_ = true;
     ui::ViewOption snapToggle_{"Snap"}; // how the view edits: a view option
+    ui::ViewChoice gridChoice_;         // the grid's step, opening its menu
     model::Selection selection_, notified_;
 
     [[nodiscard]] juce::Rectangle<int> loopStripArea() const;

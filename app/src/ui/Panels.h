@@ -236,6 +236,9 @@ private:
     const ActionRegistry& actions_;
     /// Quantise, in the clip view's header while it shows a clip (menu-bar.md §15).
     ui::Toggle quantise_{"Quantise"};
+    /// The piano roll's Snap and grid step (ADR 0047), on the right while it shows a clip.
+    ui::ViewOption snap_{"Snap"};
+    ui::ViewChoice grid_;
     Mode mode_ = Mode::Devices;
     bool clipViewAvailable_ = true;
     std::optional<model::TrackInfo> track_;

@@ -22,8 +22,12 @@ public:
     void setContext(juce::String text);
     void setCaption(juce::String text);
     /// A view option on the right, after any added before it (not owned; it must outlive the
-    /// header or be removed first).
+    /// header or be removed first). Hidden ones take no room: call resized() after showing or
+    /// hiding one.
     void addOption(ViewOption& option);
+    /// A view setting with a value (the piano roll's grid step), as wide as its value: call
+    /// resized() when the value changes.
+    void addOption(ViewChoice& choice);
     /// A command left of the view options, a group gap from them (a Toggle as a button: the clip
     /// view's Quantise), sized by its owner (not owned). Hidden ones take no room: call resized()
     /// after showing or hiding one.
@@ -41,7 +45,12 @@ private:
     juce::String title_, context_, caption_;
     juce::StringArray tabs_;
     int selected_ = 0, hovered_ = -1;
-    std::vector<ViewOption*> options_;
+    struct Option
+    {
+        juce::Component* component;
+        std::function<int()> width;
+    };
+    std::vector<Option> options_;
     std::vector<juce::Component*> commands_;
     int optionsLeft_ = 0; // the caption ends before the options
 };

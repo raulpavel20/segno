@@ -1,5 +1,7 @@
 #include "model/NoteEditing.h"
 
+#include "model/Grid.h"
+
 #include <algorithm>
 #include <cmath>
 #include <map>
@@ -113,21 +115,17 @@ float midiVelocity(float velocity) noexcept
 
 double BeatGrid::round(double beat) const noexcept
 {
-    if (step <= 0.0)
-        return beat;
-    return std::round((beat + origin) / step) * step - origin;
+    return step <= 0.0 ? beat : gridRound(beat + origin, step, bar) - origin;
 }
 
 double BeatGrid::floor(double beat) const noexcept
 {
-    if (step <= 0.0)
-        return beat;
-    return std::floor((beat + origin) / step + kEps) * step - origin;
+    return step <= 0.0 ? beat : gridFloor(beat + origin, step, bar) - origin;
 }
 
 double BeatGrid::next(double beat) const noexcept
 {
-    return step <= 0.0 ? beat : floor(beat) + step;
+    return step <= 0.0 ? beat : gridNext(beat + origin, step, bar) - origin;
 }
 
 int NoteGeometry::pitchForY(double y) const noexcept
