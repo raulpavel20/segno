@@ -1,6 +1,7 @@
 #pragma once
 
 #include "fd/device/Device.h"
+#include "fd/testkit/Allocations.h"
 #include "fd/testkit/AudioBuffer.h"
 
 #include <cstdint>
@@ -39,8 +40,4 @@ struct RenderOptions
 /// (which resets it) unless skipPrepare is set. Output has the device's output channel count.
 AudioBuffer render(Device& device, const AudioBuffer& input, const RenderOptions& options = {});
 
-/// Number of operator-new calls made inside Device::process during renders on this thread,
-/// counted when allocation tracking is compiled in (see allocationTrackingEnabled()).
-std::int64_t allocationsDuringProcess() noexcept;
-bool allocationTrackingEnabled() noexcept;
 } // namespace fd::testkit
