@@ -131,6 +131,7 @@ Role functions for colours that depend on content:
 | `shell.takeStripHeight` | 24 (a take's strip under its clip, C5b) |
 | `shell.takeIconSize` | 12 (the audition button, `Icon::Audition`, at the start of a take strip's name chip; ADR 0038) |
 | `shell.progressHeight` | 2 (the progress line along the bottom of what's being worked on, C7) |
+| `shell.clipButtonSize` | 12 (a button on a clip, on a `surface2` chip: cancel its bounce; menu-bar.md §15) |
 | `shell.fadeHandleSize` | 7 (a fade's or crossfade's handle on a clip, C6; a fade narrower than this draws only its handle) |
 
 Components size themselves for their text: `ui::Toggle::widthFor(label)` and `ui::NumberField::widthFor(widest value)`; bars ask them rather than adding padding by hand. Every clip the arrangement draws (clips, recordings in progress, take strips) takes its box and title from one place (`ArrangementView::clipBox`, `titleOf`), with its edges on whole pixels.
@@ -139,7 +140,7 @@ Components size themselves for their text: `ui::Toggle::widthFor(label)` and `ui
 
 | Component | What it is | Used by |
 |---|---|---|
-| `PanelHeader` | A 24 px header: a section-style title or tabs on the left, then context; on the right, its view options (`ViewOption`) and a caption | Detail panel (Modules / Clip tabs; a plain Modules title in the mixer view), inspector, browser, the mixer view (Modules, Sends, Narrow) |
+| `PanelHeader` | A 24 px header: a section-style title or tabs on the left, then context; on the right, its view options (`ViewOption`), commands left of them a group apart (`addCommand`: a Toggle as a button, sized by its owner, centred), and a caption | Detail panel (Modules / Clip tabs; a plain Modules title in the mixer view), inspector, browser, the mixer view (Modules, Sends, Narrow) |
 | `AutomationState` / `paintAutomationIndicator` | Whether a control's parameter is automated: a 4 px disc in `automation`, filled while its lane plays and a ring while it's off (left of a knob's name; a bar's, fader's, toggle's or choice's top-left corner). `Knob` and `Toggle` take the state and an `onPopupMenu` (right-click) | Every control of a parameter (C4) |
 | `ViewOption` | A view option in a panel header: a 6 px indicator and a `Control` label, no button fill. Off: a 1 px ring and `textTertiary`; on: a filled `active` disc and `textPrimary` (the shape tells on from off, not only the colour); hover: the `hoverWash` behind it | The mixer view's Modules, Sends and Narrow; later the piano roll's and the browser's view options |
 | `PropertyList` | Label and value rows on the row grid; values in `Body`, or `Value` for numbers | Inspector; export options (C8); preferences |

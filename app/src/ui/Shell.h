@@ -117,9 +117,6 @@ private:
     void openFile(const juce::File& file);
     /// File > Open recent: the projects still on disk, then Clear the list.
     [[nodiscard]] juce::PopupMenu recentMenu();
-    /// Clip > Fades: the selected clips' fades and the crossfades at their ends, as a fade's
-    /// right-click menu offers them (menu-bar.md §8).
-    [[nodiscard]] juce::PopupMenu fadesMenu();
     std::unique_ptr<ShellMenus> menus_;
     AboutPopover about_;
     bool mnemonicsShown_ = false;

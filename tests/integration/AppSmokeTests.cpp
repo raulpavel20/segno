@@ -635,8 +635,8 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
     const auto& actions = f.shell->actions();
     CHECK(actions.conflicts().empty());
     // ui-principles §1: a shortcut for every action but the rare ones the menus hold alone.
-    const std::set<std::string> menuOnly{"take.useWhole", "take.rename",    "take.copyToTrack",   "take.moveToTrack",
-                                         "take.delete",   "take.keepOnly", "app.systemTitleBar", "app.about"};
+    const std::set<std::string> menuOnly{"take.useWhole", "take.rename",        "take.copyToTrack", "take.moveToTrack",
+                                         "take.keepOnly", "app.systemTitleBar", "app.about"};
     for (const auto& a : actions.all())
     {
         INFO(a.id);
@@ -2160,9 +2160,21 @@ TEST_CASE("bounce: Ctrl+B bounces the selected clips in place, 0 mutes, the clip
     {
         view.setView(8.0, 40.0);
         view.frame(0.0, s.position());
-        if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: the progress line
+        if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: the progress line and its cancel
             dumpPng(dump, "bounce-progress@2x.png",
                     view.createComponentSnapshot(view.getLocalBounds().withHeight(160).withWidth(900), true, 2.0f));
+        if (const char* dump = std::getenv("FD_DUMP_DIR")) // its cancel, at the right end of what's in view
+            dumpPng(dump, "bounce-cancel@2x.png",
+                    view.createComponentSnapshot(view.getLocalBounds().withHeight(160).removeFromRight(300), true, 2.0f));
+        // Cancel, where the progress shows (menu-bar.md §15): a click on it cancels, as Escape does.
+        std::optional<juce::Point<float>> cancel;
+        for (float y = 0.0f; y < 160.0f && !cancel; y += 1.0f)
+            for (float x = 0.0f; x < static_cast<float>(view.getWidth()) && !cancel; x += 1.0f)
+                if (view.cancelAt({x, y}))
+                    cancel = juce::Point<float>(x + 2.0f, y + 2.0f);
+        CHECK(cancel.has_value());
+        if (cancel && !s.bouncing().empty())
+            click(view, *cancel);
     }
     CHECK(f.shell->keyPressed(juce::KeyPress(juce::KeyPress::escapeKey)) == !s.bouncing().empty());
     waitForBounces();
@@ -2368,7 +2380,7 @@ TEST_CASE("fades: drawn on clips, handles on hover, a handle drag sets a fade, C
     for (auto* field : findAll<fd::ui::NumberField>(f.shell->inspector()))
         if (field->isVisible() && field->getParentComponent() == &f.shell->inspector())
             fields.push_back(field);
-    REQUIRE(fields.size() == 2); // fade in, fade out
+    REQUIRE(fields.size() == 4); // fade in, fade out, then their curves (menu-bar.md §15)
     fields[0]->setValue(25.0, juce::sendNotification);
     CHECK(clipOf(b).fadeIn.length == Catch::Approx(0.025));
     if (const char* dump = std::getenv("FD_DUMP_DIR"))
@@ -2828,7 +2840,7 @@ TEST_CASE("title bar: brand, menus, name and window buttons never touch; the cap
         dumpPng(dump, "titlebar-system@2x.png", bar->createComponentSnapshot(bar->getLocalBounds(), true, 2.0f));
 }
 
-TEST_CASE("menu bar: Clip > Fades sets the selected clips' crossfades and fades by mouse (C10)", "[integration]")
+TEST_CASE("inspector: a clip's fade curves and the crossfades at its ends, set by mouse (C10 review)", "[integration]")
 {
     ShellFixture f;
     auto& s = *f.session;
@@ -2858,27 +2870,127 @@ TEST_CASE("menu bar: Clip > Fades sets the selected clips' crossfades and fades 
         s.updateSnapshotNow();
         return *fd::model::findClip(*s.snapshot(), id)->first;
     };
-    auto& menus = f.shell->menus();
-    // Nothing selected: nothing to act on.
-    CHECK_FALSE(findItem(menus.menu(3), "Remove crossfade")->isEnabled);
+    auto& inspector = f.shell->inspector();
+    auto select = [&](std::uint64_t clip) {
+        f.shell->arrangement().setSelection(fd::model::withClips(*s.snapshot(), {clip}, t0, t0));
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    };
+    auto shown = [&inspector]<typename T>(T*) {
+        std::vector<T*> out;
+        for (auto* c : findAll<T>(inspector))
+            if (c->isVisible())
+                out.push_back(c);
+        return out;
+    };
+    auto crossfadeBoxes = [&] { // the crossfade's shape and position (not the track's inputs)
+        std::vector<juce::ComboBox*> out;
+        for (auto* box : shown(static_cast<juce::ComboBox*>(nullptr)))
+            if (box->getItemText(1) == "Equal power" || box->getItemText(0) == "Before the join")
+                out.push_back(box);
+        return out;
+    };
+    // Clips aren't Clip > Fades' any more: the menu bar has no Fades.
+    CHECK(findItem(f.shell->menus().menu(3), "Fades") == nullptr);
 
-    // The second clip selected: the crossfade at its start; the first: its fade too.
-    f.shell->arrangement().setSelection(fd::model::withClips(*s.snapshot(), {ids[1]}, t0, t0));
-    CHECK(findItem(menus.menu(3), "Equal power: different material")->isTicked);
-    CHECK(findItem(menus.menu(3), "Centred on the join")->isTicked);
-    CHECK(invoke(menus.menu(3), "Equal gain: the same material", "Fades"));
+    // The second clip: the crossfade meeting its start, its shape and where it sits.
+    select(ids[1]);
+    auto boxes = crossfadeBoxes();
+    REQUIRE(boxes.size() == 2);
+    CHECK(boxes[0]->getText() == "Equal power");
+    CHECK(boxes[1]->getText() == "Centred on the join");
+    boxes[0]->setSelectedId(3, juce::sendNotificationSync); // equal gain
     CHECK(clipOf(ids[0]).crossfadeOut->shape == fd::model::CrossfadeShape::EqualGain);
     CHECK(s.undoDescription() == "Crossfade shape");
-    CHECK(invoke(menus.menu(3), "After the join", "Fades"));
+    boxes[1]->setSelectedId(3, juce::sendNotificationSync); // after the join
     CHECK(clipOf(ids[0]).crossfadeOut->from == Catch::Approx(0.0));
-    f.shell->arrangement().setSelection(fd::model::withClips(*s.snapshot(), {ids[0]}, t0, t0));
-    CHECK(invoke(menus.menu(3), "Straighten fades", "Fades"));
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "inspector-crossfade@2x.png", inspector.createComponentSnapshot(inspector.getLocalBounds(), true, 2.0f));
+
+    // The first: its fade-in's curve, straightened by typing 0; then its crossfade out removed.
+    select(ids[0]);
+    const auto fields = shown(static_cast<fd::ui::NumberField*>(nullptr));
+    REQUIRE(fields.size() == 4); // fade in, fade out, then their curves
+    CHECK(fields[2]->getValue() == Catch::Approx(40.0));
+    CHECK_FALSE(fields[3]->isEnabled()); // no fade-out: no curve to set
+    fields[2]->setValue(0.0, juce::sendNotificationSync);
     CHECK(clipOf(ids[0]).fadeIn.bend == 0.0f);
     CHECK(clipOf(ids[0]).fadeIn.length == Catch::Approx(0.5));
-    CHECK(invoke(menus.menu(3), "Remove crossfade", "Fades"));
+    // Every control on the row grid, none touching another.
+    {
+        std::vector<juce::Rectangle<int>> placed;
+        for (auto* c : inspector.getChildren())
+            if (c->isVisible() && dynamic_cast<fd::ui::PanelHeader*>(c) == nullptr)
+            {
+                for (const auto& other : placed)
+                    CHECK_FALSE(other.intersects(c->getBounds()));
+                placed.push_back(c->getBounds());
+            }
+    }
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "inspector-fades@2x.png", inspector.createComponentSnapshot(inspector.getLocalBounds(), true, 2.0f));
+    boxes = crossfadeBoxes();
+    REQUIRE(boxes.size() == 2); // the crossfade out
+    boxes[0]->setSelectedId(1, juce::sendNotificationSync); // None
     CHECK_FALSE(clipOf(ids[0]).crossfadeOut.has_value());
-    CHECK(invoke(menus.menu(3), "Remove fades", "Fades"));
-    CHECK(clipOf(ids[0]).fadeIn.length == 0.0);
-    CHECK_FALSE(findItem(menus.menu(3), "Remove fades")->isEnabled);
+    CHECK(s.undoDescription() == "Remove crossfade");
     root.deleteRecursively();
+}
+
+TEST_CASE("snap and quantise where they're used; the take's commands in its inspector (C10 review)", "[integration]")
+{
+    ShellFixture f;
+    auto& s = *f.session;
+    const auto& actions = f.shell->actions();
+    auto& view = f.shell->arrangement();
+    // Snap in the corner above the track headers: the same as Ctrl+4, either way round.
+    auto& snap = view.snapToggle();
+    REQUIRE(snap.isVisible());
+    CHECK(snap.getBounds().getBottom() <= fd::app::ArrangementView::rulerHeight());
+    CHECK(snap.getRight() <= fd::app::ArrangementView::headerWidth());
+    CHECK(snap.getToggleState() == view.isSnapEnabled());
+    snap.triggerClick();
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    CHECK_FALSE(view.isSnapEnabled());
+    CHECK_FALSE(actions.isToggled("view.snap"));
+    actions.perform("view.snap");
+    CHECK(snap.getToggleState());
+    CHECK(snap.getTooltip().contains("Snap to grid"));
+
+    // Quantise in the clip view's header, while it shows a clip.
+    const auto t0 = s.snapshot()->tracks[0].id;
+    const auto clip = s.createMidiClip(t0, 0.0, 4.0);
+    s.setNotes(clip, {{.pitch = 60, .start = 0.1, .length = 0.5, .velocity = 0.8f}});
+    s.updateSnapshotNow();
+    view.setSelection(fd::model::withClips(*s.snapshot(), {clip}, t0, t0));
+    auto& detail = f.shell->detail();
+    if (detail.mode() != fd::app::DetailPanel::Mode::Clip) // a MIDI clip opens the clip view by itself
+        actions.perform("view.detailMode");
+    f.shell->finishAnimations();
+    detail.frame(0.0);
+    fd::ui::Toggle* quantise = nullptr;
+    for (auto* t : findAll<fd::ui::Toggle>(detail))
+        if (t->getButtonText() == "Quantise")
+            quantise = t;
+    REQUIRE(quantise != nullptr);
+    CHECK(quantise->isVisible());
+    CHECK(quantise->getTooltip().contains("Ctrl+U"));
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+    {
+        dumpPng(dump, "clip-header@2x.png", detail.createComponentSnapshot(detail.getLocalBounds().withHeight(40), true, 2.0f));
+        dumpPng(dump, "snap-corner@2x.png",
+                view.createComponentSnapshot(view.getLocalBounds().withHeight(80).withWidth(300), true, 2.0f));
+    }
+    actions.perform("view.detailMode");
+    detail.frame(0.0);
+    CHECK_FALSE(quantise->isVisible()); // the modules: no Quantise
+
+    // A selected take: Copy, Move and Keep only beside "Use this take"; they run its actions.
+    // (Takes need a recording; the TAKE section's buttons are wired to the take actions.)
+    std::vector<juce::String> takeButtons;
+    for (auto* t : findAll<fd::ui::Toggle>(f.shell->inspector()))
+        takeButtons.push_back(t->getButtonText());
+    for (const auto* name : {"Copy", "Move", "Keep only this take", "Use this take"})
+        CHECK(std::find(takeButtons.begin(), takeButtons.end(), juce::String(name)) != takeButtons.end());
+    CHECK_FALSE(actions.isEnabled("take.copyToTrack")); // no take selected: they act on selected takes only
+    CHECK(actions.find("take.delete") == nullptr);       // Delete deletes selected takes
 }

@@ -48,6 +48,17 @@ ArrangementView::ArrangementView(engine::Session& session) : session_(session)
     sums_.onReady = [this] { repaint(laneArea()); };
     setSnapshot(session_.snapshot());
     setWantsKeyboardFocus(false);
+    snapToggle_.setClickingTogglesState(false);
+    snapToggle_.setWantsKeyboardFocus(false);
+    snapToggle_.setToggleState(snap_, juce::dontSendNotification);
+    snapToggle_.onClick = [this] { setSnapEnabled(!snap_); };
+    addAndMakeVisible(snapToggle_);
+}
+
+void ArrangementView::setSnapEnabled(bool on)
+{
+    snap_ = on;
+    snapToggle_.setToggleState(on, juce::dontSendNotification);
 }
 
 void ArrangementView::setSnapshot(std::shared_ptr<const model::Snapshot> snapshot)
@@ -340,6 +351,12 @@ void ArrangementView::resized()
         timeline_.setView(0.0, laneArea().getWidth() / snapshot_->tempo.secondsForBeats(32.0 * snapshot_->tempo.beatsPerBar()));
     syncLayout();
     placeHeaderControls();
+    // Snap in the corner above the headers: in the ruler's row, where the headers' text starts.
+    const auto& sh = ui::Theme::current().shell;
+    const model::TrackHeaderMetrics header;
+    const int x = juce::roundToInt(header.colourWidth + header.paddingLeft);
+    snapToggle_.setBounds(x, loopStripHeight() + (sh.rulerHeight - sh.rowHeight) / 2,
+                          ui::Toggle::widthFor(snapToggle_.getButtonText()), sh.rowHeight);
 }
 
 // ---- per frame -----------------------------------------------------------------------------
@@ -997,7 +1014,18 @@ void ArrangementView::paintGroup(juce::Graphics& g, const model::ClipGroup& grou
         }
     }
     if (const auto progress = bounceProgress(group.parts.front()->id))
+    {
         ui::paintProgress(g, box, *progress);
+        // Cancel, where the progress shows (menu-bar.md §15), on a chip so it reads over the audio;
+        // at the right end of what's in view of the clip, so a long one's is never off screen.
+        if (const auto inView = box.getIntersection(laneArea().toFloat()), button = cancelButton(inView); inView.contains(button))
+        {
+            g.setColour(t.surface2);
+            g.fillRoundedRectangle(button, t.radiusControl);
+            const bool hot = button.contains(getMouseXYRelative().toFloat());
+            ui::drawIcon(g, ui::Icon::Close, button, hot ? t.textPrimary : t.textSecondary);
+        }
+    }
     if (selected) // the outline again, over the badge and the progress
     {
         g.setColour(t.textPrimary);
@@ -1020,6 +1048,35 @@ void ArrangementView::paintTitleText(juce::Graphics& g, juce::Rectangle<float> t
         text.removeFromLeft(static_cast<float>(t.shell.itemGap));
     }
     g.drawText(juce::String::fromUTF8(name.c_str()), text, juce::Justification::centredLeft, true);
+}
+
+juce::Rectangle<float> ArrangementView::cancelButton(juce::Rectangle<float> box)
+{
+    const auto& sh = ui::Theme::current().shell;
+    const auto size = static_cast<float>(sh.clipButtonSize);
+    const auto inset = static_cast<float>(sh.clipTextInset);
+    return {box.getRight() - inset - size, box.getBottom() - static_cast<float>(sh.progressHeight) - inset - size, size, size};
+}
+
+bool ArrangementView::cancelAt(juce::Point<float> p) const
+{
+    if (bouncing_.empty())
+        return false;
+    const auto lanes = laneArea();
+    const auto row = layout_.hit(p.y - static_cast<float>(lanes.getY()));
+    if (!row || !rows_[static_cast<size_t>(row->track)].holdsClips() || row->offset >= layout_.baseHeight(row->track))
+        return false;
+    const auto& track = snapshot_->tracks[static_cast<size_t>(rows_[static_cast<size_t>(row->track)].track)];
+    const float y = static_cast<float>(lanes.getY() + layout_.top(row->track));
+    const float h = static_cast<float>(layout_.baseHeight(row->track));
+    for (const auto& group : model::clipGroups(track))
+        if (bounceProgress(group.parts.front()->id))
+        {
+            const auto inView = groupBox(group, track, y, h).getIntersection(lanes.toFloat());
+            if (const auto button = cancelButton(inView); inView.contains(button) && button.contains(p))
+                return true;
+        }
+    return false;
 }
 
 std::optional<float> ArrangementView::bounceProgress(std::uint64_t clip) const
@@ -1182,6 +1239,8 @@ std::optional<std::pair<std::uint64_t, std::uint64_t>> ArrangementView::audition
 
 juce::String ArrangementView::getTooltip()
 {
+    if (cancelAt(getMouseXYRelative().toFloat()))
+        return cancelTooltip;
     const auto button = auditionButtonAt(getMouseXYRelative().toFloat());
     if (!button)
         return {};
@@ -1421,7 +1480,7 @@ void ArrangementView::mouseMove(const juce::MouseEvent& e)
             if (strip->hit.onClip || auditionButtonAt(e.position)) // a click uses the take, or auditions it
                 cursor = juce::MouseCursor::PointingHandCursor;
         }
-        else if (badgeAt(e.position)) // the clip's take menu
+        else if (badgeAt(e.position) || cancelAt(e.position)) // the clip's take menu; cancelling a bounce
             cursor = juce::MouseCursor::PointingHandCursor;
         else
         {
@@ -1483,6 +1542,11 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
         return;
     }
     drag_ = Drag::None;
+    if (e.mods.isLeftButtonDown() && cancelAt(e.position))
+    {
+        session_.cancelBounces();
+        return;
+    }
     const bool additive = e.mods.isShiftDown() || e.mods.isCommandDown();
     if (headerArea().contains(pos))
     {

@@ -9,7 +9,7 @@ The decision is [ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.
 
 It builds on the action registry ([daw-shell.md](daw-shell.md), [ADR 0018](../decisions/0018-daw-app-structure.md)), the command palette (C1), the top bar's layout (`model::layoutTopBar`) and the shared components ([ui-foundations.md](ui-foundations.md)).
 
-**Status:** approved by the product owner (2026-10-11), with every recommendation of §11 ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)). Built (2026-10-11); awaiting the product owner's feel check (manual-tests/M2.md, "Menu bar and title bar (C10)"), which starts with §13's window check on GNOME. What building settled is noted where it applies:
+**Status:** §15's review changes built (2026-10-11), with the rest. Approved by the product owner (2026-10-11), with every recommendation of §11 ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)). Built (2026-10-11); awaiting the product owner's feel check (manual-tests/M2.md, "Menu bar and title bar (C10)"), which starts with §13's window check on GNOME. What building settled is noted where it applies:
 - the title bar's place in the window, and the drag (§4);
 - how shortcuts read, the actions without one, Clip > Fades, and the take items (§5);
 - the fade row of the audit (§8);
@@ -221,7 +221,6 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 | Add automation lane | Ctrl+Shift+L |
 | Assign parameter to the selected lane… | Ctrl+Alt+Shift+L |
 | Automate last touched parameter | Alt+L |
-| Turn automation back on | Ctrl+Alt+A |
 
 **Clip**
 
@@ -231,13 +230,12 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 | — | | |
 | Bounce in place | Ctrl+B | |
 | Bounce to new track | Ctrl+Shift+B | |
-| Cancel bounces | Escape | *new* (`clip.cancelBounces`); enabled while a bounce runs |
+| Cancel bounces | Escape | *new* (`clip.cancelBounces`); enabled while a bounce runs. Also a × on the clip being bounced (§15) |
 | — | | |
 | Mute clips | 0 | |
 | Crossfade | Ctrl+Shift+X | |
-| Fades ▸ | | *Built* (§8): the crossfades at either end of the selected clips (the three shapes, each with when to use it; Before, Centred on or After the join, dimmed where the spare audio can't hold it; Remove crossfade), then Straighten fades and Remove fades for the selected clips. Each choice is one undo step |
 | — | | |
-| Takes ▸ | | Show takes of the selected clip (Ctrl+Alt+K); Previous take (Alt+↑); Next take (Alt+↓); — ; Use this take for the whole clip, Rename take…, Copy take to new track, Move take to new track, Spread the selected clip's takes to new tracks (Ctrl+Alt+Shift+K); — ; Delete take, Keep only this take. The take items act on the selected takes, else the take the selected clip plays; they're *new* as actions. *Built:* the take menu (right-click on the badge or a strip) keeps its own items, which act on the strip clicked and name it ("Keep only Take 2"), so it isn't the same builder |
+| Takes ▸ | | Show takes of the selected clip (Ctrl+Alt+K); Previous take (Alt+↑); Next take (Alt+↓); — ; Use this take for the whole clip, Rename take…, Copy take to new track, Move take to new track, Spread the selected clip's takes to new tracks (Ctrl+Alt+Shift+K); — ; Keep only this take. The take items act on the selected takes only (§15); they're *new* as actions, and Copy, Move and Keep only are also in the inspector's TAKE section. Delete and Edit > Delete delete selected takes, so there's no Delete take. *Built:* the take menu (right-click on the badge or a strip) keeps its own items, which act on the strip clicked and name it ("Keep only Take 2"), so it isn't the same builder |
 | Notes ▸ | | Quantise (Ctrl+U); — ; Transpose up / raise points (↑), Transpose down / lower points (↓), Transpose up an octave / raise points a little (Shift+↑), Transpose down an octave / lower points a little (Shift+↓); — ; Nudge later (→), Nudge earlier (←). They act on the selected notes, or on the selected automation points, as now |
 
 **Transport**
@@ -250,6 +248,7 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 | Record | Ctrl+R | |
 | Capture MIDI | Ctrl+Shift+R | |
 | Automation arm | Ctrl+Shift+A | |
+| Turn automation back on | Ctrl+Alt+A | Moved here from Track (§15): beside Automation arm, the pair that sets automation as a whole |
 | — | | |
 | Count-in | Ctrl+Alt+C | |
 | Count-in length ▸ | | Off, 1 beat, 2 beats, 1 bar, 2 bars (the Record button's list, one builder) |
@@ -348,8 +347,8 @@ Preferences (M3) arrive here as Settings… (Ctrl+,), and Audio settings becomes
 | The computer keyboard's octave and velocity | Z/X, C/V only | Options > Computer keyboard; the keyboard button's right-click menu |
 | Cancel bounces | Escape only | Clip > Cancel bounces; a bouncing clip's right-click menu |
 | Count-in length, MIDI loop recording | The Record button's right-click menu | Transport |
-| Take: rename, copy/move to a new track, delete, keep only this take | The take menu (right-click) | Clip > Takes; the inspector's TAKE |
-| Crossfade shape, Before/Centred/After, remove a crossfade; straighten or remove a fade | Right-click on the fade (the inspector has only the fades' lengths) | Clip > Fades, for the selected clips (*built*: the menu bar rather than new inspector rows) |
+| Take: rename, copy/move to a new track, delete, keep only this take | The take menu (right-click) | The inspector's TAKE (name; Copy, Move, Keep only); Delete; Clip > Takes (§15) |
+| Crossfade shape, Before/Centred/After, remove a crossfade; straighten or remove a fade | Right-click on the fade (the inspector has only the fades' lengths) | The inspector's CLIP: each fade's length and curve, each crossfade's shape (None removes it) and position (§15) |
 | Reset a control to its default | Right-click, double-click | Unchanged: double-click is the mouse route |
 | Mixer: select the next strip | ←/→ | Unchanged: click the strip |
 
@@ -467,15 +466,15 @@ The full record is [ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mou
 Asked whether every action was in its right place, or the menu bar had become a catch-all, the product owner agreed to these changes, except for two on-screen controls that don't earn their place.
 
 **What moves to where you work:**
-- **Snap** (Ctrl+4): a Snap toggle in the corner above the track headers, on the editing surface; the grid size joins it later. The piano roll follows it as now.
-- **Quantise** (Ctrl+U): a Quantise button in the clip view's header, while it shows a clip (`PanelHeader` gains commands on the right, before its view options).
+- **Snap** (Ctrl+4): a Snap toggle in the corner above the track headers, on the editing surface; the grid size joins it later. The piano roll follows it as now. *Built:* in the ruler's row, where the headers' names start, its tooltip the action's.
+- **Quantise** (Ctrl+U): a Quantise button in the clip view's header, while it shows a clip (`PanelHeader` gains commands on the right, before its view options). *Built:* right of the "Tab switches" caption, dimmed while there's nothing to quantise.
 - **Cancelling a bounce:**
-  - a small × on a clip being bounced, at its progress line; it cancels the bounces running, as Escape does;
+  - a small × on a clip being bounced, at its progress line; it cancels the bounces running, as Escape does. *Built:* on a `surface2` chip so it reads over the notes or waveform, at the right end of the part of the clip in view, so a long clip's is never off screen (`shell.clipButtonSize`);
   - Clip > Cancel bounces stays in the menu.
   - An export running with its panel closed is cancelled from the panel: File > Export… (or Ctrl+Shift+E) shows it with Cancel. The 2 px progress line along the top bar is too thin to click.
 - **Fades and crossfades** are properties, so they go in the inspector's CLIP section. Clip > Fades is removed from the menu bar, and the right-click on a fade stays as the shortcut.
-  - Each fade's row shows its length and its curve (−100 … 100 %, 0 straight), dragged or typed.
-  - While a crossfade meets the clip, a row for it at either end ("Crossfade in", "Crossfade out") shows its shape (None removes it) and where it sits against the join (Before, Centred, After), each a choice.
+  - Each fade's row shows its length and its curve (−100 … 100 %, 0 straight), dragged or typed. *Built:* an unbent fade reads "Straight", which says what the field is where a bare "0 %" wouldn't; a fade of no length has no curve to set.
+  - While a crossfade meets the clip, rows for it at either end show its shape (None removes it) and where it sits against the join (Before, Centred, After), each a choice. *Built:* labelled "Xfade in" and "Xfade out", the usual short form, because "Crossfade out" ran into the value column; a position set by dragging reads "As dragged".
 - **Takes:** the inspector's TAKE section gains Copy to new track, Move to new track and Keep only this take, beside "Use this take".
   - "Delete take" is removed: Delete and Edit > Delete already delete the selected takes.
   - The take commands act only on the selected takes, never quietly on the take the selected clip plays.

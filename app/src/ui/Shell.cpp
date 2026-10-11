@@ -2,8 +2,6 @@
 
 #include "ui/AutomationMenu.h"
 
-#include "model/FadeEditing.h"
-#include "model/Fades.h"
 #include "model/Takes.h"
 
 #include "fd/audiofile/AudioFile.h"
@@ -93,6 +91,9 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         assistantsPopover_->onMessage = [this](const juce::String& m) { showWarning(m); };
     }
     registerActions();
+    inspector_.setActions(actions_);
+    arrangement_.snapToggle().setTooltip(actions_.tooltip("view.snap"));
+    arrangement_.cancelTooltip = actions_.tooltip("clip.cancelBounces");
     transport_ = std::make_unique<TransportBar>(session_, actions_);
     // The menu bar (ADR 0040): every action; its lists from the builders the right-click menus use.
     // The brand is in the title bar, except on macOS, which has none of ours.
@@ -104,8 +105,6 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
             return transport_->countInMenu();
         if (list == "midiLoop")
             return transport_->midiLoopMenu();
-        if (list == "fades")
-            return fadesMenu();
         return juce::PopupMenu();
     };
     transport_->setBrandShown(kMenuPlatform == model::MenuPlatform::Mac);
@@ -469,16 +468,11 @@ void Shell::registerActions()
         std::uint64_t track = 0;
         std::vector<std::uint64_t> takes;
     };
-    // The takes they act on: the selected ones, else the one the selected clip plays.
-    auto takeTarget = [this, &s, takesClip]() -> std::optional<TakeTarget> {
+    // The takes they act on: the selected ones only (menu-bar.md §15).
+    auto takeTarget = [this]() -> std::optional<TakeTarget> {
         const auto& sel = arrangement_.selection();
         if (!sel.takes.empty() && sel.channel)
             return TakeTarget{*sel.channel, {sel.takes.begin(), sel.takes.end()}};
-        if (const auto c = takesClip())
-            if (const auto* t = s.snapshot()->channel(c->track))
-                if (const auto* stack = t->stack(c->stack))
-                    if (const auto playing = model::playingTake(*stack, t->clips))
-                        return TakeTarget{c->track, {stack->takes[*playing].id}};
         return std::nullopt;
     };
     auto oneTake = [takeTarget] {
@@ -512,16 +506,6 @@ void Shell::registerActions()
                   .perform = takesToTracks(false), .isEnabled = someTakes});
     actions_.add({.id = "take.moveToTrack", .name = "Move take to new track", .category = "Track",
                   .perform = takesToTracks(true), .isEnabled = someTakes});
-    actions_.add({.id = "take.delete", .name = "Delete take", .category = "Track",
-                  .perform = [this, &s, takeTarget] {
-                      if (const auto t = takeTarget())
-                      {
-                          s.deleteTakes(t->track, t->takes);
-                          if (!arrangement_.selection().takes.empty())
-                              arrangement_.selectTrack(t->track);
-                      }
-                  },
-                  .isEnabled = someTakes});
     actions_.add({.id = "take.keepOnly", .name = "Keep only this take", .category = "Track",
                   .perform = [&s, takeTarget] {
                       if (const auto t = takeTarget())
@@ -1293,86 +1277,6 @@ juce::PopupMenu Shell::recentMenu()
         settings_.recent.clear();
         saveSettings();
     }));
-    return menu;
-}
-
-juce::PopupMenu Shell::fadesMenu()
-{
-    // The selected audio clips (their fades), and every crossfade at either end of one.
-    const auto snapshot = session_.snapshot();
-    const auto& selected = arrangement_.selection().clips;
-    std::vector<model::FadeClip> clips;
-    std::vector<std::pair<model::FadeClip, model::FadeClip>> joins;
-    if (!mixerShown_)
-        for (const auto& t : snapshot->tracks)
-        {
-            const auto fc = model::fadeClips(t);
-            for (size_t i = 0; i < fc.size(); ++i)
-            {
-                if (selected.contains(fc[i].id))
-                    clips.push_back(fc[i]);
-                if (fc[i].crossOut && i + 1 < fc.size() && (selected.contains(fc[i].id) || selected.contains(fc[i + 1].id)))
-                    joins.emplace_back(fc[i], fc[i + 1]);
-            }
-        }
-    auto all = [&joins](auto&& test) {
-        return !joins.empty() && std::all_of(joins.begin(), joins.end(), [&](const auto& j) { return test(j.first, j.second); });
-    };
-    juce::PopupMenu menu;
-    // Shapes, each with the line that says when to use it (fades.md §4), as on the crossfade.
-    const std::array<std::pair<model::CrossfadeShape, const char*>, 3> shapes{
-        std::pair{model::CrossfadeShape::EqualPower, "Equal power: different material"},
-        std::pair{model::CrossfadeShape::EqualGain, "Equal gain: the same material"},
-        std::pair{model::CrossfadeShape::SCurve, "S-curve"}};
-    for (const auto& [shape, name] : shapes)
-        menu.addItem(name, !joins.empty(), all([s = shape](const auto& out, const auto&) { return out.crossOut->shape == s; }),
-                     [this, joins, s = shape] {
-                         const engine::Session::EditGroup group(session_, "Crossfade shape");
-                         for (const auto& [out, in] : joins)
-                             session_.setCrossfade(out.id, model::Crossfade{out.crossOut->length, out.crossOut->from, s},
-                                                   "Crossfade shape");
-                     });
-    menu.addSeparator();
-    const std::array<std::pair<model::CrossfadePlacement, const char*>, 3> placements{
-        std::pair{model::CrossfadePlacement::Before, "Before the join"},
-        std::pair{model::CrossfadePlacement::Centred, "Centred on the join"},
-        std::pair{model::CrossfadePlacement::After, "After the join"}};
-    for (const auto& [placement, name] : placements)
-    {
-        auto placed = [p = placement](const model::FadeClip& out, const model::FadeClip& in) {
-            return model::placeCrossfadeAt(out, in, out.crossOut->length, p, out.crossOut->shape);
-        };
-        menu.addItem(name, all([&placed](const auto& out, const auto& in) { return placed(out, in).has_value(); }),
-                     all([p = placement](const auto& out, const auto&) { return model::placementOf(*out.crossOut) == p; }),
-                     [this, joins, placed] {
-                         const engine::Session::EditGroup group(session_, "Crossfade placement");
-                         for (const auto& [out, in] : joins)
-                             session_.setCrossfade(out.id, placed(out, in), "Crossfade placement");
-                     });
-    }
-    menu.addSeparator();
-    menu.addItem(joins.size() > 1 ? "Remove crossfades" : "Remove crossfade", !joins.empty(), false, [this, joins] {
-        const engine::Session::EditGroup group(session_, "Remove crossfade");
-        for (const auto& j : joins)
-            session_.setCrossfade(j.first.id, std::nullopt, "Remove crossfade");
-    });
-    menu.addSeparator();
-    // Fades: straightened (their bend), or removed.
-    const bool bent = std::any_of(clips.begin(), clips.end(), [](const auto& c) {
-        return (c.in.length > 0.0 && c.in.bend != 0.0f) || (c.out.length > 0.0 && c.out.bend != 0.0f);
-    });
-    const bool faded = std::any_of(clips.begin(), clips.end(), [](const auto& c) { return c.in.length > 0.0 || c.out.length > 0.0; });
-    menu.addItem("Straighten fades", bent, false, [this, clips] {
-        const engine::Session::EditGroup group(session_, "Straighten fades");
-        for (const auto& c : clips)
-            session_.setFades({c.id}, model::Fade{c.in.length, 0.0f}, model::Fade{c.out.length, 0.0f});
-    });
-    menu.addItem("Remove fades", faded, false, [this, clips] {
-        std::vector<std::uint64_t> ids;
-        for (const auto& c : clips)
-            ids.push_back(c.id);
-        session_.setFades(ids, model::Fade{}, model::Fade{});
-    });
     return menu;
 }
 

@@ -112,7 +112,7 @@ app/src/
 | Full screen (C10) | `view.fullScreen` | F11 |
 | Cancel bounces (C10) | `clip.cancelBounces` | Escape |
 | Computer keyboard: octave down / up, velocity down / up (C10; while it plays) | `midi.octaveDown` / `midi.octaveUp` / `midi.velocityDown` / `midi.velocityUp` | Z / X / C / V |
-| The take menu's commands on the selected take (C10): use it for the whole clip, rename, copy or move to a new track, delete, keep only it | `take.useWhole`, `take.rename`, `take.copyToTrack`, `take.moveToTrack`, `take.delete`, `take.keepOnly` | (menus only) |
+| The take menu's commands on the selected takes (C10): use it for the whole clip, rename, copy or move to a new track, keep only it (the inspector's TAKE has Copy, Move and Keep only too; Delete deletes takes) | `take.useWhole`, `take.rename`, `take.copyToTrack`, `take.moveToTrack`, `take.keepOnly` | (menus only) |
 | Use the system title bar (C10; Linux, Windows) | `app.systemTitleBar` | (menus only) |
 | About Segno (C10) | `app.about` | (menus only) |
 
@@ -308,6 +308,7 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 ## Bounce and clip mute (C7, [bounce.md](bounce.md), ADR 0035)
 
 - **A clip's menu** (right-click on a clip; it's selected first unless it's in the selection): Bounce in place, Bounce to new track, Mute clips, then Split at playhead, Duplicate, Delete, from the action registry; while a bounce runs, Cancel bounces first (C10). The take badge keeps its own menu.
+- **Where you work** (C10 review, [menu-bar.md](menu-bar.md) §15): Snap in the corner above the track headers; Quantise in the clip view's header; a × on a clip being bounced cancels it; the inspector's CLIP sets each fade's curve and each crossfade's shape and position; its TAKE copies or moves the take to a new track or keeps only it.
 - **More right-click menus** (C10, so nothing is a key alone): notes in the piano roll (Quantise, Duplicate, Delete; the note under the pointer is selected first); the computer keyboard button (on/off, octave and velocity); the title bar's caption on Linux (Minimise, Maximise, Close, Use the system title bar).
 - **Ctrl+B / Ctrl+Shift+B** bounce the selected clips; clips that can't be bounced are left out, and when none can, the shortcut's toast says why. The bounced clips are selected when they land; a tail cut by a clip that isn't bounced is reported in a toast.
 - **While a bounce renders,** its clips show a progress line along their bottom (`ui::paintProgress`, after `motion.progressDelay`); Escape cancels it.

@@ -88,18 +88,18 @@ std::vector<Menu> menuBar(MenuPlatform platform)
          't',
          {action("track.add"), action("track.addReturn"), separator(), action("track.arm"),
           action("track.mute"), action("track.solo"), separator(), action("automation.addLane"),
-          action("automation.assign"), action("automation.showLastTouched"), action("automation.reEnable")}});
+          action("automation.assign"), action("automation.showLastTouched")}});
 
     menus.push_back(
         {"Clip",
          'c',
          {action("clip.newMidi"), separator(), action("clip.bounce"), action("clip.bounceToTrack"),
           action("clip.cancelBounces"), separator(), action("clip.mute"), action("clip.crossfade"),
-          submenu("Fades", {list("fades")}), separator(),
+          separator(),
           submenu("Takes", {action("view.takes"), action("take.previous"), action("take.next"), separator(),
                             action("take.useWhole"), action("take.rename"), action("take.copyToTrack"),
                             action("take.moveToTrack"), action("take.spread"), separator(),
-                            action("take.delete"), action("take.keepOnly")}),
+                            action("take.keepOnly")}),
           submenu("Notes", {action("notes.quantise"), separator(), action("notes.up"), action("notes.down"),
                             action("notes.octaveUp"), action("notes.octaveDown"), separator(),
                             action("notes.later"), action("notes.earlier")})}});
@@ -108,7 +108,7 @@ std::vector<Menu> menuBar(MenuPlatform platform)
         {"Transport",
          'p',
          {action("transport.playStop"), action("transport.toStart"), separator(), action("transport.record"),
-          action("transport.capture"), action("automation.arm"), separator(), action("transport.countIn"),
+          action("transport.capture"), action("automation.arm"), action("automation.reEnable"), separator(), action("transport.countIn"),
           submenu("Count-in length", {list("countIn")}), submenu("MIDI loop recording", {list("midiLoop")}),
           separator(), action("transport.loop"), action("transport.metronome")}});
 

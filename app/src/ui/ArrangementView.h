@@ -54,8 +54,16 @@ public:
     /// Follow the playhead while playing (pages the view smoothly).
     void setFollowEnabled(bool on) noexcept { follow_ = on; }
     [[nodiscard]] bool isFollowEnabled() const noexcept { return follow_; }
-    void setSnapEnabled(bool on) noexcept { snap_ = on; }
+    void setSnapEnabled(bool on);
     [[nodiscard]] bool isSnapEnabled() const noexcept { return snap_; }
+    /// Snap, in the corner above the track headers (menu-bar.md §15); its tooltip is the shell's.
+    [[nodiscard]] ui::Toggle& snapToggle() noexcept { return snapToggle_; }
+    /// A clip being bounced shows a cancel button at its progress (menu-bar.md §15): where it is
+    /// for the clip box `box`, and whether `p` is on one (tests drive it).
+    [[nodiscard]] static juce::Rectangle<float> cancelButton(juce::Rectangle<float> box);
+    [[nodiscard]] bool cancelAt(juce::Point<float> p) const;
+    /// The cancel button's tooltip (the shell's action, with its key).
+    juce::String cancelTooltip;
 
     /// The window's one selection (docs/design/selection.md, ADR 0027): a channel (a track, a
     /// return track or the master) and clips, the channel always the one of what was selected
@@ -371,6 +379,7 @@ private:
     double lastPaintMs_ = 0.0;
     time::PlayheadTracker playheadTracker_;
     bool snap_ = true;
+    ui::Toggle snapToggle_{"Snap"};
     model::Selection selection_, notified_;
 
     [[nodiscard]] juce::Rectangle<int> loopStripArea() const;

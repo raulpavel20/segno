@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/Session.h"
+#include "model/Fades.h"
 #include "model/Selection.h"
 #include "ui/ChannelInspector.h"
 #include "ui/ActionRegistry.h"
@@ -154,6 +155,8 @@ public:
     void focusLaneName();
     /// Puts the keyboard in the take's name field (Rename).
     void focusTakeName();
+    /// The shell's actions, for the TAKE section's commands (they act on the selected take).
+    void setActions(const ActionRegistry& actions);
     void resized() override;
     void paint(juce::Graphics& g) override;
 
@@ -185,10 +188,25 @@ private:
     std::optional<model::TakeInfo> take_;
     juce::TextEditor takeName_;
     ui::Toggle useTake_{"Use this take"};
+    // Its commands, where the take is (menu-bar.md §15): to a new track, keep only it.
+    ui::Toggle copyTake_{"Copy"}, moveTake_{"Move"}, keepTake_{"Keep only this take"};
+    const ActionRegistry* actions_ = nullptr;
     /// The selected clip's mute (bounce.md §6), as on a track's mute button.
     ui::Toggle clipMute_{"M"};
-    /// An audio clip's fade lengths, dragged or typed in ms (fades.md §3): one undo step each.
-    ui::NumberField fadeIn_, fadeOut_;
+    /// An audio clip's fade lengths, dragged or typed in ms (fades.md §3), and beside each its
+    /// curve (−100 … 100 %, 0 straight; menu-bar.md §15): one undo step each.
+    ui::NumberField fadeIn_, fadeOut_, fadeInCurve_, fadeOutCurve_;
+    /// The crossfades at the clip's start and end (menu-bar.md §15): the clips either side of the
+    /// join, and their shape (None removes it) and position against the join, as choices.
+    struct Join
+    {
+        model::FadeClip out, in;
+    };
+    std::optional<Join> crossIn_, crossOut_;
+    juce::ComboBox crossInShape_, crossInPlace_, crossOutShape_, crossOutPlace_;
+    void showCrossfade(juce::ComboBox& shape, juce::ComboBox& place, const std::optional<Join>& join);
+    void setCrossfadeShape(const std::optional<Join>& join, int id);
+    void setCrossfadePlace(const std::optional<Join>& join, int id);
     std::optional<engine::Session::EditGroup> fadeGesture_;
     TrackInputSection input_{session_};
     model::TempoMap tempo_;
@@ -230,6 +248,9 @@ private:
     void updateHeader();
 
     ui::PanelHeader header_;
+    const ActionRegistry& actions_;
+    /// Quantise, in the clip view's header while it shows a clip (menu-bar.md §15).
+    ui::Toggle quantise_{"Quantise"};
     Mode mode_ = Mode::Devices;
     bool clipViewAvailable_ = true;
     std::optional<model::TrackInfo> track_;

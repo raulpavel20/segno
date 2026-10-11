@@ -56,6 +56,13 @@ void PanelHeader::addOption(ViewOption& option)
     resized();
 }
 
+void PanelHeader::addCommand(juce::Component& command)
+{
+    commands_.push_back(&command);
+    addAndMakeVisible(command);
+    resized();
+}
+
 void PanelHeader::resized()
 {
     // Right to left, `itemGap` apart. The last one's label ends at the padding, where a caption
@@ -68,7 +75,20 @@ void PanelHeader::resized()
         (*it)->setBounds(right - w, 0, w, getHeight());
         right -= w + s.itemGap;
     }
-    optionsLeft_ = options_.empty() ? getWidth() : right;
+    // Commands left of them, a group apart (from the padding when there are none), centred.
+    const bool commands = std::any_of(commands_.begin(), commands_.end(), [](auto* c) { return c->isVisible(); });
+    if (commands)
+    {
+        right = options_.empty() ? getWidth() - s.padding : right + s.itemGap - s.groupGap;
+        for (auto it = commands_.rbegin(); it != commands_.rend(); ++it)
+            if ((*it)->isVisible())
+            {
+                const int w = (*it)->getWidth(), h = (*it)->getHeight();
+                (*it)->setBounds(right - w, (getHeight() - h) / 2, w, h);
+                right -= w + s.itemGap;
+            }
+    }
+    optionsLeft_ = options_.empty() && !commands ? getWidth() : right;
 }
 
 std::vector<juce::Rectangle<int>> PanelHeader::tabAreas() const
@@ -89,7 +109,7 @@ void PanelHeader::paint(juce::Graphics& g)
 {
     const auto& t = Theme::current();
     auto r = getLocalBounds().reduced(t.shell.padding, 0);
-    if (!options_.empty())
+    if (optionsLeft_ < getWidth()) // options or commands on the right
         r.setRight(optionsLeft_ - t.shell.groupGap);
     if (caption_.isNotEmpty())
     {

@@ -1,5 +1,6 @@
 #include "ui/Panels.h"
 
+#include "model/FadeEditing.h"
 #include "model/Takes.h"
 #include "model/TopBarLayout.h"
 
@@ -555,6 +556,71 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
         };
         addChildComponent(*field);
     }
+    // Each fade's curve beside its length (menu-bar.md §15): −100 … 100 %, 0 straight.
+    for (auto* field : {&fadeInCurve_, &fadeOutCurve_})
+    {
+        const bool in = field == &fadeInCurve_;
+        field->setFontSize(ui::Theme::current().textXs);
+        field->setRange(-100.0, 100.0, 1.0);
+        field->setDragSensitivity(1.0);
+        field->setTooltip(in ? "The fade-in's curve: drag or type; 0 is straight"
+                             : "The fade-out's curve: drag or type; 0 is straight");
+        field->textFromValue = [](double percent) {
+            const int p = juce::roundToInt(percent);
+            if (p == 0)
+                return juce::String("Straight"); // says what the field is, where a bare "0 %" wouldn't
+            return (p > 0 ? juce::String("+") : juce::String::fromUTF8("\xe2\x88\x92")) + juce::String(std::abs(p)) + " %";
+        };
+        field->valueFromText = [](const juce::String& text) -> std::optional<double> {
+            if (text.trim().equalsIgnoreCase("straight"))
+                return 0.0;
+            const auto t = text.trim().replace(juce::String::fromUTF8("\xe2\x88\x92"), "-").retainCharacters("+-0123456789.");
+            if (t.isEmpty())
+                return std::nullopt;
+            return t.getDoubleValue();
+        };
+        field->onGestureStart = [this] { fadeGesture_.emplace(session_, "Fades"); };
+        field->onGestureEnd = [this] { fadeGesture_.reset(); };
+        field->onValueChange = [this, in](double percent) {
+            if (!clip_)
+                return;
+            const auto fade = model::Fade{(in ? clip_->fadeIn : clip_->fadeOut).length, static_cast<float>(percent / 100.0)};
+            session_.setFades({clip_->id}, in ? std::optional(fade) : std::nullopt, in ? std::nullopt : std::optional(fade));
+        };
+        addChildComponent(*field);
+    }
+    // The crossfades at its ends: their shape and where they sit, as a crossfade's menu offers.
+    for (auto* shape : {&crossInShape_, &crossOutShape_})
+    {
+        shape->addItem("None", 1);
+        shape->addItem("Equal power", 2);
+        shape->addItem("Equal gain", 3);
+        shape->addItem("S-curve", 4);
+        shape->setTooltip("Equal power for different material, equal gain for the same; None removes the crossfade");
+        shape->onChange = [this, shape] { setCrossfadeShape(shape == &crossInShape_ ? crossIn_ : crossOut_, shape->getSelectedId()); };
+        addChildComponent(*shape);
+    }
+    for (auto* place : {&crossInPlace_, &crossOutPlace_})
+    {
+        place->addItem("Before the join", 1);
+        place->addItem("Centred on the join", 2);
+        place->addItem("After the join", 3);
+        place->setTextWhenNothingSelected("As dragged");
+        place->setTooltip("Where it sits against the join (only where the spare audio holds it whole)");
+        place->onChange = [this, place] { setCrossfadePlace(place == &crossInPlace_ ? crossIn_ : crossOut_, place->getSelectedId()); };
+        addChildComponent(*place);
+    }
+    // The take's commands (the shell's actions, on the selected take).
+    for (const auto& [button, id] : {std::pair{&copyTake_, "take.copyToTrack"}, std::pair{&moveTake_, "take.moveToTrack"},
+                                     std::pair{&keepTake_, "take.keepOnly"}})
+    {
+        button->setClickingTogglesState(false);
+        button->onClick = [this, action = std::string(id)] {
+            if (actions_ != nullptr)
+                actions_->perform(action);
+        };
+        addChildComponent(*button);
+    }
     clipMute_.setTooltip("Mute the clip: it keeps its place and plays nothing (0)");
     clipMute_.onClick = [this] {
         if (clip_)
@@ -590,6 +656,8 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
     takeCount_ = context.takeCount;
     takeName_.setVisible(has(model::InspectorSection::Take));
     useTake_.setVisible(has(model::InspectorSection::Take));
+    for (auto* button : {&copyTake_, &moveTake_, &keepTake_})
+        button->setVisible(has(model::InspectorSection::Take));
     clipMute_.setVisible(has(model::InspectorSection::Clip) && clip_.has_value());
     clipMute_.setToggleState(clip_ && clip_->muted, juce::dontSendNotification);
     const bool audio = has(model::InspectorSection::Clip) && clip_ && clip_->kind == model::ClipInfo::Kind::Audio;
@@ -599,11 +667,35 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
         if (audio)
             field->setRange(0.0, clip_->length * 1000.0, 1.0);
     }
+    for (auto* field : {&fadeInCurve_, &fadeOutCurve_})
+        field->setVisible(audio);
     if (audio && !fadeGesture_)
     {
         fadeIn_.setValue(clip_->fadeIn.length * 1000.0, juce::dontSendNotification);
         fadeOut_.setValue(clip_->fadeOut.length * 1000.0, juce::dontSendNotification);
+        fadeInCurve_.setValue(clip_->fadeIn.bend * 100.0, juce::dontSendNotification);
+        fadeOutCurve_.setValue(clip_->fadeOut.bend * 100.0, juce::dontSendNotification);
     }
+    // A curve only on a fade that's there.
+    fadeInCurve_.setEnabled(audio && clip_->fadeIn.length > 0.0);
+    fadeOutCurve_.setEnabled(audio && clip_->fadeOut.length > 0.0);
+    // The crossfades meeting its start and its end (the joins at its edges, not a comp's own).
+    crossIn_.reset();
+    crossOut_.reset();
+    if (audio && channel_)
+    {
+        const auto clips = model::fadeClips(*channel_);
+        for (size_t i = 0; i + 1 < clips.size(); ++i)
+            if (clips[i].crossOut)
+            {
+                if (std::abs(clips[i + 1].start - clip_->start) < 1e-6)
+                    crossIn_ = Join{clips[i], clips[i + 1]};
+                if (std::abs(clips[i].end() - clip_->end()) < 1e-6)
+                    crossOut_ = Join{clips[i], clips[i + 1]};
+            }
+    }
+    showCrossfade(crossInShape_, crossInPlace_, crossIn_);
+    showCrossfade(crossOutShape_, crossOutPlace_, crossOut_);
     if (take_ && !takeName_.hasKeyboardFocus(true))
         takeName_.setText(juce::String::fromUTF8(take_->name.c_str()), false);
     assignments_.setLane(has(model::InspectorSection::Assignments) ? lane_ : std::nullopt);
@@ -614,6 +706,51 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
     sends_.setChannel(has(model::InspectorSection::Sends) ? channel_ : std::nullopt, returns);
     resized();
     repaint();
+}
+
+void InspectorPanel::setActions(const ActionRegistry& actions)
+{
+    actions_ = &actions;
+    copyTake_.setTooltip(actions.tooltip("take.copyToTrack"));
+    moveTake_.setTooltip(actions.tooltip("take.moveToTrack"));
+    keepTake_.setTooltip("Keep only this take: the clip's other takes are deleted");
+}
+
+void InspectorPanel::showCrossfade(juce::ComboBox& shape, juce::ComboBox& place, const std::optional<Join>& join)
+{
+    shape.setVisible(join.has_value());
+    place.setVisible(join.has_value());
+    if (!join)
+        return;
+    const auto& x = *join->out.crossOut;
+    shape.setSelectedId(static_cast<int>(x.shape) + 2, juce::dontSendNotification);
+    for (const auto p : {model::CrossfadePlacement::Before, model::CrossfadePlacement::Centred, model::CrossfadePlacement::After})
+        place.setItemEnabled(static_cast<int>(p) + 1, model::placeCrossfadeAt(join->out, join->in, x.length, p, x.shape).has_value());
+    const auto now = model::placementOf(x);
+    place.setSelectedId(now ? static_cast<int>(*now) + 1 : 0, juce::dontSendNotification);
+}
+
+void InspectorPanel::setCrossfadeShape(const std::optional<Join>& join, int id)
+{
+    if (!join || id < 1)
+        return;
+    if (id == 1)
+    {
+        session_.setCrossfade(join->out.id, std::nullopt, "Remove crossfade");
+        return;
+    }
+    const auto& x = *join->out.crossOut;
+    session_.setCrossfade(join->out.id, model::Crossfade{x.length, x.from, static_cast<model::CrossfadeShape>(id - 2)},
+                          "Crossfade shape");
+}
+
+void InspectorPanel::setCrossfadePlace(const std::optional<Join>& join, int id)
+{
+    if (!join || id < 1)
+        return;
+    const auto& x = *join->out.crossOut;
+    if (const auto placed = model::placeCrossfadeAt(join->out, join->in, x.length, static_cast<model::CrossfadePlacement>(id - 1), x.shape))
+        session_.setCrossfade(join->out.id, placed, "Crossfade placement");
 }
 
 void InspectorPanel::focusLaneName()
@@ -697,7 +834,9 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
                 {"Start", position(take_->clips.front().start), true},
                 {"Length", juce::String(take_->clips.back().end() - take_->clips.front().start, 3) + " s", true},
                 {"In use", plays},
-                {{}, {}}};         // "Use this take"
+                {{}, {}},          // "Use this take"
+                {"New track", {}}, // Copy, Move
+                {{}, {}}};         // "Keep only this take"
     }
     case S::Clip:
     {
@@ -712,6 +851,16 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
         {
             rows.push_back({"Fade in", {}});
             rows.push_back({"Fade out", {}});
+        }
+        if (crossIn_) // the crossfades at its ends: their choices (menu-bar.md §15)
+        {
+            rows.push_back({"Xfade in", {}});
+            rows.push_back({"Position", {}});
+        }
+        if (crossOut_)
+        {
+            rows.push_back({"Xfade out", {}});
+            rows.push_back({"Position", {}});
         }
         return rows;
     }
@@ -781,6 +930,12 @@ void InspectorPanel::resized()
             auto row = [&](int n) { return content.withY(content.getY() + n * t.shell.rowHeight).withHeight(t.shell.rowHeight); };
             takeName_.setBounds(row(0).reduced(0, t.shell.propertyFieldInset));
             useTake_.setBounds(row(4).reduced(0, t.shell.propertyFieldInset));
+            // Copy and Move side by side, then Keep only: each as wide as its label.
+            auto commands = row(5).reduced(0, t.shell.propertyFieldInset);
+            copyTake_.setBounds(commands.removeFromLeft(ui::Toggle::widthFor(copyTake_.getButtonText())));
+            commands.removeFromLeft(t.shell.itemGap);
+            moveTake_.setBounds(commands.removeFromLeft(ui::Toggle::widthFor(moveTake_.getButtonText())));
+            keepTake_.setBounds(row(6).reduced(0, t.shell.propertyFieldInset).withWidth(ui::Toggle::widthFor(keepTake_.getButtonText())));
         }
         else if (sections_[i] == S::Clip) // the Mute row
         {
@@ -789,8 +944,23 @@ void InspectorPanel::resized()
                                     .withHeight(t.shell.rowHeight)
                                     .withWidth(ui::Toggle::widthFor(clipMute_.getButtonText()))
                                     .reduced(0, t.shell.propertyFieldInset));
-            fadeIn_.setBounds(content.withY(content.getY() + 5 * t.shell.rowHeight).withHeight(t.shell.rowHeight));
-            fadeOut_.setBounds(content.withY(content.getY() + 6 * t.shell.rowHeight).withHeight(t.shell.rowHeight));
+            auto row = [&](int n) { return content.withY(content.getY() + n * t.shell.rowHeight).withHeight(t.shell.rowHeight); };
+            // A fade's length, then its curve, halves of the value column.
+            const int half = (content.getWidth() - t.shell.itemGap) / 2;
+            for (const auto& [length, curve, n] : {std::tuple{&fadeIn_, &fadeInCurve_, 5}, std::tuple{&fadeOut_, &fadeOutCurve_, 6}})
+            {
+                length->setBounds(row(n).withWidth(half));
+                curve->setBounds(row(n).withTrimmedLeft(half + t.shell.itemGap));
+            }
+            // Each crossfade's shape, then where it sits.
+            int n = 7;
+            for (const auto& [join, shape, place] : {std::tuple{&crossIn_, &crossInShape_, &crossInPlace_},
+                                                    std::tuple{&crossOut_, &crossOutShape_, &crossOutPlace_}})
+                if (join->has_value())
+                {
+                    shape->setBounds(row(n++).reduced(0, t.shell.propertyFieldInset));
+                    place->setBounds(row(n++).reduced(0, t.shell.propertyFieldInset));
+                }
         }
         else if (sections_[i] == S::Point) // the Value row
             pointValue_.setBounds(stack_.content(i)
@@ -817,7 +987,8 @@ void InspectorPanel::paint(juce::Graphics& g)
 
 // ---- DetailPanel ---------------------------------------------------------------------------
 
-DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions) : chain_(session, actions), roll_(session)
+DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions)
+    : actions_(actions), chain_(session, actions), roll_(session)
 {
     header_.setTabs({"Modules", "Clip"}, 0);
     header_.setCaption("Tab switches");
@@ -828,6 +999,13 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
     addAndMakeVisible(header_);
     addAndMakeVisible(chain_);
     addChildComponent(roll_);
+    quantise_.setClickingTogglesState(false);
+    quantise_.setWantsKeyboardFocus(false);
+    quantise_.onClick = [this] { actions_.perform("notes.quantise"); };
+    quantise_.setSize(ui::Toggle::widthFor(quantise_.getButtonText()), ui::Theme::current().shell.rowHeight);
+    header_.addCommand(quantise_);
+    quantise_.setVisible(false);
+    header_.resized();
 }
 
 void DetailPanel::updateHeader()
@@ -874,6 +1052,12 @@ void DetailPanel::updateVisibility()
 {
     chain_.setVisible(mode_ == Mode::Devices);
     roll_.setVisible(showsPianoRoll());
+    if (quantise_.isVisible() != showsPianoRoll())
+    {
+        quantise_.setVisible(showsPianoRoll());
+        header_.resized();
+        header_.repaint();
+    }
 }
 
 void DetailPanel::setClip(std::optional<model::ClipInfo> clip, const model::TempoMap& tempo)
@@ -887,6 +1071,12 @@ void DetailPanel::frame(double playheadSeconds)
 {
     if (roll_.isVisible())
         roll_.frame(playheadSeconds);
+    if (const bool can = actions_.isEnabled("notes.quantise"); quantise_.isEnabled() != can)
+        quantise_.setEnabled(can);
+    // Its tooltip names its key: the actions are registered after the panel is made.
+    if (const auto tip = actions_.tooltip("notes.quantise") + ": the selected notes, or all of them, to the grid";
+        tip != quantise_.getTooltip())
+        quantise_.setTooltip(tip);
 }
 
 void DetailPanel::setSelection(std::optional<model::TrackInfo> track)
