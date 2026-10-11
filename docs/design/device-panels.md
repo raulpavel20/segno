@@ -77,6 +77,7 @@ Each control is placed by its top-left cell and its span: `(column, row, columns
 
 - Every cell a control covers is its own: controls never overlap.
 - A knob's name must be at most 46 px in Inter 11 medium. Use the parameter's short name (a display name, which can change; IDs can't).
+- **One knob, two parameters:** where a switch picks which of two parameters a knob turns (the Delay's Left and Right turn milliseconds, or note values while Sync is on), the knob follows the switch (`ParamKnob::follow`), checked on every refresh. Its name, value text, default, steps and automation follow the parameter it turns now; the two never share a knob's cell by overlapping.
 - A section's title, plus its power toggle, must fit its content width.
 
 ## Sections

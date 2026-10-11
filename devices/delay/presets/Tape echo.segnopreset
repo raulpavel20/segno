@@ -1,0 +1,41 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Warm",
+    "Vocals"
+  ],
+  "description": "Three-sixteenth repeats that darken and waver like tape.",
+  "author": "Segno",
+  "state": {
+    "device": "delay",
+    "extra": {},
+    "params": {
+      "div.left": 9.0,
+      "div.right": 9.0,
+      "drive": 35.0,
+      "duck": 0.0,
+      "duck.release": 300.0,
+      "feedback": 50.0,
+      "filter": 1.0,
+      "filter.high": 4000.0,
+      "filter.low": 150.0,
+      "freeze": 0.0,
+      "link": 1.0,
+      "mix": 30.0,
+      "mod.filter": 0.0,
+      "mod.rate": 0.5,
+      "mod.shape": 0.0,
+      "mod.time": 0.0,
+      "mode": 1.0,
+      "output": 0.0,
+      "stereo": 0.0,
+      "swing": 0.0,
+      "sync": 1.0,
+      "time.left": 375.0,
+      "time.right": 375.0,
+      "transition": 0.0,
+      "wobble": 35.0
+    },
+    "stateVersion": 1
+  }
+}

@@ -9,7 +9,7 @@
 
 See [roadmap.md](../roadmap.md) and the device specs in `devices/*/SPEC.md`.
 
-**Status:** ◐ plan approved by the product owner (2026-10-11), with every recommendation under "For review" (CLAP hosting moved to M4). A1 (presets) and B11 (factory presets, all but the Sampler's) built and signed off the same day. C1 (Settings) built and signed off the same day. C2 (the browser, [browser.md](../design/browser.md), ADR 0046) built and signed off 2026-10-12. A2 (the modulation core) built 2026-10-12; next, B1 Delay's SPEC.
+**Status:** ◐ plan approved by the product owner (2026-10-11), with every recommendation under "For review" (CLAP hosting moved to M4). A1 (presets) and B11 (factory presets, all but the Sampler's) built and signed off the same day. C1 (Settings) built and signed off the same day. C2 (the browser, [browser.md](../design/browser.md), ADR 0046) built and signed off 2026-10-12. A2 (the modulation core) built 2026-10-12. B1 (the Delay) built 2026-10-12, with its 15 factory presets: waiting for the product owner's sign-off by ear and by feel.
 
 ## Steps
 
@@ -28,7 +28,7 @@ Each: SPEC approved → built → validators → sign-off by ear and feel, with 
 
 | # | Device | Notes |
 |---|---|---|
-| B1 | **Delay** | Live's Delay and Echo in one: clean and character modes (tape, analog-style), ping-pong, a filter in the feedback path, modulation, ducking, freeze, sync and swing. On A2. ◐ [SPEC](../../devices/delay/SPEC.md) approved (2026-10-12, every recommendation of D1–D10); building |
+| B1 | **Delay** | Live's Delay and Echo in one: clean and character modes (tape, analog-style), ping-pong, a filter in the feedback path, modulation, ducking, freeze, sync and swing. On A2. ◐ [SPEC](../../devices/delay/SPEC.md) approved (2026-10-12, every recommendation of D1–D10); built 2026-10-12 with 15 factory presets (what building settled is in the SPEC); waiting for sign-off |
 | B2 | **Chorus & Ensemble** | Chorus, ensemble, vibrato. On A2 |
 | B3 | **Phaser & Flanger** | Phaser, flanger, doubler; sync; an envelope follower. On A2 and the dynamics detector |
 | B4 | **Auto Pan & Tremolo** | LFO panning and tremolo, sync, shapes. On A2's LFOs |

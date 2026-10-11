@@ -21,10 +21,18 @@ class ParamKnob final : public Knob, public ParamControl
 public:
     ParamKnob(DeviceUiContext& context, size_t paramIndex);
     void refresh() override;
+    /// Turns another parameter from now on: its name, value text, default, steps and automation.
+    void bind(size_t paramIndex);
+    /// Turns whichever parameter `which` names, checked on every refresh: one knob for two
+    /// parameters a switch chooses between (the Delay's time: milliseconds, or note values while
+    /// Sync is on).
+    void follow(std::function<size_t()> which);
+    [[nodiscard]] size_t param() const noexcept { return index_; }
 
 private:
     DeviceUiContext& context_;
     size_t index_;
+    std::function<size_t()> which_;
 };
 
 /// Toggle bound to a Toggle-kind parameter.

@@ -1,0 +1,41 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Pad",
+    "FX"
+  ],
+  "description": "Slow modulation on long repeats for pads.",
+  "author": "Segno",
+  "state": {
+    "device": "delay",
+    "extra": {},
+    "params": {
+      "div.left": 13.0,
+      "div.right": 13.0,
+      "drive": 0.0,
+      "duck": 0.0,
+      "duck.release": 300.0,
+      "feedback": 65.0,
+      "filter": 1.0,
+      "filter.high": 7000.0,
+      "filter.low": 250.0,
+      "freeze": 0.0,
+      "link": 1.0,
+      "mix": 35.0,
+      "mod.filter": 30.0,
+      "mod.rate": 0.2,
+      "mod.shape": 2.0,
+      "mod.time": 60.0,
+      "mode": 0.0,
+      "output": 0.0,
+      "stereo": 1.0,
+      "swing": 0.0,
+      "sync": 1.0,
+      "time.left": 375.0,
+      "time.right": 375.0,
+      "transition": 0.0,
+      "wobble": 0.0
+    },
+    "stateVersion": 1
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Wide",
+    "Subtle"
+  ],
+  "description": "Two short delays, a different one on each side, without repeats: a doubled, wider sound.",
+  "author": "Segno",
+  "state": {
+    "device": "delay",
+    "extra": {},
+    "params": {
+      "div.left": 9.0,
+      "div.right": 9.0,
+      "drive": 0.0,
+      "duck": 0.0,
+      "duck.release": 300.0,
+      "feedback": 0.0,
+      "filter": 0.0,
+      "filter.high": 6000.0,
+      "filter.low": 120.0,
+      "freeze": 0.0,
+      "link": 0.0,
+      "mix": 30.0,
+      "mod.filter": 0.0,
+      "mod.rate": 0.8,
+      "mod.shape": 0.0,
+      "mod.time": 40.0,
+      "mode": 0.0,
+      "output": 0.0,
+      "stereo": 0.0,
+      "swing": 0.0,
+      "sync": 0.0,
+      "time.left": 13.0,
+      "time.right": 21.0,
+      "transition": 0.0,
+      "wobble": 0.0
+    },
+    "stateVersion": 1
+  }
+}

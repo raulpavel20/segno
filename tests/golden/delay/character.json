@@ -1,0 +1,90 @@
+{
+  "analog.drive60.repeat1_db": {
+    "tol": 0.05,
+    "value": -10.791812469378854
+  },
+  "analog.drive60.repeat2_db": {
+    "tol": 0.05,
+    "value": -16.219355353180873
+  },
+  "analog.drive60.repeat3_db": {
+    "tol": 0.05,
+    "value": -20.21865854044416
+  },
+  "analog.drive60.repeat4_db": {
+    "tol": 0.05,
+    "value": -23.7249204878001
+  },
+  "analog.pass_1000hz_db": {
+    "tol": 0.05,
+    "value": -0.009455515358622334
+  },
+  "analog.pass_100hz_db": {
+    "tol": 0.05,
+    "value": -1.244177247607778e-06
+  },
+  "analog.pass_8000hz_db": {
+    "tol": 0.05,
+    "value": -11.498965353947108
+  },
+  "clean.drive60.repeat1_db": {
+    "tol": 0.05,
+    "value": -10.791812469378854
+  },
+  "clean.drive60.repeat2_db": {
+    "tol": 0.05,
+    "value": -15.464336784444207
+  },
+  "clean.drive60.repeat3_db": {
+    "tol": 0.05,
+    "value": -19.18333431105853
+  },
+  "clean.drive60.repeat4_db": {
+    "tol": 0.05,
+    "value": -22.562917012107576
+  },
+  "clean.pass_1000hz_db": {
+    "tol": 0.05,
+    "value": 0.0
+  },
+  "clean.pass_100hz_db": {
+    "tol": 0.05,
+    "value": 0.0
+  },
+  "clean.pass_8000hz_db": {
+    "tol": 0.05,
+    "value": 0.0
+  },
+  "tape.drive60.repeat1_db": {
+    "tol": 0.05,
+    "value": -10.791812469378854
+  },
+  "tape.drive60.repeat2_db": {
+    "tol": 0.05,
+    "value": -17.079204010553045
+  },
+  "tape.drive60.repeat3_db": {
+    "tol": 0.05,
+    "value": -22.098894964168245
+  },
+  "tape.drive60.repeat4_db": {
+    "tol": 0.05,
+    "value": -26.398796758629274
+  },
+  "tape.pass_1000hz_db": {
+    "tol": 0.05,
+    "value": -0.00030300318139819186
+  },
+  "tape.pass_100hz_db": {
+    "tol": 0.05,
+    "value": 0.49999941896801736
+  },
+  "tape.pass_8000hz_db": {
+    "tol": 0.05,
+    "value": -1.924074235874543
+  },
+  "wobble100.max_pitch_dev_pct": {
+    "tol": 0.05,
+    "value": 1.26953125
+  }
+}

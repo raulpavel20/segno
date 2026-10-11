@@ -1,0 +1,40 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Subtle"
+  ],
+  "description": "A few quick, soft repeats that read as a small room.",
+  "author": "Segno",
+  "state": {
+    "device": "delay",
+    "extra": {},
+    "params": {
+      "div.left": 9.0,
+      "div.right": 9.0,
+      "drive": 0.0,
+      "duck": 0.0,
+      "duck.release": 300.0,
+      "feedback": 35.0,
+      "filter": 1.0,
+      "filter.high": 4500.0,
+      "filter.low": 200.0,
+      "freeze": 0.0,
+      "link": 0.0,
+      "mix": 20.0,
+      "mod.filter": 0.0,
+      "mod.rate": 0.5,
+      "mod.shape": 0.0,
+      "mod.time": 20.0,
+      "mode": 0.0,
+      "output": 0.0,
+      "stereo": 0.0,
+      "swing": 0.0,
+      "sync": 0.0,
+      "time.left": 23.0,
+      "time.right": 31.0,
+      "transition": 0.0,
+      "wobble": 0.0
+    },
+    "stateVersion": 1
+  }
+}

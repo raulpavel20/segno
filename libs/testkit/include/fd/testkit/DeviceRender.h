@@ -34,6 +34,9 @@ struct RenderOptions
     bool skipPrepare = false;
     /// A sidechain signal (a key), for devices with a sidechain bus; none when null.
     const AudioBuffer* sidechain = nullptr;
+    /// The song's tempo and time signature the device sees (samplePosition and playing are set
+    /// per block).
+    TransportInfo transport{};
 };
 
 /// Offline render through Device::process (via fd::processRealtime). Prepares the device first

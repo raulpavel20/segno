@@ -1,0 +1,227 @@
+{
+ "device": "delay",
+ "author": "Segno",
+ "presets": [
+  {
+   "name": "Slapback",
+   "tags": ["Vocals", "Guitar"],
+   "description": "One short tape echo, about 90 ms, for a vintage voice or guitar.",
+   "params": {
+    "mode": "Tape",
+    "sync": false,
+    "time.left": 90,
+    "feedback": 8,
+    "filter.low": 150,
+    "filter.high": 5000,
+    "drive": 20,
+    "wobble": 15,
+    "mix": 25
+   }
+  },
+  {
+   "name": "Quarter echo",
+   "tags": ["Clean"],
+   "description": "A plain echo on each beat, fading over a few repeats.",
+   "params": {
+    "div.left": "1/4",
+    "div.right": "1/4",
+    "feedback": 40,
+    "filter.high": 8000,
+    "mix": 30
+   }
+  },
+  {
+   "name": "Dotted eighth",
+   "tags": ["Guitar", "Lead"],
+   "description": "The dotted-eighth echo that fills the gaps between notes.",
+   "params": {
+    "feedback": 45,
+    "filter.low": 200,
+    "filter.high": 5000,
+    "mix": 30
+   }
+  },
+  {
+   "name": "Ping-pong eighths",
+   "tags": ["Wide"],
+   "description": "Eighth notes bouncing between the sides.",
+   "params": {
+    "stereo": "Ping-pong",
+    "div.left": "1/8",
+    "div.right": "1/8",
+    "feedback": 45,
+    "mix": 30
+   }
+  },
+  {
+   "name": "Swung ping-pong",
+   "tags": ["Wide", "Drums"],
+   "description": "Ping-pong with the right side swung.",
+   "params": {
+    "stereo": "Ping-pong",
+    "div.left": "1/8",
+    "div.right": "1/8",
+    "swing": 25,
+    "feedback": 40,
+    "filter.low": 250,
+    "filter.high": 7000,
+    "mix": 25
+   }
+  },
+  {
+   "name": "Tape echo",
+   "tags": ["Warm", "Vocals"],
+   "description": "Three-sixteenth repeats that darken and waver like tape.",
+   "params": {
+    "mode": "Tape",
+    "feedback": 50,
+    "filter.low": 150,
+    "filter.high": 4000,
+    "drive": 35,
+    "wobble": 35,
+    "mix": 30
+   }
+  },
+  {
+   "name": "Analog bucket",
+   "tags": ["Warm", "Dirty"],
+   "description": "Dark, soft repeats from a small analog delay.",
+   "params": {
+    "mode": "Analog",
+    "sync": false,
+    "time.left": 300,
+    "time.right": 300,
+    "feedback": 55,
+    "filter.low": 100,
+    "filter.high": 3500,
+    "drive": 50,
+    "wobble": 10,
+    "mix": 30
+   }
+  },
+  {
+   "name": "Dub space",
+   "tags": ["FX", "Heavy"],
+   "description": "Long feedback, thinning and darkening, with wobble: the dub throw.",
+   "params": {
+    "mode": "Tape",
+    "div.left": "1/4D",
+    "div.right": "1/4D",
+    "feedback": 75,
+    "filter.low": 300,
+    "filter.high": 2500,
+    "drive": 40,
+    "wobble": 40,
+    "mix": 40
+   }
+  },
+  {
+   "name": "Vocal throw",
+   "tags": ["Vocals", "Ducking"],
+   "description": "Echoes that wait for the singer to stop.",
+   "params": {
+    "div.left": "1/4",
+    "div.right": "1/4",
+    "feedback": 50,
+    "filter.low": 250,
+    "filter.high": 5000,
+    "duck": 80,
+    "duck.release": 400,
+    "mix": 35
+   }
+  },
+  {
+   "name": "Wide double",
+   "tags": ["Wide", "Subtle"],
+   "description": "Two short delays, a different one on each side, without repeats: a doubled, wider sound.",
+   "params": {
+    "sync": false,
+    "link": false,
+    "time.left": 13,
+    "time.right": 21,
+    "feedback": 0,
+    "filter": false,
+    "mod.rate": 0.8,
+    "mod.time": 40,
+    "mix": 30
+   }
+  },
+  {
+   "name": "Mid-side space",
+   "tags": ["Wide"],
+   "description": "On stereo sources, the centre echoes on the beat and the sides on the dotted beat: a wide, moving space.",
+   "params": {
+    "stereo": "Mid-side",
+    "link": false,
+    "div.left": "1/4",
+    "div.right": "1/4D",
+    "feedback": 45,
+    "filter.low": 200,
+    "mix": 30
+   }
+  },
+  {
+   "name": "Shimmer drift",
+   "tags": ["Pad", "FX"],
+   "description": "Slow modulation on long repeats for pads.",
+   "params": {
+    "stereo": "Ping-pong",
+    "div.left": "1/2",
+    "div.right": "1/2",
+    "feedback": 65,
+    "filter.low": 250,
+    "filter.high": 7000,
+    "mod.shape": "Drift",
+    "mod.rate": 0.2,
+    "mod.time": 60,
+    "mod.filter": 30,
+    "mix": 35
+   }
+  },
+  {
+   "name": "Telephone repeats",
+   "tags": ["FX"],
+   "description": "Narrow, filtered echoes, like through a phone.",
+   "params": {
+    "mode": "Analog",
+    "div.left": "1/8",
+    "div.right": "1/8",
+    "feedback": 50,
+    "filter.low": 800,
+    "filter.high": 2500,
+    "drive": 40,
+    "mix": 35
+   }
+  },
+  {
+   "name": "Build to infinity",
+   "tags": ["FX"],
+   "description": "Feedback near the top; freeze it to hold the last bar.",
+   "params": {
+    "div.left": "1/4",
+    "div.right": "1/4",
+    "feedback": 92,
+    "filter.low": 200,
+    "filter.high": 5000,
+    "drive": 30,
+    "mix": 35
+   }
+  },
+  {
+   "name": "Short room",
+   "tags": ["Subtle"],
+   "description": "A few quick, soft repeats that read as a small room.",
+   "params": {
+    "sync": false,
+    "link": false,
+    "time.left": 23,
+    "time.right": 31,
+    "feedback": 35,
+    "filter.low": 200,
+    "filter.high": 4500,
+    "mod.time": 20,
+    "mix": 20
+   }
+  }
+ ]
+}

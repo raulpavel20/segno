@@ -1,6 +1,6 @@
 # Delay: device spec
 
-- **Status:** Approved by the product owner (2026-10-12, with every recommendation of D1–D10); IDs are permanent
+- **Status:** Approved by the product owner (2026-10-12, with every recommendation of D1–D10); IDs are permanent. Built (B1, 2026-10-12): what building settled is under "Settled while building"
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1, M3 (B1)
 - **Live target:** Delay and Echo, in one module. References only; nothing is copied ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
@@ -30,7 +30,7 @@ None in sound or features: the aim is Delay and Echo together. Two things in how
 | `sync` | Sync | Times in note values, following the song's tempo, instead of milliseconds. | Off / On | On | toggle | – | as a time change (`transition`) | Yes |
 | `time.left` | Left | How long before the left side echoes, in milliseconds. | 1 … 5 000 | 375 | ms | centre 250 ms | as `transition` says | Yes |
 | `time.right` | Right | How long before the right side echoes, in milliseconds. | 1 … 5 000 | 375 | ms | centre 250 ms | as `transition` says | Yes |
-| `div.left` | Left Sync | The left side's time as a note value, while Sync is on. | 1/64, 1/32T, 1/32, 1/16T, 1/16, 1/16D, 1/8T, 1/8, 1/8D, 1/4T, 1/4, 1/4D, 1/2T, 1/2, 1/2D, 1, 2 bars | 1/8D | choice | – | as `transition` says | Yes |
+| `div.left` | Left Sync | The left side's time as a note value, while Sync is on. | 1/64, 1/32T, 1/32, 1/16T, 1/16, 1/8T, 1/16D, 1/8, 1/4T, 1/8D, 1/4, 1/2T, 1/4D, 1/2, 1/2D, 1 bar, 2 bars | 1/8D | choice | – | as `transition` says | Yes |
 | `div.right` | Right Sync | The right side's time as a note value, while Sync is on. | as Left Sync | 1/8D | choice | – | as `transition` says | Yes |
 | `link` | Link | The right side takes the left side's time. | Off / On | On | toggle | – | – | Yes |
 | `swing` | Swing | Moves the right side's synced time off the grid by a share of itself, for a swung, looser feel. | −33 … +33 | 0 | % | linear | as `transition` says | Yes |
@@ -42,7 +42,7 @@ None in sound or features: the aim is Delay and Echo together. Two things in how
 | `filter.high` | High Cut | Above this, each repeat darkens. | 500 … 20 000 | 6 000 | Hz | centre 4 kHz | 20 ms multiplicative | Yes |
 | `drive` | Drive | Saturates what feeds back, as the mode does: repeats thicken and stay bounded at any feedback. | 0 … 100 | 0 | % | linear | 20 ms | Yes |
 | `wobble` | Wobble | Slow and quick wavers in the echoes' time, like tape or a worn machine. | 0 … 100 | 0 | % | linear | 20 ms | Yes |
-| `mod.shape` | Mod Shape | The modulation's wave. | Sine, Triangle, Random | Sine | choice | – | – | Yes |
+| `mod.shape` | Mod Shape | The modulation's wave. | Sine, Triangle, Drift | Sine | choice | – | – | Yes |
 | `mod.rate` | Mod Rate | How fast the modulation moves. | 0.01 … 10 | 0.5 | Hz | centre 0.5 Hz | 20 ms multiplicative | Yes |
 | `mod.time` | Mod Time | How far the modulation moves the echoes' time: a chorus-like shimmer. | 0 … 100 | 0 | % | linear | 20 ms | Yes |
 | `mod.filter` | Mod Filter | How far the modulation sweeps the feedback filter. | 0 … 100 | 0 | % | linear | 20 ms | Yes |
@@ -70,7 +70,7 @@ in ─┬─> [mid-side: encode] ─> + ─────────────>
 ```
 
 - **The delay lines** are the modulation core's `ModulatedDelay` (M3 A2): read anywhere between samples, while moving, with no zipper or dulling. Up to 10 s each side.
-- **Times:** milliseconds, or note values at the song's tempo (`TransportInfo`), Swing on the right. Computed by a pure function, `delayTimes(params, tempo)`, that the repeats display calls too.
+- **Times:** milliseconds, or note values at the song's tempo (`TransportInfo`), Swing on the right. Computed by a pure function, `Delay::times`, that the repeats display calls too.
 - **Time changes (`transition`):**
   - **Repitch:** the read position glides to the new time (a one-pole glide of about 100 ms), so pitch bends like tape;
   - **Fade:** a second read position starts at the new time and the two crossfade over 50 ms.
@@ -81,11 +81,11 @@ in ─┬─> [mid-side: encode] ─> + ─────────────>
 - **The feedback path** is the core's `FeedbackPath`: Low Cut and High Cut (12 dB/oct each), then saturation as the mode says, bounded at any feedback:
   - **Clean:** the filter as set; Drive a soft clip;
   - **Tape:** the filter, then a gentle high-frequency loss and head bump on each pass (a low shelf +1 dB at 100 Hz, a high cut at 9 kHz), Drive the tape curve;
-  - **Analog:** darker (a fixed high cut at 4.5 kHz before the filter), Drive a softer, earlier clip, and a faint noise floor at −90 dBFS in the loop.
+  - **Analog:** darker (a fixed high cut at 4.5 kHz before the filter), Drive a softer, earlier clip.
 - **Wobble:** the core's LFOs on the read position: wow (wander at about 0.6 Hz) and flutter (sine at about 6 Hz, one tenth as deep), up to ±0.6 % of the time at 100 %.
 - **Modulation:** a `ModulationLfo` with a quarter cycle between the sides; Mod Time moves the time up to ±2 % (at most ±5 ms), Mod Filter moves both cutoffs up to ±1.5 octaves.
 - **Freeze:** the input stops entering the loop, feedback becomes 100 %, and the loop's filter and saturation are bypassed, so what's held repeats unchanged; turning it off lets the echoes decay as before.
-- **Ducking:** the dynamics core's peak detector on the input, attack 5 ms and Duck Release; the wet signal dips by up to 30 dB (Ducking at 100 %) while the input is above −40 dBFS, scaled by how far above.
+- **Ducking:** the dynamics core's peak detector on the input, attack 5 ms and Duck Release; the wet signal dips by up to 30 dB (Ducking at 100 %) while the input is above −40 dBFS, scaled by how far above. The detector falls linearly in dB, so from full ducking the echoes are back after Duck Release.
 - **Mix:** equal gain (dry and wet each at their share), so 50 % is half of each.
 - **Latency:** none. **Tail:** reported as the time the echoes take to fall 60 dB at the current feedback, at most 60 s (Freeze: 60 s).
 - Parameters are read on control ticks (every 32 samples) and smoothed per sample, as in the other modules.
@@ -98,9 +98,9 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 | Section | Controls |
 |---|---|
 | `time` TIME [5] | Repeats display (0, 0, 5 × 3) · Left (0, 3) · Right (1, 3) · Swing (2, 3) · Sync toggle (3, 3, 2 wide) · Link toggle (3, 4, 2 wide) · Stereo [Stereo \| Ping-pong \| Mid-side] (3, 5, 2 wide) |
-| `feedback` FEEDBACK [3] | Feedback (0, 0) · Drive (1, 0) · Wobble (2, 0) · Mode [Clean \| Tape \| Analog] (0, 3, 3 wide) · Freeze toggle (0, 4, 3 wide) |
+| `feedback` FEEDBACK [3] | Feedback, named Amount (0, 0) · Drive (1, 0) · Wobble (2, 0) · Mode [Clean \| Tape \| Analog] (0, 3, 3 wide) · Freeze toggle (0, 4, 3 wide) |
 | `filter` FILTER [2], power = Filter | Curve display (0, 0, 2 × 3) · Low Cut (0, 3) · High Cut (1, 3) |
-| `modulation` MODULATION [3] | Rate (0, 0) · Time (1, 0) · Filter (2, 0) · Shape [Sine \| Triangle \| Random] (0, 3, 3 wide) |
+| `modulation` MODULATION [3] | Rate (0, 0) · Time (1, 0) · Filter (2, 0) · Shape [Sine \| Triangle \| Drift] (0, 3, 3 wide) |
 | `ducking` DUCKING [1] | Ducking (0, 0) · Release (0, 3) |
 | `output` OUTPUT [1] | Dry/Wet (0, 0) · Output (0, 3) |
 | meter strip | In and out |
@@ -109,7 +109,7 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 - **Repeats display:** the next four seconds (or eight repeats, whichever is longer), the beat grid when synced; a bar for each repeat, left above the line and right below, its height its level (feedback, ping-pong and the filter's loss at 1 kHz). Drag a side's first bar left or right to change its time; with Sync on, it snaps to the note values. Shift drags finely.
 - **Filter curve:** 20 Hz–20 kHz, the response one pass through the filter makes, from `FeedbackPath::magnitude`; drag the low or high edge to move that cutoff.
 - **Synced times:** while Sync is on, the Left and Right knobs step through the note values (Left Sync, Right Sync) and read them ("1/8D"); off, they turn in milliseconds.
-- **Dimming:** Right dims while Link is on (Swing stays live: it still moves the right side); the FILTER section dims while Filter is off; Drive and Wobble work in every mode.
+- **Dimming:** Right dims while Link is on (Swing stays live: it still moves the right side); Swing dims while Sync is off (it moves only synced times); the FILTER section dims while Filter is off; Drive and Wobble work in every mode.
 - About 940 px wide (15 columns and the meter strip).
 
 ## Factory presets
@@ -125,8 +125,8 @@ Built and named by Claude after approval ([presets.md](../../docs/design/presets
 - **Analog bucket** (Warm, Dirty): Dark, soft repeats from a small analog delay.
 - **Dub space** (FX, Heavy): Long feedback, thinning and darkening, with wobble: the dub throw.
 - **Vocal throw** (Vocals, Ducking): Echoes that wait for the singer to stop.
-- **Wide double** (Wide, Subtle): A short delay on one side only, for width, without repeats.
-- **Mid-side space** (Wide): Echoes on the sides, the centre left dry.
+- **Wide double** (Wide, Subtle): Two short delays, a different one on each side, without repeats: a doubled, wider sound.
+- **Mid-side space** (Wide): On stereo sources, the centre echoes on the beat and the sides on the dotted beat: a wide, moving space.
 - **Shimmer drift** (Pad, FX): Slow modulation on long repeats for pads.
 - **Telephone repeats** (FX): Narrow, filtered echoes, like through a phone.
 - **Build to infinity** (FX): Feedback near the top; freeze it to hold the last bar.
@@ -139,10 +139,10 @@ Built and named by Claude after approval ([presets.md](../../docs/design/presets
 | Delay times, ms and synced at 60, 120 and 174 BPM, Swing ±33 % | Impulse arrives at the exact sample (Clean, Filter off) |
 | Repeat levels, Clean, Filter off, Drive 0 | Each repeat the feedback times the last, within 0.05 dB |
 | Filter in the loop | Each repeat's spectrum the last times `FeedbackPath::magnitude`, within 0.2 dB (100 Hz–10 kHz) |
-| Ping-pong | An impulse in the left only: repeats alternate right, left, right… |
+| Ping-pong | An impulse in the left only: repeats alternate left, right, left… (the input enters the left line) |
 | Mid-side | A mono input: echoes in the mid only, with Right's time not heard |
 | Freeze | A held loop keeps its level within 0.5 dB over 30 s, and takes no new input |
-| Feedback 100 % with Drive 100 % | Bounded below 0 dBFS (+6 dB headroom inside) |
+| Feedback 100 % with Drive 100 % | A 0 dBFS input: the echoes stay within +6 dBFS and don't grow, in every mode |
 | Repitch and Fade time changes | No clicks (the conformance click score); Repitch glides, Fade crossfades |
 | Ducking 100 % | Wet at least 25 dB down while the input plays at −10 dBFS; back within Duck Release of the input stopping |
 | Mix 0 % | Null against the input (< −120 dBFS) |
@@ -172,10 +172,26 @@ Deferred until a Live machine is available.
 | D9 | **Left out for now** | Echo's reverb (the Reverb module follows), gate, envelope follower and noise control; tap tempo |
 | D10 | **IDs** | Device `delay`, plugin code `Fdly`, CLAP `org.segnoaudio.delay`; section IDs as above |
 
+## Settled while building (B1, 2026-10-12)
+
+- **The note values run from the shortest to the longest** (1/8T before 1/16D, 1/4T before 1/8D, 1/2T before 1/4D), so turning the knob always lengthens the time. Choices are stored by index, and nothing had been saved yet.
+- **The Feedback knob reads "Amount"** under its section's title (the knob's name has 46 px), and the smooth random shape is named **Drift**, for what it does ("Random" didn't fit its segment). Display names only; the IDs stand.
+- **Stereo is a dropdown,** not a segmented control: three names don't fit two columns.
+- **Analog has no noise floor:** noise in the loop would break "silence in, silence out" (the conformance suite) and play forever at high feedback. Analog's character is its darker tone and softer clip.
+- **Bounded:** with full feedback and full drive, the loop's saturation holds each pass under the input's level. A 0 dBFS input stays within +6 dBFS and doesn't grow. "Below 0 dBFS" was too strict: a 0 dBFS input plus its echoes passes 0 dBFS at any feedback.
+- **Duck Release is a recovery time:** the detector falls linearly in dB, so from full ducking (the input at −10 dBFS or above) the echoes are fully back after Duck Release, as the tests check. A plain time constant took about 3.5 times as long.
+- **The first block after a reset starts at the song's tempo** instead of gliding there from 120 BPM, so the first echo of a song at another tempo isn't bent.
+- **Ping-pong's first echo is on the left:** the input's mono sum enters the left line, as the DSP design says; the test target now says the same.
+- **Two presets changed with the design:**
+  - **Wide double** has a different short delay on each side: an echo on one side only, mixed with the dry signal, combs that side.
+  - **Mid-side space** echoes the centre and the sides at different times: the mid always echoes, so the centre can't be left dry.
+- **The time knobs change parameters with Sync:** Left and Right turn `time.*` in milliseconds or `div.*` in note values, through `ParamKnob::follow` (device-panels.md). Automation and the host see the parameter that plays.
+- **The repeats display** labels its lanes (L and R, or M and S) in a gutter at the left, and its horizon is fixed while you drag, so the bar stays under the pointer. Without a song (the snapshots, the gallery) it draws at 120 BPM in 4/4. The device publishes the tempo it follows on the analysis bus for the display.
+
 ## Sign-off
 
-- [ ] Automated: unit, conformance and golden tests; validators
-- [ ] Layout lint passes (`fd_panel_tests`)
-- [ ] Snapshots reviewed (100% / 200%; expanded, collapsed, folded)
+- [x] Automated: unit, conformance and golden tests; validators (pluginval at strictness 10 and clap-validator pass; 2026-10-12)
+- [x] Layout lint passes (`fd_panel_tests`)
+- [x] Snapshots reviewed (100% / 200%; expanded, collapsed, folded)
 - [ ] Sound signed off by the product owner (date):
 - [ ] Feel signed off by the product owner (date):

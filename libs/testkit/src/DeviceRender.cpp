@@ -81,6 +81,7 @@ AudioBuffer render(Device& device, const AudioBuffer& input, const RenderOptions
         ctx.sidechain = {keyPtrs.data(), keyChannels};
         ctx.events = &events;
         ctx.numSamples = n;
+        ctx.transport = options.transport;
         ctx.transport.samplePosition = pos;
         ctx.transport.playing = true;
 

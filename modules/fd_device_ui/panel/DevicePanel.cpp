@@ -310,10 +310,13 @@ int DevicePanel::headerMinimumWidth() const
         w += kFoldButton + 4;
     if (onEnabledChange)
         w += kPower + 6;
-    w += juce::GlyphArrangement::getStringWidth(nameFont(), juce::String(std::string(context_.info.name)));
+    // Text widths rounded up, as resized() lays them out: a name short by a fraction is cut.
+    w += std::ceil(
+        juce::GlyphArrangement::getStringWidth(nameFont(), juce::String(std::string(context_.info.name))));
     for (size_t i = 0; i < headerControls_.size(); ++i)
         w += static_cast<float>(settingWidth(*headerControls_[i]) + kSettingsGap) +
-             juce::GlyphArrangement::getStringWidth(captionFont(), headerCaptions_[i]) + kCaptionGap;
+             std::ceil(juce::GlyphArrangement::getStringWidth(captionFont(), headerCaptions_[i])) +
+             kCaptionGap;
     if (presetBar_ != nullptr)
         w += static_cast<float>(presetBar_->minimumWidth() + kSettingsGap);
     return roundUpToGrid(w);

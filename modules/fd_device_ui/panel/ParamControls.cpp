@@ -38,6 +38,12 @@ void showParamMenu(DeviceUiContext& context, size_t index, juce::Component& cont
 
 ParamKnob::ParamKnob(DeviceUiContext& context, size_t paramIndex) : context_(context), index_(paramIndex)
 {
+    bind(paramIndex);
+}
+
+void ParamKnob::bind(size_t paramIndex)
+{
+    index_ = paramIndex;
     const ParamSpec& spec = context_.info.params[index_];
     setName(juce::String(std::string(spec.shortName.empty() ? spec.name : spec.shortName)));
     setTooltip(tooltipFor(spec));
@@ -60,10 +66,22 @@ ParamKnob::ParamKnob(DeviceUiContext& context, size_t paramIndex) : context_(con
     onGestureEnd = [this] { context_.params.endGesture(index_); };
     onPopupMenu = [this] { showParamMenu(context_, index_, *this); };
     refresh();
+    repaint(); // the name and value text, where the value hasn't moved
+}
+
+void ParamKnob::follow(std::function<size_t()> which)
+{
+    which_ = std::move(which);
+    refresh();
 }
 
 void ParamKnob::refresh()
 {
+    if (const size_t now = which_ ? which_() : index_; now != index_)
+    {
+        bind(now); // which refreshes
+        return;
+    }
     const ParamSpec& spec = context_.info.params[index_];
     setValue(spec.toNormalized(context_.params.getPlain(index_)), juce::dontSendNotification);
     setAutomationState(context_.params.automationState(index_));
