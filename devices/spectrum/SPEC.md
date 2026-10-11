@@ -1,6 +1,6 @@
 # Spectrum: device spec
 
-- **Status:** Approved (product owner, 2026-10-11), with the extensions (compare, snapshot, reference, side overlay, peak labels; a spectrogram in stage 2) and the defaults under "For review". IDs are permanent. Built (B4, 2026-10-11): what building settled is under "Settled while building"; awaiting the product owner's feel check.
+- **Status:** Approved (product owner, 2026-10-11), with the extensions (compare, snapshot, reference, side overlay, peak labels; a spectrogram in stage 2) and the defaults under "For review". IDs are permanent. Built (B4, 2026-10-11): what building settled is under "Settled while building". Done: signed off by the product owner (2026-10-11).
 - **Type:** Audio effect (analysis only; audio passes unchanged)
 - **Tier / milestone:** Tier 1, M2 (core) → M3 (stage 2)
 - **Live target:** Spectrum. References only ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
@@ -185,5 +185,5 @@ Approved as drafted (product owner, 2026-10-11):
 - [x] Automated: unit, conformance and golden tests; validators (pluginval at strictness 10 and clap-validator pass; 2026-10-11). The audio is the input, so the null test stands in for a golden file
 - [x] Layout lint passes (`fd_panel_tests`)
 - [x] Snapshots reviewed (100% / 200%; expanded, collapsed, folded; and with sound, a compared track, a snapshot and a reference)
-- [ ] Sound signed off by the product owner (date): (audio passes unchanged; the null test covers it)
-- [ ] Feel signed off by the product owner (date):
+- [x] Sound signed off by the product owner (2026-10-11): the audio passes unchanged; the null test covers it
+- [x] Feel signed off by the product owner (2026-10-11)
