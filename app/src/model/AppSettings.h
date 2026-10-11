@@ -86,6 +86,18 @@ struct AppSettings
     /// writes them; empty: none). Actions not here keep their defaults.
     std::map<std::string, std::vector<std::string>> keys;
 
+    /// The browser (ADR 0046): the places you added, what you starred besides presets (whose stars
+    /// are the preset library's), whether selecting plays, the previews' volume, open folders.
+    struct Browser
+    {
+        std::vector<std::string> places;
+        std::vector<std::string> favourites; // browser item ids ("file:<path>", "module:fd:eq")
+        bool preview = true;
+        double previewVolume = -6.0;   // dB, -60 to +6
+        std::vector<std::string> open; // the tree's open rows
+        bool operator==(const Browser&) const = default;
+    } browser;
+
     struct Assistants
     {
         bool enabled = false;

@@ -267,6 +267,13 @@ Session::Impl::Impl(Session& o, te::Engine& e) : owner(o), engine(e)
     setRecordingFiles(engine, [this](te::Track& t, const juce::String& extension) {
         return edit != nullptr && &t.edit == edit.get() ? recordingFile(t, extension) : juce::File();
     });
+    // The browser's previews play after the engine's output (browser.md §7).
+    engine.getDeviceManager().deviceManager.addAudioCallback(&preview);
+    indexer.onChanged = [this]
+    {
+        if (owner.onBrowserIndexChanged)
+            owner.onBrowserIndexChanged();
+    };
     attach(newEdit());
 }
 
@@ -288,6 +295,9 @@ std::unique_ptr<te::Edit> Session::Impl::newEdit()
 void Session::Impl::attach(std::unique_ptr<te::Edit> e)
 {
     edit = std::move(e);
+    usedSources.clear(); // a new project's history
+    if (browserStarted)
+        updateBrowserPlaces(); // its folder is the Project place
     const int format = edit->state.getProperty(kFormatId, 0);
     if (format < 2)
     {
@@ -343,6 +353,9 @@ void Session::Impl::detach()
 
 Session::Impl::~Impl()
 {
+    engine.getDeviceManager().deviceManager.removeAudioCallback(&preview);
+    indexer.onChanged = nullptr;
+    midiPreview.stop(); // while the Edit is still here
     bounces.clear(); // nothing lands any more
     renders.clear(); // cancels them (their Edit copies go before the engine)
     engine.getDeviceManager().removeChangeListener(this);
@@ -498,6 +511,18 @@ void Session::Impl::rebuildSnapshot()
     devicesOf(edit->getMasterPluginList(), master);
     master.mix = mixOf(edit->getMasterPluginList());
     s->automationLanes = laneInfos();
+    // Every file a clip or take uses, kept while the project is open (Remove unused files).
+    for (const auto& t : s->tracks)
+    {
+        for (const auto& c : t.clips)
+            if (!c.sourcePath.empty())
+                usedSources.insert(c.sourcePath);
+        for (const auto& stack : t.stacks)
+            for (const auto& take : stack.takes)
+                for (const auto& c : take.clips)
+                    if (!c.sourcePath.empty())
+                        usedSources.insert(c.sourcePath);
+    }
     snapshot = std::move(s);
     if (owner.onSnapshotChanged)
         owner.onSnapshotChanged();
@@ -1630,9 +1655,12 @@ bool Session::saveAs(const juce::File& file)
     edit.flushState(); // device states (and our devices' extra state) into the tree
     if (!te::EditFileOperations(edit).writeToFile(file, false))
         return false;
+    const bool moved = impl_->file != file;
     impl_->file = file;
     edit.resetChangedStatus();
     impl_->dirty = false;
+    if (moved && impl_->browserStarted)
+        impl_->updateBrowserPlaces(); // the project's folder is a place
     return true;
 }
 

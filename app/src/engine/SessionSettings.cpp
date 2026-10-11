@@ -132,13 +132,24 @@ void applySettings(Session& session, const model::AppSettings& settings)
     // also honours SEGNO_PRESETS_FOLDER, the tests' own).
     const bool moved = !settings.library.folder.empty();
     const auto segno =
-        moved ? juce::File(juce::String::fromUTF8(settings.library.folder.c_str()))
-              : juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Segno");
+        moved ? juce::File(juce::String::fromUTF8(settings.library.folder.c_str())) : defaultSegnoFolder();
     session.setUnsavedRoot(segno.getChildFile("Unsaved"));
     const auto presets = moved ? segno.getChildFile("Presets") : ui::defaultPresetsFolder();
     if (presets.getFullPathName().toStdString() != session.presetLibrary().root().string())
         session.setPresetsFolder(presets);
     session.setPluginFolders(settings.plugins.folders);
     session.setExportDefaults(settings.exportDefaults);
+    // The browser (ADR 0046): its places and the previews' volume.
+    session.setSegnoFolder(segno);
+    session.setBrowserPlaces(settings.browser.places);
+    session.setPreviewVolume(static_cast<float>(settings.browser.previewVolume));
+}
+
+juce::File defaultSegnoFolder()
+{
+    if (const auto custom = juce::SystemStats::getEnvironmentVariable("SEGNO_PRESETS_FOLDER", {});
+        custom.isNotEmpty())
+        return juce::File(custom).getParentDirectory();
+    return juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Segno");
 }
 } // namespace fd::engine

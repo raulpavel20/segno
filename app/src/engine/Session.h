@@ -3,6 +3,7 @@
 #include "model/AppSettings.h"
 #include "model/AudioMeasure.h"
 #include "model/Bounce.h"
+#include "model/Browser.h"
 #include "model/Export.h"
 #include "model/Editing.h"
 #include "model/Snapshot.h"
@@ -13,6 +14,7 @@
 #include <array>
 #include <functional>
 #include <memory>
+#include <set>
 
 namespace tracktion::inline engine
 {
@@ -22,6 +24,8 @@ class Edit;
 
 namespace fd::engine
 {
+class PreviewPlayer;
+
 /// UI access to one of our devices in a chain (C6): the context its panel binds to. Edits go
 /// through the engine (automation and undo work). Keep it no longer than the panel.
 class DeviceHandle
@@ -613,6 +617,85 @@ public:
     /// it chose JACK.
     bool preferAudioServerOnFirstLaunch();
 
+    // ---- the browser (M3 C2, ADR 0046, docs/design/browser.md) -------------------------------
+
+    /// Where the browser's index of files is kept (none, as in tests: in memory).
+    void setBrowserIndexFile(const juce::File& file);
+    /// Your places (§9). The project's folder and the Segno folder are indexed besides them.
+    void setBrowserPlaces(const std::vector<std::string>& folders);
+    [[nodiscard]] std::vector<juce::File> browserPlaces() const;
+    /// The Segno folder (Settings > Library; Documents/Segno by default), with its Samples folder.
+    [[nodiscard]] juce::File segnoFolder() const;
+    void setSegnoFolder(const juce::File& folder);
+    /// The open project's folder, if it has one on disk.
+    [[nodiscard]] std::optional<juce::File> projectFolderOnDisk() const;
+    /// The files of every place, as indexed so far.
+    [[nodiscard]] const model::BrowserIndexFile& browserIndex() const;
+    [[nodiscard]] bool isIndexing() const;
+    /// Looks at the places again (or at the one holding `folder`).
+    void refreshBrowser(const juce::File& folder = {});
+    /// Called on the message thread when the index changed.
+    std::function<void()> onBrowserIndexChanged;
+    /// Waits for the index (tests).
+    void waitForBrowserIndex();
+    /// Everything the browser finds (§6): our modules, their presets (not Default settings),
+    /// plugins, and the indexed files and their folders. `favourites`: the ids starred besides
+    /// presets (whose stars are the preset library's).
+    [[nodiscard]] std::vector<model::BrowserItem> browserItems(const std::set<std::string>& favourites = {});
+
+    /// What a preview plays (§7).
+    struct Preview
+    {
+        double seconds = 0.0, sampleRate = 0.0;
+        int channels = 0;
+        double tempo = 0.0;  // the file's, if known
+        bool inTime = false; // a loop lined up with the song's bar, looping
+    };
+    /// Plays a sample: in time with the song if it's playing and the sample is a loop that fits
+    /// its tempo (a whole number of beats, two or more), else once at its own speed.
+    std::optional<Preview> previewFile(const juce::File& file);
+    /// Plays a short phrase with one of our instruments' presets.
+    bool previewPreset(const std::string& deviceId, const std::string& presetKey);
+    /// Plays a MIDI file on a track's instrument (0: the track live MIDI plays), as live MIDI at
+    /// the song's tempo; false if that track has no instrument or the file has no notes.
+    bool previewMidiFile(const juce::File& file, std::uint64_t trackId = 0);
+    void stopPreview();
+    [[nodiscard]] bool isPreviewing() const;
+    [[nodiscard]] double previewPosition() const;
+    [[nodiscard]] double previewLength() const;
+    void setPreviewVolume(float db);
+    /// The preview's output as the device gets it, after the engine's (tests).
+    [[nodiscard]] PreviewPlayer& previewPlayer();
+
+    /// Puts `key` in place of the track's instrument (the first, if it has one; else at the
+    /// start of its chain), one undo step "Replace Sampler with Subtractive Synth". Returns the
+    /// new module, 0 if it couldn't be made.
+    std::uint64_t replaceInstrument(std::uint64_t trackId, const std::string& key);
+    /// The track's instrument (its first), if it has one.
+    [[nodiscard]] std::optional<model::DeviceSlot> instrumentOf(std::uint64_t trackId) const;
+    /// Loads a sample into a Sampler (and sets its root key when the file names one), one undo
+    /// step; the sample's length, or nullopt if it isn't a Sampler or the file isn't audio
+    /// (`error` says why).
+    std::optional<double> loadSample(std::uint64_t deviceId, const juce::File& file,
+                                     std::string* error = nullptr);
+
+    /// Copies every file the project uses from outside its folder into its Samples folder and
+    /// points the clips and takes at the copies (§12); not an undo step. The project must have a
+    /// file. Then save.
+    struct Collected
+    {
+        int copied = 0;
+        std::vector<std::string> failed;
+    };
+    Collected collectFiles();
+    /// The files in the project's Recordings, Bounces and Samples that no clip or take uses, nor
+    /// used since the project opened (so undo can't bring one back).
+    [[nodiscard]] std::vector<juce::File> unusedFiles() const;
+    /// Moves those of `files` that are unused to the system's trash (`remove`, tests: deletes);
+    /// how many went.
+    int removeUnusedFiles(const std::vector<juce::File>& files,
+                          const std::function<bool(const juce::File&)>& remove = {});
+
     // ---- projects (C8) -------------------------------------------------------------------
 
     /// A new project: four audio tracks, no file.
@@ -756,4 +839,7 @@ private:
 /// Applies what Settings keep for the engine (ADR 0045): the recording format, the Segno folder
 /// (presets and unsaved projects), plugin folders and export defaults.
 void applySettings(Session& session, const model::AppSettings& settings);
+/// The Segno folder before Settings move it: Documents/Segno, or in tests the parent of their
+/// presets folder (SEGNO_PRESETS_FOLDER), so they never touch yours.
+[[nodiscard]] juce::File defaultSegnoFolder();
 } // namespace fd::engine

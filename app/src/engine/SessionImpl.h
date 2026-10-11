@@ -1,6 +1,8 @@
 #pragma once
 
+#include "engine/FileIndexer.h"
 #include "engine/MidiTap.h"
+#include "engine/PreviewPlayer.h"
 #include "engine/Session.h"
 #include "model/StackEdits.h"
 #include "model/Takes.h"
@@ -98,6 +100,31 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     [[nodiscard]] static std::vector<te::Plugin*> chain(te::PluginList& list);
 
     std::unique_ptr<PluginScanner> scanner;
+
+    // The browser (C2, ADR 0046): the index of the places, the preview, and every file a clip or
+    // take has used since the project opened (Remove unused files leaves those).
+    FileIndexer indexer;
+    PreviewPlayer preview;
+    std::vector<std::string> browserPlaces;
+    juce::File segnoFolder = defaultSegnoFolder();
+    bool browserStarted = false; // places given (Settings): the indexer looks at them
+    std::set<std::string> usedSources;
+    /// A MIDI file previewed on the live MIDI target: its notes sent as live MIDI, in time.
+    struct MidiPreview final : juce::Timer
+    {
+        explicit MidiPreview(Impl& i) : impl(i) {}
+        ~MidiPreview() override { stop(); }
+        void timerCallback() override;
+        void stop();
+        Impl& impl;
+        std::uint64_t track = 0;
+        std::vector<std::pair<double, juce::MidiMessage>> events; // seconds from the start
+        size_t next = 0;
+        double started = 0.0; // juce::Time::getMillisecondCounterHiRes() / 1000
+    };
+    MidiPreview midiPreview{*this};
+    /// Gives the indexer the places: yours, the project's folder, the Segno folder.
+    void updateBrowserPlaces();
 
     std::optional<std::uint64_t> midiTarget; // the track live MIDI plays (C7): softly armed (C5)
     void midiDevicesChanged();

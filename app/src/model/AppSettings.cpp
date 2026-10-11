@@ -12,8 +12,19 @@ namespace
 using Json = nlohmann::json;
 
 /// The keys this build reads; the rest of the file is kept as it is.
-constexpr const char* kKnown[] = {"segnoSettings", "recentProjects", "display", "midi", "recording",
-                                  "library",       "plugins",        "export",  "keys", "assistants"};
+constexpr const char* kKnown[] = {"segnoSettings", "recentProjects", "display",   "midi",
+                                  "recording",     "library",        "plugins",   "export",
+                                  "keys",          "browser",        "assistants"};
+
+std::vector<std::string> strings(const Json& j, const char* key)
+{
+    std::vector<std::string> out;
+    if (const auto it = j.find(key); it != j.end() && it->is_array())
+        for (const auto& v : *it)
+            if (v.is_string() && !v.get<std::string>().empty())
+                out.push_back(v.get<std::string>());
+    return out;
+}
 
 template <typename T> void read(const Json& j, const char* key, T& out)
 {
@@ -101,6 +112,11 @@ std::string toJson(const AppSettings& s)
     exportDefaults.name.clear();
     j["export"] = nlohmann::ordered_json::parse(toJson(exportDefaults));
     j["keys"] = s.keys;
+    j["browser"] = {{"places", s.browser.places},
+                    {"favourites", s.browser.favourites},
+                    {"preview", s.browser.preview},
+                    {"previewVolume", s.browser.previewVolume},
+                    {"open", s.browser.open}};
     j["assistants"] = {
         {"enabled", s.assistants.enabled}, {"readOnly", s.assistants.readOnly}, {"port", s.assistants.port}};
     for (const auto& [key, value] : s.others.items())
@@ -165,6 +181,15 @@ AppSettings appSettingsFromJson(const std::string& json)
                     if (k.is_string())
                         list.push_back(k.get<std::string>());
             }
+    if (const auto it = j.find("browser"); it != j.end() && it->is_object())
+    {
+        s.browser.places = strings(*it, "places");
+        s.browser.favourites = strings(*it, "favourites");
+        s.browser.open = strings(*it, "open");
+        read(*it, "preview", s.browser.preview);
+        if (const auto v = it->find("previewVolume"); v != it->end() && v->is_number())
+            s.browser.previewVolume = std::clamp(v->get<double>(), -60.0, 6.0);
+    }
     if (const auto it = j.find("assistants"); it != j.end() && it->is_object())
     {
         read(*it, "enabled", s.assistants.enabled);
