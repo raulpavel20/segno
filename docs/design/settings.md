@@ -6,7 +6,7 @@ How Segno keeps what you choose once, for every project: your audio interface, M
 - the shared components: `SectionStack`, `PropertyList`, the shell metrics ([ui-foundations.md](ui-foundations.md), ADR 0023);
 - what earlier designs left for Settings: export defaults ([export.md](export.md) §9), the recording file format and offsets ([recording.md](recording.md) §5, Q15), the presets folder ([presets.md](presets.md) §5), remapping shortcuts ([daw-shell.md](daw-shell.md)), the assistants' switch ([ADR 0021](../decisions/0021-mcp-server.md)).
 
-**Status:** approved by the product owner (2026-10-11), with every recommendation of §13 but one: no reset button per setting (S3, §6). Built the same day, for review; what was settled while building is in §17.
+**Status:** approved by the product owner (2026-10-11), with every recommendation of §13 but one: no reset button per setting (S3, §6). Built and signed off the same day; what was settled while building is in §17.
 
 ## 1. Why
 
