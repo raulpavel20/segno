@@ -1,0 +1,25 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Drums",
+    "Heavy"
+  ],
+  "description": "Shaves the peaks off for loudness; push Drive for more.",
+  "author": "Segno",
+  "state": {
+    "device": "saturator",
+    "extra": {},
+    "params": {
+      "bias": 0.0,
+      "color": 0.0,
+      "color.freq": 1000.0,
+      "color.gain": 0.0,
+      "curve": 3.0,
+      "drive": 6.0,
+      "mix": 100.0,
+      "output": -5.5,
+      "quality": 1.0
+    },
+    "stateVersion": 1
+  }
+}

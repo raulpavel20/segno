@@ -79,7 +79,20 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 
 ## Factory presets
 
-"Drum bleed", "Vocal noise", "Tight kick", "Snare room cut", "Gentle expander", "Trance gate (sidechain)", "Flip: room only".
+Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `devices/gate/presets/`, made with `fd-presets` from recipes); the product owner signs them off by ear. 12 presets, each checked by the conformance suite: it loads, plays cleanly under 0 dBFS and differs from the rest.
+
+- **Drum bleed** (Drums): Lets each hit through and turns the bleed down 30 dB, not to silence, so the kit stays natural.
+- **Tight kick** (Drums): Closes fast between kicks; listens only to the lows, so the snare doesn't open it.
+- **Snare room cut** (Drums): Shortens the snare's room; ignores the kick below 150 Hz.
+- **Tom cleanup** (Drums): Silences a tom microphone between fills, with a long, natural tail.
+- **Hi-hat tidy** (Drums): Turns a hi-hat microphone's bleed down; listens only above 3 kHz.
+- **Vocal noise** (Vocals, Subtle): Turns the room down 20 dB between phrases, slowly enough not to clip breaths.
+- **Breath control** (Vocals, Subtle): An expander that lowers breaths and noise gradually rather than cutting them.
+- **Gentle expander** (Subtle, Clean): Turns quiet parts down a little more, for a cleaner sound with no audible gating.
+- **Guitar amp hiss** (Guitar): Takes an amp's hiss out between notes.
+- **Bass DI cleanup** (Bass): Silences a direct bass between notes.
+- **Trance gate (sidechain)** (FX): Choose a rhythmic track under Sidechain: this one plays only when it does.
+- **Flip, room only** (Drums, FX): Takes the hits out and keeps the room between them.
 
 ## Automated test targets
 

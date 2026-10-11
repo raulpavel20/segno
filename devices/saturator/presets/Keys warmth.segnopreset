@@ -1,0 +1,25 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Keys",
+    "Warm"
+  ],
+  "description": "Tape-style drive, a little more in the low mids.",
+  "author": "Segno",
+  "state": {
+    "device": "saturator",
+    "extra": {},
+    "params": {
+      "bias": 0.0,
+      "color": 1.0,
+      "color.freq": 400.0,
+      "color.gain": 3.0,
+      "curve": 2.0,
+      "drive": 7.0,
+      "mix": 100.0,
+      "output": -3.0,
+      "quality": 1.0
+    },
+    "stateVersion": 1
+  }
+}

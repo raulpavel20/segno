@@ -38,7 +38,7 @@ Each: SPEC approved → built → validators → sign-off by ear and feel, with 
 | B8 | **EQ** *(stage 2)* | Dynamic bands with sidechain, linear-phase mode, EQ match, the cross-track masking display (on the Spectrum's collision rule) |
 | B9 | **Spectrum** *(stage 2)* | A spectrogram view |
 | B10 | **Tuner** | Chromatic, with a reference pitch |
-| B11 | **Factory presets for the M1 and M2 modules** | Utility, EQ, Saturator, Subtractive Synth, Sampler, Compressor, Gate, Limiter, Spectrum. The quality bar says a module without good presets isn't done |
+| B11 | **Factory presets for the M1 and M2 modules** | Utility, EQ, Saturator, Subtractive Synth, Sampler, Compressor, Gate, Limiter, Spectrum. The quality bar says a module without good presets isn't done. ◐ Built 2026-10-11 for all but the Sampler (118 presets, [presets.md](../design/presets.md) §21), for the product owner's sign-off by ear; the Sampler's wait for the sounds the product owner brings |
 
 ### C. DAW
 

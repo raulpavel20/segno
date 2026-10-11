@@ -1,0 +1,77 @@
+{
+ "device": "spectrum",
+ "author": "Segno",
+ "presets": [
+  {
+   "name": "Mixing",
+   "tags": [
+    "Mix"
+   ],
+   "description": "Tilted 4.5 dB per octave so a full, balanced mix looks about flat, and averaged to show its overall balance.",
+   "params": {
+    "slope": "4.5 dB/oct",
+    "average": 600
+   }
+  },
+  {
+   "name": "Flat",
+   "tags": [
+    "Check"
+   ],
+   "description": "No tilt: the spectrum as measured, for test tones and noise.",
+   "params": {
+    "slope": "0 dB/oct"
+   }
+  },
+  {
+   "name": "Mid and side check",
+   "tags": [
+    "Check",
+    "Stereo"
+   ],
+   "description": "The mid with the side drawn under it, to see what's stereo and where.",
+   "params": {
+    "channel": "Mid",
+    "side": true
+   }
+  },
+  {
+   "name": "Find resonances",
+   "tags": [
+    "Fix"
+   ],
+   "description": "Fine resolution, quick averaging and six labelled peaks, to find a ringing frequency.",
+   "params": {
+    "resolution": "16384",
+    "average": 120,
+    "labels": "6",
+    "hold": "1 s"
+   }
+  },
+  {
+   "name": "Fast",
+   "tags": [
+    "Check"
+   ],
+   "description": "Follows every hit: a short window, little averaging, no held peaks.",
+   "params": {
+    "resolution": "2048",
+    "average": 40,
+    "hold": "Off",
+    "labels": "Off"
+   }
+  },
+  {
+   "name": "Slow and smooth",
+   "tags": [
+    "Mix"
+   ],
+   "description": "Long averaging, for a song's overall balance and for comparing with a reference.",
+   "params": {
+    "average": 3000,
+    "hold": "Off",
+    "slope": "4.5 dB/oct"
+   }
+  }
+ ]
+}

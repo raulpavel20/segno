@@ -1,0 +1,24 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Fix"
+  ],
+  "description": "Fine resolution, quick averaging and six labelled peaks, to find a ringing frequency.",
+  "author": "Segno",
+  "state": {
+    "device": "spectrum",
+    "extra": {},
+    "params": {
+      "average": 120.0,
+      "channel": 0.0,
+      "hold": 1.0,
+      "labels": 2.0,
+      "range": 1.0,
+      "resolution": 3.0,
+      "side": 0.0,
+      "slope": 2.0,
+      "view": 0.0
+    },
+    "stateVersion": 1
+  }
+}

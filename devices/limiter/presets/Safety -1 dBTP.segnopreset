@@ -1,0 +1,24 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Master",
+    "Clean"
+  ],
+  "description": "Catches overs and nothing else; nothing goes past -1 dB true peak.",
+  "author": "Segno",
+  "state": {
+    "device": "limiter",
+    "extra": {},
+    "params": {
+      "ceiling": -1.0,
+      "gain": 0.0,
+      "link": 0.0,
+      "lookahead": 1.0,
+      "mode": 0.0,
+      "release": 80.0,
+      "release.auto": 1.0,
+      "truepeak": 1.0
+    },
+    "stateVersion": 1
+  }
+}

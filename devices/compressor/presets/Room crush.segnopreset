@@ -1,0 +1,35 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Drums",
+    "Heavy"
+  ],
+  "description": "Squashes room microphones hard, so the room breathes between the hits.",
+  "author": "Segno",
+  "state": {
+    "device": "compressor",
+    "extra": {},
+    "params": {
+      "attack": 1.0,
+      "character": 1.0,
+      "detector": 0.0,
+      "knee": 0.0,
+      "link": 100.0,
+      "lookahead": 0.0,
+      "makeup": 14.0,
+      "makeup.auto": 0.0,
+      "mix": 100.0,
+      "output": 0.0,
+      "ratio": 20.0,
+      "release": 100.0,
+      "release.auto": 0.0,
+      "sc.filter": 0.0,
+      "sc.freq": 100.0,
+      "sc.gain": 0.0,
+      "sc.listen": 0.0,
+      "sc.q": 0.71,
+      "threshold": -40.0
+    },
+    "stateVersion": 1
+  }
+}

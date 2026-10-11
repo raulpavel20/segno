@@ -1,0 +1,24 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Bass"
+  ],
+  "description": "Adds harmonics to the lows, so the bass reads on small speakers.",
+  "author": "Segno",
+  "state": {
+    "device": "saturator",
+    "extra": {},
+    "params": {
+      "bias": 0.0,
+      "color": 1.0,
+      "color.freq": 120.0,
+      "color.gain": 6.0,
+      "curve": 1.0,
+      "drive": 12.0,
+      "mix": 40.0,
+      "output": -7.5,
+      "quality": 1.0
+    },
+    "stateVersion": 1
+  }
+}

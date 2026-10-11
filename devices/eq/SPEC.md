@@ -85,7 +85,26 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 
 ## Factory presets
 
-"Low cut 80 Hz", "Vocal presence", "Kick tighten", "Air shelf", "Telephone", "Mid/side widen", "Surgical notch".
+Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `devices/eq/presets/`, made with `fd-presets` from recipes); the product owner signs them off by ear. 18 presets, each checked by the conformance suite: it loads, plays cleanly under 0 dBFS and differs from the rest.
+
+- **Low cut 80 Hz** (Clean): Clears rumble and low mud below 80 Hz, 24 dB per octave.
+- **Subsonic cut** (Master, Bus, Clean): Takes out what you can't hear below 30 Hz, which still uses headroom.
+- **Vocal presence** (Vocals, Bright): A low cut, less box at 300 Hz, presence at 3.5 kHz and a little air.
+- **Vocal warmth** (Vocals, Warm): Body at 200 Hz, smoother upper mids and a softer top.
+- **De-mud** (Clean, Bus): Cuts the boxy low mids where mixes get muddy.
+- **Kick tighten** (Drums): Thump at 60 Hz, less box at 350 Hz and the beater's click at 4 kHz.
+- **Snare body and crack** (Drums): Body at 200 Hz, less ring around 900 Hz and crack at 5 kHz.
+- **Bass definition** (Bass): A clean low end, less mud and the growl at 800 Hz that makes a bass read on small speakers.
+- **Acoustic guitar** (Guitar, Bright): Less boom, a little sparkle at 5 kHz and air on top.
+- **Piano clarity** (Keys): A gentle low cut, less mud and a little definition and air.
+- **Hi-hat clean** (Drums, Bright): Everything below 300 Hz out, a little more shimmer.
+- **Air shelf** (Bright, Subtle, Master): Opens up the top above 12 kHz.
+- **Telephone** (FX, Vocals): Only the band a phone line carries, with its honk.
+- **Mid-side widen** (Wide, Master, Bus): More highs in the side and none of the lows there, so the width grows and the bass stays centred.
+- **Surgical notch** (Fix, Clean): A narrow notch to sweep onto a ringing frequency; move it to taste.
+- **Tilt brighter** (Master, Bright): Tilts the whole spectrum around 1 kHz: brighter highs, leaner lows.
+- **Tilt warmer** (Master, Warm): Tilts the whole spectrum around 1 kHz: fuller lows, softer highs.
+- **Master polish** (Master, Subtle): A subsonic cut, a touch less mud, a little presence and air.
 
 ## Automated test targets
 

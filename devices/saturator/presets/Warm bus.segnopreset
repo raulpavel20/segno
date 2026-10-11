@@ -1,0 +1,26 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Bus",
+    "Warm",
+    "Subtle"
+  ],
+  "description": "A touch of drive and asymmetry for a group or the mix.",
+  "author": "Segno",
+  "state": {
+    "device": "saturator",
+    "extra": {},
+    "params": {
+      "bias": 0.2,
+      "color": 0.0,
+      "color.freq": 1000.0,
+      "color.gain": 0.0,
+      "curve": 1.0,
+      "drive": 4.0,
+      "mix": 100.0,
+      "output": -2.5,
+      "quality": 1.0
+    },
+    "stateVersion": 1
+  }
+}

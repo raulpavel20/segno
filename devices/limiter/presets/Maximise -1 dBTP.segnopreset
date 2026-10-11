@@ -1,0 +1,23 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Master"
+  ],
+  "description": "Maximise mode: Gain sets the limiting, the Ceiling only the output level.",
+  "author": "Segno",
+  "state": {
+    "device": "limiter",
+    "extra": {},
+    "params": {
+      "ceiling": -1.0,
+      "gain": 6.0,
+      "link": 0.0,
+      "lookahead": 1.0,
+      "mode": 1.0,
+      "release": 80.0,
+      "release.auto": 1.0,
+      "truepeak": 1.0
+    },
+    "stateVersion": 1
+  }
+}

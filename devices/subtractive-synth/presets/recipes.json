@@ -1,0 +1,856 @@
+{
+ "device": "subtractive-synth",
+ "author": "Segno",
+ "presets": [
+  {
+   "name": "Sub bass",
+   "tags": [
+    "Bass",
+    "Clean"
+   ],
+   "description": "A pure sine sub, one note at a time; play it low.",
+   "params": {
+    "osc1.shape": 100,
+    "mix.osc2": -70,
+    "filter.type": "LP 24",
+    "filter.cutoff": 400,
+    "filter.res": 0,
+    "filter.key": 0,
+    "filter.env": 0,
+    "amp.a": 2,
+    "amp.d": 300,
+    "amp.s": 100,
+    "amp.r": 80,
+    "voice.mode": "Mono",
+    "voice.drift": 5,
+    "out.volume": -1
+   }
+  },
+  {
+   "name": "Warm bass",
+   "tags": [
+    "Bass",
+    "Warm"
+   ],
+   "description": "Saw and a square an octave down, a soft filter bite on each note.",
+   "params": {
+    "osc2.wave": "Square",
+    "osc2.oct": -1,
+    "osc2.detune": 0,
+    "mix.osc2": -6,
+    "filter.cutoff": 500,
+    "filter.res": 20,
+    "filter.env": 40,
+    "filter.key": 30,
+    "mod.a": 1,
+    "mod.d": 250,
+    "mod.s": 20,
+    "mod.r": 100,
+    "amp.a": 1,
+    "amp.d": 200,
+    "amp.s": 90,
+    "amp.r": 80,
+    "voice.mode": "Mono"
+   }
+  },
+  {
+   "name": "Acid line",
+   "tags": [
+    "Bass",
+    "Lead"
+   ],
+   "description": "A resonant saw line; overlapping notes slide, and harder notes open the filter more.",
+   "params": {
+    "mix.osc2": -70,
+    "filter.cutoff": 300,
+    "filter.res": 70,
+    "filter.env": 60,
+    "filter.key": 30,
+    "mod.a": 0.5,
+    "mod.d": 180,
+    "mod.s": 0,
+    "mod.r": 100,
+    "amp.a": 1,
+    "amp.d": 200,
+    "amp.s": 80,
+    "amp.r": 60,
+    "voice.mode": "Legato",
+    "voice.glide": 60,
+    "m2.amt": 25,
+    "out.volume": -4
+   }
+  },
+  {
+   "name": "Pluck bass",
+   "tags": [
+    "Bass",
+    "Pluck"
+   ],
+   "description": "A short, punchy bass that decays to nothing.",
+   "params": {
+    "osc2.wave": "Square",
+    "osc2.oct": -1,
+    "mix.osc2": -8,
+    "filter.cutoff": 200,
+    "filter.res": 25,
+    "filter.env": 55,
+    "mod.a": 0.5,
+    "mod.d": 200,
+    "mod.s": 0,
+    "amp.a": 0.5,
+    "amp.d": 400,
+    "amp.s": 0,
+    "amp.r": 120,
+    "voice.mode": "Mono",
+    "out.volume": -5
+   }
+  },
+  {
+   "name": "Reese bass",
+   "tags": [
+    "Bass",
+    "Dirty"
+   ],
+   "description": "Two detuned saws beating against each other; the mod wheel opens it.",
+   "params": {
+    "osc2.detune": 18,
+    "mix.osc2": -1,
+    "filter.cutoff": 900,
+    "filter.res": 15,
+    "filter.env": 0,
+    "filter.key": 20,
+    "amp.a": 5,
+    "amp.d": 300,
+    "amp.s": 100,
+    "amp.r": 150,
+    "voice.mode": "Mono",
+    "m3.amt": 30
+   }
+  },
+  {
+   "name": "Square bass",
+   "tags": [
+    "Bass"
+   ],
+   "description": "A hollow square with a sine an octave below.",
+   "params": {
+    "osc1.shape": 33.3,
+    "osc2.wave": "Sine",
+    "osc2.oct": -1,
+    "mix.osc2": -6,
+    "filter.type": "LP 12",
+    "filter.cutoff": 1200,
+    "filter.res": 10,
+    "filter.env": 20,
+    "amp.a": 1,
+    "amp.d": 250,
+    "amp.s": 85,
+    "amp.r": 60,
+    "voice.mode": "Mono",
+    "out.volume": -9
+   }
+  },
+  {
+   "name": "Wobble bass",
+   "tags": [
+    "Bass",
+    "FX",
+    "Heavy"
+   ],
+   "description": "The LFO sweeps the filter in eighth notes, in time with the song.",
+   "params": {
+    "osc2.wave": "Square",
+    "osc2.detune": 10,
+    "filter.cutoff": 300,
+    "filter.res": 45,
+    "filter.env": 0,
+    "lfo.sync": "1/8",
+    "m1.dst": "Cutoff",
+    "m1.amt": 55,
+    "voice.mode": "Mono",
+    "out.volume": -4
+   }
+  },
+  {
+   "name": "Rubber bass",
+   "tags": [
+    "Bass"
+   ],
+   "description": "A round, bouncy triangle with a short filter blip and a little slide.",
+   "params": {
+    "osc1.shape": 66.7,
+    "osc2.wave": "Sine",
+    "osc2.oct": -1,
+    "mix.osc2": -4,
+    "filter.cutoff": 250,
+    "filter.res": 35,
+    "filter.env": 45,
+    "mod.a": 0.5,
+    "mod.d": 120,
+    "mod.s": 0,
+    "amp.a": 1,
+    "amp.d": 350,
+    "amp.s": 50,
+    "amp.r": 80,
+    "voice.mode": "Legato",
+    "voice.glide": 40
+   }
+  },
+  {
+   "name": "Warm saw lead",
+   "tags": [
+    "Lead",
+    "Warm"
+   ],
+   "description": "Two detuned saws with a gentle vibrato; overlapping notes glide.",
+   "params": {
+    "osc2.detune": 9,
+    "mix.osc2": -3,
+    "filter.cutoff": 2500,
+    "filter.res": 25,
+    "filter.env": 35,
+    "amp.a": 3,
+    "amp.d": 400,
+    "amp.s": 80,
+    "amp.r": 250,
+    "voice.mode": "Legato",
+    "voice.glide": 30,
+    "lfo.rate": 5,
+    "m1.amt": 1.5
+   }
+  },
+  {
+   "name": "Lead with glide",
+   "tags": [
+    "Lead"
+   ],
+   "description": "A narrow square with a saw an octave up, gliding between overlapping notes.",
+   "params": {
+    "osc1.shape": 33.3,
+    "osc1.pw": 40,
+    "osc2.oct": 1,
+    "mix.osc2": -9,
+    "filter.type": "LP 12",
+    "filter.cutoff": 3000,
+    "filter.res": 30,
+    "filter.env": 25,
+    "amp.a": 2,
+    "amp.d": 300,
+    "amp.s": 85,
+    "amp.r": 150,
+    "voice.mode": "Legato",
+    "voice.glide": 120,
+    "lfo.rate": 5.5,
+    "m1.amt": 1.2,
+    "out.volume": -11
+   }
+  },
+  {
+   "name": "Bright lead",
+   "tags": [
+    "Lead",
+    "Bright"
+   ],
+   "description": "Saws a fifth apart, open and cutting.",
+   "params": {
+    "osc2.semi": 7,
+    "osc2.detune": 5,
+    "mix.osc2": -8,
+    "filter.cutoff": 5000,
+    "filter.res": 15,
+    "filter.env": 20,
+    "voice.mode": "Mono"
+   }
+  },
+  {
+   "name": "Soft sine lead",
+   "tags": [
+    "Lead",
+    "Clean"
+   ],
+   "description": "A soft sine with a hint of the octave, slow to start, with vibrato.",
+   "params": {
+    "osc1.shape": 100,
+    "osc2.wave": "Triangle",
+    "osc2.oct": 1,
+    "mix.osc2": -12,
+    "filter.type": "LP 12",
+    "filter.cutoff": 6000,
+    "filter.res": 0,
+    "filter.env": 0,
+    "amp.a": 20,
+    "amp.d": 300,
+    "amp.s": 90,
+    "amp.r": 300,
+    "voice.mode": "Legato",
+    "voice.glide": 80,
+    "lfo.rate": 5,
+    "m1.amt": 1.5
+   }
+  },
+  {
+   "name": "Square lead",
+   "tags": [
+    "Lead"
+   ],
+   "description": "Two squares; the mod wheel narrows the first one's pulse.",
+   "params": {
+    "osc1.shape": 33.3,
+    "osc2.wave": "Square",
+    "osc2.detune": -8,
+    "mix.osc2": -4,
+    "filter.cutoff": 3500,
+    "filter.res": 20,
+    "filter.env": 15,
+    "voice.mode": "Mono",
+    "m3.dst": "Osc 1 Width",
+    "m3.amt": 40
+   }
+  },
+  {
+   "name": "Screamer",
+   "tags": [
+    "Lead",
+    "Heavy"
+   ],
+   "description": "Resonant and loud, with a little noise; harder notes scream more.",
+   "params": {
+    "osc2.wave": "Square",
+    "osc2.oct": 1,
+    "mix.osc2": -6,
+    "mix.noise": -30,
+    "filter.cutoff": 1800,
+    "filter.res": 75,
+    "filter.env": 40,
+    "mod.a": 5,
+    "mod.d": 600,
+    "mod.s": 30,
+    "voice.mode": "Legato",
+    "voice.glide": 50,
+    "m2.amt": 30,
+    "out.volume": -6
+   }
+  },
+  {
+   "name": "Soft pad",
+   "tags": [
+    "Pad",
+    "Warm"
+   ],
+   "description": "A triangle and a quiet saw, slow to swell, drifting gently across the stereo field.",
+   "params": {
+    "osc1.shape": 66.7,
+    "osc2.detune": 12,
+    "mix.osc2": -10,
+    "filter.type": "LP 12",
+    "filter.cutoff": 1500,
+    "filter.res": 10,
+    "filter.env": 15,
+    "filter.key": 40,
+    "amp.a": 600,
+    "amp.d": 1500,
+    "amp.s": 80,
+    "amp.r": 1500,
+    "mod.a": 800,
+    "mod.d": 2000,
+    "mod.s": 50,
+    "voice.drift": 30,
+    "lfo.rate": 0.3,
+    "m1.dst": "Pan",
+    "m1.amt": 20,
+    "out.volume": -8
+   }
+  },
+  {
+   "name": "PWM strings",
+   "tags": [
+    "Pad"
+   ],
+   "description": "A square whose pulse width moves slowly, like a string section.",
+   "params": {
+    "osc1.shape": 33.3,
+    "osc2.detune": -10,
+    "mix.osc2": -8,
+    "filter.cutoff": 3000,
+    "filter.res": 5,
+    "filter.env": 0,
+    "amp.a": 250,
+    "amp.d": 800,
+    "amp.s": 85,
+    "amp.r": 900,
+    "lfo.wave": "Triangle",
+    "lfo.rate": 0.8,
+    "m1.dst": "Osc 1 Width",
+    "m1.amt": 60
+   }
+  },
+  {
+   "name": "Dark pad",
+   "tags": [
+    "Pad",
+    "Warm"
+   ],
+   "description": "Low, slow and dark, with the filter breathing.",
+   "params": {
+    "osc2.oct": -1,
+    "osc2.detune": -14,
+    "mix.osc2": -3,
+    "filter.cutoff": 600,
+    "filter.res": 25,
+    "filter.env": 10,
+    "filter.key": 30,
+    "amp.a": 1200,
+    "amp.d": 3000,
+    "amp.s": 90,
+    "amp.r": 3000,
+    "voice.drift": 40,
+    "lfo.rate": 0.15,
+    "m1.dst": "Cutoff",
+    "m1.amt": 15
+   }
+  },
+  {
+   "name": "Glass pad",
+   "tags": [
+    "Pad",
+    "Bright"
+   ],
+   "description": "Sine and triangle a twelfth apart, airy, with a shimmer.",
+   "params": {
+    "osc1.shape": 100,
+    "osc2.wave": "Triangle",
+    "osc2.oct": 1,
+    "osc2.semi": 7,
+    "mix.osc2": -9,
+    "filter.type": "HP 12",
+    "filter.cutoff": 300,
+    "filter.res": 10,
+    "filter.env": 0,
+    "amp.a": 400,
+    "amp.d": 2000,
+    "amp.s": 70,
+    "amp.r": 2000,
+    "lfo.rate": 4,
+    "m1.amt": 0.8
+   }
+  },
+  {
+   "name": "Evolving pad",
+   "tags": [
+    "Pad",
+    "FX"
+   ],
+   "description": "The looping mod envelope and a slow LFO keep the tone moving.",
+   "params": {
+    "osc1.shape": 50,
+    "osc2.detune": 9,
+    "mix.osc2": -6,
+    "filter.cutoff": 800,
+    "filter.res": 35,
+    "filter.env": 40,
+    "mod.cycle": true,
+    "mod.a": 4000,
+    "mod.d": 4000,
+    "amp.a": 1000,
+    "amp.d": 2000,
+    "amp.s": 85,
+    "amp.r": 3000,
+    "lfo.rate": 0.1,
+    "m1.dst": "Osc 1 Shape",
+    "m1.amt": 30
+   }
+  },
+  {
+   "name": "Noise sweep",
+   "tags": [
+    "Pad",
+    "FX"
+   ],
+   "description": "Filtered noise rising slowly through a band pass.",
+   "params": {
+    "mix.osc1": -70,
+    "mix.osc2": -70,
+    "mix.noise": 0,
+    "filter.type": "BP 12",
+    "filter.cutoff": 300,
+    "filter.res": 50,
+    "filter.env": 80,
+    "mod.a": 3000,
+    "mod.d": 3000,
+    "mod.s": 0,
+    "amp.a": 1500,
+    "amp.d": 2000,
+    "amp.s": 70,
+    "amp.r": 2500
+   }
+  },
+  {
+   "name": "Electric keys",
+   "tags": [
+    "Keys",
+    "Warm"
+   ],
+   "description": "A soft, bell-like electric piano; harder notes are brighter.",
+   "params": {
+    "osc1.shape": 100,
+    "osc2.wave": "Triangle",
+    "osc2.oct": 1,
+    "mix.osc2": -14,
+    "filter.type": "LP 12",
+    "filter.cutoff": 4000,
+    "filter.res": 0,
+    "filter.env": 30,
+    "mod.a": 0.5,
+    "mod.d": 400,
+    "mod.s": 10,
+    "amp.a": 1,
+    "amp.d": 1200,
+    "amp.s": 30,
+    "amp.r": 300,
+    "m2.amt": 30
+   }
+  },
+  {
+   "name": "Organ",
+   "tags": [
+    "Keys"
+   ],
+   "description": "Two sines an octave apart, on and off like an organ's keys, with a little vibrato.",
+   "params": {
+    "osc1.shape": 100,
+    "osc2.wave": "Sine",
+    "osc2.oct": 1,
+    "osc2.detune": 0,
+    "mix.osc2": -6,
+    "filter.type": "LP 12",
+    "filter.cutoff": 8000,
+    "filter.res": 0,
+    "filter.key": 0,
+    "filter.env": 0,
+    "amp.a": 3,
+    "amp.d": 10,
+    "amp.s": 100,
+    "amp.r": 40,
+    "voice.drift": 5,
+    "lfo.rate": 6,
+    "m1.amt": 0.5
+   }
+  },
+  {
+   "name": "Funky clav",
+   "tags": [
+    "Keys",
+    "Pluck"
+   ],
+   "description": "A thin pulse through a band pass, quick and percussive.",
+   "params": {
+    "osc1.shape": 33.3,
+    "osc1.pw": 25,
+    "mix.osc2": -70,
+    "filter.type": "BP 12",
+    "filter.cutoff": 1200,
+    "filter.res": 30,
+    "filter.env": 35,
+    "mod.a": 0.5,
+    "mod.d": 150,
+    "amp.a": 0.5,
+    "amp.d": 250,
+    "amp.s": 20,
+    "amp.r": 50,
+    "m2.amt": 25
+   }
+  },
+  {
+   "name": "Soft keys",
+   "tags": [
+    "Keys",
+    "Warm"
+   ],
+   "description": "A mellow triangle with a sine above, decaying slowly.",
+   "params": {
+    "osc1.shape": 66.7,
+    "osc2.wave": "Sine",
+    "osc2.oct": 1,
+    "mix.osc2": -10,
+    "filter.type": "LP 12",
+    "filter.cutoff": 2500,
+    "filter.env": 20,
+    "mod.d": 600,
+    "amp.a": 5,
+    "amp.d": 1500,
+    "amp.s": 40,
+    "amp.r": 500
+   }
+  },
+  {
+   "name": "Pluck",
+   "tags": [
+    "Pluck"
+   ],
+   "description": "A bright attack that closes fast, for arpeggios and chords.",
+   "params": {
+    "osc2.wave": "Square",
+    "osc2.detune": 5,
+    "mix.osc2": -6,
+    "filter.cutoff": 400,
+    "filter.res": 30,
+    "filter.env": 60,
+    "mod.a": 0.5,
+    "mod.d": 220,
+    "mod.s": 0,
+    "amp.a": 0.5,
+    "amp.d": 500,
+    "amp.s": 0,
+    "amp.r": 300,
+    "out.volume": 0
+   }
+  },
+  {
+   "name": "Soft pluck",
+   "tags": [
+    "Pluck",
+    "Warm"
+   ],
+   "description": "A gentle triangle pluck with a short filter blip.",
+   "params": {
+    "osc1.shape": 66.7,
+    "mix.osc2": -70,
+    "filter.type": "LP 12",
+    "filter.cutoff": 1500,
+    "filter.env": 40,
+    "mod.d": 300,
+    "amp.a": 0.5,
+    "amp.d": 700,
+    "amp.s": 0,
+    "amp.r": 400
+   }
+  },
+  {
+   "name": "Bell",
+   "tags": [
+    "Pluck",
+    "Bright"
+   ],
+   "description": "Two sines at an inharmonic ratio (3.5), ringing out like a bell.",
+   "params": {
+    "osc1.shape": 100,
+    "osc2.wave": "Sine",
+    "osc2.oct": 1,
+    "osc2.semi": 10,
+    "osc2.detune": -31,
+    "mix.osc2": -6,
+    "filter.type": "LP 12",
+    "filter.cutoff": 8000,
+    "filter.res": 0,
+    "filter.env": 0,
+    "amp.a": 0.5,
+    "amp.d": 1800,
+    "amp.s": 0,
+    "amp.r": 1500,
+    "out.volume": -8
+   }
+  },
+  {
+   "name": "Chord stab",
+   "tags": [
+    "Pluck"
+   ],
+   "description": "Saws a fifth apart with a quick filter snap: a stab from a single key.",
+   "params": {
+    "osc2.semi": 7,
+    "osc2.detune": 6,
+    "mix.osc2": -4,
+    "filter.cutoff": 900,
+    "filter.res": 25,
+    "filter.env": 50,
+    "mod.a": 0.5,
+    "mod.d": 300,
+    "amp.a": 1,
+    "amp.d": 350,
+    "amp.s": 0,
+    "amp.r": 200
+   }
+  },
+  {
+   "name": "Synth brass",
+   "tags": [
+    "Brass"
+   ],
+   "description": "The filter opens a little after each note starts, like a horn; harder notes are brighter.",
+   "params": {
+    "osc2.detune": 8,
+    "mix.osc2": -2,
+    "filter.cutoff": 700,
+    "filter.res": 10,
+    "filter.env": 45,
+    "mod.a": 60,
+    "mod.d": 500,
+    "mod.s": 40,
+    "mod.r": 300,
+    "amp.a": 40,
+    "amp.d": 400,
+    "amp.s": 85,
+    "amp.r": 250,
+    "m2.amt": 20
+   }
+  },
+  {
+   "name": "Soft horns",
+   "tags": [
+    "Brass",
+    "Warm"
+   ],
+   "description": "Slower and darker brass for held chords.",
+   "params": {
+    "osc2.wave": "Square",
+    "osc2.detune": -6,
+    "mix.osc2": -8,
+    "filter.type": "LP 12",
+    "filter.cutoff": 900,
+    "filter.env": 30,
+    "mod.a": 150,
+    "mod.d": 800,
+    "mod.s": 50,
+    "amp.a": 120,
+    "amp.d": 600,
+    "amp.s": 85,
+    "amp.r": 400,
+    "out.volume": -10
+   }
+  },
+  {
+   "name": "Synth kick",
+   "tags": [
+    "Drums"
+   ],
+   "description": "A sine falling two octaves in a few milliseconds; play it around C1.",
+   "params": {
+    "osc1.shape": 100,
+    "mix.osc2": -70,
+    "filter.cutoff": 8000,
+    "filter.res": 0,
+    "filter.env": 0,
+    "filter.key": 0,
+    "mod.a": 0.5,
+    "mod.d": 50,
+    "mod.s": 0,
+    "mod.r": 50,
+    "amp.a": 0.5,
+    "amp.d": 350,
+    "amp.s": 0,
+    "amp.r": 50,
+    "m1.src": "Mod Env",
+    "m1.dst": "Pitch",
+    "m1.amt": 100,
+    "m2.src": "Mod Env",
+    "m2.dst": "Pitch",
+    "m2.amt": 100,
+    "voice.mode": "Mono",
+    "voice.drift": 0
+   }
+  },
+  {
+   "name": "Synth snare",
+   "tags": [
+    "Drums"
+   ],
+   "description": "A pitched body and a burst of noise through a band pass.",
+   "params": {
+    "osc1.shape": 66.7,
+    "mix.osc1": -6,
+    "mix.osc2": -70,
+    "mix.noise": -3,
+    "filter.type": "BP 12",
+    "filter.cutoff": 2500,
+    "filter.res": 10,
+    "filter.env": 20,
+    "mod.a": 0.5,
+    "mod.d": 40,
+    "mod.s": 0,
+    "amp.a": 0.5,
+    "amp.d": 180,
+    "amp.s": 0,
+    "amp.r": 60,
+    "m1.src": "Mod Env",
+    "m1.dst": "Pitch",
+    "m1.amt": 30,
+    "voice.drift": 0,
+    "out.volume": -1
+   }
+  },
+  {
+   "name": "Noise hat",
+   "tags": [
+    "Drums",
+    "Bright"
+   ],
+   "description": "High-passed noise, very short.",
+   "params": {
+    "mix.osc1": -70,
+    "mix.osc2": -70,
+    "mix.noise": 0,
+    "filter.type": "HP 12",
+    "filter.cutoff": 7000,
+    "filter.res": 20,
+    "filter.env": 0,
+    "amp.a": 0.5,
+    "amp.d": 60,
+    "amp.s": 0,
+    "amp.r": 30
+   }
+  },
+  {
+   "name": "Laser zap",
+   "tags": [
+    "FX"
+   ],
+   "description": "A saw falling two octaves fast, through a resonant filter.",
+   "params": {
+    "mix.osc2": -70,
+    "filter.cutoff": 5000,
+    "filter.res": 40,
+    "filter.env": 0,
+    "mod.a": 0.5,
+    "mod.d": 120,
+    "mod.s": 0,
+    "amp.a": 0.5,
+    "amp.d": 200,
+    "amp.s": 0,
+    "amp.r": 50,
+    "m1.src": "Mod Env",
+    "m1.dst": "Pitch",
+    "m1.amt": 100,
+    "m2.src": "Mod Env",
+    "m2.dst": "Pitch",
+    "m2.amt": 100,
+    "out.volume": -3
+   }
+  },
+  {
+   "name": "Riser",
+   "tags": [
+    "FX"
+   ],
+   "description": "Noise and a saw rising over eight seconds while held: build-ups.",
+   "params": {
+    "mix.osc1": -12,
+    "mix.osc2": -70,
+    "mix.noise": 0,
+    "filter.cutoff": 200,
+    "filter.res": 40,
+    "filter.env": 90,
+    "mod.a": 8000,
+    "mod.d": 1000,
+    "mod.s": 100,
+    "mod.r": 1000,
+    "amp.a": 6000,
+    "amp.d": 1000,
+    "amp.s": 100,
+    "amp.r": 1000,
+    "m1.src": "Mod Env",
+    "m1.dst": "Pitch",
+    "m1.amt": 50
+   }
+  }
+ ]
+}

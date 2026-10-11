@@ -257,7 +257,8 @@ The commands act on the **selected module**, or the one whose header was used la
   - **character:** Subtle, Heavy, Warm, Bright, Wide, Clean, Dirty;
   - **instruments' sound:** Bass, Lead, Pad, Keys, Pluck, Brass, FX, Drums.
   - Your own presets take any tag.
-- **The Sampler's presets need sounds** (§15, P11).
+- **The Sampler's presets need sounds:** the product owner brings the set they're built on (2026-10-11, revising P11). Until then the Sampler has only Default settings.
+- **Recipes:** each set is `devices/<name>/presets/recipes.json`, naming only what differs from the module's defaults (numbers in the parameter's unit, or text it reads: "4:1", "LP 24"). `fd-presets make` (`tools/presets`) writes each preset's whole state beside it; the conformance suite checks the files are what the recipes make. `fd-presets describe <module>` lists a module's parameters for writing recipes.
 - **Lint:** a test loads every factory preset and checks:
   - its device and version;
   - no unknown parameters;
@@ -290,7 +291,7 @@ The commands act on the **selected module**, or the one whose header was used la
 | P8 | **Automation on load** | Lanes keep playing and win; nothing is turned off (§11) |
 | P9 | **Defaults** | "Use as default for new …" and "Clear the default"; "Default settings" heads the factory list (§9) |
 | P10 | **Where in the menu bar** | A new Module menu between Clip and Transport (Alt+D). The alternative, Track > Presets ▸, puts module commands under the track (§10) |
-| P11 | **The Sampler's factory presets need sounds,** and there's no core content yet | A small set of in-house CC0 sounds (about 30: drums, keys, textures, rendered from Segno's own instruments or recorded for it) in `content/`, installed with the app and plugins; Sampler presets name them by a content path that doesn't depend on where Segno is installed. The rest of the core content stays with M4's Drum Sampler |
+| P11 | **The Sampler's factory presets need sounds,** and there's no core content yet | *Revised 2026-10-11: the product owner brings the sounds; the Sampler's presets wait for them.* Was: a small set of in-house CC0 sounds (about 30: drums, keys, textures, rendered from Segno's own instruments or recorded for it) in `content/`, installed with the app and plugins; Sampler presets name them by a content path that doesn't depend on where Segno is installed. The rest of the core content stays with M4's Drum Sampler |
 | P12 | **Deleting** | Moves the file to the trash; assistants can't delete (§7, §14) |
 | P13 | **Tags and categories** | Free tags only, from a short vocabulary for factory presets; no categories, ratings or colour labels (§13) |
 | P14 | **Shortcuts** | None at first; remappable with Settings (§10) |
@@ -371,3 +372,20 @@ The commands act on the **selected module**, or the one whose header was used la
 - **Words:** "Use as the default for a new Compressor" (no plurals to get wrong); the save form's Description is "About".
 - **The modified mark** is the title bar's, shared (`paintNameWithMark`): right after the name, which is cut instead of the mark.
 - **Tests never touch your presets:** CTest gives every test an empty folder of its own (`SEGNO_PRESETS_FOLDER`), and tests that write presets set their own.
+
+## 21. The factory presets (B11, 2026-10-11)
+
+118 presets for eight modules: Utility 5, Spectrum 6, EQ 18, Compressor 15, Gate 12, Limiter 12, Saturator 15, Subtractive Synth 35. Each SPEC lists its set. The Sampler's wait for its sounds.
+
+- **Checked by rendering** (the conformance suite), effects on pink noise at −18 dBFS RMS, the synth on a held C3:
+  - every preset loads, holds every parameter at the module's current version, plays without NaNs and peaks at or under 0 dBFS;
+  - it sounds (a flipped gate excepted: on steady noise above its threshold it passes nothing, by design);
+  - it differs from the module's defaults and from every other preset;
+  - its name and description use no other vendor's names (ADR 0008), and its tags come from the vocabulary.
+- **Levels:**
+  - the Saturator's are matched to their input within 1 dB, so they're compared by sound, not loudness;
+  - EQ, dynamics and Utility presets change the level by what they do, mostly within 3 dB (limiters and compressors with makeup are louder on purpose; a de-esser and a ducker turn steady noise down);
+  - the synth's single-note peaks sit between −7 and −12 dBFS (the Riser swells over seconds).
+- **Names** keep to what a file can hold, so the SPECs' "Mid/side check", "Flip: room only" and "M/S master" became "Mid and side check", "Flip, room only" and "Mid-side master".
+- **Tags:** the vocabulary grew with the sets: Lead, Pad, Pluck, Brass and FX for instruments and effects; Check, Fix, Stereo, Level, Mix and Ducking for utilities and dynamics.
+- **The list** scrolls so it never cuts a row at its top: its view starts on a row, and a part-row only shows at the bottom.

@@ -1,0 +1,25 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Vocals",
+    "Bright"
+  ],
+  "description": "Edge in the upper mids, blended under the clean voice.",
+  "author": "Segno",
+  "state": {
+    "device": "saturator",
+    "extra": {},
+    "params": {
+      "bias": 0.0,
+      "color": 1.0,
+      "color.freq": 3000.0,
+      "color.gain": 5.0,
+      "curve": 0.0,
+      "drive": 10.0,
+      "mix": 40.0,
+      "output": -7.0,
+      "quality": 1.0
+    },
+    "stateVersion": 1
+  }
+}

@@ -1,7 +1,11 @@
 #include "fd/device/Presets.h"
 
+#include "fd/device/Registry.h"
+
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <map>
 #include <sstream>
@@ -150,8 +154,17 @@ std::string presetFileText(const Preset& preset)
     json["tags"] = preset.tags;
     json["description"] = preset.description;
     json["author"] = preset.author;
-    // The state as projects store it (keys in their usual order).
-    json["state"] = nlohmann::ordered_json::parse(toJson(preset.state).dump());
+    // The state as projects store it (keys in their usual order), parameters to six significant
+    // digits so the file reads well ("0.71", not "0.7099999785"); a float keeps those digits.
+    auto state = nlohmann::ordered_json::parse(toJson(preset.state).dump());
+    for (auto& [id, value] : state["params"].items())
+        if (value.is_number_float())
+        {
+            char text[32];
+            std::snprintf(text, sizeof text, "%.6g", value.get<double>());
+            value = std::strtod(text, nullptr);
+        }
+    json["state"] = std::move(state);
     return json.dump(2) + "\n";
 }
 
@@ -596,6 +609,71 @@ bool PresetLibrary::remove(const DeviceInfo& info, const Preset& preset,
         writeFavourites();
     rescan();
     return true;
+}
+
+// ---- recipes -------------------------------------------------------------------------------
+
+RecipeResult presetsFromRecipes(const DeviceFactory& factory, const nlohmann::json& recipes)
+{
+    RecipeResult out;
+    const auto& info = factory.info();
+    const auto author = recipes.value("author", std::string("Segno"));
+    if (!recipes.contains("presets") || !recipes["presets"].is_array())
+    {
+        out.problems.push_back("no presets");
+        return out;
+    }
+    for (const auto& r : recipes["presets"])
+    {
+        const auto name = r.value("name", std::string());
+        if (const auto why = presetNameProblem(name); !why.empty())
+        {
+            out.problems.push_back(name + ": " + why);
+            continue;
+        }
+        auto device = factory.create();
+        auto& store = device->params();
+        const auto params = r.value("params", nlohmann::json::object());
+        for (const auto& [key, value] : params.items())
+        {
+            size_t i = 0;
+            while (i < info.params.size() && info.params[i].id != key)
+                ++i;
+            if (i == info.params.size())
+            {
+                out.problems.push_back(name + ": no parameter " + key);
+                continue;
+            }
+            const auto& spec = info.params[i];
+            std::optional<float> plain;
+            if (value.is_number())
+                plain = value.get<float>();
+            else if (value.is_boolean())
+                plain = value.get<bool>() ? spec.max : spec.min;
+            else if (value.is_string())
+                plain = spec.fromText(value.get<std::string>());
+            if (!plain || spec.sanitize(*plain) != *plain)
+            {
+                out.problems.push_back(name + ": " + key + " = " + value.dump() + " isn't a value it takes");
+                continue;
+            }
+            store.set(i, *plain);
+        }
+        if (r.contains("extra"))
+            device->readExtraState(r["extra"]);
+        Preset p;
+        p.source = Preset::Source::Factory;
+        p.name = name;
+        p.tags = r.value("tags", std::vector<std::string>{});
+        p.description = r.value("description", std::string());
+        p.author = author;
+        p.state = presetState(info, captureState(*device));
+        for (const auto& other : out.presets)
+            if (sameSound(info, other.state, p.state))
+                out.problems.push_back(name + " sounds the same as " + other.name);
+        out.presets.push_back(std::move(p));
+    }
+    return out;
 }
 
 // ---- the memo ------------------------------------------------------------------------------

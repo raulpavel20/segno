@@ -84,7 +84,20 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 
 ## Factory presets
 
-"Safety (−1 dBTP)", "Streaming master (−1 dBTP)", "Loud master", "Transparent", "Drum bus peaks", "M/S master".
+Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `devices/limiter/presets/`, made with `fd-presets` from recipes); the product owner signs them off by ear. 12 presets, each checked by the conformance suite: it loads, plays cleanly under 0 dBFS and differs from the rest.
+
+- **Safety -1 dBTP** (Master, Clean): Catches overs and nothing else; nothing goes past -1 dB true peak.
+- **Transparent** (Master, Subtle): A little louder, with the longest look ahead and a smooth release.
+- **Streaming master** (Master): Moderately louder, under -1 dB true peak, as streaming services ask.
+- **Loud master** (Master, Heavy): Pushed hard for loudness; listen for pumping and distortion.
+- **Maximise -1 dBTP** (Master): Maximise mode: Gain sets the limiting, the Ceiling only the output level.
+- **Mid-side master** (Master, Wide): Limits the mid and the side apart, keeping the centre's level.
+- **Dual mono** (Wide): Each channel on its own: wider-sounding, but the image can shift on peaks.
+- **Gentle bus** (Bus, Subtle): Rounds off a group's peaks with a slow, fixed release.
+- **Drum bus peaks** (Drums, Bus): Shaves the tallest drum peaks fast, for headroom.
+- **Clip control** (Drums, Heavy): Very fast, almost clipping: hard transients turned into loudness.
+- **Vocal peaks** (Vocals): Catches a vocal's loudest moments after the compressor.
+- **Bass peaks** (Bass): Holds a bass's peaks with a release long enough not to distort the lows.
 
 ## Automated test targets
 

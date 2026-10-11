@@ -1,0 +1,166 @@
+{
+ "device": "limiter",
+ "author": "Segno",
+ "presets": [
+  {
+   "name": "Safety -1 dBTP",
+   "tags": [
+    "Master",
+    "Clean"
+   ],
+   "description": "Catches overs and nothing else; nothing goes past -1 dB true peak.",
+   "params": {
+    "ceiling": -1
+   }
+  },
+  {
+   "name": "Transparent",
+   "tags": [
+    "Master",
+    "Subtle"
+   ],
+   "description": "A little louder, with the longest look ahead and a smooth release.",
+   "params": {
+    "gain": 2,
+    "ceiling": -0.5,
+    "lookahead": "6 ms"
+   }
+  },
+  {
+   "name": "Streaming master",
+   "tags": [
+    "Master"
+   ],
+   "description": "Moderately louder, under -1 dB true peak, as streaming services ask.",
+   "params": {
+    "gain": 4,
+    "ceiling": -1,
+    "lookahead": "6 ms"
+   }
+  },
+  {
+   "name": "Loud master",
+   "tags": [
+    "Master",
+    "Heavy"
+   ],
+   "description": "Pushed hard for loudness; listen for pumping and distortion.",
+   "params": {
+    "gain": 9,
+    "ceiling": -0.3,
+    "lookahead": "6 ms"
+   }
+  },
+  {
+   "name": "Maximise -1 dBTP",
+   "tags": [
+    "Master"
+   ],
+   "description": "Maximise mode: Gain sets the limiting, the Ceiling only the output level.",
+   "params": {
+    "mode": "Maximise",
+    "gain": 6,
+    "ceiling": -1
+   }
+  },
+  {
+   "name": "Mid-side master",
+   "tags": [
+    "Master",
+    "Wide"
+   ],
+   "description": "Limits the mid and the side apart, keeping the centre's level.",
+   "params": {
+    "link": "M/S",
+    "gain": 4,
+    "ceiling": -1
+   }
+  },
+  {
+   "name": "Dual mono",
+   "tags": [
+    "Wide"
+   ],
+   "description": "Each channel on its own: wider-sounding, but the image can shift on peaks.",
+   "params": {
+    "link": "L/R",
+    "gain": 3,
+    "ceiling": -1
+   }
+  },
+  {
+   "name": "Gentle bus",
+   "tags": [
+    "Bus",
+    "Subtle"
+   ],
+   "description": "Rounds off a group's peaks with a slow, fixed release.",
+   "params": {
+    "gain": 2,
+    "ceiling": -2,
+    "release.auto": false,
+    "release": 150,
+    "lookahead": "6 ms"
+   }
+  },
+  {
+   "name": "Drum bus peaks",
+   "tags": [
+    "Drums",
+    "Bus"
+   ],
+   "description": "Shaves the tallest drum peaks fast, for headroom.",
+   "params": {
+    "gain": 4,
+    "ceiling": -3,
+    "release.auto": false,
+    "release": 20,
+    "lookahead": "1.5 ms",
+    "truepeak": false
+   }
+  },
+  {
+   "name": "Clip control",
+   "tags": [
+    "Drums",
+    "Heavy"
+   ],
+   "description": "Very fast, almost clipping: hard transients turned into loudness.",
+   "params": {
+    "gain": 6,
+    "ceiling": -1,
+    "release.auto": false,
+    "release": 5,
+    "lookahead": "1.5 ms",
+    "truepeak": false
+   }
+  },
+  {
+   "name": "Vocal peaks",
+   "tags": [
+    "Vocals"
+   ],
+   "description": "Catches a vocal's loudest moments after the compressor.",
+   "params": {
+    "gain": 3,
+    "ceiling": -6,
+    "release.auto": false,
+    "release": 50
+   }
+  },
+  {
+   "name": "Bass peaks",
+   "tags": [
+    "Bass"
+   ],
+   "description": "Holds a bass's peaks with a release long enough not to distort the lows.",
+   "params": {
+    "gain": 3,
+    "ceiling": -4,
+    "release.auto": false,
+    "release": 120,
+    "lookahead": "6 ms"
+   }
+  }
+ ]
+}

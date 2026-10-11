@@ -130,7 +130,14 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 
 ## Factory presets
 
-"Mixing (3 dB/oct)", "Flat", "Mid/side check" (Side Overlay on), "Find resonances" (16 384 points, fast averaging, 6 labels), "Fast", "Slow and smooth" (long averaging, for comparing with a reference).
+Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `devices/spectrum/presets/`, made with `fd-presets` from recipes); the product owner signs them off by ear. 6 presets, each checked by the conformance suite: it loads, plays cleanly under 0 dBFS and differs from the rest.
+
+- **Mixing** (Mix): Tilted 4.5 dB per octave so a full, balanced mix looks about flat, and averaged to show its overall balance.
+- **Flat** (Check): No tilt: the spectrum as measured, for test tones and noise.
+- **Mid and side check** (Check, Stereo): The mid with the side drawn under it, to see what's stereo and where.
+- **Find resonances** (Fix): Fine resolution, quick averaging and six labelled peaks, to find a ringing frequency.
+- **Fast** (Check): Follows every hit: a short window, little averaging, no held peaks.
+- **Slow and smooth** (Mix): Long averaging, for a song's overall balance and for comparing with a reference.
 
 ## Automated test targets
 

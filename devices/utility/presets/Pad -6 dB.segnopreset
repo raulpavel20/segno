@@ -1,0 +1,23 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Level"
+  ],
+  "description": "Turns the level down 6 dB, for headroom before the next module.",
+  "author": "Segno",
+  "state": {
+    "device": "utility",
+    "extra": {},
+    "params": {
+      "balance": 0.0,
+      "dc": 0.0,
+      "gain": -6.0,
+      "invert.l": 0.0,
+      "invert.r": 0.0,
+      "mono": 0.0,
+      "mute": 0.0,
+      "width": 100.0
+    },
+    "stateVersion": 1
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Bus",
+    "Subtle"
+  ],
+  "description": "Rounds off a group's peaks with a slow, fixed release.",
+  "author": "Segno",
+  "state": {
+    "device": "limiter",
+    "extra": {},
+    "params": {
+      "ceiling": -2.0,
+      "gain": 2.0,
+      "link": 0.0,
+      "lookahead": 2.0,
+      "mode": 0.0,
+      "release": 150.0,
+      "release.auto": 0.0,
+      "truepeak": 1.0
+    },
+    "stateVersion": 1
+  }
+}

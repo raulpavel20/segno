@@ -1,0 +1,30 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Drums"
+  ],
+  "description": "Shortens the snare's room; ignores the kick below 150 Hz.",
+  "author": "Segno",
+  "state": {
+    "device": "gate",
+    "extra": {},
+    "params": {
+      "attack": 0.1,
+      "flip": 0.0,
+      "hold": 40.0,
+      "lookahead": 1.0,
+      "mode": 0.0,
+      "range": -24.0,
+      "ratio": 2.0,
+      "release": 150.0,
+      "return": 3.0,
+      "sc.filter": 1.0,
+      "sc.freq": 150.0,
+      "sc.gain": 0.0,
+      "sc.listen": 0.0,
+      "sc.q": 0.71,
+      "threshold": -28.0
+    },
+    "stateVersion": 1
+  }
+}

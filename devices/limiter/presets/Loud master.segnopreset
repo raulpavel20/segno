@@ -1,0 +1,24 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Master",
+    "Heavy"
+  ],
+  "description": "Pushed hard for loudness; listen for pumping and distortion.",
+  "author": "Segno",
+  "state": {
+    "device": "limiter",
+    "extra": {},
+    "params": {
+      "ceiling": -0.3,
+      "gain": 9.0,
+      "link": 0.0,
+      "lookahead": 2.0,
+      "mode": 0.0,
+      "release": 80.0,
+      "release.auto": 1.0,
+      "truepeak": 1.0
+    },
+    "stateVersion": 1
+  }
+}

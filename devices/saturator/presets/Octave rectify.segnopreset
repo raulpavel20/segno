@@ -1,0 +1,24 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "FX"
+  ],
+  "description": "Rectification adds an octave up: for leads, guitars and synths.",
+  "author": "Segno",
+  "state": {
+    "device": "saturator",
+    "extra": {},
+    "params": {
+      "bias": 0.0,
+      "color": 0.0,
+      "color.freq": 1000.0,
+      "color.gain": 0.0,
+      "curve": 5.0,
+      "drive": 6.0,
+      "mix": 50.0,
+      "output": 2.0,
+      "quality": 1.0
+    },
+    "stateVersion": 1
+  }
+}

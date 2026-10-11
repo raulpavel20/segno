@@ -77,7 +77,23 @@ COLOR's content is dimmed while Color is off: Freq and Gain only act when it is 
 
 ## Factory presets
 
-"Gentle warmth", "Tape glue", "Bass grit", "Hard clip", "Fold FX", "Octave rectify", "Mid push (Color)".
+Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `devices/saturator/presets/`, made with `fd-presets` from recipes); the product owner signs them off by ear. 15 presets, each checked by the conformance suite: it loads, plays cleanly under 0 dBFS and differs from the rest.
+
+- **Gentle warmth** (Warm, Subtle): A little even-harmonic warmth, hardly louder.
+- **Asymmetric tube** (Warm): An uneven curve, like an overdriven valve: rich even harmonics.
+- **Tape glue** (Bus, Warm, Subtle): Rounds the peaks of a group like tape does.
+- **Warm bus** (Bus, Warm, Subtle): A touch of drive and asymmetry for a group or the mix.
+- **Keys warmth** (Keys, Warm): Tape-style drive, a little more in the low mids.
+- **Mid push (Color)** (Vocals, Guitar): Saturates the mids around 1.5 kHz more than the rest, so the part comes forward.
+- **Vocal edge** (Vocals, Bright): Edge in the upper mids, blended under the clean voice.
+- **Bass grit** (Bass, Dirty): Grit in the mids while the low end stays round.
+- **Sub harmonics** (Bass): Adds harmonics to the lows, so the bass reads on small speakers.
+- **Drum crunch** (Drums, Dirty): Tape crunch, half blended in.
+- **Hard clip** (Drums, Heavy): Shaves the peaks off for loudness; push Drive for more.
+- **Parallel grit** (Drums, Bus, Dirty): Hard clipping blended low under the dry sound.
+- **Lo-fi fuzz** (FX, Dirty, Heavy): Fuzz with a honky mid push.
+- **Fold FX** (FX, Dirty, Heavy): Wavefolding: the louder it plays, the more the tone shifts.
+- **Octave rectify** (FX): Rectification adds an octave up: for leads, guitars and synths.
 
 ## Automated test targets
 

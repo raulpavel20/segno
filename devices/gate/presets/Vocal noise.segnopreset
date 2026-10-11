@@ -1,0 +1,31 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Vocals",
+    "Subtle"
+  ],
+  "description": "Turns the room down 20 dB between phrases, slowly enough not to clip breaths.",
+  "author": "Segno",
+  "state": {
+    "device": "gate",
+    "extra": {},
+    "params": {
+      "attack": 2.0,
+      "flip": 0.0,
+      "hold": 60.0,
+      "lookahead": 0.0,
+      "mode": 0.0,
+      "range": -20.0,
+      "ratio": 2.0,
+      "release": 250.0,
+      "return": 3.0,
+      "sc.filter": 0.0,
+      "sc.freq": 100.0,
+      "sc.gain": 0.0,
+      "sc.listen": 0.0,
+      "sc.q": 0.71,
+      "threshold": -45.0
+    },
+    "stateVersion": 1
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Warm",
+    "Subtle"
+  ],
+  "description": "A little even-harmonic warmth, hardly louder.",
+  "author": "Segno",
+  "state": {
+    "device": "saturator",
+    "extra": {},
+    "params": {
+      "bias": 0.1,
+      "color": 0.0,
+      "color.freq": 1000.0,
+      "color.gain": 0.0,
+      "curve": 1.0,
+      "drive": 6.0,
+      "mix": 100.0,
+      "output": -4.5,
+      "quality": 1.0
+    },
+    "stateVersion": 1
+  }
+}

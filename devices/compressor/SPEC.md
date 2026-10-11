@@ -105,7 +105,23 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 
 ## Factory presets
 
-"Gentle vocal", "Drum punch", "Bass control", "Bus glue", "Mix glue", "Parallel smash", "Sidechain duck", "De-ess (sidechain bell)".
+Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `devices/compressor/presets/`, made with `fd-presets` from recipes); the product owner signs them off by ear. 15 presets, each checked by the conformance suite: it loads, plays cleanly under 0 dBFS and differs from the rest.
+
+- **Gentle vocal** (Vocals, Subtle): Evens out a vocal without squashing it; ignores the lows below 100 Hz.
+- **Vocal leveler** (Vocals): Holds a vocal firmly in place, quick to catch loud words.
+- **De-ess (sidechain bell)** (Vocals, Fix): Listens to the sibilance around 6.5 kHz and turns the voice down on each 's'; set the frequency with Listen.
+- **Drum punch** (Drums): A slow attack lets each hit through, then the tail comes down: more punch.
+- **Kick tight** (Drums): Shortens a kick's boom and keeps its click.
+- **Snare snap** (Drums): Brings out the crack and controls the ring.
+- **Room crush** (Drums, Heavy): Squashes room microphones hard, so the room breathes between the hits.
+- **Parallel smash** (Drums, Bus, Heavy): Heavy compression blended under the dry sound: density without losing the hits.
+- **Bass control** (Bass): Keeps every note of a bass at the same level.
+- **Acoustic guitar** (Guitar, Subtle): Smooths strumming and keeps picking even.
+- **Piano smooth** (Keys, Subtle): A gentle, slow hand on a piano's dynamics.
+- **Bus glue** (Bus, Subtle): Holds a group together: slow attack, adaptive release, a couple of decibels down.
+- **Mix glue** (Master, Subtle): The lightest touch on the whole mix.
+- **Peak catcher** (Clean): Only the loudest peaks, fast; leaves the rest alone.
+- **Sidechain duck** (Ducking, Bass): Choose a track under Sidechain (a kick): this one ducks each time it plays.
 
 ## Automated test targets
 

@@ -62,7 +62,13 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 
 ## Factory presets
 
-None in M0. Possible later: "Mono check", "Invert polarity", "−6 dB pad", "Wide".
+Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `devices/utility/presets/`, made with `fd-presets` from recipes); the product owner signs them off by ear. 5 presets, each checked by the conformance suite: it loads, plays cleanly under 0 dBFS and differs from the rest.
+
+- **Mono check** (Check, Stereo): Sums both channels to mono, to hear how the mix holds up on one speaker.
+- **Invert polarity** (Fix): Flips both channels' polarity, to line one microphone up against another.
+- **Pad -6 dB** (Level): Turns the level down 6 dB, for headroom before the next module.
+- **Wide** (Stereo, Wide): Widens the stereo image by half again; check it in mono.
+- **Remove DC** (Fix): Takes out a DC offset that wastes headroom and clicks at edits.
 
 ## Automated test targets
 

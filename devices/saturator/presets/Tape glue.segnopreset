@@ -1,0 +1,26 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Bus",
+    "Warm",
+    "Subtle"
+  ],
+  "description": "Rounds the peaks of a group like tape does.",
+  "author": "Segno",
+  "state": {
+    "device": "saturator",
+    "extra": {},
+    "params": {
+      "bias": 0.0,
+      "color": 0.0,
+      "color.freq": 1000.0,
+      "color.gain": 0.0,
+      "curve": 2.0,
+      "drive": 9.0,
+      "mix": 100.0,
+      "output": -5.0,
+      "quality": 1.0
+    },
+    "stateVersion": 1
+  }
+}

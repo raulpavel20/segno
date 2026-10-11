@@ -1,0 +1,26 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "FX",
+    "Dirty",
+    "Heavy"
+  ],
+  "description": "Fuzz with a honky mid push.",
+  "author": "Segno",
+  "state": {
+    "device": "saturator",
+    "extra": {},
+    "params": {
+      "bias": 0.0,
+      "color": 1.0,
+      "color.freq": 1000.0,
+      "color.gain": 8.0,
+      "curve": 3.0,
+      "drive": 24.0,
+      "mix": 100.0,
+      "output": -14.5,
+      "quality": 1.0
+    },
+    "stateVersion": 1
+  }
+}

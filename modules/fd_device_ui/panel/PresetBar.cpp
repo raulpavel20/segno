@@ -137,6 +137,14 @@ public:
         repaint();
     }
     [[nodiscard]] int totalHeight() const noexcept { return height_; }
+    /// The first row top at or below `y`: a view starting there never cuts a row at its top.
+    [[nodiscard]] int rowTopFrom(int y) const
+    {
+        for (const auto& r : rows_)
+            if (r.area.getY() >= y)
+                return r.area.getY();
+        return rows_.empty() ? 0 : rows_.back().area.getY();
+    }
     [[nodiscard]] juce::Rectangle<int> areaOf(int preset) const
     {
         for (const auto& r : rows_)
@@ -408,8 +416,8 @@ void PresetList::refilter()
     rows_->build();
     place();
     if (highlighted_ >= 0)
-        viewport_.setViewPosition(
-            0, std::max(0, rows_->areaOf(highlighted_).getCentreY() - viewport_.getHeight() / 2));
+        viewport_.setViewPosition(0, rows_->rowTopFrom(std::max(0, rows_->areaOf(highlighted_).getCentreY() -
+                                                                       viewport_.getHeight() / 2)));
 }
 
 std::vector<std::pair<juce::String, bool>> PresetList::tagFilters() const
@@ -463,10 +471,11 @@ void PresetList::highlight(int index)
     rows_->repaint();
     const auto area = rows_->areaOf(index);
     const auto view = viewport_.getViewArea();
+    // The view starts on a row's top: a part-row only ever shows at the bottom.
     if (area.getY() < view.getY())
         viewport_.setViewPosition(0, area.getY());
     else if (area.getBottom() > view.getBottom())
-        viewport_.setViewPosition(0, area.getBottom() - view.getHeight());
+        viewport_.setViewPosition(0, rows_->rowTopFrom(area.getBottom() - view.getHeight()));
 }
 
 void PresetList::rename(int index, const juce::String& name)
@@ -757,7 +766,10 @@ void PresetList::resized()
     footer.removeFromLeft(s.itemGap);
     save_.setBounds(footer.removeFromLeft(Toggle::widthFor(save_.getButtonText())));
     viewport_.setBounds(area);
-    rows_->setSize(viewport_.getMaximumVisibleWidth(), std::max(rows_->totalHeight(), 1));
+    // Scrolled to the end, the view still starts on a row's top: the content ends where it does.
+    const int view = viewport_.getHeight(), total = rows_->totalHeight();
+    const int content = total > view ? rows_->rowTopFrom(total - view) + view : total;
+    rows_->setSize(viewport_.getMaximumVisibleWidth(), std::max(content, 1));
 }
 
 void PresetList::paint(juce::Graphics& g)

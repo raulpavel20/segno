@@ -1,0 +1,31 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Vocals",
+    "Subtle"
+  ],
+  "description": "An expander that lowers breaths and noise gradually rather than cutting them.",
+  "author": "Segno",
+  "state": {
+    "device": "gate",
+    "extra": {},
+    "params": {
+      "attack": 1.0,
+      "flip": 0.0,
+      "hold": 20.0,
+      "lookahead": 0.0,
+      "mode": 1.0,
+      "range": -80.0,
+      "ratio": 3.0,
+      "release": 150.0,
+      "return": 3.0,
+      "sc.filter": 0.0,
+      "sc.freq": 100.0,
+      "sc.gain": 0.0,
+      "sc.listen": 0.0,
+      "sc.q": 0.71,
+      "threshold": -35.0
+    },
+    "stateVersion": 1
+  }
+}

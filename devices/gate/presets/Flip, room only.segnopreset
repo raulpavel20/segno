@@ -1,0 +1,31 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Drums",
+    "FX"
+  ],
+  "description": "Takes the hits out and keeps the room between them.",
+  "author": "Segno",
+  "state": {
+    "device": "gate",
+    "extra": {},
+    "params": {
+      "attack": 0.1,
+      "flip": 1.0,
+      "hold": 20.0,
+      "lookahead": 0.0,
+      "mode": 0.0,
+      "range": -80.0,
+      "ratio": 2.0,
+      "release": 80.0,
+      "return": 3.0,
+      "sc.filter": 0.0,
+      "sc.freq": 100.0,
+      "sc.gain": 0.0,
+      "sc.listen": 0.0,
+      "sc.q": 0.71,
+      "threshold": -25.0
+    },
+    "stateVersion": 1
+  }
+}

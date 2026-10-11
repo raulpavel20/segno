@@ -1,0 +1,23 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Wide"
+  ],
+  "description": "Each channel on its own: wider-sounding, but the image can shift on peaks.",
+  "author": "Segno",
+  "state": {
+    "device": "limiter",
+    "extra": {},
+    "params": {
+      "ceiling": -1.0,
+      "gain": 3.0,
+      "link": 1.0,
+      "lookahead": 1.0,
+      "mode": 0.0,
+      "release": 80.0,
+      "release.auto": 1.0,
+      "truepeak": 1.0
+    },
+    "stateVersion": 1
+  }
+}

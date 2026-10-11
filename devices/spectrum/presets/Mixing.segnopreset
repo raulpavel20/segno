@@ -1,0 +1,24 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Mix"
+  ],
+  "description": "Tilted 4.5 dB per octave so a full, balanced mix looks about flat, and averaged to show its overall balance.",
+  "author": "Segno",
+  "state": {
+    "device": "spectrum",
+    "extra": {},
+    "params": {
+      "average": 600.0,
+      "channel": 0.0,
+      "hold": 2.0,
+      "labels": 1.0,
+      "range": 1.0,
+      "resolution": 2.0,
+      "side": 0.0,
+      "slope": 3.0,
+      "view": 0.0
+    },
+    "stateVersion": 1
+  }
+}

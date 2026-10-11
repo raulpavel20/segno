@@ -1,0 +1,34 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Bass"
+  ],
+  "description": "Keeps every note of a bass at the same level.",
+  "author": "Segno",
+  "state": {
+    "device": "compressor",
+    "extra": {},
+    "params": {
+      "attack": 15.0,
+      "character": 0.0,
+      "detector": 1.0,
+      "knee": 6.0,
+      "link": 100.0,
+      "lookahead": 0.0,
+      "makeup": 0.0,
+      "makeup.auto": 1.0,
+      "mix": 100.0,
+      "output": 0.0,
+      "ratio": 4.0,
+      "release": 150.0,
+      "release.auto": 0.0,
+      "sc.filter": 0.0,
+      "sc.freq": 100.0,
+      "sc.gain": 0.0,
+      "sc.listen": 0.0,
+      "sc.q": 0.71,
+      "threshold": -22.0
+    },
+    "stateVersion": 1
+  }
+}

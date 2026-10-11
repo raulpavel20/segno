@@ -1,0 +1,30 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Drums"
+  ],
+  "description": "Lets each hit through and turns the bleed down 30 dB, not to silence, so the kit stays natural.",
+  "author": "Segno",
+  "state": {
+    "device": "gate",
+    "extra": {},
+    "params": {
+      "attack": 0.1,
+      "flip": 0.0,
+      "hold": 30.0,
+      "lookahead": 1.0,
+      "mode": 0.0,
+      "range": -30.0,
+      "ratio": 2.0,
+      "release": 120.0,
+      "return": 4.0,
+      "sc.filter": 0.0,
+      "sc.freq": 100.0,
+      "sc.gain": 0.0,
+      "sc.listen": 0.0,
+      "sc.q": 0.71,
+      "threshold": -30.0
+    },
+    "stateVersion": 1
+  }
+}

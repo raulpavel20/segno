@@ -111,7 +111,7 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 
 ## Factory presets
 
-These ship with the CC0 core content (M7). M1 ships defaults only.
+Waiting for sounds: the product owner brings the set they're built on (2026-10-11; [presets.md](../../docs/design/presets.md) §15, P11). Until then the Sampler has only Default settings.
 
 ## Automated test targets
 

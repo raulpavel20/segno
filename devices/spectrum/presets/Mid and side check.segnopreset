@@ -1,0 +1,25 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Check",
+    "Stereo"
+  ],
+  "description": "The mid with the side drawn under it, to see what's stereo and where.",
+  "author": "Segno",
+  "state": {
+    "device": "spectrum",
+    "extra": {},
+    "params": {
+      "average": 300.0,
+      "channel": 3.0,
+      "hold": 2.0,
+      "labels": 1.0,
+      "range": 1.0,
+      "resolution": 2.0,
+      "side": 1.0,
+      "slope": 2.0,
+      "view": 0.0
+    },
+    "stateVersion": 1
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Drums"
+  ],
+  "description": "Turns a hi-hat microphone's bleed down; listens only above 3 kHz.",
+  "author": "Segno",
+  "state": {
+    "device": "gate",
+    "extra": {},
+    "params": {
+      "attack": 0.1,
+      "flip": 0.0,
+      "hold": 15.0,
+      "lookahead": 0.0,
+      "mode": 0.0,
+      "range": -18.0,
+      "ratio": 2.0,
+      "release": 80.0,
+      "return": 3.0,
+      "sc.filter": 1.0,
+      "sc.freq": 3000.0,
+      "sc.gain": 0.0,
+      "sc.listen": 0.0,
+      "sc.q": 0.71,
+      "threshold": -30.0
+    },
+    "stateVersion": 1
+  }
+}

@@ -1,20 +1,22 @@
 // Device conformance suite (ADR 0007). Runs automatically on every registered device.
 // A device that fails here is not done, whatever else it does.
 
+#include "fd/device/Presets.h"
 #include "fd/device/Registry.h"
 #include "fd/device/State.h"
 #include "fd/testkit/DeviceRender.h"
 #include "fd/testkit/Metrics.h"
 #include "fd/testkit/Signals.h"
 
-#include <catch2/catch_test_macros.hpp>
-
 #include <algorithm>
-#include <set>
+#include <catch2/catch_test_macros.hpp>
 #include <cmath>
+#include <cstdlib>
 #include <fstream>
+#include <iostream>
 #include <map>
 #include <regex>
+#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -486,4 +488,140 @@ TEST_CASE("conformance: meters are named, unique and on the analysis bus", "[fas
             CHECK(std::all_of(m.id.begin(), m.id.end(), [](char c) { return (c >= 'a' && c <= 'z') || c == '_'; }));
         }
     });
+}
+
+// ---- factory presets (ADR 0044, docs/design/presets.md §13) ---------------------------------
+
+namespace
+{
+/// Words a preset may not use: other vendors' names, products and famous hardware (ADR 0008).
+const std::regex kBannedWords("\\b(ableton|live|bitwig|logic|cubase|fabfilter|waves|universal "
+                              "audio|\\buad?\\b|softube|native instruments|serum|"
+                              "massive|vital|sylenth|moog|minimoog|roland|juno|jupiter|tb-?303|tr-?808|tr-?"
+                              "909|prophet|oberheim|korg|ms-?20|"
+                              "neve|ssl|api|pultec|la-?2a|1176|fairchild|distressor|tube-?tech|manley|shadow "
+                              "hills|ozone|izotope|valhalla)\\b",
+                              std::regex::icase);
+const std::set<std::string> kTags{"Drums",  "Bass",  "Vocals", "Keys",   "Guitar", "Bus",   "Master",
+                                  "Subtle", "Heavy", "Warm",   "Bright", "Wide",   "Clean", "Dirty",
+                                  "Lead",   "Pad",   "Pluck",  "Brass",  "FX",     "Check", "Fix",
+                                  "Stereo", "Level", "Mix",    "Ducking"};
+
+/// What a preset plays: -18 dBFS pink noise into an effect; a held C3 into an instrument.
+AudioBuffer renderPreset(Device& d, const DeviceInfo& info, double* inputRmsDb)
+{
+    constexpr int length = 96000;
+    if (isEffect(info))
+    {
+        auto in = pinkNoise(length, 7, 0.25f, std::max(1, info.buses.inputChannels));
+        const double gain = std::pow(10.0, (-18.0 - rmsDb(in)) / 20.0);
+        for (int c = 0; c < in.numChannels(); ++c)
+            for (int i = 0; i < in.numSamples(); ++i)
+                in.at(c, i) *= static_cast<float>(gain);
+        *inputRmsDb = rmsDb(in);
+        RenderOptions o;
+        o.sampleRate = kSampleRate;
+        return render(d, in, o);
+    }
+    *inputRmsDb = 0.0;
+    return renderWithTail(d, length,
+                          {{0, {.type = EventType::NoteOn, .key = 60, .value = 0.8f}},
+                           {length / 2, {.type = EventType::NoteOff, .key = 60}}});
+}
+} // namespace
+
+TEST_CASE("conformance: every factory preset loads, plays cleanly within level and is its own",
+          "[fast][conformance]")
+{
+    std::map<std::string, std::vector<Preset>> byDevice;
+    for (const auto& file : factoryPresetFiles())
+    {
+        INFO(file.name);
+        auto p = parsePresetFile(file.text, std::string(file.name));
+        REQUIRE(p);
+        byDevice[p->state.deviceId].push_back(std::move(*p));
+    }
+    for (const auto& [id, presets] : byDevice)
+    {
+        const auto* factory = findDevice(id);
+        REQUIRE(factory != nullptr);
+        const auto& info = factory->info();
+        for (size_t i = 0; i < presets.size(); ++i)
+        {
+            const auto& p = presets[i];
+            INFO(id << ": " << p.name);
+            CHECK(presetNameProblem(p.name).empty());
+            CHECK_FALSE(std::regex_search(p.name + " " + p.description, kBannedWords));
+            CHECK(p.state.stateVersion == info.stateVersion);   // made with the module as it is
+            CHECK(p.state.params.size() == info.params.size()); // the whole state
+            for (const auto& [param, value] : p.state.params)
+                CHECK(std::any_of(info.params.begin(), info.params.end(),
+                                  [&](const ParamSpec& s) { return s.id == param; }));
+            CHECK_FALSE(p.description.empty());
+            CHECK(p.description.ends_with("."));
+            CHECK_FALSE(p.tags.empty());
+            for (const auto& tag : p.tags)
+            {
+                INFO("tag " << tag);
+                CHECK(kTags.contains(tag));
+            }
+            for (size_t j = 0; j < i; ++j)
+            {
+                INFO("against " << presets[j].name);
+                CHECK_FALSE(sameSound(info, presets[j].state, p.state));
+            }
+            CHECK_FALSE(sameSound(info, defaultState(info), p.state));
+
+            auto d = create(*factory);
+            REQUIRE(applyState(*d, p.state) == ApplyResult::Ok);
+            double inputRms = 0.0;
+            const auto out = renderPreset(*d, info, &inputRms);
+            CHECK(allFinite(out));
+            CHECK(peakDb(out) <= 0.0);
+            // It sounds; except a flipped gate, which passes only what a gate takes away: on steady
+            // noise above its threshold, nothing.
+            const auto flip = p.state.params.find("flip");
+            CHECK((rmsDb(out) > -60.0 || (flip != p.state.params.end() && flip->second > 0.5f)));
+            if (std::getenv("FD_PRESET_REPORT") != nullptr) // for level matching by hand
+                std::cout << id << " | " << p.name << " | level " << rmsDb(out) - inputRms << " dB, peak "
+                          << peakDb(out) << " dBFS\n";
+        }
+    }
+    CHECK(byDevice.size() >= 8); // every module but the Sampler (its sounds come later)
+}
+
+TEST_CASE("conformance: the factory presets are what their recipes make", "[fast][conformance]")
+{
+    // devices/<id>/presets/recipes.json is the source (presets.md §13); `fd-presets make` writes
+    // the files beside it. A preset edited by hand, or a recipe changed without remaking, fails here.
+    std::map<std::string, std::map<std::string, std::string>> built; // device -> name -> text
+    for (const auto& file : factoryPresetFiles())
+        if (const auto p = parsePresetFile(file.text, std::string(file.name)))
+            built[p->state.deviceId][std::string(file.name)] = std::string(file.text);
+    forEachDevice(
+        [&](const DeviceFactory& f)
+        {
+            const auto path =
+                std::string(FD_SOURCE_DIR) + "/devices/" + std::string(f.info().id) + "/presets/recipes.json";
+            std::ifstream in(path);
+            if (!in)
+            {
+                CHECK(built[std::string(f.info().id)].empty()); // no recipes, no presets
+                return;
+            }
+            std::stringstream text;
+            text << in.rdbuf();
+            const auto made = presetsFromRecipes(f, nlohmann::json::parse(text.str()));
+            for (const auto& problem : made.problems)
+                UNSCOPED_INFO(problem);
+            CHECK(made.problems.empty());
+            auto& files = built[std::string(f.info().id)];
+            CHECK(made.presets.size() == files.size());
+            for (const auto& p : made.presets)
+            {
+                INFO(p.name);
+                REQUIRE(files.contains(p.name));
+                CHECK(files.at(p.name) == presetFileText(p));
+            }
+        });
 }

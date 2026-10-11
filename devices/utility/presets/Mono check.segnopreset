@@ -1,0 +1,24 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Check",
+    "Stereo"
+  ],
+  "description": "Sums both channels to mono, to hear how the mix holds up on one speaker.",
+  "author": "Segno",
+  "state": {
+    "device": "utility",
+    "extra": {},
+    "params": {
+      "balance": 0.0,
+      "dc": 0.0,
+      "gain": 0.0,
+      "invert.l": 0.0,
+      "invert.r": 0.0,
+      "mono": 1.0,
+      "mute": 0.0,
+      "width": 100.0
+    },
+    "stateVersion": 1
+  }
+}

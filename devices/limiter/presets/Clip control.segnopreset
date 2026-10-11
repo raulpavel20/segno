@@ -1,0 +1,24 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Drums",
+    "Heavy"
+  ],
+  "description": "Very fast, almost clipping: hard transients turned into loudness.",
+  "author": "Segno",
+  "state": {
+    "device": "limiter",
+    "extra": {},
+    "params": {
+      "ceiling": -1.0,
+      "gain": 6.0,
+      "link": 0.0,
+      "lookahead": 0.0,
+      "mode": 0.0,
+      "release": 5.0,
+      "release.auto": 0.0,
+      "truepeak": 0.0
+    },
+    "stateVersion": 1
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Master",
+    "Subtle"
+  ],
+  "description": "A little louder, with the longest look ahead and a smooth release.",
+  "author": "Segno",
+  "state": {
+    "device": "limiter",
+    "extra": {},
+    "params": {
+      "ceiling": -0.5,
+      "gain": 2.0,
+      "link": 0.0,
+      "lookahead": 2.0,
+      "mode": 0.0,
+      "release": 80.0,
+      "release.auto": 1.0,
+      "truepeak": 1.0
+    },
+    "stateVersion": 1
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Drums"
+  ],
+  "description": "Closes fast between kicks; listens only to the lows, so the snare doesn't open it.",
+  "author": "Segno",
+  "state": {
+    "device": "gate",
+    "extra": {},
+    "params": {
+      "attack": 0.05,
+      "flip": 0.0,
+      "hold": 10.0,
+      "lookahead": 1.0,
+      "mode": 0.0,
+      "range": -80.0,
+      "ratio": 2.0,
+      "release": 60.0,
+      "return": 3.0,
+      "sc.filter": 2.0,
+      "sc.freq": 150.0,
+      "sc.gain": 0.0,
+      "sc.listen": 0.0,
+      "sc.q": 0.71,
+      "threshold": -25.0
+    },
+    "stateVersion": 1
+  }
+}

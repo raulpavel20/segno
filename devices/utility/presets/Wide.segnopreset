@@ -1,0 +1,24 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Stereo",
+    "Wide"
+  ],
+  "description": "Widens the stereo image by half again; check it in mono.",
+  "author": "Segno",
+  "state": {
+    "device": "utility",
+    "extra": {},
+    "params": {
+      "balance": 0.0,
+      "dc": 0.0,
+      "gain": 0.0,
+      "invert.l": 0.0,
+      "invert.r": 0.0,
+      "mono": 0.0,
+      "mute": 0.0,
+      "width": 150.0
+    },
+    "stateVersion": 1
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "FX",
+    "Dirty",
+    "Heavy"
+  ],
+  "description": "Wavefolding: the louder it plays, the more the tone shifts.",
+  "author": "Segno",
+  "state": {
+    "device": "saturator",
+    "extra": {},
+    "params": {
+      "bias": 0.0,
+      "color": 0.0,
+      "color.freq": 1000.0,
+      "color.gain": 0.0,
+      "curve": 4.0,
+      "drive": 18.0,
+      "mix": 60.0,
+      "output": -13.5,
+      "quality": 1.0
+    },
+    "stateVersion": 1
+  }
+}

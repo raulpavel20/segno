@@ -1,0 +1,23 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Vocals"
+  ],
+  "description": "Catches a vocal's loudest moments after the compressor.",
+  "author": "Segno",
+  "state": {
+    "device": "limiter",
+    "extra": {},
+    "params": {
+      "ceiling": -6.0,
+      "gain": 3.0,
+      "link": 0.0,
+      "lookahead": 1.0,
+      "mode": 0.0,
+      "release": 50.0,
+      "release.auto": 0.0,
+      "truepeak": 1.0
+    },
+    "stateVersion": 1
+  }
+}

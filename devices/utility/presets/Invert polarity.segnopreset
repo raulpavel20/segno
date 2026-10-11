@@ -1,0 +1,23 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Fix"
+  ],
+  "description": "Flips both channels' polarity, to line one microphone up against another.",
+  "author": "Segno",
+  "state": {
+    "device": "utility",
+    "extra": {},
+    "params": {
+      "balance": 0.0,
+      "dc": 0.0,
+      "gain": 0.0,
+      "invert.l": 1.0,
+      "invert.r": 1.0,
+      "mono": 0.0,
+      "mute": 0.0,
+      "width": 100.0
+    },
+    "stateVersion": 1
+  }
+}

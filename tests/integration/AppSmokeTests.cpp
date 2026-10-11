@@ -3594,8 +3594,8 @@ TEST_CASE("presets: the header's bar, the list and the save form, by mouse and k
     auto host = s.presetHost(comp);
     auto state = host->state();
     state.params["threshold"] = -10.0f;
-    REQUIRE(
-        library.save(info, state, "Glue", {"Bus", "Subtle"}, "Gentle glue for a bus", "Me", false).preset);
+    REQUIRE(library.save(info, state, "Glue", {"Bus", "Subtle", "Mine"}, "Gentle glue for a bus", "Me", false)
+                .preset);
     state.params["threshold"] = -40.0f;
     REQUIRE(library.save(info, state, "Smash", {"Drums", "Heavy"}, "", "Me", false).preset);
     const float defaultThreshold = host->state().params.at("threshold");
@@ -3611,22 +3611,31 @@ TEST_CASE("presets: the header's bar, the list and the save form, by mouse and k
     CHECK(actions.label("module.useAsDefault") == "Use as the default for a new Compressor");
     CHECK(actions.label("module.copyCompare") == "Copy A to B");
 
-    // The list: Default settings and yours, the tags in use.
+    // The list: Default settings, the factory set and yours, the tags in use.
     bar->openList();
     REQUIRE(bar->isListOpen());
     auto& list = bar->list();
-    CHECK(list.shown().size() == 3);
+    CHECK(list.shown().size() == library.presetsFor(info).size());
+    CHECK(list.shown().size() > 3); // the factory set is there
     CHECK(list.highlighted() == 0); // the loaded one
+    auto at = [&list](const std::string& name)
+    {
+        for (size_t i = 0; i < list.shown().size(); ++i)
+            if (list.shown()[i]->name == name)
+                return static_cast<int>(i);
+        FAIL("no preset " << name);
+        return -1;
+    };
     const auto tags = list.tagFilters();
-    REQUIRE(tags.size() == 4);
+    CHECK(std::any_of(tags.begin(), tags.end(), [](const auto& t) { return t.first == "Mine"; }));
     CHECK(f.shell->getLocalBounds().contains(
         list.getBounds().reduced(juce::roundToInt(fd::ui::Theme::current().shell.shadowRadius))));
 
     // Browsing loads as it goes; Escape goes back.
-    list.highlight(1);
+    list.highlight(at("Glue"));
     CHECK(host->state().params.at("threshold") == Catch::Approx(-10.0f).margin(0.01f));
     CHECK(bar->field().presetName() == "Glue");
-    list.highlight(2);
+    list.highlight(at("Smash"));
     CHECK(bar->field().presetName() == "Smash");
     if (const char* dump = std::getenv("FD_DUMP_DIR"))
         dumpPng(
@@ -3641,9 +3650,9 @@ TEST_CASE("presets: the header's bar, the list and the save form, by mouse and k
 
     // Enter keeps what's loaded, as one undo step.
     bar->openList();
-    list.highlight(1);
-    list.highlight(2);
-    list.highlight(1);
+    list.highlight(at("Glue"));
+    list.highlight(at("Smash"));
+    list.highlight(at("Glue"));
     list.close(true);
     CHECK(bar->field().presetName() == "Glue");
     CHECK(s.undoDescription() == "Load preset Glue");
@@ -3651,14 +3660,14 @@ TEST_CASE("presets: the header's bar, the list and the save form, by mouse and k
     // Search, tags and favourites narrow the list; previous and next step through it as filtered.
     bar->openList();
     type(list.searchField(), "smash");
-    REQUIRE(list.shown().size() == 1);
-    CHECK(list.shown()[0]->name == "Smash");
+    REQUIRE(list.shown().size() == 2);
+    CHECK(list.shown()[0]->name == "Smash"); // the name's start first, then "Parallel smash"
     type(list.searchField(), "");
-    list.setTagFilter("Bus", true);
+    list.setTagFilter("Mine", true);
     REQUIRE(list.shown().size() == 1);
     CHECK(list.shown()[0]->name == "Glue");
-    list.setTagFilter("Bus", false);
-    list.setFavourite(2, true);
+    list.setTagFilter("Mine", false);
+    list.setFavourite(at("Smash"), true);
     list.setFavouritesOnly(true);
     CHECK(list.shown().size() == 1);
     list.setFavouritesOnly(false);
@@ -3668,7 +3677,7 @@ TEST_CASE("presets: the header's bar, the list and the save form, by mouse and k
     list.saveAsButton().onClick();
     REQUIRE(list.isShowingForm());
     CHECK(list.nameField().getText() == "Glue");
-    CHECK(list.tagsField().getText() == "Bus, Subtle");
+    CHECK(list.tagsField().getText() == "Bus, Subtle, Mine");
     list.confirmButton().onClick();
     CHECK(list.isShowingForm());
     CHECK(list.confirmButton().getButtonText() == "Replace");

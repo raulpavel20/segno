@@ -1,0 +1,35 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Vocals",
+    "Fix"
+  ],
+  "description": "Listens to the sibilance around 6.5 kHz and turns the voice down on each 's'; set the frequency with Listen.",
+  "author": "Segno",
+  "state": {
+    "device": "compressor",
+    "extra": {},
+    "params": {
+      "attack": 0.5,
+      "character": 0.0,
+      "detector": 0.0,
+      "knee": 3.0,
+      "link": 100.0,
+      "lookahead": 1.0,
+      "makeup": 0.0,
+      "makeup.auto": 0.0,
+      "mix": 100.0,
+      "output": 0.0,
+      "ratio": 6.0,
+      "release": 50.0,
+      "release.auto": 0.0,
+      "sc.filter": 4.0,
+      "sc.freq": 6500.0,
+      "sc.gain": 12.0,
+      "sc.listen": 0.0,
+      "sc.q": 2.0,
+      "threshold": -30.0
+    },
+    "stateVersion": 1
+  }
+}

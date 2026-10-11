@@ -1,0 +1,231 @@
+{
+ "device": "saturator",
+ "author": "Segno",
+ "presets": [
+  {
+   "name": "Gentle warmth",
+   "tags": [
+    "Warm",
+    "Subtle"
+   ],
+   "description": "A little even-harmonic warmth, hardly louder.",
+   "params": {
+    "curve": "Warm",
+    "drive": 6,
+    "bias": 0.1,
+    "output": -4.5
+   }
+  },
+  {
+   "name": "Asymmetric tube",
+   "tags": [
+    "Warm"
+   ],
+   "description": "An uneven curve, like an overdriven valve: rich even harmonics.",
+   "params": {
+    "curve": "Soft",
+    "drive": 10,
+    "bias": 0.4,
+    "output": -7.5
+   }
+  },
+  {
+   "name": "Tape glue",
+   "tags": [
+    "Bus",
+    "Warm",
+    "Subtle"
+   ],
+   "description": "Rounds the peaks of a group like tape does.",
+   "params": {
+    "curve": "Tape",
+    "drive": 9,
+    "output": -5.0
+   }
+  },
+  {
+   "name": "Warm bus",
+   "tags": [
+    "Bus",
+    "Warm",
+    "Subtle"
+   ],
+   "description": "A touch of drive and asymmetry for a group or the mix.",
+   "params": {
+    "curve": "Warm",
+    "drive": 4,
+    "bias": 0.2,
+    "output": -2.5
+   }
+  },
+  {
+   "name": "Keys warmth",
+   "tags": [
+    "Keys",
+    "Warm"
+   ],
+   "description": "Tape-style drive, a little more in the low mids.",
+   "params": {
+    "curve": "Tape",
+    "drive": 7,
+    "color": true,
+    "color.freq": 400,
+    "color.gain": 3,
+    "output": -3.0
+   }
+  },
+  {
+   "name": "Mid push (Color)",
+   "tags": [
+    "Vocals",
+    "Guitar"
+   ],
+   "description": "Saturates the mids around 1.5 kHz more than the rest, so the part comes forward.",
+   "params": {
+    "curve": "Soft",
+    "drive": 9,
+    "color": true,
+    "color.freq": 1500,
+    "color.gain": 6,
+    "output": -7.0
+   }
+  },
+  {
+   "name": "Vocal edge",
+   "tags": [
+    "Vocals",
+    "Bright"
+   ],
+   "description": "Edge in the upper mids, blended under the clean voice.",
+   "params": {
+    "curve": "Soft",
+    "drive": 10,
+    "color": true,
+    "color.freq": 3000,
+    "color.gain": 5,
+    "mix": 40,
+    "output": -7.0
+   }
+  },
+  {
+   "name": "Bass grit",
+   "tags": [
+    "Bass",
+    "Dirty"
+   ],
+   "description": "Grit in the mids while the low end stays round.",
+   "params": {
+    "curve": "Warm",
+    "drive": 15,
+    "color": true,
+    "color.freq": 800,
+    "color.gain": 6,
+    "mix": 70,
+    "output": -10.0
+   }
+  },
+  {
+   "name": "Sub harmonics",
+   "tags": [
+    "Bass"
+   ],
+   "description": "Adds harmonics to the lows, so the bass reads on small speakers.",
+   "params": {
+    "curve": "Warm",
+    "drive": 12,
+    "color": true,
+    "color.freq": 120,
+    "color.gain": 6,
+    "mix": 40,
+    "output": -7.5
+   }
+  },
+  {
+   "name": "Drum crunch",
+   "tags": [
+    "Drums",
+    "Dirty"
+   ],
+   "description": "Tape crunch, half blended in.",
+   "params": {
+    "curve": "Tape",
+    "drive": 15,
+    "mix": 60,
+    "output": -8.0
+   }
+  },
+  {
+   "name": "Hard clip",
+   "tags": [
+    "Drums",
+    "Heavy"
+   ],
+   "description": "Shaves the peaks off for loudness; push Drive for more.",
+   "params": {
+    "curve": "Hard",
+    "drive": 6,
+    "output": -5.5
+   }
+  },
+  {
+   "name": "Parallel grit",
+   "tags": [
+    "Drums",
+    "Bus",
+    "Dirty"
+   ],
+   "description": "Hard clipping blended low under the dry sound.",
+   "params": {
+    "curve": "Hard",
+    "drive": 20,
+    "mix": 25,
+    "output": -14.5
+   }
+  },
+  {
+   "name": "Lo-fi fuzz",
+   "tags": [
+    "FX",
+    "Dirty",
+    "Heavy"
+   ],
+   "description": "Fuzz with a honky mid push.",
+   "params": {
+    "curve": "Hard",
+    "drive": 24,
+    "color": true,
+    "color.freq": 1000,
+    "color.gain": 8,
+    "output": -14.5
+   }
+  },
+  {
+   "name": "Fold FX",
+   "tags": [
+    "FX",
+    "Dirty",
+    "Heavy"
+   ],
+   "description": "Wavefolding: the louder it plays, the more the tone shifts.",
+   "params": {
+    "curve": "Fold",
+    "drive": 18,
+    "mix": 60,
+    "output": -13.5
+   }
+  },
+  {
+   "name": "Octave rectify",
+   "tags": [
+    "FX"
+   ],
+   "description": "Rectification adds an octave up: for leads, guitars and synths.",
+   "params": {
+    "curve": "Rectify",
+    "drive": 6,
+    "mix": 50,
+    "output": 2.0
+   }
+  }
+ ]
+}

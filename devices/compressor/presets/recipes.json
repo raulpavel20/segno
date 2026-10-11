@@ -1,0 +1,259 @@
+{
+ "device": "compressor",
+ "author": "Segno",
+ "presets": [
+  {
+   "name": "Gentle vocal",
+   "tags": [
+    "Vocals",
+    "Subtle"
+   ],
+   "description": "Evens out a vocal without squashing it; ignores the lows below 100 Hz.",
+   "params": {
+    "threshold": -24,
+    "ratio": 3,
+    "knee": 9,
+    "attack": 10,
+    "release": 120,
+    "release.auto": true,
+    "detector": "RMS",
+    "makeup.auto": true,
+    "sc.filter": "High Pass",
+    "sc.freq": 100
+   }
+  },
+  {
+   "name": "Vocal leveler",
+   "tags": [
+    "Vocals"
+   ],
+   "description": "Holds a vocal firmly in place, quick to catch loud words.",
+   "params": {
+    "threshold": -28,
+    "ratio": 4,
+    "knee": 6,
+    "attack": 5,
+    "release": 80,
+    "release.auto": true,
+    "makeup.auto": true,
+    "sc.filter": "High Pass",
+    "sc.freq": 120
+   }
+  },
+  {
+   "name": "De-ess (sidechain bell)",
+   "tags": [
+    "Vocals",
+    "Fix"
+   ],
+   "description": "Listens to the sibilance around 6.5 kHz and turns the voice down on each 's'; set the frequency with Listen.",
+   "params": {
+    "threshold": -30,
+    "ratio": 6,
+    "knee": 3,
+    "attack": 0.5,
+    "release": 50,
+    "lookahead": "1 ms",
+    "sc.filter": "Bell",
+    "sc.freq": 6500,
+    "sc.q": 2,
+    "sc.gain": 12
+   }
+  },
+  {
+   "name": "Drum punch",
+   "tags": [
+    "Drums"
+   ],
+   "description": "A slow attack lets each hit through, then the tail comes down: more punch.",
+   "params": {
+    "threshold": -20,
+    "ratio": 4,
+    "knee": 3,
+    "attack": 25,
+    "release": 60,
+    "makeup.auto": true
+   }
+  },
+  {
+   "name": "Kick tight",
+   "tags": [
+    "Drums"
+   ],
+   "description": "Shortens a kick's boom and keeps its click.",
+   "params": {
+    "threshold": -18,
+    "ratio": 6,
+    "knee": 2,
+    "attack": 8,
+    "release": 40,
+    "makeup.auto": true
+   }
+  },
+  {
+   "name": "Snare snap",
+   "tags": [
+    "Drums"
+   ],
+   "description": "Brings out the crack and controls the ring.",
+   "params": {
+    "threshold": -22,
+    "ratio": 5,
+    "knee": 4,
+    "attack": 15,
+    "release": 80,
+    "makeup.auto": true
+   }
+  },
+  {
+   "name": "Room crush",
+   "tags": [
+    "Drums",
+    "Heavy"
+   ],
+   "description": "Squashes room microphones hard, so the room breathes between the hits.",
+   "params": {
+    "threshold": -40,
+    "ratio": 20,
+    "knee": 0,
+    "attack": 1,
+    "release": 100,
+    "character": "Glue",
+    "makeup.auto": false,
+    "makeup": 14
+   }
+  },
+  {
+   "name": "Parallel smash",
+   "tags": [
+    "Drums",
+    "Bus",
+    "Heavy"
+   ],
+   "description": "Heavy compression blended under the dry sound: density without losing the hits.",
+   "params": {
+    "threshold": -35,
+    "ratio": 10,
+    "knee": 0,
+    "attack": 1,
+    "release": 60,
+    "makeup.auto": true,
+    "mix": 35
+   }
+  },
+  {
+   "name": "Bass control",
+   "tags": [
+    "Bass"
+   ],
+   "description": "Keeps every note of a bass at the same level.",
+   "params": {
+    "threshold": -22,
+    "ratio": 4,
+    "knee": 6,
+    "attack": 15,
+    "release": 150,
+    "detector": "RMS",
+    "makeup.auto": true
+   }
+  },
+  {
+   "name": "Acoustic guitar",
+   "tags": [
+    "Guitar",
+    "Subtle"
+   ],
+   "description": "Smooths strumming and keeps picking even.",
+   "params": {
+    "threshold": -20,
+    "ratio": 3,
+    "knee": 8,
+    "attack": 8,
+    "release": 100,
+    "detector": "RMS",
+    "makeup.auto": true
+   }
+  },
+  {
+   "name": "Piano smooth",
+   "tags": [
+    "Keys",
+    "Subtle"
+   ],
+   "description": "A gentle, slow hand on a piano's dynamics.",
+   "params": {
+    "threshold": -22,
+    "ratio": 2.5,
+    "knee": 10,
+    "attack": 20,
+    "release": 200,
+    "detector": "RMS",
+    "makeup.auto": true
+   }
+  },
+  {
+   "name": "Bus glue",
+   "tags": [
+    "Bus",
+    "Subtle"
+   ],
+   "description": "Holds a group together: slow attack, adaptive release, a couple of decibels down.",
+   "params": {
+    "character": "Glue",
+    "threshold": -16,
+    "ratio": 2,
+    "knee": 6,
+    "attack": 30,
+    "release.auto": true,
+    "makeup.auto": true
+   }
+  },
+  {
+   "name": "Mix glue",
+   "tags": [
+    "Master",
+    "Subtle"
+   ],
+   "description": "The lightest touch on the whole mix.",
+   "params": {
+    "character": "Glue",
+    "threshold": -12,
+    "ratio": 1.5,
+    "knee": 12,
+    "attack": 30,
+    "release.auto": true,
+    "makeup.auto": true
+   }
+  },
+  {
+   "name": "Peak catcher",
+   "tags": [
+    "Clean"
+   ],
+   "description": "Only the loudest peaks, fast; leaves the rest alone.",
+   "params": {
+    "threshold": -10,
+    "ratio": 10,
+    "knee": 0,
+    "attack": 0.5,
+    "release": 50,
+    "lookahead": "1 ms"
+   }
+  },
+  {
+   "name": "Sidechain duck",
+   "tags": [
+    "Ducking",
+    "Bass"
+   ],
+   "description": "Choose a track under Sidechain (a kick): this one ducks each time it plays.",
+   "params": {
+    "threshold": -30,
+    "ratio": 8,
+    "knee": 0,
+    "attack": 1,
+    "release": 200
+   }
+  }
+ ]
+}

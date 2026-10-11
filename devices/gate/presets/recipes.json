@@ -1,0 +1,190 @@
+{
+ "device": "gate",
+ "author": "Segno",
+ "presets": [
+  {
+   "name": "Drum bleed",
+   "tags": [
+    "Drums"
+   ],
+   "description": "Lets each hit through and turns the bleed down 30 dB, not to silence, so the kit stays natural.",
+   "params": {
+    "threshold": -30,
+    "return": 4,
+    "range": -30,
+    "attack": 0.1,
+    "hold": 30,
+    "release": 120,
+    "lookahead": "1 ms"
+   }
+  },
+  {
+   "name": "Tight kick",
+   "tags": [
+    "Drums"
+   ],
+   "description": "Closes fast between kicks; listens only to the lows, so the snare doesn't open it.",
+   "params": {
+    "threshold": -25,
+    "attack": 0.05,
+    "hold": 10,
+    "release": 60,
+    "lookahead": "1 ms",
+    "sc.filter": "Low Pass",
+    "sc.freq": 150
+   }
+  },
+  {
+   "name": "Snare room cut",
+   "tags": [
+    "Drums"
+   ],
+   "description": "Shortens the snare's room; ignores the kick below 150 Hz.",
+   "params": {
+    "threshold": -28,
+    "range": -24,
+    "attack": 0.1,
+    "hold": 40,
+    "release": 150,
+    "lookahead": "1 ms",
+    "sc.filter": "High Pass",
+    "sc.freq": 150
+   }
+  },
+  {
+   "name": "Tom cleanup",
+   "tags": [
+    "Drums"
+   ],
+   "description": "Silences a tom microphone between fills, with a long, natural tail.",
+   "params": {
+    "threshold": -32,
+    "attack": 0.1,
+    "hold": 80,
+    "release": 300,
+    "lookahead": "1 ms",
+    "sc.filter": "Low Pass",
+    "sc.freq": 400
+   }
+  },
+  {
+   "name": "Hi-hat tidy",
+   "tags": [
+    "Drums"
+   ],
+   "description": "Turns a hi-hat microphone's bleed down; listens only above 3 kHz.",
+   "params": {
+    "threshold": -30,
+    "range": -18,
+    "attack": 0.1,
+    "hold": 15,
+    "release": 80,
+    "sc.filter": "High Pass",
+    "sc.freq": 3000
+   }
+  },
+  {
+   "name": "Vocal noise",
+   "tags": [
+    "Vocals",
+    "Subtle"
+   ],
+   "description": "Turns the room down 20 dB between phrases, slowly enough not to clip breaths.",
+   "params": {
+    "threshold": -45,
+    "range": -20,
+    "attack": 2,
+    "hold": 60,
+    "release": 250
+   }
+  },
+  {
+   "name": "Breath control",
+   "tags": [
+    "Vocals",
+    "Subtle"
+   ],
+   "description": "An expander that lowers breaths and noise gradually rather than cutting them.",
+   "params": {
+    "mode": "Expander",
+    "threshold": -35,
+    "ratio": 3,
+    "attack": 1,
+    "hold": 20,
+    "release": 150
+   }
+  },
+  {
+   "name": "Gentle expander",
+   "tags": [
+    "Subtle",
+    "Clean"
+   ],
+   "description": "Turns quiet parts down a little more, for a cleaner sound with no audible gating.",
+   "params": {
+    "mode": "Expander",
+    "threshold": -40,
+    "ratio": 2,
+    "attack": 2,
+    "hold": 20,
+    "release": 200
+   }
+  },
+  {
+   "name": "Guitar amp hiss",
+   "tags": [
+    "Guitar"
+   ],
+   "description": "Takes an amp's hiss out between notes.",
+   "params": {
+    "threshold": -50,
+    "range": -40,
+    "attack": 1,
+    "hold": 50,
+    "release": 200
+   }
+  },
+  {
+   "name": "Bass DI cleanup",
+   "tags": [
+    "Bass"
+   ],
+   "description": "Silences a direct bass between notes.",
+   "params": {
+    "threshold": -45,
+    "attack": 0.5,
+    "hold": 50,
+    "release": 150
+   }
+  },
+  {
+   "name": "Trance gate (sidechain)",
+   "tags": [
+    "FX"
+   ],
+   "description": "Choose a rhythmic track under Sidechain: this one plays only when it does.",
+   "params": {
+    "threshold": -30,
+    "return": 2,
+    "attack": 0.5,
+    "hold": 0,
+    "release": 30
+   }
+  },
+  {
+   "name": "Flip, room only",
+   "tags": [
+    "Drums",
+    "FX"
+   ],
+   "description": "Takes the hits out and keeps the room between them.",
+   "params": {
+    "flip": true,
+    "threshold": -25,
+    "attack": 0.1,
+    "hold": 20,
+    "release": 80
+   }
+  }
+ ]
+}

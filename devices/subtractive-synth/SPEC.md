@@ -98,7 +98,43 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 
 ## Factory presets
 
-"Warm saw", "Sub bass", "Acid line", "Soft pad", "Pluck", "PWM strings", "Noise sweep", "Lead with glide".
+Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `devices/subtractive-synth/presets/`, made with `fd-presets` from recipes); the product owner signs them off by ear. 35 presets, each checked by the conformance suite: it loads, plays cleanly under 0 dBFS and differs from the rest.
+
+- **Sub bass** (Bass, Clean): A pure sine sub, one note at a time; play it low.
+- **Warm bass** (Bass, Warm): Saw and a square an octave down, a soft filter bite on each note.
+- **Acid line** (Bass, Lead): A resonant saw line; overlapping notes slide, and harder notes open the filter more.
+- **Pluck bass** (Bass, Pluck): A short, punchy bass that decays to nothing.
+- **Reese bass** (Bass, Dirty): Two detuned saws beating against each other; the mod wheel opens it.
+- **Square bass** (Bass): A hollow square with a sine an octave below.
+- **Wobble bass** (Bass, FX, Heavy): The LFO sweeps the filter in eighth notes, in time with the song.
+- **Rubber bass** (Bass): A round, bouncy triangle with a short filter blip and a little slide.
+- **Warm saw lead** (Lead, Warm): Two detuned saws with a gentle vibrato; overlapping notes glide.
+- **Lead with glide** (Lead): A narrow square with a saw an octave up, gliding between overlapping notes.
+- **Bright lead** (Lead, Bright): Saws a fifth apart, open and cutting.
+- **Soft sine lead** (Lead, Clean): A soft sine with a hint of the octave, slow to start, with vibrato.
+- **Square lead** (Lead): Two squares; the mod wheel narrows the first one's pulse.
+- **Screamer** (Lead, Heavy): Resonant and loud, with a little noise; harder notes scream more.
+- **Soft pad** (Pad, Warm): A triangle and a quiet saw, slow to swell, drifting gently across the stereo field.
+- **PWM strings** (Pad): A square whose pulse width moves slowly, like a string section.
+- **Dark pad** (Pad, Warm): Low, slow and dark, with the filter breathing.
+- **Glass pad** (Pad, Bright): Sine and triangle a twelfth apart, airy, with a shimmer.
+- **Evolving pad** (Pad, FX): The looping mod envelope and a slow LFO keep the tone moving.
+- **Noise sweep** (Pad, FX): Filtered noise rising slowly through a band pass.
+- **Electric keys** (Keys, Warm): A soft, bell-like electric piano; harder notes are brighter.
+- **Organ** (Keys): Two sines an octave apart, on and off like an organ's keys, with a little vibrato.
+- **Funky clav** (Keys, Pluck): A thin pulse through a band pass, quick and percussive.
+- **Soft keys** (Keys, Warm): A mellow triangle with a sine above, decaying slowly.
+- **Pluck** (Pluck): A bright attack that closes fast, for arpeggios and chords.
+- **Soft pluck** (Pluck, Warm): A gentle triangle pluck with a short filter blip.
+- **Bell** (Pluck, Bright): Two sines at an inharmonic ratio (3.5), ringing out like a bell.
+- **Chord stab** (Pluck): Saws a fifth apart with a quick filter snap: a stab from a single key.
+- **Synth brass** (Brass): The filter opens a little after each note starts, like a horn; harder notes are brighter.
+- **Soft horns** (Brass, Warm): Slower and darker brass for held chords.
+- **Synth kick** (Drums): A sine falling two octaves in a few milliseconds; play it around C1.
+- **Synth snare** (Drums): A pitched body and a burst of noise through a band pass.
+- **Noise hat** (Drums, Bright): High-passed noise, very short.
+- **Laser zap** (FX): A saw falling two octaves fast, through a resonant filter.
+- **Riser** (FX): Noise and a saw rising over eight seconds while held: build-ups.
 
 ## Automated test targets
 

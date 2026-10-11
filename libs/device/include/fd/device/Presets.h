@@ -177,6 +177,26 @@ struct PresetMemo
     [[nodiscard]] bool empty() const noexcept { return preset.empty() && !onB && !other; }
 };
 
+struct DeviceFactory;
+
+/// Factory presets made from recipes (`devices/<name>/presets/recipes.json`, presets.md §13): each
+/// recipe names what differs from the module's defaults, as numbers in the parameter's unit or as
+/// text the parameter reads ("4:1", "LP 24"):
+///
+///   {"device": "compressor", "author": "Segno",
+///    "presets": [{"name": "Gentle vocal", "tags": ["Vocals"], "description": "...",
+///                 "params": {"threshold": -24, "ratio": "3:1"}, "extra": {}}]}
+///
+/// Each preset is the whole state the module has after its recipe, so a default changed later
+/// never changes a preset's sound. Problems: unknown parameters, values out of range, names a
+/// file can't hold, two presets that sound the same.
+struct RecipeResult
+{
+    std::vector<Preset> presets;
+    std::vector<std::string> problems;
+};
+[[nodiscard]] RecipeResult presetsFromRecipes(const DeviceFactory& factory, const nlohmann::json& recipes);
+
 /// A module's host, for presets: the plugin adapter and the DAW implement it.
 class PresetHost
 {

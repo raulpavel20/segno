@@ -1,0 +1,25 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Bass",
+    "Dirty"
+  ],
+  "description": "Grit in the mids while the low end stays round.",
+  "author": "Segno",
+  "state": {
+    "device": "saturator",
+    "extra": {},
+    "params": {
+      "bias": 0.0,
+      "color": 1.0,
+      "color.freq": 800.0,
+      "color.gain": 6.0,
+      "curve": 1.0,
+      "drive": 15.0,
+      "mix": 70.0,
+      "output": -10.0,
+      "quality": 1.0
+    },
+    "stateVersion": 1
+  }
+}
