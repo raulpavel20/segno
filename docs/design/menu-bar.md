@@ -9,7 +9,7 @@ The decision is [ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.
 
 It builds on the action registry ([daw-shell.md](daw-shell.md), [ADR 0018](../decisions/0018-daw-app-structure.md)), the command palette (C1), the top bar's layout (`model::layoutTopBar`) and the shared components ([ui-foundations.md](ui-foundations.md)).
 
-**Status:** §15's review changes built (2026-10-11), with the rest. Approved by the product owner (2026-10-11), with every recommendation of §11 ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)). Built (2026-10-11); awaiting the product owner's feel check (manual-tests/M2.md, "Menu bar and title bar (C10)"), which starts with §13's window check on GNOME. What building settled is noted where it applies:
+**Status:** §15's review changes built (2026-10-11), with the rest. Approved by the product owner (2026-10-11), with every recommendation of §11 ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)). Built (2026-10-11); signed off by the product owner (2026-10-11). What building settled is noted where it applies:
 - the title bar's place in the window, and the drag (§4);
 - how shortcuts read, the actions without one, Clip > Fades, and the take items (§5);
 - the fade row of the audit (§8);

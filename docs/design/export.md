@@ -9,7 +9,7 @@ The decision is [ADR 0039](../decisions/0039-export-in-the-background.md) (§14)
 - the shared popover, property rows and progress line ([ui-foundations.md](ui-foundations.md));
 - the rule that nothing is modal ([ui-principles.md](ui-principles.md) §2).
 
-**Status:** approved by the product owner (2026-10-10), with every recommendation of §13 ([ADR 0039](../decisions/0039-export-in-the-background.md)). Built (2026-10-10); awaiting the product owner's feel check (manual-tests/M2.md, "Export (C8)"). What building settled is noted where it applies: the save dialog (§5), rows that show only where they apply and the selected tracks (§6), and the defaults for new projects (§9).
+**Status:** approved by the product owner (2026-10-10), with every recommendation of §13 ([ADR 0039](../decisions/0039-export-in-the-background.md)). Built (2026-10-10); signed off by the product owner (2026-10-11). What building settled is noted where it applies: the save dialog (§5), rows that show only where they apply and the selected tracks (§6), and the defaults for new projects (§9).
 
 **Where the field is (2026)**, from the manuals of Live 12, Logic, Bitwig 5, REAPER 7, Pro Tools, Studio Pro 8 (Studio One) and Cubase 14:
 - **What every DAW offers:**

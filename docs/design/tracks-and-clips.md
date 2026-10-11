@@ -12,7 +12,7 @@ The decision is [ADR 0041](../decisions/0041-tracks-and-clips-managed-in-place.m
 
 It settles open questions B41 (what deleting a track takes with it), B50 (cut, copy and paste) and B52 (renaming).
 
-**Status:** approved by the product owner (2026-10-11), with every recommendation of §13 ([ADR 0041](../decisions/0041-tracks-and-clips-managed-in-place.md)). Built (2026-10-11). What building settled is noted in §17; what the feel check found, and how it's fixed, in §18. Awaiting the product owner's second look (manual-tests/M2.md, "Tracks and clips (C11)").
+**Status:** approved by the product owner (2026-10-11), with every recommendation of §13 ([ADR 0041](../decisions/0041-tracks-and-clips-managed-in-place.md)). Built (2026-10-11). What building settled is noted in §17; what the feel check found, and how it's fixed, in §18. Signed off by the product owner (2026-10-11), with §18 and §19.
 
 ## 1. Why
 
