@@ -162,8 +162,8 @@ model::ClipInfo clipInfo(te::Clip& c, int trackColour)
     clip.start = pos.getStart().inSeconds();
     clip.length = pos.getLength().inSeconds();
     clip.offset = pos.getOffset().inSeconds();
+    // Its own, given when it was made (ADR 0043); the track's only for a clip made outside Segno.
     clip.colour = static_cast<int>(c.state.getProperty(kColourId, trackColour));
-    clip.ownColour = c.state.hasProperty(kColourId);
     clip.fromTake = static_cast<std::uint64_t>(static_cast<juce::int64>(c.state["fdTake"])); // ADR 0031
     clip.muted = c.isMuted(); // ADR 0035
     if (auto* midi = dynamic_cast<te::MidiClip*>(&c))

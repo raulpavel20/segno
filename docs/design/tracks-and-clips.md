@@ -12,7 +12,7 @@ The decision is [ADR 0041](../decisions/0041-tracks-and-clips-managed-in-place.m
 
 It settles open questions B41 (what deleting a track takes with it), B50 (cut, copy and paste) and B52 (renaming).
 
-**Status:** approved by the product owner (2026-10-11), with every recommendation of §13 ([ADR 0041](../decisions/0041-tracks-and-clips-managed-in-place.md)). Built (2026-10-11). What building settled is noted in §17; what the feel check found, and how it's fixed, in §18. Signed off by the product owner (2026-10-11), with §18 and §19.
+**Status:** approved by the product owner (2026-10-11), with every recommendation of §13 ([ADR 0041](../decisions/0041-tracks-and-clips-managed-in-place.md)). Built (2026-10-11). What building settled is noted in §17; what the feel check found, and how it's fixed, in §18. Signed off by the product owner (2026-10-11), with §18 and §19. The song test then had a clip's colour be its own (§20, [ADR 0043](../decisions/0043-a-clips-colour-is-its-own.md)).
 
 ## 1. Why
 
@@ -60,7 +60,7 @@ From the manuals of Live 12, Bitwig 5, Studio One (now Fender Studio Pro), Logic
 1. **In place first** (ADR 0040, menu-bar.md §15). You rename a name where you see it, move a track by dragging it, colour it from its own right-click, and delete what's selected with Delete. The menu bar lists every command too, and the inspector shows the properties.
 2. **One undo step each**, named for what it did: "Rename track", "Delete track", "Move track", "Duplicate track", "Track colour", "Clip colour", "Cut", "Paste".
 3. **Nothing modal, nothing asked.** Deleting doesn't ask first: the toast that says what went has Undo on it (`Shell::showToast`'s action). Undo is one key away anyway.
-4. **Clips follow their track's colour** until given their own, as they do now (a clip's colour defaults to its track's).
+4. ~~**Clips follow their track's colour** until given their own, as they do now (a clip's colour defaults to its track's).~~ **A clip's colour is its own**: a new clip takes its track's colour once, and keeps it (§20, ADR 0043).
 5. **Nothing left dangling.** Deleting something takes, in the same undo step, everything that only made sense with it: sends to a deleted return, sidechains fed from a deleted track, automation of its parameters.
 6. **Assistants get the same** (ADR 0021): every command here has an MCP tool (§11).
 
@@ -130,8 +130,8 @@ From the manuals of Live 12, Bitwig 5, Studio One (now Fender Studio Pro), Logic
 - **The palette:** the 16 clip colours (`Theme::clipColours`), in a swatch grid: 4 × 4 swatches, a row high each, with the current colour ringed.
 - **Where:**
   - Tracks, returns and lanes: the header's right-click menu, Colour ▸ (the grid); the inspector's Colour row (a swatch that opens the grid).
-  - Clips: the clip's right-click menu, Colour ▸, and the inspector's CLIP Colour row. The grid's first item is "Track colour", which makes it follow its track again. Every selected clip takes it.
-- **Following:** a clip without a colour of its own follows its track's, now and when the track's changes. That's how clips are stored already: a clip's colour defaults to its track's.
+  - Clips: the clip's right-click menu, Colour ▸, and the inspector's CLIP Colour row. Every selected clip takes it. ~~The grid's first item is "Track colour", which makes it follow its track again.~~ No "Track colour" item since §20.
+- ~~**Following:** a clip without a colour of its own follows its track's, now and when the track's changes. That's how clips are stored already: a clip's colour defaults to its track's.~~ Since §20, **a clip's colour is its own**: its track's when it's made, independent after.
 
 ## 9. Cut, copy and paste
 
@@ -174,7 +174,7 @@ From the manuals of Live 12, Bitwig 5, Studio One (now Fender Studio Pro), Logic
 | `move_track` | A track right above another (the lanes stay), or a return among the returns |
 | `move_automation_lane` | A lane right above a track or another lane, or at the end (§19) |
 | `duplicate_track` | As §7; returns the copy |
-| `set_clips` | Clips' name and/or colour (`null` colour: follow the track) |
+| `set_clips` | Clips' name and/or colour (`null` colour: each its track's colour, once, §20) |
 | `copy_clips` | Copies clips to a position and a track (the clipboard's counterpart: an assistant names where) |
 
 `get_project` already reports names, colours and order.
@@ -187,7 +187,7 @@ From the manuals of Live 12, Bitwig 5, Studio One (now Fender Studio Pro), Logic
   - `pastePlacement`: clips to rows and times, rows past the end;
   - `deletionPlan`: which lanes go and which only lose assignments, the lanes to re-anchor, the sends and sidechains to clear.
 - **`Session`:**
-  - `renameTrack`, `setTrackColour`, `deleteTrack`, `moveTrack`, `duplicateTrack`, `renameClips`, `setClipColour(clips, optional<int>)`;
+  - `renameTrack`, `setTrackColour`, `deleteTrack`, `moveTrack`, `duplicateTrack`, `renameClips`, `setClipColour(clips, colour)` (§20: an `int`; it was `optional<int>`, nullopt to follow the track);
   - `copyClips` returns a `ClipClipboard` holding copies of the clips' state, so a cut still pastes; `pasteClips(clipboard, track, at)`.
   - Notes and points are copied as values (`model::Note`, `AutomationPoint`) by the shell.
   - Each is one undo step. tracktion's own `Edit::deleteTrack`, `moveTrack` and track copies with fresh ids do the work.
@@ -206,7 +206,7 @@ From the manuals of Live 12, Bitwig 5, Studio One (now Fender Studio Pro), Logic
 | Q3 | **What a deleted track takes** | Its clips and takes, modules, sidechains fed from it, lanes that drive only it, its assignments in shared lanes; sends to a deleted return; lanes after it re-anchor (§5, B41) |
 | Q4 | **Reordering** | Drag the header (or a mixer strip's name); ~~the lanes after a track move with it~~ every track and lane moves alone (ADR 0042, §19); returns among returns; one track at a time (§6) |
 | Q5 | **Duplicating a track** | Ctrl+D on its header, Track > Duplicate track; right after it, "Bass 2"; everything but arm and solo; lanes that drive only it are copied for the copy (§7) |
-| Q6 | **Colours** | A 4 × 4 swatch grid from the right-click and the inspector; clips follow their track's colour until given their own; "Track colour" brings that back (§8) |
+| Q6 | **Colours** | A 4 × 4 swatch grid from the right-click and the inspector; ~~clips follow their track's colour until given their own; "Track colour" brings that back~~ a new clip takes its track's colour once, and keeps it (§8, §20, ADR 0043) |
 | Q7 | **Paste** | Clips at the playhead on the selected track, rows kept, cutting what they land on (as Live and Logic, ADR 0019); notes at the playhead in the shown clip; points at the playhead on the selected lane; the playhead stays; Duplicate lays copies one after another (§9) |
 | Q8 | **Where the clipboard lives** | In the app, across projects, while it runs; the system clipboard later (§9) |
 | Q9 | **Keys** | Ctrl+X/C/V; F2 rename (the system's rename key; Ctrl+R, Live's, is Record here), with Tab to the next track's name; Delete and Ctrl+D route to the track when its header was used last; no keys of their own for the track commands (§10) |
@@ -260,7 +260,7 @@ This amended ADR 0029's "lanes stay where they were put": the lanes right after 
   - The lane header's Rename… now edits in place too.
 - **"Its header was clicked last"** is the arrangement's to tell (`ArrangementView::headerActive`): a click anywhere else ends it, and a click on a clip in the track never deletes the track.
 - **Colours:**
-  - The snapshot says whether a clip has a colour of its own (`ClipInfo::ownColour`), so the grid ticks "Track colour" and the inspector's swatch says so.
+  - ~~The snapshot says whether a clip has a colour of its own (`ClipInfo::ownColour`), so the grid ticks "Track colour" and the inspector's swatch says so.~~ Gone with §20: every clip has its own.
   - Lanes take colours from the same grid (Track > Colour with a lane selected, the inspector's swatch).
   - Track > Colour and Clip > Colour are lists in the menu bar, as ADR 0040 allows for lists.
 - **Pasting:**
@@ -325,3 +325,19 @@ Six things came back from trying it. Each is fixed, with a test that would have 
   - returns still move among the returns.
 - **How it's kept:** a lane is still stored as "after a track". A move rewrites the lanes around it, so each sits after the track now above it, in the same order (`model::moveRow`). Deleting a track already worked this way (B41).
 - **Assistants:** `move_track` keeps its name and arguments: the track lands right above the given one, and the lanes stay. `move_automation_lane` moves a lane right above a track or another lane, or to the end.
+
+## 20. A clip's colour is its own (product owner, 2026-10-11; ADR 0043)
+
+- **Why:** the song test found clip and track colours tied together in ways that were hard to follow.
+  - A clip moved to another track took the new track's colour, and recolouring a track recoloured its clips; a clip coloured by hand didn't follow, with nothing to tell which did.
+  - Switching takes lost a clip's colour: its takes never had it.
+  - The product owner wants "initialization, not entanglement".
+- **Now:**
+  - a new clip takes its track's colour once, when it's made: drawn, inserted, captured or recorded, its takes too;
+  - after that, the clip's colour and the track's are independent: recolouring the track leaves its clips, moving a clip keeps its colour, recolouring a clip leaves its track;
+  - recolouring a clip recolours its takes as well, so it keeps its colour whichever take it plays;
+  - copies keep their source's colour: paste, duplicate, split, bounce, a duplicated track, takes moved to tracks;
+  - the palette has no "Track colour" item, and the inspector's CLIP swatch is a plain swatch, like the TRACK one.
+- **How it's kept:** every clip stores its colour, take clips too. After any edit that makes clips, `Session::Impl::colourNewClips` (from `settle`) gives a clip without one its track's colour, and a take clip its stack's playing clip's, in the same undo step. A recorded pass is coloured before its laps become takes.
+- **Older projects:** clips that followed their track stored no colour. As the project opens, they take their track's colour, and take clips their clip's (or else the track's). The project stays saved, and nothing is added to undo.
+- **Assistants:** `set_clips` keeps its arguments; a `null` colour gives each clip its track's colour now, once. `set_track` recolours only the track.

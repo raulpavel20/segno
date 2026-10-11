@@ -99,9 +99,9 @@ void Session::renameClips(const std::vector<std::uint64_t>& clips, const std::st
         c->setName(trimmed);
 }
 
-void Session::setClipColour(const std::vector<std::uint64_t>& clips, std::optional<int> colour)
+void Session::setClipColour(const std::vector<std::uint64_t>& clips, int colour)
 {
-    if (colour && (*colour < 0 || *colour >= Impl::paletteSize))
+    if (colour < 0 || colour >= Impl::paletteSize)
         return;
     std::vector<te::Clip*> found;
     for (const auto id : clips)
@@ -112,10 +112,13 @@ void Session::setClipColour(const std::vector<std::uint64_t>& clips, std::option
     impl_->beginEdit("Clip colour");
     auto* um = &impl_->edit->getUndoManager();
     for (auto* c : found)
-        if (colour)
-            c->state.setProperty(Impl::colourPropertyId, *colour, um);
-        else
-            c->state.removeProperty(Impl::colourPropertyId, um); // its track's again
+    {
+        c->state.setProperty(Impl::colourPropertyId, colour, um);
+        // Its takes too: switching takes plays copies of them (ADR 0043).
+        for (auto take : impl_->stackOf(*c))
+            for (auto takeClip : take)
+                takeClip.setProperty(Impl::colourPropertyId, colour, um);
+    }
 }
 
 // ---- deleting, moving, duplicating -------------------------------------------------------------

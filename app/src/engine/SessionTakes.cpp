@@ -585,6 +585,31 @@ void Session::Impl::settle(te::AudioTrack& track, juce::UndoManager* um)
             s.setProperty(toId, r.end, um);
         }
     settleFades(track, um);
+    colourNewClips(track, um);
+}
+
+void Session::Impl::colourNewClips(te::AudioTrack& track, juce::UndoManager* um)
+{
+    const auto colour = colourOf(track.itemID.getRawID());
+    std::vector<std::pair<juce::ValueTree, juce::var>> stackColours; // a stack's first playing clip's
+    for (auto* c : track.getClips())
+    {
+        if (!c->state.hasProperty(colourPropertyId))
+            c->state.setProperty(colourPropertyId, colour, um);
+        if (auto s = stackOf(*c); s.isValid() && std::none_of(stackColours.begin(), stackColours.end(),
+                                                              [&](const auto& p) { return p.first == s; }))
+            stackColours.emplace_back(s, c->state[colourPropertyId]);
+    }
+    for (auto s : track.state.getChildWithName(takesId))
+    {
+        const auto it = std::find_if(stackColours.begin(), stackColours.end(),
+                                     [&](const auto& p) { return p.first == s; });
+        const auto own = it != stackColours.end() ? it->second : juce::var(colour);
+        for (auto take : s)
+            for (auto c : take)
+                if (!c.hasProperty(colourPropertyId))
+                    c.setProperty(colourPropertyId, own, um);
+    }
 }
 
 void Session::Impl::loadTakes(bool convert)

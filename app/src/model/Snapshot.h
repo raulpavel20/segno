@@ -39,7 +39,6 @@ struct ClipInfo
     double offset = 0.0; // seconds into the source where the clip starts
     double sourceLength = 0.0; // seconds of source material (0 = unbounded, e.g. MIDI)
     int colour = 0;      // index into the clip palette
-    bool ownColour = false; // a colour of its own (else it follows its track's; tracks-and-clips.md §8)
     std::string sourcePath; // audio file, if any
 
     // MIDI clips: the notes in time order (noteOrder) and the song beat of their zero.

@@ -178,7 +178,7 @@ Every DAW feature ships with its tools (the coverage rule, ADR 0021). Today:
 | Projects, undo | Project tools |
 | Live MIDI (computer keyboard, inputs) | Not a tool: a live performance input, not an edit. A `preview_note` tool may come later |
 
-Each feature brings its tools with it: managing tracks and clips (C11) brought `set_track`, `delete_tracks`, `move_track`, `duplicate_track`, `set_clips` and `copy_clips` (clips report their colour); recording (C5), fades (C6) and bounce (C7) brought theirs. Automation (C4) has its lane tools, and `get_project` lists the automation lanes with their assignments.
+Each feature brings its tools with it: managing tracks and clips (C11) brought `set_track`, `delete_tracks`, `move_track`, `duplicate_track`, `set_clips` and `copy_clips` (clips report their colour; a clip's colour is its own, and `set_clips` with a `null` colour gives each clip its track's, once: ADR 0043); recording (C5), fades (C6) and bounce (C7) brought theirs. Automation (C4) has its lane tools, and `get_project` lists the automation lanes with their assignments.
 
 ## 7. Architecture
 

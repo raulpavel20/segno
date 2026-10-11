@@ -2306,10 +2306,7 @@ void ArrangementView::rowMenu(int row)
                 selectTrack(selection_.channel);
         });
         juce::PopupMenu colours;
-        ui::addColourGrid(colours, lane->colour, [this, id](std::optional<int> c) {
-            if (c)
-                session_.setLaneColour(id, *c);
-        });
+        ui::addColourGrid(colours, lane->colour, [this, id](int c) { session_.setLaneColour(id, c); });
         menu.addSubMenu("Colour", colours);
     }
     // A track's or return's own items (tracks-and-clips.md §10): the shell's.

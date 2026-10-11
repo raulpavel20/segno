@@ -205,6 +205,10 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// After any edit of a track's clips (model::settleStacks): emptied stacks go, cut-off parts
     /// become plain, ranges cover their parts and stay clear of other clips.
     void settle(te::AudioTrack& track, juce::UndoManager* um);
+    /// A track's clips and take clips without a colour take one (ADR 0043): a clip's own, once.
+    /// Main-lane clips take the track's; take clips their stack's playing clip's, else the track's.
+    /// Called by settle(), so it runs after every edit that makes clips, and on opening a project.
+    void colourNewClips(te::AudioTrack& track, juce::UndoManager* um);
     /// After any edit of a track's clips (fades.md §4): a crossfade whose clips no longer meet, or
     /// meet seamlessly, goes; a bend without its fade goes. Called by settle().
     void settleFades(te::AudioTrack& track, juce::UndoManager* um);

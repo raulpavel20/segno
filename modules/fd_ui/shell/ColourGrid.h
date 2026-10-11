@@ -27,10 +27,8 @@ private:
     std::function<void(int)> chosen_;
 };
 
-/// Adds the palette to `menu`: with `follow`, a "Track colour" item first (ticked while
-/// `following`), chosen as nullopt; then the grid.
-void addColourGrid(juce::PopupMenu& menu, int current, std::function<void(std::optional<int>)> chosen,
-                   bool follow = false, bool following = false);
+/// Adds the palette to `menu`, `current` ringed.
+void addColourGrid(juce::PopupMenu& menu, int current, std::function<void(int)> chosen);
 
 /// A colour value in a property row (the inspector's Colour): its swatch, a row high, on the
 /// hover wash when hovered; a click opens the palette under it.
@@ -38,9 +36,9 @@ class ColourSwatch final : public juce::Component, public juce::SettableTooltipC
 {
 public:
     ColourSwatch();
-    /// The colour shown (-1: none) and what the palette offers.
-    void setColour(int colour, bool follow = false, bool following = false);
-    std::function<void(std::optional<int>)> onChosen;
+    /// The colour shown (-1: none).
+    void setColour(int colour);
+    std::function<void(int)> onChosen;
 
     void paint(juce::Graphics& g) override;
     void mouseEnter(const juce::MouseEvent& e) override;
@@ -49,6 +47,6 @@ public:
 
 private:
     int colour_ = -1;
-    bool follow_ = false, following_ = false, hovered_ = false;
+    bool hovered_ = false;
 };
 } // namespace fd::ui

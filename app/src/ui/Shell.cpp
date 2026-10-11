@@ -1439,17 +1439,13 @@ juce::PopupMenu Shell::trackColourMenu()
     {
         for (const auto& l : snapshot->automationLanes)
             if (l.id == *lane)
-                ui::addColourGrid(menu, l.colour, [this, id = l.id](std::optional<int> c) {
-                    if (c)
-                        session_.setLaneColour(id, *c);
-                });
+                ui::addColourGrid(menu, l.colour,
+                                  [this, id = l.id](int c) { session_.setLaneColour(id, c); });
         return menu;
     }
     if (const auto c = commandChannel())
-        ui::addColourGrid(menu, snapshot->channel(*c)->colour, [this, id = *c](std::optional<int> colour) {
-            if (colour)
-                session_.setTrackColour(id, *colour);
-        });
+        ui::addColourGrid(menu, snapshot->channel(*c)->colour,
+                          [this, id = *c](int colour) { session_.setTrackColour(id, colour); });
     else
         menu.addItem(juce::PopupMenu::Item("Select a track first").setEnabled(false));
     return menu;
@@ -1479,8 +1475,7 @@ juce::PopupMenu Shell::clipColourMenu()
         menu.addItem(juce::PopupMenu::Item("Select clips first").setEnabled(false));
         return menu;
     }
-    ui::addColourGrid(
-        menu, first->colour, [this, ids](std::optional<int> c) { session_.setClipColour(ids, c); }, true, !first->ownColour);
+    ui::addColourGrid(menu, first->colour, [this, ids](int c) { session_.setClipColour(ids, c); });
     return menu;
 }
 

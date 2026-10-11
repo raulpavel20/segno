@@ -230,12 +230,16 @@ void Session::Impl::recordingAboutToStart(te::InputDeviceInstance&, te::EditItem
 void Session::Impl::recordingFinished(te::InputDeviceInstance&, te::EditItemID target,
                                       const juce::ReferenceCountedArray<te::Clip>& clips)
 {
-    // Clips are named after their track (§5); a pass becomes take lanes, the main lane playing the
-    // newest complete lap (ADR 0031). An overdub merges into the clip that was there instead.
+    // Clips are named after their track (§5) and take its colour (ADR 0043), before their laps
+    // become takes; a pass becomes take lanes, the main lane playing the newest complete lap
+    // (ADR 0031). An overdub merges into the clip that was there instead.
     auto* t = track(target.getRawID());
     for (auto* c : clips)
         if (c != nullptr && t != nullptr)
+        {
             c->setName(t->getName());
+            c->state.setProperty(colourPropertyId, colourOf(t->itemID.getRawID()), &edit->getUndoManager());
+        }
     const bool overdub = edit->state[overdubId] && std::any_of(clips.begin(), clips.end(), [](auto* c) {
                              return dynamic_cast<te::MidiClip*>(c) != nullptr;
                          });

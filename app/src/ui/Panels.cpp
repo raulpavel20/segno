@@ -658,17 +658,20 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
         };
         addChildComponent(*field);
     }
-    channelColour_.onChosen = [this](std::optional<int> c) {
-        if (channel_ && c)
-            session_.setTrackColour(channel_->id, *c);
+    channelColour_.onChosen = [this](int c)
+    {
+        if (channel_)
+            session_.setTrackColour(channel_->id, c);
     };
-    clipColour_.onChosen = [this](std::optional<int> c) {
+    clipColour_.onChosen = [this](int c)
+    {
         if (clip_)
             session_.setClipColour(clipParts(), c);
     };
-    laneColour_.onChosen = [this](std::optional<int> c) {
-        if (lane_ && c)
-            session_.setLaneColour(lane_->id, *c);
+    laneColour_.onChosen = [this](int c)
+    {
+        if (lane_)
+            session_.setLaneColour(lane_->id, c);
     };
     for (auto* swatch : {&channelColour_, &clipColour_, &laneColour_})
         addChildComponent(*swatch);
@@ -724,7 +727,7 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
     {
         if (!clipName_.hasKeyboardFocus(true))
             clipName_.setText(juce::String::fromUTF8(clip_->name.c_str()), false);
-        clipColour_.setColour(clip_->colour, true, !clip_->ownColour);
+        clipColour_.setColour(clip_->colour);
     }
     laneColour_.setVisible(has(model::InspectorSection::Lane) && lane_);
     if (lane_)

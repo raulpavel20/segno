@@ -3,6 +3,8 @@
 
 #include "mcp/tools/Tools.h"
 
+#include <map>
+
 namespace fd::mcp
 {
 using namespace tools;
@@ -47,9 +49,8 @@ void addTrackTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"set_track", "Rename or recolour a track",
-         "Sets a track's or return track's name and/or colour (a palette index, 0 to 15). Its clips without "
-         "a "
-         "colour of their own follow it. One undo step.",
+         "Sets a track's or return track's name and/or colour (a palette index, 0 to 15). Its clips keep "
+         "their colours: a new clip takes its track's colour once, when it's made. One undo step.",
          object({{"track", id(IdKind::Track, "The track or return track")},
                  {"name", string("Its new name")},
                  {"colour", integer("Its colour: a palette index", 0, 15)}},
@@ -158,16 +159,15 @@ void addTrackTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"set_clips", "Rename or recolour clips",
-         "Sets clips' name and/or colour (a palette index, 0 to 15; null: they follow their track's colour "
-         "again). One "
-         "undo step.",
+         "Sets clips' name and/or colour (a palette index, 0 to 15; null: each takes its track's colour now, "
+         "and keeps it if the track's changes later). A clip's takes get its colour too. One undo step.",
          object({{"clips", ids(IdKind::Clip, "The clips")},
                  {"name", string("Their new name")},
                  {"colour",
                   {{"type", {"integer", "null"}},
                    {"minimum", 0},
                    {"maximum", 15},
-                   {"description", "A palette index, or null to follow the track's colour"}}}},
+                   {"description", "A palette index, or null for each clip's track's colour now"}}}},
                 {"clips"}),
          result({{"clips", arrayOf(clipResultSchema(), "The clips now", std::nullopt)}}, {"clips"}), changes},
         [&env](const Json& args, CallContext&)
@@ -184,9 +184,19 @@ void addTrackTools(Registry& registry, ToolEnv& env)
                     throw Problem{"A clip's name can't be empty."};
                 env.session.renameClips(ids, name);
             }
-            if (args.contains("colour"))
-                env.session.setClipColour(
-                    ids, args["colour"].is_null() ? std::nullopt : std::optional(colourArg(args["colour"])));
+            if (args.contains("colour") && !args["colour"].is_null())
+                env.session.setClipColour(ids, colourArg(args["colour"]));
+            else if (args.contains("colour"))
+            {
+                // Each its track's colour, once (ADR 0043).
+                const auto& snap = *env.session.snapshot();
+                std::map<int, std::vector<std::uint64_t>> byColour;
+                for (const auto id : ids)
+                    if (const auto found = model::findClip(snap, id))
+                        byColour[snap.tracks[static_cast<std::size_t>(found->second)].colour].push_back(id);
+                for (const auto& [colour, clips] : byColour)
+                    env.session.setClipColour(clips, colour);
+            }
             env.session.flushSnapshot();
             Json list = Json::array();
             for (const auto id : ids)

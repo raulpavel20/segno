@@ -1198,12 +1198,14 @@ TEST_CASE("mcp tools: tracks renamed, recoloured, moved, duplicated and deleted;
     CHECK(tracks[1]["id"] == copy);
     CHECK(tracks[1]["clips"].size() == 1);
 
-    // Clips: renamed, coloured, then following their track's colour again.
+    // Clips: renamed, coloured, then given their track's colour, once (ADR 0043).
     r = daw.call("set_clips", {{"clips", {clip}}, {"name", "Riff"}, {"colour", 9}});
     CHECK(r["clips"][0]["name"] == "Riff");
     CHECK(r["clips"][0]["colour"] == 9);
     r = daw.call("set_clips", {{"clips", {clip}}, {"colour", nullptr}});
     CHECK(r["clips"][0]["colour"] == 5); // Bass's
+    daw.call("set_track", {{"track", t0}, {"colour", 2}});
+    CHECK(daw.project()["tracks"][0]["clips"][0]["colour"] == 5); // still its own
 
     // Copy to a place: on t2 at bar 3; then on its own track at bar 5.
     r = daw.call("copy_clips", {{"clips", {clip}}, {"to", "3.1.1"}, {"to_track", t2}});

@@ -645,8 +645,9 @@ public:
     std::uint64_t duplicateTrack(std::uint64_t channelId);
     /// Renames clips, all of them to `name` (empty: nothing). One undo step, "Rename clip".
     void renameClips(const std::vector<std::uint64_t>& clips, const std::string& name);
-    /// Colours clips (nullopt: they follow their track's colour again). One undo step.
-    void setClipColour(const std::vector<std::uint64_t>& clips, std::optional<int> colour);
+    /// Colours clips, and the takes they play from, so switching takes keeps it. A clip's colour
+    /// is its own: its track's when it was made, independent after (ADR 0043). One undo step.
+    void setClipColour(const std::vector<std::uint64_t>& clips, int colour);
 
     /// Clips copied for pasting (§9): copies of their state and of the takes they play from, so a
     /// cut still pastes. Empty when nothing was copied.

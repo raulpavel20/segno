@@ -109,20 +109,170 @@ TEST_CASE("tracks: renamed and coloured, clips too; each one undo step", "[integ
     s.updateSnapshotNow();
     CHECK(s.snapshot()->channel(ret)->name == "Verb");
 
-    // Clips: one name for all; a colour of their own, then their track's again.
+    // Clips: one name for all; a colour each (ADR 0043).
     const auto a = tone(r, t, 0.0, 1.0), b = tone(r, t, 2.0, 1.0);
     s.renameClips({a, b}, "Riff");
     auto info = r.info(t);
     CHECK((info.clips[0].name == "Riff" && info.clips[1].name == "Riff"));
     CHECK(s.undoDescription() == "Rename clips");
-    s.setClipColour({a}, 3);
-    CHECK(r.info(t).clips[0].colour == 3);
-    s.setTrackColour(t, 11);
+    s.setClipColour({a, b}, 3);
     info = r.info(t);
-    CHECK(info.clips[0].colour == 3);  // its own
-    CHECK(info.clips[1].colour == 11); // following its track
-    s.setClipColour({a}, std::nullopt);
-    CHECK(r.info(t).clips[0].colour == 11);
+    CHECK((info.clips[0].colour == 3 && info.clips[1].colour == 3));
+    CHECK(s.undoDescription() == "Clip colour");
+    s.setClipColour({a}, 16); // not a palette colour
+    CHECK(r.info(t).clips[0].colour == 3);
+}
+
+TEST_CASE("clips: a new clip takes its track's colour; after that, clip and track colours are independent "
+          "(ADR 0043)",
+          "[integration]")
+{
+    Recording r;
+    auto& s = *r.session;
+    const auto t = r.track(0), u = r.track(1);
+    REQUIRE(s.setTrackColour(t, 4));
+    REQUIRE(s.setTrackColour(u, 9));
+    const auto clip = tone(r, t, 0.0, 1.0);
+    CHECK(r.info(t).clips[0].colour == 4); // its track's, when made
+
+    // Recolouring the track leaves the clip; recolouring the clip leaves the track.
+    s.setTrackColour(t, 6);
+    CHECK(r.info(t).clips[0].colour == 4);
+    s.setClipColour({clip}, 12);
+    CHECK(r.info(t).colour == 6);
+    CHECK(r.info(t).clips[0].colour == 12);
+    s.undo();
+    CHECK(r.info(t).clips[0].colour == 4);
+
+    // Moved to another track and back, it keeps its colour; the tracks keep theirs.
+    s.applyClipEdits({{.clip = clip, .track = u, .start = 0.0, .length = 1.0}});
+    REQUIRE(r.info(u).clips.size() == 1);
+    CHECK(r.info(u).clips[0].colour == 4);
+    s.applyClipEdits({{.clip = clip, .track = t, .start = 2.0, .length = 1.0}});
+    CHECK(r.info(t).clips[0].colour == 4);
+    CHECK(r.info(t).colour == 6);
+    CHECK(r.info(u).colour == 9);
+}
+
+TEST_CASE("clips: every way of making one stores its colour, takes too; switching takes keeps it (ADR 0043)",
+          "[integration]")
+{
+    Recording r;
+    auto& s = *r.session;
+    const auto t = r.track(0), u = r.track(1);
+    REQUIRE(s.setTrackColour(t, 4));
+    REQUIRE(s.setTrackColour(u, 9));
+    // Whether every clip and take clip on a track stores a colour of its own.
+    auto allColoured = [&](std::uint64_t track)
+    {
+        auto* tr = s.impl().track(track);
+        REQUIRE(tr != nullptr);
+        bool all = true;
+        for (auto* c : tr->getClips())
+            all = all && c->state.hasProperty("fdColour");
+        for (auto stack : tr->state.getChildWithName("FDTAKES"))
+            for (auto take : stack)
+                for (auto c : take)
+                    all = all && c.hasProperty("fdColour");
+        return all;
+    };
+
+    // A loop pass: one clip with three takes, all in the track's colour.
+    r.input = sine;
+    s.setAudioInput(t, s.audioInputs().front().id);
+    s.setArmed(t, true, true);
+    s.setLoopRange(4.0, 6.0);
+    s.setLooping(true);
+    s.setPosition(4.0);
+    r.recordFor(5.0);
+    s.setLooping(false);
+    s.setArmed(t, false, false);
+    auto info = r.info(t);
+    REQUIRE(info.stacks.size() == 1);
+    REQUIRE(info.stacks[0].takes.size() == 3);
+    CHECK(info.clips[0].colour == 4);
+    for (const auto& take : info.stacks[0].takes)
+        for (const auto& c : take.clips)
+            CHECK(c.colour == 4);
+    CHECK(allColoured(t));
+
+    // Recoloured, it keeps its colour whichever take it plays.
+    s.setClipColour({info.clips[0].id}, 12);
+    REQUIRE(s.useTake(t, info.stacks[0].takes[0].id));
+    info = r.info(t);
+    REQUIRE(info.clips.size() == 1);
+    CHECK(info.clips[0].colour == 12);
+
+    // Made, inserted, split, duplicated and pasted: each stores a colour, a copy its source's.
+    const auto midi = s.createMidiClip(u, 0.0, 2.0);
+    const auto audio = tone(r, u, 3.0, 1.0);
+    CHECK(s.splitClips({midi}, 1.0).size() == 1);
+    CHECK(s.duplicateClips({{.clip = audio, .track = u, .start = 5.0, .length = 1.0}}).size() == 1);
+    CHECK(s.pasteClips(s.copyClips({info.clips[0].id}), u, 10.0).clips.size() == 1);
+    CHECK(allColoured(u));
+    info = r.info(u);
+    REQUIRE(info.clips.size() == 5);
+    for (size_t i = 0; i < 4; ++i)
+        CHECK(info.clips[i].colour == 9);
+    CHECK(info.clips[4].colour == 12); // the pasted clip, and its takes
+    REQUIRE(info.stacks.size() == 1);
+    for (const auto& take : info.stacks[0].takes)
+        for (const auto& c : take.clips)
+            CHECK(c.colour == 12);
+}
+
+TEST_CASE("clips: an older project's clips get colours as it opens, takes their clip's, and it stays saved "
+          "(ADR 0043)",
+          "[integration]")
+{
+    Recording r;
+    auto& s = *r.session;
+    const auto t = r.track(0);
+    REQUIRE(s.setTrackColour(t, 4));
+    r.input = sine;
+    s.setAudioInput(t, s.audioInputs().front().id);
+    s.setArmed(t, true, true);
+    s.setLoopRange(4.0, 6.0);
+    s.setLooping(true);
+    s.setPosition(4.0);
+    r.recordFor(5.0);
+    s.setLooping(false);
+    s.setArmed(t, false, false);
+    const auto stacked = r.info(t).clips[0].id;
+    s.setClipColour({stacked}, 12);
+    tone(r, t, 0.0, 1.0);
+    const auto project = r.root.getChildFile("Old").getChildFile("Old.segno");
+    REQUIRE((project.getParentDirectory().isDirectory() || project.getParentDirectory().createDirectory()));
+    REQUIRE(s.saveAs(project));
+    // As written before every clip stored a colour: the plain clip and the takes have none; the
+    // clip with takes was given one by hand.
+    auto xml = juce::parseXML(project);
+    REQUIRE(xml != nullptr);
+    std::function<void(juce::XmlElement&)> strip = [&](juce::XmlElement& e)
+    {
+        if ((e.hasTagName("AUDIOCLIP") || e.hasTagName("MIDICLIP")) &&
+            e.getStringAttribute("id") != juce::String(static_cast<juce::int64>(stacked)))
+            e.removeAttribute("fdColour");
+        for (auto* child : e.getChildIterator())
+            strip(*child);
+    };
+    strip(*xml);
+    REQUIRE(xml->writeTo(project));
+
+    REQUIRE(s.open(project));
+    const auto opened = trackIds(r).front();
+    const auto info = r.info(opened);
+    REQUIRE(info.clips.size() == 2);
+    CHECK(info.clips[0].colour == 4); // the plain clip: its track's
+    CHECK(info.clips[1].colour == 12);
+    REQUIRE(info.stacks.size() == 1);
+    for (const auto& take : info.stacks[0].takes)
+        for (const auto& c : take.clips)
+            CHECK(c.colour == 12); // its clip's
+    CHECK_FALSE(s.hasUnsavedChanges());
+    CHECK(s.undoDescription().empty());
+    s.setTrackColour(opened, 7); // and now they're its own
+    CHECK(r.info(opened).clips[0].colour == 4);
 }
 
 TEST_CASE("tracks: deleting one takes its clips, the lanes only it drives, its assignments, sidechains; undo "

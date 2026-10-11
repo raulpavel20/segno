@@ -71,14 +71,9 @@ void ColourGrid::mouseUp(const juce::MouseEvent& e)
         triggerMenuItem();
 }
 
-void addColourGrid(juce::PopupMenu& menu, int current, std::function<void(std::optional<int>)> chosen,
-                   bool follow, bool following)
+void addColourGrid(juce::PopupMenu& menu, int current, std::function<void(int)> chosen)
 {
-    if (follow)
-        menu.addItem("Track colour", true, following, [chosen] { chosen(std::nullopt); });
-    menu.addCustomItem(-1,
-                       std::make_unique<ColourGrid>(following ? -1 : current, [chosen](int c) { chosen(c); }),
-                       nullptr, "Colour");
+    menu.addCustomItem(-1, std::make_unique<ColourGrid>(current, std::move(chosen)), nullptr, "Colour");
 }
 
 ColourSwatch::ColourSwatch()
@@ -87,11 +82,11 @@ ColourSwatch::ColourSwatch()
     setTooltip("Colour: click for the palette");
 }
 
-void ColourSwatch::setColour(int colour, bool follow, bool following)
+void ColourSwatch::setColour(int colour)
 {
+    if (colour == colour_)
+        return;
     colour_ = colour;
-    follow_ = follow;
-    following_ = following;
     repaint();
 }
 
@@ -104,21 +99,13 @@ void ColourSwatch::paint(juce::Graphics& g)
         g.setColour(t.roles.hoverWash);
         g.fillRoundedRectangle(r, t.radiusControl);
     }
-    // A square swatch at the left, then what it is in words when it follows its track.
+    // A square swatch at the left.
     const auto square =
         r.withWidth(r.getHeight()).reduced(static_cast<float>(Theme::current().shell.propertyFieldInset));
     if (colour_ >= 0)
     {
         g.setColour(t.clipColour(colour_));
         g.fillRoundedRectangle(square, t.radiusControl);
-    }
-    if (follow_ && following_)
-    {
-        g.setColour(t.textSecondary);
-        g.setFont(font(TextStyle::Body));
-        g.drawText("Track colour",
-                   r.withTrimmedLeft(square.getRight() + static_cast<float>(t.shell.fieldTextInset)),
-                   juce::Justification::centredLeft, true);
     }
 }
 
@@ -140,14 +127,12 @@ void ColourSwatch::mouseUp(const juce::MouseEvent& e)
         return;
     juce::PopupMenu menu;
     juce::Component::SafePointer<ColourSwatch> self(this);
-    addColourGrid(
-        menu, colour_,
-        [self](std::optional<int> c)
-        {
-            if (self != nullptr && self->onChosen)
-                self->onChosen(c);
-        },
-        follow_, following_);
+    addColourGrid(menu, colour_,
+                  [self](int c)
+                  {
+                      if (self != nullptr && self->onChosen)
+                          self->onChosen(c);
+                  });
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this));
 }
 } // namespace fd::ui
