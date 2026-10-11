@@ -1,0 +1,94 @@
+# M3: Workflow & space
+
+**Goal:** make a track faster and make it sound finished. That means:
+- presets for every module, found in one browser with devices, plugins, samples and files;
+- the space effects: delay, reverb, chorus, phaser and flanger, auto pan and tremolo, a filter;
+- song sections you can move, duplicate and reorder with everything in them (the arranger track);
+- finishing tools: a loudness meter, a reference track to A/B against on the master, the EQ's second stage, a spectrogram, a tuner;
+- third-party plugins scanned without risk to the session.
+
+See [roadmap.md](../roadmap.md) and the device specs in `devices/*/SPEC.md`.
+
+**Status:** ☐ draft plan, for the product owner's review (2026-10-11). The questions are under "For review"; nothing is built until the plan is approved.
+
+## Steps
+
+Every device gets its `SPEC.md` before any code, and every DAW feature its design doc (with its menu bar place, ADR 0040, and its MCP tools, ADR 0021) before any code, as in M2.
+
+### A. Framework
+
+| # | Step | Done when | Status |
+|---|---|---|---|
+| A1 | **Presets** (an ADR: preset files, where they live, factory and user):<ul><li>a preset is a module's state (the JSON format of `architecture.md`) with a name, tags and a short description;</li><li>factory presets in `devices/<name>/presets/`, built into the plugins and the DAW;</li><li>user presets as files in one folder shared by the plugins and the DAW;</li><li>the module header's preset menu: search, tags, favourites, previous and next, Save, Save as, Rename, Delete, Revert;</li><li>A/B compare in the header: two states per module to switch between;</li><li>the same in the plugin builds.</li></ul> | `[fast]` tests: a preset round-trips byte for byte; older state versions migrate; a factory preset loads the state it stores. Integration: the plugin and the DAW see the same user presets; loading one is one undo step in the DAW; A/B switches without clicks. Panel lint passes with the preset menu in every header. MCP: `list_presets`, `load_preset`, `save_preset` | ☐ |
+| A2 | **Modulated delay line and LFOs** (`libs/dsp`), shared by the Delay, Chorus & Ensemble, Phaser & Flanger and Auto Pan & Tremolo:<ul><li>a delay line read at fractional, moving positions (interpolated without zipper noise or dulling);</li><li>feedback paths with filters and saturation;</li><li>LFOs with the usual shapes, a stereo phase offset, and sync to the song's tempo and position (the device API's `TransportInfo` already carries both; no API change).</li></ul> | Unit tests: delay times exact to the sample and between samples; interpolation's frequency response within 0.1 dB to 15 kHz; a modulated sine without zipper products above −100 dB; a synced LFO locked to the song position after a jump; no allocation in `process()` | ☐ |
+
+### B. Devices
+
+Each: SPEC approved → built → validators → sign-off by ear and feel, with its factory presets.
+
+| # | Device | Notes |
+|---|---|---|
+| B1 | **Delay** | Live's Delay and Echo in one: clean and character modes (tape, analog-style), ping-pong, a filter in the feedback path, modulation, ducking, freeze, sync and swing. On A2 |
+| B2 | **Chorus & Ensemble** | Chorus, ensemble, vibrato. On A2 |
+| B3 | **Phaser & Flanger** | Phaser, flanger, doubler; sync; an envelope follower. On A2 and the dynamics detector |
+| B4 | **Auto Pan & Tremolo** | LFO panning and tremolo, sync, shapes. On A2's LFOs |
+| B5 | **Reverb** *(core)* | Algorithmic rooms, halls and plates, freeze, decay by frequency band. Convolution is stage 2 (M6) |
+| B6 | **Filter** | Modelled filter types, an envelope follower, an LFO, sidechain. On the synth's filters, A2's LFOs and the dynamics detector |
+| B7 | **Loudness Meter** | LUFS (integrated, short-term, momentary), true peak, correlation. On the dynamics core's loudness (A1 of M2) |
+| B8 | **EQ** *(stage 2)* | Dynamic bands with sidechain, linear-phase mode, EQ match, the cross-track masking display (on the Spectrum's collision rule) |
+| B9 | **Spectrum** *(stage 2)* | A spectrogram view |
+| B10 | **Tuner** | Chromatic, with a reference pitch |
+| B11 | **Factory presets for the M1 and M2 modules** | Utility, EQ, Saturator, Subtractive Synth, Sampler, Compressor, Gate, Limiter, Spectrum. The quality bar says a module without good presets isn't done |
+
+### C. DAW
+
+| # | Step | Done when | Status |
+|---|---|---|---|
+| C1 | **Settings** (Settings…, Ctrl+, in the menu bar, menu-bar.md): audio (today's Audio settings), plugin folders, the browser's places, export defaults, and what later features need. A panel, not a modal dialog | Each setting kept across runs; the menu item; MCP `get_settings`, `set_settings` where they make sense; screenshots | ☐ |
+| C2 | **Browser** (ui-principles.md: one search box across devices, presets, plugins, samples and files):<ul><li>places: your folders, the project's folder;</li><li>previews built in, in time with the song when it plays;</li><li>drag onto a track, the arrangement, the module chain;</li><li>collect and save (copy outside files into the project), remove unused recordings and bounces;</li><li>the compact-width rail.</li></ul> | Search results under 50 ms on 10 000 files; previews play from a click and stop at the next; drags land where dropped; collect and save leaves a project that opens on another machine; frame budget held while scrolling results; MCP `search`, `preview`; screenshots | ☐ |
+| C3 | **Arranger track:** song sections (intro, verse, drop…) as a row above the tracks; move, duplicate, reorder and delete a section with all its content (clips, takes, automation, tempo and time-signature changes) | Pure models under `[fast]` tests (what moves, where clips split at section edges); each command one undo step; a moved section renders the same as before; MCP tools; screenshots | ☐ |
+| C4 | **Reference track A/B on the master:** a reference song plays in place of the mix, matched to its loudness, without passing through the master's modules; one click switches | The switch is sample-accurate and click-free; loudness matched within 0.5 LU; never exported; MCP tools | ☐ |
+| C5 | **Plugin hosting:** scanning in a separate process, so a plugin that crashes the scan never takes the DAW down; CLAP hosting (see "For review", Q4) | A crashing test plugin is skipped and reported; scanning runs in the background with progress; CLAP: a CLAP plugin loads, automates, saves and renders like a VST3 one | ☐ |
+| C6 | **Inspector at compact widths:** below 1440 px the inspector opens as an overlay (it closes today); module and note-range sections (selection.md) | Layout tests at compact widths; screenshots | ☐ |
+| C7 | **Loose ends from M2:**<ul><li>mute automation: a track "on" parameter (B32);</li><li>notes after a change while playing (B55): a moved clip's sounding notes chased on its new track, MIDI effects added or removed mid-note, a MIDI device unplugged with keys held, the sustain pedal;</li><li>the Subtractive Synth's envelopes dragged on their displays (carried from M1);</li><li>recording: lower-latency monitoring, a round-trip latency test (recording.md);</li><li>export: MP3, Ogg and Opus; adding an export to the project (export.md).</li></ul> | Each with its tests and manual checks | ☐ |
+| C8 | **MIDI learn** (B5, due in M2, not built): map a controller's knob, fader or button to any parameter by moving it; mappings kept with the project, listed in Settings | A mapped CC moves its parameter, with automation recording as for the mouse; one undo step per mapping | ☐ |
+
+## Order of work (recommended)
+
+1. **A1 presets and C1 settings.** Every module from here on ships with presets, the M1 and M2 modules are still waiting for theirs, and the browser lists them. Settings hold the preset and browser folders.
+2. **C2 browser,** with B11's factory presets written alongside (drafted by Claude, curated by the product owner, B4).
+3. **A2, then B1 Delay, B2 Chorus & Ensemble, B3 Phaser & Flanger, B4 Auto Pan & Tremolo.** One core, four devices, as the dynamics family was in M2.
+4. **B5 Reverb and B6 Filter.** With the delays, every space effect is there.
+5. **C3 arranger track.** The biggest DAW feature, designed while the effects are built.
+6. **B7 Loudness Meter, then C4 reference A/B.** Both are about finishing, and A/B uses the meter's loudness.
+7. **B8 EQ stage 2 and B9 the spectrogram.** They share the analysis.
+8. **B10 Tuner, C5 plugin hosting, C6, C7, C8,** fitted in where they unblock something; C7's note and latency items early if the song tests need them.
+
+## Carried over from M2
+
+- The Subtractive Synth's drag envelopes and the factory presets (both from M1) are C7 and B11.
+- B47, keeping several comps of a clip, stays open; not in M3 unless asked.
+
+## For review (product owner)
+
+| # | Question | Recommendation |
+|---|---|---|
+| Q1 | **Order of work** | As above: presets and settings first, then the browser, then the delay family |
+| Q2 | **Factory presets: how many, and who** (B4) | Claude drafts, you curate and rename. About 10–20 for an effect, 30 or more for the Subtractive Synth and the Sampler, 3–5 for the utilities and analysers (Utility, Spectrum, Tuner, Loudness Meter) |
+| Q3 | **User presets shared by the plugins and the DAW** | Yes: one folder of plain files per user, so a preset saved in another DAW shows in Segno and the other way round, and backing up is copying a folder |
+| Q4 | **CLAP hosting in M3?** Neither JUCE nor tracktion can host CLAP, so it means writing a plugin format of our own (parameters, automation, state, editor windows, threads). Most CLAP plugins also ship VST3 or LV2 | Keep the separate-process scanner in M3; move CLAP hosting to M4, so M3 stays about workflow and sound |
+| Q5 | **MIDI learn in M3** (B5 was due in M2) | Yes, as C8: small, and the only way to use a controller today |
+| Q6 | **The smaller items design docs deferred to M3** (C7: compressed export formats, the latency test, lower-latency monitoring, mute automation, note chasing) | All in M3, each a small step, so nothing deferred piles up |
+| Q7 | **The M3 exit track** | A short track built with presets from the browser, using the space effects, rearranged with the arranger track, mixed against a reference, and exported at a loudness target, with the mouse alone |
+
+## Exit criteria
+
+**Automated:**
+- Every M3 device meets the Device Definition of Done except the product owner's sign-off.
+- Validators pass; frame budgets hold (the browser and arranger track included); the DAW tests pass.
+- Every action is in the menu bar; every DAW feature has its MCP tools.
+
+**Product owner:**
+- Device specs approved; each device signed off by ear and by feel.
+- Every module, M1 to M3, has factory presets you've curated.
+- The exit track (Q7), made with the mouse alone.
