@@ -52,6 +52,7 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0041](0041-tracks-and-clips-managed-in-place.md) | Tracks and clips are managed in place: renamed where their names are (F2 too), moved by dragging headers, deleted with Delete and duplicated with Ctrl+D, coloured from their right-click and the inspector; deleting takes what only made sense with it; a clipboard for clips, notes and points pasting at the playhead | Accepted; lanes moving with their track superseded by 0042, clips following their track's colour by 0043 |
 | [0042](0042-every-row-moves-on-its-own.md) | Every track and lane moves on its own, droppable anywhere among the tracks and lanes; several at once comes with multi-track selection | Accepted |
 | [0043](0043-a-clips-colour-is-its-own.md) | A clip's colour is its own: a new clip takes its track's colour once; after that, recolouring or moving either leaves the other | Accepted |
+| [0044](0044-presets-are-files.md) | Presets are `.segnopreset` files of the module's state, factory ones built in, yours in `Documents/Segno/Presets` shared by the plugins and the DAW; in every module's header with A/B and defaults; one undo step to load; automation keeps playing | Proposed |
 
 ## Template
 
