@@ -27,7 +27,7 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 | Compressor | `compressor` | `Fcmp` | `org.segnoaudio.compressor` | M2 (approved 2026-10-09) |
 | Gate | `gate` | `Fgat` | `org.segnoaudio.gate` | M2 (approved 2026-10-09) |
 | Limiter | `limiter` | `Flim` | `org.segnoaudio.limiter` | M2 (approved 2026-10-09) |
-| Spectrum | `spectrum` | `Fspc` | `org.segnoaudio.spectrum` | M2 (spec draft) |
+| Spectrum | `spectrum` | `Fspc` | `org.segnoaudio.spectrum` | M2 (approved 2026-10-11) |
 
 **Rules:**
 - The device ID is kebab-case and describes the function. It is used in state JSON, the registry, CLAP and LV2 IDs, and file names.

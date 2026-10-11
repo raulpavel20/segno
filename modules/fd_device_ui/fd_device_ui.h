@@ -19,6 +19,7 @@ END_JUCE_MODULE_DECLARATION
 #include <fd_ui/fd_ui.h>
 
 #include <fd/device/Device.h>
+#include <fd/dsp/Spectrum.h>
 #include <fd/dsp/SynthBlocks.h>
 
 #include <nlohmann/json.hpp>

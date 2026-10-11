@@ -100,6 +100,18 @@ DevicePanel::DevicePanel(DeviceUiContext& context) : context_(context)
     startTimerHz(30);
 }
 
+void DevicePanel::setSidechainCaption(juce::String caption, juce::String tooltip)
+{
+    for (size_t i = 0; i < headerControls_.size(); ++i)
+        if (auto* picker = dynamic_cast<SidechainPicker*>(headerControls_[i]))
+        {
+            headerCaptions_[i] = caption;
+            picker->setTooltip(tooltip);
+            resized();
+            repaint();
+        }
+}
+
 DevicePanel::~DevicePanel()
 {
     stopTimer();

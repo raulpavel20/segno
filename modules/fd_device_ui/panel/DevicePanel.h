@@ -65,6 +65,9 @@ protected:
     /// A module-wide quality or display setting (oversampling, analyzer), right-aligned in the
     /// header with its name as a caption. Never one that shapes the sound's character.
     ParamComboBox& addHeaderCombo(size_t param);
+    /// Names the sidechain picker for what this module does with it (the Spectrum's "Compare"),
+    /// instead of "Sidechain".
+    void setSidechainCaption(juce::String caption, juce::String tooltip);
     /// The meter strip at the right edge: meters owned by the panel, each captioned ("In",
     /// "Out") in the title row.
     void setMeters(std::vector<std::pair<juce::Component*, juce::String>> meters);

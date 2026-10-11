@@ -26,6 +26,10 @@ AudioBuffer impulse(int numSamples, int numChannels = 2, float amplitude = 1.0f,
 /// Uniform white noise in [-amplitude, amplitude); independent per channel.
 AudioBuffer whiteNoise(int numSamples, std::uint32_t seed, float amplitude = 0.25f, int numChannels = 2);
 
+/// Pink noise (power falling 3 dB per octave), white noise of `amplitude` through Paul Kellet's
+/// filter (within 0.05 dB of pink from 10 Hz up); independent per channel.
+AudioBuffer pinkNoise(int numSamples, std::uint32_t seed, float amplitude = 0.25f, int numChannels = 2);
+
 /// Constant value on all channels.
 AudioBuffer dc(int numSamples, float value, int numChannels = 2);
 

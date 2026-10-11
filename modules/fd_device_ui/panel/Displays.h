@@ -61,6 +61,42 @@ private:
     std::optional<size_t> enabled_;
 };
 
+/// The analysers' axes (the EQ, the Spectrum; devices/spectrum/SPEC.md): frequency on a log scale
+/// from 20 Hz to 20 kHz across `area`, decibels from `topDb` at the top to `bottomDb` at the
+/// bottom, curves tilted by `slope`. Both draw with it, so they read alike.
+struct SpectrumPlot
+{
+    juce::Rectangle<float> area;
+    float topDb = 0.0f, bottomDb = -90.0f, slope = 0.0f;
+
+    static constexpr double minHz = 20.0, maxHz = 20000.0;
+    /// How curves are told apart besides their colour.
+    enum class Dash
+    {
+        Solid,
+        Dashed,
+        LongDashed,
+        Dotted
+    };
+
+    [[nodiscard]] float xOf(double hz) const noexcept;
+    [[nodiscard]] double hzAt(float x) const noexcept;
+    /// A level on screen, clamped to the area.
+    [[nodiscard]] float yOf(float db) const noexcept;
+    /// A band of `curve` on screen: tilted by the slope, `offsetDb` added.
+    [[nodiscard]] juce::Point<float> pointOf(const dsp::SpectrumCurve& curve, int band, float offsetDb = 0.0f) const noexcept;
+    /// `curve` as a line across the area; bands with nothing sit on the bottom.
+    [[nodiscard]] juce::Path line(const dsp::SpectrumCurve& curve, float offsetDb = 0.0f) const;
+    /// `line` closed along the bottom, for the flat fill under it.
+    [[nodiscard]] juce::Path fill(const juce::Path& line) const;
+    /// The frequency grid with its labels along the bottom; with `dbStep`, a line every
+    /// `dbStep` dB, labelled at the right.
+    void paintGrid(juce::Graphics& g, float dbStep = 0.0f) const;
+    /// Strokes `path` in `colour`, solid or dashed.
+    static void stroke(juce::Graphics& g, const juce::Path& path, juce::Colour colour, Dash dash = Dash::Solid,
+                       float width = 1.0f);
+};
+
 /// A dynamics device's last four seconds, scrolling right to left: the input level (a dim fill
 /// from the bottom), the output level (a line) and the gain reduction (from the top, in the value
 /// colour), with a dashed reference line (the threshold, the ceiling) and the current reduction

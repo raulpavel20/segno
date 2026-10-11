@@ -43,6 +43,11 @@ public:
     static constexpr int numFifos = 4;
     [[nodiscard]] SampleFifo& fifo(int index) noexcept { return fifos_[static_cast<size_t>(index)]; }
 
+    /// The rate the device runs at, for displays that work in hertz (spectra). The device sets
+    /// it in prepare().
+    void setSampleRate(double rate) noexcept { sampleRate_.store(rate, std::memory_order_relaxed); }
+    [[nodiscard]] double sampleRate() const noexcept { return sampleRate_.load(std::memory_order_relaxed); }
+
     /// Display commands, the one way back: the UI asks (e.g. "reset the loudness meter") and
     /// the audio thread acts at its next block. Only for what displays show, never for state:
     /// state changes go through the host binding. Wait-free; requests are never lost.
@@ -68,5 +73,6 @@ private:
     std::array<std::atomic<float>, numSlots> slots_{}, probes_{};
     std::array<SampleFifo, numFifos> fifos_{};
     std::array<std::atomic<int>, numRequests> requests_{};
+    std::atomic<double> sampleRate_{48000.0};
 };
 } // namespace fd

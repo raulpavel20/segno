@@ -284,4 +284,99 @@ void DynamicsHistory::paint(juce::Graphics& g)
         currentReduction >= 0.05f ? "-" + juce::String(currentReduction, 1) + " dB" : juce::String("0.0 dB");
     g.drawText(text, r.reduced(6.0f, 4.0f), juce::Justification::bottomRight, false);
 }
+// ---- SpectrumPlot ---------------------------------------------------------------------------
+
+float SpectrumPlot::xOf(double hz) const noexcept
+{
+    const double t = std::log(std::max(hz, minHz) / minHz) / std::log(maxHz / minHz);
+    return area.getX() + static_cast<float>(t) * area.getWidth();
+}
+
+double SpectrumPlot::hzAt(float x) const noexcept
+{
+    const double t = (x - area.getX()) / std::max(1.0f, area.getWidth());
+    return minHz * std::pow(maxHz / minHz, std::clamp(t, 0.0, 1.0));
+}
+
+float SpectrumPlot::yOf(float db) const noexcept
+{
+    const float t = std::clamp((db - bottomDb) / std::max(1.0f, topDb - bottomDb), 0.0f, 1.0f);
+    return area.getBottom() - t * area.getHeight();
+}
+
+juce::Point<float> SpectrumPlot::pointOf(const dsp::SpectrumCurve& curve, int band, float offsetDb) const noexcept
+{
+    const double hz = dsp::spectrum::bandHz(band);
+    const float v = curve[static_cast<size_t>(band)];
+    const float db = v <= dsp::spectrum::floorDb ? bottomDb : v + offsetDb + dsp::spectrum::tiltDb(hz, slope);
+    return {xOf(hz), yOf(db)};
+}
+
+juce::Path SpectrumPlot::line(const dsp::SpectrumCurve& curve, float offsetDb) const
+{
+    juce::Path p;
+    for (int b = 0; b < dsp::spectrum::numBands; ++b)
+    {
+        const auto pt = pointOf(curve, b, offsetDb);
+        b == 0 ? p.startNewSubPath(pt) : p.lineTo(pt);
+    }
+    return p;
+}
+
+juce::Path SpectrumPlot::fill(const juce::Path& line) const
+{
+    juce::Path p(line);
+    p.lineTo(xOf(dsp::spectrum::bandHz(dsp::spectrum::numBands - 1)), area.getBottom());
+    p.lineTo(xOf(dsp::spectrum::bandHz(0)), area.getBottom());
+    p.closeSubPath();
+    return p;
+}
+
+void SpectrumPlot::paintGrid(juce::Graphics& g, float dbStep) const
+{
+    const auto& t = Theme::current();
+    const auto inset = static_cast<float>(t.deviceGrid.displayInset);
+    const auto text = static_cast<float>(t.deviceGrid.displayTextHeight);
+    g.setFont(font(TextStyle::ValueSmall));
+    for (const double hz : {50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0, 5000.0, 10000.0})
+    {
+        const float x = std::round(xOf(hz));
+        g.setColour(t.line);
+        g.fillRect(x, area.getY(), 1.0f, area.getHeight());
+        g.setColour(t.textTertiary);
+        g.drawText(hz >= 1000.0 ? juce::String(hz / 1000.0, 0) + "k" : juce::String(hz, 0),
+                   juce::Rectangle<float>(x + inset / 2.0f, area.getBottom() - text, 4.0f * text, text),
+                   juce::Justification::centredLeft, false);
+    }
+    if (dbStep <= 0.0f)
+        return;
+    for (float db = topDb - dbStep; db > bottomDb + dbStep / 2.0f; db -= dbStep)
+    {
+        const float y = std::round(yOf(db));
+        g.setColour(t.roles.gridMinor);
+        g.fillRect(area.getX(), y, area.getWidth(), 1.0f);
+        g.setColour(t.textTertiary);
+        g.drawText(juce::String(juce::roundToInt(db)),
+                   juce::Rectangle<float>(area.getRight() - 4.0f * text - inset, y - text, 4.0f * text, text),
+                   juce::Justification::bottomRight, false);
+    }
+}
+
+void SpectrumPlot::stroke(juce::Graphics& g, const juce::Path& path, juce::Colour colour, Dash dash, float width)
+{
+    g.setColour(colour);
+    const juce::PathStrokeType type(width);
+    if (dash == Dash::Solid)
+    {
+        g.strokePath(path, type);
+        return;
+    }
+    // In units of the stroke's width, so the dashes keep their look at any scale.
+    static constexpr float dashed[] = {4.0f, 3.0f}, longDashed[] = {9.0f, 4.0f}, dotted[] = {1.0f, 3.0f};
+    const float* pattern = dash == Dash::Dashed ? dashed : dash == Dash::LongDashed ? longDashed : dotted;
+    const float lengths[] = {pattern[0] * width, pattern[1] * width};
+    juce::Path dashedPath;
+    type.createDashedStroke(dashedPath, path, lengths, 2);
+    g.fillPath(dashedPath);
+}
 } // namespace fd::ui

@@ -1,7 +1,7 @@
 #include "EqPanel.h"
 
 #include "Eq.h"
-#include "fd/dsp/Fft.h"
+#include "fd/dsp/Spectrum.h"
 
 namespace fd::devices
 {
@@ -10,6 +10,7 @@ namespace
 constexpr double kMinHz = 20.0, kMaxHz = 20000.0;
 constexpr double kRangeDb = 18.0;                     // curve: +-18 dB
 constexpr double kSpecTopDb = 0.0, kSpecBottomDb = -90.0; // spectrum scale
+constexpr float kSpecSlope = 4.5f;                        // dB/oct around 1 kHz, as before
 constexpr double kDisplaySampleRate = 48000.0;        // curves are drawn at a reference rate
 
 bool usesGain(Eq::BandType t)
@@ -26,55 +27,36 @@ struct Selection
 };
 
 // ---------------------------------------------------------------------------
-// Analyzer: pulls samples from a device FIFO and keeps a smoothed spectrum.
+// Analyzer: one FIFO's signal through the shared analyser (devices/spectrum/SPEC.md), so the EQ
+// and the Spectrum read alike.
 // ---------------------------------------------------------------------------
 class Analyzer
 {
 public:
     static constexpr int order = 12;
+    static constexpr double averagingMs = 150.0; // lively behind a curve being shaped
 
-    void pull(SampleFifo& fifo)
+    void pull(SampleFifo& fifo, double sampleRate)
     {
-        float tmp[1024];
-        size_t n;
-        while ((n = fifo.pop(tmp, 1024)) > 0)
-            for (size_t i = 0; i < n; ++i)
-            {
-                ring_[static_cast<size_t>(pos_)] = tmp[i];
-                pos_ = (pos_ + 1) & (fft_.size() - 1);
-            }
-        // Linearise the ring and transform.
-        for (int i = 0; i < fft_.size(); ++i)
-            block_[static_cast<size_t>(i)] = ring_[static_cast<size_t>((pos_ + i) & (fft_.size() - 1))];
-        fft_.magnitudes(block_.data(), mags_.data(), scratch_);
-        for (size_t k = 0; k < mags_.size(); ++k)
+        if (analyser_.order() != order || analyser_.sampleRate() != sampleRate)
         {
-            const float db = 20.0f * std::log10(std::max(mags_[k], 1e-6f));
-            smoothed_[k] = db > smoothed_[k] ? db : smoothed_[k] + 0.15f * (db - smoothed_[k]); // fast attack, slow decay
+            analyser_.prepare(order, sampleRate);
+            analyser_.setChannel(dsp::SpectrumChannel::Left); // the EQ taps one signal
+            analyser_.setAveraging(averagingMs);
         }
+        float block[1024];
+        size_t n;
+        while ((n = fifo.pop(block, 1024)) > 0)
+            if (analyser_.push(block, nullptr, n))
+                bands_ = analyser_.bands();
     }
 
-    /// Spectrum level in dB at a frequency (1/6-octave-ish smoothing via bin averaging).
-    [[nodiscard]] float levelAt(double hz) const
-    {
-        const double binHz = kDisplaySampleRate / fft_.size();
-        const int lo = std::max(1, static_cast<int>(hz * std::pow(2.0, -1.0 / 12.0) / binHz));
-        const int hi = std::min(static_cast<int>(smoothed_.size()) - 1,
-                                std::max(lo, static_cast<int>(hz * std::pow(2.0, 1.0 / 12.0) / binHz)));
-        float sum = 0.0f;
-        for (int k = lo; k <= hi; ++k)
-            sum += smoothed_[static_cast<size_t>(k)];
-        return sum / static_cast<float>(hi - lo + 1);
-    }
+    [[nodiscard]] bool hasData() const noexcept { return analyser_.hasData(); }
+    [[nodiscard]] const dsp::SpectrumCurve& bands() const noexcept { return bands_; }
 
 private:
-    dsp::Fft fft_{order};
-    std::vector<float> ring_ = std::vector<float>(1 << order, 0.0f);
-    std::vector<float> block_ = std::vector<float>(1 << order, 0.0f);
-    std::vector<float> mags_ = std::vector<float>((1 << order) / 2 + 1, 0.0f);
-    std::vector<float> smoothed_ = std::vector<float>((1 << order) / 2 + 1, -120.0f);
-    std::vector<std::complex<float>> scratch_;
-    int pos_ = 0;
+    dsp::SpectrumAnalyser analyser_;
+    dsp::SpectrumCurve bands_{};
 };
 
 // ---------------------------------------------------------------------------
@@ -102,6 +84,7 @@ public:
                 sections_[static_cast<size_t>(b)] = Eq::design(settings(b), kDisplaySampleRate);
             repaint();
         }
+        tickAnalyzer(); // the frame clock drives it on screen; this keeps it going where there's none
     }
 
     void tickAnalyzer()
@@ -111,8 +94,8 @@ public:
         const int mode = static_cast<int>(ctx_.params.getPlain(Eq::Analyzer));
         if (mode == 0)
             return;
-        pre_.pull(ctx_.analysis->fifo(Eq::PreFifo));
-        post_.pull(ctx_.analysis->fifo(Eq::PostFifo));
+        pre_.pull(ctx_.analysis->fifo(Eq::PreFifo), ctx_.analysis->sampleRate());
+        post_.pull(ctx_.analysis->fifo(Eq::PostFifo), ctx_.analysis->sampleRate());
         repaint();
     }
 
@@ -123,18 +106,8 @@ public:
         g.setColour(t.surface0);
         g.fillRoundedRectangle(r, t.radiusControl);
 
-        // Grid: decades and 0 dB.
-        g.setFont(ui::font(ui::TextStyle::ValueSmall));
-        for (double f : {50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0, 5000.0, 10000.0})
-        {
-            const float x = xOf(f);
-            g.setColour(t.line);
-            g.fillRect(x, 0.0f, 1.0f, r.getHeight());
-            g.setColour(t.textTertiary);
-            g.drawText(f >= 1000.0 ? juce::String(f / 1000.0, 0) + "k" : juce::String(f, 0),
-                       juce::Rectangle<float>(x + 2.0f, r.getBottom() - 13.0f, 30.0f, 12.0f),
-                       juce::Justification::centredLeft);
-        }
+        // Grid: the analysers' frequencies, and 0 dB.
+        spectrumPlot().paintGrid(g);
         g.setColour(t.surface3);
         g.fillRect(0.0f, yOfDb(0.0), r.getWidth(), 1.0f);
 
@@ -364,27 +337,25 @@ private:
         return p;
     }
 
+    /// The spectrum's axes: the display's width, -90 to 0 dB, tilted 4.5 dB/oct around 1 kHz.
+    [[nodiscard]] ui::SpectrumPlot spectrumPlot() const
+    {
+        return {.area = getLocalBounds().toFloat(), .topDb = static_cast<float>(kSpecTopDb),
+                .bottomDb = static_cast<float>(kSpecBottomDb), .slope = kSpecSlope};
+    }
+
     void paintSpectrum(juce::Graphics& g, const Analyzer& a, juce::Colour fill, juce::Colour line) const
     {
-        juce::Path p;
-        const float h = static_cast<float>(getHeight());
-        for (int x = 0; x <= getWidth(); x += 2)
-        {
-            const double db = a.levelAt(freqOf(static_cast<float>(x))) + 4.5 * std::log2(freqOf(static_cast<float>(x)) / 1000.0); // tilt
-            const float y = h - static_cast<float>(juce::jlimit(0.0, 1.0, (db - kSpecBottomDb) / (kSpecTopDb - kSpecBottomDb))) * h;
-            x == 0 ? p.startNewSubPath(0.0f, y) : p.lineTo(static_cast<float>(x), y);
-        }
+        if (!a.hasData())
+            return;
+        const auto plot = spectrumPlot();
+        const auto path = plot.line(a.bands());
         if (!fill.isTransparent())
         {
-            juce::Path f(p);
-            f.lineTo(static_cast<float>(getWidth()), h);
-            f.lineTo(0.0f, h);
-            f.closeSubPath();
             g.setColour(fill);
-            g.fillPath(f);
+            g.fillPath(plot.fill(path));
         }
-        g.setColour(line);
-        g.strokePath(p, juce::PathStrokeType(1.0f));
+        ui::SpectrumPlot::stroke(g, path, line);
     }
 
     void updateHover(int b)

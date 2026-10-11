@@ -41,6 +41,13 @@ void deriveRoles(Theme& t)
     r.spectrumFill = t.textTertiary.withAlpha(0.22f);
     r.spectrumLine = t.textTertiary.withAlpha(0.5f);
     r.spectrumPre = t.textTertiary.withAlpha(0.35f);
+    // Two hues of the clip palette, the same in every theme: the curves read apart from the
+    // accents, whatever they are.
+    r.spectrumCompare = t.clipColour(9);   // blue
+    r.spectrumReference = t.clipColour(13); // violet
+    r.spectrumSnapshot = t.textSecondary;
+    r.spectrumSide = t.textSecondary.withAlpha(0.5f);
+    r.spectrumCollision = t.meterHot.withAlpha(r.fillAlpha);
     r.outside = t.textTertiary.withAlpha(0.6f);
     r.loopTint = t.value.withAlpha(0.10f);
     r.focusRing = t.active.withAlpha(0.7f);

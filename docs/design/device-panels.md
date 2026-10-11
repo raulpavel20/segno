@@ -54,6 +54,7 @@ In the UI, instruments and effects are **modules**. Code and docs say *device* (
 | Collapsed section | 24 | title rotated, reading upwards |
 | Folded module | 28 | DAW only |
 | Meter strip | 24 / 44 | one meter / in and out |
+| Display text | 6 inset, 14 tall | `DeviceGrid::displayInset`, `displayTextHeight`: a display's legend, readouts and axis labels |
 
 Three rows are exactly one knob tall (76 px), so a knob lines up with a stack of three line controls beside it.
 
@@ -68,7 +69,7 @@ Each control is placed by its top-left cell and its span: `(column, row, columns
 | **Segmented** | whole cells per segment, 1 row per line of segments | 4 px between segments, 8 px between lines (the grid's own gaps). Text + 6 px must fit a segment. |
 | **Combo** | *n* × 1, *n* ≥ 2 | The widest choice + 26 px (padding and chevron) must fit. |
 | **Bar** (value bar) | *n* × 1, *n* ≥ 2 | Name + widest value + 16 px must fit. |
-| **Display** (curve, envelope, waveform, spectrum) | any *n* × *m* | Its own label, if any, sits inside the well. A display can carry one **accessory** (e.g. the Mod envelope's Cycle toggle) in its label line. |
+| **Display** (curve, envelope, waveform, spectrum) | any *n* × *m* | Its own label, if any, sits inside the well. A display can carry one **accessory** (e.g. the Mod envelope's Cycle toggle) in its label line. Analysers (the EQ, the Spectrum) draw with `ui::SpectrumPlot`: one log-frequency axis, grid and set of strokes, so they read alike. |
 | **Sub-label** | *n* × 1 | Mono caps, like a section title, for a named group inside a section (the LFO inside MODULATION). Use sparingly; a new section is usually clearer. |
 
 - Every cell a control covers is its own: controls never overlap.
@@ -152,7 +153,7 @@ Columns are in brackets. Each module's SPEC lists its map. The four M2 modules a
 | Limiter | HISTORY [6] · LIMIT [3] Gain, Ceiling, Release / Auto Release, True Peak · MODE [3] Mode (stacked), Channels, Lookahead · LOUDNESS [3] readouts, Reset · output meter | 884 |
 | Gate | HISTORY [6] with threshold and return lines · GATE [3] Threshold, Return, Range / Mode (stacked), Ratio, Flip · TIME [3] Attack, Hold, Release / Lookahead · SIDECHAIN [3] Filter, Listen / Freq, Q, Gain · in and out meters · header: Sidechain | 904 |
 | Limiter (draft) | HISTORY [6] · LIMIT [3] · MODE [3] · LOUDNESS [3] · meters | – |
-| Spectrum (draft) | SPECTRUM [12] display with a legend · CURVES [3] Freeze, Reference… · SETTINGS [4] Channel, Resolution / Hold, Range / Peak Labels, Side Overlay / Average, Slope · header: Compare (the sidechain picker) | – |
+| Spectrum | SPECTRUM [12] display with a legend · CURVES [4] Side Overlay / Freeze, Clear / Reference…, Clear / the reference's name · SETTINGS [5] a sub-label and dropdown per row (Channel, Resolution, Peak hold, Range, Peak labels, Slope), Average · header: Compare (the sidechain picker) | 1152 |
 
 ## Checked by the layout lint
 

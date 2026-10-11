@@ -17,6 +17,8 @@ struct DeviceGrid
     int collapsedWidth = 24;        // a collapsed section
     int foldedWidth = 28;           // a folded module (DAW chain)
     int meterWidth = 10, meterGap = 10, meterStripPadding = 14; // meter strip: 6 + meters + 8
+    int displayInset = 6;       // a display's text and marks, from its well's edges
+    int displayTextHeight = 14; // a display's line of text (a legend, a readout, an axis label)
     int headerPadding = 8;
 
     /// Width of `columns` cells and the gaps between them.
@@ -48,6 +50,8 @@ struct ColourRoles
     juce::Colour takeUnused, takeUnusedContent; // the parts of a clip's takes it doesn't play: no clip colour
     juce::Colour keyWhite, keyBlack, keySeam;
     juce::Colour curveFill, selectionCurve, spectrumFill, spectrumLine, spectrumPre, outside, loopTint;
+    // The Spectrum's other curves (devices/spectrum/SPEC.md): apart by hue and dash, not colour alone.
+    juce::Colour spectrumCompare, spectrumSide, spectrumSnapshot, spectrumReference, spectrumCollision;
     juce::Colour focusRing, hoverWash, dropWell, valueHot, valueText, warning, overlay, shadow;
     // Automation (docs/design/automation.md §6): the indicator on automated controls. Lanes draw in
     // their own colour (Theme::automationLine and the fill functions).

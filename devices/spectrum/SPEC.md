@@ -1,6 +1,6 @@
 # Spectrum: device spec
 
-- **Status:** Draft, revised 2026-10-11 with the product owner's extensions (compare, snapshot, reference, side overlay, peak labels; a spectrogram in stage 2). Review requested; IDs can still change.
+- **Status:** Approved (product owner, 2026-10-11), with the extensions (compare, snapshot, reference, side overlay, peak labels; a spectrogram in stage 2) and the defaults under "For review". IDs are permanent. Built (B4, 2026-10-11): what building settled is under "Settled while building"; awaiting the product owner's feel check.
 - **Type:** Audio effect (analysis only; audio passes unchanged)
 - **Tier / milestone:** Tier 1, M2 (core) → M3 (stage 2)
 - **Live target:** Spectrum. References only ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
@@ -45,7 +45,7 @@ All are display settings: they never affect audio, and they are not automatable.
 | `resolution` | Resolution | How finely frequencies are resolved: higher shows more detail in the lows and reacts more slowly. | 2 048, 4 096, 8 192, 16 384 | 8 192 | FFT points | – | – | No |
 | `average` | Averaging | How long the display averages, from instant to smooth. | 0 … 5 000 | 300 | ms | centre 300 ms | – | No |
 | `hold` | Peak Hold | How long peaks stay marked. | Off, 1 s, 3 s, Infinite | 3 s | choice | – | – | No |
-| `slope` | Slope | Tilts the display around 1 kHz, so a balanced mix looks flat. | 0 … 6 | 3 | dB/oct | linear | – | No |
+| `slope` | Slope | Tilts the display around 1 kHz, so a balanced mix looks flat. | 0, 1.5, 3, 4.5, 6 | 3 | dB/oct (choice) | – | – | No |
 | `range` | Range | How many decibels the display spans from top to bottom. | 60, 90, 120 | 90 | dB shown | – | – | No |
 | `side` | Side Overlay | Draws the side signal under the main curve, to show what's stereo. | Off / On | Off | toggle | – | – | No |
 | `labels` | Peak Labels | Marks the strongest peaks with their frequency and note. | Off, 3, 6 | 3 | choice | – | – | No |
@@ -81,7 +81,7 @@ sidechain L/R ─────────┼─> FIFO SC L, FIFO SC R (when a co
 - **Analysis: `dsp::Spectrum` (libs/dsp, JUCE-free, `[fast]` tested).** The panel calls it; the UI never reimplements DSP. It covers:
   - a Hann-windowed FFT (`dsp::Fft`) at the chosen resolution, 75 % overlap, at the device's sample rate (reported with the taps);
   - power averaged over time with the Averaging constant (exponential, per hop);
-  - 121 bands at 1/12 octave from 20 Hz to 20 kHz, each the average power of the bins in it (interpolated where a band is narrower than a bin);
+  - 121 bands at 1/12 octave from 20 Hz to 20 kHz, each the average power of the bins in it (interpolated where a band is narrower than a bin), as a density: the same for noise at any Resolution or sample rate. A band's average spreads a sine's power over the band, so the curve shows noise and tonal balance truly, and peak readings (labels, the sine target) come from the bins;
   - the Slope tilt around 1 kHz;
   - peak hold per band: held for the Hold time, then falling at 20 dB/s;
   - peak picking for the labels (below);
@@ -91,7 +91,7 @@ sidechain L/R ─────────┼─> FIFO SC L, FIFO SC R (when a co
 - **Compare:** the sidechain is analysed with the same Channel, Resolution, Averaging and Slope as the input and drawn as a second line.
 - **Collisions:** a band collides when both curves are near their own loudest: each within 12 dB of its own loudest band between 30 Hz and 16 kHz, after Slope. Colliding bands are shaded behind the curves. Shading needs both signals to be loud there, so a kick's click against a bass's sub never shades.
 - **Peak labels:** the strongest local maxima of the main curve (after smoothing and Slope) that stand at least 6 dB above the lowest point within 1/3 octave on each side, at least 1/3 octave apart, and inside the shown range.
-  - Each reads as frequency and note: "62 Hz · B1", "3.15 kHz · G7" (A4 = 440 Hz, the nearest note).
+  - Each reads as frequency and note: "62 Hz · B0", "3.15 kHz · G6": the nearest note, named as everywhere in Segno (middle C is C3, so 440 Hz is A3). The frequency and level come from the loudest bin near the peak, interpolated, so a sine reads its own frequency and level however wide the band.
   - A label moves only when its peak has moved for half a second, so labels don't flicker.
 - **Snapshot:** Freeze stores the main curve as shown now, with its Channel. In the DAW it's one undo step ("Freeze spectrum"), through the host binding (ADR 0017).
 - **Reference:** choosing a file starts a background job in the panel, off the audio and message threads:
@@ -103,13 +103,13 @@ sidechain L/R ─────────┼─> FIFO SC L, FIFO SC R (when a co
 
 ## UI layout
 
-On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sections left to right, each `id` TITLE [columns], with controls at (column, row) and spans; knobs are 1 × 3 cells. Draft, refined when the device is built (B4).
+On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sections left to right, each `id` TITLE [columns], with controls at (column, row) and spans; knobs are 1 × 3 cells. As built (B4).
 
 | Section | Controls |
 |---|---|
-| `spectrum` SPECTRUM [12] | Display (0, 0, 12 × 6), with a legend in its label line |
-| `curves` CURVES [3] | Freeze (0, 0, 2 wide), Clear (2, 0) · Reference… (0, 1, 2 wide), Clear (2, 1) · the reference's name (0, 2, 3 wide) |
-| `settings` SETTINGS [4] | Channel (0, 0, 2 wide), Resolution (2, 0, 2 wide) · Hold (0, 1, 2 wide), Range (2, 1, 2 wide) · Peak Labels (0, 2, 2 wide), Side Overlay (2, 2, 2 wide) · Average (0, 3), Slope (1, 3) |
+| `spectrum` SPECTRUM [12] | Display (0, 0, 12 × 6), with a legend along its top |
+| `curves` CURVES [4] | Side Overlay (0, 0, 2 wide) · Freeze (0, 1, 2 wide), Clear (2, 1, 2 wide) · Reference… (0, 2, 2 wide), Clear (2, 2, 2 wide) · the reference's name, or what reading it came to (0, 3, 4 wide) |
+| `settings` SETTINGS [5] | A sub-label (2 wide) and its dropdown (2 wide) per row: Channel, Resolution, Peak hold, Range, Peak labels, Slope · Average (4, 0) |
 | header | Compare (the sidechain picker, ADR 0025: None and the other tracks in the DAW; Off and External in a plugin) |
 
 - **The display** draws, back to front:
@@ -120,8 +120,9 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
   - the main curve (flat fill and line) and its peak hold;
   - the compare curve (a line);
   - peak labels.
-- **The legend** names each curve shown, only while more than the main one is: "Bass", "Kick", "Side", "Snapshot", "Reference · Song.wav". In a plugin the compare curve is "Sidechain".
-- **Hover** shows the frequency, the note and each shown curve's level there.
+- **The legend** names each curve shown, only while more than the main one is: "Input", "Kick", "Side", "Snapshot", "Reference · Song.wav". In a plugin the compare curve is "Sidechain". A snapshot taken with another Channel says which ("Snapshot (Mid)").
+- **Hover** shows a line, the frequency, the note and each shown curve's level there, in place of the legend.
+- **Peak labels** sit on a shaded backing, so a curve behind them never makes them hard to read; louder peaks are placed first, and one that would overlap another gives way to the next.
 - **Colour roles:** compare, side, snapshot, reference and collision get roles of their own in `fd_ui`, next to `spectrumFill`, `spectrumLine` and `spectrumPre`, documented in ui-foundations.md. The roles keep the curves apart by colour and dash, not colour alone.
 - **Reaching it by mouse** (ADR 0040): Freeze, Reference… and Clear are buttons on the panel. Dropping an audio file on the display also loads it as the reference, as a shortcut.
 - **Dimming:** the Clear buttons while there's nothing to clear; Side Overlay while Channel is Left, Right or Side.
@@ -136,14 +137,14 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 | Metric | Target |
 |---|---|
 | Audio through the device | Null against the input (< −120 dBFS), zero latency |
-| A 1 kHz sine at −12 dBFS, slope 0 | Peak at 1 kHz (±1 bin), −12 dB (±0.5 dB) |
+| A 1 kHz sine at −12 dBFS, slope 0 | Its peak reading at 1 kHz (±1 bin), −12 dB (±0.5 dB) |
 | Pink noise with slope 3 dB/oct | Flat display (±1.5 dB, 50 Hz–15 kHz, after averaging) |
 | Mid and Side on L = R input | Side shows nothing (below the range floor) |
 | Side overlay, right channel silent | The side curve equals the mid curve (±0.5 dB) |
 | The same signal into the input and the sidechain | Main and compare curves coincide (±0.1 dB) |
 | Two 100 Hz sines, input and sidechain | Collision shaded around 100 Hz (±1/6 octave), nowhere else |
 | A 100 Hz sine against a 5 kHz sine | No collision |
-| Sines at 62 Hz, 440 Hz and 3 150 Hz, −12 dBFS each | Three labels: "62 Hz · B1", "440 Hz · A4", "3.15 kHz · G7" |
+| Sines at 62 Hz, 440 Hz and 3 150 Hz, −12 dBFS each | Three labels: "62 Hz · B0", "440 Hz · A3", "3.15 kHz · G6" |
 | Pink noise, Peak Labels 6 | No labels (no peak stands out) |
 | A snapshot, then Slope changed | The snapshot tilts with the display |
 | A pink-noise file as reference, slope 3 | Its curve flat (±1 dB, 50 Hz–15 kHz) |
@@ -164,16 +165,25 @@ Deferred until a Live machine is available.
 
 ## For review
 
-Choices made in this draft that the product owner may want to change:
+Approved as drafted (product owner, 2026-10-11):
 - **Peak Labels default to 3,** so the feature is seen. Off by default would keep the display quieter on a full mix.
 - **Side Overlay defaults to Off;** the "Mid/side check" preset turns it on.
 - **Collisions:** each curve within 12 dB of its own loudest band. The EQ's masking display (M3) reuses the rule and may refine it.
 - **No compare with the master:** the sidechain can't take the master, since the master depends on every track. A Spectrum on the master can compare with any track. The whole mix against one track waits for the master channel's reference work (M3).
 
+## Settled while building (B4, 2026-10-11)
+
+- **Bands and peaks:** the curve is each band's average power (a density), so noise reads truly at any resolution or sample rate and comparisons are fair; peak readings (labels, hover's peak frequency) come from the bins, interpolated, so a sine reads its own frequency and level. Note names follow Segno's convention (440 Hz is A3).
+- **Slope is a choice** (0, 1.5, 3, 4.5, 6 dB/oct), not a knob: "3.0 dB/oct" doesn't fit a knob's value, and nobody needs a tilt between these.
+- **Side Overlay sits with the curves,** and each setting has a sub-label: dropdowns show only their value, and "3" or "3 s" alone don't say what they are.
+- **The colours:** compare and reference take two hues of the clip palette (blue, violet), the same in every theme; collisions a faint warm wash; the snapshot and side are grey, dashed and dotted.
+- **Shared with the EQ:** the analysis (`dsp::SpectrumAnalyser`) and the axes and strokes (`ui::SpectrumPlot`); devices publish their sample rate on the analysis bus. Both displays also take their taps on the panel's refresh tick, so they keep going where there's no frame clock.
+- **Sidechain caption:** a panel names its sidechain picker for what it does (`DevicePanel::setSidechainCaption`): here "Compare".
+
 ## Sign-off
 
-- [ ] Automated: unit, conformance and golden tests; validators
-- [ ] Layout lint passes (`fd_panel_tests`)
-- [ ] Snapshots reviewed (100% / 200%; expanded, collapsed, folded)
+- [x] Automated: unit, conformance and golden tests; validators (pluginval at strictness 10 and clap-validator pass; 2026-10-11). The audio is the input, so the null test stands in for a golden file
+- [x] Layout lint passes (`fd_panel_tests`)
+- [x] Snapshots reviewed (100% / 200%; expanded, collapsed, folded; and with sound, a compared track, a snapshot and a reference)
 - [ ] Sound signed off by the product owner (date): (audio passes unchanged; the null test covers it)
 - [ ] Feel signed off by the product owner (date):

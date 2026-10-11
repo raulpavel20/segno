@@ -30,6 +30,8 @@ Roles are derived from the base palette in `Theme.cpp` (`deriveRoles`), the only
 | `curveFill` | value at 14 % | The flat fill under any curve |
 | `selectionCurve` | active at 45 % | The selected band's own curve (EQ) |
 | `spectrumFill` / `spectrumLine` / `spectrumPre` | textTertiary at 22 / 50 / 35 % | Analyzers |
+| `spectrumCompare` / `spectrumReference` | Clip palette hues 9 (blue) and 13 (violet), the same in every theme | The Spectrum's compared track and reference curve |
+| `spectrumSnapshot` / `spectrumSide` / `spectrumCollision` | textSecondary; textSecondary at 50 %; meterHot at `fillAlpha` | The Spectrum's snapshot (dashed), side (dotted) and collision wash |
 | `outside` | textTertiary at 60 % | Data outside an active range (waveform outside Start–End) |
 | `loopTint` | value at 10 % | A loop region inside a display |
 | `focusRing` | active at 70 % | Keyboard focus, 1 px |

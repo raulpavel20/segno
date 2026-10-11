@@ -199,6 +199,7 @@ void Eq::prepare(const ProcessSpec& spec)
     sampleRate_ = spec.sampleRate;
     rampSamples_ = dsp::msToSamples(20.0, sampleRate_);
     fadeSamples_ = dsp::msToSamples(5.0, sampleRate_);
+    analysis().setSampleRate(sampleRate_); // the analyser's bins, in hertz
     analysis().fifo(PreFifo).prepare(16384);
     analysis().fifo(PostFifo).prepare(16384);
     reset();
