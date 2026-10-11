@@ -616,6 +616,63 @@ public:
         Session& session_;
     };
 
+    // ---- tracks and clips (C11, ADR 0041, docs/design/tracks-and-clips.md) --------------------
+
+    /// Renames a track or return track (and its aux bus); an empty name changes nothing. One undo
+    /// step, "Rename track". False if nothing changed.
+    bool renameTrack(std::uint64_t channelId, const std::string& name);
+    /// A track's or return track's colour, an index into the clip palette. One undo step.
+    bool setTrackColour(std::uint64_t channelId, int colour);
+    /// An automation lane's colour. One undo step.
+    bool setLaneColour(std::uint64_t lane, int colour);
+    /// Deletes a track or return track with what only made sense with it (§5): its clips and
+    /// takes, the lanes that drive only it and its assignments in others (lanes after it then sit
+    /// after the track above), the sidechains it feeds (back to Off), and for a return, the sends
+    /// to it. One undo step. False for the master, or while recording (`why` says so).
+    bool deleteTrack(std::uint64_t channelId, std::string* why = nullptr);
+    /// Moves a track before another (0: after the last track), the lanes right after it with it;
+    /// or a return before another return (0: the last). One undo step, "Move track". False if it
+    /// doesn't move.
+    bool moveTrack(std::uint64_t channelId, std::uint64_t before);
+    /// Moves a lane to sit after a track (0: at the top), before another lane there (0: after
+    /// them). One undo step, "Move automation lane".
+    bool moveLane(std::uint64_t lane, std::uint64_t after, std::uint64_t beforeLane);
+    /// Duplicates a track or return right after it (§7): its clips and takes, modules, mix, sends,
+    /// input and colour, named with the next free number, not armed or soloed; lanes that drive
+    /// only it are copied for the copy. A return's copy listens to a bus of its own. Returns the
+    /// copy (0: it can't, while recording or with every aux bus taken).
+    std::uint64_t duplicateTrack(std::uint64_t channelId);
+    /// Renames clips, all of them to `name` (empty: nothing). One undo step, "Rename clip".
+    void renameClips(const std::vector<std::uint64_t>& clips, const std::string& name);
+    /// Colours clips (nullopt: they follow their track's colour again). One undo step.
+    void setClipColour(const std::vector<std::uint64_t>& clips, std::optional<int> colour);
+
+    /// Clips copied for pasting (§9): copies of their state and of the takes they play from, so a
+    /// cut still pastes. Empty when nothing was copied.
+    class ClipClipboard
+    {
+    public:
+        [[nodiscard]] bool empty() const noexcept;
+        /// How many tracks' rows it spans.
+        [[nodiscard]] int rows() const noexcept;
+
+    private:
+        friend class Session;
+        struct Data;
+        std::shared_ptr<const Data> data_;
+    };
+    /// The clips (with every part of a clip with takes), each on its row below the topmost track
+    /// they're on, at its time after the earliest.
+    [[nodiscard]] ClipClipboard copyClips(const std::vector<std::uint64_t>& clips) const;
+    struct PasteResult
+    {
+        std::vector<std::uint64_t> clips; // the copies
+        int rowsLeftOut = 0;              // rows past the last track
+    };
+    /// Pastes at `at` on a track, clips from several tracks on the tracks below it, cutting what
+    /// they land on (ADR 0019); takes and fades come along. One undo step, "Paste".
+    PasteResult pasteClips(const ClipClipboard& clipboard, std::uint64_t trackId, double at);
+
     // ---- offline rendering (the MCP render tool and bounce; export later) ------------------
 
     struct RenderRequest

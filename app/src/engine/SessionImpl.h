@@ -92,6 +92,14 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     std::optional<std::uint64_t> midiTarget; // the track live MIDI plays (C7): softly armed (C5)
     void midiDevicesChanged();
 
+    /// A track's or clip's colour (an index into the clip palette, `paletteSize` long) and a
+    /// track's role ("return" on a return track, ADR 0026).
+    static inline const juce::Identifier colourPropertyId{"fdColour"}, rolePropertyId{"fdRole"};
+    static constexpr int paletteSize = 16;
+    static constexpr int maxReturns = 32; // tracktion's aux buses
+    /// The lowest aux bus no return listens to yet (maxReturns: none free).
+    [[nodiscard]] int freeBus() const;
+
     // ---- recording (C5, ADRs 0030 and 0031) ----------------------------------------------------
     static inline const juce::Identifier audioInId{"fdAudioIn"}, midiInId{"fdMidiIn"}, midiChannelId{"fdMidiChannel"},
         monitorId{"fdMonitor"}, recordsId{"fdRecords"}, armedId{"fdArmed"}, overdubId{"fdMidiOverdub"};

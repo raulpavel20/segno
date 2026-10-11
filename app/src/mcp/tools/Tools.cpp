@@ -21,6 +21,7 @@ void registerAll(Registry& registry, ToolEnv& env)
     addAutomationTools(registry, env);
     addRecordingTools(registry, env);
     addProjectTools(registry, env);
+    addTrackTools(registry, env);
     addResources(registry, env);
     addPrompts(registry);
 }
@@ -394,7 +395,8 @@ Json clipJson(ToolEnv& env, const model::ClipInfo& c, bool notes)
            {"start", positionJson(start, t)},
            {"end", positionJson(end, t)},
            {"length", rounded(end - start, 1e6)},
-           {"muted", c.muted}};
+           {"muted", c.muted},
+           {"colour", c.colour}};
     if (const auto found = model::findClip(*env.session.snapshot(), c.id))
     {
         const auto& track = env.session.snapshot()->tracks[static_cast<size_t>(found->second)];

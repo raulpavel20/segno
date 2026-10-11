@@ -33,6 +33,7 @@ void addMixTools(Registry& registry, ToolEnv& env);
 void addAutomationTools(Registry& registry, ToolEnv& env);
 void addRecordingTools(Registry& registry, ToolEnv& env);
 void addProjectTools(Registry& registry, ToolEnv& env);
+void addTrackTools(Registry& registry, ToolEnv& env);
 void addResources(Registry& registry, ToolEnv& env);
 void addPrompts(Registry& registry);
 /// Everything above.

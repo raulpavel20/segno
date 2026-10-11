@@ -1143,3 +1143,62 @@ TEST_CASE("mcp tools: export audio with the project's settings, only where the u
     r = daw.callAway("export_audio", {{"format", "flac"}, {"bitDepth", 32}});
     REQUIRE(r["isError"] == true);
 }
+
+TEST_CASE("mcp tools: tracks renamed, recoloured, moved, duplicated and deleted; clips renamed, recoloured, copied (C11)",
+          "[integration][mcp]")
+{
+    Daw daw;
+    auto tracks = daw.project()["tracks"];
+    REQUIRE(tracks.size() >= 3);
+    const auto t0 = tracks[0]["id"].get<std::string>(), t1 = tracks[1]["id"].get<std::string>(),
+               t2 = tracks[2]["id"].get<std::string>();
+
+    // Names and colours.
+    auto r = daw.call("set_track", {{"track", t0}, {"name", "Bass"}, {"colour", 5}});
+    CHECK(r["name"] == "Bass");
+    CHECK(r["colour"] == 5);
+    CHECK(daw.session->undoDescription() == "Assistant: set track");
+    CHECK(daw.fails("set_track", {{"track", t0}}).find("name or a colour") != std::string::npos);
+    CHECK_FALSE(daw.fails("set_track", {{"track", t0}, {"colour", 16}}).empty()); // the palette has 16
+    const auto master = daw.project()["master"]["id"].get<std::string>();
+    CHECK(daw.fails("set_track", {{"track", master}, {"name", "Main"}}).find("master") != std::string::npos);
+
+    // Move: Bass to the end, then before the first again.
+    r = daw.call("move_track", {{"track", t0}});
+    CHECK(r["order"].back() == t0);
+    r = daw.call("move_track", {{"track", t0}, {"before", t1}});
+    CHECK(r["order"][0] == t0);
+
+    // Duplicate: "Bass 2", right after it.
+    const auto clip = daw.call("create_midi_clip", {{"track", t0}, {"start", "1.1.1"}, {"length", "1 bar"}})["clip"]["id"].get<std::string>();
+    r = daw.call("duplicate_track", {{"track", t0}});
+    CHECK(r["name"] == "Bass 2");
+    const auto copy = r["track"].get<std::string>();
+    tracks = daw.project()["tracks"];
+    CHECK(tracks[1]["id"] == copy);
+    CHECK(tracks[1]["clips"].size() == 1);
+
+    // Clips: renamed, coloured, then following their track's colour again.
+    r = daw.call("set_clips", {{"clips", {clip}}, {"name", "Riff"}, {"colour", 9}});
+    CHECK(r["clips"][0]["name"] == "Riff");
+    CHECK(r["clips"][0]["colour"] == 9);
+    r = daw.call("set_clips", {{"clips", {clip}}, {"colour", nullptr}});
+    CHECK(r["clips"][0]["colour"] == 5); // Bass's
+
+    // Copy to a place: on t2 at bar 3; then on its own track at bar 5.
+    r = daw.call("copy_clips", {{"clips", {clip}}, {"to", "3.1.1"}, {"to_track", t2}});
+    REQUIRE(r["clips"].size() == 1);
+    CHECK(r["clips"][0]["track"] == t2);
+    CHECK(r["clips"][0]["start"]["bbt"] == "3.1.1");
+    CHECK(r["left_out"] == 0);
+    r = daw.call("copy_clips", {{"clips", {clip}}, {"to", "5.1.1"}});
+    CHECK(r["clips"][0]["track"] == t0);
+
+    // Delete: the copy goes; it's one assistant step.
+    r = daw.call("delete_tracks", {{"tracks", {copy}}});
+    CHECK(r["deleted"] == 1);
+    CHECK(daw.session->undoDescription() == "Assistant: delete tracks");
+    for (const auto& t : daw.project()["tracks"])
+        CHECK(t["id"] != copy);
+    CHECK(daw.fails("delete_tracks", {{"tracks", {master}}}).find("master") != std::string::npos);
+}

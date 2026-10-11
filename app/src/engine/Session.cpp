@@ -13,15 +13,15 @@ namespace fd::engine
 {
 namespace
 {
-const juce::Identifier kColourId{"fdColour"}; // index into the clip palette
-const juce::Identifier kRoleId{"fdRole"};     // "return" on a return track (ADR 0026)
+const juce::Identifier& kColourId = Session::Impl::colourPropertyId; // index into the clip palette
+const juce::Identifier& kRoleId = Session::Impl::rolePropertyId;     // "return" on a return track (ADR 0026)
 // The project format: 2 since mixer levels sit on Segno's taper (ADR 0028), 3 since automation
 // lanes are rows of their own (ADR 0029). Older projects are converted when opened.
 const juce::Identifier kFormatId{"fdFormat"};
 constexpr int kFormat = 4;
 
 /// Number of colours in ui::Theme::clipColours; snapshots carry indices modulo this.
-constexpr int kPaletteSize = 16;
+constexpr int kPaletteSize = Session::Impl::paletteSize;
 
 /// One of our devices with a sidechain bus (ADR 0025).
 bool takesSidechain(te::Plugin& p)
@@ -1282,7 +1282,7 @@ bool Session::setSidechainSource(std::uint64_t deviceId, std::optional<std::uint
 
 namespace
 {
-constexpr int kMaxReturns = 32; // tracktion's aux buses
+constexpr int kMaxReturns = Session::Impl::maxReturns;
 
 juce::String returnName(int index)
 {
@@ -1297,13 +1297,7 @@ std::uint64_t Session::addReturnTrack(const std::string& name)
 {
     auto& edit = *impl_->edit;
     const auto existing = impl_->returns();
-    // The lowest aux bus no return listens to yet.
-    std::set<int> used;
-    for (auto* r : existing)
-        used.insert(busOf(*r));
-    int bus = 0;
-    while (used.contains(bus))
-        ++bus;
+    const int bus = impl_->freeBus();
     if (bus >= kMaxReturns)
         return 0;
 
