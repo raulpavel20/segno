@@ -139,6 +139,8 @@ The project, track, clip and module resources send change notifications when the
 | `set_automation_on` | `lane`, a parameter and `on?`, or `all` | Turns assignments back on (not an undo step) |
 | `set_module_sidechain` | `module`, `source` (a track, or null for none) | The source; `get_module` reports `sidechain: {source, possibleSources}` for modules with a sidechain input ([ADR 0025](../decisions/0025-sidechain-routing.md)) |
 | `set_module_view` | `module`, `collapsed?` (section ids), `folded?` | – (view state: never an undo step) |
+| `get_grid` | – | Each editor's grid ([ADR 0047](../decisions/0047-the-editing-grid-in-each-editor.md)): `arrangement` and `piano_roll`, each with `mode` (adaptive, fixed), `width` (narrowest … widest), `value` ("8 bars" … "1/32"), `triplets`, `snap`, and the `step` it snaps to now ("1/16", "1/8T") |
+| `set_grid` | `editor` (arrangement, piano_roll), `mode?`, `width?`, `value?`, `triplets?`, `snap?` | That editor's grid as set, with its step (view state: never an undo step) |
 | `list_presets` | `module` or `type` | A module's presets (Default settings, factory, yours: id, name, source, tags, description, author, favourite), and for a module the one it came from, whether it changed since, and whether A or B shows ([presets.md](presets.md) §14) |
 | `load_preset` | `module`, `preset` (id or name), `source?` (factory, yours) | Loads it into the setting shown; one undo step |
 | `save_preset` | `module`, `name`, `tags?`, `description?`, `author?`, `replace?` | Saves one of yours (refused for a name in use unless `replace`); assistants never delete presets |
@@ -183,6 +185,7 @@ Every DAW feature ships with its tools (the coverage rule, ADR 0021). Today:
 | Tracks: add, rename, recolour, move, duplicate, delete (C11) | `add_track`, `set_track`, `move_track`, `duplicate_track`, `delete_tracks`; lanes move with `move_automation_lane` (ADR 0042) |
 | Audio and MIDI clips: insert, move, trim, duplicate, split, delete; rename and recolour, copy to a place (C11) | Track and clip tools; `set_clips`, `copy_clips` |
 | Piano roll | Note tools |
+| The editing grid of each editor (ADR 0047) | `get_grid`, `set_grid` |
 | Module chains: add, remove, reorder, bypass, parameters, Sampler sample, collapse and fold | Module tools |
 | Presets and A/B (M3 A1, ADR 0044) | `list_presets`, `load_preset`, `save_preset`, `compare`; `add_module` takes a `preset` |
 | Plugin scanning | `scan_plugins` |

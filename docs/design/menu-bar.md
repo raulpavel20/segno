@@ -308,7 +308,11 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 
 | Item | Shortcut | |
 |---|---|---|
-| Snap to grid | Ctrl+4 | |
+| Narrower grid | Ctrl+1 | *new* ([ADR 0047](../decisions/0047-the-editing-grid-in-each-editor.md)): the editor used last; the next width, or half the fixed value |
+| Wider grid | Ctrl+2 | *new*: the opposite |
+| Triplet grid | Ctrl+3 | *new* |
+| Snap to grid | Ctrl+4 | Now the editor used last's |
+| Fixed grid | Ctrl+5 | *new*: fixed at the step showing, or back to adaptive |
 | Edge fades | Ctrl+Alt+Shift+E | |
 | — | | |
 | Computer keyboard ▸ | | Computer keyboard as MIDI (Ctrl+Shift+K); — ; Octave down (Z), Octave up (X), Velocity down (C), Velocity up (V): *new* as actions, enabled while it plays (today the keys only) |
@@ -363,7 +367,7 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 | Undo, Redo | Keys, palette | Edit, and top bar buttons |
 | Select all | Ctrl+A | Edit |
 | The command palette | Ctrl+K | Help, and the top bar's search button |
-| Focus mode, zoom in/out/to fit, follow, snap, edge fades, fold and expand modules | Keys, palette (some have buttons) | View, Options |
+| Focus mode, zoom in/out/to fit, follow, snap, the grid, edge fades, fold and expand modules | Keys, palette (some have buttons) | View, Options |
 | Show takes, previous/next take, spread takes | Keys, the badge, the take menu | Clip > Takes |
 | Notes: quantise, transpose, nudge | Keys only (the piano roll has no right-click menu) | Clip > Notes; and a right-click menu on notes and points: Quantise, Duplicate, Delete |
 | Assign parameter, automate last touched, turn automation back on | Keys, palette, some right-click | Track |
@@ -489,7 +493,7 @@ The full record is [ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mou
 Asked whether every action was in its right place, or the menu bar had become a catch-all, the product owner agreed to these changes, except for two on-screen controls that don't earn their place.
 
 **What moves to where you work:**
-- **Snap** (Ctrl+4): a Snap toggle in the corner above the track headers, on the editing surface; the grid size joins it later. The piano roll follows it as now. *Built:* in the ruler's row, where the headers' names start, its tooltip the action's. Since C11's review a view option (`ui::ViewOption`, like the mixer's Modules, Sends and Narrow), not a filled button (tracks-and-clips.md §18).
+- **Snap** (Ctrl+4): a Snap toggle in the corner above the track headers, on the editing surface; the grid size joins it later. ~~The piano roll follows it as now.~~ The grid joined it (ADR 0047): each editor has its own Snap and step, `[● Snap] [1/16 ⌄]`, the arrangement's here and the piano roll's in the clip view's header. *Built:* in the ruler's row, where the headers' names start, its tooltip the action's. Since C11's review a view option (`ui::ViewOption`, like the mixer's Modules, Sends and Narrow), not a filled button (tracks-and-clips.md §18).
 - **Quantise** (Ctrl+U): a Quantise button in the clip view's header, while it shows a clip (`PanelHeader` gains commands on the right, before its view options). *Built:* right of the "Tab switches" caption, dimmed while there's nothing to quantise.
 - **Cancelling a bounce:**
   - a small × on a clip being bounced, at its progress line; it cancels the bounces running, as Escape does. *Built:* on a `surface2` chip so it reads over the notes or waveform, at the right end of the part of the clip in view, so a long clip's is never off screen (`shell.clipButtonSize`);

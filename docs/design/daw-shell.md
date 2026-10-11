@@ -82,7 +82,10 @@ app/src/
 | Focus mode | `view.focus` | Ctrl+Alt+F |
 | Zoom in / out / to fit | `view.zoomIn` / `view.zoomOut` / `view.zoomFit` | = / − / Ctrl+0 |
 | Follow playhead | `view.follow` | Ctrl+Shift+F |
+| Narrower / wider grid ([ADR 0047](../decisions/0047-the-editing-grid-in-each-editor.md)) | `grid.narrower` / `grid.wider` | Ctrl+1 / Ctrl+2 |
+| Triplet grid | `grid.triplets` | Ctrl+3 |
 | Snap to grid | `view.snap` | Ctrl+4 |
+| Fixed grid | `grid.fixed` | Ctrl+5 |
 | New / open / save / save as | `file.new` / `file.open` / `file.save` / `file.saveAs` | Ctrl+N / Ctrl+O / Ctrl+S / Ctrl+Shift+S |
 | Audio settings | `app.audioSettings` | Ctrl+, |
 | Mute / solo selected tracks (C3) | `track.mute` / `track.solo` | Alt+M / Alt+S |
@@ -129,8 +132,19 @@ Each step adds its actions as it lands. An action that can't run now dims in men
 - **State:** visible start (seconds), pixels per second, width. Zoom is clamped to 0.5–20 000 px/s; the start is never negative.
 - **Zoom anchored at a point:** the time under the mouse (or the playhead, for keyboard zoom) stays put. Wheel and pinch zoom continuously and immediately. Button and keyboard zoom animate towards a target with an exponential ease (~80 ms), advanced once per frame.
 - **Scroll:** horizontal scroll by pixels; it can follow the playhead later (C5).
-- **Adaptive grid:** from the ladder 1/32 beat … 1/2 beat, 1 beat, 1, 2, 4, 8, 16, 32, 64 bars, the finest step whose lines are at least 10 px apart. Lines are tagged bar, beat or subdivision. Bar labels are thinned so they stay at least 56 px apart.
-- **Snapping:** to the nearest line of the current grid (what you see is what you snap to). Holding Alt suspends it; `view.snap` turns it off.
+- **The grid** ([ADR 0047](../decisions/0047-the-editing-grid-in-each-editor.md)): each editor (the arrangement, the piano roll) has its own `model::GridSettings`, which the Timeline takes:
+  - **Adaptive** (the default): from the ladder 1/32, 1/16 and 1/8 note (those shorter than a beat), a beat, then 1, 2, 4 … 256 bars, the finest step whose lines are at least the width's spacing apart: Narrowest 7 px, Narrow 14, Medium 28, Wide 56, Widest 112. The arrangement starts at Narrow, the piano roll at Wide.
+  - **Fixed:** 8, 4, 2 or 1 bars, 1/2, 1/4, 1/8, 1/16 or 1/32, at every zoom. Where its lines would be closer than 7 px, every second (fourth…) one is drawn; snapping keeps the value.
+  - **Triplets:** every step shorter than a bar becomes its triplet, two thirds as long (1/8T); bars stay bars.
+  - **Lines below a bar restart at every bar,** so a step that doesn't divide the bar (1/4T in 3/4) stays on the bar lines. The arithmetic is in ticks of 1/24 of a quarter note, so every step, triplets included, is exact.
+  - Lines are tagged bar, beat or subdivision. Bar labels are thinned so they stay at least 56 px apart.
+  - **Its name** ("1/16", "1/8T", "1 bar", "2 bars"): the step the editor snaps to now.
+- **Snapping:** to the nearest line of the editor's grid (what you see is what you snap to, its fixed value where lines are thinned). Holding Alt suspends it; Snap (`view.snap`) turns it off for that editor.
+- **Setting the grid** (menu-bar.md §15): each editor shows `[● Snap] [1/16 ⌄]` on its surface; the step is a `ui::ViewChoice` whose menu holds Adaptive ▸ (the widths), Fixed ▸ (the values), Triplets and Snap to grid. The same menu is a Grid submenu of each editor's right-click menu. The Options menu's grid commands act on the editor used last (the piano roll after working on notes, else the arrangement), as Delete does:
+  - **Narrower grid** (Ctrl+1) and **Wider grid** (Ctrl+2): the next width, or half or twice the fixed value; dimmed at the ends;
+  - **Triplet grid** (Ctrl+3), **Snap to grid** (Ctrl+4);
+  - **Fixed grid** (Ctrl+5): fixed at the step showing now (so nothing moves), or back to adaptive.
+- **Saved** in the view state (`fdView`: `"grid": {"arrangement": …, "pianoRoll": …}`, defaults left out), never an undo step. A project saved before keeps its `"snap"` in both editors.
 - **Tempo:** `TempoMap` handles one tempo and time signature in M1. Tempo changes later only replace the TempoMap.
 
 `model::TrackLayout` handles the vertical axis: per-track heights (default 64 px, minimum 24), vertical scroll, the y of each track, and which track (and where in it) a y falls on.
@@ -418,7 +432,7 @@ A software-renderer benchmark also runs offscreen in the integration tests (`"[.
 - **Zoom and scroll:**
   - Ctrl+wheel or pinch zooms time at the mouse; Shift+wheel scrolls time; the wheel scrolls pitches; Alt+wheel changes the row height.
   - Opening a clip fits it (at least a bar) and centres its notes.
-  - The grid uses the arrangement's ladder with coarser spacing (lines at least 56 px apart), since its step is also the length of a drawn note: about 1/16 with a bar across the panel. Snapping follows the arrangement's snap toggle.
+  - The grid is the piano roll's own (ADR 0047): Wide by default (lines at least 56 px apart, about 1/16 with a bar across the panel), since its step is also the length of a drawn note; set it to Fixed 1/16 to draw sixteenths at any zoom. Its Snap and step sit in the clip view's header.
 - **Data:** snapshots carry each note's start and length in beats from the clip's content start, the song beat of that start, and velocities in MIDI steps (k/127), so a list round-trips exactly. The arrangement's preview converts with the tempo map. The Session matches notes by value when applying a new list: unchanged notes stay untouched, changed ones keep their other properties (colour, mute).
 
 ## Later steps (outline)
