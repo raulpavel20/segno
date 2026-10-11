@@ -1,0 +1,251 @@
+# Tracks and clips: design (M2 step C11)
+
+How Segno lets you **rename, delete, reorder, duplicate and colour** tracks and clips, and **cut, copy and paste** clips, notes and automation points. These are the basics every DAW has; Segno doesn't have them yet.
+
+The decision is [ADR 0041](../decisions/0041-tracks-and-clips-managed-in-place.md) (§14). It builds on:
+- one kind of track, and clips that never overlap ([ADR 0019](../decisions/0019-one-kind-of-track.md));
+- automation lanes as rows of their own ([ADR 0029](../decisions/0029-independent-automation-lanes.md));
+- takes on their clips ([ADR 0032](../decisions/0032-takes-belong-to-clips.md));
+- sidechain routing ([ADR 0025](../decisions/0025-sidechain-routing.md));
+- one selection ([ADR 0027](../decisions/0027-selection-and-context-panels.md), [selection.md](selection.md));
+- the menu bar, which is the complete list but never the catch-all ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md), [menu-bar.md](menu-bar.md) §15).
+
+It settles open questions B41 (what deleting a track takes with it), B50 (cut, copy and paste) and B52 (renaming).
+
+**Status:** proposed (2026-10-11), awaiting the product owner's review of §13.
+
+## 1. Why
+
+On 2026-10-11 the product owner found that tracks can't be renamed, deleted or rearranged. The gap was known but never planned:
+- ADR 0029 notes that "the delete commands aren't built yet" and that lanes are reordered "with track reordering";
+- B41 waits "when track deletion arrives";
+- mcp.md lists "renaming, deleting and reordering tracks; clip names and colours" as not in the DAW yet.
+
+Each deferred it, and no milestone step owned it. Today the Session can add a track or a return track and nothing else. So:
+- tracks and return tracks can't be renamed, deleted, reordered, duplicated or recoloured;
+- clips can't be renamed or recoloured;
+- there's no clipboard.
+
+Automation lanes can already be renamed and removed, and takes renamed.
+
+## 2. Where the field is (2026)
+
+From the manuals of Live 12, Bitwig 5, Studio One (now Fender Studio Pro), Logic 11, REAPER 7 and Cubase 14. Where a manual says nothing, that's noted.
+
+| | Live | Bitwig | Studio One | Logic | REAPER | Cubase |
+|---|---|---|---|---|---|---|
+| **Rename** | Ctrl+R, in place; Tab goes to the next track's name | Header menu, inspector field | Double-click a console name; events from their menu | Double-click the header name; Shift+Return | Double-click the name | Double-click the name; Alt+F2 |
+| **Delete a track** | Delete; no question (undo) | Delete; no question | Delete with no events selected; Shift+T | Cmd+Delete | Delete; **asks** (can be turned off) | Shift+Delete; **asks** if not empty |
+| **Reorder** | Drag the title bar; Ctrl+arrows; returns too (12) | Drag the header | Drag in the track column | Hold an empty part of the header, drag; mixer strips too | Drag the panel (not its controls) | Drag the name or an empty area; a line shows where |
+| **Duplicate a track** | Ctrl+D | Ctrl+D | Duplicate (Complete) for the events too | Opt+Shift+Cmd+D with content | Header menu | Project menu; copy below |
+| **Clip colour** | Takes the track's; "Assign Track Color to Clips" | Inherits until set (the palette's ×) | Follows the track unless coloured by hand | As the track, or individual | Lowest level wins | Follows the track until set; "Set Event Color to Track" |
+| **Paste lands** | At the insert marker | At the play-start marker | On the selected track at the playhead; multi-track from it | At the playhead, on the selected track | At the edit cursor, on the last selected track | On the selected track at the cursor |
+| **Overlaps on paste** | Overwrites (forum) | Not documented | Layered (option: no overlap) | Later region heard | Layered (option) | Layered (option) |
+
+- **Renaming is in place**, by double-click or a command. F2 isn't a DAW rename key: in Studio One it opens the editor, in REAPER and Cubase a dialog. It is the system's rename key in file managers on Linux and Windows.
+- **Delete is the Delete key on a selected track**, with undo as the safety net. Only REAPER and Cubase ask first, and both let you turn the question off. No manual says how sends or sidechains to a deleted track are cleaned up.
+- **Reordering is a header drag** with a line showing where it lands. The mixer follows the track order, and dragging strips reorders too (Logic, Cubase).
+- **A duplicate goes right below** the original. Live, Bitwig, REAPER and Cubase copy the clips; Logic's and Studio One's plain Duplicate copy only the settings.
+- **Clips follow their track's colour** until given their own (Studio One, Cubase, Bitwig), with a command to follow it again.
+- **Paste lands at the playhead or edit cursor on the selected track**, never at the mouse by default. A multi-track paste starts there.
+  - Several DAWs also have Paste at original position.
+  - Notes paste at the playhead at their own pitches.
+  - Nobody documents moving the playhead after a paste.
+  - Live, Logic and Studio One keep clips from lying on top of each other, as ADR 0019 does; Studio One, REAPER and Cubase let them layer by default.
+- **Across projects:** Bitwig, Logic, Studio One and REAPER paste between open projects, and REAPER even between running copies.
+
+
+## 3. Principles
+
+1. **In place first** (ADR 0040, menu-bar.md §15). You rename a name where you see it, move a track by dragging it, colour it from its own right-click, and delete what's selected with Delete. The menu bar lists every command too, and the inspector shows the properties.
+2. **One undo step each**, named for what it did: "Rename track", "Delete track", "Move track", "Duplicate track", "Track colour", "Clip colour", "Cut", "Paste".
+3. **Nothing modal, nothing asked.** Deleting doesn't ask first: the toast that says what went has Undo on it (`Shell::showToast`'s action). Undo is one key away anyway.
+4. **Clips follow their track's colour** until given their own, as they do now (a clip's colour defaults to its track's).
+5. **Nothing left dangling.** Deleting something takes, in the same undo step, everything that only made sense with it: sends to a deleted return, sidechains fed from a deleted track, automation of its parameters.
+6. **Assistants get the same** (ADR 0021): every command here has an MCP tool (§11).
+
+## 4. Renaming
+
+- **Where:**
+  - **Tracks and return tracks:** double-click the name in the track header or on the mixer strip; or the inspector's Name row, which becomes a field (TRACK, RETURN).
+  - **Clips:** double-click the clip's title strip (a double-click on its body still opens a MIDI clip in the clip view); or the inspector's CLIP Name, which becomes a field.
+  - **Automation lanes:** a double-click on the lane header's name too; Rename… and the inspector's field stay.
+  - **Takes:** unchanged, in the TAKE section's field and the take menu. A strip's first click already uses that take for its section (ADR 0038, menu-bar.md §15).
+- **F2** renames the selection, whatever it is: a track, a return, a lane, a clip (`edit.rename`, Edit > Rename…).
+  - It's the system's rename key in file managers on Linux and Windows, not a DAW's (§2): Live uses Ctrl+R, which is Record here; Logic uses Shift+Return.
+  - As in Live, Tab while renaming a track keeps the name and goes on to the next track's (Shift+Tab: the one before), so a set of tracks can be named in one go.
+- **The name editor:**
+  - It edits in place, in the name's own text style, over its own area, with the text selected.
+  - Return or a click elsewhere keeps it. Escape restores the name. An empty name restores it too: a track always has a name.
+  - Several selected clips are renamed together (in the inspector, or with F2): they all take the name.
+- **The master** isn't renamed: it's "Master".
+
+## 5. Deleting tracks
+
+- **How:**
+  - Delete, with the track's header selected (clicked: the track selected, no clips). Delete still deletes clips, lanes, points or modules when those are what was used last (selection.md §6).
+  - Track > Delete track, and the header's right-click menu.
+  - Return tracks the same way. The master can't be deleted.
+- **What goes with it, in the same undo step:**
+  - its clips, with their takes;
+  - its modules, and every sidechain fed from it (the module's sidechain goes back to Off, ADR 0025);
+  - automation of its parameters:
+    - a lane that drives only this track goes;
+    - a lane that also drives other channels loses this track's assignments and stays;
+  - for a return track: every send to it;
+  - a lane sitting right after it moves to after the row above it (B41).
+- **After:** the track above is selected (the one below, for the first). An audition on the track stops.
+- **No question asked:** a toast says "Deleted Bass", with Undo.
+- **Refused while recording**, with a toast saying why. Recording owns the track while it records.
+
+## 6. Reordering
+
+- **Drag a track's header** (its background, not its controls, past the drag threshold):
+  - a 2 px line in `active` shows where it will land;
+  - Escape cancels;
+  - it's one undo step, "Move track".
+- **Lanes:**
+  - the lanes sitting right after a track move with it, since you put them under it;
+  - dragging a lane's header moves the lane alone, to sit after the track above where it's dropped. This is ADR 0029's "reordering rows comes with track reordering".
+- **Return tracks** reorder among themselves, below the tracks and lanes. The master stays last.
+- **The mixer view:** drag a strip by its name, along the strips; tracks among tracks, returns among returns.
+- **One track at a time**, while the selection holds one channel (ADR 0027). Several at once comes with multi-track selection (§16).
+
+## 7. Duplicating a track
+
+- **How:** Ctrl+D with the track's header selected (Duplicate acts on what was used last, as now), Track > Duplicate track, or the header's right-click menu.
+- **The copy** goes right after the original and the lanes after it. It's named with the next free number ("Bass" → "Bass 2", "Bass 2" → "Bass 3") and selected.
+- **What's copied:**
+  - its clips, with their takes and fades;
+  - its modules and their settings, and its sidechains;
+  - its mix: volume, pan, mute and sends;
+  - its input, and its colour.
+- **What isn't copied:** arm (two armed tracks would record the same input twice) and solo.
+- **Automation:** a lane that drives only the original is copied, after the copy, driving the copy. A lane that drives several channels isn't copied.
+- **Return tracks** duplicate the same way. Sends to the original stay; the copy gets none.
+
+## 8. Colours
+
+- **The palette:** the 16 clip colours (`Theme::clipColours`), in a swatch grid: 4 × 4 swatches, a row high each, with the current colour ringed.
+- **Where:**
+  - Tracks, returns and lanes: the header's right-click menu, Colour ▸ (the grid); the inspector's Colour row (a swatch that opens the grid).
+  - Clips: the clip's right-click menu, Colour ▸, and the inspector's CLIP Colour row. The grid's first item is "Track colour", which makes it follow its track again. Every selected clip takes it.
+- **Following:** a clip without a colour of its own follows its track's, now and when the track's changes. That's how clips are stored already: a clip's colour defaults to its track's.
+
+## 9. Cut, copy and paste
+
+- **What:** whatever the area used last holds (selection.md §6):
+  - clips in the arrangement;
+  - notes in the clip view;
+  - points on an automation lane.
+- **Keys and places:** Ctrl+X, Ctrl+C, Ctrl+V; Edit > Cut, Copy, Paste; and the clips', notes' and points' right-click menus.
+- **Pasting clips:**
+  - They land at the playhead on the selected track.
+  - Clips copied from several tracks keep their rows, from the selected track down; rows past the last track are left out, with a toast saying how many.
+  - They cut what they land on, as moved clips do (ADR 0019). They keep their takes and fades. Audio clips refer to the same audio files.
+- **Pasting notes:** at the playhead, inside the clip the clip view shows, keeping their timing and pitches. If the playhead isn't over the clip, they land at its start.
+- **Pasting points:** at the playhead, on the selected lane, keeping their timing and values (mapped to the lane's range).
+- **After a paste:** what was pasted is selected, and the playhead stays where it was. No DAW surveyed moves it (§2). Duplicate (Ctrl+D) lays copies one after another.
+- **Undo:** cut is one step ("Cut"), and so is each paste ("Paste").
+- **The clipboard is the app's:** it lasts while Segno runs, across projects opened in it. The system clipboard and pasting between two running Segnos come later (§16).
+
+## 10. Menus, keys and actions (ADR 0040)
+
+| Item | Where | Key | Action |
+|---|---|---|---|
+| Cut, Copy, Paste | Edit (second group, first) | Ctrl+X, Ctrl+C, Ctrl+V | `edit.cut`, `edit.copy`, `edit.paste` |
+| Rename… | Edit | F2 | `edit.rename` |
+| Duplicate track | Track | (Ctrl+D with the header selected) | `track.duplicate` |
+| Delete track | Track | (Delete with the header selected) | `track.delete` |
+| Colour ▸ | Track; Clip | | lists: the grid for the selected track or clips |
+
+- Delete and Duplicate keep their keys and route by what was used last, as now. The track commands have none of their own: their keys are those two.
+- **Right-click menus:**
+  - a track's header: Rename…, Duplicate track, Delete track, Colour ▸, then Add track…;
+  - a clip's: Cut, Copy, Paste, Colour ▸, after the commands it has.
+
+## 11. Assistants (MCP)
+
+| Tool | What |
+|---|---|
+| `set_track` | A track's or return's name and/or colour |
+| `delete_tracks` | Tracks or returns, as §5 (refused while recording) |
+| `move_track` | A track or return to a position among its kind |
+| `duplicate_track` | As §7; returns the copy |
+| `set_clips` | Clips' name and/or colour (`null` colour: follow the track) |
+| `copy_clips` | Copies clips to a position and a track (the clipboard's counterpart: an assistant names where) |
+
+`get_project` already reports names, colours and order.
+
+## 12. Model and engine
+
+- **`model::` (JUCE-free, `[fast]`-tested):**
+  - `nextCopyName` ("Bass 2");
+  - `rowMove`: where a dragged track or lane lands, and the lanes that move with a track;
+  - `pastePlacement`: clips to rows and times, rows past the end;
+  - `deletionPlan`: which lanes go and which only lose assignments, the lanes to re-anchor, the sends and sidechains to clear.
+- **`Session`:**
+  - `renameTrack`, `setTrackColour`, `deleteTrack`, `moveTrack`, `duplicateTrack`, `renameClips`, `setClipColour(clips, optional<int>)`;
+  - `copyClips` returns a `ClipClipboard` holding copies of the clips' state, so a cut still pastes; `pasteClips(clipboard, track, at)`.
+  - Notes and points are copied as values (`model::Note`, `AutomationPoint`) by the shell.
+  - Each is one undo step. tracktion's own `Edit::deleteTrack`, `moveTrack` and track copies with fresh ids do the work.
+- **The shell:**
+  - an in-place name editor (`ui::NameEditor`, shared: track headers, strips, clip titles, lane headers);
+  - the header drag in `ArrangementView` and `MixerView`;
+  - the swatch grid (`ui::ColourGrid`, in fd_ui);
+  - the clipboard (one per app).
+
+## 13. Decisions to review
+
+| # | Question | Recommendation |
+|---|---|---|
+| Q1 | **Renaming** | A double-click on the name where it is (track header, mixer strip, clip title strip, lane header); F2 for the selection; the inspector's Name rows become fields. Master: not renamed (§4) |
+| Q2 | **Deleting a track** | Delete with its header selected, Track > Delete track, the header's menu; no question, a toast with Undo; refused while recording (§5) |
+| Q3 | **What a deleted track takes** | Its clips and takes, modules, sidechains fed from it, lanes that drive only it, its assignments in shared lanes; sends to a deleted return; lanes after it re-anchor (§5, B41) |
+| Q4 | **Reordering** | Drag the header (or a mixer strip's name); the lanes after a track move with it; a lane moves alone; returns among returns; one track at a time (§6) |
+| Q5 | **Duplicating a track** | Ctrl+D on its header, Track > Duplicate track; right after it, "Bass 2"; everything but arm and solo; lanes that drive only it are copied for the copy (§7) |
+| Q6 | **Colours** | A 4 × 4 swatch grid from the right-click and the inspector; clips follow their track's colour until given their own; "Track colour" brings that back (§8) |
+| Q7 | **Paste** | Clips at the playhead on the selected track, rows kept, cutting what they land on (as Live and Logic, ADR 0019); notes at the playhead in the shown clip; points at the playhead on the selected lane; the playhead stays; Duplicate lays copies one after another (§9) |
+| Q8 | **Where the clipboard lives** | In the app, across projects, while it runs; the system clipboard later (§9) |
+| Q9 | **Keys** | Ctrl+X/C/V; F2 rename (the system's rename key; Ctrl+R, Live's, is Record here), with Tab to the next track's name; Delete and Ctrl+D route to the track when its header was used last; no keys of their own for the track commands (§10) |
+| Q10 | **Assistants** | `set_track`, `delete_tracks`, `move_track`, `duplicate_track`, `set_clips`, `copy_clips` (§11) |
+
+## 14. ADR 0041: Tracks and clips are managed in place
+
+- Tracks, returns, lanes and clips are renamed where their names are, F2 included.
+- They're deleted with Delete, moved by dragging their headers, duplicated with Ctrl+D and coloured from their own right-click and the inspector, each one undo step, with no question asked.
+- Deleting takes along what only made sense with it.
+- The clipboard holds clips, notes or points from the area used last and pastes at the playhead.
+- The menu bar lists every command (ADR 0040), and assistants have tools for each (ADR 0021).
+
+This amends ADR 0029's "lanes stay where they were put": the lanes right after a track move with it.
+
+## 15. Tests (Done when)
+
+- **`[fast]`:** `nextCopyName`, `rowMove` (tracks with their lanes, lanes alone, returns), `pastePlacement` (rows, past the end, cutting), `deletionPlan` (lanes, assignments, sends, sidechains).
+- **Integration:**
+  - each Session command and its undo;
+  - a deleted track's sidechain source back to Off, a deleted return's sends gone;
+  - a duplicated track sounds like the original (rendered and compared);
+  - paste after cut.
+- **Shell:**
+  - double-click renames a track, a clip, a lane;
+  - F2;
+  - Delete on a header;
+  - dragging a header, with lanes following;
+  - the colour grid;
+  - Ctrl+X/C/V in each area;
+  - screenshots, zoomed, at standard and compact widths: the name editor, the drag line, the colour grid.
+- **MCP:** each tool through the server.
+- **By hand:** manual-tests/M2.md, "Tracks and clips (C11)".
+
+## 16. What comes when
+
+- **C11 (M2):** everything above.
+- **Later:**
+  - selecting several tracks (Ctrl+click headers) to delete, move, duplicate or colour them together;
+  - groups and folder tracks;
+  - the system clipboard, and pasting between two running Segnos;
+  - Paste at original position (Studio One, Logic, Cubase);
+  - moving tracks with the keyboard;
+  - colours beyond the palette.
