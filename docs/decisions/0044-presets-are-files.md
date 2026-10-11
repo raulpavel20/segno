@@ -1,12 +1,12 @@
 # 0044. Presets are files of the module's state, shared by the plugins and the DAW
 
-- **Status:** Proposed (2026-10-11), with [design/presets.md](../design/presets.md) §15
+- **Status:** Accepted (product owner, 2026-10-11, with every recommendation of [design/presets.md](../design/presets.md) §15)
 - **Date:** 2026-10-11
 - **Builds on:** [0034](0034-device-api-frozen.md) (the frozen device state format, "also the preset format"), [0017](0017-heavy-data-and-non-parameter-state.md) (extra state), [0022](0022-module-panels.md) (the module header), [0040](0040-a-menu-bar-and-everything-by-mouse.md) (the menu bar), [0021](0021-mcp-server.md) (assistants), [0008](0008-naming-and-trade-dress.md) (no other vendors' names in presets)
 
 ## Context
 - No module has presets yet. The quality bar says a module without good presets isn't done, and M3 starts with them (the M3 plan, A1).
-- The product owner agreed that your presets live in one folder shared by the plugins and the DAW, and that Claude drafts the factory presets for the product owner to curate (M3 plan, Q2 and Q3, 2026-10-11).
+- The product owner agreed that your presets live in one folder shared by the plugins and the DAW (M3 plan, Q3), and that Claude builds and names the factory presets, which the product owner signs off by ear (2026-10-11).
 - In the field (presets.md §2):
   - every DAW and plugin maker puts the preset in the module's header, with previous and next;
   - factory presets are read-only, and user presets are files in a visible folder, mostly under Documents;

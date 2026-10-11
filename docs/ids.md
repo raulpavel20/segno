@@ -13,6 +13,8 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 | Reverse-DNS prefix (CLAP IDs, bundle IDs) | `org.segnoaudio` | The DAW app is `org.segnoaudio.segno` |
 | LV2 URI prefix | `https://segnoaudio.org/plugins/` | Must be a URI we control at release time |
 | Project file extension | `.segno` | |
+| Preset file extension | `.segnopreset` | [ADR 0044](decisions/0044-presets-are-files.md); the file's format version is its `segnoPreset` key |
+| User folder | `Documents/Segno` (`Presets/`, `Unsaved/`) | Presets are found by the device named inside them, not by their subfolder |
 | MCP server name and resource scheme | `segno`, `segno://` | Part of the MCP interface (ADR 0021) |
 
 ## Device level (permanent once the SPEC is approved)

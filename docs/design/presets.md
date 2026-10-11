@@ -1,13 +1,13 @@
 # Presets: design (M3 step A1)
 
-How Segno keeps a module's settings to use again: **presets**, found and saved in the module's own header, the same in the plugins and the DAW, with **A/B compare** and a **default for new modules**. The decision is the proposed [ADR 0044](../decisions/0044-presets-are-files.md) (§16). It builds on:
+How Segno keeps a module's settings to use again: **presets**, found and saved in the module's own header, the same in the plugins and the DAW, with **A/B compare** and a **default for new modules**. The decision is [ADR 0044](../decisions/0044-presets-are-files.md) (§16). It builds on:
 - the device state format, shared by plugin state, projects and presets, frozen by [ADR 0034](../decisions/0034-device-api-frozen.md): `{device, stateVersion, params, extra}` with plain values;
 - non-parameter state ([ADR 0017](../decisions/0017-heavy-data-and-non-parameter-state.md)) and the host binding: modules never write their own parameters;
 - the module panel kit ([ADR 0022](../decisions/0022-module-panels.md), [device-panels.md](device-panels.md)) and [ui-principles.md §7](ui-principles.md): "one preset browser per module header, with search, tags, favourites and A/B compare";
 - the menu bar as the complete list ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)), and assistants' tools ([ADR 0021](../decisions/0021-mcp-server.md));
 - the M3 plan's answers: user presets in one folder shared by the plugins and the DAW (Q3); factory presets drafted by Claude and curated by the product owner (Q2, B4).
 
-**Status:** draft for the product owner's review (2026-10-11). The questions are in §15.
+**Status:** approved by the product owner (2026-10-11), with every recommendation of §15. Claude builds and names the factory presets; the product owner signs them off by ear (§13).
 
 ## 1. Why
 
@@ -247,10 +247,10 @@ The commands act on the **selected module**, or the one whose header was used la
   - about 10–20 for an effect;
   - 30 or more for the Subtractive Synth and the Sampler;
   - 3–5 for Utility, the Spectrum, the Tuner and the Loudness Meter.
-- **Who:** Claude drafts each set from its SPEC.
-  - Each draft is checked by rendering: every preset loads, makes sound within level, and is distinct from the others.
-  - The product owner curates in the DAW: loads, listens, edits, renames, and saves the keepers as their own presets.
-  - Those files move into `devices/<name>/presets/` with a commit that says so.
+- **Who:** Claude builds and names each set from its SPEC (product owner, 2026-10-11).
+  - Each set is checked by rendering: every preset loads, makes sound within level, and is distinct from the others.
+  - The product owner signs each set off by ear, as a module is signed off. What they'd change, Claude changes.
+  - A changed factory preset is a reviewed change, committed with its reason.
 - **Names** say what it's for or how it sounds ("Glue", "Vocal presence", "Wide pad"). Per ADR 0008, no other vendor's names, products or famous hardware.
 - **Tags** come from a short vocabulary per kind of module:
   - **use:** Drums, Bass, Vocals, Keys, Guitar, Bus, Master;
@@ -295,7 +295,7 @@ The commands act on the **selected module**, or the one whose header was used la
 | P13 | **Tags and categories** | Free tags only, from a short vocabulary for factory presets; no categories, ratings or colour labels (§13) |
 | P14 | **Shortcuts** | None at first; remappable with Settings (§10) |
 
-## 16. Proposed ADR 0044: Presets are files of the module's state, shared by the plugins and the DAW
+## 16. ADR 0044: Presets are files of the module's state, shared by the plugins and the DAW
 
 - A preset is a `.segnopreset` file holding the module's state in the frozen device state format, with tags, a description and an author. Its name is the file's name.
 - Factory presets are built in and read-only. Yours live in `Documents/Segno/Presets/`, shared by the plugins and the DAW, and are found by what's in them.
