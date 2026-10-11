@@ -1,6 +1,6 @@
 # Delay: device spec
 
-- **Status:** Approved by the product owner (2026-10-12, with every recommendation of D1–D10); IDs are permanent. Built (B1, 2026-10-12): what building settled is under "Settled while building"
+- **Status:** Approved by the product owner (2026-10-12, with every recommendation of D1–D10); IDs are permanent. Built (B1, 2026-10-12): what building settled is under "Settled while building". Done: signed off by the product owner (2026-10-12)
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1, M3 (B1)
 - **Live target:** Delay and Echo, in one module. References only; nothing is copied ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
@@ -193,5 +193,5 @@ Deferred until a Live machine is available.
 - [x] Automated: unit, conformance and golden tests; validators (pluginval at strictness 10 and clap-validator pass; 2026-10-12)
 - [x] Layout lint passes (`fd_panel_tests`)
 - [x] Snapshots reviewed (100% / 200%; expanded, collapsed, folded)
-- [ ] Sound signed off by the product owner (date):
-- [ ] Feel signed off by the product owner (date):
+- [x] Sound signed off by the product owner (2026-10-12), with the 15 factory presets
+- [x] Feel signed off by the product owner (2026-10-12)
