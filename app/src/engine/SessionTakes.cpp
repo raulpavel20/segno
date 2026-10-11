@@ -5,6 +5,7 @@
 #include "engine/SessionImpl.h"
 
 #include "model/NoteEditing.h"
+#include "model/TrackEdits.h"
 
 #include <limits>
 
@@ -983,7 +984,8 @@ std::vector<std::uint64_t> Session::takesToTracks(std::uint64_t trackId, const s
                 if (param->getCurve().getNumPoints() > 0)
                     param->getCurve().clear(um);
         track->state.setProperty(Impl::armedId, false, nullptr);
-        track->setName(t->getName() + " " + take[te::IDs::name].toString());
+        track->setName(juce::String::fromUTF8(
+            model::uniqueName((t->getName() + " " + take[te::IDs::name].toString()).toStdString(), impl_->trackNames()).c_str()));
         for (auto clip : take) // plain clips: the new track has no takes
             impl_->useTakeClip(*track, clip, -1e300, 1e300, false);
         if (move)

@@ -126,8 +126,7 @@ void ExportPopover::open(juce::Component& parent)
     setVisible(true);
     toFront(true);
     outside_.attach();
-    if (isShowing())
-        export_.grabKeyboardFocus(); // Enter exports
+    ui::takeFocus(export_); // Enter exports; opened from a menu too
 }
 
 void ExportPopover::close()

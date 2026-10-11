@@ -48,8 +48,7 @@ ArrangementView::ArrangementView(engine::Session& session) : session_(session)
     sums_.onReady = [this] { repaint(laneArea()); };
     setSnapshot(session_.snapshot());
     setWantsKeyboardFocus(false);
-    snapToggle_.setClickingTogglesState(false);
-    snapToggle_.setWantsKeyboardFocus(false);
+    snapToggle_.setClickingTogglesState(false); // the action toggles it
     snapToggle_.setToggleState(snap_, juce::dontSendNotification);
     snapToggle_.onClick = [this] { setSnapEnabled(!snap_); };
     addAndMakeVisible(snapToggle_);
@@ -351,12 +350,12 @@ void ArrangementView::resized()
         timeline_.setView(0.0, laneArea().getWidth() / snapshot_->tempo.secondsForBeats(32.0 * snapshot_->tempo.beatsPerBar()));
     syncLayout();
     placeHeaderControls();
-    // Snap in the corner above the headers: in the ruler's row, where the headers' text starts.
+    // Snap in the corner above the headers, the ruler's row high: its indicator where the
+    // headers' text starts (a view option's own padding is half the shell's, as in a panel header).
     const auto& sh = ui::Theme::current().shell;
-    const model::TrackHeaderMetrics header;
-    const int x = juce::roundToInt(header.colourWidth + header.paddingLeft);
-    snapToggle_.setBounds(x, loopStripHeight() + (sh.rulerHeight - sh.rowHeight) / 2,
-                          ui::Toggle::widthFor(snapToggle_.getButtonText()), sh.rowHeight);
+    const auto names = model::layoutTrackHeader(headerArea().getWidth(), sh.rulerHeight, 0, false).name;
+    const int x = juce::roundToInt(names.x) - sh.padding / 2;
+    snapToggle_.setBounds(x, loopStripHeight(), snapToggle_.preferredWidth(), sh.rulerHeight);
 }
 
 // ---- per frame -----------------------------------------------------------------------------
@@ -1314,7 +1313,7 @@ void ArrangementView::takeMenu(std::uint64_t trackId, std::uint64_t stackId, std
     }
     menu.addSeparator();
     const auto takeName = juce::String::fromUTF8(take->name.c_str());
-    menu.addItem("Rename " + takeName + "...", [this, trackId, target] {
+    menu.addItem("Rename " + takeName + juce::String::fromUTF8("\xE2\x80\xA6"), [this, trackId, target] {
         if (onRenameTake)
             onRenameTake(trackId, target);
     });
@@ -2294,18 +2293,26 @@ void ArrangementView::rowMenu(int row)
     {
         const auto id = lane->id;
         const bool on = lane->allOn();
-        menu.addItem(juce::String::fromUTF8("Rename\xE2\x80\xA6"), [this, id] { renameLane(id); });
-        menu.addItem("Assign parameter...", [this, id] {
+        // As a track's header (tracks-and-clips.md §10): its own commands, then its colour.
+        const auto ellipsis = juce::String::fromUTF8("\xE2\x80\xA6");
+        menu.addItem("Rename" + ellipsis, [this, id] { renameLane(id); });
+        menu.addItem("Assign parameter" + ellipsis, [this, id] {
             if (onAssignLane)
                 onAssignLane(id);
         });
         menu.addItem(on ? "Turn lane off" : "Turn lane on", !lane->points.empty() && !lane->assignments.empty(), false,
                      [this, id, on] { session_.setLaneOn(id, !on); });
-        menu.addItem("Remove automation lane", [this, id] {
+        menu.addItem("Delete automation lane", [this, id] {
             session_.removeAutomationLane(id);
             if (selection_.lane == id)
                 selectTrack(selection_.channel);
         });
+        juce::PopupMenu colours;
+        ui::addColourGrid(colours, lane->colour, [this, id](std::optional<int> c) {
+            if (c)
+                session_.setLaneColour(id, *c);
+        });
+        menu.addSubMenu("Colour", colours);
     }
     // A track's or return's own items (tracks-and-clips.md §10): the shell's.
     if (const auto* channel = row >= 0 ? rowChannel(row) : nullptr;

@@ -36,3 +36,4 @@ END_JUCE_MODULE_DECLARATION
 #include "shell/WindowButtons.h"
 #include "shell/NameEditor.h"
 #include "shell/ColourGrid.h"
+#include "shell/Focus.h"

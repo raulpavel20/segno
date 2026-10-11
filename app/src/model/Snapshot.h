@@ -122,13 +122,13 @@ struct AssignmentInfo
 struct AutomationLaneInfo
 {
     std::uint64_t id = 0;
-    std::string name; // set by hand; empty: named after its assignments (displayName)
+    std::string name; // "Automation 1" when made, or set by hand (tracks-and-clips.md §18)
     int colour = 0;   // index into the clip palette
     std::uint64_t after = 0; // the track it sits after (0: at the top)
     AutomationPoints points;
     std::vector<AssignmentInfo> assignments;
 
-    /// Its name, or "Cutoff", "Cutoff + 2", "Automation lane".
+    /// Its name ("Automation lane" until it has one: every lane gets one when made or opened).
     [[nodiscard]] std::string displayName() const;
     /// Steps only for one full-range stepped assignment (§5).
     [[nodiscard]] LaneRules rules() const noexcept;

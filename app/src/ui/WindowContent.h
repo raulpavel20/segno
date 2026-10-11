@@ -29,7 +29,7 @@ public:
     void resized() override;
 
 private:
-    std::unique_ptr<TitleBar> titleBar_;
     Shell shell_;
+    std::unique_ptr<TitleBar> titleBar_; // its menu bar shows the shell's menus: gone first
 };
 } // namespace fd::app

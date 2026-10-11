@@ -39,7 +39,7 @@ People should not have to remember where things are hidden, and nothing should b
   - plugin → track;
   - sample → sampler;
   - clip → another track.
-- **Inline editing:** double-click to rename, type a value into any focused control, drag numbers to change them.
+- **Inline editing:** double-click to rename, type a value into any focused control, drag numbers to change them. A field takes the keyboard focus as it opens, so you just type; Return or a click anywhere else keeps what was typed, Escape restores it.
 - **Preferences** are one searchable page, not a set of tabs. Common settings (audio device, buffer size, theme, UI scale) are also reachable from the command palette.
 
 ## 2. An adaptive UI built on context panels

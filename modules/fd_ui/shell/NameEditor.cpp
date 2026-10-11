@@ -15,7 +15,10 @@ NameEditor::NameEditor(juce::Component& host) : host_(host)
     field_.setTabKeyUsedAsCharacter(false);
     field_.onReturnKey = [this] { finish(true); };
     field_.onEscapeKey = [this] { finish(false); };
-    field_.onFocusLost = [this] { finish(true); };
+    field_.onFocusLost = [this] {
+        if (!field_.hasKeyboardFocus(false)) // told late: not if it's renaming the next one already
+            finish(true);
+    };
     field_.addKeyListener(this);
     host_.addChildComponent(field_);
 }
@@ -39,9 +42,8 @@ void NameEditor::show(juce::Rectangle<int> area, const juce::String& name, TextS
     field_.setBounds(area);
     field_.setVisible(true);
     field_.toFront(false);
-    if (field_.isShowing())
-        field_.grabKeyboardFocus();
     field_.selectAll();
+    takeFocus(field_); // kept: after a menu, the window can hand the focus back late
 }
 
 void NameEditor::cancel()
@@ -61,13 +63,21 @@ void NameEditor::finish(bool keep, int tab)
 {
     if (finishing_ || !field_.isVisible())
         return;
-    finishing_ = true; // hiding it moves the focus, which would finish it again
+    finishing_ = true; // moving the focus off it would finish it again
     const auto name = field_.getText().trim();
     auto commit = std::move(commit_);
     auto next = std::move(tab_);
+    // The focus goes where the keys work (the shell, the mixer), never on to a control in the
+    // host, where Return would press it; gone elsewhere already (a click on another field), it
+    // stays there.
+    if (field_.hasKeyboardFocus(false))
+        for (auto* c = &host_; c != nullptr; c = c->getParentComponent())
+            if (c->getWantsKeyboardFocus())
+            {
+                c->grabKeyboardFocus();
+                break;
+            }
     field_.setVisible(false);
-    if (host_.isShowing())
-        host_.grabKeyboardFocus();
     finishing_ = false;
     if (keep && name.isNotEmpty() && name != original_ && commit)
         commit(name);

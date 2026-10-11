@@ -45,7 +45,7 @@ How parameters change over time in Segno: automation lanes in the arrangement, w
   | Slot | Contents |
   |---|---|
   | Colour | The lane's own colour: the next palette colour at creation, from the same rotation as new tracks |
-  | Name | Its name: set by hand, or taken from its assignments ("Cutoff" for one, "Cutoff + 2" for several, "Automation lane" for none) |
+  | Name | Its name: "Automation 1", "Automation 2"… when made, one past the highest in use, whatever it drives; or set by hand, never empty ([tracks-and-clips.md](tracks-and-clips.md) §18; until 2026-10-11 it was taken from its assignments) |
   | Buttons | The lane's **on** switch (a round indicator, like a module's power): filled while every assignment plays; a ring when some or all are off (§7). A click turns all on when any is off, else all off |
   | Subtitle | What it drives: "Bass · Synth" for one assignment (its channel and module), "3 parameters" for several, "Not assigned" for none; "· Steps" when it edits as steps. The value now on the right, in the readout style: in the parameter's units for one assignment, otherwise a percentage |
   | Controls (height ≥ 80) | With exactly one assignment, that parameter's control as a bar |
@@ -58,7 +58,8 @@ How parameters change over time in Segno: automation lanes in the arrangement, w
   - **Automate last touched parameter** (Alt+L): its lane, or a new one for it;
   - recording (§8) makes a lane for a parameter that has none.
   A new lane is brought into sight and selected.
-- **Removing a lane:** **Remove automation lane** in its header's right-click menu, or Delete after clicking its header. Its assigned parameters keep their current values. One undo step.
+- **The header's right-click menu** reads like a track's: Rename…, Assign parameter…, Turn lane on/off, **Delete automation lane**, Colour ▸ (the palette), then the Add items.
+- **Deleting a lane:** **Delete automation lane** in its header's right-click menu, or Delete after clicking its header. Its assigned parameters keep their current values. One undo step, "Delete automation lane".
 - **Showing and hiding:** Ctrl+Alt+L hides or shows every lane (view state, saved with the project).
 - **Empty lanes** (without points) draw the value now as a dashed line (its one assignment's, mapped back). While the lane is selected, a hint says "Double-click to add a point", or for a lane that drives nothing yet, how to assign a parameter; unselected lanes stay quiet.
 - **The mixer view** shows no lanes; its controls show the automation indicator (§6) and follow the played value.

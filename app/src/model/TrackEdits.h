@@ -17,6 +17,22 @@ namespace fd::model
 /// `taken` has.
 [[nodiscard]] std::string nextCopyName(const std::string& name, const std::vector<std::string>& taken);
 
+/// The names the app gives new rows never repeat (§18), each the one after the highest in use of
+/// its kind in `names`, so a deleted one's never comes back while a later one stands:
+/// - a track: "N Track" ("1 Track" of three deleted: "4 Track");
+/// - a return track: "L Return", A to Z, then AA, AB...;
+/// - an automation lane: "Automation N".
+/// Names the user gave don't count; the first is 1, or A.
+[[nodiscard]] std::string nextTrackName(const std::vector<std::string>& names);
+[[nodiscard]] std::string nextReturnName(const std::vector<std::string>& names);
+[[nodiscard]] std::string nextLaneName(const std::vector<std::string>& names);
+/// `name`, or with the next number free ("Bass bounce 2") when another row has it: the other
+/// names the app gives (a bounce's track, a take on a track of its own).
+[[nodiscard]] std::string uniqueName(const std::string& name, const std::vector<std::string>& taken);
+/// A copied lane's name (a duplicated track's lanes): the next number for a numbered one, as a
+/// new lane gets; a copy's ("Filter 2") for a name the user gave.
+[[nodiscard]] std::string laneCopyName(const std::string& name, const std::vector<std::string>& taken);
+
 /// Where a dragged row lands (§6), for the boundary nearest the pointer: boundary b is above
 /// rows[b] (rows.size(): below the last row).
 /// - A track lands before a track (with the lanes right after it moving along): a boundary among

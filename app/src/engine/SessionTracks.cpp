@@ -295,6 +295,9 @@ std::uint64_t Session::duplicateTrack(std::uint64_t channelId)
             continue;
         auto laneCopy = lane.createCopy();
         impl_->edit->createNewItemID().writeID(laneCopy, nullptr);
+        laneCopy.setProperty(Impl::nameId,
+                             juce::String(model::laneCopyName(lane[Impl::nameId].toString().toStdString(), impl_->laneNames())),
+                             nullptr); // names never repeat (tracks-and-clips.md §18)
         laneCopy.setProperty(Impl::afterId, idVar(id), nullptr);
         for (auto assign : laneCopy)
             if (assign.hasType(Impl::assignId))

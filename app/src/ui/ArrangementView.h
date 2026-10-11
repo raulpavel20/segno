@@ -58,7 +58,7 @@ public:
     void setSnapEnabled(bool on);
     [[nodiscard]] bool isSnapEnabled() const noexcept { return snap_; }
     /// Snap, in the corner above the track headers (menu-bar.md §15); its tooltip is the shell's.
-    [[nodiscard]] ui::Toggle& snapToggle() noexcept { return snapToggle_; }
+    [[nodiscard]] ui::ViewOption& snapToggle() noexcept { return snapToggle_; }
     /// A clip being bounced shows a cancel button at its progress (menu-bar.md §15): where it is
     /// for the clip box `box`, and whether `p` is on one (tests drive it).
     [[nodiscard]] static juce::Rectangle<float> cancelButton(juce::Rectangle<float> box);
@@ -408,7 +408,7 @@ private:
     double lastPaintMs_ = 0.0;
     time::PlayheadTracker playheadTracker_;
     bool snap_ = true;
-    ui::Toggle snapToggle_{"Snap"};
+    ui::ViewOption snapToggle_{"Snap"}; // how the view edits: a view option
     model::Selection selection_, notified_;
 
     [[nodiscard]] juce::Rectangle<int> loopStripArea() const;

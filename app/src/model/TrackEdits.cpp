@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <optional>
 #include <set>
 
 namespace fd::model
@@ -24,6 +25,75 @@ std::string nextCopyName(const std::string& name, const std::vector<std::string>
     while (std::find(taken.begin(), taken.end(), candidate()) != taken.end())
         ++n;
     return candidate();
+}
+
+namespace
+{
+/// A positive number written plainly ("12"; not "012", not too long to hold).
+std::optional<int> number(const std::string& text)
+{
+    if (text.empty() || text.size() > 6 || text.front() == '0' ||
+        !std::all_of(text.begin(), text.end(), [](unsigned char c) { return std::isdigit(c) != 0; }))
+        return std::nullopt;
+    return std::stoi(text);
+}
+
+/// Return letters: A is 0, Z 25, AA 26 (and back).
+std::optional<int> letterIndex(const std::string& text)
+{
+    if (text.empty() || text.size() > 4 ||
+        !std::all_of(text.begin(), text.end(), [](char c) { return c >= 'A' && c <= 'Z'; }))
+        return std::nullopt;
+    int index = 0;
+    for (const char c : text)
+        index = index * 26 + (c - 'A' + 1);
+    return index - 1;
+}
+
+std::string letters(int index)
+{
+    std::string out;
+    for (int i = index; i >= 0; i = i / 26 - 1)
+        out.insert(out.begin(), static_cast<char>('A' + i % 26));
+    return out;
+}
+
+/// The highest `read` gives for the part of a name around `prefix` and `suffix` (-1: none).
+template <typename Read>
+int highest(const std::vector<std::string>& names, const std::string& prefix, const std::string& suffix, Read read)
+{
+    int top = -1;
+    for (const auto& n : names)
+        if (n.size() > prefix.size() + suffix.size() && n.starts_with(prefix) && n.ends_with(suffix))
+            if (const auto value = read(n.substr(prefix.size(), n.size() - prefix.size() - suffix.size())))
+                top = std::max(top, *value);
+    return top;
+}
+} // namespace
+
+std::string nextTrackName(const std::vector<std::string>& names)
+{
+    return std::to_string(std::max(highest(names, "", " Track", number), 0) + 1) + " Track";
+}
+
+std::string nextReturnName(const std::vector<std::string>& names)
+{
+    return letters(highest(names, "", " Return", letterIndex) + 1) + " Return";
+}
+
+std::string nextLaneName(const std::vector<std::string>& names)
+{
+    return "Automation " + std::to_string(std::max(highest(names, "Automation ", "", number), 0) + 1);
+}
+
+std::string uniqueName(const std::string& name, const std::vector<std::string>& taken)
+{
+    return std::find(taken.begin(), taken.end(), name) == taken.end() ? name : nextCopyName(name, taken);
+}
+
+std::string laneCopyName(const std::string& name, const std::vector<std::string>& taken)
+{
+    return highest({name}, "Automation ", "", number) >= 0 ? nextLaneName(taken) : nextCopyName(name, taken);
 }
 
 RowDrop dropRow(const std::vector<ArrangementRow>& rows, const Snapshot& snapshot, std::size_t dragged,

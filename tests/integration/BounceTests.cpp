@@ -358,6 +358,7 @@ TEST_CASE("bounce to new track: the whole chain onto a track that copies the mix
     REQUIRE(b.session->setLanePoints(lane, {{0.0, 0.8f, 0.0f}, {4.0, 0.5f, 0.0f}}));
     const auto first = b.phrase(t, 0.0, 1.0);
     const auto second = b.phrase(t, 2.0, 1.0, 55);
+    const auto third = b.phrase(t, 4.0, 1.0); // bounced on its own after
     const auto before = b.render(0.0, 6.0);
 
     const auto result = b.bounce({first, second}, BounceMode::NewTrack);
@@ -372,6 +373,7 @@ TEST_CASE("bounce to new track: the whole chain onto a track that copies the mix
     const auto& made = *(source + 1);
     CHECK(made.id == result.tracks[0]);
     CHECK(made.name == source->name + " bounce");
+    const auto sourceName = source->name;
     CHECK(made.colour == source->colour);
     CHECK(made.devices.empty());
     CHECK(made.mix.volumeDb == Approx(source->mix.volumeDb).margin(0.01));
@@ -387,6 +389,13 @@ TEST_CASE("bounce to new track: the whole chain onto a track that copies the mix
     CHECK(b.clip(first).muted);
     CHECK(b.clip(second).muted);
     CHECK(differenceDb(b.render(0.0, 6.0), before) < -100.0);
+
+    // Bounced to a new track again: a name no other track has (tracks-and-clips.md §18).
+    const auto again = b.bounce({third}, BounceMode::NewTrack);
+    REQUIRE(again.tracks.size() == 1);
+    b.session->updateSnapshotNow();
+    CHECK(b.session->snapshot()->channel(again.tracks[0])->name == sourceName + " bounce 2");
+    b.session->undo();
 
     // One undo step takes it all back.
     b.session->undo();

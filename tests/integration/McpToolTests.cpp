@@ -823,7 +823,9 @@ TEST_CASE("mcp tools: automation lanes of their own: added, assigned with ranges
     CHECK(daw.fails("clear_automation", {{"track", t0}, {"parameter", "volume"}}).find("shares") != std::string::npos);
 
     // Assigning moves a parameter between lanes; unassigning takes it off.
-    const auto other = daw.call("add_automation_lane", {})["lane"].get<std::string>();
+    const auto added = daw.call("add_automation_lane", {});
+    CHECK(added["name"] == "Automation 1"); // numbered when made: none else has a number
+    const auto other = added["lane"].get<std::string>();
     auto moved = daw.call("assign_automation", {{"lane", other}, {"track", t1}, {"parameter", "volume"}});
     CHECK(moved["movedFrom"] == id);
     CHECK(daw.call("get_automation", {{"lane", id}})["assignments"].size() == 1);
@@ -831,6 +833,7 @@ TEST_CASE("mcp tools: automation lanes of their own: added, assigned with ranges
     CHECK(daw.call("get_automation", {{"track", t1}, {"parameter", "volume"}})["lane"].is_null());
 
     // Renaming and removing; the project lists what's left, in row order.
+    CHECK(daw.fails("set_automation_lane", {{"lane", other}, {"name", " "}}).find("can't be empty") != std::string::npos);
     CHECK(daw.call("set_automation_lane", {{"lane", other}, {"name", "Spare"}})["name"] == "Spare");
     project = daw.project();
     REQUIRE(project["automationLanes"].size() == 2);

@@ -490,10 +490,15 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
     addChildComponent(pointValue_);
 
     styleNameField(laneName_);
-    laneName_.setTooltip("The lane's name: type to rename it (empty: named after what it drives)");
+    laneName_.setTooltip("The lane's name: type to rename it");
     auto rename = [this] {
-        if (lane_ && laneName_.getText().toStdString() != lane_->name)
-            session_.renameAutomationLane(lane_->id, laneName_.getText().trim().toStdString());
+        if (!lane_)
+            return;
+        const auto name = laneName_.getText().trim();
+        if (name.isEmpty()) // never empty: its name back
+            laneName_.setText(juce::String::fromUTF8(lane_->name.c_str()), false);
+        else if (name.toStdString() != lane_->name)
+            session_.renameAutomationLane(lane_->id, name.toStdString());
     };
     laneName_.onReturnKey = [rename] {
         rename();
@@ -629,8 +634,12 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
         field->setTooltip(clip ? "The clip's name: type to rename it" : "Its name: type to rename it");
         auto commit = [this, field, clip] {
             const auto name = field->getText().trim();
-            if (name.isEmpty())
+            if (name.isEmpty()) // never empty: its name back
+            {
+                if (const auto* now = clip ? (clip_ ? &clip_->name : nullptr) : (channel_ ? &channel_->name : nullptr))
+                    field->setText(juce::String::fromUTF8(now->c_str()), false);
                 return;
+            }
             if (clip && clip_ && name.toStdString() != clip_->name)
                 session_.renameClips(clipParts(), name.toStdString());
             else if (!clip && channel_ && name.toStdString() != channel_->name)
@@ -690,10 +699,7 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
     auto has = [this](model::InspectorSection s) { return std::find(sections_.begin(), sections_.end(), s) != sections_.end(); };
     laneName_.setVisible(has(model::InspectorSection::Lane));
     if (lane_ && !laneName_.hasKeyboardFocus(true))
-    {
         laneName_.setText(juce::String::fromUTF8(lane_->name.c_str()), false);
-        laneName_.setTextToShowWhenEmpty(juce::String::fromUTF8(lane_->displayName().c_str()), ui::Theme::current().textTertiary);
-    }
     take_ = context.take;
     takeCount_ = context.takeCount;
     takeName_.setVisible(has(model::InspectorSection::Take));
@@ -834,8 +840,8 @@ void InspectorPanel::focusLaneName()
 {
     if (laneName_.isVisible() && laneName_.isShowing())
     {
-        laneName_.grabKeyboardFocus();
         laneName_.selectAll();
+        ui::takeFocus(laneName_); // asked from a menu too (kept from a late hand-back)
     }
 }
 
@@ -843,8 +849,8 @@ void InspectorPanel::focusTakeName()
 {
     if (takeName_.isVisible() && takeName_.isShowing())
     {
-        takeName_.grabKeyboardFocus();
         takeName_.selectAll();
+        ui::takeFocus(takeName_); // asked from a menu too (kept from a late hand-back)
     }
 }
 

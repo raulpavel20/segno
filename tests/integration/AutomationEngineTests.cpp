@@ -163,7 +163,7 @@ TEST_CASE("automation: a lane's curve is what its parameters play, through full,
     REQUIRE(info.points.size() == 12);
     REQUIRE(info.assignments.size() == 3);
     CHECK(info.after == t0);
-    CHECK(info.displayName() == "Volume + 2");
+    CHECK(info.displayName() == "Automation 1"); // its own name, whatever it drives
 
     for (const auto& [target, range] : {std::pair{volume, AssignmentRange{}}, std::pair{pan, part}, std::pair{freq, inverted}})
         for (double s = 0.0; s < end + 1.0; s += 0.013)
@@ -188,7 +188,7 @@ TEST_CASE("automation: a lane is added like a track: at the end, with the next c
     auto info = a.lane(lane);
     CHECK(info.after == last);
     CHECK(info.assignments.empty());
-    CHECK(info.displayName() == "Automation lane");
+    CHECK(info.displayName() == "Automation 1"); // numbered when made (tracks-and-clips.md §18)
     // Tracks and lanes take turns through the palette: the lane is coloured like a fifth track
     // would be, and the track after it like a sixth.
     CHECK(info.colour == static_cast<int>(tracks.size()) * 3 % 16);
@@ -198,9 +198,10 @@ TEST_CASE("automation: a lane is added like a track: at the end, with the next c
     // The new track goes after the lane; the next lane after that track.
     const auto next = a.session->automateInNewLane({tracks[0].id, "volume"});
     CHECK(a.lane(next).after == track);
+    CHECK(a.lane(next).displayName() == "Automation 2");
     CHECK(a.lane(lane).after == last); // it stays where it was put
     REQUIRE(a.session->assign(lane, {tracks[1].id, "pan"}));
-    CHECK(a.lane(lane).displayName() == "Pan");
+    CHECK(a.lane(lane).displayName() == "Automation 1"); // assigning doesn't rename it
 }
 
 TEST_CASE("automation: a straight segment is a straight move of the control", "[integration]")

@@ -466,7 +466,7 @@ The full record is [ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mou
 Asked whether every action was in its right place, or the menu bar had become a catch-all, the product owner agreed to these changes, except for two on-screen controls that don't earn their place.
 
 **What moves to where you work:**
-- **Snap** (Ctrl+4): a Snap toggle in the corner above the track headers, on the editing surface; the grid size joins it later. The piano roll follows it as now. *Built:* in the ruler's row, where the headers' names start, its tooltip the action's.
+- **Snap** (Ctrl+4): a Snap toggle in the corner above the track headers, on the editing surface; the grid size joins it later. The piano roll follows it as now. *Built:* in the ruler's row, where the headers' names start, its tooltip the action's. Since C11's review a view option (`ui::ViewOption`, like the mixer's Modules, Sends and Narrow), not a filled button (tracks-and-clips.md §18).
 - **Quantise** (Ctrl+U): a Quantise button in the clip view's header, while it shows a clip (`PanelHeader` gains commands on the right, before its view options). *Built:* right of the "Tab switches" caption, dimmed while there's nothing to quantise.
 - **Cancelling a bounce:**
   - a small × on a clip being bounced, at its progress line; it cancels the bounces running, as Escape does. *Built:* on a `surface2` chip so it reads over the notes or waveform, at the right end of the part of the clip in view, so a long clip's is never off screen (`shell.clipButtonSize`);

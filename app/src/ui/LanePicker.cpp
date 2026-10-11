@@ -52,8 +52,7 @@ void LanePicker::open(juce::Component& parent, std::uint64_t lane, std::uint64_t
     setVisible(true);
     toFront(false);
     outside_.attach();
-    if (isShowing())
-        search_.grabKeyboardFocus();
+    ui::takeFocus(search_); // opened from a menu too
 }
 
 void LanePicker::close()
@@ -132,7 +131,7 @@ void LanePicker::showChannelMenu()
             if (safe != nullptr && isOpen())
             {
                 setChannel(id);
-                search_.grabKeyboardFocus();
+                ui::takeFocus(search_);
             }
         });
     };

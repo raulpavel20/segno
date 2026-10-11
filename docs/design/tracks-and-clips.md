@@ -12,7 +12,7 @@ The decision is [ADR 0041](../decisions/0041-tracks-and-clips-managed-in-place.m
 
 It settles open questions B41 (what deleting a track takes with it), B50 (cut, copy and paste) and B52 (renaming).
 
-**Status:** approved by the product owner (2026-10-11), with every recommendation of §13 ([ADR 0041](../decisions/0041-tracks-and-clips-managed-in-place.md)). Built (2026-10-11); awaiting the product owner's feel check (manual-tests/M2.md, "Tracks and clips (C11)"). What building settled is noted in §17.
+**Status:** approved by the product owner (2026-10-11), with every recommendation of §13 ([ADR 0041](../decisions/0041-tracks-and-clips-managed-in-place.md)). Built (2026-10-11). What building settled is noted in §17; what the feel check found, and how it's fixed, in §18. Awaiting the product owner's second look (manual-tests/M2.md, "Tracks and clips (C11)").
 
 ## 1. Why
 
@@ -270,3 +270,46 @@ This amends ADR 0029's "lanes stay where they were put": the lanes right after a
   - a duplicate is tracktion's state copied with new ids, its clips' take references re-pointed to the copied takes;
   - a return's copy takes the lowest free aux bus;
   - deleting a track clears live MIDI's target if it was that track.
+
+## 18. After the feel check (product owner, 2026-10-11)
+
+Six things came back from trying it. Each is fixed, with a test that would have caught it.
+
+- **Renaming takes the keyboard focus, every time.**
+  - What happened: renaming a track or a lane showed the field, but typing didn't reach it. A window that gets the system's focus back hands JUCE's focus to whatever had it before, without telling the field. That happens when the window manager answers a menu closing, or at launch.
+  - The fix: `ui::takeFocus` gives a field the focus and keeps it until the next mouse press (or for two seconds). These use it:
+    - the name editor;
+    - the inspector's take and lane names;
+    - the command palette and the parameter picker;
+    - the export and About popovers;
+    - a knob's or a number's typed value.
+  - At launch it keeps the focus in the shell, so shortcuts work before the first click.
+  - Finishing gives the focus to the shell (or the mixer), never to a control in the header, where Return would press it.
+  - The shell tests now run on a window on the desktop, the only place keyboard focus exists, and replay the late hand-back.
+- **A click elsewhere keeps what was typed.** §4 said so; the build didn't do it.
+  - `ui::EndEditingOnClickAway` is installed once by the shell. On a press anywhere else in the window it gives the focus to the shell, and the field keeps its text as it loses the focus.
+  - Presses in a menu don't count. Neither does the press that opened the field: the second press of a double-click on another name renames that one next.
+  - It covers every text field: names, in place and in the inspector; the export panel's name; a number being typed.
+- **A lane's header menu has Colour ▸**, as §8 promised, and reads like a track's:
+  - Rename…, Assign parameter…, Turn lane on/off, **Delete automation lane**, Colour ▸.
+  - "Delete automation lane" was "Remove automation lane", in the menu and the undo step.
+  - "Remove from automation lane" on a control stays: it deletes nothing.
+  - The MCP tool keeps its released name, `remove_automation_lane`.
+- **The names the app gives never repeat** (`model::nextTrackName`, `nextReturnName`, `nextLaneName`, `uniqueName`, `laneCopyName`). Each kind takes the one after the highest in use, so a deleted one's name doesn't come back:
+  - **Tracks:** "N Track", one past the highest number. With "1 Track" of four deleted, the next is "5 Track", not a second "4 Track".
+  - **Return tracks:** the letter after the highest. With A and B, and A deleted, the next is "C Return".
+  - **Automation lanes:** numbered when made, "Automation 1", "Automation 2"…, whatever they drive.
+    - They were named after their parameters (B37, now superseded). The header's second line still says what a lane drives.
+    - A project from before gets its lanes numbered as it opens, top to bottom, and stays saved.
+  - **Other names:**
+    - a bounce's track and a take moved to its own track take the next free number when their name is in use ("Bass bounce 2");
+    - a duplicated track's lanes take the next lane number, or a copy's name ("Filter 2") when the user named them (`laneCopyName`).
+  - Only names the user types can repeat.
+  - A name is never empty. A lane's empty name is refused, as a track's is: the field restores it, and `set_automation_lane` says it can't be empty.
+- **Snap is a view option** (`ui::ViewOption`), like the mixer's Modules, Sends and Narrow:
+  - the dot and the label, no fill;
+  - the ruler's row high, its dot where the header names start.
+  - View options change how a view looks or edits (view state, never an undo step). They sit in a panel header, or here, in the arrangement's corner.
+- **Found on the way:**
+  - The window's title bar outlived the shell whose menus it showed, which tripped an assertion on quit.
+  - Snap's place had been 3 px right of the names; it now comes from the header layout.

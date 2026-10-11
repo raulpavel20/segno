@@ -5,6 +5,7 @@
 #include "engine/SessionImpl.h"
 
 #include "engine/DevicePlugin.h"
+#include "model/TrackEdits.h"
 
 #include <cmath>
 
@@ -430,7 +431,8 @@ struct Session::Impl::Bounce final : std::enable_shared_from_this<Bounce>, Sessi
                     param->getCurve().clear(um);
         for (const auto& id : {audioInId, midiInId, midiChannelId, monitorId, recordsId, armedId})
             track->state.removeProperty(id, um);
-        track->setName(juce::String::fromUTF8(model::bounceTrackName(source.getName().toStdString()).c_str()));
+        track->setName(juce::String::fromUTF8(
+            model::uniqueName(model::bounceTrackName(source.getName().toStdString()), impl.trackNames()).c_str()));
         // The lanes driving the source's mix drive the bounce's too (ADR 0029).
         std::vector<std::string> keys{"volume", "pan"};
         for (auto* r : impl.returns())

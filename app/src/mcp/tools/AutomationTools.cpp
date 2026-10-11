@@ -307,7 +307,7 @@ void addAutomationTools(Registry& registry, ToolEnv& env)
          "it). Like a new track it goes at the end of the tracks, or after a track or a lane (after). A parameter "
          "on another lane moves here, bringing its points. One undo step.",
          object({{"after", string("A track (\"t:3\") or a lane (\"a:12\") it goes after")},
-                 {"name", string("Its name (by default named after its parameters)")},
+                 {"name", string("Its name (by default the next number: \"Automation 3\")")},
                  {"parameters", arrayOf(object([&] {
                                             auto p = paramSchema();
                                             p["from"] = {{"type", {"number", "string"}},
@@ -351,27 +351,31 @@ void addAutomationTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"set_automation_lane", "Rename an automation lane",
-         "Names an automation lane (an empty name: named after its parameters again). One undo step.",
+         "Names an automation lane (new lanes are \"Automation 1\", \"Automation 2\"...). The name can't be "
+         "empty. One undo step.",
          object({{"lane", string("The lane (\"a:12\")")}, {"name", string("Its name")}}, {"lane", "name"}),
          laneSummarySchema(), changes},
         [&env](const Json& args, CallContext&) {
             const auto id = laneArg(env, args["lane"]);
-            env.session.renameAutomationLane(id, args["name"].get<std::string>());
+            const auto name = args["name"].get<std::string>();
+            if (juce::String(name).trim().isEmpty())
+                throw Problem{"A lane's name can't be empty."};
+            env.session.renameAutomationLane(id, name);
             const auto j = laneJson(env, id, std::nullopt, std::nullopt, false);
             return ToolResult::ok(j, "Named it " + j["name"].get<std::string>() + ".");
         }));
 
     registry.tools.push_back(make(
         env,
-        {"remove_automation_lane", "Remove an automation lane",
-         "Removes an automation lane and its points; the parameters it drove keep their values now. One undo step.",
+        {"remove_automation_lane", "Delete an automation lane",
+         "Deletes an automation lane and its points; the parameters it drove keep their values now. One undo step.",
          object({{"lane", string("The lane (\"a:12\")")}}, {"lane"}), result({{"removed", string("")}}), removes},
         [&env](const Json& args, CallContext&) {
             const auto id = laneArg(env, args["lane"]);
             const auto name = laneInfo(env, id).displayName();
             env.session.removeAutomationLane(id);
             env.session.flushSnapshot();
-            return ToolResult::ok({{"removed", formatId(IdKind::Lane, id)}}, "Removed " + name + ".");
+            return ToolResult::ok({{"removed", formatId(IdKind::Lane, id)}}, "Deleted " + name + ".");
         }));
 
     registry.tools.push_back(make(

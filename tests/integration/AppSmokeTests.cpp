@@ -18,6 +18,8 @@
 #include "ui/Shell.h"
 #include "ui/TrackInputs.h"
 #include "ui/WindowContent.h"
+
+#include <juce_opengl/juce_opengl.h>
 #include "model/MenuBar.h"
 
 #include <tracktion_engine/testing/tracktion_EnginePlayer.h>
@@ -1211,7 +1213,7 @@ TEST_CASE("automation lanes: rows among the tracks, added like tracks, edited an
     // A lane driving two parameters, one inverted over part of its range.
     REQUIRE(s.assign(freqLane, {t1, "volume"}, {0.8f, 0.2f}));
     s.updateSnapshotNow();
-    CHECK(s.snapshot()->automationLane(freqLane)->displayName().ends_with(" + 1"));
+    CHECK(s.snapshot()->automationLane(freqLane)->assignments.size() == 2);
 
     if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review
     {
@@ -1239,7 +1241,7 @@ TEST_CASE("automation lanes: rows among the tracks, added like tracks, edited an
     REQUIRE(actions.perform("edit.delete"));
     s.updateSnapshotNow();
     CHECK(s.snapshot()->automationLane(*volumeLane) == nullptr);
-    CHECK(s.undoDescription() == "Remove automation lane");
+    CHECK(s.undoDescription() == "Delete automation lane");
 
     // Row heights are view state, saved with the project.
     view.setAllTrackHeights(80.0);
@@ -2957,6 +2959,20 @@ TEST_CASE("snap and quantise where they're used; the take's commands in its insp
     actions.perform("view.snap");
     CHECK(snap.getToggleState());
     CHECK(snap.getTooltip().contains("Snap to grid"));
+    // A view option, like the mixer's Modules, Sends and Narrow (C11 review): the ruler's row
+    // high, as wide as it needs.
+    CHECK(snap.getHeight() == fd::ui::Theme::current().shell.rulerHeight);
+    CHECK(snap.getWidth() == snap.preferredWidth());
+    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review, zoomed in
+    {
+        snap.setState(juce::Button::buttonNormal); // triggerClick's flash never ends without a mouse
+        const juce::Rectangle<int> corner(0, 0, fd::app::ArrangementView::headerWidth() + 120,
+                                          fd::app::ArrangementView::rulerHeight() + 40);
+        dumpPng(dump, "snap-on@2x.png", view.createComponentSnapshot(corner, true, 2.0f));
+        actions.perform("view.snap");
+        dumpPng(dump, "snap-off@2x.png", view.createComponentSnapshot(corner, true, 2.0f));
+        actions.perform("view.snap");
+    }
 
     // Quantise in the clip view's header, while it shows a clip.
     const auto t0 = s.snapshot()->tracks[0].id;
@@ -3221,5 +3237,267 @@ TEST_CASE("clipboard: Ctrl+C and Ctrl+V paste clips at the playhead on the selec
         grid.getIdealSize(w, h);
         grid.setSize(w, h);
         dumpPng(dump, "colour-grid@2x.png", grid.createComponentSnapshot(grid.getLocalBounds(), true, 2.0f));
+    }
+}
+
+namespace
+{
+/// The app's window on the desktop (Main.cpp): our title bar over the shell, drawn by OpenGL.
+/// Keyboard focus only exists on a showing window.
+struct AppWindow
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    fd::ui::LookAndFeel lnf;
+    tracktion::Engine engine{"fd-integration-tests", nullptr, fd::engine::makeEngineBehaviour()};
+    std::unique_ptr<fd::engine::Session> session;
+    struct Window final : juce::DocumentWindow
+    {
+        Window() : juce::DocumentWindow("Segno", juce::Colours::black, 0, true) {}
+        void closeButtonPressed() override {}
+    };
+    std::unique_ptr<Window> window;
+    fd::app::WindowContent* content = nullptr;
+    juce::OpenGLContext gl;
+
+    AppWindow()
+    {
+        juce::LookAndFeel::setDefaultLookAndFeel(&lnf);
+        fd::engine::registerDevices(engine);
+        session = std::make_unique<fd::engine::Session>(engine);
+        if (juce::Desktop::getInstance().getDisplays().displays.isEmpty())
+            return;
+        window = std::make_unique<Window>();
+        window->setUsingNativeTitleBar(false);
+        window->setTitleBarHeight(0);
+        content = new fd::app::WindowContent(*session, nullptr, true);
+        window->setContentOwned(content, false);
+        window->setBounds(40, 40, 1800, 900); // the inspector open
+        gl.setComponentPaintingEnabled(true);
+        gl.attachTo(*content);
+        window->setVisible(true);
+        window->toFront(true);
+        fd::ui::takeFocus(content->shell());
+        pump();
+    }
+
+    ~AppWindow()
+    {
+        gl.detach();
+        window.reset();
+        session.reset();
+        juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
+    }
+
+    [[nodiscard]] bool shows() const noexcept { return window != nullptr; }
+    [[nodiscard]] fd::app::Shell& shell() const noexcept { return content->shell(); }
+    static void pump(int ms = 150) { juce::MessageManager::getInstance()->runDispatchLoopUntil(ms); }
+
+    /// A press and release at `p` in `c`, through the window as the system sends them.
+    void click(juce::Component& c, juce::Point<float> p, juce::ModifierKeys button = juce::ModifierKeys::leftButtonModifier) const
+    {
+        auto* peer = window->getPeer();
+        const auto at = window->getLocalPoint(&c, p);
+        for (const auto mods : {button, juce::ModifierKeys()})
+            peer->handleMouseEvent(juce::MouseInputSource::InputSourceType::mouse, at, mods,
+                                   juce::MouseInputSource::defaultPressure, juce::MouseInputSource::defaultOrientation,
+                                   juce::Time::currentTimeMillis());
+    }
+
+    /// The menu showing (its window), or null.
+    [[nodiscard]] juce::Component* menu() const
+    {
+        for (int i = 0; i < juce::Desktop::getInstance().getNumComponents(); ++i)
+            if (auto* c = juce::Desktop::getInstance().getComponent(i); c != window.get() && c->isShowing())
+                return c;
+        return nullptr;
+    }
+
+    /// The items of the menu showing, by their text, in order.
+    [[nodiscard]] std::vector<std::pair<juce::String, juce::Component*>> menuItems() const
+    {
+        std::vector<std::pair<juce::String, juce::Component*>> out;
+        auto* shown = menu();
+        std::function<void(juce::Component&)> find = [&](juce::Component& c) {
+            if (auto* h = c.getAccessibilityHandler(); h != nullptr && &c != shown && h->getTitle().isNotEmpty())
+                out.emplace_back(h->getTitle(), &c);
+            for (auto* child : c.getChildren())
+                find(*child);
+        };
+        if (shown != nullptr)
+            find(*shown);
+        return out;
+    }
+
+    /// Chooses the item whose text starts with `text` in the menu showing (as a click on it does).
+    [[nodiscard]] bool choose(const juce::String& text) const
+    {
+        for (const auto& [title, item] : menuItems())
+            if (title.startsWith(text))
+            {
+                item->getAccessibilityHandler()->getActions().invoke(juce::AccessibilityActionType::press);
+                return true;
+            }
+        return false;
+    }
+};
+} // namespace
+
+// One test case, so no two windows take the focus from each other (CTest runs cases in parallel).
+TEST_CASE("names: typing on a showing window: renaming takes the focus by every route, a press elsewhere keeps "
+          "what was typed (C11 review)",
+          "[integration][window]")
+{
+    AppWindow app;
+    if (!app.shows())
+        SKIP("no display to show a window on");
+    auto& s = *app.session;
+    auto& shell = app.shell();
+    auto& view = shell.arrangement();
+    s.updateSnapshotNow();
+
+    SECTION("renaming takes the keyboard focus, by every route")
+    {
+        const auto track = s.snapshot()->tracks[0].id;
+        REQUIRE(s.addDevice(track, "fd:subtractive-synth") != 0); // selected, it takes live MIDI (as lanes' tracks do)
+        const auto lane = s.addAutomationLane(fd::engine::Session::ParamTarget{track, "volume"});
+        const auto ret = s.addReturnTrack();
+        s.updateSnapshotNow();
+        view.setSnapshot(s.snapshot());
+        AppWindow::pump();
+        auto& editor = view.nameEditor();
+        auto* peer = app.window->getPeer();
+        // In the field, the whole name selected to type over.
+        auto typing = [&editor] {
+            return editor.isEditing() && editor.field().hasKeyboardFocus(false) &&
+                   editor.field().getHighlightedRegion().getLength() == editor.field().getTotalNumChars();
+        };
+        auto done = [&editor] {
+            editor.cancel();
+            AppWindow::pump();
+        };
+
+        struct Row
+        {
+            const char* what;
+            std::function<int()> row;
+        };
+        for (const auto& [what, row] : {Row{"track", [&] { return rowOf(view, track); }}, Row{"return", [&] { return rowOf(view, ret); }},
+                                        Row{"lane", [&] { return fd::model::rowOfLane(view.rows(), lane); }}})
+        {
+            INFO(what);
+            const auto name = view.nameArea(row());
+            REQUIRE(name);
+            const auto at = name->getCentre().toFloat();
+            // A double-click on its name.
+            app.click(view, at);
+            app.click(view, at);
+            AppWindow::pump();
+            CHECK(typing());
+            done();
+            // F2, with it selected.
+            shell.actions().perform("edit.rename");
+            AppWindow::pump();
+            CHECK(typing());
+            done();
+            // Its header menu's Rename... A lane's menu reads like a track's: its own commands,
+            // the same verb for deleting, then its colour.
+            app.click(view, at, juce::ModifierKeys::rightButtonModifier);
+            AppWindow::pump(300);
+            std::vector<juce::String> items;
+            for (const auto& [title, item] : app.menuItems())
+                items.push_back(title);
+            const auto ellipsis = juce::String::fromUTF8("\xE2\x80\xA6");
+            const auto own = juce::String(what) == "lane"
+                                 ? std::vector<juce::String>{"Rename" + ellipsis, "Assign parameter" + ellipsis,
+                                                             "Turn lane off", "Delete automation lane", "Colour"}
+                                 : std::vector<juce::String>{"Rename" + ellipsis, "Duplicate track", "Delete track", "Colour"};
+            INFO(juce::StringArray(items.data(), static_cast<int>(items.size())).joinIntoString(" | "));
+            REQUIRE(items.size() > own.size());
+            CHECK(std::vector<juce::String>(items.begin(), items.begin() + static_cast<std::ptrdiff_t>(own.size())) == own);
+            if (const char* dump = std::getenv("FD_DUMP_DIR"); dump != nullptr && juce::String(what) == "lane")
+                if (auto* m = app.menu())
+                    dumpPng(dump, "lane-menu@2x.png", m->createComponentSnapshot(m->getLocalBounds(), true, 2.0f));
+            REQUIRE(app.choose("Rename"));
+            AppWindow::pump(300);
+            CHECK(typing());
+            done();
+            // The window getting the system's focus back after the field took it (the window
+            // manager's answer to a menu closing can come late): JUCE hands it to what had it
+            // before, without telling the field.
+            peer->handleFocusLoss();
+            shell.actions().perform("edit.rename");
+            peer->handleFocusGain();
+            AppWindow::pump();
+            CHECK(typing());
+            done();
+        }
+
+        // Return keeps it and the keys go back to the shell, not to a control in the header (where
+        // Return would press it).
+        shell.actions().perform("edit.rename"); // the lane, selected last
+        AppWindow::pump();
+        REQUIRE(typing());
+        editor.field().insertTextAtCaret("Filter");
+        editor.field().keyPressed(juce::KeyPress(juce::KeyPress::returnKey));
+        AppWindow::pump();
+        CHECK(juce::Component::getCurrentlyFocusedComponent() == &shell);
+        s.updateSnapshotNow();
+        CHECK(s.snapshot()->automationLane(lane)->name == "Filter");
+    }
+    SECTION("a press elsewhere ends typing and keeps what was typed")
+    {
+        const auto first = s.snapshot()->tracks[0].id, second = s.snapshot()->tracks[1].id;
+        auto& editor = view.nameEditor();
+        auto nameOf = [&s](std::uint64_t id) {
+            s.updateSnapshotNow();
+            return s.snapshot()->channel(id)->name;
+        };
+        auto renameFirst = [&](const char* typed) {
+            view.selectTrack(first);
+            shell.actions().perform("edit.rename");
+            AppWindow::pump();
+            REQUIRE(editor.field().hasKeyboardFocus(false));
+            editor.field().insertTextAtCaret(typed);
+            AppWindow::pump();
+        };
+
+        SECTION("a press on the empty lanes")
+        {
+            renameFirst("Drums");
+            app.click(view, view.getLocalBounds().toFloat().getRelativePoint(0.6f, 1.0f).translated(0.0f, -30.0f));
+            AppWindow::pump();
+            CHECK_FALSE(editor.isEditing());
+            CHECK(nameOf(first) == "Drums");
+            CHECK(juce::Component::getCurrentlyFocusedComponent() == &shell);
+        }
+        SECTION("a press on another panel")
+        {
+            renameFirst("Keys");
+            auto& inspector = shell.inspector();
+            app.click(inspector, inspector.getLocalBounds().toFloat().getRelativePoint(0.5f, 1.0f).translated(0.0f, -10.0f));
+            AppWindow::pump();
+            CHECK_FALSE(editor.isEditing());
+            CHECK(nameOf(first) == "Keys");
+        }
+        SECTION("a double-click on another name: this one kept, that one renamed next")
+        {
+            renameFirst("Bass");
+            const auto at = view.nameArea(rowOf(view, second))->getCentre().toFloat();
+            app.click(view, at); // both presses at once, as when the app was busy between them
+            app.click(view, at);
+            AppWindow::pump();
+            CHECK(nameOf(first) == "Bass");
+            CHECK(editor.isEditing());
+            CHECK(editor.field().hasKeyboardFocus(false));
+            CHECK(editor.field().getText().toStdString() == nameOf(second));
+        }
+        SECTION("a press in the field itself keeps typing")
+        {
+            renameFirst("Pad");
+            app.click(editor.field(), editor.field().getLocalBounds().getCentre().toFloat());
+            AppWindow::pump();
+            CHECK(editor.isEditing());
+            CHECK(editor.field().hasKeyboardFocus(false));
+        }
     }
 }

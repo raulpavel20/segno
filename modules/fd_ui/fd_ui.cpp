@@ -16,3 +16,4 @@
 #include "shell/WindowButtons.cpp"
 #include "shell/NameEditor.cpp"
 #include "shell/ColourGrid.cpp"
+#include "shell/Focus.cpp"

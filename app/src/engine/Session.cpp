@@ -4,6 +4,7 @@
 #include "engine/DevicePlugin.h"
 #include "engine/EngineBehaviour.h"
 #include "model/NoteEditing.h"
+#include "model/TrackEdits.h"
 
 #include <fd/device/Registry.h>
 
@@ -588,18 +589,26 @@ void Session::Impl::ensureChannels(juce::UndoManager* undo)
         v->state.setProperty(te::IDs::panLaw, static_cast<int>(te::PanLawBalance), undo);
 }
 
-te::AudioTrack* Session::Impl::insertTrack(const juce::String& name)
+std::vector<std::string> Session::Impl::trackNames() const
+{
+    std::vector<std::string> names;
+    for (auto* t : te::getAudioTracks(*edit))
+        names.push_back(t->getName().toStdString());
+    return names;
+}
+
+te::AudioTrack* Session::Impl::insertTrack()
 {
     // After the last track and before the return tracks (ADR 0026).
     const auto existing = tracks();
-    const int count = static_cast<int>(existing.size());
+    const auto name = model::nextTrackName(trackNames());
     const int colour = nextRowColour(); // tracks and lanes take turns through the palette
     auto track = edit->insertNewAudioTrack(te::TrackInsertPoint(nullptr, existing.empty() ? nullptr : existing.back()),
                                            nullptr);
     if (track == nullptr)
         return nullptr;
     track->state.setProperty(kColourId, colour, &edit->getUndoManager());
-    track->setName(juce::String(count + 1) + " " + name);
+    track->setName(juce::String::fromUTF8(name.c_str()));
     if (auto* v = track->getVolumePlugin())
         v->setPanLaw(te::PanLawBalance);
     return track.get();
@@ -814,7 +823,7 @@ void Session::setTimeSignature(int numerator, int denominator)
 std::uint64_t Session::addTrack(const std::string& name)
 {
     impl_->beginEdit("Add track");
-    auto* track = impl_->insertTrack("Track");
+    auto* track = impl_->insertTrack();
     if (track == nullptr)
         return 0;
     if (!name.empty())
@@ -1284,14 +1293,6 @@ bool Session::setSidechainSource(std::uint64_t deviceId, std::optional<std::uint
 namespace
 {
 constexpr int kMaxReturns = Session::Impl::maxReturns;
-
-juce::String returnName(int index)
-{
-    juce::String letters;
-    for (int i = index; i >= 0; i = i / 26 - 1)
-        letters = juce::String::charToString(static_cast<juce::juce_wchar>('A' + i % 26)) + letters;
-    return letters + " Return";
-}
 } // namespace
 
 std::uint64_t Session::addReturnTrack(const std::string& name)
@@ -1307,7 +1308,7 @@ std::uint64_t Session::addReturnTrack(const std::string& name)
     auto track = edit.insertNewAudioTrack(te::TrackInsertPoint::getEndOfTracks(edit), nullptr);
     if (track == nullptr)
         return 0;
-    const auto title = name.empty() ? returnName(static_cast<int>(existing.size())) : juce::String(name);
+    const auto title = juce::String::fromUTF8(name.empty() ? model::nextReturnName(impl_->trackNames()).c_str() : name.c_str());
     track->setName(title);
     track->state.setProperty(kRoleId, "return", um);
     track->state.setProperty(kColourId, (static_cast<int>(existing.size()) * 5 + 2) % kPaletteSize, um);

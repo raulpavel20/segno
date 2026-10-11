@@ -77,7 +77,10 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     [[nodiscard]] te::Clip* clip(std::uint64_t id) const;
     [[nodiscard]] te::Plugin* plugin(std::uint64_t id) const;
     // Edit steps without starting an undo transaction (commands compose them).
-    te::AudioTrack* insertTrack(const juce::String& name);
+    te::AudioTrack* insertTrack(); // named after the highest "N Track" (tracks-and-clips.md §18)
+    /// Every track's and return's name, and every lane's (for the names the app gives).
+    [[nodiscard]] std::vector<std::string> trackNames() const;
+    [[nodiscard]] std::vector<std::string> laneNames() const;
     te::Plugin* insertDevice(te::PluginList& list, const std::string& key, int index);
     /// Every channel's volume uses the balance pan law, and the master has a volume and meter of
     /// its own at the end of its chain (ADR 0026). Brings older projects up to date.

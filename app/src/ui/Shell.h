@@ -80,6 +80,8 @@ public:
     [[nodiscard]] InspectorPanel& inspector() noexcept { return inspector_; }
     [[nodiscard]] MixerView& mixer() noexcept { return mixer_; }
     [[nodiscard]] LanePicker& lanePicker() noexcept { return lanePicker_; }
+    /// Ends typing in a field on a press elsewhere (tests drive its rule).
+    [[nodiscard]] ui::EndEditingOnClickAway& clickAway() noexcept { return clickAway_; }
 
     /// Frame statistics overlay (paint time of the arrangement, frame rate): --stats.
     void setStatsVisible(bool visible);
@@ -184,6 +186,7 @@ private:
     CommandPalette palette_{actions_};
     ExportPopover exportPanel_{session_};
     LanePicker lanePicker_{session_};
+    ui::EndEditingOnClickAway clickAway_{*this}; // a press elsewhere keeps what was typed
     /// The picker, assigning a parameter to `lane` (for its first assignment's channel, else the
     /// track it follows).
     void assignToLane(std::uint64_t lane);

@@ -4,6 +4,7 @@
 #include "engine/SessionImpl.h"
 
 #include "engine/DevicePlugin.h"
+#include "model/TrackEdits.h"
 
 #include <cmath>
 #include <cstdlib>
@@ -298,10 +299,19 @@ void Session::Impl::writeCurve(te::AutomationCurve& curve, const model::Automati
         curve.removePoint(curve.getNumPoints() - 1, um);
 }
 
+std::vector<std::string> Session::Impl::laneNames() const
+{
+    std::vector<std::string> names;
+    for (const auto& lane : lanesTree())
+        names.push_back(lane[nameId].toString().toStdString());
+    return names;
+}
+
 juce::ValueTree Session::Impl::makeLane(std::uint64_t after, int colour, int index, juce::UndoManager* um)
 {
     juce::ValueTree lane(laneId);
     edit->createNewItemID().writeID(lane, nullptr);
+    lane.setProperty(nameId, juce::String(model::nextLaneName(laneNames())), nullptr); // tracks-and-clips.md §18
     lane.setProperty(afterId, idVar(after), nullptr);
     lane.setProperty(colourId, colour, nullptr);
     lane.appendChild(juce::ValueTree(pointsId), nullptr);
@@ -519,6 +529,11 @@ void Session::Impl::loadLanes(bool convert)
             }
     for (auto lane : root)
         derive(lane, nullptr);
+    // Lanes from before lanes were numbered (named after what they drove): numbered now, top to
+    // bottom, with the project still saved (tracks-and-clips.md §18).
+    for (const auto& info : laneInfos())
+        if (info.name.empty())
+            laneTree(info.id).setProperty(nameId, juce::String(model::nextLaneName(laneNames())), nullptr);
 }
 
 // ---- playback, override and recording ------------------------------------------------------
@@ -719,7 +734,7 @@ void Session::removeAutomationLane(std::uint64_t id)
     if (!lane.isValid())
         return;
     auto* um = &impl_->edit->getUndoManager();
-    impl_->beginEdit("Remove automation lane");
+    impl_->beginEdit("Delete automation lane");
     for (auto a : lane)
         if (a.hasType(Impl::assignId))
             if (const auto p = impl_->param(Impl::targetIn(a)); p && p->param != nullptr)
@@ -727,13 +742,15 @@ void Session::removeAutomationLane(std::uint64_t id)
     impl_->lanesTree().removeChild(lane, um);
 }
 
-void Session::renameAutomationLane(std::uint64_t id, const std::string& name)
+bool Session::renameAutomationLane(std::uint64_t id, const std::string& name)
 {
     auto lane = impl_->laneTree(id);
-    if (!lane.isValid() || lane[Impl::nameId].toString().toStdString() == name)
-        return;
+    const auto trimmed = juce::String(name).trim();
+    if (!lane.isValid() || trimmed.isEmpty() || lane[Impl::nameId].toString() == trimmed)
+        return false;
     impl_->beginEdit("Rename automation lane");
-    lane.setProperty(Impl::nameId, juce::String(name), &impl_->edit->getUndoManager());
+    lane.setProperty(Impl::nameId, trimmed, &impl_->edit->getUndoManager());
+    return true;
 }
 
 bool Session::setLanePoints(std::uint64_t id, const model::AutomationPoints& points,

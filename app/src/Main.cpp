@@ -207,7 +207,7 @@ public:
             gl_.attachTo(*content);
         }
         setVisible(true);
-        shell.grabKeyboardFocus();
+        fd::ui::takeFocus(shell); // shortcuts work at once (the window takes it as it's focused)
     }
 
     ~MainWindow() override

@@ -289,6 +289,7 @@ TEST_CASE("tracks: a duplicate sounds like the original, with its takes, modules
     REQUIRE(copied->assignments.size() == 1);
     CHECK(copied->assignments[0].channel == copy);
     CHECK(copied->points.size() == 2);
+    CHECK(copied->name == "Automation 2"); // the next number: names never repeat (§18)
 
     // It sounds the same: the original alone, then the copy alone.
     s.setArmed(t, false, false);
@@ -387,4 +388,77 @@ TEST_CASE("clipboard: a clip with takes pastes with them, playing the same take"
     CHECK(info.stacks[0].start == Approx(10.0).margin(0.02));
     CHECK(fd::model::playingTake(info.stacks[0], info.clips) ==
           fd::model::playingTake(original.stacks[0], original.clips));
+}
+
+TEST_CASE("tracks: new tracks, returns and lanes are named after the highest in use, never a deleted one's "
+          "again (C11 review)",
+          "[integration]")
+{
+    Recording r;
+    auto& s = *r.session;
+    auto nameOf = [&s](std::uint64_t id) {
+        s.updateSnapshotNow();
+        return s.snapshot()->channel(id)->name;
+    };
+    // A project starts with numbered tracks; with the first deleted, the next is one past the
+    // highest, not a second of the last.
+    const auto ids = trackIds(r);
+    REQUIRE(nameOf(ids.front()) == "1 Track");
+    REQUIRE(nameOf(ids.back()) == std::to_string(ids.size()) + " Track");
+    REQUIRE(s.deleteTrack(ids.front()));
+    const auto added = s.addTrack();
+    CHECK(nameOf(added) == std::to_string(ids.size() + 1) + " Track");
+    // A name given is kept as given, one in use too.
+    CHECK(nameOf(s.addTrack("2 Track")) == "2 Track");
+
+    // Returns: A and B, A deleted: C.
+    const auto a = s.addReturnTrack(), b = s.addReturnTrack();
+    CHECK(nameOf(a) == "A Return");
+    CHECK(nameOf(b) == "B Return");
+    REQUIRE(s.deleteTrack(a));
+    CHECK(nameOf(s.addReturnTrack()) == "C Return");
+
+    // Lanes: numbered when made, whatever they drive; the first deleted, the next is 3.
+    const auto first = s.addAutomationLane();
+    const auto second = s.addAutomationLane(ParamTarget{added, "volume"});
+    CHECK(laneOf(r, first)->name == "Automation 1");
+    CHECK(laneOf(r, second)->name == "Automation 2");
+    s.removeAutomationLane(first);
+    CHECK(s.undoDescription() == "Delete automation lane");
+    CHECK(laneOf(r, s.addAutomationLane())->name == "Automation 3");
+    // A lane's name is never empty.
+    CHECK_FALSE(s.renameAutomationLane(second, "  "));
+    CHECK(s.renameAutomationLane(second, " Filter "));
+    CHECK(laneOf(r, second)->name == "Filter");
+}
+
+TEST_CASE("lanes: an older project's lanes, named after what they drove, are numbered as it opens, and it "
+          "stays saved (C11 review)",
+          "[integration]")
+{
+    Recording r;
+    auto& s = *r.session;
+    const auto t = trackIds(r).front();
+    s.addAutomationLane(ParamTarget{t, "volume"});
+    s.addAutomationLane(ParamTarget{t, "pan"});
+    const auto project = r.root.getChildFile("Old").getChildFile("Old.segno");
+    REQUIRE((project.getParentDirectory().isDirectory() || project.getParentDirectory().createDirectory()));
+    REQUIRE(s.saveAs(project));
+    // As written before lanes were numbered: no names.
+    auto xml = juce::parseXML(project);
+    REQUIRE(xml != nullptr);
+    auto* lanes = xml->getChildByName("FDAUTOMATION");
+    REQUIRE(lanes != nullptr);
+    for (auto* lane : lanes->getChildWithTagNameIterator("LANE"))
+        lane->removeAttribute("name");
+    REQUIRE(xml->writeTo(project));
+
+    REQUIRE(s.open(project));
+    s.updateSnapshotNow();
+    const auto& opened = s.snapshot()->automationLanes;
+    REQUIRE(opened.size() == 2);
+    CHECK(opened[0].name == "Automation 1"); // top to bottom
+    CHECK(opened[1].name == "Automation 2");
+    CHECK_FALSE(s.hasUnsavedChanges());
+    CHECK(s.undoDescription().empty());
 }

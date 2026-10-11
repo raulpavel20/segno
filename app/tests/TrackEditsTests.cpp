@@ -36,6 +36,47 @@ TEST_CASE("tracks: a copy takes the next free number", "[fast]")
     CHECK(nextCopyName("A Return", {}) == "A Return 2");
 }
 
+TEST_CASE("tracks: the names the app gives come after the highest in use, so none repeats (C11 review)", "[fast]")
+{
+    SECTION("tracks")
+    {
+        CHECK(nextTrackName({}) == "1 Track");
+        CHECK(nextTrackName({"1 Track", "2 Track", "3 Track"}) == "4 Track");
+        CHECK(nextTrackName({"2 Track", "3 Track"}) == "4 Track"); // "1 Track" deleted: not again
+        CHECK(nextTrackName({"1 Track", "3 Track"}) == "4 Track"); // a gap isn't filled either
+        CHECK(nextTrackName({"Drums", "Bass", "3 Track 2"}) == "1 Track"); // names given and copies don't count
+        CHECK(nextTrackName({"9 Track", "10 Track"}) == "11 Track");
+        CHECK(nextTrackName({"0 Track", "07 Track", " Track", "x Track"}) == "1 Track");
+    }
+    SECTION("returns")
+    {
+        CHECK(nextReturnName({}) == "A Return");
+        CHECK(nextReturnName({"B Return"}) == "C Return"); // "A Return" deleted: not again
+        CHECK(nextReturnName({"A Return", "Reverb"}) == "B Return");
+        CHECK(nextReturnName({"Z Return"}) == "AA Return");
+        CHECK(nextReturnName({"AZ Return", "C Return"}) == "BA Return");
+        CHECK(nextReturnName({"a Return", "A1 Return"}) == "A Return");
+    }
+    SECTION("automation lanes")
+    {
+        CHECK(nextLaneName({}) == "Automation 1");
+        CHECK(nextLaneName({"Automation 1", "Automation 2"}) == "Automation 3");
+        CHECK(nextLaneName({"Automation 2"}) == "Automation 3");
+        CHECK(nextLaneName({"Filter", "Automation 2 2"}) == "Automation 1");
+    }
+    SECTION("a duplicated track's lanes")
+    {
+        CHECK(laneCopyName("Automation 1", {"Automation 1", "Automation 4"}) == "Automation 5");
+        CHECK(laneCopyName("Filter", {"Filter", "Automation 1"}) == "Filter 2");
+    }
+    SECTION("other names the app gives")
+    {
+        CHECK(uniqueName("Bass bounce", {"Bass"}) == "Bass bounce");
+        CHECK(uniqueName("Bass bounce", {"Bass", "Bass bounce"}) == "Bass bounce 2");
+        CHECK(uniqueName("Bass bounce", {"Bass bounce", "Bass bounce 2"}) == "Bass bounce 3");
+    }
+}
+
 TEST_CASE("tracks: a dragged track lands before a track, its lanes with it; lanes and returns alone",
           "[fast]")
 {

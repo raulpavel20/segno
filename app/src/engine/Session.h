@@ -231,8 +231,9 @@ public:
     std::uint64_t addAutomationLaneAfter(std::uint64_t after, const std::optional<ParamTarget>& first = std::nullopt);
     /// Removes a lane; its parameters keep their values now. One undo step.
     void removeAutomationLane(std::uint64_t lane);
-    /// Names a lane (empty: after its assignments). One undo step.
-    void renameAutomationLane(std::uint64_t lane, const std::string& name);
+    /// Names a lane (trimmed; never empty). One undo step. False: no such lane, an empty name or
+    /// the name it has.
+    bool renameAutomationLane(std::uint64_t lane, const std::string& name);
     /// Replaces a lane's points: all of them, or those in [from, to] when `range` is given; its
     /// parameters follow. One undo step named `undoName`, unless an EditGroup names it. False if
     /// there's no such lane.

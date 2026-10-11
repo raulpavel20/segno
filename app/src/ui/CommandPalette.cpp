@@ -38,7 +38,7 @@ void CommandPalette::open(juce::Component& parent)
     setVisible(true);
     toFront(false);
     outside_.attach();
-    search_.grabKeyboardFocus();
+    ui::takeFocus(search_); // opened from a menu too
 }
 
 void CommandPalette::close()

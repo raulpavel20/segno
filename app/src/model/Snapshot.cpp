@@ -6,13 +6,7 @@ namespace fd::model
 {
 std::string AutomationLaneInfo::displayName() const
 {
-    if (!name.empty())
-        return name;
-    if (assignments.empty())
-        return "Automation lane";
-    if (assignments.size() == 1)
-        return assignments.front().name;
-    return assignments.front().name + " + " + std::to_string(assignments.size() - 1);
+    return name.empty() ? std::string("Automation lane") : name;
 }
 
 LaneRules AutomationLaneInfo::rules() const noexcept

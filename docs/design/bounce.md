@@ -71,7 +71,7 @@ The bounced clip's takes follow ADR 0032:
 
 ## 5. To a new track: the mix follows
 
-- **Placement:** the new track goes right after the source track, named after it ("Bass bounce"), in its colour, with no modules. One new track is made per source track, holding one audio clip per bounced clip, each where its source was.
+- **Placement:** the new track goes right after the source track, named after it ("Bass bounce"; "Bass bounce 2" when that's taken, tracks-and-clips.md §18), in its colour, with no modules. One new track is made per source track, holding one audio clip per bounced clip, each where its source was.
 - **Mix:** it copies the source's volume, pan and sends (level and pre/post), so it sits in the mix where the source did and still feeds the returns.
 - **Automation:** where the source's volume, pan or a send is assigned to a lane, the new track's same parameter is assigned to that lane through the same range. A lane can drive any number of parameters on any channel (ADR 0029), so a volume ride keeps riding the bounce. Module automation is in the print already.
 - **The source** clips are muted (§6), so the mix sounds the same; unmuting them layers the two or compares them. The source track and its modules are untouched.

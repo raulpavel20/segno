@@ -80,8 +80,7 @@ void AboutPopover::open(juce::Component& parent)
     setVisible(true);
     toFront(true);
     outside_.attach();
-    if (isShowing())
-        grabKeyboardFocus(); // Escape closes it
+    ui::takeFocus(*this); // Escape closes it; opened from a menu
 }
 
 void AboutPopover::close()

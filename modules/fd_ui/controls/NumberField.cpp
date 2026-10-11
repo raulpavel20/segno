@@ -165,7 +165,7 @@ void NumberField::showEditor(const juce::String& initial)
     editor_->selectAll();
     if (initial.length() == 1)
         editor_->moveCaretToEnd();
-    editor_->grabKeyboardFocus();
+    takeFocus(*editor_); // opened by a double-click: that press doesn't end it
 
     auto finish = [this](bool commit) {
         if (editor_ == nullptr)

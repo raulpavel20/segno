@@ -361,7 +361,7 @@ void Knob::showEditor(const juce::String& initialText)
     resized();
     editor_->setText(initialText, false);
     editor_->moveCaretToEnd();
-    editor_->grabKeyboardFocus();
+    takeFocus(*editor_); // opened by a double-click: that press doesn't end it
 
     auto finish = [this](bool commit) {
         if (editor_ == nullptr)

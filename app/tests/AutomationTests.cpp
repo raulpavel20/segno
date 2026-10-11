@@ -246,19 +246,20 @@ TEST_CASE("automation: a recorded pass splices into its lane, mapped back throug
     }
 }
 
-TEST_CASE("automation: a lane is named after its assignments and edits as steps for one stepped one", "[fast]")
+TEST_CASE("automation: a lane's name is its own, and it edits as steps for one stepped one", "[fast]")
 {
-    AutomationLaneInfo lane{.id = 1};
-    CHECK(lane.displayName() == "Automation lane");
+    // Lanes are numbered when made (tracks-and-clips.md §18), not named after what they drive.
+    AutomationLaneInfo lane{.id = 1, .name = "Automation 1"};
+    CHECK(lane.displayName() == "Automation 1");
     CHECK(lane.allOn());
     lane.assignments.push_back({.channel = 2, .key = "m3/mode", .name = "Mode", .steps = 3});
-    CHECK(lane.displayName() == "Mode");
+    CHECK(lane.displayName() == "Automation 1");
     CHECK(lane.rules().steps == 3);
     lane.assignments[0].range = {0.0f, 0.5f}; // part of a stepped parameter: it curves
     CHECK_FALSE(lane.rules().stepped());
     lane.assignments[0].range = {};
     lane.assignments.push_back({.channel = 2, .key = "volume", .on = false, .name = "Volume"});
-    CHECK(lane.displayName() == "Mode + 1");
+    CHECK(lane.displayName() == "Automation 1");
     CHECK_FALSE(lane.rules().stepped());
     CHECK(lane.anyOff());
     CHECK(lane.assignment(2, "volume")->name == "Volume");
