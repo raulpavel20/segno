@@ -36,8 +36,8 @@ To schedule an idea, it needs:
 
 | Idea | Why | Status |
 |---|---|---|
-| **Cross-track masking overlay** in the EQ: see other tracks' spectra and their collisions | The DAW knows every track. Plugins need workarounds for this. | 📌 M3 (EQ stage 2) |
-| **Reference track A/B** built into the master channel, with loudness matching | Every mix engineer does this with a third-party plugin today | 📌 M3 |
+| **Cross-track masking overlay** in the EQ: see other tracks' spectra and their collisions | The DAW knows every track. Plugins need workarounds for this. | 📌 M3 (EQ stage 2); the Spectrum's Compare (M2) brings the shared analysis and the collision rule |
+| **Reference track A/B** built into the master channel, with loudness matching | Every mix engineer does this with a third-party plugin today | 📌 M3; the Spectrum shows a reference's curve from M2 |
 | **Sidechain by drag:** drag from any track onto a device's sidechain input | Removes routing dialogs | 💡 |
 | **Gain-staging assistant:** see levels across the project and auto-level on import | Common beginner problem, and a time saver | 💡 |
 | **Mixer strips in the detail panel:** a compact row of channel strips under the arrangement, so both show at once (the mixer view replaces the arrangement) | Mixing while watching the arrangement, on large screens | 💡 after C3 (the mixer view is in M2, [mixer.md](design/mixer.md) §6) |

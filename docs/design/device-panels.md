@@ -152,7 +152,7 @@ Columns are in brackets. Each module's SPEC lists its map. The four M2 modules a
 | Limiter | HISTORY [6] · LIMIT [3] Gain, Ceiling, Release / Auto Release, True Peak · MODE [3] Mode (stacked), Channels, Lookahead · LOUDNESS [3] readouts, Reset · output meter | 884 |
 | Gate | HISTORY [6] with threshold and return lines · GATE [3] Threshold, Return, Range / Mode (stacked), Ratio, Flip · TIME [3] Attack, Hold, Release / Lookahead · SIDECHAIN [3] Filter, Listen / Freq, Q, Gain · in and out meters · header: Sidechain | 904 |
 | Limiter (draft) | HISTORY [6] · LIMIT [3] · MODE [3] · LOUDNESS [3] · meters | – |
-| Spectrum (draft) | SPECTRUM [12] display · SETTINGS [3] | – |
+| Spectrum (draft) | SPECTRUM [12] display with a legend · CURVES [3] Freeze, Reference… · SETTINGS [4] Channel, Resolution / Hold, Range / Peak Labels, Side Overlay / Average, Slope · header: Compare (the sidechain picker) | – |
 
 ## Checked by the layout lint
 

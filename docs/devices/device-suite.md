@@ -123,7 +123,7 @@ Bass and Poli (Max for Live instruments in Live) are covered by Subtractive Synt
 | Working name | Scope | Covers (Live) | Beyond Live | Tier | Milestone |
 |---|---|---|---|---|---|
 | **Utility** | Gain, pan, width, mono, phase flip, DC filter, mute | Utility | – | 1 | M0 |
-| **Spectrum** | FFT analyser, averaging, peak hold, mid/side | Spectrum | – | 1 | M2 |
+| **Spectrum** | FFT analyser, averaging, peak hold, mid/side; *stage 2 (M3):* a spectrogram view | Spectrum | **Yes.** Compare with any track without routing, shading where both are loud; a snapshot to compare before and after; a reference song's average spectrum, level-matched; a side overlay; peak labels with notes. Reasons people install a separate analyser, cheap in an integrated DAW ([SPEC](../../devices/spectrum/SPEC.md)) | 1 | M2 → M3 |
 | **Tuner** | Chromatic tuner with reference pitch | Tuner | – | 1 | M3 |
 | **Loudness Meter** | LUFS (integrated, short-term, momentary), true peak, correlation | (no Live device) | **Yes.** Cheap and essential for finishing tracks | 1 | M3 |
 
