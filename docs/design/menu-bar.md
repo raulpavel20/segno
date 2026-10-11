@@ -49,9 +49,15 @@ The product owner, 2026-10-11:
 3. **One list of commands.** A menu item *is* an action from the registry: the same name, shortcut, dimming and tick as in the palette, the tooltips and the right-click menus. Where a right-click menu and a menu bar menu share items (the take menu, the Record button's menu), one builder makes both.
 4. **Menus teach the keys.** Every item shows its shortcut, so a mouse user learns them gradually (ui-principles §8).
 5. **Frequent things stay one click away.** The menu bar is the complete list, not the fast route. The buttons and right-click menus where you work stay, and the top bar gains Undo, Redo and the palette (§7).
-6. **Shallow.** At most one level of submenus.
-7. **The window's top is ours, and behaves like the system's.** On Linux and Windows, one compact row holds the menus, the project's name and the window buttons. It moves, snaps, maximises and resizes the window as the system's title bar does. The system's title bar remains an option.
-8. **Quiet chrome.** The row recedes: the darkest surface, secondary text, and a lift only on hover and while a menu is open.
+6. **The menu bar is never the catch-all** (product owner, 2026-10-11, §15). Putting something in the menu bar doesn't settle where it lives:
+   - a property lives in the inspector;
+   - a frequent command lives on the surface it acts on;
+   - cancelling lives where the progress shows.
+
+   The menu bar then lists it too. A control earns a place on screen only if enough people use it often; otherwise the menu is its place.
+7. **Shallow.** At most one level of submenus.
+8. **The window's top is ours, and behaves like the system's.** On Linux and Windows, one compact row holds the menus, the project's name and the window buttons. It moves, snaps, maximises and resizes the window as the system's title bar does. The system's title bar remains an option.
+9. **Quiet chrome.** The row recedes: the darkest surface, secondary text, and a lift only on hover and while a menu is open.
 
 ## 3. Where the field is (2026)
 
@@ -456,7 +462,31 @@ The full record is [ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mou
   - two monitors, 200 % scale;
   - every menu by mouse and by keyboard (F10, Alt+letter).
 
-## 14. What comes when
+## 15. Each thing where you'd reach for it (review, 2026-10-11)
+
+Asked whether every action was in its right place, or the menu bar had become a catch-all, the product owner agreed to these changes, except for two on-screen controls that don't earn their place.
+
+**What moves to where you work:**
+- **Snap** (Ctrl+4): a Snap toggle in the corner above the track headers, on the editing surface; the grid size joins it later. The piano roll follows it as now.
+- **Quantise** (Ctrl+U): a Quantise button in the clip view's header, while it shows a clip (`PanelHeader` gains commands on the right, before its view options).
+- **Cancelling a bounce:**
+  - a small × on a clip being bounced, at its progress line; it cancels the bounces running, as Escape does;
+  - Clip > Cancel bounces stays in the menu.
+  - An export running with its panel closed is cancelled from the panel: File > Export… (or Ctrl+Shift+E) shows it with Cancel. The 2 px progress line along the top bar is too thin to click.
+- **Fades and crossfades** are properties, so they go in the inspector's CLIP section. Clip > Fades is removed from the menu bar, and the right-click on a fade stays as the shortcut.
+  - Each fade's row shows its length and its curve (−100 … 100 %, 0 straight), dragged or typed.
+  - While a crossfade meets the clip, a row for it at either end ("Crossfade in", "Crossfade out") shows its shape (None removes it) and where it sits against the join (Before, Centred, After), each a choice.
+- **Takes:** the inspector's TAKE section gains Copy to new track, Move to new track and Keep only this take, beside "Use this take".
+  - "Delete take" is removed: Delete and Edit > Delete already delete the selected takes.
+  - The take commands act only on the selected takes, never quietly on the take the selected clip plays.
+  - *Built:* renaming stays in the TAKE section's name field and the take menu's Rename. A double-click on a strip can't rename it: its first click already uses that take for its section (ADR 0038), so the comp would change first.
+- **Turn automation back on** moves within the menus, from Track to Transport beside Automation arm, the pair that sets automation as a whole. It gets no button: the product owner judged too few people would use it often enough to earn one. The lanes' own switches stay the way to turn lanes back on.
+
+**No on-screen controls for the computer keyboard's octave and velocity:** they stay on their keys (Z/X, C/V), in Options > Computer keyboard and in the keyboard button's right-click menu, as C10 built them. The product owner: fields beside the button "don't earn their place", and the keys are "intuitive enough".
+
+**Found on the way:** tracks and clips can't be renamed at all; there is nothing for it in the Session yet. That's open question B52 (renaming in place, with a double-click, as ui-principles §1 promises).
+
+## 16. What comes when
 
 - **C10 (M2):** everything above.
 - **Later:**

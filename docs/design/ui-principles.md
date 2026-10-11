@@ -23,6 +23,7 @@ People should not have to remember where things are hidden, and nothing should b
 - **Everything can be done with the mouse.** Every action is in the **menu bar** (File, Edit, Track, Clip, Transport, View, Options, Help: [menu-bar.md](menu-bar.md)), with its shortcut beside it, so the menus also teach the keys. A shortcut, the command palette or a right-click menu is never the only way to do something; a property is also in the inspector.
 - Every **frequent action** is **visible where you work** (a button, or the right-click menu of the thing it acts on) **and has a shortcut**. "Frequent" means used in most sessions: add a track, add a device, split, duplicate, quantise, loop, record, undo. Export is in File, where every app keeps it.
 - **Every action** is also in the **command palette** (`Ctrl/Cmd+K`): fuzzy search, showing the action's shortcut, recently used items first. The palette has a button in the top bar.
+- **The menu bar is the complete list, never the catch-all.** A property lives in the inspector, a frequent command on the surface it acts on, cancelling where the progress shows; the menu bar lists them too. Something used rarely, or by few, earns no button: the menu is its place.
 - **Menus are traditional and shallow.** File comes first and Help last; names and order follow common use, as in other DAWs. At most one level of submenus, in the menu bar and in right-click menus.
 - **No modal dialogs for editing.** Modals are allowed only for:
   - confirming destructive actions;

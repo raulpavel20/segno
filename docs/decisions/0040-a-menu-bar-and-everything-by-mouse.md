@@ -38,6 +38,7 @@ JUCE 9.0.3 supports this:
   - "Use the system title bar" (Options) brings the system's back, and the menus keep their row.
 - **macOS:** the system menu bar, with the app menu (About, Audio settings, Quit), and the native title bar.
 - **Frequent actions stay one click away** where you work. The top bar gains Undo, Redo and a search button for the command palette. Export stays in File, as in every DAW.
+- **The menu bar is the complete list, never the catch-all** (review, 2026-10-11, design §15). A property lives in the inspector, a frequent command on the surface it acts on, cancelling where the progress shows. The menu bar lists them too. A control earns a place on screen only if enough people use it often; otherwise the menu is its place, as with Turn automation back on and the computer keyboard's octave and velocity.
 
 The design is [design/menu-bar.md](../design/menu-bar.md).
 
