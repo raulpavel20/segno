@@ -83,6 +83,9 @@ AudioBuffer render(Device& device, const AudioBuffer& input, const RenderOptions
         ctx.numSamples = n;
         ctx.transport = options.transport;
         ctx.transport.samplePosition = pos;
+        ctx.transport.ppqPosition = options.transport.ppqPosition + static_cast<double>(pos) /
+                                                                        options.sampleRate *
+                                                                        options.transport.tempoBpm / 60.0;
         ctx.transport.playing = true;
 
         {

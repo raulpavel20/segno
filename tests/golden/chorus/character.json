@@ -1,0 +1,26 @@
+{
+  "chorus.pink_level_db": {
+    "tol": 0.05,
+    "value": -0.41301819737475176
+  },
+  "chorus.swing_cents": {
+    "tol": 0.05,
+    "value": 8.724072142341722
+  },
+  "ensemble.pink_level_db": {
+    "tol": 0.05,
+    "value": -0.20093581894029905
+  },
+  "ensemble.swing_cents": {
+    "tol": 0.05,
+    "value": 17.492137107428608
+  },
+  "warmth100.h3_minus3dbfs_db": {
+    "tol": 0.05,
+    "value": -25.36796226345244
+  },
+  "warmth100.tone_8k_db": {
+    "tol": 0.05,
+    "value": -14.128520530250517
+  }
+}

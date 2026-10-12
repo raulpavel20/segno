@@ -1,0 +1,31 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Guitar"
+  ],
+  "description": "A clear, shimmering chorus for clean guitar.",
+  "author": "Segno",
+  "state": {
+    "device": "chorus",
+    "extra": {},
+    "params": {
+      "delay": 5.0,
+      "depth": 40.0,
+      "div": 5.0,
+      "feedback": 0.0,
+      "invert": 0.0,
+      "lowcut": 1.0,
+      "lowcut.freq": 200.0,
+      "mix": 45.0,
+      "mode": 0.0,
+      "offset": 180.0,
+      "output": 0.0,
+      "rate": 1.2,
+      "shape": 0.0,
+      "sync": 0.0,
+      "warmth": 15.0,
+      "width": 100.0
+    },
+    "stateVersion": 1
+  }
+}

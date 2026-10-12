@@ -1,0 +1,171 @@
+{
+ "device": "chorus",
+ "author": "Segno",
+ "presets": [
+  {
+   "name": "Classic chorus",
+   "tags": ["Keys", "Wide"],
+   "description": "Two voices on a triangle, the synth chorus of the early 80s.",
+   "params": {
+    "rate": 0.5,
+    "depth": 45,
+    "shape": 100,
+    "delay": 4
+   }
+  },
+  {
+   "name": "Subtle width",
+   "tags": ["Subtle", "Wide"],
+   "description": "Slow and shallow: a little width and life for anything.",
+   "params": {
+    "rate": 0.3,
+    "depth": 25,
+    "delay": 8,
+    "width": 130,
+    "mix": 35
+   }
+  },
+  {
+   "name": "Deep chorus",
+   "tags": ["Pad", "Wide"],
+   "description": "Slow, deep and wide, for pads.",
+   "params": {
+    "rate": 0.35,
+    "depth": 80,
+    "delay": 10,
+    "width": 150
+   }
+  },
+  {
+   "name": "Guitar chorus",
+   "tags": ["Guitar"],
+   "description": "A clear, shimmering chorus for clean guitar.",
+   "params": {
+    "rate": 1.2,
+    "depth": 40,
+    "delay": 5,
+    "warmth": 15,
+    "lowcut.freq": 200,
+    "mix": 45
+   }
+  },
+  {
+   "name": "Bass chorus",
+   "tags": ["Bass"],
+   "description": "Chorus above 250 Hz only, so the low end stays solid and centred.",
+   "params": {
+    "rate": 0.7,
+    "depth": 45,
+    "width": 120,
+    "lowcut.freq": 250
+   }
+  },
+  {
+   "name": "Vocal thickener",
+   "tags": ["Vocals", "Subtle"],
+   "description": "Two close voices that thicken without wobbling.",
+   "params": {
+    "rate": 0.25,
+    "depth": 20,
+    "delay": 12,
+    "lowcut.freq": 150,
+    "mix": 30
+   }
+  },
+  {
+   "name": "Mono-safe chorus",
+   "tags": ["Subtle", "Clean"],
+   "description": "Both sides move together, so it sums to mono without losing anything.",
+   "params": {
+    "rate": 0.6,
+    "depth": 35,
+    "offset": 0,
+    "mix": 40
+   }
+  },
+  {
+   "name": "String ensemble",
+   "tags": ["Pad", "Keys"],
+   "description": "Three voices with the quick shimmer, for string machines and pads.",
+   "params": {
+    "mode": "Ensemble",
+    "rate": 0.6,
+    "depth": 60,
+    "delay": 8,
+    "width": 130,
+    "mix": 55
+   }
+  },
+  {
+   "name": "Ensemble wash",
+   "tags": ["Pad", "Wide", "Heavy"],
+   "description": "Deep ensemble with some feedback: a wide, swirling wash.",
+   "params": {
+    "mode": "Ensemble",
+    "rate": 0.4,
+    "depth": 90,
+    "delay": 12,
+    "feedback": 35,
+    "width": 170,
+    "mix": 60
+   }
+  },
+  {
+   "name": "Warm ensemble",
+   "tags": ["Warm", "Keys"],
+   "description": "Ensemble with Warmth, darker and softer, for electric pianos.",
+   "params": {
+    "mode": "Ensemble",
+    "rate": 0.5,
+    "depth": 50,
+    "warmth": 60,
+    "mix": 45
+   }
+  },
+  {
+   "name": "Lead vibrato",
+   "tags": ["Lead"],
+   "description": "A natural vibrato for a synth lead, both sides together.",
+   "params": {
+    "mode": "Vibrato",
+    "rate": 5.5,
+    "depth": 24,
+    "offset": 0
+   }
+  },
+  {
+   "name": "Wide vibrato",
+   "tags": ["Wide", "Lead"],
+   "description": "The sides bending in opposite directions: vibrato that also spreads.",
+   "params": {
+    "mode": "Vibrato",
+    "rate": 4.5,
+    "depth": 25
+   }
+  },
+  {
+   "name": "Siren",
+   "tags": ["FX"],
+   "description": "A deep triangle vibrato that swaps between two pitches.",
+   "params": {
+    "mode": "Vibrato",
+    "rate": 3,
+    "depth": 100,
+    "shape": 100,
+    "offset": 0
+   }
+  },
+  {
+   "name": "Metallic",
+   "tags": ["FX", "Heavy"],
+   "description": "Short voices with inverted feedback: a hollow, ringing edge.",
+   "params": {
+    "rate": 0.3,
+    "depth": 15,
+    "delay": 1.5,
+    "feedback": 80,
+    "invert": true
+   }
+  }
+ ]
+}

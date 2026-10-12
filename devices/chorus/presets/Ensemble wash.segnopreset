@@ -1,0 +1,33 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Pad",
+    "Wide",
+    "Heavy"
+  ],
+  "description": "Deep ensemble with some feedback: a wide, swirling wash.",
+  "author": "Segno",
+  "state": {
+    "device": "chorus",
+    "extra": {},
+    "params": {
+      "delay": 12.0,
+      "depth": 90.0,
+      "div": 5.0,
+      "feedback": 35.0,
+      "invert": 0.0,
+      "lowcut": 1.0,
+      "lowcut.freq": 120.0,
+      "mix": 60.0,
+      "mode": 1.0,
+      "offset": 180.0,
+      "output": 0.0,
+      "rate": 0.4,
+      "shape": 0.0,
+      "sync": 0.0,
+      "warmth": 0.0,
+      "width": 170.0
+    },
+    "stateVersion": 1
+  }
+}

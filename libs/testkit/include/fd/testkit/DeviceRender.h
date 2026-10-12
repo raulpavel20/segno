@@ -34,8 +34,8 @@ struct RenderOptions
     bool skipPrepare = false;
     /// A sidechain signal (a key), for devices with a sidechain bus; none when null.
     const AudioBuffer* sidechain = nullptr;
-    /// The song's tempo and time signature the device sees (samplePosition and playing are set
-    /// per block).
+    /// The song's tempo and time signature the device sees, and where it starts: it plays from
+    /// `ppqPosition`, which moves on with the samples (samplePosition and playing are set per block).
     TransportInfo transport{};
 };
 

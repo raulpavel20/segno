@@ -1,0 +1,32 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Keys",
+    "Wide"
+  ],
+  "description": "Two voices on a triangle, the synth chorus of the early 80s.",
+  "author": "Segno",
+  "state": {
+    "device": "chorus",
+    "extra": {},
+    "params": {
+      "delay": 4.0,
+      "depth": 45.0,
+      "div": 5.0,
+      "feedback": 0.0,
+      "invert": 0.0,
+      "lowcut": 1.0,
+      "lowcut.freq": 120.0,
+      "mix": 50.0,
+      "mode": 0.0,
+      "offset": 180.0,
+      "output": 0.0,
+      "rate": 0.5,
+      "shape": 100.0,
+      "sync": 0.0,
+      "warmth": 0.0,
+      "width": 100.0
+    },
+    "stateVersion": 1
+  }
+}

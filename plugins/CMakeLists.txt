@@ -114,6 +114,10 @@ fd_add_device_plugin(ID delay NAME "Delay" CODE Fdly KIND effect
     VST3_CATEGORIES Fx Delay
     CLAP_FEATURES audio-effect delay stereo mono)
 
+fd_add_device_plugin(ID chorus NAME "Chorus" CODE Fchr KIND effect
+    VST3_CATEGORIES Fx Modulation
+    CLAP_FEATURES audio-effect chorus stereo mono)
+
 fd_add_device_plugin(ID subtractive-synth NAME "Subtractive Synth" CODE Fsub KIND instrument
     VST3_CATEGORIES Instrument Synth
     CLAP_FEATURES instrument synthesizer stereo)

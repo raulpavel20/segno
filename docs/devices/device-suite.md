@@ -86,7 +86,7 @@ Bass and Poli (Max for Live instruments in Live) are covered by Subtractive Synt
 
 | Working name | Scope | Covers (Live) | Beyond Live | Tier | Milestone |
 |---|---|---|---|---|---|
-| **Chorus & Ensemble** | Chorus, ensemble, vibrato | Chorus-Ensemble | – | 1 | M3 |
+| **Chorus** | Chorus, ensemble, vibrato ([SPEC](../../devices/chorus/SPEC.md); named Chorus, C11) | Chorus-Ensemble | Sync; Shape and Offset in every mode; the pitch swing shown in cents | 1 | M3 |
 | **Phaser & Flanger** | Phaser, flanger, doubler; sync; envelope follower | Phaser-Flanger | – | 1 | M3 |
 | **Auto Pan & Tremolo** | LFO panning and tremolo, sync, shapes | Auto Pan | – | 1 | M3 |
 | **Shifter** | Frequency shift, ring modulation, pitch shift | Shifter | – | 2 | M6 |

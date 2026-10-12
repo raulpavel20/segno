@@ -84,6 +84,8 @@ struct Input
     double rulerZoom = 0.012;   // log zoom per px dragged vertically on a ruler
     float bendTravel = 60.0f;   // px dragged for a whole bend (automation segments, fades)
     int cursorIconSize = 32;    // px: an icon drawn as a mouse cursor (ui::cursorFor), a system cursor's size
+    float valueTravel = 200.0f; // px dragged for a control's whole range (knobs, bars, a display's values)
+    float fineFactor = 0.1f;    // how much finer a drag is with Shift held
 };
 
 /// The shell's sizes (docs/design/ui-foundations.md).

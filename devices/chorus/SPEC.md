@@ -1,6 +1,6 @@
 # Chorus: device spec
 
-- **Status:** Approved by the product owner (2026-10-12, with every recommendation of C1–C11); IDs are permanent. Building (B2)
+- **Status:** Approved by the product owner (2026-10-12, with every recommendation of C1–C11); IDs are permanent. Built (B2, 2026-10-12): what building settled is under "Settled while building". Awaiting sign-off by ear and feel
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1, M3 (B2)
 - **Live target:** Chorus-Ensemble. References only; nothing is copied ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
@@ -19,7 +19,7 @@ One module with three modes, as Live's Chorus-Ensemble has. It's built on the mo
 Small things, all from the modulation core:
 - **Sync:** the movement can follow the song's tempo and stay locked to its position, as the Delay's modulation does.
 - **Shape and Offset in every mode.** Live has them in Vibrato only. Offset at 0° gives a mono chorus that sums safely to mono.
-- **The voices drawn:** the display draws each voice's delay over two cycles, computed by the functions the audio path uses. It reads out the pitch swing in cents, so you know how much a setting bends before you hear it. Drag in it to set Rate and Depth.
+- **The voices drawn:** the display draws each voice's movement over two cycles, computed by the functions the audio path uses. It reads out the pitch swing in cents, so you know how much a setting bends before you hear it. Drag in it to set Rate and Depth.
 
 ## Stages
 
@@ -64,12 +64,11 @@ No non-parameter state. State version 1.
 ## DSP design
 
 ```
-in ─> Low Cut split ─┬─ lows ─────────────────────────────────────────────────────────────────────────────┐
-                     │                                                                                    │
-                     └─ highs ─┬─> + ─> line L/R (ModulatedDelay) ─> voices ─> tone (Warmth) ─┬─> Width ─> wet ─┤
-                               │   ^                                                      │                     │
-                               │   └──── × feedback (− if Invert) <── the voices' average ┘                     │
-                               └─> dry ─────────────────────────────────────────────────────── mix (equal power) ─> + lows ─> Output ─> out
+in ─┬─> Low Cut crossover ─┬─ above ─> + ─> line L/R (ModulatedDelay) ─> voices ─> tone (Warmth) ─┬─> Width ─> wet ─┐
+    │                      │           ^                                                      │                   │
+    │                      │           └──── × feedback (− if Invert) <── the voices' average ┘                   │
+    │                      └─ below ──────────────── × (1 − dry gain) ──────────────────────────────────────────────┤
+    └─> dry ──────────────────────────────────── × dry gain ─── mix (equal power) ───────────────────────────────────┴─> Output ─> out
 ```
 
 **Lines and voices:**
@@ -87,8 +86,11 @@ in ─> Low Cut split ─┬─ lows ──────────────�
 - **Each voice's delay:**
   - Chorus and Ensemble: Delay + sweep × (1 + value) / 2.
   - Vibrato: the line's shortest delay + sweep × (1 + value) / 2.
-  - Computed by a pure function, `Chorus::voiceDelays`, which the display calls too. `Chorus::pitchSwing` gives the display's readout.
-- **The voices' glide:** the delay each voice reads glides (a one-pole of about 2 ms), so a jump in the LFO's phase doesn't click. A jump comes from switching Sync, a jump in the song, or a sudden Offset.
+  - Computed by a pure function, `Chorus::voiceDelayMs`, which the display calls too. `Chorus::pitchSwing` gives the display's readout.
+- **Glides, never jumps:** a jump in a voice's delay would click, so nothing moves it at once.
+  - Delay, Depth and Offset glide to a new value through two one-poles in a row (12 ms each), so the glide starts and ends without a step in its speed.
+  - When the LFO's phase jumps (Sync switched on, a new note value, the song jumping or starting), the voices glide from where they were, by the nearer way round, the same way.
+  - The song's position is counted by the device as it plays; the host's is taken only when it starts or jumps (more than a thousandth of a beat out), so the sound doesn't depend on how the host splits its blocks.
 
 **Feedback and tone:**
 - **Feedback** (Chorus and Ensemble only): what feeds back is the average of a side's voices, after the tone stage, times Feedback (negated by Invert). Averaging means the loop's gain never passes Feedback, however the voices line up.
@@ -98,11 +100,11 @@ in ─> Low Cut split ─┬─ lows ──────────────�
   - Its soft clip bounds the loop at any feedback.
 
 **Low Cut, width and mix:**
-- **Low Cut:** the input is split by a 12 dB/oct high-pass at Low Cut Freq.
-  - The part above feeds the effect, dry and wet.
-  - The part below (the input less the high-passed part) goes straight to the output. It isn't scaled by Dry/Wet, so the lows stay at their level in every mode and at every mix.
-  - The two parts sum back to the input exactly.
-  - Off: the whole input feeds the effect.
+- **Low Cut:** a Linkwitz-Riley crossover (24 dB/oct) at Low Cut Freq splits the input.
+  - The band above feeds the voices.
+  - The dry sound is the whole input, as it comes. Where the mix takes dry sound away, the band below takes its place, so the lows keep their level in every mode and at every mix, and never move.
+  - At 0 % Dry/Wet the output is the input exactly.
+  - Off: the whole input feeds the voices.
 - **Width:** mid-side on the wet: the side is scaled by Width (0 %: mono; 200 %: the sides twice as loud as the middle).
 - **Mix:** equal power (cosine and sine). At 50 % the result is about as loud as the dry sound, so switching the module off doesn't drop the level. At 0 % it's the input exactly. Vibrato is always all wet.
 - **Mode changes:** the old mode and the new run side by side for 50 ms and crossfade.
@@ -128,9 +130,9 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)), sec
 | meter strip | In and out |
 
 **Voices display:**
-- It shows two cycles of the movement. Each voice's delay is a line, from the dry sound at the bottom up to the longest delay the settings reach: the left side's voices in the accent colour, the right side's in the secondary.
-- A marker moves along with the LFO's position.
-- Its label line reads the pitch swing ("±12 cents") and the delay range ("6–10 ms"), from `Chorus::pitchSwing` and `Chorus::voiceDelays`.
+- It shows two cycles of the movement. Each voice's movement (`Chorus::voiceValue`, what moves its delay) is a line, centred and as tall as Depth: the left side's voices in the accent colour, over the right side's in the secondary.
+- A marker moves along with the LFO's position while the module plays; with nothing playing it (the snapshots, the gallery), there's none.
+- Its label line reads the pitch swing ("±12 cents") and the delay range ("6–10 ms"), from `Chorus::pitchSwing` and `Chorus::voiceDelayMs`.
 - **Dragging:** left or right changes Rate (stepping through the note values while Sync is on); up or down changes Depth. Shift drags finely.
 
 **Controls:**
@@ -165,18 +167,18 @@ Built and named by Claude after approval ([presets.md](../../docs/design/presets
 | Metric | Target |
 |---|---|
 | Delay, Depth 0 | An impulse arrives Delay after the input, to the sample, in Chorus and Ensemble (Mix 100 %, Low Cut off) |
-| Voice delays | With an impulse train at Depth 100 % and Rate 0.5 Hz, each voice's echo arrives where `Chorus::voiceDelays` says, within 1 sample, in every mode and at Shape 0, 50 and 100 % |
+| Voice delays | With an impulse train at Depth 100 % and Rate 0.5 Hz, each voice's echo arrives where `Chorus::voiceDelayMs` says, within 1 sample, in every mode and at Shape 0, 50 and 100 % |
 | Pitch swing | A 1 kHz sine through Vibrato: its measured pitch follows `Chorus::pitchSwing` within 1 cent |
 | Offset 0°, mono input | Left and right identical (bit-exact), in every mode |
 | Width 0 % | The wet has no side (L − R of the wet < −120 dBFS) |
-| Low Cut | A 40 Hz sine with Low Cut at 200 Hz comes out within 0.5 dB at any Mix, with no sidebands above −60 dBFS; a 2 kHz sine is chorused |
+| Low Cut | A 40 Hz sine at −12 dBFS with Low Cut at 200 Hz comes out within 0.5 dB at any Mix and in every mode, with what isn't the tone at least 50 dB down (−62 dBFS); a 2 kHz sine is chorused |
 | Mix 0 % | Null against the input (< −120 dBFS), Low Cut on or off |
 | Level at Mix 50 % | Pink noise comes out within ±1 dB of its input level, in Chorus and Ensemble at Depth 50 % |
 | Feedback 95 % with Warmth 100 % | A 0 dBFS input: the output stays within +6 dBFS and doesn't grow, Invert on or off |
 | Invert | The impulse response's second pass through the line flips sign |
 | Sync | A synced LFO is at the same position after a jump in the song as when played through to it |
 | Mode, Sync and Offset changes | No clicks (the conformance click score) |
-| Display vs audio | The drawn delay curves within 1 sample of the rendered voices; the readout within 1 cent of the measured swing |
+| Display vs audio | The display draws `Chorus::voiceValue`, the movement each voice's delay comes from; the delays within 1 sample of the rendered voices (Voice delays); the readout within 1 cent of the measured swing (Pitch swing) |
 | Conformance suite | All pass (no allocation, no denormals, parameter jumps without clicks, the tail as reported) |
 
 ## A/B cases (against the Live target)
@@ -203,10 +205,24 @@ Deferred until a Live machine is available.
 | C10 | **Left out for now** | Live's taps switch (C1); more voices; an envelope follower; analog noise and clock whine (noise would break "silence in, silence out", as in the Delay) |
 | C11 | **Name and IDs** | Named **Chorus** in the browser, the chain and hosts ("Segno Chorus"). It's shorter than the working name "Chorus & Ensemble", and its modes and description name the rest. Device `chorus`, plugin code `Fchr`, CLAP `org.segnoaudio.chorus`; section IDs as above |
 
+## Settled while building (B2, 2026-10-12)
+
+- **Low Cut is a Linkwitz-Riley crossover (24 dB/oct), and the dry sound is the whole input.** The design split the input by subtraction at 12 dB/oct, with the lows going straight out. It had two faults:
+  - At 12 dB/oct, Vibrato still bent a 30 Hz tone under a 200 Hz Low Cut (sidebands at −45 dB).
+  - A band made by subtraction swells above its cutoff (about +3.5 dB an octave up at 24 dB/oct). That shows wherever the mix takes the dry sound away: a 0 dBFS input passed +6 dBFS at full feedback.
+
+  Now the band below takes the place of the dry sound the mix takes away, so the lows keep their level and never move. 0 % Dry/Wet is still the input exactly.
+- **Warmth has no drive of its own.** A compensated drive into the soft clip held the voices under −15 dBFS at 100 %. Warmth is the tone stage as the DSP design says: its high cut and its saturation (−25 dB third harmonic at −3 dBFS, full Warmth).
+- **Glides, not a glide on the voices.** A one-pole on each voice's delay would also lag the movement itself, by more than a sample at slow rates. So Delay, Depth and Offset glide, and so do the LFO's jumps; the voices follow the movement exactly (DSP design).
+- **Renders in tests move the song on.** The test kit's renders said the song was playing but held its position still. They now play from `transport.ppqPosition`, moving on with the samples, so a synced movement can be tested.
+- **Shared drag distances.** A knob's drag for its whole range (200 px) and Shift's fine factor (0.1) are now `input.valueTravel` and `input.fineFactor` (ui-foundations.md), which the voices display uses too.
+- **The display draws the movement as tall as Depth,** not the delays from 0 ms. Drawn in milliseconds from the dry sound, the default chorus moved in a seventh of the display's height, and Ensemble's six voices in a thin, unreadable band. The readout above gives the delays in milliseconds.
+- **The Low Cut test target** is a 40 Hz tone at −12 dBFS, with what isn't the tone at least 50 dB down (−62 dBFS), in every mode and at every mix.
+
 ## Sign-off
 
-- [ ] Automated: unit, conformance and golden tests; validators (pluginval at strictness 10 and clap-validator)
-- [ ] Layout lint passes (`fd_panel_tests`)
-- [ ] Snapshots reviewed (100% / 200%; expanded, collapsed, folded)
+- [x] Automated: unit, conformance and golden tests; validators (pluginval at strictness 10 and clap-validator pass; 2026-10-12)
+- [x] Layout lint passes (`fd_panel_tests`)
+- [x] Snapshots reviewed (100% / 200%; expanded, collapsed, folded; every factory preset at 200 %, with `fd-snapshot --presets chorus`)
 - [ ] Sound signed off by the product owner, with the factory presets
 - [ ] Feel signed off by the product owner

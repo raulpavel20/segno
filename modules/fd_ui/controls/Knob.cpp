@@ -5,8 +5,6 @@ namespace
 // JUCE arc angles: 0 = 12 o'clock, clockwise. The arc runs from 7:30 to 4:30 (270 degrees).
 constexpr float kStartAngle = -juce::MathConstants<float>::pi * 0.75f;
 constexpr float kSweep = juce::MathConstants<float>::pi * 1.5f;
-constexpr float kPixelsForFullRange = 200.0f;
-constexpr float kFineFactor = 0.1f;
 
 float angleFor(float normalized)
 {
@@ -277,12 +275,13 @@ void Knob::mouseDrag(const juce::MouseEvent& e)
     if (!dragging_)
         return;
     // Accumulate relative movement so pressing or releasing Shift mid-drag never jumps.
-    float delta = (lastDragY_ - e.position.y) / (style_ == Style::Fader ? faderTravel() : kPixelsForFullRange);
+    const auto& input = Theme::current().input;
+    float delta = (lastDragY_ - e.position.y) / (style_ == Style::Fader ? faderTravel() : input.valueTravel);
     if (style_ == Style::Bar)
-        delta += (e.position.x - lastDragX_) / kPixelsForFullRange;
+        delta += (e.position.x - lastDragX_) / input.valueTravel;
     lastDragY_ = e.position.y;
     lastDragX_ = e.position.x;
-    const float factor = e.mods.isShiftDown() ? kFineFactor : 1.0f;
+    const float factor = e.mods.isShiftDown() ? input.fineFactor : 1.0f;
     dragAccumulator_ = juce::jlimit(0.0f, 1.0f, dragAccumulator_ + delta * factor);
     changeTo(dragAccumulator_);
 }

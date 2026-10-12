@@ -1,0 +1,32 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Pad",
+    "Wide"
+  ],
+  "description": "Slow, deep and wide, for pads.",
+  "author": "Segno",
+  "state": {
+    "device": "chorus",
+    "extra": {},
+    "params": {
+      "delay": 10.0,
+      "depth": 80.0,
+      "div": 5.0,
+      "feedback": 0.0,
+      "invert": 0.0,
+      "lowcut": 1.0,
+      "lowcut.freq": 120.0,
+      "mix": 50.0,
+      "mode": 0.0,
+      "offset": 180.0,
+      "output": 0.0,
+      "rate": 0.35,
+      "shape": 0.0,
+      "sync": 0.0,
+      "warmth": 0.0,
+      "width": 150.0
+    },
+    "stateVersion": 1
+  }
+}

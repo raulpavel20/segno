@@ -1,0 +1,32 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Subtle",
+    "Wide"
+  ],
+  "description": "Slow and shallow: a little width and life for anything.",
+  "author": "Segno",
+  "state": {
+    "device": "chorus",
+    "extra": {},
+    "params": {
+      "delay": 8.0,
+      "depth": 25.0,
+      "div": 5.0,
+      "feedback": 0.0,
+      "invert": 0.0,
+      "lowcut": 1.0,
+      "lowcut.freq": 120.0,
+      "mix": 35.0,
+      "mode": 0.0,
+      "offset": 180.0,
+      "output": 0.0,
+      "rate": 0.3,
+      "shape": 0.0,
+      "sync": 0.0,
+      "warmth": 0.0,
+      "width": 130.0
+    },
+    "stateVersion": 1
+  }
+}

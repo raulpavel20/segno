@@ -1,14 +1,18 @@
 // fd-snapshot: renders every device panel offscreen to PNG, once per theme and scale.
 // Used for UI review (Claude reads the PNGs) and golden-image tests (ADR 0007).
 //
-//   fd-snapshot <out-dir> [--theme <name>] [--scale 1,2]
+//   fd-snapshot <out-dir> [--theme <name>] [--scale 1,2] [--presets <device>]
 //   fd-snapshot --app-icon <file.png> [size]
 //
 // Output: <out-dir>/<theme>/<device>[-collapsed|-folded]@<scale>x.png: every panel expanded,
-// with all its sections collapsed, and folded (ADR 0022). --app-icon writes the app icon
-// (ADR 0024) from the same mark the DAW draws; app/resources/AppIcon.png is made with it.
+// with all its sections collapsed, and folded (ADR 0022). --presets adds the device's panel
+// expanded with each of its factory presets loaded (<device>-preset-<name>@<scale>x.png), to
+// review its displays in other settings. --app-icon writes the app icon (ADR 0024) from the same
+// mark the DAW draws; app/resources/AppIcon.png is made with it.
 
+#include <fd/device/Presets.h>
 #include <fd/device/Registry.h>
+#include <fd/device/State.h>
 #include <fd_device_ui/fd_device_ui.h>
 
 #include <iostream>
@@ -25,11 +29,14 @@ struct SnapshotSidechain final : fd::ui::SidechainRouting
     void select(int) override {}
 };
 
-juce::Image renderPanel(const fd::DeviceFactory& factory, const fd::ui::PanelFactory& panelFactory, float scale, View view)
+juce::Image renderPanel(const fd::DeviceFactory& factory, const fd::ui::PanelFactory& panelFactory,
+                        float scale, View view, const fd::DeviceState* state = nullptr)
 {
     auto device = factory.create();
     if (factory.testSetup != nullptr) // e.g. a loaded sample, so its display isn't empty
         factory.testSetup(*device);
+    if (state != nullptr)
+        (void)fd::applyState(*device, *state);
     fd::ui::LocalParamBinding binding(*device);
     SnapshotSidechain sidechain;
     fd::ui::DeviceUiContext ctx{factory.info(), binding, nullptr, device.get(), &sidechain};
@@ -74,13 +81,14 @@ int main(int argc, char** argv)
     }
     if (argc < 2)
     {
-        std::cerr << "usage: fd-snapshot <out-dir> [--theme <name>] [--scale 1,2]\n"
+        std::cerr << "usage: fd-snapshot <out-dir> [--theme <name>] [--scale 1,2] [--presets <device>]\n"
                      "       fd-snapshot --app-icon <file.png> [size]\n";
         return 2;
     }
     const juce::File outDir = juce::File::getCurrentWorkingDirectory().getChildFile(argv[1]);
     juce::String onlyTheme;
     juce::StringArray scales{"1", "2"};
+    std::string presetsOf;
     for (int i = 2; i + 1 < argc; i += 2)
     {
         const juce::String k(argv[i]);
@@ -88,6 +96,8 @@ int main(int argc, char** argv)
             onlyTheme = argv[i + 1];
         else if (k == "--scale")
             scales = juce::StringArray::fromTokens(argv[i + 1], ",", "");
+        else if (k == "--presets")
+            presetsOf = argv[i + 1];
     }
 
     fd::ui::LookAndFeel lnf;
@@ -106,24 +116,41 @@ int main(int argc, char** argv)
             const auto* panelFactory = fd::ui::findPanel(factory->info().id);
             if (panelFactory == nullptr)
                 continue;
-            for (const auto& s : scales)
-                for (const auto& [view, suffix] : {std::pair{View::Expanded, ""}, std::pair{View::Collapsed, "-collapsed"},
-                                                   std::pair{View::Folded, "-folded"}})
+            const juce::String id(std::string(factory->info().id));
+            const auto write = [&](const juce::Image& image, const juce::String& name)
             {
-                const float scale = s.getFloatValue();
-                const auto image = renderPanel(*factory, *panelFactory, scale, view);
-                const auto file = outDir.getChildFile(theme.name)
-                                      .getChildFile(juce::String(std::string(factory->info().id)) + suffix + "@" + s + "x.png");
+                const auto file = outDir.getChildFile(theme.name).getChildFile(name);
                 file.getParentDirectory().createDirectory();
                 file.deleteFile();
                 juce::FileOutputStream out(file);
                 if (!out.openedOk() || !juce::PNGImageFormat().writeImageToStream(image, out))
                 {
                     std::cerr << "error: cannot write " << file.getFullPathName() << "\n";
-                    return 1;
+                    return false;
                 }
                 std::cout << file.getFullPathName() << "\n";
                 ++written;
+                return true;
+            };
+            for (const auto& s : scales)
+                for (const auto& [view, suffix] :
+                     {std::pair{View::Expanded, ""}, std::pair{View::Collapsed, "-collapsed"},
+                      std::pair{View::Folded, "-folded"}})
+                    if (!write(renderPanel(*factory, *panelFactory, s.getFloatValue(), view),
+                               id + suffix + "@" + s + "x.png"))
+                        return 1;
+            if (factory->info().id != presetsOf)
+                continue;
+            for (const auto& file : fd::factoryPresetFiles())
+            {
+                const auto preset = fd::parsePresetFile(file.text, std::string(file.name));
+                if (!preset || preset->state.deviceId != presetsOf)
+                    continue;
+                for (const auto& s : scales)
+                    if (!write(renderPanel(*factory, *panelFactory, s.getFloatValue(), View::Expanded,
+                                           &preset->state),
+                               id + "-preset-" + juce::String(preset->name) + "@" + s + "x.png"))
+                        return 1;
             }
         }
     }

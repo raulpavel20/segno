@@ -1,0 +1,31 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Bass"
+  ],
+  "description": "Chorus above 250 Hz only, so the low end stays solid and centred.",
+  "author": "Segno",
+  "state": {
+    "device": "chorus",
+    "extra": {},
+    "params": {
+      "delay": 6.0,
+      "depth": 45.0,
+      "div": 5.0,
+      "feedback": 0.0,
+      "invert": 0.0,
+      "lowcut": 1.0,
+      "lowcut.freq": 250.0,
+      "mix": 50.0,
+      "mode": 0.0,
+      "offset": 180.0,
+      "output": 0.0,
+      "rate": 0.7,
+      "shape": 0.0,
+      "sync": 0.0,
+      "warmth": 0.0,
+      "width": 120.0
+    },
+    "stateVersion": 1
+  }
+}

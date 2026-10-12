@@ -1,0 +1,32 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "FX",
+    "Heavy"
+  ],
+  "description": "Short voices with inverted feedback: a hollow, ringing edge.",
+  "author": "Segno",
+  "state": {
+    "device": "chorus",
+    "extra": {},
+    "params": {
+      "delay": 1.5,
+      "depth": 15.0,
+      "div": 5.0,
+      "feedback": 80.0,
+      "invert": 1.0,
+      "lowcut": 1.0,
+      "lowcut.freq": 120.0,
+      "mix": 50.0,
+      "mode": 0.0,
+      "offset": 180.0,
+      "output": 0.0,
+      "rate": 0.3,
+      "shape": 0.0,
+      "sync": 0.0,
+      "warmth": 0.0,
+      "width": 100.0
+    },
+    "stateVersion": 1
+  }
+}

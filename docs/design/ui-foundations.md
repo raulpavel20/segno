@@ -97,6 +97,8 @@ Role functions for colours that depend on content:
 | `input.wheelZoom` | 2× per wheel unit (Ctrl) | Zooming at the mouse |
 | `input.rulerZoom` | 1.2 % per pixel dragged vertically | Zooming by dragging the ruler |
 | `input.cursorIconSize` | 32 px | An icon drawn as a mouse cursor (`cursorFor`): a system cursor's size, so it reads as one |
+| `input.valueTravel` | 200 px | Dragged for a control's whole range: knobs, bars, and a display that sets values (the Chorus's voices) |
+| `input.fineFactor` | 0.1 | How much finer a drag is with Shift held |
 
 ## Shell metrics
 
