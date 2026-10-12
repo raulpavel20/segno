@@ -4510,9 +4510,9 @@ TEST_CASE(
                 view.createComponentSnapshot(
                     view.getLocalBounds().withHeight(view.songLaneArea().getBottom() + 140), true, 2.0f));
 
-    // A's body dragged past B lands after it, with its music: B A.
+    // A's body dragged four seconds later lands after B, with its music: B A.
     const auto clipsBefore = s.snapshot()->tracks[0].clips.front().start;
-    drag(view, {xAt(1.0), body}, {xAt(7.6), body});
+    drag(view, {xAt(1.0), body}, {xAt(5.0), body});
     REQUIRE(sections().size() == 2);
     CHECK(sections()[0].id == b);
     CHECK(sections()[1].id == a);
@@ -4566,4 +4566,35 @@ TEST_CASE(
                 view.createComponentSnapshot(
                     view.getLocalBounds().withHeight(view.songLaneArea().getBottom() + 140), true, 2.0f));
     }
+}
+
+TEST_CASE(
+    "the song row: a lone section follows the pointer into empty time, a ghost where it lands (C3 review)",
+    "[integration]")
+{
+    ShellFixture f;
+    auto& s = *f.session;
+    f.shell->setSize(1800, 900);
+    auto& view = f.shell->arrangement();
+    REQUIRE(s.addSection(0.0, 4.0) != 0);
+    s.updateSnapshotNow();
+    view.setSnapshot(s.snapshot());
+    const auto lane = view.songLaneArea().toFloat();
+    const auto& tl = view.timeline();
+    const auto xAt = [&](double seconds) { return lane.getX() + static_cast<float>(tl.xForTime(seconds)); };
+    const float body = lane.getBottom() - 8.0f;
+    // Pressed, then dragged eight seconds later: a ghost where it lands, before it's let go.
+    view.mouseDown(mouseEvent(view, {xAt(1.0), body}, {xAt(1.0), body}, false));
+    view.mouseDrag(mouseEvent(view, {xAt(9.0), body}, {xAt(1.0), body}, true));
+    REQUIRE(view.sectionDrop().has_value());
+    CHECK(*view.sectionDrop() == Catch::Approx(12.0)); // it cuts at its new end
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "song-row-drag@2x.png",
+                view.createComponentSnapshot(
+                    view.getLocalBounds().withHeight(view.songLaneArea().getBottom() + 60), true, 2.0f));
+    view.mouseUp(mouseEvent(view, {xAt(9.0), body}, {xAt(1.0), body}, true));
+    s.updateSnapshotNow();
+    REQUIRE(s.snapshot()->sections.size() == 1);
+    CHECK(s.snapshot()->sections[0].start == Catch::Approx(8.0));
+    CHECK(s.undoDescription() == "Move section A");
 }

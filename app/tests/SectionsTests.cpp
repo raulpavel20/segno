@@ -204,3 +204,25 @@ TEST_CASE("sections: automation keeps its values at the edges", "[fast]")
         CHECK(applyPlan(c, planMove(2.0, 4.0, 6.0)).lanes.empty());
     }
 }
+
+TEST_CASE("sections: a dragged run lands between sections, empty time included", "[fast]")
+{
+    const auto s = abcd(); // A 0-2, B 2-4, C 4-6, D 6-8
+    // B dragged to start at 4: after C (it cuts at its new end, 6).
+    CHECK(landRun(s, {2.0, 4.0}, 4.0, false) == Landing{6.0, 4.0});
+    // To start at 4.6: its end would cut D (6.6), so it lands where D starts... at C's end.
+    CHECK(landRun(s, {2.0, 4.0}, 4.6, false) == Landing{6.0, 4.0});
+    // Past the last section, into empty time: anywhere.
+    CHECK(landRun(s, {2.0, 4.0}, 9.0, false) == Landing{11.0, 9.0});
+    // Earlier: D to start at 0, before A.
+    CHECK(landRun(s, {6.0, 8.0}, 0.0, false) == Landing{0.0, 0.0});
+    // Where it is, or a move inside itself: none.
+    CHECK_FALSE(landRun(s, {2.0, 4.0}, 2.0, false));
+    // A lone section moves into empty time.
+    const std::vector<SectionInfo> one{{1, "A", 0, 0.0, 2.0}};
+    CHECK(landRun(one, {0.0, 2.0}, 8.0, false) == Landing{10.0, 8.0});
+    // A copy lands at its start, never inside itself.
+    CHECK(landRun(s, {2.0, 4.0}, 8.0, true) == Landing{8.0, 8.0});
+    CHECK(landRun(s, {2.0, 4.0}, 4.0, true) == Landing{4.0, 4.0}); // right after itself
+    CHECK_FALSE(landRun(s, {2.0, 4.0}, 3.0, true));
+}

@@ -1,7 +1,7 @@
 // The song row (M3 step C3, ADR 0049, docs/design/arranger.md §5-§11): the master's row, pinned
 // under the ruler. Its header is the master's; its lane shows the song's sections over a miniature
 // of every track. A drag makes a section; an edge moves its mark; its body moves it with its music
-// (Ctrl copies), landing at another section's start or end.
+// (Ctrl copies), following the pointer and landing between sections.
 
 #include "model/Sections.h"
 #include "model/TrackHeaderLayout.h"
@@ -195,37 +195,59 @@ void ArrangementView::paintSongRow(juce::Graphics& g)
         g.reduceClipRegion(lane);
         time::paintGrid(g, grid_, timeline_, lane);
         paintOverview(g, lane.withTrimmedTop(sh.songTitleHeight));
+        // Each section a bracket over its span, unlike a clip: a bar along the top, a tick down at
+        // each end, its name under the bar in caps. Selected, its span is tinted.
         const auto sections = shownSections();
-        const float top = static_cast<float>(lane.getY());
-        const float height = static_cast<float>(lane.getHeight() - sh.dropLine); // above the divider
+        const float top = static_cast<float>(lane.getY() + sh.clipGap);
+        const float height = static_cast<float>(lane.getBottom() - sh.dropLine) - top; // above the divider
+        const float title = static_cast<float>(sh.songTitleHeight - sh.clipGap);
+        const float line = static_cast<float>(sh.songBracket);
+        const auto bracket = [&](float x0, float x1, juce::Colour colour, bool tinted)
+        {
+            const auto span = juce::Rectangle<float>(x0, top, std::max(line, x1 - x0), height);
+            if (tinted)
+            {
+                g.setColour(t.fill(colour));
+                g.fillRect(span);
+            }
+            g.setColour(colour);
+            g.fillRect(span.withHeight(line));
+            g.fillRect(span.withWidth(line).withHeight(title));
+            g.fillRect(span.withLeft(span.getRight() - line).withHeight(title));
+            return span.withHeight(title).withTrimmedTop(line);
+        };
         for (size_t i = 0; i < sections.size(); ++i)
         {
             const auto& s = sections[i];
-            float x0 = laneX(s.start), x1 = laneX(s.end);
+            const float x0 = std::round(laneX(s.start));
+            float x1 = std::round(laneX(s.end));
             if (x1 < static_cast<float>(lane.getX()) || x0 > static_cast<float>(lane.getRight()))
                 continue;
-            // A gap of canvas where the next one starts at its end, as between clips.
+            // A gap where the next one starts at its end, so the two ticks don't merge.
             if (i + 1 < sections.size() && std::abs(sections[i + 1].start - s.end) < 1e-6)
-                x1 -= static_cast<float>(sh.clipGap);
-            x0 = std::round(x0);
-            x1 = std::round(x1);
-            const auto block = juce::Rectangle<float>(x0, top, std::max(1.0f, x1 - x0), height);
-            const auto colour = t.clipColour(s.colour);
-            g.setColour(t.fill(colour));
-            g.fillRect(block.withTrimmedTop(static_cast<float>(sh.songTitleHeight)));
-            const auto title = block.withHeight(static_cast<float>(sh.songTitleHeight));
-            g.setColour(colour);
-            g.fillRect(title);
+                x1 -= static_cast<float>(sh.songBracketGap);
+            const bool selected = selection_.sections.contains(s.id) && s.id != 0;
+            auto name = bracket(x0, x1, t.clipColour(s.colour), selected).reduced(line, 0.0f);
             // Its name stays in sight while its start is scrolled out to the left.
-            const auto shown = title.withLeft(std::max(title.getX(), static_cast<float>(lane.getX())));
-            if (titleShowsText(shown))
-                paintTitleText(g, shown, s.name, false);
-            if (selection_.sections.contains(s.id) && s.id != 0)
-            {
-                g.setColour(t.textPrimary);
-                g.drawRect(block, static_cast<float>(sh.clipOutline));
-            }
+            name.setLeft(std::max(name.getX(), static_cast<float>(lane.getX())));
+            if (!titleShowsText(name))
+                continue;
+            g.setColour(selected ? t.textPrimary : t.textSecondary);
+            g.setFont(ui::font(ui::TextStyle::Section));
+            g.drawText(juce::String::fromUTF8(s.name.c_str()).toUpperCase(),
+                       name.reduced(static_cast<float>(sh.clipTextInset), 0.0f),
+                       juce::Justification::centredLeft, true);
         }
+        // A run being moved or copied: a bracket in `active` for each section in it, where it lands.
+        if (const auto span =
+                sectionDrop() ? model::spanOf(snapshot_->sections, selectedSections()) : std::nullopt)
+            for (const auto& s : snapshot_->sections)
+                if (selection_.sections.contains(s.id))
+                {
+                    const double shift = sectionDrag_->landing - span->first;
+                    bracket(std::round(laneX(s.start + shift)), std::round(laneX(s.end + shift)), t.active,
+                            true);
+                }
         if (sections.empty())
             ui::paintEmptyState(g, lane.withHeight(sh.songTitleHeight), "Drag here to mark a section");
         time::paintPlayhead(g, timeline_, lane, playhead_);
@@ -273,7 +295,7 @@ void ArrangementView::paintSectionDrop(juce::Graphics& g)
         return;
     const auto& t = ui::Theme::current();
     const auto lanes = songLaneArea().withBottom(getHeight());
-    const float x = laneX(*drop);
+    const float x = std::round(laneX(sectionDrag_->landing)); // where the run starts once it lands
     if (x < static_cast<float>(lanes.getX()) || x > static_cast<float>(lanes.getRight()))
         return;
     // Where the run lands, across every row: everything there moves.
@@ -428,9 +450,11 @@ void ArrangementView::songMouseDown(const juce::MouseEvent& e)
         else
             selectSections({hit->section});
     }
-    sectionDrag_ = SectionDrag{.kind = e.mods.isCommandDown() ? K::Copy : K::Move,
-                               .section = hit->section,
-                               .clickedInSelection = clickedInSelection};
+    sectionDrag_ =
+        SectionDrag{.kind = e.mods.isCommandDown() ? K::Copy : K::Move,
+                    .section = hit->section,
+                    .pressTime = timeline_.timeForX(e.position.x - static_cast<float>(lane.getX())),
+                    .clickedInSelection = clickedInSelection};
 }
 
 void ArrangementView::songMouseDrag(const juce::MouseEvent& e)
@@ -490,17 +514,22 @@ void ArrangementView::songMouseDrag(const juce::MouseEvent& e)
         const auto span = model::spanOf(snapshot_->sections, selectedSections());
         if (!span)
             break;
-        // The nearest boundary it can land at: outside the run (a copy may land at its own edges).
-        std::optional<double> best;
+        // The run follows the pointer, its start on the grid; a section edge near its start or end
+        // pulls it there. It lands between sections (model::landRun), empty time included.
         const double pointer = timeline_.timeForX(e.position.x - static_cast<float>(lane.getX()));
+        const double length = span->second - span->first;
+        double start = std::max(0.0, snapped(span->first + (pointer - d.pressTime), e.mods.isAltDown()));
+        const double pull = static_cast<double>(t.input.edgeGrab) / timeline_.pixelsPerSecond();
         for (const double b : model::sectionBoundaries(snapshot_->sections))
         {
-            const bool inside = d.kind == K::Copy ? b > span->first + 1e-6 && b < span->second - 1e-6
-                                                  : b > span->first - 1e-6 && b < span->second + 1e-6;
-            if (!inside && (!best || std::abs(b - pointer) < std::abs(*best - pointer)))
-                best = b;
+            if (std::abs(b - start) < pull)
+                start = b;
+            else if (std::abs(b - (start + length)) < pull)
+                start = b - length;
         }
-        d.drop = best;
+        const auto land = model::landRun(snapshot_->sections, *span, start, d.kind == K::Copy);
+        d.drop = land ? std::optional(land->to) : std::nullopt;
+        d.landing = land ? land->start : span->first;
         break;
     }
     }

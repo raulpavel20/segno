@@ -142,6 +142,8 @@ struct ShellMetrics
     int songRowMinHeight = 32;    // ...and its least
     int songTitleHeight = 16;     // its title band, where the sections' names are
     int songOverviewInset = 3;    // its miniature of the tracks, clear of the title band and the divider
+    int songBracket = 2;          // a section's bracket: its bar along the top and the tick down each end...
+    int songBracketGap = 2;       // ...and the gap between two brackets that touch
     int takeIconSize = 12;        // the audition button in a take strip's name chip (ADR 0038)
     int clipButtonSize = 12;      // a button on a clip: cancel its bounce (menu-bar.md §15)
     int dropLine = 2;             // where a dragged module or row lands: a line in `active`

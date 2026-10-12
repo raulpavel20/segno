@@ -164,6 +164,46 @@ std::optional<double> nextSectionStart(const std::vector<SectionInfo>& sections,
     return best;
 }
 
+std::optional<Landing> landRun(const std::vector<SectionInfo>& sections, std::pair<double, double> span,
+                               double start, bool copy)
+{
+    const auto [s, e] = span;
+    const double length = e - s;
+    // Out of any section that isn't in the run: to its nearer edge.
+    const auto between = [&](double t)
+    {
+        for (const auto& x : sections)
+        {
+            const bool inRun = x.start >= s - kEpsilon && x.end <= e + kEpsilon;
+            if (!inRun && t > x.start + kEpsilon && t < x.end - kEpsilon)
+                return t - x.start < x.end - t ? x.start : x.end;
+        }
+        return t;
+    };
+    if (copy)
+    {
+        const double to = between(std::max(0.0, start));
+        if (to > s + kEpsilon && to < e - kEpsilon)
+            return std::nullopt; // inside itself
+        return Landing{to, to};
+    }
+    if (start < s - kEpsilon)
+    {
+        const double to = std::min(between(std::max(0.0, start)), s);
+        if (to >= s - kEpsilon)
+            return std::nullopt;
+        return Landing{to, to};
+    }
+    if (start > s + kEpsilon)
+    {
+        const double to = std::max(between(start + length), e);
+        if (to <= e + kEpsilon)
+            return std::nullopt;
+        return Landing{to, to - length};
+    }
+    return std::nullopt;
+}
+
 std::optional<std::pair<double, double>> spanOf(const std::vector<SectionInfo>& sections,
                                                 const std::vector<std::uint64_t>& ids)
 {

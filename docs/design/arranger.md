@@ -79,7 +79,7 @@ This revisits open question B25 ([mixer.md](mixer.md) Q1, agreed 2026-10-09): th
 ```
 ┌ loop strip 12 ────────────────────────────────────────────────────────────────────┐
 ├ ruler 24 ─────────────────────────────────────────────────────────────────────────┤
-│ Master     ▮│ Intro      │ Verse              │ Chorus             │ Verse 2       │ ← title band: name, colour
+│ Master     ▮│┌INTRO─────┐┌VERSE─────────────┐┌CHORUS────────────┐┌VERSE 2─────┐│ ← title band: brackets, names
 │ ──── vol    │ ═══   ──── │ ═════════ ════════ │ ══════ ═══════════ │ ════ ──────── │ ← every track, one thin line
 │             │ ─────────  │ ══════════════════ │ ══════════════════ │ ════════════  │   in its colour, where it plays
 ├─────────────┴────────────────────────────────────────────────────────────────────┤ ← pinned: the tracks scroll under it
@@ -92,7 +92,7 @@ This revisits open question B25 ([mixer.md](mixer.md) Q1, agreed 2026-10-09): th
 - **The header:** the master's, from the track header kit: "Master", the meter, and the volume bar from 80 px tall, as now.
 - **The lane:**
   - the overview (§6), across the whole lane;
-  - the sections (§7) over it: a block each, in its colour, faint over the overview, with its name in the title band;
+  - the sections (§7) over it: a bracket each in its colour, a bar along the top with a tick down at each end, its name under the bar in caps. They are not blocks, so they never read as clips. A selected section's span is tinted in its colour;
   - the grid's bar lines, the loop's shading and the playhead, as on any row.
 - **Empty:** with no sections yet, the title band reads "Drag here to mark a section", in the empty-state text style, until the first one is made.
 
@@ -157,7 +157,7 @@ The loop brace and the playhead stay where they are.
 | **Delete section** (Delete) | A B C D → A C D: B's music goes and the gap closes. The song shrinks |
 | **Remove section mark** | A B C D → A ▢ C D: the mark goes, the music stays |
 
-- **Where a section can land:** at another section's start or end, shown by an insert line while you drag. A drop between two sections touching each other lands between them. In a gap, the line snaps to the gap's ends. Esc while dragging cancels.
+- **Where a section can land:** the run follows the pointer, its start on the grid (Alt for free), pulled to a section edge near its start or end. It lands between sections, in empty time too. A place that would cut another section goes to that section's nearer edge. While you drag, a bracket in the active colour shows where it lands, with a line across every row at its start. Esc while dragging cancels.
 - **While it plays:** edits apply at once and the song plays on. A note cut by an edit ends (daw-shell.md, "No stuck notes").
 - **Delete is the whole section, music and all,** as Studio One's and Logic's are. Its undo step says so ("Undo Delete section Bridge"), and a toast offers Undo. "Remove section mark" keeps the music (A6).
 
@@ -299,4 +299,6 @@ Tools named as the others ([mcp.md](mcp.md)), each one named undo step, each wit
 - **The palette's size** (16) moved into the model (`model::kPaletteSize`), so the song row can show a section's colour before the engine makes it.
 - **Assistants' tools take positions and lengths as the others do** (beats, or "bar.beat.sixteenth", "1 bar"); `list_sections` also gives each section's seconds. A test caught positions passed as beats where seconds were meant.
 - **A new section is selectable at once,** before its snapshot arrives, as a new clip is.
-- **Tests:** the model's plans (`SectionsTests`), the Session's commands with one-step undo and the sound of a moved section, sample for sample (`SectionTests`, including clips that touch end to end), every tool through MCP, and the song row by mouse with its screenshots (`AppSmokeTests`).
+- **Sections are brackets, not blocks** (the product owner's review, 2026-10-13): drawn as blocks with a title band, they looked too much like clips. Three looks were compared on a song-like project: brackets, flags (a tab at the start), and tinted zones. Brackets were picked: they read as a span of time, like the loop brace and the ruler, and leave the overview in full view. Bar and ticks are `shell.songBracket` (2 px), with `songBracketGap` (2 px) between two that touch, inset `clipGap` from the row's top. The name is in the caps style (`TextStyle::Section`), secondary text, primary when selected.
+- **A dragged run follows the pointer** (the same review: "I can't seem to be able to drag to move a section"). At first a drag only picked the section boundary nearest the pointer, outside the run. Nothing moved with the pointer, and a lone section, or one aimed at empty time, had nowhere to go. Now its start follows the pointer and `model::landRun` finds where it lands (§9).
+- **Tests:** the model's plans and landings (`SectionsTests`), the Session's commands with one-step undo and the sound of a moved section, sample for sample (`SectionTests`, including clips that touch end to end), every tool through MCP, and the song row by mouse with its screenshots (`AppSmokeTests`).

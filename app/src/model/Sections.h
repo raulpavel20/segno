@@ -51,6 +51,19 @@ inline constexpr std::array<std::string_view, 9> kUsualSectionNames{
 [[nodiscard]] std::optional<double> nextSectionStart(const std::vector<SectionInfo>& sections,
                                                      double seconds);
 
+/// Where a run of sections (`span`) dragged to start at `start` lands (arranger.md §9): the cut it
+/// makes (a plan's `to`) and where the run then starts. A move later cuts at its new end, one
+/// earlier at its new start, a copy at its start; a cut inside another section goes to that
+/// section's nearer edge, so a run lands between sections, never in one. None where a move
+/// wouldn't move, or a copy would land inside itself.
+struct Landing
+{
+    double to = 0.0, start = 0.0;
+    friend bool operator==(const Landing&, const Landing&) = default;
+};
+[[nodiscard]] std::optional<Landing> landRun(const std::vector<SectionInfo>& sections,
+                                             std::pair<double, double> span, double start, bool copy);
+
 /// The span of some sections (by id): the first one's start to the last one's end.
 [[nodiscard]] std::optional<std::pair<double, double>> spanOf(const std::vector<SectionInfo>& sections,
                                                               const std::vector<std::uint64_t>& ids);

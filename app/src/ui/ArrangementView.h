@@ -476,7 +476,9 @@ private:
         } kind = Kind::Make;
         std::uint64_t section = 0;   // the one grabbed (Start, End, Move, Copy)
         double from = 0.0, to = 0.0; // Make: the stretch; Start/End: the section's new marks
-        std::optional<double> drop;  // Move/Copy: where it lands
+        std::optional<double> drop;  // Move/Copy: where it cuts the song (the plan's `to`)
+        double landing = 0.0;        // ... and where the run starts then
+        double pressTime = 0.0;      // Move/Copy: the time under the press
         bool moved = false;          // dragged past the threshold
         std::optional<std::uint64_t> clickedInSelection; // a click without a drag selects just it
     };
