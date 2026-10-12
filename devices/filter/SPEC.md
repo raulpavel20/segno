@@ -1,6 +1,6 @@
 # Filter: device spec
 
-- **Status:** Draft for review (B6, 2026-10-12): questions F1–F13 below, with recommendations. Nothing is built until it's approved
+- **Status:** Approved by the product owner (2026-10-12, with every recommendation of F1–F13); IDs are permanent. Building (B6)
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1, M3 (B6)
 - **Live target:** Auto Filter (as redesigned in Live 12.2). References only; nothing is copied ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)). Checked against the best creative filters for what's worth having, not for scope.
