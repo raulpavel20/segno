@@ -345,11 +345,8 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         menu.addSubMenu("Grid", detail_.pianoRoll().gridMenu()); // where you edit (ADR 0047)
         menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&detail_.pianoRoll()).withMousePosition());
     };
-    arrangement_.onOpenClip = [this](std::uint64_t id) {
-        // MIDI clips open in the clip view (a clip made just now isn't in the snapshot yet).
-        const auto found = model::findClip(*session_.snapshot(), id);
-        if (found && found->first->kind != model::ClipInfo::Kind::Midi)
-            return;
+    arrangement_.onOpenClip = [this](std::uint64_t) {
+        // A clip opens in the clip view: a MIDI clip's notes, an audio clip's waveform (clip-loops.md §6).
         arrangeMode_ = DetailPanel::Mode::Clip;
         applyDetailMode();
         if (!detailPanel_.open)
@@ -2091,7 +2088,7 @@ void Shell::selectionChanged()
                 if (const auto* c = snapshot->channel(a.channel))
                     detailChannel = *c;
     detail_.setSelection(detailChannel);
-    detail_.setClip(context.midiClip, snapshot->tempo);
+    detail_.setClip(context.clip, snapshot->tempo); // either kind: the piano roll or the audio clip view
 
     // The detail panel follows the subject: a MIDI clip opens the clip view, anything else the
     // modules; Tab switches until the subject changes.

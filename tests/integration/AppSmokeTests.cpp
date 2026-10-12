@@ -949,6 +949,84 @@ TEST_CASE("piano roll: the clip's loop brace drawn, clicked and moved; the view 
         dumpPng(dump, "piano-roll-loop@2x.png", roll.createComponentSnapshot(roll.getLocalBounds(), true, 2.0f));
 }
 
+TEST_CASE("audio clip view: a double-click opens an audio clip there; its loop brace drawn and clicked; the playhead wraps (C10)",
+          "[integration]")
+{
+    ShellFixture f;
+    f.shell->setSize(1800, 1000);
+    auto& s = *f.session;
+    auto& view = f.shell->arrangement();
+    auto& detail = f.shell->detail();
+    auto& audio = detail.audioClipView();
+    const auto root = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("fd-shell-" + juce::Uuid().toString());
+    REQUIRE(root.createDirectory());
+    s.setUnsavedRoot(root.getChildFile("Unsaved"));
+    s.updateSnapshotNow();
+    const auto track = s.snapshot()->tracks.front().id;
+    fd::testkit::AudioBuffer beat(2, 4 * 48000);
+    for (int c = 0; c < 2; ++c)
+        for (int i = 0; i < beat.numSamples(); ++i)
+            beat.at(c, i) = 0.8f * std::exp(-static_cast<float>(i % 12000) / 1500.0f) * std::sin(static_cast<float>(i) * 0.05f);
+    const auto file = root.getChildFile("Drums.wav");
+    REQUIRE(fd::testkit::writeWav(file.getFullPathName().toStdString(), beat, 48000.0));
+    const auto id = s.insertAudioFile(track, file, 0.0);
+    s.applyClipEdits({{.clip = id, .track = track, .start = 0.0, .length = 2.0, .offset = 0.0}});
+    s.updateSnapshotNow();
+    auto clip = [&] {
+        s.updateSnapshotNow();
+        return *fd::model::findClip(*s.snapshot(), id)->first;
+    };
+    auto settle = [&] {
+        s.updateSnapshotNow();
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    };
+
+    // Selected, it shows its modules; a double-click opens it in the clip view.
+    const auto& tl = view.timeline();
+    const juce::Point<float> body(static_cast<float>(fd::app::ArrangementView::headerWidth()) + static_cast<float>(tl.xForTime(1.0)),
+                                  static_cast<float>(fd::app::ArrangementView::rulerHeight()) + 40.0f);
+    click(view, body);
+    CHECK(detail.mode() == fd::app::DetailPanel::Mode::Devices);
+    click(view, body, 2);
+    CHECK(detail.mode() == fd::app::DetailPanel::Mode::Clip);
+    REQUIRE(detail.showsAudioClip());
+    CHECK_FALSE(detail.showsPianoRoll());
+    f.shell->finishAnimations();
+    audio.waitForWaveform();
+    settle();
+    REQUIRE(audio.waveformArea().getHeight() > 60);
+
+    auto stripPoint = [&](double seconds) {
+        const auto strip = audio.loopStripArea();
+        return juce::Point<float>(static_cast<float>(audio.waveformArea().getX() + audio.timeline().xForTime(seconds)),
+                                  static_cast<float>(strip.getCentreY()));
+    };
+    // Drawn on the strip: the clip loops a beat from half a second into its file.
+    drag(audio, stripPoint(0.5), stripPoint(1.0));
+    CHECK(s.undoDescription() == "Loop");
+    CHECK(clip().loop.start == Catch::Approx(0.5).margin(1e-4));
+    CHECK(clip().loop.length == Catch::Approx(0.5).margin(1e-4));
+    settle();
+    // A click on the brace: Loop off; again (on what the clip shows): on.
+    click(audio, stripPoint(fd::model::clipViewOrigin(clip()) + 0.75));
+    CHECK(s.undoDescription() == "Stop looping clips");
+    settle();
+    click(audio, stripPoint(clip().start + 0.1));
+    CHECK(s.undoDescription() == "Loop clips");
+    CHECK(clip().loop.on());
+    settle();
+
+    // Extended to 4 s: the playhead at 3.2 s shows where in the loop the song is.
+    s.applyClipEdits({{.clip = id, .track = track, .start = 0.0, .length = 4.0, .offset = clip().offset}});
+    settle();
+    audio.frame(3.2);
+    CHECK(audio.shownPlayhead() == Catch::Approx(fd::model::clipViewTime(clip(), 3.2)));
+    CHECK(audio.shownPlayhead() < fd::model::clipViewOrigin(clip()) + clip().loop.end());
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "audio-clip-view@2x.png", audio.createComponentSnapshot(audio.getLocalBounds(), true, 2.0f));
+    root.deleteRecursively();
+}
+
 TEST_CASE("piano roll: a double-click makes a clip; notes are drawn, moved, set and deleted", "[integration]")
 {
     ShellFixture f;

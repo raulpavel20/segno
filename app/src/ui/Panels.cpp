@@ -1118,7 +1118,7 @@ void InspectorPanel::paint(juce::Graphics& g)
 // ---- DetailPanel ---------------------------------------------------------------------------
 
 DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions)
-    : actions_(actions), chain_(session, actions), roll_(session)
+    : actions_(actions), chain_(session, actions), roll_(session), audio_(session)
 {
     header_.setTabs({"Modules", "Clip"}, 0);
     header_.setCaption("Tab switches");
@@ -1129,6 +1129,7 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
     addAndMakeVisible(header_);
     addAndMakeVisible(chain_);
     addChildComponent(roll_);
+    addChildComponent(audio_);
     quantise_.setClickingTogglesState(false);
     quantise_.setWantsKeyboardFocus(false);
     quantise_.onClick = [this] { actions_.perform("notes.quantise"); };
@@ -1138,7 +1139,7 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
     snap_.setClickingTogglesState(false); // the piano roll's, which the Session keeps
     snap_.onClick = [this] { roll_.setSnapEnabled(!roll_.isSnapEnabled()); };
     grid_.setTooltip(
-        "The piano roll's grid: the step it snaps to, and a drawn note's length. Click to set it: "
+        "The clip view's grid: the step it snaps to, and a drawn note's length. Click to set it: "
         "adaptive or fixed, triplets, snap");
     grid_.onClick = [this] { grid_.showMenu(roll_.gridMenu()); };
     header_.addOption(snap_);
@@ -1154,7 +1155,10 @@ void DetailPanel::updateHeader()
     if (mode_ == Mode::Devices)
         header_.setContext(track_ ? juce::String::fromUTF8(track_->name.c_str()) : juce::String());
     else
-        header_.setContext(roll_.clip() ? juce::String::fromUTF8(roll_.clip()->name.c_str()) : juce::String());
+    {
+        const auto& clip = roll_.clip() ? roll_.clip() : audio_.clip();
+        header_.setContext(clip ? juce::String::fromUTF8(clip->name.c_str()) : juce::String());
+    }
 }
 
 void DetailPanel::setMode(Mode m)
@@ -1192,10 +1196,14 @@ void DetailPanel::updateVisibility()
 {
     chain_.setVisible(mode_ == Mode::Devices);
     roll_.setVisible(showsPianoRoll());
-    if (quantise_.isVisible() != showsPianoRoll())
+    audio_.setVisible(showsAudioClip());
+    // Snap and the step for either clip view; Quantise for notes.
+    const bool grid = showsPianoRoll() || showsAudioClip();
+    if (quantise_.isVisible() != showsPianoRoll() || snap_.isVisible() != grid)
     {
-        for (auto* c : std::initializer_list<juce::Component*>{&quantise_, &snap_, &grid_})
-            c->setVisible(showsPianoRoll());
+        quantise_.setVisible(showsPianoRoll());
+        snap_.setVisible(grid);
+        grid_.setVisible(grid);
         header_.resized();
         header_.repaint();
     }
@@ -1203,18 +1211,23 @@ void DetailPanel::updateVisibility()
 
 void DetailPanel::setClip(std::optional<model::ClipInfo> clip, const model::TempoMap& tempo)
 {
-    roll_.setClip(std::move(clip), tempo);
+    const bool audio = clip && clip->kind == model::ClipInfo::Kind::Audio;
+    roll_.setClip(audio ? std::nullopt : clip, tempo);
+    audio_.setClip(audio ? std::move(clip) : std::nullopt, tempo);
     updateVisibility();
     updateHeader();
 }
 
 void DetailPanel::frame(double playheadSeconds)
 {
-    if (roll_.isVisible())
+    if (roll_.isVisible() || audio_.isVisible())
     {
-        roll_.frame(playheadSeconds);
-        snap_.setToggleState(roll_.isSnapEnabled(), juce::dontSendNotification);
-        if (const auto step = roll_.gridStepName(); step != grid_.value())
+        if (roll_.isVisible())
+            roll_.frame(playheadSeconds);
+        else
+            audio_.frame(playheadSeconds);
+        snap_.setToggleState(roll_.isVisible() ? roll_.isSnapEnabled() : audio_.timeline().grid().snap, juce::dontSendNotification);
+        if (const auto step = roll_.isVisible() ? roll_.gridStepName() : audio_.gridStepName(); step != grid_.value())
         {
             grid_.setValue(step);
             header_.resized(); // as wide as its step
@@ -1245,14 +1258,16 @@ void DetailPanel::resized()
     header_.setBounds(r.removeFromTop(sh.panelHeaderHeight));
     chain_.setBounds(r.reduced(sh.itemGap, 0).withTrimmedBottom(sh.itemGap));
     roll_.setBounds(r);
+    audio_.setBounds(r);
 }
 
 void DetailPanel::paint(juce::Graphics& g)
 {
     g.fillAll(ui::Theme::current().surface1);
-    if (mode_ == Mode::Clip && !roll_.clip())
+    if (mode_ == Mode::Clip && !roll_.clip() && !audio_.clip())
         ui::paintEmptyState(g, getLocalBounds().withTrimmedTop(header_.getBottom()),
-                            "Select a MIDI clip to edit its notes. Double-click an empty spot on a track to make one.");
+                            "Select a clip: a MIDI clip's notes or an audio clip's waveform show here. Double-click an empty "
+                            "spot on a track to make a MIDI clip.");
 }
 void DetailPanel::selectModule(std::uint64_t id)
 {

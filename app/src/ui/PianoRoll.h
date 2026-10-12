@@ -1,9 +1,9 @@
 #pragma once
 
 #include "engine/Session.h"
-#include "model/BraceDrag.h"
 #include "model/NoteEditing.h"
 #include "model/Timeline.h"
+#include "ui/ClipLoopBrace.h"
 #include "ui/time/TimeView.h"
 
 #include <fd_ui/fd_ui.h>
@@ -98,8 +98,6 @@ private:
     [[nodiscard]] double contentStartSeconds() const;
     /// What the clip plays, in the view's time: its loop (ADR 0048), or the clip.
     [[nodiscard]] std::pair<double, double> playedRange() const;
-    /// The loop brace: the clip's loop, or what it would loop (itself) while Loop is off.
-    [[nodiscard]] model::BraceRange braceRange() const;
     /// Height of the strip and the ruler above the grid.
     [[nodiscard]] static int topHeight();
     [[nodiscard]] double beatForSeconds(double seconds) const;
@@ -144,9 +142,7 @@ private:
     std::optional<std::size_t> clickedInSelection_; // a click without a drag selects just it
     std::set<std::size_t> boxBase_;  // selection before a Shift box drag
     time::RulerGesture rulerGesture_;
-    model::BraceZone braceGrab_ = model::BraceZone::None; // the loop brace's gesture
-    model::BraceRange braceAtPress_;
-    std::optional<model::BraceRange> bracePreview_;
+    ClipLoopBrace brace_; // the clip's loop brace (clip-loops.md §6)
     float drawVelocity_ = 100.0f / 127.0f;
     std::optional<int> previewPitch_; // the note sounding now
 };

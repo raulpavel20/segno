@@ -122,17 +122,7 @@ double PianoRoll::contentStartSeconds() const
 
 std::pair<double, double> PianoRoll::playedRange() const
 {
-    if (!clip_)
-        return {};
-    if (!clip_->loop.on())
-        return {clip_->start, clip_->end()};
-    const double origin = contentStartSeconds();
-    return {origin + clip_->loop.start, origin + clip_->loop.end()};
-}
-
-model::BraceRange PianoRoll::braceRange() const
-{
-    return playedRange();
+    return clip_ ? ClipLoopBrace::rangeOf(*clip_, contentStartSeconds()) : std::pair{0.0, 0.0};
 }
 
 double PianoRoll::beatForSeconds(double seconds) const
@@ -619,7 +609,7 @@ void PianoRoll::paintRuler(juce::Graphics& g)
     g.setColour(t.surface1);
     g.fillRect(getLocalBounds().removeFromTop(topHeight())); // the corner above the keys too
     // The clip's loop brace: its loop, or (Loop off) what it would loop (clip-loops.md §6).
-    time::paintLoopStrip(g, timeline_, loopStripArea(), bracePreview_.value_or(braceRange()), clip_->loop.on());
+    time::paintLoopStrip(g, timeline_, loopStripArea(), brace_.preview().value_or(playedRange()), clip_->loop.on());
     time::paintRuler(g, lines_, timeline_, rulerArea(), {.range = playedRange(), .rangeColour = t.clipColour(clip_->colour)});
 }
 
@@ -656,10 +646,7 @@ void PianoRoll::mouseMove(const juce::MouseEvent& e)
         cursor = juce::MouseCursor::PointingHandCursor;
     else if (clip_ && loopStripArea().contains(pos))
     {
-        const auto [a, b] = braceRange();
-        const auto x0 = static_cast<double>(loopStripArea().getX()) + timeline_.xForTime(a);
-        const auto x1 = static_cast<double>(loopStripArea().getX()) + timeline_.xForTime(b);
-        const auto zone = model::braceZoneAt(e.position.x, x0, x1, ui::Theme::current().input.edgeGrab);
+        const auto zone = ClipLoopBrace::zoneAt(*clip_, contentStartSeconds(), timeline_, e.position.x - static_cast<float>(gridArea().getX()));
         if (zone == model::BraceZone::Start || zone == model::BraceZone::End)
             cursor = juce::MouseCursor::LeftRightResizeCursor;
     }
@@ -699,11 +686,7 @@ void PianoRoll::mouseDown(const juce::MouseEvent& e)
     {
         // The clip's loop brace (clip-loops.md §6), as the transport's in the arrangement.
         gesture_ = Gesture::Brace;
-        braceAtPress_ = braceRange();
-        const auto x0 = static_cast<double>(area.getX()) + timeline_.xForTime(braceAtPress_.first);
-        const auto x1 = static_cast<double>(area.getX()) + timeline_.xForTime(braceAtPress_.second);
-        braceGrab_ = model::braceZoneAt(e.position.x, x0, x1, ui::Theme::current().input.edgeGrab);
-        bracePreview_.reset();
+        brace_.press(*clip_, contentStartSeconds(), timeline_, local.x);
         return;
     }
     if (rulerArea().contains(pos))
@@ -832,11 +815,8 @@ void PianoRoll::mouseDrag(const juce::MouseEvent& e)
             return;
         moved_ = true;
         const bool free = !isSnapEnabled() || e.mods.isAltDown();
-        const auto snap = [this, free](double t) { return free ? std::max(0.0, t) : timeline_.snap(t, tempo_); };
-        // While Loop is off there's no loop to move: a drag inside the brace draws one.
-        const auto grab = !clip_->loop.on() && braceGrab_ == model::BraceZone::Body ? model::BraceZone::None : braceGrab_;
-        bracePreview_ = model::dragBrace(grab, braceAtPress_, timeline_.timeForX(dragStart_.x - static_cast<float>(area.getX())),
-                                         timeline_.timeForX(local.x), snap, model::minClipLength);
+        brace_.drag(*clip_, timeline_, dragStart_.x - static_cast<float>(area.getX()), local.x,
+                    [this, free](double t) { return free ? std::max(0.0, t) : timeline_.snap(t, tempo_); });
         repaint(loopStripArea());
         return;
     }
@@ -900,15 +880,7 @@ void PianoRoll::mouseUp(const juce::MouseEvent& e)
     if (gesture_ == Gesture::Brace && clip_)
     {
         // A loop drawn or changed (Loop on), or a click on the brace switching it (clip-loops.md §6).
-        const auto release = model::releaseBrace(braceGrab_, moved_, bracePreview_);
-        if (release.range)
-        {
-            const double origin = contentStartSeconds();
-            session_.setClipLoop(clip_->id, {release.range->first - origin, release.range->second - release.range->first});
-        }
-        if (release.toggle)
-            session_.setClipsLooping({clip_->id}, !clip_->loop.on());
-        bracePreview_.reset();
+        brace_.release(session_, *clip_, contentStartSeconds(), moved_);
         gesture_ = Gesture::None;
         repaint();
         return;

@@ -8,6 +8,7 @@
 #include "ui/DeviceChain.h"
 #include "ui/LaneAssignments.h"
 #include "ui/TrackInputs.h"
+#include "ui/AudioClipView.h"
 #include "ui/PianoRoll.h"
 
 #include <fd_ui/fd_ui.h>
@@ -221,14 +222,18 @@ public:
     std::function<void(Mode)> onModeChosen;
     [[nodiscard]] Mode mode() const noexcept { return mode_; }
     void setSelection(std::optional<model::TrackInfo> track);
-    /// The MIDI clip the clip view edits (nullopt: none).
+    /// The clip the clip view shows (nullopt: none): a MIDI clip in the piano roll, an audio clip
+    /// in the audio clip view (clip-loops.md §6).
     void setClip(std::optional<model::ClipInfo> clip, const model::TempoMap& tempo);
     /// True while the clip view is showing a clip in the piano roll.
     [[nodiscard]] bool showsPianoRoll() const noexcept { return mode_ == Mode::Clip && roll_.clip().has_value(); }
+    /// True while it's showing an audio clip.
+    [[nodiscard]] bool showsAudioClip() const noexcept { return mode_ == Mode::Clip && audio_.clip().has_value(); }
     [[nodiscard]] DeviceChain& chain() noexcept { return chain_; }
     /// Shows the module view with `id` selected.
     void selectModule(std::uint64_t id);
     [[nodiscard]] PianoRoll& pianoRoll() noexcept { return roll_; }
+    [[nodiscard]] AudioClipView& audioClipView() noexcept { return audio_; }
     [[nodiscard]] const PianoRoll& pianoRoll() const noexcept { return roll_; }
     /// Once per display frame.
     void frame(double playheadSeconds);
@@ -251,5 +256,6 @@ private:
     std::optional<model::TrackInfo> track_;
     DeviceChain chain_;
     PianoRoll roll_;
+    AudioClipView audio_;
 };
 } // namespace fd::app
