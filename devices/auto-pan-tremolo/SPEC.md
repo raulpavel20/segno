@@ -1,6 +1,6 @@
 # Auto Pan & Tremolo: device spec
 
-- **Status:** Draft, for the product owner's review (2026-10-12). Nothing is built until it's approved; the IDs become permanent then.
+- **Status:** Approved by the product owner (2026-10-12, with every recommendation of T1–T12); IDs are permanent. Building (B4)
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1, M3 (B4)
 - **Live target:** Auto Pan-Tremolo. References only; nothing is copied ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
