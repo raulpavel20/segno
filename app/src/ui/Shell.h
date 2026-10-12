@@ -146,6 +146,9 @@ private:
     int storeListener_ = 0;
     /// What the settings say for the shell, the window and the engine (at once, and on a change).
     void applySettings(const model::AppSettings& settings);
+    /// The title bar option the window was last given: it's given again only when it changes,
+    /// since every other setting (a browser folder opened) would otherwise lay the window out.
+    std::optional<bool> systemTitleBar_;
     /// Opens `file`, after asking about unsaved changes (Open recent).
     void openFile(const juce::File& file);
     /// File > Open recent: the projects still on disk, then Clear the list.

@@ -2890,6 +2890,29 @@ TEST_CASE("title bar: brand, menus, name and window buttons never touch; the cap
         dumpPng(dump, "titlebar-system@2x.png", bar->createComponentSnapshot(bar->getLocalBounds(), true, 2.0f));
 }
 
+TEST_CASE("title bar: only its own option reaches the window; other settings leave the window alone (C10 fix)",
+          "[integration]")
+{
+    const auto root = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("fd-titlebar-" + juce::Uuid().toString());
+    REQUIRE(root.createDirectory());
+    fd::model::SettingsStore store(root.getFullPathName().toStdString()); // outlives the shell
+    int given = 0;
+    ShellFixture f;
+    f.shell->window.setSystemTitleBar = [&given](bool) { ++given; };
+    f.shell->setSettingsStore(store);
+    CHECK(given == 1); // the window is told at once
+    // A browser category opened, a favourite, the preview: settings, but not the window's. Each
+    // used to lay the window out again, which showed a maximised window as not maximised.
+    store.change([](fd::model::AppSettings& s) { s.browser.open.push_back("cat:instruments"); });
+    store.change([](fd::model::AppSettings& s) { s.browser.favourites.push_back("module:fd:eq"); });
+    store.change([](fd::model::AppSettings& s) { s.browser.preview = !s.browser.preview; });
+    CHECK(given == 1);
+    f.shell->actions().perform("app.systemTitleBar"); // Options > Use the system title bar
+    CHECK(f.shell->settings().display.systemTitleBar);
+    CHECK(given == 2);
+    root.deleteRecursively();
+}
+
 TEST_CASE("inspector: a clip's fade curves and the crossfades at its ends, set by mouse (C10 review)", "[integration]")
 {
     ShellFixture f;
@@ -3424,8 +3447,8 @@ struct AppWindow
 } // namespace
 
 // One test case, so no two windows take the focus from each other (CTest runs cases in parallel).
-TEST_CASE("names: typing on a showing window: renaming takes the focus by every route, a press elsewhere keeps "
-          "what was typed (C11 review)",
+TEST_CASE("a showing window: renaming takes the focus by every route, a press elsewhere keeps what was typed "
+          "(C11 review); Maximise and Restore (C10 fix)",
           "[integration][window]")
 {
     AppWindow app;
@@ -3581,6 +3604,39 @@ TEST_CASE("names: typing on a showing window: renaming takes the focus by every 
             CHECK(editor.field().hasKeyboardFocus(false));
         }
     }
+
+    // Maximise is the window manager's on Linux (menu-bar.md §4), so it needs one: a desktop
+    // session, not CI's bare X server.
+#if JUCE_LINUX || JUCE_BSD
+    if (std::getenv("XDG_CURRENT_DESKTOP") != nullptr)
+        SECTION("Maximise stays maximised, and Restore returns the window to where it was (C10 fix)")
+        {
+            auto& window = *app.window;
+            const auto area =
+                juce::Desktop::getInstance().getDisplays().getDisplayForRect(window.getBounds())->userBounds.toNearestInt();
+            window.setBounds(area.reduced(area.getWidth() / 8, area.getHeight() / 8));
+            AppWindow::pump(300);
+            const auto before = window.getBounds();
+            // Until `done`, or about two seconds: the window manager answers in its own time.
+            const auto until = [](auto&& done)
+            {
+                for (int i = 0; i < 40 && !done(); ++i)
+                    AppWindow::pump(50);
+                return done();
+            };
+            window.maximiseButtonPressed();
+            REQUIRE(until([&] { return window.isFullScreen() && window.getBounds() != before; }));
+            AppWindow::pump(500);
+            // Still maximised once the window manager has answered: JUCE read its state back from
+            // there and, before the patch, forgot a maximise the window manager never heard of.
+            CHECK(window.isFullScreen());
+            window.maximiseButtonPressed(); // Restore (as a double-click on the title bar)
+            CHECK(until([&] { return !window.isFullScreen() && window.getBounds() == before; }));
+            AppWindow::pump(300);
+            CHECK_FALSE(window.isFullScreen());
+            CHECK(window.getBounds() == before);
+        }
+#endif
 }
 
 TEST_CASE("presets: the header's bar, the list and the save form, by mouse and keys; the Module menu (A1)",

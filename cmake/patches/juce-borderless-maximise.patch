@@ -1,0 +1,44 @@
+Maximise a borderless window through the window manager (Linux).
+
+Segno's main window has no system title bar on Linux (docs/design/menu-bar.md §4). JUCE maximised
+such a window by itself: it resized the window to the work area and set its own flag, but only
+asked the window manager (_NET_WM_STATE_MAXIMIZED_*) when the native title bar was on. At the next
+ConfigureNotify, updateWindowBounds() reads the flag back from _NET_WM_STATE, which the window
+manager never set, so the window forgot it was maximised at once: Restore and a double-click
+maximised it again (nothing happened), and the window manager couldn't drag it out of maximised.
+
+The request now goes to the window manager for every window, so the state is the window manager's:
+Restore returns the earlier size and place, a drag un-maximises, and Super+Up agrees with the
+button. A borderless window no longer sizes itself to the work area when maximised: on GNOME that
+resize reached the window manager before the request and became the size it restored to. Without
+a window manager, Maximise does nothing, as with the native title bar.
+
+The JUCE source has CRLF line endings, and so do this patch's hunks (.gitattributes keeps them).
+
+--- a/modules/juce_gui_basics/native/juce_Windowing_linux.cpp
++++ b/modules/juce_gui_basics/native/juce_Windowing_linux.cpp
+@@ -240,15 +240,21 @@
+         {
+             const auto usingNativeTitleBar = ((getStyleFlags() & windowHasTitleBar) != 0);
+ 
+-            if (usingNativeTitleBar)
+-                XWindowSystem::getInstance()->setMaximised (windowH, shouldBeFullScreen);
++            // Segno: ask the window manager for borderless windows too. updateWindowBounds() reads
++            // the state back from _NET_WM_STATE at every ConfigureNotify, so a maximise the window
++            // manager never heard of is forgotten at once, and restoring does nothing.
++            XWindowSystem::getInstance()->setMaximised (windowH, shouldBeFullScreen);
+ 
++            // Segno: the window manager sizes a borderless window. A size of our own sent with the
++            // request can reach it first and become the size it restores to.
+             if (shouldBeFullScreen)
+                 r = usingNativeTitleBar ? XWindowSystem::getInstance()->getWindowBounds (windowH, parentWindow)
+-                                        : Desktop::getInstance().getDisplays().getDisplayForRect (physicalBounds, true)->userBounds.getSmallestIntegerContainer();
++                                        : Rectangle<int>();
+ 
+             if (! r.isEmpty())
+                 setBounds (detail::ScalingHelpers::scaledScreenPosToUnscaled (component, r), shouldBeFullScreen);
++            else
++                fullScreen = shouldBeFullScreen;
+ 
+             component.repaint();
+         }

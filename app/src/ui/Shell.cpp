@@ -1632,8 +1632,11 @@ void Shell::setSettingsStore(model::SettingsStore& store)
 void Shell::applySettings(const model::AppSettings& s)
 {
     actions_.setKeyMap(s.keys);
-    if (window.setSystemTitleBar)
+    if (window.setSystemTitleBar && systemTitleBar_ != s.display.systemTitleBar)
+    {
+        systemTitleBar_ = s.display.systemTitleBar;
         window.setSystemTitleBar(s.display.systemTitleBar);
+    }
     if (const auto scale = static_cast<float>(model::interfaceScale(s));
         juce::Desktop::getInstance().getGlobalScaleFactor() != scale)
         juce::Desktop::getInstance().setGlobalScaleFactor(scale);

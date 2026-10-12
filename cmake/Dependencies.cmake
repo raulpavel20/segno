@@ -62,7 +62,9 @@ if(FD_NEEDS_JUCE)
         NAME JUCE
         GITHUB_REPOSITORY juce-framework/JUCE
         GIT_TAG 9.0.3
-        GIT_SHALLOW ON)
+        GIT_SHALLOW ON
+        # Local fixes until upstreamed; each patch file explains itself.
+        PATCHES "${CMAKE_CURRENT_LIST_DIR}/patches/juce-borderless-maximise.patch")
 
     # The bundled UI fonts (ui-principles §6): identical rendering on every OS. Inter for names and
     # text; JetBrains Mono for values, readouts and tiny section labels. Both under the OFL.

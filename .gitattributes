@@ -1,0 +1,2 @@
+# JUCE's sources have CRLF line endings, so the hunks of our patches to them do too.
+cmake/patches/juce-*.patch -text

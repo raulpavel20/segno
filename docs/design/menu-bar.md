@@ -127,6 +127,10 @@ The product owner, 2026-10-11:
       - JUCE's own title bar moves the window itself, which loses all of that, and it can't drag a maximised window. So the row doesn't use it.
       - The host-managed move is a public JUCE call but untested here; the first task of C10 checks it (§13).
   - **Double-click** the caption: maximise or restore. Windows does this from the caption; on Linux the row does it.
+  - **Maximise and Restore** (the button, a double-click, the right-click menu) are the window manager's on Linux (`_NET_WM_STATE_MAXIMIZED_*`), as for any app:
+    - Restore returns the size and place the window had, and dragging a maximised window out of the top restores it;
+    - Super+Up or a drag to the top maximises, and the button shows Restore.
+    - JUCE only asks the window manager while the system's title bar is on, so a small patch asks for ours too (`cmake/patches/juce-borderless-maximise.patch`). Without it the window forgot it was maximised as soon as the window manager answered: Restore did nothing, and the outline came back at the next layout (fixed 2026-10-12).
   - **The window buttons:**
     - On Windows they answer `findControlAtPoint` as `minimise`, `maximise` and `close`, so hovering Maximise shows Windows 11's snap layouts.
     - Close is the app's quit, which asks about unsaved changes as now.
@@ -139,7 +143,7 @@ The product owner, 2026-10-11:
   - **Right-click** the caption:
     - Windows shows the system's window menu (from the caption).
     - On Linux the row shows a small menu of its own: Minimise, Maximise or Restore, Close, and Use the system title bar. The system's own window menu (Move to monitor…) comes later (§14).
-  - **Full screen** (View > Full screen, F11): the row stays, with its menus and name; the window buttons hide.
+  - **Full screen** (View > Full screen, F11): the row stays, with its menus and name; the window buttons hide. From a maximised window it leaves maximised first (the window manager holds a maximised window to the work area) and comes back maximised.
 - **Built:**
   - The row is part of the window's content, above the shell (`WindowContent`), not inside the shell, so popovers, toasts and the shell's tests keep their coordinates.
   - On Linux the window manager's move starts once a drag passes the drag threshold (`input.dragThreshold`), not on the press, so a double-click still reaches the row.
@@ -147,6 +151,7 @@ The product owner, 2026-10-11:
   - non-native title bars (`setUsingNativeTitleBar(false)`);
   - `Component::findControlAtPoint` (Windows hit-testing: caption, buttons, edges);
   - `ComponentPeer::startHostManagedResize` (Linux, X11's `_NET_WM_MOVERESIZE`).
+  - Maximise through the window manager only with the native title bar; patched for ours (above). The JUCE sources have CRLF line endings, so the patch's hunks do too (`.gitattributes`).
   - JUCE has no native Wayland backend. Under Wayland, Segno runs through XWayland, and the window manager moves and snaps it the same way.
   - On Linux, a window without the native title bar also gets `_KDE_NET_WM_WINDOW_TYPE_OVERRIDE` from JUCE, so KDE's taskbar and tiling are checked by hand.
 
@@ -478,6 +483,8 @@ The full record is [ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mou
   - The take items act on the selected take.
   - The Record button's menu and Transport share their lists.
   - Screenshots at standard and compact widths, zoomed in: the title bar, an open menu, the system title bar mode, the top bar with Undo, Redo and search.
+  - Only the title bar option reaches the window: other settings (a browser category opened, a favourite) leave it alone.
+- **A showing window, with a window manager** (integration; skipped without a desktop session, as on CI's bare X server): Maximise stays maximised once the window manager has answered, and Restore returns the window to its earlier bounds.
 - **By hand** (manual-tests/M2.md, "Menu bar and title bar (C10)"), on GNOME (Wayland, through XWayland), KDE and Windows 11:
   - drag to move, snapping to halves and corners, double-click to maximise;
   - minimise, maximise and restore;

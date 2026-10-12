@@ -9,7 +9,7 @@
 
 See [roadmap.md](../roadmap.md) and the device specs in `devices/*/SPEC.md`.
 
-**Status:** ◐ plan approved by the product owner (2026-10-11), with every recommendation under "For review" (CLAP hosting moved to M4). A1 (presets) and B11 (factory presets, all but the Sampler's) built and signed off the same day. C1 (Settings) built and signed off the same day. C2 (the browser, [browser.md](../design/browser.md), ADR 0046) built and signed off 2026-10-12. A2 (the modulation core) built 2026-10-12. B1 (the Delay) built and signed off 2026-10-12, with its 15 factory presets. C9 (the editing grid, ADR 0047), asked for before going on, built 2026-10-12, for review; then B2 Chorus & Ensemble's SPEC.
+**Status:** ◐ plan approved by the product owner (2026-10-11), with every recommendation under "For review" (CLAP hosting moved to M4). A1 (presets) and B11 (factory presets, all but the Sampler's) built and signed off the same day. C1 (Settings) built and signed off the same day. C2 (the browser, [browser.md](../design/browser.md), ADR 0046) built and signed off 2026-10-12. A2 (the modulation core) built 2026-10-12. B1 (the Delay) built and signed off 2026-10-12, with its 15 factory presets. C9 (the editing grid, ADR 0047), asked for before going on, built 2026-10-12, for review. Also asked for before going on, a window fix (2026-10-12, for review): on Linux, Maximise and Restore are the window manager's (a small JUCE patch), so Restore, a double-click and a drag un-maximise, and clicks in the browser no longer show a maximised window as not maximised ([menu-bar.md](../design/menu-bar.md) §4; manual-tests/M3.md). Then B2 Chorus & Ensemble's SPEC.
 
 ## Steps
 

@@ -145,8 +145,19 @@ public:
         // What the window does for the shell's actions (Quit, Full screen, the title bar option).
         shell.window.quit = [] { juce::JUCEApplication::getInstance()->systemRequestedQuit(); };
         shell.window.isFullScreen = [this] { return isKioskMode(); };
+        // Linux: a maximised window is the window manager's, which holds it to the work area, so
+        // Full screen leaves maximised first and goes back to it after.
         shell.window.setFullScreen = [this](bool on) {
+            if (on == isKioskMode())
+                return;
+            if (on && kLinux && isFullScreen())
+            {
+                maximisedBeforeFullScreen_ = true;
+                setFullScreen(false);
+            }
             juce::Desktop::getInstance().setKioskModeComponent(on ? this : nullptr, false);
+            if (!on && std::exchange(maximisedBeforeFullScreen_, false))
+                setFullScreen(true);
             updateWindowState();
         };
         if (!kMac)
@@ -267,6 +278,7 @@ private:
 
     juce::OpenGLContext gl_;
     fd::app::WindowContent* content_ = nullptr;
+    bool maximisedBeforeFullScreen_ = false; // Full screen goes back to maximised (Linux)
 #if JUCE_MAC
     juce::PopupMenu appMenu_;
 #endif

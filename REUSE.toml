@@ -22,3 +22,10 @@ path = ["cmake/patches/tracktion_engine-*.patch"]
 precedence = "override"
 SPDX-FileCopyrightText = "Tracktion Corporation and Segno contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# Patches to JUCE contain upstream code fragments.
+[[annotations]]
+path = ["cmake/patches/juce-*.patch"]
+precedence = "override"
+SPDX-FileCopyrightText = "Raw Material Software Limited and Segno contributors"
+SPDX-License-Identifier = "AGPL-3.0-only"
