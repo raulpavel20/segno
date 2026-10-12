@@ -232,3 +232,139 @@ TEST_CASE("clip loops (engine): a looped MIDI clip plays the notes inside its lo
             CHECK(rms(out, 0.0, 0.45) < 1e-4);
     }
 }
+
+namespace
+{
+fd::model::ClipInfo infoOf(Looper& f, std::uint64_t clip)
+{
+    f.session->updateSnapshotNow();
+    const auto found = fd::model::findClip(*f.session->snapshot(), clip);
+    REQUIRE(found);
+    return *found->first;
+}
+
+/// A WAV of `seconds` whose metadata says it's a loop of `beats` (an ACID chunk).
+juce::File acidLoop(Looper& f, double seconds, int beats)
+{
+    const auto file = f.root.getChildFile("acid.wav");
+    std::unique_ptr<juce::OutputStream> stream = std::make_unique<juce::FileOutputStream>(file);
+    const auto options = juce::AudioFormatWriterOptions{}.withSampleRate(kRate).withNumChannels(2).withBitsPerSample(24).withMetadataValues(
+        {{juce::WavAudioFormat::acidBeats, juce::String(beats)},
+         {juce::WavAudioFormat::acidNumerator, "4"},
+         {juce::WavAudioFormat::acidDenominator, "4"},
+         {juce::WavAudioFormat::acidTempo, "100"},
+         {juce::WavAudioFormat::acidStretch, "1"}});
+    auto writer = juce::WavAudioFormat().createWriterFor(stream, options);
+    REQUIRE(writer != nullptr);
+    juce::AudioBuffer<float> audio(2, static_cast<int>(seconds * kRate));
+    audio.clear();
+    REQUIRE(writer->writeFromAudioSampleBuffer(audio, 0, audio.getNumSamples()));
+    return file;
+}
+} // namespace
+
+TEST_CASE("clip loops: on moves nothing, off removes the repeats; a looped clip goes past its file; kept when saved",
+          "[integration]")
+{
+    Looper f;
+    f.session->setEdgeFades(false);
+    const auto file = ramp(2.0);
+    const auto t = f.track();
+    const auto id = f.place(t, file, "ramp", 0.5);
+    f.session->applyClipEdits({{.clip = id, .track = t, .start = 0.75, .length = 0.5, .offset = 0.25}});
+    const auto before = f.render(0.0, 1.5);
+
+    CHECK(f.session->setClipsLooping({id}, true).empty());
+    CHECK(f.session->undoDescription() == "Loop clips");
+    auto c = infoOf(f, id);
+    CHECK(c.loop == fd::model::ClipLoop{0.25, 0.5});
+    CHECK(c.offset == 0.0);
+    CHECK(c.start == Approx(0.75));
+    CHECK(c.length == Approx(0.5));
+    CHECK(f.engineClip(id).isLooping());
+    CHECK(worstDifference(f.render(0.0, 1.5), before) < 1e-6); // nothing sounds different
+
+    // Extended far past its file's end (2.5 s): eight laps, each the loop.
+    f.session->applyClipEdits({{.clip = id, .track = t, .start = 0.75, .length = 4.0, .offset = 0.0}});
+    c = infoOf(f, id);
+    CHECK(c.length == Approx(4.0));
+    CHECK(c.loop.on());
+    const auto out = f.render(0.0, 5.0);
+    for (int lap = 0; lap < 8; ++lap)
+    {
+        const double at = 0.75 + 0.5 * lap + 0.1;
+        CHECK(out.at(0, static_cast<int>(std::lround(at * kRate))) == Approx(file.at(0, static_cast<int>(std::lround(0.35 * kRate)))));
+    }
+
+    // Off: the repeats go; undo brings them back.
+    CHECK(f.session->setClipsLooping({id}, false).empty());
+    CHECK(f.session->undoDescription() == "Stop looping clips");
+    c = infoOf(f, id);
+    CHECK_FALSE(c.loop.on());
+    CHECK(c.length == Approx(0.5));
+    CHECK(c.offset == Approx(0.25));
+    f.session->undo();
+    c = infoOf(f, id);
+    CHECK(c.loop.on());
+    CHECK(c.length == Approx(4.0));
+
+    // A new loop: the content at the clip's start is outside it, so the clip starts at its start.
+    CHECK(f.session->setClipLoop(id, {0.5, 0.25}).empty());
+    CHECK(f.session->undoDescription() == "Loop");
+    c = infoOf(f, id);
+    CHECK(c.loop == fd::model::ClipLoop{0.5, 0.25});
+    CHECK(c.offset == 0.0);
+    CHECK(c.length == Approx(4.0));
+
+    // Saved and opened again: the same loop.
+    const auto project = f.root.getChildFile("Song").getChildFile("Song.segno");
+    REQUIRE(f.session->saveAs(project));
+    REQUIRE(f.session->open(project));
+    f.session->updateSnapshotNow();
+    const auto& reopened = f.session->snapshot()->tracks.front().clips.front();
+    CHECK(reopened.loop == fd::model::ClipLoop{0.5, 0.25});
+    CHECK(reopened.length == Approx(4.0));
+}
+
+TEST_CASE("clip loops: MIDI loops in beats; clips that can't loop say why; audio is placed at its file's speed",
+          "[integration]")
+{
+    Looper f;
+    const auto t = f.track();
+
+    // MIDI: one bar at 120 BPM, looped: four beats.
+    const auto midi = f.session->createMidiClip(t, 0.0, 2.0);
+    REQUIRE(midi != 0);
+    CHECK(f.session->setClipsLooping({midi}, true).empty());
+    CHECK(infoOf(f, midi).loop == fd::model::ClipLoop{0.0, 2.0});
+    auto* engineMidi = dynamic_cast<te::MidiClip*>(&f.engineClip(midi));
+    REQUIRE(engineMidi != nullptr);
+    CHECK(engineMidi->getLoopLengthBeats().inBeats() == Approx(4.0));
+
+    // A file with loop metadata is placed at its own speed, its own length.
+    const auto acid = f.session->insertAudioFile(t, acidLoop(f, 3.0, 4), 4.0);
+    REQUIRE(acid != 0);
+    CHECK_FALSE(infoOf(f, acid).synced);
+    CHECK(infoOf(f, acid).length == Approx(3.0));
+    CHECK(f.session->setClipsLooping({acid}, true).empty());
+
+    // An audio clip the engine stretches to the tempo (a project from before) can't loop.
+    const auto synced = f.place(t, ramp(1.0), "synced", 10.0);
+    dynamic_cast<te::AudioClipBase&>(f.engineClip(synced)).setAutoTempo(true);
+    CHECK(infoOf(f, synced).synced);
+    const auto why = f.session->setClipsLooping({synced}, true);
+    CHECK(why.find("tempo") != std::string::npos);
+    CHECK_FALSE(infoOf(f, synced).loop.on());
+
+    // A clip with takes (a bounce keeps its source as one) can't loop.
+    const auto plain = f.place(t, ramp(1.0), "plain", 14.0);
+    std::optional<Session::BounceResult> result;
+    REQUIRE(f.session->bounce({plain}, fd::model::BounceMode::InPlace, [&](const Session::BounceResult& r) { result = r; }) != nullptr);
+    for (int i = 0; i < 2000 && !result; ++i)
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
+    REQUIRE(result);
+    REQUIRE(result->clips.size() == 1);
+    CHECK(f.session->setClipsLooping({result->clips[0]}, true).find("takes") != std::string::npos);
+    CHECK(f.session->setClipLoop(result->clips[0], {0.0, 0.5}).find("takes") != std::string::npos);
+    CHECK_FALSE(infoOf(f, result->clips[0]).loop.on());
+}

@@ -208,7 +208,11 @@ model::ClipInfo Session::Impl::storedClipInfo(const juce::ValueTree& tree, int c
         const auto audio = te::SourceFileReference::findFileFromString(*edit, tree[te::IDs::source].toString());
         info.sourcePath = audio.getFullPathName().toStdString();
         info.sourceLength = te::AudioFile(engine, audio).getLength();
+        info.synced = tree[te::IDs::autoTempo];
     }
+    info.loop = loopOf(tree, edit->tempoSequence); // ADR 0048
+    if (info.loop.on() && info.kind == model::ClipInfo::Kind::Midi)
+        info.contentStartBeat = edit->tempoSequence.toBeats(te::TimePosition::fromSeconds(model::clipViewOrigin(info))).inBeats();
     return info;
 }
 

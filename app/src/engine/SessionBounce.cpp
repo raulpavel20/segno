@@ -24,7 +24,7 @@ te::TimePosition at(double seconds)
 bool sameClip(const model::ClipInfo& a, const model::ClipInfo& b)
 {
     return a.kind == b.kind && a.start == b.start && a.length == b.length && a.offset == b.offset && a.notes == b.notes &&
-           a.sourcePath == b.sourcePath && a.muted == b.muted && a.fromTake == b.fromTake;
+           a.sourcePath == b.sourcePath && a.muted == b.muted && a.fromTake == b.fromTake && a.loop == b.loop;
 }
 
 /// The modules a run renders (ADR 0019): in place, a MIDI clip's chain up to its instrument and

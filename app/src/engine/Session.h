@@ -129,8 +129,9 @@ public:
     /// readable audio.
     std::uint64_t insertAudioFile(std::uint64_t trackId, const juce::File& file, double seconds);
 
-    /// Moves and trims clips (C4): each edit gives a clip its track and placement.
-    void applyClipEdits(const std::vector<model::ClipEdit>& edits);
+    /// Moves and trims clips (C4): each edit gives a clip its track and placement (and a new loop,
+    /// ADR 0048). One undo step named `undoName`.
+    void applyClipEdits(const std::vector<model::ClipEdit>& edits, const std::string& undoName = "Move clips");
     /// Copies each `clip` to its placement; returns the new clip ids.
     std::vector<std::uint64_t> duplicateClips(const std::vector<model::ClipEdit>& placements);
     void deleteClips(const std::vector<std::uint64_t>& ids);
@@ -565,6 +566,17 @@ public:
     /// The project's edge fades (fades.md §2). One undo step, "Edge fades".
     void setEdgeFades(bool on);
     [[nodiscard]] bool edgeFades() const;
+
+    // ---- clip loops (C10, ADR 0048, docs/design/clip-loops.md) ------------------------------
+    /// Loop on for `clips` (each loops what it shows, so nothing moves) or off (the repeats go),
+    /// in one undo step, "Loop clips" or "Stop looping clips". A clip that can't loop is left as it
+    /// is: the first one's reason is returned (empty if none was refused). A clip on a take stack
+    /// with one take leaves it as it starts to loop (§8).
+    std::string setClipsLooping(const std::vector<std::uint64_t>& clips, bool on);
+    /// A clip's loop set to `loop` (the clip view's brace, the inspector, assistants), switching Loop
+    /// on if it was off: placed as model::withLoop says, in one undo step named `undoName`. The
+    /// reason if it can't loop (nothing changes), else empty.
+    std::string setClipLoop(std::uint64_t clip, const model::ClipLoop& loop, const std::string& undoName = "Loop");
 
     /// A module panel's view state (collapsed sections, folded; ADR 0022), stored with the
     /// project on the module. Never an undo step or an unsaved change.

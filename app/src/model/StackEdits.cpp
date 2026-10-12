@@ -63,7 +63,7 @@ GroupedEdits groupEdits(const std::vector<ClipPlace>& clips, const std::vector<C
             }
             // The first move of a stack wins for all of its parts.
             const auto& m = out.moves[it->second];
-            out.edits.push_back({e.clip, m.toTrack, c->start + m.delta, c->length, c->offset});
+            out.edits.push_back({e.clip, m.toTrack, c->start + m.delta, c->length, c->offset, e.loop});
             continue;
         }
         // A trim: the stack's range follows its outer edges.

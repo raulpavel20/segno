@@ -182,7 +182,11 @@ model::ClipInfo clipInfo(te::Clip& c, int trackColour)
     {
         clip.sourcePath = audio->getOriginalFile().getFullPathName().toStdString();
         clip.sourceLength = audio->getSourceLength().inSeconds();
+        clip.synced = audio->getAutoTempo();
     }
+    clip.loop = loopOf(c.state, c.edit.tempoSequence); // ADR 0048
+    if (clip.loop.on() && clip.kind == model::ClipInfo::Kind::Midi) // the zero the clip view shows
+        clip.contentStartBeat = c.edit.tempoSequence.toBeats(te::TimePosition::fromSeconds(model::clipViewOrigin(clip))).inBeats();
     return clip;
 }
 
@@ -194,6 +198,50 @@ model::TrackInfo::Kind kindOf(te::AudioTrack& t)
     return model::TrackInfo::Kind::Audio;
 }
 } // namespace
+
+model::ClipLoop loopOf(const juce::ValueTree& clip, const te::TempoSequence& tempo)
+{
+    const auto seconds = [&](double beats) { return tempo.toTime(te::BeatPosition::fromBeats(beats)).inSeconds(); };
+    if (clip.hasType(te::IDs::MIDICLIP))
+    {
+        const double start = clip[te::IDs::loopStartBeats], length = clip[te::IDs::loopLengthBeats];
+        return length > 0.0 ? model::ClipLoop{seconds(start), seconds(start + length) - seconds(start)} : model::ClipLoop{};
+    }
+    if (static_cast<bool>(clip[te::IDs::autoTempo]))
+        return {};
+    const double length = clip[te::IDs::loopLength];
+    return length > 0.0 ? model::ClipLoop{clip[te::IDs::loopStart], length} : model::ClipLoop{};
+}
+
+void writeLoop(te::Clip& clip, const model::ClipLoop& loop, juce::UndoManager* um)
+{
+    if (auto* midi = dynamic_cast<te::MidiClip*>(&clip))
+    {
+        const auto& tempo = clip.edit.tempoSequence;
+        const auto beats = [&](double seconds) { return tempo.toBeats(te::TimePosition::fromSeconds(seconds)); };
+        if (loop.on())
+            midi->setLoopRangeBeats({beats(loop.start), beats(loop.end())});
+        else
+            midi->setLoopRangeBeats({});
+        return;
+    }
+    if (loop.on())
+    {
+        if (auto* audio = dynamic_cast<te::AudioClipBase*>(&clip); audio != nullptr && !audio->getAutoTempo())
+            audio->setLoopRange({te::TimePosition::fromSeconds(loop.start), te::TimeDuration::fromSeconds(loop.length)});
+        return;
+    }
+    // Written directly: the engine's own way does nothing for a clip whose file is missing.
+    clip.state.setProperty(te::IDs::loopStart, 0.0, um);
+    clip.state.setProperty(te::IDs::loopLength, 0.0, um);
+}
+
+void placeClip(te::Clip& clip, double start, double length, double offset)
+{
+    const auto loop = loopOf(clip.state, clip.edit.tempoSequence);
+    clip.setPosition({{te::TimePosition::fromSeconds(start), te::TimePosition::fromSeconds(start + length)},
+                      te::TimeDuration::fromSeconds(model::phaseOf(offset, loop))});
+}
 
 /// Scans plugin folders one file per tick on the message thread (some formats must load there;
 /// JUCE's own list does the same). A crash mid-scan is remembered by the dead man's pedal file
@@ -696,7 +744,7 @@ void Session::Impl::clearUnder(te::AudioTrack& track, double start, double end, 
             c->removeFromParent();
             break;
         case model::ClipCut::Kind::Trim:
-            c->setPosition({{at(cut.start), at(cut.start + cut.length)}, te::TimeDuration::fromSeconds(cut.offset)});
+            placeClip(*c, cut.start, cut.length, cut.offset);
             break;
         case model::ClipCut::Kind::SplitAround:
         {
@@ -734,6 +782,22 @@ te::Plugin* Session::Impl::plugin(std::uint64_t id) const
 te::Clip* Session::Impl::clip(std::uint64_t id) const
 {
     return te::findClipForID(*edit, te::EditItemID::fromRawID(id));
+}
+
+std::string Session::Impl::loopRefusal(te::Clip& c)
+{
+    // The clip and, if it has one, its stack's takes: what model::whyCantLoop looks at.
+    model::TrackInfo track;
+    auto info = clipInfo(c, 0);
+    if (const auto stack = stackOf(c); stack.isValid())
+    {
+        model::TakeStackInfo s{.id = 1};
+        for (int i = 0; i < stack.getNumChildren(); ++i)
+            s.takes.push_back({.id = static_cast<std::uint64_t>(i + 1)});
+        track.stacks.push_back(s);
+        info.stack = 1;
+    }
+    return model::whyCantLoop(info, track);
 }
 
 // ---- Session ------------------------------------------------------------------------------
@@ -1019,11 +1083,19 @@ std::uint64_t Session::insertAudioFile(std::uint64_t trackId, const juce::File& 
                                       {{start, te::TimeDuration::fromSeconds(audio.getLength())}, {}}, false);
     if (clip == nullptr)
         return 0;
+    // At the file's own speed (browser.md R8, clip-loops.md §4): the engine would stretch a file
+    // with loop metadata to the tempo by itself; following the tempo comes with M4's warping.
+    if (clip->getAutoTempo() || clip->getAutoPitch())
+    {
+        clip->setAutoTempo(false);
+        clip->setAutoPitch(false);
+        clip->setPosition({{start, te::TimeDuration::fromSeconds(audio.getLength())}, {}});
+    }
     impl_->clearUnder(*track, start.inSeconds(), start.inSeconds() + audio.getLength(), {clip->itemID.getRawID()});
     return clip->itemID.getRawID();
 }
 
-void Session::applyClipEdits(const std::vector<model::ClipEdit>& asked)
+void Session::applyClipEdits(const std::vector<model::ClipEdit>& asked, const std::string& undoName)
 {
     if (asked.empty())
         return;
@@ -1046,7 +1118,7 @@ void Session::applyClipEdits(const std::vector<model::ClipEdit>& asked)
     const auto grouped = model::groupEdits(places, asked);
     const auto& edits = grouped.edits;
     auto* um = &impl_->edit->getUndoManager();
-    impl_->beginEdit("Move clips");
+    impl_->beginEdit(undoName);
     for (const auto& m : grouped.moves) // while their clips are still where they were
         if (auto* target = impl_->track(m.toTrack))
             impl_->moveStack(m.stack, *target, m.delta, um);
@@ -1066,8 +1138,9 @@ void Session::applyClipEdits(const std::vector<model::ClipEdit>& asked)
             continue;
         if (c->getClipTrack() != target)
             c->moveTo(*target);
-        c->setPosition({{te::TimePosition::fromSeconds(e.start), te::TimePosition::fromSeconds(e.start + e.length)},
-                        te::TimeDuration::fromSeconds(e.offset)});
+        if (e.loop) // ADR 0048: before the placement, whose offset is then the phase in it
+            writeLoop(*c, *e.loop, um);
+        placeClip(*c, e.start, e.length, e.offset);
     }
     // No overlaps (ADR 0019): the placed clips cut what they cover, in the same undo step; a clip's
     // parts clear the gaps between them too.
@@ -1091,6 +1164,67 @@ void Session::applyClipEdits(const std::vector<model::ClipEdit>& asked)
             impl_->clearUnder(*target, span.first, span.second, placed);
     for (auto* t : involved)
         impl_->settle(*t, um);
+}
+
+std::string Session::setClipsLooping(const std::vector<std::uint64_t>& clips, bool on)
+{
+    std::string refused;
+    std::vector<std::pair<te::Clip*, model::LoopPlacement>> changes;
+    for (const auto id : clips)
+    {
+        auto* c = impl_->clip(id);
+        if (c == nullptr || loopOf(c->state, c->edit.tempoSequence).on() == on)
+            continue;
+        if (on)
+            if (auto why = impl_->loopRefusal(*c); !why.empty())
+            {
+                if (refused.empty())
+                    refused = std::move(why);
+                continue;
+            }
+        const auto info = clipInfo(*c, 0);
+        changes.emplace_back(c, on ? model::loopOn(info) : model::loopOff(info));
+    }
+    if (changes.empty())
+        return refused;
+    auto* um = &impl_->edit->getUndoManager();
+    impl_->beginEdit(on ? "Loop clips" : "Stop looping clips");
+    std::set<te::AudioTrack*> tracks;
+    for (auto& [c, placed] : changes)
+    {
+        if (on && impl_->stackOf(*c).isValid()) // one take (more can't loop): it leaves its stack
+            c->state.removeProperty(Impl::fromTakeId, um);
+        writeLoop(*c, placed.loop, um);
+        placeClip(*c, placed.start, placed.length, placed.offset);
+        if (auto* t = dynamic_cast<te::AudioTrack*>(c->getClipTrack()))
+            tracks.insert(t);
+    }
+    for (auto* t : tracks)
+        impl_->settle(*t, um);
+    return refused;
+}
+
+std::string Session::setClipLoop(std::uint64_t clipId, const model::ClipLoop& loop, const std::string& undoName)
+{
+    auto* c = impl_->clip(clipId);
+    if (c == nullptr || !loop.on())
+        return {};
+    const bool wasOn = loopOf(c->state, c->edit.tempoSequence).on();
+    if (!wasOn)
+        if (auto why = impl_->loopRefusal(*c); !why.empty())
+            return why;
+    const auto placed = model::withLoop(clipInfo(*c, 0), loop);
+    if (wasOn && placed == model::placementOf(clipInfo(*c, 0)))
+        return {};
+    auto* um = &impl_->edit->getUndoManager();
+    impl_->beginEdit(undoName);
+    if (!wasOn && impl_->stackOf(*c).isValid())
+        c->state.removeProperty(Impl::fromTakeId, um);
+    writeLoop(*c, placed.loop, um);
+    placeClip(*c, placed.start, placed.length, placed.offset);
+    if (auto* t = dynamic_cast<te::AudioTrack*>(c->getClipTrack()))
+        impl_->settle(*t, um);
+    return {};
 }
 
 std::vector<std::uint64_t> Session::duplicateClips(const std::vector<model::ClipEdit>& asked)

@@ -41,6 +41,16 @@ inline te::AuxSendPlugin* sendIn(te::PluginList& list, int bus)
     return nullptr;
 }
 
+/// A clip's loop as the model sees it (ADR 0048, model/ClipLoops.h): seconds of its content, from
+/// the engine's own properties on a clip's state (a MIDI clip's beats at the song's tempo). None
+/// while it doesn't loop, and while the engine stretches it to the tempo (it can't loop then).
+[[nodiscard]] model::ClipLoop loopOf(const juce::ValueTree& clip, const te::TempoSequence& tempo);
+/// Writes a loop into a clip (length 0: none): an audio clip's in seconds of its file, the tempo
+/// sync left off; a MIDI clip's in beats.
+void writeLoop(te::Clip& clip, const model::ClipLoop& loop, juce::UndoManager* um);
+/// Places a clip; while it loops, its offset (the phase) is wrapped into the loop.
+void placeClip(te::Clip& clip, double start, double length, double offset);
+
 /// The aux bus a return track listens to (-1 if none).
 inline int busOf(te::AudioTrack& returnTrack)
 {
@@ -78,6 +88,8 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     [[nodiscard]] std::vector<te::AudioTrack*> returns() const;
     [[nodiscard]] static bool isReturn(const te::Track& track);
     [[nodiscard]] te::Clip* clip(std::uint64_t id) const;
+    /// Why a clip can't loop (model::whyCantLoop), or empty if it can (ADR 0048).
+    [[nodiscard]] std::string loopRefusal(te::Clip& clip);
     [[nodiscard]] te::Plugin* plugin(std::uint64_t id) const;
     // Edit steps without starting an undo transaction (commands compose them).
     te::AudioTrack* insertTrack(); // named after the highest "N Track" (tracks-and-clips.md §18)
@@ -536,8 +548,9 @@ private:
             return true;
         if (!t.hasType(te::IDs::AUDIOCLIP))
             return false;
-        static const std::array<juce::Identifier, 10> ids{te::IDs::fadeIn, te::IDs::fadeOut, te::IDs::mute, te::IDs::start, te::IDs::length,
-                                                          te::IDs::offset, "fdFadeInBend", "fdFadeOutBend", "fdXLength", "fdXFrom"};
+        static const std::array<juce::Identifier, 12> ids{te::IDs::fadeIn, te::IDs::fadeOut, te::IDs::mute, te::IDs::start, te::IDs::length,
+                                                          te::IDs::offset, "fdFadeInBend", "fdFadeOutBend", "fdXLength", "fdXFrom",
+                                                          te::IDs::loopStart, te::IDs::loopLength};
         static const juce::Identifier shape{"fdXShape"};
         return id == shape || std::find(ids.begin(), ids.end(), id) != ids.end();
     }
