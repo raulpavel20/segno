@@ -2,6 +2,7 @@
 
 #include "Filter.h"
 #include "fd/device/Realtime.h"
+#include "fd/dsp/IirOversampler.h"
 #include "fd/dsp/Math.h"
 #include "fd/testkit/DeviceRender.h"
 #include "fd/testkit/Golden.h"
@@ -74,6 +75,21 @@ int latency()
     F d;
     d.prepare({.sampleRate = kRate, .maxBlockSize = 512});
     return d.latencySamples();
+}
+
+/// The input through the oversampler's round trip alone: the dry sound, as the Filter mixes it.
+AudioBuffer dryOf(const AudioBuffer& in)
+{
+    dsp::IirOversampler os;
+    os.prepare(64, 2);
+    AudioBuffer out = in;
+    for (int pos = 0; pos < out.numSamples(); pos += 64)
+    {
+        const int n = std::min(64, out.numSamples() - pos);
+        float* io[] = {out.channel(0) + pos, out.channel(1) + pos};
+        os.roundTrip(io, 2, n);
+    }
+    return out;
 }
 
 /// The filter's impulse response at -40 dBFS (small-signal), whole: the oversampler's filters ring
@@ -242,12 +258,7 @@ TEST_CASE("Filter: the DJ filter is nothing at the centre, and a low or high pas
 {
     const auto in = pinkNoise(samples(1.0), 3, 0.4f);
     const auto out = renderWith(in, {{F::Type, 5.0f}, {F::Sweep, 0.0f}, {F::Res, 80.0f}});
-    const int l = latency();
-    AudioBuffer later(2, in.numSamples());
-    for (int c = 0; c < 2; ++c)
-        for (int i = l; i < in.numSamples(); ++i)
-            later.at(c, i) = in.at(c, i - l);
-    CHECK(nullResidualDb(later, out) < -100.0);
+    CHECK(nullResidualDb(dryOf(in), out) < -120.0);
 
     const auto lp = measure({{F::Type, 5.0f}, {F::Sweep, -100.0f}, {F::Res, 0.0f}});
     CHECK(lp.at(25.0) > 0.7);
@@ -511,20 +522,34 @@ TEST_CASE("Filter: Clip keeps resonance under 0 dBFS; quiet sound passes exactly
         }
 }
 
-TEST_CASE("Filter: at 0 % Dry/Wet the output is the input, held back by the latency", "[filter][fast]")
+TEST_CASE("Filter: at 0 % Dry/Wet the output is the dry sound", "[filter][fast]")
 {
+    // The input through the oversampler's round trip: flat to 20 kHz, a few samples late.
     const auto in = pinkNoise(samples(1.0), 3, 0.5f);
     const auto out = renderWith(in, {{F::Mix, 0.0f}, {F::Res, 90.0f}, {F::Drive, 12.0f}, {F::Lfo, 1.0f}});
-    const int l = latency();
-    REQUIRE(l > 0);
-    AudioBuffer later(2, in.numSamples());
-    for (int c = 0; c < 2; ++c)
-        for (int i = l; i < in.numSamples(); ++i)
-            later.at(c, i) = in.at(c, i - l);
-    CHECK(nullResidualDb(later, out) < -120.0);
+    CHECK(nullResidualDb(dryOf(in), out) < -120.0);
 }
 
-TEST_CASE("Filter: the latency is what it reports", "[filter][fast]")
+TEST_CASE("Filter: the dry and the filtered sound line up at every frequency", "[filter][fast]")
+{
+    // A filter that passes everything (a high pass at 20 Hz, Clean, no resonance), half mixed with
+    // the dry sound: what's left of a sweep's level is flat, without the comb a delay would make.
+    const auto ir =
+        renderWith(impulse(samples(0.5), 2, 0.01f, samples(0.01)),
+                   {{F::Type, 1.0f}, {F::Slope, 0.0f}, {F::Freq, 20.0f}, {F::Res, 0.0f}, {F::Mix, 50.0f}});
+    for (const double hz : {200.0, 2000.0, 8000.0, 12000.0, 16000.0, 19000.0})
+    {
+        INFO(hz << " Hz");
+        CHECK(std::abs(db(std::abs(responseAt(ir.channel(0), ir.numSamples(), hz, kRate)) / 0.01)) < 0.05);
+    }
+}
+
+TEST_CASE("Filter: a few samples of latency, as it reports", "[filter][fast]")
+{
+    CHECK(latency() == 4);
+}
+
+TEST_CASE("Filter: the latency is what it measures through the filter", "[filter][fast]")
 {
     const auto in = whiteNoise(samples(0.5), 11, 0.3f);
     const auto out = renderWith(in, {{F::Type, 1.0f}, {F::Slope, 0.0f}, {F::Freq, 20.0f}, {F::Res, 0.0f}});

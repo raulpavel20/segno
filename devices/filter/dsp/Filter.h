@@ -5,8 +5,8 @@
 #include "fd/dsp/ControlGrid.h"
 #include "fd/dsp/Dynamics.h"
 #include "fd/dsp/Filters.h"
+#include "fd/dsp/IirOversampler.h"
 #include "fd/dsp/Modulation.h"
-#include "fd/dsp/Oversampler.h"
 #include "fd/dsp/Smoother.h"
 
 #include <array>
@@ -250,7 +250,7 @@ private:
     dsp::Glide phase_, offset_, rightJump_;
     dsp::SongLfo lfo_;
     dsp::LevelDetector detector_;
-    dsp::Oversampler oversampler_;
+    dsp::IirOversampler oversampler_; // minimum phase: a few samples' delay
     double rightPosition_ = 0.0;
     float envDb_ = -48.0f, envRise_ = 0.0f, envFall_ = 0.0f;
     StereoKind stereo_ = StereoKind::Offset;
@@ -260,10 +260,10 @@ private:
     int active_ = 0; // which core is the current one; the other fades out
     std::array<std::array<Core, 2>, maxChannels> cores_{};
     std::array<float, maxChannels> lfoValue_{};
-    // Per control segment: the dry sound (held back by the latency), the work buffers and what
+    // Per control segment: the dry sound (through the oversampler's round trip, so it lines up
+    // with the filtered one at every frequency), the work buffers and what
     // each oversampled sample needs.
-    std::array<std::vector<float>, maxChannels> work_, dryLine_;
-    std::array<int, maxChannels> dryPos_{};
+    std::array<std::vector<float>, maxChannels> work_;
     std::array<std::array<double, maxChannels>, 64> place_{}, placeOld_{}; // each side's, per sample
     std::array<std::array<float, 64>, maxChannels> dryNow_{};
     std::array<float, 64> resNow_{}, morphNow_{}, fadeNow_{}, driveNow_{}, mixNow_{}, outNow_{}, clipNow_{};

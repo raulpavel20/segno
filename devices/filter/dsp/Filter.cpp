@@ -898,11 +898,9 @@ void Filter::prepare(const ProcessSpec& spec)
     for (auto* g : {&phase_, &offset_, &rightJump_})
         g->setTime(kGlideMs, sampleRate_);
     oversampler_.prepare(grid_.interval(), maxChannels);
-    oversampler_.setFactor(factor);
     for (int c = 0; c < maxChannels; ++c)
     {
         work_[static_cast<size_t>(c)].assign(static_cast<size_t>(grid_.interval()), 0.0f);
-        dryLine_[static_cast<size_t>(c)].assign(static_cast<size_t>(oversampler_.latencySamples() + 1), 0.0f);
         for (auto& core : cores_[static_cast<size_t>(c)])
         {
             const int longest = static_cast<int>(std::ceil(rate2_ / lowestHz)) + 4;
@@ -925,8 +923,6 @@ void Filter::reset() noexcept
     {
         for (auto& core : cores_[static_cast<size_t>(c)])
             core.reset();
-        std::fill(dryLine_[static_cast<size_t>(c)].begin(), dryLine_[static_cast<size_t>(c)].end(), 0.0f);
-        dryPos_[static_cast<size_t>(c)] = 0;
     }
     lfo_.reset();
     detector_.reset();
@@ -1068,7 +1064,6 @@ void Filter::process(ProcessContext& ctx) noexcept
         snap();
         fresh_ = false;
     }
-    const int latency = oversampler_.latencySamples();
 
     float peakIn[maxChannels] = {}, peakOut[maxChannels] = {}, envelope = 0.0f;
     grid_.forEachSegment(
@@ -1183,6 +1178,9 @@ void Filter::process(ProcessContext& ctx) noexcept
                 }
             }
             oversampler_.downsample(work, maxChannels, length);
+            // The dry sound makes the same round trip, so the two line up at every frequency.
+            float* dryIo[maxChannels] = {dryNow_[0].data(), dryNow_[1].data()};
+            oversampler_.roundTrip(dryIo, maxChannels, length);
 
             // Stage 3 (the device's rate): Clip, the mix with the dry sound, Output.
             for (int i = 0; i < length; ++i)
@@ -1192,13 +1190,7 @@ void Filter::process(ProcessContext& ctx) noexcept
                 for (int c = 0; c < maxChannels; ++c)
                 {
                     const auto cc = static_cast<size_t>(c);
-                    // The dry sound, held back by the latency.
-                    auto& line = dryLine_[cc];
-                    const int size = static_cast<int>(line.size());
-                    int& pos = dryPos_[cc];
-                    line[static_cast<size_t>(pos)] = dryNow_[cc][at];
-                    const float dry = line[static_cast<size_t>((pos - latency + size) % size)];
-                    pos = (pos + 1) % size;
+                    const float dry = dryNow_[cc][at];
                     const float w = work[c][i];
                     float wet = bounded(w) + clipNow_[at] * (softClip(w) - bounded(w));
                     wet = dry + djNow_[cc][at] * (wet - dry);

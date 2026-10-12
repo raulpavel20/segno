@@ -80,7 +80,7 @@ in ─┬─> Drive ─> 2× up ─> the filter: Type, Circuit, Slope, at each s
     │                                    ^                                                                          │
     │          LFO (SongLfo, a side each) ┤ main control + LFO Amount × L / 2 + Env Amount × E / 2                  │
     ├─> envelope (level detector, on the input or the sidechain) ┘                                                  │
-    └─> dry, held back by the latency ─────────────────────────────────────────────── mix (equal gain) ─> Output ─> out
+    └─> dry, through the oversampler's round trip ─────────────────────────────────── mix (equal gain) ─> Output ─> out
 ```
 
 **The circuits** shape every type built from a low, band and high pass (Low Pass, High Pass, Band Pass, Notch, Morph, DJ, Notch + LP):
@@ -99,8 +99,8 @@ in ─┬─> Drive ─> 2× up ─> the filter: Type, Circuit, Slope, at each s
 - **Notch + LP:** the circuit's low pass at Freq, then a notch from two octaves below Freq (Morph 0 %) to Freq itself (100 %). Resonance sets the low pass's resonance and narrows the notch.
 - **Resampling:** the sound is held at 2 × Freq samples a second (no smoothing between), so whatever is above Freq folds back down: a lo-fi grit that moves with the cutoff.
 
-**Oversampling:** the filter, from Drive to Clip, runs at twice the rate, through the Saturator's oversampler (its first stage). The circuits' saturation stays clear of aliasing, and resonant peaks near the top keep their shape (F7).
-- **Latency:** the oversampler's, the same at every setting ([ADR 0016](../../docs/decisions/0016-constant-device-latency.md)): about 1.3 ms at 48 kHz, reported; the dry sound is held back to match.
+**Oversampling:** the filter, from Drive to Clip, runs at twice the rate, through the DSP library's minimum-phase oversampler (`dsp::IirOversampler`: a polyphase IIR half-band each way, 106 dB of image and alias rejection, flat to 20 kHz). The circuits' saturation stays clear of aliasing, and resonant peaks near the top keep their shape (F7, as amended).
+- **Latency:** 4 samples at any rate (0.08 ms at 48 kHz), where the oversampler's round trip peaks; reported, the same at every setting ([ADR 0016](../../docs/decisions/0016-constant-device-latency.md)). The dry sound makes the same round trip (`IirOversampler::roundTrip`), so the dry and the filtered sound line up at every frequency and any Dry/Wet blends without combing.
 
 **Drive:** raises the level into the filter by up to 24 dB, and lowers it after by the same, so turning it changes the colour more than the level.
 
@@ -180,7 +180,7 @@ Built and named by Claude after approval ([presets.md](../../docs/design/presets
 | Slopes | Two octaves past the cutoff, at Resonance 0: 12 and 24 dB/oct within 1.5 dB/oct, every circuit |
 | Band Pass level | The peak within 0.5 dB of 0 dB at any Resonance (Clean) |
 | Resonance at 100 % | Warm and Acid ring at Freq within 3 %; after the input stops, the ring falls 60 dB within 2 s |
-| DJ | Sweep 0 %: the output is the input (held back by the latency), under −100 dBFS apart; −100 % and +100 %: a low pass near 50 Hz and a high pass near 10 kHz |
+| DJ | Sweep 0 %: the output is the dry sound (the input through the oversampler's round trip), under −120 dBFS apart; −100 % and +100 %: a low pass near 50 Hz and a high pass near 10 kHz |
 | Comb | Peaks (Morph 0 %) or notches (100 %) at multiples of Freq within 1 %, 50 Hz–5 kHz |
 | Vowel | The three formant peaks where the table puts them for each vowel, within 5 % |
 | Resampling | A 1 kHz sine with Freq 4 kHz: the output's images where an 8 kHz hold puts them, within 1 % |
@@ -192,8 +192,9 @@ Built and named by Claude after approval ([presets.md](../../docs/design/presets
 | Drive | At −30 dBFS, Clean, Drive 24 dB: within 0.5 dB of Drive 0 (level-matched) |
 | Aliasing | Warm, Drive 12 dB, Resonance 50 %, Freq 5 kHz, a 2.5 kHz sine at −6 dBFS: whatever isn't a harmonic of the tone under −60 dB in the audible band |
 | Clip | On: under −6 dBFS untouched (null within −120 dBFS); a 0 dBFS input at Resonance 100 %, every type and circuit: the wet never over 0 dBFS. Off: never over +12 dBFS |
-| Mix 0 % | Null against the input held back by the latency (under −120 dBFS) |
-| Latency | Measured equals reported, at every setting |
+| Mix 0 % | Null against the input through the oversampler's round trip (under −120 dBFS) |
+| Dry and filtered aligned | A high pass at 20 Hz at Dry/Wet 50 %: flat within 0.05 dB from 200 Hz to 19 kHz (no comb) |
+| Latency | 4 samples; measured equals reported, at every setting |
 | Type, Circuit, Slope, Shape and Sync changes | No clicks (the conformance click score) |
 | Display vs audio | The drawn response is `Filter::response` at each side's main control now; the readout's range is where the modulation reaches |
 | Conformance suite | All pass (no allocation, no denormals, parameter jumps without clicks, the tail as reported, the latency as reported) |
@@ -216,7 +217,7 @@ Deferred until a Live machine is available. When it is: each circuit against Liv
 | F4 | **Slopes** | 12 and 24 dB/oct, for every type with a slope; 24 by default. Leave out the 6 and 48 dB that Live offers on Morph alone (Later) |
 | F5 | **One knob per role** | The main knob follows the type (Freq, Sweep or Vowel), each keeping its own value, so switching and back loses nothing. Morph is one parameter whose meaning follows the type (as Live), dimmed where unused |
 | F6 | **Drive** | 0–24 dB into the circuit, level-matched (lowered after by the same), so it changes the colour more than the level. Clean saturates softly before the filter, so at 0 dB it's exact |
-| F7 | **Oversampling** | Always 2×, through the Saturator's oversampler: the circuits' saturation stays clean and the top octave keeps its shape. The cost is a constant latency of about 1.3 ms, reported (ADR 0016). The other way, no oversampling and no latency, aliases audibly once Drive is up |
+| F7 | **Oversampling** | Always 2×, through the Saturator's oversampler: the circuits' saturation stays clean and the top octave keeps its shape. The cost is a constant latency of about 1.3 ms, reported (ADR 0016). The other way, no oversampling and no latency, aliases audibly once Drive is up. *Amended by the product owner (2026-10-12), after the build: a minimum-phase oversampler instead, a new shared piece of the DSP library, for 4 samples of latency (0.08 ms) rather than 73 (1.5 ms).* |
 | F8 | **Resonance at 100 %** | Warm and Acid whistle at the cutoff but stop within 2 s of silence, so the tail ends and nothing sings on unseen. Gritty clips its resonance. A filter that oscillates on its own, as a sound source, comes later if asked for |
 | F9 | **The LFO** | The Phaser & Flanger's: Rate or a synced note value, seven shapes, Offset or Spin, plus the Auto Pan & Tremolo's Phase against the beat, with a power switch (off by default). At 100 % it moves the cutoff five octaves each way. Leave out Live's LFO Morph and its Steps and S&H quantize (Later) |
 | F10 | **The envelope and sidechain** | The Phaser & Flanger's envelope (Amount either way, Attack, Release), with a power switch. It follows the input, or another track chosen under the header's Sidechain (ADR 0025), so a pad can close on every kick. One envelope moves both sides. Leave out Live's sidechain mix, gain, filter and listen, and its Hold and S&H (Later) |
@@ -226,13 +227,13 @@ Deferred until a Live machine is available. When it is: each circuit against Liv
 
 ## Settled while building (B6, 2026-10-12)
 
-- **The latency is 73 samples** (1.5 ms at 48 kHz, 1.7 ms at 44.1 kHz), not 1.3 ms: the shared oversampler pads every factor to its longest chain's latency, so a module's latency never depends on its quality setting (ADR 0016). The same at every setting, as F7 says.
+- **The latency is 4 samples (0.08 ms at 48 kHz), not 1.3 ms** (F7, amended by the product owner after the build). The Saturator's linear-phase oversampler cost 73 samples (1.5 ms; it pads every factor to its longest chain). A filter is often played through live (a wah on a guitar, a synth), so the Filter now uses a new minimum-phase oversampler in the DSP library (`dsp::IirOversampler`), with the same rejection of images and aliases. It isn't linear phase: its delay rises towards the top of the band. The dry sound makes the same round trip, so the two still line up at every frequency.
 - **Resonance:** the 2-poles' Q runs from 0.71 at 0 % (no peak: Freq is where the filter is 3 dB down) to 25 at 100 %, on a curve that gives the knob's lower half the finer steps. The ladders' resonance stops just short of ringing on their own, closer at higher cutoffs, so a ring always falls 60 dB within 2 s.
 - **Warm has a gentle saturation going in** as well as in its loop. At high resonance the loop's feedback cancels most of the sound at its saturating stage, so it hardly coloured anything (0.2 % distortion where Clean had 4.5 %).
 - **Acid is the transistor ladder's structure with a high pass in its feedback and a saturation that leans one way,** not a diode ladder whose stages load one another. Stages that load one another can't be mixed into a clean high or band pass (the mixes leak the lows), and these two carry its sound: the deepest lows kept as the resonance rises, and the squelch. Its slope doesn't soften near the cutoff.
 - **Gritty is the state-variable filter with its band-pass state clipped** (where the resonance builds), and a hard clip going in, rather than a Sallen-Key: the clipped resonance is its sound, and small signals follow the same response Clean's does, which the display draws.
 - **Acid's feedback high pass sits at 0.3 × its cutoff,** and its low pass gets some of its lows back, as Warm's does: its resonance still took a 110 Hz saw under an 800 Hz cutoff down 9 dB. Its saturation leans one way (even harmonics, the second at about −24 dB in the golden test), the offset that leaves taken out at 5 Hz.
-- **The DJ filter's fade to the dry sound is at the module's rate,** after Clip: at the centre, the output is the input, held back by the latency, exactly (the oversampler's filters alone don't give that).
+- **The DJ filter's fade to the dry sound is at the module's rate,** after Clip: at the centre, the output is the dry sound exactly (the oversampler's filters alone don't give that).
 - **The vowel's level:** its three narrow formants take most of a sound away; they're made up by 15 dB and by how sharp Resonance makes them, so pink noise comes out about 3 dB down.
 - **The comb's display** draws the comb's teeth until they're closer than a third of a pixel column, then the band between its peaks and troughs, filled: drawn point by point, the teeth up high read as noise.
 - **The display's handle** sits whole inside the plot (in a notch, or at either end of the range). Its size is the panel kit's new `DeviceGrid::displayHandle`, which the Compressor's threshold point now uses too.

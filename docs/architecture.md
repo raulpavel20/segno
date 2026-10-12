@@ -28,7 +28,8 @@ This is a summary of how the system is put together. Each choice is justified in
 Nothing below the line may include JUCE. This keeps the DSP and its tests fast, deterministic and independent of any host ([ADR 0006](decisions/0006-juce-free-core-and-module-boundaries.md)).
 
 ```
-libs/dsp        DSP building blocks: filters, oscillators, oversampling, ADAA shapers,
+libs/dsp        DSP building blocks: filters, oscillators, oversampling (linear phase, and minimum
+                phase for a few samples' latency; M3 B6), ADAA shapers,
                 smoothing, the dynamics core (gain curves, detection, attack/release, lookahead,
                 true peak, BS.1770 loudness; M2 A1), the modulation core (a delay line read
                 between samples while it moves, a feedback path, LFOs locked to the song; M3 A2)
