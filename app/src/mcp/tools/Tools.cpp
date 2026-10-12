@@ -57,6 +57,10 @@ const char* unitName(Unit unit)
     case Unit::Pan: return "pan (-1 left .. 1 right)";
     case Unit::Degrees: return "degrees";
     case Unit::Note: return "MIDI note (C3 = 60)";
+    case Unit::Lufs:
+        return "LUFS";
+    case Unit::Dbtp:
+        return "dBTP";
     }
     return "";
 }

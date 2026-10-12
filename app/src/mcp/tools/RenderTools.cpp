@@ -66,7 +66,8 @@ Json measurementsJson(const model::AudioMeasurements& m)
             {"loudness",
              {{"integrated", db(m.integratedLufs)},
               {"shortTermMax", db(m.shortTermMaxLufs)},
-              {"momentaryMax", db(m.momentaryMaxLufs)}}},
+              {"momentaryMax", db(m.momentaryMaxLufs)},
+              {"range", m.loudnessRange ? Json(std::round(*m.loudnessRange * 10.0) / 10.0) : Json(nullptr)}}},
             {"crest", db(m.crestDb)},
             {"clippedSamples", m.clippedSamples},
             {"correlation", m.correlation ? Json(std::round(*m.correlation * 100.0) / 100.0) : Json(nullptr)},
@@ -95,29 +96,34 @@ void addRenderTools(Registry& registry, ToolEnv& env)
     render.title = "Render and measure";
     render.description =
         "Renders a range of the song (the mix, or one track through its chain) offline, without touching the "
-        "project or playback, and measures it: peak and true peak, RMS, loudness (LUFS integrated, loudest 3 s and "
-        "400 ms), crest factor, clipped samples, stereo correlation, and the level in seven frequency bands. With "
-        "\"audio\": true, also returns the audio (16-bit WAV) when the range is 30 seconds or shorter. Ranges up to "
+        "project or playback, and measures it: peak and true peak, RMS, loudness (LUFS integrated, loudest 3 "
+        "s and "
+        "400 ms, and the loudness range in LU), crest factor, clipped samples, stereo correlation, and the "
+        "level in seven frequency bands. With "
+        "\"audio\": true, also returns the audio (16-bit WAV) when the range is 30 seconds or shorter. "
+        "Ranges up to "
         "10 minutes.";
     render.inputSchema = object({{"start", position("Where to start.")},
                                  {"end", position("Where to stop.")},
                                  {"what", id(IdKind::Track, "A track, or \"mix\" (the default) for the whole song")},
                                  {"audio", boolean("Also return the audio (30 s at most)")}},
                                 {"start", "end"});
-    render.outputSchema = result({{"what", string("\"mix\" or the track")},
-                                  {"start", positionResult()},
-                                  {"end", positionResult()},
-                                  {"peak", {{"type", {"number", "null"}}, {"description", "dBFS; null when silent"}}},
-                                  {"truePeak", {{"type", {"number", "null"}}, {"description", "dBTP"}}},
-                                  {"loudness",
-                                   result({{"integrated", {{"type", {"number", "null"}}, {"description", "LUFS"}}},
-                                           {"shortTermMax", {{"type", {"number", "null"}}, {"description", "LUFS"}}},
-                                           {"momentaryMax", {{"type", {"number", "null"}}, {"description", "LUFS"}}}})},
-                                  {"rms", {{"type", {"number", "null"}}, {"description", "dBFS"}}},
-                                  {"clippedSamples", integer("")},
-                                  {"spectrum", arrayOf(result({{"band", string("")}}), "", std::nullopt)}},
-                                 {"what", "start", "end", "peak", "truePeak", "rms", "loudness", "clippedSamples",
-                                  "spectrum"});
+    render.outputSchema = result(
+        {{"what", string("\"mix\" or the track")},
+         {"start", positionResult()},
+         {"end", positionResult()},
+         {"peak", {{"type", {"number", "null"}}, {"description", "dBFS; null when silent"}}},
+         {"truePeak", {{"type", {"number", "null"}}, {"description", "dBTP"}}},
+         {"loudness", result({{"integrated", {{"type", {"number", "null"}}, {"description", "LUFS"}}},
+                              {"shortTermMax", {{"type", {"number", "null"}}, {"description", "LUFS"}}},
+                              {"momentaryMax", {{"type", {"number", "null"}}, {"description", "LUFS"}}},
+                              {"range",
+                               {{"type", {"number", "null"}},
+                                {"description", "LU: how much the loudness moves (EBU Tech 3342)"}}}})},
+         {"rms", {{"type", {"number", "null"}}, {"description", "dBFS"}}},
+         {"clippedSamples", integer("")},
+         {"spectrum", arrayOf(result({{"band", string("")}}), "", std::nullopt)}},
+        {"what", "start", "end", "peak", "truePeak", "rms", "loudness", "clippedSamples", "spectrum"});
     render.annotations.readOnly = true;
     render.annotations.idempotent = true;
     render.call = [&env](const Json& args, CallContext& context) -> ToolResult {
@@ -526,6 +532,20 @@ void addRenderTools(Registry& registry, ToolEnv& env)
                 break;
             }
             case MeterKind::Count: value = static_cast<int>(std::lround(bus.read(m.slot))); unit = nullptr; break;
+            case MeterKind::LoudnessUnits:
+            {
+                const double v = bus.read(m.slot);
+                value = std::isfinite(v) ? Json(db(v)) : Json(nullptr);
+                unit = "LU";
+                break;
+            }
+            case MeterKind::Correlation:
+            {
+                const double v = bus.read(m.slot);
+                value = std::isfinite(v) ? Json(std::round(v * 100.0) / 100.0) : Json(nullptr);
+                unit = nullptr;
+                break;
+            }
             }
             Json entry{{"id", std::string(m.id)}, {"name", std::string(m.name)}, {"value", value}};
             if (!unit.is_null())

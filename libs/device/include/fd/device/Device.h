@@ -74,13 +74,15 @@ struct BusConfig
 /// `measure_module` tool) and convert it to its unit.
 enum class MeterKind
 {
-    Level,     // a peak, linear (published with publishPeak): read as dBFS
-    TruePeak,  // a true peak, linear (publishPeak): read as dBTP
-    Reduction, // gain reduction in dB as a positive number (publishPeak)
-    Flag,      // 1 if it happened since last read (publishPeak), e.g. a gate opening
-    Loudness,  // LUFS, a current value (publish)
-    Decibels,  // a current value in dB (publish), e.g. a true-peak maximum
-    Count,     // a current count (publish), e.g. voices playing
+    Level,         // a peak, linear (published with publishPeak): read as dBFS
+    TruePeak,      // a true peak, linear (publishPeak): read as dBTP
+    Reduction,     // gain reduction in dB as a positive number (publishPeak)
+    Flag,          // 1 if it happened since last read (publishPeak), e.g. a gate opening
+    Loudness,      // LUFS, a current value (publish)
+    Decibels,      // a current value in dB (publish), e.g. a true-peak maximum
+    Count,         // a current count (publish), e.g. voices playing
+    LoudnessUnits, // LU, a current range or difference (publish): a loudness range; NaN for none
+    Correlation,   // -1..1, a current value (publish): stereo correlation; NaN for none
 };
 
 /// A named meter: one analysis slot.

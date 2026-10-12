@@ -159,6 +159,10 @@ std::string ParamSpec::toText(float plain) const
             return "C";
         return std::to_string(amount) + (v < 0 ? "L" : "R");
     }
+    case Unit::Lufs:
+        return formatNumber(v, decimals) + " LUFS";
+    case Unit::Dbtp:
+        return formatNumber(v, decimals) + " dBTP";
     case Unit::None:
         break;
     }

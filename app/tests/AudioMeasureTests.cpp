@@ -51,7 +51,18 @@ TEST_CASE("audio measurements: levels of a sine", "[fast]")
     CHECK(m.integratedLufs == Approx(-6.02).margin(0.1)); // a stereo 1 kHz sine: LUFS = its dBFS
     CHECK(m.momentaryMaxLufs == Approx(-6.02).margin(0.1));
     CHECK(std::isinf(m.shortTermMaxLufs)); // only 1 s
+    CHECK_FALSE(m.loudnessRange);          // nor a loudness range
     CHECK(band(m, "air") < -50.0);
+}
+
+TEST_CASE("audio measurements: the loudness range (EBU Tech 3342 case 1)", "[fast]")
+{
+    // 20 s at -20 dBFS, then 20 s at -30: 10 LU apart.
+    auto loud = sine(1000.0, 0.1, 20.0), quiet = sine(1000.0, std::pow(10.0, -1.5), 20.0);
+    loud.insert(loud.end(), quiet.begin(), quiet.end());
+    const auto m = measureAudio({loud, loud}, 48000.0);
+    REQUIRE(m.loudnessRange);
+    CHECK(*m.loudnessRange == Approx(10.0).margin(0.1));
 }
 
 TEST_CASE("audio measurements: stereo, clipping, silence", "[fast]")

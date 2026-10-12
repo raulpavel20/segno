@@ -115,6 +115,10 @@ fd_add_device_plugin(ID spectrum NAME "Spectrum" CODE Fspc KIND effect
     VST3_CATEGORIES Fx Analyzer
     CLAP_FEATURES audio-effect analyzer stereo mono)
 
+fd_add_device_plugin(ID loudness-meter NAME "Loudness Meter" CODE Flud KIND effect
+    VST3_CATEGORIES Fx Analyzer Mastering
+    CLAP_FEATURES audio-effect analyzer mastering stereo mono)
+
 fd_add_device_plugin(ID delay NAME "Delay" CODE Fdly KIND effect
     VST3_CATEGORIES Fx Delay
     CLAP_FEATURES audio-effect delay stereo mono)

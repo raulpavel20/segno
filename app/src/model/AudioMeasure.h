@@ -27,6 +27,7 @@ struct AudioMeasurements
     double integratedLufs = 0.0;  // gated, over the whole range (-inf: silent or under 400 ms)
     double shortTermMaxLufs = 0.0; // the loudest 3 s (-inf: under 3 s)
     double momentaryMaxLufs = 0.0; // the loudest 400 ms
+    std::optional<double> loudnessRange; // LU (EBU Tech 3342): none under 3 s or for silence
     double rmsDb = 0.0;           // over all channels
     std::vector<double> channelPeakDb, channelRmsDb;
     double crestDb = 0.0;         // peak over RMS (0 for silence)

@@ -781,6 +781,7 @@ TEST_CASE("mcp tools: render measures a range without touching the project", "[i
     CHECK(m["truePeak"].get<double>() >= m["peak"].get<double>() - 0.01);
     CHECK(m["loudness"]["integrated"].get<double>() < 0.0);
     CHECK(m["loudness"]["shortTermMax"].is_null()); // a 2 s range
+    CHECK(m["loudness"]["range"].is_null());        // too short for one
     REQUIRE(r["content"].back()["type"] == "audio");
     const auto wav = fd::mcp::base64Decode(r["content"].back()["data"].get<std::string>());
     REQUIRE(wav);

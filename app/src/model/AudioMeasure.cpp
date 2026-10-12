@@ -97,6 +97,8 @@ AudioMeasurements measureAudio(const std::vector<std::vector<float>>& channels, 
     m.integratedLufs = loudness.integrated();
     m.shortTermMaxLufs = loudness.maxShortTerm();
     m.momentaryMaxLufs = loudness.maxMomentary();
+    if (const float range = loudness.loudnessRange(); std::isfinite(range))
+        m.loudnessRange = range;
 
     if (channels.size() == 2 && !m.silent)
     {
