@@ -1,5 +1,6 @@
 #include "model/Takes.h"
 
+#include "model/ClipLoops.h"
 #include "model/Editing.h"
 
 #include <algorithm>
@@ -311,8 +312,8 @@ std::vector<std::pair<std::uint64_t, std::uint64_t>> seamlessParts(std::vector<C
     {
         const auto& a = parts[i];
         const auto& b = parts[i + 1];
-        if (a.fromTake != 0 && a.fromTake == b.fromTake && std::abs(a.end() - b.start) < kNear &&
-            std::abs(a.offset + a.length - b.offset) < kNear)
+        if (a.fromTake != 0 && a.fromTake == b.fromTake && std::abs(a.end() - b.start) < kNear && a.loop == b.loop &&
+            std::abs(contentUpTo(a.start, a.offset, a.loop, a.end()) - contentAt(b, b.start)) < kNear)
             out.emplace_back(a.id, b.id);
     }
     return out;

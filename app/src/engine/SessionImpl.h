@@ -45,8 +45,8 @@ inline te::AuxSendPlugin* sendIn(te::PluginList& list, int bus)
 /// the engine's own properties on a clip's state (a MIDI clip's beats at the song's tempo). None
 /// while it doesn't loop, and while the engine stretches it to the tempo (it can't loop then).
 [[nodiscard]] model::ClipLoop loopOf(const juce::ValueTree& clip, const te::TempoSequence& tempo);
-/// Writes a loop into a clip (length 0: none): an audio clip's in seconds of its file, the tempo
-/// sync left off; a MIDI clip's in beats.
+/// Writes a loop into a clip (length 0: none): an audio clip's in whole samples of its file, the
+/// tempo sync left off; a MIDI clip's in beats.
 void writeLoop(te::Clip& clip, const model::ClipLoop& loop, juce::UndoManager* um);
 /// Places a clip; while it loops, its offset (the phase) is wrapped into the loop.
 void placeClip(te::Clip& clip, double start, double length, double offset);

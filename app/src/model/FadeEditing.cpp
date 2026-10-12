@@ -33,8 +33,10 @@ std::vector<FadeClip> fadeClips(const TrackInfo& track)
                            .length = c.length,
                            .offset = c.offset,
                            .sourceLength = c.sourceLength,
+                           .loop = c.loop,
                            .source = c.sourcePath,
                            .muted = c.muted,
+                           .canExtend = !c.synced, // as the engine plays it (engine/ClipFades.cpp)
                            .in = c.fadeIn,
                            .out = c.fadeOut,
                            .crossOut = c.crossfadeOut});

@@ -37,6 +37,9 @@ struct TempoMap;
 /// loops. Allocation-free.
 [[nodiscard]] double contentAt(double clipStart, double offset, const ClipLoop& loop, double seconds) noexcept;
 [[nodiscard]] double contentAt(const ClipInfo& clip, double seconds) noexcept;
+/// The content a clip plays up to `seconds`: the same, except that where a lap ends there it's the
+/// loop's end, not its start (what a clip's end edge or a split's left part ends on).
+[[nodiscard]] double contentUpTo(double clipStart, double offset, const ClipLoop& loop, double seconds) noexcept;
 
 /// Where the lap the clip starts in begins on the timeline: its start less its phase (its start
 /// if it doesn't loop). Every later lap begins a loop length after the one before.

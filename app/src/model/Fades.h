@@ -92,14 +92,16 @@ struct FadeClip
     [[nodiscard]] double end() const noexcept { return start + length; }
 };
 
-/// The spare audio of a clip's source before its start and after its end.
+/// The spare audio of a clip's source before its start and after its end; a looped clip's is its
+/// neighbouring lap (ADR 0048).
 [[nodiscard]] double spareBefore(const FadeClip& clip) noexcept;
 [[nodiscard]] double spareAfter(const FadeClip& clip) noexcept;
 
 /// Whether two clips meet: the first ends where the second starts.
 [[nodiscard]] bool meet(const FadeClip& first, const FadeClip& second) noexcept;
-/// Whether `next` runs on seamlessly from `prev`: they meet, play the same file, and `next`
-/// starts in it where `prev` ends (a split, a bounce run, comp parts from one take).
+/// Whether `next` runs on seamlessly from `prev`: they meet, play the same file (with the same loop),
+/// and `next` starts in it where `prev` ends (a split, a bounce run, comp parts from one take). A
+/// loop starting again isn't seamless: it's a seam (ADR 0048).
 [[nodiscard]] bool seamless(const FadeClip& prev, const FadeClip& next) noexcept;
 
 /// The crossfade that fits between two clips that meet, as near as their spare audio allows to
@@ -133,14 +135,31 @@ struct Ramp
     friend bool operator==(const Ramp&, const Ramp&) = default;
 };
 
+/// The edge fades at a looped clip's seams (ADR 0048, clip-loops.md §9): each seam is a pair of
+/// edges, faded where it cuts into the file (§2). The seams are at `first` + k · `period` (k ≥ 0),
+/// before `until`: every seam whose fades reach into what the clip plays.
+struct SeamRamps
+{
+    double first = 0.0, period = 0.0;
+    double out = 0.0, in = 0.0; // the fade-out before each seam and the fade-in after it (0: none)
+    double until = 0.0;
+
+    [[nodiscard]] bool any() const noexcept { return period > 0.0 && (out > 0.0 || in > 0.0); }
+    friend bool operator==(const SeamRamps&, const SeamRamps&) = default;
+};
+
 /// What an audio clip plays (ADR 0036): how much before its start and after its end (a
-/// crossfade's spare audio), and the ramps at the two ends of that.
+/// crossfade's spare audio), the ramps at the two ends of that, and its seams' fades.
 struct ClipPlayback
 {
     double extendStart = 0.0, extendEnd = 0.0;
     Ramp in, out;
+    SeamRamps seams;
 
-    [[nodiscard]] bool any() const noexcept { return in.kind != Ramp::Kind::None || out.kind != Ramp::Kind::None; }
+    [[nodiscard]] bool any() const noexcept
+    {
+        return in.kind != Ramp::Kind::None || out.kind != Ramp::Kind::None || seams.any();
+    }
     friend bool operator==(const ClipPlayback&, const ClipPlayback&) = default;
 };
 
@@ -168,4 +187,8 @@ struct ClipPlayback
 [[nodiscard]] float playbackGain(const FadeClip& clip, const ClipPlayback& playback, double seconds) noexcept;
 /// The same for a ramp alone: `alpha` through it, fading in or out.
 [[nodiscard]] float rampGain(const Ramp& ramp, double alpha, bool fadingIn) noexcept;
+/// The gain of a looped clip's seam fades at `seconds` (1 away from them). Allocation-free.
+[[nodiscard]] float seamGain(const SeamRamps& seams, double seconds) noexcept;
+/// Whether any seam fade falls in [from, to) (the engine skips blocks clear of every ramp).
+[[nodiscard]] bool seamRampBetween(const SeamRamps& seams, double from, double to) noexcept;
 } // namespace fd::model

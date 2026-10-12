@@ -227,8 +227,14 @@ void writeLoop(te::Clip& clip, const model::ClipLoop& loop, juce::UndoManager* u
     }
     if (loop.on())
     {
-        if (auto* audio = dynamic_cast<te::AudioClipBase*>(&clip); audio != nullptr && !audio->getAutoTempo())
-            audio->setLoopRange({te::TimePosition::fromSeconds(loop.start), te::TimeDuration::fromSeconds(loop.length)});
+        auto* audio = dynamic_cast<te::AudioClipBase*>(&clip);
+        if (audio == nullptr || audio->getAutoTempo())
+            return;
+        // In whole samples of the file, as the engine wraps it: the seams drawn and faded are then
+        // exactly where it wraps, lap after lap.
+        const double rate = audio->getAudioFile().getSampleRate();
+        const auto whole = [rate](double seconds) { return rate > 0.0 ? std::round(seconds * rate) / rate : seconds; };
+        audio->setLoopRange({te::TimePosition::fromSeconds(whole(loop.start)), te::TimeDuration::fromSeconds(whole(loop.length))});
         return;
     }
     // Written directly: the engine's own way does nothing for a clip whose file is missing.

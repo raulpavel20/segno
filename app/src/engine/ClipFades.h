@@ -21,8 +21,8 @@ inline const juce::Identifier crossLength{"fdXLength"}, crossFrom{"fdXFrom"}, cr
 inline const juce::Identifier edgeFades{"fdEdgeFades"};
 } // namespace fadeIds
 
-/// The clip as fades see it. Clips that play stretched, synced or looped have no spare audio to
-/// crossfade with.
+/// The clip as fades see it. Clips that play stretched or synced have no spare audio to crossfade
+/// with; a looped one's is its neighbouring lap (ADR 0048).
 [[nodiscard]] model::FadeClip fadeClipOf(tracktion::AudioClipBase& clip);
 /// The clip with the audio clips just before and after it on its track (what its playback depends
 /// on), and its place among them: cheap, for the engine's graph building.

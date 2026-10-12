@@ -406,3 +406,63 @@ TEST_CASE("fade editing: a crossfade's end stops at the next crossfade; a fade s
     REQUIRE(e.out);
     CHECK(e.out->length == Approx(1.9));
 }
+
+TEST_CASE("fades: a looped clip's seams fade where they cut into its file; its spare audio is its next lap (ADR 0048)", "[fast]")
+{
+    // A 1 s loop from 0.5 s into a 10 s file, at 2 s for 3.5 s, starting 0.25 s into the loop.
+    auto looped = clip(1, 2.0, 3.5, 0.25);
+    looped.loop = {0.5, 1.0};
+    const auto p = clipPlayback({looped}, 0, true);
+    REQUIRE(p.seams.any());
+    CHECK(p.seams.first == Approx(2.75));
+    CHECK(p.seams.period == Approx(1.0));
+    CHECK(p.seams.out == Approx(kEdgeFadeSeconds)); // the loop ends inside the file
+    CHECK(p.seams.in == Approx(kEdgeFadeSeconds));  // and starts after its start
+    CHECK(p.in.edge);                               // 0.75 s in: a cut start
+    CHECK(p.out.edge);
+    CHECK(playbackGain(looped, p, 2.75 - 0.002) == Approx(0.5f).margin(1e-3));
+    CHECK(playbackGain(looped, p, 2.75 + 0.002) == Approx(0.5f).margin(1e-3));
+    CHECK(playbackGain(looped, p, 3.25) == Approx(1.0f));
+    CHECK(playbackGain(looped, p, 4.75 + 0.001) == Approx(0.25f).margin(1e-3)); // the third seam
+    CHECK(seamRampBetween(p.seams, 3.74, 3.76));
+    CHECK_FALSE(seamRampBetween(p.seams, 3.0, 3.5));
+    CHECK_FALSE(seamRampBetween(p.seams, 5.4, 5.5)); // past the last seam
+
+    // A loop of the whole file wraps without a fade, as a file's own ends aren't faded.
+    auto whole = clip(1, 0.0, 30.0, 0.0);
+    whole.loop = {0.0, 10.0};
+    const auto w = clipPlayback({whole}, 0, true);
+    CHECK_FALSE(w.any());
+    // Edge fades off: none at seams either.
+    CHECK_FALSE(clipPlayback({looped}, 0, false).seams.any());
+
+    // Split inside a lap: seamless, no fades at the join. Split on a seam: the seam's own fades.
+    auto left = clip(1, 2.0, 1.5, 0.25), right = clip(2, 3.5, 2.0, 0.25 + 1.5);
+    left.loop = right.loop = looped.loop;
+    CHECK(seamless(left, right));
+    right.offset = 0.75; // wrapped: the same
+    CHECK(seamless(left, right));
+    auto atSeamLeft = clip(1, 2.0, 0.75, 0.25), atSeamRight = clip(2, 2.75, 2.75, 0.0);
+    atSeamLeft.loop = atSeamRight.loop = looped.loop;
+    CHECK_FALSE(seamless(atSeamLeft, atSeamRight));
+    const auto parts = std::vector<FadeClip>{atSeamLeft, atSeamRight};
+    CHECK(clipPlayback(parts, 0, true).out.edge);
+    CHECK(clipPlayback(parts, 1, true).in.edge);
+
+    // A part that starts just after a seam (split beside it, on the grid): the seam's fade-in
+    // reaches into it, so the two parts fade as the whole did; one that ends just after a seam keeps
+    // that seam's fades too.
+    auto justAfter = clip(3, 2.75 + 2e-5, 1.0, 2e-5);
+    justAfter.loop = looped.loop;
+    CHECK(clipPlayback({justAfter}, 0, true).seams.first == Approx(2.75));
+    auto endsJustAfter = clip(4, 2.0, 0.75 + 2e-5, 0.25);
+    endsJustAfter.loop = looped.loop;
+    const auto e = clipPlayback({endsJustAfter}, 0, true).seams;
+    REQUIRE(e.any());
+    CHECK(e.first == Approx(2.75));
+    CHECK(e.until > 2.75);
+
+    // The spare audio past a looped clip's edges is a lap of its loop.
+    CHECK(spareBefore(looped) == Approx(1.0));
+    CHECK(spareAfter(looped) == Approx(1.0));
+}

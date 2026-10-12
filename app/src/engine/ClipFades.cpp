@@ -1,4 +1,5 @@
 #include "engine/ClipFades.h"
+#include "engine/SessionImpl.h"
 
 #include <cmath>
 
@@ -17,8 +18,10 @@ model::FadeClip fadeClipOf(te::AudioClipBase& clip)
     c.sourceLength = clip.getSourceLength().inSeconds();
     c.source = clip.getOriginalFile().getFullPathName().toStdString();
     c.muted = clip.isMuted();
-    c.canExtend = !clip.getAutoTempo() && !clip.getAutoPitch() && !clip.isLooping() &&
-                  std::abs(clip.getSpeedRatio() - 1.0) < 1e-9 && !clip.usesTimeStretchedProxy();
+    c.loop = loopOf(clip.state, clip.edit.tempoSequence); // ADR 0048
+    // A looped clip plays past its edges too: its neighbouring laps (the engine wraps them).
+    c.canExtend = !clip.getAutoTempo() && !clip.getAutoPitch() && std::abs(clip.getSpeedRatio() - 1.0) < 1e-9 &&
+                  !clip.usesTimeStretchedProxy();
     const auto& s = clip.state;
     c.in = {clip.getFadeIn().inSeconds(), static_cast<float>(s.getProperty(fadeIds::inBend, 0.0f))};
     c.out = {clip.getFadeOut().inSeconds(), static_cast<float>(s.getProperty(fadeIds::outBend, 0.0f))};
@@ -108,7 +111,8 @@ void ClipFadeNode::process(ProcessContext& pc)
     const double start = clip_.start - playback_.extendStart, end = clip_.end() + playback_.extendEnd;
     const bool inRamp = playback_.in.kind != model::Ramp::Kind::None && from < start + playback_.in.length;
     const bool outRamp = playback_.out.kind != model::Ramp::Kind::None && to > end - playback_.out.length;
-    if (from >= start && to <= end && !inRamp && !outRamp)
+    const bool seamRamp = model::seamRampBetween(playback_.seams, from, to);
+    if (from >= start && to <= end && !inRamp && !outRamp && !seamRamp)
     {
         setAudioOutput(input_.get(), source.audio);
         return;

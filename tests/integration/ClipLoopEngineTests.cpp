@@ -5,6 +5,8 @@
 #include "engine/EngineBehaviour.h"
 #include "engine/Session.h"
 #include "engine/SessionImpl.h"
+#include "fd/testkit/Metrics.h"
+#include "model/ClipLoops.h"
 #include "fd/testkit/WavIO.h"
 
 #include <tracktion_engine/tracktion_engine.h>
@@ -14,6 +16,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numbers>
 
 using Catch::Approx;
 using fd::engine::Session;
@@ -367,4 +370,65 @@ TEST_CASE("clip loops: MIDI loops in beats; clips that can't loop say why; audio
     CHECK(f.session->setClipsLooping({result->clips[0]}, true).find("takes") != std::string::npos);
     CHECK(f.session->setClipLoop(result->clips[0], {0.0, 0.5}).find("takes") != std::string::npos);
     CHECK_FALSE(infoOf(f, result->clips[0]).loop.on());
+}
+
+namespace
+{
+/// A sine of `hz` for `seconds`: 441 Hz over a whole second is 441 cycles, so it loops seamlessly.
+AudioBuffer sine(double seconds, double hz = 441.0)
+{
+    AudioBuffer b(2, static_cast<int>(std::lround(seconds * kRate)));
+    for (int c = 0; c < 2; ++c)
+        for (int i = 0; i < b.numSamples(); ++i)
+            b.at(c, i) = 0.5f * static_cast<float>(std::sin(2.0 * std::numbers::pi * hz * i / kRate));
+    return b;
+}
+} // namespace
+
+TEST_CASE("clip loops: seams that cut into the file fade and don't click; a whole-file loop plays on unbroken",
+          "[integration]")
+{
+    Looper f;
+    const auto t = f.track();
+    // A loop that isn't a whole number of cycles: its seams jump.
+    const auto cut = f.place(t, sine(4.0), "sine");
+    f.session->applyClipEdits({{.clip = cut, .track = t, .start = 0.0, .length = 3.0, .offset = 0.0, .loop = fd::model::ClipLoop{0.5, 0.3013}}});
+    REQUIRE(infoOf(f, cut).playback.seams.any());
+    CHECK(fd::testkit::clickScore(f.render(0.0, 3.0), 0) < 10.0);
+    f.session->setEdgeFades(false);
+    CHECK(fd::testkit::clickScore(f.render(0.0, 3.0), 0) > 30.0); // the test can tell
+    f.session->undo();
+
+    // Split inside a lap, a little after a seam (where the grid says it is: the engine wraps in
+    // whole samples), and right on one: it plays as it did.
+    const auto whole = f.render(0.0, 3.0);
+    REQUIRE(f.session->splitClips({cut}, 1.234).size() == 1);
+    CHECK(worstDifference(f.render(0.0, 3.0), whole) < 1e-5);
+    REQUIRE(f.session->splitClips({cut}, 0.3013 * 2.0).size() == 1);
+    CHECK(worstDifference(f.render(0.0, 3.0), whole) < 1e-5);
+    const auto seams = fd::model::seams(infoOf(f, cut));
+    REQUIRE_FALSE(seams.empty());
+    REQUIRE(f.session->splitClips({cut}, seams.front().at).size() == 1);
+    CHECK(worstDifference(f.render(0.0, 3.0), whole) < 1e-5);
+
+    // A loop of a whole file of whole cycles: no fades, and it nulls against the unbroken sine.
+    const auto t2 = f.session->addTrack();
+    f.session->setMute(t, true);
+    const auto one = f.place(t2, sine(1.0), "one-second");
+    REQUIRE(f.session->setClipsLooping({one}, true).empty());
+    f.session->applyClipEdits({{.clip = one, .track = t2, .start = 0.0, .length = 3.0, .offset = 0.0}});
+    CHECK_FALSE(infoOf(f, one).playback.any());
+    const auto long3 = sine(3.0);
+    auto out = f.render(0.0, 3.0);
+    CHECK(worstDifference(out, long3) < 1e-5);
+
+    // A crossfade out of it into the same file from its start: it plays its next lap under the
+    // fade, so equal gain sums back to the unbroken sine.
+    f.session->applyClipEdits({{.clip = one, .track = t2, .start = 0.0, .length = 2.0, .offset = 0.0}});
+    const auto next = f.place(t2, sine(1.0), "one-second", 2.0);
+    const auto results = f.session->crossfade({one, next}, 0.02, fd::model::CrossfadeShape::EqualGain);
+    REQUIRE(results.size() == 1);
+    REQUIRE(results[0].crossfade);
+    CHECK(infoOf(f, one).playback.extendEnd > 0.0);
+    CHECK(worstDifference(f.render(0.0, 3.0), long3) < 1e-4);
 }

@@ -18,14 +18,26 @@ double clamp01(double v) noexcept
     return std::clamp(v, 0.0, 1.0);
 }
 
+/// What a clip plays at its start, and up to at its end (a looped clip's end on a seam: the loop's
+/// end): seconds into its file (ADR 0048).
+double contentAtStart(const FadeClip& c) noexcept
+{
+    return contentAt(c.start, c.offset, c.loop, c.start);
+}
+
+double contentAtEnd(const FadeClip& c) noexcept
+{
+    return contentUpTo(c.start, c.offset, c.loop, c.end());
+}
+
 bool cutStart(const FadeClip& c) noexcept
 {
-    return c.offset > kSame;
+    return contentAtStart(c) > kSame;
 }
 
 bool cutEnd(const FadeClip& c) noexcept
 {
-    return c.sourceLength > 0.0 && c.offset + c.length < c.sourceLength - kSame;
+    return c.sourceLength > 0.0 && contentAtEnd(c) < c.sourceLength - kSame;
 }
 
 /// A fade's ramp, with the edge fade's floor on a cut edge (§2).
@@ -94,12 +106,18 @@ CrossGains crossfadeGains(double alpha, CrossfadeShape shape) noexcept
 
 double spareBefore(const FadeClip& clip) noexcept
 {
-    return clip.canExtend ? std::max(0.0, clip.offset) : 0.0;
+    if (!clip.canExtend)
+        return 0.0;
+    return clip.loop.on() ? clip.loop.length : std::max(0.0, clip.offset);
 }
 
 double spareAfter(const FadeClip& clip) noexcept
 {
-    return clip.canExtend && clip.sourceLength > 0.0 ? std::max(0.0, clip.sourceLength - (clip.offset + clip.length)) : 0.0;
+    if (!clip.canExtend)
+        return 0.0;
+    if (clip.loop.on())
+        return clip.loop.length;
+    return clip.sourceLength > 0.0 ? std::max(0.0, clip.sourceLength - (clip.offset + clip.length)) : 0.0;
 }
 
 bool meet(const FadeClip& first, const FadeClip& second) noexcept
@@ -109,8 +127,8 @@ bool meet(const FadeClip& first, const FadeClip& second) noexcept
 
 bool seamless(const FadeClip& prev, const FadeClip& next) noexcept
 {
-    return meet(prev, next) && !prev.source.empty() && prev.source == next.source &&
-           std::abs(prev.offset + prev.length - next.offset) < kSame;
+    return meet(prev, next) && !prev.source.empty() && prev.source == next.source && prev.loop == next.loop &&
+           std::abs(contentAtEnd(prev) - contentAtStart(next)) < kSame;
 }
 
 std::optional<Crossfade> placeCrossfade(const FadeClip& out, const FadeClip& in, double length, std::optional<double> from,
@@ -256,6 +274,37 @@ double crossfadeReachAfter(const Crossfade& crossfade) noexcept
     return reachAfter(crossfade);
 }
 
+namespace
+{
+/// A looped clip's seam fades over what it plays, [from, to): every seam whose fades reach into it,
+/// so a clip split beside a seam still has the seam's whole fade, except a seam right on `from` or
+/// `to`, where the clip's own edge fades it (a split exactly on a seam) or nothing may.
+SeamRamps seamRamps(const FadeClip& c, double from, double to) noexcept
+{
+    SeamRamps s{.period = c.loop.length};
+    if (c.sourceLength > 0.0 && c.loop.end() < c.sourceLength - kSame)
+        s.out = kEdgeFadeSeconds;
+    if (c.loop.start > kSame)
+        s.in = kEdgeFadeSeconds;
+    if (!s.any())
+        return {};
+    const double anchor = c.start - phaseOf(c.offset, c.loop);
+    const auto onEdge = [&](double seam) { return std::abs(seam - from) <= kSame || std::abs(seam - to) <= kSame; };
+    // The first seam past `from` less its fade-in, and the last before `to` plus its fade-out.
+    double first = anchor + std::floor((from - s.in - anchor) / s.period) * s.period;
+    while (first <= from - s.in || onEdge(first))
+        first += s.period;
+    double last = anchor + std::ceil((to + s.out - anchor) / s.period) * s.period;
+    while (last >= to + s.out || onEdge(last))
+        last -= s.period;
+    if (last < first - kSame)
+        return {};
+    s.first = first;
+    s.until = last + kSame;
+    return s;
+}
+} // namespace
+
 ClipPlayback clipPlayback(const std::vector<FadeClip>& clips, size_t index, bool edgeFades)
 {
     ClipPlayback p;
@@ -280,6 +329,10 @@ ClipPlayback clipPlayback(const std::vector<FadeClip>& clips, size_t index, bool
     }
     else
         p.out = fadeRamp(c.out, edgeFades && cutEnd(c) && !(next != nullptr && seamless(c, *next)));
+
+    // A looped clip's seams fade where they cut into the file (ADR 0048), as cut edges do.
+    if (edgeFades && c.loop.on())
+        p.seams = seamRamps(c, c.start - p.extendStart, c.end() + p.extendEnd);
 
     // Fades never overlap: on a clip shorter than both, they share it in proportion.
     const double played = c.length + p.extendStart + p.extendEnd;
@@ -316,6 +369,31 @@ float rampGain(const Ramp& ramp, double alpha, bool fadingIn) noexcept
     return 1.0f;
 }
 
+float seamGain(const SeamRamps& seams, double seconds) noexcept
+{
+    if (!seams.any() || seconds < seams.first - seams.out)
+        return 1.0f;
+    // The seam at or before `seconds`, and the next one.
+    const double k = std::floor((seconds - seams.first) / seams.period);
+    const double before = seams.first + k * seams.period, after = before + seams.period;
+    float gain = 1.0f;
+    if (k >= 0.0 && before < seams.until && seams.in > 0.0 && seconds < before + seams.in)
+        gain *= fadeInGain((seconds - before) / seams.in, 0.0f);
+    if (k + 1.0 >= 0.0 && after < seams.until && seams.out > 0.0 && seconds >= after - seams.out)
+        gain *= fadeOutGain((seconds - (after - seams.out)) / seams.out, 0.0f);
+    return gain;
+}
+
+bool seamRampBetween(const SeamRamps& seams, double from, double to) noexcept
+{
+    if (!seams.any())
+        return false;
+    // The first seam whose fades reach past `from`: it must start its fade-out before `to`.
+    const double k = std::max(0.0, std::ceil((from - seams.in - seams.first) / seams.period));
+    const double at = seams.first + k * seams.period;
+    return at < seams.until && at - seams.out < to;
+}
+
 float playbackGain(const FadeClip& clip, const ClipPlayback& playback, double seconds) noexcept
 {
     const double start = clip.start - playback.extendStart, end = clip.end() + playback.extendEnd;
@@ -326,6 +404,6 @@ float playbackGain(const FadeClip& clip, const ClipPlayback& playback, double se
         gain *= rampGain(playback.in, (seconds - start) / playback.in.length, true);
     if (playback.out.kind != Ramp::Kind::None && seconds > end - playback.out.length)
         gain *= rampGain(playback.out, (seconds - (end - playback.out.length)) / playback.out.length, false);
-    return gain;
+    return gain * seamGain(playback.seams, seconds);
 }
 } // namespace fd::model

@@ -57,6 +57,12 @@ double contentAt(const ClipInfo& clip, double seconds) noexcept
     return contentAt(clip.start, clip.offset, clip.loop, seconds);
 }
 
+double contentUpTo(double clipStart, double offset, const ClipLoop& loop, double seconds) noexcept
+{
+    const double at = contentAt(clipStart, offset, loop, seconds);
+    return loop.on() && at - loop.start < 1e-6 ? loop.end() : at;
+}
+
 double lapAnchor(const ClipInfo& clip) noexcept
 {
     return clip.start - (clip.loop.on() ? phaseOf(clip.offset, clip.loop) : 0.0);
