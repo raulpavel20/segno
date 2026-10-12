@@ -55,7 +55,7 @@ Bass and Poli (Max for Live instruments in Live) are covered by Subtractive Synt
 | Working name | Scope | Covers (Live) | Beyond Live | Tier | Milestone |
 |---|---|---|---|---|---|
 | **EQ** | *Core (M1):* any number of bands, added by clicking the curve; all band shapes; steep slopes; per-band L/R/M/S; pre/post spectrum; auto-gain; compact 3-band view for channel-strip use. *Stage 2 (M3):* dynamic bands with sidechain, linear-phase mode, EQ match, cross-track masking display | EQ Eight, EQ Three, Channel EQ | **Yes.** Aims at FabFilter Pro-Q: unlimited and dynamic bands, linear phase, matching, masking display | 1 | M1→M3 |
-| **Filter** | Modelled filter types, envelope follower, LFO, sidechain | Auto Filter | – | 1 | M3 |
+| **Filter** | Ten types (the passes and notch, Morph, DJ, Comb, Vowel, Notch + LP, Resampling), four modelled circuits, Drive, envelope follower, LFO, sidechain ([SPEC](../../devices/filter/SPEC.md)) | Auto Filter | – | 1 | M3 |
 
 ### Dynamics
 

@@ -248,8 +248,12 @@ TEST_CASE("conformance: reported latency matches measured latency", "[fast][conf
     forEachDevice([](const DeviceFactory& f) {
         if (!isEffect(f.info()))
             return;
-        // Measured at defaults (filters at random settings add group delay, which is not latency).
+        // Measured at defaults (filters at random settings add group delay, which is not latency),
+        // through the dry path where there's a Dry/Wet: held back by the latency so it lines up
+        // with the wet, it's the latency alone even where the defaults filter (the Filter's).
         auto d = create(f);
+        if (const auto mix = d->params().indexOf("mix"))
+            d->params().set(*mix, 0.0f);
         const auto in = whiteNoise(16384, 3, 0.25f, f.info().buses.inputChannels);
         const auto out = render(*d, in, {.sampleRate = kSampleRate});
         CHECK(estimateLatency(in, out, 2048) == d->latencySamples());

@@ -1,0 +1,62 @@
+{
+  "acid.level_db": {
+    "tol": 0.05,
+    "value": -4.431123962369219
+  },
+  "acid.second_harmonic_db": {
+    "tol": 0.05,
+    "value": -23.88699442546863
+  },
+  "acid.thd_percent": {
+    "tol": 0.05,
+    "value": 6.9818852310471
+  },
+  "clean.level_db": {
+    "tol": 0.05,
+    "value": 0.46228202921874006
+  },
+  "clean.second_harmonic_db": {
+    "tol": 0.05,
+    "value": -100.0
+  },
+  "clean.thd_percent": {
+    "tol": 0.05,
+    "value": 4.516628492923467
+  },
+  "comb.pink_level_db": {
+    "tol": 0.05,
+    "value": 2.8539982766840213
+  },
+  "default.pink_level_db": {
+    "tol": 0.05,
+    "value": -1.0114747277713034
+  },
+  "gritty.level_db": {
+    "tol": 0.05,
+    "value": 0.542536911970075
+  },
+  "gritty.second_harmonic_db": {
+    "tol": 0.05,
+    "value": -100.0
+  },
+  "gritty.thd_percent": {
+    "tol": 0.05,
+    "value": 1.8396881113614099
+  },
+  "vowel.pink_level_db": {
+    "tol": 0.05,
+    "value": -2.8768405243016755
+  },
+  "warm.level_db": {
+    "tol": 0.05,
+    "value": -3.5449129868667653
+  },
+  "warm.second_harmonic_db": {
+    "tol": 0.05,
+    "value": -100.0
+  },
+  "warm.thd_percent": {
+    "tol": 0.05,
+    "value": 2.103610626191639
+  }
+}

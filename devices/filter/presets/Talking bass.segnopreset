@@ -1,0 +1,42 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Bass",
+    "Lead"
+  ],
+  "description": "The vowel filter moving from a to o in time with the song.",
+  "author": "Segno",
+  "state": {
+    "device": "filter",
+    "extra": {},
+    "params": {
+      "circuit": 0.0,
+      "clip": 1.0,
+      "drive": 0.0,
+      "env": 0.0,
+      "env.amount": 50.0,
+      "env.attack": 10.0,
+      "env.release": 250.0,
+      "freq": 2000.0,
+      "lfo": 1.0,
+      "lfo.amount": 75.0,
+      "lfo.div": 8.0,
+      "lfo.offset": 0.0,
+      "lfo.phase": 0.0,
+      "lfo.rate": 1.0,
+      "lfo.shape": 1.0,
+      "lfo.spin": 20.0,
+      "lfo.stereo": 0.0,
+      "lfo.sync": 1.0,
+      "mix": 100.0,
+      "morph": 0.0,
+      "output": 0.0,
+      "res": 50.0,
+      "slope": 1.0,
+      "sweep": 0.0,
+      "type": 7.0,
+      "vowel": 37.5
+    },
+    "stateVersion": 1
+  }
+}

@@ -27,39 +27,6 @@ struct Selection
 };
 
 // ---------------------------------------------------------------------------
-// Analyzer: one FIFO's signal through the shared analyser (devices/spectrum/SPEC.md), so the EQ
-// and the Spectrum read alike.
-// ---------------------------------------------------------------------------
-class Analyzer
-{
-public:
-    static constexpr int order = 12;
-    static constexpr double averagingMs = 150.0; // lively behind a curve being shaped
-
-    void pull(SampleFifo& fifo, double sampleRate)
-    {
-        if (analyser_.order() != order || analyser_.sampleRate() != sampleRate)
-        {
-            analyser_.prepare(order, sampleRate);
-            analyser_.setChannel(dsp::SpectrumChannel::Left); // the EQ taps one signal
-            analyser_.setAveraging(averagingMs);
-        }
-        float block[1024];
-        size_t n;
-        while ((n = fifo.pop(block, 1024)) > 0)
-            if (analyser_.push(block, nullptr, n))
-                bands_ = analyser_.bands();
-    }
-
-    [[nodiscard]] bool hasData() const noexcept { return analyser_.hasData(); }
-    [[nodiscard]] const dsp::SpectrumCurve& bands() const noexcept { return bands_; }
-
-private:
-    dsp::SpectrumAnalyser analyser_;
-    dsp::SpectrumCurve bands_{};
-};
-
-// ---------------------------------------------------------------------------
 // The display: spectrum, response curve, draggable band nodes.
 // ---------------------------------------------------------------------------
 class EqDisplay final : public juce::Component, public juce::SettableTooltipClient, public ui::ParamControl
@@ -344,7 +311,8 @@ private:
                 .bottomDb = static_cast<float>(kSpecBottomDb), .slope = kSpecSlope};
     }
 
-    void paintSpectrum(juce::Graphics& g, const Analyzer& a, juce::Colour fill, juce::Colour line) const
+    void paintSpectrum(juce::Graphics& g, const ui::FifoSpectrum& a, juce::Colour fill,
+                       juce::Colour line) const
     {
         if (!a.hasData())
             return;
@@ -408,7 +376,7 @@ private:
     Selection& sel_;
     std::array<Eq::Sections, Eq::numBands> sections_{};
     std::vector<float> lastParams_;
-    Analyzer pre_, post_;
+    ui::FifoSpectrum pre_, post_; // one FIFO each, through the shared analyser
     int dragBand_ = -1;
     juce::Point<float> dragStart_;
     float startFreq_ = 1000.0f, startGain_ = 0.0f;

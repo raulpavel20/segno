@@ -1,0 +1,42 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Pad",
+    "Wide"
+  ],
+  "description": "The two sides drifting in and out of step, wide.",
+  "author": "Segno",
+  "state": {
+    "device": "filter",
+    "extra": {},
+    "params": {
+      "circuit": 0.0,
+      "clip": 1.0,
+      "drive": 0.0,
+      "env": 0.0,
+      "env.amount": 50.0,
+      "env.attack": 10.0,
+      "env.release": 250.0,
+      "freq": 1200.0,
+      "lfo": 1.0,
+      "lfo.amount": 50.0,
+      "lfo.div": 3.0,
+      "lfo.offset": 0.0,
+      "lfo.phase": 0.0,
+      "lfo.rate": 0.3,
+      "lfo.shape": 0.0,
+      "lfo.spin": 40.0,
+      "lfo.stereo": 1.0,
+      "lfo.sync": 0.0,
+      "mix": 100.0,
+      "morph": 0.0,
+      "output": 0.0,
+      "res": 40.0,
+      "slope": 0.0,
+      "sweep": 0.0,
+      "type": 0.0,
+      "vowel": 0.0
+    },
+    "stateVersion": 1
+  }
+}

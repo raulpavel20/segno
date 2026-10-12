@@ -1,0 +1,42 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Guitar",
+    "Keys"
+  ],
+  "description": "A notch swept slowly through the sound.",
+  "author": "Segno",
+  "state": {
+    "device": "filter",
+    "extra": {},
+    "params": {
+      "circuit": 0.0,
+      "clip": 1.0,
+      "drive": 0.0,
+      "env": 0.0,
+      "env.amount": 50.0,
+      "env.attack": 10.0,
+      "env.release": 250.0,
+      "freq": 1000.0,
+      "lfo": 1.0,
+      "lfo.amount": 40.0,
+      "lfo.div": 3.0,
+      "lfo.offset": 0.0,
+      "lfo.phase": 0.0,
+      "lfo.rate": 0.25,
+      "lfo.shape": 1.0,
+      "lfo.spin": 20.0,
+      "lfo.stereo": 0.0,
+      "lfo.sync": 0.0,
+      "mix": 100.0,
+      "morph": 0.0,
+      "output": 0.0,
+      "res": 30.0,
+      "slope": 1.0,
+      "sweep": 0.0,
+      "type": 3.0,
+      "vowel": 0.0
+    },
+    "stateVersion": 1
+  }
+}

@@ -91,7 +91,8 @@ public:
         }
 
         // The threshold point.
-        const auto box = juce::Rectangle<float>(11.0f, 11.0f).withCentre(thresholdPoint());
+        const auto handle = static_cast<float>(t.deviceGrid.displayHandle);
+        const auto box = juce::Rectangle<float>(handle, handle).withCentre(thresholdPoint());
         const bool lit = drag_ == Drag::Threshold || hoverPoint_;
         g.setColour(lit ? t.active : t.surface3);
         g.fillEllipse(box);

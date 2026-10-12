@@ -1,6 +1,6 @@
 # Filter: device spec
 
-- **Status:** Approved by the product owner (2026-10-12, with every recommendation of F1–F13); IDs are permanent. Building (B6)
+- **Status:** Approved by the product owner (2026-10-12, with every recommendation of F1–F13); IDs are permanent. Built (B6, 2026-10-12): what building settled is under "Settled while building". Awaiting sign-off by ear and feel
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1, M3 (B6)
 - **Live target:** Auto Filter (as redesigned in Live 12.2). References only; nothing is copied ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)). Checked against the best creative filters for what's worth having, not for scope.
@@ -224,10 +224,26 @@ Deferred until a Live machine is available. When it is: each circuit against Liv
 | F12 | **The display** | Each side's response where the modulation puts it now, over the output's spectrum, with the modulation's reach shaded, as Live and the Phaser & Flanger. Drag sideways for the main control, up and down for Resonance |
 | F13 | **Name and IDs** | Named **Filter**: what it is, and what people look for. Device `filter`, plugin code `Fflt`, CLAP `org.segnoaudio.filter`; section IDs as above (`filter`, `lfo`, `envelope`, `output`) |
 
+## Settled while building (B6, 2026-10-12)
+
+- **The latency is 73 samples** (1.5 ms at 48 kHz, 1.7 ms at 44.1 kHz), not 1.3 ms: the shared oversampler pads every factor to its longest chain's latency, so a module's latency never depends on its quality setting (ADR 0016). The same at every setting, as F7 says.
+- **Resonance:** the 2-poles' Q runs from 0.71 at 0 % (no peak: Freq is where the filter is 3 dB down) to 25 at 100 %, on a curve that gives the knob's lower half the finer steps. The ladders' resonance stops just short of ringing on their own, closer at higher cutoffs, so a ring always falls 60 dB within 2 s.
+- **Warm has a gentle saturation going in** as well as in its loop. At high resonance the loop's feedback cancels most of the sound at its saturating stage, so it hardly coloured anything (0.2 % distortion where Clean had 4.5 %).
+- **Acid is the transistor ladder's structure with a high pass in its feedback and a saturation that leans one way,** not a diode ladder whose stages load one another. Stages that load one another can't be mixed into a clean high or band pass (the mixes leak the lows), and these two carry its sound: the deepest lows kept as the resonance rises, and the squelch. Its slope doesn't soften near the cutoff.
+- **Gritty is the state-variable filter with its band-pass state clipped** (where the resonance builds), and a hard clip going in, rather than a Sallen-Key: the clipped resonance is its sound, and small signals follow the same response Clean's does, which the display draws.
+- **Acid's feedback high pass sits at 0.3 × its cutoff,** and its low pass gets some of its lows back, as Warm's does: its resonance still took a 110 Hz saw under an 800 Hz cutoff down 9 dB. Its saturation leans one way (even harmonics, the second at about −24 dB in the golden test), the offset that leaves taken out at 5 Hz.
+- **The DJ filter's fade to the dry sound is at the module's rate,** after Clip: at the centre, the output is the input, held back by the latency, exactly (the oversampler's filters alone don't give that).
+- **The vowel's level:** its three narrow formants take most of a sound away; they're made up by 15 dB and by how sharp Resonance makes them, so pink noise comes out about 3 dB down.
+- **The comb's display** draws the comb's teeth until they're closer than a third of a pixel column, then the band between its peaks and troughs, filled: drawn point by point, the teeth up high read as noise.
+- **The display's handle** sits whole inside the plot (in a notch, or at either end of the range). Its size is the panel kit's new `DeviceGrid::displayHandle`, which the Compressor's threshold point now uses too.
+- **The spectrum behind the curve is the EQ's,** moved into the panel kit as `ui::FifoSpectrum` and shared, so the two read alike.
+- **The presets are levelled with Output:** the band passes (Auto-wah, Telephone) take most of a sound away, so they carry +12 and +10 dB; every preset ends within 3 dB of its input on the conformance suite's test signal (−3.0 to +1.1 dB).
+- **The conformance suite measures latency through the dry path** where a module has a Dry/Wet: the Filter's default low pass delays the sound by its own group delay (about 10 samples), which isn't latency. The Filter's own test measures the latency through the filter, at a high pass at 20 Hz.
+
 ## Sign-off
 
-- [ ] Automated: unit, conformance and golden tests; validators (pluginval at strictness 10 and clap-validator)
-- [ ] Layout lint passes (`fd_panel_tests`)
-- [ ] Snapshots reviewed (100% / 200%; expanded, collapsed, folded; every factory preset)
+- [x] Automated: unit, conformance and golden tests; validators (pluginval at strictness 10 and clap-validator pass; 2026-10-12)
+- [x] Layout lint passes (`fd_panel_tests`)
+- [x] Snapshots reviewed (100% / 200%; expanded, collapsed, folded; every factory preset at 200 %, with `fd-snapshot --presets filter`)
 - [ ] Sound signed off by the product owner, with the factory presets
 - [ ] Feel signed off by the product owner

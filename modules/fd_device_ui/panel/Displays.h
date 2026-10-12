@@ -120,6 +120,24 @@ struct SpectrumPlot
                        float width = 1.0f);
 };
 
+/// A device's FIFO through the shared analyser (devices/spectrum/SPEC.md), for a spectrum behind a
+/// curve: the EQ's, the Filter's. Both read alike.
+class FifoSpectrum
+{
+public:
+    static constexpr int order = 12;
+    static constexpr double averagingMs = 150.0; // lively behind a curve being shaped
+
+    /// Takes what the FIFO holds (the UI's side of it).
+    void pull(SampleFifo& fifo, double sampleRate);
+    [[nodiscard]] bool hasData() const noexcept { return analyser_.hasData(); }
+    [[nodiscard]] const dsp::SpectrumCurve& bands() const noexcept { return bands_; }
+
+private:
+    dsp::SpectrumAnalyser analyser_;
+    dsp::SpectrumCurve bands_{};
+};
+
 /// A dynamics device's last four seconds, scrolling right to left: the input level (a dim fill
 /// from the bottom), the output level (a line) and the gain reduction (from the top, in the value
 /// colour), with a dashed reference line (the threshold, the ceiling) and the current reduction

@@ -19,6 +19,7 @@ struct DeviceGrid
     int meterWidth = 10, meterGap = 10, meterStripPadding = 14; // meter strip: 6 + meters + 8
     int displayInset = 6;       // a display's text and marks, from its well's edges
     int displayTextHeight = 14; // a display's line of text (a legend, a readout, an axis label)
+    int displayHandle = 11; // a point dragged on a display (the Compressor's threshold, the Filter's cutoff)
     int headerPadding = 8;
     int headerButton = 16;                          // a header's icon buttons: fold, previous and next preset
     int presetFieldMin = 112, presetFieldMax = 200; // the preset's name field (presets.md §6)

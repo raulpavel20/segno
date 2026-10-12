@@ -363,6 +363,21 @@ void DynamicsHistory::paint(juce::Graphics& g)
 }
 // ---- SpectrumPlot ---------------------------------------------------------------------------
 
+void FifoSpectrum::pull(SampleFifo& fifo, double sampleRate)
+{
+    if (analyser_.order() != order || analyser_.sampleRate() != sampleRate)
+    {
+        analyser_.prepare(order, sampleRate);
+        analyser_.setChannel(dsp::SpectrumChannel::Left); // one signal: the FIFO's
+        analyser_.setAveraging(averagingMs);
+    }
+    float block[1024];
+    size_t n;
+    while ((n = fifo.pop(block, 1024)) > 0)
+        if (analyser_.push(block, nullptr, n))
+            bands_ = analyser_.bands();
+}
+
 float SpectrumPlot::xOf(double hz) const noexcept
 {
     const double t = std::log(std::max(hz, minHz) / minHz) / std::log(maxHz / minHz);
