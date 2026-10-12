@@ -160,6 +160,7 @@ Columns are in brackets. Each module's SPEC lists its map. The four M2 modules a
 | Spectrum | SPECTRUM [12] display with a legend · CURVES [4] Side Overlay / Freeze, Clear / Reference…, Clear / the reference's name · SETTINGS [5] a sub-label and dropdown per row (Channel, Resolution, Peak hold, Range, Peak labels, Slope), Average · header: Compare (the sidechain picker) | 1152 |
 | Delay | TIME [5] repeats display, Left, Right, Swing / Sync, Link, Stereo · FEEDBACK [3] Amount, Drive, Wobble / Mode, Freeze · FILTER ⏻ [2] curve / Low Cut, High Cut · MODULATION [3] Rate, Time, Filter / Shape · DUCKING [1] Ducking / Release · OUTPUT [1] Dry/Wet / Output · in and out meters · header: Time Change | 944 |
 | Chorus | MODULATION [6] voices display, Mode (stacked) / Rate, Depth, Shape, Offset, Sync · VOICES [3] Delay, Width, Warmth / Feedback (bar), Invert, Low Cut, Freq (bar) · OUTPUT [1] Dry/Wet / Output · in and out meters | 624 |
+| Phaser & Flanger | PHASER, FLANGER or DOUBLER (titled by the mode) [6] response display, Mode (stacked) / Center or Time, Notches, Spread, Warmth, Feedback (bar), Invert, Through Zero · MODULATION [3] Rate, Amount, Offset or Spin / Shape, Sync, Stereo · ENVELOPE ⏻ [3] Amount, Attack, Release · OUTPUT [2] Dry/Wet, Output / Low Cut, Freq (bar) · in and out meters | 852 |
 
 ## Checked by the layout lint
 

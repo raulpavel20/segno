@@ -55,7 +55,7 @@ public:
 
     static constexpr int maxChannels = 2;
     static constexpr int maxVoices = 3; // per side
-    static constexpr int numDivisions = 17;
+    static constexpr int numDivisions = dsp::numLfoNoteValues;
     static constexpr double maxCycleSeconds = 100.0; // a synced cycle longer than this is held here
 
     Chorus();
@@ -96,25 +96,11 @@ public:
     [[nodiscard]] static double pitchSwing(const Voicing& v, double rateHz, double sampleRate) noexcept;
 
 private:
-    /// Two one-poles in a row: a value that glides to its target with no step in its speed,
-    /// so a jump in it repitches smoothly instead of clicking.
-    struct Glide
-    {
-        double coef = 0.0, a = 0.0, b = 0.0, target = 0.0;
-        void snap(double v) noexcept { a = b = target = v; }
-        double next() noexcept
-        {
-            a += coef * (target - a);
-            b += coef * (a - b);
-            return b;
-        }
-    };
     struct Channel
     {
         dsp::ModulatedDelay line;
         dsp::FeedbackPath tone;
-        // The Low Cut: a Linkwitz-Riley crossover (24 dB/oct), each side two Butterworth sections.
-        dsp::Biquad low1, low2, high1, high2;
+        dsp::Crossover split; // the Low Cut
     };
     struct Gains
     {
@@ -123,7 +109,8 @@ private:
 
     void snap() noexcept;
     void updateTargets(bool immediate) noexcept;
-    void updateSync(bool relock) noexcept;
+    /// The LFO's rate on each tick: free, or one cycle per note value. `snap`: lock at once.
+    void updateSync(bool snap) noexcept;
     [[nodiscard]] Gains gainsFor(ModeKind mode, float mix, float width, float feedback) const noexcept;
     /// The voices of `mode` summed on each side, at the level of one voice (1/sqrt(n)).
     void voices(ModeKind mode, double position, double depth, double delayMs, double shape, double offset,
@@ -135,14 +122,10 @@ private:
     dsp::ControlGrid grid_{32};
     dsp::LinearSmoother shape_, width_, warmth_, feedback_, invert_, lowOn_, mix_, output_, modeFade_;
     dsp::MultiplicativeSmoother rate_, lowFreq_;
-    Glide depth_, delay_, offset_, correction_;
-    dsp::ModulationLfo lfo_;
+    dsp::Glide depth_, delay_, offset_;
+    dsp::SongLfo lfo_;
     ModeKind mode_ = ModeKind::Chorus, previous_ = ModeKind::Chorus;
-
-    // The song: where it is (beats), kept here so it doesn't depend on how blocks fall.
-    double tempo_ = 120.0, beatsPerBar_ = 4.0, songPpq_ = 0.0;
-    bool playing_ = false, wasPlaying_ = false, relock_ = false, synced_ = false;
-    int div_ = -1;
+    double tempo_ = 120.0, beatsPerBar_ = 4.0;
     bool fresh_ = true;
     std::array<Channel, maxChannels> ch_{};
 };

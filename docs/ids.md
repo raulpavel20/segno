@@ -8,7 +8,7 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 
 | What | Value | Rules |
 |---|---|---|
-| Vendor display name | `Segno` | Shown in hosts' plugin lists; plugins are named "Segno <Module>" |
+| Vendor display name | `Segno` | Shown in hosts' plugin lists; plugins are named "Segno <Module>". Their files are named the same, "&" written "and" ("Segno Phaser and Flanger.vst3") |
 | Plugin manufacturer code (VST3/AU) | `Sgno` | 4 characters, at least one uppercase |
 | Reverse-DNS prefix (CLAP IDs, bundle IDs) | `org.segnoaudio` | The DAW app is `org.segnoaudio.segno` |
 | LV2 URI prefix | `https://segnoaudio.org/plugins/` | Must be a URI we control at release time |

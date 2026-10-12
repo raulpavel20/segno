@@ -50,3 +50,19 @@ TEST_CASE("multiplicative smoother passes the geometric midpoint", "[fast]")
     CHECK(s.next() == Approx(1000.0f).epsilon(1e-4));
     CHECK(s.next() == 10000.0f);
 }
+
+TEST_CASE("glide: starts and ends with no step in its speed, and settles", "[fast]")
+{
+    Glide g;
+    g.setTime(12.0, 48000.0);
+    g.snap(0.0);
+    g.setTarget(1.0);
+    const double first = g.next();
+    const double second = g.next();
+    CHECK(first < 1e-5);           // it barely moves at first...
+    CHECK(second - first > first); // ...then speeds up
+    for (int i = 0; i < 48000 / 10; ++i)
+        (void)g.next(); // 100 ms: over eight time constants
+    CHECK(g.current() == Approx(1.0).margin(1e-2));
+    CHECK(g.target() == 1.0);
+}

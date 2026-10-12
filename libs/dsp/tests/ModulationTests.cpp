@@ -233,6 +233,43 @@ TEST_CASE("LFO: synced, locked to the song's position, after a jump too", "[fast
     CHECK(lfo.position() == Approx(start + 0.5).margin(1e-9));
 }
 
+TEST_CASE("song LFO: the same however the blocks fall; after a jump, it glides to the song", "[fast]")
+{
+    const double rate = 48000.0, bpm = 120.0, beats = 1.0; // a cycle a beat: two a second
+    // Plays `total` samples in blocks of `block`, set() on 32-sample ticks; the host's position at
+    // each block's start is `ppqAt(sample)`.
+    const auto play = [&](int block, int total, const auto& ppqAt)
+    {
+        SongLfo lfo;
+        lfo.prepare(rate);
+        std::vector<double> out;
+        for (int start = 0; start < total; start += block)
+        {
+            lfo.beginBlock(true, ppqAt(start), bpm);
+            for (int i = start; i < std::min(total, start + block); ++i)
+            {
+                if (i % 32 == 0)
+                    lfo.set(1.0, beats, i == 0);
+                out.push_back(lfo.next());
+            }
+        }
+        return out;
+    };
+    const auto song = [&](int sample) { return sample * bpm / 60.0 / rate; };
+    const auto a = play(512, 48000, song);
+    const auto b = play(37, 48000, song);
+    REQUIRE(a.size() == b.size());
+    CHECK(a == b);                                               // bit for bit
+    CHECK(a.back() == Approx(song(47999) / beats).margin(1e-9)); // locked to the song
+
+    // The song jumps by 0.3 of a beat at one second: no step there, the song's place soon after.
+    const auto jumped =
+        play(512, 72000, [&](int sample) { return song(sample) + (sample >= 48128 ? 0.3 : 0.0); });
+    const double before = jumped[48127], after = jumped[48128];
+    CHECK(std::abs(after - before) < 1e-3); // a sample's movement, not the jump
+    CHECK(jumped.back() == Approx(song(71999) + 0.3).margin(1e-4));
+}
+
 TEST_CASE("modulation core: nothing allocates while it runs", "[fast]")
 {
     if (!fd::testkit::allocationTrackingEnabled())

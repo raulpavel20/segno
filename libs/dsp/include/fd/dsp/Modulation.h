@@ -1,8 +1,10 @@
 #pragma once
 
 #include "fd/dsp/Filters.h"
+#include "fd/dsp/Smoother.h"
 
 #include <cstdint>
+#include <string_view>
 #include <vector>
 
 namespace fd::dsp
@@ -122,5 +124,46 @@ private:
     double increment_ = 0.0; // cycles per sample
     std::int64_t cycle_ = 0;
     double phase_ = 0.0; // 0..1 within the cycle
+};
+/// The note values a synced LFO's cycle takes (the Chorus's, the Phaser & Flanger's), from the
+/// slowest to the fastest, so turning a knob always speeds it up. "Bars" follow the song's meter.
+inline constexpr std::string_view lfoNoteValues[] = {"8 bars", "4 bars", "2 bars", "1 bar", "1/2D", "1/2",
+                                                     "1/4D",   "1/2T",   "1/4",    "1/8D",  "1/4T", "1/8",
+                                                     "1/16D",  "1/8T",   "1/16",   "1/16T", "1/32"};
+inline constexpr int numLfoNoteValues = 17;
+/// Note value `index`'s cycle in beats (quarter notes): "1/2" is 2; a bar is `beatsPerBar`.
+[[nodiscard]] double lfoNoteBeats(int index, double beatsPerBar) noexcept;
+
+/// An LFO's place as a device plays it (the Chorus's, the Phaser & Flanger's): free in Hz, or one
+/// cycle every so many beats, locked to the song while it plays.
+/// - The song's position is counted here as the samples go by; the host's is taken only when the
+///   song starts or jumps (more than a thousandth of a beat out). So the movement is the same
+///   however the host splits its blocks.
+/// - When its phase jumps (synced from free, a new length of cycle, the song jumping or starting),
+///   it glides from where it was, the nearer way round, through a `Glide`: whatever it moves
+///   repitches smoothly instead of clicking.
+class SongLfo
+{
+public:
+    void prepare(double sampleRate, double glideMs = 12.0) noexcept;
+    /// Position 0, the song at its start and stopped.
+    void reset() noexcept;
+    /// At each block's start, before set(): the host's song.
+    void beginBlock(bool playing, double ppq, double tempoBpm) noexcept;
+    /// On control ticks: free at `hz` (`beats` 0), or one cycle every `beats`, locked to the song
+    /// while it plays. `snap`: lock without gliding (nothing has played yet).
+    void set(double hz, double beats, bool snap = false) noexcept;
+    /// This sample's position in cycles (the glide included), then on to the next sample.
+    double next() noexcept;
+    /// The position next() would give now.
+    [[nodiscard]] double position() const noexcept { return lfo_.position() + glide_.current(); }
+    /// How fast it moves now (Hz).
+    [[nodiscard]] double rateHz() const noexcept;
+
+private:
+    double sampleRate_ = 48000.0, tempo_ = 120.0, songPpq_ = 0.0, hz_ = 1.0, beats_ = 0.0;
+    bool playing_ = false, wasPlaying_ = false, relock_ = false;
+    ModulationLfo lfo_;
+    Glide glide_;
 };
 } // namespace fd::dsp

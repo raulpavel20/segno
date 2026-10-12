@@ -112,4 +112,30 @@ std::complex<double> biquadResponse(const BiquadCoeffs& c, double freqHz, double
     const std::complex<double> z2 = z1 * z1;
     return (c.b0 + c.b1 * z1 + c.b2 * z2) / (1.0 + c.a1 * z1 + c.a2 * z2);
 }
+// ---- crossover ---------------------------------------------------------------------------
+
+void Crossover::prepare(double sampleRate) noexcept
+{
+    sampleRate_ = sampleRate > 0.0 ? sampleRate : 48000.0;
+    reset();
+}
+
+void Crossover::reset() noexcept
+{
+    for (auto* f : {&low1_, &low2_, &high1_, &high2_})
+        f->reset();
+}
+
+void Crossover::setFrequency(double hz) noexcept
+{
+    constexpr double butterworthQ = 0.7071067811865476;
+    const double f = std::min(hz, 0.45 * sampleRate_);
+    const auto low = designBiquad(BiquadType::Lowpass, sampleRate_, f, butterworthQ);
+    const auto high = designBiquad(BiquadType::Highpass, sampleRate_, f, butterworthQ);
+    low1_.setCoeffs(low);
+    low2_.setCoeffs(low);
+    high1_.setCoeffs(high);
+    high2_.setCoeffs(high);
+}
+
 } // namespace fd::dsp

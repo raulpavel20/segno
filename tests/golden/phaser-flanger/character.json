@@ -1,0 +1,26 @@
+{
+  "doubler.pink_level_db": {
+    "tol": 0.05,
+    "value": -0.30098022581822786
+  },
+  "flanger.pink_level_db": {
+    "tol": 0.05,
+    "value": -0.3296837380670323
+  },
+  "phaser.default_notch_db": {
+    "tol": 0.05,
+    "value": -60.0
+  },
+  "phaser.default_peak_db": {
+    "tol": 0.05,
+    "value": 3.0102804575799307
+  },
+  "phaser.pink_level_db": {
+    "tol": 0.05,
+    "value": 0.6894021208176231
+  },
+  "warmth100.tone_8k_db": {
+    "tol": 0.05,
+    "value": -14.128520530250517
+  }
+}

@@ -1,6 +1,6 @@
 # Phaser & Flanger: device spec
 
-- **Status:** Approved by the product owner (2026-10-12, with every recommendation of P1–P12); IDs are permanent. Building (B3)
+- **Status:** Approved by the product owner (2026-10-12, with every recommendation of P1–P12); IDs are permanent. Built (B3, 2026-10-12): what building settled is under "Settled while building". Awaiting sign-off by ear and feel
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1, M3 (B3)
 - **Live target:** Phaser-Flanger. References only; nothing is copied ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
@@ -91,7 +91,7 @@ in ─┬─> Low Cut crossover ─┬─ above ─> + ─> Phaser: the all-pass
 
 **Phaser:**
 - **The all-pass chain:** Notches second-order all-pass sections in a row, all tuned to the sweep's frequency, their Q set by Spread (from 4 at 0 % to 0.3 at 100 %, on a curve tuned by ear). Mixed with the dry sound, each section makes one notch.
-- The sections are retuned every few samples and interpolated in between, so a fast sweep has no zipper.
+- The sections are retuned every sample, so a fast sweep has no zipper.
 - A change of Notches crossfades between the old chain and the new over 30 ms.
 - **Feedback:** what comes out of the chain, after the tone stage, goes back into its input, times Feedback (negated by Invert): the peaks between the notches ring.
 
@@ -113,7 +113,7 @@ in ─┬─> Low Cut crossover ─┬─ above ─> + ─> Phaser: the all-pass
 - **Analysis slots:**
   - 0/1 = input peak L/R; 2/3 = output peak L/R;
   - 4 = the LFO's position (cycles), for the Doubler's display;
-  - 5/6 = where each side's sweep is now, LFO and envelope together (the position `sweep` takes), for the response display.
+  - 5/6 = each side's LFO value now (−1 to 1) and 7 = the envelope now (0 to 1, 0 while off): the response display works out where the sweep is with `sweep`.
 
 ## UI layout
 
@@ -130,7 +130,7 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)), sec
 **The response display:**
 - **Phaser and Flanger:** the response, 20 Hz to 20 kHz on the shared log-frequency axis: the notches (or the comb) where each side's sweep is now, the left side's over the right's, computed by `PhaserFlanger::response` from the same settings the audio path uses. A shaded band shows the range the sweep covers.
 - **Doubler:** a doubler's comb is too fine to read, so it draws the second take's delay over two cycles, as the Chorus draws its voices.
-- **Its line** reads the sweep's range: "420 Hz–3.2 kHz" (Phaser), "0.4–2.0 ms" (Flanger, marked "through zero" when it passes the dry sound), "15–25 ms" (Doubler).
+- **Its line** reads where the sweep reaches, the envelope's reach included while it's on: "420 Hz–3.2 kHz" (Phaser), "0.4–2.0 ms" (Flanger, marked "through zero" when it passes the dry sound), "15–25 ms" (Doubler).
 - **Dragging:** sideways moves Center or Time; up and down changes Amount, the band's width. Shift drags finely. (The Chorus's display also takes its movement's size vertically.)
 - With nothing playing it (the snapshots, the gallery), it draws the sweep at rest.
 
@@ -210,10 +210,22 @@ Deferred until a Live machine is available.
 | P11 | **The display** | The response (Phaser and Flanger) or the delay over time (Doubler), with the sweep's range as a band; drag sideways for Center or Time, up and down for Amount |
 | P12 | **Name and IDs** | Named **Phaser & Flanger**: unlike the Chorus's modes, a flanger isn't a kind of phaser, and both are what people look for. Device `phaser-flanger`, plugin code `Fphf`, CLAP `org.segnoaudio.phaser-flanger`; section IDs as above (`effect`, `modulation`, `envelope`, `output`) |
 
+## Settled while building (B3, 2026-10-12)
+
+- **Shared with the Chorus, in the cores:** the Low Cut's crossover (`dsp::Crossover`), the glide (`dsp::Glide`), the LFO that follows the song (`dsp::SongLfo`) and the note values (`dsp::lfoNoteValues`) moved out of the Chorus into `libs/dsp`, with tests of their own. The Chorus runs on them unchanged (its tests and golden metrics pass as before), and Auto Pan & Tremolo (B4) will too.
+- **Both effects always run:** the Phaser's chain and the line run whatever the mode, so a change of mode crossfades from an effect already going. Each loop's feedback follows how much its mode is heard.
+- **What goes round a loop is bounded softly:** exactly itself up to full scale, then rounding off towards +12 dBFS. A hard clamp at +12 dBFS clipped a ringing phaser harshly; the conformance suite heard it as a click when Feedback fell from 95 %.
+- **Through Zero holds the whole module back 1 ms, in every mode** (the dry sound, the lows and the Phaser's input; the Doubler reads 1 ms later to match), so the latency doesn't change with Mode, which is automatable. In the Flanger, the line isn't held back, so its sweep can pass the dry sound.
+- **The envelope moves its whole range (48 dB) in Env Attack or Env Release,** in dB, so "within Attack" and "within Release" hold exactly.
+- **The readout and the band cover where the sweep reaches,** the envelope included while it's on, and write a unit once where both ends share it ("244–369 Hz").
+- **Dragging the display right is always higher:** the Phaser's notches up, the Flanger's comb up (a shorter Time).
+- **The plugins' files are named "Segno Phaser and Flanger".** An "&" in a bundle's file name broke the build's own commands; hosts still show "Segno Phaser & Flanger" (JUCE's plugin name, apart from its product name).
+- **Metallic flanger's feedback is 85 %:** at 90 % it peaked at +0.14 dBFS.
+
 ## Sign-off
 
-- [ ] Automated: unit, conformance and golden tests; validators (pluginval at strictness 10 and clap-validator)
-- [ ] Layout lint passes (`fd_panel_tests`)
-- [ ] Snapshots reviewed (100% / 200%; expanded, collapsed, folded; every factory preset)
+- [x] Automated: unit, conformance and golden tests; validators (pluginval at strictness 10 and clap-validator pass; 2026-10-12)
+- [x] Layout lint passes (`fd_panel_tests`)
+- [x] Snapshots reviewed (100% / 200%; expanded, collapsed, folded; every factory preset at 200 %, with `fd-snapshot --presets phaser-flanger`)
 - [ ] Sound signed off by the product owner, with the factory presets
 - [ ] Feel signed off by the product owner

@@ -25,8 +25,13 @@ function(fd_add_device_plugin)
         set(au_type kAudioUnitType_MusicDevice)
     endif()
 
+    # The name hosts show, and a file-safe one for the bundles: "&" breaks the build's own
+    # commands on a bundle's path ("Phaser & Flanger" files as "Phaser and Flanger").
+    set(plugin_name "${FD_VENDOR_NAME} ${ARG_NAME}")
+    string(REPLACE "&" "and" product_name "${plugin_name}")
     juce_add_plugin(${target}
-        PRODUCT_NAME "${FD_VENDOR_NAME} ${ARG_NAME}"
+        PRODUCT_NAME "${product_name}"
+        PLUGIN_NAME "${plugin_name}"
         COMPANY_NAME "${FD_VENDOR_NAME}"
         BUNDLE_ID "${FD_ID_PREFIX}.${ARG_ID}"
         PLUGIN_MANUFACTURER_CODE "${FD_MANUFACTURER_CODE}"
@@ -117,6 +122,10 @@ fd_add_device_plugin(ID delay NAME "Delay" CODE Fdly KIND effect
 fd_add_device_plugin(ID chorus NAME "Chorus" CODE Fchr KIND effect
     VST3_CATEGORIES Fx Modulation
     CLAP_FEATURES audio-effect chorus stereo mono)
+
+fd_add_device_plugin(ID phaser-flanger NAME "Phaser & Flanger" CODE Fphf KIND effect
+    VST3_CATEGORIES Fx Modulation
+    CLAP_FEATURES audio-effect phaser flanger stereo mono)
 
 fd_add_device_plugin(ID subtractive-synth NAME "Subtractive Synth" CODE Fsub KIND instrument
     VST3_CATEGORIES Instrument Synth

@@ -255,4 +255,83 @@ float ModulationLfo::value(Shape shape, double position) noexcept
     }
     return 0.0f;
 }
+// ---- note values ---------------------------------------------------------------------------
+
+double lfoNoteBeats(int index, double beatsPerBar) noexcept
+{
+    // After the bars: one cycle per so many beats.
+    static constexpr double beats[] = {3.0, 2.0,   1.5,       4.0 / 3.0, 1.0,       0.75, 2.0 / 3.0,
+                                       0.5, 0.375, 1.0 / 3.0, 0.25,      1.0 / 6.0, 0.125};
+    static constexpr int bars[] = {8, 4, 2, 1};
+    index = std::clamp(index, 0, numLfoNoteValues - 1);
+    return index < 4 ? bars[index] * beatsPerBar : beats[index - 4];
+}
+
+// ---- the LFO as a device plays it ----------------------------------------------------------
+
+void SongLfo::prepare(double sampleRate, double glideMs) noexcept
+{
+    sampleRate_ = sampleRate > 0.0 ? sampleRate : 48000.0;
+    lfo_.prepare(sampleRate_);
+    glide_.setTime(glideMs, sampleRate_);
+    reset();
+}
+
+void SongLfo::reset() noexcept
+{
+    lfo_.reset(0.0);
+    glide_.snap(0.0);
+    songPpq_ = 0.0;
+    beats_ = 0.0;
+    playing_ = wasPlaying_ = relock_ = false;
+}
+
+void SongLfo::beginBlock(bool playing, double ppq, double tempoBpm) noexcept
+{
+    constexpr double jumpBeats = 1e-3;
+    tempo_ = tempoBpm > 0.0 ? tempoBpm : 120.0;
+    playing_ = playing;
+    if (playing && (!wasPlaying_ || std::abs(ppq - songPpq_) > jumpBeats))
+    {
+        songPpq_ = ppq;
+        relock_ = true;
+    }
+    wasPlaying_ = playing;
+}
+
+void SongLfo::set(double hz, double beats, bool snap) noexcept
+{
+    hz_ = hz;
+    if (beats > 0.0)
+    {
+        const bool relock = playing_ && (relock_ || snap || beats != beats_);
+        const double before = position();
+        lfo_.sync(songPpq_, tempo_, beats, relock);
+        if (relock)
+        {
+            // Where it was, it glides from: the jump (the nearer way round) decays to nothing.
+            const double jump = lfo_.position() - before;
+            glide_.snap(snap ? 0.0 : -(jump - std::round(jump)));
+            glide_.setTarget(0.0);
+        }
+    }
+    else
+        lfo_.setRate(hz);
+    beats_ = std::max(0.0, beats);
+    relock_ = false;
+}
+
+double SongLfo::next() noexcept
+{
+    const double p = lfo_.position() + glide_.next();
+    (void)lfo_.next();
+    songPpq_ += tempo_ / 60.0 / sampleRate_;
+    return p;
+}
+
+double SongLfo::rateHz() const noexcept
+{
+    return beats_ > 0.0 ? tempo_ / 60.0 / beats_ : hz_;
+}
+
 } // namespace fd::dsp

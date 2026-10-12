@@ -1,0 +1,41 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "FX"
+  ],
+  "description": "Short, fast and resonant: a ringing, robotic edge.",
+  "author": "Segno",
+  "state": {
+    "device": "phaser-flanger",
+    "extra": {},
+    "params": {
+      "amount": 40.0,
+      "div": 3.0,
+      "doubler.time": 20.0,
+      "env": 0.0,
+      "env.amount": 50.0,
+      "env.attack": 10.0,
+      "env.release": 250.0,
+      "feedback": 85.0,
+      "flanger.time": 0.5,
+      "flanger.zero": 0.0,
+      "invert": 1.0,
+      "lowcut": 1.0,
+      "lowcut.freq": 120.0,
+      "mix": 50.0,
+      "mode": 1.0,
+      "offset": 90.0,
+      "output": 0.0,
+      "phaser.center": 800.0,
+      "phaser.notches": 2.0,
+      "phaser.spread": 50.0,
+      "rate": 3.0,
+      "shape": 1.0,
+      "spin": 20.0,
+      "stereo": 0.0,
+      "sync": 0.0,
+      "warmth": 0.0
+    },
+    "stateVersion": 1
+  }
+}

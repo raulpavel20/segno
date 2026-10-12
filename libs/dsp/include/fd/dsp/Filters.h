@@ -96,4 +96,28 @@ private:
     BiquadCoeffs c_{};
     double s1_ = 0.0, s2_ = 0.0;
 };
+
+/// A Linkwitz-Riley crossover (24 dB/oct): each band two Butterworth sections, and the two bands
+/// sum to an all-pass, flat in level. The Chorus's and the Phaser & Flanger's Low Cut.
+class Crossover
+{
+public:
+    void prepare(double sampleRate) noexcept;
+    void reset() noexcept;
+    /// Not per sample. Held under 0.45 of the sample rate.
+    void setFrequency(double hz) noexcept;
+
+    struct Bands
+    {
+        float low = 0.0f, high = 0.0f;
+    };
+    Bands process(float x) noexcept
+    {
+        return {low2_.process(low1_.process(x)), high2_.process(high1_.process(x))};
+    }
+
+private:
+    double sampleRate_ = 48000.0;
+    Biquad low1_, low2_, high1_, high2_;
+};
 } // namespace fd::dsp

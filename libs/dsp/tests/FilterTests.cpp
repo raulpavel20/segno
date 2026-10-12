@@ -78,3 +78,28 @@ TEST_CASE("one-pole low-pass is -3 dB at its cutoff", "[fast]")
     const double mag = std::abs(responseAt(ir.channel(0), ir.numSamples(), 1000.0, sr));
     CHECK(20.0 * std::log10(mag) == Approx(-3.0103).margin(1e-3));
 }
+
+TEST_CASE("crossover: the bands sum flat, each at -6 dB where they cross, 24 dB/oct", "[fast]")
+{
+    constexpr double hz = 200.0;
+    Crossover x;
+    x.prepare(sr);
+    x.setFrequency(hz);
+    constexpr int n = 1 << 15;
+    std::vector<float> low(n), high(n), sum(n);
+    for (int i = 0; i < n; ++i)
+    {
+        const auto b = x.process(i == 0 ? 1.0f : 0.0f);
+        low[static_cast<size_t>(i)] = b.low;
+        high[static_cast<size_t>(i)] = b.high;
+        sum[static_cast<size_t>(i)] = b.low + b.high;
+    }
+    const auto levelDb = [&](const std::vector<float>& ir, double f)
+    { return 20.0 * std::log10(std::abs(responseAt(ir.data(), n, f, sr))); };
+    for (const double f : {20.0, 100.0, 200.0, 400.0, 2000.0, 15000.0})
+        CHECK(std::abs(levelDb(sum, f)) < 0.01); // an all-pass
+    CHECK(levelDb(low, hz) == Approx(-6.02).margin(0.05));
+    CHECK(levelDb(high, hz) == Approx(-6.02).margin(0.05));
+    CHECK(levelDb(low, 4.0 * hz) < -46.0); // two octaves up: about 48 dB down
+    CHECK(levelDb(high, hz / 4.0) < -46.0);
+}

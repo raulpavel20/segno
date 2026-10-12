@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 
 namespace fd::dsp
@@ -109,5 +110,33 @@ private:
     float target_ = 1.0f;
     float ratio_ = 1.0f;
     int stepsLeft_ = 0;
+};
+
+/// Two one-poles in a row: a value that glides to its target with no step in its speed, so a
+/// jump in what moves a delay repitches it smoothly instead of clicking (the Chorus's Delay, an
+/// LFO's jump in phase). Each pole's time constant is set; it settles in about five of them.
+class Glide
+{
+public:
+    void setTime(double ms, double sampleRate) noexcept
+    {
+        coef_ = 1.0 - std::exp(-1.0 / (std::max(ms, 1e-3) * 0.001 * sampleRate));
+    }
+    /// At `value` at once, at rest.
+    void snap(double value) noexcept { a_ = b_ = target_ = value; }
+    void setTarget(double value) noexcept { target_ = value; }
+
+    double next() noexcept
+    {
+        a_ += coef_ * (target_ - a_);
+        b_ += coef_ * (a_ - b_);
+        return b_;
+    }
+
+    [[nodiscard]] double current() const noexcept { return b_; }
+    [[nodiscard]] double target() const noexcept { return target_; }
+
+private:
+    double coef_ = 1.0, a_ = 0.0, b_ = 0.0, target_ = 0.0;
 };
 } // namespace fd::dsp

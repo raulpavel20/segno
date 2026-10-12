@@ -1,0 +1,95 @@
+{
+ "device": "phaser-flanger",
+ "author": "Segno",
+ "presets": [
+  {
+   "name": "Classic phaser",
+   "tags": ["Guitar", "Keys"],
+   "description": "Two notches on a slow triangle, the four-stage pedal sound.",
+   "params": {"phaser.center": 700, "rate": 0.3, "amount": 60, "feedback": 25}
+  },
+  {
+   "name": "Deep phaser",
+   "tags": ["Pad", "Wide"],
+   "description": "Six notches with feedback, slow and wide, for pads.",
+   "params": {"phaser.notches": 6, "phaser.spread": 40, "rate": 0.15, "amount": 80, "feedback": 60, "offset": 180}
+  },
+  {
+   "name": "Funky phaser",
+   "tags": ["Guitar"],
+   "description": "A quicker, resonant sweep for rhythm parts.",
+   "params": {"phaser.center": 1200, "phaser.notches": 3, "phaser.spread": 30, "rate": 1.5, "feedback": 70}
+  },
+  {
+   "name": "Bar phaser",
+   "tags": ["Drums", "Bus"],
+   "description": "One sweep a bar, locked to the song.",
+   "params": {"phaser.notches": 4, "sync": true, "div": "1 bar", "amount": 60}
+  },
+  {
+   "name": "Spinning phaser",
+   "tags": ["Wide", "Keys"],
+   "description": "The sides sweeping at different speeds, drifting in and out of step.",
+   "params": {"phaser.notches": 4, "rate": 0.25, "amount": 70, "feedback": 40, "stereo": "Spin", "spin": 30}
+  },
+  {
+   "name": "Touch phaser",
+   "tags": ["Bass", "Guitar"],
+   "description": "Notches that open with how hard you play.",
+   "params": {"phaser.center": 300, "phaser.notches": 4, "feedback": 50, "rate": 0.2, "amount": 10,
+              "env": true, "env.amount": 80, "env.attack": 5, "env.release": 200}
+  },
+  {
+   "name": "Classic flanger",
+   "tags": ["Guitar"],
+   "description": "A slow, sweeping flanger with some feedback.",
+   "params": {"mode": "Flanger", "flanger.time": 3, "rate": 0.25, "amount": 80, "feedback": 50}
+  },
+  {
+   "name": "Jet flanger",
+   "tags": ["Drums", "Heavy"],
+   "description": "The jet-plane whoosh: a slow, deep sweep with high feedback.",
+   "params": {"mode": "Flanger", "flanger.time": 5, "rate": 0.08, "amount": 95, "feedback": 85}
+  },
+  {
+   "name": "Tape flange",
+   "tags": ["FX", "Heavy"],
+   "description": "Through Zero with the feedback inverted: the deep, cancelling sweep of two tapes.",
+   "params": {"mode": "Flanger", "flanger.time": 2, "flanger.zero": true, "rate": 0.1, "amount": 100,
+              "feedback": 60, "invert": true}
+  },
+  {
+   "name": "Metallic flanger",
+   "tags": ["FX"],
+   "description": "Short, fast and resonant: a ringing, robotic edge.",
+   "params": {"mode": "Flanger", "flanger.time": 0.5, "rate": 3, "amount": 40, "feedback": 85, "invert": true}
+  },
+  {
+   "name": "Subtle flange",
+   "tags": ["Subtle", "Vocals"],
+   "description": "A light, slow shimmer.",
+   "params": {"mode": "Flanger", "flanger.time": 4, "rate": 0.15, "amount": 40, "feedback": 20,
+              "lowcut.freq": 200, "mix": 30}
+  },
+  {
+   "name": "Touch flanger",
+   "tags": ["Drums"],
+   "description": "A flanger that sweeps with each hit.",
+   "params": {"mode": "Flanger", "flanger.time": 6, "amount": 0, "feedback": 60,
+              "env": true, "env.amount": 90, "env.attack": 2, "env.release": 150}
+  },
+  {
+   "name": "Wide doubler",
+   "tags": ["Vocals", "Wide"],
+   "description": "Two takes, one on each side, for a fuller voice.",
+   "params": {"mode": "Doubler", "doubler.time": 18, "rate": 0.3, "amount": 30, "offset": 180,
+              "feedback": 0, "mix": 45}
+  },
+  {
+   "name": "Slap doubler",
+   "tags": ["Guitar"],
+   "description": "A looser, later second take.",
+   "params": {"mode": "Doubler", "doubler.time": 45, "rate": 0.5, "amount": 20, "feedback": 15, "mix": 40}
+  }
+ ]
+}

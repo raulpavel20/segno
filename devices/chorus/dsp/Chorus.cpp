@@ -10,14 +10,6 @@ namespace fd::devices
 namespace
 {
 constexpr std::string_view kModes[] = {"Chorus", "Ensemble", "Vibrato"};
-// The note values after the bars, slowest first: one cycle per so many beats (quarter notes).
-constexpr double kDivisionBeats[] = {3.0, 2.0,   1.5,       4.0 / 3.0, 1.0,       0.75, 2.0 / 3.0,
-                                     0.5, 0.375, 1.0 / 3.0, 0.25,      1.0 / 6.0, 0.125};
-constexpr int kBars[] = {8, 4, 2, 1};
-constexpr std::string_view kDivisionNames[] = {"8 bars", "4 bars", "2 bars", "1 bar", "1/2D", "1/2",
-                                               "1/4D",   "1/2T",   "1/4",    "1/8D",  "1/4T", "1/8",
-                                               "1/16D",  "1/8T",   "1/16",   "1/16T", "1/32"};
-
 constexpr std::array<ParamSpec, Chorus::NumParams> kSpecs{{
     {.id = "mode",
      .name = "Mode",
@@ -51,7 +43,7 @@ constexpr std::array<ParamSpec, Chorus::NumParams> kSpecs{{
      .min = 0.0f,
      .max = 16.0f,
      .def = 5.0f,
-     .choices = kDivisionNames},
+     .choices = dsp::lfoNoteValues},
     {.id = "depth",
      .name = "Depth",
      .shortName = "Depth",
@@ -203,9 +195,7 @@ constexpr double kLongestMs = 60.0;
 // 1; it fades into the path over the first 5 %.
 constexpr double kWarmthTopHz = 20000.0, kWarmthBottomHz = 4000.0;
 constexpr float kWarmthFadeIn = 0.05f;
-constexpr double kGlideMs = 12.0;   // each of a glide's two poles
-constexpr double kJumpBeats = 1e-3; // the song moved further than it played: a jump
-constexpr double kButterworthQ = 0.7071067811865476;
+constexpr double kGlideMs = 12.0; // each of a glide's two poles
 } // namespace
 
 Chorus::Chorus() : Device(kInfo) {}
@@ -214,10 +204,7 @@ Chorus::Chorus() : Device(kInfo) {}
 
 double Chorus::divisionBeats(int index, double beatsPerBar) noexcept
 {
-    index = std::clamp(index, 0, numDivisions - 1);
-    if (index < 4)
-        return kBars[index] * beatsPerBar;
-    return kDivisionBeats[index - 4];
+    return dsp::lfoNoteBeats(index, beatsPerBar);
 }
 
 int Chorus::voiceCount(ModeKind mode) noexcept
@@ -282,15 +269,15 @@ void Chorus::prepare(const ProcessSpec& spec)
     sampleRate_ = spec.sampleRate > 0.0 ? spec.sampleRate : 48000.0;
     rampSamples_ = dsp::msToSamples(20.0, sampleRate_);
     modeSamples_ = dsp::msToSamples(50.0, sampleRate_);
-    const double glide = 1.0 - std::exp(-1.0 / (kGlideMs * 0.001 * sampleRate_));
-    for (auto* g : {&depth_, &delay_, &offset_, &correction_})
-        g->coef = glide;
+    for (auto* g : {&depth_, &delay_, &offset_})
+        g->setTime(kGlideMs, sampleRate_);
     for (auto& c : ch_)
     {
         c.line.prepare(kLongestMs * 0.001 * sampleRate_ + 64.0);
         c.tone.prepare(sampleRate_);
+        c.split.prepare(sampleRate_);
     }
-    lfo_.prepare(sampleRate_);
+    lfo_.prepare(sampleRate_, kGlideMs);
     analysis().setSampleRate(sampleRate_);
     reset();
 }
@@ -302,13 +289,9 @@ void Chorus::reset() noexcept
     {
         c.line.reset();
         c.tone.reset();
-        for (auto* f : {&c.low1, &c.low2, &c.high1, &c.high2})
-            f->reset();
+        c.split.reset();
     }
-    lfo_.reset(0.0);
-    songPpq_ = 0.0;
-    playing_ = wasPlaying_ = relock_ = synced_ = false;
-    div_ = -1;
+    lfo_.reset();
     snap();
     fresh_ = true;
 }
@@ -319,10 +302,9 @@ void Chorus::snap() noexcept
     modeFade_.reset(1.0f);
     updateTargets(/*immediate*/ true);
     for (auto* g : {&depth_, &delay_, &offset_})
-        g->snap(g->target);
+        g->snap(g->target());
     // Locked to the song at once: nothing has played to glide from.
-    updateSync(playing_);
-    correction_.snap(0.0);
+    updateSync(/*snap*/ true);
 }
 
 void Chorus::updateTargets(bool immediate) noexcept
@@ -339,9 +321,9 @@ void Chorus::updateTargets(bool immediate) noexcept
     output_.setTarget(dsp::dbToGain(p.get(Output)), ramp);
     rate_.setTarget(p.get(Rate), ramp);
     lowFreq_.setTarget(p.get(LowCutFreq), ramp);
-    depth_.target = p.get(Depth) * 0.01;
-    delay_.target = p.get(DelayTime);
-    offset_.target = p.get(Offset) / 360.0;
+    depth_.setTarget(p.get(Depth) * 0.01);
+    delay_.setTarget(p.get(DelayTime));
+    offset_.setTarget(p.get(Offset) / 360.0);
     if (immediate)
     {
         for (auto* s : {&shape_, &width_, &warmth_, &feedback_, &invert_, &lowOn_, &mix_, &output_})
@@ -363,44 +345,21 @@ void Chorus::updateTargets(bool immediate) noexcept
     // The tone stage and the split follow their settings on each tick.
     const double warmth = warmth_.current();
     const double highCut = kWarmthTopHz * std::pow(kWarmthBottomHz / kWarmthTopHz, warmth);
-    const double crossover = std::min<double>(lowFreq_.current(), 0.45 * sampleRate_);
-    const auto lowpass = dsp::designBiquad(dsp::BiquadType::Lowpass, sampleRate_, crossover, kButterworthQ);
-    const auto highpass = dsp::designBiquad(dsp::BiquadType::Highpass, sampleRate_, crossover, kButterworthQ);
     for (auto& c : ch_)
     {
         c.tone.set(0.0, highCut, warmth);
-        c.low1.setCoeffs(lowpass);
-        c.low2.setCoeffs(lowpass);
-        c.high1.setCoeffs(highpass);
-        c.high2.setCoeffs(highpass);
+        c.split.setFrequency(lowFreq_.current());
     }
 }
 
-void Chorus::updateSync(bool relock) noexcept
+void Chorus::updateSync(bool snap) noexcept
 {
     const auto& p = params();
-    const bool sync = p.getBool(Sync);
-    const int div = p.getInt(Div);
-    if (sync)
-    {
-        // A cycle at most maxCycleSeconds long, at a slow tempo.
-        const double beats = std::min(divisionBeats(div, beatsPerBar_), maxCycleSeconds * tempo_ / 60.0);
-        relock = playing_ && (relock || !synced_ || div != div_);
-        const double before = lfo_.position() + correction_.b;
-        lfo_.sync(songPpq_, tempo_, beats, relock);
-        if (relock)
-        {
-            // Where it was, it glides from: the jump (the nearer way round) decays to nothing.
-            const double jump = lfo_.position() - before;
-            correction_.snap(-(jump - std::round(jump)));
-            correction_.target = 0.0;
-        }
-    }
-    else
-        lfo_.setRate(rate_.current());
-    synced_ = sync;
-    div_ = div;
-    relock_ = false;
+    // A synced cycle at most maxCycleSeconds long, at a slow tempo.
+    const double beats = p.getBool(Sync) ? std::min(divisionBeats(p.getInt(Div), beatsPerBar_),
+                                                    maxCycleSeconds * tempo_ / 60.0)
+                                         : 0.0;
+    lfo_.set(rate_.current(), beats, snap);
 }
 
 Chorus::Gains Chorus::gainsFor(ModeKind mode, float mix, float width, float feedback) const noexcept
@@ -449,21 +408,12 @@ void Chorus::process(ProcessContext& ctx) noexcept
     beatsPerBar_ = ctx.transport.timeSigDenominator > 0
                        ? ctx.transport.timeSigNumerator * 4.0 / ctx.transport.timeSigDenominator
                        : 4.0;
-    // The song's position is counted here as it plays; the host's is taken only when it jumps (or
-    // starts), so the movement doesn't depend on how the blocks fall.
-    playing_ = ctx.transport.playing;
-    if (playing_ && (!wasPlaying_ || std::abs(ctx.transport.ppqPosition - songPpq_) > kJumpBeats))
-    {
-        songPpq_ = ctx.transport.ppqPosition;
-        relock_ = true;
-    }
-    wasPlaying_ = playing_;
+    lfo_.beginBlock(ctx.transport.playing, ctx.transport.ppqPosition, tempo_);
     if (fresh_)
     {
         snap();
         fresh_ = false;
     }
-    const double beatsPerSample = tempo_ / 60.0 / sampleRate_;
 
     float peakIn[maxChannels] = {}, peakOut[maxChannels] = {};
     grid_.forEachSegment(
@@ -473,7 +423,7 @@ void Chorus::process(ProcessContext& ctx) noexcept
             if (isTick)
             {
                 updateTargets(false);
-                updateSync(relock_);
+                updateSync(/*snap*/ false);
             }
             for (int i = 0; i < length; ++i)
             {
@@ -483,9 +433,7 @@ void Chorus::process(ProcessContext& ctx) noexcept
                 rate_.next();
                 lowFreq_.next();
                 const double depth = depth_.next(), delayMs = delay_.next(), stereo = offset_.next();
-                const double position = lfo_.position() + correction_.next();
-                (void)lfo_.next();
-                songPpq_ += beatsPerSample;
+                const double position = lfo_.next();
 
                 const int at = offset + i;
                 const float in[maxChannels] = {ctx.input.channel(0)[at], inChannels > 1
@@ -499,9 +447,9 @@ void Chorus::process(ProcessContext& ctx) noexcept
                 {
                     peakIn[c] = std::max(peakIn[c], std::abs(in[c]));
                     auto& h = ch_[static_cast<size_t>(c)];
-                    const float above = h.high2.process(h.high1.process(in[c]));
-                    lows[c] = lowOn * h.low2.process(h.low1.process(in[c]));
-                    highs[c] = in[c] + lowOn * (above - in[c]);
+                    const auto bands = h.split.process(in[c]);
+                    lows[c] = lowOn * bands.low;
+                    highs[c] = in[c] + lowOn * (bands.high - in[c]);
                 }
 
                 // The voices of the mode, and of the one it's leaving while they crossfade.
@@ -549,12 +497,9 @@ void Chorus::process(ProcessContext& ctx) noexcept
     analysis().publishPeak(PeakInR, peakIn[1]);
     analysis().publishPeak(PeakOutL, peakOut[0]);
     analysis().publishPeak(PeakOutR, peakOut[1]);
-    const double position = lfo_.position() + correction_.b;
+    const double position = lfo_.position();
     analysis().publish(LfoPosition, static_cast<float>(position - std::floor(position)));
-    const auto& p = params();
-    const double beats =
-        std::min(divisionBeats(p.getInt(Div), beatsPerBar_), maxCycleSeconds * tempo_ / 60.0);
-    analysis().publish(RateHz, static_cast<float>(p.getBool(Sync) ? tempo_ / 60.0 / beats : rate_.current()));
+    analysis().publish(RateHz, static_cast<float>(lfo_.rateHz()));
 }
 
 double Chorus::tailSeconds() const noexcept
