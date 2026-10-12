@@ -1,6 +1,6 @@
 # Phaser & Flanger: device spec
 
-- **Status:** Draft, for the product owner's review (2026-10-12). Nothing is built until it's approved; the IDs become permanent then.
+- **Status:** Approved by the product owner (2026-10-12, with every recommendation of P1–P12); IDs are permanent. Building (B3)
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1, M3 (B3)
 - **Live target:** Phaser-Flanger. References only; nothing is copied ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
