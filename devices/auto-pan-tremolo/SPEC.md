@@ -1,6 +1,6 @@
 # Auto Pan & Tremolo: device spec
 
-- **Status:** Approved by the product owner (2026-10-12, with every recommendation of T1–T12); IDs are permanent. Building (B4)
+- **Status:** Approved by the product owner (2026-10-12, with every recommendation of T1–T12); IDs are permanent. Built (B4, 2026-10-12): what building settled is under "Settled while building". Awaiting sign-off by ear and feel
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1, M3 (B4)
 - **Live target:** Auto Pan-Tremolo. References only; nothing is copied ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
@@ -83,7 +83,7 @@ transient detector (level detector) ──> the attack ramp
 - **Harmonic:** a Linkwitz-Riley crossover at 600 Hz splits that band. The highs take the level above; the lows take its mirror, 1 − Amount × (1 + W) / 2, so one band swells as the other dips.
 - **Vintage:** the level is squared (an optical cell's response: it dips sooner) and follows a one-pole that falls in 3 ms and rises in 30 ms (it comes back slower); the result then passes the modulation core's soft saturation (the Chorus's Warmth at 30 %). Tuned by ear.
 
-**Low Cut:** the shared crossover (`dsp::Crossover`, 24 dB/oct). Below it, the sound passes through unmoved, at its level, in both modes. Off by default (T10).
+**Low Cut:** the shared crossover (`dsp::Crossover`, 24 dB/oct). Below it, the sound passes through unmoved, at its level, in both modes; the band above moves. Off, the input moves whole, so at Amount 0 the output is the input exactly. Off by default (T10).
 
 **Timing and housekeeping:**
 - **Mode changes:** the old mode and the new run side by side for 50 ms and crossfade.
@@ -98,7 +98,7 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)), sec
 | Section | Controls |
 |---|---|
 | `effect` PANNING or TREMOLO (titled by the mode) [6] | Movement display (0, 0, 4 × 3) · Mode, stacked [Panning / Tremolo] (4, 0, 2 × 2) · Shape dropdown (4, 2, 2 wide) · Rate (0, 3) · Amount (1, 3) · Edge (2, 3) · Phase (3, 3) · Attack (4, 3) · Sync toggle (5, 3) · Invert toggle (5, 4) |
-| `tremolo` TREMOLO [3] | Offset or Spin (0, 0) · Stereo [Offset \| Spin] (1, 0, 2 wide) · Harmonic toggle (1, 1, 2 wide) · Vintage toggle (1, 2, 2 wide) |
+| `tremolo` STEREO & TONE [3] (the Tremolo's) | Offset or Spin (0, 0) · Stereo [Offset \| Spin] (1, 0, 2 wide) · Harmonic toggle (1, 1, 2 wide) · Vintage toggle (1, 2, 2 wide) |
 | `output` OUTPUT [2] | Output (0, 0) · Low Cut toggle (0, 3, 2 wide) · Low Cut Freq bar, named Freq (0, 4, 2 wide) |
 | meter strip | In and out |
 
@@ -111,7 +111,7 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)), sec
 
 **Controls:**
 - **Rate follows Sync,** and **Offset or Spin follows Stereo,** as in the Phaser & Flanger.
-- **Dimming:** the TREMOLO section in Panning; Phase while Sync is off; Freq while Low Cut is off.
+- **Dimming:** the STEREO & TONE section in Panning; Phase while Sync is off; Freq while Low Cut is off.
 - About 680 px wide (11 columns and the meter strip).
 
 ## Factory presets
@@ -141,10 +141,10 @@ Built and named by Claude after approval ([presets.md](../../docs/design/presets
 | Tremolo: the level | Each side's level follows `levels` within 0.1 dB (Edge 0, a slow sine); Amount 100 % dips to silence (under −100 dB) |
 | Offset and Spin | Offset 0°, a mono input: left and right identical; 180°: one side's level is the other's mirror; Spin 100 %: twice as many cycles on the right |
 | Harmonic | A 200 Hz and a 3 kHz tone pulse in turn: their levels' correlation under −0.9 |
-| Edge | At +100 %, a sine spends over 70 % of its cycle beyond 0.9 of its reach; at −100 %, under 10 % |
+| Edge | At +100 %, a sine spends over 70 % of its cycle beyond 0.9 of its reach; at −100 %, over 70 % within 0.5 of the middle |
 | Square edges | A square wave at Amount 100 %: no step in level faster than the 1 ms one-pole (the conformance click score at the chops) |
 | Sync and Phase | Synced, the movement is at the same place after a jump in the song as played through to it; Phase 90° moves it a quarter cycle |
-| Attack | After silence, a burst's first 5 ms come through unmoved, and the movement is at full depth Attack later (within 5 ms) |
+| Attack | After silence, a burst's first 5 ms come through within 0.3 dB of the input, and the movement is at full depth Attack later (within 5 ms) |
 | Low Cut | A 40 Hz sine at −12 dBFS, Low Cut at 200 Hz: within 0.1 dB and unmoved in both modes, Amount 100 % |
 | Amount 0 | The output is the input (< −120 dBFS), in both modes |
 | Display vs audio | The display draws `wave` and `levels`; the readout's depth matches the measured dip within 0.1 dB |
@@ -175,10 +175,19 @@ Deferred until a Live machine is available.
 | T11 | **Output, no Dry/Wet** | An Output level, as every module; no Dry/Wet, as Live: Amount already sets how much of the effect there is |
 | T12 | **Name and IDs** | Named **Auto Pan & Tremolo**, as the Phaser & Flanger names both its effects. Device `auto-pan-tremolo`, plugin code `Fapt`, CLAP `org.segnoaudio.auto-pan-tremolo` (files "Segno Auto Pan and Tremolo"); section IDs as above (`effect`, `tremolo`, `output`) |
 
+## Settled while building (B4, 2026-10-12)
+
+- **The band above Low Cut moves; the band below passes as it was.** Moving the whole input and adding back a low band (`gain × input + (1 − gain) × lows`) left the lows wobbling by about 0.4 dB at full Amount: the low band lags the input in phase. With Low Cut off, the input moves whole, so Amount 0 is still the input exactly.
+- **Harmonic splits the band into two at 600 Hz while it's on,** each moved by its own level (crossfading from the whole band as it's switched). Moving the lows by subtracting a low band barely moved a 200 Hz tone: 200 Hz is far enough under 600 Hz for that band to lag by 56°.
+- **The second section is titled STEREO & TONE.** Titled TREMOLO, it read the same as the first section in Tremolo mode. Its ID stays `tremolo`.
+- **Attack rests at nothing in silence,** so a note after silence starts clean before it's even detected; the first 5 ms come through within 0.3 dB (the ramp has begun by then). The test target says so.
+- **The tremolo presets have some Output** (+1 to +4.5 dB), so that, like the panning ones, they're within about 2 dB of the dry sound: a tremolo's dips lower the average level.
+- **Edge's test target at −100 %** is the mirror of the one at +100 %: over 70 % of the cycle within 0.5 of the middle (a sine spends 10.3 % beyond 0.9 there, so "under 10 %" was wrong).
+
 ## Sign-off
 
-- [ ] Automated: unit, conformance and golden tests; validators (pluginval at strictness 10 and clap-validator)
-- [ ] Layout lint passes (`fd_panel_tests`)
-- [ ] Snapshots reviewed (100% / 200%; expanded, collapsed, folded; every factory preset)
+- [x] Automated: unit, conformance and golden tests; validators (pluginval at strictness 10 and clap-validator pass; 2026-10-12)
+- [x] Layout lint passes (`fd_panel_tests`)
+- [x] Snapshots reviewed (100% / 200%; expanded, collapsed, folded; every factory preset at 200 %, with `fd-snapshot --presets auto-pan-tremolo`)
 - [ ] Sound signed off by the product owner, with the factory presets
 - [ ] Feel signed off by the product owner

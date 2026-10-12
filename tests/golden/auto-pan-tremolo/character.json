@@ -1,0 +1,22 @@
+{
+  "panning.pink_level_db": {
+    "tol": 0.05,
+    "value": -0.1627152836689472
+  },
+  "tremolo.pink_level_db": {
+    "tol": 0.05,
+    "value": -2.132194046910566
+  },
+  "vintage.h3_minus3dbfs_db": {
+    "tol": 0.05,
+    "value": -29.481391120000705
+  },
+  "vintage.lowest_level_db": {
+    "tol": 0.05,
+    "value": -27.934689534192174
+  },
+  "vintage.mean_level_db": {
+    "tol": 0.05,
+    "value": -8.727811730325023
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Pad",
+    "Wide"
+  ],
+  "description": "Slow, wandering movement for pads, not tied to the tempo.",
+  "author": "Segno",
+  "state": {
+    "device": "auto-pan-tremolo",
+    "extra": {},
+    "params": {
+      "amount": 70.0,
+      "attack": 0.0,
+      "div": 8.0,
+      "edge": 0.0,
+      "harmonic": 0.0,
+      "invert": 0.0,
+      "lowcut": 0.0,
+      "lowcut.freq": 120.0,
+      "mode": 0.0,
+      "offset": 0.0,
+      "output": 0.0,
+      "phase": 0.0,
+      "rate": 0.2,
+      "shape": 6.0,
+      "spin": 20.0,
+      "stereo": 0.0,
+      "sync": 0.0,
+      "vintage": 0.0
+    },
+    "stateVersion": 1
+  }
+}

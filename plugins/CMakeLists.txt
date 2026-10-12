@@ -127,6 +127,10 @@ fd_add_device_plugin(ID phaser-flanger NAME "Phaser & Flanger" CODE Fphf KIND ef
     VST3_CATEGORIES Fx Modulation
     CLAP_FEATURES audio-effect phaser flanger stereo mono)
 
+fd_add_device_plugin(ID auto-pan-tremolo NAME "Auto Pan & Tremolo" CODE Fapt KIND effect
+    VST3_CATEGORIES Fx Modulation Spatial
+    CLAP_FEATURES audio-effect tremolo stereo mono)
+
 fd_add_device_plugin(ID subtractive-synth NAME "Subtractive Synth" CODE Fsub KIND instrument
     VST3_CATEGORIES Instrument Synth
     CLAP_FEATURES instrument synthesizer stereo)
