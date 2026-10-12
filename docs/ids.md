@@ -34,6 +34,7 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 | Chorus | `chorus` | `Fchr` | `org.segnoaudio.chorus` | M3 (approved 2026-10-12) |
 | Phaser & Flanger | `phaser-flanger` | `Fphf` | `org.segnoaudio.phaser-flanger` | M3 (approved 2026-10-12) |
 | Auto Pan & Tremolo | `auto-pan-tremolo` | `Fapt` | `org.segnoaudio.auto-pan-tremolo` | M3 (approved 2026-10-12) |
+| Reverb | `reverb` | `Frvb` | `org.segnoaudio.reverb` | M3 (approved 2026-10-12) |
 
 **Rules:**
 - The device ID is kebab-case and describes the function. It is used in state JSON, the registry, CLAP and LV2 IDs, and file names.

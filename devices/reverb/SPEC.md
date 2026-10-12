@@ -1,6 +1,6 @@
 # Reverb: device spec
 
-- **Status:** Draft, for the product owner's review (2026-10-12). Nothing is built until it's approved; the IDs become permanent then.
+- **Status:** Approved by the product owner (2026-10-12, with every recommendation of R1–R12); IDs are permanent. Building (B5, core)
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1. Core in M3 (B5); stage 2 in M6
 - **Live target:** Reverb, and Hybrid Reverb's algorithmic engine (its convolution engine is stage 2). References only; nothing is copied ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)). Benchmarked against the best algorithmic reverbs ([ADR 0010](../../docs/decisions/0010-live-is-the-floor-not-the-ceiling.md)).
