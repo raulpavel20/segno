@@ -55,6 +55,9 @@ struct ColourRoles
     juce::Colour curveFill, selectionCurve, spectrumFill, spectrumLine, spectrumPre, outside, loopTint;
     // The Spectrum's other curves (devices/spectrum/SPEC.md): apart by hue and dash, not colour alone.
     juce::Colour spectrumCompare, spectrumSide, spectrumSnapshot, spectrumReference, spectrumCollision;
+    // The Loudness Meter (devices/loudness-meter/SPEC.md): short-term in the value colour,
+    // momentary fainter behind it, the target and its band; louder than the target is `warning`.
+    juce::Colour loudnessShortTerm, loudnessMomentary, loudnessTarget, loudnessTargetBand;
     juce::Colour focusRing, hoverWash, dropWell, valueHot, valueText, warning, overlay, shadow;
     // Automation (docs/design/automation.md §6): the indicator on automated controls. Lanes draw in
     // their own colour (Theme::automationLine and the fill functions).

@@ -13,61 +13,15 @@ using L = Limiter;
 
 /// The output's loudness and peaks, as published by the device: short-term and integrated LUFS
 /// and the loudest true peak since the last reset.
-class LoudnessReadout final : public juce::Component
+std::vector<ui::Readouts::Value> loudnessValues(const AnalysisBus* bus)
 {
-public:
-    explicit LoudnessReadout(ui::DeviceUiContext& ctx) : ctx_(ctx) { setInterceptsMouseClicks(false, false); }
-
-    /// Every frame: repaint when a value moved (at the precision shown).
-    void tick()
-    {
-        if (ctx_.analysis == nullptr)
-            return;
-        const std::array<float, 3> now{ctx_.analysis->read(L::ShortTermLufs), ctx_.analysis->read(L::IntegratedLufs),
-                                       ctx_.analysis->read(L::TruePeakMax)};
-        if (texts(now) != texts(values_))
-        {
-            values_ = now;
-            repaint();
-        }
-    }
-
-    void paint(juce::Graphics& g) override
-    {
-        const auto& t = ui::Theme::current();
-        auto r = getLocalBounds().toFloat();
-        g.setColour(t.surface0);
-        g.fillRoundedRectangle(r, t.radiusControl);
-        r = r.reduced(8.0f, 6.0f);
-        static constexpr std::array<const char*, 3> captions{"Short-term", "Integrated", "True peak"};
-        const auto text = texts(values_);
-        const float rowHeight = r.getHeight() / 3.0f;
-        for (size_t i = 0; i < captions.size(); ++i)
-        {
-            auto row = r.removeFromTop(rowHeight);
-            g.setColour(t.textTertiary);
-            g.setFont(ui::font(ui::TextStyle::Caption));
-            g.drawText(captions[i], row.removeFromTop(16.0f), juce::Justification::topLeft, false);
-            g.setColour(text[i] == kNone ? t.textTertiary : t.textPrimary);
-            g.setFont(ui::font(ui::TextStyle::ValueMedium));
-            g.drawText(text[i], row, juce::Justification::topLeft, false);
-        }
-    }
-
-private:
-    static inline const juce::String kNone = juce::String::fromUTF8("\xE2\x80\x93"); // en dash
-
-    [[nodiscard]] static std::array<juce::String, 3> texts(const std::array<float, 3>& v)
-    {
-        auto format = [](float x, const char* unit, float floor) {
-            return std::isfinite(x) && x > floor ? juce::String(x, 1) + " " + unit : kNone;
-        };
-        return {format(v[0], "LUFS", -70.0f), format(v[1], "LUFS", -70.0f), format(v[2], "dBTP", -99.0f)};
-    }
-
-    ui::DeviceUiContext& ctx_;
-    std::array<float, 3> values_{-INFINITY, -INFINITY, -INFINITY};
-};
+    const auto format = [](float x, const char* unit, float floor)
+    { return std::isfinite(x) && x > floor ? juce::String(x, 1) + " " + unit : ui::Readouts::none(); };
+    const auto read = [bus](int slot) { return bus != nullptr ? bus->read(slot) : NAN; }; // none in snapshots
+    return {{"Short-term", format(read(L::ShortTermLufs), "LUFS", -70.0f), {}, {}},
+            {"Integrated", format(read(L::IntegratedLufs), "LUFS", -70.0f), {}, {}},
+            {"True peak", format(read(L::TruePeakMax), "dBTP", -99.0f), {}, {}}};
+}
 
 /// Sections per devices/limiter/SPEC.md, on the module grid (docs/design/device-panels.md).
 class LimiterPanel final : public ui::DevicePanel
@@ -94,7 +48,8 @@ public:
         mode.combo(L::Lookahead, 0, 4, 2);
 
         auto& loudness = addSection("loudness", "Loudness", 3);
-        readout_ = &own(std::make_unique<LoudnessReadout>(ctx));
+        readout_ = &own(std::make_unique<ui::Readouts>(1, false));
+        readout_->set(loudnessValues(ctx.analysis));
         loudness.place(*readout_, 0, 0, 3, 5);
         auto& reset = own(std::make_unique<ui::Toggle>("Reset"));
         reset.setTooltip("Clear the integrated loudness and the true-peak maximum");
@@ -116,12 +71,12 @@ private:
             return;
         history_->tick(!findSection("history")->isCollapsed());
         if (!findSection("loudness")->isCollapsed())
-            readout_->tick();
+            readout_->set(loudnessValues(context().analysis));
     }
 
     juce::VBlankAttachment vblank_{this, [this] { tick(); }};
     ui::DynamicsHistory* history_ = nullptr;
-    LoudnessReadout* readout_ = nullptr;
+    ui::Readouts* readout_ = nullptr;
     ui::Meter meter_{2};
 };
 } // namespace

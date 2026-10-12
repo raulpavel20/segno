@@ -1,0 +1,69 @@
+{
+    "device": "loudness-meter",
+    "author": "Segno",
+    "presets": [
+        {
+            "name": "Quieter streaming and podcasts",
+            "tags": [
+                "Master",
+                "Level"
+            ],
+            "description":
+                "The level of the services that play quieter, and of spoken word: -16 LUFS, peaks under -1 dBTP.",
+            "params": {
+                "target": -16,
+                "ceiling": -1,
+                "measure": "Song",
+                "scale": "+9",
+                "units": "LUFS"
+            }
+        },
+        {
+            "name": "Loud master",
+            "tags": [
+                "Master",
+                "Level"
+            ],
+            "description":
+                "For club masters at -9 LUFS, on the wide scale: Normalised shows how much the services will turn it down.",
+            "params": {
+                "target": -9,
+                "ceiling": -1,
+                "measure": "Song",
+                "scale": "+18",
+                "units": "LUFS"
+            }
+        },
+        {
+            "name": "Broadcast, Europe",
+            "tags": [
+                "Level",
+                "Check"
+            ],
+            "description":
+                "EBU R 128 as EBU Mode meters show it: -23 LUFS, peaks under -1 dBTP, counted as it runs, in LU.",
+            "params": {
+                "target": -23,
+                "ceiling": -1,
+                "measure": "Running",
+                "scale": "+9",
+                "units": "LU"
+            }
+        },
+        {
+            "name": "Broadcast, US",
+            "tags": [
+                "Level",
+                "Check"
+            ],
+            "description": "ATSC A/85: -24 LUFS, peaks under -2 dBTP, counted as it runs, in LU.",
+            "params": {
+                "target": -24,
+                "ceiling": -2,
+                "measure": "Running",
+                "scale": "+9",
+                "units": "LU"
+            }
+        }
+    ]
+}

@@ -1,6 +1,6 @@
 # Loudness Meter: device spec
 
-- **Status:** Approved by the product owner (2026-10-13, with every recommendation of L1–L12); IDs are permanent.
+- **Status:** Approved by the product owner (2026-10-13, with every recommendation of L1–L12); IDs are permanent. Built (B7, 2026-10-13): what building settled is under "Settled while building". Awaiting the product owner's sign-off.
 - **Type:** Audio effect (analysis only; audio passes unchanged)
 - **Tier / milestone:** Tier 1, M3 (B7)
 - **Live target:** none: Live has no loudness meter, and people install a separate one. Checked against the meters people use instead (a widely used free one, broadcast meters, the meters built into other DAWs) and against the standards: ITU-R BS.1770-5, EBU R 128 with EBU Tech 3341 ("EBU Mode") and Tech 3342 (loudness range). References only; nothing is copied ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
@@ -107,12 +107,12 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 | `loudness` LOUDNESS [6] | Bars (0, 0, 2 × 6): momentary and short-term, on the Scale, with the target marked and each one's maximum held · Readouts (2, 0, 4 × 6): Integrated, large (two rows), then Range, True peak, Peak to loudness, Normalised |
 | `history` HISTORY [8] | Display (0, 0, 8 × 6): short-term loudness over time, momentary fainter behind it, the target and the ceiling's overs |
 | `stereo` STEREO [3] | Correlation (0, 0, 3 × 3): a bar from −1 to +1 with the lowest held, and its value · Balance (0, 3, 3 × 3): a bar from left to right, and its value |
-| `measure` MEASURE [4] | Target (0, 0), Peak Ceiling (1, 0) · Reset (2, 0, 2 wide), Pause (2, 1, 2 wide) · a sub-label and its dropdown per row: Measure (0, 3), Scale (0, 4), Units (0, 5) |
+| `measure` MEASURE [4] | Target (0, 0, 4 wide) and Peak Ceiling (0, 1, 4 wide) as value bars · Reset (0, 2, 2 wide), Pause (2, 2, 2 wide) · Song \| Running (0, 3, 4 wide) · Scale: a sub-label (0, 4, 2 wide) and +9 \| +18 (2, 4) · Units: a sub-label (0, 5, 2 wide) and LUFS \| LU (2, 5) |
 
 21 columns, as wide as the Spectrum.
 
 - **Bars:** two vertical bars, M and S, on the Scale's range, with tick labels in LUFS or LU. The target is a line across both. Each bar holds its maximum as a short line, with the maximum's value above the bar. A bar's top beyond the target is drawn in the over colour.
-- **Readouts** (the Limiter's `LoudnessReadout`, moved into `fd_device_ui` and shared):
+- **Readouts** (`ui::Readouts` in `fd_device_ui`, which the Limiter's readout now uses too): Integrated, large, across the top; then two columns: Short-term and True peak, Momentary and Peak to loudness, Range and Normalised.
   - **Integrated:** large, in LUFS or LU. Within 1 LU of the target it's drawn in the on-target colour, above that in the over colour, below it as plain text. "–" until there's a gated block.
   - **Range:** "6.2 LU". Dimmed for its first 60 seconds of counted song, as EBU Mode asks, since it isn't stable yet.
   - **True peak:** the maximum, "−0.8 dBTP", in the over colour above the ceiling.
@@ -159,9 +159,9 @@ Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `dev
 | Pause, then audio | Integrated and range hold; the live readings move |
 | Correlation: L = R; L = −R; two independent noises | +1.00; −1.00; 0 ± 0.05 |
 | Balance: the right channel 6 dB down | +6.0 ± 0.1 LU |
-| Normalised gain | Equals the export's for the same audio, target and ceiling |
+| Normalised gain | Turned down to the target whatever the peaks; turned up only as far as the ceiling allows (settled while building) |
 | Saved and reopened (Song) | The same readings and history |
-| The store's readings at 3 hours | Each reading's cost within the budget of one at 1 minute (±10 %) |
+| The store against a brute-force reference, under random writes, gaps and replacements | Every reading within 0.02 LU (the histograms' bins) |
 | `measure_module` on the meter | Every published reading, by name and unit |
 | No allocation, lock or file access in `process()` | Conformance |
 | Conformance suite | All pass |
@@ -197,10 +197,25 @@ The EBU's authentic programme cases (Tech 3341 7–8, Tech 3342 5–6) need the 
 | L11 | **Shared code** | The Limiter's readout and this meter share `dsp::LoudnessMeter`, the true-peak detector and the readout component. The Limiter doesn't gain Song mode |
 | L12 | **Name and IDs** | Named **Loudness Meter**: what people search for, and "Loudness" alone would read like an effect. Device `loudness-meter`, plugin code `Flud`, CLAP `org.segnoaudio.loudness-meter`; section IDs `loudness`, `history`, `stereo`, `measure` |
 
+## Settled while building (B7, 2026-10-13)
+
+- **Windows slide every 10 ms, not every step.** Maximums read on the 100 ms grid missed a short peak between steps by up to 0.6 LU (EBU Tech 3341 case 14 asks for 0.1). The meter slides its momentary and short-term windows every 10 ms, the bars move at that rate too, and the store keeps each step's loudest momentary and short-term values from that sliding (`LoudnessStore::set`'s last two arguments). Integrated loudness and loudness range stay on BS.1770's and Tech 3342's 100 ms grid.
+- **Normalised follows the services, not the export.** A service turns a loud song down to the target whatever its peaks, and a quiet one up only as far as the peaks allow (`LoudnessMeter::normalisedGain`). The export's rule differs on purpose: its file must keep its peaks under the ceiling, so it also turns down further when they'd pass it. Each keeps its own; nothing moved into the DSP library.
+- **Running keeps up to 3 hours too,** in the same store as Song, rather than a 30-minute ring: one store, one set of readings.
+- **Switching Measure starts the count again:** Song and Running count different things.
+- **`reset()` never clears the count.** Hosts call it on transport changes; only Reset does.
+- **Target and Peak Ceiling are value bars across the section,** not knobs: "-14.0 LUFS" doesn't fit a knob's column without shrinking every knob's value. Target is continuous, not in 0.5 steps (a continuous parameter has no step size); typed values are exact.
+- **No reading yet shows a dash:** the meter publishes "no reading" from the moment it's made, so a panel opened before any sound doesn't show zeros.
+- **Device API additions** (ADR 0034 rule 3, listed in architecture.md): units `Lufs` and `Dbtp`, meter kinds `LoudnessUnits` and `Correlation`.
+- **The loudness range is in `render`** (and `model::measureAudio`). The export's report keeps its two numbers, loudness and true peak, so its line stays short.
+- **Test targets:** a reading's cost is the histograms' (the same at any length), so there's no timing test; the store is checked against a brute-force reference under random replacements instead. The EBU programme files (Tech 3341 7–8, Tech 3342 5–6) wait for the A/B cases.
+- **Four presets, not five:** the module's defaults are the Streaming settings (−14 LUFS, −1 dBTP, Song), and a preset must differ from the defaults, so there's no Streaming preset. The tags come from the shared list ([presets.md](../../docs/design/presets.md)): Master and Level for music, Level and Check for broadcast.
+- **The history** spans at least a minute and grows with the song, with a mark every minute (every five past 20 minutes). Hover shows the moment's short-term and momentary loudness.
+
 ## Sign-off
 
-- [ ] Automated: unit, conformance and golden tests; validators. The audio is the input, so the null test stands in for a golden file
-- [ ] Layout lint passes (`fd_panel_tests`)
-- [ ] Snapshots reviewed (100% / 200%; expanded, collapsed, folded; counting, paused, stopped in Song mode, a song with overs)
+- [x] Automated: unit, conformance and integration tests (2026-10-13). The audio is the input, so the null test stands in for a golden file; validators to run with the release builds
+- [x] Layout lint passes (`fd_panel_tests`)
+- [x] Snapshots reviewed (100% / 200%; empty, counting, stopped in Song mode, paused, hovered, in LU on the wide scale, a song with overs; 2026-10-13)
 - [ ] Sound signed off by the product owner (date): the audio passes unchanged; the readings match a reference meter
 - [ ] Feel signed off by the product owner (date):

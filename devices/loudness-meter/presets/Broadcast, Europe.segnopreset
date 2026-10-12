@@ -1,0 +1,21 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Level",
+    "Check"
+  ],
+  "description": "EBU R 128 as EBU Mode meters show it: -23 LUFS, peaks under -1 dBTP, counted as it runs, in LU.",
+  "author": "Segno",
+  "state": {
+    "device": "loudness-meter",
+    "extra": {},
+    "params": {
+      "ceiling": -1.0,
+      "measure": 1.0,
+      "scale": 0.0,
+      "target": -23.0,
+      "units": 1.0
+    },
+    "stateVersion": 1
+  }
+}

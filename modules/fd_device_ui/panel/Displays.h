@@ -138,6 +138,37 @@ private:
     dsp::SpectrumCurve bands_{};
 };
 
+/// Values a device publishes, in a well: each a caption over its value, in a grid of `columns`
+/// (the Limiter's loudness, the Loudness Meter's readings). With `large`, the first spans the width
+/// in a larger type. Rows are spread evenly down the well. Each value can carry a tooltip.
+class Readouts : public juce::Component, public juce::TooltipClient
+{
+public:
+    struct Value
+    {
+        juce::String caption, text;
+        juce::Colour colour; // the value's (transparent: textPrimary; none: "-" in textTertiary)
+        juce::String tooltip;
+        friend bool operator==(const Value&, const Value&) = default;
+    };
+    /// What a value shows while there's no reading: an en dash.
+    static const juce::String& none();
+
+    Readouts(int columns, bool large);
+    /// Repaints only when something changed.
+    void set(std::vector<Value> values);
+    void paint(juce::Graphics& g) override;
+    juce::String getTooltip() override;
+
+private:
+    /// Where each value sits: its caption's line and its value's below it.
+    [[nodiscard]] std::vector<juce::Rectangle<float>> cells() const;
+
+    int columns_;
+    bool large_;
+    std::vector<Value> values_;
+};
+
 /// A dynamics device's last four seconds, scrolling right to left: the input level (a dim fill
 /// from the bottom), the output level (a line) and the gain reduction (from the top, in the value
 /// colour), with a dashed reference line (the threshold, the ceiling) and the current reduction

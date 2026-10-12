@@ -471,4 +471,84 @@ void SpectrumPlot::stroke(juce::Graphics& g, const juce::Path& path, juce::Colou
     type.createDashedStroke(dashedPath, path, lengths, 2);
     g.fillPath(dashedPath);
 }
+
+// ---- Readouts ---------------------------------------------------------------------------------------
+
+const juce::String& Readouts::none()
+{
+    static const juce::String dash = juce::String::fromUTF8("\xE2\x80\x93"); // en dash
+    return dash;
+}
+
+Readouts::Readouts(int columns, bool large) : columns_(std::max(1, columns)), large_(large) {}
+
+void Readouts::set(std::vector<Value> values)
+{
+    if (values == values_)
+        return;
+    values_ = std::move(values);
+    repaint();
+}
+
+std::vector<juce::Rectangle<float>> Readouts::cells() const
+{
+    const auto& grid = Theme::current().deviceGrid;
+    const auto area = getLocalBounds().toFloat().reduced(static_cast<float>(grid.displayInset));
+    const float caption = static_cast<float>(grid.displayTextHeight);
+    const float small = std::ceil(font(TextStyle::ValueMedium).getHeight());
+    const float big = std::ceil(font(TextStyle::ValueLarge).getHeight());
+    const int n = static_cast<int>(values_.size());
+    const int gridRows = (n - (large_ ? 1 : 0) + columns_ - 1) / columns_;
+    const int rows = gridRows + (large_ && n > 0 ? 1 : 0);
+    const float used =
+        (large_ && n > 0 ? caption + big : 0.0f) + static_cast<float>(gridRows) * (caption + small);
+    const float gap =
+        rows > 1 ? std::max(0.0f, (area.getHeight() - used) / static_cast<float>(rows - 1)) : 0.0f;
+    std::vector<juce::Rectangle<float>> out;
+    float y = area.getY();
+    if (large_ && n > 0)
+    {
+        out.emplace_back(area.getX(), y, area.getWidth(), caption + big);
+        y += caption + big + gap;
+    }
+    const float width = area.getWidth() / static_cast<float>(columns_);
+    for (int i = large_ ? 1 : 0, k = 0; i < n; ++i, ++k)
+    {
+        out.emplace_back(area.getX() + static_cast<float>(k % columns_) * width, y, width, caption + small);
+        if (k % columns_ == columns_ - 1)
+            y += caption + small + gap;
+    }
+    return out;
+}
+
+void Readouts::paint(juce::Graphics& g)
+{
+    const auto& t = Theme::current();
+    g.setColour(t.surface0);
+    g.fillRoundedRectangle(getLocalBounds().toFloat(), t.radiusControl);
+    const float caption = static_cast<float>(t.deviceGrid.displayTextHeight);
+    const auto areas = cells();
+    for (size_t i = 0; i < values_.size(); ++i)
+    {
+        const auto& v = values_[i];
+        auto cell = areas[i];
+        g.setColour(t.textTertiary);
+        g.setFont(font(TextStyle::Caption));
+        g.drawText(v.caption, cell.removeFromTop(caption), juce::Justification::centredLeft, true);
+        const bool missing = v.text == none();
+        g.setColour(missing ? t.textTertiary : v.colour.isTransparent() ? t.textPrimary : v.colour);
+        g.setFont(font(large_ && i == 0 ? TextStyle::ValueLarge : TextStyle::ValueMedium));
+        g.drawText(v.text, cell, juce::Justification::centredLeft, true);
+    }
+}
+
+juce::String Readouts::getTooltip()
+{
+    const auto at = getMouseXYRelative().toFloat();
+    const auto areas = cells();
+    for (size_t i = 0; i < values_.size(); ++i)
+        if (areas[i].contains(at))
+            return values_[i].tooltip;
+    return {};
+}
 } // namespace fd::ui

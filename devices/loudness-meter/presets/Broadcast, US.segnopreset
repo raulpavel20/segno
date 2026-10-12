@@ -1,0 +1,21 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Level",
+    "Check"
+  ],
+  "description": "ATSC A/85: -24 LUFS, peaks under -2 dBTP, counted as it runs, in LU.",
+  "author": "Segno",
+  "state": {
+    "device": "loudness-meter",
+    "extra": {},
+    "params": {
+      "ceiling": -2.0,
+      "measure": 1.0,
+      "scale": 0.0,
+      "target": -24.0,
+      "units": 1.0
+    },
+    "stateVersion": 1
+  }
+}

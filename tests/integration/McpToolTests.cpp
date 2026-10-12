@@ -852,6 +852,80 @@ TEST_CASE("mcp tools: measure_module reads a module's meters by name", "[integra
     CHECK(daw.fails("measure_module", {{"module", eq}}).find("no meters") != std::string::npos);
 }
 
+TEST_CASE("mcp tools: the Loudness Meter on the master, measured through MCP: LUFS, LU and correlation (B7)",
+          "[integration][mcp]")
+{
+    Daw daw;
+    tracktion::HostedAudioDeviceInterface::Parameters io;
+    io.sampleRate = 48000.0;
+    io.blockSize = 480;
+    io.inputChannels = 2;
+    io.outputChannels = 2;
+    tracktion::test_utilities::EnginePlayer player(daw.engine, io);
+    // A 1 kHz sine at -20 dBFS into the input, heard on track 0: -20 LUFS on the master (at unity).
+    juce::AudioBuffer<float> in(2, 480);
+    std::int64_t clock = 0;
+    auto pump = [&](double seconds)
+    {
+        for (int b = 0; b < static_cast<int>(seconds * 100.0); ++b)
+        {
+            for (int c = 0; c < 2; ++c)
+                for (int s = 0; s < 480; ++s)
+                    in.setSample(c, s,
+                                 0.1f * std::sin(2.0f * juce::MathConstants<float>::pi * 1000.0f *
+                                                 static_cast<float>(clock + s) / 48000.0f));
+            clock += 480;
+            player.process(in);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil(1);
+        }
+    };
+    pump(0.1);
+    auto project = daw.project();
+    const auto t0 = project["tracks"][0]["id"].get<std::string>();
+    const auto master = project["master"]["id"].get<std::string>();
+    daw.call("set_track_input",
+             {{"track", t0}, {"audioInput", project["inputs"]["audio"][0]}, {"monitor", "in"}});
+    const auto meter =
+        daw.call("add_module", {{"track", master}, {"type", "loudness-meter"}})["id"].get<std::string>();
+    // Nothing plays, so it counts as it runs (EBU Mode).
+    daw.call("set_parameters", {{"module", meter}, {"values", {{"measure", "Running"}}}});
+    pump(5.0);
+
+    auto future = std::async(
+        std::launch::async,
+        [&]
+        {
+            return daw.server->dispatcher()->handle(
+                modernRequest("tools/call", {{"name", "measure_module"},
+                                             {"arguments", {{"module", meter}, {"seconds", 0.2}}}}),
+                {});
+        });
+    while (future.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready)
+        pump(0.01);
+    const auto out = future.get();
+    REQUIRE(out.message);
+    const auto result = (*out.message)["result"];
+    INFO(result.dump());
+    REQUIRE(result["isError"] == false);
+    std::map<std::string, Json> byId;
+    for (const auto& m : result["structuredContent"]["meters"])
+        byId[m["id"].get<std::string>()] = m;
+    const auto level = byId["integrated"]["value"];
+    REQUIRE(level.is_number());
+    const double lufs = level.get<double>();
+    CHECK(byId["integrated"]["unit"] == "LUFS");
+    CHECK(byId["short_term"]["value"].get<double>() == Approx(lufs).margin(0.2));
+    CHECK(byId["range"]["unit"] == "LU");
+    CHECK(byId["range"]["value"].get<double>() == Approx(0.0).margin(0.2)); // a steady tone
+    CHECK(byId["correlation"]["value"].get<double>() == Approx(1.0).margin(0.01));
+    CHECK_FALSE(byId["correlation"].contains("unit"));
+    CHECK(byId["balance"]["value"].get<double>() == Approx(0.0).margin(0.1));
+    CHECK(byId["normalised"]["unit"] == "dB");
+    CHECK(byId["normalised"]["value"].get<double>() == Approx(-14.0 - lufs).margin(0.1));
+    CHECK(byId["counting"]["value"] == 0);
+    CHECK(byId["counted_seconds"]["value"].get<int>() >= 4);
+}
+
 TEST_CASE("mcp tools: the mixer: levels, returns, sends and meters", "[integration][mcp]")
 {
     Daw daw;

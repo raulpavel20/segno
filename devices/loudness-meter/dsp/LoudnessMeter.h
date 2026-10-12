@@ -155,7 +155,7 @@ private:
     std::array<Slice, slidesShortTerm> live_{};
     Slice liveNow_;
     int sliceLength_ = 480, livePos_ = 0, liveWrite_ = 0, liveDone_ = 0;
-    float momentary_ = 0.0f, shortTerm_ = 0.0f, balance_ = 0.0f, correlation_ = 0.0f;
+    float momentary_ = NAN, shortTerm_ = NAN, balance_ = NAN, correlation_ = NAN;
 
     // The counted slides (10 ms mean squares), for the maximums.
     std::array<double, slidesShortTerm> slides_{};
@@ -174,8 +174,8 @@ private:
     std::int64_t running_ = 0;   // Running: samples counted since Reset
     std::int64_t lastPosition_ = -1;
     bool readingsStale_ = true;
-    float integrated_ = 0.0f, range_ = 0.0f, maxMomentary_ = 0.0f, maxShortTerm_ = 0.0f, peakMaxDb_ = 0.0f;
-    float correlationMin_ = 0.0f;
+    float integrated_ = NAN, range_ = NAN, maxMomentary_ = NAN, maxShortTerm_ = NAN, peakMaxDb_ = NAN;
+    float correlationMin_ = NAN;
 
     // Loading (message thread).
     mutable std::mutex loadMutex_;

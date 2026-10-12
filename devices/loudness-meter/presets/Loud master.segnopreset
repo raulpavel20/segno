@@ -1,0 +1,21 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Master",
+    "Level"
+  ],
+  "description": "For club masters at -9 LUFS, on the wide scale: Normalised shows how much the services will turn it down.",
+  "author": "Segno",
+  "state": {
+    "device": "loudness-meter",
+    "extra": {},
+    "params": {
+      "ceiling": -1.0,
+      "measure": 0.0,
+      "scale": 1.0,
+      "target": -9.0,
+      "units": 0.0
+    },
+    "stateVersion": 1
+  }
+}

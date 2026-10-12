@@ -32,6 +32,8 @@ Roles are derived from the base palette in `Theme.cpp` (`deriveRoles`), the only
 | `spectrumFill` / `spectrumLine` / `spectrumPre` | textTertiary at 22 / 50 / 35 % | Analyzers |
 | `spectrumCompare` / `spectrumReference` | Clip palette hues 9 (blue) and 13 (violet), the same in every theme | The Spectrum's compared track and reference curve |
 | `spectrumSnapshot` / `spectrumSide` / `spectrumCollision` | textSecondary; textSecondary at 50 %; meterHot at `fillAlpha` | The Spectrum's snapshot (dashed), side (dotted) and collision wash |
+| `loudnessShortTerm` / `loudnessMomentary` | value; value at 45 % | The Loudness Meter's short-term loudness (bar, history line over `curveFill`) and momentary (fainter, behind) |
+| `loudnessTarget` / `loudnessTargetBand` | meterNormal; meterNormal at `fillAlpha` | Its target line, and the band 1 LU either side; on target, the integrated reading. Louder than the target is `warning`, true peaks over the ceiling `meterClip` |
 | `outside` | textTertiary at 60 % | Data outside an active range (waveform outside Start–End) |
 | `loopTint` | value at 10 % | A loop region inside a display |
 | `focusRing` | active at 70 % | Keyboard focus, 1 px |

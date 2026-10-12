@@ -155,7 +155,10 @@ float lufs(double meanSquare) noexcept
 }
 } // namespace
 
-LoudnessMeter::LoudnessMeter() : Device(kInfo) {}
+LoudnessMeter::LoudnessMeter() : Device(kInfo)
+{
+    publish(); // no readings yet, rather than zeros
+}
 
 float LoudnessMeter::normalisedGain(float integrated, float truePeakDb, float target, float ceiling) noexcept
 {
@@ -212,6 +215,8 @@ void LoudnessMeter::prepare(const ProcessSpec& spec)
         }
     }
     reset();
+    updateReadings();
+    publish();
 }
 
 void LoudnessMeter::reset() noexcept

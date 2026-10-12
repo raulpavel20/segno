@@ -161,7 +161,7 @@ For third-party plugins, `set_parameters` uses the plugin's own parameter names 
 | Tool | Arguments | Result |
 |---|---|---|
 | `render` | `start`, `end`, `what?` (the mix, or a track with whatever feeds its sidechains), `audio?` (false) | Measurements of the rendered audio: peak (dBFS) and true peak (dBTP), RMS, loudness (LUFS: integrated, the loudest 3 s and 400 ms), crest factor, clipped samples, the level in seven bands (sub to air, the channels' average), and the stereo correlation. With `audio: true`, the audio itself too (16-bit WAV, 30 s at most; §9) |
-| `measure_module` | `module`, `seconds?` (0.5; 0.1 to 5) | What one of our modules' meters show over that window, by name, each in its unit: levels (dBFS, dBTP), gain reduction (dB), a gate opening, loudness (LUFS), voices. Says when nothing was playing. Modules declare their meters (`DeviceInfo::meters`); the measurement reads its own copy of each peak, so the panel's meters lose nothing. Spectra (the EQ's analyzer) aren't meters: `render` measures bands |
+| `measure_module` | `module`, `seconds?` (0.5; 0.1 to 5) | What one of our modules' meters show over that window, by name, each in its unit: levels (dBFS, dBTP), gain reduction (dB), a gate opening, loudness (LUFS), loudness ranges and differences (LU), stereo correlation (−1 to 1), voices. Says when nothing was playing. Modules declare their meters (`DeviceInfo::meters`); the measurement reads its own copy of each peak, so the panel's meters lose nothing. Spectra (the EQ's analyzer) aren't meters: `render` measures bands |
 
 **Project:**
 

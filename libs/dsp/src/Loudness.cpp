@@ -148,6 +148,8 @@ float LoudnessHistogram::range() const noexcept
 
 float LoudnessHistogram::loudest() const noexcept
 {
+    if (total_ == 0)
+        return kNone;
     for (int b = bins - 1; b >= 0; --b)
         if (count_[static_cast<size_t>(b)] > 0)
             return static_cast<float>(centreOf(b));
