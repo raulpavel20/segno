@@ -21,7 +21,7 @@ struct ClipLoop
 
     [[nodiscard]] bool on() const noexcept { return length > 0.0; }
     [[nodiscard]] double end() const noexcept { return start + length; }
-    friend bool operator==(const ClipLoop&, const ClipLoop&) = default;
+    friend auto operator<=>(const ClipLoop&, const ClipLoop&) = default;
 };
 
 struct ClipInfo;

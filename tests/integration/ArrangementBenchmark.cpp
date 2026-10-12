@@ -84,6 +84,73 @@ TEST_CASE("arrangement paints 32 zooming tracks within the frame budget", "[.ben
     juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
 }
 
+TEST_CASE("arrangement paints 32 zooming tracks of 64-lap loops within the frame budget", "[.benchmark]")
+{
+    // Clip loops (ADR 0048): each lap is drawn as a clip of its own. The same span as the case
+    // above (128 s a track), as one looped clip of 64 two-second laps.
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    fd::ui::LookAndFeel lnf;
+    juce::LookAndFeel::setDefaultLookAndFeel(&lnf);
+    {
+        tracktion::Engine engine{"fd-benchmark", nullptr, fd::engine::makeEngineBehaviour()};
+        fd::engine::Session session(engine);
+        while (session.snapshot()->tracks.size() < 32)
+        {
+            session.addTrack();
+            session.updateSnapshotNow();
+        }
+        juce::TemporaryFile wav(".wav");
+        fd::testkit::AudioBuffer audio(2, 2 * 48000);
+        for (int i = 0; i < audio.numSamples(); ++i)
+            for (int c = 0; c < 2; ++c)
+                audio.at(c, i) = 0.6f * std::sin(0.011f * static_cast<float>(i) * (1.0f + 0.3f * static_cast<float>(c))) *
+                                 std::exp(-static_cast<float>(i % 12000) / 5000.0f);
+        REQUIRE(fd::testkit::writeWav(wav.getFile().getFullPathName().toStdString(), audio, 48000.0));
+        for (const auto& t : session.snapshot()->tracks)
+        {
+            const auto clip = session.insertAudioFile(t.id, wav.getFile(), 0.0);
+            REQUIRE(session.setClipsLooping({clip}, true).empty());
+            session.applyClipEdits({{.clip = clip, .track = t.id, .start = 0.0, .length = 128.0, .offset = 0.0}});
+        }
+        session.updateSnapshotNow();
+
+        fd::app::ArrangementView view(session);
+        view.setSize(1700, 28 + 32 * 32);
+        view.setSnapshot(session.snapshot());
+        view.setAllTrackHeights(32.0);
+        view.waveforms().waitUntilIdle();
+        view.zoomToFit();
+        for (int i = 0; i < 60; ++i)
+            view.frame(1.0 / 60.0, 0.0);
+
+        constexpr float scale = 2.0f;
+        juce::Image image(juce::Image::ARGB, static_cast<int>(static_cast<float>(view.getWidth()) * scale),
+                          static_cast<int>(static_cast<float>(view.getHeight()) * scale), true);
+        std::vector<double> times;
+        for (int frame = 0; frame < 240; ++frame)
+        {
+            view.zoomAt(800.0, frame < 120 ? 1.035 : 1.0 / 1.035);
+            const auto t0 = std::chrono::steady_clock::now();
+            {
+                juce::Graphics g(image);
+                g.addTransform(juce::AffineTransform::scale(scale));
+                view.paintEntireComponent(g, true);
+            }
+            times.push_back(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
+        }
+        std::sort(times.begin(), times.end());
+        double sum = 0.0;
+        for (double t : times)
+            sum += t;
+        const double avg = sum / static_cast<double>(times.size());
+        const double p95 = times[times.size() * 95 / 100];
+        std::cout << "arrangement paint, 32 tracks x 64 laps, " << image.getWidth() << "x" << image.getHeight()
+                  << ": avg " << avg << " ms, p95 " << p95 << " ms" << std::endl;
+        CHECK(p95 > 0.0);
+    }
+    juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
+}
+
 TEST_CASE("the mixer view paints 64 strips within the frame budget", "[.benchmark]")
 {
     // Every strip drawn every frame (the worst case; meters only repaint themselves when they

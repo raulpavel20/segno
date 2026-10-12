@@ -272,6 +272,18 @@ private:
     };
     /// A clip: its body, title, contents and fades, as `look` says.
     void paintClip(juce::Graphics& g, const model::ClipInfo& clip, float y, float h, juce::Rectangle<int> visible, ClipLook look);
+    /// Calls `draw` for each lap of `clip` in view (ADR 0048): the lap as a clip that doesn't loop,
+    /// and `body` cut to it, clipped there. A clip that doesn't loop is its one lap. Laps narrower
+    /// than two pixels draw nothing.
+    void forEachLap(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body,
+                    const std::function<void(const model::ClipInfo& lap, juce::Rectangle<float> lapBody)>& draw) const;
+    /// A looped clip's seams (clip-loops.md §5): a notch in the title strip, clear of the name, and a
+    /// line through the body, each in view; none while the laps are too close to tell apart.
+    void paintSeams(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> box, juce::Colour colour) const;
+    /// Where a looped clip's loop mark sits: at its title strip's end, left of its badge (`before`,
+    /// if any); none where the title shows no text or the mark would take more than half of it.
+    [[nodiscard]] std::optional<juce::Rectangle<float>> loopMarkOf(juce::Rectangle<float> box,
+                                                                   std::optional<juce::Rectangle<float>> before) const;
     /// Whether a clip draws as selected: it, or another part of the same clip (ADR 0032), is.
     [[nodiscard]] bool drawnSelected(const model::TrackInfo& track, const model::ClipInfo& clip) const;
     // Clip geometry, for every clip drawn (the shell's clip metrics, ui-foundations.md).

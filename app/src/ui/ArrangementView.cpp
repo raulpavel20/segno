@@ -1,5 +1,6 @@
 #include "ui/ArrangementView.h"
 
+#include "model/ClipLoops.h"
 #include "model/Takes.h"
 #include "model/TrackHeaderLayout.h"
 #include "ui/BrowserDrops.h"
@@ -824,6 +825,8 @@ void ArrangementView::paintLanes(juce::Graphics& g)
         clip.start = e.start;
         clip.length = e.length;
         clip.offset = e.offset;
+        if (e.loop) // a loop switched on or changed by the drag (ADR 0048)
+            clip.loop = *e.loop;
         paintClip(g, clip, static_cast<float>(area.getY() + layout_.top(row)), static_cast<float>(layout_.baseHeight(row)), visible,
                   {.selected = true});
     }
@@ -1066,6 +1069,18 @@ void ArrangementView::paintGroup(juce::Graphics& g, const model::ClipGroup& grou
             g.setFont(ui::font(ui::TextStyle::Control));
             g.drawText(juce::String(b.text), r.withTrimmedRight(static_cast<float>(t.shell.itemGap)), juce::Justification::centredRight,
                        false);
+        }
+    }
+    // The loop mark (ADR 0048): this clip plays its loop again and again, before the badge.
+    if (group.parts.size() == 1 && group.parts.front()->loop.on())
+    {
+        const auto badge = badgeOf(group, track, box);
+        if (const auto mark = loopMarkOf(box, badge ? std::optional(badge->second) : std::nullopt))
+        {
+            g.setColour(colour); // over the end of the clip's name
+            g.fillRect(*mark);
+            const float size = mark->getHeight() - inset;
+            ui::drawIcon(g, ui::Icon::Loop, mark->withSizeKeepingCentre(size, size), t.surface0);
         }
     }
     if (const auto progress = bounceProgress(group.parts.front()->id))
@@ -1422,23 +1437,112 @@ void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, 
     g.setColour(t.clipBody(colour, selected));
     g.fillRect(box);
     const auto title = titleOf(box);
-    const float strip = title.getHeight();
+    const auto body = box.withTrimmedTop(title.getHeight());
     g.setColour(colour);
     g.fillRect(title);
-    if (clip.kind == model::ClipInfo::Kind::Midi)
-        paintNotes(g, clip, box.withTrimmedTop(strip), t.clipContent(colour));
-    else
-    {
-        paintWaveform(g, clip, box.withTrimmedTop(strip), visible, t.clipContent(colour));
-        paintFades(g, clip, box.withTrimmedTop(strip), colour, selected);
-    }
+    // Every lap drawn the same (ADR 0048).
+    forEachLap(g, clip, body, [&](const model::ClipInfo& lap, juce::Rectangle<float> lapBody) {
+        if (clip.kind == model::ClipInfo::Kind::Midi)
+            paintNotes(g, lap, lapBody, t.clipContent(colour));
+        else
+            paintWaveform(g, lap, lapBody, visible.getIntersection(lapBody.getSmallestIntegerContainer()), t.clipContent(colour));
+    });
+    if (clip.kind == model::ClipInfo::Kind::Audio)
+        paintFades(g, clip, body, colour, selected);
     if (titleShowsText(title))
         paintTitleText(g, title, clip.name, clip.muted);
+    paintSeams(g, clip, box, colour);
     if (selected && look.outline)
     {
         g.setColour(t.textPrimary);
         g.drawRect(box, static_cast<float>(t.shell.clipOutline));
     }
+}
+
+void ArrangementView::forEachLap(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body,
+                                 const std::function<void(const model::ClipInfo&, juce::Rectangle<float>)>& draw) const
+{
+    if (!clip.loop.on())
+    {
+        draw(clip, body);
+        return;
+    }
+    if (clip.loop.length * timeline_.pixelsPerSecond() < 2.0)
+        return;
+    for (const auto& lap : model::laps(clip, timeline_.start(), timeline_.end()))
+    {
+        auto plays = clip;
+        plays.start = lap.from;
+        plays.length = lap.to - lap.from;
+        plays.offset = lap.content;
+        plays.loop = {};
+        const auto lapBody = body.withLeft(std::max(body.getX(), std::round(laneX(lap.from))))
+                                 .withRight(std::min(body.getRight(), std::round(laneX(lap.to))));
+        if (lapBody.getWidth() <= 0.0f)
+            continue;
+        juce::Graphics::ScopedSaveState saved(g);
+        g.reduceClipRegion(lapBody.getSmallestIntegerContainer());
+        draw(plays, lapBody);
+    }
+}
+
+void ArrangementView::paintSeams(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> box, juce::Colour colour) const
+{
+    if (!clip.loop.on())
+        return;
+    const auto& t = ui::Theme::current();
+    const auto notch = static_cast<float>(t.shell.loopNotch);
+    // Laps closer than two notches' width: too close to tell apart (the loop mark still says it loops).
+    if (clip.loop.length * timeline_.pixelsPerSecond() < 4.0 * notch)
+        return;
+    const auto title = titleOf(box);
+    // The name, where it's drawn: no notch cuts into it.
+    float nameRight = title.getX();
+    if (titleShowsText(title))
+    {
+        const auto inset = static_cast<float>(t.shell.clipTextInset);
+        const auto font = ui::font(ui::TextStyle::Control);
+        float width = juce::GlyphArrangement::getStringWidth(font, juce::String::fromUTF8(clip.name.c_str()));
+        if (clip.muted)
+            width += juce::GlyphArrangement::getStringWidth(font, "M") + static_cast<float>(t.shell.itemGap);
+        nameRight = title.getX() + inset + std::min(width, title.getWidth() - 2.0f * inset);
+    }
+    juce::Graphics::ScopedSaveState saved(g);
+    g.reduceClipRegion(box.getSmallestIntegerContainer());
+    const auto line = static_cast<float>(t.shell.clipGap);
+    for (const auto& seam : model::seams(clip))
+    {
+        if (seam.at < timeline_.start() || seam.at > timeline_.end())
+            continue;
+        const float x = std::round(laneX(seam.at));
+        // A line through the body in the clip's colour: the clip starting again.
+        g.setColour(colour);
+        g.fillRect(x, title.getBottom(), line, box.getBottom() - title.getBottom());
+        // A notch cut into the title strip, as the canvas between clips (Logic's notches).
+        if (x - notch < nameRight + notch)
+            continue;
+        juce::Path cut;
+        cut.addTriangle(x - notch, title.getY(), x + notch, title.getY(), x, title.getY() + notch);
+        g.setColour(t.surface0);
+        g.fillPath(cut);
+    }
+}
+
+std::optional<juce::Rectangle<float>> ArrangementView::loopMarkOf(juce::Rectangle<float> box,
+                                                                  std::optional<juce::Rectangle<float>> before) const
+{
+    const auto& s = ui::Theme::current().shell;
+    const auto title = titleOf(box);
+    if (!titleShowsText(title))
+        return std::nullopt;
+    // [inset][mark][inset], the mark as tall as the title less an inset (as the badge's chevron).
+    const float inset = static_cast<float>(s.clipTextInset), mark = title.getHeight() - inset;
+    const float width = inset + mark + inset;
+    const float right = before ? before->getX() : std::min(title.getRight(), static_cast<float>(laneArea().getRight()) - inset);
+    const auto area = juce::Rectangle<float>(right - width, title.getY(), width, title.getHeight());
+    if (width * 2.0f > title.getWidth() || area.getX() < title.getX())
+        return std::nullopt;
+    return area;
 }
 
 void ArrangementView::paintNotes(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body,

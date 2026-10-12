@@ -38,6 +38,27 @@ std::vector<float> readStereo(juce::AudioFormatManager& formats, const std::stri
     return out;
 }
 
+/// The same through a loop: each frame from where it falls in the loop (the loop read once).
+std::vector<float> readStereo(juce::AudioFormatManager& formats, const std::string& file, const model::ClipLoop& loop,
+                              double fromSeconds, int frames, double rate)
+{
+    if (!loop.on())
+        return readStereo(formats, file, fromSeconds, frames, rate);
+    const int loopFrames = std::max(1, static_cast<int>(std::lround(loop.length * rate)));
+    const auto once = readStereo(formats, file, loop.start, loopFrames, rate);
+    if (once.empty() || frames <= 0)
+        return {};
+    std::vector<float> out(static_cast<size_t>(frames) * kChannels);
+    for (int f = 0; f < frames; ++f)
+    {
+        const double into = model::contentAt(0.0, fromSeconds - loop.start, loop, f / rate) - loop.start;
+        const int i = std::clamp(static_cast<int>(std::floor(into * rate)), 0, loopFrames - 1);
+        for (int c = 0; c < kChannels; ++c)
+            out[static_cast<size_t>(f * kChannels + c)] = once[static_cast<size_t>(i * kChannels + c)];
+    }
+    return out;
+}
+
 std::shared_ptr<const CrossfadeSums::Window> readWindow(const CrossfadeSums::Join& join, double reach)
 {
     juce::AudioFormatManager formats;
@@ -50,8 +71,8 @@ std::shared_ptr<const CrossfadeSums::Window> readWindow(const CrossfadeSums::Joi
     w->before = w->after = reach;
     probe.reset();
     const int frames = static_cast<int>(std::ceil(2.0 * reach * w->rate)) + 1;
-    w->out = readStereo(formats, join.out, join.outAt - reach, frames, w->rate);
-    w->in = readStereo(formats, join.in, join.inAt - reach, frames, w->rate);
+    w->out = readStereo(formats, join.out, join.outLoop, join.outAt - reach, frames, w->rate);
+    w->in = readStereo(formats, join.in, join.inLoop, join.inAt - reach, frames, w->rate);
     if (w->out.empty() || w->in.empty())
         return nullptr;
     return w;

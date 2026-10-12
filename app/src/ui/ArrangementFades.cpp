@@ -3,6 +3,7 @@
 
 #include "ui/ArrangementView.h"
 
+#include "model/ClipLoops.h"
 #include "model/FadeEditing.h"
 
 namespace fd::app
@@ -58,9 +59,11 @@ void ArrangementView::paintFades(juce::Graphics& g, const model::ClipInfo& clip,
         {
             g.setColour(t.clipBody(colour, selected));
             g.fillRect(region);
-            WaveformTiles::drawDirect(g, *peaks, clip, body, region.getSmallestIntegerContainer(), timeline_, laneArea().getX(),
-                                      t.clipContent(colour),
-                                      [&](double seconds) { return model::rampGain(ramp, (seconds - from) / (to - from), fadingIn); });
+            forEachLap(g, clip, body, [&](const model::ClipInfo& lap, juce::Rectangle<float> lapBody) {
+                WaveformTiles::drawDirect(g, *peaks, lap, lapBody, region.getSmallestIntegerContainer(), timeline_,
+                                          laneArea().getX(), t.clipContent(colour),
+                                          [&](double seconds) { return model::rampGain(ramp, (seconds - from) / (to - from), fadingIn); });
+            });
         }
         // Narrower than a handle, the curve would read as a glitch: an edge fade shows once zoomed in.
         if (x1 - x0 < static_cast<float>(t.shell.fadeHandleSize))
@@ -105,8 +108,10 @@ void ArrangementView::paintCrossfades(juce::Graphics& g, const model::TrackInfo&
         // in that clip's colour (fades.md §3).
         const CrossfadeSums::Join at{.out = c.sourcePath,
                                      .in = next.sourcePath,
-                                     .outAt = c.offset + (join - c.start),
-                                     .inAt = next.offset + (join - next.start)};
+                                     .outAt = model::contentUpTo(c.start, c.offset, c.loop, join),
+                                     .inAt = model::contentAt(next, join),
+                                     .outLoop = c.loop,
+                                     .inLoop = next.loop};
         // While a drag outgrows the audio read around the join, the last sum stays where it was made.
         if (const auto sum = sums_.get(at, x.from, x.length, x.shape); sum.peaks != nullptr)
         {

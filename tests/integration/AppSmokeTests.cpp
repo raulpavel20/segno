@@ -2317,6 +2317,80 @@ TEST_CASE("fades: two crossfades in a short clip meet and never overlap; their g
     root.deleteRecursively();
 }
 
+TEST_CASE("clip loops: every lap drawn the same, a notch and a line at each seam, the loop mark (C10)", "[integration]")
+{
+    ShellFixture f;
+    f.shell->setSize(1800, 1000);
+    auto& s = *f.session;
+    const auto root = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("fd-shell-" + juce::Uuid().toString());
+    REQUIRE(root.createDirectory());
+    s.setUnsavedRoot(root.getChildFile("Unsaved"));
+    s.updateSnapshotNow();
+    const auto t0 = s.snapshot()->tracks[0].id, t1 = s.snapshot()->tracks[1].id;
+    // A drum-like loop: a decaying burst every quarter second, 4 s long.
+    fd::testkit::AudioBuffer beat(2, 4 * 48000);
+    for (int c = 0; c < 2; ++c)
+        for (int i = 0; i < beat.numSamples(); ++i)
+            beat.at(c, i) = 0.8f * std::exp(-static_cast<float>(i % 12000) / 1500.0f) * std::sin(static_cast<float>(i) * 0.05f);
+    const auto file = root.getChildFile("Drums.wav");
+    REQUIRE(fd::testkit::writeWav(file.getFullPathName().toStdString(), beat, 48000.0));
+    const auto audio = s.insertAudioFile(t0, file, 0.0);
+    s.applyClipEdits({{.clip = audio, .track = t0, .start = 0.0, .length = 0.5, .offset = 0.0}});
+    REQUIRE(s.setClipsLooping({audio}, true).empty());
+    s.applyClipEdits({{.clip = audio, .track = t0, .start = 0.0, .length = 3.0, .offset = 0.0}}); // six laps
+    // A one-bar MIDI loop, out to four bars.
+    const auto midi = s.createMidiClip(t1, 0.0, 2.0);
+    s.setNotes(midi, {{.pitch = 60, .start = 0.0, .length = 0.5}, {.pitch = 64, .start = 1.0, .length = 0.5},
+                      {.pitch = 67, .start = 2.0, .length = 0.5}, {.pitch = 72, .start = 3.0, .length = 0.5}});
+    REQUIRE(s.setClipsLooping({midi}, true).empty());
+    s.applyClipEdits({{.clip = midi, .track = t1, .start = 0.0, .length = 8.0, .offset = 0.0}});
+    s.updateSnapshotNow();
+
+    auto& view = f.shell->arrangement();
+    view.setView(0.0, 300.0); // 300 px a second: the audio clip whole in view
+    for (int i = 0; i < 50; ++i) // the waveforms build in the background
+    {
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
+        view.frame(0.02, s.position());
+    }
+    const float lanesX = static_cast<float>(fd::app::ArrangementView::headerWidth());
+    auto laneX = [&](double seconds) { return static_cast<int>(std::round(lanesX + static_cast<float>(view.timeline().xForTime(seconds)))); };
+    const auto& theme = fd::ui::Theme::current();
+    const int rowTop = fd::app::ArrangementView::rulerHeight();
+    const int titleTop = rowTop + theme.shell.clipGap;
+    const int bodyTop = titleTop + theme.shell.clipTitleHeight;
+    const auto image = view.createComponentSnapshot(view.getLocalBounds());
+    const auto colour = theme.clipColour(fd::model::findClip(*s.snapshot(), audio)->first->colour);
+    // At each seam: a notch of the canvas in the title strip, a line of the clip's colour in the body.
+    for (const double seam : {0.5, 1.0, 2.5})
+    {
+        INFO("seam at " << seam);
+        CHECK(image.getPixelAt(laneX(seam), titleTop + 1) == theme.surface0);
+        CHECK(image.getPixelAt(laneX(seam), titleTop + theme.shell.loopNotch + 2) == colour);
+        CHECK(image.getPixelAt(laneX(seam), bodyTop + 20) == colour);
+    }
+    // Every lap the same: the same content at the same place in two laps.
+    for (int y = bodyTop + 2; y < bodyTop + 40; y += 3)
+        CHECK(image.getPixelAt(laneX(0.6), y) == image.getPixelAt(laneX(1.6), y));
+    // The loop mark at the end of the title strip: the icon in the canvas colour on the clip's.
+    int markPixels = 0;
+    for (int x = laneX(3.0) - 16; x < laneX(3.0); ++x)
+        for (int y = titleTop; y < bodyTop; ++y)
+            markPixels += image.getPixelAt(x, y) == theme.surface0 ? 1 : 0;
+    CHECK(markPixels > 4);
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+    {
+        dumpPng(dump, "loops@2x.png", view.createComponentSnapshot(view.getLocalBounds().withHeight(220).withWidth(1500), true, 2.0f));
+        view.setView(0.0, 60.0); // zoomed out: laps too close to tell apart
+        view.frame(0.02, s.position());
+        dumpPng(dump, "loops-zoomed-out@2x.png", view.createComponentSnapshot(view.getLocalBounds().withHeight(220).withWidth(700), true, 2.0f));
+        view.setView(0.0, 1600.0);
+        view.frame(0.02, s.position());
+        dumpPng(dump, "loops-zoomed-in@2x.png", view.createComponentSnapshot(view.getLocalBounds().withHeight(220).withWidth(1500), true, 2.0f));
+    }
+    root.deleteRecursively();
+}
+
 TEST_CASE("fades: drawn on clips, handles on hover, a handle drag sets a fade, Ctrl+Shift+X crossfades (C6)", "[integration]")
 {
     ShellFixture f;

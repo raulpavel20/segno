@@ -20,11 +20,13 @@ namespace fd::app
 class CrossfadeSums
 {
 public:
-    /// Where two clips meet: their files, and each file's position at the join (seconds).
+    /// Where two clips meet: their files, each file's position at the join (seconds), and their
+    /// loops (ADR 0048): around the join, a looped clip's audio wraps into its loop.
     struct Join
     {
         std::string out, in;
         double outAt = 0.0, inAt = 0.0;
+        model::ClipLoop outLoop, inLoop;
 
         auto operator<=>(const Join&) const = default;
     };

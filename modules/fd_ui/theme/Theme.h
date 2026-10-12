@@ -139,6 +139,7 @@ struct ShellMetrics
     int dropLine = 2;             // where a dragged module or row lands: a line in `active`
     int progressHeight = 2;       // the progress line along the bottom of what's being worked on
     int fadeHandleSize = 7;       // a fade's or crossfade's handle on a clip (fades.md §3)
+    int loopNotch = 4;            // a looped clip's notch at each seam: its depth, half its width (clip-loops.md §5)
     float shadowRadius = 18.0f, shadowOffset = 6.0f;
 };
 
