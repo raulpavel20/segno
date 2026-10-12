@@ -55,6 +55,16 @@ model::InputInfo Session::Impl::inputOf(const te::AudioTrack& t) const
     return in;
 }
 
+bool Session::Impl::armedTrackLoopsMidi() const
+{
+    for (auto* t : tracks())
+        if (inputOf(*t).isArmed())
+            for (auto* c : t->getClips())
+                if (dynamic_cast<te::MidiClip*>(c) != nullptr && loopOf(c->state, edit->tempoSequence).on())
+                    return true;
+    return false;
+}
+
 bool Session::Impl::anyArmed() const
 {
     for (auto* t : tracks())
@@ -240,7 +250,7 @@ void Session::Impl::recordingFinished(te::InputDeviceInstance&, te::EditItemID t
             c->setName(t->getName());
             c->state.setProperty(colourPropertyId, colourOf(t->itemID.getRawID()), &edit->getUndoManager());
         }
-    const bool overdub = edit->state[overdubId] && std::any_of(clips.begin(), clips.end(), [](auto* c) {
+    const bool overdub = mergePass && std::any_of(clips.begin(), clips.end(), [](auto* c) {
                              return dynamic_cast<te::MidiClip*>(c) != nullptr;
                          });
     if (t != nullptr && !overdub)
@@ -347,10 +357,13 @@ void Session::record()
         return;
     }
     (void)impl_->projectFolder().getChildFile("Recordings").createDirectory();
+    // Overdub merges laps; New takes makes a clip per lap. Not into a looped MIDI clip (clip-loops.md
+    // §9): the pass makes its own clip, as without overdub.
+    impl_->mergePass = midiOverdub() && !impl_->armedTrackLoopsMidi();
     for (auto& d : impl_->engine.getDeviceManager().getMidiInDevices())
     {
-        d->mergeRecordings = midiOverdub(); // Overdub merges laps; New takes makes a clip per lap
-        d->replaceExistingClips = false;    // Segno replaces through take lanes (ADR 0031)
+        d->mergeRecordings = impl_->mergePass;
+        d->replaceExistingClips = false; // Segno replaces through take lanes (ADR 0031)
     }
     impl_->applyAutomationMode();
     impl_->applyInputs();

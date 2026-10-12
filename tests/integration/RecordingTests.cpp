@@ -112,6 +112,42 @@ TEST_CASE("recording: the selected instrument track records MIDI, on its channel
     CHECK_FALSE(r.info(t).input.softArmed);
 }
 
+TEST_CASE("recording: MIDI overdub never merges into a looped clip: the pass makes its own (ADR 0048)", "[integration]")
+{
+    Recording r;
+    const auto t = r.track(1);
+    REQUIRE(r.session->addDevice(t, "fd:subtractive-synth") != 0);
+    r.session->setMidiInputTarget(t);
+    r.session->setMidiOverdub(true);
+    // A one-bar loop out to four bars, one note in it.
+    const auto looped = r.session->createMidiClip(t, 0.0, 2.0);
+    r.session->setNotes(looped, {{.pitch = 48, .start = 0.0, .length = 0.5}});
+    REQUIRE(r.session->setClipsLooping({looped}, true).empty());
+    r.session->applyClipEdits({{.clip = looped, .track = t, .start = 0.0, .length = 8.0, .offset = 0.0}});
+
+    r.session->setPosition(4.0);
+    r.session->record();
+    r.pump(0.2);
+    r.session->computerKeyboardNote(60, 0.8f);
+    r.pump(0.2);
+    r.session->computerKeyboardNote(60, 0.0f);
+    r.pump(0.1);
+    r.session->stop();
+    r.pump(0.1);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(50);
+    // The looped clip keeps its notes and loop, cut where the pass began; the pass is its own clip.
+    const auto clips = r.info(t).clips;
+    REQUIRE(clips.size() >= 2);
+    CHECK(clips[0].id == looped);
+    CHECK(clips[0].loop.on());
+    CHECK(clips[0].notes.size() == 1);
+    CHECK(clips[0].end() == Approx(4.0).margin(0.02));
+    CHECK(clips[1].start == Approx(4.0).margin(0.02));
+    CHECK_FALSE(clips[1].loop.on());
+    REQUIRE(clips[1].notes.size() == 1);
+    CHECK(clips[1].notes[0].pitch == 60);
+}
+
 TEST_CASE("recording: arming is exclusive by click, adds with Ctrl, and is never an undo step; tracks record at once",
           "[integration]")
 {

@@ -291,6 +291,10 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     TapDrain tapDrain{*this};
     std::vector<std::uint64_t> recordedClips; // made in the pass now ending
     std::optional<double> recordFrom;         // where the pass records from (the count-in ends there)
+    /// This pass merges MIDI into the clips it plays over (overdub), unless an armed track has a
+    /// looped MIDI clip: merged notes would land outside its loop (ADR 0048), so it makes its own.
+    bool mergePass = false;
+    [[nodiscard]] bool armedTrackLoopsMidi() const;
     std::map<std::uint64_t, juce::File> liveFiles;  // audio being recorded, by track
     std::map<std::uint64_t, double> liveStarts;     // recordings in progress: where each starts
     /// Stops playback after `seconds` of recording (recordUntil), however the loop wraps: counted

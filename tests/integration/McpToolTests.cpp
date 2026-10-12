@@ -404,6 +404,8 @@ TEST_CASE("mcp tools: clip loops: loop what's shown, set the loop, extend past t
     const auto written = daw.call("add_notes", {{"clip", midiId}, {"notes", {{{"pitch", 64}, {"start", 5}, {"length", 1}}}}});
     CHECK(written["loopLengthened"] == true);
     CHECK(written["clip"]["loop"]["length"] == Approx(8.0)); // to the end of the next bar
+    CHECK(written["clip"]["length"] == Approx(8.0));          // the clip as long as it was
+    CHECK(written["lengthened"] == false);
 
     // An audio clip the engine stretches to the tempo (a project from before) can't loop: the call
     // says why and changes nothing, not even the clips that could loop.
