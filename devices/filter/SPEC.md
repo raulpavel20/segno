@@ -1,6 +1,6 @@
 # Filter: device spec
 
-- **Status:** Approved by the product owner (2026-10-12, with every recommendation of F1–F13); IDs are permanent. Built (B6, 2026-10-12): what building settled is under "Settled while building". Awaiting sign-off by ear and feel
+- **Status:** Approved by the product owner (2026-10-12, with every recommendation of F1–F13); IDs are permanent. Built (B6, 2026-10-12): what building settled is under "Settled while building". Done: signed off by the product owner (2026-10-12)
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1, M3 (B6)
 - **Live target:** Auto Filter (as redesigned in Live 12.2). References only; nothing is copied ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)). Checked against the best creative filters for what's worth having, not for scope.
@@ -246,5 +246,5 @@ Deferred until a Live machine is available. When it is: each circuit against Liv
 - [x] Automated: unit, conformance and golden tests; validators (pluginval at strictness 10 and clap-validator pass; 2026-10-12)
 - [x] Layout lint passes (`fd_panel_tests`)
 - [x] Snapshots reviewed (100% / 200%; expanded, collapsed, folded; every factory preset at 200 %, with `fd-snapshot --presets filter`)
-- [ ] Sound signed off by the product owner, with the factory presets
-- [ ] Feel signed off by the product owner
+- [x] Sound signed off by the product owner (2026-10-12), with the 16 factory presets
+- [x] Feel signed off by the product owner (2026-10-12)
