@@ -43,7 +43,10 @@ struct ClipEdit
     std::optional<ClipLoop> loop; // a new loop (ADR 0048); nullopt keeps the clip's
 };
 
-enum class DragKind { Move, TrimStart, TrimEnd };
+/// A drag on clips: moving them, trimming an edge, and for loops (ADR 0048, clip-loops.md §5)
+/// extending a clip by looping it (the upper part of its right edge) or changing the grabbed
+/// clip's loop length (one of its seams).
+enum class DragKind { Move, TrimStart, TrimEnd, LoopExtend, LoopLength };
 
 struct Drag
 {
@@ -51,6 +54,7 @@ struct Drag
     std::uint64_t anchor = 0;  // the grabbed clip: it snaps; the others follow by the same amount
     double deltaSeconds = 0.0; // mouse movement in time
     int deltaTracks = 0;       // mouse movement in tracks (moves only)
+    int seam = 0;              // LoopLength: the grabbed seam's number (model::Seam)
 };
 
 /// Smallest clip a trim can leave.
@@ -58,8 +62,11 @@ inline constexpr double minClipLength = 0.01;
 
 /// Placements of the selected clips for a drag. `snap` maps a time to the grid (identity when
 /// snapping is off). Constraints: nothing before time zero or outside the track list; trims
-/// stay within the source material and never shorter than minClipLength. Trims leave the edges
-/// between a clip's parts alone (only its outer edges trim).
+/// stay within the source material unless the clip loops, and never shorter than minClipLength.
+/// Trims leave the edges between a clip's parts alone (only its outer edges trim). LoopExtend
+/// loops the clips that can loop (model::loopOn) and extends them, never shortening; one that
+/// can't is trimmed. LoopLength sets the grabbed clip's loop length so the seam lands where it's
+/// dragged (snapped), its first lap staying put. Nothing is returned for a drag that changes nothing.
 [[nodiscard]] std::vector<ClipEdit> dragClips(const Snapshot& snapshot, const std::set<std::uint64_t>& selection,
                                               const Drag& drag, const std::function<double(double)>& snap);
 

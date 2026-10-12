@@ -1,5 +1,6 @@
 #include "model/Editing.h"
 
+#include "model/ClipLoops.h"
 #include "model/Takes.h"
 
 #include <algorithm>
@@ -94,11 +95,8 @@ std::vector<ClipEdit> dragClips(const Snapshot& snapshot, const std::set<std::ui
         {
             if (isInnerEdge(snapshot.tracks[static_cast<size_t>(t)], *c, true))
                 continue; // between two of its parts: comping (C5c), not a trim
-            // Not before the source's start (or time zero), not past the end minus the minimum.
-            const double earliest = std::max(0.0, c->start - c->offset);
-            const double start = std::clamp(c->start + delta, earliest, c->end() - minClipLength);
-            out.push_back({c->id, snapshot.tracks[static_cast<size_t>(t)].id, start, c->end() - start,
-                           c->offset + (start - c->start)});
+            const auto p = trimmedStart(*c, c->start + delta);
+            out.push_back({c->id, snapshot.tracks[static_cast<size_t>(t)].id, p.start, p.length, p.offset});
         }
         break;
     }
@@ -109,11 +107,47 @@ std::vector<ClipEdit> dragClips(const Snapshot& snapshot, const std::set<std::ui
         {
             if (isInnerEdge(snapshot.tracks[static_cast<size_t>(t)], *c, false))
                 continue;
-            double end = std::max(c->start + minClipLength, c->end() + delta);
-            if (c->sourceLength > 0.0)
-                end = std::min(end, c->start - c->offset + c->sourceLength); // not past the source
-            out.push_back({c->id, snapshot.tracks[static_cast<size_t>(t)].id, c->start, end - c->start, c->offset});
+            const auto p = trimmedEnd(*c, c->end() + delta);
+            out.push_back({c->id, snapshot.tracks[static_cast<size_t>(t)].id, p.start, p.length, p.offset});
         }
+        break;
+    }
+    case DragKind::LoopExtend:
+    {
+        const double delta = snap(a.end() + drag.deltaSeconds) - a.end();
+        if (delta <= 1e-9)
+            return {}; // it never shortens: letting go where it started changes nothing
+        for (const auto& [c, t] : clips)
+        {
+            const auto& track = snapshot.tracks[static_cast<size_t>(t)];
+            if (isInnerEdge(track, *c, false))
+                continue;
+            if (!whyCantLoop(*c, track).empty()) // trimmed instead, as far as it goes
+            {
+                const auto p = trimmedEnd(*c, c->end() + delta);
+                if (p.length > c->length + 1e-9)
+                    out.push_back({c->id, track.id, p.start, p.length, p.offset});
+                continue;
+            }
+            const auto looped = loopOn(*c);
+            out.push_back({c->id, track.id, looped.start, looped.length + delta, looped.offset,
+                           c->loop.on() ? std::nullopt : std::optional(looped.loop)});
+        }
+        break;
+    }
+    case DragKind::LoopLength:
+    {
+        // The grabbed seam where it's dragged (snapped); the loop's length follows from the lap the
+        // clip starts in.
+        if (!a.loop.on() || drag.seam < 1)
+            return {};
+        const double first = lapAnchor(a);
+        const double seam = first + drag.seam * a.loop.length;
+        const double at = snap(first + (seam + drag.deltaSeconds - first) / drag.seam);
+        const auto p = withLoopLength(a, at - first);
+        if (p == placementOf(a))
+            return {};
+        out.push_back({a.id, snapshot.tracks[static_cast<size_t>(anchor->second)].id, p.start, p.length, p.offset, p.loop});
         break;
     }
     }

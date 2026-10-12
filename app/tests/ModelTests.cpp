@@ -356,6 +356,55 @@ TEST_CASE("trimming stays inside the source and keeps a minimum length", "[fast]
     CHECK(e[0].length == Approx(minClipLength));
 }
 
+TEST_CASE("a looped clip's edges go anywhere; the upper edge loops a clip; a seam sets the loop's length (ADR 0048)", "[fast]")
+{
+    auto s = editingSnapshot();
+    auto& c3 = s.tracks[1].clips[0];
+    c3.loop = {0.5, 2.0}; // clip 3 loops what it showed: 2 s from 0.5 s into its file, from its start
+    c3.offset = 0.0;
+    // Past its file's end, and back before its file's start (to time zero), the content staying put.
+    auto e = dragClips(s, {3}, {.kind = DragKind::TrimEnd, .anchor = 3, .deltaSeconds = 10.0}, noSnap);
+    CHECK(e[0].length == Approx(12.0));
+    e = dragClips(s, {3}, {.kind = DragKind::TrimStart, .anchor = 3, .deltaSeconds = -5.0}, noSnap);
+    CHECK(e[0].start == 0.0);
+    CHECK(e[0].length == Approx(3.0));
+    CHECK(e[0].offset == Approx(1.0)); // a lap begins at −1 s: 1 s into the loop at 0
+    CHECK_FALSE(e[0].loop);
+
+    // The upper edge on clip 1 (not looping): looped as it is, then extended; nothing if it goes back.
+    e = dragClips(s, {1}, {.kind = DragKind::LoopExtend, .anchor = 1, .deltaSeconds = 3.0}, noSnap);
+    REQUIRE(e.size() == 1);
+    REQUIRE(e[0].loop);
+    CHECK(*e[0].loop == ClipLoop{0.0, 2.0});
+    CHECK(e[0].length == Approx(5.0));
+    CHECK(dragClips(s, {1}, {.kind = DragKind::LoopExtend, .anchor = 1, .deltaSeconds = -1.0}, noSnap).empty());
+    // A clip that already loops just extends; one that can't loop is trimmed, as far as its file.
+    e = dragClips(s, {3}, {.kind = DragKind::LoopExtend, .anchor = 3, .deltaSeconds = 1.0}, noSnap);
+    CHECK_FALSE(e[0].loop);
+    CHECK(e[0].length == Approx(3.0));
+    s.tracks[0].clips[1].synced = true;
+    e = dragClips(s, {2}, {.kind = DragKind::LoopExtend, .anchor = 2, .deltaSeconds = 9.0}, noSnap);
+    CHECK_FALSE(e[0].loop);
+    CHECK(e[0].length == Approx(3.0));
+
+    // Clip 3 extended to 8 s: its second seam (at 5 s) dragged to 6 s gives 2.5 s laps; snapped, the
+    // first seam lands on the grid (whole seconds here).
+    c3.length = 8.0;
+    e = dragClips(s, {3}, {.kind = DragKind::LoopLength, .anchor = 3, .deltaSeconds = 1.0, .seam = 2}, noSnap);
+    REQUIRE(e.size() == 1);
+    REQUIRE(e[0].loop);
+    CHECK(e[0].loop->length == Approx(2.5));
+    CHECK(e[0].loop->start == Approx(0.5));
+    CHECK(e[0].length == Approx(8.0));
+    const std::function<double(double)> seconds = [](double t) { return std::round(t); };
+    e = dragClips(s, {3}, {.kind = DragKind::LoopLength, .anchor = 3, .deltaSeconds = 1.0, .seam = 2}, seconds);
+    CHECK(e[0].loop->length == Approx(3.0)); // its first seam at 1 + 2.5 → 4 s
+    CHECK(dragClips(s, {3}, {.kind = DragKind::LoopLength, .anchor = 3, .deltaSeconds = 0.0, .seam = 2}, noSnap).empty());
+    // No longer than its file allows from the loop's start.
+    e = dragClips(s, {3}, {.kind = DragKind::LoopLength, .anchor = 3, .deltaSeconds = 30.0, .seam = 1}, noSnap);
+    CHECK(e[0].loop->length == Approx(3.5));
+}
+
 TEST_CASE("box selection and duplicate placement", "[fast]")
 {
     const auto s = editingSnapshot();
