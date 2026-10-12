@@ -130,6 +130,8 @@ public:
     void clear();
     [[nodiscard]] const std::vector<model::InspectorSection>& sections() const noexcept { return sections_; }
     [[nodiscard]] LaneAssignments& assignments() noexcept { return assignments_; }
+    /// What its sections hold (the controls in them), scrolled under its header (tests).
+    [[nodiscard]] juce::Component& content() noexcept { return body_; }
     /// Puts the keyboard in the lane's name field (Rename).
     void focusLaneName();
     /// Puts the keyboard in the take's name field (Rename).
@@ -142,11 +144,27 @@ public:
 private:
     /// A section's property rows (none for MIX and SENDS, which are components).
     [[nodiscard]] std::vector<ui::Property> properties(model::InspectorSection section) const;
+    /// Lays the sections out `width` wide from the top of the content; returns their height.
+    int layoutSections(int width);
+    /// Scrolls the sections so `c` (one of their controls) is in view.
+    void reveal(const juce::Component& c);
+    /// The sections' titles, lines and property rows, on the content.
+    void paintSections(juce::Graphics& g);
     /// The row with `key` in a section's properties (-1: none), where its control goes.
     [[nodiscard]] int rowOf(model::InspectorSection section, std::string_view key) const;
 
     engine::Session& session_;
     ui::PanelHeader header_;
+    /// The sections, under the header, scrolled when they're taller than the panel (the detail
+    /// panel below can leave it little room).
+    struct Body final : juce::Component
+    {
+        explicit Body(InspectorPanel& p) : panel(p) {}
+        void paint(juce::Graphics& g) override { panel.paintSections(g); }
+        InspectorPanel& panel;
+    };
+    Body body_{*this};
+    juce::Viewport viewport_;
     ChannelMix mix_{session_};
     ChannelSends sends_{session_};
     ui::SectionStack stack_;

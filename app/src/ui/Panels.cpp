@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <initializer_list>
+#include <limits>
 #include <map>
 
 namespace fd::app
@@ -413,8 +414,11 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
 {
     header_.setTitle("Inspector");
     addAndMakeVisible(header_);
-    addAndMakeVisible(mix_);
-    addAndMakeVisible(sends_);
+    viewport_.setViewedComponent(&body_, false);
+    viewport_.setScrollBarsShown(true, false);
+    addAndMakeVisible(viewport_);
+    body_.addAndMakeVisible(mix_);
+    body_.addAndMakeVisible(sends_);
 
     pointValue_.setRange(0.0, 1.0, 0.0);
     pointValue_.setFontSize(ui::Theme::current().textXs); // a property row's number (the Value style)
@@ -439,7 +443,7 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
         points[*pointIndex_].value = model::snapToSteps(static_cast<float>(v), lane_->rules().steps);
         session_.setLanePoints(lane_->id, points, std::nullopt, "Point value");
     };
-    addChildComponent(pointValue_);
+    body_.addChildComponent(pointValue_);
 
     styleNameField(laneName_);
     laneName_.setTooltip("The lane's name: type to rename it");
@@ -461,9 +465,9 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
         laneName_.setText(lane_ ? juce::String::fromUTF8(lane_->name.c_str()) : juce::String(), false);
         unfocusAllComponents();
     };
-    addChildComponent(laneName_);
-    addChildComponent(assignments_);
-    addChildComponent(input_);
+    body_.addChildComponent(laneName_);
+    body_.addChildComponent(assignments_);
+    body_.addChildComponent(input_);
 
     styleNameField(takeName_);
     takeName_.setTooltip("The take's name: type to rename it");
@@ -481,13 +485,13 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
         takeName_.setText(take_ ? juce::String::fromUTF8(take_->name.c_str()) : juce::String(), false);
         unfocusAllComponents();
     };
-    addChildComponent(takeName_);
+    body_.addChildComponent(takeName_);
     useTake_.setTooltip("The main lane plays this take across its time range (or click it on its take lane)");
     useTake_.onClick = [this] {
         if (take_ && channel_)
             session_.useTake(channel_->id, take_->id);
     };
-    addChildComponent(useTake_);
+    body_.addChildComponent(useTake_);
     // Fade lengths (fades.md §3): in ms, dragged or typed ("12", "12 ms", "0.5 s").
     for (auto* field : {&fadeIn_, &fadeOut_})
     {
@@ -511,7 +515,7 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
             const auto fade = model::Fade{ms / 1000.0, in ? clip_->fadeIn.bend : clip_->fadeOut.bend};
             session_.setFades({clip_->id}, in ? std::optional(fade) : std::nullopt, in ? std::nullopt : std::optional(fade));
         };
-        addChildComponent(*field);
+        body_.addChildComponent(*field);
     }
     // Each fade's curve beside its length (menu-bar.md §15): −100 … 100 %, 0 straight.
     for (auto* field : {&fadeInCurve_, &fadeOutCurve_})
@@ -544,7 +548,7 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
             const auto fade = model::Fade{(in ? clip_->fadeIn : clip_->fadeOut).length, static_cast<float>(percent / 100.0)};
             session_.setFades({clip_->id}, in ? std::optional(fade) : std::nullopt, in ? std::nullopt : std::optional(fade));
         };
-        addChildComponent(*field);
+        body_.addChildComponent(*field);
     }
     // The crossfades at its ends: their shape and where they sit, as a crossfade's menu offers.
     for (auto* shape : {&crossInShape_, &crossOutShape_})
@@ -555,7 +559,7 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
         shape->addItem("S-curve", 4);
         shape->setTooltip("Equal power for different material, equal gain for the same; None removes the crossfade");
         shape->onChange = [this, shape] { setCrossfadeShape(shape == &crossInShape_ ? crossIn_ : crossOut_, shape->getSelectedId()); };
-        addChildComponent(*shape);
+        body_.addChildComponent(*shape);
     }
     for (auto* place : {&crossInPlace_, &crossOutPlace_})
     {
@@ -565,7 +569,7 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
         place->setTextWhenNothingSelected("As dragged");
         place->setTooltip("Where it sits against the join (only where the spare audio holds it whole)");
         place->onChange = [this, place] { setCrossfadePlace(place == &crossInPlace_ ? crossIn_ : crossOut_, place->getSelectedId()); };
-        addChildComponent(*place);
+        body_.addChildComponent(*place);
     }
     // The take's commands (the shell's actions, on the selected take).
     for (const auto& [button, id] : {std::pair{&copyTake_, "take.copyToTrack"}, std::pair{&moveTake_, "take.moveToTrack"},
@@ -576,7 +580,7 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
             if (actions_ != nullptr)
                 actions_->perform(action);
         };
-        addChildComponent(*button);
+        body_.addChildComponent(*button);
     }
     // Names typed in place of the painted ones; colours from the palette (tracks-and-clips.md §4, §8).
     for (auto* field : {&channelName_, &clipName_})
@@ -608,7 +612,7 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
                            false);
             unfocusAllComponents();
         };
-        addChildComponent(*field);
+        body_.addChildComponent(*field);
     }
     channelColour_.onChosen = [this](int c)
     {
@@ -626,19 +630,19 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
             session_.setLaneColour(lane_->id, c);
     };
     for (auto* swatch : {&channelColour_, &clipColour_, &laneColour_})
-        addChildComponent(*swatch);
+        body_.addChildComponent(*swatch);
     clipMute_.setTooltip("Mute the clip: it keeps its place and plays nothing (0)");
     clipMute_.onClick = [this] {
         if (clip_)
             session_.setClipsMuted({clip_->id}, !clip_->muted);
     };
-    addChildComponent(clipMute_);
+    body_.addChildComponent(clipMute_);
     // Its loop (clip-loops.md §7): on loops what it shows; the fields set the loop, in the content.
     clipLoop_.onClick = [this] {
         if (clip_)
             session_.setClipsLooping({clip_->id}, !clip_->loop.on());
     };
-    addChildComponent(clipLoop_);
+    body_.addChildComponent(clipLoop_);
     for (auto* field : {&loopStart_, &loopLength_})
     {
         const bool start = field == &loopStart_;
@@ -669,7 +673,7 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
             (start ? loop.start : loop.length) = tempo_.secondsForBeats(beats);
             session_.setClipLoop(clip_->id, loop);
         };
-        addChildComponent(*field);
+        body_.addChildComponent(*field);
     }
 }
 
@@ -853,10 +857,20 @@ void InspectorPanel::setCrossfadePlace(const std::optional<Join>& join, int id)
         session_.setCrossfade(join->out.id, placed, "Crossfade placement");
 }
 
+void InspectorPanel::reveal(const juce::Component& c)
+{
+    const auto view = viewport_.getViewArea();
+    if (c.getY() < view.getY())
+        viewport_.setViewPosition(0, c.getY());
+    else if (c.getBottom() > view.getBottom())
+        viewport_.setViewPosition(0, c.getBottom() - view.getHeight());
+}
+
 void InspectorPanel::focusLaneName()
 {
     if (laneName_.isVisible() && laneName_.isShowing())
     {
+        reveal(laneName_);
         laneName_.selectAll();
         ui::takeFocus(laneName_); // asked from a menu too (kept from a late hand-back)
     }
@@ -866,6 +880,7 @@ void InspectorPanel::focusTakeName()
 {
     if (takeName_.isVisible() && takeName_.isShowing())
     {
+        reveal(takeName_);
         takeName_.selectAll();
         ui::takeFocus(takeName_); // asked from a menu too (kept from a late hand-back)
     }
@@ -1004,10 +1019,24 @@ int InspectorPanel::rowOf(model::InspectorSection section, std::string_view key)
 
 void InspectorPanel::resized()
 {
-    using S = model::InspectorSection;
     const auto& t = ui::Theme::current();
     header_.setBounds(getLocalBounds().removeFromTop(t.shell.panelHeaderHeight));
-    auto r = getLocalBounds().withTrimmedTop(header_.getBottom() + t.shell.itemGap).reduced(t.shell.padding, 0);
+    viewport_.setBounds(getLocalBounds().withTrimmedTop(header_.getBottom()));
+    // As wide as the viewport shows; again if that brought its scroll bar in or out.
+    for (int pass = 0; pass < 2; ++pass)
+    {
+        const int width = std::max(1, viewport_.getMaximumVisibleWidth());
+        body_.setSize(width, std::max(1, layoutSections(width)));
+        if (viewport_.getMaximumVisibleWidth() == width)
+            break;
+    }
+}
+
+int InspectorPanel::layoutSections(int width)
+{
+    using S = model::InspectorSection;
+    const auto& t = ui::Theme::current();
+    auto r = juce::Rectangle<int>(0, t.shell.itemGap, width, std::numeric_limits<int>::max() / 2).reduced(t.shell.padding, 0);
 
     static const std::map<S, juce::String> titles{{S::Point, "Point"}, {S::Points, "Points"}, {S::Lane, "Lane"},
                                                   {S::Assignments, "Assignments"}, {S::Input, "Input"}, {S::Take, "Take"}, {S::Takes, "Takes"},
@@ -1024,7 +1053,7 @@ void InspectorPanel::resized()
                                                  : static_cast<int>(properties(s).size()) * t.shell.rowHeight;
         sections.push_back({titles.at(s), height});
     }
-    stack_.layout(r, sections);
+    const int height = stack_.layout(r, sections).getY() + t.shell.padding;
     mix_.setBounds({});
     sends_.setBounds({});
     assignments_.setBounds({});
@@ -1097,6 +1126,7 @@ void InspectorPanel::resized()
                                       .withTrimmedLeft(t.shell.propertyLabelWidth)
                                       .withY(stack_.content(i).getY() + t.shell.rowHeight)
                                       .withHeight(t.shell.rowHeight));
+    return height;
 }
 
 void InspectorPanel::paint(juce::Graphics& g)
@@ -1107,8 +1137,11 @@ void InspectorPanel::paint(juce::Graphics& g)
     {
         auto r = getLocalBounds().withTrimmedTop(header_.getBottom()).reduced(t.shell.padding, 0);
         ui::paintEmptyState(g, r.removeFromTop(t.shell.listRowHeight * 2), "Nothing selected");
-        return;
     }
+}
+
+void InspectorPanel::paintSections(juce::Graphics& g)
+{
     stack_.paint(g);
     for (size_t i = 0; i < sections_.size(); ++i)
         if (const auto rows = properties(sections_[i]); !rows.empty())

@@ -1368,7 +1368,7 @@ TEST_CASE("automation lanes: rows among the tracks, added like tracks, edited an
     // The inspector's value field types a point's value (the others are the assignments' ranges).
     auto fields = findAll<fd::ui::NumberField>(inspector);
     fields.erase(std::remove_if(fields.begin(), fields.end(),
-                                [&](auto* field) { return field->getParentComponent() != &inspector || !field->isVisible(); }),
+                                [&](auto* field) { return field->getParentComponent() != &inspector.content() || !field->isVisible(); }),
                  fields.end());
     REQUIRE(fields.size() == 1);
     fields[0]->setValue(0.25, juce::sendNotification);
@@ -2321,7 +2321,7 @@ TEST_CASE("bounce: Ctrl+B bounces the selected clips in place, 0 mutes, the clip
     juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
     fd::ui::Toggle* mute = nullptr;
     for (auto* t : findAll<fd::ui::Toggle>(f.shell->inspector()))
-        if (t->getButtonText() == "M" && t->isVisible() && t->getParentComponent() == &f.shell->inspector())
+        if (t->getButtonText() == "M" && t->isVisible() && f.shell->inspector().isParentOf(t))
             mute = t;
     REQUIRE(mute != nullptr);
     CHECK(mute->getToggleState());
@@ -2731,7 +2731,7 @@ TEST_CASE("fades: drawn on clips, handles on hover, a handle drag sets a fade, C
     juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
     std::vector<fd::ui::NumberField*> fields;
     for (auto* field : findAll<fd::ui::NumberField>(f.shell->inspector()))
-        if (field->isVisible() && field->getParentComponent() == &f.shell->inspector())
+        if (field->isVisible() && f.shell->inspector().isParentOf(field))
             fields.push_back(field);
     REQUIRE(fields.size() == 4); // fade in, fade out, then their curves (menu-bar.md §15)
     fields[0]->setValue(25.0, juce::sendNotification);
@@ -3305,8 +3305,8 @@ TEST_CASE("inspector: a clip's fade curves and the crossfades at its ends, set b
     // Every control on the row grid, none touching another.
     {
         std::vector<juce::Rectangle<int>> placed;
-        for (auto* c : inspector.getChildren())
-            if (c->isVisible() && dynamic_cast<fd::ui::PanelHeader*>(c) == nullptr)
+        for (auto* c : inspector.content().getChildren())
+            if (c->isVisible())
             {
                 for (const auto& other : placed)
                     CHECK_FALSE(other.intersects(c->getBounds()));
@@ -3400,8 +3400,8 @@ TEST_CASE("inspector: a clip's loop: on, its start and length dragged or typed; 
     // Every control on the row grid, none touching another.
     {
         std::vector<juce::Rectangle<int>> placed;
-        for (auto* c : inspector.getChildren())
-            if (c->isVisible() && dynamic_cast<fd::ui::PanelHeader*>(c) == nullptr)
+        for (auto* c : inspector.content().getChildren())
+            if (c->isVisible())
             {
                 for (const auto& other : placed)
                     CHECK_FALSE(other.intersects(c->getBounds()));
@@ -3422,6 +3422,51 @@ TEST_CASE("inspector: a clip's loop: on, its start and length dragged or typed; 
     CHECK_FALSE(loopToggle()->isEnabled());
     CHECK(loopToggle()->getTooltip().contains("tempo"));
     root.deleteRecursively();
+}
+
+TEST_CASE("inspector: sections taller than the panel scroll, so the last one is always reachable", "[integration]")
+{
+    // The product owner's case: a tall clip view leaves the inspector little room.
+    ShellFixture f;
+    f.shell->setSize(1800, 1000);
+    auto& s = *f.session;
+    s.updateSnapshotNow();
+    const auto t0 = s.snapshot()->tracks[0].id;
+    const auto clip = s.createMidiClip(t0, 0.0, 2.0);
+    s.updateSnapshotNow();
+    f.shell->arrangement().setSelection(fd::model::withClips(*s.snapshot(), {clip}, t0, t0));
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    auto& inspector = f.shell->inspector();
+    auto& content = inspector.content();
+    const int full = content.getHeight();
+    REQUIRE(full > 300); // CLIP, TRACK, INPUT, MIX, SENDS
+
+    inspector.setSize(inspector.getWidth(), 220);
+    auto* viewport = content.findParentComponentOfClass<juce::Viewport>();
+    REQUIRE(viewport != nullptr);
+    CHECK(viewport->getBottom() <= inspector.getHeight());
+    CHECK(content.getHeight() == full); // every row still there, below
+    CHECK(viewport->getVerticalScrollBar().isVisible());
+    // Scrolled to the end, the last section is in view.
+    viewport->setViewPosition(0, content.getHeight());
+    const auto shown = viewport->getViewArea();
+    CHECK(shown.getBottom() == content.getHeight());
+    juce::Component* lowest = nullptr;
+    for (auto* c : content.getChildren())
+        if (c->isVisible() && (lowest == nullptr || c->getBottom() > lowest->getBottom()))
+            lowest = c;
+    REQUIRE(lowest != nullptr);
+    CHECK(shown.contains(lowest->getBounds()));
+    // Nothing runs under the scroll bar.
+    for (auto* c : content.getChildren())
+        if (c->isVisible())
+            CHECK(c->getRight() <= viewport->getMaximumVisibleWidth());
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "inspector-scrolled@2x.png", inspector.createComponentSnapshot(inspector.getLocalBounds(), true, 2.0f));
+
+    // Tall enough again: no scroll bar.
+    inspector.setSize(inspector.getWidth(), full + 200);
+    CHECK_FALSE(viewport->getVerticalScrollBar().isVisible());
 }
 
 TEST_CASE("snap and quantise where they're used; the take's commands in its inspector (C10 review)", "[integration]")
