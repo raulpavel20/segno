@@ -8,7 +8,7 @@ How a song's structure gets onto the screen and becomes something you edit. The 
 - the menu bar as the complete list ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md), [menu-bar.md](menu-bar.md)) and assistants' tools ([ADR 0021](../decisions/0021-mcp-server.md), [mcp.md](mcp.md));
 - every edit click-free ([fades.md](fades.md) §1), and no stuck notes ([daw-shell.md](daw-shell.md)).
 
-**Status:** draft for the product owner's review (2026-10-12): questions A1–A15 in §15, with recommendations. Nothing is built until it's approved.
+**Status:** approved by the product owner (2026-10-12), with every recommendation of §15, and the song row shorter than drafted (40 px, not 56: it's always there). The decision is [ADR 0049](../decisions/0049-the-master-row-is-the-song-row.md). Building.
 
 ## 1. Why
 
@@ -88,7 +88,7 @@ This revisits open question B25 ([mixer.md](mixer.md) Q1, agreed 2026-10-09): th
 ```
 
 - **Where:** pinned under the ruler, the arrangement's first row. The free automation lanes, the tracks and the returns scroll beneath it.
-- **Height:** 56 px by default: a title band for the sections' names, and the overview below it. Dragging its bottom edge resizes it (32 px at least: the title band and a thin overview), as any row. The height is view state, saved with the project.
+- **Height:** 40 px by default, shorter than a track since it's always there (the product owner, 2026-10-12): a 16 px title band for the sections' names, and 24 px of overview below it. Dragging its bottom edge resizes it (32 px at least, the title band and a thin overview), as any row. The height is view state, saved with the project.
 - **The header:** the master's, from the track header kit: "Master", the meter, and the volume bar from 80 px tall, as now.
 - **The lane:**
   - the overview (§6), across the whole lane;
@@ -236,7 +236,7 @@ Tools named as the others ([mcp.md](mcp.md)), each one named undo step, each wit
 
 | # | Question | Recommendation |
 |---|---|---|
-| A1 | **The master's row as the song row** (the product owner's idea) | Yes: pinned under the ruler, its header the master's, the sections and the overview in its lane. The returns stay at the bottom (B25 stands for them), the mixer view as it is (§3) |
+| A1 | **The master's row as the song row** (the product owner's idea) | Yes: pinned under the ruler, its header the master's, the sections and the overview in its lane. The returns stay at the bottom (B25 stands for them), the mixer view as it is (§3). *Agreed, with the row shorter than drafted: 40 px by default* |
 | A2 | **The overview** | Every track as a thin line in its colour where it has clips, muted ones dimmer; tracks share lines when there are more than pixels; no lanes or returns; no click of its own yet (§6) |
 | A3 | **What a section is** | A name, colour, start and end; no overlaps, gaps allowed; edges on the grid (Alt free); at least a grid step long (§7) |
 | A4 | **Names and colours** | A, B, C… with the usual names suggested when renaming; copies keep the name with a number and keep the colour, so repeats look alike (§7) |
