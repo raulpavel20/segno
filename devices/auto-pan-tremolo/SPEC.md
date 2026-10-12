@@ -1,6 +1,6 @@
 # Auto Pan & Tremolo: device spec
 
-- **Status:** Approved by the product owner (2026-10-12, with every recommendation of T1–T12); IDs are permanent. Built (B4, 2026-10-12): what building settled is under "Settled while building". Awaiting sign-off by ear and feel
+- **Status:** Approved by the product owner (2026-10-12, with every recommendation of T1–T12); IDs are permanent. Built (B4, 2026-10-12): what building settled is under "Settled while building". Done: signed off by the product owner (2026-10-12)
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1, M3 (B4)
 - **Live target:** Auto Pan-Tremolo. References only; nothing is copied ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
@@ -189,5 +189,5 @@ Deferred until a Live machine is available.
 - [x] Automated: unit, conformance and golden tests; validators (pluginval at strictness 10 and clap-validator pass; 2026-10-12)
 - [x] Layout lint passes (`fd_panel_tests`)
 - [x] Snapshots reviewed (100% / 200%; expanded, collapsed, folded; every factory preset at 200 %, with `fd-snapshot --presets auto-pan-tremolo`)
-- [ ] Sound signed off by the product owner, with the factory presets
-- [ ] Feel signed off by the product owner
+- [x] Sound signed off by the product owner (2026-10-12), with the 14 factory presets
+- [x] Feel signed off by the product owner (2026-10-12)
