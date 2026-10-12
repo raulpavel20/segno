@@ -109,6 +109,7 @@ app/src/
 | Bounce in place (C7) | `clip.bounce` | Ctrl+B |
 | Bounce to new track (C7) | `clip.bounceToTrack` | Ctrl+Shift+B |
 | Mute clips (C7) | `clip.mute` | 0 |
+| Loop clips (M3 C10, [clip-loops.md](clip-loops.md)) | `clip.loop` | – (menus only; assignable) |
 | Crossfade the selected clips' joins (C6) | `clip.crossfade` | Ctrl+Shift+X |
 | Edge fades on or off (C6) | `project.edgeFades` | Ctrl+Alt+Shift+E |
 | Quit (C10) | `app.quit` | Ctrl+Q |
@@ -177,7 +178,7 @@ Waveforms come from a background-built peak cache per file, plus cached drawing 
 - **Hit testing and drag maths** live in `model/Editing` (tested):
   - the grabbed clip snaps and the rest of the selection follows by the same amount;
   - nothing moves before time zero or off the track list;
-  - trims stay within the source file and leave at least 10 ms.
+  - trims stay within the source file and leave at least 10 ms; a looped clip's edges go anywhere, its content staying where it is ([ADR 0048](../decisions/0048-clips-loop.md), [clip-loops.md](clip-loops.md) §5).
 - **Selection:** click; Shift or Ctrl toggles; a drag on empty lanes box-selects (Shift adds); the selected track follows the click. One selection serves both views and the context panels; the full rules are in [selection.md](selection.md).
 - **During a drag**, clips are drawn at their new place from the model's result. On release the Session applies it as one undo step, and the preview stays until the new snapshot arrives (no flicker).
 - **Commands:** delete, duplicate (copies placed right after the selection), split at the playhead (the selected clips, or the selected track's clips under the playhead), select all.
@@ -338,7 +339,7 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 
 ## Bounce and clip mute (C7, [bounce.md](bounce.md), ADR 0035)
 
-- **A clip's menu** (right-click on a clip; it's selected first unless it's in the selection): Bounce in place, Bounce to new track, Mute clips, then Split at playhead, Duplicate, Delete, from the action registry; while a bounce runs, Cancel bounces first (C10). The take badge keeps its own menu.
+- **A clip's menu** (right-click on a clip; it's selected first unless it's in the selection): Bounce in place, Bounce to new track, Mute clips, Loop clips (M3 C10), then Split at playhead, Duplicate, Delete, from the action registry; while a bounce runs, Cancel bounces first (C10). The take badge keeps its own menu.
 - **Where you work** (C10 review, [menu-bar.md](menu-bar.md) §15): Snap in the corner above the track headers, a view option like the mixer's (C11 review); Quantise in the clip view's header; a × on a clip being bounced cancels it; the inspector's CLIP sets each fade's curve and each crossfade's shape and position; its TAKE copies or moves the take to a new track or keeps only it.
 - **Tracks and clips** (C11, [tracks-and-clips.md](tracks-and-clips.md), ADR 0041):
   - a double-click on a header's or a mixer strip's name, or on a clip's title strip, renames it in place (`ui::NameEditor`); F2 renames the selection; Tab goes on to the next row's name;
@@ -397,13 +398,14 @@ A software-renderer benchmark also runs offscreen in the integration tests (`"[.
   - it never covers another clip: it starts after a clip it lands in and ends where the next one starts;
   - Ctrl+Shift+M creates one at the playhead on the selected track;
   - no instrument comes with it ([ADR 0033](../decisions/0033-no-instrument-by-itself.md)): on a track without one, the clip is silent until you add one;
-  - double-clicking a MIDI clip opens it in the clip view.
+  - double-clicking a MIDI clip opens it in the clip view; an audio clip opens in the audio clip view (M3 C10, [clip-loops.md](clip-loops.md) §6).
 - **Where it lives:** the detail panel follows the selection ([selection.md](selection.md) §4). In the arrangement, a single MIDI clip shows the clip view with the piano roll; anything else shows the modules. Tab switches until the selection changes. The mixer view never shows the clip view.
   - The clip view's height can be dragged at its top edge (default 320 px; saved with the view). The device view keeps the device panel height. The panel eases between the two.
   - While a clip is open, live MIDI goes to the clip's track, so previews and the computer keyboard play its instrument.
 - **Layout:**
   - keyboard on the left (click or drag over the keys to hear them); C keys are labelled (C3 = 60);
   - the ruler on top, with the song's bar numbers and the clip's extent in its colour; click to move the playhead, drag to zoom and scroll as in the arrangement;
+  - above it, the loop strip with the clip's loop brace (M3 C10, [clip-loops.md](clip-loops.md) §6); a looped clip shows the lap it starts in, shaded outside its loop, the playhead wrapping into it;
   - the note grid: rows for black keys a tone darker, a line under every C and between E and F;
   - outside the clip the grid is shaded; notes there are kept but don't play, and are drawn faded;
   - drawing or moving notes past the clip's end lengthens the clip to the end of the bar the last note ends in, in the same undo step. If another clip on the track is in that range, the clip stays as it is and those notes stay outside (B15). The rule lives in `Session::setNotes`, so it holds for every way of writing notes;

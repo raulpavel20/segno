@@ -241,6 +241,7 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 | Cancel bounces | Escape | *new* (`clip.cancelBounces`); enabled while a bounce runs. Also a × on the clip being bounced (§15) |
 | — | | |
 | Mute clips | 0 | |
+| Loop clips | | *new* (`clip.loop`, C10, [clip-loops.md](clip-loops.md) §10): a toggle, ticked while every selected clip loops, dimmed with the reason while none can. No default key (Ctrl+L and every L combination are taken); assignable in Settings > Keys. Also in the clip's right-click menu, after Mute clips |
 | Crossfade | Ctrl+Shift+X | |
 | — | | |
 | Takes ▸ | | Show takes of the selected clip (Ctrl+Alt+K); Previous take (Alt+↑); Next take (Alt+↓); — ; Use this take for the whole clip, Rename take…, Copy take to new track, Move take to new track, Spread the selected clip's takes to new tracks (Ctrl+Alt+Shift+K); — ; Keep only this take. The take items act on the selected takes only (§15); they're *new* as actions, and Copy, Move and Keep only are also in the inspector's TAKE section. Delete and Edit > Delete delete selected takes, so there's no Delete take. *Built:* the take menu (right-click on the badge or a strip) keeps its own items, which act on the strip clicked and name it ("Keep only Take 2"), so it isn't the same builder |

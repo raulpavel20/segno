@@ -8,7 +8,7 @@ How a clip repeats: a **Loop** switch on every clip, a **loop** inside its conte
 - the menu bar as the complete list ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md), [menu-bar.md](menu-bar.md) §15) and assistants' tools ([ADR 0021](../decisions/0021-mcp-server.md), [mcp.md](mcp.md));
 - the clip editing of [daw-shell.md](daw-shell.md) ("Clip editing (C4)", "Piano roll").
 
-**Status:** approved by the product owner (2026-10-12), with every recommendation of §14; the product owner chose the audio clip view (L16). Building.
+**Status:** approved by the product owner (2026-10-12), with every recommendation of §14; the product owner chose the audio clip view (L16). Built 2026-10-12, for review; what building settled is in §17.
 
 ## 1. Why
 
@@ -117,7 +117,7 @@ clip on the timeline       |e f|c d e f|c d e f|c d|     ← starts mid-loop (it
   - **Drag on an empty part of the strip:** draws a loop, snapped to the editor's grid, and switches Loop on.
   - **Drag the brace's edges:** sets the loop's start or end.
   - **Drag the body:** moves the loop and keeps its length.
-  - **Click the brace:** switches Loop on or off. While Loop is off, the brace shows in `loopInactive`, where the clip would loop.
+  - **Click the brace:** switches Loop on or off. While Loop is off, the brace shows in `loopInactive`, where the clip would loop, and a drag inside it draws a loop (§17).
   - Alt drags freely.
 - **One brace, three places.** The brace's arithmetic becomes one pure `model::BraceDrag` (the zones, the drag, what letting go does), with `[fast]` tests. The arrangement's transport brace and both clip views use it.
 - **Outside the loop** the grid is shaded and the content faded, as outside the clip today (daw-shell.md, "Piano roll"). Notes there are kept, but don't play.
@@ -316,3 +316,18 @@ The CLIP section gains three rows, after Offset:
   - Crop to the loop;
   - a shortcut for Loop clips.
 - **M4 (warping):** audio loops in beats that follow the tempo, and the audio clip view's warp markers. When a clip gets a time-stretch mode, its loop must survive: the engine drops loops then, so this is an open question.
+
+## 17. Settled while building (2026-10-12)
+
+- **Audio loops are whole samples of their file.** The engine wraps a loop in whole samples, so a loop that isn't a whole number of them drifted a fraction of a sample each lap from where its seams are drawn and faded (a 0.3013 s loop: 0.4 samples a lap). Loops are written in whole samples, so what's drawn is exactly where it wraps.
+- **A seam's fades reach where they reach.** Every seam whose fades reach into what a clip plays applies, so a looped clip split a sample beside a seam (on the grid, where the seam is a fraction off it) fades as the whole did, instead of fading out and starting again at full level. A seam right on a clip's edge is that edge's fade. A split looped clip nulls against the whole, inside a lap, beside a seam and on one.
+- **While Loop is off, a drag inside the brace draws a loop.** The brace shows what the clip would loop (itself), so every press over the clip landed on it; there's no loop to move, so a drag there draws one. Its edges still set a loop from the clip, and a click switches Loop on.
+- **The B15 rule for loops looks at the notes an edit writes**, not every note: a loop over part of a longer phrase isn't stretched by editing a note inside it.
+- **Overdub:** a pass doesn't merge when any armed track has a looped MIDI clip (the engine merges into whatever clip a pass plays over, so the pass is told before it starts). The pass makes its own clip and cuts the looped one.
+- **The inspector's Loop toggle reads "On"**, as Settings' switches do. The fields drag in sixteenths, and typed values land on a sixteenth, "1.5 s" too.
+- **Bars and beats as text** (`model/MusicalTime`) are shared by the inspector, the value tags and the assistants' tools (moved from the tools' conventions). Beats are quarter notes everywhere, as the tools' already were.
+- **Notches keep clear of the name:** a notch that would cut into it isn't drawn; the line through the body still marks the seam.
+- **The loop mark is drawn with its clip**, so a drag's preview shows it too.
+- **The audio clip view keeps its own waveform cache** (one file at a time): the detail panel is made before the arrangement whose cache it would share.
+- **Clips with loop metadata** (an ACID chunk) were stretched to the tempo by the engine when placed; they're placed at their file's speed now, as browser.md R8 said.
+- **Speed:** 32 tracks of 64-lap loops paint as fast as 32 tracks of 8 clips over the same span (the arrangement benchmark).

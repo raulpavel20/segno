@@ -84,7 +84,7 @@ What the context panels show follows from the selection:
 | **LANE** | A lane (C4) | Name (a field), Points, Value now, whether it plays |
 | **ASSIGNMENTS** | A lane (C4) | Each assignment: on switch, "Track › Parameter" (shows its module), remove; its range as from and to fields in the parameter's units. Then "Assign parameter…". A lane shows no TRACK, MIX or SENDS: it belongs to no track |
 | **TAKE** | A take (C5b), above its track's sections | Name (a field), Start, Length, In use (all of it, partly, no), "Use this take" |
-| **CLIP** | One clip | Name, Start (bars.beats.16ths), Length, Offset |
+| **CLIP** | One clip | Name, Start (bars.beats.16ths), Length, Offset; Loop, and while it loops Loop start and Loop length (M3 C10, [clip-loops.md](clip-loops.md) §7) |
 | **CLIPS** | Several clips | Selected: how many |
 | **TRACK** | A track (also under TAKE, CLIP or CLIPS) | Name, Instrument, Clips |
 | **RETURN** | A return track | Name, Modules |

@@ -96,11 +96,12 @@ The project, track, clip and module resources send change notifications when the
 | `insert_audio_file` | `track`, `start`, `path` | The clip id |
 | `insert_midi_file` | `track`, `start`, `path` | The clip id (no instrument is added) |
 | `move_clips` | `clips`, `by` (beats), `to_track?` | New positions (placing cuts what it covers, ADR 0019) |
-| `trim_clip` | `clip`, `start?`, `end?` | The new extent |
+| `trim_clip` | `clip`, `start?`, `end?` | The new extent. A looped clip's edges go anywhere (M3 C10) |
 | `duplicate_clips` | `clips`, `times?` (default 1) | The new clip ids, placed after the originals |
 | `split_clips` | `clips`, `at` | The new right-hand clip ids |
 | `delete_clips` | `clips` | – (undoable, so no confirmation) |
 | `mute_clips` | `clips`, `muted?` (true) | The clips; muted ones keep their place and play nothing (C7) |
+| `loop_clips` | `clips`, `loop?` (true), `start?` (in the content: beats or "2.1.1"), `length?` (beats, "1 bar"; audio also "1.5 s") | The clips: each loops what it shows, or the loop given; with `loop: false` the repeats go. Refuses, changing nothing, a clip with takes or one stretched to the tempo (M3 C10, [clip-loops.md](clip-loops.md) §11). Clip results carry `loop` (start and length in beats; audio also in seconds), null while a clip doesn't loop; in a looped clip, notes count from its loop's start, and notes written past its end lengthen the loop (`loopLengthened`) |
 | `set_fades` | `clips`, `in?`, `out?` (ms or text: "10 ms", "0.5 s", "1/16"), `inBend?`, `outBend?` | The clips' fades ([fades.md](fades.md) §7) |
 | `crossfade` | `clips`, `length?` (10 ms), `shape?`, `placement?` ("before", "centred", "after"), `remove?` | Each join between them: its crossfade (with its placement), or why it couldn't be made or placed |
 | `set_edge_fades` | `on` | The project's edge fades on or off |

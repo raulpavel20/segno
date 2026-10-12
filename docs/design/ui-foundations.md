@@ -144,6 +144,7 @@ Role functions for colours that depend on content:
 | `shell.clipButtonSize` | 12 (a button on a clip, on a `surface2` chip: cancel its bounce; menu-bar.md §15) |
 | `shell.dropLine` | 2 (where a dragged module, row or strip lands: a line in `active`) |
 | `shell.fadeHandleSize` | 7 (a fade's or crossfade's handle on a clip, C6; a fade narrower than this draws only its handle) |
+| `shell.loopNotch` | 4 (a looped clip's notch at each seam: its depth and half its width, cut into the title strip in `surface0`; laps closer than two notches' width show none; M3 C10, [clip-loops.md](clip-loops.md) §5) |
 
 Components size themselves for their text: `ui::Toggle::widthFor(label)` and `ui::NumberField::widthFor(widest value)`; bars ask them rather than adding padding by hand. Every clip the arrangement draws (clips, recordings in progress, take strips) takes its box and title from one place (`ArrangementView::clipBox`, `titleOf`), with its edges on whole pixels.
 
@@ -155,14 +156,15 @@ Components size themselves for their text: `ui::Toggle::widthFor(label)` and `ui
 | `AutomationState` / `paintAutomationIndicator` | Whether a control's parameter is automated: a 4 px disc in `automation`, filled while its lane plays and a ring while it's off (left of a knob's name; a bar's, fader's, toggle's or choice's top-left corner). `Knob` and `Toggle` take the state and an `onPopupMenu` (right-click) | Every control of a parameter (C4) |
 | `ViewChoice` | A view setting with a value ([ADR 0047](../decisions/0047-the-editing-grid-in-each-editor.md)): the value in `textSecondary` (`textPrimary` hovered), in the `ViewOption`'s label style and padding, then a small chevron, no fill; hover: the `hoverWash`. As wide as its value: its owner lays it out again when the value changes, so it sits as close to Snap as one view option to the next. A click opens its menu (the owner fills it) under it | The grid's step beside Snap, in the arrangement's corner and the clip view's header |
 | `ViewOption` | A view option: a 6 px indicator and a `Control` label, no button fill. Off: a 1 px ring and `textTertiary`; on: a filled `active` disc and `textPrimary` (the shape tells on from off, not only the colour); hover: the `hoverWash` behind it. Its own padding is half the shell's: aligned on a text edge, it starts that much before it | The mixer view's Modules, Sends and Narrow; the arrangement's Snap, in the corner above the headers (C11 review); the piano roll's Snap, in the clip view's header (ADR 0047); later the browser's view options |
-| `PropertyList` | Label and value rows on the row grid; values in `Body`, or `Value` for numbers | Inspector; export options (C8); preferences |
+| `PropertyList` | Label and value rows on the row grid; values in `Body`, or `Value` for numbers. A row's `key` names it for the control placed in it, so rows can come and go | Inspector; export options (C8); preferences |
 | `ListRow` | One row of a list: optional dot, name, caption, shortcut on the right; hover and selected states; room kept at the right (`trailing`) for a control the caller draws there, whose area it returns | Command palette; the preset list |
 | `TreeRow` (`paintTreeRow`) | A ListRow in a tree: indented by `shell.browserIndent` per level, a disclosure (`ChevronRight`/`ChevronDown`) or a `+` for a command row, the name, a caption at the right (a count, a length), and a star column kept on every row so captions line up; `treeRowMark` and `treeRowStar` say where to click. A flat row (a search result) has no disclosure column | The browser ([browser.md](browser.md), ADR 0046) |
 | `modifiedMark` / `paintNameWithMark` | What follows a name while what it names has changes not kept: " •" right after the name, never cut away (the name is cut instead) | The title bar's project name while unsaved; a module's preset while it differs from the preset (ADR 0044) |
 | `Popover` | Floating chrome: `surface2`, panel radius, the one shadow | Command palette; Assistants popover; future menus that float |
 | `Toast` | A message in the arrangement's corner that times out | Warnings and confirmations |
 | `EmptyState` | A centred hint where there is nothing to show | Chain without a track, clip view without a clip, empty project, empty inspector |
-| `paintValueTag` | What a gesture is changing, next to the pointer while it drags: `Value` text on a `surface3` tag a row high, kept in its area | Fade and crossfade drags (C6) |
+| `paintValueTag` | What a gesture is changing, next to the pointer while it drags: `Value` text on a `surface3` tag a row high, kept in its area | Fade and crossfade drags (C6); a looped clip's edges and notches ("4 bars · 4 loops", "Loop 1 bar"; M3 C10) |
+| `cursorFor(Icon)` | A mouse cursor for a gesture of its own: the icon in `textPrimary`, outlined in `surface0` so it reads on any background, its hotspot at the centre; made once and kept by its view | Looping a clip by the upper part of its right edge (`Icon::Loop`; M3 C10) |
 | `paintProgress` | Work in progress on what it changes: a `shell.progressHeight` line along its bottom, a `surface3` track filled in `value` from the left; shown only after `motion.progressDelay` | Clips being bounced (C7); export (C8) |
 | `SectionStack` | Titled sections one under another: a `Section`-style caps title on the row grid, the content under it, and a 1 px `line` centred in the group gap between neighbours (a module panel's sections, stacked). `titleArea(i)` is a section's title row, for a command at its right | The inspector ([selection.md](selection.md) §5); Settings, each section's Reset in its title row ([settings.md](settings.md) §6); later the browser |
 | `BarLayout` | Places a bar's items left and right on the item and group gaps | Small bars |
@@ -184,11 +186,12 @@ Components size themselves for their text: `ui::Toggle::widthFor(label)` and `ui
 
 ## Time views (`app/src/ui/time`)
 
-Every view that shows time (the arrangement, the piano roll, automation lanes from C4, and later an audio clip editor) is built from these, over the `Timeline` model:
+Every view that shows time (the arrangement, the piano roll, automation lanes from C4, and the audio clip view from M3 C10) is built from these, over the `Timeline` model:
 
 | Part | Does |
 |---|---|
 | `TimeRuler` | Bar numbers and ticks; optionally the loop strip with its brace, and a range strip (a clip's extent). Click moves the playhead (snapped, Alt for free); drag zooms vertically and scrolls horizontally. |
+| `model::BraceDrag`, `ClipLoopBrace` | A loop brace's gestures, pure and `[fast]`-tested: where a press falls (its edges, its body, an empty strip), the brace drawn, moved or resized (snapped, Alt for free), and what letting go does (set it, switching it on for one drawn new; a click toggles). The transport's brace in the arrangement and the clip views' (`ClipLoopBrace`: a clip's loop, or what it would loop while Loop is off, when a drag inside it draws a loop) (M3 C10). |
 | `GridPainter` | Bar, beat and subdivision lines in the grid roles, over any rectangle. |
 | `Playhead` | Draws the playhead line, and invalidates just its old and new strip each frame. |
 | `BoxSelection` | Draws the rubber band in the selection roles. |
