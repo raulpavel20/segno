@@ -141,6 +141,8 @@ public:
 private:
     /// A section's property rows (none for MIX and SENDS, which are components).
     [[nodiscard]] std::vector<ui::Property> properties(model::InspectorSection section) const;
+    /// The row with `key` in a section's properties (-1: none), where its control goes.
+    [[nodiscard]] int rowOf(model::InspectorSection section, std::string_view key) const;
 
     engine::Session& session_;
     ui::PanelHeader header_;
@@ -171,6 +173,11 @@ private:
     const ActionRegistry* actions_ = nullptr;
     /// The selected clip's mute (bounce.md §6), as on a track's mute button.
     ui::Toggle clipMute_{"M"};
+    /// Its loop (ADR 0048, clip-loops.md §7): on or off, and while on its start in the content and
+    /// its length, dragged in sixteenths or typed ("2.1.1", "1 bar 2 beats", for audio "1.5 s").
+    ui::Toggle clipLoop_{"On"};
+    ui::NumberField loopStart_, loopLength_;
+    std::optional<engine::Session::EditGroup> loopGesture_;
     /// Names typed and colours chosen (tracks-and-clips.md §4, §8): a track's or return's, a
     /// clip's (with its parts), a lane's colour. Each one undo step.
     juce::TextEditor channelName_, clipName_;

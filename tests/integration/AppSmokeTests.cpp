@@ -3176,6 +3176,107 @@ TEST_CASE("inspector: a clip's fade curves and the crossfades at its ends, set b
     root.deleteRecursively();
 }
 
+TEST_CASE("inspector: a clip's loop: on, its start and length dragged or typed; dimmed, saying why, where it can't (C10)",
+          "[integration]")
+{
+    ShellFixture f;
+    f.shell->setSize(1800, 1000);
+    auto& s = *f.session;
+    const auto root = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("fd-shell-" + juce::Uuid().toString());
+    REQUIRE(root.createDirectory());
+    s.setUnsavedRoot(root.getChildFile("Unsaved"));
+    s.updateSnapshotNow();
+    const auto t0 = s.snapshot()->tracks[0].id;
+    fd::testkit::AudioBuffer tone(2, 4 * 48000);
+    for (int c = 0; c < 2; ++c)
+        for (int i = 0; i < tone.numSamples(); ++i)
+            tone.at(c, i) = 0.5f * std::sin(static_cast<float>(i) * 0.02f);
+    const auto file = root.getChildFile("tone.wav");
+    REQUIRE(fd::testkit::writeWav(file.getFullPathName().toStdString(), tone, 48000.0));
+    const auto id = s.insertAudioFile(t0, file, 0.0);
+    s.applyClipEdits({{.clip = id, .track = t0, .start = 0.0, .length = 2.0, .offset = 0.0}});
+    s.updateSnapshotNow();
+    auto clip = [&] {
+        s.updateSnapshotNow();
+        return *fd::model::findClip(*s.snapshot(), id)->first;
+    };
+    auto& inspector = f.shell->inspector();
+    auto select = [&] {
+        f.shell->arrangement().setSelection(fd::model::withClips(*s.snapshot(), {id}, t0, t0));
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    };
+    auto loopToggle = [&]() -> fd::ui::Toggle* {
+        for (auto* t : findAll<fd::ui::Toggle>(inspector))
+            if (t->isVisible() && t->getButtonText() == "On")
+                return t;
+        return nullptr;
+    };
+    auto field = [&](const char* tip) -> fd::ui::NumberField* {
+        for (auto* n : findAll<fd::ui::NumberField>(inspector))
+            if (n->isVisible() && n->getTooltip().startsWith(tip))
+                return n;
+        return nullptr;
+    };
+    select();
+    REQUIRE(loopToggle() != nullptr);
+    CHECK_FALSE(loopToggle()->getToggleState());
+    CHECK(field("Where the loop starts") == nullptr); // no fields while it doesn't loop
+
+    // On: it loops what it shows, and the fields show its start and length in the content.
+    loopToggle()->triggerClick(); // a click arrives on the message thread
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    CHECK(s.undoDescription() == "Loop clips");
+    CHECK(clip().loop == fd::model::ClipLoop{0.0, 2.0});
+    select();
+    auto* start = field("Where the loop starts");
+    auto* length = field("The loop's length");
+    REQUIRE(start != nullptr);
+    REQUIRE(length != nullptr);
+    CHECK(loopToggle()->getToggleState());
+    CHECK(start->getValue() == Catch::Approx(0.0));
+    CHECK(length->getValue() == Catch::Approx(4.0)); // a bar at 120 BPM
+
+    // Typed: a length, a start, and seconds for audio.
+    REQUIRE(length->valueFromText("1 bar 2 beats"));
+    CHECK(*length->valueFromText("1 bar 2 beats") == Catch::Approx(6.0));
+    CHECK(*length->valueFromText("0.75 s") == Catch::Approx(1.5));
+    length->setValue(2.0, juce::sendNotificationSync);
+    CHECK(s.undoDescription() == "Loop");
+    CHECK(clip().loop.length == Catch::Approx(1.0));
+    select();
+    start = field("Where the loop starts");
+    REQUIRE(start != nullptr);
+    start->setValue(*start->valueFromText("1.2.1"), juce::sendNotificationSync); // one beat in
+    CHECK(clip().loop.start == Catch::Approx(0.5));
+    CHECK(clip().length == Catch::Approx(2.0)); // the clip stays as long as it was
+    select();
+    // Every control on the row grid, none touching another.
+    {
+        std::vector<juce::Rectangle<int>> placed;
+        for (auto* c : inspector.getChildren())
+            if (c->isVisible() && dynamic_cast<fd::ui::PanelHeader*>(c) == nullptr)
+            {
+                for (const auto& other : placed)
+                    CHECK_FALSE(other.intersects(c->getBounds()));
+                placed.push_back(c->getBounds());
+            }
+    }
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "inspector-loop@2x.png", inspector.createComponentSnapshot(inspector.getLocalBounds(), true, 2.0f));
+
+    // Off again; then a clip stretched to the tempo (a project from before) can't loop: dimmed, saying why.
+    loopToggle()->triggerClick();
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    CHECK_FALSE(clip().loop.on());
+    dynamic_cast<tracktion::AudioClipBase&>(*s.impl().clip(id)).setAutoTempo(true);
+    s.updateSnapshotNow();
+    select();
+    REQUIRE(loopToggle() != nullptr);
+    CHECK_FALSE(loopToggle()->isEnabled());
+    CHECK(loopToggle()->getTooltip().contains("tempo"));
+    root.deleteRecursively();
+}
+
 TEST_CASE("snap and quantise where they're used; the take's commands in its inspector (C10 review)", "[integration]")
 {
     ShellFixture f;

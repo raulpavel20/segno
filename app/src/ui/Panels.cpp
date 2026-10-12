@@ -1,6 +1,8 @@
 #include "ui/Panels.h"
 
+#include "model/ClipLoops.h"
 #include "model/FadeEditing.h"
+#include "model/MusicalTime.h"
 #include "model/Takes.h"
 #include "model/TopBarLayout.h"
 #include "ui/GridMenu.h"
@@ -631,6 +633,44 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
             session_.setClipsMuted({clip_->id}, !clip_->muted);
     };
     addChildComponent(clipMute_);
+    // Its loop (clip-loops.md §7): on loops what it shows; the fields set the loop, in the content.
+    clipLoop_.onClick = [this] {
+        if (clip_)
+            session_.setClipsLooping({clip_->id}, !clip_->loop.on());
+    };
+    addChildComponent(clipLoop_);
+    for (auto* field : {&loopStart_, &loopLength_})
+    {
+        const bool start = field == &loopStart_;
+        field->setFontSize(ui::Theme::current().textXs);
+        field->setDragSensitivity(0.25); // a sixteenth a pixel
+        field->setTooltip(start ? "Where the loop starts in the clip's content: drag, or type \"2.1.1\""
+                                : "The loop's length: drag, or type \"1 bar\", \"6 beats\" (audio also \"1.5 s\")");
+        field->textFromValue = [this, start](double beats) {
+            return juce::String(start ? model::positionText(beats, tempo_) : model::lengthText(beats, tempo_));
+        };
+        field->valueFromText = [this, start](const juce::String& text) -> std::optional<double> {
+            const auto t = text.trim().toLowerCase();
+            // Seconds, for audio ("1.5 s", "750 ms").
+            if (clip_ && clip_->kind == model::ClipInfo::Kind::Audio && t.endsWith("s") && !t.endsWith("beats") && !t.endsWith("bars"))
+            {
+                const auto n = t.trimCharactersAtEnd("ms ").trim();
+                if (n.isNotEmpty() && n.containsOnly("0123456789."))
+                    return tempo_.beatsForSeconds(n.getDoubleValue() / (t.endsWith("ms") ? 1000.0 : 1.0));
+            }
+            return start ? model::positionFromText(t.toStdString(), tempo_) : model::lengthFromText(t.toStdString(), tempo_);
+        };
+        field->onGestureStart = [this] { loopGesture_.emplace(session_, "Loop"); };
+        field->onGestureEnd = [this] { loopGesture_.reset(); };
+        field->onValueChange = [this, start](double beats) {
+            if (!clip_ || !clip_->loop.on())
+                return;
+            auto loop = clip_->loop;
+            (start ? loop.start : loop.length) = tempo_.secondsForBeats(beats);
+            session_.setClipLoop(clip_->id, loop);
+        };
+        addChildComponent(*field);
+    }
 }
 
 void InspectorPanel::setContext(const model::PanelContext& context, const model::TempoMap& tempo,
@@ -683,6 +723,30 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
     if (lane_)
         laneColour_.setColour(lane_->colour);
     clipMute_.setToggleState(clip_ && clip_->muted, juce::dontSendNotification);
+    // Its loop: the toggle (dimmed, saying why, where it can't loop), the fields while it loops.
+    const bool clipSection = has(model::InspectorSection::Clip) && clip_.has_value();
+    clipLoop_.setVisible(clipSection);
+    clipLoop_.setToggleState(clip_ && clip_->loop.on(), juce::dontSendNotification);
+    const auto why = clipSection && channel_ && !clip_->loop.on() ? model::whyCantLoop(*clip_, *channel_) : std::string();
+    clipLoop_.setEnabled(why.empty());
+    clipLoop_.setTooltip(why.empty() ? juce::String("Loop the clip: it plays this stretch of its content again and again, and its "
+                                                    "edges go as far as you drag them (Clip > Loop clips)")
+                                     : juce::String::fromUTF8(why.c_str()));
+    const bool looping = clipSection && clip_->loop.on();
+    loopStart_.setVisible(looping);
+    loopLength_.setVisible(looping);
+    if (looping && !loopGesture_)
+    {
+        // In beats of the content; an audio loop stays inside its file.
+        const bool audioLoop = clip_->kind == model::ClipInfo::Kind::Audio && clip_->sourceLength > 0.0;
+        constexpr double kLongest = 4096.0; // beats: far longer than any MIDI loop
+        const double fileBeats = audioLoop ? tempo_.beatsForSeconds(clip_->sourceLength) : kLongest;
+        const double shortest = tempo_.beatsForSeconds(model::minClipLength);
+        loopStart_.setRange(0.0, std::max(0.0, fileBeats - shortest), 0.25);
+        loopLength_.setRange(0.25, std::max(0.25, fileBeats - tempo_.beatsForSeconds(clip_->loop.start)), 0.25);
+        loopStart_.setValue(tempo_.beatsForSeconds(clip_->loop.start), juce::dontSendNotification);
+        loopLength_.setValue(tempo_.beatsForSeconds(clip_->loop.length), juce::dontSendNotification);
+    }
     const bool audio = has(model::InspectorSection::Clip) && clip_ && clip_->kind == model::ClipInfo::Kind::Audio;
     for (auto* field : {&fadeIn_, &fadeOut_})
     {
@@ -879,26 +943,33 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
     {
         if (!clip_)
             return {};
-        std::vector<ui::Property> rows{{"Name", {}},   // the field
-                                       {"Colour", {}}, // the swatch
+        // Offset: where in its content it starts (inside the loop while it loops).
+        std::vector<ui::Property> rows{{"Name", {}, false, "name"},
+                                       {"Colour", {}, false, "colour"},
                                        {"Start", position(clip_->start), true},
                                        {"Length", juce::String(clip_->length, 3) + " s", true},
-                                       {"Offset", juce::String(clip_->offset, 3) + " s", true},
-                                       {"Mute", {}}}; // the toggle
+                                       {"Offset", juce::String(model::contentAt(*clip_, clip_->start), 3) + " s", true},
+                                       {"Loop", {}, false, "loop"}};
+        if (clip_->loop.on()) // its loop (clip-loops.md §7): the fields
+        {
+            rows.push_back({"Loop start", {}, false, "loopStart"});
+            rows.push_back({"Loop length", {}, false, "loopLength"});
+        }
+        rows.push_back({"Mute", {}, false, "mute"});
         if (clip_->kind == model::ClipInfo::Kind::Audio) // its fades (fades.md §3): the fields
         {
-            rows.push_back({"Fade in", {}});
-            rows.push_back({"Fade out", {}});
+            rows.push_back({"Fade in", {}, false, "fadeIn"});
+            rows.push_back({"Fade out", {}, false, "fadeOut"});
         }
         if (crossIn_) // the crossfades at its ends: their choices (menu-bar.md §15)
         {
-            rows.push_back({"Xfade in", {}});
-            rows.push_back({"Position", {}});
+            rows.push_back({"Xfade in", {}, false, "crossInShape"});
+            rows.push_back({"Position", {}, false, "crossInPlace"});
         }
         if (crossOut_)
         {
-            rows.push_back({"Xfade out", {}});
-            rows.push_back({"Position", {}});
+            rows.push_back({"Xfade out", {}, false, "crossOutShape"});
+            rows.push_back({"Position", {}, false, "crossOutPlace"});
         }
         return rows;
     }
@@ -920,6 +991,15 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
     case S::Assignments: break; // components
     }
     return {};
+}
+
+int InspectorPanel::rowOf(model::InspectorSection section, std::string_view key) const
+{
+    const auto rows = properties(section);
+    for (size_t i = 0; i < rows.size(); ++i)
+        if (rows[i].key != nullptr && key == rows[i].key)
+            return static_cast<int>(i);
+    return -1;
 }
 
 void InspectorPanel::resized()
@@ -983,32 +1063,34 @@ void InspectorPanel::resized()
             moveTake_.setBounds(commands.removeFromLeft(ui::Toggle::widthFor(moveTake_.getButtonText())));
             keepTake_.setBounds(row(6).reduced(0, t.shell.propertyFieldInset).withWidth(ui::Toggle::widthFor(keepTake_.getButtonText())));
         }
-        else if (sections_[i] == S::Clip) // Name, Colour, Mute, the fades and crossfades
+        else if (sections_[i] == S::Clip) // Name, Colour, Loop, Mute, the fades and crossfades: by row
         {
             const auto content = stack_.content(i).withTrimmedLeft(t.shell.propertyLabelWidth);
-            clipName_.setBounds(content.withHeight(t.shell.rowHeight).reduced(0, t.shell.propertyFieldInset));
-            clipColour_.setBounds(content.withY(content.getY() + t.shell.rowHeight).withHeight(t.shell.rowHeight));
-            clipMute_.setBounds(content.withY(content.getY() + 5 * t.shell.rowHeight)
-                                    .withHeight(t.shell.rowHeight)
-                                    .withWidth(ui::Toggle::widthFor(clipMute_.getButtonText()))
-                                    .reduced(0, t.shell.propertyFieldInset));
-            auto row = [&](int n) { return content.withY(content.getY() + n * t.shell.rowHeight).withHeight(t.shell.rowHeight); };
+            const auto row = [&](const char* key) {
+                const int n = rowOf(S::Clip, key);
+                return n < 0 ? juce::Rectangle<int>() : content.withY(content.getY() + n * t.shell.rowHeight).withHeight(t.shell.rowHeight);
+            };
+            const auto toggle = [&](ui::Toggle& b, const char* key) {
+                b.setBounds(row(key).withWidth(ui::Toggle::widthFor(b.getButtonText())).reduced(0, t.shell.propertyFieldInset));
+            };
+            clipName_.setBounds(row("name").reduced(0, t.shell.propertyFieldInset));
+            clipColour_.setBounds(row("colour"));
+            toggle(clipLoop_, "loop");
+            toggle(clipMute_, "mute");
+            loopStart_.setBounds(row("loopStart"));
+            loopLength_.setBounds(row("loopLength"));
             // A fade's length, then its curve, halves of the value column.
             const int half = (content.getWidth() - t.shell.itemGap) / 2;
-            for (const auto& [length, curve, n] : {std::tuple{&fadeIn_, &fadeInCurve_, 6}, std::tuple{&fadeOut_, &fadeOutCurve_, 7}})
+            for (const auto& [length, curve, key] : {std::tuple{&fadeIn_, &fadeInCurve_, "fadeIn"}, std::tuple{&fadeOut_, &fadeOutCurve_, "fadeOut"}})
             {
-                length->setBounds(row(n).withWidth(half));
-                curve->setBounds(row(n).withTrimmedLeft(half + t.shell.itemGap));
+                length->setBounds(row(key).withWidth(half));
+                curve->setBounds(row(key).withTrimmedLeft(half + t.shell.itemGap));
             }
             // Each crossfade's shape, then where it sits.
-            int n = 8;
-            for (const auto& [join, shape, place] : {std::tuple{&crossIn_, &crossInShape_, &crossInPlace_},
-                                                    std::tuple{&crossOut_, &crossOutShape_, &crossOutPlace_}})
-                if (join->has_value())
-                {
-                    shape->setBounds(row(n++).reduced(0, t.shell.propertyFieldInset));
-                    place->setBounds(row(n++).reduced(0, t.shell.propertyFieldInset));
-                }
+            crossInShape_.setBounds(row("crossInShape").reduced(0, t.shell.propertyFieldInset));
+            crossInPlace_.setBounds(row("crossInPlace").reduced(0, t.shell.propertyFieldInset));
+            crossOutShape_.setBounds(row("crossOutShape").reduced(0, t.shell.propertyFieldInset));
+            crossOutPlace_.setBounds(row("crossOutPlace").reduced(0, t.shell.propertyFieldInset));
         }
         else if (sections_[i] == S::Point) // the Value row
             pointValue_.setBounds(stack_.content(i)
