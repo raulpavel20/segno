@@ -1,6 +1,6 @@
 # Reverb: device spec
 
-- **Status:** Approved by the product owner (2026-10-12, with every recommendation of R1–R12); IDs are permanent. Core built (B5, 2026-10-12): what building settled is under "Settled while building". Awaiting sign-off by ear and feel
+- **Status:** Approved by the product owner (2026-10-12, with every recommendation of R1–R12); IDs are permanent. Core built (B5, 2026-10-12): what building settled is under "Settled while building". Core done: signed off by the product owner (2026-10-12); stage 2 (convolution) in M6
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1. Core in M3 (B5); stage 2 in M6
 - **Live target:** Reverb, and Hybrid Reverb's algorithmic engine (its convolution engine is stage 2). References only; nothing is copied ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)). Benchmarked against the best algorithmic reverbs ([ADR 0010](../../docs/decisions/0010-live-is-the-floor-not-the-ceiling.md)).
@@ -194,8 +194,8 @@ Deferred until a Live machine is available.
 
 ## Sign-off
 
-- [x] Automated: unit, conformance and golden tests; validators (pluginval at strictness 10 and clap-validator)
+- [x] Automated: unit, conformance and golden tests; validators (pluginval at strictness 10 and clap-validator pass; 2026-10-12)
 - [x] Layout lint passes (`fd_panel_tests`)
 - [x] Snapshots reviewed (100% / 200%; expanded, collapsed, folded; every factory preset at 200 %, with `fd-snapshot --presets reverb`)
-- [ ] Sound signed off by the product owner, with the factory presets
-- [ ] Feel signed off by the product owner
+- [x] Sound signed off by the product owner (2026-10-12), with the 16 factory presets
+- [x] Feel signed off by the product owner (2026-10-12)
