@@ -1,6 +1,6 @@
 # Integration tests: devices inside tracktion_engine (JUCE line, needs FD_BUILD_APP).
 fd_add_test(NAME fd_integration_tests
-    SOURCES EngineNullTests.cpp AppSmokeTests.cpp SessionTests.cpp MixerTests.cpp AutomationEngineTests.cpp RecordingTests.cpp TakeStackTests.cpp BounceTests.cpp FadeTests.cpp ArrangementBenchmark.cpp WaveformTilesTests.cpp CrossfadeSumsTests.cpp ExportTests.cpp TrackEditTests.cpp NoteContinuityTests.cpp PresetTests.cpp SettingsPageTests.cpp BrowserEngineTests.cpp BrowserPanelTests.cpp
+    SOURCES EngineNullTests.cpp AppSmokeTests.cpp SessionTests.cpp MixerTests.cpp AutomationEngineTests.cpp RecordingTests.cpp TakeStackTests.cpp BounceTests.cpp FadeTests.cpp ArrangementBenchmark.cpp WaveformTilesTests.cpp CrossfadeSumsTests.cpp ExportTests.cpp TrackEditTests.cpp NoteContinuityTests.cpp PresetTests.cpp SettingsPageTests.cpp BrowserEngineTests.cpp BrowserPanelTests.cpp ClipLoopEngineTests.cpp
         McpToolTests.cpp
     LIBS fd_app_ui fd::testkit_device fd_dep_httplib juce::juce_recommended_config_flags
     JUCE)
