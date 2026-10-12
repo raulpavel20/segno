@@ -1,6 +1,6 @@
 # Chorus: device spec
 
-- **Status:** Draft, for the product owner's review (2026-10-12). Nothing is built until it's approved; the IDs become permanent then.
+- **Status:** Approved by the product owner (2026-10-12, with every recommendation of C1–C11); IDs are permanent. Building (B2)
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1, M3 (B2)
 - **Live target:** Chorus-Ensemble. References only; nothing is copied ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).

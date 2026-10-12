@@ -31,6 +31,7 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 | Limiter | `limiter` | `Flim` | `org.segnoaudio.limiter` | M2 (approved 2026-10-09) |
 | Spectrum | `spectrum` | `Fspc` | `org.segnoaudio.spectrum` | M2 (approved 2026-10-11) |
 | Delay | `delay` | `Fdly` | `org.segnoaudio.delay` | M3 (approved 2026-10-12) |
+| Chorus | `chorus` | `Fchr` | `org.segnoaudio.chorus` | M3 (approved 2026-10-12) |
 
 **Rules:**
 - The device ID is kebab-case and describes the function. It is used in state JSON, the registry, CLAP and LV2 IDs, and file names.
