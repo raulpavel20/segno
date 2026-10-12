@@ -1,6 +1,6 @@
 # 0048. Clips loop: a loop in the clip, extended in the arrangement, set in the clip view
 
-- **Status:** Proposed
+- **Status:** Accepted (product owner, 2026-10-12)
 - **Date:** 2026-10-12
 - **Builds on:** [0019](0019-one-kind-of-track.md) (clips never overlap), [0032](0032-takes-belong-to-clips.md) (takes belong to clips), [0036](0036-crossfades-at-the-boundary.md) (crossfades at the boundary, edge fades), [0040](0040-a-menu-bar-and-everything-by-mouse.md) (the menu bar, everything by mouse), [0047](0047-the-editing-grid-in-each-editor.md) (each editor's grid), [0021](0021-mcp-server.md) (assistants)
 - **Amends:** [daw-shell.md](../design/daw-shell.md) "Clip editing (C4)" ("trims stay within the source file": not for a looped clip); [fades.md](../design/fades.md) §2 (a loop's seams are edges)

@@ -8,7 +8,7 @@ How a clip repeats: a **Loop** switch on every clip, a **loop** inside its conte
 - the menu bar as the complete list ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md), [menu-bar.md](menu-bar.md) §15) and assistants' tools ([ADR 0021](../decisions/0021-mcp-server.md), [mcp.md](mcp.md));
 - the clip editing of [daw-shell.md](daw-shell.md) ("Clip editing (C4)", "Piano roll").
 
-**Status:** proposed, for the product owner's review (2026-10-12). The questions and recommendations are in §14. The product owner has already chosen one: audio clips get a clip view of their own, with the same loop brace as the piano roll (L16).
+**Status:** approved by the product owner (2026-10-12), with every recommendation of §14; the product owner chose the audio clip view (L16). Building.
 
 ## 1. Why
 
@@ -295,7 +295,7 @@ The CLIP section gains three rows, after Offset:
 | L16 | **An audio clip view** | **Chosen by the product owner (2026-10-12):** yes. The file's waveform with the same ruler, brace and playhead as the piano roll, editing nothing else yet (§6) |
 | L17 | **The tools** | `loop_clips(clips, loop?, start?, length?)` beside `mute_clips`. `loop` in clip results. `trim_clip` past the file for looped clips (§11) |
 
-## 15. ADR 0048: Clips loop (proposed)
+## 15. ADR 0048: Clips loop
 
 [ADR 0048](../decisions/0048-clips-loop.md):
 - Any clip can loop a part of its content: a start and a length, with Loop on or off.

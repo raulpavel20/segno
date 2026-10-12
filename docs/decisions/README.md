@@ -56,7 +56,7 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0045](0045-settings-are-one-page.md) | Settings are one searchable page in the centre of the window, applied as you change them, kept per user in one `settings.json`; shortcuts remappable there; JACK on in Linux builds | Accepted |
 | [0046](0046-one-browser-modules-are-folders.md) | One browser on the left with one search over modules, presets, plugins and files; modules are folders of their presets; previews in time; files browsed where they are and gathered by Collect files and save | Accepted |
 | [0047](0047-the-editing-grid-in-each-editor.md) | The arrangement and the piano roll each have their own grid: zoom-adaptive at a width (Narrowest … Widest) or a fixed value, triplets, snap; shown on each editor, Ctrl+1 to Ctrl+5 for the editor used last | Accepted |
-| [0048](0048-clips-loop.md) | Any clip can loop a part of its content: edges go as far as dragged with every repeat notched, notches change the loop's length, the clip view's brace sets its start and end (piano roll and a new audio clip view); seams follow the edge-fade rule | Proposed |
+| [0048](0048-clips-loop.md) | Any clip can loop a part of its content: edges go as far as dragged with every repeat notched, notches change the loop's length, the clip view's brace sets its start and end (piano roll and a new audio clip view); seams follow the edge-fade rule | Accepted |
 
 ## Template
 
