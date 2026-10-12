@@ -7,6 +7,7 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <cmath>
 
 using Catch::Approx;
@@ -238,6 +239,43 @@ TEST_CASE("recording: while looping only the brace records, after a lead-in; set
     r.session->setCountIn(fd::model::CountIn::Off);
     r.session->setMidiOverdub(true);
     CHECK(r.session->midiOverdub());
+}
+
+TEST_CASE("live: reordering modules is heard at once, and on undo", "[integration]")
+{
+    // The product owner's report: a module dragged to a new place in the chain changed the panels,
+    // but the sound only after something else rebuilt the graph (clicking another track).
+    Recording r;
+    r.input = sine; // 0.5 peak
+    const auto t = r.track(0);
+    r.session->setAudioInput(t, r.session->audioInputs().front().id);
+    r.session->setMonitor(t, fd::model::Monitor::In);
+    // Utility +30 dB into the Limiter (its ceiling −0.3 dB): loud, but held under the ceiling.
+    const auto utility = r.session->addDevice(t, "fd:utility");
+    const auto limiter = r.session->addDevice(t, "fd:limiter");
+    REQUIRE(utility != 0);
+    REQUIRE(limiter != 0);
+    {
+        auto handle = r.session->openDevice(utility);
+        REQUIRE(handle != nullptr);
+        const auto& params = handle->context().info.params;
+        const auto gain = static_cast<size_t>(std::distance(
+            params.begin(), std::find_if(params.begin(), params.end(), [](const auto& p) { return p.id == "gain"; })));
+        REQUIRE(gain < params.size());
+        handle->context().params.setPlain(gain, 30.0f);
+    }
+    r.pump(0.5);
+    CHECK(r.outputLevel() < 1.2f);
+
+    // The Limiter first: the Utility raises what it let through, nothing else touched.
+    r.session->moveDevice(limiter, 0);
+    r.pump(0.5);
+    CHECK(r.outputLevel() > 5.0f);
+
+    // Undone: held under the ceiling again.
+    r.session->undo();
+    r.pump(0.5);
+    CHECK(r.outputLevel() < 1.2f);
 }
 
 TEST_CASE("recording: the recording offset moves recordings earlier", "[integration]")

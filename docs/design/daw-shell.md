@@ -246,6 +246,7 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 - **Editing:** each edit is one undo step.
   - Add with the + button: our instruments and effects, then a Plugins submenu grouped by manufacturer, with "Scan for plugins" at its end.
   - Reorder by dragging a module's header background or its folded strip (a marker shows where it lands). Controls in the header (fold, power, settings) never start a drag.
+  - A new order is heard at once, while the song plays, and on undo: the engine rebuilds its graph for a module moved in its chain (or a send moved before or after the fader), as it does for one added or removed (fixed 2026-10-12; it had waited for an unrelated rebuild).
   - Bypass with the power toggle.
   - **Fold** a module to a 28 px strip with the chevron in its header; collapse a section by clicking its title ([device-panels.md](device-panels.md)). Both are stored per module in the project (`fdPanel`), never as undo steps or unsaved changes.
   - Click a header to select a device; Delete removes it when the chain was the last area clicked (otherwise Delete applies to clips).

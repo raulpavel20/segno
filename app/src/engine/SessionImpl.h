@@ -533,7 +533,13 @@ private:
         restartPending = restartPending || child.hasType(te::IDs::AUTOMATIONCURVE);
         structureChanged(t);
     }
-    void valueTreeChildOrderChanged(juce::ValueTree& t, int, int) override { structureChanged(t); }
+    void valueTreeChildOrderChanged(juce::ValueTree& t, int, int newIndex) override
+    {
+        // A module or a send moved in its chain: the engine rebuilds its graph only for one added or
+        // removed, so the new order would be heard only after something else rebuilt it.
+        restartPending = restartPending || t.getChild(newIndex).hasType(te::IDs::PLUGIN);
+        structureChanged(t);
+    }
     void deviceStateChanged(const juce::ValueTree& plugin)
     {
         const auto id = te::EditItemID::fromID(plugin).getRawID();
