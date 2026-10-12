@@ -299,6 +299,25 @@ void drawIcon(juce::Graphics& g, Icon icon, juce::Rectangle<float> area, juce::C
                                                           juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 }
 
+juce::MouseCursor cursorFor(Icon icon)
+{
+    // The icon on its 16 px grid with a pixel of room for the outline, drawn at twice the size so
+    // it's sharp on a 2x screen.
+    constexpr int grid = 16, room = 2, scale = 2;
+    constexpr int size = grid + 2 * room;
+    const auto& t = Theme::current();
+    juce::Image image(juce::Image::ARGB, size * scale, size * scale, true);
+    {
+        juce::Graphics g(image);
+        g.addTransform(juce::AffineTransform::scale(static_cast<float>(scale)));
+        const auto area = juce::Rectangle<float>(static_cast<float>(room), static_cast<float>(room), grid, grid);
+        for (const auto& [dx, dy] : {std::pair{-1.0f, 0.0f}, {1.0f, 0.0f}, {0.0f, -1.0f}, {0.0f, 1.0f}})
+            drawIcon(g, icon, area.translated(dx, dy), t.surface0);
+        drawIcon(g, icon, area, t.textPrimary);
+    }
+    return juce::MouseCursor(juce::ScaledImage(image, scale), {size / 2, size / 2});
+}
+
 IconButton::IconButton(Icon icon, const juce::String& name) : juce::Button(name), icon_(icon) {}
 
 void IconButton::setIcon(Icon icon)

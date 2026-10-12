@@ -269,6 +269,7 @@ private:
     struct ClipLook
     {
         bool selected = false, dimmed = false, outline = true, seam = false;
+        std::optional<juce::Rectangle<float>> badge; // its clip's takes badge: the loop mark goes left of it
     };
     /// A clip: its body, title, contents and fades, as `look` says.
     void paintClip(juce::Graphics& g, const model::ClipInfo& clip, float y, float h, juce::Rectangle<int> visible, ClipLook look);
@@ -354,6 +355,17 @@ private:
     };
     /// What a fade gesture is changing, for its value tag ("Fade in 120 ms").
     [[nodiscard]] juce::String fadeDragText() const;
+    /// A gesture on a clip of its own for loops (ADR 0048, clip-loops.md §5): a seam's notch (the
+    /// loop's length) or the upper part of a right edge (loop the clip as it is, then extend it).
+    struct LoopGesture
+    {
+        std::uint64_t clip = 0;
+        model::DragKind kind = model::DragKind::LoopLength;
+        int seam = 0;
+    };
+    [[nodiscard]] std::optional<LoopGesture> loopGestureAt(juce::Point<float> pos, const model::ClipHit& hit) const;
+    /// What a clip drag makes of a looped clip: "4 bars · 4 loops", "Loop 1 bar"; empty otherwise.
+    [[nodiscard]] juce::String clipDragText() const;
     CrossfadeSums sums_; // what crossfades play, drawn across them
     /// The track as it's drawn: with a fade gesture's preview, if one is on it.
     [[nodiscard]] const model::TrackInfo& shownTrack(const model::TrackInfo& track) const;
@@ -498,6 +510,8 @@ private:
     juce::Point<float> lastDrag_, dragStart_;
     time::RulerGesture rulerGesture_;
     model::Drag clipDrag_;
+    juce::MouseCursor loopCursor_; // looping a clip by its edge (ui::cursorFor)
+    juce::Point<float> hover_;     // where the pointer last moved over the view (tooltips)
     int dragStartTrack_ = 0;
     bool dragMoved_ = false;
     std::vector<model::ClipEdit> preview_; // where dragged clips will land

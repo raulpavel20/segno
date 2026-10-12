@@ -11,7 +11,7 @@ add_library(fd_app_model STATIC src/model/Timeline.cpp src/model/Grid.cpp src/mo
     src/model/TrackHeaderLayout.cpp src/model/AudioMeasure.cpp src/model/Taper.cpp src/model/ChannelStripLayout.cpp src/model/Selection.cpp
     src/model/Automation.cpp src/model/ArrangementRows.cpp src/model/Snapshot.cpp src/model/Recording.cpp src/model/Takes.cpp
     src/model/TopBarLayout.cpp src/model/StackEdits.cpp src/model/Capture.cpp src/model/Bounce.cpp src/model/Fades.cpp src/model/FadeEditing.cpp src/model/Export.cpp
-    src/model/MenuBar.cpp src/model/AppSettings.cpp src/model/SettingsCatalogue.cpp src/model/Browser.cpp src/model/TrackEdits.cpp src/model/ClipLoops.cpp)
+    src/model/MenuBar.cpp src/model/AppSettings.cpp src/model/SettingsCatalogue.cpp src/model/Browser.cpp src/model/TrackEdits.cpp src/model/ClipLoops.cpp src/model/MusicalTime.cpp)
 target_include_directories(fd_app_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(fd_app_model PUBLIC fd::audiofile nlohmann_json::nlohmann_json PRIVATE fd::dsp fd::warnings)
 

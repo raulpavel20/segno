@@ -1,6 +1,7 @@
 #include "ui/ArrangementView.h"
 
 #include "model/ClipLoops.h"
+#include "model/MusicalTime.h"
 #include "model/Takes.h"
 #include "model/TrackHeaderLayout.h"
 #include "ui/BrowserDrops.h"
@@ -43,7 +44,7 @@ ArrangementView::HeaderControls::HeaderControls(engine::Session& session, const 
     pan.setName({});
 }
 
-ArrangementView::ArrangementView(engine::Session& session) : session_(session)
+ArrangementView::ArrangementView(engine::Session& session) : session_(session), loopCursor_(ui::cursorFor(ui::Icon::Loop))
 {
     headerLayer_.setInterceptsMouseClicks(false, true); // the header's background still selects
     addAndMakeVisible(headerLayer_);
@@ -605,6 +606,8 @@ void ArrangementView::paint(juce::Graphics& g)
     paintLanes(g);
     if (fadeDrag_ && fadeDrag_->edit) // what a fade gesture is changing (fades.md §3)
         ui::paintValueTag(g, fadeDrag_->pointer, laneArea(), fadeDragText());
+    if (const auto text = clipDragText(); text.isNotEmpty()) // what a drag makes of a loop (clip-loops.md §5)
+        ui::paintValueTag(g, lastDrag_, laneArea(), text);
     paintHeaders(g);
     paintRuler(g);
 
@@ -1028,9 +1031,15 @@ void ArrangementView::paintGroup(juce::Graphics& g, const model::ClipGroup& grou
     const bool seam = seamAfter(track, group.end(), group.parts.front()->stack);
     // While one of its takes is auditioned, the clip isn't what you hear (ADR 0038): dimmed.
     const bool auditioned = group.stack != nullptr && track.audition != 0 && group.stack->take(track.audition) != nullptr;
+    // A one-part clip's badge: its loop mark goes left of it.
+    const auto ownBadge = group.parts.size() == 1 ? badgeOf(group, track, groupBox(group, track, y, h)) : std::nullopt;
     for (const auto* part : group.parts) // lighter together; one outline, at the end; a seam after the last
         paintClip(g, *part, y, h, visible,
-                  {.selected = selected, .dimmed = auditioned, .outline = false, .seam = seam && part == group.parts.back()});
+                  {.selected = selected,
+                   .dimmed = auditioned,
+                   .outline = false,
+                   .seam = seam && part == group.parts.back(),
+                   .badge = ownBadge ? std::optional(ownBadge->second) : std::nullopt});
     if (group.end() < timeline_.start() || group.start() > timeline_.end())
         return;
     const auto box = groupBox(group, track, y, h);
@@ -1069,18 +1078,6 @@ void ArrangementView::paintGroup(juce::Graphics& g, const model::ClipGroup& grou
             g.setFont(ui::font(ui::TextStyle::Control));
             g.drawText(juce::String(b.text), r.withTrimmedRight(static_cast<float>(t.shell.itemGap)), juce::Justification::centredRight,
                        false);
-        }
-    }
-    // The loop mark (ADR 0048): this clip plays its loop again and again, before the badge.
-    if (group.parts.size() == 1 && group.parts.front()->loop.on())
-    {
-        const auto badge = badgeOf(group, track, box);
-        if (const auto mark = loopMarkOf(box, badge ? std::optional(badge->second) : std::nullopt))
-        {
-            g.setColour(colour); // over the end of the clip's name
-            g.fillRect(*mark);
-            const float size = mark->getHeight() - inset;
-            ui::drawIcon(g, ui::Icon::Loop, mark->withSizeKeepingCentre(size, size), t.surface0);
         }
     }
     if (const auto progress = bounceProgress(group.parts.front()->id))
@@ -1311,6 +1308,19 @@ juce::String ArrangementView::getTooltip()
 {
     if (cancelAt(getMouseXYRelative().toFloat()))
         return cancelTooltip;
+    if (snapshot_ != nullptr && laneArea().contains(hover_.toInt()))
+    {
+        const auto lanes = laneArea();
+        const auto pos = hover_;
+        std::vector<int> rowTracks;
+        for (const auto& r : rows_)
+            rowTracks.push_back(r.holdsClips() ? r.track : -1);
+        if (const auto hit = model::hitClip(*snapshot_, layout_, rowTracks, timeline_, pos.x - static_cast<float>(lanes.getX()),
+                                            pos.y - static_cast<float>(lanes.getY()), ui::Theme::current().input.edgeGrab))
+            if (const auto loop = loopGestureAt(pos, *hit))
+                return loop->kind == model::DragKind::LoopLength ? "Drag to change the loop's length"
+                                                                  : "Drag to loop the clip";
+    }
     const auto button = auditionButtonAt(getMouseXYRelative().toFloat());
     if (!button)
         return {};
@@ -1452,11 +1462,69 @@ void ArrangementView::paintClip(juce::Graphics& g, const model::ClipInfo& clip, 
     if (titleShowsText(title))
         paintTitleText(g, title, clip.name, clip.muted);
     paintSeams(g, clip, box, colour);
+    // The loop mark (ADR 0048): it plays its loop again and again; before its badge, if any.
+    if (const auto mark = clip.loop.on() ? loopMarkOf(box, look.badge) : std::nullopt)
+    {
+        g.setColour(colour); // over the end of the clip's name
+        g.fillRect(*mark);
+        const float size = mark->getHeight() - static_cast<float>(t.shell.clipTextInset);
+        ui::drawIcon(g, ui::Icon::Loop, mark->withSizeKeepingCentre(size, size), t.surface0);
+    }
     if (selected && look.outline)
     {
         g.setColour(t.textPrimary);
         g.drawRect(box, static_cast<float>(t.shell.clipOutline));
     }
+}
+
+std::optional<ArrangementView::LoopGesture> ArrangementView::loopGestureAt(juce::Point<float> pos, const model::ClipHit& hit) const
+{
+    const auto found = model::findClip(*snapshot_, hit.clip);
+    const int row = found ? model::rowOfTrack(rows_, found->second) : -1;
+    if (!found || row < 0)
+        return std::nullopt;
+    const auto& clip = *found->first;
+    const auto lanes = laneArea();
+    const auto box = clipBox(clip.start, clip.end(), static_cast<float>(lanes.getY() + layout_.top(row)),
+                             static_cast<float>(layout_.baseHeight(row)));
+    const auto title = titleOf(box);
+    // A notch: in the title strip, where it's drawn.
+    if (clip.loop.on() && pos.y < title.getBottom())
+    {
+        const double at = timeline_.timeForX(pos.x - static_cast<float>(lanes.getX()));
+        if (const auto seam = model::seamAt(clip, at, ui::Theme::current().input.edgeGrab / timeline_.pixelsPerSecond()))
+            return LoopGesture{.clip = clip.id, .kind = model::DragKind::LoopLength, .seam = seam->number};
+    }
+    // The upper part of the right edge of a clip that could loop: the title strip or the edge's
+    // upper half, whichever is taller.
+    if (hit.zone == model::ClipHit::Zone::EndEdge && !clip.loop.on() && pos.y < std::max(title.getBottom(), box.getCentreY()) &&
+        model::whyCantLoop(clip, snapshot_->tracks[static_cast<size_t>(found->second)]).empty())
+        return LoopGesture{.clip = clip.id, .kind = model::DragKind::LoopExtend};
+    return std::nullopt;
+}
+
+juce::String ArrangementView::clipDragText() const
+{
+    if (drag_ != Drag::Clip || !dragMoved_ || clipDrag_.kind == model::DragKind::Move)
+        return {};
+    const auto edit = std::find_if(preview_.begin(), preview_.end(), [&](const auto& e) { return e.clip == clipDrag_.anchor; });
+    const auto found = model::findClip(*snapshot_, clipDrag_.anchor);
+    if (edit == preview_.end() || !found)
+        return {};
+    auto clip = *found->first;
+    clip.start = edit->start;
+    clip.length = edit->length;
+    clip.offset = edit->offset;
+    if (edit->loop)
+        clip.loop = *edit->loop;
+    if (!clip.loop.on())
+        return {};
+    const auto& tempo = snapshot_->tempo;
+    const auto length = [&](double seconds) { return juce::String(model::lengthText(tempo.beatsForSeconds(seconds), tempo)); };
+    if (clipDrag_.kind == model::DragKind::LoopLength)
+        return "Loop " + length(clip.loop.length);
+    const int laps = model::lapCount(clip);
+    return length(clip.length) + juce::String::fromUTF8(" \xc2\xb7 ") + juce::String(laps) + (laps == 1 ? " loop" : " loops");
 }
 
 void ArrangementView::forEachLap(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body,
@@ -1602,7 +1670,8 @@ std::function<double(double)> ArrangementView::snapFunction(bool bypass) const
 void ArrangementView::mouseMove(const juce::MouseEvent& e)
 {
     const auto lanes = laneArea();
-    auto cursor = juce::MouseCursor::NormalCursor;
+    hover_ = e.position;
+    juce::MouseCursor cursor = juce::MouseCursor::NormalCursor;
     std::optional<std::pair<int, size_t>> hovered;
     std::optional<std::uint64_t> hoveredClip;
     if (loopStripArea().contains(e.getPosition()))
@@ -1651,6 +1720,9 @@ void ArrangementView::mouseMove(const juce::MouseEvent& e)
             if (hit)
                 cursor = hit->zone == model::ClipHit::Zone::Body ? juce::MouseCursor::NormalCursor
                                                                   : juce::MouseCursor::LeftRightResizeCursor;
+            if (const auto loop = hit ? loopGestureAt(e.position, *hit) : std::nullopt) // a notch; looping by the edge
+                cursor = loop->kind == model::DragKind::LoopLength ? juce::MouseCursor(juce::MouseCursor::LeftRightResizeCursor)
+                                                                   : loopCursor_;
             if (joinAt(e.position)) // the line between two takes of a comp moves
                 cursor = juce::MouseCursor::LeftRightResizeCursor;
             hoveredClip = hit ? std::optional(hit->clip) : std::nullopt;
@@ -1934,6 +2006,8 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
                              : hit->zone == model::ClipHit::Zone::EndEdge  ? model::DragKind::TrimEnd
                                                                            : model::DragKind::Move,
                      .anchor = hit->clip};
+        if (const auto loop = loopGestureAt(e.position, *hit))
+            clipDrag_ = {.kind = loop->kind, .anchor = loop->clip, .seam = loop->seam};
         return;
     }
     // Empty lane: box selection (Shift adds to the selection), told at mouseUp since a box changes
@@ -2135,7 +2209,11 @@ void ArrangementView::mouseUp(const juce::MouseEvent& e)
     }
     if (drag_ == Drag::Clip && dragMoved_ && !preview_.empty())
     {
-        session_.applyClipEdits(preview_); // one undo step; the snapshot follows
+        // One undo step; the snapshot follows. A loop switched on, or its length, names it.
+        const bool looped = std::any_of(preview_.begin(), preview_.end(), [](const auto& edit) { return edit.loop.has_value(); });
+        session_.applyClipEdits(preview_, clipDrag_.kind == model::DragKind::LoopLength ? "Loop length"
+                                          : looped                                       ? "Loop clips"
+                                                                                         : "Move clips");
         // The channel follows the grabbed clip to its new track (the snapshot is still the old one).
         for (const auto& edit : preview_)
             if (edit.clip == clipDrag_.anchor)

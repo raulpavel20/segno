@@ -2391,6 +2391,84 @@ TEST_CASE("clip loops: every lap drawn the same, a notch and a line at each seam
     root.deleteRecursively();
 }
 
+TEST_CASE("clip loops by mouse: the upper edge loops a clip, a notch sets the loop's length, edges extend (C10)",
+          "[integration]")
+{
+    ShellFixture f;
+    f.shell->setSize(1800, 1000);
+    auto& s = *f.session;
+    const auto root = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("fd-shell-" + juce::Uuid().toString());
+    REQUIRE(root.createDirectory());
+    s.setUnsavedRoot(root.getChildFile("Unsaved"));
+    s.updateSnapshotNow();
+    const auto t0 = s.snapshot()->tracks[0].id;
+    fd::testkit::AudioBuffer beat(2, 4 * 48000);
+    for (int c = 0; c < 2; ++c)
+        for (int i = 0; i < beat.numSamples(); ++i)
+            beat.at(c, i) = 0.8f * std::exp(-static_cast<float>(i % 12000) / 1500.0f) * std::sin(static_cast<float>(i) * 0.05f);
+    const auto file = root.getChildFile("Drums.wav");
+    REQUIRE(fd::testkit::writeWav(file.getFullPathName().toStdString(), beat, 48000.0));
+    const auto clip = s.insertAudioFile(t0, file, 0.0);
+    s.applyClipEdits({{.clip = clip, .track = t0, .start = 0.0, .length = 0.5, .offset = 0.0}}); // one beat
+    auto info = [&] {
+        s.updateSnapshotNow();
+        return *fd::model::findClip(*s.snapshot(), clip)->first;
+    };
+
+    auto& view = f.shell->arrangement();
+    view.setView(0.0, 300.0);
+    for (int i = 0; i < 10; ++i)
+    {
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
+        view.frame(0.02, s.position());
+    }
+    const float lanesX = static_cast<float>(fd::app::ArrangementView::headerWidth());
+    auto laneX = [&](double seconds) { return lanesX + static_cast<float>(view.timeline().xForTime(seconds)); };
+    const auto& theme = fd::ui::Theme::current();
+    const float titleY = static_cast<float>(fd::app::ArrangementView::rulerHeight() + theme.shell.clipGap) + 5.0f;
+    const float bodyY = titleY + 30.0f;
+
+    // The upper part of its right edge: the loop cursor; dragged out, it loops and repeats.
+    view.mouseMove(mouseEvent(view, {laneX(0.5) - 2.0f, titleY}, {laneX(0.5) - 2.0f, titleY}, false, {}));
+    CHECK_FALSE(view.getMouseCursor() == juce::MouseCursor::LeftRightResizeCursor);
+    CHECK_FALSE(view.getMouseCursor() == juce::MouseCursor::NormalCursor);
+    CHECK(view.getTooltip() == "Drag to loop the clip");
+    view.mouseMove(mouseEvent(view, {laneX(0.5) - 2.0f, bodyY + 20.0f}, {laneX(0.5) - 2.0f, bodyY + 20.0f}, false, {}));
+    CHECK(view.getMouseCursor() == juce::MouseCursor::LeftRightResizeCursor); // below: it trims
+    drag(view, {laneX(0.5) - 2.0f, titleY}, {laneX(2.0), titleY});
+    CHECK(s.undoDescription() == "Loop clips");
+    CHECK(info().loop == fd::model::ClipLoop{0.0, 0.5});
+    CHECK(info().length == Catch::Approx(2.0).margin(1e-3));
+    view.setSnapshot(s.snapshot());
+
+    // A notch: the left-right cursor; dragged, the loop's length (snapped), the laps reflow. While
+    // dragging, the tag says what it'll be.
+    view.mouseMove(mouseEvent(view, {laneX(0.5), titleY}, {laneX(0.5), titleY}, false, {}));
+    CHECK(view.getMouseCursor() == juce::MouseCursor::LeftRightResizeCursor);
+    CHECK(view.getTooltip() == "Drag to change the loop's length");
+    const juce::Point<float> notch{laneX(0.5), titleY}, to{laneX(0.75), titleY};
+    view.mouseDown(mouseEvent(view, notch, notch, false));
+    view.mouseDrag(mouseEvent(view, (notch + to) * 0.5f, notch, true));
+    view.mouseDrag(mouseEvent(view, to, notch, true));
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "loop-notch-drag@2x.png", view.createComponentSnapshot(view.getLocalBounds().withHeight(130).withWidth(1100), true, 2.0f));
+    view.mouseUp(mouseEvent(view, to, notch, true));
+    CHECK(s.undoDescription() == "Loop length");
+    CHECK(info().loop.length == Catch::Approx(0.75).margin(1e-3));
+    CHECK(info().length == Catch::Approx(2.0).margin(1e-3));
+    view.setSnapshot(s.snapshot());
+
+    // The lower part of its right edge extends it further, the loop unchanged.
+    drag(view, {laneX(2.0) - 2.0f, bodyY + 20.0f}, {laneX(3.0), bodyY + 20.0f});
+    CHECK(s.undoDescription() == "Move clips");
+    CHECK(info().length == Catch::Approx(3.0).margin(1e-3));
+    CHECK(info().loop.length == Catch::Approx(0.75).margin(1e-3));
+    view.setSnapshot(s.snapshot());
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "loop-extended@2x.png", view.createComponentSnapshot(view.getLocalBounds().withHeight(130).withWidth(1300), true, 2.0f));
+    root.deleteRecursively();
+}
+
 TEST_CASE("fades: drawn on clips, handles on hover, a handle drag sets a fade, Ctrl+Shift+X crossfades (C6)", "[integration]")
 {
     ShellFixture f;
