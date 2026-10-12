@@ -75,12 +75,14 @@ inline constexpr double kSongEnd = std::numeric_limits<double>::infinity();
 
 /// A stretch of the song as it was, in the song as it will be: `from` to `to` (kSongEnd for the
 /// rest), or an empty stretch `emptyLength` long put in at `from`. A `copy` holds copies of what's
-/// in it; everything else comes once, as itself.
+/// in it; everything else comes once, as itself. An empty stretch `pasted` holds a piece of a song
+/// copied earlier (SongPiece).
 struct Stretch
 {
     double from = 0.0, to = 0.0;
     double emptyLength = 0.0;
     bool copy = false;
+    bool pasted = false;
 
     [[nodiscard]] bool empty() const noexcept { return emptyLength > 0.0; }
     [[nodiscard]] double length() const noexcept { return empty() ? emptyLength : to - from; }
@@ -99,6 +101,12 @@ using Plan = std::vector<Stretch>;
 [[nodiscard]] Plan planDelete(double start, double end);
 /// An empty stretch `length` long at `at`: A B C, after B, becomes A B ▢ C.
 [[nodiscard]] Plan planInsert(double at, double length);
+/// Room for a piece `length` long at `at`, the music after it moving later (planInsert's, the
+/// stretch `pasted`).
+[[nodiscard]] Plan planPaste(double at, double length);
+/// Where sections pasted at `at` (the playhead) go: there, or, inside a section, at its nearer
+/// edge, as a dragged one does (landRun).
+[[nodiscard]] double pasteLanding(const std::vector<SectionInfo>& sections, double at);
 
 /// The times a plan cuts the song at: where clips crossing them are split first, so what's in
 /// each stretch moves exactly (§9).
@@ -121,6 +129,18 @@ struct SongContent
     std::vector<Lane> lanes;
     std::vector<SectionInfo> sections;
 };
+
+/// A piece of a song, copied (the section clipboard, arranger.md §9): the sections in it and each
+/// lane's points, their times from its start, each lane's values pinned at its edges. Its clips
+/// are the engine's to keep.
+struct SongPiece
+{
+    double length = 0.0;
+    std::vector<SectionInfo> sections;
+    std::vector<SongContent::Lane> lanes;
+};
+/// The piece of `content` from `start` to `end`.
+[[nodiscard]] SongPiece pieceOf(const SongContent& content, double start, double end);
 
 /// What a plan does to it.
 struct PlanResult
@@ -147,6 +167,10 @@ struct PlanResult
 ///   stretch holds the value where it was put in.
 /// - **Sections** move like clips; copies get `copyName`, and an empty stretch a new section
 ///   (`newSection`'s name and colour) if given.
+/// - **A pasted stretch** holds `piece`'s points (a lane it has none for holds its value, as an
+///   empty stretch does) and its sections, new, keeping their names unless the song has them
+///   already (then `copyName`).
 [[nodiscard]] PlanResult applyPlan(const SongContent& content, const Plan& plan,
-                                   const std::optional<SectionInfo>& newSection = std::nullopt);
+                                   const std::optional<SectionInfo>& newSection = std::nullopt,
+                                   const SongPiece* piece = nullptr);
 } // namespace fd::model

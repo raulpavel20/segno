@@ -4598,3 +4598,64 @@ TEST_CASE(
     CHECK(s.snapshot()->sections[0].start == Catch::Approx(8.0));
     CHECK(s.undoDescription() == "Move section A");
 }
+
+TEST_CASE("the song row: a section copied and pasted at the playhead, cut and pasted (C3 review)",
+          "[integration]")
+{
+    ShellFixture f;
+    auto& s = *f.session;
+    f.shell->setSize(1800, 900);
+    auto& view = f.shell->arrangement();
+    auto& actions = f.shell->actions();
+    const auto t0 = s.snapshot()->tracks[0].id;
+    for (int i = 0; i < 3; ++i)
+    {
+        REQUIRE(s.addSection(4.0 * i, 4.0 * i + 4.0) != 0);
+        REQUIRE(s.createMidiClip(t0, 4.0 * i + 1.0, 2.0) != 0);
+    }
+    s.updateSnapshotNow();
+    view.setSnapshot(s.snapshot());
+    const auto lane = view.songLaneArea().toFloat();
+    const auto xAt = [&](double seconds)
+    { return lane.getX() + static_cast<float>(view.timeline().xForTime(seconds)); };
+    const float body = lane.getBottom() - 8.0f;
+    const auto order = [&s]
+    {
+        s.updateSnapshotNow();
+        std::string out;
+        for (const auto& x : s.snapshot()->sections)
+            out += (out.empty() ? "" : " ") + x.name;
+        return out;
+    };
+    const auto ctrl = [&](char c)
+    { return actions.handleKey(juce::KeyPress(c, juce::ModifierKeys::commandModifier, 0)); };
+
+    // B clicked and copied; the playhead at C's end; pasted there, selected.
+    click(view, {xAt(6.0), body});
+    REQUIRE(view.selection().sections.size() == 1);
+    REQUIRE(actions.isEnabled("edit.copy"));
+    REQUIRE(ctrl('c'));
+    s.setPosition(12.0);
+    REQUIRE(ctrl('v'));
+    CHECK(order() == "A B C B 2");
+    CHECK(s.undoDescription() == "Paste section B");
+    s.updateSnapshotNow();
+    view.setSnapshot(s.snapshot());
+    CHECK(view.selection().sections == std::set{s.snapshot()->sections[3].id});
+    CHECK(s.snapshot()->tracks[0].clips.size() == 4);
+
+    // A cut: gone with its music, and it pastes, at the nearer edge of the section the playhead is in.
+    click(view, {xAt(2.0), body}); // A
+    REQUIRE(ctrl('x'));
+    CHECK(order() == "B C B 2");
+    CHECK(s.undoDescription() == "Cut");
+    s.setPosition(5.0); // inside C (4-8 now), nearer its start
+    REQUIRE(actions.perform("edit.paste"));
+    CHECK(order() == "B A C B 2");
+
+    // The section's menu has them.
+    juce::PopupMenu menu;
+    view.onSectionMenu(menu, s.snapshot()->sections[0].id);
+    CHECK(findItem(menu, "Copy") != nullptr);
+    CHECK(findItem(menu, "Paste") != nullptr);
+}

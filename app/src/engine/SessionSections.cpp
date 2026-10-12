@@ -111,7 +111,8 @@ struct PlanRun
     Session& session;
     te::Edit& edit;
 
-    model::PlanResult run(const model::Plan& plan, const std::optional<model::SectionInfo>& fresh)
+    model::PlanResult run(const model::Plan& plan, const std::optional<model::SectionInfo>& fresh,
+                          const model::SongPiece* piece = nullptr)
     {
         // Clips crossing a cut are split there first, so each stretch holds whole clips.
         for (const double t : model::cutPoints(plan))
@@ -135,7 +136,7 @@ struct PlanRun
                 content.clips.push_back({.id = c.id, .track = track.id, .start = c.start, .end = c.end()});
         for (const auto& lane : s->automationLanes)
             content.lanes.push_back({.id = lane.id, .points = lane.points});
-        auto result = model::applyPlan(content, plan, fresh);
+        auto result = model::applyPlan(content, plan, fresh, piece);
 
         // Where each clip is now, to place it or its copy.
         const auto clipOf =
@@ -280,5 +281,115 @@ std::uint64_t Session::insertSection(double at, double length, const std::string
         if (std::abs(section.start - at) <= kEpsilon && section.name == fresh.name)
             return section.id;
     return 0;
+}
+
+// ---- the section clipboard ----------------------------------------------------------------------
+
+struct Session::SectionClipboard::Data
+{
+    // The piece runs from `before` ahead of the first section to past the last one's end, so the
+    // clips across the edges come whole and are cut at them once pasted.
+    model::SongPiece piece;
+    double before = 0.0, length = 0.0; // the sections' span in it
+    ClipClipboard clips;               // times from the piece's start
+    std::string name;
+};
+
+bool Session::SectionClipboard::empty() const noexcept
+{
+    return data_ == nullptr;
+}
+
+std::string Session::SectionClipboard::name() const
+{
+    return data_ == nullptr ? std::string() : data_->name;
+}
+
+Session::SectionClipboard Session::copySectionsToClipboard(const std::vector<std::uint64_t>& sections)
+{
+    SectionClipboard out;
+    updateSnapshotNow(); // the project as it is now
+    const auto s = snapshot();
+    const auto span = model::spanOf(s->sections, sections);
+    if (!span)
+        return out;
+    // Out to the furthest clip across either edge.
+    double from = span->first, to = span->second;
+    for (const auto& track : s->tracks)
+        for (const auto& c : track.clips)
+            if (c.start < span->second - kEpsilon && c.end() > span->first + kEpsilon)
+            {
+                from = std::min(from, c.start);
+                to = std::max(to, c.end());
+            }
+    model::SongContent content;
+    content.sections = s->sections;
+    for (const auto& lane : s->automationLanes)
+        content.lanes.push_back({.id = lane.id, .points = lane.points});
+    auto data = std::make_shared<SectionClipboard::Data>();
+    data->piece = model::pieceOf(content, from, to);
+    data->before = span->first - from;
+    data->length = span->second - span->first;
+    // Only the run's own sections: none in the margins.
+    std::erase_if(
+        data->piece.sections, [&](const auto& x)
+        { return x.start < data->before - kEpsilon || x.end > data->before + data->length + kEpsilon; });
+    data->clips = copyClipsAcross(span->first, span->second, from);
+    data->name = describe(*s, sections);
+    out.data_ = std::move(data);
+    return out;
+}
+
+Session::SectionPaste Session::pasteSections(const SectionClipboard& clipboard, double at)
+{
+    SectionPaste result;
+    if (clipboard.empty())
+        return result;
+    const auto& data = *clipboard.data_;
+    updateSnapshotNow(); // plans read the project as it is now
+    const auto before = snapshot()->sections;
+    const double landing = model::pasteLanding(before, at);
+    const double start = landing + data.before, end = start + data.length, room = data.piece.length;
+    EditGroup group(*this, "Paste section " + data.name);
+    // Room for the whole piece, holding its automation and its sections...
+    auto& edit = *impl_->edit;
+    const auto placed = PlanRun{*this, edit}.run(model::planPaste(landing, room), std::nullopt, &data.piece);
+    for (const auto& section : placed.sections)
+        if (std::none_of(before.begin(), before.end(), [&](const auto& b) { return b.id == section.id; }))
+            result.sections.push_back(section.id);
+    // ...its clips in it, cut at the sections' edges, what's outside them gone...
+    const auto pasted = placeClips(data.clips, 0, landing, false);
+    result.rowsLeftOut = pasted.rowsLeftOut;
+    std::set<std::uint64_t> family(pasted.clips.begin(), pasted.clips.end());
+    for (const double edge : {start, end})
+    {
+        updateSnapshotNow();
+        std::vector<std::uint64_t> crossing;
+        for (const auto& track : snapshot()->tracks)
+            for (const auto& c : track.clips)
+                if (family.contains(c.id) && c.start < edge - kEpsilon && c.end() > edge + kEpsilon)
+                    crossing.push_back(c.id);
+        for (const auto id : splitClips(crossing, edge))
+            family.insert(id);
+    }
+    updateSnapshotNow();
+    std::vector<std::uint64_t> outside;
+    for (const auto& track : snapshot()->tracks)
+        for (const auto& c : track.clips)
+            if (family.contains(c.id) && (c.start < start - kEpsilon || c.end() > end + kEpsilon))
+                outside.push_back(c.id);
+    deleteClips(outside);
+    // ...and the margins closed.
+    if (room - data.length - data.before > kEpsilon)
+    {
+        updateSnapshotNow();
+        PlanRun{*this, edit}.run(model::planDelete(end, landing + room), std::nullopt);
+    }
+    if (data.before > kEpsilon)
+    {
+        updateSnapshotNow();
+        PlanRun{*this, edit}.run(model::planDelete(landing, start), std::nullopt);
+    }
+    return result;
 }
 } // namespace fd::engine

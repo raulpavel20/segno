@@ -173,9 +173,17 @@ private:
     void sectionMenu(juce::PopupMenu& menu, std::uint64_t section);
     [[nodiscard]] bool sectionsActive() const; // sections are selected, in the arrangement used last
     /// The clipboard (§9): what Cut and Copy kept from the area used last.
-    enum class Held { None, Clips, Notes, Points };
+    enum class Held
+    {
+        None,
+        Clips,
+        Notes,
+        Points,
+        Sections
+    };
     Held held_ = Held::None;
     engine::Session::ClipClipboard heldClips_;
+    engine::Session::SectionClipboard heldSections_; // with their music (arranger.md §9)
     std::vector<model::Note> heldNotes_;
     model::AutomationPoints heldPoints_;
     [[nodiscard]] bool canCopy() const;

@@ -146,6 +146,7 @@ From the manuals of Live 12, Bitwig 5, Studio One (now Fender Studio Pro), Logic
   - They cut what they land on, as moved clips do (ADR 0019). They keep their takes and fades. Audio clips refer to the same audio files.
 - **Pasting notes:** at the playhead, inside the clip the clip view shows, keeping their timing and pitches. If the playhead isn't over the clip, they land at its start.
 - **Pasting points:** at the playhead, on the selected lane, keeping their timing and values (mapped to the lane's range).
+- **Pasting sections** (the song row, [arranger.md](arranger.md) §9): with their music as it was copied, at the playhead (inside a section, at its nearer edge), the rest of the song moving later.
 - **After a paste:** what was pasted is selected, and the playhead stays where it was. No DAW surveyed moves it (§2). Duplicate (Ctrl+D) lays copies one after another.
 - **Undo:** cut is one step ("Cut"), and so is each paste ("Paste").
 - **The clipboard is the app's:** it lasts while Segno runs, across projects opened in it. The system clipboard and pasting between two running Segnos come later (§16).
@@ -217,7 +218,7 @@ From the manuals of Live 12, Bitwig 5, Studio One (now Fender Studio Pro), Logic
 - Tracks, returns, lanes and clips are renamed where their names are, F2 included.
 - They're deleted with Delete, moved by dragging their headers, duplicated with Ctrl+D and coloured from their own right-click and the inspector, each one undo step, with no question asked.
 - Deleting takes along what only made sense with it.
-- The clipboard holds clips, notes or points from the area used last and pastes at the playhead.
+- The clipboard holds clips, notes, points or sections from the area used last and pastes at the playhead.
 - The menu bar lists every command (ADR 0040), and assistants have tools for each (ADR 0021).
 
 This amended ADR 0029's "lanes stay where they were put": the lanes right after a track moved with it. [ADR 0042](../decisions/0042-every-row-moves-on-its-own.md) took that back the same day (§19).

@@ -125,6 +125,7 @@ Every track as a thin line, so the song's shape shows at a glance: where the dru
 | Drag an edge | Moves the mark only (the cursor shows a resize arrow). The neighbour's edge is a limit, not pushed |
 | Drag the body | Moves the section **with its music** to another place in the song (§9) |
 | Ctrl+drag the body | Copies it there, with its music |
+| Ctrl+C, then Ctrl+V | Copies it with its music, then pastes it at the playhead (§9). Ctrl+X cuts it: copied, then deleted with its music. Edit ▸ Cut, Copy, Paste and its right-click menu have them too |
 | Double-click the body | Loops it: the loop brace set to the section, loop on (§11) |
 | Right-click | Rename…, Colour ▸, Loop section, Select its clips, Duplicate section, Delete section, Remove section mark, then the row's own items (Add track…) |
 
@@ -153,12 +154,14 @@ The loop brace and the playhead stay where they are.
 |---|---|
 | **Move** (drag the body) | A B C D → drop B after C → A C B D. The song keeps its length |
 | **Copy** (Ctrl+drag, or Duplicate for "right after it") | A B C D → copy B after C → A B C B D. The song grows by B |
+| **Paste** (Ctrl+C, then Ctrl+V with the playhead after C) | A B C D → A B C B D, as Copy. Ctrl+X, then Ctrl+V: a move |
 | **Insert empty section** | A B C → after B → A B ▢ C. The song grows |
 | **Delete section** (Delete) | A B C D → A C D: B's music goes and the gap closes. The song shrinks |
 | **Remove section mark** | A B C D → A ▢ C D: the mark goes, the music stays |
 
 - **Where a section can land:** the run follows the pointer, its start on the grid (Alt for free), pulled to a section edge near its start or end. It lands between sections, in empty time too. A place that would cut another section goes to that section's nearer edge. While you drag, a bracket in the active colour shows where it lands, with a line across every row at its start. Esc while dragging cancels.
 - **While it plays:** edits apply at once and the song plays on. A note cut by an edit ends (daw-shell.md, "No stuck notes").
+- **The clipboard** (the product owner, 2026-10-13): Copy keeps the selected sections' span with everything in it as it is then: its clips (a clip across an edge, the part inside), their takes, and its automation. A later edit doesn't change what pastes, a cut still pastes, and it pastes into another project open in Segno. Paste puts it at the playhead, or, with the playhead inside a section, at that section's nearer edge, as a drag lands; the music after it moves later. Each track's music goes onto the track in its place (by order); music with no track in its place is left out, with a toast. Pasted sections keep their names unless the song has them already ("Chorus 2"), and are selected. One undo step, "Paste section Chorus".
 - **Delete is the whole section, music and all,** as Studio One's and Logic's are. Its undo step says so ("Undo Delete section Bridge"), and a toast offers Undo. "Remove section mark" keeps the music (A6).
 
 ## 10. Selection and the inspector
@@ -201,7 +204,7 @@ A new **Song** menu, between Clip and Module. Song-wide things go here: sections
 | Remove section mark | – | `song.removeSectionMark` |
 | Section colour ▸ | | the palette (`list("sectionColour")`) |
 
-- Edit's Rename (F2), Duplicate (Ctrl+D) and Delete act on a selected section as they act on clips, so the Song menu's items have no shortcuts of their own.
+- Edit's Rename (F2), Duplicate (Ctrl+D), Delete, Cut, Copy and Paste act on a selected section as they act on clips, so the Song menu's items have no shortcuts of their own.
 - View's "Show or hide returns and master" becomes **Show or hide returns** (`view.returns`, Ctrl+Alt+R; the ID stays).
 - A test already fails if an action isn't in the menu bar.
 
@@ -214,8 +217,8 @@ Tools named as the others ([mcp.md](mcp.md)), each one named undo step, each wit
 | `list_sections` | Every section: id, name, colour, start and end (bars and beats, and seconds) |
 | `add_section` | Marks a section (name, start, end, colour optional); refuses one that would overlap |
 | `set_section` | Renames, recolours or moves its marks (start, end), the music staying |
-| `move_section` | Moves a section with its music to before or after another section |
-| `copy_section` | Copies it with its music, to before or after another section |
+| `move_section` | Moves a section with its music to before or after another section, or `at` a point (inside a section, its nearer edge) |
+| `copy_section` | Copies it with its music, to before or after another section, or `at` a point (the clipboard's paste at the playhead, with the place named) |
 | `insert_section` | An empty section of so many bars, before or after another, the rest making room |
 | `delete_section` | Deletes it with its music, the gap closing; `keep_music: true` removes only the mark |
 
@@ -301,4 +304,5 @@ Tools named as the others ([mcp.md](mcp.md)), each one named undo step, each wit
 - **A new section is selectable at once,** before its snapshot arrives, as a new clip is.
 - **Sections are brackets, not blocks** (the product owner's review, 2026-10-13): drawn as blocks with a title band, they looked too much like clips. Three looks were compared on a song-like project: brackets, flags (a tab at the start), and tinted zones. Brackets were picked: they read as a span of time, like the loop brace and the ruler, and leave the overview in full view. Bar and ticks are `shell.songBracket` (2 px), with `songBracketGap` (2 px) between two that touch, inset `clipGap` from the row's top. The name is in the caps style (`TextStyle::Section`), secondary text, primary when selected.
 - **A dragged run follows the pointer** (the same review: "I can't seem to be able to drag to move a section"). At first a drag only picked the section boundary nearest the pointer, outside the run. Nothing moved with the pointer, and a lone section, or one aimed at empty time, had nowhere to go. Now its start follows the pointer and `model::landRun` finds where it lands (§9).
+- **Copy and paste** (the product owner, 2026-10-13: "you should be able to also copy a selected section… and then paste it at playhead"): Ctrl+C, Ctrl+X and Ctrl+V, as §9 describes. The clipboard keeps the span as it was (`Session::SectionClipboard`: a `model::SongPiece` of its automation and sections, and its clips). A paste makes room for the span widened to the clips across its edges, puts those clips in whole, cuts them at the edges, then closes the margins, so nothing beside it is touched. Assistants got `at` on `move_section` and `copy_section`.
 - **Tests:** the model's plans and landings (`SectionsTests`), the Session's commands with one-step undo and the sound of a moved section, sample for sample (`SectionTests`, including clips that touch end to end), every tool through MCP, and the song row by mouse with its screenshots (`AppSmokeTests`).

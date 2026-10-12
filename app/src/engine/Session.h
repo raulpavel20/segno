@@ -799,6 +799,34 @@ public:
     /// coloured as addSection does). One undo step, "Insert section". Returns its id (0: none).
     std::uint64_t insertSection(double at, double length, const std::string& name = {});
 
+    /// Sections copied for pasting (arranger.md §9): their span with its clips, takes and
+    /// automation as they were, so a cut still pastes, into another project too. Empty when
+    /// nothing was copied.
+    class SectionClipboard
+    {
+    public:
+        [[nodiscard]] bool empty() const noexcept;
+        /// "Chorus", or "2 sections".
+        [[nodiscard]] std::string name() const;
+
+    private:
+        friend class Session;
+        struct Data;
+        std::shared_ptr<const Data> data_;
+    };
+    /// Copies sections: their span, from the first one's start to the last one's end, with
+    /// everything in it (clips crossing its edges, the part inside).
+    [[nodiscard]] SectionClipboard copySectionsToClipboard(const std::vector<std::uint64_t>& sections);
+    struct SectionPaste
+    {
+        std::vector<std::uint64_t> sections; // the pasted ones
+        int rowsLeftOut = 0;                 // tracks' music with no track in its place
+    };
+    /// Pastes them at `at`, or at the nearer edge of a section `at` is inside
+    /// (model::pasteLanding), the music after moving later; each track's music onto the track in
+    /// its place. One undo step, "Paste section <name>".
+    SectionPaste pasteSections(const SectionClipboard& clipboard, double at);
+
     // ---- tracks and clips (C11, ADR 0041, docs/design/tracks-and-clips.md) --------------------
 
     /// Renames a track or return track (and its aux bus); an empty name changes nothing. One undo
@@ -892,6 +920,13 @@ public:
 
 private:
     void replaceEdit(std::unique_ptr<tracktion::Edit> edit, std::optional<juce::File> file);
+    // The clipboards' clips (SessionTracks.cpp).
+    /// Every clip across `start` to `end`, whole, on its track's row (from the first track), its
+    /// time from `from`.
+    [[nodiscard]] ClipClipboard copyClipsAcross(double start, double end, double from) const;
+    /// Puts a clipboard's clips on the tracks from `track` down, its time `from` at `at`, with the
+    /// takes they play from; with `cutUnder`, they cut what they land on (ADR 0019).
+    PasteResult placeClips(const ClipClipboard& clipboard, std::size_t track, double at, bool cutUnder);
 
     std::unique_ptr<Impl> impl_;
 };

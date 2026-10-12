@@ -245,6 +245,51 @@ Plan planInsert(double at, double length)
     return merged({{0.0, at}, {at, at, length}, {at, kSongEnd}});
 }
 
+Plan planPaste(double at, double length)
+{
+    if (length <= kEpsilon)
+        return {};
+    return merged({{0.0, at}, {at, at, length, false, true}, {at, kSongEnd}});
+}
+
+double pasteLanding(const std::vector<SectionInfo>& sections, double at)
+{
+    at = std::max(0.0, at);
+    for (const auto& s : sections)
+        if (at > s.start + kEpsilon && at < s.end - kEpsilon)
+            return at - s.start <= s.end - at ? s.start : s.end;
+    return at;
+}
+
+SongPiece pieceOf(const SongContent& content, double start, double end)
+{
+    SongPiece piece{.length = std::max(0.0, end - start)};
+    for (const auto& s : content.sections)
+        if (s.start >= start - kEpsilon && s.end <= end + kEpsilon)
+        {
+            auto shifted = s;
+            shifted.start -= start;
+            shifted.end -= start;
+            piece.sections.push_back(shifted);
+        }
+    for (const auto& lane : content.lanes)
+    {
+        if (lane.points.empty())
+            continue;
+        // Its values at both edges pinned, so it pastes the curve it had here.
+        AutomationPoints points;
+        if (std::none_of(lane.points.begin(), lane.points.end(),
+                         [&](const auto& p) { return std::abs(p.time - start) <= kEpsilon; }))
+            points.push_back({0.0, automationValueAt(lane.points, start), curveAt(lane.points, start)});
+        for (const auto& p : lane.points)
+            if (p.time >= start - kEpsilon && p.time < end - kEpsilon)
+                points.push_back({std::max(0.0, p.time - start), p.value, p.curve});
+        points.push_back({piece.length, valueBefore(lane.points, end), 0.0f});
+        piece.lanes.push_back({lane.id, std::move(points)});
+    }
+    return piece;
+}
+
 std::vector<double> cutPoints(const Plan& plan)
 {
     std::vector<double> times;
@@ -260,7 +305,7 @@ std::vector<double> cutPoints(const Plan& plan)
 }
 
 PlanResult applyPlan(const SongContent& content, const Plan& asked,
-                     const std::optional<SectionInfo>& newSection)
+                     const std::optional<SectionInfo>& newSection, const SongPiece* piece)
 {
     PlanResult result;
     const auto plan = merged(asked);
@@ -313,17 +358,34 @@ PlanResult applyPlan(const SongContent& content, const Plan& asked,
     // Automation: each stretch's points where it lands, with its edges' values pinned. A lane
     // whose points all come before the first cut doesn't change.
     const auto cuts = cutPoints(plan);
+    const auto pieceLane = [piece](std::uint64_t id) -> const SongContent::Lane*
+    {
+        if (piece != nullptr)
+            for (const auto& l : piece->lanes)
+                if (l.id == id)
+                    return &l;
+        return nullptr;
+    };
+    const bool pastes = std::any_of(plan.begin(), plan.end(), [](const auto& s) { return s.pasted; });
     for (const auto& lane : content.lanes)
     {
+        const auto* fromPiece = pastes ? pieceLane(lane.id) : nullptr;
         if (lane.points.empty() || cuts.empty() ||
-            std::all_of(lane.points.begin(), lane.points.end(),
-                        [&](const auto& p) { return p.time < cuts.front() - kEpsilon; }))
+            (fromPiece == nullptr && std::all_of(lane.points.begin(), lane.points.end(), [&](const auto& p)
+                                                 { return p.time < cuts.front() - kEpsilon; })))
             continue;
         AutomationPoints points;
         for (size_t k = 0; k < plan.size(); ++k)
         {
             const auto& s = plan[k];
             const double land = lands[k];
+            if (s.empty() && s.pasted && fromPiece != nullptr)
+            {
+                // The piece's own points, its edges pinned.
+                for (const auto& p : fromPiece->points)
+                    points.push_back({land + p.time, p.value, p.curve});
+                continue;
+            }
             if (s.empty())
             {
                 // It holds the value where it was put in.
@@ -350,8 +412,20 @@ PlanResult applyPlan(const SongContent& content, const Plan& asked,
     }
 
     // Sections, like clips; copies named on.
+    std::vector<SectionInfo> copies, pasted;
     for (size_t k = 0; k < plan.size(); ++k)
-        if (plan[k].empty() && newSection)
+    {
+        if (plan[k].pasted && piece != nullptr)
+        {
+            for (auto s : piece->sections)
+            {
+                s.id = 0;
+                s.start += lands[k];
+                s.end += lands[k];
+                pasted.push_back(s);
+            }
+        }
+        else if (plan[k].empty() && newSection)
         {
             auto s = *newSection;
             s.id = 0;
@@ -359,7 +433,7 @@ PlanResult applyPlan(const SongContent& content, const Plan& asked,
             s.end = lands[k] + plan[k].emptyLength;
             result.sections.push_back(s);
         }
-    std::vector<SectionInfo> copies;
+    }
     for (const auto& s : content.sections)
     {
         const auto to = landings(s.start);
@@ -386,6 +460,13 @@ PlanResult applyPlan(const SongContent& content, const Plan& asked,
         all.insert(all.end(), result.sections.begin(), result.sections.end());
         c.name = copyName(all, c.name);
         result.sections.push_back(c);
+    }
+    // Pasted ones keep their names (after a cut, or from another song) unless they're taken.
+    for (auto& p : pasted)
+    {
+        if (named(result.sections, p.name))
+            p.name = copyName(result.sections, p.name);
+        result.sections.push_back(p);
     }
     std::sort(result.sections.begin(), result.sections.end(),
               [](const auto& a, const auto& b) { return a.start < b.start; });

@@ -453,30 +453,61 @@ Session::ClipClipboard Session::copyClips(const std::vector<std::uint64_t>& aske
     return out;
 }
 
+Session::ClipClipboard Session::copyClipsAcross(double start, double end, double from) const
+{
+    ClipClipboard out;
+    auto data = std::make_shared<ClipClipboard::Data>();
+    data->start = from;
+    const auto tracks = impl_->tracks();
+    std::set<std::uint64_t> stacks;
+    for (std::size_t row = 0; row < tracks.size(); ++row)
+        for (auto* c : tracks[row]->getClips())
+        {
+            const auto range = c->getPosition().time;
+            if (range.getStart().inSeconds() >= end - 1e-6 || range.getEnd().inSeconds() <= start + 1e-6)
+                continue;
+            c->flushStateToValueTree();
+            data->clips.push_back(
+                {c->state.createCopy(), static_cast<int>(row), range.getStart().inSeconds() - from});
+            data->rows = static_cast<int>(row) + 1;
+            if (const auto stack = impl_->stackOf(*c);
+                stack.isValid() && stacks.insert(Impl::idOf(stack)).second)
+                data->stacks.push_back({stack.createCopy(), static_cast<int>(row)});
+        }
+    if (!data->clips.empty())
+        out.data_ = std::move(data);
+    return out;
+}
+
 Session::PasteResult Session::pasteClips(const ClipClipboard& clipboard, std::uint64_t trackId, double at)
+{
+    const auto tracks = impl_->tracks();
+    const auto from = std::find_if(tracks.begin(), tracks.end(),
+                                   [trackId](auto* t) { return t->itemID.getRawID() == trackId; });
+    if (clipboard.empty() || from == tracks.end())
+        return {};
+    return placeClips(clipboard, static_cast<std::size_t>(from - tracks.begin()), std::max(0.0, at), true);
+}
+
+Session::PasteResult Session::placeClips(const ClipClipboard& clipboard, std::size_t first, double at,
+                                         bool cutUnder)
 {
     PasteResult result;
     if (clipboard.empty())
         return result;
     const auto& data = *clipboard.data_;
     const auto tracks = impl_->tracks();
-    const auto from = std::find_if(tracks.begin(), tracks.end(),
-                                   [trackId](auto* t) { return t->itemID.getRawID() == trackId; });
-    if (from == tracks.end())
-        return result;
     std::vector<model::PasteItem> items;
     for (const auto& c : data.clips)
         items.push_back({c.row, c.offset});
-    const auto [placed, leftOut] = model::pastePlacement(
-        items, tracks.size(), static_cast<std::size_t>(from - tracks.begin()), std::max(0.0, at));
+    const auto [placed, leftOut] = model::pastePlacement(items, tracks.size(), first, at);
     result.rowsLeftOut = leftOut;
     if (placed.empty())
         return result;
 
     impl_->beginEdit("Paste");
     auto* um = &impl_->edit->getUndoManager();
-    const double delta = std::max(0.0, at) - data.start;
-    const auto first = static_cast<std::size_t>(from - tracks.begin());
+    const double delta = at - data.start;
     // The takes first, each on its row's track; then the clips, playing from their copies.
     std::map<std::uint64_t, std::uint64_t> takeClips;
     for (const auto& s : data.stacks)
@@ -506,7 +537,8 @@ Session::PasteResult Session::pasteClips(const ClipClipboard& clipboard, std::ui
     std::set<te::AudioTrack*> involved;
     for (const auto& [track, start, end] : spans)
     {
-        impl_->clearUnder(*track, start, end, pasted);
+        if (cutUnder)
+            impl_->clearUnder(*track, start, end, pasted);
         involved.insert(track);
     }
     for (auto* track : involved)

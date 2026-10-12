@@ -226,3 +226,54 @@ TEST_CASE("sections: a dragged run lands between sections, empty time included",
     CHECK(landRun(s, {2.0, 4.0}, 4.0, true) == Landing{4.0, 4.0}); // right after itself
     CHECK_FALSE(landRun(s, {2.0, 4.0}, 3.0, true));
 }
+
+TEST_CASE("sections: a copied piece pastes with its automation, keeping its name after a cut", "[fast]")
+{
+    auto c = content();
+    c.lanes.push_back({.id = 7, .points = {{0.0, 0.0f, 0.0f}, {8.0, 1.0f, 0.0f}}});
+    const auto piece = pieceOf(c, 2.0, 4.0); // B: 0.25 to 0.5
+    CHECK(piece.length == Approx(2.0));
+    REQUIRE(piece.sections.size() == 1);
+    CHECK(piece.sections[0].name == "B");
+    CHECK(piece.sections[0].start == Approx(0.0));
+    CHECK(piece.sections[0].end == Approx(2.0));
+    REQUIRE(piece.lanes.size() == 1);
+    CHECK(automationValueAt(piece.lanes[0].points, 0.0) == Approx(0.25f));
+    CHECK(automationValueAt(piece.lanes[0].points, 2.0) == Approx(0.5f));
+
+    SECTION("pasted after C: A B C B 2 D, the song a section longer, B's curve there")
+    {
+        const auto r = applyPlan(c, planPaste(6.0, piece.length), std::nullopt, &piece);
+        CHECK(order(r.sections) == "A B C B 2 D");
+        CHECK(r.sections[3].id == 0);
+        CHECK(r.sections[3].colour == 1);
+        CHECK(startOf(r, 13, 6.0) == Approx(8.0)); // D's clip later
+        CHECK(r.copies.empty());                   // its clips are the engine's
+        REQUIRE(r.lanes.size() == 1);
+        const auto& p = r.lanes[0].points;
+        CHECK(automationValueAt(p, 5.0) == Approx(0.625f));  // C, as it was
+        CHECK(automationValueAt(p, 6.5) == Approx(0.3125f)); // B's curve
+        CHECK(automationValueAt(p, 9.0) == Approx(0.875f));  // D, two seconds later
+    }
+    SECTION("pasted after B was cut: it's B again")
+    {
+        auto cut = c;
+        cut.sections.erase(cut.sections.begin() + 1);
+        const auto r = applyPlan(cut, planPaste(0.0, piece.length), std::nullopt, &piece);
+        CHECK(order(r.sections) == "B A C D");
+    }
+    SECTION("a lane the piece has no points for holds its value there")
+    {
+        c.lanes.push_back({.id = 8, .points = {{0.0, 0.2f, 0.0f}, {8.0, 0.6f, 0.0f}}});
+        const auto r = applyPlan(c, planPaste(4.0, piece.length), std::nullopt, &piece);
+        for (const auto& lane : r.lanes)
+            if (lane.id == 8)
+                CHECK(automationValueAt(lane.points, 5.0) == Approx(0.4f));
+    }
+    // Pasted at the playhead: there, or inside a section at its nearer edge.
+    CHECK(pasteLanding(c.sections, 0.5) == Approx(0.0));
+    CHECK(pasteLanding(c.sections, 1.5) == Approx(2.0));
+    CHECK(pasteLanding(c.sections, 4.0) == Approx(4.0));
+    CHECK(pasteLanding(c.sections, 9.3) == Approx(9.3));
+    CHECK(pasteLanding(c.sections, -1.0) == Approx(0.0));
+}

@@ -1650,4 +1650,21 @@ TEST_CASE("mcp tools: sections marked, renamed, moved, copied, inserted and dele
     CHECK(clipStarts().size() == 3);
     CHECK(daw.fails("set_section", {{"section", "s:999999"}, {"name", "x"}}).find("no section") !=
           std::string::npos);
+
+    // At a point, as a paste at the playhead: in empty time past the end, then inside a section
+    // (at its nearer edge).
+    const auto listed = daw.call("list_sections")["sections"];
+    const auto first = listed[0]["section"].get<std::string>();
+    const double firstStart = listed[0]["start"]["beats"].get<double>();
+    r = daw.call("copy_section", {{"sections", {first}}, {"at", "20.1.1"}});
+    REQUIRE(r["copies"].size() == 1);
+    REQUIRE(r["sections"].size() == 4);
+    CHECK(r["sections"][3]["start"]["beats"].get<double>() == Approx(76.0));
+    const auto last = r["sections"][3]["section"].get<std::string>();
+    r = daw.call("move_section",
+                 {{"sections", {last}}, {"at", firstStart + 1.0}}); // inside the first, near its start
+    CHECK(r["sections"][0]["section"] == last);
+    CHECK(r["sections"][0]["start"]["beats"].get<double>() == Approx(firstStart));
+    CHECK(daw.fails("copy_section", {{"sections", {first}}, {"at", "1.1.1"}, {"after", first}}).find("at") !=
+          std::string::npos);
 }

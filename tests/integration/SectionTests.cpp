@@ -3,6 +3,7 @@
 
 #include "RecordingFixture.h"
 #include "fd/testkit/WavIO.h"
+#include "model/Fades.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -277,4 +278,77 @@ TEST_CASE("sections: clips that touch move as cleanly as clips with gaps", "[int
     CHECK(order(r) == "A C B");
     INFO("starts " << ::Catch::Detail::stringify(starts(r, t)));
     CHECK(near(starts(r, t), {0.0, 2.0, 4.0}));
+}
+
+TEST_CASE("sections: copied, then pasted at the playhead as they were when copied; cut and pasted, moved",
+          "[integration]")
+{
+    Recording r;
+    auto& s = *r.session;
+    abcd(r);
+    const auto t = r.track(0);
+    // A volume ride across the song: B's stretch of it goes with B.
+    const auto lane = s.addAutomationLane(fd::engine::Session::ParamTarget{t, "volume"});
+    REQUIRE(lane != 0);
+    REQUIRE(s.setLanePoints(lane, {{0.0, 0.9f, 0.0f}, {8.0, 0.5f, 0.0f}}));
+    const auto b = render(r, 2.0, 4.0);
+    REQUIRE(peak(b) > 0.05f);
+
+    SECTION("pasted after D, B changed since: the copy is B as it was")
+    {
+        const auto held = s.copySectionsToClipboard({idOf(r, "B")});
+        REQUIRE_FALSE(held.empty());
+        CHECK(held.name() == "B");
+        s.deleteClips({now(r)->channel(t)->clips[1].id}); // B's tone
+        const auto pasted = s.pasteSections(held, 8.0);
+        REQUIRE(pasted.sections.size() == 1);
+        CHECK(order(r) == "A B C D B 2");
+        CHECK(s.undoDescription() == "Paste section B");
+        CHECK(peakDifference(render(r, 8.0, 10.0), b) < 1e-4f);
+        s.undo();
+        CHECK(order(r) == "A B C D");
+    }
+    SECTION("the playhead inside C: at its nearer edge, the rest later")
+    {
+        const auto held = s.copySectionsToClipboard({idOf(r, "B")});
+        s.pasteSections(held, 4.6);
+        CHECK(order(r) == "A B B 2 C D");
+        CHECK(near(starts(r, t), {0.25, 2.25, 4.25, 6.25, 8.25}));
+    }
+    SECTION("cut, then pasted after C: moved, its name kept")
+    {
+        const auto held = s.copySectionsToClipboard({idOf(r, "B")});
+        REQUIRE(s.deleteSections({idOf(r, "B")}));
+        CHECK(order(r) == "A C D");
+        s.pasteSections(held, 4.0);
+        CHECK(order(r) == "A C B D");
+        CHECK(peakDifference(render(r, 4.0, 6.0), b) < 1e-4f);
+    }
+}
+
+TEST_CASE(
+    "sections: a clip across a copied section's edges pastes as the part inside, its neighbours untouched",
+    "[integration]")
+{
+    Recording r;
+    auto& s = *r.session;
+    const auto t = r.track(0);
+    for (int i = 0; i < 3; ++i)
+        REQUIRE(s.addSection(2.0 * i, 2.0 * i + 2.0) != 0);
+    tone(r, t, 1.0, 4.0, 330.0); // from inside A to inside C
+    const auto c = render(r, 4.0, 6.0);
+    const auto held = s.copySectionsToClipboard({idOf(r, "B")});
+    s.pasteSections(held, 6.0); // after C
+    CHECK(order(r) == "A B C B 2");
+    const auto clips = now(r)->channel(t)->clips;
+    REQUIRE(clips.size() == 2);
+    CHECK(clips[0].start == Approx(1.0)); // the original, whole
+    CHECK(clips[0].end() == Approx(5.0));
+    CHECK(clips[1].start == Approx(6.0)); // B's part of it
+    CHECK(clips[1].end() == Approx(8.0));
+    CHECK(clips[1].offset == Approx(1.0)); // a second into the tone
+    // The same, but for the edge fades at its new edges (fades.md §2).
+    const double fade = fd::model::kEdgeFadeSeconds;
+    CHECK(peakDifference(render(r, 6.0 + fade, 8.0 - fade), render(r, 2.0 + fade, 4.0 - fade)) < 1e-4f);
+    CHECK(peakDifference(render(r, 4.0, 6.0), c) < 1e-4f);
 }

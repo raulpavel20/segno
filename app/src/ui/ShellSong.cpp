@@ -224,5 +224,9 @@ void Shell::sectionMenu(juce::PopupMenu& menu, std::uint64_t section)
     actions_.addMenuItem(menu, "song.insertSection");
     actions_.addMenuItem(menu, "edit.delete");
     actions_.addMenuItem(menu, "song.removeSectionMark");
+    menu.addSeparator();
+    actions_.addMenuItem(menu, "edit.cut");
+    actions_.addMenuItem(menu, "edit.copy");
+    actions_.addMenuItem(menu, "edit.paste");
 }
 } // namespace fd::app

@@ -29,11 +29,17 @@ std::vector<std::uint64_t> sectionsArg(ToolEnv& env, const Json& value)
     return out;
 }
 
-/// Where a run lands: right before or right after another section, one of the two given.
+/// Where a run lands: right before or right after another section, or at a point in the song as
+/// it is (inside a section, at its nearer edge); one of the three given.
 double targetOf(ToolEnv& env, const Json& args)
 {
-    if (args.contains("before") == args.contains("after"))
-        throw Problem{"Say where: \"before\" one section, or \"after\" one."};
+    if (static_cast<int>(args.contains("before")) + static_cast<int>(args.contains("after")) +
+            static_cast<int>(args.contains("at")) !=
+        1)
+        throw Problem{"Say where: \"before\" one section, \"after\" one, or \"at\" a position."};
+    if (args.contains("at"))
+        return model::pasteLanding(env.session.snapshot()->sections,
+                                   seconds(env, positionArg(env, args["at"])));
     const auto target = sectionArg(env, args.contains("before") ? args["before"] : args["after"]);
     return args.contains("before") ? target.start : target.end;
 }
@@ -71,6 +77,12 @@ Json listResult()
 Json where()
 {
     return id(IdKind::Section, "Another section");
+}
+
+Json at()
+{
+    return position("Or a point in the song as it is now: it goes there, or inside a section, at its "
+                    "nearer edge.");
 }
 } // namespace
 
@@ -163,11 +175,13 @@ void addSectionTools(Registry& registry, ToolEnv& env)
         {"move_section", "Move sections with their music",
          "Moves one section, or a run of them, with everything in its time (clips, takes, automation) to "
          "right "
-         "before or after another section. The rest of the song makes room; the song keeps its length. Clips "
-         "across its edges are split there. One undo step.",
+         "before or after another section, or `at` a point (empty time too). The rest of the song makes "
+         "room; "
+         "the song keeps its length. Clips across its edges are split there. One undo step.",
          object({{"sections", ids(IdKind::Section, "The section, or a run of them")},
                  {"before", where()},
-                 {"after", where()}},
+                 {"after", where()},
+                 {"at", at()}},
                 {"sections"}),
          listResult(), destructive},
         [&env](const Json& args, CallContext&)
@@ -181,13 +195,14 @@ void addSectionTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"copy_section", "Copy sections with their music",
-         "Copies one section, or a run of them, with its music to right before or after another section; the "
-         "music after that moves later to make room. Copies keep the colour, named with a number (\"Chorus "
-         "2\"). "
-         "One undo step.",
+         "Copies one section, or a run of them, with its music to right before or after another section, or "
+         "`at` a point (empty time too, as the clipboard's paste at the playhead); the music after that "
+         "moves "
+         "later to make room. Copies keep the colour, named with a number (\"Chorus 2\"). One undo step.",
          object({{"sections", ids(IdKind::Section, "The section, or a run of them")},
                  {"before", where()},
-                 {"after", where()}},
+                 {"after", where()},
+                 {"at", at()}},
                 {"sections"}),
          result({{"copies", arrayOf(string("A copy's id"), "The copies", 0)}}, {"copies"}), destructive},
         [&env](const Json& args, CallContext&)

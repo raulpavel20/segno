@@ -674,11 +674,12 @@ void Shell::registerActions()
                       return (notesActive() && roll.hasSelection()) || sectionsActive() || pointsActive() ||
                              trackHeaderActive() || (clipsShown() && arrangement_.hasClipSelection());
                   }});
-    // Cut, copy and paste (tracks-and-clips.md §9): clips, notes or points, from the area used
-    // last; pasted at the playhead.
+    // Cut, copy and paste (tracks-and-clips.md §9): clips, notes, points or sections (with their
+    // music, arranger.md §9), from the area used last; pasted at the playhead.
     actions_.add({.id = "edit.cut", .name = "Cut", .category = "Edit", .keys = {key('x', kCmd)},
                   .perform = [this, &roll] {
                       const bool notes = notesActive() && roll.hasSelection(), points = pointsActive();
+                      const bool sections = !notes && !points && sectionsActive();
                       if (!copySelection())
                           return;
                       const engine::Session::EditGroup group(session_, "Cut");
@@ -686,6 +687,8 @@ void Shell::registerActions()
                           roll.deleteSelection();
                       else if (points)
                           arrangement_.deletePoints();
+                      else if (sections)
+                          session_.deleteSections(arrangement_.selectedSections());
                       else
                           arrangement_.deleteSelection();
                   },
@@ -1859,7 +1862,7 @@ juce::PopupMenu Shell::clipColourMenu()
 
 bool Shell::canCopy() const
 {
-    return (notesActive() && detail_.pianoRoll().hasSelection()) || pointsActive() ||
+    return (notesActive() && detail_.pianoRoll().hasSelection()) || pointsActive() || sectionsActive() ||
            (!mixerShown_ && lastArea_ != Area::Clip && arrangement_.hasClipSelection());
 }
 
@@ -1877,6 +1880,12 @@ bool Shell::copySelection()
         heldPoints_ = arrangement_.copyPoints();
         held_ = Held::Points;
         return true;
+    }
+    if (sectionsActive())
+    {
+        heldSections_ = session_.copySectionsToClipboard(arrangement_.selectedSections());
+        held_ = heldSections_.empty() ? held_ : Held::Sections;
+        return !heldSections_.empty();
     }
     if (!mixerShown_ && arrangement_.hasClipSelection())
     {
@@ -1935,6 +1944,23 @@ void Shell::paste()
         if (result.rowsLeftOut > 0)
             showWarning(juce::String(result.rowsLeftOut) + (result.rowsLeftOut == 1 ? " row" : " rows") +
                         " had no track below: left out");
+        return;
+    }
+    case Held::Sections:
+    {
+        // At the playhead (inside a section: at its nearer edge), the rest of the song later.
+        if (mixerShown_)
+        {
+            showWarning("Sections paste into the arrangement");
+            return;
+        }
+        const auto result = session_.pasteSections(heldSections_, at);
+        lastArea_ = Area::Arrangement;
+        arrangement_.selectSections({result.sections.begin(), result.sections.end()});
+        if (result.rowsLeftOut > 0)
+            showWarning(juce::String(result.rowsLeftOut) +
+                        (result.rowsLeftOut == 1 ? " track's" : " tracks'") +
+                        " music had no track in its place: left out");
         return;
     }
     }
