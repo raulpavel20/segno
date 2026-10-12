@@ -8,7 +8,7 @@ How a song's structure gets onto the screen and becomes something you edit. The 
 - the menu bar as the complete list ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md), [menu-bar.md](menu-bar.md)) and assistants' tools ([ADR 0021](../decisions/0021-mcp-server.md), [mcp.md](mcp.md));
 - every edit click-free ([fades.md](fades.md) §1), and no stuck notes ([daw-shell.md](daw-shell.md)).
 
-**Status:** approved by the product owner (2026-10-12), with every recommendation of §15, and the song row shorter than drafted (40 px, not 56: it's always there). The decision is [ADR 0049](../decisions/0049-the-master-row-is-the-song-row.md). Built (2026-10-12): what building settled is in §18. Awaiting the product owner's sign-off.
+**Status:** approved by the product owner (2026-10-12), with every recommendation of §15, and the song row shorter than drafted (40 px, not 56: it's always there). The decision is [ADR 0049](../decisions/0049-the-master-row-is-the-song-row.md). Built (2026-10-12): what building settled is in §18. After the product owner's review (2026-10-13), sections are brackets, a dragged one follows the pointer, and sections copy, cut and paste with their music. Signed off by the product owner (2026-10-13).
 
 ## 1. Why
 
