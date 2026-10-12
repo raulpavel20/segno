@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/Session.h"
+#include "model/BraceDrag.h"
 #include "model/NoteEditing.h"
 #include "model/Timeline.h"
 #include "ui/time/TimeView.h"
@@ -28,6 +29,8 @@ public:
     [[nodiscard]] const std::optional<model::ClipInfo>& clip() const noexcept { return clip_; }
     /// Once per display frame: the playhead.
     void frame(double playheadSeconds);
+    /// Where it shows the playhead: over a looped clip's later laps, in its loop (clip-loops.md §6).
+    [[nodiscard]] double shownPlayhead() const noexcept { return playhead_; }
 
     /// The piano roll's grid (ADR 0047), its own and kept by the Session: setting it here changes
     /// the Session's; the view follows the Session's every frame (assistants set it there too).
@@ -70,6 +73,8 @@ public:
     [[nodiscard]] juce::Rectangle<int> velocityArea() const;
     [[nodiscard]] juce::Rectangle<int> keysArea() const;
     [[nodiscard]] juce::Rectangle<int> rulerArea() const;
+    /// The loop strip above the ruler: the clip's loop brace (ADR 0048, clip-loops.md §6).
+    [[nodiscard]] juce::Rectangle<int> loopStripArea() const;
     /// The point at `beat` (content beats) in the middle of `pitch`'s row.
     [[nodiscard]] juce::Point<float> pointFor(double beat, int pitch) const;
     [[nodiscard]] const model::Timeline& timeline() const noexcept { return timeline_; }
@@ -84,13 +89,19 @@ public:
     void mouseMagnify(const juce::MouseEvent& e, float scaleFactor) override;
 
 private:
-    enum class Gesture { None, Notes, Draw, Box, Velocity, VelocityOffset, Keys, Ruler };
+    enum class Gesture { None, Notes, Draw, Box, Velocity, VelocityOffset, Keys, Ruler, Brace };
 
     [[nodiscard]] model::NoteGeometry geometry() const; // grid-local coordinates
     [[nodiscard]] model::BeatGrid beatGrid(bool bypass) const;
     void syncGrid();
     [[nodiscard]] double gridStep() const;
     [[nodiscard]] double contentStartSeconds() const;
+    /// What the clip plays, in the view's time: its loop (ADR 0048), or the clip.
+    [[nodiscard]] std::pair<double, double> playedRange() const;
+    /// The loop brace: the clip's loop, or what it would loop (itself) while Loop is off.
+    [[nodiscard]] model::BraceRange braceRange() const;
+    /// Height of the strip and the ruler above the grid.
+    [[nodiscard]] static int topHeight();
     [[nodiscard]] double beatForSeconds(double seconds) const;
     [[nodiscard]] double secondsForBeat(double beat) const;
     void clampPitchView();
@@ -133,6 +144,9 @@ private:
     std::optional<std::size_t> clickedInSelection_; // a click without a drag selects just it
     std::set<std::size_t> boxBase_;  // selection before a Shift box drag
     time::RulerGesture rulerGesture_;
+    model::BraceZone braceGrab_ = model::BraceZone::None; // the loop brace's gesture
+    model::BraceRange braceAtPress_;
+    std::optional<model::BraceRange> bracePreview_;
     float drawVelocity_ = 100.0f / 127.0f;
     std::optional<int> previewPitch_; // the note sounding now
 };

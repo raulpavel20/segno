@@ -1,5 +1,7 @@
 #include "ui/PianoRoll.h"
 
+#include "model/ClipLoops.h"
+
 #include "ui/GridMenu.h"
 #include "ui/time/TimeView.h"
 
@@ -77,10 +79,22 @@ PianoRoll::~PianoRoll()
 
 // ---- geometry ------------------------------------------------------------------------------
 
+int PianoRoll::topHeight()
+{
+    const auto& s = ui::Theme::current().shell;
+    return s.loopStripHeight + s.rulerHeight;
+}
+
+juce::Rectangle<int> PianoRoll::loopStripArea() const
+{
+    const auto& s = ui::Theme::current().shell;
+    return getLocalBounds().removeFromTop(s.loopStripHeight).withTrimmedLeft(s.keyboardWidth);
+}
+
 juce::Rectangle<int> PianoRoll::rulerArea() const
 {
     const auto& s = ui::Theme::current().shell;
-    return getLocalBounds().removeFromTop(s.rulerHeight).withTrimmedLeft(s.keyboardWidth);
+    return getLocalBounds().withTrimmedTop(s.loopStripHeight).removeFromTop(s.rulerHeight).withTrimmedLeft(s.keyboardWidth);
 }
 
 juce::Rectangle<int> PianoRoll::velocityArea() const
@@ -92,18 +106,33 @@ juce::Rectangle<int> PianoRoll::velocityArea() const
 juce::Rectangle<int> PianoRoll::keysArea() const
 {
     const auto& s = ui::Theme::current().shell;
-    return getLocalBounds().withTrimmedTop(s.rulerHeight).withTrimmedBottom(s.velocityHeight + 1).removeFromLeft(s.keyboardWidth);
+    return getLocalBounds().withTrimmedTop(topHeight()).withTrimmedBottom(s.velocityHeight + 1).removeFromLeft(s.keyboardWidth);
 }
 
 juce::Rectangle<int> PianoRoll::gridArea() const
 {
     const auto& s = ui::Theme::current().shell;
-    return getLocalBounds().withTrimmedTop(s.rulerHeight).withTrimmedBottom(s.velocityHeight + 1).withTrimmedLeft(s.keyboardWidth);
+    return getLocalBounds().withTrimmedTop(topHeight()).withTrimmedBottom(s.velocityHeight + 1).withTrimmedLeft(s.keyboardWidth);
 }
 
 double PianoRoll::contentStartSeconds() const
 {
-    return clip_ ? clip_->start - clip_->offset : 0.0;
+    return clip_ ? model::clipViewOrigin(*clip_) : 0.0; // a looped clip: the lap it starts in (§6)
+}
+
+std::pair<double, double> PianoRoll::playedRange() const
+{
+    if (!clip_)
+        return {};
+    if (!clip_->loop.on())
+        return {clip_->start, clip_->end()};
+    const double origin = contentStartSeconds();
+    return {origin + clip_->loop.start, origin + clip_->loop.end()};
+}
+
+model::BraceRange PianoRoll::braceRange() const
+{
+    return playedRange();
 }
 
 double PianoRoll::beatForSeconds(double seconds) const
@@ -157,9 +186,10 @@ void PianoRoll::fitToClip()
         return; // once laid out
     needsFit_ = false;
     timeline_.setWidth(area.getWidth());
-    const double length = std::max(clip_->length, tempo_.secondsForBeats(tempo_.beatsPerBar()));
+    const auto [from, to] = playedRange(); // the clip, or its loop
+    const double length = std::max(to - from, tempo_.secondsForBeats(tempo_.beatsPerBar()));
     const double margin = length * 0.03;
-    timeline_.setView(std::max(0.0, clip_->start - margin), area.getWidth() / (length + 2.0 * margin));
+    timeline_.setView(std::max(0.0, from - margin), area.getWidth() / (length + 2.0 * margin));
 
     // Pitches: centred on the notes, or on C3..C4 for an empty clip.
     int lo = 60, hi = 72;
@@ -244,7 +274,9 @@ void PianoRoll::setClip(std::optional<model::ClipInfo> clip, const model::TempoM
 void PianoRoll::frame(double playheadSeconds)
 {
     syncGrid(); // set by an assistant, a project opened; the step follows the zoom
-    playhead_ = playheadSeconds;
+    // Over a looped clip's later laps, the playhead shows where in the loop the song is (§6).
+    const bool overLoop = clip_ && clip_->loop.on() && playheadSeconds >= clip_->start && playheadSeconds < clip_->end();
+    playhead_ = overLoop ? model::clipViewTime(*clip_, playheadSeconds) : playheadSeconds;
     playheadTracker_.update(*this, timeline_, gridArea(), playhead_);
 }
 
@@ -304,7 +336,7 @@ void PianoRoll::pasteNotes(const std::vector<model::Note>& notes, double seconds
     if (!clip_ || notes.empty())
         return;
     const bool over = seconds >= clip_->start && seconds < clip_->end();
-    const double at = beatForSeconds(over ? seconds : clip_->start);
+    const double at = beatForSeconds(over ? model::clipViewTime(*clip_, seconds) : playedRange().first);
     model::NoteEdit edit{notes_, {}};
     for (const auto& n : notes)
     {
@@ -414,9 +446,10 @@ void PianoRoll::paintRows(juce::Graphics& g)
         }
     }
 
-    // Outside the clip: notes there are kept but don't play.
-    const float clipX0 = static_cast<float>(area.getX() + timeline_.xForTime(clip_->start));
-    const float clipX1 = static_cast<float>(area.getX() + timeline_.xForTime(clip_->end()));
+    // Outside the clip (or its loop): notes there are kept but don't play.
+    const auto [played0, played1] = playedRange();
+    const float clipX0 = static_cast<float>(area.getX() + timeline_.xForTime(played0));
+    const float clipX1 = static_cast<float>(area.getX() + timeline_.xForTime(played1));
     g.setColour(t.roles.shade);
     if (clipX0 > x)
         g.fillRect(x, static_cast<float>(area.getY()), clipX0 - x, static_cast<float>(area.getHeight()));
@@ -436,7 +469,7 @@ void PianoRoll::paintNotes(juce::Graphics& g)
     const auto& notes = shownNotes();
     const auto& selection = shownSelection();
     const auto colour = t.clipColour(clip_->colour);
-    const double clipStart = beatForSeconds(clip_->start), clipEnd = beatForSeconds(clip_->end());
+    const double clipStart = beatForSeconds(playedRange().first), clipEnd = beatForSeconds(playedRange().second);
     const bool labels = rowHeight_ >= 10.0;
     g.setFont(ui::font(ui::TextStyle::Micro));
 
@@ -584,9 +617,10 @@ void PianoRoll::paintRuler(juce::Graphics& g)
 {
     const auto& t = ui::Theme::current();
     g.setColour(t.surface1);
-    g.fillRect(getLocalBounds().removeFromTop(t.shell.rulerHeight)); // the corner above the keys too
-    time::paintRuler(g, lines_, timeline_, rulerArea(),
-                     {.range = std::pair{clip_->start, clip_->end()}, .rangeColour = t.clipColour(clip_->colour)});
+    g.fillRect(getLocalBounds().removeFromTop(topHeight())); // the corner above the keys too
+    // The clip's loop brace: its loop, or (Loop off) what it would loop (clip-loops.md §6).
+    time::paintLoopStrip(g, timeline_, loopStripArea(), bracePreview_.value_or(braceRange()), clip_->loop.on());
+    time::paintRuler(g, lines_, timeline_, rulerArea(), {.range = playedRange(), .rangeColour = t.clipColour(clip_->colour)});
 }
 
 // ---- input ---------------------------------------------------------------------------------
@@ -620,6 +654,15 @@ void PianoRoll::mouseMove(const juce::MouseEvent& e)
     const auto pos = e.getPosition();
     if (clip_ && keysArea().contains(pos))
         cursor = juce::MouseCursor::PointingHandCursor;
+    else if (clip_ && loopStripArea().contains(pos))
+    {
+        const auto [a, b] = braceRange();
+        const auto x0 = static_cast<double>(loopStripArea().getX()) + timeline_.xForTime(a);
+        const auto x1 = static_cast<double>(loopStripArea().getX()) + timeline_.xForTime(b);
+        const auto zone = model::braceZoneAt(e.position.x, x0, x1, ui::Theme::current().input.edgeGrab);
+        if (zone == model::BraceZone::Start || zone == model::BraceZone::End)
+            cursor = juce::MouseCursor::LeftRightResizeCursor;
+    }
     else if (clip_ && gridArea().contains(pos))
     {
         const auto local = e.position - gridArea().getPosition().toFloat();
@@ -650,6 +693,17 @@ void PianoRoll::mouseDown(const juce::MouseEvent& e)
     {
         gesture_ = Gesture::Keys;
         previewOn(std::clamp(geo.pitchForY(local.y), 0, 127), drawVelocity_);
+        return;
+    }
+    if (loopStripArea().contains(pos))
+    {
+        // The clip's loop brace (clip-loops.md §6), as the transport's in the arrangement.
+        gesture_ = Gesture::Brace;
+        braceAtPress_ = braceRange();
+        const auto x0 = static_cast<double>(area.getX()) + timeline_.xForTime(braceAtPress_.first);
+        const auto x1 = static_cast<double>(area.getX()) + timeline_.xForTime(braceAtPress_.second);
+        braceGrab_ = model::braceZoneAt(e.position.x, x0, x1, ui::Theme::current().input.edgeGrab);
+        bracePreview_.reset();
         return;
     }
     if (rulerArea().contains(pos))
@@ -772,6 +826,20 @@ void PianoRoll::mouseDrag(const juce::MouseEvent& e)
         repaint();
         return;
     }
+    if (gesture_ == Gesture::Brace)
+    {
+        if (!moved_ && e.getDistanceFromDragStart() < ui::Theme::current().input.dragThreshold)
+            return;
+        moved_ = true;
+        const bool free = !isSnapEnabled() || e.mods.isAltDown();
+        const auto snap = [this, free](double t) { return free ? std::max(0.0, t) : timeline_.snap(t, tempo_); };
+        // While Loop is off there's no loop to move: a drag inside the brace draws one.
+        const auto grab = !clip_->loop.on() && braceGrab_ == model::BraceZone::Body ? model::BraceZone::None : braceGrab_;
+        bracePreview_ = model::dragBrace(grab, braceAtPress_, timeline_.timeForX(dragStart_.x - static_cast<float>(area.getX())),
+                                         timeline_.timeForX(local.x), snap, model::minClipLength);
+        repaint(loopStripArea());
+        return;
+    }
     const bool immediate = gesture_ == Gesture::Draw || gesture_ == Gesture::Velocity || gesture_ == Gesture::VelocityOffset;
     if (!immediate && !moved_ && e.getDistanceFromDragStart() < ui::Theme::current().input.dragThreshold)
         return; // a click, not a drag
@@ -821,13 +889,30 @@ void PianoRoll::mouseDrag(const juce::MouseEvent& e)
     }
     case Gesture::None:
     case Gesture::Keys:
-    case Gesture::Ruler: break; // handled above
+    case Gesture::Ruler:
+    case Gesture::Brace: break; // handled above
     }
     repaint();
 }
 
 void PianoRoll::mouseUp(const juce::MouseEvent& e)
 {
+    if (gesture_ == Gesture::Brace && clip_)
+    {
+        // A loop drawn or changed (Loop on), or a click on the brace switching it (clip-loops.md §6).
+        const auto release = model::releaseBrace(braceGrab_, moved_, bracePreview_);
+        if (release.range)
+        {
+            const double origin = contentStartSeconds();
+            session_.setClipLoop(clip_->id, {release.range->first - origin, release.range->second - release.range->first});
+        }
+        if (release.toggle)
+            session_.setClipsLooping({clip_->id}, !clip_->loop.on());
+        bracePreview_.reset();
+        gesture_ = Gesture::None;
+        repaint();
+        return;
+    }
     if (gesture_ == Gesture::Ruler && e.getDistanceFromDragStart() < ui::Theme::current().input.dragThreshold)
     {
         // A click in the ruler moves the playhead (snapped; Alt for free).

@@ -349,18 +349,10 @@ juce::Rectangle<int> ArrangementView::loopStripArea() const
     return rulerArea().removeFromTop(loopStripHeight());
 }
 
-ArrangementView::LoopZone ArrangementView::loopZoneAt(float x) const
+model::BraceZone ArrangementView::loopZoneAt(float x) const
 {
     const auto [a, b] = loopPreview_.value_or(loop_);
-    if (!(b > a))
-        return LoopZone::None;
-    const float x0 = laneX(a), x1 = laneX(b);
-    const float edge = std::min(ui::Theme::current().input.edgeGrab, (x1 - x0) / 3.0f);
-    if (std::abs(x - x0) <= edge)
-        return LoopZone::Start;
-    if (std::abs(x - x1) <= edge)
-        return LoopZone::End;
-    return x > x0 && x < x1 ? LoopZone::Body : LoopZone::None;
+    return model::braceZoneAt(x, laneX(a), laneX(b), ui::Theme::current().input.edgeGrab);
 }
 
 juce::Rectangle<int> ArrangementView::headerArea() const
@@ -1677,8 +1669,8 @@ void ArrangementView::mouseMove(const juce::MouseEvent& e)
     if (loopStripArea().contains(e.getPosition()))
     {
         const auto zone = loopZoneAt(e.position.x);
-        cursor = zone == LoopZone::Start || zone == LoopZone::End ? juce::MouseCursor::LeftRightResizeCursor
-                                                                  : juce::MouseCursor::NormalCursor;
+        cursor = zone == model::BraceZone::Start || zone == model::BraceZone::End ? juce::MouseCursor::LeftRightResizeCursor
+                                                                                  : juce::MouseCursor::NormalCursor;
     }
     else if (headerArea().contains(e.getPosition()))
     {
@@ -2090,24 +2082,7 @@ void ArrangementView::mouseDrag(const juce::MouseEvent& e)
         const auto lx = static_cast<float>(lanes.getX());
         const double now = timeline_.timeForX(e.position.x - lx);
         const double then = timeline_.timeForX(dragStart_.x - lx);
-        auto [a, b] = loopAtDragStart_;
-        switch (loopDrag_)
-        {
-        case LoopZone::None: // draw a new brace
-            a = snapFn(std::min(then, now));
-            b = snapFn(std::max(then, now));
-            break;
-        case LoopZone::Body:
-        {
-            const double moved = snapFn(a + (now - then)) - a;
-            a = std::max(0.0, a + moved);
-            b = a + (loopAtDragStart_.second - loopAtDragStart_.first);
-            break;
-        }
-        case LoopZone::Start: a = std::min(snapFn(now), b - 0.01); break;
-        case LoopZone::End: b = std::max(snapFn(now), a + 0.01); break;
-        }
-        loopPreview_ = std::pair{a, b};
+        loopPreview_ = model::dragBrace(loopDrag_, loopAtDragStart_, then, now, snapFn, model::minClipLength);
         repaint(rulerArea());
         return;
     }
@@ -2197,14 +2172,13 @@ void ArrangementView::mouseUp(const juce::MouseEvent& e)
         resizeRow_.reset();
     if (drag_ == Drag::Loop)
     {
-        if (dragMoved_ && loopPreview_ && loopPreview_->second > loopPreview_->first)
-        {
-            session_.setLoopRange(loopPreview_->first, loopPreview_->second);
-            if (loopDrag_ == LoopZone::None)
-                session_.setLooping(true); // drawing a new brace turns looping on
-        }
-        else if (!dragMoved_ && loopDrag_ != LoopZone::None)
-            session_.setLooping(!session_.isLooping()); // a click on the brace toggles it
+        const auto release = model::releaseBrace(loopDrag_, dragMoved_, loopPreview_);
+        if (release.range)
+            session_.setLoopRange(release.range->first, release.range->second);
+        if (release.switchOn) // drawing a new brace turns looping on
+            session_.setLooping(true);
+        if (release.toggle) // a click on the brace toggles it
+            session_.setLooping(!session_.isLooping());
         loopPreview_.reset();
     }
     if (drag_ == Drag::Clip && dragMoved_ && !preview_.empty())

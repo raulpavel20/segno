@@ -880,6 +880,75 @@ TEST_CASE("the command palette finds and runs any action", "[integration]")
     CHECK(palette.recent().front() == "view.browser");
 }
 
+TEST_CASE("piano roll: the clip's loop brace drawn, clicked and moved; the view shows the loop; the playhead wraps (C10)",
+          "[integration]")
+{
+    ShellFixture f;
+    f.shell->setSize(1800, 1000);
+    auto& s = *f.session;
+    auto& view = f.shell->arrangement();
+    auto& detail = f.shell->detail();
+    auto& roll = detail.pianoRoll();
+    const auto track = s.snapshot()->tracks.front().id;
+    // Two bars at 120 BPM, a note on each beat.
+    const auto id = s.createMidiClip(track, 0.0, 4.0);
+    std::vector<fd::model::Note> notes;
+    for (int b = 0; b < 8; ++b)
+        notes.push_back({.pitch = 60 + b, .start = static_cast<double>(b), .length = 0.5});
+    s.setNotes(id, notes);
+    s.updateSnapshotNow();
+    auto clip = [&] {
+        s.updateSnapshotNow();
+        return *fd::model::findClip(*s.snapshot(), id)->first;
+    };
+    // Opened in the clip view (a double-click on its body).
+    const auto& tl = view.timeline();
+    const juce::Point<float> body(static_cast<float>(fd::app::ArrangementView::headerWidth()) + static_cast<float>(tl.xForTime(1.0)),
+                                  static_cast<float>(fd::app::ArrangementView::rulerHeight()) + 40.0f);
+    click(view, body);
+    click(view, body, 2);
+    REQUIRE(detail.showsPianoRoll());
+    f.shell->finishAnimations();
+    auto settle = [&] { // the snapshot reaches the clip view
+        s.updateSnapshotNow();
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    };
+    auto stripPoint = [&](double seconds) {
+        const auto strip = roll.loopStripArea();
+        return juce::Point<float>(static_cast<float>(strip.getX() + roll.timeline().xForTime(seconds)),
+                                  static_cast<float>(strip.getCentreY()));
+    };
+    REQUIRE_FALSE(roll.loopStripArea().isEmpty());
+
+    // Drawn on the strip over beats 2 to 6: the clip loops that, and the view shows its loop.
+    drag(roll, stripPoint(1.0), stripPoint(3.0));
+    CHECK(s.undoDescription() == "Loop");
+    CHECK(clip().loop.start == Catch::Approx(1.0).margin(1e-6));
+    CHECK(clip().loop.length == Catch::Approx(2.0).margin(1e-6));
+    CHECK(clip().length == Catch::Approx(4.0)); // the clip as long as it was
+    settle();
+
+    // A click on the brace: Loop off; again: on, looping what the clip shows.
+    const auto origin = fd::model::clipViewOrigin(clip());
+    click(roll, stripPoint(origin + 2.0));
+    CHECK(s.undoDescription() == "Stop looping clips");
+    CHECK_FALSE(clip().loop.on());
+    settle();
+    click(roll, stripPoint(clip().start + 1.0));
+    CHECK(s.undoDescription() == "Loop clips");
+    CHECK(clip().loop.on());
+    settle();
+
+    // A one-bar loop out to four bars: the playhead in the third bar shows where in the loop it is.
+    REQUIRE(s.setClipLoop(id, {0.0, 2.0}).empty());
+    s.applyClipEdits({{.clip = id, .track = track, .start = 0.0, .length = 8.0, .offset = 0.0}});
+    settle();
+    roll.frame(4.5);
+    CHECK(roll.shownPlayhead() == Catch::Approx(fd::model::clipViewOrigin(clip()) + 0.5));
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "piano-roll-loop@2x.png", roll.createComponentSnapshot(roll.getLocalBounds(), true, 2.0f));
+}
+
 TEST_CASE("piano roll: a double-click makes a clip; notes are drawn, moved, set and deleted", "[integration]")
 {
     ShellFixture f;

@@ -4,6 +4,7 @@
 #include "ui/AutomationLane.h"
 #include "ui/ChannelControls.h"
 #include "ui/LaneControls.h"
+#include "model/BraceDrag.h"
 #include "model/ArrangementRows.h"
 #include "model/Editing.h"
 #include "model/FadeEditing.h"
@@ -457,15 +458,14 @@ private:
     model::Selection selection_, notified_;
 
     [[nodiscard]] juce::Rectangle<int> loopStripArea() const;
-    enum class LoopZone { None, Body, Start, End };
-    [[nodiscard]] LoopZone loopZoneAt(float x) const;
+    [[nodiscard]] model::BraceZone loopZoneAt(float x) const;
 
     bool follow_ = true;
     std::optional<double> scrollTarget_; // follow-playhead paging, eased
     std::pair<double, double> loop_{0.0, 0.0};
     bool looping_ = false;
     std::optional<std::pair<double, double>> loopPreview_; // while dragging the brace
-    LoopZone loopDrag_ = LoopZone::None;
+    model::BraceZone loopDrag_ = model::BraceZone::None;
     std::pair<double, double> loopAtDragStart_{0.0, 0.0};
 
     enum class Drag { None, Ruler, Clip, Box, Loop, Lane, Resize, Fade, Swipe, Join, Row };
