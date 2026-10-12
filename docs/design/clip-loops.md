@@ -8,7 +8,7 @@ How a clip repeats: a **Loop** switch on every clip, a **loop** inside its conte
 - the menu bar as the complete list ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md), [menu-bar.md](menu-bar.md) §15) and assistants' tools ([ADR 0021](../decisions/0021-mcp-server.md), [mcp.md](mcp.md));
 - the clip editing of [daw-shell.md](daw-shell.md) ("Clip editing (C4)", "Piano roll").
 
-**Status:** approved by the product owner (2026-10-12), with every recommendation of §14; the product owner chose the audio clip view (L16). Built 2026-10-12, for review; what building settled is in §17.
+**Status:** approved by the product owner (2026-10-12), with every recommendation of §14; the product owner chose the audio clip view (L16). Built and signed off by the product owner 2026-10-12; what building settled is in §17.
 
 ## 1. Why
 
