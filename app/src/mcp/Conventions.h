@@ -19,7 +19,8 @@ enum class IdKind : char
     Clip = 'c',
     Module = 'm',
     Lane = 'a',
-    Take = 'k'
+    Take = 'k',
+    Section = 's'
 };
 [[nodiscard]] std::string formatId(IdKind kind, std::uint64_t id);
 /// "t:12" (or a bare number) -> 12; nullopt if it isn't an id of that kind.

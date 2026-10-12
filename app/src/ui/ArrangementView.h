@@ -45,6 +45,12 @@ public:
         return s.loopStripHeight + s.rulerHeight;
     }
     [[nodiscard]] static int loopStripHeight() { return ui::Theme::current().shell.loopStripHeight; }
+    /// Where the rows begin with the song row at its default height (ADR 0049): under the ruler and
+    /// the song row.
+    [[nodiscard]] static int defaultRowsTop()
+    {
+        return rulerHeight() + ui::Theme::current().shell.songRowHeight;
+    }
 
     explicit ArrangementView(engine::Session& session);
 
@@ -172,6 +178,33 @@ public:
     bool pastePoints(const model::AutomationPoints& points, double seconds);
     /// Removes the selected lane (one undo step).
     void removeSelectedLane();
+    // The song row (M3 C3, ADR 0049, docs/design/arranger.md): the master's row, pinned under the
+    // ruler, with the song's sections over a miniature of every track.
+    /// Its header and its lane (view coordinates).
+    [[nodiscard]] juce::Rectangle<int> songHeaderArea() const;
+    [[nodiscard]] juce::Rectangle<int> songLaneArea() const;
+    /// Its height (view state, kept with the row heights as "song").
+    [[nodiscard]] int songRowHeight() const;
+    /// Selects sections alone, the master their channel, as a click on one does.
+    void selectSections(std::set<std::uint64_t> sections);
+    [[nodiscard]] bool hasSectionSelection() const noexcept { return !selection_.sections.empty(); }
+    /// The selected sections, by start.
+    [[nodiscard]] std::vector<std::uint64_t> selectedSections() const;
+    /// Renames a section where its name is (F2, a double-click on it). False if it isn't in view.
+    bool renameSection(std::uint64_t section);
+    /// Where a section's name is, if it's in view (tests).
+    [[nodiscard]] std::optional<juce::Rectangle<int>> sectionNameArea(std::uint64_t section) const;
+    /// A section being made, moved, copied or resized: Escape cancels it. True if one was.
+    bool cancelSectionDrag();
+    /// Where a dragged section would land now (tests): a section boundary.
+    [[nodiscard]] std::optional<double> sectionDrop() const;
+    /// A section's right-click items (the shell's), or for 0 the empty song row's.
+    std::function<void(juce::PopupMenu&, std::uint64_t section)> onSectionMenu;
+    /// A section was double-clicked in its body (it's selected): loop it.
+    std::function<void()> onLoopSection;
+    /// A section was clicked, made or moved (Delete, Ctrl+D and F2 act on sections).
+    std::function<void()> onSectionActivated;
+
     // Takes (C5b, ADR 0032, docs/design/recording.md §6): under their clip.
     /// Selects a take (with its track), as a click on its strip does.
     /// A click on a take's strip (ADR 0038): that take for the section of its clip at `seconds`;
@@ -195,11 +228,16 @@ public:
     void setView(double startSeconds, double pixelsPerSecond);
     /// Sets every track's height (clamped to the layout's limits).
     void setAllTrackHeights(double height);
-    /// Return tracks and the master, below the tracks (C3, docs/design/mixer.md §2).
+    /// Return tracks, below the tracks (C3, docs/design/mixer.md §2). The master's row is the
+    /// song row, always shown (ADR 0049).
     void setMixRowsVisible(bool visible);
     /// Drops the mixer controls in the headers (before the project is replaced: they hold the
     /// engine's meters). setSnapshot() makes them again.
-    void releaseChannelControls() { headerControls_.clear(); }
+    void releaseChannelControls()
+    {
+        headerControls_.clear();
+        masterControls_.reset();
+    }
     [[nodiscard]] bool mixRowsVisible() const noexcept { return showMixRows_; }
 
     /// Wall time of the last paint, ms (frame statistics).
@@ -396,6 +434,57 @@ private:
     void paintRuler(juce::Graphics& g);
     void paintHeaders(juce::Graphics& g);
     void paintLanes(juce::Graphics& g);
+
+    // The song row (ArrangementSongRow.cpp).
+    struct HeaderControls;
+    [[nodiscard]] juce::Rectangle<int> songArea() const;
+    /// The sections as drawn: the snapshot's, or what a drag on them is making of them.
+    [[nodiscard]] std::vector<model::SectionInfo> shownSections() const;
+    /// The section under `x` in the song lane, and whether `x` is at its start or end edge.
+    struct SectionAt
+    {
+        std::uint64_t section = 0;
+        enum class Zone
+        {
+            Body,
+            Start,
+            End
+        } zone = Zone::Body;
+    };
+    [[nodiscard]] std::optional<SectionAt> sectionAt(float x) const;
+    void paintSongRow(juce::Graphics& g);
+    void paintOverview(juce::Graphics& g, juce::Rectangle<int> area);
+    /// Where a section drag lands (the line across the rows), on top of everything.
+    void paintSectionDrop(juce::Graphics& g);
+    void songMouseMove(const juce::MouseEvent& e);
+    void songMouseDown(const juce::MouseEvent& e);
+    void songMouseDrag(const juce::MouseEvent& e);
+    void songMouseUp(const juce::MouseEvent& e);
+    /// The master's mixer controls in the song row's header.
+    void placeSongControls();
+    /// A gesture on the sections (arranger.md §8): making one, moving or copying a run of them, or
+    /// moving an edge.
+    struct SectionDrag
+    {
+        enum class Kind
+        {
+            Make,
+            Move,
+            Copy,
+            Start,
+            End
+        } kind = Kind::Make;
+        std::uint64_t section = 0;   // the one grabbed (Start, End, Move, Copy)
+        double from = 0.0, to = 0.0; // Make: the stretch; Start/End: the section's new marks
+        std::optional<double> drop;  // Move/Copy: where it lands
+        bool moved = false;          // dragged past the threshold
+        std::optional<std::uint64_t> clickedInSelection; // a click without a drag selects just it
+    };
+    std::optional<SectionDrag> sectionDrag_;
+    juce::Component songLayer_; // clips the master's controls to the song row's header
+    std::unique_ptr<HeaderControls> masterControls_;
+    std::uint64_t masterControlsFor_ = 0;        // the master they were made for (a new project has another)
+    std::optional<std::uint64_t> sectionAnchor_; // Shift extends a run from here
     /// A clip's notes or waveform in `content` (clipContent of its colour, or a role).
     void paintNotes(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body, juce::Colour content);
     void paintWaveform(juce::Graphics& g, const model::ClipInfo& clip, juce::Rectangle<float> body,
@@ -468,7 +557,22 @@ private:
     model::BraceZone loopDrag_ = model::BraceZone::None;
     std::pair<double, double> loopAtDragStart_{0.0, 0.0};
 
-    enum class Drag { None, Ruler, Clip, Box, Loop, Lane, Resize, Fade, Swipe, Join, Row };
+    enum class Drag
+    {
+        None,
+        Ruler,
+        Clip,
+        Box,
+        Loop,
+        Lane,
+        Resize,
+        Fade,
+        Swipe,
+        Join,
+        Row,
+        Section,
+        SongResize
+    };
     /// A header dragged to reorder its row (§6): moving once past the drag threshold.
     struct RowDrag
     {

@@ -126,7 +126,8 @@ TEST_CASE("DAW shell builds and paints offscreen at standard and compact widths"
         for (auto* child : f.shell->getChildren())
             if (auto* view = dynamic_cast<fd::app::ArrangementView*>(child))
             {
-                const juce::Point<float> header(40.0f, static_cast<float>(fd::app::ArrangementView::rulerHeight()) + 20.0f);
+                const juce::Point<float> header(
+                    40.0f, static_cast<float>(fd::app::ArrangementView::defaultRowsTop()) + 20.0f);
                 view->mouseDown(mouseEvent(*view, header, header, false));
                 view->mouseUp(mouseEvent(*view, header, header, false));
             }
@@ -243,7 +244,8 @@ TEST_CASE("the mixer in the arrangement: header controls, returns and master, th
     CHECK(f.session->snapshot()->tracks[0].mix.mute);
     CHECK(f.session->undoDescription() == "Mute");
 
-    // Alt+S solos the selected channel; Ctrl+Alt+R hides and shows the returns and master.
+    // Alt+S solos the selected channel; Ctrl+Alt+R hides and shows the returns (the master's row is
+    // the song row, always there: ADR 0049).
     view.selectTrack(first);
     REQUIRE(actions.perform("track.solo"));
     f.session->updateSnapshotNow();
@@ -251,7 +253,8 @@ TEST_CASE("the mixer in the arrangement: header controls, returns and master, th
     REQUIRE(actions.perform("view.returns"));
     CHECK_FALSE(view.mixRowsVisible());
     view.setSnapshot(f.session->snapshot());
-    CHECK(findAll<fd::app::VolumeBar>(view).size() == f.session->snapshot()->tracks.size());
+    CHECK(findAll<fd::app::VolumeBar>(view).size() ==
+          f.session->snapshot()->tracks.size() + 1); // and the master's
     REQUIRE(actions.perform("view.returns"));
     CHECK(view.mixRowsVisible());
 
@@ -385,7 +388,8 @@ constexpr float kRowHeight = 64.0f;
 /// Where a row's header is, and a time in its lane, once every row is kRowHeight tall.
 juce::Point<float> headerOf(int row)
 {
-    return {40.0f, static_cast<float>(fd::app::ArrangementView::rulerHeight()) + kRowHeight * (static_cast<float>(row) + 0.5f)};
+    return {40.0f, static_cast<float>(fd::app::ArrangementView::defaultRowsTop()) +
+                       kRowHeight * (static_cast<float>(row) + 0.5f)};
 }
 
 juce::Point<float> laneAt(const fd::app::ArrangementView& view, double seconds, int row)
@@ -457,13 +461,13 @@ TEST_CASE("one selection: the context panels follow the last click in the arrang
     f.session->updateSnapshotNow();
     CHECK(detail.mode() == Mode::Devices);
 
-    // The return and master rows, by lane and by header: their channel alone.
+    // The return row by its lane, and the master by the song row's header (ADR 0049): their channel alone.
     click(view, laneAt(view, 6.0, rows));
     CHECK(view.selection() == Selection{.channel = snap->returns[0].id});
     CHECK(detail.chain().track() == snap->returns[0].id);
     CHECK(inspector.sections() == std::vector{S::Return, S::Mix});
     click(view, onClip);
-    click(view, headerOf(rows + 1));
+    click(view, view.songHeaderArea().toFloat().getCentre().withX(40.0f));
     CHECK(view.selection() == Selection{.channel = snap->master.id});
     CHECK(inspector.sections() == std::vector{S::Master, S::Mix});
 
@@ -669,7 +673,11 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         // others are rare.
         "browser.preview", "file.collect", "file.removeUnused",
         // Clip loops (clip-loops.md §10): Ctrl+L and every L combination are taken; assignable.
-        "clip.loop"};
+        "clip.loop",
+        // The song's sections (arranger.md §12): Delete, Ctrl+D and F2 act on a selected section,
+        // a double-click loops it; the rest are rare.
+        "song.addSection", "song.insertSection", "song.loopSection", "song.selectClips",
+        "song.duplicateSection", "song.deleteSection", "song.removeSectionMark"};
     for (const auto& a : actions.all())
     {
         INFO(a.id);
@@ -718,7 +726,7 @@ TEST_CASE("dragging a clip moves it, snapped, onto another track in one undo ste
     view.setSnapshot(f.session->snapshot());
     const auto& tl = view.timeline();
     const auto laneX = static_cast<float>(fd::app::ArrangementView::headerWidth());
-    const auto top = static_cast<float>(fd::app::ArrangementView::rulerHeight());
+    const auto top = static_cast<float>(fd::app::ArrangementView::defaultRowsTop());
 
     // Grab the clip in the middle of its body (0.5 s), drag right ~1.3 s and down one track.
     const juce::Point<float> down(laneX + static_cast<float>(tl.xForTime(0.5)), top + 30.0f);
@@ -903,8 +911,9 @@ TEST_CASE("piano roll: the clip's loop brace drawn, clicked and moved; the view 
     };
     // Opened in the clip view (a double-click on its body).
     const auto& tl = view.timeline();
-    const juce::Point<float> body(static_cast<float>(fd::app::ArrangementView::headerWidth()) + static_cast<float>(tl.xForTime(1.0)),
-                                  static_cast<float>(fd::app::ArrangementView::rulerHeight()) + 40.0f);
+    const juce::Point<float> body(static_cast<float>(fd::app::ArrangementView::headerWidth()) +
+                                      static_cast<float>(tl.xForTime(1.0)),
+                                  static_cast<float>(fd::app::ArrangementView::defaultRowsTop()) + 40.0f);
     click(view, body);
     click(view, body, 2);
     REQUIRE(detail.showsPianoRoll());
@@ -983,8 +992,9 @@ TEST_CASE("audio clip view: a double-click opens an audio clip there; its loop b
 
     // Selected, it shows its modules; a double-click opens it in the clip view.
     const auto& tl = view.timeline();
-    const juce::Point<float> body(static_cast<float>(fd::app::ArrangementView::headerWidth()) + static_cast<float>(tl.xForTime(1.0)),
-                                  static_cast<float>(fd::app::ArrangementView::rulerHeight()) + 40.0f);
+    const juce::Point<float> body(static_cast<float>(fd::app::ArrangementView::headerWidth()) +
+                                      static_cast<float>(tl.xForTime(1.0)),
+                                  static_cast<float>(fd::app::ArrangementView::defaultRowsTop()) + 40.0f);
     click(view, body);
     CHECK(detail.mode() == fd::app::DetailPanel::Mode::Devices);
     click(view, body, 2);
@@ -1045,8 +1055,9 @@ TEST_CASE("piano roll: a double-click makes a clip; notes are drawn, moved, set 
     // Double-click an empty spot of the first track at 2.1 s: a one-bar MIDI clip from the grid
     // line before it, and the clip view showing it.
     const auto& tl = view.timeline();
-    const juce::Point<float> spot(static_cast<float>(fd::app::ArrangementView::headerWidth()) + static_cast<float>(tl.xForTime(2.1)),
-                                  static_cast<float>(fd::app::ArrangementView::rulerHeight()) + 20.0f);
+    const juce::Point<float> spot(static_cast<float>(fd::app::ArrangementView::headerWidth()) +
+                                      static_cast<float>(tl.xForTime(2.1)),
+                                  static_cast<float>(fd::app::ArrangementView::defaultRowsTop()) + 20.0f);
     click(view, spot);
     click(view, spot, 2);
     auto clip = clipInfo();
@@ -1339,14 +1350,16 @@ TEST_CASE("automation lanes: rows among the tracks, added like tracks, edited an
     const auto panLane = s.automateInNewLane({t1, "pan"});
     REQUIRE(s.setLanePoints(panLane, {{1.0, 0.0f, 0.0f}, {3.0, 1.0f, 0.0f}}));
     s.updateSnapshotNow();
-    CHECK(view.rows().size() == tracks + 3 + 1 + s.snapshot()->returns.size()); // 3 lanes, the master
+    CHECK(view.rows().size() ==
+          tracks + 3 + s.snapshot()->returns.size()); // 3 lanes (the master: the song row)
     CHECK(view.rows()[tracks + 1].lane == freqLane);
     CHECK(view.rows()[tracks + 2].lane == panLane);
     view.setAllTrackHeights(64.0);
 
     // Double-click in the volume lane adds a point (one undo step).
-    auto rowTop = [&](size_t row) {
-        float y = static_cast<float>(fd::app::ArrangementView::rulerHeight());
+    auto rowTop = [&](size_t row)
+    {
+        float y = static_cast<float>(fd::app::ArrangementView::defaultRowsTop());
         for (size_t i = 0; i < row; ++i)
             y += 64.0f;
         return y;
@@ -1527,8 +1540,10 @@ TEST_CASE("automation lanes: the picker's channel row and assign mode, the inspe
     s.updateSnapshotNow();
     CHECK(s.snapshot()->automationLane(lane)->assignments.size() == 1);
 
-    // The lane's name, typed in the inspector.
+    // The lane's name, typed in the inspector (the one field showing).
     auto editors = findAll<juce::TextEditor>(f.shell->inspector());
+    editors.erase(std::remove_if(editors.begin(), editors.end(), [](auto* e) { return !e->isVisible(); }),
+                  editors.end());
     REQUIRE_FALSE(editors.empty());
     editors[0]->setText("Wobble", false);
     editors[0]->onReturnKey();
@@ -1722,8 +1737,9 @@ TEST_CASE("automation lanes: a step lane says why it doesn't bend (C4b)", "[inte
     // On the hold between the points (the lower value, until the step at 8 s).
     const juce::Point<float> on(static_cast<float>(fd::app::ArrangementView::headerWidth()) +
                                     static_cast<float>(view.timeline().xForTime(4.0)),
-                                static_cast<float>(fd::app::ArrangementView::rulerHeight()) +
-                                    static_cast<float>(fd::model::rowOfLane(view.rows(), lane)) * 64.0f + 64.0f - 1.0f - 5.0f);
+                                static_cast<float>(fd::app::ArrangementView::defaultRowsTop()) +
+                                    static_cast<float>(fd::model::rowOfLane(view.rows(), lane)) * 64.0f +
+                                    64.0f - 1.0f - 5.0f);
     const juce::ModifierKeys alt(juce::ModifierKeys::leftButtonModifier | juce::ModifierKeys::altModifier);
     view.mouseDown(mouseEvent(view, on, on, false, alt));
     view.mouseDrag(mouseEvent(view, on + juce::Point<float>(0.0f, -30.0f), on, true, alt));
@@ -1930,7 +1946,7 @@ TEST_CASE("takes: takes open under their clip after a loop pass; strips, the bad
 
     // The track's row is its own 64 px and a 24 px strip per take below, newest on top.
     const float strip = static_cast<float>(fd::ui::Theme::current().shell.takeStripHeight);
-    const float stripsTop = static_cast<float>(fd::app::ArrangementView::rulerHeight()) + 64.0f;
+    const float stripsTop = static_cast<float>(fd::app::ArrangementView::defaultRowsTop()) + 64.0f;
     auto stripMiddle = [&](size_t take) { return stripsTop + strip * static_cast<float>(2 - take) + strip * 0.6f; };
     const auto laneX = [&](double seconds) {
         return static_cast<float>(fd::app::ArrangementView::headerWidth()) + static_cast<float>(view.timeline().xForTime(seconds));
@@ -2000,7 +2016,8 @@ TEST_CASE("takes: takes open under their clip after a loop pass; strips, the bad
     CHECK(track().clips[0].fromTake == stack().takes[0].clips.at(0).id);
     CHECK(fd::model::badge(stack(), track().clips, false)->text == "1/3");
     // A click on the clip's badge (the title's right end) hides its takes, and another shows them.
-    const juce::Point<float> badge(laneX(6.0) - 8.0f, static_cast<float>(fd::app::ArrangementView::rulerHeight()) + 8.0f);
+    const juce::Point<float> badge(laneX(6.0) - 8.0f,
+                                   static_cast<float>(fd::app::ArrangementView::defaultRowsTop()) + 8.0f);
     click(view, badge);
     s.updateSnapshotNow();
     CHECK_FALSE(stack().open);
@@ -2071,7 +2088,7 @@ TEST_CASE("takes: takes open under their clip after a loop pass; strips, the bad
         CHECK(track().clips[0].fromTake == stack().takes[1].clips.at(0).id);
         // The line between two takes, dragged in the body from 5.5 to 5: the take after it plays
         // from there (one undo step).
-        const float body = static_cast<float>(fd::app::ArrangementView::rulerHeight()) + 40.0f;
+        const float body = static_cast<float>(fd::app::ArrangementView::defaultRowsTop()) + 40.0f;
         const juce::Point<float> join(laneX(5.5), body), moved(laneX(5.0), body);
         s.setPosition(0.0); // the playhead out of the way
         view.frame(0.0, 0.0);
@@ -2170,14 +2187,15 @@ TEST_CASE("takes: takes open under their clip after a loop pass; strips, the bad
         view.frame(0.0, 0.0);
         const auto& theme = fd::ui::Theme::current();
         const auto image = view.createComponentSnapshot(view.getLocalBounds());
-        const int y = fd::app::ArrangementView::rulerHeight() + theme.shell.clipGap + theme.shell.clipTitleHeight + 2;
+        const int y = fd::app::ArrangementView::defaultRowsTop() + theme.shell.clipGap +
+                      theme.shell.clipTitleHeight + 2;
         const auto lighter = theme.clipBody(theme.clipColour(track().clips[0].colour), true);
         for (const double at : {4.5, 6.5, track().clips[0].end() + x.from + x.length * 0.5})
             CHECK(image.getPixelAt(static_cast<int>(laneX(at)), y) == lighter);
         // One clip in parts: no seam through its title; the line where the take changes, in its
         // body only, stays under the crossfade.
         const int inner = static_cast<int>(std::round(laneX(track().clips[1].start))) - theme.shell.clipGap;
-        const int titleY = fd::app::ArrangementView::rulerHeight() + theme.shell.clipGap + 4;
+        const int titleY = fd::app::ArrangementView::defaultRowsTop() + theme.shell.clipGap + 4;
         CHECK(image.getPixelAt(inner, titleY) == theme.clipColour(track().clips[0].colour));
         CHECK(image.getPixelAt(inner, y + 20) == theme.surface0); // below the crossfade's grip, between its curves
     }
@@ -2441,7 +2459,7 @@ TEST_CASE("fades: two crossfades in a short clip meet and never overlap; their g
     const auto& theme = fd::ui::Theme::current();
     const float lanesX = static_cast<float>(fd::app::ArrangementView::headerWidth());
     auto laneX = [&](double seconds) { return lanesX + static_cast<float>(view.timeline().xForTime(seconds)); };
-    const float rowTop = static_cast<float>(fd::app::ArrangementView::rulerHeight());
+    const float rowTop = static_cast<float>(fd::app::ArrangementView::defaultRowsTop());
     const float handleY = rowTop + static_cast<float>(theme.shell.clipGap + theme.shell.clipTitleHeight) +
                           static_cast<float>(theme.shell.fadeHandleSize) * 0.5f;
     if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: two crossfades meeting in B
@@ -2503,7 +2521,7 @@ TEST_CASE("clip loops: every lap drawn the same, a notch and a line at each seam
     const float lanesX = static_cast<float>(fd::app::ArrangementView::headerWidth());
     auto laneX = [&](double seconds) { return static_cast<int>(std::round(lanesX + static_cast<float>(view.timeline().xForTime(seconds)))); };
     const auto& theme = fd::ui::Theme::current();
-    const int rowTop = fd::app::ArrangementView::rulerHeight();
+    const int rowTop = fd::app::ArrangementView::defaultRowsTop();
     const int titleTop = rowTop + theme.shell.clipGap;
     const int bodyTop = titleTop + theme.shell.clipTitleHeight;
     const auto image = view.createComponentSnapshot(view.getLocalBounds());
@@ -2572,7 +2590,8 @@ TEST_CASE("clip loops by mouse: the upper edge loops a clip, a notch sets the lo
     const float lanesX = static_cast<float>(fd::app::ArrangementView::headerWidth());
     auto laneX = [&](double seconds) { return lanesX + static_cast<float>(view.timeline().xForTime(seconds)); };
     const auto& theme = fd::ui::Theme::current();
-    const float titleY = static_cast<float>(fd::app::ArrangementView::rulerHeight() + theme.shell.clipGap) + 5.0f;
+    const float titleY =
+        static_cast<float>(fd::app::ArrangementView::defaultRowsTop() + theme.shell.clipGap) + 5.0f;
     const float bodyY = titleY + 30.0f;
 
     // The upper part of its right edge: the loop cursor; dragged out, it loops and repeats.
@@ -2663,7 +2682,7 @@ TEST_CASE("fades: drawn on clips, handles on hover, a handle drag sets a fade, C
     const float lanesX = static_cast<float>(fd::app::ArrangementView::headerWidth());
     auto laneX = [&](double seconds) { return lanesX + static_cast<float>(view.timeline().xForTime(seconds)); };
     const auto& theme = fd::ui::Theme::current();
-    const float rowTop = static_cast<float>(fd::app::ArrangementView::rulerHeight());
+    const float rowTop = static_cast<float>(fd::app::ArrangementView::defaultRowsTop());
     const float bodyTop = rowTop + static_cast<float>(theme.shell.clipGap) + static_cast<float>(theme.shell.clipTitleHeight);
     const float handleY = bodyTop + static_cast<float>(theme.shell.fadeHandleSize) * 0.5f;
     // Where two clips meet, a seam of the canvas separates them, through the title and the body.
@@ -2950,8 +2969,8 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     auto& s = *f.session;
     const auto& actions = f.shell->actions();
     auto& menus = f.shell->menus();
-    CHECK(menus.getMenuBarNames() == juce::StringArray{"File", "Edit", "Track", "Clip", "Module", "Transport",
-                                                       "View", "Options", "Help"});
+    CHECK(menus.getMenuBarNames() == juce::StringArray{"File", "Edit", "Track", "Clip", "Song", "Module",
+                                                       "Transport", "View", "Options", "Help"});
 
     // ADR 0040: every action is in the menu bar exactly once, and every item is an action (the
     // assistants' only with a server; the fixture has none).
@@ -2989,9 +3008,9 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     REQUIRE(named != nullptr);
     CHECK(named->isEnabled);
     CHECK(actions.tooltip("edit.undo").startsWith("Undo Add track ("));
-    CHECK_FALSE(findItem(menus.menu(5), "Loop")->isTicked);
+    CHECK_FALSE(findItem(menus.menu(6), "Loop")->isTicked);
     actions.perform("transport.loop");
-    CHECK(findItem(menus.menu(5), "Loop")->isTicked);
+    CHECK(findItem(menus.menu(6), "Loop")->isTicked);
     actions.perform("transport.loop");
 
     if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: each menu and submenu
@@ -3011,9 +3030,9 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     CHECK(f.shell->exportPanel().isOpen());
     f.shell->exportPanel().close();
     // The lists the Record button's menu shows, in Transport too: one builder.
-    CHECK(invoke(menus.menu(5), "2 bars", "Count-in length"));
+    CHECK(invoke(menus.menu(6), "2 bars", "Count-in length"));
     CHECK(s.countIn() == fd::model::CountIn::TwoBars);
-    CHECK(invoke(menus.menu(5), "Each lap: add to the clip (overdub)", "MIDI loop recording"));
+    CHECK(invoke(menus.menu(6), "Each lap: add to the clip (overdub)", "MIDI loop recording"));
     CHECK(s.midiOverdub());
     // Back as the other tests expect them: the count-in is kept in the engine's settings file.
     s.setCountIn(fd::model::CountIn::Off);
@@ -3025,7 +3044,7 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     CHECK_FALSE(actions.isEnabled("take.copyToTrack"));
     actions.perform("midi.computerKeyboard");
     REQUIRE(actions.isEnabled("midi.octaveUp"));
-    CHECK(invoke(menus.menu(7), "Octave up", "Computer keyboard"));
+    CHECK(invoke(menus.menu(8), "Octave up", "Computer keyboard"));
     CHECK(f.shell->lastWarning().contains("C4"));
     // A key held when the keys stop reaching the shell (a text field elsewhere, another window,
     // the app in the background) ends its note: its release would never arrive.
@@ -3045,11 +3064,13 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     CHECK(f.shell->keyPressed(juce::KeyPress(juce::KeyPress::F10Key)));
     CHECK(opened == 0);
     CHECK(f.shell->keyPressed(juce::KeyPress('d', juce::ModifierKeys::altModifier, 0)));
-    CHECK(opened == 4); // Module
+    CHECK(opened == 5); // Module, after Song
+    CHECK(f.shell->keyPressed(juce::KeyPress('n', juce::ModifierKeys::altModifier, 0)));
+    CHECK(opened == 4); // Song (Alt+S solos)
     CHECK(f.shell->keyPressed(juce::KeyPress('p', juce::ModifierKeys::altModifier, 0)));
-    CHECK(opened == 5);
+    CHECK(opened == 6);
     CHECK(f.shell->keyPressed(juce::KeyPress('h', juce::ModifierKeys::altModifier, 0)));
-    CHECK(opened == 8);
+    CHECK(opened == 9);
     opened = -1;
     f.shell->keyPressed(juce::KeyPress('r', juce::ModifierKeys::altModifier, 0));
     CHECK(opened == -1);
@@ -3058,7 +3079,7 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     CHECK(f.shell->projectName() == "Untitled");
 
     // Help > About Segno: the licence notice, inside the window, nothing touching.
-    CHECK(invoke(menus.menu(8), "About Segno"));
+    CHECK(invoke(menus.menu(9), "About Segno"));
     auto& about = f.shell->about();
     REQUIRE(about.isOpen());
     CHECK(about.paragraphs().joinIntoString(" ").contains("GNU Affero General Public License"));
@@ -4335,7 +4356,7 @@ TEST_CASE("each editor has its own grid: set where you edit, from Options, kept 
     const auto& tl = view.timeline();
     const juce::Point<float> spot(static_cast<float>(fd::app::ArrangementView::headerWidth()) +
                                       static_cast<float>(tl.xForTime(2.1)),
-                                  static_cast<float>(fd::app::ArrangementView::rulerHeight()) + 20.0f);
+                                  static_cast<float>(fd::app::ArrangementView::defaultRowsTop()) + 20.0f);
     click(view, spot);
     click(view, spot, 2);
     s.updateSnapshotNow();
@@ -4436,4 +4457,113 @@ TEST_CASE("each editor has its own grid: set where you edit, from Options, kept 
     REQUIRE(s.open(project.getFile()));
     CHECK(view.grid() == widest);
     CHECK(roll.grid() == savedRoll);
+}
+
+TEST_CASE(
+    "the song row: the master's header, sections made, moved, renamed and resized by mouse (C3, ADR 0049)",
+    "[integration]")
+{
+    ShellFixture f;
+    auto& s = *f.session;
+    f.shell->setSize(1800, 900);
+    auto& view = f.shell->arrangement();
+    const auto snap0 = s.snapshot();
+    // Something in every track for the overview: a MIDI clip a bar long, a bar apart.
+    for (size_t i = 0; i < snap0->tracks.size(); ++i)
+        REQUIRE(s.createMidiClip(snap0->tracks[i].id, 2.0 * static_cast<double>(i), 2.0) != 0);
+    s.updateSnapshotNow();
+    view.setSnapshot(s.snapshot());
+    const auto lane = view.songLaneArea().toFloat();
+    REQUIRE(lane.getY() == static_cast<float>(fd::app::ArrangementView::rulerHeight()));
+    CHECK(view.songRowHeight() == fd::ui::Theme::current().shell.songRowHeight);
+    const auto& tl = view.timeline();
+    const auto xAt = [&](double seconds) { return lane.getX() + static_cast<float>(tl.xForTime(seconds)); };
+    const float body = lane.getBottom() - 8.0f, title = lane.getY() + 6.0f;
+    const auto sections = [&s]
+    {
+        s.updateSnapshotNow();
+        return s.snapshot()->sections;
+    };
+
+    // Its header selects the master.
+    click(view, view.songHeaderArea().toFloat().getCentre().withX(40.0f));
+    CHECK(view.selection().channel == s.snapshot()->master.id);
+    CHECK(view.selection().sections.empty());
+
+    // A drag across empty time makes a section, snapped to the bars; two of them.
+    drag(view, {xAt(0.05), body}, {xAt(3.95), body});
+    REQUIRE(sections().size() == 1);
+    CHECK(sections()[0].start == Catch::Approx(0.0));
+    CHECK(sections()[0].end == Catch::Approx(4.0));
+    view.setSnapshot(s.snapshot());
+    CHECK(view.selection().sections.size() == 1);
+    CHECK(f.shell->inspector().sections() == std::vector{fd::model::InspectorSection::Section,
+                                                         fd::model::InspectorSection::Master,
+                                                         fd::model::InspectorSection::Mix});
+    drag(view, {xAt(4.0) + 10.0f, body}, {xAt(7.95), body}); // clear of A's edge, which would resize A
+    REQUIRE(sections().size() == 2);
+    view.setSnapshot(s.snapshot());
+    const auto a = sections()[0].id, b = sections()[1].id;
+
+    if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review, zoomed in
+        dumpPng(dump, "song-row@2x.png",
+                view.createComponentSnapshot(
+                    view.getLocalBounds().withHeight(view.songLaneArea().getBottom() + 140), true, 2.0f));
+
+    // A's body dragged past B lands after it, with its music: B A.
+    const auto clipsBefore = s.snapshot()->tracks[0].clips.front().start;
+    drag(view, {xAt(1.0), body}, {xAt(7.6), body});
+    REQUIRE(sections().size() == 2);
+    CHECK(sections()[0].id == b);
+    CHECK(sections()[1].id == a);
+    CHECK(s.undoDescription() == "Move section A");
+    s.updateSnapshotNow();
+    CHECK(s.snapshot()->tracks[0].clips.front().start ==
+          Catch::Approx(clipsBefore + 4.0)); // A's music went with it
+    view.setSnapshot(s.snapshot());
+
+    // A double-click on its name renames it there.
+    click(view, {xAt(1.0), title}, 2);
+    REQUIRE(view.nameEditor().isEditing());
+    view.nameEditor().field().setText("Chorus", false);
+    view.nameEditor().field().onReturnKey();
+    CHECK(s.snapshot()->section(b) != nullptr);
+    s.updateSnapshotNow();
+    CHECK(s.snapshot()->section(b)->name == "Chorus");
+
+    // An edge moves the mark alone.
+    view.setSnapshot(s.snapshot());
+    drag(view, {xAt(3.99), body}, {xAt(2.0), body});
+    CHECK(sections()[0].end == Catch::Approx(2.0));
+    CHECK(s.undoDescription() == "Move section mark");
+    CHECK(s.snapshot()->tracks[0].clips.front().start == Catch::Approx(clipsBefore + 4.0)); // nothing moved
+
+    // Escape cancels a drag on the way.
+    view.setSnapshot(s.snapshot());
+    view.mouseDown(mouseEvent(view, {xAt(9.0), body}, {xAt(9.0), body}, false));
+    view.mouseDrag(mouseEvent(view, {xAt(11.0), body}, {xAt(9.0), body}, true));
+    CHECK(f.shell->keyPressed(juce::KeyPress(juce::KeyPress::escapeKey)));
+    view.mouseUp(mouseEvent(view, {xAt(11.0), body}, {xAt(9.0), body}, true));
+    CHECK(sections().size() == 2);
+
+    // Delete and Ctrl+D act on the selected section, with its music.
+    view.setSnapshot(s.snapshot());
+    click(view, {xAt(5.0), body});
+    REQUIRE(view.selection().sections == std::set<std::uint64_t>{a});
+    REQUIRE(f.shell->actions().perform("edit.duplicate"));
+    CHECK(sections().size() == 3);
+    CHECK(s.undoDescription() == "Copy section A");
+    view.setSnapshot(s.snapshot());
+    REQUIRE(f.shell->actions().perform("edit.delete"));
+    CHECK(sections().size() == 2);
+
+    // Narrow: the row and its names still clear of each other.
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+    {
+        f.shell->setSize(1024, 700);
+        view.setSnapshot(s.snapshot());
+        dumpPng(dump, "song-row-1024@2x.png",
+                view.createComponentSnapshot(
+                    view.getLocalBounds().withHeight(view.songLaneArea().getBottom() + 140), true, 2.0f));
+    }
 }

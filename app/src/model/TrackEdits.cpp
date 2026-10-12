@@ -126,9 +126,6 @@ RowDrop dropRow(const std::vector<ArrangementRow>& rows, std::size_t dragged, st
         d.moves = b != dragged && b != dragged + 1;
         break;
     }
-    case ArrangementRow::Kind::Master:
-        d.boundary = dragged;
-        break;
     }
     return d;
 }

@@ -167,6 +167,11 @@ private:
     /// Track > Colour and Clip > Colour (and the right-click menus): the palette for the selection.
     [[nodiscard]] juce::PopupMenu trackColourMenu();
     [[nodiscard]] juce::PopupMenu clipColourMenu();
+    // The song's sections (ShellSong.cpp, ADR 0049): the Song menu's commands, a section's menu.
+    void registerSongActions();
+    [[nodiscard]] juce::PopupMenu sectionColourMenu();
+    void sectionMenu(juce::PopupMenu& menu, std::uint64_t section);
+    [[nodiscard]] bool sectionsActive() const; // sections are selected, in the arrangement used last
     /// The clipboard (§9): what Cut and Copy kept from the area used last.
     enum class Held { None, Clips, Notes, Points };
     Held held_ = Held::None;

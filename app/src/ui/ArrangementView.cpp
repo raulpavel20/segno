@@ -48,6 +48,8 @@ ArrangementView::ArrangementView(engine::Session& session) : session_(session), 
 {
     headerLayer_.setInterceptsMouseClicks(false, true); // the header's background still selects
     addAndMakeVisible(headerLayer_);
+    songLayer_.setInterceptsMouseClicks(false, true);
+    addAndMakeVisible(songLayer_);
     waveforms_.onReady = [this] { repaint(); };
     sums_.onReady = [this] { repaint(laneArea()); };
     setSnapshot(session_.snapshot());
@@ -182,6 +184,19 @@ void ArrangementView::syncRows()
     }
     for (auto it = headerControls_.begin(); it != headerControls_.end();)
         it = shown.contains(it->first) ? std::next(it) : headerControls_.erase(it);
+    // The master's, in the song row's header (ADR 0049): its volume and pan bars, its meter.
+    const auto& master = snapshot_->master;
+    if (masterControls_ == nullptr || masterControlsFor_ != master.id)
+    {
+        masterControls_ = std::make_unique<HeaderControls>(session_, master);
+        masterControlsFor_ = master.id;
+        songLayer_.addChildComponent(masterControls_->volume);
+        songLayer_.addChildComponent(masterControls_->pan);
+        songLayer_.addChildComponent(masterControls_->meter);
+    }
+    masterControls_->volume.update(master);
+    masterControls_->pan.update(master);
+    placeSongControls();
     for (auto it = laneControls_.begin(); it != laneControls_.end();)
         it = lanes.contains(it->first) ? std::next(it) : laneControls_.erase(it);
     placeHeaderControls();
@@ -239,8 +254,9 @@ void ArrangementView::setMixRowsVisible(bool visible)
     if (visible == showMixRows_)
         return;
     showMixRows_ = visible;
-    if (!visible && selection_.channel)
-        if (const auto* channel = snapshot_->channel(*selection_.channel); channel != nullptr && !channel->holdsClips())
+    if (!visible && selection_.channel) // a return out of sight; the master's row stays
+        if (const auto* channel = snapshot_->channel(*selection_.channel);
+            channel != nullptr && channel->role == model::TrackInfo::Role::Return)
             selectTrack(std::nullopt);
     syncRows(); // not setSnapshot: pruning against this snapshot could drop a clip made since
 }
@@ -357,12 +373,12 @@ model::BraceZone ArrangementView::loopZoneAt(float x) const
 
 juce::Rectangle<int> ArrangementView::headerArea() const
 {
-    return getLocalBounds().withTrimmedTop(rulerHeight()).removeFromLeft(headerWidth());
+    return getLocalBounds().withTrimmedTop(rulerHeight() + songRowHeight()).removeFromLeft(headerWidth());
 }
 
 juce::Rectangle<int> ArrangementView::laneArea() const
 {
-    return getLocalBounds().withTrimmedTop(rulerHeight()).withTrimmedLeft(headerWidth());
+    return getLocalBounds().withTrimmedTop(rulerHeight() + songRowHeight()).withTrimmedLeft(headerWidth());
 }
 
 float ArrangementView::laneX(double seconds) const
@@ -388,6 +404,7 @@ void ArrangementView::resized()
         timeline_.setView(0.0, laneArea().getWidth() / snapshot_->tempo.secondsForBeats(32.0 * snapshot_->tempo.beatsPerBar()));
     syncLayout();
     placeHeaderControls();
+    placeSongControls();
     // Snap in the corner above the headers, the ruler's row high: its indicator where the
     // headers' text starts (a view option's own padding is half the shell's, as in a panel header).
     const auto& sh = ui::Theme::current().shell;
@@ -477,7 +494,7 @@ void ArrangementView::frame(double dt, double playheadSeconds)
     }
 
     playhead_ = playheadSeconds;
-    playheadTracker_.update(*this, timeline_, laneArea(), playhead_);
+    playheadTracker_.update(*this, timeline_, laneArea().getUnion(songLaneArea()), playhead_);
 }
 
 void ArrangementView::zoomAt(double laneXPos, double factor)
@@ -601,6 +618,7 @@ void ArrangementView::paint(juce::Graphics& g)
     if (const auto text = clipDragText(); text.isNotEmpty()) // what a drag makes of a loop (clip-loops.md §5)
         ui::paintValueTag(g, lastDrag_, laneArea(), text);
     paintHeaders(g);
+    paintSongRow(g);
     paintRuler(g);
 
     // Corner above the headers.
@@ -616,6 +634,7 @@ void ArrangementView::paint(juce::Graphics& g)
         g.fillRect(juce::Rectangle<float>(0.0f, y - static_cast<float>(t.shell.dropLine) * 0.5f, static_cast<float>(getWidth()),
                                           static_cast<float>(t.shell.dropLine)));
     }
+    paintSectionDrop(g);
     lastPaintMs_ = juce::Time::getMillisecondCounterHiRes() - start;
 }
 
@@ -1663,6 +1682,11 @@ void ArrangementView::mouseMove(const juce::MouseEvent& e)
 {
     const auto lanes = laneArea();
     hover_ = e.position;
+    if (songArea().contains(e.getPosition()))
+    {
+        songMouseMove(e);
+        return;
+    }
     juce::MouseCursor cursor = juce::MouseCursor::NormalCursor;
     std::optional<std::pair<int, size_t>> hovered;
     std::optional<std::uint64_t> hoveredClip;
@@ -1766,6 +1790,11 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
         return;
     }
     drag_ = Drag::None;
+    if (songArea().contains(pos))
+    {
+        songMouseDown(e);
+        return;
+    }
     if (e.mods.isLeftButtonDown() && cancelAt(e.position))
     {
         session_.cancelBounces();
@@ -2013,6 +2042,11 @@ void ArrangementView::mouseDown(const juce::MouseEvent& e)
 
 void ArrangementView::mouseDrag(const juce::MouseEvent& e)
 {
+    if (drag_ == Drag::Section || drag_ == Drag::SongResize)
+    {
+        songMouseDrag(e);
+        return;
+    }
     if (drag_ == Drag::Row && rowDrag_)
     {
         if (!rowDrag_->moving && e.getDistanceFromDragStart() < ui::Theme::current().input.dragThreshold)
@@ -2124,6 +2158,11 @@ void ArrangementView::mouseExit(const juce::MouseEvent&)
 
 void ArrangementView::mouseUp(const juce::MouseEvent& e)
 {
+    if (drag_ == Drag::Section || drag_ == Drag::SongResize)
+    {
+        songMouseUp(e);
+        return;
+    }
     if (drag_ == Drag::Row)
     {
         // A header dropped somewhere new: that row alone moves there (one undo step, ADR 0042).
@@ -2135,7 +2174,7 @@ void ArrangementView::mouseUp(const juce::MouseEvent& e)
         const auto& r = rows_[static_cast<std::size_t>(dragged->row)];
         if (r.kind == model::ArrangementRow::Kind::Lane)
             session_.moveLane(r.lane, dragged->drop.before);
-        else if (r.kind != model::ArrangementRow::Kind::Master)
+        else
             session_.moveTrack(r.channel, dragged->drop.before);
         return;
     }

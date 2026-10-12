@@ -101,6 +101,7 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         assistantsPopover_->onAllSettings = [this] { showSettings("assistants.enabled"); };
     }
     registerActions();
+    registerSongActions();
     // The browser (ADR 0046): what it holds goes where it's dropped, or on the selection.
     browser_.onLoad = [this](const std::string& item) { loadFromBrowser(item); };
     browser_.onOpenProject = [this](const juce::File& project) { openFile(project); };
@@ -154,6 +155,8 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
             return trackColourMenu();
         if (list == "clipColour")
             return clipColourMenu();
+        if (list == "sectionColour")
+            return sectionColourMenu();
         return juce::PopupMenu();
     };
     transport_->setBrandShown(kMenuPlatform == model::MenuPlatform::Mac);
@@ -616,13 +619,19 @@ void Shell::registerActions()
     // lanes only while the arrangement shows them (selection.md §6, automation.md §9).
     auto& roll = detail_.pianoRoll();
     auto clipsShown = [this] { return !mixerShown_; };
-    actions_.add({.id = "edit.delete", .name = "Delete", .category = "Edit",
+    actions_.add({.id = "edit.delete",
+                  .name = "Delete",
+                  .category = "Edit",
                   .keys = {key(juce::KeyPress::deleteKey), key(juce::KeyPress::backspaceKey)},
-                  .perform = [this, &roll, clipsShown] {
+                  .perform =
+                      [this, &roll, clipsShown]
+                  {
                       if (notesActive() && roll.hasSelection())
                           roll.deleteSelection();
                       else if (lastArea_ == Area::Detail && detail_.chain().hasSelection())
                           detail_.chain().deleteSelected();
+                      else if (sectionsActive()) // with their music (arranger.md §9)
+                          session_.deleteSections(arrangement_.selectedSections());
                       else if (laneActive() && arrangement_.hasPointSelection())
                           arrangement_.deletePoints();
                       else if (laneActive())
@@ -632,15 +641,26 @@ void Shell::registerActions()
                       else if (clipsShown())
                           arrangement_.deleteSelection();
                   },
-                  .isEnabled = [this, &roll, clipsShown] {
+                  .isEnabled =
+                      [this, &roll, clipsShown]
+                  {
                       return (notesActive() && roll.hasSelection()) ||
-                             (lastArea_ == Area::Detail && detail_.chain().hasSelection()) || laneActive() || trackHeaderActive() ||
-                             (clipsShown() && (arrangement_.hasClipSelection() || arrangement_.hasTakeSelection()));
+                             (lastArea_ == Area::Detail && detail_.chain().hasSelection()) ||
+                             sectionsActive() || laneActive() || trackHeaderActive() ||
+                             (clipsShown() &&
+                              (arrangement_.hasClipSelection() || arrangement_.hasTakeSelection()));
                   }});
-    actions_.add({.id = "edit.duplicate", .name = "Duplicate", .category = "Edit", .keys = {key('d', kCmd)},
-                  .perform = [this, &roll, clipsShown] {
+    actions_.add({.id = "edit.duplicate",
+                  .name = "Duplicate",
+                  .category = "Edit",
+                  .keys = {key('d', kCmd)},
+                  .perform =
+                      [this, &roll, clipsShown]
+                  {
                       if (notesActive() && roll.hasSelection())
                           roll.duplicateSelection();
+                      else if (sectionsActive())
+                          actions_.perform("song.duplicateSection");
                       else if (pointsActive())
                           arrangement_.duplicatePoints();
                       else if (trackHeaderActive()) // its header (tracks-and-clips.md §7)
@@ -648,9 +668,11 @@ void Shell::registerActions()
                       else if (clipsShown())
                           arrangement_.duplicateSelection();
                   },
-                  .isEnabled = [this, &roll, clipsShown] {
-                      return (notesActive() && roll.hasSelection()) || pointsActive() || trackHeaderActive() ||
-                             (clipsShown() && arrangement_.hasClipSelection());
+                  .isEnabled =
+                      [this, &roll, clipsShown]
+                  {
+                      return (notesActive() && roll.hasSelection()) || sectionsActive() || pointsActive() ||
+                             trackHeaderActive() || (clipsShown() && arrangement_.hasClipSelection());
                   }});
     // Cut, copy and paste (tracks-and-clips.md §9): clips, notes or points, from the area used
     // last; pasted at the playhead.
@@ -679,12 +701,14 @@ void Shell::registerActions()
                       const auto& sel = arrangement_.selection();
                       if (mixerShown_ && sel.channel)
                           mixer_.renameChannel(*sel.channel);
+                      else if (!mixerShown_ && !sel.sections.empty()) // a section's name, where it is
+                          arrangement_.renameSection(arrangement_.selectedSections().front());
                       else if (!mixerShown_)
                           arrangement_.renameSelection();
                   },
                   .isEnabled = [this] {
                       const auto& sel = arrangement_.selection();
-                      if (!sel.clips.empty() || sel.lane)
+                      if (!sel.clips.empty() || sel.lane || !sel.sections.empty())
                           return !mixerShown_;
                       return commandChannel().has_value();
                   }});
@@ -1130,7 +1154,9 @@ void Shell::registerActions()
     actions_.add({.id = "view.lanes", .name = "Show automation lanes", .category = "View", .keys = {key('l', kCmd | kAlt)},
                   .perform = [this] { arrangement_.setLanesVisible(!arrangement_.lanesVisible()); },
                   .isEnabled = arrangeShown, .isToggled = [this] { return arrangement_.lanesVisible(); }});
-    actions_.add({.id = "view.returns", .name = "Show returns and master", .category = "View",
+    actions_.add({.id = "view.returns",
+                  .name = "Show returns",
+                  .category = "View",
                   .keys = {key('r', kCmd | kAlt)},
                   .perform = [this] { arrangement_.setMixRowsVisible(!arrangement_.mixRowsVisible()); },
                   .isEnabled = arrangeShown,
@@ -1357,7 +1383,7 @@ bool Shell::keyPressed(const juce::KeyPress& k)
     // take it first, being focused.
     if (k == juce::KeyPress::escapeKey)
     {
-        if (arrangement_.cancelRowDrag())
+        if (arrangement_.cancelRowDrag() || arrangement_.cancelSectionDrag())
             return true;
         const bool bounces = session_.cancelBounces();
         if (exportPanel_.cancel() || bounces)

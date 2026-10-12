@@ -24,6 +24,9 @@ struct Selection
     /// Takes of the channel's clips (recording.md §6, §7): one, or several (Ctrl+click). Never
     /// together with clips or a lane.
     std::set<std::uint64_t> takes;
+    /// Sections of the song (ADR 0049, arranger.md §10): a run of them. Never together with clips,
+    /// a lane or takes; the channel is then the master.
+    std::set<std::uint64_t> sections;
 
     friend bool operator==(const Selection&, const Selection&) = default;
 };
@@ -32,6 +35,9 @@ struct Selection
 /// one, else `otherwise` (no clips, or none in the snapshot yet).
 [[nodiscard]] Selection withClips(const Snapshot& snapshot, std::set<std::uint64_t> clips,
                                   std::optional<std::uint64_t> prefer, std::optional<std::uint64_t> otherwise);
+
+/// Sections, with the master as their channel (arranger.md §10).
+[[nodiscard]] Selection withSections(const Snapshot& snapshot, std::set<std::uint64_t> sections);
 
 /// A lane and points on it, with its first assignment's channel (none if it has none).
 [[nodiscard]] Selection withLane(const Snapshot& snapshot, std::uint64_t lane, std::set<size_t> points = {});
@@ -44,10 +50,39 @@ struct Selection
 enum class CentreView { Arrange, Mix };
 
 /// What the context panels show (selection.md §3).
-enum class Subject { Nothing, Channel, Clip, Clips, Lane, Take, Takes };
+enum class Subject
+{
+    Nothing,
+    Channel,
+    Clip,
+    Clips,
+    Lane,
+    Take,
+    Takes,
+    Section,
+    Sections
+};
 
 /// The inspector's sections, top to bottom (selection.md §5).
-enum class InspectorSection { Point, Points, Lane, Assignments, Take, Takes, Clip, Clips, Track, Input, Return, Master, Mix, Sends };
+enum class InspectorSection
+{
+    Point,
+    Points,
+    Lane,
+    Assignments,
+    Take,
+    Takes,
+    Clip,
+    Clips,
+    Section,
+    Sections,
+    Track,
+    Input,
+    Return,
+    Master,
+    Mix,
+    Sends
+};
 
 /// Everything the context panels need for a selection in a view: the rules of selection.md §3-5
 /// in one place.
@@ -63,6 +98,8 @@ struct PanelContext
     int takeCount = 0;                      // selected takes
     std::optional<AutomationPoint> point; // its one selected point
     int pointCount = 0;               // its selected points
+    std::optional<SectionInfo> section; // the one selected section
+    int sectionCount = 0;               // selected sections
 
     bool clipViewOffered = false; // the detail panel has its Clip tab (the arrangement only)
     bool opensClipView = false;   // a change to this subject opens the clip view (in the arrangement)

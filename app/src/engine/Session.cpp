@@ -558,6 +558,23 @@ void Session::Impl::rebuildSnapshot()
     }
 
     s->edgeFades = edgeFadesOn(*edit);
+
+    // The song's sections (ADR 0049): the arranger track's clips, by start.
+    edit->ensureArrangerTrack();
+    if (auto* arranger = edit->getArrangerTrack())
+    {
+        for (auto* c : arranger->getClips())
+        {
+            const auto at = c->getPosition().time;
+            s->sections.push_back({.id = c->itemID.getRawID(),
+                                   .name = c->getName().toStdString(),
+                                   .colour = static_cast<int>(c->state.getProperty(kColourId, 0)),
+                                   .start = at.getStart().inSeconds(),
+                                   .end = at.getEnd().inSeconds()});
+        }
+        std::sort(s->sections.begin(), s->sections.end(),
+                  [](const auto& a, const auto& b) { return a.start < b.start; });
+    }
     auto& master = s->master;
     master.id = masterId();
     master.role = model::TrackInfo::Role::Master;

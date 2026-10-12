@@ -417,6 +417,7 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
     viewport_.setViewedComponent(&body_, false);
     viewport_.setScrollBarsShown(true, false);
     addAndMakeVisible(viewport_);
+    wireSection();
     body_.addAndMakeVisible(mix_);
     body_.addAndMakeVisible(sends_);
 
@@ -677,6 +678,74 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
     }
 }
 
+void InspectorPanel::wireSection()
+{
+    // The selected section (arranger.md §10): name, colour, and its marks; the music stays.
+    styleNameField(sectionName_);
+    sectionName_.setTooltip("The section's name: type to rename it");
+    auto commit = [this]
+    {
+        const auto name = sectionName_.getText().trim();
+        if (!section_)
+            return;
+        if (name.isEmpty())
+            sectionName_.setText(juce::String::fromUTF8(section_->name.c_str()), false);
+        else if (name.toStdString() != section_->name)
+            session_.renameSection(section_->id, name.toStdString());
+    };
+    sectionName_.onReturnKey = [commit]
+    {
+        commit();
+        juce::Component::unfocusAllComponents();
+    };
+    sectionName_.onFocusLost = commit;
+    sectionName_.onEscapeKey = [this]
+    {
+        sectionName_.setText(section_ ? juce::String::fromUTF8(section_->name.c_str()) : juce::String(),
+                             false);
+        unfocusAllComponents();
+    };
+    body_.addChildComponent(sectionName_);
+    sectionColour_.onChosen = [this](int c)
+    {
+        if (section_)
+            session_.setSectionColour(section_->id, c);
+    };
+    body_.addChildComponent(sectionColour_);
+    for (auto* field : {&sectionStart_, &sectionLength_})
+    {
+        const bool start = field == &sectionStart_;
+        field->setFontSize(ui::Theme::current().textXs);
+        field->setDragSensitivity(0.25); // a sixteenth a pixel
+        field->setTooltip(
+            start ? "Where the section starts: drag, or type \"9.1.1\" (moves its mark; the music stays)"
+                  : "How long the section is: drag, or type \"8 bars\" (moves its end; the music stays)");
+        field->textFromValue = [this, start](double beats)
+        {
+            return juce::String(start ? model::positionText(beats, tempo_)
+                                      : model::lengthText(beats, tempo_));
+        };
+        field->valueFromText = [this, start](const juce::String& text) -> std::optional<double>
+        {
+            const auto t = text.trim().toLowerCase().toStdString();
+            return start ? model::positionFromText(t, tempo_) : model::lengthFromText(t, tempo_);
+        };
+        field->onGestureStart = [this] { sectionGesture_.emplace(session_, "Move section mark"); };
+        field->onGestureEnd = [this] { sectionGesture_.reset(); };
+        field->onValueChange = [this, start](double beats)
+        {
+            if (!section_)
+                return;
+            const double seconds = tempo_.secondsForBeats(beats);
+            if (start)
+                session_.setSectionMarks(section_->id, seconds, seconds + section_->length());
+            else
+                session_.setSectionMarks(section_->id, section_->start, section_->start + seconds);
+        };
+        body_.addChildComponent(*field);
+    }
+}
+
 void InspectorPanel::setContext(const model::PanelContext& context, const model::TempoMap& tempo,
                                 const std::vector<model::TrackInfo>& returns)
 {
@@ -694,6 +763,26 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
         pointValue_.setValue(point_->value, juce::dontSendNotification);
     tempo_ = tempo;
     auto has = [this](model::InspectorSection s) { return std::find(sections_.begin(), sections_.end(), s) != sections_.end(); };
+    section_ = context.section;
+    sectionCount_ = context.sectionCount;
+    const bool sectionShown = has(model::InspectorSection::Section) && section_;
+    for (auto* c : std::initializer_list<juce::Component*>{&sectionName_, &sectionColour_, &sectionStart_,
+                                                           &sectionLength_})
+        c->setVisible(sectionShown);
+    if (sectionShown)
+    {
+        if (!sectionName_.hasKeyboardFocus(true))
+            sectionName_.setText(juce::String::fromUTF8(section_->name.c_str()), false);
+        sectionColour_.setColour(section_->colour);
+        if (!sectionGesture_)
+        {
+            constexpr double kLongest = 4096.0 * 4.0; // beats: far past any song
+            sectionStart_.setRange(0.0, kLongest, 0.25);
+            sectionLength_.setRange(0.25, kLongest, 0.25);
+            sectionStart_.setValue(tempo.beatsForSeconds(section_->start), juce::dontSendNotification);
+            sectionLength_.setValue(tempo.beatsForSeconds(section_->length()), juce::dontSendNotification);
+        }
+    }
     laneName_.setVisible(has(model::InspectorSection::Lane));
     if (lane_ && !laneName_.hasKeyboardFocus(true))
         laneName_.setText(juce::String::fromUTF8(lane_->name.c_str()), false);
@@ -988,6 +1077,15 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
         }
         return rows;
     }
+    case S::Section:
+        if (!section_)
+            return {};
+        return {{"Name", {}, false, "name"},
+                {"Colour", {}, false, "colour"},
+                {"Start", {}, false, "start"},
+                {"Length", {}, false, "length"}};
+    case S::Sections:
+        return {{"Selected", juce::String(sectionCount_), true}};
     case S::Clips: return {{"Selected", juce::String(clipCount_), true}};
     case S::Takes: return {{"Selected", juce::String(takeCount_), true}};
     case S::Track:
@@ -1038,11 +1136,14 @@ int InspectorPanel::layoutSections(int width)
     const auto& t = ui::Theme::current();
     auto r = juce::Rectangle<int>(0, t.shell.itemGap, width, std::numeric_limits<int>::max() / 2).reduced(t.shell.padding, 0);
 
-    static const std::map<S, juce::String> titles{{S::Point, "Point"}, {S::Points, "Points"}, {S::Lane, "Lane"},
-                                                  {S::Assignments, "Assignments"}, {S::Input, "Input"}, {S::Take, "Take"}, {S::Takes, "Takes"},
-                                                  {S::Clip, "Clip"},   {S::Clips, "Clips"},   {S::Track, "Track"},
-                                                  {S::Return, "Return"}, {S::Master, "Master"}, {S::Mix, "Mix"},
-                                                  {S::Sends, "Sends"}};
+    static const std::map<S, juce::String> titles{{S::Point, "Point"},       {S::Points, "Points"},
+                                                  {S::Lane, "Lane"},         {S::Assignments, "Assignments"},
+                                                  {S::Input, "Input"},       {S::Take, "Take"},
+                                                  {S::Takes, "Takes"},       {S::Clip, "Clip"},
+                                                  {S::Clips, "Clips"},       {S::Section, "Section"},
+                                                  {S::Sections, "Sections"}, {S::Track, "Track"},
+                                                  {S::Return, "Return"},     {S::Master, "Master"},
+                                                  {S::Mix, "Mix"},           {S::Sends, "Sends"}};
     std::vector<ui::SectionStack::Section> sections;
     for (const auto s : sections_)
     {
@@ -1120,6 +1221,21 @@ int InspectorPanel::layoutSections(int width)
             crossInPlace_.setBounds(row("crossInPlace").reduced(0, t.shell.propertyFieldInset));
             crossOutShape_.setBounds(row("crossOutShape").reduced(0, t.shell.propertyFieldInset));
             crossOutPlace_.setBounds(row("crossOutPlace").reduced(0, t.shell.propertyFieldInset));
+        }
+        else if (sections_[i] == S::Section) // Name, Colour, Start, Length
+        {
+            const auto content = stack_.content(i).withTrimmedLeft(t.shell.propertyLabelWidth);
+            const auto row = [&](const char* key)
+            {
+                const int n = rowOf(S::Section, key);
+                return n < 0 ? juce::Rectangle<int>()
+                             : content.withY(content.getY() + n * t.shell.rowHeight)
+                                   .withHeight(t.shell.rowHeight);
+            };
+            sectionName_.setBounds(row("name").reduced(0, t.shell.propertyFieldInset));
+            sectionColour_.setBounds(row("colour"));
+            sectionStart_.setBounds(row("start"));
+            sectionLength_.setBounds(row("length"));
         }
         else if (sections_[i] == S::Point) // the Value row
             pointValue_.setBounds(stack_.content(i)

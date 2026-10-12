@@ -138,6 +138,10 @@ struct ShellMetrics
     int clipTextInset = 4;        // a clip's name and badge, from its edges
     int laneTextInset = 8;        // text in a lane (a hint, a take's name), from its visible left edge
     int takeStripHeight = 24;     // a take's strip under its clip (recording.md §6)
+    int songRowHeight = 40;       // the song row (ADR 0049, arranger.md §5): its height by default...
+    int songRowMinHeight = 32;    // ...and its least
+    int songTitleHeight = 16;     // its title band, where the sections' names are
+    int songOverviewInset = 3;    // its miniature of the tracks, clear of the title band and the divider
     int takeIconSize = 12;        // the audition button in a take strip's name chip (ADR 0038)
     int clipButtonSize = 12;      // a button on a clip: cancel its bounce (menu-bar.md §15)
     int dropLine = 2;             // where a dragged module or row lands: a line in `active`

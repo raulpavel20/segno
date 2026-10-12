@@ -96,7 +96,9 @@ app/src/
 | Automation arm (C4) | `automation.arm` | Ctrl+Shift+A |
 | Turn automation back on (C4) | `automation.reEnable` | Ctrl+Alt+A |
 | Add return track (C3) | `track.addReturn` | Ctrl+Alt+T |
-| Show or hide returns and master (C3) | `view.returns` | Ctrl+Alt+R |
+| Show or hide returns (C3; the master's row is the song row, always there: ADR 0049) | `view.returns` | Ctrl+Alt+R |
+| Previous / next section (M3 C3, [arranger.md](arranger.md) §11) | `song.previousSection` / `song.nextSection` | Alt+← / Alt+→ |
+| The Song menu's other commands (M3 C3): add, insert empty, loop, select clips, duplicate, delete, remove mark | `song.addSection` … `song.removeSectionMark` | (menus only; Delete, Ctrl+D and F2 act on a selected section) |
 | Arrangement ⇄ mixer view (C3) | `view.mixer` | Ctrl+Alt+X |
 | Record (C5) | `transport.record` | Ctrl+R, F9 |
 | Arm selected track (C5) | `track.arm` | Alt+R |
@@ -253,6 +255,14 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
   - **Sidechain** ([ADR 0025](../decisions/0025-sidechain-routing.md)): a module with a sidechain input (Compressor, Gate) has a "Sidechain" picker in its header: None, or another track. The list leaves out any track whose sound already depends on this one through sidechains, so routing can't loop. The source is heard after its modules and fader, before its mute. A change is one undo step ("Set sidechain") and rebuilds the playback graph. Rendering one track (the MCP `render` tool) includes the tracks feeding its sidechains, muted.
 - **tracktion's own volume and meter plugins** belong to the mixer and are not shown, nor are the sends and return inputs. New devices go before them.
 
+## The song row (M3 C3, [arranger.md](arranger.md), ADR 0049)
+
+- **Where:** the master's row, pinned under the ruler (`ArrangementView::songArea`), 40 px tall by default (`shell.songRowHeight`, at least `songRowMinHeight`; its bottom edge resizes it, kept with the row heights as "song"). The rows scroll under it, below a 2 px divider.
+- **Header:** the master's: its name, the meter, and from 80 px its volume and pan bars (`masterControls_` on a layer of their own). A click selects the master.
+- **Lane** (`ArrangementSongRow.cpp`): the grid; every track as a thin line in its colour where it has clips (`paintOverview`: up to 2 px, sharing lines when there are more tracks than pixels, inset `songOverviewInset` from the title band and the divider); the sections over them, a 16 px title band (`songTitleHeight`) with the name in a clip title's style and a tint below; the playhead. "Drag here to mark a section" while there are none.
+- **Gestures** (§8 of the design): a drag in empty time makes a section; an edge moves its mark (within its neighbours, at least a grid step); the body moves the run with its music to the nearest section boundary outside it (an insert line across every row), Ctrl copies; Shift+click selects the run to it; a double-click on a name renames it there, on a body loops it; Escape cancels.
+- **Model and engine:** `model::Sections` plans each command (`planMove`, `planCopy`, `planDelete`, `planInsert`, `applyPlan`); `Session` carries the plan out in one EditGroup (`SessionSections.cpp`): clips split at the cuts, deleted, moved in one batch, copied, lane points replaced, the arranger track's clips placed.
+
 ## Mixer view (C3c, [mixer.md](mixer.md) §6)
 
 - The centre shows the arrangement or the mixer view: the top bar's "Arrange | Mix" switch or Ctrl+Alt+X. The browser and the detail panel stay; each view keeps its own scroll.
@@ -263,7 +273,7 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 
 ## Automation lanes (C4b, C4d, [automation.md](automation.md))
 
-- **Rows:** `model::ArrangementRows` lists the arrangement's rows: lanes at the top, then each track followed by the lanes that sit after it, then the returns and the master. Lanes are rows of their own (ADR 0029): they drive assigned parameters on any channel. Every row is drawn from the track header kit; clip editing maps a lane row to the track above it.
+- **Rows:** `model::ArrangementRows` lists the arrangement's rows: lanes at the top, then each track followed by the lanes that sit after it, then the returns. The master's row is the song row, pinned above them (ADR 0049; "The song row" below). Lanes are rows of their own (ADR 0029): they drive assigned parameters on any channel. Every row is drawn from the track header kit; clip editing maps a lane row to the track above it.
 - **Lanes** draw the engine's curve (`model::Automation`) over the reserved gradient, with points as dots (`ui/AutomationLane`). Gestures are §5 of the design: double-click adds or deletes, drag moves (snapped; Alt free; Shift fine), a segment drags up or down (Alt bends it), Ctrl+drag draws, an empty drag box-selects. A gesture previews and applies one `Session::setLanePoints`, one undo step that also derives every assigned parameter's curve.
 - **Headers:** the lane's on switch (every assignment), what it drives, the value now (refreshed each frame), and with one assignment that parameter's bar (`ui/LaneControls`); dragging a row's bottom edge resizes it.
 - **Making lanes:** Ctrl+Shift+L or Add automation lane in a right-click menu adds an empty lane at the end of the tracks, with its own palette colour, selected; Assign parameter… (the inspector's ASSIGNMENTS, the lane header's menu, Ctrl+Alt+Shift+L) opens the parameter picker (`ui/LanePicker`: a searchable list with a channel row at its top) to give it parameters; Alt+L automates the last touched parameter; Ctrl+Alt+L shows or hides every lane. Delete after clicking a lane's header removes it.
@@ -280,7 +290,7 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 
 ## Mixer in the arrangement (C3b, [mixer.md](mixer.md))
 
-- **Rows:** the tracks, then (after a 2 px divider) the return tracks and the master, on sub-lane backgrounds; they scroll with the tracks. Ctrl+Alt+R hides and shows them. Clicking one selects it (and clears any selected clips): the inspector shows its channel and the detail panel its chain. They hold no clips.
+- **Rows:** the tracks, then (after a 2 px divider) the return tracks, on sub-lane backgrounds; they scroll with the tracks. Ctrl+Alt+R hides and shows them. The master's row is the song row, pinned under the ruler (ADR 0049). Clicking one selects it (and clears any selected clips): the inspector shows its channel and the detail panel its chain. They hold no clips.
 - **Header controls** fill the track header kit's slots: mute and solo (not on the master), volume and pan bars (values only; from 80 px tall), and the meter on the right edge. They are shared components (`ui/ChannelControls`) on a layer that clips to the header column, one set per channel, placed every frame from the layout.
 - **Inspector:** titled sections with a line between them ([selection.md](selection.md) §5): the clip (if one is selected), the track, return or master, then MIX (volume and pan bars with the meter, mute and solo) and, for a track, SENDS (a bar and a Pre switch per return, or "Add return track").
 - **Snapshots** ignore device parameter and state changes (only a device's power state and sidechain source show), so turning a knob never rebuilds the arrangement.

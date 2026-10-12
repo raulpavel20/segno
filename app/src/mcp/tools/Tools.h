@@ -37,6 +37,7 @@ void addAutomationTools(Registry& registry, ToolEnv& env);
 void addRecordingTools(Registry& registry, ToolEnv& env);
 void addProjectTools(Registry& registry, ToolEnv& env);
 void addTrackTools(Registry& registry, ToolEnv& env);
+void addSectionTools(Registry& registry, ToolEnv& env);
 void addSettingsTools(Registry& registry, ToolEnv& env);
 void addBrowserTools(Registry& registry, ToolEnv& env);
 void addGridTools(Registry& registry, ToolEnv& env);

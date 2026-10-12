@@ -107,6 +107,15 @@ std::vector<Menu> menuBar(MenuPlatform platform)
                             action("notes.octaveUp"), action("notes.octaveDown"), separator(),
                             action("notes.later"), action("notes.earlier")})}});
 
+    // The song's sections (ADR 0049, arranger.md §12): song-wide things.
+    menus.push_back(
+        {"Song",
+         'n', // Alt+S solos
+         {action("song.addSection"), action("song.insertSection"), separator(), action("song.loopSection"),
+          action("song.previousSection"), action("song.nextSection"), separator(), action("song.selectClips"),
+          action("song.duplicateSection"), action("song.deleteSection"), action("song.removeSectionMark"),
+          separator(), submenu("Section colour", {list("sectionColour")})}});
+
     // Presets act on the selected module (ADR 0044, presets.md §10).
     menus.push_back({"Module",
                      'd',

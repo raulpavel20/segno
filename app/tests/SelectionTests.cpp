@@ -274,3 +274,29 @@ TEST_CASE("selection: a take of a clip is the subject, with its track", "[fast]"
     s.tracks[0].stacks.clear();
     CHECK(pruned(take, s) == Selection{.channel = 1}); // deleted
 }
+
+TEST_CASE("selection: sections are the subject, with the master as their channel (ADR 0049)", "[fast]")
+{
+    auto s = project();
+    s.master.id = 9;
+    s.sections = {{.id = 70, .name = "Verse", .start = 0.0, .end = 4.0},
+                  {.id = 71, .name = "Chorus", .start = 4.0, .end = 8.0}};
+    const auto one = withSections(s, {70});
+    CHECK(one == Selection{.channel = 9, .sections = {70}});
+    const auto c = panelContext(one, s, CentreView::Arrange);
+    CHECK(c.subject == Subject::Section);
+    CHECK(c.section->name == "Verse");
+    CHECK(c.channel->id == 9);
+    CHECK(c.inspector == std::vector{Section::Section, Section::Master, Section::Mix});
+
+    const auto both = panelContext(withSections(s, {70, 71}), s, CentreView::Arrange);
+    CHECK(both.subject == Subject::Sections);
+    CHECK(both.sectionCount == 2);
+    CHECK(both.inspector == std::vector{Section::Sections, Section::Master, Section::Mix});
+
+    // A deleted section drops out; with none left, the master stays selected.
+    s.sections.pop_back();
+    CHECK(pruned(withSections(s, {70, 71}), s) == one);
+    s.sections.clear();
+    CHECK(pruned(one, s) == Selection{.channel = 9});
+}

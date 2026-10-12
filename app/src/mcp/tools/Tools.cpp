@@ -26,6 +26,7 @@ void registerAll(Registry& registry, ToolEnv& env)
     addGridTools(registry, env);
     addProjectTools(registry, env);
     addTrackTools(registry, env);
+    addSectionTools(registry, env);
     addResources(registry, env);
     addPrompts(registry);
 }
@@ -584,6 +585,17 @@ Json projectJson(ToolEnv& env)
             {"returns", std::move(returns)},
             {"master", trackJson(env, snap->master)},
             {"automationLanes", automationLanesJson(env)},
+            {"sections",
+             [&snap, &t]
+             {
+                 Json list = Json::array(); // the song row (ADR 0049): list_sections has them too
+                 for (const auto& sec : snap->sections)
+                     list.push_back({{"section", formatId(IdKind::Section, sec.id)},
+                                     {"name", sec.name},
+                                     {"start", positionJson(t.beatsForSeconds(sec.start), t)},
+                                     {"end", positionJson(t.beatsForSeconds(sec.end), t)}});
+                 return list;
+             }()},
             {"inputs", inputsJson(env)}};
 }
 

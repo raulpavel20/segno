@@ -27,7 +27,7 @@ TEST_CASE("arrangement rows: lanes sit among the tracks, after the track they fo
 {
     const auto s = project();
     const auto rows = arrangementRows(s, true);
-    REQUIRE(rows.size() == 8);
+    REQUIRE(rows.size() == 7); // the master's row is the song row, above them (ADR 0049)
     CHECK(rows[0] == ArrangementRow{.kind = Kind::Lane, .lane = 40, .track = 0});
     CHECK(rows[1] == ArrangementRow{.kind = Kind::Track, .channel = 1, .track = 0});
     CHECK(rows[2] == ArrangementRow{.kind = Kind::Lane, .lane = 41, .track = 0});
@@ -35,14 +35,13 @@ TEST_CASE("arrangement rows: lanes sit among the tracks, after the track they fo
     CHECK(rows[4] == ArrangementRow{.kind = Kind::Track, .channel = 2, .track = 1});
     CHECK(rows[5] == ArrangementRow{.kind = Kind::Lane, .lane = 43, .track = 1}); // its track is gone
     CHECK(rows[6] == ArrangementRow{.kind = Kind::Return, .channel = 5});
-    CHECK(rows[7].kind == Kind::Master);
     CHECK(firstMixRow(rows) == 6);
     CHECK(rows[2].key() == "a41");
     CHECK(rows[1].key() == "c1");
     CHECK(rowOfLane(rows, 42) == 3);
     CHECK(rowOfLane(rows, 7) == -1);
 
-    // Without the mix rows: tracks and lanes; without lanes: the tracks alone.
+    // Without the returns: tracks and lanes; without lanes: the tracks alone.
     CHECK(arrangementRows(s, false).size() == 6);
     const auto tracksOnly = arrangementRows(s, false, false);
     CHECK(tracksOnly.size() == 2);

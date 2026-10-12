@@ -8,7 +8,7 @@ How a song's structure gets onto the screen and becomes something you edit. The 
 - the menu bar as the complete list ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md), [menu-bar.md](menu-bar.md)) and assistants' tools ([ADR 0021](../decisions/0021-mcp-server.md), [mcp.md](mcp.md));
 - every edit click-free ([fades.md](fades.md) §1), and no stuck notes ([daw-shell.md](daw-shell.md)).
 
-**Status:** approved by the product owner (2026-10-12), with every recommendation of §15, and the song row shorter than drafted (40 px, not 56: it's always there). The decision is [ADR 0049](../decisions/0049-the-master-row-is-the-song-row.md). Building.
+**Status:** approved by the product owner (2026-10-12), with every recommendation of §15, and the song row shorter than drafted (40 px, not 56: it's always there). The decision is [ADR 0049](../decisions/0049-the-master-row-is-the-song-row.md). Built (2026-10-12): what building settled is in §18. Awaiting the product owner's sign-off.
 
 ## 1. Why
 
@@ -219,7 +219,7 @@ Tools named as the others ([mcp.md](mcp.md)), each one named undo step, each wit
 | `insert_section` | An empty section of so many bars, before or after another, the rest making room |
 | `delete_section` | Deletes it with its music, the gap closing; `keep_music: true` removes only the mark |
 
-`get_song` (the snapshot tool) lists the sections too, so an assistant sees the song's structure first.
+`get_project` (the snapshot tool) lists the sections too, so an assistant sees the song's structure first.
 
 ## 14. Model and engine
 
@@ -249,7 +249,7 @@ Tools named as the others ([mcp.md](mcp.md)), each one named undo step, each wit
 | A11 | **Selection** | A section is a selection of its own, its channel the master; the inspector shows SECTION, then MIX; Select clips in section bridges to clip commands until range selection comes (§10) |
 | A12 | **Playing** | Double-click loops a section; Alt+← / Alt+→ jump between sections; the section under the playhead lit (§11) |
 | A13 | **The Song menu** | New, between Clip and Module, for song-wide things: sections now, markers and tempo later (§12) |
-| A14 | **Assistants** | The seven tools of §13, and the sections in `get_song` |
+| A14 | **Assistants** | The seven tools of §13, and the sections in `get_project` |
 | A15 | **Left for later** | Chains (Cubase's play orders), scratch pads (Studio One), a tempo and time-signature track, markers, exporting or bouncing a section, clicking an overview line to reach its track (§16) |
 
 ## 16. What comes when
@@ -285,3 +285,18 @@ Tools named as the others ([mcp.md](mcp.md)), each one named undo step, each wit
   - names cut short with an ellipsis rather than touching an edge;
   - the menu-bar test.
 - **Performance:** the song row draws within the frame budget with 100 tracks and 2 000 clips.
+
+## 18. Settled while building (2026-10-12)
+
+- **The overview** is inset 3 px (`shell.songOverviewInset`) from the title band and the divider: a track's line right under a title band of the same colour ran into it. Its lines sit on whole pixels, as the sections over them do, so none pokes into the gap between two sections.
+- **The rename field suggests nothing:** the shared in-place field has no list. A section's right-click menu has a **Name ▸** submenu with the usual names instead, beside Rename.
+- **← and → don't move sections:** they already nudge notes and lane points. Dragging, Ctrl+D and Delete do it.
+- **The section under the playhead isn't lit:** the playhead's line runs through the song row, which shows where it is. Lighting it can come with following the playhead (§16).
+- **The Song menu's letter is N** (Alt+N): Alt+S solos the selected track.
+- **Selecting a run:** Shift+click selects every section from the one picked last to the one clicked. Ctrl isn't a toggle here: Ctrl+drag copies.
+- **A run with gaps** moves, copies and deletes as its span, from its first section's start to its last one's end, the gaps' music included.
+- **Automation at an edge:** a straight or stepped segment cut at an edge keeps its exact shape; a bent one keeps its ends' values, its bend near enough.
+- **The palette's size** (16) moved into the model (`model::kPaletteSize`), so the song row can show a section's colour before the engine makes it.
+- **Assistants' tools take positions and lengths as the others do** (beats, or "bar.beat.sixteenth", "1 bar"); `list_sections` also gives each section's seconds. A test caught positions passed as beats where seconds were meant.
+- **A new section is selectable at once,** before its snapshot arrives, as a new clip is.
+- **Tests:** the model's plans (`SectionsTests`), the Session's commands with one-step undo and the sound of a moved section, sample for sample (`SectionTests`, including clips that touch end to end), every tool through MCP, and the song row by mouse with its screenshots (`AppSmokeTests`).

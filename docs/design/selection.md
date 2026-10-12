@@ -24,7 +24,9 @@ The selection is view state: it is not saved, not an undo step, and assistants n
 | Click | Channel | Clips |
 |---|---|---|
 | A track's header (name zone) | That track | None |
-| A return or master row (header or lane) | That channel | None |
+| A return row (header or lane) | That channel | None |
+| The song row's header, or empty time in it (ADR 0049) | The master | None |
+| A section in the song row (Shift: the run to it) | The master | None; the section(s) selected ([arranger.md](arranger.md) §10) |
 | An empty spot in a track's lane | That track | None (a drag box-selects) |
 | A clip | The clip's track | That clip (a click inside a multiple selection keeps the group for a drag, and selects just that clip if released without one) |
 | Shift or Ctrl + click a clip | The clicked clip's track (if the click removed it: the topmost remaining clip's track) | Adds or removes it |
@@ -57,6 +59,7 @@ What the context panels show follows from the selection:
 | Several clips | The clips (and the selected track) |
 | A channel, no clips | That channel |
 | A take (its strip under a clip, C5b) | That take (and its track) |
+| One section, or several (M3 C3) | The section(s) (and the master) |
 | Nothing | Nothing |
 
 ## 4. The detail panel
@@ -86,6 +89,8 @@ What the context panels show follows from the selection:
 | **TAKE** | A take (C5b), above its track's sections | Name (a field), Start, Length, In use (all of it, partly, no), "Use this take" |
 | **CLIP** | One clip | Name, Start (bars.beats.16ths), Length, Offset; Loop, and while it loops Loop start and Loop length (M3 C10, [clip-loops.md](clip-loops.md) §7) |
 | **CLIPS** | Several clips | Selected: how many |
+| **SECTION** | One section (M3 C3, ADR 0049), above MASTER and MIX | Name (a field), Colour, Start and Length (fields: they move its marks; the music stays) |
+| **SECTIONS** | Several sections | Selected: how many |
 | **TRACK** | A track (also under TAKE, CLIP or CLIPS) | Name, Instrument, Clips |
 | **RETURN** | A return track | Name, Modules |
 | **MASTER** | The master | Modules |
@@ -100,14 +105,14 @@ So a selected clip reads top to bottom as CLIP, TRACK, MIX, SENDS; a track as TR
 
 ## 6. Keys and the area used last
 
-Delete, Duplicate and Select all act on the area used last: notes in the clip view, a module in the chain, otherwise clips ([daw-shell.md](daw-shell.md)). A track's or return's header clicked last (it alone selected): Delete deletes it and Duplicate duplicates it (C11, [tracks-and-clips.md](tracks-and-clips.md) §5, §7). Cut, Copy and Paste follow the same rule: notes, an automation lane's points, otherwise clips (§9). In the mixer view, actions on arrangement content you can't see are off:
+Delete, Duplicate and Select all act on the area used last: notes in the clip view, a module in the chain, otherwise clips ([daw-shell.md](daw-shell.md)). Selected sections (M3 C3): Delete deletes them with their music, Duplicate copies them after themselves, F2 renames the first ([arranger.md](arranger.md) §12). A track's or return's header clicked last (it alone selected): Delete deletes it and Duplicate duplicates it (C11, [tracks-and-clips.md](tracks-and-clips.md) §5, §7). Cut, Copy and Paste follow the same rule: notes, an automation lane's points, otherwise clips (§9). In the mixer view, actions on arrangement content you can't see are off:
 
 | Off in the mixer view | Still on |
 |---|---|
 | Delete, Duplicate, Select all on clips; Split; New MIDI clip | Delete on a module in the chain (when the chain was used last) |
 | Tab (Modules ⇄ Clip) | Alt+M, Alt+S on the selected channel |
 | Show inspector (Ctrl+Alt+I) | Show browser, Show detail panel |
-| Zoom in, out, to fit; Show returns and master | Undo, redo, transport, every track action |
+| Zoom in, out, to fit; Show returns; the Song menu's commands on sections | Undo, redo, transport, every track action |
 
 Disabled actions are greyed in the command palette and the transport bar, and their keys do nothing. Tab never moves keyboard focus away from the strips.
 

@@ -203,7 +203,7 @@ Three parts, each its own commit with its tests, MCP tools and manual checks:
 
 ## Decisions from the review (product owner, 2026-10-09)
 
-1. Returns and the master sit at the end of the track list and scroll with it (B25).
+1. Returns and the master sit at the end of the track list and scroll with it (B25). *Since M3 C3 ([ADR 0049](../decisions/0049-the-master-row-is-the-song-row.md)) the master's row is the song row, pinned under the ruler; the returns stay at the end.*
 2. Solo is exclusive on click; Ctrl+click adds (B26).
 3. Pan is a balance with 0 dB at centre (B27).
 4. A separate mixer view, in M2 (§6).

@@ -42,6 +42,15 @@ Selection withClips(const Snapshot& snapshot, std::set<std::uint64_t> clips, std
     return s;
 }
 
+Selection withSections(const Snapshot& snapshot, std::set<std::uint64_t> sections)
+{
+    Selection s{.channel = snapshot.master.id};
+    for (const auto id : sections)
+        if (snapshot.section(id) != nullptr)
+            s.sections.insert(id);
+    return s;
+}
+
 Selection withLane(const Snapshot& snapshot, std::uint64_t lane, std::set<size_t> points)
 {
     Selection s{.lane = lane, .points = std::move(points)};
@@ -68,6 +77,13 @@ Selection pruned(const Selection& selection, const Snapshot& snapshot)
             for (const auto id : selection.takes)
                 if (t->take(id) != nullptr)
                     s.takes.insert(id);
+    // Sections stay while they exist, with the master.
+    if (!selection.sections.empty() && s.clips.empty() && !selection.lane)
+    {
+        auto kept = withSections(snapshot, selection.sections);
+        if (!kept.sections.empty())
+            return kept;
+    }
     // A lane stays while it exists (its channel following its assignments); points while they do.
     if (selection.lane && s.clips.empty())
         if (const auto* lane = snapshot.automationLane(*selection.lane))
@@ -130,6 +146,23 @@ PanelContext panelContext(const Selection& selection, const Snapshot& snapshot, 
         if (ctx.takeCount != 1)
             ctx.take.reset();
     }
+    else if (selection.clips.empty() && !selection.sections.empty())
+    {
+        // Sections (arranger.md §10): their channel is the master's.
+        for (const auto id : selection.sections)
+            if (const auto* section = snapshot.section(id))
+            {
+                ++ctx.sectionCount;
+                ctx.section = *section;
+            }
+        if (ctx.sectionCount != 1)
+            ctx.section.reset();
+        if (ctx.sectionCount > 0)
+        {
+            ctx.subject = ctx.sectionCount == 1 ? Subject::Section : Subject::Sections;
+            channel = &snapshot.master;
+        }
+    }
     else if (ctx.clipCount == 1)
     {
         ctx.subject = Subject::Clip;
@@ -168,6 +201,10 @@ PanelContext panelContext(const Selection& selection, const Snapshot& snapshot, 
         ctx.inspector.push_back(InspectorSection::Take);
     else if (ctx.subject == Subject::Takes)
         ctx.inspector.push_back(InspectorSection::Takes);
+    if (ctx.subject == Subject::Section)
+        ctx.inspector.push_back(InspectorSection::Section);
+    else if (ctx.subject == Subject::Sections)
+        ctx.inspector.push_back(InspectorSection::Sections);
     if (ctx.subject == Subject::Clip)
         ctx.inspector.push_back(InspectorSection::Clip);
     else if (ctx.subject == Subject::Clips)

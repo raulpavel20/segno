@@ -213,6 +213,22 @@ struct TrackInfo
     }
 };
 
+/// The clip palette's colours: a track's, clip's, lane's or section's colour is an index into it.
+inline constexpr int kPaletteSize = 16;
+
+/// A section of the song (ADR 0049, docs/design/arranger.md §7): a stretch of it with a name and a
+/// colour, drawn on the song row. Sections never overlap; gaps between them are fine.
+struct SectionInfo
+{
+    std::uint64_t id = 0;
+    std::string name;
+    int colour = 0;                // index into the clip palette
+    double start = 0.0, end = 0.0; // seconds on the timeline
+
+    [[nodiscard]] double length() const noexcept { return end - start; }
+    friend bool operator==(const SectionInfo&, const SectionInfo&) = default;
+};
+
 struct Snapshot
 {
     /// The tracks, which hold clips, in order.
@@ -222,6 +238,8 @@ struct Snapshot
     TrackInfo master{.role = TrackInfo::Role::Master};
     /// The automation lanes in row order (C4, ADR 0029): those at the top, then each track's.
     std::vector<AutomationLaneInfo> automationLanes;
+    /// The song's sections, by start (ADR 0049).
+    std::vector<SectionInfo> sections;
     TempoMap tempo;
     bool edgeFades = true; // the project's edge fades (fades.md §2)
     std::uint64_t version = 0;
@@ -234,6 +252,14 @@ struct Snapshot
                 if (t.id == id)
                     return &t;
         return master.id == id ? &master : nullptr;
+    }
+
+    [[nodiscard]] const SectionInfo* section(std::uint64_t id) const noexcept
+    {
+        for (const auto& s : sections)
+            if (s.id == id)
+                return &s;
+        return nullptr;
     }
 
     [[nodiscard]] const AutomationLaneInfo* automationLane(std::uint64_t id) const noexcept

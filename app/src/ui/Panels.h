@@ -142,6 +142,8 @@ public:
     void paint(juce::Graphics& g) override;
 
 private:
+    /// The selected section's fields (arranger.md §10), made once.
+    void wireSection();
     /// A section's property rows (none for MIX and SENDS, which are components).
     [[nodiscard]] std::vector<ui::Property> properties(model::InspectorSection section) const;
     /// Lays the sections out `width` wide from the top of the content; returns their height.
@@ -220,6 +222,14 @@ private:
     std::optional<engine::Session::EditGroup> fadeGesture_;
     TrackInputSection input_{session_};
     model::TempoMap tempo_;
+    /// The selected section (arranger.md §10): its name typed, its colour, and its marks (Start,
+    /// Length) dragged or typed; the music stays where it is. Each one undo step.
+    std::optional<model::SectionInfo> section_;
+    int sectionCount_ = 0;
+    juce::TextEditor sectionName_;
+    ui::ColourSwatch sectionColour_;
+    ui::NumberField sectionStart_, sectionLength_;
+    std::optional<engine::Session::EditGroup> sectionGesture_;
 };
 
 /// Bottom panel: the selected track's device chain (C6) or the clip view, which shows the

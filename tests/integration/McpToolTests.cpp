@@ -1584,3 +1584,70 @@ TEST_CASE("mcp tools: presets listed, loaded and saved; A/B; a module added from
     CHECK_FALSE(daw.fails("add_module", {{"track", t1}, {"type", "compressor"}, {"preset", "Nope"}}).empty());
     CHECK(daw.project()["tracks"][1]["chain"].size() == modules + 1);
 }
+
+TEST_CASE("mcp tools: sections marked, renamed, moved, copied, inserted and deleted with their music (C3)",
+          "[integration][mcp]")
+{
+    Daw daw;
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    // A B C, a bar each, a MIDI clip in each.
+    for (int i = 0; i < 3; ++i)
+    {
+        const auto start = std::to_string(i + 1) + ".1.1", end = std::to_string(i + 2) + ".1.1";
+        daw.call("add_section", {{"start", start}, {"end", end}});
+        daw.call("create_midi_clip", {{"track", t0}, {"start", start}, {"length", "1 bar"}});
+    }
+    CHECK(daw.session->undoDescription() == "Assistant: create midi clip");
+    auto sections = daw.call("list_sections")["sections"];
+    REQUIRE(sections.size() == 3);
+    const auto a = sections[0]["section"].get<std::string>(), b = sections[1]["section"].get<std::string>(),
+               c = sections[2]["section"].get<std::string>();
+    CHECK(sections[1]["name"] == "B");
+    CHECK(daw.project()["sections"].size() == 3);
+    CHECK(daw.fails("add_section", {{"start", "1.3.1"}, {"end", "2.3.1"}}).find("overlap") !=
+          std::string::npos);
+
+    // Renamed, recoloured; its marks move without the music.
+    auto r = daw.call("set_section", {{"section", b}, {"name", "Chorus"}, {"colour", 7}});
+    CHECK(r["sections"][1]["name"] == "Chorus");
+    CHECK(r["sections"][1]["colour"] == 7);
+    CHECK(daw.session->undoDescription() == "Assistant: set section");
+
+    const auto clipStarts = [&daw]
+    {
+        std::vector<double> out;
+        const auto project = daw.project(); // kept: the loop reads into it
+        for (const auto& clip : project["tracks"][0]["clips"])
+            out.push_back(clip["start"]["beats"].get<double>());
+        return out;
+    };
+    // Chorus after C: A C Chorus, its clip with it.
+    r = daw.call("move_section", {{"sections", {b}}, {"after", c}});
+    CHECK(r["sections"][1]["section"] == c);
+    CHECK(r["sections"][2]["name"] == "Chorus");
+    CHECK(clipStarts() == std::vector<double>{0.0, 4.0, 8.0});
+    CHECK(daw.session->undoDescription() == "Assistant: move section");
+    CHECK(daw.fails("move_section", {{"sections", {b}}, {"after", b}}).find("inside itself") !=
+          std::string::npos);
+    CHECK(daw.fails("move_section", {{"sections", {b}}}).find("before") != std::string::npos);
+
+    // Copied before A: Chorus 2 A C Chorus, the song a bar longer.
+    r = daw.call("copy_section", {{"sections", {b}}, {"before", a}});
+    REQUIRE(r["copies"].size() == 1);
+    CHECK(r["sections"][0]["name"] == "Chorus 2");
+    CHECK(clipStarts().size() == 4);
+
+    // An empty bar after A: the music after it later.
+    r = daw.call("insert_section", {{"length", "1 bar"}, {"after", a}});
+    CHECK(r["sections"].size() == 5);
+
+    // Delete C with its music; then the copy's mark alone.
+    daw.call("delete_section", {{"sections", {c}}});
+    CHECK(daw.call("list_sections")["sections"].size() == 4);
+    CHECK(clipStarts().size() == 3);
+    daw.call("delete_section", {{"sections", {r["sections"][0]["section"]}}, {"keep_music", true}});
+    CHECK(daw.call("list_sections")["sections"].size() == 3);
+    CHECK(clipStarts().size() == 3);
+    CHECK(daw.fails("set_section", {{"section", "s:999999"}, {"name", "x"}}).find("no section") !=
+          std::string::npos);
+}

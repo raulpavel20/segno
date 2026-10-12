@@ -144,7 +144,7 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// A track's or clip's colour (an index into the clip palette, `paletteSize` long) and a
     /// track's role ("return" on a return track, ADR 0026).
     static inline const juce::Identifier colourPropertyId{"fdColour"}, rolePropertyId{"fdRole"};
-    static constexpr int paletteSize = 16;
+    static constexpr int paletteSize = model::kPaletteSize;
     static constexpr int maxReturns = 32; // tracktion's aux buses
     /// The lowest aux bus no return listens to yet (maxReturns: none free).
     [[nodiscard]] int freeBus() const;

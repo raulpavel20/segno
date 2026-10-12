@@ -8,16 +8,21 @@
 namespace fd::model
 {
 /// One row of the arrangement (docs/design/automation.md §3, §12): a track (it holds clips, and
-/// grows by its open takes, ADR 0032), an automation lane among the tracks, a return track or the
-/// master.
+/// grows by its open takes, ADR 0032), an automation lane among the tracks, or a return track. The
+/// master isn't one: its row is the song row, pinned above them (ADR 0049).
 struct ArrangementRow
 {
-    enum class Kind { Track, Lane, Return, Master };
+    enum class Kind
+    {
+        Track,
+        Lane,
+        Return
+    };
     Kind kind = Kind::Track;
     std::uint64_t channel = 0; // a track, return or master row: its channel
     std::uint64_t lane = 0;    // a lane row: its lane (AutomationLaneInfo::id)
     /// The index in Snapshot::tracks of a track row; for a lane row, of the track above it (the
-    /// first track for lanes at the top); -1 for return tracks and the master.
+    /// first track for lanes at the top); -1 for return tracks.
     int track = -1;
 
     [[nodiscard]] bool holdsClips() const noexcept { return kind == Kind::Track; }
@@ -32,11 +37,11 @@ struct ArrangementRow
 inline constexpr double kLaneDefaultHeight = 56.0;
 
 /// The rows, top to bottom: the lanes at the top, then each track followed by the lanes after it
-/// (`lanes`: shown), lanes whose track is gone, then (when `mixRows`) the return tracks and the
-/// master.
-[[nodiscard]] std::vector<ArrangementRow> arrangementRows(const Snapshot& snapshot, bool mixRows, bool lanes = true);
+/// (`lanes`: shown), lanes whose track is gone, then (when `returns`) the return tracks.
+[[nodiscard]] std::vector<ArrangementRow> arrangementRows(const Snapshot& snapshot, bool returns,
+                                                          bool lanes = true);
 
-/// The row index of the first return or master row (rows.size() when there is none).
+/// The row index of the first return row (rows.size() when there is none).
 [[nodiscard]] int firstMixRow(const std::vector<ArrangementRow>& rows);
 
 /// The track index (Snapshot::tracks) a row stands for when dragging clips across rows: a track

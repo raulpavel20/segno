@@ -771,6 +771,34 @@ public:
         Session& session_;
     };
 
+    // ---- the song's sections (M3 C3, ADR 0049, docs/design/arranger.md) ----------------------
+
+    /// Marks a section from `start` to `end` (seconds), named `name` (empty: the next letter) and
+    /// coloured `colour` (none: the next colour). One undo step, "Add section". 0 if it would
+    /// overlap another or is empty.
+    std::uint64_t addSection(double start, double end, const std::string& name = {},
+                             std::optional<int> colour = {});
+    /// Renames a section (an empty name changes nothing). One undo step. False if nothing changed.
+    bool renameSection(std::uint64_t section, const std::string& name);
+    /// A section's colour, an index into the clip palette. One undo step.
+    bool setSectionColour(std::uint64_t section, int colour);
+    /// Moves a section's marks (its start and end), the music staying where it is. One undo step,
+    /// "Move section mark". False if it would overlap another or be empty.
+    bool setSectionMarks(std::uint64_t section, double start, double end);
+    /// Moves sections (their span, from the first one's start to the last one's end) with their
+    /// music to `to`, a section boundary outside the span: the rest of the song makes room
+    /// (arranger.md §9). One undo step, "Move section <name>". False if nothing moves.
+    bool moveSections(const std::vector<std::uint64_t>& sections, double to);
+    /// Copies them with their music to `to`, the music after it moving later. One undo step,
+    /// "Copy section <name>". Returns the copies' ids (empty if nothing was copied).
+    std::vector<std::uint64_t> copySections(const std::vector<std::uint64_t>& sections, double to);
+    /// Deletes sections with their music, the gap closing; with `keepMusic`, only their marks. One
+    /// undo step, "Delete section <name>" or "Remove section mark". False if none was found.
+    bool deleteSections(const std::vector<std::uint64_t>& sections, bool keepMusic = false);
+    /// An empty section `length` long at `at`, the music after it moving later (named and
+    /// coloured as addSection does). One undo step, "Insert section". Returns its id (0: none).
+    std::uint64_t insertSection(double at, double length, const std::string& name = {});
+
     // ---- tracks and clips (C11, ADR 0041, docs/design/tracks-and-clips.md) --------------------
 
     /// Renames a track or return track (and its aux bus); an empty name changes nothing. One undo

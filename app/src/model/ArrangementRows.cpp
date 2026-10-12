@@ -9,7 +9,7 @@ std::string ArrangementRow::key() const
     return isLane() ? "a" + std::to_string(lane) : "c" + std::to_string(channel);
 }
 
-std::vector<ArrangementRow> arrangementRows(const Snapshot& snapshot, bool mixRows, bool lanes)
+std::vector<ArrangementRow> arrangementRows(const Snapshot& snapshot, bool returns, bool lanes)
 {
     std::vector<ArrangementRow> rows;
     const int last = static_cast<int>(snapshot.tracks.size()) - 1;
@@ -32,19 +32,16 @@ std::vector<ArrangementRow> arrangementRows(const Snapshot& snapshot, bool mixRo
             if (l.after != 0 && std::none_of(snapshot.tracks.begin(), snapshot.tracks.end(),
                                              [&](const auto& t) { return t.id == l.after; }))
                 rows.push_back({.kind = ArrangementRow::Kind::Lane, .lane = l.id, .track = last});
-    if (mixRows)
-    {
+    if (returns)
         for (const auto& r : snapshot.returns)
             rows.push_back({.kind = ArrangementRow::Kind::Return, .channel = r.id});
-        rows.push_back({.kind = ArrangementRow::Kind::Master, .channel = snapshot.master.id});
-    }
     return rows;
 }
 
 int firstMixRow(const std::vector<ArrangementRow>& rows)
 {
     for (size_t i = 0; i < rows.size(); ++i)
-        if (rows[i].kind == ArrangementRow::Kind::Return || rows[i].kind == ArrangementRow::Kind::Master)
+        if (rows[i].kind == ArrangementRow::Kind::Return)
             return static_cast<int>(i);
     return static_cast<int>(rows.size());
 }

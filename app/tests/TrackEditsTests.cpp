@@ -81,14 +81,15 @@ TEST_CASE("tracks: a dragged track or lane lands at any boundary among the track
           "the returns (ADR 0042)",
           "[fast]")
 {
-    // Rows: lane 50 (top), T1, T2, lane 60 (after T2), lane 61 (after T2), T3, return R9, R10, master.
+    // Rows: lane 50 (top), T1, T2, lane 60 (after T2), lane 61 (after T2), T3, return R9, R10 (the master's
+    // row is the song row, above them: ADR 0049).
     Snapshot s;
     s.tracks = {track(1), track(2), track(3)};
     s.returns = {{.id = 9, .role = TrackInfo::Role::Return}, {.id = 10, .role = TrackInfo::Role::Return}};
     s.master.id = 99;
     s.automationLanes = {lane(50, 0), lane(60, 2), lane(61, 2)};
     const auto rows = arrangementRows(s, true);
-    REQUIRE(rows.size() == 9);
+    REQUIRE(rows.size() == 8);
     REQUIRE(rows[3].lane == 60);
 
     // T1 (row 1) between T2's lanes: right above lane 61, no longer snapping past them.
