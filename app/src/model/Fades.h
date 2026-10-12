@@ -1,5 +1,7 @@
 #pragma once
 
+#include "model/ClipLoops.h"
+
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -78,8 +80,9 @@ struct FadeClip
 {
     std::uint64_t id = 0;
     double start = 0.0, length = 0.0;
-    double offset = 0.0;       // seconds into its source where it starts
+    double offset = 0.0;       // seconds into its source where it starts (its phase while it loops)
     double sourceLength = 0.0; // its source's length (0: unknown, no spare audio after it)
+    ClipLoop loop;             // ADR 0048: what it plays again and again (length 0: none)
     std::string source;
     bool muted = false;
     bool canExtend = true; // false: it can't play past its edges (stretched, synced, looped)

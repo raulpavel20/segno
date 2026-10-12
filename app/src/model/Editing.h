@@ -40,6 +40,7 @@ struct ClipEdit
     std::uint64_t clip = 0; // the clip (or, for duplicates, the source clip)
     std::uint64_t track = 0;
     double start = 0.0, length = 0.0, offset = 0.0;
+    std::optional<ClipLoop> loop; // a new loop (ADR 0048); nullopt keeps the clip's
 };
 
 enum class DragKind { Move, TrimStart, TrimEnd };

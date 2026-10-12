@@ -36,8 +36,12 @@ struct ClipInfo
     std::string name;
     double start = 0.0;  // seconds on the timeline
     double length = 0.0; // seconds
-    double offset = 0.0; // seconds into the source where the clip starts
+    double offset = 0.0; // seconds into the source where the clip starts (its phase while it loops)
     double sourceLength = 0.0; // seconds of source material (0 = unbounded, e.g. MIDI)
+    /// What it plays again and again (ADR 0048, model/ClipLoops.h): seconds of its content.
+    ClipLoop loop;
+    /// An audio clip the engine stretches to the song's tempo (placed before ADR 0048): it can't loop.
+    bool synced = false;
     int colour = 0;      // index into the clip palette
     std::string sourcePath; // audio file, if any
 
