@@ -83,6 +83,7 @@ struct Input
     double wheelZoom = 2.0;     // zoom factor per wheel unit (Ctrl)
     double rulerZoom = 0.012;   // log zoom per px dragged vertically on a ruler
     float bendTravel = 60.0f;   // px dragged for a whole bend (automation segments, fades)
+    int cursorIconSize = 32;    // px: an icon drawn as a mouse cursor (ui::cursorFor), a system cursor's size
 };
 
 /// The shell's sizes (docs/design/ui-foundations.md).

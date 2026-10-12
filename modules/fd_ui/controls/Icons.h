@@ -46,9 +46,11 @@ enum class Icon
 void drawIcon(juce::Graphics& g, Icon icon, juce::Rectangle<float> area, juce::Colour colour);
 
 /// A mouse cursor for a gesture of its own (looping a clip by its edge, clip-loops.md §5): `icon`
-/// in textPrimary, outlined in surface0 so it reads on any background, its hotspot at the centre.
-/// Make it once and keep it.
+/// at `input.cursorIconSize` in textPrimary, outlined in surface0 so it reads on any background,
+/// its hotspot at the centre. Make it once and keep it.
 [[nodiscard]] juce::MouseCursor cursorFor(Icon icon);
+/// The image `cursorFor` shows, drawn at twice its size (sharp on a 2x screen).
+[[nodiscard]] juce::ScaledImage cursorImage(Icon icon);
 
 /// Flat icon button (ui-principles §4): dim when off, `active` fill when on (toggles),
 /// `surface3` on hover. Tooltip text should include the shortcut.

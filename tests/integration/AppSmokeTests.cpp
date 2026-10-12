@@ -2582,6 +2582,12 @@ TEST_CASE("clip loops by mouse: the upper edge loops a clip, a notch sets the lo
     CHECK(view.getTooltip() == "Drag to loop the clip");
     view.mouseMove(mouseEvent(view, {laneX(0.5) - 2.0f, bodyY + 20.0f}, {laneX(0.5) - 2.0f, bodyY + 20.0f}, false, {}));
     CHECK(view.getMouseCursor() == juce::MouseCursor::LeftRightResizeCursor); // below: it trims
+    // The loop cursor is a system cursor's size (the product owner: at least twice the 16 px first
+    // tried), the icon outlined.
+    const auto cursor = fd::ui::cursorImage(fd::ui::Icon::Loop);
+    CHECK(cursor.getImage().getWidth() / cursor.getScale() >= 32.0);
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "loop-cursor@2x.png", cursor.getImage());
     drag(view, {laneX(0.5) - 2.0f, titleY}, {laneX(2.0), titleY});
     CHECK(s.undoDescription() == "Loop clips");
     CHECK(info().loop == fd::model::ClipLoop{0.0, 0.5});

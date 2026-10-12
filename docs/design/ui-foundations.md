@@ -96,6 +96,7 @@ Role functions for colours that depend on content:
 | `input.wheelScroll` | 400 px per wheel unit | Scrolling |
 | `input.wheelZoom` | 2× per wheel unit (Ctrl) | Zooming at the mouse |
 | `input.rulerZoom` | 1.2 % per pixel dragged vertically | Zooming by dragging the ruler |
+| `input.cursorIconSize` | 32 px | An icon drawn as a mouse cursor (`cursorFor`): a system cursor's size, so it reads as one |
 
 ## Shell metrics
 
@@ -164,7 +165,7 @@ Components size themselves for their text: `ui::Toggle::widthFor(label)` and `ui
 | `Toast` | A message in the arrangement's corner that times out | Warnings and confirmations |
 | `EmptyState` | A centred hint where there is nothing to show | Chain without a track, clip view without a clip, empty project, empty inspector |
 | `paintValueTag` | What a gesture is changing, next to the pointer while it drags: `Value` text on a `surface3` tag a row high, kept in its area | Fade and crossfade drags (C6); a looped clip's edges and notches ("4 bars · 4 loops", "Loop 1 bar"; M3 C10) |
-| `cursorFor(Icon)` | A mouse cursor for a gesture of its own: the icon in `textPrimary`, outlined in `surface0` so it reads on any background, its hotspot at the centre; made once and kept by its view | Looping a clip by the upper part of its right edge (`Icon::Loop`; M3 C10) |
+| `cursorFor(Icon)` | A mouse cursor for a gesture of its own: the icon at `input.cursorIconSize` in `textPrimary`, outlined in `surface0` (a halo that grows with it) so it reads on any background, its hotspot at the centre; made once and kept by its view (`cursorImage` is its picture) | Looping a clip by the upper part of its right edge (`Icon::Loop`; M3 C10) |
 | `paintProgress` | Work in progress on what it changes: a `shell.progressHeight` line along its bottom, a `surface3` track filled in `value` from the left; shown only after `motion.progressDelay` | Clips being bounced (C7); export (C8) |
 | `SectionStack` | Titled sections one under another: a `Section`-style caps title on the row grid, the content under it, and a 1 px `line` centred in the group gap between neighbours (a module panel's sections, stacked). `titleArea(i)` is a section's title row, for a command at its right | The inspector ([selection.md](selection.md) §5: its sections scroll under its header when they're taller than the panel, as Settings' do); Settings, each section's Reset in its title row ([settings.md](settings.md) §6); later the browser |
 | `BarLayout` | Places a bar's items left and right on the item and group gaps | Small bars |

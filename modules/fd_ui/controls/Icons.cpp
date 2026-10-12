@@ -299,23 +299,35 @@ void drawIcon(juce::Graphics& g, Icon icon, juce::Rectangle<float> area, juce::C
                                                           juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 }
 
-juce::MouseCursor cursorFor(Icon icon)
+juce::ScaledImage cursorImage(Icon icon)
 {
-    // The icon on its 16 px grid with a pixel of room for the outline, drawn at twice the size so
-    // it's sharp on a 2x screen.
-    constexpr int grid = 16, room = 2, scale = 2;
-    constexpr int size = grid + 2 * room;
+    // The icon at a system cursor's size, ringed by a halo as much thicker as the icon is larger
+    // than its 16 px grid, with room for it; drawn at twice the size.
     const auto& t = Theme::current();
-    juce::Image image(juce::Image::ARGB, size * scale, size * scale, true);
+    const auto size = static_cast<float>(t.input.cursorIconSize);
+    const float halo = size / 16.0f;
+    const int room = static_cast<int>(std::ceil(halo)) + 1;
+    const int side = t.input.cursorIconSize + 2 * room;
+    constexpr int scale = 2;
+    juce::Image image(juce::Image::ARGB, side * scale, side * scale, true);
     {
         juce::Graphics g(image);
         g.addTransform(juce::AffineTransform::scale(static_cast<float>(scale)));
-        const auto area = juce::Rectangle<float>(static_cast<float>(room), static_cast<float>(room), grid, grid);
-        for (const auto& [dx, dy] : {std::pair{-1.0f, 0.0f}, {1.0f, 0.0f}, {0.0f, -1.0f}, {0.0f, 1.0f}})
-            drawIcon(g, icon, area.translated(dx, dy), t.surface0);
+        const auto area = juce::Rectangle<float>(static_cast<float>(room), static_cast<float>(room), size, size);
+        for (int dx = -1; dx <= 1; ++dx)
+            for (int dy = -1; dy <= 1; ++dy)
+                if (dx != 0 || dy != 0)
+                    drawIcon(g, icon, area.translated(static_cast<float>(dx) * halo, static_cast<float>(dy) * halo), t.surface0);
         drawIcon(g, icon, area, t.textPrimary);
     }
-    return juce::MouseCursor(juce::ScaledImage(image, scale), {size / 2, size / 2});
+    return {image, static_cast<double>(scale)};
+}
+
+juce::MouseCursor cursorFor(Icon icon)
+{
+    const auto image = cursorImage(icon);
+    const int centre = juce::roundToInt(image.getImage().getWidth() / image.getScale() / 2.0);
+    return juce::MouseCursor(image, {centre, centre});
 }
 
 IconButton::IconButton(Icon icon, const juce::String& name) : juce::Button(name), icon_(icon) {}
