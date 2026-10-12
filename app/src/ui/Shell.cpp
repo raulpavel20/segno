@@ -2,6 +2,7 @@
 
 #include "ui/AutomationMenu.h"
 
+#include "model/ClipLoops.h"
 #include "model/Takes.h"
 
 #include "fd/audiofile/AudioFile.h"
@@ -261,6 +262,7 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         actions_.addMenuItem(menu, "clip.bounce");
         actions_.addMenuItem(menu, "clip.bounceToTrack");
         actions_.addMenuItem(menu, "clip.mute");
+        actions_.addMenuItem(menu, "clip.loop");
         actions_.addMenuItem(menu, "clip.crossfade");
         menu.addSeparator();
         actions_.addMenuItem(menu, "edit.split");
@@ -828,6 +830,53 @@ void Shell::registerActions()
                   },
                   .isEnabled = [this, clipsShown] { return clipsShown() && arrangement_.hasClipSelection(); },
                   .isToggled = allMuted});
+
+    // Clip loops (C10, ADR 0048, clip-loops.md §10): on loops what each clip shows, off removes the
+    // repeats. Ticked while every selected clip loops; dimmed, saying why, while none can.
+    const auto allLooping = [this] {
+        const auto& selected = arrangement_.selection().clips;
+        bool any = false;
+        for (const auto& t : session_.snapshot()->tracks)
+            for (const auto& c : t.clips)
+                if (selected.contains(c.id))
+                {
+                    if (!c.loop.on())
+                        return false;
+                    any = true;
+                }
+        return any;
+    };
+    // Why none of the selected clips can loop (empty if one can, or one loops already).
+    const auto whyNoneLoops = [this]() -> std::string {
+        const auto& selected = arrangement_.selection().clips;
+        std::string why;
+        for (const auto& t : session_.snapshot()->tracks)
+            for (const auto& c : t.clips)
+                if (selected.contains(c.id))
+                {
+                    auto reason = c.loop.on() ? std::string{} : model::whyCantLoop(c, t);
+                    if (reason.empty())
+                        return {};
+                    if (why.empty())
+                        why = std::move(reason);
+                }
+        return why;
+    };
+    actions_.add({.id = "clip.loop", .name = "Loop clips", .category = "Clip",
+                  .perform = [this, allLooping] {
+                      const auto& selected = arrangement_.selection().clips;
+                      if (const auto why = session_.setClipsLooping({selected.begin(), selected.end()}, !allLooping());
+                          !why.empty())
+                          showWarning(juce::String::fromUTF8(why.c_str()));
+                  },
+                  .isEnabled = [this, clipsShown, whyNoneLoops] {
+                      return clipsShown() && arrangement_.hasClipSelection() && whyNoneLoops().empty();
+                  },
+                  .isToggled = allLooping,
+                  .whyNot = [this, clipsShown, whyNoneLoops] {
+                      return clipsShown() && arrangement_.hasClipSelection() ? juce::String::fromUTF8(whyNoneLoops().c_str())
+                                                                             : juce::String();
+                  }});
 
     // Crossfades (C6, fades.md §4): every join between the selected clips that meet; a join that
     // can't take one says why.

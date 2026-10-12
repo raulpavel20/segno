@@ -17,7 +17,7 @@ namespace
 /// (from its content start).
 double contentOffset(ToolEnv& env, const model::ClipInfo& c)
 {
-    return clipStartBeat(env, c) - c.contentStartBeat;
+    return noteOffsetBeats(env, c);
 }
 
 model::ClipInfo midiClip(ToolEnv& env, const Json& value)
@@ -112,7 +112,8 @@ Json notesResult()
 {
     return result({{"clip", clipResultSchema()},
                    {"notes", integer("How many notes the call wrote, moved or removed")},
-                   {"lengthened", boolean("The clip grew to fit notes past its end")}},
+                   {"lengthened", boolean("The clip grew to fit notes past its end")},
+                   {"loopLengthened", boolean("A looped clip's loop grew to fit notes past its end")}},
                   {"clip", "notes", "lengthened"});
 }
 } // namespace
@@ -133,7 +134,10 @@ Json writeNotes(ToolEnv& env, const model::ClipInfo& c, const Json& input, bool 
     env.session.setNotes(c.id, edit.notes);
     env.session.flushSnapshot();
     const auto after = clip(env, formatId(IdKind::Clip, c.id));
-    return {{"clip", clipJson(env, after, false)}, {"notes", input.size()}, {"lengthened", after.end() > c.end() + 1e-9}};
+    return {{"clip", clipJson(env, after, false)},
+            {"notes", input.size()},
+            {"lengthened", after.end() > c.end() + 1e-9},
+            {"loopLengthened", after.loop.length > c.loop.length + 1e-9}};
 }
 } // namespace tools
 
@@ -249,7 +253,8 @@ void addNoteTools(Registry& registry, ToolEnv& env)
             const auto after = clip(env, args["clip"]);
             return ToolResult::ok({{"clip", clipJson(env, after, false)},
                                    {"notes", chosen.size()},
-                                   {"lengthened", after.end() > c.end() + 1e-9}});
+                                   {"lengthened", after.end() > c.end() + 1e-9},
+                                   {"loopLengthened", after.loop.length > c.loop.length + 1e-9}});
         }));
 }
 } // namespace fd::mcp

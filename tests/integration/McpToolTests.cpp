@@ -5,6 +5,7 @@
 #include "engine/EngineBehaviour.h"
 #include "engine/DevicePlugin.h"
 #include "engine/Session.h"
+#include "engine/SessionImpl.h"
 #include "mcp/McpServer.h"
 #include "mcp/protocol/Encoding.h"
 #include "mcp/protocol/Schema.h"
@@ -353,6 +354,67 @@ TEST_CASE("mcp tools: audio clips: insert, move, trim, duplicate, split, delete"
     CHECK(daw.call("delete_clips", {{"clips", {clipId, split[0]["id"]}}})["deleted"] == 2);
     CHECK(daw.session->undoDescription() == "Assistant: delete clips");
     CHECK(daw.project()["tracks"][1]["clips"].size() == 2);
+}
+
+TEST_CASE("mcp tools: clip loops: loop what's shown, set the loop, extend past the file, notes from the loop's start",
+          "[integration][mcp]")
+{
+    Daw daw;
+    juce::TemporaryFile wav(".wav");
+    REQUIRE(fd::testkit::writeWav(wav.getFile().getFullPathName().toStdString(),
+                                  fd::testkit::sine(220.0, 48000.0, 96000, 0.5f, 2), 48000.0)); // 2 s = 4 beats
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    const auto audio = daw.call("insert_audio_file", {{"track", t0}, {"start", 0}, {"path", wav.getFile().getFullPathName().toStdString()}})["clip"];
+    const auto audioId = audio["id"].get<std::string>();
+    CHECK(audio["loop"].is_null());
+    // Not looping: it stops at its file's end.
+    CHECK(daw.call("trim_clip", {{"clip", audioId}, {"end", "5.1.1"}})["clip"]["end"]["beats"] == Approx(4.0));
+
+    // Loop what it shows: nothing moves; then out past the file's end.
+    auto looped = daw.call("loop_clips", {{"clips", {audioId}}})["clips"][0];
+    CHECK(daw.session->undoDescription() == "Assistant: loop clips");
+    CHECK(looped["loop"]["start"] == Approx(0.0));
+    CHECK(looped["loop"]["length"] == Approx(4.0));
+    CHECK(looped["loop"]["lengthSeconds"] == Approx(2.0));
+    CHECK(looped["length"] == Approx(4.0));
+    auto trimmed = daw.call("trim_clip", {{"clip", audioId}, {"end", "5.1.1"}})["clip"];
+    CHECK(trimmed["end"]["beats"] == Approx(16.0)); // four laps
+    // A new loop: one beat from beat 2 of the file, or as seconds.
+    looped = daw.call("loop_clips", {{"clips", {audioId}}, {"start", 2}, {"length", "1 beat"}})["clips"][0];
+    CHECK(looped["loop"]["start"] == Approx(2.0));
+    CHECK(looped["loop"]["length"] == Approx(1.0));
+    CHECK(looped["length"] == Approx(16.0));
+    looped = daw.call("loop_clips", {{"clips", {audioId}}, {"length", "0.25 s"}})["clips"][0];
+    CHECK(looped["loop"]["lengthSeconds"] == Approx(0.25));
+    // Off: the repeats go.
+    const auto off = daw.call("loop_clips", {{"clips", {audioId}}, {"loop", false}})["clips"][0];
+    CHECK(off["loop"].is_null());
+    CHECK(off["length"] == Approx(0.5));
+
+    // MIDI: notes count from the loop's start; notes written past its end lengthen the loop.
+    const auto midi = daw.call("create_midi_clip", {{"track", t0}, {"start", "9.1.1"}, {"length", "2 bars"},
+                                                    {"notes", {{{"pitch", 60}, {"start", 4}, {"length", 1}}}}})["clip"];
+    const auto midiId = midi["id"].get<std::string>();
+    looped = daw.call("loop_clips", {{"clips", {midiId}}, {"start", "2.1.1"}, {"length", "1 bar"}})["clips"][0];
+    CHECK(looped["loop"]["start"] == Approx(4.0));
+    CHECK(looped["loop"]["length"] == Approx(4.0));
+    const auto got = daw.call("get_clip", {{"clip", midiId}});
+    REQUIRE(got["notes"].size() == 1);
+    CHECK(got["notes"][0]["start"] == Approx(0.0)); // the loop starts on it
+    const auto written = daw.call("add_notes", {{"clip", midiId}, {"notes", {{{"pitch", 64}, {"start", 5}, {"length", 1}}}}});
+    CHECK(written["loopLengthened"] == true);
+    CHECK(written["clip"]["loop"]["length"] == Approx(8.0)); // to the end of the next bar
+
+    // An audio clip the engine stretches to the tempo (a project from before) can't loop: the call
+    // says why and changes nothing, not even the clips that could loop.
+    const auto synced = daw.call("insert_audio_file", {{"track", t0}, {"start", "20.1.1"}, {"path", wav.getFile().getFullPathName().toStdString()}})["clip"];
+    const auto syncedId = synced["id"].get<std::string>();
+    auto* engineClip = dynamic_cast<tracktion::AudioClipBase*>(daw.session->impl().clip(std::stoull(syncedId.substr(2))));
+    REQUIRE(engineClip != nullptr);
+    engineClip->setAutoTempo(true);
+    daw.session->flushSnapshot();
+    CHECK(daw.fails("loop_clips", {{"clips", {audioId, syncedId}}}).find("tempo") != std::string::npos);
+    CHECK(daw.call("get_clip", {{"clip", audioId}})["loop"].is_null());
 }
 
 TEST_CASE("mcp tools: modules, parameters, samples and view state", "[integration][mcp]")

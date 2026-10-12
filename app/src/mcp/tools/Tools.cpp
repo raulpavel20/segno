@@ -375,6 +375,11 @@ double clipStartBeat(ToolEnv& env, const model::ClipInfo& c)
     return beats(env, c.start);
 }
 
+double noteOffsetBeats(ToolEnv& env, const model::ClipInfo& c)
+{
+    return c.loop.on() ? beats(env, c.loop.start) : clipStartBeat(env, c) - c.contentStartBeat;
+}
+
 Json db(double value)
 {
     return std::isfinite(value) ? Json(std::round(value * 10.0) / 10.0) : Json(nullptr);
@@ -401,6 +406,18 @@ Json clipJson(ToolEnv& env, const model::ClipInfo& c, bool notes)
            {"length", rounded(end - start, 1e6)},
            {"muted", c.muted},
            {"colour", c.colour}};
+    // Its loop (ADR 0048): where it starts in the content and how long it is, in beats.
+    if (c.loop.on())
+    {
+        j["loop"] = {{"start", rounded(t.beatsForSeconds(c.loop.start), 1e6)}, {"length", rounded(t.beatsForSeconds(c.loop.length), 1e6)}};
+        if (c.kind == model::ClipInfo::Kind::Audio)
+        {
+            j["loop"]["startSeconds"] = roundTime(c.loop.start);
+            j["loop"]["lengthSeconds"] = roundTime(c.loop.length);
+        }
+    }
+    else
+        j["loop"] = nullptr;
     if (const auto found = model::findClip(*env.session.snapshot(), c.id))
     {
         const auto& track = env.session.snapshot()->tracks[static_cast<size_t>(found->second)];
@@ -433,7 +450,7 @@ Json clipJson(ToolEnv& env, const model::ClipInfo& c, bool notes)
         j["noteCount"] = c.notes.size();
         if (notes)
         {
-            const double offset = start - c.contentStartBeat; // notes count from the content start
+            const double offset = noteOffsetBeats(env, c); // notes count from the clip's start (a loop's)
             Json list = Json::array();
             for (const auto& n : c.notes)
                 list.push_back(noteJson(n, offset));

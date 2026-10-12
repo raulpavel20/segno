@@ -97,7 +97,7 @@ std::vector<Menu> menuBar(MenuPlatform platform)
         {"Clip",
          'c',
          {action("clip.newMidi"), separator(), action("clip.bounce"), action("clip.bounceToTrack"),
-          action("clip.cancelBounces"), separator(), action("clip.mute"), action("clip.crossfade"),
+          action("clip.cancelBounces"), separator(), action("clip.mute"), action("clip.loop"), action("clip.crossfade"),
           submenu("Colour", {list("clipColour")}), separator(),
           submenu("Takes", {action("view.takes"), action("take.previous"), action("take.next"), separator(),
                             action("take.useWhole"), action("take.rename"), action("take.copyToTrack"),

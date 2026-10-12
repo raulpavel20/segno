@@ -667,7 +667,9 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         "module.clearDefault", "module.presetsFolder",
         // The browser and a project's files (browser.md §14): the switch is on screen; the
         // others are rare.
-        "browser.preview", "file.collect", "file.removeUnused"};
+        "browser.preview", "file.collect", "file.removeUnused",
+        // Clip loops (clip-loops.md §10): Ctrl+L and every L combination are taken; assignable.
+        "clip.loop"};
     for (const auto& a : actions.all())
     {
         INFO(a.id);
@@ -2131,12 +2133,22 @@ TEST_CASE("bounce: Ctrl+B bounces the selected clips in place, 0 mutes, the clip
                 names.push_back(it.getItem().text);
                 enabled.push_back(it.getItem().isEnabled);
             }
-        CHECK(names == std::vector<juce::String>{"Bounce in place", "Bounce to new track", "Mute clips", "Crossfade",
-                                                 "Split at playhead", "Duplicate", "Delete", "Cut", "Copy", "Paste",
-                                                 "Colour"}); // the clipboard and colour: tracks-and-clips.md §10
+        CHECK(names == std::vector<juce::String>{"Bounce in place", "Bounce to new track", "Mute clips", "Loop clips",
+                                                 "Crossfade", "Split at playhead", "Duplicate", "Delete", "Cut", "Copy",
+                                                 "Paste", "Colour"}); // the clipboard and colour: tracks-and-clips.md §10
         CHECK_FALSE(enabled[0]); // no instrument on this clip's track
         CHECK(enabled[2]);
+        CHECK(enabled[3]); // looping needs no instrument either
     }
+
+    // Loop clips (C10, clip-loops.md §10): on loops what the clip shows, ticked; again, the repeats go.
+    CHECK(actions.perform("clip.loop"));
+    CHECK(s.undoDescription() == "Loop clips");
+    CHECK(track(t1).clips[0].loop.on());
+    CHECK(actions.isToggled("clip.loop"));
+    CHECK(actions.perform("clip.loop"));
+    CHECK_FALSE(track(t1).clips[0].loop.on());
+    CHECK_FALSE(actions.isToggled("clip.loop"));
 
     // Ctrl+B: bounced in place, and the bounce is selected.
     view.setSelection(fd::model::withClips(*s.snapshot(), {clip}, t0, t0));
@@ -2150,6 +2162,9 @@ TEST_CASE("bounce: Ctrl+B bounces the selected clips in place, 0 mutes, the clip
     CHECK(view.selection().clips == std::set{bounced.id});
     CHECK(view.selection().channel == t0);
     CHECK(s.undoDescription() == "Bounce in place");
+    // A bounce keeps its source as a take: a clip with takes can't loop, and says why.
+    CHECK_FALSE(actions.isEnabled("clip.loop"));
+    CHECK(actions.find("clip.loop")->whyNot().contains("takes"));
 
     // 0 mutes the selected clips, and again unmutes them; the inspector's CLIP shows it.
     REQUIRE(actions.handleKey(juce::KeyPress('0')));

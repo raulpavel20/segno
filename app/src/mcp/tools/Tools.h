@@ -152,6 +152,9 @@ Json moduleResultSchema();
 /// The beat (from the song's start) of a note's start, and back: notes count from the clip's
 /// start in tools, from its content start in the model.
 double clipStartBeat(ToolEnv& env, const model::ClipInfo& clip);
+/// How many beats a note's start in a tool is behind the model's (beats from the content's zero):
+/// the clip's start in its content, or a looped clip's loop start (ADR 0048: notes count from it).
+double noteOffsetBeats(ToolEnv& env, const model::ClipInfo& clip);
 Json noteJson(const model::Note& note, double offsetBeats);
 /// dB for results: rounded to 0.1, null for -inf.
 Json db(double value);

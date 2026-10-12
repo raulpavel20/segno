@@ -3,6 +3,7 @@
 
 #include "mcp/tools/Tools.h"
 
+#include "model/ClipLoops.h"
 #include "model/Editing.h"
 
 #include <cmath>
@@ -30,6 +31,27 @@ double signedBeats(ToolEnv& env, const Json& value)
     throw Problem{"Give the amount in beats (a number, negative to move earlier) or text such as \"-1 bar\"."};
 }
 
+/// Seconds written as a plain number before a unit ("10 ms", "0.5s"); nullopt for anything else
+/// (a musical length).
+std::optional<double> secondsInText(const Json& value)
+{
+    if (!value.is_string())
+        return std::nullopt;
+    const auto text = juce::String(value.get<std::string>()).trim().toLowerCase();
+    auto numberBefore = [&text](int suffix) -> std::optional<double> {
+        const auto n = text.dropLastCharacters(suffix).trim();
+        if (n.isNotEmpty() && n.containsOnly("0123456789."))
+            return n.getDoubleValue();
+        return std::nullopt;
+    };
+    if (text.endsWith("ms"))
+        if (const auto ms = numberBefore(2))
+            return *ms / 1000.0;
+    if (text.endsWith("s"))
+        return numberBefore(1);
+    return std::nullopt;
+}
+
 /// A fade or crossfade length in seconds: a number of milliseconds, or text such as "10 ms",
 /// "0.5 s" or a musical length ("1/16", "1 beat").
 double fadeSeconds(ToolEnv& env, const Json& value)
@@ -38,23 +60,19 @@ double fadeSeconds(ToolEnv& env, const Json& value)
         return std::max(0.0, value.get<double>() / 1000.0);
     if (value.is_string())
     {
-        const auto text = juce::String(value.get<std::string>()).trim().toLowerCase();
-        // A plain number before the unit ("10 ms", "0.5s"); anything else is a musical length.
-        auto numberBefore = [&text](int suffix) -> std::optional<double> {
-            const auto n = text.dropLastCharacters(suffix).trim();
-            if (n.isNotEmpty() && n.containsOnly("0123456789."))
-                return n.getDoubleValue();
-            return std::nullopt;
-        };
-        if (text.endsWith("ms"))
-            if (const auto ms = numberBefore(2))
-                return *ms / 1000.0;
-        if (text.endsWith("s"))
-            if (const auto s = numberBefore(1))
-                return *s;
+        if (const auto s = secondsInText(value))
+            return *s;
         return seconds(env, lengthArg(env, value));
     }
     throw Problem{"Give the length in ms (a number) or as text such as \"10 ms\", \"0.5 s\" or \"1/16\"."};
+}
+
+/// A loop's length in seconds: beats (a number, "1 bar", "4 beats") or, for audio, "1.5 s".
+double loopSeconds(ToolEnv& env, const Json& value)
+{
+    if (const auto s = secondsInText(value))
+        return *s;
+    return seconds(env, lengthArg(env, value));
 }
 
 /// Seconds as milliseconds for results, to the microsecond.
@@ -203,32 +221,25 @@ void addClipTools(Registry& registry, ToolEnv& env)
         env,
         {"trim_clip", "Trim a clip",
          "Moves a clip's start or end edge, keeping its content in place (like dragging an edge). An audio clip "
-         "can't extend past its file.",
+         "can't extend past its file unless it loops (loop_clips): a looped clip's edges go anywhere, repeating its loop.",
          object({{"clip", id(IdKind::Clip, "The clip")},
                  {"start", position("Its new start.")},
                  {"end", position("Its new end.")}},
                 {"clip"}),
          result({{"clip", clipResultSchema()}}, {"clip"}), moves},
         [&env](const Json& args, CallContext&) {
-            const auto c = clip(env, args["clip"]);
+            auto c = clip(env, args["clip"]);
             const auto found = model::findClip(*env.session.snapshot(), c.id);
-            double start = c.start, end = c.end(), offset = c.offset;
-            if (args.contains("start"))
-            {
-                const double s = std::max(seconds(env, positionArg(env, args["start"])), c.start - c.offset);
-                offset += s - start;
-                start = s;
-            }
-            if (args.contains("end"))
-            {
-                end = seconds(env, positionArg(env, args["end"]));
-                if (c.kind == model::ClipInfo::Kind::Audio && c.sourceLength > 0.0)
-                    end = std::min(end, start - offset + c.sourceLength);
-            }
+            // The same rules as dragging an edge (model::ClipLoops): the end first, then the start.
+            const double start = args.contains("start") ? seconds(env, positionArg(env, args["start"])) : c.start;
+            const double end = args.contains("end") ? seconds(env, positionArg(env, args["end"])) : c.end();
             if (!(end - start >= model::minClipLength))
                 throw Problem{"The clip's end must come after its start."};
+            const auto ended = model::trimmedEnd(c, end);
+            c.length = ended.length;
+            const auto placed = model::trimmedStart(c, start);
             env.session.applyClipEdits({{c.id, env.session.snapshot()->tracks[static_cast<size_t>(found->second)].id,
-                                         start, end - start, offset}});
+                                         placed.start, placed.length, placed.offset}});
             return ToolResult::ok({{"clip", clipsJson(env, {c.id}).at(0)}});
         }));
 
@@ -426,6 +437,54 @@ void addClipTools(Registry& registry, ToolEnv& env)
                                       env.session.setClipsMuted(ids, args.value("muted", true));
                                       return ToolResult::ok({{"clips", clipsJson(env, ids)}});
                                   }));
+
+    // Clip loops (ADR 0048, clip-loops.md §11).
+    ToolAnnotations loops;
+    loops.idempotent = true;
+    registry.tools.push_back(make(
+        env,
+        {"loop_clips", "Loop clips",
+         "Loops clips: each plays a stretch of its content again and again for as long as it is, and its edges then go "
+         "anywhere (trim_clip). Without \"start\" or \"length\", each loops what it shows now, so nothing moves. "
+         "\"start\" is where the loop starts in the clip's content (beats from the content's start, or \"2.1.1\" for its "
+         "second bar) and \"length\" how long it is (beats, \"1 bar\", \"4 beats\"; for audio also \"1.5 s\"). With "
+         "\"loop\": false, the repeats go: each clip ends where its first lap ends. A clip with takes, or an audio "
+         "clip stretched to the song's tempo, can't loop.",
+         object({{"clips", ids(IdKind::Clip, "The clips")},
+                 {"loop", boolean("Loop (default true) or not")},
+                 {"start", position("Where the loop starts in the clip's content")},
+                 {"length", {{"type", {"number", "string"}}, {"description", "The loop's length: beats, \"1 bar\", or for audio \"1.5 s\""}}}},
+                {"clips"}),
+         result({{"clips", arrayOf(clipResultSchema(), "The clips", std::nullopt)}}, {"clips"}), loops},
+        [&env](const Json& args, CallContext&) {
+            const auto ids = clipIds(env, args["clips"]);
+            const bool on = args.value("loop", true);
+            const auto snapshot = env.session.snapshot();
+            // Every clip can loop, or nothing changes.
+            if (on)
+                for (const auto id : ids)
+                    if (const auto found = model::findClip(*snapshot, id); found && !found->first->loop.on())
+                        if (const auto why = model::whyCantLoop(*found->first, snapshot->tracks[static_cast<size_t>(found->second)]);
+                            !why.empty())
+                            throw Problem{why};
+            if (!on || (!args.contains("start") && !args.contains("length")))
+                env.session.setClipsLooping(ids, on);
+            else
+                for (const auto id : ids)
+                {
+                    const auto c = clip(env, formatId(IdKind::Clip, id));
+                    auto loop = c.loop.on() ? c.loop : model::loopOn(c).loop;
+                    if (args.contains("start"))
+                        loop.start = seconds(env, positionArg(env, args["start"]));
+                    if (args.contains("length"))
+                        loop.length = loopSeconds(env, args["length"]);
+                    if (!(loop.length >= model::minClipLength))
+                        throw Problem{"A loop must be longer than that."};
+                    env.session.setClipLoop(id, loop);
+                }
+            env.session.flushSnapshot();
+            return ToolResult::ok({{"clips", clipsJson(env, ids)}});
+        }));
 
     ToolAnnotations deletes;
     deletes.destructive = true;

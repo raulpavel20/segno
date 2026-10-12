@@ -1017,7 +1017,8 @@ void Session::setNotes(std::uint64_t clipId, const std::vector<model::Note>& not
                      midiVelocity(added[i].velocity), 0, undo);
 
     // Notes past the clip's end lengthen it to the end of that bar when nothing is in the way
-    // (B15), in the same undo step.
+    // (B15), in the same undo step; in a looped clip, notes written past its loop's end lengthen the
+    // loop instead (ADR 0048).
     if (auto* track = midi->getClipTrack())
     {
         std::vector<model::ClipInfo> clips;
@@ -1031,7 +1032,12 @@ void Session::setNotes(std::uint64_t clipId, const std::vector<model::Note>& not
             tempo.numerator = sig->numerator;
             tempo.denominator = sig->denominator;
         }
-        if (const auto end = model::lengthenedClipEnd(clipInfo(*midi, 0), clips, notes, tempo))
+        if (const auto info = clipInfo(*midi, 0); info.loop.on())
+        {
+            if (const auto length = model::lengthenedLoop(info, added, tempo))
+                writeLoop(*midi, {info.loop.start, *length}, undo);
+        }
+        else if (const auto end = model::lengthenedClipEnd(clipInfo(*midi, 0), clips, notes, tempo))
         {
             const auto pos = midi->getPosition();
             midi->setPosition({{pos.getStart(), te::TimePosition::fromSeconds(*end)}, pos.getOffset()});

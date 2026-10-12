@@ -16,7 +16,10 @@ Json clipResultSchema()
                    {"start", positionResult()},
                    {"end", positionResult()},
                    {"length", number("Beats")},
-                   {"muted", boolean("Muted: it keeps its place and plays nothing")}},
+                   {"muted", boolean("Muted: it keeps its place and plays nothing")},
+                   {"loop", {{"type", {"object", "null"}},
+                             {"description", "What it plays again and again: start (in its content) and length, in beats; "
+                                             "for audio also in seconds. Null when it doesn't loop"}}}},
                   {"id", "kind", "start", "end", "length"});
 }
 
@@ -60,8 +63,8 @@ void addReadTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"get_clip", "Get a clip",
-         "One clip: kind, position, length and, for MIDI clips, every note (pitch, start and length in beats from "
-         "the clip's start, velocity 1-127).",
+         "One clip: kind, position, length, its loop and, for MIDI clips, every note (pitch, start and length in beats "
+         "from the clip's start, or from its loop's start while it loops; velocity 1-127).",
          object({{"clip", id(IdKind::Clip, "The clip")}}, {"clip"}), clipResultSchema(), reading},
         [&env](const Json& args, CallContext&) { return ToolResult::ok(clipJson(env, clip(env, args["clip"]), true)); }));
 
