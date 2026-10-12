@@ -119,6 +119,10 @@ fd_add_device_plugin(ID delay NAME "Delay" CODE Fdly KIND effect
     VST3_CATEGORIES Fx Delay
     CLAP_FEATURES audio-effect delay stereo mono)
 
+fd_add_device_plugin(ID reverb NAME "Reverb" CODE Frvb KIND effect
+    VST3_CATEGORIES Fx Reverb
+    CLAP_FEATURES audio-effect reverb stereo mono)
+
 fd_add_device_plugin(ID chorus NAME "Chorus" CODE Fchr KIND effect
     VST3_CATEGORIES Fx Modulation
     CLAP_FEATURES audio-effect chorus stereo mono)

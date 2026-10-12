@@ -181,92 +181,6 @@ private:
     bool right_ = false;
 };
 
-/// One pass through the feedback filter (`FeedbackPath::magnitude`, as the audio path filters),
-/// 20 Hz to 20 kHz; drag near a cutoff to move it.
-class FilterCurve final : public ui::MiniDisplay, public juce::SettableTooltipClient
-{
-public:
-    explicit FilterCurve(ui::DeviceUiContext& ctx)
-        : MiniDisplay(ctx, {}, {Delay::Filter, Delay::FilterLow, Delay::FilterHigh}), ctx_(ctx)
-    {
-        setInterceptsMouseClicks(true, false);
-        setMouseCursor(juce::MouseCursor::LeftRightResizeCursor);
-        setTooltip("Drag near the low or the high edge to move that cutoff (Shift: finely)");
-    }
-
-    void mouseDown(const juce::MouseEvent& e) override
-    {
-        const float lowX = xFor(ctx_.params.getPlain(Delay::FilterLow));
-        const float highX = xFor(ctx_.params.getPlain(Delay::FilterHigh));
-        param_ = std::abs(e.position.x - lowX) <= std::abs(e.position.x - highX) ? Delay::FilterLow
-                                                                                 : Delay::FilterHigh;
-        start_ = ctx_.params.getPlain(param_);
-        startX_ = e.position.x;
-        ctx_.params.beginGesture(param_);
-    }
-    void mouseDrag(const juce::MouseEvent& e) override
-    {
-        const float fine = e.mods.isShiftDown() ? 0.1f : 1.0f;
-        const double octaves = (e.position.x - startX_) * fine / area_.getWidth() * std::log2(1000.0);
-        const auto& spec = ctx_.info.params[param_];
-        ctx_.params.setPlain(param_,
-                             std::clamp(static_cast<float>(start_ * std::exp2(octaves)), spec.min, spec.max));
-        refresh();
-    }
-    void mouseUp(const juce::MouseEvent&) override { ctx_.params.endGesture(param_); }
-
-private:
-    [[nodiscard]] float xFor(double hz) const
-    {
-        return area_.getX() + static_cast<float>(std::log(hz / 20.0) / std::log(1000.0)) * area_.getWidth();
-    }
-
-    void drawContent(juce::Graphics& g, juce::Rectangle<float> area) override
-    {
-        area_ = area;
-        constexpr double topDb = 3.0, bottomDb = -24.0, sampleRate = 48000.0;
-        const auto& t = ui::Theme::current();
-        const auto yFor = [&](double db)
-        {
-            return area.getY() +
-                   static_cast<float>((topDb - std::clamp(db, bottomDb, topDb)) / (topDb - bottomDb)) *
-                       area.getHeight();
-        };
-        g.setColour(t.surface3);
-        g.drawHorizontalLine(juce::roundToInt(yFor(0.0)), area.getX(), area.getRight());
-        const double low = ctx_.params.getPlain(Delay::FilterLow),
-                     high = ctx_.params.getPlain(Delay::FilterHigh);
-        const int n = std::max(16, static_cast<int>(area.getWidth()));
-        juce::Path curve;
-        for (int i = 0; i <= n; ++i)
-        {
-            const double f = 20.0 * std::pow(1000.0, static_cast<double>(i) / n);
-            const double m =
-                dsp::FeedbackPath::magnitude(f, low, std::min(high, 0.45 * sampleRate - 1.0), sampleRate);
-            const juce::Point<float> pt(area.getX() +
-                                            static_cast<float>(i) / static_cast<float>(n) * area.getWidth(),
-                                        yFor(20.0 * std::log10(std::max(m, 1e-6))));
-            i == 0 ? curve.startNewSubPath(pt) : curve.lineTo(pt);
-        }
-        const bool on = ctx_.params.getPlain(Delay::Filter) >= 0.5f;
-        const auto colour = on ? t.value : t.textTertiary;
-        auto fill = curve;
-        fill.lineTo(area.getBottomRight());
-        fill.lineTo(area.getBottomLeft());
-        fill.closeSubPath();
-        g.setColour(t.fill(colour));
-        g.fillPath(fill);
-        g.setColour(colour);
-        g.strokePath(curve, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved));
-    }
-
-    ui::DeviceUiContext& ctx_;
-    juce::Rectangle<float> area_;
-    size_t param_ = Delay::FilterLow;
-    double start_ = 0.0;
-    float startX_ = 0.0f;
-};
-
 /// Sections per devices/delay/SPEC.md, on the module grid (docs/design/device-panels.md).
 class DelayPanel final : public ui::DevicePanel
 {
@@ -296,7 +210,9 @@ public:
         feedback.toggle(Delay::Freeze, 0, 4, 3);
 
         auto& filter = addSection("filter", "Filter", 2, Delay::Filter);
-        filter.place(own(std::make_unique<FilterCurve>(ctx)), 0, 0, 2, 3);
+        filter.place(own(std::make_unique<ui::CutFilterCurve>(ctx, Delay::Filter, Delay::FilterLow,
+                                                              Delay::FilterHigh)),
+                     0, 0, 2, 3);
         filter.knob(Delay::FilterLow, 0, 3);
         filter.knob(Delay::FilterHigh, 1, 3);
 

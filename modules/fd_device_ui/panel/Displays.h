@@ -61,6 +61,29 @@ private:
     std::optional<size_t> enabled_;
 };
 
+/// A low and a high cut (12 dB/oct, `dsp::FeedbackPath::magnitude`: what the audio path filters),
+/// 20 Hz to 20 kHz, dimmed while its power is off; drag near a cutoff to move it (Shift: finely).
+/// The Delay's feedback filter, the Reverb's filter going in.
+class CutFilterCurve final : public MiniDisplay, public juce::SettableTooltipClient
+{
+public:
+    CutFilterCurve(DeviceUiContext& context, size_t power, size_t low, size_t high);
+
+    void mouseDown(const juce::MouseEvent& e) override;
+    void mouseDrag(const juce::MouseEvent& e) override;
+    void mouseUp(const juce::MouseEvent&) override;
+
+private:
+    void drawContent(juce::Graphics& g, juce::Rectangle<float> area) override;
+    [[nodiscard]] float xFor(double hz) const;
+
+    DeviceUiContext& context_;
+    size_t power_, low_, high_, dragged_;
+    juce::Rectangle<float> area_;
+    double start_ = 0.0;
+    float startX_ = 0.0f;
+};
+
 /// The analysers' axes (the EQ, the Spectrum; devices/spectrum/SPEC.md): frequency on a log scale
 /// from 20 Hz to 20 kHz across `area`, decibels from `topDb` at the top to `bottomDb` at the
 /// bottom, curves tilted by `slope`. Both draw with it, so they read alike.

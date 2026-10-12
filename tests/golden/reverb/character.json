@@ -1,0 +1,50 @@
+{
+  "hall.early_share_db": {
+    "tol": 0.05,
+    "value": 6.344654921608916
+  },
+  "hall.level_db": {
+    "tol": 0.05,
+    "value": -4.876485831381711
+  },
+  "hall.tail_8k_vs_1k_db": {
+    "tol": 0.05,
+    "value": 0.013519576774648913
+  },
+  "plate.early_share_db": {
+    "tol": 0.05,
+    "value": 8.573620224683552
+  },
+  "plate.level_db": {
+    "tol": 0.05,
+    "value": -5.438460280150864
+  },
+  "plate.tail_8k_vs_1k_db": {
+    "tol": 0.05,
+    "value": 0.6103214281050757
+  },
+  "room.early_share_db": {
+    "tol": 0.05,
+    "value": 9.773620893371369
+  },
+  "room.level_db": {
+    "tol": 0.05,
+    "value": -3.5475386567913048
+  },
+  "room.tail_8k_vs_1k_db": {
+    "tol": 0.05,
+    "value": 0.3211840907244989
+  },
+  "space.early_share_db": {
+    "tol": 0.05,
+    "value": 1.3070703222776956
+  },
+  "space.level_db": {
+    "tol": 0.05,
+    "value": -5.329453848828578
+  },
+  "space.tail_8k_vs_1k_db": {
+    "tol": 0.05,
+    "value": 0.2669506648572271
+  }
+}

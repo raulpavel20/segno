@@ -1,6 +1,6 @@
 # Reverb: device spec
 
-- **Status:** Approved by the product owner (2026-10-12, with every recommendation of R1–R12); IDs are permanent. Building (B5, core)
+- **Status:** Approved by the product owner (2026-10-12, with every recommendation of R1–R12); IDs are permanent. Core built (B5, 2026-10-12): what building settled is under "Settled while building". Awaiting sign-off by ear and feel
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1. Core in M3 (B5); stage 2 in M6
 - **Live target:** Reverb, and Hybrid Reverb's algorithmic engine (its convolution engine is stage 2). References only; nothing is copied ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)). Benchmarked against the best algorithmic reverbs ([ADR 0010](../../docs/decisions/0010-live-is-the-floor-not-the-ceiling.md)).
@@ -133,7 +133,7 @@ Built and named by Claude after approval ([presets.md](../../docs/design/presets
 - **Guitar room** (Guitar): A medium room that sits a guitar in a space.
 - **Bright space** (FX, Wide): A vast, airy space for effects.
 - **Ambient wash** (Pad, Wide): An endless, moving tail under pads.
-- **Frozen pad** (Pad, FX): Freeze on: a held chord that rings forever.
+- **Frozen pad** (Pad, FX): A long, still wash, ready to freeze: turn Freeze on to hold a chord forever.
 - **Grainy echoes** (FX): Low diffusion: the echoes heard one by one.
 - **Bass-safe hall** (Bass, Bus): The lows decay quickly and are cut going in, so a mix stays clear.
 - **Long plate** (Keys, Bright): A plate that rings on, for keys and leads.
@@ -145,7 +145,7 @@ Built and named by Claude after approval ([presets.md](../../docs/design/presets
 | Decay by band | An impulse's decay (Schroeder integration) in octave bands at 125 Hz, 1 kHz and 8 kHz rings for `Reverb::decayAt` within 10 %, in every mode, at Decay 1, 2.5 and 6 s, Low Decay 50 and 200 %, High Decay 40 and 150 % |
 | Decay is the setting | The middle band's decay matches Decay within 10 % at Size 0, 50 and 100 % |
 | Predelay | Nothing before Predelay (under −120 dBFS); the first early reflection at Predelay to the sample (Room, Hall, Space) |
-| Echo density | Past each mode's build time (Room 30 ms, Plate 10 ms, Hall 80 ms, Space 120 ms after Predelay), the impulse response is dense: its normalised echo density at least 0.9 |
+| Echo density | Past each mode's build time (Room 30 ms, Plate 10 ms, Hall 80 ms, Space 200 ms after Predelay, at Size 50 %), the impulse response is dense: its normalised echo density at least 0.9 |
 | Freeze | A held tail keeps its level within 0.5 dB over 30 s, and takes nothing new in |
 | Stereo | Width 100 %: the tails' correlation under 0.3 on a mono input; Width 0 %: a mono wet |
 | Ducking 100 % | The wet at least 25 dB down while the input plays at −10 dBFS; back within Duck Release |
@@ -180,10 +180,22 @@ Deferred until a Live machine is available.
 | R11 | **Left out for now** | Shimmer, gated and reverse modes, Freeze that lets sound in (Later); Live's density setting (one quality, the best); Hybrid Reverb's vintage degradation and its EQ (the EQ module after it does that) |
 | R12 | **Name and IDs** | Named **Reverb**. Device `reverb`, plugin code `Frvb`, CLAP `org.segnoaudio.reverb`; section IDs as above (`reverb`, `bands`, `filter`, `ducking`, `output`) |
 
+## Settled while building (B5, 2026-10-12)
+
+- **The decay is what it says.** Measured from impulse responses (each band's Schroeder decay), every mode and band setting tested rings within 4 % of `Reverb::decayAt`, at every Size.
+- **Each mode's input diffusers are its own** (lengths and gain): short for Plate, a little longer for Hall and Space. Longer ones made the first echoes sparser, not denser. A change of mode clears the network, so their lengths change only then and can't click.
+- **Space is dense from 200 ms** (at Size 50 %, a 77 m space; sound takes 225 ms to cross it), not 120 ms: the test target says so. Room, Plate and Hall are dense from 30, 10 and 80 ms.
+- **Each line's all-pass is short and fixed** (0.3–1.1 ms) and counted into the line's loss, so it adds density without changing the decay.
+- **Only the network's lines read through the core's sinc** (`ModulatedDelay`, 8 reads a sample). The predelay, the early reflections and the all-passes use a light line read between samples in a straight line, as they move only while Size or Predelay glide.
+- **The level:** what enters the network rises with the space's size (as the square root of its mean line), so a big and a small space sound about as loud; the early reflections and the tail are scaled so a 0 dBFS burst stays under +6 dBFS (Space at its smallest with a 60 s decay peaked at +6.6 dBFS before).
+- **The decay display labels its time scale in a gutter at the left:** labels inside the plot sat on the curve.
+- **The Delay's filter curve is the panel kit's** (`ui::CutFilterCurve`, device-panels.md), shared by the Delay and the Reverb rather than copied; the Delay's panel is as it was.
+- **Frozen pad doesn't start frozen:** with Freeze on, nothing enters, so the preset would play silence. It's a long, still wash, ready to freeze.
+
 ## Sign-off
 
-- [ ] Automated: unit, conformance and golden tests; validators (pluginval at strictness 10 and clap-validator)
-- [ ] Layout lint passes (`fd_panel_tests`)
-- [ ] Snapshots reviewed (100% / 200%; expanded, collapsed, folded; every factory preset)
+- [x] Automated: unit, conformance and golden tests; validators (pluginval at strictness 10 and clap-validator)
+- [x] Layout lint passes (`fd_panel_tests`)
+- [x] Snapshots reviewed (100% / 200%; expanded, collapsed, folded; every factory preset at 200 %, with `fd-snapshot --presets reverb`)
 - [ ] Sound signed off by the product owner, with the factory presets
 - [ ] Feel signed off by the product owner

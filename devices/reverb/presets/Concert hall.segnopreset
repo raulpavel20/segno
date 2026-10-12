@@ -1,0 +1,36 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Keys",
+    "Wide"
+  ],
+  "description": "A large, natural hall.",
+  "author": "Segno",
+  "state": {
+    "device": "reverb",
+    "extra": {},
+    "params": {
+      "decay": 2.8,
+      "diffusion": 80.0,
+      "duck": 0.0,
+      "duck.release": 300.0,
+      "early": 50.0,
+      "filter": 1.0,
+      "filter.high": 12000.0,
+      "filter.low": 100.0,
+      "freeze": 0.0,
+      "high.freq": 4000.0,
+      "high.mult": 60.0,
+      "low.freq": 250.0,
+      "low.mult": 120.0,
+      "mix": 30.0,
+      "mode": 1.0,
+      "motion": 25.0,
+      "output": 0.0,
+      "predelay": 20.0,
+      "size": 70.0,
+      "width": 120.0
+    },
+    "stateVersion": 1
+  }
+}

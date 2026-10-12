@@ -21,6 +21,7 @@ END_JUCE_MODULE_DECLARATION
 
 #include <fd/device/Device.h>
 #include <fd/device/Presets.h>
+#include <fd/dsp/Modulation.h>
 #include <fd/dsp/Spectrum.h>
 #include <fd/dsp/SynthBlocks.h>
 

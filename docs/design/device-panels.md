@@ -77,6 +77,7 @@ Each control is placed by its top-left cell and its span: `(column, row, columns
 
 - Every cell a control covers is its own: controls never overlap.
 - A knob's name must be at most 46 px in Inter 11 medium. Use the parameter's short name (a display name, which can change; IDs can't).
+- **A cut filter's curve:** a low and a high cut with a power switch show as `ui::CutFilterCurve` (the Delay's feedback filter, the Reverb's filter going in): one look, dragged near a cutoff to move it.
 - **One knob, two parameters:** where a switch picks which of two parameters a knob turns (the Delay's Left and Right turn milliseconds, or note values while Sync is on), the knob follows the switch (`ParamKnob::follow`), checked on every refresh. Its name, value text, default, steps and automation follow the parameter it turns now; the two never share a knob's cell by overlapping.
 - A section's title, plus its power toggle, must fit its content width.
 
@@ -159,6 +160,7 @@ Columns are in brackets. Each module's SPEC lists its map. The four M2 modules a
 | Limiter (draft) | HISTORY [6] · LIMIT [3] · MODE [3] · LOUDNESS [3] · meters | – |
 | Spectrum | SPECTRUM [12] display with a legend · CURVES [4] Side Overlay / Freeze, Clear / Reference…, Clear / the reference's name · SETTINGS [5] a sub-label and dropdown per row (Channel, Resolution, Peak hold, Range, Peak labels, Slope), Average · header: Compare (the sidechain picker) | 1152 |
 | Delay | TIME [5] repeats display, Left, Right, Swing / Sync, Link, Stereo · FEEDBACK [3] Amount, Drive, Wobble / Mode, Freeze · FILTER ⏻ [2] curve / Low Cut, High Cut · MODULATION [3] Rate, Time, Filter / Shape · DUCKING [1] Ducking / Release · OUTPUT [1] Dry/Wet / Output · in and out meters · header: Time Change | 944 |
+| Reverb | REVERB [7] decay display, Mode (two lines of two), Freeze / Decay, Size, Predelay, Diffusion, Early, Motion, Width · DECAY BANDS [2] Low, High / Freq, Freq · FILTER ⏻ [2] curve / Low Cut, High Cut · DUCKING [1] Ducking / Release · OUTPUT [1] Dry/Wet / Output · in and out meters | 820 |
 | Chorus | MODULATION [6] voices display, Mode (stacked) / Rate, Depth, Shape, Offset, Sync · VOICES [3] Delay, Width, Warmth / Feedback (bar), Invert, Low Cut, Freq (bar) · OUTPUT [1] Dry/Wet / Output · in and out meters | 624 |
 | Phaser & Flanger | PHASER, FLANGER or DOUBLER (titled by the mode) [6] response display, Mode (stacked) / Center or Time, Notches, Spread, Warmth, Feedback (bar), Invert, Through Zero · MODULATION [3] Rate, Amount, Offset or Spin / Shape, Sync, Stereo · ENVELOPE ⏻ [3] Amount, Attack, Release · OUTPUT [2] Dry/Wet, Output / Low Cut, Freq (bar) · in and out meters | 852 |
 | Auto Pan & Tremolo | PANNING or TREMOLO (titled by the mode) [6] movement display, Mode (stacked), Shape / Rate, Amount, Edge, Phase, Attack, Sync, Invert · STEREO & TONE [3] Offset or Spin, Stereo, Harmonic, Vintage · OUTPUT [2] Output / Low Cut, Freq (bar) · in and out meters | 676 |

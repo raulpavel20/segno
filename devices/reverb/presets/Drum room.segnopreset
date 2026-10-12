@@ -1,0 +1,35 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Drums"
+  ],
+  "description": "A bigger, livelier room for drums that need air.",
+  "author": "Segno",
+  "state": {
+    "device": "reverb",
+    "extra": {},
+    "params": {
+      "decay": 1.2,
+      "diffusion": 70.0,
+      "duck": 0.0,
+      "duck.release": 300.0,
+      "early": 55.0,
+      "filter": 1.0,
+      "filter.high": 12000.0,
+      "filter.low": 100.0,
+      "freeze": 0.0,
+      "high.freq": 4000.0,
+      "high.mult": 60.0,
+      "low.freq": 250.0,
+      "low.mult": 120.0,
+      "mix": 25.0,
+      "mode": 0.0,
+      "motion": 25.0,
+      "output": 0.0,
+      "predelay": 15.0,
+      "size": 70.0,
+      "width": 100.0
+    },
+    "stateVersion": 1
+  }
+}

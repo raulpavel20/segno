@@ -1,0 +1,35 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Vocals"
+  ],
+  "description": "A hall that waits for the singer to stop.",
+  "author": "Segno",
+  "state": {
+    "device": "reverb",
+    "extra": {},
+    "params": {
+      "decay": 2.4,
+      "diffusion": 80.0,
+      "duck": 70.0,
+      "duck.release": 400.0,
+      "early": 50.0,
+      "filter": 1.0,
+      "filter.high": 12000.0,
+      "filter.low": 100.0,
+      "freeze": 0.0,
+      "high.freq": 4000.0,
+      "high.mult": 60.0,
+      "low.freq": 250.0,
+      "low.mult": 120.0,
+      "mix": 30.0,
+      "mode": 1.0,
+      "motion": 25.0,
+      "output": 0.0,
+      "predelay": 30.0,
+      "size": 50.0,
+      "width": 100.0
+    },
+    "stateVersion": 1
+  }
+}

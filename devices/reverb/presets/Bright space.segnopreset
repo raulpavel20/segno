@@ -1,0 +1,36 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "FX",
+    "Wide"
+  ],
+  "description": "A vast, airy space for effects.",
+  "author": "Segno",
+  "state": {
+    "device": "reverb",
+    "extra": {},
+    "params": {
+      "decay": 6.0,
+      "diffusion": 80.0,
+      "duck": 0.0,
+      "duck.release": 300.0,
+      "early": 50.0,
+      "filter": 1.0,
+      "filter.high": 18000.0,
+      "filter.low": 100.0,
+      "freeze": 0.0,
+      "high.freq": 4000.0,
+      "high.mult": 120.0,
+      "low.freq": 250.0,
+      "low.mult": 120.0,
+      "mix": 35.0,
+      "mode": 3.0,
+      "motion": 25.0,
+      "output": 0.0,
+      "predelay": 15.0,
+      "size": 60.0,
+      "width": 160.0
+    },
+    "stateVersion": 1
+  }
+}

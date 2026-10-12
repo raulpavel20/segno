@@ -48,6 +48,83 @@ void MiniDisplay::paint(juce::Graphics& g)
         paintCapsLabel(g, label_, r.reduced(5.0f, 3.0f).removeFromTop(12.0f));
 }
 
+CutFilterCurve::CutFilterCurve(DeviceUiContext& context, size_t power, size_t low, size_t high)
+    : MiniDisplay(context, {}, {power, low, high}), context_(context), power_(power), low_(low), high_(high),
+      dragged_(low)
+{
+    setInterceptsMouseClicks(true, false);
+    setMouseCursor(juce::MouseCursor::LeftRightResizeCursor);
+    setTooltip("Drag near the low or the high edge to move that cutoff (Shift: finely)");
+}
+
+float CutFilterCurve::xFor(double hz) const
+{
+    return area_.getX() + static_cast<float>(std::log(hz / 20.0) / std::log(1000.0)) * area_.getWidth();
+}
+
+void CutFilterCurve::mouseDown(const juce::MouseEvent& e)
+{
+    const float lowX = xFor(context_.params.getPlain(low_));
+    const float highX = xFor(context_.params.getPlain(high_));
+    dragged_ = std::abs(e.position.x - lowX) <= std::abs(e.position.x - highX) ? low_ : high_;
+    start_ = context_.params.getPlain(dragged_);
+    startX_ = e.position.x;
+    context_.params.beginGesture(dragged_);
+}
+
+void CutFilterCurve::mouseDrag(const juce::MouseEvent& e)
+{
+    const float fine = e.mods.isShiftDown() ? Theme::current().input.fineFactor : 1.0f;
+    const double octaves = (e.position.x - startX_) * fine / area_.getWidth() * std::log2(1000.0);
+    const auto& spec = context_.info.params[dragged_];
+    context_.params.setPlain(dragged_,
+                             std::clamp(static_cast<float>(start_ * std::exp2(octaves)), spec.min, spec.max));
+    refresh();
+}
+
+void CutFilterCurve::mouseUp(const juce::MouseEvent&)
+{
+    context_.params.endGesture(dragged_);
+}
+
+void CutFilterCurve::drawContent(juce::Graphics& g, juce::Rectangle<float> area)
+{
+    area_ = area;
+    constexpr double topDb = 3.0, bottomDb = -24.0, sampleRate = 48000.0;
+    const auto& t = Theme::current();
+    const auto yFor = [&](double db)
+    {
+        return area.getY() +
+               static_cast<float>((topDb - std::clamp(db, bottomDb, topDb)) / (topDb - bottomDb)) *
+                   area.getHeight();
+    };
+    g.setColour(t.surface3);
+    g.drawHorizontalLine(juce::roundToInt(yFor(0.0)), area.getX(), area.getRight());
+    const double low = param(low_), high = param(high_);
+    const int n = std::max(16, static_cast<int>(area.getWidth()));
+    juce::Path curve;
+    for (int i = 0; i <= n; ++i)
+    {
+        const double f = 20.0 * std::pow(1000.0, static_cast<double>(i) / n);
+        const double m =
+            dsp::FeedbackPath::magnitude(f, low, std::min(high, 0.45 * sampleRate - 1.0), sampleRate);
+        const juce::Point<float> pt(area.getX() +
+                                        static_cast<float>(i) / static_cast<float>(n) * area.getWidth(),
+                                    yFor(20.0 * std::log10(std::max(m, 1e-6))));
+        i == 0 ? curve.startNewSubPath(pt) : curve.lineTo(pt);
+    }
+    const bool on = param(power_) >= 0.5f;
+    const auto colour = on ? t.value : t.textTertiary;
+    auto fill = curve;
+    fill.lineTo(area.getBottomRight());
+    fill.lineTo(area.getBottomLeft());
+    fill.closeSubPath();
+    g.setColour(t.fill(colour));
+    g.fillPath(fill);
+    g.setColour(colour);
+    g.strokePath(curve, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved));
+}
+
 namespace
 {
 std::vector<size_t> filterParams(size_t type, size_t cutoff, size_t resonance, std::optional<size_t> enabled)

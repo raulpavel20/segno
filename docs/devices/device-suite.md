@@ -104,7 +104,7 @@ Bass and Poli (Max for Live instruments in Live) are covered by Subtractive Synt
 
 | Working name | Scope | Covers (Live) | Beyond Live | Tier | Milestone |
 |---|---|---|---|---|---|
-| **Reverb** | *Core (M3):* algorithmic rooms, halls, plates, freeze, decay by frequency band. *Stage 2 (M6):* convolution engine with an impulse-response library and import; hybrid blend | Reverb, Hybrid Reverb | – | 1→2 | M3→M6 |
+| **Reverb** | *Core (M3):* algorithmic rooms, halls, plates, freeze, decay by frequency band. *Stage 2 (M6):* convolution engine with an impulse-response library and import; hybrid blend ([SPEC](../../devices/reverb/SPEC.md)) | Reverb, Hybrid Reverb | The decay drawn and dragged by frequency; three bands with free crossovers; ducking | 1→2 | M3→M6 |
 
 ### Spectral and creative
 

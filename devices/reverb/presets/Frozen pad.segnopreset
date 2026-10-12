@@ -1,0 +1,36 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Pad",
+    "FX"
+  ],
+  "description": "A long, still wash, ready to freeze: turn Freeze on to hold a chord forever.",
+  "author": "Segno",
+  "state": {
+    "device": "reverb",
+    "extra": {},
+    "params": {
+      "decay": 20.0,
+      "diffusion": 80.0,
+      "duck": 0.0,
+      "duck.release": 300.0,
+      "early": 50.0,
+      "filter": 1.0,
+      "filter.high": 12000.0,
+      "filter.low": 100.0,
+      "freeze": 0.0,
+      "high.freq": 4000.0,
+      "high.mult": 70.0,
+      "low.freq": 250.0,
+      "low.mult": 120.0,
+      "mix": 50.0,
+      "mode": 3.0,
+      "motion": 15.0,
+      "output": 0.0,
+      "predelay": 15.0,
+      "size": 70.0,
+      "width": 100.0
+    },
+    "stateVersion": 1
+  }
+}

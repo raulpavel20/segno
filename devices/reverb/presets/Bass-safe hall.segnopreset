@@ -1,0 +1,36 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Bass",
+    "Bus"
+  ],
+  "description": "The lows decay quickly and are cut going in, so a mix stays clear.",
+  "author": "Segno",
+  "state": {
+    "device": "reverb",
+    "extra": {},
+    "params": {
+      "decay": 2.2,
+      "diffusion": 80.0,
+      "duck": 0.0,
+      "duck.release": 300.0,
+      "early": 50.0,
+      "filter": 1.0,
+      "filter.high": 12000.0,
+      "filter.low": 250.0,
+      "freeze": 0.0,
+      "high.freq": 4000.0,
+      "high.mult": 60.0,
+      "low.freq": 250.0,
+      "low.mult": 50.0,
+      "mix": 25.0,
+      "mode": 1.0,
+      "motion": 25.0,
+      "output": 0.0,
+      "predelay": 15.0,
+      "size": 50.0,
+      "width": 100.0
+    },
+    "stateVersion": 1
+  }
+}
