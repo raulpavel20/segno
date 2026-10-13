@@ -1,6 +1,6 @@
 # Wavetable: device spec
 
-- **Status:** Approved by the product owner (2026-10-13, with every recommendation of W1–W19 and the pages of [ADR 0051](../../docs/decisions/0051-pages-for-very-wide-modules.md)); IDs are permanent. [ADR 0050](../../docs/decisions/0050-the-wavetable-synth-goes-beyond-live.md) accepted with it: the product owner asked for a wavetable synth that is full-featured, modern and innovative, past ADR 0011's "instruments stay close to Live's". Step 1 (the synth) built (2026-10-13): what building settled is under "Settled while building (step 1)"; awaiting the product owner's sign-off.
+- **Status:** Approved by the product owner (2026-10-13, with every recommendation of W1–W19 and the pages of [ADR 0051](../../docs/decisions/0051-pages-for-very-wide-modules.md)); IDs are permanent. [ADR 0050](../../docs/decisions/0050-the-wavetable-synth-goes-beyond-live.md) accepted with it: the product owner asked for a wavetable synth that is full-featured, modern and innovative, past ADR 0011's "instruments stay close to Live's". Step 1 (the synth) built (2026-10-13; what building settled is under "Settled while building (step 1)") and signed off by the product owner (2026-10-14), with the modulation made easier to find and the name Wavetable. Step 2 (the tables) next.
 - **Type:** Instrument
 - **Tier / milestone:** Tier 2, moved up to M3 by the product owner (2026-10-13; P1 of the M3 plan, before the rest of M3)
 - **Live target:** Wavetable, with Meld's following of the key and scale. References only ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)); this device goes well beyond them (W1).
@@ -445,5 +445,5 @@ Dated listening notes from the product owner, and the measurable checks derived 
 - [x] Automated: unit, conformance and golden tests; validators (step 1, 2026-10-13: pluginval at strictness 10, clap-validator; ASan and UBSan)
 - [x] Layout lint passes (`fd_panel_tests`), every page
 - [x] Snapshots reviewed (100% / 200%; expanded, collapsed, folded; every page, and Sub, Noise, a random source, a full matrix)
-- [ ] Sound signed off by the product owner (date):
-- [ ] Feel signed off by the product owner (date):
+- [x] Sound signed off by the product owner (step 1, 2026-10-14)
+- [x] Feel signed off by the product owner (step 1, 2026-10-14)
