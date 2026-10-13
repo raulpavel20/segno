@@ -150,3 +150,7 @@ fd_add_device_plugin(ID subtractive-synth NAME "Subtractive Synth" CODE Fsub KIN
 fd_add_device_plugin(ID sampler NAME "Sampler" CODE Fsmp KIND instrument
     VST3_CATEGORIES Instrument Sampler
     CLAP_FEATURES instrument sampler stereo)
+
+fd_add_device_plugin(ID wavetable NAME "Wavetable Synth" CODE Fwav KIND instrument
+    VST3_CATEGORIES Instrument Synth
+    CLAP_FEATURES instrument synthesizer stereo)
