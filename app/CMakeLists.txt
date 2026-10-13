@@ -87,15 +87,18 @@ juce_add_gui_app(fd-daw
     NEEDS_WEB_BROWSER FALSE)
 # Installing on Linux: the app, its launcher entry and its icon at every size (packaging/linux;
 # tools/install-desktop-entry.sh does the same for a build of yours, without copying the app).
+# A component of its own, since dependencies (JUCE) bring install rules too:
+#   cmake --install build/rel --component Segno [--prefix ...]
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     include(GNUInstallDirs)
-    install(TARGETS fd-daw RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+    install(TARGETS fd-daw RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT Segno)
     set(SEGNO_EXEC "${CMAKE_INSTALL_FULL_BINDIR}/Segno")
     configure_file("${PROJECT_SOURCE_DIR}/packaging/linux/org.segnoaudio.segno.desktop.in"
                    "${CMAKE_CURRENT_BINARY_DIR}/org.segnoaudio.segno.desktop" @ONLY)
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.segnoaudio.segno.desktop"
-            DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
-    install(DIRECTORY "${PROJECT_SOURCE_DIR}/packaging/linux/icons/" DESTINATION ${CMAKE_INSTALL_DATADIR}/icons)
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/applications COMPONENT Segno)
+    install(DIRECTORY "${PROJECT_SOURCE_DIR}/packaging/linux/icons/" DESTINATION ${CMAKE_INSTALL_DATADIR}/icons
+            COMPONENT Segno)
 endif()
 # fd_app_mcp: the MCP tools over the Session, and the server that owns them (ADR 0021). Each
 # module's purpose comes from its SPEC, for the module reference.
