@@ -24,6 +24,7 @@ public:
 private:
     int size_ = 0;
     std::vector<std::complex<float>> twiddles_;
+    std::vector<std::complex<float>> stageTwiddles_; // per stage, contiguous
     std::vector<int> bitReverse_;
     std::vector<float> window_;
 };
