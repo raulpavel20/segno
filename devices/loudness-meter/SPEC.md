@@ -1,6 +1,6 @@
 # Loudness Meter: device spec
 
-- **Status:** Approved by the product owner (2026-10-13, with every recommendation of L1–L12); IDs are permanent. Built (B7, 2026-10-13): what building settled is under "Settled while building". Awaiting the product owner's sign-off.
+- **Status:** Approved by the product owner (2026-10-13, with every recommendation of L1–L12); IDs are permanent. Built (B7, 2026-10-13): what building settled is under "Settled while building". Signed off by the product owner (2026-10-13).
 - **Type:** Audio effect (analysis only; audio passes unchanged)
 - **Tier / milestone:** Tier 1, M3 (B7)
 - **Live target:** none: Live has no loudness meter, and people install a separate one. Checked against the meters people use instead (a widely used free one, broadcast meters, the meters built into other DAWs) and against the standards: ITU-R BS.1770-5, EBU R 128 with EBU Tech 3341 ("EBU Mode") and Tech 3342 (loudness range). References only; nothing is copied ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).

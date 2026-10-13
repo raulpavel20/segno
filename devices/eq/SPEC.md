@@ -1,6 +1,6 @@
 # EQ: device spec
 
-- **Status:** Core approved by the product owner (2026-10-10, with the M1 sign-off); IDs are permanent. Stage 2 (M3, B8) approved by the product owner (2026-10-13, with every recommendation of E1–E14); its IDs are permanent. Step 2a (no delay) built 2026-10-13, awaiting sign-off; step 2b (the spectral engine: linear phase and spectral bands) built 2026-10-13, awaiting sign-off.
+- **Status:** Core approved by the product owner (2026-10-10, with the M1 sign-off); IDs are permanent. Stage 2 (M3, B8) approved by the product owner (2026-10-13, with every recommendation of E1–E14); its IDs are permanent. Step 2a (no delay) and step 2b (the spectral engine: linear phase and spectral bands) built 2026-10-13, and signed off by the product owner the same day.
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1, M1 (core) → M3 (stage 2)
 - **Live target:** EQ Eight, EQ Three, Channel EQ (all covered by this one device). References only ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
