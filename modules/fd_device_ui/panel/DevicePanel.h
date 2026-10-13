@@ -69,6 +69,10 @@ protected:
     /// A module-wide quality or display setting (oversampling, analyzer), right-aligned in the
     /// header with its name as a caption. Never one that shapes the sound's character.
     ParamComboBox& addHeaderCombo(size_t param);
+    /// The delay the module adds, while it adds one: a badge at the header's right end ("+107
+    /// ms", in the warning colour) whose tooltip says what it means for playing live. For modules
+    /// whose delay is a choice (the EQ's linear phase; devices/eq/SPEC.md, "Latency").
+    LatencyBadge& showLatency(std::function<double()> latencyMs);
     /// Names the sidechain picker for what this module does with it (the Spectrum's "Compare"),
     /// instead of "Sidechain".
     void setSidechainCaption(juce::String caption, juce::String tooltip);

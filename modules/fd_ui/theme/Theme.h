@@ -59,6 +59,7 @@ struct ColourRoles
     // momentary fainter behind it, the target and its band; louder than the target is `warning`.
     juce::Colour loudnessShortTerm, loudnessMomentary, loudnessTarget, loudnessTargetBand;
     juce::Colour focusRing, hoverWash, dropWell, valueHot, valueText, warning, overlay, shadow;
+    juce::Colour warningFill; // behind a warning's text: a module's latency badge
     // Automation (docs/design/automation.md §6): the indicator on automated controls. Lanes draw in
     // their own colour (Theme::automationLine and the fill functions).
     juce::Colour automation;

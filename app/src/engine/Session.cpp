@@ -1696,6 +1696,48 @@ void Session::setDeviceEnabled(std::uint64_t deviceId, bool enabled)
     }
 }
 
+double Session::moduleLatencyMs(std::uint64_t deviceId) const
+{
+    auto* p = impl_->plugin(deviceId);
+    if (p == nullptr)
+        return 0.0;
+    if (auto* native = dynamic_cast<DevicePlugin*>(p))
+    {
+        // Ours: from its settings, at the rate it runs at (or the audio device's, before it has run).
+        const double rate = native->sampleRate() > 0.0 ? native->sampleRate()
+                                                       : impl_->engine.getDeviceManager().getSampleRate();
+        return rate > 0.0 ? 1000.0 * native->device().latencySamples() / rate : 0.0;
+    }
+    return 1000.0 * p->getLatencySeconds();
+}
+
+namespace
+{
+const juce::Identifier kDelayToldId{"fdDelayTold"}; // the project was told a module delays its track
+} // namespace
+
+std::optional<Session::DelayNotice> Session::untoldDelay(double minMs) const
+{
+    if (static_cast<bool>(impl_->edit->state.getProperty(kDelayToldId, false)))
+        return std::nullopt;
+    const auto first = [&](te::PluginList& list, const juce::String& track) -> std::optional<DelayNotice>
+    {
+        for (auto* p : Impl::chain(list))
+            if (const double ms = moduleLatencyMs(p->itemID.getRawID()); ms >= minMs)
+                return DelayNotice{p->getName().toStdString(), track.toStdString(), ms};
+        return std::nullopt;
+    };
+    for (auto* t : te::getAudioTracks(*impl_->edit))
+        if (auto notice = first(t->pluginList, t->getName()))
+            return notice;
+    return first(impl_->edit->getMasterPluginList(), "Master");
+}
+
+void Session::markDelayTold()
+{
+    impl_->edit->state.setProperty(kDelayToldId, true, nullptr);
+}
+
 std::string Session::deviceViewState(std::uint64_t deviceId) const
 {
     if (auto* p = impl_->plugin(deviceId))

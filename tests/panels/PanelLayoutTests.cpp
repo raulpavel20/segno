@@ -6,6 +6,7 @@
 #include <fd/device/Registry.h>
 #include <fd_device_ui/fd_device_ui.h>
 #include <filesystem>
+#include <functional>
 #include <map>
 #include <set>
 
@@ -50,11 +51,14 @@ struct PanelUnderTest
     std::unique_ptr<fd::ui::DeviceUiContext> context;
     std::unique_ptr<DevicePanel> panel;
 
-    PanelUnderTest(const fd::DeviceFactory& factory, const fd::ui::PanelFactory& panelFactory, bool foldable)
+    PanelUnderTest(const fd::DeviceFactory& factory, const fd::ui::PanelFactory& panelFactory, bool foldable,
+                   const std::function<void(fd::Device&)>& setup = {})
     {
         device = factory.create();
         if (factory.testSetup != nullptr)
             factory.testSetup(*device);
+        if (setup)
+            setup(*device);
         binding = std::make_unique<fd::ui::LocalParamBinding>(*device);
         presets.device = device.get();
         context = std::make_unique<fd::ui::DeviceUiContext>(
@@ -237,6 +241,11 @@ void lint(const PanelUnderTest& p)
     // Header settings stay in the header, clear of the name.
     for (auto* c : panel.headerControls())
     {
+        if (!c->isVisible())
+            continue; // a latency badge while there's no delay: no room taken
+        if (auto* badge = dynamic_cast<fd::ui::LatencyBadge*>(c))
+            CHECK(width(fd::ui::font(fd::ui::TextStyle::Control), badge->text()) <=
+                  static_cast<float>(c->getWidth() - 2 * grid.displayInset) + kTextMargin);
         CHECK(c->getY() >= 0);
         CHECK(c->getBottom() <= t.deviceHeaderHeight);
         CHECK(c->getHeight() == grid.row);
@@ -261,7 +270,8 @@ void lint(const PanelUnderTest& p)
         CHECK(name <= static_cast<float>(panel.nameArea().getWidth()) + kTextMargin);
         CHECK(panel.nameArea().getRight() < bar->getX());
         for (auto* c : panel.headerControls())
-            CHECK(bar->getRight() < c->getX());
+            if (c->isVisible())
+                CHECK(bar->getRight() < c->getX());
         const auto field = bar->field().getWidth();
         CHECK(field >= grid.presetFieldMin);
         CHECK(field <= grid.presetFieldMax);
@@ -351,6 +361,24 @@ TEST_CASE("every module panel is laid out on the module grid", "[ui]")
                 lint(p);
                 p.panel->setFolded(false);
                 p.layout();
+            }
+            // The EQ delaying its sound (linear phase, a spectral band selected): the latency badge
+            // in the header, Detail in DYNAMICS.
+            if (panelFactory.deviceId == "eq")
+            {
+                INFO("linear phase, a spectral band");
+                PanelUnderTest q(*factory, panelFactory, true,
+                                 [](fd::Device& d)
+                                 {
+                                     auto& params = d.params();
+                                     for (const auto* id : {"phase", "band2.dyn", "band2.spectral"})
+                                         params.set(*params.indexOf(id), 1.0f);
+                                 });
+                const auto& header = q.panel->headerControls();
+                CHECK(std::any_of(
+                    header.begin(), header.end(), [](auto* c)
+                    { return dynamic_cast<fd::ui::LatencyBadge*>(c) != nullptr && c->isVisible(); }));
+                lint(q);
             }
         }
     }

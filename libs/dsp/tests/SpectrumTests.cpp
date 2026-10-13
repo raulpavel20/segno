@@ -161,6 +161,10 @@ TEST_CASE("spectrum: collisions where both are loud, nowhere else", "[fast]")
     nothing.fill(spectrum::floorDb);
     const auto none = spectrumCollisions(low, nothing, 0.0f);
     CHECK(std::none_of(none.begin(), none.end(), [](bool c) { return c; }));
+    // Silence stays silence under the display's tilt (which lifts its floor in the highs).
+    const auto tilted =
+        spectrumCollisions(analyse(fd::testkit::pinkNoise(96000, 3, 0.25f)).bands(), nothing, 4.5f);
+    CHECK(std::none_of(tilted.begin(), tilted.end(), [](bool c) { return c; }));
 }
 
 TEST_CASE("spectrum: peaks stand out, a third of an octave apart; noise has none", "[fast]")

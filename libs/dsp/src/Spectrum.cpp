@@ -249,17 +249,21 @@ std::array<bool, numBands> spectrumCollisions(const SpectrumCurve& a, const Spec
     const int to = static_cast<int>(std::floor(spectrum::bandAt(16000.0)));
     auto tilted = [slope](const SpectrumCurve& c, int band)
     { return c[static_cast<size_t>(band)] + spectrum::tiltDb(spectrum::bandHz(band), slope); };
-    float loudestA = floorDb, loudestB = floorDb;
+    // Silence is judged untilted: the tilt lifts the floor itself in the highs.
+    float loudestA = floorDb, loudestB = floorDb, rawA = floorDb, rawB = floorDb;
     for (int i = from; i <= to; ++i)
     {
         loudestA = std::max(loudestA, tilted(a, i));
         loudestB = std::max(loudestB, tilted(b, i));
+        rawA = std::max(rawA, a[static_cast<size_t>(i)]);
+        rawB = std::max(rawB, b[static_cast<size_t>(i)]);
     }
-    if (loudestA <= floorDb || loudestB <= floorDb)
+    if (rawA <= floorDb || rawB <= floorDb)
         return out; // one of them has nothing
     for (int i = from; i <= to; ++i)
         out[static_cast<size_t>(i)] =
-            tilted(a, i) >= loudestA - withinDb && tilted(b, i) >= loudestB - withinDb;
+            tilted(a, i) >= loudestA - withinDb && tilted(b, i) >= loudestB - withinDb &&
+            a[static_cast<size_t>(i)] > floorDb && b[static_cast<size_t>(i)] > floorDb;
     return out;
 }
 

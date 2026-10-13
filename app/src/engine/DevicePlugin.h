@@ -44,6 +44,8 @@ public:
     bool takesMidiInput() override { return device_->info().buses.acceptsMidi; }
     bool producesAudioWhenNoAudioInput() override { return isInstrument(); }
     double getLatencySeconds() override;
+    /// The rate it runs at; 0 before the engine has prepared it.
+    [[nodiscard]] double sampleRate() const noexcept { return sampleRate_; }
     double getTailLength() const override { return device_->tailSeconds(); }
 
     void restorePluginStateFromValueTree(const juce::ValueTree& v) override;

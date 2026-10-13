@@ -419,6 +419,21 @@ TEST_CASE("mcp tools: clip loops: loop what's shown, set the loop, extend past t
     CHECK(daw.call("get_clip", {{"clip", audioId}})["loop"].is_null());
 }
 
+TEST_CASE("mcp tools: get_module says how late a module plays its track", "[integration][mcp]")
+{
+    Daw daw;
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    const auto eq = daw.call("add_module", {{"track", t0}, {"type", "eq"}});
+    CHECK(eq["latencyMs"] == 0.0);
+    const auto id = eq["id"].get<std::string>();
+    daw.call("set_parameters", {{"module", id}, {"values", {{"phase", "Linear phase"}}}});
+    const double ms = daw.call("get_module", {{"module", id}})["latencyMs"];
+    CHECK(ms > 100.0); // Medium: about 107 ms at 48 kHz, 116 at 44.1
+    CHECK(ms < 120.0);
+    daw.call("set_parameters", {{"module", id}, {"values", {{"resolution", "High"}}}});
+    CHECK(daw.call("get_module", {{"module", id}})["latencyMs"].get<double>() > 2.0 * ms - 1.0);
+}
+
 TEST_CASE("mcp tools: modules, parameters, samples and view state", "[integration][mcp]")
 {
     Daw daw;

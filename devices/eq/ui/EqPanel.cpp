@@ -34,6 +34,33 @@ float plain(const ui::DeviceUiContext& ctx, size_t index)
     return ctx.params.getPlain(index);
 }
 
+/// Whether these settings run the spectral engine (and so delay the sound): Eq::usesEngine, as
+/// the panel sees the settings.
+bool usesEngine(const ui::DeviceUiContext& ctx)
+{
+    if (static_cast<int>(plain(ctx, Eq::Phase)) == static_cast<int>(Eq::Processing::LinearPhase))
+        return true;
+    for (int b = 0; b < Eq::numBands; ++b)
+        if (plain(ctx, Eq::spectralIndex(b, Eq::Spectral)) >= 0.5f)
+            return true;
+    return false;
+}
+
+/// The delay (ms) with the engine on or off at a Resolution, at the rate the EQ runs at.
+double delayMs(const ui::DeviceUiContext& ctx, bool engine, int resolution)
+{
+    const double known = ctx.analysis != nullptr ? ctx.analysis->sampleRate() : 0.0;
+    const double rate = known > 0.0 ? known : 48000.0;
+    return 1000.0 * Eq::latencyFor(engine, resolution, rate) / rate;
+}
+
+/// "no delay", or "about 105 ms" (to 5 ms: the badge has it exactly).
+juce::String delayText(double ms)
+{
+    return ms <= 0.0 ? juce::String("no delay")
+                     : "about " + juce::String(juce::roundToInt(ms / 5.0) * 5) + " ms";
+}
+
 /// The sidechain's name, for "Make room for Kick" ("Sidechain" in a plugin).
 juce::String sidechainName(const ui::DeviceUiContext& ctx)
 {
@@ -390,7 +417,26 @@ private:
         for (int b = 0; b < Eq::numBands; ++b)
             if (isOn(b) && std::abs(sel_.frame[static_cast<size_t>(b)]) > 0.05f)
                 return true;
+        for (int j = 0; j < Eq::spectralPoints; ++j)
+            if (std::abs(spectralAt(j)) > 0.05f)
+                return true;
         return false;
+    }
+    /// The spectral bands' gain at a display point now (dB), from the dynamics frame.
+    float spectralAt(int point) const
+    {
+        return sel_
+            .frame[static_cast<size_t>(2 * Eq::numBands + std::clamp(point, 0, Eq::spectralPoints - 1))];
+    }
+    /// ...and at any frequency, between the points.
+    double spectralDb(double hz) const
+    {
+        const double at = 12.0 * std::log2(std::max(hz, 1.0) / Eq::spectralPointHz(0));
+        const int j = static_cast<int>(std::floor(at));
+        if (j < 0 || j >= Eq::spectralPoints - 1)
+            return j < 0 ? spectralAt(0) : spectralAt(Eq::spectralPoints - 1);
+        const double f = at - j;
+        return (1.0 - f) * spectralAt(j) + f * spectralAt(j + 1);
     }
     bool isDynamic(int b) const
     {
@@ -548,7 +594,7 @@ private:
         for (int x = 0; x <= getWidth(); x += 2)
         {
             const double f = freqOf(static_cast<float>(x));
-            double db = 0.0;
+            double db = live && sel_.hasFrame ? spectralDb(f) : 0.0; // the spectral bands, live
             for (int b : bands)
                 if (isOn(b) && !Eq::isFlat(live ? liveSettings(b) : settings(b)))
                     db += 20.0 * std::log10(std::max(std::abs(Eq::response(designs[static_cast<size_t>(b)], f,
@@ -779,6 +825,32 @@ public:
         output.toggle(Eq::Delta, 0, 5, 2);
 
         addHeaderCombo(Eq::Analyzer);
+        // Processing and Resolution name their delay where they're chosen, and a badge shows it
+        // while there's any (SPEC, "Latency, shown wherever it's chosen").
+        auto& processing = addHeaderCombo(Eq::Phase);
+        processing.setMenuText(
+            [&ctx](int choice)
+            {
+                const bool linear = choice == static_cast<int>(Eq::Processing::LinearPhase);
+                const auto resolution = static_cast<int>(plain(ctx, Eq::Resolution));
+                bool spectral = false;
+                for (int b = 0; b < Eq::numBands; ++b)
+                    spectral = spectral || plain(ctx, Eq::spectralIndex(b, Eq::Spectral)) >= 0.5f;
+                return juce::String(
+                           std::string(ctx.info.params[Eq::Phase].choices[static_cast<size_t>(choice)])) +
+                       ": " + delayText(delayMs(ctx, linear || spectral, resolution));
+            });
+        auto& resolution = addHeaderCombo(Eq::Resolution);
+        resolution.setMenuText(
+            [&ctx](int choice)
+            {
+                return juce::String(std::string(
+                           ctx.info.params[Eq::Resolution].choices[static_cast<size_t>(choice)])) +
+                       ": " + delayText(delayMs(ctx, true, choice));
+            });
+        dimWhen({&resolution}, [&ctx] { return !usesEngine(ctx); }); // it matters only with a delay
+        showLatency([&ctx]
+                    { return delayMs(ctx, usesEngine(ctx), static_cast<int>(plain(ctx, Eq::Resolution))); });
         selection_.changed = [this]
         {
             rebuildBand();
@@ -821,19 +893,60 @@ private:
         auto& threshold = dynamics_->knob(dyn(Eq::Threshold), 1, 0);
         auto& attack = dynamics_->knob(dyn(Eq::Attack), 2, 0);
         auto& release = dynamics_->knob(dyn(Eq::Release), 3, 0);
-        auto& autoThreshold = dynamics_->toggle(dyn(Eq::AutoThreshold), 0, 3, 2);
+        auto& spectral = dynamics_->toggle(Eq::spectralIndex(b, Eq::Spectral), 0, 3, 2);
+        spectral.setButtonText("Spectral");
+        spectral_ = &spectral;
+        updateSpectralTooltip();
+        auto& autoThreshold = dynamics_->toggle(dyn(Eq::AutoThreshold), 2, 3, 2);
         autoThreshold.setButtonText("Auto");
-        auto& trigger = dynamics_->segmented(dyn(Eq::Trigger), 0, 4, 4, 1);
-        dynamics_->place(*meter_, 0, 5, 4, 1, ui::PanelSection::Kind::Line);
+        // A spectral band's Detail, or any other band's trigger meter: each means nothing to the
+        // other, so they share a row.
+        spectralShown_ = plain(ctx, Eq::spectralIndex(b, Eq::Spectral)) >= 0.5f;
+        juce::Component* detail = nullptr;
+        if (spectralShown_)
+        {
+            auto& bar = dynamics_->bar(Eq::spectralIndex(b, Eq::Detail), 0, 4, 4);
+            bar.setName("Detail");
+            detail = &bar;
+        }
+        else
+            dynamics_->place(*meter_, 0, 4, 4, 1, ui::PanelSection::Kind::Line);
+        auto& trigger = dynamics_->segmented(dyn(Eq::Trigger), 0, 5, 4, 1);
         const auto still = [type] { return !Eq::canMove(type()); };
         dimWhen({&range, &attack, &release, &autoThreshold, &trigger}, still);
         dimWhen({&threshold},
                 [still, &ctx, dyn] { return still() || plain(ctx, dyn(Eq::AutoThreshold)) >= 0.5f; });
+        // Spectral works on bells and shelves.
+        dimWhen({&spectral}, [type] { return !Eq::canBeSpectral(type()); });
+        if (detail != nullptr)
+            dimWhen({detail}, [type] { return !Eq::canBeSpectral(type()); });
         resized();
+    }
+
+    /// The Spectral switch says what it costs: the delay at this Resolution, unless there's one.
+    void updateSpectralTooltip()
+    {
+        auto& ctx = context();
+        const auto resolution = static_cast<int>(plain(ctx, Eq::Resolution));
+        const auto& spec = ctx.info.params[Eq::spectralIndex(selection_.band, Eq::Spectral)];
+        const auto cost =
+            usesEngine(ctx) && plain(ctx, Eq::spectralIndex(selection_.band, Eq::Spectral)) < 0.5f
+                ? juce::String(" The EQ is delayed already, so it adds no more.")
+                : " It delays the sound, " + delayText(delayMs(ctx, true, resolution)) +
+                      " at this Resolution.";
+        spectral_->setTooltip(juce::String(std::string(spec.name)) + ": " +
+                              juce::String(std::string(spec.description)) + cost);
+        tooltipResolution_ = resolution;
     }
 
     void tickAnalyzer()
     {
+        // Spectral switched on or off: Detail and the trigger meter swap.
+        auto& ctx = context();
+        if ((plain(ctx, Eq::spectralIndex(selection_.band, Eq::Spectral)) >= 0.5f) != spectralShown_)
+            rebuildBand();
+        else if (static_cast<int>(plain(ctx, Eq::Resolution)) != tooltipResolution_)
+            updateSpectralTooltip();
         if (isShowing() && !findSection("curve")->isCollapsed())
             display_->tickAnalyzer();
     }
@@ -844,6 +957,9 @@ private:
     ui::PanelSection* band_ = nullptr;
     ui::PanelSection* dynamics_ = nullptr;
     TriggerMeter* meter_ = nullptr;
+    ui::ParamToggle* spectral_ = nullptr; // the selected band's Spectral switch
+    bool spectralShown_ = false;          // DYNAMICS shows Detail (else the trigger meter)
+    int tooltipResolution_ = -1;
 };
 } // namespace
 

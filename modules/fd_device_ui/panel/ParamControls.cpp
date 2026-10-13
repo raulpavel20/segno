@@ -189,4 +189,74 @@ void ParamComboBox::paintOverChildren(juce::Graphics& g)
 {
     paintAutomationIndicator(g, {3.5f, 3.5f}, automation_);
 }
+
+void ParamComboBox::showPopup()
+{
+    if (!menuText_)
+    {
+        juce::ComboBox::showPopup();
+        return;
+    }
+    juce::PopupMenu menu;
+    menu.setLookAndFeel(&getLookAndFeel());
+    for (int i = 0; i < getNumItems(); ++i)
+        menu.addItem(i + 1, menuText_(i), true, getSelectedId() == i + 1);
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMinimumWidth(getWidth()),
+                       [safe = juce::Component::SafePointer<ParamComboBox>(this)](int chosen)
+                       {
+                           if (safe != nullptr && chosen > 0)
+                               safe->setSelectedId(chosen, juce::sendNotificationSync);
+                       });
+}
+
+// ---- the latency badge --------------------------------------------------------------------
+
+LatencyBadge::LatencyBadge(juce::String moduleName, std::function<double()> latencyMs)
+    : moduleName_(std::move(moduleName)), latencyMs_(std::move(latencyMs))
+{
+    setName("latency");
+    refresh();
+}
+
+void LatencyBadge::refresh()
+{
+    const int ms = latencyMs_ ? juce::roundToInt(latencyMs_()) : 0;
+    const auto text = ms > 0 ? "+" + juce::String(ms) + " ms" : juce::String();
+    if (text == text_)
+        return;
+    text_ = text;
+    const auto delay = juce::String(ms) + " ms";
+    setTooltip(text_.isEmpty()
+                   ? juce::String()
+                   : "This " + moduleName_ + " delays its track by " + delay +
+                         ". The DAW keeps the tracks in time; what you play live on this track is "
+                         "heard " +
+                         delay + " late.");
+    repaint();
+    if (onChange)
+        onChange();
+}
+
+int LatencyBadge::preferredWidth() const
+{
+    if (text_.isEmpty())
+        return 0;
+    const auto& grid = Theme::current().deviceGrid;
+    return static_cast<int>(
+               std::ceil(juce::GlyphArrangement::getStringWidth(font(TextStyle::Control), text_))) +
+           2 * grid.displayInset;
+}
+
+void LatencyBadge::paint(juce::Graphics& g)
+{
+    if (text_.isEmpty())
+        return;
+    const auto& t = Theme::current();
+    const auto r = getLocalBounds().toFloat();
+    g.setColour(t.roles.warningFill);
+    g.fillRoundedRectangle(r, t.radiusControl);
+    g.setColour(t.roles.warning);
+    g.setFont(font(TextStyle::Control));
+    g.drawText(text_, getLocalBounds(), juce::Justification::centred, false);
+}
 } // namespace fd::ui

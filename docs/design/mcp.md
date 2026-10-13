@@ -58,7 +58,7 @@ claude mcp add --transport http segno http://127.0.0.1:7377/mcp --header "Author
 | `segno://project` | Name, file, unsaved state, tempo, time signature, length, loop, and every track with its clips (no notes) and its chain (module names and ids) |
 | `segno://track/{id}` | One track: name, colour, instrument, clips, chain |
 | `segno://clip/{id}` | One clip: kind, position, length, offset, source file; for MIDI, every note |
-| `segno://module/{id}` | One module in a chain: type, on/off, every parameter (id, name, value, text, unit, range, default, automatable), its sections (id, title, collapsed) and its non-parameter state (e.g. the Sampler's sample) |
+| `segno://module/{id}` | One module in a chain: type, on/off, the delay it adds (`latencyMs`: how late it plays its track, so an assistant can say what a linear-phase EQ costs live), every parameter (id, name, value, text, unit, range, default, automatable), its sections (id, title, collapsed) and its non-parameter state (e.g. the Sampler's sample) |
 | `segno://modules` | The catalogue: every module type that can be added (ours and scanned plugins), with kind and short description |
 | `segno://module-type/{type}` | One type's reference: what it does, each parameter's meaning (the SPEC's user-facing text), and its sections |
 | `segno://transport` | Playing, position, loop, metronome |

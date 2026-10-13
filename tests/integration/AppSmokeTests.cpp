@@ -1229,6 +1229,36 @@ TEST_CASE("modules collapse sections and fold in the chain; header controls neve
     CHECK(f.session->deviceViewState(sat).empty());
 }
 
+TEST_CASE("the first module that delays its track says so, once per project", "[integration]")
+{
+    ShellFixture f;
+    const auto t0 = f.session->snapshot()->tracks[0].id;
+    const auto eq = f.session->addDevice(t0, "fd:eq");
+    REQUIRE(eq != 0);
+    f.shell->checkDelay();
+    CHECK(f.shell->lastWarning().isEmpty()); // zero latency: nothing to say
+    {
+        auto handle = f.session->openDevice(eq);
+        REQUIRE(handle != nullptr);
+        auto& params = handle->context().params;
+        const auto& specs = handle->context().info.params;
+        const auto phase = static_cast<size_t>(
+            std::distance(specs.begin(), std::find_if(specs.begin(), specs.end(),
+                                                      [](const auto& p) { return p.id == "phase"; })));
+        REQUIRE(phase < specs.size());
+        params.beginGesture(phase);
+        params.setPlain(phase, 1.0f); // linear phase
+        params.endGesture(phase);
+    }
+    f.shell->checkDelay();
+    const auto said = f.shell->lastWarning();
+    CHECK(said.startsWith("EQ on "));
+    CHECK(said.contains(" ms of delay. The tracks stay in time; what you play live on "));
+    f.shell->showWarning({});
+    f.shell->checkDelay();
+    CHECK(f.shell->lastWarning().isEmpty()); // once
+}
+
 TEST_CASE("the Assistants popover turns the server on, shows setup lines and clients", "[integration][mcp]")
 {
     juce::ScopedJuceInitialiser_GUI juceInit;

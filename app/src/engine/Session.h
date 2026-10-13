@@ -4,17 +4,17 @@
 #include "model/AudioMeasure.h"
 #include "model/Bounce.h"
 #include "model/Browser.h"
-#include "model/Export.h"
 #include "model/Editing.h"
+#include "model/Export.h"
 #include "model/Grid.h"
 #include "model/Snapshot.h"
 
-#include <fd_device_ui/fd_device_ui.h>
-#include <juce_audio_devices/juce_audio_devices.h>
-
 #include <array>
+#include <fd_device_ui/fd_device_ui.h>
 #include <functional>
+#include <juce_audio_devices/juce_audio_devices.h>
 #include <memory>
+#include <optional>
 #include <set>
 
 namespace tracktion::inline engine
@@ -162,6 +162,20 @@ public:
     /// Moves a device to `index` within its chain.
     void moveDevice(std::uint64_t deviceId, int index);
     void setDeviceEnabled(std::uint64_t deviceId, bool enabled);
+    /// How late a module plays its track (ms): a delay the engine lines the tracks up around (a
+    /// linear-phase EQ's, a lookahead). 0 if it adds none.
+    [[nodiscard]] double moduleLatencyMs(std::uint64_t deviceId) const;
+    /// A module adding a delay you'd notice playing live, while the project hasn't been told of one
+    /// (the DAW says so once per project, devices/eq/SPEC.md "Latency"): the first such module, its
+    /// track and its delay. Nothing once told.
+    struct DelayNotice
+    {
+        std::string module, track;
+        double ms = 0.0;
+    };
+    [[nodiscard]] std::optional<DelayNotice> untoldDelay(double minMs) const;
+    /// The project has been told of a delay: never again (saved with it, no undo step).
+    void markDelayTold();
 
     /// Sidechains (A2, ADR 0025): host routing, never a parameter. The tracks that can feed a
     /// module's sidechain, in track order: every other track except those that already depend

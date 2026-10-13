@@ -282,7 +282,8 @@ TEST_CASE("conformance: reported latency matches measured latency", "[fast][conf
                 r->params().set(i, spec.min + static_cast<float>(step));
                 INFO(spec.id << " = " << r->params().get(i));
                 const auto measured = render(*r, in, {.sampleRate = kSampleRate});
-                CHECK(estimateLatency(in, measured, 2048) == r->latencySamples());
+                CHECK(estimateLatency(in, measured, std::max(2048, r->latencySamples() + 256)) ==
+                      r->latencySamples());
             }
         }
     });

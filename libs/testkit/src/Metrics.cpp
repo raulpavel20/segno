@@ -1,9 +1,13 @@
 #include "fd/testkit/Metrics.h"
 
+#include "fd/dsp/Fft.h"
+
 #include <algorithm>
 #include <cmath>
+#include <complex>
 #include <numbers>
 #include <stdexcept>
+#include <vector>
 
 namespace fd::testkit
 {
@@ -111,20 +115,49 @@ double nullResidualDb(const AudioBuffer& a, const AudioBuffer& b) noexcept
 
 int estimateLatency(const AudioBuffer& reference, const AudioBuffer& processed, int maxLag, int channel)
 {
+    // The cross-correlation sum_i reference[i] * processed[i + lag], for every lag at once through
+    // FFTs (long delays, such as a linear-phase EQ's, stay quick), then the best few lags summed
+    // exactly, the first best kept.
     const int n = std::min(reference.numSamples(), processed.numSamples());
-    int best = 0;
-    double bestValue = -1.0;
-    for (int lag = 0; lag <= maxLag && lag < n; ++lag)
+    const int lags = std::min(maxLag, n - 1);
+    if (lags < 0)
+        return 0;
+    int order = 1;
+    while ((1 << order) < 2 * n)
+        ++order;
+    const dsp::Fft fft(order);
+    const int size = fft.size();
+    std::vector<std::complex<float>> a(static_cast<size_t>(size)), b(static_cast<size_t>(size));
+    for (int i = 0; i < n; ++i)
+    {
+        a[static_cast<size_t>(i)] = {reference.at(channel, i), 0.0f};
+        b[static_cast<size_t>(i)] = {processed.at(channel, i), 0.0f};
+    }
+    fft.forward(a.data());
+    fft.forward(b.data());
+    // conj(A) B is the correlation's transform; its inverse through the forward one (conjugated).
+    for (size_t k = 0; k < a.size(); ++k)
+        a[k] = std::conj(std::conj(a[k]) * b[k]);
+    fft.forward(a.data());
+    int candidate = 0;
+    for (int lag = 1; lag <= lags; ++lag)
+        if (a[static_cast<size_t>(lag)].real() > a[static_cast<size_t>(candidate)].real())
+            candidate = lag;
+    const auto exact = [&](int lag)
     {
         double sum = 0.0;
         for (int i = 0; i + lag < n; ++i)
             sum += static_cast<double>(reference.at(channel, i)) * processed.at(channel, i + lag);
-        if (sum > bestValue)
+        return sum;
+    };
+    int best = 0;
+    double bestValue = exact(0);
+    for (int lag = std::max(1, candidate - 2); lag <= std::min(lags, candidate + 2); ++lag)
+        if (const double v = exact(lag); v > bestValue)
         {
-            bestValue = sum;
+            bestValue = v;
             best = lag;
         }
-    }
     return best;
 }
 

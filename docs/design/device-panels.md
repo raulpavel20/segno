@@ -28,6 +28,7 @@ In the UI, instruments and effects are **modules**. Code and docs say *device* (
   - the **presets** ([presets.md](presets.md), ADR 0044), right-aligned before the header settings: previous and next, the preset's name (`deviceGrid.presetFieldMin` to `presetFieldMax` wide, taking the room the name leaves), the A/B toggle. Where the host has none (the gallery, snapshots) they don't show;
   - **header settings** for module-wide quality and display options, which never change the sound's character (oversampling quality, analyzer), right-aligned;
   - for a module with a sidechain input, the **Sidechain** picker, first among the header settings, 128 px wide whatever the track names ([ADR 0025](../decisions/0025-sidechain-routing.md)). Its choices come from the host: None and the tracks in the DAW, Off and External in a plugin.
+  - for a module whose delay is a choice (the EQ's linear phase), the **latency badge** at the right end while it adds one: "+107 ms" in `warning` on `warningFill`, its tooltip saying what that means for playing live (`DevicePanel::showLatency`). It takes no room while there's no delay. A header setting that changes the delay names each choice's delay in its menu (`ParamComboBox::setMenuText`), the box showing only the choice.
 
   The header background is the drag handle for reordering in the DAW.
 - **Body (204 px):**
@@ -153,7 +154,7 @@ Columns are in brackets. Each module's SPEC lists its map. The four M2 modules a
 |---|---|---|
 | Utility | LEVEL [1] Gain / Balance · STEREO [1] Width / Mono · CHANNELS [1] Ø L, Ø R, DC / Mute · meter | 240 |
 | Saturator | SHAPE [4] curve, curve buttons, Drive / Bias · COLOR ⏻ [1] Freq / Gain · OUTPUT [1] Output / Mix · in and out meters · header: Quality | 416 |
-| EQ | CURVE [10] display (with Listen, the compared track and Make room) · BAND *n* ⏻ [3] Freq, Gain, Q / Type, Slope, Place (captioned combos) · DYNAMICS ⏻ [4] Range, Thresh, Attack, Release / Auto, Trigger, trigger meter · OUTPUT [2] Output, Scale / Auto Gain, its correction, Delta · header: Sidechain, Analyzer | ≈ 1 070 |
+| EQ | CURVE [10] display (with Listen, the compared track and Make room; the dynamic and spectral bands' moves on the live curve) · BAND *n* ⏻ [3] Freq, Gain, Q / Type, Slope, Place (captioned combos) · DYNAMICS ⏻ [4] Range, Thresh, Attack, Release / Spectral, Auto, Detail (a spectral band) or the trigger meter (any other), Trigger · OUTPUT [2] Output, Scale / Auto Gain, its correction, Delta · header: Sidechain, Analyzer, Processing, Resolution, the latency badge | ≈ 1 070 |
 | Subtractive Synth | OSC 1 [4] · OSC 2 [4] · FILTER [4] · ENVELOPES [6] · MODULATION [6] (three slots, LFO) · VOICE [3] · meter | ≈ 1550 |
 | Sampler | SAMPLE [6] · PITCH [1] · LEVEL [1] · REGION [4] · FADES [1] · ENVELOPES [6] · FILTER ⏻ [4] · VOICE [2] · meter | ≈ 1480 |
 | Compressor | CURVE [3] transfer curve · HISTORY [4] · COMPRESSION [3] Threshold, Ratio, Knee / Makeup, Auto Makeup, Character · TIME [2] Attack, Release / Auto Release, Lookahead · DETECTOR [2] Peak \| RMS, Link · SIDECHAIN [3] Filter, Listen / Freq, Q, Gain · OUTPUT [1] Output / Mix · in and out meters · header: Sidechain | 1120 |

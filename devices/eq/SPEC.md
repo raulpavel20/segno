@@ -1,6 +1,6 @@
 # EQ: device spec
 
-- **Status:** Core approved by the product owner (2026-10-10, with the M1 sign-off); IDs are permanent. Stage 2 (M3, B8) approved by the product owner (2026-10-13, with every recommendation of E1–E14); its IDs are permanent. Step 2a (no delay) built 2026-10-13, awaiting sign-off; step 2b (the spectral engine) next.
+- **Status:** Core approved by the product owner (2026-10-10, with the M1 sign-off); IDs are permanent. Stage 2 (M3, B8) approved by the product owner (2026-10-13, with every recommendation of E1–E14); its IDs are permanent. Step 2a (no delay) built 2026-10-13, awaiting sign-off; step 2b (the spectral engine: linear phase and spectral bands) built 2026-10-13, awaiting sign-off.
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1, M1 (core) → M3 (stage 2)
 - **Live target:** EQ Eight, EQ Three, Channel EQ (all covered by this one device). References only ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
@@ -257,7 +257,7 @@ Built and named by Claude, signed off by ear, as before. About six:
 | Delta, every band static | Silence (< −120 dBFS) |
 | Make room | One undo step; the band as described |
 | No allocation, lock or file access in `process()` | Conformance, with every setting on |
-| CPU: 24 dynamic bands, or 4 spectral bands at High | Within the device budget at 48 kHz (ui-principles' performance section) |
+| CPU: 24 dynamic bands, or 4 spectral bands at High | Under 10 % of a core each at 48 kHz (Release, the reference machine; there is no module budget yet, open question B74) |
 
 ### Questions for review
 
@@ -292,6 +292,32 @@ Built and named by Claude, signed off by ear, as before. About six:
 - **Found and fixed on the way:** undo and redo of any module's settings in the DAW changed the stored values but not what the module played or showed (tracktion leaves parameters where they are when their stored values change). Modules now follow their stored values after undo and redo.
 - **Assistants:** the EQ's Auto Gain correction is a meter (`measure_module`); every new setting is in `set_parameters`.
 - **Presets:** Boom control and Bass under the kick added; every EQ preset remade at state version 2 (its sound unchanged).
+
+### Settled while building (step 2b, 2026-10-13)
+
+- **Built:** the spectral engine (`dsp::SpectralFilter`), linear phase with Low, Medium and High resolution, spectral bands with Detail (`dsp::SpectralDynamics`), and the delay shown wherever it's chosen. Parameters at state version 3: `band<n>.spectral`, `band<n>.detail`, `phase`, `resolution` (392 in all).
+- **The engine:** frames of N/4 samples (a Hann window, half overlapping), each padded to N and convolved exactly with a linear-phase kernel 3N/4 long made from the frame's response, then overlap-added: an exact filter while the response holds, a crossfade over a frame when it moves. Rather than the 75 % weighted overlap-add the design named: the same smoothness for half the frames, and no window error when nothing moves. The delay is 5N/8:
+
+  | Resolution | N at 44.1 and 48 kHz | Delay at 48 kHz | at 44.1 kHz |
+  |---|---|---|---|
+  | Low | 4 096 | 53 ms | 58 ms |
+  | Medium | 8 192 | 107 ms | 116 ms |
+  | High | 16 384 | 213 ms | 232 ms |
+
+  N doubles at 88.2 and 96 kHz and again above 140 kHz (the same delay in time), and halves below 35 kHz. Both channels go through one complex FFT; left/right and mid/side bands meet as a 2×2 gain matrix per frequency, in band order, so mixing placements never doubles the delay. A frame whose response is flat skips its transforms (the sound is only delayed, exactly).
+- **When the engine runs:** Linear phase, or any band's Spectral switch on, even on a band that's off: the delay then depends only on Processing, Resolution and Spectral (ADR 0016, 0020). Zero latency with a spectral band: the other bands stay minimum phase as before, and the engine applies only the spectral bands' moves after them; a spectral band keeps its Gain there too.
+- **Spectral detection, tuned on pink noise and resonances:** the trigger's spectrum (the input or the sidechain, in the band's placement: the louder of left and right for Stereo) is smoothed a forty-eighth of an octave either side and over 40 ms (faster in the highs, slower in the lows, within 2×), and tilted 3 dB/oct. Detail sets the surroundings: 2 octaves either side at 0, 0.4 at 50 %, a twelfth at 100 %; their peaks are clipped three times so a resonance doesn't raise its own baseline. A frequency sticking out by more than noise does by chance (2.5 dB) starts to come down, and all the way down to its surroundings once it's sure to be a peak (4 dB more), up to Range. A fixed 2 dB allowance, as first written, left too much of a resonance or cut noise. The gains are smoothed a ninety-sixth of an octave either side. Measured: a 12 dB resonance (Q 8) over pink noise comes down 10.7 dB at Detail 50 %, frequencies an octave away move under 0.1 dB, and pink noise alone moves under 0.3 dB anywhere.
+- **The resonance target is measured on pink noise through the resonance,** not a sweep: a sweep is one frequency at a time, so all of it sticks out.
+- **Dynamic bands in linear phase** move frame by frame (every 21 ms at Medium), their detection as at zero latency.
+- **Listen and Delta are delayed with the sound,** their fades too, so switching them lines up with what you hear.
+- **The delay, shown:** the Processing and Resolution menus name each choice's delay at the rate the EQ runs at, to 5 ms ("Linear phase: about 105 ms"; Zero latency names the spectral bands' delay while there are any); Resolution dims while there's no delay; the badge ("+107 ms") sits at the header's right end with the sentence in its tooltip; the Spectral switch's tooltip names its delay. The badge is a shared part of the module header (`DevicePanel::showLatency`) for any module whose delay is a choice.
+- **The toast** comes once per project for any module that delays its track by 20 ms or more (a lookahead of a few ms isn't worth a word): "EQ on Vocals: 107 ms of delay. The tracks stay in time; what you play live on Vocals is heard 107 ms late." Saved with the project, no undo step. Assistants read `latencyMs` in `get_module`.
+- **Layout:** DYNAMICS has Spectral and Auto side by side; a spectral band shows Detail in the row the trigger meter takes for any other band (each means nothing to the other: a spectral band's threshold is per frequency, not the band's level). Spectral and Detail dim on types that can't be spectral (Tilt).
+- **Make room stays a dynamic band, never a spectral one:** a spectral band would add delay without being asked (E5). Switch it to Spectral by hand.
+- **CPU** (Release, the reference machine, 48 kHz): a 4-band EQ 0.4 % of a core; 24 dynamic bands 6.8 %; linear phase, 8 bands, 1.0–1.2 % at any Resolution; 4 spectral bands 5.3 % (Low) to 6.3 % (High); 24 spectral bands at High in linear phase 13 %.
+- **Found and fixed on the way:** since step 2a every band's trigger filter was designed again on every control tick, on bands that are off too (a plain 4-band EQ took 18 % of a core; now 0.4 %); Delta's still copy of a moving band was designed on every tick even with Delta off (24 dynamic bands took 28 %; now 6.8 %); and silence in the compared track counted as collisions in the highs, as the display's tilt lifted its floor (`dsp::spectrumCollisions` now judges silence untilted).
+- **Presets:** De-ess, Tame harshness, Resonance smoother and Linear-phase master added; every EQ preset remade at state version 3 (its sound unchanged).
+- **The conformance suite** measures delays of up to 10 000 samples now: the latency estimate correlates through FFTs.
 
 ## A/B cases (against the Live target)
 

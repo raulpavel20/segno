@@ -184,3 +184,79 @@ TEST_CASE("eq panel: dynamics, the masking display, Make room and Listen, drawn 
     pump(50);
     CHECK(binding.getPlain(E::Listen) == 0.0f);
 }
+
+TEST_CASE("eq panel: linear phase, a spectral band and the delay it costs, drawn for review", "[ui]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    const auto* factory = fd::findDevice("eq");
+    REQUIRE(factory != nullptr);
+    const fd::ui::PanelFactory* panelFactory = nullptr;
+    for (const auto* p : fd::ui::allPanels())
+        if (p->deviceId == "eq")
+            panelFactory = p;
+    REQUIRE(panelFactory != nullptr);
+
+    auto device = factory->create();
+    fd::ui::LocalParamBinding binding(*device);
+    Compare compare;
+    fd::ui::DeviceUiContext ctx{factory->info(), binding, &device->analysis(), device.get(), &compare};
+    // Linear phase, Medium; band 1 a subsonic cut; band 2 a wide spectral bell on a guitar's
+    // resonance at 3 kHz.
+    binding.setPlain(E::Phase, 1.0f);
+    binding.setPlain(E::paramIndex(0, E::Type), static_cast<float>(E::BandType::LowCut));
+    binding.setPlain(E::paramIndex(0, E::Freq), 30.0f);
+    binding.setPlain(E::paramIndex(1, E::Freq), 3000.0f);
+    binding.setPlain(E::paramIndex(1, E::Q), 0.6f);
+    binding.setPlain(E::dynIndex(1, E::Dyn), 1.0f);
+    binding.setPlain(E::dynIndex(1, E::Range), -12.0f);
+    binding.setPlain(E::spectralIndex(1, E::Spectral), 1.0f);
+    binding.setPlain(E::paramIndex(2, E::On), 0.0f); // band 3's node would sit on band 2's
+    device->prepare({sr, 512}); // as a host does, once the settings that change its delay are known
+    auto panel = panelFactory->create(ctx);
+    panel->onEnabledChange = [](bool) {};
+    panel->setSize(panel->preferredWidth(), fd::ui::Theme::current().devicePanelHeight);
+
+    // The badge says how late, and why it matters.
+    fd::ui::LatencyBadge* badge = nullptr;
+    for (auto* c : panel->headerControls())
+        if (auto* b = dynamic_cast<fd::ui::LatencyBadge*>(c))
+            badge = b;
+    REQUIRE(badge != nullptr);
+    CHECK(badge->isVisible());
+    CHECK(badge->text() == "+107 ms");
+    CHECK(badge->getTooltip().contains("what you play live on this track is heard 107 ms late"));
+    // Where it's chosen, each choice names its delay.
+    auto* processing =
+        find<fd::ui::ParamComboBox>(*panel, [](auto& c) { return c.getText() == "Linear phase"; });
+    REQUIRE(processing != nullptr);
+    CHECK(processing->menuText(0) == "Zero latency: about 105 ms"); // the spectral band delays it anyway
+    CHECK(processing->menuText(1) == "Linear phase: about 105 ms");
+    auto* resolution = find<fd::ui::ParamComboBox>(*panel, [](auto& c) { return c.getText() == "Medium"; });
+    REQUIRE(resolution != nullptr);
+    CHECK(resolution->menuText(0) == "Low: about 55 ms");
+    CHECK(resolution->menuText(2) == "High: about 215 ms");
+    // DYNAMICS: Spectral on, so Detail where the trigger meter would be.
+    auto* spectral = find<fd::ui::Toggle>(*panel, [](auto& t) { return t.getButtonText() == "Spectral"; });
+    REQUIRE(spectral != nullptr);
+    CHECK(spectral->getToggleState());
+    CHECK(find<fd::ui::Knob>(*panel, [](auto& k) { return k.getName() == "Detail"; }) != nullptr);
+
+    // A resonance over pink noise: the spectral band's cut shows on the live curve.
+    auto in = fd::testkit::pinkNoise(static_cast<int>(sr * 2), 5, 0.2f);
+    mixInto(in, fd::testkit::sine(3000.0, sr, in.numSamples(), 0.05f));
+    play(*device, *panel, in, AudioBuffer(2, in.numSamples())); // nothing in the sidechain
+    dump("eq-panel-linear@1x.png", panel->createComponentSnapshot(panel->getLocalBounds(), true, 1.0f));
+    dump("eq-panel-linear@2x.png", panel->createComponentSnapshot(panel->getLocalBounds(), true, 2.0f));
+    auto* display = panel->findSection("curve")->placements().front().component;
+    dump("eq-display-spectral@2x.png",
+         panel->createComponentSnapshot(panel->getLocalArea(display, display->getLocalBounds()), true, 2.0f));
+    const auto header =
+        juce::Rectangle<int>(0, 0, panel->getWidth(), fd::ui::Theme::current().deviceHeaderHeight);
+    dump("eq-header-latency@2x.png", panel->createComponentSnapshot(header, true, 2.0f));
+
+    // Back to zero latency with no spectral band: no delay, no badge.
+    binding.setPlain(E::Phase, 0.0f);
+    binding.setPlain(E::spectralIndex(1, E::Spectral), 0.0f);
+    badge->refresh();
+    CHECK_FALSE(badge->isVisible());
+}

@@ -638,6 +638,8 @@ Json moduleJson(ToolEnv& env, const model::DeviceSlot& slot, const model::TrackI
             j["position"] = i;
     const auto view = viewJson(env.session.deviceViewState(slot.id));
     j["folded"] = view["folded"];
+    // How late it plays its track (a linear-phase EQ's delay): what a change to it costs live.
+    j["latencyMs"] = std::round(env.session.moduleLatencyMs(slot.id) * 10.0) / 10.0;
     if (slot.takesSidechain) // ADR 0025: where its sidechain comes from, and what could feed it
     {
         Json choices = Json::array();

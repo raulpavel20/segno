@@ -18,6 +18,8 @@ constexpr int kSlopeDb[] = {6, 12, 18, 24, 36, 48, 72, 96};
 constexpr std::string_view kPlaces[] = {"Stereo", "Left", "Right", "Mid", "Side"};
 constexpr std::string_view kAnalyzer[] = {"Off", "Pre", "Post", "Pre+Post"};
 constexpr std::string_view kTriggers[] = {"Input", "Sidechain"};
+constexpr std::string_view kPhases[] = {"Zero latency", "Linear phase"};
+constexpr std::string_view kResolutions[] = {"Low", "Medium", "High"};
 
 // What Auto Gain applies, by name (MCP measure_module).
 constexpr MeterSpec kMeters[] = {
@@ -135,6 +137,65 @@ struct Tables
                 "What the band listens to: its own range of the sound, or the same range of the sidechain.",
                 {.kind = ParamKind::Choice, .min = 0, .max = 1, .def = 0.0f, .choices = kTriggers});
         }
+        // Stage 2, step 2b (state version 3): spectral bands. Spectral changes the delay when it's
+        // the first (ADR 0020), so it's never automated.
+        for (int b = 0; b < Eq::numBands; ++b)
+        {
+            const std::string prefix = "band" + std::to_string(b + 1) + ".";
+            const std::string label = "Band " + std::to_string(b + 1) + " ";
+            auto set = [&](Eq::SpectralParam p, const char* id, const char* name,
+                           std::string_view description, ParamSpec spec)
+            {
+                const auto i = Eq::spectralIndex(b, p);
+                ids[i] = prefix + id;
+                names[i] = label + name;
+                shortNames[i] = name;
+                descriptions[i] = description;
+                spec.sinceVersion = 3;
+                specs[i] = spec;
+            };
+            set(Eq::Spectral, "spectral", "Spectral",
+                "Follows each frequency in the band on its own, so only what sticks out moves: "
+                "tames resonances and harshness.",
+                {.kind = ParamKind::Toggle,
+                 .min = 0,
+                 .max = 1,
+                 .def = 0.0f,
+                 .flags = ParamFlags::ChangesLatency});
+            set(Eq::Detail, "detail", "Detail",
+                "Spectral bands: higher finds narrow peaks and cuts them narrowly, lower treats broad "
+                "build-ups.",
+                {.min = 0.0f,
+                 .max = 100.0f,
+                 .def = 50.0f,
+                 .unit = Unit::Percent,
+                 .smoothing = {SmoothingKind::Linear, 50.0f},
+                 .decimals = 0});
+        }
+        ids[Eq::Phase] = "phase";
+        names[Eq::Phase] = shortNames[Eq::Phase] = "Processing";
+        descriptions[Eq::Phase] =
+            "Zero latency keeps the analog-style phase and adds no delay; Linear phase changes "
+            "no phase but delays the sound.";
+        specs[Eq::Phase] = {.kind = ParamKind::Choice,
+                            .min = 0,
+                            .max = 1,
+                            .def = 0.0f,
+                            .choices = kPhases,
+                            .flags = ParamFlags::ChangesLatency,
+                            .sinceVersion = 3};
+        ids[Eq::Resolution] = "resolution";
+        names[Eq::Resolution] = shortNames[Eq::Resolution] = "Resolution";
+        descriptions[Eq::Resolution] = "How fine the linear-phase and spectral processing is in the lows: "
+                                       "higher is finer, with more delay.";
+        specs[Eq::Resolution] = {.kind = ParamKind::Choice,
+                                 .min = 0,
+                                 .max = 2,
+                                 .def = 1.0f,
+                                 .choices = kResolutions,
+                                 .flags = ParamFlags::ChangesLatency,
+                                 .sinceVersion = 3};
+
         listenNames[0] = "Off";
         for (int b = 0; b < Eq::numBands; ++b)
             listenNames[static_cast<size_t>(b + 1)] = "Band " + std::to_string(b + 1);
@@ -195,7 +256,7 @@ struct Tables
                           .kind = DeviceKind::AudioEffect,
                           .buses = {.inputChannels = 2, .outputChannels = 2, .sidechainChannels = 2},
                           .params = specs,
-                          .stateVersion = 2,
+                          .stateVersion = 3,
                           .meters = kMeters};
     }
 };
@@ -282,6 +343,41 @@ Eq::Sections Eq::design(const BandSettings& band, double sampleRate) noexcept
     }
     }
     return s;
+}
+
+bool Eq::canBeSpectral(BandType type) noexcept
+{
+    return type == BandType::Bell || type == BandType::LowShelf || type == BandType::HighShelf;
+}
+
+int Eq::engineOrder(int resolution, double sampleRate) noexcept
+{
+    // 4096, 8192 or 16384 points at 44.1 and 48 kHz: 53, 107 and 213 ms at 48 kHz.
+    const int rate = sampleRate < 35000.0 ? -1 : sampleRate < 70000.0 ? 0 : sampleRate < 140000.0 ? 1 : 2;
+    return 12 + std::clamp(resolution, 0, 2) + rate;
+}
+
+int Eq::latencyFor(bool engine, int resolution, double sampleRate) noexcept
+{
+    if (!engine)
+        return 0;
+    const int n = 1 << engineOrder(resolution, sampleRate);
+    return n / 4 + (n - n / 4) / 2; // the engine's frame, and half its kernel (dsp::SpectralFilter)
+}
+
+bool Eq::usesEngine(const ParamStore& p) noexcept
+{
+    if (p.getInt(Phase) == static_cast<int>(Processing::LinearPhase))
+        return true;
+    for (int b = 0; b < numBands; ++b)
+        if (p.getBool(spectralIndex(b, Spectral)))
+            return true;
+    return false;
+}
+
+int Eq::latencySamples() const noexcept
+{
+    return latencyFor(usesEngine(params()), params().getInt(Resolution), sampleRate_);
 }
 
 bool Eq::canMove(BandType type) noexcept
@@ -400,6 +496,29 @@ void Eq::prepare(const ProcessSpec& spec)
     analysis().fifo(PostFifo).prepare(16384);
     analysis().fifo(SidechainFifo).prepare(16384);
     analysis().fifo(DynamicsFifo).prepare(static_cast<size_t>(dynamicsFrame) * 64);
+
+    // The spectral engine, room for its largest size at this rate.
+    const int maxOrder = engineOrder(2, sampleRate_);
+    engine_.prepare(maxOrder);
+    const auto maxN = static_cast<size_t>(1) << maxOrder;
+    const auto maxBins = maxN / 2 + 1;
+    spectralScratch_.prepare(static_cast<int>(maxBins));
+    for (auto& b : bands_)
+    {
+        b.spectralDetector.prepare(static_cast<int>(maxBins));
+        b.magnitude.assign(maxBins, 1.0f);
+    }
+    for (auto* v : {&cosW_, &cos2W_})
+        v->assign(maxBins, 0.0);
+    for (auto* v : {&rowA_, &rowB_, &rowC_, &rowD_, &staticLl_, &staticLr_, &staticRl_, &staticRr_})
+        v->assign(maxBins, 0.0f);
+    for (auto* v : {&detectL_, &detectR_, &sideL_, &sideR_})
+        v->assign(maxBins, {});
+    for (auto* v : {&inRingL_, &inRingR_, &scRingL_, &scRingR_, &delayStaticL_, &delayStaticR_,
+                    &delayListenL_, &delayListenR_, &delayDeltaMix_, &delayListenMix_})
+        v->assign(maxN, 0.0f);
+    ringMask_ = static_cast<long long>(maxN) - 1;
+    engineOrder_ = -1;
     reset();
 }
 
@@ -412,7 +531,8 @@ void Eq::reset() noexcept
         b.staticState = {};
         b.idle = true;
         b.restructurePending = false;
-        b.designedFreq = -1.0f;
+        b.designedFreq = b.staticFreq = -1.0f;
+        b.triggerFreq = -1.0f; // redesigned for this rate
         b.triggerState = {};
         for (auto& d : b.detectors)
             d.reset();
@@ -429,7 +549,61 @@ void Eq::reset() noexcept
     autoGainStale_ = true;
     autoGainWait_ = 0;
     framePos_ = 0;
+    applyEngine(/*force*/ true);
     tick(/*immediate*/ true);
+}
+
+void Eq::applyEngine(bool force) noexcept
+{
+    // Processing, Resolution and Spectral change the delay (ADR 0020): applied at a block's start,
+    // starting afresh (the DAW restarts playback for them anyway).
+    const auto& p = params();
+    const bool on = usesEngine(p);
+    const bool linear = on && p.getInt(Phase) == static_cast<int>(Processing::LinearPhase);
+    const int order = engineOrder(p.getInt(Resolution), sampleRate_);
+    if (cosW_.empty() || (!force && on == engineOn_ && linear == linear_ && (!on || order == engineOrder_)))
+        return;
+    engineOn_ = on;
+    linear_ = linear;
+    engineOrder_ = order;
+    engine_.setOrder(order);
+    const int n = engine_.fftSize();
+    const int bins = engine_.bins();
+    for (int k = 0; k < bins; ++k)
+    {
+        const double w = dsp::twoPi * k / n;
+        cosW_[static_cast<size_t>(k)] = std::cos(w);
+        cos2W_[static_cast<size_t>(k)] = std::cos(2.0 * w);
+    }
+    // The display's points: the bins within a twenty-fourth of an octave, or the nearest.
+    const double binHz = sampleRate_ / n;
+    for (int j = 0; j < spectralPoints; ++j)
+    {
+        const double hz = spectralPointHz(j);
+        int lo = static_cast<int>(std::ceil(hz * std::exp2(-1.0 / 24.0) / binHz));
+        int hi = static_cast<int>(std::floor(hz * std::exp2(1.0 / 24.0) / binHz));
+        if (hi < lo)
+            lo = hi = static_cast<int>(std::lround(hz / binHz));
+        pointLo_[static_cast<size_t>(j)] = std::clamp(lo, 1, bins - 1);
+        pointHi_[static_cast<size_t>(j)] = std::clamp(hi, 1, bins - 1);
+    }
+    for (auto& b : bands_)
+    {
+        b.state = {};
+        b.staticState = {};
+        b.idle = true;
+        b.spectral = false;
+        b.spectralDetector.reset();
+        b.magnitudeOf = -1;
+        b.respondedMix = -1.0f;
+    }
+    for (auto* v : {&inRingL_, &inRingR_, &scRingL_, &scRingR_, &delayStaticL_, &delayStaticR_,
+                    &delayListenL_, &delayListenR_, &delayDeltaMix_, &delayListenMix_})
+        std::fill(v->begin(), v->end(), 0.0f);
+    ringPos_ = 0;
+    spectralDisplay_.fill(0.0f);
+    respondedDelta_ = -1.0;
+    responseStale_ = true;
 }
 
 Eq::BandSettings Eq::settingsOf(const Band& b) const noexcept
@@ -459,8 +633,28 @@ void Eq::redesign(Band& b) noexcept
     b.designedGain = b.gain.current();
     b.designedQ = b.q.current();
     b.designedDyn = b.dynDb;
-    // Delta plays against the same band without its dynamics.
-    b.staticSections = b.dynDb == 0.0f ? b.sections : design(staticSettingsOf(b), sampleRate_);
+    updateStatic(b);
+    ++b.designs; // for the engine's response (linear phase)
+    responseStale_ = true;
+}
+
+void Eq::updateStatic(Band& b) noexcept
+{
+    // Delta plays against the same band without its dynamics: designed only while Delta is on, and
+    // only when it changes (not as the dynamics move).
+    const float scale = params().get(Scale);
+    const bool same = b.staticFreq == b.freq.current() && b.staticGain == b.gain.current() &&
+                      b.staticQ == b.q.current() && b.staticScale == scale;
+    if (b.dynDb == 0.0f)
+        b.staticSections = b.sections;
+    else if (same || (deltaMix_.current() <= 0.0f && deltaMix_.target() <= 0.0f))
+        return;
+    else
+        b.staticSections = design(staticSettingsOf(b), sampleRate_);
+    b.staticFreq = b.freq.current();
+    b.staticGain = b.gain.current();
+    b.staticQ = b.q.current();
+    b.staticScale = scale;
 }
 
 void Eq::tickDynamics(Band& b, int i, bool immediate) noexcept
@@ -468,6 +662,15 @@ void Eq::tickDynamics(Band& b, int i, bool immediate) noexcept
     const auto& p = params();
     const bool dynamic = p.getBool(paramIndex(i, On)) && p.getBool(dynIndex(i, Dyn)) && canMove(b.type);
     const auto trigger = static_cast<TriggerSource>(p.getInt(dynIndex(i, Trigger)));
+    // Spectral: each frequency on its own, in the engine; the band itself stays at its Gain.
+    const bool spectral =
+        dynamic && engineOn_ && canBeSpectral(b.type) && p.getBool(spectralIndex(i, Spectral));
+    if (spectral != b.spectral || (spectral && trigger != b.trigger))
+    {
+        b.spectralDetector.reset();
+        responseStale_ = true;
+    }
+    b.spectral = spectral;
     if (dynamic != b.dynamic || trigger != b.trigger)
     {
         // A new source: its filter and level start afresh.
@@ -479,7 +682,15 @@ void Eq::tickDynamics(Band& b, int i, bool immediate) noexcept
     b.dynamic = dynamic;
     b.trigger = trigger;
     b.autoThreshold = p.getBool(dynIndex(i, AutoThreshold));
-    b.triggerFilter = rangeFilter(b.type, b.freq.current(), b.q.current(), sampleRate_);
+    // Its range as a filter, redesigned only as the band moves (designs aren't cheap).
+    if (dynamic &&
+        (b.type != b.triggerType || b.freq.current() != b.triggerFreq || b.q.current() != b.triggerQ))
+    {
+        b.triggerFilter = rangeFilter(b.type, b.freq.current(), b.q.current(), sampleRate_);
+        b.triggerType = b.type;
+        b.triggerFreq = b.freq.current();
+        b.triggerQ = b.q.current();
+    }
 
     // The gain moves on the control grid, with times for that rate.
     const double tickRate = sampleRate_ / grid_.interval();
@@ -504,7 +715,8 @@ void Eq::tickDynamics(Band& b, int i, bool immediate) noexcept
         }
         const float threshold =
             b.autoThreshold ? std::max(b.usualDb + 6.0f, -60.0f) : p.get(dynIndex(i, Threshold));
-        target = dynamicGain(b.levelDb - threshold, range);
+        if (!spectral)
+            target = dynamicGain(b.levelDb - threshold, range);
     }
     // Off, it glides back to rest at its release.
     if (immediate)
@@ -599,19 +811,26 @@ void Eq::tick(bool immediate) noexcept
             b.staticState = {};
             b.restructurePending = false;
             b.designedFreq = -1.0f; // no interpolation from the old structure
+            b.staticFreq = -1.0f;
             redesign(b);
         }
         if (!b.restructurePending)
             b.mix.setTarget(on ? 1.0f : 0.0f, fadeSamples_);
 
         // Coefficients follow the smoothed values (and the dynamics) on control ticks, only when
-        // they moved.
+        // they moved: the dynamics by a twentieth of a dB at least, or back to rest.
         const bool active = b.mix.current() > 0.0f || b.mix.target() > 0.0f;
+        const bool dynMoved =
+            std::abs(b.dynDb - b.designedDyn) >= 0.05f || (b.dynDb == 0.0f) != (b.designedDyn == 0.0f);
         if (active && (b.freq.current() != b.designedFreq || b.gain.current() != b.designedGain ||
-                       b.q.current() != b.designedQ || b.dynDb != b.designedDyn || scale != lastScale_))
+                       b.q.current() != b.designedQ || dynMoved || scale != lastScale_))
             redesign(b);
         else
+        {
             b.interpolating = false;
+            if (active && b.dynDb != 0.0f)
+                updateStatic(b); // Delta just came on
+        }
     }
     lastScale_ = scale;
 
@@ -672,14 +891,243 @@ void Eq::detect(Band& b, double l, double r) noexcept
     b.levelDb = rms > 1e-6f ? dsp::gainToDb(rms) : -120.0f;
 }
 
+void Eq::magnitudeOf(const Sections& s, float* out, int bins, bool power) const noexcept
+{
+    // |H|^2 of each section from cos w and cos 2w: no complex exponentials per bin.
+    for (int k = 0; k < bins; ++k)
+    {
+        const double c1 = cosW_[static_cast<size_t>(k)], c2 = cos2W_[static_cast<size_t>(k)];
+        double product = 1.0;
+        for (int i = 0; i < s.count; ++i)
+        {
+            const auto& c = s.coeffs[static_cast<size_t>(i)];
+            const double num = c.b0 * c.b0 + c.b1 * c.b1 + c.b2 * c.b2 +
+                               2.0 * (c.b0 * c.b1 + c.b1 * c.b2) * c1 + 2.0 * c.b0 * c.b2 * c2;
+            const double den =
+                1.0 + c.a1 * c.a1 + c.a2 * c.a2 + 2.0 * (c.a1 + c.a1 * c.a2) * c1 + 2.0 * c.a2 * c2;
+            product *= std::max(num, 0.0) / std::max(den, 1e-300);
+        }
+        out[k] = static_cast<float>(power ? product : std::sqrt(product));
+    }
+}
+
+void Eq::applyPlaced(Placement place, const float* gain, float* ll, float* lr, float* rl, float* rr,
+                     int bins) const noexcept
+{
+    // The band after what's there: its gains on its placement, as a 2x2 matrix per bin (left and
+    // right out from left and right in), so left/right and mid/side bands share one frame.
+    switch (place)
+    {
+    case Placement::Stereo:
+        for (int k = 0; k < bins; ++k)
+            ll[k] *= gain[k], lr[k] *= gain[k], rl[k] *= gain[k], rr[k] *= gain[k];
+        break;
+    case Placement::Left:
+        for (int k = 0; k < bins; ++k)
+            ll[k] *= gain[k], lr[k] *= gain[k];
+        break;
+    case Placement::Right:
+        for (int k = 0; k < bins; ++k)
+            rl[k] *= gain[k], rr[k] *= gain[k];
+        break;
+    case Placement::Mid:
+    case Placement::Side:
+        // Mid: l' = (g+1)/2 l + (g-1)/2 r; side: l' = (1+g)/2 l + (1-g)/2 r (and mirrored for r').
+        for (int k = 0; k < bins; ++k)
+        {
+            const float a = 0.5f * (1.0f + gain[k]);
+            const float c = place == Placement::Mid ? 0.5f * (gain[k] - 1.0f) : 0.5f * (1.0f - gain[k]);
+            const float l0 = ll[k], l1 = lr[k], r0 = rl[k], r1 = rr[k];
+            ll[k] = a * l0 + c * r0;
+            lr[k] = a * l1 + c * r1;
+            rl[k] = c * l0 + a * r0;
+            rr[k] = c * l1 + a * r1;
+        }
+        break;
+    }
+}
+
+bool Eq::respond(dsp::SpectralFilter::Frame& f) noexcept
+{
+    const auto& p = params();
+    const int bins = f.bins;
+    // Rebuilt when something moved: a band's design or fade, Delta, or a spectral band (always).
+    const double delta = linear_ ? deltaMix_.current() : 0.0;
+    bool stale = responseStale_ || delta != respondedDelta_;
+    for (const auto& b : bands_)
+        stale = stale || b.spectral || static_cast<float>(b.mix.current()) != b.respondedMix;
+    if (!stale)
+        return false;
+    responseStale_ = false;
+    respondedDelta_ = delta;
+
+    std::fill_n(f.ll, bins, 1.0f);
+    std::fill_n(f.rr, bins, 1.0f);
+    std::fill_n(f.lr, bins, 0.0f);
+    std::fill_n(f.rl, bins, 0.0f);
+    if (delta > 0.0)
+    {
+        std::fill_n(staticLl_.data(), bins, 1.0f);
+        std::fill_n(staticRr_.data(), bins, 1.0f);
+        std::fill_n(staticLr_.data(), bins, 0.0f);
+        std::fill_n(staticRl_.data(), bins, 0.0f);
+    }
+    spectralDisplay_.fill(0.0f);
+    const float scale = p.get(Scale) * 0.01f;
+    const float norm =
+        16.0f / (static_cast<float>(engine_.frameLength()) * static_cast<float>(engine_.frameLength()));
+    bool haveInput = false, haveSide = false; // in linear phase the engine hears the input itself
+    const std::complex<float>* inputL = detectL_.data();
+    const std::complex<float>* inputR = detectR_.data();
+
+    for (int i = 0; i < numBands; ++i)
+    {
+        auto& b = bands_[static_cast<size_t>(i)];
+        const auto mix = static_cast<float>(b.mix.current());
+        b.respondedMix = mix;
+        if (mix <= 0.0f)
+            continue;
+        float* gain = rowA_.data();
+        bool shaped = false;
+        // Linear phase: every band's magnitude, at its Gain and where its dynamics moved it.
+        const bool flat = b.flat && b.dynDb == 0.0f;
+        if (linear_ && !flat)
+        {
+            if (b.magnitudeOf != b.designs)
+            {
+                magnitudeOf(b.sections, b.magnitude.data(), bins);
+                b.magnitudeOf = b.designs;
+            }
+            for (int k = 0; k < bins; ++k)
+                gain[k] = 1.0f + mix * (b.magnitude[static_cast<size_t>(k)] - 1.0f);
+            shaped = true;
+        }
+        // A spectral band: each frequency on its own, from its trigger's spectrum.
+        if (b.spectral)
+        {
+            const bool fromSide = b.trigger == TriggerSource::Sidechain && sidechainConnected_;
+            if (fromSide && !haveSide)
+            {
+                engine_.analyse(scRingL_.data(), scRingR_.data(), ringMask_, engine_.samplesIn(),
+                                sideL_.data(), sideR_.data());
+                haveSide = true;
+            }
+            if (!fromSide && !haveInput && linear_)
+            {
+                inputL = f.left();
+                inputR = f.right();
+                haveInput = true;
+            }
+            if (!fromSide && !haveInput)
+            {
+                engine_.analyse(inRingL_.data(), inRingR_.data(), ringMask_, engine_.samplesIn(),
+                                detectL_.data(), detectR_.data());
+                haveInput = true;
+            }
+            const auto* xl = fromSide ? sideL_.data() : inputL;
+            const auto* xr = fromSide ? sideR_.data() : inputR;
+            float* power = rowB_.data();
+            for (int k = 0; k < bins; ++k)
+            {
+                switch (b.place)
+                {
+                case Placement::Stereo:
+                    power[k] = std::max(std::norm(xl[k]), std::norm(xr[k]));
+                    break;
+                case Placement::Left:
+                    power[k] = std::norm(xl[k]);
+                    break;
+                case Placement::Right:
+                    power[k] = std::norm(xr[k]);
+                    break;
+                case Placement::Mid:
+                    power[k] = std::norm(0.5f * (xl[k] + xr[k]));
+                    break;
+                case Placement::Side:
+                    power[k] = std::norm(0.5f * (xl[k] - xr[k]));
+                    break;
+                }
+                power[k] *= norm;
+            }
+            // Where it may act: its range, as its trigger hears it.
+            float* weight = rowC_.data();
+            if (b.triggerFilter)
+                magnitudeOf({.coeffs = {*b.triggerFilter}, .count = 1}, weight, bins, /*power*/ true);
+            else
+                std::fill_n(weight, bins, 1.0f);
+            const dsp::SpectralDynamics::Settings settings{.sampleRate = sampleRate_,
+                                                           .fftSize = engine_.fftSize(),
+                                                           .padding =
+                                                               engine_.fftSize() / engine_.frameLength(),
+                                                           .frameSeconds = engine_.hop() / sampleRate_,
+                                                           .rangeDb = p.get(dynIndex(i, Range)),
+                                                           .autoThreshold = b.autoThreshold,
+                                                           .thresholdDb = p.get(dynIndex(i, Threshold)),
+                                                           .detail = p.get(spectralIndex(i, Detail)) * 0.01f,
+                                                           .attackMs = p.get(dynIndex(i, Attack)),
+                                                           .releaseMs = p.get(dynIndex(i, Release))};
+            float* moved = rowD_.data();
+            b.spectralDetector.process(power, weight, bins, settings, spectralScratch_, moved);
+            const float amount = scale * mix;
+            const float toGain = amount * std::log(10.0f) / 20.0f; // dB to gain, through exp
+            for (int k = 0; k < bins; ++k)
+            {
+                const float g = std::exp(toGain * moved[k]);
+                gain[k] = shaped ? gain[k] * g : g;
+            }
+            shaped = true;
+            // For the display: the most it moves near each point.
+            const bool boost = settings.rangeDb > 0.0f;
+            for (int j = 0; j < spectralPoints; ++j)
+            {
+                float most = 0.0f;
+                for (int k = pointLo_[static_cast<size_t>(j)]; k <= pointHi_[static_cast<size_t>(j)]; ++k)
+                    most = boost ? std::max(most, moved[k]) : std::min(most, moved[k]);
+                spectralDisplay_[static_cast<size_t>(j)] += amount * most;
+            }
+        }
+        if (shaped)
+            applyPlaced(b.place, gain, f.ll, f.lr, f.rl, f.rr, bins);
+
+        // Delta: the same bands held still (at their Gain, no dynamics, no spectral moves).
+        if (delta > 0.0 && !flat)
+        {
+            const float* still = b.magnitude.data();
+            if (b.dynDb != 0.0f)
+            {
+                magnitudeOf(b.staticSections, rowC_.data(), bins);
+                still = rowC_.data();
+            }
+            for (int k = 0; k < bins; ++k)
+                gain[k] = 1.0f + mix * (still[k] - 1.0f);
+            applyPlaced(b.place, gain, staticLl_.data(), staticLr_.data(), staticRl_.data(), staticRr_.data(),
+                        bins);
+        }
+    }
+    if (delta > 0.0)
+    {
+        const auto d = static_cast<float>(delta);
+        for (int k = 0; k < bins; ++k)
+        {
+            f.ll[k] -= d * staticLl_[static_cast<size_t>(k)];
+            f.lr[k] -= d * staticLr_[static_cast<size_t>(k)];
+            f.rl[k] -= d * staticRl_[static_cast<size_t>(k)];
+            f.rr[k] -= d * staticRr_[static_cast<size_t>(k)];
+        }
+    }
+    return true;
+}
+
 void Eq::process(ProcessContext& ctx) noexcept
 {
     const int n = ctx.numSamples;
     if (n <= 0 || ctx.output.numChannels == 0)
         return;
+    applyEngine(/*force*/ false);
     const int inChannels = std::min(ctx.input.numChannels, maxChannels);
     const int channels = std::min(ctx.output.numChannels, maxChannels);
     const int scChannels = std::min(ctx.sidechain.numChannels, maxChannels);
+    sidechainConnected_ = scChannels > 0;
 
     const int interval = grid_.interval();
     grid_.forEachSegment(n, [&](int offset, int length, bool isTick) noexcept {
@@ -689,19 +1137,32 @@ void Eq::process(ProcessContext& ctx) noexcept
             tick(false);
         const bool delta = deltaMix_.current() > 0.0f || deltaMix_.target() > 0.0f;
         std::array<float, 64> pre{}, post{}, side{}; // analyzer taps, pushed once per segment
+        // The segment, between the bands and the output: the engine (when on) runs in between.
+        std::array<double, 64> wetL{}, wetR{}, stillL{}, stillR{}, gains{}, deltas{}, listens{}, heardL{},
+            heardR{};
         for (int i = offset; i < offset + length; ++i)
         {
+            const auto j = static_cast<size_t>(i - offset);
             const double t = static_cast<double>(phase0 + (i - offset) + 1) / interval;
             const double inL = ctx.input.channel(0)[i];
             const double inR = inChannels > 1 ? ctx.input.channel(1)[i] : inL;
             double l = inL, r = inR, sl = inL, sr = inR; // sl, sr: the same bands held still (Delta)
-            pre[static_cast<size_t>(i - offset)] = static_cast<float>(0.5 * (l + r));
+            pre[j] = static_cast<float>(0.5 * (l + r));
             double scL = inL, scR = inR; // no sidechain: bands triggered by it listen to the input
             if (scChannels > 0)
             {
                 scL = ctx.sidechain.channel(0)[i];
                 scR = scChannels > 1 ? ctx.sidechain.channel(1)[i] : scL;
-                side[static_cast<size_t>(i - offset)] = static_cast<float>(0.5 * (scL + scR));
+                side[j] = static_cast<float>(0.5 * (scL + scR));
+            }
+            if (engineOn_)
+            {
+                // Kept for the spectral bands' detection, a frame at a time.
+                const auto at = static_cast<size_t>((ringPos_ + static_cast<long long>(j)) & ringMask_);
+                inRingL_[at] = static_cast<float>(inL);
+                inRingR_[at] = static_cast<float>(inR);
+                scRingL_[at] = static_cast<float>(scL);
+                scRingR_[at] = static_cast<float>(scR);
             }
 
             for (auto& b : bands_)
@@ -718,8 +1179,10 @@ void Eq::process(ProcessContext& ctx) noexcept
                         detect(b, inL, inR);
                 }
                 // Skip bands that are off, or flat and settled (never mid-ramp: a gain ramp can
-                // pass exactly through 0 dB). Entering idle clears the state, so resuming is clean.
-                const bool skip = mix <= 0.0 || (b.flat && !b.gain.isSmoothing() && b.dynDb == 0.0f);
+                // pass exactly through 0 dB), or in the engine (linear phase). Entering idle clears
+                // the state, so resuming is clean.
+                const bool skip =
+                    linear_ || mix <= 0.0 || (b.flat && !b.gain.isSmoothing() && b.dynDb == 0.0f);
                 if (skip)
                 {
                     if (!b.idle)
@@ -795,19 +1258,13 @@ void Eq::process(ProcessContext& ctx) noexcept
                     place(runStatic, sl, sr);
             }
 
-            const double g = output_.next() * autoGain_.next();
-            // Delta: only what the dynamics changed.
+            gains[j] = output_.next() * autoGain_.next();
             if (delta)
-            {
-                const double d = deltaMix_.next();
-                l -= d * sl;
-                r -= d * sr;
-            }
-            l *= g;
-            r *= g;
+                deltas[j] = deltaMix_.next();
             // Listen: only a band's range of the input, on its placement.
             if (const double m = listenMix_.next(); m > 0.0 && listening_ >= 0)
             {
+                listens[j] = m;
                 const auto& lb = bands_[static_cast<size_t>(listening_)];
                 const auto filter = [this](int ch, double x)
                 {
@@ -834,13 +1291,72 @@ void Eq::process(ProcessContext& ctx) noexcept
                     hl = filter(1, 0.5 * (inL - inR)), hr = -hl;
                     break;
                 }
-                l += m * (hl - l);
-                r += m * (hr - r);
+                heardL[j] = hl;
+                heardR[j] = hr;
+            }
+            wetL[j] = l;
+            wetR[j] = r;
+            stillL[j] = sl;
+            stillR[j] = sr;
+        }
+
+        if (engineOn_)
+        {
+            // The spectral engine: linear phase, or the spectral bands after the others.
+            std::array<float, 64> el{}, er{};
+            for (int j = 0; j < length; ++j)
+            {
+                el[static_cast<size_t>(j)] = static_cast<float>(wetL[static_cast<size_t>(j)]);
+                er[static_cast<size_t>(j)] = static_cast<float>(wetR[static_cast<size_t>(j)]);
+            }
+            engine_.process(el.data(), er.data(), length,
+                            [this](dsp::SpectralFilter::Frame& f) noexcept { return respond(f); });
+            // Delta's still bands (zero latency) and Listen, and their fades, delayed to line up
+            // with it.
+            const long long latency = engine_.latencySamples();
+            const auto delayed = [this, latency](std::vector<float>& line, long long at, double x)
+            {
+                line[static_cast<size_t>(at & ringMask_)] = static_cast<float>(x);
+                return static_cast<double>(line[static_cast<size_t>((at - latency) & ringMask_)]);
+            };
+            for (int j = 0; j < length; ++j)
+            {
+                const auto i = static_cast<size_t>(j);
+                const long long at = ringPos_ + j;
+                wetL[i] = el[i];
+                wetR[i] = er[i];
+                stillL[i] = delayed(delayStaticL_, at, stillL[i]);
+                stillR[i] = delayed(delayStaticR_, at, stillR[i]);
+                heardL[i] = delayed(delayListenL_, at, heardL[i]);
+                heardR[i] = delayed(delayListenR_, at, heardR[i]);
+                deltas[i] = delayed(delayDeltaMix_, at, deltas[i]);
+                listens[i] = delayed(delayListenMix_, at, listens[i]);
+            }
+            ringPos_ += length;
+        }
+
+        for (int i = offset; i < offset + length; ++i)
+        {
+            const auto j = static_cast<size_t>(i - offset);
+            double l = wetL[j], r = wetR[j];
+            const double g = gains[j];
+            // Delta: only what the dynamics changed (in linear phase, the engine's response is).
+            if (delta && !linear_)
+            {
+                l -= deltas[j] * stillL[j];
+                r -= deltas[j] * stillR[j];
+            }
+            l *= g;
+            r *= g;
+            if (const double m = listens[j]; m > 0.0)
+            {
+                l += m * (heardL[j] - l);
+                r += m * (heardR[j] - r);
             }
             ctx.output.channel(0)[i] = static_cast<float>(l);
             if (channels > 1)
                 ctx.output.channel(1)[i] = static_cast<float>(r);
-            post[static_cast<size_t>(i - offset)] = static_cast<float>(0.5 * (l + r));
+            post[j] = static_cast<float>(0.5 * (l + r));
         }
         analysis().fifo(PreFifo).push(pre.data(), static_cast<size_t>(length));
         analysis().fifo(PostFifo).push(post.data(), static_cast<size_t>(length));
@@ -857,6 +1373,7 @@ void Eq::process(ProcessContext& ctx) noexcept
                 frame[static_cast<size_t>(k)] = b.dynDb;
                 frame[static_cast<size_t>(numBands + k)] = b.dynamic ? b.levelDb : -120.0f;
             }
+            std::copy(spectralDisplay_.begin(), spectralDisplay_.end(), frame.begin() + 2 * numBands);
             analysis().fifo(DynamicsFifo).pushFrame(frame.data(), frame.size());
         }
     });

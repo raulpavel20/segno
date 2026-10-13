@@ -42,6 +42,7 @@ Roles are derived from the base palette in `Theme.cpp` (`deriveRoles`), the only
 | `valueHot` | value, lifted 15 % | A value arc or fill while hovered or dragged |
 | `valueText` | textPrimary at 85 % | Knob values at rest |
 | `warning` | meterHot at 80 % | Inline warnings ("No instrument") |
+| `warningFill` | meterHot at `fillAlpha` | Behind a warning's text: a module's latency badge ("+107 ms", `warning` on it) |
 | `overlay` | surface3 at 90 % | Diagnostic overlays (frame statistics) |
 | `automation` | effectStart | The automation indicator on controls (C4) |
 | `shadow` | black at 50 % | The one shadow, under popovers |

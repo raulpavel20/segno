@@ -37,12 +37,17 @@ Json projectResultSchema()
 
 Json moduleResultSchema()
 {
-    return result({{"id", string("The module's id")},
-                   {"name", string("")},
-                   {"type", string("Its type (\"plugin\" for third-party plugins)")},
-                   {"on", boolean("")},
-                   {"parameters", arrayOf(result({{"id", string("")}, {"name", string("")}}), "", std::nullopt)}},
-                  {"id", "name", "type", "on", "parameters"});
+    return result(
+        {{"id", string("The module's id")},
+         {"name", string("")},
+         {"type", string("Its type (\"plugin\" for third-party plugins)")},
+         {"on", boolean("")},
+         {"latencyMs",
+          number("How late it plays its track (ms): the DAW keeps the tracks in time, but what's played "
+                 "live through it is heard that late. 0 for most modules; a linear-phase or spectral EQ "
+                 "about 50 to 220")},
+         {"parameters", arrayOf(result({{"id", string("")}, {"name", string("")}}), "", std::nullopt)}},
+        {"id", "name", "type", "on", "latencyMs", "parameters"});
 }
 } // namespace tools
 
@@ -68,16 +73,20 @@ void addReadTools(Registry& registry, ToolEnv& env)
          object({{"clip", id(IdKind::Clip, "The clip")}}, {"clip"}), clipResultSchema(), reading},
         [&env](const Json& args, CallContext&) { return ToolResult::ok(clipJson(env, clip(env, args["clip"]), true)); }));
 
-    registry.tools.push_back(make(
-        env,
-        {"get_module", "Get a module",
-         "One module in a chain: type, on/off, every parameter (id, name, value, text, unit, range, default), its "
-         "panel sections and whether they're collapsed, and its other state (such as the Sampler's sample).",
-         object({{"module", id(IdKind::Module, "The module")}}, {"module"}), moduleResultSchema(), reading},
-        [&env](const Json& args, CallContext&) {
-            const auto [slot, owner] = module(env, args["module"]);
-            return ToolResult::ok(moduleJson(env, slot, owner));
-        }));
+    registry.tools.push_back(make(env,
+                                  {"get_module", "Get a module",
+                                   "One module in a chain: type, on/off, the delay it adds (latencyMs), "
+                                   "every parameter (id, name, value, text, "
+                                   "unit, range, default), its panel sections and whether they're collapsed, "
+                                   "and its other state (such as the "
+                                   "Sampler's sample).",
+                                   object({{"module", id(IdKind::Module, "The module")}}, {"module"}),
+                                   moduleResultSchema(), reading},
+                                  [&env](const Json& args, CallContext&)
+                                  {
+                                      const auto [slot, owner] = module(env, args["module"]);
+                                      return ToolResult::ok(moduleJson(env, slot, owner));
+                                  }));
 
     registry.tools.push_back(make(
         env,

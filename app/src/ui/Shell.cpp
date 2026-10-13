@@ -2194,6 +2194,21 @@ void Shell::showWarning(const juce::String& message)
     repaint();
 }
 
+void Shell::checkDelay()
+{
+    // 20 ms and more: a lookahead of a few ms isn't worth a word.
+    if (const auto delay = session_.untoldDelay(20.0))
+    {
+        const auto ms = juce::String(juce::roundToInt(delay->ms)) + " ms";
+        const auto track = juce::String(delay->track);
+        showWarning(juce::String(delay->module) + " on " + track + ": " + ms +
+                    " of delay. The tracks stay in time; "
+                    "what you play live on " +
+                    track + " is heard " + ms + " late.");
+        session_.markDelayTold();
+    }
+}
+
 void Shell::showToast(const juce::String& message, const juce::String& action, std::function<void()> run)
 {
     showWarning(message);
@@ -2283,6 +2298,11 @@ void Shell::onFrame(double timestamp)
         warning_.clear();
         toastClick_.setVisible(false);
         repaint();
+    }
+    if (const double now = juce::Time::getMillisecondCounterHiRes(); now >= nextDelayCheck_)
+    {
+        nextDelayCheck_ = now + 500.0;
+        checkDelay();
     }
     // An export running with its panel closed: its progress along the top bar (export.md §7).
     if (exportPanel_.progress() || exportProgressShown_)

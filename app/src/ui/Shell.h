@@ -40,6 +40,9 @@ public:
     [[nodiscard]] ExportPopover& exportPanel() noexcept { return exportPanel_; }
     /// The warning shown last (tests).
     [[nodiscard]] const juce::String& lastWarning() const noexcept { return warning_; }
+    /// The first time a module in the project delays its track enough to hear playing live (a
+    /// linear-phase EQ), says so once (devices/eq/SPEC.md, "Latency"). Checked twice a second.
+    void checkDelay();
 
     /// Runs `then` once unsaved changes are saved or discarded; nothing if cancelled. The one
     /// modal dialog the UI principles allow besides confirming destruction.
@@ -283,6 +286,7 @@ private:
 
     juce::String warning_;
     double warningUntil_ = 0.0;
+    double nextDelayCheck_ = 0.0; // ms
     // A toast's action ("Show"), and the click that runs it while it shows.
     juce::String toastAction_;
     std::function<void()> toastRun_;

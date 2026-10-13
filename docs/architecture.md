@@ -32,7 +32,9 @@ libs/dsp        DSP building blocks: filters, oscillators, oversampling (linear 
                 phase for a few samples' latency; M3 B6), ADAA shapers,
                 smoothing, the dynamics core (gain curves, detection, attack/release, lookahead,
                 true peak, BS.1770 loudness; M2 A1), the modulation core (a delay line read
-                between samples while it moves, a feedback path, LFOs locked to the song; M3 A2)
+                between samples while it moves, a feedback path, LFOs locked to the song; M3 A2),
+                the spectral engine (a response that changes frame by frame with no phase change,
+                and per-frequency dynamics; the EQ's linear phase and spectral bands, M3 B8)
                 (+ reused libraries, see ADR 0004)
 libs/device     Device API: ParamSpec / ParamStore, EventList, State (JSON), Registry, AnalysisBus,
                 VoiceManager, AssetHandoff (heavy data to the audio thread)

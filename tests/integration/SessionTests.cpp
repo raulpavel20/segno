@@ -250,6 +250,49 @@ TEST_CASE("a latency-changing setting reaches the device at once (ADR 0020)", "[
     CHECK(device->latencySamples() == 0);
 }
 
+TEST_CASE("a module's delay: reported in ms, and the project told of a long one once", "[integration]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    tracktion::Engine engine{"fd-integration-tests", nullptr, fd::engine::makeEngineBehaviour()};
+    fd::engine::registerDevices(engine);
+    fd::engine::Session session(engine);
+    const auto track = session.snapshot()->tracks[0].id;
+    const auto setChoice = [&](std::uint64_t module, std::string_view id, float value)
+    {
+        auto handle = session.openDevice(module);
+        REQUIRE(handle != nullptr);
+        auto& context = handle->context();
+        const auto at = static_cast<size_t>(std::distance(
+            context.info.params.begin(), std::find_if(context.info.params.begin(), context.info.params.end(),
+                                                      [id](const auto& p) { return p.id == id; })));
+        REQUIRE(at < context.info.params.size());
+        context.params.beginGesture(at);
+        context.params.setPlain(at, value);
+        context.params.endGesture(at);
+    };
+    // A compressor looking 10 ms ahead: a delay, too short to be worth a word.
+    const auto comp = session.addDevice(track, "fd:compressor");
+    setChoice(comp, "lookahead", 2.0f);
+    CHECK(session.moduleLatencyMs(comp) == Approx(10.0).margin(0.1));
+    CHECK_FALSE(session.untoldDelay(20.0).has_value());
+
+    // An EQ in linear phase (Medium): about 107 ms at 48 kHz, 116 at 44.1.
+    const auto eq = session.addDevice(track, "fd:eq");
+    CHECK(session.moduleLatencyMs(eq) == 0.0);
+    setChoice(eq, "phase", 1.0f);
+    CHECK(session.moduleLatencyMs(eq) > 100.0);
+    CHECK(session.moduleLatencyMs(eq) < 120.0);
+    const auto notice = session.untoldDelay(20.0);
+    REQUIRE(notice.has_value());
+    CHECK(notice->module == "EQ");
+    CHECK(notice->ms == session.moduleLatencyMs(eq));
+    // Told once: never again in this project, and no undo step for it.
+    const auto steps = session.undoDescription();
+    session.markDelayTold();
+    CHECK_FALSE(session.untoldDelay(20.0).has_value());
+    CHECK(session.undoDescription() == steps);
+}
+
 #if defined(FD_UTILITY_VST3_PATH)
 TEST_CASE("a scanned third-party plugin can be added to a chain", "[integration]")
 {

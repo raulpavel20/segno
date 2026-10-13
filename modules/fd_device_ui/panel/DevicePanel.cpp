@@ -66,6 +66,8 @@ int settingWidth(juce::Component& c)
 {
     if (dynamic_cast<SidechainPicker*>(&c) != nullptr)
         return SidechainPicker::width;
+    if (auto* badge = dynamic_cast<LatencyBadge*>(&c))
+        return badge->preferredWidth(); // none while there's no delay
     if (auto* combo = dynamic_cast<juce::ComboBox*>(&c))
     {
         float widest = 0.0f;
@@ -182,6 +184,21 @@ ParamComboBox& DevicePanel::addHeaderCombo(size_t param)
     const auto& spec = context_.info.params[param];
     headerCaptions_.push_back(juce::String(std::string(spec.shortName.empty() ? spec.name : spec.shortName)));
     return c;
+}
+
+LatencyBadge& DevicePanel::showLatency(std::function<double()> latencyMs)
+{
+    auto& badge = adopt(
+        std::make_unique<LatencyBadge>(juce::String(std::string(context_.info.name)), std::move(latencyMs)),
+        *this);
+    headerControls_.push_back(&badge);
+    headerCaptions_.push_back({}); // it says what it is
+    badge.onChange = [this]
+    {
+        resized();
+        repaint();
+    };
+    return badge;
 }
 
 void DevicePanel::setMeters(std::vector<std::pair<juce::Component*, juce::String>> meters)
@@ -314,9 +331,12 @@ int DevicePanel::headerMinimumWidth() const
     w += std::ceil(
         juce::GlyphArrangement::getStringWidth(nameFont(), juce::String(std::string(context_.info.name))));
     for (size_t i = 0; i < headerControls_.size(); ++i)
-        w += static_cast<float>(settingWidth(*headerControls_[i]) + kSettingsGap) +
-             std::ceil(juce::GlyphArrangement::getStringWidth(captionFont(), headerCaptions_[i])) +
-             kCaptionGap;
+        if (const int width = settingWidth(*headerControls_[i]); width > 0)
+            w += static_cast<float>(width + kSettingsGap) +
+                 (headerCaptions_[i].isEmpty()
+                      ? 0.0f
+                      : std::ceil(juce::GlyphArrangement::getStringWidth(captionFont(), headerCaptions_[i])) +
+                            kCaptionGap);
     if (presetBar_ != nullptr)
         w += static_cast<float>(presetBar_->minimumWidth() + kSettingsGap);
     return roundUpToGrid(w);
@@ -396,11 +416,17 @@ void DevicePanel::resized()
     {
         auto* c = headerControls_[i];
         const int width = settingWidth(*c);
-        c->setVisible(true);
+        c->setVisible(width > 0); // a latency badge while there's no delay: nothing, and no gap
+        if (width <= 0)
+            continue;
         c->setBounds(h.removeFromRight(width).withSizeKeepingCentre(width, grid.row));
-        h.removeFromRight(kCaptionGap);
-        const int caption = static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(captionFont(), headerCaptions_[i])));
-        captionAreas_[i] = h.removeFromRight(caption);
+        if (headerCaptions_[i].isNotEmpty())
+        {
+            h.removeFromRight(kCaptionGap);
+            const int caption = static_cast<int>(
+                std::ceil(juce::GlyphArrangement::getStringWidth(captionFont(), headerCaptions_[i])));
+            captionAreas_[i] = h.removeFromRight(caption);
+        }
         h.removeFromRight(kSettingsGap);
     }
     // The presets, right-aligned before the settings; the field takes the room the name leaves.
