@@ -1,6 +1,6 @@
 # Wavetable Synth: device spec
 
-- **Status:** Approved by the product owner (2026-10-13, with every recommendation of W1–W19 and the pages of [ADR 0051](../../docs/decisions/0051-pages-for-very-wide-modules.md)); IDs are permanent. [ADR 0050](../../docs/decisions/0050-the-wavetable-synth-goes-beyond-live.md) accepted with it: the product owner asked for a wavetable synth that is full-featured, modern and innovative, past ADR 0011's "instruments stay close to Live's". Step 1 (the synth) in progress.
+- **Status:** Approved by the product owner (2026-10-13, with every recommendation of W1–W19 and the pages of [ADR 0051](../../docs/decisions/0051-pages-for-very-wide-modules.md)); IDs are permanent. [ADR 0050](../../docs/decisions/0050-the-wavetable-synth-goes-beyond-live.md) accepted with it: the product owner asked for a wavetable synth that is full-featured, modern and innovative, past ADR 0011's "instruments stay close to Live's". Step 1 (the synth) built (2026-10-13): what building settled is under "Settled while building (step 1)"; awaiting the product owner's sign-off.
 - **Type:** Instrument
 - **Tier / milestone:** Tier 2, moved up to M3 by the product owner (2026-10-13; P1 of the M3 plan, before the rest of M3)
 - **Live target:** Wavetable, with Meld's following of the key and scale. References only ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)); this device goes well beyond them (W1).
@@ -424,11 +424,26 @@ Dated listening notes from the product owner, and the measurable checks derived 
   A warped cycle takes 7–70 µs to render (high to low notes), an unwarped one 2.5–12 µs. The CPU readout (W13) shows what a patch takes.
 - **Memory:** about 12.5 MB an instance, mostly the voices' cycles (4 per oscillator, each with the one it fades from). Making them only for the voices and spreads in use is for later.
 - **The latency reported is 0 at every Quality.** The way back down (`dsp::HalfbandDecimator`, the Filter's minimum-phase half-band, a pair of samples at a time) delays the sound by 1.5 samples at Normal and 2.2 at High (under 0.05 ms at 48 kHz), and only while a warp from another source is on. Reporting it would make the latency change with the warp chosen.
+- **Tables:** 63 factory tables in eight categories (Basic, Analog, Digital, Harmonic, Formant, FM, Texture, Spectral), all made in-house by the recipes in `dsp/FactoryTables.cpp`; none from AKWF yet (W8's "about 80" with AKWF waits for step 2's editor, which makes building tables from single cycles easy). Import reads WAV (with `clm `, `srge`/`srgo` or `uhWT` frame data) and `.wt`, from the table's menu or `set_wavetable`; the browser's Wavetables place comes with step 2.
+- **The spectral warps** (Formant Shift to Shepard) come with step 2: the warp menus list them greyed out until then.
+- **The panel, as built** (about 1 180 px, the Modulation page's 21 columns):
+  - **Sources [4]:** each row a source's On (a dot: a toggle without text), its name (a `ui::Selector`: which the sections after it show) and its Level; Filter Routing below.
+  - **Osc [8]:** as specified; Sub and Noise show their wave (the sub's from the same shape function the audio uses, a moment of the noise itself) and their controls in the same cells.
+  - **Warp [4]:** each warp's type (its name inside the box: "Warp 1  Bend +"), "From" and Amount; the cycle the warps make below, with Remap's curve edited on it while chosen (one display for both warps, 4 × 2, not a row each).
+  - **Unison [4]:** four knobs, Mode and Stack named inside their boxes, and the two spreads as bars named Position and Warp.
+  - **Filter [6]**, **Envelopes [7]** (the curves as bars beside the drawn envelope, Mode and the amp's Velocity), **Voice [4]**.
+  - **LFO [6]:** 1–8 and R1–R2 as a selector; the shape (points dragged, a double-click adds or removes one, a segment dragged bends it, named shapes from the corner's menu); Rate, Phase, Smooth, Fade In, Sync, Mode, Per Note.
+  - **Matrix [11]:** five routes show; the wheel scrolls the rest, and the section's title says which ("Matrix: 3–7 of 7"). Add in the caption row; any control of a route's row offers Remove route.
+  - **Macros [4]:** a macro's name is its handle (no glyph: "Macro 1" needs the whole column), renamed from its menu.
+  - **Header:** Quality, and the CPU it takes (a `HeaderReadout`).
+  - Combos say what they set inside their box where nothing else names them (`ParamComboBox::setInlineName`); the warp source's short name is "From" (a display name: IDs unchanged).
+- **40 factory presets** (pads, leads, basses, keys and plucks, effects), from `presets/recipes.json`, the A/B cases among them; tags from presets.md's vocabulary.
+- **Assistants:** `list_wavetables` and `set_wavetable` (mcp.md), and `get_module` lists the pages and the one showing.
 
 ## Sign-off
 
-- [ ] Automated: unit, conformance and golden tests; validators
-- [ ] Layout lint passes (`fd_panel_tests`)
-- [ ] Snapshots reviewed (100% / 200%; expanded, collapsed, folded)
+- [x] Automated: unit, conformance and golden tests; validators (step 1, 2026-10-13: pluginval at strictness 10, clap-validator; ASan and UBSan)
+- [x] Layout lint passes (`fd_panel_tests`), every page
+- [x] Snapshots reviewed (100% / 200%; expanded, collapsed, folded; every page, and Sub, Noise, a random source, a full matrix)
 - [ ] Sound signed off by the product owner (date):
 - [ ] Feel signed off by the product owner (date):
