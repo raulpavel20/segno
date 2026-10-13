@@ -56,6 +56,9 @@ public:
     /// Lights the knob where a dragged source would land: a ring in `active` over its sweep.
     void setDropTarget(bool target);
     [[nodiscard]] bool isDropTarget() const noexcept { return dropTarget_; }
+    /// While a source is dragged, a knob it can move shows a faint ring over its sweep.
+    void setDropCandidate(bool candidate);
+    [[nodiscard]] bool isDropCandidate() const noexcept { return dropCandidate_; }
     /// The square the ring's outer edge fits in (for the layout lint): inside the knob, clear of
     /// its name and value.
     [[nodiscard]] juce::Rectangle<float> ringBounds() const;
@@ -140,7 +143,8 @@ private:
     AutomationState automation_ = AutomationState::None;
     bool dragging_ = false;
     std::optional<Ring> ring_;
-    bool dropTarget_ = false, sourceHandle_ = false, handleLit_ = false, handleHovered_ = false;
+    bool dropTarget_ = false, dropCandidate_ = false, sourceHandle_ = false, handleLit_ = false,
+         handleHovered_ = false;
     enum class Press
     {
         Value,

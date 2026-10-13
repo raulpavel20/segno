@@ -195,6 +195,28 @@ std::optional<int> Modulation::routeOfParam(size_t param) const
     return static_cast<int>((param - first) / W::RouteParamCount);
 }
 
+std::vector<ui::ModulationModel::SourceInfo> Modulation::sources() const
+{
+    // In the matrix's order, by group; a macro by its name.
+    using S = W::Source;
+    const auto* s = synth(ctx_);
+    std::vector<SourceInfo> out;
+    for (int id = 1; id < static_cast<int>(S::Count); ++id)
+    {
+        const auto source = static_cast<S>(id);
+        const char* group = source < S::Lfo1       ? "Envelopes"
+                            : source < S::Random1  ? "LFOs"
+                            : source < S::Macro1   ? "Random"
+                            : source < S::Velocity ? "Macros"
+                                                   : "Playing";
+        auto name = sourceName(id);
+        if (source >= S::Macro1 && source < S::Velocity && s != nullptr)
+            name = juce::String(s->macroName(id - static_cast<int>(S::Macro1)));
+        out.push_back({id, name, group});
+    }
+    return out;
+}
+
 std::vector<int> Modulation::listed() const
 {
     std::vector<int> out;
@@ -936,6 +958,7 @@ void EnvelopeEditor::setEnvelope(int n)
 {
     env_ = n;
     handle_.setSource(static_cast<int>(W::Source::AmpEnv) + n);
+    resized(); // the chip's name changed
     last_.clear();
     refresh();
     repaint();
@@ -943,10 +966,12 @@ void EnvelopeEditor::setEnvelope(int n)
 
 void EnvelopeEditor::resized()
 {
-    // The source's handle in the top-right corner, inside the well.
+    // The source's handle, a chip, in the top-right corner, inside the well.
     const int size = ui::Theme::current().deviceGrid.sourceHandle;
-    handle_.setBounds(
-        getLocalBounds().reduced(static_cast<int>(inset())).removeFromTop(size).removeFromRight(size));
+    handle_.setBounds(getLocalBounds()
+                          .reduced(static_cast<int>(inset()))
+                          .removeFromTop(size)
+                          .removeFromRight(handle_.preferredWidth()));
 }
 
 float EnvelopeEditor::param(W::EnvParam p) const
@@ -1175,6 +1200,7 @@ void ShapeEditor::setSource(int n)
     handle_.setSource(isLfo() ? static_cast<int>(W::Source::Lfo1) + n
                               : static_cast<int>(W::Source::Random1) + n - W::numLfos);
     shapes_.setVisible(isLfo());
+    resized(); // the chip's name changed
     setTooltip(isLfo()
                    ? "Drag a point; double-click to add or remove one; drag a segment up or down to bend it"
                    : "How the random source moves");
@@ -1186,13 +1212,11 @@ void ShapeEditor::setSource(int n)
 
 void ShapeEditor::resized()
 {
-    // The handle in the top-right corner, the shapes' menu before it.
-    const auto& t = ui::Theme::current();
-    const int size = t.deviceGrid.sourceHandle;
+    // The handle, a chip, in the top-right corner; the shapes' menu at the left.
+    const int size = ui::Theme::current().deviceGrid.sourceHandle;
     auto top = getLocalBounds().reduced(static_cast<int>(inset())).removeFromTop(size);
-    handle_.setBounds(top.removeFromRight(size));
-    top.removeFromRight(t.shell.itemGap);
-    shapes_.setBounds(top.removeFromRight(size));
+    handle_.setBounds(top.removeFromRight(handle_.preferredWidth()));
+    shapes_.setBounds(top.removeFromLeft(size));
 }
 
 juce::Rectangle<float> ShapeEditor::plot() const
@@ -1486,7 +1510,8 @@ void MatrixList::paint(juce::Graphics& g)
     {
         g.setColour(t.textTertiary);
         g.setFont(ui::font(ui::TextStyle::Caption));
-        g.drawText("Drag a source's handle onto a knob, or add a route with +",
+        g.drawText(juce::String::fromUTF8("Drag a source\u2019s chip onto a knob, right-click a knob: "
+                                          "Modulate with, or add a route with +"),
                    ui::PanelSection::cellBounds(0, 1, 11, kMatrixRows), juce::Justification::centred, false);
     }
 }

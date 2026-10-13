@@ -10,6 +10,44 @@ juce::String tooltipFor(const ParamSpec& spec)
 }
 } // namespace
 
+void addModulationItems(ModulationModel& m, size_t index, juce::PopupMenu& menu,
+                        const std::function<std::function<void()>(std::function<void()>)>& whileAlive)
+{
+    // Its routes, each with Remove.
+    for (const auto& r : m.routes())
+        if (r.param == index)
+        {
+            juce::PopupMenu route;
+            route.addItem("Remove", whileAlive([&m, r] { m.removeRoute(r.index); }));
+            menu.addSubMenu(m.sourceName(r.source) + juce::String::fromUTF8(" \u2192 ") +
+                                juce::String(juce::roundToInt(r.amount * 100.0f)) + " %",
+                            route);
+        }
+    // A route's own control (a matrix row's): remove the route.
+    if (const auto route = m.routeOfParam(index))
+        menu.addItem("Remove route", whileAlive([&m, r = *route] { m.removeRoute(r); }));
+    // Modulate with: the sources by group.
+    if (!m.canModulate(index))
+        return;
+    const auto sources = m.sources();
+    if (sources.empty())
+        return;
+    juce::PopupMenu with;
+    if (m.isFull())
+        with.addItem("The matrix is full: remove a route first", false, false, [] {});
+    else
+        for (size_t i = 0; i < sources.size();)
+        {
+            juce::PopupMenu group;
+            const auto name = sources[i].group;
+            for (; i < sources.size() && sources[i].group == name; ++i)
+                group.addItem(sources[i].name,
+                              whileAlive([&m, id = sources[i].id, index] { m.addRoute(id, index); }));
+            with.addSubMenu(name, group);
+        }
+    menu.addSubMenu("Modulate with", with);
+}
+
 void showParamMenu(DeviceUiContext& context, size_t index, juce::Component& control,
                    const std::function<void(juce::PopupMenu&)>& extra)
 {
@@ -35,28 +73,13 @@ void showParamMenu(DeviceUiContext& context, size_t index, juce::Component& cont
         if (menu.getNumItems() > 0)
             menu.addSeparator();
     }
-    // Its routes (device-panels.md, "Modulation"), each with Remove.
-    if (auto* m = context.modulation)
+    // Its modulation (device-panels.md, "Modulation").
+    if (context.modulation != nullptr)
     {
-        bool any = false;
-        for (const auto& r : m->routes())
-            if (r.param == index)
-            {
-                juce::PopupMenu route;
-                route.addItem("Remove", whileAlive([m, r] { m->removeRoute(r.index); }));
-                menu.addSubMenu(m->sourceName(r.source) + juce::String::fromUTF8(" \u2192 ") +
-                                    juce::String(juce::roundToInt(r.amount * 100.0f)) + " %",
-                                route);
-                any = true;
-            }
-        if (any)
+        const int before = menu.getNumItems();
+        addModulationItems(*context.modulation, index, menu, whileAlive);
+        if (menu.getNumItems() > before)
             menu.addSeparator();
-        // A route's own control (a matrix row's): remove the route.
-        if (const auto route = m->routeOfParam(index))
-        {
-            menu.addItem("Remove route", whileAlive([m, r = *route] { m->removeRoute(r); }));
-            menu.addSeparator();
-        }
     }
     const auto def = context.info.params[index].def;
     menu.addItem("Reset to default", whileAlive([&params, index, def] {
@@ -188,6 +211,7 @@ void ParamKnob::refresh()
     {
         setRing(m->ringFor(index_, getValue()));
         setDropTarget(m->dropParam == index_);
+        setDropCandidate(m->draggedSource >= 0 && style() == Style::Rotary && m->canModulate(index_));
         if (source_ >= 0)
             setSourceHandle(true, m->hoveredSource == source_ || m->draggedSource == source_ ||
                                       m->movesHovered(source_));

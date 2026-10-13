@@ -4689,3 +4689,72 @@ TEST_CASE("the song row: a section copied and pasted at the playhead, cut and pa
     CHECK(findItem(menu, "Copy") != nullptr);
     CHECK(findItem(menu, "Paste") != nullptr);
 }
+
+TEST_CASE("modulation in the DAW: an envelope's handle dragged onto a knob makes a route through the session",
+          "[integration]")
+{
+    ShellFixture f;
+    f.shell->setSize(1800, 1000);
+    auto& s = *f.session;
+    const auto t0 = s.snapshot()->tracks[0].id;
+    const auto synth = s.addDevice(t0, "fd:wavetable");
+    REQUIRE(synth != 0);
+    s.updateSnapshotNow();
+    f.shell->arrangement().selectTrack(t0);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    auto& chain = f.shell->detail().chain();
+    const auto panels = findAll<fd::ui::DevicePanel>(chain);
+    REQUIRE(panels.size() == 1);
+    auto& panel = *panels[0];
+    panel.setPage(1, true); // Filter & Amp: the envelopes and the filter
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+
+    // The envelope's handle, and Filter 1's Cutoff knob, on the page shown.
+    const auto shown = [&panel](juce::Component* c)
+    {
+        for (; c != nullptr && c != &panel; c = c->getParentComponent())
+            if (!c->isVisible())
+                return false;
+        return c == &panel;
+    };
+    fd::ui::ModulationHandle* handle = nullptr;
+    for (auto* h : findAll<fd::ui::ModulationHandle>(panel))
+        if (shown(h))
+            handle = h;
+    REQUIRE(handle != nullptr);
+    const auto& info = fd::findDevice("wavetable")->info();
+    size_t cutoffParam = 0;
+    for (size_t i = 0; i < info.params.size(); ++i)
+        if (info.params[i].id == "filter1.cutoff")
+            cutoffParam = i;
+    fd::ui::ParamKnob* cutoff = nullptr;
+    for (auto* k : findAll<fd::ui::ParamKnob>(panel))
+        if (k->param() == cutoffParam && shown(k))
+            cutoff = k;
+    REQUIRE(cutoff != nullptr);
+
+    // Pressed on the handle, dragged over Cutoff, let go there: as a mouse does.
+    const auto from = handle->getLocalBounds().getCentre().toFloat();
+    const auto onCutoff = handle->getLocalPoint(cutoff, cutoff->getLocalBounds().getCentre()).toFloat();
+    handle->mouseDown(mouseEvent(*handle, from, from, false));
+    handle->mouseDrag(mouseEvent(*handle, onCutoff, from, true));
+    CHECK(cutoff->isDropTarget());
+    handle->mouseUp(mouseEvent(*handle, onCutoff, from, true));
+    s.updateSnapshotNow();
+
+    auto handleOf = s.openDevice(synth);
+    auto& params = handleOf->context().params;
+    size_t src = 0, dst = 0;
+    for (size_t i = 0; i < info.params.size(); ++i)
+    {
+        if (info.params[i].id == "mod1.src")
+            src = i;
+        if (info.params[i].id == "mod1.dst")
+            dst = i;
+    }
+    CHECK(params.getPlain(src) == 1.0f); // Amp Env
+    CHECK(info.params[dst].choices[static_cast<size_t>(params.getPlain(dst))] == "Filter 1 Cutoff");
+    cutoff->refresh();
+    CHECK(cutoff->ring().has_value());
+    CHECK(s.undoDescription() == "Modulate Filter 1 Cutoff with Amp Env");
+}

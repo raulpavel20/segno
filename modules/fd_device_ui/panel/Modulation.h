@@ -19,6 +19,14 @@ public:
         float amount = 0.0f;  // -1 ... +1 of the parameter's range
         bool bipolar = false; // the source swings both ways (an LFO): so does the range
     };
+    struct SourceInfo
+    {
+        int id = 0;
+        juce::String name, group; // "LFO 1", "LFOs"
+    };
+    /// The sources, in order, by group: what a knob's Modulate with menu offers.
+    [[nodiscard]] virtual std::vector<SourceInfo> sources() const { return {}; }
+
     /// Every route to a parameter, in the matrix's order.
     [[nodiscard]] virtual std::vector<Route> routes() const = 0;
     [[nodiscard]] virtual bool canModulate(size_t param) const = 0;
@@ -52,9 +60,10 @@ public:
     [[nodiscard]] juce::String handleTooltip(int source) const;
 };
 
-/// A modulation source's handle in a display's corner (an LFO's shape, an envelope): a four-way
-/// arrow, `deviceGrid.sourceHandle` square, lit in `effectEnd` while hovered or while the knob
-/// under the pointer is moved by it. Dragged onto a knob, it makes a route; Escape cancels.
+/// A modulation source's handle in a display's corner (an LFO's shape, an envelope): a chip, the
+/// four-way arrow and the source's name on `surface3`, `deviceGrid.sourceHandle` tall, lit in
+/// `effectEnd` while hovered or while the knob under the pointer is moved by it. Dragged onto a
+/// knob, it makes a route; Escape cancels.
 class ModulationHandle final : public juce::Component, public ParamControl, public juce::TooltipClient
 {
 public:
@@ -64,6 +73,8 @@ public:
     [[nodiscard]] int source() const noexcept { return source_; }
 
     void refresh() override;
+    /// Its width: the arrow, its name, and padding.
+    [[nodiscard]] int preferredWidth() const;
     juce::String getTooltip() override { return model_.handleTooltip(source_); }
     void paint(juce::Graphics& g) override;
     void mouseEnter(const juce::MouseEvent&) override;

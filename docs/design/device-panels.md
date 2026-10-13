@@ -60,7 +60,7 @@ In the UI, instruments and effects are **modules**. Code and docs say *device* (
 | Meter strip | 24 / 44 | one meter / in and out |
 | Display text | 6 inset, 14 tall | `DeviceGrid::displayInset`, `displayTextHeight`: a display's legend, readouts and axis labels |
 | Display handle | 11 | `DeviceGrid::displayHandle`: a point dragged on a display (the Compressor's threshold, the Filter's cutoff), filled `surface3` and ringed in the value colour, or `active` while held or hovered |
-| Source handle | 12 | `DeviceGrid::sourceHandle`: a modulation source's handle ("Modulation", below) |
+| Source handle | 14 tall | `DeviceGrid::sourceHandle`: a modulation source's handle, a chip with its arrow and name ("Modulation", below) |
 | Modulation ring | 1.5, 1 apart | `Theme::knobRingThickness`, `knobRingGap`: the ring outside a modulated knob's arc |
 
 Three rows are exactly one knob tall (76 px), so a knob lines up with a stack of three line controls beside it.
@@ -125,11 +125,14 @@ For a module too wide to read without scrolling ([ADR 0051](../decisions/0051-pa
 
 For a module with its own modulation (the Wavetable Synth; M4's DAW-wide modulators reuse it). The routes live in the module's parameters (its matrix); the panel shows and edits them through the host binding, like any edit. Built once in `fd_device_ui`: the panel gives the kit a `ModulationModel` (its sources, and its routes to parameters).
 - **Rings:** a modulated knob shows the range it moves as a ring just outside its arc (`knobRingThickness`, `knobRingGap` from the arc), inside its own cell, in the modulation gradient (`effectStart` → `effectEnd`; ui-principles §4). The range is the sum of its routes: from the value to the value plus the amount, both ways for a source that swings both ways (an LFO, a random source), clamped to the knob's ends.
-- **Handles:** a source shows a handle: a small four-way arrow in the corner of its display (an LFO's shape, an envelope). On a knob that's a source (a macro), its name is the handle: the pointer becomes a hand over it, and its tooltip says to drag it (a glyph beside the name would leave no room for "Macro 1" in one column). Hovering a handle lights it in `effectEnd`.
-- **Drag to modulate:** drag a source's handle onto a knob: the knob under the pointer that can take it lights (a ring over its whole sweep in `active`), and letting go there makes a route at 50 % (the first free route in the matrix; when none is free, nothing, and the handle's tooltip says the matrix is full). A knob on another page: hold the drag on its page tab for `motion.springLoad` (500 ms) and the page turns. Escape cancels.
+- **Three ways to make a route**, each enough on its own (the product owner, 2026-10-14: a bare arrow in a corner wasn't found):
+  1. **Drag a source's handle onto a knob.** A display's source shows its handle as a named chip in the display's top-right corner ("⤧ LFO 1", "⤧ Amp Env"): the four-way arrow and the source's name on `surface3`, `deviceGrid.sourceHandle` tall, lit in `effectEnd` while hovered. Dragging the display itself still edits it (the curve, the envelope); the chip is what's picked up. On a knob that's a source (a macro), its name is the handle: the pointer becomes a hand over it, and the name lights.
+  2. **Right-click a knob: Modulate with ▸**, the module's sources by group (envelopes, LFOs, random sources, macros, what's played), makes a route from that source at 50 %. This is how a macro is set to move a knob without dragging.
+  3. **The matrix's Add**, then its source and target.
+- **While a source is dragged,** every knob it can move shows a faint ring over its whole sweep (`textTertiary`), so it's clear where it can go; the knob under the pointer lights (`active`), and letting go there makes a route at 50 % (the first free route in the matrix; when none is free, nothing, and the chip's tooltip says the matrix is full). A knob on another page: hold the drag on its page tab for `motion.springLoad` (500 ms) and the page turns. Escape cancels.
 - **Hover:** hovering a source's handle shows only its rings, the others dimmed; hovering a modulated knob lights the handles of the sources that move it.
 - **Setting the amount:** drag the ring (the band outside the arc, where the pointer becomes the resize cursor): up and right more, down and left less, Shift finely, as a knob. It sets the route of the source last hovered, or the knob's first route. The matrix sets any route exactly.
-- **Right-click a modulated knob:** its routes ("LFO 1 → 30 %"), each with Remove, after its automation items.
+- **Right-click a modulated knob:** its routes ("LFO 1 → 30 %"), each with Remove, then Modulate with, after its automation items.
 - **What the lint checks:** rings stay inside their cell; handles never overlap a display's label.
 
 ## View state

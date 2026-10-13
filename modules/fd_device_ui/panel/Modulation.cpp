@@ -75,6 +75,7 @@ void ModulationHandle::setSource(int source)
 {
     source_ = source;
     refresh();
+    repaint();
 }
 
 void ModulationHandle::refresh()
@@ -88,10 +89,31 @@ void ModulationHandle::refresh()
     }
 }
 
-void ModulationHandle::paint(juce::Graphics& g)
+int ModulationHandle::preferredWidth() const
 {
     const auto& t = Theme::current();
-    drawIcon(g, Icon::Move, getLocalBounds().toFloat().reduced(1.0f), lit_ ? t.effectEnd : t.textTertiary);
+    const int gap = t.shell.itemGap, icon = t.deviceGrid.sourceHandle - gap;
+    return gap + icon + gap +
+           static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(font(TextStyle::Caption),
+                                                                             model_.sourceName(source_)))) +
+           gap;
+}
+
+void ModulationHandle::paint(juce::Graphics& g)
+{
+    // A chip: the arrow and the source's name, so it reads as something to pick up.
+    const auto& t = Theme::current();
+    const int gap = t.shell.itemGap, icon = t.deviceGrid.sourceHandle - gap;
+    auto r = getLocalBounds();
+    g.setColour(t.surface3);
+    g.fillRoundedRectangle(r.toFloat(), t.radiusControl);
+    const auto colour = lit_ ? t.effectEnd : t.textSecondary;
+    r.removeFromLeft(gap);
+    drawIcon(g, Icon::Move, r.removeFromLeft(icon).withSizeKeepingCentre(icon, icon).toFloat(), colour);
+    r.removeFromLeft(gap);
+    g.setColour(colour);
+    g.setFont(font(TextStyle::Caption));
+    g.drawText(model_.sourceName(source_), r, juce::Justification::centredLeft, false);
 }
 
 void ModulationHandle::mouseEnter(const juce::MouseEvent&)

@@ -49,7 +49,20 @@ struct ListModel final : ModulationModel
                 r.amount = amount;
     }
     void endAmount(int) override { ++ended; }
+    std::vector<SourceInfo> sources() const override
+    {
+        return {{1, "LFO 1", "LFOs"}, {2, "Env 3", "Envelopes"}};
+    }
 };
+
+/// The item called `text` anywhere in `menu` (submenus too), or null.
+const juce::PopupMenu::Item* itemNamed(const juce::PopupMenu& menu, const juce::String& text)
+{
+    for (juce::PopupMenu::MenuItemIterator it(menu, true); it.next();)
+        if (it.getItem().text == text)
+            return &it.getItem();
+    return nullptr;
+}
 
 /// Two pages: Gain and Balance knobs, then Width; an LFO handle in the first section; a macro
 /// (the DC switch's knob would be a toggle, so Width's knob stands in on page 2).
@@ -293,4 +306,60 @@ TEST_CASE("modulation: rings, a handle and a macro's handle, drawn for review", 
     dump("modulation-drop@2x.png", panel.createComponentSnapshot(panel.getLocalBounds(), true, 2.0f));
     panel.dropSource(1, {}, true);
     CHECK(f.model.list.size() == 2);
+}
+
+TEST_CASE("modulation: while a source is dragged, every knob it can move shows it can", "[ui]")
+{
+    Fixture f;
+    auto& panel = *f.panel;
+    panel.dragSource(1, {2, 2}); // over the header: nothing to land on yet
+    CHECK(panel.gain->isDropCandidate());
+    CHECK_FALSE(panel.balance->isDropCandidate()); // can't be moved
+    CHECK_FALSE(panel.gain->isDropTarget());
+    panel.dropSource(1, {2, 2}, true);
+    CHECK_FALSE(panel.gain->isDropCandidate());
+}
+
+TEST_CASE("modulation: a knob's menu offers Modulate with, its sources by group", "[ui]")
+{
+    Fixture f;
+    auto& gain = *f.panel->gain;
+    const auto run = [](std::function<void()> action) { return action; };
+    juce::PopupMenu menu;
+    fd::ui::addModulationItems(f.model, gain.param(), menu, run);
+    REQUIRE(itemNamed(menu, "Modulate with") != nullptr);
+    CHECK(itemNamed(menu, "LFOs") != nullptr);
+    const auto* lfo = itemNamed(menu, "LFO 1");
+    REQUIRE(lfo != nullptr);
+    lfo->action();
+    REQUIRE(f.model.list.size() == 1);
+    CHECK(f.model.list[0].source == 1);
+    CHECK(f.model.list[0].param == gain.param());
+
+    // Now it lists that route with Remove; Balance (which can't be moved) has none of it.
+    juce::PopupMenu again;
+    fd::ui::addModulationItems(f.model, gain.param(), again, run);
+    CHECK(itemNamed(again, juce::String::fromUTF8("LFO 1 \u2192 50 %")) != nullptr);
+    juce::PopupMenu balance;
+    fd::ui::addModulationItems(f.model, f.panel->balance->param(), balance, run);
+    CHECK(balance.getNumItems() == 0);
+
+    // A full matrix says so.
+    for (int i = 0; i < 3; ++i)
+        f.model.addRoute(2, f.panel->width->param());
+    juce::PopupMenu full;
+    fd::ui::addModulationItems(f.model, gain.param(), full, run);
+    const auto* note = itemNamed(full, "The matrix is full: remove a route first");
+    REQUIRE(note != nullptr);
+    CHECK_FALSE(note->isEnabled);
+}
+
+TEST_CASE("modulation: a display's handle is a chip with its source's name", "[ui]")
+{
+    Fixture f;
+    auto& handle = *f.panel->handle;
+    const auto name =
+        juce::GlyphArrangement::getStringWidth(fd::ui::font(fd::ui::TextStyle::Caption), "LFO 1");
+    CHECK(static_cast<float>(handle.preferredWidth()) >
+          name + static_cast<float>(fd::ui::Theme::current().deviceGrid.sourceHandle));
 }

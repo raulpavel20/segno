@@ -181,11 +181,12 @@ void Knob::paintRing(juce::Graphics& g, const Geometry& k) const
     const float r = k.radius + k.thickness * 0.5f + t.knobRingGap + t.knobRingThickness * 0.5f;
     const auto stroke =
         juce::PathStrokeType(t.knobRingThickness, juce::PathStrokeType::curved, juce::PathStrokeType::butt);
-    if (dropTarget_)
+    if (dropTarget_ || dropCandidate_)
     {
+        // Where a dragged source lands (`active`), or could (faint).
         juce::Path all;
         all.addCentredArc(k.centre.x, k.centre.y, r, r, 0.0f, kStartAngle, kStartAngle + kSweep, true);
-        g.setColour(t.active);
+        g.setColour(dropTarget_ ? t.active : t.textTertiary);
         g.strokePath(all, stroke);
         return;
     }
@@ -225,6 +226,15 @@ void Knob::setDropTarget(bool target)
     if (target != dropTarget_)
     {
         dropTarget_ = target;
+        repaint();
+    }
+}
+
+void Knob::setDropCandidate(bool candidate)
+{
+    if (candidate != dropCandidate_)
+    {
+        dropCandidate_ = candidate;
         repaint();
     }
 }

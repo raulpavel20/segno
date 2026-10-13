@@ -338,6 +338,13 @@ TEST_CASE("wavetable panel: drawn for review", "[ui]")
     panel.setPage(1);
     f.layout();
     f.shot("wavetable-filter");
+    // An envelope dragged: every knob it can move shows it, the one under the pointer lights.
+    auto* resonance = knobOf(panel, W::filter(0, W::FilterRes));
+    REQUIRE(resonance != nullptr);
+    panel.dragSource(static_cast<int>(W::Source::Env3),
+                     panel.getLocalPoint(resonance, resonance->getLocalBounds().getCentre()));
+    f.shot("wavetable-dragging");
+    panel.dropSource(static_cast<int>(W::Source::Env3), {}, true);
     panel.setPage(2);
     f.layout();
     f.shot("wavetable-modulation");
@@ -349,4 +356,34 @@ TEST_CASE("wavetable panel: drawn for review", "[ui]")
     f.layout();
     f.shot("wavetable-random");
     CHECK(panel.findSection("lfo")->sectionTitle() == "Random 1");
+}
+
+TEST_CASE("wavetable panel: Modulate with offers every source by group, macros by their names", "[ui]")
+{
+    Fixture f;
+    f.binding->applyExtraState({{"macro2.name", "Bite"}});
+    auto* m = f.context->modulation;
+    REQUIRE(m != nullptr);
+    const auto sources = m->sources();
+    REQUIRE(sources.size() == static_cast<size_t>(W::Source::Count) - 1);
+    CHECK(sources.front().name == "Amp Env");
+    CHECK(sources.front().group == "Envelopes");
+    const auto macro2 = std::find_if(sources.begin(), sources.end(), [](const auto& s)
+                                     { return s.id == static_cast<int>(W::Source::Macro1) + 1; });
+    REQUIRE(macro2 != sources.end());
+    CHECK(macro2->name == "Bite");
+    CHECK(macro2->group == "Macros");
+    CHECK(sources.back().group == "Playing");
+
+    // Chosen from a knob's menu: a route from Macro 2 to Osc 1's Position.
+    juce::PopupMenu menu;
+    fd::ui::addModulationItems(*m, W::osc(0, W::OscPos), menu, [](std::function<void()> a) { return a; });
+    const juce::PopupMenu::Item* bite = nullptr;
+    for (juce::PopupMenu::MenuItemIterator it(menu, true); it.next();)
+        if (it.getItem().text == "Bite")
+            bite = &it.getItem();
+    REQUIRE(bite != nullptr);
+    bite->action();
+    CHECK(static_cast<int>(f.get(W::route(0, W::RouteSource))) == static_cast<int>(W::Source::Macro1) + 1);
+    CHECK(static_cast<int>(f.get(W::route(0, W::RouteTarget))) == W::oscTarget(0, W::TPosition));
 }

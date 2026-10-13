@@ -28,6 +28,7 @@ public:
     void setAmount(int index, float amount) override;
     void endAmount(int index) override;
     [[nodiscard]] std::optional<int> routeOfParam(size_t param) const override;
+    [[nodiscard]] std::vector<SourceInfo> sources() const override;
 
     /// A route from the matrix's add button: the source last hovered (else LFO 1), no target yet.
     bool addFromMatrix();

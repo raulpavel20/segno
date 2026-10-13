@@ -119,7 +119,12 @@ public:
         refreshMacroNames();
     }
 
-    ~WavetablePanel() override { context().modulation = nullptr; }
+    ~WavetablePanel() override
+    {
+        // Another panel on the same context may have set its own since.
+        if (context().modulation == &modulation_)
+            context().modulation = nullptr;
+    }
 
     bool showParameter(size_t param) override
     {

@@ -20,8 +20,7 @@ struct DeviceGrid
     int displayInset = 6;       // a display's text and marks, from its well's edges
     int displayTextHeight = 14; // a display's line of text (a legend, a readout, an axis label)
     int displayHandle = 11; // a point dragged on a display (the Compressor's threshold, the Filter's cutoff)
-    int sourceHandle =
-        12; // a modulation source's handle, dragged onto a knob (device-panels.md, "Modulation")
+    int sourceHandle = 14;  // a modulation source's handle: a chip, its arrow and name ("Modulation")
     int headerPadding = 8;
     int headerButton = 16;                          // a header's icon buttons: fold, previous and next preset
     int presetFieldMin = 112, presetFieldMax = 200; // the preset's name field (presets.md §6)

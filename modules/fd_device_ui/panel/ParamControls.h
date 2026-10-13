@@ -15,6 +15,11 @@ public:
 /// reset to default.
 void showParamMenu(DeviceUiContext& context, size_t paramIndex, juce::Component& control,
                    const std::function<void(juce::PopupMenu&)>& extra = {});
+/// A parameter's modulation items (device-panels.md, "Modulation"): its routes with Remove, Remove
+/// route for a route's own control, and Modulate with ▸ the sources by group. Each action is
+/// wrapped by `whileAlive` (it runs only while the control is there).
+void addModulationItems(ModulationModel& model, size_t paramIndex, juce::PopupMenu& menu,
+                        const std::function<std::function<void()>(std::function<void()>)>& whileAlive);
 
 /// Knob bound to a parameter: text, ranges, default and stepping come from its ParamSpec.
 class ParamKnob final : public Knob, public ParamControl
