@@ -1,0 +1,973 @@
+{
+    "device": "wavetable",
+    "author": "Segno",
+    "presets": [
+        {
+            "name": "Supersaw pad",
+            "tags": [
+                "Pad",
+                "Wide"
+            ],
+            "description": "Seven saws in Super unison, slow to swell, a macro for brightness.",
+            "params": {
+                "osc1.uni": 7,
+                "osc1.detune": 30,
+                "filter1.cutoff": 3500,
+                "filter1.res": 10,
+                "filter1.env": 10,
+                "env1.a": 400,
+                "env1.d": 1500,
+                "env1.s": 85,
+                "env1.r": 1400,
+                "mod1.src": "Macro 1",
+                "mod1.dst": "Filter 1 Cutoff",
+                "mod1.amt": 40
+            },
+            "extra": {
+                "osc1.table": "basic/saw",
+                "macro1.name": "Brightness"
+            }
+        },
+        {
+            "name": "Vowel pad",
+            "tags": [
+                "Pad",
+                "Vocals"
+            ],
+            "description": "A choir of vowels drifting slowly through the table.",
+            "params": {
+                "osc1.uni": 4,
+                "osc1.detune": 15,
+                "filter1.type": "LP 12",
+                "filter1.cutoff": 5000,
+                "filter1.env": 0,
+                "env1.a": 700,
+                "env1.s": 90,
+                "env1.r": 1800,
+                "lfo1.rate": 0.12,
+                "lfo1.mode": "Free",
+                "lfo1.poly": false,
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 45
+            },
+            "extra": {
+                "osc1.table": "formant/vowels"
+            }
+        },
+        {
+            "name": "Evolving texture",
+            "tags": [
+                "Pad",
+                "FX",
+                "Wide"
+            ],
+            "description": "Random harmonics spread across the copies, wandering on their own.",
+            "params": {
+                "osc1.uni": 6,
+                "osc1.spread": 60,
+                "osc1.pos": 30,
+                "osc2.on": true,
+                "osc2.level": -14,
+                "filter1.cutoff": 4000,
+                "filter1.env": 0,
+                "env1.a": 1500,
+                "env1.s": 90,
+                "env1.r": 3000,
+                "lfo1.rate": 0.07,
+                "lfo1.mode": "Free",
+                "lfo1.poly": false,
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 55,
+                "rnd1.mode": "Smooth",
+                "rnd1.rate": 0.3,
+                "mod2.src": "Random 1",
+                "mod2.dst": "Osc 2 Position",
+                "mod2.amt": 40
+            },
+            "extra": {
+                "osc1.table": "texture/random-b",
+                "osc2.table": "texture/air"
+            }
+        },
+        {
+            "name": "Choir",
+            "tags": [
+                "Pad",
+                "Vocals"
+            ],
+            "description": "Voices on ah and oh, the vowel moving with the mod wheel.",
+            "params": {
+                "osc1.uni": 5,
+                "osc1.detune": 18,
+                "filter1.type": "LP 12",
+                "filter1.cutoff": 6000,
+                "filter1.env": 0,
+                "env1.a": 500,
+                "env1.s": 90,
+                "env1.r": 1500,
+                "mod1.src": "Mod Wheel",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 80
+            },
+            "extra": {
+                "osc1.table": "formant/choir"
+            }
+        },
+        {
+            "name": "Shimmer pad",
+            "tags": [
+                "Pad",
+                "Bright"
+            ],
+            "description": "Octaves over a harmonic series an octave up, fading in.",
+            "params": {
+                "osc1.uni": 4,
+                "osc1.detune": 12,
+                "osc2.on": true,
+                "osc2.oct": 1,
+                "osc2.level": -10,
+                "osc2.uni": 3,
+                "filter1.type": "LP 12",
+                "filter1.cutoff": 9000,
+                "filter1.env": 0,
+                "env1.a": 900,
+                "env1.s": 90,
+                "env1.r": 2500,
+                "lfo1.rate": 0.2,
+                "lfo1.mode": "Free",
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Osc 2 Position",
+                "mod1.amt": 50
+            },
+            "extra": {
+                "osc1.table": "spectral/octaves",
+                "osc2.table": "harmonic/series"
+            }
+        },
+        {
+            "name": "Dark pad",
+            "tags": [
+                "Pad",
+                "Warm"
+            ],
+            "description": "A rounded saw under a closed, resonant low pass.",
+            "params": {
+                "osc1.uni": 5,
+                "osc1.detune": 22,
+                "filter1.cutoff": 650,
+                "filter1.res": 35,
+                "filter1.env": 15,
+                "env1.a": 800,
+                "env1.s": 90,
+                "env1.r": 2000,
+                "env2.a": 1500,
+                "env2.d": 3000,
+                "env2.s": 40
+            },
+            "extra": {
+                "osc1.table": "analog/rounded"
+            }
+        },
+        {
+            "name": "Strings",
+            "tags": [
+                "Pad",
+                "Warm"
+            ],
+            "description": "A string section's warmth: bowed harmonics, gently detuned.",
+            "params": {
+                "osc1.uni": 6,
+                "osc1.detune": 20,
+                "filter1.cutoff": 7000,
+                "filter1.res": 5,
+                "filter1.env": 0,
+                "env1.a": 300,
+                "env1.s": 95,
+                "env1.r": 800
+            },
+            "extra": {
+                "osc1.table": "harmonic/strings"
+            }
+        },
+        {
+            "name": "Swirl pad",
+            "tags": [
+                "Pad",
+                "Wide"
+            ],
+            "description": "Dispersed phases spread over the copies, the filter breathing at random.",
+            "params": {
+                "osc1.uni": 8,
+                "osc1.spread": 50,
+                "osc1.detune": 20,
+                "filter1.cutoff": 2500,
+                "filter1.env": 0,
+                "env1.a": 1200,
+                "env1.s": 90,
+                "env1.r": 2500,
+                "lfo1.rate": 0.1,
+                "lfo1.mode": "Free",
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 60,
+                "rnd1.mode": "Smooth",
+                "rnd1.rate": 0.5,
+                "mod2.src": "Random 1",
+                "mod2.dst": "Filter 1 Cutoff",
+                "mod2.amt": 15
+            },
+            "extra": {
+                "osc1.table": "spectral/disperse"
+            }
+        },
+        {
+            "name": "Sync lead",
+            "tags": [
+                "Lead",
+                "Bright"
+            ],
+            "description": "A saw synced harder as the filter envelope rises: the classic tearing lead.",
+            "params": {
+                "osc1.warp1": "Sync",
+                "osc1.warp1.amt": 20,
+                "filter1.cutoff": 7000,
+                "filter1.env": 0,
+                "env2.a": 5,
+                "env2.d": 600,
+                "env2.s": 20,
+                "mod1.src": "Filter Env",
+                "mod1.dst": "Osc 1 Warp 1",
+                "mod1.amt": 50,
+                "voice.mode": "Mono",
+                "voice.glide": 40,
+                "voice.glidemode": "Legato"
+            },
+            "extra": {
+                "osc1.table": "basic/saw"
+            }
+        },
+        {
+            "name": "Formant lead",
+            "tags": [
+                "Lead",
+                "Vocals"
+            ],
+            "description": "Window Sync on a talking table, an LFO moving through its vowels.",
+            "params": {
+                "osc1.warp1": "Window Sync",
+                "osc1.warp1.amt": 45,
+                "filter1.cutoff": 8000,
+                "filter1.env": 0,
+                "lfo1.rate": 1.5,
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 35,
+                "voice.mode": "Mono",
+                "voice.glide": 30
+            },
+            "extra": {
+                "osc1.table": "formant/talk"
+            }
+        },
+        {
+            "name": "Bent square",
+            "tags": [
+                "Lead",
+                "Warm"
+            ],
+            "description": "A square bent both ways by velocity, gliding between notes.",
+            "params": {
+                "osc1.warp1": "Bend ±",
+                "osc1.warp1.amt": 20,
+                "filter1.cutoff": 6000,
+                "filter1.env": 10,
+                "mod1.src": "Velocity",
+                "mod1.dst": "Osc 1 Warp 1",
+                "mod1.amt": 50,
+                "voice.mode": "Legato",
+                "voice.glide": 60
+            },
+            "extra": {
+                "osc1.table": "basic/square"
+            }
+        },
+        {
+            "name": "FM lead",
+            "tags": [
+                "Lead",
+                "Bright"
+            ],
+            "description": "A sine frequency-modulated by another a fifth above, the depth on the mod wheel.",
+            "params": {
+                "osc1.warp1": "FM",
+                "osc1.warp1.amt": 20,
+                "osc1.warp1.src": "Osc 2",
+                "osc2.on": true,
+                "osc2.level": -70,
+                "osc2.semi": 7,
+                "filter1.on": false,
+                "voice.mode": "Mono",
+                "voice.glide": 20,
+                "mod1.src": "Mod Wheel",
+                "mod1.dst": "Osc 1 Warp 1",
+                "mod1.amt": 40
+            },
+            "extra": {
+                "osc1.table": "basic/sine",
+                "osc2.table": "basic/sine"
+            }
+        },
+        {
+            "name": "Screaming lead",
+            "tags": [
+                "Lead",
+                "Dirty"
+            ],
+            "description": "A synced table through a driven, resonant ladder.",
+            "params": {
+                "osc1.uni": 3,
+                "osc1.detune": 12,
+                "osc1.pos": 40,
+                "filter1.type": "Ladder",
+                "filter1.cutoff": 2500,
+                "filter1.res": 55,
+                "filter1.drive": 45,
+                "filter1.env": 20,
+                "voice.mode": "Mono",
+                "voice.glide": 25
+            },
+            "extra": {
+                "osc1.table": "analog/sync"
+            }
+        },
+        {
+            "name": "Vocal lead",
+            "tags": [
+                "Lead",
+                "Vocals"
+            ],
+            "description": "High vowels sung by the note's height: higher notes open the mouth.",
+            "params": {
+                "filter1.type": "LP 12",
+                "filter1.cutoff": 9000,
+                "filter1.env": 0,
+                "mod1.src": "Note",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 40,
+                "lfo1.rate": 5,
+                "lfo1.fade": 600,
+                "mod2.src": "LFO 1",
+                "mod2.dst": "Pitch",
+                "mod2.amt": 1,
+                "voice.mode": "Mono",
+                "voice.glide": 50
+            },
+            "extra": {
+                "osc1.table": "formant/vowels-high"
+            }
+        },
+        {
+            "name": "Reese bass",
+            "tags": [
+                "Bass",
+                "Heavy"
+            ],
+            "description": "Two saws a little apart through a ladder: weight, and slow movement.",
+            "params": {
+                "osc2.on": true,
+                "osc2.level": 0,
+                "osc2.fine": 14,
+                "osc1.fine": -6,
+                "filter1.type": "Ladder",
+                "filter1.cutoff": 450,
+                "filter1.res": 30,
+                "filter1.env": 15,
+                "voice.mode": "Mono",
+                "out.volume": -9
+            },
+            "extra": {
+                "osc1.table": "basic/saw",
+                "osc2.table": "basic/saw"
+            }
+        },
+        {
+            "name": "Growl bass",
+            "tags": [
+                "Bass",
+                "Heavy"
+            ],
+            "description": "An FM growl swept in eighths, driven through a resonant low pass.",
+            "params": {
+                "osc1.oct": -1,
+                "filter1.cutoff": 1200,
+                "filter1.res": 40,
+                "filter1.drive": 35,
+                "filter1.env": 0,
+                "lfo1.sync": "1/8",
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 70,
+                "sub.on": true,
+                "sub.level": -10,
+                "voice.mode": "Mono",
+                "out.volume": -9
+            },
+            "extra": {
+                "osc1.table": "fm/growl",
+                "macro1.name": "Growl"
+            }
+        },
+        {
+            "name": "FM bass",
+            "tags": [
+                "Bass",
+                "Bright"
+            ],
+            "description": "A punchy FM bass that closes quickly.",
+            "params": {
+                "osc1.oct": -1,
+                "filter1.cutoff": 350,
+                "filter1.res": 15,
+                "filter1.env": 60,
+                "env2.d": 250,
+                "env2.s": 10,
+                "env1.d": 600,
+                "env1.s": 60,
+                "voice.mode": "Mono"
+            },
+            "extra": {
+                "osc1.table": "fm/bass"
+            }
+        },
+        {
+            "name": "Sub bass",
+            "tags": [
+                "Bass",
+                "Clean"
+            ],
+            "description": "A plain sine an octave down, with a touch of its triangle sub.",
+            "params": {
+                "osc1.oct": -1,
+                "filter1.on": false,
+                "sub.on": true,
+                "sub.shape": "Triangle",
+                "sub.level": -14,
+                "env1.a": 5,
+                "env1.r": 120,
+                "voice.mode": "Mono",
+                "out.volume": -4
+            },
+            "extra": {
+                "osc1.table": "basic/sine"
+            }
+        },
+        {
+            "name": "Wobble bass",
+            "tags": [
+                "Bass",
+                "Heavy"
+            ],
+            "description": "Through the filter-sweep table in eighths, over a sine sub.",
+            "params": {
+                "osc1.uni": 2,
+                "osc1.detune": 10,
+                "filter1.cutoff": 3000,
+                "filter1.env": 0,
+                "lfo1.sync": "1/8",
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 90,
+                "sub.on": true,
+                "sub.level": -6,
+                "voice.mode": "Mono",
+                "out.volume": -9
+            },
+            "extra": {
+                "osc1.table": "analog/filter-sweep",
+                "lfo1.shape": "triangle"
+            }
+        },
+        {
+            "name": "Fold bass",
+            "tags": [
+                "Bass",
+                "Dirty"
+            ],
+            "description": "A triangle folding over as the envelope opens.",
+            "params": {
+                "osc1.oct": -1,
+                "osc1.warp1": "Fold",
+                "osc1.warp1.amt": 15,
+                "filter1.cutoff": 1500,
+                "filter1.env": 30,
+                "mod1.src": "Filter Env",
+                "mod1.dst": "Osc 1 Warp 1",
+                "mod1.amt": 45,
+                "env2.d": 350,
+                "env2.s": 10,
+                "voice.mode": "Mono"
+            },
+            "extra": {
+                "osc1.table": "basic/triangle"
+            }
+        },
+        {
+            "name": "Acid line",
+            "tags": [
+                "Bass",
+                "Dirty"
+            ],
+            "description": "A saw through a resonant diode ladder, the envelope biting on each note.",
+            "params": {
+                "filter1.type": "Diode",
+                "filter1.cutoff": 450,
+                "filter1.res": 70,
+                "filter1.drive": 25,
+                "filter1.env": 70,
+                "env2.d": 220,
+                "env2.s": 0,
+                "env1.s": 70,
+                "voice.mode": "Mono",
+                "voice.glide": 60,
+                "voice.glidemode": "Legato"
+            },
+            "extra": {
+                "osc1.table": "basic/saw"
+            }
+        },
+        {
+            "name": "Pluck",
+            "tags": [
+                "Pluck",
+                "Keys"
+            ],
+            "description": "A short filter envelope on three saws: snap, then gone.",
+            "params": {
+                "osc1.uni": 3,
+                "osc1.detune": 15,
+                "filter1.cutoff": 450,
+                "filter1.env": 70,
+                "env2.d": 250,
+                "env2.s": 0,
+                "env1.d": 450,
+                "env1.s": 0,
+                "env1.r": 300
+            },
+            "extra": {
+                "osc1.table": "basic/saw"
+            }
+        },
+        {
+            "name": "Glass pluck",
+            "tags": [
+                "Pluck",
+                "Bright"
+            ],
+            "description": "A bell's partials, plucked and ringing.",
+            "params": {
+                "filter1.cutoff": 2500,
+                "filter1.env": 50,
+                "env2.d": 400,
+                "env2.s": 10,
+                "env1.d": 900,
+                "env1.s": 0,
+                "env1.r": 700
+            },
+            "extra": {
+                "osc1.table": "harmonic/bell"
+            }
+        },
+        {
+            "name": "FM keys",
+            "tags": [
+                "Keys",
+                "Bright"
+            ],
+            "description": "An electric piano's tine: brighter the harder you play.",
+            "params": {
+                "filter1.cutoff": 3000,
+                "filter1.env": 30,
+                "env1.d": 1400,
+                "env1.s": 25,
+                "env1.r": 500,
+                "mod1.src": "Velocity",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 60
+            },
+            "extra": {
+                "osc1.table": "fm/keys"
+            }
+        },
+        {
+            "name": "Bell",
+            "tags": [
+                "Keys",
+                "Bright"
+            ],
+            "description": "An FM bell ringing out, unfiltered.",
+            "params": {
+                "filter1.on": false,
+                "env1.a": 1,
+                "env1.d": 3000,
+                "env1.s": 0,
+                "env1.r": 2500,
+                "out.volume": -8
+            },
+            "extra": {
+                "osc1.table": "fm/bell"
+            }
+        },
+        {
+            "name": "Mallets",
+            "tags": [
+                "Keys",
+                "Pluck"
+            ],
+            "description": "Wooden mallets: odd harmonics, a quick decay.",
+            "params": {
+                "filter1.cutoff": 3500,
+                "filter1.env": 40,
+                "env2.d": 200,
+                "env2.s": 0,
+                "env1.d": 600,
+                "env1.s": 0,
+                "env1.r": 400
+            },
+            "extra": {
+                "osc1.table": "harmonic/odd"
+            }
+        },
+        {
+            "name": "Organ",
+            "tags": [
+                "Keys"
+            ],
+            "description": "Drawbar harmonics, held and steady.",
+            "params": {
+                "filter1.on": false,
+                "env1.a": 5,
+                "env1.s": 100,
+                "env1.r": 80,
+                "out.volume": -8
+            },
+            "extra": {
+                "osc1.table": "harmonic/organ"
+            }
+        },
+        {
+            "name": "Clav",
+            "tags": [
+                "Keys"
+            ],
+            "description": "A thin pulse through the formant filter, plucked.",
+            "params": {
+                "filter1.type": "BP 12",
+                "filter1.cutoff": 1200,
+                "filter1.res": 40,
+                "filter1.env": 40,
+                "env2.d": 180,
+                "env2.s": 0,
+                "env1.d": 350,
+                "env1.s": 0,
+                "env1.r": 120,
+                "out.volume": 0
+            },
+            "extra": {
+                "osc1.table": "basic/pulse-10"
+            }
+        },
+        {
+            "name": "Brass",
+            "tags": [
+                "Brass",
+                "Lead"
+            ],
+            "description": "Brass harmonics swelling with the filter envelope.",
+            "params": {
+                "osc1.uni": 3,
+                "osc1.detune": 10,
+                "filter1.cutoff": 900,
+                "filter1.env": 55,
+                "env2.a": 80,
+                "env2.d": 600,
+                "env2.s": 50,
+                "env1.a": 30,
+                "env1.s": 85
+            },
+            "extra": {
+                "osc1.table": "harmonic/brass"
+            }
+        },
+        {
+            "name": "Flute",
+            "tags": [
+                "Lead",
+                "Warm"
+            ],
+            "description": "A breathy flute: its harmonics, a little noise, a slow vibrato.",
+            "params": {
+                "filter1.type": "LP 12",
+                "filter1.cutoff": 5000,
+                "filter1.env": 0,
+                "noise.on": true,
+                "noise.type": "Breath",
+                "noise.level": -24,
+                "env1.a": 60,
+                "env1.s": 90,
+                "env1.r": 200,
+                "lfo1.rate": 5,
+                "lfo1.fade": 500,
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Pitch",
+                "mod1.amt": 1
+            },
+            "extra": {
+                "osc1.table": "harmonic/flute"
+            }
+        },
+        {
+            "name": "Stepped arp",
+            "tags": [
+                "Pluck",
+                "Bright"
+            ],
+            "description": "Stairs quantised coarser on each note: for arpeggios.",
+            "params": {
+                "osc1.warp1": "Quantize",
+                "osc1.warp1.amt": 30,
+                "filter1.cutoff": 4000,
+                "filter1.env": 30,
+                "env1.d": 300,
+                "env1.s": 0,
+                "env1.r": 200,
+                "mod1.src": "Note Random",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 40
+            },
+            "extra": {
+                "osc1.table": "digital/stairs"
+            }
+        },
+        {
+            "name": "Ring bells",
+            "tags": [
+                "Keys",
+                "FX"
+            ],
+            "description": "A sine ring-modulated by another off the harmonic grid: metallic bells.",
+            "params": {
+                "osc1.warp1": "RM",
+                "osc1.warp1.amt": 100,
+                "osc1.warp1.src": "Osc 2",
+                "osc2.on": true,
+                "osc2.level": -70,
+                "osc2.semi": 6,
+                "osc2.fine": 30,
+                "filter1.on": false,
+                "env1.d": 2000,
+                "env1.s": 0,
+                "env1.r": 1500,
+                "out.volume": -8
+            },
+            "extra": {
+                "osc1.table": "basic/sine",
+                "osc2.table": "basic/sine"
+            }
+        },
+        {
+            "name": "Metal hit",
+            "tags": [
+                "FX",
+                "Drums"
+            ],
+            "description": "A short burst of FM metal.",
+            "params": {
+                "filter1.on": false,
+                "env1.d": 250,
+                "env1.s": 0,
+                "env1.r": 150
+            },
+            "extra": {
+                "osc1.table": "fm/metal"
+            }
+        },
+        {
+            "name": "Air",
+            "tags": [
+                "FX",
+                "Wide"
+            ],
+            "description": "Breath and air, no pitch to speak of.",
+            "params": {
+                "osc1.level": -12,
+                "noise.on": true,
+                "noise.type": "Breath",
+                "noise.level": -8,
+                "filter1.cutoff": 6000,
+                "filter1.env": 0,
+                "env1.a": 1500,
+                "env1.s": 100,
+                "env1.r": 3000
+            },
+            "extra": {
+                "osc1.table": "texture/air"
+            }
+        },
+        {
+            "name": "Crackle bed",
+            "tags": [
+                "FX",
+                "Dirty"
+            ],
+            "description": "Dust and crackle under a soft tone.",
+            "params": {
+                "osc1.level": -10,
+                "noise.on": true,
+                "noise.type": "Crackle",
+                "noise.level": -14,
+                "filter1.cutoff": 3000,
+                "filter1.env": 0,
+                "env1.a": 400,
+                "env1.s": 100,
+                "env1.r": 1500
+            },
+            "extra": {
+                "osc1.table": "texture/dust"
+            }
+        },
+        {
+            "name": "Comb drone",
+            "tags": [
+                "FX"
+            ],
+            "description": "A comb table through a comb filter, slowly moving.",
+            "params": {
+                "filter1.type": "Comb +",
+                "filter1.cutoff": 220,
+                "filter1.res": 60,
+                "filter1.key": 100,
+                "filter1.env": 0,
+                "env1.a": 1000,
+                "env1.s": 100,
+                "env1.r": 2500,
+                "lfo1.rate": 0.05,
+                "lfo1.mode": "Free",
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 70
+            },
+            "extra": {
+                "osc1.table": "spectral/comb"
+            }
+        },
+        {
+            "name": "Riser",
+            "tags": [
+                "FX"
+            ],
+            "description": "Noise and a saw climbing for four seconds as the filter opens.",
+            "params": {
+                "osc1.uni": 5,
+                "osc1.detune": 30,
+                "noise.on": true,
+                "noise.level": -14,
+                "filter1.cutoff": 300,
+                "filter1.res": 30,
+                "filter1.env": 0,
+                "env3.a": 4000,
+                "env3.d": 100,
+                "env3.s": 100,
+                "mod1.src": "Env 3",
+                "mod1.dst": "Filter 1 Cutoff",
+                "mod1.amt": 70,
+                "mod2.src": "Env 3",
+                "mod2.dst": "Pitch",
+                "mod2.amt": 30,
+                "env1.a": 1500,
+                "env1.s": 100,
+                "env1.r": 800
+            },
+            "extra": {
+                "osc1.table": "basic/saw"
+            }
+        },
+        {
+            "name": "Phaser pad",
+            "tags": [
+                "Pad",
+                "Warm"
+            ],
+            "description": "PWM through the phaser, swirling.",
+            "params": {
+                "osc1.uni": 3,
+                "filter1.type": "Phaser",
+                "filter1.cutoff": 800,
+                "filter1.res": 50,
+                "filter1.env": 0,
+                "env1.a": 400,
+                "env1.s": 90,
+                "env1.r": 1500,
+                "lfo1.rate": 0.3,
+                "lfo1.mode": "Free",
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Filter 1 Cutoff",
+                "mod1.amt": 30,
+                "lfo2.rate": 0.8,
+                "mod2.src": "LFO 2",
+                "mod2.dst": "Osc 1 Position",
+                "mod2.amt": 40
+            },
+            "extra": {
+                "osc1.table": "analog/pwm"
+            }
+        },
+        {
+            "name": "Talking bass",
+            "tags": [
+                "Bass",
+                "Vocals"
+            ],
+            "description": "The formant filter saying a and o in quarter notes.",
+            "params": {
+                "osc1.oct": -1,
+                "filter1.type": "Formant",
+                "filter1.cutoff": 800,
+                "filter1.res": 50,
+                "filter1.env": 0,
+                "lfo1.sync": "1/4",
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Filter 1 Shape",
+                "mod1.amt": 60,
+                "voice.mode": "Mono"
+            },
+            "extra": {
+                "osc1.table": "analog/double-saw",
+                "lfo1.shape": "triangle"
+            }
+        },
+        {
+            "name": "Gated chords",
+            "tags": [
+                "Keys"
+            ],
+            "description": "A major chord on every note, chopped in sixteenths.",
+            "params": {
+                "osc1.uni": 3,
+                "osc1.stack": "Major",
+                "osc1.detune": 0,
+                "filter1.cutoff": 4000,
+                "filter1.env": 0,
+                "lfo1.sync": "1/16",
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Amp",
+                "mod1.amt": -80
+            },
+            "extra": {
+                "osc1.table": "analog/saw-square",
+                "lfo1.shape": "square"
+            }
+        }
+    ]
+}
