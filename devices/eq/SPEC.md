@@ -1,6 +1,6 @@
 # EQ: device spec
 
-- **Status:** Core approved by the product owner (2026-10-10, with the M1 sign-off); IDs are permanent. Stage 2 (M3, B8) drafted for review below: questions E1–E14.
+- **Status:** Core approved by the product owner (2026-10-10, with the M1 sign-off); IDs are permanent. Stage 2 (M3, B8) approved by the product owner (2026-10-13, with every recommendation of E1–E14); its IDs are permanent. Step 2a (no delay) in progress.
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1, M1 (core) → M3 (stage 2)
 - **Live target:** EQ Eight, EQ Three, Channel EQ (all covered by this one device). References only ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
@@ -120,7 +120,7 @@ Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `dev
 | Mid/Side placement on L = R input | Side bands have no effect |
 | Conformance suite | All checks pass |
 
-## Stage 2 (M3, B8): draft for review
+## Stage 2 (M3, B8)
 
 What the EQ gains in M3. The core above stays as it is: its parameter IDs, its sound at zero latency, its panel.
 
