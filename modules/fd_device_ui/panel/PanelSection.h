@@ -66,6 +66,11 @@ public:
     void label(juce::String text, int column, int row, int columns);
     /// Removes every placement; controls the section created are destroyed.
     void clear();
+    /// Marks `param` as set here by a control placed with place() (a display that edits it), so
+    /// DevicePanel::showParameter finds it.
+    void holdsParam(size_t param) { params_.push_back(param); }
+    /// Whether a control here sets `param`.
+    [[nodiscard]] bool holds(size_t param) const noexcept;
 
     [[nodiscard]] const std::vector<Placement>& placements() const noexcept { return placements_; }
     /// The content rows' area, in section coordinates.
@@ -102,6 +107,7 @@ private:
     juce::Component content_;
     std::vector<Placement> placements_;
     std::vector<juce::Component*> created_; // owned by the panel, destroyed by clear()
+    std::vector<size_t> params_;            // what the controls here set
     std::vector<std::unique_ptr<juce::Component>> labels_;
 };
 } // namespace fd::ui

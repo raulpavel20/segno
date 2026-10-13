@@ -21,16 +21,40 @@ public:
     std::function<void(bool enabled)> onEnabledChange;
     void setEnabledState(bool enabled);
 
-    // ---- view state: collapsed sections and fold (never module state) -------------------
+    // ---- view state: collapsed sections, fold and page (never module state) ------------
 
-    /// `{"collapsed":[ids],"folded":true}` with defaults left out; empty when all default.
+    /// `{"collapsed":[ids],"folded":true,"page":id}` with defaults left out; empty when all default.
     [[nodiscard]] std::string viewState() const;
     /// Applies a stored view state. Tolerant: unknown ids and bad JSON are ignored. Does not
     /// call onViewChanged.
     void setViewState(std::string_view json);
-    /// After the user collapses a section or folds the module: the host stores viewState()
-    /// and lays the panel out again at its new preferredWidth().
+    /// After the user collapses a section, folds the module or turns a page: the host stores
+    /// viewState() and lays the panel out again at its new preferredWidth().
     std::function<void()> onViewChanged;
+
+    // ---- pages (ADR 0051): a very wide module's sections in groups, tabs in the header ------
+
+    /// 0 for a module without pages (every section on one row).
+    [[nodiscard]] int pageCount() const noexcept { return static_cast<int>(pages_.size()); }
+    [[nodiscard]] int page() const noexcept { return page_; }
+    [[nodiscard]] const std::string& pageId(int index) const
+    {
+        return pages_.at(static_cast<size_t>(index)).id;
+    }
+    /// Turns to page `index` (clamped). The module keeps its width.
+    void setPage(int index, bool byUser = false);
+    /// The next (+1) or previous (-1) page, round from the last to the first (View > Next and
+    /// Previous Module Page).
+    void turnPage(int delta, bool byUser = false);
+    /// The sections on page `index`: every section for a module without pages.
+    [[nodiscard]] std::vector<PanelSection*> pageSections(int index) const;
+    /// The sections shown: the page's.
+    [[nodiscard]] std::vector<PanelSection*> shownSections() const { return pageSections(page_); }
+    /// The page tabs (for the layout lint): null for a module without pages.
+    [[nodiscard]] const TabRow* pageTabs() const noexcept { return pages_.empty() ? nullptr : &pageTabs_; }
+    /// Shows where `param` is set: turns to the page of the section that holds its control.
+    /// False if no section does. Panels that show one of several (an oscillator) select it first.
+    virtual bool showParameter(size_t param);
 
     /// Whether the module can fold to a strip (the DAW's chain; not plugin editors).
     void setFoldable(bool foldable);
@@ -62,6 +86,9 @@ public:
     void mouseUp(const juce::MouseEvent& e) override;
 
 protected:
+    /// Starts a page: the sections added after it are on it, up to the next. Before the first
+    /// section, or not at all. The id is stored in view state: never rename it.
+    void addPage(std::string id, juce::String title);
     /// A titled section, appended left to right. `powerParam` (a toggle) dims its content when
     /// off. The id is stored in projects and plugin state: never rename it.
     PanelSection& addSection(std::string id, juce::String title, int columns,
@@ -137,6 +164,15 @@ private:
     std::vector<std::pair<juce::Component*, juce::String>> meters_;
 
     std::unique_ptr<PresetBar> presetBar_;
+    struct Page
+    {
+        std::string id;
+        juce::String title;
+    };
+    std::vector<Page> pages_;
+    std::vector<int> sectionPage_; // each section's page
+    int page_ = 0;
+    TabRow pageTabs_;
     bool foldable_ = false, folded_ = false;
     juce::Rectangle<int> nameArea_;
     std::vector<int> separators_; // x of the lines between sections

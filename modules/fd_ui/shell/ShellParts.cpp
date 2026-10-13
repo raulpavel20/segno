@@ -1,34 +1,133 @@
 namespace fd::ui
 {
-// ---- PanelHeader ------------------------------------------------------------------------------
+// ---- TabRow -----------------------------------------------------------------------------------
 
-PanelHeader::PanelHeader()
+TabRow::TabRow()
 {
     setWantsKeyboardFocus(false);
 }
 
-void PanelHeader::setTitle(juce::String title)
-{
-    title_ = std::move(title);
-    tabs_.clear();
-    repaint();
-}
-
-void PanelHeader::setTabs(juce::StringArray tabs, int selected)
+void TabRow::setTabs(juce::StringArray tabs, int selected)
 {
     tabs_ = std::move(tabs);
     selected_ = selected;
-    title_.clear();
+    hovered_ = -1;
     repaint();
 }
 
-void PanelHeader::setSelectedTab(int index)
+void TabRow::setSelected(int index)
 {
     if (index != selected_)
     {
         selected_ = index;
         repaint();
     }
+}
+
+std::vector<juce::Rectangle<int>> TabRow::tabAreas() const
+{
+    const int padding = Theme::current().shell.buttonTextPadding;
+    std::vector<juce::Rectangle<int>> out;
+    int x = 0;
+    for (const auto& tab : tabs_)
+    {
+        const int w = static_cast<int>(
+                          std::ceil(juce::GlyphArrangement::getStringWidth(font(TextStyle::Control), tab))) +
+                      2 * padding;
+        out.push_back({x, 0, w, getHeight()});
+        x += w;
+    }
+    return out;
+}
+
+int TabRow::preferredWidth() const
+{
+    const auto areas = tabAreas();
+    return areas.empty() ? 0 : areas.back().getRight();
+}
+
+int TabRow::tabAt(juce::Point<int> position) const
+{
+    const auto areas = tabAreas();
+    for (size_t i = 0; i < areas.size(); ++i)
+        if (areas[i].contains(position))
+            return static_cast<int>(i);
+    return -1;
+}
+
+void TabRow::paint(juce::Graphics& g)
+{
+    const auto& t = Theme::current();
+    const auto areas = tabAreas();
+    g.setFont(font(TextStyle::Control));
+    for (int i = 0; i < tabs_.size(); ++i)
+    {
+        g.setColour(i == selected_ ? t.textPrimary : (i == hovered_ ? t.textSecondary : t.textTertiary));
+        g.drawText(tabs_[i], areas[static_cast<size_t>(i)], juce::Justification::centred, false);
+    }
+}
+
+void TabRow::mouseMove(const juce::MouseEvent& e)
+{
+    if (const int hovered = tabAt(e.getPosition()); hovered != hovered_)
+    {
+        hovered_ = hovered;
+        repaint();
+    }
+}
+
+void TabRow::mouseExit(const juce::MouseEvent&)
+{
+    hovered_ = -1;
+    repaint();
+}
+
+void TabRow::mouseUp(const juce::MouseEvent& e)
+{
+    if (e.mouseWasDraggedSinceMouseDown())
+        return;
+    if (const int tab = tabAt(e.getPosition()); tab >= 0 && tab != selected_)
+    {
+        setSelected(tab);
+        if (onSelect)
+            onSelect(tab);
+    }
+}
+
+// ---- PanelHeader ------------------------------------------------------------------------------
+
+PanelHeader::PanelHeader()
+{
+    setWantsKeyboardFocus(false);
+    addChildComponent(tabs_);
+    tabs_.onSelect = [this](int index)
+    {
+        if (onTabSelected)
+            onTabSelected(index);
+    };
+}
+
+void PanelHeader::setTitle(juce::String title)
+{
+    title_ = std::move(title);
+    tabs_.setTabs({}, 0);
+    tabs_.setVisible(false);
+    resized();
+    repaint();
+}
+
+void PanelHeader::setTabs(juce::StringArray tabs, int selected)
+{
+    tabs_.setTabs(std::move(tabs), selected);
+    tabs_.setVisible(true);
+    title_.clear();
+    resized();
+    repaint();
+}
+
+void PanelHeader::setSelectedTab(int index)
+{
+    tabs_.setSelected(index);
 }
 
 void PanelHeader::setContext(juce::String text)
@@ -99,20 +198,8 @@ void PanelHeader::resized()
             }
     }
     optionsLeft_ = !options && !commands ? getWidth() : right;
-}
-
-std::vector<juce::Rectangle<int>> PanelHeader::tabAreas() const
-{
-    const auto& t = Theme::current();
-    std::vector<juce::Rectangle<int>> out;
-    int x = t.shell.padding;
-    for (const auto& tab : tabs_)
-    {
-        const int w = static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(font(TextStyle::Control), tab))) + 16;
-        out.push_back({x - 8, 0, w, getHeight()});
-        x += w;
-    }
-    return out;
+    // The tabs' text starts at the padding, where a title's would.
+    tabs_.setBounds(s.padding - s.buttonTextPadding, 0, tabs_.preferredWidth(), getHeight());
 }
 
 void PanelHeader::paint(juce::Graphics& g)
@@ -127,60 +214,19 @@ void PanelHeader::paint(juce::Graphics& g)
         g.setFont(font(TextStyle::Caption));
         g.drawText(caption_, r, juce::Justification::centredRight, false);
     }
-    if (tabs_.isEmpty())
+    if (!tabs_.isVisible())
     {
         const int titleWidth = static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(capsLabelFont(), title_.toUpperCase())));
         paintCapsLabel(g, title_, r.removeFromLeft(titleWidth).toFloat());
     }
     else
-    {
-        const auto areas = tabAreas();
-        g.setFont(font(TextStyle::Control));
-        for (int i = 0; i < tabs_.size(); ++i)
-        {
-            g.setColour(i == selected_ ? t.textPrimary : (i == hovered_ ? t.textSecondary : t.textTertiary));
-            g.drawText(tabs_[i], areas[static_cast<size_t>(i)], juce::Justification::centred, false);
-        }
-        r.setLeft(areas.back().getRight());
-    }
+        r.setLeft(tabs_.getRight());
     if (context_.isNotEmpty())
     {
         g.setColour(t.textSecondary);
         g.setFont(font(TextStyle::Name));
         g.drawText(context_, r.withTrimmedLeft(t.shell.padding).withTrimmedRight(120), juce::Justification::centredLeft, true);
     }
-}
-
-void PanelHeader::mouseMove(const juce::MouseEvent& e)
-{
-    int hovered = -1;
-    const auto areas = tabAreas();
-    for (size_t i = 0; i < areas.size(); ++i)
-        if (areas[i].contains(e.getPosition()))
-            hovered = static_cast<int>(i);
-    if (hovered != hovered_)
-    {
-        hovered_ = hovered;
-        repaint();
-    }
-}
-
-void PanelHeader::mouseExit(const juce::MouseEvent&)
-{
-    hovered_ = -1;
-    repaint();
-}
-
-void PanelHeader::mouseUp(const juce::MouseEvent& e)
-{
-    const auto areas = tabAreas();
-    for (size_t i = 0; i < areas.size(); ++i)
-        if (areas[i].contains(e.getPosition()))
-        {
-            setSelectedTab(static_cast<int>(i));
-            if (onTabSelected)
-                onTabSelected(static_cast<int>(i));
-        }
 }
 
 // ---- rows, popovers, toasts, empty states -------------------------------------------------------

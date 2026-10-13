@@ -187,10 +187,27 @@ void DevicePanel::updateDimming()
 
 // ---- declaration ---------------------------------------------------------------------------
 
+void DevicePanel::addPage(std::string id, juce::String title)
+{
+    jassert(pages_.empty() ? sections_.empty() : true); // pages begin before the first section
+    jassert(std::none_of(pages_.begin(), pages_.end(), [&](const Page& p) { return p.id == id; }));
+    pages_.push_back({std::move(id), std::move(title)});
+    juce::StringArray titles;
+    for (const auto& p : pages_)
+        titles.add(p.title);
+    pageTabs_.setTabs(titles, page_);
+    if (pageTabs_.getParentComponent() == nullptr)
+    {
+        pageTabs_.onSelect = [this](int index) { setPage(index, true); };
+        addAndMakeVisible(pageTabs_);
+    }
+}
+
 PanelSection& DevicePanel::addSection(std::string id, juce::String title, int columns, std::optional<size_t> powerParam)
 {
     jassert(findSection(id) == nullptr); // ids are unique within a panel
     auto& s = *sections_.emplace_back(std::make_unique<PanelSection>(*this, std::move(id), std::move(title), columns, powerParam));
+    sectionPage_.push_back(std::max(0, pageCount() - 1));
     addAndMakeVisible(s);
     return s;
 }
@@ -261,6 +278,42 @@ PanelSection* DevicePanel::findSection(std::string_view id) const
     return nullptr;
 }
 
+std::vector<PanelSection*> DevicePanel::pageSections(int index) const
+{
+    std::vector<PanelSection*> out;
+    for (size_t i = 0; i < sections_.size(); ++i)
+        if (pages_.empty() || sectionPage_[i] == index)
+            out.push_back(sections_[i].get());
+    return out;
+}
+
+void DevicePanel::setPage(int index, bool byUser)
+{
+    index = std::clamp(index, 0, std::max(0, pageCount() - 1));
+    if (index == page_)
+        return;
+    page_ = index;
+    pageTabs_.setSelected(index);
+    viewChanged(byUser);
+}
+
+void DevicePanel::turnPage(int delta, bool byUser)
+{
+    if (const int n = pageCount(); n > 1)
+        setPage(((page_ + delta) % n + n) % n, byUser);
+}
+
+bool DevicePanel::showParameter(size_t param)
+{
+    for (size_t i = 0; i < sections_.size(); ++i)
+        if (sections_[i]->holds(param))
+        {
+            setPage(pages_.empty() ? 0 : sectionPage_[i], true);
+            return true;
+        }
+    return false;
+}
+
 std::vector<juce::Component*> DevicePanel::meters() const
 {
     std::vector<juce::Component*> out;
@@ -283,6 +336,8 @@ std::string DevicePanel::viewState() const
         json["collapsed"] = collapsed;
     if (folded_)
         json["folded"] = true;
+    if (page_ > 0)
+        json["page"] = pageId(page_);
     return json.empty() ? std::string() : json.dump();
 }
 
@@ -291,8 +346,13 @@ void DevicePanel::setViewState(std::string_view text)
     const auto json = nlohmann::json::parse(text, nullptr, false);
     std::set<std::string> collapsed;
     bool folded = false;
+    int page = 0;
     if (json.is_object())
     {
+        if (const auto it = json.find("page"); it != json.end() && it->is_string())
+            for (int i = 0; i < pageCount(); ++i)
+                if (pageId(i) == it->get<std::string>())
+                    page = i;
         if (const auto it = json.find("collapsed"); it != json.end() && it->is_array())
             for (const auto& id : *it)
                 if (id.is_string())
@@ -303,6 +363,8 @@ void DevicePanel::setViewState(std::string_view text)
     for (auto& s : sections_)
         s->collapsed_ = collapsed.contains(s->id());
     folded_ = foldable_ && folded;
+    page_ = page;
+    pageTabs_.setSelected(page);
     resized();
     repaint();
 }
@@ -358,6 +420,8 @@ int DevicePanel::headerMinimumWidth() const
     // Text widths rounded up, as resized() lays them out: a name short by a fraction is cut.
     w += std::ceil(
         juce::GlyphArrangement::getStringWidth(nameFont(), juce::String(std::string(context_.info.name))));
+    if (!pages_.empty())
+        w += static_cast<float>(kSettingsGap + pageTabs_.preferredWidth());
     // Room for every setting, shown or not, so the panel never changes width as they come and go.
     for (size_t i = 0; i < headerControls_.size(); ++i)
         if (const int width = reservedWidth(*headerControls_[i]); width > 0)
@@ -376,9 +440,15 @@ int DevicePanel::preferredWidth() const
     const auto& grid = Theme::current().deviceGrid;
     if (folded_)
         return grid.foldedWidth;
+    // The widest page's sections (as collapsed as they are), so turning a page moves nothing.
     int w = 0;
-    for (const auto& s : sections_)
-        w += s->preferredWidth();
+    for (int page = 0; page < std::max(1, pageCount()); ++page)
+    {
+        int sum = 0;
+        for (auto* s : pageSections(page))
+            sum += s->preferredWidth();
+        w = std::max(w, sum);
+    }
     if (!meters_.empty())
         w += grid.meterStripWidth(static_cast<int>(meters_.size()));
     return std::max(w, headerMinimumWidth());
@@ -387,7 +457,8 @@ int DevicePanel::preferredWidth() const
 bool DevicePanel::isDragHandle(juce::Point<int> position) const
 {
     auto onControl = [&](const juce::Component& c) { return c.isVisible() && c.getBounds().contains(position); };
-    if (onControl(power_) || onControl(fold_) || (presetBar_ != nullptr && onControl(*presetBar_)))
+    if (onControl(power_) || onControl(fold_) || (presetBar_ != nullptr && onControl(*presetBar_)) ||
+        onControl(pageTabs_))
         return false;
     if (folded_)
         return getLocalBounds().contains(position);
@@ -417,6 +488,7 @@ void DevicePanel::resized()
         power_.setBounds(strip.removeFromTop(kPower).withSizeKeepingCentre(kPower, kPower));
         for (auto& s : sections_)
             s->setVisible(false);
+        pageTabs_.setVisible(false);
         for (auto* c : headerControls_)
             c->setVisible(false);
         if (presetBar_ != nullptr)
@@ -439,6 +511,17 @@ void DevicePanel::resized()
     {
         power_.setBounds(h.removeFromLeft(kPower).withSizeKeepingCentre(kPower, kPower));
         h.removeFromLeft(6);
+    }
+    const int nameWidth = static_cast<int>(std::ceil(
+        juce::GlyphArrangement::getStringWidth(nameFont(), juce::String(std::string(context_.info.name)))));
+    // The page tabs right after the name (ADR 0051); the name keeps just its own width.
+    if (!pages_.empty())
+    {
+        nameArea_ = h.removeFromLeft(nameWidth);
+        h.removeFromLeft(kSettingsGap);
+        pageTabs_.setVisible(true);
+        pageTabs_.setBounds(h.removeFromLeft(pageTabs_.preferredWidth()));
+        h.removeFromLeft(kSettingsGap);
     }
     captionAreas_.assign(headerControls_.size(), {});
     headerShowing_.assign(headerControls_.size(), true);
@@ -464,19 +547,21 @@ void DevicePanel::resized()
     // The presets, right-aligned before the settings; the field takes the room the name leaves.
     if (presetBar_ != nullptr)
     {
-        const int name = static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(
-            nameFont(), juce::String(std::string(context_.info.name)))));
-        const int width = std::clamp(h.getWidth() - name - kSettingsGap, presetBar_->minimumWidth(),
-                                     presetBar_->maximumWidth());
+        const int name = pages_.empty() ? nameWidth + kSettingsGap : 0;
+        const int width =
+            std::clamp(h.getWidth() - name, presetBar_->minimumWidth(), presetBar_->maximumWidth());
         presetBar_->setVisible(true);
         presetBar_->setBounds(h.removeFromRight(width).withSizeKeepingCentre(width, grid.row));
         h.removeFromRight(kSettingsGap);
     }
-    nameArea_ = h;
+    if (pages_.empty())
+        nameArea_ = h;
 
-    // Body: sections left to right, separated by lines; then the meter strip.
-    int x = 0;
+    // Body: the page's sections left to right, separated by lines; then the meter strip.
     for (auto& s : sections_)
+        s->setVisible(false);
+    int x = 0;
+    for (auto* s : shownSections())
     {
         if (x > 0)
             separators_.push_back(x);

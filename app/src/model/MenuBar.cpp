@@ -148,6 +148,8 @@ std::vector<Menu> menuBar(MenuPlatform platform)
                       action("view.returns"),
                       action("module.fold"),
                       action("module.expand"),
+                      action("module.nextPage"),
+                      action("module.previousPage"),
                       separator(),
                       action("view.zoomIn"),
                       action("view.zoomOut"),

@@ -78,8 +78,8 @@ void addReadTools(Registry& registry, ToolEnv& env)
                                    "One module in a chain: type, on/off, the delay it adds (latencyMs), "
                                    "every parameter (id, name, value, text, "
                                    "unit, range, default), its panel sections and whether they're collapsed, "
-                                   "and its other state (such as the "
-                                   "Sampler's sample).",
+                                   "its pages and the one showing (a module with pages), and its other state "
+                                   "(such as the Sampler's sample).",
                                    object({{"module", id(IdKind::Module, "The module")}}, {"module"}),
                                    moduleResultSchema(), reading},
                                   [&env](const Json& args, CallContext&)

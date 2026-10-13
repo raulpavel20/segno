@@ -969,6 +969,24 @@ void Shell::registerActions()
                   .keys = {key('e', kCmd | kAlt)},
                   .perform = [this] { detail_.chain().expandSelected(); },
                   .isEnabled = [this] { return detail_.chain().selectedPanel() != nullptr; }});
+    // Pages of a very wide module (ADR 0051): dimmed for a module without them.
+    auto hasPages = [this]
+    {
+        const auto* panel = detail_.chain().selectedPanel();
+        return panel != nullptr && panel->pageCount() > 1;
+    };
+    actions_.add({.id = "module.nextPage",
+                  .name = "Next module page",
+                  .category = "Module",
+                  .keys = {key(juce::KeyPress::pageDownKey, kCmd | kAlt)},
+                  .perform = [this] { detail_.chain().turnSelectedPage(+1); },
+                  .isEnabled = hasPages});
+    actions_.add({.id = "module.previousPage",
+                  .name = "Previous module page",
+                  .category = "Module",
+                  .keys = {key(juce::KeyPress::pageUpKey, kCmd | kAlt)},
+                  .perform = [this] { detail_.chain().turnSelectedPage(-1); },
+                  .isEnabled = hasPages});
     // Presets (ADR 0044, presets.md §10): the selected module's, as its header has them.
     auto presets = [this]() -> ui::PresetBar*
     {

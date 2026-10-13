@@ -297,6 +297,15 @@ void DeviceChain::expandSelected()
     }
 }
 
+void DeviceChain::turnSelectedPage(int delta)
+{
+    if (auto* panel = selectedPanel())
+    {
+        panel->setFolded(false, true);
+        panel->turnPage(delta, true);
+    }
+}
+
 void DeviceChain::deleteSelected()
 {
     if (selected_)

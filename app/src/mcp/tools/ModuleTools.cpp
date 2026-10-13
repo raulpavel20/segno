@@ -293,16 +293,23 @@ void addModuleTools(Registry& registry, ToolEnv& env)
 
     registry.tools.push_back(make(
         env,
-        {"set_module_view", "Collapse sections or fold a module",
-         "Sets how a module's panel shows: which sections are collapsed (the rest are expanded), and whether the "
-         "module is folded to a strip. Section ids come from get_module. View state only: never an undo step.",
+        {"set_module_view", "Collapse sections, fold a module or turn its page",
+         "Sets how a module's panel shows: which sections are collapsed (the rest are expanded), whether the "
+         "module is folded to a strip, and, for a module with pages, the page shown. Section and page ids "
+         "come "
+         "from get_module. View state only: never an undo step.",
          object({{"module", id(IdKind::Module, "The module")},
                  {"collapsed", arrayOf(string("A section id"), "The sections to collapse", 0)},
-                 {"folded", boolean("Folded to a strip")}},
+                 {"folded", boolean("Folded to a strip")},
+                 {"page", string("A page id (a module with pages)")}},
                 {"module"}),
-         result({{"collapsed", arrayOf(string(""), "", std::nullopt)}, {"folded", boolean("")}}, {"collapsed", "folded"}),
+         result({{"collapsed", arrayOf(string(""), "", std::nullopt)},
+                 {"folded", boolean("")},
+                 {"page", string("The page shown, for a module with pages")}},
+                {"collapsed", "folded"}),
          changes, false},
-        [&env](const Json& args, CallContext&) {
+        [&env](const Json& args, CallContext&)
+        {
             const auto [slot, owner] = module(env, args["module"]);
             auto view = Json::parse(env.session.deviceViewState(slot.id), nullptr, false);
             if (!view.is_object())
@@ -340,10 +347,36 @@ void addModuleTools(Registry& registry, ToolEnv& env)
                 else
                     view.erase("folded");
             }
+            // The page (ADR 0051): stored by id, the first page left out.
+            std::vector<std::string> pages;
+            if (auto handle = env.session.openDevice(slot.id))
+                for (const auto& s : sectionsOf(env, *handle))
+                    if (s.contains("page") && (pages.empty() || pages.back() != s["page"].get<std::string>()))
+                        pages.push_back(s["page"].get<std::string>());
+            if (args.contains("page"))
+            {
+                const auto page = args["page"].get<std::string>();
+                if (pages.empty())
+                    throw Problem{slot.name + " has no pages: all of its sections show side by side."};
+                if (std::find(pages.begin(), pages.end(), page) == pages.end())
+                {
+                    std::string list;
+                    for (const auto& k : pages)
+                        list += (list.empty() ? "" : ", ") + k;
+                    throw Problem{"There's no page \"" + page + "\"; this module has " + list + "."};
+                }
+                if (page == pages.front())
+                    view.erase("page");
+                else
+                    view["page"] = page;
+            }
             env.session.setDeviceViewState(slot.id, view.empty() ? std::string() : view.dump());
-            return ToolResult::ok({{"module", formatId(IdKind::Module, slot.id)},
-                                   {"collapsed", view.value("collapsed", Json::array())},
-                                   {"folded", view.value("folded", false)}});
+            Json out = {{"module", formatId(IdKind::Module, slot.id)},
+                        {"collapsed", view.value("collapsed", Json::array())},
+                        {"folded", view.value("folded", false)}};
+            if (!pages.empty())
+                out["page"] = view.value("page", pages.front());
+            return ToolResult::ok(std::move(out));
         }));
 }
 } // namespace fd::mcp

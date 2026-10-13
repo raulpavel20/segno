@@ -40,6 +40,8 @@ public:
     void foldSelected();
     /// Unfolds the selected module and expands all of its sections.
     void expandSelected();
+    /// The selected module's next (+1) or previous (-1) page, unfolding it (ADR 0051).
+    void turnSelectedPage(int delta);
     /// Called when the chain is clicked (the shell routes Delete to the area used last).
     std::function<void()> onActivated;
     /// Something from the browser dropped (browser.md §10): at `index` in the chain, or onto a

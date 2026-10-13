@@ -132,8 +132,18 @@ Json sectionsFromPanel(ui::DeviceUiContext& context)
     if (const auto* factory = ui::findPanel(context.info.id))
     {
         const auto panel = factory->create(context);
-        for (auto* s : panel->sections())
-            list.push_back({{"id", s->id()}, {"title", s->sectionTitle().toStdString()}});
+        // A module with pages (ADR 0051): each section with its page's id and title.
+        for (int page = 0; page < std::max(1, panel->pageCount()); ++page)
+            for (auto* s : panel->pageSections(page))
+            {
+                Json section = {{"id", s->id()}, {"title", s->sectionTitle().toStdString()}};
+                if (panel->pageCount() > 0)
+                {
+                    section["page"] = panel->pageId(page);
+                    section["pageTitle"] = panel->pageTabs()->tabs()[page].toStdString();
+                }
+                list.push_back(std::move(section));
+            }
     }
     return list;
 }
@@ -663,14 +673,28 @@ Json moduleJson(ToolEnv& env, const model::DeviceSlot& slot, const model::TrackI
                     p["automation"] = std::move(a);
                 parameters.push_back(std::move(p));
             }
-        Json sections = Json::array();
+        Json sections = Json::array(), pages = Json::array();
         for (auto s : sectionsOf(env, *handle))
         {
             const auto& collapsed = view["collapsed"];
             s["collapsed"] = std::find(collapsed.begin(), collapsed.end(), s["id"]) != collapsed.end();
+            // Pages (ADR 0051), in order, with their sections.
+            if (s.contains("page"))
+            {
+                if (pages.empty() || pages.back()["id"] != s["page"])
+                    pages.push_back(
+                        {{"id", s["page"]}, {"title", s["pageTitle"]}, {"sections", Json::array()}});
+                pages.back()["sections"].push_back(s["id"]);
+                s.erase("pageTitle");
+            }
             sections.push_back(std::move(s));
         }
         j["sections"] = std::move(sections);
+        if (!pages.empty())
+        {
+            j["page"] = view.value("page", pages.front()["id"].get<std::string>());
+            j["pages"] = std::move(pages);
+        }
         if (context.device != nullptr)
         {
             auto state = Json::object();

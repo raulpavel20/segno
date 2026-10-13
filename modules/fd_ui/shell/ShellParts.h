@@ -5,6 +5,36 @@ namespace fd::ui
 // Shared shell components (docs/design/ui-foundations.md, "Shared components", ADR 0023).
 // Views assemble these instead of drawing their own headers, rows, popovers and hints.
 
+/// Tabs in a row: the detail panel's (Modules, Clip) and a module's pages (ADR 0051). Each is its
+/// name in `Control` text with a text button's padding either side; the selected one in
+/// `textPrimary`, a hovered one in `textSecondary`, the rest in `textTertiary`. A click selects.
+class TabRow final : public juce::Component
+{
+public:
+    TabRow();
+    void setTabs(juce::StringArray tabs, int selected);
+    void setSelected(int index);
+    [[nodiscard]] int selected() const noexcept { return selected_; }
+    [[nodiscard]] const juce::StringArray& tabs() const noexcept { return tabs_; }
+    /// After a click on a tab other than the selected one, which it then selects.
+    std::function<void(int index)> onSelect;
+    /// Every tab side by side.
+    [[nodiscard]] int preferredWidth() const;
+    /// Each tab's area, in this component, from its left edge.
+    [[nodiscard]] std::vector<juce::Rectangle<int>> tabAreas() const;
+    /// The tab under `position` (in this component), or -1.
+    [[nodiscard]] int tabAt(juce::Point<int> position) const;
+
+    void paint(juce::Graphics& g) override;
+    void mouseMove(const juce::MouseEvent& e) override;
+    void mouseExit(const juce::MouseEvent& e) override;
+    void mouseUp(const juce::MouseEvent& e) override;
+
+private:
+    juce::StringArray tabs_;
+    int selected_ = 0, hovered_ = -1;
+};
+
 /// A panel's header row: a section-style title, or clickable tabs, on the left; context text
 /// after them (e.g. the track's name); on the right, the panel's view options and a caption (a
 /// hint).
@@ -17,7 +47,7 @@ public:
     /// Tabs instead of a title; `onTabSelected` fires when one is clicked.
     void setTabs(juce::StringArray tabs, int selected);
     void setSelectedTab(int index);
-    [[nodiscard]] int selectedTab() const noexcept { return selected_; }
+    [[nodiscard]] int selectedTab() const noexcept { return tabs_.selected(); }
     std::function<void(int index)> onTabSelected;
     void setContext(juce::String text);
     void setCaption(juce::String text);
@@ -35,16 +65,10 @@ public:
 
     void paint(juce::Graphics& g) override;
     void resized() override;
-    void mouseMove(const juce::MouseEvent& e) override;
-    void mouseExit(const juce::MouseEvent& e) override;
-    void mouseUp(const juce::MouseEvent& e) override;
 
 private:
-    [[nodiscard]] std::vector<juce::Rectangle<int>> tabAreas() const;
-
     juce::String title_, context_, caption_;
-    juce::StringArray tabs_;
-    int selected_ = 0, hovered_ = -1;
+    TabRow tabs_;
     struct Option
     {
         juce::Component* component;

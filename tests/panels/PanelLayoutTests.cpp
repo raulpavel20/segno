@@ -163,18 +163,28 @@ void lint(const PanelUnderTest& p)
         CHECK(dynamic_cast<const juce::ComboBox*>(picker)->getText() == "A very long track name indeed");
     }
 
-    // Width: the sections and the meter strip, at least what the header needs.
-    int sum = 0;
-    for (auto* s : panel.sections())
-        sum += s->preferredWidth();
+    // Width: the widest page's sections and the meter strip, at least what the header needs.
+    int widest = 0;
+    for (int page = 0; page < std::max(1, panel.pageCount()); ++page)
+    {
+        int sum = 0;
+        for (auto* s : panel.pageSections(page))
+            sum += s->preferredWidth();
+        widest = std::max(widest, sum);
+    }
     const auto meters = panel.meters();
     if (!meters.empty())
-        sum += grid.meterStripWidth(static_cast<int>(meters.size()));
-    CHECK(panel.preferredWidth() == std::max(sum, panel.headerMinimumWidth()));
+        widest += grid.meterStripWidth(static_cast<int>(meters.size()));
+    CHECK(panel.preferredWidth() == std::max(widest, panel.headerMinimumWidth()));
+
+    // Only the page's sections show (ADR 0051).
+    const auto shown = panel.shownSections();
+    for (auto* s : panel.sections())
+        CHECK(s->isVisible() == (std::find(shown.begin(), shown.end(), s) != shown.end()));
 
     // Sections: side by side from the left, the full body high.
     int x = 0;
-    for (auto* s : panel.sections())
+    for (auto* s : shown)
     {
         INFO("section " << s->id());
         CHECK(s->getX() == x);
@@ -272,6 +282,19 @@ void lint(const PanelUnderTest& p)
         for (auto* c : panel.headerControls())
             if (c->isVisible())
                 CHECK(bar->getRight() < c->getX());
+        // The page tabs: right after the name, before the presets, touching neither.
+        if (const auto* tabs = panel.pageTabs())
+        {
+            INFO("page tabs");
+            CHECK(tabs->isVisible());
+            CHECK(tabs->getY() >= 0);
+            CHECK(tabs->getBottom() <= t.deviceHeaderHeight);
+            CHECK(tabs->getWidth() == tabs->preferredWidth());
+            CHECK(panel.nameArea().getRight() < tabs->getX());
+            CHECK(tabs->getRight() < bar->getX());
+            CHECK(tabs->tabs().size() == panel.pageCount());
+            CHECK(tabs->selected() == panel.page());
+        }
         const auto field = bar->field().getWidth();
         CHECK(field >= grid.presetFieldMin);
         CHECK(field <= grid.presetFieldMax);
@@ -337,30 +360,55 @@ TEST_CASE("every module panel is laid out on the module grid", "[ui]")
             }();
             CHECK(ids.size() == p.panel->sections().size()); // unique ids
 
-            INFO("expanded");
-            lint(p);
-            for (auto* s : p.panel->sections())
+            // Every page (ADR 0051), at one width.
+            const int pages = std::max(1, p.panel->pageCount());
+            const int width = p.panel->preferredWidth();
+            for (int page = 0; page < pages; ++page)
             {
-                INFO("collapsed alone: " << s->id());
-                s->setCollapsed(true);
+                INFO("page " << page);
+                p.panel->setPage(page);
                 p.layout();
+                CHECK(p.panel->preferredWidth() == width);
+                INFO("expanded");
                 lint(p);
-                s->setCollapsed(false);
+                for (auto* s : p.panel->shownSections())
+                {
+                    INFO("collapsed alone: " << s->id());
+                    s->setCollapsed(true);
+                    p.layout();
+                    lint(p);
+                    s->setCollapsed(false);
+                }
+                {
+                    INFO("all collapsed");
+                    p.panel->setAllSectionsCollapsed(true);
+                    p.layout();
+                    lint(p);
+                    p.panel->setAllSectionsCollapsed(false);
+                }
+                {
+                    INFO("folded");
+                    p.panel->setFolded(true);
+                    p.layout();
+                    lint(p);
+                    p.panel->setFolded(false);
+                    p.layout();
+                }
             }
+            p.panel->setPage(0);
+            p.layout();
+            if (p.panel->pageCount() > 0)
             {
-                INFO("all collapsed");
-                p.panel->setAllSectionsCollapsed(true);
-                p.layout();
-                lint(p);
-                p.panel->setAllSectionsCollapsed(false);
-            }
-            {
-                INFO("folded");
-                p.panel->setFolded(true);
-                p.layout();
-                lint(p);
-                p.panel->setFolded(false);
-                p.layout();
+                // Every section on exactly one page, page ids unique.
+                std::set<std::string> pageIds;
+                size_t onPages = 0;
+                for (int page = 0; page < p.panel->pageCount(); ++page)
+                {
+                    pageIds.insert(p.panel->pageId(page));
+                    onPages += p.panel->pageSections(page).size();
+                }
+                CHECK(pageIds.size() == static_cast<size_t>(p.panel->pageCount()));
+                CHECK(onPages == p.panel->sections().size());
             }
             // The EQ delaying its sound (linear phase, a spectral band selected): the latency badge
             // in the header, Detail in DYNAMICS.
@@ -420,8 +468,22 @@ TEST_CASE("panel view state round-trips and tolerates bad input", "[ui]")
             CHECK_FALSE(plugin.panel->isFolded());
             CHECK(plugin.panel->sections().front()->isCollapsed());
 
+            // The page shown (ADR 0051): stored by id, the first page left out.
+            if (p.panel->pageCount() > 1)
+            {
+                p.panel->setPage(1, true);
+                CHECK(changes == 3);
+                const auto paged = p.panel->viewState();
+                CHECK(paged.find(p.panel->pageId(1)) != std::string::npos);
+                PanelUnderTest turned(*factory, panelFactory, true);
+                turned.panel->setViewState(paged);
+                CHECK(turned.panel->page() == 1);
+                turned.panel->setViewState(R"({"page": "no-such-page"})");
+                CHECK(turned.panel->page() == 0);
+            }
+
             for (const auto* bad : {"", "nonsense", "[1,2]", R"({"collapsed": "shape", "folded": 3})",
-                                    R"({"collapsed": ["no-such-section"]})"})
+                                    R"({"collapsed": ["no-such-section"]})", R"({"page": 2})"})
             {
                 INFO(bad);
                 other.panel->setViewState(bad);

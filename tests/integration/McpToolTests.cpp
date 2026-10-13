@@ -505,6 +505,10 @@ TEST_CASE("mcp tools: modules, parameters, samples and view state", "[integratio
     CHECK(module["folded"] == true);
     CHECK(module["sections"][0]["collapsed"] == true);
     CHECK(daw.fails("set_module_view", {{"module", satId}, {"collapsed", {"nope"}}}).find(sectionId) != std::string::npos);
+    // Pages (ADR 0051) are only for modules that have them.
+    CHECK_FALSE(module.contains("pages"));
+    CHECK(daw.fails("set_module_view", {{"module", satId}, {"page", "main"}}).find("no pages") !=
+          std::string::npos);
 
     // Sidechains (ADR 0025): another track feeds a Compressor; never its own track, never a loop.
     const auto t1 = daw.call("add_track", {{"name", "Kick"}})["track"].get<std::string>();

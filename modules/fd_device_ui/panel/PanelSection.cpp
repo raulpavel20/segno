@@ -104,6 +104,7 @@ ParamKnob& PanelSection::knob(size_t param, int column, int row)
 {
     auto& k = panel_.adopt(std::make_unique<ParamKnob>(panel_.context(), param), content_);
     created_.push_back(&k);
+    params_.push_back(param);
     add(k, Kind::Knob, column, row, 1, Theme::current().deviceGrid.knobRows);
     return k;
 }
@@ -114,6 +115,7 @@ ParamKnob& PanelSection::bar(size_t param, int column, int row, int columns)
     auto& k = panel_.adopt(std::make_unique<ParamKnob>(panel_.context(), param), content_);
     k.setStyle(Knob::Style::Bar);
     created_.push_back(&k);
+    params_.push_back(param);
     add(k, Kind::Line, column, row, columns, 1);
     return k;
 }
@@ -122,6 +124,7 @@ ParamToggle& PanelSection::toggle(size_t param, int column, int row, int columns
 {
     auto& b = panel_.adopt(std::make_unique<ParamToggle>(panel_.context(), param), content_);
     created_.push_back(&b);
+    params_.push_back(param);
     add(b, Kind::Line, column, row, columns, 1);
     return b;
 }
@@ -131,6 +134,7 @@ ParamComboBox& PanelSection::combo(size_t param, int column, int row, int column
     jassert(columns >= 2);
     auto& c = panel_.adopt(std::make_unique<ParamComboBox>(panel_.context(), param), content_);
     created_.push_back(&c);
+    params_.push_back(param);
     add(c, Kind::Line, column, row, columns, 1);
     return c;
 }
@@ -141,6 +145,7 @@ ParamSegmented& PanelSection::segmented(size_t param, int column, int row, int c
     const int perRow = (choices + rows - 1) / std::max(1, rows);
     auto& s = panel_.adopt(std::make_unique<ParamSegmented>(panel_.context(), param, perRow), content_);
     created_.push_back(&s);
+    params_.push_back(param);
     add(s, Kind::Line, column, row, columns, rows);
     return s;
 }
@@ -156,6 +161,12 @@ void PanelSection::label(juce::String text, int column, int row, int columns)
     add(l, Kind::Label, column, row, columns, 1);
 }
 
+bool PanelSection::holds(size_t param) const noexcept
+{
+    return (powerParam_ && *powerParam_ == param) ||
+           std::find(params_.begin(), params_.end(), param) != params_.end();
+}
+
 void PanelSection::clear()
 {
     for (const auto& p : placements_)
@@ -164,6 +175,7 @@ void PanelSection::clear()
     for (auto* c : created_)
         panel_.destroy(c);
     created_.clear();
+    params_.clear();
     labels_.clear();
 }
 

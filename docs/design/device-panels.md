@@ -109,13 +109,14 @@ Each control is placed by its top-left cell and its span: `(column, row, columns
 For a module too wide to read without scrolling ([ADR 0051](../decisions/0051-pages-for-very-wide-modules.md), the product owner, 2026-10-13). Pages live alongside sections; they never replace them.
 - **Who:** a module opts in when its sections side by side would pass about 1 600 px. Today: the Wavetable Synth. Every other module keeps one row of sections.
 - **What a page is:** a named group of the module's sections ("Oscillators", "Filter & Amp", "Modulation"). Every section belongs to exactly one page; none is shown on every page. Sections collapse inside a page as anywhere.
-- **The tabs:** in the header, right after the module's name and before the presets, in the bottom panel's tab look (`Control` text, the active tab in `textPrimary` with the `active` underline). A click turns the page.
+- **The tabs:** in the header, right after the module's name and before the presets, in the detail panel's tab look: the shared `TabRow` (`Control` text with a text button's padding; the active tab in `textPrimary`, a hovered one in `textSecondary`, the rest in `textTertiary`). A click turns the page.
 - **One width:** the module is as wide as its widest page (with that page's sections as collapsed or expanded as they are). A narrower page leaves room after its last section, as the header rule does, so the modules after it never move when the page turns.
 - **Turning pages from elsewhere:**
   - dragging a modulation source onto a tab and holding it there opens that page;
   - when the DAW shows a parameter in its module (an automation lane's name, an assistant's change), the module turns to the page that holds it.
 - **Mouse and keys** (ADR 0040): View > Next Module Page (Ctrl+Alt+Page Down) and Previous Module Page (Ctrl+Alt+Page Up) act on the selected module; the tabs are the mouse's way.
 - **Folded,** a module shows its strip whatever its page.
+- **Declaring:** `addPage("oscillators", "Oscillators")` before the first section starts a page; each `addSection` after it is on that page, up to the next `addPage`. A display placed with `place()` that sets a parameter says so with `holdsParam(param)`, so `showParameter` finds its page (controls placed with `knob`, `combo` and the rest are known already). A panel that shows one of several (the selected oscillator) overrides `showParameter` to select it first.
 
 ## View state
 
