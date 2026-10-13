@@ -27,7 +27,9 @@ public:
         blocks.push_back(ctx.numSamples); // capacity reserved in prepare: no allocation
         if (allocate_)
         {
-            std::vector<float> scratch(64); // forbidden on the audio thread
+            // Forbidden on the audio thread. Kept in the device, so an optimiser can't leave the
+            // allocation out (it may drop one that never escapes, as clang does in Release).
+            scratch = std::vector<float>(64);
             scratch[0] = 1.0f;
             sink += scratch[0];
         }
@@ -36,6 +38,7 @@ public:
                 ctx.output.channel(c)[i] = ctx.input.channel(c)[i];
     }
     std::vector<int> blocks;
+    std::vector<float> scratch;
     float sink = 0.0f;
 
 private:
