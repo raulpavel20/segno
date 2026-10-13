@@ -173,7 +173,8 @@ struct Tables
                  .decimals = 0});
         }
         ids[Eq::Phase] = "phase";
-        names[Eq::Phase] = shortNames[Eq::Phase] = "Processing";
+        names[Eq::Phase] = "Processing";
+        shortNames[Eq::Phase] = "Mode"; // the header's caption (the product owner, 2026-10-13)
         descriptions[Eq::Phase] =
             "Zero latency keeps the analog-style phase and adds no delay; Linear phase changes "
             "no phase but delays the sound.";
@@ -185,7 +186,8 @@ struct Tables
                             .flags = ParamFlags::ChangesLatency,
                             .sinceVersion = 3};
         ids[Eq::Resolution] = "resolution";
-        names[Eq::Resolution] = shortNames[Eq::Resolution] = "Resolution";
+        names[Eq::Resolution] = "Resolution";
+        shortNames[Eq::Resolution] = "Quality";
         descriptions[Eq::Resolution] = "How fine the linear-phase and spectral processing is in the lows: "
                                        "higher is finer, with more delay.";
         specs[Eq::Resolution] = {.kind = ParamKind::Choice,

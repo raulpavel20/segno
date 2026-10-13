@@ -78,6 +78,15 @@ int settingWidth(juce::Component& c)
     }
     return c.getWidth();
 }
+
+/// The room a header setting keeps in the panel's width, shown or not: a latency badge as for
+/// a delay of up to 999 ms.
+int reservedWidth(juce::Component& c)
+{
+    if (dynamic_cast<LatencyBadge*>(&c) != nullptr)
+        return LatencyBadge::widthFor("+999 ms");
+    return settingWidth(c);
+}
 } // namespace
 
 DevicePanel::DevicePanel(DeviceUiContext& context) : context_(context)
@@ -98,6 +107,7 @@ DevicePanel::DevicePanel(DeviceUiContext& context) : context_(context)
     {
         headerControls_.push_back(&adopt(std::make_unique<SidechainPicker>(*context_.sidechain), *this));
         headerCaptions_.push_back("Sidechain");
+        headerShown_.emplace_back();
     }
     // Presets, where the host has them (ADR 0044).
     if (context_.presets != nullptr)
@@ -143,6 +153,14 @@ void DevicePanel::timerCallback()
     if (presetBar_ != nullptr)
         presetBar_->refresh();
     updateDimming();
+    // A header setting shown only while it matters came or went.
+    for (size_t i = 0; i < headerShown_.size(); ++i)
+        if (headerShown_[i] && i < headerShowing_.size() && headerShown_[i]() != headerShowing_[i])
+        {
+            resized();
+            repaint();
+            break;
+        }
 }
 
 void DevicePanel::dimWhen(std::vector<juce::Component*> controls, std::function<bool()> inactive)
@@ -183,7 +201,16 @@ ParamComboBox& DevicePanel::addHeaderCombo(size_t param)
     headerControls_.push_back(&c);
     const auto& spec = context_.info.params[param];
     headerCaptions_.push_back(juce::String(std::string(spec.shortName.empty() ? spec.name : spec.shortName)));
+    headerShown_.emplace_back();
     return c;
+}
+
+void DevicePanel::showHeaderWhen(juce::Component& setting, std::function<bool()> shown)
+{
+    for (size_t i = 0; i < headerControls_.size(); ++i)
+        if (headerControls_[i] == &setting)
+            headerShown_[i] = std::move(shown);
+    resized();
 }
 
 LatencyBadge& DevicePanel::showLatency(std::function<double()> latencyMs)
@@ -193,6 +220,7 @@ LatencyBadge& DevicePanel::showLatency(std::function<double()> latencyMs)
         *this);
     headerControls_.push_back(&badge);
     headerCaptions_.push_back({}); // it says what it is
+    headerShown_.emplace_back();
     badge.onChange = [this]
     {
         resized();
@@ -330,8 +358,9 @@ int DevicePanel::headerMinimumWidth() const
     // Text widths rounded up, as resized() lays them out: a name short by a fraction is cut.
     w += std::ceil(
         juce::GlyphArrangement::getStringWidth(nameFont(), juce::String(std::string(context_.info.name))));
+    // Room for every setting, shown or not, so the panel never changes width as they come and go.
     for (size_t i = 0; i < headerControls_.size(); ++i)
-        if (const int width = settingWidth(*headerControls_[i]); width > 0)
+        if (const int width = reservedWidth(*headerControls_[i]); width > 0)
             w += static_cast<float>(width + kSettingsGap) +
                  (headerCaptions_[i].isEmpty()
                       ? 0.0f
@@ -412,11 +441,14 @@ void DevicePanel::resized()
         h.removeFromLeft(6);
     }
     captionAreas_.assign(headerControls_.size(), {});
+    headerShowing_.assign(headerControls_.size(), true);
     for (size_t i = headerControls_.size(); i-- > 0;)
     {
         auto* c = headerControls_[i];
-        const int width = settingWidth(*c);
-        c->setVisible(width > 0); // a latency badge while there's no delay: nothing, and no gap
+        // A latency badge while there's no delay, a setting while it doesn't matter: nothing, and no gap.
+        headerShowing_[i] = !headerShown_[i] || headerShown_[i]();
+        const int width = headerShowing_[i] ? settingWidth(*c) : 0;
+        c->setVisible(width > 0);
         if (width <= 0)
             continue;
         c->setBounds(h.removeFromRight(width).withSizeKeepingCentre(width, grid.row));

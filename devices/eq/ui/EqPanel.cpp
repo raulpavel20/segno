@@ -848,7 +848,7 @@ public:
                            ctx.info.params[Eq::Resolution].choices[static_cast<size_t>(choice)])) +
                        ": " + delayText(delayMs(ctx, true, choice));
             });
-        dimWhen({&resolution}, [&ctx] { return !usesEngine(ctx); }); // it matters only with a delay
+        showHeaderWhen(resolution, [&ctx] { return usesEngine(ctx); }); // it matters only with a delay
         showLatency([&ctx]
                     { return delayMs(ctx, usesEngine(ctx), static_cast<int>(plain(ctx, Eq::Resolution))); });
         selection_.changed = [this]
@@ -923,7 +923,8 @@ private:
         resized();
     }
 
-    /// The Spectral switch says what it costs: the delay at this Resolution, unless there's one.
+    /// The Spectral switch says what it costs: the delay at this Quality (Resolution), unless
+    /// there's one already.
     void updateSpectralTooltip()
     {
         auto& ctx = context();
@@ -932,8 +933,7 @@ private:
         const auto cost =
             usesEngine(ctx) && plain(ctx, Eq::spectralIndex(selection_.band, Eq::Spectral)) < 0.5f
                 ? juce::String(" The EQ is delayed already, so it adds no more.")
-                : " It delays the sound, " + delayText(delayMs(ctx, true, resolution)) +
-                      " at this Resolution.";
+                : " It delays the sound, " + delayText(delayMs(ctx, true, resolution)) + " at this Quality.";
         spectral_->setTooltip(juce::String(std::string(spec.name)) + ": " +
                               juce::String(std::string(spec.description)) + cost);
         tooltipResolution_ = resolution;

@@ -254,9 +254,48 @@ TEST_CASE("eq panel: linear phase, a spectral band and the delay it costs, drawn
         juce::Rectangle<int>(0, 0, panel->getWidth(), fd::ui::Theme::current().deviceHeaderHeight);
     dump("eq-header-latency@2x.png", panel->createComponentSnapshot(header, true, 2.0f));
 
-    // Back to zero latency with no spectral band: no delay, no badge.
+    // Back to zero latency with no spectral band: no delay, no badge, and Resolution (which
+    // matters only with a delay) gone too.
+    CHECK(resolution->isVisible());
     binding.setPlain(E::Phase, 0.0f);
     binding.setPlain(E::spectralIndex(1, E::Spectral), 0.0f);
     badge->refresh();
+    panel->resized();
     CHECK_FALSE(badge->isVisible());
+    CHECK_FALSE(resolution->isVisible());
+    CHECK(processing->isVisible());
+}
+
+TEST_CASE("eq panel: the header's dropdowns open again after a choice, and after closing", "[ui]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    const auto* factory = fd::findDevice("eq");
+    const fd::ui::PanelFactory* panelFactory = nullptr;
+    for (const auto* p : fd::ui::allPanels())
+        if (p->deviceId == "eq")
+            panelFactory = p;
+    REQUIRE(panelFactory != nullptr);
+    auto device = factory->create();
+    fd::ui::LocalParamBinding binding(*device);
+    fd::ui::DeviceUiContext ctx{factory->info(), binding, nullptr, device.get()};
+    auto panel = panelFactory->create(ctx);
+    panel->setSize(panel->preferredWidth(), fd::ui::Theme::current().devicePanelHeight);
+    auto* processing =
+        find<fd::ui::ParamComboBox>(*panel, [](auto& c) { return c.getText() == "Zero latency"; });
+    REQUIRE(processing != nullptr);
+    // A click opens the menu (asynchronously: never run here, so no window shows); closing it
+    // with a choice or without one lets the next click open it again.
+    const auto click = [processing]
+    { processing->mouseDown(moveAt(*processing, processing->getLocalBounds().getCentre().toFloat())); };
+    click();
+    CHECK(processing->isPopupActive());
+    processing->menuClosed(2); // Linear phase
+    CHECK(binding.getPlain(E::Phase) == 1.0f);
+    CHECK_FALSE(processing->isPopupActive());
+    click();
+    CHECK(processing->isPopupActive());
+    processing->menuClosed(0); // closed without a choice
+    CHECK_FALSE(processing->isPopupActive());
+    CHECK(binding.getPlain(E::Phase) == 1.0f);
+    panel.reset(); // before the menus it asked for could open
 }

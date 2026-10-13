@@ -82,6 +82,9 @@ public:
         return menuText_ ? menuText_(choice) : getItemText(choice);
     }
     void showPopup() override;
+    /// Its menu closed with `chosen` (an item id; 0 for none): it may open again, and takes the
+    /// choice. Public for tests.
+    void menuClosed(int chosen);
 
 private:
     DeviceUiContext& context_;
@@ -101,6 +104,8 @@ public:
     void paint(juce::Graphics& g) override;
     /// Its width on the header: none while the module adds no delay.
     [[nodiscard]] int preferredWidth() const;
+    /// Its width showing `text`.
+    [[nodiscard]] static int widthFor(const juce::String& text);
     [[nodiscard]] const juce::String& text() const noexcept { return text_; }
     /// The delay came, went or changed (the header lays out again).
     std::function<void()> onChange;

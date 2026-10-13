@@ -69,6 +69,9 @@ protected:
     /// A module-wide quality or display setting (oversampling, analyzer), right-aligned in the
     /// header with its name as a caption. Never one that shapes the sound's character.
     ParamComboBox& addHeaderCombo(size_t param);
+    /// Shows a header setting only while `shown()` is true (the EQ's Resolution, which matters
+    /// only while there's a delay); otherwise it takes no room. The panel's width keeps room for it.
+    void showHeaderWhen(juce::Component& setting, std::function<bool()> shown);
     /// The delay the module adds, while it adds one: a badge at the header's right end ("+107
     /// ms", in the warning colour) whose tooltip says what it means for playing live. For modules
     /// whose delay is a choice (the EQ's linear phase; devices/eq/SPEC.md, "Latency").
@@ -128,6 +131,8 @@ private:
     std::vector<std::unique_ptr<PanelSection>> sections_;
     std::vector<juce::Component*> headerControls_;
     std::vector<juce::String> headerCaptions_;          // one per header control
+    std::vector<std::function<bool()>> headerShown_; // one per header control: shown while true (or always)
+    std::vector<bool> headerShowing_;                // laid out as shown
     std::vector<juce::Rectangle<int>> captionAreas_;    // laid out
     std::vector<std::pair<juce::Component*, juce::String>> meters_;
 

@@ -204,9 +204,18 @@ void ParamComboBox::showPopup()
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMinimumWidth(getWidth()),
                        [safe = juce::Component::SafePointer<ParamComboBox>(this)](int chosen)
                        {
-                           if (safe != nullptr && chosen > 0)
-                               safe->setSelectedId(chosen, juce::sendNotificationSync);
+                           if (safe != nullptr)
+                               safe->menuClosed(chosen);
                        });
+}
+
+void ParamComboBox::menuClosed(int chosen)
+{
+    // As juce::ComboBox's own menu does: until hidePopup(), the box thinks its menu is still
+    // open and ignores every click.
+    hidePopup();
+    if (chosen > 0)
+        setSelectedId(chosen, juce::sendNotificationSync);
 }
 
 // ---- the latency badge --------------------------------------------------------------------
@@ -239,11 +248,14 @@ void LatencyBadge::refresh()
 
 int LatencyBadge::preferredWidth() const
 {
-    if (text_.isEmpty())
-        return 0;
+    return text_.isEmpty() ? 0 : widthFor(text_);
+}
+
+int LatencyBadge::widthFor(const juce::String& text)
+{
     const auto& grid = Theme::current().deviceGrid;
     return static_cast<int>(
-               std::ceil(juce::GlyphArrangement::getStringWidth(font(TextStyle::Control), text_))) +
+               std::ceil(juce::GlyphArrangement::getStringWidth(font(TextStyle::Control), text))) +
            2 * grid.displayInset;
 }
 
