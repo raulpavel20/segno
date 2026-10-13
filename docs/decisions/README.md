@@ -61,6 +61,7 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0050](0050-the-wavetable-synth-goes-beyond-live.md) | The Wavetable Synth goes beyond Live, to the depth of the leading wavetable synths, with its innovation where the DAW helps; amends 0011 for this synth only | Accepted |
 | [0051](0051-pages-for-very-wide-modules.md) | Pages for very wide modules: tabs in the header, one width for every page, sections still collapse; opt-in past about 1 600 px | Accepted |
 | [0052](0052-generic-names-are-free.md) | Generic names (Sampler, Wavetable, Delay) are free to use, as final names too; names a vendor made up (Operator, Drift, Simpler) aren't; amends 0008 | Accepted |
+| [0053](0053-a-modules-editor-in-the-detail-panel.md) | A module's editor (the Wavetable's tables) opens in the detail panel beside Modules and Clip; in the plugins, under the panel | Proposed |
 
 ## Template
 
