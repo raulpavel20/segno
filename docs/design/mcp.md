@@ -126,6 +126,8 @@ The project, track, clip and module resources send change notifications when the
 | `set_module_on` | `module`, `on` | – |
 | `set_parameters` | `module`, `values`: `{param id: value or text}` | Each value as set (with its text), and any that were clamped or unknown |
 | `load_sample` | `module` (a Sampler), `path` | The sample's length and root key |
+| `list_wavetables` | `category?` | The Wavetable Synth's tables: the factory ones (id, name, category, frames) and the files in the Segno folder's Wavetables (path, name). Read-only |
+| `set_wavetable` | `module` (a Wavetable Synth), `oscillator` (1–3), `table` (a factory id) or `path` (a WAV or `.wt` file) | The table as set: its id (`user` for a file, carried in the project), name and frames; one undo step ([devices/wavetable/SPEC.md](../../devices/wavetable/SPEC.md), "Tables and their files") |
 | `set_mix` | `track` (a track, return or the master), `volume?` (dB, "-inf"), `pan?` (−1 … 1, "25L"), `mute?`, `solo?`, `exclusive?` | The channel's mix; one undo step (solo alone: none) ([mixer.md](mixer.md) §10) |
 | `add_return_track` | `name?` | The return's id and name |
 | `set_send` | `track`, `return`, `level?` (dB), `preFader?` | The send as set |

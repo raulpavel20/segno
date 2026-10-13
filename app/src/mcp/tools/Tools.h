@@ -30,6 +30,7 @@ void addTransportTools(Registry& registry, ToolEnv& env);
 void addClipTools(Registry& registry, ToolEnv& env);
 void addNoteTools(Registry& registry, ToolEnv& env);
 void addModuleTools(Registry& registry, ToolEnv& env);
+void addWavetableTools(Registry& registry, ToolEnv& env);
 void addPresetTools(Registry& registry, ToolEnv& env);
 void addRenderTools(Registry& registry, ToolEnv& env);
 void addMixTools(Registry& registry, ToolEnv& env);

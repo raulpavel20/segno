@@ -16,6 +16,7 @@ void registerAll(Registry& registry, ToolEnv& env)
     addClipTools(registry, env);
     addNoteTools(registry, env);
     addModuleTools(registry, env);
+    addWavetableTools(registry, env);
     addPresetTools(registry, env);
     addRenderTools(registry, env);
     addMixTools(registry, env);
@@ -122,6 +123,8 @@ Json viewJson(const std::string& state)
             view["collapsed"] = parsed["collapsed"];
         if (parsed.contains("folded") && parsed["folded"].is_boolean())
             view["folded"] = parsed["folded"];
+        if (parsed.contains("page") && parsed["page"].is_string()) // a module with pages (ADR 0051)
+            view["page"] = parsed["page"];
     }
     return view;
 }

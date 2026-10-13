@@ -172,6 +172,8 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
                              "set_module_on",
                              "set_parameters",
                              "load_sample",
+                             "list_wavetables",
+                             "set_wavetable",
                              "set_module_view",
                              "get_grid",
                              "set_grid",
@@ -550,6 +552,69 @@ TEST_CASE("mcp tools: modules, parameters, samples and view state", "[integratio
     const auto reference = daw.read("segno://module-type/saturator");
     CHECK_FALSE(reference["description"].get<std::string>().empty());
     CHECK_FALSE(reference["sections"].empty());
+}
+
+TEST_CASE("mcp tools: the Wavetable Synth's tables, listed and set by id or from a file; its pages",
+          "[integration][mcp]")
+{
+    Daw daw;
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    const auto synth =
+        daw.call("add_module", {{"track", t0}, {"type", "wavetable"}})["id"].get<std::string>();
+
+    // The factory tables, all or by category; the files of your own (none here).
+    const auto listed = daw.call("list_wavetables");
+    CHECK(listed["factory"].size() >= 60);
+    const auto formant = daw.call("list_wavetables", {{"category", "formant"}})["factory"];
+    REQUIRE_FALSE(formant.empty());
+    for (const auto& t : formant)
+        CHECK(t["category"] == "Formant");
+
+    // By id: one undo step, carried in the module's state.
+    const auto set =
+        daw.call("set_wavetable", {{"module", synth}, {"oscillator", 2}, {"table", "formant/vowels"}});
+    CHECK(set["table"] == "formant/vowels");
+    CHECK(set["frames"].get<int>() > 1);
+    CHECK(daw.session->undoDescription() == "Assistant: set wavetable");
+    CHECK(daw.call("get_module", {{"module", synth}})["state"]["osc2.table"] == "formant/vowels");
+    daw.call("undo");
+    const auto undone = daw.call("get_module", {{"module", synth}});
+    CHECK_FALSE((undone.contains("state") && undone["state"].contains("osc2.table")));
+
+    // From a file: a single cycle, carried in the project as a table of your own.
+    juce::TemporaryFile wav(".wav");
+    fd::testkit::AudioBuffer cycle(1, 600);
+    for (int i = 0; i < 600; ++i)
+        cycle.at(0, i) = 0.8f * (2.0f * static_cast<float>(i) / 600.0f - 1.0f);
+    REQUIRE(fd::testkit::writeWav(wav.getFile().getFullPathName().toStdString(), cycle, 48000.0));
+    const auto fromFile = daw.call(
+        "set_wavetable",
+        {{"module", synth}, {"oscillator", 1}, {"path", wav.getFile().getFullPathName().toStdString()}});
+    CHECK(fromFile["table"] == "user");
+    CHECK(fromFile["frames"] == 1);
+    CHECK(fromFile["name"] == wav.getFile().getFileNameWithoutExtension().toStdString());
+    CHECK(daw.call("get_module", {{"module", synth}})["state"]["osc1.table"] == "user");
+
+    CHECK(daw.fails("set_wavetable", {{"module", synth}, {"oscillator", 1}}).find("either") !=
+          std::string::npos);
+    CHECK(daw.fails("set_wavetable", {{"module", synth}, {"oscillator", 1}, {"table", "basic/nope"}})
+              .find("list_wavetables") != std::string::npos);
+    const auto sat = daw.call("add_module", {{"track", t0}, {"type", "saturator"}})["id"];
+    CHECK(daw.fails("set_wavetable", {{"module", sat}, {"oscillator", 1}, {"table", "basic/saw"}})
+              .find("isn't a Wavetable Synth") != std::string::npos);
+
+    // Its pages (ADR 0051): listed with their sections, turned by set_module_view.
+    auto module = daw.call("get_module", {{"module", synth}});
+    REQUIRE(module["pages"].size() == 3);
+    CHECK(module["page"] == "oscillators");
+    CHECK(module["pages"][2]["id"] == "modulation");
+    const auto& onModulation = module["pages"][2]["sections"];
+    CHECK(std::find(onModulation.begin(), onModulation.end(), "matrix") != onModulation.end());
+    const auto view = daw.call("set_module_view", {{"module", synth}, {"page", "modulation"}});
+    CHECK(view["page"] == "modulation");
+    CHECK(daw.call("get_module", {{"module", synth}})["page"] == "modulation");
+    CHECK(daw.fails("set_module_view", {{"module", synth}, {"page", "nope"}}).find("oscillators") !=
+          std::string::npos);
 }
 
 TEST_CASE("mcp tools: each editor's grid, never an undo step (ADR 0047)", "[integration][mcp]")
