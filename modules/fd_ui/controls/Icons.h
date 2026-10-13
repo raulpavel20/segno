@@ -39,7 +39,8 @@ enum class Icon
     Note,          // instruments (the browser's rail, ADR 0046): an eighth note
     Knob,          // audio effects: a knob with its pointer
     Plug,          // plugins: a plug with two prongs
-    Folder         // places and folders: a folder with its tab
+    Folder,        // places and folders: a folder with its tab
+    Move           // a modulation source's handle, dragged onto a knob: four ways
 };
 
 /// Draws `icon` fitted (aspect kept) into `area` in `colour`.

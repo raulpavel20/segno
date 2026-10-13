@@ -20,6 +20,8 @@ struct DeviceGrid
     int displayInset = 6;       // a display's text and marks, from its well's edges
     int displayTextHeight = 14; // a display's line of text (a legend, a readout, an axis label)
     int displayHandle = 11; // a point dragged on a display (the Compressor's threshold, the Filter's cutoff)
+    int sourceHandle =
+        12; // a modulation source's handle, dragged onto a knob (device-panels.md, "Modulation")
     int headerPadding = 8;
     int headerButton = 16;                          // a header's icon buttons: fold, previous and next preset
     int presetFieldMin = 112, presetFieldMax = 200; // the preset's name field (presets.md §6)
@@ -78,6 +80,7 @@ struct Motion
     double follow = 0.05; // s: the view following the playhead
     double settle = 0.15; // s: detail that waits until motion stops
     double progressDelay = 0.25; // s: work done sooner shows no progress (no flicker)
+    double springLoad = 0.5;     // s: a drag held on a tab opens it (a module's page)
 };
 
 struct Input
@@ -207,6 +210,7 @@ struct Theme
     float knobMaxDiameter = 38.0f;
     float knobValueSize = 10.0f; // every knob's value text (mono), unless it can't fit
     float knobArcThickness = 2.5f;
+    float knobRingThickness = 1.5f, knobRingGap = 1.0f; // a modulated knob's ring, outside its arc
 
     ColourRoles roles;
     Motion motion;

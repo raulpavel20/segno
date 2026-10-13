@@ -93,6 +93,7 @@ Role functions for colours that depend on content:
 | `motion.zoom` | 80 ms (the `Timeline` model's own constant) | Animated zoom |
 | `motion.settle` | 150 ms | Detail that waits for motion to stop (exact-zoom waveforms) |
 | `motion.progressDelay` | 250 ms | Work done sooner shows no progress, so quick bounces don't flicker |
+| `motion.springLoad` | 500 ms | A drag held on a tab opens it: a module's page, while dragging a modulation source |
 | `input.bendTravel` | 60 px | Dragged for a whole bend: automation segments and fades alike |
 | `input.dragThreshold` | 3 px | A press becomes a drag |
 | `input.edgeGrab` | 6 px (a third of the target at most) | Grabbing a clip's, note's or loop brace's edge |

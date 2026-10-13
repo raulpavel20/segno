@@ -28,11 +28,20 @@ public:
     /// Sync is on).
     void follow(std::function<size_t()> which);
     [[nodiscard]] size_t param() const noexcept { return index_; }
+    /// A knob that's also a modulation source (a macro): its name strip is the source's handle
+    /// (device-panels.md, "Modulation").
+    void setModulationSource(int source);
+
+    void mouseEnter(const juce::MouseEvent& e) override;
+    void mouseExit(const juce::MouseEvent& e) override;
 
 private:
     DeviceUiContext& context_;
     size_t index_;
     std::function<size_t()> which_;
+    int source_ = -1;
+    std::optional<int> ringRoute_; // the route a drag on the ring sets
+    float ringAmount_ = 0.0f;
 };
 
 /// Toggle bound to a Toggle-kind parameter.

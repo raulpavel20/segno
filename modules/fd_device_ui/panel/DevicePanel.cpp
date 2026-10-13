@@ -153,6 +153,7 @@ void DevicePanel::timerCallback()
     if (presetBar_ != nullptr)
         presetBar_->refresh();
     updateDimming();
+    springLoad();
     // A header setting shown only while it matters came or went.
     for (size_t i = 0; i < headerShown_.size(); ++i)
         if (headerShown_[i] && i < headerShowing_.size() && headerShown_[i]() != headerShowing_[i])
@@ -301,6 +302,66 @@ void DevicePanel::turnPage(int delta, bool byUser)
 {
     if (const int n = pageCount(); n > 1)
         setPage(((page_ + delta) % n + n) % n, byUser);
+}
+
+void DevicePanel::dragSource(int source, juce::Point<int> position)
+{
+    auto* m = context_.modulation;
+    if (m == nullptr)
+        return;
+    m->draggedSource = m->lastSource = source;
+    // The knob under the pointer, if it can take the source.
+    m->dropParam.reset();
+    for (auto* c = getComponentAt(position); c != nullptr && c != this; c = c->getParentComponent())
+        if (auto* knob = dynamic_cast<ParamKnob*>(c))
+        {
+            if (knob->style() == Knob::Style::Rotary && m->canModulate(knob->param()))
+                m->dropParam = knob->param();
+            break;
+        }
+    // Held on a page tab: that page, after a moment.
+    int tab = -1;
+    if (pageTabs_.isVisible() && pageTabs_.getBounds().contains(position))
+        tab = pageTabs_.tabAt(position - pageTabs_.getPosition());
+    if (tab != springTab_ && !(tab == page_ && springTab_ < 0))
+    {
+        springTab_ = tab == page_ ? -1 : tab;
+        springSince_ = juce::Time::getMillisecondCounterHiRes();
+    }
+    springLoad();
+    for (auto& c : controls_)
+        if (auto* pc = dynamic_cast<ParamControl*>(c.get()))
+            pc->refresh();
+}
+
+void DevicePanel::springLoad()
+{
+    // A dragged source held on a page tab turns to that page (device-panels.md, "Modulation").
+    if (springTab_ >= 0 && context_.modulation != nullptr && context_.modulation->draggedSource >= 0 &&
+        juce::Time::getMillisecondCounterHiRes() - springSince_ >=
+            Theme::current().motion.springLoad * 1000.0)
+    {
+        setPage(springTab_, true);
+        springTab_ = -1;
+    }
+}
+
+void DevicePanel::dropSource(int source, juce::Point<int> position, bool cancelled)
+{
+    auto* m = context_.modulation;
+    if (m == nullptr)
+        return;
+    if (!cancelled)
+        dragSource(source, position);
+    const auto target = m->dropParam;
+    m->draggedSource = -1;
+    m->dropParam.reset();
+    springTab_ = -1;
+    if (!cancelled && target)
+        m->addRoute(source, *target);
+    for (auto& c : controls_)
+        if (auto* pc = dynamic_cast<ParamControl*>(c.get()))
+            pc->refresh();
 }
 
 bool DevicePanel::showParameter(size_t param)

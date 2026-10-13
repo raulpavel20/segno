@@ -7,4 +7,5 @@
 #include "panel/PanelSection.cpp"
 #include "panel/ParamBinding.cpp"
 #include "panel/Displays.cpp"
+#include "panel/Modulation.cpp"
 // clang-format on

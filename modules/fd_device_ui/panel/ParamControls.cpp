@@ -27,6 +27,23 @@ void showParamMenu(DeviceUiContext& context, size_t index, juce::Component& cont
         if (menu.getNumItems() > 0)
             menu.addSeparator();
     }
+    // Its routes (device-panels.md, "Modulation"), each with Remove.
+    if (auto* m = context.modulation)
+    {
+        bool any = false;
+        for (const auto& r : m->routes())
+            if (r.param == index)
+            {
+                juce::PopupMenu route;
+                route.addItem("Remove", whileAlive([m, r] { m->removeRoute(r.index); }));
+                menu.addSubMenu(m->sourceName(r.source) + juce::String::fromUTF8(" \u2192 ") +
+                                    juce::String(juce::roundToInt(r.amount * 100.0f)) + " %",
+                                route);
+                any = true;
+            }
+        if (any)
+            menu.addSeparator();
+    }
     const auto def = context.info.params[index].def;
     menu.addItem("Reset to default", whileAlive([&params, index, def] {
                      params.beginGesture(index);
@@ -38,7 +55,75 @@ void showParamMenu(DeviceUiContext& context, size_t index, juce::Component& cont
 
 ParamKnob::ParamKnob(DeviceUiContext& context, size_t paramIndex) : context_(context), index_(paramIndex)
 {
+    // Its ring sets the amount of a route that moves it (device-panels.md, "Modulation").
+    onRingStart = [this]
+    {
+        auto* m = context_.modulation;
+        const auto route = m != nullptr ? m->routeToDrag(index_) : std::nullopt;
+        ringRoute_ = route ? std::optional<int>(route->index) : std::nullopt;
+        if (route)
+        {
+            ringAmount_ = route->amount;
+            m->beginAmount(route->index);
+        }
+    };
+    onRingDrag = [this](float delta)
+    {
+        if (ringRoute_ && context_.modulation != nullptr)
+        {
+            ringAmount_ = std::clamp(ringAmount_ + delta, -1.0f, 1.0f);
+            context_.modulation->setAmount(*ringRoute_, ringAmount_);
+            refresh();
+        }
+    };
+    onRingEnd = [this]
+    {
+        if (ringRoute_ && context_.modulation != nullptr)
+            context_.modulation->endAmount(*ringRoute_);
+        ringRoute_.reset();
+    };
     bind(paramIndex);
+}
+
+void ParamKnob::setModulationSource(int source)
+{
+    source_ = source;
+    auto panel = [this] { return findParentComponentOfClass<DevicePanel>(); };
+    onHandleHover = [this](bool hovered)
+    {
+        if (auto* m = context_.modulation)
+        {
+            if (hovered)
+                m->hoveredSource = m->lastSource = source_;
+            else if (m->hoveredSource == source_)
+                m->hoveredSource = -1;
+        }
+    };
+    onHandleDrag = [this, panel](const juce::MouseEvent& e)
+    {
+        if (auto* p = panel())
+            p->dragSource(source_, e.getEventRelativeTo(p).getPosition());
+    };
+    onHandleRelease = [this, panel](const juce::MouseEvent& e)
+    {
+        if (auto* p = panel())
+            p->dropSource(source_, e.getEventRelativeTo(p).getPosition(), !e.mouseWasDraggedSinceMouseDown());
+    };
+    refresh();
+}
+
+void ParamKnob::mouseEnter(const juce::MouseEvent& e)
+{
+    if (auto* m = context_.modulation)
+        m->hoveredParam = index_;
+    Knob::mouseEnter(e);
+}
+
+void ParamKnob::mouseExit(const juce::MouseEvent& e)
+{
+    if (auto* m = context_.modulation; m != nullptr && m->hoveredParam == index_)
+        m->hoveredParam.reset();
+    Knob::mouseExit(e);
 }
 
 void ParamKnob::bind(size_t paramIndex)
@@ -85,6 +170,14 @@ void ParamKnob::refresh()
     const ParamSpec& spec = context_.info.params[index_];
     setValue(spec.toNormalized(context_.params.getPlain(index_)), juce::dontSendNotification);
     setAutomationState(context_.params.automationState(index_));
+    if (const auto* m = context_.modulation)
+    {
+        setRing(m->ringFor(index_, getValue()));
+        setDropTarget(m->dropParam == index_);
+        if (source_ >= 0)
+            setSourceHandle(true, m->hoveredSource == source_ || m->draggedSource == source_ ||
+                                      m->movesHovered(source_));
+    }
 }
 
 ParamToggle::ParamToggle(DeviceUiContext& context, size_t paramIndex)

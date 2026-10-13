@@ -255,6 +255,25 @@ Glyph glyph(Icon icon)
         p.lineTo(1.5f, 13.0f);
         p.closeSubPath();
         break;
+    case Icon::Move:
+        // A cross with an arrowhead at each end.
+        p.startNewSubPath(8.0f, 2.0f);
+        p.lineTo(8.0f, 14.0f);
+        p.startNewSubPath(2.0f, 8.0f);
+        p.lineTo(14.0f, 8.0f);
+        p.startNewSubPath(5.5f, 4.5f);
+        p.lineTo(8.0f, 2.0f);
+        p.lineTo(10.5f, 4.5f);
+        p.startNewSubPath(5.5f, 11.5f);
+        p.lineTo(8.0f, 14.0f);
+        p.lineTo(10.5f, 11.5f);
+        p.startNewSubPath(4.5f, 5.5f);
+        p.lineTo(2.0f, 8.0f);
+        p.lineTo(4.5f, 10.5f);
+        p.startNewSubPath(11.5f, 5.5f);
+        p.lineTo(14.0f, 8.0f);
+        p.lineTo(11.5f, 10.5f);
+        break;
     case Icon::Search:
         p.addEllipse(2.5f, 2.5f, 8.5f, 8.5f);
         p.startNewSubPath(9.8f, 9.8f);

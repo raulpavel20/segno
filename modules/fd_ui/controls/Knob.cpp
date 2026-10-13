@@ -94,35 +94,43 @@ void Knob::paint(juce::Graphics& g)
         return;
     }
     const auto& t = Theme::current();
-    auto area = getLocalBounds().toFloat();
-
-    // A fixed block, centred: name, arc, value (docs/design/device-panels.md). Every knob looks
-    // the same whatever cell it gets.
-    const auto& grid = t.deviceGrid;
-    if (area.getHeight() > static_cast<float>(grid.knobHeight()))
-        area = area.withSizeKeepingCentre(area.getWidth(), static_cast<float>(grid.knobHeight()));
-    const auto nameArea = area.removeFromTop(static_cast<float>(grid.knobName));
-    const auto valueArea = area.removeFromBottom(static_cast<float>(grid.knobValue));
-    const float size = juce::jmin(t.knobMaxDiameter, area.getWidth() - 4.0f, area.getHeight() - 2.0f);
-    const auto knobArea = juce::Rectangle<float>(size, size).withCentre(area.getCentre());
+    const auto k = geometry();
+    const auto nameArea = k.name, valueArea = k.value;
 
     const bool hot = isMouseOverOrDragging() || hasKeyboardFocus(false);
 
-    g.setFont(fonts::font(t.textXs, fonts::Weight::Medium));
+    const auto nameFont = fonts::font(t.textXs, fonts::Weight::Medium);
+    g.setFont(nameFont);
     g.setColour(hot ? t.textPrimary : t.textSecondary);
-    g.drawText(name_, nameArea, juce::Justification::centred, false);
+    if (sourceHandle_)
+    {
+        // A source (a macro): its name, cut to fit with the handle's glyph after it.
+        const auto glyph = static_cast<float>(t.deviceGrid.sourceHandle);
+        const float room = nameArea.getWidth() - glyph - 2.0f;
+        const float nameWidth = std::min(room, juce::GlyphArrangement::getStringWidth(nameFont, name_));
+        const float x = nameArea.getCentreX() - (nameWidth + 2.0f + glyph) * 0.5f;
+        g.drawText(name_, juce::Rectangle<float>(x, nameArea.getY(), nameWidth, nameArea.getHeight()),
+                   juce::Justification::centredLeft, true);
+        drawIcon(g, Icon::Move,
+                 juce::Rectangle<float>(x + nameWidth + 2.0f, nameArea.getY(), glyph, nameArea.getHeight())
+                     .withSizeKeepingCentre(glyph - 2.0f, glyph - 2.0f),
+                 handleLit_ || handleHovered_ ? t.effectEnd : t.textTertiary);
+    }
+    else
+        g.drawText(name_, nameArea, juce::Justification::centred, false);
     if (automation_ != AutomationState::None) // left of its name
     {
-        const float nameWidth = juce::GlyphArrangement::getStringWidth(fonts::font(t.textXs, fonts::Weight::Medium), name_);
+        const float nameWidth = juce::GlyphArrangement::getStringWidth(nameFont, name_);
         paintAutomationIndicator(g, {std::max(nameArea.getX() + 3.0f, nameArea.getCentreX() - nameWidth * 0.5f - 7.0f),
                                      nameArea.getCentreY()},
                                  automation_);
     }
 
-    const float thickness = t.knobArcThickness;
-    const float radius = (size - thickness) * 0.5f;
-    const auto centre = knobArea.getCentre();
+    const float thickness = k.thickness;
+    const float radius = k.radius;
+    const auto centre = k.centre;
     const auto stroke = juce::PathStrokeType(thickness, juce::PathStrokeType::curved, juce::PathStrokeType::butt);
+    paintRing(g, k);
 
     juce::Path track;
     track.addCentredArc(centre.x, centre.y, radius, radius, 0.0f, kStartAngle, kStartAngle + kSweep, true);
@@ -151,6 +159,133 @@ void Knob::paint(juce::Graphics& g)
         g.setColour(hot ? t.textPrimary : t.roles.valueText);
         g.drawText(valueText(), valueArea, juce::Justification::centred, false);
     }
+}
+
+Knob::Geometry Knob::geometry() const
+{
+    // A fixed block, centred: name, arc, value (docs/design/device-panels.md). Every knob looks
+    // the same whatever cell it gets.
+    const auto& t = Theme::current();
+    const auto& grid = t.deviceGrid;
+    auto area = getLocalBounds().toFloat();
+    if (area.getHeight() > static_cast<float>(grid.knobHeight()))
+        area = area.withSizeKeepingCentre(area.getWidth(), static_cast<float>(grid.knobHeight()));
+    Geometry k;
+    k.name = area.removeFromTop(static_cast<float>(grid.knobName));
+    k.value = area.removeFromBottom(static_cast<float>(grid.knobValue));
+    const float size = juce::jmin(t.knobMaxDiameter, area.getWidth() - 4.0f, area.getHeight() - 2.0f);
+    k.centre = area.getCentre();
+    k.thickness = t.knobArcThickness;
+    k.radius = (size - k.thickness) * 0.5f;
+    return k;
+}
+
+void Knob::paintRing(juce::Graphics& g, const Geometry& k) const
+{
+    const auto& t = Theme::current();
+    // Just outside the arc: `active` over the whole sweep where a dragged source would land,
+    // else the range the modulation moves it over, in the modulation gradient.
+    const float r = k.radius + k.thickness * 0.5f + t.knobRingGap + t.knobRingThickness * 0.5f;
+    const auto stroke =
+        juce::PathStrokeType(t.knobRingThickness, juce::PathStrokeType::curved, juce::PathStrokeType::butt);
+    if (dropTarget_)
+    {
+        juce::Path all;
+        all.addCentredArc(k.centre.x, k.centre.y, r, r, 0.0f, kStartAngle, kStartAngle + kSweep, true);
+        g.setColour(t.active);
+        g.strokePath(all, stroke);
+        return;
+    }
+    if (!ring_ || ring_->to - ring_->from < 0.001f)
+        return;
+    const float a0 = angleFor(juce::jlimit(0.0f, 1.0f, ring_->from));
+    const float a1 = angleFor(juce::jlimit(0.0f, 1.0f, ring_->to));
+    juce::Path arc;
+    arc.addCentredArc(k.centre.x, k.centre.y, r, r, 0.0f, a0, a1, true);
+    const auto at = [&](float a) { return k.centre + juce::Point<float>(std::sin(a), -std::cos(a)) * r; };
+    juce::ColourGradient gradient(t.effectStart, at(a0), t.effectEnd, at(a1), false);
+    g.setGradientFill(gradient);
+    g.setOpacity(ring_->dimmed ? t.roles.dimAlpha : 1.0f);
+    g.strokePath(arc, stroke);
+    g.setOpacity(1.0f);
+}
+
+juce::Rectangle<float> Knob::ringBounds() const
+{
+    const auto& t = Theme::current();
+    const auto k = geometry();
+    const float outer = k.radius + k.thickness * 0.5f + t.knobRingGap + t.knobRingThickness;
+    return juce::Rectangle<float>(2.0f * outer, 2.0f * outer).withCentre(k.centre);
+}
+
+void Knob::setRing(std::optional<Ring> ring)
+{
+    if (ring != ring_)
+    {
+        ring_ = ring;
+        repaint();
+    }
+}
+
+void Knob::setDropTarget(bool target)
+{
+    if (target != dropTarget_)
+    {
+        dropTarget_ = target;
+        repaint();
+    }
+}
+
+void Knob::setSourceHandle(bool shown, bool lit)
+{
+    if (shown != sourceHandle_ || lit != handleLit_)
+    {
+        sourceHandle_ = shown;
+        handleLit_ = lit;
+        repaint();
+    }
+}
+
+juce::Rectangle<float> Knob::handleArea() const
+{
+    return sourceHandle_ && style_ == Style::Rotary ? geometry().name : juce::Rectangle<float>();
+}
+
+bool Knob::isOnRing(juce::Point<float> position) const
+{
+    if (style_ != Style::Rotary || !ring_ || !onRingDrag)
+        return false;
+    const auto k = geometry();
+    if (k.name.contains(position) || k.value.contains(position))
+        return false;
+    // The band from the arc's middle outwards: the ring, with room for a pointer.
+    return position.getDistanceFrom(k.centre) >= k.radius;
+}
+
+void Knob::setHandleHovered(bool hovered)
+{
+    if (hovered != handleHovered_)
+    {
+        handleHovered_ = hovered;
+        repaint();
+        if (onHandleHover)
+            onHandleHover(hovered);
+    }
+}
+
+void Knob::mouseMove(const juce::MouseEvent& e)
+{
+    const bool onHandle = handleArea().contains(e.position);
+    setHandleHovered(onHandle);
+    setMouseCursor(onHandle               ? juce::MouseCursor::DraggingHandCursor
+                   : isOnRing(e.position) ? juce::MouseCursor::UpDownLeftRightResizeCursor
+                                          : juce::MouseCursor::NormalCursor);
+}
+
+void Knob::mouseExit(const juce::MouseEvent&)
+{
+    setHandleHovered(false);
+    repaint();
 }
 
 juce::String Knob::valueText() const
@@ -262,16 +397,46 @@ void Knob::mouseDown(const juce::MouseEvent& e)
         return;
     }
     grabKeyboardFocus();
-    dragging_ = true;
-    dragAccumulator_ = value_;
     lastDragY_ = e.position.y;
     lastDragX_ = e.position.x;
+    // A source's handle drags the source; the ring sets the modulation's amount.
+    if (handleArea().contains(e.position))
+    {
+        press_ = Press::Handle;
+        return;
+    }
+    if (isOnRing(e.position))
+    {
+        press_ = Press::Ring;
+        if (onRingStart)
+            onRingStart();
+        return;
+    }
+    press_ = Press::Value;
+    dragging_ = true;
+    dragAccumulator_ = value_;
     if (onGestureStart)
         onGestureStart();
 }
 
 void Knob::mouseDrag(const juce::MouseEvent& e)
 {
+    if (press_ == Press::Handle)
+    {
+        if (onHandleDrag)
+            onHandleDrag(e);
+        return;
+    }
+    if (press_ == Press::Ring)
+    {
+        const auto& input = Theme::current().input;
+        const float delta = (lastDragY_ - e.position.y + e.position.x - lastDragX_) / input.valueTravel;
+        lastDragY_ = e.position.y;
+        lastDragX_ = e.position.x;
+        if (onRingDrag)
+            onRingDrag(delta * (e.mods.isShiftDown() ? input.fineFactor : 1.0f));
+        return;
+    }
     if (!dragging_)
         return;
     // Accumulate relative movement so pressing or releasing Shift mid-drag never jumps.
@@ -286,8 +451,21 @@ void Knob::mouseDrag(const juce::MouseEvent& e)
     changeTo(dragAccumulator_);
 }
 
-void Knob::mouseUp(const juce::MouseEvent&)
+void Knob::mouseUp(const juce::MouseEvent& e)
 {
+    const auto press = std::exchange(press_, Press::Value);
+    if (press == Press::Handle)
+    {
+        if (onHandleRelease)
+            onHandleRelease(e);
+        return;
+    }
+    if (press == Press::Ring)
+    {
+        if (onRingEnd)
+            onRingEnd();
+        return;
+    }
     if (!dragging_)
         return;
     dragging_ = false;
@@ -297,7 +475,7 @@ void Knob::mouseUp(const juce::MouseEvent&)
 
 void Knob::mouseDoubleClick(const juce::MouseEvent& e)
 {
-    if (e.mods.isPopupMenu())
+    if (e.mods.isPopupMenu() || handleArea().contains(e.position) || isOnRing(e.position))
         return;
     // The double-click's second press already began a gesture (ended on release): the reset is
     // part of it, so gestures never nest.

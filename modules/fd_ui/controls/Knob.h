@@ -41,6 +41,41 @@ public:
     /// A right-click: the control's menu (automation, reset).
     std::function<void()> onPopupMenu;
 
+    // ---- modulation (docs/design/device-panels.md, "Modulation"); rotary knobs only ----------
+
+    /// The range its modulation moves it over (normalised, `from` <= `to`): a ring just outside
+    /// its arc, in the modulation gradient; `dimmed` while another source is shown. None: no ring.
+    struct Ring
+    {
+        float from = 0.0f, to = 0.0f;
+        bool dimmed = false;
+        bool operator==(const Ring&) const = default;
+    };
+    void setRing(std::optional<Ring> ring);
+    [[nodiscard]] const std::optional<Ring>& ring() const noexcept { return ring_; }
+    /// Lights the knob where a dragged source would land: a ring in `active` over its sweep.
+    void setDropTarget(bool target);
+    [[nodiscard]] bool isDropTarget() const noexcept { return dropTarget_; }
+    /// The square the ring's outer edge fits in (for the layout lint): inside the knob, clear of
+    /// its name and value.
+    [[nodiscard]] juce::Rectangle<float> ringBounds() const;
+    /// The name and value strips (for the layout lint).
+    [[nodiscard]] juce::Rectangle<float> nameStrip() const { return geometry().name; }
+    [[nodiscard]] juce::Rectangle<float> valueStrip() const { return geometry().value; }
+    /// Whether `position` (in the knob) is on the ring's band, outside the arc, where dragging
+    /// sets the modulation's amount (while there's a ring and onRingDrag).
+    [[nodiscard]] bool isOnRing(juce::Point<float> position) const;
+    std::function<void()> onRingStart, onRingEnd;
+    /// Each step of a drag on the ring: normalised, positive up and right (Shift finely).
+    std::function<void(float delta)> onRingDrag;
+    /// A knob that's itself a modulation source (a macro): its name strip is the source's
+    /// handle, with the handle's glyph after the name, lit while `lit`.
+    void setSourceHandle(bool shown, bool lit = false);
+    /// Where the source's handle is (the name strip), in the knob; empty when it isn't one.
+    [[nodiscard]] juce::Rectangle<float> handleArea() const;
+    std::function<void(const juce::MouseEvent&)> onHandleDrag, onHandleRelease;
+    std::function<void(bool hovered)> onHandleHover;
+
     std::function<void(float)> onValueChange;
     std::function<void()> onGestureStart;
     std::function<void()> onGestureEnd;
@@ -55,12 +90,23 @@ public:
     void mouseDoubleClick(const juce::MouseEvent& e) override;
     void mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override;
     void mouseEnter(const juce::MouseEvent&) override { repaint(); }
-    void mouseExit(const juce::MouseEvent&) override { repaint(); }
+    void mouseExit(const juce::MouseEvent&) override;
+    void mouseMove(const juce::MouseEvent& e) override;
     bool keyPressed(const juce::KeyPress& key) override;
     void focusLost(FocusChangeType) override { repaint(); }
     void focusGained(FocusChangeType) override { repaint(); }
 
 private:
+    /// The rotary knob's layout in its bounds: a fixed block, centred (device-panels.md).
+    struct Geometry
+    {
+        juce::Rectangle<float> name, value;
+        juce::Point<float> centre;
+        float radius = 0.0f, thickness = 0.0f;
+    };
+    [[nodiscard]] Geometry geometry() const;
+    void paintRing(juce::Graphics& g, const Geometry& k) const;
+    void setHandleHovered(bool hovered);
     void paintBar(juce::Graphics& g);
     void paintFader(juce::Graphics& g);
     /// A fader's travel in pixels: the cap's centre moves over it.
@@ -93,6 +139,14 @@ private:
     Style style_ = Style::Rotary;
     AutomationState automation_ = AutomationState::None;
     bool dragging_ = false;
+    std::optional<Ring> ring_;
+    bool dropTarget_ = false, sourceHandle_ = false, handleLit_ = false, handleHovered_ = false;
+    enum class Press
+    {
+        Value,
+        Ring,
+        Handle
+    } press_ = Press::Value;
     std::unique_ptr<juce::TextEditor> editor_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Knob)

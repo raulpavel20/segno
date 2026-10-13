@@ -97,7 +97,15 @@ void checkPlacementText(const PanelSection::Placement& p)
         const auto nameFont = fd::ui::fonts::font(t.textXs, fd::ui::fonts::Weight::Medium);
         if (knob->style() == fd::ui::Knob::Style::Rotary)
         {
-            CHECK(width(nameFont, knob->getName()) <= kKnobNameMax + kTextMargin);
+            // A source's name is cut to leave room for its handle (a macro named by you).
+            if (knob->handleArea().isEmpty())
+                CHECK(width(nameFont, knob->getName()) <= kKnobNameMax + kTextMargin);
+            // A modulated knob's ring (device-panels.md, "Modulation"): inside its cell, clear of
+            // its name and value.
+            const auto ring = knob->ringBounds();
+            CHECK(knob->getLocalBounds().toFloat().contains(ring));
+            CHECK_FALSE(ring.intersects(knob->nameStrip()));
+            CHECK_FALSE(ring.intersects(knob->valueStrip()));
             return;
         }
         // A bar: the name on the left, the widest value on the right.

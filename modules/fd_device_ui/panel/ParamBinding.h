@@ -96,5 +96,8 @@ struct DeviceUiContext
     /// Asks the host for `height` px below the module's header while the preset list is open (0:
     /// done), where its window is too small to hold it: a plugin's editor grows. Empty in the DAW.
     std::function<void(int height)> popoverRoom;
+    /// The module's own modulation (device-panels.md, "Modulation"), set by a panel that has
+    /// one: its knobs show rings and take dragged sources. Null for most modules.
+    ModulationModel* modulation = nullptr;
 };
 } // namespace fd::ui

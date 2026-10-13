@@ -52,6 +52,14 @@ public:
     [[nodiscard]] std::vector<PanelSection*> shownSections() const { return pageSections(page_); }
     /// The page tabs (for the layout lint): null for a module without pages.
     [[nodiscard]] const TabRow* pageTabs() const noexcept { return pages_.empty() ? nullptr : &pageTabs_; }
+    // ---- modulation (device-panels.md, "Modulation") ----------------------------------------
+
+    /// A modulation source dragged from its handle, the pointer at `position` (in the panel):
+    /// lights the knob there that can take it, and turns to a page whose tab it's held on.
+    void dragSource(int source, juce::Point<int> position);
+    /// Let go at `position`: a route to the knob there, if any; nothing when `cancelled`.
+    void dropSource(int source, juce::Point<int> position, bool cancelled);
+
     /// Shows where `param` is set: turns to the page of the section that holds its control.
     /// False if no section does. Panels that show one of several (an oscillator) select it first.
     virtual bool showParameter(size_t param);
@@ -150,6 +158,8 @@ private:
     std::vector<Dimming> dimming_;
 
     void timerCallback() override;
+    /// Turns to the page a dragged source has been held on long enough.
+    void springLoad();
 
     DeviceUiContext& context_;
     Toggle power_;
@@ -173,6 +183,8 @@ private:
     std::vector<int> sectionPage_; // each section's page
     int page_ = 0;
     TabRow pageTabs_;
+    int springTab_ = -1;       // the page tab a dragged source is held on
+    double springSince_ = 0.0; // since when (ms)
     bool foldable_ = false, folded_ = false;
     juce::Rectangle<int> nameArea_;
     std::vector<int> separators_; // x of the lines between sections
