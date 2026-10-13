@@ -104,6 +104,19 @@ Each control is placed by its top-left cell and its span: `(column, row, columns
   - a plugin editor asks its host to resize, and lays the panel out from the left at whatever width the host grants;
   - on a screen narrower than the editor, the editor scrolls horizontally.
 
+## Pages
+
+For a module too wide to read without scrolling ([ADR 0051](../decisions/0051-pages-for-very-wide-modules.md), the product owner, 2026-10-13). Pages live alongside sections; they never replace them.
+- **Who:** a module opts in when its sections side by side would pass about 1 600 px. Today: the Wavetable Synth. Every other module keeps one row of sections.
+- **What a page is:** a named group of the module's sections ("Oscillators", "Filter & Amp", "Modulation"). Every section belongs to exactly one page; none is shown on every page. Sections collapse inside a page as anywhere.
+- **The tabs:** in the header, right after the module's name and before the presets, in the bottom panel's tab look (`Control` text, the active tab in `textPrimary` with the `active` underline). A click turns the page.
+- **One width:** the module is as wide as its widest page (with that page's sections as collapsed or expanded as they are). A narrower page leaves room after its last section, as the header rule does, so the modules after it never move when the page turns.
+- **Turning pages from elsewhere:**
+  - dragging a modulation source onto a tab and holding it there opens that page;
+  - when the DAW shows a parameter in its module (an automation lane's name, an assistant's change), the module turns to the page that holds it.
+- **Mouse and keys** (ADR 0040): View > Next Module Page (Ctrl+Alt+Page Down) and Previous Module Page (Ctrl+Alt+Page Up) act on the selected module; the tabs are the mouse's way.
+- **Folded,** a module shows its strip whatever its page.
+
 ## View state
 
 | Host | Stored in | Rules |
@@ -111,7 +124,7 @@ Each control is placed by its top-left cell and its span: `(column, row, columns
 | DAW | the module's plugin tree, property `fdPanel` (JSON) | Saved with the project; never an undo step, never an unsaved change, never a snapshot rebuild |
 | Plugin | top-level `"view"` key in the plugin state | Written only when not empty, so state without it is byte-identical; presets and `fd-render` ignore it |
 
-Format: `{"collapsed": ["color", "shape"], "folded": true}`. Ids are sorted, and default values are omitted. Unknown ids are ignored.
+Format: `{"collapsed": ["color", "shape"], "folded": true, "page": "modulation"}`. Ids are sorted, and default values are omitted (the first page is the default). Unknown ids are ignored. Page ids, like section ids, are stored and never renamed.
 
 ## Keyboard
 
@@ -172,8 +185,9 @@ Columns are in brackets. Each module's SPEC lists its map. The four M2 modules a
 
 ## Checked by the layout lint
 
-`fd_panel_tests` builds every registered panel. It checks it expanded, with each section collapsed alone, with all sections collapsed, and folded; the EQ is also checked with a cut band selected. The checks:
-- **Width:** `preferredWidth()` equals the computed sum and is a multiple of 4.
+`fd_panel_tests` builds every registered panel. It checks it expanded, with each section collapsed alone, with all sections collapsed, and folded; a module with pages, on every page; the EQ is also checked with a cut band selected. The checks:
+- **Width:** `preferredWidth()` equals the computed sum (the widest page's, for a module with pages) and is a multiple of 4.
+- **Pages:** every section on exactly one page; the tabs in the header, clear of the name and the presets.
 - **Placement:**
   - every control covers whole cells, inside its section's content and the body;
   - no two controls overlap;

@@ -319,6 +319,8 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 | Show returns and master | Ctrl+Alt+R | |
 | Fold module | Ctrl+Alt+M | |
 | Expand module sections | Ctrl+Alt+E | |
+| Next module page | Ctrl+Alt+Page Down | For a module with pages ([ADR 0051](../decisions/0051-pages-for-very-wide-modules.md)); dimmed for others. With the Wavetable Synth (M3 P1) |
+| Previous module page | Ctrl+Alt+Page Up | As above |
 | — | | |
 | Zoom in | = | |
 | Zoom out | − | |

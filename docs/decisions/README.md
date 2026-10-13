@@ -59,6 +59,7 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0048](0048-clips-loop.md) | Any clip can loop a part of its content: edges go as far as dragged with every repeat notched, notches change the loop's length, the clip view's brace sets its start and end (piano roll and a new audio clip view); seams follow the edge-fade rule | Accepted |
 | [0049](0049-the-master-row-is-the-song-row.md) | The master's row is the song row, pinned under the ruler: sections (a name, colour, start and end) over a miniature of every track; an edge moves the mark, the body moves the music, the rest of the song making room; clips split at the edges | Accepted |
 | [0050](0050-the-wavetable-synth-goes-beyond-live.md) | The Wavetable Synth goes beyond Live, to the depth of the leading wavetable synths, with its innovation where the DAW helps; amends 0011 for this synth only | Proposed |
+| [0051](0051-pages-for-very-wide-modules.md) | Pages for very wide modules: tabs in the header, one width for every page, sections still collapse; opt-in past about 1 600 px | Accepted |
 
 ## Template
 

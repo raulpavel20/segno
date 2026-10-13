@@ -139,7 +139,7 @@ The project, track, clip and module resources send change notifications when the
 | `clear_automation` | `lane` or a parameter, `from?`, `to?` | Removes points (by parameter: refused on a shared lane) |
 | `set_automation_on` | `lane`, a parameter and `on?`, or `all` | Turns assignments back on (not an undo step) |
 | `set_module_sidechain` | `module`, `source` (a track, or null for none) | The source; `get_module` reports `sidechain: {source, possibleSources}` for modules with a sidechain input ([ADR 0025](../decisions/0025-sidechain-routing.md)) |
-| `set_module_view` | `module`, `collapsed?` (section ids), `folded?` | – (view state: never an undo step) |
+| `set_module_view` | `module`, `collapsed?` (section ids), `folded?`, `page?` (a page id, for a module with pages: [ADR 0051](../decisions/0051-pages-for-very-wide-modules.md)) | – (view state: never an undo step); `get_module` lists the pages with their sections, and the one showing |
 | `get_grid` | – | Each editor's grid ([ADR 0047](../decisions/0047-the-editing-grid-in-each-editor.md)): `arrangement` and `piano_roll`, each with `mode` (adaptive, fixed), `width` (narrowest … widest), `value` ("8 bars" … "1/32"), `triplets`, `snap`, and the `step` it snaps to now ("1/16", "1/8T") |
 | `set_grid` | `editor` (arrangement, piano_roll), `mode?`, `width?`, `value?`, `triplets?`, `snap?` | That editor's grid as set, with its step (view state: never an undo step) |
 | `list_presets` | `module` or `type` | A module's presets (Default settings, factory, yours: id, name, source, tags, description, author, favourite), and for a module the one it came from, whether it changed since, and whether A or B shows ([presets.md](presets.md) §14) |

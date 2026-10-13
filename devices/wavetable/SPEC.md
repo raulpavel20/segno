@@ -199,7 +199,7 @@ State version 1. Every parameter is automatable except where noted. Families use
 | `mod<n>.aux` | Mod n Scale | Another source that scales this route's amount, such as the mod wheel or velocity. | None and the sources above | None | choice | – | – |
 
 - **Targets,** in this order (permanent): Pitch; for each oscillator: Position, Pitch, Fine, Level, Pan, Warp 1, Warp 2, Detune, Blend, Width, Position Spread, Warp Spread; Sub Level, Sub Pan; Noise Level, Noise Color, Noise Pan; for each filter: Cutoff, Resonance, Drive, Shape; Filter Routing; Amp; Pan; LFO 1 … 8 Rate; Random 1, 2 Rate. Pitch targets move ±24 semitones at 100 %, cutoff ±5 octaves, the rest their whole range.
-- **Routes are made by dragging** a source onto a control on the panel (W7), or in the matrix; both set these parameters, so assistants and hosts see every route.
+- **Routes are made in the matrix, or by dragging** a source onto a control on the panel (W7); both set these parameters, so assistants and hosts see every route.
 
 **Voice and output:**
 
@@ -292,7 +292,9 @@ State version 1. Every parameter is automatable except where noted. Families use
 
 ## UI layout
 
-On the module grid ([device-panels.md](../../docs/design/device-panels.md)). Six rows are tight for a synth this deep, so it is compact first, deep on demand (ui-principles): sections that show the *selected* oscillator, filter, envelope or LFO, as the EQ's BAND section does, and the deep sections collapsed until opened.
+On the module grid ([device-panels.md](../../docs/design/device-panels.md)), on three **pages** ([ADR 0051](../../docs/decisions/0051-pages-for-very-wide-modules.md)): the tabs Oscillators, Filter & Amp and Modulation sit in the header after the name. Sections show the *selected* oscillator, filter, envelope or LFO, as the EQ's BAND section does, and still collapse.
+
+**Oscillators** (`osc`):
 
 | Section | Controls |
 |---|---|
@@ -300,21 +302,35 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)). Six
 | `osc` OSC *n* (or SUB, NOISE) [8] ⏻ | **Oscillators:** the table display (0, 0, 4 × 4): the waves in 3D, the playing cycle highlighted, Position dragged on it. The table's name with previous and next, opening the browser (0, 4, 4). Position, Octave, Semi, Fine (4–7, 0). Phase, Random, Pan (4–6, 3). Filter route (4, 5, 4 wide). **Sub and Noise:** their own controls in the same cells |
 | `warp` WARP [4] | Warp 1: type and source (0, 0, 2 wide each), amount bar (0, 1, 4 wide), the Remap curve when chosen (0, 2, 4 wide). Warp 2 the same (rows 3–5) |
 | `unison` UNISON [4] | Unison, Detune, Blend, Width (0–3, 0). Mode, Stack (0, 3, 2 wide each). Position Spread, Warp Spread (bars, rows 4 and 5) |
+
+**Filter & Amp** (`filter`):
+
+| Section | Controls |
+|---|---|
 | `filter` FILTER 1 \| 2 [6] ⏻ | A 1 \| 2 switch (0, 0, 2 wide) and Type (2, 0, 4 wide). The response, both filters drawn (0, 1, 6 × 2). Cutoff, Resonance, Drive, Shape, Env, Key Track (0–5, 3) |
 | `env` ENVELOPES [6] | Amp \| Filter \| 3 \| 4 (0, 0, 2 wide). The envelope drawn and draggable (0, 1, 2 × 5). Attack, Hold, Decay, Sustain (2–5, 0). Release (2, 3), the three curves as bars, Mode, Velocity (Amp) |
-| `lfo` LFO [6] (collapsed at first) | 1 … 8 and Random 1, 2. The shape drawn and edited (0, 0, 3 × 5). Rate or Sync, Phase, Smooth (3–5, 0). Mode, Fade In, Per Note |
-| `macros` MACROS [4] | Macro 1 … 8, two rows of knobs, named by you |
-| `matrix` MODULATION [8] (collapsed at first) | Every route as a row: source, target, amount, curve, scale; scrolls |
 | `voice` VOICE [3] | Mode, Voices, Glide and its mode, Bend, Drift, Volume |
-| header | Quality; the CPU it's taking now (W13); the sidechain picker doesn't apply |
+
+**Modulation** (`modulation`):
+
+| Section | Controls |
+|---|---|
+| `lfo` LFO [6] | 1 … 8 and Random 1, 2. The shape drawn and edited (0, 0, 3 × 5). Rate or Sync, Phase, Smooth (3–5, 0). Mode, Fade In, Per Note |
+| `matrix` MATRIX [11] | The modulation matrix: every route a row of source (2 wide), target (3 wide), amount (2 wide), curve (2 wide) and scale (2 wide), five showing at once and the rest scrolling. Its title row adds a route; a route's row removes it from its menu |
+| `macros` MACROS [4] | Macro 1 … 8, two rows of knobs, named by you |
+
+| Also | |
+|---|---|
+| header | The page tabs; Quality; the CPU it's taking now (W13). The sidechain picker doesn't apply |
 | meter strip | Output |
 
-- **About 2 000 px wide** with LFO and Modulation collapsed, about 2 800 px with everything open. The exact cells are settled while building, against the layout lint and screenshots.
-- **Drag to modulate (W7):** drag a source's handle (on the LFO, envelope, macro and random displays) onto any knob to make a route. A ring then shows the range it moves, and the ring is dragged to set Amount.
+- **About 1 200 px wide** (the Modulation page's 21 columns; the others leave room after their last section), instead of 2 000–2 800 px on one row. The exact cells are settled while building, against the layout lint and screenshots.
+- **The matrix and dragging are one thing (W7):** a route made by dragging appears in the matrix, and one added in the matrix shows its ring on the knob.
+- **Drag to modulate:** drag a source's handle (on the LFO, envelope, macro and random displays) onto any knob to make a route; a knob on another page is reached by holding the drag on its tab. A ring then shows the range it moves, and the ring is dragged to set Amount.
   - Hovering a source shows its rings on every target; hovering a knob shows what moves it.
   - A right-click on a knob lists its routes, with Remove.
   - The rings, handles and hover behaviour are built once in `fd_device_ui`, for M4's DAW-wide modulators too.
-- **By mouse** (ADR 0040): every action has a control on the panel or an item in the Module menu (Edit Wavetable, Vary, Import Wavetable…); Make Wavetable is in the Clip menu.
+- **By mouse** (ADR 0040): every action has a control on the panel or an item in the menu bar: the Module menu (Edit Wavetable, Vary, Import Wavetable…), View (Next and Previous Module Page), and the Clip menu (Make Wavetable).
 
 ## Factory presets
 
@@ -360,7 +376,7 @@ Dated listening notes from the product owner, and the measurable checks derived 
 | W4 | **Warps** | Two per oscillator, from 28: 14 in the cycle (Bend and Asym in their directions), 4 between oscillators, 10 spectral (the list above) |
 | W5 | **Unison** | Up to 16 copies per oscillator: 4 detune laws, stacks (octaves, fifths, chords, the key's chord), blend, width, and spreads of position and warp per copy |
 | W6 | **Filters** | 2, serial to parallel by one knob; 14 types including ladder, diode, comb, formant and phaser; drive; each source sent to filter 1, 2, both or neither |
-| W7 | **Modulation** | 4 envelopes with curves (Amp and Filter fixed), 8 drawn LFOs, 2 random sources, 8 macros, 32 routes with a curve and a scaling source. Routes by dragging a source onto a knob, rings showing them, hover showing where a source goes. Built once in the shared panel library, so M4's DAW-wide modulators look and work the same |
+| W7 | **Modulation** | 4 envelopes with curves (Amp and Filter fixed), 8 drawn LFOs, 2 random sources, 8 macros, and a modulation matrix of 32 routes (source, target, amount, curve, a scaling source), with a section of its own on the Modulation page (the product owner liked the matrix). Routes also by dragging a source onto a knob, rings showing them, hover showing where a source goes: both fill the same matrix. Built once in the shared panel library, so M4's DAW-wide modulators look and work the same |
 | W8 | **Tables and files** | About 80 factory tables made in-house (scripts in the repository) and from AKWF (CC0). User tables as files in `Documents/Segno/Wavetables`; presets and projects carry the tables they use, so they always play. Import WAV (with its frame data) and `.wt`; export the same |
 | W9 | **The table editor, and where** | A recipe editor (sources on keyframes, a stack of changes, frames filled between), opened in the bottom panel where the piano roll opens; in the plugins, below the panel. Module panels stay six rows tall. Recorded in an ADR on approval (a module's editor in the bottom panel) |
 | W10 | **Audio to wavetable** | Three ways (pitched, spectral, slices) with a preview. Dropped on an oscillator, or Make Wavetable from a clip in the arrangement (Clip menu, an MCP tool) |
@@ -370,7 +386,7 @@ Dated listening notes from the product owner, and the measurable checks derived 
 | W14 | **No effects inside** | The synth is an instrument; its effects are the chain's, and racks (P2) keep an instrument and its effects as one. Drive in the filters stays |
 | W15 | **No arpeggiator inside** | The Arpeggiator MIDI effect (M4) plays every instrument. Drawn LFOs with steps cover rhythmic movement |
 | W16 | **Expression** | MPE (bend, pressure, slide per note) and polyphonic aftertouch from the start; microtuning later, with a tuning for the whole DAW |
-| W17 | **The size** | About 380 parameters, routes included, so hosts, automation and assistants see everything. The panel shows the selected oscillator, filter, envelope and LFO, and opens with LFO and Modulation collapsed: about 2 000 px |
+| W17 | **The size** | About 380 parameters, routes included, so hosts, automation and assistants see everything. The panel shows the selected oscillator, filter, envelope and LFO, on three pages (ADR 0051, the product owner's idea): about 1 200 px instead of 2 000–2 800 |
 | W18 | **Building it** | Three steps (the synth; the tables; the song), each built, tested and signed off on its own. Assistants' tools come with each: `set_wavetable`, `list_wavetables`, then `make_wavetable`, then `vary_module` |
 | W19 | **Its working name** | Wavetable Synth (`wavetable`, `Fwav`, `org.segnoaudio.wavetable`). A brand name with the naming pass before the first release (ADR 0008) |
 
