@@ -20,6 +20,7 @@ cmake --preset dev                    # configure (Ninja, Debug, clang, ccache)
 cmake --build --preset dev            # build
 ctest --preset dev                    # all tests
 ctest --preset dev -L fast            # JUCE-free unit + conformance tests only
+tools/install-desktop-entry.sh rel    # Linux: Segno in the app list, running build/rel
 ```
 
 Other presets: `rel` (release), `asan` (ASan + UBSan), `rtsan` (RealtimeSanitizer). Dependencies are pinned in `cmake/Dependencies.cmake` (CPM). Never use floating branches.

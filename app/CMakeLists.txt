@@ -85,6 +85,18 @@ juce_add_gui_app(fd-daw
     MICROPHONE_PERMISSION_ENABLED TRUE
     NEEDS_CURL FALSE
     NEEDS_WEB_BROWSER FALSE)
+# Installing on Linux: the app, its launcher entry and its icon at every size (packaging/linux;
+# tools/install-desktop-entry.sh does the same for a build of yours, without copying the app).
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    include(GNUInstallDirs)
+    install(TARGETS fd-daw RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+    set(SEGNO_EXEC "${CMAKE_INSTALL_FULL_BINDIR}/Segno")
+    configure_file("${PROJECT_SOURCE_DIR}/packaging/linux/org.segnoaudio.segno.desktop.in"
+                   "${CMAKE_CURRENT_BINARY_DIR}/org.segnoaudio.segno.desktop" @ONLY)
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.segnoaudio.segno.desktop"
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+    install(DIRECTORY "${PROJECT_SOURCE_DIR}/packaging/linux/icons/" DESTINATION ${CMAKE_INSTALL_DATADIR}/icons)
+endif()
 # fd_app_mcp: the MCP tools over the Session, and the server that owns them (ADR 0021). Each
 # module's purpose comes from its SPEC, for the module reference.
 include(${PROJECT_SOURCE_DIR}/cmake/ModulePurposes.cmake)

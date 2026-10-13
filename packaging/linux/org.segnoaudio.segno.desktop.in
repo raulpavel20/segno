@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Segno
+GenericName=Digital Audio Workstation
+Comment=Make music with instruments, effects and an arrangement
+Exec=@SEGNO_EXEC@
+Icon=org.segnoaudio.segno
+Terminal=false
+Categories=AudioVideo;Audio;Midi;Sequencer;
+Keywords=DAW;music;audio;MIDI;synth;sequencer;recording;
+StartupWMClass=Segno
+StartupNotify=true

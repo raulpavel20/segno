@@ -53,6 +53,9 @@ plugins/               plugin adapter + per-device plugin targets
 app/                   the DAW (tracktion_engine), DevicePlugin adapter, shell UI,
                        MCP server (app/src/mcp; DAW only, ADR 0021)
 tools/snapshot, tools/gallery, tools/analyze
+packaging/linux        the launcher entry and the icon at every size (made with
+                       fd-snapshot --app-icon); installed by cmake --install, or for a build
+                       of yours by tools/install-desktop-entry.sh
 ```
 
 ## Device contract (key points)
