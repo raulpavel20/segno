@@ -282,12 +282,12 @@ TEST_CASE("browser: a double-click puts it on the selection; each drop makes wha
     s.updateSnapshotNow();
     CHECK(devicesOf(*s.snapshot()->channel(t0)) ==
           std::vector<std::string>{"subtractive-synth", "compressor"});
-    CHECK(s.undoDescription() == "Add Subtractive Synth");
+    CHECK(s.undoDescription() == "Add Subtractive");
     // Another instrument replaces it, and says so with Undo.
     shell.loadFromBrowser("module:fd:sampler");
     s.updateSnapshotNow();
     CHECK(devicesOf(*s.snapshot()->channel(t0)) == std::vector<std::string>{"sampler", "compressor"});
-    CHECK(shell.lastWarning() == "Replaced Subtractive Synth with Sampler");
+    CHECK(shell.lastWarning() == "Replaced Subtractive with Sampler");
     s.undo();
     s.updateSnapshotNow();
     CHECK(devicesOf(*s.snapshot()->channel(t0))[0] == "subtractive-synth");

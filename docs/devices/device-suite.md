@@ -26,7 +26,7 @@ Each device gets a `devices/<name>/SPEC.md` ([template](SPEC-TEMPLATE.md)) befor
 - **Tier 2, Depth:** full coverage of Live Suite's roles. Milestones M5–M6. **Required for 1.0.**
 - **Tier 3, Specialty:** physical modelling, spectral and other niche tools. Released in 1.x versions.
 
-Working names are functional, not final brand names ([ADR 0008](../decisions/0008-naming-and-trade-dress.md)).
+Working names are functional, not final brand names ([ADR 0008](../decisions/0008-naming-and-trade-dress.md)). An instrument named for how it makes sound is just that word, without "Synth" (the product owner, 2026-10-14): Subtractive, Wavetable, FM, Granular; the browser's Instruments already says what they are. "Drum Synth" keeps the word, which says what it is.
 
 ---
 
@@ -34,19 +34,19 @@ Working names are functional, not final brand names ([ADR 0008](../decisions/000
 
 | Working name | Scope | Covers (Live) | Beyond Live | Tier | Milestone |
 |---|---|---|---|---|---|
-| **Subtractive Synth** | *Core:* 2 oscillators with shape morphing + noise, per-voice drift, low-pass filter (multiple types), 2 envelopes, LFO, small modulation matrix, MPE. *Stage 2:* dual oscillator→filter→amp paths with routing, in the expanded view | Drift, Analog | – | 1→2 | M1→M5 |
+| **Subtractive** | *Core:* 2 oscillators with shape morphing + noise, per-voice drift, low-pass filter (multiple types), 2 envelopes, LFO, small modulation matrix, MPE. *Stage 2:* dual oscillator→filter→amp paths with routing, in the expanded view | Drift, Analog | – | 1→2 | M1→M5 |
 | **Sampler** | *Classic/one-shot* (M1) → *slice* with transient detection (M4) → *multisample zones*, velocity layers, round-robin (M5). Filter, envelopes, LFOs, warping | Simpler, Sampler | – | 1→2 | M1→M5 |
 | **Drum Sampler** | One-shot drum sampler with built-in shaping (pitch, envelope, filter, simple effects), designed to sit on drum pads | Drum Sampler, Impulse (with Drum Rack) | – | 1 | M4 |
 | **Drum Synth** | Synthesised drum voices in one device with a voice selector: kick, snare, hat, clap, tom, cymbal, FM percussion | Drum Synths (DS Kick, DS Snare, …) | – | 2 | M5 |
-| **Wavetable Synth** | 2 wavetable oscillators + sub, wavetable import, unison modes, 2 filters with routing, modulation matrix, MPE | Wavetable | – | 2 | M3 (moved up from M5, the product owner, 2026-10-13) |
-| **FM Synth** | 4 operators, a set of fixed algorithms, a waveform per operator, filter, LFO, pitch envelope | Operator | – | 2 | M5 |
-| **Granular Synth** | Grain playback from any sample: position, spray, grain size, density, pitch, MPE | Granulator III | – | 2 | M5 |
+| **Wavetable** | 2 wavetable oscillators + sub, wavetable import, unison modes, 2 filters with routing, modulation matrix, MPE | Wavetable | – | 2 | M3 (moved up from M5, the product owner, 2026-10-13) |
+| **FM** | 4 operators, a set of fixed algorithms, a waveform per operator, filter, LFO, pitch envelope | Operator | – | 2 | M5 |
+| **Granular** | Grain playback from any sample: position, spray, grain size, density, pitch, MPE | Granulator III | – | 2 | M5 |
 | Dual-engine MPE Synth | Two macro-oscillator engines, expressive MPE | Meld | – | 3 | 1.x |
 | Mallet & Resonator | Physically modelled mallets and resonators | Collision | – | 3 | 1.x |
 | Modelled Strings | Physically modelled string instruments | Tension | – | 3 | 1.x |
 | Electric Piano | Modelled electric pianos | Electric | – | 3 | 1.x |
 
-Bass and Poli (Max for Live instruments in Live) are covered by Subtractive Synth presets. Drum Rack is a DAW rack feature (see below).
+Bass and Poli (Max for Live instruments in Live) are covered by Subtractive presets. Drum Rack is a DAW rack feature (see below).
 
 ## Audio effects
 

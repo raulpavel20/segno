@@ -1,4 +1,4 @@
-# Wavetable Synth: device spec
+# Wavetable: device spec
 
 - **Status:** Approved by the product owner (2026-10-13, with every recommendation of W1–W19 and the pages of [ADR 0051](../../docs/decisions/0051-pages-for-very-wide-modules.md)); IDs are permanent. [ADR 0050](../../docs/decisions/0050-the-wavetable-synth-goes-beyond-live.md) accepted with it: the product owner asked for a wavetable synth that is full-featured, modern and innovative, past ADR 0011's "instruments stay close to Live's". Step 1 (the synth) built (2026-10-13): what building settled is under "Settled while building (step 1)"; awaiting the product owner's sign-off.
 - **Type:** Instrument
@@ -388,7 +388,7 @@ Dated listening notes from the product owner, and the measurable checks derived 
 | W16 | **Expression** | MPE (bend, pressure, slide per note) and polyphonic aftertouch from the start; microtuning later, with a tuning for the whole DAW |
 | W17 | **The size** | About 380 parameters, routes included, so hosts, automation and assistants see everything. The panel shows the selected oscillator, filter, envelope and LFO, on three pages (ADR 0051, the product owner's idea): about 1 200 px instead of 2 000–2 800 |
 | W18 | **Building it** | Three steps (the synth; the tables; the song), each built, tested and signed off on its own. Assistants' tools come with each: `set_wavetable`, `list_wavetables`, then `make_wavetable`, then `vary_module` |
-| W19 | **Its working name** | Wavetable Synth (`wavetable`, `Fwav`, `org.segnoaudio.wavetable`). A brand name with the naming pass before the first release (ADR 0008) |
+| W19 | **Its working name** | Wavetable Synth (`wavetable`, `Fwav`, `org.segnoaudio.wavetable`). A brand name with the naming pass before the first release (ADR 0008). Changed by the product owner (2026-10-14): **Wavetable**, without "Synth", as the Subtractive (device-suite.md); the IDs stay |
 
 ## Settled while building (step 1, 2026-10-13)
 

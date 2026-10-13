@@ -450,7 +450,7 @@ struct Tables
             specs[i].description = descriptions[i];
         }
         info = DeviceInfo{.id = "wavetable",
-                          .name = "Wavetable Synth",
+                          .name = "Wavetable",
                           .category = "Instruments",
                           .kind = DeviceKind::Instrument,
                           .buses = {.inputChannels = 0, .outputChannels = 2, .acceptsMidi = true},

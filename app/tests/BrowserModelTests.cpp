@@ -33,7 +33,7 @@ TEST_CASE("browser: search matches every word, names first, grouped by kind", "[
         item("preset:a", BrowserKind::Preset, "Glue", {"Bus", "Subtle"}, "Compressor",
              "Holds a mix together"),
         item("preset:b", BrowserKind::Preset, "Vocal leveller", {"Vocals"}, "Compressor"),
-        item("preset:c", BrowserKind::Preset, "Sub bass", {"Bass", "Clean"}, "Subtractive Synth"),
+        item("preset:c", BrowserKind::Preset, "Sub bass", {"Bass", "Clean"}, "Subtractive"),
         item("file:/s/Kick 808.wav", BrowserKind::Sample, "Kick 808.wav", {}, "Drums"),
         item("file:/s/Bass loop 124 bpm.wav", BrowserKind::Sample, "Bass loop 124 bpm.wav", {}, "Loops"),
         item("file:/s/Drums", BrowserKind::Folder, "Drums", {}, "Samples"),

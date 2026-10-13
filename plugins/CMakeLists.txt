@@ -143,7 +143,7 @@ fd_add_device_plugin(ID auto-pan-tremolo NAME "Auto Pan & Tremolo" CODE Fapt KIN
     VST3_CATEGORIES Fx Modulation Spatial
     CLAP_FEATURES audio-effect tremolo stereo mono)
 
-fd_add_device_plugin(ID subtractive-synth NAME "Subtractive Synth" CODE Fsub KIND instrument
+fd_add_device_plugin(ID subtractive-synth NAME "Subtractive" CODE Fsub KIND instrument
     VST3_CATEGORIES Instrument Synth
     CLAP_FEATURES instrument synthesizer stereo)
 
@@ -151,6 +151,6 @@ fd_add_device_plugin(ID sampler NAME "Sampler" CODE Fsmp KIND instrument
     VST3_CATEGORIES Instrument Sampler
     CLAP_FEATURES instrument sampler stereo)
 
-fd_add_device_plugin(ID wavetable NAME "Wavetable Synth" CODE Fwav KIND instrument
+fd_add_device_plugin(ID wavetable NAME "Wavetable" CODE Fwav KIND instrument
     VST3_CATEGORIES Instrument Synth
     CLAP_FEATURES instrument synthesizer stereo)

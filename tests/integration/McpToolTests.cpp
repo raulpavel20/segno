@@ -601,7 +601,7 @@ TEST_CASE("mcp tools: the Wavetable Synth's tables, listed and set by id or from
               .find("list_wavetables") != std::string::npos);
     const auto sat = daw.call("add_module", {{"track", t0}, {"type", "saturator"}})["id"];
     CHECK(daw.fails("set_wavetable", {{"module", sat}, {"oscillator", 1}, {"table", "basic/saw"}})
-              .find("isn't a Wavetable Synth") != std::string::npos);
+              .find("isn't a Wavetable.") != std::string::npos);
 
     // Its pages (ADR 0051): listed with their sections, turned by set_module_view.
     auto module = daw.call("get_module", {{"module", synth}});
@@ -844,7 +844,7 @@ TEST_CASE("mcp tools: render measures a range without touching the project", "[i
 {
     Daw daw;
     const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
-    daw.call("add_module", {{"track", t0}, {"type", "Subtractive Synth"}}); // something to play the clip
+    daw.call("add_module", {{"track", t0}, {"type", "Subtractive"}}); // something to play the clip
     daw.call("create_midi_clip", {{"track", t0},
                                   {"start", 0},
                                   {"length", "1 bar"},

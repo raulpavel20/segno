@@ -20,7 +20,7 @@ void addWavetableTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"list_wavetables", "List wavetables",
-         "The Wavetable Synth's tables: the factory ones by category (an id set_wavetable takes), and the "
+         "The Wavetable's tables (the wavetable synth): the factory ones by category (an id set_wavetable takes), and the "
          "WAV and .wt "
          "files in the Segno folder's Wavetables (a path set_wavetable takes).",
          object({{"category",
@@ -57,10 +57,10 @@ void addWavetableTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"set_wavetable", "Set a wavetable",
-         "Puts a table on one of a Wavetable Synth's oscillators: a factory table by its id "
+         "Puts a table on one of a Wavetable's oscillators: a factory table by its id "
          "(list_wavetables), or a "
          "WAV or .wt file (its frames are carried in the project, so it always plays). One undo step.",
-         object({{"module", id(IdKind::Module, "The Wavetable Synth")},
+         object({{"module", id(IdKind::Module, "The Wavetable module")},
                  {"oscillator", integer("1, 2 or 3", 1, 3)},
                  {"table", string("A factory table's id")},
                  {"path", string("A WAV or .wt file's absolute path")}},
@@ -75,7 +75,7 @@ void addWavetableTools(Registry& registry, ToolEnv& env)
             const auto [slot, owner] = module(env, args["module"]);
             auto handle = env.session.openDevice(slot.id);
             if (handle == nullptr || handle->deviceId() != "wavetable")
-                throw Problem{formatId(IdKind::Module, slot.id) + " isn't a Wavetable Synth."};
+                throw Problem{formatId(IdKind::Module, slot.id) + " isn't a Wavetable."};
             const int n = args["oscillator"].get<int>() - 1;
             const bool byId = args.contains("table"), byFile = args.contains("path");
             if (byId == byFile)

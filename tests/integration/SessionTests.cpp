@@ -336,7 +336,7 @@ TEST_CASE("tracks with an instrument, MIDI files and live MIDI routing", "[integ
     const auto& t = session.snapshot()->tracks.back();
     CHECK(t.id == synthTrack);
     CHECK(t.kind == fd::model::TrackInfo::Kind::Instrument);
-    CHECK(t.instrument == "Subtractive Synth");
+    CHECK(t.instrument == "Subtractive");
     REQUIRE(t.devices.size() == 1);
     CHECK(t.devices[0].deviceId == "subtractive-synth");
 

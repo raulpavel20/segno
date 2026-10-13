@@ -233,7 +233,7 @@ TEST_CASE("browser engine: an instrument replaces the track's in one step; a sam
     REQUIRE(devices.size() == 2);
     CHECK(devices[0].deviceId == "subtractive-synth");
     CHECK(devices[1].deviceId == "eq");
-    CHECK(s.undoDescription() == "Replace Sampler with Subtractive Synth");
+    CHECK(s.undoDescription() == "Replace Sampler with Subtractive");
     s.undo();
     s.updateSnapshotNow();
     CHECK(s.snapshot()->channel(t)->devices[0].deviceId == "sampler");

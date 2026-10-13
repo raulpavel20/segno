@@ -157,7 +157,7 @@ constexpr MeterSpec kMeters[] = {
 
 constexpr DeviceInfo kInfo{
     .id = "subtractive-synth",
-    .name = "Subtractive Synth",
+    .name = "Subtractive",
     .category = "Instruments",
     .kind = DeviceKind::Instrument,
     .buses = {.inputChannels = 0, .outputChannels = 2, .acceptsMidi = true},

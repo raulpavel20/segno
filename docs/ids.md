@@ -24,7 +24,7 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 | Utility | `utility` | `Futl` | `org.segnoaudio.utility` | M0 |
 | Saturator | `saturator` | `Fsat` | `org.segnoaudio.saturator` | M1 (approved 2026-10-10) |
 | EQ | `eq` | `Feq1` | `org.segnoaudio.eq` | M1 (approved 2026-10-10) |
-| Subtractive Synth | `subtractive-synth` | `Fsub` | `org.segnoaudio.subtractive-synth` | M1 (approved 2026-10-10) |
+| Subtractive | `subtractive-synth` | `Fsub` | `org.segnoaudio.subtractive-synth` | M1 (approved 2026-10-10) |
 | Sampler | `sampler` | `Fsmp` | `org.segnoaudio.sampler` | M1 (approved 2026-10-10) |
 | Compressor | `compressor` | `Fcmp` | `org.segnoaudio.compressor` | M2 (approved 2026-10-09) |
 | Gate | `gate` | `Fgat` | `org.segnoaudio.gate` | M2 (approved 2026-10-09) |
@@ -37,7 +37,7 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 | Reverb | `reverb` | `Frvb` | `org.segnoaudio.reverb` | M3 (approved 2026-10-12) |
 | Filter | `filter` | `Fflt` | `org.segnoaudio.filter` | M3 (approved 2026-10-12) |
 | Loudness Meter | `loudness-meter` | `Flud` | `org.segnoaudio.loudness-meter` | M3 (approved 2026-10-13) |
-| Wavetable Synth | `wavetable` | `Fwav` | `org.segnoaudio.wavetable` | M3 P1 (approved 2026-10-13) |
+| Wavetable | `wavetable` | `Fwav` | `org.segnoaudio.wavetable` | M3 P1 (approved 2026-10-13) |
 
 **Rules:**
 - The device ID is kebab-case and describes the function. It is used in state JSON, the registry, CLAP and LV2 IDs, and file names.
