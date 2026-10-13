@@ -1213,7 +1213,9 @@ void WavetableSynth::tickVoice(Voice& v, const TransportInfo& transport, bool re
     v.to[CNoiseColor] = moved(NoiseColor, TargetNoiseColor) * 0.01;
     std::tie(v.to[CNoisePanL], v.to[CNoisePanR]) = balance(moved(NoisePan, TargetNoisePan));
 
-    // A new cycle for each oscillator on the render grid (or the first).
+    // A new cycle for each oscillator on the render grid (or the first), crossfading in over the
+    // interval (in the oscillators' own samples).
+    const int factor = oscillatorRateFactor();
     for (int n = 0; n < numOscs; ++n)
     {
         const auto i = static_cast<size_t>(n);
@@ -1246,11 +1248,10 @@ void WavetableSynth::tickVoice(Voice& v, const TransportInfo& transport, bool re
                 pmReach += 2.0 * std::numbers::pi * amount * srcIncrement / std::max(1e-9, increment);
             }
         }
-        const int oversampling = fmReach + pmReach > 1.0 ? (quality_ == 2 ? 4 : quality_ == 1 ? 2 : 1) : 1;
         // The highest pitch it may reach before the next render: two semitones' headroom.
         const double highest = std::max(v.from[CIncrement0 + i], increment) * 1.1225;
-        o.render(renderer_, *a->tables[i], v.to[CPos0 + i], warps, highest, sampleRate_, renderInterval_,
-                 fmReach + pmReach, oversampling);
+        o.render(renderer_, *a->tables[i], v.to[CPos0 + i], warps, highest, sampleRate_,
+                 renderInterval_ * factor, fmReach + pmReach, factor);
     }
 
     // Filters: the cutoff from key tracking, the filter envelope, routes and drift.
@@ -1313,6 +1314,17 @@ void WavetableSynth::tickVoice(Voice& v, const TransportInfo& transport, bool re
 
 // ---- audio -----------------------------------------------------------------------------------
 
+int WavetableSynth::oscillatorRateFactor() const noexcept
+{
+    const auto& p = params();
+    for (int n = 0; n < numOscs; ++n)
+        if (p.getBool(osc(n, OscOn)) &&
+            (dsp::isSampleWarp(static_cast<dsp::Warp>(p.getInt(osc(n, OscWarp1)))) ||
+             dsp::isSampleWarp(static_cast<dsp::Warp>(p.getInt(osc(n, OscWarp2))))))
+            return quality_ == 2 ? 4 : quality_ == 1 ? 2 : 1;
+    return 1;
+}
+
 void WavetableSynth::renderVoice(Voice& v, float* outL, float* outR, int from, int to, int phase) noexcept
 {
     const auto& p = params();
@@ -1347,12 +1359,7 @@ void WavetableSynth::renderVoice(Voice& v, float* outL, float* outR, int from, i
 
     // Frequency modulation and its kin, at Normal and High, are made at 2 or 4 times the rate and
     // brought back down (their sidebands would otherwise fold back as aliasing).
-    bool sampleWarped = false;
-    for (int n = 0; n < numOscs; ++n)
-        sampleWarped = sampleWarped || (p.getBool(osc(n, OscOn)) &&
-                                        (sampleWarps[static_cast<size_t>(n)][0] != dsp::Warp::Off ||
-                                         sampleWarps[static_cast<size_t>(n)][1] != dsp::Warp::Off));
-    const int factor = sampleWarped ? (quality_ == 2 ? 4 : quality_ == 1 ? 2 : 1) : 1;
+    const int factor = oscillatorRateFactor();
 
     for (int s = from; s < to; ++s)
     {

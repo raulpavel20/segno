@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <utility>
 
 namespace fd::dsp
 {
@@ -96,19 +98,33 @@ inline float cubic(float x0, float x1, float x2, float x3, float t) noexcept
                (x2 - x0 + t * (2.0f * x0 - 5.0f * x1 + 4.0f * x2 - x3 + t * (3.0f * (x1 - x2) + x3 - x0)));
 }
 
-/// One periodic cycle of a power-of-two size, read at `position` samples (any real value).
+/// One periodic cycle of a power-of-two size, read at `position` samples (0 or more).
 inline float readCycle(const float* in, int size, double position) noexcept
 {
     const int mask = size - 1;
-    const double floor = std::floor(position);
-    const auto t = static_cast<float>(position - floor);
-    const int i = static_cast<int>(floor);
+    const auto i = static_cast<int>(position);
+    const auto t = static_cast<float>(position - i);
     return cubic(in[(i - 1) & mask], in[i & mask], in[(i + 1) & mask], in[(i + 2) & mask], t);
 }
 
 double frac(double x) noexcept
 {
     return x - std::floor(x);
+}
+
+/// frac() of a value 0 or more.
+double fracOf(double x) noexcept
+{
+    return x - static_cast<double>(static_cast<std::int64_t>(x));
+}
+
+/// x to the power e, for x in 0..1 (a bent phase), in single precision (a few times faster
+/// than double, and finer than a 4 096-sample cycle needs).
+double powUnit(double x, double e) noexcept
+{
+    return x <= 0.0
+               ? 0.0
+               : static_cast<double>(std::exp2f(static_cast<float>(e) * std::log2f(static_cast<float>(x))));
 }
 } // namespace
 
@@ -241,62 +257,86 @@ void applyCycleWarp(Warp warp, float amount, const float* in, int size, float* o
     default:
         break;
     }
-    // The rest read the cycle somewhere else: a map from where the output is to where it reads.
+    // The rest read the cycle somewhere else: a map from where the output is to where it reads
+    // (and a gain), one loop per warp so each runs straight through.
+    const auto remap = [&](auto map)
+    {
+        for (int i = 0; i < size; ++i)
+        {
+            const auto [phase, gain] = map(i / n);
+            out[i] = gain == 0.0 ? 0.0f : static_cast<float>(gain * read(phase));
+        }
+    };
     const double ratio = 1.0 + 15.0 * a;     // Sync, Window Sync
     const double bend = std::exp2(-3.0 * a); // Bend +, Bend ±
-    const double pivot = warp == Warp::AsymPlus ? 0.5 - 0.45 * a : 0.5 + 0.45 * a;
-    const double pulse = 1.0 / (1.0 - 0.95 * a);
-    const double steps = n * std::exp2(-a * std::log2(n / 2.0)); // Quantize: size ... 2 steps
-    for (int i = 0; i < size; ++i)
+    switch (warp)
     {
-        const double x = i / n;
-        double phase = x, gain = 1.0;
-        switch (warp)
-        {
-        case Warp::Sync:
-            phase = frac(x * ratio);
-            break;
-        case Warp::WindowSync:
-            phase = frac(x * ratio);
-            gain = std::sin(pi * x);
-            break;
-        case Warp::BendPlus:
-            phase = std::pow(x, bend);
-            break;
-        case Warp::BendMinus:
-            phase = std::pow(x, 1.0 / bend);
-            break;
-        case Warp::BendBoth:
-        {
-            const double u = 2.0 * x - 1.0;
-            phase = 0.5 + 0.5 * std::copysign(std::pow(std::abs(u), bend), u);
-            break;
-        }
-        case Warp::Squeeze:
-        {
-            // Each half pinched towards its middle.
-            const double half = std::floor(2.0 * x), u = 2.0 * (2.0 * x - half) - 1.0;
-            phase = (half + 0.5 + 0.5 * std::copysign(std::pow(std::abs(u), 1.0 / bend), u)) * 0.5;
-            break;
-        }
-        case Warp::Pulse:
-            phase = x * pulse;
-            gain = phase < 1.0 ? 1.0 : 0.0;
-            break;
-        case Warp::AsymPlus:
-        case Warp::AsymMinus:
-            phase = x < pivot ? 0.5 * x / pivot : 0.5 + 0.5 * (x - pivot) / (1.0 - pivot);
-            break;
-        case Warp::Quantize:
-            phase = std::floor(x * steps) / steps;
-            break;
-        case Warp::Remap:
-            phase = x + a * ((curve != nullptr ? lookup(*curve, x) : x) - x);
-            break;
-        default:
-            break;
-        }
-        out[i] = gain == 0.0 ? 0.0f : static_cast<float>(gain * read(phase));
+    case Warp::Sync:
+        remap([ratio](double x) { return std::pair{fracOf(x * ratio), 1.0}; });
+        break;
+    case Warp::WindowSync:
+        remap([ratio](double x) { return std::pair{fracOf(x * ratio), std::sin(pi * x)}; });
+        break;
+    case Warp::BendPlus:
+        remap([bend](double x) { return std::pair{powUnit(x, bend), 1.0}; });
+        break;
+    case Warp::BendMinus:
+        remap([bend](double x) { return std::pair{powUnit(x, 1.0 / bend), 1.0}; });
+        break;
+    case Warp::BendBoth:
+        remap(
+            [bend](double x)
+            {
+                const double u = 2.0 * x - 1.0;
+                return std::pair{0.5 + 0.5 * std::copysign(powUnit(std::abs(u), bend), u), 1.0};
+            });
+        break;
+    case Warp::Squeeze:
+        // Each half pinched towards its middle.
+        remap(
+            [bend](double x)
+            {
+                const double half = x < 0.5 ? 0.0 : 1.0, u = 2.0 * (2.0 * x - half) - 1.0;
+                return std::pair{
+                    (half + 0.5 + 0.5 * std::copysign(powUnit(std::abs(u), 1.0 / bend), u)) * 0.5, 1.0};
+            });
+        break;
+    case Warp::Pulse:
+    {
+        const double pulse = 1.0 / (1.0 - 0.95 * a);
+        remap(
+            [pulse](double x)
+            {
+                const double phase = x * pulse;
+                return std::pair{phase, phase < 1.0 ? 1.0 : 0.0};
+            });
+        break;
+    }
+    case Warp::AsymPlus:
+    case Warp::AsymMinus:
+    {
+        const double pivot = warp == Warp::AsymPlus ? 0.5 - 0.45 * a : 0.5 + 0.45 * a;
+        remap(
+            [pivot](double x)
+            {
+                return std::pair{x < pivot ? 0.5 * x / pivot : 0.5 + 0.5 * (x - pivot) / (1.0 - pivot), 1.0};
+            });
+        break;
+    }
+    case Warp::Quantize:
+    {
+        const double steps = n * std::exp2(-a * std::log2(n / 2.0)); // size ... 2 steps
+        remap([steps](double x)
+              { return std::pair{static_cast<double>(static_cast<int>(x * steps)) / steps, 1.0}; });
+        break;
+    }
+    case Warp::Remap:
+        remap([a, curve](double x)
+              { return std::pair{x + a * ((curve != nullptr ? lookup(*curve, x) : x) - x), 1.0}; });
+        break;
+    default:
+        std::copy(in, in + size, out);
+        break;
     }
 }
 
@@ -348,11 +388,15 @@ int CycleRenderer::render(const Wavetable& table, double position, const std::ar
     }
     else
     {
-        // Twice the size, so the warps read a cycle well below its Nyquist; its sources up to
-        // twice the limit, since warps move harmonics both ways.
-        const int wide = 2 * n;
+        // The warps work on a cycle 16 times the harmonics (512 ... 4 096): what they push past
+        // its top folds back onto harmonics, slightly changing the brightest, never between them.
+        // Its sources go to a quarter of its size, where reads stay exact, since warps move
+        // harmonics both ways.
+        int wide = 512;
+        while (wide < 16 * limit && wide < maxSize)
+            wide <<= 1;
         auto& wideFft = ffts_[static_cast<size_t>(orderOf(wide))];
-        const int sources = std::min(Wavetable::maxHarmonic, n / 2);
+        const int sources = std::min(Wavetable::maxHarmonic, wide / 4);
         const auto scale = static_cast<float>(wide);
         bins_[0] = {};
         for (int h = 1; h <= wide / 2; ++h)
@@ -431,17 +475,6 @@ struct SincTable
 };
 const SincTable kSinc;
 } // namespace
-
-float readCubic(const float* c, int size, double phase) noexcept
-{
-    const double at = phase * size;
-    const auto i = static_cast<int>(at);
-    const auto t = static_cast<float>(at - i);
-    const float x0 = c[i - 1], x1 = c[i], x2 = c[i + 1], x3 = c[i + 2];
-    return x1 +
-           0.5f * t *
-               (x2 - x0 + t * (2.0f * x0 - 5.0f * x1 + 4.0f * x2 - x3 + t * (3.0f * (x1 - x2) + x3 - x0)));
-}
 
 float readSinc(const float* c, int size, double phase) noexcept
 {

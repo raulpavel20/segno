@@ -407,6 +407,22 @@ Dated listening notes from the product owner, and the measurable checks derived 
   | AM | −117 dB | −121 dB | −133 dB |
 
   Above 20 kHz, the oversampler's transition band lets sidebands just above 24 kHz fold back to 20–24 kHz (up to −65 dB): inaudible, so the test measures to 20 kHz.
+- **How each voice renders its cycles** (the DSP design's W3 steps, made affordable):
+  - **The render interval follows Quality:** every 256 samples at Eco, 128 at Normal, 64 at High (not 64 at all), on the absolute grid. Each new cycle crossfades in over the interval.
+  - **The cycle is 32 times the note's harmonics** (a power of two, 256 to 4 096 samples), not always 2 048: cubic reads then leave their images under −100 dB, except at the lowest notes, where the 4 096 cap holds them near −94 dB (−110 dB with High's 8-point reads).
+  - **Warps in the cycle work on a cycle of 16 times the harmonics** (512 to 4 096 samples), not twice the cycle. What a warp pushes past its top folds back onto harmonics, slightly changing the brightest, never between them. So a warped cycle costs about 3 times an unwarped one, not 10.
+  - **Spread cycles take turns:** with Position or Warp Spread, an oscillator's four cycles render one at a time, each crossfading over four intervals, so each moves as smoothly at a quarter of the cost. A cycle the pitch would make alias, or a new table or warp, renders at once.
+  - **Nothing renders for nothing:** a setting that moved less than 0.0001 of its range keeps the cycle (smoothing creeps on for a while), and the harmonics stay while the note allows them and they're at most an eighth fewer than it allows (vibrato doesn't render every time).
+- **CPU** (Release, AMD Ryzen AI 9 HX 370, 48 kHz; 8 notes, 3 oscillators, 8 copies each; the `[.benchmark]` test):
+
+  | Patch | Eco | Normal | High |
+  |---|---|---|---|
+  | Still (the SPEC's target: under 10 % at Normal) | 7.7 % | 7.7 % | 11 % |
+  | Position moved by an LFO, spread over the copies | 11 % | 12 % | 20 % |
+  | The same with Sync and Bend warps, both spreads, and FM | 16 % | 31 % | 84 % |
+
+  A warped cycle takes 7–70 µs to render (high to low notes), an unwarped one 2.5–12 µs. The CPU readout (W13) shows what a patch takes.
+- **Memory:** about 12.5 MB an instance, mostly the voices' cycles (4 per oscillator, each with the one it fades from). Making them only for the voices and spreads in use is for later.
 - **The latency reported is 0 at every Quality.** The way back down (`dsp::HalfbandDecimator`, the Filter's minimum-phase half-band, a pair of samples at a time) delays the sound by 1.5 samples at Normal and 2.2 at High (under 0.05 ms at 48 kHz), and only while a warp from another source is on. Reporting it would make the latency change with the warp chosen.
 
 ## Sign-off

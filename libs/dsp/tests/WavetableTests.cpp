@@ -270,6 +270,78 @@ TEST_CASE("wavetable oscillator: high notes and warps without aliasing", "[fast]
         }
 }
 
+TEST_CASE("wavetable oscillator: spread cycles take turns, and still move without a jump", "[fast]")
+{
+    // Frame 0 a sine, frame 1 a saw; eight copies spread over the table: four cycles.
+    const auto x = cycles(2048, 2, [](int f, double p) { return f == 0 ? std::sin(twoPi * p) : saw(p, 40); });
+    const auto table = Wavetable::fromCycles(x.data(), 2048, 2);
+    CycleRenderer renderer;
+    renderer.prepare();
+    WavetableOscillator osc;
+    WavetableOscillator::Unison u;
+    u.count = 8;
+    u.detune = 0.0f;
+    u.width = 0.0f;
+    u.positionSpread = 0.5f;
+    osc.setUnison(u);
+    osc.start(1, 0.0f, 0.0f);
+    std::vector<float> out(48000);
+    int calls = 0;
+    for (size_t i = 0; i < out.size(); ++i)
+    {
+        if (i % 64 == 0)
+        {
+            osc.render(renderer, table, 0.25 + 0.5 * static_cast<double>(i) / out.size(), {}, 200.0 / 48000.0,
+                       48000.0, 64);
+            ++calls;
+        }
+        float l = 0.0f, r = 0.0f;
+        osc.next(200.0 / 48000.0, 1.0, 0.0, l, r);
+        out[i] = l;
+    }
+    // All four at the start, then one a call.
+    CHECK(osc.cyclesRendered() == 4 + (calls - 1));
+    double worstStep = 0.0;
+    for (size_t i = 1; i < out.size(); ++i)
+        worstStep = std::max(worstStep, static_cast<double>(std::abs(out[i] - out[i - 1])));
+    // Never steeper than the same copies held on the saw frame: no jumps between renders.
+    WavetableOscillator held;
+    held.setUnison(u);
+    held.start(1, 0.0f, 0.0f);
+    double heldStep = 0.0;
+    float last = 0.0f;
+    for (int i = 0; i < 4800; ++i)
+    {
+        if (i % 64 == 0)
+            held.render(renderer, table, 1.0, {}, 200.0 / 48000.0, 48000.0, 64);
+        float l = 0.0f, r = 0.0f;
+        held.next(200.0 / 48000.0, 1.0, 0.0, l, r);
+        if (i > 0)
+            heldStep = std::max(heldStep, static_cast<double>(std::abs(l - last)));
+        last = l;
+    }
+    CHECK(worstStep < 1.05 * heldStep);
+}
+
+TEST_CASE("wavetable oscillator: vibrato doesn't render a cycle every time", "[fast]")
+{
+    const auto x = cycles(2048, 1, [](int, double p) { return saw(p, 1000); });
+    const auto table = Wavetable::fromCycles(x.data(), 2048, 1);
+    CycleRenderer renderer;
+    renderer.prepare();
+    WavetableOscillator osc;
+    osc.start(1, 0.0f, 0.0f);
+    // 5 Hz vibrato of a quarter tone either side, 2 seconds: 1 500 calls on a 64-sample grid.
+    int calls = 0;
+    for (int i = 0; i < 96000; i += 64, ++calls)
+    {
+        const double hz = 220.0 * std::exp2(0.25 / 12.0 * std::sin(twoPi * 5.0 * i / 48000.0));
+        osc.render(renderer, table, 0.0, {}, hz / 48000.0 * 1.1225, 48000.0, 64);
+    }
+    INFO(calls << " calls");
+    CHECK(osc.cyclesRendered() < 10);
+}
+
 TEST_CASE("wavetable oscillator: unison keeps its level from 1 to 16 copies, each copy where it should be",
           "[fast]")
 {

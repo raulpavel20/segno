@@ -367,6 +367,9 @@ private:
     void tick(const TransportInfo& transport, bool renderNow) noexcept;
     void tickVoice(Voice& v, const TransportInfo& transport, bool renderNow) noexcept;
     void renderVoice(Voice& v, float* left, float* right, int from, int to, int phase) noexcept;
+    /// How many times the rate the oscillators run at: 2 at Normal and 4 at High while a warp from
+    /// another source (FM, PM, RM, AM) is on, otherwise 1.
+    [[nodiscard]] int oscillatorRateFactor() const noexcept;
     [[nodiscard]] float sourceValue(const Voice& v, int source) const noexcept;
     [[nodiscard]] dsp::CurvedEnvelope::Settings envelopeSettings(int n) const noexcept;
     void applyQuality() noexcept;

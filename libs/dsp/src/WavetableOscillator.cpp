@@ -40,11 +40,13 @@ void WavetableOscillator::start(std::uint32_t seed, float phase, float phaseRand
         randomDetune_[static_cast<size_t>(i)] = static_cast<float>(2.0 * unit(s) - 1.0);
     }
     rendered_ = false;
-    fade_ = 0;
+    turn_ = 0;
+    cyclesRendered_ = 0;
     for (auto& c : cycles_)
     {
         c.position = -1.0;
         c.harmonics = 0;
+        c.fade = 0;
     }
     setUnison(unison_); // Random's detunes are per note
 }
@@ -119,31 +121,54 @@ void WavetableOscillator::render(CycleRenderer& renderer, const Wavetable& table
     const double band = std::min(20000.0 / sampleRate, 0.45);
     const double top = reach > 1.0 ? std::min(band, (oversampling - band) / reach) : band;
     const double fastest = std::max(1e-9, std::abs(maxIncrement) * widest_);
-    const int harmonics = std::clamp(static_cast<int>(top / fastest), 1, Wavetable::maxHarmonic);
+    const int allowed = std::clamp(static_cast<int>(top / fastest), 1, Wavetable::maxHarmonic);
 
-    bool changed = !rendered_ || &table != table_;
+    // A setting that moved less than this renders nothing new (smoothing creeps for a while).
+    constexpr double still = 1e-4;
+    const bool fresh = !rendered_ || &table != table_;
     std::array<double, maxCycles> positions{};
     std::array<std::array<float, 2>, maxCycles> amounts{};
+    std::array<int, maxCycles> limits{};
+    std::array<bool, maxCycles> urgent{}, moved{};
     for (int j = 0; j < numCycles_; ++j)
     {
+        const auto i = static_cast<size_t>(j);
         const double spreadAt = numCycles_ == 1 ? 0.0 : static_cast<double>(j) / (numCycles_ - 1) - 0.5;
-        positions[static_cast<size_t>(j)] =
-            std::clamp(position + unison_.positionSpread * spreadAt, 0.0, 1.0);
+        positions[i] = std::clamp(position + unison_.positionSpread * spreadAt, 0.0, 1.0);
         for (size_t w = 0; w < 2; ++w)
-            amounts[static_cast<size_t>(j)][w] =
+            amounts[i][w] =
                 std::clamp(warps[w].amount + unison_.warpSpread * static_cast<float>(spreadAt), 0.0f, 1.0f);
-        const auto& c = cycles_[static_cast<size_t>(j)];
-        changed = changed || c.harmonics != harmonics ||
-                  std::abs(c.position - positions[static_cast<size_t>(j)]) > 1e-6 ||
-                  c.warps[0] != warps[0].warp || c.warps[1] != warps[1].warp ||
-                  std::abs(c.amounts[0] - amounts[static_cast<size_t>(j)][0]) > 1e-6f ||
-                  std::abs(c.amounts[1] - amounts[static_cast<size_t>(j)][1]) > 1e-6f;
+        const auto& c = cycles_[i];
+        // The harmonics kept while they're allowed and at most an eighth fewer, so vibrato doesn't
+        // render every time.
+        limits[i] =
+            !fresh && c.harmonics <= allowed && c.harmonics * 8 >= allowed * 7 ? c.harmonics : allowed;
+        // Made now, whatever the turn: a new table or warp, a cycle not made yet, or one the pitch
+        // would make alias.
+        urgent[i] = fresh || c.harmonics == 0 || c.harmonics > allowed || c.warps[0] != warps[0].warp ||
+                    c.warps[1] != warps[1].warp;
+        moved[i] = urgent[i] || c.harmonics != limits[i] || std::abs(c.position - positions[i]) > still ||
+                   std::abs(c.amounts[0] - amounts[i][0]) > still ||
+                   std::abs(c.amounts[1] - amounts[i][1]) > still;
     }
-    if (!changed)
-        return;
+
+    // Spread over the copies, the cycles take turns: one a render, each fading over as many
+    // renders as there are cycles, so each moves as smoothly at a fraction of the cost.
+    int pick = -1;
+    if (numCycles_ > 1)
+        for (int step = 0; step < numCycles_ && pick < 0; ++step)
+        {
+            const auto j = static_cast<size_t>((turn_ + step) % numCycles_);
+            if (moved[j] && !urgent[j] && cycles_[j].fade == 0)
+                pick = static_cast<int>(j);
+        }
+    const int fade = std::max(1, fadeSamples);
     for (int j = 0; j < numCycles_; ++j)
     {
-        auto& c = cycles_[static_cast<size_t>(j)];
+        const auto i = static_cast<size_t>(j);
+        if (!(urgent[i] || (numCycles_ == 1 ? moved[i] : j == pick)))
+            continue;
+        auto& c = cycles_[i];
         if (rendered_)
         {
             std::memcpy(c.before.data(), c.now.data(),
@@ -151,22 +176,25 @@ void WavetableOscillator::render(CycleRenderer& renderer, const Wavetable& table
             c.sizeBefore = c.size;
         }
         std::array<CycleRenderer::WarpSetting, 2> w = warps;
-        w[0].amount = amounts[static_cast<size_t>(j)][0];
-        w[1].amount = amounts[static_cast<size_t>(j)][1];
-        c.size = renderer.render(table, positions[static_cast<size_t>(j)], w, harmonics, c.now.data());
+        w[0].amount = amounts[i][0];
+        w[1].amount = amounts[i][1];
+        c.size = renderer.render(table, positions[i], w, limits[i], c.now.data());
+        ++cyclesRendered_;
         if (!rendered_)
         {
             std::memcpy(c.before.data(), c.now.data(),
                         sizeof(float) * static_cast<size_t>(c.size + 2 * CycleRenderer::guard));
             c.sizeBefore = c.size;
         }
-        c.position = positions[static_cast<size_t>(j)];
+        c.position = positions[i];
         c.warps = {warps[0].warp, warps[1].warp};
-        c.amounts = amounts[static_cast<size_t>(j)];
-        c.harmonics = harmonics;
+        c.amounts = amounts[i];
+        c.harmonics = limits[i];
+        c.fadeLength = j == pick ? numCycles_ * fade : fade;
+        c.fade = rendered_ ? c.fadeLength : 0;
     }
-    fade_ = rendered_ ? std::max(1, fadeSamples) : 0;
-    fadeLength_ = std::max(1, fadeSamples);
+    if (pick >= 0)
+        turn_ = (pick + 1) % numCycles_;
     rendered_ = true;
     table_ = &table;
 }
@@ -176,7 +204,12 @@ float WavetableOscillator::next(double increment, double fm, double phaseOffset,
 {
     if (!rendered_)
         return 0.0f;
-    const float fresh = fade_ > 0 ? 1.0f - static_cast<float>(fade_) / static_cast<float>(fadeLength_) : 1.0f;
+    std::array<float, maxCycles> fresh{};
+    for (size_t j = 0; j < static_cast<size_t>(numCycles_); ++j)
+    {
+        const auto& c = cycles_[j];
+        fresh[j] = c.fade > 0 ? 1.0f - static_cast<float>(c.fade) / static_cast<float>(c.fadeLength) : 1.0f;
+    }
     float mono = 0.0f, l = 0.0f, r = 0.0f;
     for (int i = 0; i < count_; ++i)
     {
@@ -190,10 +223,10 @@ float WavetableOscillator::next(double increment, double fm, double phaseOffset,
             return fine_ ? readSinc(cycle, size, p) : readCubic(cycle, size, p);
         };
         float v = read(c.now.data(), c.size);
-        if (fresh < 1.0f)
+        if (const float f = fresh[cycleOf_[k]]; f < 1.0f)
         {
             const float old = read(c.before.data(), c.sizeBefore);
-            v = old + fresh * (v - old);
+            v = old + f * (v - old);
         }
         mono += v * level_[k];
         l += v * gainL_[k];
@@ -201,8 +234,9 @@ float WavetableOscillator::next(double increment, double fm, double phaseOffset,
         double next = phase_[k] + increment * ratio_[k] * fm;
         phase_[k] = next - std::floor(next);
     }
-    if (fade_ > 0)
-        --fade_;
+    for (size_t j = 0; j < static_cast<size_t>(numCycles_); ++j)
+        if (cycles_[j].fade > 0)
+            --cycles_[j].fade;
     left += l;
     right += r;
     return mono;

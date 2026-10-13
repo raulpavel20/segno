@@ -138,7 +138,8 @@ void applyCycleWarp(Warp warp, float amount, const float* in, int size, float* o
 
 /// Renders the cycle an oscillator plays next (the Wavetable Synth's "each voice renders its own
 /// cycle"): the table's spectra interpolated at `position`, its cycle warps applied on a cycle
-/// twice the size, then cut to the harmonics a note can play without aliasing. Real-time safe
+/// of 16 times the harmonics (512 ... 4 096 samples), then cut to the harmonics a note can play
+/// without aliasing. Real-time safe
 /// after prepare(); one renderer serves every voice in turn.
 class CycleRenderer
 {
@@ -178,6 +179,15 @@ private:
 /// Reading a rendered cycle (`cycle` = CycleRenderer::cycle(buffer), `size` samples, guards
 /// either side) at `phase` (0..1): 4-point cubic (Eco and Normal quality), or an 8-point windowed
 /// sinc (High: images some 20 dB lower, for the lowest notes and the brightest warps).
-[[nodiscard]] float readCubic(const float* cycle, int size, double phase) noexcept;
+[[nodiscard]] inline float readCubic(const float* c, int size, double phase) noexcept
+{
+    const double at = phase * size;
+    const auto i = static_cast<int>(at);
+    const auto t = static_cast<float>(at - i);
+    const float x0 = c[i - 1], x1 = c[i], x2 = c[i + 1], x3 = c[i + 2];
+    return x1 +
+           0.5f * t *
+               (x2 - x0 + t * (2.0f * x0 - 5.0f * x1 + 4.0f * x2 - x3 + t * (3.0f * (x1 - x2) + x3 - x0)));
+}
 [[nodiscard]] float readSinc(const float* cycle, int size, double phase) noexcept;
 } // namespace fd::dsp

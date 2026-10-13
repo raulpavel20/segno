@@ -10,11 +10,13 @@
 #include <algorithm>
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <chrono>
 #include <cmath>
 #include <complex>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <memory>
 #include <nlohmann/json.hpp>
 
@@ -423,4 +425,93 @@ TEST_CASE("wavetable synth: FM, PM, RM and AM free of aliasing", "[fast]")
         CHECK(normal < -70.0);
         CHECK(high < -85.0);
     }
+}
+
+TEST_CASE("wavetable synth: what it costs", "[.benchmark]")
+{
+    // Release only: seconds of processing per second of audio at 48 kHz, for the SPEC's CPU target
+    // (8 notes, 3 oscillators, 8 copies each, under 10 % of a core at Normal).
+    const auto measure = [](const char* what, int quality, const std::function<void(W&)>& setUp)
+    {
+        auto w = std::make_unique<W>();
+        auto& p = w->params();
+        for (int n = 0; n < 3; ++n)
+        {
+            p.set(W::osc(n, W::OscOn), 1.0f);
+            p.set(W::osc(n, W::OscUni), 8.0f);
+            p.set(W::osc(n, W::OscDetune), 30.0f);
+        }
+        p.set(W::Quality, static_cast<float>(quality));
+        setUp(*w);
+        RenderOptions o;
+        o.sampleRate = sr;
+        for (const int key : {48, 52, 55, 59, 60, 64, 67, 71})
+            o.events.push_back(
+                {.samplePosition = 0,
+                 .event = {.type = EventType::NoteOn, .key = static_cast<std::uint8_t>(key), .value = 0.8f}});
+        const double seconds = 5.0;
+        const auto start = std::chrono::steady_clock::now();
+        const auto out = render(*w, silence(seconds), o);
+        const std::chrono::duration<double> took = std::chrono::steady_clock::now() - start;
+        WARN(what << (quality == 0   ? ", Eco: "
+                      : quality == 1 ? ", Normal: "
+                                     : ", High: ")
+                  << 100.0 * took.count() / seconds << " % of a core (peak " << peakDb(out) << " dB)");
+    };
+    for (int quality = 0; quality < 3; ++quality)
+    {
+        measure("8 notes x 3 oscillators x 8 copies, still", quality, [](W&) {});
+        measure("the same, Position moved by an LFO and spread over the copies", quality,
+                [](W& w)
+                {
+                    auto& p = w.params();
+                    for (int n = 0; n < 3; ++n)
+                    {
+                        p.set(W::osc(n, W::OscSpread), 100.0f);
+                        p.set(W::route(n, W::RouteSource), static_cast<float>(W::Source::Lfo1));
+                        p.set(W::route(n, W::RouteTarget), static_cast<float>(W::oscTarget(n, W::TPosition)));
+                        p.set(W::route(n, W::RouteAmount), 50.0f);
+                    }
+                });
+        measure("the same, with Bend and Sync warps and FM from Osc 2", quality,
+                [](W& w)
+                {
+                    auto& p = w.params();
+                    for (int n = 0; n < 3; ++n)
+                    {
+                        p.set(W::osc(n, W::OscSpread), 100.0f);
+                        p.set(W::osc(n, W::OscWarpSpread), 100.0f);
+                        p.set(W::osc(n, W::OscWarp1),
+                              static_cast<float>(n == 0 ? dsp::Warp::Fm : dsp::Warp::Sync));
+                        p.set(W::osc(n, W::OscWarp1Amt), 40.0f);
+                        p.set(W::osc(n, W::OscWarp2), static_cast<float>(dsp::Warp::BendPlus));
+                        p.set(W::osc(n, W::OscWarp2Amt), 30.0f);
+                        p.set(W::route(n, W::RouteSource), static_cast<float>(W::Source::Lfo1));
+                        p.set(W::route(n, W::RouteTarget), static_cast<float>(W::oscTarget(n, W::TPosition)));
+                        p.set(W::route(n, W::RouteAmount), 50.0f);
+                    }
+                });
+    }
+}
+
+TEST_CASE("wavetable synth: what a cycle costs", "[.benchmark]")
+{
+    const auto table = fd::devices::wavetable::factoryTable("basic/shapes");
+    dsp::CycleRenderer renderer;
+    renderer.prepare();
+    std::vector<float> buffer(dsp::CycleRenderer::bufferSize);
+    for (const double hz : {65.0, 261.0, 1046.0})
+        for (const auto [warp, name] :
+             {std::pair{dsp::Warp::Off, "no warp"}, std::pair{dsp::Warp::BendPlus, "Bend +"},
+              std::pair{dsp::Warp::Sync, "Sync"}})
+        {
+            const int harmonics = static_cast<int>(20000.0 / hz);
+            const std::array<dsp::CycleRenderer::WarpSetting, 2> warps{{{warp, 0.5f, nullptr}, {}}};
+            const int count = 2000;
+            const auto start = std::chrono::steady_clock::now();
+            for (int i = 0; i < count; ++i)
+                renderer.render(*table, 0.3 + 0.0001 * i, warps, harmonics, buffer.data());
+            const std::chrono::duration<double> took = std::chrono::steady_clock::now() - start;
+            WARN(hz << " Hz, " << name << ": " << 1e6 * took.count() / count << " us a cycle");
+        }
 }

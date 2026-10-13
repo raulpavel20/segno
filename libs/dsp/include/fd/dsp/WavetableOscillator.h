@@ -56,7 +56,8 @@ public:
 
     /// Renders the cycles for the next stretch (called on the render grid): the table at
     /// `position` with `warps`, for copies playing at most `maxIncrement` cycles per sample. The
-    /// new cycles crossfade in over `fadeSamples`. Renders nothing new if nothing changed.
+    /// new cycles crossfade in over `fadeSamples` (calls of next()). Renders nothing new if nothing
+    /// changed. Spread cycles take turns, one a call, each fading over that many calls.
     /// Under frequency or phase modulation, reads run up to `reach` times faster at moments, at
     /// `oversampling` times the rate: the harmonics are cut so they fold back only above 20 kHz.
     void render(CycleRenderer& renderer, const Wavetable& table, double position,
@@ -72,6 +73,8 @@ public:
     float next(double increment, double fm, double phaseOffset, float& left, float& right) noexcept;
 
     [[nodiscard]] bool hasCycle() const noexcept { return rendered_; }
+    /// Cycles rendered since start() (what the oscillator has cost).
+    [[nodiscard]] int cyclesRendered() const noexcept { return cyclesRendered_; }
     /// 8-point reads (High quality) instead of cubic.
     void setFineReads(bool fine) noexcept { fine_ = fine; }
 
@@ -84,6 +87,7 @@ private:
         std::array<float, 2> amounts{-1.0f, -1.0f};
         std::array<Warp, 2> warps{};
         int harmonics = 0;
+        int fade = 0, fadeLength = 1; // samples left of the crossfade from `before`, of how many
     };
 
     std::array<Cycle, maxCycles> cycles_{};
@@ -94,7 +98,8 @@ private:
     std::array<float, maxUnison> randomDetune_{};
     int count_ = 1;
     double widest_ = 1.0;
-    int fade_ = 0, fadeLength_ = 1;
+    int turn_ = 0; // the spread cycle whose turn it is to render
+    int cyclesRendered_ = 0;
     bool rendered_ = false, fine_ = false;
     std::uint32_t seed_ = 1;
     const Wavetable* table_ = nullptr;
