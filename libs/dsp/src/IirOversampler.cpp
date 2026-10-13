@@ -82,6 +82,52 @@ double IirOversampler::Branch::process(double in, const double* coefficients) no
     return in;
 }
 
+namespace
+{
+struct DecimatorCoefficients
+{
+    std::array<double, 5> even{}, odd{};
+    DecimatorCoefficients()
+    {
+        const auto c = IirHalfband::design(kAttenuationDb, kTransition);
+        for (size_t i = 0; i < even.size(); ++i)
+        {
+            even[i] = c[2 * i];
+            odd[i] = c[2 * i + 1];
+        }
+    }
+};
+const DecimatorCoefficients kDecimator;
+
+double allpasses(std::array<double, 5>& x, std::array<double, 5>& y, const std::array<double, 5>& c,
+                 double in) noexcept
+{
+    for (size_t i = 0; i < c.size(); ++i)
+    {
+        const double out = c[i] * (in - y[i]) + x[i];
+        x[i] = in;
+        y[i] = out;
+        in = out;
+    }
+    return in;
+}
+} // namespace
+
+HalfbandDecimator::HalfbandDecimator() = default;
+
+void HalfbandDecimator::reset() noexcept
+{
+    even_ = {};
+    odd_ = {};
+}
+
+float HalfbandDecimator::process(float first, float second) noexcept
+{
+    // As IirOversampler::downsample: A0 on the pair's second sample, A1 on its first.
+    return static_cast<float>(0.5 * (allpasses(even_.x, even_.y, kDecimator.even, second) +
+                                     allpasses(odd_.x, odd_.y, kDecimator.odd, first)));
+}
+
 void IirOversampler::prepare(int maxBlockSize, int numChannels)
 {
     const auto coefficients = IirHalfband::design(kAttenuationDb, kTransition);

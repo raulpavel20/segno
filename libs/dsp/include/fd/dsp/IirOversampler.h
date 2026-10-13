@@ -16,6 +16,25 @@ struct IirHalfband
     [[nodiscard]] static std::vector<double> design(double attenuationDb, double transition);
 };
 
+/// Decimation by 2 through the oversampler's half-band (100 dB, minimum phase): for a signal made
+/// at twice the rate (a synth's frequency modulation), two samples in, one out. About two samples
+/// of delay at low frequencies. Real-time safe.
+class HalfbandDecimator
+{
+public:
+    HalfbandDecimator();
+    void reset() noexcept;
+    /// The pair's first and second samples, in time order.
+    float process(float first, float second) noexcept;
+
+private:
+    struct Branch
+    {
+        std::array<double, 5> x{}, y{};
+    };
+    Branch even_, odd_;
+};
+
 /// Oversampling by 2 with almost no delay, through a polyphase IIR half-band each way: 106 dB of
 /// image and alias rejection, flat to within 0.001 dB up to 0.454 of the rate (20 kHz at 44.1).
 /// The round trip delays a sound by about 3.5 samples at low frequencies, more towards the top

@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cmath>
 #include <nlohmann/json.hpp>
+#include <numbers>
 #include <optional>
 #include <tuple>
 
@@ -900,6 +901,9 @@ void WavetableSynth::voiceStart(int index, int key, float velocity, int channel,
     }
     v.sub.reset();
     v.noise.reset(hash(v.seed + 99));
+    for (auto& stage : v.decimators)
+        for (auto& d : stage)
+            d.reset();
     if (!wasSounding)
         for (auto& pair : v.filters)
             for (auto& f : pair)
@@ -1197,23 +1201,6 @@ void WavetableSynth::tickVoice(Voice& v, const TransportInfo& transport, bool re
             o.setUnison(u);
             was = u;
         }
-
-        // A new cycle on the render grid (or the first).
-        if (on && a != nullptr && a->tables[i] != nullptr && (renderNow || !o.hasCycle()))
-        {
-            std::array<dsp::CycleRenderer::WarpSetting, 2> warps{};
-            for (int k = 0; k < 2; ++k)
-            {
-                const auto warp = static_cast<dsp::Warp>(p.getInt(osc(n, k == 0 ? OscWarp1 : OscWarp2)));
-                warps[static_cast<size_t>(k)] = {
-                    dsp::isSampleWarp(warp) || dsp::isSpectralWarp(warp) ? dsp::Warp::Off : warp,
-                    static_cast<float>(v.to[(k == 0 ? CWarpA0 : CWarpB0) + i]),
-                    &a->remaps[static_cast<size_t>(n * 2 + k)]};
-            }
-            // The highest pitch it may reach before the next render: two semitones' headroom.
-            const double highest = std::max(v.from[CIncrement0 + i], increment) * 1.1225;
-            o.render(renderer_, *a->tables[i], v.to[CPos0 + i], warps, highest, sampleRate_, renderInterval_);
-        }
     }
 
     // Sub and noise.
@@ -1225,6 +1212,46 @@ void WavetableSynth::tickVoice(Voice& v, const TransportInfo& transport, bool re
     v.to[CNoiseLevel] = p.getBool(NoiseOn) && noiseDb > -70.0f ? dsp::dbToGain(noiseDb) : 0.0f;
     v.to[CNoiseColor] = moved(NoiseColor, TargetNoiseColor) * 0.01;
     std::tie(v.to[CNoisePanL], v.to[CNoisePanR]) = balance(moved(NoisePan, TargetNoisePan));
+
+    // A new cycle for each oscillator on the render grid (or the first).
+    for (int n = 0; n < numOscs; ++n)
+    {
+        const auto i = static_cast<size_t>(n);
+        auto& o = v.oscs[i];
+        if (!p.getBool(osc(n, OscOn)) || a == nullptr || a->tables[i] == nullptr ||
+            !(renderNow || !o.hasCycle()))
+            continue;
+        const double increment = v.to[CIncrement0 + i];
+        std::array<dsp::CycleRenderer::WarpSetting, 2> warps{};
+        // How much faster than its pitch FM and PM may read the cycle at moments: FM's peak ratio,
+        // PM's deviation (2 pi times the amount, at the source's pitch over this one's).
+        double fmReach = 1.0, pmReach = 0.0;
+        for (int k = 0; k < 2; ++k)
+        {
+            const auto warp = static_cast<dsp::Warp>(p.getInt(osc(n, k == 0 ? OscWarp1 : OscWarp2)));
+            const auto slot = (k == 0 ? CWarpA0 : CWarpB0) + i;
+            warps[static_cast<size_t>(k)] = {
+                dsp::isSampleWarp(warp) || dsp::isSpectralWarp(warp) ? dsp::Warp::Off : warp,
+                static_cast<float>(v.to[slot]), &a->remaps[static_cast<size_t>(n * 2 + k)]};
+            const double amount = std::max(v.from[slot], v.to[slot]);
+            if (warp == dsp::Warp::Fm)
+                fmReach *= 1.0 + 4.0 * amount;
+            else if (warp == dsp::Warp::Pm)
+            {
+                const int src = p.getInt(osc(n, k == 0 ? OscWarp1Src : OscWarp2Src));
+                const double srcIncrement = src < numOscs ? v.to[CIncrement0 + static_cast<size_t>(src)] *
+                                                                v.oscs[static_cast<size_t>(src)].widestRatio()
+                                            : src == numOscs ? v.to[CSubIncrement]
+                                                             : 0.0;
+                pmReach += 2.0 * std::numbers::pi * amount * srcIncrement / std::max(1e-9, increment);
+            }
+        }
+        const int oversampling = fmReach + pmReach > 1.0 ? (quality_ == 2 ? 4 : quality_ == 1 ? 2 : 1) : 1;
+        // The highest pitch it may reach before the next render: two semitones' headroom.
+        const double highest = std::max(v.from[CIncrement0 + i], increment) * 1.1225;
+        o.render(renderer_, *a->tables[i], v.to[CPos0 + i], warps, highest, sampleRate_, renderInterval_,
+                 fmReach + pmReach, oversampling);
+    }
 
     // Filters: the cutoff from key tracking, the filter envelope, routes and drift.
     for (int n = 0; n < numFilters; ++n)
@@ -1318,6 +1345,15 @@ void WavetableSynth::renderVoice(Voice& v, float* outL, float* outR, int from, i
             static_cast<dsp::VoiceFilter::Type>(p.getInt(filter(n, FilterType)));
     }
 
+    // Frequency modulation and its kin, at Normal and High, are made at 2 or 4 times the rate and
+    // brought back down (their sidebands would otherwise fold back as aliasing).
+    bool sampleWarped = false;
+    for (int n = 0; n < numOscs; ++n)
+        sampleWarped = sampleWarped || (p.getBool(osc(n, OscOn)) &&
+                                        (sampleWarps[static_cast<size_t>(n)][0] != dsp::Warp::Off ||
+                                         sampleWarps[static_cast<size_t>(n)][1] != dsp::Warp::Off));
+    const int factor = sampleWarped ? (quality_ == 2 ? 4 : quality_ == 1 ? 2 : 1) : 1;
+
     for (int s = from; s < to; ++s)
     {
         const double t = static_cast<double>(phase + (s - from) + 1) / interval;
@@ -1326,88 +1362,112 @@ void WavetableSynth::renderVoice(Voice& v, float* outL, float* outR, int from, i
         for (int n = 0; n < numEnvs; ++n)
             envs[n] = v.envs[static_cast<size_t>(n)].next();
 
-        // The buses into filter 1 and 2, and around them; left and right.
-        double aL = 0.0, aR = 0.0, bL = 0.0, bR = 0.0, nL = 0.0, nR = 0.0;
+        // The buses into filter 1 and 2, and around them; left and right; per step of the rate.
+        std::array<std::array<double, 4>, 6> bus{}; // aL, aR, bL, bR, nL, nR
         const double routing = c(CRouting);
-        const auto send = [&](int routeIndex, double l, double r)
+        for (int step = 0; step < factor; ++step)
         {
-            switch (routeIndex)
+            const auto send = [&](int routeIndex, double l, double r)
             {
-            case 0:
-                aL += l, aR += r;
-                break;
-            case 1:
-                bL += l, bR += r;
-                break;
-            case 2:
-                aL += l, aR += r, bL += routing * l, bR += routing * r;
-                break;
-            default:
-                nL += l, nR += r;
-                break;
-            }
-        };
-        std::array<float, numOscs> out{};
-        for (int n = 0; n < numOscs; ++n)
-        {
-            const auto i = static_cast<size_t>(n);
-            const double level = c(CLevel0 + i);
-            if (level <= 0.0 && !p.getBool(osc(n, OscOn)))
-            {
-                out[i] = 0.0f;
-                continue;
-            }
-            // Warps from another source, sample by sample (an earlier one's now, a later one's last).
-            double fm = 1.0, pm = 0.0, gain = 1.0;
-            for (int k = 0; k < 2; ++k)
-            {
-                const auto w = sampleWarps[i][static_cast<size_t>(k)];
-                if (w == dsp::Warp::Off)
-                    continue;
-                const int src = warpSources[i][static_cast<size_t>(k)];
-                const double value = src < numOscs    ? (src < n ? out[static_cast<size_t>(src)]
-                                                                 : v.lastOut[static_cast<size_t>(src)])
-                                     : src == numOscs ? v.lastSub
-                                                      : v.lastNoise;
-                const double amt = c((k == 0 ? CWarpA0 : CWarpB0) + i);
-                switch (w)
+                const auto j = static_cast<size_t>(step);
+                switch (routeIndex)
                 {
-                case dsp::Warp::Fm:
-                    fm *= 1.0 + 4.0 * amt * value;
+                case 0:
+                    bus[0][j] += l, bus[1][j] += r;
                     break;
-                case dsp::Warp::Pm:
-                    pm += amt * value;
+                case 1:
+                    bus[2][j] += l, bus[3][j] += r;
                     break;
-                case dsp::Warp::Rm:
-                    gain *= 1.0 - amt + amt * value;
-                    break;
-                case dsp::Warp::Am:
-                    gain *= 1.0 - amt + amt * (0.5 + 0.5 * value);
+                case 2:
+                    bus[0][j] += l, bus[1][j] += r, bus[2][j] += routing * l, bus[3][j] += routing * r;
                     break;
                 default:
+                    bus[4][j] += l, bus[5][j] += r;
                     break;
                 }
+            };
+            std::array<float, numOscs> out{};
+            for (int n = 0; n < numOscs; ++n)
+            {
+                const auto i = static_cast<size_t>(n);
+                const double level = c(CLevel0 + i);
+                if (level <= 0.0 && !p.getBool(osc(n, OscOn)))
+                    continue;
+                // Warps from another source, sample by sample (an earlier one's now, a later one's last).
+                double fm = 1.0, pm = 0.0, gain = 1.0;
+                for (int k = 0; k < 2; ++k)
+                {
+                    const auto w = sampleWarps[i][static_cast<size_t>(k)];
+                    if (w == dsp::Warp::Off)
+                        continue;
+                    const int src = warpSources[i][static_cast<size_t>(k)];
+                    const double value = src < numOscs    ? (src < n ? out[static_cast<size_t>(src)]
+                                                                     : v.lastOut[static_cast<size_t>(src)])
+                                         : src == numOscs ? v.lastSub
+                                                          : v.lastNoise;
+                    const double amt = c((k == 0 ? CWarpA0 : CWarpB0) + i);
+                    switch (w)
+                    {
+                    case dsp::Warp::Fm:
+                        fm *= 1.0 + 4.0 * amt * value;
+                        break;
+                    case dsp::Warp::Pm:
+                        pm += amt * value;
+                        break;
+                    case dsp::Warp::Rm:
+                        gain *= 1.0 - amt + amt * value;
+                        break;
+                    case dsp::Warp::Am:
+                        gain *= 1.0 - amt + amt * (0.5 + 0.5 * value);
+                        break;
+                    default:
+                        break;
+                    }
+                }
+                float l = 0.0f, r = 0.0f;
+                const float mono = v.oscs[i].next(c(CIncrement0 + i) / factor, fm, pm, l, r);
+                out[i] = static_cast<float>(mono * gain);
+                const double g = level * gain;
+                send(routes[i], l * g * c(CPanL0 + i), r * g * c(CPanR0 + i));
             }
-            float l = 0.0f, r = 0.0f;
-            const float mono = v.oscs[i].next(c(CIncrement0 + i), fm, pm, l, r);
-            out[i] = static_cast<float>(mono * gain);
-            const double g = level * gain;
-            send(routes[i], l * g * c(CPanL0 + i), r * g * c(CPanR0 + i));
+            v.lastOut = out;
+            // Sub and noise.
+            const double subLevel = c(CSubLevel);
+            if (subLevel > 0.0)
+            {
+                v.lastSub = v.sub.process(c(CSubIncrement) / factor, subShape);
+                send(subRoute, v.lastSub * subLevel * c(CSubPanL), v.lastSub * subLevel * c(CSubPanR));
+            }
+            const double noiseLevel = c(CNoiseLevel);
+            if (noiseLevel > 0.0)
+            {
+                v.lastNoise =
+                    v.noise.next(noiseType, static_cast<float>(c(CNoiseColor)), sampleRate_ * factor);
+                send(noiseRoute, v.lastNoise * noiseLevel * c(CNoisePanL),
+                     v.lastNoise * noiseLevel * c(CNoisePanR));
+            }
         }
-        v.lastOut = out;
-        // Sub and noise.
-        const double subLevel = c(CSubLevel);
-        if (subLevel > 0.0)
+        // Back down to the rate: one half-band per halving.
+        double aL = bus[0][0], aR = bus[1][0], bL = bus[2][0], bR = bus[3][0], nL = bus[4][0], nR = bus[5][0];
+        if (factor > 1)
         {
-            v.lastSub = v.sub.process(c(CSubIncrement), subShape);
-            send(subRoute, v.lastSub * subLevel * c(CSubPanL), v.lastSub * subLevel * c(CSubPanR));
-        }
-        const double noiseLevel = c(CNoiseLevel);
-        if (noiseLevel > 0.0)
-        {
-            v.lastNoise = v.noise.next(noiseType, static_cast<float>(c(CNoiseColor)), sampleRate_);
-            send(noiseRoute, v.lastNoise * noiseLevel * c(CNoisePanL),
-                 v.lastNoise * noiseLevel * c(CNoisePanR));
+            std::array<double, 6> down{};
+            for (size_t ch = 0; ch < 6; ++ch)
+            {
+                auto& stage = v.decimators[ch];
+                if (factor == 2)
+                    down[ch] =
+                        stage[0].process(static_cast<float>(bus[ch][0]), static_cast<float>(bus[ch][1]));
+                else
+                {
+                    const float x =
+                        stage[0].process(static_cast<float>(bus[ch][0]), static_cast<float>(bus[ch][1]));
+                    const float y =
+                        stage[0].process(static_cast<float>(bus[ch][2]), static_cast<float>(bus[ch][3]));
+                    down[ch] = stage[1].process(x, y);
+                }
+            }
+            aL = down[0], aR = down[1], bL = down[2], bR = down[3], nL = down[4], nR = down[5];
         }
         // Filter 1 into filter 2, or side by side, or anywhere between.
         double yL = aL, yR = aR;

@@ -112,10 +112,12 @@ void WavetableOscillator::setUnison(const Unison& u) noexcept
 
 void WavetableOscillator::render(CycleRenderer& renderer, const Wavetable& table, double position,
                                  const std::array<CycleRenderer::WarpSetting, 2>& warps, double maxIncrement,
-                                 double sampleRate, int fadeSamples) noexcept
+                                 double sampleRate, int fadeSamples, double reach, int oversampling) noexcept
 {
-    // The highest harmonic the fastest copy can play without passing 20 kHz (or 0.45 of the rate).
-    const double top = std::min(20000.0 / sampleRate, 0.45);
+    // The highest harmonic the fastest copy can play without passing 20 kHz (or 0.45 of the rate),
+    // and, read faster by modulation, without folding back below it.
+    const double band = std::min(20000.0 / sampleRate, 0.45);
+    const double top = reach > 1.0 ? std::min(band, (oversampling - band) / reach) : band;
     const double fastest = std::max(1e-9, std::abs(maxIncrement) * widest_);
     const int harmonics = std::clamp(static_cast<int>(top / fastest), 1, Wavetable::maxHarmonic);
 

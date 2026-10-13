@@ -57,9 +57,11 @@ public:
     /// Renders the cycles for the next stretch (called on the render grid): the table at
     /// `position` with `warps`, for copies playing at most `maxIncrement` cycles per sample. The
     /// new cycles crossfade in over `fadeSamples`. Renders nothing new if nothing changed.
+    /// Under frequency or phase modulation, reads run up to `reach` times faster at moments, at
+    /// `oversampling` times the rate: the harmonics are cut so they fold back only above 20 kHz.
     void render(CycleRenderer& renderer, const Wavetable& table, double position,
                 const std::array<CycleRenderer::WarpSetting, 2>& warps, double maxIncrement,
-                double sampleRate, int fadeSamples) noexcept;
+                double sampleRate, int fadeSamples, double reach = 1.0, int oversampling = 1) noexcept;
 
     /// The highest pitch ratio of any copy (for the band limit).
     [[nodiscard]] double widestRatio() const noexcept { return widest_; }

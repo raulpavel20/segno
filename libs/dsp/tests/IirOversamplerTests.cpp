@@ -153,6 +153,31 @@ TEST_CASE("IIR oversampler: roundTrip is exactly the trip up and down", "[fast]"
     CHECK(bitIdentical(expected, got));
 }
 
+TEST_CASE("half-band decimator: the oversampler's way down, a pair at a time", "[fast]")
+{
+    // The same signal at twice the rate, down through the oversampler and through the decimator.
+    IirOversampler os;
+    os.prepare(256, 1);
+    HalfbandDecimator decimator;
+    const auto high = whiteNoise(2 * 4096, 7, 0.5f, 1);
+    AudioBuffer expected(1, 4096), got(1, 4096);
+    for (int pos = 0; pos < 4096; pos += 256)
+    {
+        const float zeros[256] = {};
+        const float* z[] = {zeros};
+        auto* buffers = os.upsample(z, 1, 256);
+        for (int i = 0; i < 512; ++i)
+            buffers[0][i] = high.at(0, 2 * pos + i);
+        float* op[] = {expected.channel(0) + pos};
+        os.downsample(op, 1, 256);
+    }
+    for (int i = 0; i < 4096; ++i)
+        got.at(0, i) = decimator.process(high.at(0, 2 * i), high.at(0, 2 * i + 1));
+    CHECK(bitIdentical(expected, got));
+    decimator.reset();
+    CHECK(decimator.process(0.0f, 0.0f) == 0.0f);
+}
+
 TEST_CASE("IIR oversampler: no allocation while processing", "[fast]")
 {
     IirOversampler os;

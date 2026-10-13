@@ -350,6 +350,8 @@ private:
         std::array<float, numOscs> lastOut{};
         float lastSub = 0.0f, lastNoise = 0.0f;
         std::array<dsp::WavetableOscillator::Unison, numOscs> unison{};
+        std::array<std::array<dsp::HalfbandDecimator, 2>, 6>
+            decimators{}; // the buses, back down from 2x or 4x
         std::array<double, numOscs> maxIncrement{};
         std::uint32_t seed = 1;
         bool sounding = false;

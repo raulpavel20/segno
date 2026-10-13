@@ -390,6 +390,25 @@ Dated listening notes from the product owner, and the measurable checks derived 
 | W18 | **Building it** | Three steps (the synth; the tables; the song), each built, tested and signed off on its own. Assistants' tools come with each: `set_wavetable`, `list_wavetables`, then `make_wavetable`, then `vary_module` |
 | W19 | **Its working name** | Wavetable Synth (`wavetable`, `Fwav`, `org.segnoaudio.wavetable`). A brand name with the naming pass before the first release (ADR 0008) |
 
+## Settled while building (step 1, 2026-10-13)
+
+- **FM is linear and through zero, on the read speed:** the oscillator's speed times 1 + 4 × amount × the source, so at full amount a source at its peak plays the cycle five times as fast, and at its trough three times as fast backwards. Tables carry no DC, so FM never detunes. **PM moves the read position** by amount × the source, in cycles. (The DSP design's "FM (as phase modulation of the read position)" would have made FM and PM one warp twice.)
+- **Under FM and PM, an oscillator keeps only the harmonics the oversampling can hold.** At moments it reads its cycle up to 1 + 4 × amount (FM), or 1 + 2π × amount × the source's pitch over its own (PM), times as fast. Its cycle keeps the harmonics that, read that fast, fold back only above 20 kHz at the Quality's rate:
+  - High keeps all of them (a source at the same pitch, full amount);
+  - Normal about three quarters at full FM, half at full PM;
+  - Eco about a quarter at full FM: Eco is darker under heavy FM, not aliased.
+- **Aliasing measured** (a saw at 880 Hz, modulated at full amount by a sine at the same pitch; energy off the harmonics, below 20 kHz):
+
+  | Warp | Eco | Normal | High |
+  |---|---|---|---|
+  | FM | −68 dB | −91 dB | −108 dB |
+  | PM | −92 dB | −100 dB | −103 dB |
+  | RM | −116 dB | −118 dB | −131 dB |
+  | AM | −117 dB | −121 dB | −133 dB |
+
+  Above 20 kHz, the oversampler's transition band lets sidebands just above 24 kHz fold back to 20–24 kHz (up to −65 dB): inaudible, so the test measures to 20 kHz.
+- **The latency reported is 0 at every Quality.** The way back down (`dsp::HalfbandDecimator`, the Filter's minimum-phase half-band, a pair of samples at a time) delays the sound by 1.5 samples at Normal and 2.2 at High (under 0.05 ms at 48 kHz), and only while a warp from another source is on. Reporting it would make the latency change with the warp chosen.
+
 ## Sign-off
 
 - [ ] Automated: unit, conformance and golden tests; validators
