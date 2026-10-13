@@ -37,6 +37,7 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 | Reverb | `reverb` | `Frvb` | `org.segnoaudio.reverb` | M3 (approved 2026-10-12) |
 | Filter | `filter` | `Fflt` | `org.segnoaudio.filter` | M3 (approved 2026-10-12) |
 | Loudness Meter | `loudness-meter` | `Flud` | `org.segnoaudio.loudness-meter` | M3 (approved 2026-10-13) |
+| Wavetable Synth | `wavetable` | `Fwav` | `org.segnoaudio.wavetable` | M3 P1 (approved 2026-10-13) |
 
 **Rules:**
 - The device ID is kebab-case and describes the function. It is used in state JSON, the registry, CLAP and LV2 IDs, and file names.

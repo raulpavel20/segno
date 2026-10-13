@@ -1,6 +1,6 @@
 # 0050. The Wavetable Synth goes beyond Live
 
-- **Status:** Proposed (with the Wavetable Synth's SPEC, 2026-10-13)
+- **Status:** Accepted (product owner, 2026-10-13, with the Wavetable Synth's SPEC)
 - **Date:** 2026-10-13
 - **Amends:** [0011](0011-calibrated-ambition-and-consolidation.md), point 2 ("instruments stay close to Live's stock instruments"), for the Wavetable Synth only
 - **Device:** [devices/wavetable/SPEC.md](../../devices/wavetable/SPEC.md)
