@@ -206,7 +206,8 @@ DeviceState defaultState(const DeviceInfo& info)
     s.deviceId = std::string(info.id);
     s.stateVersion = info.stateVersion;
     for (const auto& spec : info.params)
-        s.params[std::string(spec.id)] = spec.def;
+        if (!spec.hasFlag(ParamFlags::Transient))
+            s.params[std::string(spec.id)] = spec.def;
     return s;
 }
 
@@ -214,6 +215,8 @@ bool sameSound(const DeviceInfo& info, const DeviceState& a, const DeviceState& 
 {
     for (const auto& spec : info.params)
     {
+        if (spec.hasFlag(ParamFlags::Transient)) // how you listen, not the sound
+            continue;
         const std::string id(spec.id);
         const auto ia = a.params.find(id), ib = b.params.find(id);
         const float va = ia != a.params.end() ? ia->second : spec.def;

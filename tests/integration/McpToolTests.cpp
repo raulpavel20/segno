@@ -804,9 +804,10 @@ TEST_CASE("mcp tools: measure_module reads a module's meters by name", "[integra
     Daw daw;
     const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
     const auto comp = daw.call("add_module", {{"track", t0}, {"type", "compressor"}})["id"].get<std::string>();
-    const auto eq = daw.call("add_module", {{"track", t0}, {"type", "eq"}})["id"].get<std::string>();
+    const auto spectrum =
+        daw.call("add_module", {{"track", t0}, {"type", "spectrum"}})["id"].get<std::string>();
 
-    // No audio device runs here: stand in for the audio thread, publishing while it watches.
+    // Stand in for the audio thread, publishing while it watches.
     auto handle = daw.session->openDevice(std::stoull(comp.substr(2)));
     REQUIRE(handle != nullptr);
     auto slotOf = [&](std::string_view id) {
@@ -849,7 +850,7 @@ TEST_CASE("mcp tools: measure_module reads a module's meters by name", "[integra
     CHECK(bus.takePeak(slotOf("gain_reduction")) == Approx(20.0f));
     handle.reset();
 
-    CHECK(daw.fails("measure_module", {{"module", eq}}).find("no meters") != std::string::npos);
+    CHECK(daw.fails("measure_module", {{"module", spectrum}}).find("no meters") != std::string::npos);
 }
 
 TEST_CASE("mcp tools: the Loudness Meter on the master, measured through MCP: LUFS, LU and correlation (B7)",

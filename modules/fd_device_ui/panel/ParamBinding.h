@@ -20,6 +20,11 @@ public:
     /// change is saved with the project or preset and is undoable in the DAW.
     virtual void applyExtraState(const nlohmann::json& patch) = 0;
 
+    /// Starts one undo step named `name` for the edits that follow, when a panel changes several
+    /// parameters as one action (the EQ's Make room). In the DAW only: plugin hosts group their
+    /// own undo, so it does nothing there.
+    virtual void beginEdit(const juce::String& /*name*/) {}
+
     // Automation (docs/design/automation.md §6): in the DAW only; a plugin host automates our
     // plugins its own way, so these default to nothing there.
     /// Whether a parameter is automated, and whether its lane plays.

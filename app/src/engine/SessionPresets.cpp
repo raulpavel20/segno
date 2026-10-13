@@ -33,7 +33,9 @@ public:
         s.stateVersion = info.stateVersion;
         // The stored values: what the project keeps, whatever a lane plays over them.
         for (size_t i = 0; i < info.params.size(); ++i)
-            s.params[std::string(info.params[i].id)] = info.params[i].fromNormalized(native_.storedValue(i));
+            if (!info.params[i].hasFlag(ParamFlags::Transient)) // how you listen isn't kept
+                s.params[std::string(info.params[i].id)] =
+                    info.params[i].fromNormalized(native_.storedValue(i));
         native_.device().writeExtraState(s.extra);
         return s;
     }

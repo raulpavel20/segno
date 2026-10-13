@@ -60,6 +60,9 @@ inline constexpr std::uint32_t MinusInfinityAtMin = 1u << 2;
 inline constexpr std::uint32_t ChangesLatency = 1u << 3;
 /// The maximum value means "infinity" and is displayed as such (a compressor's ratio: "∞:1").
 inline constexpr std::uint32_t InfinityAtMax = 1u << 4;
+/// How you listen, not how the device sounds (the EQ's Listen and Delta): not saved, not in
+/// presets, no undo step, back to its default whenever a state is applied. Never automatable.
+inline constexpr std::uint32_t Transient = 1u << 5;
 } // namespace ParamFlags
 
 /// Static description of one parameter. Each device declares a constexpr table of these.

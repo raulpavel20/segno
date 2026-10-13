@@ -1,316 +1,355 @@
 {
- "device": "eq",
- "author": "Segno",
- "presets": [
-  {
-   "name": "Low cut 80 Hz",
-   "tags": [
-    "Clean"
-   ],
-   "description": "Clears rumble and low mud below 80 Hz, 24 dB per octave.",
-   "params": {
-    "band1.type": "Low Cut",
-    "band1.freq": 80,
-    "band1.slope": "24 dB"
-   }
-  },
-  {
-   "name": "Subsonic cut",
-   "tags": [
-    "Master",
-    "Bus",
-    "Clean"
-   ],
-   "description": "Takes out what you can't hear below 30 Hz, which still uses headroom.",
-   "params": {
-    "band1.type": "Low Cut",
-    "band1.freq": 30,
-    "band1.slope": "48 dB"
-   }
-  },
-  {
-   "name": "Vocal presence",
-   "tags": [
-    "Vocals",
-    "Bright"
-   ],
-   "description": "A low cut, less box at 300 Hz, presence at 3.5 kHz and a little air.",
-   "params": {
-    "band1.type": "Low Cut",
-    "band1.freq": 100,
-    "band1.slope": "18 dB",
-    "band2.freq": 300,
-    "band2.gain": -2.5,
-    "band2.q": 1.2,
-    "band3.freq": 3500,
-    "band3.gain": 3,
-    "band3.q": 0.9,
-    "band4.freq": 10000,
-    "band4.gain": 2
-   }
-  },
-  {
-   "name": "Vocal warmth",
-   "tags": [
-    "Vocals",
-    "Warm"
-   ],
-   "description": "Body at 200 Hz, smoother upper mids and a softer top.",
-   "params": {
-    "band1.type": "Low Cut",
-    "band1.freq": 80,
-    "band1.slope": "18 dB",
-    "band2.freq": 200,
-    "band2.gain": 2,
-    "band2.q": 0.8,
-    "band3.freq": 3000,
-    "band3.gain": -1.5,
-    "band3.q": 1,
-    "band4.freq": 8000,
-    "band4.gain": -1.5
-   }
-  },
-  {
-   "name": "De-mud",
-   "tags": [
-    "Clean",
-    "Bus"
-   ],
-   "description": "Cuts the boxy low mids where mixes get muddy.",
-   "params": {
-    "band2.freq": 350,
-    "band2.gain": -4,
-    "band2.q": 1.4
-   }
-  },
-  {
-   "name": "Kick tighten",
-   "tags": [
-    "Drums"
-   ],
-   "description": "Thump at 60 Hz, less box at 350 Hz and the beater's click at 4 kHz.",
-   "params": {
-    "band1.type": "Low Cut",
-    "band1.freq": 30,
-    "band1.slope": "24 dB",
-    "band2.freq": 60,
-    "band2.gain": 3,
-    "band2.q": 1.4,
-    "band3.freq": 350,
-    "band3.gain": -5,
-    "band3.q": 1.6,
-    "band4.type": "Bell",
-    "band4.freq": 4000,
-    "band4.gain": 3,
-    "band4.q": 1.2
-   }
-  },
-  {
-   "name": "Snare body and crack",
-   "tags": [
-    "Drums"
-   ],
-   "description": "Body at 200 Hz, less ring around 900 Hz and crack at 5 kHz.",
-   "params": {
-    "band1.type": "Low Cut",
-    "band1.freq": 80,
-    "band1.slope": "18 dB",
-    "band2.freq": 200,
-    "band2.gain": 2.5,
-    "band2.q": 1.2,
-    "band3.freq": 900,
-    "band3.gain": -2,
-    "band3.q": 1.5,
-    "band4.type": "Bell",
-    "band4.freq": 5000,
-    "band4.gain": 3,
-    "band4.q": 1
-   }
-  },
-  {
-   "name": "Bass definition",
-   "tags": [
-    "Bass"
-   ],
-   "description": "A clean low end, less mud and the growl at 800 Hz that makes a bass read on small speakers.",
-   "params": {
-    "band1.type": "Low Cut",
-    "band1.freq": 35,
-    "band1.slope": "24 dB",
-    "band2.freq": 250,
-    "band2.gain": -3,
-    "band2.q": 1,
-    "band3.freq": 800,
-    "band3.gain": 2.5,
-    "band3.q": 1.2,
-    "band4.gain": -2
-   }
-  },
-  {
-   "name": "Acoustic guitar",
-   "tags": [
-    "Guitar",
-    "Bright"
-   ],
-   "description": "Less boom, a little sparkle at 5 kHz and air on top.",
-   "params": {
-    "band1.type": "Low Cut",
-    "band1.freq": 90,
-    "band1.slope": "18 dB",
-    "band2.freq": 250,
-    "band2.gain": -3,
-    "band2.q": 1,
-    "band3.freq": 5000,
-    "band3.gain": 2,
-    "band3.q": 0.8,
-    "band4.freq": 12000,
-    "band4.gain": 2.5
-   }
-  },
-  {
-   "name": "Piano clarity",
-   "tags": [
-    "Keys"
-   ],
-   "description": "A gentle low cut, less mud and a little definition and air.",
-   "params": {
-    "band1.type": "Low Cut",
-    "band1.freq": 50,
-    "band1.slope": "12 dB",
-    "band2.freq": 300,
-    "band2.gain": -2,
-    "band2.q": 1,
-    "band3.freq": 2500,
-    "band3.gain": 1.5,
-    "band3.q": 0.9,
-    "band4.freq": 10000,
-    "band4.gain": 1.5
-   }
-  },
-  {
-   "name": "Hi-hat clean",
-   "tags": [
-    "Drums",
-    "Bright"
-   ],
-   "description": "Everything below 300 Hz out, a little more shimmer.",
-   "params": {
-    "band1.type": "Low Cut",
-    "band1.freq": 300,
-    "band1.slope": "24 dB",
-    "band4.freq": 10000,
-    "band4.gain": 2
-   }
-  },
-  {
-   "name": "Air shelf",
-   "tags": [
-    "Bright",
-    "Subtle",
-    "Master"
-   ],
-   "description": "Opens up the top above 12 kHz.",
-   "params": {
-    "band4.freq": 12000,
-    "band4.gain": 3
-   }
-  },
-  {
-   "name": "Telephone",
-   "tags": [
-    "FX",
-    "Vocals"
-   ],
-   "description": "Only the band a phone line carries, with its honk.",
-   "params": {
-    "band1.type": "Low Cut",
-    "band1.freq": 350,
-    "band1.slope": "24 dB",
-    "band2.freq": 1500,
-    "band2.gain": 4,
-    "band2.q": 1,
-    "band4.type": "High Cut",
-    "band4.freq": 3400,
-    "band4.slope": "24 dB"
-   }
-  },
-  {
-   "name": "Mid-side widen",
-   "tags": [
-    "Wide",
-    "Master",
-    "Bus"
-   ],
-   "description": "More highs in the side and none of the lows there, so the width grows and the bass stays centred.",
-   "params": {
-    "band1.type": "Low Cut",
-    "band1.freq": 150,
-    "band1.slope": "12 dB",
-    "band1.place": "Side",
-    "band4.freq": 6000,
-    "band4.gain": 3,
-    "band4.place": "Side"
-   }
-  },
-  {
-   "name": "Surgical notch",
-   "tags": [
-    "Fix",
-    "Clean"
-   ],
-   "description": "A narrow notch to sweep onto a ringing frequency; move it to taste.",
-   "params": {
-    "band3.type": "Notch",
-    "band3.freq": 1000,
-    "band3.q": 10
-   }
-  },
-  {
-   "name": "Tilt brighter",
-   "tags": [
-    "Master",
-    "Bright"
-   ],
-   "description": "Tilts the whole spectrum around 1 kHz: brighter highs, leaner lows.",
-   "params": {
-    "band2.type": "Tilt",
-    "band2.freq": 1000,
-    "band2.gain": 3
-   }
-  },
-  {
-   "name": "Tilt warmer",
-   "tags": [
-    "Master",
-    "Warm"
-   ],
-   "description": "Tilts the whole spectrum around 1 kHz: fuller lows, softer highs.",
-   "params": {
-    "band2.type": "Tilt",
-    "band2.freq": 1000,
-    "band2.gain": -3
-   }
-  },
-  {
-   "name": "Master polish",
-   "tags": [
-    "Master",
-    "Subtle"
-   ],
-   "description": "A subsonic cut, a touch less mud, a little presence and air.",
-   "params": {
-    "band1.type": "Low Cut",
-    "band1.freq": 25,
-    "band1.slope": "24 dB",
-    "band2.freq": 250,
-    "band2.gain": -1,
-    "band2.q": 0.8,
-    "band3.freq": 3000,
-    "band3.gain": 0.8,
-    "band3.q": 0.7,
-    "band4.freq": 12000,
-    "band4.gain": 1.5
-   }
-  }
- ]
+    "device": "eq",
+    "author": "Segno",
+    "presets": [
+        {
+            "name": "Low cut 80 Hz",
+            "tags": [
+                "Clean"
+            ],
+            "description": "Clears rumble and low mud below 80 Hz, 24 dB per octave.",
+            "params": {
+                "band1.type": "Low Cut",
+                "band1.freq": 80,
+                "band1.slope": "24 dB"
+            }
+        },
+        {
+            "name": "Subsonic cut",
+            "tags": [
+                "Master",
+                "Bus",
+                "Clean"
+            ],
+            "description": "Takes out what you can't hear below 30 Hz, which still uses headroom.",
+            "params": {
+                "band1.type": "Low Cut",
+                "band1.freq": 30,
+                "band1.slope": "48 dB"
+            }
+        },
+        {
+            "name": "Vocal presence",
+            "tags": [
+                "Vocals",
+                "Bright"
+            ],
+            "description": "A low cut, less box at 300 Hz, presence at 3.5 kHz and a little air.",
+            "params": {
+                "band1.type": "Low Cut",
+                "band1.freq": 100,
+                "band1.slope": "18 dB",
+                "band2.freq": 300,
+                "band2.gain": -2.5,
+                "band2.q": 1.2,
+                "band3.freq": 3500,
+                "band3.gain": 3,
+                "band3.q": 0.9,
+                "band4.freq": 10000,
+                "band4.gain": 2
+            }
+        },
+        {
+            "name": "Vocal warmth",
+            "tags": [
+                "Vocals",
+                "Warm"
+            ],
+            "description": "Body at 200 Hz, smoother upper mids and a softer top.",
+            "params": {
+                "band1.type": "Low Cut",
+                "band1.freq": 80,
+                "band1.slope": "18 dB",
+                "band2.freq": 200,
+                "band2.gain": 2,
+                "band2.q": 0.8,
+                "band3.freq": 3000,
+                "band3.gain": -1.5,
+                "band3.q": 1,
+                "band4.freq": 8000,
+                "band4.gain": -1.5
+            }
+        },
+        {
+            "name": "De-mud",
+            "tags": [
+                "Clean",
+                "Bus"
+            ],
+            "description": "Cuts the boxy low mids where mixes get muddy.",
+            "params": {
+                "band2.freq": 350,
+                "band2.gain": -4,
+                "band2.q": 1.4
+            }
+        },
+        {
+            "name": "Kick tighten",
+            "tags": [
+                "Drums"
+            ],
+            "description": "Thump at 60 Hz, less box at 350 Hz and the beater's click at 4 kHz.",
+            "params": {
+                "band1.type": "Low Cut",
+                "band1.freq": 30,
+                "band1.slope": "24 dB",
+                "band2.freq": 60,
+                "band2.gain": 3,
+                "band2.q": 1.4,
+                "band3.freq": 350,
+                "band3.gain": -5,
+                "band3.q": 1.6,
+                "band4.type": "Bell",
+                "band4.freq": 4000,
+                "band4.gain": 3,
+                "band4.q": 1.2
+            }
+        },
+        {
+            "name": "Snare body and crack",
+            "tags": [
+                "Drums"
+            ],
+            "description": "Body at 200 Hz, less ring around 900 Hz and crack at 5 kHz.",
+            "params": {
+                "band1.type": "Low Cut",
+                "band1.freq": 80,
+                "band1.slope": "18 dB",
+                "band2.freq": 200,
+                "band2.gain": 2.5,
+                "band2.q": 1.2,
+                "band3.freq": 900,
+                "band3.gain": -2,
+                "band3.q": 1.5,
+                "band4.type": "Bell",
+                "band4.freq": 5000,
+                "band4.gain": 3,
+                "band4.q": 1
+            }
+        },
+        {
+            "name": "Bass definition",
+            "tags": [
+                "Bass"
+            ],
+            "description":
+                "A clean low end, less mud and the growl at 800 Hz that makes a bass read on small speakers.",
+            "params": {
+                "band1.type": "Low Cut",
+                "band1.freq": 35,
+                "band1.slope": "24 dB",
+                "band2.freq": 250,
+                "band2.gain": -3,
+                "band2.q": 1,
+                "band3.freq": 800,
+                "band3.gain": 2.5,
+                "band3.q": 1.2,
+                "band4.gain": -2
+            }
+        },
+        {
+            "name": "Acoustic guitar",
+            "tags": [
+                "Guitar",
+                "Bright"
+            ],
+            "description": "Less boom, a little sparkle at 5 kHz and air on top.",
+            "params": {
+                "band1.type": "Low Cut",
+                "band1.freq": 90,
+                "band1.slope": "18 dB",
+                "band2.freq": 250,
+                "band2.gain": -3,
+                "band2.q": 1,
+                "band3.freq": 5000,
+                "band3.gain": 2,
+                "band3.q": 0.8,
+                "band4.freq": 12000,
+                "band4.gain": 2.5
+            }
+        },
+        {
+            "name": "Piano clarity",
+            "tags": [
+                "Keys"
+            ],
+            "description": "A gentle low cut, less mud and a little definition and air.",
+            "params": {
+                "band1.type": "Low Cut",
+                "band1.freq": 50,
+                "band1.slope": "12 dB",
+                "band2.freq": 300,
+                "band2.gain": -2,
+                "band2.q": 1,
+                "band3.freq": 2500,
+                "band3.gain": 1.5,
+                "band3.q": 0.9,
+                "band4.freq": 10000,
+                "band4.gain": 1.5
+            }
+        },
+        {
+            "name": "Hi-hat clean",
+            "tags": [
+                "Drums",
+                "Bright"
+            ],
+            "description": "Everything below 300 Hz out, a little more shimmer.",
+            "params": {
+                "band1.type": "Low Cut",
+                "band1.freq": 300,
+                "band1.slope": "24 dB",
+                "band4.freq": 10000,
+                "band4.gain": 2
+            }
+        },
+        {
+            "name": "Air shelf",
+            "tags": [
+                "Bright",
+                "Subtle",
+                "Master"
+            ],
+            "description": "Opens up the top above 12 kHz.",
+            "params": {
+                "band4.freq": 12000,
+                "band4.gain": 3
+            }
+        },
+        {
+            "name": "Telephone",
+            "tags": [
+                "FX",
+                "Vocals"
+            ],
+            "description": "Only the band a phone line carries, with its honk.",
+            "params": {
+                "band1.type": "Low Cut",
+                "band1.freq": 350,
+                "band1.slope": "24 dB",
+                "band2.freq": 1500,
+                "band2.gain": 4,
+                "band2.q": 1,
+                "band4.type": "High Cut",
+                "band4.freq": 3400,
+                "band4.slope": "24 dB"
+            }
+        },
+        {
+            "name": "Mid-side widen",
+            "tags": [
+                "Wide",
+                "Master",
+                "Bus"
+            ],
+            "description":
+                "More highs in the side and none of the lows there, so the width grows and the bass stays centred.",
+            "params": {
+                "band1.type": "Low Cut",
+                "band1.freq": 150,
+                "band1.slope": "12 dB",
+                "band1.place": "Side",
+                "band4.freq": 6000,
+                "band4.gain": 3,
+                "band4.place": "Side"
+            }
+        },
+        {
+            "name": "Surgical notch",
+            "tags": [
+                "Fix",
+                "Clean"
+            ],
+            "description": "A narrow notch to sweep onto a ringing frequency; move it to taste.",
+            "params": {
+                "band3.type": "Notch",
+                "band3.freq": 1000,
+                "band3.q": 10
+            }
+        },
+        {
+            "name": "Tilt brighter",
+            "tags": [
+                "Master",
+                "Bright"
+            ],
+            "description": "Tilts the whole spectrum around 1 kHz: brighter highs, leaner lows.",
+            "params": {
+                "band2.type": "Tilt",
+                "band2.freq": 1000,
+                "band2.gain": 3
+            }
+        },
+        {
+            "name": "Tilt warmer",
+            "tags": [
+                "Master",
+                "Warm"
+            ],
+            "description": "Tilts the whole spectrum around 1 kHz: fuller lows, softer highs.",
+            "params": {
+                "band2.type": "Tilt",
+                "band2.freq": 1000,
+                "band2.gain": -3
+            }
+        },
+        {
+            "name": "Master polish",
+            "tags": [
+                "Master",
+                "Subtle"
+            ],
+            "description": "A subsonic cut, a touch less mud, a little presence and air.",
+            "params": {
+                "band1.type": "Low Cut",
+                "band1.freq": 25,
+                "band1.slope": "24 dB",
+                "band2.freq": 250,
+                "band2.gain": -1,
+                "band2.q": 0.8,
+                "band3.freq": 3000,
+                "band3.gain": 0.8,
+                "band3.q": 0.7,
+                "band4.freq": 12000,
+                "band4.gain": 1.5
+            }
+        },
+        {
+            "name": "Boom control",
+            "tags": [
+                "Bass",
+                "Fix"
+            ],
+            "description":
+                "A bell at 120 Hz that cuts only when a note blooms, so the low end stays even without thinning out.",
+            "params": {
+                "band2.freq": 120,
+                "band2.q": 1.4,
+                "band2.dyn": true,
+                "band2.range": -6,
+                "band2.attack": 10,
+                "band2.release": 150
+            }
+        },
+        {
+            "name": "Bass under the kick",
+            "tags": [
+                "Bass",
+                "Ducking"
+            ],
+            "description":
+                "Turns the bass down at 60 Hz while the kick plays: choose the kick under Sidechain in the header.",
+            "params": {
+                "band2.freq": 60,
+                "band2.q": 1.0,
+                "band2.dyn": true,
+                "band2.range": -6,
+                "band2.auto": false,
+                "band2.threshold": -24,
+                "band2.trigger": "Sidechain",
+                "band2.attack": 2,
+                "band2.release": 80
+            }
+        }
+    ]
 }

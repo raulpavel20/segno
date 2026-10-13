@@ -1,6 +1,6 @@
 # EQ: device spec
 
-- **Status:** Core approved by the product owner (2026-10-10, with the M1 sign-off); IDs are permanent. Stage 2 (M3, B8) approved by the product owner (2026-10-13, with every recommendation of E1–E14); its IDs are permanent. Step 2a (no delay) in progress.
+- **Status:** Core approved by the product owner (2026-10-10, with the M1 sign-off); IDs are permanent. Stage 2 (M3, B8) approved by the product owner (2026-10-13, with every recommendation of E1–E14); its IDs are permanent. Step 2a (no delay) built 2026-10-13, awaiting sign-off; step 2b (the spectral engine) next.
 - **Type:** Audio effect
 - **Tier / milestone:** Tier 1, M1 (core) → M3 (stage 2)
 - **Live target:** EQ Eight, EQ Three, Channel EQ (all covered by this one device). References only ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
@@ -278,6 +278,20 @@ Built and named by Claude, signed off by ear, as before. About six:
 | E13 | **The size** | 216 per-band parameters and 5 global ones are added (392 in all). Hosts handle it; the module reference lists them by band |
 | E14 | **Building it in two steps** | 2a: dynamic bands, the sidechain, the masking display and Make room, auto gain, Listen and Delta (no delay). 2b: the spectral engine, then linear phase and spectral bands on it. Each step built, tested and signed off on its own |
 
+
+### Settled while building (step 2a, 2026-10-13)
+
+- **Built:** dynamic bands (Range, Threshold and Auto, Attack, Release, Trigger), the sidechain, the masking display and Make room, Auto Gain, Listen and Delta. Spectral bands, Detail, Processing and Resolution come with step 2b (their parameters then, at state version 3).
+- **Auto Threshold** averages the trigger's level in dB while it sounds (silence holds it), starting from the first level heard. Averaging its power let one loud passage raise the threshold within a fraction of a second.
+- **Dynamics move on the 32-sample control grid,** the coefficients interpolated between ticks as before: an attack under about 0.7 ms acts as about 0.7 ms.
+- **Listen and Delta** are transient (`ParamFlags::Transient`, E10): never saved, in presets or undo steps, and back to Off whenever a state is applied. The conformance suite checks every transient setting.
+- **Layout in step 2a:** DYNAMICS has Range, Thresh, Attack, Release, then Auto, the Trigger (Input or Sidechain) and a trigger meter: the band's trigger level on a −60 to 0 dB bar with its threshold marked, to set it by eye. OUTPUT [2] has Output and Scale, Auto Gain with the correction it applies under it, and Delta. Step 2b adds Spectral beside Auto and Detail.
+- **The knob's name is "Thresh",** as the Compressor's and Gate's: "Threshold" is wider than a knob.
+- **Make room's threshold** comes from the compared track's spectrum there: its bands' power summed, read as a peak, 9 dB under (6 dB under its RMS). Set it by ear and the trigger meter after.
+- **One undo step for a panel's action:** `ParamBinding::beginEdit(name)` starts a named step in the DAW ("Make room", "Add band"); plugin hosts group their own undo.
+- **Found and fixed on the way:** undo and redo of any module's settings in the DAW changed the stored values but not what the module played or showed (tracktion leaves parameters where they are when their stored values change). Modules now follow their stored values after undo and redo.
+- **Assistants:** the EQ's Auto Gain correction is a meter (`measure_module`); every new setting is in `set_parameters`.
+- **Presets:** Boom control and Bass under the kick added; every EQ preset remade at state version 2 (its sound unchanged).
 
 ## A/B cases (against the Live target)
 

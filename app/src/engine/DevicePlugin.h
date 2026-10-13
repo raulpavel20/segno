@@ -59,6 +59,10 @@ public:
     /// parameter follows: a whole state set together (presets, ADR 0044). setParameter writes
     /// the stored value later, after the step has closed.
     void setStoredValue(size_t index, float normalised);
+    /// After undo or redo: each parameter takes its stored value again. tracktion restores the
+    /// stored values but leaves the parameters where they were (it doesn't follow property
+    /// changes, which can come from automation); our modules follow their projects.
+    void followStoredValues();
     /// A parameter's stored value (normalised): what the project keeps, under any automation.
     [[nodiscard]] float storedValue(size_t index) const { return values_[index]->get(); }
     [[nodiscard]] te::AutomatableParameter& parameter(size_t index) const noexcept { return *params_[index]; }

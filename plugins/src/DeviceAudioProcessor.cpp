@@ -102,8 +102,9 @@ public:
         s.deviceId = std::string(info.id);
         s.stateVersion = info.stateVersion;
         for (size_t i = 0; i < info.params.size(); ++i)
-            s.params[std::string(info.params[i].id)] =
-                info.params[i].fromNormalized(p_.params_[i]->getValue());
+            if (!info.params[i].hasFlag(ParamFlags::Transient))
+                s.params[std::string(info.params[i].id)] =
+                    info.params[i].fromNormalized(p_.params_[i]->getValue());
         p_.device_->writeExtraState(s.extra);
         return s;
     }

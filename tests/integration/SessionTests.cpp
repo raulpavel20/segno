@@ -426,7 +426,7 @@ TEST_CASE("a compressor on one track ducks to another track (ADR 0025)", "[integ
     const auto gateSources = session.sidechainSources(gate);
     CHECK(std::find(gateSources.begin(), gateSources.end(), a) == gateSources.end());
     CHECK_FALSE(session.setSidechainSource(gate, a));
-    CHECK_FALSE(session.setSidechainSource(session.addDevice(a, "fd:eq"), b)); // no sidechain input
+    CHECK_FALSE(session.setSidechainSource(session.addDevice(a, "fd:saturator"), b)); // no sidechain input
 
     // None again, and back by undo.
     REQUIRE(session.setSidechainSource(comp, std::nullopt));
@@ -784,4 +784,70 @@ TEST_CASE("session: a new project has no undo steps, even after tracktion's own 
     CHECK(session.snapshot()->tracks[0].clips.empty());
     CHECK_FALSE(session.canUndo());
     CHECK(session.redoDescription() == "Assistant: test");
+}
+
+TEST_CASE(
+    "a panel's action of several settings is one named undo step, heard and shown on undo and redo; how you "
+    "listen is never one, nor kept",
+    "[integration]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    tracktion::Engine engine{"fd-integration-tests", nullptr, fd::engine::makeEngineBehaviour()};
+    fd::engine::registerDevices(engine);
+    juce::TemporaryFile project(fd::engine::Session::fileExtension);
+    // The EQ's parameters by id: band 5's, stage 2's.
+    const auto indexOf = [](const fd::ui::DeviceUiContext& ctx, std::string_view id)
+    {
+        for (size_t i = 0; i < ctx.info.params.size(); ++i)
+            if (ctx.info.params[i].id == id)
+                return i;
+        FAIL("no parameter " << id);
+        return size_t{0};
+    };
+    std::uint64_t eq = 0;
+    {
+        fd::engine::Session session(engine);
+        eq = session.addDevice(session.snapshot()->tracks[0].id, "fd:eq");
+        auto handle = session.openDevice(eq);
+        REQUIRE(handle != nullptr);
+        auto& ctx = handle->context();
+        const auto set = [&ctx, &indexOf](std::string_view id, float value)
+        {
+            const auto i = indexOf(ctx, id);
+            ctx.params.beginGesture(i);
+            ctx.params.setPlain(i, value);
+            ctx.params.endGesture(i);
+        };
+
+        // Make room: three settings, one step.
+        ctx.params.beginEdit("Make room");
+        set("band5.on", 1.0f);
+        set("band5.dyn", 1.0f);
+        set("band5.range", -6.0f);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(50);
+        CHECK(session.undoDescription() == "Make room");
+        session.undo();
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(50); // the parameters follow
+        CHECK(ctx.params.getPlain(indexOf(ctx, "band5.on")) == 0.0f);
+        CHECK(ctx.params.getPlain(indexOf(ctx, "band5.dyn")) == 0.0f);
+        CHECK(ctx.params.getPlain(indexOf(ctx, "band5.range")) == Approx(-6.0f)); // its default
+        session.redo(); // and back: the module follows its project both ways
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(50);
+        CHECK(ctx.params.getPlain(indexOf(ctx, "band5.dyn")) == 1.0f);
+        session.undo();
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(50);
+
+        // Listen: no undo step, and not kept with the project.
+        const auto before = session.undoDescription();
+        set("listen", 3.0f);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(50);
+        CHECK(ctx.params.getPlain(indexOf(ctx, "listen")) == 3.0f);
+        CHECK(session.undoDescription() == before);
+        REQUIRE(session.saveAs(project.getFile()));
+    }
+    fd::engine::Session session(engine);
+    REQUIRE(session.open(project.getFile()));
+    auto handle = session.openDevice(eq);
+    REQUIRE(handle != nullptr);
+    CHECK(handle->context().params.getPlain(indexOf(handle->context(), "listen")) == 0.0f);
 }

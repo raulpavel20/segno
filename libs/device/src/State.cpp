@@ -38,7 +38,8 @@ DeviceState captureState(const Device& device)
     s.stateVersion = device.info().stateVersion;
     const auto& store = device.params();
     for (size_t i = 0; i < store.size(); ++i)
-        s.params[std::string(store.spec(i).id)] = store.get(i);
+        if (!store.spec(i).hasFlag(ParamFlags::Transient)) // how you listen isn't kept
+            s.params[std::string(store.spec(i).id)] = store.get(i);
     device.writeExtraState(s.extra);
     return s;
 }
@@ -57,7 +58,8 @@ ApplyResult applyState(Device& device, DeviceState state)
     {
         const auto& spec = store.spec(i);
         const auto it = state.params.find(std::string(spec.id));
-        store.set(i, it != state.params.end() ? it->second : spec.def);
+        const bool kept = it != state.params.end() && !spec.hasFlag(ParamFlags::Transient);
+        store.set(i, kept ? it->second : spec.def);
     }
     device.readExtraState(state.extra);
     return ApplyResult::Ok;

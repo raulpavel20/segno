@@ -107,6 +107,8 @@ class SessionDeviceBinding final : public DevicePluginBinding
 public:
     SessionDeviceBinding(Session& session, DevicePlugin& plugin) : DevicePluginBinding(plugin), session_(session) {}
 
+    void beginEdit(const juce::String& name) override { session_.impl().beginEdit(name); }
+
     void addAutomationItems(size_t i, juce::PopupMenu& menu) override
     {
         if (const auto t = target(i); t && session_.automationMenu)
@@ -1873,16 +1875,29 @@ std::string Session::savedViewState() const
     return impl_->edit->state.getProperty(kViewStateId).toString().toStdString();
 }
 
+namespace
+{
+/// Undo and redo restore our modules' stored values; their parameters follow (DevicePlugin).
+void followStoredValues(te::Edit& edit)
+{
+    for (auto* p : te::getAllPlugins(edit, false))
+        if (auto* native = dynamic_cast<DevicePlugin*>(p))
+            native->followStoredValues();
+}
+} // namespace
+
 void Session::undo()
 {
     impl_->stopAudition();
     impl_->edit->getUndoManager().undo();
+    followStoredValues(*impl_->edit);
 }
 
 void Session::redo()
 {
     impl_->stopAudition();
     impl_->edit->getUndoManager().redo();
+    followStoredValues(*impl_->edit);
 }
 
 bool Session::canUndo() const

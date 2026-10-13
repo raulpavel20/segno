@@ -86,8 +86,18 @@ DevicePlugin::DevicePlugin(te::PluginCreationInfo info, const DeviceFactory& fac
     }
     for (const auto& spec : device_->info().params)
     {
+        // How you listen (ParamFlags::Transient) starts from its default, and never makes an
+        // undo step.
+        const juce::Identifier id(juce::String(std::string(spec.id)));
+        const bool transient = spec.hasFlag(ParamFlags::Transient);
+        if (transient)
+            state.removeProperty(id, nullptr);
+        // Every other value is stored explicitly (its default too), so undo restores a value rather
+        // than removing one, and following it afterwards writes nothing new (it would clear redo).
+        else if (!state.hasProperty(id))
+            state.setProperty(id, spec.toNormalized(spec.def), nullptr);
         auto value = std::make_unique<juce::CachedValue<float>>();
-        value->referTo(state, juce::Identifier(juce::String(std::string(spec.id))), um, spec.toNormalized(spec.def));
+        value->referTo(state, id, transient ? nullptr : um, spec.toNormalized(spec.def));
         auto* param = new DeviceParameter(spec, *this);
         addAutomatableParameter(*param);
         param->attachToCurrentValue(*value);
@@ -261,6 +271,13 @@ void DevicePlugin::flushPluginStateToValueTree()
         appliedExtra_ = juce::String(extra.dump()); // already what the device holds
         state.setProperty(kExtraStateId, appliedExtra_, nullptr);
     }
+}
+
+void DevicePlugin::followStoredValues()
+{
+    for (size_t i = 0; i < params_.size(); ++i)
+        if (params_[i]->getCurrentBaseValue() != values_[i]->get())
+            params_[i]->updateFromAttachedValue();
 }
 
 void DevicePlugin::setStoredValue(size_t index, float normalised)

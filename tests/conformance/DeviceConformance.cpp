@@ -84,7 +84,9 @@ void randomize(Device& d, std::uint32_t seed)
     for (size_t i = 0; i < d.params().size(); ++i)
     {
         const double value = rng.next01();
-        if (!d.params().spec(i).hasFlag(ParamFlags::ChangesLatency))
+        // Not latency (fixed per instance), nor how you listen (never kept: Transient).
+        if (!d.params().spec(i).hasFlag(ParamFlags::ChangesLatency) &&
+            !d.params().spec(i).hasFlag(ParamFlags::Transient))
             d.params().setNormalized(i, static_cast<float>(value));
     }
 }
@@ -413,16 +415,26 @@ std::map<std::string, std::string> specDescriptions(const DeviceInfo& info, std:
     buffer << file.rdbuf();
     const auto text = buffer.str();
     std::map<std::string, std::string> out;
-    const auto start = text.find("## Parameters");
-    if (start == std::string::npos)
+    // Every Parameters section: the core's ("## Parameters") and a later stage's ("### Parameters"
+    // under its own heading), each up to the next heading.
+    std::vector<std::string> lines;
+    {
+        std::istringstream all(text);
+        static const std::regex heading("^#{2,3} Parameters\\s*$");
+        bool in = false;
+        for (std::string line; std::getline(all, line);)
+        {
+            if (line.starts_with("#"))
+                in = std::regex_match(line, heading);
+            else if (in)
+                lines.push_back(line);
+        }
+    }
+    if (lines.empty())
     {
         problems.push_back("SPEC.md has no Parameters section");
         return out;
     }
-    std::istringstream section(text.substr(start, text.find("\n## ", start + 3) - start));
-    std::vector<std::string> lines;
-    for (std::string line; std::getline(section, line);)
-        lines.push_back(line);
     for (size_t i = 0; i + 1 < lines.size(); ++i)
     {
         if (!lines[i].starts_with("|") || !lines[i + 1].starts_with("|---"))
@@ -534,6 +546,30 @@ AudioBuffer renderPreset(Device& d, const DeviceInfo& info, double* inputRmsDb)
 }
 } // namespace
 
+TEST_CASE("conformance: transient settings (how you listen) are never automated, kept or in presets",
+          "[fast][conformance]")
+{
+    for (const auto* f : allDevices())
+    {
+        const auto& info = f->info();
+        auto d = f->create();
+        for (size_t i = 0; i < d->params().size(); ++i)
+        {
+            const auto& spec = d->params().spec(i);
+            if (!spec.hasFlag(ParamFlags::Transient))
+                continue;
+            INFO(info.id << ": " << spec.id);
+            CHECK_FALSE(spec.hasFlag(ParamFlags::Automatable));
+            // Set away from its default: not in the state, and back to the default when one is applied.
+            d->params().set(i, spec.def == spec.max ? spec.min : spec.max);
+            const auto state = captureState(*d);
+            CHECK_FALSE(state.params.contains(std::string(spec.id)));
+            REQUIRE(applyState(*d, state) == ApplyResult::Ok);
+            CHECK(d->params().get(i) == spec.def);
+        }
+    }
+}
+
 TEST_CASE("conformance: every factory preset loads, plays cleanly within level and is its own",
           "[fast][conformance]")
 {
@@ -557,7 +593,9 @@ TEST_CASE("conformance: every factory preset loads, plays cleanly within level a
             CHECK(presetNameProblem(p.name).empty());
             CHECK_FALSE(std::regex_search(p.name + " " + p.description, kBannedWords));
             CHECK(p.state.stateVersion == info.stateVersion);   // made with the module as it is
-            CHECK(p.state.params.size() == info.params.size()); // the whole state
+            CHECK(p.state.params.size() == static_cast<size_t>(std::count_if( // the whole state
+                                               info.params.begin(), info.params.end(), [](const ParamSpec& s)
+                                               { return !s.hasFlag(ParamFlags::Transient); })));
             for (const auto& [param, value] : p.state.params)
                 CHECK(std::any_of(info.params.begin(), info.params.end(),
                                   [&](const ParamSpec& s) { return s.id == param; }));
