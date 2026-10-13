@@ -58,6 +58,7 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0047](0047-the-editing-grid-in-each-editor.md) | The arrangement and the piano roll each have their own grid: zoom-adaptive at a width (Narrowest … Widest) or a fixed value, triplets, snap; shown on each editor, Ctrl+1 to Ctrl+5 for the editor used last | Accepted |
 | [0048](0048-clips-loop.md) | Any clip can loop a part of its content: edges go as far as dragged with every repeat notched, notches change the loop's length, the clip view's brace sets its start and end (piano roll and a new audio clip view); seams follow the edge-fade rule | Accepted |
 | [0049](0049-the-master-row-is-the-song-row.md) | The master's row is the song row, pinned under the ruler: sections (a name, colour, start and end) over a miniature of every track; an edge moves the mark, the body moves the music, the rest of the song making room; clips split at the edges | Accepted |
+| [0050](0050-the-wavetable-synth-goes-beyond-live.md) | The Wavetable Synth goes beyond Live, to the depth of the leading wavetable synths, with its innovation where the DAW helps; amends 0011 for this synth only | Proposed |
 
 ## Template
 

@@ -49,8 +49,8 @@ To schedule an idea, it needs:
 | **Drag-to-modulate:** drop any modulator on any parameter of any device; modulation is shown on every control | Faster and more visible than Live's modulation workflow | 📌 M4 |
 | **Macro snapshots with morphing** in racks | Live's macro variations, but blendable and automatable | 💡 (variations are M4; morphing later) |
 | **Per-note expression (MPE) everywhere** it makes sense | Expressive playing across the whole suite | 📌 M5 |
-| **Audio → wavetable resynthesis** in the wavetable synth | Turn any sound into an instrument | 💡 |
-| **Wavetable editor** (draw, harmonics, morph) | Create tables without external tools | 💡 |
+| **Audio → wavetable resynthesis** in the wavetable synth | Turn any sound into an instrument | Scheduled: the Wavetable Synth, step 2 (M3 P1, ADR 0050) |
+| **Wavetable editor** (draw, harmonics, morph) | Create tables without external tools | Scheduled: the Wavetable Synth, step 2 (M3 P1, ADR 0050) |
 | **Larger FM synth:** more operators, any-to-any modulation matrix | Deeper FM sound design | 💡 |
 | **Modular hybrid synth** (combine VA, wavetable, FM, sample and granular engines) | One instrument for complex sound design | 💡 |
 | **Large distortion model library** (dozens of models per stage) | Saturn-style depth | 💡 |

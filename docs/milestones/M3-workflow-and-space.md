@@ -61,7 +61,7 @@ More to make music with, before the rest of the plan. In this order, each design
 
 | # | Step | What the product owner asked for | Status |
 |---|---|---|---|
-| P1 | **Wavetable Synth** (from M5) | More instruments for more interesting sounds: a wavetable synth that is full-featured, modern and innovative. Research the market, recommend, then build | ☐ SPEC next |
+| P1 | **Wavetable Synth** (from M5) | More instruments for more interesting sounds: a wavetable synth that is full-featured, modern and innovative. Research the market, recommend, then build | ◐ [SPEC](../../devices/wavetable/SPEC.md) drafted for review (2026-10-13), with [ADR 0050](../decisions/0050-the-wavetable-synth-goes-beyond-live.md) proposed (going beyond ADR 0011 for this synth) |
 | P2 | **Racks** (from M4) | Save a whole set of modules (effects, or an instrument and its effects) as one thing: a snapshot of the chain as it is, so a great patch is kept whole. Kept apart from module presets, which never gain a rack variant. On top, to plan: macros wired to points across the rack (one knob moving, and automating, many), presets of the whole rack, ideas from transition multi-effects (the product owner's reference: Transit and Transit 2) | ☐ |
 | P3 | **The project's key and scale** (from M4) | A key and scale for the project: hard to work without | ☐ |
 | P4 | **The piano roll** | Feature-poor today. Key and scale aware; chords; turning root notes into chords of various kinds that fit the key; research the market, combine and innovate | ☐ |
