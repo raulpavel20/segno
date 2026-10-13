@@ -216,7 +216,7 @@ State version 1. Every parameter is automatable except where noted. Families use
 | `quality` | Quality | Eco saves CPU; High is cleanest for frequency modulation and the lowest notes. | Eco, Normal, High | Normal | choice | – | – |
 
 - **Quality** is a header setting. It changes how much the frequency-modulation warps are oversampled, which changes the delay by a few samples: it carries `ParamFlags::ChangesLatency` and isn't automatable (ADR 0020).
-- **About 380 parameters** (W17): 23 per oscillator, 12 for sub and noise, 17 for the filters, 37 for the envelopes and velocity, 56 for the LFOs, 8 for the random sources, 8 macros, 160 for the matrix, 9 for voice and output.
+- **379 parameters** (W17): 24 per oscillator, 12 for sub and noise, 17 for the filters, 37 for the envelopes and velocity, 56 for the LFOs, 8 for the random sources, 8 macros, 160 for the matrix, 9 for voice and output.
 
 **State that isn't a parameter** ([ADR 0017](../../docs/decisions/0017-heavy-data-and-non-parameter-state.md)):
 - **Each oscillator's table:** a factory table by its permanent ID, or a user table (W8): its name, its recipe (step 2: the sources and changes it was made from) and its frames.

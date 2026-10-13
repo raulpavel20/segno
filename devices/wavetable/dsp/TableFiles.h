@@ -1,0 +1,37 @@
+#pragma once
+
+#include "fd/dsp/Wavetable.h"
+
+#include <optional>
+#include <string>
+#include <vector>
+
+namespace fd::devices::wavetable
+{
+/// A table read from a file: its cycles, all `frameLength` samples long.
+struct ImportedTable
+{
+    std::string name;
+    std::vector<float> samples;
+    int frameLength = dsp::Wavetable::frameSize;
+    int frames = 1;
+};
+
+/// Reads a wavetable file (devices/wavetable/SPEC.md, "Tables and their files"):
+/// - a WAV in any format: its frame size from a `clm ` chunk (the common convention), `srge` or
+///   `srgo` (Surge's), or `uhWT` (2 048); without one, 64 × 256 for exactly 16 384 samples (a
+///   WaveEdit bank), one cycle for up to 4 096 samples, otherwise 2 048;
+/// - Surge's and Bitwig's `.wt`.
+/// `frameLength` above zero sets the frame size by hand. At most 256 frames are kept; several
+/// channels are mixed. Not real-time. On failure, nothing, and `error` says why.
+[[nodiscard]] std::optional<ImportedTable> importTable(const std::string& path, int frameLength = 0,
+                                                       std::string* error = nullptr);
+
+/// Single cycles (one per WAV file, any lengths), one frame each, in the order given (up to 256).
+[[nodiscard]] std::optional<dsp::Wavetable> importCycles(const std::vector<std::string>& paths,
+                                                         std::string* error = nullptr);
+
+/// Base64, for tables carried inside presets and projects.
+[[nodiscard]] std::string toBase64(const std::vector<unsigned char>& bytes);
+[[nodiscard]] std::vector<unsigned char> fromBase64(const std::string& text);
+} // namespace fd::devices::wavetable

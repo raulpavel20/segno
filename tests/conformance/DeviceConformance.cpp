@@ -456,7 +456,7 @@ std::map<std::string, std::string> specDescriptions(const DeviceInfo& info, std:
             for (std::sregex_iterator it(cells[0].begin(), cells[0].end(), idPattern), end; it != end; ++it)
             {
                 auto pattern = std::regex_replace((*it)[1].str(), std::regex("\\."), "\\.");
-                pattern = std::regex_replace(pattern, std::regex("<n>"), "[0-9]+");
+                pattern = std::regex_replace(pattern, std::regex("<[a-z]>"), "[0-9]+"); // families: <n>, <k>
                 const std::regex matcher(pattern);
                 for (const auto& p : info.params)
                     if (std::regex_match(std::string(p.id), matcher))
