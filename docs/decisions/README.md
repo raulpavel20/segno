@@ -16,7 +16,7 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0005](0005-license-agpl-3.md) | License: AGPL-3.0 | Accepted |
 | [0006](0006-juce-free-core-and-module-boundaries.md) | DSP and device core never depend on JUCE | Accepted |
 | [0007](0007-verification-without-ears.md) | Automated, measurable verification + human sign-off | Accepted |
-| [0008](0008-naming-and-trade-dress.md) | Own names and visual identity; nothing taken from Ableton | Accepted |
+| [0008](0008-naming-and-trade-dress.md) | Own names and visual identity; nothing taken from Ableton | Accepted; amended by 0052 |
 | [0009](0009-dark-first-design-language.md) | Dark-first, flat, minimal, contextual design language | Superseded by 0014 |
 | [0010](0010-live-is-the-floor-not-the-ceiling.md) | Live is the minimum for coverage; best-in-class is the aim; consolidate into deeper devices | Superseded by 0011 |
 | [0011](0011-calibrated-ambition-and-consolidation.md) | Match Live by default; go beyond selectively (mainly the mixing core); merge only devices that do the same job | Accepted |
@@ -60,6 +60,7 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0049](0049-the-master-row-is-the-song-row.md) | The master's row is the song row, pinned under the ruler: sections (a name, colour, start and end) over a miniature of every track; an edge moves the mark, the body moves the music, the rest of the song making room; clips split at the edges | Accepted |
 | [0050](0050-the-wavetable-synth-goes-beyond-live.md) | The Wavetable Synth goes beyond Live, to the depth of the leading wavetable synths, with its innovation where the DAW helps; amends 0011 for this synth only | Accepted |
 | [0051](0051-pages-for-very-wide-modules.md) | Pages for very wide modules: tabs in the header, one width for every page, sections still collapse; opt-in past about 1 600 px | Accepted |
+| [0052](0052-generic-names-are-free.md) | Generic names (Sampler, Wavetable, Delay) are free to use, as final names too; names a vendor made up (Operator, Drift, Simpler) aren't; amends 0008 | Accepted |
 
 ## Template
 

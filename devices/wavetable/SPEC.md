@@ -388,7 +388,7 @@ Dated listening notes from the product owner, and the measurable checks derived 
 | W16 | **Expression** | MPE (bend, pressure, slide per note) and polyphonic aftertouch from the start; microtuning later, with a tuning for the whole DAW |
 | W17 | **The size** | About 380 parameters, routes included, so hosts, automation and assistants see everything. The panel shows the selected oscillator, filter, envelope and LFO, on three pages (ADR 0051, the product owner's idea): about 1 200 px instead of 2 000–2 800 |
 | W18 | **Building it** | Three steps (the synth; the tables; the song), each built, tested and signed off on its own. Assistants' tools come with each: `set_wavetable`, `list_wavetables`, then `make_wavetable`, then `vary_module` |
-| W19 | **Its working name** | Wavetable Synth (`wavetable`, `Fwav`, `org.segnoaudio.wavetable`). A brand name with the naming pass before the first release (ADR 0008). Changed by the product owner (2026-10-14): **Wavetable**, without "Synth", as the Subtractive (device-suite.md); the IDs stay |
+| W19 | **Its working name** | Wavetable Synth (`wavetable`, `Fwav`, `org.segnoaudio.wavetable`). Changed by the product owner (2026-10-14): **Wavetable**, without "Synth", as the Subtractive (device-suite.md); the IDs stay. A generic term, so it can stay past the first release ([ADR 0052](../../docs/decisions/0052-generic-names-are-free.md)) |
 
 ## Settled while building (step 1, 2026-10-13)
 

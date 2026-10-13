@@ -33,7 +33,7 @@ Build options: `FD_BUILD_TESTS`, `FD_BUILD_TOOLS`, `FD_BUILD_PLUGINS`, `FD_BUILD
 - **The UI never reimplements DSP.** Curves and displays call the same pure functions the audio path uses.
 - **Devices never write their own parameters.** All edits go through the host binding.
 - **Parameter IDs, device IDs and plugin codes are permanent** once a device's SPEC is approved (`docs/ids.md`).
-- **No Ableton or other vendors' names in product names, UI or presets** (ADR 0008).
+- **No names Ableton or other vendors made up in product names, UI or presets** (ADR 0008, [ADR 0052](docs/decisions/0052-generic-names-are-free.md)): Operator, Drift, Simpler, Pro-Q, OTT and the like. Generic terms of the trade (Sampler, Wavetable, Delay, Compressor) are fine, as final names too.
 - **Every new device** gets `devices/<name>/SPEC.md` from `docs/devices/SPEC-TEMPLATE.md` before any code.
 - **Golden test files** change only with a reason stated in the commit message.
 - **MCP lives only in the DAW** (ADR 0021). Nothing in `libs/`, `devices/`, `modules/`, `plugins/` or `tools/` includes `app/src/mcp`; the plugins never open connections. MCP edits go through `engine::Session` and the device host binding, like the UI's. The CTest checks `mcp_only_in_the_daw` and `app_ui_does_not_include_tracktion` enforce it.

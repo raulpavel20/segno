@@ -1,6 +1,6 @@
 # 0008. Own names and visual identity; nothing taken from Ableton
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by [0052](0052-generic-names-are-free.md) (2026-10-14): generic terms of the trade, such as Sampler and Wavetable, are fine as final names; only names a vendor made up stay out
 - **Date:** 2026-10-08
 
 ## Context

@@ -26,7 +26,7 @@ Each device gets a `devices/<name>/SPEC.md` ([template](SPEC-TEMPLATE.md)) befor
 - **Tier 2, Depth:** full coverage of Live Suite's roles. Milestones M5–M6. **Required for 1.0.**
 - **Tier 3, Specialty:** physical modelling, spectral and other niche tools. Released in 1.x versions.
 
-Working names are functional, not final brand names ([ADR 0008](../decisions/0008-naming-and-trade-dress.md)). An instrument named for how it makes sound is just that word, without "Synth" (the product owner, 2026-10-14): Subtractive, Wavetable, FM, Granular; the browser's Instruments already says what they are. "Drum Synth" keeps the word, which says what it is.
+Names are functional ([ADR 0008](../decisions/0008-naming-and-trade-dress.md)); generic terms of the trade can be final names too, and only names a vendor made up are kept out ([ADR 0052](../decisions/0052-generic-names-are-free.md)). An instrument named for how it makes sound is just that word, without "Synth" (the product owner, 2026-10-14): Subtractive, Wavetable, FM, Granular; the browser's Instruments already says what they are. "Drum Synth" keeps the word, which says what it is.
 
 ---
 
