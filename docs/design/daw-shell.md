@@ -237,6 +237,11 @@ Waveforms come from a background-built peak cache per file, plus cached drawing 
 - **The computer keyboard** ends the notes it holds when the keys stop reaching the shell: a text field elsewhere, another window, the app in the background. Its releases would never arrive.
 - **Instruments:** changing Voice Mode to Mono or Legato with keys held, or lowering the voice count, releases the voices it leaves out (`VoiceManager::setMode` and `setVoiceCount` with a listener).
 - **Tests:** `tests/integration/NoteContinuityTests.cpp` plays each case in real time and checks the instrument falls silent, and that what still plays keeps playing.
+- **Known and accepted** (B55, the product owner, 2026-10-13). Stopping ends every note in each case:
+  - a clip moved to another track under the playhead ends its sounding notes on the old track but doesn't restart them on the new one: they sound from their next note, as in other DAWs;
+  - a MIDI effect inserted or removed mid-note can leave that note hanging: made right with our own MIDI effects (M4);
+  - a MIDI device unplugged with keys held leaves them sounding (it never sends their releases); it must never crash;
+  - a sustain pedal held down by a clip that goes stays down: ending it blindly would cut a pedal held on purpose.
 
 ## Device chain (C6)
 
