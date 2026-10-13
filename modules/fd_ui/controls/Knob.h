@@ -68,8 +68,8 @@ public:
     std::function<void()> onRingStart, onRingEnd;
     /// Each step of a drag on the ring: normalised, positive up and right (Shift finely).
     std::function<void(float delta)> onRingDrag;
-    /// A knob that's itself a modulation source (a macro): its name strip is the source's
-    /// handle, with the handle's glyph after the name, lit while `lit`.
+    /// A knob that's itself a modulation source (a macro): its name is the source's handle (the
+    /// pointer a hand over it), lit in `effectEnd` while hovered or while `lit`.
     void setSourceHandle(bool shown, bool lit = false);
     /// Where the source's handle is (the name strip), in the knob; empty when it isn't one.
     [[nodiscard]] juce::Rectangle<float> handleArea() const;

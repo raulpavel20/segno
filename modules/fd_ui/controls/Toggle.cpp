@@ -83,10 +83,11 @@ void Toggle::paintButton(juce::Graphics& g, bool highlighted, bool down)
         return;
     }
 
-    // A text-less square toggle is a round indicator (e.g. device power).
-    if (getButtonText().isEmpty() && getWidth() == getHeight())
+    // A text-less toggle is a round indicator (device power, a source's On), centred.
+    if (getButtonText().isEmpty())
     {
-        const auto dot = bounds.reduced(bounds.getWidth() * 0.22f);
+        const float side = std::min(bounds.getWidth(), bounds.getHeight());
+        const auto dot = bounds.withSizeKeepingCentre(side, side).reduced(side * 0.22f);
         g.setColour(t.lift(on ? t.active : t.surface3.brighter(0.15f), highlighted, down));
         g.fillEllipse(dot);
         paintAutomationIndicator(g, {3.5f, 3.5f}, automation_);

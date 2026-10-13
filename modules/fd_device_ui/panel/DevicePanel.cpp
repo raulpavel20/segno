@@ -68,6 +68,8 @@ int settingWidth(juce::Component& c)
         return SidechainPicker::width;
     if (auto* badge = dynamic_cast<LatencyBadge*>(&c))
         return badge->preferredWidth(); // none while there's no delay
+    if (auto* readout = dynamic_cast<HeaderReadout*>(&c))
+        return roundUpToGrid(static_cast<float>(readout->preferredWidth()));
     if (auto* combo = dynamic_cast<juce::ComboBox*>(&c))
     {
         float widest = 0.0f;
@@ -229,6 +231,17 @@ void DevicePanel::showHeaderWhen(juce::Component& setting, std::function<bool()>
         if (headerControls_[i] == &setting)
             headerShown_[i] = std::move(shown);
     resized();
+}
+
+HeaderReadout& DevicePanel::addHeaderReadout(juce::String caption, juce::String widest,
+                                             std::function<juce::String()> text, juce::String tooltip)
+{
+    auto& readout = adopt(std::make_unique<HeaderReadout>(std::move(text), std::move(widest)), *this);
+    readout.setTooltip(std::move(tooltip));
+    headerControls_.push_back(&readout);
+    headerCaptions_.push_back(std::move(caption));
+    headerShown_.emplace_back();
+    return readout;
 }
 
 LatencyBadge& DevicePanel::showLatency(std::function<double()> latencyMs)

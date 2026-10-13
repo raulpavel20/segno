@@ -104,17 +104,10 @@ void Knob::paint(juce::Graphics& g)
     g.setColour(hot ? t.textPrimary : t.textSecondary);
     if (sourceHandle_)
     {
-        // A source (a macro): its name, cut to fit with the handle's glyph after it.
-        const auto glyph = static_cast<float>(t.deviceGrid.sourceHandle);
-        const float room = nameArea.getWidth() - glyph - 2.0f;
-        const float nameWidth = std::min(room, juce::GlyphArrangement::getStringWidth(nameFont, name_));
-        const float x = nameArea.getCentreX() - (nameWidth + 2.0f + glyph) * 0.5f;
-        g.drawText(name_, juce::Rectangle<float>(x, nameArea.getY(), nameWidth, nameArea.getHeight()),
-                   juce::Justification::centredLeft, true);
-        drawIcon(g, Icon::Move,
-                 juce::Rectangle<float>(x + nameWidth + 2.0f, nameArea.getY(), glyph, nameArea.getHeight())
-                     .withSizeKeepingCentre(glyph - 2.0f, glyph - 2.0f),
-                 handleLit_ || handleHovered_ ? t.effectEnd : t.textTertiary);
+        // A source (a macro): its name is its handle, lit while hovered or showing what it moves;
+        // a name of your own is cut to fit.
+        g.setColour(handleLit_ || handleHovered_ ? t.effectEnd : (hot ? t.textPrimary : t.textSecondary));
+        g.drawText(name_, nameArea, juce::Justification::centred, true);
     }
     else
         g.drawText(name_, nameArea, juce::Justification::centred, false);

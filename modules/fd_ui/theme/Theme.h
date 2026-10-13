@@ -71,6 +71,7 @@ struct ColourRoles
     float dimAlpha = 0.35f;   // ignored or switched off; never compounded
     float fadedAlpha = 0.4f;  // exists but doesn't play
     float fillAlpha = 0.14f;  // the flat fill under a curve
+    float depthFar = 0.25f, depthNear = 0.6f; // a 3D view's lines, farthest and nearest (atDepth)
 };
 
 /// Animation and input constants (docs/design/ui-foundations.md): one feel everywhere.
@@ -233,6 +234,13 @@ struct Theme
     [[nodiscard]] juce::Colour faded(juce::Colour c) const { return c.withMultipliedAlpha(roles.fadedAlpha); }
     /// The flat fill under a curve drawn in `c`.
     [[nodiscard]] juce::Colour fill(juce::Colour c) const { return c.withMultipliedAlpha(roles.fillAlpha); }
+    /// A line of a 3D view (a wavetable's frames) `nearness` of the way from the back (0) to the
+    /// front (1): the farther, the fainter.
+    [[nodiscard]] juce::Colour atDepth(juce::Colour c, float nearness) const
+    {
+        return c.withMultipliedAlpha(roles.depthFar +
+                                     (roles.depthNear - roles.depthFar) * std::clamp(nearness, 0.0f, 1.0f));
+    }
     /// Hover and press states of any surface or fill.
     [[nodiscard]] juce::Colour lift(juce::Colour c, bool hovered, bool pressed) const;
     /// An automation lane drawn in its colour (automation.md §4): its line and points (faded while

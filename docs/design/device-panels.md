@@ -72,9 +72,10 @@ Each control is placed by its top-left cell and its span: `(column, row, columns
 | Control | Span | Rules |
 |---|---|---|
 | **Knob** | 1 × 3 (48×76) | Rows 0 or 3 only. Fixed block: name 16, arc area 44 (38 px arc), value 16. The value text fits its column ([design-language.md](design-language.md), "Type"). |
-| **Toggle** | *n* × 1, *n* ≥ 1 | Text + 8 px must fit. |
+| **Toggle** | *n* × 1, *n* ≥ 1 | Text + 8 px must fit. Without text it's an on/off dot, centred (a source's On in a list). |
 | **Segmented** | whole cells per segment, 1 row per line of segments | 4 px between segments, 8 px between lines (the grid's own gaps). Text + 6 px must fit a segment. |
-| **Combo** | *n* × 1, *n* ≥ 2 | The widest choice + 26 px (padding and chevron) must fit. |
+| **Selector** | as Segmented | Which of several the sections after it show (an oscillator, an LFO): a segmented control's look, but view state, never a parameter (`ui::Selector`). |
+| **Combo** | *n* × 1, *n* ≥ 2 | The widest choice + 26 px (padding and chevron) must fit. Where nothing else names it, it shows its parameter's short name inside, before its choice, as a bar does (`ParamComboBox::setInlineName`): the name + 8 px is added. |
 | **Bar** (value bar) | *n* × 1, *n* ≥ 2 | Name + widest value + 16 px must fit. |
 | **Display** (curve, envelope, waveform, spectrum) | any *n* × *m* | Its own label, if any, sits inside the well. A display can carry one **accessory** (e.g. the Mod envelope's Cycle toggle) in its label line. Analysers (the EQ, the Spectrum) draw with `ui::SpectrumPlot`: one log-frequency axis, grid and set of strokes, so they read alike. |
 | **Sub-label** | *n* × 1 | Mono caps, like a section title, for a named group inside a section (the LFO inside MODULATION). Use sparingly; a new section is usually clearer. |
@@ -124,7 +125,7 @@ For a module too wide to read without scrolling ([ADR 0051](../decisions/0051-pa
 
 For a module with its own modulation (the Wavetable Synth; M4's DAW-wide modulators reuse it). The routes live in the module's parameters (its matrix); the panel shows and edits them through the host binding, like any edit. Built once in `fd_device_ui`: the panel gives the kit a `ModulationModel` (its sources, and its routes to parameters).
 - **Rings:** a modulated knob shows the range it moves as a ring just outside its arc (`knobRingThickness`, `knobRingGap` from the arc), inside its own cell, in the modulation gradient (`effectStart` → `effectEnd`; ui-principles §4). The range is the sum of its routes: from the value to the value plus the amount, both ways for a source that swings both ways (an LFO, a random source), clamped to the knob's ends.
-- **Handles:** a source shows a handle: a small four-way arrow in the corner of its display (an LFO's shape, an envelope), or beside its name on a knob that's a source (a macro). Hovering a handle lights it in `effectEnd`.
+- **Handles:** a source shows a handle: a small four-way arrow in the corner of its display (an LFO's shape, an envelope). On a knob that's a source (a macro), its name is the handle: the pointer becomes a hand over it, and its tooltip says to drag it (a glyph beside the name would leave no room for "Macro 1" in one column). Hovering a handle lights it in `effectEnd`.
 - **Drag to modulate:** drag a source's handle onto a knob: the knob under the pointer that can take it lights (a ring over its whole sweep in `active`), and letting go there makes a route at 50 % (the first free route in the matrix; when none is free, nothing, and the handle's tooltip says the matrix is full). A knob on another page: hold the drag on its page tab for `motion.springLoad` (500 ms) and the page turns. Escape cancels.
 - **Hover:** hovering a source's handle shows only its rings, the others dimmed; hovering a modulated knob lights the handles of the sources that move it.
 - **Setting the amount:** drag the ring (the band outside the arc, where the pointer becomes the resize cursor): up and right more, down and left less, Shift finely, as a knob. It sets the route of the source last hovered, or the knob's first route. The matrix sets any route exactly.

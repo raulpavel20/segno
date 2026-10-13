@@ -283,6 +283,9 @@ public:
     [[nodiscard]] static nlohmann::json userTablePatch(int n, const std::string& name,
                                                        const dsp::Wavetable& table);
 
+    /// The sub's wave for its Shape choice (what the audio plays and the panel draws).
+    [[nodiscard]] static dsp::Oscillator::Mix subShape(int shape) noexcept;
+
     /// The output delay at a Quality (the frequency-modulation warps' oversampling).
     [[nodiscard]] static int latencyFor(int quality) noexcept;
 

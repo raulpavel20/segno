@@ -13,7 +13,8 @@ public:
 
 /// A parameter control's right-click menu (ui-principles §7): its automation (in the DAW) and
 /// reset to default.
-void showParamMenu(DeviceUiContext& context, size_t paramIndex, juce::Component& control);
+void showParamMenu(DeviceUiContext& context, size_t paramIndex, juce::Component& control,
+                   const std::function<void(juce::PopupMenu&)>& extra = {});
 
 /// Knob bound to a parameter: text, ranges, default and stepping come from its ParamSpec.
 class ParamKnob final : public Knob, public ParamControl
@@ -75,6 +76,28 @@ private:
     AutomationState automation_ = AutomationState::None;
 };
 
+/// Which of several the sections after it show (an oscillator, a filter, an LFO): segmented
+/// buttons in a choice's look, `columns` a row, but view state, never a parameter.
+class Selector final : public juce::Component
+{
+public:
+    Selector(juce::StringArray choices, int columns);
+    void setSelected(int index, juce::NotificationType notification = juce::dontSendNotification);
+    [[nodiscard]] int selected() const noexcept { return selected_; }
+    /// After a click on another choice.
+    std::function<void(int index)> onSelect;
+    void resized() override;
+    /// The buttons (for the layout lint).
+    [[nodiscard]] const juce::OwnedArray<Toggle>& buttons() const noexcept { return buttons_; }
+
+private:
+    int columns_, selected_ = 0;
+    juce::OwnedArray<Toggle> buttons_;
+};
+
+/// Lays out segmented buttons on the grid's own gaps, `columns` a row (ParamSegmented, Selector).
+void layoutSegments(const juce::OwnedArray<Toggle>& buttons, int columns, juce::Rectangle<int> area);
+
 /// Flat dropdown for a Choice parameter.
 class ParamComboBox final : public juce::ComboBox, public ParamControl
 {
@@ -94,12 +117,19 @@ public:
     /// Its menu closed with `chosen` (an item id; 0 for none): it may open again, and takes the
     /// choice. Public for tests.
     void menuClosed(int chosen);
+    /// Shows its parameter's short name inside, before its choice ("Mode  Super"), where nothing
+    /// else names it (device-panels.md, "Controls on the grid").
+    void setInlineName(bool shown);
+    /// The name it shows inside (empty without).
+    [[nodiscard]] juce::String inlineName() const;
+    void resized() override;
 
 private:
     DeviceUiContext& context_;
     size_t index_;
     AutomationState automation_ = AutomationState::None;
     std::function<juce::String(int)> menuText_;
+    bool inlineName_ = false;
 };
 
 /// The delay a module adds, at the header's right end while it adds one: "+107 ms" in the
@@ -123,5 +153,20 @@ private:
     juce::String moduleName_;
     std::function<double()> latencyMs_;
     juce::String text_;
+};
+/// A module's live figure in its header (the Wavetable Synth's CPU, W13): its value in the mono,
+/// `textSecondary`, as wide as the widest it can show, so the header never moves as it changes.
+class HeaderReadout final : public juce::Component, public juce::SettableTooltipClient, public ParamControl
+{
+public:
+    HeaderReadout(std::function<juce::String()> text, juce::String widest);
+    void refresh() override;
+    void paint(juce::Graphics& g) override;
+    [[nodiscard]] int preferredWidth() const;
+    [[nodiscard]] const juce::String& text() const noexcept { return text_; }
+
+private:
+    std::function<juce::String()> textOf_;
+    juce::String widest_, text_;
 };
 } // namespace fd::ui

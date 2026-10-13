@@ -57,6 +57,7 @@ Role functions for colours that depend on content:
 | `noteFill(colour, velocity, selected)` | control tone → clip colour by velocity (35–100 %); selected 30 % towards white | Piano roll notes and velocity stems |
 | `faded(colour)` | 40 % alpha | Content that exists but doesn't play (notes outside a clip) |
 | `fill(colour)` | `curveFill`'s alpha in that colour | Fills under coloured curves |
+| `atDepth(colour, nearness)` | 25 % alpha at the back to 60 % at the front (`depthFar`, `depthNear`) | A 3D view's lines: the Wavetable Synth's frames |
 | `lift(colour, hovered, pressed)` | +6 % hovered, +12 % pressed | Every hover and press state |
 | `automationLine(colour, on)` | the lane's colour; `faded` while off | An automation lane's line and points, and an empty lane's dashed line (C4) |
 | `automationFillTop(colour, on)` / `automationFillBottom(colour, on)` | the lane's colour at 20 % / 0 %; a flat 5 % while off | The reserved gradient under a lane's curve, from the line to the lane's floor (ui-principles §4) |

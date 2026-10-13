@@ -4,3 +4,5 @@ target_link_libraries(fd_device_wavetable_dsp PUBLIC fd::audiofile)
 fd_add_test(NAME fd_wavetable_tests
     SOURCES tests/WavetableSynthTests.cpp
     LIBS fd_device_wavetable_dsp fd::testkit_device)
+
+fd_add_device_ui(ID wavetable SOURCES ui/WavetablePanel.cpp ui/WavetableUi.cpp)

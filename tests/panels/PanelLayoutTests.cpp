@@ -97,9 +97,9 @@ void checkPlacementText(const PanelSection::Placement& p)
         const auto nameFont = fd::ui::fonts::font(t.textXs, fd::ui::fonts::Weight::Medium);
         if (knob->style() == fd::ui::Knob::Style::Rotary)
         {
-            // A source's name is cut to leave room for its handle (a macro named by you).
-            if (knob->handleArea().isEmpty())
-                CHECK(width(nameFont, knob->getName()) <= kKnobNameMax + kTextMargin);
+            // A source's name is its handle; a name of your own is cut to fit (a macro), but the
+            // defaults fit whole.
+            CHECK(width(nameFont, knob->getName()) <= kKnobNameMax + kTextMargin);
             // A modulated knob's ring (device-panels.md, "Modulation"): inside its cell, clear of
             // its name and value.
             const auto ring = knob->ringBounds();
@@ -120,24 +120,34 @@ void checkPlacementText(const PanelSection::Placement& p)
         if (combo->getName() == "sidechain")
             return; // track names: user content, cut to the picker's fixed width
         const auto font = combo->getLookAndFeel().getComboBoxFont(*combo);
+        // A combo with its name inside: the name, a text button's padding, then the choice.
+        float name = 0.0f;
+        if (auto* param = dynamic_cast<fd::ui::ParamComboBox*>(combo);
+            param != nullptr && param->inlineName().isNotEmpty())
+            name = width(fd::ui::fonts::font(t.textXs, fd::ui::fonts::Weight::Medium), param->inlineName()) +
+                   static_cast<float>(t.shell.buttonTextPadding);
         for (int i = 0; i < combo->getNumItems(); ++i)
         {
             INFO("choice " << combo->getItemText(i));
-            CHECK(width(font, combo->getItemText(i)) + 26.0f <= static_cast<float>(c->getWidth()) + kTextMargin);
+            CHECK(name + width(font, combo->getItemText(i)) + 26.0f <=
+                  static_cast<float>(c->getWidth()) + kTextMargin);
         }
         return;
     }
     const auto toggleFont = fd::ui::fonts::font(t.textXs, fd::ui::fonts::Weight::SemiBold);
-    if (auto* segmented = dynamic_cast<fd::ui::ParamSegmented*>(c))
+    const auto checkSegments = [&](const juce::OwnedArray<fd::ui::Toggle>& buttons)
     {
-        for (auto* b : segmented->buttons())
+        for (auto* b : buttons)
         {
             INFO("segment " << b->getButtonText());
             CHECK(width(toggleFont, b->getButtonText()) + 6.0f <= static_cast<float>(b->getWidth()) + kTextMargin);
             CHECK(b->getHeight() == fd::ui::Theme::current().deviceGrid.row);
         }
-        return;
-    }
+    };
+    if (auto* segmented = dynamic_cast<fd::ui::ParamSegmented*>(c))
+        return checkSegments(segmented->buttons());
+    if (auto* selector = dynamic_cast<fd::ui::Selector*>(c))
+        return checkSegments(selector->buttons());
     if (auto* toggle = dynamic_cast<fd::ui::Toggle*>(c))
         CHECK(width(toggleFont, toggle->getButtonText()) + 8.0f <= static_cast<float>(c->getWidth()) + kTextMargin);
 }
@@ -237,7 +247,8 @@ void lint(const PanelUnderTest& p)
                     CHECK(pl.columns >= 2);
                 if (auto* k = dynamic_cast<fd::ui::Knob*>(pl.component))
                     CHECK((k->style() == fd::ui::Knob::Style::Bar && pl.columns >= 2));
-                if (dynamic_cast<fd::ui::ParamSegmented*>(pl.component) == nullptr)
+                if (dynamic_cast<fd::ui::ParamSegmented*>(pl.component) == nullptr &&
+                    dynamic_cast<fd::ui::Selector*>(pl.component) == nullptr)
                     CHECK(pl.rows == 1);
                 break;
             case PanelSection::Kind::Display:
@@ -264,6 +275,9 @@ void lint(const PanelUnderTest& p)
         if (auto* badge = dynamic_cast<fd::ui::LatencyBadge*>(c))
             CHECK(width(fd::ui::font(fd::ui::TextStyle::Control), badge->text()) <=
                   static_cast<float>(c->getWidth() - 2 * grid.displayInset) + kTextMargin);
+        if (auto* readout = dynamic_cast<fd::ui::HeaderReadout*>(c))
+            CHECK(width(fd::ui::font(fd::ui::TextStyle::ValueSmall), readout->text()) <=
+                  static_cast<float>(c->getWidth()) + kTextMargin);
         CHECK(c->getY() >= 0);
         CHECK(c->getBottom() <= t.deviceHeaderHeight);
         CHECK(c->getHeight() == grid.row);

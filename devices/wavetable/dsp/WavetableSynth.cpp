@@ -214,7 +214,7 @@ struct Tables
                 set(at(static_cast<W::OscParam>(base + 1)), id + warp + ".amt", name + warpName + " Amount",
                     "Amount", "How strongly the warp reshapes the wave.", percent(0.0f));
                 set(at(static_cast<W::OscParam>(base + 2)), id + warp + ".src", name + warpName + " Source",
-                    "Source", "What modulates the wave in the FM, PM, RM and AM warps.",
+                    "From", "What modulates the wave in the FM, PM, RM and AM warps.",
                     choice(kWarpSources, static_cast<float>((n + 1) % W::numOscs)));
             }
             set(at(W::OscUni), id + "uni", name + "Unison", "Unison",
@@ -487,26 +487,6 @@ std::pair<double, double> balance(double pan) noexcept
     return {pan > 0.0 ? 1.0 - pan : 1.0, pan < 0.0 ? 1.0 + pan : 1.0};
 }
 
-dsp::Oscillator::Mix subMix(int shape) noexcept
-{
-    dsp::Oscillator::Mix m{0.0f, 0.0f, 0.0f, 0.0f, 0.5f};
-    switch (shape)
-    {
-    case 0:
-        m.sine = 1.0f;
-        break;
-    case 1:
-        m.triangle = 1.0f;
-        break;
-    case 2:
-        m.saw = 1.0f;
-        break;
-    default:
-        m.square = 1.0f;
-        break;
-    }
-    return m;
-}
 } // namespace
 
 // ---- curves and the modulation lists --------------------------------------------------------
@@ -735,6 +715,27 @@ std::string WavetableSynth::macroName(int n) const
 {
     const auto& name = macroNames_[static_cast<size_t>(std::clamp(n, 0, numMacros - 1))];
     return name.empty() ? "Macro " + std::to_string(n + 1) : name;
+}
+
+dsp::Oscillator::Mix WavetableSynth::subShape(int shape) noexcept
+{
+    dsp::Oscillator::Mix m{0.0f, 0.0f, 0.0f, 0.0f, 0.5f};
+    switch (shape)
+    {
+    case 0:
+        m.sine = 1.0f;
+        break;
+    case 1:
+        m.triangle = 1.0f;
+        break;
+    case 2:
+        m.saw = 1.0f;
+        break;
+    default:
+        m.square = 1.0f;
+        break;
+    }
+    return m;
 }
 
 nlohmann::json WavetableSynth::factoryTablePatch(int n, std::string_view id)
@@ -1346,7 +1347,7 @@ void WavetableSynth::renderVoice(Voice& v, float* outL, float* outR, int from, i
         }
     }
     const int subRoute = p.getInt(SubRoute), noiseRoute = p.getInt(NoiseRoute);
-    const auto subShape = subMix(p.getInt(SubShape));
+    const auto subWave = subShape(p.getInt(SubShape));
     const auto noiseType = static_cast<dsp::ColouredNoise::Type>(p.getInt(NoiseType));
     std::array<bool, numFilters> filterOn{};
     std::array<dsp::VoiceFilter::Type, numFilters> filterType{};
@@ -1442,7 +1443,7 @@ void WavetableSynth::renderVoice(Voice& v, float* outL, float* outR, int from, i
             const double subLevel = c(CSubLevel);
             if (subLevel > 0.0)
             {
-                v.lastSub = v.sub.process(c(CSubIncrement) / factor, subShape);
+                v.lastSub = v.sub.process(c(CSubIncrement) / factor, subWave);
                 send(subRoute, v.lastSub * subLevel * c(CSubPanL), v.lastSub * subLevel * c(CSubPanR));
             }
             const double noiseLevel = c(CNoiseLevel);

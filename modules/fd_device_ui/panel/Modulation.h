@@ -31,6 +31,9 @@ public:
     virtual void beginAmount(int index) = 0;
     virtual void setAmount(int index, float amount) = 0;
     virtual void endAmount(int index) = 0;
+    /// The route a parameter belongs to, when it's one of a route's own (a matrix row's source,
+    /// target, amount): its right-click menu offers to remove the route.
+    [[nodiscard]] virtual std::optional<int> routeOfParam(size_t /*param*/) const { return std::nullopt; }
 
     // What the pointer shows (never the module's state).
     int hoveredSource = -1; // a source's handle under the pointer

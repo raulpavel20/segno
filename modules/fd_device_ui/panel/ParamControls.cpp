@@ -10,7 +10,8 @@ juce::String tooltipFor(const ParamSpec& spec)
 }
 } // namespace
 
-void showParamMenu(DeviceUiContext& context, size_t index, juce::Component& control)
+void showParamMenu(DeviceUiContext& context, size_t index, juce::Component& control,
+                   const std::function<void(juce::PopupMenu&)>& extra)
 {
     auto& params = context.params;
     juce::Component::SafePointer<juce::Component> alive(&control); // the menu outlives a closed panel
@@ -21,6 +22,13 @@ void showParamMenu(DeviceUiContext& context, size_t index, juce::Component& cont
         };
     };
     juce::PopupMenu menu;
+    // The panel's own items first (a macro's Rename).
+    if (extra)
+    {
+        extra(menu);
+        if (menu.getNumItems() > 0)
+            menu.addSeparator();
+    }
     if (params.canAutomate(index))
     {
         params.addAutomationItems(index, menu); // they act through the session, not the panel
@@ -43,6 +51,12 @@ void showParamMenu(DeviceUiContext& context, size_t index, juce::Component& cont
             }
         if (any)
             menu.addSeparator();
+        // A route's own control (a matrix row's): remove the route.
+        if (const auto route = m->routeOfParam(index))
+        {
+            menu.addItem("Remove route", whileAlive([m, r = *route] { m->removeRoute(r); }));
+            menu.addSeparator();
+        }
     }
     const auto def = context.info.params[index].def;
     menu.addItem("Reset to default", whileAlive([&params, index, def] {
@@ -242,16 +256,58 @@ void ParamSegmented::paintOverChildren(juce::Graphics& g)
     paintAutomationIndicator(g, {3.5f, 3.5f}, automation_);
 }
 
-void ParamSegmented::resized()
+void layoutSegments(const juce::OwnedArray<Toggle>& buttons, int columns, juce::Rectangle<int> area)
 {
     // The grid's own gaps (docs/design/device-panels.md): segments fill whole cells when the
     // span is a multiple of the buttons per row, and each line of buttons is one row tall.
     const auto& grid = Theme::current().deviceGrid;
-    const int rows = (buttons_.size() + columns_ - 1) / columns_;
-    const int w = (getWidth() - grid.columnGap * (columns_ - 1)) / columns_;
-    const int h = (getHeight() - grid.rowGap * (rows - 1)) / std::max(1, rows);
+    columns = std::max(1, columns);
+    const int rows = (buttons.size() + columns - 1) / columns;
+    const int w = (area.getWidth() - grid.columnGap * (columns - 1)) / columns;
+    const int h = (area.getHeight() - grid.rowGap * (rows - 1)) / std::max(1, rows);
+    for (int i = 0; i < buttons.size(); ++i)
+        buttons[i]->setBounds(area.getX() + (i % columns) * (w + grid.columnGap),
+                              area.getY() + (i / columns) * (h + grid.rowGap), w, h);
+}
+
+void ParamSegmented::resized()
+{
+    layoutSegments(buttons_, columns_, getLocalBounds());
+}
+
+Selector::Selector(juce::StringArray choices, int columns) : columns_(std::max(1, columns))
+{
+    constexpr int groupId = 1; // radio groups are scoped to siblings, i.e. this component
+    for (int i = 0; i < choices.size(); ++i)
+    {
+        auto* b = buttons_.add(new Toggle(choices[i]));
+        b->setRadioGroupId(groupId);
+        b->onClick = [this, i]
+        {
+            if (i != selected_)
+            {
+                selected_ = i;
+                if (onSelect)
+                    onSelect(i);
+            }
+        };
+        addAndMakeVisible(b);
+    }
+    setSelected(0);
+}
+
+void Selector::setSelected(int index, juce::NotificationType notification)
+{
+    selected_ = std::clamp(index, 0, std::max(0, buttons_.size() - 1));
     for (int i = 0; i < buttons_.size(); ++i)
-        buttons_[i]->setBounds((i % columns_) * (w + grid.columnGap), (i / columns_) * (h + grid.rowGap), w, h);
+        buttons_[i]->setToggleState(i == selected_, juce::dontSendNotification);
+    if (notification != juce::dontSendNotification && onSelect)
+        onSelect(selected_);
+}
+
+void Selector::resized()
+{
+    layoutSegments(buttons_, columns_, getLocalBounds());
 }
 
 ParamComboBox::ParamComboBox(DeviceUiContext& context, size_t paramIndex) : context_(context), index_(paramIndex)
@@ -280,7 +336,45 @@ void ParamComboBox::refresh()
 
 void ParamComboBox::paintOverChildren(juce::Graphics& g)
 {
+    if (inlineName_)
+    {
+        // Its name where a bar's is, its choice after it.
+        const auto& t = Theme::current();
+        g.setColour(t.textSecondary);
+        g.setFont(font(TextStyle::Label));
+        g.drawText(inlineName(), getLocalBounds().withTrimmedLeft(t.shell.fieldTextInset),
+                   juce::Justification::centredLeft, false);
+    }
     paintAutomationIndicator(g, {3.5f, 3.5f}, automation_);
+}
+
+juce::String ParamComboBox::inlineName() const
+{
+    if (!inlineName_)
+        return {};
+    const auto& spec = context_.info.params[index_];
+    return juce::String(std::string(spec.shortName.empty() ? spec.name : spec.shortName));
+}
+
+void ParamComboBox::setInlineName(bool shown)
+{
+    inlineName_ = shown;
+    resized();
+    repaint();
+}
+
+void ParamComboBox::resized()
+{
+    juce::ComboBox::resized();
+    if (!inlineName_)
+        return;
+    // The choice moves over by the name and a text button's padding.
+    const auto& t = Theme::current();
+    const int name = static_cast<int>(
+        std::ceil(juce::GlyphArrangement::getStringWidth(font(TextStyle::Label), inlineName())));
+    for (auto* child : getChildren())
+        if (auto* label = dynamic_cast<juce::Label*>(child))
+            label->setBounds(label->getBounds().withTrimmedLeft(name + t.shell.buttonTextPadding));
 }
 
 void ParamComboBox::showPopup()
@@ -363,5 +457,33 @@ void LatencyBadge::paint(juce::Graphics& g)
     g.setColour(t.roles.warning);
     g.setFont(font(TextStyle::Control));
     g.drawText(text_, getLocalBounds(), juce::Justification::centred, false);
+}
+HeaderReadout::HeaderReadout(std::function<juce::String()> text, juce::String widest)
+    : textOf_(std::move(text)), widest_(std::move(widest))
+{
+    setName("readout");
+    refresh();
+}
+
+void HeaderReadout::refresh()
+{
+    if (auto text = textOf_ ? textOf_() : juce::String(); text != text_)
+    {
+        text_ = std::move(text);
+        repaint();
+    }
+}
+
+int HeaderReadout::preferredWidth() const
+{
+    return static_cast<int>(
+        std::ceil(juce::GlyphArrangement::getStringWidth(font(TextStyle::ValueSmall), widest_)));
+}
+
+void HeaderReadout::paint(juce::Graphics& g)
+{
+    g.setColour(Theme::current().textSecondary);
+    g.setFont(font(TextStyle::ValueSmall));
+    g.drawText(text_, getLocalBounds(), juce::Justification::centredRight, false);
 }
 } // namespace fd::ui

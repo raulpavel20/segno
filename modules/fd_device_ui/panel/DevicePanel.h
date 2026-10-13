@@ -107,6 +107,10 @@ protected:
     /// Shows a header setting only while `shown()` is true (the EQ's Resolution, which matters
     /// only while there's a delay); otherwise it takes no room. The panel's width keeps room for it.
     void showHeaderWhen(juce::Component& setting, std::function<bool()> shown);
+    /// A live figure in the header with its caption (the Wavetable Synth's "CPU 4 %", W13), as
+    /// wide as `widest`.
+    HeaderReadout& addHeaderReadout(juce::String caption, juce::String widest,
+                                    std::function<juce::String()> text, juce::String tooltip);
     /// The delay the module adds, while it adds one: a badge at the header's right end ("+107
     /// ms", in the warning colour) whose tooltip says what it means for playing live. For modules
     /// whose delay is a choice (the EQ's linear phase; devices/eq/SPEC.md, "Latency").

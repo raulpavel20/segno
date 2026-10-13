@@ -5,7 +5,8 @@
 //   fd-snapshot --app-icon <file.png> [size]
 //
 // Output: <out-dir>/<theme>/<device>[-collapsed|-folded]@<scale>x.png: every panel expanded,
-// with all its sections collapsed, and folded (ADR 0022). --presets adds the device's panel
+// with all its sections collapsed, and folded (ADR 0022); a module with pages (ADR 0051) adds
+// <device>-page<n>[-collapsed]@<scale>x.png for its other pages. --presets adds the device's panel
 // expanded with each of its factory presets loaded (<device>-preset-<name>@<scale>x.png), to
 // review its displays in other settings. --app-icon writes the app icon (ADR 0024) from the same
 // mark the DAW draws; app/resources/AppIcon.png is made with it.
@@ -30,7 +31,8 @@ struct SnapshotSidechain final : fd::ui::SidechainRouting
 };
 
 juce::Image renderPanel(const fd::DeviceFactory& factory, const fd::ui::PanelFactory& panelFactory,
-                        float scale, View view, const fd::DeviceState* state = nullptr)
+                        float scale, View view, const fd::DeviceState* state = nullptr, int page = 0,
+                        int* pages = nullptr)
 {
     auto device = factory.create();
     if (factory.testSetup != nullptr) // e.g. a loaded sample, so its display isn't empty
@@ -45,6 +47,9 @@ juce::Image renderPanel(const fd::DeviceFactory& factory, const fd::ui::PanelFac
     panel->setFoldable(view == View::Folded); // as in the DAW's chain
     panel->setAllSectionsCollapsed(view == View::Collapsed);
     panel->setFolded(view == View::Folded);
+    panel->setPage(page); // a very wide module's (ADR 0051)
+    if (pages != nullptr)
+        *pages = panel->pageCount();
     panel->setSize(panel->preferredWidth(), fd::ui::Theme::current().devicePanelHeight);
 
     // A margin of app background around the panel, as it would sit in the device chain.
@@ -136,9 +141,19 @@ int main(int argc, char** argv)
                 for (const auto& [view, suffix] :
                      {std::pair{View::Expanded, ""}, std::pair{View::Collapsed, "-collapsed"},
                       std::pair{View::Folded, "-folded"}})
-                    if (!write(renderPanel(*factory, *panelFactory, s.getFloatValue(), view),
-                               id + suffix + "@" + s + "x.png"))
+                {
+                    int pages = 0;
+                    if (!write(
+                            renderPanel(*factory, *panelFactory, s.getFloatValue(), view, nullptr, 0, &pages),
+                            id + suffix + "@" + s + "x.png"))
                         return 1;
+                    // The other pages (ADR 0051), expanded and collapsed: <device>-page2@1x.png.
+                    for (int page = 1; view != View::Folded && page < pages; ++page)
+                        if (!write(
+                                renderPanel(*factory, *panelFactory, s.getFloatValue(), view, nullptr, page),
+                                id + "-page" + juce::String(page + 1) + suffix + "@" + s + "x.png"))
+                            return 1;
+                }
             if (factory->info().id != presetsOf)
                 continue;
             for (const auto& file : fd::factoryPresetFiles())
