@@ -1,6 +1,6 @@
 # The table editor (Wavetable, step 2)
 
-The Wavetable's tables, made and changed in Segno: drawn, built from harmonics or a formula, taken from audio or an image, then shaped by a stack of changes. Step 2 of [devices/wavetable/SPEC.md](../../devices/wavetable/SPEC.md) (W8–W10), with the spectral warps and export. **Status:** approved by the product owner (2026-10-14, every recommendation of T1–T13); built 2026-10-14, awaiting the product owner's sign-off. What building settled is in the SPEC's "Settled while building (step 2)"; the editor's layout system in [device-panels.md](device-panels.md), "A module's editor".
+The Wavetable's tables, made and changed in Segno: drawn, built from harmonics or a formula, taken from audio or an image, then shaped by a stack of changes. Step 2 of [devices/wavetable/SPEC.md](../../devices/wavetable/SPEC.md) (W8–W10), with the spectral warps and export. **Status:** approved by the product owner (2026-10-14, every recommendation of T1–T13); built 2026-10-14, revised after the first use (§11), signed off by the product owner (2026-10-14). What building settled is in the SPEC's "Settled while building (step 2)"; the editor's layout system in [device-panels.md](device-panels.md), "A module's editor".
 
 ## 1. What the leading synths do (research, October 2026)
 
@@ -127,7 +127,7 @@ All dimmed unless a Wavetable (or, for Make Wavetable, an audio clip) is selecte
 
 ## 11. Revised after the first use (2026-10-14)
 
-**Status:** approved by the product owner (2026-10-14, every recommendation of T14–T20); built the same day, awaiting sign-off.
+**Status:** approved by the product owner (2026-10-14, every recommendation of T14–T20); built the same day and signed off (2026-10-14).
 
 **Settled while building:**
 - **The Result is 4 columns, not 5,** and the layer's view at least 5, so the editor's least width is about 964 px: it fits the DAW's narrowest window (1 024 px, less the panel's margins).
