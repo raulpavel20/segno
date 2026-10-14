@@ -2,7 +2,12 @@
 
 A **rack** holds a set of modules as one module in the chain: effects, or an instrument and its effects, in one chain or several side by side. It's saved whole as a file of its own and loaded whole from the browser, and its **macros** move many parameters across it with one knob, each along its own range and curve. Later, macros get snapshots to blend between, and motion of their own (LFOs, followers, a sequencer), after Transit's one-knob transitions.
 
-**Status:** for review (M3 P2, the product owner's priority 2 of 2026-10-13), with [ADR 0056](../decisions/0056-racks-are-modules-of-modules.md). What the product owner asked:
+**Status:** for review (M3 P2, the product owner's priority 2 of 2026-10-13), with [ADR 0056](../decisions/0056-racks-are-modules-of-modules.md).
+- **The product owner, 2026-10-14:** chains side by side explained, liked and kept.
+- **The UI must be very solid, with nothing confusing.** This comes before everything else in racks (§5a).
+- Nothing is built until the product owner says go.
+
+What the product owner asked:
 - "Save a whole set of modules (effects, or an instrument and its effects) as one thing: a snapshot of the chain as it is, so a great patch is kept whole."
 - "Kept apart from module presets, which never gain a rack variant."
 - "On top, to plan: macros wired to points across the rack (one knob moving, and automating, many), presets of the whole rack, ideas from transition multi-effects (Transit and Transit 2)."
@@ -91,6 +96,44 @@ A **rack** holds a set of modules as one module in the chain: effects, or an ins
   - **Ungroup rack** (Ctrl+Shift+G) puts the selected chain's modules back in the track's chain where the rack was; the other chains and the macros' mappings go, in one undo step (with a toast to undo it).
   - **Add module ▸ Rack** makes an empty rack.
 - **Every edit is one undo step,** as every chain edit is.
+
+## 5a. The UI first: nothing confusing
+
+The product owner's requirement (2026-10-14): **the rack's UI must be very solid; no confusion.** A rack puts modules inside a module, chains beside chains and knobs that move other knobs, so this is where a UI most easily confuses. So:
+
+- **Drawn and approved before it's built.** Before step 1's engine work, the rack is drawn with the real panel kit, from a stub, and reviewed by the product owner, zoomed, at standard and compact widths. Every state is drawn:
+  - a rack with one chain;
+  - with two chains, each selected in turn;
+  - folded;
+  - a module being dragged in, and one dragged out;
+  - a knob mapped to a macro, and one being mapped;
+  - the macro editor;
+  - an empty rack.
+
+  What's confusing changes on paper, not after it's built.
+- **Clarity rules** (proposed; R17):
+  - **A rack with one chain looks like a group, no more.** Its CHAINS section shows only once a second chain is added. With one chain, the panel is MACROS and "+ Chain" in its menu. The chain list never shows a lone row to wonder about.
+  - **What's inside is never in doubt.**
+    - The frame runs unbroken from the rack's panel to its end, under the shown chain's modules, so it's clear which modules are in it and which come after it.
+    - With several chains, the frame says which chain is shown ("Chain 2 · Crushed"), and the chain list marks the same row.
+    - A folded rack says what it holds ("4 modules", "2 chains").
+  - **Where a drop lands is shown before it lands:** inside the frame (into the rack's chain) or past its end (after the rack, in the track's chain), with the marker in the frame's colour or the chain's.
+  - **A macro and what it moves are seen together.**
+    - Hovering a macro lights the knobs it moves and dims the rest, as modulation sources do.
+    - Hovering a mapped knob lights its macro.
+    - A mapped knob always shows its ring and its tooltip says which macro sets it, so a knob that won't move is never a mystery.
+  - **One word for each thing,** everywhere (panel, menus, tooltips, MCP, docs): **rack**, **chain**, **macro**, **map**. No synonyms ("layer", "container", "group" only in "Group into rack").
+  - **Nothing hidden that changes the sound.** Solo is lit wherever the chain shows, and a muted chain is dimmed in the list and on its frame.
+- **Tried before sign-off.** The product owner does a set of tasks unaided:
+  - make a rack from three modules;
+  - add a dry chain beside them;
+  - map a macro to two parameters, with a curve;
+  - fold the rack;
+  - save it, load it on another track;
+  - take a module out.
+
+  Anything that made them hesitate is changed before sign-off.
+- **As always:** the layout lint for the rack's panel and the macro editor, and the zoomed screenshot review ([ui-foundations.md](ui-foundations.md), "Layout quality").
 
 ## 6. The macro editor
 
@@ -186,7 +229,8 @@ Modules inside a rack keep their ids, so `set_parameters`, `get_module` and the 
 
 ## 14. Steps
 
-1. **Racks and macros:** the rack with its chains and mixer rows; group and ungroup; the panel and frame in the chain; eight macros with From, To and Curve, mapped by drag, right-click or the editor; the macro editor; automation of macros; rack files, the browser's Racks folders, save and load; menus and MCP. Built after the spike (§12).
+0. **The UI drawn and approved (§5a),** with the spike (§12): before anything else is built.
+1. **Racks and macros:** the rack with its chains and mixer rows; group and ungroup; the panel and frame in the chain; eight macros with From, To and Curve, mapped by drag, right-click or the editor; the macro editor; automation of macros; rack files, the browser's Racks folders, save and load; menus and MCP. Signed off after the product owner's hands-on tasks (§5a).
 2. **Snapshots and Morph, Vary for racks,** and the factory racks in the Library.
 3. **Motion on macros:** LFO, follower and sidechain, sequencer, gate, random.
 
@@ -226,3 +270,4 @@ Each built, tested and signed off on its own.
 | R14 | **From Transit, and when** | Step 1: per-mapping curves. Step 2: snapshots with Morph, Vary with locks, factory racks. Step 3: motion on macros (LFO, follower, sidechain, sequencer, gate, random), M4's modulators arriving early |
 | R15 | **Engine** | tracktion's racks and macro modifiers, after a spike on parallel latency, undo and plugin state |
 | R16 | **Not now** | Zones and the Drum Rack (M4), selectors and crossfaders, MIDI effect racks, racks in the plugins |
+| R17 | **The UI, nothing confusing** (the product owner's requirement) | Drawn in every state and approved before it's built; one chain looks like a plain group (the chain list shows from the second chain); the frame always says what's inside; drops show where they land; macros and their knobs light each other; one word for each thing; tried hands-on before sign-off (§5a) |
