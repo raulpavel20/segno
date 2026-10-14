@@ -46,6 +46,22 @@ double noteStart(ToolEnv& env, const Json& value, const std::string& where)
     }
 }
 
+/// A chance in percent (§10), as the model keeps it (0..1).
+float chanceArg(double percent, const std::string& where)
+{
+    if (!(percent >= 0.0 && percent <= 100.0))
+        throw Problem{where + ": a percentage, 0-100."};
+    return static_cast<float>(percent / 100.0);
+}
+
+/// A velocity spread or release velocity, 0-127, as the model keeps it (0..1).
+float midiAmount(double value, const std::string& where)
+{
+    if (!(value >= 0.0 && value <= 127.0))
+        throw Problem{where + ": 0-127."};
+    return static_cast<float>(std::round(value) / 127.0);
+}
+
 model::Note parseNote(ToolEnv& env, const Json& n, double offset, const std::string& where)
 {
     const auto pitch = parsePitch(n["pitch"]);
@@ -60,8 +76,13 @@ model::Note parseNote(ToolEnv& env, const Json& n, double offset, const std::str
     {
         throw Problem{where + ".length: " + p.message};
     }
-    return {*pitch, noteStart(env, n["start"], where) + offset, std::max(length, model::minNoteLength),
-            velocityFromMidi(n.value("velocity", 100.0)), n.value("muted", false)};
+    model::Note note{*pitch, noteStart(env, n["start"], where) + offset,
+                     std::max(length, model::minNoteLength), velocityFromMidi(n.value("velocity", 100.0)),
+                     n.value("muted", false)};
+    note.chance = chanceArg(n.value("chance", 100.0), where + ".chance");
+    note.velocitySpread = midiAmount(n.value("velocity_spread", 0.0), where + ".velocity_spread");
+    note.releaseVelocity = midiAmount(n.value("release_velocity", 0.0), where + ".release_velocity");
+    return note;
 }
 
 /// Which notes a `where` argument picks: "all", or a filter by pitch and time.
@@ -196,7 +217,8 @@ void addNoteTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"edit_notes", "Edit notes",
-         "Changes the notes that match, as the clip view's Notes menu does: velocity; transpose by "
+         "Changes the notes that match, as the clip view's Notes menu does: velocity, chance, velocity "
+         "spread and release velocity; transpose by "
          "semitones; "
          "shift; transpose by steps of the song's key; fit to the key; quantise (with strength and swing); "
          "stretch; "
@@ -241,7 +263,11 @@ void addNoteTools(Registry& registry, ToolEnv& env)
                 {"enum", {"smooth", "close", "open", "drop2", "drop3", "spread"}},
                 {"description", "Re-voice each chord; smooth keeps the first and moves the rest least"}}},
               {"mute", boolean("true mutes them (kept, not played), false plays them again")},
-              {"add_bass", boolean("Each chord's root an octave or more under it")}},
+              {"add_bass", boolean("Each chord's root an octave or more under it")},
+              {"chance", number("Percent: how likely each is to play each time it comes round; 100 always")},
+              {"velocity_spread",
+               integer("How far each one's velocity may move up or down each time, 0-127", 0, 127)},
+              {"release_velocity", integer("Their note-off velocity, 0-127 (0: none)", 0, 127)}},
              {"clip", "where"}),
          notesResult(), writes},
         [&env](const Json& args, CallContext&)
@@ -273,6 +299,25 @@ void addNoteTools(Registry& registry, ToolEnv& env)
                     for (auto i : edit.selection)
                         edit.notes[i].velocity = velocityFromMidi(value);
                 }
+            }
+            // Chance, spread and release velocity (§10, §9.6), with velocity: what a note plays.
+            if (args.contains("chance"))
+            {
+                const auto chance = chanceArg(args["chance"].get<double>(), "chance");
+                for (auto i : edit.selection)
+                    edit.notes[i].chance = chance;
+            }
+            if (args.contains("velocity_spread"))
+            {
+                const auto spread = midiAmount(args["velocity_spread"].get<double>(), "velocity_spread");
+                for (auto i : edit.selection)
+                    edit.notes[i].velocitySpread = spread;
+            }
+            if (args.contains("release_velocity"))
+            {
+                const auto release = midiAmount(args["release_velocity"].get<double>(), "release_velocity");
+                for (auto i : edit.selection)
+                    edit.notes[i].releaseVelocity = release;
             }
             if (args.contains("transpose"))
                 edit = model::transposeNotes(edit.notes, edit.selection, args["transpose"].get<int>());
@@ -363,6 +408,28 @@ void addNoteTools(Registry& registry, ToolEnv& env)
                                    {"notes", chosen.size()},
                                    {"lengthened", after.end() > c.end() + 1e-9},
                                    {"loopLengthened", after.loop.length > c.loop.length + 1e-9}});
+        }));
+
+    registry.tools.push_back(make(
+        env,
+        {"reroll_chance", "Re-roll chance",
+         "Gives a MIDI clip a new seed for its notes' chance and velocity spread (piano-roll.md §10), as "
+         "Notes > Re-roll chance does: which notes play on each lap, and how loud, are decided again. The "
+         "same seed always plays the same, in playback, bounces and exports.",
+         object({{"clip", id(IdKind::Clip, "The MIDI clip")},
+                 {"seed", integer("A seed to use (1 or more); a random one without it", 1)}},
+                {"clip"}),
+         result({{"clip", clipResultSchema()}, {"seed", integer("The clip's seed now")}}, {"clip", "seed"}),
+         writes},
+        [&env](const Json& args, CallContext&)
+        {
+            const auto c = midiClip(env, args["clip"]);
+            std::optional<std::uint32_t> seed;
+            if (args.contains("seed"))
+                seed = static_cast<std::uint32_t>(args["seed"].get<std::int64_t>());
+            const auto now = env.session.rerollChance(c.id, seed);
+            env.session.flushSnapshot();
+            return ToolResult::ok({{"clip", clipJson(env, clip(env, args["clip"]), false)}, {"seed", now}});
         }));
 }
 } // namespace fd::mcp

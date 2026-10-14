@@ -235,7 +235,10 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
                              "get_chords",
                              "set_chord",
                              "make_chords",
-                             "suggest_chords"})
+                             "suggest_chords",
+                             "reroll_chance",
+                             "get_controllers",
+                             "set_controllers"})
         CHECK(names.contains(name));
     for (const auto& p : registry.prompts)
     {
@@ -452,6 +455,98 @@ TEST_CASE("mcp tools: chords read, written, made and suggested; the piano roll's
     CHECK(daw.fails("edit_notes", {{"clip", clipId}, {"where", "all"}, {"transpose_steps", 1}})
               .find("set_key") != std::string::npos);
     CHECK(daw.call("suggest_chords", {{"clip", clipId}, {"at", 0}})["borrowed"].empty());
+}
+
+TEST_CASE("mcp tools: chance, velocity spread, release velocity, re-roll and controllers (P4b)",
+          "[integration][mcp]")
+{
+    Daw daw;
+    const auto track = daw.call("add_track", {{"name", "Drums"}})["track"].get<std::string>();
+    const auto clipId = daw.call("create_midi_clip",
+                                 {{"track", track}, {"start", "1.1.1"}, {"length", "1 bar"}})["clip"]["id"]
+                            .get<std::string>();
+
+    // Notes carry them in and out; the plain ones say nothing about them.
+    daw.call("set_notes", {{"clip", clipId},
+                           {"notes",
+                            {{{"pitch", 42}, {"start", 0}, {"length", "1/16"}, {"chance", 50}},
+                             {{"pitch", 42}, {"start", 1}, {"length", "1/16"}, {"velocity_spread", 20}},
+                             {{"pitch", 36}, {"start", 2}, {"length", "1/16"}, {"release_velocity", 64}}}}});
+    auto notes = daw.call("get_clip", {{"clip", clipId}})["notes"];
+    REQUIRE(notes.size() == 3);
+    CHECK(notes[0]["chance"] == Approx(50.0));
+    CHECK_FALSE(notes[0].contains("velocity_spread"));
+    CHECK(notes[1]["velocity_spread"] == 20);
+    CHECK_FALSE(notes[1].contains("chance"));
+    CHECK(notes[2]["release_velocity"] == 64);
+    CHECK(daw.fails("add_notes",
+                    {{"clip", clipId},
+                     {"notes", {{{"pitch", 40}, {"start", 0}, {"length", "1/16"}, {"chance", 150}}}}})
+              .find("0-100") != std::string::npos);
+
+    // edit_notes sets them on the notes that match.
+    daw.call("edit_notes",
+             {{"clip", clipId}, {"where", {{"pitch", 42}}}, {"chance", 25}, {"velocity_spread", 10}});
+    CHECK(daw.session->undoDescription() == "Assistant: edit notes");
+    notes = daw.call("get_clip", {{"clip", clipId}})["notes"];
+    CHECK(notes[0]["chance"] == Approx(25.0));
+    CHECK(notes[1]["chance"] == Approx(25.0));
+    CHECK(notes[1]["velocity_spread"] == 10);
+    CHECK_FALSE(notes[2].contains("chance"));
+    daw.call("edit_notes", {{"clip", clipId}, {"where", "all"}, {"chance", 100}, {"velocity_spread", 0}});
+    notes = daw.call("get_clip", {{"clip", clipId}})["notes"];
+    CHECK_FALSE(notes[0].contains("chance"));
+    CHECK_FALSE(notes[1].contains("velocity_spread"));
+
+    // reroll_chance: a given seed, or a new one; one undo step.
+    auto rolled = daw.call("reroll_chance", {{"clip", clipId}, {"seed", 77}});
+    CHECK(rolled["seed"] == 77);
+    CHECK(rolled["clip"]["chanceSeed"] == 77);
+    CHECK(daw.session->undoDescription() == "Assistant: reroll chance");
+    rolled = daw.call("reroll_chance", {{"clip", clipId}});
+    CHECK(rolled["seed"] != 77);
+
+    // Controllers: lanes written as points, read back; pitch bend around 0; pedals on or off.
+    auto lanes = daw.call(
+        "set_controllers",
+        {{"clip", clipId},
+         {"lanes",
+          {{{"controller", "mod_wheel"},
+            {"points", {{{"beat", 0}, {"value", 0}}, {{"beat", 2}, {"value", 127}}}}},
+           {{"controller", "pitch_bend"},
+            {"points", {{{"beat", 1}, {"value", 0}}, {{"beat", 1.5}, {"value", 8191}, {"step", true}}}}},
+           {{"controller", 64},
+            {"points", {{{"beat", 0}, {"value", 100}}, {{"beat", 3}, {"value", 0}}}}}}}})["lanes"];
+    CHECK(daw.session->undoDescription() == "Assistant: set controllers");
+    REQUIRE(lanes.size() == 3);
+    CHECK(lanes[0]["controller"] == 1);
+    CHECK(lanes[0]["name"] == "Mod wheel");
+    CHECK(lanes[0]["points"].size() == 2);
+    CHECK(lanes[0]["points"][1]["value"] == 127);
+    CHECK(lanes[1]["controller"] == 64);
+    CHECK(lanes[1]["points"][0]["value"] == 127); // a pedal: on
+    CHECK(lanes[1]["points"][0]["step"] == true);
+    CHECK(lanes[2]["controller"] == "pitch_bend");
+    CHECK(lanes[2]["points"][0]["value"] == 0);
+    CHECK(lanes[2]["points"][1]["value"] == 8191);
+    const auto clipNow = daw.call("get_clip", {{"clip", clipId}});
+    REQUIRE(clipNow["controllers"].size() == 3);
+    CHECK(clipNow["controllers"][0]["points"] == 2);
+    const auto one = daw.call("get_controllers", {{"clip", clipId}, {"controller", "sustain"}})["lanes"];
+    REQUIRE(one.size() == 1);
+    CHECK(one[0]["controller"] == 64);
+    // An empty lane removes it; a bad controller is named.
+    daw.call("set_controllers",
+             {{"clip", clipId}, {"lanes", {{{"controller", 1}, {"points", Json::array()}}}}});
+    CHECK(daw.call("get_controllers", {{"clip", clipId}})["lanes"].size() == 2);
+    CHECK(daw.fails("set_controllers",
+                    {{"clip", clipId}, {"lanes", {{{"controller", "wobble"}, {"points", Json::array()}}}}})
+              .find("wobble") != std::string::npos);
+    CHECK(
+        daw.fails("set_controllers",
+                  {{"clip", clipId},
+                   {"lanes", {{{"controller", "pitch_bend"}, {"points", {{{"beat", 0}, {"value", 9000}}}}}}}})
+            .find("-8192") != std::string::npos);
 }
 
 TEST_CASE("mcp tools: audio clips: insert, move, trim, duplicate, split, delete", "[integration][mcp]")

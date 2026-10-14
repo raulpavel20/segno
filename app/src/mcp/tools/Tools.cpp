@@ -30,6 +30,7 @@ void registerAll(Registry& registry, ToolEnv& env)
     addSectionTools(registry, env);
     addKeyTools(registry, env);
     addChordTools(registry, env);
+    addControllerTools(registry, env);
     addResources(registry, env);
     addPrompts(registry);
 }
@@ -283,7 +284,10 @@ Json noteInput()
            {"description", "Beats from the clip's start (0 is its first beat), or text such as \"1/8\" or \"2 beats\""}}},
          {"length", length("How long the note is.")},
          {"velocity", integer("1-127 (default 100)", 1, 127)},
-         {"muted", boolean("Kept but not played (default false)")}},
+         {"muted", boolean("Kept but not played (default false)")},
+         {"chance", number("Percent: how likely it is to play each time it comes round (default 100)")},
+         {"velocity_spread", integer("How far its velocity may move up or down each time, 0-127", 0, 127)},
+         {"release_velocity", integer("Its note-off velocity, 0-127 (default 0: none)", 0, 127)}},
         {"pitch", "start", "length"});
 }
 
@@ -415,6 +419,14 @@ Json noteJson(const model::Note& note, double offsetBeats)
            {"velocity", velocityToMidi(note.velocity)}};
     if (note.muted) // only when it is (piano-roll.md §9.4): it stays and doesn't play
         j["muted"] = true;
+    // Chance, spread and release velocity (§10, §9.6) only when they aren't the plain note's.
+    if (note.chance < 1.0f)
+        j["chance"] = rounded(note.chance * 100.0, 10.0);
+    const auto midi = [](float v) { return static_cast<int>(std::lround(v * 127.0f)); };
+    if (midi(note.velocitySpread) > 0)
+        j["velocity_spread"] = midi(note.velocitySpread);
+    if (midi(note.releaseVelocity) > 0)
+        j["release_velocity"] = midi(note.releaseVelocity);
     return j;
 }
 
@@ -472,6 +484,15 @@ Json clipJson(ToolEnv& env, const model::ClipInfo& c, bool notes)
     else
     {
         j["noteCount"] = c.notes.size();
+        // Its controller lanes (piano-roll.md §11; get_controllers has their points) and what its
+        // notes' chance is decided from (§10).
+        Json lanes = Json::array();
+        for (const auto& lane : c.controllers)
+            lanes.push_back({{"controller", controllerJson(lane.controller)},
+                             {"name", model::controllerName(lane.controller)},
+                             {"points", lane.points.size()}});
+        j["controllers"] = std::move(lanes);
+        j["chanceSeed"] = c.chanceSeed;
         if (notes)
         {
             const double offset = noteOffsetBeats(env, c); // notes count from the clip's start (a loop's)

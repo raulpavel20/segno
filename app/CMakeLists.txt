@@ -120,6 +120,7 @@ target_sources(fd_app_mcp INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/ClipTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/NoteTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/ChordTools.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/ControllerTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/ModuleTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/WavetableTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/PresetTools.cpp"
