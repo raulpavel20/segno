@@ -128,6 +128,10 @@ The project, track, clip and module resources send change notifications when the
 | `load_sample` | `module` (a Sampler), `path` | The sample's length and root key |
 | `list_wavetables` | `category?` | The Wavetable Synth's tables: the factory ones (id, name, category, frames) and the files in the Segno folder's Wavetables (path, name). Read-only |
 | `set_wavetable` | `module` (a Wavetable Synth), `oscillator` (1–3), `table` (a factory id) or `path` (a WAV or `.wt` file) | The table as set: its id (`user` for a file, carried in the project), name and frames; one undo step ([devices/wavetable/SPEC.md](../../devices/wavetable/SPEC.md), "Tables and their files") |
+| `make_wavetable` | `module` (a Wavetable), `oscillator` (1–3), `clip` (an audio clip, with `from?`, `to?` on the timeline) or `path` (a sound file), `mode` (`pitched`, `spectral`, `slices`), `frames?` (8–256, default 64) | The table made from the audio as Clip > Make wavetable makes it, its recipe kept: its name, frames and the pitch found; one undo step ([table-editor.md](table-editor.md) §5) |
+| `get_wavetable` | `module`, `oscillator`, `data?` | The table it plays (id, name, frames) and its recipe: the one the table editor made, or (`edited` false) one of the table, to start from. The frames of audio, image and file layers are left out (their count instead) unless `data` asks for them. Read-only |
+| `edit_wavetable` | `module`, `oscillator`, `recipe` | The recipe replaced and baked, checked whole first; a layer that leaves out its frames keeps those of the layer at its place now; one undo step |
+| `export_wavetable` | `module`, `oscillator`, `path?`, `format?` (`wav`, `wt`) | The table written as WAV (`clm `) or `.wt`, by default into Segno/Wavetables named for it; the file's path. Not an undo step |
 | `set_mix` | `track` (a track, return or the master), `volume?` (dB, "-inf"), `pan?` (−1 … 1, "25L"), `mute?`, `solo?`, `exclusive?` | The channel's mix; one undo step (solo alone: none) ([mixer.md](mixer.md) §10) |
 | `add_return_track` | `name?` | The return's id and name |
 | `set_send` | `track`, `return`, `level?` (dB), `preFader?` | The send as set |

@@ -239,6 +239,7 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 | Bounce in place | Ctrl+B | |
 | Bounce to new track | Ctrl+Shift+B | |
 | Cancel bounces | Escape | *new* (`clip.cancelBounces`); enabled while a bounce runs. Also a × on the clip being bounced (§15) |
+| Make wavetable | | *new* (`clip.makeWavetable`, [table-editor.md](table-editor.md) §5): the selected audio clip into the selected Wavetable's table editor, or a new MIDI track's Wavetable; dimmed unless one audio clip is selected |
 | — | | |
 | Mute clips | 0 | |
 | Loop clips | | *new* (`clip.loop`, C10, [clip-loops.md](clip-loops.md) §10): a toggle, ticked while every selected clip loops, dimmed with the reason while none can. No default key (Ctrl+L and every L combination are taken); assignable in Settings > Keys. Also in the clip's right-click menu, after Mute clips |
@@ -282,6 +283,10 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 | Clear the default | | |
 | — | | |
 | Show presets folder | | |
+| — | | |
+| Edit wavetable | | *new* (`module.editWavetable`, [table-editor.md](table-editor.md) §8): opens the table editor below the module; also a double-click on the table display. Dimmed unless a Wavetable is selected, as the two below |
+| Import wavetable… | | *new* (`module.importWavetable`): a table loads on the oscillator OSC shows; audio opens the way chooser |
+| Export wavetable… | | *new* (`module.exportWavetable`): WAV or `.wt`, into Segno/Wavetables. Ctrl+Shift+E stays File > Export |
 
 **Transport**
 
@@ -313,7 +318,7 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 | Preview in the browser | | `browser.preview`, a toggle; also the Preview switch in the browser's header |
 | Show inspector | Ctrl+Alt+I | |
 | Show detail panel | Ctrl+Alt+D | |
-| Switch modules / clip view | Tab | |
+| Switch modules / clip view / editor | Tab | Goes round Modules, Clip and a module's open editor ([ADR 0053](../decisions/0053-a-modules-editor-in-the-detail-panel.md)) |
 | — | | |
 | Show automation lanes | Ctrl+Alt+L | |
 | Show returns and master | Ctrl+Alt+R | |

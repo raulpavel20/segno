@@ -1,6 +1,6 @@
 # Wavetable: device spec
 
-- **Status:** Approved by the product owner (2026-10-13, with every recommendation of W1–W19 and the pages of [ADR 0051](../../docs/decisions/0051-pages-for-very-wide-modules.md)); IDs are permanent. [ADR 0050](../../docs/decisions/0050-the-wavetable-synth-goes-beyond-live.md) accepted with it: the product owner asked for a wavetable synth that is full-featured, modern and innovative, past ADR 0011's "instruments stay close to Live's". Step 1 (the synth) built (2026-10-13; what building settled is under "Settled while building (step 1)") and signed off by the product owner (2026-10-14), with the modulation made easier to find and the name Wavetable. Step 2 (the tables) next.
+- **Status:** Approved by the product owner (2026-10-13, with every recommendation of W1–W19 and the pages of [ADR 0051](../../docs/decisions/0051-pages-for-very-wide-modules.md)); IDs are permanent. [ADR 0050](../../docs/decisions/0050-the-wavetable-synth-goes-beyond-live.md) accepted with it: the product owner asked for a wavetable synth that is full-featured, modern and innovative, past ADR 0011's "instruments stay close to Live's". Step 1 (the synth) built (2026-10-13; what building settled is under "Settled while building (step 1)") and signed off by the product owner (2026-10-14), with the modulation made easier to find and the name Wavetable. Step 2 (the tables: [table-editor.md](../../docs/design/table-editor.md), [ADR 0053](../../docs/decisions/0053-a-modules-editor-in-the-detail-panel.md)) built (2026-10-14; "Settled while building (step 2)"), awaiting the product owner's sign-off.
 - **Type:** Instrument
 - **Tier / milestone:** Tier 2, moved up to M3 by the product owner (2026-10-13; P1 of the M3 plan, before the rest of M3)
 - **Live target:** Wavetable, with Meld's following of the key and scale. References only ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)); this device goes well beyond them (W1).
@@ -440,6 +440,85 @@ Dated listening notes from the product owner, and the measurable checks derived 
 - **40 factory presets** (pads, leads, basses, keys and plucks, effects), from `presets/recipes.json`, the A/B cases among them; tags from presets.md's vocabulary.
 - **Assistants:** `list_wavetables` and `set_wavetable` (mcp.md), and `get_module` lists the pages and the one showing.
 
+## Settled while building (step 2, 2026-10-14)
+
+- **The spectral warps** are built in the cycle renderer, on the harmonics before the cycle is made (`dsp::applySpectralWarp`; Frame Skew reads each harmonic from another frame, `dsp::frameSkewOffset`). The same functions are the table editor's spectral changes. The warp menus offer them; each at its extremes stays free of aliasing below −90 dB.
+- **A table's recipe** (`dsp/TableRecipe`) is saved as `oscN.recipe` beside the baked frames, so a project or preset reopens it editable:
+  - up to 4 layers, summed, and 1 to 256 frames;
+  - a factory table, once edited, becomes "Vowels (edited)", a table of yours; the factory one never changes;
+  - a recipe bakes the same frames every time (one function: the editor's, the assistants', the AKWF tables').
+- **Sources:**
+  - **Draw:** a new layer starts as a triangle on the first frame.
+  - **Harmonics:** starts as a sine. A keyframe added between two others takes the layer's own frame there, so adding it changes nothing; a drawing's new keyframe copies the one before it.
+  - **Formula:** `x`, `t`, `pi`, `e`, `+ - * / ^`, brackets; sin, cos, tan, asin, acos, atan, abs, sqrt, exp, log, log2, floor, ceil, frac, sign, min, max, pow, clamp; and the waves tri, saw, sq and rand. A line that doesn't parse says where and isn't kept.
+  - **Audio:** the pitch by YIN over windows, each refined by the fundamental's phase, then the median: within 1 cent on test tones.
+    - **Pitched:** 6 periods, Blackman–Harris windowed, harmonics with their phases.
+    - **Spectral:** 16 periods, levels only.
+    - **Slices:** 2 048 samples as they are.
+
+    A saw comes back within −60 dB of its harmonics.
+  - **Image:** each row a frame (at most 256, spread through the image), its brightness the wave or its harmonics' levels.
+  - **Table:** a factory table, or a file's own frames.
+- **The editor, as built** (ADR 0053):
+  - **Its look:** a card like the module's panel, under it, in three panes on the module grid:
+    - Layers, 4 columns;
+    - the view, the width left (at least 7 columns);
+    - Changes, 4 columns.
+
+    It has ten rows, about 316 px, which is both its least height and the height it opens at; taller, the view grows. `ui::ModuleEditor` lays out the panes, and its layout lint runs narrow and wide, short and tall, in every state.
+  - **Layers:** each row a dot (on or off) and its name (a selector), with a menu to move or remove it (never the last). Below, the selected layer's settings:
+    - Level, and Fill (except Formula, which fills nothing);
+    - Draw: Points or Freehand, and a Grid (Off, 8, 16, 32, 64; editor view state, not saved);
+    - Formula: the line (Return keeps it), its error or a hint;
+    - Image: As harmonics;
+    - Table: the factory table;
+    - Audio: where it came from.
+  - **The view:**
+    - 3D: dragged up and down, it goes through the frames;
+    - 2D: the frame as it plays, a Draw keyframe drawn over it with the bake's own `drawnAt`;
+    - Harmonics: the frame's first 64; a Harmonics keyframe's levels over them, and its phases in a strip below.
+  - **Below the view:** the keyframe strip, and Frames (a bar from 1 to 256, doubling over equal distances; keyframes keep their place in the table).
+  - **Changes:** each row a dot and a bar (the change's name, its amount at the frame shown). Its menu offers Vary From Frame to Frame (the amount set at each frame you show, in between from frame to frame), Move Up, Move Down and Remove. With more changes than rows, the title says which show ("Changes 3–10 of 12") and the wheel scrolls them.
+  - **Edits are kept on release,** one undo step each ("Draw a wave", "Add a keyframe", "Set a change's amount"…). A click that changes nothing keeps nothing. The editor follows the module: undo, an assistant, the table picker.
+  - **Preview** holds a C3 at velocity 0.8 on the module until it's clicked again or the editor closes:
+    - in the DAW, as live MIDI on the module's track;
+    - in the plugins, through a lock-free queue into the device's events.
+  - **Audio** arrives in the way chooser:
+    - it starts on Pitched where the audio has a pitch, else on Slices, at 64 frames (8–256), reading at most a minute;
+    - each way and frame count is heard at once, and the whole choosing is one undo step;
+    - Use keeps the table, Cancel puts back the one from before;
+    - dropped on the layers, the audio is added as a layer.
+  - **It opens** from Module > Edit wavetable, a double-click on the table display or Edit… in the table's menu. It edits the oscillator OSC shows, and follows OSC. A double-click on the table display no longer resets Position: Position's knob does that.
+- **Menus** (sentence case, as the menu bar's other items; dimmed unless a Wavetable, or for Make wavetable an audio clip, is selected; no shortcuts):
+  - Module > Edit wavetable, Import wavetable…, Export wavetable…;
+  - Clip > Make wavetable. It reads the whole clip, once through its source: the arrangement has no time selection yet ([B81](../../docs/open-questions.md)). With no Wavetable selected it adds a MIDI track named for the clip, with a Wavetable on it: three undo steps for now ([B80](../../docs/open-questions.md)).
+- **Files:**
+  - Import loads a table as it is: a WAV with frame data, a WaveEdit bank, a single cycle or a `.wt`. Anything else is audio, for the way chooser.
+  - Export writes WAV with `clm ` or `.wt`, into Segno/Wavetables by default.
+- **The browser's Wavetables:**
+  - `.wt` files, and sound files in a folder named Wavetables, are a kind of their own: WAVETABLES in the results, their frames as the caption.
+  - Segno/Wavetables is made with the Segno place.
+  - A selected one plays a held C3 through a Wavetable of its own.
+  - Dropped on a track, it puts a Wavetable with it there, in place of the track's instrument. Dropped on a Wavetable, it goes onto the oscillator OSC shows.
+- **Factory tables: 84.** The 64 made in-house, and 20 from AKWF-FREE (CC0), whose IDs are as permanent as the others':
+  - Acoustic, a new category: Cello, Violin, Breathy Flute, Reed, Oboe, Alto Sax, Piano, Guitar, Electric Bass, Electric Piano, Theremin;
+  - Human Voice (Formant);
+  - Electric Organ and Overtones (Harmonic);
+  - FM Synth (FM);
+  - Chip, Video Game and Bit Reduced (Digital);
+  - Granular and Distorted (Texture).
+
+  How they're made:
+  - each is eight of a folder's cycles, picked by brightness from the darkest to the brightest;
+  - the cycles are phase-aligned, then morphed harmonic by harmonic over 64 frames, by the editor's bake;
+  - the recipes (`tables/akwf.json`, each cycle with its SHA-256) are in the repository, and only those 160 files are fetched, from the commit `cmake/Dependencies.cmake` pins (`cmake/FdAkwf.cmake`).
+- **Assistants:**
+  - `make_wavetable`: a clip (`from`, `to`) or a file, a way, a frame count;
+  - `get_wavetable`: the recipe, or the one the editor would start from (`edited` false); audio and image frames are left out unless `data` asks for them;
+  - `edit_wavetable`: checked whole; a layer that leaves its frames out keeps those of the layer at its place;
+  - `export_wavetable`.
+- **The undo history holds the module's whole extra state** before and after each kept edit: up to a few MB a step with large tables and audio layers ([B79](../../docs/open-questions.md)).
+
 ## Sign-off
 
 - [x] Automated: unit, conformance and golden tests; validators (step 1, 2026-10-13: pluginval at strictness 10, clap-validator; ASan and UBSan)
@@ -447,3 +526,6 @@ Dated listening notes from the product owner, and the measurable checks derived 
 - [x] Snapshots reviewed (100% / 200%; expanded, collapsed, folded; every page, and Sub, Noise, a random source, a full matrix)
 - [x] Sound signed off by the product owner (step 1, 2026-10-14)
 - [x] Feel signed off by the product owner (step 1, 2026-10-14)
+- [x] Step 2 automated: recipes, sources and changes against their definitions, audio to wavetable, files round trip, the AKWF tables; the editor's behaviour in the panel tests, the DAW (Module menu, Tab, undo, Done, the module going, Make wavetable) and the plugins (the window grown, the note heard); every tool through MCP (2026-10-14)
+- [x] The editor's layout lint (narrow and wide, short and tall, every state) and snapshots reviewed: the editor in each state, in the DAW's detail panel, in the plugin's window, the AKWF tables (2026-10-14)
+- [ ] Step 2 sound and feel signed off by the product owner

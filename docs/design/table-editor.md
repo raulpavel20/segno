@@ -1,6 +1,6 @@
 # The table editor (Wavetable, step 2)
 
-The Wavetable's tables, made and changed in Segno: drawn, built from harmonics or a formula, taken from audio or an image, then shaped by a stack of changes. Step 2 of [devices/wavetable/SPEC.md](../../devices/wavetable/SPEC.md) (W8–W10), with the spectral warps and export. **Status:** approved by the product owner (2026-10-14, every recommendation of T1–T13); being built.
+The Wavetable's tables, made and changed in Segno: drawn, built from harmonics or a formula, taken from audio or an image, then shaped by a stack of changes. Step 2 of [devices/wavetable/SPEC.md](../../devices/wavetable/SPEC.md) (W8–W10), with the spectral warps and export. **Status:** approved by the product owner (2026-10-14, every recommendation of T1–T13); built 2026-10-14, awaiting the product owner's sign-off. What building settled is in the SPEC's "Settled while building (step 2)"; the editor's layout system in [device-panels.md](device-panels.md), "A module's editor".
 
 ## 1. What the leading synths do (research, October 2026)
 
@@ -68,7 +68,7 @@ A table is a **recipe**: layers that make frames, changes that shape them, and t
   - **Pitched:** the pitch is found (YIN), the audio cut into single cycles, N of them spread through the sound and phase-aligned. For notes, voices, instruments.
   - **Spectral:** the harmonics' levels sampled at the sound's pitch over time (an STFT at N points): the sound's colour without its noise or chorus. For pads, noisy and chorused sounds.
   - **Slices:** fixed windows, as they are. For anything; the classic "drop a loop" table.
-- **Frames:** 8 to 256 (default 64). Where in the audio they come from: the whole file, or the time selected in the clip.
+- **Frames:** 8 to 256 (default 64). Where in the audio they come from: the whole file, or the time selected in the clip (*built:* the whole clip for now, the arrangement having no time selection yet, B81; assistants give `from` and `to`).
 - **Make Wavetable** (Clip menu): the selected audio clip, or the time selected in it, opens in the editor on the selected Wavetable's selected oscillator. With no Wavetable selected, one is added on a new MIDI track named for the clip.
 
 ## 6. The spectral warps (W4)
@@ -85,10 +85,10 @@ Built in the oscillator's renderer, on the harmonics before the cycle is made, a
 
 | Where | Item | Shortcut |
 |---|---|---|
-| Module menu | Edit Wavetable | – (a double-click on the table display does it; Ctrl+Shift+E is Export) |
-| Module menu | Import Wavetable… | – |
-| Module menu | Export Wavetable… | – |
-| Clip menu | Make Wavetable | – |
+| Module menu | Edit wavetable | – (a double-click on the table display does it; Ctrl+Shift+E is Export) |
+| Module menu | Import wavetable… | – |
+| Module menu | Export wavetable… | – |
+| Clip menu | Make wavetable | – |
 | View menu | Switch modules / clip view / table (Tab), as now | Tab |
 
 All dimmed unless a Wavetable (or, for Make Wavetable, an audio clip) is selected. Assistants (ADR 0021):

@@ -75,7 +75,7 @@ Each control is placed by its top-left cell and its span: `(column, row, columns
 | **Toggle** | *n* × 1, *n* ≥ 1 | Text + 8 px must fit. Without text it's an on/off dot, centred (a source's On in a list). |
 | **Segmented** | whole cells per segment, 1 row per line of segments | 4 px between segments, 8 px between lines (the grid's own gaps). Text + 6 px must fit a segment. |
 | **Selector** | as Segmented | Which of several the sections after it show (an oscillator, an LFO): a segmented control's look, but view state, never a parameter (`ui::Selector`). |
-| **Combo** | *n* × 1, *n* ≥ 2 | The widest choice + 26 px (padding and chevron) must fit. Where nothing else names it, it shows its parameter's short name inside, before its choice, as a bar does (`ParamComboBox::setInlineName`): the name + 8 px is added. |
+| **Combo** | *n* × 1, *n* ≥ 2 | The widest choice + 26 px (padding and chevron) must fit. Where nothing else names it, it shows its parameter's short name inside, before its choice, as a bar does (`ParamComboBox::setInlineName`): the name + 8 px is added. A combo for a setting that isn't a parameter (a module editor's Fill, Grid) is a `ui::ChoiceBox`, the same look and rule, its name set with `setInlineName(name)`. |
 | **Bar** (value bar) | *n* × 1, *n* ≥ 2 | Name + widest value + 16 px must fit. |
 | **Display** (curve, envelope, waveform, spectrum) | any *n* × *m* | Its own label, if any, sits inside the well. A display can carry one **accessory** (e.g. the Mod envelope's Cycle toggle) in its label line. Analysers (the EQ, the Spectrum) draw with `ui::SpectrumPlot`: one log-frequency axis, grid and set of strokes, so they read alike. |
 | **Sub-label** | *n* × 1 | Mono caps, like a section title, for a named group inside a section (the LFO inside MODULATION). Use sparingly; a new section is usually clearer. |
@@ -134,6 +134,17 @@ For a module with its own modulation (the Wavetable Synth; M4's DAW-wide modulat
 - **Setting the amount:** drag the ring (the band outside the arc, where the pointer becomes the resize cursor): up and right more, down and left less, Shift finely, as a knob. It sets the route of the source last hovered, or the knob's first route. The matrix sets any route exactly.
 - **Right-click a modulated knob:** its routes ("LFO 1 → 30 %"), each with Remove, then Modulate with, after its automation items.
 - **What the lint checks:** rings stay inside their cell; handles never overlap a display's label.
+
+## A module's editor
+
+For a module whose editing needs more room than six rows: the Wavetable's table editor, later a sampler's zones ([ADR 0053](../decisions/0053-a-modules-editor-in-the-detail-panel.md)). A `ui::ModuleEditor`:
+
+- **The panel asks the host for it** (`DeviceUiContext::showEditor`): the DAW shows it in the detail panel as a view of its own, the plugins under the panel, the window grown for it. The host draws its header: the tab (`tabName()`), what it edits (`title()`), the editor's commands and Done. It closes with Done, or when the module goes.
+- **A card like the panel, in panes side by side:** titled columns on the module grid (`addPane(title, columns)`): the panes at the sides a number of columns wide, the one marked flexible (0 columns) taking the width left. The padding, title row, rows and gaps are the panel's, so its controls are the panel's controls and line up as theirs do.
+- **Placed in cells** (`place(pane, component, column, row, columns, rows)`), as in a section. A negative row counts from the last row, and a span of 0 or less runs to the bottom (or the right edge) less that many: a view that grows with the editor's height, a strip kept at the bottom. A component can sit in a pane's title row (`placeInTitle`: a "+" at its right end, a view's tabs after its title). Sub-labels name groups of rows.
+- **Its height:** at least the rows its panes need (`setMinimumRows`), which is also the height it opens at; taller, flexible spans grow. The DAW drags it taller at the panel's top edge.
+- **The host also gives it** a held note for a Preview (`DeviceUiContext::playNote`) and the user's Segno folder (`segnoFolder`). The panel's menu-bar commands reach it through `DevicePanel::performCommand`, audio handed to the module through `takeAudio`, and a file dropped on the module from the browser through `takeFile`.
+- **Its layout lint** (as the panels', `tests/panels/TableEditorTests.cpp`) runs at its narrowest and a wide width, at its least height and taller, in every state: every placement inside its pane's content and clear of the others, the title rows' components clear of the titles, every text fitting its control.
 
 ## View state
 

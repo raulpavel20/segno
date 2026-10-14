@@ -128,6 +128,8 @@ As in Live, at the product owner's suggestion:
 
 **Instrument presets:** selecting one, with Preview on, plays a short phrase rendered with that preset offline: a held note in its register (Bass a C1, Pad a chord, the rest a C3), about two seconds, through the strip. Our modules render in milliseconds on their own (`tools/render` does the same), so it never touches the project. Effects' presets, and plugins', don't preview in C2.
 
+**Wavetables** (table-editor.md §7): a held C3 through a Wavetable of its own with the table on its first oscillator, rendered offline as an instrument preset's phrase is. Dropped on a track, a Wavetable with the table goes in place of its instrument; on a Wavetable in the chain, the table goes on the oscillator its OSC section shows.
+
 **MIDI files:** play on the selected track's instrument while Preview is on, the song's tempo stretching them as it would after a drop; with no instrument there, the strip says so.
 
 ## 8. Favourites
@@ -139,12 +141,12 @@ As in Live, at the product owner's suggestion:
 ## 9. Places
 
 - **Project:** the open project's folder: Recordings, Bounces, Exports, Samples (collected files). An unsaved project's folder is its place under `Segno/Unsaved`.
-- **Segno:** the Segno folder (Settings > Library): Presets, Samples (a new folder for your own sounds, shipped empty), and your projects if you keep them there.
+- **Segno:** the Segno folder (Settings > Library): Presets, Samples (a new folder for your own sounds, shipped empty), Wavetables (your tables, [table-editor.md](table-editor.md) §7; made with the place, as Samples is), and your projects if you keep them there.
 - **Your folders:** **+ Add folder…** at the end of Places, also Settings > Library > Browser places (Add…, Remove). Right-click a place to remove it; a folder that's gone shows greyed, with Locate… and Remove.
 - **Indexing:**
   - the files under every place are indexed in the background, at launch and when a folder is opened: name, kind, length, sample rate, channels and tempo;
   - the index is kept in `~/.config/Segno/browser-index.json`, so search works from the first second;
-  - files the browser can use: WAV, AIFF, FLAC, Ogg, MP3, MIDI, Segno projects;
+  - files the browser can use: WAV, AIFF, FLAC, Ogg, MP3, MIDI, Segno projects, and wavetables (`.wt`, and sound files in a folder named Wavetables: a kind of their own, WAVETABLES in the results, their frames as the caption);
   - adding a whole drive is allowed but slow, and the strip says so while it indexes, as Live warns.
 
 ## 10. Putting things in the song
