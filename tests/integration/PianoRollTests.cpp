@@ -1066,3 +1066,112 @@ TEST_CASE("piano roll (P4b): the lane's head fits every lane's label in the keys
                                        width));
     }
 }
+
+// ---- P4c: the tools that transform and generate ---------------------------------------------------
+
+TEST_CASE("piano roll (P4c): every tool's popover builds from its description, sized to its content; "
+          "previews, applies as one named step, puts back on Escape",
+          "[integration]")
+{
+    RollFixture f;
+    auto& roll = f.roll();
+    REQUIRE(f.session->setKey(Key{9, "minor"}));
+    f.setNotes(progression());
+    auto& actions = f.shell->actions();
+    auto& popover = f.shell->toolPopover();
+    const auto& t = fd::ui::Theme::current();
+    for (const auto& tool : fd::model::noteTools())
+    {
+        INFO(tool.id);
+        const auto id = "notes.tool." + std::string(tool.id);
+        REQUIRE(actions.isEnabled(id));
+        REQUIRE(actions.perform(id));
+        REQUIRE(popover.isOpen());
+        CHECK(popover.tool() == &tool);
+        // Nothing touches; it stays in the shell; every setting shown has its control.
+        CHECK(crowded(popover, t.shell.itemGap).isEmpty());
+        CHECK(f.shell->getLocalBounds().contains(
+            popover.getBounds().reduced(juce::roundToInt(t.shell.shadowRadius))));
+        for (const auto& s : tool.settings)
+            CHECK((popover.control(s.id) != nullptr) == fd::model::settingShown(tool, s, popover.values()));
+        if (const char* dir = std::getenv("FD_DUMP_DIR");
+            dir != nullptr &&
+            (tool.id == "strum" || tool.id == "velocity" || tool.id == "chords" || tool.id == "rhythm"))
+        {
+            f.shell->detail().frame(0.0);
+            dumpPng(dir, "piano-roll-tool-" + juce::String(std::string(tool.id)) + "@2x.png",
+                    f.shell->createComponentSnapshot(
+                        f.shell->getLocalArea(&f.shell->detail(), f.shell->detail().getLocalBounds()), true,
+                        2.0f));
+        }
+        // Escape: the notes as they were.
+        popover.close();
+        CHECK(f.notes() == progression());
+    }
+
+    // Strum: previewed live, kept as one step named for it.
+    REQUIRE(actions.perform("notes.tool.strum"));
+    popover.setValue("time", 80.0);
+    CHECK(roll.notes() == progression()); // only shown so far
+    popover.apply();
+    CHECK_FALSE(popover.isOpen());
+    CHECK(f.session->undoDescription() == "Strum");
+    CHECK(f.notes() != progression());
+    // Its settings are remembered.
+    REQUIRE(actions.perform("notes.tool.strum"));
+    CHECK(popover.values().at("time") == 80.0);
+    popover.close();
+    f.session->undo();
+    f.refresh();
+    CHECK(f.notes() == progression());
+
+    // The Velocity tool shows each shape's settings.
+    REQUIRE(actions.perform("notes.tool.velocity"));
+    CHECK(popover.control("from") != nullptr);
+    CHECK(popover.control("cycles") == nullptr);
+    const auto height = popover.getHeight();
+    popover.setValue("shape", 2.0); // Range: one setting
+    CHECK(popover.control("from") == nullptr);
+    CHECK(popover.control("range") != nullptr);
+    CHECK(popover.getHeight() < height); // sized to what it shows
+    CHECK(crowded(popover, t.shell.itemGap).isEmpty());
+    popover.close();
+}
+
+TEST_CASE("piano roll (P4c): Generate writes into an empty clip; the bassline follows its chords; the menus",
+          "[integration]")
+{
+    RollFixture f;
+    auto& roll = f.roll();
+    REQUIRE(f.session->setKey(Key{0, "major"}));
+    auto& actions = f.shell->actions();
+    auto& popover = f.shell->toolPopover();
+    CHECK_FALSE(actions.isEnabled("notes.tool.strum"));    // no notes to transform
+    CHECK_FALSE(actions.isEnabled("notes.tool.bassline")); // no chords to follow
+    CHECK(fd::model::toolUnavailable(*fd::model::findNoteTool("bassline"), roll.notes()).find("chords") !=
+          std::string::npos); // what the dimmed item says
+    REQUIRE(actions.isEnabled("notes.tool.chords"));
+
+    REQUIRE(actions.perform("notes.tool.chords"));
+    CHECK(popover.title() == juce::String::fromUTF8("Chords · 4 bars"));
+    popover.apply();
+    CHECK(f.session->undoDescription() == "Chords");
+    f.refresh();
+    REQUIRE(roll.chordSpans().size() == 4);
+    REQUIRE(actions.isEnabled("notes.tool.bassline"));
+    REQUIRE(actions.perform("notes.tool.bassline"));
+    popover.apply();
+    f.refresh();
+    int low = 0;
+    for (const auto& n : f.notes())
+        low += n.pitch < 48 ? 1 : 0;
+    CHECK(low == 16); // a root a beat, four bars
+    f.dump("piano-roll-generated@2x.png");
+
+    // In the Notes menu and the notes' right-click menu.
+    const auto menus = fd::model::menuBar(fd::model::MenuPlatform::Windowed);
+    const auto ids = fd::model::menuActions(menus);
+    for (const auto& tool : fd::model::noteTools())
+        CHECK(std::find(ids.begin(), ids.end(), "notes.tool." + std::string(tool.id)) != ids.end());
+    CHECK(fd::model::menuProblems(menus).empty());
+}

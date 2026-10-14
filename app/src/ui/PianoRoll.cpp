@@ -277,6 +277,35 @@ void PianoRoll::duplicatePoints()
              "Duplicate points");
 }
 
+model::ToolContext PianoRoll::toolContext() const
+{
+    model::ToolContext c{.key = keyOrNull(),
+                         .beatsPerBar = tempo_.beatsPerBar(),
+                         .secondsPerBeat = tempo_.secondsForBeats(1.0),
+                         .origin = clip_ ? clip_->contentStartBeat : 0.0};
+    if (const auto span = model::notesSpan(notes_, selection_))
+        c.span = *span;
+    else
+    {
+        const auto [from, to] = playedRange();
+        c.span = {beatForSeconds(from), beatForSeconds(to)};
+    }
+    return c;
+}
+
+model::ToolValues PianoRoll::toolValues(const model::ToolSpec& tool) const
+{
+    const auto it = options_.tools.find(std::string(tool.id));
+    return model::toolValues(tool, it != options_.tools.end() ? it->second : model::ToolValues{});
+}
+
+void PianoRoll::setToolValues(const model::ToolSpec& tool, const model::ToolValues& values)
+{
+    auto o = options_;
+    o.tools[std::string(tool.id)] = model::toolValues(tool, values);
+    setOptions(o);
+}
+
 void PianoRoll::rerollChance()
 {
     if (clip_)

@@ -1,8 +1,10 @@
 #pragma once
 
+#include "model/NoteToolkit.h"
 #include "model/NoteTools.h"
 
 #include <cstdint>
+#include <map>
 #include <nlohmann/json_fwd.hpp>
 #include <optional>
 #include <set>
@@ -60,6 +62,7 @@ struct PianoRollOptions
     bool others = true; // Others (§8): the other tracks' notes, faint
     std::set<std::uint64_t> othersHidden; // tracks Others leaves out, chosen one by one (§8)
     BottomLane lane;                      // the bottom lane (§11)
+    std::map<std::string, ToolValues> tools; // each transform's and generator's last settings (§23)
     DrawMode draw = DrawMode::Note;
     ChordLabels chordLabels = ChordLabels::Both;
     ChordStyle chord;          // the Chord popover's Kind, Voicing and Inversion (§7.3)

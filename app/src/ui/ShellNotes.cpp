@@ -5,6 +5,7 @@
 // (Shell.cpp).
 
 #include "model/Chance.h"
+#include "model/NoteToolkit.h"
 #include "ui/Shell.h"
 
 namespace fd::app
@@ -125,6 +126,27 @@ void Shell::registerNotesActions()
     tool("notes.halfSpeed", "Half speed", [&roll] { roll.stretch(2.0); });
     tool("notes.reverse", "Reverse", [&roll] { roll.reverse(); });
     tool("notes.mirror", "Mirror pitches", [&roll] { roll.mirrorPitches(); });
+    // The tools that transform and generate (§12, §23): each opens its popover. Transforms need notes;
+    // a generator a MIDI clip in the clip view (the bassline, its chords too).
+    for (const auto& t : model::noteTools())
+    {
+        const auto* spec = &t;
+        actions_.add(
+            {.id = "notes.tool." + std::string(t.id),
+             .name = asks(std::string(t.name).c_str()),
+             .category = "Notes",
+             .perform = [this, spec] { openTool(*spec); },
+             .isEnabled = [this, &roll, spec]
+             { return detail_.showsPianoRoll() && model::toolUnavailable(*spec, roll.notes()).empty(); },
+             .whyNot =
+                 [this, &roll, spec, whyNoNotes]
+             {
+                 if (!detail_.showsPianoRoll())
+                     return whyNoNotes();
+                 return juce::String::fromUTF8(model::toolUnavailable(*spec, roll.notes()).c_str());
+             }});
+    }
+
     // Re-roll (§10): the clip's notes left to chance decided again.
     actions_.add({.id = "notes.reroll",
                   .name = "Re-roll chance",
@@ -254,6 +276,11 @@ juce::PopupMenu Shell::notesContextMenu()
                            "notes.voiceDrop3", "notes.voiceSpread"})
         actions_.addMenuItem(chords, id);
     menu.addSubMenu("Chords", chords);
+    juce::PopupMenu transform; // §12
+    for (const auto& t : model::noteTools())
+        if (t.kind == model::ToolKind::Transform)
+            actions_.addMenuItem(transform, "notes.tool." + std::string(t.id));
+    menu.addSubMenu("Transform", transform);
     actions_.addMenuItem(menu, "clip.mute");
     menu.addSeparator();
     actions_.addMenuItem(menu, "edit.cut");
@@ -305,6 +332,19 @@ void Shell::openMakeChords()
     if (anchor.isEmpty())
         anchor = roll.rulerArea();
     makeChords_.open(*this, getLocalArea(&roll, anchor));
+}
+
+void Shell::openTool(const model::ToolSpec& tool)
+{
+    auto& roll = detail_.pianoRoll();
+    if (!detail_.showsPianoRoll())
+        return;
+    lastArea_ = Area::Clip;
+    chordPopover_.close();
+    quantisePopover_.close();
+    makeChords_.close();
+    // At the top right of the notes (§23).
+    toolPopover_.open(*this, getLocalArea(&roll, roll.gridArea()), tool);
 }
 
 void Shell::openQuantisePopover()

@@ -266,12 +266,14 @@ Clip ▸ Notes ▸ moved to the Notes menu (M3 P4).
 | Reverse | | |
 | Mirror pitches | | |
 | — | | |
+| Transform ▸ | | Humanize…, Strum…, Arpeggiate…, Chop…, Ornament…, Velocity…, Span…, Randomise pitch…: each a popover that previews, Apply keeps it as one step ([piano-roll.md](piano-roll.md) §12, §23; M3 P4c); dimmed without notes |
+| Generate ▸ | | Rhythm…, Melody…, Chords…, Bassline… into the selected notes' span, else the clip's loop; the bassline dimmed, saying why, until the clip has chords |
 | Re-roll chance | | The clip's notes left to chance decided again (a new seed, [piano-roll.md](piano-roll.md) §10); dimmed, saying why, while no note is |
 | — | | |
 | Select ▸ | | Select same pitch, Select outside the key, Select in the loop, Invert selection |
 | Nudge later / earlier | → / ← | They nudge lane points too, as before |
 
-Transform ▸ and Generate ▸ join it with P4c. Clip ▸ Mute clips (0) reads "Mute notes" and mutes them while the clip view was used last; Edit ▸ Split at playhead (Ctrl+E) splits the notes crossing it then.
+The notes' right-click menu has Transform ▸ too. Clip ▸ Mute clips (0) reads "Mute notes" and mutes them while the clip view was used last; Edit ▸ Split at playhead (Ctrl+E) splits the notes crossing it then.
 
 **Song** (added with the song's sections, M3 C3; the song's key first, M3 P3, [ADR 0057](../decisions/0057-the-song-has-one-key.md); [ADR 0049](../decisions/0049-the-master-row-is-the-song-row.md), [arranger.md](arranger.md) §12; Alt+G since M3 P4 gave Notes the N; Alt+S solos)
 

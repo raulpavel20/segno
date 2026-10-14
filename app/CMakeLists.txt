@@ -159,6 +159,7 @@ target_sources(fd_app_ui INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/KeyPopover.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ChordPopover.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/QuantisePopover.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ToolPopover.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/MakeChordsPopover.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ChannelControls.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ChannelInspector.cpp"

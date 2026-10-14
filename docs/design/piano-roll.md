@@ -266,7 +266,7 @@ A new **Notes** menu, between Clip and Song: the piano roll's commands have outg
 | — | |
 | Re-roll chance (P4b) | – |
 | — | |
-| Transform ▸ (Humanize…, Strum…, Arpeggiate…, Chop…, Ornament…, Velocity…, Span…, Randomise pitch…) | – |
+| Transform ▸ (Humanize…, Strum…, Arpeggiate…, Chop…, Ornament…, Velocity…, Span…, Randomise pitch…) (P4c) | – |
 | Generate ▸ (Rhythm…, Melody…, Chords…, Bassline…) | – |
 | — | |
 | Select ▸ (Same pitch, Outside the key, In the loop, Invert selection) | – |
@@ -532,9 +532,9 @@ Built as §10 and §11 say. What building settled:
 
 **Not yet:** controllers in the NOTES inspector; drawing controllers while recording (recorded ones show).
 
-## 23. P4c in detail: the tools' settings (2026-10-15, building)
+## 23. P4c in detail: the tools' settings (2026-10-15, built)
 
-§12 is approved. This is how each tool is set, the build plan; what building changes goes in a section after it.
+§12 is approved. This is how each tool is set, as built; what building settled is in §24.
 
 **One description for each tool** (`model/NoteTools…`, JUCE-free): its name, its settings (a choice, or a number with its range, step, unit and default; some shown only for one choice) and a pure function from notes and settings to notes. From that one description:
 - **the popover builds itself**: the tool's name and what it acts on in caps ("STRUM · 14 NOTES"), Apply in the title row (Return), then a row per setting as the Quantise popover has them: a short choice as segments, a long one as a choice field, a number as a number field. Sized to its content, at the top right of the clip view's notes. The notes change live; Apply keeps them as one undo step named for the tool; Escape puts them back.
@@ -567,4 +567,22 @@ Built as §10 and §11 say. What building settled:
 **Menus:** Notes ▸ Transform ▸ (Humanize…, Strum…, Arpeggiate…, Chop…, Ornament…, Velocity…, Span…, Randomise pitch…) and Generate ▸ (Rhythm…, Melody…, Chords…, Bassline…), between Mirror pitches and Re-roll chance (§13); the notes' right-click menu has Transform ▸. Transform items are dimmed without notes; Generate ones need only a MIDI clip in the clip view.
 
 **Assistants:** `transform_notes` (`clip`, `where`, `tool`, `settings`), `generate_notes` (`clip`, `tool`, `settings`, `start?`, `length?`: the span, else the clip's loop or the clip), `list_note_tools`: each tool's settings with their ranges and defaults. Unknown settings or values out of range are errors that name the tool's settings.
+
+## 24. P4c built (2026-10-15)
+
+Built as §12 and §23 say. What building settled:
+
+- **One description per tool** (`model/NoteToolkit`): settings as data, kept to their ranges and steps, with defaults, and some shown only for one choice (the Velocity tool's shapes). One pure function per tool. The popover, assistants and the remembered settings all read the same description.
+- **The popover** (`ToolPopover`) is the Quantise popover's look, built from the description:
+  - the title row: the tool and what it acts on in caps ("STRUM · 13 NOTES", "CHORDS · 4 BARS"), then Apply;
+  - a row per setting: a label in the property column, then segments for a short choice, a choice field for a long one (the progression, the bass pattern) or a number field;
+  - it's as wide as its widest row and as tall as the rows shown, so it grows and shrinks as the Velocity tool's shape changes;
+  - it sits at the top right of the notes, kept inside the panel.
+
+  The notes show the result as it's set. Apply (Return) keeps it as one undo step named for the tool ("Strum"), and the settings are remembered with the project's view state. Escape, or a click elsewhere, puts the notes back. Opening another tool puts the first one's notes back first.
+- **Chords:** Smooth voices each chord nearest the one before, so the progression moves by inversions (C, G/B, Am/C, F/C), as the Chord popover writes them. **The bassline plays the chords' roots** whatever their inversion: C1, then the G nearest it.
+- **Rhythm on the chords** replaces the held chords in the span with the pattern's stabs, so "Existing: Keep" doesn't leave nothing to play.
+- **Grace notes** (Ornament) before beat 0 are left out; a flam is the note's own pitch, a grace from above or below is a step of the key away (a semitone without a key).
+- **In the menus:** Notes ▸ Transform ▸ and Generate ▸ sit between Mirror pitches and Re-roll chance; the notes' right-click menu has Transform ▸. The bassline is dimmed, saying why, until the clip has chords; the transforms until it has notes.
+- **Assistants:** `list_note_tools` gives each tool's settings (choices as words, numbers with their range and unit, which show only for a choice). `transform_notes` and `generate_notes` check the settings against the same description: an unknown setting, word or value out of range is named.
 

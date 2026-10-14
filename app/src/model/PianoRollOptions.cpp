@@ -80,6 +80,7 @@ nlohmann::json pianoRollOptionsToJson(const PianoRollOptions& o)
             {"othersHidden", o.othersHidden},
             {"lane", toWord(o.lane.kind, laneWords)},
             {"laneController", o.lane.controller},
+            {"tools", o.tools},
             {"draw", toWord(o.draw, drawWords)},
             {"chordLabels", toWord(o.chordLabels, labelWords)},
             {"chordKind", toWord(o.chord.shape, shapeWordList)},
@@ -116,6 +117,17 @@ PianoRollOptions pianoRollOptionsFromJson(const nlohmann::json& json)
             if (id.is_number_unsigned())
                 o.othersHidden.insert(id.get<std::uint64_t>());
     o.lane.kind = fromWord(json, "lane", laneWords, o.lane.kind);
+    // Each tool's settings, kept to its description (a tool or setting gone is dropped).
+    if (const auto it = json.find("tools"); it != json.end() && it->is_object())
+        for (const auto& [id, values] : it->items())
+            if (const auto* tool = findNoteTool(id); tool != nullptr && values.is_object())
+            {
+                ToolValues given;
+                for (const auto& [setting, value] : values.items())
+                    if (value.is_number())
+                        given[setting] = value.get<double>();
+                o.tools[id] = toolValues(*tool, given);
+            }
     if (const auto it = json.find("laneController");
         it != json.end() && it->is_number_integer() && isController(it->get<int>()))
         o.lane.controller = it->get<int>();

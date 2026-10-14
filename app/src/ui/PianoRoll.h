@@ -97,6 +97,15 @@ public:
     [[nodiscard]] model::AutomationPoints copyPoints() const;
     bool pastePoints(const model::AutomationPoints& points, double seconds);
     void duplicatePoints();
+    // ---- the tools that transform and generate (§12, §23) --------------------------------------
+
+    /// What a tool works with here: the song's key, its bars, and (a generator) where it writes: the
+    /// selected notes' span, else the clip's loop, or the clip.
+    [[nodiscard]] model::ToolContext toolContext() const;
+    /// A tool's last settings (its defaults the first time), and keeping new ones.
+    [[nodiscard]] model::ToolValues toolValues(const model::ToolSpec& tool) const;
+    void setToolValues(const model::ToolSpec& tool, const model::ToolValues& values);
+
     /// Notes ▸ Re-roll chance (§10): the clip's notes decided again.
     void rerollChance();
 
