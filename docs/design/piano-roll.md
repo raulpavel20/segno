@@ -68,7 +68,7 @@ Checked against the vendors' manuals and release notes in October 2026: Live 12.
 ## 4. The clip view
 
 ```
-┌ Modules · Clip ───────────────── Draw Note ⌄   ● Key  Fold ⌄  ○ Others   ● Snap  1/16 ⌄   Quantise ┐ header
+┌ Modules · Clip ───────── Notes ⌄  Quantise   Draw Note ⌄  ● Key  Fold ⌄  ○ Others  ● Snap  1/16 ⌄ ┐ header
 ├──────────┬──────────────────────────────────────────────────────────────────────────────────────────┤
 │          │ ⟦ loop brace ⟧                                                                            │ loop strip
 │          │ 1          2          3           4          5                                           │ ruler (time handles, §9)
@@ -83,12 +83,13 @@ Checked against the vendors' manuals and release notes in October 2026: Live 12.
 └──────────┴──────────────────────────────────────────────────────────────────────────────────────────┘ Release, Pitch bend, Mod wheel…
 ```
 
-- **The header** keeps its tabs on the left and the view's options on the right, in today's look (`ViewOption`, `ViewChoice`, a command as a `Toggle`):
+- **The header** keeps its tabs on the left and, on the right, its commands, then the view's options, in today's look (`ViewOption`, `ViewChoice`, a command as a `Toggle`):
+  - **Notes ⌄** (the product owner's review of the mockup, 2026-10-14: every tool in the working area): a menu button, a command's look with a chevron, that opens the whole Notes menu (§13) under it. It's built by the same function as the menu bar's Notes, so the two never differ. A new shared component, `ui::MenuButton`, with ui-foundations.md;
   - **Draw** (§7.2): what a double-click draws, a note or the key's chord on it;
   - **Key** (§6): drawing and moving in the key; shown while the song has a key;
   - **Fold** (§6): every row, the key's rows, or the rows with notes;
   - **Others** (§8): the other tracks' notes, faint;
-  - **Snap** and the grid's step, as today; **Quantise**, as today.
+  - **Snap** and the grid's step, as today; **Quantise**, as today, beside Notes.
   - Hidden options take no room. At compact widths the header drops options in a set order (Others, then Fold, then Draw), each still in the View menu and the right-click menu.
 - **The chord lane** (§7) sits under the ruler: the chord names over the notes, and where chords are written.
 - **The bottom lane** shows velocity by default; its chooser (`Velocity ⌄`, in the keys' column) switches to chance, release velocity or a controller (§10, §11).
@@ -247,33 +248,30 @@ For the selected notes: **Pitch**, **Start**, **Length**, **Velocity**, **Releas
 
 ## 13. Menus, keys and actions (ADR 0040)
 
-A new **Notes** menu, between Clip and Song: the piano roll's commands have outgrown Clip ▸ Notes ▸. Every item acts on the selected notes (or all), and is dimmed with the reason when the clip view isn't showing a MIDI clip.
+A new **Notes** menu, between Clip and Song: the piano roll's commands have outgrown Clip ▸ Notes ▸. **The same menu opens from the clip view's Notes ⌄ button** (§4), so every tool is in reach where you work. Every item acts on the selected notes (or all), and is dimmed with the reason when the clip view isn't showing a MIDI clip. Related commands sit one level down, so the menu stays short enough to open over the piano roll.
 
 | Item | Shortcut |
 |---|---|
 | Quantise | Ctrl+U |
 | Quantise… | Ctrl+Shift+U |
 | — | |
-| Transpose up / down (a step of the scale with Key on) | ↑ / ↓ |
-| Transpose up / down a semitone | Ctrl+↑ / Ctrl+↓ |
-| Transpose up / down an octave | Shift+↑ / Shift+↓ |
+| Transpose ▸ (Up a step ↑, Down a step ↓; Up a semitone Ctrl+↑, Down a semitone Ctrl+↓; Up an octave Shift+↑, Down an octave Shift+↓) | as listed |
 | Fit to key | – |
 | — | |
 | Make chords | – |
 | Make chord… (the Chord popover) | – |
-| Invert up / down | Alt+Shift+↑ / Alt+Shift+↓ |
-| Voicing ▸ (Smooth, Close, Open, Drop 2, Drop 3, Spread) | – |
-| Add bass | – |
+| Chords ▸ (Invert up Alt+Shift+↑, Invert down Alt+Shift+↓; Smooth voicing, Close, Open, Drop 2, Drop 3, Spread; Add bass) | as listed |
 | — | |
 | Join | Ctrl+J |
-| Legato, Fixed length, Double speed, Half speed, Reverse, Mirror pitches | – |
+| Length ▸ (Legato, Fixed length, Double speed, Half speed) | – |
+| Reverse | – |
+| Mirror pitches | – |
 | — | |
 | Transform ▸ (Humanize…, Strum…, Arpeggiate…, Chop…, Ornament…, Velocity…, Span…, Randomise pitch…) | – |
 | Generate ▸ (Rhythm…, Melody…, Chords…, Bassline…) | – |
 | Re-roll chance | – |
 | — | |
 | Select ▸ (Same pitch, Outside the key, In the loop, Invert selection) | – |
-| — | |
 | Nudge later / earlier | → / ← |
 
 - Clip ▸ Notes ▸ moves here. Edit's Delete, Duplicate, Cut, Copy, Paste, Select all and Split at playhead act on notes when the clip view was used last, and Clip ▸ Mute clips (0) mutes notes then (§9.4): one action each, so no shortcut is doubled.
@@ -342,7 +340,7 @@ Each stage is built, reviewed in screenshots at standard and compact widths, and
 | N14 | **Chance** | Per note, with velocity spread; decided from a seed, the note and the lap, so every render matches playback; Re-roll for a new seed (§10) |
 | N15 | **Controller lanes** | In the bottom lane's chooser, edited as automation is; recorded controllers shown (§11) |
 | N16 | **Tools** | Popovers that preview live; Apply is one undo step, Escape undoes nothing; settings remembered (§12) |
-| N17 | **A Notes menu** | New, between Clip and Song; Clip ▸ Notes ▸ moves there (§13) |
+| N17 | **A Notes menu** | New, between Clip and Song; Clip ▸ Notes ▸ moves there; the same menu opens from a Notes ⌄ button in the clip view's header, so every tool is where you work (the product owner, 2026-10-14) (§4, §13) |
 | N18 | **Assistants** | The tools of §14 |
 | N19 | **Later** | Grooves, the drum view, MPE, multi-clip editing, step input, arpeggio chords, chance conditions (§16) |
 
