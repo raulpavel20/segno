@@ -677,6 +677,46 @@ TEST_CASE("piano roll revised: the chord kind and voicing in the header while dr
     CHECK(crowded(header, fd::ui::Theme::current().shell.itemGap).isEmpty());
 }
 
+TEST_CASE("piano roll: Make chords… lays out its cards on every open, the same size as before or not",
+          "[integration]")
+{
+    // The product owner's report: 9 notes, then 10, showed no cards, only the foot. The popover
+    // came out the same size (two rows of cards as wide), so it was never laid out again.
+    RollFixture f;
+    auto& roll = f.roll();
+    REQUIRE(f.session->setKey(Key{0, "minor"}));
+    std::vector<fd::model::Note> notes;
+    for (int k = 0; k < 10; ++k)
+        notes.push_back(
+            {std::array{48, 50, 51, 53, 55, 56, 58}[static_cast<std::size_t>(k % 7)] + 12 * (k / 7),
+             static_cast<double>(k), 1.0, 0.8f});
+    f.setNotes(notes);
+    click(roll, roll.pointFor(12.5, 72)); // the clip view used last
+    auto& popover = f.shell->makeChordsPopover();
+    for (const std::size_t count : {9u, 10u, 9u, 10u})
+    {
+        INFO(count << " notes");
+        std::set<std::size_t> selection;
+        for (std::size_t i = 0; i < count; ++i)
+            selection.insert(i);
+        roll.setSelection(selection);
+        REQUIRE(f.shell->actions().perform("notes.makeChords"));
+        REQUIRE(popover.cardCount() == count);
+        std::set<std::pair<int, int>> places;
+        for (std::size_t k = 0; k < count; ++k)
+        {
+            const auto* card = popover.card(k);
+            REQUIRE(card != nullptr);
+            CHECK(card->isVisible());
+            CHECK(card->getWidth() > 0);
+            CHECK(card->getHeight() > 0);
+            places.insert({card->getX(), card->getY()});
+        }
+        CHECK(places.size() == count); // each in a place of its own
+        popover.close();
+    }
+}
+
 TEST_CASE(
     "piano roll revised: Make chords… chord by chord; Change chord… for the selected chord (§20.3, §20.4)",
     "[integration]")

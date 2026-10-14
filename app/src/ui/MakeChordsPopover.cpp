@@ -187,6 +187,8 @@ void MakeChordsPopover::open(juce::Component& parent, juce::Rectangle<int> ancho
     }
     changed();
     reposition();
+    resized(); // the cards are new: laid out even when the size stays the same (9 notes, then 10)
+    viewport_.setViewPosition(0, 0);
     setVisible(true);
     toFront(true);
     grabKeyboardFocus(); // Return applies, Escape closes
