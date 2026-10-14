@@ -41,7 +41,9 @@ enum class Icon
     Plug,          // plugins: a plug with two prongs
     Folder,        // places and folders: a folder with its tab
     Move,          // a modulation source's handle, dragged onto a knob: four ways
-    Rack           // racks (the browser, racks.md §7): two modules stacked in a frame
+    Rack,          // racks (the browser, racks.md §7): two modules stacked in a frame
+    Lock,          // a rack's macro that recall, Morph and Vary leave alone (racks.md §18.4): a padlock
+    LockOpen       // one that they move: the padlock open, its shackle lifted on one side
 };
 
 /// Draws `icon` fitted (aspect kept) into `area` in `colour`.

@@ -102,6 +102,8 @@ struct RackMacro
     std::string name;   // "Macro 1" until renamed
     float value = 0.0f; // 0 ... 1
     std::vector<MacroMappingInfo> mappings;
+    bool locked = false;    // recall, Morph and Vary leave it alone (racks.md §18.4)
+    bool automated = false; // its lane plays: it follows that, as a locked one stays
 };
 
 /// One of a rack's chains: its mixer row and its modules, in order (racks.md §3).
@@ -117,9 +119,32 @@ struct RackChain
 struct RackInfo
 {
     static constexpr int macroCount = 8;
+    /// The rack's parameters are its macros, then Morph (racks.md §18.3).
+    static constexpr int morphParam = macroCount;
     std::vector<RackChain> chains;
     std::array<RackMacro, macroCount> macros;
     int shownChain = 0; // the chain its frame shows (view state, kept with the project)
+
+    /// A snapshot of the macros' positions, with a name (racks.md §18.2).
+    struct Snapshot
+    {
+        std::string name; // "Snapshot 1" until renamed
+        std::array<float, macroCount> macros{};
+        bool operator==(const Snapshot&) const = default;
+    };
+    static constexpr int maxSnapshots = 8;
+    std::vector<Snapshot> snapshots;
+    int currentSnapshot = -1; // the one last stored or recalled (-1: none)
+
+    /// Morph (racks.md §18.3): while on, the macros go from where snapshot `a` has them to where
+    /// `b` has them as `position` goes from 0 to 1.
+    struct Morph
+    {
+        bool on = false;
+        int a = -1, b = -1;    // snapshots (-1: none chosen)
+        float position = 0.0f; // the rack's `morph` parameter, 0 ... 1
+    };
+    Morph morph;
 };
 
 /// The level at the bottom of a fader: silence (-inf dB).

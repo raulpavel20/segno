@@ -8,11 +8,13 @@ namespace fd::app
 {
 /// A rack's macros and what they move (docs/design/racks.md §6): a module's editor in the detail
 /// panel (ADR 0053), its tab "Macros". Panes, left to right:
-///   - MACROS: the eight, to choose one; one that maps nothing yet recedes;
+///   - MACROS: the eight, to choose one, each with its lock (racks.md §18.4); one that maps
+///     nothing yet recedes;
 ///   - MAPPINGS: the chosen macro's, a row each: its module and parameter, From and To as bars in
 ///     the parameter's unit, Curve, and remove; + adds one;
 ///   - CURVES: every one of them drawn across the macro's travel, in its row's colour, the
-///     macro's position a line through them, and the macro itself as a bar under them.
+///     macro's position a line through them, and the macro itself as a bar under them; while
+///     Morph moves it, where A and B have it, as two faint lines (racks.md §18.7).
 /// Edits go to the host as they're made, each an undo step there.
 class MacroEditor final : public ui::ModuleEditor
 {
@@ -27,6 +29,8 @@ public:
     void setRack(const juce::String& name, const model::RackInfo& rack);
     void selectMacro(int macro);
     [[nodiscard]] int selectedMacro() const noexcept { return macro_; }
+    /// A macro's lock in MACROS (tests).
+    [[nodiscard]] ui::IconButton& lockButton(int macro) { return *locks_[static_cast<size_t>(macro)]; }
 
     [[nodiscard]] juce::String tabName() const override { return "Macros"; }
     [[nodiscard]] juce::String title() const override { return name_; }
@@ -40,6 +44,7 @@ public:
     /// "+": the host offers the rack's modules and their parameters.
     std::function<void(int macro)> onAddMapping;
     std::function<void(int macro, float value)> onMacroValue;
+    std::function<void(int macro, bool locked)> onLockMacro;
     /// A drag of a bar begins (true) and ends: one undo step between.
     std::function<void(bool started)> onGesture;
 
@@ -50,6 +55,8 @@ private:
     class MappingName;
     void rebuild();
     void wireGesture(ui::Knob& bar);
+    /// Where snapshots A and B have the chosen macro, while Morph moves it.
+    [[nodiscard]] std::optional<std::pair<float, float>> morphRange() const;
 
     ValueText valueText_;
     juce::String name_;
@@ -57,6 +64,7 @@ private:
     int macro_ = 0;
     int macrosPane_ = 0, mappingsPane_ = 0, curvesPane_ = 0;
     std::unique_ptr<ui::Selector> macros_;
+    std::vector<std::unique_ptr<ui::IconButton>> locks_; // a macro each
     std::vector<std::unique_ptr<juce::Component>> rows_;
     std::unique_ptr<Curves> curves_;
     ui::Knob value_;

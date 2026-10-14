@@ -84,6 +84,10 @@ public:
     std::function<void(bool hovered)> onHandleHover;
     /// A double-click on the source's handle (a rack's macro: rename it).
     std::function<void()> onHandleDoubleClick;
+    /// A lock after its name (a rack's macro that recall, Morph and Vary leave alone, racks.md
+    /// §18.4); the name is cut to leave room for it.
+    void setLocked(bool locked);
+    [[nodiscard]] bool isLocked() const noexcept { return locked_; }
 
     std::function<void(float)> onValueChange;
     std::function<void()> onGestureStart;
@@ -150,7 +154,7 @@ private:
     bool dragging_ = false;
     std::optional<Ring> ring_;
     bool dropTarget_ = false, dropCandidate_ = false, sourceHandle_ = false, handleLit_ = false,
-         handleHovered_ = false, following_ = false;
+         handleHovered_ = false, following_ = false, locked_ = false;
     enum class Press
     {
         Value,

@@ -19,13 +19,23 @@ public:
     [[nodiscard]] AutomationState automationState() const noexcept { return automation_; }
     /// A right-click: the control's menu (it doesn't toggle).
     std::function<void()> onPopupMenu;
+    /// A double-click (a name of your own: rename it).
+    std::function<void()> onDoubleClick;
+    /// Its text is a name of your own (a rack's snapshot, racks.md §18.2): cut to fit, as the
+    /// layout can't know how long it is.
+    void setCutsText(bool cuts);
+    /// What it names has changed since it was kept: the modified mark after the text, never cut
+    /// (as a preset's name in its field, ADR 0044). Cuts the text to leave room.
+    void setModified(bool modified);
+    [[nodiscard]] bool isModified() const noexcept { return modified_; }
 
     void paintButton(juce::Graphics& g, bool highlighted, bool down) override;
     void mouseDown(const juce::MouseEvent& e) override;
     void mouseUp(const juce::MouseEvent& e) override;
+    void mouseDoubleClick(const juce::MouseEvent& e) override;
 
 private:
     AutomationState automation_ = AutomationState::None;
-    bool popup_ = false, arm_ = false, partly_ = false;
+    bool popup_ = false, arm_ = false, partly_ = false, cuts_ = false, modified_ = false;
 };
 } // namespace fd::ui

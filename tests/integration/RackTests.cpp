@@ -397,11 +397,12 @@ TEST_CASE("racks: a rack's modules leave its macros behind; its own panel reads 
     const auto rack = s.groupIntoRack({utility});
     REQUIRE(s.mapMacro(rack, 0, utility, "gain", 0.2f, 0.8f));
     REQUIRE(s.setMacro(rack, 0, 0.5f));
-    // Its panel: the macros as parameters, 0 .. 100 %.
+    // Its panel: the macros as parameters, 0 .. 100 %, then Morph (racks.md §18.3).
     auto handle = s.openRack(rack);
     REQUIRE(handle != nullptr);
     CHECK(handle->deviceId() == "rack");
-    CHECK(handle->context().info.params.size() == 8);
+    REQUIRE(handle->context().info.params.size() == 9);
+    CHECK(handle->context().info.params[8].id == "morph");
     CHECK(handle->context().params.getPlain(0) == Approx(50.0f).margin(0.01f));
     handle->context().params.setPlain(0, 25.0f);
     CHECK(r.rack(rack).macros[0].value == Approx(0.25f).margin(1e-3));

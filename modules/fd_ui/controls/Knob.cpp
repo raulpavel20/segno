@@ -105,9 +105,22 @@ void Knob::paint(juce::Graphics& g)
     if (sourceHandle_)
     {
         // A source (a macro): its name is its handle, lit while hovered or showing what it moves;
-        // a name of your own is cut to fit.
-        g.setColour(handleLit_ || handleHovered_ ? t.effectEnd : (hot ? t.textPrimary : t.textSecondary));
-        g.drawText(name_, nameArea, juce::Justification::centred, true);
+        // a name of your own is cut to fit, before its lock if it has one.
+        const auto colour =
+            handleLit_ || handleHovered_ ? t.effectEnd : (hot ? t.textPrimary : t.textSecondary);
+        g.setColour(colour);
+        if (locked_)
+        {
+            // The name and the lock centred together; the lock never cut.
+            const float icon = nameFont.getHeight() * 0.8f, gap = static_cast<float>(t.shell.itemGap);
+            const float text = std::min(juce::GlyphArrangement::getStringWidth(nameFont, name_),
+                                        nameArea.getWidth() - icon - gap);
+            auto both = nameArea.withSizeKeepingCentre(text + gap + icon, nameArea.getHeight());
+            g.drawText(name_, both.removeFromLeft(text), juce::Justification::centredLeft, true);
+            drawIcon(g, Icon::Lock, both.removeFromRight(icon).withSizeKeepingCentre(icon, icon), colour);
+        }
+        else
+            g.drawText(name_, nameArea, juce::Justification::centred, true);
     }
     else
         g.drawText(name_, nameArea, juce::Justification::centred, false);
@@ -237,6 +250,14 @@ void Knob::setDropCandidate(bool candidate)
         dropCandidate_ = candidate;
         repaint();
     }
+}
+
+void Knob::setLocked(bool locked)
+{
+    if (locked == locked_)
+        return;
+    locked_ = locked;
+    repaint();
 }
 
 void Knob::setSourceHandle(bool shown, bool lit)

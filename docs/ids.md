@@ -52,7 +52,8 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 
 ## Racks ([racks.md](design/racks.md), ADR 0056; approved 2026-10-14, permanent)
 
-- A rack is a module of type `rack` (`DeviceSlot::deviceId`, MCP's `type`). Its macros are its parameters `macro1` … `macro8`, 0 to 100 %, automated as `m<rack id>/macro<n>`.
+- A rack is a module of type `rack` (`DeviceSlot::deviceId`, MCP's `type`). Its macros are its parameters `macro1` … `macro8`, 0 to 100 %, automated as `m<rack id>/macro<n>`; then `morph`, 0 to 100 % (step 2, racks.md §18.3, approved 2026-10-14), automated as `m<rack id>/morph`.
+- A rack panel's sections (view state): `macros`, `snapshots`, `morph`, `chains`.
 - In a project, a rack's chains are kept on its modules' places in tracktion's rack (`fdChain`, `fdChainMixer`, `fdChainName`, `fdChainOn`, `fdChainSolo`) and its shown chain on the rack (`fdShownChain`).
 
 ## Parameter level

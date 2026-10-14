@@ -49,6 +49,11 @@ public:
     [[nodiscard]] juce::Component* powerToggle() const noexcept { return power_; }
     /// Binds the power toggle to another parameter (none: no toggle), e.g. the selected EQ band.
     void setPowerParam(std::optional<size_t> param);
+    /// A power toggle for state that isn't a parameter (a rack's Morph, racks.md §18.3): `isOn`
+    /// says whether it's on, read on every refresh; a click asks `onChange` to change it, and the
+    /// toggle shows what `isOn` then says. Dims the content while off, as a parameter's does.
+    void setPowerSwitch(std::function<bool()> isOn, std::function<void(bool on)> onChange,
+                        const juce::String& tooltip);
 
     // ---- placement, in cells (each checks the grid rules) --------------------------------
 
@@ -101,6 +106,7 @@ private:
     juce::String title_;
     int columns_;
     std::optional<size_t> powerParam_;
+    std::function<bool()> powerOn_;    // a power switch's state, when it isn't a parameter
     juce::Component* power_ = nullptr; // owned by the panel
     bool collapsed_ = false;
 

@@ -28,6 +28,28 @@ void Toggle::setPartlyOn(bool partly)
     repaint();
 }
 
+void Toggle::setCutsText(bool cuts)
+{
+    if (cuts == cuts_)
+        return;
+    cuts_ = cuts;
+    repaint();
+}
+
+void Toggle::setModified(bool modified)
+{
+    if (modified == modified_)
+        return;
+    modified_ = modified;
+    repaint();
+}
+
+void Toggle::mouseDoubleClick(const juce::MouseEvent& e)
+{
+    if (onDoubleClick && !e.mods.isPopupMenu())
+        onDoubleClick();
+}
+
 void Toggle::mouseDown(const juce::MouseEvent& e)
 {
     popup_ = e.mods.isPopupMenu();
@@ -105,7 +127,12 @@ void Toggle::paintButton(juce::Graphics& g, bool highlighted, bool down)
 
     g.setColour(on ? t.onActive : (highlighted ? t.textPrimary : t.textSecondary));
     g.setFont(font(TextStyle::Control));
-    g.drawText(getButtonText(), getLocalBounds(), juce::Justification::centred, false);
+    if (cuts_ || modified_)
+        paintNameWithMark(g, getButtonText(), modified_,
+                          getLocalBounds().reduced(t.shell.buttonTextPadding, 0),
+                          juce::Justification::centred);
+    else
+        g.drawText(getButtonText(), getLocalBounds(), juce::Justification::centred, false);
     paintAutomationIndicator(g, {3.5f, 3.5f}, automation_); // over the corner
 }
 } // namespace fd::ui

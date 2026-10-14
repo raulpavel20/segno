@@ -95,6 +95,7 @@ Each control is placed by its top-left cell and its span: `(column, row, columns
   - **Id:** lowercase, stored in projects and plugin state, so never renamed (`docs/ids.md`).
   - **Title:** short, usually one noun (SHAPE, COLOR, OUTPUT). A section can retitle itself (the EQ's BAND 3).
 - **Power:** optional, in the title row, bound to an on/off parameter. When off, the section's content is drawn at 35 % (the title and the power stay bright). Controls the module dims for other reasons inside it aren't dimmed twice.
+  - Where what it switches isn't a parameter (a rack's Morph, racks.md §18.3), `PanelSection::setPowerSwitch` takes whether it's on and what a click asks for instead; it looks and dims the same.
 - **Collapse:** click the title, or press Return when it has focus. Alt+click collapses or expands every section of the module.
   - A collapsed section is a 24 px strip with its title rotated. The power toggle stays at the top of the strip.
   - Its controls keep working (automation, MCP); only the view changes.

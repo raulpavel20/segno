@@ -3,7 +3,9 @@
 #include "model/Snapshot.h"
 
 #include <algorithm>
+#include <cmath>
 #include <functional>
+#include <string>
 
 namespace fd::model
 {
@@ -71,5 +73,66 @@ inline void forEachDevice(const std::vector<DeviceSlot>& chain,
     x = std::clamp(x, 0.0f, 1.0f);
     const float k = std::clamp(curve, -1.0f, 1.0f);
     return from + (to - from) * (x * (1.0f - x) * (1.0f - k) + x * x);
+}
+
+// ---- snapshots and Morph (racks.md §18) ------------------------------------------------------
+
+/// Whether recall, Morph and Vary leave a macro alone: it's locked, or it follows its lane
+/// (racks.md §18.4).
+[[nodiscard]] inline bool macroHeld(const RackInfo& rack, int macro) noexcept
+{
+    if (macro < 0 || macro >= RackInfo::macroCount)
+        return true;
+    const auto& m = rack.macros[static_cast<size_t>(macro)];
+    return m.locked || m.automated;
+}
+
+/// Whether Morph is on between two snapshots there are (racks.md §18.3).
+[[nodiscard]] inline bool morphing(const RackInfo& rack) noexcept
+{
+    const int n = static_cast<int>(rack.snapshots.size());
+    return rack.morph.on && rack.morph.a >= 0 && rack.morph.a < n && rack.morph.b >= 0 && rack.morph.b < n;
+}
+
+/// Whether Morph sets a macro now: it's morphing, and the macro isn't held.
+[[nodiscard]] inline bool morphSets(const RackInfo& rack, int macro) noexcept
+{
+    return morphing(rack) && !macroHeld(rack, macro);
+}
+
+/// Where Morph puts a macro with Morph at `position` (0 ... 1): straight from where snapshot A has
+/// it to where B has it.
+[[nodiscard]] inline float morphPosition(const RackInfo& rack, int macro, float position) noexcept
+{
+    const auto i = static_cast<size_t>(std::clamp(macro, 0, RackInfo::macroCount - 1));
+    const float a = rack.snapshots[static_cast<size_t>(rack.morph.a)].macros[i];
+    const float b = rack.snapshots[static_cast<size_t>(rack.morph.b)].macros[i];
+    return a + (b - a) * std::clamp(position, 0.0f, 1.0f);
+}
+
+/// Whether the macros have moved from the current snapshot (its changed mark, §18.2): a macro a
+/// recall would move isn't where the snapshot has it. Never while there's no current one.
+[[nodiscard]] inline bool snapshotChanged(const RackInfo& rack) noexcept
+{
+    if (rack.currentSnapshot < 0 || rack.currentSnapshot >= static_cast<int>(rack.snapshots.size()))
+        return false;
+    const auto& s = rack.snapshots[static_cast<size_t>(rack.currentSnapshot)];
+    for (int i = 0; i < RackInfo::macroCount; ++i)
+        if (!macroHeld(rack, i) &&
+            std::abs(rack.macros[static_cast<size_t>(i)].value - s.macros[static_cast<size_t>(i)]) > 0.0005f)
+            return true;
+    return false;
+}
+
+/// The name a new snapshot gets: "Snapshot n", the first n no snapshot is called.
+[[nodiscard]] inline std::string newSnapshotName(const RackInfo& rack)
+{
+    for (int n = 1;; ++n)
+    {
+        auto name = "Snapshot " + std::to_string(n);
+        if (std::none_of(rack.snapshots.begin(), rack.snapshots.end(),
+                         [&](const RackInfo::Snapshot& s) { return s.name == name; }))
+            return name;
+    }
 }
 } // namespace fd::model

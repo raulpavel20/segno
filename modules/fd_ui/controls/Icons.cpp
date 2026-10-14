@@ -262,6 +262,22 @@ Glyph glyph(Icon icon)
         g.solid.addEllipse(4.0f, 3.9f, 2.0f, 2.0f);
         g.solid.addEllipse(4.0f, 10.15f, 2.0f, 2.0f);
         break;
+    case Icon::Lock:
+        // A padlock: its shackle over its body.
+        p.startNewSubPath(5.0f, 7.0f);
+        p.lineTo(5.0f, 5.0f);
+        p.cubicTo(5.0f, 1.0f, 11.0f, 1.0f, 11.0f, 5.0f);
+        p.lineTo(11.0f, 7.0f);
+        g.solid.addRoundedRectangle(3.0f, 7.0f, 10.0f, 7.5f, 1.5f);
+        break;
+    case Icon::LockOpen:
+        // The shackle lifted clear of the body on its right.
+        p.startNewSubPath(5.0f, 7.0f);
+        p.lineTo(5.0f, 3.5f);
+        p.cubicTo(5.0f, -0.5f, 11.0f, -0.5f, 11.0f, 3.5f);
+        p.lineTo(11.0f, 4.5f);
+        g.solid.addRoundedRectangle(3.0f, 7.0f, 10.0f, 7.5f, 1.5f);
+        break;
     case Icon::Move:
         // A cross with an arrowhead at each end.
         p.startNewSubPath(8.0f, 2.0f);

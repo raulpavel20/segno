@@ -87,9 +87,11 @@ private:
 class MacroEditor::Curves final : public juce::Component
 {
 public:
-    void show(const model::RackMacro& macro)
+    /// `morph`: where snapshots A and B have the macro, while Morph moves it.
+    void show(const model::RackMacro& macro, std::optional<std::pair<float, float>> morph)
     {
         macro_ = macro;
+        morph_ = morph;
         repaint();
     }
 
@@ -108,13 +110,28 @@ public:
             g.drawVerticalLine(juce::roundToInt(area.getX() + area.getWidth() * f), area.getY(),
                                area.getBottom());
         }
-        if (macro_.mappings.empty())
-            return;
         const auto at = [&](float x, float y)
         {
             return juce::Point<float>(area.getX() + x * area.getWidth(),
                                       area.getBottom() - y * area.getHeight());
         };
+        // Where Morph takes the macro from and to: faint lines, their letters at the top.
+        if (morph_)
+            for (const auto& [x, letter] : {std::pair{morph_->first, "A"}, std::pair{morph_->second, "B"}})
+            {
+                const float lineX = at(x, 0.0f).x;
+                g.setColour(t.textTertiary);
+                g.drawVerticalLine(juce::roundToInt(lineX), area.getY(), area.getBottom());
+                const float w = static_cast<float>(t.deviceGrid.displayTextHeight);
+                const float gap = static_cast<float>(t.shell.itemGap);
+                ui::paintCapsLabel(
+                    g, letter,
+                    juce::Rectangle<float>(w, w).withPosition(
+                        std::clamp(lineX + gap, area.getX(), area.getRight() - w), area.getY()),
+                    juce::Justification::centredLeft);
+            }
+        if (macro_.mappings.empty())
+            return;
         for (size_t i = 0; i < macro_.mappings.size(); ++i)
         {
             const auto& m = macro_.mappings[i];
@@ -146,6 +163,7 @@ public:
 
 private:
     model::RackMacro macro_;
+    std::optional<std::pair<float, float>> morph_;
 };
 
 MacroEditor::MacroEditor(ValueText valueText)
@@ -177,6 +195,18 @@ MacroEditor::MacroEditor(ValueText valueText)
             onMacroValue(macro_, v);
     };
     place(curvesPane_, value_, 0, -1, 0, 1, Kind::Line);
+
+    for (int i = 0; i < model::RackInfo::macroCount; ++i)
+    {
+        auto& lock = *locks_.emplace_back(std::make_unique<ui::IconButton>(ui::Icon::Lock));
+        lock.setClickingTogglesState(true);
+        lock.setWantsKeyboardFocus(false);
+        lock.onClick = [this, i, &lock]
+        {
+            if (onLockMacro)
+                onLockMacro(i, lock.getToggleState());
+        };
+    }
 }
 
 MacroEditor::~MacroEditor() = default;
@@ -209,11 +239,20 @@ void MacroEditor::setRack(const juce::String& name, const model::RackInfo& rack)
     name_ = name;
     rack_ = rack;
     if (dragging_) // a bar being dragged: only the curves follow
-        curves_->show(rack_.macros[static_cast<size_t>(macro_)]);
+        curves_->show(rack_.macros[static_cast<size_t>(macro_)], morphRange());
     else
         rebuild();
     if (onTitleChanged)
         onTitleChanged();
+}
+
+std::optional<std::pair<float, float>> MacroEditor::morphRange() const
+{
+    if (!model::morphSets(rack_, macro_))
+        return std::nullopt;
+    const auto i = static_cast<size_t>(macro_);
+    return std::pair{rack_.snapshots[static_cast<size_t>(rack_.morph.a)].macros[i],
+                     rack_.snapshots[static_cast<size_t>(rack_.morph.b)].macros[i]};
 }
 
 void MacroEditor::selectMacro(int macro)
@@ -252,7 +291,20 @@ void MacroEditor::rebuild()
         b->setAlpha(count == 0 ? t.roles.fadedAlpha : 1.0f);
     }
     addAndMakeVisible(*macros_);
-    place(macrosPane_, *macros_, 0, 0, 0, model::RackInfo::macroCount, Kind::Line);
+    place(macrosPane_, *macros_, 0, 0, 2, model::RackInfo::macroCount, Kind::Line);
+    // Each one's lock beside it: recall, Morph and Vary leave a locked macro alone.
+    for (int i = 0; i < model::RackInfo::macroCount; ++i)
+    {
+        auto& lock = *locks_[static_cast<size_t>(i)];
+        const bool locked = rack_.macros[static_cast<size_t>(i)].locked;
+        lock.setToggleState(locked, juce::dontSendNotification);
+        lock.setIcon(locked ? ui::Icon::Lock : ui::Icon::LockOpen); // open while recall and Morph move it
+        lock.setTooltip(names[i] +
+                        (locked ? ": locked. Snapshots, Morph and Vary leave it alone; click to unlock"
+                                : ": click to lock it, so snapshots, Morph and Vary leave it alone"));
+        addAndMakeVisible(lock);
+        place(macrosPane_, lock, 2, i, 1, 1, Kind::Line);
+    }
 
     // Its mappings, a row each.
     const auto& macro = rack_.macros[static_cast<size_t>(macro_)];
@@ -335,7 +387,7 @@ void MacroEditor::rebuild()
         place(mappingsPane_, make(std::move(remove)), 9, row, 1, 1, Kind::Line);
     }
 
-    curves_->show(macro);
+    curves_->show(macro, morphRange());
     value_.setName(names[macro_]);
     value_.setTooltip(names[macro_] + ": where it is now (its knob in the rack's panel)");
     value_.setValue(macro.value, juce::dontSendNotification);

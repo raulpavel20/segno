@@ -2151,8 +2151,10 @@ TEST_CASE(
     const auto refused = daw.call("set_parameters", {{"module", util}, {"values", {{"gain", -3}}}});
     REQUIRE(refused["problems"].size() == 1);
     CHECK(refused["problems"][0]["problem"].get<std::string>().find("set by macro 1") != std::string::npos);
-    // The rack's macros are its parameters too.
-    CHECK(daw.call("get_module", {{"module", rackId}})["parameters"].size() == 8);
+    // The rack's macros are its parameters too, then Morph (racks.md §18.3).
+    const auto rackParams = daw.call("get_module", {{"module", rackId}})["parameters"];
+    REQUIRE(rackParams.size() == 9);
+    CHECK(rackParams[8]["id"] == "morph");
     daw.call("set_parameters", {{"module", rackId}, {"values", {{"macro1", 50}}}});
     CHECK(daw.call("get_rack", {{"rack", rackId}})["macros"][0]["value"] == 50.0);
     CHECK(daw.call("unmap_macro", {{"module", util}, {"parameter", "gain"}})["unmapped"] == true);

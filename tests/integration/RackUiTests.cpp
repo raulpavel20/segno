@@ -11,6 +11,7 @@
 #include "ui/MacroEditor.h"
 #include "ui/RackPanel.h"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <cstdlib>
 #include <fd/device/Registry.h>
@@ -62,8 +63,14 @@ struct RackBinding final : fd::ui::ParamBinding
             return it->second;
         return std::nullopt;
     }
+    fd::ui::AutomationState automationState(size_t i) const override
+    {
+        const auto it = automated.find(i);
+        return it != automated.end() ? it->second : fd::ui::AutomationState::None;
+    }
     fd::ParamStore& store;
     std::map<size_t, MacroMapping> mapped;
+    std::map<size_t, fd::ui::AutomationState> automated;
 };
 
 /// A module's presets as the DAW has them, none loaded: its header has its preset bar there.
@@ -511,6 +518,7 @@ struct Fixture
                         c->refresh();
         for (int i = 0; i < model::RackInfo::macroCount; ++i)
             rack->macroKnob(i).refresh();
+        rack->morphKnob().refresh();
     }
 
     /// The pointer on macro `macro`'s name: the knobs it sets lit, the other macros' rings dimmed
@@ -732,6 +740,231 @@ TEST_CASE("racks, drawn for review: the macro editor, narrow and wide (racks.md 
     editor.setSize(editor.minimumWidth(), editor.minimumHeight());
     lint(editor);
     dump("rack-macro-editor-none", editor);
+}
+
+// ---- step 2: snapshots, Morph and locks (racks.md §18) ------------------------------------------
+
+namespace
+{
+/// `rack` with snapshots named `names`, the first where the macros are; each next one moves the
+/// three mapped macros along (Cut, Wash and Drive).
+model::RackInfo withSnapshots(model::RackInfo rack, const std::vector<std::string>& names)
+{
+    for (size_t n = 0; n < names.size(); ++n)
+    {
+        model::RackInfo::Snapshot s{.name = names[n]};
+        for (size_t i = 0; i < 3; ++i)
+            s.macros[i] = std::clamp(
+                rack.macros[i].value + 0.12f * static_cast<float>(n) * (i == 1 ? -1.0f : 1.0f), 0.0f, 1.0f);
+        rack.snapshots.push_back(s);
+    }
+    rack.currentSnapshot = 0;
+    rack.morph.a = names.size() > 1 ? 0 : -1;
+    rack.morph.b = names.size() > 1 ? 1 : -1;
+    return rack;
+}
+} // namespace
+
+TEST_CASE("racks step 2, drawn for review: snapshots, Morph and locks in every state (racks.md §18.11)",
+          "[ui]")
+{
+    Fixture f;
+    const auto morphParam = static_cast<size_t>(model::RackInfo::morphParam);
+    // As the host shows the macros while Morph sets them: each follows it, its range A to B a ring.
+    const auto showMorph = [&](const model::RackInfo& r)
+    {
+        f.macroBinding.mapped.clear();
+        for (int i = 0; i < model::RackInfo::macroCount; ++i)
+        {
+            if (!model::morphSets(r, i))
+                continue;
+            const auto& a = r.snapshots[static_cast<size_t>(r.morph.a)];
+            const auto& b = r.snapshots[static_cast<size_t>(r.morph.b)];
+            f.macroBinding.mapped[static_cast<size_t>(i)] = {
+                juce::String::fromUTF8(("Morph: " + a.name + " \xe2\x86\x92 " + b.name).c_str()),
+                a.macros[static_cast<size_t>(i)], b.macros[static_cast<size_t>(i)]};
+            f.macroStore.set(static_cast<size_t>(i), 100.0f * model::morphPosition(r, i, r.morph.position));
+        }
+        f.macroStore.set(morphParam, 100.0f * r.morph.position);
+    };
+    const auto shotOf = [&](const model::RackInfo& r, const juce::String& name)
+    {
+        showMorph(r);
+        f.show(r);
+        f.shot(name);
+    };
+
+    // No snapshots: the panel as step 1 left it.
+    f.show(f.info);
+    CHECK_FALSE(f.rack->findSection("snapshots")->isVisible());
+    CHECK_FALSE(f.rack->findSection("morph")->isVisible());
+
+    // One: SNAPSHOTS shows, the current one lit; no MORPH yet (it needs two).
+    {
+        const auto one = withSnapshots(f.info, {"Verse"});
+        f.show(one);
+        CHECK(f.rack->findSection("snapshots")->isVisible());
+        CHECK_FALSE(f.rack->findSection("morph")->isVisible());
+        CHECK(f.rack->snapshotButton(0).getToggleState());
+        CHECK_FALSE(f.rack->snapshotButton(0).isModified());
+        CHECK(f.rack->storeButton().isVisible());
+        shotOf(one, "snapshots-one");
+    }
+
+    // Three, the current one changed since: its mark. MORPH shows, off: the macros are free.
+    {
+        auto three = withSnapshots(f.info, {"Verse", "Build", "Drop"});
+        three.currentSnapshot = 1;
+        three.morph.b = 2;
+        f.show(three);
+        CHECK(f.rack->findSection("morph")->isVisible());
+        CHECK(f.rack->snapshotButton(1).getToggleState());
+        CHECK(f.rack->snapshotButton(1).isModified()); // Build moves the macros; they're where Verse is
+        CHECK_FALSE(f.rack->findSection("morph")->isPoweredOn());
+        CHECK(f.rack->morphA().getText() == "Verse");
+        CHECK(f.rack->morphB().getText() == "Drop");
+        CHECK_FALSE(f.rack->macroKnob(0).isFollowing());
+        shotOf(three, "snapshots-three-changed");
+    }
+
+    // Eight: room for no more, so no "+ Store".
+    {
+        const auto eight = withSnapshots(
+            f.info, {"Intro", "Verse", "Build", "Drop", "Break", "Verse 2", "Build 2", "Outro"});
+        f.show(eight);
+        CHECK_FALSE(f.rack->storeButton().isVisible());
+        shotOf(eight, "snapshots-eight");
+    }
+
+    // Morph on, Verse to Drop at 40 %: every macro it sets follows it, its range a ring; no
+    // snapshot is lit, Morph puts the macros where they are.
+    auto morph = withSnapshots(f.info, {"Verse", "Build", "Drop"});
+    morph.morph = {.on = true, .a = 0, .b = 2, .position = 0.4f};
+    {
+        showMorph(morph);
+        f.show(morph);
+        CHECK(f.rack->findSection("morph")->isPoweredOn());
+        for (int i : {0, 1, 2})
+        {
+            INFO("macro " << i);
+            CHECK(f.rack->macroKnob(i).isFollowing());
+            CHECK(f.rack->macroKnob(i).ring().has_value());
+            CHECK(f.rack->macroKnob(i).getTooltip().startsWith(
+                juce::String::fromUTF8("Set by Morph: Verse \xe2\x86\x92 Drop.")));
+        }
+        CHECK_FALSE(f.rack->snapshotButton(0).getToggleState());
+        CHECK(f.rack->morphKnob().getValue() == Catch::Approx(0.4f));
+        f.shot("morph-on");
+        // Automated: Morph's knob says so, as any automated parameter's does.
+        f.macroBinding.automated[morphParam] = fd::ui::AutomationState::On;
+        f.refreshPanels();
+        f.rack->morphKnob().refresh();
+        CHECK(f.rack->morphKnob().automationState() == fd::ui::AutomationState::On);
+        f.shot("morph-automated");
+        f.macroBinding.automated.clear();
+        f.refreshPanels();
+        // Hovering Morph's name: it's lit, and so are the macros it moves.
+        f.rack->setMorphLit(true);
+        for (int i : {0, 1, 2})
+            f.rack->macroKnob(i).setSourceHandle(true, true);
+        f.shot("morph-hover");
+        f.rack->setMorphLit(false);
+    }
+
+    // Drive locked: a lock after its name; Morph leaves it alone, so it's free, without a ring.
+    {
+        auto locked = morph;
+        locked.macros[2].locked = true;
+        showMorph(locked);
+        f.show(locked);
+        f.rack->macroKnob(2).refresh();
+        CHECK(f.rack->macroKnob(2).isLocked());
+        CHECK_FALSE(f.rack->macroKnob(2).isFollowing());
+        CHECK(f.rack->macroKnob(0).isFollowing());
+        f.shot("locked");
+        // Off again: the macros stay where Morph left them, free.
+        locked.morph.on = false;
+        showMorph(locked);
+        f.show(locked);
+        f.refreshPanels();
+        CHECK_FALSE(f.rack->macroKnob(0).isFollowing());
+        CHECK_FALSE(f.rack->findSection("morph")->isPoweredOn());
+        f.shot("morph-off-locked");
+    }
+
+    // Folded: what it holds, as before; its snapshots don't fit the strip, and aren't what tells
+    // racks apart there.
+    {
+        const auto three = withSnapshots(f.info, {"Verse", "Build", "Drop"});
+        showMorph(three);
+        f.show(three);
+        f.rack->setFolded(true);
+        f.chain.layout();
+        CHECK(fd::app::rackContents(three) == "2 chains");
+        f.shot("folded-snapshots");
+        f.rack->setFolded(false);
+    }
+    f.macroBinding.mapped.clear();
+    f.show(f.info);
+}
+
+TEST_CASE(
+    "racks step 2, drawn for review: the macro editor's locks, and A and B in its curves (racks.md §18.7)",
+    "[ui]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    SegnoLook look;
+    Module filter{11, "filter"}, delay{12, "delay"};
+    model::RackInfo info;
+    info.chains = {{.name = "Main", .devices = {filter.slot(), delay.slot()}}};
+    info.macros[0] = {
+        .name = "Cut",
+        .value = 0.44f,
+        .mappings = {{.module = 11, .param = "freq", .paramName = "Freq", .from = 1.0f, .to = 0.3f}}};
+    info.macros[1] = {
+        .name = "Wash",
+        .value = 0.46f,
+        .mappings = {{.module = 12, .param = "mix", .paramName = "Dry/Wet", .from = 0.1f, .to = 0.6f},
+                     {.module = 12,
+                      .param = "feedback",
+                      .paramName = "Feedback",
+                      .from = 0.2f,
+                      .to = 0.75f,
+                      .curve = -0.5f}}};
+    info.macros[2] = {.name = "Drive", .value = 0.7f, .locked = true};
+    info.snapshots = {{.name = "Verse", .macros = {0.2f, 0.25f, 0.7f}},
+                      {.name = "Drop", .macros = {0.8f, 0.8f, 0.7f}}};
+    info.morph = {.on = true, .a = 0, .b = 1, .position = 0.4f};
+    fd::app::MacroEditor editor(
+        [&](const model::MacroMappingInfo& m, float v)
+        {
+            for (auto* mod : {&filter, &delay})
+                if (mod->id == m.module)
+                {
+                    const auto& spec = mod->context->info.params[mod->param(m.param)];
+                    return juce::String(spec.toText(spec.fromNormalized(v)));
+                }
+            return juce::String();
+        });
+    editor.setRack("Verse to drop", info);
+    editor.selectMacro(1);
+    CHECK(editor.lockButton(2).getToggleState());
+    CHECK_FALSE(editor.lockButton(1).getToggleState());
+    for (const auto& [w, name] :
+         {std::pair{editor.minimumWidth(), juce::String("compact")}, std::pair{1400, juce::String("wide")}})
+    {
+        editor.setSize(w, editor.minimumHeight());
+        lint(editor);
+        dump("rack-macro-editor-morph-" + name, editor);
+    }
+    // A click on a lock asks the host to lock it.
+    std::optional<std::pair<int, bool>> asked;
+    editor.onLockMacro = [&](int macro, bool locked) { asked = {macro, locked}; };
+    editor.lockButton(0).triggerClick();
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    REQUIRE(asked);
+    CHECK(asked->first == 0);
+    CHECK(asked->second);
 }
 
 // ---- the chain view itself, on a session (step 1) ---------------------------------------------

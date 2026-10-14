@@ -18,14 +18,15 @@ constexpr std::string_view kMacroDescription =
     "A macro: moves the parameters mapped to it, each over its own range. Drag its name onto a knob in the "
     "rack to map it.";
 
-const std::array<ParamSpec, model::RackInfo::macroCount> kMacroSpecs = []
+// The rack's parameters: its eight macros, then Morph (racks.md §18.3).
+const std::array<ParamSpec, model::RackInfo::macroCount + 1> kMacroSpecs = []
 {
     static constexpr std::array<std::string_view, model::RackInfo::macroCount> ids{
         "macro1", "macro2", "macro3", "macro4", "macro5", "macro6", "macro7", "macro8"};
     static constexpr std::array<std::string_view, model::RackInfo::macroCount> names{
         "Macro 1", "Macro 2", "Macro 3", "Macro 4", "Macro 5", "Macro 6", "Macro 7", "Macro 8"};
-    std::array<ParamSpec, model::RackInfo::macroCount> specs;
-    for (size_t i = 0; i < specs.size(); ++i)
+    std::array<ParamSpec, model::RackInfo::macroCount + 1> specs;
+    for (size_t i = 0; i < ids.size(); ++i)
         specs[i] = {.id = ids[i],
                     .name = names[i],
                     .shortName = names[i],
@@ -34,6 +35,16 @@ const std::array<ParamSpec, model::RackInfo::macroCount> kMacroSpecs = []
                     .unit = Unit::Percent,
                     .decimals = 0,
                     .description = kMacroDescription};
+    specs[model::RackInfo::morphParam] = {
+        .id = "morph",
+        .name = "Morph",
+        .shortName = "Morph",
+        .min = 0.0f,
+        .max = 100.0f,
+        .unit = Unit::Percent,
+        .decimals = 0,
+        .description =
+            "Morph: while it's on, takes the macros from where snapshot A has them to where B has them."};
     return specs;
 }();
 

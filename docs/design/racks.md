@@ -122,7 +122,7 @@ The product owner's requirement (2026-10-14): **the rack's UI must be very solid
     - Hovering a macro lights the knobs it moves and dims the rest, as modulation sources do.
     - Hovering a mapped knob lights its macro.
     - A mapped knob always shows its ring and its tooltip says which macro sets it, so a knob that won't move is never a mystery.
-  - **One word for each thing,** everywhere (panel, menus, tooltips, MCP, docs): **rack**, **chain**, **macro**, **map**. No synonyms ("layer", "container", "group" only in "Group into rack").
+  - **One word for each thing,** everywhere (panel, menus, tooltips, MCP, docs): **rack**, **chain**, **macro**, **map**, and from step 2 **snapshot**, **Morph**, **lock** (§18). No synonyms ("layer", "container", "variation", "preset" for a rack or a snapshot, "group" only in "Group into rack").
   - **Nothing hidden that changes the sound.** Solo is lit wherever the chain shows, and a muted chain is dimmed in the list and on its frame.
 - **Tried before sign-off.** The product owner does a set of tasks unaided:
   - make a rack from three modules;
@@ -339,6 +339,12 @@ Sources: [Ableton's Macros and Variations FAQ](https://help.ableton.com/hc/en-us
 
 ### 18.2 Snapshots
 
+- **A saved rack and a snapshot are two different things, and never called by each other's name:**
+  - **a saved rack** is the whole rack: its chains, its modules and their settings, its macros and their mappings. It's a file of its own, found in the browser (§7);
+  - **a snapshot** is where the rack's eight macro knobs are, nothing else. It lives inside one rack, on its panel.
+
+  Two versions that differ in anything not on a macro are two racks.
+- **Racks have no presets** in the sense modules do (a preset field in the header, browsing in place). Considered after approval and declined by the product owner (2026-10-14): presets of a rack would hide what belongs to what. Each saved rack is a rack of its own.
 - **A snapshot is the positions of the rack's eight macros, with a name.** A rack keeps up to eight.
 - **Store:** Module > Store snapshot, the rack's right-click, a macro's right-click, or "+ Store" in SNAPSHOTS once there's one. It takes every macro where it is, named "Snapshot 1", "Snapshot 2"… until renamed, and becomes the current one.
 - **Recall:** a click on a snapshot's name. Every macro jumps to where the snapshot has it, except locked and automated ones (§18.4). There's no glide: Morph is the glide.
@@ -398,9 +404,9 @@ Sources: [Ableton's Macros and Variations FAQ](https://help.ableton.com/hc/en-us
 ```
 
 - **SNAPSHOTS,** 4 columns. It shows once there's a snapshot, as CHAINS shows from the second chain, so a rack without snapshots looks as it does now. Names sit two to a row, four rows, room for eight. "+ Store" takes the next free place until there are eight.
-- **MORPH,** 2 columns, shows from the second snapshot: its power dot in the title, the Morph knob (the macros' knob, since Morph is a macro of macros), then A and B as dropdowns with their letter inside ("A  Verse"), as combos name their parameter inside.
+- **MORPH,** 3 columns, shows from the second snapshot: its power dot in the title, the Morph knob centred (the macros' knob, since Morph is a macro of macros), then A and B under it as dropdowns with their letter inside ("A  Verse"), as combos name their parameter inside.
 - **Everything is from the panel kit:** the chain list's choice buttons, `Knob`, `ChoiceBox` with its name inside, the section power dot, and the changed mark from the preset bar. The layout lint checks it.
-- **Folded,** the strip still says what's inside, and adds snapshots: "Verse to drop  2 chains · 3 snapshots".
+- **Folded,** the strip says what's inside as before ("2 chains"); its snapshots don't fit there (§18.11, "Drawn").
 
 ### 18.7 The macro editor
 
@@ -494,6 +500,13 @@ Sources: [Ableton's Macros and Variations FAQ](https://help.ableton.com/hc/en-us
     - hovering Morph;
     - Vary dimmed while Morph is on;
     - the editor's locks and its A and B lines.
+- **Drawn (2a, 2026-10-14),** with the panel kit, from a stub (`tests/integration/RackUiTests.cpp`, "racks step 2, drawn for review"), every state checked by the layout lint. What drawing settled:
+  - **MORPH is 3 columns, not 2:** its knob centred over A and B. In 2 columns it sat in the left one beside an empty one.
+  - **The folded strip** doesn't add the snapshots: "2 chains · 3 snapshots" was cut to "3 snaps…". What a rack holds is what tells racks apart there.
+  - **While Morph is on, no snapshot is lit:** Morph puts the macros where they are, not a snapshot.
+  - **Morph's name lights** as a macro's does: hovered, it and the macros it moves are lit.
+  - **The editor's locks** show the padlock open while a macro is free and closed, lit, while it's locked. A closed padlock on every row read as eight locked macros.
+  - **The kit gained:** `PanelSection::setPowerSwitch` (a section's power for state that isn't a parameter), `Toggle::setCutsText` and `setModified` (a name of your own and its changed mark), `Knob::setLocked`, `Icon::Lock` and `Icon::LockOpen`. The rack's parameters gained `morph` after the macros.
 - **2b. Snapshots, locks, Morph and Vary,** with the menus, MCP and files.
 - **2c. The factory racks and the preview,** signed off by ear.
 - **Hands-on tasks before sign-off**, done unaided as in §5a:

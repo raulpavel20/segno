@@ -29,6 +29,7 @@ void PanelSection::setPowerParam(std::optional<size_t> param)
         panel_.destroy(power_);
         power_ = nullptr;
     }
+    powerOn_ = nullptr;
     powerParam_ = param;
     if (powerParam_)
     {
@@ -36,6 +37,25 @@ void PanelSection::setPowerParam(std::optional<size_t> param)
         power.setButtonText({}); // a square toggle without text draws as a power dot
         power_ = &power;
     }
+    resized();
+    refresh();
+    repaint();
+}
+
+void PanelSection::setPowerSwitch(std::function<bool()> isOn, std::function<void(bool on)> onChange,
+                                  const juce::String& tooltip)
+{
+    setPowerParam(std::nullopt);
+    powerOn_ = std::move(isOn);
+    auto& power = panel_.adopt(std::make_unique<Toggle>(), *this); // text-less: a power dot
+    power.setTooltip(tooltip);
+    power.onClick = [this, &power, change = std::move(onChange)]
+    {
+        if (change)
+            change(power.getToggleState());
+        refresh(); // shows what the state now says
+    };
+    power_ = &power;
     resized();
     refresh();
     repaint();
@@ -67,11 +87,16 @@ void PanelSection::setCollapsed(bool collapsed, bool byUser)
 
 bool PanelSection::isPoweredOn() const
 {
+    if (powerOn_)
+        return powerOn_();
     return !powerParam_ || panel_.context().params.getPlain(*powerParam_) >= 0.5f;
 }
 
 void PanelSection::refresh()
 {
+    if (powerOn_ && power_ != nullptr)
+        if (auto* toggle = dynamic_cast<Toggle*>(power_))
+            toggle->setToggleState(powerOn_(), juce::dontSendNotification);
     const float alpha = isPoweredOn() ? 1.0f : 0.35f;
     if (content_.getAlpha() != alpha)
         content_.setAlpha(alpha);
