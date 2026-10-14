@@ -1,6 +1,7 @@
 #include "model/NoteEditing.h"
 
 #include "model/Grid.h"
+#include "model/NoteTools.h"
 
 #include <algorithm>
 #include <cmath>
@@ -100,11 +101,51 @@ std::set<std::size_t> valid(const std::vector<Note>& notes, const std::set<std::
             out.insert(i);
     return out;
 }
+
+/// Where a drag moves the selected notes' pitches: by rows (semitones, or the rows In key shows);
+/// limited so every note stays on a row.
+std::map<std::size_t, int> movedPitches(const std::vector<Note>& notes, const std::set<std::size_t>& sel,
+                                        const NoteDrag& drag)
+{
+    std::map<std::size_t, int> out;
+    if (drag.rows != nullptr && !drag.rows->empty())
+    {
+        const auto& rows = *drag.rows;
+        const auto rowOf = [&](int pitch)
+        {
+            const auto it = std::lower_bound(rows.begin(), rows.end(), pitch);
+            return static_cast<int>(
+                std::min<std::ptrdiff_t>(it - rows.begin(), static_cast<std::ptrdiff_t>(rows.size()) - 1));
+        };
+        int lowest = static_cast<int>(rows.size()), highest = 0;
+        for (auto i : sel)
+        {
+            lowest = std::min(lowest, rowOf(notes[i].pitch));
+            highest = std::max(highest, rowOf(notes[i].pitch));
+        }
+        const int by = std::clamp(drag.deltaPitch, -lowest, static_cast<int>(rows.size()) - 1 - highest);
+        for (auto i : sel)
+            out[i] = by == 0 ? notes[i].pitch : rows[static_cast<std::size_t>(rowOf(notes[i].pitch) + by)];
+        return out;
+    }
+    int lowest = 127, highest = 0;
+    for (auto i : sel)
+    {
+        lowest = std::min(lowest, notes[i].pitch);
+        highest = std::max(highest, notes[i].pitch);
+    }
+    const int dp = std::clamp(drag.deltaPitch, -lowest, 127 - highest);
+    for (auto i : sel)
+        out[i] = notes[i].pitch + dp;
+    return out;
+}
 } // namespace
 
 bool noteOrder(const Note& a, const Note& b) noexcept
 {
-    return std::tie(a.start, a.pitch, a.length, a.velocity) < std::tie(b.start, b.pitch, b.length, b.velocity);
+    return std::tie(a.start, a.pitch, a.length, a.velocity, a.muted, a.chance, a.velocitySpread,
+                    a.releaseVelocity) < std::tie(b.start, b.pitch, b.length, b.velocity, b.muted, b.chance,
+                                                  b.velocitySpread, b.releaseVelocity);
 }
 
 float midiVelocity(float velocity) noexcept
@@ -130,7 +171,19 @@ double BeatGrid::next(double beat) const noexcept
 
 int NoteGeometry::pitchForY(double y) const noexcept
 {
-    return static_cast<int>(std::ceil(topEdge - y / rowHeight)) - 1;
+    const int row = static_cast<int>(std::ceil(topEdge - y / rowHeight)) - 1;
+    if (rows == nullptr)
+        return row;
+    if (rows->empty())
+        return 60;
+    return (*rows)[static_cast<std::size_t>(std::clamp(row, 0, static_cast<int>(rows->size()) - 1))];
+}
+
+int NoteGeometry::rowOf(int pitch) const noexcept
+{
+    if (rows == nullptr)
+        return pitch;
+    return static_cast<int>(std::lower_bound(rows->begin(), rows->end(), pitch) - rows->begin());
 }
 
 std::optional<NoteHit> hitNote(const std::vector<Note>& notes, const NoteGeometry& geometry, double x, double y,
@@ -165,21 +218,22 @@ NoteEdit dragNotes(const std::vector<Note>& notes, const std::set<std::size_t>& 
     case NoteDragKind::Move:
     {
         double shift = grid.round(a.start + drag.deltaBeats) - a.start;
-        int lowest = 127, highest = 0;
         double earliest = a.start;
         for (auto i : sel)
-        {
             earliest = std::min(earliest, notes[i].start);
-            lowest = std::min(lowest, notes[i].pitch);
-            highest = std::max(highest, notes[i].pitch);
-        }
         shift = std::max(shift, -earliest);
-        const int dp = std::clamp(drag.deltaPitch, -lowest, 127 - highest);
+        const auto pitches = movedPitches(notes, sel, drag);
         for (auto i : sel)
         {
             items[i].note.start += shift;
-            items[i].note.pitch += dp;
+            items[i].note.pitch = pitches.at(i);
         }
+        if (drag.copy)
+            for (auto i : sel)
+            {
+                items.push_back(items[i]);
+                items[i] = {notes[i], false};
+            }
         break;
     }
     case NoteDragKind::ResizeEnd:
@@ -213,6 +267,14 @@ NoteEdit dragNotes(const std::vector<Note>& notes, const std::set<std::size_t>& 
     }
     resolve(items);
     return collect(std::move(items));
+}
+
+int draggedPitch(const std::vector<Note>& notes, const std::set<std::size_t>& selection, const NoteDrag& drag)
+{
+    const auto sel = valid(notes, selection);
+    if (!sel.contains(drag.anchor))
+        return drag.anchor < notes.size() ? notes[drag.anchor].pitch : 60;
+    return movedPitches(notes, sel, drag).at(drag.anchor);
 }
 
 NoteEdit addNote(const std::vector<Note>& notes, const Note& note)
@@ -303,19 +365,7 @@ NoteEdit nudgeNotes(const std::vector<Note>& notes, const std::set<std::size_t>&
 
 NoteEdit quantiseNotes(const std::vector<Note>& notes, const std::set<std::size_t>& selection, const BeatGrid& grid)
 {
-    auto targets = valid(notes, selection);
-    const bool all = targets.empty();
-    if (all)
-        for (std::size_t i = 0; i < notes.size(); ++i)
-            targets.insert(i);
-    auto items = itemsOf(notes, targets);
-    for (auto i : targets)
-        items[i].note.start = std::max(0.0, grid.round(notes[i].start));
-    resolve(items);
-    auto out = collect(std::move(items));
-    if (all)
-        out.selection.clear();
-    return out;
+    return quantiseNotes(notes, selection, grid, QuantiseSettings{});
 }
 
 std::set<std::size_t> notesInBox(const std::vector<Note>& notes, double beat0, double beat1, int pitch0, int pitch1)
@@ -332,24 +382,56 @@ std::set<std::size_t> notesInBox(const std::vector<Note>& notes, double beat0, d
     return out;
 }
 
-std::vector<Note> paintVelocity(const std::vector<Note>& notes, double beat0, double beat1, float velocity,
-                                const std::set<std::size_t>* only)
+float levelOf(const Note& note, NoteLevel level) noexcept
+{
+    switch (level)
+    {
+    case NoteLevel::Chance:
+        return note.chance;
+    case NoteLevel::Release:
+        return note.releaseVelocity;
+    case NoteLevel::Velocity:
+    default:
+        return note.velocity;
+    }
+}
+
+void setLevel(Note& note, NoteLevel level, float value) noexcept
+{
+    value = std::clamp(value, 0.0f, 1.0f);
+    switch (level)
+    {
+    case NoteLevel::Chance:
+        note.chance = std::round(value * 100.0f) / 100.0f;
+        break;
+    case NoteLevel::Release:
+        note.releaseVelocity = std::round(value * 127.0f) / 127.0f;
+        break;
+    case NoteLevel::Velocity:
+    default:
+        note.velocity = midiVelocity(std::max(value, 1.0f / 127.0f));
+        break;
+    }
+}
+
+std::vector<Note> paintLevel(const std::vector<Note>& notes, double beat0, double beat1, float value,
+                             const std::set<std::size_t>* only, NoteLevel level)
 {
     const double lo = std::min(beat0, beat1), hi = std::max(beat0, beat1);
-    const float v = midiVelocity(velocity);
     auto out = notes;
     for (std::size_t i = 0; i < out.size(); ++i)
         if ((only == nullptr || only->contains(i)) && out[i].start >= lo && out[i].start <= hi)
-            out[i].velocity = v;
+            setLevel(out[i], level, value);
     return out;
 }
 
-std::vector<Note> offsetVelocity(const std::vector<Note>& notes, const std::set<std::size_t>& which, float delta)
+std::vector<Note> offsetLevel(const std::vector<Note>& notes, const std::set<std::size_t>& which, float delta,
+                              NoteLevel level)
 {
     auto out = notes;
     for (auto i : which)
         if (i < out.size())
-            out[i].velocity = midiVelocity(std::clamp(notes[i].velocity + delta, 1.0f / 127.0f, 1.0f));
+            setLevel(out[i], level, levelOf(notes[i], level) + delta);
     return out;
 }
 

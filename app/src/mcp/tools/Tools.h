@@ -44,6 +44,9 @@ void addBrowserTools(Registry& registry, ToolEnv& env);
 void addGridTools(Registry& registry, ToolEnv& env);
 void addKeyTools(Registry& registry, ToolEnv& env);
 void addRackTools(Registry& registry, ToolEnv& env);
+void addChordTools(Registry& registry, ToolEnv& env);
+void addControllerTools(Registry& registry, ToolEnv& env);
+void addToolkitTools(Registry& registry, ToolEnv& env);
 void addResources(Registry& registry, ToolEnv& env);
 void addPrompts(Registry& registry);
 /// Everything above.
@@ -153,6 +156,11 @@ Json sectionsOf(ToolEnv& env, engine::DeviceHandle& handle);
 /// create_midi_clip). New notes win where they overlap notes of the same pitch; notes past the
 /// clip's end lengthen it as in the piano roll (B15). Returns {clip, written, lengthened}.
 Json writeNotes(ToolEnv& env, const model::ClipInfo& clip, const Json& notes, bool replace);
+/// The notes a `where` argument picks in a clip: "all", or a filter by pitch and time.
+std::set<std::size_t> selectNotes(ToolEnv& env, const model::ClipInfo& clip, const Json& where);
+/// The `where` argument's schema, and the result of a tool that writes notes.
+Json whereSchema();
+Json notesResult();
 
 /// Result schemas shared between tools.
 Json clipResultSchema();
@@ -166,6 +174,10 @@ double clipStartBeat(ToolEnv& env, const model::ClipInfo& clip);
 /// the clip's start in its content, or a looped clip's loop start (ADR 0048: notes count from it).
 double noteOffsetBeats(ToolEnv& env, const model::ClipInfo& clip);
 Json noteJson(const model::Note& note, double offsetBeats);
+/// A controller as tools write it (piano-roll.md §11): a CC's number, "pitch_bend" or "aftertouch";
+/// and back from a number, those words or a name ("mod_wheel", "sustain"), else a Problem.
+Json controllerJson(int controller);
+int controllerArg(const Json& value);
 /// dB for results: rounded to 0.1, null for -inf.
 Json db(double value);
 } // namespace tools

@@ -459,6 +459,7 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
     viewport_.setScrollBarsShown(true, false);
     addAndMakeVisible(viewport_);
     wireSection();
+    wireNotes();
     body_.addAndMakeVisible(mix_);
     body_.addAndMakeVisible(sends_);
 
@@ -787,6 +788,237 @@ void InspectorPanel::wireSection()
     }
 }
 
+namespace
+{
+/// A note typed as a name with its octave ("C3", "F#4", "Bb2"; C3 = 60) or a number.
+std::optional<double> pitchFromText(const juce::String& text)
+{
+    const auto t = text.trim();
+    if (t.isEmpty())
+        return std::nullopt;
+    if (t.containsOnly("0123456789"))
+        return t.getDoubleValue();
+    int split = t.length();
+    while (split > 0 && juce::CharacterFunctions::isDigit(t[split - 1]))
+        --split;
+    if (split > 0 && t[split - 1] == '-')
+        --split;
+    if (split == 0 || split == t.length())
+        return std::nullopt;
+    const auto pc = music::parsePitchClass(t.substring(0, split).toStdString());
+    if (!pc)
+        return std::nullopt;
+    return static_cast<double>(*pc + (t.substring(split).getIntValue() + 2) * 12);
+}
+} // namespace
+
+void InspectorPanel::wireNotes()
+{
+    using F = model::NoteField;
+    for (auto [field, kind] : {std::pair{&notePitch_, F::Pitch}, std::pair{&noteStart_, F::Start},
+                               std::pair{&noteLength_, F::Length}, std::pair{&noteVelocity_, F::Velocity},
+                               std::pair{&noteSpread_, F::Spread}, std::pair{&noteRelease_, F::Release},
+                               std::pair{&noteChance_, F::Chance}})
+    {
+        // MIDI values in whole steps; chance in whole percent; times free.
+        const bool midi = kind == F::Pitch || kind == F::Velocity || kind == F::Spread || kind == F::Release;
+        field->setFontSize(ui::Theme::current().textXs);
+        field->setRange(kind == F::Velocity ? 1.0 : 0.0,
+                        midi                ? 127.0
+                        : kind == F::Chance ? 100.0
+                                            : 4096.0 * 4.0,
+                        midi || kind == F::Chance ? 1.0 : 0.0);
+        field->setDragSensitivity(kind == F::Pitch ? 0.2 : midi || kind == F::Chance ? 0.5 : 1.0 / 16.0);
+        field->textFromValue = [this, kind](double v)
+        {
+            const auto one = [this, kind](double value) -> juce::String
+            {
+                switch (kind)
+                {
+                case F::Pitch:
+                {
+                    const auto& key = roll_ != nullptr ? roll_->key() : std::nullopt;
+                    return juce::String::fromUTF8(
+                        music::noteName(key ? &*key : nullptr, static_cast<int>(std::lround(value))).c_str());
+                }
+                case F::Start:
+                    return juce::String(
+                        model::positionText(roll_ != nullptr ? roll_->songBeat(value) : value, tempo_));
+                case F::Length:
+                    return juce::String(model::lengthText(value, tempo_));
+                case F::Chance:
+                    return juce::String(juce::roundToInt(value)) + " %";
+                case F::Spread:
+                    return juce::String::fromUTF8("± ") + juce::String(juce::roundToInt(value));
+                case F::Velocity:
+                case F::Release:
+                    break;
+                }
+                return juce::String(juce::roundToInt(value));
+            };
+            // Several notes: their range, as far apart as they are.
+            const auto spread = notesSpread_.contains(kind) ? notesSpread_.at(kind) : 0.0;
+            return spread > 1e-9 ? one(v) + juce::String::fromUTF8(" – ") + one(v + spread) : one(v);
+        };
+        field->valueFromText = [this, kind](const juce::String& text) -> std::optional<double>
+        {
+            switch (kind)
+            {
+            case F::Pitch:
+                return pitchFromText(text);
+            case F::Start:
+            {
+                const auto beat = model::positionFromText(text.trim().toLowerCase().toStdString(), tempo_);
+                return beat && roll_ != nullptr ? std::optional(*beat - roll_->songBeat(0.0)) : beat;
+            }
+            case F::Length:
+                return model::lengthFromText(text.trim().toLowerCase().toStdString(), tempo_);
+            case F::Velocity:
+            case F::Spread:
+            case F::Release:
+            case F::Chance:
+                break;
+            }
+            // A number, as it's shown ("50 %", "± 10") or bare.
+            const auto number =
+                text.trim().trimCharactersAtEnd("% ").trimCharactersAtStart(juce::String::fromUTF8("± +"));
+            if (number.containsOnly("0123456789") && number.isNotEmpty())
+                return number.getDoubleValue();
+            return std::nullopt;
+        };
+        field->onGestureStart = [this, field]
+        {
+            if (roll_ == nullptr)
+                return;
+            notesGesture_.emplace(session_, "Edit notes");
+            notesBase_ = model::NoteEdit{roll_->notes(), roll_->selection()};
+            notesFrom_ = field->getValue();
+        };
+        field->onGestureEnd = [this]
+        {
+            notesGesture_.reset();
+            notesBase_.reset();
+            updateNotes();
+        };
+        field->onValueChange = [this, kind](double v)
+        {
+            if (roll_ == nullptr || !roll_->hasSelection())
+                return;
+            // A drag moves every note by the same amount; a value typed sets them all.
+            if (notesBase_)
+                roll_->applyEdit(
+                    model::offsetNotesField(notesBase_->notes, notesBase_->selection, kind, v - notesFrom_));
+            else
+                roll_->applyEdit(model::setNotesField(roll_->notes(), roll_->selection(), kind, v));
+        };
+        body_.addChildComponent(*field);
+    }
+    notePitch_.setTooltip("The notes' pitch: drag, or type a note (\"C3\", \"F#4\") or a number");
+    noteStart_.setTooltip("Where the notes start: drag, or type \"2.1.1\"; several move together");
+    noteLength_.setTooltip("How long the notes last: drag, or type \"1/8\" or \"1 beat\"");
+    noteVelocity_.setTooltip("How hard the notes are played, 1 to 127: drag, or type a number");
+    noteSpread_.setTooltip("How far the notes' velocity may move up or down each time they play, 0 to 127");
+    noteRelease_.setTooltip("How fast the notes are let go (their note-off velocity), 0 to 127: some "
+                            "instruments use it");
+    noteChance_.setTooltip("How likely the notes are to play each time they come round, in percent; "
+                           "Notes > Re-roll chance decides again");
+    noteMute_.setClickingTogglesState(false);
+    noteMute_.setTooltip("Mute the notes: they stay, drawn hollow, and don't play (0)");
+    noteMute_.onClick = [this]
+    {
+        if (roll_ != nullptr)
+            roll_->toggleMute();
+    };
+    body_.addChildComponent(noteMute_);
+}
+
+void InspectorPanel::setPianoRoll(PianoRoll& roll)
+{
+    roll_ = &roll;
+}
+
+ui::NumberField& InspectorPanel::noteField(model::NoteField field) noexcept
+{
+    switch (field)
+    {
+    case model::NoteField::Pitch:
+        return notePitch_;
+    case model::NoteField::Start:
+        return noteStart_;
+    case model::NoteField::Length:
+        return noteLength_;
+    case model::NoteField::Spread:
+        return noteSpread_;
+    case model::NoteField::Release:
+        return noteRelease_;
+    case model::NoteField::Chance:
+        return noteChance_;
+    case model::NoteField::Velocity:
+        break;
+    }
+    return noteVelocity_;
+}
+
+bool InspectorPanel::showsNotes() const
+{
+    return roll_ != nullptr && roll_->clip() && clip_ && clip_->id == roll_->clip()->id &&
+           roll_->hasSelection();
+}
+
+juce::String InspectorPanel::notesTitle() const
+{
+    if (roll_ == nullptr)
+        return "Notes";
+    const auto dot = juce::String::fromUTF8(" · ");
+    juce::String title =
+        "Notes" + dot + juce::String(static_cast<int>(roll_->selection().size())) + " selected";
+    std::vector<int> pitches;
+    for (auto i : roll_->selection())
+        if (i < roll_->notes().size())
+            pitches.push_back(roll_->notes()[i].pitch);
+    if (const auto chord = music::nameChord(pitches))
+    {
+        const auto& key = roll_->key();
+        title << dot << juce::String::fromUTF8(music::chordName(*chord, key ? &*key : nullptr).c_str());
+    }
+    return title;
+}
+
+void InspectorPanel::updateNotes()
+{
+    using S = model::InspectorSection;
+    std::erase(sections_, S::Notes);
+    const bool shown = showsNotes();
+    if (shown)
+    {
+        const auto clip = std::find(sections_.begin(), sections_.end(), S::Clip);
+        sections_.insert(clip == sections_.end() ? sections_.begin() : clip + 1, S::Notes);
+    }
+    for (auto* c :
+         std::initializer_list<juce::Component*>{&notePitch_, &noteStart_, &noteLength_, &noteVelocity_,
+                                                 &noteSpread_, &noteRelease_, &noteChance_, &noteMute_})
+        c->setVisible(shown);
+    if (!shown || notesGesture_)
+        return;
+    for (auto field : {model::NoteField::Pitch, model::NoteField::Start, model::NoteField::Length,
+                       model::NoteField::Velocity, model::NoteField::Spread, model::NoteField::Release,
+                       model::NoteField::Chance})
+        if (const auto range = model::fieldRange(roll_->notes(), roll_->selection(), field))
+        {
+            notesSpread_[field] = range->second - range->first;
+            noteField(field).setValue(range->first, juce::dontSendNotification);
+            noteField(field).repaint();
+        }
+    noteMute_.setToggleState(roll_->allMuted(), juce::dontSendNotification);
+}
+
+void InspectorPanel::notesChanged()
+{
+    updateNotes();
+    resized();
+    repaint();
+}
+
 void InspectorPanel::setContext(const model::PanelContext& context, const model::TempoMap& tempo,
                                 const std::vector<model::TrackInfo>& returns)
 {
@@ -925,6 +1157,7 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
     input_.setVisible(has(model::InspectorSection::Input));
     mix_.setChannel(has(model::InspectorSection::Mix) ? channel_ : std::nullopt);
     sends_.setChannel(has(model::InspectorSection::Sends) ? channel_ : std::nullopt, returns);
+    updateNotes();
     resized();
     repaint();
 }
@@ -1128,6 +1361,11 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
     case S::Sections:
         return {{"Selected", juce::String(sectionCount_), true}};
     case S::Clips: return {{"Selected", juce::String(clipCount_), true}};
+    case S::Notes: // the fields, the mute (piano-roll.md §9.6)
+        return {{"Pitch", {}, false, "pitch"},   {"Start", {}, false, "start"},
+                {"Length", {}, false, "length"}, {"Velocity", {}, false, "velocity"},
+                {"Spread", {}, false, "spread"}, {"Release", {}, false, "release"},
+                {"Chance", {}, false, "chance"}, {"Mute", {}, false, "mute"}};
     case S::Takes: return {{"Selected", juce::String(takeCount_), true}};
     case S::Track:
         if (!channel_)
@@ -1193,7 +1431,7 @@ int InspectorPanel::layoutSections(int width)
                            : s == S::Assignments ? assignments_.preferredHeight()
                            : s == S::Input       ? input_.preferredHeight()
                                                  : static_cast<int>(properties(s).size()) * t.shell.rowHeight;
-        sections.push_back({titles.at(s), height});
+        sections.push_back({s == S::Notes ? notesTitle() : titles.at(s), height});
     }
     const int height = stack_.layout(r, sections).getY() + t.shell.padding;
     mix_.setBounds({});
@@ -1248,8 +1486,9 @@ int InspectorPanel::layoutSections(int width)
             clipColour_.setBounds(row("colour"));
             toggle(clipLoop_, "loop");
             toggle(clipMute_, "mute");
-            loopStart_.setBounds(row("loopStart"));
-            loopLength_.setBounds(row("loopLength"));
+            // A field's text lines up with the values painted in the rows above it.
+            loopStart_.setBounds(row("loopStart").withTrimmedLeft(-ui::NumberField::textInset));
+            loopLength_.setBounds(row("loopLength").withTrimmedLeft(-ui::NumberField::textInset));
             // A fade's length, then its curve, halves of the value column.
             const int half = (content.getWidth() - t.shell.itemGap) / 2;
             for (const auto& [length, curve, key] : {std::tuple{&fadeIn_, &fadeInCurve_, "fadeIn"}, std::tuple{&fadeOut_, &fadeOutCurve_, "fadeOut"}})
@@ -1263,6 +1502,25 @@ int InspectorPanel::layoutSections(int width)
             crossOutShape_.setBounds(row("crossOutShape").reduced(0, t.shell.propertyFieldInset));
             crossOutPlace_.setBounds(row("crossOutPlace").reduced(0, t.shell.propertyFieldInset));
         }
+        else if (sections_[i] == S::Notes) // its fields, then Mute
+        {
+            const auto content = stack_.content(i).withTrimmedLeft(t.shell.propertyLabelWidth);
+            const auto row = [&](int n)
+            { return content.withY(content.getY() + n * t.shell.rowHeight).withHeight(t.shell.rowHeight); };
+            // A field's text lines up with the values painted in the rows above it.
+            const auto field = [&](int n)
+            { return row(n).withLeft(row(n).getX() - ui::NumberField::textInset); };
+            notePitch_.setBounds(field(0));
+            noteStart_.setBounds(field(1));
+            noteLength_.setBounds(field(2));
+            noteVelocity_.setBounds(field(3));
+            noteSpread_.setBounds(field(4));
+            noteRelease_.setBounds(field(5));
+            noteChance_.setBounds(field(6));
+            noteMute_.setBounds(row(7)
+                                    .withWidth(ui::Toggle::widthFor(noteMute_.getButtonText()))
+                                    .reduced(0, t.shell.propertyFieldInset));
+        }
         else if (sections_[i] == S::Section) // Name, Colour, Start, Length
         {
             const auto content = stack_.content(i).withTrimmedLeft(t.shell.propertyLabelWidth);
@@ -1275,14 +1533,15 @@ int InspectorPanel::layoutSections(int width)
             };
             sectionName_.setBounds(row("name").reduced(0, t.shell.propertyFieldInset));
             sectionColour_.setBounds(row("colour"));
-            sectionStart_.setBounds(row("start"));
-            sectionLength_.setBounds(row("length"));
+            sectionStart_.setBounds(row("start").withTrimmedLeft(-ui::NumberField::textInset));
+            sectionLength_.setBounds(row("length").withTrimmedLeft(-ui::NumberField::textInset));
         }
         else if (sections_[i] == S::Point) // the Value row
-            pointValue_.setBounds(stack_.content(i)
-                                      .withTrimmedLeft(t.shell.propertyLabelWidth)
-                                      .withY(stack_.content(i).getY() + t.shell.rowHeight)
-                                      .withHeight(t.shell.rowHeight));
+            pointValue_.setBounds(
+                stack_.content(i)
+                    .withTrimmedLeft(t.shell.propertyLabelWidth - ui::NumberField::textInset)
+                    .withY(stack_.content(i).getY() + t.shell.rowHeight)
+                    .withHeight(t.shell.rowHeight));
     return height;
 }
 
@@ -1308,7 +1567,7 @@ void InspectorPanel::paintSections(juce::Graphics& g)
 // ---- DetailPanel ---------------------------------------------------------------------------
 
 DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions)
-    : actions_(actions), chain_(session, actions), roll_(session), audio_(session)
+    : actions_(actions), chain_(session, actions), roll_(session), tools_(roll_, session), audio_(session)
 {
     header_.onTabSelected = [this](int tab)
     {
@@ -1328,12 +1587,89 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
         if (editor_ != nullptr && module == editorModule_)
             closeEditor();
     };
+    // The Notes menu, then Quantise (piano-roll.md §4).
+    notes_.setTooltip("Every tool for notes: the Notes menu");
+    notes_.onClick = [this]
+    {
+        if (notesMenu)
+            notes_.showMenu(notesMenu());
+    };
+    notes_.setSize(notes_.preferredWidth(), ui::Theme::current().shell.rowHeight);
+    header_.addCommand(notes_);
+    notes_.setVisible(false);
     quantise_.setClickingTogglesState(false);
     quantise_.setWantsKeyboardFocus(false);
     quantise_.onClick = [this] { actions_.perform("notes.quantise"); };
     quantise_.setSize(ui::Toggle::widthFor(quantise_.getButtonText()), ui::Theme::current().shell.rowHeight);
     header_.addCommand(quantise_);
     quantise_.setVisible(false);
+    // Transform and Generate (§25): the Tools pane on their tab; clicked again, it closes.
+    for (auto [button, icon, tab, tip] :
+         {std::tuple{&transform_, ui::Icon::Transform, model::ToolKind::Transform,
+                     "The tools that change notes: Quantise, Strum, Arpeggiate, Make chords and more"},
+          std::tuple{&generate_, ui::Icon::Generate, model::ToolKind::Generate,
+                     "The tools that write notes: a rhythm, a melody, chords, a bassline"}})
+    {
+        button->setIcon(icon);
+        button->setClickingTogglesState(false);
+        button->setWantsKeyboardFocus(false);
+        button->setTooltip(tip);
+        button->onClick = [this, kind = tab]
+        { showTools(toolsShown(kind) ? std::nullopt : std::optional(kind)); };
+        button->setSize(ui::Toggle::widthFor(button->getButtonText(), true),
+                        ui::Theme::current().shell.rowHeight);
+        header_.addCommand(*button);
+        button->setVisible(false);
+    }
+    addChildComponent(tools_);
+    tools_.onEscape = [this] { showTools(std::nullopt); };
+    tools_.onTabChanged = [this](model::ToolKind tab) { showTools(tab); };
+    // The piano roll's options; at compact widths Others, then Fold, the voicing, Draw and last the
+    // kinds give way (§4, §20.2).
+    draw_.setTooltip("What a double-click draws: a note, the key's chord on it, or the key's chord under it");
+    draw_.onClick = [this] { draw_.showMenu(roll_.drawMenu()); };
+    // While drawing chords: the kind, one click each, and the voicing (§20.2).
+    {
+        juce::StringArray kinds;
+        for (auto shape : {music::ChordShape::Triad, music::ChordShape::Seventh, music::ChordShape::Ninth,
+                           music::ChordShape::Sus2, music::ChordShape::Sus4, music::ChordShape::Add9})
+            kinds.add(model::chordShapeName(shape));
+        drawKind_.setItems(kinds);
+    }
+    drawKind_.setTitle("The chords drawn");
+    drawKind_.onChange = [this](int index)
+    {
+        auto style = roll_.options().chord;
+        style.shape = static_cast<music::ChordShape>(index);
+        roll_.setChordStyle(style);
+    };
+    drawVoicing_.setTooltip(
+        "How the chords drawn are voiced: Smooth moves least from the chord before; and their inversion");
+    drawVoicing_.onClick = [this] { drawVoicing_.showMenu(roll_.voicingMenu()); };
+    inKey_.setClickingTogglesState(false);
+    inKey_.onClick = [this] { roll_.setInKey(!roll_.inKey()); };
+    others_.setClickingTogglesState(false);
+    others_.onClick = [this] { roll_.setOthers(!roll_.options().others); };
+    // Right-click: which tracks, one by one (§8); also View > Other tracks' notes.
+    others_.onPopupMenu = [this]
+    { roll_.othersMenu().showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&others_)); };
+    for (auto* option : {&draw_, &drawVoicing_})
+        option->setVisible(false);
+    drawKind_.setVisible(false);
+    header_.addOption(draw_);
+    header_.addOption(drawKind_);
+    header_.addOption(drawVoicing_);
+    header_.addOption(inKey_);
+    header_.addOption(others_);
+    inKey_.setVisible(false);
+    others_.setVisible(false);
+    header_.setDropOrder(others_, 1);
+    header_.setDropOrder(drawVoicing_, 2);
+    header_.setDropOrder(draw_, 3);
+    header_.setDropOrder(drawKind_, 4);
+    header_.setDropOrder(generate_, 5); // the commands that open the Tools pane go last (§25)
+    header_.setDropOrder(transform_, 6);
+    roll_.onOptionsChanged = [this] { updateOptions(); };
     snap_.setClickingTogglesState(false); // the piano roll's, which the Session keeps
     snap_.onClick = [this] { roll_.setSnapEnabled(!roll_.isSnapEnabled()); };
     grid_.setTooltip(
@@ -1344,7 +1680,35 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
     header_.addOption(grid_);
     snap_.setVisible(false);
     grid_.setVisible(false);
+    updateOptions();
     header_.resized();
+}
+
+void DetailPanel::updateOptions()
+{
+    const auto& o = roll_.options();
+    draw_.setValue(model::drawModeName(o.draw));
+    drawKind_.setSelected(static_cast<int>(o.chord.shape));
+    drawVoicing_.setValue(o.chord.inversion == music::Inversion::Auto
+                              ? juce::String(model::voicingName(o.chord.voicing))
+                              : juce::String(model::voicingName(o.chord.voicing)) +
+                                    juce::String::fromUTF8(" · ") + model::inversionName(o.chord.inversion));
+    const bool chords = showsPianoRoll() && o.draw != model::DrawMode::Note;
+    drawKind_.setVisible(chords);
+    drawVoicing_.setVisible(chords);
+    inKey_.setToggleState(roll_.inKey(), juce::dontSendNotification);
+    others_.setToggleState(o.others, juce::dontSendNotification);
+    inKey_.setTooltip(actions_.tooltip("view.clipInKey"));
+    others_.setTooltip(actions_.tooltip("view.clipOthers"));
+    // The Tools pane as the view state has it (a project opened with it open, on a tab).
+    if (o.toolsTab != tools_.tab())
+        tools_.setTab(o.toolsTab);
+    if (tools_.isVisible() != (showsPianoRoll() && o.toolsOpen) ||
+        transform_.getToggleState() != (showsPianoRoll() && toolsShown(model::ToolKind::Transform)) ||
+        generate_.getToggleState() != (showsPianoRoll() && toolsShown(model::ToolKind::Generate)))
+        updateVisibility();
+    header_.resized(); // the choices are as wide as their values
+    header_.repaint();
 }
 
 void DetailPanel::chooseMode(Mode mode)
@@ -1471,13 +1835,54 @@ void DetailPanel::updateVisibility()
         for (auto* c : editor_->commands())
             c->setVisible(editing);
     }
-    // Snap and the step for either clip view; Quantise for notes.
+    // Snap and the step for either clip view; Notes, Quantise and the piano roll's options for notes.
     const bool grid = showsPianoRoll() || showsAudioClip();
-    quantise_.setVisible(showsPianoRoll());
+    const bool notes = showsPianoRoll();
+    notes_.setVisible(notes);
+    quantise_.setVisible(notes);
+    draw_.setVisible(notes);
+    drawKind_.setVisible(notes && roll_.options().draw != model::DrawMode::Note);
+    drawVoicing_.setVisible(notes && roll_.options().draw != model::DrawMode::Note);
+    inKey_.setVisible(notes && roll_.key().has_value());
+    inKey_.setToggleState(roll_.inKey(), juce::dontSendNotification); // each clip its own
+    others_.setVisible(notes);
+    transform_.setVisible(notes);
+    generate_.setVisible(notes);
+    transform_.setToggleState(notes && toolsShown(model::ToolKind::Transform), juce::dontSendNotification);
+    generate_.setToggleState(notes && toolsShown(model::ToolKind::Generate), juce::dontSendNotification);
+    const bool tools = notes && roll_.options().toolsOpen;
+    if (!tools && tools_.isVisible())
+        tools_.disarm(); // the notes back as it goes
+    tools_.setVisible(tools);
     snap_.setVisible(grid);
     grid_.setVisible(grid);
     header_.resized();
     header_.repaint();
+    resized();
+}
+
+void DetailPanel::showTools(std::optional<model::ToolKind> tab)
+{
+    auto o = roll_.options();
+    o.toolsOpen = tab.has_value();
+    if (tab)
+        o.toolsTab = *tab;
+    if (tab && *tab != tools_.tab())
+        tools_.setTab(*tab);
+    roll_.setOptions(o); // view state; updateOptions lays the pane out
+    updateVisibility();
+}
+
+bool DetailPanel::toolsShown(model::ToolKind tab) const
+{
+    return roll_.options().toolsOpen && roll_.options().toolsTab == tab;
+}
+
+void DetailPanel::showTool(std::string_view id)
+{
+    const auto* tool = model::findNoteTool(id);
+    showTools(tool != nullptr ? tool->kind : model::ToolKind::Transform);
+    tools_.choose(id);
 }
 
 void DetailPanel::setClip(std::optional<model::ClipInfo> clip, const model::TempoMap& tempo)
@@ -1491,6 +1896,8 @@ void DetailPanel::setClip(std::optional<model::ClipInfo> clip, const model::Temp
 
 void DetailPanel::frame(double playheadSeconds)
 {
+    if (tools_.isVisible())
+        tools_.refresh(); // its tiles as the notes allow; its tool shown again on changed notes
     if (roll_.isVisible() || audio_.isVisible())
     {
         if (roll_.isVisible())
@@ -1527,8 +1934,27 @@ void DetailPanel::resized()
     const auto& sh = ui::Theme::current().shell;
     auto r = getLocalBounds();
     header_.setBounds(r.removeFromTop(sh.panelHeaderHeight));
-    roll_.setBounds(r);
     audio_.setBounds(r);
+    // The Tools pane at the clip view's right edge (§25): beside the notes, or floating over their
+    // right side when the clip view is narrow.
+    if (tools_.isVisible())
+    {
+        tools_.setFloating(r.getWidth() < sh.toolsDockFrom);
+        const int width = tools_.preferredWidth();
+        if (tools_.isFloating())
+        {
+            roll_.setBounds(r);
+            tools_.setBounds(r.withLeft(std::max(r.getX(), r.getRight() - width)));
+            tools_.toFront(false);
+        }
+        else
+        {
+            tools_.setBounds(r.withLeft(r.getRight() - width));
+            roll_.setBounds(r.withTrimmedRight(width));
+        }
+    }
+    else
+        roll_.setBounds(r);
     if (mode_ == Mode::Editor && editor_ != nullptr)
     {
         // The module where it was, its editor below, lined up with the module panels.

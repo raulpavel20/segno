@@ -226,18 +226,18 @@ TEST_CASE("box selection and velocity editing", "[fast]")
     CHECK(notesInBox(notes, 2.0, 0.4, 70, 62) == std::set<std::size_t>{1, 2}); // any order
     CHECK(notesInBox(notes, 0.26, 0.4, 0, 127).empty());
 
-    auto v = paintVelocity(notes, 0.4, 1.0, 0.5f);
+    auto v = paintLevel(notes, 0.4, 1.0, 0.5f);
     CHECK(v[0].velocity == notes[0].velocity);
     CHECK(v[1].velocity == midiVelocity(0.5f));
     CHECK(v[2].velocity == midiVelocity(0.5f));
     const std::set<std::size_t> only{2};
-    v = paintVelocity(notes, 0.0, 2.0, 0.25f, &only);
+    v = paintLevel(notes, 0.0, 2.0, 0.25f, &only);
     CHECK(v[0].velocity == notes[0].velocity);
     CHECK(v[2].velocity == midiVelocity(0.25f));
 
-    v = offsetVelocity(notes, {0, 1}, 0.5f);
+    v = offsetLevel(notes, {0, 1}, 0.5f);
     CHECK(v[0].velocity == 1.0f);
-    v = offsetVelocity(notes, {0}, -2.0f);
+    v = offsetLevel(notes, {0}, -2.0f);
     CHECK(v[0].velocity == 1.0f / 127.0f); // never 0 (a note-on with velocity 0 is a note-off)
 }
 

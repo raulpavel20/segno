@@ -16,8 +16,8 @@ namespace fd::model
 /// Shortest note any edit leaves.
 inline constexpr double minNoteLength = 1.0 / 64.0;
 
-/// The order notes are kept in: start, then pitch, length and velocity (a total order, so two
-/// lists with the same notes compare equal).
+/// The order notes are kept in: start, then pitch, length, velocity and mute (a total order, so
+/// two lists with the same notes compare equal).
 [[nodiscard]] bool noteOrder(const Note& a, const Note& b) noexcept;
 
 /// A velocity rounded to a MIDI step (k / 127), as the engine stores it.
@@ -38,18 +38,32 @@ struct BeatGrid
     [[nodiscard]] double next(double beat) const noexcept;
 };
 
-/// The piano roll's mapping: content beats <-> x, pitches <-> y.
+/// The piano roll's mapping: content beats <-> x, pitches <-> y. Folded (docs/design/piano-roll.md
+/// §6), only some pitches have rows, and topEdge counts rows rather than pitches.
 struct NoteGeometry
 {
     double originX = 0.0;       // x of content beat 0
     double pixelsPerBeat = 80.0;
-    double topEdge = 84.0;      // pitch boundary at y = 0: pitch p's row spans (topEdge - p - 1) * rowHeight onwards
+    double topEdge = 84.0; // row boundary at y = 0: row r spans (topEdge - r - 1) * rowHeight onwards
     double rowHeight = 12.0;
+    const std::vector<int>* rows = nullptr; // folded: the pitches shown, low to high (row r is rows[r])
 
     [[nodiscard]] double xForBeat(double beat) const noexcept { return originX + beat * pixelsPerBeat; }
     [[nodiscard]] double beatForX(double x) const noexcept { return (x - originX) / pixelsPerBeat; }
-    [[nodiscard]] double yForPitch(int pitch) const noexcept { return (topEdge - pitch - 1) * rowHeight; }
+    [[nodiscard]] double yForPitch(int pitch) const noexcept
+    {
+        return (topEdge - rowOf(pitch) - 1) * rowHeight;
+    }
+    /// The pitch whose row is at y; folded, the nearest row's at either end.
     [[nodiscard]] int pitchForY(double y) const noexcept;
+    /// A pitch's row: the pitch itself unfolded; folded, its index in rows (a pitch without a row:
+    /// the next row up's).
+    [[nodiscard]] int rowOf(int pitch) const noexcept;
+    /// How many rows there are.
+    [[nodiscard]] int rowCount() const noexcept
+    {
+        return rows != nullptr ? static_cast<int>(rows->size()) : 128;
+    }
 };
 
 struct NoteHit
@@ -78,13 +92,21 @@ struct NoteDrag
     std::size_t anchor = 0;  // the grabbed note: it snaps; the others follow by the same amount
     double deltaBeats = 0.0; // mouse movement in time
     int deltaPitch = 0;      // mouse movement in rows (moves only)
+    /// In key (piano-roll.md §21): the rows shown (as NoteGeometry::rows); notes move by rows of them.
+    const std::vector<int>* rows = nullptr;
+    bool copy = false; // Ctrl+drag (§9.1): the notes stay, and moved copies are placed
 };
 
 /// The selected notes after a drag. Nothing goes before beat 0 or outside pitches 0..127; resizes
 /// never leave a note shorter than minNoteLength (the anchor: one grid step when snapping).
-/// The moved notes win over notes of the same pitch they overlap (see resolveOverlaps).
+/// The moved notes win over notes of the same pitch they overlap (see resolveOverlaps); a copy
+/// selects the copies.
 [[nodiscard]] NoteEdit dragNotes(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
                                  const NoteDrag& drag, const BeatGrid& grid);
+
+/// Where a move takes the grabbed note's pitch (to hear it while dragging).
+[[nodiscard]] int draggedPitch(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
+                               const NoteDrag& drag);
 
 /// A new note, selected alone.
 [[nodiscard]] NoteEdit addNote(const std::vector<Note>& notes, const Note& note);
@@ -113,14 +135,30 @@ struct NoteDrag
 [[nodiscard]] std::set<std::size_t> notesInBox(const std::vector<Note>& notes, double beat0, double beat1, int pitch0,
                                                int pitch1);
 
-/// Velocity drawing: notes starting within [beat0, beat1] (any order) get `velocity`; with
-/// `only` set, just those notes. The order and selection are unchanged.
-[[nodiscard]] std::vector<Note> paintVelocity(const std::vector<Note>& notes, double beat0, double beat1,
-                                              float velocity, const std::set<std::size_t>* only = nullptr);
+/// What the clip view's bottom lane edits on each note (docs/design/piano-roll.md §11): its
+/// velocity, its chance or its release velocity, each 0..1.
+enum class NoteLevel
+{
+    Velocity,
+    Chance,
+    Release
+};
 
-/// Velocity dragging: the given notes' velocities moved by `delta` (each clamped to 1/127..1).
-[[nodiscard]] std::vector<Note> offsetVelocity(const std::vector<Note>& notes, const std::set<std::size_t>& which,
-                                               float delta);
+/// A note's level, and the note with it set: velocity in MIDI steps and never silent, release
+/// velocity in MIDI steps, chance in whole percent.
+[[nodiscard]] float levelOf(const Note& note, NoteLevel level) noexcept;
+void setLevel(Note& note, NoteLevel level, float value) noexcept;
+
+/// Drawing in the lane: notes starting within [beat0, beat1] (any order) get `value`; with `only`
+/// set, just those notes. The order and selection are unchanged.
+[[nodiscard]] std::vector<Note> paintLevel(const std::vector<Note>& notes, double beat0, double beat1,
+                                           float value, const std::set<std::size_t>* only = nullptr,
+                                           NoteLevel level = NoteLevel::Velocity);
+
+/// Dragging in the lane: the given notes' levels moved by `delta` (each kept in its range).
+[[nodiscard]] std::vector<Note> offsetLevel(const std::vector<Note>& notes,
+                                            const std::set<std::size_t>& which, float delta,
+                                            NoteLevel level = NoteLevel::Velocity);
 
 /// Where a MIDI clip should end so its notes play (open question B15, decided 2026-10-09):
 /// when the last note ends past the clip, the end of the bar it ends in, unless another clip

@@ -295,7 +295,7 @@ Tools named as the others ([mcp.md](mcp.md)), each one named undo step, each wit
 - **The rename field suggests nothing:** the shared in-place field has no list. A section's right-click menu has a **Name ▸** submenu with the usual names instead, beside Rename.
 - **← and → don't move sections:** they already nudge notes and lane points. Dragging, Ctrl+D and Delete do it.
 - **The section under the playhead isn't lit:** the playhead's line runs through the song row, which shows where it is. Lighting it can come with following the playhead (§16).
-- **The Song menu's letter is N** (Alt+N): Alt+S solos the selected track.
+- **The Song menu's letter is N** (Alt+N): Alt+S solos the selected track. *(Since M3 P4 it's G, Alt+G: the new Notes menu has the N, [menu-bar.md](menu-bar.md) §5.)*
 - **Selecting a run:** Shift+click selects every section from the one picked last to the one clicked. Ctrl isn't a toggle here: Ctrl+drag copies.
 - **A run with gaps** moves, copies and deletes as its span, from its first section's start to its last one's end, the gaps' music included.
 - **Automation at an edge:** a straight or stepped segment cut at an edge keeps its exact shape; a bent one keeps its ends' values, its bend near enough.

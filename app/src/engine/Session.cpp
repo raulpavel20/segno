@@ -1,4 +1,5 @@
 #include "engine/ClipFades.h"
+#include "engine/ClipNotes.h"
 #include "engine/DevicePlugin.h"
 #include "engine/EngineBehaviour.h"
 #include "engine/SessionImpl.h"
@@ -201,12 +202,6 @@ private:
     ui::DeviceUiContext context_;
 };
 
-model::Note noteOf(const te::MidiNote& n)
-{
-    return {n.getNoteNumber(), n.getStartBeat().inBeats(), n.getLengthBeats().inBeats(),
-            static_cast<float>(n.getVelocity()) / 127.0f};
-}
-
 int midiVelocity(float velocity)
 {
     return std::clamp(static_cast<int>(std::lround(velocity * 127.0f)), 1, 127);
@@ -233,6 +228,8 @@ model::ClipInfo clipInfo(te::Clip& c, int trackColour)
         for (auto* n : midi->getSequence().getNotes())
             clip.notes.push_back(noteOf(*n));
         std::sort(clip.notes.begin(), clip.notes.end(), model::noteOrder);
+        clip.controllers = controllerLanesOf(*midi); // piano-roll.md §11
+        clip.chanceSeed = chanceSeedOf(*midi);       // §10
     }
     if (auto* audio = dynamic_cast<te::AudioClipBase*>(&c))
     {
@@ -1094,7 +1091,7 @@ void Session::setNotes(std::uint64_t clipId, const std::vector<model::Note>& not
         return;
     impl_->beginEdit("Edit notes");
 
-    // The rest pair up in time order: a moved note keeps its other properties (colour, mute).
+    // The rest pair up in time order: a moved note keeps its other properties (its colour).
     std::sort(added.begin(), added.end(), model::noteOrder);
     std::sort(changed.begin(), changed.end(), [](auto* a, auto* b) { return model::noteOrder(noteOf(*a), noteOf(*b)); });
     const auto paired = std::min(added.size(), changed.size());
@@ -1104,12 +1101,20 @@ void Session::setNotes(std::uint64_t clipId, const std::vector<model::Note>& not
         changed[i]->setStartAndLength(te::BeatPosition::fromBeats(to.start), te::BeatDuration::fromBeats(to.length), undo);
         changed[i]->setNoteNumber(to.pitch, undo);
         changed[i]->setVelocity(midiVelocity(to.velocity), undo);
+        changed[i]->setMute(to.muted, undo);
+        writeNoteExtras(*changed[i], to, undo);
     }
     for (size_t i = paired; i < changed.size(); ++i)
         list.removeNote(*changed[i], undo);
     for (size_t i = paired; i < added.size(); ++i)
-        list.addNote(added[i].pitch, te::BeatPosition::fromBeats(added[i].start), te::BeatDuration::fromBeats(added[i].length),
-                     midiVelocity(added[i].velocity), 0, undo);
+        if (auto* note = list.addNote(added[i].pitch, te::BeatPosition::fromBeats(added[i].start),
+                                      te::BeatDuration::fromBeats(added[i].length),
+                                      midiVelocity(added[i].velocity), 0, undo))
+        {
+            if (added[i].muted)
+                note->setMute(true, undo);
+            writeNoteExtras(*note, added[i], undo);
+        }
 
     // Notes past the clip's end lengthen it to the end of that bar when nothing is in the way
     // (B15), in the same undo step; in a looped clip, notes written past its loop's end lengthen the
@@ -1138,6 +1143,29 @@ void Session::setNotes(std::uint64_t clipId, const std::vector<model::Note>& not
             midi->setPosition({{pos.getStart(), te::TimePosition::fromSeconds(*end)}, pos.getOffset()});
         }
     }
+}
+
+void Session::setControllers(std::uint64_t clipId, const std::vector<model::ControllerLane>& lanes,
+                             const std::string& undoName)
+{
+    auto* midi = dynamic_cast<te::MidiClip*>(impl_->clip(clipId));
+    if (midi == nullptr || lanes.empty())
+        return;
+    impl_->beginEdit(undoName);
+    writeControllerLanes(*midi, lanes, &impl_->edit->getUndoManager());
+}
+
+std::uint32_t Session::rerollChance(std::uint64_t clipId, std::optional<std::uint32_t> seed)
+{
+    auto* midi = dynamic_cast<te::MidiClip*>(impl_->clip(clipId));
+    if (midi == nullptr)
+        return 0;
+    auto next = seed.value_or(0);
+    while (next == 0 || (!seed && next == chanceSeedOf(*midi))) // a new one, never "none"
+        next = static_cast<std::uint32_t>(juce::Random::getSystemRandom().nextInt());
+    impl_->beginEdit("Re-roll chance");
+    midi->state.setProperty(noteIds::seed, static_cast<juce::int64>(next), &impl_->edit->getUndoManager());
+    return next;
 }
 
 void Session::setMidiInputTarget(std::optional<std::uint64_t> trackId)

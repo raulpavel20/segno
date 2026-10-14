@@ -75,12 +75,21 @@ public:
     /// A view setting with a value (the piano roll's grid step), as wide as its value: call
     /// resized() when the value changes.
     void addOption(ViewChoice& choice);
+    /// A view setting of a few values side by side (the chord kind drawn: piano-roll.md §20.2).
+    void addOption(Segments& segments);
     /// A command left of the view options, a group gap from them (a Toggle as a button: the clip
     /// view's Quantise), sized by its owner (not owned). Hidden ones take no room: call resized()
     /// after showing or hiding one.
     void addCommand(juce::Component& command);
     /// Takes a command away again (a module's editor closing, ADR 0053).
     void removeCommand(juce::Component& command);
+    /// At narrow widths, options and commands with a drop order give way, the lowest first, so the
+    /// rest never reach the tabs (the clip view's Others, then the voicing, then Draw, then its
+    /// Generate and Transform: piano-roll.md §4, §25). Each one dropped is still in the menu bar.
+    /// 0, the default: never dropped.
+    void setDropOrder(juce::Component& option, int order);
+    /// Whether an option gave way to the width (for tests and the layout lint).
+    [[nodiscard]] bool isDropped(const juce::Component& option) const;
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -92,9 +101,23 @@ private:
     {
         juce::Component* component;
         std::function<int()> width;
+        int drop = 0;         // setDropOrder
+        bool dropped = false; // gave way to the width
     };
     std::vector<Option> options_;
-    std::vector<juce::Component*> commands_;
+    struct Command
+    {
+        juce::Component* component;
+        int drop = 0;
+        bool dropped = false;
+        int width = 0; // its owner's size, kept while it gives way
+
+        [[nodiscard]] int shownWidth() const
+        {
+            return component->getWidth() > 0 ? component->getWidth() : width;
+        }
+    };
+    std::vector<Command> commands_;
     int optionsLeft_ = 0; // the caption ends before the options
 };
 
@@ -207,6 +230,11 @@ void paintProgress(juce::Graphics& g, juce::Rectangle<float> area, float fractio
 /// the `Value` style on a `surface3` tag a row high, above and right of `anchor` by the item gap,
 /// kept within `within`.
 void paintValueTag(juce::Graphics& g, juce::Point<float> anchor, juce::Rectangle<int> within, const juce::String& text);
+
+/// Something in `area` that doesn't belong with what's around it: fine diagonal 1 px lines in
+/// `colour`, `shell.hatchSpacing` apart, clipped to the area. A piano roll row outside the key
+/// while it shows the key's rows (docs/design/piano-roll.md §21.2).
+void paintHatch(juce::Graphics& g, juce::Rectangle<float> area, juce::Colour colour);
 
 /// Titled sections one under another (the inspector): each a caps title on the row grid with its
 /// content under it, and a 1 px line centred in the group gap between neighbours, like a module

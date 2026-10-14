@@ -1,9 +1,11 @@
 // Notes in MIDI clips (mcp.md §5): the piano roll's edits, by the same pure functions
 // (model/NoteEditing), each call one undo step.
 
-#include "mcp/tools/Tools.h"
+#include "model/NoteTools.h"
 
+#include "mcp/tools/Tools.h"
 #include "model/NoteEditing.h"
+#include "model/PianoRollOptions.h"
 
 #include <cmath>
 
@@ -44,6 +46,22 @@ double noteStart(ToolEnv& env, const Json& value, const std::string& where)
     }
 }
 
+/// A chance in percent (§10), as the model keeps it (0..1).
+float chanceArg(double percent, const std::string& where)
+{
+    if (!(percent >= 0.0 && percent <= 100.0))
+        throw Problem{where + ": a percentage, 0-100."};
+    return static_cast<float>(percent / 100.0);
+}
+
+/// A velocity spread or release velocity, 0-127, as the model keeps it (0..1).
+float midiAmount(double value, const std::string& where)
+{
+    if (!(value >= 0.0 && value <= 127.0))
+        throw Problem{where + ": 0-127."};
+    return static_cast<float>(std::round(value) / 127.0);
+}
+
 model::Note parseNote(ToolEnv& env, const Json& n, double offset, const std::string& where)
 {
     const auto pitch = parsePitch(n["pitch"]);
@@ -58,8 +76,13 @@ model::Note parseNote(ToolEnv& env, const Json& n, double offset, const std::str
     {
         throw Problem{where + ".length: " + p.message};
     }
-    return {*pitch, noteStart(env, n["start"], where) + offset, std::max(length, model::minNoteLength),
-            velocityFromMidi(n.value("velocity", 100.0))};
+    model::Note note{*pitch, noteStart(env, n["start"], where) + offset,
+                     std::max(length, model::minNoteLength), velocityFromMidi(n.value("velocity", 100.0)),
+                     n.value("muted", false)};
+    note.chance = chanceArg(n.value("chance", 100.0), where + ".chance");
+    note.velocitySpread = midiAmount(n.value("velocity_spread", 0.0), where + ".velocity_spread");
+    note.releaseVelocity = midiAmount(n.value("release_velocity", 0.0), where + ".release_velocity");
+    return note;
 }
 
 /// Which notes a `where` argument picks: "all", or a filter by pitch and time.
@@ -96,6 +119,10 @@ std::set<std::size_t> select(ToolEnv& env, const std::vector<model::Note>& notes
     return out;
 }
 
+} // namespace
+
+namespace tools
+{
 Json whereSchema()
 {
     return {{"anyOf",
@@ -116,10 +143,11 @@ Json notesResult()
                    {"loopLengthened", boolean("A looped clip's loop grew to fit notes past its end")}},
                   {"clip", "notes", "lengthened"});
 }
-} // namespace
-
-namespace tools
+std::set<std::size_t> selectNotes(ToolEnv& env, const model::ClipInfo& c, const Json& where)
 {
+    return select(env, c.notes, contentOffset(env, c), where);
+}
+
 Json writeNotes(ToolEnv& env, const model::ClipInfo& c, const Json& input, bool replace)
 {
     const double offset = contentOffset(env, c);
@@ -189,18 +217,61 @@ void addNoteTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"edit_notes", "Edit notes",
-         "Changes the notes that match: transpose them, shift them in time, set or change their velocity, quantise "
-         "their starts. Edited notes win over notes of the same pitch they land on.",
-         object({{"clip", id(IdKind::Clip, "The MIDI clip")},
-                 {"where", whereSchema()},
-                 {"transpose", integer("Semitones (limited so every note stays in 0-127)", -127, 127)},
-                 {"shift", {{"type", {"number", "string"}}, {"description", "Beats, negative to move earlier, or text such as \"1/16\""}}},
-                 {"velocity", {{"type", {"integer", "string"}},
-                               {"description", "Set it (1-127), or change it by a signed amount such as \"+10\" or \"-20\""}}},
-                 {"quantise", length("Move starts to the nearest line of this grid.")}},
-                {"clip", "where"}),
+         "Changes the notes that match, as the clip view's Notes menu does: velocity, chance, velocity "
+         "spread and release velocity; transpose by "
+         "semitones; "
+         "shift; transpose by steps of the song's key; fit to the key; quantise (with strength and swing); "
+         "stretch; "
+         "legato, fixed length, join, split; reverse, mirror; invert and re-voice chords; mute; add a bass. "
+         "They "
+         "apply in that order. Edited notes win over notes of the same pitch they land on.",
+         object(
+             {{"clip", id(IdKind::Clip, "The MIDI clip")},
+              {"where", whereSchema()},
+              {"transpose", integer("Semitones (limited so every note stays in 0-127)", -127, 127)},
+              {"transpose_steps",
+               integer("Steps of the song key's scale (C to D in C major is one)", -127, 127)},
+              {"fit_to_key", boolean("Notes outside the song's key move to its nearest note (a tie: the way "
+                                     "the melody moves)")},
+              {"shift",
+               {{"type", {"number", "string"}},
+                {"description", "Beats, negative to move earlier, or text such as \"1/16\""}}},
+              {"velocity",
+               {{"type", {"integer", "string"}},
+                {"description",
+                 "Set it (1-127), or change it by a signed amount such as \"+10\" or \"-20\""}}},
+              {"quantise", length("Move starts to the nearest line of this grid.")},
+              {"strength", number("How far quantise moves them, 0-1 (default 1: all the way)")},
+              {"swing", number("Quantise's swing, 0-1: every other line later, by up to a third of a step")},
+              {"stretch", number("Times the timing and lengths from the first note's start: 2 is half speed, "
+                                 "0.5 double; negative reverses")},
+              {"legato", boolean("Each note lasts until the next one starts")},
+              {"fixed_length", length("Every note this long.")},
+              {"join", boolean("Notes of the same pitch that touch or overlap become one")},
+              {"split_at",
+               {{"type", {"number", "string"}},
+                {"description", "Split the notes crossing this beat of the clip"}}},
+              {"reverse", boolean("The notes' order in time mirrored within their span")},
+              {"mirror", boolean("Pitches upside down around the middle of their range (by the key's steps "
+                                 "with a song key)")},
+              {"invert",
+               {{"type", "string"},
+                {"enum", {"up", "down"}},
+                {"description", "Each chord's lowest note up an octave, or its highest down"}}},
+              {"voicing",
+               {{"type", "string"},
+                {"enum", {"smooth", "close", "open", "drop2", "drop3", "spread"}},
+                {"description", "Re-voice each chord; smooth keeps the first and moves the rest least"}}},
+              {"mute", boolean("true mutes them (kept, not played), false plays them again")},
+              {"add_bass", boolean("Each chord's root an octave or more under it")},
+              {"chance", number("Percent: how likely each is to play each time it comes round; 100 always")},
+              {"velocity_spread",
+               integer("How far each one's velocity may move up or down each time, 0-127", 0, 127)},
+              {"release_velocity", integer("Their note-off velocity, 0-127 (0: none)", 0, 127)}},
+             {"clip", "where"}),
          notesResult(), writes},
-        [&env](const Json& args, CallContext&) {
+        [&env](const Json& args, CallContext&)
+        {
             const auto c = midiClip(env, args["clip"]);
             const double offset = contentOffset(env, c);
             auto chosen = select(env, c.notes, offset, args["where"]);
@@ -218,7 +289,8 @@ void addNoteTools(Registry& registry, ToolEnv& env)
                     const double delta = std::strtod(text.c_str(), &end);
                     if (end == text.c_str() || *end != '\0')
                         throw Problem{"velocity: \"" + text + "\" isn't a signed amount such as \"+10\"."};
-                    edit.notes = model::offsetVelocity(edit.notes, edit.selection, static_cast<float>(delta / 127.0));
+                    edit.notes =
+                        model::offsetLevel(edit.notes, edit.selection, static_cast<float>(delta / 127.0));
                 }
                 else
                 {
@@ -228,6 +300,25 @@ void addNoteTools(Registry& registry, ToolEnv& env)
                     for (auto i : edit.selection)
                         edit.notes[i].velocity = velocityFromMidi(value);
                 }
+            }
+            // Chance, spread and release velocity (§10, §9.6), with velocity: what a note plays.
+            if (args.contains("chance"))
+            {
+                const auto chance = chanceArg(args["chance"].get<double>(), "chance");
+                for (auto i : edit.selection)
+                    edit.notes[i].chance = chance;
+            }
+            if (args.contains("velocity_spread"))
+            {
+                const auto spread = midiAmount(args["velocity_spread"].get<double>(), "velocity_spread");
+                for (auto i : edit.selection)
+                    edit.notes[i].velocitySpread = spread;
+            }
+            if (args.contains("release_velocity"))
+            {
+                const auto release = midiAmount(args["release_velocity"].get<double>(), "release_velocity");
+                for (auto i : edit.selection)
+                    edit.notes[i].releaseVelocity = release;
             }
             if (args.contains("transpose"))
                 edit = model::transposeNotes(edit.notes, edit.selection, args["transpose"].get<int>());
@@ -245,8 +336,71 @@ void addNoteTools(Registry& registry, ToolEnv& env)
                 }
                 edit = model::nudgeNotes(edit.notes, edit.selection, by);
             }
+            const auto key = env.session.snapshot()->keys.keyAt(c.contentStartBeat);
+            const auto needsKey = [&key](const char* arg)
+            {
+                if (!key)
+                    throw Problem{std::string(arg) + ": the song has no key; set_key sets one."};
+            };
+            if (args.contains("transpose_steps"))
+            {
+                needsKey("transpose_steps");
+                edit = model::transposeInKey(edit.notes, edit.selection, *key,
+                                             args["transpose_steps"].get<int>());
+            }
+            if (args.value("fit_to_key", false))
+            {
+                needsKey("fit_to_key");
+                edit = model::fitToKey(edit.notes, edit.selection, *key);
+            }
             if (args.contains("quantise"))
-                edit = model::quantiseNotes(edit.notes, edit.selection, {lengthArg(env, args["quantise"]), c.contentStartBeat});
+            {
+                model::QuantiseSettings settings;
+                settings.strength = std::clamp(args.value("strength", 1.0), 0.0, 1.0);
+                settings.swing = std::clamp(args.value("swing", 0.0), 0.0, 1.0);
+                edit = model::quantiseNotes(edit.notes, edit.selection,
+                                            {.step = lengthArg(env, args["quantise"]),
+                                             .origin = c.contentStartBeat,
+                                             .bar = tempo(env).beatsPerBar()},
+                                            settings);
+            }
+            if (args.contains("stretch"))
+            {
+                const double factor = args["stretch"].get<double>();
+                if (factor == 0.0)
+                    throw Problem{
+                        "stretch: 0 would squash every note to one point; 2 is half speed, 0.5 double."};
+                if (const auto span = model::notesSpan(edit.notes, edit.selection))
+                    edit = model::stretchNotes(edit.notes, edit.selection, span->first, factor, true);
+            }
+            if (args.value("legato", false))
+                edit = model::legatoNotes(edit.notes, edit.selection);
+            if (args.contains("fixed_length"))
+                edit = model::fixedLength(edit.notes, edit.selection, lengthArg(env, args["fixed_length"]));
+            if (args.value("join", false))
+                edit = model::joinNotes(edit.notes, edit.selection);
+            if (args.contains("split_at"))
+                edit = model::splitNotes(edit.notes, edit.selection,
+                                         noteStart(env, args["split_at"], "split_at") + offset);
+            if (args.value("reverse", false))
+                edit = model::reverseNotes(edit.notes, edit.selection);
+            if (args.value("mirror", false))
+                edit = model::mirrorPitches(edit.notes, edit.selection, key ? &*key : nullptr);
+            if (args.contains("invert"))
+                edit = model::invertChords(edit.notes, edit.selection,
+                                           args["invert"].get<std::string>() == "up");
+            if (args.contains("voicing"))
+            {
+                const auto voicing = model::voicingFromWord(args["voicing"].get<std::string>());
+                if (!voicing)
+                    throw Problem{"voicing: one of smooth, close, open, drop2, drop3, spread."};
+                edit = model::voiceChords(edit.notes, edit.selection, *voicing);
+            }
+            if (args.contains("mute"))
+                for (auto i : edit.selection)
+                    edit.notes[i].muted = args["mute"].get<bool>();
+            if (args.value("add_bass", false))
+                edit = model::addBass(edit.notes, edit.selection);
             const auto resolved = model::resolveOverlaps(edit.notes, edit.selection);
             env.session.setNotes(c.id, resolved.notes);
             env.session.flushSnapshot();
@@ -255,6 +409,28 @@ void addNoteTools(Registry& registry, ToolEnv& env)
                                    {"notes", chosen.size()},
                                    {"lengthened", after.end() > c.end() + 1e-9},
                                    {"loopLengthened", after.loop.length > c.loop.length + 1e-9}});
+        }));
+
+    registry.tools.push_back(make(
+        env,
+        {"reroll_chance", "Re-roll chance",
+         "Gives a MIDI clip a new seed for its notes' chance and velocity spread (piano-roll.md §10), as "
+         "Notes > Re-roll chance does: which notes play on each lap, and how loud, are decided again. The "
+         "same seed always plays the same, in playback, bounces and exports.",
+         object({{"clip", id(IdKind::Clip, "The MIDI clip")},
+                 {"seed", integer("A seed to use (1 or more); a random one without it", 1)}},
+                {"clip"}),
+         result({{"clip", clipResultSchema()}, {"seed", integer("The clip's seed now")}}, {"clip", "seed"}),
+         writes},
+        [&env](const Json& args, CallContext&)
+        {
+            const auto c = midiClip(env, args["clip"]);
+            std::optional<std::uint32_t> seed;
+            if (args.contains("seed"))
+                seed = static_cast<std::uint32_t>(args["seed"].get<std::int64_t>());
+            const auto now = env.session.rerollChance(c.id, seed);
+            env.session.flushSnapshot();
+            return ToolResult::ok({{"clip", clipJson(env, clip(env, args["clip"]), false)}, {"seed", now}});
         }));
 }
 } // namespace fd::mcp

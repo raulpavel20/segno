@@ -100,6 +100,7 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     }
     registerActions();
     registerSongActions();
+    registerNotesActions();
     // The browser (ADR 0046): what it holds goes where it's dropped, or on the selection.
     browser_.onLoad = [this](const std::string& item) { loadFromBrowser(item); };
     browser_.onOpenProject = [this](const juce::File& project) { openFile(project); };
@@ -157,6 +158,10 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
             return clipColourMenu();
         if (list == "sectionColour")
             return sectionColourMenu();
+        if (list == "otherTracks") // the clip view's Others, track by track (piano-roll.md §8)
+            return detail_.pianoRoll().othersMenu();
+        if (list == "clipLane") // the clip view's bottom lane (§11)
+            return detail_.pianoRoll().laneMenu();
         return juce::PopupMenu();
     };
     transport_->setBrandShown(kMenuPlatform == model::MenuPlatform::Mac);
@@ -362,22 +367,21 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
                                                    arrangement_.selection().channel, arrangement_.selection().channel));
     };
     arrangement_.onMessage = [this](const juce::String& m) { showWarning(m); };
+    detail_.pianoRoll().onMessage = [this](const juce::String& m) { showWarning(m); };
     detail_.chain().onActivated = [this] { lastArea_ = Area::Detail; };
-    detail_.pianoRoll().onActivated = [this] { lastArea_ = Area::Clip; };
-    // The notes' menu (menu-bar.md §8): quantise, then the edits.
-    detail_.pianoRoll().onMenu = [this] {
-        juce::PopupMenu menu;
-        actions_.addMenuItem(menu, "notes.quantise");
-        menu.addSeparator();
-        actions_.addMenuItem(menu, "edit.cut");
-        actions_.addMenuItem(menu, "edit.copy");
-        actions_.addMenuItem(menu, "edit.paste");
-        menu.addSeparator();
-        actions_.addMenuItem(menu, "edit.duplicate");
-        actions_.addMenuItem(menu, "edit.delete");
-        menu.addSeparator();
-        menu.addSubMenu("Grid", detail_.pianoRoll().gridMenu()); // where you edit (ADR 0047)
-        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&detail_.pianoRoll()).withMousePosition());
+    detail_.pianoRoll().onActivated = [this]
+    {
+        lastArea_ = Area::Clip;
+        detail_.toolsPane().disarm(); // working on the notes lets go of a tool shown on them (§25)
+    };
+    // The inspector's NOTES section follows the clip view's notes (piano-roll.md §9.6).
+    inspector_.setPianoRoll(detail_.pianoRoll());
+    detail_.pianoRoll().onSelectionChanged = [this] { inspector_.notesChanged(); };
+    // The notes' menu (menu-bar.md §8, piano-roll.md §13): the most used tools, then the edits.
+    detail_.pianoRoll().onMenu = [this]
+    {
+        notesContextMenu().showMenuAsync(
+            juce::PopupMenu::Options().withTargetComponent(&detail_.pianoRoll()).withMousePosition());
     };
     arrangement_.onOpenClip = [this](std::uint64_t) {
         // A clip opens in the clip view: a MIDI clip's notes, an audio clip's waveform (clip-loops.md §6).
@@ -658,8 +662,8 @@ void Shell::registerActions()
                   .perform =
                       [this, &roll, clipsShown]
                   {
-                      if (notesActive() && roll.hasSelection())
-                          roll.deleteSelection();
+                      if (notesActive() && (roll.hasSelection() || roll.hasPointSelection()))
+                          roll.deleteSelection(); // or its controller lane's points (piano-roll.md §11)
                       else if (lastArea_ == Area::Detail && detail_.chain().hasSelection())
                           detail_.chain().deleteSelected();
                       else if (sectionsActive()) // with their music (arranger.md §9)
@@ -676,7 +680,7 @@ void Shell::registerActions()
                   .isEnabled =
                       [this, &roll, clipsShown]
                   {
-                      return (notesActive() && roll.hasSelection()) ||
+                      return (notesActive() && (roll.hasSelection() || roll.hasPointSelection())) ||
                              (lastArea_ == Area::Detail && detail_.chain().hasSelection()) ||
                              sectionsActive() || laneActive() || trackHeaderActive() ||
                              (clipsShown() &&
@@ -689,7 +693,10 @@ void Shell::registerActions()
                   .perform =
                       [this, &roll, clipsShown]
                   {
-                      if (notesActive() && roll.hasSelection())
+                      // The clip view's controller points (piano-roll.md §11), or its notes.
+                      if (notesActive() && roll.hasPointSelection())
+                          roll.duplicatePoints();
+                      else if (notesActive() && roll.hasSelection())
                           roll.duplicateSelection();
                       else if (sectionsActive())
                           actions_.perform("song.duplicateSection");
@@ -703,14 +710,18 @@ void Shell::registerActions()
                   .isEnabled =
                       [this, &roll, clipsShown]
                   {
-                      return (notesActive() && roll.hasSelection()) || sectionsActive() || pointsActive() ||
-                             trackHeaderActive() || (clipsShown() && arrangement_.hasClipSelection());
+                      return (notesActive() && (roll.hasSelection() || roll.hasPointSelection())) ||
+                             sectionsActive() || pointsActive() || trackHeaderActive() ||
+                             (clipsShown() && arrangement_.hasClipSelection());
                   }});
     // Cut, copy and paste (tracks-and-clips.md §9): clips, notes, points or sections (with their
     // music, arranger.md §9), from the area used last; pasted at the playhead.
     actions_.add({.id = "edit.cut", .name = "Cut", .category = "Edit", .keys = {key('x', kCmd)},
                   .perform = [this, &roll] {
-                      const bool notes = notesActive() && roll.hasSelection(), points = pointsActive();
+                      // Notes, or the clip view's controller points (deleteSelection takes those
+                      // when its lane was used last).
+                      const bool notes = notesActive() && (roll.hasSelection() || roll.hasPointSelection()),
+                                 points = pointsActive();
                       const bool sections = !notes && !points && sectionsActive();
                       if (!copySelection())
                           return;
@@ -765,8 +776,21 @@ void Shell::registerActions()
                       return session_.isRecording() ? juce::String("Stop recording first: tracks can't be deleted while a pass records")
                                                     : juce::String();
                   }});
-    actions_.add({.id = "edit.split", .name = "Split at playhead", .category = "Edit", .keys = {key('e', kCmd)},
-                  .perform = [this] { arrangement_.splitAtPlayhead(); }, .isEnabled = clipsShown});
+    // Split at playhead: the notes crossing it when the clip view was used last (piano-roll.md §9.1).
+    actions_.add({.id = "edit.split",
+                  .name = "Split at playhead",
+                  .category = "Edit",
+                  .keys = {key('e', kCmd)},
+                  .perform =
+                      [this, &roll]
+                  {
+                      if (notesActive())
+                          roll.splitAtPlayhead();
+                      else
+                          arrangement_.splitAtPlayhead();
+                  },
+                  .isEnabled = [this, &roll, clipsShown]
+                  { return notesActive() ? !roll.notes().empty() : clipsShown(); }});
     actions_.add({.id = "edit.selectAll", .name = "Select all", .category = "Edit", .keys = {key('a', kCmd)},
                   .perform = [this, &roll, clipsShown] {
                       if (notesActive())
@@ -790,15 +814,48 @@ void Shell::registerActions()
                 roll.nudge(steps);
         };
     };
-    actions_.add({.id = "notes.up", .name = "Transpose up / raise points", .category = "Notes",
-                  .keys = {key(juce::KeyPress::upKey)}, .perform = arrow(1, 0, 0.01f), .isEnabled = notesSelected});
-    actions_.add({.id = "notes.down", .name = "Transpose down / lower points", .category = "Notes",
-                  .keys = {key(juce::KeyPress::downKey)}, .perform = arrow(-1, 0, -0.01f), .isEnabled = notesSelected});
-    actions_.add({.id = "notes.octaveUp", .name = "Transpose up an octave / raise points a little", .category = "Notes",
-                  .keys = {key(juce::KeyPress::upKey, kShift)}, .perform = arrow(12, 0, 0.001f), .isEnabled = notesSelected});
-    actions_.add({.id = "notes.octaveDown", .name = "Transpose down an octave / lower points a little", .category = "Notes",
-                  .keys = {key(juce::KeyPress::downKey, kShift)}, .perform = arrow(-12, 0, -0.001f),
-                  .isEnabled = notesSelected});
+    // ↑/↓ move by a step of the scale while the clip view draws in the key, else a semitone
+    // (piano-roll.md §6).
+    auto step = [this, &roll](int steps, float value)
+    {
+        return [this, &roll, steps, value]
+        {
+            if (pointsActive())
+                arrangement_.nudgePoints(0, value);
+            else
+                roll.transposeSteps(steps);
+        };
+    };
+    const auto pointsLabel = [this](const char* notes, const char* points)
+    { return [this, notes, points] { return juce::String(pointsActive() ? points : notes); }; };
+    actions_.add({.id = "notes.up",
+                  .name = "Up a step / raise points",
+                  .category = "Notes",
+                  .keys = {key(juce::KeyPress::upKey)},
+                  .perform = step(1, 0.01f),
+                  .isEnabled = notesSelected,
+                  .label = pointsLabel("Up a step", "Raise points")});
+    actions_.add({.id = "notes.down",
+                  .name = "Down a step / lower points",
+                  .category = "Notes",
+                  .keys = {key(juce::KeyPress::downKey)},
+                  .perform = step(-1, -0.01f),
+                  .isEnabled = notesSelected,
+                  .label = pointsLabel("Down a step", "Lower points")});
+    actions_.add({.id = "notes.octaveUp",
+                  .name = "Up an octave / raise points a little",
+                  .category = "Notes",
+                  .keys = {key(juce::KeyPress::upKey, kShift)},
+                  .perform = arrow(12, 0, 0.001f),
+                  .isEnabled = notesSelected,
+                  .label = pointsLabel("Up an octave", "Raise points a little")});
+    actions_.add({.id = "notes.octaveDown",
+                  .name = "Down an octave / lower points a little",
+                  .category = "Notes",
+                  .keys = {key(juce::KeyPress::downKey, kShift)},
+                  .perform = arrow(-12, 0, -0.001f),
+                  .isEnabled = notesSelected,
+                  .label = pointsLabel("Down an octave", "Lower points a little")});
     actions_.add({.id = "notes.later", .name = "Nudge later", .category = "Notes", .keys = {key(juce::KeyPress::rightKey)},
                   .perform = arrow(0, 1, 0.0f), .isEnabled = notesSelected});
     actions_.add({.id = "notes.earlier", .name = "Nudge earlier", .category = "Notes", .keys = {key(juce::KeyPress::leftKey)},
@@ -896,13 +953,28 @@ void Shell::registerActions()
                 }
         return any;
     };
-    actions_.add({.id = "clip.mute", .name = "Mute clips", .category = "Clip", .keys = {key('0')},
-                  .perform = [this, allMuted] {
-                      const auto& selected = arrangement_.selection().clips;
-                      session_.setClipsMuted({selected.begin(), selected.end()}, !allMuted());
-                  },
-                  .isEnabled = [this, clipsShown] { return clipsShown() && arrangement_.hasClipSelection(); },
-                  .isToggled = allMuted});
+    // Mute (0): the selected notes when the clip view was used last, then reading "Mute notes"
+    // (piano-roll.md §9.4).
+    actions_.add(
+        {.id = "clip.mute",
+         .name = "Mute clips",
+         .category = "Clip",
+         .keys = {key('0')},
+         .perform =
+             [this, allMuted, &roll]
+         {
+             if (notesActive())
+             {
+                 roll.toggleMute();
+                 return;
+             }
+             const auto& selected = arrangement_.selection().clips;
+             session_.setClipsMuted({selected.begin(), selected.end()}, !allMuted());
+         },
+         .isEnabled = [this, clipsShown, &roll]
+         { return notesActive() ? !roll.notes().empty() : clipsShown() && arrangement_.hasClipSelection(); },
+         .isToggled = [this, allMuted, &roll] { return notesActive() ? roll.allMuted() : allMuted(); },
+         .label = [this] { return juce::String(notesActive() ? "Mute notes" : "Mute clips"); }});
 
     // Clip loops (C10, ADR 0048, clip-loops.md §10): on loops what each clip shows, off removes the
     // repeats. Ticked while every selected clip loops; dimmed, saying why, while none can.
@@ -1951,6 +2023,7 @@ std::string Shell::viewState() const
         {"start", tl.start()},
         {"pixelsPerSecond", tl.pixelsPerSecond()},
         {"grid", model::gridsToViewState({arrangement_.grid(), detail_.pianoRoll().grid()})},
+        {"pianoRoll", model::pianoRollOptionsToJson(detail_.pianoRoll().options())},
         {"follow", arrangement_.isFollowEnabled()},
         {"browser", browserPanel_.open},
         {"inspector", inspectorPanel_.open},
@@ -1977,6 +2050,9 @@ void Shell::applyViewState(const std::string& json)
     const auto grids = model::gridsFromViewState(v);
     arrangement_.setGrid(grids.arrangement);
     detail_.pianoRoll().setGrid(grids.pianoRoll);
+    // The clip view's options (piano-roll.md §4): a new project's are the defaults.
+    detail_.pianoRoll().setOptions(model::pianoRollOptionsFromJson(
+        v.is_object() && v.contains("pianoRoll") ? v["pianoRoll"] : nlohmann::json()));
     if (!v.is_object())
         return;
     auto get = [&](const char* key, auto fallback) { return v.contains(key) ? v[key].get<decltype(fallback)>() : fallback; };
@@ -2205,13 +2281,20 @@ juce::PopupMenu Shell::clipColourMenu()
 
 bool Shell::canCopy() const
 {
-    return (notesActive() && detail_.pianoRoll().hasSelection()) || pointsActive() || sectionsActive() ||
-           (!mixerShown_ && lastArea_ != Area::Clip && arrangement_.hasClipSelection());
+    const auto& roll = detail_.pianoRoll();
+    return (notesActive() && (roll.hasSelection() || roll.hasPointSelection())) || pointsActive() ||
+           sectionsActive() || (!mixerShown_ && lastArea_ != Area::Clip && arrangement_.hasClipSelection());
 }
 
 bool Shell::copySelection()
 {
     auto& roll = detail_.pianoRoll();
+    if (notesActive() && roll.hasPointSelection()) // the clip view's controller lane (piano-roll.md §11)
+    {
+        heldPoints_ = roll.copyPoints();
+        held_ = Held::Points;
+        return true;
+    }
     if (notesActive() && roll.hasSelection())
     {
         heldNotes_ = roll.copySelection();
@@ -2260,8 +2343,13 @@ void Shell::paste()
         lastArea_ = Area::Clip;
         return;
     case Held::Points:
+        // Into the clip view's controller lane when it was used last, else the selected lane.
+        if (lastArea_ == Area::Clip && detail_.showsPianoRoll() &&
+            detail_.pianoRoll().pastePoints(heldPoints_, at))
+            return;
         if (mixerShown_ || !arrangement_.pastePoints(heldPoints_, at))
-            showWarning("Points paste onto an automation lane: select one first");
+            showWarning("Points paste onto an automation lane, or a controller lane in the clip view: "
+                        "show one first");
         else
             lastArea_ = Area::Lane;
         return;

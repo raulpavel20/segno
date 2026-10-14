@@ -311,16 +311,61 @@ PointEdit duplicatePoints(const AutomationPoints& points, const std::set<size_t>
     for (const auto i : selection)
         if (i < points.size())
             copies.push_back({points[i].time + by, points[i].value, points[i].curve});
-    // The copies replace whatever lay in their range.
+    // The copies replace whatever lay in their range, except the selection itself: when the span is
+    // a whole number of steps, the first copy lands on the last point, and both stay there, the
+    // lane jumping from the one value to the other.
     PointEdit edit{{}, {}};
-    for (const auto& p : points)
-        if (p.time < first + by || p.time > last + by)
-            edit.points.push_back(p);
+    for (size_t i = 0; i < points.size(); ++i)
+        if (points[i].time < first + by || points[i].time > last + by || selection.contains(i))
+            edit.points.push_back(points[i]);
     const size_t start = edit.points.size();
     for (auto& c : copies)
     {
         c.value = snapToSteps(c.value, rules.steps);
         edit.points.push_back(c);
+    }
+    for (size_t i = start; i < edit.points.size(); ++i)
+        edit.selection.insert(i);
+    sortKeepingSelection(edit);
+    return edit;
+}
+
+AutomationPoints copyPoints(const AutomationPoints& points, const std::set<size_t>& selection)
+{
+    AutomationPoints out;
+    for (const auto i : selection)
+        if (i < points.size())
+            out.push_back(points[i]);
+    std::stable_sort(out.begin(), out.end(), [](const auto& a, const auto& b) { return a.time < b.time; });
+    if (!out.empty())
+    {
+        const double first = out.front().time;
+        for (auto& p : out)
+            p.time -= first;
+    }
+    return out;
+}
+
+PointEdit pastePoints(const AutomationPoints& points, const AutomationPoints& held, double at,
+                      const LaneRules& rules)
+{
+    if (held.empty())
+        return {points, {}};
+    const double from = std::max(0.0, at), to = from + held.back().time;
+    PointEdit edit;
+    for (const auto& p : points)
+        if (p.time < from - 1e-9 || p.time > to + 1e-9)
+            edit.points.push_back(p);
+    const size_t start = edit.points.size();
+    for (auto p : held)
+    {
+        p.time += from;
+        if (rules.stepped())
+        {
+            p.value = snapToSteps(p.value, rules.steps);
+            p.curve = kStepCurve;
+        }
+        edit.points.push_back(p);
     }
     for (size_t i = start; i < edit.points.size(); ++i)
         edit.selection.insert(i);

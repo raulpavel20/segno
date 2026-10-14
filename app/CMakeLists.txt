@@ -7,7 +7,8 @@ juce_add_modules(ALIAS_NAMESPACE tracktion
 
 # fd_app_model: JUCE-free view models of the DAW (ADR 0018), tested as [fast].
 add_library(fd_app_model STATIC src/model/Timeline.cpp src/model/Grid.cpp src/model/TrackLayout.cpp src/model/Peaks.cpp
-    src/model/Editing.cpp src/model/Fuzzy.cpp src/model/NoteEditing.cpp
+    src/model/Editing.cpp src/model/Fuzzy.cpp src/model/NoteEditing.cpp src/model/NoteTools.cpp src/model/PianoRollOptions.cpp
+    src/model/Chance.cpp src/model/Controllers.cpp src/model/NoteToolkit.cpp
     src/model/TrackHeaderLayout.cpp src/model/AudioMeasure.cpp src/model/Taper.cpp src/model/ChannelStripLayout.cpp src/model/Selection.cpp
     src/model/Automation.cpp src/model/ArrangementRows.cpp src/model/Snapshot.cpp src/model/Recording.cpp src/model/Takes.cpp
     src/model/TopBarLayout.cpp src/model/StackEdits.cpp src/model/Capture.cpp src/model/Bounce.cpp src/model/Fades.cpp src/model/FadeEditing.cpp src/model/Export.cpp
@@ -16,10 +17,11 @@ target_include_directories(fd_app_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src"
 target_link_libraries(fd_app_model PUBLIC fd::audiofile fd::music nlohmann_json::nlohmann_json PRIVATE fd::dsp fd::warnings)
 
 if(FD_BUILD_TESTS)
-    fd_add_test(NAME fd_app_model_tests SOURCES tests/ModelTests.cpp tests/NoteEditingTests.cpp tests/AudioMeasureTests.cpp
+    fd_add_test(NAME fd_app_model_tests SOURCES tests/ModelTests.cpp tests/NoteEditingTests.cpp tests/NoteToolsTests.cpp tests/AudioMeasureTests.cpp
         tests/SelectionTests.cpp tests/AutomationTests.cpp
         tests/ArrangementRowsTests.cpp tests/RecordingTests.cpp tests/TakeStackTests.cpp tests/CaptureTests.cpp tests/BounceTests.cpp tests/FadesTests.cpp tests/ExportTests.cpp
-        tests/MenuBarTests.cpp tests/TrackEditsTests.cpp tests/SettingsTests.cpp tests/BrowserModelTests.cpp tests/ClipLoopsTests.cpp tests/MusicalTimeTests.cpp tests/BraceDragTests.cpp tests/SectionsTests.cpp tests/RackModelTests.cpp LIBS fd_app_model)
+        tests/MenuBarTests.cpp tests/TrackEditsTests.cpp tests/SettingsTests.cpp tests/BrowserModelTests.cpp tests/ClipLoopsTests.cpp tests/MusicalTimeTests.cpp tests/BraceDragTests.cpp tests/SectionsTests.cpp
+        tests/ChanceTests.cpp tests/NoteToolkitTests.cpp tests/RackModelTests.cpp LIBS fd_app_model)
 endif()
 
 # fd_mcp: the MCP server's protocol layer and transports (ADR 0021, docs/design/mcp.md). JUCE-free,
@@ -46,6 +48,7 @@ target_sources(fd_engine INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionBounce.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionExport.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/ClipFades.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/ClipNotes.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionFades.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionTracks.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionSections.cpp"
@@ -117,6 +120,9 @@ target_sources(fd_app_mcp INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/TransportTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/ClipTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/NoteTools.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/ChordTools.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/ControllerTools.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/ToolkitTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/ModuleTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/WavetableTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/PresetTools.cpp"
@@ -153,6 +159,10 @@ target_sources(fd_app_ui INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/AutomationMenu.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/LanePicker.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/KeyPopover.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ChordPopover.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ToolForm.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ToolsPane.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/MakeChordsForm.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ChannelControls.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ChannelInspector.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/MixerView.cpp"
@@ -174,6 +184,7 @@ target_sources(fd_app_ui INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/BrowserDrops.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ShellMenus.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ShellSong.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ShellNotes.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/TitleBar.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/WindowContent.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/time/TimeView.cpp")

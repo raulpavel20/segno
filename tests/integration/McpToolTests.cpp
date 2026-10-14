@@ -231,7 +231,17 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
                              "open_project",
                              "set_key",
                              "list_scales",
-                             "detect_key"})
+                             "detect_key",
+                             "get_chords",
+                             "set_chord",
+                             "make_chords",
+                             "suggest_chords",
+                             "reroll_chance",
+                             "get_controllers",
+                             "set_controllers",
+                             "list_note_tools",
+                             "transform_notes",
+                             "generate_notes"})
         CHECK(names.contains(name));
     for (const auto& p : registry.prompts)
     {
@@ -320,6 +330,305 @@ TEST_CASE("mcp tools: tracks, MIDI clips and notes, each call one named undo ste
     CHECK(daw.fails("add_notes", {{"clip", clipId}, {"notes", {{{"pitch", "H9"}, {"start", 0}, {"length", 1}}}}})
               .find("notes[0].pitch") != std::string::npos);
     CHECK(daw.fails("create_midi_clip", {{"track", "t:424242"}, {"start", 0}}).find("t:424242") != std::string::npos);
+}
+
+TEST_CASE("mcp tools: chords read, written, made and suggested; the piano roll's edits (P4a)",
+          "[integration][mcp]")
+{
+    Daw daw;
+    const auto track = daw.call("add_track", {{"name", "Keys"}})["track"].get<std::string>();
+    const auto clipId = daw.call("create_midi_clip",
+                                 {{"track", track}, {"start", "1.1.1"}, {"length", "4 bars"}})["clip"]["id"]
+                            .get<std::string>();
+    REQUIRE(daw.call("set_key", {{"root", "A"}, {"scale", "minor"}})["key"]["name"] == "A minor");
+
+    // make_chords: a one-finger line becomes the key's chords, voice-led.
+    daw.call("set_notes", {{"clip", clipId},
+                           {"notes",
+                            {{{"pitch", "A2"}, {"start", 0}, {"length", "1 bar"}},
+                             {{"pitch", "F2"}, {"start", 4}, {"length", "1 bar"}},
+                             {{"pitch", "C3"}, {"start", 8}, {"length", "1 bar"}},
+                             {{"pitch", "G2"}, {"start", 12}, {"length", "1 bar"}}}}});
+    auto made = daw.call("make_chords", {{"clip", clipId}, {"where", "all"}});
+    CHECK(made["notes"] == 12);
+    CHECK(daw.session->undoDescription() == "Assistant: make chords");
+
+    // make_chords note by note: a seventh, a chord with the note on top, one left alone.
+    daw.call("undo");
+    made = daw.call("make_chords",
+                    {{"clip", clipId},
+                     {"where", "all"},
+                     {"chords", {{{"kind", "seventh"}}, {{"chord", "Dm"}, {"voicing", "close"}}, "leave"}}});
+    CHECK(made["notes"] == 4 + 3 + 1 + 3);
+    auto noteByNote = daw.call("get_chords", {{"clip", clipId}});
+    REQUIRE(noteByNote["chords"].size() == 3);
+    CHECK(noteByNote["chords"][0]["name"] == "Am7");
+    CHECK(noteByNote["chords"][1]["name"].get<std::string>().rfind("Dm", 0) == 0); // F under it... on top
+    CHECK(daw.fails("make_chords", {{"clip", clipId}, {"where", "all"}, {"chords", {{{"chord", "E"}}}}})
+              .find("doesn't have") != std::string::npos);
+    daw.call("undo");
+    made = daw.call("make_chords", {{"clip", clipId}, {"where", "all"}});
+
+    // get_chords: as the chord lane names them, with their steps.
+    auto chords = daw.call("get_chords", {{"clip", clipId}});
+    CHECK(chords["key"]["name"] == "A minor");
+    REQUIRE(chords["chords"].size() == 4);
+    const auto rootOf = [](const Json& chord)
+    {
+        auto name = chord["name"].get<std::string>();
+        return name.substr(0, name.find_first_not_of("ABCDEFG#b", 1));
+    };
+    CHECK(rootOf(chords["chords"][0]) == "A");
+    CHECK(rootOf(chords["chords"][1]) == "F");
+    CHECK(rootOf(chords["chords"][3]) == "G");
+    CHECK(chords["chords"][1]["step"] == "VI");
+    CHECK(chords["chords"][0]["start"] == Approx(0.0));
+    CHECK(chords["chords"][0]["length"] == Approx(4.0));
+    CHECK(chords["chords"][0]["pitches"].size() == 3);
+
+    // set_chord: a name or a numeral, replacing the chord there, voice-led.
+    auto set = daw.call("set_chord", {{"clip", clipId}, {"chord", "E7"}, {"start", 12}, {"length", "1 bar"}});
+    CHECK(set["chord"] == "E7");
+    CHECK(set["notes"] == 4);
+    chords = daw.call("get_chords", {{"clip", clipId}});
+    CHECK(chords["chords"][3]["name"].get<std::string>().rfind("E7", 0) == 0);
+    CHECK(chords["chords"][3]["step"] == "V7");
+    daw.call("set_chord",
+             {{"clip", clipId}, {"chord", "iv"}, {"start", 4}, {"voicing", "close"}, {"inversion", "root"}});
+    chords = daw.call("get_chords", {{"clip", clipId}});
+    CHECK(chords["chords"][1]["name"] == "Dm");
+    CHECK(daw.fails("set_chord", {{"clip", clipId}, {"chord", "H7"}, {"start", 0}}).find("chord name") !=
+          std::string::npos);
+    CHECK(daw.fails("set_chord", {{"clip", clipId}, {"chord", "Dm"}, {"start", 0}, {"voicing", "wide"}})
+              .find("drop2") != std::string::npos);
+
+    // suggest_chords: what the Chord popover offers.
+    const auto offered = daw.call("suggest_chords", {{"clip", clipId}, {"at", 8}});
+    CHECK(offered["inKey"].size() == 7);
+    CHECK(offered["inKey"][0]["name"] == "Am");
+    CHECK(offered["before"]["name"] == "Dm");
+    REQUIRE_FALSE(offered["next"].empty());
+    CHECK(offered["next"][0].contains("why"));
+    CHECK(offered["borrowed"].size() == 3);
+    CHECK(daw.call("suggest_chords",
+                   {{"clip", clipId}, {"at", 0}, {"kind", "seventh"}})["inKey"][0]["name"] == "Am7");
+
+    // edit_notes: steps of the key, fit to key, mute, legato, stretch, reverse, invert, voicing, add bass.
+    daw.call("set_notes", {{"clip", clipId},
+                           {"notes",
+                            {{{"pitch", "C3"}, {"start", 0}, {"length", 1}},
+                             {{"pitch", "F#3"}, {"start", 2}, {"length", 1}}}}});
+    daw.call("edit_notes", {{"clip", clipId}, {"where", {{"pitch", "C3"}}}, {"transpose_steps", 1}});
+    auto clip = daw.call("get_clip", {{"clip", clipId}});
+    CHECK(clip["notes"][0]["pitch"] == 62); // D: the next note of A minor
+    daw.call("edit_notes", {{"clip", clipId}, {"where", "all"}, {"fit_to_key", true}});
+    clip = daw.call("get_clip", {{"clip", clipId}});
+    CHECK(clip["notes"][1]["pitch"] == 67); // F♯ after a rising step: up to G
+    daw.call("edit_notes", {{"clip", clipId}, {"where", {{"pitch", "G3"}}}, {"mute", true}});
+    clip = daw.call("get_clip", {{"clip", clipId}});
+    CHECK(clip["notes"][1]["muted"] == true);
+    CHECK_FALSE(clip["notes"][0].contains("muted"));
+    daw.call("edit_notes", {{"clip", clipId}, {"where", "all"}, {"legato", true}});
+    CHECK(daw.call("get_clip", {{"clip", clipId}})["notes"][0]["length"] == Approx(2.0));
+    daw.call("edit_notes", {{"clip", clipId}, {"where", "all"}, {"stretch", 2}});
+    CHECK(daw.call("get_clip", {{"clip", clipId}})["notes"][1]["start"] == Approx(4.0));
+    daw.call("edit_notes", {{"clip", clipId}, {"where", "all"}, {"reverse", true}});
+    CHECK(daw.call("get_clip", {{"clip", clipId}})["notes"][0]["pitch"] == 67);
+    CHECK(daw.fails("edit_notes", {{"clip", clipId}, {"where", "all"}, {"stretch", 0}}).find("half speed") !=
+          std::string::npos);
+
+    daw.call("set_notes", {{"clip", clipId},
+                           {"notes",
+                            {{{"pitch", 60}, {"start", 0}, {"length", 4}},
+                             {{"pitch", 64}, {"start", 0}, {"length", 4}},
+                             {{"pitch", 67}, {"start", 0}, {"length", 4}}}}});
+    daw.call("edit_notes", {{"clip", clipId}, {"where", "all"}, {"invert", "up"}});
+    clip = daw.call("get_clip", {{"clip", clipId}});
+    CHECK(clip["notes"][2]["pitch"] == 72);
+    daw.call("edit_notes", {{"clip", clipId}, {"where", "all"}, {"voicing", "close"}, {"add_bass", true}});
+    clip = daw.call("get_clip", {{"clip", clipId}});
+    REQUIRE(clip["notes"].size() == 4);
+    CHECK(clip["notes"][0]["pitch"].get<int>() % 12 == 0); // the bass: C, under the chord
+    CHECK(daw.session->undoDescription() == "Assistant: edit notes");
+    daw.call("undo");
+    CHECK(daw.call("get_clip", {{"clip", clipId}})["notes"].size() == 3);
+
+    // Without a key, the key's tools say what to do.
+    daw.call("set_key", {{"none", true}});
+    CHECK(daw.fails("edit_notes", {{"clip", clipId}, {"where", "all"}, {"transpose_steps", 1}})
+              .find("set_key") != std::string::npos);
+    CHECK(daw.call("suggest_chords", {{"clip", clipId}, {"at", 0}})["borrowed"].empty());
+}
+
+TEST_CASE("mcp tools: chance, velocity spread, release velocity, re-roll and controllers (P4b)",
+          "[integration][mcp]")
+{
+    Daw daw;
+    const auto track = daw.call("add_track", {{"name", "Drums"}})["track"].get<std::string>();
+    const auto clipId = daw.call("create_midi_clip",
+                                 {{"track", track}, {"start", "1.1.1"}, {"length", "1 bar"}})["clip"]["id"]
+                            .get<std::string>();
+
+    // Notes carry them in and out; the plain ones say nothing about them.
+    daw.call("set_notes", {{"clip", clipId},
+                           {"notes",
+                            {{{"pitch", 42}, {"start", 0}, {"length", "1/16"}, {"chance", 50}},
+                             {{"pitch", 42}, {"start", 1}, {"length", "1/16"}, {"velocity_spread", 20}},
+                             {{"pitch", 36}, {"start", 2}, {"length", "1/16"}, {"release_velocity", 64}}}}});
+    auto notes = daw.call("get_clip", {{"clip", clipId}})["notes"];
+    REQUIRE(notes.size() == 3);
+    CHECK(notes[0]["chance"] == Approx(50.0));
+    CHECK_FALSE(notes[0].contains("velocity_spread"));
+    CHECK(notes[1]["velocity_spread"] == 20);
+    CHECK_FALSE(notes[1].contains("chance"));
+    CHECK(notes[2]["release_velocity"] == 64);
+    CHECK(daw.fails("add_notes",
+                    {{"clip", clipId},
+                     {"notes", {{{"pitch", 40}, {"start", 0}, {"length", "1/16"}, {"chance", 150}}}}})
+              .find("0-100") != std::string::npos);
+
+    // edit_notes sets them on the notes that match.
+    daw.call("edit_notes",
+             {{"clip", clipId}, {"where", {{"pitch", 42}}}, {"chance", 25}, {"velocity_spread", 10}});
+    CHECK(daw.session->undoDescription() == "Assistant: edit notes");
+    notes = daw.call("get_clip", {{"clip", clipId}})["notes"];
+    CHECK(notes[0]["chance"] == Approx(25.0));
+    CHECK(notes[1]["chance"] == Approx(25.0));
+    CHECK(notes[1]["velocity_spread"] == 10);
+    CHECK_FALSE(notes[2].contains("chance"));
+    daw.call("edit_notes", {{"clip", clipId}, {"where", "all"}, {"chance", 100}, {"velocity_spread", 0}});
+    notes = daw.call("get_clip", {{"clip", clipId}})["notes"];
+    CHECK_FALSE(notes[0].contains("chance"));
+    CHECK_FALSE(notes[1].contains("velocity_spread"));
+
+    // reroll_chance: a given seed, or a new one; one undo step.
+    auto rolled = daw.call("reroll_chance", {{"clip", clipId}, {"seed", 77}});
+    CHECK(rolled["seed"] == 77);
+    CHECK(rolled["clip"]["chanceSeed"] == 77);
+    CHECK(daw.session->undoDescription() == "Assistant: reroll chance");
+    rolled = daw.call("reroll_chance", {{"clip", clipId}});
+    CHECK(rolled["seed"] != 77);
+
+    // Controllers: lanes written as points, read back; pitch bend around 0; pedals on or off.
+    auto lanes = daw.call(
+        "set_controllers",
+        {{"clip", clipId},
+         {"lanes",
+          {{{"controller", "mod_wheel"},
+            {"points", {{{"beat", 0}, {"value", 0}}, {{"beat", 2}, {"value", 127}}}}},
+           {{"controller", "pitch_bend"},
+            {"points", {{{"beat", 1}, {"value", 0}}, {{"beat", 1.5}, {"value", 8191}, {"step", true}}}}},
+           {{"controller", 64},
+            {"points", {{{"beat", 0}, {"value", 100}}, {{"beat", 3}, {"value", 0}}}}}}}})["lanes"];
+    CHECK(daw.session->undoDescription() == "Assistant: set controllers");
+    REQUIRE(lanes.size() == 3);
+    CHECK(lanes[0]["controller"] == 1);
+    CHECK(lanes[0]["name"] == "Mod wheel");
+    CHECK(lanes[0]["points"].size() == 2);
+    CHECK(lanes[0]["points"][1]["value"] == 127);
+    CHECK(lanes[1]["controller"] == 64);
+    CHECK(lanes[1]["points"][0]["value"] == 127); // a pedal: on
+    CHECK(lanes[1]["points"][0]["step"] == true);
+    CHECK(lanes[2]["controller"] == "pitch_bend");
+    CHECK(lanes[2]["points"][0]["value"] == 0);
+    CHECK(lanes[2]["points"][1]["value"] == 8191);
+    const auto clipNow = daw.call("get_clip", {{"clip", clipId}});
+    REQUIRE(clipNow["controllers"].size() == 3);
+    CHECK(clipNow["controllers"][0]["points"] == 2);
+    const auto one = daw.call("get_controllers", {{"clip", clipId}, {"controller", "sustain"}})["lanes"];
+    REQUIRE(one.size() == 1);
+    CHECK(one[0]["controller"] == 64);
+    // An empty lane removes it; a bad controller is named.
+    daw.call("set_controllers",
+             {{"clip", clipId}, {"lanes", {{{"controller", 1}, {"points", Json::array()}}}}});
+    CHECK(daw.call("get_controllers", {{"clip", clipId}})["lanes"].size() == 2);
+    CHECK(daw.fails("set_controllers",
+                    {{"clip", clipId}, {"lanes", {{{"controller", "wobble"}, {"points", Json::array()}}}}})
+              .find("wobble") != std::string::npos);
+    CHECK(
+        daw.fails("set_controllers",
+                  {{"clip", clipId},
+                   {"lanes", {{{"controller", "pitch_bend"}, {"points", {{{"beat", 0}, {"value", 9000}}}}}}}})
+            .find("-8192") != std::string::npos);
+}
+
+TEST_CASE("mcp tools: the notes' transform and generate tools, listed, run and checked (P4c)",
+          "[integration][mcp]")
+{
+    Daw daw;
+    const auto track = daw.call("add_track", {{"name", "Keys"}})["track"].get<std::string>();
+    const auto clipId = daw.call("create_midi_clip",
+                                 {{"track", track}, {"start", "1.1.1"}, {"length", "4 bars"}})["clip"]["id"]
+                            .get<std::string>();
+    REQUIRE(daw.call("set_key", {{"root", "C"}, {"scale", "major"}})["key"]["name"] == "C major");
+
+    // Listed with their settings and defaults.
+    const auto listed = daw.call("list_note_tools", Json::object());
+    REQUIRE(listed["transform"].size() == 9);
+    REQUIRE(listed["generate"].size() == 4);
+    CHECK(listed["transform"][0]["tool"] == "quantise");
+    const auto strum = listed["transform"][2];
+    CHECK(strum["tool"] == "strum");
+    CHECK(strum["settings"][0]["choices"] == Json{"up", "down", "alternate"});
+    CHECK(strum["settings"][1]["default"] == 40.0);
+    const auto velocity = listed["transform"][6];
+    CHECK(velocity["settings"][1]["onlyWhen"]["shape"] == "ramp");
+
+    // Generate: a progression, a bar each; then a bassline under it.
+    auto made = daw.call("generate_notes",
+                         {{"clip", clipId}, {"tool", "chords"}, {"settings", {{"kind", "seventh"}}}});
+    CHECK(made["notes"] == 16); // four sevenths
+    CHECK(daw.session->undoDescription() == "Assistant: generate notes");
+    auto chords = daw.call("get_chords", {{"clip", clipId}})["chords"];
+    REQUIRE(chords.size() == 4);
+    CHECK(chords[0]["name"] == "Cmaj7");
+    made =
+        daw.call("generate_notes", {{"clip", clipId}, {"tool", "bassline"}, {"settings", {{"step", "1/8"}}}});
+    CHECK(made["notes"] == 32);
+    // Only into the span asked for.
+    made = daw.call("generate_notes", {{"clip", clipId},
+                                       {"tool", "rhythm"},
+                                       {"start", 0},
+                                       {"length", "1 bar"},
+                                       {"settings", {{"pitch", 84}}}});
+    CHECK(made["notes"] == 5);
+
+    // Transform: the chord in the first bar strummed.
+    auto t =
+        daw.call("transform_notes", {{"clip", clipId},
+                                     {"where", {{"from", 0}, {"to", 1}, {"lowest", 55}, {"highest", 80}}},
+                                     {"tool", "strum"},
+                                     {"settings", {{"time", 60}}}});
+    CHECK(t["notes"] == 4);
+    CHECK(daw.session->undoDescription() == "Assistant: transform notes");
+    // Quantise, to the grid given: the strum undone.
+    t = daw.call("transform_notes", {{"clip", clipId},
+                                     {"where", {{"from", 0}, {"to", 1}, {"lowest", 55}, {"highest", 80}}},
+                                     {"tool", "quantise"},
+                                     {"grid", "1 bar"}});
+    CHECK(t["notes"] == 4);
+    for (const auto& n : daw.call("get_clip", {{"clip", clipId}})["notes"])
+        if (n["start"].get<double>() < 1.0 && n["pitch"].get<int>() >= 55 && n["pitch"].get<int>() <= 80)
+            CHECK(n["start"].get<double>() == Approx(0.0));
+
+    // Mistakes are named.
+    CHECK(daw.fails("transform_notes", {{"clip", clipId}, {"where", "all"}, {"tool", "rhythm"}})
+              .find("humanize") != std::string::npos);
+    CHECK(daw.fails("transform_notes",
+                    {{"clip", clipId}, {"where", "all"}, {"tool", "strum"}, {"settings", {{"tempo", 3}}}})
+              .find("direction") != std::string::npos);
+    CHECK(daw.fails("transform_notes", {{"clip", clipId},
+                                        {"where", "all"},
+                                        {"tool", "strum"},
+                                        {"settings", {{"direction", "sideways"}}}})
+              .find("alternate") != std::string::npos);
+    CHECK(daw.fails("transform_notes",
+                    {{"clip", clipId}, {"where", "all"}, {"tool", "strum"}, {"settings", {{"time", 9000}}}})
+              .find("250") != std::string::npos);
+    const auto empty = daw.call("create_midi_clip",
+                                {{"track", track}, {"start", "9.1.1"}, {"length", "1 bar"}})["clip"]["id"];
+    CHECK(daw.fails("generate_notes", {{"clip", empty}, {"tool", "bassline"}}).find("chords") !=
+          std::string::npos);
 }
 
 TEST_CASE("mcp tools: audio clips: insert, move, trim, duplicate, split, delete", "[integration][mcp]")

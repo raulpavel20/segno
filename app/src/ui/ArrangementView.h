@@ -276,6 +276,8 @@ private:
     void laneMouseDown(const juce::MouseEvent& e, int row);
     void laneMouseDrag(const juce::MouseEvent& e);
     void laneMouseUp(const juce::MouseEvent& e);
+    /// A row's lane as its gestures see it.
+    [[nodiscard]] LaneGesture::Lane gestureLane(int row) const;
     /// A row's right-click menu (-1: the empty space below the rows): its own items, then the
     /// items that make rows.
     /// A row's menu (or, for -1, the empty space's); from the lanes it ends with the Grid.
@@ -515,19 +517,8 @@ private:
     std::map<std::string, std::string> laneTexts_; // the value each lane header shows (repainted on change)
 
     /// A gesture on a lane's points.
-    struct LaneDrag
-    {
-        enum class Kind { None, Points, Segment, Bend, Box, Draw };
-        Kind kind = Kind::None;
-        int row = -1;
-        model::AutomationPoints base;
-        std::set<size_t> selection, boxBase;
-        size_t index = 0; // the grabbed point, or the segment's first point
-        float bend = 0.0f;
-        model::AutomationPoints drawn;
-        std::optional<size_t> clickedInSelection;
-    };
-    LaneDrag laneDrag_;
+    LaneGesture laneGesture_; // the lane gestures, shared with the clip view's controller lanes
+    int laneRow_ = -1;        // the row it's on
     /// What a lane gesture shows until the snapshot has it: the row's key and the edit.
     std::optional<std::pair<std::string, model::PointEdit>> lanePreview_;
     std::optional<std::pair<int, size_t>> hoveredPoint_; // row, point

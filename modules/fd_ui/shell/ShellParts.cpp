@@ -218,30 +218,109 @@ void PanelHeader::addOption(ViewChoice& choice)
     resized();
 }
 
+void PanelHeader::addOption(Segments& segments)
+{
+    options_.push_back({&segments, [&segments] { return segments.preferredWidth(); }});
+    addAndMakeVisible(segments);
+    resized();
+}
+
 void PanelHeader::addCommand(juce::Component& command)
 {
-    commands_.push_back(&command);
+    commands_.push_back({.component = &command, .width = command.getWidth()});
     addAndMakeVisible(command);
     resized();
 }
 
 void PanelHeader::removeCommand(juce::Component& command)
 {
-    std::erase(commands_, &command);
+    std::erase_if(commands_, [&](const Command& c) { return c.component == &command; });
     removeChildComponent(&command);
     resized();
     repaint();
 }
 
+void PanelHeader::setDropOrder(juce::Component& option, int order)
+{
+    for (auto& o : options_)
+        if (o.component == &option)
+            o.drop = order;
+    for (auto& c : commands_)
+        if (c.component == &option)
+            c.drop = order;
+    resized();
+}
+
+bool PanelHeader::isDropped(const juce::Component& option) const
+{
+    for (const auto& o : options_)
+        if (o.component == &option)
+            return o.dropped;
+    for (const auto& c : commands_)
+        if (c.component == &option)
+            return c.dropped;
+    return false;
+}
+
 void PanelHeader::resized()
 {
+    const auto& s = Theme::current().shell;
+    // Options that give way to the width (setDropOrder), lowest order first, until the commands
+    // and options fit beside the tabs or the title, a group apart.
+    const int left = tabs_.isVisible()
+                         ? s.padding - s.buttonTextPadding + tabs_.preferredWidth()
+                         : s.padding + static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(
+                                           capsLabelFont(), title_.toUpperCase())));
+    for (auto& o : options_)
+        o.dropped = false;
+    for (auto& c : commands_)
+        c.dropped = false;
+    const auto needed = [&]
+    {
+        int width = s.padding / 2, items = 0;
+        for (const auto& o : options_)
+            if (o.component->isVisible() && !o.dropped)
+            {
+                width += o.width() + (items++ > 0 ? s.itemGap : 0);
+            }
+        int commandWidth = 0, commandCount = 0;
+        for (const auto& c : commands_)
+            if (c.component->isVisible() && !c.dropped)
+                commandWidth += c.shownWidth() + (commandCount++ > 0 ? s.itemGap : 0);
+        if (commandCount > 0)
+            width += commandWidth + (items > 0 ? s.groupGap : s.padding / 2);
+        return width;
+    };
+    while (needed() > getWidth() - left - s.groupGap)
+    {
+        // The lowest drop order among the options and commands still shown.
+        bool* next = nullptr;
+        int lowest = 0;
+        for (auto& o : options_)
+            if (o.drop > 0 && !o.dropped && o.component->isVisible() && (next == nullptr || o.drop < lowest))
+            {
+                next = &o.dropped;
+                lowest = o.drop;
+            }
+        for (auto& c : commands_)
+            if (c.drop > 0 && !c.dropped && c.component->isVisible() && (next == nullptr || c.drop < lowest))
+            {
+                next = &c.dropped;
+                lowest = c.drop;
+            }
+        if (next == nullptr)
+            break;
+        *next = true;
+    }
+
     // Right to left, `itemGap` apart. The last one's label ends at the padding, where a caption
     // would (the option's own padding is half the shell's).
-    const auto& s = Theme::current().shell;
     int right = getWidth() - s.padding / 2;
     bool options = false;
     for (auto it = options_.rbegin(); it != options_.rend(); ++it)
-        if (it->component->isVisible())
+        if (it->dropped)
+            it->component->setBounds({});
+        else if (it->component->isVisible())
         {
             const int w = it->width();
             it->component->setBounds(right - w, 0, w, getHeight());
@@ -249,15 +328,23 @@ void PanelHeader::resized()
             options = true;
         }
     // Commands left of them, a group apart (from the padding when there are none), centred.
-    const bool commands = std::any_of(commands_.begin(), commands_.end(), [](auto* c) { return c->isVisible(); });
+    const bool commands = std::any_of(commands_.begin(), commands_.end(), [](const Command& c)
+                                      { return c.component->isVisible() && !c.dropped; });
     if (commands)
     {
         right = !options ? getWidth() - s.padding : right + s.itemGap - s.groupGap;
         for (auto it = commands_.rbegin(); it != commands_.rend(); ++it)
-            if ((*it)->isVisible())
+            if (it->dropped)
             {
-                const int w = (*it)->getWidth(), h = (*it)->getHeight();
-                (*it)->setBounds(right - w, (getHeight() - h) / 2, w, h);
+                it->width = it->shownWidth();
+                it->component->setBounds({});
+            }
+            else if (it->component->isVisible())
+            {
+                const int w = it->shownWidth(),
+                          h = it->component->getHeight() > 0 ? it->component->getHeight() : s.rowHeight;
+                it->width = w;
+                it->component->setBounds(right - w, (getHeight() - h) / 2, w, h);
                 right -= w + s.itemGap;
             }
     }
@@ -272,12 +359,6 @@ void PanelHeader::paint(juce::Graphics& g)
     auto r = getLocalBounds().reduced(t.shell.padding, 0);
     if (optionsLeft_ < getWidth()) // options or commands on the right
         r.setRight(optionsLeft_ - t.shell.groupGap);
-    if (caption_.isNotEmpty())
-    {
-        g.setColour(t.textTertiary);
-        g.setFont(font(TextStyle::Caption));
-        g.drawText(caption_, r, juce::Justification::centredRight, false);
-    }
     if (!tabs_.isVisible())
     {
         const int titleWidth = static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(capsLabelFont(), title_.toUpperCase())));
@@ -285,11 +366,29 @@ void PanelHeader::paint(juce::Graphics& g)
     }
     else
         r.setLeft(tabs_.getRight());
-    if (context_.isNotEmpty())
+    // The caption, a hint, shows only where it fits beside the context, a group apart; the context
+    // takes the rest, cut short with an ellipsis.
+    auto rest = r.withTrimmedLeft(t.shell.padding);
+    const auto width = [](const juce::Font& f, const juce::String& text)
+    {
+        return text.isEmpty() ? 0
+                              : static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(f, text)));
+    };
+    const int captionWidth = width(font(TextStyle::Caption), caption_);
+    const int contextWidth = width(font(TextStyle::Name), context_);
+    if (captionWidth > 0 &&
+        rest.getWidth() >= (contextWidth > 0 ? contextWidth + t.shell.groupGap : 0) + captionWidth)
+    {
+        g.setColour(t.textTertiary);
+        g.setFont(font(TextStyle::Caption));
+        g.drawText(caption_, rest.removeFromRight(captionWidth), juce::Justification::centredRight, false);
+        rest.removeFromRight(t.shell.groupGap);
+    }
+    if (context_.isNotEmpty() && rest.getWidth() > 0)
     {
         g.setColour(t.textSecondary);
         g.setFont(font(TextStyle::Name));
-        g.drawText(context_, r.withTrimmedLeft(t.shell.padding).withTrimmedRight(120), juce::Justification::centredLeft, true);
+        g.drawText(context_, rest, juce::Justification::centredLeft, true);
     }
 }
 
@@ -509,6 +608,21 @@ void paintEmptyState(juce::Graphics& g, juce::Rectangle<int> area, const juce::S
     g.setColour(t.textTertiary);
     g.setFont(font(TextStyle::Body));
     g.drawFittedText(text, area.reduced(t.shell.padding), juce::Justification::centred, 2);
+}
+
+void paintHatch(juce::Graphics& g, juce::Rectangle<float> area, juce::Colour colour)
+{
+    if (area.isEmpty())
+        return;
+    // Lines rising to the right, placed by x + y so they meet across neighbouring areas.
+    const auto spacing = static_cast<float>(Theme::current().shell.hatchSpacing);
+    juce::Graphics::ScopedSaveState saved(g);
+    g.reduceClipRegion(area.getSmallestIntegerContainer());
+    g.setColour(colour);
+    const float h = area.getHeight();
+    const float first = std::floor((area.getX() + area.getY()) / spacing) * spacing;
+    for (float s = first; s < area.getRight() + area.getBottom(); s += spacing)
+        g.drawLine(s - area.getY(), area.getY(), s - area.getY() - h, area.getBottom(), 1.0f);
 }
 
 void paintValueTag(juce::Graphics& g, juce::Point<float> anchor, juce::Rectangle<int> within, const juce::String& text)

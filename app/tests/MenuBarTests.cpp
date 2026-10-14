@@ -32,7 +32,7 @@ TEST_CASE("menu bar: traditional menus, well made, each action once", "[fast]")
         std::vector<std::string> titles;
         for (const auto& m : menus)
             titles.push_back(m.title);
-        CHECK(titles == std::vector<std::string>{"File", "Edit", "Track", "Clip", "Song", "Module",
+        CHECK(titles == std::vector<std::string>{"File", "Edit", "Track", "Clip", "Notes", "Song", "Module",
                                                  "Transport", "View", "Options", "Help"});
         // File holds the project; Edit starts with Undo and Redo.
         CHECK(menus[0].entries.front().id == "file.new");
@@ -55,10 +55,11 @@ TEST_CASE("menu bar: traditional menus, well made, each action once", "[fast]")
     // Mnemonics avoid the Alt shortcuts in use (Alt+R, M, S, L).
     const auto menus = menuBar(MenuPlatform::Windowed);
     CHECK(menuForMnemonic(menus, 'F') == 0);
-    CHECK(menuForMnemonic(menus, 'n') == 4); // Song (ADR 0049; Alt+S solos)
-    CHECK(menuForMnemonic(menus, 'd') == 5); // Module (ADR 0044)
-    CHECK(menuForMnemonic(menus, 'p') == 6); // Transport
-    CHECK(menuForMnemonic(menus, 'h') == 9);
+    CHECK(menuForMnemonic(menus, 'n') == 4); // Notes (ADR 0058)
+    CHECK(menuForMnemonic(menus, 'g') == 5); // Song (ADR 0049; Alt+S solos, Notes has the n)
+    CHECK(menuForMnemonic(menus, 'd') == 6); // Module (ADR 0044)
+    CHECK(menuForMnemonic(menus, 'p') == 7); // Transport
+    CHECK(menuForMnemonic(menus, 'h') == 10);
     for (const char taken : {'r', 'm', 's', 'l'})
         CHECK(menuForMnemonic(menus, taken) == -1);
 }

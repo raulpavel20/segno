@@ -7,6 +7,7 @@
 #include "ui/AssistantsPopover.h"
 #include "ui/BrowserDrops.h"
 #include "ui/BrowserPanel.h"
+#include "ui/ChordPopover.h"
 #include "ui/CommandPalette.h"
 #include "ui/ExportPopover.h"
 #include "ui/KeyPopover.h"
@@ -108,6 +109,13 @@ public:
     /// in the selected MIDI clips (or every one).
     [[nodiscard]] KeyPopover& keyPopover() noexcept { return keyPopover_; }
     void openKeyPopover();
+    /// The Chord popover (piano-roll.md §7.3): beside a place in the clip view's chord lane, or for
+    /// the selected notes (Notes ▸ Make chord…).
+    [[nodiscard]] ChordPopover& chordPopover() noexcept { return chordPopover_; }
+    void openChordPopover(const PianoRoll::ChordPlace& place);
+    /// A tool of the Notes menu (Quantise…, Make chords…, Transform ▸, Generate ▸): the clip view's
+    /// Tools pane at it (piano-roll.md §25).
+    void openTool(std::string_view id);
     /// Ends typing in a field on a press elsewhere (tests drive its rule).
     [[nodiscard]] ui::EndEditingOnClickAway& clickAway() noexcept { return clickAway_; }
 
@@ -179,6 +187,10 @@ private:
     [[nodiscard]] juce::PopupMenu clipColourMenu();
     // The song's sections (ShellSong.cpp, ADR 0049): the Song menu's commands, a section's menu.
     void registerSongActions();
+    // The piano roll's commands (ShellNotes.cpp, ADR 0058): the Notes menu, the clip view's options.
+    void registerNotesActions();
+    /// The notes' right-click menu (piano-roll.md §13).
+    [[nodiscard]] juce::PopupMenu notesContextMenu();
     [[nodiscard]] juce::PopupMenu sectionColourMenu();
     void sectionMenu(juce::PopupMenu& menu, std::uint64_t section);
     [[nodiscard]] bool sectionsActive() const; // sections are selected, in the arrangement used last
@@ -269,6 +281,7 @@ private:
     ExportPopover exportPanel_{session_};
     LanePicker lanePicker_{session_};
     KeyPopover keyPopover_{session_};
+    ChordPopover chordPopover_{detail_.pianoRoll()};
     ui::EndEditingOnClickAway clickAway_{*this}; // a press elsewhere keeps what was typed
     /// The picker, assigning a parameter to `lane` (for its first assignment's channel, else the
     /// track it follows).

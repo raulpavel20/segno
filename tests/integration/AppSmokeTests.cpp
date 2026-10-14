@@ -692,7 +692,22 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         "module.racksFolder",
         // A rack's snapshots and Morph (racks.md §18.9): in the menu and on the rack's panel.
         "module.storeSnapshot", "module.updateSnapshot", "module.renameSnapshot", "module.removeSnapshot",
-        "module.morph"};
+        "module.morph",
+        // The piano roll's tools (piano-roll.md §13): in the Notes menu, which the clip view's
+        // Notes button opens where you work, and the most used on the notes' right-click menu.
+        "notes.fitToKey", "notes.makeChords", "notes.changeChord", "notes.voiceSmooth", "notes.voiceClose",
+        "notes.voiceOpen", "notes.voiceDrop2", "notes.voiceDrop3", "notes.voiceSpread", "notes.addBass",
+        "notes.legato", "notes.fixedLength", "notes.doubleSpeed", "notes.halfSpeed", "notes.reverse",
+        "notes.mirror", "notes.reroll", "notes.tool.humanize", "notes.tool.strum", "notes.tool.arpeggiate",
+        "notes.tool.chop", "notes.tool.ornament", "notes.tool.velocity", "notes.tool.span",
+        "notes.tool.randomise", "notes.tool.rhythm", "notes.tool.melody", "notes.tool.chords",
+        "notes.tool.bassline", "notes.selectSamePitch", "notes.selectOutsideKey", "notes.selectInLoop",
+        "notes.invertSelection",
+        // The clip view's options (piano-roll.md §4): on screen in its header.
+        "view.clipOthers", "view.toolsTransform", "view.toolsGenerate", "view.drawNote", "view.drawChord",
+        "view.drawChordUnder", "view.drawTriads", "view.drawSevenths", "view.drawNinths", "view.drawSus2",
+        "view.drawSus4", "view.drawAdd9", "view.voicingSmooth", "view.voicingClose", "view.voicingOpen",
+        "view.voicingDrop2", "view.voicingDrop3", "view.voicingSpread"};
     for (const auto& a : actions.all())
     {
         INFO(a.id);
@@ -3014,8 +3029,8 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     auto& s = *f.session;
     const auto& actions = f.shell->actions();
     auto& menus = f.shell->menus();
-    CHECK(menus.getMenuBarNames() == juce::StringArray{"File", "Edit", "Track", "Clip", "Song", "Module",
-                                                       "Transport", "View", "Options", "Help"});
+    CHECK(menus.getMenuBarNames() == juce::StringArray{"File", "Edit", "Track", "Clip", "Notes", "Song",
+                                                       "Module", "Transport", "View", "Options", "Help"});
 
     // ADR 0040: every action is in the menu bar exactly once, and every item is an action (the
     // assistants' only with a server; the fixture has none).
@@ -3053,9 +3068,9 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     REQUIRE(named != nullptr);
     CHECK(named->isEnabled);
     CHECK(actions.tooltip("edit.undo").startsWith("Undo Add track ("));
-    CHECK_FALSE(findItem(menus.menu(6), "Loop")->isTicked);
+    CHECK_FALSE(findItem(menus.menu(7), "Loop")->isTicked);
     actions.perform("transport.loop");
-    CHECK(findItem(menus.menu(6), "Loop")->isTicked);
+    CHECK(findItem(menus.menu(7), "Loop")->isTicked);
     actions.perform("transport.loop");
 
     if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: each menu and submenu
@@ -3075,9 +3090,9 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     CHECK(f.shell->exportPanel().isOpen());
     f.shell->exportPanel().close();
     // The lists the Record button's menu shows, in Transport too: one builder.
-    CHECK(invoke(menus.menu(6), "2 bars", "Count-in length"));
+    CHECK(invoke(menus.menu(7), "2 bars", "Count-in length"));
     CHECK(s.countIn() == fd::model::CountIn::TwoBars);
-    CHECK(invoke(menus.menu(6), "Each lap: add to the clip (overdub)", "MIDI loop recording"));
+    CHECK(invoke(menus.menu(7), "Each lap: add to the clip (overdub)", "MIDI loop recording"));
     CHECK(s.midiOverdub());
     // Back as the other tests expect them: the count-in is kept in the engine's settings file.
     s.setCountIn(fd::model::CountIn::Off);
@@ -3089,7 +3104,7 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     CHECK_FALSE(actions.isEnabled("take.copyToTrack"));
     actions.perform("midi.computerKeyboard");
     REQUIRE(actions.isEnabled("midi.octaveUp"));
-    CHECK(invoke(menus.menu(8), "Octave up", "Computer keyboard"));
+    CHECK(invoke(menus.menu(9), "Octave up", "Computer keyboard"));
     CHECK(f.shell->lastWarning().contains("C4"));
     // A key held when the keys stop reaching the shell (a text field elsewhere, another window,
     // the app in the background) ends its note: its release would never arrive.
@@ -3109,13 +3124,15 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     CHECK(f.shell->keyPressed(juce::KeyPress(juce::KeyPress::F10Key)));
     CHECK(opened == 0);
     CHECK(f.shell->keyPressed(juce::KeyPress('d', juce::ModifierKeys::altModifier, 0)));
-    CHECK(opened == 5); // Module, after Song
+    CHECK(opened == 6); // Module, after Song
     CHECK(f.shell->keyPressed(juce::KeyPress('n', juce::ModifierKeys::altModifier, 0)));
-    CHECK(opened == 4); // Song (Alt+S solos)
+    CHECK(opened == 4); // Notes (ADR 0058)
+    CHECK(f.shell->keyPressed(juce::KeyPress('g', juce::ModifierKeys::altModifier, 0)));
+    CHECK(opened == 5); // Song (Alt+S solos)
     CHECK(f.shell->keyPressed(juce::KeyPress('p', juce::ModifierKeys::altModifier, 0)));
-    CHECK(opened == 6);
+    CHECK(opened == 7);
     CHECK(f.shell->keyPressed(juce::KeyPress('h', juce::ModifierKeys::altModifier, 0)));
-    CHECK(opened == 9);
+    CHECK(opened == 10);
     opened = -1;
     f.shell->keyPressed(juce::KeyPress('r', juce::ModifierKeys::altModifier, 0));
     CHECK(opened == -1);
@@ -3124,7 +3141,7 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     CHECK(f.shell->projectName() == "Untitled");
 
     // Help > About Segno: the licence notice, inside the window, nothing touching.
-    CHECK(invoke(menus.menu(9), "About Segno"));
+    CHECK(invoke(menus.menu(10), "About Segno"));
     auto& about = f.shell->about();
     REQUIRE(about.isOpen());
     CHECK(about.paragraphs().joinIntoString(" ").contains("GNU Affero General Public License"));

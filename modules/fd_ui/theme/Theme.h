@@ -49,7 +49,9 @@ struct ColourRoles
 {
     juce::Colour lane, laneSelected, subLane, strip;
     juce::Colour keyRowLight, keyRowDark, shade;
-    juce::Colour keyRowRoot; // the song key's root in the piano roll, a tone above the key's rows (ADR 0057)
+    // A row outside the key while the piano roll shows the key's rows (piano-roll.md §21.2): its
+    // hatching, over the row's own shade.
+    juce::Colour keyRowHatch;
     juce::Colour gridBar, gridBeat, gridSub, gridOctave, gridMinor;
     juce::Colour selectionFill, selectionStroke, dropTarget, textHighlight;
     juce::Colour playhead, marker, loopInactive, onClip;
@@ -72,6 +74,7 @@ struct ColourRoles
     float hoverLift = 0.06f, pressedLift = 0.12f;
     float dimAlpha = 0.35f;   // ignored or switched off; never compounded
     float fadedAlpha = 0.4f;  // exists but doesn't play
+    float ghostAlpha = 0.28f; // another part's notes behind the clip's own (piano-roll.md §8)
     float fillAlpha = 0.14f;  // the flat fill under a curve
     float depthFar = 0.25f, depthNear = 0.6f; // a 3D view's lines, farthest and nearest (atDepth)
 };
@@ -128,7 +131,7 @@ struct ShellMetrics
     int browserIndent = 16;     // a browser row in from its parent: an icon and its gap (ADR 0046, 0059)
     int browserWaveHeight = 32; // the preview strip's waveform
     int toastHeight = 36, toastWidth = 420;
-    int keyboardWidth = 52, velocityHeight = 56;
+    int keyboardWidth = 56, velocityHeight = 56;
     // One octave of keys (ui::OctaveKeys: the Key popover's root, key-and-scale.md §6): a white key's
     // width and height, and a black key's (wide enough for its name, "C♯", clear of its edges).
     int octaveKeyWidth = 28, octaveKeyHeight = 52, octaveBlackKeyWidth = 20, octaveBlackKeyHeight = 32;
@@ -136,12 +139,16 @@ struct ShellMetrics
     int barPadding = 8, barInset = 6; // a bar's (the transport's) edges: sides, top and bottom
     int itemGap = 4, groupGap = 12;   // between items in a group, between groups
     int buttonSize = 28;              // icon buttons in bars and rails
+    int toolIconSize = 16;            // a tool's icon in its tile (ui::Tile)
+    int toggleIconSize = 14;          // an icon before a toggle's label (Toggle::setIcon)
+    int toolsDockFrom = 900;          // the clip view's Tools pane docks from this width, else floats
     int fieldHeight = 24;             // text fields (search)
     // Text inside controls and rows.
     int fieldTextInset = 6;     // text from a combo box's, input button's or field's left edge
     int buttonTextPadding = 8;  // a text button's padding on each side of its label (ui::Toggle::widthFor)
     int propertyFieldInset = 1; // a field in a property row, from the row's top and bottom
     int lightSize = 6;          // an activity light (MIDI input, assistants)
+    int hatchSpacing = 6;       // between hatching's lines (ui::paintHatch)
     // Clips and lanes in time views.
     int clipGap = 1;              // a clip from its row's top, from the separator line below it, and from a clip touching its end (the seam)
     int clipOutline = 1;          // a selected clip's outline; a fade's square sits inside it
@@ -165,6 +172,7 @@ struct ShellMetrics
     int progressHeight = 2;       // the progress line along the bottom of what's being worked on
     int fadeHandleSize = 7;       // a fade's or crossfade's handle on a clip (fades.md §3)
     int loopNotch = 4;            // a looped clip's notch at each seam: its depth, half its width (clip-loops.md §5)
+    int timeHandleWidth = 4;      // a selection's time handle in the piano roll's ruler (piano-roll.md §9.2)
     float shadowRadius = 18.0f, shadowOffset = 6.0f;
 };
 
@@ -239,6 +247,8 @@ struct Theme
     [[nodiscard]] juce::Colour noteFill(juce::Colour clip, float velocity, bool selected) const;
     /// Content that exists but doesn't play.
     [[nodiscard]] juce::Colour faded(juce::Colour c) const { return c.withMultipliedAlpha(roles.fadedAlpha); }
+    /// Another track's notes in the piano roll, faint behind the clip's own (piano-roll.md §8).
+    [[nodiscard]] juce::Colour ghost(juce::Colour c) const { return c.withMultipliedAlpha(roles.ghostAlpha); }
     /// The flat fill under a curve drawn in `c`.
     [[nodiscard]] juce::Colour fill(juce::Colour c) const { return c.withMultipliedAlpha(roles.fillAlpha); }
     /// A line of a 3D view (a wavetable's frames) `nearness` of the way from the back (0) to the

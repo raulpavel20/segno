@@ -1,6 +1,7 @@
 #include "engine/EngineBehaviour.h"
 
 #include "engine/ClipFades.h"
+#include "engine/ClipNotes.h"
 
 namespace fd::engine
 {
@@ -37,6 +38,15 @@ public:
         if (!playback.any() && clip.getFadeIn() == tracktion::TimeDuration() && clip.getFadeOut() == tracktion::TimeDuration())
             return {};
         return std::make_unique<ClipFadeNode>(std::move(input), state, clips[index], playback);
+    }
+
+    // Chance (piano-roll.md §10): every render of a MIDI clip decides its notes the same way.
+    juce::MidiMessageSequence createPlaybackMidiSequence(const tracktion::MidiList& list,
+                                                         tracktion::MidiClip& clip,
+                                                         tracktion::MidiList::TimeBase timeBase,
+                                                         bool generateMPE) override
+    {
+        return playbackSequence(list, clip, timeBase, generateMPE);
     }
 
     RecordingFiles files;

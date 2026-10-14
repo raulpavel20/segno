@@ -110,9 +110,19 @@ struct LaneRules
 [[nodiscard]] PointEdit deletePoints(const AutomationPoints& points, const std::set<size_t>& selection);
 
 /// Copies the selection after itself, by its span rounded up to whole `stepSeconds` (at least one
-/// step); the copies are selected.
+/// step); the copies are selected. They replace what lies in their range but the selection itself:
+/// a copy landing on a selected point (a span of whole steps) stays beside it, a jump.
 [[nodiscard]] PointEdit duplicatePoints(const AutomationPoints& points, const std::set<size_t>& selection,
                                         double stepSeconds, const LaneRules& rules);
+
+/// Copy (automation.md §9): the selected points in time order, their times counted from the first.
+[[nodiscard]] AutomationPoints copyPoints(const AutomationPoints& points, const std::set<size_t>& selection);
+
+/// Paste: `held` (copyPoints') placed from `at` (no earlier than 0), replacing whatever lay in their
+/// range; they're selected. On a stepped lane they're its steps. Any lane takes any lane's points:
+/// the shape is what's pasted (an automation lane's into a controller lane, and back).
+[[nodiscard]] PointEdit pastePoints(const AutomationPoints& points, const AutomationPoints& held, double at,
+                                    const LaneRules& rules);
 
 /// Draws over a time range: the points from the first drawn time to the last are replaced by the
 /// drawn ones (`drawn` in any order; stepped lanes get steps). The drawn points are selected.

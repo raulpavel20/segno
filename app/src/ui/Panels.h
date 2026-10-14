@@ -10,6 +10,7 @@
 #include "ui/TrackInputs.h"
 #include "ui/AudioClipView.h"
 #include "ui/PianoRoll.h"
+#include "ui/ToolsPane.h"
 
 #include <fd_ui/fd_ui.h>
 
@@ -149,12 +150,27 @@ public:
     void focusTakeName();
     /// The shell's actions, for the TAKE section's commands (they act on the selected take).
     void setActions(const ActionRegistry& actions);
+    /// The clip view's piano roll (piano-roll.md §9.6): a NOTES section after CLIP while it shows
+    /// the selected clip with notes selected, edited through it.
+    void setPianoRoll(PianoRoll& roll);
+    /// Its notes or their selection changed.
+    void notesChanged();
+    /// The NOTES section's fields (tests).
+    [[nodiscard]] ui::NumberField& noteField(model::NoteField field) noexcept;
+    [[nodiscard]] ui::Toggle& noteMute() noexcept { return noteMute_; }
     void resized() override;
     void paint(juce::Graphics& g) override;
 
 private:
     /// The selected section's fields (arranger.md §10), made once.
     void wireSection();
+    /// The NOTES section's fields, made once.
+    void wireNotes();
+    /// Adds or removes the NOTES section and shows the notes' values.
+    void updateNotes();
+    [[nodiscard]] bool showsNotes() const;
+    /// "Notes · 4 selected · G7".
+    [[nodiscard]] juce::String notesTitle() const;
     /// A section's property rows (none for MIX and SENDS, which are components).
     [[nodiscard]] std::vector<ui::Property> properties(model::InspectorSection section) const;
     /// Lays the sections out `width` wide from the top of the content; returns their height.
@@ -205,6 +221,17 @@ private:
     const ActionRegistry* actions_ = nullptr;
     /// The selected clip's mute (bounce.md §6), as on a track's mute button.
     ui::Toggle clipMute_{"M"};
+    /// The selected notes (piano-roll.md §9.6): pitch, start, length and velocity dragged or typed
+    /// (several: a range, moved together by a drag, all set by typing), and their mute. One undo
+    /// step per drag or value typed.
+    PianoRoll* roll_ = nullptr;
+    ui::NumberField notePitch_, noteStart_, noteLength_, noteVelocity_, noteSpread_, noteRelease_,
+        noteChance_;
+    ui::Toggle noteMute_{"M"};
+    std::optional<engine::Session::EditGroup> notesGesture_;
+    std::optional<model::NoteEdit> notesBase_;       // the notes a drag started from
+    double notesFrom_ = 0.0;                         // and the field's value then
+    std::map<model::NoteField, double> notesSpread_; // each field's range over the notes
     /// Its loop (ADR 0048, clip-loops.md §7): on or off, and while on its start in the content and
     /// its length, dragged in sixteenths or typed ("2.1.1", "1 bar 2 beats", for audio "1.5 s").
     ui::Toggle clipLoop_{"On"};
@@ -292,6 +319,25 @@ public:
     [[nodiscard]] PianoRoll& pianoRoll() noexcept { return roll_; }
     [[nodiscard]] AudioClipView& audioClipView() noexcept { return audio_; }
     [[nodiscard]] const PianoRoll& pianoRoll() const noexcept { return roll_; }
+    /// The Notes menu (piano-roll.md §4, §13): the menu bar's, built by the same function, so the
+    /// header's Notes button and the menu bar never differ.
+    std::function<juce::PopupMenu()> notesMenu;
+    /// The header's clip view controls (for tests and the layout lint).
+    [[nodiscard]] ui::MenuButton& notesButton() noexcept { return notes_; }
+    /// The Tools pane (piano-roll.md §25), and the header's Transform and Generate that open it.
+    [[nodiscard]] ToolsPane& toolsPane() noexcept { return tools_; }
+    [[nodiscard]] ui::Toggle& transformButton() noexcept { return transform_; }
+    [[nodiscard]] ui::Toggle& generateButton() noexcept { return generate_; }
+    /// Opens the Tools pane on `tab`, or closes it (none); view state, kept with the project.
+    void showTools(std::optional<model::ToolKind> tab);
+    [[nodiscard]] bool toolsShown(model::ToolKind tab) const;
+    /// Opens the pane at a tool ("strum"; "makeChords") and chooses it.
+    void showTool(std::string_view id);
+    [[nodiscard]] ui::ViewChoice& drawChoice() noexcept { return draw_; }
+    [[nodiscard]] ui::Segments& drawKind() noexcept { return drawKind_; }
+    [[nodiscard]] ui::ViewChoice& drawVoicing() noexcept { return drawVoicing_; }
+    [[nodiscard]] ui::ViewOption& inKeyOption() noexcept { return inKey_; }
+    [[nodiscard]] ui::ViewOption& othersOption() noexcept { return others_; }
     /// Once per display frame.
     void frame(double playheadSeconds);
     void paint(juce::Graphics& g) override;
@@ -300,14 +346,25 @@ public:
 private:
     void updateVisibility();
     void updateHeader();
+    /// The clip view's options in the header, as the piano roll has them.
+    void updateOptions();
     /// Modules, Clip where it's available, the editor's while one is open.
     void updateTabs();
 
     ui::PanelHeader header_;
     std::vector<Mode> tabModes_; // what each tab shows
     const ActionRegistry& actions_;
-    /// Quantise, in the clip view's header while it shows a clip (menu-bar.md §15).
+    /// Notes and Quantise, in the clip view's header while it shows notes (menu-bar.md §15,
+    /// piano-roll.md §4).
+    ui::MenuButton notes_{"Notes"};
     ui::Toggle quantise_{"Quantise"};
+    /// Transform and Generate (piano-roll.md §25): each opens the Tools pane on its tab.
+    ui::Toggle transform_{"Transform"}, generate_{"Generate"};
+    /// The piano roll's options (piano-roll.md §4): Draw, In key (with a song key: §21), Others;
+    /// while drawing chords, the kind side by side and the voicing (§20.2).
+    ui::ViewChoice draw_, drawVoicing_;
+    ui::Segments drawKind_;
+    ui::ViewOption inKey_{"In key"}, others_{"Others"};
     /// The piano roll's Snap and grid step (ADR 0047), on the right while it shows a clip.
     ui::ViewOption snap_{"Snap"};
     ui::ViewChoice grid_;
@@ -316,6 +373,7 @@ private:
     std::optional<model::TrackInfo> track_;
     DeviceChain chain_;
     PianoRoll roll_;
+    ToolsPane tools_; // docked at the clip view's right edge, or floating over it when narrow
     AudioClipView audio_;
     std::unique_ptr<ui::ModuleEditor> editor_;
     std::uint64_t editorModule_ = 0;

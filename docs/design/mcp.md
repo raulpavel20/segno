@@ -114,10 +114,22 @@ The project, track, clip and module resources send change notifications when the
 
 | Tool | Arguments |
 |---|---|
-| `add_notes` | `clip`, `notes` |
+| `add_notes` | `clip`, `notes` (each may be `muted`, and have `chance` (percent), `velocity_spread` and `release_velocity` (0–127): M3 P4b, [piano-roll.md](piano-roll.md) §10; read back only where they aren't the plain note's) |
 | `set_notes` | `clip`, `notes`: replaces them all |
 | `remove_notes` | `clip`, `where`: all, or a filter (pitch range, time range) |
-| `edit_notes` | `clip`, `where`, `transpose?`, `shift?` (beats), `velocity?` (set, or ± with a sign), `quantise?` (grid in beats) |
+| `edit_notes` | `clip`, `where`, `transpose?`, `shift?` (beats), `velocity?` (set, or ± with a sign), `quantise?` (grid in beats) with `strength?` and `swing?` (0–1); and the clip view's Notes menu (M3 P4, [piano-roll.md](piano-roll.md) §14): `transpose_steps?` (steps of the song key's scale), `fit_to_key?`, `stretch?` (a factor from the first note; negative reverses), `legato?`, `fixed_length?`, `join?`, `split_at?`, `reverse?`, `mirror?`, `invert?` (up, down), `voicing?` (smooth, close, open, drop2, drop3, spread), `mute?`, `add_bass?`; and (P4b) `chance?` (percent), `velocity_spread?`, `release_velocity?` (0–127), set with velocity; applied in that order |
+| `reroll_chance` | `clip`, `seed?`: a new seed for its notes' chance and velocity spread (random without one), as Notes ▸ Re-roll chance; the same seed always plays the same, in playback, bounces and exports (M3 P4b) |
+| `list_note_tools` | Each transform and generator ([piano-roll.md](piano-roll.md) §12, §23): what it does, its settings (choices as words; numbers with range and unit; which show only for a choice) and their defaults (reads; M3 P4c) |
+| `transform_notes` | `clip`, `where`, `tool` (quantise, humanize, strum, arpeggiate, chop, ornament, velocity, span, randomise), `settings?`, `grid?` (quantise's, default 1/16): as the clip view's Tools pane; random ones seeded (M3 P4c, §25) |
+| `generate_notes` | `clip`, `tool` (rhythm, melody, chords, bassline), `settings?`, `start?`, `length?`: into that span, else the clip's loop, or the clip; `existing` keeps or replaces the notes there (M3 P4c) |
+| `get_controllers` | `clip`, `controller?`: its controller lanes' points, beats from the clip's start; values 0–127, pitch bend −8192…8191 (0 at rest); `step` (holds) or a line, `bend` −1…1; recorded controllers are points that hold (M3 P4b, [piano-roll.md](piano-roll.md) §11) |
+| `set_controllers` | `clip`, `lanes` (`controller`: a CC number, or `pitch_bend`, `aftertouch`, `mod_wheel`, `breath`, `expression`, `sustain`; `points`): replaces those controllers' lanes (others stay); an empty list removes one; the pedals (CC 64–69) are on or off |
+| `get_chords` | `clip`: the chords its notes make, as the chord lane names them: start, length, name, step (a Roman numeral in the song's key, or null), pitches (M3 P4) |
+| `set_chord` | `clip`, `chord` (a name, "Dm7", "C/E", or with a key a numeral, "ii7", "bVII", "V7/V"), `start`, `length?` (a bar), `kind?`, `voicing?`, `inversion?`, `velocity?`: writes it there, or rewrites the chord there keeping its timing and velocities, voice-led |
+| `make_chords` | `clip`, `where`, `kind?` (triad, seventh, ninth, sus2, sus4, add9), `voicing?`, `inversion?`: each note the root of the key's chord on it; `chords?`, one per note in time order, as Make chords…' cards: `"leave"`, or `kind`, `chord` (with the note in it; on top when it isn't the root), `voicing`, `inversion` |
+| `suggest_chords` | `clip`, `at`, `kind?`: the key's chords, the usual next ones after the chord before (with why) and borrowed ones, as the Chord popover offers (reads) |
+
+`get_clip`'s notes say `"muted": true` for a muted note (only then).
 
 **Modules** (ours, and third-party plugins as far as their parameters go):
 
@@ -203,7 +215,7 @@ Every DAW feature ships with its tools (the coverage rule, ADR 0021). Today:
 | Transport, tempo, signature, loop, metronome | Transport tools |
 | Tracks: add, rename, recolour, move, duplicate, delete (C11) | `add_track`, `set_track`, `move_track`, `duplicate_track`, `delete_tracks`; lanes move with `move_automation_lane` (ADR 0042) |
 | Audio and MIDI clips: insert, move, trim, duplicate, split, delete; rename and recolour, copy to a place (C11) | Track and clip tools; `set_clips`, `copy_clips` |
-| Piano roll | Note tools |
+| Piano roll | Note tools; its chords (M3 P4, ADR 0058): `get_chords`, `set_chord`, `make_chords`, `suggest_chords`, and the Notes menu's edits in `edit_notes`; chance (`reroll_chance`) and controllers (`get_controllers`, `set_controllers`), P4b; the tools that transform and generate (`list_note_tools`, `transform_notes`, `generate_notes`), P4c |
 | The editing grid of each editor (ADR 0047) | `get_grid`, `set_grid` |
 | Module chains: add, remove, reorder, bypass, parameters, Sampler sample, collapse and fold | Module tools |
 | Presets and A/B (M3 A1, ADR 0044) | `list_presets`, `load_preset`, `save_preset`, `compare`; `add_module` takes a `preset` |

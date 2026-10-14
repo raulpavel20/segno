@@ -13,6 +13,24 @@ int ViewOption::preferredWidth() const
     return kPadding + static_cast<int>(kDot) + kGap + static_cast<int>(std::ceil(text)) + kPadding;
 }
 
+void ViewOption::mouseDown(const juce::MouseEvent& e)
+{
+    popup_ = e.mods.isPopupMenu() && onPopupMenu != nullptr;
+    if (popup_)
+    {
+        onPopupMenu();
+        return;
+    }
+    juce::Button::mouseDown(e);
+}
+
+void ViewOption::mouseUp(const juce::MouseEvent& e)
+{
+    if (std::exchange(popup_, false))
+        return;
+    juce::Button::mouseUp(e);
+}
+
 void ViewOption::paintButton(juce::Graphics& g, bool highlighted, bool down)
 {
     const auto& t = Theme::current();
