@@ -386,3 +386,56 @@ Each stage is built, reviewed in screenshots at standard and compact widths, and
 **Assistants:** `edit_notes` applies its edits in a fixed order (velocity, transpose, shift, steps, fit to key, quantise, stretch, legato, fixed length, join, split, reverse, mirror, invert, voicing, mute, add bass); names are written with # and b, as the key tools write them.
 
 **Performance:** 2 000 notes with the chord lane and other tracks' notes draw in 44 ms in a Debug build (measuring the lane's text every frame made it 386 ms); the test checks a frame (16 ms) in a Release build.
+
+## 20. Revised after the product owner's first use (2026-10-14, for review)
+
+The product owner's review of P4a:
+- "There is a button called 'Make chord…' and one called 'Make chords'. One transforms notes into chords and the other… I can't tell exactly what it does."
+- "When you draw a chord, it draws whatever chord is selected in that submenu that opens with 'Chord kind and voicing', but that menu is hard to reach. Switching what chords I want to draw is something I do very often, maybe multiple times within one phrase."
+- "When transforming root notes into a chord progression, we again use that setting. Many things seem to be tied to that section buried under menus, and it's confusing. I very rarely want all those root notes turning into the same kind of chord with the same voicing. I would want that configurable per note."
+- "Without a key, two shades of grey show black and white keys. Pick a key, and the same two shades show something completely different: whether a note is in the key. I felt like the piano got scrambled in front of me, and I suddenly could not click on certain notes."
+
+**What went wrong:** one hidden setting (the Chord popover's Kind, Voicing and Inversion) drove three different things (drawing chords, making chords, the next chord written), so the choice that's made most often was the hardest to reach; two commands had names a letter apart; and the key reused the piano's two shades for another meaning, while Key snapping moved clicks to other rows without showing it.
+
+**Where the field is:** Bitwig 6 lets the piano roll keep the piano's pattern, or replace it with coloured lanes for the key's notes and dark ones for the rest ("Adapt to Key"); FL Studio darkens the rows outside the scale; Live 12 highlights the scale and can fold to it. FL's chord stamps are chosen from a menu in the piano roll's toolbar before clicking, which its users ask to make quicker ([Bitwig release notes](https://downloads.bitwig.com/6.0/Release-Notes-6.0.html), [FL Studio manual](https://www.image-line.com/fl-studio-learning/fl-studio-online-manual/html/pianoroll.htm)). Nobody makes a run of notes into chords chosen note by note; Scaler and Captain Chords pick chord by chord on pads.
+
+### 20.1 The key never scrambles the piano
+
+- **The rows always show the piano:** white keys' rows lighter, black keys' darker, a line under each C and between E and F, with or without a key. Nothing about the piano's geography changes when a key is set.
+- **The key is a colour of its own:** its notes' rows carry a faint tint of `accentMidi` (lavender: the colour of MIDI, never the selection's blue), the root's twice as strong. In C minor, E♭'s row is dark and tinted, E's light and plain: the shade says which key of the piano, the tint says in the key or not.
+- **The keyboard** stays a piano; the key's notes get a small lavender dot at their right end (as the Key popover's keys show a key's notes), the root its name.
+- **Where a click will draw:** while the pointer is over the grid, a ghost of what a double-click draws sits where it will land: the note, or with Draw set to a chord, the whole chord, voiced as it will be. With Key on, over a row outside the key, the ghost shows on the key's nearest row, so a click never lands somewhere unexpected; Alt shows it on the row itself.
+- Fold to key, Fold to notes, Fit to key and the arrows are as before.
+
+### 20.2 Choosing the chord where you draw it
+
+- **While Draw is set to a chord,** the header shows the kinds side by side right after it: `Draw chord ⌄ [Triad 7th 9th sus2 sus4 add9] Smooth ⌄`. One click switches the kind, for the next chord drawn; the voicing (Smooth, Close, Open, Drop 2, Drop 3, Spread, and the inversion under it) is a choice beside it. They take no room while drawing notes.
+- **The View menu has them too:** View ▸ Draw ▸ Note, Chord, Chord under, then the kinds and voicings, ticked.
+- **Narrow:** the voicing gives way first (after Others and Fold); the kinds stay while drawing chords.
+- The Draw menu's "Chord kind, voicing…" goes.
+
+### 20.3 Making chords, chord by chord
+
+- **One command, Make chords…** (Notes menu, the notes' right-click menu): a popover with a card for each selected note, in time order, each card the note and the chord it becomes. The notes in the clip change live as the cards are set; **Apply** (Return) keeps them as one undo step, Escape puts the notes back.
+- **Each card** has the chord (the key's chord on the note, as a triad, to start with) and its voicing. The chord's menu has every kind on that note (Am, Am7, Am9, Asus2, Asus4, Am(add9)), then the key's chords with the note on top ("Under A: F, Dm"), then "Leave the note"; the voicing's has Smooth (the least movement from the card before) and the others. Hovering a card plays its chord.
+- **For every card at once:** a row of kinds and a voicing at the foot of the popover, then each card changed alone.
+- **Sized to its content:** cards wrap onto rows; the popover is as wide as eight cards at most.
+
+### 20.4 Changing one chord
+
+- **Make chord… becomes Change chord…** (Notes ▸ Chords ▸, and the notes' right-click menu): the Chord popover for the selected chord, dimmed unless the selected notes make one chord. A chord where there's none is drawn (Draw chord), or written from the chord lane (a double-click or a drag in it), as now.
+- **The Chord popover's Kind, Voicing and Inversion act on that chord alone.** They start as the chord is, and no longer set what Draw or Make chords use: each place that writes chords has its own choices, where it writes them.
+
+### 20.5 Questions and recommendations
+
+| # | Question | Recommendation |
+|---|---|---|
+| R1 | **The rows with a key** | The piano's pattern always; the key as a lavender tint on its rows (the root's stronger) and dots on the keyboard (§20.1). Not Bitwig's choice of two backgrounds: an option to fix a confusing default isn't a fix. Not FL's darker out-of-key rows: that's the piano's channel again |
+| R2 | **Where a click will draw** | A ghost of the note or chord under the pointer, on the row it will land on (§20.1) |
+| R3 | **Key on by default** | Still on with a song key (N3), now that the rows and the ghost show what it does. The other way: off by default, the key only shown |
+| R4 | **The kind to draw** | Side by side in the header while drawing chords, the voicing beside it; and in View ▸ Draw ▸ (§20.2) |
+| R5 | **Make chords** | One command, Make chords…: a card per note, each its own chord and voicing, all at once from the foot; live, one undo step (§20.3) |
+| R6 | **Make chord…** | Becomes Change chord…, for the selected chord (§20.4) |
+| R7 | **The Chord popover's choices** | For that chord alone (§20.4) |
+| R8 | **Assistants** | `set_chord` already takes a kind and voicing per chord; `make_chords` gains `chords`, a kind and voicing per note, as the cards have |
+
