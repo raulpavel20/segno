@@ -715,6 +715,14 @@ public:
     bool previewPreset(const std::string& deviceId, const std::string& presetKey);
     /// Plays a wavetable file on a held C3, through a Wavetable of its own (table-editor.md §7).
     bool previewWavetable(const juce::File& file);
+    /// The Wavetable's factory tables in their order (the browser's Tables, table-editor.md §11).
+    struct FactoryTable
+    {
+        std::string id, name, category;
+    };
+    [[nodiscard]] std::vector<FactoryTable> wavetableFactoryTables() const;
+    /// Plays a factory table on a held C3, as previewWavetable plays a file.
+    bool previewFactoryTable(const std::string& id);
     /// Plays a MIDI file on a track's instrument (0: the track live MIDI plays), as live MIDI at
     /// the song's tempo; false if that track has no instrument or the file has no notes.
     bool previewMidiFile(const juce::File& file, std::uint64_t trackId = 0);
@@ -741,6 +749,8 @@ public:
     /// <name>"; false if it isn't a Wavetable or the file isn't a table (`error` says why).
     bool loadWavetable(std::uint64_t deviceId, int oscillator, const juce::File& file,
                        std::string* error = nullptr);
+    /// Puts a factory table on one of a Wavetable's oscillators, one undo step "Load <name>".
+    bool loadFactoryTable(std::uint64_t deviceId, int oscillator, const std::string& id);
 
     /// Copies every file the project uses from outside its folder into its Samples folder and
     /// points the clips and takes at the copies (§12); not an undo step. The project must have a

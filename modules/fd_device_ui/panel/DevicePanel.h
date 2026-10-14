@@ -70,6 +70,9 @@ public:
     /// A file dropped on the module from the host's browser (a table on the Wavetable): true if it
     /// took it, where it shows what it's for (the oscillator OSC shows).
     virtual bool takeFile(const juce::File& /*file*/) { return false; }
+    /// One of the module's own factory items dropped on it from the host's browser, by its ID (a
+    /// factory table on the Wavetable): true if it took it, as takeFile.
+    virtual bool takeFactoryItem(std::string_view /*id*/) { return false; }
     /// Audio handed to the module to make something of (Clip > Make Wavetable): mono samples at
     /// `sampleRate`, named for where they came from. False if the module takes none.
     virtual bool takeAudio(std::vector<float> /*mono*/, double /*sampleRate*/, juce::String /*name*/)

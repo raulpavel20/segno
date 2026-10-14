@@ -172,268 +172,184 @@ void NoteText::setText(juce::String text, bool warning)
     repaint();
 }
 
+void NoteText::setJustification(juce::Justification justification)
+{
+    justification_ = justification;
+    repaint();
+}
+
 void NoteText::paint(juce::Graphics& g)
 {
     const auto& t = ui::Theme::current();
     g.setColour(warning_ ? t.roles.warning : t.textTertiary);
     g.setFont(ui::font(ui::TextStyle::Caption));
     const int lines = std::max(1, getHeight() / t.deviceGrid.row);
-    g.drawFittedText(text_, getLocalBounds(), juce::Justification::topLeft, lines, 1.0f);
+    g.drawFittedText(text_, getLocalBounds(), justification_, lines, 1.0f);
 }
 
-// ---- TableView -----------------------------------------------------------------------------------
+// ---- LayerView -----------------------------------------------------------------------------------
 
-TableView::TableView(TableEditor& editor) : editor_(editor)
+LayerView::LayerView(TableEditor& editor) : editor_(editor)
 {
     setOpaque(false);
 }
 
-void TableView::update()
-{
-    frames_.clear();
-    repaint();
-    const auto* l = editor_.layer();
-    switch (editor_.view())
-    {
-    case TableEditor::View::ThreeD:
-        setMouseCursor(juce::MouseCursor::UpDownResizeCursor);
-        setTooltip("The table, front to back: drag up and down to go through its frames");
-        break;
-    case TableEditor::View::TwoD:
-        setMouseCursor(juce::MouseCursor::NormalCursor);
-        setTooltip(editable() != nullptr
-                       ? (editor_.drawTool() == TableEditor::DrawTool::Freehand
-                              ? "Draw the wave freehand, snapping to the grid"
-                              : "Drag a point to move it, a line up or down to bend it; double-click to add "
-                                "or remove a point")
-                   : l != nullptr && l->kind == K::Draw
-                       ? "Double-click the strip below to add a keyframe here, then draw it"
-                       : "The frame shown, as the module plays it");
-        break;
-    case TableEditor::View::Harmonics:
-        setMouseCursor(juce::MouseCursor::NormalCursor);
-        setTooltip(editable() != nullptr
-                       ? "Drag across the bars to set the harmonics' levels, across the strip below them "
-                         "for their phases"
-                   : l != nullptr && l->kind == K::Harmonics
-                       ? "Double-click the strip below to add a keyframe here, then set its harmonics"
-                       : "The frame's harmonics, as the module plays it");
-        break;
-    }
-}
-
-void TableView::resized()
-{
-    frames_.clear();
-}
-
-const Recipe::Keyframe* TableView::editable() const
+void LayerView::update()
 {
     const auto* l = editor_.layer();
-    if (!keyframed(l))
-        return nullptr;
-    if ((editor_.view() == TableEditor::View::TwoD && l->kind != K::Draw) ||
-        (editor_.view() == TableEditor::View::Harmonics && l->kind != K::Harmonics) ||
-        editor_.view() == TableEditor::View::ThreeD)
-        return nullptr;
     const auto& r = editor_.recipe();
-    const int k = keyframeIndex(*l, editor_.shownFrame(), r.frames);
-    return k >= 0 ? &l->keyframes[static_cast<size_t>(k)] : nullptr;
+    frame_ = l != nullptr ? wavetable::layerFrame(*l, editor_.shownFrame(), r.frames)
+                          : std::vector<float>(static_cast<size_t>(N), 0.0f);
+    harmonics_ = wavetable::frameHarmonics(frame_, Recipe::numHarmonicBars);
+    repaint();
 }
 
-juce::Rectangle<float> TableView::plot() const
+bool LayerView::editsWave() const
 {
-    return getLocalBounds().toFloat().reduced(inset());
+    const auto* l = editor_.layer();
+    return l != nullptr && l->kind == K::Draw;
 }
 
-juce::Rectangle<float> TableView::barsArea() const
+bool LayerView::editsHarmonics() const
 {
-    auto r = plot();
+    const auto* l = editor_.layer();
+    return l != nullptr && l->kind == K::Harmonics;
+}
+
+juce::Rectangle<float> LayerView::waveWell() const
+{
+    // Two wells side by side, the module grid's column gap between them.
+    const auto r = getLocalBounds().toFloat();
+    const float gap = static_cast<float>(ui::Theme::current().deviceGrid.columnGap);
+    return r.withWidth((r.getWidth() - gap) * 0.5f);
+}
+
+juce::Rectangle<float> LayerView::harmonicsWell() const
+{
+    const auto wave = waveWell();
+    return getLocalBounds().toFloat().withLeft(getLocalBounds().toFloat().getRight() - wave.getWidth());
+}
+
+juce::Rectangle<float> LayerView::wavePlot() const
+{
+    // Room above for the well's caption, and all round for a point's handle at the edge.
+    const auto& grid = ui::Theme::current().deviceGrid;
+    const float handle = static_cast<float>(grid.displayHandle) * 0.5f;
+    return waveWell()
+        .reduced(inset())
+        .withTrimmedTop(static_cast<float>(grid.displayTextHeight))
+        .reduced(handle);
+}
+
+juce::Rectangle<float> LayerView::barsPlot() const
+{
+    const auto& grid = ui::Theme::current().deviceGrid;
+    auto r = harmonicsWell().reduced(inset()).withTrimmedTop(static_cast<float>(grid.displayTextHeight));
     return r.withTrimmedBottom(r.getHeight() * 0.25f + inset());
 }
 
-juce::Rectangle<float> TableView::phasesArea() const
+juce::Rectangle<float> LayerView::phasesPlot() const
 {
-    auto r = plot();
-    return r.withTrimmedTop(r.getHeight() * 0.75f);
+    auto r = harmonicsWell().reduced(inset());
+    return r.withTop(barsPlot().getBottom() + inset());
 }
 
-void TableView::paint(juce::Graphics& g)
+void LayerView::paint(juce::Graphics& g)
 {
-    const auto well = getLocalBounds().toFloat();
-    paintWell(g, well);
-    if (editor_.baked().frames() < 1)
+    paintWell(g, waveWell());
+    paintWell(g, harmonicsWell());
+    if (editor_.layer() == nullptr)
         return;
-    switch (editor_.view())
-    {
-    case TableEditor::View::ThreeD:
-        paint3d(g, plot());
-        break;
-    case TableEditor::View::TwoD:
-        paint2d(g, plot());
-        break;
-    case TableEditor::View::Harmonics:
-        paintHarmonics(g, plot());
-        break;
-    }
+    paintWave(g);
+    paintHarmonics(g);
 }
 
-void TableView::paint3d(juce::Graphics& g, juce::Rectangle<float> area)
+namespace
+{
+/// A well's caption in its top left corner: what it shows, and whether it's edited there.
+void paintCaption(juce::Graphics& g, juce::Rectangle<float> well, const juce::String& text)
 {
     const auto& t = ui::Theme::current();
-    const auto& table = editor_.baked();
-    // Up to 48 frames, evenly through the table, each a step up and right of the one before (as
-    // the panel's display draws it, bigger).
-    const int count = std::min(table.frames(), 48);
-    depth_ = count > 1 ? juce::Point<float>(area.getWidth() * 0.25f, -area.getHeight() * 0.4f)
-                       : juce::Point<float>();
-    const auto frame = juce::Rectangle<float>(area.getX(), area.getY() - depth_.y, area.getWidth() - depth_.x,
-                                              area.getHeight() + depth_.y);
-    const auto at = [&](float along)
-    { return frame.translated(depth_.x * along, depth_.y * along).reduced(0.0f, 1.0f); };
-    if (frames_.empty() || builtFor_ != &table)
-    {
-        frames_.clear();
-        builtFor_ = &table;
-        const int points = std::max(16, static_cast<int>(frame.getWidth() / 2.0f));
-        for (int k = count; k-- > 0;)
-        {
-            const int f =
-                count > 1 ? juce::roundToInt(static_cast<float>(k) * static_cast<float>(table.frames() - 1) /
-                                             static_cast<float>(count - 1))
-                          : 0;
-            const float along = count > 1 ? static_cast<float>(k) / static_cast<float>(count - 1) : 0.0f;
-            frames_.push_back(cyclePath(table.samples(f), N, at(along), points));
-        }
-    }
-    for (size_t i = 0; i < frames_.size(); ++i)
-    {
-        const float near =
-            frames_.size() > 1 ? static_cast<float>(i) / static_cast<float>(frames_.size() - 1) : 1.0f;
-        g.setColour(t.atDepth(t.textTertiary, near));
-        g.strokePath(frames_[i], juce::PathStrokeType(1.0f));
-    }
-    // The frame shown, where it is.
-    const int shown = std::clamp(editor_.shownFrame(), 0, table.frames() - 1);
-    const float along =
-        table.frames() > 1 ? static_cast<float>(shown) / static_cast<float>(table.frames() - 1) : 0.0f;
-    const auto r = at(along);
-    const auto line = cyclePath(table.samples(shown), N, r, std::max(16, static_cast<int>(r.getWidth())));
-    auto fill = line;
-    fill.lineTo(r.getRight(), r.getCentreY());
-    fill.lineTo(r.getX(), r.getCentreY());
-    fill.closeSubPath();
-    g.setColour(t.fill(t.value));
-    g.fillPath(fill);
-    g.setColour(t.value);
-    g.strokePath(line, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved));
+    g.setColour(t.textTertiary);
+    g.setFont(ui::font(ui::TextStyle::Caption));
+    g.drawText(text, well.reduced(inset()).withHeight(static_cast<float>(t.deviceGrid.displayTextHeight)),
+               juce::Justification::topLeft, true);
 }
+} // namespace
 
-void TableView::paint2d(juce::Graphics& g, juce::Rectangle<float> area)
+void LayerView::paintWave(juce::Graphics& g)
 {
     const auto& t = ui::Theme::current();
-    const auto& table = editor_.baked();
-    const int shown = std::clamp(editor_.shownFrame(), 0, table.frames() - 1);
-    // The middle line, and the grid while drawing.
+    const auto area = wavePlot();
+    paintCaption(g, waveWell(), editsWave() ? "Wave: draw here" : "Wave");
     g.setColour(t.roles.gridMinor);
     g.fillRect(area.getX(), area.getCentreY(), area.getWidth(), 1.0f);
-    const auto* key = editable();
-    if (key != nullptr && editor_.grid() > 0)
+    // The drawing's points, on its keyframe (or the one a drag is adding).
+    const auto* l = editor_.layer();
+    const Recipe::Keyframe* key = nullptr;
+    if (editsWave())
     {
-        g.setColour(t.roles.gridMinor);
-        for (int i = 1; i < editor_.grid(); ++i)
-            g.fillRect(area.getX() +
-                           area.getWidth() * static_cast<float>(i) / static_cast<float>(editor_.grid()),
-                       area.getY(), 1.0f, area.getHeight());
+        const auto& layer = dragging_ ? editing_.layers[static_cast<size_t>(editor_.selectedLayer())] : *l;
+        if (const int k = keyframeIndex(layer, editor_.shownFrame(), editor_.recipe().frames); k >= 0)
+            key = &layer.keyframes[static_cast<size_t>(k)];
+        if (editor_.grid() > 0)
+            for (int i = 1; i < editor_.grid(); ++i)
+                g.fillRect(area.getX() +
+                               area.getWidth() * static_cast<float>(i) / static_cast<float>(editor_.grid()),
+                           area.getY(), 1.0f, area.getHeight());
     }
-    // The frame as the module plays it.
-    const auto line =
-        cyclePath(table.samples(shown), N, area, std::max(16, static_cast<int>(area.getWidth())));
+    // The layer's frame, from the function the bake uses.
+    const auto line = cyclePath(frame_.data(), N, area, std::max(16, static_cast<int>(area.getWidth())));
     auto fill = line;
     fill.lineTo(area.getRight(), area.getCentreY());
     fill.lineTo(area.getX(), area.getCentreY());
     fill.closeSubPath();
     g.setColour(t.fill(t.value));
     g.fillPath(fill);
-    g.setColour(key != nullptr ? t.faded(t.value) : t.value);
+    g.setColour(t.value);
     g.strokePath(line, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved));
-    if (key == nullptr)
-        return;
-    // The keyframe's drawing over it, from the function the bake uses, with its points.
-    const auto& points = dragging_ ? editing_.layers[static_cast<size_t>(editor_.selectedLayer())]
-                                         .keyframes[static_cast<size_t>(keyframeIndex(
-                                             editing_.layers[static_cast<size_t>(editor_.selectedLayer())],
-                                             editor_.shownFrame(), editing_.frames))]
-                                         .points
-                                   : key->points;
-    juce::Path drawn;
-    const int steps = std::max(16, static_cast<int>(area.getWidth()));
-    for (int i = 0; i <= steps; ++i)
-    {
-        const double x = static_cast<double>(i) / steps;
-        const juce::Point<float> p(area.getX() + static_cast<float>(x) * area.getWidth(),
-                                   area.getCentreY() - static_cast<float>(wavetable::drawnAt(points, x)) *
-                                                           area.getHeight() * 0.5f);
-        i == 0 ? drawn.startNewSubPath(p) : drawn.lineTo(p);
-    }
-    g.setColour(t.textPrimary);
-    g.strokePath(drawn, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved));
-    if (editor_.drawTool() == TableEditor::DrawTool::Points)
-        for (size_t i = 0; i < points.size(); ++i)
-            paintHandle(g, drawnPoint(points[i], area), static_cast<int>(i) == dragged_);
+    if (key != nullptr && editor_.drawTool() == TableEditor::DrawTool::Points)
+        for (size_t i = 0; i < key->points.size(); ++i)
+            paintHandle(g, drawnPoint(key->points[i], area), static_cast<int>(i) == dragged_);
 }
 
-void TableView::paintHarmonics(juce::Graphics& g, juce::Rectangle<float> area)
+void LayerView::paintHarmonics(juce::Graphics& g)
 {
     const auto& t = ui::Theme::current();
-    const auto& table = editor_.baked();
-    const int shown = std::clamp(editor_.shownFrame(), 0, table.frames() - 1);
-    const auto* key = editable();
+    paintCaption(g, harmonicsWell(), editsHarmonics() ? "Harmonics: set here" : "Harmonics");
+    const auto bars = barsPlot(), phases = phasesPlot();
     const int count = Recipe::numHarmonicBars;
-    const auto bars = key != nullptr ? barsArea() : area;
     const float pitch = bars.getWidth() / static_cast<float>(count);
     const float gap = std::min(1.0f, pitch * 0.25f);
-    // The frame's harmonics as the module plays it (the baked spectrum), the loudest at the top.
-    const auto* spectrum = table.spectrum(shown);
-    float loudest = 1e-9f;
-    for (int h = 1; h <= count; ++h)
-        loudest = std::max(loudest, std::abs(spectrum[h]));
-    for (int h = 1; h <= count; ++h)
+    // A keyframe's own levels and phases while it's edited; else the frame's, read from it.
+    const auto* l = editor_.layer();
+    std::vector<float> levels = harmonics_.levels, phase = harmonics_.phases;
+    if (editsHarmonics())
     {
-        const float level = std::abs(spectrum[h]) / loudest;
-        const auto bar = juce::Rectangle<float>(bars.getX() + pitch * static_cast<float>(h - 1), bars.getY(),
-                                                pitch - gap, bars.getHeight());
-        // Behind the keyframe's own bars while they're edited: grey, so the two never mix.
-        g.setColour(key != nullptr ? t.faded(t.textTertiary) : t.value);
-        g.fillRect(bar.withTop(bar.getBottom() - level * bar.getHeight()));
+        const auto& layer = dragging_ ? editing_.layers[static_cast<size_t>(editor_.selectedLayer())] : *l;
+        if (const int k = keyframeIndex(layer, editor_.shownFrame(), editor_.recipe().frames); k >= 0)
+        {
+            levels = layer.keyframes[static_cast<size_t>(k)].levels;
+            phase = layer.keyframes[static_cast<size_t>(k)].phases;
+        }
     }
-    if (key == nullptr)
-        return;
-    // The keyframe's own levels and phases.
-    const auto& k =
-        dragging_
-            ? editing_.layers[static_cast<size_t>(editor_.selectedLayer())].keyframes[static_cast<size_t>(
-                  keyframeIndex(editing_.layers[static_cast<size_t>(editor_.selectedLayer())],
-                                editor_.shownFrame(), editing_.frames))]
-            : *key;
-    const auto phases = phasesArea();
     g.setColour(t.roles.gridMinor);
     g.fillRect(phases.getX(), phases.getCentreY(), phases.getWidth(), 1.0f);
     g.setColour(t.textTertiary);
     g.setFont(ui::font(ui::TextStyle::Caption));
     g.drawText("Phases", phases.withHeight(static_cast<float>(t.deviceGrid.displayTextHeight)),
                juce::Justification::topRight, false);
-    for (int h = 0; h < count && h < static_cast<int>(k.levels.size()); ++h)
+    for (int h = 0; h < count && h < static_cast<int>(levels.size()); ++h)
     {
-        const auto x = bars.getX() + pitch * static_cast<float>(h);
-        const auto bar = juce::Rectangle<float>(x, bars.getY(), pitch - gap, bars.getHeight());
+        const float x = bars.getX() + pitch * static_cast<float>(h);
+        const float level = std::clamp(levels[static_cast<size_t>(h)], 0.0f, 1.0f);
         g.setColour(t.value);
-        g.fillRect(bar.withTop(bar.getBottom() -
-                               std::clamp(k.levels[static_cast<size_t>(h)], 0.0f, 1.0f) * bar.getHeight()));
-        if (h < static_cast<int>(k.phases.size()) && k.levels[static_cast<size_t>(h)] > 0.0f)
+        g.fillRect(juce::Rectangle<float>(x, bars.getBottom() - level * bars.getHeight(), pitch - gap,
+                                          level * bars.getHeight()));
+        if (h < static_cast<int>(phase.size()) && level >= 0.01f) // a phase only where there's a harmonic
         {
-            // A phase from the middle, up for the first half turn, down for the second.
-            const float p = k.phases[static_cast<size_t>(h)];
+            // A phase from the middle: up for the first half turn, down for the second.
+            const float p = phase[static_cast<size_t>(h)];
             const float y = phases.getCentreY() - (p <= 0.5f ? p : p - 1.0f) * phases.getHeight();
             g.setColour(t.textSecondary);
             g.fillRect(juce::Rectangle<float>(x, std::min(y, phases.getCentreY()), pitch - gap,
@@ -442,43 +358,76 @@ void TableView::paintHarmonics(juce::Graphics& g, juce::Rectangle<float> area)
     }
 }
 
-void TableView::mouseDown(const juce::MouseEvent& e)
+void LayerView::mouseMove(const juce::MouseEvent& e)
 {
-    dragging_ = false;
+    // Says where the layer is edited, and that the other side is there to look at.
+    const auto* l = editor_.layer();
+    const bool onWave = waveWell().contains(e.position);
+    juce::String tip;
+    if (l == nullptr)
+        tip = {};
+    else if (onWave && editsWave())
+        tip = editor_.drawTool() == TableEditor::DrawTool::Freehand
+                  ? "Draw the layer's wave freehand, a point at every step of the grid"
+                  : "Drag a point to move it, a line up or down to bend it; double-click to add or remove a "
+                    "point. "
+                    "Between keyframes, editing adds one here";
+    else if (!onWave && editsHarmonics())
+        tip = "Drag across the bars to set the harmonics' levels, across the strip under them for their "
+              "phases. "
+              "Between keyframes, editing adds one here";
+    else if (editsWave() || editsHarmonics())
+        tip = onWave ? "The layer's wave at this frame: its harmonics, on the right, are where it's set"
+                     : "The layer's harmonics at this frame: it's drawn on its wave, on the left";
+    else
+        tip = "The layer at this frame, before the changes: set it on the left";
+    if (tip != getTooltip())
+        setTooltip(tip);
+}
+
+Recipe::Keyframe& LayerView::keyframeToEdit()
+{
+    auto& layer = editing_.layers[static_cast<size_t>(editor_.selectedLayer())];
+    int k = keyframeIndex(layer, editor_.shownFrame(), editing_.frames);
+    if (k < 0)
+    {
+        layer.keyframes.push_back(wavetable::newKeyframe(layer, editor_.shownFrame(), editing_.frames));
+        std::stable_sort(layer.keyframes.begin(), layer.keyframes.end(),
+                         [](const auto& a, const auto& b) { return a.frame < b.frame; });
+        k = keyframeIndex(layer, editor_.shownFrame(), editing_.frames);
+        added_ = true;
+    }
+    return layer.keyframes[static_cast<size_t>(k)];
+}
+
+void LayerView::mouseDown(const juce::MouseEvent& e)
+{
+    dragging_ = added_ = false;
     dragged_ = bending_ = -1;
     last_ = e.position;
-    if (editor_.view() == TableEditor::View::ThreeD)
-    {
-        startFrame_ = editor_.shownFrame();
-        return;
-    }
-    const auto* key = editable();
-    if (key == nullptr)
+    const bool onWave = waveWell().contains(e.position);
+    if (e.mods.isPopupMenu() || !((onWave && editsWave()) || (!onWave && editsHarmonics())))
         return;
     editing_ = editor_.recipe();
     dragging_ = true;
-    auto& layer = editing_.layers[static_cast<size_t>(editor_.selectedLayer())];
-    auto& k =
-        layer.keyframes[static_cast<size_t>(keyframeIndex(layer, editor_.shownFrame(), editing_.frames))];
-    if (editor_.view() == TableEditor::View::Harmonics)
+    auto& k = keyframeToEdit();
+    if (editsHarmonics())
     {
-        phasesDrag_ = phasesArea().contains(e.position);
-        undoName_ = phasesDrag_ ? "Set the harmonics' phases" : "Set the harmonics";
+        phasesDrag_ = phasesPlot().contains(e.position);
         setBar(e.position, phasesDrag_);
         return;
     }
     if (editor_.drawTool() == TableEditor::DrawTool::Freehand)
     {
-        undoName_ = "Draw a wave";
         drawFreehand(e.position, e.position);
         return;
     }
-    undoName_ = "Draw a wave";
-    dragged_ = drawnPointNear(k.points, plot(), e.position);
+    const auto area = wavePlot();
+    dragged_ = drawnPointNear(k.points, area, e.position);
     if (dragged_ < 0)
     {
         // Between two points: bend that segment.
-        const float x = (e.position.x - plot().getX()) / plot().getWidth();
+        const float x = (e.position.x - area.getX()) / area.getWidth();
         for (size_t i = 0; i + 1 < k.points.size(); ++i)
             if (x >= k.points[i][0] && x <= k.points[i + 1][0])
             {
@@ -488,39 +437,27 @@ void TableView::mouseDown(const juce::MouseEvent& e)
                 break;
             }
     }
+    if (added_)
+        editor_.preview(editing_); // the keyframe added shows at once
     repaint();
 }
 
-void TableView::mouseDrag(const juce::MouseEvent& e)
+void LayerView::mouseDrag(const juce::MouseEvent& e)
 {
-    if (editor_.view() == TableEditor::View::ThreeD)
-    {
-        // Up goes back through the table, as the panel's display does with Position.
-        const auto& input = ui::Theme::current().input;
-        const float fine = e.mods.isShiftDown() ? input.fineFactor : 1.0f;
-        const auto moved = static_cast<float>(e.getDistanceFromDragStartX() - e.getDistanceFromDragStartY());
-        const int frames = editor_.recipe().frames;
-        editor_.showFrame(std::clamp(
-            startFrame_ + juce::roundToInt(moved / input.valueTravel * fine * static_cast<float>(frames)), 0,
-            frames - 1));
-        return;
-    }
     if (!dragging_)
         return;
-    auto& layer = editing_.layers[static_cast<size_t>(editor_.selectedLayer())];
-    auto& k =
-        layer.keyframes[static_cast<size_t>(keyframeIndex(layer, editor_.shownFrame(), editing_.frames))];
-    if (editor_.view() == TableEditor::View::Harmonics)
+    auto& k = keyframeToEdit();
+    if (editsHarmonics())
         setBar(e.position, phasesDrag_);
     else if (editor_.drawTool() == TableEditor::DrawTool::Freehand)
         drawFreehand(last_, e.position);
     else if (dragged_ >= 0)
     {
         // Between its neighbours; the first and last stay at the ends, snapping to the grid.
-        const auto r = plot();
+        const auto r = wavePlot();
         auto& p = k.points;
         const auto i = static_cast<size_t>(dragged_);
-        float x = snap((e.position.x - r.getX()) / r.getWidth(), editor_.grid());
+        const float x = snap((e.position.x - r.getX()) / r.getWidth(), editor_.grid());
         const float lo = i == 0 ? 0.0f : p[i - 1][0], hi = i + 1 == p.size() ? 1.0f : p[i + 1][0];
         p[i][0] = i == 0 ? 0.0f : (i + 1 == p.size() ? 1.0f : std::clamp(x, lo, hi));
         p[i][1] = std::clamp((r.getCentreY() - e.position.y) / (r.getHeight() * 0.5f), -1.0f, 1.0f);
@@ -536,36 +473,33 @@ void TableView::mouseDrag(const juce::MouseEvent& e)
     }
     last_ = e.position;
     editor_.preview(editing_);
-    repaint();
 }
 
-void TableView::mouseUp(const juce::MouseEvent& e)
+void LayerView::mouseUp(const juce::MouseEvent& e)
 {
-    if (dragging_ && (e.mouseWasDraggedSinceMouseDown() || editor_.view() == TableEditor::View::Harmonics ||
+    if (dragging_ && (e.mouseWasDraggedSinceMouseDown() || added_ || editsHarmonics() ||
                       editor_.drawTool() == TableEditor::DrawTool::Freehand))
-        editor_.keep(editing_, undoName_); // one undo step for the whole drag
-    dragging_ = false;
+        editor_.keep(editing_, editsHarmonics()
+                                   ? (phasesDrag_ ? "Set the harmonics' phases" : "Set the harmonics")
+                                   : "Draw a wave"); // one undo step, the keyframe added in it
+    dragging_ = added_ = false;
     dragged_ = bending_ = -1;
     repaint();
 }
 
-void TableView::mouseDoubleClick(const juce::MouseEvent& e)
+void LayerView::mouseDoubleClick(const juce::MouseEvent& e)
 {
-    if (editor_.view() != TableEditor::View::TwoD || editor_.drawTool() != TableEditor::DrawTool::Points)
+    if (!editsWave() || editor_.drawTool() != TableEditor::DrawTool::Points ||
+        !waveWell().contains(e.position))
         return;
-    const auto* key = editable();
-    if (key == nullptr)
-        return;
-    auto r = editor_.recipe();
-    auto& layer = r.layers[static_cast<size_t>(editor_.selectedLayer())];
-    auto& points =
-        layer.keyframes[static_cast<size_t>(keyframeIndex(layer, editor_.shownFrame(), r.frames))].points;
-    const auto area = plot();
+    editing_ = editor_.recipe();
+    auto& points = keyframeToEdit().points;
+    const auto area = wavePlot();
     if (const int i = drawnPointNear(points, area, e.position);
         i > 0 && static_cast<size_t>(i) + 1 < points.size())
     {
         points.erase(points.begin() + i);
-        editor_.keep(std::move(r), "Remove a point");
+        editor_.keep(std::move(editing_), "Remove a point");
         return;
     }
     // A point on the drawing at the pointer's x.
@@ -575,18 +509,15 @@ void TableView::mouseDoubleClick(const juce::MouseEvent& e)
     const auto it = std::upper_bound(points.begin(), points.end(), x,
                                      [](float v, const std::array<float, 3>& p) { return v < p[0]; });
     points.insert(it, {x, y, 0.0f});
-    editor_.keep(std::move(r), "Add a point");
+    editor_.keep(std::move(editing_), "Add a point");
 }
 
-void TableView::drawFreehand(juce::Point<float> from, juce::Point<float> to)
+void LayerView::drawFreehand(juce::Point<float> from, juce::Point<float> to)
 {
     // Every grid step the stroke passes gets a point at the stroke's height there (64 steps
     // without a grid); the ends stay where they are.
-    auto& layer = editing_.layers[static_cast<size_t>(editor_.selectedLayer())];
-    auto& points =
-        layer.keyframes[static_cast<size_t>(keyframeIndex(layer, editor_.shownFrame(), editing_.frames))]
-            .points;
-    const auto r = plot();
+    auto& points = keyframeToEdit().points;
+    const auto r = wavePlot();
     const int steps = editor_.grid() > 0 ? editor_.grid() : 64;
     const auto xOf = [&](juce::Point<float> p)
     { return std::clamp((p.x - r.getX()) / r.getWidth(), 0.0f, 1.0f); };
@@ -595,7 +526,6 @@ void TableView::drawFreehand(juce::Point<float> from, juce::Point<float> to)
     const float x0 = std::min(xOf(from), xOf(to)), x1 = std::max(xOf(from), xOf(to));
     const int s0 = static_cast<int>(std::round(x0 * static_cast<float>(steps)));
     const int s1 = static_cast<int>(std::round(x1 * static_cast<float>(steps)));
-    // The points between the steps go; a point at each step.
     std::vector<std::array<float, 3>> kept;
     for (const auto& p : points)
         if (p[0] < static_cast<float>(s0) / static_cast<float>(steps) - 1e-6f ||
@@ -606,21 +536,17 @@ void TableView::drawFreehand(juce::Point<float> from, juce::Point<float> to)
         const float x = static_cast<float>(s) / static_cast<float>(steps);
         const float t =
             std::abs(xOf(to) - xOf(from)) > 1e-6f ? (x - xOf(from)) / (xOf(to) - xOf(from)) : 1.0f;
-        const float y = yOf(from) + std::clamp(t, 0.0f, 1.0f) * (yOf(to) - yOf(from));
-        kept.push_back({x, y, 0.0f});
+        kept.push_back({x, yOf(from) + std::clamp(t, 0.0f, 1.0f) * (yOf(to) - yOf(from)), 0.0f});
     }
     std::sort(kept.begin(), kept.end(), [](const auto& a, const auto& b) { return a[0] < b[0]; });
     points = std::move(kept);
     editor_.preview(editing_);
-    repaint();
 }
 
-void TableView::setBar(juce::Point<float> at, bool phases)
+void LayerView::setBar(juce::Point<float> at, bool phases)
 {
-    auto& layer = editing_.layers[static_cast<size_t>(editor_.selectedLayer())];
-    auto& k =
-        layer.keyframes[static_cast<size_t>(keyframeIndex(layer, editor_.shownFrame(), editing_.frames))];
-    const auto bars = barsArea();
+    auto& k = keyframeToEdit();
+    const auto bars = barsPlot();
     const int count = Recipe::numHarmonicBars;
     k.levels.resize(static_cast<size_t>(count), 0.0f);
     k.phases.resize(static_cast<size_t>(count), 0.0f);
@@ -637,7 +563,7 @@ void TableView::setBar(juce::Point<float> at, bool phases)
         const float y = last_.y + t * (at.y - last_.y);
         if (phases)
         {
-            const auto area = phasesArea();
+            const auto area = phasesPlot();
             const float p = std::clamp((area.getCentreY() - y) / area.getHeight(), -0.5f, 0.5f);
             k.phases[static_cast<size_t>(b)] = p < 0.0f ? p + 1.0f : p;
         }
@@ -647,7 +573,121 @@ void TableView::setBar(juce::Point<float> at, bool phases)
     }
     last_ = at;
     editor_.preview(editing_);
+}
+
+// ---- ResultView ----------------------------------------------------------------------------------
+
+ResultView::ResultView(TableEditor& editor) : editor_(editor)
+{
+    setMouseCursor(juce::MouseCursor::UpDownResizeCursor);
+    setTooltip("The result: the whole table as the module plays it, every layer summed and then the changes. "
+               "Click a frame to show it, or drag up and down to go through them");
+}
+
+void ResultView::update()
+{
+    frames_.clear();
     repaint();
+}
+
+juce::Rectangle<float> ResultView::plot() const
+{
+    return getLocalBounds().toFloat().reduced(inset());
+}
+
+namespace
+{
+/// The 3D view's step from the front frame to the back one, in `area`.
+juce::Point<float> depthOf(juce::Rectangle<float> area, int frames)
+{
+    return frames > 1 ? juce::Point<float>(area.getWidth() * 0.25f, -area.getHeight() * 0.4f)
+                      : juce::Point<float>();
+}
+} // namespace
+
+juce::Rectangle<float> ResultView::frameArea(float along) const
+{
+    const auto area = plot();
+    const auto depth = depthOf(area, editor_.baked().frames());
+    const auto frame = juce::Rectangle<float>(area.getX(), area.getY() - depth.y, area.getWidth() - depth.x,
+                                              area.getHeight() + depth.y);
+    return frame.translated(depth.x * along, depth.y * along).reduced(0.0f, 1.0f);
+}
+
+int ResultView::frameAt(float y) const
+{
+    const int frames = editor_.baked().frames();
+    if (frames <= 1)
+        return 0;
+    const auto front = frameArea(0.0f), back = frameArea(1.0f);
+    const float along = (y - front.getCentreY()) / (back.getCentreY() - front.getCentreY());
+    return std::clamp(juce::roundToInt(along * static_cast<float>(frames - 1)), 0, frames - 1);
+}
+
+void ResultView::paint(juce::Graphics& g)
+{
+    const auto& t = ui::Theme::current();
+    paintWell(g, getLocalBounds().toFloat());
+    const auto& table = editor_.baked();
+    if (table.frames() < 1)
+        return;
+    // Up to 48 frames, evenly through the table, each a step up and right of the one before (as
+    // the panel's display draws it).
+    const int count = std::min(table.frames(), 48);
+    if (frames_.empty() || builtFor_ != &table)
+    {
+        frames_.clear();
+        builtFor_ = &table;
+        const int points = std::max(16, static_cast<int>(frameArea(0.0f).getWidth() / 2.0f));
+        for (int k = count; k-- > 0;)
+        {
+            const int f =
+                count > 1 ? juce::roundToInt(static_cast<float>(k) * static_cast<float>(table.frames() - 1) /
+                                             static_cast<float>(count - 1))
+                          : 0;
+            const float along = count > 1 ? static_cast<float>(k) / static_cast<float>(count - 1) : 0.0f;
+            frames_.push_back(cyclePath(table.samples(f), N, frameArea(along), points));
+        }
+    }
+    for (size_t i = 0; i < frames_.size(); ++i)
+    {
+        const float near =
+            frames_.size() > 1 ? static_cast<float>(i) / static_cast<float>(frames_.size() - 1) : 1.0f;
+        g.setColour(t.atDepth(t.textTertiary, near));
+        g.strokePath(frames_[i], juce::PathStrokeType(1.0f));
+    }
+    // The frame shown, where it is.
+    const int shown = std::clamp(editor_.shownFrame(), 0, table.frames() - 1);
+    const float along =
+        table.frames() > 1 ? static_cast<float>(shown) / static_cast<float>(table.frames() - 1) : 0.0f;
+    const auto r = frameArea(along);
+    const auto line = cyclePath(table.samples(shown), N, r, std::max(16, static_cast<int>(r.getWidth())));
+    auto fill = line;
+    fill.lineTo(r.getRight(), r.getCentreY());
+    fill.lineTo(r.getX(), r.getCentreY());
+    fill.closeSubPath();
+    g.setColour(t.fill(t.value));
+    g.fillPath(fill);
+    g.setColour(t.value);
+    g.strokePath(line, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved));
+}
+
+void ResultView::mouseDown(const juce::MouseEvent& e)
+{
+    editor_.showFrame(frameAt(e.position.y));
+    startFrame_ = editor_.shownFrame();
+}
+
+void ResultView::mouseDrag(const juce::MouseEvent& e)
+{
+    // Up goes back through the table, as the panel's display does with Position.
+    const auto& input = ui::Theme::current().input;
+    const float fine = e.mods.isShiftDown() ? input.fineFactor : 1.0f;
+    const auto moved = static_cast<float>(-e.getDistanceFromDragStartY());
+    const int frames = editor_.recipe().frames;
+    editor_.showFrame(std::clamp(
+        startFrame_ + juce::roundToInt(moved / input.valueTravel * fine * static_cast<float>(frames)), 0,
+        frames - 1));
 }
 
 // ---- KeyframeStrip -------------------------------------------------------------------------------
@@ -799,14 +839,16 @@ void KeyframeStrip::mouseDoubleClick(const juce::MouseEvent& e)
 
 TableEditor::TableEditor(ui::DeviceUiContext& context, int oscillator)
     : ctx_(context), osc_(std::clamp(oscillator, 0, W::numOscs - 1)),
-      frameReadout_([this]
-                    { return "Frame " + juce::String(frame_ + 1) + " of " + juce::String(recipe_.frames); },
-                    "Frame 256 of 256")
+      frameReadout_([this] { return juce::String(frame_ + 1) + " / " + juce::String(recipe_.frames); },
+                    "256 / 256")
 {
     const auto& grid = ui::Theme::current().deviceGrid;
     setMinimumRows(kRows);
+    // Left to right as the sound goes (§11): the layers, the selected one, the result, the
+    // changes that shape it.
     layersPane_ = addPane("Layers", 4);
-    viewPane_ = addPane({}, 0, 7);
+    layerPane_ = addPane("Layer", 0, 5);
+    resultPane_ = addPane("Result", 4);
     changesPane_ = addPane("Changes", 4);
 
     preview_.setTooltip("Hear the module hold a C3 through the table as you shape it; click again to let go");
@@ -826,13 +868,36 @@ TableEditor::TableEditor(ui::DeviceUiContext& context, int oscillator)
     addChange_.onClick = [this] { showAddChangeMenu(); };
     placeInTitle(changesPane_, addChange_, grid.titleHeight, true);
 
-    views_.onSelect = [this](int index) { setView(static_cast<View>(index)); };
-    placeInTitle(viewPane_, views_, grid.width(5), false);
-    frameReadout_.setTooltip("The frame shown: click another on the strip below, or drag up and down in 3D");
-    placeInTitle(viewPane_, frameReadout_, frameReadout_.preferredWidth(), true);
+    // The selected layer: where the frame shown is in it, its wave and harmonics over its
+    // keyframes, and the buttons that add and remove one.
+    status_.setJustification(juce::Justification::centredRight);
+    placeInTitle(layerPane_, status_, kStatusWidth, true);
+    place(layerPane_, layerView_, 0, 0, 0, -2);
+    place(layerPane_, strip_, 0, -2, 0, 1);
+    for (auto* b : {&addKey_, &removeKey_})
+    {
+        b->setClickingTogglesState(false);
+        b->setWantsKeyboardFocus(false);
+    }
+    addKey_.setTooltip("Add a keyframe to the layer at the frame shown, made of what the layer has there "
+                       "(also a double-click on the strip, or editing the frame)");
+    addKey_.onClick = [this] { addKeyframe(frame_); };
+    removeKey_.setTooltip("Remove the layer's keyframe at the frame shown (also its menu on the strip)");
+    removeKey_.onClick = [this]
+    {
+        if (const auto* l = layer(); keyframed(l))
+            removeKeyframe(keyframeIndex(*l, frame_, recipe_.frames));
+    };
+    // Each as wide as its name needs: five columns, the layer view's least.
+    place(layerPane_, addKey_, 0, -1, 2, 1, Kind::Line);
+    place(layerPane_, removeKey_, 2, -1, 3, 1, Kind::Line);
 
-    place(viewPane_, view3d_, 0, 0, 0, -2);
-    place(viewPane_, strip_, 0, -2, 0, 1);
+    // The result: the whole table, the frame shown, its frame count.
+    frameReadout_.setTooltip(
+        "The frame shown, in the result and the layer: click another in the result or on the "
+        "layer's strip");
+    placeInTitle(resultPane_, frameReadout_, frameReadout_.preferredWidth(), true);
+    place(resultPane_, result_, 0, 0, 0, -1);
     frames_.setStyle(ui::Knob::Style::Bar);
     frames_.setName("Frames");
     frames_.setTooltip("How many frames the table has (1 to 256): its sources are spread over them");
@@ -851,7 +916,7 @@ TableEditor::TableEditor(ui::DeviceUiContext& context, int oscillator)
                 if (keep)
                     setFrames(framesFromBar(v));
             });
-    place(viewPane_, frames_, 0, -1, 3, 1, Kind::Line);
+    place(resultPane_, frames_, 0, -1, 3, 1, Kind::Line);
 
     load();
     rebuildAll();
@@ -947,7 +1012,10 @@ void TableEditor::follow()
 
 void TableEditor::frame()
 {
-    if (rebake_)
+    // While a drag edits, the layer follows at once and the result every 120 ms at most: a bake
+    // takes a while on large tables (more in a debug build).
+    const double now = juce::Time::getMillisecondCounterHiRes();
+    if (rebake_ && (!editing_ || now - lastBake_ >= 120.0))
         bakeNow();
     if (!editing_)
         follow();
@@ -959,9 +1027,79 @@ void TableEditor::bakeNow()
 {
     baked_ = wavetable::bake(recipe_);
     rebake_ = false;
-    view3d_.update();
+    lastBake_ = juce::Time::getMillisecondCounterHiRes();
+    result_.update();
+    layerChanged();
+}
+
+void TableEditor::layerChanged()
+{
+    layerView_.update();
     strip_.repaint();
     frameReadout_.refresh();
+    updateLayerPane();
+}
+
+void TableEditor::updateLayerPane()
+{
+    const auto* l = layer();
+    setPaneTitle(layerPane_, l != nullptr ? "Layer " + juce::String(layer_ + 1) +
+                                                juce::String::fromUTF8(" · ") + kindName(l->kind)
+                                          : juce::String("Layer"));
+    status_.setText(layerStatus());
+    status_.setTooltip(keyframed(l) && keyframeIndex(*l, frame_, recipe_.frames) < 0
+                           ? "Between keyframes: editing the layer here adds one"
+                           : juce::String());
+    const bool keys = keyframed(l);
+    const bool onKey = keys && keyframeIndex(*l, frame_, recipe_.frames) >= 0;
+    addKey_.setVisible(keys);
+    removeKey_.setVisible(keys);
+    addKey_.setEnabled(keys && !onKey && !audio_);
+    removeKey_.setEnabled(onKey && l->keyframes.size() > 1 && !audio_);
+    // What can't be done here recedes (ui-principles §3).
+    const float dim = ui::Theme::current().roles.dimAlpha;
+    addKey_.setAlpha(addKey_.isEnabled() ? 1.0f : dim);
+    removeKey_.setAlpha(removeKey_.isEnabled() ? 1.0f : dim);
+}
+
+juce::String TableEditor::layerStatus() const
+{
+    const auto* l = layer();
+    if (l == nullptr)
+        return {};
+    const auto frameText = [](int f) { return juce::String(f + 1); };
+    switch (l->kind)
+    {
+    case K::Draw:
+    case K::Harmonics:
+    {
+        if (keyframeIndex(*l, frame_, recipe_.frames) >= 0)
+            return "keyframe at " + frameText(frame_);
+        int before = -1, after = -1;
+        for (const auto& k : l->keyframes)
+        {
+            const int at = std::clamp(k.frame, 0, recipe_.frames - 1);
+            if (at < frame_ && at > before)
+                before = at;
+            if (at > frame_ && (after < 0 || at < after))
+                after = at;
+        }
+        if (before >= 0 && after >= 0)
+            return "between " + frameText(before) + " and " + frameText(after);
+        return "held from " + frameText(before >= 0 ? before : after);
+    }
+    case K::Formula:
+        return "made at each frame";
+    case K::Table:
+        if (!l->tableId.empty())
+            if (const auto table = wavetable::factoryTable(l->tableId))
+                return juce::String(table->frames()) + " frames, filled";
+        [[fallthrough]];
+    case K::Audio:
+    case K::Image:
+        return juce::String(l->sourceFrames()) + " frames, filled";
+    }
+    return {};
 }
 
 void TableEditor::updateTitle()
@@ -981,6 +1119,7 @@ void TableEditor::preview(Recipe recipe)
     recipe_ = std::move(recipe);
     editing_ = true;
     rebake_ = true;
+    layerChanged();
 }
 
 void TableEditor::keep(Recipe recipe, const juce::String& what)
@@ -1016,8 +1155,7 @@ void TableEditor::selectLayer(int index)
 {
     layer_ = std::clamp(index, 0, std::max(0, static_cast<int>(recipe_.layers.size()) - 1));
     rebuildLeft();
-    view3d_.update();
-    strip_.repaint();
+    layerChanged();
 }
 
 void TableEditor::showFrame(int frame)
@@ -1026,21 +1164,13 @@ void TableEditor::showFrame(int frame)
     if (frame == frame_)
         return;
     frame_ = frame;
-    view3d_.update();
-    strip_.repaint();
-    frameReadout_.refresh();
+    result_.repaint();
+    layerChanged();
     // The changes' amounts at this frame.
     for (size_t i = 0; i < changeBars_.size(); ++i)
         if (const auto c = firstChange_ + static_cast<int>(i); c < static_cast<int>(recipe_.changes.size()))
             changeBars_[i]->setValue(recipe_.changes[static_cast<size_t>(c)].amountAt(frame_),
                                      juce::dontSendNotification);
-}
-
-void TableEditor::setView(View view)
-{
-    view_ = view;
-    views_.setSelected(static_cast<int>(view));
-    view3d_.update();
 }
 
 void TableEditor::addLayer(Recipe::Layer layer)
@@ -1052,13 +1182,11 @@ void TableEditor::addLayer(Recipe::Layer layer)
     r.layers.push_back(std::move(layer));
     layer_ = static_cast<int>(r.layers.size()) - 1;
     keep(std::move(r), "Add a layer");
-    // Shown where it's edited.
+    // On its keyframe, where it's edited.
     if (kind == K::Draw || kind == K::Harmonics)
-    {
         frame_ = std::clamp(recipe_.layers.back().keyframes.front().frame, 0, recipe_.frames - 1);
-        setView(kind == K::Draw ? View::TwoD : View::Harmonics);
-    }
     rebuildLeft();
+    layerChanged();
 }
 
 void TableEditor::removeLayer(int index)
@@ -1141,8 +1269,7 @@ void TableEditor::removeKeyframe(int index)
     auto& from = r.layers[static_cast<size_t>(layer_)].keyframes;
     from.erase(from.begin() + index);
     keep(std::move(r), "Remove a keyframe");
-    view3d_.update();
-    strip_.repaint();
+    layerChanged();
 }
 
 void TableEditor::addChange(Recipe::Change change)
@@ -1264,20 +1391,17 @@ void TableEditor::setFrames(int count)
     r.frames = count;
     keep(std::move(r), "Set the frame count");
     frames_.setValue(framesToBar(recipe_.frames), juce::dontSendNotification);
-    view3d_.update();
-    strip_.repaint();
+    layerChanged();
 }
 
 // ---- the panes -----------------------------------------------------------------------------------
 
 void TableEditor::rebuildAll()
 {
-    views_.setSelected(static_cast<int>(view_));
     frames_.setValue(framesToBar(recipe_.frames), juce::dontSendNotification);
     rebuildLeft();
     rebuildChanges();
-    view3d_.update();
-    strip_.repaint();
+    layerChanged();
 }
 
 void TableEditor::rebuildLeft()
@@ -1356,6 +1480,7 @@ void TableEditor::rebuildLeft()
         use.setClickingTogglesState(false);
         use.setTooltip("Keep the table made from the audio");
         use.setEnabled(!audio_->failed);
+        use.setAlpha(use.isEnabled() ? 1.0f : ui::Theme::current().roles.dimAlpha);
         use.onClick = [this] { useAudio(); };
         place(layersPane_, use, 0, kRows - 1, 2, 1, Kind::Line);
         auto& cancel = make(leftControls_, std::make_unique<ui::Toggle>("Cancel"));
@@ -1423,7 +1548,7 @@ void TableEditor::rebuildLeft()
         tool.onSelect = [this](int i)
         {
             tool_ = i == 1 ? DrawTool::Freehand : DrawTool::Points;
-            view3d_.update();
+            layerView_.update();
         };
         place(layersPane_, tool, 0, 7, 4, 1, Kind::Line);
         auto& snapTo = make(leftControls_, std::make_unique<ui::ChoiceBox>());
@@ -1439,7 +1564,7 @@ void TableEditor::rebuildLeft()
         {
             const int s[] = {0, 8, 16, 32, 64};
             grid_ = s[std::clamp(snapTo.getSelectedId() - 1, 0, 4)];
-            view3d_.repaint();
+            layerView_.repaint();
         };
         place(layersPane_, snapTo, 0, 8, 4, 1, Kind::Line);
         break;
@@ -1506,16 +1631,10 @@ void TableEditor::rebuildLeft()
     }
     case K::Table:
     {
-        auto& pick = make(leftControls_, std::make_unique<ui::ChoiceBox>());
+        auto& pick = make(leftControls_, std::make_unique<TableField>());
         const auto tables = wavetable::factoryTables();
-        std::string_view category;
         for (size_t i = 0; i < tables.size(); ++i)
         {
-            if (tables[i].category != category)
-            {
-                category = tables[i].category;
-                pick.addSectionHeading(juce::String(std::string(category)));
-            }
             pick.addItem(juce::String(std::string(tables[i].name)), static_cast<int>(i) + 1);
             if (tables[i].id == l->tableId)
                 pick.setSelectedId(static_cast<int>(i) + 1, juce::dontSendNotification);
@@ -1524,18 +1643,21 @@ void TableEditor::rebuildLeft()
         if (l->tableId.empty())
             pick.setText("Its own frames", juce::dontSendNotification);
         pick.setTooltip("The factory table the layer starts from");
-        pick.onChange = [this, index, &pick]
+        pick.buildMenu = [this, index](juce::PopupMenu& menu)
         {
-            const int id = pick.getSelectedId();
-            if (id <= 0)
-                return;
-            auto r = recipe_;
-            auto& t = r.layers[static_cast<size_t>(index)];
-            t.tableId = std::string(wavetable::factoryTables()[static_cast<size_t>(id - 1)].id);
-            t.frames.clear();
-            t.note = std::string(wavetable::factoryTables()[static_cast<size_t>(id - 1)].name);
-            keep(std::move(r), "Choose a layer's table");
-            rebuildLeft();
+            menu = factoryTableMenu(recipe_.layers[static_cast<size_t>(index)].tableId,
+                                    [this, index](std::string_view id)
+                                    {
+                                        auto r = recipe_;
+                                        auto& t = r.layers[static_cast<size_t>(index)];
+                                        t.tableId = std::string(id);
+                                        t.frames.clear();
+                                        if (const auto table = wavetable::factoryTable(id))
+                                            t.note = table->name;
+                                        keep(std::move(r), "Choose a layer's table");
+                                        rebuildLeft();
+                                        layerChanged();
+                                    });
         };
         place(layersPane_, pick, 0, 7, 4, 1, Kind::Line);
         break;
@@ -1599,7 +1721,7 @@ void TableEditor::rebuildChanges()
     if (count == 0)
     {
         auto& hint = make(changeControls_, std::make_unique<NoteText>());
-        hint.setText("None: + adds one. Each shapes every frame, in order from the top.");
+        hint.setText("None: + adds one. Each shapes the result, in order from the top.");
         place(changesPane_, hint, 0, 0, 4, 2);
         return;
     }
@@ -1694,25 +1816,16 @@ void TableEditor::showAddLayerMenu()
                      if (self != nullptr)
                          self->importImage(false);
                  });
-    juce::PopupMenu tables;
-    std::string_view category;
-    for (const auto& t : wavetable::factoryTables())
-    {
-        if (t.category != category)
-        {
-            category = t.category;
-            tables.addSectionHeader(juce::String(std::string(category)));
-        }
-        tables.addItem(juce::String(std::string(t.name)),
-                       [self, id = std::string(t.id)]
-                       {
-                           if (self == nullptr)
-                               return;
-                           auto layer = wavetable::newLayer(K::Table);
-                           layer.tableId = id;
-                           self->addLayer(std::move(layer));
-                       });
-    }
+    // The factory tables by category, as every table's menu lists them.
+    const auto tables = factoryTableMenu({},
+                                         [self](std::string_view id)
+                                         {
+                                             if (self == nullptr)
+                                                 return;
+                                             auto layer = wavetable::newLayer(K::Table);
+                                             layer.tableId = std::string(id);
+                                             self->addLayer(std::move(layer));
+                                         });
     menu.addSubMenu("Table", tables);
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&addLayer_));
 }

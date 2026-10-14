@@ -128,7 +128,7 @@ As in Live, at the product owner's suggestion:
 
 **Instrument presets:** selecting one, with Preview on, plays a short phrase rendered with that preset offline: a held note in its register (Bass a C1, Pad a chord, the rest a C3), about two seconds, through the strip. Our modules render in milliseconds on their own (`tools/render` does the same), so it never touches the project. Effects' presets, and plugins', don't preview in C2.
 
-**Wavetables** (table-editor.md §7): a held C3 through a Wavetable of its own with the table on its first oscillator, rendered offline as an instrument preset's phrase is. Dropped on a track, a Wavetable with the table goes in place of its instrument; on a Wavetable in the chain, the table goes on the oscillator its OSC section shows.
+**Wavetables** (table-editor.md §7, §11): a held C3 through a Wavetable of its own with the table on its first oscillator, rendered offline as an instrument preset's phrase is. The Wavetable's module folder opens to **Tables** (its factory tables, a folder a category), then its presets; the factory tables are found by search too, and put in as your own are. Dropped on a track, a Wavetable with the table goes in place of its instrument; on a Wavetable in the chain, the table goes on the oscillator its OSC section shows.
 
 **MIDI files:** play on the selected track's instrument while Preview is on, the song's tempo stretching them as it would after a drop; with no instrument there, the strip says so.
 

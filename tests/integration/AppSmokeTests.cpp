@@ -4827,16 +4827,29 @@ TEST_CASE(
     CHECK(table.recipe().layers.size() == 1);
     CHECK(editor->title() == "Osc 1, Basic Shapes");
 
-    // Done closes it; the modules show.
-    editor->onDone();
+    // Module > Edit wavetable is ticked while it's open.
+    CHECK(actions.isToggled("module.editWavetable"));
+    // The × on its tab closes it; the modules show.
+    auto& tabs = detail.header().tabRow();
+    CHECK(tabs.tabs() == juce::StringArray{"Modules", "Clip", "Table"});
+    CHECK(tabs.closable() == 2);
+    tabs.onClose(2);
     CHECK(detail.editor() == nullptr);
+    CHECK(tabs.closable() == -1);
+    CHECK_FALSE(actions.isToggled("module.editWavetable"));
     CHECK(detail.mode() == fd::app::DetailPanel::Mode::Devices);
     REQUIRE(actions.perform("view.detailMode"));
     REQUIRE(actions.perform("view.detailMode"));
     CHECK(detail.mode() == fd::app::DetailPanel::Mode::Devices); // only Modules and Clip now
 
-    // The module going closes it.
+    // Edit wavetable again opens it; again, closes it.
     detail.chain().selectDevice(synth);
+    REQUIRE(actions.perform("module.editWavetable"));
+    REQUIRE(detail.editor() != nullptr);
+    REQUIRE(actions.perform("module.editWavetable"));
+    CHECK(detail.editor() == nullptr);
+
+    // The module going closes it.
     REQUIRE(actions.perform("module.editWavetable"));
     REQUIRE(detail.editor() != nullptr);
     s.removeDevice(synth);

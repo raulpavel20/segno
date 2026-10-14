@@ -100,6 +100,7 @@ private:
             Module,       // one of ours: loads; opens to its presets
             PresetFolder, // Yours, Bass…
             Preset,
+            Table, // a factory table (the Wavetable's, table-editor.md §11): heard on a held note
             Maker, // a plugin maker
             Plugin,
             Place,
@@ -134,6 +135,9 @@ private:
     void buildTree();
     void buildResults();
     void addModuleRows(const engine::AvailableDevice& device, int depth);
+    /// The Wavetable's factory tables in its folder: Tables, a folder a category.
+    void addTableRows(const std::vector<engine::Session::FactoryTable>& tables, const std::string& deviceKey,
+                      int depth);
     void addPresetFolder(const model::PresetFolder& folder, const std::vector<model::PresetEntry>& entries,
                          const std::string& deviceKey, const std::string& path, int depth);
     void addFolderRows(const juce::File& folder, int depth, bool segno);

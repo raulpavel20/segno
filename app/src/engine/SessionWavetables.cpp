@@ -1,6 +1,7 @@
 // The Wavetable's tables in the browser (docs/design/table-editor.md §7): heard on a held note,
 // loaded onto an oscillator.
 
+#include "FactoryTables.h"
 #include "TableFiles.h"
 #include "WavetableSynth.h"
 #include "engine/PresetPreview.h"
@@ -29,21 +30,64 @@ std::optional<nlohmann::json> tablePatch(int oscillator, const juce::File& file,
 }
 } // namespace
 
+namespace
+{
+/// A held C3 on a Wavetable of its own at its defaults, `patch` on its first oscillator.
+juce::AudioBuffer<float> heldNote(const nlohmann::json& patch, double rate)
+{
+    const auto* factory = findDevice("wavetable");
+    if (factory == nullptr)
+        return {};
+    auto state = captureState(*factory->create());
+    state.extra.merge_patch(patch);
+    return renderPresetPhrase(factory->info(), state, {}, rate);
+}
+} // namespace
+
 bool Session::previewWavetable(const juce::File& file)
 {
     stopPreview();
-    const auto* factory = findDevice("wavetable");
     const auto patch = tablePatch(0, file, nullptr);
-    if (factory == nullptr || !patch)
+    if (!patch)
         return false;
-    // A Wavetable of its own at its defaults, the table on its first oscillator: a held C3.
-    auto state = captureState(*factory->create());
-    state.extra.merge_patch(*patch);
     const double rate = sampleRate() > 0.0 ? sampleRate() : 48000.0;
-    auto sound = renderPresetPhrase(factory->info(), state, {}, rate);
+    auto sound = heldNote(*patch, rate);
     if (sound.getNumSamples() == 0)
         return false;
     impl_->preview.play(std::move(sound), rate);
+    return true;
+}
+
+std::vector<Session::FactoryTable> Session::wavetableFactoryTables() const
+{
+    std::vector<FactoryTable> out;
+    for (const auto& t : devices::wavetable::factoryTables())
+        out.push_back({std::string(t.id), std::string(t.name), std::string(t.category)});
+    return out;
+}
+
+bool Session::previewFactoryTable(const std::string& id)
+{
+    stopPreview();
+    if (devices::wavetable::factoryTable(id) == nullptr)
+        return false;
+    const double rate = sampleRate() > 0.0 ? sampleRate() : 48000.0;
+    auto sound = heldNote(W::factoryTablePatch(0, id), rate);
+    if (sound.getNumSamples() == 0)
+        return false;
+    impl_->preview.play(std::move(sound), rate);
+    return true;
+}
+
+bool Session::loadFactoryTable(std::uint64_t deviceId, int oscillator, const std::string& id)
+{
+    auto handle = openDevice(deviceId);
+    const auto table = devices::wavetable::factoryTable(id);
+    if (handle == nullptr || handle->deviceId() != "wavetable" || table == nullptr)
+        return false;
+    const EditGroup group(*this, "Load " + table->name);
+    handle->context().params.applyExtraState(
+        W::factoryTablePatch(std::clamp(oscillator, 0, W::numOscs - 1), id));
     return true;
 }
 

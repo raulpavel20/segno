@@ -550,3 +550,105 @@ TEST_CASE("recipe: how long a bake takes, as the editor bakes while a drag moves
         CHECK(ms > 0.0);
     }
 }
+
+TEST_CASE("recipe: one layer's frame is the bake's, its harmonics read back", "[fast]")
+{
+    using K = Recipe::SourceKind;
+    // A layer alone, at level 1 and with no changes, bakes to its own frames (normalised): what
+    // layerFrame gives, frame by frame, scaled as the bake scales.
+    std::vector<float> pixels(16 * 4);
+    for (size_t i = 0; i < pixels.size(); ++i)
+        pixels[i] = static_cast<float>(i % 16) / 15.0f;
+    auto draw = newLayer(K::Draw);
+    auto later = draw.keyframes[0];
+    later.frame = 20;
+    later.points = {{0.0f, -1.0f, 0.0f}, {0.5f, 1.0f, 0.4f}, {1.0f, -1.0f, 0.0f}};
+    draw.keyframes.push_back(later);
+    auto harmonics = newLayer(K::Harmonics);
+    auto bright = harmonics.keyframes[0];
+    bright.frame = 31;
+    bright.levels[4] = 0.5f;
+    harmonics.keyframes.push_back(bright);
+    harmonics.fill = Recipe::Fill::Spectral;
+    for (const auto& layer : {draw, harmonics, newLayer(K::Formula), newLayer(K::Table),
+                              imageLayer(pixels.data(), 16, 4, false, "")})
+    {
+        INFO(static_cast<int>(layer.kind));
+        Recipe r;
+        r.frames = 32;
+        r.layers = {layer};
+        const auto baked = bake(r);
+        // The bake's scale: each frame without its DC, the loudest to a peak of 1.
+        float peak = 0.0f;
+        for (int f = 0; f < 32; ++f)
+        {
+            const auto x = layerFrame(layer, f, 32);
+            double mean = 0.0;
+            for (const float v : x)
+                mean += v;
+            mean /= N;
+            for (const float v : x)
+                peak = std::max(peak, std::abs(v - static_cast<float>(mean)));
+        }
+        REQUIRE(peak > 0.0f);
+        double worst = 0.0;
+        for (int f = 0; f < 32; f += 5)
+        {
+            const auto x = layerFrame(layer, f, 32);
+            // The baked table carries no DC: compare without it.
+            double mean = 0.0;
+            for (const float v : x)
+                mean += v;
+            mean /= N;
+            for (int i = 0; i < N; ++i)
+                worst = std::max(worst,
+                                 std::abs((x[static_cast<size_t>(i)] - mean) / peak - baked.samples(f)[i]));
+            INFO("frame " << f);
+        }
+        CHECK(worst < 0.02);
+    }
+
+    // A harmonics keyframe's wave reads back as its levels and phases.
+    auto k = harmonics.keyframes[0];
+    k.levels = std::vector<float>(Recipe::numHarmonicBars, 0.0f);
+    k.levels[0] = 0.8f;
+    k.levels[2] = 0.3f;
+    k.phases[2] = 0.25f;
+    Recipe::Layer one = newLayer(K::Harmonics);
+    one.keyframes = {k};
+    const auto read = frameHarmonics(layerFrame(one, 0, 1), Recipe::numHarmonicBars);
+    CHECK(read.levels[0] == Approx(0.8f).margin(1e-3));
+    CHECK(read.levels[2] == Approx(0.3f).margin(1e-3));
+    CHECK(read.phases[2] == Approx(0.25f).margin(1e-3));
+    CHECK(read.levels[1] < 1e-3f);
+}
+
+TEST_CASE("recipe: a drawing's new keyframe between two keeps the frame as it was", "[fast]")
+{
+    auto draw = newLayer(Recipe::SourceKind::Draw);
+    auto later = draw.keyframes[0];
+    later.frame = 30;
+    later.points = {{0.0f, 0.0f, 0.0f}, {0.25f, 0.2f, 0.0f}, {0.75f, -0.9f, 0.0f}, {1.0f, 0.0f, 0.0f}};
+    draw.keyframes.push_back(later);
+    const auto close = [&](const Recipe::Layer& layer, double tolerance)
+    {
+        const auto before = layerFrame(layer, 12, 32);
+        auto added = layer;
+        added.keyframes.push_back(newKeyframe(layer, 12, 32));
+        std::stable_sort(added.keyframes.begin(), added.keyframes.end(),
+                         [](const auto& a, const auto& b) { return a.frame < b.frame; });
+        const auto after = layerFrame(added, 12, 32);
+        double worst = 0.0;
+        for (size_t i = 0; i < before.size(); ++i)
+            worst = std::max(worst, static_cast<double>(std::abs(before[i] - after[i])));
+        CHECK(worst < tolerance);
+    };
+    // The points at the same places: crossfaded exactly.
+    close(draw, 1e-4);
+    // Elsewhere, or filled spectrally: the frame as 33 straight points, close to it.
+    later.points = {{0.0f, 0.0f, 0.0f}, {0.4f, 1.0f, 0.5f}, {1.0f, 0.0f, 0.0f}};
+    draw.keyframes[1] = later;
+    close(draw, 0.12);
+    draw.fill = Recipe::Fill::Spectral;
+    close(draw, 0.12);
+}

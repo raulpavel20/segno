@@ -8,7 +8,9 @@ namespace fd::ui
 /// Tabs in a row: the detail panel's (Modules, Clip) and a module's pages (ADR 0051). Each is its
 /// name in `Control` text with a text button's padding either side; the selected one in
 /// `textPrimary`, a hovered one in `textSecondary`, the rest in `textTertiary`. A click selects.
-class TabRow final : public juce::Component
+/// A tab for something open that closes (a module's editor, ADR 0053) carries an × after its name,
+/// `listIconSize`, lit on hover.
+class TabRow final : public juce::Component, public juce::TooltipClient
 {
 public:
     TabRow();
@@ -18,6 +20,14 @@ public:
     [[nodiscard]] const juce::StringArray& tabs() const noexcept { return tabs_; }
     /// After a click on a tab other than the selected one, which it then selects.
     std::function<void(int index)> onSelect;
+    /// Gives tab `index` an × (-1: none), its tooltip saying what closing does.
+    void setClosable(int index, juce::String tooltip);
+    [[nodiscard]] int closable() const noexcept { return closable_; }
+    /// After a click on the ×.
+    std::function<void(int index)> onClose;
+    /// Where the × is (empty without one).
+    [[nodiscard]] juce::Rectangle<int> closeArea() const;
+    juce::String getTooltip() override;
     /// Every tab side by side.
     [[nodiscard]] int preferredWidth() const;
     /// Each tab's area, in this component, from its left edge.
@@ -32,7 +42,9 @@ public:
 
 private:
     juce::StringArray tabs_;
-    int selected_ = 0, hovered_ = -1;
+    int selected_ = 0, hovered_ = -1, closable_ = -1;
+    bool closeHovered_ = false;
+    juce::String closeTooltip_;
 };
 
 /// A panel's header row: a section-style title, or clickable tabs, on the left; context text
@@ -46,6 +58,11 @@ public:
     void setTitle(juce::String title);
     /// Tabs instead of a title; `onTabSelected` fires when one is clicked.
     void setTabs(juce::StringArray tabs, int selected);
+    /// Gives tab `index` an × (-1: none); `onTabClosed` fires when it's clicked.
+    void setClosableTab(int index, juce::String tooltip = {});
+    std::function<void(int index)> onTabClosed;
+    /// The tabs (for tests and the layout lint).
+    [[nodiscard]] TabRow& tabRow() noexcept { return tabs_; }
     void setSelectedTab(int index);
     [[nodiscard]] int selectedTab() const noexcept { return tabs_.selected(); }
     std::function<void(int index)> onTabSelected;

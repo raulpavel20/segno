@@ -51,18 +51,36 @@ bool isClip(Kind kind)
     return kind == Kind::Sample || kind == Kind::Midi;
 }
 
+/// A wavetable's name: a file's, or a factory table's.
+std::string tableName(engine::Session& session, const Ref& ref)
+{
+    if (ref.file != juce::File())
+        return ref.file.getFileNameWithoutExtension().toStdString();
+    for (const auto& t : session.wavetableFactoryTables())
+        if (t.id == ref.key)
+            return t.name;
+    return ref.key;
+}
+
+/// A wavetable (a file or a factory table) onto one of a Wavetable's oscillators.
+bool loadTable(engine::Session& session, std::uint64_t module, int oscillator, const Ref& ref)
+{
+    return ref.file != juce::File() ? session.loadWavetable(module, oscillator, ref.file)
+                                    : session.loadFactoryTable(module, oscillator, ref.key);
+}
+
 /// A wavetable on a track: a Wavetable with it on its first oscillator, in place of the track's
 /// instrument (or the track's Wavetable, if it has one, takes it).
 Result tableOnTrack(engine::Session& session, const Ref& ref, std::uint64_t channel)
 {
     const auto old = session.instrumentOf(channel);
-    const auto name = ref.file.getFileNameWithoutExtension().toStdString();
+    const auto name = tableName(session, ref);
     if (old && old->deviceId == "wavetable")
-        return {session.loadWavetable(old->id, 0, ref.file), {}, 0, old->id};
+        return {loadTable(session, old->id, 0, ref), {}, 0, old->id};
     const engine::Session::EditGroup group(session, old ? "Replace " + old->name + " with Wavetable"
                                                         : "Add Wavetable with " + name);
     const auto synth = session.replaceInstrument(channel, "fd:wavetable");
-    if (synth == 0 || !session.loadWavetable(synth, 0, ref.file))
+    if (synth == 0 || !loadTable(session, synth, 0, ref))
         return {};
     Result r{true, {}, 0, synth};
     if (old)
@@ -81,7 +99,7 @@ std::string stepName(engine::Session& session, const Ref& ref)
     if (isClip(ref.kind))
         return "Insert " + ref.file.getFileNameWithoutExtension().toStdString();
     if (ref.kind == Kind::Wavetable)
-        return "Add Wavetable with " + ref.file.getFileNameWithoutExtension().toStdString();
+        return "Add Wavetable with " + tableName(session, ref);
     return {};
 }
 
@@ -172,6 +190,12 @@ std::optional<Ref> parse(const std::string& id)
         r.kind = *kind;
         r.file = juce::File(juce::String::fromUTF8(path.c_str()));
     }
+    else if (id.starts_with("table:"))
+    {
+        // A factory table (the Wavetable's, table-editor.md §11).
+        r.kind = Kind::Wavetable;
+        r.key = after("table:");
+    }
     else if (id.starts_with("folder:"))
     {
         r.kind = Kind::Folder;
@@ -231,7 +255,7 @@ Result inChain(engine::Session& session, const std::string& item, std::uint64_t 
             if (ref->kind == Kind::Preset)
                 return {loadPreset(session, *onModule, *ref), {}, 0, *onModule};
             if (ref->kind == Kind::Wavetable)
-                return {session.loadWavetable(*onModule, 0, ref->file), {}, 0, *onModule};
+                return {loadTable(session, *onModule, 0, *ref), {}, 0, *onModule};
             return {session.loadSample(*onModule, ref->file).has_value(), {}, 0, *onModule};
         }
     if (isModule(ref->kind))

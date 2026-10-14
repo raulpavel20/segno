@@ -6,59 +6,90 @@
 
 #include <fd_device_ui/fd_device_ui.h>
 
-/// The Wavetable's table editor (docs/design/table-editor.md §4, ADR 0053): an oscillator's table
-/// as a recipe. Its layers on the left with the selected one's settings, the table in the middle
-/// (in 3D, a frame in 2D, a frame's harmonics) over the keyframe strip, its changes on the
-/// right. Each edit is kept on release: the recipe and the frames baked from it go to the module
-/// through the host, one undo step. Everything it draws comes from the same bake the module
-/// plays.
+/// The Wavetable's table editor (docs/design/table-editor.md §4 and §11, ADR 0053): an
+/// oscillator's table as a recipe. Left to right as the sound goes: the layers, with the selected
+/// one's settings; that layer at the frame shown (its wave and its harmonics, over its keyframes);
+/// the result (the whole table as the module plays it); the changes that shape the result. Each
+/// edit is kept on release: the recipe and the frames baked from it go to the module through the
+/// host, one undo step. Everything it draws comes from the functions the bake uses.
 namespace fd::devices::wavetable_ui
 {
 class TableEditor;
 
-/// The middle of the editor: the table in 3D (dragged up and down to go through its frames), the
-/// shown frame in 2D (a Draw layer's keyframe drawn on: points dragged, segments bent,
-/// double-click adds or removes a point, or freehand), or its harmonics (a Harmonics layer's
-/// keyframe set by dragging across the bars, its phases in the strip below them).
-class TableView final : public juce::Component, public juce::SettableTooltipClient
+/// The selected layer at the frame shown, before the changes: its wave (left) and its harmonics
+/// (right, their phases in a strip under the bars), side by side, always both. Edited where the
+/// layer is made: a drawing on its wave (points dragged, segments bent, a double-click adds or
+/// removes a point, or freehand on the grid), harmonics on their bars and phases. Editing a frame
+/// between keyframes adds one there first.
+class LayerView final : public juce::Component, public juce::SettableTooltipClient
 {
 public:
-    explicit TableView(TableEditor& editor);
+    explicit LayerView(TableEditor& editor);
     void paint(juce::Graphics& g) override;
-    void resized() override;
+    void mouseMove(const juce::MouseEvent& e) override;
     void mouseDown(const juce::MouseEvent& e) override;
     void mouseDrag(const juce::MouseEvent& e) override;
     void mouseUp(const juce::MouseEvent& e) override;
     void mouseDoubleClick(const juce::MouseEvent& e) override;
-    /// The editor's state changed: draw again.
+    /// The editor's state changed: the layer's frame again, drawn again.
     void update();
 
-    /// Where the drawing is (2D), and the harmonics' bars and phases (Harmonics).
-    [[nodiscard]] juce::Rectangle<float> plot() const;
-    [[nodiscard]] juce::Rectangle<float> barsArea() const;
-    [[nodiscard]] juce::Rectangle<float> phasesArea() const;
+    /// Its two wells, and where the wave, the bars and the phases are drawn in them.
+    [[nodiscard]] juce::Rectangle<float> waveWell() const;
+    [[nodiscard]] juce::Rectangle<float> harmonicsWell() const;
+    [[nodiscard]] juce::Rectangle<float> wavePlot() const;
+    [[nodiscard]] juce::Rectangle<float> barsPlot() const;
+    [[nodiscard]] juce::Rectangle<float> phasesPlot() const;
+    /// Whether the selected layer is edited on its wave (a drawing) or on its harmonics.
+    [[nodiscard]] bool editsWave() const;
+    [[nodiscard]] bool editsHarmonics() const;
+    /// The layer's frame as shown (2 048 samples) and its harmonics' levels (for tests).
+    [[nodiscard]] const std::vector<float>& shownFrame() const noexcept { return frame_; }
+    [[nodiscard]] const std::vector<float>& shownLevels() const noexcept { return harmonics_.levels; }
 
 private:
-    /// The keyframe the view edits: the selected layer's at the shown frame, if it's a Draw or
-    /// Harmonics layer with one there (else null).
-    [[nodiscard]] const wavetable::Recipe::Keyframe* editable() const;
-    void paint3d(juce::Graphics& g, juce::Rectangle<float> area);
-    void paint2d(juce::Graphics& g, juce::Rectangle<float> area);
-    void paintHarmonics(juce::Graphics& g, juce::Rectangle<float> area);
+    /// The keyframe a press edits, in `editing_`: the selected layer's at the frame shown, added
+    /// there first if it has none.
+    wavetable::Recipe::Keyframe& keyframeToEdit();
+    void paintWave(juce::Graphics& g);
+    void paintHarmonics(juce::Graphics& g);
     void drawFreehand(juce::Point<float> from, juce::Point<float> to);
     void setBar(juce::Point<float> at, bool phases);
 
     TableEditor& editor_;
-    wavetable::Recipe editing_; // the recipe while a drag edits it
-    bool dragging_ = false;
-    int dragged_ = -1, bending_ = -1, startFrame_ = 0;
+    std::vector<float> frame_;              // the selected layer's frame shown
+    wavetable::FrameHarmonics harmonics_;   // ... and its harmonics
+    wavetable::Recipe editing_;             // the recipe while a drag edits it
+    bool dragging_ = false, added_ = false; // a drag edits; it added the keyframe it edits
+    int dragged_ = -1, bending_ = -1;
     float bendStart_ = 0.0f, bendY_ = 0.0f;
     bool phasesDrag_ = false;
     juce::Point<float> last_;
-    juce::String undoName_;
-    const dsp::Wavetable* builtFor_ = nullptr; // the 3D frames' table
-    std::vector<juce::Path> frames_;           // the 3D frames, back to front
-    juce::Point<float> depth_;
+};
+
+/// The whole table as the module plays it, every layer summed and then the changes, in 3D, the
+/// frame shown lit. A click picks the frame under it; a drag up and down goes through them.
+class ResultView final : public juce::Component, public juce::SettableTooltipClient
+{
+public:
+    explicit ResultView(TableEditor& editor);
+    void paint(juce::Graphics& g) override;
+    void resized() override { frames_.clear(); }
+    void mouseDown(const juce::MouseEvent& e) override;
+    void mouseDrag(const juce::MouseEvent& e) override;
+    /// The baked table changed: its frames drawn again.
+    void update();
+    /// The frame nearest to `y` (the lines rise as they go back).
+    [[nodiscard]] int frameAt(float y) const;
+
+private:
+    [[nodiscard]] juce::Rectangle<float> plot() const;
+    [[nodiscard]] juce::Rectangle<float> frameArea(float along) const;
+
+    TableEditor& editor_;
+    const dsp::Wavetable* builtFor_ = nullptr;
+    std::vector<juce::Path> frames_; // back to front
+    int startFrame_ = 0;
 };
 
 /// The table's frames from left to right: the shown one marked, a ◆ for each keyframe of the
@@ -86,29 +117,26 @@ private:
     int dragged_ = -1, dragFrame_ = -1;
 };
 
-/// A line of text in an editor's pane: a layer's note, what the audio held, a formula's error.
-class NoteText final : public juce::Component
+/// A line of text in an editor's pane: a layer's note, what the audio held, a formula's error,
+/// where the frame shown is in the layer.
+class NoteText final : public juce::Component, public juce::SettableTooltipClient
 {
 public:
     void setText(juce::String text, bool warning = false);
     [[nodiscard]] const juce::String& text() const noexcept { return text_; }
+    void setJustification(juce::Justification justification);
     void paint(juce::Graphics& g) override;
 
 private:
     juce::String text_;
     bool warning_ = false;
+    juce::Justification justification_ = juce::Justification::topLeft;
 };
 
 class TableEditor final : public ui::ModuleEditor, public juce::FileDragAndDropTarget
 {
 public:
     using Recipe = wavetable::Recipe;
-    enum class View
-    {
-        ThreeD,
-        TwoD,
-        Harmonics
-    };
     enum class DrawTool
     {
         Points,
@@ -121,6 +149,10 @@ public:
     [[nodiscard]] juce::String tabName() const override { return "Table"; }
     [[nodiscard]] juce::String title() const override;
     void closing() override;
+    [[nodiscard]] juce::String closeTooltip() const override
+    {
+        return "Close the table editor: the table it made stays on the oscillator";
+    }
 
     /// The oscillator it edits; another (the one OSC shows) loads that one's table.
     [[nodiscard]] int oscillator() const noexcept { return osc_; }
@@ -134,7 +166,6 @@ public:
     [[nodiscard]] int selectedLayer() const noexcept { return layer_; }
     [[nodiscard]] const Recipe::Layer* layer() const noexcept;
     [[nodiscard]] int shownFrame() const noexcept { return frame_; }
-    [[nodiscard]] View view() const noexcept { return view_; }
     [[nodiscard]] DrawTool drawTool() const noexcept { return tool_; }
     /// The drawing's grid: steps across a cycle that points snap to (0: none).
     [[nodiscard]] int grid() const noexcept { return grid_; }
@@ -143,7 +174,9 @@ public:
 
     void selectLayer(int index);
     void showFrame(int frame);
-    void setView(View view);
+    /// Where the frame shown is in the selected layer: "keyframe at 23", "between 12 and 40",
+    /// "held from 12", "16 frames, filled", "made at each frame".
+    [[nodiscard]] juce::String layerStatus() const;
 
     // ---- edits: each kept at once, one undo step -------------------------------------------------
 
@@ -194,8 +227,11 @@ public:
 
     // ---- for the layout lint and tests -------------------------------------------------------------
 
-    [[nodiscard]] TableView& tableView() noexcept { return view3d_; }
+    [[nodiscard]] LayerView& layerView() noexcept { return layerView_; }
+    [[nodiscard]] ResultView& resultView() noexcept { return result_; }
     [[nodiscard]] KeyframeStrip& strip() noexcept { return strip_; }
+    [[nodiscard]] juce::Button& addKeyframeButton() noexcept { return addKey_; }
+    [[nodiscard]] juce::Button& removeKeyframeButton() noexcept { return removeKey_; }
     [[nodiscard]] juce::Button& previewButton() noexcept { return preview_; }
     [[nodiscard]] juce::Button& addLayerButton() noexcept { return addLayer_; }
     [[nodiscard]] juce::Button& addChangeButton() noexcept { return addChange_; }
@@ -213,6 +249,8 @@ public:
 private:
     /// The rows the panes need: four layers, a label, their settings; at its least height.
     static constexpr int kRows = 10;
+    /// Where the frame shown is in the layer, at the right of its title ("between 128 and 256").
+    static constexpr int kStatusWidth = 128;
 
     struct PendingAudio
     {
@@ -234,6 +272,9 @@ private:
     void follow();
     void bakeNow();
     void commit(const juce::String& what, bool newStep = true);
+    /// The views follow what changed: the layer's (at once), the result's (when baked).
+    void layerChanged();
+    void updateLayerPane();
     void rebuildAll();
     /// The layers and the selected one's settings (or the way chooser).
     void rebuildLeft();
@@ -260,24 +301,26 @@ private:
     Recipe recipe_;
     dsp::Wavetable baked_;
     bool rebake_ = false, editing_ = false;
+    double lastBake_ = 0.0; // ms: while a drag edits, the result bakes again at most every 120 ms
     nlohmann::json kept_;                  // the recipe as loaded or last kept
     const dsp::Wavetable* seen_ = nullptr; // the module's table when last followed...
     nlohmann::json seenRecipe_;            // ...and its recipe
     int layer_ = 0, frame_ = 0, firstChange_ = 0;
-    View view_ = View::ThreeD;
     DrawTool tool_ = DrawTool::Points;
     int grid_ = 16;
     int previewNote_ = -1;
     std::optional<PendingAudio> audio_;
     juce::String shownTitle_;
 
-    int layersPane_ = 0, viewPane_ = 0, changesPane_ = 0;
+    int layersPane_ = 0, layerPane_ = 0, resultPane_ = 0, changesPane_ = 0;
     ui::Toggle preview_{"Preview"};
     ui::IconButton addLayer_{ui::Icon::Plus}, addChange_{ui::Icon::Plus};
-    ui::Selector views_{{"3D", "2D", "Harmonics"}, 3};
+    NoteText status_;
     ui::HeaderReadout frameReadout_;
-    TableView view3d_{*this};
+    LayerView layerView_{*this};
+    ResultView result_{*this};
     KeyframeStrip strip_{*this};
+    ui::Toggle addKey_{"Add keyframe"}, removeKey_{"Remove keyframe"};
     ui::Knob frames_;
     std::vector<std::unique_ptr<juce::Component>> leftControls_, changeControls_;
     std::vector<ui::Knob*> changeBars_;

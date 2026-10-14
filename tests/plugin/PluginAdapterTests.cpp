@@ -367,16 +367,18 @@ TEST_CASE("plugin: a module's editor opens under the panel, the window grown for
     CHECK(module->getHeight() == module->minimumHeight());
     CHECK(editor->editorHeader().getBottom() == module->getY());
     CHECK(editor->editorHeader().getY() >= t.devicePanelHeight + 8);
-    // Its commands in its header, Done last.
-    const auto commands = module->commands();
-    REQUIRE(commands.size() == 2);
+    // Its commands in its header; its tab, with the × that closes it.
+    const auto& commands = module->commands();
+    REQUIRE(commands.size() == 1);
     CHECK(commands[0]->getParentComponent() == &editor->editorHeader());
-    CHECK(commands[1]->getParentComponent() == &editor->editorHeader());
-    CHECK(commands[0]->getRight() < commands[1]->getX());
+    auto& tab = editor->editorHeader().tabRow();
+    CHECK(tab.tabs() == juce::StringArray{"Stub"});
+    CHECK(tab.closable() == 0);
+    CHECK_FALSE(tab.closeArea().isEmpty());
 
-    // Done: closed, the window back to the panel.
-    REQUIRE(module->onDone);
-    module->onDone(); // what Done's click does
+    // The ×: closed, the window back to the panel.
+    REQUIRE(tab.onClose);
+    tab.onClose(0); // what a click on the × does
     editor->handleUpdateNowIfNeeded();
     CHECK(editor->moduleEditor() == nullptr);
     CHECK(editor->getHeight() == height);

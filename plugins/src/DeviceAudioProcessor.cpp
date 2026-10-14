@@ -520,12 +520,14 @@ void DeviceEditor::showModuleEditor(std::unique_ptr<ui::ModuleEditor> editor)
 {
     closeModuleEditor();
     moduleEditor_ = std::move(editor);
-    editorHeader_.setTitle(moduleEditor_->tabName());
+    // Its tab, with the × that closes it, as in the DAW's detail panel.
+    editorHeader_.setTabs({moduleEditor_->tabName()}, 0);
+    editorHeader_.setClosableTab(0, moduleEditor_->closeTooltip());
     editorHeader_.setContext(moduleEditor_->title());
     for (auto* c : moduleEditor_->commands())
         editorHeader_.addCommand(*c);
     moduleEditor_->onTitleChanged = [this] { editorHeader_.setContext(moduleEditor_->title()); };
-    moduleEditor_->onDone = [this]
+    editorHeader_.onTabClosed = [this](int)
     {
         closeModuleEditor();
         triggerAsyncUpdate(); // shrink back, outside the click

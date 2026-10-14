@@ -126,7 +126,7 @@ public:
     [[nodiscard]] int popoverRoom() const noexcept { return popoverRoom_; }
     /// The module's editor while it's open (ADR 0053): under the panel, the window grown for it.
     [[nodiscard]] ui::ModuleEditor* moduleEditor() const noexcept { return moduleEditor_.get(); }
-    [[nodiscard]] const ui::PanelHeader& editorHeader() const noexcept { return editorHeader_; }
+    [[nodiscard]] ui::PanelHeader& editorHeader() noexcept { return editorHeader_; }
     void closeModuleEditor();
 
 private:

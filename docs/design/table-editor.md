@@ -19,8 +19,8 @@ The Wavetable's tables, made and changed in Segno: drawn, built from harmonics o
 
 - **The DAW:** in the bottom panel, where the piano roll opens ([ADR 0053](../decisions/0053-a-modules-editor-in-the-detail-panel.md)). While a table is open, the panel's tabs read **Modules · Clip · Table**; Tab goes round them. Its height is dragged at its top edge, like the clip view's (default 320 px, kept with the view). The module stays in view above it, so you play and hear it while you edit.
 - **Opening it:** Module > Edit Wavetable, a double-click on the table display, or Edit in the table's menu. It edits the oscillator shown in OSC.
-- **The plugins:** the window grows downward by the editor's height, under the panel, the same editor. Done shrinks it back.
-- **Done** (in its header) closes it; the table it made stays on the oscillator.
+- **The plugins:** the window grows downward by the editor's height, under the panel, the same editor. Closing it shrinks the window back.
+- **The × on its tab** closes it (§11, T14); the table it made stays on the oscillator.
 
 ## 3. What it edits: a recipe
 
@@ -40,6 +40,8 @@ A table is a **recipe**: layers that make frames, changes that shape them, and t
 - **Saving:** the recipe goes in the module's state beside the baked frames (`oscN.recipe`), so a project or preset reopens it editable.
 
 ## 4. The editor
+
+*Revised after the first use: §11 (the result and the layer apart, the × on its tab). What follows is the first design, kept for the record.*
 
 ```
 │ Modules   Clip   Table: Osc 1, Vowels (edited)                    ▶ Preview      Done │
@@ -123,7 +125,19 @@ All dimmed unless a Wavetable (or, for Make Wavetable, an audio clip) is selecte
 | T12 | **Menus and keys** | Module > Edit Wavetable, Import…, Export…; Clip > Make Wavetable. No shortcut of its own: a double-click on the table display opens it |
 | T13 | **Assistants** | `make_wavetable`, `get_wavetable`, `edit_wavetable`, `export_wavetable` |
 
-## 11. Revised after the first use (2026-10-14, for review)
+## 11. Revised after the first use (2026-10-14)
+
+**Status:** approved by the product owner (2026-10-14, every recommendation of T14–T20); built the same day, awaiting sign-off.
+
+**Settled while building:**
+- **The Result is 4 columns, not 5,** and the layer's view at least 5, so the editor's least width is about 964 px: it fits the DAW's narrowest window (1 024 px, less the panel's margins).
+- **The layer's title** reads "LAYER 2 · DRAW"; at its right, where the frame shown is: "keyframe at 23", "between 12 and 40", "held from 12" (before the first keyframe or after the last), "64 frames, filled", "made at each frame". Each well names itself and whether it's edited there ("Wave: draw here", "Harmonics: set here"); its hover says where the layer is set otherwise.
+- **Add keyframe** (2 columns) and **Remove keyframe** (3 columns) under the strip, dimmed where they can't act; they show for drawings and harmonics only.
+- **A new drawing keyframe between two** takes their points crossfaded when they're at the same places and the fill crossfades, else the frame there as 33 straight points: what you see doesn't jump when the first stroke adds it.
+- **The Result** is picked by a click on a frame line, or dragged up and down; it bakes again every 120 ms at most while a drag edits (the layer follows at once): a bake takes about 100 ms at 64 frames in a debug build.
+- **Phases** show only for harmonics at 1 % or more.
+- **The table menus** (the oscillator's table field, a Table layer's, + > Table) list the nine categories as submenus.
+- **The browser:** the Wavetable's folder opens to Tables (a folder a category), then its presets; a table is heard on a held C3 when selected, found by search among WAVETABLES, and put in like a file of yours: on a track a Wavetable with it, on a Wavetable where its OSC shows (`DevicePanel::takeFactoryItem`).
 
 **What the product owner hit, trying it:**
 - **How to close it couldn't be found.** Done sat at the far right of the panel's header, away from the tab and the editor.

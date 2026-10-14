@@ -466,9 +466,51 @@ void exportTable(juce::Component& owner, ui::DeviceUiContext& ctx, int n,
 
 // ---- TablePicker ---------------------------------------------------------------------------------
 
-namespace
+juce::PopupMenu factoryTableMenu(std::string_view current, std::function<void(std::string_view id)> chosen)
 {
-constexpr int kImportItem = 10000, kEditItem = 10001;
+    juce::PopupMenu menu, sub;
+    std::string_view category;
+    const auto close = [&]
+    {
+        if (!category.empty())
+            menu.addSubMenu(juce::String(std::string(category)), sub, true, nullptr,
+                            [&]
+                            {
+                                for (const auto& t : wavetable::factoryTables())
+                                    if (t.category == category && t.id == current)
+                                        return true;
+                                return false;
+                            }());
+        sub = {};
+    };
+    for (const auto& t : wavetable::factoryTables())
+    {
+        if (t.category != category)
+        {
+            close();
+            category = t.category;
+        }
+        sub.addItem(juce::String(std::string(t.name)), true, t.id == current,
+                    [chosen, id = std::string(t.id)] { chosen(id); });
+    }
+    close();
+    return menu;
+}
+
+void TableField::showPopup()
+{
+    juce::PopupMenu menu;
+    if (buildMenu)
+        buildMenu(menu);
+    menu.setLookAndFeel(&getLookAndFeel());
+    juce::Component::SafePointer<TableField> self(this);
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMinimumWidth(getWidth()),
+                       [self](int)
+                       {
+                           // Until hidePopup(), the box thinks its menu is still open.
+                           if (self != nullptr)
+                               self->hidePopup();
+                       });
 }
 
 TablePicker::TablePicker(ui::DeviceUiContext& context) : ctx_(context)
@@ -477,26 +519,18 @@ TablePicker::TablePicker(ui::DeviceUiContext& context) : ctx_(context)
     field_.setTooltip(
         "The oscillator's table: a factory one, or one of your own (a file, audio, or made in the "
         "editor)");
-    field_.onChange = [this]
+    field_.buildMenu = [this](juce::PopupMenu& menu)
     {
-        const int id = field_.getSelectedId();
-        if (id == kImportItem && onImport)
-        {
-            shownId_.clear(); // the field shows the table it plays
-            refresh();
-            onImport();
-        }
-        else if (id == kImportItem)
-            importFile();
-        else if (id == kEditItem)
-        {
-            shownId_.clear();
-            refresh();
-            if (onEdit)
-                onEdit();
-        }
-        else if (id > 0)
-            choose(wavetable::factoryTables()[static_cast<size_t>(id - 1)].id);
+        menu = factoryTableMenu(shownId_, [this](std::string_view id) { choose(id); });
+        menu.addSeparator();
+        if (editable_)
+            menu.addItem(juce::String::fromUTF8("Edit…"),
+                         [this]
+                         {
+                             if (onEdit)
+                                 onEdit();
+                         });
+        menu.addItem(juce::String::fromUTF8("Import…"), [this] { onImport ? onImport() : importFile(); });
     };
     previous_.setTooltip("Previous table");
     next_.setTooltip("Next table");
@@ -509,23 +543,11 @@ TablePicker::TablePicker(ui::DeviceUiContext& context) : ctx_(context)
 
 void TablePicker::rebuildMenu()
 {
-    // The factory tables by category, then Edit and Import.
+    // The names the field shows; its menu is built when it opens.
     field_.clear(juce::dontSendNotification);
     const auto tables = wavetable::factoryTables();
-    std::string_view category;
     for (size_t i = 0; i < tables.size(); ++i)
-    {
-        if (tables[i].category != category)
-        {
-            category = tables[i].category;
-            field_.addSectionHeading(juce::String(std::string(category)));
-        }
         field_.addItem(juce::String(std::string(tables[i].name)), static_cast<int>(i) + 1);
-    }
-    field_.addSeparator();
-    if (editable_)
-        field_.addItem(juce::String::fromUTF8("Edit…"), kEditItem);
-    field_.addItem(juce::String::fromUTF8("Import…"), kImportItem);
     shownId_.clear();
     shownName_.clear();
 }

@@ -12,7 +12,33 @@ void TabRow::setTabs(juce::StringArray tabs, int selected)
     tabs_ = std::move(tabs);
     selected_ = selected;
     hovered_ = -1;
+    if (closable_ >= tabs_.size())
+        closable_ = -1;
     repaint();
+}
+
+void TabRow::setClosable(int index, juce::String tooltip)
+{
+    closable_ = index >= 0 && index < tabs_.size() ? index : -1;
+    closeTooltip_ = std::move(tooltip);
+    repaint();
+}
+
+juce::Rectangle<int> TabRow::closeArea() const
+{
+    if (closable_ < 0)
+        return {};
+    // At the end of its tab, before the tab's right padding.
+    const auto& s = Theme::current().shell;
+    const auto tab = tabAreas()[static_cast<size_t>(closable_)];
+    return juce::Rectangle<int>(tab.getRight() - s.buttonTextPadding - s.listIconSize, 0, s.listIconSize,
+                                getHeight())
+        .withSizeKeepingCentre(s.listIconSize, s.listIconSize);
+}
+
+juce::String TabRow::getTooltip()
+{
+    return closeHovered_ ? closeTooltip_ : juce::String();
 }
 
 void TabRow::setSelected(int index)
@@ -29,11 +55,13 @@ std::vector<juce::Rectangle<int>> TabRow::tabAreas() const
     const int padding = Theme::current().shell.buttonTextPadding;
     std::vector<juce::Rectangle<int>> out;
     int x = 0;
-    for (const auto& tab : tabs_)
+    const auto& s = Theme::current().shell;
+    for (int i = 0; i < tabs_.size(); ++i)
     {
-        const int w = static_cast<int>(
-                          std::ceil(juce::GlyphArrangement::getStringWidth(font(TextStyle::Control), tab))) +
-                      2 * padding;
+        // A closable tab: its name, then the ×, an item gap apart.
+        const int w = static_cast<int>(std::ceil(
+                          juce::GlyphArrangement::getStringWidth(font(TextStyle::Control), tabs_[i]))) +
+                      2 * padding + (i == closable_ ? s.itemGap + s.listIconSize : 0);
         out.push_back({x, 0, w, getHeight()});
         x += w;
     }
@@ -62,16 +90,25 @@ void TabRow::paint(juce::Graphics& g)
     g.setFont(font(TextStyle::Control));
     for (int i = 0; i < tabs_.size(); ++i)
     {
-        g.setColour(i == selected_ ? t.textPrimary : (i == hovered_ ? t.textSecondary : t.textTertiary));
-        g.drawText(tabs_[i], areas[static_cast<size_t>(i)], juce::Justification::centred, false);
+        const auto colour =
+            i == selected_ ? t.textPrimary : (i == hovered_ ? t.textSecondary : t.textTertiary);
+        auto area = areas[static_cast<size_t>(i)];
+        if (i == closable_)
+            area.removeFromRight(t.shell.itemGap + t.shell.listIconSize);
+        g.setColour(colour);
+        g.drawText(tabs_[i], area, juce::Justification::centred, false);
     }
+    if (closable_ >= 0)
+        drawIcon(g, Icon::Close, closeArea().toFloat(), closeHovered_ ? t.textPrimary : t.textTertiary);
 }
 
 void TabRow::mouseMove(const juce::MouseEvent& e)
 {
-    if (const int hovered = tabAt(e.getPosition()); hovered != hovered_)
+    const bool overClose = closeArea().expanded(2).contains(e.getPosition());
+    if (const int hovered = tabAt(e.getPosition()); hovered != hovered_ || overClose != closeHovered_)
     {
         hovered_ = hovered;
+        closeHovered_ = overClose;
         repaint();
     }
 }
@@ -79,6 +116,7 @@ void TabRow::mouseMove(const juce::MouseEvent& e)
 void TabRow::mouseExit(const juce::MouseEvent&)
 {
     hovered_ = -1;
+    closeHovered_ = false;
     repaint();
 }
 
@@ -86,6 +124,12 @@ void TabRow::mouseUp(const juce::MouseEvent& e)
 {
     if (e.mouseWasDraggedSinceMouseDown())
         return;
+    if (closeArea().expanded(2).contains(e.getPosition()))
+    {
+        if (onClose)
+            onClose(closable_);
+        return;
+    }
     if (const int tab = tabAt(e.getPosition()); tab >= 0 && tab != selected_)
     {
         setSelected(tab);
@@ -105,6 +149,18 @@ PanelHeader::PanelHeader()
         if (onTabSelected)
             onTabSelected(index);
     };
+    tabs_.onClose = [this](int index)
+    {
+        if (onTabClosed)
+            onTabClosed(index);
+    };
+}
+
+void PanelHeader::setClosableTab(int index, juce::String tooltip)
+{
+    tabs_.setClosable(index, std::move(tooltip));
+    resized();
+    repaint();
 }
 
 void PanelHeader::setTitle(juce::String title)

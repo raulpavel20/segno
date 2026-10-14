@@ -274,6 +274,8 @@ public:
     std::function<void()> onEditorChanged;
     /// Asks the shell for `mode` (a tab, an editor asking to be seen).
     void chooseMode(Mode mode);
+    /// Its header: the tabs, the editor's × (for tests).
+    [[nodiscard]] ui::PanelHeader& header() noexcept { return header_; }
     /// Shows the module view with `id` selected.
     void selectModule(std::uint64_t id);
     [[nodiscard]] PianoRoll& pianoRoll() noexcept { return roll_; }

@@ -697,6 +697,16 @@ TEST_CASE(
               .find("can't be used") != std::string::npos);
     CHECK(daw.call("get_wavetable", {{"module", synth}, {"oscillator", 1}})["name"] == "Saw and sines");
 
+    // The factory tables in the browser (table-editor.md §11): found, heard, set by their id.
+    const auto tables = daw.call("search", {{"query", "cello"}, {"kinds", {"wavetable"}}})["results"];
+    REQUIRE_FALSE(tables.empty());
+    CHECK(tables[0]["id"] == "table:acoustic/cello");
+    CHECK(tables[0]["table"] == "acoustic/cello");
+    CHECK(daw.call("preview", {{"item", "table:acoustic/cello"}})["playing"] == true);
+    daw.call("preview", {{"stop", true}});
+    CHECK(daw.call("set_wavetable",
+                   {{"module", synth}, {"oscillator", 2}, {"table", tables[0]["table"]}})["name"] == "Cello");
+
     // Exported: WAV with its frame size, or .wt; read back by set_wavetable.
     const auto dir = juce::File::getSpecialLocation(juce::File::tempDirectory)
                          .getChildFile("fd-export-wavetable-" + juce::Uuid().toString());
@@ -713,6 +723,9 @@ TEST_CASE(
     const auto back =
         daw.call("set_wavetable", {{"module", synth}, {"oscillator", 3}, {"path", out["path"]}});
     CHECK(back["frames"] == 16);
+    CHECK(daw.call("preview", {{"item", out["path"]}})["playing"] ==
+          true); // a wavetable file, on a held note
+    daw.call("preview", {{"stop", true}});
     dir.deleteRecursively();
 }
 

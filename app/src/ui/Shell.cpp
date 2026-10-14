@@ -1139,11 +1139,25 @@ void Shell::registerActions()
         };
     };
     auto isWavetable = [this] { return selectedModule("wavetable") != nullptr; };
+    // Ticked while the selected Wavetable's editor is open: choosing it again closes it (T14).
+    auto editingWavetable = [this]
+    {
+        const auto id = detail_.chain().selectedDevice();
+        return detail_.editor() != nullptr && id && detail_.editorModule() == *id;
+    };
     actions_.add({.id = "module.editWavetable",
                   .name = "Edit wavetable",
                   .category = "Module",
-                  .perform = onWavetable("table.edit"),
-                  .isEnabled = isWavetable});
+                  .perform =
+                      [this, editingWavetable, edit = onWavetable("table.edit")]
+                  {
+                      if (editingWavetable())
+                          detail_.closeEditor();
+                      else
+                          edit();
+                  },
+                  .isEnabled = isWavetable,
+                  .isToggled = editingWavetable});
     actions_.add({.id = "module.importWavetable",
                   .name = juce::String::fromUTF8("Import wavetable\xE2\x80\xA6"),
                   .category = "Module",

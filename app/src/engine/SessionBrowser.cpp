@@ -155,6 +155,16 @@ std::vector<model::BrowserItem> Session::browserItems(const std::set<std::string
                              p->source == Preset::Source::Default ? "Your default" : p->name, d.name, p->tags,
                              std::move(words), library.isFavourite(info.id, p->key())});
         }
+        // The Wavetable's factory tables (table-editor.md §11), found like your own.
+        if (d.key == "fd:wavetable")
+            for (const auto& t : wavetableFactoryTables())
+                items.push_back({"table:" + t.id,
+                                 model::BrowserKind::Wavetable,
+                                 t.name,
+                                 d.name + " · " + t.category,
+                                 {},
+                                 t.category,
+                                 favourites.contains("table:" + t.id)});
     }
     // The files of the places, and their folders.
     std::set<std::string> folders;

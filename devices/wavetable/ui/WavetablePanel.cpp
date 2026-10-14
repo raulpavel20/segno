@@ -1,5 +1,6 @@
 #include "WavetablePanel.h"
 
+#include "FactoryTables.h"
 #include "TableEditor.h"
 #include "TableFiles.h"
 #include "WavetableUi.h"
@@ -162,6 +163,15 @@ public:
     bool takeFile(const juce::File& file) override
     {
         openFile(file);
+        return true;
+    }
+
+    bool takeFactoryItem(std::string_view id) override
+    {
+        if (wavetable::factoryTable(id) == nullptr)
+            return false;
+        tablePicker_->setOscillator(osc_);
+        tablePicker_->choose(id);
         return true;
     }
 

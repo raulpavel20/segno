@@ -248,17 +248,25 @@ TEST_CASE("table editor: on the module grid in every state, narrow and wide, sho
     CHECK(f.editor->title() == "Osc 1, Basic Shapes");
     CHECK(f.editor->minimumHeight() >= 300);
     CHECK(f.editor->minimumHeight() <= 330); // the design's 320
-    CHECK(f.editor->minimumWidth() <= 900);  // beside the narrowest module windows
+    CHECK(f.editor->minimumWidth() <= 1000); // in the DAW's narrowest window (1 024 px)
     REQUIRE(t.recipe().layers.size() == 1);
     CHECK(t.recipe().layers[0].kind == K::Table);
     lintAtSizes(f, "table");
 
+    // Which side of the layer is edited, and where the frame shown is in it.
+    CHECK_FALSE(t.layerView().editsWave());
+    CHECK_FALSE(t.layerView().editsHarmonics());
+    CHECK(t.layerStatus() == "64 frames, filled");
     t.addLayer(fd::devices::wavetable::newLayer(K::Draw));
-    CHECK(t.view() == TableEditor::View::TwoD);
+    CHECK(t.layerView().editsWave());
+    CHECK(t.layerStatus() == "keyframe at 1");
     lintAtSizes(f, "draw");
     t.addLayer(fd::devices::wavetable::newLayer(K::Harmonics));
-    CHECK(t.view() == TableEditor::View::Harmonics);
+    CHECK(t.layerView().editsHarmonics());
+    t.showFrame(30);
+    CHECK(t.layerStatus() == "held from 1");
     lintAtSizes(f, "harmonics");
+    t.showFrame(0);
     t.addLayer(fd::devices::wavetable::newLayer(K::Formula));
     lintAtSizes(f, "formula");
     std::vector<float> pixels(64 * 32, 0.5f);
@@ -317,8 +325,8 @@ TEST_CASE("table editor: each edit kept through the host, one undo step; nothing
 
     // A drag on the drawing: shown while it moves, one step when let go.
     f.layout(1400, f.editor->minimumHeight());
-    auto& view = t.tableView();
-    const auto plot = view.plot();
+    auto& view = t.layerView();
+    const auto plot = view.wavePlot();
     const auto before = t.recipe().layers[1].keyframes[0].points;
     const auto point =
         juce::Point<float>(plot.getX() + plot.getWidth() * 0.25f, plot.getY()); // the drawing's peak
@@ -347,6 +355,40 @@ TEST_CASE("table editor: each edit kept through the host, one undo step; nothing
     t.removeKeyframe(0); // the last one stays
     CHECK(t.recipe().layers[1].keyframes.size() == 1);
 
+    // The buttons under the strip (T18): Add keyframe off a keyframe, Remove on one.
+    t.showFrame(40);
+    CHECK(t.layerStatus() == "held from 1");
+    REQUIRE(t.addKeyframeButton().isEnabled());
+    CHECK_FALSE(t.removeKeyframeButton().isEnabled());
+    t.addKeyframeButton().onClick();
+    REQUIRE(t.recipe().layers[1].keyframes.size() == 2);
+    CHECK(t.layerStatus() == "keyframe at 41");
+    CHECK_FALSE(t.addKeyframeButton().isEnabled());
+    CHECK(t.removeKeyframeButton().isEnabled());
+
+    // Between keyframes: the layer's own frame there, and the first stroke adds a keyframe and
+    // draws on it, one step.
+    t.showFrame(20);
+    CHECK(t.layerStatus() == "between 1 and 41");
+    const auto shown = view.shownFrame();
+    const auto expected = fd::devices::wavetable::layerFrame(t.recipe().layers[1], 20, t.recipe().frames);
+    CHECK(shown == expected);
+    const auto stepsBefore = steps.size();
+    const auto middle = juce::Point<float>(plot.getX() + plot.getWidth() * 0.6f, plot.getCentreY());
+    drag(view, middle, middle + juce::Point<float>(0.0f, -plot.getHeight() * 0.2f));
+    CHECK(t.recipe().layers[1].keyframes.size() == 3);
+    CHECK(steps.size() == stepsBefore + 1);
+    CHECK(steps.back() == "Draw a wave");
+    CHECK(t.layerStatus() == "keyframe at 21");
+    // The other side doesn't edit a drawing: nothing kept.
+    const auto bars = view.barsPlot();
+    drag(view, bars.getCentre(), bars.getCentre() + juce::Point<float>(10.0f, -10.0f));
+    CHECK(steps.size() == stepsBefore + 1);
+    t.removeKeyframe(1);
+    t.showFrame(40);
+    t.removeKeyframeButton().onClick();
+    CHECK(t.recipe().layers[1].keyframes.size() == 1);
+
     // A change, its amount for the whole table, then from frame to frame.
     Recipe::Change smooth;
     smooth.kind = Recipe::ChangeKind::Smooth;
@@ -367,6 +409,20 @@ TEST_CASE("table editor: each edit kept through the host, one undo step; nothing
     CHECK(t.recipe().frames == 16);
     CHECK(t.recipe().layers[1].keyframes.back().frame == 15);
     CHECK(f.synth().table(0)->frames() == 16);
+}
+
+TEST_CASE("table editor: the result picks the frame shown, front to back", "[ui]")
+{
+    Fixture f;
+    auto& t = f.table();
+    f.layout(1400, f.editor->minimumHeight());
+    auto& result = t.resultView();
+    // The front frame is lowest, the back one highest.
+    CHECK(result.frameAt(static_cast<float>(result.getHeight()) - 2.0f) == 0);
+    CHECK(result.frameAt(2.0f) == t.recipe().frames - 1);
+    const auto at = juce::Point<float>(static_cast<float>(result.getWidth()) * 0.5f, 4.0f);
+    result.mouseDown(mouse(result, at, at, false));
+    CHECK(t.shownFrame() == t.recipe().frames - 1);
 }
 
 TEST_CASE("table editor: follows the module, and the oscillator OSC shows", "[ui]")

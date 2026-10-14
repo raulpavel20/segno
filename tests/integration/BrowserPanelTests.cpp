@@ -3,6 +3,7 @@
 // and each drop make, Collect files, the compact rail, menus, and its look.
 
 #include "RecordingFixture.h"
+#include "WavetableSynth.h"
 #include "model/MenuBar.h"
 #include "ui/BrowserDrops.h"
 #include "ui/Shell.h"
@@ -418,4 +419,62 @@ TEST_CASE("browser: at compact widths a rail, opening over the arrangement at a 
     CHECK(p.isRail());
     if (const char* dump = std::getenv("FD_DUMP_DIR"))
         dumpPng(dump, "browser-rail@2x.png", shell.createComponentSnapshot(p.getBounds(), true, 2.0f));
+}
+
+TEST_CASE(
+    "browser: the Wavetable's folder holds its factory tables by category, heard when selected, found by "
+    "search, loaded when put in (table-editor.md §11)",
+    "[integration]")
+{
+    Browser b;
+    auto& p = b.panel();
+    b.open("cat:instruments");
+    b.open("module:fd:wavetable");
+    REQUIRE(b.shows("tables:fd:wavetable"));
+    CHECK_FALSE(b.shows("tables:fd:wavetable|Acoustic"));
+    b.open("tables:fd:wavetable");
+    CHECK(b.shows("tables:fd:wavetable|Basic"));
+    CHECK(b.shows("tables:fd:wavetable|Acoustic"));
+    // The presets come after the tables, as before.
+    const auto ids = p.rowIds();
+    const auto tables = std::find(ids.begin(), ids.end(), "tables:fd:wavetable");
+    const auto pads = std::find(ids.begin(), ids.end(), "pfolder:fd:wavetable|Pad");
+    REQUIRE(pads != ids.end());
+    CHECK(tables < pads);
+    b.open("tables:fd:wavetable|Acoustic");
+    REQUIRE(b.shows("table:acoustic/cello"));
+
+    // Selected, it plays on a held note; the drag carries it.
+    REQUIRE(p.select("table:acoustic/cello"));
+    b.settle();
+    CHECK(b.r.session->isPreviewing());
+    CHECK_FALSE(p.dragDescription("table:acoustic/cello").isVoid());
+    b.r.session->stopPreview();
+
+    // Found by search, among the wavetables.
+    b.search("cello");
+    CHECK(b.shows("group:WAVETABLES"));
+    CHECK(b.shows("table:acoustic/cello"));
+    b.search("");
+
+    // Put in on the selected track: a Wavetable with it, one step.
+    const auto t0 = b.track(0).id;
+    b.shell->arrangement().selectTrack(t0);
+    b.settle();
+    REQUIRE(p.select("table:acoustic/cello"));
+    p.loadSelected();
+    b.settle();
+    b.r.session->updateSnapshotNow();
+    REQUIRE(devicesOf(b.track(0)) == std::vector<std::string>{"wavetable"});
+    CHECK(b.r.session->undoDescription() == "Add Wavetable with Cello");
+    auto handle = b.r.session->openDevice(b.track(0).devices[0].id);
+    const auto& synth = dynamic_cast<const fd::devices::WavetableSynth&>(*handle->context().device);
+    CHECK(synth.tableId(0) == "acoustic/cello");
+    // Onto that Wavetable: loaded where OSC shows, one step.
+    CHECK(fd::app::browser::landsOn("table:formant/human-voice", b.track(0).devices[0]));
+    const auto done = fd::app::browser::inChain(*b.r.session, "table:formant/human-voice", t0, -1,
+                                                b.track(0).devices[0].id);
+    CHECK(done.done);
+    CHECK(synth.tableId(0) == "formant/human-voice");
+    CHECK(b.r.session->undoDescription() == "Load Human Voice");
 }

@@ -284,7 +284,7 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 | — | | |
 | Show presets folder | | |
 | — | | |
-| Edit wavetable | | *new* (`module.editWavetable`, [table-editor.md](table-editor.md) §8): opens the table editor below the module; also a double-click on the table display. Dimmed unless a Wavetable is selected, as the two below |
+| Edit wavetable | | *new* (`module.editWavetable`, [table-editor.md](table-editor.md) §8, §11): opens the table editor below the module, ticked while it's open; chosen again, closes it (as the × on its tab does). Also a double-click on the table display. Dimmed unless a Wavetable is selected, as the two below |
 | Import wavetable… | | *new* (`module.importWavetable`): a table loads on the oscillator OSC shows; audio opens the way chooser |
 | Export wavetable… | | *new* (`module.exportWavetable`): WAV or `.wt`, into Segno/Wavetables. Ctrl+Shift+E stays File > Export |
 

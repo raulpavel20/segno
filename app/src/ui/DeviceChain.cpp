@@ -450,11 +450,16 @@ void DeviceChain::itemDropped(const SourceDetails& details)
     // A file on a module that takes it where it shows what it's for (a table on the Wavetable's
     // oscillator in view).
     if (on)
-        if (const auto ref = browser::parse(*item); ref && ref->file != juce::File())
+        if (const auto ref = browser::parse(*item))
             for (auto& s : slots_)
                 if (auto* panel = dynamic_cast<ui::DevicePanel*>(s.view.get());
-                    panel != nullptr && s.info.id == *on && panel->takeFile(ref->file))
-                    return;
+                    panel != nullptr && s.info.id == *on)
+                {
+                    if (ref->file != juce::File()
+                            ? panel->takeFile(ref->file)
+                            : ref->kind == model::BrowserKind::Wavetable && panel->takeFactoryItem(ref->key))
+                        return;
+                }
     if (onBrowserDrop)
         onBrowserDrop(*item, *track_, index, on);
 }

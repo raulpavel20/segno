@@ -125,50 +125,55 @@ Frame harmonicWave(const std::vector<float>& levels, const std::vector<float>& p
     return fromSpectrum(std::move(c));
 }
 
-/// A source's frames (as they came) spread over the recipe's `count` frames, filled between.
-std::vector<Frame> spread(const std::vector<Frame>& source, int count, Recipe::Fill fill)
+/// Where frame `f` of `count` falls among `m` source frames: the one before, the one after, how far.
+struct Between
 {
-    std::vector<Frame> out;
-    out.reserve(static_cast<size_t>(count));
-    const int m = static_cast<int>(source.size());
-    for (int f = 0; f < count; ++f)
-    {
-        const double at = count > 1 && m > 1 ? static_cast<double>(f) / (count - 1) * (m - 1) : 0.0;
-        const int i0 = static_cast<int>(at), i1 = std::min(i0 + 1, m - 1);
-        out.push_back(mix(source[static_cast<size_t>(i0)], source[static_cast<size_t>(i1)],
-                          static_cast<float>(at - i0), fill));
-    }
-    return out;
+    int i0 = 0, i1 = 0;
+    float t = 0.0f;
+};
+Between between(int f, int count, int m)
+{
+    const double at = count > 1 && m > 1 ? static_cast<double>(f) / (count - 1) * (m - 1) : 0.0;
+    const int i0 = std::clamp(static_cast<int>(at), 0, std::max(0, m - 1));
+    return {i0, std::min(i0 + 1, std::max(0, m - 1)), static_cast<float>(at - i0)};
 }
 
-/// A keyframed layer's frames: each keyframe's wave, the frames between filled.
-std::vector<Frame> keyframed(const Recipe::Layer& layer, int count)
+/// A source's frames (as they came) spread over the recipe's `count` frames, filled between.
+Frame spreadAt(const std::vector<Frame>& source, int f, int count, Recipe::Fill fill)
+{
+    if (source.empty())
+        return Frame(static_cast<size_t>(N));
+    const auto b = between(f, count, static_cast<int>(source.size()));
+    return mix(source[static_cast<size_t>(b.i0)], source[static_cast<size_t>(b.i1)], b.t, fill);
+}
+
+/// A keyframed layer's keyframes as waves, in frame order.
+std::vector<std::pair<int, Frame>> keyWaves(const Recipe::Layer& layer, int count)
 {
     std::vector<std::pair<int, Frame>> keys;
     for (const auto& k : layer.keyframes)
         keys.emplace_back(std::clamp(k.frame, 0, count - 1), layer.kind == Recipe::SourceKind::Draw
                                                                  ? drawnWave(k)
                                                                  : harmonicWave(k.levels, k.phases));
-    std::vector<Frame> out(static_cast<size_t>(count), Frame(static_cast<size_t>(N)));
+    std::stable_sort(keys.begin(), keys.end(),
+                     [](const auto& a, const auto& b) { return a.first < b.first; });
+    return keys;
+}
+
+/// Frame `f` of a keyframed layer: its keyframe's wave, held before the first and after the last,
+/// filled between two.
+Frame keyframedAt(const std::vector<std::pair<int, Frame>>& keys, int f, Recipe::Fill fill)
+{
     if (keys.empty())
-        return out;
-    std::sort(keys.begin(), keys.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
-    for (int f = 0; f < count; ++f)
-    {
-        size_t k = 0;
-        while (k + 1 < keys.size() && keys[k + 1].first <= f)
-            ++k;
-        if (f <= keys.front().first || k + 1 >= keys.size())
-            out[static_cast<size_t>(f)] = keys[f <= keys.front().first ? 0 : k].second;
-        else
-        {
-            const auto& [f0, a] = keys[k];
-            const auto& [f1, b] = keys[k + 1];
-            out[static_cast<size_t>(f)] =
-                mix(a, b, static_cast<float>(f - f0) / static_cast<float>(f1 - f0), layer.fill);
-        }
-    }
-    return out;
+        return Frame(static_cast<size_t>(N));
+    size_t k = 0;
+    while (k + 1 < keys.size() && keys[k + 1].first <= f)
+        ++k;
+    if (f <= keys.front().first || k + 1 >= keys.size())
+        return keys[f <= keys.front().first ? 0 : k].second;
+    const auto& [f0, a] = keys[k];
+    const auto& [f1, b] = keys[k + 1];
+    return mix(a, b, static_cast<float>(f - f0) / static_cast<float>(f1 - f0), fill);
 }
 
 std::vector<Frame> framesOf(const std::vector<float>& samples)
@@ -180,72 +185,109 @@ std::vector<Frame> framesOf(const std::vector<float>& samples)
     return out;
 }
 
+/// The frames a Table, Audio or Image layer spreads over the table, as they came: a factory
+/// table's, its own, or an image's rows (as the wave itself, or as the levels of the first 256
+/// harmonics).
+std::vector<Frame> sourceFrames(const Recipe::Layer& layer)
+{
+    using K = Recipe::SourceKind;
+    if (layer.kind == K::Table && !layer.tableId.empty())
+        if (const auto table = factoryTable(layer.tableId))
+        {
+            std::vector<Frame> source;
+            for (int f = 0; f < table->frames(); ++f)
+                source.emplace_back(table->samples(f), table->samples(f) + N);
+            return source;
+        }
+    auto rows = framesOf(layer.frames);
+    if (layer.kind != K::Image)
+        return rows;
+    for (auto& row : rows)
+    {
+        if (layer.imageAsHarmonics)
+        {
+            std::vector<float> levels(256), phases(256, 0.0f);
+            for (size_t h = 0; h < levels.size(); ++h)
+            {
+                const float b = row[h * static_cast<size_t>(N) / levels.size()];
+                levels[h] = b * b / static_cast<float>(h + 1);
+            }
+            row = harmonicWave(levels, phases);
+        }
+        else
+            for (auto& v : row)
+                v = 2.0f * v - 1.0f;
+    }
+    return rows;
+}
+
+/// Frame `f` of `count` of a formula.
+Frame formulaAt(const Formula& formula, int f, int count)
+{
+    Frame x(static_cast<size_t>(N));
+    const double t = count > 1 ? static_cast<double>(f) / (count - 1) : 0.0;
+    for (int i = 0; i < N; ++i)
+        x[static_cast<size_t>(i)] = static_cast<float>(formula.evaluate(static_cast<double>(i) / N, t));
+    return x;
+}
+
 /// A layer's frames, `count` of them.
 std::vector<Frame> layerFrames(const Recipe::Layer& layer, int count)
 {
     using K = Recipe::SourceKind;
+    std::vector<Frame> out;
+    out.reserve(static_cast<size_t>(count));
     switch (layer.kind)
     {
     case K::Draw:
     case K::Harmonics:
-        return keyframed(layer, count);
+    {
+        const auto keys = keyWaves(layer, count);
+        for (int f = 0; f < count; ++f)
+            out.push_back(keyframedAt(keys, f, layer.fill));
+        return out;
+    }
     case K::Formula:
     {
-        std::vector<Frame> out(static_cast<size_t>(count), Frame(static_cast<size_t>(N)));
-        const auto f = Formula::parse(layer.formula);
-        if (!f)
-            return out;
-        for (int k = 0; k < count; ++k)
-        {
-            const double t = count > 1 ? static_cast<double>(k) / (count - 1) : 0.0;
-            for (int i = 0; i < N; ++i)
-                out[static_cast<size_t>(k)][static_cast<size_t>(i)] =
-                    static_cast<float>(f->evaluate(static_cast<double>(i) / N, t));
-        }
+        const auto formula = Formula::parse(layer.formula);
+        for (int f = 0; f < count; ++f)
+            out.push_back(formula ? formulaAt(*formula, f, count) : Frame(static_cast<size_t>(N)));
         return out;
     }
     case K::Table:
-        if (!layer.tableId.empty())
-            if (const auto table = factoryTable(layer.tableId))
-            {
-                std::vector<Frame> source;
-                for (int f = 0; f < table->frames(); ++f)
-                    source.emplace_back(table->samples(f), table->samples(f) + N);
-                return spread(source, count, layer.fill);
-            }
-        [[fallthrough]];
     case K::Audio:
-    {
-        const auto source = framesOf(layer.frames);
-        return source.empty() ? std::vector<Frame>(static_cast<size_t>(count), Frame(static_cast<size_t>(N)))
-                              : spread(source, count, layer.fill);
-    }
     case K::Image:
     {
-        // Rows of brightness (0–1): as the wave itself, or as the levels of the first 256 harmonics.
-        auto rows = framesOf(layer.frames);
-        if (rows.empty())
-            return std::vector<Frame>(static_cast<size_t>(count), Frame(static_cast<size_t>(N)));
-        for (auto& row : rows)
-        {
-            if (layer.imageAsHarmonics)
-            {
-                std::vector<float> levels(256), phases(256, 0.0f);
-                for (size_t h = 0; h < levels.size(); ++h)
-                {
-                    const float b = row[h * static_cast<size_t>(N) / levels.size()];
-                    levels[h] = b * b / static_cast<float>(h + 1);
-                }
-                row = harmonicWave(levels, phases);
-            }
-            else
-                for (auto& v : row)
-                    v = 2.0f * v - 1.0f;
-        }
-        return spread(rows, count, layer.fill);
+        const auto source = sourceFrames(layer);
+        for (int f = 0; f < count; ++f)
+            out.push_back(spreadAt(source, f, count, layer.fill));
+        return out;
     }
     }
-    return {};
+    return out;
+}
+
+/// One frame of a layer, by the same functions as layerFrames.
+Frame layerFrameAt(const Recipe::Layer& layer, int f, int count)
+{
+    using K = Recipe::SourceKind;
+    count = std::max(1, count);
+    f = std::clamp(f, 0, count - 1);
+    switch (layer.kind)
+    {
+    case K::Draw:
+    case K::Harmonics:
+        return keyframedAt(keyWaves(layer, count), f, layer.fill);
+    case K::Formula:
+        if (const auto formula = Formula::parse(layer.formula))
+            return formulaAt(*formula, f, count);
+        return Frame(static_cast<size_t>(N));
+    case K::Table:
+    case K::Audio:
+    case K::Image:
+        return spreadAt(sourceFrames(layer), f, count, layer.fill);
+    }
+    return Frame(static_cast<size_t>(N));
 }
 
 /// A gentle (12 dB a doubling) response at harmonic h around `cutoff`: low, high or band pass.
@@ -508,36 +550,88 @@ Recipe::Layer newLayer(Recipe::SourceKind kind)
     return layer;
 }
 
+std::vector<float> layerFrame(const Recipe::Layer& layer, int frame, int count)
+{
+    return layerFrameAt(layer, frame, count);
+}
+
+FrameHarmonics frameHarmonics(const std::vector<float>& frame, int count)
+{
+    FrameHarmonics out;
+    count = std::clamp(count, 0, H);
+    out.levels.resize(static_cast<size_t>(count));
+    out.phases.resize(static_cast<size_t>(count));
+    if (static_cast<int>(frame.size()) != N)
+        return out;
+    const auto c = toSpectrum(frame);
+    for (int h = 1; h <= count; ++h)
+    {
+        const auto v = c[static_cast<size_t>(h)];
+        out.levels[static_cast<size_t>(h - 1)] = 2.0f * std::abs(v);
+        // harmonicWave's angle is 2 pi phase - pi / 2.
+        const double phase = (std::arg(v) + dsp::pi / 2.0) / dsp::twoPi;
+        out.phases[static_cast<size_t>(h - 1)] = static_cast<float>(phase - std::floor(phase));
+    }
+    return out;
+}
+
 Recipe::Keyframe newKeyframe(const Recipe::Layer& layer, int frame, int count)
 {
+    count = std::max(1, count);
     Recipe::Keyframe k;
-    k.frame = frame;
+    k.frame = std::clamp(frame, 0, count - 1);
     if (layer.kind == Recipe::SourceKind::Harmonics)
     {
-        const auto made = layerFrames(layer, std::max(1, count));
-        const auto c = toSpectrum(made[static_cast<size_t>(std::clamp(frame, 0, std::max(1, count) - 1))]);
-        k.levels.resize(Recipe::numHarmonicBars);
-        k.phases.resize(Recipe::numHarmonicBars);
-        for (int h = 1; h <= Recipe::numHarmonicBars; ++h)
-        {
-            const auto v = c[static_cast<size_t>(h)];
-            k.levels[static_cast<size_t>(h - 1)] = std::min(1.0f, 2.0f * std::abs(v));
-            // harmonicWave's angle is 2 pi phase - pi / 2.
-            const double phase = (std::arg(v) + dsp::pi / 2.0) / dsp::twoPi;
-            k.phases[static_cast<size_t>(h - 1)] = static_cast<float>(phase - std::floor(phase));
-        }
+        // The layer's own frame there, so adding it changes nothing.
+        const auto h = frameHarmonics(layerFrameAt(layer, k.frame, count), Recipe::numHarmonicBars);
+        k.levels = h.levels;
+        k.phases = h.phases;
+        for (auto& level : k.levels)
+            level = std::min(level, 1.0f);
         return k;
     }
-    // The drawing before it, or the first.
-    const Recipe::Keyframe* from = nullptr;
+    // A drawing: the keyframes around it.
+    const Recipe::Keyframe *before = nullptr, *after = nullptr;
     for (const auto& other : layer.keyframes)
-        if (other.frame <= frame && (from == nullptr || other.frame > from->frame))
-            from = &other;
-    if (from == nullptr && !layer.keyframes.empty())
-        from = &*std::min_element(layer.keyframes.begin(), layer.keyframes.end(),
-                                  [](const auto& a, const auto& b) { return a.frame < b.frame; });
-    if (from != nullptr)
-        k.points = from->points;
+    {
+        const int at = std::clamp(other.frame, 0, count - 1);
+        if (at <= k.frame && (before == nullptr || at >= std::clamp(before->frame, 0, count - 1)))
+            before = &other;
+        if (at >= k.frame && (after == nullptr || at < std::clamp(after->frame, 0, count - 1)))
+            after = &other;
+    }
+    // Before the first or after the last, the layer holds that keyframe's drawing.
+    if (before == nullptr || after == nullptr || before == after)
+    {
+        if (const auto* only = before != nullptr ? before : after)
+            k.points = only->points;
+        return k;
+    }
+    // Between two crossfaded drawings with points at the same places: their points crossfaded, as
+    // the frame there is.
+    const int f0 = std::clamp(before->frame, 0, count - 1), f1 = std::clamp(after->frame, 0, count - 1);
+    const float t = f1 > f0 ? static_cast<float>(k.frame - f0) / static_cast<float>(f1 - f0) : 0.0f;
+    bool samePlaces = layer.fill == Recipe::Fill::Crossfade && before->points.size() == after->points.size();
+    for (size_t i = 0; samePlaces && i < before->points.size(); ++i)
+        samePlaces = std::abs(before->points[i][0] - after->points[i][0]) < 1e-6f;
+    if (samePlaces)
+    {
+        k.points = before->points;
+        for (size_t i = 0; i < k.points.size(); ++i)
+            for (size_t c = 1; c < 3; ++c)
+                k.points[i][c] = before->points[i][c] + t * (after->points[i][c] - before->points[i][c]);
+        return k;
+    }
+    // Otherwise the frame there, as 33 straight points.
+    const auto x = layerFrameAt(layer, k.frame, count);
+    constexpr int steps = 32;
+    for (int i = 0; i <= steps; ++i)
+    {
+        const auto at = std::min(N - 1, i * N / steps);
+        k.points.push_back(
+            {static_cast<float>(i) / steps, std::clamp(x[static_cast<size_t>(at)], -1.0f, 1.0f), 0.0f});
+    }
+    k.points.back()[1] = k.points.front()[1]; // the cycle closes where it opens
     return k;
 }
 

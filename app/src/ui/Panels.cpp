@@ -1274,6 +1274,7 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
         chooseMode(tab >= 0 && tab < static_cast<int>(tabModes_.size()) ? tabModes_[static_cast<size_t>(tab)]
                                                                         : Mode::Devices);
     };
+    header_.onTabClosed = [this](int) { closeEditor(); }; // the editor's tab, the only one that closes
     updateTabs();
     addAndMakeVisible(header_);
     addAndMakeVisible(chain_);
@@ -1333,6 +1334,8 @@ void DetailPanel::updateTabs()
     {
         const auto at = std::find(tabModes_.begin(), tabModes_.end(), mode_);
         header_.setTabs(names, at != tabModes_.end() ? static_cast<int>(at - tabModes_.begin()) : 0);
+        header_.setClosableTab(editor_ != nullptr ? names.size() - 1 : -1,
+                               editor_ != nullptr ? editor_->closeTooltip() : juce::String());
         header_.setCaption("Tab switches");
     }
     updateHeader();
@@ -1388,7 +1391,6 @@ void DetailPanel::showEditor(std::uint64_t module, std::unique_ptr<ui::ModuleEdi
         header_.addCommand(*c);
         c->setVisible(false);
     }
-    editor_->onDone = [this] { closeEditor(); };
     editor_->onTitleChanged = [this] { updateHeader(); };
     editor_->onShowRequested = [this] { chooseMode(Mode::Editor); };
     updateTabs();

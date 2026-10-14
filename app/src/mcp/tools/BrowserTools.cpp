@@ -96,12 +96,15 @@ void addBrowserTools(Registry& registry, ToolEnv& env)
          "person added). Every word must match a name, tag, module, folder or description. Each result has "
          "an id: "
          "add_module takes a module's or plugin's type and a preset's id (preset), insert_audio_file and "
-         "insert_midi_file a file's path, preview any sample, MIDI file or instrument preset.",
-         object({{"query", string("Words to find")},
-                 {"kinds", arrayOf(string("module, preset, plugin, sample, midi, project or folder"),
-                                   "Only these kinds")},
-                 {"limit", integer("At most this many results (20)", 1, 200)}},
-                {"query"}),
+         "insert_midi_file a file's path, set_wavetable a wavetable's (a factory table's id as table, a "
+         "file's path), "
+         "preview any sample, wavetable, MIDI file or instrument preset.",
+         object(
+             {{"query", string("Words to find")},
+              {"kinds", arrayOf(string("module, preset, plugin, sample, wavetable, midi, project or folder"),
+                                "Only these kinds")},
+              {"limit", integer("At most this many results (20)", 1, 200)}},
+             {"query"}),
          result({{"results", arrayOf(result({{"id", string("")}, {"kind", string("")}, {"name", string("")}}),
                                      "Best first", std::nullopt)},
                  {"total", integer("How many matched")}},
@@ -138,6 +141,8 @@ void addBrowserTools(Registry& registry, ToolEnv& env)
                         r["type"] = item.id.substr(item.id.find(':') + 1);
                     if (item.id.starts_with("file:"))
                         r["path"] = item.id.substr(5);
+                    if (item.id.starts_with("table:")) // a factory table: set_wavetable's table
+                        r["table"] = item.id.substr(6);
                     results.push_back(std::move(r));
                 }
             }
@@ -196,7 +201,9 @@ void addBrowserTools(Registry& registry, ToolEnv& env)
         {"preview", "Preview for the person",
          "Plays something from the browser for the person, as selecting it would: a sample (in time with the "
          "song "
-         "while it plays, when it's a loop that fits its tempo), a MIDI file on the track live MIDI plays, "
+         "while it plays, when it's a loop that fits its tempo), a wavetable (a factory table or a file) on "
+         "a held "
+         "note, a MIDI file on the track live MIDI plays, "
          "or a short "
          "phrase with an instrument preset. Previews are never recorded or exported. stop: true stops it.",
          object({{"item", string("A result's id (search), or a file's absolute path")},
@@ -211,9 +218,17 @@ void addBrowserTools(Registry& registry, ToolEnv& env)
                 return ToolResult::ok({{"playing", false}});
             }
             auto item = args["item"].get<std::string>();
-            if (!item.starts_with("file:") && !item.starts_with("preset:"))
+            if (!item.starts_with("file:") && !item.starts_with("preset:") && !item.starts_with("table:"))
                 item = "file:" + item;
             Json out{{"playing", false}};
+            if (item.starts_with("table:"))
+            {
+                if (!s.previewFactoryTable(item.substr(6)))
+                    throw Problem{"There's no factory table \"" + item.substr(6) +
+                                  "\": list_wavetables lists them."};
+                out["playing"] = true;
+                return ToolResult::ok(out);
+            }
             if (item.starts_with("preset:"))
             {
                 const auto bar = item.find('|');
@@ -228,6 +243,13 @@ void addBrowserTools(Registry& registry, ToolEnv& env)
             const auto kind = model::fileKind(path(file));
             if (!file.existsAsFile() || !kind)
                 throw Problem{"There's no sample or MIDI file " + path(file) + "."};
+            if (*kind == Kind::Wavetable)
+            {
+                if (!s.previewWavetable(file))
+                    throw Problem{path(file) + " isn't a table Segno can read."};
+                out["playing"] = true;
+                return ToolResult::ok(out);
+            }
             if (*kind == Kind::Midi)
             {
                 if (!s.previewMidiFile(file))

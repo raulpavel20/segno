@@ -5,8 +5,8 @@ namespace fd::ui
 /// A module's editor bigger than its panel (ADR 0053): the Wavetable's table editor. The host
 /// shows it below the module, in the DAW's detail panel as a view of its own beside Modules and
 /// Clip, in a plugin's window under the panel, with a header the host draws: the tab
-/// (`tabName()`), what it edits (`title()`) and the editor's commands, Done last. The host owns
-/// it while it shows; Done, or the module going, closes it.
+/// (`tabName()`) with an × that closes it, what it edits (`title()`) and the editor's commands.
+/// The host owns it while it shows; the ×, or the module going, closes it.
 ///
 /// A card like the module's panel, laid out in panes side by side: titled columns on the module
 /// grid (its cells, rows and gaps), so the editor's controls look and line up as a panel's do.
@@ -36,12 +36,10 @@ public:
     [[nodiscard]] virtual juce::String tabName() const = 0;
     /// What it edits now ("Osc 1, Vowels (edited)").
     [[nodiscard]] virtual juce::String title() const = 0;
-    /// Its commands for the host's header, in order: its own, then Done.
-    [[nodiscard]] std::vector<juce::Component*> commands();
+    /// Its commands for the host's header, in order (Preview).
+    [[nodiscard]] const std::vector<juce::Component*>& commands() const noexcept { return commands_; }
     /// The host: its title changed.
     std::function<void()> onTitleChanged;
-    /// The host: Done was clicked, so the host closes (destroys) it.
-    std::function<void()> onDone;
     /// The host: it asks to be shown (audio arrived for it while another view showed).
     std::function<void()> onShowRequested;
     void requestShow()
@@ -51,6 +49,11 @@ public:
     }
     /// The host is about to close it: it lets go of what it holds (a previewed note).
     virtual void closing() {}
+    /// The ×'s tooltip: what closing it does ("Close the table editor: what it made stays...").
+    [[nodiscard]] virtual juce::String closeTooltip() const
+    {
+        return "Close the " + tabName().toLowerCase() + " editor";
+    }
 
     /// Its least height (the host's header not included): the rows its panes need. Also the
     /// height it opens at.
@@ -93,7 +96,7 @@ protected:
     void clearPane(int pane);
     /// The rows the editor needs at the least: its least height.
     void setMinimumRows(int rows) noexcept { minimumRows_ = rows; }
-    /// One of its own commands for the header, before Done (in the order added).
+    /// One of its own commands for the header (in the order added).
     void addCommand(juce::Component& command) { commands_.push_back(&command); }
 
 private:
@@ -119,7 +122,6 @@ private:
     std::vector<Placement> placements_;
     std::vector<std::unique_ptr<juce::Component>> labels_;
     std::vector<juce::Component*> commands_;
-    Toggle done_{"Done"};
     int rows_ = 0, minimumRows_ = 1;
     std::vector<int> separators_; // x of the lines between panes
 };

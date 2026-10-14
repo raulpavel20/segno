@@ -111,8 +111,23 @@ private:
     std::vector<float> last_;
 };
 
-/// Oscillator n's table: previous, its name (a menu of the factory tables by category, and
-/// Import a file…), next.
+/// The factory tables by category, each category a submenu (nine at a glance, table-editor.md
+/// §11): what a table's menu offers. `current` is ticked; choosing one calls `chosen` with its ID.
+[[nodiscard]] juce::PopupMenu factoryTableMenu(std::string_view current,
+                                               std::function<void(std::string_view id)> chosen);
+
+/// A table's dropdown: its name shown as a combo shows its choice, its menu built when it opens
+/// (the factory tables by category, and what else the owner offers).
+class TableField final : public ui::ChoiceBox
+{
+public:
+    /// What the menu offers, each time it opens.
+    std::function<void(juce::PopupMenu& menu)> buildMenu;
+    void showPopup() override;
+};
+
+/// Oscillator n's table: previous, its name (a menu of the factory tables by category, then
+/// Edit… and Import…), next.
 class TablePicker final : public juce::Component, public ui::ParamControl
 {
 public:
@@ -124,7 +139,7 @@ public:
     void step(int delta);
     /// Puts factory table `id` on the oscillator, through the host.
     void choose(std::string_view id);
-    [[nodiscard]] juce::ComboBox& field() noexcept { return field_; }
+    [[nodiscard]] TableField& field() noexcept { return field_; }
     /// Its menu's Edit… (shown when set): edit the table.
     std::function<void()> onEdit;
     /// Its menu's Import…: a table or audio (the panel's Import Wavetable…; without it, tables
@@ -140,7 +155,7 @@ private:
     ui::DeviceUiContext& ctx_;
     int osc_ = 0;
     ui::IconButton previous_{ui::Icon::ChevronLeft}, next_{ui::Icon::ChevronRight};
-    juce::ComboBox field_;
+    TableField field_;
     std::string shownId_, shownName_;
     bool editable_ = false;
     std::unique_ptr<juce::FileChooser> chooser_;

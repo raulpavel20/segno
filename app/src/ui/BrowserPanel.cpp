@@ -350,6 +350,8 @@ private:
     {
         if (row_->type == Row::Type::Preset)
             return "A short phrase" + dot() + row_->caption;
+        if (row_->kind == Kind::Wavetable)
+            return juce::String("On a held C3, through a Wavetable of its own");
         if (row_->kind == Kind::Midi)
             return owner_.selectedTrack && owner_.selectedTrack() &&
                            owner_.session_.instrumentOf(*owner_.selectedTrack())
@@ -638,6 +640,8 @@ void BrowserPanel::buildTree()
             r.kind = item->kind;
             if (item->kind == Kind::Preset)
                 r.type = Row::Type::Preset;
+            else if (item->id.starts_with("table:"))
+                r.type = Row::Type::Table;
             else if (item->kind == Kind::Plugin)
                 r.type = Row::Type::Plugin;
             else if (item->kind == Kind::Folder)
@@ -765,14 +769,63 @@ void BrowserPanel::addModuleRows(const engine::AvailableDevice& device, int dept
     r.id = r.item = "module:" + device.key;
     r.kind = Kind::Module;
     r.name = text(device.name);
+    // The Wavetable's folder holds its factory tables too (table-editor.md §11).
+    const auto tables = device.key == "fd:wavetable" ? session_.wavetableFactoryTables()
+                                                     : std::vector<engine::Session::FactoryTable>{};
     r.caption = entries.empty() ? juce::String() : juce::String(entries.size());
     r.depth = depth;
-    r.opens = !entries.empty();
+    r.opens = !entries.empty() || !tables.empty();
     r.open = r.opens && isOpen(r.id);
     rows_.push_back(r);
-    if (r.open)
-        addPresetFolder(model::modulePresetTree(entries, device.instrument), entries, device.key, {},
-                        depth + 1);
+    if (!r.open)
+        return;
+    if (!tables.empty())
+        addTableRows(tables, device.key, depth + 1);
+    addPresetFolder(model::modulePresetTree(entries, device.instrument), entries, device.key, {}, depth + 1);
+}
+
+void BrowserPanel::addTableRows(const std::vector<engine::Session::FactoryTable>& tables,
+                                const std::string& deviceKey, int depth)
+{
+    // Tables, then a folder a category, in the tables' order.
+    Row folder;
+    folder.type = Row::Type::PresetFolder;
+    folder.id = "tables:" + deviceKey;
+    folder.name = "Tables";
+    folder.caption = juce::String(tables.size());
+    folder.depth = depth;
+    folder.opens = true;
+    folder.open = isOpen(folder.id);
+    rows_.push_back(folder);
+    if (!folder.open)
+        return;
+    for (size_t i = 0; i < tables.size();)
+    {
+        const auto& category = tables[i].category;
+        size_t end = i;
+        while (end < tables.size() && tables[end].category == category)
+            ++end;
+        Row c;
+        c.type = Row::Type::PresetFolder;
+        c.id = "tables:" + deviceKey + "|" + category;
+        c.name = text(category);
+        c.caption = juce::String(end - i);
+        c.depth = depth + 1;
+        c.opens = true;
+        c.open = isOpen(c.id);
+        rows_.push_back(c);
+        for (; c.open && i < end; ++i)
+        {
+            Row t;
+            t.type = Row::Type::Table;
+            t.id = t.item = "table:" + tables[i].id;
+            t.kind = Kind::Wavetable;
+            t.name = text(tables[i].name);
+            t.depth = depth + 2;
+            rows_.push_back(t);
+        }
+        i = end;
+    }
 }
 
 void BrowserPanel::addPresetFolder(const model::PresetFolder& folder,
@@ -914,11 +967,12 @@ void BrowserPanel::buildResults()
             r.flat = true;
             r.name = text(item.name);
             r.caption = text(item.caption);
-            r.type = item.kind == Kind::Module   ? Row::Type::Module
-                     : item.kind == Kind::Preset ? Row::Type::Preset
-                     : item.kind == Kind::Plugin ? Row::Type::Plugin
-                     : item.kind == Kind::Folder ? Row::Type::Folder
-                                                 : Row::Type::File;
+            r.type = item.kind == Kind::Module       ? Row::Type::Module
+                     : item.kind == Kind::Preset     ? Row::Type::Preset
+                     : item.id.starts_with("table:") ? Row::Type::Table
+                     : item.kind == Kind::Plugin     ? Row::Type::Plugin
+                     : item.kind == Kind::Folder     ? Row::Type::Folder
+                                                     : Row::Type::File;
             if (r.type == Row::Type::File)
                 r.file = fileOf(item.id.substr(5));
             if (r.type == Row::Type::Folder)
@@ -1008,6 +1062,8 @@ void BrowserPanel::selectIndex(int index, bool previewIt)
 
 bool BrowserPanel::previewable(const Row& row) const
 {
+    if (row.type == Row::Type::Table)
+        return true;
     if (row.type == Row::Type::File)
         return row.kind == Kind::Sample || row.kind == Kind::Wavetable || row.kind == Kind::Midi;
     if (row.type == Row::Type::Preset)
@@ -1023,6 +1079,8 @@ void BrowserPanel::preview(const Row& row)
         (void)session_.previewFile(row.file);
     else if (row.type == Row::Type::File && row.kind == Kind::Wavetable)
         (void)session_.previewWavetable(row.file); // on a held note (table-editor.md §7)
+    else if (row.type == Row::Type::Table)
+        (void)session_.previewFactoryTable(row.item.substr(6));
     else if (row.type == Row::Type::File && row.kind == Kind::Midi)
         (void)session_.previewMidiFile(row.file, selectedTrack ? selectedTrack().value_or(0) : 0);
     else if (const auto ref = browser::parse(row.item); ref && ref->kind == Kind::Preset)
@@ -1041,7 +1099,7 @@ void BrowserPanel::activate(const Row& row)
         rebuildRows();
         return;
     }
-    if (row.type == T::Module || row.type == T::Preset || row.type == T::Plugin)
+    if (row.type == T::Module || row.type == T::Preset || row.type == T::Plugin || row.type == T::Table)
     {
         if (onLoad)
             onLoad(row.item);
@@ -1146,7 +1204,7 @@ juce::var BrowserPanel::dragDescription(const std::string& id) const
         return {};
     const auto& row = rows_[static_cast<size_t>(i)];
     const bool puts = row.type == Row::Type::Module || row.type == Row::Type::Preset ||
-                      row.type == Row::Type::Plugin ||
+                      row.type == Row::Type::Table || row.type == Row::Type::Plugin ||
                       (row.type == Row::Type::File &&
                        (row.kind == Kind::Sample || row.kind == Kind::Wavetable || row.kind == Kind::Midi));
     return puts ? juce::var(juce::String(std::string(browser::dragPrefix)) + text(row.item)) : juce::var();

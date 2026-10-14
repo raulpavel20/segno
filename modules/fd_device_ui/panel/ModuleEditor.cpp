@@ -10,27 +10,9 @@ private:
     juce::String text_;
 };
 
-ModuleEditor::ModuleEditor()
-{
-    done_.setClickingTogglesState(false);
-    done_.setWantsKeyboardFocus(false);
-    done_.setTooltip("Close the editor: what it made stays on the module");
-    done_.setSize(Toggle::widthFor(done_.getButtonText()), Theme::current().shell.rowHeight);
-    done_.onClick = [this]
-    {
-        if (onDone)
-            onDone();
-    };
-}
+ModuleEditor::ModuleEditor() = default;
 
 ModuleEditor::~ModuleEditor() = default;
-
-std::vector<juce::Component*> ModuleEditor::commands()
-{
-    auto out = commands_;
-    out.push_back(&done_);
-    return out;
-}
 
 int ModuleEditor::addPane(juce::String title, int columns, int minColumns)
 {

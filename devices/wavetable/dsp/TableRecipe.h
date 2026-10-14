@@ -116,10 +116,24 @@ struct Recipe
 /// come from their own functions.
 [[nodiscard]] Recipe::Layer newLayer(Recipe::SourceKind kind);
 
-/// A keyframe to add to a Draw or Harmonics layer at `frame` (of `count`): for harmonics, the
-/// layer's own frame there, so adding it changes nothing; for a drawing, the drawing before it
-/// (the first one, before the first).
+/// A keyframe to add to a Draw or Harmonics layer at `frame` (of `count`), made of what the layer
+/// has there: for harmonics, its own frame, so adding it changes nothing; for a drawing, the
+/// drawing it holds (before the first keyframe, after the last), the points of the two around it
+/// crossfaded (when they're at the same places and the fill crossfades), or else the frame there
+/// as 33 straight points.
 [[nodiscard]] Recipe::Keyframe newKeyframe(const Recipe::Layer& layer, int frame, int count);
+
+/// One layer's frame `frame` of `count`, before the changes: what the table editor shows of the
+/// selected layer, by the bake's own functions.
+[[nodiscard]] std::vector<float> layerFrame(const Recipe::Layer& layer, int frame, int count);
+
+/// A frame's (2 048 samples) first `count` harmonics: their levels (the amplitude of each, as a
+/// Harmonics keyframe holds them) and phases (0–1 of a turn, as a keyframe's).
+struct FrameHarmonics
+{
+    std::vector<float> levels, phases;
+};
+[[nodiscard]] FrameHarmonics frameHarmonics(const std::vector<float>& frame, int count);
 
 /// A Draw keyframe's wave at `x` (0–1): straight or bent between its points, held past the ends.
 /// What the bake plays and what the editor draws.

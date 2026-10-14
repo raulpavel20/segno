@@ -1,6 +1,6 @@
 # Wavetable: device spec
 
-- **Status:** Approved by the product owner (2026-10-13, with every recommendation of W1–W19 and the pages of [ADR 0051](../../docs/decisions/0051-pages-for-very-wide-modules.md)); IDs are permanent. [ADR 0050](../../docs/decisions/0050-the-wavetable-synth-goes-beyond-live.md) accepted with it: the product owner asked for a wavetable synth that is full-featured, modern and innovative, past ADR 0011's "instruments stay close to Live's". Step 1 (the synth) built (2026-10-13; what building settled is under "Settled while building (step 1)") and signed off by the product owner (2026-10-14), with the modulation made easier to find and the name Wavetable. Step 2 (the tables: [table-editor.md](../../docs/design/table-editor.md), [ADR 0053](../../docs/decisions/0053-a-modules-editor-in-the-detail-panel.md)) built (2026-10-14; "Settled while building (step 2)"), awaiting the product owner's sign-off.
+- **Status:** Approved by the product owner (2026-10-13, with every recommendation of W1–W19 and the pages of [ADR 0051](../../docs/decisions/0051-pages-for-very-wide-modules.md)); IDs are permanent. [ADR 0050](../../docs/decisions/0050-the-wavetable-synth-goes-beyond-live.md) accepted with it: the product owner asked for a wavetable synth that is full-featured, modern and innovative, past ADR 0011's "instruments stay close to Live's". Step 1 (the synth) built (2026-10-13; what building settled is under "Settled while building (step 1)") and signed off by the product owner (2026-10-14), with the modulation made easier to find and the name Wavetable. Step 2 (the tables: [table-editor.md](../../docs/design/table-editor.md), [ADR 0053](../../docs/decisions/0053-a-modules-editor-in-the-detail-panel.md)) built (2026-10-14; "Settled while building (step 2)"); revised the same day after the product owner's first use (§11: the result and the layer apart, closing by the tab, the tables easier to find, a preset on each AKWF table); awaiting sign-off.
 - **Type:** Instrument
 - **Tier / milestone:** Tier 2, moved up to M3 by the product owner (2026-10-13; P1 of the M3 plan, before the rest of M3)
 - **Live target:** Wavetable, with Meld's following of the key and scale. References only ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)); this device goes well beyond them (W1).
@@ -459,44 +459,26 @@ Dated listening notes from the product owner, and the measurable checks derived 
     A saw comes back within −60 dB of its harmonics.
   - **Image:** each row a frame (at most 256, spread through the image), its brightness the wave or its harmonics' levels.
   - **Table:** a factory table, or a file's own frames.
-- **The editor, as built** (ADR 0053):
-  - **Its look:** a card like the module's panel, under it, in three panes on the module grid:
-    - Layers, 4 columns;
-    - the view, the width left (at least 7 columns);
-    - Changes, 4 columns.
-
-    It has ten rows, about 316 px, which is both its least height and the height it opens at; taller, the view grows. `ui::ModuleEditor` lays out the panes, and its layout lint runs narrow and wide, short and tall, in every state.
-  - **Layers:** each row a dot (on or off) and its name (a selector), with a menu to move or remove it (never the last). Below, the selected layer's settings:
-    - Level, and Fill (except Formula, which fills nothing);
-    - Draw: Points or Freehand, and a Grid (Off, 8, 16, 32, 64; editor view state, not saved);
-    - Formula: the line (Return keeps it), its error or a hint;
-    - Image: As harmonics;
-    - Table: the factory table;
-    - Audio: where it came from.
-  - **The view:**
-    - 3D: dragged up and down, it goes through the frames;
-    - 2D: the frame as it plays, a Draw keyframe drawn over it with the bake's own `drawnAt`;
-    - Harmonics: the frame's first 64; a Harmonics keyframe's levels over them, and its phases in a strip below.
-  - **Below the view:** the keyframe strip, and Frames (a bar from 1 to 256, doubling over equal distances; keyframes keep their place in the table).
+- **The editor, as built** (ADR 0053), revised after the product owner's first use (table-editor.md §11, T14–T20):
+  - **Its look:** a card like the module's panel, under it, in four panes on the module grid, left to right as the sound goes: Layers (4 columns); the selected layer (the width left, at least 5); the Result (4); Changes (4). Ten rows, about 316 px, both its least height and the height it opens at; about 964 px at its narrowest. `ui::ModuleEditor` lays out the panes, and its layout lint runs narrow and wide, short and tall, in every state.
+  - **It closes** with the × on its tab ("Table ×", in the DAW's detail panel and in the plugins' header alike), or Module > Edit wavetable again (ticked while it's open).
+  - **Layers:** each row a dot (on or off) and its name (a selector), with a menu to move or remove it (never the last). Below, the selected layer's settings: Level, and Fill (except Formula); Draw: Points or Freehand, and a Grid (Off, 8, 16, 32, 64; view state); Formula: the line (Return keeps it), its error or a hint; Image: As harmonics; Table: the factory table; Audio: where it came from.
+  - **The selected layer**, titled "LAYER 2 · DRAW" with where the frame shown is at its right ("keyframe at 23", "between 12 and 40", "held from 12", "64 frames, filled", "made at each frame"): its own frame there, before the changes (`wavetable::layerFrame`, the bake's own functions), as its wave and its harmonics side by side, always both; their phases under the bars. A drawing is edited on its wave, harmonics on their bars; other kinds are set on the left. Editing a frame between keyframes adds one there, made of what the layer has there, in the same undo step. Under them the keyframe strip, and Add keyframe and Remove keyframe.
+  - **The Result:** the whole table as the module plays it, every layer summed and then the changes, in 3D, the frame shown lit; a click on a frame shows it, a drag goes through them; Frames (a bar from 1 to 256, doubling over equal distances; keyframes keep their place in the table) under it.
   - **Changes:** each row a dot and a bar (the change's name, its amount at the frame shown). Its menu offers Vary From Frame to Frame (the amount set at each frame you show, in between from frame to frame), Move Up, Move Down and Remove. With more changes than rows, the title says which show ("Changes 3–10 of 12") and the wheel scrolls them.
   - **Edits are kept on release,** one undo step each ("Draw a wave", "Add a keyframe", "Set a change's amount"…). A click that changes nothing keeps nothing. The editor follows the module: undo, an assistant, the table picker.
-  - **While a drag moves,** the editor bakes again once a display frame. A bake of two keyframed layers (one a spectral fill) and four changes takes 7 ms at 64 frames, 28 ms at 256 (Release, the reference machine; the `[.benchmark]` test), so a drag on the largest tables draws about 30 times a second.
-  - **Preview** holds a C3 at velocity 0.8 on the module until it's clicked again or the editor closes:
-    - in the DAW, as live MIDI on the module's track;
-    - in the plugins, through a lock-free queue into the device's events.
-  - **Audio** arrives in the way chooser:
-    - it starts on Pitched where the audio has a pitch, else on Slices, at 64 frames (8–256), reading at most a minute;
-    - each way and frame count is heard at once, and the whole choosing is one undo step;
-    - Use keeps the table, Cancel puts back the one from before;
-    - dropped on the layers, the audio is added as a layer.
-  - **It opens** from Module > Edit wavetable, a double-click on the table display or Edit… in the table's menu. It edits the oscillator OSC shows, and follows OSC. A double-click on the table display no longer resets Position: Position's knob does that.
+  - **While a drag moves,** the layer follows at once and the Result bakes again every 120 ms at most. A bake of two keyframed layers (one a spectral fill) and four changes takes 7 ms at 64 frames, 28 ms at 256 (Release, the reference machine; the `[.benchmark]` test), about 100 ms at 64 frames in a debug build.
+  - **Preview** holds a C3 at velocity 0.8 on the module until it's clicked again or the editor closes: in the DAW as live MIDI on the module's track, in the plugins through a lock-free queue into the device's events.
+  - **Audio** arrives in the way chooser: Pitched where it has a pitch, else Slices, 64 frames (8–256), at most a minute read; each way and frame count heard at once, the whole choosing one undo step; Use keeps it, Cancel puts back the table from before; dropped on the layers, it's added as a layer.
+  - **It opens** from Module > Edit wavetable, a double-click on the table display or Edit… in the table's menu; it edits the oscillator OSC shows, and follows OSC. A double-click on the table display no longer resets Position: Position's knob does.
+- **The table menus** (the oscillator's table field, a Table layer's, + > Table) list the nine categories as submenus (T20).
 - **Menus** (sentence case, as the menu bar's other items; dimmed unless a Wavetable, or for Make wavetable an audio clip, is selected; no shortcuts):
   - Module > Edit wavetable, Import wavetable…, Export wavetable…;
   - Clip > Make wavetable. It reads the whole clip, once through its source: the arrangement has no time selection yet ([B81](../../docs/open-questions.md)). With no Wavetable selected it adds a MIDI track named for the clip, with a Wavetable on it: three undo steps for now ([B80](../../docs/open-questions.md)).
 - **Files:**
   - Import loads a table as it is: a WAV with frame data, a WaveEdit bank, a single cycle or a `.wt`. Anything else is audio, for the way chooser.
   - Export writes WAV with `clm ` or `.wt`, into Segno/Wavetables by default.
-- **The browser's Wavetables:**
+- **The browser's Wavetables** (and the factory tables: the Wavetable's module folder opens to Tables, a folder a category, before its presets; found by search; heard on a held C3; put in as a file is, `DevicePanel::takeFactoryItem` for a drop on a Wavetable):
   - `.wt` files, and sound files in a folder named Wavetables, are a kind of their own: WAVETABLES in the results, their frames as the caption.
   - Segno/Wavetables is made with the Segno place.
   - A selected one plays a held C3 through a Wavetable of its own.
@@ -528,6 +510,6 @@ Dated listening notes from the product owner, and the measurable checks derived 
 - [x] Sound signed off by the product owner (step 1, 2026-10-14)
 - [x] Feel signed off by the product owner (step 1, 2026-10-14)
 - [x] Step 2 validators: pluginval at strictness 10 and clap-validator on the Wavetable plugin, its editor and note queue in (2026-10-14)
-- [x] Step 2 automated: recipes, sources and changes against their definitions, audio to wavetable, files round trip, the AKWF tables; the editor's behaviour in the panel tests, the DAW (Module menu, Tab, undo, Done, the module going, Make wavetable) and the plugins (the window grown, the note heard); every tool through MCP (2026-10-14)
+- [x] Step 2 automated: recipes, sources and changes against their definitions, audio to wavetable, files round trip, the AKWF tables; the editor's behaviour in the panel tests, the DAW (Module menu, Tab, undo, the tab's ×, the module going, Make wavetable) and the plugins (the window grown, the note heard); every tool through MCP (2026-10-14)
 - [x] The editor's layout lint (narrow and wide, short and tall, every state) and snapshots reviewed: the editor in each state, in the DAW's detail panel, in the plugin's window, the AKWF tables (2026-10-14)
 - [ ] Step 2 sound and feel signed off by the product owner
