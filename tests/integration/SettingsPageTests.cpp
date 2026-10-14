@@ -295,21 +295,21 @@ TEST_CASE("settings: a shortcut changed runs its action and shows in the menus; 
     auto& shell = *p.shell;
     auto& actions = shell.actions();
     p.shell->showSettings("keys");
-    const juce::KeyPress ctrlJ('j', juce::ModifierKeys::commandModifier, 0);
-    REQUIRE(actions.actionOn(ctrlJ) == nullptr);
+    const juce::KeyPress ctrlH('h', juce::ModifierKeys::commandModifier, 0); // a key no action has
+    REQUIRE(actions.actionOn(ctrlH) == nullptr);
 
     // Click the shortcut, press the keys.
     view.startKeyCapture("view.focus");
-    CHECK(view.keyPressed(ctrlJ));
-    CHECK(actions.shortcut("view.focus") == "Ctrl+J");
-    CHECK(p.store->get().keys.at("view.focus") == std::vector<std::string>{"ctrl + J"});
+    CHECK(view.keyPressed(ctrlH));
+    CHECK(actions.shortcut("view.focus") == "Ctrl+H");
+    CHECK(p.store->get().keys.at("view.focus") == std::vector<std::string>{"ctrl + H"});
     CHECK(view.resetShown(SettingsSection::Keys));
     shell.closeSettings();
-    CHECK(actions.handleKey(ctrlJ));
+    CHECK(actions.handleKey(ctrlH));
     CHECK(actions.isToggled("view.focus"));
     actions.perform("view.focus");
-    CHECK(menuShortcut(shell, "Focus mode") == juce::String("Ctrl+J"));
-    CHECK(actions.tooltip("view.focus") == "Focus mode (Ctrl+J)");
+    CHECK(menuShortcut(shell, "Focus mode") == juce::String("Ctrl+H"));
+    CHECK(actions.tooltip("view.focus") == "Focus mode (Ctrl+H)");
 
     // A key another action has: it asks, in place; Cancel leaves both as they were.
     shell.showSettings("key:view.focus");
@@ -324,7 +324,7 @@ TEST_CASE("settings: a shortcut changed runs its action and shows in the menus; 
         dumpPng(dump, "settings-keys-conflict@2x.png",
                 shell.createComponentSnapshot(p.view().getBounds(), true, 2.0f));
     view.answerKeyConflict(false);
-    CHECK(actions.shortcut("view.focus") == "Ctrl+J");
+    CHECK(actions.shortcut("view.focus") == "Ctrl+H");
     CHECK(actions.actionOn(ctrlD)->id == owner);
     // Replace: the other is left without.
     view.startKeyCapture("view.focus");
@@ -356,12 +356,12 @@ TEST_CASE("settings: kept between launches; the next shell reads them back", "[i
     p.choose("display.interfaceSize", "125");
     CHECK(juce::Desktop::getInstance().getGlobalScaleFactor() == Catch::Approx(1.25f));
     p.view().startKeyCapture("view.focus");
-    p.view().captureKey(juce::KeyPress('j', juce::ModifierKeys::commandModifier, 0));
+    p.view().captureKey(juce::KeyPress('h', juce::ModifierKeys::commandModifier, 0));
 
     p.open(); // the next launch
     CHECK(p.store->get().recording.format == fd::model::RecordingFormat::Aiff);
     CHECK(p.store->get().display.interfaceSize == 125);
-    CHECK(p.shell->actions().shortcut("view.focus") == "Ctrl+J");
+    CHECK(p.shell->actions().shortcut("view.focus") == "Ctrl+H");
     p.shell->showSettings();
     CHECK(p.combo("recording.format").getText() == "AIFF");
     p.choose("display.interfaceSize", "Automatic");

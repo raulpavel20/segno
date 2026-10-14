@@ -233,15 +233,68 @@ void PanelHeader::removeCommand(juce::Component& command)
     repaint();
 }
 
+void PanelHeader::setDropOrder(juce::Component& option, int order)
+{
+    for (auto& o : options_)
+        if (o.component == &option)
+            o.drop = order;
+    resized();
+}
+
+bool PanelHeader::isDropped(const juce::Component& option) const
+{
+    for (const auto& o : options_)
+        if (o.component == &option)
+            return o.dropped;
+    return false;
+}
+
 void PanelHeader::resized()
 {
+    const auto& s = Theme::current().shell;
+    // Options that give way to the width (setDropOrder), lowest order first, until the commands
+    // and options fit beside the tabs or the title, a group apart.
+    const int left = tabs_.isVisible()
+                         ? s.padding - s.buttonTextPadding + tabs_.preferredWidth()
+                         : s.padding + static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(
+                                           capsLabelFont(), title_.toUpperCase())));
+    for (auto& o : options_)
+        o.dropped = false;
+    const auto needed = [&]
+    {
+        int width = s.padding / 2, items = 0;
+        for (const auto& o : options_)
+            if (o.component->isVisible() && !o.dropped)
+            {
+                width += o.width() + (items++ > 0 ? s.itemGap : 0);
+            }
+        int commandWidth = 0, commandCount = 0;
+        for (const auto* c : commands_)
+            if (c->isVisible())
+                commandWidth += c->getWidth() + (commandCount++ > 0 ? s.itemGap : 0);
+        if (commandCount > 0)
+            width += commandWidth + (items > 0 ? s.groupGap : s.padding / 2);
+        return width;
+    };
+    while (needed() > getWidth() - left - s.groupGap)
+    {
+        Option* next = nullptr;
+        for (auto& o : options_)
+            if (o.drop > 0 && !o.dropped && o.component->isVisible() && (next == nullptr || o.drop < next->drop))
+                next = &o;
+        if (next == nullptr)
+            break;
+        next->dropped = true;
+    }
+
     // Right to left, `itemGap` apart. The last one's label ends at the padding, where a caption
     // would (the option's own padding is half the shell's).
-    const auto& s = Theme::current().shell;
     int right = getWidth() - s.padding / 2;
     bool options = false;
     for (auto it = options_.rbegin(); it != options_.rend(); ++it)
-        if (it->component->isVisible())
+        if (it->dropped)
+            it->component->setBounds({});
+        else if (it->component->isVisible())
         {
             const int w = it->width();
             it->component->setBounds(right - w, 0, w, getHeight());
@@ -272,12 +325,6 @@ void PanelHeader::paint(juce::Graphics& g)
     auto r = getLocalBounds().reduced(t.shell.padding, 0);
     if (optionsLeft_ < getWidth()) // options or commands on the right
         r.setRight(optionsLeft_ - t.shell.groupGap);
-    if (caption_.isNotEmpty())
-    {
-        g.setColour(t.textTertiary);
-        g.setFont(font(TextStyle::Caption));
-        g.drawText(caption_, r, juce::Justification::centredRight, false);
-    }
     if (!tabs_.isVisible())
     {
         const int titleWidth = static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(capsLabelFont(), title_.toUpperCase())));
@@ -285,11 +332,25 @@ void PanelHeader::paint(juce::Graphics& g)
     }
     else
         r.setLeft(tabs_.getRight());
-    if (context_.isNotEmpty())
+    // The caption, a hint, shows only where it fits beside the context, a group apart; the context
+    // takes the rest, cut short with an ellipsis.
+    auto rest = r.withTrimmedLeft(t.shell.padding);
+    const auto width = [](const juce::Font& f, const juce::String& text)
+    { return text.isEmpty() ? 0 : static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(f, text))); };
+    const int captionWidth = width(font(TextStyle::Caption), caption_);
+    const int contextWidth = width(font(TextStyle::Name), context_);
+    if (captionWidth > 0 && rest.getWidth() >= (contextWidth > 0 ? contextWidth + t.shell.groupGap : 0) + captionWidth)
+    {
+        g.setColour(t.textTertiary);
+        g.setFont(font(TextStyle::Caption));
+        g.drawText(caption_, rest.removeFromRight(captionWidth), juce::Justification::centredRight, false);
+        rest.removeFromRight(t.shell.groupGap);
+    }
+    if (context_.isNotEmpty() && rest.getWidth() > 0)
     {
         g.setColour(t.textSecondary);
         g.setFont(font(TextStyle::Name));
-        g.drawText(context_, r.withTrimmedLeft(t.shell.padding).withTrimmedRight(120), juce::Justification::centredLeft, true);
+        g.drawText(context_, rest, juce::Justification::centredLeft, true);
     }
 }
 

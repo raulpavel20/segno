@@ -161,7 +161,7 @@ private:
 model::Note noteOf(const te::MidiNote& n)
 {
     return {n.getNoteNumber(), n.getStartBeat().inBeats(), n.getLengthBeats().inBeats(),
-            static_cast<float>(n.getVelocity()) / 127.0f};
+            static_cast<float>(n.getVelocity()) / 127.0f, n.isMute()};
 }
 
 int midiVelocity(float velocity)
@@ -1040,12 +1040,15 @@ void Session::setNotes(std::uint64_t clipId, const std::vector<model::Note>& not
         changed[i]->setStartAndLength(te::BeatPosition::fromBeats(to.start), te::BeatDuration::fromBeats(to.length), undo);
         changed[i]->setNoteNumber(to.pitch, undo);
         changed[i]->setVelocity(midiVelocity(to.velocity), undo);
+        changed[i]->setMute(to.muted, undo);
     }
     for (size_t i = paired; i < changed.size(); ++i)
         list.removeNote(*changed[i], undo);
     for (size_t i = paired; i < added.size(); ++i)
-        list.addNote(added[i].pitch, te::BeatPosition::fromBeats(added[i].start), te::BeatDuration::fromBeats(added[i].length),
-                     midiVelocity(added[i].velocity), 0, undo);
+        if (auto* note = list.addNote(added[i].pitch, te::BeatPosition::fromBeats(added[i].start),
+                                      te::BeatDuration::fromBeats(added[i].length), midiVelocity(added[i].velocity), 0, undo);
+            note != nullptr && added[i].muted)
+            note->setMute(true, undo);
 
     // Notes past the clip's end lengthen it to the end of that bar when nothing is in the way
     // (B15), in the same undo step; in a looped clip, notes written past its loop's end lengthen the

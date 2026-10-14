@@ -22,6 +22,7 @@ struct Note
     double start = 0.0;
     double length = 0.25;
     float velocity = 100.0f / 127.0f; // 0..1, in steps of 1/127 (MIDI)
+    bool muted = false;               // kept, drawn hollow, not played (docs/design/piano-roll.md §9.4)
 
     friend bool operator==(const Note&, const Note&) = default;
 };

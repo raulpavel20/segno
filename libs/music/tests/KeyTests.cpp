@@ -171,3 +171,41 @@ TEST_CASE("Note names are read back however they're written", "[fast]")
             }
         }
 }
+
+TEST_CASE("Steps of the scale", "[fast]")
+{
+    const auto c = key(0, "major");
+    CHECK(scaleStep(c, 60) == 0);
+    CHECK(scaleStep(c, 62) == 1);
+    CHECK(scaleStep(c, 71) == 6);
+    CHECK(scaleStep(c, 61) == -1);
+    CHECK(scaleStep(key(9, "minor"), 69) == 0);
+    CHECK(scaleStep(key(9, "minor"), 60) == 2);
+    CHECK(scaleStep(Key{0, "no-such-scale"}, 60) == -1);
+}
+
+TEST_CASE("Moving by steps of the scale", "[fast]")
+{
+    const auto c = key(0, "major");
+    CHECK(moveInKey(c, 60, 1) == 62);
+    CHECK(moveInKey(c, 60, 2) == 64);
+    CHECK(moveInKey(c, 64, 1) == 65); // E to F: a semitone, still one step
+    CHECK(moveInKey(c, 60, -1) == 59);
+    CHECK(moveInKey(c, 60, 7) == 72);
+    CHECK(moveInKey(c, 61, 1) == 62); // from outside the key, the first step lands in it
+    CHECK(moveInKey(c, 61, -1) == 60);
+    CHECK(moveInKey(c, 60, 0) == 60);
+    CHECK(moveInKey(key(0, "major-pentatonic"), 64, 1) == 67);
+    CHECK(moveInKey(Key{0, "no-such-scale"}, 60, 2) == 62);
+}
+
+TEST_CASE("The key's nearest note", "[fast]")
+{
+    const auto c = key(0, "major");
+    CHECK(nearestInKey(c, 60) == 60);
+    CHECK(nearestInKey(c, 61) == 60);       // C♯: a tie, down by default
+    CHECK(nearestInKey(c, 61, true) == 62); // or up
+    CHECK(nearestInKey(key(0, "major-pentatonic"), 65) == 64); // F: E is nearer than G
+    CHECK(nearestInKey(key(0, "major-pentatonic"), 66, false) == 67);
+    CHECK(nearestInKey(Key{0, "no-such-scale"}, 61) == 61);
+}

@@ -1328,12 +1328,43 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
         if (editor_ != nullptr && module == editorModule_)
             closeEditor();
     };
+    // The Notes menu, then Quantise (piano-roll.md §4).
+    notes_.setTooltip("Every tool for notes: the Notes menu");
+    notes_.onClick = [this]
+    {
+        if (notesMenu)
+            notes_.showMenu(notesMenu());
+    };
+    notes_.setSize(notes_.preferredWidth(), ui::Theme::current().shell.rowHeight);
+    header_.addCommand(notes_);
+    notes_.setVisible(false);
     quantise_.setClickingTogglesState(false);
     quantise_.setWantsKeyboardFocus(false);
     quantise_.onClick = [this] { actions_.perform("notes.quantise"); };
     quantise_.setSize(ui::Toggle::widthFor(quantise_.getButtonText()), ui::Theme::current().shell.rowHeight);
     header_.addCommand(quantise_);
     quantise_.setVisible(false);
+    // The piano roll's options; at compact widths Others, then Fold, then Draw give way (§4).
+    draw_.setTooltip("What a double-click draws: a note, the key's chord on it, or the key's chord under it");
+    draw_.onClick = [this] { draw_.showMenu(roll_.drawMenu()); };
+    keySnap_.setClickingTogglesState(false);
+    keySnap_.onClick = [this] { roll_.setKeySnap(!roll_.options().keySnap); };
+    fold_.setTooltip("Which rows show: all of them, the key's, or those with notes");
+    fold_.onClick = [this] { fold_.showMenu(roll_.foldMenu()); };
+    others_.setClickingTogglesState(false);
+    others_.onClick = [this] { roll_.setOthers(!roll_.options().others); };
+    for (auto* option : {&draw_, &fold_})
+        option->setVisible(false);
+    header_.addOption(draw_);
+    header_.addOption(keySnap_);
+    header_.addOption(fold_);
+    header_.addOption(others_);
+    keySnap_.setVisible(false);
+    others_.setVisible(false);
+    header_.setDropOrder(others_, 1);
+    header_.setDropOrder(fold_, 2);
+    header_.setDropOrder(draw_, 3);
+    roll_.onOptionsChanged = [this] { updateOptions(); };
     snap_.setClickingTogglesState(false); // the piano roll's, which the Session keeps
     snap_.onClick = [this] { roll_.setSnapEnabled(!roll_.isSnapEnabled()); };
     grid_.setTooltip(
@@ -1344,7 +1375,21 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
     header_.addOption(grid_);
     snap_.setVisible(false);
     grid_.setVisible(false);
+    updateOptions();
     header_.resized();
+}
+
+void DetailPanel::updateOptions()
+{
+    const auto& o = roll_.options();
+    draw_.setValue(model::drawModeName(o.draw));
+    fold_.setValue(model::foldName(o.fold));
+    keySnap_.setToggleState(o.keySnap, juce::dontSendNotification);
+    others_.setToggleState(o.others, juce::dontSendNotification);
+    keySnap_.setTooltip(actions_.tooltip("view.clipKey"));
+    others_.setTooltip(actions_.tooltip("view.clipOthers"));
+    header_.resized(); // the choices are as wide as their values
+    header_.repaint();
 }
 
 void DetailPanel::chooseMode(Mode mode)
@@ -1471,9 +1516,15 @@ void DetailPanel::updateVisibility()
         for (auto* c : editor_->commands())
             c->setVisible(editing);
     }
-    // Snap and the step for either clip view; Quantise for notes.
+    // Snap and the step for either clip view; Notes, Quantise and the piano roll's options for notes.
     const bool grid = showsPianoRoll() || showsAudioClip();
-    quantise_.setVisible(showsPianoRoll());
+    const bool notes = showsPianoRoll();
+    notes_.setVisible(notes);
+    quantise_.setVisible(notes);
+    draw_.setVisible(notes);
+    keySnap_.setVisible(notes && roll_.key().has_value());
+    fold_.setVisible(notes);
+    others_.setVisible(notes);
     snap_.setVisible(grid);
     grid_.setVisible(grid);
     header_.resized();

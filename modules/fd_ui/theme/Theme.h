@@ -70,6 +70,7 @@ struct ColourRoles
     float hoverLift = 0.06f, pressedLift = 0.12f;
     float dimAlpha = 0.35f;   // ignored or switched off; never compounded
     float fadedAlpha = 0.4f;  // exists but doesn't play
+    float ghostAlpha = 0.28f; // another part's notes behind the clip's own (piano-roll.md §8)
     float fillAlpha = 0.14f;  // the flat fill under a curve
     float depthFar = 0.25f, depthNear = 0.6f; // a 3D view's lines, farthest and nearest (atDepth)
 };
@@ -161,6 +162,7 @@ struct ShellMetrics
     int progressHeight = 2;       // the progress line along the bottom of what's being worked on
     int fadeHandleSize = 7;       // a fade's or crossfade's handle on a clip (fades.md §3)
     int loopNotch = 4;            // a looped clip's notch at each seam: its depth, half its width (clip-loops.md §5)
+    int timeHandleWidth = 4;      // a selection's time handle in the piano roll's ruler (piano-roll.md §9.2)
     float shadowRadius = 18.0f, shadowOffset = 6.0f;
 };
 
@@ -235,6 +237,8 @@ struct Theme
     [[nodiscard]] juce::Colour noteFill(juce::Colour clip, float velocity, bool selected) const;
     /// Content that exists but doesn't play.
     [[nodiscard]] juce::Colour faded(juce::Colour c) const { return c.withMultipliedAlpha(roles.fadedAlpha); }
+    /// Another track's notes in the piano roll, faint behind the clip's own (piano-roll.md §8).
+    [[nodiscard]] juce::Colour ghost(juce::Colour c) const { return c.withMultipliedAlpha(roles.ghostAlpha); }
     /// The flat fill under a curve drawn in `c`.
     [[nodiscard]] juce::Colour fill(juce::Colour c) const { return c.withMultipliedAlpha(roles.fillAlpha); }
     /// A line of a 3D view (a wavetable's frames) `nearness` of the way from the back (0) to the

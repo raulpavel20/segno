@@ -1,5 +1,7 @@
 #include "fd/music/Key.h"
 
+#include "Spelling.h"
+
 #include <array>
 #include <cctype>
 #include <cmath>
@@ -7,32 +9,12 @@
 
 namespace fd::music
 {
+using namespace detail;
+
 namespace
 {
-constexpr std::array<int, 7> naturals{0, 2, 4, 5, 7, 9, 11}; // C D E F G A B
-constexpr std::array<char, 7> letters{'C', 'D', 'E', 'F', 'G', 'A', 'B'};
 constexpr std::array<int, 7> letterFifths{0, 2, 4, -1,
                                           1, 3, 5}; // each letter's place on the circle of fifths
-constexpr std::array<int, 7> majorSteps{0, 2, 4, 5, 7, 9, 11};
-
-int mod12(int x) noexcept
-{
-    return ((x % 12) + 12) % 12;
-}
-
-/// A note written as a letter and an accidental (−2 … 2: double flat … double sharp).
-struct Spelled
-{
-    int letter = 0;
-    int accidental = 0;
-};
-
-/// The accidental that puts `letter` on pitch class `pc`, from −6 to 5.
-int accidentalOn(int letter, int pc) noexcept
-{
-    const int a = mod12(pc - naturals[static_cast<size_t>(letter)]);
-    return a > 6 ? a - 12 : a;
-}
 
 /// A natural, or else a sharp or a flat by the direction asked for.
 Spelled plain(int pc, bool flats) noexcept
@@ -45,18 +27,6 @@ Spelled plain(int pc, bool flats) noexcept
         if (naturals[static_cast<size_t>(l)] == mod12(flats ? pc + 1 : pc - 1))
             return {l, flats ? -1 : 1};
     return {};
-}
-
-std::string text(Spelled s, Accidentals style)
-{
-    std::string out(1, letters[static_cast<size_t>(s.letter)]);
-    const char* sharp = style == Accidentals::Glyphs ? "♯" : "#";
-    const char* flat = style == Accidentals::Glyphs ? "♭" : "b";
-    for (int i = 0; i < s.accidental; ++i)
-        out += sharp;
-    for (int i = 0; i > s.accidental; --i)
-        out += flat;
-    return out;
 }
 
 /// Which degree of the major scale a signature mode starts on (Dorian: the second).
@@ -159,14 +129,6 @@ std::array<Spelled, 12> spellingOf(const Key& key, const Scale& scale)
     return table;
 }
 
-Spelled spell(const Key* key, int pitchClass)
-{
-    if (key != nullptr)
-        if (const auto* scale = scaleOf(*key))
-            return spellingOf(*key, *scale)[static_cast<size_t>(mod12(pitchClass))];
-    return plain(pitchClass, false);
-}
-
 std::string lowerFirst(std::string_view s)
 {
     std::string out(s);
@@ -175,6 +137,29 @@ std::string lowerFirst(std::string_view s)
     return out;
 }
 } // namespace
+
+namespace detail
+{
+std::string text(Spelled s, Accidentals style)
+{
+    std::string out(1, letters[static_cast<size_t>(s.letter)]);
+    const char* sharp = style == Accidentals::Glyphs ? "♯" : "#";
+    const char* flat = style == Accidentals::Glyphs ? "♭" : "b";
+    for (int i = 0; i < s.accidental; ++i)
+        out += sharp;
+    for (int i = 0; i > s.accidental; --i)
+        out += flat;
+    return out;
+}
+
+Spelled spell(const Key* key, int pitchClass)
+{
+    if (key != nullptr)
+        if (const auto* scale = scaleOf(*key))
+            return spellingOf(*key, *scale)[static_cast<size_t>(mod12(pitchClass))];
+    return plain(pitchClass, false);
+}
+} // namespace detail
 
 const Scale* scaleOf(const Key& key) noexcept
 {
@@ -249,6 +234,47 @@ bool usesFlats(const Key& key) noexcept
 {
     const auto* scale = scaleOf(key);
     return scale != nullptr && signatureOf(mod12(key.root), *scale).fifths < 0;
+}
+
+int scaleStep(const Key& key, int pitch) noexcept
+{
+    const auto* scale = scaleOf(key);
+    if (scale == nullptr)
+        return -1;
+    const int interval = mod12(pitch - key.root);
+    if ((scale->intervals & (1u << interval)) == 0)
+        return -1;
+    return noteCount(static_cast<PitchSet>(scale->intervals & ((1u << interval) - 1u)));
+}
+
+int moveInKey(const Key& key, int pitch, int steps) noexcept
+{
+    const PitchSet set = notes(key);
+    if (set == 0)
+        return pitch + steps;
+    const int direction = steps > 0 ? 1 : -1;
+    for (int moved = 0; moved != steps; moved += direction)
+        do
+            pitch += direction;
+        while ((set & (1u << mod12(pitch))) == 0);
+    return pitch;
+}
+
+int nearestInKey(const Key& key, int pitch, bool preferUp) noexcept
+{
+    const PitchSet set = notes(key);
+    if (set == 0 || (set & (1u << mod12(pitch))) != 0)
+        return pitch;
+    for (int distance = 1; distance <= 6; ++distance)
+    {
+        const bool up = (set & (1u << mod12(pitch + distance))) != 0;
+        const bool down = (set & (1u << mod12(pitch - distance))) != 0;
+        if (up && (preferUp || !down))
+            return pitch + distance;
+        if (down)
+            return pitch - distance;
+    }
+    return pitch;
 }
 
 std::optional<int> parsePitchClass(std::string_view name) noexcept

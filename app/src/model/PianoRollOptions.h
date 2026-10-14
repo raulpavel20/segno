@@ -1,0 +1,51 @@
+#pragma once
+
+#include "model/NoteTools.h"
+
+#include <nlohmann/json_fwd.hpp>
+
+namespace fd::model
+{
+/// What a double-click in the piano roll draws (docs/design/piano-roll.md §7.2, the Draw choice).
+enum class DrawMode
+{
+    Note,
+    Chord,     // the key's chord on the clicked note
+    ChordUnder // the key's chord with the clicked note on top
+};
+
+/// What the chord lane writes for each chord (§7.1, Display): its name, its step in the key, or both.
+enum class ChordLabels
+{
+    Both,
+    Names,
+    Steps
+};
+
+/// The clip view's options (piano-roll.md §4): view state, kept with the project.
+struct PianoRollOptions
+{
+    bool keySnap = true; // Key (§6): drawing and moving in the song's key, when it has one
+    Fold fold = Fold::All;
+    bool others = true; // Others (§8): the other tracks' notes, faint
+    DrawMode draw = DrawMode::Note;
+    ChordLabels chordLabels = ChordLabels::Both;
+    ChordStyle chord;          // the Chord popover's Kind, Voicing and Inversion (§7.3)
+    QuantiseSettings quantise; // Quantise…'s last settings (§9.5)
+
+    friend bool operator==(const PianoRollOptions&, const PianoRollOptions&) = default;
+};
+
+/// The options as view state, and back; missing or unknown values keep the defaults.
+[[nodiscard]] nlohmann::json pianoRollOptionsToJson(const PianoRollOptions& options);
+[[nodiscard]] PianoRollOptions pianoRollOptionsFromJson(const nlohmann::json& json);
+
+/// The names the header and menus show: "Draw chord", "Fold to key".
+[[nodiscard]] const char* drawModeName(DrawMode mode) noexcept;
+[[nodiscard]] const char* foldName(Fold fold) noexcept;
+[[nodiscard]] const char* chordLabelsName(ChordLabels labels) noexcept;
+/// The Chord popover's names for a kind, a voicing and an inversion ("7th", "Drop 2", "1st").
+[[nodiscard]] const char* chordShapeName(music::ChordShape shape) noexcept;
+[[nodiscard]] const char* voicingName(music::Voicing voicing) noexcept;
+[[nodiscard]] const char* inversionName(music::Inversion inversion) noexcept;
+} // namespace fd::model

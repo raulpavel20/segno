@@ -102,16 +102,36 @@ std::vector<Menu> menuBar(MenuPlatform platform)
           submenu("Takes",
                   {action("view.takes"), action("take.previous"), action("take.next"), separator(),
                    action("take.useWhole"), action("take.rename"), action("take.copyToTrack"),
-                   action("take.moveToTrack"), action("take.spread"), separator(), action("take.keepOnly")}),
-          submenu("Notes", {action("notes.quantise"), separator(), action("notes.up"), action("notes.down"),
-                            action("notes.octaveUp"), action("notes.octaveDown"), separator(),
-                            action("notes.later"), action("notes.earlier")})}});
+                   action("take.moveToTrack"), action("take.spread"), separator(), action("take.keepOnly")})}});
+
+    // The piano roll's (ADR 0058, piano-roll.md §13): what acts on notes, related commands one level
+    // down so the menu stays short enough to open over the piano roll. The clip view's Notes button
+    // opens this same menu.
+    menus.push_back(
+        {"Notes",
+         'n',
+         {action("notes.quantise"), action("notes.quantiseSettings"), separator(),
+          submenu("Transpose", {action("notes.up"), action("notes.down"), separator(), action("notes.semitoneUp"),
+                                action("notes.semitoneDown"), separator(), action("notes.octaveUp"),
+                                action("notes.octaveDown")}),
+          action("notes.fitToKey"), separator(), action("notes.makeChords"), action("notes.makeChord"),
+          submenu("Chords", {action("notes.invertUp"), action("notes.invertDown"), separator(),
+                             action("notes.voiceSmooth"), action("notes.voiceClose"), action("notes.voiceOpen"),
+                             action("notes.voiceDrop2"), action("notes.voiceDrop3"), action("notes.voiceSpread"),
+                             separator(), action("notes.addBass")}),
+          separator(), action("notes.join"),
+          submenu("Length", {action("notes.legato"), action("notes.fixedLength"), separator(),
+                             action("notes.doubleSpeed"), action("notes.halfSpeed")}),
+          action("notes.reverse"), action("notes.mirror"), separator(),
+          submenu("Select", {action("notes.selectSamePitch"), action("notes.selectOutsideKey"),
+                             action("notes.selectInLoop"), action("notes.invertSelection")}),
+          action("notes.later"), action("notes.earlier")}});
 
     // Song-wide things: the song's key (ADR 0057, key-and-scale.md §13), then its sections (ADR 0049,
     // arranger.md §12).
     menus.push_back(
         {"Song",
-         'n', // Alt+S solos
+         'g', // Alt+S solos; Notes has the n
          {action("song.key"), action("song.noKey"), separator(), action("song.addSection"),
           action("song.insertSection"), separator(), action("song.loopSection"),
           action("song.previousSection"), action("song.nextSection"), separator(), action("song.selectClips"),
@@ -155,6 +175,12 @@ std::vector<Menu> menuBar(MenuPlatform platform)
                       action("module.expand"),
                       action("module.nextPage"),
                       action("module.previousPage"),
+                      separator(),
+                      // The clip view's options (piano-roll.md §13).
+                      action("view.clipKey"),
+                      submenu("Fold", {action("view.foldAll"), action("view.foldKey"), action("view.foldNotes")}),
+                      action("view.clipOthers"),
+                      submenu("Draw", {action("view.drawNote"), action("view.drawChord"), action("view.drawChordUnder")}),
                       separator(),
                       action("view.zoomIn"),
                       action("view.zoomOut"),

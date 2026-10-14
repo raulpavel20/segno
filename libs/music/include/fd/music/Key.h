@@ -59,6 +59,19 @@ enum class Accidentals
 /// Whether the key writes its accidentals as flats (its signature has flats).
 [[nodiscard]] bool usesFlats(const Key& key) noexcept;
 
+/// Which note of the scale a pitch (or pitch class) is, from the root: 0 for the root, 1 for the
+/// next note up… −1 when it isn't one of the key's notes.
+[[nodiscard]] int scaleStep(const Key& key, int pitch) noexcept;
+
+/// The pitch `steps` notes of the scale away (docs/design/piano-roll.md §6): C in C major, one step
+/// up, is D. From a pitch outside the key, the first step is to the key's next note that way. An
+/// unknown scale moves by semitones. The result isn't clamped to MIDI's range.
+[[nodiscard]] int moveInKey(const Key& key, int pitch, int steps) noexcept;
+
+/// The key's note nearest a pitch: the pitch itself when it's in the key. Between two at an equal
+/// distance, the upper when `preferUp`, else the lower (§6, Fit to key).
+[[nodiscard]] int nearestInKey(const Key& key, int pitch, bool preferUp = false) noexcept;
+
 /// A pitch class from a note's name: "C", "F#", "Gb", "G♭", "e flat", "Bb" (any case). Null for
 /// anything else.
 [[nodiscard]] std::optional<int> parsePitchClass(std::string_view name) noexcept;

@@ -292,6 +292,15 @@ public:
     [[nodiscard]] PianoRoll& pianoRoll() noexcept { return roll_; }
     [[nodiscard]] AudioClipView& audioClipView() noexcept { return audio_; }
     [[nodiscard]] const PianoRoll& pianoRoll() const noexcept { return roll_; }
+    /// The Notes menu (piano-roll.md §4, §13): the menu bar's, built by the same function, so the
+    /// header's Notes button and the menu bar never differ.
+    std::function<juce::PopupMenu()> notesMenu;
+    /// The header's clip view controls (for tests and the layout lint).
+    [[nodiscard]] ui::MenuButton& notesButton() noexcept { return notes_; }
+    [[nodiscard]] ui::ViewChoice& drawChoice() noexcept { return draw_; }
+    [[nodiscard]] ui::ViewChoice& foldChoice() noexcept { return fold_; }
+    [[nodiscard]] ui::ViewOption& keyOption() noexcept { return keySnap_; }
+    [[nodiscard]] ui::ViewOption& othersOption() noexcept { return others_; }
     /// Once per display frame.
     void frame(double playheadSeconds);
     void paint(juce::Graphics& g) override;
@@ -300,14 +309,21 @@ public:
 private:
     void updateVisibility();
     void updateHeader();
+    /// The clip view's options in the header, as the piano roll has them.
+    void updateOptions();
     /// Modules, Clip where it's available, the editor's while one is open.
     void updateTabs();
 
     ui::PanelHeader header_;
     std::vector<Mode> tabModes_; // what each tab shows
     const ActionRegistry& actions_;
-    /// Quantise, in the clip view's header while it shows a clip (menu-bar.md §15).
+    /// Notes and Quantise, in the clip view's header while it shows notes (menu-bar.md §15,
+    /// piano-roll.md §4).
+    ui::MenuButton notes_{"Notes"};
     ui::Toggle quantise_{"Quantise"};
+    /// The piano roll's options (piano-roll.md §4): Draw, Key (with a song key), Fold, Others.
+    ui::ViewChoice draw_, fold_;
+    ui::ViewOption keySnap_{"Key"}, others_{"Others"};
     /// The piano roll's Snap and grid step (ADR 0047), on the right while it shows a clip.
     ui::ViewOption snap_{"Snap"};
     ui::ViewChoice grid_;

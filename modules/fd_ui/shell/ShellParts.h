@@ -81,6 +81,12 @@ public:
     void addCommand(juce::Component& command);
     /// Takes a command away again (a module's editor closing, ADR 0053).
     void removeCommand(juce::Component& command);
+    /// At narrow widths, options with a drop order give way, the lowest first, so the rest never
+    /// reach the tabs (the clip view's Others, then Fold, then Draw: piano-roll.md §4). Each one
+    /// dropped is still in the menu bar. 0, the default: never dropped.
+    void setDropOrder(juce::Component& option, int order);
+    /// Whether an option gave way to the width (for tests and the layout lint).
+    [[nodiscard]] bool isDropped(const juce::Component& option) const;
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -92,6 +98,8 @@ private:
     {
         juce::Component* component;
         std::function<int()> width;
+        int drop = 0;         // setDropOrder
+        bool dropped = false; // gave way to the width
     };
     std::vector<Option> options_;
     std::vector<juce::Component*> commands_;
