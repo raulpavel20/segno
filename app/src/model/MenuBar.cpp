@@ -107,7 +107,7 @@ std::vector<Menu> menuBar(MenuPlatform platform)
                             action("notes.octaveUp"), action("notes.octaveDown"), separator(),
                             action("notes.later"), action("notes.earlier")})}});
 
-    // Song-wide things: the song's key (ADR 0056, key-and-scale.md §13), then its sections (ADR 0049,
+    // Song-wide things: the song's key (ADR 0057, key-and-scale.md §13), then its sections (ADR 0049,
     // arranger.md §12).
     menus.push_back(
         {"Song",

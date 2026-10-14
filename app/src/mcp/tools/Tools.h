@@ -116,7 +116,7 @@ juce::File readableFile(const Json& value);
 // ---- describing things (shared by tools and resources) ------------------------------------
 
 Json projectJson(ToolEnv& env);
-/// The song's key (ADR 0056): root, scale, name and notes, ASCII accidentals; null for none.
+/// The song's key (ADR 0057): root, scale, name and notes, ASCII accidentals; null for none.
 Json keyJson(const std::optional<music::Key>& key);
 Json keyResultSchema();
 Json transportJson(ToolEnv& env);

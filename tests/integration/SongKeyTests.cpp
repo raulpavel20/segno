@@ -1,4 +1,4 @@
-// The song's key (M3 P3, ADR 0056, docs/design/key-and-scale.md §18): set and removed through
+// The song's key (M3 P3, ADR 0057, docs/design/key-and-scale.md §18): set and removed through
 // engine::Session, one undo step each (or one for a Key popover's choice), saved with the
 // project, and handed to modules through TransportInfo::key.
 
@@ -60,7 +60,7 @@ void renderOnce(fd::engine::Session& session)
 }
 } // namespace
 
-TEST_CASE("the song's key: set and removed, one undo step each (ADR 0056)", "[integration]")
+TEST_CASE("the song's key: set and removed, one undo step each (ADR 0057)", "[integration]")
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
     tracktion::Engine engine{"fd-integration-tests", nullptr, fd::engine::makeEngineBehaviour()};
@@ -199,7 +199,7 @@ TEST_CASE("the song's key is saved with the project; older projects open with no
     }
 }
 
-TEST_CASE("modules hear the song's key through TransportInfo::key (ADR 0056)", "[integration]")
+TEST_CASE("modules hear the song's key through TransportInfo::key (ADR 0057)", "[integration]")
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
     tracktion::Engine engine{"fd-integration-tests", nullptr, fd::engine::makeEngineBehaviour()};

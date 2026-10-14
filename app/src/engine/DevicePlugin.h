@@ -68,7 +68,7 @@ public:
     /// A parameter's stored value (normalised): what the project keeps, under any automation.
     [[nodiscard]] float storedValue(size_t index) const { return values_[index]->get(); }
     [[nodiscard]] te::AutomatableParameter& parameter(size_t index) const noexcept { return *params_[index]; }
-    /// The song's key as it hands it to its module (TransportInfo::key, ADR 0056).
+    /// The song's key as it hands it to its module (TransportInfo::key, ADR 0057).
     [[nodiscard]] KeyInfo songKey() const noexcept;
 
 private:

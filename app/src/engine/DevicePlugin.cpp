@@ -68,7 +68,7 @@ private:
 };
 } // namespace
 
-/// Keeps the module's copy of the song's key (ADR 0056): every change to the pitch sequence,
+/// Keeps the module's copy of the song's key (ADR 0057): every change to the pitch sequence,
 /// undo and redo included, publishes it again.
 struct DevicePlugin::KeyWatch final : juce::ValueTree::Listener
 {

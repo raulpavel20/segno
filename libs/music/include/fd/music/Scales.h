@@ -10,7 +10,7 @@ namespace fd::music
 /// scale's intervals, n semitones above its root.
 using PitchSet = std::uint16_t;
 
-/// A scale of the catalogue (docs/design/key-and-scale.md §5, ADR 0056). The ID is permanent
+/// A scale of the catalogue (docs/design/key-and-scale.md §5, ADR 0057). The ID is permanent
 /// (docs/ids.md: it's stored in projects); the names can change.
 struct Scale
 {

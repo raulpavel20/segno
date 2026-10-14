@@ -7,7 +7,7 @@ A key for the project: a root note and a scale, shown in the top bar beside the 
 - the song row ([ADR 0049](../decisions/0049-the-master-row-is-the-song-row.md)), where changes of key will live when they come;
 - the menu bar as the complete list ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)) and assistants' tools ([ADR 0021](../decisions/0021-mcp-server.md)).
 
-**Status:** approved by the product owner (2026-10-14), with every recommendation of §17; the decision is [ADR 0056](../decisions/0056-the-song-has-one-key.md). Built 2026-10-14: what building settled is in §20.
+**Status:** approved by the product owner (2026-10-14), with every recommendation of §17; the decision is [ADR 0057](../decisions/0057-the-song-has-one-key.md). Built 2026-10-14: what building settled is in §20. Signed off by the product owner (2026-10-14).
 
 ## 1. Why
 

@@ -248,7 +248,7 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 | Takes ▸ | | Show takes of the selected clip (Ctrl+Alt+K); Previous take (Alt+↑); Next take (Alt+↓); — ; Use this take for the whole clip, Rename take…, Copy take to new track, Move take to new track, Spread the selected clip's takes to new tracks (Ctrl+Alt+Shift+K); — ; Keep only this take. The take items act on the selected takes only (§15); they're *new* as actions, and Copy, Move and Keep only are also in the inspector's TAKE section. Delete and Edit > Delete delete selected takes, so there's no Delete take. *Built:* the take menu (right-click on the badge or a strip) keeps its own items, which act on the strip clicked and name it ("Keep only Take 2"), so it isn't the same builder |
 | Notes ▸ | | Quantise (Ctrl+U); — ; Transpose up / raise points (↑), Transpose down / lower points (↓), Transpose up an octave / raise points a little (Shift+↑), Transpose down an octave / lower points a little (Shift+↓); — ; Nudge later (→), Nudge earlier (←). They act on the selected notes, or on the selected automation points, as now |
 
-**Song** (added with the song's sections, M3 C3; the song's key first, M3 P3, [ADR 0056](../decisions/0056-the-song-has-one-key.md); [ADR 0049](../decisions/0049-the-master-row-is-the-song-row.md), [arranger.md](arranger.md) §12; Alt+N, as Alt+S solos)
+**Song** (added with the song's sections, M3 C3; the song's key first, M3 P3, [ADR 0057](../decisions/0057-the-song-has-one-key.md); [ADR 0049](../decisions/0049-the-master-row-is-the-song-row.md), [arranger.md](arranger.md) §12; Alt+N, as Alt+S solos)
 
 | Item | Shortcut | |
 |---|---|---|

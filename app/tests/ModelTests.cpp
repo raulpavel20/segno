@@ -903,7 +903,7 @@ TEST_CASE("top bar: three sections, the centre on the middle, items dropped by p
     }
 }
 
-TEST_CASE("the song's key: the notes detection judges, and its undo steps' names (ADR 0056)", "[fast]")
+TEST_CASE("the song's key: the notes detection judges, and its undo steps' names (ADR 0057)", "[fast]")
 {
     Snapshot s;
     s.tempo.bpm = 120.0; // 2 beats a second

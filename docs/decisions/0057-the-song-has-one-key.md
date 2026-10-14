@@ -1,7 +1,8 @@
-# 0056. The song has one key, which everything in Segno follows
+# 0057. The song has one key, which everything in Segno follows
 
 - **Status:** Accepted (product owner, 2026-10-14, with [key-and-scale.md](../design/key-and-scale.md))
 - **Date:** 2026-10-14
+- **Number:** drafted as 0056 on a branch of its own; 0057 when merged, since the Racks took 0056 on main
 - **Builds on:** [0034](0034-device-api-frozen.md) (the frozen device API grows by additions), [0040](0040-a-menu-bar-and-everything-by-mouse.md) (the menu bar, everything by mouse), [0049](0049-the-master-row-is-the-song-row.md) (the song row), [0021](0021-mcp-server.md) (assistants), [0052](0052-generic-names-are-free.md) (generic names)
 
 ## Context

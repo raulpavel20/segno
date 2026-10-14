@@ -43,7 +43,7 @@ void Shell::openKeyPopover()
 
 void Shell::registerSongActions()
 {
-    // The song's key (ADR 0056, key-and-scale.md §13): its own settings first in the Song menu.
+    // The song's key (ADR 0057, key-and-scale.md §13): its own settings first in the Song menu.
     actions_.add({.id = "song.key",
                   .name = juce::String::fromUTF8("Key\xE2\x80\xA6"), // it asks for more (menu-bar.md §5)
                   .category = "Song",

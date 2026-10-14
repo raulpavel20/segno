@@ -242,7 +242,7 @@ struct Snapshot
     /// The song's sections, by start (ADR 0049).
     std::vector<SectionInfo> sections;
     TempoMap tempo;
-    /// The song's key (ADR 0056): none until one is chosen.
+    /// The song's key (ADR 0057): none until one is chosen.
     KeyMap keys;
     bool edgeFades = true; // the project's edge fades (fades.md §2)
     std::uint64_t version = 0;

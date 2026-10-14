@@ -1,4 +1,4 @@
-// The song's key (M3 P3, ADR 0056, docs/design/key-and-scale.md §14): set it, list the scales, and
+// The song's key (M3 P3, ADR 0057, docs/design/key-and-scale.md §14): set it, list the scales, and
 // find keys that fit the notes. set_key is one undo step.
 
 #include "mcp/tools/Tools.h"

@@ -3,7 +3,7 @@
 namespace fd::ui
 {
 /// A song setting chosen rather than dragged: the song's key in the top bar (key-and-scale.md §6,
-/// ADR 0056). It looks like the NumberField beside it (its value in the mono at the field's size,
+/// ADR 0057). It looks like the NumberField beside it (its value in the mono at the field's size,
 /// the hover fill) and dims a placeholder ("No key"). A click, Return or Space calls onOpen, where
 /// its owner opens the chooser; a right-click calls onPopupMenu. No wheel or drag: a choice is
 /// never scrolled through by accident.

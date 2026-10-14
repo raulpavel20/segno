@@ -10,7 +10,7 @@ using namespace fd::music;
 
 TEST_CASE("The scale IDs are the permanent list of docs/ids.md", "[fast]")
 {
-    // Stored in projects: never rename, reorder freely, add at will (docs/ids.md, ADR 0056).
+    // Stored in projects: never rename, reorder freely, add at will (docs/ids.md, ADR 0057).
     const std::vector<std::string> ids{"major",
                                        "minor",
                                        "harmonic-minor",

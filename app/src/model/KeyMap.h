@@ -5,7 +5,7 @@
 
 namespace fd::model
 {
-/// The song's key along the song (docs/design/key-and-scale.md, ADR 0056): one key for the whole
+/// The song's key along the song (docs/design/key-and-scale.md, ADR 0057): one key for the whole
 /// song today, or none. Changes of key later replace this type without touching its users, as
 /// tempo changes will the TempoMap; so ask for the key at a time.
 struct KeyMap

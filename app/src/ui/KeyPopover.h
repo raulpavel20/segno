@@ -6,7 +6,7 @@
 
 namespace fd::app
 {
-/// The Key popover (docs/design/key-and-scale.md §6, ADR 0056): the song's key, chosen with the
+/// The Key popover (docs/design/key-and-scale.md §6, ADR 0057): the song's key, chosen with the
 /// mouse. The root on one octave of keys, the scale from a searchable list under its groups
 /// (hovering one previews its notes), and the keys found from the song's notes. Everything it
 /// changes while open is one undo step (Session::KeyChoice).

@@ -24,7 +24,7 @@ struct AudioBusView
     [[nodiscard]] float* channel(int c) const noexcept { return channels[c]; }
 };
 
-/// The song's key (docs/design/key-and-scale.md §9, ADR 0056): its root and its notes as pitch
+/// The song's key (docs/design/key-and-scale.md §9, ADR 0057): its root and its notes as pitch
 /// classes. A host without one (any plugin host today, or a song with no key) leaves it unknown.
 struct KeyInfo
 {
@@ -49,7 +49,7 @@ struct TransportInfo
     int timeSigNumerator = 4;
     int timeSigDenominator = 4;
     bool playing = false;
-    /// The song's key at the block's start (added 2026-10-14, ADR 0056).
+    /// The song's key at the block's start (added 2026-10-14, ADR 0057).
     KeyInfo key;
 };
 

@@ -877,7 +877,7 @@ public:
     /// its place. One undo step, "Paste section <name>".
     SectionPaste pasteSections(const SectionClipboard& clipboard, double at);
 
-    // ---- the song's key (M3 P3, ADR 0056, docs/design/key-and-scale.md) ----------------------
+    // ---- the song's key (M3 P3, ADR 0057, docs/design/key-and-scale.md) ----------------------
 
     /// The song's key: one for the whole song, or none (std::nullopt). One undo step, "Set key to
     /// A minor" or "Remove the key"; nothing when it's already so. False for a scale this build

@@ -10,7 +10,7 @@ namespace fd::engine
 {
 namespace te = tracktion;
 
-/// The song's key in an Edit (docs/design/key-and-scale.md §15, ADR 0056). It lives in tracktion's
+/// The song's key in an Edit (docs/design/key-and-scale.md §15, ADR 0057). It lives in tracktion's
 /// pitch sequence: the first setting's pitch holds the root, and our scale ID is a property of
 /// ours beside it ("segnoScale"); without that property the song has no key. tracktion's own scale
 /// and sharps fields follow, nearest match, so its features (and ARA's key signatures) agree.

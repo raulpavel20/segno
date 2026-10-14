@@ -65,7 +65,7 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0054](0054-push-2-support.md) | Ableton Push 2 is supported in the DAW, display included, as a client of the Session like the assistants; no clip launching; other controllers through MIDI learn; revisits the vision's non-goal | Proposed |
 | [0055](0055-factory-content-is-files-in-a-read-only-library.md) | What ships besides the modules is files in a read-only, versioned Library, a place of its own in the browser before the User library; `library:` paths; found in standard places, Settings or `SEGNO_LIBRARY` | Accepted |
 | [0056](0056-racks-are-modules-of-modules.md) | A rack is a module of modules: chains side by side, eight macros mapped with ranges and curves, no nesting; saved as `.segnorack` files apart from module presets; a DAW feature on tracktion's racks | Proposed |
-| [0056](0056-the-song-has-one-key.md) | The song has one key (a root and one of 36 scales, or none), set in the top bar; it describes and never changes anything by itself; modules see it through `TransportInfo::key`; shared theory in `libs/music`; changes along the song later, on the song row | Accepted |
+| [0057](0057-the-song-has-one-key.md) | The song has one key (a root and one of 36 scales, or none), set in the top bar; it describes and never changes anything by itself; modules see it through `TransportInfo::key`; shared theory in `libs/music`; changes along the song later, on the song row | Accepted |
 
 ## Template
 

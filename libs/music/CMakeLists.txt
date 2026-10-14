@@ -1,4 +1,4 @@
-# JUCE-free music theory shared by the DAW, the Push support and devices (ADR 0056): the scale
+# JUCE-free music theory shared by the DAW, the Push support and devices (ADR 0057): the scale
 # catalogue, keys and their spelling, and finding a key from notes.
 add_library(fd_music STATIC src/Scales.cpp src/Key.cpp src/Detect.cpp)
 add_library(fd::music ALIAS fd_music)

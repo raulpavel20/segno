@@ -2,7 +2,7 @@
 
 namespace fd::ui
 {
-/// One octave of keys, C to B: the Key popover's root (key-and-scale.md §6, ADR 0056). A piano's
+/// One octave of keys, C to B: the Key popover's root (key-and-scale.md §6, ADR 0057). A piano's
 /// shape at the shell's key sizes (`shell.octaveKey…`): the root filled in `active`, the set's
 /// notes named on their keys as the key spells them (a dot where no name is given), a hovered key
 /// under the hover wash. A click on a key calls onKey with its pitch class (0 = C … 11 = B).

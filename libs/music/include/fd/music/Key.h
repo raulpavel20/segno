@@ -9,7 +9,7 @@
 
 namespace fd::music
 {
-/// A key: a root and a scale of the catalogue (docs/design/key-and-scale.md §4, ADR 0056).
+/// A key: a root and a scale of the catalogue (docs/design/key-and-scale.md §4, ADR 0057).
 /// "No key" is the absence of one (std::optional<Key>).
 struct Key
 {

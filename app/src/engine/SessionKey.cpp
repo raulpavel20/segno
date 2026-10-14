@@ -1,4 +1,4 @@
-// The song's key (M3 P3, ADR 0056, docs/design/key-and-scale.md): stored in the edit's pitch
+// The song's key (M3 P3, ADR 0057, docs/design/key-and-scale.md): stored in the edit's pitch
 // sequence (SongKey.h), one undo step per change, or one for a Key popover's whole choice.
 
 #include "engine/SessionImpl.h"
