@@ -779,8 +779,8 @@ NoteEdit mirrorPitches(const std::vector<Note>& notes, const std::set<std::size_
     return apply(notes, t, changed);
 }
 
-std::vector<Note> lineVelocity(const std::vector<Note>& notes, double beat0, float velocity0, double beat1,
-                               float velocity1, const std::set<std::size_t>* only)
+std::vector<Note> lineLevel(const std::vector<Note>& notes, double beat0, float value0, double beat1,
+                            float value1, const std::set<std::size_t>* only, NoteLevel level)
 {
     const double lo = std::min(beat0, beat1), hi = std::max(beat0, beat1);
     auto out = notes;
@@ -789,8 +789,7 @@ std::vector<Note> lineVelocity(const std::vector<Note>& notes, double beat0, flo
         if ((only != nullptr && !only->contains(i)) || out[i].start < lo - kEps || out[i].start > hi + kEps)
             continue;
         const double along = hi - lo <= kEps ? 1.0 : (out[i].start - beat0) / (beat1 - beat0);
-        const auto v = static_cast<float>(velocity0 + (velocity1 - velocity0) * along);
-        out[i].velocity = midiVelocity(std::clamp(v, 1.0f / 127.0f, 1.0f));
+        setLevel(out[i], level, static_cast<float>(value0 + (value1 - value0) * along));
     }
     return out;
 }
@@ -856,6 +855,13 @@ double fieldOf(const Note& note, NoteField field) noexcept
         return note.start;
     case NoteField::Length:
         return note.length;
+    case NoteField::Spread:
+        return std::round(note.velocitySpread * 127.0f);
+    case NoteField::Release:
+        return std::round(note.releaseVelocity * 127.0f);
+    case NoteField::Chance:
+        return std::round(note.chance * 100.0f);
+    case NoteField::Velocity:
     default:
         return std::round(note.velocity * 127.0f);
     }
@@ -892,6 +898,15 @@ Note withField(Note n, NoteField field, double value)
         break;
     case NoteField::Velocity:
         n.velocity = static_cast<float>(std::clamp(std::round(value), 1.0, 127.0) / 127.0);
+        break;
+    case NoteField::Spread:
+        n.velocitySpread = static_cast<float>(std::clamp(std::round(value), 0.0, 127.0) / 127.0);
+        break;
+    case NoteField::Release:
+        n.releaseVelocity = static_cast<float>(std::clamp(std::round(value), 0.0, 127.0) / 127.0);
+        break;
+    case NoteField::Chance:
+        n.chance = static_cast<float>(std::clamp(std::round(value), 0.0, 100.0) / 100.0);
         break;
     }
     return n;
@@ -933,6 +948,13 @@ NoteEdit offsetNotesField(const std::vector<Note>& notes, const std::set<std::si
         break;
     case NoteField::Velocity:
         delta = std::clamp(delta, 1.0 - range->first, 127.0 - range->second);
+        break;
+    case NoteField::Spread:
+    case NoteField::Release:
+        delta = std::clamp(delta, -range->first, 127.0 - range->second);
+        break;
+    case NoteField::Chance:
+        delta = std::clamp(delta, -range->first, 100.0 - range->second);
         break;
     }
     Targets t;

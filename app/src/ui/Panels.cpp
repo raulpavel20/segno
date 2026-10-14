@@ -816,15 +816,19 @@ void InspectorPanel::wireNotes()
 {
     using F = model::NoteField;
     for (auto [field, kind] : {std::pair{&notePitch_, F::Pitch}, std::pair{&noteStart_, F::Start},
-                               std::pair{&noteLength_, F::Length}, std::pair{&noteVelocity_, F::Velocity}})
+                               std::pair{&noteLength_, F::Length}, std::pair{&noteVelocity_, F::Velocity},
+                               std::pair{&noteSpread_, F::Spread}, std::pair{&noteRelease_, F::Release},
+                               std::pair{&noteChance_, F::Chance}})
     {
+        // MIDI values in whole steps; chance in whole percent; times free.
+        const bool midi = kind == F::Pitch || kind == F::Velocity || kind == F::Spread || kind == F::Release;
         field->setFontSize(ui::Theme::current().textXs);
-        field->setRange(kind == F::Pitch      ? 0.0
-                        : kind == F::Velocity ? 1.0
-                                              : 0.0,
-                        kind == F::Pitch || kind == F::Velocity ? 127.0 : 4096.0 * 4.0,
-                        kind == F::Pitch || kind == F::Velocity ? 1.0 : 0.0);
-        field->setDragSensitivity(kind == F::Pitch ? 0.2 : kind == F::Velocity ? 0.5 : 1.0 / 16.0);
+        field->setRange(kind == F::Velocity ? 1.0 : 0.0,
+                        midi                ? 127.0
+                        : kind == F::Chance ? 100.0
+                                            : 4096.0 * 4.0,
+                        midi || kind == F::Chance ? 1.0 : 0.0);
+        field->setDragSensitivity(kind == F::Pitch ? 0.2 : midi || kind == F::Chance ? 0.5 : 1.0 / 16.0);
         field->textFromValue = [this, kind](double v)
         {
             const auto one = [this, kind](double value) -> juce::String
@@ -842,7 +846,12 @@ void InspectorPanel::wireNotes()
                         model::positionText(roll_ != nullptr ? roll_->songBeat(value) : value, tempo_));
                 case F::Length:
                     return juce::String(model::lengthText(value, tempo_));
+                case F::Chance:
+                    return juce::String(juce::roundToInt(value)) + " %";
+                case F::Spread:
+                    return juce::String::fromUTF8("± ") + juce::String(juce::roundToInt(value));
                 case F::Velocity:
+                case F::Release:
                     break;
                 }
                 return juce::String(juce::roundToInt(value));
@@ -865,10 +874,16 @@ void InspectorPanel::wireNotes()
             case F::Length:
                 return model::lengthFromText(text.trim().toLowerCase().toStdString(), tempo_);
             case F::Velocity:
+            case F::Spread:
+            case F::Release:
+            case F::Chance:
                 break;
             }
-            if (text.trim().containsOnly("0123456789") && text.trim().isNotEmpty())
-                return text.trim().getDoubleValue();
+            // A number, as it's shown ("50 %", "± 10") or bare.
+            const auto number =
+                text.trim().trimCharactersAtEnd("% ").trimCharactersAtStart(juce::String::fromUTF8("± +"));
+            if (number.containsOnly("0123456789") && number.isNotEmpty())
+                return number.getDoubleValue();
             return std::nullopt;
         };
         field->onGestureStart = [this, field]
@@ -902,6 +917,11 @@ void InspectorPanel::wireNotes()
     noteStart_.setTooltip("Where the notes start: drag, or type \"2.1.1\"; several move together");
     noteLength_.setTooltip("How long the notes last: drag, or type \"1/8\" or \"1 beat\"");
     noteVelocity_.setTooltip("How hard the notes are played, 1 to 127: drag, or type a number");
+    noteSpread_.setTooltip("How far the notes' velocity may move up or down each time they play, 0 to 127");
+    noteRelease_.setTooltip("How fast the notes are let go (their note-off velocity), 0 to 127: some "
+                            "instruments use it");
+    noteChance_.setTooltip("How likely the notes are to play each time they come round, in percent; "
+                           "Notes > Re-roll chance decides again");
     noteMute_.setClickingTogglesState(false);
     noteMute_.setTooltip("Mute the notes: they stay, drawn hollow, and don't play (0)");
     noteMute_.onClick = [this]
@@ -927,6 +947,12 @@ ui::NumberField& InspectorPanel::noteField(model::NoteField field) noexcept
         return noteStart_;
     case model::NoteField::Length:
         return noteLength_;
+    case model::NoteField::Spread:
+        return noteSpread_;
+    case model::NoteField::Release:
+        return noteRelease_;
+    case model::NoteField::Chance:
+        return noteChance_;
     case model::NoteField::Velocity:
         break;
     }
@@ -968,13 +994,15 @@ void InspectorPanel::updateNotes()
         const auto clip = std::find(sections_.begin(), sections_.end(), S::Clip);
         sections_.insert(clip == sections_.end() ? sections_.begin() : clip + 1, S::Notes);
     }
-    for (auto* c : std::initializer_list<juce::Component*>{&notePitch_, &noteStart_, &noteLength_,
-                                                           &noteVelocity_, &noteMute_})
+    for (auto* c :
+         std::initializer_list<juce::Component*>{&notePitch_, &noteStart_, &noteLength_, &noteVelocity_,
+                                                 &noteSpread_, &noteRelease_, &noteChance_, &noteMute_})
         c->setVisible(shown);
     if (!shown || notesGesture_)
         return;
     for (auto field : {model::NoteField::Pitch, model::NoteField::Start, model::NoteField::Length,
-                       model::NoteField::Velocity})
+                       model::NoteField::Velocity, model::NoteField::Spread, model::NoteField::Release,
+                       model::NoteField::Chance})
         if (const auto range = model::fieldRange(roll_->notes(), roll_->selection(), field))
         {
             notesSpread_[field] = range->second - range->first;
@@ -1334,11 +1362,10 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
         return {{"Selected", juce::String(sectionCount_), true}};
     case S::Clips: return {{"Selected", juce::String(clipCount_), true}};
     case S::Notes: // the fields, the mute (piano-roll.md §9.6)
-        return {{"Pitch", {}, false, "pitch"},
-                {"Start", {}, false, "start"},
-                {"Length", {}, false, "length"},
-                {"Velocity", {}, false, "velocity"},
-                {"Mute", {}, false, "mute"}};
+        return {{"Pitch", {}, false, "pitch"},   {"Start", {}, false, "start"},
+                {"Length", {}, false, "length"}, {"Velocity", {}, false, "velocity"},
+                {"Spread", {}, false, "spread"}, {"Release", {}, false, "release"},
+                {"Chance", {}, false, "chance"}, {"Mute", {}, false, "mute"}};
     case S::Takes: return {{"Selected", juce::String(takeCount_), true}};
     case S::Track:
         if (!channel_)
@@ -1487,7 +1514,10 @@ int InspectorPanel::layoutSections(int width)
             noteStart_.setBounds(field(1));
             noteLength_.setBounds(field(2));
             noteVelocity_.setBounds(field(3));
-            noteMute_.setBounds(row(4)
+            noteSpread_.setBounds(field(4));
+            noteRelease_.setBounds(field(5));
+            noteChance_.setBounds(field(6));
+            noteMute_.setBounds(row(7)
                                     .withWidth(ui::Toggle::widthFor(noteMute_.getButtonText()))
                                     .reduced(0, t.shell.propertyFieldInset));
         }
@@ -1599,6 +1629,9 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
     inKey_.onClick = [this] { roll_.setInKey(!roll_.inKey()); };
     others_.setClickingTogglesState(false);
     others_.onClick = [this] { roll_.setOthers(!roll_.options().others); };
+    // Right-click: which tracks, one by one (§8); also View > Other tracks' notes.
+    others_.onPopupMenu = [this]
+    { roll_.othersMenu().showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&others_)); };
     for (auto* option : {&draw_, &drawVoicing_})
         option->setVisible(false);
     drawKind_.setVisible(false);

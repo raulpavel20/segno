@@ -266,10 +266,12 @@ Clip ▸ Notes ▸ moved to the Notes menu (M3 P4).
 | Reverse | | |
 | Mirror pitches | | |
 | — | | |
+| Re-roll chance | | The clip's notes left to chance decided again (a new seed, [piano-roll.md](piano-roll.md) §10); dimmed, saying why, while no note is |
+| — | | |
 | Select ▸ | | Select same pitch, Select outside the key, Select in the loop, Invert selection |
 | Nudge later / earlier | → / ← | They nudge lane points too, as before |
 
-Transform ▸, Generate ▸ and Re-roll chance join it with P4b and P4c. Clip ▸ Mute clips (0) reads "Mute notes" and mutes them while the clip view was used last; Edit ▸ Split at playhead (Ctrl+E) splits the notes crossing it then.
+Transform ▸ and Generate ▸ join it with P4c. Clip ▸ Mute clips (0) reads "Mute notes" and mutes them while the clip view was used last; Edit ▸ Split at playhead (Ctrl+E) splits the notes crossing it then.
 
 **Song** (added with the song's sections, M3 C3; the song's key first, M3 P3, [ADR 0057](../decisions/0057-the-song-has-one-key.md); [ADR 0049](../decisions/0049-the-master-row-is-the-song-row.md), [arranger.md](arranger.md) §12; Alt+G since M3 P4 gave Notes the N; Alt+S solos)
 
@@ -355,6 +357,8 @@ Transform ▸, Generate ▸ and Re-roll chance join it with P4b and P4c. Clip �
 | Next module page | Ctrl+Alt+Page Down | For a module with pages ([ADR 0051](../decisions/0051-pages-for-very-wide-modules.md)); dimmed for others. With the Wavetable Synth (M3 P1) |
 | Previous module page | Ctrl+Alt+Page Up | As above |
 | — | | |
+| Other tracks' notes ▸ | | Show other tracks' notes (the clip view's Others, [piano-roll.md](piano-roll.md) §8); — ; each other track with notes, ticked while it's shown (M3 P4b; also the Others option's right-click) |
+| Clip view lane ▸ | | Velocity, Chance, Release velocity; the controllers (the clip's and the usual ones); Other controller ▸ (CC 0–127): what the clip view's bottom lane shows (§11, M3 P4b; also its head's menu) |
 | Show only the key's notes | Ctrl+Alt+N | The clip view's In key (M3 P4, [piano-roll.md](piano-roll.md) §6, §21): only the key's rows, else the whole roll; ticked while it shows the key's rows; dimmed without a song key |
 | Show other tracks' notes | | The clip view's Others (§8) |
 | Draw ▸ | | Draw note, Draw chord, Draw chord under: the clip view's Draw (§7.2); — ; Draw triads, Draw 7th chords, Draw 9th chords, Draw sus2, sus4, add9 chords; — ; Voiced smooth, close, open, drop 2, drop 3, spread: the kind and voicing chords are drawn with (§20.2) |

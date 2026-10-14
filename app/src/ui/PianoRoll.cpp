@@ -35,6 +35,12 @@ PianoRoll::PianoRoll(engine::Session& session) : session_(session)
 {
     syncGrid();
     setWantsKeyboardFocus(false);
+    // The bottom lane's head (§11): what it shows, and its menu.
+    laneChoice_.setValue(model::bottomLaneLabel(options_.lane));
+    laneChoice_.setTooltip("What the lane shows: velocity, chance, release velocity or a controller. "
+                           "Click to choose");
+    laneChoice_.onClick = [this] { laneChoice_.showMenu(laneMenu()); };
+    addChildComponent(laneChoice_);
 }
 
 void PianoRoll::setGrid(const model::GridSettings& grid)
@@ -88,12 +94,25 @@ void PianoRoll::setOptions(const model::PianoRollOptions& options)
     if (options == options_)
         return;
     const bool rows = options.wholeRoll != options_.wholeRoll;
-    const bool others = options.others != options_.others;
+    const bool others = options.others != options_.others || options.othersHidden != options_.othersHidden;
+    const bool lane = options.lane != options_.lane;
     options_ = options;
     if (rows)
         updateRows();
     if (others)
         updateGhosts();
+    if (lane)
+    {
+        // Another lane: its points, nothing of the last one selected.
+        points_.clear();
+        lanePreview_.reset();
+        laneKept_.reset();
+        hoveredPoint_.reset();
+        updateLanePoints();
+        laneChoice_.setValue(model::bottomLaneLabel(options_.lane));
+        laneChoice_.setTooltip(juce::String::fromUTF8(model::bottomLaneName(options_.lane).c_str()) +
+                               juce::String::fromUTF8(": what the lane shows. Click to choose another"));
+    }
     optionsChanged();
 }
 
@@ -119,6 +138,178 @@ void PianoRoll::setOthers(bool on)
     auto o = options_;
     o.others = on;
     setOptions(o);
+}
+
+void PianoRoll::setOthersHidden(std::uint64_t track, bool hidden)
+{
+    auto o = options_;
+    if (hidden)
+        o.othersHidden.insert(track);
+    else
+        o.othersHidden.erase(track);
+    setOptions(o);
+}
+
+juce::PopupMenu PianoRoll::othersMenu()
+{
+    // The other tracks that have notes (§8), each ticked while it's shown.
+    juce::PopupMenu menu;
+    const juce::Component::SafePointer<PianoRoll> safe(this);
+    const auto snapshot = session_.snapshot();
+    for (const auto& track : snapshot->tracks)
+    {
+        const bool own = clip_ && std::any_of(track.clips.begin(), track.clips.end(),
+                                              [this](const auto& c) { return c.id == clip_->id; });
+        const bool notes = std::any_of(track.clips.begin(), track.clips.end(), [](const auto& c)
+                                       { return c.kind == model::ClipInfo::Kind::Midi && !c.notes.empty(); });
+        if (own || !notes)
+            continue;
+        const bool shown = !options_.othersHidden.contains(track.id);
+        menu.addItem(juce::PopupMenu::Item(juce::String::fromUTF8(track.name.c_str()))
+                         .setTicked(shown)
+                         .setEnabled(options_.others)
+                         .setAction(
+                             [safe, id = track.id, shown]
+                             {
+                                 if (safe != nullptr)
+                                     safe->setOthersHidden(id, shown);
+                             }));
+    }
+    if (menu.getNumItems() == 0)
+        menu.addItem(juce::PopupMenu::Item("No other track has notes").setEnabled(false));
+    return menu;
+}
+
+void PianoRoll::setLane(const model::BottomLane& lane)
+{
+    auto o = options_;
+    o.lane = lane;
+    setOptions(o);
+}
+
+juce::PopupMenu PianoRoll::laneMenu()
+{
+    juce::PopupMenu menu;
+    const juce::Component::SafePointer<PianoRoll> safe(this);
+    using K = model::BottomLane::Kind;
+    const auto item = [&](juce::PopupMenu& to, const model::BottomLane& lane, juce::String name)
+    {
+        to.addItem(juce::PopupMenu::Item(std::move(name))
+                       .setTicked(options_.lane.kind == lane.kind &&
+                                  (lane.kind != K::Controller || options_.lane.controller == lane.controller))
+                       .setAction(
+                           [safe, lane]
+                           {
+                               if (safe != nullptr)
+                                   safe->setLane(lane);
+                           }));
+    };
+    const auto named = [](const model::BottomLane& lane)
+    { return juce::String::fromUTF8(model::bottomLaneName(lane).c_str()); };
+    for (const auto kind : {K::Velocity, K::Chance, K::Release})
+        item(menu, {.kind = kind}, named({.kind = kind}));
+    // The controllers: the clip's, then the usual ones it hasn't, then any other.
+    menu.addSectionHeader("Controllers");
+    std::vector<int> shown;
+    if (clip_)
+        for (const auto& lane : clip_->controllers)
+            shown.push_back(lane.controller);
+    for (int c : model::commonControllers())
+        if (std::find(shown.begin(), shown.end(), c) == shown.end())
+            shown.push_back(c);
+    if (showsController() && std::find(shown.begin(), shown.end(), options_.lane.controller) == shown.end())
+        shown.push_back(options_.lane.controller);
+    for (int c : shown)
+        item(menu, {.kind = K::Controller, .controller = c}, named({.kind = K::Controller, .controller = c}));
+    juce::PopupMenu other;
+    for (int first = 0; first < 128; first += 16)
+    {
+        juce::PopupMenu group;
+        for (int c = first; c < first + 16; ++c)
+        {
+            const auto name = model::controllerName(c);
+            item(group, {.kind = K::Controller, .controller = c},
+                 name.rfind("CC ", 0) == 0 ? juce::String(name)
+                                           : "CC " + juce::String(c) + juce::String::fromUTF8(" · ") + name);
+        }
+        other.addSubMenu("CC " + juce::String(first) + juce::String::fromUTF8("–") + juce::String(first + 15),
+                         group);
+    }
+    menu.addSubMenu("Other controller", other);
+    return menu;
+}
+
+model::ControllerLane PianoRoll::controllerLane() const
+{
+    model::ControllerLane out{.controller = options_.lane.controller};
+    if (clip_ && showsController())
+        for (const auto& lane : clip_->controllers)
+            if (lane.controller == options_.lane.controller)
+                out.points = lane.points;
+    return out;
+}
+
+void PianoRoll::rerollChance()
+{
+    if (clip_)
+        session_.rerollChance(clip_->id);
+}
+
+model::NoteLevel PianoRoll::laneLevel() const noexcept
+{
+    return options_.lane.level().value_or(model::NoteLevel::Velocity);
+}
+
+void PianoRoll::updateLanePoints()
+{
+    lanePoints_.clear();
+    for (auto p : controllerLane().points)
+    {
+        p.time = secondsForBeat(p.time);
+        lanePoints_.push_back(p);
+    }
+}
+
+LaneGeometry PianoRoll::laneGeometry() const
+{
+    return {.area = velocityArea().toFloat(),
+            .laneX0 = static_cast<float>(gridArea().getX()),
+            .timeline = &timeline_};
+}
+
+LaneGesture::Lane PianoRoll::gestureLane() const
+{
+    // The last edit kept, until the snapshot has it: a gesture right after another builds on it.
+    return {.points = laneKept_ ? &laneKept_->points : &lanePoints_,
+            .rules = model::controllerRules(options_.lane.controller),
+            .geometry = laneGeometry(),
+            .selection = points_,
+            .snap = [this](double seconds, bool free)
+            { return secondsForBeat(std::max(0.0, beatGrid(free).round(beatForSeconds(seconds)))); },
+            .drawName = "Draw controller"};
+}
+
+juce::Point<float> PianoRoll::lanePointFor(double beat, float value) const
+{
+    const auto geo = laneGeometry();
+    return {geo.x(secondsForBeat(beat)), geo.y(value)};
+}
+
+void PianoRoll::keepLane(const model::PointEdit& edit, const std::string& undoName)
+{
+    if (!clip_)
+        return;
+    model::ControllerLane lane{.controller = options_.lane.controller};
+    for (auto p : edit.points)
+    {
+        p.time = beatForSeconds(p.time);
+        lane.points.push_back(p);
+    }
+    lanePreview_.reset();
+    laneKept_ = edit; // until the snapshot has it
+    points_ = edit.selection;
+    session_.setControllers(clip_->id, {lane}, undoName);
+    repaint();
 }
 
 void PianoRoll::setDraw(model::DrawMode mode)
@@ -365,6 +556,11 @@ void PianoRoll::fitToClip()
 
 void PianoRoll::resized()
 {
+    {
+        const auto& s = ui::Theme::current().shell;
+        laneChoice_.setBounds(
+            getLocalBounds().removeFromBottom(s.velocityHeight).removeFromLeft(s.keyboardWidth));
+    }
     // Keep the pitch in the middle where it is when the height changes.
     const double height = gridArea().getHeight();
     if (lastGridHeight_ > 0.0 && height > 0.0)
@@ -407,6 +603,11 @@ void PianoRoll::setClip(std::optional<model::ClipInfo> clip, const model::TempoM
         notesChanged();
         updateGhosts();
         syncGrid(); // no clip: no step to report
+        points_.clear();
+        lanePoints_.clear();
+        lanePreview_.reset();
+        laneKept_.reset();
+        laneChoice_.setVisible(false);
         repaint();
         return;
     }
@@ -445,7 +646,13 @@ void PianoRoll::setClip(std::optional<model::ClipInfo> clip, const model::TempoM
         notesChanged();
         needsFit_ = true;
         fitToClip();
+        points_.clear(); // another clip's lanes
     }
+    // Its controller lane as the snapshot has it now (a gesture's preview until then).
+    updateLanePoints();
+    laneKept_.reset();
+    std::erase_if(points_, [this](auto i) { return i >= lanePoints_.size(); });
+    laneChoice_.setVisible(true);
     updateGhosts();
     repaint();
 }
@@ -522,6 +729,8 @@ void PianoRoll::updateGhosts()
         if (std::any_of(track.clips.begin(), track.clips.end(),
                         [this](const auto& c) { return c.id == clip_->id; }))
             continue; // the clip's own track
+        if (options_.othersHidden.contains(track.id))
+            continue; // left out (§8)
         for (const auto& c : track.clips)
         {
             if (c.kind != model::ClipInfo::Kind::Midi || c.muted)
@@ -609,6 +818,12 @@ void PianoRoll::applyEdit(model::NoteEdit edit)
 
 void PianoRoll::deleteSelection()
 {
+    // The controller lane's points when it was used last (§11), else the notes.
+    if (clip_ && hasPointSelection())
+    {
+        keepLane(model::deletePoints(lanePoints_, points_), "Delete points");
+        return;
+    }
     if (clip_ && !selection_.empty())
         commit(model::deleteNotes(notes_, selection_));
 }
@@ -1065,6 +1280,7 @@ void PianoRoll::paintNotes(juce::Graphics& g)
     const double clipStart = beatForSeconds(playedRange().first), clipEnd = beatForSeconds(playedRange().second);
     const bool labels = rowHeight_ >= 10.0;
     g.setFont(ui::font(ui::TextStyle::Micro));
+    const float microHeight = ui::font(ui::TextStyle::Micro).getHeight();
 
     for (int pass = 0; pass < 2; ++pass) // selected notes on top
         for (std::size_t i = 0; i < notes.size(); ++i)
@@ -1096,15 +1312,35 @@ void PianoRoll::paintNotes(juce::Graphics& g)
                 g.setColour(fill);
                 g.fillRoundedRectangle(r, 2.0f);
             }
+            // Chance (§10): a bar along its top, as long as its chance, where the note's name leaves room
+            // for it (a narrow note, or rows tall enough for both); a named note writes its percentage.
+            const bool chancy = n.chance < 1.0f && !n.muted && r.getHeight() >= 6.0f;
+            const bool named = labels && r.getWidth() > 30.0f;
+            constexpr float bar = 2.0f;
+            const bool roomy = r.getHeight() >= microHeight + 2.0f * bar + 2.0f; // the bar, a gap, the name
+            if (chancy && (!named || roomy))
+            {
+                g.setColour(t.roles.onClip);
+                g.fillRect(r.withHeight(bar).withWidth(r.getWidth() * n.chance).translated(0.0f, 1.0f));
+            }
             if (selected)
             {
                 g.setColour(t.textPrimary);
                 g.drawRoundedRectangle(r.reduced(0.5f), 2.0f, 1.0f);
             }
-            if (labels && r.getWidth() > 30.0f)
+            if (named)
             {
+                const auto name = noteName(n.pitch);
+                const auto text = chancy && roomy ? r.reduced(4.0f, 0.0f).withTrimmedTop(1.0f + bar)
+                                                  : r.reduced(4.0f, 0.0f);
                 g.setColour(n.muted ? fill : t.roles.onClip);
-                g.drawText(noteName(n.pitch), r.reduced(4.0f, 0.0f), juce::Justification::centredLeft, false);
+                g.drawText(name, text, juce::Justification::centredLeft, false);
+                const auto percent = juce::String(juce::roundToInt(n.chance * 100.0f)) + "%";
+                const auto micro = ui::TextStyle::Micro;
+                if (chancy &&
+                    r.getWidth() >
+                        static_cast<float>(nameWidth(name, micro) + nameWidth(percent, micro)) + 12.0f)
+                    g.drawText(percent, text, juce::Justification::centredRight, false);
             }
         }
 
@@ -1114,6 +1350,8 @@ void PianoRoll::paintNotes(juce::Graphics& g)
 
 void PianoRoll::paintVelocities(juce::Graphics& g)
 {
+    // The bottom lane (§11): each note's level as a stem (velocity, chance or release velocity), or
+    // a controller's lane, drawn as automation lanes are.
     const auto& t = ui::Theme::current();
     const auto area = velocityArea();
     g.setColour(t.line);
@@ -1124,23 +1362,39 @@ void PianoRoll::paintVelocities(juce::Graphics& g)
     juce::Graphics::ScopedSaveState saved(g);
     g.reduceClipRegion(area);
     time::paintGrid(g, lines_, timeline_, area, false);
+    if (showsController())
+    {
+        paintControllerLane(g);
+        return;
+    }
 
+    const auto level = laneLevel();
     const auto geo = geometry();
     const auto inner = area.reduced(0, 5).toFloat();
     const auto& notes = shownNotes();
     const auto& selection = shownSelection();
     const auto colour = t.clipColour(clip_->colour);
+    const auto yOf = [&inner](float v)
+    { return inner.getBottom() - std::clamp(v, 0.0f, 1.0f) * inner.getHeight(); };
     for (int pass = 0; pass < 2; ++pass)
         for (std::size_t i = 0; i < notes.size(); ++i)
         {
             const bool selected = selection.contains(i);
             if (selected != (pass == 1))
                 continue;
-            const float x = static_cast<float>(area.getX() + geo.xForBeat(notes[i].start));
+            const auto& n = notes[i];
+            const float x = static_cast<float>(area.getX() + geo.xForBeat(n.start));
             if (x < static_cast<float>(area.getX()) - 4.0f || x > static_cast<float>(area.getRight()) + 4.0f)
                 continue;
-            const float top = inner.getBottom() - notes[i].velocity * inner.getHeight();
-            g.setColour(selected ? t.textPrimary : t.noteFill(colour, notes[i].velocity, false));
+            // Velocity spread (§10): the range it plays in, behind the stem.
+            if (level == model::NoteLevel::Velocity && n.velocitySpread > 0.0f)
+            {
+                g.setColour(t.ghost(colour));
+                const float hi = yOf(n.velocity + n.velocitySpread), lo = yOf(n.velocity - n.velocitySpread);
+                g.fillRect(x - 2.0f, hi, 5.0f, lo - hi);
+            }
+            const float top = yOf(model::levelOf(n, level));
+            g.setColour(selected ? t.textPrimary : t.noteFill(colour, n.velocity, false));
             g.fillRect(x, top, 1.0f, inner.getBottom() - top);
             g.fillRect(x - 2.0f, top - 1.0f, 5.0f, 3.0f);
         }
@@ -1166,12 +1420,35 @@ void PianoRoll::paintVelocities(juce::Graphics& g)
             }
         if (nearest)
         {
+            const float v = model::levelOf(notes[*nearest], level);
+            const auto text = level == model::NoteLevel::Chance
+                                  ? "Chance " + juce::String(juce::roundToInt(v * 100.0f)) + " %"
+                              : level == model::NoteLevel::Release
+                                  ? "Release " + juce::String(juce::roundToInt(v * 127.0f))
+                                  : "Velocity " + juce::String(juce::roundToInt(v * 127.0f));
             g.setColour(t.textSecondary);
             g.setFont(ui::font(ui::TextStyle::Value));
-            g.drawText("Velocity " + juce::String(juce::roundToInt(notes[*nearest].velocity * 127.0f)),
-                       area.reduced(6, 2).removeFromTop(14), juce::Justification::topRight, false);
+            g.drawText(text, area.reduced(6, 2).removeFromTop(14), juce::Justification::topRight, false);
         }
     }
+}
+
+void PianoRoll::paintControllerLane(juce::Graphics& g)
+{
+    const auto& t = ui::Theme::current();
+    const auto controller = options_.lane.controller;
+    LanePaint paint{.points = lanePreview_ ? &lanePreview_->points
+                              : laneKept_  ? &laneKept_->points
+                                           : &lanePoints_,
+                    .selected = points_,
+                    .hovered = hoveredPoint_,
+                    .on = true,
+                    .colour = t.clipColour(clip_->colour),
+                    .current = model::restingValue(controller),
+                    .hint = true};
+    paintAutomationLane(g, laneGeometry(), paint, velocityArea());
+    if (gesture_ == Gesture::Controller && laneGesture_.boxing() && moved_)
+        time::paintBoxSelection(g, juce::Rectangle<float>(dragStart_, lastDrag_));
 }
 
 void PianoRoll::paintKeys(juce::Graphics& g)
@@ -1389,18 +1666,19 @@ void PianoRoll::updateLabels()
     allLabels_ = labelsFor(allSpans_);
 }
 
-int PianoRoll::nameWidth(const juce::String& text) const
+int PianoRoll::nameWidth(const juce::String& text, ui::TextStyle style) const
 {
-    // Measuring is slow (a font's fallback for ♯ and ♭), and a clip's chords repeat: kept by text.
+    // Measuring is slow (a font's fallback for ♯ and ♭), and a clip's chords and notes repeat: kept
+    // by style and text.
     if (text.isEmpty())
         return 0;
-    if (const auto it = widths_.find(text); it != widths_.end())
+    const auto key = juce::String(static_cast<int>(style)) + "|" + text;
+    if (const auto it = widths_.find(key); it != widths_.end())
         return it->second;
-    const int w = static_cast<int>(
-        std::ceil(juce::GlyphArrangement::getStringWidth(ui::font(ui::TextStyle::Name), text)));
+    const int w = static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(ui::font(style), text)));
     if (widths_.size() > 512)
         widths_.clear();
-    widths_.emplace(text, w);
+    widths_.emplace(key, w);
     return w;
 }
 
@@ -1545,6 +1823,22 @@ void PianoRoll::mouseMove(const juce::MouseEvent& e)
             cursor = hit->zone == model::NoteHit::Zone::Body ? juce::MouseCursor::NormalCursor
                                                               : juce::MouseCursor::LeftRightResizeCursor;
     }
+    // A controller lane's points and segments, as an automation lane's (§11).
+    std::optional<size_t> hoveredPoint;
+    if (clip_ && showsController() && velocityArea().contains(pos))
+    {
+        const auto hover = LaneGesture::hover(gestureLane(), e.position);
+        hoveredPoint = hover.point;
+        if (hover.point)
+            cursor = juce::MouseCursor::DraggingHandCursor;
+        else if (hover.segment)
+            cursor = juce::MouseCursor::UpDownResizeCursor;
+    }
+    if (hoveredPoint != hoveredPoint_)
+    {
+        hoveredPoint_ = hoveredPoint;
+        repaint(velocityArea());
+    }
     if (hovered != hoveredSpan_)
     {
         hoveredSpan_ = hovered;
@@ -1555,6 +1849,8 @@ void PianoRoll::mouseMove(const juce::MouseEvent& e)
 
 void PianoRoll::mouseExit(const juce::MouseEvent&)
 {
+    if (std::exchange(hoveredPoint_, std::nullopt))
+        repaint(velocityArea());
     if (hoveredSpan_)
     {
         hoveredSpan_.reset();
@@ -1670,6 +1966,30 @@ void PianoRoll::mouseDown(const juce::MouseEvent& e)
         gesture_ = Gesture::ChordLane; // a drag sets a longer place for a chord
         return;
     }
+    pointsUsed_ = false; // the notes, unless it's the controller lane
+    if (velocityArea().contains(pos) && showsController())
+    {
+        // A controller lane (§11): the automation lanes' gestures.
+        pointsUsed_ = true;
+        gesture_ = Gesture::Controller;
+        const auto out = laneGesture_.press(e, gestureLane());
+        if (out.steps && onMessage)
+            onMessage(juce::String::fromUTF8(model::controllerName(options_.lane.controller).c_str()) +
+                      " is on or off: it holds each value until the next point, so its lane can't curve");
+        if (e.getNumberOfClicks() >= 2 || out.steps)
+        {
+            gesture_ = Gesture::None;
+            if (out.keep)
+                keepLane(*out.keep, out.undoName);
+            return;
+        }
+        if (out.select)
+        {
+            points_ = *out.select;
+            repaint(velocityArea());
+        }
+        return;
+    }
     if (velocityArea().contains(pos))
     {
         base_ = {notes_, selection_};
@@ -1686,8 +2006,9 @@ void PianoRoll::mouseDown(const juce::MouseEvent& e)
         gesture_ = Gesture::Velocity; // draw velocities (of the selection, if any)
         const double tolerance = 4.0 / geo.pixelsPerBeat;
         const double beat = geo.beatForX(local.x);
-        preview_ = model::NoteEdit{model::paintVelocity(notes_, beat - tolerance, beat + tolerance, velocityAtY(e.position.y),
-                                                        selection_.empty() ? nullptr : &selection_),
+        preview_ = model::NoteEdit{model::paintLevel(notes_, beat - tolerance, beat + tolerance,
+                                                     velocityAtY(e.position.y),
+                                                     selection_.empty() ? nullptr : &selection_, laneLevel()),
                                    selection_};
         repaint();
         return;
@@ -1863,16 +2184,17 @@ void PianoRoll::mouseDrag(const juce::MouseEvent& e)
         // Every note start the mouse passed over since the last event.
         const double tolerance = 4.0 / geo.pixelsPerBeat;
         const double from = geo.beatForX(previous.x - static_cast<float>(area.getX())), to = geo.beatForX(local.x);
-        auto notes = model::paintVelocity(preview_ ? preview_->notes : notes_, std::min(from, to) - tolerance,
-                                          std::max(from, to) + tolerance, velocityAtY(e.position.y),
-                                          selection_.empty() ? nullptr : &selection_);
+        auto notes = model::paintLevel(preview_ ? preview_->notes : notes_, std::min(from, to) - tolerance,
+                                       std::max(from, to) + tolerance, velocityAtY(e.position.y),
+                                       selection_.empty() ? nullptr : &selection_, laneLevel());
         preview_ = model::NoteEdit{std::move(notes), selection_};
         break;
     }
     case Gesture::VelocityOffset:
     {
         const float delta = -(e.position.y - dragStart_.y) / static_cast<float>(velocityArea().reduced(0, 5).getHeight());
-        preview_ = model::NoteEdit{model::offsetVelocity(base_.notes, base_.selection, delta), base_.selection};
+        preview_ = model::NoteEdit{model::offsetLevel(base_.notes, base_.selection, delta, laneLevel()),
+                                   base_.selection};
         break;
     }
     case Gesture::VelocityLine:
@@ -1882,10 +2204,19 @@ void PianoRoll::mouseDrag(const juce::MouseEvent& e)
         // The notes under the ends count too, as the pencil's tolerance does.
         b0 += b0 <= b1 ? -tolerance : tolerance;
         b1 += b0 <= b1 ? tolerance : -tolerance;
-        preview_ = model::NoteEdit{model::lineVelocity(base_.notes, b0, velocityAtY(dragStart_.y), b1,
-                                                       velocityAtY(e.position.y),
-                                                       base_.selection.empty() ? nullptr : &base_.selection),
-                                   base_.selection};
+        preview_ = model::NoteEdit{
+            model::lineLevel(base_.notes, b0, velocityAtY(dragStart_.y), b1, velocityAtY(e.position.y),
+                             base_.selection.empty() ? nullptr : &base_.selection, laneLevel()),
+            base_.selection};
+        break;
+    }
+    case Gesture::Controller:
+    {
+        const auto out = laneGesture_.drag(e, dragStart_, gestureLane());
+        if (out.preview)
+            lanePreview_ = *out.preview;
+        if (out.select)
+            points_ = *out.select;
         break;
     }
     case Gesture::TimeHandle:
@@ -1920,6 +2251,22 @@ void PianoRoll::mouseUp(const juce::MouseEvent& e)
         // A loop drawn or changed (Loop on), or a click on the brace switching it (clip-loops.md §6).
         brace_.release(session_, *clip_, contentStartSeconds(), moved_);
         gesture_ = Gesture::None;
+        repaint();
+        return;
+    }
+    if (gesture_ == Gesture::Controller)
+    {
+        // A controller lane's gesture kept, or a click's selection (§11).
+        gesture_ = Gesture::None;
+        const auto out = laneGesture_.release(moved_, gestureLane());
+        if (out.keep)
+            keepLane(*out.keep, out.undoName);
+        else
+        {
+            lanePreview_.reset();
+            if (out.select)
+                points_ = *out.select;
+        }
         repaint();
         return;
     }

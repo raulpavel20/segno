@@ -357,13 +357,13 @@ TEST_CASE("Stretching, reversing and mirroring", "[fast]")
 TEST_CASE("A velocity line", "[fast]")
 {
     const std::vector<Note> notes{note(60, 0.0), note(62, 1.0), note(64, 2.0), note(65, 5.0)};
-    const auto out = lineVelocity(notes, 0.0, 0.0f, 2.0, 1.0f);
+    const auto out = lineLevel(notes, 0.0, 0.0f, 2.0, 1.0f);
     CHECK(out[0].velocity == Approx(1.0f / 127.0f)); // at least the lowest step
     CHECK(out[1].velocity == Approx(64.0f / 127.0f));
     CHECK(out[2].velocity == Approx(1.0f));
     CHECK(out[3].velocity == notes[3].velocity); // past the line
     const std::set<std::size_t> only{1};
-    CHECK(lineVelocity(notes, 0.0, 0.0f, 2.0, 1.0f, &only)[2].velocity == notes[2].velocity);
+    CHECK(lineLevel(notes, 0.0, 0.0f, 2.0, 1.0f, &only)[2].velocity == notes[2].velocity);
 }
 
 TEST_CASE("Muting notes", "[fast]")

@@ -129,7 +129,7 @@ struct ShellMetrics
     int browserIndent = 12;     // a browser row in from its parent (ADR 0046)
     int browserWaveHeight = 32; // the preview strip's waveform
     int toastHeight = 36, toastWidth = 420;
-    int keyboardWidth = 52, velocityHeight = 56;
+    int keyboardWidth = 56, velocityHeight = 56;
     // One octave of keys (ui::OctaveKeys: the Key popover's root, key-and-scale.md §6): a white key's
     // width and height, and a black key's (wide enough for its name, "C♯", clear of its edges).
     int octaveKeyWidth = 28, octaveKeyHeight = 52, octaveBlackKeyWidth = 20, octaveBlackKeyHeight = 32;

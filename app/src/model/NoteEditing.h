@@ -135,14 +135,30 @@ struct NoteDrag
 [[nodiscard]] std::set<std::size_t> notesInBox(const std::vector<Note>& notes, double beat0, double beat1, int pitch0,
                                                int pitch1);
 
-/// Velocity drawing: notes starting within [beat0, beat1] (any order) get `velocity`; with
-/// `only` set, just those notes. The order and selection are unchanged.
-[[nodiscard]] std::vector<Note> paintVelocity(const std::vector<Note>& notes, double beat0, double beat1,
-                                              float velocity, const std::set<std::size_t>* only = nullptr);
+/// What the clip view's bottom lane edits on each note (docs/design/piano-roll.md §11): its
+/// velocity, its chance or its release velocity, each 0..1.
+enum class NoteLevel
+{
+    Velocity,
+    Chance,
+    Release
+};
 
-/// Velocity dragging: the given notes' velocities moved by `delta` (each clamped to 1/127..1).
-[[nodiscard]] std::vector<Note> offsetVelocity(const std::vector<Note>& notes, const std::set<std::size_t>& which,
-                                               float delta);
+/// A note's level, and the note with it set: velocity in MIDI steps and never silent, release
+/// velocity in MIDI steps, chance in whole percent.
+[[nodiscard]] float levelOf(const Note& note, NoteLevel level) noexcept;
+void setLevel(Note& note, NoteLevel level, float value) noexcept;
+
+/// Drawing in the lane: notes starting within [beat0, beat1] (any order) get `value`; with `only`
+/// set, just those notes. The order and selection are unchanged.
+[[nodiscard]] std::vector<Note> paintLevel(const std::vector<Note>& notes, double beat0, double beat1,
+                                           float value, const std::set<std::size_t>* only = nullptr,
+                                           NoteLevel level = NoteLevel::Velocity);
+
+/// Dragging in the lane: the given notes' levels moved by `delta` (each kept in its range).
+[[nodiscard]] std::vector<Note> offsetLevel(const std::vector<Note>& notes,
+                                            const std::set<std::size_t>& which, float delta,
+                                            NoteLevel level = NoteLevel::Velocity);
 
 /// Where a MIDI clip should end so its notes play (open question B15, decided 2026-10-09):
 /// when the last note ends past the clip, the end of the bar it ends in, unless another clip

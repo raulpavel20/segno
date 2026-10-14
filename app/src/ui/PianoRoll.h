@@ -5,6 +5,7 @@
 #include "model/NoteTools.h"
 #include "model/PianoRollOptions.h"
 #include "model/Timeline.h"
+#include "ui/AutomationLane.h"
 #include "ui/ClipLoopBrace.h"
 #include "ui/time/TimeView.h"
 
@@ -55,6 +56,10 @@ public:
     /// off, it's remembered for that clip.
     void setInKey(bool on);
     void setOthers(bool on);
+    /// Others leaves out a track's notes, or shows them again (§8).
+    void setOthersHidden(std::uint64_t track, bool hidden);
+    /// Others' menu: each other track with notes, shown or not (§8).
+    [[nodiscard]] juce::PopupMenu othersMenu();
     void setDraw(model::DrawMode mode);
     void setChordStyle(const model::ChordStyle& style);
     void setQuantiseSettings(const model::QuantiseSettings& settings);
@@ -65,6 +70,29 @@ public:
     /// Shows only the key's rows (§21): the song has a key, and the clip isn't turned to the whole
     /// roll. A row is then a step of the key: drawing lands on it, ↑/↓ move by the key's steps.
     [[nodiscard]] bool inKey() const noexcept;
+    // ---- the bottom lane (§11) -----------------------------------------------------------------
+
+    void setLane(const model::BottomLane& lane);
+    /// The lane's menu: Velocity, Chance, Release velocity, then the controllers (the clip's and the
+    /// usual ones), then any other controller.
+    [[nodiscard]] juce::PopupMenu laneMenu();
+    /// The lane's head, beside it in the keys' column.
+    [[nodiscard]] ui::LaneChoice& laneChoice() noexcept { return laneChoice_; }
+    /// The controller lane shown (its points in content beats) and its selected points.
+    [[nodiscard]] model::ControllerLane controllerLane() const;
+    [[nodiscard]] const std::set<size_t>& pointSelection() const noexcept { return points_; }
+    /// The controller lane was used last and has points selected: Delete deletes them.
+    [[nodiscard]] bool hasPointSelection() const noexcept
+    {
+        return pointsUsed_ && showsController() && !points_.empty();
+    }
+    /// Where a controller lane's point at `beat` (content beats) and `value` (0..1) is drawn.
+    [[nodiscard]] juce::Point<float> lanePointFor(double beat, float value) const;
+    /// A controller lane says why it does nothing (Alt on a pedal's steps).
+    std::function<void(const juce::String&)> onMessage;
+    /// Notes ▸ Re-roll chance (§10): the clip's notes decided again.
+    void rerollChance();
+
     /// The Draw choice's menu (§7.2): Note, Chord, Chord under.
     [[nodiscard]] juce::PopupMenu drawMenu();
     /// The drawn chords' voicing menu (§20.2): the voicings, then the inversions.
@@ -183,6 +211,8 @@ public:
     /// The rows shown (§21), low to high: In key, the key's and those of notes outside it; empty
     /// for the whole roll.
     [[nodiscard]] const std::vector<int>& shownRows() const noexcept { return rows_; }
+    /// The bottom lane (velocity, chance, release velocity or a controller), right of the keys.
+    [[nodiscard]] juce::Rectangle<int> laneArea() const { return velocityArea(); }
     /// The other tracks' notes shown faint (§8): how many, for tests.
     [[nodiscard]] std::size_t ghostCount() const noexcept { return ghosts_.size(); }
 
@@ -210,7 +240,8 @@ private:
         Ruler,
         Brace,
         TimeHandle,
-        ChordLane
+        ChordLane,
+        Controller // a controller lane's points (LaneGesture)
     };
 
     /// Another track's note, in this clip's content beats (§8).
@@ -246,7 +277,21 @@ private:
     [[nodiscard]] const std::vector<model::Note>& shownNotes() const;
     [[nodiscard]] const std::set<std::size_t>& shownSelection() const;
     [[nodiscard]] std::optional<std::size_t> velocityStemAt(float localX) const;
+    /// The bottom lane's level (0..1) at a component y.
     [[nodiscard]] float velocityAtY(float y) const;
+    /// The note level the bottom lane edits (velocity when it shows a controller).
+    [[nodiscard]] model::NoteLevel laneLevel() const noexcept;
+    [[nodiscard]] bool showsController() const noexcept
+    {
+        return options_.lane.kind == model::BottomLane::Kind::Controller;
+    }
+    /// The controller lane's points in song seconds, as its gestures and painter see them.
+    void updateLanePoints();
+    [[nodiscard]] LaneGesture::Lane gestureLane() const;
+    [[nodiscard]] LaneGeometry laneGeometry() const;
+    /// Keeps an edit of the controller lane (seconds) as one undo step.
+    void keepLane(const model::PointEdit& edit, const std::string& undoName);
+    void paintControllerLane(juce::Graphics& g);
     /// The content beat under a component x.
     [[nodiscard]] double beatAtX(float x) const;
     /// The chord span under a component x in the lane's first line, if any.
@@ -282,7 +327,7 @@ private:
     [[nodiscard]] std::vector<LaneLabel> labelsFor(const std::vector<model::ChordSpan>& spans) const;
     void updateLabels();
     /// A text's width in the lane's style, measured once.
-    [[nodiscard]] int nameWidth(const juce::String& text) const;
+    [[nodiscard]] int nameWidth(const juce::String& text, ui::TextStyle style = ui::TextStyle::Name) const;
     mutable std::map<juce::String, int> widths_;
     /// One line of chord names over `area` (the lane's first or second line).
     void paintChordLine(juce::Graphics& g, juce::Rectangle<int> area,
@@ -309,6 +354,14 @@ private:
     std::optional<ChordPlace> chordTarget_;         // where the open Chord popover writes
     model::Timeline timeline_;
     std::vector<model::Timeline::GridLine> lines_; // paint scratch
+    ui::LaneChoice laneChoice_;                    // the bottom lane's head (§11)
+    model::AutomationPoints lanePoints_;           // the controller lane's points, in song seconds
+    std::optional<model::PointEdit> lanePreview_;  // a controller lane gesture, while it lasts
+    std::optional<model::PointEdit> laneKept_;     // the last edit kept, until the snapshot has it
+    std::set<size_t> points_;                      // its selected points
+    std::optional<size_t> hoveredPoint_;
+    LaneGesture laneGesture_;
+    bool pointsUsed_ = false; // the controller lane was used last: Delete deletes its points
     double rowHeight_ = 12.0;
     double topEdge_ = 84.0; // see NoteGeometry
     bool needsFit_ = false;

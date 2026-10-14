@@ -912,7 +912,7 @@ void ArrangementView::paintLanes(juce::Graphics& g)
     }
 
     // Box selection (of clips, or of a lane's points).
-    if (drag_ == Drag::Box || (drag_ == Drag::Lane && laneDrag_.kind == LaneDrag::Kind::Box && dragMoved_))
+    if (drag_ == Drag::Box || (drag_ == Drag::Lane && laneGesture_.boxing() && dragMoved_))
         time::paintBoxSelection(g, juce::Rectangle<float>(dragStart_, lastDrag_));
 
     // Empty project hint.
@@ -2254,6 +2254,16 @@ void ArrangementView::applyLaneEdit(int row, const model::PointEdit& edit, const
     repaint();
 }
 
+LaneGesture::Lane ArrangementView::gestureLane(int row) const
+{
+    const auto* lane = rowLane(row);
+    return {.points = &lane->points,
+            .rules = lane->rules(),
+            .geometry = laneGeometry(row),
+            .selection = selection_.lane == lane->id ? selection_.points : std::set<size_t>{},
+            .snap = [this](double seconds, bool free) { return snapped(seconds, free); }};
+}
+
 void ArrangementView::laneMouseDown(const juce::MouseEvent& e, int row)
 {
     const auto* lane = rowLane(row);
@@ -2262,76 +2272,26 @@ void ArrangementView::laneMouseDown(const juce::MouseEvent& e, int row)
     if (onLaneActivated)
         onLaneActivated();
     const auto id = lane->id;
-    const auto geo = laneGeometry(row);
-    const auto map = geo.mapping();
-    const auto rules = lane->rules();
-    const auto& points = lane->points;
-    const auto grab = ui::Theme::current().input.edgeGrab;
-    const auto hitPoint = model::hitPoint(points, map, e.position.x, e.position.y, grab);
-    const bool additive = e.mods.isShiftDown() || e.mods.isCommandDown();
-    const bool sameLane = selection_.lane == id;
     drag_ = Drag::Lane;
-    laneDrag_ = {.row = row, .base = points};
-
+    laneRow_ = row;
+    const auto out = laneGesture_.press(e, gestureLane(row));
+    if (out.steps)
+        explainSteps(*lane); // nothing to bend: say why, rather than do nothing
     if (e.getNumberOfClicks() >= 2)
     {
         drag_ = Drag::None;
-        if (hitPoint && e.mods.isAltDown() && rules.stepped())
-            explainSteps(*lane);
-        else if (hitPoint && e.mods.isAltDown()) // Alt + double-click straightens the segment after it
-            applyLaneEdit(row, model::bendSegment(points, *hitPoint, 0.0f, rules), "Bend");
-        else if (hitPoint)
-            applyLaneEdit(row, model::deletePoints(points, {*hitPoint}), "Delete point");
-        else
-            applyLaneEdit(row,
-                          model::addPoint(points, snapped(geo.time(e.position.x), e.mods.isAltDown()), geo.value(e.position.y), rules),
-                          "Add point");
+        if (out.keep)
+            applyLaneEdit(row, *out.keep, out.undoName);
         notifySelection();
         return;
     }
-    if (hitPoint)
+    if (out.steps)
     {
-        auto selection = sameLane ? selection_.points : std::set<size_t>{};
-        if (!additive && selection.size() > 1 && selection.contains(*hitPoint))
-            laneDrag_.clickedInSelection = *hitPoint; // stays a group for a drag; just this point for a click
-        else if (additive && selection.contains(*hitPoint))
-            selection.erase(*hitPoint);
-        else if (additive)
-            selection.insert(*hitPoint);
-        else
-            selection = {*hitPoint};
-        setQuietly(model::withLane(*snapshot_, id, selection));
-        laneDrag_.kind = selection.contains(*hitPoint) ? LaneDrag::Kind::Points : LaneDrag::Kind::None;
-        laneDrag_.selection = selection;
-        laneDrag_.index = *hitPoint;
+        drag_ = Drag::None;
         return;
     }
-    if (e.mods.isCommandDown()) // Ctrl + drag draws
-    {
-        laneDrag_.kind = LaneDrag::Kind::Draw;
-        const double at = snapped(geo.time(e.position.x), e.mods.isAltDown());
-        laneDrag_.drawn = {{at, geo.value(e.position.y), 0.0f}};
-        setQuietly(model::withLane(*snapshot_, id));
-        return;
-    }
-    if (const auto segment = model::hitSegment(points, map, e.position.x, e.position.y, 4.0))
-    {
-        if (e.mods.isAltDown() && rules.stepped())
-        {
-            explainSteps(*lane); // nothing to bend: say why, rather than do nothing
-            drag_ = Drag::None;
-            return;
-        }
-        laneDrag_.kind = e.mods.isAltDown() ? LaneDrag::Kind::Bend : LaneDrag::Kind::Segment;
-        laneDrag_.index = *segment;
-        laneDrag_.bend = model::bendOf(points[*segment]);
-        setQuietly(model::withLane(*snapshot_, id, {*segment, *segment + 1}));
-        return;
-    }
-    // An empty spot: box-select points (Shift adds).
-    laneDrag_.kind = LaneDrag::Kind::Box;
-    laneDrag_.boxBase = additive && sameLane ? selection_.points : std::set<size_t>{};
-    setQuietly(model::withLane(*snapshot_, id, laneDrag_.boxBase));
+    if (out.select)
+        setQuietly(model::withLane(*snapshot_, id, *out.select));
 }
 
 void ArrangementView::explainSteps(const model::AutomationLaneInfo& lane)
@@ -2343,81 +2303,30 @@ void ArrangementView::explainSteps(const model::AutomationLaneInfo& lane)
 
 void ArrangementView::laneMouseDrag(const juce::MouseEvent& e)
 {
-    const int row = laneDrag_.row;
-    const auto* lane = rowLane(row);
-    if (lane == nullptr)
+    const int row = laneRow_;
+    if (rowLane(row) == nullptr)
         return;
-    const auto geo = laneGeometry(row);
-    const auto rules = lane->rules();
-    const auto key = rows_[static_cast<size_t>(row)].key();
-    const float travel = std::max(1.0f, geo.area.getHeight() - 2.0f * LaneGeometry::inset);
-    const float fine = e.mods.isShiftDown() ? 0.1f : 1.0f;
-    const float dv = static_cast<float>(dragStart_.y - e.position.y) / travel * fine;
-    switch (laneDrag_.kind)
-    {
-    case LaneDrag::Kind::Points:
-    {
-        // The grabbed point snaps in time; the others follow by the same amount.
-        const auto& anchor = laneDrag_.base[laneDrag_.index];
-        const double moved = geo.time(e.position.x) - geo.time(dragStart_.x);
-        const double dt = snapped(anchor.time + moved, e.mods.isAltDown()) - anchor.time;
-        lanePreview_ = std::pair{key, model::movePoints(laneDrag_.base, laneDrag_.selection, dt, dv, rules)};
-        break;
-    }
-    case LaneDrag::Kind::Segment:
-        lanePreview_ = std::pair{key, model::moveSegment(laneDrag_.base, laneDrag_.index, dv, rules)};
-        break;
-    case LaneDrag::Kind::Bend:
-    {
-        // Up bows the segment up: early for a rising segment, late for a falling one.
-        const auto& a = laneDrag_.base[laneDrag_.index];
-        const auto& b = laneDrag_.base[laneDrag_.index + 1];
-        const float up = static_cast<float>(dragStart_.y - e.position.y) / ui::Theme::current().input.bendTravel * fine;
-        const float bend = std::clamp(laneDrag_.bend + (b.value >= a.value ? -up : up), -1.0f, 1.0f);
-        lanePreview_ = std::pair{key, model::bendSegment(laneDrag_.base, laneDrag_.index, bend, rules)};
-        break;
-    }
-    case LaneDrag::Kind::Draw:
-    {
-        // One point per grid step passed (or where the mouse is, with snap off).
-        const double at = snapped(geo.time(e.position.x), e.mods.isAltDown());
-        auto& drawn = laneDrag_.drawn;
-        const auto it = std::find_if(drawn.begin(), drawn.end(), [at](const auto& p) { return std::abs(p.time - at) < 1e-9; });
-        if (it != drawn.end())
-            it->value = geo.value(e.position.y);
-        else
-            drawn.push_back({at, geo.value(e.position.y), 0.0f});
-        lanePreview_ = std::pair{key, model::drawPoints(laneDrag_.base, drawn, rules)};
-        break;
-    }
-    case LaneDrag::Kind::Box:
-    {
-        auto inside = model::pointsInBox(laneDrag_.base, geo.time(dragStart_.x), geo.time(e.position.x),
-                                         geo.value(dragStart_.y), geo.value(e.position.y));
-        inside.insert(laneDrag_.boxBase.begin(), laneDrag_.boxBase.end());
-        setQuietly({.channel = selection_.channel, .lane = selection_.lane, .points = inside});
-        break;
-    }
-    case LaneDrag::Kind::None: break;
-    }
+    const auto out = laneGesture_.drag(e, dragStart_, gestureLane(row));
+    if (out.preview)
+        lanePreview_ = std::pair{rows_[static_cast<size_t>(row)].key(), *out.preview};
+    if (out.select)
+        setQuietly({.channel = selection_.channel, .lane = selection_.lane, .points = *out.select});
     repaint();
 }
 
 void ArrangementView::laneMouseUp(const juce::MouseEvent&)
 {
-    const int row = laneDrag_.row;
-    if (dragMoved_ && lanePreview_ && rowLane(row) != nullptr)
+    const int row = std::exchange(laneRow_, -1);
+    if (rowLane(row) == nullptr)
     {
-        const char* name = laneDrag_.kind == LaneDrag::Kind::Bend   ? "Bend"
-                           : laneDrag_.kind == LaneDrag::Kind::Draw ? "Draw automation"
-                                                                    : "Move points";
-        applyLaneEdit(row, lanePreview_->second, name);
+        laneGesture_ = {};
+        return;
     }
-    else if (!dragMoved_ && laneDrag_.clickedInSelection)
-        setQuietly({.channel = selection_.channel, .lane = selection_.lane, .points = {*laneDrag_.clickedInSelection}});
-    else if (!dragMoved_ && laneDrag_.kind == LaneDrag::Kind::Draw && rowLane(row) != nullptr)
-        applyLaneEdit(row, model::drawPoints(laneDrag_.base, laneDrag_.drawn, rowLane(row)->rules()), "Draw automation");
-    laneDrag_ = {};
+    const auto out = laneGesture_.release(dragMoved_, gestureLane(row));
+    if (out.keep)
+        applyLaneEdit(row, *out.keep, out.undoName);
+    else if (out.select)
+        setQuietly({.channel = selection_.channel, .lane = selection_.lane, .points = *out.select});
 }
 
 void ArrangementView::deletePoints()

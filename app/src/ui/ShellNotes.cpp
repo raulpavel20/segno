@@ -4,6 +4,7 @@
 // at playhead, Clip's Mute and the arrows act on notes too, when the clip view was used last
 // (Shell.cpp).
 
+#include "model/Chance.h"
 #include "ui/Shell.h"
 
 namespace fd::app
@@ -124,6 +125,19 @@ void Shell::registerNotesActions()
     tool("notes.halfSpeed", "Half speed", [&roll] { roll.stretch(2.0); });
     tool("notes.reverse", "Reverse", [&roll] { roll.reverse(); });
     tool("notes.mirror", "Mirror pitches", [&roll] { roll.mirrorPitches(); });
+    // Re-roll (§10): the clip's notes left to chance decided again.
+    actions_.add({.id = "notes.reroll",
+                  .name = "Re-roll chance",
+                  .category = "Notes",
+                  .perform = [&roll] { roll.rerollChance(); },
+                  .isEnabled = [hasNotes, &roll] { return hasNotes() && model::usesChance(roll.notes()); },
+                  .whyNot =
+                      [hasNotes, whyNoNotes]
+                  {
+                      return hasNotes() ? juce::String("No note in the clip is left to chance: set a note's "
+                                                       "Chance or Spread in the inspector")
+                                        : whyNoNotes();
+                  }});
 
     // Select ▸ (§5).
     tool("notes.selectSamePitch", "Select same pitch", [&roll] { roll.selectSamePitch(); });

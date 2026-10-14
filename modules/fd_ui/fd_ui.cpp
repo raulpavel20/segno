@@ -8,6 +8,7 @@
 #include "controls/Toggle.cpp"
 #include "controls/ViewOption.cpp"
 #include "controls/ViewChoice.cpp"
+#include "controls/LaneChoice.cpp"
 #include "controls/MenuButton.cpp"
 #include "controls/Segments.cpp"
 #include "controls/Meter.cpp"

@@ -382,24 +382,56 @@ std::set<std::size_t> notesInBox(const std::vector<Note>& notes, double beat0, d
     return out;
 }
 
-std::vector<Note> paintVelocity(const std::vector<Note>& notes, double beat0, double beat1, float velocity,
-                                const std::set<std::size_t>* only)
+float levelOf(const Note& note, NoteLevel level) noexcept
+{
+    switch (level)
+    {
+    case NoteLevel::Chance:
+        return note.chance;
+    case NoteLevel::Release:
+        return note.releaseVelocity;
+    case NoteLevel::Velocity:
+    default:
+        return note.velocity;
+    }
+}
+
+void setLevel(Note& note, NoteLevel level, float value) noexcept
+{
+    value = std::clamp(value, 0.0f, 1.0f);
+    switch (level)
+    {
+    case NoteLevel::Chance:
+        note.chance = std::round(value * 100.0f) / 100.0f;
+        break;
+    case NoteLevel::Release:
+        note.releaseVelocity = std::round(value * 127.0f) / 127.0f;
+        break;
+    case NoteLevel::Velocity:
+    default:
+        note.velocity = midiVelocity(std::max(value, 1.0f / 127.0f));
+        break;
+    }
+}
+
+std::vector<Note> paintLevel(const std::vector<Note>& notes, double beat0, double beat1, float value,
+                             const std::set<std::size_t>* only, NoteLevel level)
 {
     const double lo = std::min(beat0, beat1), hi = std::max(beat0, beat1);
-    const float v = midiVelocity(velocity);
     auto out = notes;
     for (std::size_t i = 0; i < out.size(); ++i)
         if ((only == nullptr || only->contains(i)) && out[i].start >= lo && out[i].start <= hi)
-            out[i].velocity = v;
+            setLevel(out[i], level, value);
     return out;
 }
 
-std::vector<Note> offsetVelocity(const std::vector<Note>& notes, const std::set<std::size_t>& which, float delta)
+std::vector<Note> offsetLevel(const std::vector<Note>& notes, const std::set<std::size_t>& which, float delta,
+                              NoteLevel level)
 {
     auto out = notes;
     for (auto i : which)
         if (i < out.size())
-            out[i].velocity = midiVelocity(std::clamp(notes[i].velocity + delta, 1.0f / 127.0f, 1.0f));
+            setLevel(out[i], level, levelOf(notes[i], level) + delta);
     return out;
 }
 

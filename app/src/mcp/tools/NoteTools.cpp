@@ -289,7 +289,8 @@ void addNoteTools(Registry& registry, ToolEnv& env)
                     const double delta = std::strtod(text.c_str(), &end);
                     if (end == text.c_str() || *end != '\0')
                         throw Problem{"velocity: \"" + text + "\" isn't a signed amount such as \"+10\"."};
-                    edit.notes = model::offsetVelocity(edit.notes, edit.selection, static_cast<float>(delta / 127.0));
+                    edit.notes =
+                        model::offsetLevel(edit.notes, edit.selection, static_cast<float>(delta / 127.0));
                 }
                 else
                 {

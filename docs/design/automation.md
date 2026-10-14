@@ -74,7 +74,7 @@ How parameters change over time in Segno: automation lanes in the arrangement, w
 
 ## 5. Editing points
 
-The same gestures as clips and notes (daw-shell.md, the piano roll):
+The same gestures as clips and notes (daw-shell.md, the piano roll). They're one shared piece (`LaneGesture`, M3 P4b), so the clip view's controller lanes ([piano-roll.md](piano-roll.md) §11) edit exactly as these do:
 
 | Input | Effect |
 |---|---|

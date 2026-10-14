@@ -224,7 +224,8 @@ private:
     /// (several: a range, moved together by a drag, all set by typing), and their mute. One undo
     /// step per drag or value typed.
     PianoRoll* roll_ = nullptr;
-    ui::NumberField notePitch_, noteStart_, noteLength_, noteVelocity_;
+    ui::NumberField notePitch_, noteStart_, noteLength_, noteVelocity_, noteSpread_, noteRelease_,
+        noteChance_;
     ui::Toggle noteMute_{"M"};
     std::optional<engine::Session::EditGroup> notesGesture_;
     std::optional<model::NoteEdit> notesBase_;       // the notes a drag started from

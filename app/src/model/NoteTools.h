@@ -186,11 +186,13 @@ inline constexpr double chordSpread = 1.0 / 32.0;
 [[nodiscard]] NoteEdit mirrorPitches(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
                                      const music::Key* key);
 
-/// A velocity line (§9.3, Shift+drag): the notes starting between the two points (`only` those, if
-/// given) get the velocity on the line between them. The order and selection are unchanged.
-[[nodiscard]] std::vector<Note> lineVelocity(const std::vector<Note>& notes, double beat0, float velocity0,
-                                             double beat1, float velocity1,
-                                             const std::set<std::size_t>* only = nullptr);
+/// A line in the bottom lane (§9.3, Shift+drag): the notes starting between the two points (`only`
+/// those, if given) get the level on the line between them: velocity, chance or release velocity.
+/// The order and selection are unchanged.
+[[nodiscard]] std::vector<Note> lineLevel(const std::vector<Note>& notes, double beat0, float value0,
+                                          double beat1, float value1,
+                                          const std::set<std::size_t>* only = nullptr,
+                                          NoteLevel level = NoteLevel::Velocity);
 
 /// Mute notes (§9.4): mutes them, or when they're all muted already, unmutes them.
 [[nodiscard]] NoteEdit muteNotes(const std::vector<Note>& notes, const std::set<std::size_t>& selection);
@@ -214,10 +216,13 @@ struct QuantiseSettings
 /// A note's value the inspector shows and edits.
 enum class NoteField
 {
-    Pitch,   // MIDI 0..127
-    Start,   // content beats
-    Length,  // beats
-    Velocity // MIDI 1..127
+    Pitch,    // MIDI 0..127
+    Start,    // content beats
+    Length,   // beats
+    Velocity, // MIDI 1..127
+    Spread,   // velocity spread (§10), MIDI 0..127
+    Release,  // release velocity, MIDI 0..127
+    Chance    // percent, 0..100 (§10)
 };
 
 /// A field's value on a note, in the inspector's units.

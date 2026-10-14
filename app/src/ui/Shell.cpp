@@ -158,6 +158,10 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
             return clipColourMenu();
         if (list == "sectionColour")
             return sectionColourMenu();
+        if (list == "otherTracks") // the clip view's Others, track by track (piano-roll.md §8)
+            return detail_.pianoRoll().othersMenu();
+        if (list == "clipLane") // the clip view's bottom lane (§11)
+            return detail_.pianoRoll().laneMenu();
         return juce::PopupMenu();
     };
     transport_->setBrandShown(kMenuPlatform == model::MenuPlatform::Mac);
@@ -367,6 +371,7 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
                                                    arrangement_.selection().channel, arrangement_.selection().channel));
     };
     arrangement_.onMessage = [this](const juce::String& m) { showWarning(m); };
+    detail_.pianoRoll().onMessage = [this](const juce::String& m) { showWarning(m); };
     detail_.chain().onActivated = [this] { lastArea_ = Area::Detail; };
     detail_.pianoRoll().onActivated = [this] { lastArea_ = Area::Clip; };
     // The inspector's NOTES section follows the clip view's notes (piano-roll.md §9.6).
@@ -658,8 +663,8 @@ void Shell::registerActions()
                   .perform =
                       [this, &roll, clipsShown]
                   {
-                      if (notesActive() && roll.hasSelection())
-                          roll.deleteSelection();
+                      if (notesActive() && (roll.hasSelection() || roll.hasPointSelection()))
+                          roll.deleteSelection(); // or its controller lane's points (piano-roll.md §11)
                       else if (lastArea_ == Area::Detail && detail_.chain().hasSelection())
                           detail_.chain().deleteSelected();
                       else if (sectionsActive()) // with their music (arranger.md §9)
@@ -676,7 +681,7 @@ void Shell::registerActions()
                   .isEnabled =
                       [this, &roll, clipsShown]
                   {
-                      return (notesActive() && roll.hasSelection()) ||
+                      return (notesActive() && (roll.hasSelection() || roll.hasPointSelection())) ||
                              (lastArea_ == Area::Detail && detail_.chain().hasSelection()) ||
                              sectionsActive() || laneActive() || trackHeaderActive() ||
                              (clipsShown() &&

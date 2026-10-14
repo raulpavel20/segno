@@ -122,7 +122,7 @@ std::vector<Menu> menuBar(MenuPlatform platform)
           separator(), action("notes.join"),
           submenu("Length", {action("notes.legato"), action("notes.fixedLength"), separator(),
                              action("notes.doubleSpeed"), action("notes.halfSpeed")}),
-          action("notes.reverse"), action("notes.mirror"), separator(),
+          action("notes.reverse"), action("notes.mirror"), separator(), action("notes.reroll"), separator(),
           submenu("Select", {action("notes.selectSamePitch"), action("notes.selectOutsideKey"),
                              action("notes.selectInLoop"), action("notes.invertSelection")}),
           action("notes.later"), action("notes.earlier")}});
@@ -178,7 +178,8 @@ std::vector<Menu> menuBar(MenuPlatform platform)
                       separator(),
                       // The clip view's options (piano-roll.md §13).
                       action("view.clipInKey"),
-                      action("view.clipOthers"),
+                      submenu("Other tracks' notes", {action("view.clipOthers"), separator(), list("otherTracks")}),
+                      submenu("Clip view lane", {list("clipLane")}),
                       submenu("Draw", {action("view.drawNote"), action("view.drawChord"), action("view.drawChordUnder"),
                                        separator(), action("view.drawTriads"), action("view.drawSevenths"),
                                        action("view.drawNinths"), action("view.drawSus2"), action("view.drawSus4"),

@@ -7,6 +7,7 @@
 #include <optional>
 #include <set>
 #include <span>
+#include <string>
 #include <string_view>
 
 namespace fd::model
@@ -27,6 +28,29 @@ enum class ChordLabels
     Steps
 };
 
+/// What the clip view's bottom lane shows (§11): a level of each note, or a controller's lane.
+struct BottomLane
+{
+    enum class Kind
+    {
+        Velocity,
+        Chance,
+        Release,
+        Controller
+    };
+    Kind kind = Kind::Velocity;
+    int controller = controllers::modWheel; // for Kind::Controller (model/Controllers.h)
+
+    /// The note level it edits (none for a controller).
+    [[nodiscard]] std::optional<NoteLevel> level() const noexcept;
+    friend bool operator==(const BottomLane&, const BottomLane&) = default;
+};
+
+/// "Velocity", "Chance", "Release velocity", or the controller's ("Pitch bend").
+[[nodiscard]] std::string bottomLaneName(const BottomLane& lane);
+/// Short enough for the lane's head (a LaneChoice beside it): "VELOCITY", "RELEASE", "BEND".
+[[nodiscard]] std::string bottomLaneLabel(const BottomLane& lane);
+
 /// The clip view's options (piano-roll.md §4): view state, kept with the project.
 struct PianoRollOptions
 {
@@ -34,6 +58,8 @@ struct PianoRollOptions
     /// whole roll (a drum part stays whole).
     std::set<std::uint64_t> wholeRoll;
     bool others = true; // Others (§8): the other tracks' notes, faint
+    std::set<std::uint64_t> othersHidden; // tracks Others leaves out, chosen one by one (§8)
+    BottomLane lane;                      // the bottom lane (§11)
     DrawMode draw = DrawMode::Note;
     ChordLabels chordLabels = ChordLabels::Both;
     ChordStyle chord;          // the Chord popover's Kind, Voicing and Inversion (§7.3)

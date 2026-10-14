@@ -778,3 +778,218 @@ TEST_CASE(
     CHECK(roll.options().chord == drawStyle); // Draw's choices untouched
     chord.close();
 }
+
+// ---- P4b: chance, release velocity, controller lanes, Others track by track ----------------------
+
+TEST_CASE("piano roll (P4b): the bottom lane shows velocity, chance or release velocity; each drawn the same "
+          "way; notes show their chance; Re-roll decides again",
+          "[integration]")
+{
+    RollFixture f;
+    auto& roll = f.roll();
+    f.setNotes(progression());
+    auto& lane = roll.laneChoice();
+    CHECK(lane.isVisible());
+    CHECK(lane.value() == "VELOCITY");
+    CHECK(itemsOf(roll.laneMenu()).contains("Chance"));
+    CHECK(itemsOf(roll.laneMenu()).contains("Pitch bend"));
+    CHECK_FALSE(f.shell->actions().isEnabled("notes.reroll")); // nothing is left to chance yet
+
+    // Chance: a click in the lane sets the note under it, as velocity's does.
+    roll.setLane({.kind = fd::model::BottomLane::Kind::Chance});
+    CHECK(lane.value() == "CHANCE");
+    const auto area = roll.laneArea();
+    const auto stemX = roll.pointFor(0.0, 57).x;
+    const auto yFor = [&](float v)
+    {
+        return static_cast<float>(area.reduced(0, 5).getBottom()) -
+               v * static_cast<float>(area.reduced(0, 5).getHeight());
+    };
+    click(roll, {stemX, yFor(0.5f)});
+    int halved = 0;
+    for (const auto& n : f.notes())
+        if (n.start == 0.0)
+            halved += std::abs(n.chance - 0.5f) < 0.02f ? 1 : 0;
+    CHECK(halved == 3); // the Am chord's three notes start there
+    CHECK(f.shell->actions().isEnabled("notes.reroll"));
+    // A line across the rest (Shift+drag), as velocity's.
+    drag(roll, {roll.pointFor(3.9, 57).x, yFor(1.0f)}, {roll.pointFor(12.1, 57).x, yFor(0.2f)},
+         juce::ModifierKeys::shiftModifier);
+    for (const auto& n : f.notes())
+        if (n.start == 4.0)
+            CHECK(n.chance > 0.6f);
+        else if (n.start == 12.0)
+            CHECK(n.chance < 0.4f);
+    f.dump("piano-roll-chance@2x.png");
+
+    // Re-roll: a new seed for the clip.
+    const auto seed = f.clip().chanceSeed;
+    REQUIRE(f.shell->actions().perform("notes.reroll"));
+    f.refresh();
+    CHECK(f.clip().chanceSeed != seed);
+
+    // Release velocity: its own lane, drawn the same way.
+    roll.setLane({.kind = fd::model::BottomLane::Kind::Release});
+    CHECK(lane.value() == "RELEASE");
+    click(roll, {stemX, yFor(1.0f)});
+    for (const auto& n : f.notes())
+        if (n.start == 0.0)
+            CHECK(juce::roundToInt(n.releaseVelocity * 127.0f) == 127);
+
+    // The inspector: Spread, Release and Chance for the selected notes (the F chord's).
+    auto& inspector = f.shell->inspector();
+    roll.setSelection({3, 4, 5});
+    using F = fd::model::NoteField;
+    auto& chance = inspector.noteField(F::Chance);
+    REQUIRE(chance.isVisible());
+    chance.setValue(*chance.valueFromText("75 %"), juce::sendNotificationSync);
+    auto& spread = inspector.noteField(F::Spread);
+    spread.setValue(*spread.valueFromText("12"), juce::sendNotificationSync);
+    CHECK(spread.textFromValue(spread.getValue()) == juce::String::fromUTF8("± 12"));
+    for (const auto& n : f.notes())
+        if (n.start == 4.0)
+        {
+            CHECK(n.chance == 0.75f);
+            CHECK(juce::roundToInt(n.velocitySpread * 127.0f) == 12);
+        }
+    roll.setLane({.kind = fd::model::BottomLane::Kind::Velocity});
+    if (const char* dir = std::getenv("FD_DUMP_DIR"))
+    {
+        f.shell->detail().frame(0.0);
+        dumpPng(dir, "piano-roll-spread@2x.png",
+                f.shell->detail().createComponentSnapshot(
+                    f.shell->detail().getLocalBounds().removeFromLeft(900), true, 2.0f));
+        dumpPng(dir, "piano-roll-inspector-chance@2x.png",
+                inspector.createComponentSnapshot(
+                    inspector.getLocalBounds().withHeight(std::min(inspector.getHeight(), 520)), true, 2.0f));
+        // Hi-hats left to chance, each too narrow for its name: the bar alone says how likely.
+        auto notes = progression();
+        for (int k = 0; k < 16; ++k)
+        {
+            fd::model::Note hat{72, k * 0.5 + 0.25, 0.25, 0.7f};
+            hat.chance = 0.2f + 0.05f * static_cast<float>(k);
+            notes.push_back(hat);
+        }
+        f.setNotes(notes);
+        roll.setLane({.kind = fd::model::BottomLane::Kind::Chance});
+        f.shell->detail().frame(0.0);
+        dumpPng(dir, "piano-roll-chance-hats@2x.png",
+                f.shell->detail().createComponentSnapshot(
+                    f.shell->detail().getLocalBounds().removeFromLeft(900), true, 2.0f));
+    }
+}
+
+TEST_CASE("piano roll (P4b): a controller lane is edited as automation lanes are; Delete deletes its points; "
+          "pedals are on or off",
+          "[integration]")
+{
+    RollFixture f;
+    auto& roll = f.roll();
+    f.setNotes(progression());
+    namespace cc = fd::model::controllers;
+    using K = fd::model::BottomLane::Kind;
+    roll.setLane({.kind = K::Controller, .controller = cc::modWheel});
+    CHECK(roll.laneChoice().value() == "MOD");
+
+    // Double-click adds a point (on the grid), one undo step each.
+    doubleClick(roll, roll.lanePointFor(1.0, 0.25f));
+    doubleClick(roll, roll.lanePointFor(3.0, 1.0f));
+    f.refresh();
+    auto lane = roll.controllerLane();
+    REQUIRE(lane.points.size() == 2);
+    CHECK(lane.points[0].time == Catch::Approx(1.0));
+    CHECK(lane.points[0].value == Catch::Approx(0.25f).margin(0.02f));
+    CHECK(f.session->undoDescription() == "Add point");
+    CHECK(f.clip().controllers.size() == 1);
+
+    // A drag moves a point, snapped in time.
+    drag(roll, roll.lanePointFor(1.0, 0.25f), roll.lanePointFor(2.02, 0.5f));
+    f.refresh();
+    lane = roll.controllerLane();
+    REQUIRE(lane.points.size() == 2);
+    CHECK(lane.points[0].time == Catch::Approx(2.0));
+    CHECK(lane.points[0].value == Catch::Approx(0.5f).margin(0.03f));
+    CHECK(f.session->undoDescription() == "Move points");
+
+    // A click selects a point; Delete deletes it; undo brings it back.
+    click(roll, roll.lanePointFor(3.0, 1.0f));
+    CHECK(roll.pointSelection() == std::set<size_t>{1});
+    REQUIRE(f.shell->actions().perform("edit.delete"));
+    f.refresh();
+    CHECK(roll.controllerLane().points.size() == 1);
+    CHECK(f.notes().size() == progression().size()); // the notes stay
+    f.session->undo();
+    f.refresh();
+    CHECK(roll.controllerLane().points.size() == 2);
+
+    // Ctrl+drag draws.
+    drag(roll, roll.lanePointFor(8.0, 0.1f), roll.lanePointFor(11.0, 0.9f),
+         juce::ModifierKeys::commandModifier);
+    f.refresh();
+    CHECK(roll.controllerLane().points.size() > 3);
+    CHECK(f.session->undoDescription() == "Draw controller");
+    f.dump("piano-roll-controller@2x.png");
+
+    // Sustain: on or off.
+    roll.setLane({.kind = K::Controller, .controller = cc::sustain});
+    CHECK(roll.controllerLane().points.empty());
+    doubleClick(roll, roll.lanePointFor(1.0, 0.7f));
+    f.refresh();
+    lane = roll.controllerLane();
+    REQUIRE(lane.points.size() == 1);
+    CHECK(lane.points[0].value == 1.0f);
+    CHECK(f.clip().controllers.size() == 2);
+    CHECK(itemsOf(roll.laneMenu()).contains("Sustain"));
+
+    // Pitch bend rests in the middle: drawn dashed there while it has no points.
+    roll.setLane({.kind = K::Controller, .controller = cc::pitchBend});
+    CHECK(roll.laneChoice().value() == "BEND");
+    f.dump("piano-roll-pitch-bend@2x.png");
+}
+
+TEST_CASE(
+    "piano roll (P4b): Others leaves out the tracks chosen one by one, from the header and the View menu",
+    "[integration]")
+{
+    RollFixture f;
+    auto& roll = f.roll();
+    f.setNotes(progression());
+    // Another track with notes under the clip.
+    const auto tracks = f.session->snapshot()->tracks;
+    REQUIRE(tracks.size() >= 2);
+    const auto bass = tracks[1].id;
+    const auto bassClip = f.session->createMidiClip(bass, 0.0, 8.0);
+    f.session->setNotes(bassClip, {{36, 0.0, 4.0, 0.8f}, {41, 4.0, 4.0, 0.8f}});
+    f.refresh();
+    roll.setOthers(true);
+    REQUIRE(roll.ghostCount() == 2);
+    const auto items = itemsOf(roll.othersMenu());
+    REQUIRE(items.size() == 1);
+    CHECK(items[0] == juce::String::fromUTF8(tracks[1].name.c_str()));
+    roll.setOthersHidden(bass, true);
+    CHECK(roll.ghostCount() == 0);
+    CHECK(roll.options().othersHidden.contains(bass));
+    // Kept with the project's view state.
+    CHECK(fd::model::pianoRollOptionsFromJson(fd::model::pianoRollOptionsToJson(roll.options())) ==
+          roll.options());
+    roll.setOthersHidden(bass, false);
+    CHECK(roll.ghostCount() == 2);
+    // The View menu has them too.
+    const auto menus = fd::model::menuBar(fd::model::MenuPlatform::Windowed);
+    const auto actions = fd::model::menuActions(menus);
+    CHECK(std::find(actions.begin(), actions.end(), "view.clipOthers") != actions.end());
+}
+
+TEST_CASE("piano roll (P4b): the lane's head fits every lane's label in the keys' column", "[integration]")
+{
+    const int width = fd::ui::Theme::current().shell.keyboardWidth;
+    using K = fd::model::BottomLane::Kind;
+    for (const auto kind : {K::Velocity, K::Chance, K::Release})
+        CHECK(fd::ui::LaneChoice::fits(fd::model::bottomLaneLabel({.kind = kind}), width));
+    for (int c = 0; c <= fd::model::controllers::aftertouch; ++c)
+    {
+        INFO("controller " << c);
+        CHECK(fd::ui::LaneChoice::fits(fd::model::bottomLaneLabel({.kind = K::Controller, .controller = c}),
+                                       width));
+    }
+}

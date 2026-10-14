@@ -11,6 +11,7 @@ namespace
 // How each value is written in view state: stable words, not the names people read.
 constexpr std::array<std::string_view, 3> drawWords{"note", "chord", "chordUnder"};
 constexpr std::array<std::string_view, 3> labelWords{"both", "names", "steps"};
+constexpr std::array<std::string_view, 4> laneWords{"velocity", "chance", "release", "controller"};
 constexpr std::array<std::string_view, 6> shapeWordList{"triad", "seventh", "ninth", "sus2", "sus4", "add9"};
 constexpr std::array<std::string_view, 6> voicingWordList{"smooth", "close", "open",
                                                           "drop2",  "drop3", "spread"};
@@ -76,6 +77,9 @@ nlohmann::json pianoRollOptionsToJson(const PianoRollOptions& o)
 {
     return {{"wholeRoll", o.wholeRoll},
             {"others", o.others},
+            {"othersHidden", o.othersHidden},
+            {"lane", toWord(o.lane.kind, laneWords)},
+            {"laneController", o.lane.controller},
             {"draw", toWord(o.draw, drawWords)},
             {"chordLabels", toWord(o.chordLabels, labelWords)},
             {"chordKind", toWord(o.chord.shape, shapeWordList)},
@@ -107,6 +111,14 @@ PianoRollOptions pianoRollOptionsFromJson(const nlohmann::json& json)
             if (id.is_number_unsigned())
                 o.wholeRoll.insert(id.get<std::uint64_t>());
     o.others = flag("others", o.others);
+    if (const auto it = json.find("othersHidden"); it != json.end() && it->is_array())
+        for (const auto& id : *it)
+            if (id.is_number_unsigned())
+                o.othersHidden.insert(id.get<std::uint64_t>());
+    o.lane.kind = fromWord(json, "lane", laneWords, o.lane.kind);
+    if (const auto it = json.find("laneController");
+        it != json.end() && it->is_number_integer() && isController(it->get<int>()))
+        o.lane.controller = it->get<int>();
     o.draw = fromWord(json, "draw", drawWords, o.draw);
     o.chordLabels = fromWord(json, "chordLabels", labelWords, o.chordLabels);
     o.chord.shape = fromWord(json, "chordKind", shapeWordList, o.chord.shape);
@@ -119,6 +131,83 @@ PianoRollOptions pianoRollOptionsFromJson(const nlohmann::json& json)
     if (!o.quantise.starts && !o.quantise.ends)
         o.quantise.starts = true;
     return o;
+}
+
+std::optional<NoteLevel> BottomLane::level() const noexcept
+{
+    switch (kind)
+    {
+    case Kind::Velocity:
+        return NoteLevel::Velocity;
+    case Kind::Chance:
+        return NoteLevel::Chance;
+    case Kind::Release:
+        return NoteLevel::Release;
+    case Kind::Controller:
+    default:
+        return std::nullopt;
+    }
+}
+
+std::string bottomLaneName(const BottomLane& lane)
+{
+    switch (lane.kind)
+    {
+    case BottomLane::Kind::Chance:
+        return "Chance";
+    case BottomLane::Kind::Release:
+        return "Release velocity";
+    case BottomLane::Kind::Controller:
+        return controllerName(lane.controller);
+    case BottomLane::Kind::Velocity:
+    default:
+        return "Velocity";
+    }
+}
+
+std::string bottomLaneLabel(const BottomLane& lane)
+{
+    switch (lane.kind)
+    {
+    case BottomLane::Kind::Chance:
+        return "CHANCE";
+    case BottomLane::Kind::Release:
+        return "RELEASE";
+    case BottomLane::Kind::Velocity:
+        return "VELOCITY";
+    case BottomLane::Kind::Controller:
+    default:
+        break;
+    }
+    switch (lane.controller)
+    {
+    case controllers::pitchBend:
+        return "BEND";
+    case controllers::aftertouch:
+        return "TOUCH";
+    case controllers::modWheel:
+        return "MOD";
+    case controllers::breath:
+        return "BREATH";
+    case 4:
+        return "FOOT";
+    case 7:
+        return "VOLUME";
+    case 10:
+        return "PAN";
+    case controllers::expression:
+        return "EXPR";
+    case controllers::sustain:
+        return "SUSTAIN";
+    case 65:
+        return "PORTA";
+    case 66:
+        return "SOST";
+    case 67:
+        return "SOFT";
+    default:
+        return "CC " + std::to_string(lane.controller);
+    }
 }
 
 const char* drawModeName(DrawMode mode) noexcept

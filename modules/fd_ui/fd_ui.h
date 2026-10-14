@@ -28,6 +28,7 @@ END_JUCE_MODULE_DECLARATION
 #include "controls/Toggle.h"
 #include "controls/ViewOption.h"
 #include "controls/ViewChoice.h"
+#include "controls/LaneChoice.h"
 #include "controls/MenuButton.h"
 #include "controls/Segments.h"
 #include "controls/Meter.h"

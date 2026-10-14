@@ -264,9 +264,10 @@ A new **Notes** menu, between Clip and Song: the piano roll's commands have outg
 | Reverse | – |
 | Mirror pitches | – |
 | — | |
+| Re-roll chance (P4b) | – |
+| — | |
 | Transform ▸ (Humanize…, Strum…, Arpeggiate…, Chop…, Ornament…, Velocity…, Span…, Randomise pitch…) | – |
 | Generate ▸ (Rhythm…, Melody…, Chords…, Bassline…) | – |
-| Re-roll chance | – |
 | — | |
 | Select ▸ (Same pitch, Outside the key, In the loop, Invert selection) | – |
 | Nudge later / earlier | → / ← |
@@ -290,6 +291,7 @@ Each tool is one named undo step, with a test that drives it through MCP (ADR 00
 | `transform_notes` | A transform of §12 by name, with its settings |
 | `generate_notes` | A generator of §12 by name, with its settings |
 | `get_controllers` / `set_controllers` | A clip's controller lanes: points by controller |
+| `reroll_chance` | A clip's new chance seed, given or random (P4b) |
 
 `get_clip` gains each note's chance, velocity spread, release velocity and mute, and the clip's controllers.
 
@@ -495,3 +497,36 @@ The product owner, after using §20:
 - **Remembered per clip** as view state with the project (`wholeRoll`: the clips turned to the whole roll); a clip turned back on is taken off the list, so it follows the key again.
 - **Rows during a gesture:** a drag lands only on rows, so the rows hold still until it ends; a drawn chord or a preview with notes outside the key adds their rows as it starts, and a preview given up (Escape, a click elsewhere) takes them away.
 - **Mirror pitches** mirrors in the key's steps while In key, chromatically in the whole roll, as ↑/↓ do.
+
+## 22. P4b built: chance, release velocity, controller lanes (2026-10-15)
+
+Built as §10 and §11 say. What building settled:
+
+**Chance in the engine:**
+- **A note's fate** (`model::noteFate`) comes from a hash (SplitMix64) of the clip's seed, the clip, the note's pitch and its place in the clip's content to a tick, and the lap. No random state runs anywhere. **The clip is in it**, so each copy of a clip rolls its own; Re-roll gives one clip a new seed.
+- **Where:** tracktion builds every MIDI clip's playback sequence through `EngineBehaviour::createPlaybackMidiSequence`, so playback, bounces and exports all pass through the same decision. A looped clip arrives with its laps laid end to end, so each note's lap is known. Render copies keep each clip's ID and seed, and a test shows a render matching the same notes written out, sample for sample.
+- **Kept** on tracktion's notes (`fdChance`, `fdSpread`; release velocity is tracktion's own `lift`) and the clip (`fdChanceSeed`). Only what isn't the plain note's is written. A seed's change rebuilds playback, undo too.
+- **Velocity spread** moves a note's velocity up or down by up to its spread each lap, in MIDI steps, never silent.
+
+**Controllers:**
+- **A lane is points,** as an automation lane's, in beats from the clip's content start. It plays as MIDI events: each point's own, and between two points that aren't a step, a ramp with an event wherever the MIDI value changes, at most every 64th of a beat. The lane's points are marked on their events (`fdPoint`, `fdCurve`) and the ramps too (`fdRamp`). Reading back drops the ramps, so a lane reads as it was drawn. **Recorded controllers** (unmarked) are points that hold.
+- **Ranges:** CC and aftertouch 0–127; pitch bend in 16 384ths, so its rest (8 192) is exactly the middle and its top exactly the top. The pedals (CC 64–69) are on or off: steps of two values.
+- **The gestures are the automation lanes' own,** one shared piece (`LaneGesture`) used by the arrangement and the clip view: double-click adds or deletes, drag moves (Shift fine, Alt free), Alt bends, Ctrl+drag draws, an empty spot box-selects. Delete deletes the selected points when the lane was used last. An edit kept builds on the last one until the snapshot has it.
+- **Drawn** by the automation lanes' painter in the clip's colour. An empty lane shows its resting value dashed, and the hint gives way where the two would cross (pitch bend rests in the middle).
+
+**The bottom lane:**
+- **Its head** (`ui::LaneChoice`, new) sits in the keys' column: the lane's short name in caps ("VELOCITY", "CHANCE", "RELEASE", "BEND", "MOD", "CC 74") over a chevron. Its menu lists Velocity, Chance and Release velocity; then the controllers (the clip's, then pitch bend, mod wheel, sustain, expression, aftertouch, breath); then Other controller ▸ (CC 0–127 in sixteens). The keys' column grew from 52 to 56 px so "VELOCITY" fits with its margins.
+- **Chance and release velocity** are stems drawn and edited as velocity's: a click or drag sets the notes under it, Shift+drag draws a line, a drag on a selected stem moves the selection's. The readout says "Chance 50 %", "Release 64". **Velocity spread** shows behind each velocity stem as the range it plays in.
+- **Which lane** is view state, kept with the project.
+
+**Notes:**
+- **Chance on a note:** a 2 px bar along its top, as long as its chance, where the note's name leaves room for it. That means a narrow note (hi-hats: the usual case) or rows tall enough for both. A note wide enough for its name writes its chance after it ("50%"); at the default row height, a bar and a name would touch.
+- **The NOTES inspector** gains Spread ("± 12"), Release and Chance ("75 %"), each typed or dragged as the others.
+- **Notes ▸ Re-roll chance** sits after Mirror pitches; it's dimmed, saying why, while no note is left to chance.
+
+**Others, track by track:** Others' right-click (`ViewOption::onPopupMenu`, new) and View ▸ Other tracks' notes ▸ list each other track with notes, ticked while shown. The tracks left out are view state.
+
+**Assistants:** notes in and out carry `chance` (percent), `velocity_spread` and `release_velocity`, only when they aren't the plain note's. `edit_notes` sets them. `reroll_chance`, `get_controllers` and `set_controllers` are new, and `get_clip` lists a clip's controller lanes and its seed.
+
+**Not yet:** copying and pasting controller points; controllers in the NOTES inspector; drawing controllers while recording (recorded ones show).
+

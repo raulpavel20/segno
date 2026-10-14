@@ -14,9 +14,16 @@ public:
     /// The width that fits its indicator and label.
     [[nodiscard]] int preferredWidth() const;
 
+    /// A right-click opens this instead of switching it (a Toggle's): what the option shows, one by
+    /// one (the clip view's Others: which tracks).
+    std::function<void()> onPopupMenu;
+
     void paintButton(juce::Graphics& g, bool highlighted, bool down) override;
+    void mouseDown(const juce::MouseEvent& e) override;
+    void mouseUp(const juce::MouseEvent& e) override;
 
 private:
+    bool popup_ = false;
     static constexpr float kDot = 6.0f;  // the indicator's diameter
     static constexpr int kPadding = 6;   // inside the hover wash, left and right
     static constexpr int kGap = 6;       // between the indicator and the label
