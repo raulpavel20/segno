@@ -507,7 +507,8 @@ Sources: [Ableton's Macros and Variations FAQ](https://help.ableton.com/hc/en-us
   - **Morph's name lights** as a macro's does: hovered, it and the macros it moves are lit.
   - **The editor's locks** show the padlock open while a macro is free and closed, lit, while it's locked. A closed padlock on every row read as eight locked macros.
   - **The kit gained:** `PanelSection::setPowerSwitch` (a section's power for state that isn't a parameter), `Toggle::setCutsText` and `setModified` (a name of your own and its changed mark), `Knob::setLocked`, `Icon::Lock` and `Icon::LockOpen`. The rack's parameters gained `morph` after the macros.
-- **2b. Snapshots, locks, Morph and Vary,** with the menus, MCP and files.
+- **2a approved** by the product owner (2026-10-15), with MORPH narrowed to two columns.
+- **2b. Snapshots, locks, Morph and Vary,** with the menus, MCP and files. Built 2026-10-15 (§18.13).
 - **2c. The factory racks and the preview,** signed off by ear.
 - **Hands-on tasks before sign-off**, done unaided as in §5a:
   - store two snapshots and rename them;
@@ -536,3 +537,16 @@ Approved by the product owner (2026-10-14) with every recommendation.
 | S12 | **Factory racks** | The twelve above, in Transitions, Parallel and Instruments, made from recipes and signed off by ear |
 | S13 | **Preview** | Instrument racks now; effect racks later, with effect presets' previews |
 | S14 | **Building it** | The spike and the UI drawn for review first (2a), then built (2b, 2c) |
+
+### 18.13 Settled while building 2b (2026-10-15)
+
+- **Morph is the rack's ninth macro,** marked `fdMorph` on its state. A new rack gets it when it's made; a rack from step 1 when its first snapshot is stored or Morph is first set. Automation, MCP and the panel find it by that mark, never by its place in the list.
+- **The snapshots, the current one and Morph's on, A and B are properties of the rack's type,** so they're undone, saved with the project, copied with a track and kept in rack files like the rest of the rack. A macro's lock is on the macro's own state.
+- **One function keeps Morph's mappings right** (`syncMorph`): each macro Morph sets is mapped From its place in A by B − A; one it no longer sets is let go where Morph had it. It changes nothing when they already agree, so it runs after every rack edit, and again when a macro's lane comes or goes (the session's async update), joining that edit's undo step.
+- **Morph lets go of a macro that starts following a lane without setting its value:** a value set by hand turns a lane off, as it does for any automated control.
+- **While stopped, the engine moves only what a macro moves directly,** so when Morph moves the macros the rack refreshes what they move: the modules' knobs follow Morph without playing.
+- **A macro Morph sets refuses a value by hand** everywhere: its knob, the macro editor's bar, `set_macro` and `set_parameters` (which say how to free it), as a mapped knob refuses one.
+- **Vary** moves each free mapped macro by a uniform random amount within ±15 % (Vary more ±40 %) of its travel, from the system's random source.
+- **The Module menu** has Store snapshot, Update snapshot, Rename snapshot…, Remove snapshot, Morph, Vary and Vary more (menu-bar.md); the rack's right-click has Store snapshot, Vary and Vary more; a snapshot's has Rename, Update and Remove.
+- **MCP:** `store_snapshot`, `recall_snapshot`, `remove_snapshot`, `set_snapshot`, `set_morph`, `vary_module`, and `locked` on `set_macro` (mcp.md). Snapshots count from 1, as chains and macros do.
+- **Next, 2c:** the factory racks and the instrument racks' preview in the browser.

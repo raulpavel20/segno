@@ -299,6 +299,12 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 | Rename rack… | | *new* (`module.renameRack`): in place, in its header; also its header's right-click |
 | Save rack / Save rack as… | | *new* (`module.saveRack`, `module.saveRackAs`): the selected rack into your racks, named as the rack; Save rack as… renames it first |
 | Show racks folder | | *new* (`module.racksFolder`) |
+| Store snapshot | | *new* (`module.storeSnapshot`, [racks.md](racks.md) §18.2): where the selected rack's macros are; also "+ Store", the rack's and a macro's right-click |
+| Update snapshot | | *new* (`module.updateSnapshot`): the macros over the current snapshot; dimmed unless they've moved from it, and while Morph is on |
+| Rename snapshot… | | *new* (`module.renameSnapshot`): the current one, in place; also a double-click on its name |
+| Remove snapshot | | *new* (`module.removeSnapshot`): the current one; also its right-click |
+| Morph | | *new* (`module.morph`, §18.3): ticked while on; dimmed until there are two snapshots; also MORPH's power dot |
+| Vary / Vary more | Ctrl+Alt+V / Ctrl+Alt+Shift+V | *new* (`module.vary`, `module.varyMore`, §18.5): the selected rack's free mapped macros; dimmed while Morph is on; also the rack's right-click |
 
 **Transport**
 

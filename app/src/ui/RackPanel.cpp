@@ -29,6 +29,7 @@ RackPanel::RackPanel(ui::DeviceUiContext& context) : DevicePanel(context)
         {
             if (onMacroHover)
                 onMacroHover(i, hovered);
+            setMorphLit(hovered && model::morphSets(rack_, i)); // Morph lit while one it moves is
         };
         knob.onHandleDoubleClick = [this, i] { renameMacro(i); };
         // Its right-click: rename it, edit the macros, then its automation as any parameter's.
@@ -109,8 +110,8 @@ RackPanel::RackPanel(ui::DeviceUiContext& context) : DevicePanel(context)
     morph_->setSourceHandle(true);
     morph_->onHandleHover = [this](bool hovered)
     {
-        if (onMorphHover)
-            onMorphHover(hovered);
+        morphHovered_ = hovered;
+        updateMacros();
     };
     for (const auto& [box, letter, tip] : {std::tuple{&morphA_, "A", "A: where Morph starts, at 0 %"},
                                            std::tuple{&morphB_, "B", "B: where Morph ends, at 100 %"}})
@@ -361,7 +362,9 @@ void RackPanel::updateMacros()
         knob.setName(macro.name.empty()
                          ? juce::String(std::string(engine::Session::rackMacros().params[i].name))
                          : juce::String::fromUTF8(macro.name.c_str()));
-        knob.setSourceHandle(true, static_cast<int>(i) == litMacro_);
+        // Lit while its own knob or Morph's name is under the pointer (Morph moving it).
+        knob.setSourceHandle(true, static_cast<int>(i) == litMacro_ ||
+                                       (morphHovered_ && model::morphSets(rack_, static_cast<int>(i))));
         knob.setLocked(macro.locked);
         // One that maps nothing yet recedes: turning it does nothing (racks.md §5a).
         knob.setAlpha(macro.mappings.empty() && static_cast<int>(i) != litMacro_ ? t.roles.fadedAlpha : 1.0f);

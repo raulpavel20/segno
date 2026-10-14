@@ -689,7 +689,10 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         // Racks (racks.md §9): Ctrl+G and Ctrl+Shift+G group and ungroup; the rest are on the
         // rack itself (its macro's and header's right-click, "+ Chain", a double-click on a name).
         "module.editMacros", "module.addChain", "module.renameRack", "module.saveRack", "module.saveRackAs",
-        "module.racksFolder"};
+        "module.racksFolder",
+        // A rack's snapshots and Morph (racks.md §18.9): in the menu and on the rack's panel.
+        "module.storeSnapshot", "module.updateSnapshot", "module.renameSnapshot", "module.removeSnapshot",
+        "module.morph"};
     for (const auto& a : actions.all())
     {
         INFO(a.id);

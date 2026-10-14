@@ -1288,6 +1288,111 @@ void Shell::registerActions()
                   .category = "Module",
                   .perform = [this] { detail_.chain().renameSelectedRack(); },
                   .isEnabled = hasRack});
+    // Snapshots, Morph and Vary (racks.md §18.9): the selected rack's.
+    auto rackInfo = [this] { return detail_.chain().selectedRackInfo(); };
+    auto onRack = [this](auto&& edit)
+    {
+        if (const auto rack = detail_.chain().selectedRack())
+            edit(*rack);
+    };
+    actions_.add(
+        {.id = "module.storeSnapshot",
+         .name = "Store snapshot",
+         .category = "Module",
+         .perform = [this, onRack] { onRack([this](std::uint64_t r) { session_.storeSnapshot(r); }); },
+         .isEnabled =
+             [rackInfo]
+         {
+             const auto* r = rackInfo();
+             return r != nullptr && static_cast<int>(r->snapshots.size()) < model::RackInfo::maxSnapshots;
+         }});
+    actions_.add({.id = "module.updateSnapshot",
+                  .name = "Update snapshot",
+                  .category = "Module",
+                  .perform =
+                      [this, onRack, rackInfo]
+                  {
+                      if (const auto* r = rackInfo())
+                          onRack([this, at = r->currentSnapshot](std::uint64_t rack)
+                                 { session_.storeSnapshot(rack, at); });
+                  },
+                  .isEnabled =
+                      [rackInfo]
+                  {
+                      // Over the current one once the macros have moved from it; Morph sets them while on.
+                      const auto* r = rackInfo();
+                      return r != nullptr && r->currentSnapshot >= 0 && model::snapshotChanged(*r) &&
+                             !model::morphing(*r);
+                  }});
+    actions_.add({.id = "module.renameSnapshot",
+                  .name = juce::String::fromUTF8("Rename snapshot\xe2\x80\xa6"),
+                  .category = "Module",
+                  .perform = [this] { detail_.chain().renameCurrentSnapshot(); },
+                  .isEnabled =
+                      [rackInfo]
+                  {
+                      const auto* r = rackInfo();
+                      return r != nullptr && r->currentSnapshot >= 0;
+                  }});
+    actions_.add({.id = "module.removeSnapshot",
+                  .name = "Remove snapshot",
+                  .category = "Module",
+                  .perform =
+                      [this, onRack, rackInfo]
+                  {
+                      if (const auto* r = rackInfo())
+                          onRack([this, at = r->currentSnapshot](std::uint64_t rack)
+                                 { session_.removeSnapshot(rack, at); });
+                  },
+                  .isEnabled =
+                      [rackInfo]
+                  {
+                      const auto* r = rackInfo();
+                      return r != nullptr && r->currentSnapshot >= 0;
+                  }});
+    actions_.add({.id = "module.morph",
+                  .name = "Morph",
+                  .category = "Module",
+                  .perform =
+                      [this, onRack, rackInfo]
+                  {
+                      if (const auto* r = rackInfo())
+                          onRack([this, on = !r->morph.on](std::uint64_t rack)
+                                 { session_.setMorph(rack, {.on = on}); });
+                  },
+                  .isEnabled =
+                      [rackInfo]
+                  {
+                      // It needs two snapshots to go between.
+                      const auto* r = rackInfo();
+                      return r != nullptr && r->snapshots.size() >= 2 && r->morph.a >= 0 && r->morph.b >= 0;
+                  },
+                  .isToggled =
+                      [rackInfo]
+                  {
+                      const auto* r = rackInfo();
+                      return r != nullptr && model::morphing(*r);
+                  }});
+    const auto canVary = [rackInfo]
+    {
+        const auto* r = rackInfo();
+        return r != nullptr && model::canVary(*r);
+    };
+    actions_.add({.id = "module.vary",
+                  .name = "Vary",
+                  .category = "Module",
+                  .keys = {key('v', kCmd | kAlt)},
+                  .perform = [this, onRack]
+                  { onRack([this](std::uint64_t r) { session_.varyRack(r, engine::Session::varyAmount); }); },
+                  .isEnabled = canVary});
+    actions_.add(
+        {.id = "module.varyMore",
+         .name = "Vary more",
+         .category = "Module",
+         .keys = {key('v', kCmd | kAlt | kShift)},
+         .perform = [this, onRack]
+         { onRack([this](std::uint64_t r) { session_.varyRack(r, engine::Session::varyMoreAmount); }); },
+         .isEnabled = canVary});
     actions_.add({.id = "track.add", .name = "Add track", .category = "Track", .keys = {key('t', kCmd)},
                   .perform = [&s] { s.addTrack(); }});
     // The mixer (C3, docs/design/mixer.md §9): the selected channel.

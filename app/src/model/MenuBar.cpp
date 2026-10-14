@@ -132,8 +132,12 @@ std::vector<Menu> menuBar(MenuPlatform platform)
           separator(), action("module.loadSample"), separator(),
           // Racks (racks.md §9): a module of modules, its chains and macros.
           action("module.groupIntoRack"), action("module.ungroupRack"), action("module.editMacros"),
-          action("module.addChain"), action("module.renameRack"), separator(), action("module.saveRack"),
-          action("module.saveRackAs"), action("module.racksFolder")}});
+          action("module.addChain"), action("module.renameRack"), separator(),
+          // Its snapshots and Morph (racks.md §18.9).
+          action("module.storeSnapshot"), action("module.updateSnapshot"), action("module.renameSnapshot"),
+          action("module.removeSnapshot"), action("module.morph"), action("module.vary"),
+          action("module.varyMore"), separator(), action("module.saveRack"), action("module.saveRackAs"),
+          action("module.racksFolder")}});
 
     menus.push_back(
         {"Transport",

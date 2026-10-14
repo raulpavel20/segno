@@ -2186,3 +2186,80 @@ TEST_CASE(
     // An empty rack by its type.
     CHECK(daw.call("add_module", {{"track", t0}, {"type", "rack"}})["type"] == "rack");
 }
+
+TEST_CASE("mcp tools: racks' snapshots stored, recalled, renamed and removed; Morph between two; a macro "
+          "locked; Vary (racks.md §18)",
+          "[integration][mcp]")
+{
+    Daw daw;
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    const auto util = daw.call("add_module", {{"track", t0}, {"type", "utility"}})["id"].get<std::string>();
+    auto rack = daw.call("group_modules", {{"modules", {util}}});
+    const auto rackId = rack["rack"].get<std::string>();
+    CHECK(rack["snapshots"].empty());
+    CHECK(rack["currentSnapshot"].is_null());
+    CHECK(rack["morph"]["on"] == false);
+    daw.call(
+        "map_macro",
+        {{"rack", rackId}, {"macro", 1}, {"module", util}, {"parameter", "gain"}, {"from", -24}, {"to", 0}});
+
+    // Two snapshots: the first two are Morph's A and B.
+    daw.call("set_macro", {{"rack", rackId}, {"macro", 1}, {"value", 20}});
+    rack = daw.call("store_snapshot", {{"rack", rackId}});
+    CHECK(daw.session->undoDescription() == "Assistant: store snapshot");
+    daw.call("set_macro", {{"rack", rackId}, {"macro", 1}, {"value", 80}});
+    rack = daw.call("store_snapshot", {{"rack", rackId}});
+    REQUIRE(rack["snapshots"].size() == 2);
+    CHECK(rack["snapshots"][0]["name"] == "Snapshot 1");
+    CHECK(rack["snapshots"][0]["macros"][0] == 20.0);
+    CHECK(rack["currentSnapshot"] == 2);
+    CHECK(rack["morph"]["a"] == 1);
+    CHECK(rack["morph"]["b"] == 2);
+    rack = daw.call("set_snapshot", {{"rack", rackId}, {"snapshot", 1}, {"name", "Verse"}});
+    rack = daw.call("set_snapshot", {{"rack", rackId}, {"snapshot", 2}, {"name", "Drop"}, {"macros", {90}}});
+    CHECK(rack["snapshots"][0]["name"] == "Verse");
+    CHECK(rack["snapshots"][1]["macros"][0] == 90.0);
+
+    // Recalled: the macros where it has them.
+    rack = daw.call("recall_snapshot", {{"rack", rackId}, {"snapshot", 1}});
+    CHECK(rack["macros"][0]["value"] == 20.0);
+    CHECK(rack["currentSnapshot"] == 1);
+    CHECK(rack["snapshotChanged"] == false);
+    CHECK(daw.fails("recall_snapshot", {{"rack", rackId}, {"snapshot", 3}}).find("2 snapshots") !=
+          std::string::npos);
+
+    // Morph on, half way: the macro between, set by it; set_macro and set_parameters refuse it.
+    rack = daw.call("set_morph", {{"rack", rackId}, {"on", true}, {"position", 50}});
+    CHECK(rack["morph"]["on"] == true);
+    CHECK(rack["morph"]["position"] == 50.0);
+    CHECK(rack["macros"][0]["value"] == Catch::Approx(55.0).margin(0.2));
+    CHECK(rack["macros"][0]["setByMorph"] == true);
+    CHECK(daw.fails("set_macro", {{"rack", rackId}, {"macro", 1}, {"value", 10}}).find("Morph sets") !=
+          std::string::npos);
+    const auto refused = daw.call("set_parameters", {{"module", rackId}, {"values", {{"macro1", 10}}}});
+    REQUIRE(refused["problems"].size() == 1);
+    CHECK(refused["problems"][0]["problem"].get<std::string>().find("set by Morph") != std::string::npos);
+    CHECK(daw.call("get_module", {{"module", rackId}})["parameters"][0]["setByMorph"] == true);
+    // Its position as the rack's parameter.
+    daw.call("set_parameters", {{"module", rackId}, {"values", {{"morph", 100}}}});
+    CHECK(daw.call("get_rack", {{"rack", rackId}})["macros"][0]["value"] == Catch::Approx(90.0).margin(0.2));
+
+    // Vary refuses while Morph is on; off, it moves the macro.
+    CHECK(daw.fails("vary_module", {{"module", rackId}}).find("Morph sets the macros") != std::string::npos);
+    daw.call("set_morph", {{"rack", rackId}, {"on", false}});
+    rack = daw.call("vary_module", {{"module", rackId}, {"more", true}});
+    CHECK(daw.session->undoDescription() == "Assistant: vary module");
+    CHECK(std::abs(rack["macros"][0]["value"].get<double>() - 90.0) <= 40.1);
+
+    // Locked: Vary has nothing to move.
+    rack = daw.call("set_macro", {{"rack", rackId}, {"macro", 1}, {"locked", true}});
+    CHECK(rack["macros"][0]["locked"] == true);
+    CHECK(daw.fails("vary_module", {{"module", rackId}}).find("Nothing to vary") != std::string::npos);
+
+    // Removed: B goes, so Morph can't be on.
+    rack = daw.call("remove_snapshot", {{"rack", rackId}, {"snapshot", 2}});
+    REQUIRE(rack["snapshots"].size() == 1);
+    CHECK(rack["morph"]["b"].is_null());
+    CHECK(daw.fails("set_morph", {{"rack", rackId}, {"on", true}}).find("two snapshots") !=
+          std::string::npos);
+}

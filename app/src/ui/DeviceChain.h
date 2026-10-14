@@ -65,6 +65,10 @@ public:
     void saveSelectedRackAs();
     /// A rack was renamed to be saved (Save rack as…): the shell writes its file.
     std::function<void(std::uint64_t rack)> onSaveRack;
+    /// The selected rack as the snapshot has it (null: none selected).
+    [[nodiscard]] const model::RackInfo* selectedRackInfo() const;
+    /// Renames the selected rack's current snapshot in place (Rename snapshot…, racks.md §18.2).
+    void renameCurrentSnapshot();
     /// Opens the selected rack's macro editor, `macro` chosen.
     void editMacros(int macro = 0);
     /// Whether the macro editor open is the selected rack's.
@@ -143,6 +147,8 @@ private:
                      std::function<void(juce::PopupMenu&)> extra = {});
     void showRackMenu(std::uint64_t rack);
     void showChainMenu(std::uint64_t rack, int chain);
+    /// A snapshot's right-click (racks.md §18.2): Rename, Update, Remove.
+    void showSnapshotMenu(std::uint64_t rack, int snapshot);
     [[nodiscard]] int slotIndexOf(const juce::Component* c) const;
     [[nodiscard]] Slot* slotOf(std::uint64_t id);
     [[nodiscard]] Rack* rackOf(std::uint64_t id);

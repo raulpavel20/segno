@@ -54,6 +54,7 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 
 - A rack is a module of type `rack` (`DeviceSlot::deviceId`, MCP's `type`). Its macros are its parameters `macro1` … `macro8`, 0 to 100 %, automated as `m<rack id>/macro<n>`; then `morph`, 0 to 100 % (step 2, racks.md §18.3, approved 2026-10-14), automated as `m<rack id>/morph`.
 - A rack panel's sections (view state): `macros`, `snapshots`, `morph`, `chains`.
+- In a project, on the rack's type (step 2): its snapshots (`fdSnapshots`, JSON: each a name and eight positions), the current one (`fdSnapshot`), Morph's on, A and B (`fdMorphOn`, `fdMorphA`, `fdMorphB`); Morph is the macro parameter marked `fdMorph`; a macro's lock, `fdLocked` on its state. In a `.segnorack` file: `snapshots`, `morph` (`on`, `a`, `b`, `position`) and `locked` on a macro, each left out while it has nothing to say.
 - In a project, a rack's chains are kept on its modules' places in tracktion's rack (`fdChain`, `fdChainMixer`, `fdChainName`, `fdChainOn`, `fdChainSolo`) and its shown chain on the rack (`fdShownChain`).
 
 ## Parameter level

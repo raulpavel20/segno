@@ -175,13 +175,18 @@ std::vector<Session::Impl::Param> Session::Impl::paramsOf(std::uint64_t channelI
         }
         // A rack (racks.md §4): its macros, as its parameters, then the modules in its chains.
         const auto macros = rack->getMacroParameters();
-        for (int i = 0; i < macros.size() && i < static_cast<int>(Session::rackMacros().params.size()); ++i)
+        for (int i = 0; i < static_cast<int>(Session::rackMacros().params.size()); ++i)
         {
+            // Its eight macros, then Morph (racks.md §18.3), wherever it is in the list.
+            auto* macro = i < model::RackInfo::macroCount ? (i < macros.size() ? macros[i].get() : nullptr)
+                                                          : Impl::morphOf(*rack);
+            if (macro == nullptr)
+                continue;
             const auto& spec = Session::rackMacros().params[static_cast<size_t>(i)];
             const juce::String id(std::string(spec.id));
-            auto name = macros[i]->macroName.get().toStdString();
+            auto name = macro->macroName.get().toStdString();
             out.push_back({.kind = Param::Kind::Macro,
-                           .param = macros[i].get(),
+                           .param = macro,
                            .key = moduleKey(*p, id),
                            .name = name.empty() ? std::string(spec.name) : name,
                            .module = rack->rackName.get().toStdString(),

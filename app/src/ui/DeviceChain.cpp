@@ -413,6 +413,56 @@ void DeviceChain::wireRackPanel(RackPanel& panel, std::uint64_t rack)
     };
     panel.onMacroDrag = [this, rack](int macro, const juce::MouseEvent& e) { macroDragged(rack, macro, e); };
     panel.onMacroDrop = [this, rack](int macro, const juce::MouseEvent&) { macroDropped(rack, macro); };
+    // Snapshots, locks and Morph (racks.md §18).
+    panel.onRecallSnapshot = [this, rack](int snapshot) { session_.recallSnapshot(rack, snapshot); };
+    panel.onStoreSnapshot = [this, rack] { session_.storeSnapshot(rack); };
+    panel.onSnapshotMenu = [this, rack](int snapshot) { showSnapshotMenu(rack, snapshot); };
+    panel.onRenameSnapshot = [this, rack](int snapshot, const juce::String& name)
+    { session_.setSnapshot(rack, snapshot, name.toStdString()); };
+    panel.onLockMacro = [this, rack](int macro, bool locked) { session_.lockMacro(rack, macro, locked); };
+    panel.onMorphOn = [this, rack](bool on) { session_.setMorph(rack, {.on = on}); };
+    panel.onMorphBetween = [this, rack](int a, int b) { session_.setMorph(rack, {.a = a, .b = b}); };
+}
+
+void DeviceChain::showSnapshotMenu(std::uint64_t rack, int snapshot)
+{
+    const auto* r = rackOf(rack);
+    if (r == nullptr || snapshot < 0 || snapshot >= static_cast<int>(r->info->snapshots.size()))
+        return;
+    juce::PopupMenu menu;
+    menu.addItem(juce::String::fromUTF8("Rename snapshot\xe2\x80\xa6"),
+                 [this, rack, snapshot]
+                 {
+                     if (auto* panel = rackPanelOf(rack))
+                         panel->renameSnapshot(snapshot);
+                 });
+    // Over it, where the macros are now; not while Morph sets them.
+    menu.addItem("Update snapshot", !model::morphing(*r->info), false,
+                 [this, rack, snapshot] { session_.storeSnapshot(rack, snapshot); });
+    menu.addSeparator();
+    menu.addItem("Remove snapshot", [this, rack, snapshot] { session_.removeSnapshot(rack, snapshot); });
+    menu.showMenuAsync(juce::PopupMenu::Options());
+}
+
+const model::RackInfo* DeviceChain::selectedRackInfo() const
+{
+    if (const auto rack = selectedRack())
+        if (const auto* r = rackOfConst(*rack))
+            return r->info.get();
+    return nullptr;
+}
+
+void DeviceChain::renameCurrentSnapshot()
+{
+    const auto rack = selectedRack();
+    const auto* info = selectedRackInfo();
+    if (!rack || info == nullptr || info->currentSnapshot < 0)
+        return;
+    if (auto* panel = rackPanelOf(*rack))
+    {
+        panel->setFolded(false, true);
+        panel->renameSnapshot(info->currentSnapshot);
+    }
 }
 
 void DeviceChain::deviceViewChanged(std::uint64_t deviceId)
@@ -986,6 +1036,16 @@ void DeviceChain::showRackMenu(std::uint64_t rack)
         r != nullptr && static_cast<int>(r->info->chains.size()) < engine::Session::maxRackChains;
     menu.addItem("Add chain", room, false, [this, rack] { session_.addRackChain(rack); });
     menu.addItem("Edit macros", [this, rack] { openMacroEditor(rack, 0); });
+    // Snapshots and Vary (racks.md §18).
+    menu.addSeparator();
+    const bool roomForSnapshot =
+        r != nullptr && static_cast<int>(r->info->snapshots.size()) < model::RackInfo::maxSnapshots;
+    menu.addItem("Store snapshot", roomForSnapshot, false, [this, rack] { session_.storeSnapshot(rack); });
+    const bool vary = r != nullptr && model::canVary(*r->info);
+    menu.addItem("Vary (" + actions_.shortcut("module.vary") + ")", vary, false,
+                 [this, rack] { session_.varyRack(rack, engine::Session::varyAmount); });
+    menu.addItem("Vary more (" + actions_.shortcut("module.varyMore") + ")", vary, false,
+                 [this, rack] { session_.varyRack(rack, engine::Session::varyMoreAmount); });
     menu.addSeparator();
     menu.addItem("Ungroup rack (" + actions_.shortcut("module.ungroupRack") + ")",
                  [this, rack]
@@ -1161,6 +1221,7 @@ void DeviceChain::openMacroEditor(std::uint64_t rack, int first)
             session_.unmapMacro(m->module, m->param);
     };
     raw->onMacroValue = [this, rack](int macro, float value) { session_.setMacro(rack, macro, value); };
+    raw->onLockMacro = [this, rack](int macro, bool locked) { session_.lockMacro(rack, macro, locked); };
     raw->onGesture = [this](bool started) { beginGesture(started, "Edit macro"); };
     raw->onAddMapping = [this, rack, raw](int macro)
     {

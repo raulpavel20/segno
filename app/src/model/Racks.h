@@ -3,6 +3,7 @@
 #include "model/Snapshot.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <functional>
 #include <string>
@@ -122,6 +123,32 @@ inline void forEachDevice(const std::vector<DeviceSlot>& chain,
             std::abs(rack.macros[static_cast<size_t>(i)].value - s.macros[static_cast<size_t>(i)]) > 0.0005f)
             return true;
     return false;
+}
+
+/// Whether Vary has something to move (racks.md §18.5): Morph isn't setting the macros, and a macro
+/// that maps something isn't held.
+[[nodiscard]] inline bool canVary(const RackInfo& rack) noexcept
+{
+    if (morphing(rack))
+        return false;
+    for (int i = 0; i < RackInfo::macroCount; ++i)
+        if (!rack.macros[static_cast<size_t>(i)].mappings.empty() && !macroHeld(rack, i))
+            return true;
+    return false;
+}
+
+/// Vary (racks.md §18.5): each macro that `moves` goes from where it is by a random amount up to
+/// ±`amount` of its travel, kept within it; the rest stay. `random` gives numbers in [0, 1).
+[[nodiscard]] inline std::array<float, RackInfo::macroCount>
+varied(const std::array<float, RackInfo::macroCount>& values,
+       const std::array<bool, RackInfo::macroCount>& moves, float amount,
+       const std::function<float()>& random)
+{
+    auto out = values;
+    for (size_t i = 0; i < out.size(); ++i)
+        if (moves[i])
+            out[i] = std::clamp(values[i] + amount * (2.0f * random() - 1.0f), 0.0f, 1.0f);
+    return out;
 }
 
 /// The name a new snapshot gets: "Snapshot n", the first n no snapshot is called.

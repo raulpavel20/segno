@@ -1165,3 +1165,80 @@ TEST_CASE(
     CHECK(f.modulePanels().empty());
     f.shot("folded");
 }
+
+TEST_CASE(
+    "racks in the chain view, step 2: snapshots stored and recalled from the rack's panel, Morph switched "
+    "on there, and a macro locked from the macro editor (racks.md §18)",
+    "[ui]")
+{
+    ChainOnSession f;
+    auto& s = *f.session;
+    const auto utility = s.addDevice(f.track, "fd:utility");
+    const auto rack = s.groupIntoRack({utility});
+    REQUIRE(rack != 0);
+    REQUIRE(s.mapMacro(rack, 0, utility, "gain", 0.2f, 0.8f));
+    REQUIRE(s.setMacro(rack, 0, 0.3f));
+    f.show();
+    auto* panel = f.rackPanel();
+    REQUIRE(panel != nullptr);
+    CHECK_FALSE(panel->findSection("snapshots")->isVisible());
+
+    // "+ Store" isn't there before the first: the rack's right-click and the Module menu store it.
+    REQUIRE(s.storeSnapshot(rack) == 0);
+    f.show();
+    panel = f.rackPanel();
+    CHECK(panel->findSection("snapshots")->isVisible());
+    CHECK_FALSE(panel->findSection("morph")->isVisible());
+    // The second, from its "+ Store": MORPH shows, A and B the two.
+    REQUIRE(s.setMacro(rack, 0, 0.9f));
+    f.show();
+    panel = f.rackPanel();
+    REQUIRE(panel->storeButton().onClick);
+    panel->storeButton().onClick();
+    f.show();
+    panel = f.rackPanel();
+    CHECK(panel->findSection("morph")->isVisible());
+    CHECK(panel->morphA().getText() == "Snapshot 1");
+    CHECK(panel->morphB().getText() == "Snapshot 2");
+    CHECK(panel->snapshotButton(1).getToggleState());
+
+    // A click on the first recalls it.
+    panel->snapshotButton(0).onClick();
+    f.show();
+    panel = f.rackPanel();
+    CHECK(panel->snapshotButton(0).getToggleState());
+    CHECK(panel->macroKnob(0).getValue() == Catch::Approx(0.3f).margin(1e-3));
+
+    // MORPH's power: on, the macro follows it, its range from A to B a ring; the knob won't drag.
+    auto* power = dynamic_cast<fd::ui::Toggle*>(panel->findSection("morph")->powerToggle());
+    REQUIRE(power != nullptr);
+    power->setToggleState(true, juce::dontSendNotification);
+    power->onClick();
+    f.show();
+    panel = f.rackPanel();
+    CHECK(model::findDevice(s.snapshot()->channel(f.track)->devices, rack)->rack->morph.on);
+    CHECK(panel->findSection("morph")->isPoweredOn());
+    panel->macroKnob(0).refresh();
+    CHECK(panel->macroKnob(0).isFollowing());
+    REQUIRE(panel->macroKnob(0).ring().has_value());
+    CHECK(panel->macroKnob(0).ring()->from == Catch::Approx(0.3f).margin(1e-3));
+    CHECK(panel->macroKnob(0).ring()->to == Catch::Approx(0.9f).margin(1e-3));
+    CHECK_FALSE(panel->snapshotButton(0).getToggleState()); // Morph puts the macros where they are
+    f.shot("step2-morph-on");
+
+    // Locked from the macro editor: Morph lets go of it.
+    std::unique_ptr<juce::Component> shown;
+    f.chain->onShowEditor = [&](std::uint64_t, std::unique_ptr<fd::ui::ModuleEditor> editor)
+    { shown = std::move(editor); };
+    panel->onEditMacros(0);
+    auto* editor = dynamic_cast<fd::app::MacroEditor*>(shown.get());
+    REQUIRE(editor != nullptr);
+    REQUIRE(editor->onLockMacro);
+    editor->onLockMacro(0, true);
+    f.show();
+    panel = f.rackPanel();
+    panel->macroKnob(0).refresh();
+    CHECK(panel->macroKnob(0).isLocked());
+    CHECK_FALSE(panel->macroKnob(0).isFollowing());
+    f.shot("step2-locked");
+}

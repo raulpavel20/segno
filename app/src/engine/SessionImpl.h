@@ -519,6 +519,32 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// A track's state copied (its ids remapped into `ids`): each rack in it gets a copy of its
     /// rack of its own, with new ids (also into `ids`), which it then refers to.
     void copyRacksIn(juce::ValueTree trackCopy, te::EditItemID::IDMap& ids);
+    // Step 2 (racks.md §18): a rack's snapshots (JSON), the current one and Morph's on, A and B are
+    // properties of its type; a macro's lock is on its own state; Morph is one more macro of the
+    // type (fdMorph), mapped to each macro it moves, From its place in A by B - A (syncMorph).
+    static inline const juce::Identifier snapshotsId{"fdSnapshots"}, snapshotId{"fdSnapshot"},
+        morphOnId{"fdMorphOn"}, morphAId{"fdMorphA"}, morphBId{"fdMorphB"}, morphId{"fdMorph"},
+        lockedId{"fdLocked"};
+    [[nodiscard]] static std::vector<model::RackInfo::Snapshot> snapshotsOf(const te::RackType& rack);
+    static void setSnapshots(te::RackType& rack, const std::vector<model::RackInfo::Snapshot>& snapshots,
+                             juce::UndoManager* um);
+    /// The rack's Morph: null for a rack from before step 2 until ensureMorph makes it.
+    [[nodiscard]] static te::MacroParameter* morphOf(const te::RackType& rack);
+    te::MacroParameter* ensureMorph(te::RackType& rack);
+    /// Snapshots, Morph and the macros' locks, positions and lanes, as the model has them.
+    static void fillStep2(const te::RackType& rack, model::RackInfo& info);
+    /// Where a macro is now: Morph's place for it while Morph sets it, its lane's while it
+    /// follows one, else its own.
+    [[nodiscard]] static float macroPosition(const te::RackType& rack, int macro);
+    /// Morph's mappings onto the macros made to agree with the rack's state: each macro it sets
+    /// mapped From A To B; one it no longer sets left where Morph had it. Changes nothing when
+    /// they agree, so it's run whenever something they depend on may have changed.
+    void syncMorph(te::RackType& rack);
+    void syncMorphs();
+    /// The parameters the macros move, where the macros now put them: the engine moves them only
+    /// while it plays, and not at all for a macro Morph moves.
+    void refreshMacroTargets(te::RackType& rack);
+    bool morphCheckPending = false; // a lane came or went: a macro may now follow one
     /// The rack's info for the snapshot.
     [[nodiscard]] std::shared_ptr<const model::RackInfo>
     rackInfo(te::RackInstance& instance, const std::function<model::DeviceSlot(te::Plugin&)>& slotOf) const;
@@ -539,6 +565,8 @@ private:
     void handleAsyncUpdate() override
     {
         applyInputs(); // tracks, inputs or instruments may have changed (undo too)
+        if (std::exchange(morphCheckPending, false) && edit != nullptr)
+            syncMorphs(); // a macro that now follows a lane is left alone by Morph (racks.md §18.4)
         if (std::exchange(restartPending, false) && edit != nullptr)
             edit->restartPlayback(); // fine-grained automation needs a new graph (automation.md §13)
         rebuildSnapshot();
@@ -561,6 +589,7 @@ private:
         // An assignment's on switch: shown at once, never an unsaved change.
         if (id == te::IDs::bypass)
         {
+            morphCheckPending = true;
             changed(t);
             return;
         }
@@ -609,6 +638,7 @@ private:
         if (inInputs(t) || child.hasType(te::IDs::INPUTDEVICES))
             return; // routing, rebuilt from the tracks' inputs
         restartPending = restartPending || child.hasType(te::IDs::AUTOMATIONCURVE);
+        morphCheckPending = morphCheckPending || inCurve(t) || child.hasType(te::IDs::AUTOMATIONCURVE);
         structureChanged(t);
     }
     void valueTreeChildRemoved(juce::ValueTree& t, juce::ValueTree& child, int) override
@@ -616,7 +646,16 @@ private:
         if (inInputs(t) || child.hasType(te::IDs::INPUTDEVICES))
             return;
         restartPending = restartPending || child.hasType(te::IDs::AUTOMATIONCURVE);
+        morphCheckPending = morphCheckPending || inCurve(t) || child.hasType(te::IDs::AUTOMATIONCURVE);
         structureChanged(t);
+    }
+    /// Within a parameter's automation curve (its points).
+    static bool inCurve(juce::ValueTree t)
+    {
+        for (; t.isValid() && !t.hasType(te::IDs::PLUGIN); t = t.getParent())
+            if (t.hasType(te::IDs::AUTOMATIONCURVE))
+                return true;
+        return false;
     }
     void valueTreeChildOrderChanged(juce::ValueTree& t, int, int newIndex) override
     {

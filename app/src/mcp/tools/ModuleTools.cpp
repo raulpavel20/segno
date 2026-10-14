@@ -275,6 +275,17 @@ void addModuleTools(Registry& registry, ToolEnv& env)
                                              "): set_macro moves it, unmap_macro frees it"}});
                         continue;
                     }
+                    // A rack's macro Morph sets (racks.md §18.3): it follows Morph.
+                    if (slot.rack != nullptr && i < static_cast<size_t>(model::RackInfo::macroCount) &&
+                        model::morphSets(*slot.rack, static_cast<int>(i)))
+                    {
+                        problems.push_back(
+                            {{"id", key},
+                             {"problem",
+                              "set by Morph: set_morph moves it; set_morph with on false, or set_macro "
+                              "with locked true, frees it"}});
+                        continue;
+                    }
                     std::optional<float> plain;
                     if (value.is_boolean())
                         plain = value.get<bool>() ? spec.max : spec.min;

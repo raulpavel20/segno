@@ -262,6 +262,36 @@ public:
                   float to, float curve = 0.0f);
     /// The parameter is set by hand again, where its macro has it now.
     bool unmapMacro(std::uint64_t module, const std::string& param);
+
+    // Snapshots, Morph, locks and Vary (racks.md §18; each one undo step). A snapshot is where the
+    // eight macros are, nothing else; a saved rack is the whole rack.
+    /// Stores where the macros are as a new snapshot ("Snapshot n"), or over snapshot `over`; it
+    /// becomes the current one, and the first two become Morph's A and B. Its index; -1 if it
+    /// can't (eight already, or no such snapshot).
+    int storeSnapshot(std::uint64_t rack, std::optional<int> over = {});
+    /// Puts the macros where a snapshot has them, all but locked ones and those following a lane;
+    /// Morph turns off first. It becomes the current one.
+    bool recallSnapshot(std::uint64_t rack, int snapshot);
+    /// Removes a snapshot; removing Morph's A or B turns Morph off and clears that choice.
+    bool removeSnapshot(std::uint64_t rack, int snapshot);
+    /// A snapshot's name, or its eight positions (0 .. 1), set directly.
+    bool setSnapshot(std::uint64_t rack, int snapshot, std::optional<std::string> name,
+                     std::optional<std::array<float, 8>> macros = {});
+    /// Morph (racks.md §18.3): on or off, the snapshots it goes between, and its position (0 ..
+    /// 1, the rack's parameter `morph`). On needs A and B. Each set if given.
+    struct MorphEdit
+    {
+        std::optional<bool> on;
+        std::optional<int> a, b;
+        std::optional<float> position;
+    };
+    bool setMorph(std::uint64_t rack, const MorphEdit& edit);
+    /// Locks a macro, so recall, Morph and Vary leave it alone, or unlocks it.
+    bool lockMacro(std::uint64_t rack, int macro, bool locked);
+    /// Vary (racks.md §18.5): each mapped macro that isn't held moves from where it is by a random
+    /// amount up to ±`amount` of its travel. False while Morph is on, or when nothing can move.
+    bool varyRack(std::uint64_t rack, float amount);
+    static constexpr float varyAmount = 0.15f, varyMoreAmount = 0.4f; // Vary, Vary more
     /// A rack's panel context: its eight macros as parameters "macro1" .. "macro8", 0 .. 100 %,
     /// automated like any module's. Null if it isn't a rack.
     [[nodiscard]] std::unique_ptr<DeviceHandle> openRack(std::uint64_t rack);

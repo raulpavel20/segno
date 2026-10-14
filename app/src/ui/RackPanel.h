@@ -80,8 +80,6 @@ public:
     std::function<void(int macro, bool locked)> onLockMacro;
     std::function<void(bool on)> onMorphOn;
     std::function<void(int a, int b)> onMorphBetween;
-    /// The pointer on Morph's name: the host lights the macros it moves.
-    std::function<void(bool hovered)> onMorphHover;
     /// Renames a snapshot in place: its name in SNAPSHOTS.
     void renameSnapshot(int snapshot);
     /// Lights Morph's name while the pointer is on a macro it moves.
@@ -112,6 +110,7 @@ private:
     ui::ParamKnob* morph_ = nullptr;
     ui::ChoiceBox morphA_, morphB_;
     juce::StringArray morphNames_;
+    bool morphHovered_ = false; // the pointer on Morph's name: the macros it moves are lit
     ui::NameEditor nameEditor_{*this};
     model::RackInfo rack_;
     juce::String rackName_;

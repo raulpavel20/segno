@@ -30,6 +30,23 @@ int chainArg(const model::RackInfo& rack, const Json& value)
     return chain;
 }
 
+/// A value 0 .. 1 as a percentage, to a tenth.
+double percent(float v)
+{
+    return std::round(v * 1000.0) / 10.0;
+}
+
+int snapshotArg(const model::RackInfo& rack, const Json& value)
+{
+    const int snapshot = value.get<int>() - 1;
+    if (snapshot < 0 || snapshot >= static_cast<int>(rack.snapshots.size()))
+        throw Problem{rack.snapshots.empty()
+                          ? std::string("The rack has no snapshots yet; store_snapshot stores one.")
+                          : "The rack has " + std::to_string(rack.snapshots.size()) +
+                                " snapshots, counted from 1."};
+    return snapshot;
+}
+
 int macroArg(const Json& value)
 {
     const int macro = value.get<int>() - 1;
@@ -99,11 +116,27 @@ Json rackJson(ToolEnv& env, const model::DeviceSlot& slot, const model::TrackInf
                    {"curve", std::round(map.curve * 100.0)}};
             mappings.push_back(std::move(j));
         }
-        macros.push_back({{"macro", i + 1},
-                          {"name", m.name},
-                          {"value", std::round(m.value * 1000.0) / 10.0},
-                          {"mappings", mappings}});
+        Json macro{{"macro", i + 1},
+                   {"name", m.name},
+                   {"value", percent(m.value)},
+                   {"mappings", mappings},
+                   {"locked", m.locked}};
+        if (m.automated)
+            macro["followsLane"] = true;
+        if (model::morphSets(rack, static_cast<int>(i)))
+            macro["setByMorph"] = true;
+        macros.push_back(std::move(macro));
     }
+    // Its snapshots and Morph (racks.md §18), counted from 1 as chains and macros are.
+    Json snapshots = Json::array();
+    for (size_t i = 0; i < rack.snapshots.size(); ++i)
+    {
+        Json positions = Json::array();
+        for (const float v : rack.snapshots[i].macros)
+            positions.push_back(percent(v));
+        snapshots.push_back({{"snapshot", i + 1}, {"name", rack.snapshots[i].name}, {"macros", positions}});
+    }
+    const auto oneBased = [](int i) { return i >= 0 ? Json(i + 1) : Json(nullptr); };
     return {{"rack", formatId(IdKind::Module, slot.id)},
             {"name", slot.name},
             {"track", formatId(IdKind::Track, owner.id)},
@@ -111,7 +144,15 @@ Json rackJson(ToolEnv& env, const model::DeviceSlot& slot, const model::TrackInf
             {"instrument", slot.instrument},
             {"shownChain", rack.shownChain + 1},
             {"chains", chains},
-            {"macros", macros}};
+            {"macros", macros},
+            {"snapshots", snapshots},
+            {"currentSnapshot", oneBased(rack.currentSnapshot)},
+            {"snapshotChanged", model::snapshotChanged(rack)},
+            {"morph",
+             {{"on", rack.morph.on},
+              {"a", oneBased(rack.morph.a)},
+              {"b", oneBased(rack.morph.b)},
+              {"position", percent(rack.morph.position)}}}};
 }
 } // namespace tools
 
@@ -372,28 +413,180 @@ void addRackTools(Registry& registry, ToolEnv& env)
             return ToolResult::ok({{"path", file.getFullPathName().toStdString()}});
         }));
 
-    registry.tools.push_back(make(env,
-                                  {"set_macro", "Set a macro",
-                                   "Sets one of a rack's macros: its value (0 to 100 %; every parameter "
-                                   "mapped to it follows) and its name.",
-                                   object({{"rack", id(IdKind::Module, "The rack")},
-                                           {"macro", integer("The macro, 1 to 8", 1, 8)},
-                                           {"value", number("0 .. 100 %")},
-                                           {"name", string("Its name")}},
-                                          {"rack", "macro"}),
-                                   rackResult, changes},
-                                  [&env, now](const Json& args, CallContext&)
-                                  {
-                                      const auto [rack, owner] = rackArg(env, args["rack"]);
-                                      const int macro = macroArg(args["macro"]);
-                                      std::optional<float> value;
-                                      if (args.contains("value"))
-                                          value = std::clamp(args["value"].get<float>() / 100.0f, 0.0f, 1.0f);
-                                      std::optional<std::string> name;
-                                      if (args.contains("name"))
-                                          name = args["name"].get<std::string>();
-                                      env.session.setMacro(rack.id, macro, value, name);
-                                      return now(rack.id);
-                                  }));
+    registry.tools.push_back(make(
+        env,
+        {"set_macro", "Set a macro",
+         "Sets one of a rack's macros: its value (0 to 100 %; every parameter mapped to it follows), its "
+         "name, "
+         "and its lock (locked, snapshots' recall, Morph and Vary leave it alone; racks.md §18.4).",
+         object({{"rack", id(IdKind::Module, "The rack")},
+                 {"macro", integer("The macro, 1 to 8", 1, 8)},
+                 {"value", number("0 .. 100 %")},
+                 {"name", string("Its name")},
+                 {"locked", boolean("Locked")}},
+                {"rack", "macro"}),
+         rackResult, changes},
+        [&env, now](const Json& args, CallContext&)
+        {
+            const auto [rack, owner] = rackArg(env, args["rack"]);
+            const int macro = macroArg(args["macro"]);
+            if (args.contains("locked"))
+                env.session.lockMacro(rack.id, macro, args["locked"].get<bool>());
+            std::optional<float> value;
+            if (args.contains("value"))
+            {
+                env.session.flushSnapshot();
+                const auto [fresh, holder] = rackArg(env, args["rack"]);
+                if (model::morphSets(*fresh.rack, macro))
+                    throw Problem{"Morph sets macro " + std::to_string(macro + 1) +
+                                  ": set_morph moves it; set_morph with on false, or locked true, frees it."};
+                value = std::clamp(args["value"].get<float>() / 100.0f, 0.0f, 1.0f);
+            }
+            std::optional<std::string> name;
+            if (args.contains("name"))
+                name = args["name"].get<std::string>();
+            if (value || name)
+                env.session.setMacro(rack.id, macro, value, name);
+            return now(rack.id);
+        }));
+
+    // ---- snapshots, Morph and Vary (racks.md §18) ------------------------------------------------
+
+    registry.tools.push_back(make(
+        env,
+        {"store_snapshot", "Store a rack's snapshot",
+         "Stores where a rack's eight macros are as a snapshot (racks.md §18.2), \"Snapshot N\", which "
+         "becomes "
+         "the current one; with snapshot, over that one instead (Update). A snapshot holds the macros' "
+         "positions "
+         "only: a rack that differs in anything else is another rack (save_rack). At most 8; the first two "
+         "become Morph's A and B.",
+         object({{"rack", id(IdKind::Module, "The rack")},
+                 {"snapshot", integer("Store over this one, counted from 1 (default: a new one)", 1, 8)}},
+                {"rack"}),
+         rackResult, adds},
+        [&env, now](const Json& args, CallContext&)
+        {
+            const auto [rack, owner] = rackArg(env, args["rack"]);
+            std::optional<int> over;
+            if (args.contains("snapshot"))
+                over = snapshotArg(*rack.rack, args["snapshot"]);
+            if (env.session.storeSnapshot(rack.id, over) < 0)
+                throw Problem{"The rack has 8 snapshots already: store over one, or remove one."};
+            return now(rack.id);
+        }));
+
+    registry.tools.push_back(make(
+        env,
+        {"recall_snapshot", "Recall a rack's snapshot",
+         "Puts a rack's macros where a snapshot has them, all but locked ones and those following an "
+         "automation lane; Morph turns off first. It becomes the current one.",
+         object({{"rack", id(IdKind::Module, "The rack")}, {"snapshot", integer("Counted from 1", 1, 8)}},
+                {"rack", "snapshot"}),
+         rackResult, changes},
+        [&env, now](const Json& args, CallContext&)
+        {
+            const auto [rack, owner] = rackArg(env, args["rack"]);
+            env.session.recallSnapshot(rack.id, snapshotArg(*rack.rack, args["snapshot"]));
+            return now(rack.id);
+        }));
+
+    registry.tools.push_back(make(
+        env,
+        {"remove_snapshot", "Remove a rack's snapshot",
+         "Removes a snapshot; those after it move up one. Removing Morph's A or B turns Morph off.",
+         object({{"rack", id(IdKind::Module, "The rack")}, {"snapshot", integer("Counted from 1", 1, 8)}},
+                {"rack", "snapshot"}),
+         rackResult, removes},
+        [&env, now](const Json& args, CallContext&)
+        {
+            const auto [rack, owner] = rackArg(env, args["rack"]);
+            env.session.removeSnapshot(rack.id, snapshotArg(*rack.rack, args["snapshot"]));
+            return now(rack.id);
+        }));
+
+    registry.tools.push_back(make(
+        env,
+        {"set_snapshot", "Rename or set a rack's snapshot",
+         "A snapshot's name, or where it has the macros (macros: up to eight values, 0 to 100 %, macro 1 "
+         "first), set without recalling it.",
+         object({{"rack", id(IdKind::Module, "The rack")},
+                 {"snapshot", integer("Counted from 1", 1, 8)},
+                 {"name", string("Its name")},
+                 {"macros", arrayOf(number("0 .. 100 %"), "Its positions, macro 1 first", std::nullopt)}},
+                {"rack", "snapshot"}),
+         rackResult, changes},
+        [&env, now](const Json& args, CallContext&)
+        {
+            const auto [rack, owner] = rackArg(env, args["rack"]);
+            const int snapshot = snapshotArg(*rack.rack, args["snapshot"]);
+            std::optional<std::string> name;
+            if (args.contains("name"))
+                name = args["name"].get<std::string>();
+            std::optional<std::array<float, 8>> macros;
+            if (args.contains("macros"))
+            {
+                const auto& given = args["macros"];
+                if (!given.is_array() || given.size() > 8)
+                    throw Problem{"macros is up to eight values, 0 to 100 %, macro 1 first."};
+                auto positions = rack.rack->snapshots[static_cast<size_t>(snapshot)].macros;
+                for (size_t i = 0; i < given.size(); ++i)
+                    positions[i] = std::clamp(given[i].get<float>() / 100.0f, 0.0f, 1.0f);
+                macros = positions;
+            }
+            env.session.setSnapshot(rack.id, snapshot, name, macros);
+            return now(rack.id);
+        }));
+
+    registry.tools.push_back(make(
+        env,
+        {"set_morph", "Set a rack's Morph",
+         "Morph (racks.md §18.3): while on, the rack's macros (all but locked ones and those following a "
+         "lane) go from where snapshot A has them to where B has them as its position goes from 0 to 100 %. "
+         "On needs A and B. Its position is also the rack's parameter \"morph\", automated as any.",
+         object({{"rack", id(IdKind::Module, "The rack")},
+                 {"on", boolean("On")},
+                 {"a", integer("Snapshot A, counted from 1", 1, 8)},
+                 {"b", integer("Snapshot B, counted from 1", 1, 8)},
+                 {"position", number("0 .. 100 %")}},
+                {"rack"}),
+         rackResult, changes},
+        [&env, now](const Json& args, CallContext&)
+        {
+            const auto [rack, owner] = rackArg(env, args["rack"]);
+            engine::Session::MorphEdit e;
+            if (args.contains("a"))
+                e.a = snapshotArg(*rack.rack, args["a"]);
+            if (args.contains("b"))
+                e.b = snapshotArg(*rack.rack, args["b"]);
+            if (args.contains("on"))
+                e.on = args["on"].get<bool>();
+            if (args.contains("position"))
+                e.position = std::clamp(args["position"].get<float>() / 100.0f, 0.0f, 1.0f);
+            if (!env.session.setMorph(rack.id, e))
+                throw Problem{"Morph needs two snapshots to go between: store_snapshot stores them, a and b "
+                              "choose them."};
+            return now(rack.id);
+        }));
+
+    registry.tools.push_back(make(
+        env,
+        {"vary_module", "Vary a module",
+         "Vary (racks.md §18.5): on a rack, each macro that maps something and isn't locked or following a "
+         "lane moves from where it is by a random amount, up to 15 % of its travel (more: 40 %). One undo "
+         "step; again for another. Not while Morph is on.",
+         object({{"module", id(IdKind::Module, "The module (a rack)")}, {"more", boolean("Vary more")}},
+                {"module"}),
+         rackResult, changes},
+        [&env, now](const Json& args, CallContext&)
+        {
+            const auto [rack, owner] = rackArg(env, args["module"]);
+            if (!env.session.varyRack(rack.id, args.value("more", false) ? engine::Session::varyMoreAmount
+                                                                         : engine::Session::varyAmount))
+                throw Problem{model::morphing(*rack.rack)
+                                  ? std::string("Morph sets the macros: set_morph with on false first.")
+                                  : std::string("Nothing to vary: no macro that maps something is free.")};
+            return now(rack.id);
+        }));
 }
 } // namespace fd::mcp

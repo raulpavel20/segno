@@ -699,6 +699,9 @@ Json moduleJson(ToolEnv& env, const model::DeviceSlot& slot, const model::TrackI
                     p["setByMacro"] = {{"rack", formatId(IdKind::Module, holder->id)},
                                        {"macro", macro + 1},
                                        {"name", holder->rack->macros[static_cast<size_t>(macro)].name}};
+                if (slot.rack != nullptr && i < static_cast<size_t>(model::RackInfo::macroCount) &&
+                    model::morphSets(*slot.rack, static_cast<int>(i)))
+                    p["setByMorph"] = true; // racks.md §18.3
                 // Its automation (C4): its lane, points, range and whether it plays.
                 if (auto a = parameterAutomationJson(env, {t.id, "m" + std::to_string(slot.id) + "/" + std::string(spec.id)});
                     !a.is_null())

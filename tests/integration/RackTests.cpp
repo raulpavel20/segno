@@ -550,3 +550,309 @@ TEST_CASE("racks: a rack file loads as it was saved, the same sound; a newer mod
     CHECK(partial.missing == std::vector<std::string>{"Shimmer Verb"});
     CHECK(r.rack(partial.rack).chains[0].devices.size() == 2);
 }
+
+// ---- step 2: snapshots, Morph, locks and Vary (racks.md §18) -----------------------------------
+
+TEST_CASE("racks: snapshots store and recall the macros, the current one marked changed; locked macros and "
+          "those following a lane stay; each edit one undo step",
+          "[integration]")
+{
+    Racks r;
+    auto& s = *r.session;
+    const auto utility = s.addDevice(r.t, "fd:utility");
+    const auto rack = s.groupIntoRack({utility});
+    REQUIRE(rack != 0);
+    REQUIRE(s.mapMacro(rack, 0, utility, "gain", 0.2f, 0.8f));
+    REQUIRE(s.setMacro(rack, 0, 0.25f));
+    REQUIRE(s.setMacro(rack, 1, 0.5f));
+
+    // Stored: where the macros are, named, the current one; the first two become A and B.
+    CHECK(s.storeSnapshot(rack) == 0);
+    CHECK(s.undoDescription() == "Store snapshot");
+    REQUIRE(s.setMacro(rack, 0, 0.75f));
+    REQUIRE(s.setMacro(rack, 1, 0.1f));
+    CHECK(model::snapshotChanged(r.rack(rack)));
+    CHECK(s.storeSnapshot(rack) == 1);
+    {
+        const auto info = r.rack(rack);
+        REQUIRE(info.snapshots.size() == 2);
+        CHECK(info.snapshots[0].name == "Snapshot 1");
+        CHECK(info.snapshots[1].name == "Snapshot 2");
+        CHECK(info.snapshots[0].macros[0] == Approx(0.25f).margin(1e-4));
+        CHECK(info.snapshots[1].macros[1] == Approx(0.1f).margin(1e-4));
+        CHECK(info.currentSnapshot == 1);
+        CHECK(info.morph.a == 0);
+        CHECK(info.morph.b == 1);
+        CHECK_FALSE(info.morph.on);
+        CHECK_FALSE(model::snapshotChanged(info));
+    }
+
+    // Recalled: the macros where it has them, and what they map with them.
+    REQUIRE(s.recallSnapshot(rack, 0));
+    CHECK(s.undoDescription() == "Recall snapshot");
+    {
+        const auto info = r.rack(rack);
+        CHECK(info.currentSnapshot == 0);
+        CHECK(info.macros[0].value == Approx(0.25f).margin(1e-4));
+        CHECK(info.macros[1].value == Approx(0.5f).margin(1e-4));
+    }
+    CHECK(
+        r.gainDb() ==
+        Approx(fd::findDevice("utility")->info().params[0].fromNormalized(0.2f + 0.25f * 0.6f)).margin(0.3));
+    s.undo(); // the recall
+    CHECK(r.rack(rack).macros[0].value == Approx(0.75f).margin(1e-4));
+
+    // A locked macro stays; so does one following its lane.
+    REQUIRE(s.lockMacro(rack, 1, true));
+    CHECK(r.rack(rack).macros[1].locked);
+    const auto lane = s.addAutomationLane(Session::ParamTarget{r.t, "m" + std::to_string(rack) + "/macro1"});
+    REQUIRE(lane != 0);
+    REQUIRE(s.setLanePoints(lane, {{0.0, 0.9f, 0.0f}, {kSeconds, 0.9f, 0.0f}}));
+    s.updateSnapshotNow();
+    CHECK(r.rack(rack).macros[0].automated);
+    REQUIRE(s.recallSnapshot(rack, 0));
+    {
+        const auto info = r.rack(rack);
+        CHECK(info.macros[1].value == Approx(0.1f).margin(1e-4)); // locked: as it was
+        CHECK(info.macros[0].automated);
+    }
+    CHECK(r.gainDb() == Approx(fd::findDevice("utility")->info().params[0].fromNormalized(0.2f + 0.9f * 0.6f))
+                            .margin(0.3)); // the lane's, not the snapshot's
+    s.removeAutomationLane(lane);
+
+    // Updated, renamed, set directly, removed.
+    REQUIRE(s.setMacro(rack, 0, 0.6f));
+    CHECK(s.storeSnapshot(rack, 0) == 0);
+    CHECK(s.undoDescription() == "Update snapshot");
+    CHECK(r.rack(rack).snapshots[0].macros[0] == Approx(0.6f).margin(1e-4));
+    REQUIRE(s.setSnapshot(rack, 0, std::string("Verse")));
+    CHECK(r.rack(rack).snapshots[0].name == "Verse");
+    REQUIRE(s.setSnapshot(rack, 1, std::nullopt, std::array<float, 8>{1.0f, 2.0f}));
+    CHECK(r.rack(rack).snapshots[1].macros[1] == Approx(1.0f)); // kept within its travel
+    REQUIRE(s.removeSnapshot(rack, 0));
+    {
+        const auto info = r.rack(rack);
+        REQUIRE(info.snapshots.size() == 1);
+        CHECK(info.snapshots[0].name == "Snapshot 2");
+        CHECK(info.morph.a == -1); // it was A
+        CHECK(info.morph.b == 0);  // B moved up with it
+        CHECK(info.currentSnapshot == -1);
+    }
+    s.undo();
+    CHECK(r.rack(rack).snapshots.size() == 2);
+
+    // Eight at most.
+    for (int i = 2; i < model::RackInfo::maxSnapshots; ++i)
+        CHECK(s.storeSnapshot(rack) == i);
+    CHECK(s.storeSnapshot(rack) == -1);
+    CHECK_FALSE(s.recallSnapshot(rack, 8));
+}
+
+TEST_CASE(
+    "racks: Morph takes the macros from A to B in the sound, follows its lane, leaves locked and automated "
+    "macros alone, and lets go where it is; a recall turns it off",
+    "[integration]")
+{
+    Racks r;
+    auto& s = *r.session;
+    const auto utility = s.addDevice(r.t, "fd:utility");
+    const auto rack = s.groupIntoRack({utility});
+    REQUIRE(rack != 0);
+    const auto& gain = fd::findDevice("utility")->info().params[0];
+    const float from = r.normalised("utility", "gain", -24.0f), to = r.normalised("utility", "gain", 0.0f);
+    REQUIRE(s.mapMacro(rack, 0, utility, "gain", from, to));
+    const auto levelAt = [&](float macro) { return gain.fromNormalized(from + macro * (to - from)); };
+
+    REQUIRE(s.setMacro(rack, 0, 0.2f));
+    REQUIRE(s.storeSnapshot(rack) == 0); // A: 0.2
+    REQUIRE(s.setMacro(rack, 0, 0.8f));
+    REQUIRE(s.storeSnapshot(rack) == 1);                         // B: 0.8
+    CHECK_FALSE(s.setMorph(rack, {.on = true, .a = 0, .b = 5})); // no such snapshot
+
+    REQUIRE(s.setMorph(rack, {.on = true, .position = 0.0f}));
+    CHECK(s.undoDescription() == "Morph on");
+    CHECK(r.rack(rack).morph.on);
+    CHECK(r.gainDb() == Approx(levelAt(0.2f)).margin(0.3));
+    REQUIRE(s.setMorph(rack, {.position = 1.0f}));
+    CHECK(r.gainDb() == Approx(levelAt(0.8f)).margin(0.3));
+    REQUIRE(s.setMorph(rack, {.position = 0.5f}));
+    CHECK(r.gainDb() == Approx(levelAt(0.5f)).margin(0.3));
+    CHECK(r.rack(rack).macros[0].value == Approx(0.5f).margin(1e-3));
+    // Its macros are set by it: the panel shows their range, and a drag can't move them.
+    {
+        auto h = s.openRack(rack);
+        REQUIRE(h != nullptr);
+        const auto mapping = h->context().params.macroMapping(0);
+        REQUIRE(mapping);
+        CHECK(mapping->macro == juce::String::fromUTF8("Morph: Snapshot 1 \xe2\x86\x92 Snapshot 2"));
+        CHECK(mapping->from == Approx(0.2f).margin(1e-4));
+        CHECK(mapping->to == Approx(0.8f).margin(1e-4));
+        CHECK(h->context().params.getPlain(0) == Approx(50.0f).margin(0.1f));
+        CHECK(h->context().params.getPlain(static_cast<size_t>(model::RackInfo::morphParam)) ==
+              Approx(50.0f).margin(0.1f));
+    }
+
+    // Its lane: Morph is automated as any parameter.
+    const auto morphKey = "m" + std::to_string(rack) + "/morph";
+    const auto choices = s.automatableParameters(r.t);
+    CHECK(std::any_of(choices.begin(), choices.end(), [&](const auto& c) { return c.key == morphKey; }));
+    const auto morphLane = s.addAutomationLane(Session::ParamTarget{r.t, morphKey});
+    REQUIRE(morphLane != 0);
+    REQUIRE(s.setLanePoints(morphLane, {{0.0, 1.0f, 0.0f}, {kSeconds, 1.0f, 0.0f}}));
+    CHECK(r.gainDb() == Approx(levelAt(0.8f)).margin(0.3));
+    s.removeAutomationLane(morphLane);
+    REQUIRE(s.setMorph(rack, {.position = 0.5f}));
+
+    // A macro following its lane is left alone by Morph: the lane plays.
+    const auto macroLane =
+        s.addAutomationLane(Session::ParamTarget{r.t, "m" + std::to_string(rack) + "/macro1"});
+    REQUIRE(macroLane != 0);
+    REQUIRE(s.setLanePoints(macroLane, {{0.0, 0.0f, 0.0f}, {kSeconds, 0.0f, 0.0f}}));
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(50); // the session sees the lane
+    CHECK(r.rack(rack).macros[0].automated);
+    {
+        // Morph letting go of it never turned its lane off.
+        auto h = s.openRack(rack);
+        CHECK(h->context().params.automationState(0) == fd::ui::AutomationState::On);
+    }
+    {
+        auto h = s.openRack(rack);
+        CHECK_FALSE(h->context().params.macroMapping(0).has_value());
+    }
+    CHECK(r.gainDb() == Approx(-24.0).margin(0.3));
+    s.removeAutomationLane(macroLane);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(50);
+    CHECK(r.gainDb() == Approx(levelAt(0.5f)).margin(0.3)); // Morph takes it again
+
+    // Locked, it's left where it is.
+    REQUIRE(s.lockMacro(rack, 0, true));
+    REQUIRE(s.setMorph(rack, {.position = 1.0f}));
+    CHECK(r.gainDb() == Approx(levelAt(0.5f)).margin(0.3));
+    REQUIRE(s.lockMacro(rack, 0, false));
+    CHECK(r.gainDb() == Approx(levelAt(0.8f)).margin(0.3));
+
+    // Off: the macros stay where Morph had them, free again.
+    REQUIRE(s.setMorph(rack, {.position = 0.25f}));
+    REQUIRE(s.setMorph(rack, {.on = false}));
+    CHECK_FALSE(r.rack(rack).morph.on);
+    CHECK(r.rack(rack).macros[0].value == Approx(0.35f).margin(1e-3));
+    CHECK(r.gainDb() == Approx(levelAt(0.35f)).margin(0.3));
+    {
+        auto h = s.openRack(rack);
+        CHECK_FALSE(h->context().params.macroMapping(0).has_value());
+    }
+    s.undo(); // on again
+    CHECK(r.rack(rack).morph.on);
+
+    // A click on a snapshot while it's on turns it off and puts the macros there.
+    REQUIRE(s.recallSnapshot(rack, 1));
+    CHECK_FALSE(r.rack(rack).morph.on);
+    CHECK(r.rack(rack).macros[0].value == Approx(0.8f).margin(1e-4));
+    CHECK(r.gainDb() == Approx(levelAt(0.8f)).margin(0.3));
+}
+
+TEST_CASE(
+    "racks: Vary moves the mapped macros a recall would move, each within its amount, as one undo step; "
+    "never while Morph is on",
+    "[integration]")
+{
+    Racks r;
+    auto& s = *r.session;
+    const auto utility = s.addDevice(r.t, "fd:utility");
+    const auto rack = s.groupIntoRack({utility});
+    REQUIRE(rack != 0);
+    REQUIRE(s.mapMacro(rack, 0, utility, "gain", 0.2f, 0.8f));
+    REQUIRE(s.mapMacro(rack, 1, utility, "width", 0.0f, 1.0f));
+    REQUIRE(s.setMacro(rack, 0, 0.5f));
+    REQUIRE(s.setMacro(rack, 1, 0.5f));
+    REQUIRE(s.setMacro(rack, 2, 0.5f)); // maps nothing: Vary leaves it
+    REQUIRE(s.lockMacro(rack, 1, true));
+
+    bool moved = false;
+    for (int i = 0; i < 20; ++i)
+    {
+        REQUIRE(s.varyRack(rack, Session::varyAmount));
+        CHECK(s.undoDescription() == "Vary");
+        const auto info = r.rack(rack);
+        CHECK(std::abs(info.macros[0].value - 0.5f) <= Session::varyAmount + 1e-4f);
+        moved = moved || std::abs(info.macros[0].value - 0.5f) > 1e-4f;
+        CHECK(info.macros[1].value == Approx(0.5f)); // locked
+        CHECK(info.macros[2].value == Approx(0.5f)); // maps nothing
+        s.undo();
+        CHECK(r.rack(rack).macros[0].value == Approx(0.5f).margin(1e-5));
+    }
+    CHECK(moved);
+
+    // Nothing to move: refused.
+    REQUIRE(s.lockMacro(rack, 0, true));
+    CHECK_FALSE(s.varyRack(rack, Session::varyAmount));
+    REQUIRE(s.lockMacro(rack, 0, false));
+    // Morph on: refused, it sets the macros.
+    REQUIRE(s.storeSnapshot(rack) == 0);
+    REQUIRE(s.storeSnapshot(rack) == 1);
+    REQUIRE(s.setMorph(rack, {.on = true}));
+    CHECK_FALSE(s.varyRack(rack, Session::varyMoreAmount));
+}
+
+TEST_CASE(
+    "racks: a rack file keeps its snapshots, Morph and locks, the same sound; a file from before them loads "
+    "as it is",
+    "[integration]")
+{
+    Racks r;
+    auto& s = *r.session;
+    const auto utility = s.addDevice(r.t, "fd:utility");
+    const auto rack = s.groupIntoRack({utility});
+    REQUIRE(rack != 0);
+    REQUIRE(s.renameRack(rack, "Verse to drop"));
+
+    // Before any snapshot: the file has none, and loads with none.
+    const auto plain = r.root.getChildFile("Plain.segnorack");
+    REQUIRE(s.saveRack(rack, plain));
+    {
+        const auto json = nlohmann::json::parse(plain.loadFileAsString().toStdString());
+        CHECK_FALSE(json.contains("snapshots"));
+        CHECK_FALSE(json.contains("morph"));
+        const auto loaded = s.loadRack(plain, {.channel = r.t});
+        REQUIRE(loaded.rack != 0);
+        CHECK(r.rack(loaded.rack).snapshots.empty());
+        const auto again = r.root.getChildFile("Plain 2.segnorack");
+        REQUIRE(s.saveRack(loaded.rack, again));
+        CHECK(again.loadFileAsString() == plain.loadFileAsString());
+        s.removeDevice(loaded.rack);
+    }
+
+    REQUIRE(s.mapMacro(rack, 0, utility, "gain", 0.2f, 0.8f));
+    REQUIRE(s.setMacro(rack, 0, 0.1f, "Cut"));
+    REQUIRE(s.storeSnapshot(rack) == 0);
+    REQUIRE(s.setSnapshot(rack, 0, std::string("Verse")));
+    REQUIRE(s.setMacro(rack, 0, 0.9f));
+    REQUIRE(s.storeSnapshot(rack) == 1);
+    REQUIRE(s.setSnapshot(rack, 1, std::string("Drop")));
+    REQUIRE(s.lockMacro(rack, 3, true));
+    REQUIRE(s.setMorph(rack, {.on = true, .position = 0.3f}));
+    const auto first = r.render();
+
+    const auto file = r.root.getChildFile("Verse to drop.segnorack");
+    REQUIRE(s.saveRack(rack, file));
+    s.removeDevice(rack);
+    const auto loaded = s.loadRack(file, {.channel = r.t});
+    REQUIRE(loaded.rack != 0);
+    const auto info = r.rack(loaded.rack);
+    REQUIRE(info.snapshots.size() == 2);
+    CHECK(info.snapshots[0].name == "Verse");
+    CHECK(info.snapshots[1].name == "Drop");
+    CHECK(info.snapshots[1].macros[0] == Approx(0.9f).margin(1e-4));
+    CHECK(info.morph.on);
+    CHECK(info.morph.a == 0);
+    CHECK(info.morph.b == 1);
+    CHECK(info.morph.position == Approx(0.3f).margin(1e-4));
+    CHECK(info.macros[3].locked);
+    CHECK(info.macros[0].value == Approx(0.1f + 0.3f * 0.8f).margin(1e-3));
+    INFO("loaded against saved: " << fd::testkit::nullResidualDb(r.render(), first) << " dB");
+    CHECK(fd::testkit::nullResidualDb(r.render(), first) < -100.0);
+    // Saved again: the same file, byte for byte.
+    const auto second = r.root.getChildFile("Verse to drop 2.segnorack");
+    REQUIRE(s.saveRack(loaded.rack, second));
+    CHECK(second.loadFileAsString() == file.loadFileAsString());
+}

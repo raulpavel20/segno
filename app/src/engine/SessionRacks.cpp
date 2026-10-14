@@ -234,6 +234,7 @@ te::RackType::Ptr Session::Impl::makeRack(const juce::String& name)
             macro->macroName = defaultMacroName(i);
             macro->setParameter(0.0f, juce::sendNotificationSync);
         }
+    ensureMorph(*rack); // after them: the rack's parameters are its macros, then Morph
     addChain(*rack);
     return rack;
 }
@@ -365,8 +366,8 @@ Session::Impl::rackInfo(te::RackInstance& instance,
         macro.name = macros[i]->macroName.get().toStdString();
         if (macro.name.empty())
             macro.name = defaultMacroName(i).toStdString();
-        macro.value = std::clamp(macros[i]->value.get(), 0.0f, 1.0f);
     }
+    fillStep2(*type, *info);
     // Each module's parameters set by a macro: From is the parameter's own value, To From plus
     // the assignment's value, Curve twice the engine's (racks.md §12).
     for (auto* m : rackModules(*type))
@@ -401,11 +402,175 @@ te::MacroParameter* Session::Impl::macroFor(const juce::ValueTree& macroState) c
     return nullptr;
 }
 
+// ---- snapshots, Morph and locks (racks.md §18) ---------------------------------------------
+
+std::vector<model::RackInfo::Snapshot> Session::Impl::snapshotsOf(const te::RackType& rack)
+{
+    std::vector<model::RackInfo::Snapshot> out;
+    const auto json = nlohmann::json::parse(rack.state[snapshotsId].toString().toStdString(), nullptr, false);
+    if (!json.is_array())
+        return out;
+    for (const auto& s : json)
+    {
+        if (!s.is_object() || out.size() == static_cast<size_t>(model::RackInfo::maxSnapshots))
+            continue;
+        model::RackInfo::Snapshot snapshot{.name = s.value("name", std::string())};
+        const auto positions = s.value("macros", nlohmann::json::array());
+        for (size_t i = 0; i < snapshot.macros.size() && i < positions.size(); ++i)
+            if (positions[i].is_number())
+                snapshot.macros[i] = std::clamp(positions[i].get<float>(), 0.0f, 1.0f);
+        out.push_back(std::move(snapshot));
+    }
+    return out;
+}
+
+void Session::Impl::setSnapshots(te::RackType& rack, const std::vector<model::RackInfo::Snapshot>& snapshots,
+                                 juce::UndoManager* um)
+{
+    if (snapshots.empty())
+    {
+        rack.state.removeProperty(snapshotsId, um);
+        return;
+    }
+    auto json = nlohmann::json::array();
+    for (const auto& s : snapshots)
+        json.push_back({{"name", s.name}, {"macros", s.macros}});
+    rack.state.setProperty(snapshotsId, juce::String::fromUTF8(json.dump().c_str()), um);
+}
+
+te::MacroParameter* Session::Impl::morphOf(const te::RackType& rack)
+{
+    for (auto* m : rack.getMacroParameters())
+        if (static_cast<bool>(m->state[morphId]))
+            return m;
+    return nullptr;
+}
+
+te::MacroParameter* Session::Impl::ensureMorph(te::RackType& rack)
+{
+    if (auto* morph = morphOf(rack))
+        return morph;
+    auto* morph = rack.getMacroParameterListForWriting().createMacroParameter();
+    if (morph == nullptr)
+        return nullptr;
+    morph->macroName = "Morph";
+    morph->state.setProperty(morphId, true, &edit->getUndoManager());
+    morph->setParameter(0.0f, juce::sendNotificationSync);
+    return morph;
+}
+
+float Session::Impl::macroPosition(const te::RackType& rack, int macro)
+{
+    const auto macros = rack.getMacroParameters();
+    if (macro < 0 || macro >= macros.size())
+        return 0.0f;
+    auto& m = *macros[macro];
+    if (auto* morph = morphOf(rack))
+        for (auto assignment : m.getAssignments())
+            if (assignment->isForModifierSource(*morph))
+                return std::clamp(m.value.get() + assignment->value.get() * morph->getCurrentValue(), 0.0f,
+                                  1.0f);
+    return std::clamp(followsLane(m) ? m.getCurrentValue() : m.value.get(), 0.0f, 1.0f);
+}
+
+void Session::Impl::fillStep2(const te::RackType& rack, model::RackInfo& info)
+{
+    info.snapshots = snapshotsOf(rack);
+    const int count = static_cast<int>(info.snapshots.size());
+    const auto pick = [count](const juce::var& v)
+    {
+        const int i = v.isVoid() ? -1 : static_cast<int>(v);
+        return i >= 0 && i < count ? i : -1;
+    };
+    info.currentSnapshot = pick(rack.state[snapshotId]);
+    info.morph.on = static_cast<bool>(rack.state[morphOnId]);
+    info.morph.a = pick(rack.state[morphAId]);
+    info.morph.b = pick(rack.state[morphBId]);
+    if (const auto* morph = morphOf(rack))
+        info.morph.position = std::clamp(morph->getCurrentValue(), 0.0f, 1.0f);
+    const auto macros = rack.getMacroParameters();
+    for (int i = 0; i < model::RackInfo::macroCount && i < macros.size(); ++i)
+    {
+        auto& macro = info.macros[static_cast<size_t>(i)];
+        macro.value = macroPosition(rack, i);
+        macro.locked = static_cast<bool>(macros[i]->state[lockedId]);
+        macro.automated = followsLane(*macros[i]);
+    }
+}
+
+void Session::Impl::syncMorph(te::RackType& rack)
+{
+    auto* morph = morphOf(rack);
+    model::RackInfo info;
+    fillStep2(rack, info);
+    const auto macros = rack.getMacroParameters();
+    for (int i = 0; i < model::RackInfo::macroCount && i < macros.size(); ++i)
+    {
+        auto& m = *macros[i];
+        te::AutomatableParameter::ModifierAssignment::Ptr existing;
+        if (morph != nullptr)
+            for (auto assignment : m.getAssignments())
+                if (assignment->isForModifierSource(*morph))
+                    existing = assignment;
+        if (morph != nullptr && model::morphSets(info, i))
+        {
+            const auto at = static_cast<size_t>(i);
+            const float from = info.snapshots[static_cast<size_t>(info.morph.a)].macros[at];
+            const float to = info.snapshots[static_cast<size_t>(info.morph.b)].macros[at];
+            if (std::abs(m.value.get() - from) > 1.0e-6f)
+                m.setParameter(from, juce::sendNotificationSync);
+            if (existing == nullptr)
+            {
+                existing = m.addModifier(*morph, to - from, 0.0f, 0.0f);
+                if (existing != nullptr)
+                    existing->curve = 0.0f; // straight: tracktion leaves the curve out when it adds one
+            }
+            else if (std::abs(existing->value.get() - (to - from)) > 1.0e-6f)
+                existing->value = to - from;
+        }
+        else if (existing != nullptr)
+        {
+            // Let go where Morph has it, as a knob keeps its value when it's unmapped; unless its
+            // lane has it now, which a value set by hand would turn off.
+            const float now =
+                std::clamp(m.value.get() + existing->value.get() * morph->getCurrentValue(), 0.0f, 1.0f);
+            m.removeModifier(*existing);
+            if (!followsLane(m))
+                m.setParameter(now, juce::sendNotificationSync);
+        }
+    }
+    refreshMacroTargets(rack);
+}
+
+void Session::Impl::syncMorphs()
+{
+    auto& racks = edit->getRackList();
+    for (int i = 0; i < racks.size(); ++i)
+        if (auto rack = racks.getRackType(i))
+            syncMorph(*rack);
+}
+
+void Session::Impl::refreshMacroTargets(te::RackType& rack)
+{
+    const auto position = edit->getTransport().getPosition();
+    auto* morph = morphOf(rack);
+    for (auto* macro : rack.getMacroParameters())
+    {
+        if (macro == morph)
+            continue;
+        macro->updateFromAutomationSources(position); // Morph's part in it
+        for (auto param : te::getAllParametersBeingModifiedBy(*edit, *macro))
+            if (!param->automatableEditElement.isBeingActivelyPlayed())
+                param->updateFromAutomationSources(position);
+    }
+}
+
 // ---- the rack's macros, as a module's parameters -------------------------------------------
 
 namespace
 {
-/// A rack's macros as the panel kit sees parameters: "macro1" .. "macro8", 0 .. 100 %.
+/// A rack's macros as the panel kit sees parameters: "macro1" .. "macro8", then "morph", 0 ..
+/// 100 %.
 class RackMacroBinding final : public ui::ParamBinding
 {
 public:
@@ -413,13 +578,40 @@ public:
 
     float getPlain(size_t i) const override
     {
+        auto* rack = Session::Impl::rackTypeOf(rack_.get());
+        if (rack == nullptr)
+            return 0.0f;
+        if (i < static_cast<size_t>(model::RackInfo::macroCount)) // where it is, Morph's place for it too
+            return 100.0f * Session::Impl::macroPosition(*rack, static_cast<int>(i));
         auto* m = macro(i);
         return m != nullptr ? 100.0f * m->getCurrentValue() : 0.0f;
     }
     void setPlain(size_t i, float plain) override
     {
+        if (macroMapping(i)) // Morph sets it: it isn't moved by hand
+            return;
         if (auto* m = macro(i))
-            m->setParameter(std::clamp(plain / 100.0f, 0.0f, 1.0f), juce::sendNotification);
+        {
+            m->setParameter(std::clamp(plain / 100.0f, 0.0f, 1.0f), juce::sendNotificationSync);
+            if (i == static_cast<size_t>(model::RackInfo::morphParam))
+                if (auto* rack = Session::Impl::rackTypeOf(rack_.get())) // the macros' modules follow
+                    session_.impl().refreshMacroTargets(*rack);
+        }
+    }
+    // A macro Morph sets (racks.md §18.3): its range A to B a ring, and no dragging by hand.
+    [[nodiscard]] std::optional<MacroMapping> macroMapping(size_t i) const override
+    {
+        auto* rack = Session::Impl::rackTypeOf(rack_.get());
+        if (rack == nullptr || i >= static_cast<size_t>(model::RackInfo::macroCount))
+            return std::nullopt;
+        model::RackInfo info;
+        Session::Impl::fillStep2(*rack, info);
+        if (!model::morphSets(info, static_cast<int>(i)))
+            return std::nullopt;
+        const auto& a = info.snapshots[static_cast<size_t>(info.morph.a)];
+        const auto& b = info.snapshots[static_cast<size_t>(info.morph.b)];
+        return MacroMapping{juce::String::fromUTF8(("Morph: " + a.name + " \xe2\x86\x92 " + b.name).c_str()),
+                            a.macros[i], b.macros[i]};
     }
     void beginGesture(size_t i) override
     {
@@ -441,7 +633,7 @@ public:
             return ui::AutomationState::None;
         return m->getCurve().bypass.get() ? ui::AutomationState::Off : ui::AutomationState::On;
     }
-    [[nodiscard]] bool canAutomate(size_t) const override { return true; }
+    [[nodiscard]] bool canAutomate(size_t i) const override { return macro(i) != nullptr; }
     void addAutomationItems(size_t i, juce::PopupMenu& menu) override
     {
         if (const auto t = session_.moduleParameter(rack_->itemID.getRawID(), std::string(kMacroSpecs[i].id));
@@ -455,6 +647,8 @@ private:
         auto* rack = Session::Impl::rackTypeOf(rack_.get());
         if (rack == nullptr)
             return nullptr;
+        if (i == static_cast<size_t>(model::RackInfo::morphParam))
+            return Session::Impl::morphOf(*rack);
         const auto macros = rack->getMacroParameters();
         return static_cast<int>(i) < macros.size() ? macros[static_cast<int>(i)].get() : nullptr;
     }
@@ -878,6 +1072,11 @@ bool Session::setMacro(std::uint64_t rackId, int macro, std::optional<float> val
     if (macro < 0 || macro >= macros.size())
         return false;
     auto& m = *macros[macro];
+    if (value)
+        if (auto* morph = Impl::morphOf(*instance->type))
+            for (auto assignment : m.getAssignments())
+                if (assignment->isForModifierSource(*morph))
+                    return false; // Morph sets it (racks.md §18.3)
     impl_->beginEdit(name ? "Rename macro" : "Macro");
     if (name)
     {
@@ -949,6 +1148,218 @@ bool Session::unmapMacro(std::uint64_t moduleId, const std::string& paramId)
             return true;
         }
     return false;
+}
+
+// ---- snapshots, Morph, locks and Vary (racks.md §18) -----------------------------------------
+
+namespace
+{
+te::RackType* rackTypeFor(Session::Impl& impl, std::uint64_t rackId)
+{
+    auto* instance = impl.rackInstance(rackId);
+    return instance != nullptr ? instance->type.get() : nullptr;
+}
+
+int intOf(const juce::var& v)
+{
+    return v.isVoid() ? -1 : static_cast<int>(v);
+}
+} // namespace
+
+int Session::storeSnapshot(std::uint64_t rackId, std::optional<int> over)
+{
+    auto* rack = rackTypeFor(*impl_, rackId);
+    if (rack == nullptr)
+        return -1;
+    auto snapshots = Impl::snapshotsOf(*rack);
+    const int count = static_cast<int>(snapshots.size());
+    if (over ? (*over < 0 || *over >= count) : count >= model::RackInfo::maxSnapshots)
+        return -1;
+    impl_->beginEdit(over ? "Update snapshot" : "Store snapshot");
+    auto* um = &impl_->edit->getUndoManager();
+    impl_->ensureMorph(*rack); // a rack from before step 2 gets its Morph now
+    model::RackInfo::Snapshot snapshot;
+    for (int i = 0; i < model::RackInfo::macroCount; ++i)
+        snapshot.macros[static_cast<size_t>(i)] = Impl::macroPosition(*rack, i);
+    int index = 0;
+    if (over)
+    {
+        snapshot.name = snapshots[static_cast<size_t>(*over)].name;
+        snapshots[static_cast<size_t>(*over)] = snapshot;
+        index = *over;
+    }
+    else
+    {
+        model::RackInfo named;
+        named.snapshots = snapshots;
+        snapshot.name = model::newSnapshotName(named);
+        snapshots.push_back(snapshot);
+        index = count;
+    }
+    Impl::setSnapshots(*rack, snapshots, um);
+    rack->state.setProperty(Impl::snapshotId, index, um);
+    // The first two are what Morph goes between, until chosen otherwise.
+    if (snapshots.size() == 2 && intOf(rack->state[Impl::morphAId]) < 0 &&
+        intOf(rack->state[Impl::morphBId]) < 0)
+    {
+        rack->state.setProperty(Impl::morphAId, 0, um);
+        rack->state.setProperty(Impl::morphBId, 1, um);
+    }
+    impl_->syncMorph(*rack);
+    return index;
+}
+
+bool Session::recallSnapshot(std::uint64_t rackId, int snapshot)
+{
+    auto* rack = rackTypeFor(*impl_, rackId);
+    if (rack == nullptr)
+        return false;
+    const auto snapshots = Impl::snapshotsOf(*rack);
+    if (snapshot < 0 || snapshot >= static_cast<int>(snapshots.size()))
+        return false;
+    impl_->beginEdit("Recall snapshot");
+    auto* um = &impl_->edit->getUndoManager();
+    // Morph lets go first: a click on a snapshot always puts the macros there (racks.md §18.3).
+    rack->state.setProperty(Impl::morphOnId, false, um);
+    impl_->syncMorph(*rack);
+    const auto macros = rack->getMacroParameters();
+    for (int i = 0; i < model::RackInfo::macroCount && i < macros.size(); ++i)
+        if (!static_cast<bool>(macros[i]->state[Impl::lockedId]) && !Impl::followsLane(*macros[i]))
+            macros[i]->setParameter(snapshots[static_cast<size_t>(snapshot)].macros[static_cast<size_t>(i)],
+                                    juce::sendNotificationSync);
+    rack->state.setProperty(Impl::snapshotId, snapshot, um);
+    impl_->refreshMacroTargets(*rack);
+    return true;
+}
+
+bool Session::removeSnapshot(std::uint64_t rackId, int snapshot)
+{
+    auto* rack = rackTypeFor(*impl_, rackId);
+    if (rack == nullptr)
+        return false;
+    auto snapshots = Impl::snapshotsOf(*rack);
+    if (snapshot < 0 || snapshot >= static_cast<int>(snapshots.size()))
+        return false;
+    impl_->beginEdit("Remove snapshot");
+    auto* um = &impl_->edit->getUndoManager();
+    snapshots.erase(snapshots.begin() + snapshot);
+    Impl::setSnapshots(*rack, snapshots, um);
+    // What pointed at it points nowhere; what pointed past it, one back.
+    const auto shift = [&](const juce::Identifier& id)
+    {
+        const int i = intOf(rack->state[id]);
+        if (i == snapshot)
+            rack->state.setProperty(id, -1, um);
+        else if (i > snapshot)
+            rack->state.setProperty(id, i - 1, um);
+        return i == snapshot;
+    };
+    shift(Impl::snapshotId);
+    const bool lostA = shift(Impl::morphAId), lostB = shift(Impl::morphBId);
+    if (lostA || lostB)
+        rack->state.setProperty(Impl::morphOnId, false, um);
+    impl_->syncMorph(*rack);
+    return true;
+}
+
+bool Session::setSnapshot(std::uint64_t rackId, int snapshot, std::optional<std::string> name,
+                          std::optional<std::array<float, 8>> macros)
+{
+    auto* rack = rackTypeFor(*impl_, rackId);
+    if (rack == nullptr)
+        return false;
+    auto snapshots = Impl::snapshotsOf(*rack);
+    if (snapshot < 0 || snapshot >= static_cast<int>(snapshots.size()))
+        return false;
+    impl_->beginEdit(name ? "Rename snapshot" : "Set snapshot");
+    auto& s = snapshots[static_cast<size_t>(snapshot)];
+    if (name)
+        if (const auto trimmed = juce::String::fromUTF8(name->c_str()).trim(); trimmed.isNotEmpty())
+            s.name = trimmed.toStdString();
+    if (macros)
+        for (size_t i = 0; i < s.macros.size(); ++i)
+            s.macros[i] = std::clamp((*macros)[i], 0.0f, 1.0f);
+    Impl::setSnapshots(*rack, snapshots, &impl_->edit->getUndoManager());
+    impl_->syncMorph(*rack); // A or B may have moved
+    return true;
+}
+
+bool Session::setMorph(std::uint64_t rackId, const MorphEdit& e)
+{
+    auto* rack = rackTypeFor(*impl_, rackId);
+    if (rack == nullptr)
+        return false;
+    const int count = static_cast<int>(Impl::snapshotsOf(*rack).size());
+    const auto valid = [count](int i) { return i >= -1 && i < count; };
+    if ((e.a && !valid(*e.a)) || (e.b && !valid(*e.b)))
+        return false;
+    const int a = e.a.value_or(intOf(rack->state[Impl::morphAId]));
+    const int b = e.b.value_or(intOf(rack->state[Impl::morphBId]));
+    if (e.on && *e.on && (a < 0 || a >= count || b < 0 || b >= count))
+        return false; // on needs two snapshots to go between
+    impl_->beginEdit(e.on ? (*e.on ? "Morph on" : "Morph off") : (e.a || e.b) ? "Morph between" : "Morph");
+    auto* um = &impl_->edit->getUndoManager();
+    auto* morph = impl_->ensureMorph(*rack);
+    if (e.a)
+        rack->state.setProperty(Impl::morphAId, *e.a, um);
+    if (e.b)
+        rack->state.setProperty(Impl::morphBId, *e.b, um);
+    if ((a < 0 || b < 0) && static_cast<bool>(rack->state[Impl::morphOnId]))
+        rack->state.setProperty(Impl::morphOnId, false, um); // A or B cleared
+    if (e.on)
+        rack->state.setProperty(Impl::morphOnId, *e.on, um);
+    if (e.position && morph != nullptr)
+        morph->setParameter(std::clamp(*e.position, 0.0f, 1.0f), juce::sendNotificationSync);
+    impl_->syncMorph(*rack);
+    return true;
+}
+
+bool Session::lockMacro(std::uint64_t rackId, int macro, bool locked)
+{
+    auto* rack = rackTypeFor(*impl_, rackId);
+    if (rack == nullptr)
+        return false;
+    const auto macros = rack->getMacroParameters();
+    if (macro < 0 || macro >= model::RackInfo::macroCount || macro >= macros.size())
+        return false;
+    impl_->beginEdit(locked ? "Lock macro" : "Unlock macro");
+    macros[macro]->state.setProperty(Impl::lockedId, locked, &impl_->edit->getUndoManager());
+    impl_->syncMorph(*rack); // Morph lets go of it, or takes it
+    return true;
+}
+
+bool Session::varyRack(std::uint64_t rackId, float amount)
+{
+    auto* rack = rackTypeFor(*impl_, rackId);
+    if (rack == nullptr)
+        return false;
+    model::RackInfo info;
+    Impl::fillStep2(*rack, info);
+    if (model::morphing(info))
+        return false;
+    const auto macros = rack->getMacroParameters();
+    std::array<float, model::RackInfo::macroCount> values{};
+    std::array<bool, model::RackInfo::macroCount> moves{};
+    bool any = false;
+    for (int i = 0; i < model::RackInfo::macroCount && i < macros.size(); ++i)
+    {
+        const auto at = static_cast<size_t>(i);
+        values[at] = info.macros[at].value;
+        moves[at] = !model::macroHeld(info, i) &&
+                    !te::getAllParametersBeingModifiedBy(*impl_->edit, *macros[i]).isEmpty();
+        any = any || moves[at];
+    }
+    if (!any)
+        return false;
+    impl_->beginEdit("Vary");
+    auto& random = juce::Random::getSystemRandom();
+    const auto next =
+        model::varied(values, moves, std::clamp(amount, 0.0f, 1.0f), [&] { return random.nextFloat(); });
+    for (int i = 0; i < model::RackInfo::macroCount && i < macros.size(); ++i)
+        if (moves[static_cast<size_t>(i)])
+            macros[i]->setParameter(next[static_cast<size_t>(i)], juce::sendNotificationSync);
+    impl_->refreshMacroTargets(*rack);
+    return true;
 }
 } // namespace fd::engine
 
@@ -1046,9 +1457,24 @@ bool Session::saveRack(std::uint64_t rackId, const juce::File& file, std::string
                                     {"from", m.from},
                                     {"to", m.to},
                                     {"curve", m.curve}});
-        macros.push_back({{"name", macro.name}, {"value", macro.value}, {"mappings", std::move(mappings)}});
+        nlohmann::json m{{"name", macro.name}, {"value", macro.value}, {"mappings", std::move(mappings)}};
+        if (macro.locked)
+            m["locked"] = true;
+        macros.push_back(std::move(m));
     }
     json["macros"] = std::move(macros);
+    // Its snapshots and Morph (racks.md §18.9), when it has some.
+    if (!info.snapshots.empty())
+    {
+        auto snapshots = nlohmann::json::array();
+        for (const auto& s : info.snapshots)
+            snapshots.push_back({{"name", s.name}, {"macros", s.macros}});
+        json["snapshots"] = std::move(snapshots);
+        json["morph"] = {{"on", info.morph.on},
+                         {"a", info.morph.a},
+                         {"b", info.morph.b},
+                         {"position", info.morph.position}};
+    }
 
     (void)file.getParentDirectory().createDirectory();
     if (!file.replaceWithText(juce::String::fromUTF8(json.dump(2).c_str()) + "\n"))
@@ -1204,6 +1630,36 @@ Session::LoadedRack Session::loadRack(const juce::File& file, const ChainPlace& 
             if (const auto it = ids.find({m.value("chain", 0), m.value("module", 0)}); it != ids.end())
                 mapMacro(rackId, static_cast<int>(i), it->second, m.value("param", std::string()),
                          m.value("from", 0.0f), m.value("to", 1.0f), m.value("curve", 0.0f));
+        if (macro.value("locked", false))
+            rack.getMacroParameters()[static_cast<int>(i)]->state.setProperty(Impl::lockedId, true, um);
+    }
+    // Its snapshots and Morph (racks.md §18.9); a file from before step 2 has none.
+    if (const auto snapshotsJson = json.value("snapshots", nlohmann::json::array()); !snapshotsJson.empty())
+    {
+        std::vector<model::RackInfo::Snapshot> snapshots;
+        for (const auto& s : snapshotsJson)
+        {
+            if (!s.is_object() || snapshots.size() == static_cast<size_t>(model::RackInfo::maxSnapshots))
+                continue;
+            model::RackInfo::Snapshot snapshot{.name = s.value("name", std::string())};
+            const auto positions = s.value("macros", nlohmann::json::array());
+            for (size_t m = 0; m < snapshot.macros.size() && m < positions.size(); ++m)
+                if (positions[m].is_number())
+                    snapshot.macros[m] = std::clamp(positions[m].get<float>(), 0.0f, 1.0f);
+            snapshots.push_back(std::move(snapshot));
+        }
+        Impl::setSnapshots(rack, snapshots, um);
+        const auto morph = json.value("morph", nlohmann::json::object());
+        const int count = static_cast<int>(snapshots.size());
+        const auto pick = [count](int v) { return v >= 0 && v < count ? v : -1; };
+        const int a = pick(morph.value("a", -1)), b = pick(morph.value("b", -1));
+        rack.state.setProperty(Impl::morphAId, a, um);
+        rack.state.setProperty(Impl::morphBId, b, um);
+        rack.state.setProperty(Impl::morphOnId, morph.value("on", false) && a >= 0 && b >= 0, um);
+        if (auto* m = Impl::morphOf(rack))
+            m->setParameter(std::clamp(morph.value("position", 0.0f), 0.0f, 1.0f),
+                            juce::sendNotificationSync);
+        impl_->syncMorph(rack);
     }
     loaded.rack = rackId;
     return loaded;
