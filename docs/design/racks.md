@@ -214,10 +214,15 @@ Modules inside a rack keep their ids, so `set_parameters`, `get_module` and the 
 - **Notes reach every chain's instrument** through the rack's MIDI input.
 - **Macros are the rack's macro parameters** (`MacroParameterElement`), automatable like any parameter. A mapping is a modifier assignment on the target parameter (`AutomatableParameter::addModifier`) with its value, offset and curve, which carries From, To and Curve as they are.
 - **Motion (step 3)** uses the rack's modifier list: tracktion's LFO, step, breakpoint, envelope follower and random modifiers.
-- **To check in a spike before step 1 is built:**
-  - that latency is compensated between parallel chains of different delays (the EQ's linear phase beside a dry chain);
-  - that an undo of a group or ungroup puts automation and sidechains back;
-  - that a rack holding a plugin saves and loads in a rack file as it does in a project.
+- **Checked by the spike** (step 0, 2026-10-14, `tests/integration/RackSpikeTests.cpp`, kept as tests):
+  - **Parallel latency:** the EQ in linear phase (5,120 samples late) beside an empty chain sums to exactly twice the input, in time with the song (−300 dB residual). tracktion lines the chains up inside the rack's graph; the rack instance itself reports no latency.
+  - **Macros reach the sound:** a macro mapped to our Utility's gain from −24 to 0 dB gives −24 dB at 0 %, 0 dB at 100 %, and the straight midpoint at 50 %. A curve bends it either way.
+    - The mapping is the parameter's own value as From, and an assignment of To − From with the curve.
+    - tracktion's curve runs −0.5 … +0.5 with 0 straight, so Curve's −100 … +100 % is that range.
+  - **Undo:** taking two modules out of a track's chain into a rack, in one transaction, sounds the same as before, and one undo puts the chain back as it was.
+  - **A rack's state** written out and read into another project keeps its modules' settings and its macros' positions, our modules and a hosted VST3 alike: the same render.
+  - **Notes** reach an instrument in a rack.
+  - **To watch:** tracktion's macro source takes a lock when its position updates. That's inside the engine, but racks get a run under the RealtimeSanitizer preset when step 1 is built.
 
 ## 13. Not in racks, for now
 
