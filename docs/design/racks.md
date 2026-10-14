@@ -2,7 +2,7 @@
 
 A **rack** holds a set of modules as one module in the chain: effects, or an instrument and its effects, in one chain or several side by side. It's saved whole as a file of its own and loaded whole from the browser, and its **macros** move many parameters across it with one knob, each along its own range and curve. Later, macros get snapshots to blend between, and motion of their own (LFOs, followers, a sequencer), after Transit's one-knob transitions.
 
-**Status:** M3 P2, the product owner's priority 2 of 2026-10-13, with [ADR 0056](../decisions/0056-racks-are-modules-of-modules.md). Approved 2026-10-14 (§16); step 0 drawn and approved, step 1 built (§17) and waiting for the hands-on tasks; step 2 designed and approved (§18), its UI being drawn for review.
+**Status:** M3 P2, the product owner's priority 2 of 2026-10-13, with [ADR 0056](../decisions/0056-racks-are-modules-of-modules.md). Approved 2026-10-14 (§16); step 0 drawn and approved; step 1 (§17) and step 2 (§18) built and signed off by the product owner after the hands-on tasks (2026-10-15). Step 3, motion on macros, to come.
 - **The product owner, 2026-10-14:** chains side by side explained, liked and kept.
 - **The UI must be very solid, with nothing confusing.** This comes before everything else in racks (§5a).
 - Nothing is built until the product owner says go.
@@ -562,4 +562,4 @@ Approved by the product owner (2026-10-14) with every recommendation.
   - Instruments: Layered pad (a Wavetable pad beside the Library's violins), Bass stack (a Subtractive sub beside a Wavetable growl).
 - **The preview:** an instrument rack plays the presets' phrase through every chain, offline (`renderRackPhrase`), its macros where the file has them; an effect rack, or one holding a plugin, has none. In the browser's Racks part, the Library's racks say "Library · Transitions" (shown when it fits, else in the tooltip, as tree rows do).
 - **Found while building, fixed:** a parameter of ours named as a property tracktion keeps on every plugin overwrote it. The Filter's `type` replaced the plugin's own `type` (what it is), so a Filter whose type was changed couldn't be made again: not after reopening the project, copying it, or loading it from a rack file. Such a parameter is now kept as `fdParam.<id>` (`DevicePlugin::propertyFor`); only `type` is affected among today's modules. A test checks a Filter's type through grouping, a rack file and a project reopened.
-- **Next:** the product owner's hands-on tasks (§18.11), and the factory racks by ear.
+- **Signed off** by the product owner (2026-10-15): the hands-on tasks of steps 1 and 2, and the factory racks by ear.
