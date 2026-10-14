@@ -1,5 +1,7 @@
 #include "engine/PresetPreview.h"
 
+#include "Sampler.h"
+
 #include <algorithm>
 #include <cmath>
 #include <fd/device/Events.h>
@@ -19,11 +21,15 @@ juce::AudioBuffer<float> renderPresetPhrase(const DeviceInfo& info, const Device
 
     constexpr int block = 512;
     device->prepare({sampleRate, block});
-    const bool bass = !tags.empty() && tags.front() == "Bass";
+    // A bass, and a kit (its kick), on a C1.
+    const bool bass = !tags.empty() && (tags.front() == "Bass" || tags.front() == "Drums");
     const bool pad = !tags.empty() && tags.front() == "Pad";
-    std::vector<std::uint8_t> keys = bass  ? std::vector<std::uint8_t>{36}
-                                     : pad ? std::vector<std::uint8_t>{60, 64, 67}
-                                           : std::vector<std::uint8_t>{60};
+    // In the instrument's register: a Sampler plays its notes by octaves into its zones' keys.
+    const int root = devices::Sampler::playableKey(*device, bass ? 36 : 60);
+    const auto key = [root](int above)
+    { return static_cast<std::uint8_t>(std::clamp(root + above, 0, 127)); };
+    std::vector<std::uint8_t> keys =
+        pad ? std::vector<std::uint8_t>{key(0), key(4), key(7)} : std::vector<std::uint8_t>{key(0)};
     const int held = static_cast<int>(1.2 * sampleRate);
     const int total =
         static_cast<int>(std::min(2.0 + std::min(device->tailSeconds(), 1.0), 3.0) * sampleRate);

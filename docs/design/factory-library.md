@@ -227,3 +227,48 @@ PLACES
 - VSCO 2 CE's maps read as they are, nothing ignored;
 - a 50-zone instrument of 8-second stereo samples loading in 143 ms (WAV; FLAC to be measured);
 - about 2.1 MB a zone of 8 s stereo at 44.1 kHz.
+
+**Phase 3, the content (2026-10-14):**
+- **The sources:** VSCO 2 CE at its 1.1.0 release (`28092772`, with its SFZ maps) and VCSL at `c1ea7bcc`.
+  - `tools/library/make_recipe.py` lists the instruments and makes `tools/library/recipe.json` from them: every zone, every source file with its SHA-256.
+  - It fetches each file once into the CPM cache and checks it against its git blob id.
+  - The `segno-library` target checks every file again by its SHA-256 (`cmake/FdLibrarySources.cmake`), then `fd-library build` makes the Library.
+  - libFLAC is 1.5.0, for the tool only.
+- **What it made:**
+  - 48 instruments: 1,532 zones over 1,496 samples, from 1.9 GB of sources fetched once.
+  - **318 MB of samples, 348 MB with the tables,** under the 500 MB expected: tails cut at −60 dB, sustains at 8 s, pianos and bells at 12 s, 16-bit FLAC.
+- **Folders:** Strings, Woodwinds, Brass, Keys, Tuned percussion, Percussion.
+  - §7's "Mallets and bells" is Tuned percussion, with the kalimba and the wine glasses.
+  - §7's "More": the recorder, ocarina, tenor sax and harmonica joined Woodwinds.
+  - The pipe organ's two are Keys/Pipe organ/Loud and Soft. The kit is Percussion/Orchestral kit.
+- **The maps:**
+  - **VSCO's own.**
+    - The upright piano keeps two of its three loudnesses, the softest and the loudest.
+    - VSCO maps the piccolo, xylophone and glockenspiel at written pitch, an octave below what they sound. They move up an octave: every instrument plays at the pitch it sounds.
+  - **VCSL's from its file names:**
+    - each note up to halfway to the next, the ends six semitones beyond;
+    - loudnesses share 0–127;
+    - repeated notes take turns.
+    - Kept: the grand piano's 2nd and 4th of four loudnesses (all 19 notes), the harpsichord's 8′ register, the vibraphone's and the tenor sax's two, the tubular bells' softer and louder of each note.
+  - **Roots checked by pitch:** the tool detects each sample's pitch and warns where it isn't its root. That's how the octaves were found, and how VCSL's names were shown to count C3 = 60.
+    - The rest of its warnings are plucks, bells and timpani it can't hear, and single files an octave out.
+    - The loud organ sounds an octave low by its 16′ stop, as an organ should.
+- **Names:** VCSL's samples get names of ours, "Harmonica_C3.flac", in Segno's note names; the harmonica's maker's name stays out (ADR 0008).
+- **Levels are matched in the Library:**
+  - every zone of an instrument gets a gain in the recipe, so its C3 comes out near −22 dB RMS, peaking under −3 dBFS. That's where the other instruments' presets sit (median −23 dB).
+  - A kit is measured on its C1 kick.
+  - The presets' Gain stays at 0, and an SFZ opened from the browser sounds as its preset does.
+  - SFZ's `<global> volume` couldn't do it: a region's own volume replaces it.
+- **Presets:**
+  - `devices/sampler/presets/recipes.json`, 48, their folders by first tag.
+  - The tags Strings, Woodwinds and Orchestral joined the vocabulary.
+  - The Sampler's `sample.rate`, `sample.frames` and `sample.zones` are session keys now, so a preset holds only its sound's path, the same whether the Library is there or not.
+- **Hearing them:**
+  - previews and the lint play an instrument in its register: `Sampler::playableKey` moves a C3 by octaves into its zones, then to the nearest key a zone plays;
+  - a kit, like a bass, plays a C1.
+  - The fast preset lint checks everything but the sound where the Library isn't there. "The Sampler's presets play their instruments from the Library" (`[library]`) renders all 48 from the source tree's Library, skipped where it isn't built.
+- **The waveform** is drawn scaled to the sample's own peak: the Library's quiet samples took their level from their zones and showed as flat lines.
+- **The Library's README** thanks Versilian Studios, though CC0 asks nothing.
+- **To hear before sign-off:**
+  - the timpani's and tubular bells' tuning, which the pitch check can't judge;
+  - every preset's sound and level by ear.

@@ -1,0 +1,783 @@
+{
+    "device": "sampler",
+    "author": "Segno",
+    "presets": [
+        {
+            "name": "Violins",
+            "tags": [
+                "Strings",
+                "Orchestral"
+            ],
+            "description": "A violin section bowing with vibrato, soft or full by velocity.",
+            "params": {
+                "amp.a": 30,
+                "amp.r": 450,
+                "vel.amp": 40
+            },
+            "extra": {
+                "sample.path": "library:Samples/Strings/Violin section/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Violins pizzicato",
+            "tags": [
+                "Strings",
+                "Pluck",
+                "Orchestral"
+            ],
+            "description": "The violin section plucking, a different pluck at random each note.",
+            "params": {
+                "amp.r": 250,
+                "vel.amp": 60
+            },
+            "extra": {
+                "sample.path": "library:Samples/Strings/Violin section/Pizzicato.sfz"
+            }
+        },
+        {
+            "name": "Violins spiccato",
+            "tags": [
+                "Strings",
+                "Orchestral"
+            ],
+            "description": "Short bounced bows from the violin section, two takes in turn.",
+            "params": {
+                "amp.r": 200,
+                "vel.amp": 60
+            },
+            "extra": {
+                "sample.path": "library:Samples/Strings/Violin section/Spiccato.sfz"
+            }
+        },
+        {
+            "name": "Violins tremolo",
+            "tags": [
+                "Strings",
+                "Orchestral"
+            ],
+            "description": "The violin section trembling the bow, for tension under a scene.",
+            "params": {
+                "amp.a": 40,
+                "amp.r": 450,
+                "vel.amp": 40
+            },
+            "extra": {
+                "sample.path": "library:Samples/Strings/Violin section/Tremolo.sfz"
+            }
+        },
+        {
+            "name": "Violas",
+            "tags": [
+                "Strings",
+                "Warm",
+                "Orchestral"
+            ],
+            "description": "A viola section bowing with vibrato, darker than the violins.",
+            "params": {
+                "amp.a": 30,
+                "amp.r": 450,
+                "vel.amp": 40
+            },
+            "extra": {
+                "sample.path": "library:Samples/Strings/Viola section/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Cellos",
+            "tags": [
+                "Strings",
+                "Warm",
+                "Orchestral"
+            ],
+            "description": "A cello section bowing with vibrato, the warm middle of the strings.",
+            "params": {
+                "amp.a": 30,
+                "amp.r": 500,
+                "vel.amp": 40
+            },
+            "extra": {
+                "sample.path": "library:Samples/Strings/Cello section/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Cellos pizzicato",
+            "tags": [
+                "Strings",
+                "Pluck",
+                "Orchestral"
+            ],
+            "description": "The cello section plucking, round and woody.",
+            "params": {
+                "amp.r": 350,
+                "vel.amp": 60
+            },
+            "extra": {
+                "sample.path": "library:Samples/Strings/Cello section/Pizzicato.sfz"
+            }
+        },
+        {
+            "name": "Cellos spiccato",
+            "tags": [
+                "Strings",
+                "Orchestral"
+            ],
+            "description": "Short bounced bows from the cello section, for driving rhythms.",
+            "params": {
+                "amp.r": 250,
+                "vel.amp": 60
+            },
+            "extra": {
+                "sample.path": "library:Samples/Strings/Cello section/Spiccato.sfz"
+            }
+        },
+        {
+            "name": "Solo violin",
+            "tags": [
+                "Strings",
+                "Lead",
+                "Orchestral"
+            ],
+            "description": "One violin with vibrato, close and expressive.",
+            "params": {
+                "amp.a": 20,
+                "amp.r": 400,
+                "vel.amp": 40
+            },
+            "extra": {
+                "sample.path": "library:Samples/Strings/Solo violin/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Solo violin pizzicato",
+            "tags": [
+                "Strings",
+                "Pluck"
+            ],
+            "description": "One violin plucked, light and dry.",
+            "params": {
+                "amp.r": 250,
+                "vel.amp": 60
+            },
+            "extra": {
+                "sample.path": "library:Samples/Strings/Solo violin/Pizzicato.sfz"
+            }
+        },
+        {
+            "name": "Double bass",
+            "tags": [
+                "Strings",
+                "Bass",
+                "Orchestral"
+            ],
+            "description": "A double bass bowing with vibrato, the floor of the strings.",
+            "params": {
+                "amp.a": 30,
+                "amp.r": 500,
+                "vel.amp": 40
+            },
+            "extra": {
+                "sample.path": "library:Samples/Strings/Double bass/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Double bass pizzicato",
+            "tags": [
+                "Strings",
+                "Bass",
+                "Pluck"
+            ],
+            "description": "A double bass plucked, for walking lines and slow ballads.",
+            "params": {
+                "amp.r": 400,
+                "vel.amp": 60
+            },
+            "extra": {
+                "sample.path": "library:Samples/Strings/Double bass/Pizzicato.sfz"
+            }
+        },
+        {
+            "name": "Harp",
+            "tags": [
+                "Strings",
+                "Pluck",
+                "Orchestral"
+            ],
+            "description": "A concert harp, ringing on after each note.",
+            "params": {
+                "amp.r": 1500,
+                "vel.amp": 60,
+                "voice.count": 32
+            },
+            "extra": {
+                "sample.path": "library:Samples/Strings/Harp/Harp.sfz"
+            }
+        },
+        {
+            "name": "Flute",
+            "tags": [
+                "Woodwinds",
+                "Lead",
+                "Orchestral"
+            ],
+            "description": "A flute with vibrato, airy and clear.",
+            "params": {
+                "amp.a": 20,
+                "amp.r": 300,
+                "vel.amp": 40
+            },
+            "extra": {
+                "sample.path": "library:Samples/Woodwinds/Flute/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Flute staccato",
+            "tags": [
+                "Woodwinds",
+                "Orchestral"
+            ],
+            "description": "Short flute notes, a different take at random each note.",
+            "params": {
+                "amp.r": 150,
+                "vel.amp": 60
+            },
+            "extra": {
+                "sample.path": "library:Samples/Woodwinds/Flute/Staccato.sfz"
+            }
+        },
+        {
+            "name": "Piccolo",
+            "tags": [
+                "Woodwinds",
+                "Bright",
+                "Orchestral"
+            ],
+            "description": "The piccolo, an octave above the flute and as bright as the orchestra gets.",
+            "params": {
+                "amp.a": 15,
+                "amp.r": 250,
+                "vel.amp": 40
+            },
+            "extra": {
+                "sample.path": "library:Samples/Woodwinds/Piccolo/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Oboe",
+            "tags": [
+                "Woodwinds",
+                "Lead",
+                "Orchestral"
+            ],
+            "description": "An oboe with vibrato, reedy and singing.",
+            "params": {
+                "amp.a": 15,
+                "amp.r": 250,
+                "vel.amp": 40
+            },
+            "extra": {
+                "sample.path": "library:Samples/Woodwinds/Oboe/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Clarinet",
+            "tags": [
+                "Woodwinds",
+                "Warm",
+                "Orchestral"
+            ],
+            "description": "A clarinet held long, smooth from its low notes to its high ones.",
+            "params": {
+                "amp.a": 15,
+                "amp.r": 300,
+                "vel.amp": 40
+            },
+            "extra": {
+                "sample.path": "library:Samples/Woodwinds/Clarinet/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Clarinet staccato",
+            "tags": [
+                "Woodwinds",
+                "Orchestral"
+            ],
+            "description": "Short clarinet notes, a different take at random each note.",
+            "params": {
+                "amp.r": 150,
+                "vel.amp": 60
+            },
+            "extra": {
+                "sample.path": "library:Samples/Woodwinds/Clarinet/Staccato.sfz"
+            }
+        },
+        {
+            "name": "Bassoon",
+            "tags": [
+                "Woodwinds",
+                "Bass",
+                "Orchestral"
+            ],
+            "description": "A bassoon held long, the low reed of the woodwinds.",
+            "params": {
+                "amp.a": 20,
+                "amp.r": 300,
+                "vel.amp": 40
+            },
+            "extra": {
+                "sample.path": "library:Samples/Woodwinds/Bassoon/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Bassoon staccato",
+            "tags": [
+                "Woodwinds",
+                "Bass",
+                "Orchestral"
+            ],
+            "description": "Short bassoon notes, playful in the low register.",
+            "params": {
+                "amp.r": 150,
+                "vel.amp": 60
+            },
+            "extra": {
+                "sample.path": "library:Samples/Woodwinds/Bassoon/Staccato.sfz"
+            }
+        },
+        {
+            "name": "French horn",
+            "tags": [
+                "Brass",
+                "Warm",
+                "Orchestral"
+            ],
+            "description": "A French horn held long, round and heroic.",
+            "params": {
+                "amp.a": 30,
+                "amp.r": 450,
+                "vel.amp": 40
+            },
+            "extra": {
+                "sample.path": "library:Samples/Brass/French horn/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Muted horn",
+            "tags": [
+                "Brass",
+                "Orchestral"
+            ],
+            "description": "A French horn with its mute in, distant and veiled.",
+            "params": {
+                "amp.a": 25,
+                "amp.r": 350,
+                "vel.amp": 40
+            },
+            "extra": {
+                "sample.path": "library:Samples/Brass/French horn/Muted.sfz"
+            }
+        },
+        {
+            "name": "Trumpet",
+            "tags": [
+                "Brass",
+                "Bright",
+                "Orchestral"
+            ],
+            "description": "A trumpet held long, bright and clear.",
+            "params": {
+                "amp.a": 10,
+                "amp.r": 300,
+                "vel.amp": 40
+            },
+            "extra": {
+                "sample.path": "library:Samples/Brass/Trumpet/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Muted trumpet",
+            "tags": [
+                "Brass",
+                "Orchestral"
+            ],
+            "description": "A trumpet with a straight mute, thin and nasal.",
+            "params": {
+                "amp.a": 10,
+                "amp.r": 250,
+                "vel.amp": 40
+            },
+            "extra": {
+                "sample.path": "library:Samples/Brass/Trumpet/Muted.sfz"
+            }
+        },
+        {
+            "name": "Trumpet staccato",
+            "tags": [
+                "Brass",
+                "Bright",
+                "Orchestral"
+            ],
+            "description": "Short trumpet notes for fanfares, a different take at random each note.",
+            "params": {
+                "amp.r": 150,
+                "vel.amp": 60
+            },
+            "extra": {
+                "sample.path": "library:Samples/Brass/Trumpet/Staccato.sfz"
+            }
+        },
+        {
+            "name": "Trombone",
+            "tags": [
+                "Brass",
+                "Orchestral"
+            ],
+            "description": "A tenor trombone held long, broad and warm.",
+            "params": {
+                "amp.a": 20,
+                "amp.r": 350,
+                "vel.amp": 40
+            },
+            "extra": {
+                "sample.path": "library:Samples/Brass/Trombone/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Trombone staccato",
+            "tags": [
+                "Brass",
+                "Orchestral"
+            ],
+            "description": "Short trombone notes, punchy in the middle register.",
+            "params": {
+                "amp.r": 150,
+                "vel.amp": 60
+            },
+            "extra": {
+                "sample.path": "library:Samples/Brass/Trombone/Staccato.sfz"
+            }
+        },
+        {
+            "name": "Tuba",
+            "tags": [
+                "Brass",
+                "Bass",
+                "Orchestral"
+            ],
+            "description": "A tuba held long, the bottom of the brass.",
+            "params": {
+                "amp.a": 30,
+                "amp.r": 350,
+                "vel.amp": 40
+            },
+            "extra": {
+                "sample.path": "library:Samples/Brass/Tuba/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Upright piano",
+            "tags": [
+                "Keys",
+                "Warm"
+            ],
+            "description": "An upright piano, intimate and a little woolly, soft or full by velocity.",
+            "params": {
+                "amp.r": 500,
+                "vel.amp": 70,
+                "voice.count": 32
+            },
+            "extra": {
+                "sample.path": "library:Samples/Keys/Upright piano/Upright piano.sfz"
+            }
+        },
+        {
+            "name": "Grand piano",
+            "tags": [
+                "Keys",
+                "Bright"
+            ],
+            "description": "A grand piano, open and resonant, soft or full by velocity.",
+            "params": {
+                "amp.r": 500,
+                "vel.amp": 70,
+                "voice.count": 32
+            },
+            "extra": {
+                "sample.path": "library:Samples/Keys/Grand piano/Grand piano.sfz"
+            }
+        },
+        {
+            "name": "Harpsichord",
+            "tags": [
+                "Keys",
+                "Bright"
+            ],
+            "description": "A harpsichord, plucked and bright, the same however hard you play, as the real one.",
+            "params": {
+                "amp.r": 300,
+                "vel.amp": 10,
+                "voice.count": 32
+            },
+            "extra": {
+                "sample.path": "library:Samples/Keys/Harpsichord/Harpsichord.sfz"
+            }
+        },
+        {
+            "name": "Church organ",
+            "tags": [
+                "Keys",
+                "Wide"
+            ],
+            "description": "A pipe organ with full stops, filling the room.",
+            "params": {
+                "amp.a": 30,
+                "amp.r": 500,
+                "vel.amp": 0
+            },
+            "extra": {
+                "sample.path": "library:Samples/Keys/Pipe organ/Loud.sfz"
+            }
+        },
+        {
+            "name": "Soft organ",
+            "tags": [
+                "Keys",
+                "Subtle"
+            ],
+            "description": "A pipe organ with soft stops, for quiet hymns and pads.",
+            "params": {
+                "amp.a": 40,
+                "amp.r": 500,
+                "vel.amp": 0
+            },
+            "extra": {
+                "sample.path": "library:Samples/Keys/Pipe organ/Soft.sfz"
+            }
+        },
+        {
+            "name": "Glockenspiel",
+            "tags": [
+                "Pluck",
+                "Bright",
+                "Orchestral"
+            ],
+            "description": "Steel bars struck with hard mallets, sparkling above everything.",
+            "params": {
+                "amp.r": 2000,
+                "vel.amp": 60,
+                "voice.count": 32
+            },
+            "extra": {
+                "sample.path": "library:Samples/Tuned percussion/Glockenspiel/Glockenspiel.sfz"
+            }
+        },
+        {
+            "name": "Marimba",
+            "tags": [
+                "Pluck",
+                "Warm"
+            ],
+            "description": "Wooden bars over resonators, round and mellow.",
+            "params": {
+                "amp.r": 1200,
+                "vel.amp": 60,
+                "voice.count": 32
+            },
+            "extra": {
+                "sample.path": "library:Samples/Tuned percussion/Marimba/Marimba.sfz"
+            }
+        },
+        {
+            "name": "Xylophone",
+            "tags": [
+                "Pluck",
+                "Bright",
+                "Orchestral"
+            ],
+            "description": "Wooden bars struck hard, dry and bright.",
+            "params": {
+                "amp.r": 600,
+                "vel.amp": 60,
+                "voice.count": 32
+            },
+            "extra": {
+                "sample.path": "library:Samples/Tuned percussion/Xylophone/Xylophone.sfz"
+            }
+        },
+        {
+            "name": "Vibraphone",
+            "tags": [
+                "Pluck",
+                "Warm"
+            ],
+            "description": "Metal bars over resonators, soft and ringing, as in late-night jazz.",
+            "params": {
+                "amp.r": 2000,
+                "vel.amp": 60,
+                "voice.count": 32
+            },
+            "extra": {
+                "sample.path": "library:Samples/Tuned percussion/Vibraphone/Vibraphone.sfz"
+            }
+        },
+        {
+            "name": "Tubular bells",
+            "tags": [
+                "Pluck",
+                "Orchestral"
+            ],
+            "description": "Orchestral chimes, struck and ringing long.",
+            "params": {
+                "amp.r": 4000,
+                "vel.amp": 60,
+                "voice.count": 32
+            },
+            "extra": {
+                "sample.path": "library:Samples/Tuned percussion/Tubular bells/Tubular bells.sfz"
+            }
+        },
+        {
+            "name": "Kalimba",
+            "tags": [
+                "Pluck",
+                "Warm"
+            ],
+            "description": "A thumb piano: metal tines plucked over a wooden body, two tines for some notes.",
+            "params": {
+                "amp.r": 1500,
+                "vel.amp": 60,
+                "voice.count": 32
+            },
+            "extra": {
+                "sample.path": "library:Samples/Tuned percussion/Kalimba/Kalimba.sfz"
+            }
+        },
+        {
+            "name": "Timpani",
+            "tags": [
+                "Drums",
+                "Orchestral"
+            ],
+            "description": "Kettle drums struck, tuned to the notes you play.",
+            "params": {
+                "amp.r": 2000,
+                "vel.amp": 60,
+                "voice.count": 32
+            },
+            "extra": {
+                "sample.path": "library:Samples/Percussion/Timpani/Hits.sfz"
+            }
+        },
+        {
+            "name": "Timpani rolls",
+            "tags": [
+                "Drums",
+                "Orchestral"
+            ],
+            "description": "Kettle drums rolled, a swell that holds while the key is down.",
+            "params": {
+                "amp.a": 50,
+                "amp.r": 800,
+                "vel.amp": 50
+            },
+            "extra": {
+                "sample.path": "library:Samples/Percussion/Timpani/Rolls.sfz"
+            }
+        },
+        {
+            "name": "Orchestral percussion",
+            "tags": [
+                "Drums",
+                "Orchestral"
+            ],
+            "description": "Bass drum, snare, cymbals, triangle, gong and more across the keys, each played to its end.",
+            "params": {
+                "mode": "One-shot",
+                "vel.amp": 60,
+                "voice.count": 32
+            },
+            "extra": {
+                "sample.path": "library:Samples/Percussion/Orchestral kit/Orchestral kit.sfz"
+            }
+        },
+        {
+            "name": "Recorder",
+            "tags": [
+                "Woodwinds",
+                "Clean"
+            ],
+            "description": "An alto recorder, pure and simple, without vibrato.",
+            "params": {
+                "amp.a": 15,
+                "amp.r": 200,
+                "vel.amp": 40
+            },
+            "extra": {
+                "sample.path": "library:Samples/Woodwinds/Recorder/Recorder.sfz"
+            }
+        },
+        {
+            "name": "Harmonica",
+            "tags": [
+                "Lead",
+                "Warm"
+            ],
+            "description": "A harmonica in C, reedy and bluesy.",
+            "params": {
+                "amp.a": 15,
+                "amp.r": 200,
+                "vel.amp": 40
+            },
+            "extra": {
+                "sample.path": "library:Samples/Woodwinds/Harmonica/Harmonica.sfz"
+            }
+        },
+        {
+            "name": "Tenor sax",
+            "tags": [
+                "Woodwinds",
+                "Lead"
+            ],
+            "description": "A tenor saxophone without vibrato, soft or edgy by velocity.",
+            "params": {
+                "amp.a": 10,
+                "amp.r": 250,
+                "vel.amp": 40
+            },
+            "extra": {
+                "sample.path": "library:Samples/Woodwinds/Tenor sax/Tenor sax.sfz"
+            }
+        },
+        {
+            "name": "Ocarina",
+            "tags": [
+                "Woodwinds",
+                "Clean"
+            ],
+            "description": "A clay ocarina, round and breathy.",
+            "params": {
+                "amp.a": 15,
+                "amp.r": 250,
+                "vel.amp": 40
+            },
+            "extra": {
+                "sample.path": "library:Samples/Woodwinds/Ocarina/Ocarina.sfz"
+            }
+        },
+        {
+            "name": "Wine glasses",
+            "tags": [
+                "Pad",
+                "Subtle"
+            ],
+            "description": "Wine glasses rubbed into a glassy hum, slow to swell.",
+            "params": {
+                "amp.a": 300,
+                "amp.r": 2000,
+                "vel.amp": 30
+            },
+            "extra": {
+                "sample.path": "library:Samples/Tuned percussion/Wine glasses/Wine glasses.sfz"
+            }
+        }
+    ]
+}

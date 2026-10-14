@@ -270,7 +270,7 @@ On the module grid, in the SAMPLE section (6 × 6), nothing else moves:
 
 ## Factory presets
 
-Waiting for sounds: the product owner brings the set they're built on (2026-10-11; [presets.md](../../docs/design/presets.md) §15, P11). Until then the Sampler has only Default settings.
+48, one an instrument or articulation of Segno's Library ([factory-library.md](../../docs/design/factory-library.md) §7, §10): strings 13, woodwinds and more 13, brass 8, keys 5, tuned percussion 6, percussion 3. Each points at its instrument by a `library:` path, with envelopes and velocity to volume suited to it. The levels are matched in the Library itself, so its Gain stays at 0 and an instrument opened from the browser sounds as its preset does. Made from `presets/recipes.json`. Built 2026-10-14; to be signed off by ear.
 
 ## Automated test targets
 

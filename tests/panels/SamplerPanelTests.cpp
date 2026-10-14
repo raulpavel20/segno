@@ -228,3 +228,23 @@ TEST_CASE("sampler panel: one sample keeps the whole section for its waveform", 
     f.shot("sampler-one");
     fs::remove(wav);
 }
+
+TEST_CASE("sampler panel: the Library's instruments, drawn for review", "[library][ui]")
+{
+    const auto library = fs::path(FD_SOURCE_DIR) / ".cache" / "library";
+    if (!fs::exists(library / "library.json"))
+        SKIP("The Library isn't built: cmake --build --preset dev --target segno-library");
+    for (const auto& [name, sfz] :
+         {std::pair<const char*, const char*>{"violins", "Strings/Violin section/Sustain.sfz"},
+          {"grand-piano", "Keys/Grand piano/Grand piano.sfz"},
+          {"kit", "Percussion/Orchestral kit/Orchestral kit.sfz"}})
+    {
+        INFO(name);
+        Fixture f((library / "Samples" / sfz).string());
+        const auto map = dynamic_cast<const S&>(*f.device).map();
+        REQUIRE(map != nullptr);
+        CHECK(map->missing == 0);
+        CHECK(map->ignored.empty());
+        f.shot(juce::String("sampler-library-") + name);
+    }
+}

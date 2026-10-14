@@ -15,6 +15,9 @@
 # | JetBrains Mono (font) | 2.304            | OFL-1.1            | modules/fd_ui (bundled font) |
 # | cpp-httplib           | v0.57.1          | MIT                | app (MCP server, ADR 0021)   |
 # | AKWF-FREE (160 cycles)| 8de90bf9         | CC0-1.0            | devices/wavetable (tables)   |
+# | libFLAC               | 1.5.0            | BSD-3-Clause       | tools/library (encoding)     |
+# | VSCO 2 CE (samples)   | 28092772 (1.1.0) | CC0-1.0            | the Library (segno-library)  |
+# | VCSL (samples)        | c1ea7bcc         | CC0-1.0            | the Library (segno-library)  |
 
 # --- Core (always) ---------------------------------------------------------
 
@@ -46,6 +49,19 @@ target_include_directories(fd_dep_elliptic_blep SYSTEM INTERFACE "${elliptic_ble
 # (cmake/FdAkwf.cmake): the whole repository is 2 GB.
 set(FD_AKWF_COMMIT 8de90bf94376670947369e69de0af6b9fbd19286)
 include(${CMAKE_CURRENT_LIST_DIR}/FdAkwf.cmake)
+
+# libFLAC: the Library's samples are written as FLAC (tools/library, ADR 0055); the tool only. The
+# samples themselves are fetched by the segno-library target, never by a plain build
+# (cmake/FdLibrarySources.cmake, tools/library/recipe.json).
+if(FD_BUILD_TOOLS)
+    CPMAddPackage(
+        NAME flac
+        URL https://github.com/xiph/flac/releases/download/1.5.0/flac-1.5.0.tar.xz
+        URL_HASH SHA256=f2c1c76592a82ffff8413ba3c4a1299b6c7ab06c734dee03fd88630485c2b920
+        OPTIONS "BUILD_CXXLIBS OFF" "BUILD_PROGRAMS OFF" "BUILD_EXAMPLES OFF" "BUILD_TESTING OFF" "BUILD_DOCS OFF"
+                "INSTALL_MANPAGES OFF" "INSTALL_PKGCONFIG_MODULES OFF" "INSTALL_CMAKE_CONFIG_MODULE OFF"
+                "WITH_OGG OFF" "BUILD_SHARED_LIBS OFF")
+endif()
 
 if(FD_BUILD_TESTS)
     CPMAddPackage(

@@ -1,0 +1,51 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Woodwinds",
+    "Bass",
+    "Orchestral"
+  ],
+  "description": "Short bassoon notes, playful in the low register.",
+  "author": "Segno",
+  "state": {
+    "device": "sampler",
+    "extra": {
+      "sample.path": "library:Samples/Woodwinds/Bassoon/Staccato.sfz"
+    },
+    "params": {
+      "amp.a": 0.5,
+      "amp.d": 300.0,
+      "amp.r": 150.0,
+      "amp.s": 100.0,
+      "detune": 0.0,
+      "end": 100.0,
+      "fade.in": 0.5,
+      "fade.out": 2.0,
+      "fenv.a": 2.0,
+      "fenv.d": 400.0,
+      "fenv.r": 300.0,
+      "fenv.s": 0.0,
+      "filter.cutoff": 2000.0,
+      "filter.env": 0.0,
+      "filter.key": 50.0,
+      "filter.on": 0.0,
+      "filter.res": 20.0,
+      "filter.type": 1.0,
+      "gain": 0.0,
+      "loop": 0.0,
+      "loop.start": 0.0,
+      "loop.xfade": 2.0,
+      "mode": 0.0,
+      "oneshot.gate": 0.0,
+      "root": 60.0,
+      "start": 0.0,
+      "transpose": 0.0,
+      "vel.amp": 60.0,
+      "voice.bend": 2.0,
+      "voice.count": 16.0,
+      "voice.glide": 0.0,
+      "voice.mode": 0.0
+    },
+    "stateVersion": 1
+  }
+}

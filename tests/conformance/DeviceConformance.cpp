@@ -1,6 +1,8 @@
 // Device conformance suite (ADR 0007). Runs automatically on every registered device.
 // A device that fails here is not done, whatever else it does.
 
+#include "Sampler.h"
+#include "fd/device/Library.h"
 #include "fd/device/Presets.h"
 #include "fd/device/Registry.h"
 #include "fd/device/State.h"
@@ -12,6 +14,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <cmath>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -519,10 +522,27 @@ const std::regex kBannedWords("\\b(ableton|live|bitwig|logic|cubase|fabfilter|wa
                               "neve|ssl|api|pultec|la-?2a|1176|fairchild|distressor|tube-?tech|manley|shadow "
                               "hills|ozone|izotope|valhalla)\\b",
                               std::regex::icase);
-const std::set<std::string> kTags{"Drums",  "Bass",  "Vocals", "Keys",   "Guitar", "Bus",   "Master",
-                                  "Subtle", "Heavy", "Warm",   "Bright", "Wide",   "Clean", "Dirty",
-                                  "Lead",   "Pad",   "Pluck",  "Brass",  "FX",     "Check", "Fix",
-                                  "Stereo", "Level", "Mix",    "Ducking"};
+const std::set<std::string> kTags{"Drums", "Bass", "Vocals", "Keys", "Guitar", "Bus", "Master", "Subtle",
+                                  "Heavy", "Warm", "Bright", "Wide", "Clean", "Dirty", "Lead", "Pad", "Pluck",
+                                  "Brass", "FX", "Check", "Fix", "Stereo", "Level", "Mix", "Ducking",
+                                  // The Sampler's instruments (factory-library.md §7).
+                                  "Strings", "Woodwinds", "Orchestral"};
+
+/// Whether a state's sound is in the Library and the Library isn't here (ADR 0055).
+bool soundNotHere(const DeviceState& state)
+{
+    if (!state.extra.is_object())
+        return false;
+    for (const auto& [key, value] : state.extra.items())
+        if (value.is_string() && fd::library::isReference(value.get<std::string>()))
+        {
+            std::error_code ec;
+            const auto file = fd::library::resolve(value.get<std::string>());
+            if (file.empty() || !std::filesystem::exists(file, ec))
+                return true;
+        }
+    return false;
+}
 
 /// What a preset plays: -18 dBFS pink noise into an effect; a held C3 into an instrument.
 AudioBuffer renderPreset(Device& d, const DeviceInfo& info, double* inputRmsDb)
@@ -541,9 +561,11 @@ AudioBuffer renderPreset(Device& d, const DeviceInfo& info, double* inputRmsDb)
         return render(d, in, o);
     }
     *inputRmsDb = 0.0;
+    // A C3, or the note an octave from it the instrument plays (a Sampler's zones).
+    const auto key = static_cast<std::uint8_t>(fd::devices::Sampler::playableKey(d, 60));
     return renderWithTail(d, length,
-                          {{0, {.type = EventType::NoteOn, .key = 60, .value = 0.8f}},
-                           {length / 2, {.type = EventType::NoteOff, .key = 60}}});
+                          {{0, {.type = EventType::NoteOn, .key = key, .value = 0.8f}},
+                           {length / 2, {.type = EventType::NoteOff, .key = key}}});
 }
 } // namespace
 
@@ -575,6 +597,7 @@ TEST_CASE("conformance: every factory preset loads, plays cleanly within level a
           "[fast][conformance]")
 {
     std::map<std::string, std::vector<Preset>> byDevice;
+    int withoutLibrary = 0;
     for (const auto& file : factoryPresetFiles())
     {
         INFO(file.name);
@@ -615,6 +638,12 @@ TEST_CASE("conformance: every factory preset loads, plays cleanly within level a
             }
             CHECK_FALSE(sameSound(info, defaultState(info), p.state));
 
+            // A sound in the Library that isn't here (ADR 0055): heard by the Library's own test.
+            if (soundNotHere(p.state))
+            {
+                ++withoutLibrary;
+                continue;
+            }
             auto d = create(*factory);
             REQUIRE(applyState(*d, p.state) == ApplyResult::Ok);
             double inputRms = 0.0;
@@ -630,7 +659,55 @@ TEST_CASE("conformance: every factory preset loads, plays cleanly within level a
                           << peakDb(out) << " dBFS\n";
         }
     }
-    CHECK(byDevice.size() >= 8); // every module but the Sampler (its sounds come later)
+    CHECK(byDevice.size() >= 9);
+    if (withoutLibrary > 0)
+        WARN(withoutLibrary << " presets play sounds from the Library, which isn't here: \"conformance: the "
+                               "Sampler's presets play their instruments\" hears them");
+}
+
+TEST_CASE("conformance: the Sampler's presets play their instruments from the Library, cleanly, within level",
+          "[library][conformance]")
+{
+    // The Library a development build makes (cmake --build --preset dev --target segno-library).
+    const auto library = std::filesystem::path(FD_SOURCE_DIR) / ".cache" / "library";
+    if (!std::filesystem::exists(library / "library.json"))
+        SKIP("The Library isn't built: cmake --build --preset dev --target segno-library");
+    fd::library::setRoot(library);
+    const auto* factory = findDevice("sampler");
+    REQUIRE(factory != nullptr);
+    int heard = 0;
+    for (const auto& file : factoryPresetFiles())
+    {
+        const auto p = parsePresetFile(file.text, std::string(file.name));
+        REQUIRE(p);
+        if (p->state.deviceId != "sampler")
+            continue;
+        INFO(p->name);
+        auto d = create(*factory);
+        REQUIRE(applyState(*d, p->state) == ApplyResult::Ok);
+        const auto& sampler = dynamic_cast<const fd::devices::Sampler&>(*d);
+        CHECK(sampler.loadError().empty());
+        const auto map = sampler.map();
+        REQUIRE(map != nullptr);
+        CHECK(map->missing == 0);
+        CHECK(map->ignored.empty());
+        // As the preview plays it: a C1 for a bass or a kit (its kick), a C3 for the rest, in the
+        // instrument's register.
+        const bool low = !p->tags.empty() && (p->tags.front() == "Bass" || p->tags.front() == "Drums");
+        const auto key = static_cast<std::uint8_t>(fd::devices::Sampler::playableKey(*d, low ? 36 : 60));
+        const auto out = renderWithTail(*d, 96000,
+                                        {{0, {.type = EventType::NoteOn, .key = key, .value = 0.8f}},
+                                         {48000, {.type = EventType::NoteOff, .key = key}}});
+        CHECK(allFinite(out));
+        CHECK(peakDb(out) <= -1.0);
+        CHECK(rmsDb(out) > -60.0); // it sounds
+        if (std::getenv("FD_PRESET_REPORT") != nullptr)
+            std::cout << "sampler | " << p->name << " | level " << rmsDb(out) << " dB, peak " << peakDb(out)
+                      << " dBFS\n";
+        ++heard;
+    }
+    CHECK(heard == 48);
+    fd::library::setRoot({});
 }
 
 TEST_CASE("conformance: the factory presets are what their recipes make", "[fast][conformance]")

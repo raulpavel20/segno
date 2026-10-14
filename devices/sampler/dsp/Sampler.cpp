@@ -137,6 +137,10 @@ constexpr MeterSpec kMeters[] = {
     {.slot = Sampler::ActiveVoices, .id = "voices", .name = "Voices playing", .kind = MeterKind::Count},
 };
 
+// What a loaded file is, for checking: kept with a project, never in a preset, which holds only
+// the sound's path (it must be the same whether the Library is there or not).
+constexpr std::string_view kSessionKeys[] = {"sample.rate", "sample.frames", "sample.zones"};
+
 constexpr DeviceInfo kInfo{
     .id = "sampler",
     .name = "Sampler",
@@ -146,6 +150,7 @@ constexpr DeviceInfo kInfo{
     .params = kParams,
     .stateVersion = 1,
     .meters = kMeters,
+    .sessionExtraKeys = kSessionKeys,
 };
 
 dsp::Adsr::Settings settings(const ParamStore& p, size_t attack, double sustainOverride = -1.0)
@@ -290,6 +295,34 @@ std::vector<std::pair<size_t, float>> Sampler::settingsFor(const SampleMap& map)
     if (s.ampRelease)
         out.emplace_back(AmpR, ms(*s.ampRelease));
     return out;
+}
+
+int Sampler::playableKey(const Device& device, int key)
+{
+    const auto* sampler = dynamic_cast<const Sampler*>(&device);
+    const auto map = sampler != nullptr ? sampler->map() : nullptr;
+    if (map == nullptr || map->single || map->zones.empty())
+        return key;
+    const int low = map->lowestKey(), high = map->highestKey();
+    while (key < low && key + 12 <= 127)
+        key += 12;
+    while (key > high && key - 12 >= 0)
+        key -= 12;
+    key = std::clamp(key, low, high);
+    // A key no zone plays (a kit's gaps): the nearest one that does.
+    const auto plays = [&map](int k)
+    {
+        return std::any_of(map->zones.begin(), map->zones.end(), [k](const SampleMap::Zone& z)
+                           { return z.sample != nullptr && k >= z.loKey && k <= z.hiKey; });
+    };
+    for (int d = 0; d <= 127; ++d)
+    {
+        if (key - d >= 0 && plays(key - d))
+            return key - d;
+        if (key + d <= 127 && plays(key + d))
+            return key + d;
+    }
+    return key;
 }
 
 void Sampler::prepare(const ProcessSpec& spec)

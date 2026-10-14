@@ -137,10 +137,14 @@ public:
         const auto wave = waveArea();
         const auto region = S::regionFor(store(), *z);
 
-        // Waveform: flat min/max columns; dimmer outside the playback region.
+        // Waveform: flat min/max columns, scaled to the sample's own peak so a quiet one shows its
+        // shape too (its level is the zone's volume); dimmer outside the playback region.
         const auto& lo = sample.overviewMin;
         const auto& hi = sample.overviewMax;
-        const float mid = wave.getCentreY(), half = wave.getHeight() * 0.5f;
+        float peak = 0.0f;
+        for (size_t b = 0; b < lo.size(); ++b)
+            peak = std::max({peak, -lo[b], hi[b]});
+        const float mid = wave.getCentreY(), half = wave.getHeight() * 0.5f / std::max(peak, 1.0e-4f);
         for (int x = 0; x < static_cast<int>(wave.getWidth()); ++x)
         {
             const double f0 = static_cast<double>(x) / wave.getWidth() * sample.frames;

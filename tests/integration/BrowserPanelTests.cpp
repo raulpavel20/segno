@@ -587,3 +587,20 @@ TEST_CASE(
     REQUIRE(devicesOf(b.track(0)) == std::vector<std::string>{"sampler"});
     CHECK(b.r.session->undoDescription() == "Add Sampler with Violins");
 }
+
+TEST_CASE("browser: the Sampler's folder holds its instruments' presets by family (factory-library.md §7)",
+          "[integration]")
+{
+    Browser b;
+    auto& p = b.panel();
+    b.open("cat:instruments");
+    b.open("module:fd:sampler");
+    for (const auto* family : {"Brass", "Drums", "Keys", "Lead", "Pad", "Pluck", "Strings", "Woodwinds"})
+        CHECK(b.shows(std::string("pfolder:fd:sampler|") + family));
+    b.open("pfolder:fd:sampler|Strings");
+    CHECK(b.shows("preset:fd:sampler|factory/Violins"));
+    CHECK(b.shows("preset:fd:sampler|factory/Harp"));
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "browser-sampler-presets@2x.png",
+                b.shell->createComponentSnapshot(p.getBounds(), true, 2.0f));
+}

@@ -76,6 +76,11 @@ public:
     /// host sets them after loading, as an undo step of their own (SPEC, S6).
     [[nodiscard]] static std::vector<std::pair<size_t, float>> settingsFor(const SampleMap& map);
 
+    /// A key the loaded sound plays, for hearing it (a preset's preview, the preset lint): `key`,
+    /// or moved by octaves into its zones' keys (the nearest end if no octave fits), then to the
+    /// nearest key a zone plays. `key` as it is when `device` isn't a Sampler or plays every key.
+    [[nodiscard]] static int playableKey(const Device& device, int key);
+
     /// Playback region in frames for a sample of `frames` frames (from Start/End).
     struct Region
     {

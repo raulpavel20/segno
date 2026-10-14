@@ -255,9 +255,9 @@ The commands act on the **selected module**, or the one whose header was used la
 - **Tags** come from a short vocabulary per kind of module:
   - **use:** Drums, Bass, Vocals, Keys, Guitar, Bus, Master;
   - **character:** Subtle, Heavy, Warm, Bright, Wide, Clean, Dirty;
-  - **instruments' sound:** Bass, Lead, Pad, Keys, Pluck, Brass, FX, Drums.
+  - **instruments' sound:** Bass, Lead, Pad, Keys, Pluck, Brass, FX, Drums; and for the Sampler's instruments, Strings, Woodwinds, Orchestral ([factory-library.md](factory-library.md) §7).
   - Your own presets take any tag.
-- **The Sampler's presets need sounds:** the product owner brings the set they're built on (2026-10-11, revising P11). Until then the Sampler has only Default settings.
+- **The Sampler's presets** play instruments from Segno's Library, made from VSCO 2 CE and VCSL (CC0) at the product owner's suggestion ([factory-library.md](factory-library.md), ADR 0055): 48, built 2026-10-14.
 - **Recipes:** each set is `devices/<name>/presets/recipes.json`, naming only what differs from the module's defaults (numbers in the parameter's unit, or text it reads: "4:1", "LP 24"). `fd-presets make` (`tools/presets`) writes each preset's whole state beside it; the conformance suite checks the files are what the recipes make. `fd-presets describe <module>` lists a module's parameters for writing recipes.
 - **Lint:** a test loads every factory preset and checks:
   - its device and version;
@@ -375,7 +375,7 @@ The commands act on the **selected module**, or the one whose header was used la
 
 ## 21. The factory presets (B11, 2026-10-11)
 
-118 presets for eight modules: Utility 5, Spectrum 6, EQ 18, Compressor 15, Gate 12, Limiter 12, Saturator 15, Subtractive Synth 35. Each SPEC lists its set. The Sampler's wait for its sounds.
+118 presets for eight modules: Utility 5, Spectrum 6, EQ 18, Compressor 15, Gate 12, Limiter 12, Saturator 15, Subtractive Synth 35. Each SPEC lists its set. The Sampler's 48 came on 2026-10-14 with the Library ([factory-library.md](factory-library.md) §10): their sounds are heard by a test of their own, which needs the Library built.
 
 - **Checked by rendering** (the conformance suite), effects on pink noise at −18 dBFS RMS, the synth on a held C3:
   - every preset loads, holds every parameter at the module's current version, plays without NaNs and peaks at or under 0 dBFS;
