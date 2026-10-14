@@ -119,6 +119,10 @@ std::set<std::size_t> select(ToolEnv& env, const std::vector<model::Note>& notes
     return out;
 }
 
+} // namespace
+
+namespace tools
+{
 Json whereSchema()
 {
     return {{"anyOf",
@@ -139,10 +143,6 @@ Json notesResult()
                    {"loopLengthened", boolean("A looped clip's loop grew to fit notes past its end")}},
                   {"clip", "notes", "lengthened"});
 }
-} // namespace
-
-namespace tools
-{
 std::set<std::size_t> selectNotes(ToolEnv& env, const model::ClipInfo& c, const Json& where)
 {
     return select(env, c.notes, contentOffset(env, c), where);

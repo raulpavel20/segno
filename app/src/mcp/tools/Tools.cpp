@@ -31,6 +31,7 @@ void registerAll(Registry& registry, ToolEnv& env)
     addKeyTools(registry, env);
     addChordTools(registry, env);
     addControllerTools(registry, env);
+    addToolkitTools(registry, env);
     addResources(registry, env);
     addPrompts(registry);
 }

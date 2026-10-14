@@ -45,6 +45,7 @@ void addGridTools(Registry& registry, ToolEnv& env);
 void addKeyTools(Registry& registry, ToolEnv& env);
 void addChordTools(Registry& registry, ToolEnv& env);
 void addControllerTools(Registry& registry, ToolEnv& env);
+void addToolkitTools(Registry& registry, ToolEnv& env);
 void addResources(Registry& registry, ToolEnv& env);
 void addPrompts(Registry& registry);
 /// Everything above.
@@ -153,6 +154,9 @@ Json sectionsOf(ToolEnv& env, engine::DeviceHandle& handle);
 Json writeNotes(ToolEnv& env, const model::ClipInfo& clip, const Json& notes, bool replace);
 /// The notes a `where` argument picks in a clip: "all", or a filter by pitch and time.
 std::set<std::size_t> selectNotes(ToolEnv& env, const model::ClipInfo& clip, const Json& where);
+/// The `where` argument's schema, and the result of a tool that writes notes.
+Json whereSchema();
+Json notesResult();
 
 /// Result schemas shared between tools.
 Json clipResultSchema();

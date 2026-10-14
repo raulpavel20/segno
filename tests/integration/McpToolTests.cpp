@@ -238,7 +238,10 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
                              "suggest_chords",
                              "reroll_chance",
                              "get_controllers",
-                             "set_controllers"})
+                             "set_controllers",
+                             "list_note_tools",
+                             "transform_notes",
+                             "generate_notes"})
         CHECK(names.contains(name));
     for (const auto& p : registry.prompts)
     {
@@ -547,6 +550,75 @@ TEST_CASE("mcp tools: chance, velocity spread, release velocity, re-roll and con
                   {{"clip", clipId},
                    {"lanes", {{{"controller", "pitch_bend"}, {"points", {{{"beat", 0}, {"value", 9000}}}}}}}})
             .find("-8192") != std::string::npos);
+}
+
+TEST_CASE("mcp tools: the notes' transform and generate tools, listed, run and checked (P4c)",
+          "[integration][mcp]")
+{
+    Daw daw;
+    const auto track = daw.call("add_track", {{"name", "Keys"}})["track"].get<std::string>();
+    const auto clipId = daw.call("create_midi_clip",
+                                 {{"track", track}, {"start", "1.1.1"}, {"length", "4 bars"}})["clip"]["id"]
+                            .get<std::string>();
+    REQUIRE(daw.call("set_key", {{"root", "C"}, {"scale", "major"}})["key"]["name"] == "C major");
+
+    // Listed with their settings and defaults.
+    const auto listed = daw.call("list_note_tools", Json::object());
+    REQUIRE(listed["transform"].size() == 8);
+    REQUIRE(listed["generate"].size() == 4);
+    const auto strum = listed["transform"][1];
+    CHECK(strum["tool"] == "strum");
+    CHECK(strum["settings"][0]["choices"] == Json{"up", "down", "alternate"});
+    CHECK(strum["settings"][1]["default"] == 40.0);
+    const auto velocity = listed["transform"][5];
+    CHECK(velocity["settings"][1]["onlyWhen"]["shape"] == "ramp");
+
+    // Generate: a progression, a bar each; then a bassline under it.
+    auto made = daw.call("generate_notes",
+                         {{"clip", clipId}, {"tool", "chords"}, {"settings", {{"kind", "seventh"}}}});
+    CHECK(made["notes"] == 16); // four sevenths
+    CHECK(daw.session->undoDescription() == "Assistant: generate notes");
+    auto chords = daw.call("get_chords", {{"clip", clipId}})["chords"];
+    REQUIRE(chords.size() == 4);
+    CHECK(chords[0]["name"] == "Cmaj7");
+    made =
+        daw.call("generate_notes", {{"clip", clipId}, {"tool", "bassline"}, {"settings", {{"step", "1/8"}}}});
+    CHECK(made["notes"] == 32);
+    // Only into the span asked for.
+    made = daw.call("generate_notes", {{"clip", clipId},
+                                       {"tool", "rhythm"},
+                                       {"start", 0},
+                                       {"length", "1 bar"},
+                                       {"settings", {{"pitch", 84}}}});
+    CHECK(made["notes"] == 5);
+
+    // Transform: the chord in the first bar strummed.
+    auto t =
+        daw.call("transform_notes", {{"clip", clipId},
+                                     {"where", {{"from", 0}, {"to", 1}, {"lowest", 55}, {"highest", 80}}},
+                                     {"tool", "strum"},
+                                     {"settings", {{"time", 60}}}});
+    CHECK(t["notes"] == 4);
+    CHECK(daw.session->undoDescription() == "Assistant: transform notes");
+
+    // Mistakes are named.
+    CHECK(daw.fails("transform_notes", {{"clip", clipId}, {"where", "all"}, {"tool", "rhythm"}})
+              .find("humanize") != std::string::npos);
+    CHECK(daw.fails("transform_notes",
+                    {{"clip", clipId}, {"where", "all"}, {"tool", "strum"}, {"settings", {{"tempo", 3}}}})
+              .find("direction") != std::string::npos);
+    CHECK(daw.fails("transform_notes", {{"clip", clipId},
+                                        {"where", "all"},
+                                        {"tool", "strum"},
+                                        {"settings", {{"direction", "sideways"}}}})
+              .find("alternate") != std::string::npos);
+    CHECK(daw.fails("transform_notes",
+                    {{"clip", clipId}, {"where", "all"}, {"tool", "strum"}, {"settings", {{"time", 9000}}}})
+              .find("250") != std::string::npos);
+    const auto empty = daw.call("create_midi_clip",
+                                {{"track", track}, {"start", "9.1.1"}, {"length", "1 bar"}})["clip"]["id"];
+    CHECK(daw.fails("generate_notes", {{"clip", empty}, {"tool", "bassline"}}).find("chords") !=
+          std::string::npos);
 }
 
 TEST_CASE("mcp tools: audio clips: insert, move, trim, duplicate, split, delete", "[integration][mcp]")
