@@ -246,9 +246,33 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 | Crossfade | Ctrl+Shift+X | |
 | — | | |
 | Takes ▸ | | Show takes of the selected clip (Ctrl+Alt+K); Previous take (Alt+↑); Next take (Alt+↓); — ; Use this take for the whole clip, Rename take…, Copy take to new track, Move take to new track, Spread the selected clip's takes to new tracks (Ctrl+Alt+Shift+K); — ; Keep only this take. The take items act on the selected takes only (§15); they're *new* as actions, and Copy, Move and Keep only are also in the inspector's TAKE section. Delete and Edit > Delete delete selected takes, so there's no Delete take. *Built:* the take menu (right-click on the badge or a strip) keeps its own items, which act on the strip clicked and name it ("Keep only Take 2"), so it isn't the same builder |
-| Notes ▸ | | Quantise (Ctrl+U); — ; Transpose up / raise points (↑), Transpose down / lower points (↓), Transpose up an octave / raise points a little (Shift+↑), Transpose down an octave / lower points a little (Shift+↓); — ; Nudge later (→), Nudge earlier (←). They act on the selected notes, or on the selected automation points, as now |
+Clip ▸ Notes ▸ moved to the Notes menu (M3 P4).
 
-**Song** (added with the song's sections, M3 C3; the song's key first, M3 P3, [ADR 0057](../decisions/0057-the-song-has-one-key.md); [ADR 0049](../decisions/0049-the-master-row-is-the-song-row.md), [arranger.md](arranger.md) §12; Alt+N, as Alt+S solos)
+**Notes** (M3 P4, [piano-roll.md](piano-roll.md) §13, [ADR 0058](../decisions/0058-the-piano-roll-writes-in-key-and-in-chords.md); Alt+N): the piano roll's commands, on the selected notes or on all of them while the clip view shows a MIDI clip, dimmed with the reason otherwise. The clip view's **Notes ⌄** button opens this same menu (one builder).
+
+| Item | Shortcut | |
+|---|---|---|
+| Quantise | Ctrl+U | With Quantise…'s settings |
+| Quantise… | Ctrl+Shift+U | Strength, swing, starts and/or ends, previewed live; Apply keeps it as one step |
+| — | | |
+| Transpose ▸ | | Up a step (↑), Down a step (↓): steps of the scale with Key on and a song key, else semitones; they raise and lower automation points when a lane was used last, as before. — ; Up a semitone (Ctrl+↑), Down a semitone (Ctrl+↓); — ; Up an octave (Shift+↑), Down an octave (Shift+↓) |
+| Fit to key | | Dimmed, saying why, without a song key |
+| — | | |
+| Make chords | | |
+| Make chord… | | The Chord popover for the selected notes |
+| Chords ▸ | | Invert up (Alt+Shift+↑), Invert down (Alt+Shift+↓); — ; Smooth, Close, Open, Drop 2, Drop 3 and Spread voicing; — ; Add bass |
+| — | | |
+| Join | Ctrl+J | |
+| Length ▸ | | Legato, Fixed length; — ; Double speed, Half speed |
+| Reverse | | |
+| Mirror pitches | | |
+| — | | |
+| Select ▸ | | Select same pitch, Select outside the key, Select in the loop, Invert selection |
+| Nudge later / earlier | → / ← | They nudge lane points too, as before |
+
+Transform ▸, Generate ▸ and Re-roll chance join it with P4b and P4c. Clip ▸ Mute clips (0) reads "Mute notes" and mutes them while the clip view was used last; Edit ▸ Split at playhead (Ctrl+E) splits the notes crossing it then.
+
+**Song** (added with the song's sections, M3 C3; the song's key first, M3 P3, [ADR 0057](../decisions/0057-the-song-has-one-key.md); [ADR 0049](../decisions/0049-the-master-row-is-the-song-row.md), [arranger.md](arranger.md) §12; Alt+G since M3 P4 gave Notes the N; Alt+S solos)
 
 | Item | Shortcut | |
 |---|---|---|
@@ -332,6 +356,11 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 | Next module page | Ctrl+Alt+Page Down | For a module with pages ([ADR 0051](../decisions/0051-pages-for-very-wide-modules.md)); dimmed for others. With the Wavetable Synth (M3 P1) |
 | Previous module page | Ctrl+Alt+Page Up | As above |
 | — | | |
+| Snap to key | | The clip view's Key option (M3 P4, [piano-roll.md](piano-roll.md) §6); dimmed without a song key |
+| Fold ▸ | | Fold off, Fold to key, Fold to notes: the clip view's Fold |
+| Show other tracks' notes | | The clip view's Others (§8) |
+| Draw ▸ | | Draw note, Draw chord, Draw chord under: the clip view's Draw (§7.2) |
+| — | | |
 | Zoom in | = | |
 | Zoom out | − | |
 | Zoom to fit | Ctrl+0 | |
@@ -371,7 +400,7 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 
 **Keyboard access:**
 - F10 opens File; the arrows move between menus and items, Enter runs, and Escape closes.
-- Alt+letter opens a menu (Windows and Linux): **F**ile, **E**dit, **T**rack, **C**lip, Mo**d**ule, Trans**p**ort, **V**iew, **O**ptions, **H**elp. These letters avoid the Alt shortcuts already taken (Alt+R, Alt+M, Alt+S, Alt+L).
+- Alt+letter opens a menu (Windows and Linux): **F**ile, **E**dit, **T**rack, **C**lip, **N**otes, Son**g**, Mo**d**ule, Trans**p**ort, **V**iew, **O**ptions, **H**elp. These letters avoid the Alt shortcuts already taken (Alt+R, Alt+M, Alt+S, Alt+L).
 - While Alt is held, the letters are underlined.
 - The computer keyboard ignores Alt, as it does now.
 

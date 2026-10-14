@@ -7,7 +7,7 @@ A piano roll that's good to write music in, not only to fix notes: it writes in 
 - the menu bar as the complete list ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)) and assistants' tools ([ADR 0021](../decisions/0021-mcp-server.md));
 - the UI foundations ([ADR 0023](../decisions/0023-ui-foundations.md)): every panel sized from its content, nothing touching.
 
-**Status:** approved by the product owner (2026-10-14), with every recommendation of §17 (N1–N19) and the stages of §16; the decision is [ADR 0058](../decisions/0058-the-piano-roll-writes-in-key-and-in-chords.md). A visual mockup of the clip view comes first, for the product owner's approval before building. Each stage is then built and signed off on its own.
+**Status:** approved by the product owner (2026-10-14), with every recommendation of §17 (N1–N19) and the stages of §16; the decision is [ADR 0058](../decisions/0058-the-piano-roll-writes-in-key-and-in-chords.md). A visual mockup of the clip view came first and was approved (2026-10-14). Each stage is then built and signed off on its own. **P4a built (2026-10-14), for review:** what building settled is §19.
 
 ## 1. Why
 
@@ -356,3 +356,33 @@ Each stage is built, reviewed in screenshots at standard and compact widths, and
   - screenshots zoomed in, reviewed for each stage;
   - the menu-bar test and the shortcut test.
 - **Performance:** the piano roll draws within the frame budget with 2 000 notes, the chord lane and other tracks' notes shown.
+
+## 19. Settled while building (P4a, 2026-10-14)
+
+**Theory (`libs/music`, `Chords.h`):**
+- **28 chord kinds** read from notes and written by name (triads, sus, sixths, sevenths, add9, ninths, 6/9, 7♭9, 7♯9, 9sus4, m11, 13). Notes no kind explains exactly are read as a kind with tensions in parentheses ("Em7(♭9)", "C7" without its fifth). Where notes read two ways, the reading with the root in the bass wins, then the kinds' order (Am7 over C6 with A under).
+- **Slash chords:** an inversion is "C/E". A bass that's only an added tone reads as a chord over it: D under C E G is "C/D", not "Cadd9/D".
+- **Spelling:** a chord's root is spelled by its degree in the key, so a borrowed ♭VII in C major is B♭, not A♯; its bass by its place in the chord (E7/G♯ in F major). A diminished chord on a note outside the key is spelled as leading up (♯iv°, C♯°7). Without a key, as in C major.
+- **The key's chords:** a seven-note scale's thirds; other scales (pentatonics, symmetric) the first of major, minor, sus4, sus2, diminished, augmented whose notes are all the key's. **sus2 and sus4 are true sus chords** (a major second or a perfect fourth for the third, with a perfect fifth) even where a note leaves the key, as Fsus4 does in C major; **add9 adds a major ninth.** A note outside the key gets the kind most of whose notes are in it (B♭ in C major is B♭, its seventh B♭maj7).
+- **Without a key** (§7.2): a major or minor triad by the note's place in C major, B minor and the black keys by most notes in C major (E♭, F♯m); the Wavetable's Key Chord can use the same function.
+- **Suggestions:** the usual moves from each step (one table for major-like keys, one for minor-like), each with why ("Down a fifth: the strongest move", "Deceptive: the dominant not going home"); a dominant outside the key resolves down a fifth, ♭VII and iv go home, ♭VI goes on to ♭VII. Borrowed: ♭VII, iv, ♭VI, ♭III in a major key, IV and V in a minor one, and V/V, leaving out what the key already has. **Chord under** picks the key's chord with the note that follows the chord before best, else the most usual (I, IV, V, vi …).
+- **Voicing:** every inversion of the close voicing, in every octave, scored: Smooth by the least movement from the chord before (voices matched in order), the others by register. A voicing asked to keep the clicked note (Chord) or to have it on top (Chord under) keeps it. More notes than the chord's double it from the root up; fewer drop the fifth first.
+
+**The clip view:**
+- **The chord lane** joins spans of the same chord across a gap of up to a beat, so a chord played as stabs is one chord to select and rewrite. Muted notes don't sound, so they make no chord. With Others on, a second line (**ALL**) names the chords of everything shown when they say more than the clip's own; it shows even when the clip has no chords, for writing a bassline against the pads. Its labels are made when the chords change, not every frame.
+- **Display** (Names and steps, Names, Steps) is the lane's right-click menu; Steps needs a key.
+- **Fold to key** keeps the row of any note outside the key, so no note is ever hidden; folded, every row is a key of its own labelled "A3 · 1", with a line under each row as the rows no longer alternate. Fold to notes, as named. Folded, a drag moves by the rows shown; Key snapping is then the rows'.
+- **Ctrl+click** still adds a note to the selection or takes it out; **Ctrl+drag** copies (the note pressed joins the selection first).
+- **Time handles** snap to the grid; **Alt** stretches the lengths too; a drag past the other end reverses. The tag reads "× 1.5".
+- **The Chord popover** sits beside the place it writes and the chord before it, so both stay in view (left of them when there's no room right). It's as wide as its fixed content (its titles and the three choices), and the chords wrap within it, so it keeps its width as the kind changes. A chord written stays lit; each write is one undo step. Changing the kind with a chord there writes the key's chord of that kind on the same root; changing the voicing or inversion re-voices it. Without a song key it offers "As in C major" and nothing borrowed. The Draw menu's "Chord kind, voicing…" opens it with the choices alone.
+- **Quantise…:** Strength and Swing (0–100 %; full swing puts every other line a third of a step later, a triplet feel) and Moves (Starts, Ends, Both). Its settings are kept with the project's view state and used by Quantise (Ctrl+U).
+- **Others** draws the other tracks' MIDI clips (muted clips and notes left out), lap by lap, in their clip colours at `ghostAlpha` (28 %). Choosing the tracks one by one (§8) comes with P4b.
+- **The header** gives way at narrow widths: its hint first, then Others, Fold and Draw (`PanelHeader::setDropOrder`), the context cut short; nothing touches down to 600 px.
+- **The NOTES inspector** sits under CLIP while the clip view shows that clip with notes selected; its title names the selection and its chord ("Notes · 4 selected · G7"). Release velocity and Chance join it with P4b, and the bottom lane's chooser (Velocity ⌄) with the controller lanes.
+- **The options** (Key, Fold, Others, Draw, the chord lane's Display, the Chord popover's choices, Quantise…'s settings) are view state, kept with the project.
+
+**Menus and keys:** the Notes menu takes **N** (Alt+N); **Song moves to G** (Alt+G). The View menu names Key "Snap to key", as Snap is "Snap to grid". The Notes tools have no default keys beyond §13's (assignable in Settings > Keys).
+
+**Assistants:** `edit_notes` applies its edits in a fixed order (velocity, transpose, shift, steps, fit to key, quantise, stretch, legato, fixed length, join, split, reverse, mirror, invert, voicing, mute, add bass); names are written with # and b, as the key tools write them.
+
+**Performance:** 2 000 notes with the chord lane and other tracks' notes draw in 44 ms in a Debug build (measuring the lane's text every frame made it 386 ms); the test checks a frame (16 ms) in a Release build.
