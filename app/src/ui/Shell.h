@@ -4,13 +4,14 @@
 #include "ui/AboutPopover.h"
 #include "ui/ActionRegistry.h"
 #include "ui/ArrangementView.h"
-#include "ui/MixerView.h"
 #include "ui/AssistantsPopover.h"
 #include "ui/BrowserDrops.h"
 #include "ui/BrowserPanel.h"
 #include "ui/CommandPalette.h"
 #include "ui/ExportPopover.h"
+#include "ui/KeyPopover.h"
 #include "ui/LanePicker.h"
+#include "ui/MixerView.h"
 #include "ui/Panels.h"
 #include "ui/SettingsView.h"
 #include "ui/ShellMenus.h"
@@ -104,6 +105,10 @@ public:
     [[nodiscard]] InspectorPanel& inspector() noexcept { return inspector_; }
     [[nodiscard]] MixerView& mixer() noexcept { return mixer_; }
     [[nodiscard]] LanePicker& lanePicker() noexcept { return lanePicker_; }
+    /// The Key popover (key-and-scale.md §6): under the top bar's key field, with the keys found
+    /// in the selected MIDI clips (or every one).
+    [[nodiscard]] KeyPopover& keyPopover() noexcept { return keyPopover_; }
+    void openKeyPopover();
     /// Ends typing in a field on a press elsewhere (tests drive its rule).
     [[nodiscard]] ui::EndEditingOnClickAway& clickAway() noexcept { return clickAway_; }
 
@@ -252,6 +257,7 @@ private:
     CommandPalette palette_{actions_};
     ExportPopover exportPanel_{session_};
     LanePicker lanePicker_{session_};
+    KeyPopover keyPopover_{session_};
     ui::EndEditingOnClickAway clickAway_{*this}; // a press elsewhere keeps what was typed
     /// The picker, assigning a parameter to `lane` (for its first assignment's channel, else the
     /// track it follows).

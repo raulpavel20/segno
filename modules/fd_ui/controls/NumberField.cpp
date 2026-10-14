@@ -1,10 +1,5 @@
 namespace fd::ui
 {
-namespace
-{
-constexpr int kTextInset = 4; // its digits from its edges (mono values sit tighter than a combo's text)
-} // namespace
-
 NumberField::NumberField()
 {
     setWantsKeyboardFocus(true);
@@ -51,8 +46,9 @@ void NumberField::setJustification(juce::Justification justification)
 
 int NumberField::widthFor(const juce::String& sample) const
 {
-    return static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(fonts::mono(fontSize_, fonts::Weight::Medium), sample))) +
-           2 * kTextInset;
+    return static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(
+               fonts::mono(fontSize_, fonts::Weight::Medium), sample))) +
+           2 * textInset;
 }
 
 juce::String NumberField::text() const
@@ -73,7 +69,7 @@ void NumberField::paint(juce::Graphics& g)
         return;
     g.setColour(t.textPrimary);
     g.setFont(fonts::mono(fontSize_, fonts::Weight::Medium));
-    g.drawText(text(), getLocalBounds().reduced(kTextInset, 0), justification_, false);
+    g.drawText(text(), getLocalBounds().reduced(textInset, 0), justification_, false);
 }
 
 void NumberField::resized()

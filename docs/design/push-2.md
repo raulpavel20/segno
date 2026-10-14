@@ -125,7 +125,7 @@ The pads play the selected track's instrument, through the "Push 2" input, as a 
   - **In key** (the default): only the key's notes, rows a fourth apart, so a chord's shape plays the same anywhere;
   - **Chromatic:** every note, rows a fourth apart, notes outside the key dark;
   - **Drums:** four blocks of 4 × 4 from C1 (MIDI 36), the General MIDI drum notes, the bottom-left block first.
-- **The key and scale are the project's** (M3 P3), one source for the pads, the piano roll and the MIDI effects. **Scale** shows them on the display: the upper buttons choose the root, in the circle of fifths as Live and Ardour order them (Page for the other four), an encoder the scale. Changing them changes the project's key, one undo step, as in the top bar. Before P3 is built, C major.
+- **The key and scale are the project's** (M3 P3), one source for the pads, the piano roll and the MIDI effects. **Scale** shows them on the display: the upper buttons choose the root, in the circle of fifths as Live and Ardour order them (Page for the other four), an encoder the scale. Changing them changes the project's key, one undo step, as in the top bar. With no key set (a new project), the pads play C major and the display says so ([key-and-scale.md](key-and-scale.md) §8).
 - **Colours:** the root in the track's colour, the key's other notes dim white, a sounding note bright on every pad that plays it.
 - **Octave up and down** move the range; the display shows it ("C2 – D#5") for a moment.
 - **Accent:** while it's lit, every note plays at full velocity.

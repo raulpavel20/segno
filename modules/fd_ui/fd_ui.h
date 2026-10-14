@@ -31,6 +31,8 @@ END_JUCE_MODULE_DECLARATION
 #include "controls/Meter.h"
 #include "controls/Icons.h"
 #include "controls/NumberField.h"
+#include "controls/ChoiceField.h"
+#include "controls/OctaveKeys.h"
 #include "controls/Labels.h"
 #include "shell/ShellParts.h"
 #include "shell/Brand.h"

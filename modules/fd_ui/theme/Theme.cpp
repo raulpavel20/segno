@@ -17,6 +17,7 @@ void deriveRoles(Theme& t)
     r.strip = t.surface0.interpolatedWith(t.surface1, 0.5f);
     r.keyRowLight = t.surface1.interpolatedWith(t.surface2, 0.7f);
     r.keyRowDark = t.surface0.interpolatedWith(t.surface1, 0.3f);
+    r.keyRowRoot = t.surface2.interpolatedWith(t.surface3, 0.45f);
     r.shade = t.surface0.withAlpha(0.55f);
     r.gridBar = t.surface3;
     r.gridBeat = t.surface3.withAlpha(0.55f);

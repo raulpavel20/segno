@@ -67,6 +67,16 @@ struct Page
         FAIL("no item " << text << " in " << id);
     }
     void settle() { juce::MessageManager::getInstance()->runDispatchLoopUntil(20); }
+    /// Types `text` into the search and waits until the page shows something else (two seconds at
+    /// most): the field tells its listeners after the change, behind whatever else is queued. In a
+    /// full run other tests write into the shared test folders, and 20 ms wasn't always enough.
+    void search(const juce::String& text)
+    {
+        const auto before = view().shownSettings();
+        view().searchField().setText(text, true);
+        for (int i = 0; i < 100 && view().shownSettings() == before; ++i)
+            settle();
+    }
     bool inView(const std::string& id)
     {
         const auto row = view().rowBounds(id);
@@ -203,15 +213,12 @@ TEST_CASE("settings: search narrows the page; Changed only; a section's Reset sh
     auto& session = *p.r.session;
 
     // Search: name, description, section, extra words; shortcuts by their keys.
-    view.searchField().setText("offset", true);
-    p.settle(); // a field tells its listeners after the change
+    p.search("offset");
     CHECK(view.shownSettings() == std::vector<std::string>{"recording.audioOffset", "recording.midiOffset"});
-    view.searchField().setText("ctrl+z", true);
-    p.settle();
+    p.search("ctrl+z");
     const auto keys = view.shownSettings();
     CHECK(std::find(keys.begin(), keys.end(), "key:edit.undo") != keys.end());
-    view.searchField().setText("nothing like this", true);
-    p.settle();
+    p.search("nothing like this");
     CHECK(view.shownSettings().empty());
     view.searchField().setText({}, true);
     p.settle();

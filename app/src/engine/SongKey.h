@@ -1,11 +1,10 @@
 #pragma once
 
+#include <cstdint>
 #include <fd/device/Device.h>
 #include <fd/music/Key.h>
-#include <tracktion_engine/tracktion_engine.h>
-
-#include <cstdint>
 #include <optional>
+#include <tracktion_engine/tracktion_engine.h>
 
 namespace fd::engine
 {

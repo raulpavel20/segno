@@ -14,7 +14,8 @@ Roles are derived from the base palette in `Theme.cpp` (`deriveRoles`), the only
 | `laneSelected` | surface1 → surface2, 40 % | The selected track's lane |
 | `subLane` | surface0 → surface1, 35 % | Lanes under a main lane: velocity, automation (C4) |
 | `strip` | surface0 → surface1, 50 % | The loop strip above a ruler |
-| `keyRowLight` / `keyRowDark` | surface1 → surface2 70 % / surface0 → surface1 30 % | Piano roll rows for white and black keys |
+| `keyRowLight` / `keyRowDark` | surface1 → surface2 70 % / surface0 → surface1 30 % | Piano roll rows for white and black keys; with a song key, for the key's notes and the others ([key-and-scale.md](key-and-scale.md) §7) |
+| `keyRowRoot` | surface2 → surface3 45 % | The song key's root rows in the piano roll, a tone above the key's rows (ADR 0056) |
 | `shade` | surface0 at 55 % | Outside a range: before and after a clip in the piano roll |
 | `gridBar` / `gridBeat` / `gridSub` | surface3 at 100 / 55 / 28 % | Grid lines in every time view |
 | `gridOctave` / `gridMinor` | line / surface3 at 35 % | Piano roll: under every C, between E and F |
@@ -132,6 +133,7 @@ Role functions for colours that depend on content:
 | `shell.formPopoverWidth` | 420 (a popover of property rows: the export panel, C8) |
 | `shell.toastHeight` / `shell.toastWidth` | 36 / 420 |
 | `shell.keyboardWidth` / `shell.velocityHeight` | 52 / 56 (piano roll) |
+| `shell.octaveKeyWidth` / `shell.octaveKeyHeight` / `shell.octaveBlackKeyWidth` / `shell.octaveBlackKeyHeight` | 28 / 52 / 16 / 32 (`ui::OctaveKeys`: the Key popover's root, ADR 0056) |
 | `shell.railWidth` / `shell.splitter` | 44 / 5 |
 | `shell.barPadding` / `shell.barInset` | 8 / 6 (a bar's sides; top and bottom) |
 | `shell.itemGap` / `shell.groupGap` | 4 / 12 (between items of a group; between groups) |
@@ -154,7 +156,7 @@ Role functions for colours that depend on content:
 | `shell.fadeHandleSize` | 7 (a fade's or crossfade's handle on a clip, C6; a fade narrower than this draws only its handle) |
 | `shell.loopNotch` | 4 (a looped clip's notch at each seam: its depth and half its width, cut into the title strip in `surface0`; laps closer than two notches' width show none; M3 C10, [clip-loops.md](clip-loops.md) §5) |
 
-Components size themselves for their text: `ui::Toggle::widthFor(label)` and `ui::NumberField::widthFor(widest value)`; bars ask them rather than adding padding by hand. Every clip the arrangement draws (clips, recordings in progress, take strips) takes its box and title from one place (`ArrangementView::clipBox`, `titleOf`), with its edges on whole pixels.
+Components size themselves for their text: `ui::Toggle::widthFor(label)`, `ui::NumberField::widthFor(widest value)` and `ui::ChoiceField::widthFor(value)`; bars ask them rather than adding padding by hand. A top bar item may also give a narrower width (`BarItem::narrowWidth`: the key's short name), which `model::layoutTopBar` takes before anything drops. Every clip the arrangement draws (clips, recordings in progress, take strips) takes its box and title from one place (`ArrangementView::clipBox`, `titleOf`), with its edges on whole pixels.
 
 ## Shared components (`modules/fd_ui/shell`)
 
@@ -164,6 +166,8 @@ Components size themselves for their text: `ui::Toggle::widthFor(label)` and `ui
 | `PanelHeader` | A 24 px header: a section-style title or tabs (a `TabRow`) on the left, then context; on the right, its view options (`ViewOption`, `ViewChoice`; hidden ones take no room), commands left of them a group apart (`addCommand`: a Toggle as a button, sized by its owner, centred), and a caption | Detail panel (Modules / Clip tabs; a plain Modules title in the mixer view), inspector, browser, the mixer view (Modules, Sends, Narrow) |
 | `AutomationState` / `paintAutomationIndicator` | Whether a control's parameter is automated: a 4 px disc in `automation`, filled while its lane plays and a ring while it's off (left of a knob's name; a bar's, fader's, toggle's or choice's top-left corner). `Knob` and `Toggle` take the state and an `onPopupMenu` (right-click) | Every control of a parameter (C4) |
 | `ViewChoice` | A view setting with a value ([ADR 0047](../decisions/0047-the-editing-grid-in-each-editor.md)): the value in `textSecondary` (`textPrimary` hovered), in the `ViewOption`'s label style and padding, then a small chevron, no fill; hover: the `hoverWash`. As wide as its value: its owner lays it out again when the value changes, so it sits as close to Snap as one view option to the next. A click opens its menu (the owner fills it) under it | The grid's step beside Snap, in the arrangement's corner and the clip view's header |
+| `ChoiceField` | A song setting chosen rather than dragged ([key-and-scale.md](key-and-scale.md) §6, ADR 0056): the `NumberField`'s look (its value in the mono at the field's size, `NumberField::textInset` from its edges, the `surface3` fill on hover, focus or while its chooser shows) and a placeholder in `textTertiary` ("No key"). A click, Return or Space opens its owner's chooser; a right-click its menu. No wheel or drag | The song's key in the top bar |
+| `OctaveKeys` | One octave of keys, C to B, at the `shell.octaveKey…` sizes: white keys `keyWhite` with `keySeam` between them, black keys `keyBlack` over the seams; the root filled in `active`, the other notes of a set a `shell.lightSize` dot near the key's end (`keyBlack` on white keys, `keyWhite` on black), a hovered key under the `hoverWash`. A click gives its pitch class | The Key popover's root (ADR 0056) |
 | `ViewOption` | A view option: a 6 px indicator and a `Control` label, no button fill. Off: a 1 px ring and `textTertiary`; on: a filled `active` disc and `textPrimary` (the shape tells on from off, not only the colour); hover: the `hoverWash` behind it. Its own padding is half the shell's: aligned on a text edge, it starts that much before it | The mixer view's Modules, Sends and Narrow; the arrangement's Snap, in the corner above the headers (C11 review); the piano roll's Snap, in the clip view's header (ADR 0047); later the browser's view options |
 | `PropertyList` | Label and value rows on the row grid; values in `Body`, or `Value` for numbers. A row's `key` names it for the control placed in it, so rows can come and go | Inspector; export options (C8); preferences |
 | `ListRow` | One row of a list: optional dot, name, caption, shortcut on the right; hover and selected states; room kept at the right (`trailing`) for a control the caller draws there, whose area it returns | Command palette; the preset list |

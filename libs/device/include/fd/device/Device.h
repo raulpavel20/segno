@@ -33,7 +33,10 @@ struct KeyInfo
 
     [[nodiscard]] bool known() const noexcept { return root >= 0; }
     /// Whether a MIDI pitch is one of the key's notes (never, without a key).
-    [[nodiscard]] bool contains(int pitch) const noexcept { return ((notes >> (((pitch % 12) + 12) % 12)) & 1u) != 0; }
+    [[nodiscard]] bool contains(int pitch) const noexcept
+    {
+        return ((notes >> (((pitch % 12) + 12) % 12)) & 1u) != 0;
+    }
 
     friend bool operator==(const KeyInfo&, const KeyInfo&) = default;
 };

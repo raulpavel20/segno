@@ -7,7 +7,7 @@ A key for the project: a root note and a scale, shown in the top bar beside the 
 - the song row ([ADR 0049](../decisions/0049-the-master-row-is-the-song-row.md)), where changes of key will live when they come;
 - the menu bar as the complete list ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)) and assistants' tools ([ADR 0021](../decisions/0021-mcp-server.md)).
 
-**Status:** for review (2026-10-14): the questions are in §17, the proposed decision is [ADR 0056](../decisions/0056-the-song-has-one-key.md).
+**Status:** approved by the product owner (2026-10-14), with every recommendation of §17; the decision is [ADR 0056](../decisions/0056-the-song-has-one-key.md). Built 2026-10-14: what building settled is in §20.
 
 ## 1. Why
 
@@ -234,8 +234,7 @@ Each tool is one named undo step, with a test that drives it through MCP (ADR 00
 - **`libs/device`:** `TransportInfo::key` (§9).
 - **The song's key is stored in the engine's pitch sequence** (`te::PitchSequence`). It's tracktion's own record of the song's key, already saved with the project and already moved by the engine's insert-space and delete-region edits.
   - Its first setting holds the root.
-  - Our scale ID goes in a property of ours on the same setting, since tracktion's own list has only 11 scales.
-  - Whether there's a key at all is a property of ours on the sequence.
+  - Our scale ID goes in a property of ours on the same setting, since tracktion's own list has only 11 scales. Without it, the song has no key (§20).
   - tracktion's own scale and sharps fields are set to the nearest match and to the key's spelling (§4), so its features agree.
   - **A bonus:** tracktion already hands this pitch sequence to ARA plugins (Melodyne) as key signatures. If Segno hosts ARA one day, they get the song's key with nothing more to do.
 - **`engine::Session::setKey`** takes a key, or none, as one undo step. The snapshot carries the song's keys as a `model::KeyMap` (one entry today) with `keyAt(beat)`.
@@ -300,3 +299,16 @@ Each tool is one named undo step, with a test that drives it through MCP (ADR 00
 - **With tempo and time-signature changes:** changes of key on the song row (§10).
 - **M7:** the key in exported files' tags.
 - **Later, if asked:** your own scales; finding the key from audio.
+
+## 20. Settled while building (2026-10-14)
+
+- **Where it's stored:** our scale ID is the property `segnoScale` on the pitch sequence's first setting; without it there's no key, so projects from before open with none. A scale ID this build doesn't know reads as no key, and the project keeps it.
+- **Modules** each keep a copy of the key, published from the pitch sequence whenever it changes (undo and redo too) and read on the audio thread without a lock. Offline renders (bounce, export) build their modules on the project's copy, so they hear the key too.
+- **The spelling** (`libs/music`): a scale's key signature is written as a mode of the major scale (`signatureMode`); scales with a minor third and no major third take the minor's. At a tie on the circle of fifths a root without an accidental wins, then flats for minor-like scales and sharps for the rest: F♯ major, E♭ minor, F Locrian.
+- **♯ and ♭ on screen:** Inter has neither, so the UI font falls back to the bundled JetBrains Mono for them (never a system font). The top bar's key and the piano roll's names are in the mono already.
+- **The top bar** lays the key out as a group of its own after the time signature. `model::layoutTopBar` gained a narrower width per item (`BarItem::narrowWidth`), taken before anything drops: the key's short name.
+- **New shared components** (ui-foundations.md): `ui::ChoiceField`, the key field, which looks like the `NumberField` beside it; `ui::OctaveKeys`, the popover's keys, at new `shell.octaveKey…` metrics. A new colour role, `keyRowRoot`, for the root's rows.
+- **The popover** opens under the top bar (as the Assistants popover does), at the field's left. The spelled line shows the key's name and its notes; while a scale is hovered, the previewed key in `textSecondary`. **No key** hides while there's no key: there's nothing to remove, and the shared toggle has no dimmed look. Each key found from the notes is a text button whose tooltip says how well it fits.
+- **Undo:** `Session::KeyChoice` keeps the popover's step open against tracktion's own timer, renames it after each change, and takes it back whole when the key ends where it began.
+- **Assistants** get accidentals as `#` and `b` (`"F# minor"`), and give them any way (`"F#"`, `"Gb"`, `"G♭"`, `"e flat"`, or 0–11).
+

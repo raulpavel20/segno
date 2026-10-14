@@ -9,12 +9,16 @@ namespace fd::music
 {
 namespace
 {
-constexpr std::array<int, 7> naturals{0, 2, 4, 5, 7, 9, 11};      // C D E F G A B
+constexpr std::array<int, 7> naturals{0, 2, 4, 5, 7, 9, 11}; // C D E F G A B
 constexpr std::array<char, 7> letters{'C', 'D', 'E', 'F', 'G', 'A', 'B'};
-constexpr std::array<int, 7> letterFifths{0, 2, 4, -1, 1, 3, 5}; // each letter's place on the circle of fifths
+constexpr std::array<int, 7> letterFifths{0, 2, 4, -1,
+                                          1, 3, 5}; // each letter's place on the circle of fifths
 constexpr std::array<int, 7> majorSteps{0, 2, 4, 5, 7, 9, 11};
 
-int mod12(int x) noexcept { return ((x % 12) + 12) % 12; }
+int mod12(int x) noexcept
+{
+    return ((x % 12) + 12) % 12;
+}
 
 /// A note written as a letter and an accidental (−2 … 2: double flat … double sharp).
 struct Spelled
@@ -64,7 +68,10 @@ int modeDegree(int signatureMode) noexcept
     return 0;
 }
 
-bool minorLike(const Scale& scale) noexcept { return (scale.intervals & (1u << 3)) != 0 && (scale.intervals & (1u << 4)) == 0; }
+bool minorLike(const Scale& scale) noexcept
+{
+    return (scale.intervals & (1u << 3)) != 0 && (scale.intervals & (1u << 4)) == 0;
+}
 
 /// The key signature a key is written with (§4): its major key's place on the circle of fifths
 /// (negative: flats), that major's root, and the key's root as written.
@@ -169,7 +176,10 @@ std::string lowerFirst(std::string_view s)
 }
 } // namespace
 
-const Scale* scaleOf(const Key& key) noexcept { return findScale(key.scale); }
+const Scale* scaleOf(const Key& key) noexcept
+{
+    return findScale(key.scale);
+}
 
 PitchSet notes(const Key& key) noexcept
 {
@@ -177,13 +187,20 @@ PitchSet notes(const Key& key) noexcept
     if (scale == nullptr)
         return 0;
     const int root = mod12(key.root);
-    const unsigned rotated = (static_cast<unsigned>(scale->intervals) << root) | (static_cast<unsigned>(scale->intervals) >> (12 - root));
+    const unsigned rotated = (static_cast<unsigned>(scale->intervals) << root) |
+                             (static_cast<unsigned>(scale->intervals) >> (12 - root));
     return static_cast<PitchSet>(rotated & 0xfff);
 }
 
-bool contains(const Key& key, int pitch) noexcept { return (notes(key) & (1u << mod12(pitch))) != 0; }
+bool contains(const Key& key, int pitch) noexcept
+{
+    return (notes(key) & (1u << mod12(pitch))) != 0;
+}
 
-std::string pitchClassName(const Key* key, int pitchClass, Accidentals style) { return text(spell(key, pitchClass), style); }
+std::string pitchClassName(const Key* key, int pitchClass, Accidentals style)
+{
+    return text(spell(key, pitchClass), style);
+}
 
 std::string noteName(const Key* key, int pitch, Accidentals style)
 {
@@ -193,14 +210,18 @@ std::string noteName(const Key* key, int pitch, Accidentals style)
     return text(s, style) + std::to_string(octave);
 }
 
-std::string rootName(const Key& key, Accidentals style) { return pitchClassName(&key, key.root, style); }
+std::string rootName(const Key& key, Accidentals style)
+{
+    return pitchClassName(&key, key.root, style);
+}
 
 std::string keyName(const Key& key, Accidentals style)
 {
     const auto* scale = scaleOf(key);
     if (scale == nullptr)
         return pitchClassName(nullptr, key.root, style);
-    return rootName(key, style) + " " + (scale->properName ? std::string(scale->name) : lowerFirst(scale->name));
+    return rootName(key, style) + " " +
+           (scale->properName ? std::string(scale->name) : lowerFirst(scale->name));
 }
 
 std::string keyShortName(const Key& key, Accidentals style)
@@ -232,7 +253,8 @@ bool usesFlats(const Key& key) noexcept
 
 std::optional<int> parsePitchClass(std::string_view name) noexcept
 {
-    auto trim = [](std::string_view s) {
+    auto trim = [](std::string_view s)
+    {
         while (!s.empty() && std::isspace(static_cast<unsigned char>(s.front())))
             s.remove_prefix(1);
         while (!s.empty() && std::isspace(static_cast<unsigned char>(s.back())))

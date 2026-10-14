@@ -41,7 +41,11 @@ juce::Typeface::Ptr monoTypeface(Weight weight)
 
 juce::Font font(float sizePx, Weight weight)
 {
-    return juce::Font(juce::FontOptions(typeface(weight)).withPointHeight(sizePx));
+    // Inter has no music signs: ♯ and ♭ (a key's notes, key-and-scale.md §4) come from the bundled
+    // mono, never from whatever the system has.
+    static const auto mono = monoTypeface(Weight::Regular); // registered, so found by its name
+    auto options = juce::FontOptions(typeface(weight)).withPointHeight(sizePx);
+    return juce::Font(mono != nullptr ? options.withFallbacks({mono->getName()}) : options);
 }
 
 juce::Font mono(float sizePx, Weight weight)

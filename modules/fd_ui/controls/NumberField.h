@@ -8,6 +8,9 @@ namespace fd::ui
 class NumberField : public juce::Component, public juce::SettableTooltipClient
 {
 public:
+    /// Its text from its edges (mono values sit tighter than a combo's text); a ChoiceField's too.
+    static constexpr int textInset = 4;
+
     NumberField();
 
     void setRange(double min, double max, double step) noexcept;

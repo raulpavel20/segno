@@ -1,4 +1,5 @@
 #include "DevicePlugin.h"
+
 #include "SongKey.h"
 
 #include <fd/device/Realtime.h>
@@ -78,7 +79,10 @@ struct DevicePlugin::KeyWatch final : juce::ValueTree::Listener
     }
     ~KeyWatch() override { state.removeListener(this); }
 
-    void update() { plugin.songKey_.store(packKey(keyInfoOf(songKeyOf(plugin.edit))), std::memory_order_relaxed); }
+    void update()
+    {
+        plugin.songKey_.store(packKey(keyInfoOf(songKeyOf(plugin.edit))), std::memory_order_relaxed);
+    }
     void valueTreePropertyChanged(juce::ValueTree&, const juce::Identifier&) override { update(); }
     void valueTreeChildAdded(juce::ValueTree&, juce::ValueTree&) override { update(); }
     void valueTreeChildRemoved(juce::ValueTree&, juce::ValueTree&, int) override { update(); }
@@ -350,7 +354,10 @@ void DevicePlugin::applyExtraFromState(const juce::String& json)
     device_->readExtraState(parsed.is_object() ? parsed : nlohmann::json::object());
 }
 
-KeyInfo DevicePlugin::songKey() const noexcept { return unpackKey(songKey_.load(std::memory_order_relaxed)); }
+KeyInfo DevicePlugin::songKey() const noexcept
+{
+    return unpackKey(songKey_.load(std::memory_order_relaxed));
+}
 
 void registerDevices(te::Engine& engine)
 {

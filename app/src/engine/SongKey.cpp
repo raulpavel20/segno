@@ -49,12 +49,16 @@ te::Scale::ScaleType nearestScale(const music::Key& key)
     if (id == "harmonic-minor")
         return te::Scale::harmonicMinor;
     const auto* scale = music::scaleOf(key);
-    const bool minor = scale != nullptr && (scale->intervals & (1u << 3)) != 0 && (scale->intervals & (1u << 4)) == 0;
+    const bool minor =
+        scale != nullptr && (scale->intervals & (1u << 3)) != 0 && (scale->intervals & (1u << 4)) == 0;
     return minor ? te::Scale::minor : te::Scale::major;
 }
 } // namespace
 
-juce::ValueTree songKeyState(const te::Edit& edit) { return edit.state.getChildWithName(te::IDs::PITCHSEQUENCE); }
+juce::ValueTree songKeyState(const te::Edit& edit)
+{
+    return edit.state.getChildWithName(te::IDs::PITCHSEQUENCE);
+}
 
 std::optional<music::Key> songKeyOf(const te::Edit& edit)
 {

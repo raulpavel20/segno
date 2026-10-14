@@ -1,7 +1,6 @@
 #pragma once
 
 #include <fd/music/Key.h>
-
 #include <optional>
 
 namespace fd::model

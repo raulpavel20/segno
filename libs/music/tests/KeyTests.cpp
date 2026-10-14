@@ -1,7 +1,6 @@
 #include "fd/music/Key.h"
 
 #include <catch2/catch_test_macros.hpp>
-
 #include <set>
 #include <string>
 #include <vector>
@@ -10,19 +9,28 @@ using namespace fd::music;
 
 namespace
 {
-Key key(int root, const char* scale) { return Key{root, scale}; }
+Key key(int root, const char* scale)
+{
+    return Key{root, scale};
+}
 
 /// A spelled note's letter.
-char letterOf(const std::string& name) { return name.front(); }
+char letterOf(const std::string& name)
+{
+    return name.front();
+}
 
 /// How many accidentals a spelled name carries (♯ and ♭ are 3 bytes each in UTF-8).
-int accidentalsIn(const std::string& name) { return static_cast<int>((name.size() - 1) / 3); }
+int accidentalsIn(const std::string& name)
+{
+    return static_cast<int>((name.size() - 1) / 3);
+}
 } // namespace
 
 TEST_CASE("A key's notes are its scale counted up from its root", "[fast]")
 {
     CHECK(notes(key(0, "major")) == notes(key(9, "minor"))); // relative keys share their notes
-    CHECK(key(0, "major") != key(9, "minor"));                // but aren't the same key
+    CHECK(key(0, "major") != key(9, "minor"));               // but aren't the same key
     CHECK(contains(key(9, "minor"), 69));
     CHECK(contains(key(9, "minor"), 72 + 7));
     CHECK_FALSE(contains(key(9, "minor"), 68));
@@ -65,8 +73,8 @@ TEST_CASE("Roots on black keys take the name with fewer sharps or flats", "[fast
     CHECK(keyName(key(8, "minor")) == "G♯ minor");
     CHECK(keyName(key(10, "major")) == "B♭ major");
     CHECK(keyName(key(10, "minor")) == "B♭ minor");
-    CHECK(keyName(key(1, "dorian")) == "C♯ Dorian"); // from B major's five sharps
-    CHECK(keyName(key(5, "locrian")) == "F Locrian");     // a natural root at a tie
+    CHECK(keyName(key(1, "dorian")) == "C♯ Dorian");  // from B major's five sharps
+    CHECK(keyName(key(5, "locrian")) == "F Locrian"); // a natural root at a tie
 }
 
 TEST_CASE("Notes are spelled by the key", "[fast]")
@@ -77,8 +85,7 @@ TEST_CASE("Notes are spelled by the key", "[fast]")
     const auto eMajor = key(4, "major");
     CHECK(pitchClassName(&eMajor, 3) == "D♯");
     const auto fSharp = key(6, "major");
-    CHECK(spelledNotes(fSharp)
-          == std::vector<std::string>{"F♯", "G♯", "A♯", "B", "C♯", "D♯", "E♯"});
+    CHECK(spelledNotes(fSharp) == std::vector<std::string>{"F♯", "G♯", "A♯", "B", "C♯", "D♯", "E♯"});
     const auto eFlatMinor = key(3, "minor");
     CHECK(spelledNotes(eFlatMinor).at(5) == "C♭");
     CHECK(spelledNotes(key(9, "minor")) == std::vector<std::string>{"A", "B", "C", "D", "E", "F", "G"});

@@ -8,11 +8,9 @@
 #include "engine/SessionImpl.h"
 #include "engine/SongKey.h"
 
-#include <tracktion_engine/tracktion_engine.h>
-
-#include <catch2/catch_test_macros.hpp>
-
 #include <atomic>
+#include <catch2/catch_test_macros.hpp>
+#include <tracktion_engine/tracktion_engine.h>
 
 using fd::music::Key;
 
@@ -39,7 +37,8 @@ public:
 };
 
 const fd::DeviceFactory probeFactory{[]() -> const fd::DeviceInfo& { return probeInfo; },
-                                     []() -> std::unique_ptr<fd::Device> { return std::make_unique<KeyProbe>(); }};
+                                     []() -> std::unique_ptr<fd::Device>
+                                     { return std::make_unique<KeyProbe>(); }};
 
 std::optional<Key> keyOf(fd::engine::Session& session)
 {
@@ -149,21 +148,35 @@ TEST_CASE("a Key popover's choice is one undo step, or none when it ends where i
     session.undo();
     CHECK_FALSE(keyOf(session).has_value());
     CHECK_FALSE(session.canUndo());
+
+    // Back to where the choice began, but after another command: the last step still counts,
+    // since it didn't begin there.
+    {
+        fd::engine::Session::KeyChoice choice(session);
+        session.setKey(Key{7, "major"});
+        session.setTempo(110.0);
+        session.setKey(std::nullopt);
+    }
+    CHECK_FALSE(keyOf(session).has_value());
+    CHECK(session.undoDescription() == "Remove the key");
+    session.undo();
+    CHECK(keyOf(session) == Key{7, "major"});
 }
 
 TEST_CASE("the song's key is saved with the project; older projects open with none", "[integration]")
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
     tracktion::Engine engine{"fd-integration-tests", nullptr, fd::engine::makeEngineBehaviour()};
-    juce::TemporaryFile withKey(fd::engine::Session::fileExtension), without(fd::engine::Session::fileExtension),
-        newer(fd::engine::Session::fileExtension);
+    juce::TemporaryFile withKey(fd::engine::Session::fileExtension),
+        without(fd::engine::Session::fileExtension), newer(fd::engine::Session::fileExtension);
     {
         fd::engine::Session session(engine);
         REQUIRE(session.saveAs(without.getFile())); // as a project from before this step: no key
         REQUIRE(session.setKey(Key{6, "phrygian-dominant"}));
         REQUIRE(session.saveAs(withKey.getFile()));
         // A scale from a newer build.
-        session.impl().edit->pitchSequence.getPitch(0)->state.setProperty("segnoScale", "some-future-scale", nullptr);
+        session.impl().edit->pitchSequence.getPitch(0)->state.setProperty("segnoScale", "some-future-scale",
+                                                                          nullptr);
         REQUIRE(session.saveAs(newer.getFile()));
     }
     {
@@ -181,7 +194,8 @@ TEST_CASE("the song's key is saved with the project; older projects open with no
         REQUIRE(session.open(newer.getFile()));
         CHECK_FALSE(keyOf(session).has_value());
         // The project keeps what it holds.
-        CHECK(session.impl().edit->pitchSequence.getPitch(0)->state["segnoScale"].toString() == "some-future-scale");
+        CHECK(session.impl().edit->pitchSequence.getPitch(0)->state["segnoScale"].toString() ==
+              "some-future-scale");
     }
 }
 

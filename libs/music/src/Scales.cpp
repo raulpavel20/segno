@@ -18,8 +18,8 @@ constexpr PitchSet set(std::initializer_list<int> intervals)
     return s;
 }
 
-constexpr std::string_view common = "Common", modes = "Modes", colours = "More colours", symmetric = "Symmetric",
-                           japanese = "Japanese and Indonesian";
+constexpr std::string_view common = "Common", modes = "Modes", colours = "More colours",
+                           symmetric = "Symmetric", japanese = "Japanese and Indonesian";
 
 constexpr std::array<std::string_view, 5> groups{common, modes, colours, symmetric, japanese};
 
@@ -46,14 +46,18 @@ constexpr std::array<Scale, 36> catalogue{{
     {"phrygian-dominant", "Phrygian dominant", "phr dom", colours, set({0, 1, 4, 5, 7, 8, 10}), 4, true},
     {"lydian-augmented", "Lydian augmented", "lyd aug", colours, set({0, 2, 4, 6, 8, 9, 11}), 5, true},
     {"lydian-dominant", "Lydian dominant", "lyd dom", colours, set({0, 2, 4, 6, 7, 9, 10}), 7, true},
-    {"super-locrian", "Super Locrian", "super loc", colours, set({0, 1, 3, 4, 6, 8, 10}), 11, true, "Altered"},
+    {"super-locrian", "Super Locrian", "super loc", colours, set({0, 1, 3, 4, 6, 8, 10}), 11, true,
+     "Altered"},
     {"hungarian-minor", "Hungarian minor", "hung min", colours, set({0, 2, 3, 6, 7, 8, 11}), 9, true},
-    {"double-harmonic", "Double harmonic", "dbl harm", colours, set({0, 1, 4, 5, 7, 8, 11}), 0, false, "Bhairav"},
+    {"double-harmonic", "Double harmonic", "dbl harm", colours, set({0, 1, 4, 5, 7, 8, 11}), 0, false,
+     "Bhairav"},
     {"spanish-8-tone", "Spanish 8-tone", "span 8", colours, set({0, 1, 3, 4, 5, 6, 8, 10}), 4, true},
 
     {"whole-tone", "Whole tone", "whole", symmetric, set({0, 2, 4, 6, 8, 10}), 0},
-    {"diminished-half-whole", "Diminished half-whole", "dim h-w", symmetric, set({0, 1, 3, 4, 6, 7, 9, 10}), 0},
-    {"diminished-whole-half", "Diminished whole-half", "dim w-h", symmetric, set({0, 2, 3, 5, 6, 8, 9, 11}), 9},
+    {"diminished-half-whole", "Diminished half-whole", "dim h-w", symmetric, set({0, 1, 3, 4, 6, 7, 9, 10}),
+     0},
+    {"diminished-whole-half", "Diminished whole-half", "dim w-h", symmetric, set({0, 2, 3, 5, 6, 8, 9, 11}),
+     9},
     {"messiaen-3", "Messiaen 3", "mess 3", symmetric, set({0, 2, 3, 4, 6, 7, 8, 10, 11}), 0, true},
     {"messiaen-4", "Messiaen 4", "mess 4", symmetric, set({0, 1, 2, 5, 6, 7, 8, 11}), 0, true},
     {"messiaen-5", "Messiaen 5", "mess 5", symmetric, set({0, 1, 5, 6, 7, 11}), 0, true},
@@ -70,15 +74,24 @@ constexpr std::array<Scale, 36> catalogue{{
 
 bool equalsIgnoringCase(std::string_view a, std::string_view b) noexcept
 {
-    return a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin(), [](char x, char y) {
-               return std::tolower(static_cast<unsigned char>(x)) == std::tolower(static_cast<unsigned char>(y));
-           });
+    return a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin(),
+                                              [](char x, char y)
+                                              {
+                                                  return std::tolower(static_cast<unsigned char>(x)) ==
+                                                         std::tolower(static_cast<unsigned char>(y));
+                                              });
 }
 } // namespace
 
-std::span<const Scale> scales() noexcept { return catalogue; }
+std::span<const Scale> scales() noexcept
+{
+    return catalogue;
+}
 
-std::span<const std::string_view> scaleGroups() noexcept { return groups; }
+std::span<const std::string_view> scaleGroups() noexcept
+{
+    return groups;
+}
 
 const Scale* findScale(std::string_view idOrName) noexcept
 {
@@ -86,11 +99,15 @@ const Scale* findScale(std::string_view idOrName) noexcept
         if (s.id == idOrName)
             return &s;
     for (const auto& s : catalogue)
-        if (equalsIgnoringCase(s.name, idOrName) || (!s.alsoCalled.empty() && equalsIgnoringCase(s.alsoCalled, idOrName))
-            || equalsIgnoringCase(s.id, idOrName))
+        if (equalsIgnoringCase(s.name, idOrName) ||
+            (!s.alsoCalled.empty() && equalsIgnoringCase(s.alsoCalled, idOrName)) ||
+            equalsIgnoringCase(s.id, idOrName))
             return &s;
     return nullptr;
 }
 
-int noteCount(PitchSet set) noexcept { return std::popcount(static_cast<unsigned>(set & 0xfff)); }
+int noteCount(PitchSet set) noexcept
+{
+    return std::popcount(static_cast<unsigned>(set & 0xfff));
+}
 } // namespace fd::music

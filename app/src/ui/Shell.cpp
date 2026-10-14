@@ -161,6 +161,23 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     };
     transport_->setBrandShown(kMenuPlatform == model::MenuPlatform::Mac);
     transport_->onRecordingSettings = [this] { showSettings("recording.format"); };
+    // The song's key (key-and-scale.md §6): the field opens the Key popover, and closes it again.
+    transport_->onKeyOpen = [this]
+    {
+        if (keyPopover_.isOpen())
+            keyPopover_.close();
+        else
+            openKeyPopover();
+    };
+    transport_->onKeyMenu = [this]
+    {
+        juce::PopupMenu menu;
+        actions_.addMenuItem(menu, "song.key");
+        actions_.addMenuItem(menu, "song.noKey");
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&transport_->keyField()));
+    };
+    keyPopover_.onOpenChanged = [this](bool open) { transport_->keyField().setOpen(open); };
+    keyPopover_.ignoreClicksOn = [this](const juce::Component& c) { return &c == &transport_->keyField(); };
     // The capture button says where it will go (recording.md §9).
     transport_->captureTooltip = [this] {
         const auto selected = selectedTrackInfo();
@@ -379,7 +396,9 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         selectionChanged();
     };
     // New/open: drop every panel, handle and meter before the old project goes away.
-    session_.onProjectWillChange = [this] {
+    session_.onProjectWillChange = [this]
+    {
+        keyPopover_.close(); // its undo step belongs to the project going away
         subject_.reset();
         arrangement_.selectTrack(std::nullopt);
         arrangement_.releaseChannelControls();

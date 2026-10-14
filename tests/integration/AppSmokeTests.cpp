@@ -679,6 +679,8 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         // a double-click loops it; the rest are rare.
         "song.addSection", "song.insertSection", "song.loopSection", "song.selectClips",
         "song.duplicateSection", "song.deleteSection", "song.removeSectionMark",
+        // The song's key (key-and-scale.md §13): the field is on screen; set once per song.
+        "song.key", "song.noKey",
         // The Wavetable's tables (table-editor.md §8): a double-click on the table display edits;
         // Ctrl+Shift+E is the project's Export.
         "module.editWavetable", "module.importWavetable", "module.exportWavetable", "clip.makeWavetable",
@@ -4939,4 +4941,194 @@ TEST_CASE("Module > Load sample… is the selected Sampler's (devices/sampler/SP
     REQUIRE(module != menus.end());
     const auto ids = fd::model::menuActions({*module});
     CHECK(std::find(ids.begin(), ids.end(), "module.loadSample") != ids.end());
+}
+
+TEST_CASE(
+    "the song's key in the shell: the top bar's field, the Key popover, the Song menu, the piano roll (P3)",
+    "[integration]")
+{
+    ShellFixture f;
+    f.shell->setSize(1800, 1000);
+    const char* dump = std::getenv("FD_DUMP_DIR");
+    fd::app::TransportBar* bar = nullptr;
+    for (auto* child : f.shell->getChildren())
+        if (auto* b = dynamic_cast<fd::app::TransportBar*>(child))
+            bar = b;
+    REQUIRE(bar != nullptr);
+    auto& field = bar->keyField();
+    auto& popover = f.shell->keyPopover();
+    const auto& actions = f.shell->actions();
+    auto refresh = [&]
+    {
+        f.session->updateSnapshotNow();
+        bar->frame(0.0, f.session->snapshot()->tempo);
+    };
+    auto barShot = [&](const juce::String& name)
+    {
+        if (dump != nullptr)
+            dumpPng(dump, "key-bar-" + name + "-" + juce::String(f.shell->getWidth()) + "@2x.png",
+                    f.shell->createComponentSnapshot(bar->getBounds(), true, 2.0f));
+    };
+    // Nothing in the top bar overlaps or leaves it, the key field shown.
+    auto barFits = [&]
+    {
+        std::vector<juce::Rectangle<int>> shown;
+        for (auto* c : bar->getChildren())
+            if (c->isVisible())
+                shown.push_back(c->getBounds());
+        for (size_t a = 0; a < shown.size(); ++a)
+        {
+            CHECK(bar->getLocalBounds().contains(shown[a]));
+            for (size_t b = a + 1; b < shown.size(); ++b)
+                CHECK_FALSE(shown[a].intersects(shown[b]));
+        }
+        CHECK(field.isVisible());
+        CHECK(field.getWidth() >= field.widthFor(field.value())); // never cut short
+    };
+
+    // A new project: "No key", dimmed.
+    refresh();
+    CHECK(field.value() == "No key");
+    CHECK(field.isPlaceholder());
+    CHECK_FALSE(actions.isEnabled("song.noKey"));
+    barFits();
+    barShot("none");
+
+    // Song > Key… opens the popover under the field; a click on a key sets the root (its major).
+    REQUIRE(actions.perform("song.key"));
+    REQUIRE(popover.isOpen());
+    // Under the bar (its bounds hold its shadow too), at the field's left.
+    const int margin = juce::roundToInt(fd::ui::Theme::current().shell.shadowRadius);
+    CHECK(popover.getY() + margin >= bar->getBottom());
+    CHECK(popover.keys().root() == -1);
+    CHECK(popover.found().empty()); // no notes yet
+    if (dump != nullptr)
+        dumpPng(dump, "key-popover-none.png", f.shell->createComponentSnapshot(popover.getBounds()));
+    auto& keys = popover.keys();
+    click(keys, keys.keyArea(9).getCentre());
+    CHECK(popover.key() == fd::music::Key{9, "major"});
+
+    // The search filters the scales, by name or other name; Return chooses the first.
+    CHECK(popover.shownScales().size() == 36);
+    popover.setQuery("dor");
+    CHECK(popover.shownScales() == std::vector<std::string>{"dorian", "dorian-sharp-4"});
+    popover.setQuery("bhairav");
+    CHECK(popover.shownScales() == std::vector<std::string>{"double-harmonic"});
+    popover.setQuery("");
+    CHECK(popover.shownScales().size() == 36);
+
+    // Hovering a scale previews it on the keys, changing nothing.
+    popover.previewScale("minor");
+    CHECK(keys.notes() == fd::music::notes(fd::music::Key{9, "minor"}));
+    CHECK(popover.key() == fd::music::Key{9, "major"});
+    if (dump != nullptr)
+        dumpPng(dump, "key-popover-preview.png", f.shell->createComponentSnapshot(popover.getBounds()));
+    popover.previewScale({});
+    popover.chooseScale("minor");
+    CHECK(keys.root() == 9);
+    CHECK(keys.notes() == fd::music::notes(fd::music::Key{9, "minor"}));
+    if (dump != nullptr)
+        dumpPng(dump, "key-popover-a-minor.png", f.shell->createComponentSnapshot(popover.getBounds()));
+
+    // Closed: everything it changed is one undo step, named after the key.
+    popover.close();
+    CHECK_FALSE(popover.isOpen());
+    CHECK(f.session->undoDescription() == "Set key to A minor");
+    refresh();
+    CHECK(field.value() == "A minor");
+    CHECK_FALSE(field.isPlaceholder());
+    CHECK(field.getTooltip().contains("A B C D E F G"));
+    CHECK(actions.isEnabled("song.noKey"));
+    barFits();
+    barShot("a-minor");
+
+    // The longest name: in full when there's room, short when it's tight, never dropped.
+    REQUIRE(f.session->setKey(fd::music::Key{6, "phrygian-dominant"}));
+    for (int width : {1800, 1200, 1024})
+    {
+        f.shell->setSize(width, 1000);
+        refresh();
+        barFits();
+        barShot("long");
+    }
+    CHECK(field.value() == juce::String::fromUTF8("F♯ phr dom")); // at the window's least
+    f.shell->setSize(1800, 1000);
+    refresh();
+    CHECK(field.value() == juce::String::fromUTF8("F♯ Phrygian dominant"));
+
+    // Song > No key; undo brings it back.
+    REQUIRE(actions.perform("song.noKey"));
+    refresh();
+    CHECK(field.value() == "No key");
+    f.session->undo();
+    refresh();
+    CHECK(field.value() == juce::String::fromUTF8("F♯ Phrygian dominant"));
+
+    // The piano roll: the key's rows lit, its root labelled, names spelled by it.
+    const auto track = f.session->snapshot()->tracks.front().id;
+    const auto clip = f.session->createMidiClip(track, 0.0, 4.0);
+    REQUIRE(clip != 0);
+    std::vector<fd::model::Note> notes;
+    double at = 0.0;
+    for (int p : {69, 71, 72, 74, 76, 77, 80, 81})
+    {
+        notes.push_back({p, at, 0.5});
+        at += 0.5;
+    }
+    for (int p : {57, 69, 72, 76})
+        notes.push_back({p, 4.0, 1.0});
+    for (int p : {64, 68, 71, 74})
+        notes.push_back({p, 5.0, 1.0});
+    for (int p : {57, 69, 72, 76})
+        notes.push_back({p, 6.0, 2.0});
+    f.session->setNotes(clip, notes);
+    f.session->updateSnapshotNow();
+    f.shell->arrangement().setSelection({.channel = track, .clips = {clip}});
+    f.shell->finishAnimations();
+    auto& detail = f.shell->detail();
+    REQUIRE(detail.showsPianoRoll());
+    auto rollShot = [&](const juce::String& name)
+    {
+        if (dump != nullptr)
+        {
+            auto& roll = detail.pianoRoll();
+            dumpPng(dump, "key-roll-" + name + ".png",
+                    f.shell->createComponentSnapshot(f.shell->getLocalArea(&roll, roll.getLocalBounds())));
+        }
+    };
+    rollShot("f-sharp-phrygian-dominant");
+    REQUIRE(f.session->setKey(fd::music::Key{6, "major"}));
+    f.session->updateSnapshotNow();
+    f.shell->finishAnimations();
+    rollShot("f-sharp-major");
+    REQUIRE(f.session->setKey(std::nullopt));
+    f.session->updateSnapshotNow();
+    rollShot("none");
+
+    // With the clip selected, the popover finds A minor in its notes; a click on it sets it.
+    REQUIRE(actions.perform("song.key"));
+    REQUIRE(popover.isOpen());
+    REQUIRE_FALSE(popover.found().empty());
+    CHECK(popover.found().front().key == fd::music::Key{9, "minor"});
+    if (dump != nullptr)
+        dumpPng(dump, "key-popover-found.png", f.shell->createComponentSnapshot(popover.getBounds()));
+    popover.chooseKey(popover.found().front().key);
+    // Changed back where it began: no step at all.
+    popover.chooseKey(std::nullopt);
+    const auto before = f.session->undoDescription();
+    popover.close();
+    CHECK(f.session->undoDescription() == before);
+    CHECK_FALSE(f.session->snapshot()->keys.first().has_value());
+
+    // A click on the field opens it, and a second closes it.
+    REQUIRE(field.onOpen);
+    field.onOpen();
+    CHECK(popover.isOpen());
+    field.onOpen();
+    CHECK_FALSE(popover.isOpen());
+
+    REQUIRE(f.session->setKey(fd::music::Key{9, "minor"}));
+    f.session->updateSnapshotNow();
+    f.shell->finishAnimations();
+    rollShot("a-minor");
 }

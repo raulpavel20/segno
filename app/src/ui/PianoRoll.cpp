@@ -17,13 +17,6 @@ bool isBlackKey(int pitch)
     return k == 1 || k == 3 || k == 6 || k == 8 || k == 10;
 }
 
-/// "C3" for 60 (the suite's convention, Unit::Note).
-juce::String noteName(int pitch)
-{
-    static const char* const names[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
-    return juce::String(names[pitch % 12]) + juce::String(pitch / 12 - 2);
-}
-
 } // namespace
 
 PianoRoll::PianoRoll(engine::Session& session) : session_(session)
@@ -212,9 +205,20 @@ void PianoRoll::resized()
 
 // ---- state ---------------------------------------------------------------------------------
 
+juce::String PianoRoll::noteName(int pitch) const
+{
+    // "C3" for 60 (the suite's convention, Unit::Note); "B♭3" in F major.
+    return juce::String::fromUTF8(music::noteName(key_ ? &*key_ : nullptr, pitch).c_str());
+}
+
 void PianoRoll::setClip(std::optional<model::ClipInfo> clip, const model::TempoMap& tempo)
 {
     tempo_ = tempo;
+    if (auto key = session_.snapshot()->keys.keyAt(clip ? clip->contentStartBeat : 0.0); key != key_)
+    {
+        key_ = std::move(key);
+        repaint();
+    }
     if (!clip || clip->kind != model::ClipInfo::Kind::Midi)
     {
         previewOff();
@@ -417,19 +421,27 @@ void PianoRoll::paintRows(juce::Graphics& g)
     g.reduceClipRegion(area);
     const auto geo = geometry();
 
-    // Rows: black keys a tone darker; a line under every C (octaves) and between E and F.
+    // Rows: black keys a tone darker; a line under every C (octaves) and between E and F. With a
+    // key (key-and-scale.md §7), its notes are the light rows and the root's a tone lighter; the
+    // line between E and F goes, since it only marked the piano's pattern.
     const auto white = t.roles.keyRowLight;
     const auto black = t.roles.keyRowDark;
     const int highest = std::min(127, static_cast<int>(std::ceil(topEdge_)) - 1);
     const int lowest = std::max(0, static_cast<int>(std::floor(topEdge_ - 1.0 - area.getHeight() / rowHeight_)));
     const auto x = static_cast<float>(area.getX()), w = static_cast<float>(area.getWidth());
     const auto rh = static_cast<float>(rowHeight_);
+    const auto inKey = key_ ? music::notes(*key_) : music::PitchSet{0};
     for (int p = lowest; p <= highest; ++p)
     {
         const float y = static_cast<float>(area.getY() + geo.yForPitch(p));
-        g.setColour(isBlackKey(p) ? black : white);
+        if (key_)
+            g.setColour(p % 12 == key_->root            ? t.roles.keyRowRoot
+                        : (inKey >> (p % 12) & 1u) != 0 ? white
+                                                        : black);
+        else
+            g.setColour(isBlackKey(p) ? black : white);
         g.fillRect(x, y, w, rh);
-        if (p % 12 == 0 || p % 12 == 5)
+        if (p % 12 == 0 || (p % 12 == 5 && !key_))
         {
             g.setColour(p % 12 == 0 ? t.roles.gridOctave : t.roles.gridMinor);
             g.fillRect(x, y + rh - 1.0f, w, 1.0f);
@@ -575,12 +587,20 @@ void PianoRoll::paintKeys(juce::Graphics& g)
     {
         const float y = static_cast<float>(area.getY() + geo.yForPitch(p));
         const bool held = previewPitch_ == p;
+        // The C's are labelled, and the key's root too (key-and-scale.md §7).
+        const bool labelled = (p % 12 == 0 || (key_ && p % 12 == key_->root)) && rowHeight_ >= 8.0;
         if (isBlackKey(p))
         {
             g.setColour(held ? t.active : blackKey);
             g.fillRect(x, y, w * 0.62f, rh);
             g.setColour(t.roles.keySeam); // where the white keys meet, beside it
             g.fillRect(x + w * 0.62f, y + rh * 0.5f, w * 0.38f, 1.0f);
+            if (labelled)
+            {
+                g.setColour(held ? t.onActive : whiteKey);
+                g.drawText(noteName(p), juce::Rectangle<float>(x, y, w * 0.62f - 4.0f, rh),
+                           juce::Justification::centredRight, false);
+            }
             continue;
         }
         if (held)
@@ -593,7 +613,7 @@ void PianoRoll::paintKeys(juce::Graphics& g)
             g.setColour(t.roles.keySeam);
             g.fillRect(x, y + rh - 1.0f, w, 1.0f);
         }
-        if (p % 12 == 0 && rowHeight_ >= 8.0)
+        if (labelled)
         {
             g.setColour(held ? t.onActive : t.surface0);
             g.drawText(noteName(p), juce::Rectangle<float>(x, y, w - 4.0f, rh), juce::Justification::centredRight, false);

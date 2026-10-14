@@ -30,7 +30,7 @@ Build options: `FD_BUILD_TESTS`, `FD_BUILD_TOOLS`, `FD_BUILD_PLUGINS`, `FD_BUILD
 
 ## Hard rules
 
-- **No JUCE below the JUCE line** (ADR 0006). These never include JUCE headers: `libs/dsp`, `libs/device`, `libs/testkit`, `devices/*/dsp`, `tools/render`.
+- **No JUCE below the JUCE line** (ADR 0006). These never include JUCE headers: `libs/dsp`, `libs/device`, `libs/music`, `libs/testkit`, `devices/*/dsp`, `tools/render`.
 - **`Device::process()` is real-time safe:** no allocation, no locks, no I/O, no exceptions. The conformance suite checks for allocations.
 - **The UI never reimplements DSP.** Curves and displays call the same pure functions the audio path uses.
 - **Devices never write their own parameters.** All edits go through the host binding.

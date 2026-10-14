@@ -24,8 +24,36 @@ bool Shell::sectionsActive() const
     return lastArea_ == Area::Arrangement && !mixerShown_ && arrangement_.hasSectionSelection();
 }
 
+void Shell::openKeyPopover()
+{
+    // The keys found from the selected MIDI clips, or from every one (key-and-scale.md §11).
+    std::vector<std::uint64_t> clips;
+    const auto snapshot = session_.snapshot();
+    for (const auto& track : snapshot->tracks)
+        for (const auto& clip : track.clips)
+            if (clip.kind == model::ClipInfo::Kind::Midi && arrangement_.selectedClips().contains(clip.id))
+                clips.push_back(clip.id);
+    auto& field = transport_->keyField();
+    // Under the bar, not over its edge, as the Assistants popover opens.
+    const auto anchor =
+        (field.isVisible() ? getLocalArea(transport_.get(), field.getBounds()) : transport_->getBounds())
+            .withBottom(transport_->getBottom());
+    keyPopover_.open(*this, anchor, clips);
+}
+
 void Shell::registerSongActions()
 {
+    // The song's key (ADR 0056, key-and-scale.md §13): its own settings first in the Song menu.
+    actions_.add({.id = "song.key",
+                  .name = juce::String::fromUTF8("Key\xE2\x80\xA6"), // it asks for more (menu-bar.md §5)
+                  .category = "Song",
+                  .perform = [this] { openKeyPopover(); }});
+    actions_.add({.id = "song.noKey",
+                  .name = "No key",
+                  .category = "Song",
+                  .perform = [this] { session_.setKey(std::nullopt); },
+                  .isEnabled = [this] { return session_.snapshot()->keys.first().has_value(); }});
+
     auto arrangeShown = [this] { return !mixerShown_; };
     auto selected = [this] { return !mixerShown_ && arrangement_.hasSectionSelection(); };
     auto bars = [this](double n)

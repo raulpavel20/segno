@@ -113,6 +113,17 @@ TransportBar::TransportBar(engine::Session& session, const ActionRegistry& actio
         f->setFontSize(ui::Theme::current().textMd);
         addAndMakeVisible(f);
     }
+    // The song's key (key-and-scale.md §6): chosen in the Key popover, never dragged.
+    keyField_.setFontSize(ui::Theme::current().textMd);
+    keyField_.onOpen = [this] {
+        if (onKeyOpen)
+            onKeyOpen();
+    };
+    keyField_.onPopupMenu = [this] {
+        if (onKeyMenu)
+            onKeyMenu();
+    };
+    addAndMakeVisible(keyField_);
     frame(0.0, session_.snapshot()->tempo); // show the project's tempo before the first frame
     add(browser_, "view.browser");
     add(detail_, "view.detail");
@@ -141,8 +152,27 @@ ui::IconButton& TransportBar::add(ui::IconButton& b, std::string id)
     return b;
 }
 
+void TransportBar::showKey()
+{
+    const auto snapshot = session_.snapshot();
+    const auto& key = snapshot->keys.first();
+    if (keyName_.isNotEmpty() && key == keyShown_)
+        return; // once per change, not every frame
+    keyShown_ = key;
+    keyName_ = key ? juce::String::fromUTF8(music::keyName(*key).c_str()) : juce::String("No key");
+    keyShort_ = key ? juce::String::fromUTF8(music::keyShortName(*key).c_str()) : keyName_;
+    juce::String notes;
+    if (key)
+        for (const auto& n : music::spelledNotes(*key))
+            notes << " " << juce::String::fromUTF8(n.c_str());
+    keyField_.setTooltip(key ? "Key: " + keyName_ + ":" + notes : juce::String("The song's key: click to choose one"));
+    keyField_.setValue(keyName_, !key.has_value());
+    resized(); // its width follows its name, and it may take its short name
+}
+
 void TransportBar::frame(double positionSeconds, const model::TempoMap& tempo)
 {
+    showKey();
     for (auto& [button, id] : bound_)
     {
         if (button->getToggleState() != actions_.isToggled(id))
@@ -358,6 +388,10 @@ void TransportBar::resized()
         {{S::Left, static_cast<double>(numeratorField_.widthFor("32")), true}, button(numeratorField_)},
         {{S::Left, std::ceil(digit)}, area(slashArea_)},
         {{S::Left, static_cast<double>(denominatorField_.widthFor("16"))}, button(denominatorField_)},
+        // The key, a group of its own: its short name when it's tight, before anything drops.
+        {{S::Left, static_cast<double>(keyField_.widthFor(keyName_.isEmpty() ? juce::String("No key") : keyName_)), true, 0,
+          static_cast<double>(keyField_.widthFor(keyShort_.isEmpty() ? juce::String("No key") : keyShort_))},
+         button(keyField_)},
         {{S::Left, static_cast<double>(h), true}, button(metronome_)},
         {{S::Left, static_cast<double>(h)}, button(countIn_)},
         {{S::Left, static_cast<double>(h), true, kUndo}, button(undo_)},
@@ -400,9 +434,16 @@ void TransportBar::resized()
                                             .groupGap = static_cast<double>(t.shell.groupGap),
                                             .sectionGap = 2.0 * t.shell.groupGap});
     for (size_t i = 0; i < entries.size(); ++i)
+    {
         entries[i].place(slots[i].shown ? juce::Rectangle<int>(juce::roundToInt(slots[i].x), inner.getY(),
                                                                juce::roundToInt(slots[i].width), h)
                                         : juce::Rectangle<int>());
+        if (items[i].narrowWidth > 0.0) // the key: its name or its short name, as it fits
+        {
+            keyNarrow_ = slots[i].narrow;
+            keyField_.setValue(keyNarrow_ ? keyShort_ : keyName_, keyField_.isPlaceholder());
+        }
+    }
     markOnly_ = wordArea.isEmpty();
     brandArea_ = !brandShown_ ? juce::Rectangle<int>() : markOnly_ ? markArea : markArea.getUnion(wordArea);
     wellArea_ = timeArea_.isEmpty() ? barsArea_ : barsArea_.getUnion(timeArea_);

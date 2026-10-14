@@ -36,6 +36,8 @@ libs/dsp        DSP building blocks: filters, oscillators, oversampling (linear 
                 the spectral engine (a response that changes frame by frame with no phase change,
                 and per-frequency dynamics; the EQ's linear phase and spectral bands, M3 B8)
                 (+ reused libraries, see ADR 0004)
+libs/music      music theory shared by the DAW, the Push support and devices (ADR 0056): the
+                scale catalogue, keys and their spelling, finding a key from notes
 libs/device     Device API: ParamSpec / ParamStore, EventList, State (JSON), Registry, AnalysisBus,
                 VoiceManager, AssetHandoff (heavy data to the audio thread)
 libs/audiofile  audio file decoding (WAV/AIFF/FLAC/MP3 via dr_libs) and WAV writing
@@ -76,6 +78,7 @@ The contract is frozen since M1's sign-off ([ADR 0034](decisions/0034-device-api
 - **A panel's action as one undo step** (added 2026-10-13): `ui::ParamBinding::beginEdit(name)` names the undo step for the edits that follow, when a panel changes several parameters at once (the EQ's Make room). The DAW makes it one step; plugin hosts group their own undo, so it does nothing there.
 - **Transient settings** (added 2026-10-13, for the EQ's Listen and Delta): `ParamFlags::Transient` marks how you listen rather than how a device sounds. Hosts never save it, presets leave it out, applying a state puts it back to its default, and the DAW makes no undo step for it. Never automatable (the conformance suite checks).
 - **Loudness** (added 2026-10-13, for the Loudness Meter): units `Unit::Lufs` and `Unit::Dbtp` for parameters, and meter kinds `MeterKind::LoudnessUnits` (a range or difference in LU) and `MeterKind::Correlation` (−1 to 1), each NaN when there's no reading.
+- **The song's key** (added 2026-10-14, [ADR 0056](decisions/0056-the-song-has-one-key.md)): `TransportInfo::key`, a `KeyInfo` with the root (0–11, or −1 for no key) and the key's notes as a 12-bit set, at the block's start. The DAW fills it from a lock-free copy each module keeps of the project's key; the plugin adapter leaves it unknown (no plugin format carries one). A device that follows the key works without one. Names, spelling and scales come from `libs/music`.
 - **Latency** is constant for a device instance ([ADR 0016](decisions/0016-constant-device-latency.md)), except for settings marked `ParamFlags::ChangesLatency` (lookahead, [ADR 0020](decisions/0020-latency-follows-lookahead.md)), which hosts learn of on the message thread.
 
 ## The DAW

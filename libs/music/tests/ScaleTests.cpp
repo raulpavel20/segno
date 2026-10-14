@@ -1,8 +1,7 @@
 #include "fd/music/Scales.h"
 
-#include <catch2/catch_test_macros.hpp>
-
 #include <algorithm>
+#include <catch2/catch_test_macros.hpp>
 #include <set>
 #include <string>
 #include <vector>
@@ -12,13 +11,42 @@ using namespace fd::music;
 TEST_CASE("The scale IDs are the permanent list of docs/ids.md", "[fast]")
 {
     // Stored in projects: never rename, reorder freely, add at will (docs/ids.md, ADR 0056).
-    const std::vector<std::string> ids{
-        "major", "minor", "harmonic-minor", "melodic-minor", "major-pentatonic", "minor-pentatonic", "blues",
-        "major-blues", "dorian", "phrygian", "lydian", "mixolydian", "locrian", "harmonic-major", "dorian-sharp-4",
-        "phrygian-dominant", "lydian-augmented", "lydian-dominant", "super-locrian", "hungarian-minor",
-        "double-harmonic", "spanish-8-tone", "whole-tone", "diminished-half-whole", "diminished-whole-half",
-        "messiaen-3", "messiaen-4", "messiaen-5", "messiaen-6", "messiaen-7", "hirajoshi", "in-sen", "iwato",
-        "kumoi", "pelog-selisir", "pelog-tembung"};
+    const std::vector<std::string> ids{"major",
+                                       "minor",
+                                       "harmonic-minor",
+                                       "melodic-minor",
+                                       "major-pentatonic",
+                                       "minor-pentatonic",
+                                       "blues",
+                                       "major-blues",
+                                       "dorian",
+                                       "phrygian",
+                                       "lydian",
+                                       "mixolydian",
+                                       "locrian",
+                                       "harmonic-major",
+                                       "dorian-sharp-4",
+                                       "phrygian-dominant",
+                                       "lydian-augmented",
+                                       "lydian-dominant",
+                                       "super-locrian",
+                                       "hungarian-minor",
+                                       "double-harmonic",
+                                       "spanish-8-tone",
+                                       "whole-tone",
+                                       "diminished-half-whole",
+                                       "diminished-whole-half",
+                                       "messiaen-3",
+                                       "messiaen-4",
+                                       "messiaen-5",
+                                       "messiaen-6",
+                                       "messiaen-7",
+                                       "hirajoshi",
+                                       "in-sen",
+                                       "iwato",
+                                       "kumoi",
+                                       "pelog-selisir",
+                                       "pelog-tembung"};
     std::vector<std::string> catalogue;
     for (const auto& s : scales())
         catalogue.emplace_back(s.id);
@@ -45,7 +73,8 @@ TEST_CASE("Every scale is whole and in a known group", "[fast]")
 
 TEST_CASE("Scales hold the notes the design lists", "[fast]")
 {
-    auto set = [](std::initializer_list<int> steps) {
+    auto set = [](std::initializer_list<int> steps)
+    {
         PitchSet s = 0;
         for (int i : steps)
             s = static_cast<PitchSet>(s | (1u << i));

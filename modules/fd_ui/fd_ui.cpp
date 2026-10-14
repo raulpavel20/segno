@@ -11,6 +11,8 @@
 #include "controls/Meter.cpp"
 #include "controls/Icons.cpp"
 #include "controls/NumberField.cpp"
+#include "controls/ChoiceField.cpp"
+#include "controls/OctaveKeys.cpp"
 #include "controls/Labels.cpp"
 #include "shell/ShellParts.cpp"
 #include "shell/Brand.cpp"

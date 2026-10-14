@@ -1,20 +1,20 @@
 // JUCE-free tests of the DAW's view models (app/src/model, ADR 0018).
 
-#include "model/Snapshot.h"
 #include "model/ChannelStripLayout.h"
 #include "model/NoteEditing.h"
+#include "model/Snapshot.h"
+#include "model/SongKey.h"
 #include "model/Taper.h"
 #include "model/Timeline.h"
 #include "model/TopBarLayout.h"
 #include "model/TrackHeaderLayout.h"
 #include "model/TrackLayout.h"
 
+#include <algorithm>
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
-#include <nlohmann/json.hpp>
-
-#include <algorithm>
 #include <cmath>
+#include <nlohmann/json.hpp>
 #include <utility>
 #include <vector>
 
@@ -819,6 +819,31 @@ TEST_CASE("channel strips line up on the grid in every combination", "[fast]")
     CHECK(layoutChannelStrip(100.0, o).fader.h == 80.0);
 }
 
+TEST_CASE("top bar: an item's narrower form comes before anything drops", "[fast]")
+{
+    using S = BarSection;
+    const BarMetrics m;
+    // A song group with the key (120 wide, 60 narrow), then a droppable item, and the centre.
+    std::vector<BarItem> items{
+        {S::Left, 80.0}, {S::Left, 120.0, true, 0, 60.0}, {S::Left, 100.0, true, 1}, {S::Centre, 200.0}};
+    // Room for everything: the full form.
+    auto slots = layoutTopBar(1000.0, items);
+    CHECK_FALSE(slots[1].narrow);
+    CHECK(slots[1].width == Approx(120.0));
+    // Tight: the key goes narrow, and nothing drops while that's enough.
+    const double all = 2 * m.padding + 80 + m.groupGap + 120 + m.groupGap + 100 + m.sectionGap + 200;
+    slots = layoutTopBar(all - 30.0, items);
+    CHECK(slots[1].narrow);
+    CHECK(slots[1].width == Approx(60.0));
+    CHECK(slots[2].shown);
+    CHECK(slots[2].x == Approx(slots[1].right() + m.groupGap));
+    // Tighter: then the droppable item goes; the key stays, narrow.
+    slots = layoutTopBar(all - 100.0, items);
+    CHECK(slots[1].shown);
+    CHECK(slots[1].narrow);
+    CHECK_FALSE(slots[2].shown);
+}
+
 TEST_CASE("top bar: three sections, the centre on the middle, items dropped by priority", "[fast]")
 {
     using S = BarSection;
@@ -876,4 +901,46 @@ TEST_CASE("top bar: three sections, the centre on the middle, items dropped by p
             CHECK_FALSE(slots[1].shown);
         CHECK(slots[0].shown); // the mark always shows
     }
+}
+
+TEST_CASE("the song's key: the notes detection judges, and its undo steps' names (ADR 0056)", "[fast]")
+{
+    Snapshot s;
+    s.tempo.bpm = 120.0; // 2 beats a second
+    TrackInfo track;
+    ClipInfo midi;
+    midi.id = 1;
+    midi.kind = ClipInfo::Kind::Midi;
+    midi.offset = 0.5; // plays from beat 1
+    midi.length = 1.0; // for 2 beats
+    midi.notes = {{60, 0.0, 1.0}, {62, 1.0, 1.0}, {64, 2.5, 2.0}, {65, 3.5, 1.0}};
+    ClipInfo muted = midi;
+    muted.id = 2;
+    muted.muted = true;
+    ClipInfo audio;
+    audio.id = 3;
+    track.clips = {midi, muted, audio};
+    s.tracks.push_back(track);
+
+    // Only what the clip plays: the notes starting between its edges, cut at its end.
+    auto notes = notesForKeyDetection(s);
+    REQUIRE(notes.size() == 2);
+    CHECK(notes[0].pitch == 62);
+    CHECK(notes[0].length == Approx(1.0));
+    CHECK(notes[1].pitch == 64);
+    CHECK(notes[1].length == Approx(0.5));
+    CHECK(notesForKeyDetection(s, {3}).empty()); // audio
+    CHECK(notesForKeyDetection(s, {2}).empty()); // muted
+
+    // A looped clip: its loop, once.
+    s.tracks[0].clips[0].loop = {1.0, 0.5}; // beats 2 to 3
+    notes = notesForKeyDetection(s, {1});
+    REQUIRE(notes.size() == 1);
+    CHECK(notes[0].pitch == 64);
+
+    CHECK(keyStepName(fd::music::Key{9, "minor"}) == "Set key to A minor");
+    CHECK(keyStepName(std::nullopt) == "Remove the key");
+    CHECK(s.keys.first() == std::nullopt);
+    s.keys.key = fd::music::Key{2, "dorian"};
+    CHECK(s.keys.keyAt(100.0) == fd::music::Key{2, "dorian"});
 }

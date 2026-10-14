@@ -898,7 +898,8 @@ TEST_CASE("mcp tools: the song's key: set, removed, its scales listed, found fro
 
     CHECK(daw.fails("set_key", {{"root", "H"}}).find("note name") != std::string::npos);
     CHECK(daw.fails("set_key", {{"root", 12}}).find("pitch class") != std::string::npos);
-    CHECK(daw.fails("set_key", {{"root", "C"}, {"scale", "chromatic"}}).find("hirajoshi") != std::string::npos);
+    CHECK(daw.fails("set_key", {{"root", "C"}, {"scale", "chromatic"}}).find("hirajoshi") !=
+          std::string::npos);
     CHECK(daw.fails("set_key", {}).find("\"none\"") != std::string::npos);
     CHECK(daw.fails("set_key", {{"root", "C"}, {"none", true}}).find("\"none\"") != std::string::npos);
 

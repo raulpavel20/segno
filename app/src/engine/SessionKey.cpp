@@ -24,8 +24,11 @@ bool Session::setKey(const std::optional<music::Key>& key)
         um.setCurrentTransactionName(name); // the popover's step goes on, named after the last key
     else
     {
+        const auto before = songKeyOf(*impl.edit);
         impl.beginEdit(name);
-        impl.keyStepOpen = impl.keyChoices > 0;
+        // An assistant's call (an EditGroup) names its own step: the popover never joins it.
+        impl.keyStepOpen = impl.keyChoices > 0 && impl.groupDepth == 0;
+        impl.keyBefore = before; // where this step began
     }
     writeSongKey(*impl.edit, normalised);
     return true;
@@ -36,7 +39,6 @@ Session::KeyChoice::KeyChoice(Session& session) : session_(session)
     auto& impl = session_.impl();
     if (impl.keyChoices++ == 0)
     {
-        impl.keyBefore = songKeyOf(*impl.edit);
         impl.keyStepOpen = false;
         impl.keyInhibitor = std::make_unique<te::Edit::UndoTransactionInhibitor>(*impl.edit);
     }
@@ -47,7 +49,7 @@ Session::KeyChoice::~KeyChoice()
     auto& impl = session_.impl();
     if (--impl.keyChoices > 0)
         return;
-    // Back where it began: no step at all.
+    // Back where its step began: no step at all.
     if (impl.keyStepOpen && songKeyOf(*impl.edit) == impl.keyBefore)
         impl.edit->getUndoManager().undoCurrentTransactionOnly();
     impl.keyStepOpen = false;

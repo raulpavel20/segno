@@ -9,9 +9,8 @@
 #include "model/Grid.h"
 #include "model/Snapshot.h"
 
-#include <fd/music/Detect.h>
-
 #include <array>
+#include <fd/music/Detect.h>
 #include <fd_device_ui/fd_device_ui.h>
 #include <functional>
 #include <juce_audio_devices/juce_audio_devices.h>

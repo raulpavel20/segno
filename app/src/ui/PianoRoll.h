@@ -122,6 +122,11 @@ private:
     engine::Session& session_;
     std::optional<model::ClipInfo> clip_;
     model::TempoMap tempo_;
+    /// The song's key where the clip is (key-and-scale.md §7): its rows lit, its root labelled,
+    /// note names spelled by it. None: the piano's pattern, as before.
+    std::optional<music::Key> key_;
+    /// A note's name, spelled by the key.
+    [[nodiscard]] juce::String noteName(int pitch) const;
     std::vector<model::Note> notes_;    // the clip's notes: the snapshot's, or our last edit
     std::set<std::size_t> selection_;   // indices into notes_
     std::optional<model::NoteEdit> preview_; // during a gesture

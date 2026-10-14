@@ -323,7 +323,7 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     // changes are one undo step, kept open against tracktion's timer.
     int keyChoices = 0;
     bool keyStepOpen = false;
-    std::optional<music::Key> keyBefore;
+    std::optional<music::Key> keyBefore; // the key where the popover's open step began
     std::unique_ptr<te::Edit::UndoTransactionInhibitor> keyInhibitor;
     juce::ListenerList<Session::Listener> listeners;
     /// The editors' grids and the steps they show (ADR 0047), by Session::GridEditor.

@@ -48,6 +48,7 @@ struct ColourRoles
 {
     juce::Colour lane, laneSelected, subLane, strip;
     juce::Colour keyRowLight, keyRowDark, shade;
+    juce::Colour keyRowRoot; // the song key's root in the piano roll, a tone above the key's rows (ADR 0056)
     juce::Colour gridBar, gridBeat, gridSub, gridOctave, gridMinor;
     juce::Colour selectionFill, selectionStroke, dropTarget, textHighlight;
     juce::Colour playhead, marker, loopInactive, onClip;
@@ -126,6 +127,9 @@ struct ShellMetrics
     int browserWaveHeight = 32; // the preview strip's waveform
     int toastHeight = 36, toastWidth = 420;
     int keyboardWidth = 52, velocityHeight = 56;
+    // One octave of keys (ui::OctaveKeys: the Key popover's root, key-and-scale.md §6): a white key's
+    // width and height, and a black key's.
+    int octaveKeyWidth = 28, octaveKeyHeight = 52, octaveBlackKeyWidth = 16, octaveBlackKeyHeight = 32;
     int railWidth = 44, splitter = 5;
     int barPadding = 8, barInset = 6; // a bar's (the transport's) edges: sides, top and bottom
     int itemGap = 4, groupGap = 12;   // between items in a group, between groups

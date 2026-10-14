@@ -19,6 +19,8 @@ struct BarItem
     bool startsGroup = false;
     /// 0: always shown; otherwise items drop highest first, all of one priority together.
     int drop = 0;
+    /// A narrower form (the key's short name, "A min"), taken before any item drops; 0: none.
+    double narrowWidth = 0.0;
 };
 
 struct BarMetrics
@@ -33,10 +35,12 @@ struct BarSlot
 {
     double x = 0.0, width = 0.0;
     bool shown = false;
+    bool narrow = false; // in its narrower form
     [[nodiscard]] double right() const noexcept { return x + width; }
 };
 
-/// The slots of `items` (given left to right, sections in order) in a bar `width` wide.
+/// The slots of `items` (given left to right, sections in order) in a bar `width` wide. When they
+/// don't fit, the items with a narrower form take it first; then items drop.
 [[nodiscard]] std::vector<BarSlot> layoutTopBar(double width, const std::vector<BarItem>& items, const BarMetrics& metrics = {});
 
 /// A title between a bar's sides (the title bar's project name, docs/design/menu-bar.md §4): as

@@ -56,7 +56,7 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 - Never rename or reuse a parameter ID. To change a parameter's meaning or range in an incompatible way, add a new ID and migrate old state in the device's `stateVersion` migration.
 - `sinceVersion` in the `ParamSpec` records the device state version in which the parameter was added. It feeds JUCE's parameter version hint.
 
-## Scale level (proposed with [key-and-scale.md](design/key-and-scale.md) §5; permanent once approved)
+## Scale level ([key-and-scale.md](design/key-and-scale.md) §5; approved 2026-10-14, permanent)
 
 - A scale ID is stored in projects (the song's key) and read by assistants (`set_key`, `list_scales`): lowercase kebab-case, the scale's usual name. Names and short names are display text and can change.
 - Never rename or reuse a scale ID. A scale added later gets a new ID; a project with an ID this build doesn't know opens with no key.

@@ -320,7 +320,7 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
   └ left: brand · song ───────────┘ └ centre, on the window's middle ──────────┘ └ right: status · view · app ──────────┘
   ```
 
-  - **Left:** the mark and name ([ADR 0024](../decisions/0024-product-name.md)); then the song: tempo and time signature as `ui::NumberField`s (drag, Shift for fine, wheel, or type; each edit is one undo step), the metronome and the count-in (right-click: its length).
+  - **Left:** the mark and name ([ADR 0024](../decisions/0024-product-name.md)); then the song: tempo and time signature as `ui::NumberField`s (drag, Shift for fine, wheel, or type; each edit is one undo step), the song's key as a `ui::ChoiceField` that opens the Key popover (M3 P3, [key-and-scale.md](key-and-scale.md) §6: its short name when the bar is tight, never dropped), the metronome and the count-in (right-click: its length).
   - **Centre**, centred on the bar and moved in only when the sides need the room: play/stop, stop-and-return, Record, Capture MIDI, Automation arm; the position display (an inset `surface0` well: bars.beats.16ths in `ValueLarge`, the time in `ValueMedium`; the count-in countdown); Loop and Follow playhead.
   - **Right:** status (CPU load, the computer keyboard and its MIDI light), view (Arrange | Mix, then the browser, detail and inspector toggles), app (assistants and their light, settings).
   - Items are `itemGap` apart within a group and `groupGap` between groups. When the window is narrow, items drop in this order: the time, the CPU load, the wordmark (the mark stays), the panel toggles.
@@ -428,7 +428,7 @@ A software-renderer benchmark also runs offscreen in the integration tests (`"[.
   - keyboard on the left (click or drag over the keys to hear them); C keys are labelled (C3 = 60);
   - the ruler on top, with the song's bar numbers and the clip's extent in its colour; click to move the playhead, drag to zoom and scroll as in the arrangement;
   - above it, the loop strip with the clip's loop brace (M3 C10, [clip-loops.md](clip-loops.md) §6); a looped clip shows the lap it starts in, shaded outside its loop, the playhead wrapping into it;
-  - the note grid: rows for black keys a tone darker, a line under every C and between E and F;
+  - the note grid: rows for black keys a tone darker, a line under every C and between E and F. With a song key (M3 P3, [key-and-scale.md](key-and-scale.md) §7), the key's notes are the light rows, the root's a tone lighter, the E–F line goes; the root's keys are labelled beside the C's, and note names are spelled by the key;
   - outside the clip the grid is shaded; notes there are kept but don't play, and are drawn faded;
   - drawing or moving notes past the clip's end lengthens the clip to the end of the bar the last note ends in, in the same undo step. If another clip on the track is in that range, the clip stays as it is and those notes stay outside (B15). The rule lives in `Session::setNotes`, so it holds for every way of writing notes;
   - the velocity lane at the bottom.

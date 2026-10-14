@@ -76,6 +76,11 @@ public:
     std::function<juce::String()> captureTooltip;
     /// The Record button's "Recording settings…": Settings, at Recording.
     std::function<void()> onRecordingSettings;
+    /// The song's key (key-and-scale.md §6): the field after the time signature, where the Key
+    /// popover opens (onKeyOpen) and its right-click menu (onKeyMenu).
+    [[nodiscard]] ui::ChoiceField& keyField() noexcept { return keyField_; }
+    std::function<void()> onKeyOpen;
+    std::function<void()> onKeyMenu;
 
 private:
     ui::IconButton& add(ui::IconButton& b, std::string id);
@@ -92,6 +97,12 @@ private:
     // Automation arm (C4): touch recording, in the record colour (lanes turn themselves back on).
     ui::IconButton automationArm_{ui::Icon::AutomationArm};
     ui::NumberField tempoField_, numeratorField_, denominatorField_;
+    ui::ChoiceField keyField_;
+    /// The key's name, its short name ("A min"), and whether the bar shows the short one.
+    juce::String keyName_, keyShort_;
+    std::optional<music::Key> keyShown_;
+    bool keyNarrow_ = false;
+    void showKey();
     ui::IconButton browser_{ui::Icon::PanelLeft}, detail_{ui::Icon::PanelBottom}, inspector_{ui::Icon::PanelRight};
     ui::IconButton settings_{ui::Icon::Settings};
     // Undo and Redo after the song; the command palette first in the app group (ADR 0040).
