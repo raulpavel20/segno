@@ -10,6 +10,7 @@
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <chrono>
 #include <cmath>
 #include <complex>
 #include <filesystem>
@@ -507,4 +508,45 @@ TEST_CASE("factory tables: about 20 from AKWF's cycles, each a morph over its fr
     }
     CHECK(akwf == 20);
     CHECK(tables.size() >= 80);
+}
+
+TEST_CASE("recipe: how long a bake takes, as the editor bakes while a drag moves", "[.benchmark]")
+{
+    // A drawing and harmonics on keyframes, a spectral fill, four changes: 64 and 256 frames.
+    for (const int frames : {64, 256})
+    {
+        Recipe r;
+        r.frames = frames;
+        auto draw = newLayer(Recipe::SourceKind::Draw);
+        auto later = draw.keyframes[0];
+        later.frame = frames - 1;
+        later.points = {{0.0f, 0.0f, 0.3f}, {0.5f, 1.0f, -0.3f}, {1.0f, 0.0f, 0.0f}};
+        draw.keyframes.push_back(later);
+        auto harmonics = newLayer(Recipe::SourceKind::Harmonics);
+        auto bright = harmonics.keyframes[0];
+        bright.frame = frames - 1;
+        for (size_t h = 0; h < bright.levels.size(); ++h)
+            bright.levels[h] = 1.0f / static_cast<float>(h + 1);
+        harmonics.keyframes.push_back(bright);
+        harmonics.fill = Recipe::Fill::Spectral;
+        r.layers = {draw, harmonics};
+        for (const auto kind : {Recipe::ChangeKind::PhaseAlign, Recipe::ChangeKind::Smooth,
+                                Recipe::ChangeKind::Fold, Recipe::ChangeKind::Normalise})
+        {
+            Recipe::Change c;
+            c.kind = kind;
+            c.amounts = {{0, 0.5f}};
+            r.changes.push_back(c);
+        }
+        (void)bake(r); // warm up
+        const auto start = std::chrono::steady_clock::now();
+        constexpr int runs = 10;
+        for (int i = 0; i < runs; ++i)
+            (void)bake(r);
+        const double ms =
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count() /
+            runs;
+        WARN(frames << " frames: " << ms << " ms a bake");
+        CHECK(ms > 0.0);
+    }
 }

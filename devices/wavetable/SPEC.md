@@ -480,6 +480,7 @@ Dated listening notes from the product owner, and the measurable checks derived 
   - **Below the view:** the keyframe strip, and Frames (a bar from 1 to 256, doubling over equal distances; keyframes keep their place in the table).
   - **Changes:** each row a dot and a bar (the change's name, its amount at the frame shown). Its menu offers Vary From Frame to Frame (the amount set at each frame you show, in between from frame to frame), Move Up, Move Down and Remove. With more changes than rows, the title says which show ("Changes 3–10 of 12") and the wheel scrolls them.
   - **Edits are kept on release,** one undo step each ("Draw a wave", "Add a keyframe", "Set a change's amount"…). A click that changes nothing keeps nothing. The editor follows the module: undo, an assistant, the table picker.
+  - **While a drag moves,** the editor bakes again once a display frame. A bake of two keyframed layers (one a spectral fill) and four changes takes 7 ms at 64 frames, 28 ms at 256 (Release, the reference machine; the `[.benchmark]` test), so a drag on the largest tables draws about 30 times a second.
   - **Preview** holds a C3 at velocity 0.8 on the module until it's clicked again or the editor closes:
     - in the DAW, as live MIDI on the module's track;
     - in the plugins, through a lock-free queue into the device's events.
@@ -526,6 +527,7 @@ Dated listening notes from the product owner, and the measurable checks derived 
 - [x] Snapshots reviewed (100% / 200%; expanded, collapsed, folded; every page, and Sub, Noise, a random source, a full matrix)
 - [x] Sound signed off by the product owner (step 1, 2026-10-14)
 - [x] Feel signed off by the product owner (step 1, 2026-10-14)
+- [x] Step 2 validators: pluginval at strictness 10 and clap-validator on the Wavetable plugin, its editor and note queue in (2026-10-14)
 - [x] Step 2 automated: recipes, sources and changes against their definitions, audio to wavetable, files round trip, the AKWF tables; the editor's behaviour in the panel tests, the DAW (Module menu, Tab, undo, Done, the module going, Make wavetable) and the plugins (the window grown, the note heard); every tool through MCP (2026-10-14)
 - [x] The editor's layout lint (narrow and wide, short and tall, every state) and snapshots reviewed: the editor in each state, in the DAW's detail panel, in the plugin's window, the AKWF tables (2026-10-14)
 - [ ] Step 2 sound and feel signed off by the product owner
