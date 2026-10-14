@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/ClipNotes.h"
 #include "engine/FileIndexer.h"
 #include "engine/MidiTap.h"
 #include "engine/PreviewPlayer.h"
@@ -504,8 +505,9 @@ private:
                 return;
         if (!inTransport(t) && id != te::IDs::solo) // solo is a listening aid (ADR 0026)
             dirty = true; // includes device parameters
-        // What a clip plays depends on its fades and its neighbours (ADR 0036): playback is rebuilt.
-        if (affectsFades(t, id))
+        // What a clip plays depends on its fades and its neighbours (ADR 0036), and its notes'
+        // chance on its seed (piano-roll.md §10): playback is rebuilt.
+        if (affectsFades(t, id) || id == noteIds::seed)
             restartPending = true;
         // A lane's points.
         for (auto p = t; p.isValid() && !p.hasType(te::IDs::PLUGIN); p = p.getParent())

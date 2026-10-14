@@ -126,6 +126,13 @@ public:
     /// Replaces a MIDI clip's notes (C2, the piano roll). Notes are matched by value: the ones
     /// that stay are untouched; changed ones keep their other properties.
     void setNotes(std::uint64_t clipId, const std::vector<model::Note>& notes);
+    /// Replaces a MIDI clip's controller lanes (piano-roll.md §11), each by its controller: its
+    /// events become the lane's (an empty lane removes them). One undo step named `undoName`.
+    void setControllers(std::uint64_t clipId, const std::vector<model::ControllerLane>& lanes,
+                        const std::string& undoName = "Edit controllers");
+    /// Re-roll (§10): a new seed for a MIDI clip's chance, `seed` or a random one; returns it (0:
+    /// no such clip). One undo step; playback follows, undo too.
+    std::uint32_t rerollChance(std::uint64_t clipId, std::optional<std::uint32_t> seed = std::nullopt);
     /// Inserts `file` on `trackId` at `seconds`; returns the clip id, or 0 if the file is not
     /// readable audio.
     std::uint64_t insertAudioFile(std::uint64_t trackId, const juce::File& file, double seconds);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "model/Automation.h"
+#include "model/Controllers.h"
 #include "model/Fades.h"
 #include "model/KeyMap.h"
 #include "model/Recording.h"
@@ -23,6 +24,12 @@ struct Note
     double length = 0.25;
     float velocity = 100.0f / 127.0f; // 0..1, in steps of 1/127 (MIDI)
     bool muted = false;               // kept, drawn hollow, not played (docs/design/piano-roll.md §9.4)
+    /// How likely it is to play each time it comes round (§10): 0..1.
+    float chance = 1.0f;
+    /// How far its velocity may move each time, up or down (§10): 0..1, as velocity.
+    float velocitySpread = 0.0f;
+    /// Its note-off velocity (§9.6): 0..1 in steps of 1/127 (0: none, as MIDI sends without one).
+    float releaseVelocity = 0.0f;
 
     friend bool operator==(const Note&, const Note&) = default;
 };
@@ -50,6 +57,10 @@ struct ClipInfo
     // MIDI clips: the notes in time order (noteOrder) and the song beat of their zero.
     std::vector<Note> notes;
     double contentStartBeat = 0.0;
+    /// Its controller lanes (piano-roll.md §11), by controller; only those with events.
+    std::vector<ControllerLane> controllers;
+    /// What its notes' chance is decided from (§10); Re-roll gives it a new one.
+    std::uint32_t chanceSeed = 0;
     /// A main-lane clip made from a take (ADR 0031): that take clip's id (0: not from a take).
     std::uint64_t fromTake = 0;
     /// The takes it plays from (ADR 0032): its stack's id (0: a plain clip).

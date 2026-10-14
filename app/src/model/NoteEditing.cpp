@@ -143,8 +143,9 @@ std::map<std::size_t, int> movedPitches(const std::vector<Note>& notes, const st
 
 bool noteOrder(const Note& a, const Note& b) noexcept
 {
-    return std::tie(a.start, a.pitch, a.length, a.velocity, a.muted) <
-           std::tie(b.start, b.pitch, b.length, b.velocity, b.muted);
+    return std::tie(a.start, a.pitch, a.length, a.velocity, a.muted, a.chance, a.velocitySpread,
+                    a.releaseVelocity) < std::tie(b.start, b.pitch, b.length, b.velocity, b.muted, b.chance,
+                                                  b.velocitySpread, b.releaseVelocity);
 }
 
 float midiVelocity(float velocity) noexcept
