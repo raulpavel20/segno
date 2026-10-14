@@ -50,8 +50,9 @@ void paintHandle(juce::Graphics& g, juce::Point<float> at, bool hot)
     g.drawEllipse(r.reduced(0.5f), 1.0f);
 }
 
-/// The cycle warps of oscillator n at their amounts (FM and the other warps from another source,
-/// and the spectral ones, leave the cycle alone), with the Remap curves they read.
+/// The warps that shape oscillator n's cycle (in the cycle, and on its harmonics) at their
+/// amounts, with the Remap curves they read; FM and the other warps from another source leave the
+/// cycle alone.
 std::array<dsp::CycleRenderer::WarpSetting, 2> cycleWarps(const ui::DeviceUiContext& ctx, int n,
                                                           std::array<dsp::CurveTable, 2>& remaps)
 {
@@ -62,10 +63,10 @@ std::array<dsp::CycleRenderer::WarpSetting, 2> cycleWarps(const ui::DeviceUiCont
             static_cast<int>(plain(ctx, W::osc(n, k == 0 ? W::OscWarp1 : W::OscWarp2))));
         if (const auto* s = synth(ctx))
             remaps[static_cast<size_t>(k)] = s->remapCurve(n, k).table();
-        warps[static_cast<size_t>(k)] = {dsp::isCycleWarp(warp) ? warp : dsp::Warp::Off,
-                                         plain(ctx, W::osc(n, k == 0 ? W::OscWarp1Amt : W::OscWarp2Amt)) *
-                                             0.01f,
-                                         &remaps[static_cast<size_t>(k)]};
+        warps[static_cast<size_t>(k)] = {
+            dsp::isCycleWarp(warp) || dsp::isSpectralWarp(warp) ? warp : dsp::Warp::Off,
+            plain(ctx, W::osc(n, k == 0 ? W::OscWarp1Amt : W::OscWarp2Amt)) * 0.01f,
+            &remaps[static_cast<size_t>(k)]};
     }
     return warps;
 }

@@ -246,6 +246,137 @@ double onBin(double hz)
 }
 } // namespace
 
+namespace
+{
+/// A saw's first `count` harmonics (level 1/h, sine phase).
+std::vector<std::complex<float>> sawSpectrum(int count)
+{
+    std::vector<std::complex<float>> s(static_cast<size_t>(count) + 1);
+    for (int h = 1; h <= count; ++h)
+        s[static_cast<size_t>(h)] = std::polar(1.0f / static_cast<float>(h), -0.5f * static_cast<float>(pi));
+    return s;
+}
+
+double power(const std::vector<std::complex<float>>& s)
+{
+    double p = 0.0;
+    for (size_t h = 1; h < s.size(); ++h)
+        p += std::norm(s[h]);
+    return p;
+}
+
+/// The level-weighted mean harmonic: where the brightness sits.
+double centroid(const std::vector<std::complex<float>>& s)
+{
+    double sum = 0.0, weight = 0.0;
+    for (size_t h = 1; h < s.size(); ++h)
+    {
+        sum += static_cast<double>(h) * std::abs(s[h]);
+        weight += std::abs(s[h]);
+    }
+    return sum / weight;
+}
+} // namespace
+
+TEST_CASE("spectral warps: none at zero, each doing what it says", "[fast]")
+{
+    constexpr int count = 256;
+    std::vector<std::complex<float>> scratch(count + 1);
+    const auto saw = sawSpectrum(count);
+    const auto warped = [&](Warp w, float amount, std::uint32_t seed = 1)
+    {
+        auto s = saw;
+        applySpectralWarp(w, amount, s.data(), count, seed, scratch.data());
+        return s;
+    };
+    for (int w = static_cast<int>(Warp::FormantShift); w < numWarps; ++w)
+    {
+        INFO("warp " << w);
+        CHECK(warped(static_cast<Warp>(w), 0.0f) == saw);
+    }
+    // Moving harmonics keeps the power; the moves go where they should.
+    for (const auto w :
+         {Warp::FormantShift, Warp::HarmonicStretch, Warp::InharmonicStretch, Warp::Smear, Warp::Shepard})
+    {
+        INFO("warp " << static_cast<int>(w));
+        CHECK(power(warped(w, 0.6f)) == Approx(power(saw)).epsilon(1e-4));
+    }
+    // A saw's 1/h looks alike at any scale: one cut at 32 harmonics shows the moves up.
+    auto cut = saw;
+    for (int h = 33; h <= count; ++h)
+        cut[static_cast<size_t>(h)] = {};
+    const auto movedUp = [&](Warp w)
+    {
+        auto c = cut;
+        applySpectralWarp(w, 1.0f, c.data(), count, 1, scratch.data());
+        return centroid(c);
+    };
+    CHECK(movedUp(Warp::FormantShift) > 2.0 * centroid(cut)); // the envelope up two octaves
+    CHECK(movedUp(Warp::HarmonicStretch) ==
+          Approx(2.0 * centroid(cut)).epsilon(0.01)); // spaced twice as wide
+    // Stretched by 2 (an octave up): only the even harmonics are left.
+    const auto octave = warped(Warp::HarmonicStretch, 1.0f);
+    CHECK(std::abs(octave[3]) < 1e-6f);
+    CHECK(std::abs(octave[2]) > 0.1f);
+    // A stiff string's stretch: the high harmonics move further than the low ones.
+    const auto stiff = warped(Warp::InharmonicStretch, 1.0f);
+    CHECK(std::abs(stiff[1]) > 0.5f * std::abs(octave[2])); // the fundamental stays
+    // Smear: neighbours closer in level.
+    auto steps = std::vector<std::complex<float>>(count + 1);
+    for (int h = 1; h <= count; ++h)
+        steps[static_cast<size_t>(h)] = h % 2 == 1 ? 1.0f : 0.0f; // odd harmonics only
+    applySpectralWarp(Warp::Smear, 1.0f, steps.data(), count, 1, scratch.data());
+    CHECK(std::abs(steps[20]) > 0.5f * std::abs(steps[21]));
+    // The passes: everything above (below) the cutoff gone, all of it at the ends.
+    const auto low = warped(Warp::SpectralLowPass, 1.0f);
+    CHECK(std::abs(low[1]) == Approx(1.0f));
+    CHECK(power(low) == Approx(1.0).epsilon(1e-6));
+    const auto half = warped(Warp::SpectralLowPass, 0.5f); // up to harmonic 16
+    CHECK(std::abs(half[16]) > 0.0f);
+    CHECK(std::abs(half[18]) == 0.0f);
+    const auto high = warped(Warp::SpectralHighPass, 0.5f); // from harmonic 16
+    CHECK(std::abs(high[14]) == 0.0f);
+    CHECK(std::abs(high[17]) == Approx(1.0f / 17.0f));
+    // Disperse: levels kept, phases turned more the higher the harmonic.
+    const auto dispersed = warped(Warp::PhaseDisperse, 1.0f);
+    for (int h : {1, 2, 9, 100})
+        CHECK(std::abs(dispersed[static_cast<size_t>(h)]) == Approx(std::abs(saw[static_cast<size_t>(h)])));
+    CHECK(std::arg(dispersed[1]) == Approx(std::arg(saw[1])));
+    CHECK(std::abs(std::arg(dispersed[9] / saw[9])) > 0.1f);
+    // Random harmonics: the same for a seed, another for another.
+    CHECK(warped(Warp::RandomHarmonics, 1.0f, 7) == warped(Warp::RandomHarmonics, 1.0f, 7));
+    CHECK(warped(Warp::RandomHarmonics, 1.0f, 7) != warped(Warp::RandomHarmonics, 1.0f, 8));
+    // Shepard: a full sweep ends where it began.
+    const auto end = warped(Warp::Shepard, 1.0f);
+    for (int h : {1, 2, 3, 50})
+        CHECK(std::abs(end[static_cast<size_t>(h)]) ==
+              Approx(std::abs(saw[static_cast<size_t>(h)])).margin(1e-5));
+}
+
+TEST_CASE("frame skew: each harmonic read from a frame of its own", "[fast]")
+{
+    // Frame 0 silent, frame 1 a bright saw: at the middle of the table, every harmonic is half the
+    // saw's. Skewed, the low harmonics come from earlier (less of the saw), the high ones from later.
+    const auto x = cycles(2048, 2, [](int f, double p) { return f == 0 ? 0.0 : saw(p, 1000); });
+    const auto table = Wavetable::fromCycles(x.data(), 2048, 2, false);
+    CycleRenderer renderer;
+    renderer.prepare();
+    std::vector<float> plain(CycleRenderer::bufferSize), skewed(CycleRenderer::bufferSize);
+    const int n = renderer.render(table, 0.5, {}, 1000, plain.data());
+    renderer.render(table, 0.5, {{{Warp::FrameSkew, 1.0f, nullptr}, {}}}, 1000, skewed.data());
+    RealFft fft(static_cast<int>(std::log2(n)));
+    std::vector<std::complex<float>> a(static_cast<size_t>(n / 2 + 1)), b(a.size());
+    fft.forward(CycleRenderer::cycle(plain.data()), a.data());
+    fft.forward(CycleRenderer::cycle(skewed.data()), b.data());
+    const auto ratio = [&](int h)
+    { return std::abs(b[static_cast<size_t>(h)]) / std::abs(a[static_cast<size_t>(h)]); };
+    CHECK(ratio(2) == Approx((0.5 + frameSkewOffset(2, 1024, 1.0f)) / 0.5).epsilon(0.02));
+    CHECK(ratio(512) == Approx((0.5 + frameSkewOffset(512, 1024, 1.0f)) / 0.5).epsilon(0.02));
+    CHECK(ratio(512) > 1.5);
+    CHECK(frameSkewOffset(1, 1024, 1.0f) == Approx(-0.5));
+    CHECK(frameSkewOffset(1024, 1024, 1.0f) == Approx(0.5));
+}
+
 TEST_CASE("wavetable oscillator: high notes and warps without aliasing", "[fast]")
 {
     const auto x = cycles(2048, 1, [](int, double p) { return saw(p, 1000); });
@@ -260,7 +391,9 @@ TEST_CASE("wavetable oscillator: high notes and warps without aliasing", "[fast]
             const double plain = inharmonicDb(play(table, hz, 0.3, {}, {}, fine), hz);
             WARN((fine ? "8-point " : "cubic ") << hz << " Hz plain: " << plain << " dB");
             CHECK(plain < plainLimit);
-            for (const auto warp : {Warp::Sync, Warp::Pulse, Warp::Quantize, Warp::Fold, Warp::BendBoth})
+            for (const auto warp : {Warp::Sync, Warp::Pulse, Warp::Quantize, Warp::Fold, Warp::BendBoth,
+                                    Warp::FormantShift, Warp::HarmonicStretch, Warp::InharmonicStretch,
+                                    Warp::Smear, Warp::PhaseDisperse, Warp::RandomHarmonics, Warp::Shepard})
             {
                 INFO("warp " << static_cast<int>(warp));
                 const double warped =

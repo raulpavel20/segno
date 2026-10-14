@@ -197,12 +197,7 @@ private:
             {
                 const auto type = p(k == 0 ? W::OscWarp1 : W::OscWarp2);
                 const auto source = p(k == 0 ? W::OscWarp1Src : W::OscWarp2Src);
-                auto& kind = warp_->combo(type, 0, 2 * k, 4);
-                kind.setInlineName(true);
-                // The spectral warps come with the table editor (step 2): listed, not offered yet.
-                for (int w = 0; w < kind.getNumItems(); ++w)
-                    if (dsp::isSpectralWarp(static_cast<dsp::Warp>(w)))
-                        kind.setItemEnabled(w + 1, false);
+                warp_->combo(type, 0, 2 * k, 4).setInlineName(true);
                 auto& from = warp_->combo(source, 0, 2 * k + 1, 2);
                 from.setInlineName(true);
                 warp_->bar(p(k == 0 ? W::OscWarp1Amt : W::OscWarp2Amt), 2, 2 * k + 1);

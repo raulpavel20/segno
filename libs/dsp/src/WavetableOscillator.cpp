@@ -178,6 +178,7 @@ void WavetableOscillator::render(CycleRenderer& renderer, const Wavetable& table
         std::array<CycleRenderer::WarpSetting, 2> w = warps;
         w[0].amount = amounts[i][0];
         w[1].amount = amounts[i][1];
+        w[0].seed = w[1].seed = seed_; // Random Harmonics: each note's own
         c.size = renderer.render(table, positions[i], w, limits[i], c.now.data());
         ++cyclesRendered_;
         if (!rendered_)

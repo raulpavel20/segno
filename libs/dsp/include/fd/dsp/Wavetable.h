@@ -136,10 +136,30 @@ using CurveTable = std::array<float, 257>;
 void applyCycleWarp(Warp warp, float amount, const float* in, int size, float* out,
                     const CurveTable* curve = nullptr) noexcept;
 
+/// Applies a spectral warp at `amount` (0..1) to harmonics 1 ... `count` of `spectrum`, in place
+/// (the Wavetable's SPEC, "DSP design"); `scratch` holds `count` + 1 values. Amount 0 leaves the
+/// harmonics as they are, and warps that move energy keep the total power:
+/// - Formant Shift: the levels' envelope up by as much as two octaves, the harmonics where they are;
+/// - Harmonic Stretch: harmonic h moved to h (1 + amount), between the harmonics it lands on;
+/// - Inharmonic Stretch: harmonic h moved to h^(1 + amount / 2), the stretch of a stiff string;
+/// - Smear: the levels blurred across neighbouring harmonics;
+/// - Spectral Low Pass and High Pass: harmonics above (below) count^(1 - amount) (count^amount) cut;
+/// - Phase Disperse: each harmonic's phase turned by amount pi (h - 1)^2 / 64;
+/// - Random Harmonics: each harmonic's level times 1 - amount + 2 amount r, r drawn from `seed`;
+/// - Shepard: the harmonics an `amount` of an octave up fading out as the same an octave lower
+///   rises in, so a full sweep ends where it began, an octave on;
+/// - Frame Skew acts where frames are read (frameSkewOffset); here it does nothing.
+/// The oscillator's renderer and the table editor both shape harmonics with it.
+void applySpectralWarp(Warp warp, float amount, std::complex<float>* spectrum, int count, std::uint32_t seed,
+                       std::complex<float>* scratch) noexcept;
+/// Under Frame Skew at `amount`, how far from the position harmonic `h` (of `count`) is read: the
+/// low ones earlier in the table, the high ones later, by up to half the table either way.
+[[nodiscard]] double frameSkewOffset(int h, int count, float amount) noexcept;
+
 /// Renders the cycle an oscillator plays next (the Wavetable Synth's "each voice renders its own
-/// cycle"): the table's spectra interpolated at `position`, its cycle warps applied on a cycle
-/// of 16 times the harmonics (512 ... 4 096 samples), then cut to the harmonics a note can play
-/// without aliasing. Real-time safe
+/// cycle"): the table's spectra interpolated at `position`, its spectral warps applied to the
+/// harmonics, its cycle warps applied on a cycle of 16 times the harmonics (512 ... 4 096
+/// samples), then cut to the harmonics a note can play without aliasing. Real-time safe
 /// after prepare(); one renderer serves every voice in turn.
 class CycleRenderer
 {
@@ -157,6 +177,7 @@ public:
         Warp warp = Warp::Off;
         float amount = 0.0f;
         const CurveTable* curve = nullptr;
+        std::uint32_t seed = 1; // Random Harmonics: each note's own
     };
 
     /// May allocate.
@@ -173,7 +194,7 @@ public:
 
 private:
     std::array<RealFft, 14> ffts_; // by order (6 ... 13 used)
-    std::vector<std::complex<float>> bins_;
+    std::vector<std::complex<float>> bins_, spectrum_, scratch_;
     std::vector<float> wide_, warped_;
 };
 /// Reading a rendered cycle (`cycle` = CycleRenderer::cycle(buffer), `size` samples, guards

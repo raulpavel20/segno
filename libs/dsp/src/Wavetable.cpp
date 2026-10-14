@@ -340,6 +340,175 @@ void applyCycleWarp(Warp warp, float amount, const float* in, int size, float* o
     }
 }
 
+// ---- spectral warps ---------------------------------------------------------------------------
+
+namespace
+{
+/// The level of the harmonics at a fractional harmonic `x`, linear between them (0 below the first).
+double levelAt(const std::complex<float>* s, int count, double x) noexcept
+{
+    if (x <= 0.0 || x > static_cast<double>(count))
+        return 0.0;
+    const auto i = static_cast<int>(x);
+    const double t = x - i;
+    const double a = i >= 1 ? std::abs(s[i]) : 0.0;
+    const double b = i + 1 <= count ? std::abs(s[i + 1]) : 0.0;
+    return a + t * (b - a);
+}
+
+double powerOf(const std::complex<float>* s, int count) noexcept
+{
+    double p = 0.0;
+    for (int h = 1; h <= count; ++h)
+        p += std::norm(s[h]);
+    return p;
+}
+
+/// Scales harmonics 1 ... count to `power`.
+void keepPower(std::complex<float>* s, int count, double power) noexcept
+{
+    if (const double now = powerOf(s, count); now > 1e-30)
+    {
+        const auto g = static_cast<float>(std::sqrt(power / now));
+        for (int h = 1; h <= count; ++h)
+            s[h] *= g;
+    }
+}
+
+/// `c` at level `level`, keeping its phase (a level from nothing takes phase 0).
+std::complex<float> atLevel(std::complex<float> c, double level) noexcept
+{
+    const float m = std::abs(c);
+    return m > 1e-20f ? c * static_cast<float>(level / m)
+                      : std::complex<float>(static_cast<float>(level), 0.0f);
+}
+
+/// Adds `value` at fractional harmonic `x`, split between the two harmonics either side.
+void addAt(std::complex<float>* s, int count, double x, std::complex<float> value) noexcept
+{
+    if (x < 1.0 || x > static_cast<double>(count))
+        return;
+    const auto i = static_cast<int>(x);
+    const auto t = static_cast<float>(x - i);
+    s[i] += value * (1.0f - t);
+    if (t > 0.0f && i + 1 <= count)
+        s[i + 1] += value * t;
+}
+
+/// Moves each harmonic h to `where(h)` (spread between the harmonics it lands on), keeping the power.
+template <typename Where>
+void moveHarmonics(std::complex<float>* s, int count, std::complex<float>* scratch, Where where) noexcept
+{
+    const double power = powerOf(s, count);
+    std::fill(scratch, scratch + count + 1, std::complex<float>{});
+    for (int h = 1; h <= count; ++h)
+        addAt(scratch, count, where(h), s[h]);
+    std::copy(scratch + 1, scratch + count + 1, s + 1);
+    keepPower(s, count, power);
+}
+
+double unitHash(std::uint32_t seed, int h) noexcept
+{
+    std::uint32_t x = seed * 0x9E3779B9u + static_cast<std::uint32_t>(h) * 0x85EBCA6Bu;
+    x ^= x >> 16;
+    x *= 0x7FEB352Du;
+    x ^= x >> 15;
+    x *= 0x846CA68Bu;
+    x ^= x >> 16;
+    return static_cast<double>(x >> 8) / static_cast<double>(1u << 24);
+}
+} // namespace
+
+void applySpectralWarp(Warp warp, float amount, std::complex<float>* s, int count, std::uint32_t seed,
+                       std::complex<float>* scratch) noexcept
+{
+    const double a = std::clamp(static_cast<double>(amount), 0.0, 1.0);
+    if (a <= 0.0 || count < 1)
+        return;
+    switch (warp)
+    {
+    case Warp::FormantShift:
+    {
+        // The levels read lower down: the envelope moves up, each harmonic keeps its phase.
+        const double power = powerOf(s, count), scale = std::exp2(2.0 * a);
+        std::copy(s, s + count + 1, scratch);
+        for (int h = 1; h <= count; ++h)
+            s[h] = atLevel(scratch[h], levelAt(scratch, count, h / scale));
+        keepPower(s, count, power);
+        return;
+    }
+    case Warp::HarmonicStretch:
+        moveHarmonics(s, count, scratch, [a](int h) { return h * (1.0 + a); });
+        return;
+    case Warp::InharmonicStretch:
+        moveHarmonics(s, count, scratch,
+                      [a](int h) { return std::pow(static_cast<double>(h), 1.0 + 0.5 * a); });
+        return;
+    case Warp::Smear:
+    {
+        // A one-pole blur of the levels, up then down the harmonics.
+        const double power = powerOf(s, count), c = 0.95 * a;
+        double y = 0.0;
+        for (int h = 1; h <= count; ++h)
+            scratch[h] = static_cast<float>(y = (1.0 - c) * std::abs(s[h]) + c * y);
+        y = 0.0;
+        for (int h = count; h >= 1; --h)
+        {
+            y = (1.0 - c) * scratch[h].real() + c * y;
+            s[h] = atLevel(s[h], y);
+        }
+        keepPower(s, count, power);
+        return;
+    }
+    case Warp::SpectralLowPass:
+    {
+        const double top = std::pow(static_cast<double>(count), 1.0 - a);
+        for (int h = 1; h <= count; ++h)
+            s[h] *= static_cast<float>(std::clamp(top + 1.0 - h, 0.0, 1.0));
+        return;
+    }
+    case Warp::SpectralHighPass:
+    {
+        const double bottom = std::pow(static_cast<double>(count), a);
+        for (int h = 1; h <= count; ++h)
+            s[h] *= static_cast<float>(std::clamp(h - bottom + 1.0, 0.0, 1.0));
+        return;
+    }
+    case Warp::PhaseDisperse:
+        for (int h = 2; h <= count; ++h)
+            s[h] *= std::polar(1.0f, static_cast<float>(a * pi * (h - 1.0) * (h - 1.0) / 64.0));
+        return;
+    case Warp::RandomHarmonics:
+        for (int h = 1; h <= count; ++h)
+            s[h] *= static_cast<float>(1.0 - a + 2.0 * a * unitHash(seed, h));
+        return;
+    case Warp::Shepard:
+    {
+        // Up by `a` of an octave fading out, and from an octave below up by `a` fading in.
+        const double power = powerOf(s, count);
+        const auto out = static_cast<float>(std::sqrt(1.0 - a)), in = static_cast<float>(std::sqrt(a));
+        std::fill(scratch, scratch + count + 1, std::complex<float>{});
+        for (int h = 1; h <= count; ++h)
+        {
+            addAt(scratch, count, h * std::exp2(a), s[h] * out);
+            addAt(scratch, count, h * std::exp2(a - 1.0), s[h] * in);
+        }
+        std::copy(scratch + 1, scratch + count + 1, s + 1);
+        keepPower(s, count, power);
+        return;
+    }
+    default:
+        return;
+    }
+}
+
+double frameSkewOffset(int h, int count, float amount) noexcept
+{
+    const double where =
+        count > 1 ? std::log2(static_cast<double>(h)) / std::log2(static_cast<double>(count)) : 0.0;
+    return std::clamp(static_cast<double>(amount), 0.0, 1.0) * (where - 0.5);
+}
+
 // ---- rendering -------------------------------------------------------------------------------
 
 void CycleRenderer::prepare()
@@ -347,6 +516,8 @@ void CycleRenderer::prepare()
     for (int order = 6; order <= 13; ++order)
         ffts_[static_cast<size_t>(order)].prepare(order);
     bins_.assign(2 * maxSize + 1, {});
+    spectrum_.assign(Wavetable::maxHarmonic + 1, {});
+    scratch_.assign(Wavetable::maxHarmonic + 1, {});
     wide_.assign(2 * maxSize, 0.0f);
     warped_.assign(2 * maxSize, 0.0f);
 }
@@ -365,43 +536,73 @@ int CycleRenderer::render(const Wavetable& table, double position, const std::ar
     const int limit = std::clamp(harmonics, 1, Wavetable::maxHarmonic);
     const int n = sizeFor(limit);
     float* out = cycle(buffer);
-
-    // The two frames around the position, interpolated harmonic by harmonic.
-    const double at = std::clamp(position, 0.0, 1.0) * (table.frames() - 1);
-    const int f0 = static_cast<int>(at);
-    const int f1 = std::min(f0 + 1, table.frames() - 1);
-    const auto t = static_cast<float>(at - f0);
-    const auto* a = table.spectrum(f0);
-    const auto* b = table.spectrum(f1);
     const bool warped = isCycleWarp(warps[0].warp) || isCycleWarp(warps[1].warp);
+    const bool spectral = isSpectralWarp(warps[0].warp) || isSpectralWarp(warps[1].warp);
+    // The warps in the cycle work on a cycle 16 times the harmonics (512 ... 4 096): what they
+    // push past its top folds back onto harmonics, slightly changing the brightest, never between
+    // them. Its sources go to a quarter of its size, where reads stay exact, since warps move
+    // harmonics both ways.
+    int wide = 512;
+    while (wide < 16 * limit && wide < maxSize)
+        wide <<= 1;
+    const int top = std::min(limit, n / 2 - 1);
+    // How many of the table's harmonics are needed: every one when the spectral warps may move them.
+    const int needed =
+        spectral ? Wavetable::maxHarmonic : (warped ? std::min(Wavetable::maxHarmonic, wide / 4) : top);
+
+    // The frames around the position, interpolated harmonic by harmonic (under Frame Skew, each
+    // harmonic from a position of its own).
+    float skew = 0.0f;
+    for (const auto& w : warps)
+        if (w.warp == Warp::FrameSkew)
+            skew += w.amount;
+    const auto read = [&table](double where, int h)
+    {
+        const double at = std::clamp(where, 0.0, 1.0) * (table.frames() - 1);
+        const int f0 = static_cast<int>(at), f1 = std::min(f0 + 1, table.frames() - 1);
+        const auto t = static_cast<float>(at - f0);
+        const auto a = table.spectrum(f0)[h], b = table.spectrum(f1)[h];
+        return a + t * (b - a);
+    };
+    spectrum_[0] = {};
+    if (skew > 0.0f && table.frames() > 1)
+        for (int h = 1; h <= needed; ++h)
+            spectrum_[static_cast<size_t>(h)] =
+                read(position + frameSkewOffset(h, Wavetable::maxHarmonic, std::min(skew, 1.0f)), h);
+    else
+    {
+        const double at = std::clamp(position, 0.0, 1.0) * (table.frames() - 1);
+        const int f0 = static_cast<int>(at), f1 = std::min(f0 + 1, table.frames() - 1);
+        const auto t = static_cast<float>(at - f0);
+        const auto* a = table.spectrum(f0);
+        const auto* b = table.spectrum(f1);
+        for (int h = 1; h <= needed; ++h)
+            spectrum_[static_cast<size_t>(h)] = a[h] + t * (b[h] - a[h]);
+    }
+    // The spectral warps, on the harmonics.
+    for (const auto& w : warps)
+        if (isSpectralWarp(w.warp))
+            applySpectralWarp(w.warp, w.amount, spectrum_.data(), needed, w.seed, scratch_.data());
 
     if (!warped)
     {
         auto& fft = ffts_[static_cast<size_t>(orderOf(n))];
-        const int top = std::min(limit, n / 2 - 1);
         const auto scale = static_cast<float>(n);
         bins_[0] = {};
         for (int h = 1; h <= n / 2; ++h)
             bins_[static_cast<size_t>(h)] =
-                h <= top ? scale * (a[h] + t * (b[h] - a[h])) : std::complex<float>{};
+                h <= top ? scale * spectrum_[static_cast<size_t>(h)] : std::complex<float>{};
         fft.inverse(bins_.data(), out);
     }
     else
     {
-        // The warps work on a cycle 16 times the harmonics (512 ... 4 096): what they push past
-        // its top folds back onto harmonics, slightly changing the brightest, never between them.
-        // Its sources go to a quarter of its size, where reads stay exact, since warps move
-        // harmonics both ways.
-        int wide = 512;
-        while (wide < 16 * limit && wide < maxSize)
-            wide <<= 1;
         auto& wideFft = ffts_[static_cast<size_t>(orderOf(wide))];
         const int sources = std::min(Wavetable::maxHarmonic, wide / 4);
         const auto scale = static_cast<float>(wide);
         bins_[0] = {};
         for (int h = 1; h <= wide / 2; ++h)
             bins_[static_cast<size_t>(h)] =
-                h <= sources ? scale * (a[h] + t * (b[h] - a[h])) : std::complex<float>{};
+                h <= sources ? scale * spectrum_[static_cast<size_t>(h)] : std::complex<float>{};
         wideFft.inverse(bins_.data(), wide_.data());
         float* from = wide_.data();
         float* to = warped_.data();

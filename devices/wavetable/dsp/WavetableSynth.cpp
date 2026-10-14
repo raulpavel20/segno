@@ -1233,9 +1233,9 @@ void WavetableSynth::tickVoice(Voice& v, const TransportInfo& transport, bool re
         {
             const auto warp = static_cast<dsp::Warp>(p.getInt(osc(n, k == 0 ? OscWarp1 : OscWarp2)));
             const auto slot = (k == 0 ? CWarpA0 : CWarpB0) + i;
-            warps[static_cast<size_t>(k)] = {
-                dsp::isSampleWarp(warp) || dsp::isSpectralWarp(warp) ? dsp::Warp::Off : warp,
-                static_cast<float>(v.to[slot]), &a->remaps[static_cast<size_t>(n * 2 + k)]};
+            warps[static_cast<size_t>(k)] = {dsp::isSampleWarp(warp) ? dsp::Warp::Off : warp,
+                                             static_cast<float>(v.to[slot]),
+                                             &a->remaps[static_cast<size_t>(n * 2 + k)]};
             const double amount = std::max(v.from[slot], v.to[slot]);
             if (warp == dsp::Warp::Fm)
                 fmReach *= 1.0 + 4.0 * amount;
