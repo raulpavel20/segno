@@ -2,7 +2,7 @@
 
 A **rack** holds a set of modules as one module in the chain: effects, or an instrument and its effects, in one chain or several side by side. It's saved whole as a file of its own and loaded whole from the browser, and its **macros** move many parameters across it with one knob, each along its own range and curve. Later, macros get snapshots to blend between, and motion of their own (LFOs, followers, a sequencer), after Transit's one-knob transitions.
 
-**Status:** for review (M3 P2, the product owner's priority 2 of 2026-10-13), with [ADR 0056](../decisions/0056-racks-are-modules-of-modules.md).
+**Status:** M3 P2, the product owner's priority 2 of 2026-10-13, with [ADR 0056](../decisions/0056-racks-are-modules-of-modules.md). Approved 2026-10-14 (§16); step 0 drawn and approved, step 1 built (§17) and waiting for the hands-on tasks; step 2 designed for review (§18).
 - **The product owner, 2026-10-14:** chains side by side explained, liked and kept.
 - **The UI must be very solid, with nothing confusing.** This comes before everything else in racks (§5a).
 - Nothing is built until the product owner says go.
@@ -176,6 +176,8 @@ The rack's mappings need more room than its panel: a module's editor in the deta
 
 What the product owner asked to plan. Each builds on step 1's macros.
 
+Step 2 is designed in §18; what follows is the plan it started from.
+
 - **Snapshots (step 2).** A rack keeps up to 8 snapshots of its macros' positions: Store, recall, rename, a macro left out of them on request (Live's variations).
   - **Beyond Live:** a **Morph** knob blends between two chosen snapshots, A and B, every macro gliding from one to the other. It's automatable, so one lane moves a whole rack from its verse sound to its drop sound (the innovation backlog's "macro snapshots with morphing").
 - **Vary (step 2).** Module > Vary on a rack changes its macros by a set amount, leaving locked ones alone, as for the Wavetable (its W12). Transit's randomiser with locks, and Live's Rand, but never a blind randomise.
@@ -201,7 +203,7 @@ The **Module** menu, a group after the presets:
 | Add chain | | To the selected rack; also its "+ Chain" |
 | Save rack… / Save rack as… | | The selected rack |
 | Show racks folder | | |
-| *Step 2:* Store snapshot, Vary | | |
+| *Step 2* (§18.9): Store, Update, Rename and Remove snapshot, Morph, Vary, Vary more | | |
 
 Map to macro and Unmap are on a knob's right-click, and the macro editor's Add does the same by mouse.
 
@@ -253,7 +255,7 @@ Modules inside a rack keep their ids, so `set_parameters`, `get_module` and the 
 
 0. **The UI drawn and approved (§5a),** with the spike (§12): before anything else is built.
 1. **Racks and macros:** the rack with its chains and mixer rows; group and ungroup; the panel and frame in the chain; eight macros with From, To and Curve, mapped by drag, right-click or the editor; the macro editor; automation of macros; rack files, the browser's Racks part, save and load; menus and MCP. Signed off after the product owner's hands-on tasks (§5a).
-2. **Snapshots and Morph, Vary for racks,** and the factory racks in the Library.
+2. **Snapshots and Morph, Vary for racks,** and the factory racks in the Library (§18, for review).
 3. **Motion on macros:** LFO, follower and sidechain, sequencer, gate, random.
 
 Each built, tested and signed off on its own.
@@ -309,3 +311,212 @@ Approved by the product owner (2026-10-14) with every recommendation, then the U
 - **Group into rack** takes the selected module and those Shift-clicked along the track's chain.
 - **MCP**, beyond §10's tools: `add_module` takes `rack` and `chain` (and type `rack`, with `path` a rack file); `move_module` takes `rack` (null: out of it) and `chain`; `set_parameters` refuses a parameter a macro sets, naming the macro; `get_module` says `setByMacro`, and a rack's macros are its parameters.
 - **Still to do before sign-off:** the product owner's hands-on tasks (§5a). The lock tracktion's macro source takes (§12, "To watch") is still to be checked: the `rtsan` preset builds the JUCE-free core only, so it needs the DAW built under the sanitizer (open question B84).
+
+## 18. Step 2: snapshots, Morph, Vary and factory racks (for review)
+
+**Status:** for review (2026-10-14). Nothing is built until the product owner approves it. Then, as for step 1, the UI is drawn in every state for review (§18.11) before anything else is built.
+
+### 18.1 How others do it (October 2026)
+
+| | Snapshots | Blending | Randomising | Leaving a control out |
+|---|---|---|---|---|
+| **Live 12** | Macro Variations: New stores the macros' positions; a click recalls them at once; overwrite, rename, delete. Recalling can't be automated, only mapped to MIDI | None | Rand: every mapped macro at random | Two flags on a macro's right-click, Exclude from variations and from randomisation (Ableton's FAQ and its users disagree on whether one covers both) |
+| **Bitwig, Studio One** | None found for containers or FX chains: presets of the whole only | – | – | – |
+| **Transit 2** | – | One Transition knob over every linked parameter, each with start, end and slope | A randomiser | Locks |
+| **SnappySnap** (2026, a plugin host) | 12 snapshots of a plugin's whole state | A fader and an XY pad across all 12 | "Breeding": crossover and mutation | Pinned knobs, left out of morphing |
+| **Flux** (IRCAM Trax, Spat) | Slots A and B | A morph slider, the only thing automation reads; an edit while it's between A and B moves it to the nearer one | – | – |
+| **Reaktor, Reason** (Morpher) | Snapshots | A morph between two | – | – |
+
+Sources: [Ableton's Macros and Variations FAQ](https://help.ableton.com/hc/en-us/articles/360019103480), [Ableton forum: automating variations](https://forum.ableton.com/viewtopic.php?p=1836659), [Garnish: Macro Variations](https://edu.garnishmusicproduction.com/?p=19008), [Sound On Sound: Studio One FX Chains](https://www.soundonsound.com/techniques/studio-one-fx-chains), [Baby Audio: Transit 2](https://babyaud.io/transit-2), [Sonicstate: SnappySnap](https://www.sonicstate.com/news/2026/02/06/snappysnap-plugin-snapshot-morphing/), [Flux: preset section](https://doc.flux.audio/ircam-trax/Preset_Section.html), [Reason Studios: Morpher](https://reasonstudios.com/shop/rack-extension/morpher-cv-utility).
+
+**What we take:**
+- **Snapshots of the macros only,** as Live's variations: small, every value continuous, and about what the rack's maker chose to put on its knobs.
+- **A morph between two chosen snapshots,** as Flux, Reaktor and Reason have, built as a macro that moves the macros, so it's automated as one lane and sample accurate.
+- **A lock on a macro,** as Transit's locks and SnappySnap's pinned knobs: one lock for recall, Morph and Vary, never Live's two flags.
+- **Vary that nudges** (the Wavetable's W12), never a blind randomise.
+
+**Beyond them:** in Live a variation can't be automated at all, and no DAW blends between them. Here one Morph lane takes a whole rack from its verse sound to its drop sound. Snapshots also behave as presets do (the current one named, a mark when it's changed, Update), so there's nothing new to learn about keeping one.
+
+### 18.2 Snapshots
+
+- **A snapshot is the positions of the rack's eight macros, with a name.** A rack keeps up to eight.
+- **Store:** Module > Store snapshot, the rack's right-click, a macro's right-click, or "+ Store" in SNAPSHOTS once there's one. It takes every macro where it is, named "Snapshot 1", "Snapshot 2"… until renamed, and becomes the current one.
+- **Recall:** a click on a snapshot's name. Every macro jumps to where the snapshot has it, except locked and automated ones (§18.4). There's no glide: Morph is the glide.
+- **The current snapshot** is the one last stored or recalled. Its name is lit, as a choice is. Once a macro moves away from it, its name gets the changed mark, as a preset's name does in a module's header (presets.md §6). Module > Update snapshot stores the macros over it; it's dimmed until something has changed. The rack keeps which one is current, and nothing else does.
+- **Rename:** a double-click on its name (as names are renamed everywhere), its right-click, or Module > Rename snapshot… for the current one.
+- **Remove:** its right-click, or Module > Remove snapshot for the current one.
+- **Each is one undo step:** store, recall, update, rename, remove.
+- **Kept** with the project and in the rack's file (§18.9).
+
+### 18.3 Morph
+
+- **A ninth knob, Morph, 0 to 100 %, between two snapshots chosen as A and B.**
+  - At 0 % every macro is where A has it; at 100 %, where B has it.
+  - In between, each macro moves in a straight line between its two positions. Each macro's own mappings still bend the parameters they move, as they do now.
+- **On and off.** MORPH has a power dot in its title, as a module's sections do (the Filter's LFO).
+  - **On:** the macros follow Morph. Each shows its A-to-B range as the ring a mapped knob shows, follows Morph, and can't be dragged by hand. Its tooltip says "Set by Morph: Verse → Drop". This is the rule a knob mapped to a macro already follows.
+  - **Off:** the macros stay where Morph left them and move by hand again, as a knob keeps its value when it's unmapped.
+- **Seen together:** hovering Morph lights the macros it moves and dims the rest; hovering a macro lights Morph. The macros already work this way with the knobs they move.
+- **Automated** like any parameter (`morph`): one lane takes the rack from A to B across the bars before a drop.
+- **While Morph is on:**
+  - a click on a snapshot turns Morph off and recalls that snapshot, in one undo step, so a click on a snapshot always does the same thing; the dot shows Morph is off;
+  - Store snapshot works, and keeps the in-between as a new snapshot;
+  - Update snapshot and Vary are dimmed, and say why ("Morph sets the macros").
+- **Changing A or B,** or locking or unlocking a macro, while Morph is on: Morph follows at once.
+- **The first two snapshots start as A and B.** Removing A or B turns Morph off and clears that choice.
+- **Engine:** Morph is one more macro of the rack, mapped to each unlocked, unautomated macro, From its position in A To its position in B, straight. tracktion works out a macro moved by a macro (its code refuses only a macro mapped to itself), so this is sample accurate and needs no patch. A spike checks it first (§18.11).
+
+### 18.4 Locks, and automation first
+
+- **A lock on each macro:** Lock on the macro's right-click, and a lock toggle on each row of the macro editor's MACROS list, so the mouse reaches it without a right-click.
+  - A locked macro shows a lock beside its name in the panel. Nothing shows on unlocked ones.
+  - **Recall, Morph and Vary leave a locked macro alone.** You can still turn it by hand and automate it.
+  - A snapshot still stores a locked macro's position. Unlock it and recalls move it again, so locking never loses anything.
+- **One lock for all three.** Live's two flags, and the disagreement about them, show what two locks cost.
+- **An automated macro follows its lane:** recall, Morph and Vary leave it alone, as a lock does. This is the rule presets already follow: an automated parameter keeps its lane over a preset. Its tooltip says so.
+
+### 18.5 Vary
+
+- **Module > Vary** (Ctrl+Alt+V) moves each mapped macro by a random amount, up to ±15 % of its travel, from where it is. **Vary more** (Ctrl+Alt+Shift+V) moves it up to ±40 %. Both are also on the rack's right-click.
+- **Left alone:** locked macros, automated ones, and unmapped ones (shown faded; they move nothing).
+- **One undo step each:** Vary again for another, Ctrl+Z to go back, Store snapshot to keep one you like.
+- **Not a randomise:** a good sound stays near itself, and several Varies in a row walk away from it a step at a time.
+- **While Morph is on,** both are dimmed: Morph sets the macros.
+- **The Wavetable's Vary** (W12, its step 3) uses the same two items, keys and amounts, with locks on its sections in place of macros. One MCP tool, `vary_module`, serves both.
+
+### 18.6 In the rack's panel
+
+```
+ ┌ RACK ─ Verse to drop ──────────────────────────────────────────────────────────────────┐
+ │ MACROS                       SNAPSHOTS                 ● MORPH         CHAINS          │
+ │ (Cut) (Wash) (Drive)(Width)  [ Verse      ][ Build •  ]   ( Morph )     ● Main     S   │
+ │  30 %  55 %   70 %   0 %🔒   [ Drop       ][ + Store  ]     40 %        ● Dry      S   │
+ │ ( 5 ) ( 6 )  ( 7 )  ( 8 )                              [A  Verse ▾]     + Chain        │
+ │                                                        [B  Drop  ▾]   MAIN  Vol  Pan   │
+ └────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+- **SNAPSHOTS,** 4 columns. It shows once there's a snapshot, as CHAINS shows from the second chain, so a rack without snapshots looks as it does now. Names sit two to a row, four rows, room for eight. "+ Store" takes the next free place until there are eight.
+- **MORPH,** 2 columns, shows from the second snapshot: its power dot in the title, the Morph knob (the macros' knob, since Morph is a macro of macros), then A and B as dropdowns with their letter inside ("A  Verse"), as combos name their parameter inside.
+- **Everything is from the panel kit:** the chain list's choice buttons, `Knob`, `ChoiceBox` with its name inside, the section power dot, and the changed mark from the preset bar. The layout lint checks it.
+- **Folded,** the strip still says what's inside, and adds snapshots: "Verse to drop  2 chains · 3 snapshots".
+
+### 18.7 The macro editor
+
+- **MACROS:** each row gains its lock toggle (§18.4).
+- **CURVES:** while Morph is on, the selected macro's positions in A and B show as two faint lines marked A and B, with the macro's own line between them, so what Morph does to one macro, and through it to the rack, shows at once.
+- **Snapshots aren't edited here:** store, recall and update are on the panel, as a module's presets are in its header.
+
+### 18.8 Factory racks
+
+- **About a dozen, in the Library's `Racks/`,** in three folders: Transitions, Parallel and Instruments. The browser's Racks part lists them, the Library's first. Each has tags, a description and "Segno" as its author.
+- **Transitions:** one or two macros moving many parameters, as Transit does, with two snapshots and Morph where a change of section is the point.
+  - **Riser:** the Filter's high-pass climbing, the Reverb and Delay coming in, Auto Pan speeding up (Rise).
+  - **Wash out:** the Reverb growing and swallowing the sound, a low-pass closing (Wash).
+  - **Lo-fi drop:** the Saturator, a low-pass and the Chorus's wobble (Crush).
+  - **Filter build:** the Filter opening with resonance, the Phaser (Build).
+  - **Echo throw:** the Delay with filtered feedback (Throw, Tone).
+  - **Chop:** the Tremolo in time, its depth and rate (Chop).
+  - **Verse to drop:** Cut, Wash, Drive and Width, with snapshots Verse and Drop and Morph between them: step 2's showcase.
+- **Parallel:** chains side by side.
+  - **Parallel compression:** a dry chain beside the Compressor and Saturator (Squash, Blend).
+  - **Wide chorus:** a dry chain beside the Chorus and the Utility's width (Width).
+  - **Parallel drive:** a dry chain beside the Saturator into the EQ (Drive, Tone).
+- **Instruments:** layers.
+  - **Layered pad:** a Wavetable pad beside the Sampler's strings from the Library (Air, Strings).
+  - **Bass stack:** a Subtractive sub beside a Wavetable growl (Growl, Cutoff).
+- **Made as the factory presets are:**
+  - Recipes in the repository (`tools/library/racks/recipes.json`): each module by its ID and a factory preset, with what differs; mappings with From and To in the parameter's own unit; snapshots by macro positions.
+  - A tool writes each `.segnorack` file. A conformance test checks that the files are what the recipes make, and that each rack loads, plays cleanly within level, and its macros and Morph move what they're named for.
+  - The Library build copies them in, and the Library's version goes up.
+- **Signed off by the product owner by ear,** as the factory presets are. Names and contents can change in review.
+
+### 18.9 Preview, menus, assistants and files
+
+- **Preview in the browser** (deferred from step 1, §17):
+  - An instrument rack plays the presets' phrase (browser.md §7) through itself, rendered offline: each chain's modules in order, summed at its volume and pan, the macros where the file has them.
+  - A rack that holds a plugin isn't previewed, because plugins aren't rendered offline; its tooltip says so.
+  - Effect racks wait for effect presets' previews (browser.md R9): one design for both, later.
+- **The Module menu,** after Add chain:
+
+  | Item | Key | |
+  |---|---|---|
+  | Store snapshot | | A new snapshot of the macros; also "+ Store", the rack's and a macro's right-click |
+  | Update snapshot | | The macros over the current snapshot; dimmed unless changed, or while Morph is on |
+  | Rename snapshot… | | The current one; also a double-click on its name |
+  | Remove snapshot | | The current one; also its right-click |
+  | Morph | | Ticked while on; also MORPH's power dot |
+  | Vary / Vary more | Ctrl+Alt+V / Ctrl+Alt+Shift+V | The selected rack's macros (§18.5); later the Wavetable's sections too |
+
+  A and B are chosen on the panel, where they show.
+- **Assistants (MCP):**
+
+  | Tool | What it does |
+  |---|---|
+  | `get_rack` | Adds the snapshots (names and positions), the current one, Morph (on, A, B, position) and each macro's lock |
+  | `store_snapshot`, `recall_snapshot`, `remove_snapshot` | As the panel's; `store_snapshot` with `snapshot` updates that one |
+  | `set_snapshot` | A snapshot's name, or its positions directly |
+  | `set_morph` | On, A and B; its position is the rack's parameter `morph`, set like any other |
+  | `set_macro` | Gains `locked` |
+  | `vary_module` | Vary or Vary more on a rack (later the Wavetable) |
+
+- **Files and IDs** (permanent once approved, `docs/ids.md`):
+  - the rack's parameter `morph`, beside `macro1` … `macro8`, automated as `m<rack id>/morph`;
+  - in a project, on the rack: its snapshots, the current one, Morph's A, B and on, and each macro's lock;
+  - in a `.segnorack` file: `snapshots` (name and eight positions each), `morph` (on, A, B, position), and `locked` on each macro.
+  - The format stays `segnoRack: 1`: nothing has been released, the additions are optional, and a file saved by step 1 loads as it is.
+
+### 18.10 Tests (done when)
+
+| What | Target |
+|---|---|
+| Snapshots | Store and recall land every unlocked, unautomated macro exactly; locked and automated ones stay; the current one and its changed mark follow; each edit one undo step |
+| Morph | At 0, 50 and 100 % the macros are at A, half way and B, and so are the parameters they map, in a render; automated Morph is sample accurate; off keeps the positions; a click on a snapshot while on turns it off; a macro refuses a drag while on |
+| Locks and automation | Recall, Morph and Vary never move a locked or automated macro |
+| Vary | Only mapped, unlocked, unautomated macros move, each within its amount; one undo step |
+| Files | Snapshots, locks and Morph round trip byte for byte; a step 1 file loads as it is |
+| Factory racks | The files are what their recipes make; each loads and plays cleanly within level; its macros and Morph move what they name |
+| Preview | An instrument rack's phrase sounds as the rack does in a project |
+| UI | SNAPSHOTS and MORPH pass the layout lint; every state drawn for review |
+| MCP | Every new tool driven in a test, as the UI's edits are |
+
+### 18.11 Order of work within step 2
+
+- **2a. The spike and the UI drawn.**
+  - The spike: Morph moving macros moving parameters, sample accurate, saved and undone. Kept as tests.
+  - The UI drawn for review in every state:
+    - one snapshot;
+    - three, one of them changed;
+    - eight;
+    - Morph off, on, and automated;
+    - a locked macro;
+    - hovering Morph;
+    - Vary dimmed while Morph is on;
+    - the editor's locks and its A and B lines.
+- **2b. Snapshots, locks, Morph and Vary,** with the menus, MCP and files.
+- **2c. The factory racks and the preview,** signed off by ear.
+- **Hands-on tasks before sign-off**, done unaided as in §5a:
+  - store two snapshots and rename them;
+  - morph between them with automation over eight bars;
+  - lock a macro and Vary the rest;
+  - update a snapshot;
+  - load a factory rack and use its Morph.
+
+### 18.12 Questions for review
+
+| # | Question | Recommendation |
+|---|---|---|
+| S1 | **What a snapshot holds** | The eight macros' positions, as Live's variations: small, continuous, blendable. Not whole module states, which would jump on every switch and choice |
+| S2 | **How many** | Eight a rack, as there are eight macros |
+| S3 | **Recall** | A jump; Morph is the glide |
+| S4 | **Keeping one** | As a preset: the current one is lit, a changed mark when the macros move, Update stores over it |
+| S5 | **Morph between what** | Two snapshots chosen as A and B. Not a sweep across all of them in order: harder to read, and A and B say exactly what a lane does |
+| S6 | **Morph on and off** | A power dot. While on, the macros follow it, as mapped knobs follow their macro; a click on a snapshot turns it off and recalls |
+| S7 | **Editing while Morph is on** | The macros can't be dragged; turn Morph off, recall, change, Update. Not Flux's way, where an edit moves Morph to the nearer end: an edit that moves another control is confusing |
+| S8 | **Locks** | One lock a macro for recall, Morph and Vary; a snapshot still stores a locked macro |
+| S9 | **Automated macros** | Their lane comes first: recall, Morph and Vary leave them alone, as presets do |
+| S10 | **Vary** | Two items with keys, Vary (±15 %) and Vary more (±40 %), shared with the Wavetable later. Not one item with an amount kept somewhere else |
+| S11 | **When SNAPSHOTS and MORPH show** | From the first snapshot and the second, as CHAINS shows from the second chain, so a plain rack stays plain |
+| S12 | **Factory racks** | The twelve above, in Transitions, Parallel and Instruments, made from recipes and signed off by ear |
+| S13 | **Preview** | Instrument racks now; effect racks later, with effect presets' previews |
+| S14 | **Building it** | The spike and the UI drawn for review first (2a), then built (2b, 2c) |
