@@ -36,7 +36,8 @@ In the UI, instruments and effects are **modules**. Code and docs say *device* (
   - the **section title row** (20 px, then a 4 px gap);
   - **content:** 6 rows, 160 px;
   - 12 px bottom padding.
-- **Sections** sit side by side, left to right, each with 12 px padding on either side. A **1 px line** in the `line` colour separates neighbouring sections, centred in the 24 px between their contents.
+- **Sections** sit side by side, left to right, each with 12 px padding on either side. A **1 px line** in the `line` colour separates neighbouring sections, centred in the 24 px between their contents. A section that matters only sometimes may show only then (`DevicePanel::showSectionWhen`: a rack's CHAINS, from its second chain, [racks.md](racks.md) §5a); unlike a header setting, it takes its room only while it shows, and the panel's host lays the chain out again when it comes or goes.
+- **The folded strip** reads the module's name upwards; a module may add what it holds after the name, fainter (`DevicePanel::setFoldedDetail`: a rack's "4 modules"). A rack's panel shows the rack's name in place of the module's (`setDisplayName`).
 - **Meter strip:** modules with meters end with a strip at the right edge.
   - Widths: 24 px for one meter, 44 px for an in/out pair.
   - Labels: `OUT`, or `IN` and `OUT`, in the title row.
@@ -61,6 +62,7 @@ In the UI, instruments and effects are **modules**. Code and docs say *device* (
 | Display text | 6 inset, 14 tall | `DeviceGrid::displayInset`, `displayTextHeight`: a display's legend, readouts and axis labels |
 | Display handle | 11 | `DeviceGrid::displayHandle`: a point dragged on a display (the Compressor's threshold, the Filter's cutoff), filled `surface3` and ringed in the value colour, or `active` while held or hovered |
 | Source handle | 14 tall | `DeviceGrid::sourceHandle`: a modulation source's handle, a chip with its arrow and name ("Modulation", below) |
+| Power | 14 | `DeviceGrid::power`: a power toggle's square (a module's, a section's, a rack's chain's) |
 | Modulation ring | 1.5, 1 apart | `Theme::knobRingThickness`, `knobRingGap`: the ring outside a modulated knob's arc |
 
 Three rows are exactly one knob tall (76 px), so a knob lines up with a stack of three line controls beside it.

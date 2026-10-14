@@ -6,7 +6,9 @@
 #include "model/Recording.h"
 #include "model/TempoMap.h"
 
+#include <array>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -64,6 +66,8 @@ struct ClipInfo
     [[nodiscard]] double end() const noexcept { return start + length; }
 };
 
+struct RackInfo;
+
 /// A device in a track's chain (C6): ours or a third-party plugin.
 struct DeviceSlot
 {
@@ -78,6 +82,44 @@ struct DeviceSlot
     bool midiEffect = false; // processes MIDI only (an arpeggiator), never audio
     bool takesSidechain = false;                  // ADR 0025
     std::optional<std::uint64_t> sidechainSource; // the track feeding it, if any
+    /// A rack (docs/design/racks.md): its chains and macros. Null for any other module.
+    std::shared_ptr<const RackInfo> rack;
+};
+
+/// A rack's mapping of a macro to a parameter of a module in it (racks.md §4).
+struct MacroMappingInfo
+{
+    std::uint64_t module = 0;
+    std::string param;            // the parameter's id
+    std::string paramName;        // as its knob names it
+    float from = 0.0f, to = 1.0f; // where the macro's 0 and 100 % take it, normalised
+    float curve = 0.0f;           // -1 ... +1: bent toward its start or end; 0 straight
+};
+
+/// One of a rack's eight macros.
+struct RackMacro
+{
+    std::string name;   // "Macro 1" until renamed
+    float value = 0.0f; // 0 ... 1
+    std::vector<MacroMappingInfo> mappings;
+};
+
+/// One of a rack's chains: its mixer row and its modules, in order (racks.md §3).
+struct RackChain
+{
+    std::string name; // "Chain 1" until renamed
+    bool on = true, solo = false;
+    float volumeDb = 0.0f, pan = 0.0f;
+    std::vector<DeviceSlot> devices;
+};
+
+/// A rack: chains side by side, summed, and eight macros (racks.md, ADR 0056).
+struct RackInfo
+{
+    static constexpr int macroCount = 8;
+    std::vector<RackChain> chains;
+    std::array<RackMacro, macroCount> macros;
+    int shownChain = 0; // the chain its frame shows (view state, kept with the project)
 };
 
 /// The level at the bottom of a fader: silence (-inf dB).

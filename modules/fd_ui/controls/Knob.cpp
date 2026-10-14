@@ -280,9 +280,9 @@ void Knob::mouseMove(const juce::MouseEvent& e)
 {
     const bool onHandle = handleArea().contains(e.position);
     setHandleHovered(onHandle);
-    setMouseCursor(onHandle               ? juce::MouseCursor::DraggingHandCursor
-                   : isOnRing(e.position) ? juce::MouseCursor::UpDownLeftRightResizeCursor
-                                          : juce::MouseCursor::NormalCursor);
+    setMouseCursor(onHandle                              ? juce::MouseCursor::DraggingHandCursor
+                   : !following_ && isOnRing(e.position) ? juce::MouseCursor::UpDownLeftRightResizeCursor
+                                                         : juce::MouseCursor::NormalCursor);
 }
 
 void Knob::mouseExit(const juce::MouseEvent&)
@@ -402,6 +402,11 @@ void Knob::mouseDown(const juce::MouseEvent& e)
     grabKeyboardFocus();
     lastDragY_ = e.position.y;
     lastDragX_ = e.position.x;
+    if (following_ && !handleArea().contains(e.position))
+    {
+        press_ = Press::None; // set by something else: nothing to drag
+        return;
+    }
     // A source's handle drags the source; the ring sets the modulation's amount.
     if (handleArea().contains(e.position))
     {
@@ -424,6 +429,8 @@ void Knob::mouseDown(const juce::MouseEvent& e)
 
 void Knob::mouseDrag(const juce::MouseEvent& e)
 {
+    if (press_ == Press::None)
+        return;
     if (press_ == Press::Handle)
     {
         if (onHandleDrag)
@@ -457,6 +464,8 @@ void Knob::mouseDrag(const juce::MouseEvent& e)
 void Knob::mouseUp(const juce::MouseEvent& e)
 {
     const auto press = std::exchange(press_, Press::Value);
+    if (press == Press::None)
+        return;
     if (press == Press::Handle)
     {
         if (onHandleRelease)
@@ -476,9 +485,19 @@ void Knob::mouseUp(const juce::MouseEvent& e)
         onGestureEnd();
 }
 
+void Knob::setFollowing(bool following)
+{
+    if (following == following_)
+        return;
+    following_ = following;
+    if (following_ && editor_ != nullptr)
+        editor_.reset();
+    repaint();
+}
+
 void Knob::mouseDoubleClick(const juce::MouseEvent& e)
 {
-    if (e.mods.isPopupMenu() || handleArea().contains(e.position) || isOnRing(e.position))
+    if (following_ || e.mods.isPopupMenu() || handleArea().contains(e.position) || isOnRing(e.position))
         return;
     // The double-click's second press already began a gesture (ended on release): the reset is
     // part of it, so gestures never nest.
@@ -494,7 +513,7 @@ void Knob::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetai
 {
     const float step = steps_ > 1 ? 1.0f / static_cast<float>(steps_ - 1) : (e.mods.isShiftDown() ? 0.002f : 0.02f);
     const float direction = (wheel.deltaY != 0.0f ? wheel.deltaY : wheel.deltaX) * (wheel.isReversed ? -1.0f : 1.0f);
-    if (direction == 0.0f)
+    if (direction == 0.0f || following_)
         return;
     if (onGestureStart)
         onGestureStart();
@@ -505,6 +524,8 @@ void Knob::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetai
 
 bool Knob::keyPressed(const juce::KeyPress& key)
 {
+    if (following_)
+        return false;
     const float step = steps_ > 1 ? 1.0f / static_cast<float>(steps_ - 1) : 0.01f;
     if (key == juce::KeyPress::upKey || key == juce::KeyPress::rightKey)
     {

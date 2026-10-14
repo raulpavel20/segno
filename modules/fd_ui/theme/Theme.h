@@ -21,6 +21,7 @@ struct DeviceGrid
     int displayTextHeight = 14; // a display's line of text (a legend, a readout, an axis label)
     int displayHandle = 11; // a point dragged on a display (the Compressor's threshold, the Filter's cutoff)
     int sourceHandle = 14;  // a modulation source's handle: a chip, its arrow and name ("Modulation")
+    int power = 14;         // a power toggle's square: a module's, a section's, a rack's chain's
     int headerPadding = 8;
     int headerButton = 16;                          // a header's icon buttons: fold, previous and next preset
     int presetFieldMin = 112, presetFieldMax = 200; // the preset's name field (presets.md §6)
@@ -62,6 +63,7 @@ struct ColourRoles
     juce::Colour loudnessShortTerm, loudnessMomentary, loudnessTarget, loudnessTargetBand;
     juce::Colour focusRing, hoverWash, dropWell, valueHot, valueText, warning, overlay, shadow;
     juce::Colour warningFill; // behind a warning's text: a module's latency badge
+    juce::Colour rackFrame;   // the tray a rack's modules sit in, in the chain (racks.md §5)
     // Automation (docs/design/automation.md §6): the indicator on automated controls. Lanes draw in
     // their own colour (Theme::automationLine and the fill functions).
     juce::Colour automation;
@@ -158,6 +160,8 @@ struct ShellMetrics
     int takeIconSize = 12;        // the audition button in a take strip's name chip (ADR 0038)
     int clipButtonSize = 12;      // a button on a clip: cancel its bounce (menu-bar.md §15)
     int dropLine = 2;             // where a dragged module or row lands: a line in `active`
+    int rackInset = 6;            // a rack's frame around its panels in the chain (racks.md §5)...
+    int rackLabelHeight = 16;     // ...and its strip under them, naming the chain shown
     int progressHeight = 2;       // the progress line along the bottom of what's being worked on
     int fadeHandleSize = 7;       // a fade's or crossfade's handle on a clip (fades.md §3)
     int loopNotch = 4;            // a looped clip's notch at each seam: its depth, half its width (clip-loops.md §5)

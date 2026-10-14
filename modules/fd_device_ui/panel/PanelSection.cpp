@@ -204,7 +204,7 @@ void PanelSection::resized()
     content_.setBounds(contentBounds());
     if (power_ != nullptr)
     {
-        const int size = 14;
+        const int size = grid.power;
         const auto title = titleBounds();
         power_->setBounds(collapsed_ ? juce::Rectangle<int>(0, grid.bodyTop, getWidth(), grid.titleHeight).withSizeKeepingCentre(size, size)
                                      : title.withWidth(size).withSizeKeepingCentre(size, size));

@@ -120,6 +120,17 @@ protected:
     /// Shows a header setting only while `shown()` is true (the EQ's Resolution, which matters
     /// only while there's a delay); otherwise it takes no room. The panel's width keeps room for it.
     void showHeaderWhen(juce::Component& setting, std::function<bool()> shown);
+    /// Shows a section only while `shown()` is true (a rack's CHAINS, from its second chain;
+    /// racks.md §5a); otherwise it takes no room. Checked on every refresh; when it changes, the
+    /// panel lays out again and tells its host (onViewChanged), as for a collapse.
+    void showSectionWhen(PanelSection& section, std::function<bool()> shown);
+    /// Checks those sections now (after what they depend on changed), as the refresh does: true
+    /// if one came or went.
+    bool updateShownSections();
+    /// The name the header shows in place of the module's own (a rack's, racks.md §5).
+    void setDisplayName(juce::String name);
+    /// What the folded strip says after the name, fainter (a rack's "4 modules", racks.md §5a).
+    void setFoldedDetail(juce::String detail);
     /// A live figure in the header with its caption (the Wavetable Synth's "CPU 4 %", W13), as
     /// wide as `widest`.
     HeaderReadout& addHeaderReadout(juce::String caption, juce::String widest,
@@ -198,6 +209,11 @@ private:
     };
     std::vector<Page> pages_;
     std::vector<int> sectionPage_; // each section's page
+    std::vector<std::function<bool()>> sectionShown_; // each section: shown while true (or always)
+    std::vector<bool> sectionShowing_;                // each section, as laid out
+    juce::String displayName_;                        // empty: the module's own
+    juce::String foldedDetail_;
+    [[nodiscard]] juce::String headerName() const;
     int page_ = 0;
     TabRow pageTabs_;
     int springTab_ = -1;       // the page tab a dragged source is held on

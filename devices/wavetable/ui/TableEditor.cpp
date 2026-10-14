@@ -161,32 +161,6 @@ float snap(float x, int grid)
 }
 } // namespace
 
-// ---- NoteText ------------------------------------------------------------------------------------
-
-void NoteText::setText(juce::String text, bool warning)
-{
-    if (text == text_ && warning == warning_)
-        return;
-    text_ = std::move(text);
-    warning_ = warning;
-    repaint();
-}
-
-void NoteText::setJustification(juce::Justification justification)
-{
-    justification_ = justification;
-    repaint();
-}
-
-void NoteText::paint(juce::Graphics& g)
-{
-    const auto& t = ui::Theme::current();
-    g.setColour(warning_ ? t.roles.warning : t.textTertiary);
-    g.setFont(ui::font(ui::TextStyle::Caption));
-    const int lines = std::max(1, getHeight() / t.deviceGrid.row);
-    g.drawFittedText(text_, getLocalBounds(), justification_, lines, 1.0f);
-}
-
 // ---- LayerView -----------------------------------------------------------------------------------
 
 LayerView::LayerView(TableEditor& editor) : editor_(editor)

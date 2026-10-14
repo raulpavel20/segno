@@ -3,7 +3,6 @@ namespace fd::ui
 namespace
 {
 constexpr int kFoldButton = 16;
-constexpr int kPower = 14;
 constexpr int kSettingsGap = 8;
 
 juce::Font nameFont()
@@ -156,6 +155,7 @@ void DevicePanel::timerCallback()
         presetBar_->refresh();
     updateDimming();
     springLoad();
+    updateShownSections();
     // A header setting shown only while it matters came or went.
     for (size_t i = 0; i < headerShown_.size(); ++i)
         if (headerShown_[i] && i < headerShowing_.size() && headerShown_[i]() != headerShowing_[i])
@@ -211,8 +211,58 @@ PanelSection& DevicePanel::addSection(std::string id, juce::String title, int co
     jassert(findSection(id) == nullptr); // ids are unique within a panel
     auto& s = *sections_.emplace_back(std::make_unique<PanelSection>(*this, std::move(id), std::move(title), columns, powerParam));
     sectionPage_.push_back(std::max(0, pageCount() - 1));
+    sectionShown_.emplace_back();
+    sectionShowing_.push_back(true);
     addAndMakeVisible(s);
     return s;
+}
+
+void DevicePanel::showSectionWhen(PanelSection& section, std::function<bool()> shown)
+{
+    for (size_t i = 0; i < sections_.size(); ++i)
+        if (sections_[i].get() == &section)
+        {
+            sectionShown_[i] = std::move(shown);
+            sectionShowing_[i] = sectionShown_[i]();
+        }
+    resized();
+}
+
+bool DevicePanel::updateShownSections()
+{
+    // A section shown only while it matters came or went: the panel's width changes.
+    bool changed = false;
+    for (size_t i = 0; i < sectionShown_.size(); ++i)
+        if (sectionShown_[i] && sectionShown_[i]() != sectionShowing_[i])
+        {
+            sectionShowing_[i] = !sectionShowing_[i];
+            changed = true;
+        }
+    if (changed)
+        viewChanged(true);
+    return changed;
+}
+
+void DevicePanel::setDisplayName(juce::String name)
+{
+    if (name == displayName_)
+        return;
+    displayName_ = std::move(name);
+    resized();
+    repaint();
+}
+
+void DevicePanel::setFoldedDetail(juce::String detail)
+{
+    if (detail == foldedDetail_)
+        return;
+    foldedDetail_ = std::move(detail);
+    repaint();
+}
+
+juce::String DevicePanel::headerName() const
+{
+    return displayName_.isNotEmpty() ? displayName_ : juce::String(std::string(context_.info.name));
 }
 
 ParamComboBox& DevicePanel::addHeaderCombo(size_t param)
@@ -296,7 +346,7 @@ std::vector<PanelSection*> DevicePanel::pageSections(int index) const
 {
     std::vector<PanelSection*> out;
     for (size_t i = 0; i < sections_.size(); ++i)
-        if (pages_.empty() || sectionPage_[i] == index)
+        if ((pages_.empty() || sectionPage_[i] == index) && sectionShowing_[i])
             out.push_back(sections_[i].get());
     return out;
 }
@@ -490,10 +540,9 @@ int DevicePanel::headerMinimumWidth() const
     if (foldable_)
         w += kFoldButton + 4;
     if (onEnabledChange)
-        w += kPower + 6;
+        w += grid.power + 6;
     // Text widths rounded up, as resized() lays them out: a name short by a fraction is cut.
-    w += std::ceil(
-        juce::GlyphArrangement::getStringWidth(nameFont(), juce::String(std::string(context_.info.name))));
+    w += std::ceil(juce::GlyphArrangement::getStringWidth(nameFont(), headerName()));
     if (!pages_.empty())
         w += static_cast<float>(kSettingsGap + pageTabs_.preferredWidth());
     // Room for every setting, shown or not, so the panel never changes width as they come and go.
@@ -559,7 +608,7 @@ void DevicePanel::resized()
         auto strip = getLocalBounds().withTrimmedTop(6);
         fold_.setBounds(strip.removeFromTop(kFoldButton).withSizeKeepingCentre(kFoldButton, kFoldButton));
         strip.removeFromTop(6);
-        power_.setBounds(strip.removeFromTop(kPower).withSizeKeepingCentre(kPower, kPower));
+        power_.setBounds(strip.removeFromTop(grid.power).withSizeKeepingCentre(grid.power, grid.power));
         for (auto& s : sections_)
             s->setVisible(false);
         pageTabs_.setVisible(false);
@@ -583,11 +632,11 @@ void DevicePanel::resized()
     }
     if (onEnabledChange)
     {
-        power_.setBounds(h.removeFromLeft(kPower).withSizeKeepingCentre(kPower, kPower));
+        power_.setBounds(h.removeFromLeft(grid.power).withSizeKeepingCentre(grid.power, grid.power));
         h.removeFromLeft(6);
     }
-    const int nameWidth = static_cast<int>(std::ceil(
-        juce::GlyphArrangement::getStringWidth(nameFont(), juce::String(std::string(context_.info.name)))));
+    const int nameWidth =
+        static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(nameFont(), headerName())));
     // The page tabs right after the name (ADR 0051); the name keeps just its own width.
     if (!pages_.empty())
     {
@@ -668,7 +717,7 @@ void DevicePanel::paint(juce::Graphics& g)
     g.setColour(t.surface2);
     g.fillRoundedRectangle(getLocalBounds().toFloat(), t.radiusPanel);
 
-    const auto name = juce::String(std::string(context_.info.name));
+    const auto name = headerName();
     if (folded_)
     {
         // The name rotated, reading upwards, below the chevron and power.
@@ -679,6 +728,16 @@ void DevicePanel::paint(juce::Graphics& g)
         g.setColour(t.textPrimary);
         g.setFont(nameFont());
         g.drawText(name, rotated, juce::Justification::centredRight, true);
+        if (foldedDetail_.isNotEmpty())
+        {
+            // After the name, reading on down the strip.
+            const float nameWidth = std::ceil(juce::GlyphArrangement::getStringWidth(nameFont(), name));
+            g.setColour(t.textTertiary);
+            g.setFont(captionFont());
+            g.drawText(foldedDetail_,
+                       rotated.withTrimmedRight(nameWidth + static_cast<float>(t.shell.groupGap)),
+                       juce::Justification::centredRight, true);
+        }
         return;
     }
 

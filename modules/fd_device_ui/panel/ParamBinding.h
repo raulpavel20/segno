@@ -34,6 +34,24 @@ public:
     /// The control's menu: the host adds its automation items (show its lane, turn it back on,
     /// remove it from its lane, assign it to a lane, automate it in a new one).
     virtual void addAutomationItems(size_t /*index*/, juce::PopupMenu& /*menu*/) {}
+
+    // Racks (docs/design/racks.md §4): in the DAW only, so these default to nothing elsewhere.
+    /// A parameter set by a rack's macro: the macro's name, and where the mapping takes it at the
+    /// macro's 0 and 100 % (normalised; `to` below `from` turns it the other way). `dimmed` while
+    /// the pointer shows another macro's (its ring dims, as for modulation sources).
+    struct MacroMapping
+    {
+        juce::String macro;
+        float from = 0.0f, to = 1.0f;
+        bool dimmed = false;
+        bool operator==(const MacroMapping&) const = default;
+    };
+    [[nodiscard]] virtual std::optional<MacroMapping> macroMapping(size_t /*index*/) const
+    {
+        return std::nullopt;
+    }
+    /// The control's menu: the host adds its rack items (Map to macro, Unmap).
+    virtual void addMacroItems(size_t /*index*/, juce::PopupMenu& /*menu*/) {}
 };
 
 /// Merges `patch` into `device`'s extra state directly (hosts call this once they have

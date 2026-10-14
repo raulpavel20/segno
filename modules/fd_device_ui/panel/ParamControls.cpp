@@ -73,6 +73,13 @@ void showParamMenu(DeviceUiContext& context, size_t index, juce::Component& cont
         if (menu.getNumItems() > 0)
             menu.addSeparator();
     }
+    // A rack's macros (racks.md §4): Map to macro, or Unmap.
+    {
+        const int before = menu.getNumItems();
+        params.addMacroItems(index, menu);
+        if (menu.getNumItems() > before)
+            menu.addSeparator();
+    }
     // Its modulation (device-panels.md, "Modulation").
     if (context.modulation != nullptr)
     {
@@ -207,9 +214,19 @@ void ParamKnob::refresh()
     const ParamSpec& spec = context_.info.params[index_];
     setValue(spec.toNormalized(context_.params.getPlain(index_)), juce::dontSendNotification);
     setAutomationState(context_.params.automationState(index_));
+    // Set by a rack's macro (racks.md §4): its range as a ring, and no dragging by hand.
+    const auto mapping = context_.params.macroMapping(index_);
+    setFollowing(mapping.has_value());
+    setTooltip(mapping ? "Set by " + mapping->macro + ". " + tooltipFor(spec) : tooltipFor(spec));
+    if (mapping)
+        setRing(Ring{std::min(mapping->from, mapping->to), std::max(mapping->from, mapping->to),
+                     mapping->dimmed});
+    else if (context_.modulation == nullptr)
+        setRing(std::nullopt);
     if (const auto* m = context_.modulation)
     {
-        setRing(m->ringFor(index_, getValue()));
+        if (!mapping)
+            setRing(m->ringFor(index_, getValue()));
         setDropTarget(m->dropParam == index_);
         setDropCandidate(m->draggedSource >= 0 && style() == Style::Rotary && m->canModulate(index_));
         if (source_ >= 0)

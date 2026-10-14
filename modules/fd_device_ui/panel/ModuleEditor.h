@@ -2,6 +2,22 @@
 
 namespace fd::ui
 {
+/// A line of text in an editor's pane, in Caption: a note on what's selected, a hint where there's
+/// nothing yet, an error (`warning`); as many lines as its rows hold.
+class NoteText final : public juce::Component, public juce::SettableTooltipClient
+{
+public:
+    void setText(juce::String text, bool warning = false);
+    [[nodiscard]] const juce::String& text() const noexcept { return text_; }
+    void setJustification(juce::Justification justification);
+    void paint(juce::Graphics& g) override;
+
+private:
+    juce::String text_;
+    bool warning_ = false;
+    juce::Justification justification_ = juce::Justification::topLeft;
+};
+
 /// A module's editor bigger than its panel (ADR 0053): the Wavetable's table editor. The host
 /// shows it below the module, in the DAW's detail panel as a view of its own beside Modules and
 /// Clip, in a plugin's window under the panel, with a header the host draws: the tab

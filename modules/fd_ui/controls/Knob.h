@@ -53,6 +53,10 @@ public:
     };
     void setRing(std::optional<Ring> ring);
     [[nodiscard]] const std::optional<Ring>& ring() const noexcept { return ring_; }
+    /// Set elsewhere (a rack's macro, racks.md §4): the knob moves as that moves and isn't
+    /// dragged, wheeled, typed into or reset; its right-click still opens its menu.
+    void setFollowing(bool following);
+    [[nodiscard]] bool isFollowing() const noexcept { return following_; }
     /// Lights the knob where a dragged source would land: a ring in `active` over its sweep.
     void setDropTarget(bool target);
     [[nodiscard]] bool isDropTarget() const noexcept { return dropTarget_; }
@@ -144,12 +148,13 @@ private:
     bool dragging_ = false;
     std::optional<Ring> ring_;
     bool dropTarget_ = false, dropCandidate_ = false, sourceHandle_ = false, handleLit_ = false,
-         handleHovered_ = false;
+         handleHovered_ = false, following_ = false;
     enum class Press
     {
         Value,
         Ring,
-        Handle
+        Handle,
+        None // a following knob pressed: nothing to do
     } press_ = Press::Value;
     std::unique_ptr<juce::TextEditor> editor_;
 

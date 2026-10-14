@@ -62,6 +62,7 @@ void deriveRoles(Theme& t)
     r.valueText = t.textPrimary.withAlpha(0.85f);
     r.warning = t.meterHot.withAlpha(0.8f);
     r.warningFill = t.meterHot.withAlpha(r.fillAlpha);
+    r.rackFrame = t.surface0;
     r.overlay = t.surface3.withAlpha(0.9f);
     r.automation = t.effectStart;
     r.shadow = juce::Colours::black.withAlpha(0.5f);

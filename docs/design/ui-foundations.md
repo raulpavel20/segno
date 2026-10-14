@@ -44,6 +44,7 @@ Roles are derived from the base palette in `Theme.cpp` (`deriveRoles`), the only
 | `valueText` | textPrimary at 85 % | Knob values at rest |
 | `warning` | meterHot at 80 % | Inline warnings ("No instrument") |
 | `warningFill` | meterHot at `fillAlpha` | Behind a warning's text: a module's latency badge ("+107 ms", `warning` on it) |
+| `rackFrame` | surface0 | The tray a rack's modules sit in, in the chain, edged in `line` (or `active` while a drop would land in it; [racks.md](racks.md) §5a) |
 | `overlay` | surface3 at 90 % | Diagnostic overlays (frame statistics) |
 | `automation` | effectStart | The automation indicator on controls (C4) |
 | `shadow` | black at 50 % | The one shadow, under popovers |
@@ -153,6 +154,8 @@ Role functions for colours that depend on content:
 | `shell.progressHeight` | 2 (the progress line along the bottom of what's being worked on, C7) |
 | `shell.clipButtonSize` | 12 (a button on a clip, on a `surface2` chip: cancel its bounce; menu-bar.md §15) |
 | `shell.dropLine` | 2 (where a dragged module, row or strip lands: a line in `active`) |
+| `shell.rackInset` | 6 (a rack's frame around its panels in the chain, inside the chain's gap; [racks.md](racks.md) §5a) |
+| `shell.rackLabelHeight` | 16 (the frame's strip under its panels, naming the chain shown) |
 | `shell.fadeHandleSize` | 7 (a fade's or crossfade's handle on a clip, C6; a fade narrower than this draws only its handle) |
 | `shell.loopNotch` | 4 (a looped clip's notch at each seam: its depth and half its width, cut into the title strip in `surface0`; laps closer than two notches' width show none; M3 C10, [clip-loops.md](clip-loops.md) §5) |
 

@@ -158,6 +158,8 @@ target_sources(fd_app_ui INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/WaveformCache.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/WaveformTiles.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/DeviceChain.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/RackPanel.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/MacroEditor.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/CommandPalette.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/PianoRoll.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ClipLoopBrace.cpp"

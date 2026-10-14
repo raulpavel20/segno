@@ -54,7 +54,7 @@ What the product owner asked:
 
 ## 4. Macros
 
-- **Eight macros a rack,** on two rows of knobs in its panel, named "Macro 1" … "Macro 8" until renamed (a double-click on the name). Live shows eight of its sixteen, Bitwig's pages and Studio One's knobs are eight, and eight fit the module grid as two knob rows of four.
+- **Eight macros a rack,** on two rows of knobs in its panel, named "Macro 1" … "Macro 8" until renamed (a double-click on the name, or its right-click). Live shows eight of its sixteen, Bitwig's pages and Studio One's knobs are eight, and eight fit the module grid as two knob rows of four.
 - **A macro moves parameters across the rack:** any automatable parameter of any module in it, ours or a plugin's ([automation.md](automation.md) §2).
 - **Each mapping has a range and a curve** (Transit's start, end and slope):
   - **From** and **To**: where the parameter is at the macro's 0 and 100 %. To below From turns it the other way.
@@ -135,9 +135,26 @@ The product owner's requirement (2026-10-14): **the rack's UI must be very solid
   Anything that made them hesitate is changed before sign-off.
 - **As always:** the layout lint for the rack's panel and the macro editor, and the zoomed screenshot review ([ui-foundations.md](ui-foundations.md), "Layout quality").
 
+### Drawn (step 0, 2026-10-14, for the product owner's review)
+
+Every state above, drawn with the real panel kit and module panels from a stub (`tests/integration/RackUiTests.cpp`, `FD_DUMP_DIR`), each checked by the layout lint and in its frame:
+
+- **The frame** is a tray in `rackFrame` (surface0) edged in `line`, `shell.rackInset` round the rack's panel, the shown chain's modules and the end cap's "+". Without its edge it barely showed against the detail panel, so it has one. Its strip under the modules (`shell.rackLabelHeight`) names the shown chain when there are several ("CHAIN 2 · CRUSHED"), adds "· OFF" when it's off and "SOLO" in `active` when it's soloed. Every panel in the chain sits `rackInset` lower so their tops line up; the detail panel is about 20 px taller for it.
+- **CHAINS** looks like the table editor's layers, so a list looks the same everywhere: a row a chain (its on dot, its name to choose it, S), "+ Chain" under the names, and at the bottom the shown chain's name over its Vol and Pan bars. Choosing a name shows that chain's modules in the frame; the chosen name is lit as a choice is. Room for 4 chains (question below).
+- **A chain that's off** shows its dot off and its name dimmed in the list, its modules faded in the frame, and "· OFF" in the frame's label.
+- **Macros:** one that maps nothing yet is faded (it does nothing); a mapped knob shows its range as the modulation ring and follows its macro. Hovering a macro's name lights it and dims every other macro's rings; hovering a mapped knob lights its macro's name. Dragging a macro's name marks the knobs in the rack that can take it (faint rings) and lights the one under the pointer; nothing outside the rack is marked.
+- **Folded,** the rack is one strip that reads "Drop riser  2 chains" (or "4 modules"), still in its tray.
+- **An empty rack** holds "Drop modules here" in a card's width, then its "+".
+- **Drops:** into the rack's chain, the tray's edge turns `active` and the line runs the panels' height; past its end, the tray stays as it is and the line runs the chain's whole height.
+- **The macro editor** (at least 944 px wide): MACROS lists the eight (unmapped ones faded); MAPPINGS · WASH is a table, headings over Parameter (a colour swatch, the parameter, its module fainter), From and To in the parameter's unit, Curve (filled from its middle) and ×, with + in its title; CURVES draws each mapping's curve in its swatch's colour, the engine's own curve (`model::macroMapped`), with the macro's position as a line, and the macro's bar under it. A macro that maps nothing says how to map one.
+- **Settled while drawing:**
+  - a double-click on a macro's name renames it, as names are renamed everywhere; the editor opens from Module > Edit macros and the macro's right-click (§6 said a double-click did both);
+  - a rack with one chain gets its second from Module > Add chain, the rack's right-click, and the end cap's "+" menu (Add module ▸ …, then Add chain);
+  - the panel kit gained what the rack needs: a knob that follows (`Knob::setFollowing`), a section shown only while it matters (`DevicePanel::showSectionWhen`), a panel's own name and folded detail (`setDisplayName`, `setFoldedDetail`), `DeviceGrid::power` for every power dot, and `ui::NoteText` shared from the table editor.
+
 ## 6. The macro editor
 
-The rack's mappings need more room than its panel: a module's editor in the detail panel, as the table editor is ([ADR 0053](../decisions/0053-a-modules-editor-in-the-detail-panel.md)). Module > Edit macros, or a double-click on a macro's name, opens it: "Modules · Clip · Macros ×".
+The rack's mappings need more room than its panel: a module's editor in the detail panel, as the table editor is ([ADR 0053](../decisions/0053-a-modules-editor-in-the-detail-panel.md)). Module > Edit macros, or the macro's right-click (Edit macros), opens it: "Modules · Clip · Macros ×".
 
 - **Macros** (left pane): the eight, each with its name, its knob, and how many mappings it has. Selecting one shows its mappings.
 - **Mappings** (the middle, flexible): one row each: the module and parameter, From and To as value bars in the parameter's unit, Curve as a bar (−100 … +100 %), and Remove; "+ Add" at the end.
@@ -180,7 +197,7 @@ The **Module** menu, a group after the presets:
 |---|---|---|
 | Group into rack | Ctrl+G | The selected modules; dimmed unless one is selected |
 | Ungroup rack | Ctrl+Shift+G | The selected rack |
-| Edit macros | | Opens the macro editor; ticked while it's open; also a double-click on a macro's name |
+| Edit macros | | Opens the macro editor; ticked while it's open; also on a macro's right-click |
 | Add chain | | To the selected rack; also its "+ Chain" |
 | Save rack… / Save rack as… | | The selected rack |
 | Show racks folder | | |

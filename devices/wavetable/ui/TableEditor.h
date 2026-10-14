@@ -117,21 +117,7 @@ private:
     int dragged_ = -1, dragFrame_ = -1;
 };
 
-/// A line of text in an editor's pane: a layer's note, what the audio held, a formula's error,
-/// where the frame shown is in the layer.
-class NoteText final : public juce::Component, public juce::SettableTooltipClient
-{
-public:
-    void setText(juce::String text, bool warning = false);
-    [[nodiscard]] const juce::String& text() const noexcept { return text_; }
-    void setJustification(juce::Justification justification);
-    void paint(juce::Graphics& g) override;
-
-private:
-    juce::String text_;
-    bool warning_ = false;
-    juce::Justification justification_ = juce::Justification::topLeft;
-};
+using ui::NoteText;
 
 class TableEditor final : public ui::ModuleEditor, public juce::FileDragAndDropTarget
 {
