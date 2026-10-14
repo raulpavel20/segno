@@ -1046,7 +1046,8 @@ void Session::setNotes(std::uint64_t clipId, const std::vector<model::Note>& not
         list.removeNote(*changed[i], undo);
     for (size_t i = paired; i < added.size(); ++i)
         if (auto* note = list.addNote(added[i].pitch, te::BeatPosition::fromBeats(added[i].start),
-                                      te::BeatDuration::fromBeats(added[i].length), midiVelocity(added[i].velocity), 0, undo);
+                                      te::BeatDuration::fromBeats(added[i].length),
+                                      midiVelocity(added[i].velocity), 0, undo);
             note != nullptr && added[i].muted)
             note->setMute(true, undo);
 

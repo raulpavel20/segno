@@ -18,8 +18,7 @@ int textWidth(const juce::Font& font, const juce::String& text)
     return static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(font, text)));
 }
 
-template <typename E, std::size_t N>
-int indexOf(const std::array<E, N>& values, E value)
+template <typename E, std::size_t N> int indexOf(const std::array<E, N>& values, E value)
 {
     for (std::size_t i = 0; i < N; ++i)
         if (values[i] == value)
@@ -88,7 +87,8 @@ ChordPopover::~ChordPopover()
     outside_.detach();
 }
 
-void ChordPopover::open(juce::Component& parent, juce::Rectangle<int> anchor, const PianoRoll::ChordPlace& place)
+void ChordPopover::open(juce::Component& parent, juce::Rectangle<int> anchor,
+                        const PianoRoll::ChordPlace& place)
 {
     place_ = place;
     roll_.setChordTarget(place);
@@ -201,9 +201,11 @@ void ChordPopover::rebuild()
                                          current->tensions == chord.tensions,
                                      juce::dontSendNotification);
                 chip->setTooltip(juce::String::fromUTF8(
-                    (music::romanNumeral(chord, key) + " · " + std::string(music::kindOf(chord).name)).c_str()));
+                    (music::romanNumeral(chord, key) + " · " + std::string(music::kindOf(chord).name))
+                        .c_str()));
                 chip->onClick = [this, c = chord] { choose(c); };
-                chip->onHover = [this, c = chord](bool on) { hover(on ? std::optional<music::Chord>(c) : std::nullopt); };
+                chip->onHover = [this, c = chord](bool on)
+                { hover(on ? std::optional<music::Chord>(c) : std::nullopt); };
                 addAndMakeVisible(*chip);
                 chips_.push_back(std::move(chip));
             }
@@ -232,7 +234,8 @@ void ChordPopover::styleChanged(bool kindChanged)
 {
     model::ChordStyle style{.shape = shapes[static_cast<std::size_t>(std::max(0, kind_.selected()))],
                             .voicing = voicings[static_cast<std::size_t>(std::max(0, voicing_.selected()))],
-                            .inversion = inversions[static_cast<std::size_t>(std::max(0, inversion_.selected()))]};
+                            .inversion =
+                                inversions[static_cast<std::size_t>(std::max(0, inversion_.selected()))]};
     roll_.setChordStyle(style);
     // The chord there takes it too (§7.3): the key's chord of the new kind on its root, or itself
     // re-voiced.
@@ -240,7 +243,8 @@ void ChordPopover::styleChanged(bool kindChanged)
         if (const auto current = roll_.chordAt(*place_))
         {
             const auto& key = roll_.key();
-            auto chord = kindChanged ? music::keyChord(key ? &*key : nullptr, current->root, style.shape) : *current;
+            auto chord =
+                kindChanged ? music::keyChord(key ? &*key : nullptr, current->root, style.shape) : *current;
             chord.bass.reset(); // the inversion is the voicing's to choose now
             place_ = roll_.writeChord(*place_, chord);
             roll_.setChordTarget(place_);
@@ -325,7 +329,8 @@ void ChordPopover::reposition()
             x = anchor_.getX() - s.itemGap - width;
     }
     x = std::clamp(x, area.getX(), std::max(area.getX(), area.getRight() - width));
-    const int y = std::clamp(anchor_.getBottom() + s.itemGap, area.getY(), std::max(area.getY(), area.getBottom() - height));
+    const int y = std::clamp(anchor_.getBottom() + s.itemGap, area.getY(),
+                             std::max(area.getY(), area.getBottom() - height));
     setBounds(juce::Rectangle<int>(x, y, width, height).expanded(margin));
 }
 
@@ -390,8 +395,8 @@ void ChordPopover::paint(juce::Graphics& g)
     }
     g.setFont(ui::font(ui::TextStyle::Body));
     g.setColour(t.textSecondary);
-    for (const auto& [label, segments] : {std::pair{"Kind", &kind_}, std::pair{"Voicing", &voicing_},
-                                         std::pair{"Inversion", &inversion_}})
+    for (const auto& [label, segments] :
+         {std::pair{"Kind", &kind_}, std::pair{"Voicing", &voicing_}, std::pair{"Inversion", &inversion_}})
         g.drawText(label, segments->getBounds().withX(area.getX()).withWidth(s.propertyLabelWidth),
                    juce::Justification::centredLeft, false);
 }

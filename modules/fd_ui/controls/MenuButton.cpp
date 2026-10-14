@@ -2,7 +2,7 @@ namespace fd::ui
 {
 MenuButton::MenuButton(const juce::String& text) : juce::Button(text)
 {
-    setWantsKeyboardFocus(false); // the view keeps its keys
+    setWantsKeyboardFocus(false);  // the view keeps its keys
     setTriggeredOnMouseDown(true); // a menu opens on the press, as the menu bar's do
 }
 
@@ -10,7 +10,8 @@ int MenuButton::preferredWidth() const
 {
     const auto& s = Theme::current().shell;
     const auto text = juce::GlyphArrangement::getStringWidth(font(TextStyle::Control), getButtonText());
-    return s.buttonTextPadding + static_cast<int>(std::ceil(text)) + kGap + static_cast<int>(kChevron) + kChevronPadding;
+    return s.buttonTextPadding + static_cast<int>(std::ceil(text)) + kGap + static_cast<int>(kChevron) +
+           kChevronPadding;
 }
 
 void MenuButton::showMenu(juce::PopupMenu menu)

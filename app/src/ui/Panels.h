@@ -227,8 +227,8 @@ private:
     ui::NumberField notePitch_, noteStart_, noteLength_, noteVelocity_;
     ui::Toggle noteMute_{"M"};
     std::optional<engine::Session::EditGroup> notesGesture_;
-    std::optional<model::NoteEdit> notesBase_; // the notes a drag started from
-    double notesFrom_ = 0.0;                    // and the field's value then
+    std::optional<model::NoteEdit> notesBase_;       // the notes a drag started from
+    double notesFrom_ = 0.0;                         // and the field's value then
     std::map<model::NoteField, double> notesSpread_; // each field's range over the notes
     /// Its loop (ADR 0048, clip-loops.md §7): on or off, and while on its start in the content and
     /// its length, dragged in sixteenths or typed ("2.1.1", "1 bar 2 beats", for audio "1.5 s").

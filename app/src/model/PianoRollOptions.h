@@ -3,7 +3,6 @@
 #include "model/NoteTools.h"
 
 #include <nlohmann/json_fwd.hpp>
-
 #include <optional>
 #include <span>
 #include <string_view>

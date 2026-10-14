@@ -3,12 +3,10 @@
 #include "model/NoteTools.h"
 #include "model/PianoRollOptions.h"
 
-#include <nlohmann/json.hpp>
-
+#include <algorithm>
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
-
-#include <algorithm>
+#include <nlohmann/json.hpp>
 
 using namespace fd::model;
 using Catch::Approx;
@@ -102,7 +100,8 @@ TEST_CASE("Dragging in the key and through folded rows", "[fast]")
     {
         const std::vector<int> rows{60, 64, 67, 72};
         const auto out = dragNotes(notes, {0}, {.anchor = 0, .deltaPitch = 2, .rows = &rows}, sixteenths);
-        CHECK(std::count_if(out.notes.begin(), out.notes.end(), [](const Note& n) { return n.pitch == 67; }) == 1);
+        CHECK(std::count_if(out.notes.begin(), out.notes.end(),
+                            [](const Note& n) { return n.pitch == 67; }) == 1);
         const auto limited = dragNotes(notes, all, {.anchor = 0, .deltaPitch = 5, .rows = &rows}, sixteenths);
         CHECK(pitchesOf(limited.notes) == std::vector<int>{64, 67, 72}); // the top row stops it
     }
@@ -191,7 +190,8 @@ TEST_CASE("Drawing chords", "[fast]")
         const auto f = sortedPitches(out.notes, 1.0);
         CHECK(std::find(f.begin(), f.end(), 53) != f.end());
         CHECK(f.size() == 3);
-        const auto closeOut = drawChord(before, note(53, 1.0), &cMajor, {.voicing = fd::music::Voicing::Close}, false);
+        const auto closeOut =
+            drawChord(before, note(53, 1.0), &cMajor, {.voicing = fd::music::Voicing::Close}, false);
         CHECK(sortedPitches(closeOut.notes, 1.0) == std::vector<int>{53, 57, 60});
     }
     SECTION("Chord under: the note on top of the key's chord with it")
@@ -201,7 +201,8 @@ TEST_CASE("Drawing chords", "[fast]")
     }
     SECTION("Sevenths")
     {
-        const auto out = drawChord({}, note(67, 0.0), &cMajor, {.shape = fd::music::ChordShape::Seventh}, false);
+        const auto out =
+            drawChord({}, note(67, 0.0), &cMajor, {.shape = fd::music::ChordShape::Seventh}, false);
         CHECK(sortedPitches(out.notes, 0.0) == std::vector<int>{67, 71, 74, 77});
     }
 }
@@ -218,7 +219,8 @@ TEST_CASE("Writing a chord over a place, or in place of one", "[fast]")
         CHECK(out.selection.size() == 3);
         for (auto i : out.selection)
             CHECK(out.notes[i].length == Approx(2.0));
-        const auto low = std::find_if(out.notes.begin(), out.notes.end(), [](const Note& n) { return n.pitch == 59; });
+        const auto low =
+            std::find_if(out.notes.begin(), out.notes.end(), [](const Note& n) { return n.pitch == 59; });
         CHECK(low->velocity == Approx(50.0f / 127.0f));
     }
     SECTION("A seventh in place of a triad gets its fourth note")
@@ -251,10 +253,12 @@ TEST_CASE("Make chords: a line becomes a progression", "[fast]")
         const auto pitches = sortedPitches(out.notes, k);
         INFO(k);
         REQUIRE(pitches.size() == 3);
-        CHECK(std::find(pitches.begin(), pitches.end(), line[static_cast<std::size_t>(k)].pitch) != pitches.end());
+        CHECK(std::find(pitches.begin(), pitches.end(), line[static_cast<std::size_t>(k)].pitch) !=
+              pitches.end());
         const auto named = fd::music::nameChord(pitches);
         REQUIRE(named);
-        CHECK(named->root == line[static_cast<std::size_t>(k)].pitch % 12); // Am F C G, inverted as Smooth likes
+        CHECK(named->root ==
+              line[static_cast<std::size_t>(k)].pitch % 12); // Am F C G, inverted as Smooth likes
     }
     const auto close = makeChords(line, {0}, &cMajor, {.voicing = fd::music::Voicing::Close});
     CHECK(sortedPitches(close.notes, 0.0) == std::vector<int>{57, 60, 64});
@@ -266,7 +270,8 @@ TEST_CASE("Inverting, voicing and a bass", "[fast]")
     const auto c = chord({60, 64, 67}, 0.0);
     CHECK(sortedPitches(invertChords(c, {}, true).notes, 0.0) == std::vector<int>{64, 67, 72});
     CHECK(sortedPitches(invertChords(c, {}, false).notes, 0.0) == std::vector<int>{55, 60, 64});
-    CHECK(sortedPitches(invertChords({note(60, 0.0)}, {}, true).notes, 0.0) == std::vector<int>{60}); // not a chord
+    CHECK(sortedPitches(invertChords({note(60, 0.0)}, {}, true).notes, 0.0) ==
+          std::vector<int>{60}); // not a chord
     SECTION("Voicings keep the count and register")
     {
         const auto cmaj7 = chord({60, 64, 67, 71}, 0.0);
@@ -306,7 +311,8 @@ TEST_CASE("Join, split, legato, fixed length", "[fast]")
     CHECK(out.notes[1].start == Approx(1.0));
     CHECK(out.selection.size() == 3);
 
-    out = legatoNotes({note(60, 0.0, 0.25), note(64, 0.0, 0.25), note(62, 1.5, 0.25), note(65, 3.0, 0.5)}, {});
+    out =
+        legatoNotes({note(60, 0.0, 0.25), note(64, 0.0, 0.25), note(62, 1.5, 0.25), note(65, 3.0, 0.5)}, {});
     CHECK(out.notes[0].length == Approx(1.5));
     CHECK(out.notes[1].length == Approx(1.5));
     CHECK(out.notes[2].length == Approx(1.5));
@@ -341,9 +347,9 @@ TEST_CASE("Stretching, reversing and mirroring", "[fast]")
     out = mirrorPitches({note(60, 0.0), note(62, 1.0), note(67, 2.0)}, {}, nullptr);
     CHECK(pitchesOf(out.notes) == std::vector<int>{67, 65, 60});
     out = mirrorPitches({note(60, 0.0), note(62, 1.0), note(67, 2.0)}, {}, &cMajor); // C D G: steps 0 1 4
-    CHECK(pitchesOf(out.notes) == std::vector<int>{67, 65, 60});                      // → 4 3 0: G F C
+    CHECK(pitchesOf(out.notes) == std::vector<int>{67, 65, 60});                     // → 4 3 0: G F C
     out = mirrorPitches({note(60, 0.0), note(64, 1.0), note(65, 2.0)}, {}, &cMajor); // C E F: 0 2 3
-    CHECK(pitchesOf(out.notes) == std::vector<int>{65, 62, 60});                      // → 3 1 0: F D C
+    CHECK(pitchesOf(out.notes) == std::vector<int>{65, 62, 60});                     // → 3 1 0: F D C
 }
 
 TEST_CASE("A velocity line", "[fast]")
@@ -382,7 +388,8 @@ TEST_CASE("Quantise with strength, swing and ends", "[fast]")
     out = quantiseNotes(notes, {}, sixteenths, {.starts = false, .ends = true});
     CHECK(out.notes[0].start == Approx(0.1));
     CHECK(out.notes[0].start + out.notes[0].length == Approx(0.5));
-    CHECK(quantiseNotes(notes, {}, sixteenths).notes == quantiseNotes(notes, {}, sixteenths, QuantiseSettings{}).notes);
+    CHECK(quantiseNotes(notes, {}, sixteenths).notes ==
+          quantiseNotes(notes, {}, sixteenths, QuantiseSettings{}).notes);
 }
 
 TEST_CASE("Selecting", "[fast]")
@@ -405,7 +412,8 @@ TEST_CASE("The clip view's options round-trip as view state", "[fast]")
     o.others = false;
     o.draw = DrawMode::ChordUnder;
     o.chordLabels = ChordLabels::Steps;
-    o.chord = {.shape = fd::music::ChordShape::Ninth, .voicing = fd::music::Voicing::Drop3,
+    o.chord = {.shape = fd::music::ChordShape::Ninth,
+               .voicing = fd::music::Voicing::Drop3,
                .inversion = fd::music::Inversion::Second};
     o.quantise = {.strength = 0.5, .swing = 0.25, .starts = false, .ends = true};
     CHECK(pianoRollOptionsFromJson(pianoRollOptionsToJson(o)) == o);
@@ -418,7 +426,8 @@ TEST_CASE("The clip view's options round-trip as view state", "[fast]")
 
 TEST_CASE("The NOTES inspector: a value typed sets every note; dragged, they move together", "[fast]")
 {
-    const std::vector<Note> notes{note(60, 0.0, 1.0, 100.0f / 127.0f), note(72, 1.0, 0.5, 90.0f / 127.0f), note(64, 2.0)};
+    const std::vector<Note> notes{note(60, 0.0, 1.0, 100.0f / 127.0f), note(72, 1.0, 0.5, 90.0f / 127.0f),
+                                  note(64, 2.0)};
     const std::set<std::size_t> sel{0, 1};
     CHECK(fieldRange(notes, sel, NoteField::Pitch) == std::pair{60.0, 72.0});
     CHECK(fieldRange(notes, sel, NoteField::Velocity) == std::pair{90.0, 100.0});

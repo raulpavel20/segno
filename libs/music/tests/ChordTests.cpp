@@ -1,7 +1,7 @@
 #include "fd/music/Chords.h"
 
-#include <catch2/catch_test_macros.hpp>
 #include <algorithm>
+#include <catch2/catch_test_macros.hpp>
 #include <string>
 #include <vector>
 
@@ -111,10 +111,10 @@ TEST_CASE("Chord names", "[fast]")
 TEST_CASE("Chord roots and basses are spelled for the key", "[fast]")
 {
     const Chord bFlat{.root = 10, .kind = 0};
-    CHECK(chordName(bFlat, &cMajor) == "B♭");                   // ♭VII, not A♯
-    CHECK(chordName(bFlat, nullptr) == "B♭");                   // as in C major
+    CHECK(chordName(bFlat, &cMajor) == "B♭");                        // ♭VII, not A♯
+    CHECK(chordName(bFlat, nullptr) == "B♭");                        // as in C major
     CHECK(chordName(Chord{.root = 6, .kind = 2}, &cMajor) == "F♯°"); // ♯iv°
-    CHECK(chordName(Chord{.root = 8, .kind = 0}, &aMinor) == "G♯"); // the raised seventh in minor
+    CHECK(chordName(Chord{.root = 8, .kind = 0}, &aMinor) == "G♯");  // the raised seventh in minor
     CHECK(chordName(Chord{.root = 4, .kind = 0, .bass = 8}, &cMajor) == "E/G♯");
     const Key fMajor{5, "major"};
     CHECK(chordName(Chord{.root = 4, .kind = 6, .bass = 8}, &fMajor) == "E7/G♯"); // the third, not A♭
@@ -197,23 +197,28 @@ TEST_CASE("Chords are read from names and Roman numerals", "[fast]")
 
 TEST_CASE("The key's chords on each step", "[fast]")
 {
-    CHECK(names(keyChords(cMajor), &cMajor) == std::vector<std::string>{"C", "Dm", "Em", "F", "G", "Am", "B°"});
-    CHECK(names(keyChords(aMinor), &aMinor) == std::vector<std::string>{"Am", "B°", "C", "Dm", "Em", "F", "G"});
+    CHECK(names(keyChords(cMajor), &cMajor) ==
+          std::vector<std::string>{"C", "Dm", "Em", "F", "G", "Am", "B°"});
+    CHECK(names(keyChords(aMinor), &aMinor) ==
+          std::vector<std::string>{"Am", "B°", "C", "Dm", "Em", "F", "G"});
     CHECK(names(keyChords(cMajor, ChordShape::Seventh), &cMajor) ==
           std::vector<std::string>{"Cmaj7", "Dm7", "Em7", "Fmaj7", "G7", "Am7", "Bm7♭5"});
     CHECK(names(keyChords(cMajor, ChordShape::Ninth), &cMajor) ==
           std::vector<std::string>{"Cmaj9", "Dm9", "Em7(♭9)", "Fmaj9", "G9", "Am9", "Bm7♭5(♭9)"});
     CHECK(names(keyChords(cMajor, ChordShape::Sus4), &cMajor) ==
           std::vector<std::string>{"Csus4", "Dsus4", "Esus4", "Fsus4", "Gsus4", "Asus4", "Bsus4"});
-    CHECK(names(keyChords(cMajor, ChordShape::Add9), &cMajor) ==
-          std::vector<std::string>{"Cadd9", "Dm(add9)", "Em(add9)", "Fadd9", "Gadd9", "Am(add9)", "B°(add9)"});
+    CHECK(
+        names(keyChords(cMajor, ChordShape::Add9), &cMajor) ==
+        std::vector<std::string>{"Cadd9", "Dm(add9)", "Em(add9)", "Fadd9", "Gadd9", "Am(add9)", "B°(add9)"});
     const Key harmonic{9, "harmonic-minor"};
-    CHECK(names(keyChords(harmonic), &harmonic) == std::vector<std::string>{"Am", "B°", "C+", "Dm", "E", "F", "G♯°"});
+    CHECK(names(keyChords(harmonic), &harmonic) ==
+          std::vector<std::string>{"Am", "B°", "C+", "Dm", "E", "F", "G♯°"});
     CHECK(names(keyChords(harmonic, ChordShape::Seventh), &harmonic)[0] == "Am(maj7)");
     SECTION("Scales without seven notes: the chords their notes make")
     {
         const Key pentatonic{0, "major-pentatonic"};
-        CHECK(names(keyChords(pentatonic), &pentatonic) == std::vector<std::string>{"C", "Dsus4", "Em", "Gsus4", "Am"});
+        CHECK(names(keyChords(pentatonic), &pentatonic) ==
+              std::vector<std::string>{"C", "Dsus4", "Em", "Gsus4", "Am"});
         const Key wholeTone{0, "whole-tone"};
         for (const auto& c : keyChords(wholeTone))
             CHECK(kindOf(c).id == "aug");
@@ -224,8 +229,8 @@ TEST_CASE("The key's chords on each step", "[fast]")
             for (int root = 0; root < 12; ++root)
             {
                 const Key key{root, std::string(scale.id)};
-                for (auto shape : {ChordShape::Triad, ChordShape::Seventh, ChordShape::Ninth, ChordShape::Sus2,
-                                   ChordShape::Sus4, ChordShape::Add9})
+                for (auto shape : {ChordShape::Triad, ChordShape::Seventh, ChordShape::Ninth,
+                                   ChordShape::Sus2, ChordShape::Sus4, ChordShape::Add9})
                 {
                     const auto chords = keyChords(key, shape);
                     REQUIRE(static_cast<int>(chords.size()) == noteCount(notes(key)));
@@ -267,7 +272,7 @@ TEST_CASE("Harmonising a note: the key's chord with it", "[fast]")
     CHECK(under(9) == "F");  // A: IV
     CHECK(under(11) == "G"); // B: V
     const Chord g{.root = 7, .kind = 0};
-    CHECK(under(4, &g) == "C");  // after V, I has E
+    CHECK(under(4, &g) == "C"); // after V, I has E
     CHECK(under(0, &g) == "C");
     CHECK(under(9, &g) == "Am"); // after V, the deceptive vi has A before IV does
     CHECK(under(1) == "C♯°");    // outside the key: the chord on it
@@ -286,13 +291,15 @@ TEST_CASE("Suggestions after a chord", "[fast]")
           std::vector<std::string>{"G", "C", "Dm", "Am"});
     CHECK(names(nextChords(aMinor, Chord{.root = 9, .kind = 1}), &aMinor) ==
           std::vector<std::string>{"Dm", "F", "G", "Em"});
-    CHECK(names(nextChords(cMajor, Chord{.root = 7, .kind = 6}, ChordShape::Seventh), &cMajor).front() == "Cmaj7");
+    CHECK(names(nextChords(cMajor, Chord{.root = 7, .kind = 6}, ChordShape::Seventh), &cMajor).front() ==
+          "Cmaj7");
     SECTION("A borrowed or secondary chord resolves")
     {
-        CHECK(names(nextChords(cMajor, Chord{.root = 2, .kind = 6}), &cMajor).front() == "G"); // V/V to V
+        CHECK(names(nextChords(cMajor, Chord{.root = 2, .kind = 6}), &cMajor).front() == "G");  // V/V to V
         CHECK(names(nextChords(cMajor, Chord{.root = 10, .kind = 0}), &cMajor).front() == "C"); // ♭VII home
         CHECK(names(nextChords(cMajor, Chord{.root = 5, .kind = 1}), &cMajor).front() == "C");  // iv home
-        CHECK(names(nextChords(cMajor, Chord{.root = 8, .kind = 0}), &cMajor).front() == "B♭"); // ♭VI on to ♭VII
+        CHECK(names(nextChords(cMajor, Chord{.root = 8, .kind = 0}), &cMajor).front() ==
+              "B♭"); // ♭VI on to ♭VII
         CHECK(names(nextChords(aMinor, Chord{.root = 4, .kind = 0}), &aMinor).front() == "Am"); // V home
     }
     SECTION("Never the chord before, never twice")
@@ -360,7 +367,8 @@ TEST_CASE("Voicings and inversions", "[fast]")
     }
     SECTION("More notes double, fewer omit the fifth first")
     {
-        CHECK(voiceChord(c, {.voicing = Voicing::Close, .centre = 66.0, .count = 4}) == std::vector<int>{60, 64, 67, 72});
+        CHECK(voiceChord(c, {.voicing = Voicing::Close, .centre = 66.0, .count = 4}) ==
+              std::vector<int>{60, 64, 67, 72});
         CHECK(voiceChord(cmaj7, {.voicing = Voicing::Close, .count = 3}) == std::vector<int>{60, 64, 71});
         CHECK(voiceChord(Chord{.root = 0, .kind = 19}, {.voicing = Voicing::Close, .count = 4}) ==
               std::vector<int>{60, 64, 70, 74});
@@ -375,7 +383,8 @@ TEST_CASE("Voicings and inversions", "[fast]")
     SECTION("Every voicing of every kind keeps its notes and stays in range")
     {
         for (int k = 0; k < static_cast<int>(chordKinds().size()); ++k)
-            for (auto v : {Voicing::Smooth, Voicing::Close, Voicing::Open, Voicing::Drop2, Voicing::Drop3, Voicing::Spread})
+            for (auto v : {Voicing::Smooth, Voicing::Close, Voicing::Open, Voicing::Drop2, Voicing::Drop3,
+                           Voicing::Spread})
                 for (double centre : {10.0, 64.0, 120.0})
                 {
                     const Chord chord{.root = 5, .kind = k};
@@ -406,10 +415,10 @@ TEST_CASE("Smooth voicing moves least from the chord before", "[fast]")
     SECTION("Over progressions, no other voicing moves less")
     {
         const std::vector<std::vector<Chord>> progressions{
-            {{0, 0}, {9, 1}, {5, 0}, {7, 0}},              // I vi IV V
-            {{2, 8}, {7, 6}, {0, 7}, {9, 8}},              // ii7 V7 Imaj7 vi7
-            {{9, 1}, {5, 0}, {0, 0}, {7, 0}, {4, 0}},      // i VI III VII V in A minor
-            {{0, 0}, {10, 0}, {5, 0}, {0, 0}},             // I ♭VII IV I
+            {{0, 0}, {9, 1}, {5, 0}, {7, 0}},         // I vi IV V
+            {{2, 8}, {7, 6}, {0, 7}, {9, 8}},         // ii7 V7 Imaj7 vi7
+            {{9, 1}, {5, 0}, {0, 0}, {7, 0}, {4, 0}}, // i VI III VII V in A minor
+            {{0, 0}, {10, 0}, {5, 0}, {0, 0}},        // I ♭VII IV I
         };
         for (const auto& progression : progressions)
         {
@@ -418,12 +427,13 @@ TEST_CASE("Smooth voicing moves least from the chord before", "[fast]")
             {
                 const auto smooth = voiceChord(progression[i], {.before = before});
                 const double moved = voiceLeadingDistance(before, smooth);
-                for (auto inversion : {Inversion::Root, Inversion::First, Inversion::Second, Inversion::Third})
+                for (auto inversion :
+                     {Inversion::Root, Inversion::First, Inversion::Second, Inversion::Third})
                     for (double centre = 40.0; centre <= 90.0; centre += 1.0)
                     {
-                        const auto other = voiceChord(progression[i], {.voicing = Voicing::Close,
-                                                                        .inversion = inversion,
-                                                                        .centre = centre});
+                        const auto other =
+                            voiceChord(progression[i],
+                                       {.voicing = Voicing::Close, .inversion = inversion, .centre = centre});
                         CHECK(moved <= voiceLeadingDistance(before, other));
                     }
                 CHECK(std::abs(smooth.front() - before.front()) <= 12); // it doesn't wander

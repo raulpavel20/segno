@@ -25,8 +25,9 @@ juce::String utf8(const std::string& s)
 /// The beats a stretch moves a selection by, as a value tag reads it: "× 1.5", "× −1".
 juce::String factorText(double factor)
 {
-    return juce::String::fromUTF8("× ") + juce::String(factor, std::abs(factor - std::round(factor)) < 0.005 ? 0 : 2)
-                                             .replace("-", juce::String::fromUTF8("−"));
+    return juce::String::fromUTF8("× ") +
+           juce::String(factor, std::abs(factor - std::round(factor)) < 0.005 ? 0 : 2)
+               .replace("-", juce::String::fromUTF8("−"));
 }
 } // namespace
 
@@ -141,7 +142,7 @@ void PianoRoll::setQuantiseSettings(const model::QuantiseSettings& settings)
 void PianoRoll::optionsChanged()
 {
     updateLabels(); // names, steps or both
-    resized(); // the chord lane comes and goes
+    resized();      // the chord lane comes and goes
     repaint();
     if (onOptionsChanged)
         onOptionsChanged();
@@ -153,19 +154,26 @@ juce::PopupMenu PianoRoll::drawMenu()
     const juce::Component::SafePointer<PianoRoll> safe(this);
     const auto item = [&](model::DrawMode mode, const char* name)
     {
-        menu.addItem(juce::PopupMenu::Item(name).setTicked(options_.draw == mode).setAction([safe, mode] {
-            if (safe != nullptr)
-                safe->setDraw(mode);
-        }));
+        menu.addItem(juce::PopupMenu::Item(name)
+                         .setTicked(options_.draw == mode)
+                         .setAction(
+                             [safe, mode]
+                             {
+                                 if (safe != nullptr)
+                                     safe->setDraw(mode);
+                             }));
     };
     item(model::DrawMode::Note, "Note");
     item(model::DrawMode::Chord, "Chord");
     item(model::DrawMode::ChordUnder, "Chord under, the note on top");
     menu.addSeparator();
-    menu.addItem(juce::PopupMenu::Item(juce::String::fromUTF8("Chord kind, voicing…")).setAction([safe] {
-        if (safe != nullptr && safe->onChordSettings)
-            safe->onChordSettings();
-    }));
+    menu.addItem(juce::PopupMenu::Item(juce::String::fromUTF8("Chord kind, voicing…"))
+                     .setAction(
+                         [safe]
+                         {
+                             if (safe != nullptr && safe->onChordSettings)
+                                 safe->onChordSettings();
+                         }));
     return menu;
 }
 
@@ -175,13 +183,19 @@ juce::PopupMenu PianoRoll::foldMenu()
     const juce::Component::SafePointer<PianoRoll> safe(this);
     const auto item = [&](model::Fold fold, const char* name, bool enabled)
     {
-        menu.addItem(juce::PopupMenu::Item(name).setTicked(options_.fold == fold).setEnabled(enabled).setAction([safe, fold] {
-            if (safe != nullptr)
-                safe->setFold(fold);
-        }));
+        menu.addItem(juce::PopupMenu::Item(name)
+                         .setTicked(options_.fold == fold)
+                         .setEnabled(enabled)
+                         .setAction(
+                             [safe, fold]
+                             {
+                                 if (safe != nullptr)
+                                     safe->setFold(fold);
+                             }));
     };
     item(model::Fold::All, "All rows", true);
-    item(model::Fold::Key, key_ ? "The key's rows" : "The key's rows (the song has no key)", key_.has_value());
+    item(model::Fold::Key, key_ ? "The key's rows" : "The key's rows (the song has no key)",
+         key_.has_value());
     item(model::Fold::Notes, "Rows with notes", true);
     return menu;
 }
@@ -199,7 +213,8 @@ int PianoRoll::chordLaneLines() const
 
 bool PianoRoll::showsChordLane() const
 {
-    return clip_ && (!spans_.empty() || options_.draw != model::DrawMode::Note || (options_.others && !allSpans_.empty()));
+    return clip_ && (!spans_.empty() || options_.draw != model::DrawMode::Note ||
+                     (options_.others && !allSpans_.empty()));
 }
 
 int PianoRoll::topHeight() const
@@ -465,12 +480,15 @@ void PianoRoll::updateRows()
     // Keep the pitch in the middle of the view in the middle as rows come and go.
     const auto before = geometry();
     const double middleRow = topEdge_ - gridArea().getHeight() / rowHeight_ * 0.5;
-    const int middlePitch = before.rows == nullptr
-                                ? static_cast<int>(std::lround(middleRow))
-                                : (before.rows->empty() ? 60 : (*before.rows)[static_cast<std::size_t>(std::clamp(
-                                                                  static_cast<int>(middleRow), 0,
-                                                                  static_cast<int>(before.rows->size()) - 1))]);
-    auto rows = options_.fold == model::Fold::All ? std::vector<int>{} : model::foldedRows(options_.fold, keyOrNull(), notes_);
+    const int middlePitch =
+        before.rows == nullptr
+            ? static_cast<int>(std::lround(middleRow))
+            : (before.rows->empty()
+                   ? 60
+                   : (*before.rows)[static_cast<std::size_t>(std::clamp(
+                         static_cast<int>(middleRow), 0, static_cast<int>(before.rows->size()) - 1))]);
+    auto rows = options_.fold == model::Fold::All ? std::vector<int>{}
+                                                  : model::foldedRows(options_.fold, keyOrNull(), notes_);
     if (rows.size() == 128)
         rows.clear(); // every pitch: not folded
     if (rows == rows_)
@@ -499,7 +517,8 @@ void PianoRoll::updateGhosts()
     std::vector<model::Note> all = notes_;
     for (const auto& track : snapshot->tracks)
     {
-        if (std::any_of(track.clips.begin(), track.clips.end(), [this](const auto& c) { return c.id == clip_->id; }))
+        if (std::any_of(track.clips.begin(), track.clips.end(),
+                        [this](const auto& c) { return c.id == clip_->id; }))
             continue; // the clip's own track
         for (const auto& c : track.clips)
         {
@@ -844,7 +863,8 @@ void PianoRoll::setChordTarget(std::optional<ChordPlace> place)
 PianoRoll::ChordPlace PianoRoll::writeChord(const ChordPlace& place, const music::Chord& chord)
 {
     previewOff();
-    auto edit = model::writeChord(notes_, place.start, place.end, chord, place.replacing, options_.chord, drawVelocity_);
+    auto edit = model::writeChord(notes_, place.start, place.end, chord, place.replacing, options_.chord,
+                                  drawVelocity_);
     ChordPlace written{place.start, place.end, edit.selection};
     commit(std::move(edit));
     return written;
@@ -860,7 +880,8 @@ void PianoRoll::previewChord(const ChordPlace& place, const std::optional<music:
         repaint();
         return;
     }
-    auto edit = model::writeChord(notes_, place.start, place.end, *chord, place.replacing, options_.chord, drawVelocity_);
+    auto edit = model::writeChord(notes_, place.start, place.end, *chord, place.replacing, options_.chord,
+                                  drawVelocity_);
     std::vector<int> pitches;
     for (auto i : edit.selection)
         pitches.push_back(edit.notes[i].pitch);
@@ -1116,7 +1137,8 @@ void PianoRoll::paintVelocities(juce::Graphics& g)
         g.setColour(t.textSecondary);
         g.drawLine(juce::Line<float>(dragStart_, lastDrag_), 1.0f);
     }
-    if (gesture_ == Gesture::Velocity || gesture_ == Gesture::VelocityOffset || gesture_ == Gesture::VelocityLine)
+    if (gesture_ == Gesture::Velocity || gesture_ == Gesture::VelocityOffset ||
+        gesture_ == Gesture::VelocityLine)
     {
         // The value under the gesture: the note nearest the mouse.
         const auto geoX = lastDrag_.x - static_cast<float>(area.getX());
@@ -1164,7 +1186,8 @@ void PianoRoll::paintKeys(juce::Graphics& g)
             const int p = rows_[static_cast<std::size_t>(r)];
             const float y = static_cast<float>(area.getY() + geo.yForPitch(p));
             const bool held = previewPitch_ == p ||
-                              std::find(previewChordPitches_.begin(), previewChordPitches_.end(), p) != previewChordPitches_.end();
+                              std::find(previewChordPitches_.begin(), previewChordPitches_.end(), p) !=
+                                  previewChordPitches_.end();
             g.setColour(held ? t.active : whiteKey);
             g.fillRect(x, y, w, rh);
             g.setColour(t.roles.keySeam);
@@ -1175,7 +1198,8 @@ void PianoRoll::paintKeys(juce::Graphics& g)
                 if (const int step = key_ ? music::scaleStep(*key_, p) : -1; step >= 0)
                     label << juce::String::fromUTF8(" · ") << (step + 1);
                 g.setColour(held ? t.onActive : t.surface0);
-                g.drawText(label, juce::Rectangle<float>(x, y, w - 4.0f, rh - 1.0f), juce::Justification::centredRight, false);
+                g.drawText(label, juce::Rectangle<float>(x, y, w - 4.0f, rh - 1.0f),
+                           juce::Justification::centredRight, false);
             }
         }
         g.setColour(t.surface0);
@@ -1188,8 +1212,9 @@ void PianoRoll::paintKeys(juce::Graphics& g)
     for (int p = lowest; p <= highest; ++p)
     {
         const float y = static_cast<float>(area.getY() + geo.yForPitch(p));
-        const bool held = previewPitch_ == p ||
-                          std::find(previewChordPitches_.begin(), previewChordPitches_.end(), p) != previewChordPitches_.end();
+        const bool held =
+            previewPitch_ == p || std::find(previewChordPitches_.begin(), previewChordPitches_.end(), p) !=
+                                      previewChordPitches_.end();
         // The C's are labelled, and the key's root too (key-and-scale.md §7).
         const bool labelled = (p % 12 == 0 || (key_ && p % 12 == key_->root)) && rowHeight_ >= 8.0;
         if (isBlackKey(p))
@@ -1231,7 +1256,8 @@ void PianoRoll::paintRuler(juce::Graphics& g)
     const auto& t = ui::Theme::current();
     const auto& s = t.shell;
     g.setColour(t.surface1);
-    g.fillRect(getLocalBounds().removeFromTop(s.loopStripHeight + s.rulerHeight)); // the corner above the keys too
+    g.fillRect(
+        getLocalBounds().removeFromTop(s.loopStripHeight + s.rulerHeight)); // the corner above the keys too
     // The clip's loop brace: its loop, or (Loop off) what it would loop (clip-loops.md §6).
     time::paintLoopStrip(g, timeline_, loopStripArea(), brace_.preview().value_or(playedRange()), clip_->loop.on());
     time::paintRuler(g, lines_, timeline_, rulerArea(), {.range = playedRange(), .rangeColour = t.clipColour(clip_->colour)});
@@ -1248,7 +1274,8 @@ void PianoRoll::paintRuler(juce::Graphics& g)
     g.fillRoundedRectangle(left.toFloat(), 1.0f);
     g.fillRoundedRectangle(right.toFloat(), 1.0f);
     if (gesture_ == Gesture::TimeHandle && moved_)
-        ui::paintValueTag(g, (handleAtEnd_ ? right : left).getCentre().toFloat(), getLocalBounds(), factorText(stretchFactor_));
+        ui::paintValueTag(g, (handleAtEnd_ ? right : left).getCentre().toFloat(), getLocalBounds(),
+                          factorText(stretchFactor_));
 }
 
 std::optional<std::pair<double, double>> PianoRoll::selectionSpan() const
@@ -1295,7 +1322,8 @@ void PianoRoll::paintChordLane(juce::Graphics& g)
     auto labelArea = row.withWidth(s.keyboardWidth).withHeight(s.rowHeight);
     const auto label = [&](const char* text, juce::Rectangle<int> area)
     {
-        const int w = static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(ui::capsLabelFont(), juce::String(text).toUpperCase())));
+        const int w = static_cast<int>(std::ceil(
+            juce::GlyphArrangement::getStringWidth(ui::capsLabelFont(), juce::String(text).toUpperCase())));
         ui::paintCapsLabel(g, text, area.withSizeKeepingCentre(w, area.getHeight()).toFloat());
     };
     if (own)
@@ -1331,7 +1359,8 @@ std::vector<PianoRoll::LaneLabel> PianoRoll::labelsFor(const std::vector<model::
         if (names)
             label.name = utf8(music::chordName(span.chord, keyOrNull()));
         if (steps)
-            label.step = (names ? juce::String::fromUTF8(" · ") : juce::String()) + utf8(music::romanNumeral(span.chord, *key_));
+            label.step = (names ? juce::String::fromUTF8(" · ") : juce::String()) +
+                         utf8(music::romanNumeral(span.chord, *key_));
         label.nameWidth = nameWidth(label.name);
         label.stepWidth = nameWidth(label.step);
         out.push_back(std::move(label));
@@ -1352,14 +1381,16 @@ int PianoRoll::nameWidth(const juce::String& text) const
         return 0;
     if (const auto it = widths_.find(text); it != widths_.end())
         return it->second;
-    const int w = static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(ui::font(ui::TextStyle::Name), text)));
+    const int w = static_cast<int>(
+        std::ceil(juce::GlyphArrangement::getStringWidth(ui::font(ui::TextStyle::Name), text)));
     if (widths_.size() > 512)
         widths_.clear();
     widths_.emplace(text, w);
     return w;
 }
 
-void PianoRoll::paintChordLine(juce::Graphics& g, juce::Rectangle<int> area, const std::vector<model::ChordSpan>& spans,
+void PianoRoll::paintChordLine(juce::Graphics& g, juce::Rectangle<int> area,
+                               const std::vector<model::ChordSpan>& spans,
                                const std::vector<LaneLabel>& labels, bool own)
 {
     const auto& t = ui::Theme::current();
@@ -1371,7 +1402,8 @@ void PianoRoll::paintChordLine(juce::Graphics& g, juce::Rectangle<int> area, con
     const auto nameFont = ui::font(ui::TextStyle::Name);
     g.setFont(nameFont);
     const int least = nameWidth(juce::String::fromUTF8("…")); // the least room worth writing in
-    const auto xOf = [&](double beat) { return area.getX() + static_cast<int>(std::round(geo.xForBeat(beat))); };
+    const auto xOf = [&](double beat)
+    { return area.getX() + static_cast<int>(std::round(geo.xForBeat(beat))); };
 
     for (std::size_t k = 0; k < spans.size(); ++k)
     {
@@ -1380,8 +1412,10 @@ void PianoRoll::paintChordLine(juce::Graphics& g, juce::Rectangle<int> area, con
         const int next = k + 1 < spans.size() ? xOf(spans[k + 1].start) : area.getRight();
         if (x1 < area.getX() || x0 > area.getRight())
             continue;
-        const auto spanArea = juce::Rectangle<int>(x0, area.getY(), std::max(1, x1 - x0), area.getHeight() - 1);
-        if (own && !preview_ && std::all_of(span.notes.begin(), span.notes.end(), [&](auto i) { return selection.contains(i); }))
+        const auto spanArea =
+            juce::Rectangle<int>(x0, area.getY(), std::max(1, x1 - x0), area.getHeight() - 1);
+        if (own && !preview_ &&
+            std::all_of(span.notes.begin(), span.notes.end(), [&](auto i) { return selection.contains(i); }))
         {
             g.setColour(t.roles.selectionFill);
             g.fillRect(spanArea);
@@ -1396,7 +1430,8 @@ void PianoRoll::paintChordLine(juce::Graphics& g, juce::Rectangle<int> area, con
 
         // The name, then the step after it; cut short before the next chord, the step going first;
         // nothing where there isn't room for an ellipsis.
-        const auto text = juce::Rectangle<int>(x0, area.getY(), next - x0, area.getHeight() - 1).reduced(s.fieldTextInset, 0);
+        const auto text = juce::Rectangle<int>(x0, area.getY(), next - x0, area.getHeight() - 1)
+                              .reduced(s.fieldTextInset, 0);
         if (text.getWidth() < least || k >= labels.size())
             continue;
         const auto& label = labels[k];
@@ -1409,16 +1444,17 @@ void PianoRoll::paintChordLine(juce::Graphics& g, juce::Rectangle<int> area, con
         if (label.step.isNotEmpty() && (whole || label.name.isEmpty()))
         {
             g.setColour(own ? t.textSecondary : t.textTertiary);
-            g.drawText(label.step, text.withTrimmedLeft(label.nameWidth), juce::Justification::centredLeft, !whole);
+            g.drawText(label.step, text.withTrimmedLeft(label.nameWidth), juce::Justification::centredLeft,
+                       !whole);
         }
     }
 
     // Where the Chord popover writes (§7.3): marked as a drop is.
     if (own && chordTarget_)
     {
-        const auto target = juce::Rectangle<int>(xOf(chordTarget_->start), area.getY(),
-                                                 std::max(1, xOf(chordTarget_->end) - xOf(chordTarget_->start)),
-                                                 area.getHeight() - 1);
+        const auto target = juce::Rectangle<int>(
+            xOf(chordTarget_->start), area.getY(),
+            std::max(1, xOf(chordTarget_->end) - xOf(chordTarget_->start)), area.getHeight() - 1);
         g.setColour(t.roles.selectionFill);
         g.fillRect(target);
         g.setColour(t.active);
@@ -1469,7 +1505,8 @@ void PianoRoll::mouseMove(const juce::MouseEvent& e)
     const auto grab = static_cast<int>(ui::Theme::current().input.edgeGrab) / 2;
     if (clip_ && keysArea().contains(pos))
         cursor = juce::MouseCursor::PointingHandCursor;
-    else if (clip_ && !left.isEmpty() && (left.expanded(grab, 0).contains(pos) || right.expanded(grab, 0).contains(pos)))
+    else if (clip_ && !left.isEmpty() &&
+             (left.expanded(grab, 0).contains(pos) || right.expanded(grab, 0).contains(pos)))
         cursor = juce::MouseCursor::LeftRightResizeCursor;
     else if (clip_ && loopStripArea().contains(pos))
     {
@@ -1543,12 +1580,14 @@ void PianoRoll::mouseDown(const juce::MouseEvent& e)
     if (const auto [left, right] = timeHandles(); !left.isEmpty() && !e.mods.isPopupMenu())
     {
         const auto grab = static_cast<int>(ui::Theme::current().input.edgeGrab) / 2;
-        const bool atStart = left.expanded(grab, 0).contains(pos), atEnd = right.expanded(grab, 0).contains(pos);
+        const bool atStart = left.expanded(grab, 0).contains(pos),
+                   atEnd = right.expanded(grab, 0).contains(pos);
         if (atStart || atEnd)
         {
             // A time handle (§9.2): stretches the selection from its other end.
             gesture_ = Gesture::TimeHandle;
-            handleAtEnd_ = atEnd && (!atStart || std::abs(pos.x - right.getCentreX()) < std::abs(pos.x - left.getCentreX()));
+            handleAtEnd_ = atEnd && (!atStart || std::abs(pos.x - right.getCentreX()) <
+                                                     std::abs(pos.x - left.getCentreX()));
             base_ = {notes_, selection_};
             stretchFactor_ = 1.0;
             return;
@@ -1571,17 +1610,20 @@ void PianoRoll::mouseDown(const juce::MouseEvent& e)
             // The lane's menu: what it writes for each chord (§7.1, Display).
             juce::PopupMenu menu;
             const juce::Component::SafePointer<PianoRoll> safe(this);
-            for (auto labels : {model::ChordLabels::Both, model::ChordLabels::Names, model::ChordLabels::Steps})
+            for (auto labels :
+                 {model::ChordLabels::Both, model::ChordLabels::Names, model::ChordLabels::Steps})
                 menu.addItem(juce::PopupMenu::Item(model::chordLabelsName(labels))
                                  .setTicked(options_.chordLabels == labels)
                                  .setEnabled(key_.has_value() || labels == model::ChordLabels::Names)
-                                 .setAction([safe, labels] {
-                                     if (safe == nullptr)
-                                         return;
-                                     auto o = safe->options();
-                                     o.chordLabels = labels;
-                                     safe->setOptions(o);
-                                 }));
+                                 .setAction(
+                                     [safe, labels]
+                                     {
+                                         if (safe == nullptr)
+                                             return;
+                                         auto o = safe->options();
+                                         o.chordLabels = labels;
+                                         safe->setOptions(o);
+                                     }));
             menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMousePosition());
             return;
         }
@@ -1666,7 +1708,8 @@ void PianoRoll::mouseDown(const juce::MouseEvent& e)
                                .velocity = drawVelocity_};
         base_ = options_.draw == model::DrawMode::Note
                     ? model::addNote(notes_, note)
-                    : model::drawChord(notes_, note, keyOrNull(), options_.chord, options_.draw == model::DrawMode::ChordUnder);
+                    : model::drawChord(notes_, note, keyOrNull(), options_.chord,
+                                       options_.draw == model::DrawMode::ChordUnder);
         if (base_.selection.empty())
             return;
         preview_ = base_;
@@ -1859,7 +1902,8 @@ void PianoRoll::mouseDrag(const juce::MouseEvent& e)
     case Gesture::Keys:
     case Gesture::Ruler:
     case Gesture::Brace:
-    case Gesture::ChordLane: break; // handled above
+    case Gesture::ChordLane:
+        break; // handled above
     }
     repaint();
 }
@@ -1907,8 +1951,11 @@ void PianoRoll::mouseUp(const juce::MouseEvent& e)
     }
     clickedInSelection_.reset();
     toggleOnClick_.reset();
-    const bool edits = gesture_ == Gesture::Draw || gesture_ == Gesture::Velocity || gesture_ == Gesture::VelocityOffset ||
-                       ((gesture_ == Gesture::Notes || gesture_ == Gesture::VelocityLine || gesture_ == Gesture::TimeHandle) && moved_);
+    const bool edits = gesture_ == Gesture::Draw || gesture_ == Gesture::Velocity ||
+                       gesture_ == Gesture::VelocityOffset ||
+                       ((gesture_ == Gesture::Notes || gesture_ == Gesture::VelocityLine ||
+                         gesture_ == Gesture::TimeHandle) &&
+                        moved_);
     if (edits && preview_)
         commit(std::move(*preview_));
     preview_.reset();

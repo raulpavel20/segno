@@ -4,7 +4,6 @@
 // and compact widths; each drawn for review with FD_DUMP_DIR set.
 
 #include "ShellTestKit.h"
-
 #include "model/MenuBar.h"
 #include "model/Selection.h"
 
@@ -25,7 +24,8 @@ struct RollFixture : ShellFixture
     {
         shell->setSize(width, height);
         track = session->snapshot()->tracks.front().id;
-        REQUIRE(session->addDevice(track, "fd:subtractive-synth") != 0); // previews need something to play them
+        REQUIRE(session->addDevice(track, "fd:subtractive-synth") !=
+                0);                                        // previews need something to play them
         clipId = session->createMidiClip(track, 0.0, 8.0); // four bars at 120 BPM
         REQUIRE(clipId != 0);
         open();
@@ -73,7 +73,10 @@ struct RollFixture : ShellFixture
     fd::app::PianoRoll& roll() { return shell->detail().pianoRoll(); }
 
     /// Presses a key in the shell, as typed.
-    bool press(int code, int mods = 0) { return shell->keyPressed(juce::KeyPress(code, juce::ModifierKeys(mods), 0)); }
+    bool press(int code, int mods = 0)
+    {
+        return shell->keyPressed(juce::KeyPress(code, juce::ModifierKeys(mods), 0));
+    }
 
     /// The detail panel, for review.
     void dump(const char* name, juce::Rectangle<int> area = {})
@@ -82,7 +85,9 @@ struct RollFixture : ShellFixture
         {
             auto& detail = shell->detail();
             detail.frame(0.0); // the grid's step in the header, as a frame shows it
-            dumpPng(dir, name, detail.createComponentSnapshot(area.isEmpty() ? detail.getLocalBounds() : area, true, 2.0f));
+            dumpPng(
+                dir, name,
+                detail.createComponentSnapshot(area.isEmpty() ? detail.getLocalBounds() : area, true, 2.0f));
         }
     }
 };
@@ -99,8 +104,9 @@ std::vector<fd::model::Note> progression()
 {
     // Am, F, C/G, G7 in A minor, a bar each.
     std::vector<fd::model::Note> notes;
-    for (const auto& [pitches, start] : {std::pair{std::vector<int>{57, 60, 64}, 0.0}, std::pair{std::vector<int>{53, 57, 60}, 4.0},
-                                         std::pair{std::vector<int>{55, 60, 64}, 8.0}, std::pair{std::vector<int>{55, 59, 62, 65}, 12.0}})
+    for (const auto& [pitches, start] :
+         {std::pair{std::vector<int>{57, 60, 64}, 0.0}, std::pair{std::vector<int>{53, 57, 60}, 4.0},
+          std::pair{std::vector<int>{55, 60, 64}, 8.0}, std::pair{std::vector<int>{55, 59, 62, 65}, 12.0}})
         for (const auto& n : chordNotes(pitches, start))
             notes.push_back(n);
     std::sort(notes.begin(), notes.end(), fd::model::noteOrder);
@@ -113,8 +119,9 @@ juce::String nameOf(const fd::music::Chord& chord, const Key& key)
 }
 } // namespace
 
-TEST_CASE("piano roll: in the key, drawing lands on its notes, the arrows move by its steps, Fold shows its rows",
-          "[integration]")
+TEST_CASE(
+    "piano roll: in the key, drawing lands on its notes, the arrows move by its steps, Fold shows its rows",
+    "[integration]")
 {
     RollFixture f;
     auto& roll = f.roll();
@@ -171,7 +178,8 @@ TEST_CASE("piano roll: in the key, drawing lands on its notes, the arrows move b
     CHECK(roll.foldedRows().empty());
 }
 
-TEST_CASE("piano roll: the chord lane names the chords; a click selects one; the Chord popover writes and re-voices",
+TEST_CASE("piano roll: the chord lane names the chords; a click selects one; the Chord popover writes and "
+          "re-voices",
           "[integration]")
 {
     RollFixture f;
@@ -191,7 +199,10 @@ TEST_CASE("piano roll: the chord lane names the chords; a click selects one; the
     // A click on a name selects that chord's notes.
     const auto lane = roll.chordLaneArea();
     const auto inLane = [&](double beat)
-    { return juce::Point<float>(roll.pointFor(beat, 60).x, static_cast<float>(lane.getY() + lane.getHeight() / 2)); };
+    {
+        return juce::Point<float>(roll.pointFor(beat, 60).x,
+                                  static_cast<float>(lane.getY() + lane.getHeight() / 2));
+    };
     click(roll, inLane(5.0));
     CHECK(roll.selection() == std::set<std::size_t>(spans[1].notes.begin(), spans[1].notes.end()));
     f.dump("piano-roll-chords@2x.png");
@@ -213,7 +224,8 @@ TEST_CASE("piano roll: the chord lane names the chords; a click selects one; the
     CHECK(inKey == juce::StringArray{"Am", juce::String::fromUTF8("B°"), "C", "Dm", "Em", "F", "G"});
     // The chord there is lit; the popover sits beside the place, inside the window, nothing touching.
     const auto buttons = popover.chordButtons();
-    const auto lit = std::count_if(buttons.begin(), buttons.end(), [](auto* b) { return b->getToggleState(); });
+    const auto lit =
+        std::count_if(buttons.begin(), buttons.end(), [](auto* b) { return b->getToggleState(); });
     CHECK(lit == 0); // G7 isn't offered as a triad
     CHECK(f.shell->getLocalBounds().contains(
         popover.getBounds().reduced(juce::roundToInt(fd::ui::Theme::current().shell.shadowRadius))));
@@ -224,8 +236,10 @@ TEST_CASE("piano roll: the chord lane names the chords; a click selects one; the
     popover.hover(e);
     CHECK(f.notes() == progression());
     if (const char* dir = std::getenv("FD_DUMP_DIR"))
-        dumpPng(dir, "piano-roll-chord-popover@2x.png",
-                f.shell->createComponentSnapshot(f.shell->getLocalArea(&f.shell->detail(), f.shell->detail().getLocalBounds()), true, 2.0f));
+        dumpPng(
+            dir, "piano-roll-chord-popover@2x.png",
+            f.shell->createComponentSnapshot(
+                f.shell->getLocalArea(&f.shell->detail(), f.shell->detail().getLocalBounds()), true, 2.0f));
     popover.hover(std::nullopt);
 
     // A click writes it: E (doubled to G7's four notes), voice-led from C/G, one undo step.
@@ -255,7 +269,8 @@ TEST_CASE("piano roll: the chord lane names the chords; a click selects one; the
     CHECK(f.notes() == progression());
 }
 
-TEST_CASE("piano roll: chords drawn on a click, other tracks' notes faint, time handles, a velocity line, muting, Ctrl+drag",
+TEST_CASE("piano roll: chords drawn on a click, other tracks' notes faint, time handles, a velocity line, "
+          "muting, Ctrl+drag",
           "[integration]")
 {
     RollFixture f;
@@ -266,7 +281,8 @@ TEST_CASE("piano roll: chords drawn on a click, other tracks' notes faint, time 
     // Another track's melody over the clip: shown faint, never selectable.
     const auto lead = f.session->addTrack("Lead");
     const auto leadClip = f.session->createMidiClip(lead, 0.0, 8.0);
-    f.session->setNotes(leadClip, {{76, 0.0, 1.5, 0.8f}, {79, 1.5, 0.5, 0.8f}, {81, 2.0, 2.0, 0.8f}, {77, 4.0, 4.0, 0.8f}});
+    f.session->setNotes(
+        leadClip, {{76, 0.0, 1.5, 0.8f}, {79, 1.5, 0.5, 0.8f}, {81, 2.0, 2.0, 0.8f}, {77, 4.0, 4.0, 0.8f}});
     f.refresh();
     CHECK(roll.ghostCount() == 4);
     roll.setOthers(false);
@@ -278,7 +294,8 @@ TEST_CASE("piano roll: chords drawn on a click, other tracks' notes faint, time 
     CHECK(roll.showsChordLane());
     doubleClick(roll, roll.pointFor(0.1, 69));
     REQUIRE(f.notes().size() == 3);
-    CHECK(fd::music::nameChord(std::vector<int>{f.notes()[0].pitch, f.notes()[1].pitch, f.notes()[2].pitch})->root == 9);
+    CHECK(fd::music::nameChord(std::vector<int>{f.notes()[0].pitch, f.notes()[1].pitch, f.notes()[2].pitch})
+              ->root == 9);
     doubleClick(roll, roll.pointFor(4.1, 65));
     REQUIRE(f.notes().size() == 6);
     // Chord under: the note on top (C, after F: the key's C chord, the most usual next with it).
@@ -369,7 +386,8 @@ TEST_CASE("piano roll: the Notes menu opens from the header too; Quantise previe
     CHECK(f.notes()[0].start == Catch::Approx(0.1)); // only previewed
     CHECK(roll.notes()[0].start == Catch::Approx(0.1));
     if (const char* dir = std::getenv("FD_DUMP_DIR"))
-        dumpPng(dir, "piano-roll-quantise@2x.png", f.shell->createComponentSnapshot(quantise.getBounds().expanded(40), true, 2.0f));
+        dumpPng(dir, "piano-roll-quantise@2x.png",
+                f.shell->createComponentSnapshot(quantise.getBounds().expanded(40), true, 2.0f));
     CHECK(crowded(quantise, 4).isEmpty());
     quantise.apply();
     CHECK_FALSE(quantise.isOpen());
@@ -402,8 +420,8 @@ TEST_CASE("piano roll: the clip view's header at standard and compact widths, op
             if (c->isVisible() && !c->getBounds().isEmpty())
                 CHECK(header.getLocalBounds().contains(c->getBounds()));
         // Others gives way first, then Fold, then Draw.
-        const bool others = header.isDropped(detail.othersOption()), fold = header.isDropped(detail.foldChoice()),
-                   draw = header.isDropped(detail.drawChoice());
+        const bool others = header.isDropped(detail.othersOption()),
+                   fold = header.isDropped(detail.foldChoice()), draw = header.isDropped(detail.drawChoice());
         CHECK((!fold || others));
         CHECK((!draw || fold));
         if (const char* dir = std::getenv("FD_DUMP_DIR"))
@@ -414,7 +432,8 @@ TEST_CASE("piano roll: the clip view's header at standard and compact widths, op
     }
 }
 
-TEST_CASE("piano roll: the inspector's NOTES section shows the selected notes; typed sets all, dragged moves together",
+TEST_CASE("piano roll: the inspector's NOTES section shows the selected notes; typed sets all, dragged moves "
+          "together",
           "[integration]")
 {
     RollFixture f;
@@ -425,7 +444,10 @@ TEST_CASE("piano roll: the inspector's NOTES section shows the selected notes; t
     f.setNotes(progression());
     using S = fd::model::InspectorSection;
     const auto hasNotes = [&]
-    { return std::find(inspector.sections().begin(), inspector.sections().end(), S::Notes) != inspector.sections().end(); };
+    {
+        return std::find(inspector.sections().begin(), inspector.sections().end(), S::Notes) !=
+               inspector.sections().end();
+    };
     CHECK_FALSE(hasNotes()); // nothing selected
 
     // The G7 chord, selected from the lane: four notes, their ranges, the chord they make.
@@ -441,10 +463,12 @@ TEST_CASE("piano roll: the inspector's NOTES section shows the selected notes; t
     CHECK(pitch.isVisible());
     CHECK(pitch.getValue() == 55.0);
     CHECK(pitch.textFromValue(pitch.getValue()) == juce::String::fromUTF8("G2 – F3"));
-    CHECK(inspector.noteField(F::Velocity).textFromValue(inspector.noteField(F::Velocity).getValue()) == "96");
+    CHECK(inspector.noteField(F::Velocity).textFromValue(inspector.noteField(F::Velocity).getValue()) ==
+          "96");
     if (const char* dir = std::getenv("FD_DUMP_DIR"))
         dumpPng(dir, "piano-roll-inspector-notes@2x.png",
-                inspector.createComponentSnapshot(inspector.getLocalBounds().withHeight(std::min(inspector.getHeight(), 420)), true, 2.0f));
+                inspector.createComponentSnapshot(
+                    inspector.getLocalBounds().withHeight(std::min(inspector.getHeight(), 420)), true, 2.0f));
 
     // A velocity typed sets them all.
     auto& velocity = inspector.noteField(F::Velocity);
@@ -477,7 +501,8 @@ TEST_CASE("piano roll: the inspector's NOTES section shows the selected notes; t
     CHECK_FALSE(pitch.valueFromText("H2"));
 }
 
-TEST_CASE("piano roll: 2 000 notes, the chord lane and other tracks' notes drawn within a frame", "[integration]")
+TEST_CASE("piano roll: 2 000 notes, the chord lane and other tracks' notes drawn within a frame",
+          "[integration]")
 {
     RollFixture f;
     auto& roll = f.roll();

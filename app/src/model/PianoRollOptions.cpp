@@ -1,8 +1,7 @@
 #include "model/PianoRollOptions.h"
 
-#include <nlohmann/json.hpp>
-
 #include <array>
+#include <nlohmann/json.hpp>
 #include <string_view>
 
 namespace fd::model
@@ -14,11 +13,13 @@ constexpr std::array<std::string_view, 3> drawWords{"note", "chord", "chordUnder
 constexpr std::array<std::string_view, 3> foldWords{"all", "key", "notes"};
 constexpr std::array<std::string_view, 3> labelWords{"both", "names", "steps"};
 constexpr std::array<std::string_view, 6> shapeWordList{"triad", "seventh", "ninth", "sus2", "sus4", "add9"};
-constexpr std::array<std::string_view, 6> voicingWordList{"smooth", "close", "open", "drop2", "drop3", "spread"};
+constexpr std::array<std::string_view, 6> voicingWordList{"smooth", "close", "open",
+                                                          "drop2",  "drop3", "spread"};
 constexpr std::array<std::string_view, 5> inversionWordList{"auto", "root", "first", "second", "third"};
 
 template <typename E, std::size_t N>
-E fromWord(const nlohmann::json& json, const char* key, const std::array<std::string_view, N>& words, E fallback)
+E fromWord(const nlohmann::json& json, const char* key, const std::array<std::string_view, N>& words,
+           E fallback)
 {
     if (const auto it = json.find(key); it != json.end() && it->is_string())
         for (std::size_t i = 0; i < N; ++i)
@@ -27,8 +28,7 @@ E fromWord(const nlohmann::json& json, const char* key, const std::array<std::st
     return fallback;
 }
 
-template <typename E, std::size_t N>
-std::string toWord(E value, const std::array<std::string_view, N>& words)
+template <typename E, std::size_t N> std::string toWord(E value, const std::array<std::string_view, N>& words)
 {
     return std::string(words[static_cast<std::size_t>(value)]);
 }
@@ -125,9 +125,12 @@ const char* drawModeName(DrawMode mode) noexcept
 {
     switch (mode)
     {
-    case DrawMode::Chord: return "Draw chord";
-    case DrawMode::ChordUnder: return "Draw chord under";
-    default: return "Draw note";
+    case DrawMode::Chord:
+        return "Draw chord";
+    case DrawMode::ChordUnder:
+        return "Draw chord under";
+    default:
+        return "Draw note";
     }
 }
 
@@ -135,9 +138,12 @@ const char* foldName(Fold fold) noexcept
 {
     switch (fold)
     {
-    case Fold::Key: return "Fold to key";
-    case Fold::Notes: return "Fold to notes";
-    default: return "Fold off";
+    case Fold::Key:
+        return "Fold to key";
+    case Fold::Notes:
+        return "Fold to notes";
+    default:
+        return "Fold off";
     }
 }
 
@@ -145,9 +151,12 @@ const char* chordLabelsName(ChordLabels labels) noexcept
 {
     switch (labels)
     {
-    case ChordLabels::Names: return "Names";
-    case ChordLabels::Steps: return "Steps";
-    default: return "Names and steps";
+    case ChordLabels::Names:
+        return "Names";
+    case ChordLabels::Steps:
+        return "Steps";
+    default:
+        return "Names and steps";
     }
 }
 
@@ -155,12 +164,18 @@ const char* chordShapeName(music::ChordShape shape) noexcept
 {
     switch (shape)
     {
-    case music::ChordShape::Seventh: return "7th";
-    case music::ChordShape::Ninth: return "9th";
-    case music::ChordShape::Sus2: return "sus2";
-    case music::ChordShape::Sus4: return "sus4";
-    case music::ChordShape::Add9: return "add9";
-    default: return "Triad";
+    case music::ChordShape::Seventh:
+        return "7th";
+    case music::ChordShape::Ninth:
+        return "9th";
+    case music::ChordShape::Sus2:
+        return "sus2";
+    case music::ChordShape::Sus4:
+        return "sus4";
+    case music::ChordShape::Add9:
+        return "add9";
+    default:
+        return "Triad";
     }
 }
 
@@ -168,12 +183,18 @@ const char* voicingName(music::Voicing voicing) noexcept
 {
     switch (voicing)
     {
-    case music::Voicing::Close: return "Close";
-    case music::Voicing::Open: return "Open";
-    case music::Voicing::Drop2: return "Drop 2";
-    case music::Voicing::Drop3: return "Drop 3";
-    case music::Voicing::Spread: return "Spread";
-    default: return "Smooth";
+    case music::Voicing::Close:
+        return "Close";
+    case music::Voicing::Open:
+        return "Open";
+    case music::Voicing::Drop2:
+        return "Drop 2";
+    case music::Voicing::Drop3:
+        return "Drop 3";
+    case music::Voicing::Spread:
+        return "Spread";
+    default:
+        return "Smooth";
     }
 }
 
@@ -181,11 +202,16 @@ const char* inversionName(music::Inversion inversion) noexcept
 {
     switch (inversion)
     {
-    case music::Inversion::Root: return "Root";
-    case music::Inversion::First: return "1st";
-    case music::Inversion::Second: return "2nd";
-    case music::Inversion::Third: return "3rd";
-    default: return "Auto";
+    case music::Inversion::Root:
+        return "Root";
+    case music::Inversion::First:
+        return "1st";
+    case music::Inversion::Second:
+        return "2nd";
+    case music::Inversion::Third:
+        return "3rd";
+    default:
+        return "Auto";
     }
 }
 } // namespace fd::model

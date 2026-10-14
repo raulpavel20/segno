@@ -9,7 +9,6 @@
 #include "ui/time/TimeView.h"
 
 #include <fd_ui/fd_ui.h>
-
 #include <map>
 #include <optional>
 #include <set>
@@ -280,8 +279,9 @@ private:
     [[nodiscard]] int nameWidth(const juce::String& text) const;
     mutable std::map<juce::String, int> widths_;
     /// One line of chord names over `area` (the lane's first or second line).
-    void paintChordLine(juce::Graphics& g, juce::Rectangle<int> area, const std::vector<model::ChordSpan>& spans,
-                        const std::vector<LaneLabel>& labels, bool own);
+    void paintChordLine(juce::Graphics& g, juce::Rectangle<int> area,
+                        const std::vector<model::ChordSpan>& spans, const std::vector<LaneLabel>& labels,
+                        bool own);
 
     engine::Session& session_;
     std::optional<model::ClipInfo> clip_;
@@ -294,13 +294,13 @@ private:
     model::PianoRollOptions options_;
     std::vector<model::Note> notes_;    // the clip's notes: the snapshot's, or our last edit
     std::set<std::size_t> selection_;   // indices into notes_
-    std::optional<model::NoteEdit> preview_; // during a gesture, or a tool's preview
-    std::vector<int> rows_;             // folded: the pitches shown; empty: every pitch
-    std::vector<model::ChordSpan> spans_;    // the chord lane, read from notes_
-    std::vector<Ghost> ghosts_;              // the other tracks' notes (§8)
-    std::vector<model::ChordSpan> allSpans_; // the chords of everything shown, with Others on
+    std::optional<model::NoteEdit> preview_;        // during a gesture, or a tool's preview
+    std::vector<int> rows_;                         // folded: the pitches shown; empty: every pitch
+    std::vector<model::ChordSpan> spans_;           // the chord lane, read from notes_
+    std::vector<Ghost> ghosts_;                     // the other tracks' notes (§8)
+    std::vector<model::ChordSpan> allSpans_;        // the chords of everything shown, with Others on
     std::vector<LaneLabel> spanLabels_, allLabels_; // their labels
-    std::optional<ChordPlace> chordTarget_;  // where the open Chord popover writes
+    std::optional<ChordPlace> chordTarget_;         // where the open Chord popover writes
     model::Timeline timeline_;
     std::vector<model::Timeline::GridLine> lines_; // paint scratch
     double rowHeight_ = 12.0;

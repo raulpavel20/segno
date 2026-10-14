@@ -115,7 +115,8 @@ std::map<std::size_t, int> movedPitches(const std::vector<Note>& notes, const st
         const auto rowOf = [&](int pitch)
         {
             const auto it = std::lower_bound(rows.begin(), rows.end(), pitch);
-            return static_cast<int>(std::min<std::ptrdiff_t>(it - rows.begin(), static_cast<std::ptrdiff_t>(rows.size()) - 1));
+            return static_cast<int>(
+                std::min<std::ptrdiff_t>(it - rows.begin(), static_cast<std::ptrdiff_t>(rows.size()) - 1));
         };
         int lowest = static_cast<int>(rows.size()), highest = 0;
         for (auto i : sel)

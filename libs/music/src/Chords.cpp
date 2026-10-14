@@ -28,34 +28,34 @@ constexpr ChordKind make(std::string_view id, std::string_view symbol, std::stri
 // The order is the one a name prefers when notes read two ways and nothing else decides (Am7/E
 // over C6/E). Indices are used below by name; keep them in step.
 constexpr std::array<ChordKind, 28> kinds{{
-    make("maj", "", "", "Major", false, {0, 4, 7}),                                  // 0
-    make("m", "m", "", "Minor", true, {0, 3, 7}),                                    // 1
-    make("dim", "°", "°", "Diminished", true, {0, 3, 6}),                            // 2
-    make("aug", "+", "+", "Augmented", false, {0, 4, 8}),                            // 3
-    make("sus4", "sus4", "sus4", "Suspended fourth", false, {0, 5, 7}),              // 4
-    make("sus2", "sus2", "sus2", "Suspended second", false, {0, 2, 7}),              // 5
-    make("7", "7", "7", "Dominant seventh", false, {0, 4, 7, 10}),                   // 6
-    make("maj7", "maj7", "maj7", "Major seventh", false, {0, 4, 7, 11}),             // 7
-    make("m7", "m7", "7", "Minor seventh", true, {0, 3, 7, 10}),                     // 8
-    make("m7b5", "m7♭5", "ø7", "Half-diminished seventh", true, {0, 3, 6, 10}),      // 9
-    make("dim7", "°7", "°7", "Diminished seventh", true, {0, 3, 6, 9}),              // 10
-    make("m(maj7)", "m(maj7)", "(maj7)", "Minor major seventh", true, {0, 3, 7, 11}), // 11
-    make("7sus4", "7sus4", "7sus4", "Seventh, suspended fourth", false, {0, 5, 7, 10}), // 12
-    make("aug7", "+7", "+7", "Augmented seventh", false, {0, 4, 8, 10}),             // 13
-    make("maj7#5", "maj7♯5", "+maj7", "Augmented major seventh", false, {0, 4, 8, 11}), // 14
-    make("6", "6", "6", "Sixth", false, {0, 4, 7, 9}),                               // 15
-    make("m6", "m6", "6", "Minor sixth", true, {0, 3, 7, 9}),                        // 16
-    make("add9", "add9", "add9", "Added ninth", false, {0, 4, 7, 14}),               // 17
-    make("m(add9)", "m(add9)", "(add9)", "Minor, added ninth", true, {0, 3, 7, 14}), // 18
-    make("9", "9", "9", "Ninth", false, {0, 4, 7, 10, 14}),                          // 19
-    make("maj9", "maj9", "maj9", "Major ninth", false, {0, 4, 7, 11, 14}),           // 20
-    make("m9", "m9", "9", "Minor ninth", true, {0, 3, 7, 10, 14}),                   // 21
-    make("6/9", "6/9", "6/9", "Six-nine", false, {0, 4, 7, 9, 14}),                  // 22
-    make("7b9", "7♭9", "7♭9", "Seventh, flat ninth", false, {0, 4, 7, 10, 13}),      // 23
-    make("7#9", "7♯9", "7♯9", "Seventh, sharp ninth", false, {0, 4, 7, 10, 15}),     // 24
+    make("maj", "", "", "Major", false, {0, 4, 7}),                                       // 0
+    make("m", "m", "", "Minor", true, {0, 3, 7}),                                         // 1
+    make("dim", "°", "°", "Diminished", true, {0, 3, 6}),                                 // 2
+    make("aug", "+", "+", "Augmented", false, {0, 4, 8}),                                 // 3
+    make("sus4", "sus4", "sus4", "Suspended fourth", false, {0, 5, 7}),                   // 4
+    make("sus2", "sus2", "sus2", "Suspended second", false, {0, 2, 7}),                   // 5
+    make("7", "7", "7", "Dominant seventh", false, {0, 4, 7, 10}),                        // 6
+    make("maj7", "maj7", "maj7", "Major seventh", false, {0, 4, 7, 11}),                  // 7
+    make("m7", "m7", "7", "Minor seventh", true, {0, 3, 7, 10}),                          // 8
+    make("m7b5", "m7♭5", "ø7", "Half-diminished seventh", true, {0, 3, 6, 10}),           // 9
+    make("dim7", "°7", "°7", "Diminished seventh", true, {0, 3, 6, 9}),                   // 10
+    make("m(maj7)", "m(maj7)", "(maj7)", "Minor major seventh", true, {0, 3, 7, 11}),     // 11
+    make("7sus4", "7sus4", "7sus4", "Seventh, suspended fourth", false, {0, 5, 7, 10}),   // 12
+    make("aug7", "+7", "+7", "Augmented seventh", false, {0, 4, 8, 10}),                  // 13
+    make("maj7#5", "maj7♯5", "+maj7", "Augmented major seventh", false, {0, 4, 8, 11}),   // 14
+    make("6", "6", "6", "Sixth", false, {0, 4, 7, 9}),                                    // 15
+    make("m6", "m6", "6", "Minor sixth", true, {0, 3, 7, 9}),                             // 16
+    make("add9", "add9", "add9", "Added ninth", false, {0, 4, 7, 14}),                    // 17
+    make("m(add9)", "m(add9)", "(add9)", "Minor, added ninth", true, {0, 3, 7, 14}),      // 18
+    make("9", "9", "9", "Ninth", false, {0, 4, 7, 10, 14}),                               // 19
+    make("maj9", "maj9", "maj9", "Major ninth", false, {0, 4, 7, 11, 14}),                // 20
+    make("m9", "m9", "9", "Minor ninth", true, {0, 3, 7, 10, 14}),                        // 21
+    make("6/9", "6/9", "6/9", "Six-nine", false, {0, 4, 7, 9, 14}),                       // 22
+    make("7b9", "7♭9", "7♭9", "Seventh, flat ninth", false, {0, 4, 7, 10, 13}),           // 23
+    make("7#9", "7♯9", "7♯9", "Seventh, sharp ninth", false, {0, 4, 7, 10, 15}),          // 24
     make("9sus4", "9sus4", "9sus4", "Ninth, suspended fourth", false, {0, 5, 7, 10, 14}), // 25
-    make("m11", "m11", "11", "Minor eleventh", true, {0, 3, 7, 10, 14, 17}),         // 26
-    make("13", "13", "13", "Thirteenth", false, {0, 4, 7, 10, 14, 21}),              // 27
+    make("m11", "m11", "11", "Minor eleventh", true, {0, 3, 7, 10, 14, 17}),              // 26
+    make("13", "13", "13", "Thirteenth", false, {0, 4, 7, 10, 14, 21}),                   // 27
 }};
 
 enum KindIndex
@@ -81,13 +81,13 @@ enum KindIndex
 
 /// Other ways people write a kind.
 constexpr std::array<std::pair<std::string_view, int>, 30> aliases{{
-    {"M", kMajor},     {"major", kMajor},   {"min", kMinor},     {"-", kMinor},
-    {"minor", kMinor}, {"mi", kMinor},      {"o", kDim},         {"aug", kAug},
-    {"sus", kSus4},    {"M7", kMaj7},       {"Δ", kMaj7},        {"Δ7", kMaj7},
-    {"ma7", kMaj7},    {"min7", kMin7},     {"-7", kMin7},       {"ø", kHalfDim7},
+    {"M", kMajor},     {"major", kMajor},   {"min", kMinor},       {"-", kMinor},
+    {"minor", kMinor}, {"mi", kMinor},      {"o", kDim},           {"aug", kAug},
+    {"sus", kSus4},    {"M7", kMaj7},       {"Δ", kMaj7},          {"Δ7", kMaj7},
+    {"ma7", kMaj7},    {"min7", kMin7},     {"-7", kMin7},         {"ø", kHalfDim7},
     {"ø7", kHalfDim7}, {"-7b5", kHalfDim7}, {"min7b5", kHalfDim7}, {"o7", kDim7},
     {"mM7", kMinMaj7}, {"mmaj7", kMinMaj7}, {"minmaj7", kMinMaj7}, {"-maj7", kMinMaj7},
-    {"7sus", 12},      {"add2", kAdd9},     {"madd9", kMinAdd9}, {"69", 22},
+    {"7sus", 12},      {"add2", kAdd9},     {"madd9", kMinAdd9},   {"69", 22},
     {"maj", kMajor},   {"dim", kDim},
 }};
 
@@ -139,12 +139,17 @@ bool tensionAllowed(PitchSet kindTones, int interval) noexcept
     {
     case 1:
     case 2:
-    case 5: return true;
-    case 3: return has(kindTones, 4); // the ♯9 beside a major third
+    case 5:
+        return true;
+    case 3:
+        return has(kindTones, 4); // the ♯9 beside a major third
     case 6:
-    case 8: return has(kindTones, 7); // the ♯11 and ♭13 beside a perfect fifth
-    case 9: return has(kindTones, 10) || has(kindTones, 11); // the 13th of a seventh chord
-    default: return false;
+    case 8:
+        return has(kindTones, 7); // the ♯11 and ♭13 beside a perfect fifth
+    case 9:
+        return has(kindTones, 10) || has(kindTones, 11); // the 13th of a seventh chord
+    default:
+        return false;
     }
 }
 
@@ -271,17 +276,27 @@ int letterSteps(const ChordKind& kind, int interval) noexcept
     const PitchSet tones = kindSet(kind);
     switch (mod12(interval))
     {
-    case 0: return 0;
+    case 0:
+        return 0;
     case 1:
-    case 2: return 1;
-    case 3: return has(tones, 4) ? 1 : 2;
-    case 4: return 2;
-    case 5: return 3;
-    case 6: return has(tones, 7) ? 3 : 4;
-    case 7: return 4;
-    case 8: return has(tones, 7) ? 5 : 4;
-    case 9: return &kind == &kinds[kDim7] ? 6 : 5;
-    default: return 6;
+    case 2:
+        return 1;
+    case 3:
+        return has(tones, 4) ? 1 : 2;
+    case 4:
+        return 2;
+    case 5:
+        return 3;
+    case 6:
+        return has(tones, 7) ? 3 : 4;
+    case 7:
+        return 4;
+    case 8:
+        return has(tones, 7) ? 5 : 4;
+    case 9:
+        return &kind == &kinds[kDim7] ? 6 : 5;
+    default:
+        return 6;
     }
 }
 
@@ -303,13 +318,27 @@ std::string tensionText(const Chord& chord, Accidentals style)
         first = false;
         switch (i)
         {
-        case 1: out += glyphs ? "♭9" : "b9"; break;
-        case 2: out += "9"; break;
-        case 3: out += glyphs ? "♯9" : "#9"; break;
-        case 5: out += "11"; break;
-        case 6: out += glyphs ? "♯11" : "#11"; break;
-        case 8: out += glyphs ? "♭13" : "b13"; break;
-        default: out += "13"; break;
+        case 1:
+            out += glyphs ? "♭9" : "b9";
+            break;
+        case 2:
+            out += "9";
+            break;
+        case 3:
+            out += glyphs ? "♯9" : "#9";
+            break;
+        case 5:
+            out += "11";
+            break;
+        case 6:
+            out += glyphs ? "♯11" : "#11";
+            break;
+        case 8:
+            out += glyphs ? "♭13" : "b13";
+            break;
+        default:
+            out += "13";
+            break;
         }
     }
     return out + ")";
@@ -421,7 +450,8 @@ bool startsNumeral(std::string_view text) noexcept
 Chord withTensions(int root, int kind, PitchSet tensions) noexcept
 {
     if (tensions != 0)
-        if (const auto fit = fitRoot(static_cast<PitchSet>(kindSet(kinds[static_cast<std::size_t>(kind)]) | tensions));
+        if (const auto fit =
+                fitRoot(static_cast<PitchSet>(kindSet(kinds[static_cast<std::size_t>(kind)]) | tensions));
             fit.cost < std::numeric_limits<int>::max())
             return {.root = root, .kind = fit.kind, .tensions = fit.tensions};
     return {.root = root, .kind = kind, .tensions = tensions};
@@ -458,14 +488,16 @@ std::optional<Chord> parseRoman(std::string_view text, int keyRoot, PitchSet ref
         kind = kDim;
     if (!kind && suffix == "o7")
         kind = kDim7;
-    if (const auto named = findChordKind(suffix); !kind && named && kinds[static_cast<std::size_t>(*named)].minor == lower)
-        kind = named; // "viim7b5", "V7b9": a kind's own name
+    if (const auto named = findChordKind(suffix);
+        !kind && named && kinds[static_cast<std::size_t>(*named)].minor == lower)
+        kind = named;   // "viim7b5", "V7b9": a kind's own name
     if (!kind && lower) // "imaj7", "iadd9": a minor chord's own kind
         kind = findChordKind("m" + std::string(suffix));
     if (!kind)
         return std::nullopt;
     const auto steps = stepsOf(reference);
-    return withTensions(mod12(keyRoot + steps[static_cast<std::size_t>(degree)] + alteration), *kind, tensions);
+    return withTensions(mod12(keyRoot + steps[static_cast<std::size_t>(degree)] + alteration), *kind,
+                        tensions);
 }
 
 /// The chords a shape tries, in order, for a note outside the key or a scale without seven notes.
@@ -476,9 +508,12 @@ std::span<const int> shapeKinds(ChordShape shape) noexcept
     static constexpr std::array<int, 7> ninths{kMaj9, kDom9, kMin9, 22, kAdd9, kMinAdd9, 25};
     switch (shape)
     {
-    case ChordShape::Seventh: return sevenths;
-    case ChordShape::Ninth: return ninths;
-    default: return triads;
+    case ChordShape::Seventh:
+        return sevenths;
+    case ChordShape::Ninth:
+        return ninths;
+    default:
+        return triads;
     }
 }
 
@@ -487,8 +522,10 @@ Chord reshape(Chord triad, ChordShape shape) noexcept
 {
     switch (shape)
     {
-    case ChordShape::Sus2: return {.root = triad.root, .kind = kSus2};
-    case ChordShape::Sus4: return {.root = triad.root, .kind = kSus4};
+    case ChordShape::Sus2:
+        return {.root = triad.root, .kind = kSus2};
+    case ChordShape::Sus4:
+        return {.root = triad.root, .kind = kSus4};
     case ChordShape::Add9:
         if (triad.kind == kMajor)
             return {.root = triad.root, .kind = kAdd9};
@@ -496,7 +533,8 @@ Chord reshape(Chord triad, ChordShape shape) noexcept
             return {.root = triad.root, .kind = kMinAdd9};
         triad.tensions = static_cast<PitchSet>(triad.tensions | (1u << 2));
         return triad;
-    default: return triad;
+    default:
+        return triad;
     }
 }
 
@@ -535,16 +573,23 @@ std::string_view whyMove(int from, int to) noexcept
         return "Deceptive: the dominant not going home";
     switch ((to - from + 7) % 7)
     {
-    case 3: return "Down a fifth: the strongest move";
-    case 4: return to == 4 ? "To the dominant" : "Up a fifth";
-    case 1: return to == 4 ? "To the dominant" : "A step up";
-    case 6: return "A step down";
-    case 5: return "A third down";
-    default: return "A third up";
+    case 3:
+        return "Down a fifth: the strongest move";
+    case 4:
+        return to == 4 ? "To the dominant" : "Up a fifth";
+    case 1:
+        return to == 4 ? "To the dominant" : "A step up";
+    case 6:
+        return "A step down";
+    case 5:
+        return "A third down";
+    default:
+        return "A third up";
     }
 }
 
-void addUnique(std::vector<ChordSuggestion>& out, const Chord& chord, std::string_view why, const Chord& before)
+void addUnique(std::vector<ChordSuggestion>& out, const Chord& chord, std::string_view why,
+               const Chord& before)
 {
     if (chord.root == before.root && chord.kind == before.kind)
         return;
@@ -687,7 +732,8 @@ std::optional<Chord> nameChord(std::span<const int> pitches)
         const auto& kind = kindOf(*best);
         bool added = has(best->tensions, interval);
         for (int i = 0; i < kind.toneCount; ++i)
-            if (kind.tones[static_cast<std::size_t>(i)] > 12 && mod12(kind.tones[static_cast<std::size_t>(i)]) == interval)
+            if (kind.tones[static_cast<std::size_t>(i)] > 12 &&
+                mod12(kind.tones[static_cast<std::size_t>(i)]) == interval)
                 added = true;
         const auto rest = static_cast<PitchSet>(set & ~(1u << *best->bass));
         if (added && noteCount(rest) >= 3)
@@ -710,13 +756,17 @@ std::string chordName(const Chord& chord, const Key* key, Accidentals style)
     const auto& kind = kindOf(chord);
     const auto root = spellRoot(k, chord.root, leadsUp(chord.kind));
     std::string out = text(root, style);
-    out += style == Accidentals::Glyphs ? std::string(kind.symbol) : chord.kind == kMajor ? std::string() : std::string(kind.id);
+    out += style == Accidentals::Glyphs ? std::string(kind.symbol)
+           : chord.kind == kMajor       ? std::string()
+                                        : std::string(kind.id);
     out += tensionText(chord, style);
     if (chord.bass && mod12(*chord.bass) != mod12(chord.root))
     {
         const int letter = (root.letter + letterSteps(kind, *chord.bass - chord.root)) % 7;
         const int accidental = accidentalOn(letter, *chord.bass);
-        out += "/" + text(accidental >= -1 && accidental <= 1 ? Spelled{letter, accidental} : spell(&k, *chord.bass), style);
+        out += "/" + text(accidental >= -1 && accidental <= 1 ? Spelled{letter, accidental}
+                                                              : spell(&k, *chord.bass),
+                          style);
     }
     return out;
 }
@@ -826,7 +876,7 @@ Chord keyChord(const Key* key, int pitchClass, ChordShape shape)
         // As in C major, but only major and minor triads (the rule the Wavetable's Key Chord uses):
         // B is minor, and notes outside C major take the triad more of whose notes are in it.
         static constexpr std::array<int, 2> majorMinor{kMajor, kMinor};
-        Chord triad = pitchClass == 11 ? Chord{.root = 11, .kind = kMinor}
+        Chord triad = pitchClass == 11              ? Chord{.root = 11, .kind = kMinor}
                       : has(majorScale, pitchClass) ? keyChord(&k, pitchClass, ChordShape::Triad)
                                                     : mostInSet(pitchClass, keyNotes, majorMinor, false);
         if (shape == ChordShape::Seventh || shape == ChordShape::Ninth)
@@ -868,7 +918,8 @@ Chord keyChord(const Key* key, int pitchClass, ChordShape shape)
         const int stack = shape == ChordShape::Seventh ? 4 : shape == ChordShape::Ninth ? 5 : 3;
         PitchSet intervals = 0;
         for (int t = 0; t < stack; ++t)
-            intervals = static_cast<PitchSet>(intervals | (1u << mod12(pcs[static_cast<std::size_t>(t * 2)])));
+            intervals =
+                static_cast<PitchSet>(intervals | (1u << mod12(pcs[static_cast<std::size_t>(t * 2)])));
         if (const auto fit = fitRoot(intervals); fit.cost < std::numeric_limits<int>::max())
         {
             const Chord chord{.root = pitchClass, .kind = fit.kind, .tensions = fit.tensions};
@@ -993,13 +1044,15 @@ std::vector<ChordSuggestion> nextChords(const Key& key, const Chord& before, Cho
         const int interval = mod12(before.root - key.root);
         const auto beforeTones = kindSet(kind);
         if (has(beforeTones, 4) && has(keyNotes, before.root + 5))
-            addUnique(out, keyChord(&key, before.root + 5, shape), "A dominant resolves down a fifth", before);
+            addUnique(out, keyChord(&key, before.root + 5, shape), "A dominant resolves down a fifth",
+                      before);
         if (majorLike(key))
         {
             if (interval == 10 || (interval == 5 && kind.minor))
                 addUnique(out, onStep(0), "Home: borrowed from the minor", before);
             if (interval == 8)
-                addUnique(out, Chord{.root = mod12(key.root + 10), .kind = kMajor}, "On up a step, then home", before);
+                addUnique(out, Chord{.root = mod12(key.root + 10), .kind = kMajor}, "On up a step, then home",
+                          before);
         }
         addUnique(out, onStep(0), "Home", before);
         addUnique(out, onStep(4), "To the dominant", before);
@@ -1073,7 +1126,8 @@ std::vector<int> voiceChord(const Chord& chord, const VoiceRequest& request)
         if (bassIndex < 0)
             foreignBass = mod12(*chord.bass);
     }
-    const int wanted = request.count > 0 ? request.count - (foreignBass ? 1 : 0) : static_cast<int>(tones.size());
+    const int wanted =
+        request.count > 0 ? request.count - (foreignBass ? 1 : 0) : static_cast<int>(tones.size());
     if (wanted < static_cast<int>(tones.size()))
     {
         const int bassTone = bassIndex >= 0 ? tones[static_cast<std::size_t>(bassIndex)] : 0;
@@ -1134,7 +1188,8 @@ std::vector<int> voiceChord(const Chord& chord, const VoiceRequest& request)
                 shape[n - 2] -= 12;
             break;
         case Voicing::Smooth:
-        case Voicing::Close: break;
+        case Voicing::Close:
+            break;
         }
         spreadUnique(shape);
 

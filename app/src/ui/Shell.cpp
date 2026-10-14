@@ -373,7 +373,8 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     inspector_.setPianoRoll(detail_.pianoRoll());
     detail_.pianoRoll().onSelectionChanged = [this] { inspector_.notesChanged(); };
     // The notes' menu (menu-bar.md §8, piano-roll.md §13): the most used tools, then the edits.
-    detail_.pianoRoll().onMenu = [this] {
+    detail_.pianoRoll().onMenu = [this]
+    {
         notesContextMenu().showMenuAsync(
             juce::PopupMenu::Options().withTargetComponent(&detail_.pianoRoll()).withMousePosition());
     };
@@ -765,14 +766,20 @@ void Shell::registerActions()
                                                     : juce::String();
                   }});
     // Split at playhead: the notes crossing it when the clip view was used last (piano-roll.md §9.1).
-    actions_.add({.id = "edit.split", .name = "Split at playhead", .category = "Edit", .keys = {key('e', kCmd)},
-                  .perform = [this, &roll] {
+    actions_.add({.id = "edit.split",
+                  .name = "Split at playhead",
+                  .category = "Edit",
+                  .keys = {key('e', kCmd)},
+                  .perform =
+                      [this, &roll]
+                  {
                       if (notesActive())
                           roll.splitAtPlayhead();
                       else
                           arrangement_.splitAtPlayhead();
                   },
-                  .isEnabled = [this, &roll, clipsShown] { return notesActive() ? !roll.notes().empty() : clipsShown(); }});
+                  .isEnabled = [this, &roll, clipsShown]
+                  { return notesActive() ? !roll.notes().empty() : clipsShown(); }});
     actions_.add({.id = "edit.selectAll", .name = "Select all", .category = "Edit", .keys = {key('a', kCmd)},
                   .perform = [this, &roll, clipsShown] {
                       if (notesActive())
@@ -798,29 +805,46 @@ void Shell::registerActions()
     };
     // ↑/↓ move by a step of the scale while the clip view draws in the key, else a semitone
     // (piano-roll.md §6).
-    auto step = [this, &roll](int steps, float value) {
-        return [this, &roll, steps, value] {
+    auto step = [this, &roll](int steps, float value)
+    {
+        return [this, &roll, steps, value]
+        {
             if (pointsActive())
                 arrangement_.nudgePoints(0, value);
             else
                 roll.transposeSteps(steps);
         };
     };
-    const auto pointsLabel = [this](const char* notes, const char* points) {
-        return [this, notes, points] { return juce::String(pointsActive() ? points : notes); };
-    };
-    actions_.add({.id = "notes.up", .name = "Up a step / raise points", .category = "Notes",
-                  .keys = {key(juce::KeyPress::upKey)}, .perform = step(1, 0.01f), .isEnabled = notesSelected,
+    const auto pointsLabel = [this](const char* notes, const char* points)
+    { return [this, notes, points] { return juce::String(pointsActive() ? points : notes); }; };
+    actions_.add({.id = "notes.up",
+                  .name = "Up a step / raise points",
+                  .category = "Notes",
+                  .keys = {key(juce::KeyPress::upKey)},
+                  .perform = step(1, 0.01f),
+                  .isEnabled = notesSelected,
                   .label = pointsLabel("Up a step", "Raise points")});
-    actions_.add({.id = "notes.down", .name = "Down a step / lower points", .category = "Notes",
-                  .keys = {key(juce::KeyPress::downKey)}, .perform = step(-1, -0.01f), .isEnabled = notesSelected,
+    actions_.add({.id = "notes.down",
+                  .name = "Down a step / lower points",
+                  .category = "Notes",
+                  .keys = {key(juce::KeyPress::downKey)},
+                  .perform = step(-1, -0.01f),
+                  .isEnabled = notesSelected,
                   .label = pointsLabel("Down a step", "Lower points")});
-    actions_.add({.id = "notes.octaveUp", .name = "Up an octave / raise points a little", .category = "Notes",
-                  .keys = {key(juce::KeyPress::upKey, kShift)}, .perform = arrow(12, 0, 0.001f), .isEnabled = notesSelected,
+    actions_.add({.id = "notes.octaveUp",
+                  .name = "Up an octave / raise points a little",
+                  .category = "Notes",
+                  .keys = {key(juce::KeyPress::upKey, kShift)},
+                  .perform = arrow(12, 0, 0.001f),
+                  .isEnabled = notesSelected,
                   .label = pointsLabel("Up an octave", "Raise points a little")});
-    actions_.add({.id = "notes.octaveDown", .name = "Down an octave / lower points a little", .category = "Notes",
-                  .keys = {key(juce::KeyPress::downKey, kShift)}, .perform = arrow(-12, 0, -0.001f),
-                  .isEnabled = notesSelected, .label = pointsLabel("Down an octave", "Lower points a little")});
+    actions_.add({.id = "notes.octaveDown",
+                  .name = "Down an octave / lower points a little",
+                  .category = "Notes",
+                  .keys = {key(juce::KeyPress::downKey, kShift)},
+                  .perform = arrow(-12, 0, -0.001f),
+                  .isEnabled = notesSelected,
+                  .label = pointsLabel("Down an octave", "Lower points a little")});
     actions_.add({.id = "notes.later", .name = "Nudge later", .category = "Notes", .keys = {key(juce::KeyPress::rightKey)},
                   .perform = arrow(0, 1, 0.0f), .isEnabled = notesSelected});
     actions_.add({.id = "notes.earlier", .name = "Nudge earlier", .category = "Notes", .keys = {key(juce::KeyPress::leftKey)},
@@ -920,21 +944,26 @@ void Shell::registerActions()
     };
     // Mute (0): the selected notes when the clip view was used last, then reading "Mute notes"
     // (piano-roll.md §9.4).
-    actions_.add({.id = "clip.mute", .name = "Mute clips", .category = "Clip", .keys = {key('0')},
-                  .perform = [this, allMuted, &roll] {
-                      if (notesActive())
-                      {
-                          roll.toggleMute();
-                          return;
-                      }
-                      const auto& selected = arrangement_.selection().clips;
-                      session_.setClipsMuted({selected.begin(), selected.end()}, !allMuted());
-                  },
-                  .isEnabled = [this, clipsShown, &roll] {
-                      return notesActive() ? !roll.notes().empty() : clipsShown() && arrangement_.hasClipSelection();
-                  },
-                  .isToggled = [this, allMuted, &roll] { return notesActive() ? roll.allMuted() : allMuted(); },
-                  .label = [this] { return juce::String(notesActive() ? "Mute notes" : "Mute clips"); }});
+    actions_.add(
+        {.id = "clip.mute",
+         .name = "Mute clips",
+         .category = "Clip",
+         .keys = {key('0')},
+         .perform =
+             [this, allMuted, &roll]
+         {
+             if (notesActive())
+             {
+                 roll.toggleMute();
+                 return;
+             }
+             const auto& selected = arrangement_.selection().clips;
+             session_.setClipsMuted({selected.begin(), selected.end()}, !allMuted());
+         },
+         .isEnabled = [this, clipsShown, &roll]
+         { return notesActive() ? !roll.notes().empty() : clipsShown() && arrangement_.hasClipSelection(); },
+         .isToggled = [this, allMuted, &roll] { return notesActive() ? roll.allMuted() : allMuted(); },
+         .label = [this] { return juce::String(notesActive() ? "Mute notes" : "Mute clips"); }});
 
     // Clip loops (C10, ADR 0048, clip-loops.md §10): on loops what each clip shows, off removes the
     // repeats. Ticked while every selected clip loops; dimmed, saying why, while none can.
@@ -1799,8 +1828,8 @@ void Shell::applyViewState(const std::string& json)
     arrangement_.setGrid(grids.arrangement);
     detail_.pianoRoll().setGrid(grids.pianoRoll);
     // The clip view's options (piano-roll.md §4): a new project's are the defaults.
-    detail_.pianoRoll().setOptions(model::pianoRollOptionsFromJson(v.is_object() && v.contains("pianoRoll") ? v["pianoRoll"]
-                                                                                                           : nlohmann::json()));
+    detail_.pianoRoll().setOptions(model::pianoRollOptionsFromJson(
+        v.is_object() && v.contains("pianoRoll") ? v["pianoRoll"] : nlohmann::json()));
     if (!v.is_object())
         return;
     auto get = [&](const char* key, auto fallback) { return v.contains(key) ? v[key].get<decltype(fallback)>() : fallback; };

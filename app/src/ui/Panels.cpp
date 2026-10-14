@@ -819,7 +819,9 @@ void InspectorPanel::wireNotes()
                                std::pair{&noteLength_, F::Length}, std::pair{&noteVelocity_, F::Velocity}})
     {
         field->setFontSize(ui::Theme::current().textXs);
-        field->setRange(kind == F::Pitch ? 0.0 : kind == F::Velocity ? 1.0 : 0.0,
+        field->setRange(kind == F::Pitch      ? 0.0
+                        : kind == F::Velocity ? 1.0
+                                              : 0.0,
                         kind == F::Pitch || kind == F::Velocity ? 127.0 : 4096.0 * 4.0,
                         kind == F::Pitch || kind == F::Velocity ? 1.0 : 0.0);
         field->setDragSensitivity(kind == F::Pitch ? 0.2 : kind == F::Velocity ? 0.5 : 1.0 / 16.0);
@@ -836,9 +838,12 @@ void InspectorPanel::wireNotes()
                         music::noteName(key ? &*key : nullptr, static_cast<int>(std::lround(value))).c_str());
                 }
                 case F::Start:
-                    return juce::String(model::positionText(roll_ != nullptr ? roll_->songBeat(value) : value, tempo_));
-                case F::Length: return juce::String(model::lengthText(value, tempo_));
-                case F::Velocity: break;
+                    return juce::String(
+                        model::positionText(roll_ != nullptr ? roll_->songBeat(value) : value, tempo_));
+                case F::Length:
+                    return juce::String(model::lengthText(value, tempo_));
+                case F::Velocity:
+                    break;
                 }
                 return juce::String(juce::roundToInt(value));
             };
@@ -850,14 +855,17 @@ void InspectorPanel::wireNotes()
         {
             switch (kind)
             {
-            case F::Pitch: return pitchFromText(text);
+            case F::Pitch:
+                return pitchFromText(text);
             case F::Start:
             {
                 const auto beat = model::positionFromText(text.trim().toLowerCase().toStdString(), tempo_);
                 return beat && roll_ != nullptr ? std::optional(*beat - roll_->songBeat(0.0)) : beat;
             }
-            case F::Length: return model::lengthFromText(text.trim().toLowerCase().toStdString(), tempo_);
-            case F::Velocity: break;
+            case F::Length:
+                return model::lengthFromText(text.trim().toLowerCase().toStdString(), tempo_);
+            case F::Velocity:
+                break;
             }
             if (text.trim().containsOnly("0123456789") && text.trim().isNotEmpty())
                 return text.trim().getDoubleValue();
@@ -883,7 +891,8 @@ void InspectorPanel::wireNotes()
                 return;
             // A drag moves every note by the same amount; a value typed sets them all.
             if (notesBase_)
-                roll_->applyEdit(model::offsetNotesField(notesBase_->notes, notesBase_->selection, kind, v - notesFrom_));
+                roll_->applyEdit(
+                    model::offsetNotesField(notesBase_->notes, notesBase_->selection, kind, v - notesFrom_));
             else
                 roll_->applyEdit(model::setNotesField(roll_->notes(), roll_->selection(), kind, v));
         };
@@ -912,17 +921,22 @@ ui::NumberField& InspectorPanel::noteField(model::NoteField field) noexcept
 {
     switch (field)
     {
-    case model::NoteField::Pitch: return notePitch_;
-    case model::NoteField::Start: return noteStart_;
-    case model::NoteField::Length: return noteLength_;
-    case model::NoteField::Velocity: break;
+    case model::NoteField::Pitch:
+        return notePitch_;
+    case model::NoteField::Start:
+        return noteStart_;
+    case model::NoteField::Length:
+        return noteLength_;
+    case model::NoteField::Velocity:
+        break;
     }
     return noteVelocity_;
 }
 
 bool InspectorPanel::showsNotes() const
 {
-    return roll_ != nullptr && roll_->clip() && clip_ && clip_->id == roll_->clip()->id && roll_->hasSelection();
+    return roll_ != nullptr && roll_->clip() && clip_ && clip_->id == roll_->clip()->id &&
+           roll_->hasSelection();
 }
 
 juce::String InspectorPanel::notesTitle() const
@@ -930,7 +944,8 @@ juce::String InspectorPanel::notesTitle() const
     if (roll_ == nullptr)
         return "Notes";
     const auto dot = juce::String::fromUTF8(" · ");
-    juce::String title = "Notes" + dot + juce::String(static_cast<int>(roll_->selection().size())) + " selected";
+    juce::String title =
+        "Notes" + dot + juce::String(static_cast<int>(roll_->selection().size())) + " selected";
     std::vector<int> pitches;
     for (auto i : roll_->selection())
         if (i < roll_->notes().size())
@@ -953,11 +968,13 @@ void InspectorPanel::updateNotes()
         const auto clip = std::find(sections_.begin(), sections_.end(), S::Clip);
         sections_.insert(clip == sections_.end() ? sections_.begin() : clip + 1, S::Notes);
     }
-    for (auto* c : std::initializer_list<juce::Component*>{&notePitch_, &noteStart_, &noteLength_, &noteVelocity_, &noteMute_})
+    for (auto* c : std::initializer_list<juce::Component*>{&notePitch_, &noteStart_, &noteLength_,
+                                                           &noteVelocity_, &noteMute_})
         c->setVisible(shown);
     if (!shown || notesGesture_)
         return;
-    for (auto field : {model::NoteField::Pitch, model::NoteField::Start, model::NoteField::Length, model::NoteField::Velocity})
+    for (auto field : {model::NoteField::Pitch, model::NoteField::Start, model::NoteField::Length,
+                       model::NoteField::Velocity})
         if (const auto range = model::fieldRange(roll_->notes(), roll_->selection(), field))
         {
             notesSpread_[field] = range->second - range->first;
@@ -1461,14 +1478,18 @@ int InspectorPanel::layoutSections(int width)
         else if (sections_[i] == S::Notes) // its fields, then Mute
         {
             const auto content = stack_.content(i).withTrimmedLeft(t.shell.propertyLabelWidth);
-            const auto row = [&](int n) { return content.withY(content.getY() + n * t.shell.rowHeight).withHeight(t.shell.rowHeight); };
+            const auto row = [&](int n)
+            { return content.withY(content.getY() + n * t.shell.rowHeight).withHeight(t.shell.rowHeight); };
             // A field's text lines up with the values painted in the rows above it.
-            const auto field = [&](int n) { return row(n).withLeft(row(n).getX() - ui::NumberField::textInset); };
+            const auto field = [&](int n)
+            { return row(n).withLeft(row(n).getX() - ui::NumberField::textInset); };
             notePitch_.setBounds(field(0));
             noteStart_.setBounds(field(1));
             noteLength_.setBounds(field(2));
             noteVelocity_.setBounds(field(3));
-            noteMute_.setBounds(row(4).withWidth(ui::Toggle::widthFor(noteMute_.getButtonText())).reduced(0, t.shell.propertyFieldInset));
+            noteMute_.setBounds(row(4)
+                                    .withWidth(ui::Toggle::widthFor(noteMute_.getButtonText()))
+                                    .reduced(0, t.shell.propertyFieldInset));
         }
         else if (sections_[i] == S::Section) // Name, Colour, Start, Length
         {
@@ -1486,10 +1507,11 @@ int InspectorPanel::layoutSections(int width)
             sectionLength_.setBounds(row("length").withTrimmedLeft(-ui::NumberField::textInset));
         }
         else if (sections_[i] == S::Point) // the Value row
-            pointValue_.setBounds(stack_.content(i)
-                                      .withTrimmedLeft(t.shell.propertyLabelWidth - ui::NumberField::textInset)
-                                      .withY(stack_.content(i).getY() + t.shell.rowHeight)
-                                      .withHeight(t.shell.rowHeight));
+            pointValue_.setBounds(
+                stack_.content(i)
+                    .withTrimmedLeft(t.shell.propertyLabelWidth - ui::NumberField::textInset)
+                    .withY(stack_.content(i).getY() + t.shell.rowHeight)
+                    .withHeight(t.shell.rowHeight));
     return height;
 }
 

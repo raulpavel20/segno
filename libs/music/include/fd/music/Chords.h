@@ -16,11 +16,11 @@ namespace fd::music
 /// (docs/design/piano-roll.md §7, ADR 0058).
 struct ChordKind
 {
-    std::string_view id;     // "m7b5": ASCII, as assistants write it after a root
-    std::string_view symbol; // "m7♭5": after the root, "Bm7♭5"; empty for a major triad
-    std::string_view roman;  // after a Roman numeral, whose case gives the third: "ø7" in "viiø7"
-    std::string_view name;   // "Half-diminished seventh"
-    bool minor = false;      // a minor or diminished third: its Roman numeral is lower case
+    std::string_view id;                // "m7b5": ASCII, as assistants write it after a root
+    std::string_view symbol;            // "m7♭5": after the root, "Bm7♭5"; empty for a major triad
+    std::string_view roman;             // after a Roman numeral, whose case gives the third: "ø7" in "viiø7"
+    std::string_view name;              // "Half-diminished seventh"
+    bool minor = false;                 // a minor or diminished third: its Roman numeral is lower case
     std::array<std::int8_t, 6> tones{}; // semitones above the root, stacked from it
     int toneCount = 0;
 };
@@ -60,11 +60,13 @@ struct Chord
 
 /// How a chord is written (§7.1): "Am7", "C/E", "G7(♭9)", its notes spelled for the key (a
 /// borrowed ♭VII in C major is B♭, not A♯); without a key, as in C major.
-[[nodiscard]] std::string chordName(const Chord& chord, const Key* key, Accidentals style = Accidentals::Glyphs);
+[[nodiscard]] std::string chordName(const Chord& chord, const Key* key,
+                                    Accidentals style = Accidentals::Glyphs);
 
 /// The chord's step in the key, as a Roman numeral (§7.1): "vi7", "V", "♭VII", "viiø7". A
 /// borrowed chord's numeral has its accidental. Empty for a key of an unknown scale.
-[[nodiscard]] std::string romanNumeral(const Chord& chord, const Key& key, Accidentals style = Accidentals::Glyphs);
+[[nodiscard]] std::string romanNumeral(const Chord& chord, const Key& key,
+                                       Accidentals style = Accidentals::Glyphs);
 
 /// A chord from how it's written: a name ("Dm7", "C/E", "Bbmaj7", "F#m7b5"), or with a key, a
 /// Roman numeral ("ii7", "bVII", "V7"). None for anything else.
@@ -109,7 +111,8 @@ struct ChordSuggestion
 /// Chords from outside the key for colour (§7.3, Borrowed): in a major key, ♭VII, iv, ♭VI and ♭III
 /// from the parallel minor; in a minor key, IV and V from the parallel major; and the dominant of
 /// the fifth (V/V). None that the key already has.
-[[nodiscard]] std::vector<ChordSuggestion> borrowedChords(const Key& key, ChordShape shape = ChordShape::Triad);
+[[nodiscard]] std::vector<ChordSuggestion> borrowedChords(const Key& key,
+                                                          ChordShape shape = ChordShape::Triad);
 
 /// How a chord's notes are spread (§7.4).
 enum class Voicing
@@ -137,11 +140,11 @@ struct VoiceRequest
 {
     Voicing voicing = Voicing::Smooth;
     Inversion inversion = Inversion::Auto;
-    std::span<const int> before;   // the chord before, which Smooth moves least from
-    std::optional<int> including;  // a pitch it must have (the note clicked for Chord)
-    std::optional<int> top;        // a pitch it must have on top (the note clicked for Chord under)
-    double centre = 64.0;          // otherwise, the pitch its notes are centred nearest
-    int count = 0;                 // how many notes: 0 for the chord's own, more doubles, fewer omits
+    std::span<const int> before;  // the chord before, which Smooth moves least from
+    std::optional<int> including; // a pitch it must have (the note clicked for Chord)
+    std::optional<int> top;       // a pitch it must have on top (the note clicked for Chord under)
+    double centre = 64.0;         // otherwise, the pitch its notes are centred nearest
+    int count = 0;                // how many notes: 0 for the chord's own, more doubles, fewer omits
 };
 
 /// The chord's pitches as asked, low to high, within MIDI's range. Empty when no voicing can

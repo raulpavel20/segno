@@ -690,8 +690,9 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         // Notes button opens where you work, and the most used on the notes' right-click menu.
         "notes.fitToKey", "notes.makeChords", "notes.makeChord", "notes.voiceSmooth", "notes.voiceClose",
         "notes.voiceOpen", "notes.voiceDrop2", "notes.voiceDrop3", "notes.voiceSpread", "notes.addBass",
-        "notes.legato", "notes.fixedLength", "notes.doubleSpeed", "notes.halfSpeed", "notes.reverse", "notes.mirror",
-        "notes.selectSamePitch", "notes.selectOutsideKey", "notes.selectInLoop", "notes.invertSelection",
+        "notes.legato", "notes.fixedLength", "notes.doubleSpeed", "notes.halfSpeed", "notes.reverse",
+        "notes.mirror", "notes.selectSamePitch", "notes.selectOutsideKey", "notes.selectInLoop",
+        "notes.invertSelection",
         // The clip view's options (piano-roll.md §4): on screen in its header.
         "view.clipKey", "view.clipOthers", "view.foldAll", "view.foldKey", "view.foldNotes", "view.drawNote",
         "view.drawChord", "view.drawChordUnder"};
@@ -3016,8 +3017,8 @@ TEST_CASE("menu bar: every action in a menu once; items show their action's name
     auto& s = *f.session;
     const auto& actions = f.shell->actions();
     auto& menus = f.shell->menus();
-    CHECK(menus.getMenuBarNames() == juce::StringArray{"File", "Edit", "Track", "Clip", "Notes", "Song", "Module",
-                                                       "Transport", "View", "Options", "Help"});
+    CHECK(menus.getMenuBarNames() == juce::StringArray{"File", "Edit", "Track", "Clip", "Notes", "Song",
+                                                       "Module", "Transport", "View", "Options", "Help"});
 
     // ADR 0040: every action is in the menu bar exactly once, and every item is an action (the
     // assistants' only with a server; the fixture has none).

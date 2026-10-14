@@ -87,7 +87,8 @@ void QuantisePopover::open(juce::Component& parent, juce::Rectangle<int> anchor)
 
 void QuantisePopover::preview()
 {
-    roll_.previewEdit(model::quantiseNotes(roll_.notes(), roll_.selection(), roll_.quantiseGrid(), settings_));
+    roll_.previewEdit(
+        model::quantiseNotes(roll_.notes(), roll_.selection(), roll_.quantiseGrid(), settings_));
 }
 
 void QuantisePopover::apply()
@@ -136,8 +137,10 @@ int QuantisePopover::preferredWidth() const
     const auto& s = ui::Theme::current().shell;
     const int field = strength_.widthFor("100 %");
     int content = s.propertyLabelWidth + std::max(field, moves_.preferredWidth());
-    content = std::max(content, static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(
-                                    ui::capsLabelFont(), "QUANTISE"))) + s.groupGap + ui::Toggle::widthFor("Apply"));
+    content = std::max(
+        content,
+        static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(ui::capsLabelFont(), "QUANTISE"))) +
+            s.groupGap + ui::Toggle::widthFor("Apply"));
     return content + 2 * s.padding;
 }
 
@@ -155,8 +158,10 @@ void QuantisePopover::place()
     const int margin = juce::roundToInt(s.shadowRadius);
     const int width = preferredWidth();
     const auto area = parent_->getLocalBounds().reduced(s.itemGap);
-    const int x = std::clamp(anchor_.getRight() - width, area.getX(), std::max(area.getX(), area.getRight() - width));
-    setBounds(juce::Rectangle<int>(x, anchor_.getBottom() + s.itemGap, width, preferredHeight()).expanded(margin));
+    const int x =
+        std::clamp(anchor_.getRight() - width, area.getX(), std::max(area.getX(), area.getRight() - width));
+    setBounds(
+        juce::Rectangle<int>(x, anchor_.getBottom() + s.itemGap, width, preferredHeight()).expanded(margin));
 }
 
 void QuantisePopover::resized()
@@ -167,11 +172,14 @@ void QuantisePopover::resized()
     apply_.setBounds(title.removeFromRight(ui::Toggle::widthFor(apply_.getButtonText())));
     area.removeFromTop(s.itemGap);
     const int field = strength_.widthFor("100 %");
-    strength_.setBounds(area.removeFromTop(s.rowHeight).withTrimmedLeft(s.propertyLabelWidth).withWidth(field));
+    strength_.setBounds(
+        area.removeFromTop(s.rowHeight).withTrimmedLeft(s.propertyLabelWidth).withWidth(field));
     area.removeFromTop(s.itemGap);
     swing_.setBounds(area.removeFromTop(s.rowHeight).withTrimmedLeft(s.propertyLabelWidth).withWidth(field));
     area.removeFromTop(s.itemGap);
-    moves_.setBounds(area.removeFromTop(s.rowHeight).withTrimmedLeft(s.propertyLabelWidth).withWidth(moves_.preferredWidth()));
+    moves_.setBounds(area.removeFromTop(s.rowHeight)
+                         .withTrimmedLeft(s.propertyLabelWidth)
+                         .withWidth(moves_.preferredWidth()));
 }
 
 void QuantisePopover::paint(juce::Graphics& g)
@@ -184,8 +192,9 @@ void QuantisePopover::paint(juce::Graphics& g)
     g.setFont(ui::font(ui::TextStyle::Body));
     g.setColour(t.textSecondary);
     for (const auto& [label, c] : {std::pair<const char*, juce::Component*>{"Strength", &strength_},
-                                   {"Swing", &swing_}, {"Moves", &moves_}})
-        g.drawText(label, c->getBounds().withX(area.getX()).withWidth(s.propertyLabelWidth), juce::Justification::centredLeft,
-                   false);
+                                   {"Swing", &swing_},
+                                   {"Moves", &moves_}})
+        g.drawText(label, c->getBounds().withX(area.getX()).withWidth(s.propertyLabelWidth),
+                   juce::Justification::centredLeft, false);
 }
 } // namespace fd::app

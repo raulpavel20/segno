@@ -2,9 +2,8 @@
 
 #include "model/Snapshot.h"
 
-#include <fd/music/Key.h>
-
 #include <cstddef>
+#include <fd/music/Key.h>
 #include <optional>
 #include <set>
 #include <vector>
@@ -46,20 +45,26 @@ struct NoteGeometry
 {
     double originX = 0.0;       // x of content beat 0
     double pixelsPerBeat = 80.0;
-    double topEdge = 84.0;      // row boundary at y = 0: row r spans (topEdge - r - 1) * rowHeight onwards
+    double topEdge = 84.0; // row boundary at y = 0: row r spans (topEdge - r - 1) * rowHeight onwards
     double rowHeight = 12.0;
     const std::vector<int>* rows = nullptr; // folded: the pitches shown, low to high (row r is rows[r])
 
     [[nodiscard]] double xForBeat(double beat) const noexcept { return originX + beat * pixelsPerBeat; }
     [[nodiscard]] double beatForX(double x) const noexcept { return (x - originX) / pixelsPerBeat; }
-    [[nodiscard]] double yForPitch(int pitch) const noexcept { return (topEdge - rowOf(pitch) - 1) * rowHeight; }
+    [[nodiscard]] double yForPitch(int pitch) const noexcept
+    {
+        return (topEdge - rowOf(pitch) - 1) * rowHeight;
+    }
     /// The pitch whose row is at y; folded, the nearest row's at either end.
     [[nodiscard]] int pitchForY(double y) const noexcept;
     /// A pitch's row: the pitch itself unfolded; folded, its index in rows (a pitch without a row:
     /// the next row up's).
     [[nodiscard]] int rowOf(int pitch) const noexcept;
     /// How many rows there are.
-    [[nodiscard]] int rowCount() const noexcept { return rows != nullptr ? static_cast<int>(rows->size()) : 128; }
+    [[nodiscard]] int rowCount() const noexcept
+    {
+        return rows != nullptr ? static_cast<int>(rows->size()) : 128;
+    }
 };
 
 struct NoteHit

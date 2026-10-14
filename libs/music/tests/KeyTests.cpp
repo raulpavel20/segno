@@ -203,8 +203,8 @@ TEST_CASE("The key's nearest note", "[fast]")
 {
     const auto c = key(0, "major");
     CHECK(nearestInKey(c, 60) == 60);
-    CHECK(nearestInKey(c, 61) == 60);       // C♯: a tie, down by default
-    CHECK(nearestInKey(c, 61, true) == 62); // or up
+    CHECK(nearestInKey(c, 61) == 60);                          // C♯: a tie, down by default
+    CHECK(nearestInKey(c, 61, true) == 62);                    // or up
     CHECK(nearestInKey(key(0, "major-pentatonic"), 65) == 64); // F: E is nearer than G
     CHECK(nearestInKey(key(0, "major-pentatonic"), 66, false) == 67);
     CHECK(nearestInKey(Key{0, "no-such-scale"}, 61) == 61);

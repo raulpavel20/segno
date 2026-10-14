@@ -36,11 +36,26 @@ struct ShellFixture
     }
 };
 
-inline juce::MouseEvent mouseEvent(juce::Component& c, juce::Point<float> pos, juce::Point<float> down, bool dragged,
-                                   juce::ModifierKeys mods = juce::ModifierKeys::leftButtonModifier, int clicks = 1)
+inline juce::MouseEvent mouseEvent(juce::Component& c, juce::Point<float> pos, juce::Point<float> down,
+                                   bool dragged,
+                                   juce::ModifierKeys mods = juce::ModifierKeys::leftButtonModifier,
+                                   int clicks = 1)
 {
-    return {juce::Desktop::getInstance().getMainMouseSource(), pos, mods, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, &c, &c,
-            juce::Time::getCurrentTime(), down, juce::Time::getCurrentTime(), clicks, dragged};
+    return {juce::Desktop::getInstance().getMainMouseSource(),
+            pos,
+            mods,
+            0.0f,
+            0.0f,
+            0.0f,
+            0.0f,
+            0.0f,
+            &c,
+            &c,
+            juce::Time::getCurrentTime(),
+            down,
+            juce::Time::getCurrentTime(),
+            clicks,
+            dragged};
 }
 
 /// Writes a screenshot for review into `dir`, replacing any earlier one.
@@ -127,8 +142,8 @@ inline juce::StringArray crowded(juce::Component& c, int gap)
     for (std::size_t i = 0; i < shown.size(); ++i)
         for (std::size_t j = i + 1; j < shown.size(); ++j)
             if (shown[i]->getBounds().expanded(gap, 0).intersects(shown[j]->getBounds()))
-                out.add(shown[i]->getTitle() + "/" + shown[i]->getName() + " near " + shown[j]->getTitle() + "/" +
-                        shown[j]->getName());
+                out.add(shown[i]->getTitle() + "/" + shown[i]->getName() + " near " + shown[j]->getTitle() +
+                        "/" + shown[j]->getName());
     return out;
 }
 } // namespace fd::testing

@@ -326,20 +326,23 @@ TEST_CASE("mcp tools: tracks, MIDI clips and notes, each call one named undo ste
     CHECK(daw.fails("create_midi_clip", {{"track", "t:424242"}, {"start", 0}}).find("t:424242") != std::string::npos);
 }
 
-TEST_CASE("mcp tools: chords read, written, made and suggested; the piano roll's edits (P4a)", "[integration][mcp]")
+TEST_CASE("mcp tools: chords read, written, made and suggested; the piano roll's edits (P4a)",
+          "[integration][mcp]")
 {
     Daw daw;
     const auto track = daw.call("add_track", {{"name", "Keys"}})["track"].get<std::string>();
-    const auto clipId =
-        daw.call("create_midi_clip", {{"track", track}, {"start", "1.1.1"}, {"length", "4 bars"}})["clip"]["id"].get<std::string>();
+    const auto clipId = daw.call("create_midi_clip",
+                                 {{"track", track}, {"start", "1.1.1"}, {"length", "4 bars"}})["clip"]["id"]
+                            .get<std::string>();
     REQUIRE(daw.call("set_key", {{"root", "A"}, {"scale", "minor"}})["key"]["name"] == "A minor");
 
     // make_chords: a one-finger line becomes the key's chords, voice-led.
     daw.call("set_notes", {{"clip", clipId},
-                           {"notes", {{{"pitch", "A2"}, {"start", 0}, {"length", "1 bar"}},
-                                      {{"pitch", "F2"}, {"start", 4}, {"length", "1 bar"}},
-                                      {{"pitch", "C3"}, {"start", 8}, {"length", "1 bar"}},
-                                      {{"pitch", "G2"}, {"start", 12}, {"length", "1 bar"}}}}});
+                           {"notes",
+                            {{{"pitch", "A2"}, {"start", 0}, {"length", "1 bar"}},
+                             {{"pitch", "F2"}, {"start", 4}, {"length", "1 bar"}},
+                             {{"pitch", "C3"}, {"start", 8}, {"length", "1 bar"}},
+                             {{"pitch", "G2"}, {"start", 12}, {"length", "1 bar"}}}}});
     auto made = daw.call("make_chords", {{"clip", clipId}, {"where", "all"}});
     CHECK(made["notes"] == 12);
     CHECK(daw.session->undoDescription() == "Assistant: make chords");
@@ -368,12 +371,14 @@ TEST_CASE("mcp tools: chords read, written, made and suggested; the piano roll's
     chords = daw.call("get_chords", {{"clip", clipId}});
     CHECK(chords["chords"][3]["name"].get<std::string>().rfind("E7", 0) == 0);
     CHECK(chords["chords"][3]["step"] == "V7");
-    daw.call("set_chord", {{"clip", clipId}, {"chord", "iv"}, {"start", 4}, {"voicing", "close"}, {"inversion", "root"}});
+    daw.call("set_chord",
+             {{"clip", clipId}, {"chord", "iv"}, {"start", 4}, {"voicing", "close"}, {"inversion", "root"}});
     chords = daw.call("get_chords", {{"clip", clipId}});
     CHECK(chords["chords"][1]["name"] == "Dm");
-    CHECK(daw.fails("set_chord", {{"clip", clipId}, {"chord", "H7"}, {"start", 0}}).find("chord name") != std::string::npos);
-    CHECK(daw.fails("set_chord", {{"clip", clipId}, {"chord", "Dm"}, {"start", 0}, {"voicing", "wide"}}).find("drop2") !=
+    CHECK(daw.fails("set_chord", {{"clip", clipId}, {"chord", "H7"}, {"start", 0}}).find("chord name") !=
           std::string::npos);
+    CHECK(daw.fails("set_chord", {{"clip", clipId}, {"chord", "Dm"}, {"start", 0}, {"voicing", "wide"}})
+              .find("drop2") != std::string::npos);
 
     // suggest_chords: what the Chord popover offers.
     const auto offered = daw.call("suggest_chords", {{"clip", clipId}, {"at", 8}});
@@ -383,11 +388,14 @@ TEST_CASE("mcp tools: chords read, written, made and suggested; the piano roll's
     REQUIRE_FALSE(offered["next"].empty());
     CHECK(offered["next"][0].contains("why"));
     CHECK(offered["borrowed"].size() == 3);
-    CHECK(daw.call("suggest_chords", {{"clip", clipId}, {"at", 0}, {"kind", "seventh"}})["inKey"][0]["name"] == "Am7");
+    CHECK(daw.call("suggest_chords",
+                   {{"clip", clipId}, {"at", 0}, {"kind", "seventh"}})["inKey"][0]["name"] == "Am7");
 
     // edit_notes: steps of the key, fit to key, mute, legato, stretch, reverse, invert, voicing, add bass.
     daw.call("set_notes", {{"clip", clipId},
-                           {"notes", {{{"pitch", "C3"}, {"start", 0}, {"length", 1}}, {{"pitch", "F#3"}, {"start", 2}, {"length", 1}}}}});
+                           {"notes",
+                            {{{"pitch", "C3"}, {"start", 0}, {"length", 1}},
+                             {{"pitch", "F#3"}, {"start", 2}, {"length", 1}}}}});
     daw.call("edit_notes", {{"clip", clipId}, {"where", {{"pitch", "C3"}}}, {"transpose_steps", 1}});
     auto clip = daw.call("get_clip", {{"clip", clipId}});
     CHECK(clip["notes"][0]["pitch"] == 62); // D: the next note of A minor
@@ -404,10 +412,14 @@ TEST_CASE("mcp tools: chords read, written, made and suggested; the piano roll's
     CHECK(daw.call("get_clip", {{"clip", clipId}})["notes"][1]["start"] == Approx(4.0));
     daw.call("edit_notes", {{"clip", clipId}, {"where", "all"}, {"reverse", true}});
     CHECK(daw.call("get_clip", {{"clip", clipId}})["notes"][0]["pitch"] == 67);
-    CHECK(daw.fails("edit_notes", {{"clip", clipId}, {"where", "all"}, {"stretch", 0}}).find("half speed") != std::string::npos);
+    CHECK(daw.fails("edit_notes", {{"clip", clipId}, {"where", "all"}, {"stretch", 0}}).find("half speed") !=
+          std::string::npos);
 
-    daw.call("set_notes", {{"clip", clipId}, {"notes", {{{"pitch", 60}, {"start", 0}, {"length", 4}}, {{"pitch", 64}, {"start", 0}, {"length", 4}},
-                                                        {{"pitch", 67}, {"start", 0}, {"length", 4}}}}});
+    daw.call("set_notes", {{"clip", clipId},
+                           {"notes",
+                            {{{"pitch", 60}, {"start", 0}, {"length", 4}},
+                             {{"pitch", 64}, {"start", 0}, {"length", 4}},
+                             {{"pitch", 67}, {"start", 0}, {"length", 4}}}}});
     daw.call("edit_notes", {{"clip", clipId}, {"where", "all"}, {"invert", "up"}});
     clip = daw.call("get_clip", {{"clip", clipId}});
     CHECK(clip["notes"][2]["pitch"] == 72);
@@ -421,8 +433,8 @@ TEST_CASE("mcp tools: chords read, written, made and suggested; the piano roll's
 
     // Without a key, the key's tools say what to do.
     daw.call("set_key", {{"none", true}});
-    CHECK(daw.fails("edit_notes", {{"clip", clipId}, {"where", "all"}, {"transpose_steps", 1}}).find("set_key") !=
-          std::string::npos);
+    CHECK(daw.fails("edit_notes", {{"clip", clipId}, {"where", "all"}, {"transpose_steps", 1}})
+              .find("set_key") != std::string::npos);
     CHECK(daw.call("suggest_chords", {{"clip", clipId}, {"at", 0}})["borrowed"].empty());
 }
 

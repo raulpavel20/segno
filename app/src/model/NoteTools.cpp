@@ -99,8 +99,8 @@ bool smooth(const ChordStyle& style) noexcept
 }
 
 /// The last chord span starting before `beat`, of the notes not in `ignoring`; with its pitches.
-std::optional<std::pair<music::Chord, std::vector<int>>> spanBefore(const std::vector<Note>& notes, double beat,
-                                                                    const std::set<std::size_t>& ignoring)
+std::optional<std::pair<music::Chord, std::vector<int>>>
+spanBefore(const std::vector<Note>& notes, double beat, const std::set<std::size_t>& ignoring)
 {
     std::vector<Note> kept;
     for (std::size_t i = 0; i < notes.size(); ++i)
@@ -146,7 +146,11 @@ std::vector<int> pitchesOf(const std::vector<Note>& notes, const std::vector<std
 std::vector<std::size_t> byPitch(const std::vector<Note>& notes, std::vector<std::size_t> group)
 {
     std::sort(group.begin(), group.end(),
-              [&](auto a, auto b) { return notes[a].pitch != notes[b].pitch ? notes[a].pitch < notes[b].pitch : notes[a].start < notes[b].start; });
+              [&](auto a, auto b)
+              {
+                  return notes[a].pitch != notes[b].pitch ? notes[a].pitch < notes[b].pitch
+                                                          : notes[a].start < notes[b].start;
+              });
     return group;
 }
 } // namespace
@@ -162,7 +166,9 @@ std::vector<int> foldedRows(Fold fold, const music::Key* key, const std::vector<
     std::vector<int> rows;
     for (int p = 0; p <= 127; ++p)
     {
-        const bool shown = fold == Fold::All || (fold == Fold::Key && (keyNotes == 0 || (keyNotes & (1u << (p % 12))) != 0 || used.contains(p))) ||
+        const bool shown = fold == Fold::All ||
+                           (fold == Fold::Key &&
+                            (keyNotes == 0 || (keyNotes & (1u << (p % 12))) != 0 || used.contains(p))) ||
                            (fold == Fold::Notes && (used.empty() || used.contains(p)));
         if (shown)
             rows.push_back(p);
@@ -170,8 +176,8 @@ std::vector<int> foldedRows(Fold fold, const music::Key* key, const std::vector<
     return rows;
 }
 
-NoteEdit transposeInKey(const std::vector<Note>& notes, const std::set<std::size_t>& selection, const music::Key& key,
-                        int steps)
+NoteEdit transposeInKey(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
+                        const music::Key& key, int steps)
 {
     const auto t = targetsOf(notes, selection);
     for (; steps != 0; steps += steps > 0 ? -1 : 1)
@@ -188,17 +194,20 @@ NoteEdit transposeInKey(const std::vector<Note>& notes, const std::set<std::size
         if (fits)
             return apply(notes, t, changed);
     }
-    return {notes, t.all ? std::set<std::size_t>{} : std::set<std::size_t>(t.indices.begin(), t.indices.end())};
+    return {notes,
+            t.all ? std::set<std::size_t>{} : std::set<std::size_t>(t.indices.begin(), t.indices.end())};
 }
 
-NoteEdit fitToKey(const std::vector<Note>& notes, const std::set<std::size_t>& selection, const music::Key& key)
+NoteEdit fitToKey(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
+                  const music::Key& key)
 {
     const auto t = targetsOf(notes, selection);
     std::vector<Note> changed;
     for (auto i : t.indices)
     {
         auto n = notes[i];
-        const int down = music::nearestInKey(key, n.pitch, false), up = music::nearestInKey(key, n.pitch, true);
+        const int down = music::nearestInKey(key, n.pitch, false),
+                  up = music::nearestInKey(key, n.pitch, true);
         if (down != up)
         {
             // A tie: the way the melody was moving, from the note before (the latest to start
@@ -207,7 +216,8 @@ NoteEdit fitToKey(const std::vector<Note>& notes, const std::set<std::size_t>& s
             for (const auto& m : notes)
                 if (m.start < n.start - kEps &&
                     (before == nullptr || m.start > before->start + kEps ||
-                     (std::abs(m.start - before->start) <= kEps && std::abs(m.pitch - n.pitch) < std::abs(before->pitch - n.pitch))))
+                     (std::abs(m.start - before->start) <= kEps &&
+                      std::abs(m.pitch - n.pitch) < std::abs(before->pitch - n.pitch))))
                     before = &m;
             n.pitch = before != nullptr && before->pitch < n.pitch ? up : down;
         }
@@ -233,7 +243,8 @@ std::vector<ChordSpan> chordSpans(const std::vector<Note>& notes)
         }
     std::sort(order.begin(), order.end(), [&](auto a, auto b) { return notes[a].start < notes[b].start; });
     std::sort(times.begin(), times.end());
-    times.erase(std::unique(times.begin(), times.end(), [](double a, double b) { return b - a <= kEps; }), times.end());
+    times.erase(std::unique(times.begin(), times.end(), [](double a, double b) { return b - a <= kEps; }),
+                times.end());
 
     std::vector<ChordSpan> spans;
     std::vector<std::size_t> active;
@@ -273,30 +284,31 @@ std::vector<ChordSpan> chordSpans(const std::vector<Note>& notes)
     return spans;
 }
 
-std::vector<int> pitchesBefore(const std::vector<Note>& notes, double beat, const std::set<std::size_t>& ignoring)
+std::vector<int> pitchesBefore(const std::vector<Note>& notes, double beat,
+                               const std::set<std::size_t>& ignoring)
 {
     if (auto span = spanBefore(notes, beat, ignoring))
         return std::move(span->second);
     return {};
 }
 
-std::optional<music::Chord> chordBefore(const std::vector<Note>& notes, double beat, const std::set<std::size_t>& ignoring)
+std::optional<music::Chord> chordBefore(const std::vector<Note>& notes, double beat,
+                                        const std::set<std::size_t>& ignoring)
 {
     if (auto span = spanBefore(notes, beat, ignoring))
         return span->first;
     return std::nullopt;
 }
 
-NoteEdit drawChord(const std::vector<Note>& notes, const Note& clicked, const music::Key* key, const ChordStyle& style,
-                   bool under)
+NoteEdit drawChord(const std::vector<Note>& notes, const Note& clicked, const music::Key* key,
+                   const ChordStyle& style, bool under)
 {
     const auto before = spanBefore(notes, clicked.start, {});
     const int pitch = std::clamp(clicked.pitch, 0, 127);
     const auto chord = under ? music::harmonise(key, pitch, style.shape, before ? &before->first : nullptr)
                              : music::keyChord(key, pitch, style.shape);
-    music::VoiceRequest request{.voicing = style.voicing,
-                                .inversion = style.inversion,
-                                .centre = static_cast<double>(pitch)};
+    music::VoiceRequest request{
+        .voicing = style.voicing, .inversion = style.inversion, .centre = static_cast<double>(pitch)};
     if (smooth(style) && before)
         request.before = before->second;
     if (under)
@@ -324,10 +336,13 @@ std::vector<int> chordVoicing(const std::vector<Note>& notes, double start, cons
         if (i < notes.size())
             old.push_back(notes[i].pitch);
     const auto before = pitchesBefore(notes, start, replacing);
-    const int natural = static_cast<int>(music::stackedTones(chord).size()) + (chord.bass && !bassIsTone(chord) ? 1 : 0);
+    const int natural =
+        static_cast<int>(music::stackedTones(chord).size()) + (chord.bass && !bassIsTone(chord) ? 1 : 0);
     music::VoiceRequest request{.voicing = style.voicing,
                                 .inversion = style.inversion,
-                                .centre = !old.empty() ? mean(old) : !before.empty() ? mean(before) : 64.0,
+                                .centre = !old.empty()      ? mean(old)
+                                          : !before.empty() ? mean(before)
+                                                            : 64.0,
                                 .count = old.empty() ? 0 : std::max(static_cast<int>(old.size()), natural)};
     if (smooth(style))
         request.before = before;
@@ -369,8 +384,8 @@ NoteEdit writeChord(const std::vector<Note>& notes, double start, double end_, c
     return apply(notes, targets, written);
 }
 
-NoteEdit makeChords(const std::vector<Note>& notes, const std::set<std::size_t>& selection, const music::Key* key,
-                    const ChordStyle& style)
+NoteEdit makeChords(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
+                    const music::Key* key, const ChordStyle& style)
 {
     const auto t = targetsOf(notes, selection);
     auto order = t.indices;
@@ -405,7 +420,8 @@ NoteEdit makeChords(const std::vector<Note>& notes, const std::set<std::size_t>&
     return apply(notes, t, changed);
 }
 
-std::vector<std::vector<std::size_t>> chordGroups(const std::vector<Note>& notes, const std::set<std::size_t>& which)
+std::vector<std::vector<std::size_t>> chordGroups(const std::vector<Note>& notes,
+                                                  const std::set<std::size_t>& which)
 {
     std::vector<std::size_t> order;
     for (auto i : which)
@@ -449,7 +465,8 @@ NoteEdit invertChords(const std::vector<Note>& notes, const std::set<std::size_t
     return apply(notes, t, out);
 }
 
-NoteEdit voiceChords(const std::vector<Note>& notes, const std::set<std::size_t>& selection, music::Voicing voicing)
+NoteEdit voiceChords(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
+                     music::Voicing voicing)
 {
     const auto t = targetsOf(notes, selection);
     std::map<std::size_t, Note> changed;
@@ -469,9 +486,8 @@ NoteEdit voiceChords(const std::vector<Note>& notes, const std::set<std::size_t>
         }
         if (bassIsTone(*chord))
             chord->bass.reset(); // an inversion is a voicing, which this replaces
-        music::VoiceRequest request{.voicing = voicing,
-                                    .centre = mean(pitches),
-                                    .count = static_cast<int>(g.size())};
+        music::VoiceRequest request{
+            .voicing = voicing, .centre = mean(pitches), .count = static_cast<int>(g.size())};
         if (voicing == music::Voicing::Smooth)
             request.before = previous;
         const auto voiced = music::voiceChord(*chord, request);
@@ -629,11 +645,13 @@ NoteEdit reverseNotes(const std::vector<Note>& notes, const std::set<std::size_t
     const auto span = notesSpan(notes, {t.indices.begin(), t.indices.end()});
     if (!span)
         return {notes, {}};
-    return stretchNotes(notes, t.all ? std::set<std::size_t>{} : std::set<std::size_t>(t.indices.begin(), t.indices.end()),
-                        (span->first + span->second) * 0.5, -1.0, false);
+    return stretchNotes(
+        notes, t.all ? std::set<std::size_t>{} : std::set<std::size_t>(t.indices.begin(), t.indices.end()),
+        (span->first + span->second) * 0.5, -1.0, false);
 }
 
-NoteEdit mirrorPitches(const std::vector<Note>& notes, const std::set<std::size_t>& selection, const music::Key* key)
+NoteEdit mirrorPitches(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
+                       const music::Key* key)
 {
     const auto t = targetsOf(notes, selection);
     if (t.indices.empty())
@@ -665,7 +683,8 @@ NoteEdit mirrorPitches(const std::vector<Note>& notes, const std::set<std::size_
     for (auto i : t.indices)
     {
         auto n = notes[i];
-        n.pitch = scale.empty() ? lo + hi - n.pitch : pitchAt(std::max(0, place(lo) + place(hi) - place(n.pitch)));
+        n.pitch =
+            scale.empty() ? lo + hi - n.pitch : pitchAt(std::max(0, place(lo) + place(hi) - place(n.pitch)));
         changed.push_back(n);
     }
     return apply(notes, t, changed);
@@ -703,8 +722,8 @@ NoteEdit muteNotes(const std::vector<Note>& notes, const std::set<std::size_t>& 
     return apply(notes, t, changed);
 }
 
-NoteEdit quantiseNotes(const std::vector<Note>& notes, const std::set<std::size_t>& selection, const BeatGrid& grid,
-                       const QuantiseSettings& settings)
+NoteEdit quantiseNotes(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
+                       const BeatGrid& grid, const QuantiseSettings& settings)
 {
     const auto t = targetsOf(notes, selection);
     // The grid line nearest a beat; with swing, every other line of each bar comes later.
@@ -742,22 +761,27 @@ double fieldOf(const Note& note, NoteField field) noexcept
 {
     switch (field)
     {
-    case NoteField::Pitch: return note.pitch;
-    case NoteField::Start: return note.start;
-    case NoteField::Length: return note.length;
-    default: return std::round(note.velocity * 127.0f);
+    case NoteField::Pitch:
+        return note.pitch;
+    case NoteField::Start:
+        return note.start;
+    case NoteField::Length:
+        return note.length;
+    default:
+        return std::round(note.velocity * 127.0f);
     }
 }
 
-std::optional<std::pair<double, double>> fieldRange(const std::vector<Note>& notes, const std::set<std::size_t>& which,
-                                                    NoteField field)
+std::optional<std::pair<double, double>> fieldRange(const std::vector<Note>& notes,
+                                                    const std::set<std::size_t>& which, NoteField field)
 {
     std::optional<std::pair<double, double>> range;
     for (auto i : which)
         if (i < notes.size())
         {
             const double v = fieldOf(notes[i], field);
-            range = range ? std::pair{std::min(range->first, v), std::max(range->second, v)} : std::pair{v, v};
+            range =
+                range ? std::pair{std::min(range->first, v), std::max(range->second, v)} : std::pair{v, v};
         }
     return range;
 }
@@ -768,9 +792,15 @@ Note withField(Note n, NoteField field, double value)
 {
     switch (field)
     {
-    case NoteField::Pitch: n.pitch = std::clamp(static_cast<int>(std::lround(value)), 0, 127); break;
-    case NoteField::Start: n.start = std::max(0.0, value); break;
-    case NoteField::Length: n.length = std::max(minNoteLength, value); break;
+    case NoteField::Pitch:
+        n.pitch = std::clamp(static_cast<int>(std::lround(value)), 0, 127);
+        break;
+    case NoteField::Start:
+        n.start = std::max(0.0, value);
+        break;
+    case NoteField::Length:
+        n.length = std::max(minNoteLength, value);
+        break;
     case NoteField::Velocity:
         n.velocity = static_cast<float>(std::clamp(std::round(value), 1.0, 127.0) / 127.0);
         break;
@@ -779,7 +809,8 @@ Note withField(Note n, NoteField field, double value)
 }
 } // namespace
 
-NoteEdit setNotesField(const std::vector<Note>& notes, const std::set<std::size_t>& selection, NoteField field, double value)
+NoteEdit setNotesField(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
+                       NoteField field, double value)
 {
     Targets t;
     for (auto i : selection)
@@ -793,8 +824,8 @@ NoteEdit setNotesField(const std::vector<Note>& notes, const std::set<std::size_
     return apply(notes, t, changed);
 }
 
-NoteEdit offsetNotesField(const std::vector<Note>& notes, const std::set<std::size_t>& selection, NoteField field,
-                          double delta)
+NoteEdit offsetNotesField(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
+                          NoteField field, double delta)
 {
     const auto range = fieldRange(notes, selection, field);
     if (!range)
@@ -802,10 +833,18 @@ NoteEdit offsetNotesField(const std::vector<Note>& notes, const std::set<std::si
     // As far as every note can go: pitches within 0..127, starts from 0, velocities 1..127.
     switch (field)
     {
-    case NoteField::Pitch: delta = std::clamp(delta, -range->first, 127.0 - range->second); break;
-    case NoteField::Start: delta = std::max(delta, -range->first); break;
-    case NoteField::Length: delta = std::max(delta, minNoteLength - range->first); break;
-    case NoteField::Velocity: delta = std::clamp(delta, 1.0 - range->first, 127.0 - range->second); break;
+    case NoteField::Pitch:
+        delta = std::clamp(delta, -range->first, 127.0 - range->second);
+        break;
+    case NoteField::Start:
+        delta = std::max(delta, -range->first);
+        break;
+    case NoteField::Length:
+        delta = std::max(delta, minNoteLength - range->first);
+        break;
+    case NoteField::Velocity:
+        delta = std::clamp(delta, 1.0 - range->first, 127.0 - range->second);
+        break;
     }
     Targets t;
     for (auto i : selection)
@@ -861,7 +900,8 @@ std::set<std::size_t> invertSelection(const std::vector<Note>& notes, const std:
     return out;
 }
 
-std::optional<std::pair<double, double>> notesSpan(const std::vector<Note>& notes, const std::set<std::size_t>& which)
+std::optional<std::pair<double, double>> notesSpan(const std::vector<Note>& notes,
+                                                   const std::set<std::size_t>& which)
 {
     std::optional<std::pair<double, double>> span;
     for (auto i : which)

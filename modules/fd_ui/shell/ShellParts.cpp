@@ -280,7 +280,8 @@ void PanelHeader::resized()
     {
         Option* next = nullptr;
         for (auto& o : options_)
-            if (o.drop > 0 && !o.dropped && o.component->isVisible() && (next == nullptr || o.drop < next->drop))
+            if (o.drop > 0 && !o.dropped && o.component->isVisible() &&
+                (next == nullptr || o.drop < next->drop))
                 next = &o;
         if (next == nullptr)
             break;
@@ -336,10 +337,14 @@ void PanelHeader::paint(juce::Graphics& g)
     // takes the rest, cut short with an ellipsis.
     auto rest = r.withTrimmedLeft(t.shell.padding);
     const auto width = [](const juce::Font& f, const juce::String& text)
-    { return text.isEmpty() ? 0 : static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(f, text))); };
+    {
+        return text.isEmpty() ? 0
+                              : static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(f, text)));
+    };
     const int captionWidth = width(font(TextStyle::Caption), caption_);
     const int contextWidth = width(font(TextStyle::Name), context_);
-    if (captionWidth > 0 && rest.getWidth() >= (contextWidth > 0 ? contextWidth + t.shell.groupGap : 0) + captionWidth)
+    if (captionWidth > 0 &&
+        rest.getWidth() >= (contextWidth > 0 ? contextWidth + t.shell.groupGap : 0) + captionWidth)
     {
         g.setColour(t.textTertiary);
         g.setFont(font(TextStyle::Caption));
