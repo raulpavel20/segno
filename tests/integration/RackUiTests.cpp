@@ -907,7 +907,9 @@ TEST_CASE(
     panel->onMacroDrag(0, mouseAt(*target, centre, centre, true));
     CHECK(s.macroPointer().dragging);
     CHECK(s.macroPointer().module == delay);
-    f.show();
+    for (auto* k : knobs) // as the panel's refresh tick does
+        k->refresh();
+    CHECK(target->isDropTarget());
     f.shot("mapping");
     panel->onMacroDrop(0, mouseAt(*target, centre, centre, true));
     CHECK_FALSE(s.macroPointer().dragging);
