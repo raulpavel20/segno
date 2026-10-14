@@ -178,11 +178,9 @@ void addChordTools(Registry& registry, ToolEnv& env)
         env,
         {"set_chord", "Write a chord",
          "Writes a chord over a span of a MIDI clip, or changes the chord there: its notes are rewritten, "
-         "keeping "
-         "their timing and velocities, voice-led from the chord before (moving as little as it can) unless a "
-         "voicing is given. Give the chord as a name (\"Dm7\", \"C/E\", \"Bbmaj7\") or, with a song key, a "
-         "Roman "
-         "numeral (\"ii7\", \"bVII\", \"V7/V\").",
+         "keeping their timing and velocities, voice-led from the chord before (moving as little as it can) "
+         "unless a voicing is given. Give the chord as a name (\"Dm7\", \"C/E\", \"Bbmaj7\") or, with a song "
+         "key, a Roman numeral (\"ii7\", \"bVII\", \"V7/V\").",
          object(
              styleSchema(
                  {{"clip", id(IdKind::Clip, "The MIDI clip")},
@@ -222,41 +220,96 @@ void addChordTools(Registry& registry, ToolEnv& env)
             return ToolResult::ok(std::move(out));
         }));
 
-    registry.tools.push_back(
-        make(env,
-             {"make_chords", "Make chords",
-              "Turns notes into chords: each matching note becomes the root of the song key's chord on it "
-              "(as in C "
-              "major without a key), keeping its timing and velocity. With the default voicing, each chord "
-              "moves as "
-              "little as it can from the one before, so a line of single notes becomes a progression.",
-              object(styleSchema({{"clip", id(IdKind::Clip, "The MIDI clip")},
-                                  {"where",
-                                   {{"anyOf", {{{"enum", {"all"}}}, {{"type", "object"}}}},
-                                    {"description", "\"all\", or a filter as edit_notes takes"}}}}),
-                     {"clip", "where"}),
-              writtenSchema(), writes},
-             [&env](const Json& args, CallContext&)
-             {
-                 const auto c = midiClipArg(env, args["clip"]);
-                 const auto key = keyAt(env, c);
-                 const auto chosen = selectNotes(env, c, args["where"]);
-                 if (chosen.empty())
-                     return ToolResult::ok(writtenResult(env, c, c, 0), "No notes match.");
-                 const auto edit = model::makeChords(c.notes, chosen, key ? &*key : nullptr, styleArg(args));
-                 env.session.setNotes(c.id, edit.notes);
-                 env.session.flushSnapshot();
-                 return ToolResult::ok(writtenResult(env, c, clip(env, args["clip"]), edit.selection.size()));
-             }));
+    registry.tools.push_back(make(
+        env,
+        {"make_chords", "Make chords",
+         "Turns notes into chords, as the clip view's Make chords… does: each matching note (in time order) "
+         "becomes the song key's chord on it (as in C major without a key), keeping its timing and velocity. "
+         "`kind`, `voicing` and `inversion` set every chord; `chords` sets them note by note: a kind on the "
+         "note, a chord with the note in it (on top when it isn't the root), or \"leave\". With the smooth "
+         "voicing each chord moves as little as it can from the one before, so a line becomes a progression.",
+         object(styleSchema(
+                    {{"clip", id(IdKind::Clip, "The MIDI clip")},
+                     {"where",
+                      {{"anyOf", {{{"enum", {"all"}}}, {{"type", "object"}}}},
+                       {"description", "\"all\", or a filter as edit_notes takes"}}},
+                     {"chords",
+                      {{"type", "array"},
+                       {"description", "One per matching note, in time order (fewer: the rest as above): "
+                                       "\"leave\", or {kind?, chord?, voicing?, inversion?}"}}}}),
+                {"clip", "where"}),
+         writtenSchema(), writes},
+        [&env](const Json& args, CallContext&)
+        {
+            const auto c = midiClipArg(env, args["clip"]);
+            const auto key = keyAt(env, c);
+            const auto chosen = selectNotes(env, c, args["where"]);
+            if (chosen.empty())
+                return ToolResult::ok(writtenResult(env, c, c, 0), "No notes match.");
+            const auto style = styleArg(args);
+            const auto order = model::notesInTimeOrder(c.notes, chosen);
+            auto choices = model::startingChords(c.notes, order, key ? &*key : nullptr, style.shape);
+            for (auto& choice : choices)
+            {
+                choice.voicing = style.voicing;
+                choice.inversion = style.inversion;
+            }
+            if (args.contains("chords"))
+            {
+                const auto& list = args["chords"];
+                if (list.size() > order.size())
+                    throw Problem{"chords: " + std::to_string(list.size()) + " given for " +
+                                  std::to_string(order.size()) + " notes."};
+                for (std::size_t k = 0; k < list.size(); ++k)
+                {
+                    const auto& entry = list[k];
+                    const auto where = "chords[" + std::to_string(k) + "]";
+                    auto& choice = choices[k];
+                    if (entry.is_string() && entry.get<std::string>() == "leave")
+                    {
+                        choice.mode = model::NoteChord::Mode::Leave;
+                        continue;
+                    }
+                    if (!entry.is_object())
+                        throw Problem{where +
+                                      ": \"leave\", or an object with kind, chord, voicing, inversion."};
+                    const int pitch = c.notes[order[k]].pitch;
+                    const auto own = styleArg(entry);
+                    if (entry.contains("kind"))
+                        choice.chord = music::keyChord(key ? &*key : nullptr, pitch, own.shape);
+                    if (entry.contains("chord"))
+                    {
+                        const auto text = entry["chord"].get<std::string>();
+                        const auto chord = music::parseChord(text, key ? &*key : nullptr);
+                        if (!chord)
+                            throw Problem{where + ".chord: \"" + text + "\" isn't a chord name or numeral."};
+                        if ((music::pitchClasses(*chord) & (1u << (pitch % 12))) == 0)
+                            throw Problem{
+                                where + ".chord: " + text + " doesn't have the note in it (" +
+                                music::noteName(key ? &*key : nullptr, pitch, music::Accidentals::Ascii) +
+                                ")."};
+                        choice.chord = *chord;
+                        choice.mode = chord->root == pitch % 12 ? model::NoteChord::Mode::On
+                                                                : model::NoteChord::Mode::Under;
+                    }
+                    if (entry.contains("voicing"))
+                        choice.voicing = own.voicing;
+                    if (entry.contains("inversion"))
+                        choice.inversion = own.inversion;
+                }
+            }
+            const auto edit = model::makeChords(c.notes, order, choices);
+            env.session.setNotes(c.id, edit.notes);
+            env.session.flushSnapshot();
+            return ToolResult::ok(writtenResult(env, c, clip(env, args["clip"]), edit.selection.size()));
+        }));
 
     registry.tools.push_back(make(
         env,
         {"suggest_chords", "Suggest chords",
          "What the clip view's Chord popover offers at a place in a MIDI clip: the song key's chords on each "
-         "step "
-         "of its scale, the usual chords after the chord before that place (each with why), and chords "
-         "borrowed "
-         "from the parallel key. Without a song key, as in C major, and nothing borrowed.",
+         "step of its scale, the usual chords after the chord before that place (each with why), and chords "
+         "borrowed from the parallel key. Without a song key, as in C major, and nothing borrowed.",
          object(
              styleSchema(
                  {{"clip", id(IdKind::Clip, "The MIDI clip")},

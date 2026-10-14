@@ -324,6 +324,8 @@ public:
     [[nodiscard]] ui::MenuButton& notesButton() noexcept { return notes_; }
     [[nodiscard]] ui::ViewChoice& drawChoice() noexcept { return draw_; }
     [[nodiscard]] ui::ViewChoice& foldChoice() noexcept { return fold_; }
+    [[nodiscard]] ui::Segments& drawKind() noexcept { return drawKind_; }
+    [[nodiscard]] ui::ViewChoice& drawVoicing() noexcept { return drawVoicing_; }
     [[nodiscard]] ui::ViewOption& keyOption() noexcept { return keySnap_; }
     [[nodiscard]] ui::ViewOption& othersOption() noexcept { return others_; }
     /// Once per display frame.
@@ -346,8 +348,10 @@ private:
     /// piano-roll.md §4).
     ui::MenuButton notes_{"Notes"};
     ui::Toggle quantise_{"Quantise"};
-    /// The piano roll's options (piano-roll.md §4): Draw, Key (with a song key), Fold, Others.
-    ui::ViewChoice draw_, fold_;
+    /// The piano roll's options (piano-roll.md §4): Draw, Key (with a song key), Fold, Others; while
+    /// drawing chords, the kind side by side and the voicing (§20.2).
+    ui::ViewChoice draw_, fold_, drawVoicing_;
+    ui::Segments drawKind_;
     ui::ViewOption keySnap_{"Key"}, others_{"Others"};
     /// The piano roll's Snap and grid step (ADR 0047), on the right while it shows a clip.
     ui::ViewOption snap_{"Snap"};

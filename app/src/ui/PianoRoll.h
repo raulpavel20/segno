@@ -12,6 +12,7 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <tuple>
 
 namespace fd::app
 {
@@ -63,12 +64,12 @@ public:
     [[nodiscard]] const std::optional<music::Key>& key() const noexcept { return key_; }
     /// Drawing and moving go by the key's notes: Key is on and the song has a key (§6).
     [[nodiscard]] bool snapsToKey() const noexcept { return options_.keySnap && key_.has_value(); }
-    /// The Draw choice's menu (§7.2): Note, Chord, Chord under, and the chord's settings.
+    /// The Draw choice's menu (§7.2): Note, Chord, Chord under.
     [[nodiscard]] juce::PopupMenu drawMenu();
+    /// The drawn chords' voicing menu (§20.2): the voicings, then the inversions.
+    [[nodiscard]] juce::PopupMenu voicingMenu();
     /// The Fold choice's menu (§6).
     [[nodiscard]] juce::PopupMenu foldMenu();
-    /// The Draw menu's last item: the Chord popover with the chord's settings only.
-    std::function<void()> onChordSettings;
 
     [[nodiscard]] const std::vector<model::Note>& notes() const noexcept { return notes_; }
     [[nodiscard]] const std::set<std::size_t>& selection() const noexcept { return selection_; }
@@ -90,7 +91,6 @@ public:
     void quantise();
     /// The tools of the Notes menu (§13).
     void fitToKey();
-    void makeChords();
     void invertChords(bool up);
     void voiceChords(music::Voicing voicing);
     void addBass();
@@ -148,10 +148,14 @@ public:
     [[nodiscard]] juce::Rectangle<int> laneAreaWithBefore(const ChordPlace& place) const;
     /// Marks the place the popover writes (none: no popover).
     void setChordTarget(std::optional<ChordPlace> place);
-    /// Writes a chord at a place (one undo step) and returns where it now is (its notes).
-    ChordPlace writeChord(const ChordPlace& place, const music::Chord& chord);
+    /// Writes a chord at a place, voiced by `style` (one undo step), and returns where it now is.
+    ChordPlace writeChord(const ChordPlace& place, const music::Chord& chord, const model::ChordStyle& style);
     /// A chord hovered in the popover: heard, and its notes shown in place until nullopt.
-    void previewChord(const ChordPlace& place, const std::optional<music::Chord>& chord);
+    void previewChord(const ChordPlace& place, const std::optional<music::Chord>& chord,
+                      const model::ChordStyle& style);
+    /// Plays pitches through the track's instrument until auditionOff (Make chords…' cards).
+    void audition(const std::vector<int>& pitches);
+    void auditionOff();
     [[nodiscard]] const model::TempoMap& tempo() const noexcept { return tempo_; }
     /// The song beat a content beat is at (the popover's title).
     [[nodiscard]] double songBeat(double contentBeat) const noexcept;
@@ -181,6 +185,8 @@ public:
     [[nodiscard]] const std::vector<int>& foldedRows() const noexcept { return rows_; }
     /// The other tracks' notes shown faint (§8): how many, for tests.
     [[nodiscard]] std::size_t ghostCount() const noexcept { return ghosts_.size(); }
+    /// The notes a double-click under the pointer would draw (§20.1), for tests.
+    [[nodiscard]] const std::vector<model::Note>& drawGhost() const noexcept { return ghost_; }
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -253,6 +259,12 @@ private:
     [[nodiscard]] const music::Key* keyOrNull() const noexcept { return key_ ? &*key_ : nullptr; }
     /// A drawn note's pitch: the key's nearest note while it snaps (Alt: as clicked).
     [[nodiscard]] int drawnPitch(int pitch, bool bypass) const;
+    /// What a double-click at a grid-local point draws: a note, or the chord Draw makes there.
+    [[nodiscard]] model::NoteEdit drawnAt(juce::Point<float> local, bool bypass) const;
+    /// The ghost of what a double-click would draw at a component point (none: off the grid, over
+    /// a note, or during a gesture: piano-roll.md §20.1).
+    void updateGhost(std::optional<juce::Point<float>> at, bool bypass);
+    void paintGhost(juce::Graphics& g);
     /// The selection a command acts on is shown in the notes it returns.
     void run(model::NoteEdit edit) { commit(std::move(edit)); }
 
@@ -323,6 +335,8 @@ private:
     bool handleAtEnd_ = true; // the time handle dragged: the end's (else the start's)
     double stretchFactor_ = 1.0;
     std::optional<std::size_t> hoveredSpan_;
+    std::vector<model::Note> ghost_;                          // what a double-click would draw
+    std::optional<std::tuple<int, double, bool>> ghostPlace_; // the row, step and Alt it's for
     float drawVelocity_ = 100.0f / 127.0f;
     std::optional<int> previewPitch_;      // the note sounding now
     std::vector<int> previewChordPitches_; // a chord sounding now (the popover's hover)

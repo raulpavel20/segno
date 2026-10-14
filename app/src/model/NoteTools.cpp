@@ -384,40 +384,132 @@ NoteEdit writeChord(const std::vector<Note>& notes, double start, double end_, c
     return apply(notes, targets, written);
 }
 
+std::vector<std::size_t> notesInTimeOrder(const std::vector<Note>& notes,
+                                          const std::set<std::size_t>& selection)
+{
+    auto order = targetsOf(notes, selection).indices;
+    std::sort(order.begin(), order.end(), [&](auto a, auto b) { return noteOrder(notes[a], notes[b]); });
+    return order;
+}
+
+std::vector<NoteChord> startingChords(const std::vector<Note>& notes, const std::vector<std::size_t>& order,
+                                      const music::Key* key, music::ChordShape shape)
+{
+    std::vector<NoteChord> out;
+    for (auto i : order)
+        out.push_back({.chord = music::keyChord(key, notes[i].pitch, shape)});
+    return out;
+}
+
+std::vector<std::vector<int>> madeChords(const std::vector<Note>& notes,
+                                         const std::vector<std::size_t>& order,
+                                         const std::vector<NoteChord>& choices)
+{
+    std::vector<std::vector<int>> out;
+    if (order.empty())
+        return out;
+    const std::set<std::size_t> ignoring(order.begin(), order.end());
+    auto previous = order.front() < notes.size() ? pitchesBefore(notes, notes[order.front()].start, ignoring)
+                                                 : std::vector<int>{};
+    for (std::size_t k = 0; k < order.size(); ++k)
+    {
+        if (order[k] >= notes.size())
+        {
+            out.emplace_back();
+            continue;
+        }
+        const auto& n = notes[order[k]];
+        const auto choice = k < choices.size() ? choices[k] : NoteChord{.mode = NoteChord::Mode::Leave};
+        std::vector<int> pitches{n.pitch};
+        if (choice.mode != NoteChord::Mode::Leave)
+        {
+            music::VoiceRequest request{.voicing = choice.voicing,
+                                        .inversion = choice.inversion,
+                                        .centre = static_cast<double>(n.pitch)};
+            if (choice.mode == NoteChord::Mode::Under)
+                request.top = n.pitch;
+            else
+                request.including = n.pitch;
+            if (choice.voicing == music::Voicing::Smooth)
+                request.before = previous;
+            if (auto voiced = music::voiceChord(choice.chord, request); !voiced.empty())
+                pitches = std::move(voiced);
+            previous = pitches;
+        }
+        out.push_back(std::move(pitches));
+    }
+    return out;
+}
+
+NoteEdit makeChords(const std::vector<Note>& notes, const std::vector<std::size_t>& order,
+                    const std::vector<NoteChord>& choices)
+{
+    Targets t;
+    for (auto i : order)
+        if (i < notes.size())
+            t.indices.push_back(i);
+    std::sort(t.indices.begin(), t.indices.end());
+    t.indices.erase(std::unique(t.indices.begin(), t.indices.end()), t.indices.end());
+    if (t.indices.empty())
+        return {notes, {}};
+    const auto made = madeChords(notes, order, choices);
+    std::vector<Note> changed;
+    for (std::size_t k = 0; k < order.size(); ++k)
+        if (order[k] < notes.size())
+            for (int p : made[k])
+            {
+                auto m = notes[order[k]];
+                m.pitch = p;
+                changed.push_back(m);
+            }
+    return apply(notes, t, changed);
+}
+
 NoteEdit makeChords(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
                     const music::Key* key, const ChordStyle& style)
 {
-    const auto t = targetsOf(notes, selection);
-    auto order = t.indices;
-    std::sort(order.begin(), order.end(), [&](auto a, auto b) { return noteOrder(notes[a], notes[b]); });
-    if (order.empty())
-        return {notes, {}};
-    const std::set<std::size_t> ignoring(t.indices.begin(), t.indices.end());
-    auto previous = pitchesBefore(notes, notes[order.front()].start, ignoring);
-
-    std::vector<Note> changed;
-    for (auto i : order)
+    const auto order = notesInTimeOrder(notes, selection);
+    auto choices = startingChords(notes, order, key, style.shape);
+    for (auto& c : choices)
     {
-        const auto& n = notes[i];
-        const auto chord = music::keyChord(key, n.pitch, style.shape);
-        music::VoiceRequest request{.voicing = style.voicing,
-                                    .inversion = style.inversion,
-                                    .including = n.pitch,
-                                    .centre = static_cast<double>(n.pitch)};
-        if (smooth(style))
-            request.before = previous;
-        auto pitches = music::voiceChord(chord, request);
-        if (pitches.empty())
-            pitches = {n.pitch};
-        for (int p : pitches)
-        {
-            auto m = n;
-            m.pitch = p;
-            changed.push_back(m);
-        }
-        previous = pitches;
+        c.voicing = style.voicing;
+        c.inversion = style.inversion;
     }
-    return apply(notes, t, changed);
+    auto edit = makeChords(notes, order, choices);
+    if (selection.empty())
+        edit.selection.clear(); // made from every note: nothing was selected
+    return edit;
+}
+
+std::vector<music::Chord> chordsUnder(const music::Key* key, int pitchClass)
+{
+    static const music::Key cMajor{0, "major"};
+    const auto& k = key != nullptr && music::scaleOf(*key) != nullptr ? *key : cMajor;
+    pitchClass = ((pitchClass % 12) + 12) % 12;
+    std::vector<music::Chord> out;
+    for (const auto& c : music::keyChords(k))
+        if (c.root != pitchClass && (music::pitchClasses(c) & (1u << pitchClass)) != 0)
+            out.push_back(c);
+    return out;
+}
+
+music::ChordShape shapeOf(const music::Chord& chord) noexcept
+{
+    const auto id = music::kindOf(chord).id;
+    if (id == "sus2")
+        return music::ChordShape::Sus2;
+    if (id == "sus4" || id == "7sus4" || id == "9sus4")
+        return id == "sus4"    ? music::ChordShape::Sus4
+               : id == "7sus4" ? music::ChordShape::Seventh
+                               : music::ChordShape::Ninth;
+    if (id == "add9" || id == "m(add9)")
+        return music::ChordShape::Add9;
+    if (id == "9" || id == "maj9" || id == "m9" || id == "6/9" || id == "7b9" || id == "7#9" || id == "m11" ||
+        id == "13")
+        return music::ChordShape::Ninth;
+    if (music::kindOf(chord).toneCount >= 4)
+        return music::ChordShape::Seventh;
+    return music::ChordShape::Triad;
 }
 
 std::vector<std::vector<std::size_t>> chordGroups(const std::vector<Note>& notes,

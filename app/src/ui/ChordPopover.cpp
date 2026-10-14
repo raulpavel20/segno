@@ -95,23 +95,19 @@ void ChordPopover::open(juce::Component& parent, juce::Rectangle<int> anchor,
     show(parent, anchor);
 }
 
-void ChordPopover::openSettings(juce::Component& parent, juce::Rectangle<int> anchor)
-{
-    place_.reset();
-    roll_.setChordTarget(std::nullopt);
-    show(parent, anchor);
-}
-
 void ChordPopover::show(juce::Component& parent, juce::Rectangle<int> anchor)
 {
     parent_ = &parent;
     anchor_ = anchor;
     if (getParentComponent() != &parent)
         parent.addChildComponent(this);
-    const auto& style = roll_.options().chord;
-    kind_.setSelected(indexOf(shapes, style.shape));
-    voicing_.setSelected(indexOf(voicings, style.voicing));
-    inversion_.setSelected(indexOf(inversions, style.inversion));
+    // Its choices start as the chord there is (§20.4): its kind, voiced smoothly; they're its own,
+    // not what Draw uses.
+    const auto current = place_ ? roll_.chordAt(*place_) : std::nullopt;
+    style_ = {.shape = current ? model::shapeOf(*current) : music::ChordShape::Triad};
+    kind_.setSelected(indexOf(shapes, style_.shape));
+    voicing_.setSelected(indexOf(voicings, style_.voicing));
+    inversion_.setSelected(indexOf(inversions, style_.inversion));
     rebuild();
     setVisible(true);
     toFront(true);
@@ -125,7 +121,7 @@ void ChordPopover::close()
     if (!isVisible())
         return;
     setVisible(false);
-    roll_.previewChord(place_.value_or(PianoRoll::ChordPlace{}), std::nullopt);
+    roll_.previewChord(place_.value_or(PianoRoll::ChordPlace{}), std::nullopt, style_);
     roll_.setChordTarget(std::nullopt);
     place_.reset();
     if (auto* parent = getParentComponent(); parent != nullptr && parent->isShowing())
@@ -171,7 +167,7 @@ void ChordPopover::rebuild()
     groups_.clear();
     if (place_)
     {
-        const auto shape = roll_.options().chord.shape;
+        const auto shape = style_.shape;
         const auto& songKey = roll_.key();
         const auto& key = songKey ? *songKey : cMajor;
         groups_.push_back({songKey ? "In the key" : "As in C major", music::keyChords(key, shape)});
@@ -219,7 +215,7 @@ void ChordPopover::choose(const music::Chord& chord)
 {
     if (!place_)
         return;
-    place_ = roll_.writeChord(*place_, chord);
+    place_ = roll_.writeChord(*place_, chord, style_);
     roll_.setChordTarget(place_);
     rebuild(); // the chord there now is lit
 }
@@ -227,26 +223,24 @@ void ChordPopover::choose(const music::Chord& chord)
 void ChordPopover::hover(const std::optional<music::Chord>& chord)
 {
     if (place_)
-        roll_.previewChord(*place_, chord);
+        roll_.previewChord(*place_, chord, style_);
 }
 
 void ChordPopover::styleChanged(bool kindChanged)
 {
-    model::ChordStyle style{.shape = shapes[static_cast<std::size_t>(std::max(0, kind_.selected()))],
-                            .voicing = voicings[static_cast<std::size_t>(std::max(0, voicing_.selected()))],
-                            .inversion =
-                                inversions[static_cast<std::size_t>(std::max(0, inversion_.selected()))]};
-    roll_.setChordStyle(style);
-    // The chord there takes it too (§7.3): the key's chord of the new kind on its root, or itself
-    // re-voiced.
+    style_ = {.shape = shapes[static_cast<std::size_t>(std::max(0, kind_.selected()))],
+              .voicing = voicings[static_cast<std::size_t>(std::max(0, voicing_.selected()))],
+              .inversion = inversions[static_cast<std::size_t>(std::max(0, inversion_.selected()))]};
+    // The chord there takes it (§20.4): the key's chord of the new kind on its root, or itself
+    // re-voiced. Nothing else does.
     if (place_ && !place_->replacing.empty())
         if (const auto current = roll_.chordAt(*place_))
         {
             const auto& key = roll_.key();
             auto chord =
-                kindChanged ? music::keyChord(key ? &*key : nullptr, current->root, style.shape) : *current;
+                kindChanged ? music::keyChord(key ? &*key : nullptr, current->root, style_.shape) : *current;
             chord.bass.reset(); // the inversion is the voicing's to choose now
-            place_ = roll_.writeChord(*place_, chord);
+            place_ = roll_.writeChord(*place_, chord, style_);
             roll_.setChordTarget(place_);
         }
     rebuild();

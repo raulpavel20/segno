@@ -75,6 +75,8 @@ public:
     /// A view setting with a value (the piano roll's grid step), as wide as its value: call
     /// resized() when the value changes.
     void addOption(ViewChoice& choice);
+    /// A view setting of a few values side by side (the chord kind drawn: piano-roll.md §20.2).
+    void addOption(Segments& segments);
     /// A command left of the view options, a group gap from them (a Toggle as a button: the clip
     /// view's Quantise), sized by its owner (not owned). Hidden ones take no room: call resized()
     /// after showing or hiding one.
@@ -211,6 +213,11 @@ void paintProgress(juce::Graphics& g, juce::Rectangle<float> area, float fractio
 /// the `Value` style on a `surface3` tag a row high, above and right of `anchor` by the item gap,
 /// kept within `within`.
 void paintValueTag(juce::Graphics& g, juce::Point<float> anchor, juce::Rectangle<int> within, const juce::String& text);
+
+/// What a click would make, before it's made: a dashed 1 px outline in `textSecondary` around
+/// `area` (at the control radius) over a fill the caller chooses. The note or chord a double-click
+/// would draw in the piano roll (docs/design/piano-roll.md §20.1).
+void paintGhost(juce::Graphics& g, juce::Rectangle<float> area, juce::Colour fill, float radius);
 
 /// Titled sections one under another (the inspector): each a caps title on the row grid with its
 /// content under it, and a 1 px line centred in the group gap between neighbours, like a module

@@ -221,12 +221,14 @@ TEST_CASE("piano roll: the chord lane names the chords; a click selects one; the
     juce::StringArray inKey;
     for (const auto& c : groups[0].chords)
         inKey.add(nameOf(c, aMinor));
-    CHECK(inKey == juce::StringArray{"Am", juce::String::fromUTF8("B°"), "C", "Dm", "Em", "F", "G"});
+    // Its kind starts as the chord there is (§20.4): G7, so sevenths.
+    CHECK(inKey ==
+          juce::StringArray{"Am7", juce::String::fromUTF8("Bm7♭5"), "Cmaj7", "Dm7", "Em7", "Fmaj7", "G7"});
     // The chord there is lit; the popover sits beside the place, inside the window, nothing touching.
     const auto buttons = popover.chordButtons();
     const auto lit =
         std::count_if(buttons.begin(), buttons.end(), [](auto* b) { return b->getToggleState(); });
-    CHECK(lit == 0); // G7 isn't offered as a triad
+    CHECK(lit >= 1); // G7, wherever it's offered
     CHECK(f.shell->getLocalBounds().contains(
         popover.getBounds().reduced(juce::roundToInt(fd::ui::Theme::current().shell.shadowRadius))));
     CHECK(crowded(popover, fd::ui::Theme::current().shell.itemGap).isEmpty());
@@ -545,4 +547,155 @@ TEST_CASE("piano roll: 2 000 notes, the chord lane and other tracks' notes drawn
     CHECK(best < 120.0); // a Debug build: an order of magnitude slower, still no stall
 #endif
     WARN("2 000 notes: paint " << best << " ms; taking them in " << setMs << " ms");
+}
+
+TEST_CASE(
+    "piano roll revised: the key never changes the piano's rows; a ghost shows where a click draws (§20.1)",
+    "[integration]")
+{
+    RollFixture f;
+    auto& roll = f.roll();
+    REQUIRE(f.session->setKey(Key{0, "minor"})); // C minor: C D E♭ F G A♭ B♭
+    f.setNotes(progression());
+    const auto& t = fd::ui::Theme::current();
+    // The piano's shades stay; the key's rows are tinted.
+    juce::Image image(juce::Image::ARGB, roll.getWidth(), roll.getHeight(), true);
+    {
+        juce::Graphics g(image);
+        roll.paintEntireComponent(g, false);
+    }
+    const auto rowColour = [&](int pitch)
+    {
+        const auto at = roll.pointFor(15.9, pitch).toInt(); // late in the clip, clear of notes and lines
+        return image.getPixelAt(at.x - 3, at.y);
+    };
+    CHECK(rowColour(64) == t.roles.keyRowLight); // E: a white key outside the key, plain
+    CHECK(rowColour(61) == t.roles.keyRowDark);  // D♭: a black key outside the key, plain
+    CHECK(rowColour(65) != t.roles.keyRowLight); // F: a white key in the key, tinted
+    CHECK(rowColour(63) != t.roles.keyRowDark);  // E♭: a black key in the key, tinted
+    CHECK(rowColour(63).getBrightness() < rowColour(64).getBrightness()); // still a black key's row
+    CHECK(rowColour(60) != rowColour(65));                                // the root's tint is stronger
+
+    // The ghost: over F♯ (outside the key) it shows on F, the key's nearest note; Alt, on F♯.
+    const auto overFSharp = roll.pointFor(14.1, 66);
+    roll.mouseMove(mouseEvent(roll, overFSharp, overFSharp, false, {}));
+    REQUIRE(roll.drawGhost().size() == 1);
+    CHECK(roll.drawGhost()[0].pitch == 65);
+    roll.mouseMove(mouseEvent(roll, overFSharp, overFSharp, false, juce::ModifierKeys::altModifier));
+    CHECK(roll.drawGhost()[0].pitch == 66);
+    // Drawing chords, the ghost is the whole chord, as it will be voiced.
+    roll.setDraw(fd::model::DrawMode::Chord);
+    roll.mouseMove(mouseEvent(roll, overFSharp, overFSharp, false, {}));
+    CHECK(roll.drawGhost().size() == 3);
+    if (const char* dir = std::getenv("FD_DUMP_DIR"))
+    {
+        f.shell->detail().frame(0.0);
+        dumpPng(dir, "piano-roll-key-rows@2x.png",
+                f.shell->detail().createComponentSnapshot(f.shell->detail().getLocalBounds(), true, 2.0f));
+    }
+    roll.mouseExit(mouseEvent(roll, overFSharp, overFSharp, false, {}));
+    CHECK(roll.drawGhost().empty());
+}
+
+TEST_CASE("piano roll revised: the chord kind and voicing in the header while drawing chords (§20.2)",
+          "[integration]")
+{
+    RollFixture f;
+    auto& roll = f.roll();
+    auto& detail = f.shell->detail();
+    REQUIRE(f.session->setKey(Key{9, "minor"}));
+    f.refresh();
+    CHECK_FALSE(detail.drawKind().isVisible()); // drawing notes: no room taken
+    roll.setDraw(fd::model::DrawMode::Chord);
+    REQUIRE(detail.drawKind().isVisible());
+    REQUIRE(detail.drawVoicing().isVisible());
+    CHECK(detail.drawKind().selected() == 0);
+    CHECK(detail.drawVoicing().value() == "Smooth");
+    // One click on 7th: the next chord drawn is a seventh.
+    const auto seventh = detail.drawKind().segmentArea(1).getCentre().toFloat();
+    detail.drawKind().mouseDown(mouseEvent(detail.drawKind(), seventh, seventh, false));
+    CHECK(roll.options().chord.shape == fd::music::ChordShape::Seventh);
+    doubleClick(roll, roll.pointFor(0.1, 69));
+    CHECK(f.notes().size() == 4);
+    // The View menu has them too.
+    REQUIRE(f.shell->actions().perform("view.drawNinths"));
+    CHECK(detail.drawKind().selected() == 2);
+    REQUIRE(f.shell->actions().perform("view.voicingDrop2"));
+    CHECK(detail.drawVoicing().value() == "Drop 2");
+    CHECK(crowded(detail.header(), fd::ui::Theme::current().shell.itemGap).isEmpty());
+    if (const char* dir = std::getenv("FD_DUMP_DIR"))
+    {
+        detail.frame(0.0);
+        dumpPng(dir, "piano-roll-header-chords@2x.png",
+                detail.createComponentSnapshot(detail.header().getBounds(), true, 2.0f));
+    }
+    // Narrow: the voicing gives way before Draw and the kinds.
+    RollFixture narrow(760, 900);
+    narrow.roll().setDraw(fd::model::DrawMode::Chord);
+    auto& header = narrow.shell->detail().header();
+    CHECK((!header.isDropped(narrow.shell->detail().drawKind()) ||
+           header.isDropped(narrow.shell->detail().drawVoicing())));
+    CHECK(crowded(header, fd::ui::Theme::current().shell.itemGap).isEmpty());
+}
+
+TEST_CASE(
+    "piano roll revised: Make chords… chord by chord; Change chord… for the selected chord (§20.3, §20.4)",
+    "[integration]")
+{
+    RollFixture f;
+    auto& roll = f.roll();
+    REQUIRE(f.session->setKey(Key{0, "minor"}));
+    // A line of roots: C, A♭, F, G.
+    f.setNotes({{60, 0.0, 1.0, 0.8f}, {56, 1.0, 1.0, 0.8f}, {53, 2.0, 1.0, 0.8f}, {55, 3.0, 1.0, 0.8f}});
+    click(roll, roll.pointFor(5.0, 72)); // the clip view used last
+    REQUIRE(f.shell->actions().perform("notes.makeChords"));
+    auto& popover = f.shell->makeChordsPopover();
+    REQUIRE(popover.isOpen());
+    REQUIRE(popover.cardCount() == 4);
+    CHECK(popover.chordText(0) == "Cm");
+    CHECK(popover.chordText(1) == juce::String::fromUTF8("A♭"));
+    // Each its own: a seventh on F, G left as it is; previewed, not kept yet.
+    auto f7 = popover.choices()[2];
+    f7.chord = fd::music::keyChord(&*roll.key(), 53, fd::music::ChordShape::Seventh);
+    popover.setChoice(2, f7);
+    auto leave = popover.choices()[3];
+    leave.mode = fd::model::NoteChord::Mode::Leave;
+    popover.setChoice(3, leave);
+    CHECK(popover.chordText(2) == "Fm7");
+    CHECK(popover.chordText(3) == "No chord");
+    CHECK(f.notes().size() == 4); // only shown
+    CHECK(itemsOf(popover.chordMenu(0)).contains("Cm7"));
+    CHECK(itemsOf(popover.chordMenu(0)).contains("Leave the note"));
+    CHECK(crowded(popover, fd::ui::Theme::current().shell.itemGap).isEmpty());
+    CHECK(f.shell->getLocalBounds().contains(
+        popover.getBounds().reduced(juce::roundToInt(fd::ui::Theme::current().shell.shadowRadius))));
+    if (const char* dir = std::getenv("FD_DUMP_DIR"))
+        dumpPng(
+            dir, "piano-roll-make-chords@2x.png",
+            f.shell->createComponentSnapshot(
+                f.shell->getLocalArea(&f.shell->detail(), f.shell->detail().getLocalBounds()), true, 2.0f));
+    popover.apply();
+    CHECK_FALSE(popover.isOpen());
+    const auto notes = f.notes();
+    CHECK(notes.size() == 3 + 3 + 4 + 1);
+    f.session->undo(); // one undo step
+    f.refresh();
+    CHECK(f.notes().size() == 4);
+
+    // Change chord…: dimmed until a chord is selected; its choices are its own.
+    f.setNotes(progression());
+    roll.setSelection({});
+    CHECK_FALSE(f.shell->actions().isEnabled("notes.changeChord"));
+    const auto lane = roll.chordLaneArea();
+    click(roll, {roll.pointFor(13.0, 60).x, static_cast<float>(lane.getCentreY())}); // G7
+    REQUIRE(f.shell->actions().isEnabled("notes.changeChord"));
+    const auto drawStyle = roll.options().chord;
+    REQUIRE(f.shell->actions().perform("notes.changeChord"));
+    auto& chord = f.shell->chordPopover();
+    REQUIRE(chord.isOpen());
+    CHECK(chord.kind().selected() == 1); // G7: a seventh
+    chord.kind().setSelected(0);
+    chord.kind().onChange(0);
+    CHECK(roll.options().chord == drawStyle); // Draw's choices untouched
+    chord.close();
 }

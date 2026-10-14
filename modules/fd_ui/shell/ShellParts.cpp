@@ -218,6 +218,13 @@ void PanelHeader::addOption(ViewChoice& choice)
     resized();
 }
 
+void PanelHeader::addOption(Segments& segments)
+{
+    options_.push_back({&segments, [&segments] { return segments.preferredWidth(); }});
+    addAndMakeVisible(segments);
+    resized();
+}
+
 void PanelHeader::addCommand(juce::Component& command)
 {
     commands_.push_back(&command);
@@ -560,6 +567,18 @@ void paintEmptyState(juce::Graphics& g, juce::Rectangle<int> area, const juce::S
     g.setColour(t.textTertiary);
     g.setFont(font(TextStyle::Body));
     g.drawFittedText(text, area.reduced(t.shell.padding), juce::Justification::centred, 2);
+}
+
+void paintGhost(juce::Graphics& g, juce::Rectangle<float> area, juce::Colour fill, float radius)
+{
+    static constexpr float dashes[] = {3.0f, 2.0f}; // a dash and its gap
+    g.setColour(fill);
+    g.fillRoundedRectangle(area, radius);
+    juce::Path outline, dashed;
+    outline.addRoundedRectangle(area.reduced(0.5f), radius);
+    juce::PathStrokeType(1.0f).createDashedStroke(dashed, outline, dashes, 2);
+    g.setColour(Theme::current().textSecondary);
+    g.fillPath(dashed);
 }
 
 void paintValueTag(juce::Graphics& g, juce::Point<float> anchor, juce::Rectangle<int> within, const juce::String& text)

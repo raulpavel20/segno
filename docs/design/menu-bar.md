@@ -258,9 +258,8 @@ Clip ▸ Notes ▸ moved to the Notes menu (M3 P4).
 | Transpose ▸ | | Up a step (↑), Down a step (↓): steps of the scale with Key on and a song key, else semitones; they raise and lower automation points when a lane was used last, as before. — ; Up a semitone (Ctrl+↑), Down a semitone (Ctrl+↓); — ; Up an octave (Shift+↑), Down an octave (Shift+↓) |
 | Fit to key | | Dimmed, saying why, without a song key |
 | — | | |
-| Make chords | | |
-| Make chord… | | The Chord popover for the selected notes |
-| Chords ▸ | | Invert up (Alt+Shift+↑), Invert down (Alt+Shift+↓); — ; Smooth, Close, Open, Drop 2, Drop 3 and Spread voicing; — ; Add bass |
+| Make chords… | | A card per note, each its own chord and voicing ([piano-roll.md](piano-roll.md) §20.3) |
+| Chords ▸ | | Change chord… (the Chord popover for the selected chord; dimmed unless the selection is one chord); — ; Invert up (Alt+Shift+↑), Invert down (Alt+Shift+↓); — ; Smooth, Close, Open, Drop 2, Drop 3 and Spread voicing; — ; Add bass |
 | — | | |
 | Join | Ctrl+J | |
 | Length ▸ | | Legato, Fixed length; — ; Double speed, Half speed |
@@ -359,7 +358,7 @@ Transform ▸, Generate ▸ and Re-roll chance join it with P4b and P4c. Clip �
 | Snap to key | | The clip view's Key option (M3 P4, [piano-roll.md](piano-roll.md) §6); dimmed without a song key |
 | Fold ▸ | | Fold off, Fold to key, Fold to notes: the clip view's Fold |
 | Show other tracks' notes | | The clip view's Others (§8) |
-| Draw ▸ | | Draw note, Draw chord, Draw chord under: the clip view's Draw (§7.2) |
+| Draw ▸ | | Draw note, Draw chord, Draw chord under: the clip view's Draw (§7.2); — ; Draw triads, Draw 7th chords, Draw 9th chords, Draw sus2, sus4, add9 chords; — ; Voiced smooth, close, open, drop 2, drop 3, spread: the kind and voicing chords are drawn with (§20.2) |
 | — | | |
 | Zoom in | = | |
 | Zoom out | − | |

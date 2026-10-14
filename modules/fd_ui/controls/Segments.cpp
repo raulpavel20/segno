@@ -37,7 +37,9 @@ juce::Rectangle<int> Segments::segmentArea(int index) const
     int x = 0;
     for (int i = 0; i < index; ++i)
         x += Toggle::widthFor(items_[i]);
-    return {x, 0, Toggle::widthFor(items_[index]), getHeight()};
+    // A row high, centred in a taller component (a panel header's option).
+    const int height = std::min(getHeight(), Theme::current().shell.rowHeight);
+    return {x, (getHeight() - height) / 2, Toggle::widthFor(items_[index]), height};
 }
 
 int Segments::segmentAt(juce::Point<int> p) const
@@ -51,7 +53,10 @@ int Segments::segmentAt(juce::Point<int> p) const
 void Segments::paint(juce::Graphics& g)
 {
     const auto& t = Theme::current();
-    const auto well = getLocalBounds().withWidth(std::min(getWidth(), preferredWidth())).toFloat();
+    const int height = std::min(getHeight(), t.shell.rowHeight);
+    const auto well =
+        juce::Rectangle<int>(0, (getHeight() - height) / 2, std::min(getWidth(), preferredWidth()), height)
+            .toFloat();
     juce::Path shape;
     shape.addRoundedRectangle(well, t.radiusControl);
     g.setColour(t.surface2);

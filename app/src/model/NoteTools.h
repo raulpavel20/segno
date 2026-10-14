@@ -99,6 +99,51 @@ struct ChordStyle
 [[nodiscard]] NoteEdit makeChords(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
                                   const music::Key* key, const ChordStyle& style);
 
+/// What one note becomes in Make chords… (§20.3): a chord on it, a chord with it on top, or the
+/// note as it is; and how that chord is voiced.
+struct NoteChord
+{
+    enum class Mode
+    {
+        On,    // `chord` has the note's pitch class as its root; the note stays in it
+        Under, // `chord` has the note in it, which goes on top
+        Leave  // the note stays alone
+    };
+    Mode mode = Mode::On;
+    music::Chord chord;
+    music::Voicing voicing = music::Voicing::Smooth;
+    music::Inversion inversion = music::Inversion::Auto;
+
+    friend bool operator==(const NoteChord&, const NoteChord&) = default;
+};
+
+/// The notes Make chords… acts on, in time order: the selection, or every note.
+[[nodiscard]] std::vector<std::size_t> notesInTimeOrder(const std::vector<Note>& notes,
+                                                        const std::set<std::size_t>& selection);
+
+/// Each note's chord to start with: the key's chord of `shape` on it, voiced smoothly.
+[[nodiscard]] std::vector<NoteChord> startingChords(const std::vector<Note>& notes,
+                                                    const std::vector<std::size_t>& order,
+                                                    const music::Key* key, music::ChordShape shape);
+
+/// The pitches each of `order`'s notes becomes with `choices` (as makeChords below makes them).
+[[nodiscard]] std::vector<std::vector<int>> madeChords(const std::vector<Note>& notes,
+                                                       const std::vector<std::size_t>& order,
+                                                       const std::vector<NoteChord>& choices);
+
+/// Make chords… (§20.3): note `order[k]` becomes `choices[k]`, keeping its timing and velocity; a
+/// smooth chord moves least from the chord made before it (or the one before the first note). The
+/// notes made are selected.
+[[nodiscard]] NoteEdit makeChords(const std::vector<Note>& notes, const std::vector<std::size_t>& order,
+                                  const std::vector<NoteChord>& choices);
+
+/// The chords the key has with a pitch class in it, other than the ones on it: what "Under" offers
+/// (as in C major without a key).
+[[nodiscard]] std::vector<music::Chord> chordsUnder(const music::Key* key, int pitchClass);
+
+/// The Chord popover's Kind for a chord there (§20.4): its shape, by its kind.
+[[nodiscard]] music::ChordShape shapeOf(const music::Chord& chord) noexcept;
+
 /// The notes in chords: groups that start together (within chordSpread), in time order.
 inline constexpr double chordSpread = 1.0 / 32.0;
 [[nodiscard]] std::vector<std::vector<std::size_t>> chordGroups(const std::vector<Note>& notes,

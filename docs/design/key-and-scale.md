@@ -150,7 +150,7 @@ The tempo and the time signature have no inspector section; the key joins them i
 
 With a key, the piano roll shows it. Without one, nothing changes.
 
-- **Rows:** the key's notes are the light rows (`keyRowLight`) and the others dark (`keyRowDark`), in place of the piano's pattern of white and black keys. The root's rows are a tone lighter (a new role, `keyRowRoot`). The line under every C stays, so octaves keep their place. The line between E and F goes, since it only marked the piano's pattern.
+- **Rows:** ~~the key's notes are the light rows (`keyRowLight`) and the others dark (`keyRowDark`), in place of the piano's pattern of white and black keys. The root's rows are a tone lighter (a new role, `keyRowRoot`).~~ *Revised (M3 P4, [piano-roll.md](piano-roll.md) §20.1): the rows keep the piano's pattern with a key; the key's notes are the same shades in lavender, the root's more, and the keyboard dots the key's notes. Swapping the shades' meaning scrambled the piano.* The line under every C stays, so octaves keep their place.
 - **The keyboard** stays a piano. The root's keys get their labels too ("A2"), beside the C's.
 - **Note names** on notes and keys are spelled by the key (§4).
 - **Editing doesn't change:** drawing, moving and transposing stay chromatic. Editing in key is P4 (§12).

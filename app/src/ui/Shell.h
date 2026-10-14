@@ -12,6 +12,7 @@
 #include "ui/ExportPopover.h"
 #include "ui/KeyPopover.h"
 #include "ui/LanePicker.h"
+#include "ui/MakeChordsPopover.h"
 #include "ui/MixerView.h"
 #include "ui/Panels.h"
 #include "ui/QuantisePopover.h"
@@ -115,6 +116,9 @@ public:
     /// the selected notes (Notes ▸ Make chord…).
     [[nodiscard]] ChordPopover& chordPopover() noexcept { return chordPopover_; }
     void openChordPopover(const PianoRoll::ChordPlace& place);
+    /// Make chords… (piano-roll.md §20.3): a card per note, beside the notes.
+    [[nodiscard]] MakeChordsPopover& makeChordsPopover() noexcept { return makeChords_; }
+    void openMakeChords();
     /// Quantise… (piano-roll.md §9.5): under the clip view's Quantise.
     [[nodiscard]] QuantisePopover& quantisePopover() noexcept { return quantisePopover_; }
     void openQuantisePopover();
@@ -273,6 +277,7 @@ private:
     KeyPopover keyPopover_{session_};
     ChordPopover chordPopover_{detail_.pianoRoll()};
     QuantisePopover quantisePopover_{detail_.pianoRoll()};
+    MakeChordsPopover makeChords_{detail_.pianoRoll()};
     ui::EndEditingOnClickAway clickAway_{*this}; // a press elsewhere keeps what was typed
     /// The picker, assigning a parameter to `lane` (for its first assignment's channel, else the
     /// track it follows).

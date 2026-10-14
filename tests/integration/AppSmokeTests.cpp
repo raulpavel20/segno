@@ -688,14 +688,16 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         "module.loadSample",
         // The piano roll's tools (piano-roll.md §13): in the Notes menu, which the clip view's
         // Notes button opens where you work, and the most used on the notes' right-click menu.
-        "notes.fitToKey", "notes.makeChords", "notes.makeChord", "notes.voiceSmooth", "notes.voiceClose",
+        "notes.fitToKey", "notes.makeChords", "notes.changeChord", "notes.voiceSmooth", "notes.voiceClose",
         "notes.voiceOpen", "notes.voiceDrop2", "notes.voiceDrop3", "notes.voiceSpread", "notes.addBass",
         "notes.legato", "notes.fixedLength", "notes.doubleSpeed", "notes.halfSpeed", "notes.reverse",
         "notes.mirror", "notes.selectSamePitch", "notes.selectOutsideKey", "notes.selectInLoop",
         "notes.invertSelection",
         // The clip view's options (piano-roll.md §4): on screen in its header.
         "view.clipKey", "view.clipOthers", "view.foldAll", "view.foldKey", "view.foldNotes", "view.drawNote",
-        "view.drawChord", "view.drawChordUnder"};
+        "view.drawChord", "view.drawChordUnder", "view.drawTriads", "view.drawSevenths", "view.drawNinths",
+        "view.drawSus2", "view.drawSus4", "view.drawAdd9", "view.voicingSmooth", "view.voicingClose",
+        "view.voicingOpen", "view.voicingDrop2", "view.voicingDrop3", "view.voicingSpread"};
     for (const auto& a : actions.all())
     {
         INFO(a.id);

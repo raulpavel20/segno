@@ -48,7 +48,10 @@ struct ColourRoles
 {
     juce::Colour lane, laneSelected, subLane, strip;
     juce::Colour keyRowLight, keyRowDark, shade;
-    juce::Colour keyRowRoot; // the song key's root in the piano roll, a tone above the key's rows (ADR 0057)
+    // The song key in the piano roll (piano-roll.md §20.1): the piano's rows in a lavender of their
+    // own, each still lighter or darker as the piano has it (a black key's row in the key stays
+    // darker than a white key's out of it); the root's stronger.
+    juce::Colour keyRowLightInKey, keyRowDarkInKey, keyRowLightRoot, keyRowDarkRoot;
     juce::Colour gridBar, gridBeat, gridSub, gridOctave, gridMinor;
     juce::Colour selectionFill, selectionStroke, dropTarget, textHighlight;
     juce::Colour playhead, marker, loopInactive, onClip;

@@ -7,7 +7,7 @@ A piano roll that's good to write music in, not only to fix notes: it writes in 
 - the menu bar as the complete list ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)) and assistants' tools ([ADR 0021](../decisions/0021-mcp-server.md));
 - the UI foundations ([ADR 0023](../decisions/0023-ui-foundations.md)): every panel sized from its content, nothing touching.
 
-**Status:** approved by the product owner (2026-10-14), with every recommendation of §17 (N1–N19) and the stages of §16; the decision is [ADR 0058](../decisions/0058-the-piano-roll-writes-in-key-and-in-chords.md). A visual mockup of the clip view came first and was approved (2026-10-14). Each stage is then built and signed off on its own. **P4a built (2026-10-14), for review:** what building settled is §19.
+**Status:** approved by the product owner (2026-10-14), with every recommendation of §17 (N1–N19) and the stages of §16; the decision is [ADR 0058](../decisions/0058-the-piano-roll-writes-in-key-and-in-chords.md). A visual mockup of the clip view came first and was approved (2026-10-14). Each stage is then built and signed off on its own. **P4a built (2026-10-14), for review:** what building settled is §19. **Revised after the product owner's first use** (§20: the key's rows, chords chosen where they're written, Make chords… chord by chord), approved and built the same day.
 
 ## 1. Why
 
@@ -68,7 +68,7 @@ Checked against the vendors' manuals and release notes in October 2026: Live 12.
 ## 4. The clip view
 
 ```
-┌ Modules · Clip ───────── Notes ⌄  Quantise   Draw Note ⌄  ● Key  Fold ⌄  ○ Others  ● Snap  1/16 ⌄ ┐ header
+┌ Modules · Clip ── Notes ⌄  Quantise   Draw chord ⌄ [Triad 7th 9th sus2 sus4 add9] Smooth ⌄  ● Key  Fold ⌄  ○ Others  ● Snap  1/16 ⌄ ┐
 ├──────────┬──────────────────────────────────────────────────────────────────────────────────────────┤
 │          │ ⟦ loop brace ⟧                                                                            │ loop strip
 │          │ 1          2          3           4          5                                           │ ruler (time handles, §9)
@@ -85,7 +85,7 @@ Checked against the vendors' manuals and release notes in October 2026: Live 12.
 
 - **The header** keeps its tabs on the left and, on the right, its commands, then the view's options, in today's look (`ViewOption`, `ViewChoice`, a command as a `Toggle`):
   - **Notes ⌄** (the product owner's review of the mockup, 2026-10-14: every tool in the working area): a menu button, a command's look with a chevron, that opens the whole Notes menu (§13) under it. It's built by the same function as the menu bar's Notes, so the two never differ. A new shared component, `ui::MenuButton`, with ui-foundations.md;
-  - **Draw** (§7.2): what a double-click draws, a note or the key's chord on it;
+  - **Draw** (§7.2): what a double-click draws, a note or the key's chord on it; while it draws chords, their kind side by side and their voicing beside it (§20.2);
   - **Key** (§6): drawing and moving in the key; shown while the song has a key;
   - **Fold** (§6): every row, the key's rows, or the rows with notes;
   - **Others** (§8): the other tracks' notes, faint;
@@ -151,18 +151,18 @@ With a song key ([ADR 0057](../decisions/0057-the-song-has-one-key.md)):
 └──────────────────────────────────────────────┘
 ```
 
-- Opened from the chord lane (§7.1), Notes ▸ Make chord… for selected notes, or the Draw choice's menu.
+- Opened from the chord lane (§7.1), or Notes ▸ Chords ▸ Change chord… for the selected chord (§20.4).
 - **In the key:** the chord on each step of the scale, named, in the kind chosen below (for scales other than major and minor, the chords their notes make).
 - **Next:** suggestions after the chord before this place, most usual first. They come from a model of common progressions in `libs/music`, kept small and explainable: the usual moves between steps (V to I, ii to V, IV to V…), plus deceptive and plagal moves. It's not a learned model, so every suggestion can be explained.
 - **Borrowed:** chords from the parallel key (♭VII, iv, ♭VI in major; IV and V in minor) and the dominant of the next step (V/V), for colour.
 - **Hovering a chord plays it** through the track's instrument, voiced as it would be written; a click writes it (one undo step).
-- **Kind, Voicing, Inversion** apply to what's chosen next and to the selected chord. **Smooth** (the default) picks the inversion and octave that move the least from the chord before.
+- **Kind, Voicing, Inversion** are the popover's own, for the chord there (§20.4): they start as that chord is, and set nothing else. **Smooth** (the default) picks the inversion and octave that move the least from the chord before.
 - **Sized to its content**, as the Key popover is.
 
 ### 7.4 Making and re-voicing chords
 
 On selected notes (Notes menu; right-click):
-- **Make chords:** each selected note becomes the root of the key's chord on it, in the kind set in the Chord popover. A one-finger line becomes a progression.
+- **Make chords…:** each selected note becomes a chord, chosen card by card (§20.3): a kind on the note, a chord of the key with it on top, or the note left alone, each with its voicing. A one-finger line becomes a progression.
 - **Invert up / down** (Alt+Shift+↑/↓): the lowest note goes up an octave, or the highest down.
 - **Voicing ▸:** Close, Open, Drop 2, Drop 3, Spread; **Smooth voicing** re-voices a run of chords to move as little as possible, keeping the first.
 - **Add bass:** the root an octave or two under each chord, for a quick bassline.
@@ -258,9 +258,8 @@ A new **Notes** menu, between Clip and Song: the piano roll's commands have outg
 | Transpose ▸ (Up a step ↑, Down a step ↓; Up a semitone Ctrl+↑, Down a semitone Ctrl+↓; Up an octave Shift+↑, Down an octave Shift+↓) | as listed |
 | Fit to key | – |
 | — | |
-| Make chords | – |
-| Make chord… (the Chord popover) | – |
-| Chords ▸ (Invert up Alt+Shift+↑, Invert down Alt+Shift+↓; Smooth voicing, Close, Open, Drop 2, Drop 3, Spread; Add bass) | as listed |
+| Make chords… (§20.3) | – |
+| Chords ▸ (Change chord… (§20.4); Invert up Alt+Shift+↑, Invert down Alt+Shift+↓; Smooth voicing, Close, Open, Drop 2, Drop 3, Spread; Add bass) | as listed |
 | — | |
 | Join | Ctrl+J |
 | Length ▸ (Legato, Fixed length, Double speed, Half speed) | – |
@@ -276,7 +275,7 @@ A new **Notes** menu, between Clip and Song: the piano roll's commands have outg
 
 - Clip ▸ Notes ▸ moves here. Edit's Delete, Duplicate, Cut, Copy, Paste, Select all and Split at playhead act on notes when the clip view was used last, and Clip ▸ Mute clips (0) mutes notes then (§9.4): one action each, so no shortcut is doubled.
 - **The View menu** gains the clip view's options (Key, Fold ▸, Others, Draw ▸), so each is reachable without the header.
-- **The right-click menu** on notes offers the most used: Quantise, Fit to key, Make chords, Invert, Voicing ▸, Mute, Transform ▸, Select ▸.
+- **The right-click menu** on notes offers the most used: Quantise, Fit to key, Make chords…, Chords ▸ (Change chord…, Invert, voicings), Mute, Transform ▸, Select ▸.
 - Shortcuts that would clash are checked by the existing test.
 
 ## 14. Assistants (MCP)
@@ -374,7 +373,7 @@ Each stage is built, reviewed in screenshots at standard and compact widths, and
 - **Fold to key** keeps the row of any note outside the key, so no note is ever hidden; folded, every row is a key of its own labelled "A3 · 1", with a line under each row as the rows no longer alternate. Fold to notes, as named. Folded, a drag moves by the rows shown; Key snapping is then the rows'.
 - **Ctrl+click** still adds a note to the selection or takes it out; **Ctrl+drag** copies (the note pressed joins the selection first).
 - **Time handles** snap to the grid; **Alt** stretches the lengths too; a drag past the other end reverses. The tag reads "× 1.5".
-- **The Chord popover** sits beside the place it writes and the chord before it, so both stay in view (left of them when there's no room right). It's as wide as its fixed content (its titles and the three choices), and the chords wrap within it, so it keeps its width as the kind changes. A chord written stays lit; each write is one undo step. Changing the kind with a chord there writes the key's chord of that kind on the same root; changing the voicing or inversion re-voices it. Without a song key it offers "As in C major" and nothing borrowed. The Draw menu's "Chord kind, voicing…" opens it with the choices alone.
+- **The Chord popover** sits beside the place it writes and the chord before it, so both stay in view (left of them when there's no room right). It's as wide as its fixed content (its titles and the three choices), and the chords wrap within it, so it keeps its width as the kind changes. A chord written stays lit; each write is one undo step. Changing the kind with a chord there writes the key's chord of that kind on the same root; changing the voicing or inversion re-voices it. Without a song key it offers "As in C major" and nothing borrowed. (Its choices set what Draw used, and the Draw menu opened it for them, until §20.)
 - **Quantise…:** Strength and Swing (0–100 %; full swing puts every other line a third of a step later, a triplet feel) and Moves (Starts, Ends, Both). Its settings are kept with the project's view state and used by Quantise (Ctrl+U).
 - **Others** draws the other tracks' MIDI clips (muted clips and notes left out), lap by lap, in their clip colours at `ghostAlpha` (28 %). Choosing the tracks one by one (§8) comes with P4b.
 - **The header** gives way at narrow widths: its hint first, then Others, Fold and Draw (`PanelHeader::setDropOrder`), the context cut short; nothing touches down to 600 px.
@@ -387,7 +386,7 @@ Each stage is built, reviewed in screenshots at standard and compact widths, and
 
 **Performance:** 2 000 notes with the chord lane and other tracks' notes draw in 44 ms in a Debug build (measuring the lane's text every frame made it 386 ms); the test checks a frame (16 ms) in a Release build.
 
-## 20. Revised after the product owner's first use (2026-10-14, for review)
+## 20. Revised after the product owner's first use (approved and built, 2026-10-14)
 
 The product owner's review of P4a:
 - "There is a button called 'Make chord…' and one called 'Make chords'. One transforms notes into chords and the other… I can't tell exactly what it does."
@@ -402,8 +401,8 @@ The product owner's review of P4a:
 ### 20.1 The key never scrambles the piano
 
 - **The rows always show the piano:** white keys' rows lighter, black keys' darker, a line under each C and between E and F, with or without a key. Nothing about the piano's geography changes when a key is set.
-- **The key is a colour of its own:** its notes' rows carry a faint tint of `accentMidi` (lavender: the colour of MIDI, never the selection's blue), the root's twice as strong. In C minor, E♭'s row is dark and tinted, E's light and plain: the shade says which key of the piano, the tint says in the key or not.
-- **The keyboard** stays a piano; the key's notes get a small lavender dot at their right end (as the Key popover's keys show a key's notes), the root its name.
+- **The key is a colour of its own:** its notes' rows are the piano's shades turned towards `accentMidi` (lavender: the colour of MIDI, never the selection's blue), the root's more. In C minor, E♭'s row is dark and lavender, E's light and grey: the shade says which key of the piano, the hue says in the key or not. A black key's row in the key stays darker than a white key's out of it.
+- **The keyboard** stays a piano; the key's notes get a small lavender dot at their left end, clear of the C's names (as the Key popover's keys show a key's notes), the root its name. Folded, each row's key is white or black as on the piano.
 - **Where a click will draw:** while the pointer is over the grid, a ghost of what a double-click draws sits where it will land: the note, or with Draw set to a chord, the whole chord, voiced as it will be. With Key on, over a row outside the key, the ghost shows on the key's nearest row, so a click never lands somewhere unexpected; Alt shows it on the row itself.
 - Fold to key, Fold to notes, Fit to key and the arrows are as before.
 
@@ -439,3 +438,10 @@ The product owner's review of P4a:
 | R7 | **The Chord popover's choices** | For that chord alone (§20.4) |
 | R8 | **Assistants** | `set_chord` already takes a kind and voicing per chord; `make_chords` gains `chords`, a kind and voicing per note, as the cards have |
 
+### 20.6 Settled while building (2026-10-14)
+
+- **The key's rows** are four colour roles (`keyRowLightInKey`, `keyRowDarkInKey`, `keyRowLightRoot`, `keyRowDarkRoot`): each piano shade mixed towards lavender, then brought back to the shade lightened a little (by 20 %, the root's by 45 %), so the hue never overtakes the shade. A plain tint over the rows made a black key's row in the key lighter than a white key's out of it: the same confusion again. `keyRowRoot` goes.
+- **The ghost** is drawn by a shared painter (`ui::paintGhost`: a dashed `textSecondary` outline over the clip's colour at `ghostAlpha`), and worked out again only when the row, the step or Alt changes under the pointer.
+- **The header's kinds** are a `Segments` (now a `PanelHeader` option, a row high in the taller header); at narrow widths Others, Fold, the voicing, Draw and last the kinds give way. The View menu names them "Draw triads", "Draw 7th chords" … and "Voiced smooth", "Voiced close" …
+- **Make chords…** starts every card on the key's triad, smoothly voiced; the foot's kinds and voicings are lit only while every card shares one. A card's chord menu lists the kinds on its note, then "Under" the key's other chords with it in them, then "Leave the note"; its voicing menu, the voicings then the inversions. Cards wrap at eight a row and scroll past three rows. The popover, like the Chord popover, sits beside the notes, under the lane, or under the ruler while the clip has no chords yet.
+- **Assistants:** `make_chords` takes `chords`, one per matching note in time order: `"leave"`, or `kind`, `chord` (a chord with the note in it; on top when it isn't the root), `voicing`, `inversion`.

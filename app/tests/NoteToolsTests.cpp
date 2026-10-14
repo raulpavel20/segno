@@ -451,3 +451,36 @@ TEST_CASE("The NOTES inspector: a value typed sets every note; dragged, they mov
     CHECK(out.notes[0].velocity == Approx(127.0f / 127.0f));
     CHECK(out.notes[1].velocity == Approx(117.0f / 127.0f));
 }
+
+TEST_CASE("Make chords…: each note its own chord and voicing", "[fast]")
+{
+    using fd::music::Chord;
+    const std::vector<Note> line{note(57, 0.0), note(53, 1.0), note(60, 2.0), note(55, 3.0)};
+    const auto order = notesInTimeOrder(line, {});
+    REQUIRE(order == std::vector<std::size_t>{0, 1, 2, 3});
+    auto choices = startingChords(line, order, &cMajor, fd::music::ChordShape::Triad);
+    REQUIRE(choices.size() == 4);
+    CHECK(choices[0].chord == Chord{.root = 9, .kind = 1}); // Am
+    // The second a seventh, the third C with its note on top, the last left as it is.
+    choices[1].chord = fd::music::keyChord(&cMajor, 5, fd::music::ChordShape::Seventh);  // Fmaj7
+    choices[2] = {.mode = NoteChord::Mode::Under, .chord = Chord{.root = 5, .kind = 0}}; // F, C on top
+    choices[3].mode = NoteChord::Mode::Leave;
+    choices[0].voicing = fd::music::Voicing::Close;
+    const auto out = makeChords(line, order, choices);
+    CHECK(sortedPitches(out.notes, 0.0) == std::vector<int>{57, 60, 64}); // Am, close, from A
+    const auto f = sortedPitches(out.notes, 1.0);
+    REQUIRE(f.size() == 4);
+    CHECK(fd::music::nameChord(f)->kind == 7); // maj7
+    CHECK(std::find(f.begin(), f.end(), 53) != f.end());
+    const auto under = sortedPitches(out.notes, 2.0);
+    REQUIRE(under.size() == 3);
+    CHECK(under.back() == 60);
+    CHECK(fd::music::nameChord(under)->root == 5);
+    CHECK(sortedPitches(out.notes, 3.0) == std::vector<int>{55});
+    CHECK(out.selection.size() == out.notes.size()); // the notes made are selected
+
+    CHECK(chordsUnder(&cMajor, 4).size() == 2); // E: in C and Am, besides Em
+    CHECK(shapeOf(Chord{.root = 0, .kind = 7}) == fd::music::ChordShape::Seventh);
+    CHECK(shapeOf(Chord{.root = 0, .kind = 0}) == fd::music::ChordShape::Triad);
+    CHECK(shapeOf(Chord{.root = 0, .kind = 17}) == fd::music::ChordShape::Add9);
+}

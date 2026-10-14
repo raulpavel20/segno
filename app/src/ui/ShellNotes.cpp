@@ -85,15 +85,25 @@ void Shell::registerNotesActions()
                   .isEnabled = hasKey,
                   .whyNot = whyNoKey});
 
-    // Chords (§7.4).
-    tool("notes.makeChords", "Make chords", [&roll] { roll.makeChords(); });
+    // Chords (§7.4, §20.3, §20.4): Make chords… chord by chord; Change chord… for the selected chord.
+    tool("notes.makeChords", asks("Make chords"), [this] { openMakeChords(); });
+    const auto selectedChord = [this, &roll]
+    {
+        if (!detail_.showsPianoRoll() || !roll.hasSelection())
+            return false;
+        std::vector<int> pitches;
+        for (auto i : roll.selection())
+            pitches.push_back(roll.notes()[i].pitch);
+        return music::nameChord(pitches).has_value();
+    };
     actions_.add(
-        {.id = "notes.makeChord",
-         .name = asks("Make chord"),
+        {.id = "notes.changeChord",
+         .name = asks("Change chord"),
          .category = "Notes",
          .perform = [this, &roll] { openChordPopover(roll.placeForSelection()); },
-         .isEnabled = [this] { return detail_.showsPianoRoll(); },
-         .whyNot = [] { return juce::String("Open a MIDI clip in the clip view first: double-click it"); }});
+         .isEnabled = selectedChord,
+         .whyNot = []
+         { return juce::String("Select a chord first: click its name in the chord lane, or its notes"); }});
     tool("notes.invertUp", "Invert up", [&roll] { roll.invertChords(true); },
          {key(juce::KeyPress::upKey, kAlt | kShift)});
     tool("notes.invertDown", "Invert down", [&roll] { roll.invertChords(false); },
@@ -171,6 +181,44 @@ void Shell::registerNotesActions()
                       .isEnabled = clipView,
                       .isToggled = [&roll, mode] { return roll.options().draw == mode; },
                       .whyNot = whyNoClip});
+    // The kind and voicing the chords are drawn with (§20.2), as the header has them.
+    const auto setStyle = [&roll](auto change)
+    {
+        return [&roll, change]
+        {
+            auto style = roll.options().chord;
+            change(style);
+            roll.setChordStyle(style);
+        };
+    };
+    for (const auto& [id, name, shape] :
+         {std::tuple{"view.drawTriads", "Draw triads", music::ChordShape::Triad},
+          std::tuple{"view.drawSevenths", "Draw 7th chords", music::ChordShape::Seventh},
+          std::tuple{"view.drawNinths", "Draw 9th chords", music::ChordShape::Ninth},
+          std::tuple{"view.drawSus2", "Draw sus2 chords", music::ChordShape::Sus2},
+          std::tuple{"view.drawSus4", "Draw sus4 chords", music::ChordShape::Sus4},
+          std::tuple{"view.drawAdd9", "Draw add9 chords", music::ChordShape::Add9}})
+        actions_.add({.id = id,
+                      .name = name,
+                      .category = "View",
+                      .perform = setStyle([shape](model::ChordStyle& s) { s.shape = shape; }),
+                      .isEnabled = clipView,
+                      .isToggled = [&roll, shape] { return roll.options().chord.shape == shape; },
+                      .whyNot = whyNoClip});
+    for (const auto& [id, voicing] : {std::pair{"view.voicingSmooth", music::Voicing::Smooth},
+                                      std::pair{"view.voicingClose", music::Voicing::Close},
+                                      std::pair{"view.voicingOpen", music::Voicing::Open},
+                                      std::pair{"view.voicingDrop2", music::Voicing::Drop2},
+                                      std::pair{"view.voicingDrop3", music::Voicing::Drop3},
+                                      std::pair{"view.voicingSpread", music::Voicing::Spread}})
+        actions_.add(
+            {.id = id,
+             .name = juce::String("Voiced ") + juce::String(model::voicingName(voicing)).toLowerCase(),
+             .category = "View",
+             .perform = setStyle([voicing](model::ChordStyle& s) { s.voicing = voicing; }),
+             .isEnabled = clipView,
+             .isToggled = [&roll, voicing] { return roll.options().chord.voicing == voicing; },
+             .whyNot = whyNoClip});
 
     // The header's Notes button opens the menu bar's Notes menu: one builder (§4).
     detail_.notesMenu = [this]
@@ -183,11 +231,6 @@ void Shell::registerNotesActions()
     };
     roll.onChordPopover = [this](const PianoRoll::ChordPlace& place, juce::Rectangle<int>)
     { openChordPopover(place); };
-    roll.onChordSettings = [this, &roll]
-    {
-        chordPopover_.openSettings(*this, getLocalArea(&detail_, detail_.drawChoice().getBounds()));
-        (void)roll;
-    };
 }
 
 juce::PopupMenu Shell::notesContextMenu()
@@ -197,8 +240,9 @@ juce::PopupMenu Shell::notesContextMenu()
     actions_.addMenuItem(menu, "notes.quantise");
     actions_.addMenuItem(menu, "notes.fitToKey");
     actions_.addMenuItem(menu, "notes.makeChords");
-    actions_.addMenuItem(menu, "notes.makeChord");
     juce::PopupMenu chords;
+    actions_.addMenuItem(chords, "notes.changeChord");
+    chords.addSeparator();
     for (const char* id : {"notes.invertUp", "notes.invertDown"})
         actions_.addMenuItem(chords, id);
     chords.addSeparator();
@@ -237,6 +281,26 @@ void Shell::openChordPopover(const PianoRoll::ChordPlace& place)
     if (anchor.isEmpty())
         anchor = roll.rulerArea();
     chordPopover_.open(*this, getLocalArea(&roll, anchor), place);
+}
+
+void Shell::openMakeChords()
+{
+    auto& roll = detail_.pianoRoll();
+    if (!detail_.showsPianoRoll() || roll.notes().empty())
+        return;
+    lastArea_ = Area::Clip;
+    chordPopover_.close();
+    quantisePopover_.close();
+    // Beside the notes it makes (§20.3).
+    std::set<std::size_t> which = roll.selection();
+    if (which.empty())
+        for (std::size_t i = 0; i < roll.notes().size(); ++i)
+            which.insert(i);
+    const auto span = model::notesSpan(roll.notes(), which);
+    auto anchor = span ? roll.laneAreaFor({span->first, span->second, {}}) : roll.rulerArea();
+    if (anchor.isEmpty())
+        anchor = roll.rulerArea();
+    makeChords_.open(*this, getLocalArea(&roll, anchor));
 }
 
 void Shell::openQuantisePopover()

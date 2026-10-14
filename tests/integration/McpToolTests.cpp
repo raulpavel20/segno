@@ -347,6 +347,22 @@ TEST_CASE("mcp tools: chords read, written, made and suggested; the piano roll's
     CHECK(made["notes"] == 12);
     CHECK(daw.session->undoDescription() == "Assistant: make chords");
 
+    // make_chords note by note: a seventh, a chord with the note on top, one left alone.
+    daw.call("undo");
+    made = daw.call("make_chords",
+                    {{"clip", clipId},
+                     {"where", "all"},
+                     {"chords", {{{"kind", "seventh"}}, {{"chord", "Dm"}, {"voicing", "close"}}, "leave"}}});
+    CHECK(made["notes"] == 4 + 3 + 1 + 3);
+    auto noteByNote = daw.call("get_chords", {{"clip", clipId}});
+    REQUIRE(noteByNote["chords"].size() == 3);
+    CHECK(noteByNote["chords"][0]["name"] == "Am7");
+    CHECK(noteByNote["chords"][1]["name"].get<std::string>().rfind("Dm", 0) == 0); // F under it... on top
+    CHECK(daw.fails("make_chords", {{"clip", clipId}, {"where", "all"}, {"chords", {{{"chord", "E"}}}}})
+              .find("doesn't have") != std::string::npos);
+    daw.call("undo");
+    made = daw.call("make_chords", {{"clip", clipId}, {"where", "all"}});
+
     // get_chords: as the chord lane names them, with their steps.
     auto chords = daw.call("get_chords", {{"clip", clipId}});
     CHECK(chords["key"]["name"] == "A minor");

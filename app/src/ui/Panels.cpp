@@ -1573,18 +1573,40 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
     quantise_.setSize(ui::Toggle::widthFor(quantise_.getButtonText()), ui::Theme::current().shell.rowHeight);
     header_.addCommand(quantise_);
     quantise_.setVisible(false);
-    // The piano roll's options; at compact widths Others, then Fold, then Draw give way (§4).
+    // The piano roll's options; at compact widths Others, then Fold, the voicing, Draw and last the
+    // kinds give way (§4, §20.2).
     draw_.setTooltip("What a double-click draws: a note, the key's chord on it, or the key's chord under it");
     draw_.onClick = [this] { draw_.showMenu(roll_.drawMenu()); };
+    // While drawing chords: the kind, one click each, and the voicing (§20.2).
+    {
+        juce::StringArray kinds;
+        for (auto shape : {music::ChordShape::Triad, music::ChordShape::Seventh, music::ChordShape::Ninth,
+                           music::ChordShape::Sus2, music::ChordShape::Sus4, music::ChordShape::Add9})
+            kinds.add(model::chordShapeName(shape));
+        drawKind_.setItems(kinds);
+    }
+    drawKind_.setTitle("The chords drawn");
+    drawKind_.onChange = [this](int index)
+    {
+        auto style = roll_.options().chord;
+        style.shape = static_cast<music::ChordShape>(index);
+        roll_.setChordStyle(style);
+    };
+    drawVoicing_.setTooltip(
+        "How the chords drawn are voiced: Smooth moves least from the chord before; and their inversion");
+    drawVoicing_.onClick = [this] { drawVoicing_.showMenu(roll_.voicingMenu()); };
     keySnap_.setClickingTogglesState(false);
     keySnap_.onClick = [this] { roll_.setKeySnap(!roll_.options().keySnap); };
     fold_.setTooltip("Which rows show: all of them, the key's, or those with notes");
     fold_.onClick = [this] { fold_.showMenu(roll_.foldMenu()); };
     others_.setClickingTogglesState(false);
     others_.onClick = [this] { roll_.setOthers(!roll_.options().others); };
-    for (auto* option : {&draw_, &fold_})
+    for (auto* option : {&draw_, &fold_, &drawVoicing_})
         option->setVisible(false);
+    drawKind_.setVisible(false);
     header_.addOption(draw_);
+    header_.addOption(drawKind_);
+    header_.addOption(drawVoicing_);
     header_.addOption(keySnap_);
     header_.addOption(fold_);
     header_.addOption(others_);
@@ -1592,7 +1614,9 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
     others_.setVisible(false);
     header_.setDropOrder(others_, 1);
     header_.setDropOrder(fold_, 2);
-    header_.setDropOrder(draw_, 3);
+    header_.setDropOrder(drawVoicing_, 3);
+    header_.setDropOrder(draw_, 4);
+    header_.setDropOrder(drawKind_, 5);
     roll_.onOptionsChanged = [this] { updateOptions(); };
     snap_.setClickingTogglesState(false); // the piano roll's, which the Session keeps
     snap_.onClick = [this] { roll_.setSnapEnabled(!roll_.isSnapEnabled()); };
@@ -1612,6 +1636,14 @@ void DetailPanel::updateOptions()
 {
     const auto& o = roll_.options();
     draw_.setValue(model::drawModeName(o.draw));
+    drawKind_.setSelected(static_cast<int>(o.chord.shape));
+    drawVoicing_.setValue(o.chord.inversion == music::Inversion::Auto
+                              ? juce::String(model::voicingName(o.chord.voicing))
+                              : juce::String(model::voicingName(o.chord.voicing)) +
+                                    juce::String::fromUTF8(" · ") + model::inversionName(o.chord.inversion));
+    const bool chords = showsPianoRoll() && o.draw != model::DrawMode::Note;
+    drawKind_.setVisible(chords);
+    drawVoicing_.setVisible(chords);
     fold_.setValue(model::foldName(o.fold));
     keySnap_.setToggleState(o.keySnap, juce::dontSendNotification);
     others_.setToggleState(o.others, juce::dontSendNotification);
@@ -1751,6 +1783,8 @@ void DetailPanel::updateVisibility()
     notes_.setVisible(notes);
     quantise_.setVisible(notes);
     draw_.setVisible(notes);
+    drawKind_.setVisible(notes && roll_.options().draw != model::DrawMode::Note);
+    drawVoicing_.setVisible(notes && roll_.options().draw != model::DrawMode::Note);
     keySnap_.setVisible(notes && roll_.key().has_value());
     fold_.setVisible(notes);
     others_.setVisible(notes);
