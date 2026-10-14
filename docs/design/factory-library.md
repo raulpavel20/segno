@@ -84,6 +84,57 @@ The Sampler's controls (envelopes, filter, voices) shape the whole instrument as
 - **Versioned:** the Library has a version. A preset or project that needs a newer one says so ("This preset needs Library 1.1"). Paths in a released Library never change: new content adds, nothing moves.
 - **Missing:** a preset whose sound isn't there loads its settings and says what's missing, with where to get the Library. The Sampler's display says the same. Never silent.
 
+## 5a. How it looks, factory and yours side by side
+
+**On disk: two folders, never mixed.**
+```
+Library  (installed with Segno, read-only: ~/.local/share/Segno/Library on Linux)
+  library.json                       its version
+  Samples/
+    Strings/Violin section/          an instrument: an SFZ a playing style, its samples beside them
+      Sustain.sfz  Pizzicato.sfz  Spiccato.sfz  Tremolo.sfz  samples/…
+    Keys/Grand piano/Grand piano.sfz  samples/…
+    Drums/Acoustic kit/              (later) a kit: one hit a file
+      Kick 1.flac  Snare 1.flac  Hat closed.flac …
+  Wavetables/
+    Basic/Saw.wav … Acoustic/Cello.wav …   the 84 factory tables, by category
+
+Segno folder  (Documents/Segno: yours, written by you and by Segno for you)
+  Presets/<Module>/…                 presets you save
+  Samples/                           your own sounds
+  Wavetables/                        tables you export
+  Unsaved/                           projects not saved yet
+```
+
+**In the browser: modules hold presets, places hold files.**
+```
+★ Favourites
+▸ Instruments
+   ▸ Sampler          Yours, then the factory presets by tag: Strings ▸ Violins, Violins pizzicato…
+   ▸ Wavetable        Yours, Pad, Lead, Bass…
+   ▸ Drum Rack        (later) Yours, Acoustic kit, Electronic kit…
+▸ Audio effects
+▸ Plugins
+PLACES
+▸ Project             the open project's folder
+▸ Library             what ships: Samples ▸ Strings ▸ Violin section ▸ Sustain…   Wavetables ▸ Acoustic ▸ Cello…
+▸ User library        your Segno folder: Samples, Wavetables
+▸ Drum samples        folders you add
+```
+
+**How they connect:**
+- **A factory preset is built into its module, as now (ADR 0044); its sounds are Library files.** It points at them by `library:` paths:
+  - the Sampler's "Violins" at `library:Samples/Strings/Violin section/Sustain.sfz`;
+  - a Drum Rack kit, pad by pad, at `library:Samples/Drums/Acoustic kit/Kick 1.flac`…;
+  - a Wavetable preset at a factory table by its ID: the same table as `Library/Wavetables/Acoustic/Cello.wav`, built into the synth too. So Wavetable presets play even without the Library.
+- **The files are the raw material; the presets are instruments made from them.** Selecting `Sustain.sfz` in the Library plays a phrase; dragging it onto a track makes a Sampler with it at its defaults. Dragging `Kick 1.flac` onto a Drum Rack pad loads that pad.
+- **What you make is yours, in your Segno folder:**
+  - a preset you save goes to `Presets/Sampler/…` (Yours in the module's folder), and can point at Library files and your own alike;
+  - your recordings and sounds go to `Samples/` or a folder you add;
+  - a table made in the editor travels in the project or preset (recipe and frames), and Export wavetable writes it to `Wavetables/`.
+- **Nothing ever writes into the Library.** Changing something that ships makes a copy of yours: an edited factory table becomes "Cello (edited)" in the project, a changed factory preset saved becomes one of yours.
+- **Search goes across all of it,** grouped by kind (PRESETS, SAMPLES, WAVETABLES…), each result saying where it's from ("Library · Strings", "User library").
+
 ## 6. Getting it onto a machine
 
 - **What it is:** the chosen samples, trimmed (the tail cut where it falls below −60 dB, sustains to about 8 s, pianos 12 s), converted to 16-bit FLAC (our decoder reads FLAC), with their SFZ maps; the 84 tables; a version file.
