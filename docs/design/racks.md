@@ -2,7 +2,7 @@
 
 A **rack** holds a set of modules as one module in the chain: effects, or an instrument and its effects, in one chain or several side by side. It's saved whole as a file of its own and loaded whole from the browser, and its **macros** move many parameters across it with one knob, each along its own range and curve. Later, macros get snapshots to blend between, and motion of their own (LFOs, followers, a sequencer), after Transit's one-knob transitions.
 
-**Status:** M3 P2, the product owner's priority 2 of 2026-10-13, with [ADR 0056](../decisions/0056-racks-are-modules-of-modules.md). Approved 2026-10-14 (§16); step 0 drawn and approved; step 1 (§17) and step 2 (§18) built and signed off by the product owner after the hands-on tasks (2026-10-15). Step 3, motion on macros, to come.
+**Status:** M3 P2, the product owner's priority 2 of 2026-10-13, with [ADR 0056](../decisions/0056-racks-are-modules-of-modules.md). Approved 2026-10-14 (§16); step 0 drawn and approved; step 1 (§17) and step 2 (§18) built and signed off by the product owner after the hands-on tasks (2026-10-15). Step 3, motion on macros, dropped: motion comes from modulation modules ([ADR 0060](../decisions/0060-motion-comes-from-modulation-modules.md)). Racks are done.
 - **The product owner, 2026-10-14:** chains side by side explained, liked and kept.
 - **The UI must be very solid, with nothing confusing.** This comes before everything else in racks (§5a).
 - Nothing is built until the product owner says go.
@@ -181,7 +181,7 @@ Step 2 is designed in §18; what follows is the plan it started from.
 - **Snapshots (step 2).** A rack keeps up to 8 snapshots of its macros' positions: Store, recall, rename, a macro left out of them on request (Live's variations).
   - **Beyond Live:** a **Morph** knob blends between two chosen snapshots, A and B, every macro gliding from one to the other. It's automatable, so one lane moves a whole rack from its verse sound to its drop sound (the innovation backlog's "macro snapshots with morphing").
 - **Vary (step 2).** Module > Vary on a rack changes its macros by a set amount, leaving locked ones alone, as for the Wavetable (its W12). Transit's randomiser with locks, and Live's Rand, but never a blind randomise.
-- **Motion (step 3).** A macro can be moved by something of its own as well as by hand and automation, Transit's six modes:
+- **Motion (step 3): dropped** by the product owner (2026-10-15, [ADR 0060](../decisions/0060-motion-comes-from-modulation-modules.md)). Motion comes from a collection of modulation modules placed in a track (an LFO, an envelope follower, and others), each able to drive any parameter, a rack's Morph and macros included: modulation built once, not inside racks or each module. What was planned here, for the record: a macro moved by something of its own as well as by hand and automation, Transit's six modes:
   - an **LFO** (synced 1/64 to 8 bars, or free);
   - a **follower** of the rack's input level, or of another track's (a sidechain);
   - a **sequencer** that runs the macro from 0 to 100 % over a number of bars, starting at the next bar, once, back and forth, or looping;
@@ -256,7 +256,7 @@ Modules inside a rack keep their ids, so `set_parameters`, `get_module` and the 
 0. **The UI drawn and approved (§5a),** with the spike (§12): before anything else is built.
 1. **Racks and macros:** the rack with its chains and mixer rows; group and ungroup; the panel and frame in the chain; eight macros with From, To and Curve, mapped by drag, right-click or the editor; the macro editor; automation of macros; rack files, the browser's Racks part, save and load; menus and MCP. Signed off after the product owner's hands-on tasks (§5a).
 2. **Snapshots and Morph, Vary for racks,** and the factory racks in the Library (§18, for review).
-3. **Motion on macros:** LFO, follower and sidechain, sequencer, gate, random.
+3. ~~**Motion on macros:** LFO, follower and sidechain, sequencer, gate, random.~~ Dropped (ADR 0060): motion comes from modulation modules, designed with M4's modulators.
 
 Each built, tested and signed off on its own.
 

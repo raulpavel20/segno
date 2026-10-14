@@ -64,9 +64,10 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0053](0053-a-modules-editor-in-the-detail-panel.md) | A module's editor (the Wavetable's tables) opens in the detail panel beside Modules and Clip; in the plugins, under the panel | Accepted |
 | [0054](0054-push-2-support.md) | Ableton Push 2 is supported in the DAW, display included, as a client of the Session like the assistants; no clip launching; other controllers through MIDI learn; revisits the vision's non-goal | Proposed |
 | [0055](0055-factory-content-is-files-in-a-read-only-library.md) | What ships besides the modules is files in a read-only, versioned Library, a place of its own in the browser before the User library; `library:` paths; found in standard places, Settings or `SEGNO_LIBRARY` | Accepted |
-| [0056](0056-racks-are-modules-of-modules.md) | A rack is a module of modules: chains side by side, eight macros mapped with ranges and curves, no nesting; saved as `.segnorack` files apart from module presets; a DAW feature on tracktion's racks | Accepted; where the browser lists racks superseded by 0059 |
+| [0056](0056-racks-are-modules-of-modules.md) | A rack is a module of modules: chains side by side, eight macros mapped with ranges and curves, no nesting; saved as `.segnorack` files apart from module presets; a DAW feature on tracktion's racks | Accepted; where the browser lists racks superseded by 0059; macros' motion superseded by 0060 |
 | [0057](0057-the-song-has-one-key.md) | The song has one key (a root and one of 36 scales, or none), set in the top bar; it describes and never changes anything by itself; modules see it through `TransportInfo::key`; shared theory in `libs/music`; changes along the song later, on the song row | Accepted |
 | [0059](0059-racks-are-a-browser-part-and-every-part-has-its-icon.md) | Racks are a part of the browser of their own, both kinds together; every part shows one icon, the same in the rail and the open browser; every search field shows the magnifier | Accepted |
+| [0060](0060-motion-comes-from-modulation-modules.md) | Motion comes from a collection of modulation modules (LFO, envelope follower, others) that drive any parameter, a rack's Morph and macros too; racks get no motion of their own; modulation built once, not into each module | Accepted |
 
 ## Template
 
