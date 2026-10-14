@@ -310,3 +310,99 @@ TEST_CASE("racks (spike): a hosted plugin in a rack keeps its settings when the 
     CHECK(nullResidualDb(second, first) < -100.0);
 }
 #endif
+
+namespace
+{
+/// The level of `b` from `start` for `length` samples, in dB.
+double rmsDbOf(const AudioBuffer& b, int start, int length)
+{
+    AudioBuffer part(b.numChannels(), length);
+    for (int c = 0; c < b.numChannels(); ++c)
+        for (int i = 0; i < length; ++i)
+            part.at(c, i) = b.at(c, start + i);
+    return rmsDb(part);
+}
+} // namespace
+
+TEST_CASE("racks (spike, step 2): Morph, a macro moving a macro, takes it from A to B in the sound; "
+          "automated, undone and kept with the rack (racks.md §18.3)",
+          "[integration]")
+{
+    Fixture f;
+    auto utility = f.module("utility");
+    auto r = f.rack({{utility}});
+    f.place(*r);
+    auto& device = dynamic_cast<fd::engine::DevicePlugin&>(*utility);
+    const auto index = *device.device().params().indexOf("gain");
+    const auto& spec = device.device().info().params[index];
+    auto& gain = device.parameter(index);
+
+    // A macro mapped to the gain from -24 to 0 dB, as step 1 maps one.
+    auto& list = r->getMacroParameterListForWriting();
+    auto* macro = list.createMacroParameter();
+    REQUIRE(macro != nullptr);
+    const float from = spec.toNormalized(-24.0f), to = spec.toNormalized(0.0f);
+    gain.setParameter(from, juce::sendNotificationSync);
+    REQUIRE(gain.addModifier(*macro, to - from, 0.0f, 0.0f) != nullptr);
+    // The level the macro's position gives.
+    const auto levelFor = [&](float position) { return spec.fromNormalized(from + position * (to - from)); };
+
+    // Morph: the macro at its position in A, moved by Morph by B - A.
+    constexpr float a = 0.2f, b = 0.8f;
+    auto* morph = list.createMacroParameter();
+    REQUIRE(morph != nullptr);
+    macro->setParameter(a, juce::sendNotificationSync);
+    auto& um = f.edit->getUndoManager();
+    um.beginNewTransaction();
+    REQUIRE(macro->addModifier(*morph, b - a, 0.0f, 0.0f) != nullptr);
+    um.beginNewTransaction();
+    CHECK(macro->addModifier(*macro, 1.0f, 0.0f, 0.0f) == nullptr); // never itself
+    // One undo step: undone, Morph moves nothing; redone, it's back.
+    REQUIRE(um.undo());
+    CHECK(macro->getAssignments().isEmpty());
+    REQUIRE(um.redo());
+    CHECK(macro->getAssignments().size() == 1);
+
+    const auto levelAt = [&](float position)
+    {
+        morph->setParameter(position, juce::sendNotificationSync);
+        return rmsDb(f.render()) - rmsDb(f.input);
+    };
+    CHECK(levelAt(0.0f) == Approx(levelFor(a)).margin(0.2));
+    CHECK(levelAt(1.0f) == Approx(levelFor(b)).margin(0.2));
+    CHECK(levelAt(0.5f) == Approx(levelFor(0.5f * (a + b))).margin(0.3));
+
+    // Automated: Morph's lane steps from 0 to 1 at 1 s. Each second is at its level, and the step
+    // lands within a block of where it's drawn, as any automation does.
+    {
+        constexpr int block = 512, second = 48000;
+        morph->setParameter(0.0f, juce::sendNotificationSync);
+        auto& curve = morph->getCurve();
+        curve.addPoint(te::TimePosition(), 0.0f, 0.0f, nullptr);
+        curve.addPoint(te::TimePosition::fromSeconds(0.999), 0.0f, 0.0f, nullptr);
+        curve.addPoint(te::TimePosition::fromSeconds(1.0), 1.0f, 0.0f, nullptr);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(50); // tracktion reads a lane after 10 ms
+        const auto out = f.render();
+        const double dry = rmsDb(f.input);
+        CHECK(rmsDbOf(out, 4800, second - 2 * block - 4800) - dry == Approx(levelFor(a)).margin(0.3));
+        CHECK(rmsDbOf(out, second + 2 * block, second - 2 * block - 4800) - dry == Approx(levelFor(b)).margin(0.3));
+        while (curve.getNumPoints() > 0)
+            curve.removePoint(0, nullptr);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(50);
+    }
+
+    // Kept with the rack: its state, read into another project, morphs the same.
+    {
+        morph->setParameter(0.25f, juce::sendNotificationSync);
+        const auto first = f.render();
+        const auto xml = r->createStateCopy(false).toXmlString();
+        Fixture g;
+        auto copy = g.edit->getRackList().addRackTypeFrom(juce::ValueTree::fromXml(xml));
+        REQUIRE(copy != nullptr);
+        REQUIRE(copy->getMacroParameters().size() == 2);
+        g.place(*copy);
+        const auto second = g.render();
+        INFO("copy against original: " << nullResidualDb(second, first) << " dB");
+        CHECK(nullResidualDb(second, first) < -100.0);
+    }
+}

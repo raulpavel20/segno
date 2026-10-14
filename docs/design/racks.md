@@ -2,7 +2,7 @@
 
 A **rack** holds a set of modules as one module in the chain: effects, or an instrument and its effects, in one chain or several side by side. It's saved whole as a file of its own and loaded whole from the browser, and its **macros** move many parameters across it with one knob, each along its own range and curve. Later, macros get snapshots to blend between, and motion of their own (LFOs, followers, a sequencer), after Transit's one-knob transitions.
 
-**Status:** M3 P2, the product owner's priority 2 of 2026-10-13, with [ADR 0056](../decisions/0056-racks-are-modules-of-modules.md). Approved 2026-10-14 (§16); step 0 drawn and approved, step 1 built (§17) and waiting for the hands-on tasks; step 2 designed for review (§18).
+**Status:** M3 P2, the product owner's priority 2 of 2026-10-13, with [ADR 0056](../decisions/0056-racks-are-modules-of-modules.md). Approved 2026-10-14 (§16); step 0 drawn and approved, step 1 built (§17) and waiting for the hands-on tasks; step 2 designed and approved (§18), its UI being drawn for review.
 - **The product owner, 2026-10-14:** chains side by side explained, liked and kept.
 - **The UI must be very solid, with nothing confusing.** This comes before everything else in racks (§5a).
 - Nothing is built until the product owner says go.
@@ -314,7 +314,7 @@ Approved by the product owner (2026-10-14) with every recommendation, then the U
 
 ## 18. Step 2: snapshots, Morph, Vary and factory racks (for review)
 
-**Status:** for review (2026-10-14). Nothing is built until the product owner approves it. Then, as for step 1, the UI is drawn in every state for review (§18.11) before anything else is built.
+**Status:** approved by the product owner (2026-10-14) with every recommendation of S1–S14. As for step 1, the UI is drawn in every state for review (§18.11) before anything else is built.
 
 ### 18.1 How others do it (October 2026)
 
@@ -331,7 +331,7 @@ Sources: [Ableton's Macros and Variations FAQ](https://help.ableton.com/hc/en-us
 
 **What we take:**
 - **Snapshots of the macros only,** as Live's variations: small, every value continuous, and about what the rack's maker chose to put on its knobs.
-- **A morph between two chosen snapshots,** as Flux, Reaktor and Reason have, built as a macro that moves the macros, so it's automated as one lane and sample accurate.
+- **A morph between two chosen snapshots,** as Flux, Reaktor and Reason have, built as a macro that moves the macros, so it's automated as one lane, in time as any automation is.
 - **A lock on a macro,** as Transit's locks and SnappySnap's pinned knobs: one lock for recall, Morph and Vary, never Live's two flags.
 - **Vary that nudges** (the Wavetable's W12), never a blind randomise.
 
@@ -364,7 +364,8 @@ Sources: [Ableton's Macros and Variations FAQ](https://help.ableton.com/hc/en-us
   - Update snapshot and Vary are dimmed, and say why ("Morph sets the macros").
 - **Changing A or B,** or locking or unlocking a macro, while Morph is on: Morph follows at once.
 - **The first two snapshots start as A and B.** Removing A or B turns Morph off and clears that choice.
-- **Engine:** Morph is one more macro of the rack, mapped to each unlocked, unautomated macro, From its position in A To its position in B, straight. tracktion works out a macro moved by a macro (its code refuses only a macro mapped to itself), so this is sample accurate and needs no patch. A spike checks it first (§18.11).
+- **Engine:** Morph is one more macro of the rack, mapped to each unlocked, unautomated macro, From its position in A To its position in B, straight. tracktion works out a macro moved by a macro (its code refuses only a macro mapped to itself), so Morph follows its lane as any automated parameter does, a block at a time, and needs no patch.
+- **Checked by the spike** (2026-10-14, `tests/integration/RackSpikeTests.cpp`, kept as a test): Morph takes a macro from A to B in the sound, half way at 50 %; its lane's step lands within a block of where it's drawn; the mapping is one undo step; and a rack's state read into another project morphs the same. tracktion reads a lane 10 ms after it changes, so a test lets the message loop run before it renders.
 
 ### 18.4 Locks, and automation first
 
@@ -471,7 +472,7 @@ Sources: [Ableton's Macros and Variations FAQ](https://help.ableton.com/hc/en-us
 | What | Target |
 |---|---|
 | Snapshots | Store and recall land every unlocked, unautomated macro exactly; locked and automated ones stay; the current one and its changed mark follow; each edit one undo step |
-| Morph | At 0, 50 and 100 % the macros are at A, half way and B, and so are the parameters they map, in a render; automated Morph is sample accurate; off keeps the positions; a click on a snapshot while on turns it off; a macro refuses a drag while on |
+| Morph | At 0, 50 and 100 % the macros are at A, half way and B, and so are the parameters they map, in a render; automated Morph lands within a block of its lane; off keeps the positions; a click on a snapshot while on turns it off; a macro refuses a drag while on |
 | Locks and automation | Recall, Morph and Vary never move a locked or automated macro |
 | Vary | Only mapped, unlocked, unautomated macros move, each within its amount; one undo step |
 | Files | Snapshots, locks and Morph round trip byte for byte; a step 1 file loads as it is |
@@ -483,7 +484,7 @@ Sources: [Ableton's Macros and Variations FAQ](https://help.ableton.com/hc/en-us
 ### 18.11 Order of work within step 2
 
 - **2a. The spike and the UI drawn.**
-  - The spike: Morph moving macros moving parameters, sample accurate, saved and undone. Kept as tests.
+  - The spike: Morph moving macros moving parameters, in time, saved and undone. Kept as tests. Done (§18.3).
   - The UI drawn for review in every state:
     - one snapshot;
     - three, one of them changed;
@@ -503,6 +504,8 @@ Sources: [Ableton's Macros and Variations FAQ](https://help.ableton.com/hc/en-us
   - load a factory rack and use its Morph.
 
 ### 18.12 Questions for review
+
+Approved by the product owner (2026-10-14) with every recommendation.
 
 | # | Question | Recommendation |
 |---|---|---|
