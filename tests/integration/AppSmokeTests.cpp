@@ -1,14 +1,17 @@
 // Smoke tests of the DAW shell (docs/design/daw-shell.md, C1): it builds offscreen around a
 // Session, every action has a unique id and shortcut, and keys reach the registry.
 
-#include "fd/testkit/WavIO.h"
-#include "engine/EngineBehaviour.h"
+#include "TableEditor.h"
 #include "engine/DevicePlugin.h"
+#include "engine/EngineBehaviour.h"
 #include "engine/Session.h"
 #include "engine/SessionImpl.h"
+#include "fd/dsp/Math.h"
+#include "fd/testkit/WavIO.h"
 #include "mcp/McpServer.h"
-#include "model/Editing.h"
 #include "model/ChannelStripLayout.h"
+#include "model/Editing.h"
+#include "model/MenuBar.h"
 #include "model/Selection.h"
 #include "ui/AutomationMenu.h"
 #include "ui/ChannelControls.h"
@@ -20,8 +23,6 @@
 #include "ui/WindowContent.h"
 
 #include <juce_opengl/juce_opengl.h>
-#include "model/MenuBar.h"
-
 #include <tracktion_engine/testing/tracktion_EnginePlayer.h>
 
 using fd::mcp::Json;
@@ -677,7 +678,10 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         // The song's sections (arranger.md §12): Delete, Ctrl+D and F2 act on a selected section,
         // a double-click loops it; the rest are rare.
         "song.addSection", "song.insertSection", "song.loopSection", "song.selectClips",
-        "song.duplicateSection", "song.deleteSection", "song.removeSectionMark"};
+        "song.duplicateSection", "song.deleteSection", "song.removeSectionMark",
+        // The Wavetable's tables (table-editor.md §8): a double-click on the table display edits;
+        // Ctrl+Shift+E is the project's Export.
+        "module.editWavetable", "module.importWavetable", "module.exportWavetable", "clip.makeWavetable"};
     for (const auto& a : actions.all())
     {
         INFO(a.id);
@@ -4757,4 +4761,140 @@ TEST_CASE("modulation in the DAW: an envelope's handle dragged onto a knob makes
     cutoff->refresh();
     CHECK(cutoff->ring().has_value());
     CHECK(s.undoDescription() == "Modulate Filter 1 Cutoff with Amp Env");
+}
+
+TEST_CASE(
+    "the table editor in the DAW: opened from the Module menu below its module, a third view Tab reaches, "
+    "closed by Done or the module going (ADR 0053)",
+    "[integration]")
+{
+    ShellFixture f;
+    f.shell->setSize(1800, 1000);
+    auto& s = *f.session;
+    auto& actions = f.shell->actions();
+    auto& detail = f.shell->detail();
+    const auto t0 = s.snapshot()->tracks[0].id;
+    const auto synth = s.addDevice(t0, "fd:wavetable");
+    REQUIRE(synth != 0);
+    s.updateSnapshotNow();
+    f.shell->arrangement().selectTrack(t0);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    CHECK_FALSE(actions.isEnabled("module.editWavetable")); // no module selected
+    detail.chain().selectDevice(synth);
+    REQUIRE(actions.isEnabled("module.editWavetable"));
+    CHECK(actions.isEnabled("module.importWavetable"));
+    CHECK(actions.isEnabled("module.exportWavetable"));
+
+    // Module > Edit wavetable: the editor below the module, the panel grown for it.
+    REQUIRE(actions.perform("module.editWavetable"));
+    auto* editor = detail.editor();
+    REQUIRE(editor != nullptr);
+    CHECK(detail.editorModule() == synth);
+    CHECK(detail.mode() == fd::app::DetailPanel::Mode::Editor);
+    CHECK(editor->title() == "Osc 1, Basic Shapes");
+    f.shell->finishAnimations();
+    const auto& t = fd::ui::Theme::current();
+    CHECK(detail.getHeight() >=
+          fd::app::DeviceChain::preferredHeight() + t.shell.panelHeaderHeight + editor->minimumHeight());
+    CHECK(editor->isVisible());
+    CHECK(detail.chain().isVisible());
+    CHECK(editor->getY() >= detail.chain().getBottom());
+    CHECK(editor->getBottom() <= detail.getHeight());
+    CHECK(editor->getHeight() >= editor->minimumHeight());
+    for (auto* c : editor->commands())
+        CHECK((c->isVisible() && c->getParentComponent() != nullptr && c->getParentComponent()->isVisible()));
+    if (const char* dir = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dir, "daw-table-editor.png",
+                f.shell->createComponentSnapshot(f.shell->getLocalBounds(), true, 1.0f));
+
+    // Tab goes round Modules, Clip and Table.
+    REQUIRE(actions.perform("view.detailMode"));
+    CHECK(detail.mode() == fd::app::DetailPanel::Mode::Devices);
+    CHECK_FALSE(editor->isVisible());
+    REQUIRE(actions.perform("view.detailMode"));
+    CHECK(detail.mode() == fd::app::DetailPanel::Mode::Clip);
+    REQUIRE(actions.perform("view.detailMode"));
+    CHECK(detail.mode() == fd::app::DetailPanel::Mode::Editor);
+    CHECK(editor->isVisible());
+
+    // An edit: one undo step, the module's; undone, the editor shows the table again.
+    auto& table = dynamic_cast<fd::devices::wavetable_ui::TableEditor&>(*editor);
+    table.addLayer(fd::devices::wavetable::newLayer(fd::devices::wavetable::Recipe::SourceKind::Draw));
+    CHECK(s.undoDescription() == "Add a layer");
+    CHECK(editor->title() == "Osc 1, Basic Shapes (edited)");
+    s.undo();
+    table.frame();
+    CHECK(table.recipe().layers.size() == 1);
+    CHECK(editor->title() == "Osc 1, Basic Shapes");
+
+    // Done closes it; the modules show.
+    editor->onDone();
+    CHECK(detail.editor() == nullptr);
+    CHECK(detail.mode() == fd::app::DetailPanel::Mode::Devices);
+    REQUIRE(actions.perform("view.detailMode"));
+    REQUIRE(actions.perform("view.detailMode"));
+    CHECK(detail.mode() == fd::app::DetailPanel::Mode::Devices); // only Modules and Clip now
+
+    // The module going closes it.
+    detail.chain().selectDevice(synth);
+    REQUIRE(actions.perform("module.editWavetable"));
+    REQUIRE(detail.editor() != nullptr);
+    s.removeDevice(synth);
+    s.updateSnapshotNow();
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    CHECK(detail.editor() == nullptr);
+    CHECK_FALSE(actions.isEnabled("module.editWavetable"));
+}
+
+TEST_CASE(
+    "Make wavetable: an audio clip into a new Wavetable's editor, the way chooser open (table-editor.md §5)",
+    "[integration]")
+{
+    ShellFixture f;
+    f.shell->setSize(1800, 1000);
+    auto& s = *f.session;
+    auto& actions = f.shell->actions();
+    const auto root = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                          .getChildFile("fd-make-wavetable-" + juce::Uuid().toString());
+    REQUIRE(root.createDirectory());
+    // A second of a 220 Hz saw.
+    fd::testkit::AudioBuffer saw(1, 48000);
+    for (int i = 0; i < saw.numSamples(); ++i)
+    {
+        double v = 0.0;
+        for (int h = 1; h <= 30; ++h)
+            v += std::sin(fd::dsp::twoPi * h * 220.0 * i / 48000.0) / h;
+        saw.at(0, i) = static_cast<float>(0.4 * v);
+    }
+    const auto file = root.getChildFile("Saw lead.wav");
+    REQUIRE(fd::testkit::writeWav(file.getFullPathName().toStdString(), saw, 48000.0));
+    const auto t0 = s.snapshot()->tracks[0].id;
+    const auto clip = s.insertAudioFile(t0, file, 0.0);
+    REQUIRE(clip != 0);
+    s.updateSnapshotNow();
+    const auto sound = s.clipSound(clip, 0.25, 0.75);
+    REQUIRE(sound);
+    CHECK(sound->samples.size() == 24000);
+    CHECK(sound->name == "Saw lead");
+
+    CHECK_FALSE(actions.isEnabled("clip.makeWavetable"));
+    f.shell->arrangement().setSelection(fd::model::withClips(*s.snapshot(), {clip}, t0, t0));
+    REQUIRE(actions.isEnabled("clip.makeWavetable"));
+    const auto tracks = s.snapshot()->tracks.size();
+    REQUIRE(actions.perform("clip.makeWavetable"));
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    s.updateSnapshotNow();
+    REQUIRE(s.snapshot()->tracks.size() == tracks + 1);
+    const auto& made = s.snapshot()->tracks.back();
+    CHECK(made.name == "Saw lead");
+    REQUIRE(made.devices.size() == 1);
+    CHECK(made.devices[0].deviceId == "wavetable");
+    auto* editor = f.shell->detail().editor();
+    REQUIRE(editor != nullptr);
+    auto& table = dynamic_cast<fd::devices::wavetable_ui::TableEditor&>(*editor);
+    CHECK(table.choosingAudio());
+    CHECK(table.audioWay() == fd::devices::wavetable::AudioWay::Pitched);
+    CHECK(editor->title() == "Osc 1, Saw lead");
+    table.useAudio();
+    root.deleteRecursively();
 }

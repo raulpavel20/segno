@@ -83,7 +83,8 @@ Frame mix(const Frame& a, const Frame& b, float t, Recipe::Fill fill)
                                           : crossfade(a, b, t);
 }
 
-/// A drawn wave at `x` (0–1): straight or bent between its points, held past the ends.
+} // namespace
+
 double drawnAt(const std::vector<std::array<float, 3>>& points, double x)
 {
     if (points.empty())
@@ -102,6 +103,8 @@ double drawnAt(const std::vector<std::array<float, 3>>& points, double x)
     return 0.0;
 }
 
+namespace
+{
 Frame drawnWave(const Recipe::Keyframe& k)
 {
     Frame x(static_cast<size_t>(N));
@@ -467,6 +470,104 @@ Recipe recipeFromTable(const dsp::Wavetable& table, const std::string& factoryId
     layer.note = table.name;
     r.layers.push_back(std::move(layer));
     return r;
+}
+
+Recipe::Layer newLayer(Recipe::SourceKind kind)
+{
+    using K = Recipe::SourceKind;
+    Recipe::Layer layer;
+    layer.kind = kind;
+    switch (kind)
+    {
+    case K::Draw:
+    {
+        Recipe::Keyframe k;
+        k.points = {{0.0f, 0.0f, 0.0f}, {0.25f, 1.0f, 0.0f}, {0.75f, -1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}};
+        layer.keyframes.push_back(std::move(k));
+        break;
+    }
+    case K::Harmonics:
+    {
+        Recipe::Keyframe k;
+        k.levels.assign(Recipe::numHarmonicBars, 0.0f);
+        k.phases.assign(Recipe::numHarmonicBars, 0.0f);
+        k.levels[0] = 1.0f;
+        layer.keyframes.push_back(std::move(k));
+        break;
+    }
+    case K::Formula:
+        layer.formula = "sin(2*pi*x)";
+        break;
+    case K::Table:
+        layer.tableId = std::string(defaultTableId);
+        break;
+    case K::Audio:
+    case K::Image:
+        break;
+    }
+    return layer;
+}
+
+Recipe::Keyframe newKeyframe(const Recipe::Layer& layer, int frame, int count)
+{
+    Recipe::Keyframe k;
+    k.frame = frame;
+    if (layer.kind == Recipe::SourceKind::Harmonics)
+    {
+        const auto made = layerFrames(layer, std::max(1, count));
+        const auto c = toSpectrum(made[static_cast<size_t>(std::clamp(frame, 0, std::max(1, count) - 1))]);
+        k.levels.resize(Recipe::numHarmonicBars);
+        k.phases.resize(Recipe::numHarmonicBars);
+        for (int h = 1; h <= Recipe::numHarmonicBars; ++h)
+        {
+            const auto v = c[static_cast<size_t>(h)];
+            k.levels[static_cast<size_t>(h - 1)] = std::min(1.0f, 2.0f * std::abs(v));
+            // harmonicWave's angle is 2 pi phase - pi / 2.
+            const double phase = (std::arg(v) + dsp::pi / 2.0) / dsp::twoPi;
+            k.phases[static_cast<size_t>(h - 1)] = static_cast<float>(phase - std::floor(phase));
+        }
+        return k;
+    }
+    // The drawing before it, or the first.
+    const Recipe::Keyframe* from = nullptr;
+    for (const auto& other : layer.keyframes)
+        if (other.frame <= frame && (from == nullptr || other.frame > from->frame))
+            from = &other;
+    if (from == nullptr && !layer.keyframes.empty())
+        from = &*std::min_element(layer.keyframes.begin(), layer.keyframes.end(),
+                                  [](const auto& a, const auto& b) { return a.frame < b.frame; });
+    if (from != nullptr)
+        k.points = from->points;
+    return k;
+}
+
+Recipe::Layer imageLayer(const float* brightness, int width, int height, bool asHarmonics,
+                         const std::string& from)
+{
+    Recipe::Layer layer;
+    layer.kind = Recipe::SourceKind::Image;
+    layer.imageAsHarmonics = asHarmonics;
+    layer.note = from;
+    if (brightness == nullptr || width < 1 || height < 1)
+        return layer;
+    const int rows = std::min(height, Recipe::maxFrames);
+    layer.frames.reserve(static_cast<size_t>(rows) * N);
+    for (int r = 0; r < rows; ++r)
+    {
+        // Rows spread from the top to the bottom; each read across, between its pixels.
+        const int y =
+            rows > 1 ? static_cast<int>(std::lround(static_cast<double>(r) * (height - 1) / (rows - 1))) : 0;
+        const float* row = brightness + static_cast<size_t>(y) * static_cast<size_t>(width);
+        for (int i = 0; i < N; ++i)
+        {
+            const double at = std::clamp((i + 0.5) / N * width - 0.5, 0.0, width - 1.0);
+            const int i0 = static_cast<int>(at), i1 = std::min(i0 + 1, width - 1);
+            const double t = at - i0;
+            layer.frames.push_back(
+                std::clamp(static_cast<float>(row[i0] + t * (row[i1] - row[i0])), 0.0f, 1.0f));
+        }
+    }
+    return layer;
 }
 
 std::string formulaError(const std::string& text)

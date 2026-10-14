@@ -317,6 +317,13 @@ void DeviceAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
 
     events_.clear();
     host::appendMidi(midi, events_);
+    // Notes from the editor's Preview, at the block's start.
+    if (const auto queued = noteFifo_.read(noteFifo_.getNumReady());
+        queued.blockSize1 + queued.blockSize2 > 0)
+    {
+        queued.forEach([this](int i) { events_.push(notes_[static_cast<size_t>(i)]); });
+        events_.sortByTime();
+    }
     if (!producesMidi())
         midi.clear();
 
@@ -404,6 +411,15 @@ void DeviceAudioProcessor::setSidechainExternal(bool external)
         updateHostDisplay(ChangeDetails{}.withNonParameterStateChanged(true)); // the project changed
 }
 
+void DeviceAudioProcessor::playNote(int note, float velocity)
+{
+    Event e;
+    e.type = velocity > 0.0f ? EventType::NoteOn : EventType::NoteOff;
+    e.key = static_cast<std::uint8_t>(std::clamp(note, 0, 127));
+    e.value = std::clamp(velocity, 0.0f, 1.0f);
+    noteFifo_.write(1).forEach([this, &e](int i) { notes_[static_cast<size_t>(i)] = e; });
+}
+
 void DeviceAudioProcessor::applyExtraState(const nlohmann::json& patch)
 {
     ui::mergeExtraState(*device_, patch);
@@ -466,6 +482,11 @@ DeviceEditor::DeviceEditor(DeviceAudioProcessor& p) : juce::AudioProcessorEditor
                                 popoverRoom_ = height;
                                 handleAsyncUpdate();
                             }});
+    // The module's editor (ADR 0053): below the panel, the window grown for it; its Preview
+    // held on the device.
+    context_->showEditor = [this](std::unique_ptr<ui::ModuleEditor> editor)
+    { showModuleEditor(std::move(editor)); };
+    context_->playNote = [this](int note, float velocity) { processor_.playNote(note, velocity); };
     panel_ = p.panelFactory()->create(*context_);
     panel_->setViewState(p.viewState());
     panel_->onViewChanged = [this] {
@@ -482,6 +503,7 @@ DeviceEditor::DeviceEditor(DeviceAudioProcessor& p) : juce::AudioProcessorEditor
 
 DeviceEditor::~DeviceEditor()
 {
+    closeModuleEditor(); // before the panel and the context it edits through
     processor_.viewStateLoaded.removeChangeListener(this);
     viewport_.setViewedComponent(nullptr, false);
     panel_.reset();
@@ -494,10 +516,42 @@ void DeviceEditor::changeListenerCallback(juce::ChangeBroadcaster*)
     handleAsyncUpdate();
 }
 
+void DeviceEditor::showModuleEditor(std::unique_ptr<ui::ModuleEditor> editor)
+{
+    closeModuleEditor();
+    moduleEditor_ = std::move(editor);
+    editorHeader_.setTitle(moduleEditor_->tabName());
+    editorHeader_.setContext(moduleEditor_->title());
+    for (auto* c : moduleEditor_->commands())
+        editorHeader_.addCommand(*c);
+    moduleEditor_->onTitleChanged = [this] { editorHeader_.setContext(moduleEditor_->title()); };
+    moduleEditor_->onDone = [this]
+    {
+        closeModuleEditor();
+        triggerAsyncUpdate(); // shrink back, outside the click
+    };
+    addAndMakeVisible(editorHeader_);
+    addAndMakeVisible(*moduleEditor_);
+    triggerAsyncUpdate(); // grow, outside the mouse event (hosts resize synchronously)
+}
+
+void DeviceEditor::closeModuleEditor()
+{
+    if (moduleEditor_ == nullptr)
+        return;
+    moduleEditor_->closing();
+    for (auto* c : moduleEditor_->commands())
+        editorHeader_.removeCommand(*c);
+    removeChildComponent(&editorHeader_);
+    const auto closing = std::move(moduleEditor_);
+    removeChildComponent(closing.get());
+}
+
 void DeviceEditor::handleAsyncUpdate()
 {
     // The panel's width, but never wider than the screen it is on (it scrolls instead).
-    const int panelWidth = panel_->preferredWidth();
+    const int panelWidth =
+        std::max(panel_->preferredWidth(), moduleEditor_ != nullptr ? moduleEditor_->minimumWidth() : 0);
     int width = panelWidth + 2 * kEditorMargin;
     const auto& displays = juce::Desktop::getInstance().getDisplays();
     const auto* display = isOnDesktop() ? displays.getDisplayForRect(getScreenBounds()) : displays.getPrimaryDisplay();
@@ -505,8 +559,12 @@ void DeviceEditor::handleAsyncUpdate()
         width = std::min(width, static_cast<int>(display->userBounds.getWidth()) - 32);
     const bool scrolls = width < panelWidth + 2 * kEditorMargin;
     const auto& t = ui::Theme::current();
+    // Under the panel, the module's editor: its header and its least height.
+    const int below = moduleEditor_ != nullptr
+                          ? t.shell.panelHeaderHeight + moduleEditor_->minimumHeight() + kEditorMargin
+                          : 0;
     const int height =
-        std::max(t.devicePanelHeight + 2 * kEditorMargin + (scrolls ? 8 : 0),
+        std::max(t.devicePanelHeight + 2 * kEditorMargin + (scrolls ? 8 : 0) + below,
                  popoverRoom_ > 0 ? kEditorMargin + t.deviceHeaderHeight + popoverRoom_ + kEditorMargin : 0);
     if (getWidth() != width || getHeight() != height)
         setSize(width, height);
@@ -522,7 +580,20 @@ void DeviceEditor::paint(juce::Graphics& g)
 void DeviceEditor::resized()
 {
     // Laid out from the left at whatever size the host granted.
-    viewport_.setBounds(getLocalBounds().reduced(kEditorMargin, 0).withTrimmedTop(kEditorMargin));
-    panel_->setSize(panel_->preferredWidth(), ui::Theme::current().devicePanelHeight);
+    const auto& t = ui::Theme::current();
+    auto r = getLocalBounds().reduced(kEditorMargin, 0).withTrimmedTop(kEditorMargin);
+    if (moduleEditor_ != nullptr)
+    {
+        // The editor's header and the editor at the bottom, the panel above them.
+        auto below =
+            r.removeFromBottom(t.shell.panelHeaderHeight + moduleEditor_->minimumHeight() + kEditorMargin);
+        below.removeFromBottom(kEditorMargin);
+        // The header across the window, as the DAW's detail panel's is across the panel.
+        editorHeader_.setBounds(
+            below.removeFromTop(t.shell.panelHeaderHeight).withX(0).withWidth(getWidth()));
+        moduleEditor_->setBounds(below);
+    }
+    viewport_.setBounds(r);
+    panel_->setSize(panel_->preferredWidth(), t.devicePanelHeight);
 }
 } // namespace fd::plugin

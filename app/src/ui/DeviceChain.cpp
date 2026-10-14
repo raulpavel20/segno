@@ -113,8 +113,18 @@ DeviceChain::~DeviceChain()
 {
     session_.removeListener(this);
     for (auto& s : slots_)
+    {
         s.view->removeMouseListener(this);
+        if (onModuleGone)
+            onModuleGone(s.info.id);
+    }
     slots_.clear(); // panels before their handles' bindings
+}
+
+int DeviceChain::preferredHeight()
+{
+    // The panel, the gap below it and the scrollbar's room.
+    return ui::Theme::current().devicePanelHeight + 24;
 }
 
 void DeviceChain::setTrack(std::optional<model::TrackInfo> track)
@@ -147,6 +157,14 @@ void DeviceChain::rebuild(const std::vector<model::DeviceSlot>& devices)
         {
             slot.handle = session_.openDevice(d.id);
             if (slot.handle != nullptr)
+                slot.handle->context().showEditor =
+                    [this, id = d.id](std::unique_ptr<ui::ModuleEditor> editor)
+                {
+                    selectDevice(id); // the module in view above its editor
+                    if (onShowEditor)
+                        onShowEditor(id, std::move(editor));
+                };
+            if (slot.handle != nullptr)
                 if (const auto* factory = ui::findPanel(slot.handle->deviceId()))
                 {
                     auto panel = factory->create(slot.handle->context());
@@ -178,7 +196,11 @@ void DeviceChain::rebuild(const std::vector<model::DeviceSlot>& devices)
         slots_.push_back(std::move(slot));
     }
     for (auto& [id, s] : old)
+    {
         s.view->removeMouseListener(this);
+        if (onModuleGone)
+            onModuleGone(id);
+    }
     old.clear();
     if (selected_ && std::none_of(slots_.begin(), slots_.end(), [&](const Slot& s) { return s.info.id == *selected_; }))
         selected_.reset();
@@ -422,7 +444,18 @@ void DeviceChain::itemDropped(const SourceDetails& details)
     const auto on = browserOn_;
     const int index = insertAt_;
     itemDragExit(details);
-    if (const auto item = browser::itemOf(details.description); item && track_ && onBrowserDrop)
+    const auto item = browser::itemOf(details.description);
+    if (!item || !track_)
+        return;
+    // A file on a module that takes it where it shows what it's for (a table on the Wavetable's
+    // oscillator in view).
+    if (on)
+        if (const auto ref = browser::parse(*item); ref && ref->file != juce::File())
+            for (auto& s : slots_)
+                if (auto* panel = dynamic_cast<ui::DevicePanel*>(s.view.get());
+                    panel != nullptr && s.info.id == *on && panel->takeFile(ref->file))
+                    return;
+    if (onBrowserDrop)
         onBrowserDrop(*item, *track_, index, on);
 }
 

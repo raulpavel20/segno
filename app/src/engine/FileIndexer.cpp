@@ -1,5 +1,7 @@
 #include "engine/FileIndexer.h"
 
+#include "TableFiles.h"
+
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_events/juce_events.h>
 
@@ -103,6 +105,13 @@ std::optional<model::IndexedFile> FileIndexer::read(const juce::File& file)
     f.kind = *kind;
     f.size = file.getSize();
     f.modified = file.getLastModificationTime().toMilliseconds();
+    if (*kind == model::BrowserKind::Wavetable)
+    {
+        // Its frames, for the caption; a file that isn't a table is listed without them.
+        if (const auto table = devices::wavetable::importTable(f.path))
+            f.frames = table->frames;
+        return f;
+    }
     if (*kind != model::BrowserKind::Sample)
         return f;
     thread_local const auto formats = []

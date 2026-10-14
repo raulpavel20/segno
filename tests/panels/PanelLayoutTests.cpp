@@ -122,7 +122,7 @@ void checkPlacementText(const PanelSection::Placement& p)
         const auto font = combo->getLookAndFeel().getComboBoxFont(*combo);
         // A combo with its name inside: the name, a text button's padding, then the choice.
         float name = 0.0f;
-        if (auto* param = dynamic_cast<fd::ui::ParamComboBox*>(combo);
+        if (auto* param = dynamic_cast<fd::ui::ChoiceBox*>(combo);
             param != nullptr && param->inlineName().isNotEmpty())
             name = width(fd::ui::fonts::font(t.textXs, fd::ui::fonts::Weight::Medium), param->inlineName()) +
                    static_cast<float>(t.shell.buttonTextPadding);

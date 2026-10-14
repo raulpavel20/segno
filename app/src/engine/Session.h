@@ -128,6 +128,18 @@ public:
     /// Inserts `file` on `trackId` at `seconds`; returns the clip id, or 0 if the file is not
     /// readable audio.
     std::uint64_t insertAudioFile(std::uint64_t trackId, const juce::File& file, double seconds);
+    /// An audio clip's sound mixed to mono, once through its source (not looped, at the source's
+    /// own speed), from `from` to `to` seconds on the timeline within the clip (the whole clip
+    /// without them): what Make Wavetable takes (docs/design/table-editor.md §5). Nothing for a
+    /// MIDI clip or a source that can't be read.
+    struct ClipSound
+    {
+        std::vector<float> samples;
+        double sampleRate = 0.0;
+        std::string name;
+    };
+    [[nodiscard]] std::optional<ClipSound> clipSound(std::uint64_t clipId, std::optional<double> from = {},
+                                                     std::optional<double> to = {}) const;
 
     /// Moves and trims clips (C4): each edit gives a clip its track and placement (and a new loop,
     /// ADR 0048). One undo step named `undoName`.
@@ -701,6 +713,8 @@ public:
     std::optional<Preview> previewFile(const juce::File& file);
     /// Plays a short phrase with one of our instruments' presets.
     bool previewPreset(const std::string& deviceId, const std::string& presetKey);
+    /// Plays a wavetable file on a held C3, through a Wavetable of its own (table-editor.md §7).
+    bool previewWavetable(const juce::File& file);
     /// Plays a MIDI file on a track's instrument (0: the track live MIDI plays), as live MIDI at
     /// the song's tempo; false if that track has no instrument or the file has no notes.
     bool previewMidiFile(const juce::File& file, std::uint64_t trackId = 0);
@@ -723,6 +737,10 @@ public:
     /// (`error` says why).
     std::optional<double> loadSample(std::uint64_t deviceId, const juce::File& file,
                                      std::string* error = nullptr);
+    /// Loads a wavetable file onto one of a Wavetable's oscillators (0-2), one undo step "Load
+    /// <name>"; false if it isn't a Wavetable or the file isn't a table (`error` says why).
+    bool loadWavetable(std::uint64_t deviceId, int oscillator, const juce::File& file,
+                       std::string* error = nullptr);
 
     /// Copies every file the project uses from outside its folder into its Samples folder and
     /// points the clips and takes at the copies (§12); not an undo step. The project must have a

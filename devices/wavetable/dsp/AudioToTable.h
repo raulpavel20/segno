@@ -1,5 +1,7 @@
 #pragma once
 
+#include "TableRecipe.h"
+
 #include <optional>
 #include <string>
 #include <vector>
@@ -31,4 +33,15 @@ struct AudioFrames
 [[nodiscard]] std::optional<AudioFrames> framesFromAudio(const float* audio, int length, double sampleRate,
                                                          AudioWay way, int count,
                                                          std::string* error = nullptr);
+
+/// The way's name ("Pitched"), and back from its lower-case form ("pitched").
+[[nodiscard]] const char* wayName(AudioWay way) noexcept;
+[[nodiscard]] std::optional<AudioWay> wayFromName(const std::string& name) noexcept;
+
+/// An Audio layer of frames taken from audio, its note saying how and from where ("Pitched, 64
+/// frames from Vox").
+[[nodiscard]] Recipe::Layer audioLayer(const AudioFrames& frames, AudioWay way, const std::string& from);
+/// A recipe made from audio (§5): that one layer, as many frames as were taken, named for
+/// where they came from.
+[[nodiscard]] Recipe recipeFromAudio(const AudioFrames& frames, AudioWay way, const std::string& from);
 } // namespace fd::devices::wavetable

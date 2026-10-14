@@ -142,6 +142,48 @@ std::optional<ImportedTable> importTable(const std::string& path, int frameLengt
     return t;
 }
 
+bool isTableFile(const std::string& path)
+{
+    // The chunks that give the frame size come before the data: the head of the file is enough.
+    std::vector<unsigned char> head(65536);
+    {
+        std::ifstream in(path, std::ios::binary);
+        in.read(reinterpret_cast<char*>(head.data()), static_cast<std::streamsize>(head.size()));
+        head.resize(static_cast<size_t>(std::max<std::streamsize>(0, in.gcount())));
+    }
+    if (head.size() >= 4 && std::memcmp(head.data(), "vawt", 4) == 0)
+        return true;
+    if (wavFrameSize(head) > 0)
+        return true;
+    std::int64_t frames = -1;
+    audiofile::stream(path, 4096,
+                      [&frames](const audiofile::StreamInfo& info, const float*, int)
+                      {
+                          frames = info.numFrames;
+                          return false;
+                      });
+    return frames == 16384 || (frames > 1 && frames <= 4096);
+}
+
+std::optional<MonoAudio> readMono(const std::string& path, std::string* error)
+{
+    std::string why;
+    const auto audio = audiofile::decode(path, &why);
+    if (!audio || audio->numFrames() < 2)
+    {
+        if (error != nullptr)
+            *error = why.empty() ? "The file isn't audio." : why;
+        return std::nullopt;
+    }
+    MonoAudio out;
+    out.sampleRate = audio->sampleRate;
+    out.samples.assign(static_cast<size_t>(audio->numFrames()), 0.0f);
+    for (const auto& ch : audio->channels)
+        for (size_t i = 0; i < out.samples.size(); ++i)
+            out.samples[i] += ch[i] / static_cast<float>(audio->numChannels());
+    return out;
+}
+
 std::optional<dsp::Wavetable> importCycles(const std::vector<std::string>& paths, std::string* error)
 {
     std::vector<std::complex<float>> bins;

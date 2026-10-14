@@ -64,6 +64,19 @@ public:
     /// False if no section does. Panels that show one of several (an oscillator) select it first.
     virtual bool showParameter(size_t param);
 
+    /// One of the module's own commands in the host's menu bar (Module > Edit Wavetable), by its
+    /// ID ("table.edit"). False if the module has no such command.
+    virtual bool performCommand(std::string_view /*id*/) { return false; }
+    /// A file dropped on the module from the host's browser (a table on the Wavetable): true if it
+    /// took it, where it shows what it's for (the oscillator OSC shows).
+    virtual bool takeFile(const juce::File& /*file*/) { return false; }
+    /// Audio handed to the module to make something of (Clip > Make Wavetable): mono samples at
+    /// `sampleRate`, named for where they came from. False if the module takes none.
+    virtual bool takeAudio(std::vector<float> /*mono*/, double /*sampleRate*/, juce::String /*name*/)
+    {
+        return false;
+    }
+
     /// Whether the module can fold to a strip (the DAW's chain; not plugin editors).
     void setFoldable(bool foldable);
     [[nodiscard]] bool isFoldable() const noexcept { return foldable_; }

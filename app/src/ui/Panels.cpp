@@ -1269,16 +1269,23 @@ void InspectorPanel::paintSections(juce::Graphics& g)
 DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions)
     : actions_(actions), chain_(session, actions), roll_(session), audio_(session)
 {
-    header_.setTabs({"Modules", "Clip"}, 0);
-    header_.setCaption("Tab switches");
-    header_.onTabSelected = [this](int tab) {
-        const auto m = tab == 0 ? Mode::Devices : Mode::Clip;
-        onModeChosen ? onModeChosen(m) : setMode(m);
+    header_.onTabSelected = [this](int tab)
+    {
+        chooseMode(tab >= 0 && tab < static_cast<int>(tabModes_.size()) ? tabModes_[static_cast<size_t>(tab)]
+                                                                        : Mode::Devices);
     };
+    updateTabs();
     addAndMakeVisible(header_);
     addAndMakeVisible(chain_);
     addChildComponent(roll_);
     addChildComponent(audio_);
+    chain_.onShowEditor = [this](std::uint64_t module, std::unique_ptr<ui::ModuleEditor> editor)
+    { showEditor(module, std::move(editor)); };
+    chain_.onModuleGone = [this](std::uint64_t module)
+    {
+        if (editor_ != nullptr && module == editorModule_)
+            closeEditor();
+    };
     quantise_.setClickingTogglesState(false);
     quantise_.setWantsKeyboardFocus(false);
     quantise_.onClick = [this] { actions_.perform("notes.quantise"); };
@@ -1298,11 +1305,47 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
     header_.resized();
 }
 
+void DetailPanel::chooseMode(Mode mode)
+{
+    onModeChosen ? onModeChosen(mode) : setMode(mode);
+}
+
+void DetailPanel::updateTabs()
+{
+    tabModes_ = {Mode::Devices};
+    juce::StringArray names{"Modules"};
+    if (clipViewAvailable_)
+    {
+        tabModes_.push_back(Mode::Clip);
+        names.add("Clip");
+    }
+    if (editor_ != nullptr)
+    {
+        tabModes_.push_back(Mode::Editor);
+        names.add(editor_->tabName());
+    }
+    if (names.size() == 1)
+    {
+        header_.setTitle("Modules");
+        header_.setCaption({});
+    }
+    else
+    {
+        const auto at = std::find(tabModes_.begin(), tabModes_.end(), mode_);
+        header_.setTabs(names, at != tabModes_.end() ? static_cast<int>(at - tabModes_.begin()) : 0);
+        header_.setCaption("Tab switches");
+    }
+    updateHeader();
+}
+
 void DetailPanel::updateHeader()
 {
-    header_.setSelectedTab(mode_ == Mode::Devices ? 0 : 1);
+    if (const auto at = std::find(tabModes_.begin(), tabModes_.end(), mode_); at != tabModes_.end())
+        header_.setSelectedTab(static_cast<int>(at - tabModes_.begin()));
     if (mode_ == Mode::Devices)
         header_.setContext(track_ ? juce::String::fromUTF8(track_->name.c_str()) : juce::String());
+    else if (mode_ == Mode::Editor)
+        header_.setContext(editor_ != nullptr ? editor_->title() : juce::String());
     else
     {
         const auto& clip = roll_.clip() ? roll_.clip() : audio_.clip();
@@ -1312,13 +1355,14 @@ void DetailPanel::updateHeader()
 
 void DetailPanel::setMode(Mode m)
 {
-    if (m == Mode::Clip && !clipViewAvailable_)
+    if ((m == Mode::Clip && !clipViewAvailable_) || (m == Mode::Editor && editor_ == nullptr))
         m = Mode::Devices;
     if (mode_ == m)
         return;
     mode_ = m;
     updateVisibility();
     updateHeader();
+    resized();
     repaint();
 }
 
@@ -1327,35 +1371,70 @@ void DetailPanel::setClipViewAvailable(bool available)
     if (available == clipViewAvailable_)
         return;
     clipViewAvailable_ = available;
-    if (available)
-    {
-        header_.setTabs({"Modules", "Clip"}, mode_ == Mode::Devices ? 0 : 1);
-        header_.setCaption("Tab switches");
-    }
-    else
-    {
+    if (!available && mode_ == Mode::Clip)
         setMode(Mode::Devices);
-        header_.setTitle("Modules");
-        header_.setCaption({});
+    updateTabs();
+}
+
+void DetailPanel::showEditor(std::uint64_t module, std::unique_ptr<ui::ModuleEditor> editor)
+{
+    if (editor_ != nullptr)
+        closeEditor();
+    editor_ = std::move(editor);
+    editorModule_ = module;
+    addChildComponent(*editor_);
+    for (auto* c : editor_->commands())
+    {
+        header_.addCommand(*c);
+        c->setVisible(false);
     }
-    updateHeader();
+    editor_->onDone = [this] { closeEditor(); };
+    editor_->onTitleChanged = [this] { updateHeader(); };
+    editor_->onShowRequested = [this] { chooseMode(Mode::Editor); };
+    updateTabs();
+    if (onEditorChanged)
+        onEditorChanged();
+    chooseMode(Mode::Editor);
+}
+
+void DetailPanel::closeEditor()
+{
+    if (editor_ == nullptr)
+        return;
+    editor_->closing();
+    for (auto* c : editor_->commands())
+        header_.removeCommand(*c);
+    // Out of the panel before it goes: what it shows asks nothing of it any more.
+    const auto closing = std::move(editor_);
+    editorModule_ = 0;
+    removeChildComponent(closing.get());
+    if (mode_ == Mode::Editor)
+        setMode(Mode::Devices);
+    updateTabs();
+    updateVisibility();
+    if (onEditorChanged)
+        onEditorChanged();
 }
 
 void DetailPanel::updateVisibility()
 {
-    chain_.setVisible(mode_ == Mode::Devices);
+    const bool editing = mode_ == Mode::Editor && editor_ != nullptr;
+    chain_.setVisible(mode_ == Mode::Devices || editing);
     roll_.setVisible(showsPianoRoll());
     audio_.setVisible(showsAudioClip());
+    if (editor_ != nullptr)
+    {
+        editor_->setVisible(editing);
+        for (auto* c : editor_->commands())
+            c->setVisible(editing);
+    }
     // Snap and the step for either clip view; Quantise for notes.
     const bool grid = showsPianoRoll() || showsAudioClip();
-    if (quantise_.isVisible() != showsPianoRoll() || snap_.isVisible() != grid)
-    {
-        quantise_.setVisible(showsPianoRoll());
-        snap_.setVisible(grid);
-        grid_.setVisible(grid);
-        header_.resized();
-        header_.repaint();
-    }
+    quantise_.setVisible(showsPianoRoll());
+    snap_.setVisible(grid);
+    grid_.setVisible(grid);
+    header_.resized();
+    header_.repaint();
 }
 
 void DetailPanel::setClip(std::optional<model::ClipInfo> clip, const model::TempoMap& tempo)
@@ -1405,9 +1484,18 @@ void DetailPanel::resized()
     const auto& sh = ui::Theme::current().shell;
     auto r = getLocalBounds();
     header_.setBounds(r.removeFromTop(sh.panelHeaderHeight));
-    chain_.setBounds(r.reduced(sh.itemGap, 0).withTrimmedBottom(sh.itemGap));
     roll_.setBounds(r);
     audio_.setBounds(r);
+    if (mode_ == Mode::Editor && editor_ != nullptr)
+    {
+        // The module where it was, its editor below, lined up with the module panels.
+        chain_.setBounds(r.removeFromTop(DeviceChain::preferredHeight())
+                             .reduced(sh.itemGap, 0)
+                             .withTrimmedBottom(sh.itemGap));
+        editor_->setBounds(r.reduced(sh.itemGap + DeviceChain::gap, 0).withTrimmedBottom(DeviceChain::gap));
+        return;
+    }
+    chain_.setBounds(r.reduced(sh.itemGap, 0).withTrimmedBottom(sh.itemGap));
 }
 
 void DetailPanel::paint(juce::Graphics& g)

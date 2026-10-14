@@ -5,6 +5,7 @@
 #include "Formula.h"
 #include "TableFiles.h"
 #include "TableRecipe.h"
+#include "fd/audiofile/AudioFile.h"
 #include "fd/dsp/Math.h"
 
 #include <catch2/catch_approx.hpp>
@@ -320,4 +321,127 @@ TEST_CASE("table files: WAV with its frame size, and .wt, read back exactly", "[
         CHECK(same);
         std::filesystem::remove(path);
     }
+}
+
+TEST_CASE("table files: a table told from audio, audio read as mono", "[fast]")
+{
+    const auto dir = std::filesystem::temp_directory_path() / "fd-table-or-audio";
+    std::filesystem::create_directories(dir);
+    const auto table = factoryTable("formant/vowels");
+    REQUIRE(table != nullptr);
+    const auto tableWav = (dir / "table.wav").string(), tableWt = (dir / "table.wt").string();
+    REQUIRE(exportWav(*table, tableWav));
+    REQUIRE(exportWt(*table, tableWt));
+    CHECK(isTableFile(tableWav));
+    CHECK(isTableFile(tableWt));
+
+    // A second of a saw in stereo, no metadata: audio, read back mixed to mono.
+    const auto x = saw(220.0, 1.0);
+    const auto sound = (dir / "saw.wav").string();
+    REQUIRE(audiofile::writeWav(sound, {x, std::vector<float>(x.size(), 0.0f)}, sr));
+    CHECK_FALSE(isTableFile(sound));
+    const auto mono = readMono(sound);
+    REQUIRE(mono);
+    CHECK(mono->sampleRate == sr);
+    REQUIRE(mono->samples.size() == x.size());
+    CHECK(mono->samples[100] == Approx(x[100] * 0.5f).margin(1e-6));
+    // A single cycle is a table.
+    const auto cycle = (dir / "cycle.wav").string();
+    REQUIRE(audiofile::writeWav(cycle, {std::vector<float>(600, 0.25f)}, sr));
+    CHECK(isTableFile(cycle));
+    std::string error;
+    CHECK_FALSE(readMono((dir / "missing.wav").string(), &error));
+    CHECK_FALSE(error.empty());
+    for (const auto& path : {tableWav, tableWt, sound, cycle})
+        std::filesystem::remove(path);
+}
+
+TEST_CASE("audio to wavetable: a recipe of one Audio layer, named for where it came from", "[fast]")
+{
+    const auto x = saw(220.0, 1.0);
+    const auto frames = framesFromAudio(x.data(), static_cast<int>(x.size()), sr, AudioWay::Spectral, 16);
+    REQUIRE(frames);
+    const auto recipe = recipeFromAudio(*frames, AudioWay::Spectral, "Saw");
+    CHECK(recipe.name == "Saw");
+    CHECK(recipe.frames == 16);
+    REQUIRE(recipe.layers.size() == 1);
+    CHECK(recipe.layers[0].kind == Recipe::SourceKind::Audio);
+    CHECK(recipe.layers[0].sourceFrames() == 16);
+    CHECK(recipe.layers[0].note == "Spectral, 16 frames from Saw");
+    // Baked, its frames are the frames taken (normalised).
+    const auto baked = bake(recipe);
+    CHECK(sawErrorDb(baked.samples(5), 90) < -60.0);
+    CHECK(wayFromName("slices") == AudioWay::Slices);
+    CHECK_FALSE(wayFromName("Slices"));
+}
+
+TEST_CASE("recipe: new layers and keyframes as the editor adds them", "[fast]")
+{
+    using K = Recipe::SourceKind;
+    Recipe r;
+    r.frames = 32;
+    for (const auto kind : {K::Draw, K::Harmonics, K::Formula, K::Table})
+    {
+        r.layers = {newLayer(kind)};
+        const auto baked = bake(r);
+        float peak = 0.0f;
+        for (int i = 0; i < N; ++i)
+            peak = std::max(peak, std::abs(baked.samples(0)[i]));
+        CHECK(peak > 0.5f); // something to hear
+    }
+
+    // A harmonics keyframe added between two changes nothing.
+    auto harmonics = newLayer(K::Harmonics);
+    auto last = harmonics.keyframes[0];
+    last.frame = 31;
+    last.levels = std::vector<float>(Recipe::numHarmonicBars, 0.0f);
+    last.levels[2] = 1.0f;
+    last.phases[2] = 0.25f;
+    harmonics.keyframes.push_back(last);
+    for (const auto fill : {Recipe::Fill::Crossfade, Recipe::Fill::Spectral})
+    {
+        harmonics.fill = fill;
+        r.layers = {harmonics};
+        const auto before = bake(r);
+        auto added = harmonics;
+        added.keyframes.insert(added.keyframes.begin() + 1, newKeyframe(harmonics, 10, 32));
+        CHECK(added.keyframes[1].frame == 10);
+        r.layers = {added};
+        const auto after = bake(r);
+        double worst = 0.0;
+        for (int f = 0; f < 32; ++f)
+            for (int i = 0; i < N; ++i)
+                worst = std::max(worst,
+                                 static_cast<double>(std::abs(before.samples(f)[i] - after.samples(f)[i])));
+        CHECK(worst < 1e-3);
+    }
+    // A drawing's new keyframe starts as the one before it.
+    auto draw = newLayer(K::Draw);
+    draw.keyframes[0].frame = 4;
+    CHECK(newKeyframe(draw, 20, 32).points == draw.keyframes[0].points);
+    CHECK(newKeyframe(draw, 1, 32).points == draw.keyframes[0].points);
+    CHECK(drawnAt(draw.keyframes[0].points, 0.25) == Approx(1.0));
+    CHECK(drawnAt(draw.keyframes[0].points, 0.5) == Approx(0.0).margin(1e-6));
+}
+
+TEST_CASE("recipe: an image's rows as frames, its brightness the wave or the harmonics", "[fast]")
+{
+    // Two rows: dark to bright across, then all bright.
+    const int width = 16;
+    std::vector<float> pixels(static_cast<size_t>(2 * width));
+    for (int i = 0; i < width; ++i)
+    {
+        pixels[static_cast<size_t>(i)] = static_cast<float>(i) / (width - 1);
+        pixels[static_cast<size_t>(width + i)] = 1.0f;
+    }
+    const auto layer = imageLayer(pixels.data(), width, 2, false, "Ramp");
+    CHECK(layer.kind == Recipe::SourceKind::Image);
+    REQUIRE(layer.sourceFrames() == 2);
+    CHECK(layer.frames.front() == Approx(0.0f));
+    CHECK(layer.frames[N - 1] == Approx(1.0f));
+    CHECK(layer.frames[N + N / 2] == Approx(1.0f));
+    CHECK(layer.note == "Ramp");
+    // More rows than frames: 256 kept, from the top to the bottom.
+    std::vector<float> tall(static_cast<size_t>(300 * 4), 0.5f);
+    CHECK(imageLayer(tall.data(), 4, 300, true, "").sourceFrames() == 256);
 }

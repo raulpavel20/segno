@@ -24,6 +24,8 @@ const char* kindName(Kind k)
         return "plugin";
     case Kind::Sample:
         return "sample";
+    case Kind::Wavetable:
+        return "wavetable";
     case Kind::Midi:
         return "midi";
     case Kind::Project:
@@ -69,6 +71,8 @@ Json fileJson(engine::Session& s, const juce::File& file, Kind kind)
         if (f->tempo > 0.0)
             j["tempo"] = f->tempo;
     }
+    if (const auto* f = indexed(s, path(file)); f != nullptr && kind == Kind::Wavetable && f->frames > 0)
+        j["frames"] = f->frames;
     return j;
 }
 } // namespace

@@ -6,4 +6,4 @@ fd_add_test(NAME fd_wavetable_tests
     SOURCES tests/WavetableSynthTests.cpp tests/TableToolsTests.cpp
     LIBS fd_device_wavetable_dsp fd::testkit_device)
 
-fd_add_device_ui(ID wavetable SOURCES ui/WavetablePanel.cpp ui/WavetableUi.cpp)
+fd_add_device_ui(ID wavetable SOURCES ui/WavetablePanel.cpp ui/WavetableUi.cpp ui/TableEditor.cpp)

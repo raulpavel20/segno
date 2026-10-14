@@ -876,6 +876,8 @@ void BrowserPanel::addFolderRows(const juce::File& folder, int depth, bool segno
         if (const auto it = indexed.find(str(f));
             it != indexed.end() && r.kind == Kind::Sample && it->second->seconds > 0.0)
             r.caption = lengthText(it->second->seconds);
+        else if (it != indexed.end() && r.kind == Kind::Wavetable && it->second->frames > 0)
+            r.caption = juce::String(it->second->frames) + (it->second->frames == 1 ? " frame" : " frames");
         rows_.push_back(r);
     }
 }
@@ -1007,7 +1009,7 @@ void BrowserPanel::selectIndex(int index, bool previewIt)
 bool BrowserPanel::previewable(const Row& row) const
 {
     if (row.type == Row::Type::File)
-        return row.kind == Kind::Sample || row.kind == Kind::Midi;
+        return row.kind == Kind::Sample || row.kind == Kind::Wavetable || row.kind == Kind::Midi;
     if (row.type == Row::Type::Preset)
         if (const auto ref = browser::parse(row.item))
             if (const auto* f = findDevice(ref->key.substr(3)))
@@ -1019,6 +1021,8 @@ void BrowserPanel::preview(const Row& row)
 {
     if (row.type == Row::Type::File && row.kind == Kind::Sample)
         (void)session_.previewFile(row.file);
+    else if (row.type == Row::Type::File && row.kind == Kind::Wavetable)
+        (void)session_.previewWavetable(row.file); // on a held note (table-editor.md §7)
     else if (row.type == Row::Type::File && row.kind == Kind::Midi)
         (void)session_.previewMidiFile(row.file, selectedTrack ? selectedTrack().value_or(0) : 0);
     else if (const auto ref = browser::parse(row.item); ref && ref->kind == Kind::Preset)
@@ -1143,7 +1147,8 @@ juce::var BrowserPanel::dragDescription(const std::string& id) const
     const auto& row = rows_[static_cast<size_t>(i)];
     const bool puts = row.type == Row::Type::Module || row.type == Row::Type::Preset ||
                       row.type == Row::Type::Plugin ||
-                      (row.type == Row::Type::File && (row.kind == Kind::Sample || row.kind == Kind::Midi));
+                      (row.type == Row::Type::File &&
+                       (row.kind == Kind::Sample || row.kind == Kind::Wavetable || row.kind == Kind::Midi));
     return puts ? juce::var(juce::String(std::string(browser::dragPrefix)) + text(row.item)) : juce::var();
 }
 

@@ -174,6 +174,10 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
                              "load_sample",
                              "list_wavetables",
                              "set_wavetable",
+                             "make_wavetable",
+                             "get_wavetable",
+                             "edit_wavetable",
+                             "export_wavetable",
                              "set_module_view",
                              "get_grid",
                              "set_grid",
@@ -615,6 +619,101 @@ TEST_CASE("mcp tools: the Wavetable Synth's tables, listed and set by id or from
     CHECK(daw.call("get_module", {{"module", synth}})["page"] == "modulation");
     CHECK(daw.fails("set_module_view", {{"module", synth}, {"page", "nope"}}).find("oscillators") !=
           std::string::npos);
+}
+
+TEST_CASE(
+    "mcp tools: a wavetable made from audio, read and edited as a recipe, exported (table-editor.md §8)",
+    "[integration][mcp]")
+{
+    Daw daw;
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    const auto synth =
+        daw.call("add_module", {{"track", t0}, {"type", "wavetable"}})["id"].get<std::string>();
+
+    // An audio clip: two seconds of a 220 Hz saw.
+    juce::TemporaryFile wav(".wav");
+    fd::testkit::AudioBuffer saw(1, 96000);
+    for (int i = 0; i < saw.numSamples(); ++i)
+    {
+        double v = 0.0;
+        for (int h = 1; h <= 30; ++h)
+            v += std::sin(2.0 * 3.141592653589793 * h * 220.0 * i / 48000.0) / h;
+        saw.at(0, i) = static_cast<float>(0.4 * v);
+    }
+    REQUIRE(fd::testkit::writeWav(wav.getFile().getFullPathName().toStdString(), saw, 48000.0));
+    const auto clip = daw.call(
+        "insert_audio_file",
+        {{"track", t0}, {"start", 0}, {"path", wav.getFile().getFullPathName().toStdString()}})["clip"]["id"];
+
+    // Made from the clip's first beat, pitched: one undo step, the pitch found.
+    const auto made = daw.call("make_wavetable", {{"module", synth},
+                                                  {"oscillator", 1},
+                                                  {"clip", clip},
+                                                  {"to", 1.0},
+                                                  {"mode", "pitched"},
+                                                  {"frames", 16}});
+    CHECK(made["table"] == "user");
+    CHECK(made["frames"] == 16);
+    CHECK(std::abs(made["pitch"].get<double>() - 220.0) < 0.2);
+    CHECK(daw.session->undoDescription() == "Assistant: make wavetable");
+    CHECK(daw.fails("make_wavetable", {{"module", synth}, {"oscillator", 1}, {"mode", "pitched"}})
+              .find("either") != std::string::npos);
+
+    // Read as a recipe: one audio layer, its frames counted, not carried.
+    auto got = daw.call("get_wavetable", {{"module", synth}, {"oscillator", 1}});
+    CHECK(got["edited"] == true);
+    CHECK(got["frames"] == 16);
+    auto recipe = got["recipe"];
+    REQUIRE(recipe["layers"].size() == 1);
+    CHECK(recipe["layers"][0]["kind"] == "audio");
+    CHECK(recipe["layers"][0]["dataFrames"] == 16);
+    CHECK_FALSE(recipe["layers"][0].contains("data"));
+    CHECK(daw.call("get_wavetable",
+                   {{"module", synth}, {"oscillator", 1}, {"data", true}})["recipe"]["layers"][0]
+              .contains("data"));
+    // A factory table reads as the recipe the editor starts from.
+    const auto factory = daw.call("get_wavetable", {{"module", synth}, {"oscillator", 2}});
+    CHECK(factory["edited"] == false);
+    CHECK(factory["recipe"]["layers"][0]["kind"] == "table");
+
+    // Edited: a formula layer added and a change, the audio layer keeping its frames.
+    recipe["layers"].push_back({{"kind", "formula"},
+                                {"on", true},
+                                {"level", 0.5},
+                                {"fill", "crossfade"},
+                                {"formula", "sin(2*pi*x*(1+3*t))"}});
+    recipe["changes"].push_back({{"kind", "smooth"}, {"on", true}, {"amounts", {{0, 0.4}}}});
+    recipe["name"] = "Saw and sines";
+    const auto edited =
+        daw.call("edit_wavetable", {{"module", synth}, {"oscillator", 1}, {"recipe", recipe}});
+    CHECK(edited["name"] == "Saw and sines");
+    CHECK(daw.session->undoDescription() == "Assistant: edit wavetable");
+    got = daw.call("get_wavetable", {{"module", synth}, {"oscillator", 1}});
+    REQUIRE(got["recipe"]["layers"].size() == 2);
+    CHECK(got["recipe"]["layers"][0]["dataFrames"] == 16);
+    CHECK(got["recipe"]["changes"].size() == 1);
+    recipe["layers"][1]["formula"] = "sin(2*pi*x";
+    CHECK(daw.fails("edit_wavetable", {{"module", synth}, {"oscillator", 1}, {"recipe", recipe}})
+              .find("can't be used") != std::string::npos);
+    CHECK(daw.call("get_wavetable", {{"module", synth}, {"oscillator", 1}})["name"] == "Saw and sines");
+
+    // Exported: WAV with its frame size, or .wt; read back by set_wavetable.
+    const auto dir = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                         .getChildFile("fd-export-wavetable-" + juce::Uuid().toString());
+    REQUIRE(dir.createDirectory());
+    const auto steps = daw.session->undoDescription();
+    const auto out = daw.call("export_wavetable",
+                              {{"module", synth},
+                               {"oscillator", 1},
+                               {"path", dir.getChildFile("Saw and sines").getFullPathName().toStdString()},
+                               {"format", "wt"}});
+    CHECK(out["frames"] == 16);
+    CHECK(juce::File(out["path"].get<std::string>()).hasFileExtension("wt"));
+    CHECK(daw.session->undoDescription() == steps); // the project unchanged
+    const auto back =
+        daw.call("set_wavetable", {{"module", synth}, {"oscillator", 3}, {"path", out["path"]}});
+    CHECK(back["frames"] == 16);
+    dir.deleteRecursively();
 }
 
 TEST_CASE("mcp tools: each editor's grid, never an undo step (ADR 0047)", "[integration][mcp]")

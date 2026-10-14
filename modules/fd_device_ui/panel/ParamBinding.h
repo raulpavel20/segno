@@ -99,5 +99,15 @@ struct DeviceUiContext
     /// The module's own modulation (device-panels.md, "Modulation"), set by a panel that has
     /// one: its knobs show rings and take dragged sources. Null for most modules.
     ModulationModel* modulation = nullptr;
+    /// Shows the module's editor (ADR 0053) where the host has room for it: the DAW's detail
+    /// panel, under a plugin's panel. The host owns it until its Done, or until the module goes.
+    /// Empty where there's no room for one (snapshots, the gallery).
+    std::function<void(std::unique_ptr<ModuleEditor> editor)> showEditor;
+    /// Holds a note on the module (`velocity` 0 lets it go): an editor's Preview. Empty where the
+    /// host can't play one.
+    std::function<void(int note, float velocity)> playNote;
+    /// The user's Segno folder (Documents/Segno, or where the DAW's Settings put it), where a
+    /// module writes files of the user's (Export Wavetable…). Empty: Documents/Segno.
+    std::function<juce::File()> segnoFolder;
 };
 } // namespace fd::ui

@@ -12,6 +12,31 @@ namespace fd::devices::wavetable_ui
 {
 using W = WavetableSynth;
 
+/// The look the Wavetable's displays share: the panel's and the table editor's.
+namespace look
+{
+/// A display's well: flat, a step below the module's body.
+void paintWell(juce::Graphics& g, juce::Rectangle<float> r);
+/// A display's text and marks, from its well's edges.
+[[nodiscard]] float inset();
+/// A point dragged on a display (device-panels.md, "Display handle"), lit while `hot`.
+void paintHandle(juce::Graphics& g, juce::Point<float> at, bool hot);
+/// A cycle's samples as a line across `r`, its middle at the centre.
+[[nodiscard]] juce::Path cyclePath(const float* cycle, int size, juce::Rectangle<float> r, int points);
+} // namespace look
+
+/// Where the user's tables go: the Segno folder's Wavetables (docs/design/table-editor.md §7).
+[[nodiscard]] juce::File wavetablesFolder(const ui::DeviceUiContext& ctx);
+/// The files Import Wavetable… offers: tables and audio.
+inline constexpr const char* tableAndAudioFiles = "*.wav;*.wt;*.aif;*.aiff;*.flac;*.mp3";
+/// Puts the table in `file` on oscillator n through the host, one undo step; says why when it
+/// can't read it.
+bool loadTableFile(ui::DeviceUiContext& ctx, int n, const juce::File& file);
+/// Export Wavetable…: oscillator n's table as WAV (`clm `) or .wt, into Segno/Wavetables by
+/// default. `owner` keeps the chooser's answer from outliving the panel or editor that asked.
+void exportTable(juce::Component& owner, ui::DeviceUiContext& ctx, int n,
+                 std::unique_ptr<juce::FileChooser>& chooser);
+
 /// The synth's matrix (32 routes in its parameters) for rings, handles and dragged sources.
 class Modulation final : public ui::ModulationModel
 {
@@ -44,10 +69,20 @@ private:
 
 /// Oscillator n's table in 3D: its frames from front to back, the cycle it plays (Position, its
 /// warps) highlighted where it is, from the newest note while one plays. Dragged, it moves
-/// Position.
-class TableDisplay final : public juce::Component, public ui::ParamControl, public juce::SettableTooltipClient
+/// Position; double-clicked, it opens the table editor; a table or audio file dropped on it
+/// loads.
+class TableDisplay final : public juce::Component,
+                           public ui::ParamControl,
+                           public juce::SettableTooltipClient,
+                           public juce::FileDragAndDropTarget
 {
 public:
+    /// A double-click: edit the table.
+    std::function<void()> onEdit;
+    /// A file dropped on it.
+    std::function<void(const juce::File&)> onFile;
+    bool isInterestedInFileDrag(const juce::StringArray& files) override;
+    void filesDropped(const juce::StringArray& files, int x, int y) override;
     explicit TableDisplay(ui::DeviceUiContext& context);
     void setOscillator(int n);
     void refresh() override;
@@ -90,15 +125,24 @@ public:
     /// Puts factory table `id` on the oscillator, through the host.
     void choose(std::string_view id);
     [[nodiscard]] juce::ComboBox& field() noexcept { return field_; }
+    /// Its menu's Edit… (shown when set): edit the table.
+    std::function<void()> onEdit;
+    /// Its menu's Import…: a table or audio (the panel's Import Wavetable…; without it, tables
+    /// only).
+    std::function<void()> onImport;
+    /// Shows Edit… in its menu.
+    void setEditable(bool editable);
 
 private:
     void importFile();
+    void rebuildMenu();
 
     ui::DeviceUiContext& ctx_;
     int osc_ = 0;
     ui::IconButton previous_{ui::Icon::ChevronLeft}, next_{ui::Icon::ChevronRight};
     juce::ComboBox field_;
     std::string shownId_, shownName_;
+    bool editable_ = false;
     std::unique_ptr<juce::FileChooser> chooser_;
 };
 

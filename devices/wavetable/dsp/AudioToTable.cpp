@@ -4,6 +4,7 @@
 #include "fd/dsp/Wavetable.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <complex>
 
@@ -219,5 +220,53 @@ std::optional<AudioFrames> framesFromAudio(const float* audio, int length, doubl
         out.samples.insert(out.samples.end(), frame.begin(), frame.end());
     }
     return out;
+}
+
+const char* wayName(AudioWay way) noexcept
+{
+    switch (way)
+    {
+    case AudioWay::Pitched:
+        return "Pitched";
+    case AudioWay::Spectral:
+        return "Spectral";
+    case AudioWay::Slices:
+        return "Slices";
+    }
+    return "Pitched";
+}
+
+std::optional<AudioWay> wayFromName(const std::string& name) noexcept
+{
+    for (const auto way : {AudioWay::Pitched, AudioWay::Spectral, AudioWay::Slices})
+    {
+        std::string lower = wayName(way);
+        std::transform(lower.begin(), lower.end(), lower.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        if (name == lower)
+            return way;
+    }
+    return std::nullopt;
+}
+
+Recipe::Layer audioLayer(const AudioFrames& frames, AudioWay way, const std::string& from)
+{
+    Recipe::Layer layer;
+    layer.kind = Recipe::SourceKind::Audio;
+    // Frames taken by pitch move best by their harmonics; slices are as they are.
+    layer.fill = way == AudioWay::Slices ? Recipe::Fill::Crossfade : Recipe::Fill::Spectral;
+    layer.frames = frames.samples;
+    layer.note = std::string(wayName(way)) + ", " + std::to_string(frames.count) +
+                 (frames.count == 1 ? " frame" : " frames") + (from.empty() ? "" : " from " + from);
+    return layer;
+}
+
+Recipe recipeFromAudio(const AudioFrames& frames, AudioWay way, const std::string& from)
+{
+    Recipe r;
+    r.name = from.empty() ? "From audio" : from;
+    r.frames = std::clamp(frames.count, 1, Recipe::maxFrames);
+    r.layers.push_back(audioLayer(frames, way, from));
+    return r;
 }
 } // namespace fd::devices::wavetable

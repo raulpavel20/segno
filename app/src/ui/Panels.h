@@ -240,8 +240,14 @@ class DetailPanel final : public juce::Component
 public:
     DetailPanel(engine::Session& session, const ActionRegistry& actions);
 
-    enum class Mode { Devices, Clip };
-    /// Clip is ignored while the clip view isn't available.
+    /// Modules, Clip, and a module's editor while one is open (ADR 0053).
+    enum class Mode
+    {
+        Devices,
+        Clip,
+        Editor
+    };
+    /// Clip is ignored while the clip view isn't available, Editor while no editor is open.
     void setMode(Mode m);
     /// The arrangement: Modules and Clip tabs. The mixer view: modules only, no tabs.
     void setClipViewAvailable(bool available);
@@ -258,6 +264,16 @@ public:
     /// True while it's showing an audio clip.
     [[nodiscard]] bool showsAudioClip() const noexcept { return mode_ == Mode::Clip && audio_.clip().has_value(); }
     [[nodiscard]] DeviceChain& chain() noexcept { return chain_; }
+    /// A module's editor (ADR 0053): a view of its own, below the module, its tab named for what
+    /// it edits. Replaces one open before; its Done, or the module going, closes it.
+    void showEditor(std::uint64_t module, std::unique_ptr<ui::ModuleEditor> editor);
+    void closeEditor();
+    [[nodiscard]] ui::ModuleEditor* editor() const noexcept { return editor_.get(); }
+    [[nodiscard]] std::uint64_t editorModule() const noexcept { return editorModule_; }
+    /// An editor opened or closed: the shell sizes the panel for it.
+    std::function<void()> onEditorChanged;
+    /// Asks the shell for `mode` (a tab, an editor asking to be seen).
+    void chooseMode(Mode mode);
     /// Shows the module view with `id` selected.
     void selectModule(std::uint64_t id);
     [[nodiscard]] PianoRoll& pianoRoll() noexcept { return roll_; }
@@ -271,8 +287,11 @@ public:
 private:
     void updateVisibility();
     void updateHeader();
+    /// Modules, Clip where it's available, the editor's while one is open.
+    void updateTabs();
 
     ui::PanelHeader header_;
+    std::vector<Mode> tabModes_; // what each tab shows
     const ActionRegistry& actions_;
     /// Quantise, in the clip view's header while it shows a clip (menu-bar.md §15).
     ui::Toggle quantise_{"Quantise"};
@@ -285,5 +304,7 @@ private:
     DeviceChain chain_;
     PianoRoll roll_;
     AudioClipView audio_;
+    std::unique_ptr<ui::ModuleEditor> editor_;
+    std::uint64_t editorModule_ = 0;
 };
 } // namespace fd::app

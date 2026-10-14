@@ -42,6 +42,7 @@ void Session::Impl::updateBrowserPlaces()
     else if (unsavedFolder)
         add(*unsavedFolder);
     (void)segnoFolder.getChildFile("Samples").createDirectory(); // your own sounds (§9)
+    (void)segnoFolder.getChildFile("Wavetables").createDirectory(); // your tables (table-editor.md §7)
     add(segnoFolder);
     for (const auto& p : browserPlaces)
         add(fileOf(p));

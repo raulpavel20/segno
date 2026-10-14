@@ -110,4 +110,23 @@ struct Recipe
 
 /// The text of a Formula source that fails to parse (empty when it's fine).
 [[nodiscard]] std::string formulaError(const std::string& text);
+
+/// A new layer of `kind` as the editor adds it: a drawn triangle or a sine's harmonic on one
+/// keyframe at the first frame, a sine's formula, the default factory table; Audio and Image
+/// come from their own functions.
+[[nodiscard]] Recipe::Layer newLayer(Recipe::SourceKind kind);
+
+/// A keyframe to add to a Draw or Harmonics layer at `frame` (of `count`): for harmonics, the
+/// layer's own frame there, so adding it changes nothing; for a drawing, the drawing before it
+/// (the first one, before the first).
+[[nodiscard]] Recipe::Keyframe newKeyframe(const Recipe::Layer& layer, int frame, int count);
+
+/// A Draw keyframe's wave at `x` (0–1): straight or bent between its points, held past the ends.
+/// What the bake plays and what the editor draws.
+[[nodiscard]] double drawnAt(const std::vector<std::array<float, 3>>& points, double x);
+
+/// An Image layer from an image's brightness (0–1, `width` × `height`, row by row from the top):
+/// each row a frame (at most 256, spread through the image), resampled to a frame's length.
+[[nodiscard]] Recipe::Layer imageLayer(const float* brightness, int width, int height, bool asHarmonics,
+                                       const std::string& from);
 } // namespace fd::devices::wavetable

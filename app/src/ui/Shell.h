@@ -197,9 +197,19 @@ private:
     /// The selection or the project changed: the context panels follow the subject, per view
     /// (docs/design/selection.md).
     void selectionChanged();
-    /// The detail panel's mode for the current view: the arrangement's (Modules or Clip), or
-    /// Modules in the mixer view.
+    /// The detail panel's mode for the current view: the arrangement's (Modules, Clip or a
+    /// module's editor); in the mixer view, Modules or the editor.
     void applyDetailMode();
+    /// The detail panel's height in its mode: the module view's, the clip view's, or the module
+    /// view's with the editor's below it.
+    [[nodiscard]] float detailHeight() const;
+    /// The least the editor's view takes below the module view.
+    [[nodiscard]] float minimumEditorView() const;
+    /// Clip > Make wavetable (docs/design/table-editor.md §5): the selected audio clip into the
+    /// selected Wavetable's editor, or a new MIDI track's.
+    void makeWavetable();
+    /// The selected module, if it's a `deviceId`.
+    [[nodiscard]] ui::DevicePanel* selectedModule(std::string_view deviceId);
     void setMixerShown(bool shown);
     void toggle(Panel& p);
     [[nodiscard]] std::optional<model::TrackInfo> selectedTrackInfo() const;
@@ -227,8 +237,9 @@ private:
     SettingsView settingsView_{session_, actions_};
     bool settingsShown_ = false; // Settings in the centre, over whichever view was there
     Splitter browserSplit_, inspectorSplit_;
-    Splitter detailSplit_{true}; // the clip view's top edge
+    Splitter detailSplit_{true};                              // the clip view's and the editor's top edge
     float deviceViewHeight_ = 0.0f, clipViewHeight_ = 320.0f; // the detail panel's height per mode
+    float editorViewHeight_ = 0.0f; // a module editor's, below the module view (ADR 0053); 0: its least
     // The arrangement's detail mode: picked when the subject changes, then Tab's (selection.md §4).
     DetailPanel::Mode arrangeMode_ = DetailPanel::Mode::Devices;
     std::optional<model::PanelContext::Key> subject_;

@@ -44,6 +44,13 @@ public:
     void turnSelectedPage(int delta);
     /// Called when the chain is clicked (the shell routes Delete to the area used last).
     std::function<void()> onActivated;
+    /// A module asks to show its editor (ADR 0053): the detail panel takes it.
+    std::function<void(std::uint64_t module, std::unique_ptr<ui::ModuleEditor> editor)> onShowEditor;
+    /// A module's panel is about to go (the module removed, another track shown): its editor
+    /// closes first, while the module's context is still there.
+    std::function<void(std::uint64_t module)> onModuleGone;
+    /// The chain's height in the detail panel: a module panel, its margins and the scrollbar.
+    [[nodiscard]] static int preferredHeight();
     /// Something from the browser dropped (browser.md §10): at `index` in the chain, or onto a
     /// module it lands on (a preset of its kind, a sample on a Sampler).
     std::function<void(const std::string& item, std::uint64_t track, int index,

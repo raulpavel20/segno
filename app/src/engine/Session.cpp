@@ -1,14 +1,13 @@
-#include "engine/SessionImpl.h"
-
 #include "engine/ClipFades.h"
 #include "engine/DevicePlugin.h"
 #include "engine/EngineBehaviour.h"
+#include "engine/SessionImpl.h"
 #include "model/NoteEditing.h"
 #include "model/TrackEdits.h"
 
-#include <fd/device/Registry.h>
-
 #include <atomic>
+#include <fd/audiofile/AudioFile.h>
+#include <fd/device/Registry.h>
 
 namespace fd::engine
 {
@@ -134,6 +133,17 @@ public:
           context_{plugin.device().info(), binding_,    &plugin.device().analysis(),
                    &plugin.device(),       &sidechain_, presets_.get()}
     {
+        // An editor's Preview (ADR 0053): a note held on the module's track, live, as the
+        // browser's previews play.
+        context_.playNote = [this](int note, float velocity)
+        {
+            if (auto* track = dynamic_cast<te::AudioTrack*>(plugin_->getOwnerTrack()))
+                track->injectLiveMidiMessage(
+                    velocity > 0.0f ? juce::MidiMessage::noteOn(1, juce::jlimit(0, 127, note), velocity)
+                                    : juce::MidiMessage::noteOff(1, juce::jlimit(0, 127, note)),
+                    {});
+        };
+        context_.segnoFolder = [&session] { return session.segnoFolder(); };
     }
     ui::DeviceUiContext& context() override { return context_; }
     std::string_view deviceId() const override { return native_.device().info().id; }
@@ -1100,6 +1110,39 @@ void Session::computerKeyboardNote(int note, float velocity)
                 impl_->tap.pushKeyboard(message); // Capture MIDI hears it, whatever it plays
                 keyboard->handleIncomingMidiMessage(message, te::MPESourceID{1});
             }
+}
+
+std::optional<Session::ClipSound> Session::clipSound(std::uint64_t clipId, std::optional<double> from,
+                                                     std::optional<double> to) const
+{
+    const auto snapshot = this->snapshot();
+    const model::ClipInfo* clip = nullptr;
+    for (const auto& t : snapshot->tracks)
+        for (const auto& c : t.clips)
+            if (c.id == clipId)
+                clip = &c;
+    if (clip == nullptr || clip->kind != model::ClipInfo::Kind::Audio || clip->sourcePath.empty())
+        return std::nullopt;
+    const auto audio = audiofile::decode(clip->sourcePath);
+    if (!audio || audio->numFrames() < 2 || audio->sampleRate <= 0.0)
+        return std::nullopt;
+    // The stretch of the source the clip plays, once.
+    const double start = std::clamp(from.value_or(clip->start), clip->start, clip->end());
+    const double end = std::clamp(to.value_or(clip->end()), start, clip->end());
+    const auto first = static_cast<int>(std::floor((clip->offset + start - clip->start) * audio->sampleRate));
+    const auto last = static_cast<int>(std::ceil((clip->offset + end - clip->start) * audio->sampleRate));
+    const int a = std::clamp(first, 0, audio->numFrames()), b = std::clamp(last, a, audio->numFrames());
+    if (b - a < 2)
+        return std::nullopt;
+    ClipSound out;
+    out.sampleRate = audio->sampleRate;
+    out.name = clip->name;
+    out.samples.assign(static_cast<size_t>(b - a), 0.0f);
+    for (const auto& ch : audio->channels)
+        for (int i = a; i < b; ++i)
+            out.samples[static_cast<size_t>(i - a)] +=
+                ch[static_cast<size_t>(i)] / static_cast<float>(audio->numChannels());
+    return out;
 }
 
 std::uint64_t Session::insertAudioFile(std::uint64_t trackId, const juce::File& file, double seconds)

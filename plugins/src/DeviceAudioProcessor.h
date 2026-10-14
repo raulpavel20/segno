@@ -1,12 +1,12 @@
 #pragma once
 
+#include <array>
+#include <atomic>
 #include <fd/device/Device.h>
 #include <fd/device/Registry.h>
 #include <fd_device_ui/fd_device_ui.h>
 #include <fd_host_juce/fd_host_juce.h>
 #include <juce_audio_processors/juce_audio_processors.h>
-
-#include <atomic>
 
 namespace fd::plugin
 {
@@ -76,6 +76,11 @@ public:
     /// tells the host. Message thread; also polled by a timer.
     void updateLatency();
 
+    /// A note held on the device from its editor (an editor's Preview, ADR 0053), velocity 0 to
+    /// let it go: played from the next block on, beside the host's MIDI. Message thread; the
+    /// audio thread takes it without locking.
+    void playNote(int note, float velocity);
+
 private:
     class Presets;
     friend class Presets;
@@ -91,6 +96,10 @@ private:
     std::vector<juce::RangedAudioParameter*> params_; // owned by AudioProcessor
     std::vector<size_t> latencyParams_;               // ParamFlags::ChangesLatency (ADR 0020)
     EventList events_;
+    // Notes from the editor, waiting for the audio thread (one writer, one reader).
+    static constexpr int kQueuedNotes = 32;
+    juce::AbstractFifo noteFifo_{kQueuedNotes};
+    std::array<Event, kQueuedNotes> notes_{};
     std::vector<float*> channelPtrs_, sidechainPtrs_;
     std::atomic<bool> sidechainExternal_{false};
     mutable juce::CriticalSection viewLock_; // state calls can come from any thread
@@ -115,12 +124,17 @@ public:
     [[nodiscard]] ui::DevicePanel& panel() noexcept { return *panel_; }
     /// How tall it is beside the panel while the preset list needs room below the header.
     [[nodiscard]] int popoverRoom() const noexcept { return popoverRoom_; }
+    /// The module's editor while it's open (ADR 0053): under the panel, the window grown for it.
+    [[nodiscard]] ui::ModuleEditor* moduleEditor() const noexcept { return moduleEditor_.get(); }
+    [[nodiscard]] const ui::PanelHeader& editorHeader() const noexcept { return editorHeader_; }
+    void closeModuleEditor();
 
 private:
     class Binding;
     class Sidechain;
-    void handleAsyncUpdate() override; // resize to the panel
+    void handleAsyncUpdate() override;                              // resize to the panel (and the editor)
     void changeListenerCallback(juce::ChangeBroadcaster*) override; // a state load brought a view
+    void showModuleEditor(std::unique_ptr<ui::ModuleEditor> editor);
 
     DeviceAudioProcessor& processor_;
     ui::LookAndFeel lnf_;
@@ -130,5 +144,7 @@ private:
     std::unique_ptr<ui::DevicePanel> panel_;
     juce::Viewport viewport_;
     int popoverRoom_ = 0; // px below the header the preset list asked for (0: none)
+    ui::PanelHeader editorHeader_;
+    std::unique_ptr<ui::ModuleEditor> moduleEditor_;
 };
 } // namespace fd::plugin

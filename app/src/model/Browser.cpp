@@ -49,9 +49,9 @@ int matchIn(const std::string& text, const std::string& word)
     return best;
 }
 
-constexpr BrowserKind kKinds[] = {BrowserKind::Module, BrowserKind::Preset, BrowserKind::Plugin,
-                                  BrowserKind::Sample, BrowserKind::Midi,   BrowserKind::Project,
-                                  BrowserKind::Folder};
+constexpr BrowserKind kKinds[] = {BrowserKind::Module,  BrowserKind::Preset,    BrowserKind::Plugin,
+                                  BrowserKind::Sample,  BrowserKind::Wavetable, BrowserKind::Midi,
+                                  BrowserKind::Project, BrowserKind::Folder};
 
 const char* kindKey(BrowserKind k)
 {
@@ -65,6 +65,8 @@ const char* kindKey(BrowserKind k)
         return "plugin";
     case BrowserKind::Sample:
         return "sample";
+    case BrowserKind::Wavetable:
+        return "wavetable";
     case BrowserKind::Midi:
         return "midi";
     case BrowserKind::Project:
@@ -94,6 +96,8 @@ std::string groupTitle(BrowserKind kind)
         return "PLUGINS";
     case BrowserKind::Sample:
         return "SAMPLES";
+    case BrowserKind::Wavetable:
+        return "WAVETABLES";
     case BrowserKind::Midi:
         return "MIDI FILES";
     case BrowserKind::Project:
@@ -116,6 +120,8 @@ std::string kindPlural(BrowserKind kind)
         return "plugins";
     case BrowserKind::Sample:
         return "samples";
+    case BrowserKind::Wavetable:
+        return "wavetables";
     case BrowserKind::Midi:
         return "MIDI files";
     case BrowserKind::Project:
@@ -133,9 +139,20 @@ std::optional<BrowserKind> fileKind(std::string_view path)
     if (dot == std::string_view::npos || (slash != std::string_view::npos && dot < slash))
         return std::nullopt;
     const auto ext = lower(path.substr(dot + 1));
+    if (ext == "wt")
+        return BrowserKind::Wavetable;
     for (const auto* e : {"wav", "wave", "aif", "aiff", "flac", "ogg", "mp3"})
         if (ext == e)
+        {
+            // In a folder named Wavetables (Segno's own, or yours): tables.
+            const auto folders = lower(path.substr(0, slash == std::string_view::npos ? 0 : slash + 1));
+            for (auto at = folders.find("wavetables"); at != std::string::npos;
+                 at = folders.find("wavetables", at + 1))
+                if ((at == 0 || folders[at - 1] == '/' || folders[at - 1] == '\\') &&
+                    (folders[at + 10] == '/' || folders[at + 10] == '\\'))
+                    return BrowserKind::Wavetable;
             return BrowserKind::Sample;
+        }
     if (ext == "mid" || ext == "midi")
         return BrowserKind::Midi;
     if (ext == "segno")
@@ -199,6 +216,8 @@ std::string toJson(const BrowserIndexFile& index)
                 if (f.tempo > 0.0)
                     j["tempo"] = f.tempo;
             }
+            if (f.kind == BrowserKind::Wavetable && f.frames > 0)
+                j["frames"] = f.frames;
             list.push_back(std::move(j));
         }
         places[place] = std::move(list);
@@ -233,6 +252,7 @@ BrowserIndexFile browserIndexFromJson(const std::string& json)
             file.sampleRate = f.value("rate", 0.0);
             file.channels = f.value("channels", 0);
             file.tempo = f.value("tempo", 0.0);
+            file.frames = f.value("frames", 0);
             files.push_back(std::move(file));
         }
     }

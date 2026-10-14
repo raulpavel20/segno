@@ -1,5 +1,7 @@
 #include "WavetablePanel.h"
 
+#include "TableEditor.h"
+#include "TableFiles.h"
 #include "WavetableUi.h"
 
 namespace fd::devices
@@ -42,6 +44,18 @@ public:
         source_ = &addSection("osc", "Osc 1", 8, W::osc(0, W::OscOn));
         tableDisplay_ = &own(std::make_unique<TableDisplay>(ctx));
         tablePicker_ = &own(std::make_unique<TablePicker>(ctx));
+        // The table editor (docs/design/table-editor.md), where the host has room for it.
+        if (ctx.showEditor)
+        {
+            tableDisplay_->onEdit = [this] { openEditor(); };
+            tableDisplay_->setTooltip(
+                "The oscillator's table, front to back: drag up and down to move through "
+                "it (Position), double-click to edit it");
+            tablePicker_->onEdit = [this] { openEditor(); };
+            tablePicker_->setEditable(true);
+        }
+        tableDisplay_->onFile = [this](const juce::File& file) { openFile(file); };
+        tablePicker_->onImport = [this] { importFile(); };
         subWave_ = &own(std::make_unique<SourceWave>(ctx, false));
         noiseWave_ = &own(std::make_unique<SourceWave>(ctx, true));
         warp_ = &addSection("warp", "Warp", 4);
@@ -126,6 +140,58 @@ public:
             context().modulation = nullptr;
     }
 
+    // ---- the table editor and the table's files (docs/design/table-editor.md §8) ----
+
+    bool performCommand(std::string_view id) override
+    {
+        if (id == "table.edit")
+            return openEditor() != nullptr;
+        if (id == "table.import")
+        {
+            importFile();
+            return true;
+        }
+        if (id == "table.export")
+        {
+            exportTable(*this, context(), osc_, chooser_);
+            return true;
+        }
+        return false;
+    }
+
+    bool takeFile(const juce::File& file) override
+    {
+        openFile(file);
+        return true;
+    }
+
+    bool takeAudio(std::vector<float> mono, double sampleRate, juce::String name) override
+    {
+        auto* editor = openEditor();
+        if (editor == nullptr)
+            return false;
+        editor->takeAudio(std::move(mono), sampleRate, std::move(name));
+        return true;
+    }
+
+    /// The editor open on the oscillator OSC shows (or showed last), opened where the host has
+    /// room; null where it has none.
+    TableEditor* openEditor()
+    {
+        if (editor_ != nullptr)
+        {
+            editor_->setOscillator(osc_);
+            editor_->requestShow();
+            return editor_.getComponent();
+        }
+        if (!context().showEditor)
+            return nullptr;
+        auto editor = std::make_unique<TableEditor>(context(), osc_);
+        editor_ = editor.get();
+        context().showEditor(std::move(editor));
+        return editor_.getComponent();
+    }
+
     bool showParameter(size_t param) override
     {
         // Select what shows it, then turn to its page.
@@ -177,6 +243,9 @@ private:
         source_->setPowerParam(onParam(s));
         if (s < W::numOscs)
         {
+            osc_ = s;
+            if (editor_ != nullptr)
+                editor_->setOscillator(s);
             const auto p = [s](W::OscParam q) { return W::osc(s, q); };
             source_->setSectionTitle("Osc " + juce::String(s + 1));
             tableDisplay_->setOscillator(s);
@@ -331,6 +400,29 @@ private:
         resized();
     }
 
+    /// Import Wavetable…: a table loads on the oscillator; audio opens the editor's way chooser.
+    void importFile()
+    {
+        chooser_ = std::make_unique<juce::FileChooser>("Import a wavetable", wavetablesFolder(context()),
+                                                       tableAndAudioFiles);
+        juce::Component::SafePointer<WavetablePanel> self(this);
+        chooser_->launchAsync(juce::FileBrowserComponent::openMode |
+                                  juce::FileBrowserComponent::canSelectFiles,
+                              [self](const juce::FileChooser& chooser)
+                              {
+                                  if (self != nullptr && chooser.getResult() != juce::File())
+                                      self->openFile(chooser.getResult());
+                              });
+    }
+
+    void openFile(const juce::File& file)
+    {
+        if (wavetable::isTableFile(file.getFullPathName().toStdString()))
+            loadTableFile(context(), osc_, file);
+        else if (auto* editor = openEditor())
+            editor->openFile(file);
+    }
+
     /// A macro's name, typed over its knob's name.
     void rename(ui::ParamKnob& knob, int n)
     {
@@ -384,6 +476,9 @@ private:
     std::array<ui::ParamKnob*, W::numMacros> macroKnobs_{};
     ui::Meter meter_{1};
     ui::NameEditor renamer_{*this};
+    int osc_ = 0; // the oscillator OSC shows, or showed last
+    juce::Component::SafePointer<TableEditor> editor_;
+    std::unique_ptr<juce::FileChooser> chooser_;
     juce::VBlankAttachment vblank_{this, [this] { tick(); }};
 };
 } // namespace

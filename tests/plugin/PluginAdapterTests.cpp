@@ -3,12 +3,12 @@
 
 #include "Compressor.h"
 #include "DeviceAudioProcessor.h"
-
-#include <juce_audio_processors/juce_audio_processors.h>
+#include "Utility.h"
+#include "WavetableSynth.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
-
+#include <juce_audio_processors/juce_audio_processors.h>
 #include <memory>
 #include <random>
 
@@ -292,4 +292,125 @@ TEST_CASE(
 
     REQUIRE(host.library().remove(info, *host.library().find(info, key),
                                   [](const std::filesystem::path& f) { return std::filesystem::remove(f); }));
+}
+
+namespace
+{
+/// A module editor of a stub module (ADR 0053): two panes, its Preview a held note.
+class StubEditor final : public fd::ui::ModuleEditor
+{
+public:
+    explicit StubEditor(fd::ui::DeviceUiContext& context) : context_(context)
+    {
+        setMinimumRows(6);
+        addPane("One", 4);
+        addPane({}, 0, 4);
+        preview_.setSize(fd::ui::Toggle::widthFor(preview_.getButtonText()), 20);
+        preview_.onClick = [this] { context_.playNote(60, preview_.getToggleState() ? 0.8f : 0.0f); };
+        addCommand(preview_);
+    }
+    juce::String tabName() const override { return "Stub"; }
+    juce::String title() const override { return "Something to edit"; }
+    fd::ui::Toggle preview_{"Preview"};
+
+private:
+    fd::ui::DeviceUiContext& context_;
+};
+
+class StubPanel final : public fd::ui::DevicePanel
+{
+public:
+    explicit StubPanel(fd::ui::DeviceUiContext& context) : DevicePanel(context)
+    {
+        addSection("main", "Main", 2);
+    }
+    bool performCommand(std::string_view id) override
+    {
+        if (id != "edit" || !context().showEditor)
+            return false;
+        context().showEditor(std::make_unique<StubEditor>(context()));
+        return true;
+    }
+};
+
+const fd::ui::PanelFactory& stubPanel()
+{
+    static const fd::ui::PanelFactory factory{
+        .deviceId = "utility",
+        .create = [](fd::ui::DeviceUiContext& ctx) -> std::unique_ptr<fd::ui::DevicePanel>
+        { return std::make_unique<StubPanel>(ctx); }};
+    return factory;
+}
+} // namespace
+
+TEST_CASE("plugin: a module's editor opens under the panel, the window grown for it, Done shrinks it back "
+          "(ADR 0053)",
+          "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI juce;
+    fd::plugin::DeviceAudioProcessor processor(fd::devices::utilityFactory(), &stubPanel());
+    std::unique_ptr<juce::AudioProcessorEditor> owner(processor.createEditor());
+    auto* editor = dynamic_cast<fd::plugin::DeviceEditor*>(owner.get());
+    REQUIRE(editor != nullptr);
+    const int height = editor->getHeight(), width = editor->getWidth();
+
+    REQUIRE(editor->panel().performCommand("edit"));
+    editor->handleUpdateNowIfNeeded(); // the deferred resize
+    auto* module = editor->moduleEditor();
+    REQUIRE(module != nullptr);
+    const auto& t = fd::ui::Theme::current();
+    CHECK(editor->getHeight() == height + t.shell.panelHeaderHeight + module->minimumHeight() + 8);
+    CHECK(editor->getWidth() == std::max(width, module->minimumWidth() + 16));
+    // Below the panel, the header above it, nothing touching.
+    CHECK(module->getBottom() == editor->getHeight() - 8);
+    CHECK(module->getHeight() == module->minimumHeight());
+    CHECK(editor->editorHeader().getBottom() == module->getY());
+    CHECK(editor->editorHeader().getY() >= t.devicePanelHeight + 8);
+    // Its commands in its header, Done last.
+    const auto commands = module->commands();
+    REQUIRE(commands.size() == 2);
+    CHECK(commands[0]->getParentComponent() == &editor->editorHeader());
+    CHECK(commands[1]->getParentComponent() == &editor->editorHeader());
+    CHECK(commands[0]->getRight() < commands[1]->getX());
+
+    // Done: closed, the window back to the panel.
+    REQUIRE(module->onDone);
+    module->onDone(); // what Done's click does
+    editor->handleUpdateNowIfNeeded();
+    CHECK(editor->moduleEditor() == nullptr);
+    CHECK(editor->getHeight() == height);
+    CHECK(editor->getWidth() == width);
+    owner.reset();
+}
+
+TEST_CASE("plugin: an editor's note reaches the device at the next block, beside the host's MIDI", "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI juce;
+    fd::plugin::DeviceAudioProcessor processor(fd::devices::wavetableFactory(), nullptr);
+    processor.prepareToPlay(48000.0, 256);
+    juce::AudioBuffer<float> buffer(2, 256);
+    juce::MidiBuffer midi;
+    const auto loudness = [&]
+    {
+        float peak = 0.0f;
+        for (int i = 0; i < 20; ++i)
+        {
+            buffer.clear();
+            processor.processBlock(buffer, midi);
+            peak = std::max(peak, buffer.getMagnitude(0, 0, 256));
+        }
+        return peak;
+    };
+    CHECK(loudness() == 0.0f);
+    processor.playNote(48, 0.8f); // Preview's held note
+    CHECK(loudness() > 0.01f);
+    processor.playNote(48, 0.0f);
+    for (int i = 0; i < 400; ++i) // its release
+        processor.processBlock(buffer, midi);
+    CHECK(loudness() < 1e-4f);
+    // A full queue drops what doesn't fit rather than wait.
+    for (int i = 0; i < 100; ++i)
+        processor.playNote(48, i % 2 == 0 ? 0.5f : 0.0f);
+    loudness();
+    processor.releaseResources();
 }

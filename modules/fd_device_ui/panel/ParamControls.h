@@ -103,8 +103,24 @@ private:
 /// Lays out segmented buttons on the grid's own gaps, `columns` a row (ParamSegmented, Selector).
 void layoutSegments(const juce::OwnedArray<Toggle>& buttons, int columns, juce::Rectangle<int> area);
 
+/// Flat dropdown in the module look, not bound to a parameter (an editor's setting, ADR 0053),
+/// optionally with its name inside before its choice ("Fill  Spectral"), as a bar shows its name.
+class ChoiceBox : public juce::ComboBox
+{
+public:
+    /// Shows `name` inside, before the choice (empty: none).
+    void setInlineName(juce::String name);
+    /// The name it shows inside (empty without).
+    [[nodiscard]] juce::String inlineName() const { return inlineName_; }
+    void paintOverChildren(juce::Graphics& g) override;
+    void resized() override;
+
+private:
+    juce::String inlineName_;
+};
+
 /// Flat dropdown for a Choice parameter.
-class ParamComboBox final : public juce::ComboBox, public ParamControl
+class ParamComboBox final : public ChoiceBox, public ParamControl
 {
 public:
     ParamComboBox(DeviceUiContext& context, size_t paramIndex);
@@ -125,16 +141,12 @@ public:
     /// Shows its parameter's short name inside, before its choice ("Mode  Super"), where nothing
     /// else names it (device-panels.md, "Controls on the grid").
     void setInlineName(bool shown);
-    /// The name it shows inside (empty without).
-    [[nodiscard]] juce::String inlineName() const;
-    void resized() override;
 
 private:
     DeviceUiContext& context_;
     size_t index_;
     AutomationState automation_ = AutomationState::None;
     std::function<juce::String(int)> menuText_;
-    bool inlineName_ = false;
 };
 
 /// The delay a module adds, at the header's right end while it adds one: "+107 ms" in the

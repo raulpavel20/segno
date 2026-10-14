@@ -169,6 +169,14 @@ void PanelHeader::addCommand(juce::Component& command)
     resized();
 }
 
+void PanelHeader::removeCommand(juce::Component& command)
+{
+    std::erase(commands_, &command);
+    removeChildComponent(&command);
+    resized();
+    repaint();
+}
+
 void PanelHeader::resized()
 {
     // Right to left, `itemGap` apart. The last one's label ends at the padding, where a caption

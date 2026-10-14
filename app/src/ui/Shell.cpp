@@ -182,17 +182,26 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         };
     }
 
-    // The module panel, the chain's margins and scrollbar (24), and the detail header.
-    deviceViewHeight_ = static_cast<float>(ui::Theme::current().devicePanelHeight + 24 + ui::Theme::current().shell.panelHeaderHeight);
+    // The module chain and the detail header.
+    deviceViewHeight_ =
+        static_cast<float>(DeviceChain::preferredHeight() + ui::Theme::current().shell.panelHeaderHeight);
     detailPanel_.size = deviceViewHeight_;
     for (juce::Component* c : {static_cast<juce::Component*>(transport_.get()), static_cast<juce::Component*>(&browser_),
                                static_cast<juce::Component*>(&inspector_), static_cast<juce::Component*>(&detail_),
                                static_cast<juce::Component*>(&arrangement_), static_cast<juce::Component*>(&browserSplit_),
                                static_cast<juce::Component*>(&inspectorSplit_), static_cast<juce::Component*>(&detailSplit_)})
         addAndMakeVisible(c);
-    detailSplit_.onDrag = [this](float dy) {
-        clipViewHeight_ = juce::jlimit(200.0f, std::max(200.0f, static_cast<float>(getHeight()) - 260.0f), clipViewHeight_ - dy);
-        detailPanel_.size = clipViewHeight_;
+    detailSplit_.onDrag = [this](float dy)
+    {
+        if (detail_.mode() == DetailPanel::Mode::Editor)
+            editorViewHeight_ = juce::jlimit(
+                minimumEditorView(),
+                std::max(minimumEditorView(), static_cast<float>(getHeight()) - 260.0f - deviceViewHeight_),
+                std::max(editorViewHeight_, minimumEditorView()) - dy);
+        else
+            clipViewHeight_ = juce::jlimit(200.0f, std::max(200.0f, static_cast<float>(getHeight()) - 260.0f),
+                                           clipViewHeight_ - dy);
+        detailPanel_.size = detailHeight();
         resized();
     };
 
@@ -232,8 +241,17 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
             toggle(detailPanel_);
         detail_.selectModule(module);
     };
-    detail_.onModeChosen = [this](DetailPanel::Mode m) {
+    detail_.onModeChosen = [this](DetailPanel::Mode m)
+    {
         arrangeMode_ = m;
+        applyDetailMode();
+        if (m == DetailPanel::Mode::Editor && !detailPanel_.open)
+            toggle(detailPanel_); // an editor opened from a menu, with the panel closed
+    };
+    detail_.onEditorChanged = [this]
+    {
+        if (detail_.editor() == nullptr && arrangeMode_ == DetailPanel::Mode::Editor)
+            arrangeMode_ = DetailPanel::Mode::Devices;
         applyDetailMode();
     };
     arrangement_.onActivated = [this] { lastArea_ = Area::Arrangement; };
@@ -830,6 +848,23 @@ void Shell::registerActions()
                   .perform = [bounce] { bounce(model::BounceMode::NewTrack); },
                   .isEnabled = [canBounce] { return canBounce(model::BounceMode::NewTrack); },
                   .whyNot = [whyNotBounce] { return whyNotBounce(model::BounceMode::NewTrack); }});
+    // Make wavetable (docs/design/table-editor.md §5): one selected audio clip.
+    actions_.add({.id = "clip.makeWavetable",
+                  .name = "Make wavetable",
+                  .category = "Clip",
+                  .perform = [this] { makeWavetable(); },
+                  .isEnabled =
+                      [this]
+                  {
+                      const auto& clips = arrangement_.selection().clips;
+                      if (mixerShown_ || clips.size() != 1)
+                          return false;
+                      for (const auto& t : session_.snapshot()->tracks)
+                          for (const auto& c : t.clips)
+                              if (c.id == *clips.begin())
+                                  return c.kind == model::ClipInfo::Kind::Audio;
+                      return false;
+                  }});
     actions_.add({.id = "clip.cancelBounces", .name = "Cancel bounces", .category = "Clip",
                   .keys = {key(juce::KeyPress::escapeKey)}, .perform = [this] { session_.cancelBounces(); },
                   .isEnabled = [this] { return !session_.bouncing().empty(); }});
@@ -1094,6 +1129,31 @@ void Shell::registerActions()
                           folder.createDirectory();
                       folder.startAsProcess();
                   }});
+    // The Wavetable's tables (docs/design/table-editor.md §8): the selected module's, when it's one.
+    auto onWavetable = [this](const char* command)
+    {
+        return [this, command]
+        {
+            if (auto* panel = selectedModule("wavetable"))
+                panel->performCommand(command);
+        };
+    };
+    auto isWavetable = [this] { return selectedModule("wavetable") != nullptr; };
+    actions_.add({.id = "module.editWavetable",
+                  .name = "Edit wavetable",
+                  .category = "Module",
+                  .perform = onWavetable("table.edit"),
+                  .isEnabled = isWavetable});
+    actions_.add({.id = "module.importWavetable",
+                  .name = juce::String::fromUTF8("Import wavetable\xE2\x80\xA6"),
+                  .category = "Module",
+                  .perform = onWavetable("table.import"),
+                  .isEnabled = isWavetable});
+    actions_.add({.id = "module.exportWavetable",
+                  .name = juce::String::fromUTF8("Export wavetable\xE2\x80\xA6"),
+                  .category = "Module",
+                  .perform = onWavetable("table.export"),
+                  .isEnabled = isWavetable});
     actions_.add({.id = "track.add", .name = "Add track", .category = "Track", .keys = {key('t', kCmd)},
                   .perform = [&s] { s.addTrack(); }});
     // The mixer (C3, docs/design/mixer.md §9): the selected channel.
@@ -1215,16 +1275,27 @@ void Shell::registerActions()
                   .isToggled = [this] { return inspectorPanel_.open && !mixerShown_; }});
     actions_.add({.id = "view.detail", .name = "Show detail panel", .category = "View", .keys = {key('d', kCmd | kAlt)},
                   .perform = [this] { toggle(detailPanel_); }, .isToggled = [this] { return detailPanel_.open; }});
-    actions_.add({.id = "view.detailMode", .name = "Switch modules / clip view", .category = "View",
+    actions_.add({.id = "view.detailMode",
+                  .name = "Switch modules / clip view / editor",
+                  .category = "View",
                   .keys = {key(juce::KeyPress::tabKey)},
-                  .perform = [this] {
-                      arrangeMode_ = arrangeMode_ == DetailPanel::Mode::Devices ? DetailPanel::Mode::Clip
-                                                                                : DetailPanel::Mode::Devices;
+                  .perform =
+                      [this]
+                  {
+                      // Round the views there are: Modules, Clip (not in the mixer), an open editor.
+                      using M = DetailPanel::Mode;
+                      std::vector<M> modes{M::Devices};
+                      if (!mixerShown_)
+                          modes.push_back(M::Clip);
+                      if (detail_.editor() != nullptr)
+                          modes.push_back(M::Editor);
+                      const auto at = std::find(modes.begin(), modes.end(), detail_.mode());
+                      arrangeMode_ = at == modes.end() || at + 1 == modes.end() ? modes.front() : *(at + 1);
                       applyDetailMode();
                       if (!detailPanel_.open)
                           toggle(detailPanel_);
                   },
-                  .isEnabled = arrangeShown});
+                  .isEnabled = [this] { return !mixerShown_ || detail_.editor() != nullptr; }});
     actions_.add({.id = "view.focus", .name = "Focus mode", .category = "View", .keys = {key('f', kCmd | kAlt)},
                   .perform = [this] {
                       focusMode_ = !focusMode_;
@@ -1635,6 +1706,7 @@ std::string Shell::viewState() const
         {"browserWidth", browserPanel_.size},
         {"inspectorWidth", inspectorPanel_.size},
         {"clipViewHeight", clipViewHeight_},
+        {"editorViewHeight", editorViewHeight_},
         {"view", mixerShown_ ? "mix" : "arrange"},
         {"returns", arrangement_.mixRowsVisible()},
         {"lanes", arrangement_.lanesVisible()},
@@ -1664,6 +1736,7 @@ void Shell::applyViewState(const std::string& json)
     browserPanel_.size = get("browserWidth", browserPanel_.size);
     inspectorPanel_.size = get("inspectorWidth", inspectorPanel_.size);
     clipViewHeight_ = get("clipViewHeight", clipViewHeight_);
+    editorViewHeight_ = get("editorViewHeight", editorViewHeight_);
     mixerShown_ = v.value("view", std::string("arrange")) == "mix";
     arrangement_.setMixRowsVisible(get("returns", true));
     arrangement_.setLanesVisible(get("lanes", true));
@@ -2190,7 +2263,70 @@ void Shell::assignToLane(std::uint64_t lane)
 void Shell::applyDetailMode()
 {
     detail_.setClipViewAvailable(!mixerShown_);
-    detail_.setMode(mixerShown_ ? DetailPanel::Mode::Devices : arrangeMode_);
+    detail_.setMode(mixerShown_ && arrangeMode_ == DetailPanel::Mode::Clip ? DetailPanel::Mode::Devices
+                                                                           : arrangeMode_);
+}
+
+ui::DevicePanel* Shell::selectedModule(std::string_view deviceId)
+{
+    const auto id = detail_.chain().selectedDevice();
+    if (!id)
+        return nullptr;
+    const auto snapshot = session_.snapshot();
+    for (const auto* channels : {&snapshot->tracks, &snapshot->returns})
+        for (const auto& t : *channels)
+            for (const auto& d : t.devices)
+                if (d.id == *id && d.deviceId == deviceId)
+                    return detail_.chain().selectedPanel();
+    for (const auto& d : snapshot->master.devices)
+        if (d.id == *id && d.deviceId == deviceId)
+            return detail_.chain().selectedPanel();
+    return nullptr;
+}
+
+void Shell::makeWavetable()
+{
+    const auto& clips = arrangement_.selection().clips;
+    if (clips.size() != 1)
+        return;
+    auto sound = session_.clipSound(*clips.begin());
+    if (!sound)
+        return;
+    auto* panel = selectedModule("wavetable");
+    if (panel == nullptr)
+    {
+        // A new MIDI track named for the clip, a Wavetable on it, shown below.
+        const auto track = session_.addTrack(sound->name);
+        const auto module = session_.addDevice(track, "fd:wavetable");
+        session_.flushSnapshot();
+        arrangement_.selectTrack(track);
+        detail_.chain().selectDevice(module);
+        panel = selectedModule("wavetable");
+    }
+    if (panel != nullptr)
+        panel->takeAudio(std::move(sound->samples), sound->sampleRate,
+                         juce::String::fromUTF8(sound->name.c_str()));
+}
+
+float Shell::minimumEditorView() const
+{
+    return detail_.editor() != nullptr
+               ? static_cast<float>(detail_.editor()->minimumHeight() + DeviceChain::gap)
+               : 0.0f;
+}
+
+float Shell::detailHeight() const
+{
+    switch (detail_.mode())
+    {
+    case DetailPanel::Mode::Clip:
+        return clipViewHeight_;
+    case DetailPanel::Mode::Editor:
+        return deviceViewHeight_ + std::max(editorViewHeight_, minimumEditorView());
+    case DetailPanel::Mode::Devices:
+        break;
+    }
+    return deviceViewHeight_;
 }
 
 void Shell::setMixerShown(bool shown)
@@ -2260,7 +2396,7 @@ void Shell::onFrame(double timestamp)
     }
     // The detail panel's height follows its mode: the device view's fixed height, or the clip
     // view's (resizable at its top edge).
-    const float detailTarget = detail_.mode() == DetailPanel::Mode::Clip ? clipViewHeight_ : deviceViewHeight_;
+    const float detailTarget = detailHeight();
     if (detailPanel_.size != detailTarget)
     {
         const auto k = static_cast<float>(1.0 - std::exp(-dt / ui::Theme::current().motion.panel));
@@ -2334,7 +2470,7 @@ void Shell::finishAnimations()
 {
     for (auto* p : {&browserPanel_, &inspectorPanel_, &detailPanel_})
         p->shown = p->open ? 1.0f : 0.0f;
-    detailPanel_.size = detail_.mode() == DetailPanel::Mode::Clip ? clipViewHeight_ : deviceViewHeight_;
+    detailPanel_.size = detailHeight();
     resized();
 }
 
@@ -2453,7 +2589,7 @@ void Shell::resized()
     detail_.setBounds(r.removeFromBottom(detailH));
     if (detailH > 0)
         r.removeFromBottom(1);
-    detailSplit_.setVisible(detailH > 0 && detailPanel_.open && detail_.mode() == DetailPanel::Mode::Clip);
+    detailSplit_.setVisible(detailH > 0 && detailPanel_.open && detail_.mode() != DetailPanel::Mode::Devices);
     detailSplit_.setBounds(detail_.getBounds().withHeight(5).translated(0, -3));
 
     const auto rail = static_cast<float>(ui::Theme::current().shell.railWidth);

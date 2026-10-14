@@ -4,26 +4,8 @@
 
 namespace fd::devices::wavetable_ui
 {
-namespace
+namespace look
 {
-float plain(const ui::DeviceUiContext& ctx, size_t index)
-{
-    return ctx.params.getPlain(index);
-}
-
-const W* synth(const ui::DeviceUiContext& ctx)
-{
-    return dynamic_cast<const W*>(ctx.device);
-}
-
-/// A parameter set as one gesture.
-void set(ui::DeviceUiContext& ctx, size_t index, float value)
-{
-    ctx.params.beginGesture(index);
-    ctx.params.setPlain(index, value);
-    ctx.params.endGesture(index);
-}
-
 /// A display's well: flat, a step below the module's body.
 void paintWell(juce::Graphics& g, juce::Rectangle<float> r)
 {
@@ -50,6 +32,44 @@ void paintHandle(juce::Graphics& g, juce::Point<float> at, bool hot)
     g.drawEllipse(r.reduced(0.5f), 1.0f);
 }
 
+/// A cycle's samples as a line across `r`, its middle at the centre.
+juce::Path cyclePath(const float* cycle, int size, juce::Rectangle<float> r, int points)
+{
+    juce::Path p;
+    for (int i = 0; i <= points; ++i)
+    {
+        const auto at = std::min(size - 1, static_cast<int>(static_cast<double>(i) / points * size));
+        const juce::Point<float> pt(r.getX() +
+                                        r.getWidth() * static_cast<float>(i) / static_cast<float>(points),
+                                    r.getCentreY() - cycle[at] * r.getHeight() * 0.5f);
+        i == 0 ? p.startNewSubPath(pt) : p.lineTo(pt);
+    }
+    return p;
+}
+} // namespace look
+
+using namespace look;
+
+namespace
+{
+float plain(const ui::DeviceUiContext& ctx, size_t index)
+{
+    return ctx.params.getPlain(index);
+}
+
+const W* synth(const ui::DeviceUiContext& ctx)
+{
+    return dynamic_cast<const W*>(ctx.device);
+}
+
+/// A parameter set as one gesture.
+void set(ui::DeviceUiContext& ctx, size_t index, float value)
+{
+    ctx.params.beginGesture(index);
+    ctx.params.setPlain(index, value);
+    ctx.params.endGesture(index);
+}
+
 /// The warps that shape oscillator n's cycle (in the cycle, and on its harmonics) at their
 /// amounts, with the Remap curves they read; FM and the other warps from another source leave the
 /// cycle alone.
@@ -69,21 +89,6 @@ std::array<dsp::CycleRenderer::WarpSetting, 2> cycleWarps(const ui::DeviceUiCont
             &remaps[static_cast<size_t>(k)]};
     }
     return warps;
-}
-
-/// A cycle's samples as a line across `r`, its middle at the centre.
-juce::Path cyclePath(const float* cycle, int size, juce::Rectangle<float> r, int points)
-{
-    juce::Path p;
-    for (int i = 0; i <= points; ++i)
-    {
-        const auto at = std::min(size - 1, static_cast<int>(static_cast<double>(i) / points * size));
-        const juce::Point<float> pt(r.getX() +
-                                        r.getWidth() * static_cast<float>(i) / static_cast<float>(points),
-                                    r.getCentreY() - cycle[at] * r.getHeight() * 0.5f);
-        i == 0 ? p.startNewSubPath(pt) : p.lineTo(pt);
-    }
-    return p;
 }
 
 /// A changed set of values (what a display draws from): true when any moved.
@@ -372,19 +377,140 @@ void TableDisplay::mouseUp(const juce::MouseEvent&)
 
 void TableDisplay::mouseDoubleClick(const juce::MouseEvent&)
 {
-    set(ctx_, W::osc(osc_, W::OscPos), ctx_.info.params[W::osc(osc_, W::OscPos)].def);
+    if (onEdit)
+        onEdit();
+}
+
+bool TableDisplay::isInterestedInFileDrag(const juce::StringArray& files)
+{
+    return onFile && files.size() == 1 && juce::File(files[0]).hasFileExtension("wav;wt;aif;aiff;flac;mp3");
+}
+
+void TableDisplay::filesDropped(const juce::StringArray& files, int, int)
+{
+    if (onFile && !files.isEmpty())
+        onFile(juce::File(files[0]));
+}
+
+// ---- files ---------------------------------------------------------------------------------------
+
+juce::File wavetablesFolder(const ui::DeviceUiContext& ctx)
+{
+    const auto root = ctx.segnoFolder ? ctx.segnoFolder() : ui::defaultPresetsFolder().getParentDirectory();
+    return root.getChildFile("Wavetables");
+}
+
+namespace
+{
+void warn(const juce::String& title, const juce::String& message)
+{
+    juce::AlertWindow::showAsync(juce::MessageBoxOptions()
+                                     .withIconType(juce::MessageBoxIconType::WarningIcon)
+                                     .withTitle(title)
+                                     .withMessage(message)
+                                     .withButton("OK"),
+                                 nullptr);
+}
+} // namespace
+
+bool loadTableFile(ui::DeviceUiContext& ctx, int n, const juce::File& file)
+{
+    std::string error;
+    const auto read = wavetable::importTable(file.getFullPathName().toStdString(), 0, &error);
+    if (!read)
+    {
+        warn("Couldn't import the table", file.getFileName() + ": " + juce::String(error));
+        return false;
+    }
+    const auto table =
+        dsp::Wavetable::fromCycles(read->samples.data(), read->frameLength, read->frames, true);
+    ctx.params.beginEdit("Import a table");
+    ctx.params.applyExtraState(W::userTablePatch(
+        n, read->name.empty() ? file.getFileNameWithoutExtension().toStdString() : read->name, table));
+    return true;
+}
+
+void exportTable(juce::Component& owner, ui::DeviceUiContext& ctx, int n,
+                 std::unique_ptr<juce::FileChooser>& chooser)
+{
+    const auto* s = synth(ctx);
+    if (s == nullptr)
+        return;
+    auto folder = wavetablesFolder(ctx);
+    folder.createDirectory();
+    const auto name = juce::File::createLegalFileName(juce::String(s->tableName(n)));
+    chooser = std::make_unique<juce::FileChooser>("Export the wavetable", folder.getChildFile(name + ".wav"),
+                                                  "*.wav;*.wt");
+    juce::Component::SafePointer<juce::Component> alive(&owner);
+    chooser->launchAsync(
+        juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles |
+            juce::FileBrowserComponent::warnAboutOverwriting,
+        [alive, &ctx, n](const juce::FileChooser& c)
+        {
+            if (alive == nullptr || c.getResult() == juce::File())
+                return;
+            auto file = c.getResult();
+            if (!file.hasFileExtension("wav;wt"))
+                file = file.withFileExtension("wav");
+            const auto* synth = dynamic_cast<const W*>(ctx.device);
+            const auto table = synth != nullptr ? synth->table(n) : nullptr;
+            std::string error = "the module has no table";
+            const auto path = file.getFullPathName().toStdString();
+            const bool ok = table != nullptr &&
+                            (file.hasFileExtension("wt") ? wavetable::exportWt(*table, path, &error)
+                                                         : wavetable::exportWav(*table, path, &error));
+            if (!ok)
+                warn("Couldn't export the wavetable", file.getFileName() + ": " + juce::String(error));
+        });
 }
 
 // ---- TablePicker ---------------------------------------------------------------------------------
 
 namespace
 {
-constexpr int kImportItem = 10000;
+constexpr int kImportItem = 10000, kEditItem = 10001;
 }
 
 TablePicker::TablePicker(ui::DeviceUiContext& context) : ctx_(context)
 {
-    // The factory tables by category, then Import.
+    rebuildMenu();
+    field_.setTooltip(
+        "The oscillator's table: a factory one, or one of your own (a file, audio, or made in the "
+        "editor)");
+    field_.onChange = [this]
+    {
+        const int id = field_.getSelectedId();
+        if (id == kImportItem && onImport)
+        {
+            shownId_.clear(); // the field shows the table it plays
+            refresh();
+            onImport();
+        }
+        else if (id == kImportItem)
+            importFile();
+        else if (id == kEditItem)
+        {
+            shownId_.clear();
+            refresh();
+            if (onEdit)
+                onEdit();
+        }
+        else if (id > 0)
+            choose(wavetable::factoryTables()[static_cast<size_t>(id - 1)].id);
+    };
+    previous_.setTooltip("Previous table");
+    next_.setTooltip("Next table");
+    previous_.onClick = [this] { step(-1); };
+    next_.onClick = [this] { step(+1); };
+    addAndMakeVisible(previous_);
+    addAndMakeVisible(field_);
+    addAndMakeVisible(next_);
+}
+
+void TablePicker::rebuildMenu()
+{
+    // The factory tables by category, then Edit and Import.
+    field_.clear(juce::dontSendNotification);
     const auto tables = wavetable::factoryTables();
     std::string_view category;
     for (size_t i = 0; i < tables.size(); ++i)
@@ -397,23 +523,20 @@ TablePicker::TablePicker(ui::DeviceUiContext& context) : ctx_(context)
         field_.addItem(juce::String(std::string(tables[i].name)), static_cast<int>(i) + 1);
     }
     field_.addSeparator();
-    field_.addItem(juce::String::fromUTF8("Import a file…"), kImportItem);
-    field_.setTooltip("The oscillator's table: a factory one, or a file of your own (WAV, .wt)");
-    field_.onChange = [this]
-    {
-        const int id = field_.getSelectedId();
-        if (id == kImportItem)
-            importFile();
-        else if (id > 0)
-            choose(wavetable::factoryTables()[static_cast<size_t>(id - 1)].id);
-    };
-    previous_.setTooltip("Previous table");
-    next_.setTooltip("Next table");
-    previous_.onClick = [this] { step(-1); };
-    next_.onClick = [this] { step(+1); };
-    addAndMakeVisible(previous_);
-    addAndMakeVisible(field_);
-    addAndMakeVisible(next_);
+    if (editable_)
+        field_.addItem(juce::String::fromUTF8("Edit…"), kEditItem);
+    field_.addItem(juce::String::fromUTF8("Import…"), kImportItem);
+    shownId_.clear();
+    shownName_.clear();
+}
+
+void TablePicker::setEditable(bool editable)
+{
+    if (editable == editable_)
+        return;
+    editable_ = editable;
+    rebuildMenu();
+    refresh();
 }
 
 void TablePicker::setOscillator(int n)
@@ -478,38 +601,19 @@ void TablePicker::choose(std::string_view id)
 
 void TablePicker::importFile()
 {
-    refresh(); // the field shows the table it plays until a file is chosen
-    shownId_.clear();
+    shownId_.clear(); // the field shows the table it plays until a file is chosen
     refresh();
-    chooser_ = std::make_unique<juce::FileChooser>("Import a wavetable", juce::File(), "*.wav;*.wt");
+    chooser_ =
+        std::make_unique<juce::FileChooser>("Import a wavetable", wavetablesFolder(ctx_), "*.wav;*.wt");
     juce::Component::SafePointer<TablePicker> self(this);
-    chooser_->launchAsync(
-        juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
-        [self](const juce::FileChooser& chooser)
-        {
-            if (self == nullptr || chooser.getResult() == juce::File())
-                return;
-            std::string error;
-            const auto file = chooser.getResult();
-            const auto read = wavetable::importTable(file.getFullPathName().toStdString(), 0, &error);
-            if (!read)
-            {
-                juce::AlertWindow::showAsync(juce::MessageBoxOptions()
-                                                 .withIconType(juce::MessageBoxIconType::WarningIcon)
-                                                 .withTitle("Couldn't import the table")
-                                                 .withMessage(file.getFileName() + ": " + juce::String(error))
-                                                 .withButton("OK"),
-                                             nullptr);
-                return;
-            }
-            const auto table =
-                dsp::Wavetable::fromCycles(read->samples.data(), read->frameLength, read->frames, true);
-            self->ctx_.params.beginEdit("Import a table");
-            self->ctx_.params.applyExtraState(W::userTablePatch(
-                self->osc_,
-                read->name.empty() ? file.getFileNameWithoutExtension().toStdString() : read->name, table));
-            self->refresh();
-        });
+    chooser_->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                          [self](const juce::FileChooser& chooser)
+                          {
+                              if (self == nullptr || chooser.getResult() == juce::File())
+                                  return;
+                              loadTableFile(self->ctx_, self->osc_, chooser.getResult());
+                              self->refresh();
+                          });
 }
 
 // ---- curves (Remap's, an LFO's) ------------------------------------------------------------------

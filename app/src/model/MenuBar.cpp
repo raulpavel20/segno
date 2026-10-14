@@ -97,12 +97,12 @@ std::vector<Menu> menuBar(MenuPlatform platform)
         {"Clip",
          'c',
          {action("clip.newMidi"), separator(), action("clip.bounce"), action("clip.bounceToTrack"),
-          action("clip.cancelBounces"), separator(), action("clip.mute"), action("clip.loop"), action("clip.crossfade"),
-          submenu("Colour", {list("clipColour")}), separator(),
-          submenu("Takes", {action("view.takes"), action("take.previous"), action("take.next"), separator(),
-                            action("take.useWhole"), action("take.rename"), action("take.copyToTrack"),
-                            action("take.moveToTrack"), action("take.spread"), separator(),
-                            action("take.keepOnly")}),
+          action("clip.cancelBounces"), action("clip.makeWavetable"), separator(), action("clip.mute"),
+          action("clip.loop"), action("clip.crossfade"), submenu("Colour", {list("clipColour")}), separator(),
+          submenu("Takes",
+                  {action("view.takes"), action("take.previous"), action("take.next"), separator(),
+                   action("take.useWhole"), action("take.rename"), action("take.copyToTrack"),
+                   action("take.moveToTrack"), action("take.spread"), separator(), action("take.keepOnly")}),
           submenu("Notes", {action("notes.quantise"), separator(), action("notes.up"), action("notes.down"),
                             action("notes.octaveUp"), action("notes.octaveDown"), separator(),
                             action("notes.later"), action("notes.earlier")})}});
@@ -123,7 +123,10 @@ std::vector<Menu> menuBar(MenuPlatform platform)
                       action("module.savePreset"), action("module.savePresetAs"),
                       action("module.revertPreset"), separator(), action("module.compare"),
                       action("module.copyCompare"), separator(), action("module.useAsDefault"),
-                      action("module.clearDefault"), separator(), action("module.presetsFolder")}});
+                      action("module.clearDefault"), separator(), action("module.presetsFolder"), separator(),
+                      // A module's own (docs/design/table-editor.md §8): dimmed for the others.
+                      action("module.editWavetable"), action("module.importWavetable"),
+                      action("module.exportWavetable")}});
 
     menus.push_back(
         {"Transport",

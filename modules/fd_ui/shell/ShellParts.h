@@ -62,6 +62,8 @@ public:
     /// view's Quantise), sized by its owner (not owned). Hidden ones take no room: call resized()
     /// after showing or hiding one.
     void addCommand(juce::Component& command);
+    /// Takes a command away again (a module's editor closing, ADR 0053).
+    void removeCommand(juce::Component& command);
 
     void paint(juce::Graphics& g) override;
     void resized() override;

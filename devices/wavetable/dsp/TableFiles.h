@@ -27,6 +27,19 @@ struct ImportedTable
 [[nodiscard]] std::optional<ImportedTable> importTable(const std::string& path, int frameLength = 0,
                                                        std::string* error = nullptr);
 
+/// Whether a file is a table to load as it is: a `.wt`, a WAV whose metadata gives its frame size
+/// (`clm `, `srge`, `srgo`, `uhWT`), a WaveEdit bank, or a single cycle (up to 4 096 samples).
+/// Anything else is audio to make a table from (docs/design/table-editor.md §5).
+[[nodiscard]] bool isTableFile(const std::string& path);
+
+/// A sound file's samples mixed to mono, and their rate: audio to make a table from.
+struct MonoAudio
+{
+    std::vector<float> samples;
+    double sampleRate = 0.0;
+};
+[[nodiscard]] std::optional<MonoAudio> readMono(const std::string& path, std::string* error = nullptr);
+
 /// Single cycles (one per WAV file, any lengths), one frame each, in the order given (up to 256).
 [[nodiscard]] std::optional<dsp::Wavetable> importCycles(const std::vector<std::string>& paths,
                                                          std::string* error = nullptr);

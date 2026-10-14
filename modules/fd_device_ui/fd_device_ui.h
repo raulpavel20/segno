@@ -30,12 +30,13 @@ END_JUCE_MODULE_DECLARATION
 #include <optional>
 #include <set>
 
-namespace fd::ui { class ModulationModel; }
+namespace fd::ui { class ModulationModel; class ModuleEditor; }
 #include "panel/ParamBinding.h"
 #include "panel/ParamControls.h"
 #include "panel/PanelSection.h"
 #include "panel/PresetBar.h"
 #include "panel/DevicePanel.h"
+#include "panel/ModuleEditor.h"
 #include "panel/Modulation.h"
 #include "panel/Displays.h"
 #include "panel/PanelRegistry.h"

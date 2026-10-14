@@ -358,47 +358,53 @@ void ParamComboBox::refresh()
     }
 }
 
-void ParamComboBox::paintOverChildren(juce::Graphics& g)
+void ChoiceBox::setInlineName(juce::String name)
 {
-    if (inlineName_)
+    inlineName_ = std::move(name);
+    resized();
+    repaint();
+}
+
+void ChoiceBox::paintOverChildren(juce::Graphics& g)
+{
+    if (const auto name = inlineName(); name.isNotEmpty())
     {
         // Its name where a bar's is, its choice after it.
         const auto& t = Theme::current();
         g.setColour(t.textSecondary);
         g.setFont(font(TextStyle::Label));
-        g.drawText(inlineName(), getLocalBounds().withTrimmedLeft(t.shell.fieldTextInset),
+        g.drawText(name, getLocalBounds().withTrimmedLeft(t.shell.fieldTextInset),
                    juce::Justification::centredLeft, false);
     }
-    paintAutomationIndicator(g, {3.5f, 3.5f}, automation_);
 }
 
-juce::String ParamComboBox::inlineName() const
+void ChoiceBox::resized()
 {
-    if (!inlineName_)
-        return {};
-    const auto& spec = context_.info.params[index_];
-    return juce::String(std::string(spec.shortName.empty() ? spec.name : spec.shortName));
+    juce::ComboBox::resized();
+    const auto name = inlineName();
+    if (name.isEmpty())
+        return;
+    // The choice moves over by the name and a text button's padding.
+    const auto& t = Theme::current();
+    const int width =
+        static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(font(TextStyle::Label), name)));
+    for (auto* child : getChildren())
+        if (auto* label = dynamic_cast<juce::Label*>(child))
+            label->setBounds(label->getBounds().withTrimmedLeft(width + t.shell.buttonTextPadding));
+}
+
+void ParamComboBox::paintOverChildren(juce::Graphics& g)
+{
+    ChoiceBox::paintOverChildren(g);
+    paintAutomationIndicator(g, {3.5f, 3.5f}, automation_);
 }
 
 void ParamComboBox::setInlineName(bool shown)
 {
-    inlineName_ = shown;
-    resized();
-    repaint();
-}
-
-void ParamComboBox::resized()
-{
-    juce::ComboBox::resized();
-    if (!inlineName_)
-        return;
-    // The choice moves over by the name and a text button's padding.
-    const auto& t = Theme::current();
-    const int name = static_cast<int>(
-        std::ceil(juce::GlyphArrangement::getStringWidth(font(TextStyle::Label), inlineName())));
-    for (auto* child : getChildren())
-        if (auto* label = dynamic_cast<juce::Label*>(child))
-            label->setBounds(label->getBounds().withTrimmedLeft(name + t.shell.buttonTextPadding));
+    const auto& spec = context_.info.params[index_];
+    ChoiceBox::setInlineName(
+        shown ? juce::String(std::string(spec.shortName.empty() ? spec.name : spec.shortName))
+              : juce::String());
 }
 
 void ParamComboBox::showPopup()

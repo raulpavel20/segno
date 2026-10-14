@@ -2,8 +2,12 @@
 // what the browser finds, previews in time and of presets, replacing an instrument, loading the
 // Sampler, and keeping a project's files together. Through engine::Session.
 
+#include "FactoryTables.h"
 #include "RecordingFixture.h"
+#include "TableFiles.h"
+#include "WavetableSynth.h"
 #include "engine/PreviewPlayer.h"
+#include "ui/BrowserDrops.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -243,6 +247,76 @@ TEST_CASE("browser engine: an instrument replaces the track's in one step; a sam
     REQUIRE(s.replaceInstrument(t1, "fd:sampler") != 0);
     s.updateSnapshotNow();
     CHECK(s.snapshot()->channel(t1)->devices[0].deviceId == "sampler");
+}
+
+TEST_CASE(
+    "browser engine: wavetables in the Segno folder's Wavetables, previewed on a held note, loaded onto a "
+    "Wavetable or onto a track with one (table-editor.md §7)",
+    "[integration]")
+{
+    Files f;
+    auto& s = *f.r.session;
+    const auto folder = f.r.root.getChildFile("Segno").getChildFile("Wavetables");
+    REQUIRE(folder.isDirectory()); // made with the place, as Samples is
+    const auto vowels = fd::devices::wavetable::factoryTable("formant/vowels");
+    REQUIRE(vowels != nullptr);
+    const auto wav = folder.getChildFile("Vowels.wav"), wt = f.place.getChildFile("Vowels.wt");
+    REQUIRE(fd::devices::wavetable::exportWav(*vowels, wav.getFullPathName().toStdString()));
+    REQUIRE(fd::devices::wavetable::exportWt(*vowels, wt.getFullPathName().toStdString()));
+    const auto other = folder.getChildFile("Other.wav");
+    REQUIRE(fd::devices::wavetable::exportWav(*fd::devices::wavetable::factoryTable("basic/shapes"),
+                                              other.getFullPathName().toStdString()));
+    s.refreshBrowser(f.r.root.getChildFile("Segno"));
+    s.refreshBrowser(f.place);
+    s.waitForBrowserIndex();
+    for (const auto* name : {"Vowels.wav", "Vowels.wt"})
+    {
+        INFO(name);
+        const auto* indexed = f.indexed(name);
+        REQUIRE(indexed != nullptr);
+        CHECK(indexed->kind == model::BrowserKind::Wavetable);
+        CHECK(indexed->frames == vowels->frames());
+    }
+
+    // Heard on a held note, through a Wavetable of its own.
+    REQUIRE(s.previewWavetable(wav));
+    CHECK(previewPeak(s) > 0.05f);
+    s.stopPreview();
+    CHECK_FALSE(s.previewWavetable(f.place.getChildFile("notes.txt")));
+
+    // On a track: a Wavetable with it, in place of the track's instrument, one step.
+    const auto t = f.r.track(0);
+    REQUIRE(s.addDevice(t, "fd:sampler") != 0);
+    s.updateSnapshotNow();
+    const auto item = "file:" + wt.getFullPathName().toStdString();
+    CHECK(fd::app::browser::fitsChannel(item, true));
+    const auto onTrack = fd::app::browser::onChannel(s, item, t, 0.0);
+    REQUIRE(onTrack.done);
+    CHECK(onTrack.toast == "Replaced Sampler with Wavetable");
+    CHECK(s.undoDescription() == "Replace Sampler with Wavetable");
+    s.updateSnapshotNow();
+    const auto devices = s.snapshot()->channel(t)->devices;
+    REQUIRE(devices.size() == 1);
+    CHECK(devices[0].deviceId == "wavetable");
+    auto handle = s.openDevice(devices[0].id);
+    const auto& synth = dynamic_cast<const fd::devices::WavetableSynth&>(*handle->context().device);
+    CHECK(synth.tableId(0) == "user");
+    CHECK(synth.tableName(0) == "Vowels");
+    CHECK(synth.table(0)->frames() == vowels->frames());
+
+    // On the Wavetable itself: loaded, one step.
+    CHECK(fd::app::browser::landsOn(item, devices[0]));
+    s.updateSnapshotNow();
+    const auto onModule =
+        fd::app::browser::inChain(s, "file:" + other.getFullPathName().toStdString(), t, -1, devices[0].id);
+    CHECK(onModule.done);
+    CHECK(s.undoDescription() == "Load Other");
+    CHECK(synth.tableName(0) == "Other");
+    std::string error;
+    CHECK_FALSE(s.loadWavetable(devices[0].id, 0, f.place.getChildFile("notes.txt"), &error));
+    CHECK_FALSE(error.empty());
+    wav.deleteFile();
+    other.deleteFile();
 }
 
 TEST_CASE("browser engine: Collect files copies what's outside into the project; unused files are found",
