@@ -532,3 +532,39 @@ Built as §10 and §11 say. What building settled:
 
 **Not yet:** controllers in the NOTES inspector; drawing controllers while recording (recorded ones show).
 
+## 23. P4c in detail: the tools' settings (2026-10-15, building)
+
+§12 is approved. This is how each tool is set, the build plan; what building changes goes in a section after it.
+
+**One description for each tool** (`model/NoteTools…`, JUCE-free): its name, its settings (a choice, or a number with its range, step, unit and default; some shown only for one choice) and a pure function from notes and settings to notes. From that one description:
+- **the popover builds itself**: the tool's name and what it acts on in caps ("STRUM · 14 NOTES"), Apply in the title row (Return), then a row per setting as the Quantise popover has them: a short choice as segments, a long one as a choice field, a number as a number field. Sized to its content, at the top right of the clip view's notes. The notes change live; Apply keeps them as one undo step named for the tool; Escape puts them back.
+- **assistants call the same function** (`transform_notes`, `generate_notes`), check the same ranges, and can list the tools with their settings (`list_note_tools`);
+- **the settings are remembered** per tool, with the project's view state.
+- **Random is seeded:** every tool that chooses at random has a Seed, so the same settings give the same notes.
+
+**Transform** acts on the selected notes, or all:
+
+| Tool | Settings (default) |
+|---|---|
+| Humanize | Timing ± ms (15), Velocity ± (10), Length ± % (10), Seed |
+| Strum | Direction: Up, Down, Alternate (Up); Time between notes, ms (40); Curve: Even, Faster, Slower (Even); Velocity per note, −20…20 (0) |
+| Arpeggiate | Order: Up, Down, Up-down, Played, Random (Up); Rate: 1/4, 1/8, 1/16, 1/32 (1/16); Gate % (80); Octaves 1–4 (1); Seed. Each chord becomes its notes one after another over its length |
+| Chop | Pieces 2–16 (4); Velocity: Even, Falling, Rising (Even); Change % (50) |
+| Ornament | Kind: Flam, From above, From below (Flam); Notes: 1, 2 (1); Before, ms (30); Loudness % of the note's (60). A grace note is a step of the key away (a semitone without one) |
+| Velocity | Shape: Ramp, Wave, Range, Random (Ramp); Ramp: From, To (40, 110); Wave: Cycles (2), Depth (30); Range: −100 % (all to the middle) … +100 % (twice as far from it) (−50); Random: Amount (12), Seed |
+| Span | Length: % of the time to the next note (100: legato; 50: staccato); the last note keeps its length |
+| Randomise pitch | Range ± (5: steps of the key, semitones without one); In key: Yes, No (Yes with a key); Seed |
+
+**Generate** writes into the selected notes' span, else the clip's loop (or the clip); Existing: Keep (the default: new notes go around notes of the same pitch you have) or Replace (the notes there go first):
+
+| Tool | Settings (default) |
+|---|---|
+| Rhythm | Steps 1–32 (16), Pulses (5), Rotate (0), Step: 1/4, 1/8, 1/16, 1/32 (1/16); On: A pitch, The chords (a pitch); Pitch (C3); Velocity (100). A Euclidean pattern, again and again; on the chords, each pulse plays the chord sounding there |
+| Melody | Lowest, Highest (C3, C4); Density % (60); Step: 1/8, 1/16 (1/8); Seed. Notes of the key (C major without one), moving mostly by steps; on strong beats, a note of the chord sounding there when the clip has chords |
+| Chords | Progression: 1–5–6–4, 6–4–1–5, 1–4–5–1, 2–5–1, 1–6–3–7, Suggested (1–5–6–4): the key's chords on those steps, or a chain from the suggestion model (§7.3) by Seed; Kind: Triad, 7th (Triad); Each: 1 bar, 2 beats, 1 beat (1 bar); Voicing: Smooth, Close, Open, Spread (Smooth); Velocity (90) |
+| Bassline | Pattern: Roots, Roots and fifths, Walking (Roots); Step: 1/4, 1/8 (1/4); Around (C1); Velocity (100). Follows the chord lane: dimmed, saying why, while the clip has no chords |
+
+**Menus:** Notes ▸ Transform ▸ (Humanize…, Strum…, Arpeggiate…, Chop…, Ornament…, Velocity…, Span…, Randomise pitch…) and Generate ▸ (Rhythm…, Melody…, Chords…, Bassline…), between Mirror pitches and Re-roll chance (§13); the notes' right-click menu has Transform ▸. Transform items are dimmed without notes; Generate ones need only a MIDI clip in the clip view.
+
+**Assistants:** `transform_notes` (`clip`, `where`, `tool`, `settings`), `generate_notes` (`clip`, `tool`, `settings`, `start?`, `length?`: the span, else the clip's loop or the clip), `list_note_tools`: each tool's settings with their ranges and defaults. Unknown settings or values out of range are errors that name the tool's settings.
+
