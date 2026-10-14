@@ -1,6 +1,6 @@
 # Sampler: device spec
 
-- **Status:** Approved by the product owner (2026-10-10, with the M1 sign-off); IDs are permanent. Stage 2, Multisample, brought forward for the factory presets ([factory-library.md](../../docs/design/factory-library.md), ADR 0055): approved by the product owner (2026-10-14) with every recommendation of S1–S13; built the same day (what building settled is under "Settled while building (stage 2)")
+- **Status:** Approved by the product owner (2026-10-10, with the M1 sign-off); IDs are permanent. Stage 2, Multisample, brought forward for the factory presets ([factory-library.md](../../docs/design/factory-library.md), ADR 0055): approved by the product owner (2026-10-14) with every recommendation of S1–S13; built the same day (what building settled is under "Settled while building (stage 2)") and signed off by the product owner (2026-10-14) with the Library's instruments and the factory presets
 - **Type:** Instrument
 - **Tier / milestone:** Tier 1, M1 (classic/one-shot) → M3 (multisample, brought forward) → M4 (slice) → M5 (zone editing)
 - **Live target:** Simpler (M1, M4), Sampler (M5). References only ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
@@ -270,7 +270,7 @@ On the module grid, in the SAMPLE section (6 × 6), nothing else moves:
 
 ## Factory presets
 
-48, one an instrument or articulation of Segno's Library ([factory-library.md](../../docs/design/factory-library.md) §7, §10): strings 13, woodwinds and more 13, brass 8, keys 5, tuned percussion 6, percussion 3. Each points at its instrument by a `library:` path, with envelopes and velocity to volume suited to it. The levels are matched in the Library itself, so its Gain stays at 0 and an instrument opened from the browser sounds as its preset does. Made from `presets/recipes.json`. Built 2026-10-14; to be signed off by ear.
+48, one an instrument or articulation of Segno's Library ([factory-library.md](../../docs/design/factory-library.md) §7, §10): strings 13, woodwinds and more 13, brass 8, keys 5, tuned percussion 6, percussion 3. Each points at its instrument by a `library:` path, with envelopes and velocity to volume suited to it. The levels are matched in the Library itself, so its Gain stays at 0 and an instrument opened from the browser sounds as its preset does. Made from `presets/recipes.json`. Built and signed off by the product owner (2026-10-14).
 
 ## Automated test targets
 

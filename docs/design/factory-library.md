@@ -269,6 +269,4 @@ PLACES
   - The fast preset lint checks everything but the sound where the Library isn't there. "The Sampler's presets play their instruments from the Library" (`[library]`) renders all 48 from the source tree's Library, skipped where it isn't built.
 - **The waveform** is drawn scaled to the sample's own peak: the Library's quiet samples took their level from their zones and showed as flat lines.
 - **The Library's README** thanks Versilian Studios, though CC0 asks nothing.
-- **To hear before sign-off:**
-  - the timpani's and tubular bells' tuning, which the pitch check can't judge;
-  - every preset's sound and level by ear.
+- **Signed off by the product owner (2026-10-14),** with the Sampler's stage 2 and its 48 presets: the Library is done but for shipping it, which comes with releases (§6).
