@@ -12,7 +12,6 @@
 #include <map>
 #include <optional>
 #include <set>
-#include <tuple>
 
 namespace fd::app
 {
@@ -52,8 +51,9 @@ public:
 
     [[nodiscard]] const model::PianoRollOptions& options() const noexcept { return options_; }
     void setOptions(const model::PianoRollOptions& options);
-    void setKeySnap(bool on);
-    void setFold(model::Fold fold);
+    /// In key (§6, §21): only the key's rows, or (off) the whole roll, for the clip shown; turned
+    /// off, it's remembered for that clip.
+    void setInKey(bool on);
     void setOthers(bool on);
     void setDraw(model::DrawMode mode);
     void setChordStyle(const model::ChordStyle& style);
@@ -62,14 +62,13 @@ public:
     std::function<void()> onOptionsChanged;
     /// The song's key where the clip is (none: no key).
     [[nodiscard]] const std::optional<music::Key>& key() const noexcept { return key_; }
-    /// Drawing and moving go by the key's notes: Key is on and the song has a key (§6).
-    [[nodiscard]] bool snapsToKey() const noexcept { return options_.keySnap && key_.has_value(); }
+    /// Shows only the key's rows (§21): the song has a key, and the clip isn't turned to the whole
+    /// roll. A row is then a step of the key: drawing lands on it, ↑/↓ move by the key's steps.
+    [[nodiscard]] bool inKey() const noexcept;
     /// The Draw choice's menu (§7.2): Note, Chord, Chord under.
     [[nodiscard]] juce::PopupMenu drawMenu();
     /// The drawn chords' voicing menu (§20.2): the voicings, then the inversions.
     [[nodiscard]] juce::PopupMenu voicingMenu();
-    /// The Fold choice's menu (§6).
-    [[nodiscard]] juce::PopupMenu foldMenu();
 
     [[nodiscard]] const std::vector<model::Note>& notes() const noexcept { return notes_; }
     [[nodiscard]] const std::set<std::size_t>& selection() const noexcept { return selection_; }
@@ -83,7 +82,7 @@ public:
     void duplicateSelection();
     void selectAll();
     void transpose(int semitones);
-    /// ↑/↓ (§6): steps of the scale while it snaps to the key, else semitones.
+    /// ↑/↓ (§6): steps of the scale while In key, else semitones.
     void transposeSteps(int steps);
     /// Moves the selection by whole grid steps.
     void nudge(int gridSteps);
@@ -181,12 +180,11 @@ public:
     /// The point at `beat` (content beats) in the middle of `pitch`'s row.
     [[nodiscard]] juce::Point<float> pointFor(double beat, int pitch) const;
     [[nodiscard]] const model::Timeline& timeline() const noexcept { return timeline_; }
-    /// The rows shown (piano-roll.md §6, Fold), low to high; empty when every pitch is.
-    [[nodiscard]] const std::vector<int>& foldedRows() const noexcept { return rows_; }
+    /// The rows shown (§21), low to high: In key, the key's and those of notes outside it; empty
+    /// for the whole roll.
+    [[nodiscard]] const std::vector<int>& shownRows() const noexcept { return rows_; }
     /// The other tracks' notes shown faint (§8): how many, for tests.
     [[nodiscard]] std::size_t ghostCount() const noexcept { return ghosts_.size(); }
-    /// The notes a double-click under the pointer would draw (§20.1), for tests.
-    [[nodiscard]] const std::vector<model::Note>& drawGhost() const noexcept { return ghost_; }
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -238,8 +236,9 @@ private:
     void clampPitchView();
     void fitToClip();
     void commit(model::NoteEdit edit);
-    /// The notes changed: the folded rows and the chord lane follow.
+    /// The notes changed: the rows shown and the chord lane follow.
     void notesChanged();
+    /// The rows In key shows: the key's, and those of the notes and of a preview outside it.
     void updateRows();
     void updateGhosts();
     void optionsChanged();
@@ -257,14 +256,9 @@ private:
     /// The selection's span in content beats while two or more notes are selected.
     [[nodiscard]] std::optional<std::pair<double, double>> selectionSpan() const;
     [[nodiscard]] const music::Key* keyOrNull() const noexcept { return key_ ? &*key_ : nullptr; }
-    /// A drawn note's pitch: the key's nearest note while it snaps (Alt: as clicked).
-    [[nodiscard]] int drawnPitch(int pitch, bool bypass) const;
-    /// What a double-click at a grid-local point draws: a note, or the chord Draw makes there.
+    /// What a double-click at a grid-local point draws, on the row clicked: a note, or the chord
+    /// Draw makes there. `bypass` (Alt) frees it from the grid.
     [[nodiscard]] model::NoteEdit drawnAt(juce::Point<float> local, bool bypass) const;
-    /// The ghost of what a double-click would draw at a component point (none: off the grid, over
-    /// a note, or during a gesture: piano-roll.md §20.1).
-    void updateGhost(std::optional<juce::Point<float>> at, bool bypass);
-    void paintGhost(juce::Graphics& g);
     /// The selection a command acts on is shown in the notes it returns.
     void run(model::NoteEdit edit) { commit(std::move(edit)); }
 
@@ -298,8 +292,8 @@ private:
     engine::Session& session_;
     std::optional<model::ClipInfo> clip_;
     model::TempoMap tempo_;
-    /// The song's key where the clip is (key-and-scale.md §7): its rows lit, its root labelled,
-    /// note names spelled by it. None: the piano's pattern, as before.
+    /// The song's key where the clip is (key-and-scale.md §7): In key shows its rows (§21); note
+    /// names are spelled by it.
     std::optional<music::Key> key_;
     /// A note's name, spelled by the key.
     [[nodiscard]] juce::String noteName(int pitch) const;
@@ -307,7 +301,7 @@ private:
     std::vector<model::Note> notes_;    // the clip's notes: the snapshot's, or our last edit
     std::set<std::size_t> selection_;   // indices into notes_
     std::optional<model::NoteEdit> preview_;        // during a gesture, or a tool's preview
-    std::vector<int> rows_;                         // folded: the pitches shown; empty: every pitch
+    std::vector<int> rows_;                         // In key: the pitches shown; empty: every pitch
     std::vector<model::ChordSpan> spans_;           // the chord lane, read from notes_
     std::vector<Ghost> ghosts_;                     // the other tracks' notes (§8)
     std::vector<model::ChordSpan> allSpans_;        // the chords of everything shown, with Others on
@@ -335,8 +329,6 @@ private:
     bool handleAtEnd_ = true; // the time handle dragged: the end's (else the start's)
     double stretchFactor_ = 1.0;
     std::optional<std::size_t> hoveredSpan_;
-    std::vector<model::Note> ghost_;                          // what a double-click would draw
-    std::optional<std::tuple<int, double, bool>> ghostPlace_; // the row, step and Alt it's for
     float drawVelocity_ = 100.0f / 127.0f;
     std::optional<int> previewPitch_;      // the note sounding now
     std::vector<int> previewChordPitches_; // a chord sounding now (the popover's hover)

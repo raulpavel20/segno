@@ -55,18 +55,21 @@ std::vector<Note> concat(std::vector<Note> a, const std::vector<Note>& b)
 }
 } // namespace
 
-TEST_CASE("Fold: the rows shown", "[fast]")
+TEST_CASE("In key: the key's rows, and those of notes outside it", "[fast]")
 {
     const std::vector<Note> notes{note(61, 0.0), note(64, 1.0)};
-    CHECK(foldedRows(Fold::All, &cMajor, notes).size() == 128);
-    const auto key = foldedRows(Fold::Key, &cMajor, notes);
-    CHECK(std::find(key.begin(), key.end(), 60) != key.end());
-    CHECK(std::find(key.begin(), key.end(), 61) != key.end()); // a note outside the key keeps its row
-    CHECK(std::find(key.begin(), key.end(), 63) == key.end());
-    CHECK(std::is_sorted(key.begin(), key.end()));
-    CHECK(foldedRows(Fold::Notes, &cMajor, notes) == std::vector<int>{61, 64});
-    CHECK(foldedRows(Fold::Notes, nullptr, {}).size() == 128);
-    CHECK(foldedRows(Fold::Key, nullptr, notes).size() == 128);
+    const auto has = [](const std::vector<int>& rows, int pitch)
+    { return std::find(rows.begin(), rows.end(), pitch) != rows.end(); };
+    const auto rows = keyRows(&cMajor, notes);
+    CHECK(has(rows, 60));
+    CHECK(has(rows, 61)); // a note outside the key keeps its row
+    CHECK_FALSE(has(rows, 63));
+    CHECK(std::is_sorted(rows.begin(), rows.end()));
+    CHECK(rows.size() == 75 + 1); // the key's 75 pitches in 0..127, and C♯4
+    // A preview's notes outside the key show too.
+    const std::vector<Note> preview{note(70, 0.0)};
+    CHECK(has(keyRows(&cMajor, notes, &preview), 70));
+    CHECK(keyRows(nullptr, notes).size() == 128); // no key: every pitch
 }
 
 TEST_CASE("Folded geometry maps rows to the pitches shown", "[fast]")
@@ -83,20 +86,19 @@ TEST_CASE("Folded geometry maps rows to the pitches shown", "[fast]")
     CHECK(hitNote(notes, g, 10.0, 25.0)->index == 0);
 }
 
-TEST_CASE("Dragging in the key and through folded rows", "[fast]")
+TEST_CASE("Dragging through the rows shown", "[fast]")
 {
     const std::vector<Note> notes{note(60, 0.0), note(64, 0.0), note(67, 0.0)};
     const std::set<std::size_t> all{0, 1, 2};
-    SECTION("Key: the anchor to the key's nearest note, the others by as many steps")
+    SECTION("In key: by the key's rows, every note as many")
     {
-        auto out = dragNotes(notes, all, {.anchor = 0, .deltaPitch = 2, .key = &cMajor}, sixteenths);
-        CHECK(pitchesOf(out.notes) == std::vector<int>{62, 65, 69}); // C E G up a step: D F A
-        out = dragNotes(notes, all, {.anchor = 0, .deltaPitch = 1, .key = &cMajor}, sixteenths);
-        CHECK(pitchesOf(out.notes) == std::vector<int>{60, 64, 67}); // C♯ is nearest C: no step
-        out = dragNotes(notes, all, {.anchor = 0, .deltaPitch = -1, .key = &cMajor}, sixteenths);
-        CHECK(pitchesOf(out.notes) == std::vector<int>{59, 62, 65}); // B: down a step
+        const auto rows = keyRows(&cMajor, notes);
+        auto out = dragNotes(notes, all, {.anchor = 0, .deltaPitch = 1, .rows = &rows}, sixteenths);
+        CHECK(pitchesOf(out.notes) == std::vector<int>{62, 65, 69}); // C E G up a row: D F A
+        out = dragNotes(notes, all, {.anchor = 0, .deltaPitch = -1, .rows = &rows}, sixteenths);
+        CHECK(pitchesOf(out.notes) == std::vector<int>{59, 62, 65}); // down a row: B D F
     }
-    SECTION("Folded: by the rows shown")
+    SECTION("By any rows shown")
     {
         const std::vector<int> rows{60, 64, 67, 72};
         const auto out = dragNotes(notes, {0}, {.anchor = 0, .deltaPitch = 2, .rows = &rows}, sixteenths);
@@ -407,8 +409,7 @@ TEST_CASE("The clip view's options round-trip as view state", "[fast]")
 {
     PianoRollOptions o;
     CHECK(pianoRollOptionsFromJson(pianoRollOptionsToJson(o)) == o);
-    o.keySnap = false;
-    o.fold = Fold::Notes;
+    o.wholeRoll = {12, 0x7fff'ffff'ffffULL};
     o.others = false;
     o.draw = DrawMode::ChordUnder;
     o.chordLabels = ChordLabels::Steps;
@@ -417,10 +418,9 @@ TEST_CASE("The clip view's options round-trip as view state", "[fast]")
                .inversion = fd::music::Inversion::Second};
     o.quantise = {.strength = 0.5, .swing = 0.25, .starts = false, .ends = true};
     CHECK(pianoRollOptionsFromJson(pianoRollOptionsToJson(o)) == o);
-    CHECK(pianoRollOptionsFromJson(nlohmann::json{{"fold", "sideways"}, {"quantiseSwing", 9.0}}) ==
+    CHECK(pianoRollOptionsFromJson(nlohmann::json{{"wholeRoll", "sideways"}, {"quantiseSwing", 9.0}}) ==
           PianoRollOptions{.quantise = {.swing = 1.0}});
     CHECK(pianoRollOptionsFromJson(nlohmann::json()) == PianoRollOptions{});
-    CHECK(std::string(foldName(Fold::Key)) == "Fold to key");
     CHECK(std::string(drawModeName(DrawMode::Chord)) == "Draw chord");
 }
 

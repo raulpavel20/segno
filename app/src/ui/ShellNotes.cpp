@@ -140,12 +140,13 @@ void Shell::registerNotesActions()
     const auto clipView = [this] { return detail_.showsPianoRoll(); };
     const auto whyNoClip = []
     { return juce::String("Open a MIDI clip in the clip view first: double-click it"); };
-    actions_.add({.id = "view.clipKey",
-                  .name = "Snap to key",
+    actions_.add({.id = "view.clipInKey",
+                  .name = "Show only the key's notes",
                   .category = "View",
-                  .perform = [&roll] { roll.setKeySnap(!roll.options().keySnap); },
+                  .keys = {key('n', kCmd | kAlt)},
+                  .perform = [&roll] { roll.setInKey(!roll.inKey()); },
                   .isEnabled = [clipView, &roll] { return clipView() && roll.key().has_value(); },
-                  .isToggled = [&roll] { return roll.options().keySnap; },
+                  .isToggled = [&roll] { return roll.inKey(); },
                   .whyNot =
                       [this, &roll]
                   {
@@ -160,17 +161,6 @@ void Shell::registerNotesActions()
                   .isEnabled = clipView,
                   .isToggled = [&roll] { return roll.options().others; },
                   .whyNot = whyNoClip});
-    for (const auto& [id, fold] :
-         {std::pair{"view.foldAll", model::Fold::All}, std::pair{"view.foldKey", model::Fold::Key},
-          std::pair{"view.foldNotes", model::Fold::Notes}})
-        actions_.add({.id = id,
-                      .name = model::foldName(fold),
-                      .category = "View",
-                      .perform = [&roll, fold] { roll.setFold(fold); },
-                      .isEnabled = [clipView, &roll, fold]
-                      { return clipView() && (fold != model::Fold::Key || roll.key()); },
-                      .isToggled = [&roll, fold] { return roll.options().fold == fold; },
-                      .whyNot = whyNoClip});
     for (const auto& [id, mode] : {std::pair{"view.drawNote", model::DrawMode::Note},
                                    std::pair{"view.drawChord", model::DrawMode::Chord},
                                    std::pair{"view.drawChordUnder", model::DrawMode::ChordUnder}})

@@ -17,18 +17,7 @@ void deriveRoles(Theme& t)
     r.strip = t.surface0.interpolatedWith(t.surface1, 0.5f);
     r.keyRowLight = t.surface1.interpolatedWith(t.surface2, 0.7f);
     r.keyRowDark = t.surface0.interpolatedWith(t.surface1, 0.3f);
-    // A row in the key: its shade turned towards accentMidi, then brought back to the shade a little
-    // lightened, so the hue says "in the key" and the shade still says which key of the piano.
-    const auto inKey = [&t](juce::Colour shade, float mix, float lift)
-    {
-        const auto hue = shade.interpolatedWith(t.accentMidi, mix);
-        return hue.withMultipliedBrightness(shade.getPerceivedBrightness() * lift /
-                                            std::max(0.001f, hue.getPerceivedBrightness()));
-    };
-    r.keyRowLightInKey = inKey(r.keyRowLight, 0.4f, 1.2f);
-    r.keyRowDarkInKey = inKey(r.keyRowDark, 0.4f, 1.2f);
-    r.keyRowLightRoot = inKey(r.keyRowLight, 0.6f, 1.45f);
-    r.keyRowDarkRoot = inKey(r.keyRowDark, 0.6f, 1.45f);
+    r.keyRowHatch = t.line; // a diagonal 1 px line reads quieter than a straight one
     r.shade = t.surface0.withAlpha(0.55f);
     r.gridBar = t.surface3;
     r.gridBeat = t.surface3.withAlpha(0.55f);

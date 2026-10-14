@@ -177,8 +177,7 @@ std::vector<Menu> menuBar(MenuPlatform platform)
                       action("module.previousPage"),
                       separator(),
                       // The clip view's options (piano-roll.md §13).
-                      action("view.clipKey"),
-                      submenu("Fold", {action("view.foldAll"), action("view.foldKey"), action("view.foldNotes")}),
+                      action("view.clipInKey"),
                       action("view.clipOthers"),
                       submenu("Draw", {action("view.drawNote"), action("view.drawChord"), action("view.drawChordUnder"),
                                        separator(), action("view.drawTriads"), action("view.drawSevenths"),

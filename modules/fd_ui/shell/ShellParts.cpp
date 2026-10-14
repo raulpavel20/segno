@@ -569,16 +569,19 @@ void paintEmptyState(juce::Graphics& g, juce::Rectangle<int> area, const juce::S
     g.drawFittedText(text, area.reduced(t.shell.padding), juce::Justification::centred, 2);
 }
 
-void paintGhost(juce::Graphics& g, juce::Rectangle<float> area, juce::Colour fill, float radius)
+void paintHatch(juce::Graphics& g, juce::Rectangle<float> area, juce::Colour colour)
 {
-    static constexpr float dashes[] = {3.0f, 2.0f}; // a dash and its gap
-    g.setColour(fill);
-    g.fillRoundedRectangle(area, radius);
-    juce::Path outline, dashed;
-    outline.addRoundedRectangle(area.reduced(0.5f), radius);
-    juce::PathStrokeType(1.0f).createDashedStroke(dashed, outline, dashes, 2);
-    g.setColour(Theme::current().textSecondary);
-    g.fillPath(dashed);
+    if (area.isEmpty())
+        return;
+    // Lines rising to the right, placed by x + y so they meet across neighbouring areas.
+    const auto spacing = static_cast<float>(Theme::current().shell.hatchSpacing);
+    juce::Graphics::ScopedSaveState saved(g);
+    g.reduceClipRegion(area.getSmallestIntegerContainer());
+    g.setColour(colour);
+    const float h = area.getHeight();
+    const float first = std::floor((area.getX() + area.getY()) / spacing) * spacing;
+    for (float s = first; s < area.getRight() + area.getBottom(); s += spacing)
+        g.drawLine(s - area.getY(), area.getY(), s - area.getY() - h, area.getBottom(), 1.0f);
 }
 
 void paintValueTag(juce::Graphics& g, juce::Point<float> anchor, juce::Rectangle<int> within, const juce::String& text)

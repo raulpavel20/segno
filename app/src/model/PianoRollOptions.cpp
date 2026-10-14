@@ -10,7 +10,6 @@ namespace
 {
 // How each value is written in view state: stable words, not the names people read.
 constexpr std::array<std::string_view, 3> drawWords{"note", "chord", "chordUnder"};
-constexpr std::array<std::string_view, 3> foldWords{"all", "key", "notes"};
 constexpr std::array<std::string_view, 3> labelWords{"both", "names", "steps"};
 constexpr std::array<std::string_view, 6> shapeWordList{"triad", "seventh", "ninth", "sus2", "sus4", "add9"};
 constexpr std::array<std::string_view, 6> voicingWordList{"smooth", "close", "open",
@@ -75,8 +74,7 @@ std::optional<music::Inversion> inversionFromWord(std::string_view word) noexcep
 
 nlohmann::json pianoRollOptionsToJson(const PianoRollOptions& o)
 {
-    return {{"key", o.keySnap},
-            {"fold", toWord(o.fold, foldWords)},
+    return {{"wholeRoll", o.wholeRoll},
             {"others", o.others},
             {"draw", toWord(o.draw, drawWords)},
             {"chordLabels", toWord(o.chordLabels, labelWords)},
@@ -104,8 +102,10 @@ PianoRollOptions pianoRollOptionsFromJson(const nlohmann::json& json)
         const auto it = json.find(key);
         return it != json.end() && it->is_number() ? std::clamp(it->get<double>(), lo, hi) : fallback;
     };
-    o.keySnap = flag("key", o.keySnap);
-    o.fold = fromWord(json, "fold", foldWords, o.fold);
+    if (const auto it = json.find("wholeRoll"); it != json.end() && it->is_array())
+        for (const auto& id : *it)
+            if (id.is_number_unsigned())
+                o.wholeRoll.insert(id.get<std::uint64_t>());
     o.others = flag("others", o.others);
     o.draw = fromWord(json, "draw", drawWords, o.draw);
     o.chordLabels = fromWord(json, "chordLabels", labelWords, o.chordLabels);
@@ -131,19 +131,6 @@ const char* drawModeName(DrawMode mode) noexcept
         return "Draw chord under";
     default:
         return "Draw note";
-    }
-}
-
-const char* foldName(Fold fold) noexcept
-{
-    switch (fold)
-    {
-    case Fold::Key:
-        return "Fold to key";
-    case Fold::Notes:
-        return "Fold to notes";
-    default:
-        return "Fold off";
     }
 }
 

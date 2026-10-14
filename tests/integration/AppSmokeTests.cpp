@@ -694,10 +694,10 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         "notes.mirror", "notes.selectSamePitch", "notes.selectOutsideKey", "notes.selectInLoop",
         "notes.invertSelection",
         // The clip view's options (piano-roll.md §4): on screen in its header.
-        "view.clipKey", "view.clipOthers", "view.foldAll", "view.foldKey", "view.foldNotes", "view.drawNote",
-        "view.drawChord", "view.drawChordUnder", "view.drawTriads", "view.drawSevenths", "view.drawNinths",
-        "view.drawSus2", "view.drawSus4", "view.drawAdd9", "view.voicingSmooth", "view.voicingClose",
-        "view.voicingOpen", "view.voicingDrop2", "view.voicingDrop3", "view.voicingSpread"};
+        "view.clipOthers", "view.drawNote", "view.drawChord", "view.drawChordUnder", "view.drawTriads",
+        "view.drawSevenths", "view.drawNinths", "view.drawSus2", "view.drawSus4", "view.drawAdd9",
+        "view.voicingSmooth", "view.voicingClose", "view.voicingOpen", "view.voicingDrop2",
+        "view.voicingDrop3", "view.voicingSpread"};
     for (const auto& a : actions.all())
     {
         INFO(a.id);

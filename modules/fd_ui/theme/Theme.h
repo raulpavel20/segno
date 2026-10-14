@@ -48,10 +48,9 @@ struct ColourRoles
 {
     juce::Colour lane, laneSelected, subLane, strip;
     juce::Colour keyRowLight, keyRowDark, shade;
-    // The song key in the piano roll (piano-roll.md §20.1): the piano's rows in a lavender of their
-    // own, each still lighter or darker as the piano has it (a black key's row in the key stays
-    // darker than a white key's out of it); the root's stronger.
-    juce::Colour keyRowLightInKey, keyRowDarkInKey, keyRowLightRoot, keyRowDarkRoot;
+    // A row outside the key while the piano roll shows the key's rows (piano-roll.md §21.2): its
+    // hatching, over the row's own shade.
+    juce::Colour keyRowHatch;
     juce::Colour gridBar, gridBeat, gridSub, gridOctave, gridMinor;
     juce::Colour selectionFill, selectionStroke, dropTarget, textHighlight;
     juce::Colour playhead, marker, loopInactive, onClip;
@@ -144,6 +143,7 @@ struct ShellMetrics
     int buttonTextPadding = 8;  // a text button's padding on each side of its label (ui::Toggle::widthFor)
     int propertyFieldInset = 1; // a field in a property row, from the row's top and bottom
     int lightSize = 6;          // an activity light (MIDI input, assistants)
+    int hatchSpacing = 6;       // between hatching's lines (ui::paintHatch)
     // Clips and lanes in time views.
     int clipGap = 1;              // a clip from its row's top, from the separator line below it, and from a clip touching its end (the seam)
     int clipOutline = 1;          // a selected clip's outline; a fade's square sits inside it

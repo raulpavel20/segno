@@ -2,8 +2,10 @@
 
 #include "model/NoteTools.h"
 
+#include <cstdint>
 #include <nlohmann/json_fwd.hpp>
 #include <optional>
+#include <set>
 #include <span>
 #include <string_view>
 
@@ -28,8 +30,9 @@ enum class ChordLabels
 /// The clip view's options (piano-roll.md §4): view state, kept with the project.
 struct PianoRollOptions
 {
-    bool keySnap = true; // Key (§6): drawing and moving in the song's key, when it has one
-    Fold fold = Fold::All;
+    /// In key (§6, §21): on for every clip while the song has a key, except these, turned to the
+    /// whole roll (a drum part stays whole).
+    std::set<std::uint64_t> wholeRoll;
     bool others = true; // Others (§8): the other tracks' notes, faint
     DrawMode draw = DrawMode::Note;
     ChordLabels chordLabels = ChordLabels::Both;
@@ -52,9 +55,8 @@ struct PianoRollOptions
 [[nodiscard]] std::optional<music::Voicing> voicingFromWord(std::string_view word) noexcept;
 [[nodiscard]] std::optional<music::Inversion> inversionFromWord(std::string_view word) noexcept;
 
-/// The names the header and menus show: "Draw chord", "Fold to key".
+/// The names the header and menus show: "Draw chord".
 [[nodiscard]] const char* drawModeName(DrawMode mode) noexcept;
-[[nodiscard]] const char* foldName(Fold fold) noexcept;
 [[nodiscard]] const char* chordLabelsName(ChordLabels labels) noexcept;
 /// The Chord popover's names for a kind, a voicing and an inversion ("7th", "Drop 2", "1st").
 [[nodiscard]] const char* chordShapeName(music::ChordShape shape) noexcept;

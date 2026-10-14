@@ -214,10 +214,10 @@ void paintProgress(juce::Graphics& g, juce::Rectangle<float> area, float fractio
 /// kept within `within`.
 void paintValueTag(juce::Graphics& g, juce::Point<float> anchor, juce::Rectangle<int> within, const juce::String& text);
 
-/// What a click would make, before it's made: a dashed 1 px outline in `textSecondary` around
-/// `area` (at the control radius) over a fill the caller chooses. The note or chord a double-click
-/// would draw in the piano roll (docs/design/piano-roll.md §20.1).
-void paintGhost(juce::Graphics& g, juce::Rectangle<float> area, juce::Colour fill, float radius);
+/// Something in `area` that doesn't belong with what's around it: fine diagonal 1 px lines in
+/// `colour`, `shell.hatchSpacing` apart, clipped to the area. A piano roll row outside the key
+/// while it shows the key's rows (docs/design/piano-roll.md §21.2).
+void paintHatch(juce::Graphics& g, juce::Rectangle<float> area, juce::Colour colour);
 
 /// Titled sections one under another (the inspector): each a caps title on the row grid with its
 /// content under it, and a 1 px line centred in the group gap between neighbours, like a module

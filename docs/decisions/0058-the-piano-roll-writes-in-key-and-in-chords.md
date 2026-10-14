@@ -18,7 +18,7 @@
 
 ## Decision
 - **One surface, no tool palette.** Gestures and modifiers do the common things as now. A visible Draw choice (Note, Chord, Chord under) sets what a double-click draws.
-- **In key by default:** with a song key, drawing and moving land on its notes (Alt bypasses), and the arrows move by steps of the scale.
+- **In key by default:** with a song key, the clip view shows only the key's rows (notes outside it keep theirs, marked), so drawing and moving land on its notes, and the arrows move by steps of the scale. One toggle shows the whole roll, chromatic, and a clip switched to it stays so. A click always lands on the row under the pointer: nothing snaps to the key. *(Revised 2026-10-14 after the product owner's use, [piano-roll.md](../design/piano-roll.md) §21: this replaced snapping to the key with Alt to bypass it, a separate Fold, and the key's rows tinted.)*
 - **Chords are read from the notes,** never kept as separate data. A chord lane under the ruler names them in the key. Clicking a name selects its notes; changing a chord rewrites only its notes, voice-led. A Chord popover offers the key's chords, suggestions for the next one, and borrowed chords, from a small explainable model.
 - **Other tracks' notes** can be shown faint, never selectable.
 - **Per-note chance and velocity spread** are decided from a seed, the note and the lap, so playback, bounce and export always agree.

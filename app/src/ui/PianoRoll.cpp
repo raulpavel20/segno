@@ -87,27 +87,30 @@ void PianoRoll::setOptions(const model::PianoRollOptions& options)
 {
     if (options == options_)
         return;
-    const bool fold = options.fold != options_.fold;
+    const bool rows = options.wholeRoll != options_.wholeRoll;
     const bool others = options.others != options_.others;
     options_ = options;
-    if (fold)
+    if (rows)
         updateRows();
     if (others)
         updateGhosts();
     optionsChanged();
 }
 
-void PianoRoll::setKeySnap(bool on)
+bool PianoRoll::inKey() const noexcept
 {
-    auto o = options_;
-    o.keySnap = on;
-    setOptions(o);
+    return key_.has_value() && clip_ && !options_.wholeRoll.contains(clip_->id);
 }
 
-void PianoRoll::setFold(model::Fold fold)
+void PianoRoll::setInKey(bool on)
 {
+    if (!clip_)
+        return;
     auto o = options_;
-    o.fold = fold;
+    if (on)
+        o.wholeRoll.erase(clip_->id); // the clip follows the key again
+    else
+        o.wholeRoll.insert(clip_->id);
     setOptions(o);
 }
 
@@ -141,8 +144,6 @@ void PianoRoll::setQuantiseSettings(const model::QuantiseSettings& settings)
 
 void PianoRoll::optionsChanged()
 {
-    ghost_.clear();
-    ghostPlace_.reset();
     updateLabels(); // names, steps or both
     resized();      // the chord lane comes and goes
     repaint();
@@ -197,29 +198,6 @@ juce::PopupMenu PianoRoll::voicingMenu()
         menu.addItem(juce::PopupMenu::Item(juce::String("Inversion: ") + model::inversionName(i))
                          .setTicked(options_.chord.inversion == i)
                          .setAction(set([i](model::ChordStyle& s) { s.inversion = i; })));
-    return menu;
-}
-
-juce::PopupMenu PianoRoll::foldMenu()
-{
-    juce::PopupMenu menu;
-    const juce::Component::SafePointer<PianoRoll> safe(this);
-    const auto item = [&](model::Fold fold, const char* name, bool enabled)
-    {
-        menu.addItem(juce::PopupMenu::Item(name)
-                         .setTicked(options_.fold == fold)
-                         .setEnabled(enabled)
-                         .setAction(
-                             [safe, fold]
-                             {
-                                 if (safe != nullptr)
-                                     safe->setFold(fold);
-                             }));
-    };
-    item(model::Fold::All, "All rows", true);
-    item(model::Fold::Key, key_ ? "The key's rows" : "The key's rows (the song has no key)",
-         key_.has_value());
-    item(model::Fold::Notes, "Rows with notes", true);
     return menu;
 }
 
@@ -474,7 +452,6 @@ void PianoRoll::setClip(std::optional<model::ClipInfo> clip, const model::TempoM
 
 void PianoRoll::notesChanged()
 {
-    ghostPlace_.reset(); // a chord's ghost is voiced from the notes
     spans_ = model::chordSpans(notes_);
     updateRows();
     if (options_.others)
@@ -511,10 +488,11 @@ void PianoRoll::updateRows()
                    ? 60
                    : (*before.rows)[static_cast<std::size_t>(std::clamp(
                          static_cast<int>(middleRow), 0, static_cast<int>(before.rows->size()) - 1))]);
-    auto rows = options_.fold == model::Fold::All ? std::vector<int>{}
-                                                  : model::foldedRows(options_.fold, keyOrNull(), notes_);
+    // A preview's notes outside the key show their rows while it's shown; a drag's land on rows.
+    auto rows = inKey() ? model::keyRows(keyOrNull(), notes_, preview_ ? &preview_->notes : nullptr)
+                        : std::vector<int>{};
     if (rows.size() == 128)
-        rows.clear(); // every pitch: not folded
+        rows.clear(); // every pitch: the whole roll
     if (rows == rows_)
         return;
     rows_ = std::move(rows);
@@ -618,6 +596,7 @@ void PianoRoll::commit(model::NoteEdit edit)
 void PianoRoll::previewEdit(std::optional<model::NoteEdit> edit)
 {
     preview_ = std::move(edit);
+    updateRows();
     repaint();
 }
 
@@ -689,7 +668,7 @@ void PianoRoll::transposeSteps(int steps)
 {
     if (!clip_ || selection_.empty())
         return;
-    if (snapsToKey())
+    if (inKey())
         commit(model::transposeInKey(notes_, selection_, *key_, steps));
     else
         transpose(steps);
@@ -776,7 +755,7 @@ void PianoRoll::reverse()
 void PianoRoll::mirrorPitches()
 {
     if (clip_ && !notes_.empty())
-        commit(model::mirrorPitches(notes_, selection_, snapsToKey() ? keyOrNull() : nullptr));
+        commit(model::mirrorPitches(notes_, selection_, inKey() ? keyOrNull() : nullptr));
 }
 
 void PianoRoll::toggleMute()
@@ -898,6 +877,7 @@ void PianoRoll::previewChord(const ChordPlace& place, const std::optional<music:
         previewOff();
         if (gesture_ == Gesture::None)
             preview_.reset();
+        updateRows();
         repaint();
         return;
     }
@@ -907,6 +887,7 @@ void PianoRoll::previewChord(const ChordPlace& place, const std::optional<music:
     for (auto i : edit.selection)
         pitches.push_back(edit.notes[i].pitch);
     preview_ = std::move(edit);
+    updateRows();
     previewChordOn(pitches, drawVelocity_);
     repaint();
 }
@@ -959,7 +940,7 @@ model::NoteEdit PianoRoll::drawnAt(juce::Point<float> local, bool bypass) const
     const auto geo = geometry();
     const auto snapping = beatGrid(bypass);
     const double beat = std::max(0.0, geo.beatForX(local.x));
-    const model::Note note{.pitch = drawnPitch(geo.pitchForY(local.y), bypass),
+    const model::Note note{.pitch = std::clamp(geo.pitchForY(local.y), 0, 127),
                            .start = std::max(0.0, snapping.floor(beat)),
                            .length = gridStep(),
                            .velocity = drawVelocity_};
@@ -967,70 +948,6 @@ model::NoteEdit PianoRoll::drawnAt(juce::Point<float> local, bool bypass) const
                ? model::addNote(notes_, note)
                : model::drawChord(notes_, note, keyOrNull(), options_.chord,
                                   options_.draw == model::DrawMode::ChordUnder);
-}
-
-void PianoRoll::updateGhost(std::optional<juce::Point<float>> at, bool bypass)
-{
-    const auto area = gridArea();
-    if (!at || !clip_ || gesture_ != Gesture::None || !area.contains(at->toInt()))
-    {
-        if (!ghost_.empty())
-            repaint(area);
-        ghost_.clear();
-        ghostPlace_.reset();
-        return;
-    }
-    // Worked out again only when the row, the grid step or Alt changes under the pointer.
-    const auto local = *at - area.getPosition().toFloat();
-    const auto geo = geometry();
-    const std::tuple place{geo.pitchForY(local.y),
-                           beatGrid(bypass).floor(std::max(0.0, geo.beatForX(local.x))), bypass};
-    if (place == ghostPlace_)
-        return;
-    ghostPlace_ = place;
-    const auto edit = drawnAt(local, bypass);
-    ghost_.clear();
-    for (auto i : edit.selection)
-        ghost_.push_back(edit.notes[i]);
-    repaint(area);
-}
-
-void PianoRoll::paintGhost(juce::Graphics& g)
-{
-    if (ghost_.empty())
-        return;
-    const auto& t = ui::Theme::current();
-    const auto area = gridArea();
-    juce::Graphics::ScopedSaveState saved(g);
-    g.reduceClipRegion(area);
-    const auto geo = geometry();
-    const auto fill = t.ghost(t.clipColour(clip_->colour));
-    g.setFont(ui::font(ui::TextStyle::Micro));
-    for (const auto& n : ghost_)
-    {
-        if (!rows_.empty() && !std::binary_search(rows_.begin(), rows_.end(), n.pitch))
-            continue;
-        const float x0 = static_cast<float>(area.getX() + geo.xForBeat(n.start));
-        const float x1 = static_cast<float>(area.getX() + geo.xForBeat(n.start + n.length));
-        const auto r = juce::Rectangle<float>(x0, static_cast<float>(area.getY() + geo.yForPitch(n.pitch)),
-                                              std::max(2.0f, x1 - x0), static_cast<float>(rowHeight_))
-                           .reduced(0.0f, 1.0f)
-                           .withTrimmedRight(1.0f);
-        ui::paintGhost(g, r, fill, 2.0f);
-        if (rowHeight_ >= 10.0 && r.getWidth() > 30.0f)
-        {
-            g.setColour(t.textSecondary);
-            g.drawText(noteName(n.pitch), r.reduced(4.0f, 0.0f), juce::Justification::centredLeft, false);
-        }
-    }
-}
-
-int PianoRoll::drawnPitch(int pitch, bool bypass) const
-{
-    pitch = std::clamp(pitch, 0, 127);
-    if (snapsToKey() && !bypass && rows_.empty())
-        pitch = std::clamp(music::nearestInKey(*key_, pitch), 0, 127);
-    return pitch;
 }
 
 // ---- painting ------------------------------------------------------------------------------
@@ -1045,7 +962,6 @@ void PianoRoll::paint(juce::Graphics& g)
     paintRows(g);
     paintGhosts(g);
     paintNotes(g);
-    paintGhost(g);
     paintVelocities(g);
     paintKeys(g);
     paintRuler(g);
@@ -1067,9 +983,8 @@ void PianoRoll::paintRows(juce::Graphics& g)
     const auto geo = geometry();
 
     // Rows: the piano's, always: black keys a tone darker, a line under every C (octaves) and
-    // between E and F. A key never changes their shades (piano-roll.md §20.1): its notes' rows are
-    // the same shades in a lavender of their own, the root's stronger. Folded (§6), every row has a
-    // line under it, as the rows no longer alternate.
+    // between E and F. In key (§21), every row has a line under it, as the rows no longer
+    // alternate, and a row outside the key (its notes') is hatched.
     const auto white = t.roles.keyRowLight;
     const auto black = t.roles.keyRowDark;
     const int rowCount = geo.rowCount();
@@ -1077,7 +992,6 @@ void PianoRoll::paintRows(juce::Graphics& g)
     const int lowest = std::max(0, static_cast<int>(std::floor(topEdge_ - 1.0 - area.getHeight() / rowHeight_)));
     const auto x = static_cast<float>(area.getX()), w = static_cast<float>(area.getWidth());
     const auto rh = static_cast<float>(rowHeight_);
-    const auto inKey = key_ ? music::notes(*key_) : music::PitchSet{0};
     const bool folded = !rows_.empty();
     if (folded) // below the last row: nothing
     {
@@ -1088,13 +1002,10 @@ void PianoRoll::paintRows(juce::Graphics& g)
     {
         const int p = folded ? rows_[static_cast<std::size_t>(r)] : r;
         const float y = static_cast<float>(area.getY() + geo.yForPitch(p));
-        const bool blackKey = isBlackKey(p);
-        const bool keyed = key_ && (inKey >> (p % 12) & 1u) != 0;
-        const bool root = keyed && p % 12 == key_->root;
-        g.setColour(root    ? (blackKey ? t.roles.keyRowDarkRoot : t.roles.keyRowLightRoot)
-                    : keyed ? (blackKey ? t.roles.keyRowDarkInKey : t.roles.keyRowLightInKey)
-                            : (blackKey ? black : white));
+        g.setColour(isBlackKey(p) ? black : white);
         g.fillRect(x, y, w, rh);
+        if (folded && key_ && !music::contains(*key_, p)) // inside the row, clear of notes' edges
+            ui::paintHatch(g, {x, y + 1.0f, w, rh - 2.0f}, t.roles.keyRowHatch);
         if (p % 12 == 0 || p % 12 == 5 || folded)
         {
             g.setColour(p % 12 == 0 ? t.roles.gridOctave : t.roles.gridMinor);
@@ -1128,7 +1039,7 @@ void PianoRoll::paintGhosts(juce::Graphics& g)
     {
         const auto& n = ghost.note;
         if (!rows_.empty() && !std::binary_search(rows_.begin(), rows_.end(), n.pitch))
-            continue; // folded away
+            continue; // not a row shown
         const float x0 = static_cast<float>(area.getX() + geo.xForBeat(n.start));
         const float x1 = static_cast<float>(area.getX() + geo.xForBeat(n.start + n.length));
         const auto r = juce::Rectangle<float>(x0, static_cast<float>(area.getY() + geo.yForPitch(n.pitch)),
@@ -1281,8 +1192,8 @@ void PianoRoll::paintKeys(juce::Graphics& g)
 
     if (!rows_.empty())
     {
-        // Folded (§6): each row a key of its own, white or black as on the piano, labelled with its
-        // note and, in the key, its step.
+        // In key (§21): each row a key of its own, white or black as on the piano, labelled with
+        // its note and, for the key's notes, its step.
         g.setColour(t.surface1);
         g.fillRect(area);
         for (int r = lowest; r <= highest; ++r)
@@ -1319,14 +1230,8 @@ void PianoRoll::paintKeys(juce::Graphics& g)
         const bool held =
             previewPitch_ == p || std::find(previewChordPitches_.begin(), previewChordPitches_.end(), p) !=
                                       previewChordPitches_.end();
-        // The C's are labelled, and the key's root too (key-and-scale.md §7); the key's other notes
-        // have a dot at the key's left end, clear of the labels (piano-roll.md §20.1).
-        const bool labelled = (p % 12 == 0 || (key_ && p % 12 == key_->root)) && rowHeight_ >= 8.0;
-        const bool dotted = key_ && !labelled && music::contains(*key_, p) && rowHeight_ >= 8.0;
-        const auto dot = juce::Rectangle<float>(x + static_cast<float>(t.shell.itemGap), y,
-                                                static_cast<float>(t.shell.lightSize), rh)
-                             .withSizeKeepingCentre(static_cast<float>(t.shell.lightSize),
-                                                    static_cast<float>(t.shell.lightSize));
+        // The whole roll is the piano (§21): the C's labelled, the key shown by nothing else.
+        const bool labelled = p % 12 == 0 && rowHeight_ >= 8.0;
         if (isBlackKey(p))
         {
             g.setColour(held ? t.active : blackKey);
@@ -1338,11 +1243,6 @@ void PianoRoll::paintKeys(juce::Graphics& g)
                 g.setColour(held ? t.onActive : whiteKey);
                 g.drawText(noteName(p), juce::Rectangle<float>(x, y, w * 0.62f - 4.0f, rh),
                            juce::Justification::centredRight, false);
-            }
-            if (dotted && !held)
-            {
-                g.setColour(t.accentMidi);
-                g.fillEllipse(dot);
             }
             continue;
         }
@@ -1360,11 +1260,6 @@ void PianoRoll::paintKeys(juce::Graphics& g)
         {
             g.setColour(held ? t.onActive : t.surface0);
             g.drawText(noteName(p), juce::Rectangle<float>(x, y, w - 4.0f, rh), juce::Justification::centredRight, false);
-        }
-        if (dotted && !held)
-        {
-            g.setColour(t.accentMidi);
-            g.fillEllipse(dot);
         }
     }
     g.setColour(t.surface0);
@@ -1643,18 +1538,13 @@ void PianoRoll::mouseMove(const juce::MouseEvent& e)
         if (hovered)
             cursor = juce::MouseCursor::PointingHandCursor;
     }
-    bool overEmptyGrid = false;
     if (clip_ && gridArea().contains(pos))
     {
         const auto local = e.position - gridArea().getPosition().toFloat();
         if (const auto hit = model::hitNote(notes_, geometry(), local.x, local.y, ui::Theme::current().input.edgeGrab))
             cursor = hit->zone == model::NoteHit::Zone::Body ? juce::MouseCursor::NormalCursor
                                                               : juce::MouseCursor::LeftRightResizeCursor;
-        else
-            overEmptyGrid = true;
     }
-    // Over an empty part of the grid: the ghost of what a double-click would draw (§20.1).
-    updateGhost(overEmptyGrid ? std::optional(e.position) : std::nullopt, e.mods.isAltDown());
     if (hovered != hoveredSpan_)
     {
         hoveredSpan_ = hovered;
@@ -1665,7 +1555,6 @@ void PianoRoll::mouseMove(const juce::MouseEvent& e)
 
 void PianoRoll::mouseExit(const juce::MouseEvent&)
 {
-    updateGhost(std::nullopt, false);
     if (hoveredSpan_)
     {
         hoveredSpan_.reset();
@@ -1678,9 +1567,9 @@ void PianoRoll::mouseDown(const juce::MouseEvent& e)
     if (onActivated)
         onActivated();
     gesture_ = Gesture::None;
-    preview_.reset();
+    if (std::exchange(preview_, std::nullopt))
+        updateRows(); // a tool's preview, given up
     toggleOnClick_.reset();
-    updateGhost(std::nullopt, false);
     if (!clip_)
         return;
     dragStart_ = lastDrag_ = e.position;
@@ -1824,12 +1713,13 @@ void PianoRoll::mouseDown(const juce::MouseEvent& e)
             commit(model::deleteNotes(notes_, {hit->index}));
             return;
         }
-        // Draw a note (or a chord, §7.2) one grid step long in the step under the mouse; dragging
-        // lengthens it. With Key, on the key's nearest note (§6); Alt draws as clicked.
+        // Draw a note (or a chord, §7.2) one grid step long, on the row and in the step under the
+        // mouse (Alt: free of the grid); dragging lengthens it.
         base_ = drawnAt(local, e.mods.isAltDown());
         if (base_.selection.empty())
             return;
         preview_ = base_;
+        updateRows(); // a chord's notes outside the key show their rows
         gesture_ = Gesture::Draw;
         drag_ = {.kind = model::NoteDragKind::ResizeEnd, .anchor = *base_.selection.begin()};
         std::vector<int> pitches;
@@ -1948,11 +1838,9 @@ void PianoRoll::mouseDrag(const juce::MouseEvent& e)
         drag_.deltaBeats = deltaBeats;
         if (drag_.kind == model::NoteDragKind::Move)
         {
-            // Rows of the shown rows (§6, Fold); through the key's notes with Key, Alt free;
-            // Ctrl copies (§9.1).
+            // By the rows shown (In key, the key's steps: §21); Ctrl copies (§9.1).
             drag_.deltaPitch = -static_cast<int>(std::lround((e.position.y - dragStart_.y) / rowHeight_));
             drag_.rows = rows_.empty() ? nullptr : &rows_;
-            drag_.key = snapsToKey() && !alt && rows_.empty() ? keyOrNull() : nullptr;
             drag_.copy = gesture_ == Gesture::Notes && e.mods.isCommandDown();
         }
         preview_ = model::dragNotes(base_.notes, base_.selection, drag_, beatGrid(alt));

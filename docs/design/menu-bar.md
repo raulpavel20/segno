@@ -355,8 +355,7 @@ Transform ▸, Generate ▸ and Re-roll chance join it with P4b and P4c. Clip �
 | Next module page | Ctrl+Alt+Page Down | For a module with pages ([ADR 0051](../decisions/0051-pages-for-very-wide-modules.md)); dimmed for others. With the Wavetable Synth (M3 P1) |
 | Previous module page | Ctrl+Alt+Page Up | As above |
 | — | | |
-| Snap to key | | The clip view's Key option (M3 P4, [piano-roll.md](piano-roll.md) §6); dimmed without a song key |
-| Fold ▸ | | Fold off, Fold to key, Fold to notes: the clip view's Fold |
+| Show only the key's notes | Ctrl+Alt+N | The clip view's In key (M3 P4, [piano-roll.md](piano-roll.md) §6, §21): only the key's rows, else the whole roll; ticked while it shows the key's rows; dimmed without a song key |
 | Show other tracks' notes | | The clip view's Others (§8) |
 | Draw ▸ | | Draw note, Draw chord, Draw chord under: the clip view's Draw (§7.2); — ; Draw triads, Draw 7th chords, Draw 9th chords, Draw sus2, sus4, add9 chords; — ; Voiced smooth, close, open, drop 2, drop 3, spread: the kind and voicing chords are drawn with (§20.2) |
 | — | | |

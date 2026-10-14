@@ -102,13 +102,12 @@ std::set<std::size_t> valid(const std::vector<Note>& notes, const std::set<std::
     return out;
 }
 
-/// Where a drag moves the selected notes' pitches: by rows (semitones, or folded rows), or
-/// through the key's notes; limited so every note stays on a row.
+/// Where a drag moves the selected notes' pitches: by rows (semitones, or the rows In key shows);
+/// limited so every note stays on a row.
 std::map<std::size_t, int> movedPitches(const std::vector<Note>& notes, const std::set<std::size_t>& sel,
                                         const NoteDrag& drag)
 {
     std::map<std::size_t, int> out;
-    const int anchor = notes[drag.anchor].pitch;
     if (drag.rows != nullptr && !drag.rows->empty())
     {
         const auto& rows = *drag.rows;
@@ -127,30 +126,6 @@ std::map<std::size_t, int> movedPitches(const std::vector<Note>& notes, const st
         const int by = std::clamp(drag.deltaPitch, -lowest, static_cast<int>(rows.size()) - 1 - highest);
         for (auto i : sel)
             out[i] = by == 0 ? notes[i].pitch : rows[static_cast<std::size_t>(rowOf(notes[i].pitch) + by)];
-        return out;
-    }
-    if (drag.key != nullptr && music::notes(*drag.key) != 0)
-    {
-        // The anchor to the key's note nearest the row under the mouse; the rest by as many steps.
-        const int target = music::nearestInKey(*drag.key, std::clamp(anchor + drag.deltaPitch, 0, 127));
-        int steps = 0;
-        for (int p = anchor; p < target; ++steps)
-            p = music::moveInKey(*drag.key, p, 1);
-        for (int p = anchor; p > target; --steps)
-            p = music::moveInKey(*drag.key, p, -1);
-        for (; steps != 0; steps += steps > 0 ? -1 : 1)
-        {
-            bool fits = true;
-            for (auto i : sel)
-            {
-                out[i] = music::moveInKey(*drag.key, notes[i].pitch, steps);
-                fits = fits && out[i] >= 0 && out[i] <= 127;
-            }
-            if (fits)
-                return out;
-        }
-        for (auto i : sel)
-            out[i] = notes[i].pitch;
         return out;
     }
     int lowest = 127, highest = 0;

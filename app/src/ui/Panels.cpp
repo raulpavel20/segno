@@ -1595,28 +1595,24 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
     drawVoicing_.setTooltip(
         "How the chords drawn are voiced: Smooth moves least from the chord before; and their inversion");
     drawVoicing_.onClick = [this] { drawVoicing_.showMenu(roll_.voicingMenu()); };
-    keySnap_.setClickingTogglesState(false);
-    keySnap_.onClick = [this] { roll_.setKeySnap(!roll_.options().keySnap); };
-    fold_.setTooltip("Which rows show: all of them, the key's, or those with notes");
-    fold_.onClick = [this] { fold_.showMenu(roll_.foldMenu()); };
+    inKey_.setClickingTogglesState(false);
+    inKey_.onClick = [this] { roll_.setInKey(!roll_.inKey()); };
     others_.setClickingTogglesState(false);
     others_.onClick = [this] { roll_.setOthers(!roll_.options().others); };
-    for (auto* option : {&draw_, &fold_, &drawVoicing_})
+    for (auto* option : {&draw_, &drawVoicing_})
         option->setVisible(false);
     drawKind_.setVisible(false);
     header_.addOption(draw_);
     header_.addOption(drawKind_);
     header_.addOption(drawVoicing_);
-    header_.addOption(keySnap_);
-    header_.addOption(fold_);
+    header_.addOption(inKey_);
     header_.addOption(others_);
-    keySnap_.setVisible(false);
+    inKey_.setVisible(false);
     others_.setVisible(false);
     header_.setDropOrder(others_, 1);
-    header_.setDropOrder(fold_, 2);
-    header_.setDropOrder(drawVoicing_, 3);
-    header_.setDropOrder(draw_, 4);
-    header_.setDropOrder(drawKind_, 5);
+    header_.setDropOrder(drawVoicing_, 2);
+    header_.setDropOrder(draw_, 3);
+    header_.setDropOrder(drawKind_, 4);
     roll_.onOptionsChanged = [this] { updateOptions(); };
     snap_.setClickingTogglesState(false); // the piano roll's, which the Session keeps
     snap_.onClick = [this] { roll_.setSnapEnabled(!roll_.isSnapEnabled()); };
@@ -1644,10 +1640,9 @@ void DetailPanel::updateOptions()
     const bool chords = showsPianoRoll() && o.draw != model::DrawMode::Note;
     drawKind_.setVisible(chords);
     drawVoicing_.setVisible(chords);
-    fold_.setValue(model::foldName(o.fold));
-    keySnap_.setToggleState(o.keySnap, juce::dontSendNotification);
+    inKey_.setToggleState(roll_.inKey(), juce::dontSendNotification);
     others_.setToggleState(o.others, juce::dontSendNotification);
-    keySnap_.setTooltip(actions_.tooltip("view.clipKey"));
+    inKey_.setTooltip(actions_.tooltip("view.clipInKey"));
     others_.setTooltip(actions_.tooltip("view.clipOthers"));
     header_.resized(); // the choices are as wide as their values
     header_.repaint();
@@ -1785,8 +1780,8 @@ void DetailPanel::updateVisibility()
     draw_.setVisible(notes);
     drawKind_.setVisible(notes && roll_.options().draw != model::DrawMode::Note);
     drawVoicing_.setVisible(notes && roll_.options().draw != model::DrawMode::Note);
-    keySnap_.setVisible(notes && roll_.key().has_value());
-    fold_.setVisible(notes);
+    inKey_.setVisible(notes && roll_.key().has_value());
+    inKey_.setToggleState(roll_.inKey(), juce::dontSendNotification); // each clip its own
     others_.setVisible(notes);
     snap_.setVisible(grid);
     grid_.setVisible(grid);

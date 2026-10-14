@@ -57,7 +57,7 @@ Checked against the vendors' manuals and release notes in October 2026: Live 12.
 ## 3. Principles
 
 1. **One surface, no modes you can get lost in.** Gestures do the common things, as now (double-click draws, drag moves, edges resize). There's no tool palette to switch; a modifier changes a gesture while it's held. What a click draws (a note or a chord) is a view option you can see in the header.
-2. **In key by default, chromatic one key away.** With a song key, drawing and moving land on its notes, the arrows move by steps of the scale, and Alt bypasses it, as Alt bypasses the grid. Without a key, everything is chromatic, as today.
+2. **In key by default, the whole roll one click away.** With a song key, the clip view shows only the key's rows, so every click lands on one of its notes and the arrows move by steps of the scale; one toggle shows the whole roll, chromatic. Without a key, everything is chromatic, as today. A click always lands on the row under the pointer (§21).
 3. **Chords are notes.** There's no chord track to keep in step: chord names are read from the notes, and editing a chord rewrites its notes. The notes are always the truth.
 4. **A tool is one undo step, previewed before it's kept.** Tools with settings open a popover that changes the notes live as you set it; Apply keeps it as one step, Escape puts everything back.
 5. **The same gestures as everywhere else:** the velocity lane and controller lanes are edited like automation lanes; Ctrl+drag copies, as it does clips and sections.
@@ -68,7 +68,7 @@ Checked against the vendors' manuals and release notes in October 2026: Live 12.
 ## 4. The clip view
 
 ```
-┌ Modules · Clip ── Notes ⌄  Quantise   Draw chord ⌄ [Triad 7th 9th sus2 sus4 add9] Smooth ⌄  ● Key  Fold ⌄  ○ Others  ● Snap  1/16 ⌄ ┐
+┌ Modules · Clip ── Notes ⌄  Quantise   Draw chord ⌄ [Triad 7th 9th sus2 sus4 add9] Smooth ⌄  ● In key  ○ Others  ● Snap  1/16 ⌄ ┐
 ├──────────┬──────────────────────────────────────────────────────────────────────────────────────────┤
 │          │ ⟦ loop brace ⟧                                                                            │ loop strip
 │          │ 1          2          3           4          5                                           │ ruler (time handles, §9)
@@ -86,11 +86,10 @@ Checked against the vendors' manuals and release notes in October 2026: Live 12.
 - **The header** keeps its tabs on the left and, on the right, its commands, then the view's options, in today's look (`ViewOption`, `ViewChoice`, a command as a `Toggle`):
   - **Notes ⌄** (the product owner's review of the mockup, 2026-10-14: every tool in the working area): a menu button, a command's look with a chevron, that opens the whole Notes menu (§13) under it. It's built by the same function as the menu bar's Notes, so the two never differ. A new shared component, `ui::MenuButton`, with ui-foundations.md;
   - **Draw** (§7.2): what a double-click draws, a note or the key's chord on it; while it draws chords, their kind side by side and their voicing beside it (§20.2);
-  - **Key** (§6): drawing and moving in the key; shown while the song has a key;
-  - **Fold** (§6): every row, the key's rows, or the rows with notes;
+  - **In key** (§6, §21): only the key's rows, or the whole roll; shown while the song has a key;
   - **Others** (§8): the other tracks' notes, faint;
   - **Snap** and the grid's step, as today; **Quantise**, as today, beside Notes.
-  - Hidden options take no room. At compact widths the header drops options in a set order (Others, then Fold, then Draw), each still in the View menu and the right-click menu.
+  - Hidden options take no room. At compact widths the header drops options in a set order (Others, then the voicing, then Draw), each still in the View menu; In key and the kinds while drawing chords stay.
 - **The chord lane** (§7) sits under the ruler: the chord names over the notes, and where chords are written.
 - **The bottom lane** shows velocity by default; its chooser (`Velocity ⌄`, in the keys' column) switches to chance, release velocity or a controller (§10, §11).
 - **The inspector** gets a NOTES section for the selected notes (§9.6).
@@ -103,12 +102,11 @@ Checked against the vendors' manuals and release notes in October 2026: Live 12.
 
 ## 6. Writing in key
 
-With a song key ([ADR 0057](../decisions/0057-the-song-has-one-key.md)):
-- **Key** (a view option, on by default with a key, kept per project): a double-click draws on the nearest note of the key, a drag moves notes up and down through the key's notes, and pasted or duplicated notes keep their steps of the scale. **Alt** bypasses it for one gesture, as it bypasses the grid.
-- **The arrows** move the selection by steps of the scale while Key is on (a C in C major goes to D, then E); **Ctrl+↑/↓** by a semitone; **Shift+↑/↓** by an octave, as today. With Key off, ↑/↓ move by a semitone, as today. (Alt+↑/↓ stay with takes.)
+With a song key ([ADR 0057](../decisions/0057-the-song-has-one-key.md)), revised in §21:
+- **In key** (a view option, on whenever the song has a key; turned off for a clip, it stays off for that clip): the rows are only the key's notes, each labelled with its note and step ("A3 · 1"), white or black as on the piano. A row is a step of the key: a double-click draws on the row clicked, and a drag moves notes through the key's notes. **Off:** the whole roll, the piano's rows and nothing more, chromatic. Either way a click lands on the row under the pointer; nothing snaps to the key.
+- **The arrows** move the selection by steps of the scale while In key is on (a C in C major goes to D, then E); **Ctrl+↑/↓** by a semitone, which is how a note leaves the key without leaving the view; **Shift+↑/↓** by an octave, as today. In the whole roll, ↑/↓ move by a semitone, as today. (Alt+↑/↓ stay with takes.)
 - **Fit to key** (Notes menu): every selected note outside the key moves to the nearest note of the key. At an equal distance it goes the way its melody was moving (up after a rising step, down after a falling one), else down.
-- **Fold** (a view choice): **All rows**; **Key** (only the key's rows, each labelled with its note and step: "A · 1", "B · 2"); **Notes** (only rows with notes, with or without a key). Folded, drawing and moving work on the shown rows.
-- **Outside the key:** the rows already show it (P3). "Select ▸ Outside the key" finds them; Fit to key moves them.
+- **Outside the key:** In key, a pitch with notes outside the key keeps its row among the key's, hatched and named without a step, so nothing that sounds is hidden (§21.2). "Select ▸ Outside the key" finds them; Fit to key moves them.
 - **Hearing:** clicking keys, drawing and moving play the notes, as today.
 
 ## 7. Chords
@@ -274,7 +272,7 @@ A new **Notes** menu, between Clip and Song: the piano roll's commands have outg
 | Nudge later / earlier | → / ← |
 
 - Clip ▸ Notes ▸ moves here. Edit's Delete, Duplicate, Cut, Copy, Paste, Select all and Split at playhead act on notes when the clip view was used last, and Clip ▸ Mute clips (0) mutes notes then (§9.4): one action each, so no shortcut is doubled.
-- **The View menu** gains the clip view's options (Key, Fold ▸, Others, Draw ▸), so each is reachable without the header.
+- **The View menu** gains the clip view's options (Show only the key's notes, Others, Draw ▸), so each is reachable without the header.
 - **The right-click menu** on notes offers the most used: Quantise, Fit to key, Make chords…, Chords ▸ (Change chord…, Invert, voicings), Mute, Transform ▸, Select ▸.
 - Shortcuts that would clash are checked by the existing test.
 
@@ -325,9 +323,9 @@ Each stage is built, reviewed in screenshots at standard and compact widths, and
 |---|---|---|
 | N1 | **Scope and stages** | The three stages of §16, in that order, each signed off on its own |
 | N2 | **Tools or no tools** | No tool palette: gestures and modifiers as now, plus a visible Draw choice (Note, Chord, Chord under). Fewer modes to get lost in than Bitwig's or FL's palettes (§3) |
-| N3 | **Key snap's default** | On whenever the song has a key, kept per project; Alt bypasses it for a gesture (§6) |
+| N3 | **Key snap's default** | ~~On whenever the song has a key, kept per project; Alt bypasses it for a gesture~~ *Superseded by §21: no snapping; In key shows only the key's rows* |
 | N4 | **The arrows with a key** | ↑/↓ a step of the scale, as Bitwig and Studio Pro do; Ctrl a semitone; Shift an octave, as today (§6) |
-| N5 | **Fold** | All rows / Key (rows labelled with their step) / Notes (§6) |
+| N5 | **Fold** | ~~All rows / Key (rows labelled with their step) / Notes~~ *Superseded by §21: In key or the whole roll* |
 | N6 | **Out-of-key notes** | Shown by their rows, found by Select ▸ Outside the key, moved by Fit to key; no extra mark on the notes (§6) |
 | N7 | **The chord lane** | Chord names read from the notes, with steps in the key; a click selects a chord's notes, a double-click changes it, the empty lane writes one. No separate chord track (§7.1) |
 | N8 | **Drawing chords** | A Draw choice: Note, Chord (the clicked note is the root), Chord under (the clicked note on top), voice-led (§7.2) |
@@ -370,7 +368,7 @@ Each stage is built, reviewed in screenshots at standard and compact widths, and
 **The clip view:**
 - **The chord lane** joins spans of the same chord across a gap of up to a beat, so a chord played as stabs is one chord to select and rewrite. Muted notes don't sound, so they make no chord. With Others on, a second line (**ALL**) names the chords of everything shown when they say more than the clip's own; it shows even when the clip has no chords, for writing a bassline against the pads. Its labels are made when the chords change, not every frame.
 - **Display** (Names and steps, Names, Steps) is the lane's right-click menu; Steps needs a key.
-- **Fold to key** keeps the row of any note outside the key, so no note is ever hidden; folded, every row is a key of its own labelled "A3 · 1", with a line under each row as the rows no longer alternate. Fold to notes, as named. Folded, a drag moves by the rows shown; Key snapping is then the rows'.
+- *(Fold and Key became In key in §21.)* **Fold to key** keeps the row of any note outside the key, so no note is ever hidden; folded, every row is a key of its own labelled "A3 · 1", with a line under each row as the rows no longer alternate. Fold to notes, as named. Folded, a drag moves by the rows shown; Key snapping is then the rows'.
 - **Ctrl+click** still adds a note to the selection or takes it out; **Ctrl+drag** copies (the note pressed joins the selection first).
 - **Time handles** snap to the grid; **Alt** stretches the lengths too; a drag past the other end reverses. The tag reads "× 1.5".
 - **The Chord popover** sits beside the place it writes and the chord before it, so both stay in view (left of them when there's no room right). It's as wide as its fixed content (its titles and the three choices), and the chords wrap within it, so it keeps its width as the kind changes. A chord written stays lit; each write is one undo step. Changing the kind with a chord there writes the key's chord of that kind on the same root; changing the voicing or inversion re-voices it. Without a song key it offers "As in C major" and nothing borrowed. (Its choices set what Draw used, and the Draw menu opened it for them, until §20.)
@@ -380,7 +378,7 @@ Each stage is built, reviewed in screenshots at standard and compact widths, and
 - **The NOTES inspector** sits under CLIP while the clip view shows that clip with notes selected; its title names the selection and its chord ("Notes · 4 selected · G7"). Release velocity and Chance join it with P4b, and the bottom lane's chooser (Velocity ⌄) with the controller lanes.
 - **The options** (Key, Fold, Others, Draw, the chord lane's Display, the Chord popover's choices, Quantise…'s settings) are view state, kept with the project.
 
-**Menus and keys:** the Notes menu takes **N** (Alt+N); **Song moves to G** (Alt+G). The View menu names Key "Snap to key", as Snap is "Snap to grid". The Notes tools have no default keys beyond §13's (assignable in Settings > Keys).
+**Menus and keys:** the Notes menu takes **N** (Alt+N); **Song moves to G** (Alt+G). The View menu named Key "Snap to key", as Snap is "Snap to grid" (until §21). The Notes tools have no default keys beyond §13's (assignable in Settings > Keys).
 
 **Assistants:** `edit_notes` applies its edits in a fixed order (velocity, transpose, shift, steps, fit to key, quantise, stretch, legato, fixed length, join, split, reverse, mirror, invert, voicing, mute, add bass); names are written with # and b, as the key tools write them.
 
@@ -399,6 +397,8 @@ The product owner's review of P4a:
 **Where the field is:** Bitwig 6 lets the piano roll keep the piano's pattern, or replace it with coloured lanes for the key's notes and dark ones for the rest ("Adapt to Key"); FL Studio darkens the rows outside the scale; Live 12 highlights the scale and can fold to it. FL's chord stamps are chosen from a menu in the piano roll's toolbar before clicking, which its users ask to make quicker ([Bitwig release notes](https://downloads.bitwig.com/6.0/Release-Notes-6.0.html), [FL Studio manual](https://www.image-line.com/fl-studio-learning/fl-studio-online-manual/html/pianoroll.htm)). Nobody makes a run of notes into chords chosen note by note; Scaler and Captain Chords pick chord by chord on pads.
 
 ### 20.1 The key never scrambles the piano
+
+*Revised in §21: the lavender rows, the keyboard's dots and the ghost went, with Key snapping and Fold. The piano's rows stay.*
 
 - **The rows always show the piano:** white keys' rows lighter, black keys' darker, a line under each C and between E and F, with or without a key. Nothing about the piano's geography changes when a key is set.
 - **The key is a colour of its own:** its notes' rows are the piano's shades turned towards `accentMidi` (lavender: the colour of MIDI, never the selection's blue), the root's more. In C minor, E♭'s row is dark and lavender, E's light and grey: the shade says which key of the piano, the hue says in the key or not. A black key's row in the key stays darker than a white key's out of it.
@@ -429,9 +429,9 @@ The product owner's review of P4a:
 
 | # | Question | Recommendation |
 |---|---|---|
-| R1 | **The rows with a key** | The piano's pattern always; the key as a lavender tint on its rows (the root's stronger) and dots on the keyboard (§20.1). Not Bitwig's choice of two backgrounds: an option to fix a confusing default isn't a fix. Not FL's darker out-of-key rows: that's the piano's channel again |
-| R2 | **Where a click will draw** | A ghost of the note or chord under the pointer, on the row it will land on (§20.1) |
-| R3 | **Key on by default** | Still on with a song key (N3), now that the rows and the ghost show what it does. The other way: off by default, the key only shown |
+| R1 | ~~**The rows with a key**~~ *(§21)* | The piano's pattern always; the key as a lavender tint on its rows (the root's stronger) and dots on the keyboard (§20.1). Not Bitwig's choice of two backgrounds: an option to fix a confusing default isn't a fix. Not FL's darker out-of-key rows: that's the piano's channel again |
+| R2 | ~~**Where a click will draw**~~ *(§21)* | A ghost of the note or chord under the pointer, on the row it will land on (§20.1) |
+| R3 | ~~**Key on by default**~~ *(§21)* | Still on with a song key (N3), now that the rows and the ghost show what it does. The other way: off by default, the key only shown |
 | R4 | **The kind to draw** | Side by side in the header while drawing chords, the voicing beside it; and in View ▸ Draw ▸ (§20.2) |
 | R5 | **Make chords** | One command, Make chords…: a card per note, each its own chord and voicing, all at once from the foot; live, one undo step (§20.3) |
 | R6 | **Make chord…** | Becomes Change chord…, for the selected chord (§20.4) |
@@ -440,8 +440,58 @@ The product owner's review of P4a:
 
 ### 20.6 Settled while building (2026-10-14)
 
-- **The key's rows** are four colour roles (`keyRowLightInKey`, `keyRowDarkInKey`, `keyRowLightRoot`, `keyRowDarkRoot`): each piano shade mixed towards lavender, then brought back to the shade lightened a little (by 20 %, the root's by 45 %), so the hue never overtakes the shade. A plain tint over the rows made a black key's row in the key lighter than a white key's out of it: the same confusion again. `keyRowRoot` goes.
-- **The ghost** is drawn by a shared painter (`ui::paintGhost`: a dashed `textSecondary` outline over the clip's colour at `ghostAlpha`), and worked out again only when the row, the step or Alt changes under the pointer.
+- *(Gone with §21.)* **The key's rows** were four colour roles (`keyRowLightInKey`, `keyRowDarkInKey`, `keyRowLightRoot`, `keyRowDarkRoot`): each piano shade mixed towards lavender, then brought back to the shade lightened a little (by 20 %, the root's by 45 %), so the hue never overtakes the shade. A plain tint over the rows made a black key's row in the key lighter than a white key's out of it: the same confusion again. `keyRowRoot` goes.
+- *(Gone with §21.)* **The ghost** was drawn by a shared painter (`ui::paintGhost`: a dashed `textSecondary` outline over the clip's colour at `ghostAlpha`), and worked out again only when the row, the step or Alt changes under the pointer.
 - **The header's kinds** are a `Segments` (now a `PanelHeader` option, a row high in the taller header); at narrow widths Others, Fold, the voicing, Draw and last the kinds give way. The View menu names them "Draw triads", "Draw 7th chords" … and "Voiced smooth", "Voiced close" …
 - **Make chords…** starts every card on the key's triad, smoothly voiced; the foot's kinds and voicings are lit only while every card shares one. A card's chord menu lists the kinds on its note, then "Under" the key's other chords with it in them, then "Leave the note"; its voicing menu, the voicings then the inversions. Cards wrap at eight a row and scroll past three rows. The popover, like the Chord popover, sits beside the notes, under the lane, or under the ruler while the clip has no chords yet.
 - **Assistants:** `make_chords` takes `chords`, one per matching note in time order: `"leave"`, or `kind`, `chord` (a chord with the note in it; on top when it isn't the root), `voicing`, `inversion`.
+
+## 21. Revised again: In key or the whole roll (approved and built, 2026-10-14)
+
+The product owner, after using §20:
+- "The lavender looks bad. And the ghost notes feel bad to work with."
+- Their proposal: "Get rid of the ghost notes and the key lavender highlighting. Then we combine the Fold and Key toggle functionality into a single [toggle] that shows either the whole roll, unhighlighted, [or] just the notes in the key. We get rid of the 'just rows with notes' option because it is not that useful anyway. If we have a key selected the piano roll opens automatically in the 'just notes in the key' mode, otherwise the full roll. But you can always switch." And the one question it leaves: "How do you show the user that there are notes in the MIDI data if we are in the key-only mode but the user placed notes outside the key previously? They might be invisible to them but produce sound, which is confusing."
+
+**What went wrong:** §20 kept Key snapping, which puts a click on another row than the one under the pointer, then added two things to explain it: lavender rows to show where the key is, and a ghost to show where a click would land. Both patched a view that showed one thing (every row) and did another (only the key's rows count). A view that shows only the rows you can write on needs neither.
+
+**Where the field is:** Live folds to the scale and shows notes outside it on dark lanes ([Soundfly](https://flypaper.soundfly.com/produce/how-to-use-scale-mode-in-ableton-live-11-video/), [Ableton](https://help.ableton.com/hc/articles/11425083250972)). Push's step sequencer hides them instead, and Ableton keeps a help article for people looking for their missing notes ([Ableton](https://help.ableton.com/hc/en-us/articles/209775085-Push-1-certain-notes-in-the-Melodic-Step-Sequencer-not-visible)): hiding notes that sound confuses.
+
+### 21.1 One toggle: the key's notes or the whole roll
+
+- **In key** (the header's toggle, shown while the song has a key; View ▸ Show only the key's notes, Ctrl+Alt+N):
+  - **On:** the rows are the key's notes, each labelled with its note and step ("A3 · 1"), white or black as on the piano, a line under each. A row is a step of the key: a double-click draws on the row clicked, a drag and ↑/↓ move by the key's steps.
+  - **Off:** the whole roll: the piano's rows and nothing more, the C's labelled. The key colours nothing. A row is a semitone; ↑/↓ and drags move by semitones.
+- **A click lands where it's made,** in either. Key snapping goes, and with it Alt's bypass of the key (Alt still frees the grid). To leave the key in key mode, Ctrl+↑/↓ moves the selection by a semitone, and the note's row appears; or switch to the whole roll.
+- **Fold goes:** the key's rows are In key; "Rows with notes" goes.
+- **Default:** on whenever the song has a key. Turned off for a clip, it stays off for that clip (a drum part stays whole); turned on, the clip follows the key again. Without a key, the whole roll; the toggle is hidden and the menu item dimmed with why.
+
+### 21.2 Notes outside the key stay in view
+
+- **In key, a pitch with notes outside the key keeps its row,** in its place among the key's, so nothing that sounds is hidden. The row is **hatched** (fine diagonal lines over its shade), and its key on the keyboard is named without a step ("F♯3"). A darker lane, as Live has, doesn't show here: the palette's darkest row shades are already a step apart.
+- **The row goes when its last note leaves it,** once the gesture ends, so nothing moves under the pointer. A preview that writes outside the key (the Chord popover, Make chords…, a chord drawn) shows its rows while it's shown.
+- Select ▸ Outside the key and Fit to key find and move them, as before.
+
+### 21.3 What goes, what stays
+
+- **Goes:** the ghost of what a double-click draws (and `ui::paintGhost`); the four lavender row roles; the keyboard's dots and the root's label; Key snapping (and `NoteDrag::key`); Fold and Fold to notes; View ▸ Snap to key and Fold ▸.
+- **Stays:** other tracks' notes (Others): they're the other parts, not a preview; In key, on the rows shown. Note names are still spelled by the key (B♭ in F major), in both.
+
+### 21.4 Questions and recommendations
+
+| # | Question | Recommendation |
+|---|---|---|
+| S1 | **Rows and writing** | One toggle: In key (the key's rows, a click on the row clicked) or the whole roll (chromatic), §21.1 |
+| S2 | **Notes outside the key, In key** | Their rows stay, hatched, named without a step (§21.2). Not hidden (Push), not drawn between two rows (they'd overlap and be hard to click), not only counted (they couldn't be edited) |
+| S3 | **The default** | In key with a song key; a clip turned off stays off |
+| S4 | **Rows with notes** | Dropped |
+| S5 | **The ghost and the lavender** | Dropped: a click lands where it's made, and the rows are the key |
+| S6 | **Assistants** | Nothing changes: the view's options were never theirs; `edit_notes`' `transpose_steps` and `fit_to_key` stay |
+
+### 21.5 Settled while building (2026-10-14)
+
+- **The hatch** is a shared painter (`ui::paintHatch`: 1 px lines rising to the right, `shell.hatchSpacing` 6 px apart, placed by x + y so neighbouring rows' lines meet) in a new role, `keyRowHatch` (the `line` colour: a diagonal 1 px line reads quieter than a straight one), a pixel inside the row so a note's edge stays clean. A quieter colour (`surface3` at 60 %) vanished at 1×.
+- **The keyboard, In key:** every row a key of its own, white or black as on the piano, labelled "A3 · 1"; a row outside the key just "A♯3". **The whole roll:** the C's labelled, nothing else; the root's label went with the dots.
+- **In the header,** In key sits where Key and Fold were, a `ViewOption` like Others, shown while the song has a key; at narrow widths Others, the voicing, Draw and the kinds give way, never In key. Its tooltip is the View menu's item, "Show only the key's notes" (Ctrl+Alt+N).
+- **Remembered per clip** as view state with the project (`wholeRoll`: the clips turned to the whole roll); a clip turned back on is taken off the list, so it follows the key again.
+- **Rows during a gesture:** a drag lands only on rows, so the rows hold still until it ends; a drawn chord or a preview with notes outside the key adds their rows as it starts, and a preview given up (Escape, a click elsewhere) takes them away.
+- **Mirror pitches** mirrors in the key's steps while In key, chromatically in the whole roll, as ↑/↓ do.

@@ -119,63 +119,92 @@ juce::String nameOf(const fd::music::Chord& chord, const Key& key)
 }
 } // namespace
 
-TEST_CASE(
-    "piano roll: in the key, drawing lands on its notes, the arrows move by its steps, Fold shows its rows",
-    "[integration]")
+TEST_CASE("piano roll: In key shows only the key's rows, a click draws on the row clicked, the arrows "
+          "move by its steps; the whole roll is a toggle away, remembered for the clip (§6, §21)",
+          "[integration]")
 {
     RollFixture f;
     auto& roll = f.roll();
-    REQUIRE_FALSE(roll.snapsToKey()); // no key: everything chromatic, as before
-    REQUIRE(f.session->setKey(Key{9, "minor"}));
+    auto& detail = f.shell->detail();
+    REQUIRE_FALSE(roll.inKey()); // no key: the whole roll, chromatic, as before
+    CHECK(roll.shownRows().empty());
+    CHECK_FALSE(detail.inKeyOption().isVisible());
+    CHECK_FALSE(f.shell->actions().isEnabled("view.clipInKey"));
+    const Key aMinor{9, "minor"};
+    REQUIRE(f.session->setKey(aMinor));
     f.refresh();
-    REQUIRE(roll.snapsToKey()); // Key is on by default
+    REQUIRE(roll.inKey()); // on by default with a key
+    CHECK(detail.inKeyOption().isVisible());
+    CHECK(detail.inKeyOption().getToggleState());
+    for (int p : roll.shownRows())
+        CHECK(fd::music::contains(aMinor, p));
 
-    // A double-click on G♯ draws the key's nearest note, G (a tie: down).
+    // A double-click draws on the row clicked: every row is the key's.
     const double step = roll.timeline().gridStepBeats(f.session->snapshot()->tempo);
-    doubleClick(roll, roll.pointFor(0.1, 68));
+    doubleClick(roll, roll.pointFor(0.1, 67));
     REQUIRE(f.notes().size() == 1);
     CHECK(f.notes()[0].pitch == 67);
-    // Alt draws as clicked.
-    doubleClick(roll, roll.pointFor(1.1, 68), juce::ModifierKeys::altModifier);
-    REQUIRE(f.notes().size() == 2);
-    CHECK(f.notes()[1].pitch == 68);
-    f.session->undo();
-    f.refresh();
 
-    // ↑ moves by a step of the scale (G → A), Ctrl+↑ by a semitone, Shift+↑ by an octave.
+    // ↑ moves by a step of the scale (G → A); Ctrl+↑ by a semitone, out of the key, and the note
+    // keeps a row of its own; Shift+↑ by an octave.
     click(roll, roll.pointFor(step * 0.5, 67));
     REQUIRE(roll.selection().size() == 1);
     CHECK(f.press(juce::KeyPress::upKey));
     CHECK(f.notes()[0].pitch == 69);
     CHECK(f.press(juce::KeyPress::upKey, juce::ModifierKeys::commandModifier));
     CHECK(f.notes()[0].pitch == 70);
+    const auto has = [&roll](int pitch)
+    {
+        const auto& rows = roll.shownRows();
+        return std::find(rows.begin(), rows.end(), pitch) != rows.end();
+    };
+    CHECK(has(70)); // A♯: outside the key, its row stays while it has notes
     CHECK(f.press(juce::KeyPress::upKey, juce::ModifierKeys::shiftModifier));
     CHECK(f.notes()[0].pitch == 82);
+    CHECK_FALSE(has(70));
     CHECK(f.press(juce::KeyPress::downKey, juce::ModifierKeys::shiftModifier));
+    f.dump("piano-roll-in-key@2x.png", detail.getLocalBounds().removeFromLeft(760));
 
-    // Fit to key: A♯ goes to the nearer of A and B; a tie with nothing before it: down.
+    // Fit to key: A♯ goes to the nearer of A and B; a tie with nothing before it: down. Its row goes.
     REQUIRE(f.shell->actions().perform("notes.fitToKey"));
     CHECK(f.notes()[0].pitch == 69);
-    // Dragged with Key, a note moves through the key's notes.
-    const auto from = roll.pointFor(step * 0.5, 69);
-    drag(roll, from, roll.pointFor(step * 0.5, 70));
-    CHECK(f.notes()[0].pitch == 69); // A♯ isn't the key's: still nearest A
-    drag(roll, from, roll.pointFor(step * 0.5, 71));
+    CHECK_FALSE(has(70));
+    // Dragged, a note moves by the rows: the key's steps.
+    drag(roll, roll.pointFor(step * 0.5, 69), roll.pointFor(step * 0.5, 71));
     CHECK(f.notes()[0].pitch == 71);
 
-    // Fold to the key: only its rows, each labelled with its step; drawing and moving go by them.
-    f.setNotes(progression());
-    roll.setFold(fd::model::Fold::Key);
-    const auto rows = roll.foldedRows();
-    REQUIRE_FALSE(rows.empty());
-    for (int p : rows)
-        CHECK(fd::music::contains(Key{9, "minor"}, p));
-    CHECK(f.shell->detail().foldChoice().value() == "Fold to key");
-    f.dump("piano-roll-fold-key@2x.png", f.shell->detail().getLocalBounds().removeFromLeft(760));
-    roll.setFold(fd::model::Fold::Notes);
-    CHECK(roll.foldedRows() == std::vector<int>{53, 55, 57, 59, 60, 62, 64, 65});
-    roll.setFold(fd::model::Fold::All);
-    CHECK(roll.foldedRows().empty());
+    // A preview's notes outside the key show their rows while it's shown.
+    auto preview = f.notes();
+    preview.push_back({66, 4.0, 1.0, 0.8f});
+    roll.previewEdit(fd::model::NoteEdit{preview, {}});
+    CHECK(has(66));
+    roll.previewEdit(std::nullopt);
+    CHECK_FALSE(has(66));
+
+    // The whole roll: every row, chromatic. A click draws on the row clicked; ↑ is a semitone.
+    detail.inKeyOption().onClick(); // the header's toggle
+    REQUIRE_FALSE(roll.inKey());
+    CHECK(roll.shownRows().empty());
+    CHECK_FALSE(detail.inKeyOption().getToggleState());
+    CHECK_FALSE(f.shell->actions().isToggled("view.clipInKey"));
+    doubleClick(roll, roll.pointFor(2.1, 68));
+    REQUIRE(f.notes().size() == 2);
+    CHECK(f.notes()[1].pitch == 68);
+    CHECK(f.press(juce::KeyPress::upKey));
+    CHECK(f.notes()[1].pitch == 69);
+    f.dump("piano-roll-whole-roll@2x.png", detail.getLocalBounds().removeFromLeft(760));
+
+    // Remembered for the clip: another clip opens In key; this one opens whole again.
+    const auto first = f.clipId;
+    f.clipId = f.session->createMidiClip(f.track, 8.0, 16.0);
+    REQUIRE(f.clipId != 0);
+    f.open();
+    CHECK(roll.inKey());
+    f.clipId = first;
+    f.open();
+    CHECK_FALSE(roll.inKey());
+    REQUIRE(f.shell->actions().perform("view.clipInKey"));
+    CHECK(roll.inKey());
 }
 
 TEST_CASE("piano roll: the chord lane names the chords; a click selects one; the Chord popover writes and "
@@ -415,17 +444,17 @@ TEST_CASE("piano roll: the clip view's header at standard and compact widths, op
         auto& header = detail.header();
         detail.frame(0.0); // the grid's step in its chip, as a frame shows it
         INFO("width " << width << ", header " << header.getWidth());
-        CHECK(detail.keyOption().isVisible());
+        CHECK(detail.inKeyOption().isVisible());
         // Nothing touches: the options, the commands and the tabs at least the item gap apart.
         CHECK(crowded(header, fd::ui::Theme::current().shell.itemGap).isEmpty());
         for (auto* c : header.getChildren())
             if (c->isVisible() && !c->getBounds().isEmpty())
                 CHECK(header.getLocalBounds().contains(c->getBounds()));
-        // Others gives way first, then Fold, then Draw.
+        // Others gives way first, then Draw; In key stays.
         const bool others = header.isDropped(detail.othersOption()),
-                   fold = header.isDropped(detail.foldChoice()), draw = header.isDropped(detail.drawChoice());
-        CHECK((!fold || others));
-        CHECK((!draw || fold));
+                   draw = header.isDropped(detail.drawChoice());
+        CHECK((!draw || others));
+        CHECK_FALSE(header.isDropped(detail.inKeyOption()));
         if (const char* dir = std::getenv("FD_DUMP_DIR"))
             dumpPng(dir, "piano-roll-header-" + juce::String(width) + "@2x.png",
                     detail.createComponentSnapshot(header.getBounds(), true, 2.0f));
@@ -549,52 +578,62 @@ TEST_CASE("piano roll: 2 000 notes, the chord lane and other tracks' notes drawn
     WARN("2 000 notes: paint " << best << " ms; taking them in " << setMs << " ms");
 }
 
-TEST_CASE(
-    "piano roll revised: the key never changes the piano's rows; a ghost shows where a click draws (§20.1)",
-    "[integration]")
+TEST_CASE("piano roll revised again: the whole roll is the piano, plain; In key hatches the rows of "
+          "notes outside the key (§21)",
+          "[integration]")
 {
     RollFixture f;
     auto& roll = f.roll();
     REQUIRE(f.session->setKey(Key{0, "minor"})); // C minor: C D E♭ F G A♭ B♭
-    f.setNotes(progression());
+    f.setNotes(progression());                   // in A minor: A, E and B are outside C minor
     const auto& t = fd::ui::Theme::current();
-    // The piano's shades stay; the key's rows are tinted.
-    juce::Image image(juce::Image::ARGB, roll.getWidth(), roll.getHeight(), true);
+    const auto paint = [&roll]
     {
+        juce::Image image(juce::Image::ARGB, roll.getWidth(), roll.getHeight(), true);
         juce::Graphics g(image);
         roll.paintEntireComponent(g, false);
-    }
+        return image;
+    };
+    // How many pixels across the row's middle, between two beats with no notes on it, aren't its
+    // shade: the grid's lines, and hatching.
+    const auto marks = [&roll](const juce::Image& image, int pitch, juce::Colour shade)
+    {
+        const auto from = roll.pointFor(4.2, pitch).toInt(), to = roll.pointFor(7.8, pitch).toInt();
+        int n = 0;
+        for (int x = from.x; x < to.x; ++x)
+            n += image.getPixelAt(x, from.y) != shade ? 1 : 0;
+        return n;
+    };
+
+    // The whole roll: the piano's rows, whatever the key.
+    roll.setInKey(false);
+    auto image = paint();
     const auto rowColour = [&](int pitch)
     {
-        const auto at = roll.pointFor(15.9, pitch).toInt(); // late in the clip, clear of notes and lines
+        // Late in a bar with no note on the row, clear of the grid's lines.
+        const auto at = roll.pointFor(pitch == 65 ? 7.9 : 15.9, pitch).toInt();
         return image.getPixelAt(at.x - 3, at.y);
     };
-    CHECK(rowColour(64) == t.roles.keyRowLight); // E: a white key outside the key, plain
-    CHECK(rowColour(61) == t.roles.keyRowDark);  // D♭: a black key outside the key, plain
-    CHECK(rowColour(65) != t.roles.keyRowLight); // F: a white key in the key, tinted
-    CHECK(rowColour(63) != t.roles.keyRowDark);  // E♭: a black key in the key, tinted
-    CHECK(rowColour(63).getBrightness() < rowColour(64).getBrightness()); // still a black key's row
-    CHECK(rowColour(60) != rowColour(65));                                // the root's tint is stronger
+    CHECK(rowColour(64) == t.roles.keyRowLight); // E: outside the key
+    CHECK(rowColour(65) == t.roles.keyRowLight); // F: in the key, the same
+    CHECK(rowColour(61) == t.roles.keyRowDark);  // D♭: outside the key
+    CHECK(rowColour(63) == t.roles.keyRowDark);  // E♭: in the key, the same
+    CHECK(marks(image, 64, t.roles.keyRowLight) == marks(image, 65, t.roles.keyRowLight));
 
-    // The ghost: over F♯ (outside the key) it shows on F, the key's nearest note; Alt, on F♯.
-    const auto overFSharp = roll.pointFor(14.1, 66);
-    roll.mouseMove(mouseEvent(roll, overFSharp, overFSharp, false, {}));
-    REQUIRE(roll.drawGhost().size() == 1);
-    CHECK(roll.drawGhost()[0].pitch == 65);
-    roll.mouseMove(mouseEvent(roll, overFSharp, overFSharp, false, juce::ModifierKeys::altModifier));
-    CHECK(roll.drawGhost()[0].pitch == 66);
-    // Drawing chords, the ghost is the whole chord, as it will be voiced.
-    roll.setDraw(fd::model::DrawMode::Chord);
-    roll.mouseMove(mouseEvent(roll, overFSharp, overFSharp, false, {}));
-    CHECK(roll.drawGhost().size() == 3);
+    // In key: E's row stays (its notes), hatched; E♭'s, the key's, is plain; F♯'s, no notes, isn't shown.
+    roll.setInKey(true);
+    image = paint();
+    const auto& rows = roll.shownRows();
+    CHECK(std::find(rows.begin(), rows.end(), 64) != rows.end());
+    CHECK(std::find(rows.begin(), rows.end(), 66) == rows.end());
+    CHECK(marks(image, 64, t.roles.keyRowLight) > marks(image, 65, t.roles.keyRowLight) + 20);
+    CHECK(marks(image, 63, t.roles.keyRowDark) == marks(image, 65, t.roles.keyRowLight));
     if (const char* dir = std::getenv("FD_DUMP_DIR"))
     {
         f.shell->detail().frame(0.0);
-        dumpPng(dir, "piano-roll-key-rows@2x.png",
+        dumpPng(dir, "piano-roll-outside-key@2x.png",
                 f.shell->detail().createComponentSnapshot(f.shell->detail().getLocalBounds(), true, 2.0f));
     }
-    roll.mouseExit(mouseEvent(roll, overFSharp, overFSharp, false, {}));
-    CHECK(roll.drawGhost().empty());
 }
 
 TEST_CASE("piano roll revised: the chord kind and voicing in the header while drawing chords (§20.2)",

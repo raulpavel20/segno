@@ -18,18 +18,13 @@ namespace fd::model
 
 // ---- In key (§6) ----------------------------------------------------------------------------
 
-/// Which rows the piano roll shows (§6, Fold).
-enum class Fold
-{
-    All,  // every pitch
-    Key,  // the key's notes (and any pitch with notes, so none is hidden)
-    Notes // the pitches with notes
-};
+/// The rows In key shows (§6, §21), low to high: the key's notes, and every pitch with notes
+/// outside it (in `notes`, or in `more`: a preview's), so nothing that sounds is hidden. Every
+/// pitch without a key.
+[[nodiscard]] std::vector<int> keyRows(const music::Key* key, const std::vector<Note>& notes,
+                                       const std::vector<Note>* more = nullptr);
 
-/// The pitches a fold shows, low to high. Key without a key, or Notes without notes, shows all.
-[[nodiscard]] std::vector<int> foldedRows(Fold fold, const music::Key* key, const std::vector<Note>& notes);
-
-/// The arrows with Key on (§6): the notes moved `steps` notes of the key's scale, as a group,
+/// The arrows while In key (§6): the notes moved `steps` notes of the key's scale, as a group,
 /// limited so every note stays within 0..127.
 [[nodiscard]] NoteEdit transposeInKey(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
                                       const music::Key& key, int steps);

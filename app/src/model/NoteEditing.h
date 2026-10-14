@@ -3,7 +3,6 @@
 #include "model/Snapshot.h"
 
 #include <cstddef>
-#include <fd/music/Key.h>
 #include <optional>
 #include <set>
 #include <vector>
@@ -93,10 +92,7 @@ struct NoteDrag
     std::size_t anchor = 0;  // the grabbed note: it snaps; the others follow by the same amount
     double deltaBeats = 0.0; // mouse movement in time
     int deltaPitch = 0;      // mouse movement in rows (moves only)
-    /// Moves through the key's notes (piano-roll.md §6, Key): the anchor lands on the key's note
-    /// nearest the row under the mouse, and the others move by as many steps of the scale.
-    const music::Key* key = nullptr;
-    /// Folded: the rows shown (as NoteGeometry::rows); notes move by rows of them.
+    /// In key (piano-roll.md §21): the rows shown (as NoteGeometry::rows); notes move by rows of them.
     const std::vector<int>* rows = nullptr;
     bool copy = false; // Ctrl+drag (§9.1): the notes stay, and moved copies are placed
 };

@@ -14,9 +14,8 @@ Roles are derived from the base palette in `Theme.cpp` (`deriveRoles`), the only
 | `laneSelected` | surface1 → surface2, 40 % | The selected track's lane |
 | `subLane` | surface0 → surface1, 35 % | Lanes under a main lane: velocity, automation (C4) |
 | `strip` | surface0 → surface1, 50 % | The loop strip above a ruler |
-| `keyRowLight` / `keyRowDark` | surface1 → surface2 70 % / surface0 → surface1 30 % | Piano roll rows for white and black keys; with a song key, for the key's notes and the others ([key-and-scale.md](key-and-scale.md) §7) |
-| `keyRowLightInKey` / `keyRowDarkInKey` | keyRowLight / keyRowDark 40 % towards accentMidi, brought back to the shade lightened 20 % | The song key's rows in the piano roll: the piano's shade kept, in lavender ([piano-roll.md](piano-roll.md) §20.1) |
-| `keyRowLightRoot` / `keyRowDarkRoot` | the same, 60 % towards accentMidi, lightened 45 % | The key's root rows |
+| `keyRowLight` / `keyRowDark` | surface1 → surface2 70 % / surface0 → surface1 30 % | Piano roll rows for white and black keys, with or without a song key ([piano-roll.md](piano-roll.md) §21) |
+| `keyRowHatch` | surface3 at 60 % | Hatching a piano roll row outside the key while it shows the key's rows (`paintHatch`, [piano-roll.md](piano-roll.md) §21.2) |
 | `shade` | surface0 at 55 % | Outside a range: before and after a clip in the piano roll |
 | `gridBar` / `gridBeat` / `gridSub` | surface3 at 100 / 55 / 28 % | Grid lines in every time view |
 | `gridOctave` / `gridMinor` | line / surface3 at 35 % | Piano roll: under every C, between E and F |
@@ -144,6 +143,7 @@ Role functions for colours that depend on content:
 | `shell.buttonTextPadding` | 8 (a text button's padding each side of its label; `ui::Toggle::widthFor`) |
 | `shell.propertyFieldInset` | 1 (a field in a property row, from the row's top and bottom) |
 | `shell.lightSize` | 6 (an activity light: MIDI input, assistants) |
+| `shell.hatchSpacing` | 6 (between hatching's lines: `paintHatch`) |
 | `shell.clipGap` | 1 (a clip from its row's top, from the separator line below it, and from a clip touching its end: the seam) |
 | `shell.clipOutline` | 1 (a selected clip's outline; a fade's square sits inside it) |
 | `shell.clipTitleHeight` / `shell.clipTitleShare` | 15 / 35 % (a clip's title strip: at most this tall, and at most this share of the clip) |
@@ -181,7 +181,7 @@ Components size themselves for their text: `ui::Toggle::widthFor(label)`, `ui::N
 | `Popover` | Floating chrome: `surface2`, panel radius, the one shadow | Command palette; Assistants popover; future menus that float |
 | `Toast` | A message in the arrangement's corner that times out | Warnings and confirmations |
 | `EmptyState` | A centred hint where there is nothing to show | Chain without a track, clip view without a clip, empty project, empty inspector |
-| `paintGhost` | What a click would make, before it's made: a fill the caller gives (the clip's colour at `ghostAlpha`) under a dashed 1 px `textSecondary` outline at the control radius | The note or chord a double-click would draw in the piano roll ([piano-roll.md](piano-roll.md) §20.1) |
+| `paintHatch` | Something that doesn't belong with what's around it: diagonal 1 px lines rising to the right, `shell.hatchSpacing` apart, in a colour the caller gives (`keyRowHatch`), clipped to the area; placed by x + y, so neighbouring areas' lines meet | A piano roll row outside the key while it shows the key's rows ([piano-roll.md](piano-roll.md) §21.2) |
 | `paintValueTag` | What a gesture is changing, next to the pointer while it drags: `Value` text on a `surface3` tag a row high, kept in its area | Fade and crossfade drags (C6); a looped clip's edges and notches ("4 bars · 4 loops", "Loop 1 bar"; M3 C10) |
 | `cursorFor(Icon)` | A mouse cursor for a gesture of its own: the icon at `input.cursorIconSize` in `textPrimary`, outlined in `surface0` (a halo that grows with it) so it reads on any background, its hotspot at the centre; made once and kept by its view (`cursorImage` is its picture) | Looping a clip by the upper part of its right edge (`Icon::Loop`; M3 C10) |
 | `paintProgress` | Work in progress on what it changes: a `shell.progressHeight` line along its bottom, a `surface3` track filled in `value` from the left; shown only after `motion.progressDelay` | Clips being bounced (C7); export (C8) |

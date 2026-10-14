@@ -1,6 +1,7 @@
 #include "model/NoteTools.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <map>
 
@@ -157,22 +158,18 @@ std::vector<std::size_t> byPitch(const std::vector<Note>& notes, std::vector<std
 
 // ---- In key ---------------------------------------------------------------------------------
 
-std::vector<int> foldedRows(Fold fold, const music::Key* key, const std::vector<Note>& notes)
+std::vector<int> keyRows(const music::Key* key, const std::vector<Note>& notes, const std::vector<Note>* more)
 {
-    std::set<int> used;
-    for (const auto& n : notes)
-        used.insert(n.pitch);
+    std::array<bool, 128> used{};
+    for (const auto* list : {&notes, more})
+        if (list != nullptr)
+            for (const auto& n : *list)
+                used[static_cast<std::size_t>(std::clamp(n.pitch, 0, 127))] = true;
     const music::PitchSet keyNotes = key != nullptr ? music::notes(*key) : music::PitchSet{0};
     std::vector<int> rows;
     for (int p = 0; p <= 127; ++p)
-    {
-        const bool shown = fold == Fold::All ||
-                           (fold == Fold::Key &&
-                            (keyNotes == 0 || (keyNotes & (1u << (p % 12))) != 0 || used.contains(p))) ||
-                           (fold == Fold::Notes && (used.empty() || used.contains(p)));
-        if (shown)
+        if (keyNotes == 0 || (keyNotes & (1u << (p % 12))) != 0 || used[static_cast<std::size_t>(p)])
             rows.push_back(p);
-    }
     return rows;
 }
 
