@@ -92,7 +92,7 @@ void Session::Impl::applyInputs()
             if (wave ? in.audio != device.getName().toStdString() : !midiTakes(in.midi, device))
                 continue;
             const bool hasInstrument = std::any_of(t->pluginList.begin(), t->pluginList.end(),
-                                                   [](auto* p) { return p->isSynth(); });
+                                                   [](auto* p) { return playsNotes(*p); });
             const auto kind = model::recordKind(in, hasInstrument);
             const bool records = in.isArmed() && (wave ? kind == model::RecordKind::Audio : kind == model::RecordKind::Midi);
             const bool hears = model::hearsInput(in) && (wave || hasInstrument);

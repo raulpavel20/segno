@@ -1,15 +1,13 @@
 #include "ui/Shell.h"
 
+#include "fd/audiofile/AudioFile.h"
+#include "model/ClipLoops.h"
+#include "model/Racks.h"
+#include "model/Takes.h"
 #include "ui/AutomationMenu.h"
 
-#include "model/ClipLoops.h"
-#include "model/Takes.h"
-
-#include "fd/audiofile/AudioFile.h"
-
-#include <nlohmann/json.hpp>
-
 #include <juce_audio_utils/juce_audio_utils.h>
+#include <nlohmann/json.hpp>
 
 namespace fd::app
 {
@@ -134,6 +132,9 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     detail_.chain().onBrowserDrop =
         [this](const std::string& item, std::uint64_t track, int index, std::optional<std::uint64_t> on)
     { browserResult(browser::inChain(session_, item, track, index, on)); };
+    detail_.chain().onBrowserDropInRack =
+        [this](const std::string& item, const engine::Session::ChainPlace& place)
+    { browserResult(browser::inRack(session_, item, place)); };
     // Shortcuts you change (Settings > Keys) are kept in the settings.
     actions_.onKeysChanged = [this]
     { store_->change([this](model::AppSettings& st) { st.keys = actions_.keyMap(); }); };
@@ -1199,6 +1200,100 @@ void Shell::registerActions()
                           panel->performCommand("sample.load");
                   },
                   .isEnabled = [this] { return selectedModule("sampler") != nullptr; }});
+    // Racks (racks.md §9): the selected modules grouped, the selected rack's own.
+    auto hasRack = [this] { return detail_.chain().selectedRack().has_value(); };
+    actions_.add({.id = "module.groupIntoRack",
+                  .name = "Group into rack",
+                  .category = "Module",
+                  .keys = {key('g', kCmd)},
+                  .perform = [this] { detail_.chain().groupPicked(); },
+                  .isEnabled = [this] { return !detail_.chain().pickedModules().empty(); }});
+    actions_.add({.id = "module.ungroupRack",
+                  .name = "Ungroup rack",
+                  .category = "Module",
+                  .keys = {key('g', kCmd | kShift)},
+                  .perform = [this] { detail_.chain().ungroupSelectedRack(); },
+                  .isEnabled = hasRack});
+    actions_.add({.id = "module.editMacros",
+                  .name = "Edit macros",
+                  .category = "Module",
+                  .perform =
+                      [this]
+                  {
+                      if (detail_.chain().editingMacros())
+                          detail_.closeEditor();
+                      else
+                          detail_.chain().editMacros();
+                  },
+                  .isEnabled = hasRack,
+                  .isToggled = [this] { return detail_.chain().editingMacros(); }});
+    actions_.add(
+        {.id = "module.addChain",
+         .name = "Add chain",
+         .category = "Module",
+         .perform = [this] { detail_.chain().addChainToSelectedRack(); },
+         .isEnabled =
+             [this]
+         {
+             const auto rack = detail_.chain().selectedRack();
+             if (!rack)
+                 return false;
+             for (const auto& t : session_.snapshot()->tracks)
+                 if (const auto* d = model::findDevice(t.devices, *rack); d != nullptr && d->rack != nullptr)
+                     return static_cast<int>(d->rack->chains.size()) < engine::Session::maxRackChains;
+             return false;
+         }});
+    // Rack files (racks.md §7): yours, in the User library's Racks folder, named as the rack.
+    auto saveRack = [this](std::uint64_t rack)
+    {
+        const auto* slot = [&]() -> const model::DeviceSlot*
+        {
+            for (const auto& t : session_.snapshot()->tracks)
+                if (const auto* d = model::findDevice(t.devices, rack))
+                    return d;
+            return nullptr;
+        }();
+        if (slot == nullptr)
+            return;
+        const auto name = juce::File::createLegalFileName(juce::String::fromUTF8(slot->name.c_str()));
+        const auto file = session_.racksFolder().getChildFile(name + engine::Session::rackFileExtension);
+        std::string error;
+        if (session_.saveRack(rack, file, &error))
+            showToast("Saved " + name + " to your racks", "Show", [file] { file.revealToUser(); });
+        else
+            showWarning(juce::String::fromUTF8(error.c_str()));
+    };
+    detail_.chain().onSaveRack = saveRack;
+    actions_.add({.id = "module.saveRack",
+                  .name = "Save rack",
+                  .category = "Module",
+                  .perform =
+                      [this, saveRack]
+                  {
+                      if (const auto rack = detail_.chain().selectedRack())
+                          saveRack(*rack);
+                  },
+                  .isEnabled = hasRack});
+    actions_.add({.id = "module.saveRackAs",
+                  .name = juce::String::fromUTF8("Save rack as\xe2\x80\xa6"),
+                  .category = "Module",
+                  .perform = [this] { detail_.chain().saveSelectedRackAs(); },
+                  .isEnabled = hasRack});
+    actions_.add({.id = "module.racksFolder",
+                  .name = "Show racks folder",
+                  .category = "Module",
+                  .perform = [&s]
+                  {
+                      const auto folder = s.racksFolder();
+                      if (!folder.isDirectory())
+                          folder.createDirectory();
+                      folder.startAsProcess();
+                  }});
+    actions_.add({.id = "module.renameRack",
+                  .name = juce::String::fromUTF8("Rename rack\xe2\x80\xa6"),
+                  .category = "Module",
+                  .perform = [this] { detail_.chain().renameSelectedRack(); },
+                  .isEnabled = hasRack});
     actions_.add({.id = "track.add", .name = "Add track", .category = "Track", .keys = {key('t', kCmd)},
                   .perform = [&s] { s.addTrack(); }});
     // The mixer (C3, docs/design/mixer.md §9): the selected channel.
@@ -2320,12 +2415,11 @@ ui::DevicePanel* Shell::selectedModule(std::string_view deviceId)
     const auto snapshot = session_.snapshot();
     for (const auto* channels : {&snapshot->tracks, &snapshot->returns})
         for (const auto& t : *channels)
-            for (const auto& d : t.devices)
-                if (d.id == *id && d.deviceId == deviceId)
-                    return detail_.chain().selectedPanel();
-    for (const auto& d : snapshot->master.devices)
-        if (d.id == *id && d.deviceId == deviceId)
-            return detail_.chain().selectedPanel();
+            if (const auto* d = model::findDevice(t.devices, *id); d != nullptr && d->deviceId == deviceId)
+                return detail_.chain().selectedPanel();
+    if (const auto* d = model::findDevice(snapshot->master.devices, *id);
+        d != nullptr && d->deviceId == deviceId)
+        return detail_.chain().selectedPanel();
     return nullptr;
 }
 

@@ -1,5 +1,7 @@
 #include "model/TrackEdits.h"
 
+#include "model/Racks.h"
+
 #include <algorithm>
 #include <cctype>
 #include <optional>
@@ -208,9 +210,10 @@ DeletionPlan deletionPlan(const Snapshot& snapshot, std::uint64_t channel)
 
     auto sidechainsIn = [&](const TrackInfo& t)
     {
-        for (const auto& d : t.devices)
+        forEachDevice(t.devices, [&](const DeviceSlot& d) { // modules in racks too
             if (d.sidechainSource == channel)
                 plan.sidechains.push_back(d.id);
+        });
     };
     for (const auto& t : snapshot.tracks)
         sidechainsIn(t);

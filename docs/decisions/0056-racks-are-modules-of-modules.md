@@ -1,6 +1,6 @@
 # 0056. Racks are modules of modules, saved as their own files
 
-- **Status:** Proposed (for the product owner's review, with [racks.md](../design/racks.md))
+- **Status:** Accepted (the product owner, 2026-10-14: the design, then its UI drawn in every state)
 - **Date:** 2026-10-14
 - **Builds on:** [0002](0002-device-suite-and-daw-in-parallel.md) (the DAW's native chain: "racks and macros later"), [0022](0022-module-panels.md) (module panels), [0044](0044-presets-are-files.md) (presets are files), [0046](0046-one-browser-modules-are-folders.md) (one browser), [0053](0053-a-modules-editor-in-the-detail-panel.md) (a module's editor in the detail panel), [0055](0055-factory-content-is-files-in-a-read-only-library.md) (factory content in the Library)
 

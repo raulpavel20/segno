@@ -127,7 +127,8 @@ public:
                 s == 0 ? p.startNewSubPath(pt) : p.lineTo(pt);
             }
             g.setColour(mappingColour(static_cast<int>(i)));
-            g.strokePath(p, juce::PathStrokeType(1.5f));
+            g.strokePath(p,
+                         juce::PathStrokeType(1.5f, juce::PathStrokeType::curved)); // as the displays' curves
         }
         // The macro where it is now, and where that puts each parameter.
         const float x = macro_.value;
@@ -138,7 +139,8 @@ public:
             const auto& m = macro_.mappings[i];
             const auto pt = at(x, model::macroMapped(x, m.from, m.to, m.curve));
             g.setColour(mappingColour(static_cast<int>(i)));
-            g.fillEllipse(juce::Rectangle<float>(5.0f, 5.0f).withCentre(pt));
+            const auto dot = static_cast<float>(t.shell.lightSize);
+            g.fillEllipse(juce::Rectangle<float>(dot, dot).withCentre(pt));
         }
     }
 
@@ -168,6 +170,7 @@ MacroEditor::MacroEditor(ValueText valueText)
     place(curvesPane_, *curves_, 0, 0, 0, -1);
     value_.setStyle(ui::Knob::Style::Bar);
     value_.textFromValue = percentText;
+    wireGesture(value_);
     value_.onValueChange = [this](float v)
     {
         if (onMacroValue)
@@ -178,11 +181,37 @@ MacroEditor::MacroEditor(ValueText valueText)
 
 MacroEditor::~MacroEditor() = default;
 
+void MacroEditor::wireGesture(ui::Knob& bar)
+{
+    bar.onGestureStart = [this]
+    {
+        dragging_ = true;
+        if (onGesture)
+            onGesture(true);
+    };
+    bar.onGestureEnd = [this]
+    {
+        if (onGesture)
+            onGesture(false);
+        // Its own row is built again only now: the bar being dragged stays while it is.
+        dragging_ = false;
+        juce::MessageManager::callAsync(
+            [safe = juce::Component::SafePointer<MacroEditor>(this)]
+            {
+                if (safe != nullptr)
+                    safe->rebuild();
+            });
+    };
+}
+
 void MacroEditor::setRack(const juce::String& name, const model::RackInfo& rack)
 {
     name_ = name;
     rack_ = rack;
-    rebuild();
+    if (dragging_) // a bar being dragged: only the curves follow
+        curves_->show(rack_.macros[static_cast<size_t>(macro_)]);
+    else
+        rebuild();
     if (onTitleChanged)
         onTitleChanged();
 }
@@ -277,6 +306,7 @@ void MacroEditor::rebuild()
             knob->textFromValue = std::move(text);
             knob->setValue(value, juce::dontSendNotification);
             knob->onValueChange = std::move(set);
+            wireGesture(*knob);
             place(mappingsPane_, make(std::move(knob)), column, row, 2, 1, Kind::Line);
         };
         const auto change = [this, i](float from, float to, float curve)

@@ -4,6 +4,7 @@
 #include "engine/SessionImpl.h"
 #include "engine/SongKey.h"
 #include "model/NoteEditing.h"
+#include "model/Racks.h"
 #include "model/TrackEdits.h"
 
 #include <atomic>
@@ -90,9 +91,8 @@ private:
     std::optional<std::uint64_t> source() const
     {
         for (const auto& t : session_.snapshot()->tracks)
-            for (const auto& d : t.devices)
-                if (d.id == deviceId_)
-                    return d.sidechainSource;
+            if (const auto* d = model::findDevice(t.devices, deviceId_)) // in a rack too
+                return d->sidechainSource;
         return std::nullopt;
     }
 
@@ -115,13 +115,56 @@ public:
             session_.automationMenu(*t, menu);
     }
 
+    // In a rack (racks.md §4): set by its macro, lit and dimmed by where the pointer is.
+    [[nodiscard]] std::optional<MacroMapping> macroMapping(size_t i) const override
+    {
+        const auto* rack = holder();
+        if (rack == nullptr)
+            return std::nullopt;
+        int macro = -1;
+        const auto* m = model::mappingOf(*rack->rack, id(), std::string(spec(i).id), &macro);
+        if (m == nullptr)
+            return std::nullopt;
+        const auto& pointer = session_.macroPointer();
+        return MacroMapping{
+            juce::String::fromUTF8(rack->rack->macros[static_cast<size_t>(macro)].name.c_str()), m->from,
+            m->to, pointer.rack == rack->id && pointer.macro >= 0 && pointer.macro != macro};
+    }
+    [[nodiscard]] MacroDrag macroDrag(size_t i) const override
+    {
+        const auto& pointer = session_.macroPointer();
+        if (!pointer.dragging)
+            return {};
+        const auto* rack = holder();
+        if (rack == nullptr || rack->id != pointer.rack || !canAutomate(i))
+            return {};
+        return {true, pointer.module == id() && pointer.param == spec(i).id};
+    }
+    void addMacroItems(size_t i, juce::PopupMenu& menu) override
+    {
+        if (holder() != nullptr && session_.macroMenu)
+            session_.macroMenu(id(), std::string(spec(i).id), menu);
+    }
+
 private:
     std::optional<Session::ParamTarget> target(size_t i) const
     {
         return session_.moduleParameter(plugin_.itemID.getRawID(), std::string(spec(i).id));
     }
+    [[nodiscard]] std::uint64_t id() const { return plugin_.itemID.getRawID(); }
+    /// The rack holding the module, as the snapshot has it (null: none).
+    const model::DeviceSlot* holder() const
+    {
+        snapshot_ = session_.snapshot(); // keeps what's returned alive
+        for (const auto* list : {&snapshot_->tracks, &snapshot_->returns})
+            for (const auto& t : *list)
+                if (const auto* rack = model::rackHolding(t.devices, id()))
+                    return rack;
+        return model::rackHolding(snapshot_->master.devices, id());
+    }
 
     Session& session_;
+    mutable std::shared_ptr<const model::Snapshot> snapshot_;
 };
 
 class NativeDeviceHandle final : public DeviceHandle
@@ -136,9 +179,9 @@ public:
     {
         // An editor's Preview (ADR 0053): a note held on the module's track, live, as the
         // browser's previews play.
-        context_.playNote = [this](int note, float velocity)
+        context_.playNote = [this, &session](int note, float velocity)
         {
-            if (auto* track = dynamic_cast<te::AudioTrack*>(plugin_->getOwnerTrack()))
+            if (auto* track = session.impl().trackOf(*plugin_)) // its rack's track, in one
                 track->injectLiveMidiMessage(
                     velocity > 0.0f ? juce::MidiMessage::noteOn(1, juce::jlimit(0, 127, note), velocity)
                                     : juce::MidiMessage::noteOff(1, juce::jlimit(0, 127, note)),
@@ -206,7 +249,7 @@ model::ClipInfo clipInfo(te::Clip& c, int trackColour)
 model::TrackInfo::Kind kindOf(te::AudioTrack& t)
 {
     for (auto* p : t.pluginList)
-        if (p->isSynth())
+        if (Session::Impl::playsNotes(*p))
             return model::TrackInfo::Kind::Instrument;
     return model::TrackInfo::Kind::Audio;
 }
@@ -472,33 +515,48 @@ void Session::Impl::rebuildSnapshot()
     }
     s->keys.key = songKeyOf(*edit);
 
-    // The module chain of a channel, as the views show it.
-    auto devicesOf = [](te::PluginList& list, model::TrackInfo& info) {
+    // The module chain of a channel, as the views show it; a rack with its chains (racks.md §11).
+    std::function<model::DeviceSlot(te::Plugin&)> slotOf = [&](te::Plugin& plugin)
+    {
+        auto* p = &plugin;
+        model::DeviceSlot slot;
+        slot.id = p->itemID.getRawID();
+        slot.name = p->getName().toStdString();
+        slot.enabled = p->isEnabled();
+        slot.instrument = playsNotes(*p);
+        if (auto* rack = dynamic_cast<te::RackInstance*>(p))
+        {
+            slot.kind = model::DeviceSlot::Kind::Native;
+            slot.deviceId = "rack";
+            if (rack->type != nullptr)
+                slot.name = rack->type->rackName.get().toStdString();
+            slot.rack = rackInfo(*rack, slotOf);
+        }
+        else if (auto* native = dynamic_cast<DevicePlugin*>(p))
+        {
+            slot.kind = model::DeviceSlot::Kind::Native;
+            slot.deviceId = std::string(native->device().info().id);
+            slot.midiEffect = native->device().info().kind == DeviceKind::MidiEffect;
+            slot.takesSidechain = takesSidechain(*p);
+            if (slot.takesSidechain && p->getSidechainSourceID().isValid())
+                slot.sidechainSource = p->getSidechainSourceID().getRawID();
+        }
+        else
+        {
+            slot.kind = model::DeviceSlot::Kind::External;
+            if (auto* external = dynamic_cast<te::ExternalPlugin*>(p))
+                if (auto* instance = external->getAudioPluginInstance())
+                    slot.midiEffect = instance->isMidiEffect();
+        }
+        return slot;
+    };
+    auto devicesOf = [&](te::PluginList& list, model::TrackInfo& info)
+    {
         for (auto* p : chain(list))
         {
-            model::DeviceSlot slot;
-            slot.id = p->itemID.getRawID();
-            slot.name = p->getName().toStdString();
-            slot.enabled = p->isEnabled();
-            slot.instrument = p->isSynth();
+            auto slot = slotOf(*p);
             if (slot.instrument && info.instrument.empty())
                 info.instrument = slot.name;
-            if (auto* native = dynamic_cast<DevicePlugin*>(p))
-            {
-                slot.kind = model::DeviceSlot::Kind::Native;
-                slot.deviceId = std::string(native->device().info().id);
-                slot.midiEffect = native->device().info().kind == DeviceKind::MidiEffect;
-                slot.takesSidechain = takesSidechain(*p);
-                if (slot.takesSidechain && p->getSidechainSourceID().isValid())
-                    slot.sidechainSource = p->getSidechainSourceID().getRawID();
-            }
-            else
-            {
-                slot.kind = model::DeviceSlot::Kind::External;
-                if (auto* external = dynamic_cast<te::ExternalPlugin*>(p))
-                    if (auto* instance = external->getAudioPluginInstance())
-                        slot.midiEffect = instance->isMidiEffect();
-            }
             info.devices.push_back(std::move(slot));
         }
     };
@@ -813,6 +871,12 @@ te::Plugin* Session::Impl::plugin(std::uint64_t id) const
     for (auto* p : edit->getMasterPluginList())
         if (p->itemID.getRawID() == id)
             return p;
+    // A module in a rack (racks.md): its own id, as any module's.
+    for (int i = 0; i < edit->getRackList().size(); ++i)
+        if (auto rack = edit->getRackList().getRackType(i))
+            for (auto* p : rack->getPlugins())
+                if (p->itemID.getRawID() == id)
+                    return p;
     return nullptr;
 }
 
@@ -1461,8 +1525,16 @@ std::uint64_t Session::addDevice(std::uint64_t trackId, const std::string& key, 
 
 void Session::removeDevice(std::uint64_t deviceId)
 {
+    if (auto* rack = impl_->rackInstance(deviceId))
+    {
+        impl_->beginEdit("Remove module");
+        impl_->removeRack(*rack); // its type, its modules and their lanes with it
+        return;
+    }
     if (auto* p = impl_->plugin(deviceId))
     {
+        auto* holder = impl_->rackHolding(*p);
+        const te::RackType::Ptr rack = holder != nullptr ? holder->type : nullptr;
         impl_->beginEdit("Remove module");
         // Its parameters leave their lanes in the same step (ADR 0029).
         const auto prefix = "m" + std::to_string(deviceId) + "/";
@@ -1472,12 +1544,23 @@ void Session::removeDevice(std::uint64_t deviceId)
                     lane.getChild(i)[Impl::keyId].toString().startsWith(juce::String(prefix)))
                     lane.removeChild(i, &impl_->edit->getUndoManager());
         p->removeFromParent();
+        if (rack != nullptr)
+            Impl::wireRack(*rack, &impl_->edit->getUndoManager()); // its chain closes up
     }
 }
 
 void Session::moveDevice(std::uint64_t deviceId, int index)
 {
     auto* p = impl_->plugin(deviceId);
+    if (p != nullptr && p->isInRack()) // along its rack's chain: to where it ends up
+    {
+        if (auto place = placeOf(deviceId))
+        {
+            place->index = index >= place->index ? index + 1 : index;
+            moveDevice(deviceId, *place);
+        }
+        return;
+    }
     auto* list = p != nullptr ? p->getOwnerList() : nullptr;
     if (list == nullptr)
         return;
@@ -1768,8 +1851,14 @@ std::optional<Session::DelayNotice> Session::untoldDelay(double minMs) const
     const auto first = [&](te::PluginList& list, const juce::String& track) -> std::optional<DelayNotice>
     {
         for (auto* p : Impl::chain(list))
-            if (const double ms = moduleLatencyMs(p->itemID.getRawID()); ms >= minMs)
-                return DelayNotice{p->getName().toStdString(), track.toStdString(), ms};
+        {
+            std::vector<te::Plugin*> modules{p};
+            if (auto* rack = Impl::rackTypeOf(p)) // the modules in a rack too
+                modules = Impl::rackModules(*rack);
+            for (auto* m : modules)
+                if (const double ms = moduleLatencyMs(m->itemID.getRawID()); ms >= minMs)
+                    return DelayNotice{m->getName().toStdString(), track.toStdString(), ms};
+        }
         return std::nullopt;
     };
     for (auto* t : te::getAudioTracks(*impl_->edit))

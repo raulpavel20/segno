@@ -135,7 +135,7 @@ The product owner's requirement (2026-10-14): **the rack's UI must be very solid
   Anything that made them hesitate is changed before sign-off.
 - **As always:** the layout lint for the rack's panel and the macro editor, and the zoomed screenshot review ([ui-foundations.md](ui-foundations.md), "Layout quality").
 
-### Drawn (step 0, 2026-10-14, for the product owner's review)
+### Drawn (step 0, 2026-10-14; approved by the product owner the same day)
 
 Every state above, drawn with the real panel kit and module panels from a stub (`tests/integration/RackUiTests.cpp`, `FD_DUMP_DIR`), each checked by the layout lint and in its frame:
 
@@ -274,6 +274,8 @@ Each built, tested and signed off on its own.
 
 ## 16. Questions for review
 
+Approved by the product owner (2026-10-14) with every recommendation, then the UI drawn in every state (§5a), with its four points: the frame, room for 4 chains, a macro that maps nothing faded, the second chain from Module > Add chain, the rack's right-click and the end cap's "+".
+
 | # | Question | Recommendation |
 |---|---|---|
 | R1 | **What a rack holds** | Chains side by side, each serial, summed; one chain by default (the "snapshot of the chain"), more for layers and parallel processing; an empty chain passes its input |
@@ -293,3 +295,17 @@ Each built, tested and signed off on its own.
 | R15 | **Engine** | tracktion's racks and macro modifiers, after a spike on parallel latency, undo and plugin state |
 | R16 | **Not now** | Zones and the Drum Rack (M4), selectors and crossfaders, MIDI effect racks, racks in the plugins |
 | R17 | **The UI, nothing confusing** (the product owner's requirement) | Drawn in every state and approved before it's built; one chain looks like a plain group (the chain list shows from the second chain); the frame always says what's inside; drops show where they land; macros and their knobs light each other; one word for each thing; tried hands-on before sign-off (§5a) |
+
+## 17. Settled while building step 1 (2026-10-14)
+
+- **Solo is an undo step** ("Solo chain"). A chain's solo rewires the rack, and tracktion's undo history must hold every edit of the wiring, or undoing another edit could break it. It's still a listening aid, never kept in a rack's file.
+- **Macros start at 0 %** (tracktion starts them half way), so a knob mapped from where it is stays there. Mapping by a drag, a right-click or the editor's + takes From from where the knob is and To at the top of its range (the bottom, when it's at the top).
+- **A parameter's saved value leaves out what macros add.** tracktion wrote the moved value back into the project, so saving, a render or a bounce took a macro's position as the mapping's new From. A small patch to tracktion keeps the parameter's own value there (`cmake/patches/tracktion_engine-modifier-base-value.patch`); automation still saves what it plays.
+- **A rack's modules keep their ids**: every module tool, lane and sidechain reaches them as before. A module that leaves its rack is unmapped, keeping its value now. A track copied with a rack on it gets a copy of the rack of its own.
+- **Rack files are JSON** (`segnoRack: 1`): the chains with their mixer rows, our modules' states as their presets hold them, plugins' their own state, and the macros, their mappings referring to modules by chain and place. A loaded rack saved again makes the same file, byte for byte.
+- **Save rack** writes `Documents/Segno/Racks/<name>.segnorack`; **Save rack as…** renames the rack in place, then saves; **Show racks folder** opens the folder.
+- **The browser** has a Racks folder first under Instruments and under Audio effects (the Library's racks first, then yours), finds racks in search as RACKS, and puts them where a module would go, an instrument rack in place of the track's instrument. **Not yet:** a rack's preview (the presets' phrase through it); it comes with step 2's factory racks.
+- **Right-clicks:** the rack's header (Rename rack…, Add chain, Edit macros, Ungroup rack); a chain's name (Rename chain…, Solo, On, Remove chain); a macro (Rename macro…, Edit macros, then its automation); a knob in a rack (Map to macro ▸, Unmap from …, Edit macros). Double-clicking a macro's name renames it.
+- **Group into rack** takes the selected module and those Shift-clicked along the track's chain.
+- **MCP**, beyond §10's tools: `add_module` takes `rack` and `chain` (and type `rack`, with `path` a rack file); `move_module` takes `rack` (null: out of it) and `chain`; `set_parameters` refuses a parameter a macro sets, naming the macro; `get_module` says `setByMacro`, and a rack's macros are its parameters.
+- **Still to do before sign-off:** the product owner's hands-on tasks (§5a). The lock tracktion's macro source takes (§12, "To watch") is still to be checked: the `rtsan` preset builds the JUCE-free core only, so it needs the DAW built under the sanitizer (open question B84).

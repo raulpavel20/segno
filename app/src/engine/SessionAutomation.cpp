@@ -1,9 +1,9 @@
 // Automation (M2 step C4, ADRs 0028 and 0029, docs/design/automation.md): automation lanes of
 // their own, driving the parameters assigned to them through tracktion's automation curves.
 
-#include "engine/SessionImpl.h"
-
 #include "engine/DevicePlugin.h"
+#include "engine/SessionImpl.h"
+#include "model/Racks.h"
 #include "model/TrackEdits.h"
 
 #include <cmath>
@@ -121,7 +121,7 @@ std::vector<Session::Impl::Param> Session::Impl::paramsOf(std::uint64_t channelI
                            .returnId = r->itemID.getRawID(),
                            .scale = kSendTop});
         }
-    for (auto* p : chain(*list))
+    const auto addModule = [&](te::Plugin* p)
     {
         const auto device = p->itemID.getRawID();
         if (auto* native = dynamic_cast<DevicePlugin*>(p))
@@ -145,7 +145,7 @@ std::vector<Session::Impl::Param> Session::Impl::paramsOf(std::uint64_t channelI
                                .native = native,
                                .index = i});
             }
-            continue;
+            return;
         }
         for (auto* param : p->getAutomatableParameters())
         {
@@ -164,6 +164,32 @@ std::vector<Session::Impl::Param> Session::Impl::paramsOf(std::uint64_t channelI
                            .offset = range.getStart(),
                            .scale = range.getLength() > 0.0f ? range.getLength() : 1.0f});
         }
+    };
+    for (auto* p : chain(*list))
+    {
+        auto* rack = rackTypeOf(p);
+        if (rack == nullptr)
+        {
+            addModule(p);
+            continue;
+        }
+        // A rack (racks.md §4): its macros, as its parameters, then the modules in its chains.
+        const auto macros = rack->getMacroParameters();
+        for (int i = 0; i < macros.size() && i < static_cast<int>(Session::rackMacros().params.size()); ++i)
+        {
+            const auto& spec = Session::rackMacros().params[static_cast<size_t>(i)];
+            const juce::String id(std::string(spec.id));
+            auto name = macros[i]->macroName.get().toStdString();
+            out.push_back({.kind = Param::Kind::Macro,
+                           .param = macros[i].get(),
+                           .key = moduleKey(*p, id),
+                           .name = name.empty() ? std::string(spec.name) : name,
+                           .module = rack->rackName.get().toStdString(),
+                           .paramId = std::string(spec.id),
+                           .device = p->itemID.getRawID()});
+        }
+        for (auto* m : rackModules(*rack))
+            addModule(m);
     }
     return out;
 }
@@ -924,6 +950,8 @@ std::string Session::paramText(const ParamTarget& target, float travel) const
         return spec.toText(spec.fromNormalized(travel));
     }
     case Impl::Param::Kind::External: return p->param->valueToString(p->toEngine(travel)).toStdString();
+    case Impl::Param::Kind::Macro:
+        return percentText(travel); // a rack's macro, 0 .. 100 %
     }
     return {};
 }
@@ -944,6 +972,8 @@ std::optional<double> Session::paramPlain(const ParamTarget& target, float trave
         return spec.fromNormalized(travel);
     }
     case Impl::Param::Kind::External: return std::clamp(travel, 0.0f, 1.0f); // normalised (mcp.md)
+    case Impl::Param::Kind::Macro:
+        return 100.0 * std::clamp(travel, 0.0f, 1.0f);
     }
     return std::nullopt;
 }
@@ -965,6 +995,8 @@ std::optional<float> Session::paramFromPlain(const ParamTarget& target, double p
         return spec.toNormalized(v);
     }
     case Impl::Param::Kind::External: return std::clamp(v, 0.0f, 1.0f);
+    case Impl::Param::Kind::Macro:
+        return std::clamp(v / 100.0f, 0.0f, 1.0f);
     }
     return std::nullopt;
 }
@@ -993,6 +1025,8 @@ std::optional<float> Session::paramFromText(const ParamTarget& target, const std
         return std::nullopt;
     }
     case Impl::Param::Kind::External: return p->toTravel(p->param->stringToValue(juce::String(text)));
+    case Impl::Param::Kind::Macro:
+        return parsePercent(text);
     }
     return std::nullopt;
 }
@@ -1030,10 +1064,10 @@ std::optional<Session::ParamTarget> Session::lastTouchedParameter() const
 std::optional<Session::ParamTarget> Session::moduleParameter(std::uint64_t deviceId, const std::string& paramId) const
 {
     const auto snapshot = impl_->snapshot;
-    auto find = [&](const model::TrackInfo& t) -> std::optional<ParamTarget> {
-        for (const auto& d : t.devices)
-            if (d.id == deviceId)
-                return ParamTarget{t.id, "m" + std::to_string(deviceId) + "/" + paramId};
+    auto find = [&](const model::TrackInfo& t) -> std::optional<ParamTarget>
+    {
+        if (model::findDevice(t.devices, deviceId) != nullptr) // modules in racks too
+            return ParamTarget{t.id, "m" + std::to_string(deviceId) + "/" + paramId};
         return std::nullopt;
     };
     for (const auto* list : {&snapshot->tracks, &snapshot->returns})

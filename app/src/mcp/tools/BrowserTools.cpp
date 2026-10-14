@@ -22,6 +22,8 @@ const char* kindName(Kind k)
         return "preset";
     case Kind::Plugin:
         return "plugin";
+    case Kind::Rack:
+        return "rack";
     case Kind::Sample:
         return "sample";
     case Kind::Multisample:

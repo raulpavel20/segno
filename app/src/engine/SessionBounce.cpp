@@ -184,7 +184,7 @@ struct Session::Impl::Bounce final : std::enable_shared_from_this<Bounce>, Sessi
             {
                 if (after)
                     p->setEnabled(false);
-                after = after || p->isSynth();
+                after = after || Impl::playsNotes(*p);
             }
         }
         return true;

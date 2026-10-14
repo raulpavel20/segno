@@ -52,6 +52,13 @@ public:
     }
     /// The control's menu: the host adds its rack items (Map to macro, Unmap).
     virtual void addMacroItems(size_t /*index*/, juce::PopupMenu& /*menu*/) {}
+    /// While a rack's macro is dragged by its name: whether the parameter could take it (its knob
+    /// shows a faint ring), and whether the pointer is on it (lit).
+    struct MacroDrag
+    {
+        bool candidate = false, target = false;
+    };
+    [[nodiscard]] virtual MacroDrag macroDrag(size_t /*index*/) const { return {}; }
 };
 
 /// Merges `patch` into `device`'s extra state directly (hosts call this once they have

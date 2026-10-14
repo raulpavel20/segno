@@ -2,10 +2,10 @@
 
 #include "ModulePurposes.h"
 #include "model/Editing.h"
-
-#include <fd/device/Registry.h>
+#include "model/Racks.h"
 
 #include <cmath>
+#include <fd/device/Registry.h>
 
 namespace fd::mcp
 {
@@ -29,6 +29,7 @@ void registerAll(Registry& registry, ToolEnv& env)
     addTrackTools(registry, env);
     addSectionTools(registry, env);
     addKeyTools(registry, env);
+    addRackTools(registry, env);
     addResources(registry, env);
     addPrompts(registry);
 }
@@ -344,12 +345,10 @@ std::pair<model::DeviceSlot, model::TrackInfo> module(ToolEnv& env, const Json& 
     const auto snap = env.session.snapshot();
     for (const auto* list : {&snap->tracks, &snap->returns})
         for (const auto& t : *list)
-            for (const auto& d : t.devices)
-                if (d.id == *id)
-                    return {d, t};
-    for (const auto& d : snap->master.devices)
-        if (d.id == *id)
-            return {d, snap->master};
+            if (const auto* d = model::findDevice(t.devices, *id)) // in a rack too
+                return {*d, t};
+    if (const auto* d = model::findDevice(snap->master.devices, *id))
+        return {*d, snap->master};
     throw Problem{"Module " + formatId(IdKind::Module, *id) +
                   " doesn't exist; read segno://project (or call get_project) for each track's chain."};
 }
@@ -481,11 +480,25 @@ Json clipJson(ToolEnv& env, const model::ClipInfo& c, bool notes)
 
 Json moduleSummary(const model::DeviceSlot& slot)
 {
-    return {{"id", formatId(IdKind::Module, slot.id)},
-            {"name", slot.name},
-            {"type", slot.kind == model::DeviceSlot::Kind::Native ? slot.deviceId : std::string("plugin")},
-            {"on", slot.enabled},
-            {"instrument", slot.instrument}};
+    Json j{{"id", formatId(IdKind::Module, slot.id)},
+           {"name", slot.name},
+           {"type", slot.kind == model::DeviceSlot::Kind::Native ? slot.deviceId : std::string("plugin")},
+           {"on", slot.enabled},
+           {"instrument", slot.instrument}};
+    // A rack (racks.md §10): its chains' modules, in order (get_rack has the rest).
+    if (slot.rack != nullptr)
+    {
+        Json chains = Json::array();
+        for (const auto& c : slot.rack->chains)
+        {
+            Json modules = Json::array();
+            for (const auto& d : c.devices)
+                modules.push_back(moduleSummary(d));
+            chains.push_back({{"name", c.name}, {"modules", std::move(modules)}});
+        }
+        j["chains"] = std::move(chains);
+    }
+    return j;
 }
 
 std::string kindName(const model::TrackInfo& t)
@@ -665,13 +678,27 @@ Json moduleJson(ToolEnv& env, const model::DeviceSlot& slot, const model::TrackI
             {"possibleSources", std::move(choices)}};
     }
     Json parameters = Json::array();
-    if (auto handle = env.session.openDevice(slot.id))
+    // In a rack: the macro that sets a parameter (racks.md §4).
+    const auto* holder = model::rackHolding(t.devices, slot.id);
+    auto handle = env.session.openDevice(slot.id);
+    if (handle == nullptr && slot.rack != nullptr)
+    {
+        handle = env.session.openRack(slot.id); // its macros, as its parameters
+        j["rack"] = rackJson(env, slot, t);
+    }
+    if (handle != nullptr)
     {
         auto& context = handle->context();
         for (size_t i = 0; i < context.info.params.size(); ++i)
             if (const auto& spec = context.info.params[i]; !spec.hasFlag(ParamFlags::Hidden))
             {
                 auto p = parameterJson(spec, context.params.getPlain(i));
+                int macro = -1;
+                if (holder != nullptr &&
+                    model::mappingOf(*holder->rack, slot.id, std::string(spec.id), &macro) != nullptr)
+                    p["setByMacro"] = {{"rack", formatId(IdKind::Module, holder->id)},
+                                       {"macro", macro + 1},
+                                       {"name", holder->rack->macros[static_cast<size_t>(macro)].name}};
                 // Its automation (C4): its lane, points, range and whether it plays.
                 if (auto a = parameterAutomationJson(env, {t.id, "m" + std::to_string(slot.id) + "/" + std::string(spec.id)});
                     !a.is_null())

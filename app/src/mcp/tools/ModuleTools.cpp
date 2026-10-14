@@ -3,6 +3,7 @@
 
 #include "Sampler.h"
 #include "mcp/tools/Tools.h"
+#include "model/Racks.h"
 
 #include <cmath>
 #include <fd/audiofile/AudioFile.h>
@@ -65,16 +66,49 @@ void addModuleTools(Registry& registry, ToolEnv& env)
          "one of "
          "ours or a scanned plugin. One of ours starts from your default for it, if you set one, or from a "
          "preset "
-         "you name (list_presets). Returns the new module with its parameters.",
-         object({{"track", id(IdKind::Track, "The track, return track or master")},
-                 {"type", string("A type from list_module_types (\"eq\", \"saturator\"), or its name")},
-                 {"position", integer("Where in the chain, from 0 (default: the end)", 0)},
-                 {"preset", string("One of ours: a preset to start from, by its id or name (list_presets)")}},
-                {"track", "type"}),
+         "you name (list_presets). Into a rack's chain with rack and chain; type \"rack\" adds an empty rack "
+         "(racks.md). Returns the new module with its parameters.",
+         object(
+             {{"track", id(IdKind::Track, "The track, return track or master")},
+              {"type",
+               string("A type from list_module_types (\"eq\", \"saturator\"), or its name; \"rack\" for "
+                      "an empty rack")},
+              {"position", integer("Where in the chain, from 0 (default: the end)", 0)},
+              {"rack", id(IdKind::Module, "Into this rack's chain instead of the track's")},
+              {"path", string("With type \"rack\": a .segnorack file to load (search finds them as racks)")},
+              {"chain", integer("The rack's chain, from 1 (default: 1)", 1)},
+              {"preset", string("One of ours: a preset to start from, by its id or name (list_presets)")}},
+             {"track", "type"}),
          moduleResultSchema(), adds},
         [&env](const Json& args, CallContext&)
         {
             const auto t = channel(env, args["track"]); // modules go on tracks, returns and the master
+            if (lower(args["type"].get<std::string>()) == "rack")
+            {
+                std::uint64_t rack = 0;
+                Json missing = Json::array();
+                if (args.contains("path"))
+                {
+                    const auto loaded = env.session.loadRack(
+                        readableFile(args["path"]), {.channel = t.id, .index = args.value("position", -1)});
+                    if (loaded.rack == 0)
+                        throw Problem{loaded.error.empty() ? std::string("It isn't a rack file.")
+                                                           : loaded.error};
+                    rack = loaded.rack;
+                    for (const auto& m : loaded.missing)
+                        missing.push_back(m);
+                }
+                else
+                    rack = env.session.addRack(t.id, args.value("position", -1));
+                if (rack == 0)
+                    throw Problem{"The rack couldn't be added."};
+                env.session.flushSnapshot();
+                const auto [slot, owner] = module(env, formatId(IdKind::Module, rack));
+                auto json = moduleJson(env, slot, owner);
+                if (!missing.empty())
+                    json["missing"] = std::move(missing); // plugins not installed, left out
+                return ToolResult::ok(json);
+            }
             const auto key = typeKey(env, args["type"].get<std::string>());
             // A preset is found before the module is made: a wrong name adds nothing.
             const Preset* preset = nullptr;
@@ -95,7 +129,24 @@ void addModuleTools(Registry& registry, ToolEnv& env)
                     throw Problem{"There's no preset \"" + wanted + "\" for the " + std::string(info->name) +
                                   " that this Segno can load; list_presets lists them."};
             }
-            const auto id = env.session.addDevice(t.id, key, args.value("position", -1));
+            std::uint64_t id = 0;
+            if (args.contains("rack"))
+            {
+                const auto [rack, owner] = module(env, args["rack"]);
+                if (rack.rack == nullptr || owner.id != t.id)
+                    throw Problem{formatId(IdKind::Module, rack.id) + " isn't a rack on that track."};
+                const int chain = args.value("chain", 1) - 1;
+                if (chain < 0 || chain >= static_cast<int>(rack.rack->chains.size()))
+                    throw Problem{"The rack has " + std::to_string(rack.rack->chains.size()) +
+                                  " chains, counted from 1."};
+                id = env.session.addDevice(engine::Session::ChainPlace{.channel = t.id,
+                                                                       .rack = rack.id,
+                                                                       .chain = chain,
+                                                                       .index = args.value("position", -1)},
+                                           key);
+            }
+            else
+                id = env.session.addDevice(t.id, key, args.value("position", -1));
             if (id == 0)
                 throw Problem{"The module couldn't be created (" + key + ")."};
             if (preset != nullptr)
@@ -121,14 +172,46 @@ void addModuleTools(Registry& registry, ToolEnv& env)
 
     registry.tools.push_back(make(
         env,
-        {"move_module", "Move a module", "Moves a module within its chain.",
-         object({{"module", id(IdKind::Module, "The module")}, {"position", integer("Its new place, from 0", 0)}},
+        {"move_module", "Move a module",
+         "Moves a module within its track: along its chain, into a rack's chain (rack and chain), or out of "
+         "a rack "
+         "into the track's chain (rack: null). A rack never goes into a rack.",
+         object({{"module", id(IdKind::Module, "The module")},
+                 {"position", integer("Its new place in the chain it goes to, from 0", 0)},
+                 {"rack",
+                  {{"type", {"string", "null"}},
+                   {"description", "A rack on its track to move it into; null: "
+                                   "the track's own chain"}}},
+                 {"chain", integer("The rack's chain, from 1 (default: 1)", 1)}},
                 {"module", "position"}),
-         result({{"chain", arrayOf(result({{"id", string("")}}), "The chain now, in order", std::nullopt)}}, {"chain"}),
+         result({{"chain", arrayOf(result({{"id", string("")}}), "The chain now, in order", std::nullopt)}},
+                {"chain"}),
          changes},
-        [&env](const Json& args, CallContext&) {
+        [&env](const Json& args, CallContext&)
+        {
             const auto [slot, owner] = module(env, args["module"]);
-            env.session.moveDevice(slot.id, args["position"].get<int>());
+            const int position = args["position"].get<int>();
+            if (!args.contains("rack"))
+                env.session.moveDevice(slot.id, position); // along its own chain
+            else
+            {
+                engine::Session::ChainPlace place{.channel = owner.id, .index = position};
+                if (!args["rack"].is_null())
+                {
+                    const auto [rack, rackOwner] = module(env, args["rack"]);
+                    if (rack.rack == nullptr || rackOwner.id != owner.id)
+                        throw Problem{formatId(IdKind::Module, rack.id) +
+                                      " isn't a rack on the module's track."};
+                    place.rack = rack.id;
+                    place.chain = args.value("chain", 1) - 1;
+                }
+                // To where it ends up, along its own chain as elsewhere.
+                if (const auto from = env.session.placeOf(slot.id);
+                    from && from->rack == place.rack && from->chain == place.chain && position >= from->index)
+                    place.index = position + 1;
+                if (!env.session.moveDevice(slot.id, place))
+                    throw Problem{"It can't go there (a rack never goes into a rack)."};
+            }
             env.session.flushSnapshot();
             return ToolResult::ok({{"chain", trackJson(env, track(env, formatId(IdKind::Track, owner.id)))["chain"]}});
         }));
@@ -164,7 +247,11 @@ void addModuleTools(Registry& registry, ToolEnv& env)
         [&env](const Json& args, CallContext&) {
             const auto [slot, owner] = module(env, args["module"]);
             Json set = Json::array(), problems = Json::array();
-            if (auto handle = env.session.openDevice(slot.id))
+            auto handle = env.session.openDevice(slot.id);
+            if (handle == nullptr && slot.rack != nullptr)
+                handle = env.session.openRack(slot.id); // a rack's macros
+            const auto* holder = model::rackHolding(owner.devices, slot.id);
+            if (handle != nullptr)
             {
                 auto& context = handle->context();
                 for (const auto& [key, value] : args["values"].items())
@@ -176,6 +263,18 @@ void addModuleTools(Registry& registry, ToolEnv& env)
                         continue;
                     }
                     const auto& spec = context.info.params[i];
+                    // Set by a rack's macro: it follows the macro (racks.md §4).
+                    int macro = -1;
+                    if (holder != nullptr &&
+                        model::mappingOf(*holder->rack, slot.id, std::string(spec.id), &macro) != nullptr)
+                    {
+                        problems.push_back(
+                            {{"id", key},
+                             {"problem", "set by macro " + std::to_string(macro + 1) + " (" +
+                                             holder->rack->macros[static_cast<size_t>(macro)].name +
+                                             "): set_macro moves it, unmap_macro frees it"}});
+                        continue;
+                    }
                     std::optional<float> plain;
                     if (value.is_boolean())
                         plain = value.get<bool>() ? spec.max : spec.min;

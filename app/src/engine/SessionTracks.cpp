@@ -296,6 +296,7 @@ std::uint64_t Session::duplicateTrack(std::uint64_t channelId)
     auto copy = t->state.createCopy();
     te::EditItemID::IDMap ids;
     te::EditItemID::remapIDs(copy, nullptr, *impl_->edit, &ids);
+    impl_->copyRacksIn(copy, ids); // a rack of its own each, not the original's (racks.md)
     std::map<std::uint64_t, std::uint64_t> map;
     for (const auto& [from, to] : ids)
         map[from.getRawID()] = to.getRawID();

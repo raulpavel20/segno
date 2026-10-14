@@ -2087,3 +2087,100 @@ TEST_CASE("mcp tools: sections marked, renamed, moved, copied, inserted and dele
     CHECK(daw.fails("copy_section", {{"sections", {first}}, {"at", "1.1.1"}, {"after", first}}).find("at") !=
           std::string::npos);
 }
+
+TEST_CASE(
+    "mcp tools: racks: group, chains and their mixer rows, macros mapped and set, ungroup (racks.md §10)",
+    "[integration][mcp]")
+{
+    Daw daw;
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    const auto sat = daw.call("add_module", {{"track", t0}, {"type", "saturator"}})["id"].get<std::string>();
+    const auto util = daw.call("add_module", {{"track", t0}, {"type", "utility"}})["id"].get<std::string>();
+
+    // Grouped: one chain, in their order; eight macros.
+    auto rack = daw.call("group_modules", {{"modules", {util, sat}}});
+    CHECK(daw.session->undoDescription() == "Assistant: group modules");
+    const auto rackId = rack["rack"].get<std::string>();
+    REQUIRE(rack["chains"].size() == 1);
+    CHECK(rack["chains"][0]["modules"][0]["id"] == sat);
+    CHECK(rack["chains"][0]["modules"][1]["id"] == util);
+    REQUIRE(rack["macros"].size() == 8);
+    CHECK(rack["macros"][0]["value"] == 0.0);
+    // The track's chain lists the rack with its modules; modules in it are reached by their ids.
+    const auto chain = daw.project()["tracks"][0]["chain"];
+    REQUIRE(chain.size() == 1);
+    CHECK(chain[0]["type"] == "rack");
+    CHECK(chain[0]["chains"][0]["modules"].size() == 2);
+    CHECK(daw.call("get_module", {{"module", util}})["id"] == util);
+
+    // A second chain, a module added into it, its mixer row set.
+    rack = daw.call("add_rack_chain", {{"rack", rackId}, {"name", "Dry"}});
+    REQUIRE(rack["chains"].size() == 2);
+    CHECK(rack["chains"][1]["name"] == "Dry");
+    const auto chorus =
+        daw.call("add_module", {{"track", t0}, {"type", "chorus"}, {"rack", rackId}, {"chain", 2}});
+    rack = daw.call("get_rack", {{"rack", rackId}});
+    CHECK(rack["chains"][1]["modules"][0]["id"] == chorus["id"]);
+    rack = daw.call("set_rack_chain",
+                    {{"rack", rackId}, {"chain", 2}, {"volume_db", -6}, {"pan", "25L"}, {"on", false}});
+    CHECK(rack["chains"][1]["volumeDb"] == -6.0);
+    CHECK(rack["chains"][1]["pan"] == "25L");
+    CHECK(rack["chains"][1]["on"] == false);
+    CHECK(daw.fails("set_rack_chain", {{"rack", rackId}, {"chain", 3}}).find("counted from 1") !=
+          std::string::npos);
+
+    // A macro mapped in the parameter's unit, set and named; the parameter is then the macro's.
+    rack = daw.call("map_macro", {{"rack", rackId},
+                                  {"macro", 1},
+                                  {"module", util},
+                                  {"parameter", "gain"},
+                                  {"from", -24},
+                                  {"to", 0},
+                                  {"curve", 50}});
+    const auto mapping = rack["macros"][0]["mappings"][0];
+    CHECK(mapping["module"] == util);
+    CHECK(mapping["from"]["value"].get<double>() == Catch::Approx(-24.0).margin(0.1));
+    CHECK(mapping["to"]["value"].get<double>() == Catch::Approx(0.0).margin(0.1));
+    CHECK(mapping["curve"] == 50.0);
+    rack = daw.call("set_macro", {{"rack", rackId}, {"macro", 1}, {"value", 100}, {"name", "Level"}});
+    CHECK(rack["macros"][0]["name"] == "Level");
+    CHECK(rack["macros"][0]["value"] == 100.0);
+    const auto gain = daw.call("get_module", {{"module", util}})["parameters"][0];
+    CHECK(gain["setByMacro"]["macro"] == 1);
+    CHECK(gain["value"].get<double>() == Catch::Approx(0.0).margin(0.2));
+    const auto refused = daw.call("set_parameters", {{"module", util}, {"values", {{"gain", -3}}}});
+    REQUIRE(refused["problems"].size() == 1);
+    CHECK(refused["problems"][0]["problem"].get<std::string>().find("set by macro 1") != std::string::npos);
+    // The rack's macros are its parameters too.
+    CHECK(daw.call("get_module", {{"module", rackId}})["parameters"].size() == 8);
+    daw.call("set_parameters", {{"module", rackId}, {"values", {{"macro1", 50}}}});
+    CHECK(daw.call("get_rack", {{"rack", rackId}})["macros"][0]["value"] == 50.0);
+    CHECK(daw.call("unmap_macro", {{"module", util}, {"parameter", "gain"}})["unmapped"] == true);
+    CHECK(daw.call("get_rack", {{"rack", rackId}})["macros"][0]["mappings"].empty());
+
+    // Moved out of the rack, then back in.
+    daw.call("move_module", {{"module", util}, {"position", 1}, {"rack", nullptr}});
+    CHECK(daw.project()["tracks"][0]["chain"][1]["id"] == util);
+    daw.call("move_module", {{"module", util}, {"position", 0}, {"rack", rackId}, {"chain", 1}});
+    CHECK(daw.call("get_rack", {{"rack", rackId}})["chains"][0]["modules"][0]["id"] == util);
+
+    // Saved as a file and loaded on another track (racks.md §7); search finds it as a rack.
+    const auto saved =
+        daw.call("save_rack", {{"rack", rackId},
+                               {"path", (daw.folder.getFullPathName() + "/Mine.segnorack").toStdString()}});
+    const auto t1 = daw.project()["tracks"][1]["id"].get<std::string>();
+    const auto copy = daw.call("add_module", {{"track", t1}, {"type", "rack"}, {"path", saved["path"]}});
+    CHECK(copy["type"] == "rack");
+    CHECK(copy["rack"]["chains"].size() == 2);
+    CHECK(daw.session->undoDescription() == "Assistant: add module");
+
+    // A chain removed; the rack ungrouped: its shown chain's modules back in the track's chain.
+    daw.call("remove_rack_chain", {{"rack", rackId}, {"chain", 2}});
+    daw.call("set_rack_chain", {{"rack", rackId}, {"chain", 1}, {"shown", true}});
+    const auto placed = daw.call("ungroup_rack", {{"rack", rackId}})["modules"];
+    CHECK(placed.size() == 2);
+    CHECK(daw.project()["tracks"][0]["chain"].size() == 2);
+    CHECK(daw.fails("get_rack", {{"rack", util}}).find("isn't a rack") != std::string::npos);
+    // An empty rack by its type.
+    CHECK(daw.call("add_module", {{"track", t0}, {"type", "rack"}})["type"] == "rack");
+}

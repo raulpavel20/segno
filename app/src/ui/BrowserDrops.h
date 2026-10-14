@@ -47,6 +47,9 @@ Result onChannel(engine::Session& session, const std::string& item, std::uint64_
 /// In a channel's chain: where dropped (`index`), or into `onModule` when it lands on it.
 Result inChain(engine::Session& session, const std::string& item, std::uint64_t channel, int index,
                std::optional<std::uint64_t> onModule);
+/// In a rack's chain (racks.md §5): a module (with its preset), or a sample or table in a module
+/// of its own, at the place; an instrument here doesn't replace the track's.
+Result inRack(engine::Session& session, const std::string& item, const engine::Session::ChainPlace& place);
 /// Below the tracks: a new track with it.
 Result newTrack(engine::Session& session, const std::string& item, double seconds);
 /// Double-click or Enter (§10): into the selected module if it lands on it, else onto the

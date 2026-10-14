@@ -685,7 +685,11 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         // Ctrl+Shift+E is the project's Export.
         "module.editWavetable", "module.importWavetable", "module.exportWavetable", "clip.makeWavetable",
         // The Sampler's sound (devices/sampler/SPEC.md, S10): a click on its panel does the same.
-        "module.loadSample"};
+        "module.loadSample",
+        // Racks (racks.md §9): Ctrl+G and Ctrl+Shift+G group and ungroup; the rest are on the
+        // rack itself (its macro's and header's right-click, "+ Chain", a double-click on a name).
+        "module.editMacros", "module.addChain", "module.renameRack", "module.saveRack", "module.saveRackAs",
+        "module.racksFolder"};
     for (const auto& a : actions.all())
     {
         INFO(a.id);

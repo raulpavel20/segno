@@ -49,9 +49,10 @@ int matchIn(const std::string& text, const std::string& word)
     return best;
 }
 
-constexpr BrowserKind kKinds[] = {BrowserKind::Module, BrowserKind::Preset,      BrowserKind::Plugin,
-                                  BrowserKind::Sample, BrowserKind::Multisample, BrowserKind::Wavetable,
-                                  BrowserKind::Midi,   BrowserKind::Project,     BrowserKind::Folder};
+constexpr BrowserKind kKinds[] = {BrowserKind::Module,    BrowserKind::Preset, BrowserKind::Plugin,
+                                  BrowserKind::Rack,      BrowserKind::Sample, BrowserKind::Multisample,
+                                  BrowserKind::Wavetable, BrowserKind::Midi,   BrowserKind::Project,
+                                  BrowserKind::Folder};
 
 const char* kindKey(BrowserKind k)
 {
@@ -63,6 +64,8 @@ const char* kindKey(BrowserKind k)
         return "preset";
     case BrowserKind::Plugin:
         return "plugin";
+    case BrowserKind::Rack:
+        return "rack";
     case BrowserKind::Sample:
         return "sample";
     case BrowserKind::Multisample:
@@ -96,6 +99,8 @@ std::string groupTitle(BrowserKind kind)
         return "PRESETS";
     case BrowserKind::Plugin:
         return "PLUGINS";
+    case BrowserKind::Rack:
+        return "RACKS";
     case BrowserKind::Sample:
         return "SAMPLES";
     case BrowserKind::Multisample:
@@ -122,6 +127,8 @@ std::string kindPlural(BrowserKind kind)
         return "presets";
     case BrowserKind::Plugin:
         return "plugins";
+    case BrowserKind::Rack:
+        return "racks";
     case BrowserKind::Sample:
         return "samples";
     case BrowserKind::Multisample:
@@ -149,6 +156,8 @@ std::optional<BrowserKind> fileKind(std::string_view path)
         return BrowserKind::Wavetable;
     if (ext == "sfz")
         return BrowserKind::Multisample;
+    if (ext == "segnorack")
+        return BrowserKind::Rack;
     for (const auto* e : {"wav", "wave", "aif", "aiff", "flac", "ogg", "mp3"})
         if (ext == e)
         {
@@ -228,6 +237,8 @@ std::string toJson(const BrowserIndexFile& index)
                 j["frames"] = f.frames;
             if (f.kind == BrowserKind::Multisample && f.zones > 0)
                 j["zones"] = f.zones;
+            if (f.kind == BrowserKind::Rack && f.instrument)
+                j["instrument"] = true;
             list.push_back(std::move(j));
         }
         places[place] = std::move(list);
@@ -264,6 +275,7 @@ BrowserIndexFile browserIndexFromJson(const std::string& json)
             file.tempo = f.value("tempo", 0.0);
             file.frames = f.value("frames", 0);
             file.zones = f.value("zones", 0);
+            file.instrument = f.value("instrument", false);
             files.push_back(std::move(file));
         }
     }

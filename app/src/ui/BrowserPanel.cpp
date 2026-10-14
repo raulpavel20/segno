@@ -668,15 +668,21 @@ void BrowserPanel::buildTree()
         }
     }
 
-    // Our modules, each a folder of its presets (§5).
+    // Our modules, each a folder of its presets (§5); first, the racks of each kind (racks.md §7).
     if (category("cat:instruments", "Instruments", {}))
+    {
+        addRackRows(true, 1);
         for (const auto& d : devices)
             if (d.native && d.instrument)
                 addModuleRows(d, 1);
+    }
     if (category("cat:effects", "Audio effects", {}))
+    {
+        addRackRows(false, 1);
         for (const auto& d : devices)
             if (d.native && !d.instrument)
                 addModuleRows(d, 1);
+    }
 
     // Plugins, by maker.
     std::map<std::string, std::vector<const engine::AvailableDevice*>> makers;
@@ -751,6 +757,60 @@ void BrowserPanel::buildTree()
     add.id = "addplace";
     add.name = juce::String::fromUTF8("Add folder\xE2\x80\xA6");
     rows_.push_back(add);
+}
+
+void BrowserPanel::addRackRows(bool instrument, int depth)
+{
+    // Every rack file of the kind in the places, the Library's (factory) before yours.
+    std::vector<juce::File> racks;
+    const auto library = session_.libraryFolder();
+    for (const auto& [place, files] : session_.browserIndex().places)
+        for (const auto& f : files)
+            if (f.kind == Kind::Rack && f.instrument == instrument)
+                racks.push_back(fileOf(f.path));
+    std::stable_sort(racks.begin(), racks.end(),
+                     [&library](const juce::File& a, const juce::File& b)
+                     {
+                         const bool fa = library != juce::File() && a.isAChildOf(library);
+                         const bool fb = library != juce::File() && b.isAChildOf(library);
+                         if (fa != fb)
+                             return fa;
+                         return a.getFileNameWithoutExtension().compareNatural(
+                                    b.getFileNameWithoutExtension()) < 0;
+                     });
+    Row folder;
+    folder.type = Row::Type::PresetFolder;
+    folder.id = instrument ? "racks:instruments" : "racks:effects";
+    folder.name = "Racks";
+    folder.caption = racks.empty() ? juce::String() : juce::String(racks.size());
+    folder.depth = depth;
+    folder.opens = true;
+    folder.open = isOpen(folder.id);
+    rows_.push_back(folder);
+    if (!folder.open)
+        return;
+    if (racks.empty())
+    {
+        Row none;
+        none.type = Row::Type::Empty;
+        none.id = folder.id + "|none";
+        none.name = "None yet: Module > Save rack keeps one here";
+        none.depth = depth + 1;
+        rows_.push_back(none);
+        return;
+    }
+    for (const auto& file : racks)
+    {
+        Row r;
+        r.type = Row::Type::File;
+        r.id = r.item = "file:" + str(file);
+        r.kind = Kind::Rack;
+        r.file = file;
+        r.name = file.getFileNameWithoutExtension();
+        r.caption = library != juce::File() && file.isAChildOf(library) ? "Library" : "";
+        r.depth = depth + 1;
+        rows_.push_back(r);
+    }
 }
 
 void BrowserPanel::addModuleRows(const engine::AvailableDevice& device, int depth)

@@ -132,6 +132,8 @@ private:
     [[nodiscard]] const model::AppSettings& settings() const { return store_->get(); }
     void rebuildItems();
     void rebuildRows();
+    /// The Racks folder of Instruments or Audio effects, with its rack files (racks.md §7).
+    void addRackRows(bool instrument, int depth);
     void buildTree();
     void buildResults();
     void addModuleRows(const engine::AvailableDevice& device, int depth);

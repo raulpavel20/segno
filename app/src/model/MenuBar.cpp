@@ -119,16 +119,21 @@ std::vector<Menu> menuBar(MenuPlatform platform)
           separator(), submenu("Section colour", {list("sectionColour")})}});
 
     // Presets act on the selected module (ADR 0044, presets.md §10).
-    menus.push_back({"Module",
-                     'd',
-                     {action("module.previousPreset"), action("module.nextPreset"), separator(),
-                      action("module.savePreset"), action("module.savePresetAs"),
-                      action("module.revertPreset"), separator(), action("module.compare"),
-                      action("module.copyCompare"), separator(), action("module.useAsDefault"),
-                      action("module.clearDefault"), separator(), action("module.presetsFolder"), separator(),
-                      // A module's own (docs/design/table-editor.md §8): dimmed for the others.
-                      action("module.editWavetable"), action("module.importWavetable"),
-                      action("module.exportWavetable"), separator(), action("module.loadSample")}});
+    menus.push_back(
+        {"Module",
+         'd',
+         {action("module.previousPreset"), action("module.nextPreset"), separator(),
+          action("module.savePreset"), action("module.savePresetAs"), action("module.revertPreset"),
+          separator(), action("module.compare"), action("module.copyCompare"), separator(),
+          action("module.useAsDefault"), action("module.clearDefault"), separator(),
+          action("module.presetsFolder"), separator(),
+          // A module's own (docs/design/table-editor.md §8): dimmed for the others.
+          action("module.editWavetable"), action("module.importWavetable"), action("module.exportWavetable"),
+          separator(), action("module.loadSample"), separator(),
+          // Racks (racks.md §9): a module of modules, its chains and macros.
+          action("module.groupIntoRack"), action("module.ungroupRack"), action("module.editMacros"),
+          action("module.addChain"), action("module.renameRack"), separator(), action("module.saveRack"),
+          action("module.saveRackAs"), action("module.racksFolder")}});
 
     menus.push_back(
         {"Transport",

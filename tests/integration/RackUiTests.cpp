@@ -3,6 +3,8 @@
 // two, each shown; folded; a module dragged in and one dragged out; macros mapped, hovered and
 // being mapped; the macro editor; an empty rack. Each state is checked on the module grid and in
 // its frame (nothing touching), and drawn for review with FD_DUMP_DIR, at 1x and 2x.
+#include "engine/DevicePlugin.h"
+#include "engine/EngineBehaviour.h"
 #include "model/Racks.h"
 #include "ui/ChannelControls.h"
 #include "ui/DeviceChain.h"
@@ -16,6 +18,7 @@
 #include <filesystem>
 #include <map>
 #include <set>
+#include <tracktion_engine/tracktion_engine.h>
 
 namespace model = fd::model;
 using fd::app::RackPanel;
@@ -414,10 +417,10 @@ struct Fixture
     SegnoLook look;
     Module utility{1, "utility"}, filter{11, "filter"}, delay{12, "delay"}, saturator{21, "saturator"},
         chorus{22, "chorus"}, limiter{2, "limiter"};
-    fd::ParamStore macroStore{RackPanel::rackInfo().params};
+    fd::ParamStore macroStore{fd::engine::Session::rackMacros().params};
     RackBinding macroBinding{macroStore};
     fd::ui::DeviceUiContext macroContext{
-        RackPanel::rackInfo(), macroBinding, nullptr, nullptr, nullptr, nullptr};
+        fd::engine::Session::rackMacros(), macroBinding, nullptr, nullptr, nullptr, nullptr};
     std::unique_ptr<RackPanel> rack;
     ChainStub chain;
     model::RackInfo info;
@@ -729,4 +732,201 @@ TEST_CASE("racks, drawn for review: the macro editor, narrow and wide (racks.md 
     editor.setSize(editor.minimumWidth(), editor.minimumHeight());
     lint(editor);
     dump("rack-macro-editor-none", editor);
+}
+
+// ---- the chain view itself, on a session (step 1) ---------------------------------------------
+
+namespace
+{
+juce::MouseEvent mouseAt(juce::Component& c, juce::Point<float> pos, juce::Point<float> down, bool dragged,
+                         juce::ModifierKeys mods = juce::ModifierKeys::leftButtonModifier)
+{
+    return {juce::Desktop::getInstance().getMainMouseSource(),
+            pos,
+            mods,
+            0.0f,
+            0.0f,
+            0.0f,
+            0.0f,
+            0.0f,
+            &c,
+            &c,
+            juce::Time::getCurrentTime(),
+            down,
+            juce::Time::getCurrentTime(),
+            1,
+            dragged};
+}
+
+template <typename T> void collect(juce::Component& root, std::vector<T*>& out)
+{
+    for (auto* c : root.getChildren())
+    {
+        if (auto* t = dynamic_cast<T*>(c))
+            out.push_back(t);
+        collect(*c, out);
+    }
+}
+
+struct ChainOnSession
+{
+    juce::ScopedJuceInitialiser_GUI init;
+    SegnoLook look;
+    tracktion::Engine engine{"fd-rack-ui-tests", nullptr, fd::engine::makeEngineBehaviour()};
+    std::unique_ptr<fd::engine::Session> session;
+    fd::app::ActionRegistry actions;
+    std::unique_ptr<fd::app::DeviceChain> chain;
+    std::uint64_t track = 0;
+
+    ChainOnSession()
+    {
+        fd::engine::registerDevices(engine);
+        session = std::make_unique<fd::engine::Session>(engine);
+        session->updateSnapshotNow();
+        track = session->snapshot()->tracks[0].id;
+        actions.add({.id = "app.scanPlugins", .name = "Scan", .perform = [] {}});
+        actions.add({.id = "module.ungroupRack", .name = "Ungroup rack", .perform = [] {}});
+        chain = std::make_unique<fd::app::DeviceChain>(*session, actions);
+        chain->setSize(2400, fd::app::DeviceChain::preferredHeight());
+    }
+
+    ~ChainOnSession()
+    {
+        chain.reset();
+        session.reset();
+    }
+
+    void show()
+    {
+        session->updateSnapshotNow();
+        chain->setTrack(*session->snapshot()->channel(track));
+    }
+
+    fd::app::RackPanel* rackPanel()
+    {
+        std::vector<fd::app::RackPanel*> found;
+        collect(*chain, found);
+        return found.empty() ? nullptr : found.front();
+    }
+
+    /// The modules' panels shown (not the rack's), left to right.
+    std::vector<DevicePanel*> modulePanels()
+    {
+        std::vector<DevicePanel*> panels, out;
+        collect(*chain, panels);
+        for (auto* p : panels)
+            if (dynamic_cast<fd::app::RackPanel*>(p) == nullptr && p->isVisible())
+                out.push_back(p);
+        std::sort(out.begin(), out.end(), [](auto* a, auto* b) { return a->getX() < b->getX(); });
+        return out;
+    }
+
+    void shot(const juce::String& name)
+    {
+        auto& content = chain->content();
+        dump("rack-chain-" + name, content);
+    }
+};
+} // namespace
+
+TEST_CASE(
+    "racks in the chain view: a rack's frame holds its chain; modules dragged in; a macro dragged onto a "
+    "knob maps it",
+    "[ui]")
+{
+    ChainOnSession f;
+    auto& s = *f.session;
+    const auto eq = s.addDevice(f.track, "fd:eq");
+    const auto saturator = s.addDevice(f.track, "fd:saturator");
+    const auto delay = s.addDevice(f.track, "fd:delay");
+    const auto rack = s.groupIntoRack({saturator, delay});
+    REQUIRE(rack != 0);
+    f.show();
+    const auto& t = fd::ui::Theme::current();
+
+    // The rack's panel, then its chain's modules in its frame; the EQ before it, outside.
+    auto* panel = f.rackPanel();
+    REQUIRE(panel != nullptr);
+    auto modules = f.modulePanels();
+    REQUIRE(modules.size() == 3);
+    auto frames = f.chain->frames();
+    REQUIRE(frames.size() == 1);
+    const auto inner = frames[0].bounds.reduced(t.shell.rackInset);
+    CHECK(inner.contains(panel->getBounds()));
+    CHECK_FALSE(frames[0].bounds.intersects(modules[0]->getBounds())); // the EQ
+    CHECK(inner.contains(modules[1]->getBounds()));
+    CHECK(inner.contains(modules[2]->getBounds()));
+    CHECK(modules[0]->getRight() + fd::app::DeviceChain::gap <= frames[0].bounds.getX());
+    CHECK(frames[0].text.isEmpty()); // one chain: a group
+    CHECK(f.chain->content().getHeight() <= fd::app::DeviceChain::preferredHeight());
+    f.shot("one-chain");
+
+    // A second chain: the list shows, and the frame names the chain shown (the new, empty one).
+    REQUIRE(s.addRackChain(rack) == 1);
+    f.show();
+    frames = f.chain->frames();
+    CHECK(frames[0].text == "Chain 2");
+    CHECK(f.modulePanels().size() == 1); // the EQ alone: chain 2 is empty
+    f.shot("two-chains-empty");
+    s.showRackChain(rack, 0);
+    f.show();
+    CHECK(f.chain->frames()[0].text == "Chain 1");
+    CHECK(f.modulePanels().size() == 3);
+
+    // The EQ dragged by its header into the frame, between the Saturator and the Delay.
+    modules = f.modulePanels();
+    auto* eqPanel = modules[0];
+    const juce::Point<float> grab(60.0f, 10.0f);
+    const auto between = static_cast<float>(modules[2]->getX() - eqPanel->getX()) - 2.0f;
+    const auto to = grab + juce::Point<float>(between, 0.0f);
+    f.chain->mouseDown(mouseAt(*eqPanel, grab, grab, false));
+    f.chain->mouseDrag(mouseAt(*eqPanel, to, grab, true));
+    f.chain->content().repaint();
+    f.shot("drag-in");
+    f.chain->mouseUp(mouseAt(*eqPanel, to, grab, true));
+    {
+        const auto place = s.placeOf(eq);
+        REQUIRE(place);
+        CHECK(place->rack == rack);
+        CHECK(place->chain == 0);
+        CHECK(place->index == 1);
+    }
+    f.show();
+
+    // Cut's name dragged onto the Delay's first knob: mapped, From where it was.
+    modules = f.modulePanels();
+    std::vector<fd::ui::ParamKnob*> knobs;
+    collect(*modules.back(), knobs);
+    knobs.erase(std::remove_if(knobs.begin(), knobs.end(), [](auto* k)
+                               { return !k->isVisible() || k->style() != fd::ui::Knob::Style::Rotary; }),
+                knobs.end());
+    REQUIRE_FALSE(knobs.empty());
+    auto* target = knobs.front();
+    const auto centre = target->getLocalBounds().getCentre().toFloat();
+    REQUIRE(panel->onMacroDrag);
+    panel->onMacroDrag(0, mouseAt(*target, centre, centre, true));
+    CHECK(s.macroPointer().dragging);
+    CHECK(s.macroPointer().module == delay);
+    f.show();
+    f.shot("mapping");
+    panel->onMacroDrop(0, mouseAt(*target, centre, centre, true));
+    CHECK_FALSE(s.macroPointer().dragging);
+    s.updateSnapshotNow();
+    const auto* info = model::findDevice(s.snapshot()->channel(f.track)->devices, rack);
+    REQUIRE(info != nullptr);
+    REQUIRE(info->rack->macros[0].mappings.size() == 1);
+    CHECK(info->rack->macros[0].mappings[0].module == delay);
+    f.show();
+    // Its knob now follows the macro, its range a ring.
+    for (auto* k : knobs)
+        k->refresh();
+    CHECK(target->isFollowing());
+    CHECK(target->ring().has_value());
+    f.shot("mapped");
+
+    // Folded: one strip in its frame; its modules away with it.
+    panel->setFolded(true, true);
+    f.show();
+    CHECK(f.modulePanels().empty());
+    f.shot("folded");
 }

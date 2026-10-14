@@ -292,6 +292,13 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 | Export wavetable… | | *new* (`module.exportWavetable`): WAV or `.wt`, into Segno/Wavetables. Ctrl+Shift+E stays File > Export |
 | — | | |
 | Load sample… | | *new* (`module.loadSample`, [devices/sampler/SPEC.md](../../devices/sampler/SPEC.md) S10): a sample or an SFZ file into the selected Sampler, with what the file sets. Also a click on the Sampler's empty display, or a double-click on a loaded one. Dimmed unless a Sampler is selected |
+| Group into rack | Ctrl+G | *new* (`module.groupIntoRack`, [racks.md](racks.md) §9): the selected modules (Shift-click adds along the chain) into a rack, where the first was |
+| Ungroup rack | Ctrl+Shift+G | *new* (`module.ungroupRack`): the selected rack's shown chain back in the track's chain |
+| Edit macros | | *new* (`module.editMacros`): the selected rack's macro editor, ticked while it's open; also a macro's right-click |
+| Add chain | | *new* (`module.addChain`): to the selected rack; also its "+ Chain" and its end cap's "+" |
+| Rename rack… | | *new* (`module.renameRack`): in place, in its header; also its header's right-click |
+| Save rack / Save rack as… | | *new* (`module.saveRack`, `module.saveRackAs`): the selected rack into your racks, named as the rack; Save rack as… renames it first |
+| Show racks folder | | *new* (`module.racksFolder`) |
 
 **Transport**
 

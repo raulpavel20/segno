@@ -223,12 +223,20 @@ void ParamKnob::refresh()
                      mapping->dimmed});
     else if (context_.modulation == nullptr)
         setRing(std::nullopt);
+    // A rack's macro dragged over the module (racks.md §4), as a modulation source is.
+    const auto macro = context_.params.macroDrag(index_);
+    if (context_.modulation == nullptr)
+    {
+        setDropTarget(macro.target);
+        setDropCandidate(macro.candidate && style() == Style::Rotary);
+    }
     if (const auto* m = context_.modulation)
     {
         if (!mapping)
             setRing(m->ringFor(index_, getValue()));
-        setDropTarget(m->dropParam == index_);
-        setDropCandidate(m->draggedSource >= 0 && style() == Style::Rotary && m->canModulate(index_));
+        setDropTarget(m->dropParam == index_ || macro.target);
+        setDropCandidate(style() == Style::Rotary &&
+                         ((m->draggedSource >= 0 && m->canModulate(index_)) || macro.candidate));
         if (source_ >= 0)
             setSourceHandle(true, m->hoveredSource == source_ || m->draggedSource == source_ ||
                                       m->movesHovered(source_));

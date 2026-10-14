@@ -50,6 +50,7 @@ target_sources(fd_engine INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionTracks.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionSections.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionKey.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionRacks.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SongKey.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionNotes.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionPresets.cpp"
@@ -130,6 +131,7 @@ target_sources(fd_app_mcp INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/TrackTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/SectionTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/KeyTools.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/RackTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/Resources.cpp")
 target_include_directories(fd_app_mcp INTERFACE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_link_libraries(fd_app_mcp INTERFACE fd_engine fd_mcp)

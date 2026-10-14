@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/Session.h"
 #include "model/Snapshot.h"
 
 #include <array>
@@ -14,13 +15,11 @@ namespace fd::app
 ///   - CHAINS, from the rack's second chain on: a row each (on, name, solo), "+ Chain", and the
 ///     shown chain's volume and pan; choosing a chain's name shows its modules in the frame. A
 ///     rack with one chain is a group: no list.
-/// The macros are the rack's own parameters (rackInfo()), set through the host's binding as a
-/// module's are; the chains are the host's, edited through the callbacks below.
+/// The macros are the rack's own parameters (engine::Session::rackMacros()), set through the
+/// host's binding as a module's are; the chains are the host's, edited through the callbacks below.
 class RackPanel final : public ui::DevicePanel
 {
 public:
-    /// The rack as a module: its parameters are its eight macros, 0 ... 100 %.
-    [[nodiscard]] static const DeviceInfo& rackInfo();
     /// The chains CHAINS has rows for (racks.md §16).
     static constexpr int maxChains = 4;
 
@@ -40,8 +39,20 @@ public:
     std::function<void(int chain, bool solo)> onChainSolo;
     std::function<void(int chain, float volumeDb)> onChainVolume;
     std::function<void(int chain, float pan)> onChainPan;
-    std::function<void(int chain)> onChainMenu; // its right-click: Rename, Remove chain
+    std::function<void(int chain)> onChainMenu; // its right-click: Rename, Solo, Remove chain
     std::function<void()> onAddChain;
+    /// A drag of the shown chain's Vol or Pan begins (true) and ends: one undo step between.
+    std::function<void(bool started)> onChainGesture;
+    std::function<void(int chain, const juce::String& name)> onRenameChain;
+    std::function<void(int macro, const juce::String& name)> onRenameMacro;
+    /// Its right-click's Edit macros: the macro editor, that macro chosen.
+    std::function<void(int macro)> onEditMacros;
+    /// Renames in place: a macro (its name over its knob) or a chain (its name in the list).
+    void renameMacro(int macro);
+    void renameChain(int chain);
+    /// Renames the rack in place: its name in the header.
+    void renameRack();
+    std::function<void(const juce::String& name)> onRenameRack;
     // A macro's name dragged onto a knob in the rack (racks.md §4): the host lights where it
     // would land and maps it there on release; hovered, it lights the knobs it sets.
     std::function<void(int macro, const juce::MouseEvent&)> onMacroDrag, onMacroDrop;
@@ -61,8 +72,11 @@ private:
     ui::Toggle addChain_{"+ Chain"};
     ui::Knob volume_, pan_;
     ui::PanelSection* chains_ = nullptr;
+    ui::NameEditor nameEditor_{*this};
     model::RackInfo rack_;
+    juce::String rackName_;
     int litMacro_ = -1;
+    bool chainGesture_ = false; // Vol or Pan being dragged: not set from the snapshot meanwhile
 };
 
 /// A rack's frame in the chain (racks.md §5, §5a): a tray behind the rack's panel and the shown

@@ -148,7 +148,7 @@ As in Live, at the product owner's suggestion:
 - **Indexing:**
   - the files under every place are indexed in the background, at launch and when a folder is opened: name, kind, length, sample rate, channels and tempo;
   - the index is kept in `~/.config/Segno/browser-index.json`, so search works from the first second;
-  - files the browser can use: WAV, AIFF, FLAC, Ogg, MP3, MIDI, Segno projects, wavetables (`.wt`, and sound files in a folder named Wavetables: a kind of their own, WAVETABLES in the results, their frames as the caption), and multisamples (SFZ files: MULTISAMPLES in the results, their zones as the caption; selected, they play the presets' phrase through a Sampler of their own, [devices/sampler/SPEC.md](../../devices/sampler/SPEC.md) S11);
+  - files the browser can use: WAV, AIFF, FLAC, Ogg, MP3, MIDI, Segno projects, wavetables (`.wt`, and sound files in a folder named Wavetables: a kind of their own, WAVETABLES in the results, their frames as the caption), and multisamples (SFZ files: MULTISAMPLES in the results, their zones as the caption; selected, they play the presets' phrase through a Sampler of their own, [devices/sampler/SPEC.md](../../devices/sampler/SPEC.md) S11), and racks (`.segnorack` files: RACKS in the results, and a Racks folder first under Instruments and under Audio effects, [racks.md](racks.md) §7);
   - adding a whole drive is allowed but slow, and the strip says so while it indexes, as Live warns.
 
 ## 10. Putting things in the song

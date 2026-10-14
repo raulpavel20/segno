@@ -82,6 +82,8 @@ public:
     [[nodiscard]] juce::Rectangle<float> handleArea() const;
     std::function<void(const juce::MouseEvent&)> onHandleDrag, onHandleRelease;
     std::function<void(bool hovered)> onHandleHover;
+    /// A double-click on the source's handle (a rack's macro: rename it).
+    std::function<void()> onHandleDoubleClick;
 
     std::function<void(float)> onValueChange;
     std::function<void()> onGestureStart;

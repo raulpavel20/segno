@@ -497,7 +497,13 @@ void Knob::setFollowing(bool following)
 
 void Knob::mouseDoubleClick(const juce::MouseEvent& e)
 {
-    if (following_ || e.mods.isPopupMenu() || handleArea().contains(e.position) || isOnRing(e.position))
+    if (handleArea().contains(e.position) && !e.mods.isPopupMenu())
+    {
+        if (onHandleDoubleClick)
+            onHandleDoubleClick();
+        return;
+    }
+    if (following_ || e.mods.isPopupMenu() || isOnRing(e.position))
         return;
     // The double-click's second press already began a gesture (ended on release): the reset is
     // part of it, so gestures never nest.

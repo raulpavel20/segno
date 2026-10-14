@@ -18,6 +18,7 @@ enum class BrowserKind
     Module,
     Preset,
     Plugin,
+    Rack, // a `.segnorack` file: modules of modules (docs/design/racks.md §7)
     Sample,
     Multisample, // an SFZ file: zones for the Sampler (devices/sampler/SPEC.md, S11)
     Wavetable,   // a table for the Wavetable (docs/design/table-editor.md §7)
@@ -31,8 +32,8 @@ enum class BrowserKind
 [[nodiscard]] std::string kindPlural(BrowserKind kind);
 
 /// The kind of file the browser lists by its name: samples (WAV, AIFF, FLAC, Ogg, MP3), wavetables
-/// (`.wt`, and sound files in a folder named Wavetables, as Segno's own), MIDI files and Segno
-/// projects; nullopt for anything else.
+/// (`.wt`, and sound files in a folder named Wavetables, as Segno's own), multisamples (`.sfz`),
+/// racks (`.segnorack`), MIDI files and Segno projects; nullopt for anything else.
 [[nodiscard]] std::optional<BrowserKind> fileKind(std::string_view path);
 
 /// A tempo written in a file's name: "Drums 124 bpm", "124BPM", "loop_90" (a number from 60 to 200
@@ -52,6 +53,7 @@ struct IndexedFile
     double tempo = 0.0; // from its loop metadata or its name; 0: unknown
     int frames = 0;     // a wavetable's
     int zones = 0;      // a multisample's
+    bool instrument = false; // a rack's: an instrument rack (it starts a chain with an instrument)
 
     bool operator==(const IndexedFile&) const = default;
 };

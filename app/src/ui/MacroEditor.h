@@ -40,6 +40,8 @@ public:
     /// "+": the host offers the rack's modules and their parameters.
     std::function<void(int macro)> onAddMapping;
     std::function<void(int macro, float value)> onMacroValue;
+    /// A drag of a bar begins (true) and ends: one undo step between.
+    std::function<void(bool started)> onGesture;
 
     void resized() override;
 
@@ -47,6 +49,7 @@ private:
     class Curves;
     class MappingName;
     void rebuild();
+    void wireGesture(ui::Knob& bar);
 
     ValueText valueText_;
     juce::String name_;
@@ -59,5 +62,6 @@ private:
     ui::Knob value_;
     ui::IconButton add_{ui::Icon::Plus};
     int shownRows_ = -1;
+    bool dragging_ = false;
 };
 } // namespace fd::app

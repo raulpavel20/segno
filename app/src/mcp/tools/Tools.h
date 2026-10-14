@@ -43,6 +43,7 @@ void addSettingsTools(Registry& registry, ToolEnv& env);
 void addBrowserTools(Registry& registry, ToolEnv& env);
 void addGridTools(Registry& registry, ToolEnv& env);
 void addKeyTools(Registry& registry, ToolEnv& env);
+void addRackTools(Registry& registry, ToolEnv& env);
 void addResources(Registry& registry, ToolEnv& env);
 void addPrompts(Registry& registry);
 /// Everything above.
@@ -134,6 +135,9 @@ Json clipJson(ToolEnv& env, const model::ClipInfo& clip, bool notes);
 Json moduleSummary(const model::DeviceSlot& slot);
 /// Everything about a module: parameters, sections, view, and non-parameter state.
 Json moduleJson(ToolEnv& env, const model::DeviceSlot& slot, const model::TrackInfo& track);
+/// A rack (racks.md §10): its chains with their mixer rows and modules, and its macros with what
+/// they're mapped to.
+Json rackJson(ToolEnv& env, const model::DeviceSlot& slot, const model::TrackInfo& owner);
 /// The automation lanes (C4, ADR 0029), in row order, with their assignments.
 Json automationLanesJson(ToolEnv& env);
 /// A parameter's automation (its lane, points, range, on); null without a lane.

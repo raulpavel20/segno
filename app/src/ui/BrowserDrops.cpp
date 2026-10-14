@@ -1,5 +1,7 @@
 #include "ui/BrowserDrops.h"
 
+#include "model/Racks.h"
+
 #include <fd/device/Registry.h>
 
 namespace fd::app::browser
@@ -106,6 +108,8 @@ std::string stepName(engine::Session& session, const Ref& ref)
         return "Add Wavetable with " + tableName(ref);
     if (ref.kind == Kind::Multisample)
         return "Add Sampler with " + ref.file.getFileNameWithoutExtension().toStdString();
+    if (ref.kind == Kind::Rack)
+        return "Add rack " + ref.file.getFileNameWithoutExtension().toStdString();
     return {};
 }
 
@@ -138,14 +142,52 @@ Result addModule(engine::Session& session, const Ref& ref, std::uint64_t channel
     return r;
 }
 
+/// A rack file in a channel's chain at `index` (-1: the end): an instrument rack in place of the
+/// channel's instrument, as any instrument (racks.md §7). What wasn't installed is said.
+Result rackIn(engine::Session& session, const Ref& ref, std::uint64_t channel, int index)
+{
+    const auto info = engine::Session::readRackFile(ref.file);
+    if (!info)
+        return {};
+    const auto old = info->instrument ? session.instrumentOf(channel) : std::nullopt;
+    const engine::Session::EditGroup group(session, old ? "Replace " + old->name + " with " + info->name
+                                                        : "Add rack " + info->name);
+    if (old)
+    {
+        const auto place = session.placeOf(old->id);
+        index = place ? place->index : 0;
+        session.removeDevice(old->id);
+    }
+    else if (index >= 0)
+        // An effect rack plays after the instrument: dropped ahead of it, it goes right after it.
+        if (const auto* c = session.snapshot()->channel(channel))
+            for (size_t i = 0; i < c->devices.size(); ++i)
+                if (c->devices[i].instrument && index <= static_cast<int>(i))
+                    index = static_cast<int>(i) + 1;
+    const auto loaded = session.loadRack(ref.file, {.channel = channel, .index = index});
+    if (loaded.rack == 0)
+        return {};
+    Result r{true, {}, 0, loaded.rack};
+    if (old)
+        r.toast =
+            "Replaced " + juce::String(old->name) + " with " + juce::String::fromUTF8(info->name.c_str());
+    if (!loaded.missing.empty())
+    {
+        juce::StringArray names;
+        for (const auto& m : loaded.missing)
+            names.add(juce::String::fromUTF8(m.c_str()));
+        r.toast = "Not installed, left out: " + names.joinIntoString(", ");
+    }
+    return r;
+}
+
 std::optional<model::DeviceSlot> slotOf(engine::Session& session, std::uint64_t module)
 {
     const auto snapshot = session.snapshot();
     const auto find = [module](const model::TrackInfo& t) -> std::optional<model::DeviceSlot>
     {
-        for (const auto& d : t.devices)
-            if (d.id == module)
-                return d;
+        if (const auto* d = model::findDevice(t.devices, module)) // in a rack too
+            return *d;
         return std::nullopt;
     };
     for (const auto& t : snapshot->tracks)
@@ -211,7 +253,7 @@ bool fitsChannel(const std::string& item, bool holdsClips)
     const auto ref = parse(item);
     if (!ref)
         return false;
-    return isModule(ref->kind) ||
+    return isModule(ref->kind) || ref->kind == Kind::Rack ||
            ((isClip(ref->kind) || ref->kind == Kind::Wavetable || ref->kind == Kind::Multisample) &&
             holdsClips);
 }
@@ -235,6 +277,8 @@ Result onChannel(engine::Session& session, const std::string& item, std::uint64_
         return {};
     if (isModule(ref->kind))
         return addModule(session, *ref, channel, -1);
+    if (ref->kind == Kind::Rack)
+        return rackIn(session, *ref, channel, -1);
     if (ref->kind == Kind::Wavetable)
         return tableOnTrack(session, *ref, channel);
     if (ref->kind == Kind::Multisample)
@@ -264,11 +308,39 @@ Result inChain(engine::Session& session, const std::string& item, std::uint64_t 
         }
     if (isModule(ref->kind))
         return addModule(session, *ref, channel, index);
+    if (ref->kind == Kind::Rack)
+        return rackIn(session, *ref, channel, index);
     if (ref->kind == Kind::Wavetable)
         return tableOnTrack(session, *ref, channel);
     if (ref->kind == Kind::Sample || ref->kind == Kind::Multisample)
         return samplerWith(session, *ref, channel);
     return {};
+}
+
+Result inRack(engine::Session& session, const std::string& item, const engine::Session::ChainPlace& place)
+{
+    const auto ref = parse(item);
+    if (!ref)
+        return {};
+    const bool sample = ref->kind == Kind::Sample || ref->kind == Kind::Multisample;
+    if (!isModule(ref->kind) && !sample && ref->kind != Kind::Wavetable)
+        return {};
+    const engine::Session::EditGroup group(
+        session, sample ? "Add Sampler with " + ref->file.getFileNameWithoutExtension().toStdString()
+                        : stepName(session, *ref));
+    const auto key = isModule(ref->kind) ? ref->key
+                     : sample            ? std::string("fd:sampler")
+                                         : std::string("fd:wavetable");
+    const auto module = session.addDevice(place, key);
+    if (module == 0)
+        return {};
+    if (ref->kind == Kind::Preset)
+        loadPreset(session, module, *ref);
+    else if (sample && !session.loadSample(module, ref->file))
+        return {};
+    else if (ref->kind == Kind::Wavetable && !session.loadWavetable(module, 0, ref->file))
+        return {};
+    return {true, {}, 0, module};
 }
 
 Result newTrack(engine::Session& session, const std::string& item, double seconds)

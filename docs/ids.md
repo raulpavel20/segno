@@ -14,7 +14,8 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 | LV2 URI prefix | `https://segnoaudio.org/plugins/` | Must be a URI we control at release time |
 | Project file extension | `.segno` | |
 | Preset file extension | `.segnopreset` | [ADR 0044](decisions/0044-presets-are-files.md); the file's format version is its `segnoPreset` key |
-| User folder | `Documents/Segno` (`Presets/`, `Unsaved/`) | Presets are found by the device named inside them, not by their subfolder |
+| Rack file extension | `.segnorack` | [ADR 0056](decisions/0056-racks-are-modules-of-modules.md); JSON, its format version its `segnoRack` key; modules referred to by chain and place, never by a project's ids |
+| User folder | `Documents/Segno` (`Presets/`, `Racks/`, `Unsaved/`) | Presets are found by the device named inside them, not by their subfolder |
 | MCP server name and resource scheme | `segno`, `segno://` | Part of the MCP interface (ADR 0021) |
 
 ## Device level (permanent once the SPEC is approved)
@@ -48,6 +49,11 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 
 - A module panel's section ID (`shape`, `color`, `band`) is stored in projects and plugin state as view state ([ADR 0022](decisions/0022-module-panels.md)): lowercase, unique within the panel, listed in the device's `SPEC.md`.
 - Don't rename a section ID; unknown IDs are ignored, so a renamed section just forgets whether it was collapsed. Titles are display names and can change.
+
+## Racks ([racks.md](design/racks.md), ADR 0056; approved 2026-10-14, permanent)
+
+- A rack is a module of type `rack` (`DeviceSlot::deviceId`, MCP's `type`). Its macros are its parameters `macro1` … `macro8`, 0 to 100 %, automated as `m<rack id>/macro<n>`.
+- In a project, a rack's chains are kept on its modules' places in tracktion's rack (`fdChain`, `fdChainMixer`, `fdChainName`, `fdChainOn`, `fdChainSolo`) and its shown chain on the rack (`fdShownChain`).
 
 ## Parameter level
 

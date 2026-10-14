@@ -1,0 +1,49 @@
+A parameter's saved value leaves out what modifiers add (Segno, racks).
+
+A parameter attached to a value in its plugin's state wrote its current value back there: with a
+rack's macro (a MacroParameter modifier) or another modifier on it, that's its own value plus the
+modifiers' share. Saving the project or copying the edit (an offline render, a bounce) then took
+that sum as the parameter's own value, so a macro's mapping drifted: its From moved by where the
+macro was. Now the state keeps the parameter's base value: its own, or its automation's while that
+plays, as before. What modifiers add stays in memory, where playback reads it.
+
+--- a/modules/tracktion_engine/model/automation/tracktion_AutomatableParameter.cpp
++++ b/modules/tracktion_engine/model/automation/tracktion_AutomatableParameter.cpp
+@@ -896,7 +896,9 @@
+         parameter.setParameter (value, juce::dontSendNotification);
+     }
+ 
+-    void handleAsyncUpdate() override               { value.setValue (parameter.currentValue, nullptr); }
++    // Segno: the parameter's own value (its automation's while that plays), never what modifiers
++    // add on top: that would make it their sum when saved or copied.
++    void handleAsyncUpdate() override               { value.setValue (parameter.currentBaseValue, nullptr); }
+     float getValue() override                       { return value; }
+     void setValue (float v) override                { value = v; }
+     float getDefault() override                     { return value.getDefault(); }
+@@ -928,7 +930,7 @@
+         parameter.setParameter ((float) value.get(), juce::dontSendNotification);
+     }
+ 
+-    void handleAsyncUpdate() override               { value.setValue (juce::roundToInt (parameter.getCurrentValue()), nullptr); }
++    void handleAsyncUpdate() override               { value.setValue (juce::roundToInt (parameter.currentBaseValue.load()), nullptr); }
+     float getValue() override                       { return (float) value.get(); }
+     void setValue (float v) override                { value = juce::roundToInt (v); }
+     float getDefault() override                     { return (float) value.getDefault(); }
+@@ -960,7 +962,7 @@
+         parameter.setParameter (value.get() ? 1.0f : 0.0f, juce::dontSendNotification);
+     }
+ 
+-    void handleAsyncUpdate() override                     { value.setValue (parameter.currentValue != 0.0f, nullptr); }
++    void handleAsyncUpdate() override                     { value.setValue (parameter.currentBaseValue != 0.0f, nullptr); }
+     float getValue() override                             { return value; }
+     void setValue (float v) override                      { value = v != 0 ? true : false; }
+     float getDefault() override                           { return value.getDefault() ? 1.0f : 0.0f; }
+@@ -1460,7 +1462,7 @@
+             if (attachedValue != nullptr)
+             {
+                 attachedValue->cancelPendingUpdate();
+-                attachedValue->setValue (value);
++                attachedValue->setValue (currentBaseValue); // Segno: without the modifiers' share
+             }
+         }
+ 

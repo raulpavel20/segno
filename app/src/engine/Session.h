@@ -200,6 +200,118 @@ public:
     /// sidechain or the track can't feed it.
     bool setSidechainSource(std::uint64_t deviceId, std::optional<std::uint64_t> trackId);
 
+    // ---- racks (docs/design/racks.md, ADR 0056; each edit one undoable step) ------------------
+    // A rack is a module holding chains of modules side by side, summed, each with a mixer row,
+    // and eight macros. Modules in a rack keep their ids: every module call above reaches them.
+
+    static constexpr int maxRackChains = 4; // the rows its panel's CHAINS has (racks.md §5a)
+    /// Where a module goes: along a channel's chain, or a chain of a rack in it.
+    struct ChainPlace
+    {
+        std::uint64_t channel = 0; // the channel (with a rack: its own, which may be left 0)
+        std::uint64_t rack = 0;    // 0: the channel's own chain
+        int chain = 0;             // the rack's chain
+        /// In that chain, counted as a drag's gaps are, with a module being moved still in its
+        /// place: 0 before the first, the count after the last; -1 its end.
+        int index = -1;
+    };
+    /// Wraps modules of one channel's chain into a new rack, one chain holding them in their order,
+    /// where the first of them was ("Group into rack"). Their automation, sidechains and settings
+    /// stay with them. The rack's id; 0 if they can't be (none, not one chain's, a rack among them).
+    std::uint64_t groupIntoRack(const std::vector<std::uint64_t>& modules);
+    /// Puts the modules of a rack's shown chain back in its channel's chain where the rack was;
+    /// its other chains and its macros' mappings go with it ("Ungroup rack"). The modules put back.
+    std::vector<std::uint64_t> ungroupRack(std::uint64_t rack);
+    /// An empty rack, one chain passing its input through, at `index` of a channel's chain.
+    std::uint64_t addRack(std::uint64_t channel, int index = -1);
+    /// Adds `key` (see AvailableDevice) at a place, a rack's chain too ("Add module"). Its id; 0 if
+    /// it couldn't be made.
+    std::uint64_t addDevice(const ChainPlace& place, const std::string& key);
+    /// Moves a module within its channel: along a chain, into a rack's chain or out of one. A rack
+    /// never goes into a rack. False if it can't.
+    bool moveDevice(std::uint64_t deviceId, const ChainPlace& place);
+    /// Where a module is: its channel, and its rack and chain if it's in one.
+    [[nodiscard]] std::optional<ChainPlace> placeOf(std::uint64_t deviceId) const;
+    /// A chain beside a rack's others, empty (it passes the rack's input through), shown in its
+    /// frame. Its index; -1 at maxRackChains.
+    int addRackChain(std::uint64_t rack);
+    /// Removes a chain and its modules; a rack keeps one chain at least.
+    bool removeRackChain(std::uint64_t rack, int chain);
+    /// A chain's mixer row, each part set if given: its name, on, solo (heard alone while you set
+    /// the rack up; an undo step, as it rewires the rack, and never kept in a rack's file), volume
+    /// (dB, -inf .. +6) and pan (-1 .. 1).
+    struct RackChainEdit
+    {
+        std::optional<std::string> name;
+        std::optional<bool> on, solo;
+        std::optional<float> volumeDb, pan;
+    };
+    bool setRackChain(std::uint64_t rack, int chain, const RackChainEdit& edit);
+    /// The chain whose modules the rack's frame shows: view state, never an undo step.
+    void showRackChain(std::uint64_t rack, int chain);
+    /// Renames a rack ("Rename rack").
+    bool renameRack(std::uint64_t rack, const std::string& name);
+    /// A macro's position (0 .. 1) and name, each set if given.
+    bool setMacro(std::uint64_t rack, int macro, std::optional<float> value,
+                  std::optional<std::string> name = {});
+    /// Maps a macro to a parameter of a module in its rack (racks.md §4): where its 0 and 100 %
+    /// put the parameter (normalised; To below From turns it the other way) and its Curve (-1 ..
+    /// 1, 0 straight). A parameter another macro set is taken from it. False if the module isn't
+    /// in the rack or the parameter can't be automated.
+    bool mapMacro(std::uint64_t rack, int macro, std::uint64_t module, const std::string& param, float from,
+                  float to, float curve = 0.0f);
+    /// The parameter is set by hand again, where its macro has it now.
+    bool unmapMacro(std::uint64_t module, const std::string& param);
+    /// A rack's panel context: its eight macros as parameters "macro1" .. "macro8", 0 .. 100 %,
+    /// automated like any module's. Null if it isn't a rack.
+    [[nodiscard]] std::unique_ptr<DeviceHandle> openRack(std::uint64_t rack);
+    /// The rack's macros as a module's parameters (the panel's DeviceInfo).
+    [[nodiscard]] static const DeviceInfo& rackMacros();
+    /// What the pointer shows of a rack's macros (racks.md §5a), for the knobs of the modules in
+    /// it: a macro hovered lights the knobs it sets and dims the other macros' rings; one dragged
+    /// marks the knobs that can take it, and lights the one under the pointer. Never saved.
+    struct MacroPointer
+    {
+        std::uint64_t rack = 0;
+        int macro = -1;
+        bool dragging = false;
+        std::uint64_t module = 0; // the knob under a dragged macro
+        std::string param;
+        bool operator==(const MacroPointer&) const = default;
+    };
+    void setMacroPointer(const MacroPointer& pointer);
+    [[nodiscard]] const MacroPointer& macroPointer() const;
+    /// A control's menu in a rack: the app adds Map to macro and Unmap (racks.md §4).
+    std::function<void(std::uint64_t module, const std::string& param, juce::PopupMenu& menu)> macroMenu;
+
+    // Rack files (racks.md §7, docs/ids.md): apart from module presets, which never hold a rack.
+    static constexpr const char* rackFileExtension = ".segnorack";
+    /// Your racks: the User library's Racks folder (Documents/Segno/Racks).
+    [[nodiscard]] juce::File racksFolder() const;
+    /// Writes a rack as a file: its chains with their mixer rows and their modules' states (ours as
+    /// a preset holds them, plugins' their own), its macros and mappings; never automation,
+    /// routing, solo or view state. False, with why in `error`, if it can't.
+    bool saveRack(std::uint64_t rack, const juce::File& file, std::string* error = nullptr);
+    /// A rack file put at a place in a channel's chain (an instrument rack too: the browser
+    /// replaces the track's instrument with it). Plugins not installed are left out and named in
+    /// `missing`; a module newer than this Segno refuses it whole, named in `error`. One undo step.
+    struct LoadedRack
+    {
+        std::uint64_t rack = 0;
+        std::vector<std::string> missing;
+        std::string error;
+    };
+    LoadedRack loadRack(const juce::File& file, const ChainPlace& place);
+    /// What a rack file says of itself, without loading it (the browser): nullopt if it isn't one.
+    struct RackFileInfo
+    {
+        std::string name;
+        bool instrument = false;
+        std::vector<std::string> tags;
+        std::string description, author;
+    };
+    [[nodiscard]] static std::optional<RackFileInfo> readRackFile(const juce::File& file);
+
     // ---- mixer (C3, ADR 0026, docs/design/mixer.md) -----------------------------------------
     // A channel is a track, a return track or the master (the snapshot lists them apart). Each
     // change is one undo step unless an EditGroup is open (a drag is one gesture), except solo.

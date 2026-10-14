@@ -5,38 +5,6 @@
 
 namespace fd::app
 {
-namespace
-{
-constexpr std::string_view kMacroDescription =
-    "A macro: moves the parameters mapped to it, each over its own range. Drag its name onto a knob in the "
-    "rack to map it.";
-
-const std::array<ParamSpec, model::RackInfo::macroCount> kMacros = []
-{
-    std::array<ParamSpec, model::RackInfo::macroCount> specs;
-    static constexpr std::array<std::string_view, model::RackInfo::macroCount> ids{
-        "macro1", "macro2", "macro3", "macro4", "macro5", "macro6", "macro7", "macro8"};
-    static constexpr std::array<std::string_view, model::RackInfo::macroCount> names{
-        "Macro 1", "Macro 2", "Macro 3", "Macro 4", "Macro 5", "Macro 6", "Macro 7", "Macro 8"};
-    for (size_t i = 0; i < specs.size(); ++i)
-        specs[i] = {.id = ids[i],
-                    .name = names[i],
-                    .shortName = names[i],
-                    .min = 0.0f,
-                    .max = 100.0f,
-                    .unit = Unit::Percent,
-                    .decimals = 0,
-                    .description = kMacroDescription};
-    return specs;
-}();
-} // namespace
-
-const DeviceInfo& RackPanel::rackInfo()
-{
-    static const DeviceInfo info{.id = "rack", .name = "Rack", .category = "Racks", .params = kMacros};
-    return info;
-}
-
 // ---- the panel ------------------------------------------------------------------------------
 
 RackPanel::RackPanel(ui::DeviceUiContext& context) : DevicePanel(context)
@@ -60,6 +28,23 @@ RackPanel::RackPanel(ui::DeviceUiContext& context) : DevicePanel(context)
         {
             if (onMacroHover)
                 onMacroHover(i, hovered);
+        };
+        knob.onHandleDoubleClick = [this, i] { renameMacro(i); };
+        // Its right-click: rename it, edit the macros, then its automation as any parameter's.
+        knob.onPopupMenu = [this, &knob, i]
+        {
+            ui::showParamMenu(this->context(), static_cast<size_t>(i), knob,
+                              [this, i](juce::PopupMenu& menu)
+                              {
+                                  menu.addItem(juce::String::fromUTF8("Rename macro\xe2\x80\xa6"),
+                                               [this, i] { renameMacro(i); });
+                                  menu.addItem("Edit macros",
+                                               [this, i]
+                                               {
+                                                   if (onEditMacros)
+                                                       onEditMacros(i);
+                                               });
+                              });
         };
         macros_[static_cast<size_t>(i)] = &knob;
     }
@@ -98,6 +83,18 @@ RackPanel::RackPanel(ui::DeviceUiContext& context) : DevicePanel(context)
     volume_.setTooltip("The shown chain's volume (double-click: 0 dB)");
     volume_.setDefaultValue(static_cast<float>(model::volumePosition(0.0)));
     volume_.textFromValue = [](float v) { return levelText(static_cast<float>(model::volumeDbAt(v))); };
+    volume_.onGestureStart = pan_.onGestureStart = [this]
+    {
+        chainGesture_ = true;
+        if (onChainGesture)
+            onChainGesture(true);
+    };
+    volume_.onGestureEnd = pan_.onGestureEnd = [this]
+    {
+        chainGesture_ = false;
+        if (onChainGesture)
+            onChainGesture(false);
+    };
     volume_.onValueChange = [this](float v)
     {
         if (onChainVolume)
@@ -122,6 +119,7 @@ RackPanel::~RackPanel() = default;
 void RackPanel::setRack(const juce::String& name, const model::RackInfo& rack)
 {
     rack_ = rack;
+    rackName_ = name;
     setDisplayName(name);
     setFoldedDetail(rackContents(rack_));
     placeChains();
@@ -191,7 +189,7 @@ void RackPanel::placeChains()
         // An off chain recedes, here and on its frame (racks.md §5a).
         names_->buttons()[i]->setAlpha(chain.on ? 1.0f : t.roles.dimAlpha);
     }
-    if (rack_.shownChain >= 0 && rack_.shownChain < static_cast<int>(rack_.chains.size()))
+    if (!chainGesture_ && rack_.shownChain >= 0 && rack_.shownChain < static_cast<int>(rack_.chains.size()))
     {
         const auto& shown = rack_.chains[static_cast<size_t>(rack_.shownChain)];
         volume_.setValue(static_cast<float>(model::volumePosition(shown.volumeDb)),
@@ -207,12 +205,56 @@ void RackPanel::updateMacros()
     {
         const auto& macro = rack_.macros[i];
         auto& knob = *macros_[i];
-        knob.setName(macro.name.empty() ? juce::String(std::string(kMacros[i].name))
-                                        : juce::String::fromUTF8(macro.name.c_str()));
+        knob.setName(macro.name.empty()
+                         ? juce::String(std::string(engine::Session::rackMacros().params[i].name))
+                         : juce::String::fromUTF8(macro.name.c_str()));
         knob.setSourceHandle(true, static_cast<int>(i) == litMacro_);
         // One that maps nothing yet recedes: turning it does nothing (racks.md §5a).
         knob.setAlpha(macro.mappings.empty() && static_cast<int>(i) != litMacro_ ? t.roles.fadedAlpha : 1.0f);
     }
+}
+
+void RackPanel::renameMacro(int macro)
+{
+    if (macro < 0 || macro >= model::RackInfo::macroCount || isFolded())
+        return;
+    auto& knob = *macros_[static_cast<size_t>(macro)];
+    const auto strip = knob.nameStrip().toNearestInt() + getLocalPoint(&knob, juce::Point<int>());
+    nameEditor_.show(strip, knob.getName(), ui::TextStyle::Label,
+                     [this, macro](const juce::String& name)
+                     {
+                         if (onRenameMacro)
+                             onRenameMacro(macro, name);
+                     });
+}
+
+void RackPanel::renameChain(int chain)
+{
+    if (names_ == nullptr || chain < 0 || chain >= names_->buttons().size() || isFolded())
+        return;
+    auto* button = names_->buttons()[chain];
+    nameEditor_.show(getLocalArea(button, button->getLocalBounds()), button->getButtonText(),
+                     ui::TextStyle::Control,
+                     [this, chain](const juce::String& name)
+                     {
+                         if (onRenameChain)
+                             onRenameChain(chain, name);
+                     });
+}
+
+void RackPanel::renameRack()
+{
+    if (isFolded())
+        return;
+    // The header's name, as wide as the room it has.
+    nameEditor_.show(
+        nameArea().withWidth(std::max(nameArea().getWidth(), ui::Theme::current().deviceGrid.width(3))),
+        rackName_, ui::TextStyle::Title,
+        [this](const juce::String& name)
+        {
+            if (onRenameRack)
+                onRenameRack(name);
+        });
 }
 
 void RackPanel::setLitMacro(int macro)

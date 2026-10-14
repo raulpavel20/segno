@@ -366,7 +366,15 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// (0..1): travel = (value - offset) / scale.
     struct Param
     {
-        enum class Kind { Volume, Pan, Send, Module, External };
+        enum class Kind
+        {
+            Volume,
+            Pan,
+            Send,
+            Module,
+            External,
+            Macro
+        };
         Kind kind = Kind::Module;
         te::AutomatableParameter* param = nullptr; // null for a send not made yet
         std::string key, name, module, paramId;
@@ -437,6 +445,8 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     [[nodiscard]] static bool followsLane(const te::AutomatableParameter& param);
     /// The parameter a plugin property belongs to, if any.
     [[nodiscard]] te::AutomatableParameter* parameterFor(const juce::ValueTree& pluginState, const juce::Identifier& id) const;
+    /// The rack macro whose state this is (racks.md §4); null if none.
+    [[nodiscard]] te::MacroParameter* macroFor(const juce::ValueTree& macroState) const;
     /// Every track reads, or (armed) touch-writes, automation.
     void applyAutomationMode();
     void endRecordingPass();
@@ -457,6 +467,62 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// Splices a parameter's recorded pass into its lane (a new lane if it has none).
     void importRecording(const Recorded& r);
     bool restartPending = false; // the playback graph is rebuilt when automation comes or goes
+
+    // ---- racks (M3 P2, docs/design/racks.md, ADR 0056) -----------------------------------------
+    // A rack is tracktion's RackType placed as a RackInstance in a chain, one type each. Its chains
+    // are Segno's: each module's PLUGININSTANCE in the rack names its chain (fdChain), in the
+    // rack's order; each chain ends in a volume and pan of its own (fdChainMixer) holding the
+    // chain's name, on and solo. The connections follow from them (wireRack). Its eight macros are
+    // the type's macro parameters; a mapping is a MACRO modifier assignment on the parameter, its
+    // base value From, its value To - From, its curve half Curve (racks.md §12).
+    static inline const juce::Identifier chainId{"fdChain"}, chainMixerId{"fdChainMixer"},
+        chainNameId{"fdChainName"}, chainOnId{"fdChainOn"}, chainSoloId{"fdChainSolo"},
+        shownChainId{"fdShownChain"};
+    struct RackChain
+    {
+        juce::ValueTree mixer; // its mixer's PLUGININSTANCE: the chain's name, on and solo
+        te::VolumeAndPanPlugin* volume = nullptr;
+        std::vector<te::Plugin*> modules;
+        [[nodiscard]] bool on() const { return static_cast<bool>(mixer.getProperty(chainOnId, true)); }
+        [[nodiscard]] bool solo() const { return static_cast<bool>(mixer.getProperty(chainSoloId, false)); }
+    };
+    /// A rack instance's type (null for any other plugin).
+    [[nodiscard]] static te::RackType* rackTypeOf(const te::Plugin* plugin);
+    /// A rack's chains in order, each its modules in order and its mixer.
+    [[nodiscard]] static std::vector<RackChain> rackChains(const te::RackType& rack);
+    /// Every module in a rack, chain by chain (not the chains' mixers).
+    [[nodiscard]] static std::vector<te::Plugin*> rackModules(const te::RackType& rack);
+    /// Connects a rack as its chains say: its input to each chain's first module, module to
+    /// module, each chain's mixer to its output while the chain is on (and soloed, if any is).
+    static void wireRack(te::RackType& rack, juce::UndoManager* um);
+    /// The rack instance with this id, or holding this module (null if none).
+    [[nodiscard]] te::RackInstance* rackInstance(std::uint64_t id) const;
+    [[nodiscard]] te::RackInstance* rackHolding(const te::Plugin& module) const;
+    /// The track or return a module plays on, through its rack if it's in one (null: the master).
+    [[nodiscard]] te::AudioTrack* trackOf(const te::Plugin& module) const;
+    /// An instrument, or a rack with one at the start of a chain (racks.md §3). tracktion's racks
+    /// say they're synths whatever they hold.
+    [[nodiscard]] static bool playsNotes(te::Plugin& plugin);
+    /// A new rack type named `name`, its eight macros made, and its first chain.
+    te::RackType::Ptr makeRack(const juce::String& name);
+    /// A new chain at the end of a rack: its mixer, passing what comes in.
+    void addChain(te::RackType& rack);
+    /// Puts a module into a rack's chain at `index` (-1: its end), taking it from where it was.
+    bool putInRack(te::RackType& rack, const te::Plugin::Ptr& module, int chain, int index);
+    /// A rack instance and its type go; their modules' lanes and mappings with them.
+    void removeRack(te::RackInstance& instance);
+    /// A module's mappings from the macros of `rack` go (it leaves it), each parameter keeping its
+    /// value now.
+    void unmapFrom(te::Plugin& module, const te::RackType& rack);
+    /// Removes the lane assignments of a module's parameters (it's going).
+    void dropLanesOf(std::uint64_t module);
+    /// A track's state copied (its ids remapped into `ids`): each rack in it gets a copy of its
+    /// rack of its own, with new ids (also into `ids`), which it then refers to.
+    void copyRacksIn(juce::ValueTree trackCopy, te::EditItemID::IDMap& ids);
+    /// The rack's info for the snapshot.
+    [[nodiscard]] std::shared_ptr<const model::RackInfo>
+    rackInfo(te::RackInstance& instance, const std::function<model::DeviceSlot(te::Plugin&)>& slotOf) const;
+    Session::MacroPointer macroPointer;
 
 private:
     void changeListenerCallback(juce::ChangeBroadcaster* source) override;
@@ -498,9 +564,13 @@ private:
             changed(t);
             return;
         }
-        // A parameter playing its lane: tracktion writes each played value back (ADR 0028).
+        // A parameter playing its lane: tracktion writes each played value back (ADR 0028). A
+        // rack's macro too (racks.md §4).
         if (t.hasType(te::IDs::PLUGIN))
             if (auto* param = parameterFor(t, id); param != nullptr && followsLane(*param))
+                return;
+        if (t.hasType(te::IDs::MACROPARAMETER) && id == te::IDs::value)
+            if (auto* macro = macroFor(t); macro != nullptr && followsLane(*macro))
                 return;
         if (!inTransport(t) && id != te::IDs::solo) // solo is a listening aid (ADR 0026)
             dirty = true; // includes device parameters
@@ -510,6 +580,13 @@ private:
         // A lane's points.
         for (auto p = t; p.isValid() && !p.hasType(te::IDs::PLUGIN); p = p.getParent())
             if (p.hasType(te::IDs::AUTOMATIONCURVE))
+            {
+                changed(t);
+                return;
+            }
+        // A macro's mapping of a parameter (racks.md §4) shows.
+        for (auto p = t; p.isValid() && !p.hasType(te::IDs::PLUGIN); p = p.getParent())
+            if (p.hasType(te::IDs::MODIFIERASSIGNMENTS))
             {
                 changed(t);
                 return;
