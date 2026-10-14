@@ -99,7 +99,7 @@ sidechain L/R ─────────┼─> FIFO SC L, FIFO SC R (when a co
   - it computes the whole file's average spectrum for each Channel choice;
   - it hands the curves and the name to the host binding (`applyExtraState`): one undo step, "Load reference". Reading the state back only parses the stored curves.
   - **Level matching:** the reference curve is moved up or down so its average level over 50 Hz–15 kHz equals the live curve's, following it slowly (over about 3 s) so it doesn't jump.
-- **Spectrogram (stage 2):** the same bands over the last several seconds, scrolling, drawn on the GPU. Designed with the EQ's stage 2.
+- **Spectrogram (stage 2):** designed under "Stage 2: the spectrogram" below.
 
 ## UI layout
 
@@ -186,6 +186,68 @@ Approved as drafted (product owner, 2026-10-11):
 - **The colours:** compare and reference take two hues of the clip palette (blue, violet), the same in every theme; collisions a faint warm wash; the snapshot and side are grey, dashed and dotted.
 - **Shared with the EQ:** the analysis (`dsp::SpectrumAnalyser`) and the axes and strokes (`ui::SpectrumPlot`); devices publish their sample rate on the analysis bus. Both displays also take their taps on the panel's refresh tick, so they keep going where there's no frame clock.
 - **Sidechain caption:** a panel names its sidechain picker for what it does (`DevicePanel::setSidechainCaption`): here "Compare".
+
+## Stage 2: the spectrogram (for review)
+
+**Status:** for review (2026-10-15, M3 B9). Nothing is built until the product owner approves it.
+
+### How others do it (October 2026)
+
+| | A spectrogram? | How |
+|---|---|---|
+| **Live 12** (Spectrum) | No | One curve |
+| **Bitwig** (Spectrum) | None found | Two traces, with a fall rate for persistence |
+| **Studio One** (Spectrum Meter) | Yes | Sonogram and Waterfall modes beside the FFT and third-octave views |
+| **Cubase** (SuperVision) | Yes | A Spectrogram module among about 18; FFT size and level range settings |
+| **iZotope Insight 2** | Yes | 2D or 3D; colour schemes, scroll speed, FFT size and overlap; Freeze and zoom |
+
+Most draw time across and frequency up (a [Computer Music](https://www.pressreader.com/australia/computer-music/20221102/284490052423504) guide calls that the usual way), level as colour. Sources: [Fender Studio Pro manual: metering](https://fenderstudiopromanual.fender.com/en/Content/Built-In_Effects_Topics/Metering,%20Analysis,%20and%20Signal%20Generation.htm), [Cubase 13 plug-in reference](https://archive.steinberg.help/cubase_pro_plugin_reference/v13/en/Cubase_Pro_13_Plug_in_Reference_en.pdf), [Bitwig user guide](https://www.bitwig.com/userguide/bws44-504/device_descriptions), [iZotope Insight: spectrogram](https://www.izotope.com/en/products/insight/features/spectrogram).
+
+### The design
+
+- **View** (`view`, already reserved) switches the display between the spectrum and the spectrogram, in place: the same display, the same size.
+- **Frequency runs across, as in the spectrum; time runs down, the newest at the top.** A frequency sits where it sits in the spectrum, so switching views never moves what you were looking at, and the frequency axis keeps the display's long side: about 60 px an octave, against 16 if it ran up the short side. Most analysers draw time across; with a display four times wider than tall, frequency is what needs the room.
+- **Each line is one transform, as it was heard:** no averaging over time (Average would smear exactly what this view is for: what comes and goes). It reads the transform at every pixel across, finer than the curve's 121 bands, so harmonics and a narrow resonance show apart.
+- **A new line about every 10 ms** whatever the Resolution (the transforms overlap more at the larger sizes), so a click is a single line. Resolution still trades detail in the lows for time: at 16 384 points a transform spans a third of a second.
+- **Length:** a new setting (`length`): 2, 5, 10 or 20 seconds on the display, default 5 s.
+- **Colour:** one hue, the analyser's own: from the display's background at the bottom of the Range, through the curve's colour, to near white at its top. Brightness carries the level, so it reads as Segno's analyser and as one scale. Range sets what's dark; Slope tilts it as it tilts the curve.
+- **When it moves:** while the song plays, or while sound comes in (playing live). When both stop, it holds the last screenful, so what just happened can be studied. A plugin follows its host's transport the same way.
+- **Compare with another track:** where both are loud at the same moment, the line is tinted with the collision colour (the spectrum's warm wash, by the same rule). It shows exactly when a kick and a bass collide, which the spectrum averages away. The compare track's own spectrogram isn't drawn: one image, not two.
+- **Hover:** a crosshair, and the frequency, the note, how long ago ("1.2 s ago") and the level there, in place of the legend.
+- **What applies:** Channel, Resolution, Range and Slope apply to both views. Average, Peak hold, Peak labels, Side overlay, the snapshot and the reference belong to the curve: in the spectrogram they dim (CURVES as a whole), visible and kept for when the view turns back.
+- **Where the settings sit:** View in the header, right-aligned, as a module-wide display setting (device-panels.md); Length beside it, shown only in the spectrogram. Nothing on the grid moves.
+- **Drawing:** an image the size of the display, a line written per transform, drawn as two halves of a ring: each frame costs its new lines and one copy. The first plan said "drawn on the GPU"; Segno draws with JUCE's software renderer, and a ring image needs nothing more (the frame-budget test checks it).
+- **The plugin:** the same view in the plugin and the DAW.
+- **Factory presets:** two more, **Spectrogram** (Mix: the view at its defaults) and **Find clicks** (Fix: the view, Resolution 2 048, Length 2 s, no tilt).
+- **IDs** (permanent once approved): `view` (Spectrum, Spectrogram; reserved since stage 1) and `length` (2 s, 5 s, 10 s, 20 s).
+
+### Tests (done when)
+
+| What | Target |
+|---|---|
+| A sine sweeping 100 Hz to 10 kHz over 2 s | The brightest point of each line follows it across, within 1/24 octave |
+| A click in silence | One line lit across the band, those around it dark |
+| A 1 kHz sine at −12 dBFS, Slope 0, Range 90 | Its point at the colour for −12 dB |
+| The transport stopped, no sound | The image holds; playing again, it moves |
+| Two 100 Hz bursts, input and compare, half a second apart then together | Tinted only where they overlap in time |
+| Switching views | The settings kept; a frequency at the same x in both |
+| The panel | Layout lint passes; screenshots of both views at 100 % and 200 %, with sound and a compared track |
+| Drawing at 16 384 points, 20 s | Within the panel's frame budget |
+
+### Questions for review
+
+| # | Question | Recommendation |
+|---|---|---|
+| G1 | **Orientation** | Frequency across (as in the spectrum), time down with the newest at the top. Not time across: frequency would get a quarter of the room, and switching views would move everything |
+| G2 | **What a line shows** | One transform, unaveraged, read at every pixel across (finer than the 121 bands) |
+| G3 | **Time** | A line about every 10 ms at any Resolution; Length 2, 5, 10 or 20 s, default 5 s |
+| G4 | **Colour** | One hue, the analyser's, dark to near white over the Range. Not a multi-hue map: it would bring a palette nothing else in Segno uses |
+| G5 | **When it moves** | While the song plays or sound comes in; held when both stop. No Freeze button of its own |
+| G6 | **Compare** | Collisions tinted in time; the compare track's own spectrogram not drawn |
+| G7 | **Settings that don't apply** | Dimmed in the spectrogram view, kept for the spectrum |
+| G8 | **Where View and Length sit** | The header, right-aligned; Length only while it applies |
+| G9 | **Drawing** | A ring image in the software renderer, not the GPU |
+| G10 | **Presets** | Two more: Spectrogram and Find clicks |
 
 ## Sign-off
 
