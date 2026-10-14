@@ -586,3 +586,62 @@ Built as §12 and §23 say. What building settled:
 - **In the menus:** Notes ▸ Transform ▸ and Generate ▸ sit between Mirror pitches and Re-roll chance; the notes' right-click menu has Transform ▸. The bassline is dimmed, saying why, until the clip has chords; the transforms until it has notes.
 - **Assistants:** `list_note_tools` gives each tool's settings (choices as words, numbers with their range and unit, which show only for a choice). `transform_notes` and `generate_notes` check the settings against the same description: an unknown setting, word or value out of range is named.
 
+## 25. The tools on the surface (proposal, for review, 2026-10-15)
+
+The product owner, after P4c:
+- "I don't like that we hid so much functionality in bar menus and right click menus. It's ok that it's there, right click is good and many people know it. But I think a lot of these could have also been surfaced better, with buttons and icons in the bar above. Especially generate and transform."
+
+**What went wrong:** §12 put twelve tools two levels down (Notes ▸ Transform ▸ Strum…), each opening a popover. Nothing on screen says they exist, and every use costs two clicks and a menu read. That contradicts ADR 0040's own rule: a frequent command belongs on the surface it acts on. The menu bar is the complete list, not the place you work from.
+
+**Where the field is:**
+- **Live 12** gives Transform and Generate their own panels in the clip view, beside the notes. You choose a tool there, its controls show in place, and the notes change as you set them ("Auto Apply", on by default; off, an Apply button). Transforms act on the selection or the loop; generators write into the time selection or the loop ([Ableton](https://www.ableton.com/en/live-manual/12/midi-tools/)).
+- **Bitwig 6** puts its editing tools in a palette on the side of the editor ([CDM](https://cdm.link/bitwig-studio-6-details/)).
+- **Cubase** keeps Quantize's apply and preset on the Key Editor's toolbar, and Quantize, Transpose and Length sections in an inspector beside the notes ([Steinberg](https://steinberg.help/cubase_pro/v13/en/cubase_nuendo/topics/midi_editors/midi_editors_key_editor_toolbar_r.html)).
+- **FL Studio** keeps its tools (Riff machine, Arpeggiate, Strum, Flam) in a Tools menu with a shortcut each ([Image-Line](https://www.image-line.com/fl-studio-learning/fl-studio-online-manual/html/pianoroll_menu.htm)).
+
+Live's model fits Segno best: Live users know it, it shows every tool at once, and our tools are already described as data, so a panel can be built from them as the popovers are.
+
+### 25.1 A Tools pane in the clip view
+
+- **Two buttons on the bar above,** each an icon and a word: **Transform** and **Generate**, after Quantise. Each opens the Tools pane on its tab, and is lit while the pane shows it; clicking it again closes the pane. They're also in the View menu (Tools pane ▸ Transform, Generate).
+- **The pane is docked at the clip view's right edge,** under those buttons, the full height of the notes and the lane. The notes narrow beside it, so nothing is covered. Where the clip view is narrower than about 900 px, it floats over the notes' right side instead.
+- **At its top, the two tabs** (Transform | Generate) as segments.
+- **Then every tool of the tab as a tile:** a 16 px icon and the tool's name, two columns, all in view at once.
+  - Transform: Quantise, Humanize, Strum, Arpeggiate, Chop, Ornament, Velocity, Span, Randomise pitch, Make chords.
+  - Generate: Rhythm, Melody, Chords, Bassline.
+  - One click chooses a tool, and the chosen tile is lit.
+- **Under the tiles, the chosen tool,** with the same rows the popovers have now:
+  - its name and what it acts on in caps ("STRUM · 13 NOTES", "CHORDS · 4 BARS"), with Apply;
+  - then its settings.
+- **Previewing:** while a tool is chosen the notes show its result as it's set. Apply (Return) keeps it as one undo step named for the tool. Choosing the tile again (to choose none), Escape, another tile or closing the pane puts the notes back. Not Live's Auto Apply: every change would be an undo step.
+- **A tool that can't run** (Transform without notes, the bassline without chords) is a dimmed tile that says why on hover.
+- **Kept as view state:** whether the pane is open, its tab, and the last tool on each tab.
+
+### 25.2 What moves into it
+
+- **The tool popovers go.** Notes ▸ Transform ▸ Strum…, the notes' right-click Transform ▸ and assistants are unchanged, but the menus now open the pane at that tool. One place, one look for every tool.
+- **Quantise becomes the first Transform tile.** Its settings (Strength, Swing, Moves) are rows like the others'. The bar's Quantise stays a one-click command with those settings, and Quantise… opens the pane at it. The Quantise popover goes.
+- **Make chords joins the Transform tiles.** Its cards become a list in the pane: a row per note, with its chord and voicing choices, and the "All" row at the top. The pane is as tall as the notes, and the list scrolls. The Make chords popover goes.
+
+### 25.3 The bar above, then
+
+`Modules · Clip ……  Notes ⌄  Quantise  [⇄ Transform]  [✦ Generate]   Draw note ⌄  ● In key  ○ Others  ● Snap  1/16 ⌄`
+
+- **Notes ⌄ stays** as the complete list (the menu bar's Notes), for the long tail: Join, Reverse, Mirror, Select ▸ and the rest. The commands used while writing are on the bar or in the pane.
+- **At narrow widths,** as now, options give way first (Others, the voicing, Draw), then Generate, then Transform; each is still in the View and Notes menus.
+- **Icons:** each tool and the two buttons get one, drawn in fd_ui's icon set (`ui::Icon`), at the size and stroke of the others.
+
+### 25.4 Questions and recommendations
+
+| # | Question | Recommendation |
+|---|---|---|
+| U1 | **Where Transform and Generate live** | A Tools pane in the clip view, docked at its right edge; Transform and Generate buttons on the bar open it on their tab (Live 12's panels; Bitwig's palette at the side) |
+| U2 | **Choosing a tool** | Tiles, every tool's icon and name in view at once, one click; not a dropdown |
+| U3 | **Setting and applying** | The chosen tool's settings under the tiles, previewed live; Apply (Return) is one step; choosing again, Escape, another tile or closing the pane puts the notes back (not Live's Auto Apply: an undo step per change) |
+| U4 | **The popovers** | Go: the menus and the right-click menu open the pane at that tool |
+| U5 | **Quantise** | The first Transform tile; the bar's Quantise stays one click with its settings |
+| U6 | **Make chords** | A Transform tile, its cards a list in the pane. The other way: keep its popover beside the notes |
+| U7 | **Narrow clip views** | Under ~900 px the pane floats over the notes' right side; the buttons give way after the options |
+| U8 | **Icons** | One per tool and button, from fd_ui's icon set |
+| U9 | **The Notes menu** | Stays the complete list; the bar and the pane are where you work |
+
