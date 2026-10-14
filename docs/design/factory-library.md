@@ -2,7 +2,7 @@
 
 What Segno ships besides its modules: sample instruments for the Sampler's presets, the Wavetable's tables, later kits and clips. Where they live, how the browser shows them beside your own files, how presets and projects point at them, and how they get onto a machine. Then the sounds themselves: about 48 Sampler presets from two CC0 libraries.
 
-**Status:** proposed for review (2026-10-14), with [ADR 0055](../decisions/0055-factory-content-is-files-in-a-read-only-library.md). The product owner asked for the Sampler's missing presets (about 40–50, CC0 only, VSCO 2 Community Edition suggested) and for one structure that ties samples and wavetables together.
+**Status:** approved by the product owner (2026-10-14, every recommendation of L1–L13), with [ADR 0055](../decisions/0055-factory-content-is-files-in-a-read-only-library.md). The product owner asked for the Sampler's missing presets (about 40–50, CC0 only, VSCO 2 Community Edition suggested) and for one structure that ties samples and wavetables together.
 
 ## 1. What's there now, and the loose end
 

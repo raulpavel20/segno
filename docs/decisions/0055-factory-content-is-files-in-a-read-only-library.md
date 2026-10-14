@@ -1,6 +1,6 @@
 # 0055. Factory content is files in a read-only Library
 
-- **Status:** Proposed (2026-10-14), with [factory-library.md](../design/factory-library.md)
+- **Status:** Accepted (product owner, 2026-10-14, with [factory-library.md](../design/factory-library.md))
 - **Date:** 2026-10-14
 - **Builds on:** [0017](0017-heavy-data-and-non-parameter-state.md) (heavy data and non-parameter state), [0044](0044-presets-are-files.md) (presets are files), [0046](0046-one-browser-modules-are-folders.md) (one browser, modules are folders)
 
