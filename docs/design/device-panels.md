@@ -73,7 +73,7 @@ Each control is placed by its top-left cell and its span: `(column, row, columns
 
 | Control | Span | Rules |
 |---|---|---|
-| **Knob** | 1 × 3 (48×76) | Rows 0 or 3 only. Fixed block: name 16, arc area 44 (38 px arc), value 16. The value text fits its column ([design-language.md](design-language.md), "Type"). |
+| **Knob** | 1 × 3 (48×76) | Rows 0 or 3 only. Fixed block: name 16, arc area 44 (38 px arc), value 16. The value text fits its column ([design-language.md](design-language.md), "Type"). A lone knob over rows two columns wide may take 2 × 3, the same block drawn centred across them (a rack's Morph over its A and B) |
 | **Toggle** | *n* × 1, *n* ≥ 1 | Text + 8 px must fit. Without text it's an on/off dot, centred (a source's On in a list). |
 | **Segmented** | whole cells per segment, 1 row per line of segments | 4 px between segments, 8 px between lines (the grid's own gaps). Text + 6 px must fit a segment. |
 | **Selector** | as Segmented | Which of several the sections after it show (an oscillator, an LFO): a segmented control's look, but view state, never a parameter (`ui::Selector`). |

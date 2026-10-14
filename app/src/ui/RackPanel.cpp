@@ -93,7 +93,7 @@ RackPanel::RackPanel(ui::DeviceUiContext& context) : DevicePanel(context)
     };
 
     // MORPH, from the second (§18.3): on or off, the knob, the snapshots it goes between.
-    morphSection_ = &addSection("morph", "Morph", 3);
+    morphSection_ = &addSection("morph", "Morph", 2);
     showSectionWhen(*morphSection_, [this] { return rack_.snapshots.size() >= 2; });
     morphSection_->setPowerSwitch([this] { return rack_.morph.on; },
                                   [this](bool on)
@@ -103,7 +103,7 @@ RackPanel::RackPanel(ui::DeviceUiContext& context) : DevicePanel(context)
                                           onMorphOn(on);
                                   },
                                   "Morph on or off: while it's on, the macros follow it from A to B");
-    morph_ = &morphSection_->knob(static_cast<size_t>(model::RackInfo::morphParam), 1, 0); // over A and B
+    morph_ = &morphSection_->knob(static_cast<size_t>(model::RackInfo::morphParam), 0, 0, 2); // over A and B
     // Its name lights the macros it moves while hovered, and is lit while a macro it moves is, as
     // a macro's does with its knobs; it isn't dragged anywhere.
     morph_->setSourceHandle(true);
@@ -128,8 +128,8 @@ RackPanel::RackPanel(ui::DeviceUiContext& context) : DevicePanel(context)
         if (onMorphBetween)
             onMorphBetween(rack_.morph.a, morphB_.getSelectedId() - 1);
     };
-    morphSection_->place(morphA_, 0, 3, 3, 1, ui::PanelSection::Kind::Line);
-    morphSection_->place(morphB_, 0, 4, 3, 1, ui::PanelSection::Kind::Line);
+    morphSection_->place(morphA_, 0, 3, 2, 1, ui::PanelSection::Kind::Line);
+    morphSection_->place(morphB_, 0, 4, 2, 1, ui::PanelSection::Kind::Line);
 
     chains_ = &addSection("chains", "Chains", 4);
     showSectionWhen(*chains_, [this] { return rack_.chains.size() > 1; });

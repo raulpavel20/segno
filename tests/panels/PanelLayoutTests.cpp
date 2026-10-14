@@ -239,7 +239,8 @@ void lint(const PanelUnderTest& p)
             switch (pl.kind)
             {
             case PanelSection::Kind::Knob:
-                CHECK(pl.component->getWidth() == grid.column);
+                CHECK((pl.columns == 1 || pl.columns == 2)); // two: a lone knob, centred
+                CHECK(pl.component->getWidth() == grid.width(pl.columns));
                 CHECK(pl.component->getHeight() == grid.knobHeight());
                 CHECK((pl.row == 0 || pl.row == grid.knobRows));
                 break;

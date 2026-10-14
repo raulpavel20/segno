@@ -117,7 +117,8 @@ void PanelSection::add(juce::Component& component, Kind kind, int column, int ro
     // The grid rules (docs/design/device-panels.md); the layout lint checks them too.
     jassert(column >= 0 && columns >= 1 && column + columns <= columns_);
     jassert(row >= 0 && rows >= 1 && row + rows <= grid.rows);
-    jassert(kind != Kind::Knob || (columns == 1 && rows == grid.knobRows && (row == 0 || row == grid.knobRows)));
+    jassert(kind != Kind::Knob ||
+            ((columns == 1 || columns == 2) && rows == grid.knobRows && (row == 0 || row == grid.knobRows)));
     juce::ignoreUnused(grid);
     if (component.getParentComponent() != &content_)
         content_.addAndMakeVisible(component);
@@ -125,12 +126,13 @@ void PanelSection::add(juce::Component& component, Kind kind, int column, int ro
     component.setBounds(cellBounds(column, row, columns, rows));
 }
 
-ParamKnob& PanelSection::knob(size_t param, int column, int row)
+ParamKnob& PanelSection::knob(size_t param, int column, int row, int columns)
 {
+    jassert(columns == 1 || columns == 2);
     auto& k = panel_.adopt(std::make_unique<ParamKnob>(panel_.context(), param), content_);
     created_.push_back(&k);
     params_.push_back(param);
-    add(k, Kind::Knob, column, row, 1, Theme::current().deviceGrid.knobRows);
+    add(k, Kind::Knob, column, row, columns, Theme::current().deviceGrid.knobRows); // drawn centred
     return k;
 }
 

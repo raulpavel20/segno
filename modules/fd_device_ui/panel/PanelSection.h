@@ -14,7 +14,7 @@ public:
     /// What a placement is, for the grid rules and the layout lint.
     enum class Kind
     {
-        Knob,    // 1 x 3 cells, rows 0 or 3
+        Knob,    // 1 x 3 cells, rows 0 or 3; 2 x 3 for a lone knob centred over 2-column rows
         Line,    // toggles, combos, bars, segmented rows: 1 row per line
         Display, // any span
         Label    // a sub-label
@@ -57,7 +57,9 @@ public:
 
     // ---- placement, in cells (each checks the grid rules) --------------------------------
 
-    ParamKnob& knob(size_t param, int column, int row);
+    /// A knob, one column wide; or two, drawn centred across them, for a lone knob over rows two
+    /// columns wide (a rack's Morph over its A and B, racks.md §18.6).
+    ParamKnob& knob(size_t param, int column, int row, int columns = 1);
     /// A value bar, at least 2 columns wide.
     ParamKnob& bar(size_t param, int column, int row, int columns = 2);
     ParamToggle& toggle(size_t param, int column, int row, int columns = 1);

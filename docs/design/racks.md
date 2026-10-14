@@ -404,7 +404,7 @@ Sources: [Ableton's Macros and Variations FAQ](https://help.ableton.com/hc/en-us
 ```
 
 - **SNAPSHOTS,** 4 columns. It shows once there's a snapshot, as CHAINS shows from the second chain, so a rack without snapshots looks as it does now. Names sit two to a row, four rows, room for eight. "+ Store" takes the next free place until there are eight.
-- **MORPH,** 3 columns, shows from the second snapshot: its power dot in the title, the Morph knob centred (the macros' knob, since Morph is a macro of macros), then A and B under it as dropdowns with their letter inside ("A  Verse"), as combos name their parameter inside.
+- **MORPH,** 2 columns, shows from the second snapshot: its power dot in the title, the Morph knob centred across both (the macros' knob, since Morph is a macro of macros), then A and B under it as dropdowns with their letter inside ("A  Verse"), as combos name their parameter inside.
 - **Everything is from the panel kit:** the chain list's choice buttons, `Knob`, `ChoiceBox` with its name inside, the section power dot, and the changed mark from the preset bar. The layout lint checks it.
 - **Folded,** the strip says what's inside as before ("2 chains"); its snapshots don't fit there (§18.11, "Drawn").
 
@@ -501,7 +501,7 @@ Sources: [Ableton's Macros and Variations FAQ](https://help.ableton.com/hc/en-us
     - Vary dimmed while Morph is on;
     - the editor's locks and its A and B lines.
 - **Drawn (2a, 2026-10-14),** with the panel kit, from a stub (`tests/integration/RackUiTests.cpp`, "racks step 2, drawn for review"), every state checked by the layout lint. What drawing settled:
-  - **MORPH is 3 columns, not 2:** its knob centred over A and B. In 2 columns it sat in the left one beside an empty one.
+  - **MORPH's knob is centred across its 2 columns,** over A and B. On one column it sat beside an empty one; 3 columns centred it but made the section wider than it needs (the product owner, 2026-10-15). The grid allows a lone knob over two columns for it (device-panels.md).
   - **The folded strip** doesn't add the snapshots: "2 chains · 3 snapshots" was cut to "3 snaps…". What a rack holds is what tells racks apart there.
   - **While Morph is on, no snapshot is lit:** Morph puts the macros where they are, not a snapshot.
   - **Morph's name lights** as a macro's does: hovered, it and the macros it moves are lit.
