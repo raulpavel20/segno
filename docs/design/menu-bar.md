@@ -326,7 +326,7 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 | Mixer view | Ctrl+Alt+X | Ticked in the mixer view |
 | — | | |
 | Show browser | Ctrl+Alt+B | |
-| Search the browser | Ctrl+F | `browser.search` (M3 C2, [browser.md](browser.md) §14): the keyboard in its search; folded to its rail, it opens over the arrangement |
+| Search the browser | Ctrl+F | `browser.search` (M3 C2, [browser.md](browser.md) §14): the keyboard in its search; folded to its rail, it opens first, docked |
 | Preview in the browser | | `browser.preview`, a toggle; also the Preview switch in the browser's header |
 | Show inspector | Ctrl+Alt+I | |
 | Show detail panel | Ctrl+Alt+D | |

@@ -203,7 +203,7 @@ As in Live, at the product owner's suggestion:
 
 ## 15. Compact widths and assistants
 
-**Below 1440 px** the browser is its rail (ui-principles §2). The rail holds Search, Favourites, Instruments, Audio effects, Racks, Plugins and Places, each the icon the open browser shows before it, at the same size (`shell.listIconSize`, ADR 0059); a click opens the browser over the arrangement at that part, at its normal width, easing out of its rail as the docked panel does, and it closes when something is dragged out of it, on a click elsewhere, or with the browser's toggle, which shows it open meanwhile: it's the one browser panel, open over the arrangement rather than beside it (daw-shell.md, "A side panel's state is kept once").
+**Below 1440 px** the browser is its rail (ui-principles §2). The rail holds Search, Favourites, Instruments, Audio effects, Racks, Plugins and Places, each the icon the open browser shows before it, at the same size (`shell.listIconSize`, ADR 0059); a click opens the browser at that part exactly as its toggle does: docked, easing out of its rail, the arrangement making room for it. The toggle then shows it open and closes it, back to the rail; nothing else closes it. It's the one browser panel, whichever way it opened (daw-shell.md, "A side panel's state is kept once"). At first the rail opened it over the arrangement, until a click elsewhere or a drag out of it; the product owner rejected that (2026-10-14): a second way of showing the same panel, which behaved differently from its toggle.
 
 **Assistants (MCP):**
 
@@ -233,7 +233,7 @@ As in Live, at the product owner's suggestion:
 | R10 | **What a drop makes** | The table in §10: a track gets it at the end of its chain, the chain where dropped, empty space a new track; a sample on the Sampler loads into it; double-click puts it on the selection |
 | R11 | **An instrument on a track that has one** | Replace it, one undo step, with Undo in the toast; no question at each drop (§11) |
 | R12 | **Keeping files together** | File > Collect files and save, into the project's `Samples`; File > Remove unused files…, to the system's trash after one confirmation; assistants can collect, never delete (§12) |
-| R13 | **Compact widths** | The rail's icons open the browser over the arrangement at that part (§15) |
+| R13 | **Compact widths** | The rail's icons open the browser at that part, docked, as its toggle does (§15; first over the arrangement, changed 2026-10-14) |
 | R14 | **Keys and menus** | Ctrl+F Search the browser; Preview in the browser in View; Collect and Remove unused in File (§14) |
 | R15 | **Later, not C2** | Similar sounds, tagging your samples by sound, coloured collections, plugins' own presets, effects' preset previews, importing tracks from another project, packs. Hot-swapping a Sampler's sound from the browser comes with the Sampler's presets |
 
@@ -267,7 +267,7 @@ As in Live, at the product owner's suggestion:
   - a dropped loop of 120 BPM in a 100 BPM song plays its bars in the song's bars;
   - Collect files and save leaves a project that opens from another folder with every clip; Remove unused files lists exactly the files nothing uses;
   - places: added, indexed, removed, and missing folders greyed.
-- **Screenshots** of the tree, a module opened, results, the preview strip, the rail's overlay, at standard and compact widths, zoomed.
+- **Screenshots** of the tree, a module opened, results, the preview strip, the browser opened from its rail, at standard and compact widths, zoomed.
 - **MCP:** `search`, `browse`, `preview`, `collect_files`, and read-only's refusal.
 - **Manual (manual-tests/M3.md):** finding and auditioning a sound by ear, dragging to every target, collecting a project and opening it on another machine.
 
@@ -286,7 +286,7 @@ As in Live, at the product owner's suggestion:
 - **Modules' folders:** Yours first (your default shows there as "Your default"), then an instrument's factory presets in folders by first tag, A to Z (Subtractive Synth: Bass, Brass, Drums, FX, Keys, Lead, Pad, Pluck); an effect's A to Z. The Sampler's (its instruments from the Library): Brass, Drums, Keys, Lead, Pad, Pluck, Strings, Woodwinds.
 - **An effect dropped ahead of the instrument** goes right after it, so the instrument stays first.
 - **The panel:** the shared header (Browser, and the Preview view option), the search, the results' tags as toggles on one line, the tree drawn with a new shared `TreeRow`, and the preview strip at the foot: the name and volume, a sample's waveform with the playhead, then play and what it is (length, tempo, sample rate, in that order so a narrow panel cuts the least).
-- **The rail's icons** are new: `Note` (instruments), `Knob` (audio effects), `Plug` (plugins), `Folder` (places), beside Search and the star. Over the arrangement, the panel has a hairline at its edge.
+- **The rail's icons** are new: `Note` (instruments), `Knob` (audio effects), `Plug` (plugins), `Folder` (places), beside Search and the star.
 - **Remove unused files** counts a file as used if anything used it since the project opened, so undo can never bring back a clip whose file is gone.
 - **Collect files and save** needs the project saved once; before that it asks for a name first, as Save as… does.
 - **Tests** never touch your Segno folder: CTest gives them their own (the parent of their presets folder). Nor do they find a Library installed on the machine: CTest points `SEGNO_LIBRARY` at a folder that isn't there, and a test that needs one writes its own.

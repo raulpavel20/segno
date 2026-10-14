@@ -152,7 +152,6 @@ public:
     void mouseDown(const juce::MouseEvent& e) override
     {
         dragging_ = false;
-        draggedOut_ = false;
         // Whether this press did something of its own (opened a folder, starred, added a place).
         // A quick second click is the end of a double-click to JUCE, which sends one after its
         // release: that must not do it again, or a folder opened by the press closes on release.
@@ -200,16 +199,7 @@ public:
     {
         const int i = rowAt(e.getMouseDownY());
         if (i < 0 || dragging_ || e.getDistanceFromDragStart() < ui::Theme::current().input.dragThreshold)
-        {
-            if (dragging_ && !draggedOut_ &&
-                !owner_.getLocalBounds().contains(e.getEventRelativeTo(&owner_).getPosition()))
-            {
-                draggedOut_ = true;
-                if (owner_.onDragOut)
-                    owner_.onDragOut();
-            }
             return;
-        }
         const auto& row = owner_.rows_[static_cast<size_t>(i)];
         if (owner_.dragDescription(row.id).isVoid())
             return;
@@ -238,7 +228,7 @@ private:
 
     BrowserPanel& owner_;
     int hovered_ = -1;
-    bool dragging_ = false, draggedOut_ = false;
+    bool dragging_ = false;
     bool pressActed_ = false;
 };
 
@@ -528,14 +518,6 @@ void BrowserPanel::setRail(bool rail)
     repaint();
     if (unfolded && pendingPart_)
         showPart(*pendingPart_);
-}
-
-void BrowserPanel::setOverlay(bool overlay)
-{
-    if (overlay_ == overlay)
-        return;
-    overlay_ = overlay;
-    repaint();
 }
 
 void BrowserPanel::focusSearch()
@@ -1563,11 +1545,6 @@ void BrowserPanel::paint(juce::Graphics& g)
 {
     const auto& t = ui::Theme::current();
     g.fillAll(t.surface1);
-    if (overlay_)
-    {
-        g.setColour(t.line);
-        g.fillRect(getLocalBounds().removeFromRight(1));
-    }
 }
 
 void BrowserPanel::resized()

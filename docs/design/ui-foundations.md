@@ -249,6 +249,7 @@ The lints catch colours and fonts; they can't see a cramped or inconsistent layo
    - A control reuses the shared component (`IconButton`, `Toggle`, `NumberField`, `PanelHeader`, the track header kit) and its interaction: the hover lift, a right-click menu, a tooltip with the shortcut.
    - The same affordance looks the same everywhere (a chevron for something that opens).
    - A new variant goes into `fd_ui`, not into one view.
+   - A control that opens or closes something toggles once per click, on the press: the release doesn't repeat it, nor does a double-click, so a press held a moment never flashes it open and shut. A JUCE control that acts on its release too (a `ComboBox` opens its menu on both) handles the mouse itself (`PresetField`, the browser's rows). Its test holds the press a moment before releasing.
 6. **Aligned to the rhythm.** Items in a row share a centre line. Bars use `itemGap` within a group and `groupGap` between groups. Rows and sections start on the same edges as their neighbours.
 7. **Nothing without a reason to be there.**
    - State shows only when it matters: a take badge from two takes, a light only while lit.

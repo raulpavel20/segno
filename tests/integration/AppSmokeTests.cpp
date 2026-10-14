@@ -5144,3 +5144,48 @@ TEST_CASE(
     f.shell->finishAnimations();
     rollShot("a-minor");
 }
+
+TEST_CASE(
+    "presets: a click on the preset field opens the list once and keeps it open, however long it's held; "
+    "the next click closes it",
+    "[integration]")
+{
+    ShellFixture f;
+    juce::TemporaryFile folderName;
+    f.session->setPresetsFolder(folderName.getFile());
+    f.shell->setSize(1800, 1000);
+    // On screen, as in the app: JUCE's combo box only acts on a release over it in a window.
+    f.shell->addToDesktop(juce::ComponentPeer::windowIsTemporary);
+    f.shell->setVisible(true);
+    auto& s = *f.session;
+    const auto t0 = s.snapshot()->tracks[0].id;
+    REQUIRE(s.addDevice(t0, "fd:compressor") != 0);
+    s.updateSnapshotNow();
+    f.shell->arrangement().selectTrack(t0);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    const auto panels = findAll<fd::ui::DevicePanel>(f.shell->detail().chain());
+    REQUIRE(panels.size() == 1);
+    auto* bar = panels[0]->presetBar();
+    REQUIRE(bar != nullptr);
+    auto& field = bar->field();
+    const auto centre = field.getLocalBounds().getCentre().toFloat();
+    // A click held long enough for what the press started to run before the release.
+    const auto click = [&](int clicks)
+    {
+        field.mouseDown(
+            mouseEvent(field, centre, centre, false, juce::ModifierKeys::leftButtonModifier, clicks));
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(50);
+        field.mouseUp(
+            mouseEvent(field, centre, centre, false, juce::ModifierKeys::leftButtonModifier, clicks));
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(50);
+    };
+    REQUIRE_FALSE(bar->isListOpen());
+    click(1);
+    CHECK(bar->isListOpen());
+    click(2); // quickly after: still one toggle
+    CHECK_FALSE(bar->isListOpen());
+    click(3);
+    CHECK(bar->isListOpen());
+    bar->closeList(true);
+    f.shell->removeFromDesktop();
+}

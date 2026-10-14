@@ -21,7 +21,12 @@ public:
     std::function<void()> onOpen, onMenu;
 
     void showPopup() override;
+    /// One click, one toggle of the list, on the press. JUCE's combo box opens its menu on the
+    /// release too unless that menu is still showing; the list isn't its menu, so the release of
+    /// a press held a moment would toggle it a second time.
     void mouseDown(const juce::MouseEvent& e) override;
+    void mouseDrag(const juce::MouseEvent&) override {}
+    void mouseUp(const juce::MouseEvent&) override {}
     void paintOverChildren(juce::Graphics& g) override;
 
 private:

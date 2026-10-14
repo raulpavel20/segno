@@ -104,6 +104,19 @@ struct Browser
     }
     void settle() { juce::MessageManager::getInstance()->runDispatchLoopUntil(20); }
     const fd::model::TrackInfo& track(size_t i) { return r.session->snapshot()->tracks.at(i); }
+    /// A click on the rail's button for a part (its tooltip names it).
+    void railClick(const juce::String& part)
+    {
+        for (auto* c : panel().getChildren())
+            if (auto* button = dynamic_cast<fd::ui::IconButton*>(c);
+                button != nullptr && c->getName() == "browser part" && button->getTooltip() == part)
+            {
+                REQUIRE(button->isVisible());
+                button->onClick();
+                return;
+            }
+        FAIL("no rail button " << part);
+    }
 };
 
 std::vector<std::string> devicesOf(const fd::model::TrackInfo& t)
@@ -367,8 +380,7 @@ TEST_CASE("browser: Collect files and save; Search the browser and the menus", "
     CHECK(actions.conflicts().empty());
 }
 
-TEST_CASE("browser: at compact widths a rail, opening over the arrangement at a part; nothing touches",
-          "[integration]")
+TEST_CASE("browser: at compact widths a rail, opening docked at a part; nothing touches", "[integration]")
 {
     Browser b;
     auto& shell = *b.shell;
@@ -406,24 +418,23 @@ TEST_CASE("browser: at compact widths a rail, opening over the arrangement at a 
     b.settle();
     CHECK(p.isRail());
     const int arrangementX = shell.arrangement().getX();
-    shell.showBrowserOverlay(fd::app::BrowserPanel::Part::Instruments);
-    CHECK(shell.browserOverlayShown());
-    // It opens as the panel does, easing out of its rail; the toggle's button and the menu say
-    // it's open (one state, whichever way it opened).
+    b.railClick("Instruments");
+    // It opens as its toggle opens it, easing out of its rail; the toggle's button and the menu
+    // say it's open (one state, whichever way it opened).
     CHECK(p.isRail());
     CHECK(shell.actions().isToggled("view.browser"));
     shell.finishAnimations();
-    CHECK(shell.arrangement().getX() == arrangementX); // over it, not pushing it
     CHECK_FALSE(p.isRail());
     CHECK(p.getWidth() > fd::ui::Theme::current().shell.railWidth);
-    CHECK(p.getBounds().intersects(shell.arrangement().getBounds())); // over it
+    CHECK(shell.arrangement().getX() >= p.getRight()); // docked: the arrangement makes room
+    CHECK(shell.arrangement().getX() > arrangementX + 100);
     CHECK(b.shows("module:fd:sampler"));
     check();
     if (const char* dump = std::getenv("FD_DUMP_DIR"))
         dumpPng(
-            dump, "browser-overlay@2x.png",
+            dump, "browser-from-rail@2x.png",
             shell.createComponentSnapshot(shell.getLocalBounds().withWidth(p.getRight() + 40), true, 2.0f));
-    shell.closeBrowserOverlay();
+    REQUIRE(shell.actions().perform("view.browser")); // the toggle closes it
     CHECK_FALSE(p.isRail()); // it eases back into its rail, as it came out
     shell.finishAnimations();
     CHECK(p.isRail());
@@ -670,10 +681,10 @@ TEST_CASE(
     if (const char* dump = std::getenv("FD_DUMP_DIR"))
         dumpPng(dump, "browser-rail-racks@2x.png",
                 b.shell->createComponentSnapshot(p.getBounds(), true, 2.0f));
-    b.shell->showBrowserOverlay(fd::app::BrowserPanel::Part::Racks);
+    b.railClick("Racks");
     CHECK(b.isOpen("cat:racks"));
     CHECK(b.shows(heat));
-    b.shell->closeBrowserOverlay();
+    REQUIRE(b.shell->actions().perform("view.browser"));
 }
 
 namespace
@@ -752,10 +763,8 @@ TEST_CASE(
     CHECK(loaded == std::vector<std::string>{"module:fd:sampler"});
 }
 
-TEST_CASE(
-    "browser: opened from its rail, it's the one panel the toggle shows and closes; opened docked after, it "
-    "docks",
-    "[integration]")
+TEST_CASE("browser: opened from its rail, it docks as its toggle opens it, and the toggle closes it",
+          "[integration]")
 {
     Browser b;
     auto& shell = *b.shell;
@@ -767,38 +776,35 @@ TEST_CASE(
     REQUIRE_FALSE(shell.actions().isToggled("view.browser"));
     const int arrangementX = shell.arrangement().getX();
 
-    // From the rail: open, over the arrangement, and the toggle says so.
-    shell.showBrowserOverlay(fd::app::BrowserPanel::Part::Favourites);
+    // From the rail: open and docked, the arrangement making room, the toggle saying so.
+    b.railClick("Favourites");
     shell.finishAnimations();
-    CHECK(shell.browserOverlayShown());
     CHECK(shell.actions().isToggled("view.browser"));
-    CHECK(shell.arrangement().getX() == arrangementX);
+    CHECK_FALSE(p.isRail());
+    const int dockedX = shell.arrangement().getX();
+    CHECK(dockedX > arrangementX + 100);
+    CHECK(dockedX >= p.getRight());
 
-    // The toggle closes it (it doesn't dock the open panel a second time).
+    // The toggle closes it, and opens it again just as the rail did.
     REQUIRE(shell.actions().perform("view.browser"));
     CHECK_FALSE(shell.actions().isToggled("view.browser"));
-    CHECK_FALSE(shell.browserOverlayShown());
     shell.finishAnimations();
     CHECK(p.isRail());
     CHECK(shell.arrangement().getX() == arrangementX);
-
-    // The toggle again: docked, pushing the arrangement; the rail's icons then show its parts in it.
     REQUIRE(shell.actions().perform("view.browser"));
     shell.finishAnimations();
     CHECK(shell.actions().isToggled("view.browser"));
-    CHECK_FALSE(shell.browserOverlayShown());
-    CHECK(shell.arrangement().getX() > arrangementX + 100);
-    shell.showBrowserOverlay(fd::app::BrowserPanel::Part::Places);
-    CHECK_FALSE(shell.browserOverlayShown()); // docked already: it stays docked
+    CHECK(shell.arrangement().getX() == dockedX);
     REQUIRE(shell.actions().perform("view.browser"));
     shell.finishAnimations();
     CHECK(p.isRail());
 
-    // Floating, a click elsewhere closes it, and the toggle follows.
-    shell.showBrowserOverlay(fd::app::BrowserPanel::Part::Search);
+    // Search the browser (Ctrl+F) from the rail: it opens the same way, the keyboard in its search.
+    REQUIRE(shell.actions().perform("browser.search"));
     shell.finishAnimations();
-    CHECK(shell.browserOverlayShown());
-    shell.closeBrowserOverlay();
+    CHECK(shell.actions().isToggled("view.browser"));
+    CHECK(shell.arrangement().getX() == dockedX);
+    REQUIRE(shell.actions().perform("view.browser"));
     CHECK_FALSE(shell.actions().isToggled("view.browser"));
 
     // Focus mode hides the panels, and their toggles say so; a toggle then shows its panel and ends

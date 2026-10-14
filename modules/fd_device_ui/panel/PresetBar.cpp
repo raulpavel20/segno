@@ -83,7 +83,8 @@ void PresetField::mouseDown(const juce::MouseEvent& e)
             onMenu();
         return;
     }
-    juce::ComboBox::mouseDown(e);
+    if (isEnabled() && onOpen)
+        onOpen(); // the list, once: never ComboBox::mouseDown, whose release would open it again
 }
 
 void PresetField::paintOverChildren(juce::Graphics& g)

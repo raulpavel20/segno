@@ -30,8 +30,6 @@ public:
     /// The rail at compact widths (ui-principles §2).
     void setRail(bool rail);
     [[nodiscard]] bool isRail() const noexcept { return rail_; }
-    /// Over the arrangement (compact widths): an edge where it ends.
-    void setOverlay(bool overlay);
     /// Search the browser (Ctrl+F): the keyboard in the search.
     void focusSearch();
 
@@ -54,10 +52,8 @@ public:
     std::function<void(const std::string& item)> onLoad;
     /// Double-click on a project.
     std::function<void(const juce::File& project)> onOpenProject;
-    /// A rail button: the shell shows the panel over the arrangement, at that part.
+    /// A rail button: the shell opens the panel, at that part.
     std::function<void(Part part)> onRailOpen;
-    /// A drag left the panel (the overlay at compact widths closes).
-    std::function<void()> onDragOut;
     /// Escape with nothing to clear: the keyboard goes back to the arrangement.
     std::function<void()> onDone;
     /// The track a MIDI file's preview plays on (the selected one).
@@ -172,7 +168,7 @@ private:
     juce::Viewport viewport_;
     std::unique_ptr<Strip> strip_;
 
-    bool rail_ = false, overlay_ = false;
+    bool rail_ = false;
     std::optional<Part> pendingPart_; // asked for while folded to the rail: shown when it unfolds
     std::vector<std::pair<Part, std::unique_ptr<ui::IconButton>>> railButtons_;
     ui::IconButton expand_{ui::Icon::PanelLeft};

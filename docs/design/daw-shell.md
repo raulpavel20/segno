@@ -53,7 +53,7 @@ app/src/
   - below 1440 logical px wide, the browser collapses to its rail and the inspector closes (the overlay inspector comes in M3);
   - the user's explicit toggles win until the window crosses the threshold again.
 - **Focus mode** shows only the top bar and the centre view. The panels' toggles then show them closed; one shows its panel again and ends focus mode.
-- **A side panel's state is kept once** (`Shell::Panel`, changed only by `Shell::setPanel`): open or not, docked or floating over the arrangement (the browser from its rail). Every way of opening one, its toggle, the menu, a rail icon or a command that needs it, goes through it, and the toggle's button and the menu's tick read it, so they always say what's on screen.
+- **A side panel's state is kept once** (`Shell::Panel`, changed only by `Shell::setPanel`): open or not; a panel opens one way only, docked (the browser from its rail as from its toggle). Every way of opening one, its toggle, the menu, a rail icon or a command that needs it, goes through it, and the toggle's button and the menu's tick read it, so they always say what's on screen.
 - **The centre view** is the arrangement or the mixer view (M2 C3c, [mixer.md](mixer.md) §6), switched by the Arrange | Mix switch in the top bar or Ctrl+Alt+X.
 - Panel sizes are per window in M1; per project from C8.
 - Panels open and close with a 150 ms ease-out (instant with "reduce motion").

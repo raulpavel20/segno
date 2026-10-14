@@ -103,8 +103,7 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     // The browser (ADR 0046): what it holds goes where it's dropped, or on the selection.
     browser_.onLoad = [this](const std::string& item) { loadFromBrowser(item); };
     browser_.onOpenProject = [this](const juce::File& project) { openFile(project); };
-    browser_.onRailOpen = [this](BrowserPanel::Part part) { showBrowserOverlay(part); };
-    browser_.onDragOut = [this] { closeBrowserOverlay(); };
+    browser_.onRailOpen = [this](BrowserPanel::Part part) { showBrowserPart(part); };
     browser_.onDone = [this]
     {
         if (isShowing())
@@ -1391,9 +1390,9 @@ void Shell::registerActions()
                   .keys = {key('f', kCmd)},
                   .perform = [this]
                   {
-                      // Shown, then the keyboard in its search; folded to its rail, over the arrangement.
+                      // Shown, then the keyboard in its search; folded to its rail, it opens first.
                       if (browser_.isRail())
-                          showBrowserOverlay(BrowserPanel::Part::Search);
+                          showBrowserPart(BrowserPanel::Part::Search);
                       else
                           browser_.focusSearch();
                   }});
@@ -1735,28 +1734,11 @@ bool Shell::keyStateChanged(bool)
     return false;
 }
 
-void Shell::applyPanel(Panel& p, bool open, bool floating)
+void Shell::setPanel(Panel& p, bool open)
 {
-    p.open = open;
-    if (open)
-        p.floating = floating; // closing, it stays as it was until it's shut (onFrame)
-    if (&p == &browserPanel_)
-    {
-        if (open && floating)
-            browserOutside_.attach();
-        else
-            browserOutside_.detach();
-    }
-}
-
-void Shell::setPanel(Panel& p, bool open, bool floating)
-{
-    if (open && p.open && !p.floating)
-        floating = false; // docked already: it stays so
-    const bool changes = p.open != open || (open && p.floating != floating);
-    if (!changes && !(open && focusMode_))
+    if (p.open == open && !(open && focusMode_))
         return;
-    applyPanel(p, open, floating);
+    applyPanel(p, open);
     if (open)
         focusMode_ = false; // a panel asked for shows, whatever focus mode hid
     resized();
@@ -1865,7 +1847,7 @@ std::string Shell::viewState() const
         {"pixelsPerSecond", tl.pixelsPerSecond()},
         {"grid", model::gridsToViewState({arrangement_.grid(), detail_.pianoRoll().grid()})},
         {"follow", arrangement_.isFollowEnabled()},
-        {"browser", browserPanel_.open && !browserPanel_.floating}, // floating over the arrangement: not kept
+        {"browser", browserPanel_.open},
         {"inspector", inspectorPanel_.open},
         {"detail", detailPanel_.open},
         {"browserWidth", browserPanel_.size},
@@ -1895,9 +1877,9 @@ void Shell::applyViewState(const std::string& json)
     auto get = [&](const char* key, auto fallback) { return v.contains(key) ? v[key].get<decltype(fallback)>() : fallback; };
     arrangement_.setView(get("start", 0.0), get("pixelsPerSecond", arrangement_.timeline().pixelsPerSecond()));
     arrangement_.setFollowEnabled(get("follow", true));
-    applyPanel(browserPanel_, get("browser", browserPanel_.open && !browserPanel_.floating), false);
-    applyPanel(inspectorPanel_, get("inspector", inspectorPanel_.open), false);
-    applyPanel(detailPanel_, get("detail", detailPanel_.open), false);
+    applyPanel(browserPanel_, get("browser", browserPanel_.open));
+    applyPanel(inspectorPanel_, get("inspector", inspectorPanel_.open));
+    applyPanel(detailPanel_, get("detail", detailPanel_.open));
     browserPanel_.size = get("browserWidth", browserPanel_.size);
     inspectorPanel_.size = get("inspectorWidth", inspectorPanel_.size);
     clipViewHeight_ = get("clipViewHeight", clipViewHeight_);
@@ -2331,16 +2313,10 @@ void Shell::removeUnusedFiles()
                                  });
 }
 
-void Shell::showBrowserOverlay(BrowserPanel::Part part)
+void Shell::showBrowserPart(BrowserPanel::Part part)
 {
-    setPanel(browserPanel_, true, true);
+    openPanel(browserPanel_);
     browser_.showPart(part); // as soon as it's out of its rail
-}
-
-void Shell::closeBrowserOverlay()
-{
-    if (browserOverlayShown())
-        setPanel(browserPanel_, false);
 }
 
 void Shell::closeSettings()
@@ -2552,8 +2528,6 @@ void Shell::onFrame(double timestamp)
                 p->shown = target;
             relayout = true;
         }
-        if (!p->open && p->shown == 0.0f)
-            p->floating = false; // shut: it opens docked next time, unless asked otherwise
     }
     // The detail panel's height follows its mode: the device view's fixed height, or the clip
     // view's (resizable at its top edge).
@@ -2630,11 +2604,7 @@ void Shell::onFrame(double timestamp)
 void Shell::finishAnimations()
 {
     for (auto* p : {&browserPanel_, &inspectorPanel_, &detailPanel_})
-    {
         p->shown = p->open ? 1.0f : 0.0f;
-        if (!p->open)
-            p->floating = false;
-    }
     detailPanel_.size = detailHeight();
     resized();
 }
@@ -2738,8 +2708,7 @@ void Shell::resized()
         compact_ = compact;
         for (auto* p : {&browserPanel_, &inspectorPanel_})
         {
-            applyPanel(*p, !compact, false);
-            p->floating = false;
+            applyPanel(*p, !compact);
             p->shown = compact ? 0.0f : 1.0f;
         }
     }
@@ -2761,19 +2730,13 @@ void Shell::resized()
     detailSplit_.setVisible(detailH > 0 && detailPanel_.open && detail_.mode() != DetailPanel::Mode::Devices);
     detailSplit_.setBounds(detail_.getBounds().withHeight(5).translated(0, -3));
 
-    // The browser opens and closes the same way docked or floating over the arrangement (from its
-    // rail, browser.md §15): only where it takes its room differs.
+    // The browser folds to its rail (browser.md §15); the arrangement takes the room it leaves.
     const auto rail = static_cast<float>(ui::Theme::current().shell.railWidth);
     const float browserW = showSides ? rail + (browserPanel_.size - rail) * browserPanel_.shown : 0.0f;
-    const bool floating = browserPanel_.floating && browserW > 0.0f;
     browser_.setVisible(browserW > 0.0f);
     browser_.setRail(browserPanel_.shown < 0.5f);
-    browser_.setOverlay(floating && browserPanel_.shown > 0.0f);
-    const auto docked = r.removeFromLeft(juce::roundToInt(floating ? rail : browserW));
-    browser_.setBounds(docked.withWidth(juce::roundToInt(browserW)));
-    if (floating)
-        browser_.toFront(false);
-    browserSplit_.setVisible(showSides && browserPanel_.open && !floating);
+    browser_.setBounds(r.removeFromLeft(juce::roundToInt(browserW)));
+    browserSplit_.setVisible(showSides && browserPanel_.open);
     const int splitter = ui::Theme::current().shell.splitter;
     browserSplit_.setBounds(r.removeFromLeft(browserW > 0.0f ? 1 : 0).withWidth(splitter).translated(-splitter / 2, 0));
 
