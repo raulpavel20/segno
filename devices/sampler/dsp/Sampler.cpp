@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
+#include <fstream>
 #include <nlohmann/json.hpp>
 #include <random>
 
@@ -153,37 +154,57 @@ dsp::Adsr::Settings settings(const ParamStore& p, size_t attack, double sustainO
             sustainOverride >= 0.0 ? sustainOverride : p.get(attack + 2) * 0.01, p.get(attack + 3) * 0.001, false};
 }
 
-/// A short generated test sample for the conformance suite and snapshots: a decaying tone
-/// (A2 with harmonics), written once per process to the temp directory and removed at exit.
-const std::string& testSamplePath()
+/// A decaying tone with harmonics at `hz`, two channels.
+std::vector<std::vector<float>> testTone(double hz, double seconds, double rate)
 {
-    struct File
+    std::vector<std::vector<float>> ch(2, std::vector<float>(static_cast<size_t>(seconds * rate)));
+    for (size_t i = 0; i < ch[0].size(); ++i)
     {
-        std::string path;
-        ~File()
+        const double t = static_cast<double>(i) / rate;
+        const double env = std::exp(-t * 8.0) * std::min(1.0, t * 2000.0);
+        const double x = 0.5 * std::sin(dsp::twoPi * hz * t) +
+                         0.25 * std::sin(dsp::twoPi * 2.0 * hz * t + 0.3) +
+                         0.1 * std::sin(dsp::twoPi * 9.0 * hz * t);
+        ch[0][i] = static_cast<float>(env * x);
+        ch[1][i] = static_cast<float>(env * (0.8 * x + 0.05 * std::sin(dsp::twoPi * 15.0 * hz * t)));
+    }
+    return ch;
+}
+
+/// A generated multisample for the conformance suite and snapshots (ADR 0017's testSetup): an SFZ
+/// of three 16-bit tones, A2 below C3 and a round robin of two above it, written once per process
+/// to the temp directory and removed at exit.
+const std::string& testMapPath()
+{
+    struct Folder
+    {
+        std::filesystem::path path;
+        ~Folder()
         {
             std::error_code ec;
-            std::filesystem::remove(path, ec);
+            std::filesystem::remove_all(path, ec);
         }
     };
-    static const File file = [] {
+    static const Folder folder = []
+    {
         std::random_device rd;
-        File f{(std::filesystem::temp_directory_path() / ("fd-sampler-test-" + std::to_string(rd()) + ".wav")).string()};
+        Folder f{std::filesystem::temp_directory_path() / ("fd-sampler-test-" + std::to_string(rd()))};
+        std::filesystem::create_directories(f.path);
         constexpr double rate = 48000.0;
-        std::vector<std::vector<float>> ch(2, std::vector<float>(12000));
-        for (size_t i = 0; i < ch[0].size(); ++i)
-        {
-            const double t = static_cast<double>(i) / rate;
-            const double env = std::exp(-t * 8.0) * std::min(1.0, t * 2000.0);
-            const double x = 0.5 * std::sin(dsp::twoPi * 110.0 * t) + 0.25 * std::sin(dsp::twoPi * 220.0 * t + 0.3) +
-                             0.1 * std::sin(dsp::twoPi * 990.0 * t);
-            ch[0][i] = static_cast<float>(env * x);
-            ch[1][i] = static_cast<float>(env * (0.8 * x + 0.05 * std::sin(dsp::twoPi * 1650.0 * t)));
-        }
-        audiofile::writeWav(f.path, ch, rate, 45);
+        audiofile::writeWav((f.path / "Low A2.wav").string(), testTone(110.0, 1.0, rate), rate, 45, 16);
+        audiofile::writeWav((f.path / "High A3 1.wav").string(), testTone(220.0, 1.0, rate), rate, 57, 16);
+        audiofile::writeWav((f.path / "High A3 2.wav").string(), testTone(220.0 * 1.003, 1.0, rate), rate, 57,
+                            16);
+        std::ofstream((f.path / "Test.sfz").string())
+            << "<global> ampeg_release=0.05\n"
+               "<region> sample=Low A2.wav lokey=0 hikey=59 pitch_keycenter=a2\n"
+               "<group> lokey=60 hikey=127 pitch_keycenter=57 seq_length=2\n"
+               "<region> sample=High A3 1.wav seq_position=1\n"
+               "<region> sample=High A3 2.wav seq_position=2\n";
         return f;
     }();
-    return file.path;
+    static const std::string path = (folder.path / "Test.sfz").string();
+    return path;
 }
 } // namespace
 
@@ -202,13 +223,78 @@ Sampler::Region Sampler::regionFor(const ParamStore& p, int frames) noexcept
     const double len = r.end - r.start;
     const double minLoop = std::min(16.0, len);
     r.loopStart = std::min(r.start + p.get(LoopStart) * 0.01 * len, r.end - minLoop);
+    r.loopEnd = r.end;
     // The crossfade blends the loop's end with the material just before its start.
     r.crossfade = std::min({p.get(LoopXfade) * 0.01 * r.loopLength(), r.loopStart, r.loopLength() * 0.5});
     return r;
 }
 
+Sampler::Region Sampler::regionFor(const ParamStore& p, const SampleMap::Zone& zone) noexcept
+{
+    const int frames = zone.frames();
+    if (zone.start == 0 && zone.playEnd() == frames && !zone.loops)
+        return regionFor(p, frames); // one sample, or a zone that plays its whole file
+    Region r;
+    const double from = std::clamp(zone.start, 0, std::max(0, frames - 1));
+    const double to = std::max(from + 1.0, static_cast<double>(zone.playEnd()));
+    if (frames <= 0)
+        return r;
+    const double span = to - from;
+    double a = from + p.get(Start) * 0.01 * span, b = from + p.get(End) * 0.01 * span;
+    if (b < a)
+        std::swap(a, b);
+    r.start = std::clamp(a, from, to - 1.0);
+    r.end = std::clamp(b, r.start + 1.0, to);
+    const double len = r.end - r.start;
+    const double minLoop = std::min(16.0, len);
+    if (zone.loops)
+    {
+        // Its own loop, within what plays.
+        r.loopEnd =
+            std::clamp(static_cast<double>(zone.loopEnd), r.start + minLoop, static_cast<double>(frames));
+        r.loopStart = std::clamp(static_cast<double>(zone.loopStart), r.start, r.loopEnd - minLoop);
+    }
+    else
+    {
+        r.loopStart = std::min(r.start + p.get(LoopStart) * 0.01 * len, r.end - minLoop);
+        r.loopEnd = r.end;
+    }
+    r.crossfade = std::min({p.get(LoopXfade) * 0.01 * r.loopLength(), r.loopStart, r.loopLength() * 0.5});
+    return r;
+}
+
+std::vector<std::pair<size_t, float>> Sampler::settingsFor(const SampleMap& map)
+{
+    std::vector<std::pair<size_t, float>> out;
+    if (map.single)
+    {
+        if (!map.zones.empty() && map.zones[0].sample != nullptr && map.zones[0].sample->rootKey)
+            out.emplace_back(Root, static_cast<float>(*map.zones[0].sample->rootKey));
+        return out;
+    }
+    const auto& s = map.settings;
+    const auto ms = [](double seconds)
+    { return static_cast<float>(std::clamp(seconds * 1000.0, 0.5, 20000.0)); };
+    if (s.oneShot)
+        out.emplace_back(Mode, 1.0f);
+    if (s.loop)
+        out.emplace_back(Loop, 1.0f);
+    if (s.velocityToVolume)
+        out.emplace_back(VelAmp, static_cast<float>(std::clamp(*s.velocityToVolume, 0.0, 100.0)));
+    if (s.ampAttack)
+        out.emplace_back(AmpA, ms(*s.ampAttack));
+    if (s.ampDecay)
+        out.emplace_back(AmpD, ms(*s.ampDecay));
+    if (s.ampSustain)
+        out.emplace_back(AmpS, static_cast<float>(std::clamp(*s.ampSustain, 0.0, 100.0)));
+    if (s.ampRelease)
+        out.emplace_back(AmpR, ms(*s.ampRelease));
+    return out;
+}
+
 void Sampler::prepare(const ProcessSpec& spec)
 {
+    (void)dsp::SincKernels::instance(); // built here, never on the audio thread
     sampleRate_ = spec.sampleRate;
     fadeSamples_ = std::max(16, static_cast<int>(std::lround(0.0015 * sampleRate_)));
     for (auto& v : voice_)
@@ -225,8 +311,9 @@ void Sampler::reset() noexcept
     voices_.reset();
     for (auto& v : voice_)
     {
-        v.sample = {};
-        v.pos = 0.0;
+        v.map = {};
+        v.layers = {};
+        v.layerCount = 0;
         v.elapsed = 0;
         v.key = 60;
         v.channel = 0;
@@ -237,22 +324,21 @@ void Sampler::reset() noexcept
         v.fenv.reset();
         for (auto& f : v.filter)
             f.reset();
-        v.ratioFrom = v.ratioTo = 1.0;
         v.cutoffFrom = v.cutoffTo = 10.0;
         v.gainFrom = v.gainTo = 0.0f;
-        v.level = 0;
-        v.table = &dsp::SincKernels::instance().table(1.0);
         v.fadeRemaining = 0;
         v.pending = {};
         v.sounding = false;
     }
     if (old_.isSet())
     {
-        samples_.retire(old_);
+        maps_.retire(old_);
         old_ = {};
     }
     bend_ = {};
     lastPitch_ = 60.0;
+    choice_.reset(); // the same choices after every reset (SPEC, S5)
+    lastZone_ = -1;
     voices_.setVoiceCount(params().getInt(VoiceCount));
     voices_.setMode(static_cast<VoiceManager::Mode>(params().getInt(VoiceMode)));
 }
@@ -279,10 +365,15 @@ void Sampler::writeExtraState(nlohmann::json& extra) const
     if (path_.empty())
         return;
     extra["sample.path"] = path_;
-    if (const auto& s = samples_.latest())
+    if (const auto& m = maps_.latest())
     {
-        extra["sample.rate"] = s->sampleRate;
-        extra["sample.frames"] = s->frames;
+        if (!m->single)
+            extra["sample.zones"] = m->zones.size();
+        else if (!m->zones.empty() && m->zones[0].sample != nullptr)
+        {
+            extra["sample.rate"] = m->zones[0].sample->sampleRate;
+            extra["sample.frames"] = m->zones[0].sample->frames;
+        }
     }
 }
 
@@ -293,27 +384,37 @@ void Sampler::readExtraState(const nlohmann::json& extra)
         path = extra["sample.path"].get<std::string>();
 
     const std::scoped_lock lock(loaderMutex_);
-    if (path == path_ && error_.empty() && path.empty() == (samples_.latest() == nullptr))
+    if (path == path_ && error_.empty() && path.empty() == (maps_.latest() == nullptr))
         return; // already loaded
     path_ = path;
     error_.clear();
-    std::shared_ptr<const SampleData> data;
+    std::shared_ptr<const SampleMap> map;
     // A sound in the Library is stored by its place in it (ADR 0055), found on each machine; one
     // that isn't there says so.
     std::error_code ec;
     if (const auto file = library::resolve(path);
         library::isReference(path) && (file.empty() || !std::filesystem::is_regular_file(file, ec)))
         error_ = library::missingMessage(path);
+    else if (SampleMap::isSfz(path))
+        map = SampleMap::loadSfz(file.string(), &error_);
     else if (!path.empty())
-        data = SampleData::load(file.string(), &error_);
-    sampleSeconds_ = data != nullptr ? data->seconds() : 0.0;
-    samples_.publish(std::move(data));
+        if (auto data = SampleData::load(file.string(), &error_))
+            map = SampleMap::one(std::move(data));
+    sampleSeconds_ = map != nullptr ? map->longestSeconds() : 0.0;
+    maps_.publish(std::move(map));
+}
+
+std::shared_ptr<const SampleMap> Sampler::map() const
+{
+    const std::scoped_lock lock(loaderMutex_);
+    return maps_.latest();
 }
 
 std::shared_ptr<const SampleData> Sampler::sample() const
 {
     const std::scoped_lock lock(loaderMutex_);
-    return samples_.latest();
+    const auto& m = maps_.latest();
+    return m != nullptr && m->single && !m->zones.empty() ? m->zones[0].sample : nullptr;
 }
 
 std::string Sampler::loadError() const
@@ -338,11 +439,37 @@ void Sampler::voiceStart(int index, int key, float velocity, int channel, std::i
     startNote(v, key, velocity, channel, false);
 }
 
+void Sampler::chooseZones(Voice& v, int key, float velocity) noexcept
+{
+    v.layerCount = 0;
+    const auto* m = v.map.get();
+    if (m == nullptr)
+        return;
+    const int vel = std::clamp(static_cast<int>(std::lround(velocity * 127.0f)), 1, 127);
+    const auto turn = choice_.nextTurn(key);
+    const auto pick = choice_.nextPick();
+    std::array<int, SampleMap::maxChosen> chosen{};
+    const int count = m->choose(key, vel, turn, pick, chosen);
+    for (int n = 0; n < count; ++n)
+    {
+        const auto& z = m->zones[static_cast<size_t>(chosen[static_cast<size_t>(n)])];
+        auto& l = v.layers[static_cast<size_t>(v.layerCount++)];
+        l = {};
+        l.zone = &z;
+        l.zoneIndex = chosen[static_cast<size_t>(n)];
+        l.pos = regionFor(params(), z).start;
+        l.active = true;
+        l.table = &dsp::SincKernels::instance().table(1.0);
+    }
+    if (v.layerCount > 0)
+        lastZone_ = v.layers[0].zoneIndex;
+}
+
 void Sampler::startNote(Voice& v, int key, float velocity, int channel, bool released) noexcept
 {
     const bool mono = voices_.mode() != VoiceManager::Mode::Poly;
     const double from = mono && v.sounding ? v.glidePitch : lastPitch_;
-    v.sample = current_;
+    v.map = current_;
     v.key = key;
     v.velocity = velocity;
     v.channel = channel & 15;
@@ -362,8 +489,7 @@ void Sampler::startNote(Voice& v, int key, float velocity, int channel, bool rel
     v.glideRate = glideSec > 0.0 ? std::abs(v.glideTarget - from) / (glideSec * sampleRate_) : 0.0;
     lastPitch_ = key;
 
-    const auto* s = v.sample.get();
-    v.pos = s != nullptr ? regionFor(params(), s->frames).start : 0.0;
+    chooseZones(v, key, velocity);
     v.sounding = true;
     updateControls(v, true);
     if (released)
@@ -418,7 +544,8 @@ bool Sampler::endSound(Voice& v) noexcept
     }
     v.sounding = false;
     v.fadeRemaining = 0;
-    v.sample = {};
+    v.map = {};
+    v.layerCount = 0;
     voices_.voiceFinished(static_cast<int>(&v - voice_.data()));
     return false;
 }
@@ -426,35 +553,43 @@ bool Sampler::endSound(Voice& v) noexcept
 void Sampler::updateControls(Voice& v, bool snap) noexcept
 {
     const auto& p = params();
-    v.ratioFrom = v.ratioTo;
     v.cutoffFrom = v.cutoffTo;
     v.gainFrom = v.gainTo;
-    const auto* s = v.sample.get();
-    if (s == nullptr)
+    const auto* m = v.map.get();
+    if (m == nullptr)
         return;
 
     const double pitch = v.glidePitch + bend_[static_cast<size_t>(v.channel)] * p.get(VoiceBend);
-    const double shift = std::clamp(pitch + p.get(Transpose) + p.get(Detune) * 0.01 - p.get(Root),
-                                    -maxShiftSemitones, maxShiftSemitones);
-    v.ratioTo = std::exp2(shift / 12.0) * s->sampleRate / sampleRate_;
     v.cutoffTo = std::log2(p.get(FilterCutoff)) + p.get(FilterKey) * 0.01 * (pitch - 60.0) / 12.0;
     v.gainTo = dsp::dbToGain(p.get(Gain), -70.0f) * (1.0f - p.get(VelAmp) * 0.01f * (1.0f - v.velocity));
     if (snap)
     {
-        v.ratioFrom = v.ratioTo;
         v.cutoffFrom = v.cutoffTo;
         v.gainFrom = v.gainTo;
     }
-
-    // The smallest level that never reads more than twice its rate; the kernel stretches
-    // for the rest (dsp::SincKernels).
-    const double fastest = std::max(v.ratioFrom, v.ratioTo);
-    const int levels = static_cast<int>(s->levels.size());
-    int level = 0;
-    while (level + 1 < levels && fastest / std::exp2(level) > 2.0)
-        ++level;
-    v.level = level;
-    v.table = &dsp::SincKernels::instance().table(fastest / std::exp2(level));
+    for (int i = 0; i < v.layerCount; ++i)
+    {
+        auto& l = v.layers[static_cast<size_t>(i)];
+        const auto* s = l.zone->sample.get();
+        // One sample plays at Root Key; a zone at its own root (SPEC, S3).
+        const double root = m->single ? p.get(Root) : l.zone->root;
+        const double shift =
+            std::clamp(pitch + p.get(Transpose) + p.get(Detune) * 0.01 + l.zone->tune * 0.01 - root,
+                       -maxShiftSemitones, maxShiftSemitones);
+        l.ratioFrom = l.ratioTo;
+        l.ratioTo = std::exp2(shift / 12.0) * s->sampleRate / sampleRate_;
+        if (snap)
+            l.ratioFrom = l.ratioTo;
+        // The smallest level that never reads more than twice its rate; the kernel stretches
+        // for the rest (dsp::SincKernels).
+        const double fastest = std::max(l.ratioFrom, l.ratioTo);
+        const int levels = static_cast<int>(s->levels.size());
+        int level = 0;
+        while (level + 1 < levels && fastest / std::exp2(level) > 2.0)
+            ++level;
+        l.level = level;
+        l.table = &dsp::SincKernels::instance().table(fastest / std::exp2(level));
+    }
 }
 
 void Sampler::handleEvent(const Event& e) noexcept
@@ -509,25 +644,25 @@ void Sampler::tick() noexcept
     }
 }
 
-void Sampler::takeNewSample() noexcept
+void Sampler::takeNewMap() noexcept
 {
     if (old_.isSet())
     {
         const bool used = std::any_of(voice_.begin(), voice_.end(),
-                                      [&](const Voice& v) { return v.sounding && v.sample == old_; });
+                                      [&](const Voice& v) { return v.sounding && v.map == old_; });
         if (used)
             return; // the previous swap is still fading out
-        samples_.retire(old_);
+        maps_.retire(old_);
         old_ = {};
     }
-    const auto fresh = samples_.takeNew();
+    const auto fresh = maps_.takeNew();
     if (!fresh.isSet())
         return;
     old_ = current_;
     current_ = fresh;
     if (old_.isSet())
         for (auto& v : voice_)
-            if (v.sounding && v.sample == old_ && v.fadeRemaining == 0)
+            if (v.sounding && v.map == old_ && v.fadeRemaining == 0)
                 v.fadeRemaining = fadeSamples_; // swapped out from under the voice: fade, then stop
 }
 
@@ -545,25 +680,27 @@ void Sampler::renderVoice(Voice& v, float* outL, float* outR, int from, int to, 
     const double fadeIn = p.get(FadeIn) * 0.001 * sampleRate_;
     const double fadeOut = p.get(FadeOut) * 0.001 * sampleRate_;
 
-    // Sample-dependent state, refreshed when a pending note starts mid-segment.
-    const SampleData* s = nullptr;
-    Region region;
-    bool looping = false;
-    double scale = 1.0;
-    auto refresh = [&] {
-        s = v.sample.get();
-        if (s == nullptr)
-            return;
-        region = regionFor(p, s->frames);
-        looping = loopOn && region.loopLength() >= 2.0;
-        scale = 1.0 / std::exp2(v.level);
+    // Each layer's region, refreshed when a pending note starts mid-segment.
+    std::array<Region, maxLayers> region{};
+    std::array<bool, maxLayers> looping{};
+    std::array<double, maxLayers> scale{};
+    auto refresh = [&]
+    {
+        for (int i = 0; i < v.layerCount; ++i)
+        {
+            const auto& l = v.layers[static_cast<size_t>(i)];
+            region[static_cast<size_t>(i)] = regionFor(p, *l.zone);
+            looping[static_cast<size_t>(i)] = loopOn && region[static_cast<size_t>(i)].loopLength() >= 2.0;
+            scale[static_cast<size_t>(i)] = 1.0 / std::exp2(l.level);
+        }
     };
     refresh();
 
-
     for (int i = from; i < to; ++i)
     {
-        if (s == nullptr)
+        const bool playing = std::any_of(v.layers.begin(), v.layers.begin() + v.layerCount,
+                                         [](const Layer& l) { return l.active; });
+        if (!playing)
         {
             if (!endSound(v))
                 return;
@@ -571,33 +708,60 @@ void Sampler::renderVoice(Voice& v, float* outL, float* outR, int from, int to, 
             continue;
         }
         const double t = static_cast<double>(phase + (i - from) + 1) / interval;
-        const double ratio = v.ratioFrom + t * (v.ratioTo - v.ratioFrom);
         float gain = v.gainFrom + static_cast<float>(t) * (v.gainTo - v.gainFrom);
 
-        const auto& table = *v.table;
-        const float* d0 = s->data(v.level, 0);
-        const float* d1 = s->data(v.level, 1);
-        float xl = dsp::SincKernels::read(table, d0, v.pos * scale);
-        float xr = s->numChannels > 1 ? dsp::SincKernels::read(table, d1, v.pos * scale) : xl;
-        if (looping && region.crossfade > 0.0 && v.pos >= region.end - region.crossfade)
+        // The layers, summed; one layer's end fades on the voice's gain, as one sample's always has.
+        float xl = 0.0f, xr = 0.0f;
+        float endFade = 1.0f;
+        for (int n = 0; n < v.layerCount; ++n)
         {
-            // Equal-power blend of the loop's end with the material before the loop start.
-            const double u = (v.pos - (region.end - region.crossfade)) / region.crossfade;
-            const double back = (v.pos - region.loopLength()) * scale;
-            const float bl = dsp::SincKernels::read(table, d0, back);
-            const float br = s->numChannels > 1 ? dsp::SincKernels::read(table, d1, back) : bl;
-            const auto a = static_cast<float>(std::cos(u * dsp::pi * 0.5));
-            const auto b = static_cast<float>(std::sin(u * dsp::pi * 0.5));
-            xl = a * xl + b * bl;
-            xr = a * xr + b * br;
+            auto& l = v.layers[static_cast<size_t>(n)];
+            if (!l.active)
+                continue;
+            const auto& r = region[static_cast<size_t>(n)];
+            const bool loops = looping[static_cast<size_t>(n)];
+            const double sc = scale[static_cast<size_t>(n)];
+            const auto& s = *l.zone->sample;
+            const double ratio = l.ratioFrom + t * (l.ratioTo - l.ratioFrom);
+            const auto& table = *l.table;
+            float yl = s.read(table, l.level, 0, l.pos * sc);
+            float yr = s.numChannels > 1 ? s.read(table, l.level, 1, l.pos * sc) : yl;
+            if (loops && r.crossfade > 0.0 && l.pos >= r.loopEnd - r.crossfade)
+            {
+                // Equal-power blend of the loop's end with the material before the loop start.
+                const double u = (l.pos - (r.loopEnd - r.crossfade)) / r.crossfade;
+                const double back = (l.pos - r.loopLength()) * sc;
+                const float bl = s.read(table, l.level, 0, back);
+                const float br = s.numChannels > 1 ? s.read(table, l.level, 1, back) : bl;
+                const auto a = static_cast<float>(std::cos(u * dsp::pi * 0.5));
+                const auto b = static_cast<float>(std::sin(u * dsp::pi * 0.5));
+                yl = a * yl + b * bl;
+                yr = a * yr + b * br;
+            }
+            float layerGain = l.zone->gain;
+            if (!loops && fadeOut > 0.0)
+            {
+                const auto fade = static_cast<float>(std::clamp((r.end - l.pos) / ratio / fadeOut, 0.0, 1.0));
+                if (v.layerCount == 1)
+                    endFade = fade;
+                else
+                    layerGain *= fade;
+            }
+            xl += yl * layerGain;
+            xr += yr * layerGain;
+
+            l.pos += ratio;
+            if (loops && l.pos >= r.loopEnd)
+                l.pos -= r.loopLength();
+            else if (!loops && l.pos >= r.end)
+                l.active = false;
         }
 
         gain *= v.amp.next();
         const float fenv = v.fenv.next();
         if (v.elapsed < fadeIn)
             gain *= static_cast<float>((v.elapsed + 1) / fadeIn);
-        if (!looping && fadeOut > 0.0)
-            gain *= static_cast<float>(std::clamp((region.end - v.pos) / ratio / fadeOut, 0.0, 1.0));
+        gain *= endFade;
         if (v.fadeRemaining > 0)
             gain *= static_cast<float>(v.fadeRemaining) / static_cast<float>(fadeSamples_);
 
@@ -611,19 +775,16 @@ void Sampler::renderVoice(Voice& v, float* outL, float* outR, int from, int to, 
         outL[i] += xl * gain;
         if (outR != nullptr)
             outR[i] += xr * gain;
-
-        v.pos += ratio;
         ++v.elapsed;
 
         bool ended = false;
         if (v.fadeRemaining > 0 && --v.fadeRemaining == 0)
             ended = true; // stolen or swapped: the faded sound is over
-        else if (looping && v.pos >= region.end)
-            v.pos -= region.loopLength();
-        else if (!looping && v.pos >= region.end)
-            ended = true;
         else if (!v.amp.isActive())
             ended = true;
+        else
+            ended = std::none_of(v.layers.begin(), v.layers.begin() + v.layerCount,
+                                 [](const Layer& l) { return l.active; });
         if (ended)
         {
             if (!endSound(v))
@@ -644,7 +805,7 @@ void Sampler::process(ProcessContext& ctx) noexcept
     if (outR != nullptr)
         std::fill(outR, outR + n, 0.0f);
 
-    takeNewSample();
+    takeNewMap();
 
     const EventList* events = ctx.events;
     size_t nextEvent = 0;
@@ -678,10 +839,19 @@ void Sampler::process(ProcessContext& ctx) noexcept
     analysis().publish(ActiveVoices, static_cast<float>(voices_.activeVoices()));
     int slot = 0;
     for (const auto& v : voice_)
-        if (v.sounding && v.sample && slot < numPlayheads)
-            analysis().publish(FirstPlayhead + slot++, static_cast<float>(v.pos / v.sample->frames));
+        if (v.sounding && v.layerCount > 0 && v.layers[0].active && slot < numPlayheads)
+        {
+            const auto& l = v.layers[0];
+            analysis().publish(FirstPlayhead + slot,
+                               static_cast<float>(l.pos / std::max(1, l.zone->frames())));
+            analysis().publish(FirstPlayheadZone + slot++, static_cast<float>(l.zoneIndex));
+        }
     for (; slot < numPlayheads; ++slot)
+    {
         analysis().publish(FirstPlayhead + slot, -1.0f);
+        analysis().publish(FirstPlayheadZone + slot, -1.0f);
+    }
+    analysis().publish(LastZone, static_cast<float>(lastZone_));
 }
 
 const DeviceFactory& samplerFactory()
@@ -689,7 +859,7 @@ const DeviceFactory& samplerFactory()
     static const DeviceFactory factory{
         .info = []() -> const DeviceInfo& { return kInfo; },
         .create = []() -> std::unique_ptr<Device> { return std::make_unique<Sampler>(); },
-        .testSetup = [](Device& d) { d.readExtraState({{"sample.path", testSamplePath()}}); },
+        .testSetup = [](Device& d) { d.readExtraState({{"sample.path", testMapPath()}}); },
     };
     return factory;
 }

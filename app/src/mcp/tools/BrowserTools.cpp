@@ -24,6 +24,8 @@ const char* kindName(Kind k)
         return "plugin";
     case Kind::Sample:
         return "sample";
+    case Kind::Multisample:
+        return "multisample";
     case Kind::Wavetable:
         return "wavetable";
     case Kind::Midi:
@@ -75,6 +77,8 @@ Json fileJson(engine::Session& s, const juce::File& file, Kind kind)
     }
     if (const auto* f = indexed(s, path(file)); f != nullptr && kind == Kind::Wavetable && f->frames > 0)
         j["frames"] = f->frames;
+    if (const auto* f = indexed(s, path(file)); f != nullptr && kind == Kind::Multisample && f->zones > 0)
+        j["zones"] = f->zones;
     return j;
 }
 } // namespace
@@ -92,17 +96,22 @@ void addBrowserTools(Registry& registry, ToolEnv& env)
         env,
         {"search", "Search the browser",
          "What the person's browser finds for some words: our modules, their presets, plugins, and the "
-         "samples, wavetables, MIDI files, projects and folders in the browser's places (the project's "
+         "samples, multisamples (SFZ files), wavetables, MIDI files, projects and folders in the browser's "
+         "places (the project's "
          "folder, Segno's Library of sounds and factory tables, the person's Segno folder shown as User "
          "library, folders the person added). Every word must match a name, tag, module, folder or "
          "description. Each result has an id: add_module takes a module's or plugin's type and a preset's "
-         "id (preset), insert_audio_file and insert_midi_file a file's path, set_wavetable a wavetable's "
-         "path (a Library table's sets its factory table), preview any sample, wavetable, MIDI file or "
+         "id (preset), insert_audio_file and insert_midi_file a file's path, load_sample a sample's or a "
+         "multisample's, set_wavetable a wavetable's "
+         "path (a Library table's sets its factory table), preview any sample, multisample, wavetable, MIDI "
+         "file or "
          "instrument preset.",
          object(
              {{"query", string("Words to find")},
-              {"kinds", arrayOf(string("module, preset, plugin, sample, wavetable, midi, project or folder"),
-                                "Only these kinds")},
+              {"kinds",
+               arrayOf(
+                   string("module, preset, plugin, sample, multisample, wavetable, midi, project or folder"),
+                   "Only these kinds")},
               {"limit", integer("At most this many results (20)", 1, 200)}},
              {"query"}),
          result({{"results", arrayOf(result({{"id", string("")}, {"kind", string("")}, {"name", string("")}}),
@@ -201,7 +210,7 @@ void addBrowserTools(Registry& registry, ToolEnv& env)
          "Plays something from the browser for the person, as selecting it would: a sample (in time with the "
          "song "
          "while it plays, when it's a loop that fits its tempo), a wavetable file on a held "
-         "note, a MIDI file on the track live MIDI plays, "
+         "note, a multisample (SFZ) in a short phrase, a MIDI file on the track live MIDI plays, "
          "or a short "
          "phrase with an instrument preset. Previews are never recorded or exported. stop: true stops it.",
          object({{"item", string("A result's id (search), or a file's absolute path")},
@@ -237,6 +246,13 @@ void addBrowserTools(Registry& registry, ToolEnv& env)
             {
                 if (!s.previewWavetable(file))
                     throw Problem{path(file) + " isn't a table Segno can read."};
+                out["playing"] = true;
+                return ToolResult::ok(out);
+            }
+            if (*kind == Kind::Multisample)
+            {
+                if (!s.previewMultisample(file))
+                    throw Problem{path(file) + " has no zones the Sampler can play."};
                 out["playing"] = true;
                 return ToolResult::ok(out);
             }

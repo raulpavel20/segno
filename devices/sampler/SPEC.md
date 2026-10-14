@@ -1,6 +1,6 @@
 # Sampler: device spec
 
-- **Status:** Approved by the product owner (2026-10-10, with the M1 sign-off); IDs are permanent. Stage 2, Multisample, brought forward for the factory presets ([factory-library.md](../../docs/design/factory-library.md), ADR 0055): **for review** (S1–S13)
+- **Status:** Approved by the product owner (2026-10-10, with the M1 sign-off); IDs are permanent. Stage 2, Multisample, brought forward for the factory presets ([factory-library.md](../../docs/design/factory-library.md), ADR 0055): approved by the product owner (2026-10-14) with every recommendation of S1–S13; built the same day (what building settled is under "Settled while building (stage 2)")
 - **Type:** Instrument
 - **Tier / milestone:** Tier 1, M1 (classic/one-shot) → M3 (multisample, brought forward) → M4 (slice) → M5 (zone editing)
 - **Live target:** Simpler (M1, M4), Sampler (M5). References only ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
@@ -97,7 +97,7 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 
 | Section | Controls |
 |---|---|
-| `sample` SAMPLE [6] | Waveform (0, 0, 6 × 6): file name and length; dimmed outside Start–End; loop tint; draggable S, E and L markers; live playheads |
+| `sample` SAMPLE [6] | One sample: Waveform (0, 0, 6 × 6): file name and length; dimmed outside Start–End; loop tint; draggable S, E and L markers; live playheads. A multisample (stage 2): Zones (0, 0, 6 × 4) above the last zone's Waveform (0, 4, 6 × 2) |
 | `pitch` PITCH [1] | Transpose (0, 0) · Detune (0, 3) |
 | `level` LEVEL [1] | Gain (0, 0) · Velocity → Volume (0, 3) |
 | `region` REGION [4] | [Classic \| One-shot] (0, 0, 2 cells per button) · Loop (0, 1, 2 wide), Gate (2, 1, 2 wide): the one the mode ignores is dimmed · Start bar (0, 2, 2 wide), End bar (2, 2, 2 wide) · Loop Start (0, 3), X-Fade (1, 3) |
@@ -110,7 +110,7 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 - Drop a file anywhere on the panel to load it, or click the empty waveform (or double-click a loaded one) to browse. An empty Sampler shows "Drop a sample, or click to browse".
 - Dropping onto a track in the DAW comes with the DAW slice (C4/C7).
 
-## Stage 2: Multisample (for review)
+## Stage 2: Multisample (approved 2026-10-14)
 
 Brought forward from M5 for the factory presets ([factory-library.md](../../docs/design/factory-library.md) §4, L8). An orchestral instrument is recorded every few notes at a few loudnesses; it needs **zones**: which sample plays for which key and velocity. One sample stays what it is: a single zone across the keyboard.
 
@@ -230,6 +230,43 @@ On the module grid, in the SAMPLE section (6 × 6), nothing else moves:
 | S11 | **The browser** | SFZ files a kind of their own, Multisamples, previewed with the presets' phrase, dropped as a sample is |
 | S12 | **MCP** | `load_sample` takes SFZ; `get_zones` new; `search` finds multisamples |
 | S13 | **Not now** | Zone editing, groups, crossfades, several dropped files made into one instrument, streaming: M5, with the zone editor in the detail panel |
+
+## Settled while building (stage 2, 2026-10-14)
+
+- **The engine:**
+  - A voice plays up to four zones, its **layers**, through one amp envelope, one filter envelope and one filter. Pitch and level are each layer's own.
+  - One sample is a map of one zone across every key and velocity, played by the same voices. Its renders are unchanged: its end fades on the voice's gain as before, and the golden metrics pass untouched.
+  - Choosing zones is a pure function (`SampleMap::choose`), with the turns of each key and a xorshift generator in `SampleMap::Choice`, reset with the Sampler.
+  - A region has its own loop end now, so a zone's loop from its file can end before the zone does.
+- **Reading SFZ:**
+  - **No loss, so not named:** labels (`*_label`) and ARIA's `ampeg_dynamic`.
+  - **Leaves its region out, and named:** what plays only on a condition the Sampler doesn't read: key switches (`sw_*`), controller ranges (`loccN`, `hiccN`, `on_loccN`…), `trigger` other than attack, generators (`sample=*sine`).
+  - **Named, its opcodes skipped:** headers other than control, global, master, group and region (`<curve>`, `<effect>`).
+  - `#define` is read; `#include` is named.
+  - **The whole file's envelope and velocity:** what most regions say, since the Sampler has one envelope. VSCO's percussion: 134 of its 220 regions release over 3 s, the rest over 0.3, 6 or 8 s; 3 s is set (and a one-shot plays to its end anyway).
+  - **Mode and Loop:** a file whose every region is `one_shot` sets One-shot; one whose every region loops turns Loop on.
+- **Memory and loading:**
+  - One sample keeps floats and every level, as it always has: its memory was never the problem, and its sound stays the same.
+  - A multisample's zones keep a 16-bit file as 16-bit and one half-rate copy.
+  - The decode cache is keyed by path, change time, size and how the file is held. It holds files only while a Sampler does.
+  - The zones load on as many threads as the machine has.
+  - **Measured in Release:** 50 zones of 8-second stereo 16-bit WAV in **143 ms**, holding 115 MB. FLAC, the Library's format, is to be measured with the Library (factory-library.md §8, phase 3).
+- **The analysis bus** has 32 slots, not 16: the Sampler's playheads' zones (10–17) and the zone the last note started (18).
+- **The panel:**
+  - The SAMPLE section is placed again on the grid when the sound changes between one sample and a multisample.
+  - The zone map's line reads "Strings · 48 zones · 1 missing · 1 ignored". Its tooltip names the missing files and the ignored settings.
+  - Root Key dims for a multisample.
+  - Start, End and Loop Start dragged on the last zone's waveform set every zone's, in proportion. A zone's own loop shows without its L marker.
+- **What the file sets, and undo:**
+  - **In the DAW** (`Session::loadSample`: drops, double-clicks, MCP, the menu): one undo step, "Load sample Strings", with what the file sets. The file is read before it's put in, so a file that can't play changes nothing, and it isn't decoded twice.
+  - **From the panel:** "Load sample Strings", then "Settings from Strings", as the root key always was.
+- **The conformance suite** now loads a generated three-zone SFZ (16-bit tones, a round robin of two), so the suite and the snapshots exercise the multisample path. The layout lint also checks one sample's layout.
+- **The browser:**
+  - Multisamples are a kind of their own, between samples and wavetables.
+  - The preview strip reads "A short phrase · 22 zones", as a preset's does.
+  - A multisample never becomes a clip: on a track, a Sampler with it.
+- **MCP:** `get_zones` gives keys and velocities as low and high (`{"low": "C-2", "high": "B2"}`), since a range written "C-2-B2" can't be read.
+- **Tests:** VSCO 2 CE's four SFZ maps (CC0) are kept in `devices/sampler/tests/data`, read with nothing ignored.
 
 ## Factory presets
 

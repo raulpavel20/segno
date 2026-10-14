@@ -357,6 +357,9 @@ private:
             return "A short phrase" + dot() + row_->caption;
         if (row_->kind == Kind::Wavetable)
             return juce::String("On a held C3, through a Wavetable of its own");
+        if (row_->kind == Kind::Multisample) // as a preset's, through a Sampler of its own
+            return row_->caption.isEmpty() ? juce::String("A short phrase")
+                                           : "A short phrase" + dot() + row_->caption;
         if (row_->kind == Kind::Midi)
             return owner_.selectedTrack && owner_.selectedTrack() &&
                            owner_.session_.instrumentOf(*owner_.selectedTrack())
@@ -891,6 +894,8 @@ void BrowserPanel::addFolderRows(const juce::File& folder, int depth, bool segno
             r.caption = lengthText(it->second->seconds);
         else if (it != indexed.end() && r.kind == Kind::Wavetable && it->second->frames > 0)
             r.caption = juce::String(it->second->frames) + (it->second->frames == 1 ? " frame" : " frames");
+        else if (it != indexed.end() && r.kind == Kind::Multisample && it->second->zones > 0)
+            r.caption = juce::String(it->second->zones) + (it->second->zones == 1 ? " zone" : " zones");
         rows_.push_back(r);
     }
 }
@@ -1022,7 +1027,8 @@ void BrowserPanel::selectIndex(int index, bool previewIt)
 bool BrowserPanel::previewable(const Row& row) const
 {
     if (row.type == Row::Type::File)
-        return row.kind == Kind::Sample || row.kind == Kind::Wavetable || row.kind == Kind::Midi;
+        return row.kind == Kind::Sample || row.kind == Kind::Multisample || row.kind == Kind::Wavetable ||
+               row.kind == Kind::Midi;
     if (row.type == Row::Type::Preset)
         if (const auto ref = browser::parse(row.item))
             if (const auto* f = findDevice(ref->key.substr(3)))
@@ -1036,6 +1042,8 @@ void BrowserPanel::preview(const Row& row)
         (void)session_.previewFile(row.file);
     else if (row.type == Row::Type::File && row.kind == Kind::Wavetable)
         (void)session_.previewWavetable(row.file); // on a held note (table-editor.md §7)
+    else if (row.type == Row::Type::File && row.kind == Kind::Multisample)
+        (void)session_.previewMultisample(row.file); // the presets' phrase (devices/sampler/SPEC.md, S11)
     else if (row.type == Row::Type::File && row.kind == Kind::Midi)
         (void)session_.previewMidiFile(row.file, selectedTrack ? selectedTrack().value_or(0) : 0);
     else if (const auto ref = browser::parse(row.item); ref && ref->kind == Kind::Preset)
@@ -1160,10 +1168,10 @@ juce::var BrowserPanel::dragDescription(const std::string& id) const
     if (i < 0)
         return {};
     const auto& row = rows_[static_cast<size_t>(i)];
-    const bool puts = row.type == Row::Type::Module || row.type == Row::Type::Preset ||
-                      row.type == Row::Type::Plugin ||
-                      (row.type == Row::Type::File &&
-                       (row.kind == Kind::Sample || row.kind == Kind::Wavetable || row.kind == Kind::Midi));
+    const bool puts =
+        row.type == Row::Type::Module || row.type == Row::Type::Preset || row.type == Row::Type::Plugin ||
+        (row.type == Row::Type::File && (row.kind == Kind::Sample || row.kind == Kind::Multisample ||
+                                         row.kind == Kind::Wavetable || row.kind == Kind::Midi));
     return puts ? juce::var(juce::String(std::string(browser::dragPrefix)) + text(row.item)) : juce::var();
 }
 

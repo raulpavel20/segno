@@ -287,6 +287,8 @@ Cut, Copy and Paste have their place at the top of the second group once there's
 | Edit wavetable | | *new* (`module.editWavetable`, [table-editor.md](table-editor.md) §8, §11): opens the table editor below the module, ticked while it's open; chosen again, closes it (as the × on its tab does). Also a double-click on the table display. Dimmed unless a Wavetable is selected, as the two below |
 | Import wavetable… | | *new* (`module.importWavetable`): a table loads on the oscillator OSC shows; audio opens the way chooser |
 | Export wavetable… | | *new* (`module.exportWavetable`): WAV or `.wt`, into Segno/Wavetables. Ctrl+Shift+E stays File > Export |
+| — | | |
+| Load sample… | | *new* (`module.loadSample`, [devices/sampler/SPEC.md](../../devices/sampler/SPEC.md) S10): a sample or an SFZ file into the selected Sampler, with what the file sets. Also a click on the Sampler's empty display, or a double-click on a loaded one. Dimmed unless a Sampler is selected |
 
 **Transport**
 

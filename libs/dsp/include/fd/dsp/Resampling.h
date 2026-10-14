@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <span>
 #include <vector>
 
@@ -40,23 +41,35 @@ public:
     /// `src[floor(pos) + padding]` must be readable.
     [[nodiscard]] static float read(const Table& t, const float* src, double pos) noexcept
     {
+        return readAny(t, src, pos);
+    }
+    /// The same for 16-bit samples, read as their value / 32768 (a 16-bit file kept as it is).
+    [[nodiscard]] static float read(const Table& t, const std::int16_t* src, double pos) noexcept
+    {
+        return readAny(t, src, pos) * (1.0f / 32768.0f);
+    }
+
+private:
+    template <typename T>
+    [[nodiscard]] static float readAny(const Table& t, const T* src, double pos) noexcept
+    {
         const double base = std::floor(pos);
         const double ph = (pos - base) * phases;
         const int p = static_cast<int>(ph);
         const float mix = static_cast<float>(ph - p);
         const float* h0 = t.data.data() + static_cast<size_t>(p) * static_cast<size_t>(t.taps);
         const float* h1 = h0 + t.taps;
-        const float* x = src + static_cast<long>(base) - (t.taps / 2 - 1);
+        const T* x = src + static_cast<long>(base) - (t.taps / 2 - 1);
         float a = 0.0f, b = 0.0f;
         for (int k = 0; k < t.taps; ++k)
         {
-            a += x[k] * h0[k];
-            b += x[k] * h1[k];
+            const auto v = static_cast<float>(x[k]);
+            a += v * h0[k];
+            b += v * h1[k];
         }
         return a + mix * (b - a);
     }
 
-private:
     SincKernels();
     std::array<Table, stretchSteps + 1> tables_;
 };

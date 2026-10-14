@@ -1,5 +1,6 @@
 #include "engine/FileIndexer.h"
 
+#include "Sfz.h"
 #include "TableFiles.h"
 
 #include <juce_audio_formats/juce_audio_formats.h>
@@ -110,6 +111,13 @@ std::optional<model::IndexedFile> FileIndexer::read(const juce::File& file)
         // Its frames, for the caption; a file that isn't a table is listed without them.
         if (const auto table = devices::wavetable::importTable(f.path))
             f.frames = table->frames;
+        return f;
+    }
+    if (*kind == model::BrowserKind::Multisample)
+    {
+        // Its zones, for the caption.
+        if (const auto sfz = devices::sfz::read(file.getFullPathName().toStdString()))
+            f.zones = static_cast<int>(sfz->regions.size());
         return f;
     }
     if (*kind != model::BrowserKind::Sample)

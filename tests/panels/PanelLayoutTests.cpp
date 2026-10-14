@@ -3,6 +3,7 @@
 // collapsed, with all collapsed, and folded. A module isn't done until this passes.
 
 #include <catch2/catch_test_macros.hpp>
+#include <fd/audiofile/AudioFile.h>
 #include <fd/device/Registry.h>
 #include <fd_device_ui/fd_device_ui.h>
 #include <filesystem>
@@ -449,6 +450,18 @@ TEST_CASE("every module panel is laid out on the module grid", "[ui]")
                     header.begin(), header.end(), [](auto* c)
                     { return dynamic_cast<fd::ui::LatencyBadge*>(c) != nullptr && c->isVisible(); }));
                 lint(q);
+            }
+            // The Sampler with one sample: its waveform fills the section (a multisample is its
+            // test setup).
+            if (panelFactory.deviceId == "sampler")
+            {
+                INFO("one sample");
+                const auto wav = std::filesystem::temp_directory_path() / "fd-panel-tests-one-sample.wav";
+                REQUIRE(fd::audiofile::writeWav(wav.string(), {std::vector<float>(4800, 0.1f)}, 48000.0));
+                PanelUnderTest q(*factory, panelFactory, true, [&wav](fd::Device& d)
+                                 { d.readExtraState({{"sample.path", wav.string()}}); });
+                lint(q);
+                std::filesystem::remove(wav);
             }
         }
     }

@@ -1,7 +1,6 @@
 #pragma once
 
-#include "SampleData.h"
-
+#include "SampleMap.h"
 #include "fd/device/AssetHandoff.h"
 #include "fd/device/Device.h"
 #include "fd/device/Registry.h"
@@ -12,11 +11,14 @@
 #include <array>
 #include <atomic>
 #include <mutex>
+#include <utility>
+#include <vector>
 
 namespace fd::devices
 {
-/// Plays a sample across the keyboard: Classic (sustain, loop) and One-shot modes, amp and
-/// filter envelopes, band-limited playback at any pitch. See devices/sampler/SPEC.md.
+/// Plays a sample across the keyboard, or an SFZ file's zones by key and velocity: Classic
+/// (sustain, loop) and One-shot modes, amp and filter envelopes, band-limited playback at any
+/// pitch. See devices/sampler/SPEC.md.
 class Sampler final : public Device, private VoiceManager::Listener
 {
 public:
@@ -31,9 +33,21 @@ public:
         NumParams
     };
     enum class PlayMode { Classic, OneShot };
-    enum Analysis : int { PeakOut = 0, ActiveVoices = 1, FirstPlayhead = 2 };
-    static constexpr int numPlayheads = 8; // published as position 0..1, or -1 when unused
+    /// Analysis slots: the output, the voices playing, up to eight voices' playheads (0..1 of
+    /// the sample they play, -1 unused) and the zone each plays (-1 unused), and the zone the
+    /// last note started.
+    enum Analysis : int
+    {
+        PeakOut = 0,
+        ActiveVoices = 1,
+        FirstPlayhead = 2,
+        FirstPlayheadZone = 10,
+        LastZone = 18
+    };
+    static constexpr int numPlayheads = 8;
     static constexpr int maxVoices = VoiceManager::maxVoices;
+    /// A note plays every zone it falls in, up to this many (SPEC, S4).
+    static constexpr int maxLayers = SampleMap::maxChosen;
     /// Playback pitch is limited to this many semitones from the sample's own pitch.
     static constexpr double maxShiftSemitones = 60.0;
 
@@ -44,26 +58,37 @@ public:
     void process(ProcessContext& context) noexcept override;
     [[nodiscard]] double tailSeconds() const noexcept override;
 
-    /// Extra state: {"sample.path", "sample.rate", "sample.frames"}; a path into the Library is a
-    /// `library:` reference (fd/device/Library.h). Loading is synchronous
-    /// (ADR 0017): the sample is ready for the audio thread when readExtraState returns.
+    /// Extra state: {"sample.path", "sample.rate", "sample.frames"} for a sample, {"sample.path",
+    /// "sample.zones"} for an SFZ file; a path into the Library is a `library:` reference
+    /// (fd/device/Library.h). Loading is synchronous (ADR 0017): every zone is ready for the audio
+    /// thread when readExtraState returns.
     void writeExtraState(nlohmann::json& extra) const override;
     void readExtraState(const nlohmann::json& extra) override;
 
-    /// For displays (message thread): the loaded sample (null when empty) and the last error.
+    /// For displays (message thread): what's loaded (null when nothing is), the sample when it's
+    /// one, and the last error.
+    [[nodiscard]] std::shared_ptr<const SampleMap> map() const;
     [[nodiscard]] std::shared_ptr<const SampleData> sample() const;
     [[nodiscard]] std::string loadError() const;
+
+    /// What a loaded file sets on the Sampler's controls besides itself, as plain values: a
+    /// sample's root note; an SFZ file's Mode, Loop, Velocity to Volume and Amp envelope. The
+    /// host sets them after loading, as an undo step of their own (SPEC, S6).
+    [[nodiscard]] static std::vector<std::pair<size_t, float>> settingsFor(const SampleMap& map);
 
     /// Playback region in frames for a sample of `frames` frames (from Start/End).
     struct Region
     {
-        double start = 0.0, end = 0.0, loopStart = 0.0, crossfade = 0.0;
-        [[nodiscard]] double loopLength() const noexcept { return end - loopStart; }
+        double start = 0.0, end = 0.0, loopStart = 0.0, loopEnd = 0.0, crossfade = 0.0;
+        [[nodiscard]] double loopLength() const noexcept { return loopEnd - loopStart; }
     };
     [[nodiscard]] static Region regionFor(const ParamStore& p, int frames) noexcept;
+    /// The same within a zone: Start and End in proportion to its own length; its own loop when
+    /// it has one, else Loop Start's.
+    [[nodiscard]] static Region regionFor(const ParamStore& p, const SampleMap::Zone& zone) noexcept;
 
 private:
-    using SampleRef = AssetHandoff<SampleData>::Ref;
+    using MapRef = AssetHandoff<SampleMap>::Ref;
 
     struct PendingNote
     {
@@ -73,10 +98,24 @@ private:
         float velocity = 0.8f;
     };
 
+    /// One zone a voice plays.
+    struct Layer
+    {
+        const SampleMap::Zone* zone = nullptr;
+        int zoneIndex = -1;
+        double pos = 0.0; // in level-0 frames
+        // Per-tick, ramped per sample.
+        double ratioFrom = 1.0, ratioTo = 1.0; // level-0 frames per output sample
+        int level = 0;
+        const dsp::SincKernels::Table* table = nullptr;
+        bool active = false;
+    };
+
     struct Voice
     {
-        SampleRef sample;
-        double pos = 0.0;        // in level-0 frames
+        MapRef map;
+        std::array<Layer, maxLayers> layers{};
+        int layerCount = 0;
         std::int64_t elapsed = 0; // output samples since the note started (fade in)
         int key = 60, channel = 0;
         float velocity = 0.8f;
@@ -84,11 +123,8 @@ private:
         dsp::Adsr amp, fenv;
         std::array<dsp::SynthFilter, 2> filter; // per channel
         // Per-tick controls, ramped per sample.
-        double ratioFrom = 1.0, ratioTo = 1.0;     // level-0 frames per output sample
         double cutoffFrom = 10.0, cutoffTo = 10.0; // log2 Hz, before the filter envelope
         float gainFrom = 0.0f, gainTo = 0.0f;
-        int level = 0;
-        const dsp::SincKernels::Table* table = nullptr;
         int fadeRemaining = 0; // > 0: fading out (steal or sample swap), then `pending` starts
         PendingNote pending;
         bool sounding = false;
@@ -100,6 +136,8 @@ private:
     void voiceRelease(int v) override;
 
     void startNote(Voice& v, int key, float velocity, int channel, bool released) noexcept;
+    /// The zones a note plays, into the voice's layers (round robin and random choice applied).
+    void chooseZones(Voice& v, int key, float velocity) noexcept;
     void releaseVoice(Voice& v) noexcept;
     /// Ends the current sound: starts the pending note if there is one (returns true), else
     /// frees the voice.
@@ -107,7 +145,7 @@ private:
     void tick() noexcept;
     void updateControls(Voice& v, bool snap) noexcept;
     void handleEvent(const Event& e) noexcept;
-    void takeNewSample() noexcept;
+    void takeNewMap() noexcept;
     void renderVoice(Voice& v, float* outL, float* outR, int from, int to, int phase) noexcept;
 
     double sampleRate_ = 48000.0;
@@ -118,15 +156,17 @@ private:
     int fadeSamples_ = 64; // steal / swap fade length
     double lastPitch_ = 60.0; // for poly glide
     bool forceRelease_ = false; // all-notes-off releases one-shots too
+    SampleMap::Choice choice_;  // round robins and random choice, the same after every reset
+    int lastZone_ = -1;
 
-    // Sample handoff (ADR 0017): `current_` plays new notes; `old_` waits for its voices to fade.
-    AssetHandoff<SampleData> samples_;
-    SampleRef current_, old_;
+    // Map handoff (ADR 0017): `current_` plays new notes; `old_` waits for its voices to fade.
+    AssetHandoff<SampleMap> maps_;
+    MapRef current_, old_;
 
     // Loader side (non-real-time), guarded by loaderMutex_.
     mutable std::mutex loaderMutex_;
     std::string path_, error_;
-    std::atomic<double> sampleSeconds_{0.0}; // for tailSeconds()
+    std::atomic<double> sampleSeconds_{0.0}; // the longest sample, for tailSeconds()
 };
 
 const DeviceFactory& samplerFactory();

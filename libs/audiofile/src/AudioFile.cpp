@@ -8,7 +8,9 @@
 #define DR_MP3_IMPLEMENTATION
 #include "dr_mp3.h"
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -54,6 +56,7 @@ std::optional<DecodedAudio> decodeWav(const std::string& path)
     }
     const unsigned channels = wav.channels;
     const auto frames = wav.totalPCMFrameCount;
+    const int bits = wav.translatedFormatTag == DR_WAVE_FORMAT_PCM ? static_cast<int>(wav.bitsPerSample) : 0;
     std::vector<float> interleaved(static_cast<size_t>(frames * channels));
     const auto read = drwav_read_pcm_frames_f32(&wav, frames, interleaved.data());
     const double rate = wav.sampleRate;
@@ -62,17 +65,38 @@ std::optional<DecodedAudio> decodeWav(const std::string& path)
         return std::nullopt;
     auto out = deinterleave(interleaved.data(), channels, read, rate, [](float*) {});
     out.rootKey = root;
+    out.bitsPerSample = bits;
     return out;
 }
 
 std::optional<DecodedAudio> decodeFlac(const std::string& path)
 {
-    unsigned channels = 0, rate = 0;
-    drflac_uint64 frames = 0;
-    float* data = drflac_open_file_and_read_pcm_frames_f32(path.c_str(), &channels, &rate, &frames, nullptr);
-    if (data == nullptr)
+    drflac* flac = drflac_open_file(path.c_str(), nullptr);
+    if (flac == nullptr)
         return std::nullopt;
-    return deinterleave(data, channels, frames, rate, [](float* p) { drflac_free(p, nullptr); });
+    if (flac->totalPCMFrameCount == 0)
+    {
+        // A stream that doesn't say its length: read as it comes.
+        drflac_close(flac);
+        unsigned channels = 0, rate = 0;
+        drflac_uint64 frames = 0;
+        float* data =
+            drflac_open_file_and_read_pcm_frames_f32(path.c_str(), &channels, &rate, &frames, nullptr);
+        if (data == nullptr)
+            return std::nullopt;
+        return deinterleave(data, channels, frames, rate, [](float* p) { drflac_free(p, nullptr); });
+    }
+    const unsigned channels = flac->channels;
+    const double rate = flac->sampleRate;
+    const int bits = flac->bitsPerSample;
+    std::vector<float> interleaved(static_cast<size_t>(flac->totalPCMFrameCount * channels));
+    const auto read = drflac_read_pcm_frames_f32(flac, flac->totalPCMFrameCount, interleaved.data());
+    drflac_close(flac);
+    if (channels == 0 || rate <= 0.0)
+        return std::nullopt;
+    auto out = deinterleave(interleaved.data(), channels, read, rate, [](float*) {});
+    out.bitsPerSample = bits;
+    return out;
 }
 
 std::optional<DecodedAudio> decodeMp3(const std::string& path)
@@ -211,16 +235,17 @@ std::optional<StreamInfo> stream(const std::string& path, int blockFrames, const
 }
 
 bool writeWav(const std::string& path, const std::vector<std::vector<float>>& channels, double sampleRate,
-              std::optional<int> rootKey)
+              std::optional<int> rootKey, int bitsPerSample)
 {
-    if (channels.empty())
+    if (channels.empty() || (bitsPerSample != 16 && bitsPerSample != 32))
         return false;
+    const bool sixteen = bitsPerSample == 16;
     drwav_data_format format{};
     format.container = drwav_container_riff;
-    format.format = DR_WAVE_FORMAT_IEEE_FLOAT;
+    format.format = sixteen ? DR_WAVE_FORMAT_PCM : DR_WAVE_FORMAT_IEEE_FLOAT;
     format.channels = static_cast<drwav_uint32>(channels.size());
     format.sampleRate = static_cast<drwav_uint32>(sampleRate);
-    format.bitsPerSample = 32;
+    format.bitsPerSample = static_cast<drwav_uint32>(bitsPerSample);
 
     std::FILE* file = std::fopen(path.c_str(), "wb");
     if (file == nullptr)
@@ -243,7 +268,17 @@ bool writeWav(const std::string& path, const std::vector<std::vector<float>>& ch
     for (size_t i = 0; i < frames; ++i)
         for (size_t c = 0; c < channels.size(); ++c)
             interleaved[i * channels.size() + c] = channels[c][i];
-    const auto written = drwav_write_pcm_frames(&wav, frames, interleaved.data());
+    std::vector<std::int16_t> pcm;
+    if (sixteen)
+    {
+        pcm.resize(interleaved.size());
+        std::transform(
+            interleaved.begin(), interleaved.end(), pcm.begin(), [](float x)
+            { return static_cast<std::int16_t>(std::clamp(std::lround(x * 32768.0f), -32768L, 32767L)); });
+    }
+    const auto written = drwav_write_pcm_frames(&wav, frames,
+                                                sixteen ? static_cast<const void*>(pcm.data())
+                                                        : static_cast<const void*>(interleaved.data()));
     drwav_uninit(&wav);
     std::fclose(file);
     return written == frames;

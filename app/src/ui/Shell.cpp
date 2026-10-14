@@ -1168,6 +1168,18 @@ void Shell::registerActions()
                   .category = "Module",
                   .perform = onWavetable("table.export"),
                   .isEnabled = isWavetable});
+    // The Sampler's sound (devices/sampler/SPEC.md, S10): a sample or an SFZ file, the selected
+    // module's when it's a Sampler.
+    actions_.add({.id = "module.loadSample",
+                  .name = juce::String::fromUTF8("Load sample\xE2\x80\xA6"),
+                  .category = "Module",
+                  .perform =
+                      [this]
+                  {
+                      if (auto* panel = selectedModule("sampler"))
+                          panel->performCommand("sample.load");
+                  },
+                  .isEnabled = [this] { return selectedModule("sampler") != nullptr; }});
     actions_.add({.id = "track.add", .name = "Add track", .category = "Track", .keys = {key('t', kCmd)},
                   .perform = [&s] { s.addTrack(); }});
     // The mixer (C3, docs/design/mixer.md §9): the selected channel.

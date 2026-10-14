@@ -222,3 +222,8 @@ PLACES
   - Collect files leaving them alone (L4).
 
   No Library file can become a clip until the samples ship.
+
+**Phase 2, the Sampler's stage 2 (2026-10-14):** approved with S1–S13 and built; what building settled is in [devices/sampler/SPEC.md](../../devices/sampler/SPEC.md), "Settled while building (stage 2)". For phase 3 it leaves:
+- VSCO 2 CE's maps read as they are, nothing ignored;
+- a 50-zone instrument of 8-second stereo samples loading in 143 ms (WAV; FLAC to be measured);
+- about 2.1 MB a zone of 8 s stereo at 44.1 kHz.

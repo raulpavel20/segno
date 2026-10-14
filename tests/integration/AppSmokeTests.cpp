@@ -681,7 +681,9 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         "song.duplicateSection", "song.deleteSection", "song.removeSectionMark",
         // The Wavetable's tables (table-editor.md §8): a double-click on the table display edits;
         // Ctrl+Shift+E is the project's Export.
-        "module.editWavetable", "module.importWavetable", "module.exportWavetable", "clip.makeWavetable"};
+        "module.editWavetable", "module.importWavetable", "module.exportWavetable", "clip.makeWavetable",
+        // The Sampler's sound (devices/sampler/SPEC.md, S10): a click on its panel does the same.
+        "module.loadSample"};
     for (const auto& a : actions.all())
     {
         INFO(a.id);
@@ -4784,6 +4786,7 @@ TEST_CASE(
     REQUIRE(actions.isEnabled("module.editWavetable"));
     CHECK(actions.isEnabled("module.importWavetable"));
     CHECK(actions.isEnabled("module.exportWavetable"));
+    CHECK_FALSE(actions.isEnabled("module.loadSample")); // a Sampler's
 
     // Module > Edit wavetable: the editor below the module, the panel grown for it.
     REQUIRE(actions.perform("module.editWavetable"));
@@ -4910,4 +4913,30 @@ TEST_CASE(
     CHECK(editor->title() == "Osc 1, Saw lead");
     table.useAudio();
     root.deleteRecursively();
+}
+
+TEST_CASE("Module > Load sample… is the selected Sampler's (devices/sampler/SPEC.md, S10)", "[integration]")
+{
+    ShellFixture f;
+    auto& s = *f.session;
+    auto& actions = f.shell->actions();
+    const auto t0 = s.snapshot()->tracks[0].id;
+    const auto eq = s.addDevice(t0, "fd:eq");
+    const auto sampler = s.addDevice(t0, "fd:sampler");
+    REQUIRE(sampler != 0);
+    s.updateSnapshotNow();
+    f.shell->arrangement().selectTrack(t0);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+    CHECK_FALSE(actions.isEnabled("module.loadSample")); // nothing selected
+    f.shell->detail().chain().selectDevice(eq);
+    CHECK_FALSE(actions.isEnabled("module.loadSample"));
+    f.shell->detail().chain().selectDevice(sampler);
+    CHECK(actions.isEnabled("module.loadSample"));
+    // In the Module menu, with the module's own commands.
+    const auto menus = fd::model::menuBar(fd::model::MenuPlatform::Windowed);
+    const auto module =
+        std::find_if(menus.begin(), menus.end(), [](const auto& m) { return m.title == "Module"; });
+    REQUIRE(module != menus.end());
+    const auto ids = fd::model::menuActions({*module});
+    CHECK(std::find(ids.begin(), ids.end(), "module.loadSample") != ids.end());
 }

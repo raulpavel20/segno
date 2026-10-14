@@ -1,6 +1,7 @@
 // Module chains (mcp.md §5): ours, through the host binding like their panels (ADR 0021), and
 // third-party plugins as far as their parameters go.
 
+#include "Sampler.h"
 #include "mcp/tools/Tools.h"
 
 #include <cmath>
@@ -53,6 +54,9 @@ void addModuleTools(Registry& registry, ToolEnv& env)
     changes.idempotent = true;
     ToolAnnotations removes;
     removes.destructive = true;
+    ToolAnnotations reading;
+    reading.readOnly = true;
+    reading.idempotent = true;
 
     registry.tools.push_back(make(
         env,
@@ -230,34 +234,89 @@ void addModuleTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"load_sample", "Load a sample",
-         "Loads an audio file into a Sampler module (and sets its root key when the file names one).",
+         "Loads a sample (an audio file) or a multisample (an SFZ file of zones by key and velocity) into a "
+         "Sampler module, with what the file sets: a sample's root key; an SFZ's mode, loop, velocity to "
+         "volume "
+         "and amp envelope. Says how many zones loaded, which samples are missing and what in the file isn't "
+         "played. One undo step.",
          object({{"module", id(IdKind::Module, "The Sampler")}, {"path", string("The file's absolute path")}},
                 {"module", "path"}),
-         result({{"seconds", number("The sample's length")}, {"rootKey", {{"type", {"integer", "null"}}}}}, {"seconds"}),
+         result({{"seconds", number("The sample's length; a multisample's longest")},
+                 {"rootKey", {{"type", {"integer", "null"}}}},
+                 {"zones", integer("How many zones")},
+                 {"missing", integer("Zones whose sample isn't there")},
+                 {"ignored",
+                  arrayOf(string(""), "What the SFZ file says that the Sampler doesn't play", std::nullopt)}},
+                {"seconds", "zones"}),
          changes},
-        [&env](const Json& args, CallContext&) {
+        [&env](const Json& args, CallContext&)
+        {
             const auto [slot, owner] = module(env, args["module"]);
-            auto handle = env.session.openDevice(slot.id);
-            if (handle == nullptr || handle->deviceId() != "sampler")
-                throw Problem{formatId(IdKind::Module, slot.id) + " isn't a Sampler."};
             const auto file = readableFile(args["path"]);
             std::string error;
-            const auto audio = audiofile::decode(file.getFullPathName().toStdString(), &error);
-            if (!audio)
-                throw Problem{file.getFullPathName().toStdString() + " isn't audio the Sampler can load (" + error + ")."};
-            auto& context = handle->context();
-            context.params.applyExtraState(
-                {{"sample.path", fd::library::reference(file.getFullPathName().toStdString())}}); // ADR 0055
-            if (audio->rootKey)
-                if (const auto root = parameterIndex(context.info, "root"); root < context.info.params.size())
-                {
-                    context.params.beginGesture(root);
-                    context.params.setPlain(root, static_cast<float>(*audio->rootKey));
-                    context.params.endGesture(root);
-                }
+            const auto loaded = env.session.loadSample(slot.id, file, &error);
+            if (!loaded)
+                throw Problem{error == "isn't a Sampler"
+                                  ? formatId(IdKind::Module, slot.id) + " isn't a Sampler."
+                                  : file.getFullPathName().toStdString() +
+                                        " isn't a sample or SFZ file the Sampler can load (" + error + ")."};
             return ToolResult::ok({{"module", formatId(IdKind::Module, slot.id)},
-                                   {"seconds", roundTime(audio->numFrames() / audio->sampleRate)},
-                                   {"rootKey", audio->rootKey ? Json(*audio->rootKey) : Json(nullptr)}});
+                                   {"seconds", roundTime(loaded->seconds)},
+                                   {"rootKey", loaded->rootKey ? Json(*loaded->rootKey) : Json(nullptr)},
+                                   {"zones", loaded->zones},
+                                   {"missing", loaded->missing},
+                                   {"ignored", loaded->ignored}});
+        }));
+
+    registry.tools.push_back(make(
+        env,
+        {"get_zones", "Get a Sampler's zones",
+         "Lists what a Sampler module plays: one sample across the keyboard, or a multisample's zones, each "
+         "with "
+         "its sample, keys, velocities, root, tuning and gain, and its turn in a round robin or its share of "
+         "a "
+         "random choice. Keys are note names (C3 = 60).",
+         object({{"module", id(IdKind::Module, "The Sampler")}}, {"module"}),
+         result({{"path", string("The sample or SFZ file")},
+                 {"zones", arrayOf(result({}), "Its zones", std::nullopt)}},
+                {"zones"}),
+         reading},
+        [&env](const Json& args, CallContext&)
+        {
+            const auto [slot, owner] = module(env, args["module"]);
+            auto handle = env.session.openDevice(slot.id);
+            const auto* sampler =
+                handle != nullptr ? dynamic_cast<const devices::Sampler*>(handle->context().device) : nullptr;
+            if (sampler == nullptr)
+                throw Problem{formatId(IdKind::Module, slot.id) + " isn't a Sampler."};
+            Json zones = Json::array();
+            const auto map = sampler->map();
+            if (map == nullptr)
+                return ToolResult::ok(
+                    {{"module", formatId(IdKind::Module, slot.id)}, {"path", nullptr}, {"zones", zones}});
+            const auto& root = handle->context().info.params[devices::Sampler::Root];
+            const auto note = [&root](int key) { return root.toText(static_cast<float>(key)); };
+            for (const auto& z : map->zones)
+            {
+                Json j{{"sample", z.file},
+                       {"keys", {{"low", note(z.loKey)}, {"high", note(z.hiKey)}}},
+                       {"velocities", {{"low", z.loVel}, {"high", z.hiVel}}},
+                       {"root", map->single
+                                    ? root.toText(handle->context().params.getPlain(devices::Sampler::Root))
+                                    : note(z.root)},
+                       {"tuneCents", z.tune},
+                       {"gainDb", std::round(200.0 * std::log10(std::max(1.0e-6f, z.gain))) / 10.0}};
+                if (z.sample == nullptr)
+                    j["missing"] = true;
+                if (z.seqLength > 1)
+                    j["roundRobin"] = std::to_string(z.seqPosition) + " of " + std::to_string(z.seqLength);
+                if (z.loRand > 0.0f || z.hiRand < 1.0f)
+                    j["random"] = {z.loRand, z.hiRand};
+                zones.push_back(std::move(j));
+            }
+            return ToolResult::ok({{"module", formatId(IdKind::Module, slot.id)},
+                                   {"path", map->path},
+                                   {"zones", std::move(zones)}});
         }));
 
     registry.tools.push_back(make(

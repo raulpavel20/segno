@@ -76,6 +76,22 @@ Result tableOnTrack(engine::Session& session, const Ref& ref, std::uint64_t chan
     return r;
 }
 
+/// A sample or a multisample in a Sampler of its own, in place of the track's instrument.
+Result samplerWith(engine::Session& session, const Ref& ref, std::uint64_t channel)
+{
+    const auto old = session.instrumentOf(channel);
+    const engine::Session::EditGroup group(
+        session, old ? "Replace " + old->name + " with Sampler"
+                     : "Add Sampler with " + ref.file.getFileNameWithoutExtension().toStdString());
+    const auto sampler = session.replaceInstrument(channel, "fd:sampler");
+    if (sampler == 0 || !session.loadSample(sampler, ref.file))
+        return {};
+    Result r{true, {}, 0, sampler};
+    if (old && old->deviceId != "sampler")
+        r.toast = "Replaced " + juce::String(old->name) + " with Sampler";
+    return r;
+}
+
 std::string stepName(engine::Session& session, const Ref& ref)
 {
     if (isModule(ref.kind))
@@ -88,6 +104,8 @@ std::string stepName(engine::Session& session, const Ref& ref)
         return "Insert " + ref.file.getFileNameWithoutExtension().toStdString();
     if (ref.kind == Kind::Wavetable)
         return "Add Wavetable with " + tableName(ref);
+    if (ref.kind == Kind::Multisample)
+        return "Add Sampler with " + ref.file.getFileNameWithoutExtension().toStdString();
     return {};
 }
 
@@ -193,7 +211,9 @@ bool fitsChannel(const std::string& item, bool holdsClips)
     const auto ref = parse(item);
     if (!ref)
         return false;
-    return isModule(ref->kind) || ((isClip(ref->kind) || ref->kind == Kind::Wavetable) && holdsClips);
+    return isModule(ref->kind) ||
+           ((isClip(ref->kind) || ref->kind == Kind::Wavetable || ref->kind == Kind::Multisample) &&
+            holdsClips);
 }
 
 bool landsOn(const std::string& item, const model::DeviceSlot& module)
@@ -205,7 +225,7 @@ bool landsOn(const std::string& item, const model::DeviceSlot& module)
         return ref->key == "fd:" + module.deviceId;
     if (ref->kind == Kind::Wavetable)
         return module.deviceId == "wavetable";
-    return ref->kind == Kind::Sample && module.deviceId == "sampler";
+    return (ref->kind == Kind::Sample || ref->kind == Kind::Multisample) && module.deviceId == "sampler";
 }
 
 Result onChannel(engine::Session& session, const std::string& item, std::uint64_t channel, double seconds)
@@ -217,6 +237,8 @@ Result onChannel(engine::Session& session, const std::string& item, std::uint64_
         return addModule(session, *ref, channel, -1);
     if (ref->kind == Kind::Wavetable)
         return tableOnTrack(session, *ref, channel);
+    if (ref->kind == Kind::Multisample)
+        return samplerWith(session, *ref, channel);
     if (!isClip(ref->kind))
         return {};
     const engine::Session::EditGroup group(session, stepName(session, *ref));
@@ -244,21 +266,8 @@ Result inChain(engine::Session& session, const std::string& item, std::uint64_t 
         return addModule(session, *ref, channel, index);
     if (ref->kind == Kind::Wavetable)
         return tableOnTrack(session, *ref, channel);
-    if (ref->kind == Kind::Sample)
-    {
-        // A Sampler with it, in place of the track's instrument.
-        const auto old = session.instrumentOf(channel);
-        const engine::Session::EditGroup group(
-            session, old ? "Replace " + old->name + " with Sampler"
-                         : "Add Sampler with " + ref->file.getFileNameWithoutExtension().toStdString());
-        const auto sampler = session.replaceInstrument(channel, "fd:sampler");
-        if (sampler == 0 || !session.loadSample(sampler, ref->file))
-            return {};
-        Result r{true, {}, 0, sampler};
-        if (old && old->deviceId != "sampler")
-            r.toast = "Replaced " + juce::String(old->name) + " with Sampler";
-        return r;
-    }
+    if (ref->kind == Kind::Sample || ref->kind == Kind::Multisample)
+        return samplerWith(session, *ref, channel);
     return {};
 }
 

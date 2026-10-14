@@ -29,3 +29,11 @@ path = ["cmake/patches/juce-*.patch"]
 precedence = "override"
 SPDX-FileCopyrightText = "Raw Material Software Limited and Segno contributors"
 SPDX-License-Identifier = "AGPL-3.0-only"
+
+# SFZ maps from VSCO 2 Community Edition (github.com/sgossner/VSCO-2-CE, its SFZ branch), the
+# Sampler's tests read them as they are.
+[[annotations]]
+path = ["devices/sampler/tests/data/vsco-2-ce/*.sfz"]
+precedence = "override"
+SPDX-FileCopyrightText = "Versilian Studios"
+SPDX-License-Identifier = "CC0-1.0"

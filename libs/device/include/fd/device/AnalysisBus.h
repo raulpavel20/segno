@@ -12,7 +12,7 @@ namespace fd
 class AnalysisBus
 {
 public:
-    static constexpr int numSlots = 16;
+    static constexpr int numSlots = 32;
 
     /// Audio thread: raise slot to at least `value` (peak-hold until taken). Both readers see
     /// it: the panel (takePeak) and a probe (takeProbePeak).

@@ -170,6 +170,7 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
                              "set_module_on",
                              "set_parameters",
                              "load_sample",
+                             "get_zones",
                              "list_wavetables",
                              "set_wavetable",
                              "make_wavetable",
@@ -554,6 +555,67 @@ TEST_CASE("mcp tools: modules, parameters, samples and view state", "[integratio
     const auto reference = daw.read("segno://module-type/saturator");
     CHECK_FALSE(reference["description"].get<std::string>().empty());
     CHECK_FALSE(reference["sections"].empty());
+}
+
+TEST_CASE(
+    "mcp tools: a multisample in a Sampler: loaded with what it sets, its zones listed, found and heard",
+    "[integration][mcp]")
+{
+    Daw daw("fd-mcp-multisample-tests");
+    auto& s = *daw.session;
+    // An SFZ beside its samples: soft and loud below C3, a round robin above it, one setting the
+    // Sampler doesn't play.
+    const auto place = daw.folder.getChildFile("Sounds");
+    const auto samples = place.getChildFile("Strings").getChildFile("samples");
+    REQUIRE(samples.createDirectory());
+    for (const auto* name : {"soft.wav", "loud.wav", "rr1.wav", "rr2.wav"})
+        REQUIRE(fd::testkit::writeWav(samples.getChildFile(name).getFullPathName().toStdString(),
+                                      fd::testkit::sine(220.0, 48000.0, 4800, 0.5f, 1), 48000.0));
+    const auto sfz = place.getChildFile("Strings").getChildFile("Strings.sfz");
+    REQUIRE(sfz.replaceWithText(
+        "<control> default_path=samples/\n<global> ampeg_release=0.5 pan=10\n"
+        "<group> hikey=59 pitch_keycenter=48\n"
+        "<region> sample=soft.wav hivel=63\n<region> sample=loud.wav lovel=64\n"
+        "<group> lokey=60 pitch_keycenter=c4 seq_length=2\n"
+        "<region> sample=rr1.wav seq_position=1\n<region> sample=rr2.wav seq_position=2\n"));
+    const auto path = sfz.getFullPathName().toStdString();
+
+    const auto t0 = daw.call("add_track", {{"name", "Strings"}})["track"];
+    const auto sampler = daw.call("add_module", {{"track", t0}, {"type", "sampler"}})["id"];
+    const auto loaded = daw.call("load_sample", {{"module", sampler}, {"path", path}});
+    CHECK(loaded["zones"] == 4);
+    CHECK(loaded["missing"] == 0);
+    CHECK(loaded["ignored"] == Json::array({"pan"}));
+    CHECK(loaded["seconds"] == Approx(0.1));
+    CHECK(daw.call("get_module", {{"module", sampler}})["parameters"].dump().find("500") !=
+          std::string::npos);
+
+    const auto zones = daw.call("get_zones", {{"module", sampler}});
+    CHECK(zones["path"] == path);
+    REQUIRE(zones["zones"].size() == 4);
+    CHECK(zones["zones"][0]["keys"] == Json{{"low", "C-2"}, {"high", "B2"}});
+    CHECK(zones["zones"][0]["velocities"] == Json{{"low", 0}, {"high", 63}});
+    CHECK(zones["zones"][0]["root"] == "C2");
+    CHECK(zones["zones"][2]["root"] == "C3"); // SFZ's c4, Segno's C3
+    CHECK(zones["zones"][3]["roundRobin"] == "2 of 2");
+    CHECK(daw.fails("get_zones", {{"module", daw.call("add_module", {{"track", t0}, {"type", "eq"}})["id"]}})
+              .find("isn't a Sampler") != std::string::npos);
+
+    // Found among the browser's places as a multisample, and heard as a phrase.
+    s.setPresetsFolder(daw.folder.getChildFile("Segno").getChildFile("Presets"));
+    s.setSegnoFolder(daw.folder.getChildFile("Segno"));
+    s.setBrowserPlaces({place.getFullPathName().toStdString()});
+    s.waitForBrowserIndex();
+    const auto found = daw.call("search", {{"query", "strings"}, {"kinds", {"multisample"}}})["results"];
+    REQUIRE(found.size() == 1);
+    CHECK(found[0]["kind"] == "multisample");
+    CHECK(found[0]["path"] == path);
+    CHECK(daw.call("preview", {{"item", path}})["playing"] == true);
+    daw.call("preview", {{"stop", true}});
+    const auto listed =
+        daw.call("browse", {{"folder", sfz.getParentDirectory().getFullPathName().toStdString()}});
+    REQUIRE(listed["files"].size() == 1);
+    CHECK(listed["files"][0]["zones"] == 4);
 }
 
 TEST_CASE("mcp tools: the Wavetable Synth's tables, listed and set by id or from a file; its pages",

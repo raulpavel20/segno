@@ -126,7 +126,7 @@ std::vector<Menu> menuBar(MenuPlatform platform)
                       action("module.clearDefault"), separator(), action("module.presetsFolder"), separator(),
                       // A module's own (docs/design/table-editor.md §8): dimmed for the others.
                       action("module.editWavetable"), action("module.importWavetable"),
-                      action("module.exportWavetable")}});
+                      action("module.exportWavetable"), separator(), action("module.loadSample")}});
 
     menus.push_back(
         {"Transport",

@@ -4,6 +4,7 @@
 
 #include "FactoryTables.h"
 #include "RecordingFixture.h"
+#include "Sampler.h"
 #include "TableFiles.h"
 #include "WavetableSynth.h"
 #include "engine/PreviewPlayer.h"
@@ -221,9 +222,9 @@ TEST_CASE("browser engine: an instrument replaces the track's in one step; a sam
     s.updateSnapshotNow();
 
     // A sample: its length back, one step.
-    const auto seconds = s.loadSample(sampler, f.place.getChildFile("Kick.wav"));
-    REQUIRE(seconds);
-    CHECK(*seconds == Approx(0.5).margin(0.001));
+    const auto loaded = s.loadSample(sampler, f.place.getChildFile("Kick.wav"));
+    REQUIRE(loaded);
+    CHECK(loaded->seconds == Approx(0.5).margin(0.001));
     CHECK(s.undoDescription() == "Load sample Kick");
     std::string error;
     CHECK_FALSE(s.loadSample(sampler, f.place.getChildFile("notes.txt"), &error));
@@ -317,6 +318,69 @@ TEST_CASE(
     CHECK_FALSE(error.empty());
     wav.deleteFile();
     other.deleteFile();
+}
+
+TEST_CASE("browser engine: an SFZ file is a multisample: indexed with its zones, heard as a phrase, put in a "
+          "Sampler with what it sets, one step",
+          "[integration]")
+{
+    Files f;
+    auto& s = *f.r.session;
+    // Two zones, a release and a velocity setting for the whole instrument, one sample missing.
+    const auto folder = f.place.getChildFile("Strings");
+    writeSine(folder.getChildFile("samples").getChildFile("Low.wav"), 0.5);
+    writeSine(folder.getChildFile("samples").getChildFile("High.wav"), 0.5);
+    const auto sfz = folder.getChildFile("Strings.sfz");
+    REQUIRE(sfz.replaceWithText("<control> default_path=samples\\\n"
+                                "<global> ampeg_release=0.6 amp_veltrack=70\n"
+                                "<region> sample=Low.wav hikey=59 pitch_keycenter=48\n"
+                                "<region> sample=High.wav lokey=60 pitch_keycenter=72\n"
+                                "<region> sample=Gone.wav lokey=60 lovel=120\n"));
+    s.refreshBrowser(f.place);
+    s.waitForBrowserIndex();
+    const auto* indexed = f.indexed("Strings.sfz");
+    REQUIRE(indexed != nullptr);
+    CHECK(indexed->kind == model::BrowserKind::Multisample);
+    CHECK(indexed->zones == 3);
+    // Selected: the presets' phrase through a Sampler of its own.
+    REQUIRE(s.previewMultisample(sfz));
+    CHECK(s.isPreviewing());
+    s.stopPreview();
+
+    // Into a Sampler: the zones, what's missing, and the file's release and velocity, one step.
+    const auto t = f.r.track(0);
+    const auto sampler = s.addDevice(t, "fd:sampler");
+    REQUIRE(sampler != 0);
+    const auto loaded = s.loadSample(sampler, sfz);
+    REQUIRE(loaded);
+    CHECK(loaded->zones == 3);
+    CHECK(loaded->missing == 1);
+    CHECK(loaded->ignored.empty());
+    CHECK(loaded->seconds == Approx(0.5).margin(0.001));
+    CHECK(s.undoDescription() == "Load sample Strings");
+    auto handle = s.openDevice(sampler);
+    const auto& params = handle->context().params;
+    CHECK(params.getPlain(fd::devices::Sampler::AmpR) == Approx(600.0f));
+    CHECK(params.getPlain(fd::devices::Sampler::VelAmp) == Approx(70.0f));
+    const auto* device = dynamic_cast<const fd::devices::Sampler*>(handle->context().device);
+    REQUIRE(device->map() != nullptr);
+    CHECK_FALSE(device->map()->single);
+    s.undo(); // the file and its settings together
+    CHECK(params.getPlain(fd::devices::Sampler::AmpR) == Approx(50.0f));
+    CHECK(device->map() == nullptr);
+
+    // Dropped on a track without an instrument: a Sampler with it.
+    const auto t1 = f.r.track(1);
+    const auto item = "file:" + sfz.getFullPathName().toStdString();
+    CHECK(fd::app::browser::fitsChannel(item, true));
+    const auto done = fd::app::browser::onChannel(s, item, t1, 0.0);
+    CHECK(done.done);
+    s.updateSnapshotNow();
+    REQUIRE_FALSE(s.snapshot()->channel(t1)->devices.empty());
+    CHECK(s.snapshot()->channel(t1)->devices[0].deviceId == "sampler");
+    CHECK(s.undoDescription() == "Add Sampler with Strings");
+    // And on that Sampler: it lands on it.
+    CHECK(fd::app::browser::landsOn(item, s.snapshot()->channel(t1)->devices[0]));
 }
 
 TEST_CASE("browser engine: Collect files copies what's outside into the project; unused files are found",

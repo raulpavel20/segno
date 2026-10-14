@@ -19,7 +19,8 @@ enum class BrowserKind
     Preset,
     Plugin,
     Sample,
-    Wavetable, // a table for the Wavetable (docs/design/table-editor.md §7)
+    Multisample, // an SFZ file: zones for the Sampler (devices/sampler/SPEC.md, S11)
+    Wavetable,   // a table for the Wavetable (docs/design/table-editor.md §7)
     Midi,
     Project,
     Folder,
@@ -50,6 +51,7 @@ struct IndexedFile
     int channels = 0;
     double tempo = 0.0; // from its loop metadata or its name; 0: unknown
     int frames = 0;     // a wavetable's
+    int zones = 0;      // a multisample's
 
     bool operator==(const IndexedFile&) const = default;
 };

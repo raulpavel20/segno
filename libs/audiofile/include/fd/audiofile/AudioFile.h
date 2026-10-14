@@ -15,6 +15,8 @@ struct DecodedAudio
     double sampleRate = 0.0;
     /// Root note from the file's metadata (WAV `smpl`/`inst`, AIFF `INST`), if present.
     std::optional<int> rootKey;
+    /// The file's integer bit depth (8, 16, 24, 32); 0 for floating point or unknown (MP3).
+    int bitsPerSample = 0;
 
     [[nodiscard]] int numChannels() const noexcept { return static_cast<int>(channels.size()); }
     [[nodiscard]] int numFrames() const noexcept { return channels.empty() ? 0 : static_cast<int>(channels[0].size()); }
@@ -39,7 +41,8 @@ using BlockCallback = std::function<bool(const StreamInfo& info, const float* in
 std::optional<StreamInfo> stream(const std::string& path, int blockFrames, const BlockCallback& onBlock,
                                  std::string* error = nullptr);
 
-/// Writes a 32-bit float WAV, with a `smpl` root note when given. Returns false on failure.
+/// Writes a 32-bit float WAV (or 16-bit integer, `bitsPerSample` 16), with a `smpl` root note
+/// when given. Returns false on failure.
 bool writeWav(const std::string& path, const std::vector<std::vector<float>>& channels, double sampleRate,
-              std::optional<int> rootKey = std::nullopt);
+              std::optional<int> rootKey = std::nullopt, int bitsPerSample = 32);
 } // namespace fd::audiofile

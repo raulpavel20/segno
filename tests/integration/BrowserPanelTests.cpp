@@ -542,3 +542,48 @@ TEST_CASE("browser: a row's name comes before its caption, which shows only when
     item.depth = 1;
     CHECK_FALSE(fd::ui::treeRowCaption(narrow, item).isEmpty());
 }
+
+TEST_CASE(
+    "browser: an SFZ file is a multisample: found as one, its zones its caption, heard as a phrase, put "
+    "in a Sampler (devices/sampler/SPEC.md, S11)",
+    "[integration]")
+{
+    Browser b;
+    auto& p = b.panel();
+    const auto folder = b.sounds.getChildFile("Strings");
+    writeSine(folder.getChildFile("Low.wav"), 0.5);
+    writeSine(folder.getChildFile("High.wav"), 0.5);
+    const auto sfz = folder.getChildFile("Violins.sfz");
+    REQUIRE(sfz.replaceWithText("<region> sample=Low.wav hikey=59\n<region> sample=High.wav lokey=60\n"));
+    b.r.session->refreshBrowser(b.sounds);
+    b.r.session->waitForBrowserIndex();
+    b.settle();
+    const auto id = "file:" + path(sfz);
+
+    b.search("violins");
+    CHECK(b.shows("group:MULTISAMPLES"));
+    REQUIRE(b.shows(id));
+    b.search("");
+    b.open("place:" + path(b.sounds));
+    b.open("folder:" + path(folder));
+    REQUIRE(b.shows(id));
+    REQUIRE(p.select(id));
+    b.settle();
+    CHECK(b.r.session->isPreviewing());
+    CHECK_FALSE(p.dragDescription(id).isVoid());
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "browser-multisample@2x.png",
+                b.shell->createComponentSnapshot(p.getBounds(), true, 2.0f));
+    b.r.session->stopPreview();
+
+    // Put on the selected track: a Sampler with it, one step.
+    const auto t0 = b.track(0).id;
+    b.shell->arrangement().selectTrack(t0);
+    b.settle();
+    REQUIRE(p.select(id));
+    p.loadSelected();
+    b.settle();
+    b.r.session->updateSnapshotNow();
+    REQUIRE(devicesOf(b.track(0)) == std::vector<std::string>{"sampler"});
+    CHECK(b.r.session->undoDescription() == "Add Sampler with Violins");
+}

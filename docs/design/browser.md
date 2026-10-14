@@ -148,7 +148,7 @@ As in Live, at the product owner's suggestion:
 - **Indexing:**
   - the files under every place are indexed in the background, at launch and when a folder is opened: name, kind, length, sample rate, channels and tempo;
   - the index is kept in `~/.config/Segno/browser-index.json`, so search works from the first second;
-  - files the browser can use: WAV, AIFF, FLAC, Ogg, MP3, MIDI, Segno projects, and wavetables (`.wt`, and sound files in a folder named Wavetables: a kind of their own, WAVETABLES in the results, their frames as the caption);
+  - files the browser can use: WAV, AIFF, FLAC, Ogg, MP3, MIDI, Segno projects, wavetables (`.wt`, and sound files in a folder named Wavetables: a kind of their own, WAVETABLES in the results, their frames as the caption), and multisamples (SFZ files: MULTISAMPLES in the results, their zones as the caption; selected, they play the presets' phrase through a Sampler of their own, [devices/sampler/SPEC.md](../../devices/sampler/SPEC.md) S11);
   - adding a whole drive is allowed but slow, and the strip says so while it indexes, as Live warns.
 
 ## 10. Putting things in the song
@@ -159,6 +159,7 @@ As in Live, at the product owner's suggestion:
 | **A preset** | Its module with the preset, as above; on a module of its kind, into that module | Its module with the preset, where dropped; on a module of its kind, into it | A new track with its module | Into the selected module if it's of its kind, else onto the selected track |
 | **A plugin** | As a module | As a module | As a module | As a module |
 | **A sample** | An audio clip where it's dropped (as files from the desktop today) | On the Sampler: its sample. Elsewhere: a Sampler with it | A new track with the clip at the drop point | At the playhead on the selected track |
+| **A multisample** (an SFZ file) | A Sampler with it, in place of the track's instrument | On the Sampler: its zones. Elsewhere: a Sampler with it | A new track with a Sampler with it | Into the selected Sampler, else onto the selected track as on the left |
 | **A MIDI file** | A MIDI clip where it's dropped | – | A new track with the clip | At the playhead on the selected track |
 | **A project** | – | – | – | Opens it (asking about unsaved changes) |
 

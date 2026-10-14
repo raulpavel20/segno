@@ -2,6 +2,7 @@
 // it finds, previews, putting an instrument in place of another, loading a Sampler, and keeping
 // a project's files together.
 
+#include "Sampler.h"
 #include "engine/DevicePlugin.h"
 #include "engine/PresetPreview.h"
 #include "engine/SessionImpl.h"
@@ -269,6 +270,30 @@ bool Session::previewPreset(const std::string& deviceId, const std::string& pres
     return true;
 }
 
+bool Session::previewMultisample(const juce::File& file)
+{
+    stopPreview();
+    const auto* factory = findDevice("sampler");
+    if (factory == nullptr)
+        return false;
+    // Its own Sampler with the file and what it sets; the phrase is played through another made
+    // from that state, which finds the samples already decoded while this one holds them.
+    auto device = factory->create();
+    device->readExtraState({{"sample.path", file.getFullPathName().toStdString()}});
+    const auto* sampler = dynamic_cast<const devices::Sampler*>(device.get());
+    const auto map = sampler != nullptr ? sampler->map() : nullptr;
+    if (map == nullptr || map->zones.empty())
+        return false;
+    for (const auto& [param, value] : devices::Sampler::settingsFor(*map))
+        device->params().set(param, value);
+    const double rate = sampleRate() > 0.0 ? sampleRate() : 48000.0;
+    auto sound = renderPresetPhrase(factory->info(), captureState(*device), {}, rate);
+    if (sound.getNumSamples() == 0)
+        return false;
+    impl_->preview.play(std::move(sound), rate);
+    return true;
+}
+
 bool Session::previewMidiFile(const juce::File& file, std::uint64_t trackId)
 {
     stopPreview();
@@ -398,8 +423,10 @@ std::uint64_t Session::replaceInstrument(std::uint64_t trackId, const std::strin
     return addDevice(trackId, key, index);
 }
 
-std::optional<double> Session::loadSample(std::uint64_t deviceId, const juce::File& file, std::string* error)
+std::optional<Session::LoadedSample> Session::loadSample(std::uint64_t deviceId, const juce::File& file,
+                                                         std::string* error)
 {
+    using devices::SampleMap;
     auto handle = openDevice(deviceId);
     if (handle == nullptr || handle->deviceId() != "sampler")
     {
@@ -407,9 +434,20 @@ std::optional<double> Session::loadSample(std::uint64_t deviceId, const juce::Fi
             *error = "isn't a Sampler";
         return std::nullopt;
     }
+    // Read before it's put in, so a file that can't play changes nothing. Held until the Sampler
+    // has it: one decode for both (the samples' cache).
+    const auto path = file.getFullPathName().toStdString();
     std::string why;
-    const auto audio = audiofile::decode(file.getFullPathName().toStdString(), &why);
-    if (!audio)
+    std::shared_ptr<const SampleMap> map;
+    if (SampleMap::isSfz(path))
+    {
+        map = SampleMap::loadSfz(path, &why);
+        if (map != nullptr && map->zones.empty())
+            why = "it has no zones the Sampler can play";
+    }
+    else if (auto data = devices::SampleData::load(path, &why))
+        map = SampleMap::one(std::move(data));
+    if (map == nullptr || map->zones.empty())
     {
         if (error != nullptr)
             *error = why;
@@ -417,17 +455,22 @@ std::optional<double> Session::loadSample(std::uint64_t deviceId, const juce::Fi
     }
     const EditGroup group(*this, "Load sample " + file.getFileNameWithoutExtension().toStdString());
     auto& context = handle->context();
-    context.params.applyExtraState(
-        {{"sample.path", fd::library::reference(file.getFullPathName().toStdString())}}); // ADR 0055
-    if (audio->rootKey)
-        for (size_t i = 0; i < context.info.params.size(); ++i)
-            if (context.info.params[i].id == "root")
-            {
-                context.params.beginGesture(i);
-                context.params.setPlain(i, static_cast<float>(*audio->rootKey));
-                context.params.endGesture(i);
-            }
-    return audio->numFrames() / audio->sampleRate;
+    context.params.applyExtraState({{"sample.path", fd::library::reference(path)}}); // ADR 0055
+    // What the file sets on the Sampler's controls (SPEC, S6).
+    for (const auto& [param, value] : devices::Sampler::settingsFor(*map))
+    {
+        context.params.beginGesture(param);
+        context.params.setPlain(param, value);
+        context.params.endGesture(param);
+    }
+    LoadedSample loaded;
+    loaded.seconds = map->longestSeconds();
+    if (map->single && map->zones[0].sample != nullptr)
+        loaded.rootKey = map->zones[0].sample->rootKey;
+    loaded.zones = static_cast<int>(map->zones.size());
+    loaded.missing = map->missing;
+    loaded.ignored = map->ignored;
+    return loaded;
 }
 
 // ---- keeping a project's files together (§12) ----------------------------------------------

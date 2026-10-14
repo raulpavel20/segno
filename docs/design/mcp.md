@@ -125,7 +125,8 @@ The project, track, clip and module resources send change notifications when the
 | `move_module` | `module`, `position` | – |
 | `set_module_on` | `module`, `on` | – |
 | `set_parameters` | `module`, `values`: `{param id: value or text}` | Each value as set (with its text), and any that were clamped or unknown |
-| `load_sample` | `module` (a Sampler), `path` | The sample's length and root key |
+| `load_sample` | `module` (a Sampler), `path` (a sample or an SFZ file) | The sample's length (a multisample's longest) and root key, the zones, how many samples are missing and what in the file isn't played; with what the file sets (root key; an SFZ's mode, loop, velocity to volume, amp envelope), one undo step ([devices/sampler/SPEC.md](../../devices/sampler/SPEC.md), "Stage 2") |
+| `get_zones` | `module` (a Sampler) | What it plays: the file, and each zone's sample, keys and velocities (low, high), root, tuning, gain, round robin and random share; missing ones marked. Read-only |
 | `list_wavetables` | `category?` | The Wavetable Synth's tables: the factory ones (id, name, category, frames) and the files in the Segno folder's Wavetables (path, name). Read-only |
 | `set_wavetable` | `module` (a Wavetable Synth), `oscillator` (1–3), `table` (a factory id) or `path` (a WAV or `.wt` file) | The table as set: its id (`user` for a file, carried in the project), name and frames; one undo step ([devices/wavetable/SPEC.md](../../devices/wavetable/SPEC.md), "Tables and their files") |
 | `make_wavetable` | `module` (a Wavetable), `oscillator` (1–3), `clip` (an audio clip, with `from?`, `to?` on the timeline) or `path` (a sound file), `mode` (`pitched`, `spectral`, `slices`), `frames?` (8–256, default 64) | The table made from the audio as Clip > Make wavetable makes it, its recipe kept: its name, frames and the pitch found; one undo step ([table-editor.md](table-editor.md) §5) |
@@ -153,7 +154,7 @@ The project, track, clip and module resources send change notifications when the
 | `save_preset` | `module`, `name`, `tags?`, `description?`, `author?`, `replace?` | Saves one of yours (refused for a name in use unless `replace`); assistants never delete presets |
 | `compare` | `module`, `action` (switch, copy) | A/B: which shows now |
 | `scan_plugins` | – | The number found; long, so it runs as a task with progress |
-| `search` | `query`, `kinds?`, `limit?` (20) | What the browser finds ([browser.md](browser.md) §6): modules, presets, plugins, and the samples, MIDI files, projects and folders in its places, best first, each with an id the other tools take (a module's `type`, a preset's id, a file's `path`). Read-only |
+| `search` | `query`, `kinds?`, `limit?` (20) | What the browser finds ([browser.md](browser.md) §6): modules, presets, plugins, and the samples, multisamples, wavetables, MIDI files, projects and folders in its places, best first, each with an id the other tools take (a module's `type`, a preset's id, a file's `path`). Read-only |
 | `browse` | `folder?` | The browser's places, or what's in one of their folders (folders, and files with their length and tempo when known). Read-only |
 | `preview` | `item` (an id or a path), `stop?` | Plays it for the person as the browser would: a sample (in time with the song when it fits), a MIDI file on the live MIDI track, an instrument preset's phrase. Allowed in read-only mode |
 | `collect_files` | – | File > Collect files and save: outside files copied into the project's Samples, then saved; refused before a first save. Assistants never delete files |
@@ -197,7 +198,7 @@ Every DAW feature ships with its tools (the coverage rule, ADR 0021). Today:
 | Presets and A/B (M3 A1, ADR 0044) | `list_presets`, `load_preset`, `save_preset`, `compare`; `add_module` takes a `preset` |
 | Plugin scanning | `scan_plugins` |
 | Settings (M3 C1, ADR 0045) | `get_settings`, `set_settings` (never the assistants' own or the shortcuts) |
-| The browser (M3 C2, ADR 0046) | `search`, `browse`, `preview`, `collect_files`; loading through `add_module` (with `preset`), `insert_audio_file`, `insert_midi_file` |
+| The browser (M3 C2, ADR 0046) | `search`, `browse`, `preview`, `collect_files`; loading through `add_module` (with `preset`), `insert_audio_file`, `insert_midi_file`, `load_sample` (a sample or a multisample) |
 | The song's sections (M3 C3, ADR 0049) | `list_sections`, `add_section`, `set_section`, `move_section`, `copy_section` (before or after a section, or `at` a point), `insert_section`, `delete_section` (section ids are `s:`); `get_project` lists the sections |
 | Projects, undo | Project tools |
 | Live MIDI (computer keyboard, inputs) | Not a tool: a live performance input, not an edit. A `preview_note` tool may come later |

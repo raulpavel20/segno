@@ -720,6 +720,9 @@ public:
     bool previewPreset(const std::string& deviceId, const std::string& presetKey);
     /// Plays a wavetable file on a held C3, through a Wavetable of its own (table-editor.md §7).
     bool previewWavetable(const juce::File& file);
+    /// Plays an SFZ file's instrument: the presets' phrase (a C3) through a Sampler of its own
+    /// (devices/sampler/SPEC.md, S11).
+    bool previewMultisample(const juce::File& file);
     /// Plays a MIDI file on a track's instrument (0: the track live MIDI plays), as live MIDI at
     /// the song's tempo; false if that track has no instrument or the file has no notes.
     bool previewMidiFile(const juce::File& file, std::uint64_t trackId = 0);
@@ -737,11 +740,20 @@ public:
     std::uint64_t replaceInstrument(std::uint64_t trackId, const std::string& key);
     /// The track's instrument (its first), if it has one.
     [[nodiscard]] std::optional<model::DeviceSlot> instrumentOf(std::uint64_t trackId) const;
-    /// Loads a sample into a Sampler (and sets its root key when the file names one), one undo
-    /// step; the sample's length, or nullopt if it isn't a Sampler or the file isn't audio
-    /// (`error` says why).
-    std::optional<double> loadSample(std::uint64_t deviceId, const juce::File& file,
-                                     std::string* error = nullptr);
+    /// What loading a sample or an SFZ file into a Sampler made.
+    struct LoadedSample
+    {
+        double seconds = 0.0;       // the sample's length, a multisample's longest
+        std::optional<int> rootKey; // a sample's, from its file
+        int zones = 1;
+        int missing = 0;                  // zones whose sample isn't there
+        std::vector<std::string> ignored; // what the SFZ file says that isn't played
+    };
+    /// Loads a sample or an SFZ file into a Sampler, with what the file sets on its controls (a
+    /// sample's root key; an SFZ's Mode, Loop, Velocity to Volume and Amp envelope), one undo
+    /// step; nullopt if it isn't a Sampler or the file can't be played (`error` says why).
+    std::optional<LoadedSample> loadSample(std::uint64_t deviceId, const juce::File& file,
+                                           std::string* error = nullptr);
     /// Loads a wavetable file onto one of a Wavetable's oscillators (0-2), one undo step "Load
     /// <name>"; false if it isn't a Wavetable or the file isn't a table (`error` says why).
     bool loadWavetable(std::uint64_t deviceId, int oscillator, const juce::File& file,
