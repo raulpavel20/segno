@@ -65,7 +65,7 @@ More to make music with, before the rest of the plan. In this order, each design
 | P2 | **Racks** (from M4) | Save a whole set of modules (effects, or an instrument and its effects) as one thing: a snapshot of the chain as it is, so a great patch is kept whole. Kept apart from module presets, which never gain a rack variant. On top, to plan: macros wired to points across the rack (one knob moving, and automating, many), presets of the whole rack, ideas from transition multi-effects (the product owner's reference: Transit and Transit 2) | ◐ Designed for review (2026-10-14): [racks.md](../design/racks.md) (R1–R17) with [ADR 0056](../decisions/0056-racks-are-modules-of-modules.md) proposed.
 - The product owner, 2026-10-14: the design and its chains are liked. **The UI must be very solid, with nothing confusing:** it's drawn in every state and approved before anything is built, then tried hands-on before sign-off (racks.md §5a, R17).
 - Work waits for the product owner's go: a merge comes first. |
-| P3 | **The project's key and scale** (from M4) | A key and scale for the project: hard to work without | ☐ |
+| P3 | **The project's key and scale** (from M4) | A key and scale for the project: hard to work without | ◐ Designed for review (2026-10-14): [key-and-scale.md](../design/key-and-scale.md) (K1–K13) and [ADR 0056](../decisions/0056-the-song-has-one-key.md), proposed: one key for the song, set in the top bar, shown by the piano roll, heard by modules through `TransportInfo::key` |
 | P4 | **The piano roll** | Feature-poor today. Key and scale aware; chords; turning root notes into chords of various kinds that fit the key; research the market, combine and innovate | ☐ |
 
 ## Order of work (recommended)

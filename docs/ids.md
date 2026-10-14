@@ -55,3 +55,16 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 - It is defined once in the device's `ParamSpec` table and listed in its `SPEC.md`.
 - Never rename or reuse a parameter ID. To change a parameter's meaning or range in an incompatible way, add a new ID and migrate old state in the device's `stateVersion` migration.
 - `sinceVersion` in the `ParamSpec` records the device state version in which the parameter was added. It feeds JUCE's parameter version hint.
+
+## Scale level (proposed with [key-and-scale.md](design/key-and-scale.md) §5; permanent once approved)
+
+- A scale ID is stored in projects (the song's key) and read by assistants (`set_key`, `list_scales`): lowercase kebab-case, the scale's usual name. Names and short names are display text and can change.
+- Never rename or reuse a scale ID. A scale added later gets a new ID; a project with an ID this build doesn't know opens with no key.
+
+| Group | IDs |
+|---|---|
+| Common | `major`, `minor`, `harmonic-minor`, `melodic-minor`, `major-pentatonic`, `minor-pentatonic`, `blues`, `major-blues` |
+| Modes | `dorian`, `phrygian`, `lydian`, `mixolydian`, `locrian` |
+| More colours | `harmonic-major`, `dorian-sharp-4`, `phrygian-dominant`, `lydian-augmented`, `lydian-dominant`, `super-locrian`, `hungarian-minor`, `double-harmonic`, `spanish-8-tone` |
+| Symmetric | `whole-tone`, `diminished-half-whole`, `diminished-whole-half`, `messiaen-3`, `messiaen-4`, `messiaen-5`, `messiaen-6`, `messiaen-7` |
+| Japanese and Indonesian | `hirajoshi`, `in-sen`, `iwato`, `kumoi`, `pelog-selisir`, `pelog-tembung` |

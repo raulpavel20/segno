@@ -14,7 +14,7 @@ To schedule an idea, it needs:
 | Idea | Why | Status |
 |---|---|---|
 | **Arranger track:** song sections (intro, verse, drop…) that you can move, duplicate and reorder with all their content | Arrangement is our core workflow, and Live only offers locators | 📌 M3 |
-| **Project-wide key and scale**, shared by the piano roll, MIDI effects, pitch devices and tuner | Live 12's scale awareness, extended to everything | 📌 M4 |
+| **Project-wide key and scale**, shared by the piano roll, MIDI effects, pitch devices and tuner | Live 12's scale awareness, extended to everything | 📌 M3 (P3, [key-and-scale.md](design/key-and-scale.md)) |
 | **Take lanes and comping** for audio and MIDI | Standard in modern DAWs | 📌 M2 (C5b, C5c; [recording.md](design/recording.md)) |
 | **Capture audio:** armed audio inputs are always buffered, so a moment played before pressing Record can be kept, as Capture MIDI does for notes | Nothing played is lost, not only MIDI | 💡 ([recording.md](design/recording.md) §15) |
 | **Stack mode** for loop recording: each lap goes straight onto a new track instead of a take lane | Doubles and layered parts while you play | 💡 |
