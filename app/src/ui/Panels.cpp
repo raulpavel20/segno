@@ -459,6 +459,7 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
     viewport_.setScrollBarsShown(true, false);
     addAndMakeVisible(viewport_);
     wireSection();
+    wireNotes();
     body_.addAndMakeVisible(mix_);
     body_.addAndMakeVisible(sends_);
 
@@ -787,6 +788,192 @@ void InspectorPanel::wireSection()
     }
 }
 
+namespace
+{
+/// A note typed as a name with its octave ("C3", "F#4", "Bb2"; C3 = 60) or a number.
+std::optional<double> pitchFromText(const juce::String& text)
+{
+    const auto t = text.trim();
+    if (t.isEmpty())
+        return std::nullopt;
+    if (t.containsOnly("0123456789"))
+        return t.getDoubleValue();
+    int split = t.length();
+    while (split > 0 && juce::CharacterFunctions::isDigit(t[split - 1]))
+        --split;
+    if (split > 0 && t[split - 1] == '-')
+        --split;
+    if (split == 0 || split == t.length())
+        return std::nullopt;
+    const auto pc = music::parsePitchClass(t.substring(0, split).toStdString());
+    if (!pc)
+        return std::nullopt;
+    return static_cast<double>(*pc + (t.substring(split).getIntValue() + 2) * 12);
+}
+} // namespace
+
+void InspectorPanel::wireNotes()
+{
+    using F = model::NoteField;
+    for (auto [field, kind] : {std::pair{&notePitch_, F::Pitch}, std::pair{&noteStart_, F::Start},
+                               std::pair{&noteLength_, F::Length}, std::pair{&noteVelocity_, F::Velocity}})
+    {
+        field->setFontSize(ui::Theme::current().textXs);
+        field->setRange(kind == F::Pitch ? 0.0 : kind == F::Velocity ? 1.0 : 0.0,
+                        kind == F::Pitch || kind == F::Velocity ? 127.0 : 4096.0 * 4.0,
+                        kind == F::Pitch || kind == F::Velocity ? 1.0 : 0.0);
+        field->setDragSensitivity(kind == F::Pitch ? 0.2 : kind == F::Velocity ? 0.5 : 1.0 / 16.0);
+        field->textFromValue = [this, kind](double v)
+        {
+            const auto one = [this, kind](double value) -> juce::String
+            {
+                switch (kind)
+                {
+                case F::Pitch:
+                {
+                    const auto& key = roll_ != nullptr ? roll_->key() : std::nullopt;
+                    return juce::String::fromUTF8(
+                        music::noteName(key ? &*key : nullptr, static_cast<int>(std::lround(value))).c_str());
+                }
+                case F::Start:
+                    return juce::String(model::positionText(roll_ != nullptr ? roll_->songBeat(value) : value, tempo_));
+                case F::Length: return juce::String(model::lengthText(value, tempo_));
+                case F::Velocity: break;
+                }
+                return juce::String(juce::roundToInt(value));
+            };
+            // Several notes: their range, as far apart as they are.
+            const auto spread = notesSpread_.contains(kind) ? notesSpread_.at(kind) : 0.0;
+            return spread > 1e-9 ? one(v) + juce::String::fromUTF8(" – ") + one(v + spread) : one(v);
+        };
+        field->valueFromText = [this, kind](const juce::String& text) -> std::optional<double>
+        {
+            switch (kind)
+            {
+            case F::Pitch: return pitchFromText(text);
+            case F::Start:
+            {
+                const auto beat = model::positionFromText(text.trim().toLowerCase().toStdString(), tempo_);
+                return beat && roll_ != nullptr ? std::optional(*beat - roll_->songBeat(0.0)) : beat;
+            }
+            case F::Length: return model::lengthFromText(text.trim().toLowerCase().toStdString(), tempo_);
+            case F::Velocity: break;
+            }
+            if (text.trim().containsOnly("0123456789") && text.trim().isNotEmpty())
+                return text.trim().getDoubleValue();
+            return std::nullopt;
+        };
+        field->onGestureStart = [this, field]
+        {
+            if (roll_ == nullptr)
+                return;
+            notesGesture_.emplace(session_, "Edit notes");
+            notesBase_ = model::NoteEdit{roll_->notes(), roll_->selection()};
+            notesFrom_ = field->getValue();
+        };
+        field->onGestureEnd = [this]
+        {
+            notesGesture_.reset();
+            notesBase_.reset();
+            updateNotes();
+        };
+        field->onValueChange = [this, kind](double v)
+        {
+            if (roll_ == nullptr || !roll_->hasSelection())
+                return;
+            // A drag moves every note by the same amount; a value typed sets them all.
+            if (notesBase_)
+                roll_->applyEdit(model::offsetNotesField(notesBase_->notes, notesBase_->selection, kind, v - notesFrom_));
+            else
+                roll_->applyEdit(model::setNotesField(roll_->notes(), roll_->selection(), kind, v));
+        };
+        body_.addChildComponent(*field);
+    }
+    notePitch_.setTooltip("The notes' pitch: drag, or type a note (\"C3\", \"F#4\") or a number");
+    noteStart_.setTooltip("Where the notes start: drag, or type \"2.1.1\"; several move together");
+    noteLength_.setTooltip("How long the notes last: drag, or type \"1/8\" or \"1 beat\"");
+    noteVelocity_.setTooltip("How hard the notes are played, 1 to 127: drag, or type a number");
+    noteMute_.setClickingTogglesState(false);
+    noteMute_.setTooltip("Mute the notes: they stay, drawn hollow, and don't play (0)");
+    noteMute_.onClick = [this]
+    {
+        if (roll_ != nullptr)
+            roll_->toggleMute();
+    };
+    body_.addChildComponent(noteMute_);
+}
+
+void InspectorPanel::setPianoRoll(PianoRoll& roll)
+{
+    roll_ = &roll;
+}
+
+ui::NumberField& InspectorPanel::noteField(model::NoteField field) noexcept
+{
+    switch (field)
+    {
+    case model::NoteField::Pitch: return notePitch_;
+    case model::NoteField::Start: return noteStart_;
+    case model::NoteField::Length: return noteLength_;
+    case model::NoteField::Velocity: break;
+    }
+    return noteVelocity_;
+}
+
+bool InspectorPanel::showsNotes() const
+{
+    return roll_ != nullptr && roll_->clip() && clip_ && clip_->id == roll_->clip()->id && roll_->hasSelection();
+}
+
+juce::String InspectorPanel::notesTitle() const
+{
+    if (roll_ == nullptr)
+        return "Notes";
+    const auto dot = juce::String::fromUTF8(" · ");
+    juce::String title = "Notes" + dot + juce::String(static_cast<int>(roll_->selection().size())) + " selected";
+    std::vector<int> pitches;
+    for (auto i : roll_->selection())
+        if (i < roll_->notes().size())
+            pitches.push_back(roll_->notes()[i].pitch);
+    if (const auto chord = music::nameChord(pitches))
+    {
+        const auto& key = roll_->key();
+        title << dot << juce::String::fromUTF8(music::chordName(*chord, key ? &*key : nullptr).c_str());
+    }
+    return title;
+}
+
+void InspectorPanel::updateNotes()
+{
+    using S = model::InspectorSection;
+    std::erase(sections_, S::Notes);
+    const bool shown = showsNotes();
+    if (shown)
+    {
+        const auto clip = std::find(sections_.begin(), sections_.end(), S::Clip);
+        sections_.insert(clip == sections_.end() ? sections_.begin() : clip + 1, S::Notes);
+    }
+    for (auto* c : std::initializer_list<juce::Component*>{&notePitch_, &noteStart_, &noteLength_, &noteVelocity_, &noteMute_})
+        c->setVisible(shown);
+    if (!shown || notesGesture_)
+        return;
+    for (auto field : {model::NoteField::Pitch, model::NoteField::Start, model::NoteField::Length, model::NoteField::Velocity})
+        if (const auto range = model::fieldRange(roll_->notes(), roll_->selection(), field))
+        {
+            notesSpread_[field] = range->second - range->first;
+            noteField(field).setValue(range->first, juce::dontSendNotification);
+            noteField(field).repaint();
+        }
+    noteMute_.setToggleState(roll_->allMuted(), juce::dontSendNotification);
+}
+
+void InspectorPanel::notesChanged()
+{
+    updateNotes();
+    resized();
+    repaint();
+}
+
 void InspectorPanel::setContext(const model::PanelContext& context, const model::TempoMap& tempo,
                                 const std::vector<model::TrackInfo>& returns)
 {
@@ -925,6 +1112,7 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
     input_.setVisible(has(model::InspectorSection::Input));
     mix_.setChannel(has(model::InspectorSection::Mix) ? channel_ : std::nullopt);
     sends_.setChannel(has(model::InspectorSection::Sends) ? channel_ : std::nullopt, returns);
+    updateNotes();
     resized();
     repaint();
 }
@@ -1128,6 +1316,12 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
     case S::Sections:
         return {{"Selected", juce::String(sectionCount_), true}};
     case S::Clips: return {{"Selected", juce::String(clipCount_), true}};
+    case S::Notes: // the fields, the mute (piano-roll.md §9.6)
+        return {{"Pitch", {}, false, "pitch"},
+                {"Start", {}, false, "start"},
+                {"Length", {}, false, "length"},
+                {"Velocity", {}, false, "velocity"},
+                {"Mute", {}, false, "mute"}};
     case S::Takes: return {{"Selected", juce::String(takeCount_), true}};
     case S::Track:
         if (!channel_)
@@ -1193,7 +1387,7 @@ int InspectorPanel::layoutSections(int width)
                            : s == S::Assignments ? assignments_.preferredHeight()
                            : s == S::Input       ? input_.preferredHeight()
                                                  : static_cast<int>(properties(s).size()) * t.shell.rowHeight;
-        sections.push_back({titles.at(s), height});
+        sections.push_back({s == S::Notes ? notesTitle() : titles.at(s), height});
     }
     const int height = stack_.layout(r, sections).getY() + t.shell.padding;
     mix_.setBounds({});
@@ -1248,8 +1442,9 @@ int InspectorPanel::layoutSections(int width)
             clipColour_.setBounds(row("colour"));
             toggle(clipLoop_, "loop");
             toggle(clipMute_, "mute");
-            loopStart_.setBounds(row("loopStart"));
-            loopLength_.setBounds(row("loopLength"));
+            // A field's text lines up with the values painted in the rows above it.
+            loopStart_.setBounds(row("loopStart").withTrimmedLeft(-ui::NumberField::textInset));
+            loopLength_.setBounds(row("loopLength").withTrimmedLeft(-ui::NumberField::textInset));
             // A fade's length, then its curve, halves of the value column.
             const int half = (content.getWidth() - t.shell.itemGap) / 2;
             for (const auto& [length, curve, key] : {std::tuple{&fadeIn_, &fadeInCurve_, "fadeIn"}, std::tuple{&fadeOut_, &fadeOutCurve_, "fadeOut"}})
@@ -1263,6 +1458,18 @@ int InspectorPanel::layoutSections(int width)
             crossOutShape_.setBounds(row("crossOutShape").reduced(0, t.shell.propertyFieldInset));
             crossOutPlace_.setBounds(row("crossOutPlace").reduced(0, t.shell.propertyFieldInset));
         }
+        else if (sections_[i] == S::Notes) // its fields, then Mute
+        {
+            const auto content = stack_.content(i).withTrimmedLeft(t.shell.propertyLabelWidth);
+            const auto row = [&](int n) { return content.withY(content.getY() + n * t.shell.rowHeight).withHeight(t.shell.rowHeight); };
+            // A field's text lines up with the values painted in the rows above it.
+            const auto field = [&](int n) { return row(n).withLeft(row(n).getX() - ui::NumberField::textInset); };
+            notePitch_.setBounds(field(0));
+            noteStart_.setBounds(field(1));
+            noteLength_.setBounds(field(2));
+            noteVelocity_.setBounds(field(3));
+            noteMute_.setBounds(row(4).withWidth(ui::Toggle::widthFor(noteMute_.getButtonText())).reduced(0, t.shell.propertyFieldInset));
+        }
         else if (sections_[i] == S::Section) // Name, Colour, Start, Length
         {
             const auto content = stack_.content(i).withTrimmedLeft(t.shell.propertyLabelWidth);
@@ -1275,12 +1482,12 @@ int InspectorPanel::layoutSections(int width)
             };
             sectionName_.setBounds(row("name").reduced(0, t.shell.propertyFieldInset));
             sectionColour_.setBounds(row("colour"));
-            sectionStart_.setBounds(row("start"));
-            sectionLength_.setBounds(row("length"));
+            sectionStart_.setBounds(row("start").withTrimmedLeft(-ui::NumberField::textInset));
+            sectionLength_.setBounds(row("length").withTrimmedLeft(-ui::NumberField::textInset));
         }
         else if (sections_[i] == S::Point) // the Value row
             pointValue_.setBounds(stack_.content(i)
-                                      .withTrimmedLeft(t.shell.propertyLabelWidth)
+                                      .withTrimmedLeft(t.shell.propertyLabelWidth - ui::NumberField::textInset)
                                       .withY(stack_.content(i).getY() + t.shell.rowHeight)
                                       .withHeight(t.shell.rowHeight));
     return height;

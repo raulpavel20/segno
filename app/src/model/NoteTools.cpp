@@ -736,6 +736,87 @@ NoteEdit quantiseNotes(const std::vector<Note>& notes, const std::set<std::size_
     return apply(notes, t, changed);
 }
 
+// ---- The inspector --------------------------------------------------------------------------
+
+double fieldOf(const Note& note, NoteField field) noexcept
+{
+    switch (field)
+    {
+    case NoteField::Pitch: return note.pitch;
+    case NoteField::Start: return note.start;
+    case NoteField::Length: return note.length;
+    default: return std::round(note.velocity * 127.0f);
+    }
+}
+
+std::optional<std::pair<double, double>> fieldRange(const std::vector<Note>& notes, const std::set<std::size_t>& which,
+                                                    NoteField field)
+{
+    std::optional<std::pair<double, double>> range;
+    for (auto i : which)
+        if (i < notes.size())
+        {
+            const double v = fieldOf(notes[i], field);
+            range = range ? std::pair{std::min(range->first, v), std::max(range->second, v)} : std::pair{v, v};
+        }
+    return range;
+}
+
+namespace
+{
+Note withField(Note n, NoteField field, double value)
+{
+    switch (field)
+    {
+    case NoteField::Pitch: n.pitch = std::clamp(static_cast<int>(std::lround(value)), 0, 127); break;
+    case NoteField::Start: n.start = std::max(0.0, value); break;
+    case NoteField::Length: n.length = std::max(minNoteLength, value); break;
+    case NoteField::Velocity:
+        n.velocity = static_cast<float>(std::clamp(std::round(value), 1.0, 127.0) / 127.0);
+        break;
+    }
+    return n;
+}
+} // namespace
+
+NoteEdit setNotesField(const std::vector<Note>& notes, const std::set<std::size_t>& selection, NoteField field, double value)
+{
+    Targets t;
+    for (auto i : selection)
+        if (i < notes.size())
+            t.indices.push_back(i);
+    if (t.indices.empty())
+        return {notes, {}};
+    std::vector<Note> changed;
+    for (auto i : t.indices)
+        changed.push_back(withField(notes[i], field, value));
+    return apply(notes, t, changed);
+}
+
+NoteEdit offsetNotesField(const std::vector<Note>& notes, const std::set<std::size_t>& selection, NoteField field,
+                          double delta)
+{
+    const auto range = fieldRange(notes, selection, field);
+    if (!range)
+        return {notes, {}};
+    // As far as every note can go: pitches within 0..127, starts from 0, velocities 1..127.
+    switch (field)
+    {
+    case NoteField::Pitch: delta = std::clamp(delta, -range->first, 127.0 - range->second); break;
+    case NoteField::Start: delta = std::max(delta, -range->first); break;
+    case NoteField::Length: delta = std::max(delta, minNoteLength - range->first); break;
+    case NoteField::Velocity: delta = std::clamp(delta, 1.0 - range->first, 127.0 - range->second); break;
+    }
+    Targets t;
+    for (auto i : selection)
+        if (i < notes.size())
+            t.indices.push_back(i);
+    std::vector<Note> changed;
+    for (auto i : t.indices)
+        changed.push_back(withField(notes[i], field, fieldOf(notes[i], field) + delta));
+    return apply(notes, t, changed);
+}
+
 // ---- Selecting ------------------------------------------------------------------------------
 
 std::set<std::size_t> selectSamePitch(const std::vector<Note>& notes, const std::set<std::size_t>& selection)

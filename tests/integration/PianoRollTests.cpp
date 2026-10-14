@@ -413,3 +413,111 @@ TEST_CASE("piano roll: the clip view's header at standard and compact widths, op
             CHECK_FALSE(others);
     }
 }
+
+TEST_CASE("piano roll: the inspector's NOTES section shows the selected notes; typed sets all, dragged moves together",
+          "[integration]")
+{
+    RollFixture f;
+    auto& roll = f.roll();
+    auto& inspector = f.shell->inspector();
+    const Key aMinor{9, "minor"};
+    REQUIRE(f.session->setKey(aMinor));
+    f.setNotes(progression());
+    using S = fd::model::InspectorSection;
+    const auto hasNotes = [&]
+    { return std::find(inspector.sections().begin(), inspector.sections().end(), S::Notes) != inspector.sections().end(); };
+    CHECK_FALSE(hasNotes()); // nothing selected
+
+    // The G7 chord, selected from the lane: four notes, their ranges, the chord they make.
+    const auto lane = roll.chordLaneArea();
+    click(roll, {roll.pointFor(13.0, 60).x, static_cast<float>(lane.getCentreY())});
+    REQUIRE(roll.selection().size() == 4);
+    REQUIRE(hasNotes());
+    const auto clipAt = std::find(inspector.sections().begin(), inspector.sections().end(), S::Clip);
+    REQUIRE(clipAt != inspector.sections().end());
+    CHECK(*(clipAt + 1) == S::Notes); // right under the clip
+    using F = fd::model::NoteField;
+    auto& pitch = inspector.noteField(F::Pitch);
+    CHECK(pitch.isVisible());
+    CHECK(pitch.getValue() == 55.0);
+    CHECK(pitch.textFromValue(pitch.getValue()) == juce::String::fromUTF8("G2 – F3"));
+    CHECK(inspector.noteField(F::Velocity).textFromValue(inspector.noteField(F::Velocity).getValue()) == "96");
+    if (const char* dir = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dir, "piano-roll-inspector-notes@2x.png",
+                inspector.createComponentSnapshot(inspector.getLocalBounds().withHeight(std::min(inspector.getHeight(), 420)), true, 2.0f));
+
+    // A velocity typed sets them all.
+    auto& velocity = inspector.noteField(F::Velocity);
+    velocity.setValue(*velocity.valueFromText("64"), juce::sendNotificationSync);
+    for (const auto& n : f.notes())
+        if (n.start >= 12.0)
+            CHECK(juce::roundToInt(n.velocity * 127.0f) == 64);
+    // A drag moves the pitches together, one undo step.
+    pitch.onGestureStart();
+    for (double v : {56.0, 57.0})
+        pitch.setValue(v, juce::sendNotificationSync);
+    pitch.onGestureEnd();
+    std::vector<int> moved;
+    for (const auto& n : f.notes())
+        if (n.start >= 12.0)
+            moved.push_back(n.pitch);
+    std::sort(moved.begin(), moved.end());
+    CHECK(moved == std::vector<int>{57, 61, 64, 67});
+    f.session->undo();
+    f.refresh();
+    moved.clear();
+    for (const auto& n : f.notes())
+        if (n.start >= 12.0)
+            moved.push_back(n.pitch);
+    std::sort(moved.begin(), moved.end());
+    CHECK(moved == std::vector<int>{55, 59, 62, 65});
+    // A note typed by name.
+    CHECK(pitch.valueFromText("F#4") == 78.0);
+    CHECK(pitch.valueFromText("C-2") == 0.0);
+    CHECK_FALSE(pitch.valueFromText("H2"));
+}
+
+TEST_CASE("piano roll: 2 000 notes, the chord lane and other tracks' notes drawn within a frame", "[integration]")
+{
+    RollFixture f;
+    auto& roll = f.roll();
+    REQUIRE(f.session->setKey(Key{9, "minor"}));
+    // Chords on every beat of four bars, and a fast line over them: 2 000 notes.
+    std::vector<fd::model::Note> notes;
+    for (int i = 0; notes.size() < 2000; ++i)
+    {
+        const double at = (i % 64) * 0.25;
+        for (int p : {57 + (i % 7), 60 + (i % 5), 64 + (i % 3)})
+            notes.push_back({p, at, 0.25, 0.7f});
+        notes.push_back({72 + (i % 12), at + 0.125, 0.125, 0.6f});
+    }
+    notes.resize(2000);
+    std::sort(notes.begin(), notes.end(), fd::model::noteOrder);
+    const auto other = f.session->addTrack("Pads");
+    const auto otherClip = f.session->createMidiClip(other, 0.0, 8.0);
+    f.session->setNotes(otherClip, progression());
+    const auto setStart = juce::Time::getMillisecondCounterHiRes();
+    f.setNotes(notes);
+    const auto setMs = juce::Time::getMillisecondCounterHiRes() - setStart;
+    REQUIRE(roll.notes().size() >= 1900); // overlaps of a pitch resolved
+    REQUIRE(roll.showsChordLane());
+    REQUIRE(roll.ghostCount() > 0);
+    roll.selectAll();
+
+    juce::Image image(juce::Image::ARGB, roll.getWidth(), roll.getHeight(), true);
+    double best = 1e9;
+    for (int pass = 0; pass < 5; ++pass)
+    {
+        juce::Graphics g(image);
+        const auto start = juce::Time::getMillisecondCounterHiRes();
+        roll.paintEntireComponent(g, false);
+        best = std::min(best, juce::Time::getMillisecondCounterHiRes() - start);
+    }
+    UNSCOPED_INFO("paint " << best << " ms, notes changed " << setMs << " ms");
+#if defined(NDEBUG)
+    CHECK(best < 16.0); // a frame at 60 Hz
+#else
+    CHECK(best < 120.0); // a Debug build: an order of magnitude slower, still no stall
+#endif
+    WARN("2 000 notes: paint " << best << " ms; taking them in " << setMs << " ms");
+}

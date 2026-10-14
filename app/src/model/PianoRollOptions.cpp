@@ -13,9 +13,9 @@ namespace
 constexpr std::array<std::string_view, 3> drawWords{"note", "chord", "chordUnder"};
 constexpr std::array<std::string_view, 3> foldWords{"all", "key", "notes"};
 constexpr std::array<std::string_view, 3> labelWords{"both", "names", "steps"};
-constexpr std::array<std::string_view, 6> shapeWords{"triad", "seventh", "ninth", "sus2", "sus4", "add9"};
-constexpr std::array<std::string_view, 6> voicingWords{"smooth", "close", "open", "drop2", "drop3", "spread"};
-constexpr std::array<std::string_view, 5> inversionWords{"auto", "root", "first", "second", "third"};
+constexpr std::array<std::string_view, 6> shapeWordList{"triad", "seventh", "ninth", "sus2", "sus4", "add9"};
+constexpr std::array<std::string_view, 6> voicingWordList{"smooth", "close", "open", "drop2", "drop3", "spread"};
+constexpr std::array<std::string_view, 5> inversionWordList{"auto", "root", "first", "second", "third"};
 
 template <typename E, std::size_t N>
 E fromWord(const nlohmann::json& json, const char* key, const std::array<std::string_view, N>& words, E fallback)
@@ -32,7 +32,46 @@ std::string toWord(E value, const std::array<std::string_view, N>& words)
 {
     return std::string(words[static_cast<std::size_t>(value)]);
 }
+
+template <typename E, std::size_t N>
+std::optional<E> wordTo(std::string_view word, const std::array<std::string_view, N>& words) noexcept
+{
+    for (std::size_t i = 0; i < N; ++i)
+        if (words[i] == word)
+            return static_cast<E>(i);
+    return std::nullopt;
+}
 } // namespace
+
+std::span<const std::string_view> chordShapeWords() noexcept
+{
+    return shapeWordList;
+}
+
+std::span<const std::string_view> voicingWords() noexcept
+{
+    return voicingWordList;
+}
+
+std::span<const std::string_view> inversionWords() noexcept
+{
+    return inversionWordList;
+}
+
+std::optional<music::ChordShape> chordShapeFromWord(std::string_view word) noexcept
+{
+    return wordTo<music::ChordShape>(word, shapeWordList);
+}
+
+std::optional<music::Voicing> voicingFromWord(std::string_view word) noexcept
+{
+    return wordTo<music::Voicing>(word, voicingWordList);
+}
+
+std::optional<music::Inversion> inversionFromWord(std::string_view word) noexcept
+{
+    return wordTo<music::Inversion>(word, inversionWordList);
+}
 
 nlohmann::json pianoRollOptionsToJson(const PianoRollOptions& o)
 {
@@ -41,9 +80,9 @@ nlohmann::json pianoRollOptionsToJson(const PianoRollOptions& o)
             {"others", o.others},
             {"draw", toWord(o.draw, drawWords)},
             {"chordLabels", toWord(o.chordLabels, labelWords)},
-            {"chordKind", toWord(o.chord.shape, shapeWords)},
-            {"voicing", toWord(o.chord.voicing, voicingWords)},
-            {"inversion", toWord(o.chord.inversion, inversionWords)},
+            {"chordKind", toWord(o.chord.shape, shapeWordList)},
+            {"voicing", toWord(o.chord.voicing, voicingWordList)},
+            {"inversion", toWord(o.chord.inversion, inversionWordList)},
             {"quantiseStrength", o.quantise.strength},
             {"quantiseSwing", o.quantise.swing},
             {"quantiseStarts", o.quantise.starts},
@@ -70,9 +109,9 @@ PianoRollOptions pianoRollOptionsFromJson(const nlohmann::json& json)
     o.others = flag("others", o.others);
     o.draw = fromWord(json, "draw", drawWords, o.draw);
     o.chordLabels = fromWord(json, "chordLabels", labelWords, o.chordLabels);
-    o.chord.shape = fromWord(json, "chordKind", shapeWords, o.chord.shape);
-    o.chord.voicing = fromWord(json, "voicing", voicingWords, o.chord.voicing);
-    o.chord.inversion = fromWord(json, "inversion", inversionWords, o.chord.inversion);
+    o.chord.shape = fromWord(json, "chordKind", shapeWordList, o.chord.shape);
+    o.chord.voicing = fromWord(json, "voicing", voicingWordList, o.chord.voicing);
+    o.chord.inversion = fromWord(json, "inversion", inversionWordList, o.chord.inversion);
     o.quantise.strength = number("quantiseStrength", o.quantise.strength, 0.0, 1.0);
     o.quantise.swing = number("quantiseSwing", o.quantise.swing, 0.0, 1.0);
     o.quantise.starts = flag("quantiseStarts", o.quantise.starts);

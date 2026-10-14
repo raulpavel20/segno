@@ -10,6 +10,7 @@
 
 #include <fd_ui/fd_ui.h>
 
+#include <map>
 #include <optional>
 #include <set>
 
@@ -267,9 +268,20 @@ private:
     void paintKeys(juce::Graphics& g);
     void paintRuler(juce::Graphics& g);
     void paintChordLane(juce::Graphics& g);
+    /// A chord's label in the lane, made when the chords change rather than every frame.
+    struct LaneLabel
+    {
+        juce::String name, step; // "C/E", " · III"
+        int nameWidth = 0, stepWidth = 0;
+    };
+    [[nodiscard]] std::vector<LaneLabel> labelsFor(const std::vector<model::ChordSpan>& spans) const;
+    void updateLabels();
+    /// A text's width in the lane's style, measured once.
+    [[nodiscard]] int nameWidth(const juce::String& text) const;
+    mutable std::map<juce::String, int> widths_;
     /// One line of chord names over `area` (the lane's first or second line).
     void paintChordLine(juce::Graphics& g, juce::Rectangle<int> area, const std::vector<model::ChordSpan>& spans,
-                        bool own);
+                        const std::vector<LaneLabel>& labels, bool own);
 
     engine::Session& session_;
     std::optional<model::ClipInfo> clip_;
@@ -287,6 +299,7 @@ private:
     std::vector<model::ChordSpan> spans_;    // the chord lane, read from notes_
     std::vector<Ghost> ghosts_;              // the other tracks' notes (§8)
     std::vector<model::ChordSpan> allSpans_; // the chords of everything shown, with Others on
+    std::vector<LaneLabel> spanLabels_, allLabels_; // their labels
     std::optional<ChordPlace> chordTarget_;  // where the open Chord popover writes
     model::Timeline timeline_;
     std::vector<model::Timeline::GridLine> lines_; // paint scratch

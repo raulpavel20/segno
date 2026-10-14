@@ -415,3 +415,30 @@ TEST_CASE("The clip view's options round-trip as view state", "[fast]")
     CHECK(std::string(foldName(Fold::Key)) == "Fold to key");
     CHECK(std::string(drawModeName(DrawMode::Chord)) == "Draw chord");
 }
+
+TEST_CASE("The NOTES inspector: a value typed sets every note; dragged, they move together", "[fast]")
+{
+    const std::vector<Note> notes{note(60, 0.0, 1.0, 100.0f / 127.0f), note(72, 1.0, 0.5, 90.0f / 127.0f), note(64, 2.0)};
+    const std::set<std::size_t> sel{0, 1};
+    CHECK(fieldRange(notes, sel, NoteField::Pitch) == std::pair{60.0, 72.0});
+    CHECK(fieldRange(notes, sel, NoteField::Velocity) == std::pair{90.0, 100.0});
+    CHECK_FALSE(fieldRange(notes, {}, NoteField::Pitch));
+
+    auto out = setNotesField(notes, sel, NoteField::Velocity, 64.0);
+    CHECK(out.notes[0].velocity == Approx(64.0f / 127.0f));
+    CHECK(out.notes[1].velocity == Approx(64.0f / 127.0f));
+    CHECK(out.notes[2].velocity == notes[2].velocity);
+    CHECK(out.selection == sel);
+    out = setNotesField(notes, sel, NoteField::Length, 0.0);
+    CHECK(out.notes[0].length == Approx(minNoteLength));
+
+    out = offsetNotesField(notes, sel, NoteField::Pitch, 100.0); // as far as the top note can go
+    CHECK(out.notes[0].pitch == 115);
+    CHECK(out.notes[1].pitch == 127);
+    out = offsetNotesField(notes, sel, NoteField::Start, -5.0);
+    CHECK(out.notes[0].start == Approx(0.0));
+    CHECK(out.notes[1].start == Approx(1.0));
+    out = offsetNotesField(notes, sel, NoteField::Velocity, 40.0);
+    CHECK(out.notes[0].velocity == Approx(127.0f / 127.0f));
+    CHECK(out.notes[1].velocity == Approx(117.0f / 127.0f));
+}

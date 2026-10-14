@@ -29,6 +29,7 @@ void registerAll(Registry& registry, ToolEnv& env)
     addTrackTools(registry, env);
     addSectionTools(registry, env);
     addKeyTools(registry, env);
+    addChordTools(registry, env);
     addResources(registry, env);
     addPrompts(registry);
 }
@@ -281,7 +282,8 @@ Json noteInput()
           {{"type", {"number", "string"}},
            {"description", "Beats from the clip's start (0 is its first beat), or text such as \"1/8\" or \"2 beats\""}}},
          {"length", length("How long the note is.")},
-         {"velocity", integer("1-127 (default 100)", 1, 127)}},
+         {"velocity", integer("1-127 (default 100)", 1, 127)},
+         {"muted", boolean("Kept but not played (default false)")}},
         {"pitch", "start", "length"});
 }
 
@@ -406,11 +408,14 @@ Json db(double value)
 
 Json noteJson(const model::Note& note, double offsetBeats)
 {
-    return {{"pitch", note.pitch},
-            {"name", pitchName(note.pitch)},
-            {"start", rounded(note.start - offsetBeats, 1e6)},
-            {"length", rounded(note.length, 1e6)},
-            {"velocity", velocityToMidi(note.velocity)}};
+    Json j{{"pitch", note.pitch},
+           {"name", pitchName(note.pitch)},
+           {"start", rounded(note.start - offsetBeats, 1e6)},
+           {"length", rounded(note.length, 1e6)},
+           {"velocity", velocityToMidi(note.velocity)}};
+    if (note.muted) // only when it is (piano-roll.md §9.4): it stays and doesn't play
+        j["muted"] = true;
+    return j;
 }
 
 Json clipJson(ToolEnv& env, const model::ClipInfo& c, bool notes)

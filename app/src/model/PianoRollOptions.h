@@ -4,6 +4,10 @@
 
 #include <nlohmann/json_fwd.hpp>
 
+#include <optional>
+#include <span>
+#include <string_view>
+
 namespace fd::model
 {
 /// What a double-click in the piano roll draws (docs/design/piano-roll.md §7.2, the Draw choice).
@@ -39,6 +43,15 @@ struct PianoRollOptions
 /// The options as view state, and back; missing or unknown values keep the defaults.
 [[nodiscard]] nlohmann::json pianoRollOptionsToJson(const PianoRollOptions& options);
 [[nodiscard]] PianoRollOptions pianoRollOptionsFromJson(const nlohmann::json& json);
+
+/// The words kinds, voicings and inversions are written with in view state and by assistants
+/// ("seventh", "drop2", "first"), in the enums' order; and back.
+[[nodiscard]] std::span<const std::string_view> chordShapeWords() noexcept;
+[[nodiscard]] std::span<const std::string_view> voicingWords() noexcept;
+[[nodiscard]] std::span<const std::string_view> inversionWords() noexcept;
+[[nodiscard]] std::optional<music::ChordShape> chordShapeFromWord(std::string_view word) noexcept;
+[[nodiscard]] std::optional<music::Voicing> voicingFromWord(std::string_view word) noexcept;
+[[nodiscard]] std::optional<music::Inversion> inversionFromWord(std::string_view word) noexcept;
 
 /// The names the header and menus show: "Draw chord", "Fold to key".
 [[nodiscard]] const char* drawModeName(DrawMode mode) noexcept;

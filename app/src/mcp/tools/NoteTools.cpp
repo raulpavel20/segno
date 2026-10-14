@@ -4,6 +4,8 @@
 #include "mcp/tools/Tools.h"
 
 #include "model/NoteEditing.h"
+#include "model/NoteTools.h"
+#include "model/PianoRollOptions.h"
 
 #include <cmath>
 
@@ -59,7 +61,7 @@ model::Note parseNote(ToolEnv& env, const Json& n, double offset, const std::str
         throw Problem{where + ".length: " + p.message};
     }
     return {*pitch, noteStart(env, n["start"], where) + offset, std::max(length, model::minNoteLength),
-            velocityFromMidi(n.value("velocity", 100.0))};
+            velocityFromMidi(n.value("velocity", 100.0)), n.value("muted", false)};
 }
 
 /// Which notes a `where` argument picks: "all", or a filter by pitch and time.
@@ -120,6 +122,11 @@ Json notesResult()
 
 namespace tools
 {
+std::set<std::size_t> selectNotes(ToolEnv& env, const model::ClipInfo& c, const Json& where)
+{
+    return select(env, c.notes, contentOffset(env, c), where);
+}
+
 Json writeNotes(ToolEnv& env, const model::ClipInfo& c, const Json& input, bool replace)
 {
     const double offset = contentOffset(env, c);
@@ -189,15 +196,33 @@ void addNoteTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"edit_notes", "Edit notes",
-         "Changes the notes that match: transpose them, shift them in time, set or change their velocity, quantise "
-         "their starts. Edited notes win over notes of the same pitch they land on.",
+         "Changes the notes that match, as the clip view's Notes menu does: velocity; transpose by semitones; "
+         "shift; transpose by steps of the song's key; fit to the key; quantise (with strength and swing); stretch; "
+         "legato, fixed length, join, split; reverse, mirror; invert and re-voice chords; mute; add a bass. They "
+         "apply in that order. Edited notes win over notes of the same pitch they land on.",
          object({{"clip", id(IdKind::Clip, "The MIDI clip")},
                  {"where", whereSchema()},
                  {"transpose", integer("Semitones (limited so every note stays in 0-127)", -127, 127)},
+                 {"transpose_steps", integer("Steps of the song key's scale (C to D in C major is one)", -127, 127)},
+                 {"fit_to_key", boolean("Notes outside the song's key move to its nearest note (a tie: the way the melody moves)")},
                  {"shift", {{"type", {"number", "string"}}, {"description", "Beats, negative to move earlier, or text such as \"1/16\""}}},
                  {"velocity", {{"type", {"integer", "string"}},
                                {"description", "Set it (1-127), or change it by a signed amount such as \"+10\" or \"-20\""}}},
-                 {"quantise", length("Move starts to the nearest line of this grid.")}},
+                 {"quantise", length("Move starts to the nearest line of this grid.")},
+                 {"strength", number("How far quantise moves them, 0-1 (default 1: all the way)")},
+                 {"swing", number("Quantise's swing, 0-1: every other line later, by up to a third of a step")},
+                 {"stretch", number("Times the timing and lengths from the first note's start: 2 is half speed, 0.5 double; negative reverses")},
+                 {"legato", boolean("Each note lasts until the next one starts")},
+                 {"fixed_length", length("Every note this long.")},
+                 {"join", boolean("Notes of the same pitch that touch or overlap become one")},
+                 {"split_at", {{"type", {"number", "string"}}, {"description", "Split the notes crossing this beat of the clip"}}},
+                 {"reverse", boolean("The notes' order in time mirrored within their span")},
+                 {"mirror", boolean("Pitches upside down around the middle of their range (by the key's steps with a song key)")},
+                 {"invert", {{"type", "string"}, {"enum", {"up", "down"}}, {"description", "Each chord's lowest note up an octave, or its highest down"}}},
+                 {"voicing", {{"type", "string"}, {"enum", {"smooth", "close", "open", "drop2", "drop3", "spread"}},
+                              {"description", "Re-voice each chord; smooth keeps the first and moves the rest least"}}},
+                 {"mute", boolean("true mutes them (kept, not played), false plays them again")},
+                 {"add_bass", boolean("Each chord's root an octave or more under it")}},
                 {"clip", "where"}),
          notesResult(), writes},
         [&env](const Json& args, CallContext&) {
@@ -245,8 +270,66 @@ void addNoteTools(Registry& registry, ToolEnv& env)
                 }
                 edit = model::nudgeNotes(edit.notes, edit.selection, by);
             }
+            const auto key = env.session.snapshot()->keys.keyAt(c.contentStartBeat);
+            const auto needsKey = [&key](const char* arg)
+            {
+                if (!key)
+                    throw Problem{std::string(arg) + ": the song has no key; set_key sets one."};
+            };
+            if (args.contains("transpose_steps"))
+            {
+                needsKey("transpose_steps");
+                edit = model::transposeInKey(edit.notes, edit.selection, *key, args["transpose_steps"].get<int>());
+            }
+            if (args.value("fit_to_key", false))
+            {
+                needsKey("fit_to_key");
+                edit = model::fitToKey(edit.notes, edit.selection, *key);
+            }
             if (args.contains("quantise"))
-                edit = model::quantiseNotes(edit.notes, edit.selection, {lengthArg(env, args["quantise"]), c.contentStartBeat});
+            {
+                model::QuantiseSettings settings;
+                settings.strength = std::clamp(args.value("strength", 1.0), 0.0, 1.0);
+                settings.swing = std::clamp(args.value("swing", 0.0), 0.0, 1.0);
+                edit = model::quantiseNotes(edit.notes, edit.selection,
+                                            {.step = lengthArg(env, args["quantise"]), .origin = c.contentStartBeat,
+                                             .bar = tempo(env).beatsPerBar()},
+                                            settings);
+            }
+            if (args.contains("stretch"))
+            {
+                const double factor = args["stretch"].get<double>();
+                if (factor == 0.0)
+                    throw Problem{"stretch: 0 would squash every note to one point; 2 is half speed, 0.5 double."};
+                if (const auto span = model::notesSpan(edit.notes, edit.selection))
+                    edit = model::stretchNotes(edit.notes, edit.selection, span->first, factor, true);
+            }
+            if (args.value("legato", false))
+                edit = model::legatoNotes(edit.notes, edit.selection);
+            if (args.contains("fixed_length"))
+                edit = model::fixedLength(edit.notes, edit.selection, lengthArg(env, args["fixed_length"]));
+            if (args.value("join", false))
+                edit = model::joinNotes(edit.notes, edit.selection);
+            if (args.contains("split_at"))
+                edit = model::splitNotes(edit.notes, edit.selection, noteStart(env, args["split_at"], "split_at") + offset);
+            if (args.value("reverse", false))
+                edit = model::reverseNotes(edit.notes, edit.selection);
+            if (args.value("mirror", false))
+                edit = model::mirrorPitches(edit.notes, edit.selection, key ? &*key : nullptr);
+            if (args.contains("invert"))
+                edit = model::invertChords(edit.notes, edit.selection, args["invert"].get<std::string>() == "up");
+            if (args.contains("voicing"))
+            {
+                const auto voicing = model::voicingFromWord(args["voicing"].get<std::string>());
+                if (!voicing)
+                    throw Problem{"voicing: one of smooth, close, open, drop2, drop3, spread."};
+                edit = model::voiceChords(edit.notes, edit.selection, *voicing);
+            }
+            if (args.contains("mute"))
+                for (auto i : edit.selection)
+                    edit.notes[i].muted = args["mute"].get<bool>();
+            if (args.value("add_bass", false))
+                edit = model::addBass(edit.notes, edit.selection);
             const auto resolved = model::resolveOverlaps(edit.notes, edit.selection);
             env.session.setNotes(c.id, resolved.notes);
             env.session.flushSnapshot();

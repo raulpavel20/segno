@@ -140,6 +140,7 @@ void PianoRoll::setQuantiseSettings(const model::QuantiseSettings& settings)
 
 void PianoRoll::optionsChanged()
 {
+    updateLabels(); // names, steps or both
     resized(); // the chord lane comes and goes
     repaint();
     if (onOptionsChanged)
@@ -375,6 +376,7 @@ void PianoRoll::setClip(std::optional<model::ClipInfo> clip, const model::TempoM
     {
         key_ = std::move(key);
         rows = true;
+        updateLabels();
         repaint();
     }
     if (!clip || clip->kind != model::ClipInfo::Kind::Midi)
@@ -438,6 +440,7 @@ void PianoRoll::notesChanged()
     updateRows();
     if (options_.others)
         updateGhosts(); // the chords of everything shown include ours
+    updateLabels();
     selectionChanged();
 }
 
@@ -484,6 +487,7 @@ void PianoRoll::updateGhosts()
     allSpans_.clear();
     if (!clip_ || !options_.others)
     {
+        updateLabels();
         resized();
         return;
     }
@@ -527,6 +531,7 @@ void PianoRoll::updateGhosts()
         if (same)
             allSpans_.clear();
     }
+    updateLabels();
     resized();
 }
 
@@ -1297,20 +1302,65 @@ void PianoRoll::paintChordLane(juce::Graphics& g)
     {
         label("Chords", labelArea);
         // Live while a gesture or the popover's hover changes the notes.
-        const auto spans = preview_ ? model::chordSpans(preview_->notes) : spans_;
-        paintChordLine(g, lineArea, spans, true);
+        if (preview_)
+        {
+            const auto spans = model::chordSpans(preview_->notes);
+            paintChordLine(g, lineArea, spans, labelsFor(spans), true);
+        }
+        else
+            paintChordLine(g, lineArea, spans_, spanLabels_, true);
         lineArea.translate(0, s.rowHeight);
         labelArea.translate(0, s.rowHeight);
     }
     if (options_.others && !allSpans_.empty())
     {
         label("All", labelArea);
-        paintChordLine(g, lineArea, allSpans_, false);
+        paintChordLine(g, lineArea, allSpans_, allLabels_, false);
     }
 }
 
+std::vector<PianoRoll::LaneLabel> PianoRoll::labelsFor(const std::vector<model::ChordSpan>& spans) const
+{
+    const bool steps = key_ && options_.chordLabels != model::ChordLabels::Names;
+    const bool names = !key_ || options_.chordLabels != model::ChordLabels::Steps;
+    std::vector<LaneLabel> out;
+    out.reserve(spans.size());
+    for (const auto& span : spans)
+    {
+        LaneLabel label;
+        if (names)
+            label.name = utf8(music::chordName(span.chord, keyOrNull()));
+        if (steps)
+            label.step = (names ? juce::String::fromUTF8(" · ") : juce::String()) + utf8(music::romanNumeral(span.chord, *key_));
+        label.nameWidth = nameWidth(label.name);
+        label.stepWidth = nameWidth(label.step);
+        out.push_back(std::move(label));
+    }
+    return out;
+}
+
+void PianoRoll::updateLabels()
+{
+    spanLabels_ = labelsFor(spans_);
+    allLabels_ = labelsFor(allSpans_);
+}
+
+int PianoRoll::nameWidth(const juce::String& text) const
+{
+    // Measuring is slow (a font's fallback for ♯ and ♭), and a clip's chords repeat: kept by text.
+    if (text.isEmpty())
+        return 0;
+    if (const auto it = widths_.find(text); it != widths_.end())
+        return it->second;
+    const int w = static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(ui::font(ui::TextStyle::Name), text)));
+    if (widths_.size() > 512)
+        widths_.clear();
+    widths_.emplace(text, w);
+    return w;
+}
+
 void PianoRoll::paintChordLine(juce::Graphics& g, juce::Rectangle<int> area, const std::vector<model::ChordSpan>& spans,
-                               bool own)
+                               const std::vector<LaneLabel>& labels, bool own)
 {
     const auto& t = ui::Theme::current();
     const auto& s = t.shell;
@@ -1318,9 +1368,9 @@ void PianoRoll::paintChordLine(juce::Graphics& g, juce::Rectangle<int> area, con
     g.reduceClipRegion(area);
     const auto geo = geometry();
     const auto& selection = shownSelection();
-    const bool steps = key_ && options_.chordLabels != model::ChordLabels::Names;
-    const bool names = !key_ || options_.chordLabels != model::ChordLabels::Steps;
     const auto nameFont = ui::font(ui::TextStyle::Name);
+    g.setFont(nameFont);
+    const int least = nameWidth(juce::String::fromUTF8("…")); // the least room worth writing in
     const auto xOf = [&](double beat) { return area.getX() + static_cast<int>(std::round(geo.xForBeat(beat))); };
 
     for (std::size_t k = 0; k < spans.size(); ++k)
@@ -1344,29 +1394,22 @@ void PianoRoll::paintChordLine(juce::Graphics& g, juce::Rectangle<int> area, con
         g.setColour(t.line);
         g.fillRect(x0, area.getY(), 1, area.getHeight() - 1);
 
-        // The name, then the step after it; cut short before the next chord, the step going first.
-        auto text = juce::Rectangle<int>(x0, area.getY(), next - x0, area.getHeight() - 1).reduced(s.fieldTextInset, 0);
-        if (text.getWidth() <= 0)
+        // The name, then the step after it; cut short before the next chord, the step going first;
+        // nothing where there isn't room for an ellipsis.
+        const auto text = juce::Rectangle<int>(x0, area.getY(), next - x0, area.getHeight() - 1).reduced(s.fieldTextInset, 0);
+        if (text.getWidth() < least || k >= labels.size())
             continue;
-        const auto name = names ? utf8(music::chordName(span.chord, keyOrNull())) : juce::String();
-        auto step = steps ? utf8(music::romanNumeral(span.chord, *key_)) : juce::String();
-        if (names && steps)
-            step = juce::String::fromUTF8(" · ") + step;
-        g.setFont(nameFont);
-        const int nameWidth = static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(nameFont, name)));
-        const int stepWidth = static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(nameFont, step)));
-        g.setColour(own ? t.textPrimary : t.textSecondary);
-        if (names)
-            g.drawText(name, text, juce::Justification::centredLeft, true);
-        if (step.isNotEmpty() && nameWidth + stepWidth <= text.getWidth())
+        const auto& label = labels[k];
+        const bool whole = label.nameWidth + label.stepWidth <= text.getWidth();
+        if (label.name.isNotEmpty())
         {
-            g.setColour(own ? t.textSecondary : t.textTertiary);
-            g.drawText(step, text.withTrimmedLeft(nameWidth), juce::Justification::centredLeft, false);
+            g.setColour(own ? t.textPrimary : t.textSecondary);
+            g.drawText(label.name, text, juce::Justification::centredLeft, label.nameWidth > text.getWidth());
         }
-        else if (!names && step.isNotEmpty())
+        if (label.step.isNotEmpty() && (whole || label.name.isEmpty()))
         {
             g.setColour(own ? t.textSecondary : t.textTertiary);
-            g.drawText(step, text, juce::Justification::centredLeft, true);
+            g.drawText(label.step, text.withTrimmedLeft(label.nameWidth), juce::Justification::centredLeft, !whole);
         }
     }
 

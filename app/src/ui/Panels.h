@@ -149,12 +149,27 @@ public:
     void focusTakeName();
     /// The shell's actions, for the TAKE section's commands (they act on the selected take).
     void setActions(const ActionRegistry& actions);
+    /// The clip view's piano roll (piano-roll.md §9.6): a NOTES section after CLIP while it shows
+    /// the selected clip with notes selected, edited through it.
+    void setPianoRoll(PianoRoll& roll);
+    /// Its notes or their selection changed.
+    void notesChanged();
+    /// The NOTES section's fields (tests).
+    [[nodiscard]] ui::NumberField& noteField(model::NoteField field) noexcept;
+    [[nodiscard]] ui::Toggle& noteMute() noexcept { return noteMute_; }
     void resized() override;
     void paint(juce::Graphics& g) override;
 
 private:
     /// The selected section's fields (arranger.md §10), made once.
     void wireSection();
+    /// The NOTES section's fields, made once.
+    void wireNotes();
+    /// Adds or removes the NOTES section and shows the notes' values.
+    void updateNotes();
+    [[nodiscard]] bool showsNotes() const;
+    /// "Notes · 4 selected · G7".
+    [[nodiscard]] juce::String notesTitle() const;
     /// A section's property rows (none for MIX and SENDS, which are components).
     [[nodiscard]] std::vector<ui::Property> properties(model::InspectorSection section) const;
     /// Lays the sections out `width` wide from the top of the content; returns their height.
@@ -205,6 +220,16 @@ private:
     const ActionRegistry* actions_ = nullptr;
     /// The selected clip's mute (bounce.md §6), as on a track's mute button.
     ui::Toggle clipMute_{"M"};
+    /// The selected notes (piano-roll.md §9.6): pitch, start, length and velocity dragged or typed
+    /// (several: a range, moved together by a drag, all set by typing), and their mute. One undo
+    /// step per drag or value typed.
+    PianoRoll* roll_ = nullptr;
+    ui::NumberField notePitch_, noteStart_, noteLength_, noteVelocity_;
+    ui::Toggle noteMute_{"M"};
+    std::optional<engine::Session::EditGroup> notesGesture_;
+    std::optional<model::NoteEdit> notesBase_; // the notes a drag started from
+    double notesFrom_ = 0.0;                    // and the field's value then
+    std::map<model::NoteField, double> notesSpread_; // each field's range over the notes
     /// Its loop (ADR 0048, clip-loops.md §7): on or off, and while on its start in the content and
     /// its length, dragged in sixteenths or typed ("2.1.1", "1 bar 2 beats", for audio "1.5 s").
     ui::Toggle clipLoop_{"On"};

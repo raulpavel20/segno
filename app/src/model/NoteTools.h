@@ -164,6 +164,29 @@ struct QuantiseSettings
 [[nodiscard]] NoteEdit quantiseNotes(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
                                      const BeatGrid& grid, const QuantiseSettings& settings);
 
+// ---- The inspector's NOTES section (§9.6) --------------------------------------------------
+
+/// A note's value the inspector shows and edits.
+enum class NoteField
+{
+    Pitch,    // MIDI 0..127
+    Start,    // content beats
+    Length,   // beats
+    Velocity  // MIDI 1..127
+};
+
+/// A field's value on a note, in the inspector's units.
+[[nodiscard]] double fieldOf(const Note& note, NoteField field) noexcept;
+/// The lowest and highest value of a field over the notes (none for no notes).
+[[nodiscard]] std::optional<std::pair<double, double>> fieldRange(const std::vector<Note>& notes,
+                                                                  const std::set<std::size_t>& which, NoteField field);
+/// Typed: every selected note's field set to `value`, kept in range.
+[[nodiscard]] NoteEdit setNotesField(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
+                                     NoteField field, double value);
+/// Dragged: every selected note's field moved by the same amount, as far as all of them can go.
+[[nodiscard]] NoteEdit offsetNotesField(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
+                                        NoteField field, double delta);
+
 // ---- Selecting (§5) -------------------------------------------------------------------------
 
 /// Notes of a pitch any selected note has.

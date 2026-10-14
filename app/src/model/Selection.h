@@ -74,6 +74,7 @@ enum class InspectorSection
     Takes,
     Clip,
     Clips,
+    Notes, // the clip view's selected notes (piano-roll.md §9.6), added by the inspector
     Section,
     Sections,
     Track,
