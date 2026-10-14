@@ -249,6 +249,34 @@ model::ControllerLane PianoRoll::controllerLane() const
     return out;
 }
 
+model::AutomationPoints PianoRoll::copyPoints() const
+{
+    return model::copyPoints(laneKept_ ? laneKept_->points : lanePoints_, points_);
+}
+
+bool PianoRoll::pastePoints(const model::AutomationPoints& points, double seconds)
+{
+    if (!clip_ || !showsController() || points.empty())
+        return false;
+    const bool over = seconds >= clip_->start && seconds < clip_->end();
+    const double at = over ? model::clipViewTime(*clip_, seconds) : playedRange().first;
+    pointsUsed_ = true;
+    keepLane(model::pastePoints(laneKept_ ? laneKept_->points : lanePoints_, points, at,
+                                model::controllerRules(options_.lane.controller)),
+             "Paste");
+    return true;
+}
+
+void PianoRoll::duplicatePoints()
+{
+    if (!hasPointSelection())
+        return;
+    keepLane(model::duplicatePoints(laneKept_ ? laneKept_->points : lanePoints_, points_,
+                                    tempo_.secondsForBeats(gridStep()),
+                                    model::controllerRules(options_.lane.controller)),
+             "Duplicate points");
+}
+
 void PianoRoll::rerollChance()
 {
     if (clip_)

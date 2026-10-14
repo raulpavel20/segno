@@ -90,6 +90,13 @@ public:
     [[nodiscard]] juce::Point<float> lanePointFor(double beat, float value) const;
     /// A controller lane says why it does nothing (Alt on a pedal's steps).
     std::function<void(const juce::String&)> onMessage;
+    /// The controller lane's selected points for the clipboard (times from the first, in seconds,
+    /// as automation lanes' are), and back: pasted at `seconds` (the playhead) where it's over the
+    /// clip, else at its start; false without a controller lane. Duplicate copies them after
+    /// themselves. One undo step each (§11).
+    [[nodiscard]] model::AutomationPoints copyPoints() const;
+    bool pastePoints(const model::AutomationPoints& points, double seconds);
+    void duplicatePoints();
     /// Notes ▸ Re-roll chance (§10): the clip's notes decided again.
     void rerollChance();
 

@@ -2351,21 +2351,8 @@ void ArrangementView::duplicatePoints()
 
 model::AutomationPoints ArrangementView::copyPoints() const
 {
-    model::AutomationPoints out;
     const auto* lane = selectedLane();
-    if (lane == nullptr)
-        return out;
-    for (const auto i : selection_.points)
-        if (i < lane->points.size())
-            out.push_back(lane->points[i]);
-    std::sort(out.begin(), out.end(), [](const auto& a, const auto& b) { return a.time < b.time; });
-    if (!out.empty())
-    {
-        const double first = out.front().time;
-        for (auto& p : out)
-            p.time -= first;
-    }
-    return out;
+    return lane == nullptr ? model::AutomationPoints{} : model::copyPoints(lane->points, selection_.points);
 }
 
 bool ArrangementView::pastePoints(const model::AutomationPoints& points, double seconds)
@@ -2373,26 +2360,12 @@ bool ArrangementView::pastePoints(const model::AutomationPoints& points, double 
     const auto* lane = selectedLane();
     if (lane == nullptr || points.empty())
         return false;
-    const double from = std::max(0.0, seconds), to = from + points.back().time;
-    model::AutomationPoints merged;
-    for (const auto& p : lane->points)
-        if (p.time < from - 1e-9 || p.time > to + 1e-9)
-            merged.push_back(p);
-    for (auto p : points)
-    {
-        p.time += from;
-        merged.push_back(p);
-    }
-    std::stable_sort(merged.begin(), merged.end(), [](const auto& a, const auto& b) { return a.time < b.time; });
-    std::set<size_t> pasted;
-    for (size_t i = 0; i < merged.size(); ++i)
-        if (merged[i].time >= from - 1e-9 && merged[i].time <= to + 1e-9)
-            pasted.insert(i);
+    auto edit = model::pastePoints(lane->points, points, seconds, lane->rules());
     const auto id = lane->id;
-    session_.setLanePoints(id, merged, std::nullopt, "Paste");
+    session_.setLanePoints(id, edit.points, std::nullopt, "Paste");
     session_.updateSnapshotNow();
     setSnapshot(session_.snapshot());
-    setSelection(model::withLane(*snapshot_, id, std::move(pasted)));
+    setSelection(model::withLane(*snapshot_, id, std::move(edit.selection)));
     return true;
 }
 

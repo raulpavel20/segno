@@ -694,7 +694,10 @@ void Shell::registerActions()
                   .perform =
                       [this, &roll, clipsShown]
                   {
-                      if (notesActive() && roll.hasSelection())
+                      // The clip view's controller points (piano-roll.md §11), or its notes.
+                      if (notesActive() && roll.hasPointSelection())
+                          roll.duplicatePoints();
+                      else if (notesActive() && roll.hasSelection())
                           roll.duplicateSelection();
                       else if (sectionsActive())
                           actions_.perform("song.duplicateSection");
@@ -708,14 +711,18 @@ void Shell::registerActions()
                   .isEnabled =
                       [this, &roll, clipsShown]
                   {
-                      return (notesActive() && roll.hasSelection()) || sectionsActive() || pointsActive() ||
-                             trackHeaderActive() || (clipsShown() && arrangement_.hasClipSelection());
+                      return (notesActive() && (roll.hasSelection() || roll.hasPointSelection())) ||
+                             sectionsActive() || pointsActive() || trackHeaderActive() ||
+                             (clipsShown() && arrangement_.hasClipSelection());
                   }});
     // Cut, copy and paste (tracks-and-clips.md §9): clips, notes, points or sections (with their
     // music, arranger.md §9), from the area used last; pasted at the playhead.
     actions_.add({.id = "edit.cut", .name = "Cut", .category = "Edit", .keys = {key('x', kCmd)},
                   .perform = [this, &roll] {
-                      const bool notes = notesActive() && roll.hasSelection(), points = pointsActive();
+                      // Notes, or the clip view's controller points (deleteSelection takes those
+                      // when its lane was used last).
+                      const bool notes = notesActive() && (roll.hasSelection() || roll.hasPointSelection()),
+                                 points = pointsActive();
                       const bool sections = !notes && !points && sectionsActive();
                       if (!copySelection())
                           return;
@@ -2063,13 +2070,20 @@ juce::PopupMenu Shell::clipColourMenu()
 
 bool Shell::canCopy() const
 {
-    return (notesActive() && detail_.pianoRoll().hasSelection()) || pointsActive() || sectionsActive() ||
-           (!mixerShown_ && lastArea_ != Area::Clip && arrangement_.hasClipSelection());
+    const auto& roll = detail_.pianoRoll();
+    return (notesActive() && (roll.hasSelection() || roll.hasPointSelection())) || pointsActive() ||
+           sectionsActive() || (!mixerShown_ && lastArea_ != Area::Clip && arrangement_.hasClipSelection());
 }
 
 bool Shell::copySelection()
 {
     auto& roll = detail_.pianoRoll();
+    if (notesActive() && roll.hasPointSelection()) // the clip view's controller lane (piano-roll.md §11)
+    {
+        heldPoints_ = roll.copyPoints();
+        held_ = Held::Points;
+        return true;
+    }
     if (notesActive() && roll.hasSelection())
     {
         heldNotes_ = roll.copySelection();
@@ -2118,8 +2132,13 @@ void Shell::paste()
         lastArea_ = Area::Clip;
         return;
     case Held::Points:
+        // Into the clip view's controller lane when it was used last, else the selected lane.
+        if (lastArea_ == Area::Clip && detail_.showsPianoRoll() &&
+            detail_.pianoRoll().pastePoints(heldPoints_, at))
+            return;
         if (mixerShown_ || !arrangement_.pastePoints(heldPoints_, at))
-            showWarning("Points paste onto an automation lane: select one first");
+            showWarning("Points paste onto an automation lane, or a controller lane in the clip view: "
+                        "show one first");
         else
             lastArea_ = Area::Lane;
         return;

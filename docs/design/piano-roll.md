@@ -528,5 +528,7 @@ Built as §10 and §11 say. What building settled:
 
 **Assistants:** notes in and out carry `chance` (percent), `velocity_spread` and `release_velocity`, only when they aren't the plain note's. `edit_notes` sets them. `reroll_chance`, `get_controllers` and `set_controllers` are new, and `get_clip` lists a clip's controller lanes and its seed.
 
-**Not yet:** copying and pasting controller points; controllers in the NOTES inspector; drawing controllers while recording (recorded ones show).
+**Copy and paste** (after sign-off, 2026-10-15): Edit's Cut, Copy, Paste and Duplicate act on the controller lane's selected points when it was used last, as they do on an automation lane's, through the same model functions (`model::copyPoints`, `pastePoints`, `duplicatePoints`; copy and paste moved out of the arrangement for it). They paste at the playhead where it's over the clip, else at its start. Points go between the two kinds of lane as shapes, and a stepped lane (a pedal, a stepped parameter) takes them as its steps.
+
+**Not yet:** controllers in the NOTES inspector; drawing controllers while recording (recorded ones show).
 

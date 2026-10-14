@@ -103,6 +103,35 @@ TEST_CASE("automation: segments move, bend and points delete", "[fast]")
     CHECK(e.points[0].time == 1.0);
 }
 
+TEST_CASE("automation: copied points paste from a time, replacing what lies there; steps on a stepped lane",
+          "[fast]")
+{
+    const AutomationPoints lane{{1.0, 0.2f, 0.0f}, {2.0, 0.6f, 0.0f}, {3.0, 0.9f, 0.0f}, {6.0, 0.1f, 0.0f}};
+    const auto held = copyPoints(lane, {2, 0}); // any order
+    REQUIRE(held.size() == 2);
+    CHECK(held[0].time == 0.0); // from the first
+    CHECK(held[1].time == 2.0);
+    CHECK(held[1].value == 0.9f);
+    CHECK(copyPoints(lane, {}).empty());
+
+    // Pasted at 5: the point at 6 lies in their range (5 to 7) and goes; the pasted are selected.
+    const auto pasted = pastePoints(lane, held, 5.0, {});
+    REQUIRE(pasted.points.size() == 5);
+    CHECK(pasted.points[3].time == 5.0);
+    CHECK(pasted.points[4].time == 7.0);
+    CHECK(pasted.selection == std::set<size_t>{3, 4});
+    // Never before 0.
+    CHECK(pastePoints(lane, held, -3.0, {}).points.front().time == 0.0);
+    // A stepped lane takes them as its steps.
+    const auto stepped = pastePoints({}, held, 0.0, {.steps = 2});
+    REQUIRE(stepped.points.size() == 2);
+    CHECK(stepped.points[0].value == 0.0f);
+    CHECK(stepped.points[1].value == 1.0f);
+    CHECK(stepped.points[0].curve == kStepCurve);
+    // Nothing held: nothing changes.
+    CHECK(pastePoints(lane, {}, 1.0, {}).points == lane);
+}
+
 TEST_CASE("automation: duplicating and drawing replace what lies in their range", "[fast]")
 {
     const AutomationPoints pts{{0.0, 0.1f, 0.0f}, {0.5, 0.9f, 0.0f}, {1.5, 0.3f, 0.0f}};

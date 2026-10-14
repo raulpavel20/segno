@@ -948,6 +948,76 @@ TEST_CASE("piano roll (P4b): a controller lane is edited as automation lanes are
 }
 
 TEST_CASE(
+    "piano roll (P4b): a controller lane's points are cut, copied, pasted and duplicated as an automation "
+    "lane's, from the Edit menu",
+    "[integration]")
+{
+    RollFixture f;
+    auto& roll = f.roll();
+    f.setNotes(progression());
+    namespace cc = fd::model::controllers;
+    using K = fd::model::BottomLane::Kind;
+    roll.setLane({.kind = K::Controller, .controller = cc::modWheel});
+    f.session->setControllers(
+        f.clipId, {{.controller = cc::modWheel, .points = {{1.0, 0.25f, 0.0f}, {2.0, 0.75f, 0.0f}}}});
+    f.refresh();
+    REQUIRE(roll.controllerLane().points.size() == 2);
+    auto& actions = f.shell->actions();
+    const auto selectBoth = [&]
+    {
+        click(roll, roll.lanePointFor(1.0, 0.25f));
+        click(roll, roll.lanePointFor(2.0, 0.75f), 1, juce::ModifierKeys::shiftModifier);
+        REQUIRE(roll.pointSelection().size() == 2);
+    };
+
+    // Copy, then paste at the playhead (bar 3): the two again, two bars on.
+    selectBoth();
+    REQUIRE(actions.perform("edit.copy"));
+    f.session->setPosition(f.session->snapshot()->tempo.secondsForBeats(8.0));
+    REQUIRE(actions.perform("edit.paste"));
+    f.refresh();
+    auto points = roll.controllerLane().points;
+    REQUIRE(points.size() == 4);
+    CHECK(points[2].time == Catch::Approx(8.0));
+    CHECK(points[3].time == Catch::Approx(9.0));
+    CHECK(points[3].value == Catch::Approx(0.75f).margin(0.01f));
+    CHECK(f.session->undoDescription() == "Paste");
+    CHECK(f.notes().size() == progression().size()); // the notes are left alone
+
+    // Duplicate, as an automation lane's: moved on by their span rounded up to the grid (a beat
+    // here), the copies replacing what lies there (the second point, under the first copy).
+    selectBoth();
+    REQUIRE(actions.perform("edit.duplicate"));
+    f.refresh();
+    points = roll.controllerLane().points;
+    REQUIRE(points.size() == 5);
+    CHECK(points[2].time == Catch::Approx(3.0));
+    CHECK(points[2].value == Catch::Approx(0.75f).margin(0.01f));
+    CHECK(f.session->undoDescription() == "Duplicate points");
+
+    // Cut the pasted two: gone from the lane, ready to paste; the notes stay.
+    click(roll, roll.lanePointFor(8.0, 0.25f));
+    click(roll, roll.lanePointFor(9.0, 0.75f), 1, juce::ModifierKeys::shiftModifier);
+    REQUIRE(roll.pointSelection().size() == 2);
+    REQUIRE(actions.perform("edit.cut"));
+    f.refresh();
+    CHECK(roll.controllerLane().points.size() == 3);
+    CHECK(f.notes().size() == progression().size());
+
+    // Into the sustain lane: its steps, on or off.
+    roll.setLane({.kind = K::Controller, .controller = cc::sustain});
+    click(roll, roll.lanePointFor(12.0, 0.5f)); // the lane used last
+    f.session->setPosition(0.0);
+    REQUIRE(actions.perform("edit.paste"));
+    f.refresh();
+    points = roll.controllerLane().points;
+    REQUIRE(points.size() == 2);
+    CHECK(points[0].value == 0.0f);
+    CHECK(points[1].value == 1.0f);
+    CHECK(points[0].curve == fd::model::kStepCurve);
+}
+
+TEST_CASE(
     "piano roll (P4b): Others leaves out the tracks chosen one by one, from the header and the View menu",
     "[integration]")
 {
