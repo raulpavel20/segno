@@ -255,16 +255,15 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     mixer_.onSelectModule = [this](std::uint64_t channel, std::uint64_t module) {
         lastArea_ = Area::Detail;
         arrangement_.selectTrack(channel); // the chain now shows this channel
-        if (!detailPanel_.open)
-            toggle(detailPanel_);
+        openPanel(detailPanel_);
         detail_.selectModule(module);
     };
     detail_.onModeChosen = [this](DetailPanel::Mode m)
     {
         arrangeMode_ = m;
         applyDetailMode();
-        if (m == DetailPanel::Mode::Editor && !detailPanel_.open)
-            toggle(detailPanel_); // an editor opened from a menu, with the panel closed
+        if (m == DetailPanel::Mode::Editor)
+            openPanel(detailPanel_); // an editor opened from a menu, with the panel closed
     };
     detail_.onEditorChanged = [this]
     {
@@ -333,16 +332,14 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         // The inspector's name field, for the take.
         lastArea_ = Area::Arrangement;
         arrangement_.selectTake(track, take);
-        if (!inspectorPanel_.open)
-            toggle(inspectorPanel_);
+        openPanel(inspectorPanel_);
         inspector_.focusTakeName();
     };
     arrangement_.onRenameLane = [this](std::uint64_t lane) {
         // The inspector's name field, for the lane.
         lastArea_ = Area::Lane;
         arrangement_.selectLane(lane);
-        if (!inspectorPanel_.open)
-            toggle(inspectorPanel_);
+        openPanel(inspectorPanel_);
         inspector_.focusLaneName();
     };
     inspector_.assignments().onAssign = [this](std::uint64_t lane) { assignToLane(lane); };
@@ -351,8 +348,7 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         updateTitle(); // the detail panel shows that channel's chain
         if (module != 0)
         {
-            if (!detailPanel_.open)
-                toggle(detailPanel_);
+            openPanel(detailPanel_);
             detail_.selectModule(module);
         }
     };
@@ -388,8 +384,7 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         // A clip opens in the clip view: a MIDI clip's notes, an audio clip's waveform (clip-loops.md §6).
         arrangeMode_ = DetailPanel::Mode::Clip;
         applyDetailMode();
-        if (!detailPanel_.open)
-            toggle(detailPanel_);
+        openPanel(detailPanel_);
     };
     session_.onSnapshotChanged = [this] {
         arrangement_.setSnapshot(session_.snapshot());
@@ -1383,8 +1378,12 @@ void Shell::registerActions()
                   .isEnabled = arrangeShown,
                   .isToggled = [this] { return arrangement_.mixRowsVisible(); }});
 
-    actions_.add({.id = "view.browser", .name = "Show browser", .category = "View", .keys = {key('b', kCmd | kAlt)},
-                  .perform = [this] { toggle(browserPanel_); }, .isToggled = [this] { return browserPanel_.open; }});
+    actions_.add({.id = "view.browser",
+                  .name = "Show browser",
+                  .category = "View",
+                  .keys = {key('b', kCmd | kAlt)},
+                  .perform = [this] { toggle(browserPanel_); },
+                  .isToggled = [this] { return isShown(browserPanel_); }});
     // The inspector belongs to the arrangement (ADR 0027): the mixer's strips show every channel control.
     actions_.add({.id = "browser.search",
                   .name = "Search the browser",
@@ -1410,11 +1409,19 @@ void Shell::registerActions()
                           session_.stopPreview();
                   },
                   .isToggled = [this] { return settings().browser.preview; }});
-    actions_.add({.id = "view.inspector", .name = "Show inspector", .category = "View", .keys = {key('i', kCmd | kAlt)},
-                  .perform = [this] { toggle(inspectorPanel_); }, .isEnabled = arrangeShown,
-                  .isToggled = [this] { return inspectorPanel_.open && !mixerShown_; }});
-    actions_.add({.id = "view.detail", .name = "Show detail panel", .category = "View", .keys = {key('d', kCmd | kAlt)},
-                  .perform = [this] { toggle(detailPanel_); }, .isToggled = [this] { return detailPanel_.open; }});
+    actions_.add({.id = "view.inspector",
+                  .name = "Show inspector",
+                  .category = "View",
+                  .keys = {key('i', kCmd | kAlt)},
+                  .perform = [this] { toggle(inspectorPanel_); },
+                  .isEnabled = arrangeShown,
+                  .isToggled = [this] { return isShown(inspectorPanel_) && !mixerShown_; }});
+    actions_.add({.id = "view.detail",
+                  .name = "Show detail panel",
+                  .category = "View",
+                  .keys = {key('d', kCmd | kAlt)},
+                  .perform = [this] { toggle(detailPanel_); },
+                  .isToggled = [this] { return isShown(detailPanel_); }});
     actions_.add({.id = "view.detailMode",
                   .name = "Switch modules / clip view / editor",
                   .category = "View",
@@ -1432,8 +1439,7 @@ void Shell::registerActions()
                       const auto at = std::find(modes.begin(), modes.end(), detail_.mode());
                       arrangeMode_ = at == modes.end() || at + 1 == modes.end() ? modes.front() : *(at + 1);
                       applyDetailMode();
-                      if (!detailPanel_.open)
-                          toggle(detailPanel_);
+                      openPanel(detailPanel_);
                   },
                   .isEnabled = [this] { return !mixerShown_ || detail_.editor() != nullptr; }});
     actions_.add({.id = "view.focus", .name = "Focus mode", .category = "View", .keys = {key('f', kCmd | kAlt)},
@@ -1729,11 +1735,30 @@ bool Shell::keyStateChanged(bool)
     return false;
 }
 
-void Shell::toggle(Panel& p)
+void Shell::applyPanel(Panel& p, bool open, bool floating)
 {
-    p.open = !p.open;
-    if (focusMode_)
-        focusMode_ = false;
+    p.open = open;
+    if (open)
+        p.floating = floating; // closing, it stays as it was until it's shut (onFrame)
+    if (&p == &browserPanel_)
+    {
+        if (open && floating)
+            browserOutside_.attach();
+        else
+            browserOutside_.detach();
+    }
+}
+
+void Shell::setPanel(Panel& p, bool open, bool floating)
+{
+    if (open && p.open && !p.floating)
+        floating = false; // docked already: it stays so
+    const bool changes = p.open != open || (open && p.floating != floating);
+    if (!changes && !(open && focusMode_))
+        return;
+    applyPanel(p, open, floating);
+    if (open)
+        focusMode_ = false; // a panel asked for shows, whatever focus mode hid
     resized();
 }
 
@@ -1840,7 +1865,7 @@ std::string Shell::viewState() const
         {"pixelsPerSecond", tl.pixelsPerSecond()},
         {"grid", model::gridsToViewState({arrangement_.grid(), detail_.pianoRoll().grid()})},
         {"follow", arrangement_.isFollowEnabled()},
-        {"browser", browserPanel_.open},
+        {"browser", browserPanel_.open && !browserPanel_.floating}, // floating over the arrangement: not kept
         {"inspector", inspectorPanel_.open},
         {"detail", detailPanel_.open},
         {"browserWidth", browserPanel_.size},
@@ -1870,9 +1895,9 @@ void Shell::applyViewState(const std::string& json)
     auto get = [&](const char* key, auto fallback) { return v.contains(key) ? v[key].get<decltype(fallback)>() : fallback; };
     arrangement_.setView(get("start", 0.0), get("pixelsPerSecond", arrangement_.timeline().pixelsPerSecond()));
     arrangement_.setFollowEnabled(get("follow", true));
-    browserPanel_.open = get("browser", browserPanel_.open);
-    inspectorPanel_.open = get("inspector", inspectorPanel_.open);
-    detailPanel_.open = get("detail", detailPanel_.open);
+    applyPanel(browserPanel_, get("browser", browserPanel_.open && !browserPanel_.floating), false);
+    applyPanel(inspectorPanel_, get("inspector", inspectorPanel_.open), false);
+    applyPanel(detailPanel_, get("detail", detailPanel_.open), false);
     browserPanel_.size = get("browserWidth", browserPanel_.size);
     inspectorPanel_.size = get("inspectorWidth", inspectorPanel_.size);
     clipViewHeight_ = get("clipViewHeight", clipViewHeight_);
@@ -2308,19 +2333,14 @@ void Shell::removeUnusedFiles()
 
 void Shell::showBrowserOverlay(BrowserPanel::Part part)
 {
-    browserOverlay_ = true;
-    resized();
-    browserOutside_.attach();
-    browser_.showPart(part);
+    setPanel(browserPanel_, true, true);
+    browser_.showPart(part); // as soon as it's out of its rail
 }
 
 void Shell::closeBrowserOverlay()
 {
-    if (!browserOverlay_)
-        return;
-    browserOverlay_ = false;
-    browserOutside_.detach();
-    resized();
+    if (browserOverlayShown())
+        setPanel(browserPanel_, false);
 }
 
 void Shell::closeSettings()
@@ -2532,6 +2552,8 @@ void Shell::onFrame(double timestamp)
                 p->shown = target;
             relayout = true;
         }
+        if (!p->open && p->shown == 0.0f)
+            p->floating = false; // shut: it opens docked next time, unless asked otherwise
     }
     // The detail panel's height follows its mode: the device view's fixed height, or the clip
     // view's (resizable at its top edge).
@@ -2608,7 +2630,11 @@ void Shell::onFrame(double timestamp)
 void Shell::finishAnimations()
 {
     for (auto* p : {&browserPanel_, &inspectorPanel_, &detailPanel_})
+    {
         p->shown = p->open ? 1.0f : 0.0f;
+        if (!p->open)
+            p->floating = false;
+    }
     detailPanel_.size = detailHeight();
     resized();
 }
@@ -2710,8 +2736,12 @@ void Shell::resized()
     if (compact_ != compact)
     {
         compact_ = compact;
-        browserPanel_.open = inspectorPanel_.open = !compact;
-        browserPanel_.shown = inspectorPanel_.shown = compact ? 0.0f : 1.0f;
+        for (auto* p : {&browserPanel_, &inspectorPanel_})
+        {
+            applyPanel(*p, !compact, false);
+            p->floating = false;
+            p->shown = compact ? 0.0f : 1.0f;
+        }
     }
 
     auto r = getLocalBounds();
@@ -2731,22 +2761,19 @@ void Shell::resized()
     detailSplit_.setVisible(detailH > 0 && detailPanel_.open && detail_.mode() != DetailPanel::Mode::Devices);
     detailSplit_.setBounds(detail_.getBounds().withHeight(5).translated(0, -3));
 
+    // The browser opens and closes the same way docked or floating over the arrangement (from its
+    // rail, browser.md §15): only where it takes its room differs.
     const auto rail = static_cast<float>(ui::Theme::current().shell.railWidth);
     const float browserW = showSides ? rail + (browserPanel_.size - rail) * browserPanel_.shown : 0.0f;
+    const bool floating = browserPanel_.floating && browserW > 0.0f;
     browser_.setVisible(browserW > 0.0f);
-    // Folded to its rail, the browser can show over the arrangement (browser.md §15).
-    const bool overlay = browserOverlay_ && browserPanel_.shown < 0.5f && browserW > 0.0f;
-    browser_.setRail(browserPanel_.shown < 0.5f && !overlay);
-    browser_.setOverlay(overlay);
-    browser_.setBounds(r.removeFromLeft(juce::roundToInt(browserW)));
-    if (overlay)
-    {
-        browser_.setBounds(browser_.getBounds().withWidth(juce::roundToInt(browserPanel_.size)));
+    browser_.setRail(browserPanel_.shown < 0.5f);
+    browser_.setOverlay(floating && browserPanel_.shown > 0.0f);
+    const auto docked = r.removeFromLeft(juce::roundToInt(floating ? rail : browserW));
+    browser_.setBounds(docked.withWidth(juce::roundToInt(browserW)));
+    if (floating)
         browser_.toFront(false);
-    }
-    else
-        browserOverlay_ = false;
-    browserSplit_.setVisible(showSides && browserPanel_.open);
+    browserSplit_.setVisible(showSides && browserPanel_.open && !floating);
     const int splitter = ui::Theme::current().shell.splitter;
     browserSplit_.setBounds(r.removeFromLeft(browserW > 0.0f ? 1 : 0).withWidth(splitter).translated(-splitter / 2, 0));
 

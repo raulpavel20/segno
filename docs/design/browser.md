@@ -203,7 +203,7 @@ As in Live, at the product owner's suggestion:
 
 ## 15. Compact widths and assistants
 
-**Below 1440 px** the browser is its rail (ui-principles §2). The rail holds Search, Favourites, Instruments, Audio effects, Racks, Plugins and Places, each the icon the open browser shows before it, at the same size (`shell.listIconSize`, ADR 0059); a click opens the browser over the arrangement at that part, at its normal width, and it closes when something is dragged out of it or on a click elsewhere.
+**Below 1440 px** the browser is its rail (ui-principles §2). The rail holds Search, Favourites, Instruments, Audio effects, Racks, Plugins and Places, each the icon the open browser shows before it, at the same size (`shell.listIconSize`, ADR 0059); a click opens the browser over the arrangement at that part, at its normal width, easing out of its rail as the docked panel does, and it closes when something is dragged out of it, on a click elsewhere, or with the browser's toggle, which shows it open meanwhile: it's the one browser panel, open over the arrangement rather than beside it (daw-shell.md, "A side panel's state is kept once").
 
 **Assistants (MCP):**
 

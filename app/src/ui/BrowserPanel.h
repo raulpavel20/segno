@@ -173,6 +173,7 @@ private:
     std::unique_ptr<Strip> strip_;
 
     bool rail_ = false, overlay_ = false;
+    std::optional<Part> pendingPart_; // asked for while folded to the rail: shown when it unfolds
     std::vector<std::pair<Part, std::unique_ptr<ui::IconButton>>> railButtons_;
     ui::IconButton expand_{ui::Icon::PanelLeft};
 

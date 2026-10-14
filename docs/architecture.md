@@ -99,6 +99,7 @@ The contract is frozen since M1's sign-off ([ADR 0034](decisions/0034-device-api
 - **Design tokens** (`design/tokens.json` → generated `Tokens.h`) are the only source of colours, spacing, type and radii. This is what makes a light theme possible later.
 - One bundled variable font; SVG icons; display-refresh-driven animation for meters, playheads and zoom.
 - The rules themselves are in [design/ui-principles.md](design/ui-principles.md).
+- **One place for each piece of view state** (added 2026-10-14, after the browser's rail opened a second, unseen "open" of the panel): whether a panel, popover or view shows is kept once, by its owner, and changed through one function (the shell's side panels: `Shell::setPanel`). The menu's tick, the title bar's buttons, keyboard shortcuts, the panel's own controls and the layout all read that state; none keeps a copy, and no second flag says the same thing a different way. A new way of showing something (a rail, a drag, an assistant) calls the owner's function rather than setting a flag of its own.
 
 ## Verification
 

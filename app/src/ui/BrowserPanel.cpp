@@ -153,6 +153,10 @@ public:
     {
         dragging_ = false;
         draggedOut_ = false;
+        // Whether this press did something of its own (opened a folder, starred, added a place).
+        // A quick second click is the end of a double-click to JUCE, which sends one after its
+        // release: that must not do it again, or a folder opened by the press closes on release.
+        pressActed_ = true;
         const int i = rowAt(e.y);
         if (i < 0)
             return;
@@ -188,6 +192,8 @@ public:
                             row.type == Row::Type::Folder;
         if (row.opens && (folder || chevronArea(i).contains(e.getPosition())))
             owner_.toggle(row.id);
+        else
+            pressActed_ = false; // it only selected the row: a double-click puts it in the song
     }
 
     void mouseDrag(const juce::MouseEvent& e) override
@@ -213,6 +219,8 @@ public:
 
     void mouseDoubleClick(const juce::MouseEvent& e) override
     {
+        if (pressActed_) // its press already did what a click there does
+            return;
         if (const int i = rowAt(e.y); i >= 0 && !e.mods.isPopupMenu())
             owner_.activate(owner_.rows_[static_cast<size_t>(i)]);
     }
@@ -231,6 +239,7 @@ private:
     BrowserPanel& owner_;
     int hovered_ = -1;
     bool dragging_ = false, draggedOut_ = false;
+    bool pressActed_ = false;
 };
 
 // ---- the preview strip ---------------------------------------------------------------------
@@ -503,6 +512,7 @@ void BrowserPanel::refresh()
 
 void BrowserPanel::setRail(bool rail)
 {
+    const bool unfolded = rail_ && !rail;
     rail_ = rail;
     for (auto* c : {static_cast<juce::Component*>(&header_), static_cast<juce::Component*>(&search_),
                     static_cast<juce::Component*>(&viewport_)})
@@ -516,6 +526,8 @@ void BrowserPanel::setRail(bool rail)
     expand_.setTooltip(actions_.tooltip("view.browser"));
     resized();
     repaint();
+    if (unfolded && pendingPart_)
+        showPart(*pendingPart_);
 }
 
 void BrowserPanel::setOverlay(bool overlay)
@@ -534,6 +546,13 @@ void BrowserPanel::focusSearch()
 
 void BrowserPanel::showPart(Part part)
 {
+    // Still folded to its rail (it widens as it opens): shown once it's laid out.
+    if (rail_)
+    {
+        pendingPart_ = part;
+        return;
+    }
+    pendingPart_.reset();
     if (part == Part::Search)
     {
         focusSearch();

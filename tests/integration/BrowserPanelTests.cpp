@@ -405,8 +405,15 @@ TEST_CASE("browser: at compact widths a rail, opening over the arrangement at a 
     shell.setSize(1280, 900);
     b.settle();
     CHECK(p.isRail());
+    const int arrangementX = shell.arrangement().getX();
     shell.showBrowserOverlay(fd::app::BrowserPanel::Part::Instruments);
     CHECK(shell.browserOverlayShown());
+    // It opens as the panel does, easing out of its rail; the toggle's button and the menu say
+    // it's open (one state, whichever way it opened).
+    CHECK(p.isRail());
+    CHECK(shell.actions().isToggled("view.browser"));
+    shell.finishAnimations();
+    CHECK(shell.arrangement().getX() == arrangementX); // over it, not pushing it
     CHECK_FALSE(p.isRail());
     CHECK(p.getWidth() > fd::ui::Theme::current().shell.railWidth);
     CHECK(p.getBounds().intersects(shell.arrangement().getBounds())); // over it
@@ -417,6 +424,8 @@ TEST_CASE("browser: at compact widths a rail, opening over the arrangement at a 
             dump, "browser-overlay@2x.png",
             shell.createComponentSnapshot(shell.getLocalBounds().withWidth(p.getRight() + 40), true, 2.0f));
     shell.closeBrowserOverlay();
+    CHECK_FALSE(p.isRail()); // it eases back into its rail, as it came out
+    shell.finishAnimations();
     CHECK(p.isRail());
     if (const char* dump = std::getenv("FD_DUMP_DIR"))
         dumpPng(dump, "browser-rail@2x.png", shell.createComponentSnapshot(p.getBounds(), true, 2.0f));
@@ -665,4 +674,142 @@ TEST_CASE(
     CHECK(b.isOpen("cat:racks"));
     CHECK(b.shows(heat));
     b.shell->closeBrowserOverlay();
+}
+
+namespace
+{
+/// A press of the left button on `c` at `pos`, the `clicks`-th of quick clicks there.
+juce::MouseEvent press(juce::Component& c, juce::Point<float> pos, int clicks)
+{
+    const auto now = juce::Time::getCurrentTime();
+    return {juce::Desktop::getInstance().getMainMouseSource(),
+            pos,
+            juce::ModifierKeys::leftButtonModifier,
+            0.0f,
+            0.0f,
+            0.0f,
+            0.0f,
+            0.0f,
+            &c,
+            &c,
+            now,
+            pos,
+            now,
+            clicks,
+            false};
+}
+} // namespace
+
+TEST_CASE(
+    "browser: a quick second click on a folder toggles it once, never back on release; a double-click on a "
+    "disclosure or a star loads nothing",
+    "[integration]")
+{
+    Browser b;
+    auto& p = b.panel();
+    std::vector<std::string> loaded;
+    p.onLoad = [&loaded](const std::string& item) { loaded.push_back(item); };
+    // A click as JUCE sends it: down, up, then a double-click after the up of a second quick one.
+    const auto click = [&p](const std::string& id, int clicks, float x = -1.0f)
+    {
+        const auto area = p.rowBounds(id);
+        REQUIRE_FALSE(area.isEmpty());
+        const auto at = juce::Point<float>(x >= 0.0f ? static_cast<float>(area.getX()) + x
+                                                     : static_cast<float>(area.getCentreX()),
+                                           static_cast<float>(area.getCentreY()));
+        auto* list = p.getComponentAt(at.toInt());
+        REQUIRE(list != nullptr);
+        const auto local = list->getLocalPoint(&p, at);
+        list->mouseDown(press(*list, local, clicks));
+        list->mouseUp(press(*list, local, clicks));
+        if (clicks >= 2)
+            list->mouseDoubleClick(press(*list, local, clicks));
+    };
+
+    // Closed, then two quick clicks on its name: open, then closed, as two clicks are; the
+    // double-click JUCE sends after the second doesn't toggle it a third time.
+    REQUIRE_FALSE(b.isOpen("cat:instruments"));
+    click("cat:instruments", 1);
+    CHECK(b.isOpen("cat:instruments"));
+    click("cat:instruments", 2);
+    CHECK_FALSE(b.isOpen("cat:instruments"));
+    // The bug the product owner met: a click soon after another reopens it and keeps it open.
+    click("cat:instruments", 3);
+    CHECK(b.isOpen("cat:instruments"));
+    CHECK(loaded.empty());
+
+    // A module: its disclosure opens it, and a quick second click there closes it, loading
+    // nothing; a double-click on its name loads it.
+    const auto& s = fd::ui::Theme::current().shell;
+    const float chevron = static_cast<float>(s.listTextInset + s.browserIndent + s.listIconSize / 2);
+    click("module:fd:sampler", 1, chevron);
+    CHECK(b.isOpen("module:fd:sampler"));
+    click("module:fd:sampler", 2, chevron);
+    CHECK_FALSE(b.isOpen("module:fd:sampler"));
+    CHECK(loaded.empty());
+    click("module:fd:sampler", 1);
+    click("module:fd:sampler", 2);
+    CHECK(loaded == std::vector<std::string>{"module:fd:sampler"});
+}
+
+TEST_CASE(
+    "browser: opened from its rail, it's the one panel the toggle shows and closes; opened docked after, it "
+    "docks",
+    "[integration]")
+{
+    Browser b;
+    auto& shell = *b.shell;
+    auto& p = b.panel();
+    shell.setSize(1280, 900);
+    b.settle();
+    shell.finishAnimations();
+    REQUIRE(p.isRail());
+    REQUIRE_FALSE(shell.actions().isToggled("view.browser"));
+    const int arrangementX = shell.arrangement().getX();
+
+    // From the rail: open, over the arrangement, and the toggle says so.
+    shell.showBrowserOverlay(fd::app::BrowserPanel::Part::Favourites);
+    shell.finishAnimations();
+    CHECK(shell.browserOverlayShown());
+    CHECK(shell.actions().isToggled("view.browser"));
+    CHECK(shell.arrangement().getX() == arrangementX);
+
+    // The toggle closes it (it doesn't dock the open panel a second time).
+    REQUIRE(shell.actions().perform("view.browser"));
+    CHECK_FALSE(shell.actions().isToggled("view.browser"));
+    CHECK_FALSE(shell.browserOverlayShown());
+    shell.finishAnimations();
+    CHECK(p.isRail());
+    CHECK(shell.arrangement().getX() == arrangementX);
+
+    // The toggle again: docked, pushing the arrangement; the rail's icons then show its parts in it.
+    REQUIRE(shell.actions().perform("view.browser"));
+    shell.finishAnimations();
+    CHECK(shell.actions().isToggled("view.browser"));
+    CHECK_FALSE(shell.browserOverlayShown());
+    CHECK(shell.arrangement().getX() > arrangementX + 100);
+    shell.showBrowserOverlay(fd::app::BrowserPanel::Part::Places);
+    CHECK_FALSE(shell.browserOverlayShown()); // docked already: it stays docked
+    REQUIRE(shell.actions().perform("view.browser"));
+    shell.finishAnimations();
+    CHECK(p.isRail());
+
+    // Floating, a click elsewhere closes it, and the toggle follows.
+    shell.showBrowserOverlay(fd::app::BrowserPanel::Part::Search);
+    shell.finishAnimations();
+    CHECK(shell.browserOverlayShown());
+    shell.closeBrowserOverlay();
+    CHECK_FALSE(shell.actions().isToggled("view.browser"));
+
+    // Focus mode hides the panels, and their toggles say so; a toggle then shows its panel and ends
+    // focus mode (it never closes a panel you can't see).
+    shell.setSize(1800, 960);
+    shell.finishAnimations();
+    REQUIRE(shell.actions().isToggled("view.detail"));
+    REQUIRE(shell.actions().perform("view.focus"));
+    CHECK_FALSE(shell.actions().isToggled("view.detail"));
+    CHECK_FALSE(shell.actions().isToggled("view.browser"));
+    REQUIRE(shell.actions().perform("view.detail"));
+    CHECK_FALSE(shell.actions().isToggled("view.focus"));
+    CHECK(shell.actions().isToggled("view.detail"));
 }

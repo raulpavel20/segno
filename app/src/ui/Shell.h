@@ -90,10 +90,14 @@ public:
     /// File > Collect files and save; File > Remove unused files… (browser.md §12).
     void collectFiles();
     void removeUnusedFiles();
-    /// At compact widths: the browser over the arrangement, at a part, until a click elsewhere.
+    /// From its rail: the browser over the arrangement, at a part, until a click elsewhere (one of
+    /// the ways its one panel state opens; already open, it just shows the part).
     void showBrowserOverlay(BrowserPanel::Part part);
     void closeBrowserOverlay();
-    [[nodiscard]] bool browserOverlayShown() const noexcept { return browserOverlay_; }
+    [[nodiscard]] bool browserOverlayShown() const noexcept
+    {
+        return browserPanel_.open && browserPanel_.floating;
+    }
     /// Help > About Segno.
     [[nodiscard]] AboutPopover& about() noexcept { return about_; }
     void setVersion(const juce::String& version) { about_.setVersion(version); }
@@ -133,9 +137,14 @@ public:
     [[nodiscard]] bool computerKeyboardHolds() const noexcept { return !heldKeys_.empty(); }
 
 private:
+    /// A side panel (the browser, the inspector, the detail panel): its whole state, kept here
+    /// once. Only setPanel() changes `open` and `floating`; the menu's tick, the title bar's
+    /// buttons, the animation and the layout all read them.
     struct Panel
     {
         bool open = true;
+        bool floating =
+            false; // open over the arrangement (the browser, from its rail); stays set while it closes
         float shown = 1.0f; // eased towards open
         float size = 0.0f;  // px when fully open
     };
@@ -216,7 +225,18 @@ private:
     /// The selected module, if it's a `deviceId`.
     [[nodiscard]] ui::DevicePanel* selectedModule(std::string_view deviceId);
     void setMixerShown(bool shown);
-    void toggle(Panel& p);
+    /// Opens (docked, or floating over the arrangement) or closes a panel: every way of showing or
+    /// hiding one goes through here. Opening one already open docked keeps it docked.
+    /// Showing one ends focus mode, which hides them all.
+    void setPanel(Panel& p, bool open, bool floating = false);
+    /// Whether it's on screen (open, and not hidden by focus mode): what its toggle shows, and
+    /// what the toggle undoes.
+    [[nodiscard]] bool isShown(const Panel& p) const noexcept { return p.open && !focusMode_; }
+    void toggle(Panel& p) { setPanel(p, !isShown(p)); }
+    void openPanel(Panel& p) { setPanel(p, true); }
+    /// The state itself, without laying out (the layout's own reset at the compact width, and
+    /// restoring a project's view): the floating browser's outside click follows it.
+    void applyPanel(Panel& p, bool open, bool floating);
     [[nodiscard]] std::optional<model::TrackInfo> selectedTrackInfo() const;
 
     engine::Session& session_;
@@ -225,7 +245,6 @@ private:
     ActionRegistry actions_;
     std::unique_ptr<TransportBar> transport_;
     BrowserPanel browser_{session_, actions_};
-    bool browserOverlay_ = false;
     ui::OutsideClick browserOutside_{browser_, [this] { closeBrowserOverlay(); }};
     /// What a drop or a double-click from the browser did: select what it made, say what it replaced.
     void browserResult(const browser::Result& result);
