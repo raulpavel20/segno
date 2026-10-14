@@ -968,6 +968,535 @@
                 "osc1.table": "analog/saw-square",
                 "lfo1.shape": "square"
             }
+        },
+        {
+            "name": "Cello section",
+            "tags": [
+                "Pad",
+                "Warm"
+            ],
+            "description": "Cellos bowing together: the mod wheel bows harder, a slow vibrato comes in.",
+            "params": {
+                "osc1.uni": 4,
+                "osc1.detune": 12,
+                "osc1.pos": 20,
+                "filter1.cutoff": 4000,
+                "filter1.env": 0,
+                "env1.a": 250,
+                "env1.s": 90,
+                "env1.r": 900,
+                "lfo1.rate": 5,
+                "lfo1.fade": 600,
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Pitch",
+                "mod1.amt": 1,
+                "mod2.src": "Mod Wheel",
+                "mod2.dst": "Osc 1 Position",
+                "mod2.amt": 70
+            },
+            "extra": {
+                "osc1.table": "acoustic/cello"
+            }
+        },
+        {
+            "name": "Solo violin",
+            "tags": [
+                "Lead",
+                "Bright"
+            ],
+            "description": "One violin, gliding between notes, brighter the harder you play.",
+            "params": {
+                "voice.mode": "Legato",
+                "voice.glide": 60,
+                "osc1.pos": 30,
+                "filter1.cutoff": 6000,
+                "filter1.env": 0,
+                "env1.a": 80,
+                "env1.s": 90,
+                "env1.r": 300,
+                "lfo1.rate": 5.5,
+                "lfo1.fade": 400,
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Pitch",
+                "mod1.amt": 1,
+                "mod2.src": "Velocity",
+                "mod2.dst": "Osc 1 Position",
+                "mod2.amt": 60
+            },
+            "extra": {
+                "osc1.table": "acoustic/violin"
+            }
+        },
+        {
+            "name": "Breathy flute",
+            "tags": [
+                "Lead",
+                "Warm"
+            ],
+            "description": "A recorded flute's cycles with breath under them and a late vibrato.",
+            "params": {
+                "noise.on": true,
+                "noise.type": "Breath",
+                "noise.level": -28,
+                "filter1.cutoff": 6000,
+                "filter1.env": 0,
+                "env1.a": 50,
+                "env1.s": 90,
+                "env1.r": 200,
+                "lfo1.rate": 5,
+                "lfo1.fade": 500,
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Pitch",
+                "mod1.amt": 1,
+                "mod2.src": "Velocity",
+                "mod2.dst": "Osc 1 Position",
+                "mod2.amt": 50
+            },
+            "extra": {
+                "osc1.table": "acoustic/breathy-flute"
+            }
+        },
+        {
+            "name": "Reed lead",
+            "tags": [
+                "Lead",
+                "Warm"
+            ],
+            "description": "A clarinet-like reed, legato; the mod wheel opens it up.",
+            "params": {
+                "voice.mode": "Legato",
+                "voice.glide": 40,
+                "filter1.cutoff": 5000,
+                "filter1.env": 10,
+                "env1.a": 30,
+                "env1.s": 90,
+                "env1.r": 150,
+                "mod1.src": "Mod Wheel",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 80
+            },
+            "extra": {
+                "osc1.table": "acoustic/reed"
+            }
+        },
+        {
+            "name": "Oboe",
+            "tags": [
+                "Lead",
+                "Bright"
+            ],
+            "description": "A nasal double reed with a quick vibrato, brighter as you play harder.",
+            "params": {
+                "filter1.cutoff": 7000,
+                "filter1.env": 0,
+                "env1.a": 40,
+                "env1.s": 85,
+                "env1.r": 150,
+                "lfo1.rate": 5.5,
+                "lfo1.fade": 300,
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Pitch",
+                "mod1.amt": 1,
+                "mod2.src": "Velocity",
+                "mod2.dst": "Osc 1 Position",
+                "mod2.amt": 40
+            },
+            "extra": {
+                "osc1.table": "acoustic/oboe"
+            }
+        },
+        {
+            "name": "Alto sax",
+            "tags": [
+                "Lead",
+                "Brass"
+            ],
+            "description": "A breathy saxophone that growls brighter on the accents.",
+            "params": {
+                "voice.mode": "Legato",
+                "voice.glide": 50,
+                "filter1.cutoff": 1500,
+                "filter1.res": 15,
+                "filter1.env": 40,
+                "env2.a": 20,
+                "env2.d": 500,
+                "env2.s": 50,
+                "env1.a": 20,
+                "env1.s": 90,
+                "env1.r": 180,
+                "lfo1.rate": 5,
+                "lfo1.fade": 500,
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Pitch",
+                "mod1.amt": 1,
+                "mod2.src": "Velocity",
+                "mod2.dst": "Osc 1 Position",
+                "mod2.amt": 60
+            },
+            "extra": {
+                "osc1.table": "acoustic/alto-sax"
+            }
+        },
+        {
+            "name": "Felt piano",
+            "tags": [
+                "Keys",
+                "Warm"
+            ],
+            "description": "A soft piano: each note starts bright and settles darker as it fades.",
+            "params": {
+                "osc1.pos": 5,
+                "filter1.cutoff": 3500,
+                "filter1.env": 20,
+                "env2.d": 1200,
+                "env2.s": 0,
+                "env1.a": 2,
+                "env1.d": 2500,
+                "env1.s": 0,
+                "env1.r": 400,
+                "env3.d": 1800,
+                "env3.s": 0,
+                "mod1.src": "Env 3",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 55,
+                "mod2.src": "Velocity",
+                "mod2.dst": "Osc 1 Position",
+                "mod2.amt": 25
+            },
+            "extra": {
+                "osc1.table": "acoustic/piano"
+            }
+        },
+        {
+            "name": "Nylon pluck",
+            "tags": [
+                "Pluck",
+                "Guitar"
+            ],
+            "description": "A nylon string: the pick's brightness, then the body.",
+            "params": {
+                "osc1.pos": 10,
+                "filter1.cutoff": 3000,
+                "filter1.env": 30,
+                "env2.d": 500,
+                "env2.s": 0,
+                "env1.d": 1500,
+                "env1.s": 0,
+                "env1.r": 300,
+                "env3.d": 600,
+                "env3.s": 0,
+                "mod1.src": "Env 3",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 60
+            },
+            "extra": {
+                "osc1.table": "acoustic/guitar"
+            }
+        },
+        {
+            "name": "Finger bass",
+            "tags": [
+                "Bass",
+                "Clean"
+            ],
+            "description": "A round electric bass, played with the fingers; harder is brighter.",
+            "params": {
+                "osc1.oct": -1,
+                "voice.mode": "Mono",
+                "filter1.cutoff": 1200,
+                "filter1.env": 30,
+                "env2.d": 300,
+                "env2.s": 20,
+                "env1.a": 2,
+                "env1.d": 800,
+                "env1.s": 50,
+                "env1.r": 150,
+                "mod1.src": "Velocity",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 50
+            },
+            "extra": {
+                "osc1.table": "acoustic/electric-bass"
+            }
+        },
+        {
+            "name": "Tine piano",
+            "tags": [
+                "Keys",
+                "Bright"
+            ],
+            "description": "An electric piano's tines: bell on top when you dig in.",
+            "params": {
+                "filter1.cutoff": 4000,
+                "filter1.env": 20,
+                "env1.d": 2200,
+                "env1.s": 15,
+                "env1.r": 500,
+                "mod1.src": "Velocity",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 70
+            },
+            "extra": {
+                "osc1.table": "acoustic/electric-piano"
+            }
+        },
+        {
+            "name": "Theremin lead",
+            "tags": [
+                "Lead",
+                "FX"
+            ],
+            "description": "Sliding from note to note with a wide, singing vibrato.",
+            "params": {
+                "voice.mode": "Legato",
+                "voice.glide": 250,
+                "filter1.cutoff": 8000,
+                "filter1.env": 0,
+                "env1.a": 120,
+                "env1.s": 100,
+                "env1.r": 400,
+                "lfo1.rate": 6,
+                "lfo1.fade": 300,
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Pitch",
+                "mod1.amt": 1.5,
+                "mod2.src": "Mod Wheel",
+                "mod2.dst": "Osc 1 Position",
+                "mod2.amt": 60
+            },
+            "extra": {
+                "osc1.table": "acoustic/theremin"
+            }
+        },
+        {
+            "name": "Human choir",
+            "tags": [
+                "Pad",
+                "Vocals"
+            ],
+            "description": "Recorded voices in a slow drift from one vowel to the next.",
+            "params": {
+                "osc1.uni": 6,
+                "osc1.detune": 14,
+                "osc1.pos": 25,
+                "filter1.type": "LP 12",
+                "filter1.cutoff": 5500,
+                "filter1.env": 0,
+                "env1.a": 600,
+                "env1.s": 90,
+                "env1.r": 2000,
+                "lfo1.rate": 0.1,
+                "lfo1.mode": "Free",
+                "lfo1.poly": false,
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 50
+            },
+            "extra": {
+                "osc1.table": "formant/human-voice"
+            }
+        },
+        {
+            "name": "Electric organ",
+            "tags": [
+                "Keys"
+            ],
+            "description": "An electric organ, on and off with the keys; the mod wheel adds drawbars.",
+            "params": {
+                "filter1.on": false,
+                "env1.a": 3,
+                "env1.s": 100,
+                "env1.r": 60,
+                "out.volume": -8,
+                "mod1.src": "Mod Wheel",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 80
+            },
+            "extra": {
+                "osc1.table": "harmonic/electric-organ"
+            }
+        },
+        {
+            "name": "Overtone pad",
+            "tags": [
+                "Pad",
+                "Bright"
+            ],
+            "description": "Overtones rising and falling, spread across the copies.",
+            "params": {
+                "osc1.uni": 5,
+                "osc1.detune": 18,
+                "osc1.spread": 40,
+                "filter1.cutoff": 7000,
+                "filter1.env": 0,
+                "env1.a": 900,
+                "env1.s": 90,
+                "env1.r": 2500,
+                "lfo1.rate": 0.08,
+                "lfo1.mode": "Free",
+                "lfo1.poly": false,
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 60
+            },
+            "extra": {
+                "osc1.table": "harmonic/overtones"
+            }
+        },
+        {
+            "name": "FM pluck",
+            "tags": [
+                "Pluck",
+                "Bright"
+            ],
+            "description": "A glassy FM attack that falls into a soft tone.",
+            "params": {
+                "osc1.pos": 10,
+                "filter1.cutoff": 6000,
+                "filter1.env": 0,
+                "env1.d": 600,
+                "env1.s": 0,
+                "env1.r": 250,
+                "env3.d": 350,
+                "env3.s": 0,
+                "mod1.src": "Env 3",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 70
+            },
+            "extra": {
+                "osc1.table": "fm/fm-synth"
+            }
+        },
+        {
+            "name": "Chip lead",
+            "tags": [
+                "Lead",
+                "Bright"
+            ],
+            "description": "A game console's square-ish lead with a delayed vibrato.",
+            "params": {
+                "voice.mode": "Mono",
+                "voice.glide": 20,
+                "filter1.on": false,
+                "env1.a": 2,
+                "env1.s": 90,
+                "env1.r": 60,
+                "lfo1.rate": 6,
+                "lfo1.fade": 400,
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Pitch",
+                "mod1.amt": 1,
+                "mod2.src": "Mod Wheel",
+                "mod2.dst": "Osc 1 Position",
+                "mod2.amt": 70
+            },
+            "extra": {
+                "osc1.table": "digital/chip"
+            }
+        },
+        {
+            "name": "8-bit arp",
+            "tags": [
+                "Pluck",
+                "Bright"
+            ],
+            "description": "Short blips, each note a different wave of the table.",
+            "params": {
+                "osc1.pos": 30,
+                "filter1.on": false,
+                "env1.d": 250,
+                "env1.s": 0,
+                "env1.r": 80,
+                "out.volume": -4,
+                "rnd1.mode": "Per Note",
+                "mod1.src": "Random 1",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 60
+            },
+            "extra": {
+                "osc1.table": "digital/video-game"
+            }
+        },
+        {
+            "name": "Bit bass",
+            "tags": [
+                "Bass",
+                "Dirty"
+            ],
+            "description": "A crushed bass with a snappy filter.",
+            "params": {
+                "osc1.oct": -1,
+                "voice.mode": "Mono",
+                "filter1.cutoff": 700,
+                "filter1.res": 25,
+                "filter1.env": 50,
+                "env2.d": 350,
+                "env2.s": 10,
+                "env1.s": 80,
+                "env1.r": 120,
+                "mod1.src": "Velocity",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 50
+            },
+            "extra": {
+                "osc1.table": "digital/bit-reduced"
+            }
+        },
+        {
+            "name": "Granular drift",
+            "tags": [
+                "Pad",
+                "FX",
+                "Wide"
+            ],
+            "description": "Grains of sound wandering on their own, spread wide.",
+            "params": {
+                "osc1.uni": 5,
+                "osc1.spread": 70,
+                "osc1.pos": 40,
+                "filter1.cutoff": 5000,
+                "filter1.env": 0,
+                "env1.a": 1500,
+                "env1.s": 90,
+                "env1.r": 3000,
+                "rnd1.mode": "Smooth",
+                "rnd1.rate": 0.4,
+                "rnd1.poly": false,
+                "mod1.src": "Random 1",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 50
+            },
+            "extra": {
+                "osc1.table": "texture/granular"
+            }
+        },
+        {
+            "name": "Distorted lead",
+            "tags": [
+                "Lead",
+                "Dirty"
+            ],
+            "description": "A gritty lead through a driven ladder filter; the mod wheel adds bite.",
+            "params": {
+                "voice.mode": "Legato",
+                "voice.glide": 40,
+                "osc1.uni": 2,
+                "osc1.detune": 10,
+                "filter1.type": "Ladder",
+                "filter1.cutoff": 3000,
+                "filter1.res": 25,
+                "filter1.drive": 40,
+                "filter1.env": 20,
+                "env1.s": 90,
+                "env1.r": 200,
+                "mod1.src": "Mod Wheel",
+                "mod1.dst": "Osc 1 Position",
+                "mod1.amt": 80,
+                "out.volume": -2
+            },
+            "extra": {
+                "osc1.table": "texture/distorted"
+            }
         }
     ]
 }
