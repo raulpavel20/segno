@@ -157,6 +157,8 @@ public:
     void invertSelection();
     /// What a tool would do, shown until previewEdit(nullopt) or applyEdit (Quantise…).
     void previewEdit(std::optional<model::NoteEdit> edit);
+    /// Whether a tool's result or a gesture shows in place of the notes (for tests).
+    [[nodiscard]] bool isPreviewing() const noexcept { return preview_.has_value(); }
     void applyEdit(model::NoteEdit edit);
     /// The selected notes, the earliest starting at 0 (cut, copy: tracks-and-clips.md §9).
     [[nodiscard]] std::vector<model::Note> copySelection() const;

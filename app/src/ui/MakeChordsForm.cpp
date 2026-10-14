@@ -139,7 +139,13 @@ MakeChordsForm::MakeChordsForm(PianoRoll& roll) : roll_(roll)
 {
     apply_.setClickingTogglesState(false);
     apply_.setTooltip("Keep these chords (Return); Escape puts the notes back");
-    apply_.onClick = [this] { apply(); };
+    apply_.onClick = [this]
+    {
+        if (onApply)
+            onApply();
+        else
+            apply();
+    };
     addAndMakeVisible(apply_);
     all_ = std::make_unique<Row>(*this, std::nullopt, "All");
     all_->setTooltip("Every note's chord kind, and its voicing");
@@ -170,9 +176,7 @@ void MakeChordsForm::start()
     const auto& notes = roll_.notes();
     order_ = model::notesInTimeOrder(notes, roll_.selection());
     choices_ = model::startingChords(notes, order_, key(), music::ChordShape::Triad);
-    for (auto& r : rows_)
-        holder_.removeChildComponent(r.get());
-    rows_.clear();
+    clearRows();
     for (std::size_t k = 0; k < order_.size(); ++k)
     {
         const auto& n = notes[order_[k]];
@@ -191,11 +195,10 @@ void MakeChordsForm::apply()
 {
     roll_.auditionOff();
     if (!order_.empty())
-    {
         roll_.applyEdit(model::makeChords(roll_.notes(), order_, choices_));
-        order_.clear();
-        choices_.clear();
-    }
+    order_.clear();
+    choices_.clear();
+    clearRows(); // a row reads its note's choice: none left to read
 }
 
 void MakeChordsForm::cancel()
@@ -204,6 +207,16 @@ void MakeChordsForm::cancel()
     roll_.previewEdit(std::nullopt);
     order_.clear();
     choices_.clear();
+    clearRows();
+}
+
+void MakeChordsForm::clearRows()
+{
+    for (auto& r : rows_)
+        holder_.removeChildComponent(r.get());
+    rows_.clear();
+    resized();
+    repaint();
 }
 
 void MakeChordsForm::setChoice(std::size_t card, const model::NoteChord& choice)

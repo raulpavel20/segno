@@ -791,6 +791,90 @@ TEST_CASE(
     chord.close();
 }
 
+TEST_CASE("piano roll: Make chords on one note applies every kind, voicing and inversion, each one undo step",
+          "[integration]")
+{
+    RollFixture f;
+    auto& roll = f.roll();
+    REQUIRE(f.session->setKey(Key{0, "minor"}));
+    f.setNotes({{60, 0.0, 1.0, 0.8f}});
+    const auto one = f.notes();          // as kept: the velocity in MIDI's steps
+    click(roll, roll.pointFor(5.0, 72)); // the clip view used last
+    auto& pane = f.shell->detail().toolsPane();
+    using fd::music::ChordShape;
+    using fd::music::Inversion;
+    using fd::music::Voicing;
+    for (const auto shape : {ChordShape::Triad, ChordShape::Seventh, ChordShape::Ninth, ChordShape::Sus2,
+                             ChordShape::Sus4, ChordShape::Add9})
+        for (const auto voicing : {Voicing::Smooth, Voicing::Close, Voicing::Open, Voicing::Drop2,
+                                   Voicing::Drop3, Voicing::Spread})
+            for (const auto inversion :
+                 {Inversion::Auto, Inversion::Root, Inversion::First, Inversion::Second, Inversion::Third})
+            {
+                INFO("shape " << static_cast<int>(shape) << ", voicing " << static_cast<int>(voicing)
+                              << ", inversion " << static_cast<int>(inversion));
+                pane.choose("makeChords");
+                auto& form = pane.makeChords();
+                REQUIRE(form.cardCount() == 1);
+                auto choice = form.choices()[0];
+                choice.chord = fd::music::keyChord(&*roll.key(), 60, shape);
+                choice.voicing = voicing;
+                choice.inversion = inversion;
+                form.setChoice(0, choice);
+                pane.apply();
+                f.refresh();
+                const auto made = f.notes();
+                CHECK(made.size() >= 3);
+                for (const auto& n : made)
+                    CHECK((n.pitch >= 0 && n.pitch <= 127));
+                f.session->undo();
+                f.refresh();
+                REQUIRE(f.notes() == one);
+            }
+}
+
+TEST_CASE(
+    "piano roll (§25): the Apply buttons apply as Return does: the tool let go, nothing left reading what "
+    "it applied (the product owner's crash: Make chords' Apply on one note)",
+    "[integration]")
+{
+    RollFixture f;
+    auto& roll = f.roll();
+    REQUIRE(f.session->setKey(Key{0, "minor"}));
+    f.setNotes({{60, 0.0, 1.0, 0.8f}});
+    click(roll, roll.pointFor(5.0, 72)); // the clip view used last
+    auto& detail = f.shell->detail();
+    auto& pane = detail.toolsPane();
+
+    // Make chords: a sus4 on the note, in second inversion, kept by its Apply button.
+    REQUIRE(f.shell->actions().perform("notes.makeChords"));
+    auto& form = pane.makeChords();
+    auto choice = form.choices()[0];
+    choice.chord = fd::music::keyChord(&*roll.key(), 60, fd::music::ChordShape::Sus4);
+    choice.inversion = fd::music::Inversion::Second;
+    form.setChoice(0, choice);
+    form.applyButton().onClick();
+    (void)pane.createComponentSnapshot(pane.getLocalBounds()); // painted before the next frame
+    CHECK(pane.chosen().empty());
+    CHECK_FALSE(form.isVisible());
+    CHECK(form.cardCount() == 0);
+    CHECK(f.session->undoDescription() == "Make chords");
+    detail.frame(0.0); // a frame after: nothing shown again on the notes made
+    (void)pane.createComponentSnapshot(pane.getLocalBounds()); // and the pane paints
+    f.refresh();
+    CHECK(f.notes().size() == 3);
+    CHECK_FALSE(roll.isPreviewing());
+
+    // A tool's Apply button too: kept once, not shown again on what it made.
+    REQUIRE(f.shell->actions().perform("notes.tool.strum"));
+    pane.form().applyButton().onClick();
+    CHECK(pane.chosen().empty());
+    CHECK_FALSE(pane.form().isVisible());
+    CHECK(f.session->undoDescription() == "Strum");
+    detail.frame(0.0);
+    CHECK_FALSE(roll.isPreviewing());
+}
+
 // ---- P4b: chance, release velocity, controller lanes, Others track by track ----------------------
 
 TEST_CASE("piano roll (P4b): the bottom lane shows velocity, chance or release velocity; each drawn the same "

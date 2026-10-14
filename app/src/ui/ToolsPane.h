@@ -81,6 +81,7 @@ private:
     [[nodiscard]] juce::Rectangle<int> formArea() const;
 
     PianoRoll& roll_;
+    engine::Session& session_;
     ToolForm form_;
     MakeChordsForm makeChords_;
     ui::Segments tabs_{juce::StringArray{"Transform", "Generate"}};

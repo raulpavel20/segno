@@ -45,6 +45,9 @@ public:
     [[nodiscard]] bool scrolls() const;
     /// The rows changed (a choice others show for): the pane lays out again.
     std::function<void()> onLayoutChanged;
+    /// Its Apply button: its owner keeps it, as Return does (the pane lets the tool go after);
+    /// unset, the button applies it here.
+    std::function<void()> onApply;
     [[nodiscard]] ui::Toggle& applyButton() noexcept { return apply_; }
 
     void paint(juce::Graphics& g) override;

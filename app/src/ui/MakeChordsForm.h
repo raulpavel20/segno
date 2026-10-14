@@ -20,10 +20,13 @@ public:
 
     /// For the selected notes, or every note: a row each, previewed.
     void start();
-    /// Keeps what it shows (one undo step).
+    /// Keeps what it shows (one undo step); its rows go.
     void apply();
-    /// Puts the notes back.
+    /// Puts the notes back; its rows go.
     void cancel();
+    /// Its Apply button: its owner keeps it, as Return does (the pane lets the tool go after);
+    /// unset, the button applies it here.
+    std::function<void()> onApply;
 
     [[nodiscard]] std::size_t cardCount() const noexcept { return choices_.size(); }
     [[nodiscard]] const std::vector<model::NoteChord>& choices() const noexcept { return choices_; }
@@ -60,6 +63,7 @@ private:
     class Row;
 
     void changed();
+    void clearRows();
     [[nodiscard]] const music::Key* key() const noexcept;
     [[nodiscard]] juce::String nameOf(const music::Chord& chord) const;
     /// The columns: the note's label, its chord, its voicing.

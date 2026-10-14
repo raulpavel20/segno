@@ -64,7 +64,13 @@ ToolForm::ToolForm(PianoRoll& roll, engine::Session& session)
     addAndMakeVisible(viewport_);
     apply_.setClickingTogglesState(false);
     apply_.setTooltip("Keep it (Return); Escape puts the notes back");
-    apply_.onClick = [this] { apply(); };
+    apply_.onClick = [this]
+    {
+        if (onApply)
+            onApply();
+        else
+            apply();
+    };
     addAndMakeVisible(apply_);
     const auto size = ui::Theme::current().textXs;
     measureNumber_.setFontSize(size);

@@ -655,6 +655,7 @@ The product owner approved every recommendation, Make chords as a tile (U6), and
 - **Working on the notes lets the tool go:** a click in the roll, or opening the Chord popover, puts the notes back first. An undo, an assistant or Select all under a chosen tool shows it again on the notes as they are now, or lets it go when it can't run on them.
 - **With nothing chosen,** the space under the tiles says what to do: "Choose a tool: the notes show it as you set it, and Apply keeps it."
 - **Return applies and Escape lets the tool go** while the pane has the keys (choosing a tile gives it them); Escape with nothing chosen closes the pane.
+- **Apply, the button, is Return:** the tool kept as one undo step named for it (Make chords too), then let go, so nothing is shown again on what it made. (The product owner's crash, 2026-10-15: Make chords' button kept the chords but left its rows reading choices it had cleared.)
 - **The pane's tabs and the header's buttons go together:** Transform lit while the pane shows the Transform tab. Whether it's open and its tab are view state, kept with the project (`toolsOpen`, `toolsTab`).
 - **It floats** under `shell.toolsDockFrom` (900 px) of clip view, over the notes' right side, looking like a popover; docked, it's `surface1` with a line where the notes end.
 - **In the menus,** Notes ▸ Transform ▸ lists the tools without Quantise, which is Quantise… above it; the right-click Transform ▸ starts with Quantise…, as the pane's tiles do.

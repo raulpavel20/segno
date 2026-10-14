@@ -28,7 +28,7 @@ juce::String utf8(std::string_view s)
 } // namespace
 
 ToolsPane::ToolsPane(PianoRoll& roll, engine::Session& session)
-    : roll_(roll), form_(roll, session), makeChords_(roll)
+    : roll_(roll), session_(session), form_(roll, session), makeChords_(roll)
 {
     tabs_.setTitle("The Tools pane's tabs");
     tabs_.setSelected(0);
@@ -58,6 +58,9 @@ ToolsPane::ToolsPane(PianoRoll& roll, engine::Session& session)
     addChildComponent(form_);
     addChildComponent(makeChords_);
     form_.onLayoutChanged = [this] { resized(); };
+    // Their Apply buttons apply as Return does: the tool let go after.
+    form_.onApply = [this] { apply(); };
+    makeChords_.onApply = [this] { apply(); };
     setTab(model::ToolKind::Transform);
     setWantsKeyboardFocus(true);
 }
@@ -114,7 +117,10 @@ void ToolsPane::apply()
     if (chosen_.empty())
         return;
     if (chosen_ == kMakeChords)
+    {
+        const engine::Session::EditGroup group(session_, "Make chords"); // the undo step's name
         makeChords_.apply();
+    }
     else
         form_.apply();
     chosen_.clear();
