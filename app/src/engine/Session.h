@@ -9,6 +9,8 @@
 #include "model/Grid.h"
 #include "model/Snapshot.h"
 
+#include <fd/music/Detect.h>
+
 #include <array>
 #include <fd_device_ui/fd_device_ui.h>
 #include <functional>
@@ -875,6 +877,31 @@ public:
     /// (model::pasteLanding), the music after moving later; each track's music onto the track in
     /// its place. One undo step, "Paste section <name>".
     SectionPaste pasteSections(const SectionClipboard& clipboard, double at);
+
+    // ---- the song's key (M3 P3, ADR 0056, docs/design/key-and-scale.md) ----------------------
+
+    /// The song's key: one for the whole song, or none (std::nullopt). One undo step, "Set key to
+    /// A minor" or "Remove the key"; nothing when it's already so. False for a scale this build
+    /// doesn't know.
+    bool setKey(const std::optional<music::Key>& key);
+    /// While one exists (the Key popover is open), the key's changes are one undo step, named after
+    /// the last; none if the key ends as it began (key-and-scale.md §6). Any other command in
+    /// between closes the step.
+    class KeyChoice
+    {
+    public:
+        explicit KeyChoice(Session& session);
+        ~KeyChoice();
+        KeyChoice(const KeyChoice&) = delete;
+        KeyChoice& operator=(const KeyChoice&) = delete;
+
+    private:
+        Session& session_;
+    };
+    /// Keys that fit the notes of `clips` (MIDI clips; none given: every MIDI clip that plays),
+    /// best first, at most `count` (key-and-scale.md §11). Empty with too few notes to judge.
+    [[nodiscard]] std::vector<music::KeyCandidate> detectKeys(const std::vector<std::uint64_t>& clips = {},
+                                                              int count = 3) const;
 
     // ---- tracks and clips (C11, ADR 0041, docs/design/tracks-and-clips.md) --------------------
 

@@ -28,6 +28,7 @@ void registerAll(Registry& registry, ToolEnv& env)
     addProjectTools(registry, env);
     addTrackTools(registry, env);
     addSectionTools(registry, env);
+    addKeyTools(registry, env);
     addResources(registry, env);
     addPrompts(registry);
 }
@@ -590,6 +591,7 @@ Json projectJson(ToolEnv& env)
             {"unsaved", s.hasUnsavedChanges()},
             {"tempo", rounded(t.bpm, 1e3)},
             {"timeSignature", {{"numerator", t.numerator}, {"denominator", t.denominator}}},
+            {"key", keyJson(snap->keys.first())},
             {"edgeFades", snap->edgeFades},
             {"end", positionJson(t.beatsForSeconds(snap->contentEnd()), t)},
             {"loop",

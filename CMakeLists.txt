@@ -53,6 +53,7 @@ endif()
 # JUCE-free core (ADR 0006)
 # ---------------------------------------------------------------------------
 add_subdirectory(libs/dsp)
+add_subdirectory(libs/music)
 add_subdirectory(libs/device)
 add_subdirectory(libs/audiofile)
 add_subdirectory(libs/testkit)

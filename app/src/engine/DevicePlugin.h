@@ -68,6 +68,8 @@ public:
     /// A parameter's stored value (normalised): what the project keeps, under any automation.
     [[nodiscard]] float storedValue(size_t index) const { return values_[index]->get(); }
     [[nodiscard]] te::AutomatableParameter& parameter(size_t index) const noexcept { return *params_[index]; }
+    /// The song's key as it hands it to its module (TransportInfo::key, ADR 0056).
+    [[nodiscard]] KeyInfo songKey() const noexcept;
 
 private:
     [[nodiscard]] bool isInstrument() const noexcept { return device_->info().kind == DeviceKind::Instrument; }
@@ -83,6 +85,11 @@ private:
     EventList events_;
     juce::AudioBuffer<float> instrumentOut_; // instruments render here, then add (ADR 0019)
     te::tempo::Sequence::Position tempoPos_{te::createPosition(edit.tempoSequence)};
+    /// The song's key for the audio thread (docs/design/key-and-scale.md §15): packed
+    /// (SongKey.h), kept up to date from the project's pitch sequence on the message thread.
+    struct KeyWatch;
+    std::atomic<std::uint32_t> songKey_{0};
+    std::unique_ptr<KeyWatch> keyWatch_;
     double sampleRate_ = 48000.0;
     juce::String appliedExtra_; // the extra-state JSON the device currently reflects
 
@@ -91,6 +98,8 @@ private:
 
 /// Registers every device in fd::allDevices() as a built-in plugin type.
 void registerDevices(te::Engine& engine);
+/// Registers one device as a built-in plugin type (tests: a device of their own).
+void registerDevice(te::Engine& engine, const DeviceFactory& factory);
 
 /// UI binding for a native device: edits go through AutomatableParameter (automation
 /// recording and undo work).

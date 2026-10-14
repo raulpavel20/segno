@@ -2,6 +2,7 @@
 #include "engine/DevicePlugin.h"
 #include "engine/EngineBehaviour.h"
 #include "engine/SessionImpl.h"
+#include "engine/SongKey.h"
 #include "model/NoteEditing.h"
 #include "model/TrackEdits.h"
 
@@ -469,6 +470,7 @@ void Session::Impl::rebuildSnapshot()
         s->tempo.numerator = sig->numerator;
         s->tempo.denominator = sig->denominator;
     }
+    s->keys.key = songKeyOf(*edit);
 
     // The module chain of a channel, as the views show it.
     auto devicesOf = [](te::PluginList& list, model::TrackInfo& info) {
@@ -2008,6 +2010,7 @@ std::string Session::redoDescription() const
 Session::EditGroup::EditGroup(Session& session, const std::string& name) : session_(session)
 {
     auto& impl = session_.impl();
+    impl.keyStepOpen = false;
     if (impl.groupDepth++ == 0)
         impl.edit->getUndoManager().beginNewTransaction(juce::String(name));
 }

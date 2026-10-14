@@ -314,10 +314,17 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     void beginEdit(const juce::String& name)
     {
         stopAudition(); // an edit ends an audition (ADR 0038)
+        keyStepOpen = false; // any other command closes the Key popover's step
         if (groupDepth == 0)
             edit->getUndoManager().beginNewTransaction(name);
     }
     int groupDepth = 0;
+    // The Key popover's step (Session::KeyChoice, key-and-scale.md §6): while a choice is open its
+    // changes are one undo step, kept open against tracktion's timer.
+    int keyChoices = 0;
+    bool keyStepOpen = false;
+    std::optional<music::Key> keyBefore;
+    std::unique_ptr<te::Edit::UndoTransactionInhibitor> keyInhibitor;
     juce::ListenerList<Session::Listener> listeners;
     /// The editors' grids and the steps they show (ADR 0047), by Session::GridEditor.
     std::array<model::GridSettings, 2> grids{model::GridSettings::arrangement(),

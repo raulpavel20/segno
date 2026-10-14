@@ -31,6 +31,7 @@ Json projectResultSchema()
                    {"tempo", number("Beats per minute")},
                    {"edgeFades", boolean("Cut edges of audio clips fade 4 ms (set_edge_fades)")},
                    {"timeSignature", result({{"numerator", integer("")}, {"denominator", integer("")}})},
+                   {"key", keyResultSchema()},
                    {"tracks", arrayOf(result({{"id", string("")}, {"name", string("")}}), "Every track", std::nullopt)}},
                   {"name", "file", "unsaved", "tempo", "timeSignature", "tracks"});
 }
@@ -60,7 +61,7 @@ void addReadTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"get_project", "Get the project",
-         "The open project: name, file, unsaved changes, tempo, time signature, loop, undo, and every track with its "
+         "The open project: name, file, unsaved changes, tempo, time signature, key, loop, undo, and every track with its "
          "clips (without notes) and its module chain. The same as the segno://project resource.",
          object({}), projectResultSchema(), reading},
         [&env](const Json&, CallContext&) { return ToolResult::ok(projectJson(env)); }));

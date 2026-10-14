@@ -10,7 +10,7 @@ void addResources(Registry& registry, ToolEnv& env)
 {
     registry.resources = {
         {"segno://project", "project", "The project",
-         "Name, file, unsaved state, tempo, time signature, loop, and every track with its clips and module chain"},
+         "Name, file, unsaved state, tempo, time signature, key, loop, and every track with its clips and module chain"},
         {"segno://transport", "transport", "The transport", "Playing, position, loop and metronome (no change notifications)"},
         {"segno://modules", "modules", "Module types", "Every module type that can be added: ours and scanned plugins"},
     };

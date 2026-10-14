@@ -42,6 +42,7 @@ void addSectionTools(Registry& registry, ToolEnv& env);
 void addSettingsTools(Registry& registry, ToolEnv& env);
 void addBrowserTools(Registry& registry, ToolEnv& env);
 void addGridTools(Registry& registry, ToolEnv& env);
+void addKeyTools(Registry& registry, ToolEnv& env);
 void addResources(Registry& registry, ToolEnv& env);
 void addPrompts(Registry& registry);
 /// Everything above.
@@ -115,6 +116,9 @@ juce::File readableFile(const Json& value);
 // ---- describing things (shared by tools and resources) ------------------------------------
 
 Json projectJson(ToolEnv& env);
+/// The song's key (ADR 0056): root, scale, name and notes, ASCII accidentals; null for none.
+Json keyJson(const std::optional<music::Key>& key);
+Json keyResultSchema();
 Json transportJson(ToolEnv& env);
 Json trackJson(ToolEnv& env, const model::TrackInfo& track, bool notes = false);
 /// A track's inputs and arm state (recording.md §12), and the inputs there are.

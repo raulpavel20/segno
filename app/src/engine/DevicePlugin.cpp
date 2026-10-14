@@ -1,4 +1,5 @@
 #include "DevicePlugin.h"
+#include "SongKey.h"
 
 #include <fd/device/Realtime.h>
 #include <fd/device/State.h>
@@ -66,6 +67,27 @@ private:
 };
 } // namespace
 
+/// Keeps the module's copy of the song's key (ADR 0056): every change to the pitch sequence,
+/// undo and redo included, publishes it again.
+struct DevicePlugin::KeyWatch final : juce::ValueTree::Listener
+{
+    explicit KeyWatch(DevicePlugin& p) : plugin(p), state(songKeyState(p.edit))
+    {
+        state.addListener(this);
+        update();
+    }
+    ~KeyWatch() override { state.removeListener(this); }
+
+    void update() { plugin.songKey_.store(packKey(keyInfoOf(songKeyOf(plugin.edit))), std::memory_order_relaxed); }
+    void valueTreePropertyChanged(juce::ValueTree&, const juce::Identifier&) override { update(); }
+    void valueTreeChildAdded(juce::ValueTree&, juce::ValueTree&) override { update(); }
+    void valueTreeChildRemoved(juce::ValueTree&, juce::ValueTree&, int) override { update(); }
+    void valueTreeRedirected(juce::ValueTree&) override { update(); }
+
+    DevicePlugin& plugin;
+    juce::ValueTree state;
+};
+
 juce::String DevicePlugin::typeNameFor(std::string_view deviceId)
 {
     return "fd." + juce::String(std::string(deviceId));
@@ -109,10 +131,13 @@ DevicePlugin::DevicePlugin(te::PluginCreationInfo info, const DeviceFactory& fac
     // A device recreated from a saved project gets its non-parameter state back (ADR 0017).
     if (state.hasProperty(kExtraStateId))
         applyExtraFromState(state[kExtraStateId].toString());
+
+    keyWatch_ = std::make_unique<KeyWatch>(*this);
 }
 
 DevicePlugin::~DevicePlugin()
 {
+    keyWatch_.reset();
     notifyListenersOfDeletion();
     for (auto& p : params_)
         p->detachFromCurrentValue();
@@ -212,7 +237,8 @@ void DevicePlugin::applyToBuffer(const te::PluginRenderContext& fc)
                      .samplePosition = te::toSamples(fc.editTime.getStart(), sampleRate_),
                      .timeSigNumerator = timeSig.numerator,
                      .timeSigDenominator = timeSig.denominator,
-                     .playing = fc.isPlaying};
+                     .playing = fc.isPlaying,
+                     .key = unpackKey(songKey_.load(std::memory_order_relaxed))};
     processRealtime(*device_, ctx);
 
     if (adds)
@@ -324,9 +350,16 @@ void DevicePlugin::applyExtraFromState(const juce::String& json)
     device_->readExtraState(parsed.is_object() ? parsed : nlohmann::json::object());
 }
 
+KeyInfo DevicePlugin::songKey() const noexcept { return unpackKey(songKey_.load(std::memory_order_relaxed)); }
+
 void registerDevices(te::Engine& engine)
 {
     for (const auto* factory : allDevices())
-        engine.getPluginManager().registerBuiltInType(std::make_unique<DeviceBuiltInType>(*factory));
+        registerDevice(engine, *factory);
+}
+
+void registerDevice(te::Engine& engine, const DeviceFactory& factory)
+{
+    engine.getPluginManager().registerBuiltInType(std::make_unique<DeviceBuiltInType>(factory));
 }
 } // namespace fd::engine

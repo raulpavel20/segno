@@ -228,7 +228,10 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
                              "redo",
                              "save_project",
                              "new_project",
-                             "open_project"})
+                             "open_project",
+                             "set_key",
+                             "list_scales",
+                             "detect_key"})
         CHECK(names.contains(name));
     for (const auto& p : registry.prompts)
     {
@@ -865,6 +868,71 @@ TEST_CASE("mcp tools: transport, tempo and signature", "[integration][mcp]")
     CHECK(daw.call("stop")["playing"] == false);
     CHECK(daw.read("segno://transport")["metronome"] == true);
     CHECK(daw.fails("set_time_signature", {{"numerator", 3}, {"denominator", 5}}).find("denominator") != std::string::npos);
+}
+
+TEST_CASE("mcp tools: the song's key: set, removed, its scales listed, found from the notes (P3)",
+          "[integration][mcp]")
+{
+    Daw daw;
+    CHECK(daw.project()["key"].is_null()); // a new project has none
+
+    auto r = daw.call("set_key", {{"root", "F#"}, {"scale", "minor"}});
+    CHECK(r["key"]["root"] == "F#");
+    CHECK(r["key"]["scale"] == "minor");
+    CHECK(r["key"]["name"] == "F# minor");
+    CHECK(r["key"]["notes"] == Json::array({"F#", "G#", "A", "B", "C#", "D", "E"}));
+    CHECK(daw.session->undoDescription() == "Assistant: set key");
+    CHECK(daw.project()["key"]["name"] == "F# minor");
+    CHECK(daw.read("segno://project")["key"]["scale"] == "minor");
+
+    // Names, flats in any spelling, pitch classes; the scale by its name; major by default.
+    CHECK(daw.call("set_key", {{"root", "Bb"}, {"scale", "Dorian"}})["key"]["name"] == "Bb Dorian");
+    CHECK(daw.call("set_key", {{"root", "E♭"}})["key"]["name"] == "Eb major");
+    CHECK(daw.call("set_key", {{"root", 1}, {"scale", "major"}})["key"]["name"] == "Db major");
+    CHECK(daw.call("set_key", {{"root", "e"}, {"scale", "bhairav"}})["key"]["scale"] == "double-harmonic");
+
+    CHECK(daw.call("set_key", {{"none", true}})["key"].is_null());
+    CHECK(daw.project()["key"].is_null());
+    daw.call("undo");
+    CHECK(daw.project()["key"]["scale"] == "double-harmonic");
+
+    CHECK(daw.fails("set_key", {{"root", "H"}}).find("note name") != std::string::npos);
+    CHECK(daw.fails("set_key", {{"root", 12}}).find("pitch class") != std::string::npos);
+    CHECK(daw.fails("set_key", {{"root", "C"}, {"scale", "chromatic"}}).find("hirajoshi") != std::string::npos);
+    CHECK(daw.fails("set_key", {}).find("\"none\"") != std::string::npos);
+    CHECK(daw.fails("set_key", {{"root", "C"}, {"none", true}}).find("\"none\"") != std::string::npos);
+
+    const auto scales = daw.call("list_scales")["scales"];
+    REQUIRE(scales.size() == 36);
+    CHECK(scales[0]["id"] == "major");
+    CHECK(scales[0]["intervals"] == Json::array({0, 2, 4, 5, 7, 9, 11}));
+    CHECK(scales[1]["group"] == "Common");
+
+    // Found from the notes: none until there are enough; then A minor first.
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    const auto clip =
+        daw.call("create_midi_clip", {{"track", t0}, {"start", "1.1.1"}, {"length", "2 bars"}})["clip"]["id"];
+    auto found = daw.call("detect_key");
+    CHECK(found["keys"].empty());
+    CHECK(found["note"].get<std::string>().find("Too few notes") != std::string::npos);
+    Json notes = Json::array();
+    double at = 0.0;
+    for (int p : {69, 71, 72, 74, 76, 77, 80, 81})
+    {
+        notes.push_back({{"pitch", p}, {"start", at}, {"length", 0.5}});
+        at += 0.5;
+    }
+    for (int p : {57, 69, 72, 76})
+        notes.push_back({{"pitch", p}, {"start", 4.0}, {"length", 2.0}});
+    for (int p : {64, 68, 71, 74})
+        notes.push_back({{"pitch", p}, {"start", 6.0}, {"length", 2.0}});
+    daw.call("add_notes", {{"clip", clip}, {"notes", notes}});
+    found = daw.call("detect_key", {{"clips", {clip}}});
+    REQUIRE_FALSE(found["keys"].empty());
+    CHECK(found["keys"][0]["name"] == "A minor");
+    CHECK(found["keys"][0]["fit"].get<double>() > 0.5);
+    CHECK(found["keys"].size() <= 3);
+    CHECK(daw.project()["key"]["scale"] == "double-harmonic"); // it only suggests
 }
 
 TEST_CASE("mcp tools: get_settings and set_settings, never the assistants' own or the keys (C1)",

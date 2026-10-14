@@ -24,6 +24,20 @@ struct AudioBusView
     [[nodiscard]] float* channel(int c) const noexcept { return channels[c]; }
 };
 
+/// The song's key (docs/design/key-and-scale.md §9, ADR 0056): its root and its notes as pitch
+/// classes. A host without one (any plugin host today, or a song with no key) leaves it unknown.
+struct KeyInfo
+{
+    int root = -1;           // 0 = C … 11 = B; −1: no key
+    std::uint16_t notes = 0; // bit n: pitch class n is in the key
+
+    [[nodiscard]] bool known() const noexcept { return root >= 0; }
+    /// Whether a MIDI pitch is one of the key's notes (never, without a key).
+    [[nodiscard]] bool contains(int pitch) const noexcept { return ((notes >> (((pitch % 12) + 12) % 12)) & 1u) != 0; }
+
+    friend bool operator==(const KeyInfo&, const KeyInfo&) = default;
+};
+
 struct TransportInfo
 {
     double tempoBpm = 120.0;
@@ -32,6 +46,8 @@ struct TransportInfo
     int timeSigNumerator = 4;
     int timeSigDenominator = 4;
     bool playing = false;
+    /// The song's key at the block's start (added 2026-10-14, ADR 0056).
+    KeyInfo key;
 };
 
 struct ProcessSpec
