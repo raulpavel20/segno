@@ -66,6 +66,7 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0055](0055-factory-content-is-files-in-a-read-only-library.md) | What ships besides the modules is files in a read-only, versioned Library, a place of its own in the browser before the User library; `library:` paths; found in standard places, Settings or `SEGNO_LIBRARY` | Accepted |
 | [0056](0056-racks-are-modules-of-modules.md) | A rack is a module of modules: chains side by side, eight macros mapped with ranges and curves, no nesting; saved as `.segnorack` files apart from module presets; a DAW feature on tracktion's racks | Proposed |
 | [0057](0057-the-song-has-one-key.md) | The song has one key (a root and one of 36 scales, or none), set in the top bar; it describes and never changes anything by itself; modules see it through `TransportInfo::key`; shared theory in `libs/music`; changes along the song later, on the song row | Accepted |
+| [0058](0058-the-piano-roll-writes-in-key-and-in-chords.md) | The piano roll writes in key and in chords: one surface without a tool palette, in key by default, chords read from the notes and rewritten voice-led, other tracks' notes, per-note chance the same in every render, controller lanes, previewed tools; a Notes menu; three stages | Proposed |
 
 ## Template
 
