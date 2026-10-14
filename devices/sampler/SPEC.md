@@ -1,8 +1,8 @@
 # Sampler: device spec
 
-- **Status:** Approved by the product owner (2026-10-10, with the M1 sign-off); IDs are permanent
+- **Status:** Approved by the product owner (2026-10-10, with the M1 sign-off); IDs are permanent. Stage 2, Multisample, brought forward for the factory presets ([factory-library.md](../../docs/design/factory-library.md), ADR 0055): **for review** (S1–S13)
 - **Type:** Instrument
-- **Tier / milestone:** Tier 1, M1 (classic/one-shot) → M4 (slice) → M5 (multisample)
+- **Tier / milestone:** Tier 1, M1 (classic/one-shot) → M3 (multisample, brought forward) → M4 (slice) → M5 (zone editing)
 - **Live target:** Simpler (M1, M4), Sampler (M5). References only ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
 
 ## Purpose
@@ -18,8 +18,9 @@ None in M1.
 | Stage | Scope | Milestone |
 |---|---|---|
 | Core | Classic and One-shot modes, below | M1 |
+| Multisample | Key and velocity zones, round robin, SFZ import ("Stage 2", below) | M3, brought forward from M5 |
 | Slice | Transient-detected slices, slice to pads | M4 |
-| Multisample | Key and velocity zones, round-robin, SFZ import | M5 |
+| Zone editing | Zones edited by hand, groups, crossfades, several dropped files made into one instrument | M5 |
 
 ## Parameters
 
@@ -108,6 +109,127 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 
 - Drop a file anywhere on the panel to load it, or click the empty waveform (or double-click a loaded one) to browse. An empty Sampler shows "Drop a sample, or click to browse".
 - Dropping onto a track in the DAW comes with the DAW slice (C4/C7).
+
+## Stage 2: Multisample (for review)
+
+Brought forward from M5 for the factory presets ([factory-library.md](../../docs/design/factory-library.md) §4, L8). An orchestral instrument is recorded every few notes at a few loudnesses; it needs **zones**: which sample plays for which key and velocity. One sample stays what it is: a single zone across the keyboard.
+
+### How others do it (October 2026)
+
+- **Live's Sampler:** a Zone tab with Key, Velocity and Sample Select editors. Each is a list of the samples with a bar a sample across the range, with fades at the ends. Round robin and random choice are a switch on the Zone tab (Live 12). Samples over 1 GB stream from disk; a RAM switch loads them into memory ([Ableton](https://help.ableton.com/hc/en-us/articles/360000001690-The-multisample-exceeds-the-maximum-of-1024-MB)).
+- **Bitwig's Sampler:** zones on a key × velocity map, groups, round robin a zone, crossfades by key, velocity and Select ([release notes 2.4](https://downloads.bitwig.com/stable/2.4/Release-Notes-2.4.html), [Sound On Sound](https://www.soundonsound.com/reviews/bitwig-studio-3?page=3)).
+- **Logic's Sampler:** a Mapping pane with three views: zones across a keyboard, groups, and a zone list with its settings. Dropped files with the same root note become velocity layers ([Apple](https://support.apple.com/en-gb/102060)).
+- **Every one** shows zones as rectangles over a keyboard, key across, velocity up, and edits them in a large editor apart from the device's own controls.
+
+### What it does
+
+- **A zone** is one sample with:
+  - its keys (low to high) and velocities (low to high);
+  - its root key, tuning (cents) and gain (dB);
+  - its start and end, and its loop if the file has one;
+  - its place in a round robin, or its share of a random choice.
+- **A note plays every zone it falls in,** at most four at once, as layers.
+  - Zones in a **round robin** take turns, key by key: the first note on a key plays the first, the next the second, and so on.
+  - Zones in a **random choice** play one at a time, picked at random for each note. The random numbers start the same at every reset, so a render is the same every time.
+- **The Sampler's controls shape the whole instrument,** zones and all: the envelopes, the filter, the voices, Transpose, Detune, Gain, Velocity → Volume.
+  - **Root Key** is dimmed for a multisample: each zone has its own.
+  - **Start and End** apply to each zone in proportion to its own length.
+  - **Loop** uses a zone's own loop from the file; a zone without one loops between Loop Start and End, as one sample does.
+- **No new parameters.** IDs stay as they are.
+
+### SFZ files
+
+The instruments come as SFZ files: plain text maps beside their samples, the format sfizz, Decent Sampler and most free libraries use. Loading one is like loading a sample: drop it, browse to it, or pick it in the browser.
+
+| What | Opcodes | What the Sampler does with them |
+|---|---|---|
+| Headers | `<control>`, `<global>`, `<master>`, `<group>`, `<region>` | Inherited as SFZ says: a region takes its group's, master's and global's opcodes, overriding them |
+| Paths | `default_path`, `sample` | Relative to the SFZ file; `\` read as `/`; a name not found as written is looked for ignoring case (maps made on Windows) |
+| Keys | `lokey`, `hikey`, `key`, `pitch_keycenter`, `octave_offset`, `note_offset` | Note names or numbers; SFZ's `c4` is 60, Segno's C3 |
+| Velocities | `lovel`, `hivel` | |
+| Level and pitch | `volume`, `tune`, `transpose`, `amp_veltrack` | `amp_veltrack` of the whole file sets Velocity → Volume |
+| Region | `offset`, `end`, `loop_mode`, `loop_start`, `loop_end` | `loop_mode=one_shot` across the file sets Mode to One-shot |
+| Choice | `seq_length`, `seq_position`, `lorand`, `hirand` | Round robin and random choice |
+| Envelope | `ampeg_attack`, `ampeg_decay`, `ampeg_sustain`, `ampeg_release` | Of the whole file: set the Amp envelope |
+
+- **What it sets beyond zones** (Mode, Velocity → Volume, the Amp envelope) is set through the host as a separate undo step after loading, as a sample's root key is now.
+- **Anything else is ignored and said:** the panel's sample line reads "3 settings in the file ignored", and its tooltip names them. Release triggers, key switches, crossfades and CC-driven regions are the common ones; they come with zone editing.
+- **Missing samples are said too:** "4 of 22 samples missing", with the zones that would play them left silent. Never silent about it.
+- **VSCO 2 CE's maps** use `sample`, the key and velocity ranges, `volume`, `ampeg_*`, `default_path`, `seq_*` and `*rand` (factory-library.md §3), all on the list.
+
+### State, loading and memory
+
+- **State:** `sample.path` names a sample or an SFZ, absolute or a `library:` reference. The map is read from the file each time, as a sample's audio is: the file is the instrument, and a preset or project holds only its path. `sample.zones` (the count) joins `sample.rate` and `sample.frames` for checking. State version 1 still.
+- **Loading stays synchronous** ([ADR 0017](../../docs/decisions/0017-heavy-data-and-non-parameter-state.md)): when `readExtraState` returns, every zone is ready, so a render right after a load is right.
+  - The zones' samples are decoded in parallel, one task a zone.
+  - **Target:** a 50-zone instrument of 8-second stereo samples ready in under half a second on the reference machine, measured by a `[.benchmark]` test.
+  - Asynchronous loading and streaming from disk wait for their own ADR (ADR 0017), when instruments outgrow memory.
+- **Memory:**
+  - A 16-bit file is held as 16-bit, half what floats take. The interpolator reads either.
+  - A multisample keeps one decimated copy (½), not seven. Zones sit within a few notes of their roots, and one copy covers two octaves up; beyond that the interpolator lowers its cutoff, as it does now.
+  - **The same file is decoded once,** whichever Samplers use it: a cache shared by every Sampler in the process. Two tracks with the same violins, or a preset previewed in the browser and then loaded, hold it once.
+  - **Estimates:** the violin section's sustain (22 zones of about 8 s, stereo) about 45 MB; a 90-zone piano at 12 s about 290 MB. The Library's trims (§6 of factory-library.md) keep them so.
+
+### The panel
+
+On the module grid, in the SAMPLE section (6 × 6), nothing else moves:
+- **One sample:** as now.
+- **A multisample:**
+  - **The zone map** (rows 0–3): keys across, the instrument's range and a little either side; velocity up. Each zone is a rectangle; zones that take turns or share a random choice show as one with a count ("×3"). A zone lights while it plays.
+  - **The last zone played** (rows 4–5): its waveform, with Start, End and Loop markers that move every zone's, and live playheads.
+  - **The sample line:** the SFZ's name, its zone count, and what was ignored or missing.
+  - **Hovering a zone** names its sample, keys, velocities and root. **Clicking one** plays its root at the middle of its velocities.
+- Dropping, browsing and the empty state are as now; browsing offers SFZ files beside samples.
+- **The menu bar** ([ADR 0040](../../docs/decisions/0040-a-menu-bar-and-everything-by-mouse.md)): Module > **Load sample…**, for the selected Sampler, samples and SFZ files alike. The click on the panel stays.
+
+### The browser and MCP
+
+- **The browser** ([browser.md](../../docs/design/browser.md)): SFZ files are a kind of their own, **Multisamples**, MULTISAMPLES in search results, their zone count as the caption.
+  - Selected, one plays the presets' phrase (a C3) through a Sampler of its own.
+  - Dropped on a Sampler, it loads; anywhere else a Sampler with it, as a sample does. Double-click puts it on the selection.
+- **MCP:**
+  - `load_sample` takes an SFZ, and says how many zones loaded and what was ignored or missing;
+  - **`get_zones`** (new, read-only) lists a Sampler's zones: sample, keys, velocities, root, tuning, gain, round robin;
+  - `search` finds SFZ files as `multisample`.
+
+### Not in stage 2
+
+- **Editing zones by hand**, groups, crossfades between zones, and making a multisample from several dropped files: with the zone editor, in the detail panel as the Wavetable's table editor is ([ADR 0053](../../docs/decisions/0053-a-modules-editor-in-the-detail-panel.md)). M5, as planned.
+- **Streaming from disk**, and SFZ's release triggers, key switches and CC-driven regions.
+
+### Tests
+
+| What | Target |
+|---|---|
+| Zone choice | Every key and velocity of a generated map plays the zone it should (`[fast]`) |
+| Round robin | Takes turns key by key; restarts with reset (`[fast]`) |
+| Random choice | Each zone in its share within 5 % over 10 000 notes; the same sequence after reset (`[fast]`) |
+| SFZ reading | Headers inherited; note names; `\` paths and case; every opcode in the table; ignored ones counted (`[fast]`) |
+| VSCO 2 CE's maps | The four fetched SFZs read with nothing ignored (`[fast]`) |
+| Pitch | A zone plays its sample at its root to ±0.5 cent, tuning and transpose on top |
+| Memory | A 16-bit file held at 2 bytes a sample, one decimated copy; one decode for two Samplers |
+| Load time | Under 0.5 s for 50 eight-second stereo zones (`[.benchmark]`, Release) |
+| Swap while playing | A multisample swapped mid-note: no allocation or locks in `process()`, no clicks |
+| State | An SFZ path round-trips; a Library reference resolves; a missing file and missing samples are said |
+| Conformance | All pass, with a generated two-zone map in `testSetup` too |
+
+### Questions for review
+
+| # | Question | Recommendation |
+|---|---|---|
+| S1 | **Where the map lives** | In the SFZ file, read each time, as a sample's audio is; the state holds only its path. Presets stay small and a Library fix reaches them |
+| S2 | **SFZ's reach** | The opcodes in the table, which cover VSCO 2 CE and VCSL's maps; anything else ignored and said |
+| S3 | **The Sampler's controls on a multisample** | Shape every zone: envelopes, filter, voices, pitch, level. Root Key dimmed; Start and End in proportion; Loop the zones' own or the controls' |
+| S4 | **Layers** | A note plays every zone it falls in, up to four |
+| S5 | **Round robin** | Key by key, as SFZ counts it; random choice seeded at reset, so renders repeat |
+| S6 | **What the file sets beyond zones** | Mode, Velocity → Volume and the Amp envelope, through the host, a separate undo step after loading, as the root key now |
+| S7 | **Loading** | Synchronous still (ADR 0017), the zones decoded in parallel; under 0.5 s for 50 eight-second zones. Streaming and asynchronous loading later, with their own ADR |
+| S8 | **Memory** | 16-bit files kept 16-bit; one decimated copy; one decode for every Sampler that uses a file |
+| S9 | **The panel** | The SAMPLE section shows the zone map and the last zone's waveform; nothing else moves; hover names a zone, click plays it |
+| S10 | **The menu bar** | Module > Load sample… for the selected Sampler, samples and SFZ files alike |
+| S11 | **The browser** | SFZ files a kind of their own, Multisamples, previewed with the presets' phrase, dropped as a sample is |
+| S12 | **MCP** | `load_sample` takes SFZ; `get_zones` new; `search` finds multisamples |
+| S13 | **Not now** | Zone editing, groups, crossfades, several dropped files made into one instrument, streaming: M5, with the zone editor in the detail panel |
 
 ## Factory presets
 
