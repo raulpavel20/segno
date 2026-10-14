@@ -7,7 +7,7 @@ A piano roll that's good to write music in, not only to fix notes: it writes in 
 - the menu bar as the complete list ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)) and assistants' tools ([ADR 0021](../decisions/0021-mcp-server.md));
 - the UI foundations ([ADR 0023](../decisions/0023-ui-foundations.md)): every panel sized from its content, nothing touching.
 
-**Status:** for review (2026-10-14). The questions are in §17; the proposed decision is [ADR 0058](../decisions/0058-the-piano-roll-writes-in-key-and-in-chords.md). The work is staged (§16): each stage is designed here, built, and signed off on its own.
+**Status:** approved by the product owner (2026-10-14), with every recommendation of §17 (N1–N19) and the stages of §16; the decision is [ADR 0058](../decisions/0058-the-piano-roll-writes-in-key-and-in-chords.md). A visual mockup of the clip view comes first, for the product owner's approval before building. Each stage is then built and signed off on its own.
 
 ## 1. Why
 
