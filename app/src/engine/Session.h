@@ -861,6 +861,9 @@ public:
     std::optional<Preview> previewFile(const juce::File& file);
     /// Plays a short phrase with one of our instruments' presets.
     bool previewPreset(const std::string& deviceId, const std::string& presetKey);
+    /// An instrument rack file's phrase, through all its chains (racks.md §18.9). False for an
+    /// effect rack, or one holding a plugin.
+    bool previewRack(const juce::File& file);
     /// Plays a wavetable file on a held C3, through a Wavetable of its own (table-editor.md §7).
     bool previewWavetable(const juce::File& file);
     /// Plays an SFZ file's instrument: the presets' phrase (a C3) through a Sampler of its own

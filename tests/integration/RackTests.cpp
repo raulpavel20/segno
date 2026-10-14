@@ -856,3 +856,138 @@ TEST_CASE(
     REQUIRE(s.saveRack(loaded.rack, second));
     CHECK(second.loadFileAsString() == file.loadFileAsString());
 }
+
+#if FD_HAVE_FACTORY_RACKS
+#include "RackRecipes.h"
+#include "engine/PresetPreview.h"
+
+#include <fstream>
+
+TEST_CASE("racks: every factory rack loads, plays cleanly within level, and its first macro moves the sound; "
+          "Verse to drop morphs; an instrument rack previews",
+          "[integration]")
+{
+    std::ifstream in(FD_RACK_RECIPES);
+    const auto made = fd::library_build::racksFromRecipes(nlohmann::json::parse(in, nullptr, false));
+    REQUIRE(made.problems.empty());
+    REQUIRE(made.racks.size() == 12);
+
+    Racks r;
+    auto& s = *r.session;
+    // Effect racks process the noise on the first track; instrument racks play a note on another.
+    const auto instruments = r.track(1);
+    const auto clip = s.createMidiClip(instruments, 0.0, kSeconds);
+    s.setNotes(clip, {{.pitch = 48, .start = 0.0, .length = 0.8, .velocity = 0.8f}});
+    const auto peakOf = [](const AudioBuffer& b)
+    {
+        float peak = 0.0f;
+        for (int c = 0; c < b.numChannels(); ++c)
+            for (int i = 0; i < b.numSamples(); ++i)
+            {
+                REQUIRE(std::isfinite(b.at(c, i)));
+                peak = std::max(peak, std::abs(b.at(c, i)));
+            }
+        return peak;
+    };
+
+    for (const auto& rack : made.racks)
+    {
+        INFO(rack.name);
+        const auto file = r.root.getChildFile(juce::String(rack.name) + ".segnorack");
+        REQUIRE(file.replaceWithText(juce::String::fromUTF8(rack.text.c_str())));
+        const bool instrument = rack.folder == "Instruments";
+        const auto channel = instrument ? instruments : r.t;
+        s.setMute(r.t, instrument);
+        const auto loaded = s.loadRack(file, {.channel = channel});
+        REQUIRE(loaded.rack != 0);
+        CHECK(loaded.missing.empty());
+        CHECK(r.slot(loaded.rack).instrument == instrument);
+        // As the recipe left it, then with its first macro all the way, and back to nothing.
+        const auto info = r.rack(loaded.rack);
+        const auto first = r.render();
+        INFO("peak " << peakOf(first) << ", level " << fd::testkit::rmsDb(first) << " dB");
+        CHECK(peakOf(first) <= 1.0f);
+        CHECK(fd::testkit::rmsDb(first) > -50.0);
+        const float was = info.macros[0].value;
+        REQUIRE(s.setMacro(loaded.rack, 0, was < 0.5f ? 1.0f : 0.0f));
+        const auto moved = r.render();
+        CHECK(peakOf(moved) <= 1.0f);
+        INFO("moved against first: " << fd::testkit::nullResidualDb(moved, first) << " dB");
+        CHECK(fd::testkit::nullResidualDb(moved, first) >
+              -50.0); // it moves the sound (noise in: drive changes it least)
+
+        if (rack.name == "Verse to drop")
+        {
+            REQUIRE(info.snapshots.size() == 2);
+            REQUIRE(s.setMorph(loaded.rack, {.on = true, .position = 0.0f}));
+            const auto verse = r.render();
+            REQUIRE(s.setMorph(loaded.rack, {.position = 1.0f}));
+            const auto drop = r.render();
+            CHECK(peakOf(drop) <= 1.0f);
+            CHECK(fd::testkit::nullResidualDb(drop, verse) > -30.0);
+        }
+        if (instrument && rack.name == "Bass stack") // no Library here: the Layered pad's strings are silent
+        {
+            const auto preview = fd::engine::renderRackPhrase(nlohmann::json::parse(rack.text), 48000.0);
+            REQUIRE(preview.getNumSamples() > 0);
+            CHECK(preview.getMagnitude(0, preview.getNumSamples()) > 0.01f);
+            CHECK(preview.getMagnitude(0, preview.getNumSamples()) <= 1.0f);
+        }
+        if (!instrument)
+            CHECK(fd::engine::renderRackPhrase(nlohmann::json::parse(rack.text), 48000.0).getNumSamples() ==
+                  0);
+        s.removeDevice(loaded.rack);
+    }
+}
+#endif
+
+TEST_CASE("racks: a parameter named as tracktion names a plugin's own property (the Filter's type) survives "
+          "grouping, a rack file and a project saved and opened",
+          "[integration]")
+{
+    Racks r;
+    auto& s = *r.session;
+    const auto filter = s.addDevice(r.t, "fd:filter");
+    r.setParam(filter, "type", "Band Pass");
+    r.setParam(filter, "freq", "1 kHz");
+    const auto level = r.gainDb();
+    CHECK(level < -10.0); // noise through a band around 1 kHz
+    const auto typeOf = [&](std::uint64_t id)
+    {
+        auto h = s.openDevice(id);
+        REQUIRE(h != nullptr);
+        const auto& params = h->context().info.params;
+        const auto it =
+            std::find_if(params.begin(), params.end(), [](const auto& p) { return p.id == "type"; });
+        return it->toText(h->context().params.getPlain(static_cast<size_t>(it - params.begin())));
+    };
+    CHECK(typeOf(filter) == "Band Pass");
+
+    // Grouped (its state moved into the rack): the same filter, the same sound.
+    const auto rack = s.groupIntoRack({filter});
+    REQUIRE(rack != 0);
+    CHECK(typeOf(filter) == "Band Pass");
+    CHECK(r.gainDb() == Approx(level).margin(0.1));
+
+    // Through a rack file.
+    const auto file = r.root.getChildFile("Filtered.segnorack");
+    REQUIRE(s.saveRack(rack, file));
+    s.removeDevice(rack);
+    const auto loaded = s.loadRack(file, {.channel = r.t});
+    REQUIRE(loaded.rack != 0);
+    REQUIRE(r.rack(loaded.rack).chains[0].devices.size() == 1);
+    CHECK(typeOf(r.rack(loaded.rack).chains[0].devices[0].id) == "Band Pass");
+    CHECK(r.gainDb() == Approx(level).margin(0.1));
+
+    // A project saved and opened again.
+    const auto project = r.root.getChildFile("Filtered").getChildFile("Filtered.segno");
+    REQUIRE(s.saveAs(project));
+    std::string error;
+    REQUIRE(s.open(project, &error));
+    CHECK(error.empty());
+    s.updateSnapshotNow();
+    const auto rackAgain = r.info(r.track(0)).devices.at(0);
+    REQUIRE(rackAgain.rack != nullptr);
+    REQUIRE(rackAgain.rack->chains[0].devices.size() == 1);
+    CHECK(typeOf(rackAgain.rack->chains[0].devices[0].id) == "Band Pass");
+}

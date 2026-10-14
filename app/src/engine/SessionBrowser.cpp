@@ -270,6 +270,18 @@ bool Session::previewPreset(const std::string& deviceId, const std::string& pres
     return true;
 }
 
+bool Session::previewRack(const juce::File& file)
+{
+    stopPreview();
+    const auto json = nlohmann::json::parse(file.loadFileAsString().toStdString(), nullptr, false);
+    const double rate = sampleRate() > 0.0 ? sampleRate() : 48000.0;
+    auto sound = renderRackPhrase(json, rate);
+    if (sound.getNumSamples() == 0)
+        return false;
+    impl_->preview.play(std::move(sound), rate);
+    return true;
+}
+
 bool Session::previewMultisample(const juce::File& file)
 {
     stopPreview();

@@ -242,7 +242,7 @@ te::AutomatableParameter* Session::Impl::parameterFor(const juce::ValueTree& plu
         return id == te::IDs::auxSendSliderPos ? s->gain.get() : nullptr;
     if (dynamic_cast<DevicePlugin*>(p) == nullptr)
         return nullptr;
-    return p->getAutomatableParameterByID(id.toString()).get();
+    return p->getAutomatableParameterByID(DevicePlugin::paramIdOf(id)).get();
 }
 
 // ---- lanes ---------------------------------------------------------------------------------

@@ -809,7 +809,10 @@ void BrowserPanel::addRackRows(int depth)
         r.kind = Kind::Rack;
         r.file = file;
         r.name = file.getFileNameWithoutExtension();
-        r.caption = factory(file) ? "Library" : "";
+        // The Library's say where in it they are, as its search results do ("Library · Transitions").
+        r.caption = factory(file) ? "Library" + juce::String::fromUTF8(" \xc2\xb7 ") +
+                                        file.getParentDirectory().getFileName()
+                                  : juce::String();
         r.depth = depth;
         rows_.push_back(r);
     }
@@ -1088,6 +1091,13 @@ void BrowserPanel::selectIndex(int index, bool previewIt)
 
 bool BrowserPanel::previewable(const Row& row) const
 {
+    if (row.type == Row::Type::File && row.kind == Kind::Rack)
+    {
+        // An instrument rack plays the presets' phrase (racks.md §18.9); effect racks wait for
+        // effects' previews (browser.md R9).
+        const auto info = engine::Session::readRackFile(row.file);
+        return info && info->instrument;
+    }
     if (row.type == Row::Type::File)
         return row.kind == Kind::Sample || row.kind == Kind::Multisample || row.kind == Kind::Wavetable ||
                row.kind == Kind::Midi;
@@ -1106,6 +1116,8 @@ void BrowserPanel::preview(const Row& row)
         (void)session_.previewWavetable(row.file); // on a held note (table-editor.md §7)
     else if (row.type == Row::Type::File && row.kind == Kind::Multisample)
         (void)session_.previewMultisample(row.file); // the presets' phrase (devices/sampler/SPEC.md, S11)
+    else if (row.type == Row::Type::File && row.kind == Kind::Rack)
+        (void)session_.previewRack(row.file);
     else if (row.type == Row::Type::File && row.kind == Kind::Midi)
         (void)session_.previewMidiFile(row.file, selectedTrack ? selectedTrack().value_or(0) : 0);
     else if (const auto ref = browser::parse(row.item); ref && ref->kind == Kind::Preset)
@@ -1490,6 +1502,14 @@ std::vector<juce::String> BrowserPanel::rowNames() const
     std::vector<juce::String> out;
     for (const auto& r : rows_)
         out.push_back(r.name);
+    return out;
+}
+
+std::vector<juce::String> BrowserPanel::rowCaptions() const
+{
+    std::vector<juce::String> out;
+    for (const auto& r : rows_)
+        out.push_back(r.caption);
     return out;
 }
 

@@ -22,6 +22,12 @@ class DevicePlugin final : public te::Plugin
 public:
     /// Plugin type name for a device: "fd.<device-id>".
     static juce::String typeNameFor(std::string_view deviceId);
+    /// The plugin state's property holding a parameter's value: its id, unless that's a property
+    /// tracktion keeps on every plugin (the Filter's `type`, which names the plugin), then
+    /// "fdParam.<id>". Never the same as a property tracktion reads, so a value can't overwrite one.
+    [[nodiscard]] static juce::Identifier propertyFor(std::string_view paramId);
+    /// The parameter a property holds: propertyFor the other way.
+    [[nodiscard]] static juce::String paramIdOf(const juce::Identifier& property);
 
     DevicePlugin(te::PluginCreationInfo info, const DeviceFactory& factory);
     ~DevicePlugin() override;

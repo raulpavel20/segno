@@ -15,3 +15,10 @@ if(TARGET fd_plugin_utility_VST3 AND TARGET fd_plugin_subtractive_synth_VST3)
     target_include_directories(fd_integration_tests PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
     target_compile_definitions(fd_integration_tests PRIVATE FD_HAVE_TEST_PATHS=1)
 endif()
+
+if(TARGET fd_library_build)
+    # The factory racks, made from their recipes (racks.md §18.8), loaded and heard in the DAW.
+    target_link_libraries(fd_integration_tests PRIVATE fd_library_build)
+    target_compile_definitions(fd_integration_tests PRIVATE FD_HAVE_FACTORY_RACKS=1
+        FD_RACK_RECIPES="${PROJECT_SOURCE_DIR}/tools/library/racks.json")
+endif()

@@ -536,6 +536,36 @@ TEST_CASE("browser: the Library is a place before User library; its tables heard
     CHECK(synth.tableId(0) == "formant/human-voice");
     CHECK(b.r.session->undoDescription() == "Load Human Voice");
 
+    // Its racks (racks.md §18.8) in Racks, before yours, saying where in it they are.
+    {
+        const auto riser =
+            library.getChildFile("Racks").getChildFile("Transitions").getChildFile("Riser.segnorack");
+        REQUIRE(riser.getParentDirectory().createDirectory());
+        auto& s = *b.r.session;
+        const auto mine = s.groupIntoRack({s.addDevice(b.track(0).id, "fd:saturator")});
+        REQUIRE(s.saveRack(mine, riser)); // as a factory rack would be, in the Library
+        REQUIRE(s.saveRack(mine, s.racksFolder().getChildFile("Mine.segnorack")));
+        s.refreshBrowser(library);
+        s.refreshBrowser(s.racksFolder());
+        s.waitForBrowserIndex();
+        b.settle();
+        b.open("cat:racks");
+        const auto ids = p.rowIds();
+        const auto captions = p.rowCaptions();
+        const auto at = [&ids](const std::string& id)
+        { return static_cast<size_t>(std::find(ids.begin(), ids.end(), id) - ids.begin()); };
+        const auto factory = at("file:" + path(riser)),
+                   yours = at("file:" + path(s.racksFolder().getChildFile("Mine.segnorack")));
+        REQUIRE(factory < ids.size());
+        REQUIRE(yours < ids.size());
+        CHECK(factory < yours);
+        CHECK(captions[factory] == juce::String::fromUTF8("Library \xc2\xb7 Transitions"));
+        CHECK(captions[yours].isEmpty());
+        if (const char* dump = std::getenv("FD_DUMP_DIR"))
+            dumpPng(dump, "browser-factory-racks@2x.png",
+                    b.shell->createComponentSnapshot(p.getBounds(), true, 2.0f));
+    }
+
     // Pointed somewhere it isn't: said.
     b.store->change([&](fd::model::AppSettings& s)
                     { s.library.location = path(b.r.root.getChildFile("Gone")); });
@@ -663,6 +693,13 @@ TEST_CASE(
     CHECK(b.shows(layers));
     if (const char* dump = std::getenv("FD_DUMP_DIR"))
         dumpPng(dump, "browser-racks@2x.png", b.shell->createComponentSnapshot(p.getBounds(), true, 2.0f));
+    // Selected, an instrument rack plays the presets' phrase through all its chains; an effect rack
+    // waits for effects' previews (racks.md §18.9).
+    REQUIRE(p.select(layers));
+    CHECK(s.isPreviewing());
+    s.stopPreview();
+    REQUIRE(p.select(heat));
+    CHECK_FALSE(s.isPreviewing());
     // Search finds them as racks.
     b.search("heat");
     CHECK(b.shows(heat));

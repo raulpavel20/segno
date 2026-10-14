@@ -509,7 +509,7 @@ Sources: [Ableton's Macros and Variations FAQ](https://help.ableton.com/hc/en-us
   - **The kit gained:** `PanelSection::setPowerSwitch` (a section's power for state that isn't a parameter), `Toggle::setCutsText` and `setModified` (a name of your own and its changed mark), `Knob::setLocked`, `Icon::Lock` and `Icon::LockOpen`. The rack's parameters gained `morph` after the macros.
 - **2a approved** by the product owner (2026-10-15), with MORPH narrowed to two columns.
 - **2b. Snapshots, locks, Morph and Vary,** with the menus, MCP and files. Built 2026-10-15 (§18.13).
-- **2c. The factory racks and the preview,** signed off by ear.
+- **2c. The factory racks and the preview,** signed off by ear. Built 2026-10-15 (§18.14).
 - **Hands-on tasks before sign-off**, done unaided as in §5a:
   - store two snapshots and rename them;
   - morph between them with automation over eight bars;
@@ -549,4 +549,17 @@ Approved by the product owner (2026-10-14) with every recommendation.
 - **Vary** moves each free mapped macro by a uniform random amount within ±15 % (Vary more ±40 %) of its travel, from the system's random source.
 - **The Module menu** has Store snapshot, Update snapshot, Rename snapshot…, Remove snapshot, Morph, Vary and Vary more (menu-bar.md); the rack's right-click has Store snapshot, Vary and Vary more; a snapshot's has Rename, Update and Remove.
 - **MCP:** `store_snapshot`, `recall_snapshot`, `remove_snapshot`, `set_snapshot`, `set_morph`, `vary_module`, and `locked` on `set_macro` (mcp.md). Snapshots count from 1, as chains and macros do.
-- **Next, 2c:** the factory racks and the instrument racks' preview in the browser.
+
+### 18.14 Settled while building 2c (2026-10-15)
+
+- **The factory racks are made when the Library is built,** from their recipes (`tools/library/racks.json`, the format in `tools/library/RackRecipes.h`), into `Racks/Transitions`, `Racks/Parallel` and `Racks/Instruments`. No generated files are kept in the repository: the recipes are the only source, so nothing can drift from them. §18.8 planned files checked against their recipes; there are none to check.
+  - A module starts from a factory preset or its defaults and takes what the recipe sets, in the parameter's unit or as text it reads; a mapping names its module by chain and place from 1, From and To in the parameter's unit, Curve in %.
+  - The files are exactly what Save rack writes, so the DAW loads them as it loads yours.
+- **Tested:** every recipe makes its rack, the same every time, and a recipe's mistakes are said by rack ([fast]); every factory rack loads in the DAW, plays within level, and its first macro moves the sound; Verse to drop morphs; an instrument rack's preview plays (integration).
+- **The twelve, for sign-off by ear:**
+  - Transitions: Riser, Wash out, Lo-fi drop, Filter build, Echo throw, Chop, Verse to drop.
+  - Parallel: Parallel compression, Wide chorus, Parallel drive (each a Dry chain beside the processed one; Blend or Amount is a Utility's gain at the end of it, since a chain's own volume isn't a macro's to move).
+  - Instruments: Layered pad (a Wavetable pad beside the Library's violins), Bass stack (a Subtractive sub beside a Wavetable growl).
+- **The preview:** an instrument rack plays the presets' phrase through every chain, offline (`renderRackPhrase`), its macros where the file has them; an effect rack, or one holding a plugin, has none. In the browser's Racks part, the Library's racks say "Library · Transitions" (shown when it fits, else in the tooltip, as tree rows do).
+- **Found while building, fixed:** a parameter of ours named as a property tracktion keeps on every plugin overwrote it. The Filter's `type` replaced the plugin's own `type` (what it is), so a Filter whose type was changed couldn't be made again: not after reopening the project, copying it, or loading it from a rack file. Such a parameter is now kept as `fdParam.<id>` (`DevicePlugin::propertyFor`); only `type` is affected among today's modules. A test checks a Filter's type through grouping, a rack file and a project reopened.
+- **Next:** the product owner's hands-on tasks (§18.11), and the factory racks by ear.

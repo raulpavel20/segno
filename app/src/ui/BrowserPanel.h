@@ -66,6 +66,7 @@ public:
     /// "place:<path>", "file:<path>", "group:SAMPLES", "more:sample"…), and their names.
     [[nodiscard]] std::vector<std::string> rowIds() const;
     [[nodiscard]] std::vector<juce::String> rowNames() const;
+    [[nodiscard]] std::vector<juce::String> rowCaptions() const;
     [[nodiscard]] juce::Rectangle<int> rowBounds(const std::string& id) const;
     /// Selects a row as a click would (previewing it, if Preview is on); false if not shown.
     bool select(const std::string& id);

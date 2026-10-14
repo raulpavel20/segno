@@ -1,0 +1,380 @@
+{
+  "segnoRackRecipes": 1,
+  "author": "Segno",
+  "racks": [
+    {
+      "name": "Riser",
+      "folder": "Transitions",
+      "tags": ["Transition", "Build"],
+      "description": "One knob into a drop: the low end thins away, the sound spins faster and fills with reverb.",
+      "chains": [
+        {
+          "name": "Main",
+          "modules": [
+            {"device": "filter", "params": {"type": "High Pass", "slope": "24 dB", "freq": "20 Hz", "res": 30}},
+            {"device": "auto-pan-tremolo", "params": {"sync": false, "rate": 1, "amount": 0, "shape": "Triangle"}},
+            {"device": "reverb", "params": {"mode": "Hall", "decay": 3, "size": 70, "mix": 0}}
+          ]
+        }
+      ],
+      "macros": [
+        {
+          "name": "Rise",
+          "mappings": [
+            {"chain": 1, "module": 1, "param": "freq", "from": "20 Hz", "to": "2.5 kHz", "curve": 20},
+            {"chain": 1, "module": 2, "param": "amount", "from": 0, "to": 60},
+            {"chain": 1, "module": 2, "param": "rate", "from": 1, "to": 8, "curve": 30},
+            {"chain": 1, "module": 3, "param": "mix", "from": 0, "to": 45, "curve": -30}
+          ]
+        },
+        {
+          "name": "Space",
+          "mappings": [{"chain": 1, "module": 3, "param": "decay", "from": 2, "to": 8}]
+        }
+      ]
+    },
+    {
+      "name": "Wash out",
+      "folder": "Transitions",
+      "tags": ["Transition", "Breakdown"],
+      "description": "The sound sinks into a dark wash of echoes and reverb as the knob turns.",
+      "chains": [
+        {
+          "name": "Main",
+          "modules": [
+            {"device": "filter", "params": {"type": "Low Pass", "slope": "24 dB", "freq": "20 kHz", "res": 15}},
+            {"device": "delay", "params": {"mode": "Tape", "div.left": "1/4D", "div.right": "1/4D", "feedback": 45, "mix": 0}},
+            {"device": "reverb", "params": {"mode": "Hall", "decay": 4, "size": 80, "mix": 0}}
+          ]
+        }
+      ],
+      "macros": [
+        {
+          "name": "Wash",
+          "mappings": [
+            {"chain": 1, "module": 1, "param": "freq", "from": "20 kHz", "to": "900 Hz", "curve": 40},
+            {"chain": 1, "module": 2, "param": "mix", "from": 0, "to": 35, "curve": -20},
+            {"chain": 1, "module": 3, "param": "mix", "from": 0, "to": 70, "curve": -40},
+            {"chain": 1, "module": 3, "param": "decay", "from": 3, "to": 10}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Lo-fi drop",
+      "folder": "Transitions",
+      "tags": ["Transition", "Lo-fi", "Dirty"],
+      "description": "Into a worn tape: drive, a closing low pass and a slow wobble in pitch, on one knob.",
+      "chains": [
+        {
+          "name": "Main",
+          "modules": [
+            {"device": "saturator", "params": {"curve": "Tape", "drive": 0}},
+            {"device": "filter", "params": {"type": "Low Pass", "slope": "12 dB", "freq": "20 kHz", "res": 10}},
+            {"device": "chorus", "params": {"mode": "Vibrato", "rate": 0.6, "depth": 0}}
+          ]
+        }
+      ],
+      "macros": [
+        {
+          "name": "Crush",
+          "mappings": [
+            {"chain": 1, "module": 1, "param": "drive", "from": 0, "to": 18},
+            {"chain": 1, "module": 1, "param": "output", "from": 0, "to": -7},
+            {"chain": 1, "module": 2, "param": "freq", "from": "20 kHz", "to": "2.2 kHz", "curve": 30},
+            {"chain": 1, "module": 3, "param": "depth", "from": 0, "to": 45, "curve": 20}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Filter build",
+      "folder": "Transitions",
+      "tags": ["Transition", "Build", "Filter"],
+      "description": "A warm resonant low pass that opens from muffled to bright, with a phaser coming in.",
+      "chains": [
+        {
+          "name": "Main",
+          "modules": [
+            {"device": "filter", "params": {"type": "Low Pass", "circuit": "Warm", "slope": "24 dB", "freq": "150 Hz", "res": 40}},
+            {"device": "phaser-flanger", "params": {"mode": "Phaser", "rate": 0.3, "mix": 0}}
+          ]
+        }
+      ],
+      "macros": [
+        {
+          "name": "Build",
+          "mappings": [
+            {"chain": 1, "module": 1, "param": "freq", "from": "150 Hz", "to": "18 kHz", "curve": 15},
+            {"chain": 1, "module": 1, "param": "res", "from": 40, "to": 60},
+            {"chain": 1, "module": 2, "param": "mix", "from": 0, "to": 35}
+          ]
+        },
+        {
+          "name": "Phase",
+          "mappings": [{"chain": 1, "module": 2, "param": "rate", "from": 0.2, "to": 3, "curve": 30}]
+        }
+      ]
+    },
+    {
+      "name": "Echo throw",
+      "folder": "Transitions",
+      "tags": ["Transition", "Delay", "Dub"],
+      "description": "Throws the sound into dotted-quarter tape echoes that pile up as the knob turns; Tone darkens or brightens them.",
+      "chains": [
+        {
+          "name": "Main",
+          "modules": [
+            {"device": "delay", "params": {"mode": "Tape", "div.left": "1/4D", "div.right": "1/4D", "stereo": "Ping-pong", "feedback": 40, "filter.low": 300, "filter.high": "3 kHz", "wobble": 15, "mix": 0}}
+          ]
+        }
+      ],
+      "macros": [
+        {
+          "name": "Throw",
+          "mappings": [
+            {"chain": 1, "module": 1, "param": "mix", "from": 0, "to": 50, "curve": -20},
+            {"chain": 1, "module": 1, "param": "feedback", "from": 40, "to": 78, "curve": 30}
+          ]
+        },
+        {
+          "name": "Tone",
+          "value": 50,
+          "mappings": [{"chain": 1, "module": 1, "param": "filter.high", "from": "1.2 kHz", "to": "8 kHz"}]
+        }
+      ]
+    },
+    {
+      "name": "Chop",
+      "folder": "Transitions",
+      "tags": ["Transition", "Rhythm"],
+      "description": "A tremolo in time that chops the sound into sixteenths, deeper as the knob turns.",
+      "chains": [
+        {
+          "name": "Main",
+          "modules": [
+            {"device": "auto-pan-tremolo", "params": {"mode": "Tremolo", "sync": true, "div": "1/16", "shape": "Square", "edge": 20, "amount": 0}}
+          ]
+        }
+      ],
+      "macros": [
+        {
+          "name": "Chop",
+          "mappings": [{"chain": 1, "module": 1, "param": "amount", "from": 0, "to": 100}]
+        }
+      ]
+    },
+    {
+      "name": "Verse to drop",
+      "folder": "Transitions",
+      "tags": ["Transition", "Morph"],
+      "description": "Four macros with a Verse and a Drop snapshot: turn Morph on and automate it to move the whole rack from one to the other.",
+      "chains": [
+        {
+          "name": "Main",
+          "modules": [
+            {"device": "filter", "params": {"type": "Low Pass", "slope": "24 dB", "freq": "20 kHz", "res": 20}},
+            {"device": "saturator", "params": {"curve": "Warm", "drive": 0}},
+            {"device": "reverb", "params": {"mode": "Plate", "decay": 2, "mix": 5}},
+            {"device": "utility", "params": {"width": 100}}
+          ]
+        }
+      ],
+      "macros": [
+        {
+          "name": "Cut",
+          "value": 35,
+          "mappings": [{"chain": 1, "module": 1, "param": "freq", "from": "20 kHz", "to": "400 Hz", "curve": 30}]
+        },
+        {
+          "name": "Wash",
+          "value": 40,
+          "mappings": [{"chain": 1, "module": 3, "param": "mix", "from": 5, "to": 60, "curve": -20}]
+        },
+        {
+          "name": "Drive",
+          "value": 10,
+          "mappings": [
+            {"chain": 1, "module": 2, "param": "drive", "from": 0, "to": 15},
+            {"chain": 1, "module": 2, "param": "output", "from": 0, "to": -5}
+          ]
+        },
+        {
+          "name": "Width",
+          "value": 20,
+          "mappings": [{"chain": 1, "module": 4, "param": "width", "from": 60, "to": 160}]
+        }
+      ],
+      "snapshots": [
+        {"name": "Verse", "macros": [35, 40, 10, 20]},
+        {"name": "Drop", "macros": [0, 10, 45, 90]}
+      ],
+      "morph": {"on": false, "a": 1, "b": 2, "position": 0}
+    },
+    {
+      "name": "Parallel compression",
+      "folder": "Parallel",
+      "tags": ["Parallel", "Compression", "Drums"],
+      "description": "A dry chain beside a squashed one: Squash sets how hard, Blend how much of it comes in.",
+      "chains": [
+        {"name": "Dry", "modules": []},
+        {
+          "name": "Squashed",
+          "modules": [
+            {"device": "compressor", "params": {"threshold": -30, "ratio": "8:1", "attack": 1, "release": 80, "makeup": 14}},
+            {"device": "saturator", "params": {"curve": "Warm", "drive": 4, "output": -4}},
+            {"device": "utility", "params": {"gain": -12}}
+          ]
+        }
+      ],
+      "macros": [
+        {
+          "name": "Squash",
+          "value": 50,
+          "mappings": [{"chain": 2, "module": 1, "param": "threshold", "from": -18, "to": -42}]
+        },
+        {
+          "name": "Blend",
+          "value": 50,
+          "mappings": [{"chain": 2, "module": 3, "param": "gain", "from": -36, "to": -4, "curve": -40}]
+        }
+      ]
+    },
+    {
+      "name": "Wide chorus",
+      "folder": "Parallel",
+      "tags": ["Parallel", "Wide", "Chorus"],
+      "description": "A dry chain beside a wide ensemble: Width sets its movement, Amount how much of it comes in.",
+      "chains": [
+        {"name": "Dry", "modules": []},
+        {
+          "name": "Wide",
+          "modules": [
+            {"device": "chorus", "params": {"mode": "Ensemble", "width": 200, "mix": 100, "lowcut.freq": 200}},
+            {"device": "utility", "params": {"gain": -12}}
+          ]
+        }
+      ],
+      "macros": [
+        {
+          "name": "Width",
+          "value": 50,
+          "mappings": [{"chain": 2, "module": 1, "param": "depth", "from": 20, "to": 80}]
+        },
+        {
+          "name": "Amount",
+          "value": 50,
+          "mappings": [{"chain": 2, "module": 2, "param": "gain", "from": -36, "to": -3, "curve": -40}]
+        }
+      ]
+    },
+    {
+      "name": "Parallel drive",
+      "folder": "Parallel",
+      "tags": ["Parallel", "Saturation", "Dirty"],
+      "description": "A dry chain beside a driven, filtered one: Drive and Tone shape the dirt, Blend brings it in.",
+      "chains": [
+        {"name": "Dry", "modules": []},
+        {
+          "name": "Driven",
+          "modules": [
+            {"device": "saturator", "params": {"curve": "Tape", "drive": 12, "output": -6}},
+            {"device": "filter", "params": {"type": "Low Pass", "slope": "12 dB", "freq": "6 kHz", "res": 10}},
+            {"device": "utility", "params": {"gain": -12}}
+          ]
+        }
+      ],
+      "macros": [
+        {
+          "name": "Drive",
+          "value": 40,
+          "mappings": [
+            {"chain": 2, "module": 1, "param": "drive", "from": 6, "to": 24},
+            {"chain": 2, "module": 1, "param": "output", "from": -3, "to": -12}
+          ]
+        },
+        {
+          "name": "Tone",
+          "value": 50,
+          "mappings": [{"chain": 2, "module": 2, "param": "freq", "from": "1.5 kHz", "to": "12 kHz"}]
+        },
+        {
+          "name": "Blend",
+          "value": 50,
+          "mappings": [{"chain": 2, "module": 3, "param": "gain", "from": -36, "to": -4, "curve": -40}]
+        }
+      ]
+    },
+    {
+      "name": "Layered pad",
+      "folder": "Instruments",
+      "tags": ["Pad", "Strings", "Layered"],
+      "description": "A dark wavetable pad with the Library's violins beside it: Brightness opens the pad, Strings brings the violins in.",
+      "chains": [
+        {
+          "name": "Pad",
+          "modules": [
+            {"device": "wavetable", "preset": "Dark pad"},
+            {"device": "reverb", "params": {"mode": "Hall", "decay": 4, "mix": 20}}
+          ]
+        },
+        {
+          "name": "Strings",
+          "modules": [
+            {"device": "sampler", "preset": "Violins"},
+            {"device": "utility", "params": {"gain": -8}}
+          ]
+        }
+      ],
+      "macros": [
+        {
+          "name": "Brightness",
+          "value": 30,
+          "mappings": [{"chain": 1, "module": 1, "param": "filter1.cutoff", "to": "8 kHz", "curve": 20}]
+        },
+        {
+          "name": "Strings",
+          "value": 60,
+          "mappings": [{"chain": 2, "module": 2, "param": "gain", "from": -40, "to": 0, "curve": -40}]
+        },
+        {
+          "name": "Space",
+          "value": 30,
+          "mappings": [{"chain": 1, "module": 2, "param": "mix", "from": 10, "to": 50}]
+        }
+      ]
+    },
+    {
+      "name": "Bass stack",
+      "folder": "Instruments",
+      "tags": ["Bass", "Layered", "Heavy"],
+      "description": "A clean sub beside a growling wavetable bass: Growl brings the top layer in, Cutoff opens it.",
+      "chains": [
+        {
+          "name": "Sub",
+          "modules": [{"device": "subtractive-synth", "preset": "Sub bass"}]
+        },
+        {
+          "name": "Growl",
+          "modules": [
+            {"device": "wavetable", "preset": "Growl bass"},
+            {"device": "filter", "params": {"type": "High Pass", "slope": "12 dB", "freq": "150 Hz", "res": 10}},
+            {"device": "utility", "params": {"gain": -6}}
+          ]
+        }
+      ],
+      "macros": [
+        {
+          "name": "Growl",
+          "value": 60,
+          "mappings": [{"chain": 2, "module": 3, "param": "gain", "from": -40, "to": 0, "curve": -40}]
+        },
+        {
+          "name": "Cutoff",
+          "value": 40,
+          "mappings": [{"chain": 2, "module": 1, "param": "filter1.cutoff", "from": "300 Hz", "to": "6 kHz", "curve": 20}]
+        }
+      ]
+    }
+  ]
+}

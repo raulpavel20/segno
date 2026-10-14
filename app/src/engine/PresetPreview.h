@@ -13,4 +13,10 @@ namespace fd::engine
 [[nodiscard]] juce::AudioBuffer<float> renderPresetPhrase(const DeviceInfo& info, const DeviceState& state,
                                                           const std::vector<std::string>& tags,
                                                           double sampleRate);
+
+/// An instrument rack's preview (racks.md §18.9): the same phrase played through every chain of a
+/// rack file, each chain's modules in order, the macros where the file has them, the chains
+/// summed at their volume and pan; offline, never touching the project. Empty for an effect rack,
+/// or one holding a plugin (plugins aren't rendered offline).
+[[nodiscard]] juce::AudioBuffer<float> renderRackPhrase(const nlohmann::json& rack, double sampleRate);
 } // namespace fd::engine

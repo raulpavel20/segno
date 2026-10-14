@@ -5,6 +5,7 @@
 #include <fd/device/Realtime.h>
 #include <fd/device/State.h>
 #include <fd_host_juce/fd_host_juce.h>
+#include <set>
 
 namespace fd::engine
 {
@@ -97,6 +98,36 @@ juce::String DevicePlugin::typeNameFor(std::string_view deviceId)
     return "fd." + juce::String(std::string(deviceId));
 }
 
+namespace
+{
+/// What tracktion keeps on every plugin's state (te::Plugin, the plugin list and manager): a
+/// parameter of ours of the same id would overwrite it.
+bool reservedProperty(std::string_view id)
+{
+    static const std::set<std::string_view> reserved{
+        "type",    "id",           "enabled",           "process",
+        "frozen",  "customName",   "quickParamName",    "windowX",
+        "windowY", "windowLocked", "sidechainSourceID", "masterPluginID"};
+    return reserved.contains(id);
+}
+constexpr std::string_view kParamPrefix = "fdParam.";
+} // namespace
+
+juce::Identifier DevicePlugin::propertyFor(std::string_view paramId)
+{
+    return juce::String(reservedProperty(paramId) ? std::string(kParamPrefix) + std::string(paramId)
+                                                  : std::string(paramId));
+}
+
+juce::String DevicePlugin::paramIdOf(const juce::Identifier& property)
+{
+    const auto name = property.toString();
+    const juce::String prefix{std::string(kParamPrefix)};
+    return name.startsWith(prefix) && reservedProperty(name.substring(prefix.length()).toStdString())
+               ? name.substring(prefix.length())
+               : name;
+}
+
 DevicePlugin::DevicePlugin(te::PluginCreationInfo info, const DeviceFactory& factory)
     : te::Plugin(info), device_(factory.create()), name_(std::string(factory.info().name)),
       type_(typeNameFor(factory.info().id))
@@ -106,7 +137,7 @@ DevicePlugin::DevicePlugin(te::PluginCreationInfo info, const DeviceFactory& fac
     if (!static_cast<bool>(state.getProperty(kNormalisedId, false)))
     {
         for (const auto& spec : device_->info().params)
-            if (const juce::Identifier id(juce::String(std::string(spec.id))); state.hasProperty(id))
+            if (const auto id = propertyFor(spec.id); state.hasProperty(id))
                 state.setProperty(id, spec.toNormalized(static_cast<float>(static_cast<double>(state[id]))), nullptr);
         state.setProperty(kNormalisedId, true, nullptr);
     }
@@ -114,7 +145,7 @@ DevicePlugin::DevicePlugin(te::PluginCreationInfo info, const DeviceFactory& fac
     {
         // How you listen (ParamFlags::Transient) starts from its default, and never makes an
         // undo step.
-        const juce::Identifier id(juce::String(std::string(spec.id)));
+        const auto id = propertyFor(spec.id);
         const bool transient = spec.hasFlag(ParamFlags::Transient);
         if (transient)
             state.removeProperty(id, nullptr);
