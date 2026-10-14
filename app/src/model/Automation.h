@@ -110,7 +110,8 @@ struct LaneRules
 [[nodiscard]] PointEdit deletePoints(const AutomationPoints& points, const std::set<size_t>& selection);
 
 /// Copies the selection after itself, by its span rounded up to whole `stepSeconds` (at least one
-/// step); the copies are selected.
+/// step); the copies are selected. They replace what lies in their range but the selection itself:
+/// a copy landing on a selected point (a span of whole steps) stays beside it, a jump.
 [[nodiscard]] PointEdit duplicatePoints(const AutomationPoints& points, const std::set<size_t>& selection,
                                         double stepSeconds, const LaneRules& rules);
 

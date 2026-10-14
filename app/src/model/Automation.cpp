@@ -311,11 +311,13 @@ PointEdit duplicatePoints(const AutomationPoints& points, const std::set<size_t>
     for (const auto i : selection)
         if (i < points.size())
             copies.push_back({points[i].time + by, points[i].value, points[i].curve});
-    // The copies replace whatever lay in their range.
+    // The copies replace whatever lay in their range, except the selection itself: when the span is
+    // a whole number of steps, the first copy lands on the last point, and both stay there, the
+    // lane jumping from the one value to the other.
     PointEdit edit{{}, {}};
-    for (const auto& p : points)
-        if (p.time < first + by || p.time > last + by)
-            edit.points.push_back(p);
+    for (size_t i = 0; i < points.size(); ++i)
+        if (points[i].time < first + by || points[i].time > last + by || selection.contains(i))
+            edit.points.push_back(points[i]);
     const size_t start = edit.points.size();
     for (auto& c : copies)
     {

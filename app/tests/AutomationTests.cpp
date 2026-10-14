@@ -142,6 +142,17 @@ TEST_CASE("automation: duplicating and drawing replace what lies in their range"
     CHECK(e.points[3] == AutomationPoint{1.5, 0.9f, 0.0f});
     CHECK(e.selection == std::set<size_t>{2, 3});
 
+    // A span of whole steps: the first copy lands on the last point, and both stay (a jump).
+    const AutomationPoints whole{{1.0, 0.25f, 0.0f}, {2.0, 0.75f, 0.0f}};
+    e = duplicatePoints(whole, {0, 1}, 1.0, {});
+    REQUIRE(e.points.size() == 4);
+    CHECK(e.points[1] == AutomationPoint{2.0, 0.75f, 0.0f}); // the original, then its copy's start
+    CHECK(e.points[2] == AutomationPoint{2.0, 0.25f, 0.0f});
+    CHECK(e.points[3] == AutomationPoint{3.0, 0.75f, 0.0f});
+    CHECK(e.selection == std::set<size_t>{2, 3});
+    CHECK(automationValueAt(e.points, 1.999) == Approx(0.75f).margin(0.01f));
+    CHECK(automationValueAt(e.points, 2.5) == Approx(0.5f));
+
     e = drawPoints(pts, {{1.0, 0.4f, 0.0f}, {0.25, 0.2f, 0.0f}}, {});
     REQUIRE(e.points.size() == 4); // 0.5 was inside the drawn range
     CHECK(e.points[1].time == 0.25);

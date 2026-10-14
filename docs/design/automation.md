@@ -86,7 +86,7 @@ The same gestures as clips and notes (daw-shell.md, the piano roll). They're one
 | Alt + drag a segment | Bend it (−100 % … +100 %); Alt + double-click straightens it. A lane that edits as steps says it holds each value instead |
 | Ctrl + drag across the lane | Draw: one point per grid step it passes (freehand with snap off) |
 | Double-click a point, Delete | Delete the selected points |
-| Ctrl+D | Duplicate the selection after itself (its span rounded up to the grid) |
+| Ctrl+D | Duplicate the selection after itself (its span rounded up to the grid). A copy landing on a selected point (a span of whole grid steps) stays beside it, a jump, rather than replacing it (2026-10-15) |
 | Ctrl+A | Select all points in the lane |
 | ↑ / ↓ (Shift: fine) | Nudge the selected values by 1 % of the lane (0.1 %) |
 | ← / → | Nudge the selected points by one grid step |

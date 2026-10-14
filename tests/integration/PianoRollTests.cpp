@@ -985,14 +985,17 @@ TEST_CASE(
     CHECK(f.notes().size() == progression().size()); // the notes are left alone
 
     // Duplicate, as an automation lane's: moved on by their span rounded up to the grid (a beat
-    // here), the copies replacing what lies there (the second point, under the first copy).
+    // here); the first copy lands on the second point, and both stay, a jump.
     selectBoth();
     REQUIRE(actions.perform("edit.duplicate"));
     f.refresh();
     points = roll.controllerLane().points;
-    REQUIRE(points.size() == 5);
-    CHECK(points[2].time == Catch::Approx(3.0));
-    CHECK(points[2].value == Catch::Approx(0.75f).margin(0.01f));
+    REQUIRE(points.size() == 6);
+    CHECK(points[1].time == Catch::Approx(2.0));
+    CHECK(points[1].value == Catch::Approx(0.75f).margin(0.01f));
+    CHECK(points[2].time == Catch::Approx(2.0));
+    CHECK(points[2].value == Catch::Approx(0.25f).margin(0.01f));
+    CHECK(points[3].time == Catch::Approx(3.0));
     CHECK(f.session->undoDescription() == "Duplicate points");
 
     // Cut the pasted two: gone from the lane, ready to paste; the notes stay.
@@ -1001,7 +1004,7 @@ TEST_CASE(
     REQUIRE(roll.pointSelection().size() == 2);
     REQUIRE(actions.perform("edit.cut"));
     f.refresh();
-    CHECK(roll.controllerLane().points.size() == 3);
+    CHECK(roll.controllerLane().points.size() == 4);
     CHECK(f.notes().size() == progression().size());
 
     // Into the sustain lane: its steps, on or off.
