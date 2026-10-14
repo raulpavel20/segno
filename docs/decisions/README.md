@@ -63,6 +63,8 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0052](0052-generic-names-are-free.md) | Generic names (Sampler, Wavetable, Delay) are free to use, as final names too; names a vendor made up (Operator, Drift, Simpler) aren't; amends 0008 | Accepted |
 | [0053](0053-a-modules-editor-in-the-detail-panel.md) | A module's editor (the Wavetable's tables) opens in the detail panel beside Modules and Clip; in the plugins, under the panel | Accepted |
 | [0054](0054-push-2-support.md) | Ableton Push 2 is supported in the DAW, display included, as a client of the Session like the assistants; no clip launching; other controllers through MIDI learn; revisits the vision's non-goal | Proposed |
+| [0055](0055-factory-content-is-files-in-a-read-only-library.md) | What ships besides the modules is files in a read-only, versioned Library, a place of its own in the browser before the User library; `library:` paths; found in standard places, Settings or `SEGNO_LIBRARY` | Accepted |
+| [0056](0056-racks-are-modules-of-modules.md) | A rack is a module of modules: chains side by side, eight macros mapped with ranges and curves, no nesting; saved as `.segnorack` files apart from module presets; a DAW feature on tracktion's racks | Proposed |
 
 ## Template
 
