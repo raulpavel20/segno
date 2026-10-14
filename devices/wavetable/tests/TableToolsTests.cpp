@@ -14,6 +14,7 @@
 #include <complex>
 #include <filesystem>
 #include <random>
+#include <set>
 
 using namespace fd;
 using namespace fd::devices::wavetable;
@@ -444,4 +445,66 @@ TEST_CASE("recipe: an image's rows as frames, its brightness the wave or the har
     // More rows than frames: 256 kept, from the top to the bottom.
     std::vector<float> tall(static_cast<size_t>(300 * 4), 0.5f);
     CHECK(imageLayer(tall.data(), 4, 300, true, "").sourceFrames() == 256);
+}
+
+TEST_CASE("factory tables: about 20 from AKWF's cycles, each a morph over its frames, among their categories",
+          "[fast]")
+{
+    const auto tables = factoryTables();
+    int akwf = 0;
+    std::set<std::string_view> seenCategories;
+    std::string_view last;
+    std::set<std::string_view> names;
+    for (const auto& t : tables)
+    {
+        // The categories come in one run each (the menus list them so), names once.
+        if (t.category != last)
+        {
+            CHECK_FALSE(seenCategories.contains(t.category));
+            seenCategories.insert(t.category);
+            last = t.category;
+        }
+        CHECK(names.insert(t.name).second);
+    }
+    for (const auto* id : {"acoustic/cello",
+                           "acoustic/violin",
+                           "acoustic/breathy-flute",
+                           "acoustic/reed",
+                           "acoustic/oboe",
+                           "acoustic/alto-sax",
+                           "acoustic/piano",
+                           "acoustic/guitar",
+                           "acoustic/electric-bass",
+                           "acoustic/electric-piano",
+                           "acoustic/theremin",
+                           "formant/human-voice",
+                           "harmonic/electric-organ",
+                           "harmonic/overtones",
+                           "fm/fm-synth",
+                           "digital/chip",
+                           "digital/video-game",
+                           "digital/bit-reduced",
+                           "texture/granular",
+                           "texture/distorted"})
+    {
+        INFO(id);
+        const auto table = factoryTable(id);
+        REQUIRE(table != nullptr);
+        ++akwf;
+        CHECK(table->frames() == 64);
+        // Normalised, and moving: the first frame and the last differ.
+        float peak = 0.0f, apart = 0.0f;
+        for (int f = 0; f < 64; ++f)
+            for (int i = 0; i < N; ++i)
+                peak = std::max(peak, std::abs(table->samples(f)[i]));
+        for (int i = 0; i < N; ++i)
+            apart = std::max(apart, std::abs(table->samples(0)[i] - table->samples(63)[i]));
+        CHECK(peak == Approx(1.0f).margin(1e-3));
+        CHECK(apart > 0.05f);
+        // Each frame starts where a sine does: the fundamental phase-aligned, no frame's
+        // cancelling in the morph (none much quieter than the frames around it).
+        CHECK(std::abs(table->spectrum(0)[1]) > 0.0f);
+    }
+    CHECK(akwf == 20);
+    CHECK(tables.size() >= 80);
 }

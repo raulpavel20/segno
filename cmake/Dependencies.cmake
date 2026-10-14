@@ -14,6 +14,7 @@
 # | Inter (font)          | 4.1              | OFL-1.1            | modules/fd_ui (bundled font) |
 # | JetBrains Mono (font) | 2.304            | OFL-1.1            | modules/fd_ui (bundled font) |
 # | cpp-httplib           | v0.57.1          | MIT                | app (MCP server, ADR 0021)   |
+# | AKWF-FREE (160 cycles)| 8de90bf9         | CC0-1.0            | devices/wavetable (tables)   |
 
 # --- Core (always) ---------------------------------------------------------
 
@@ -39,6 +40,12 @@ CPMAddPackage(
     DOWNLOAD_ONLY YES)
 add_library(fd_dep_elliptic_blep INTERFACE)
 target_include_directories(fd_dep_elliptic_blep SYSTEM INTERFACE "${elliptic_blep_SOURCE_DIR}")
+
+# AKWF-FREE: single-cycle waveforms, the cycles the Wavetable's AKWF factory tables are made of.
+# Only the files devices/wavetable/tables/akwf.json lists are fetched, each checked by its SHA-256
+# (cmake/FdAkwf.cmake): the whole repository is 2 GB.
+set(FD_AKWF_COMMIT 8de90bf94376670947369e69de0af6b9fbd19286)
+include(${CMAKE_CURRENT_LIST_DIR}/FdAkwf.cmake)
 
 if(FD_BUILD_TESTS)
     CPMAddPackage(

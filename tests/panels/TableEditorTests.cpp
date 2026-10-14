@@ -460,3 +460,21 @@ TEST_CASE("table editor: Preview holds a note on the module until clicked again,
     CHECK(f.notes[1] == std::pair{f.notes[0].first, 0.0f});
     CHECK_FALSE(t.previewing());
 }
+
+TEST_CASE("table editor: the factory tables from AKWF, drawn for review", "[ui]")
+{
+    Fixture f;
+    auto& t = f.table();
+    f.layout(1400, f.editor->minimumHeight());
+    for (const auto* id : {"acoustic/cello", "acoustic/electric-piano", "formant/human-voice", "digital/chip",
+                           "harmonic/electric-organ", "texture/granular"})
+    {
+        INFO(id);
+        f.binding->applyExtraState(W::factoryTablePatch(0, id));
+        t.frame();
+        REQUIRE(t.recipe().layers.size() == 1);
+        CHECK(t.recipe().layers[0].tableId == id);
+        CHECK(t.baked().frames() == 64);
+        f.shot("table-editor-akwf-" + juce::String(id).replaceCharacter('/', '-'));
+    }
+}

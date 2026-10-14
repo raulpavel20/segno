@@ -1,0 +1,806 @@
+{
+    "about":
+        "The Wavetable's factory tables made of AKWF-FREE single cycles (CC0, github.com/KristofferKarlAxelEkstrand/AKWF-FREE at the commit cmake/Dependencies.cmake pins). Each table: its cycles, phase-aligned, then morphed harmonic by harmonic over its frames. The cycles of a folder were picked by brightness (the slope's energy against the wave's), eight evenly from its darkest to its brightest. IDs are permanent (docs/ids.md).",
+    "tables": [
+        {
+            "id": "acoustic/cello",
+            "name": "Cello",
+            "category": "Acoustic",
+            "frames": 64,
+            "cycles": [
+                [
+                    "AKWF/AKWF_cello/AKWF_cello_0003.wav",
+                    "e7ad3ec32dd0a74830dc60b19fa3c034f4da8d309b3bd1dcd621226f58d48b0d"
+                ],
+                [
+                    "AKWF/AKWF_cello/AKWF_cello_0005.wav",
+                    "db6bcf0728014527b542886e22d5d67cb09d77e4d91ac050acc092491d36a929"
+                ],
+                [
+                    "AKWF/AKWF_cello/AKWF_cello_0011.wav",
+                    "34c87525fcee7a42b66ac5823a6eeb9741a83eeb7eb25fd1f26ddfb74a0b87fc"
+                ],
+                [
+                    "AKWF/AKWF_cello/AKWF_cello_0004.wav",
+                    "b75e0df1adacaa7fe38156dfa9829a8e029d4debaaac709c051fecd19d2ee34d"
+                ],
+                [
+                    "AKWF/AKWF_cello/AKWF_cello_0015.wav",
+                    "e4ba6ea03aaba5af417350849e9564ddfa09b9bfdd9c7ebbf1e5d4c8b851859b"
+                ],
+                [
+                    "AKWF/AKWF_cello/AKWF_cello_0007.wav",
+                    "5ccd289970631688d789e6810317a6d622e1eab44996dd6d3ff44fbb3c1c5053"
+                ],
+                [
+                    "AKWF/AKWF_cello/AKWF_cello_0010.wav",
+                    "66ee2079918d554b6273cffc4b202900c1e5afa487c43cdf5c69e5cb6071ab5b"
+                ],
+                [
+                    "AKWF/AKWF_cello/AKWF_cello_0013.wav",
+                    "873dfa237149fe7e281f53bf61864f9ebbefef6380ca29debc8f2ce50ace02e4"
+                ]
+            ]
+        },
+        {
+            "id": "acoustic/violin",
+            "name": "Violin",
+            "category": "Acoustic",
+            "frames": 64,
+            "cycles": [
+                [
+                    "AKWF/AKWF_violin/AKWF_violin_0014.wav",
+                    "d65d91dd5722d8a6bb378b7b476c1118c63a797d5a25f3b84911aa9b7a97d49a"
+                ],
+                [
+                    "AKWF/AKWF_violin/AKWF_violin_0009.wav",
+                    "e6ffdc3524af427d9db086dca8da39dca3b7f6dd6e29afbf34b5533d412725ab"
+                ],
+                [
+                    "AKWF/AKWF_violin/AKWF_violin_0012.wav",
+                    "9753cab368c7e2d0d6009f20461a55bbb6e500f8894f4e41b129532565234d3f"
+                ],
+                [
+                    "AKWF/AKWF_violin/AKWF_violin_0005.wav",
+                    "14e115b50c3831e5c7792b5fc4612d197a3c9bab8da0c43c3468a71f29b8dedc"
+                ],
+                [
+                    "AKWF/AKWF_violin/AKWF_violin_0004.wav",
+                    "048f4072c55228d8824cb398bb79d1ab78b3beacf6deddb396d8adc98699c37e"
+                ],
+                [
+                    "AKWF/AKWF_violin/AKWF_violin_0013.wav",
+                    "8881c615e42209ee7bab3e887e92edd007f2a91f748e463becd1361fcc8dc69c"
+                ],
+                [
+                    "AKWF/AKWF_violin/AKWF_violin_0007.wav",
+                    "3021d1f6a4d84f421cd27b0fe031b3b4718c9486953bd2868e912dadd371493d"
+                ],
+                [
+                    "AKWF/AKWF_violin/AKWF_violin_0002.wav",
+                    "a43eb1fe9b8100ceb5f3049c15fc807070f864230d79d0a50afb26baa8d81221"
+                ]
+            ]
+        },
+        {
+            "id": "acoustic/breathy-flute",
+            "name": "Breathy Flute",
+            "category": "Acoustic",
+            "frames": 64,
+            "cycles": [
+                [
+                    "AKWF/AKWF_flute/AKWF_flute_0012.wav",
+                    "75fd57f9adef743b7d5d6d68178a9798a0e648d58be2c3a1f1364731f794593f"
+                ],
+                [
+                    "AKWF/AKWF_flute/AKWF_flute_0013.wav",
+                    "c729bd1dc562c6d5e0e63d00a3431e7ae4bbdd854ced6f14e0acf7247ee46c44"
+                ],
+                [
+                    "AKWF/AKWF_flute/AKWF_flute_0008.wav",
+                    "26d5bd4b0a69cc1c0b553f4cf9f832aad9a78ae079855c5d2adcb31b12db7843"
+                ],
+                [
+                    "AKWF/AKWF_flute/AKWF_flute_0010.wav",
+                    "d8ecd8473a0bf7370961298668d92496bed797cf34ae276c4f11915ec4b42cd9"
+                ],
+                [
+                    "AKWF/AKWF_flute/AKWF_flute_0015.wav",
+                    "8e58931a9c3bedced2314a16030ead10f8be34f64e5e4815c48bf661710fcf3f"
+                ],
+                [
+                    "AKWF/AKWF_flute/AKWF_flute_0017.wav",
+                    "e23ddd796fd0aa98d20966b83ed7c6303fd4cb1866590e00f71c24d28078cd1b"
+                ],
+                [
+                    "AKWF/AKWF_flute/AKWF_flute_0002.wav",
+                    "0aa7db22bf94af093be48af09cc962363afd3c29af53d85a14f17a4d35d8d062"
+                ],
+                [
+                    "AKWF/AKWF_flute/AKWF_flute_0004.wav",
+                    "1a4b13b34f43957ffc0dc306588383fe006558bc62b53fd03bfa68054a56caaf"
+                ]
+            ]
+        },
+        {
+            "id": "acoustic/reed",
+            "name": "Reed",
+            "category": "Acoustic",
+            "frames": 64,
+            "cycles": [
+                [
+                    "AKWF/AKWF_clarinett/AKWF_clarinett_0019.wav",
+                    "290701760dbf77f1cd82c4b97717db14a0c23c8d1e20f9bdb2d62f4833fe7585"
+                ],
+                [
+                    "AKWF/AKWF_clarinett/AKWF_clarinett_0015.wav",
+                    "8c9a124e11f3445f4d9db83d176047c054ef19fb107551e326435adaae345d1e"
+                ],
+                [
+                    "AKWF/AKWF_clarinett/AKWF_clarinett_0011.wav",
+                    "db63a4019f31e02963a0e74ce11521e09c6e09504c3094b567d8cccd4f7f058d"
+                ],
+                [
+                    "AKWF/AKWF_clarinett/AKWF_clarinett_0013.wav",
+                    "8c8485a72d94d38adea6d70c85ae79d739b829a513fdc7652032fba49c4c4012"
+                ],
+                [
+                    "AKWF/AKWF_clarinett/AKWF_clarinett_0016.wav",
+                    "cf83ad94e6f94aee4584902eaa647dc36da7c65d8e88e271e0de1c825a9ebb0b"
+                ],
+                [
+                    "AKWF/AKWF_clarinett/AKWF_clarinett_0002.wav",
+                    "3cc3a66cfe241b1bd1d7f7121feb95b5a2e1dc7fd39ce6f13a38aa97809fe6a9"
+                ],
+                [
+                    "AKWF/AKWF_clarinett/AKWF_clarinett_0001.wav",
+                    "3d1b4335917313a14a7c79f0a770c3ad0d99dd039a0ba220f16cc80d2e18584f"
+                ],
+                [
+                    "AKWF/AKWF_clarinett/AKWF_clarinett_0022.wav",
+                    "34d15891e56ed495e0007aabd125d339db7a243dc9bd2e581c746eba4ee227c6"
+                ]
+            ]
+        },
+        {
+            "id": "acoustic/oboe",
+            "name": "Oboe",
+            "category": "Acoustic",
+            "frames": 64,
+            "cycles": [
+                [
+                    "AKWF/AKWF_oboe/AKWF_oboe_0008.wav",
+                    "735ac1931bc6cc2f4bee9e1aa670d2a4de8e7dbff8795c651efdf6fc0c02505a"
+                ],
+                [
+                    "AKWF/AKWF_oboe/AKWF_oboe_0007.wav",
+                    "94bebd48fc71a04169105c07e81cde233cae6a8484e12bc5a3b09b29536235ad"
+                ],
+                [
+                    "AKWF/AKWF_oboe/AKWF_oboe_0004.wav",
+                    "e8c4206f6c3c117c61ad02af175fbd09ec931a66ba9e84b5964a32a05e22317f"
+                ],
+                [
+                    "AKWF/AKWF_oboe/AKWF_oboe_0005.wav",
+                    "12b409f18fc76b820f48075f906d03449fb235ed85e74b6a75b41e751706621f"
+                ],
+                [
+                    "AKWF/AKWF_oboe/AKWF_oboe_0010.wav",
+                    "64799060aa7867d205b3f6c409e5e34097aadb20f6e17f0af9c8bd29cb55fd47"
+                ],
+                [
+                    "AKWF/AKWF_oboe/AKWF_oboe_0003.wav",
+                    "e5fd4c469558a2680b110c334200db9089d7d9af4f2e22996c741fd5ae6217fe"
+                ],
+                [
+                    "AKWF/AKWF_oboe/AKWF_oboe_0012.wav",
+                    "7159cd2e7772f2f018b8a80d1ae4e2e8e501f6d1a600bfcb188c843d21f0b5ee"
+                ],
+                [
+                    "AKWF/AKWF_oboe/AKWF_oboe_0002.wav",
+                    "0bd7bbcfaa620c9af7e59396175bae00fe883665af32d8c5f28342a900db2a0d"
+                ]
+            ]
+        },
+        {
+            "id": "acoustic/alto-sax",
+            "name": "Alto Sax",
+            "category": "Acoustic",
+            "frames": 64,
+            "cycles": [
+                [
+                    "AKWF/AKWF_altosax/AKWF_altosax_0004.wav",
+                    "5e6527ba95339ee05210cf564ee2852ee9e843233e549d23233fca806e6ad589"
+                ],
+                [
+                    "AKWF/AKWF_altosax/AKWF_altosax_0016.wav",
+                    "a5196e8081e41832f61ad142411aa5907a4f9afcd7443a47ec46452db1b935a4"
+                ],
+                [
+                    "AKWF/AKWF_altosax/AKWF_altosax_0021.wav",
+                    "64bf963cfb09a13439a5984069a537de6ada44a221268eb473d4562d3cf29b49"
+                ],
+                [
+                    "AKWF/AKWF_altosax/AKWF_altosax_0012.wav",
+                    "5cb92a95f4b494aab7506ea8134b84178314b3e09da43fa14bd7482bcf7ee959"
+                ],
+                [
+                    "AKWF/AKWF_altosax/AKWF_altosax_0010.wav",
+                    "d37bb6687225777e255a262613206e8c48d9fe7dbde221da15b02cb5a6dc5fc1"
+                ],
+                [
+                    "AKWF/AKWF_altosax/AKWF_altosax_0024.wav",
+                    "5d0c32e48966e62b2f4d3d531dfc8d3c04a4375363b9665a36a59c5e5330c38e"
+                ],
+                [
+                    "AKWF/AKWF_altosax/AKWF_altosax_0025.wav",
+                    "61da24dca3cf0c42f88a1f664c569171b6f9b027925e4b5efe55e298a5059424"
+                ],
+                [
+                    "AKWF/AKWF_altosax/AKWF_altosax_0017.wav",
+                    "e637ac8399f62bd6cecf5f53056cdd5e5253fe41764ce0aba12acca754c8628c"
+                ]
+            ]
+        },
+        {
+            "id": "acoustic/piano",
+            "name": "Piano",
+            "category": "Acoustic",
+            "frames": 64,
+            "cycles": [
+                [
+                    "AKWF/AKWF_piano/AKWF_piano_0025.wav",
+                    "c7a4d8c209e5915e63050f7c9c6f4e381b7aeae5dac95a09e4a9e97c9a3e36e8"
+                ],
+                [
+                    "AKWF/AKWF_piano/AKWF_piano_0015.wav",
+                    "a776860d80804e35c7c2637b9331c5c4313ec60e2d47cd2b93953b0dbacddacc"
+                ],
+                [
+                    "AKWF/AKWF_piano/AKWF_piano_0028.wav",
+                    "677ddeb0e8c698ba9b10fb4e941a766c9a8f866060b3b7e965b8cad31f7be673"
+                ],
+                [
+                    "AKWF/AKWF_piano/AKWF_piano_0024.wav",
+                    "80bf417726a7e39004e0b767c5fe5e3315837d204e0f099b01aaf1a44dd67cbd"
+                ],
+                [
+                    "AKWF/AKWF_piano/AKWF_piano_0012.wav",
+                    "766b780bf40cfda478dac7e5124d3da40fd336a5508769e5b96278ff774434cf"
+                ],
+                [
+                    "AKWF/AKWF_piano/AKWF_piano_0017.wav",
+                    "9fba5030b7d667584073f97e293a045722ccce8cdb10524b904cff5a790f7add"
+                ],
+                [
+                    "AKWF/AKWF_piano/AKWF_piano_0001.wav",
+                    "df72201435be5e3223014c7bb441643baff150af8bc1d0866bbbb1a76e42e1a4"
+                ],
+                [
+                    "AKWF/AKWF_piano/AKWF_piano_0019.wav",
+                    "d9a55f8f7e3e05d539902cc3f81094f29aa8c7c27b92285ac560828b46528365"
+                ]
+            ]
+        },
+        {
+            "id": "acoustic/guitar",
+            "name": "Guitar",
+            "category": "Acoustic",
+            "frames": 64,
+            "cycles": [
+                [
+                    "AKWF/AKWF_aguitar/AKWF_aguitar_0003.wav",
+                    "0ec1019d785fd21381c5032db6b3290bcfee254df938ca6ac78206a62e86653c"
+                ],
+                [
+                    "AKWF/AKWF_aguitar/AKWF_aguitar_0004.wav",
+                    "0562f853f957288040aa8106e36c51e15b052ea31a6eb8ba79f65cd4e00edd3c"
+                ],
+                [
+                    "AKWF/AKWF_aguitar/AKWF_aguitar_0026.wav",
+                    "72e6e92378d65bb7c29d9743a91acb6cd9e8cf06a07f75694a6060c63fed6fb6"
+                ],
+                [
+                    "AKWF/AKWF_aguitar/AKWF_aguitar_0029.wav",
+                    "1097d67692a942d577e2ef673cb091d183f770984bf5efea142501b3a44c9e45"
+                ],
+                [
+                    "AKWF/AKWF_aguitar/AKWF_aguitar_0009.wav",
+                    "110844c81db4f05755f602bae5342b980a16a19ae6c8155f86956538167f5e22"
+                ],
+                [
+                    "AKWF/AKWF_aguitar/AKWF_aguitar_0022.wav",
+                    "3acda8b8c3b6882cd9056dc876aff4b5c54623c522611d8dff5bd5e9e8b48953"
+                ],
+                [
+                    "AKWF/AKWF_aguitar/AKWF_aguitar_0021.wav",
+                    "eeb24f89727153456a93c15080f27c38f745424b6dc7190f157f0f3941e9bfca"
+                ],
+                [
+                    "AKWF/AKWF_aguitar/AKWF_aguitar_0013.wav",
+                    "2285292cb42d6d8f24ecd1ac39adf9eb70000dbafb42d8bb1c8787d1038872a5"
+                ]
+            ]
+        },
+        {
+            "id": "acoustic/electric-bass",
+            "name": "Electric Bass",
+            "category": "Acoustic",
+            "frames": 64,
+            "cycles": [
+                [
+                    "AKWF/AKWF_ebass/AKWF_ebass_0021.wav",
+                    "1ea0223a18fdc9a4a3061aa62966510e445e5cd70fd3dc071fb23e98c1b8c685"
+                ],
+                [
+                    "AKWF/AKWF_ebass/AKWF_ebass_0058.wav",
+                    "72ddc91a0f3507b004d2e42dc1811bc40ab8e2ea7ad2997dd657f527f9a0cc5d"
+                ],
+                [
+                    "AKWF/AKWF_ebass/AKWF_ebass_0015.wav",
+                    "56300561fe4363f249124e37918716d53737fb7e55a60f1161981d7b4e3ed2f1"
+                ],
+                [
+                    "AKWF/AKWF_ebass/AKWF_ebass_0039.wav",
+                    "6e9d088a48c7799c43b7225122a5f052c0d9e6078127b0dabdf68ed1a8349221"
+                ],
+                [
+                    "AKWF/AKWF_ebass/AKWF_ebass_0066.wav",
+                    "a9e88a7f98bdf7f7eb9d4e76e15cb2251d778003f59909de711e6dfd5909b777"
+                ],
+                [
+                    "AKWF/AKWF_ebass/AKWF_ebass_0045.wav",
+                    "5164da9e0157fe5741803cbd326ee002f754e87e3c6472b8bcaf60375f82c909"
+                ],
+                [
+                    "AKWF/AKWF_ebass/AKWF_ebass_0012.wav",
+                    "1327d9069289d5a2adef896e735caf2bbb10a614af02239fe9889eb45105131e"
+                ],
+                [
+                    "AKWF/AKWF_ebass/AKWF_ebass_0033.wav",
+                    "daf06e516c43c50435f4fd3d008b380ebd6b42bf3b1a1717e898b6d07d3967dc"
+                ]
+            ]
+        },
+        {
+            "id": "acoustic/electric-piano",
+            "name": "Electric Piano",
+            "category": "Acoustic",
+            "frames": 64,
+            "cycles": [
+                [
+                    "AKWF/AKWF_epiano/AKWF_epiano_0058.wav",
+                    "cd19364fd530dd525515393b2d60982a22ef55d737621a2cfa714a58adc6880b"
+                ],
+                [
+                    "AKWF/AKWF_epiano/AKWF_epiano_0012.wav",
+                    "5fe5549b96304c73bffbccf6c2cff962107239055c96ff83327748b3a1be3e3a"
+                ],
+                [
+                    "AKWF/AKWF_epiano/AKWF_epiano_0050.wav",
+                    "9df0e14f85f3c7ccaff8c8732da706eb24fc5f66dca9534ef234503ee44135f4"
+                ],
+                [
+                    "AKWF/AKWF_epiano/AKWF_epiano_0044.wav",
+                    "25e625ef55b7319a145e4d69e57049bdf9cba80cffb1c9e0902203485db08eef"
+                ],
+                [
+                    "AKWF/AKWF_epiano/AKWF_epiano_0064.wav",
+                    "ed3659a26a6ca7b64cf9ffc7823515038ec7830f7e4a537297fe0a54ca026bfe"
+                ],
+                [
+                    "AKWF/AKWF_epiano/AKWF_epiano_0062.wav",
+                    "4e4668d2e4afe7a827200845a750366393d7d1cd0bcf928155ba21c87c30d329"
+                ],
+                [
+                    "AKWF/AKWF_epiano/AKWF_epiano_0051.wav",
+                    "e40e6f2b2615b9be044eb4b2b4422b668d7245eb07a67d6b7820a1d6b6294b69"
+                ],
+                [
+                    "AKWF/AKWF_epiano/AKWF_epiano_0016.wav",
+                    "a473df3d109ba7b21eec5976fb1b372a9f12627e06aa5380dd97d76e2354934a"
+                ]
+            ]
+        },
+        {
+            "id": "acoustic/theremin",
+            "name": "Theremin",
+            "category": "Acoustic",
+            "frames": 64,
+            "cycles": [
+                [
+                    "AKWF/AKWF_theremin/AKWF_tannerin_0003.wav",
+                    "792029720fdbded50a150012997f2b1efe532d085ffc4d0ba75ad7474b0b8eab"
+                ],
+                [
+                    "AKWF/AKWF_theremin/AKWF_tannerin_0004.wav",
+                    "9726d65be60692d434f0b20c0a88c9d8117407874f1e375a491b454bb3284867"
+                ],
+                [
+                    "AKWF/AKWF_theremin/AKWF_theremin_0014.wav",
+                    "71863e4ac20156d574ff450f7df2670beb9a8e86f9e60fd8d7a50258cb2a8d90"
+                ],
+                [
+                    "AKWF/AKWF_theremin/AKWF_theremin_0015.wav",
+                    "94356ab59aa3062be20466f6cc216570f130d4eb843c19af978df100e9052b3b"
+                ],
+                [
+                    "AKWF/AKWF_theremin/AKWF_theremin_0021.wav",
+                    "b3fb713ef327aa3399a7c82161c85c499802bc8d3c59fc964f69fee8ea1633d6"
+                ],
+                [
+                    "AKWF/AKWF_theremin/AKWF_theremin_0002.wav",
+                    "c45d8c2ef129e4b013b447d42754b23326f33e6322addfb9e2cb0bf8d239a04a"
+                ],
+                [
+                    "AKWF/AKWF_theremin/AKWF_theremin_0009.wav",
+                    "3b9765f163ae02a22d225b89e32e8e907615731ebb54da62804c9538f8b93042"
+                ],
+                [
+                    "AKWF/AKWF_theremin/AKWF_theremin_0022.wav",
+                    "6b7bf1ada0c55c7bc7ef5e21cb2b1478f74296a371468a477aabf8890e1e5f1a"
+                ]
+            ]
+        },
+        {
+            "id": "formant/human-voice",
+            "name": "Human Voice",
+            "category": "Formant",
+            "frames": 64,
+            "cycles": [
+                [
+                    "AKWF/AKWF_hvoice/AKWF_hvoice_0085.wav",
+                    "57ae699d8bb73c28eb019af1b0325149ece3301f1094ce517c8019d0a458a115"
+                ],
+                [
+                    "AKWF/AKWF_hvoice/AKWF_hvoice_0008.wav",
+                    "5d912d5e8adbe44ded9a496022a869dff7d510e50f89e6ef879fec1921a8d234"
+                ],
+                [
+                    "AKWF/AKWF_hvoice/AKWF_hvoice_0086.wav",
+                    "2404c11e6df110a63e2fefe5990aed65d52a16674013816e551427b45b02110d"
+                ],
+                [
+                    "AKWF/AKWF_hvoice/AKWF_hvoice_0029.wav",
+                    "0a7aa80a3fef0fe6669a8563fc7b0bb0f4d7b5f44c5d70675e8ada5b3f9171b4"
+                ],
+                [
+                    "AKWF/AKWF_hvoice/AKWF_hvoice_0052.wav",
+                    "a12639f0e24b7d198c0a1151765fa680ad294ea011f7bf3a91f35f2749880624"
+                ],
+                [
+                    "AKWF/AKWF_hvoice/AKWF_hvoice_0051.wav",
+                    "86859a7466afe10086decbed42ef5a3f11d33cb51494db788051428a68161f5a"
+                ],
+                [
+                    "AKWF/AKWF_hvoice/AKWF_hvoice_0068.wav",
+                    "97de6141778ca1c4d24f5c3a961db854287ae1cc1b16de2f59d7e3b3225d3034"
+                ],
+                [
+                    "AKWF/AKWF_hvoice/AKWF_hvoice_0060.wav",
+                    "9ddbfa928f5e700afa5d117f623dd483bdc47986164eca6693455c8b2663e459"
+                ]
+            ]
+        },
+        {
+            "id": "harmonic/electric-organ",
+            "name": "Electric Organ",
+            "category": "Harmonic",
+            "frames": 64,
+            "cycles": [
+                [
+                    "AKWF/AKWF_eorgan/AKWF_eorgan_0011.wav",
+                    "c51899ab7bd9800fa1df25ade71515942c3c7cd1af8df8299b0adcdd163dcf08"
+                ],
+                [
+                    "AKWF/AKWF_eorgan/AKWF_eorgan_0110.wav",
+                    "a262e8cc6e0c3f211c167a5923055145720d13c42ccd9d110fa757312d7baf72"
+                ],
+                [
+                    "AKWF/AKWF_eorgan/AKWF_eorgan_0131.wav",
+                    "b06b23b1b637d77f25e9eb3ef607c4f628d8e97fd1b4a1c6c3f86b8ad01b18d5"
+                ],
+                [
+                    "AKWF/AKWF_eorgan/AKWF_eorgan_0053.wav",
+                    "213cdabd0fed04f554f7d30348f2354f21e3f849b228b731bb14d05f83978e54"
+                ],
+                [
+                    "AKWF/AKWF_eorgan/AKWF_eorgan_0153.wav",
+                    "b99ff284681eb3cdf2c13fd926b4fe160382b9b556e89f346690488292105698"
+                ],
+                [
+                    "AKWF/AKWF_eorgan/AKWF_eorgan_0098.wav",
+                    "2cb8d5782ab397376a4fd979e95a85353338c7ca5212ccaa40ff2fff07092860"
+                ],
+                [
+                    "AKWF/AKWF_eorgan/AKWF_eorgan_0127.wav",
+                    "d94bbb6c733162b2bdf7cd7ae6cc3bb12a58a261a114e2ebf582281a967d290c"
+                ],
+                [
+                    "AKWF/AKWF_eorgan/AKWF_eorgan_0037.wav",
+                    "28139499a962c6ac17f010d708bdd55efc908c4c59c07d7c567fe25f495b7a24"
+                ]
+            ]
+        },
+        {
+            "id": "harmonic/overtones",
+            "name": "Overtones",
+            "category": "Harmonic",
+            "frames": 64,
+            "cycles": [
+                [
+                    "AKWF/AKWF_overtone/AKWF_overtone_0001.wav",
+                    "ca8a054584c82b67b91f7ec34e63b1f3085f5a17dabe6c9b6a8010a6f17f8782"
+                ],
+                [
+                    "AKWF/AKWF_overtone/AKWF_overtone_0005.wav",
+                    "1b6d81a3f9294d61d8b47c20d14885cca74e5ac5f1ef2e85adfabbaf8abc9e95"
+                ],
+                [
+                    "AKWF/AKWF_overtone/AKWF_overtone_0004.wav",
+                    "1e78fdc7ab601972f4ad3c5bc791afd052d7ccc10d18037c90a6020c108d47c1"
+                ],
+                [
+                    "AKWF/AKWF_overtone/AKWF_overtone_0040.wav",
+                    "0885e9d2b29662ee80555bf769f7b1fb63074fc1b6b9fa77105d5d10b1e01702"
+                ],
+                [
+                    "AKWF/AKWF_overtone/AKWF_overtone_0031.wav",
+                    "b3603f25f5dff5fc20b71d48c13719432adbada7b9b982605488da66c8251683"
+                ],
+                [
+                    "AKWF/AKWF_overtone/AKWF_overtone_0030.wav",
+                    "5e4812f1bb07a362a966c5969334a8226883fe032c90fdb64e2468c647099c69"
+                ],
+                [
+                    "AKWF/AKWF_overtone/AKWF_overtone_0039.wav",
+                    "8029fb244e2d575dd7682f1443901f8dfbbe29b0c244cb5223ecbc061ff9e2c3"
+                ],
+                [
+                    "AKWF/AKWF_overtone/AKWF_overtone_0038.wav",
+                    "920055c84896bd3ef35d80fd26d5da586fe8ea98ee2de88848f7cb9add9251df"
+                ]
+            ]
+        },
+        {
+            "id": "fm/fm-synth",
+            "name": "FM Synth",
+            "category": "FM",
+            "frames": 64,
+            "cycles": [
+                [
+                    "AKWF/AKWF_fmsynth/AKWF_fmsynth_0021.wav",
+                    "33f140a94e5fe39a5a983495fd5b4ff8630b96188baf3acbfb49f4c6dc4afdc6"
+                ],
+                [
+                    "AKWF/AKWF_fmsynth/AKWF_fmsynth_0107.wav",
+                    "922e92ffef8fa73354becc42518640a4892e98931d74ec6fb47a99b679924583"
+                ],
+                [
+                    "AKWF/AKWF_fmsynth/AKWF_fmsynth_0062.wav",
+                    "de1c3e8a513526f00a5bbcbbf405b318412ef5a004d867e7d2ddf0df69458b59"
+                ],
+                [
+                    "AKWF/AKWF_fmsynth/AKWF_fmsynth_0071.wav",
+                    "24057bb5962a2e6e40fd4caf4b94e3e1ef74cade8266c6fd88ff6f717dd228de"
+                ],
+                [
+                    "AKWF/AKWF_fmsynth/AKWF_fmsynth_0113.wav",
+                    "bee2601dac07551082b672febdd1c96c28bf44bf00d115760480f82d0e2e780e"
+                ],
+                [
+                    "AKWF/AKWF_fmsynth/AKWF_fmsynth_0029.wav",
+                    "5bdab32ff6df1ce96624d4bcbf387b7dc86d66273b21ba6cd9958b20020e7be6"
+                ],
+                [
+                    "AKWF/AKWF_fmsynth/AKWF_fmsynth_0057.wav",
+                    "6ddedfd7991c4ddd3f66519a43070d125f83251ccf46aa83b2a8cbf0d82d4c7b"
+                ],
+                [
+                    "AKWF/AKWF_fmsynth/AKWF_fmsynth_0035.wav",
+                    "55974ca816d427a980199f1132ce95a78f51bf73f81a228b76831cc451570b49"
+                ]
+            ]
+        },
+        {
+            "id": "digital/chip",
+            "name": "Chip",
+            "category": "Digital",
+            "frames": 64,
+            "cycles": [
+                [
+                    "AKWF/AKWF_oscchip/AKWF_oscchip_0097.wav",
+                    "227a52797232c054881e7fb9b0896b8e2ba71828f9c8d9687f78c389e111a3ad"
+                ],
+                [
+                    "AKWF/AKWF_oscchip/AKWF_oscchip_0101.wav",
+                    "bf0ee69a88086d26d35e752fa9b6b783a9105881de7974390f7509bd62970c94"
+                ],
+                [
+                    "AKWF/AKWF_oscchip/AKWF_oscchip_0114.wav",
+                    "7d8cb141645d6d5e07a75124f2f2ba9ff363c2c62e6beba68e6339658a54fb54"
+                ],
+                [
+                    "AKWF/AKWF_oscchip/AKWF_oscchip_0125.wav",
+                    "ad9ab9d797f3b5be4e694c3616204e1a833a515315876896b2f877b269d2f403"
+                ],
+                [
+                    "AKWF/AKWF_oscchip/AKWF_oscchip_0043.wav",
+                    "9b434cadda4bf6fd1d2646e78728dda01dbc8cf23583bcc410a9f97e64673e74"
+                ],
+                [
+                    "AKWF/AKWF_oscchip/AKWF_oscchip_0135.wav",
+                    "3635f24ac7ad440410bdbceec92a8c8ecf4fc7fea8342acb5144542db92d6a63"
+                ],
+                [
+                    "AKWF/AKWF_oscchip/AKWF_oscchip_0071.wav",
+                    "7ee9160d4655ef8f6f18d9c5b26a03bf080d1f0440e48de33f27b906832cf4ad"
+                ],
+                [
+                    "AKWF/AKWF_oscchip/AKWF_oscchip_0070.wav",
+                    "68c1887c4b703c4e1c760c7344f529e4b7c1b40362e34ecfc0566800664bbc97"
+                ]
+            ]
+        },
+        {
+            "id": "digital/video-game",
+            "name": "Video Game",
+            "category": "Digital",
+            "frames": 64,
+            "cycles": [
+                [
+                    "AKWF/AKWF_vgame/AKWF_vgame_0055.wav",
+                    "471ff660c3fa15d83d654e46bb4a1c153e7b54a6f17f7ef038dad33268d204e4"
+                ],
+                [
+                    "AKWF/AKWF_vgame/AKWF_vgame_0111.wav",
+                    "9519b9ace7298176cff8a935f22d0bd7f37ef0e5b9bc6f8b8cddd923c82faf3b"
+                ],
+                [
+                    "AKWF/AKWF_vgame/AKWF_vgame_0081.wav",
+                    "e8c1c46a7c64d36ad80dd30ae4d4211976819c0a049306943ad4b1a67f243f93"
+                ],
+                [
+                    "AKWF/AKWF_vgame/AKWF_vgame_0079.wav",
+                    "3ff308ced10f04177aab9cda72ceba0e4ddfaa73dbbb60257c27c750debbd087"
+                ],
+                [
+                    "AKWF/AKWF_vgame/AKWF_vgame_0106.wav",
+                    "45163d7947a1724a705dd4305d2425a12453065d3d801efa2dbdd0c60e0ae9d7"
+                ],
+                [
+                    "AKWF/AKWF_vgame/AKWF_vgame_0072.wav",
+                    "59c8f3f9e79911551bc96b167817cbe55eeb71e23b2aba45d165de5a7bcc52ba"
+                ],
+                [
+                    "AKWF/AKWF_vgame/AKWF_vgame_0061.wav",
+                    "af0c5c42cd106b0e601fa78f094b1020ca79a51cbb01a0d5bedf6828a303540a"
+                ],
+                [
+                    "AKWF/AKWF_vgame/AKWF_vgame_0116.wav",
+                    "72c2783c72c12004c3975858611003bda1a9e1feb43b0b28cee02d928b705031"
+                ]
+            ]
+        },
+        {
+            "id": "digital/bit-reduced",
+            "name": "Bit Reduced",
+            "category": "Digital",
+            "frames": 64,
+            "cycles": [
+                [
+                    "AKWF/AKWF_bitreduced/AKWF_tri7bit.wav",
+                    "da7109d10628ff9ff1ac55a8ce2168880331e47b62219c19832e3daf64a66e2d"
+                ],
+                [
+                    "AKWF/AKWF_bitreduced/AKWF_bitreduced_0021.wav",
+                    "52d729a27668f9374cffed5ec08bb75b4462e38b27c6274c0b9b3db21bbea5e0"
+                ],
+                [
+                    "AKWF/AKWF_bitreduced/AKWF_squ6bit.wav",
+                    "096660e3fd1381fb488e0a8dd9288b5560fcb7f70030ccd83446e28b038f69a8"
+                ],
+                [
+                    "AKWF/AKWF_bitreduced/AKWF_squ2bit.wav",
+                    "767ecaa0c6da4e515a22116061c62c23aaacd5bf928201a9a7342d03a1a716bb"
+                ],
+                [
+                    "AKWF/AKWF_bitreduced/AKWF_saw5bit.wav",
+                    "75caa6e20b3043da3a954b54f079a7d92d01f5cf931d4fd69663f4c5fc209de7"
+                ],
+                [
+                    "AKWF/AKWF_bitreduced/AKWF_bitreduced_0022.wav",
+                    "07df0bfe288ec48c49f6d2bf39f8ae4bc828bd6d5a683cd1f746241187da4f64"
+                ],
+                [
+                    "AKWF/AKWF_bitreduced/AKWF_bitreduced_0002.wav",
+                    "4d659ce6c805eab2a5988324e05a9b47f2fcb8352e0e26664c9f935a958c9909"
+                ],
+                [
+                    "AKWF/AKWF_bitreduced/AKWF_bitreduced_0018.wav",
+                    "456039d671e8f60face34927d772cf418473b439b949766cc230a904a652582d"
+                ]
+            ]
+        },
+        {
+            "id": "texture/granular",
+            "name": "Granular",
+            "category": "Texture",
+            "frames": 64,
+            "cycles": [
+                [
+                    "AKWF/AKWF_granular/AKWF_granular_0042.wav",
+                    "1c88f7002830408d7363b7d2b90e439d4029b637aa288eb22dc9891717631e2c"
+                ],
+                [
+                    "AKWF/AKWF_granular/AKWF_granular_0032.wav",
+                    "49f8581cf3f057ead68af3d242145fc9072872fa1ed8573c9a0ec1391a7e23f1"
+                ],
+                [
+                    "AKWF/AKWF_granular/AKWF_granular_0005.wav",
+                    "d3d0b19875e01068a5203e847e8602976b898141b17a069958b7859d67dccbb8"
+                ],
+                [
+                    "AKWF/AKWF_granular/AKWF_granular_0029.wav",
+                    "60180f5ed6ae568eaddbc507a82bf52d2ab2b03e5f415befd2b3fed80aceef7b"
+                ],
+                [
+                    "AKWF/AKWF_granular/AKWF_granular_0006.wav",
+                    "ec5920b9455c2cd5af62116fc9e235f61822435808024b2bd9fc404483bde529"
+                ],
+                [
+                    "AKWF/AKWF_granular/AKWF_granular_0011.wav",
+                    "ce13425179c1898721f7840c23951156e8a10c8de96b43f81577b3a5c126eb7d"
+                ],
+                [
+                    "AKWF/AKWF_granular/AKWF_granular_0028.wav",
+                    "fb08f263baa1bfff05f501553c9842419bbf2fe3fe349bf882f7833fd1df4006"
+                ],
+                [
+                    "AKWF/AKWF_granular/AKWF_granular_0015.wav",
+                    "ac7a2fba664dd876b1c93e6a7bfdb478bbf7525b2b97645f3def082c10d1ff6f"
+                ]
+            ]
+        },
+        {
+            "id": "texture/distorted",
+            "name": "Distorted",
+            "category": "Texture",
+            "frames": 64,
+            "cycles": [
+                [
+                    "AKWF/AKWF_distorted/AKWF_distorted_0016.wav",
+                    "2eb983c99b5cba1a20c42f7e0c0360c499a17893371d86f3e59cf4c38a7bc507"
+                ],
+                [
+                    "AKWF/AKWF_distorted/AKWF_distorted_0040.wav",
+                    "15cdd54cd3de763801ac37ecb6460f6fa08c17ae392847a15237500e2f98baa2"
+                ],
+                [
+                    "AKWF/AKWF_distorted/AKWF_distorted_0032.wav",
+                    "efc6c67c902df5d2250cc7323f426a851fc87ed516fcfa728419f8f7555ad757"
+                ],
+                [
+                    "AKWF/AKWF_distorted/AKWF_distorted_0026.wav",
+                    "2641954e6c96e217bdc4dab44515f654959e122ec9a061c737c3073b056573b6"
+                ],
+                [
+                    "AKWF/AKWF_distorted/AKWF_distorted_0009.wav",
+                    "01129e4bf8c9b0a08363b690c29b349df63e419a97d4937e0a4df2dd22c7b665"
+                ],
+                [
+                    "AKWF/AKWF_distorted/AKWF_distorted_0007.wav",
+                    "9e97ec036b3a43377d893342270e83e48cab8526f56f99609a407050c1f21921"
+                ],
+                [
+                    "AKWF/AKWF_distorted/AKWF_distorted_0042.wav",
+                    "52f6a7d7599146a38852f76e33602b42ea4a6e54c60f52c8d73eb9866aeabe50"
+                ],
+                [
+                    "AKWF/AKWF_distorted/AKWF_distorted_0036.wav",
+                    "37f3afb0353e87b546d96e79f252fc5ce2c5db2803c5dffb3d99334608fef083"
+                ]
+            ]
+        }
+    ]
+}

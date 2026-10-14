@@ -1,10 +1,14 @@
 #include "FactoryTables.h"
 
+#include "AkwfTables.h"
+#include "TableRecipe.h"
 #include "fd/dsp/Math.h"
 
 #include <algorithm>
 #include <cmath>
 #include <complex>
+#include <cstdint>
+#include <cstring>
 #include <map>
 #include <mutex>
 #include <string>
@@ -145,7 +149,7 @@ void randomSpectrum(const Bins& b, std::uint32_t seed, double gain, double tilt 
 using Spectral = void (*)(int frame, int frames, const Bins& b);
 using Wave = double (*)(int frame, int frames, double phase);
 
-struct Recipe
+struct Made
 {
     FactoryTableInfo info;
     int frames;
@@ -154,7 +158,7 @@ struct Recipe
 };
 
 // clang-format off
-const Recipe kRecipes[] = {
+const Made kRecipes[] = {
     // ---- Basic ----
     {{"basic/sine", "Sine", "Basic"}, 1, [](int, int, const Bins& b) { b.sine(1, 1.0); }},
     {{"basic/triangle", "Triangle", "Basic"}, 1, [](int, int, const Bins& b) { for (int h = 1; h <= kTop; ++h) b.sine(h, triangleAt(h)); }},
@@ -388,13 +392,96 @@ const Recipe kRecipes[] = {
 
 std::vector<FactoryTableInfo> makeInfos()
 {
+    // The made ones, then the AKWF ones, each after the last of its category (a new one at the
+    // end): the menus list the tables by category.
     std::vector<FactoryTableInfo> out;
     for (const auto& r : kRecipes)
         out.push_back(r.info);
+    for (const auto& t : akwfTables())
+    {
+        auto at = out.end();
+        for (auto it = out.begin(); it != out.end(); ++it)
+            if (it->category == t.category)
+                at = it + 1;
+        out.insert(at, {t.id, t.name, t.category});
+    }
     return out;
 }
 
-dsp::Wavetable build(const Recipe& r)
+/// The 16-bit PCM of a WAV file's bytes, mixed to mono (AKWF's are 16-bit mono).
+std::vector<float> pcmOf(const unsigned char* b, std::size_t size)
+{
+    const auto u32 = [b](std::size_t at)
+    { return static_cast<std::uint32_t>(b[at] | (b[at + 1] << 8) | (b[at + 2] << 16) | (b[at + 3] << 24)); };
+    const auto u16 = [b](std::size_t at) { return static_cast<std::uint16_t>(b[at] | (b[at + 1] << 8)); };
+    if (size < 12 || std::memcmp(b, "RIFF", 4) != 0 || std::memcmp(b + 8, "WAVE", 4) != 0)
+        return {};
+    int channels = 1, bits = 0;
+    for (std::size_t at = 12; at + 8 <= size;)
+    {
+        const std::uint32_t length = u32(at + 4);
+        if (std::memcmp(b + at, "fmt ", 4) == 0 && at + 24 <= size)
+        {
+            channels = std::max<int>(1, u16(at + 10));
+            bits = u16(at + 22);
+        }
+        else if (std::memcmp(b + at, "data", 4) == 0 && bits == 16)
+        {
+            const std::size_t frames =
+                std::min<std::size_t>(length, size - at - 8) / (2u * static_cast<std::size_t>(channels));
+            std::vector<float> out(frames);
+            for (std::size_t i = 0; i < frames; ++i)
+            {
+                float sum = 0.0f;
+                for (int c = 0; c < channels; ++c)
+                    sum += static_cast<float>(static_cast<std::int16_t>(u16(
+                               at + 8 +
+                               (i * static_cast<std::size_t>(channels) + static_cast<std::size_t>(c)) * 2))) /
+                           32768.0f;
+                out[i] = sum / static_cast<float>(channels);
+            }
+            return out;
+        }
+        at += 8 + length + (length & 1);
+    }
+    return {};
+}
+
+/// An AKWF table: its cycles, each turned to start where a sine does, then morphed harmonic by
+/// harmonic over its frames, by the same bake the table editor uses.
+dsp::Wavetable build(const AkwfTable& t)
+{
+    wavetable::Recipe aligned;
+    Recipe::Layer cycles;
+    cycles.kind = Recipe::SourceKind::Table;
+    for (const auto& c : t.cycles)
+    {
+        const auto pcm = pcmOf(c.wav, c.size);
+        if (pcm.size() < 2)
+            continue;
+        const auto one = dsp::Wavetable::fromCycles(pcm.data(), static_cast<int>(pcm.size()), 1, false);
+        cycles.frames.insert(cycles.frames.end(), one.samples(0), one.samples(0) + dsp::Wavetable::frameSize);
+    }
+    aligned.frames = std::max(1, cycles.sourceFrames());
+    aligned.layers.push_back(cycles);
+    Recipe::Change align;
+    align.kind = Recipe::ChangeKind::PhaseAlign;
+    aligned.changes.push_back(align);
+    const auto sources = bake(aligned);
+
+    wavetable::Recipe morph;
+    morph.frames = t.frames;
+    Recipe::Layer frames;
+    frames.kind = Recipe::SourceKind::Table;
+    frames.fill = Recipe::Fill::Spectral;
+    for (int f = 0; f < sources.frames(); ++f)
+        frames.frames.insert(frames.frames.end(), sources.samples(f),
+                             sources.samples(f) + dsp::Wavetable::frameSize);
+    morph.layers.push_back(std::move(frames));
+    return bake(morph);
+}
+
+dsp::Wavetable build(const Made& r)
 {
     const int frames = r.frames;
     if (r.wave != nullptr)
@@ -431,6 +518,14 @@ std::shared_ptr<const dsp::Wavetable> factoryTable(std::string_view id)
         {
             auto table = std::make_shared<dsp::Wavetable>(build(r));
             table->name = std::string(r.info.name);
+            cache.emplace(std::string(id), table);
+            return table;
+        }
+    for (const auto& t : akwfTables())
+        if (t.id == id)
+        {
+            auto table = std::make_shared<dsp::Wavetable>(build(t));
+            table->name = std::string(t.name);
             cache.emplace(std::string(id), table);
             return table;
         }
