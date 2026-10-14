@@ -143,12 +143,6 @@ TEST_CASE("browser: the index file round-trips and drops what it can't read; tem
         {"/home/me/Samples/Loop 124 bpm.flac", 9000, 43, BrowserKind::Sample, 7.74, 48000.0, 2, 124.0},
         {"/home/me/Samples/Groove.mid", 300, 44, BrowserKind::Midi, 0.0, 0.0, 0, 0.0},
         {"/home/me/Samples/Vowels.wt", 2000, 45, BrowserKind::Wavetable, 0.0, 0.0, 0, 0.0, 64},
-        // Racks (racks.md §7): which kind each is, for its Racks folder.
-        {.path = "/home/me/Samples/Layers.segnorack",
-         .size = 900,
-         .modified = 46,
-         .kind = BrowserKind::Rack,
-         .instrument = true},
         {.path = "/home/me/Samples/Wash.segnorack", .size = 800, .modified = 47, .kind = BrowserKind::Rack},
     };
     CHECK(browserIndexFromJson(toJson(index)) == index);

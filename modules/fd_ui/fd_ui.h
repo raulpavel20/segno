@@ -34,6 +34,7 @@ END_JUCE_MODULE_DECLARATION
 #include "controls/ChoiceField.h"
 #include "controls/OctaveKeys.h"
 #include "controls/Labels.h"
+#include "controls/SearchField.h"
 #include "shell/ShellParts.h"
 #include "shell/Brand.h"
 #include "shell/WindowButtons.h"

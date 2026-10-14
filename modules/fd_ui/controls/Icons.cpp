@@ -255,6 +255,13 @@ Glyph glyph(Icon icon)
         p.lineTo(1.5f, 13.0f);
         p.closeSubPath();
         break;
+    case Icon::Rack:
+        // Two modules stacked, each with its knob.
+        p.addRoundedRectangle(2.0f, 2.5f, 12.0f, 4.75f, 1.2f);
+        p.addRoundedRectangle(2.0f, 8.75f, 12.0f, 4.75f, 1.2f);
+        g.solid.addEllipse(4.0f, 3.9f, 2.0f, 2.0f);
+        g.solid.addEllipse(4.0f, 10.15f, 2.0f, 2.0f);
+        break;
     case Icon::Move:
         // A cross with an arrowhead at each end.
         p.startNewSubPath(8.0f, 2.0f);
@@ -357,6 +364,12 @@ void IconButton::setIcon(Icon icon)
     repaint();
 }
 
+void IconButton::setIconSize(int size)
+{
+    iconSize_ = size;
+    repaint();
+}
+
 void IconButton::setRecordAccent(bool record)
 {
     record_ = record;
@@ -398,6 +411,10 @@ void IconButton::paintButton(juce::Graphics& g, bool highlighted, bool down)
         g.fillRoundedRectangle(r, t.radiusControl);
     }
     const auto colour = on ? t.onActive : (isEnabled() ? (highlighted ? t.textPrimary : t.textSecondary) : t.textTertiary);
-    drawIcon(g, icon_, r.reduced(r.getHeight() * 0.2f), colour);
+    drawIcon(g, icon_,
+             iconSize_ > 0
+                 ? r.withSizeKeepingCentre(static_cast<float>(iconSize_), static_cast<float>(iconSize_))
+                 : r.reduced(r.getHeight() * 0.2f),
+             colour);
 }
 } // namespace fd::ui

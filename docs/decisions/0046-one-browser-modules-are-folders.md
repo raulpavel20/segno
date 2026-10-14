@@ -1,6 +1,6 @@
 # 0046. One browser, one search; modules are folders of their presets
 
-- **Status:** Accepted (product owner, 2026-10-11, with every recommendation of [design/browser.md](../design/browser.md) §16)
+- **Status:** Accepted (product owner, 2026-10-11, with every recommendation of [design/browser.md](../design/browser.md) §16); amended by [0059](0059-racks-are-a-browser-part-and-every-part-has-its-icon.md): Racks join the tree's top level, and every part shows its icon
 - **Date:** 2026-10-11
 - **Builds on:** [ui-principles.md §2](../design/ui-principles.md) ("one search box across devices, presets, samples, plugins and files. Sample preview is built in"), [0044](0044-presets-are-files.md) (presets), [0045](0045-settings-are-one-page.md) (settings: the Segno folder, the browser's places), [0041](0041-tracks-and-clips-managed-in-place.md) (tracks and clips), [0030](0030-projects-are-folders.md) (projects are folders), [0040](0040-a-menu-bar-and-everything-by-mouse.md) (the menu bar), [0021](0021-mcp-server.md) (assistants)
 

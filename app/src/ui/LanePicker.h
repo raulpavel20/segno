@@ -56,7 +56,7 @@ private:
 
     engine::Session& session_;
     std::uint64_t channel_ = 0, lane_ = 0;
-    juce::TextEditor search_;
+    ui::SearchField search_;
     std::vector<engine::Session::ParamChoice> choices_;
     std::vector<model::PaletteItem> items_;
     std::vector<size_t> shown_;

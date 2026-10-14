@@ -55,7 +55,7 @@ private:
     [[nodiscard]] juce::Rectangle<int> rowArea(int row) const;
 
     const ActionRegistry& actions_;
-    juce::TextEditor search_;
+    ui::SearchField search_;
     std::vector<model::PaletteItem> items_;
     std::vector<Entry> entries_; // the extra entries, as the palette opened
     [[nodiscard]] const Entry* entry(const std::string& id) const;

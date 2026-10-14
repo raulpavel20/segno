@@ -237,8 +237,6 @@ std::string toJson(const BrowserIndexFile& index)
                 j["frames"] = f.frames;
             if (f.kind == BrowserKind::Multisample && f.zones > 0)
                 j["zones"] = f.zones;
-            if (f.kind == BrowserKind::Rack && f.instrument)
-                j["instrument"] = true;
             list.push_back(std::move(j));
         }
         places[place] = std::move(list);
@@ -275,7 +273,6 @@ BrowserIndexFile browserIndexFromJson(const std::string& json)
             file.tempo = f.value("tempo", 0.0);
             file.frames = f.value("frames", 0);
             file.zones = f.value("zones", 0);
-            file.instrument = f.value("instrument", false);
             files.push_back(std::move(file));
         }
     }

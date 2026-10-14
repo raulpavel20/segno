@@ -221,7 +221,6 @@ private:
 KeyPopover::KeyPopover(engine::Session& session)
     : session_(session), rows_(std::make_unique<Rows>(*this)), outside_(*this, [this] { close(); })
 {
-    const auto& t = ui::Theme::current();
     noKey_.setClickingTogglesState(false);
     noKey_.setWantsKeyboardFocus(false);
     noKey_.setTooltip("The song has no key: the piano roll shows every row alike");
@@ -231,13 +230,7 @@ KeyPopover::KeyPopover(engine::Session& session)
     keys_.onKey = [this](int pc) { chooseRoot(pc); };
     addAndMakeVisible(keys_);
 
-    search_.setFont(ui::font(ui::TextStyle::Field));
-    search_.setTextToShowWhenEmpty("Search scales", t.textTertiary);
-    search_.setIndents(t.shell.fieldTextInset, 0);
-    search_.setJustification(juce::Justification::centredLeft);
-    search_.setColour(juce::TextEditor::backgroundColourId, t.surface2);
-    search_.setColour(juce::TextEditor::outlineColourId, juce::Colours::transparentBlack);
-    search_.setColour(juce::TextEditor::focusedOutlineColourId, juce::Colours::transparentBlack);
+    search_.setHint("Search scales");
     search_.addListener(this);
     search_.addKeyListener(this);
     addAndMakeVisible(search_);

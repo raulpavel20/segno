@@ -40,7 +40,8 @@ enum class Icon
     Knob,          // audio effects: a knob with its pointer
     Plug,          // plugins: a plug with two prongs
     Folder,        // places and folders: a folder with its tab
-    Move           // a modulation source's handle, dragged onto a knob: four ways
+    Move,          // a modulation source's handle, dragged onto a knob: four ways
+    Rack           // racks (the browser, racks.md §7): two modules stacked in a frame
 };
 
 /// Draws `icon` fitted (aspect kept) into `area` in `colour`.
@@ -61,6 +62,9 @@ public:
     explicit IconButton(Icon icon, const juce::String& name = {});
 
     void setIcon(Icon icon);
+    /// Its icon at `size` px, centred (the browser's rail draws its parts' icons as its tree
+    /// does); 0: as large as the button allows.
+    void setIconSize(int size);
     /// On in the `record` colour instead of `active` (the transport's Record button).
     void setRecordAccent(bool record);
     /// A right-click: the button's menu (it doesn't click).
@@ -72,6 +76,7 @@ public:
 
 private:
     Icon icon_;
+    int iconSize_ = 0;
     bool record_ = false, popup_ = false;
 };
 } // namespace fd::ui

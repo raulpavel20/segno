@@ -86,6 +86,7 @@ Colour roles (lanes, grid, selection, states …), text styles, motion and shell
 ### Icons
 
 Line icons drawn in code (`ui::Icon`, `modules/fd_ui/controls/Icons.cpp`): 1.5 px stroke on a 16 px grid. Transport glyphs (play, stop, record) are filled. Every icon has a tooltip with its shortcut.
+- **One icon, one thing, one size where it lists things:** the browser's parts (Favourites' star, Instruments' note, Audio effects' knob, Racks' two stacked modules, Plugins' plug, Places' folder) show the same icon before their names in the tree and on the rail's buttons, both at `shell.listIconSize`, as a list's disclosures and stars are; a search field shows the magnifier at its left (ADR 0059). An icon button may draw its icon at a size of its own (`IconButton::setIconSize`) where it stands for something listed beside it.
 
 ### Brand
 

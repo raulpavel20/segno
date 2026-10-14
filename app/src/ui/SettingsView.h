@@ -108,7 +108,7 @@ private:
     model::SettingsStore* store_ = &ownStore_;
     bool titleBarOption_ = false;
 
-    juce::TextEditor search_;
+    ui::SearchField search_;
     ui::ViewOption changedOnly_{"Changed only"};
     ui::IconButton close_{ui::Icon::Close, "close settings"};
     std::unique_ptr<Index> index_;

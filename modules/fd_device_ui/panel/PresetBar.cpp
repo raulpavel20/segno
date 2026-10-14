@@ -278,7 +278,10 @@ PresetList::PresetList(PresetBar& bar)
         f.addKeyListener(this);
         addChildComponent(f);
     };
-    field(search_, "Search presets");
+    search_.setHint("Search presets");
+    search_.addListener(this);
+    search_.addKeyListener(this);
+    addChildComponent(search_);
     field(name_, "Its name");
     field(tags_, "Bus, Subtle");
     field(description_, "What it's for, in a line");

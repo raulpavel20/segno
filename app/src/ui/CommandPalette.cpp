@@ -4,14 +4,7 @@ namespace fd::app
 {
 CommandPalette::CommandPalette(const ActionRegistry& actions) : actions_(actions)
 {
-    const auto& t = ui::Theme::current();
-    search_.setFont(ui::font(ui::TextStyle::Field));
-    search_.setTextToShowWhenEmpty("Type a command", t.textTertiary);
-    search_.setIndents(10, 0);
-    search_.setJustification(juce::Justification::centredLeft);
-    search_.setColour(juce::TextEditor::backgroundColourId, t.surface2);
-    search_.setColour(juce::TextEditor::outlineColourId, juce::Colours::transparentBlack);
-    search_.setColour(juce::TextEditor::focusedOutlineColourId, juce::Colours::transparentBlack);
+    search_.setHint("Type a command");
     search_.addListener(this);
     search_.addKeyListener(this);
     addAndMakeVisible(search_);

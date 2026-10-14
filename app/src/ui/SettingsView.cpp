@@ -265,14 +265,7 @@ SettingsView::SettingsView(engine::Session& session, ActionRegistry& actions)
     : session_(session), actions_(actions), index_(std::make_unique<Index>(*this)),
       content_(std::make_unique<Content>(*this))
 {
-    const auto& t = ui::Theme::current();
-    search_.setFont(ui::font(ui::TextStyle::Field));
-    search_.setTextToShowWhenEmpty("Search settings", t.textTertiary);
-    search_.setIndents(t.shell.fieldTextInset, 0);
-    search_.setJustification(juce::Justification::centredLeft);
-    search_.setColour(juce::TextEditor::backgroundColourId, t.surface2);
-    search_.setColour(juce::TextEditor::outlineColourId, juce::Colours::transparentBlack);
-    search_.setColour(juce::TextEditor::focusedOutlineColourId, juce::Colours::transparentBlack);
+    search_.setHint("Search settings");
     search_.addListener(this);
     addAndMakeVisible(search_);
     changedOnly_.setClickingTogglesState(true);

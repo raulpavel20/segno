@@ -53,7 +53,6 @@ struct IndexedFile
     double tempo = 0.0; // from its loop metadata or its name; 0: unknown
     int frames = 0;     // a wavetable's
     int zones = 0;      // a multisample's
-    bool instrument = false; // a rack's: an instrument rack (it starts a chain with an instrument)
 
     bool operator==(const IndexedFile&) const = default;
 };

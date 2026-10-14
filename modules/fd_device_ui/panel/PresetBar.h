@@ -101,7 +101,8 @@ private:
     void place();
 
     PresetBar& bar_;
-    juce::TextEditor search_, name_, tags_, description_, author_;
+    SearchField search_;
+    juce::TextEditor name_, tags_, description_, author_;
     std::vector<std::unique_ptr<Toggle>> tagButtons_;
     ViewOption favourites_{"Favourites"};
     std::unique_ptr<Rows> rows_;

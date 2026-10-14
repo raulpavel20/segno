@@ -2,7 +2,6 @@
 
 #include "Sfz.h"
 #include "TableFiles.h"
-#include "engine/Session.h"
 
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_events/juce_events.h>
@@ -112,13 +111,6 @@ std::optional<model::IndexedFile> FileIndexer::read(const juce::File& file)
         // Its frames, for the caption; a file that isn't a table is listed without them.
         if (const auto table = devices::wavetable::importTable(f.path))
             f.frames = table->frames;
-        return f;
-    }
-    if (*kind == model::BrowserKind::Rack)
-    {
-        // Which it is: an instrument rack goes with the instruments (racks.md §7).
-        if (const auto rack = Session::readRackFile(file))
-            f.instrument = rack->instrument;
         return f;
     }
     if (*kind == model::BrowserKind::Multisample)

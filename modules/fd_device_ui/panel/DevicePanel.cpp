@@ -540,7 +540,7 @@ int DevicePanel::headerMinimumWidth() const
     if (foldable_)
         w += kFoldButton + 4;
     if (onEnabledChange)
-        w += grid.power + 6;
+        w += static_cast<float>(grid.power + 6);
     // Text widths rounded up, as resized() lays them out: a name short by a fraction is cut.
     w += std::ceil(juce::GlyphArrangement::getStringWidth(nameFont(), headerName()));
     if (!pages_.empty())

@@ -82,6 +82,7 @@ public:
         item.secondary = row.type == Row::Type::AddPlace;
         item.starrable = !row.item.empty();
         item.starred = item.starrable && owner_.isFavourite(row.item);
+        item.icon = row.icon;
         return item;
     }
     [[nodiscard]] juce::Rectangle<int> rowArea(int index) const
@@ -111,7 +112,21 @@ public:
         {
             const auto& row = owner_.rows_[static_cast<size_t>(i)];
             if (row.type == Row::Type::Heading || row.type == Row::Type::Group)
-                ui::paintCapsLabel(g, row.name, rowArea(i).withTrimmedLeft(s.listTextInset).toFloat());
+            {
+                // A part's heading (Places) with its icon where its rows' disclosures are, so its
+                // name lines up with theirs.
+                auto area = rowArea(i).withTrimmedLeft(s.listTextInset);
+                if (row.icon)
+                {
+                    const auto at = area.removeFromLeft(s.listIconSize).toFloat();
+                    ui::drawIcon(g, *row.icon,
+                                 at.withSizeKeepingCentre(static_cast<float>(s.listIconSize),
+                                                          static_cast<float>(s.listIconSize)),
+                                 ui::Theme::current().textTertiary);
+                    area.removeFromLeft(s.itemGap);
+                }
+                ui::paintCapsLabel(g, row.name, area.toFloat());
+            }
             else
                 ui::paintTreeRow(g, rowArea(i), itemOf(i));
         }
@@ -392,7 +407,6 @@ BrowserPanel::BrowserPanel(engine::Session& session, const ActionRegistry& actio
     : session_(session), actions_(actions), list_(std::make_unique<List>(*this)),
       strip_(std::make_unique<Strip>(*this))
 {
-    const auto& t = ui::Theme::current();
     header_.setTitle("Browser");
     header_.addOption(previewOption_);
     previewOption_.setClickingTogglesState(true);
@@ -408,13 +422,7 @@ BrowserPanel::BrowserPanel(engine::Session& session, const ActionRegistry& actio
     };
     addAndMakeVisible(header_);
 
-    search_.setFont(ui::font(ui::TextStyle::Field));
-    search_.setTextToShowWhenEmpty("Search", t.textTertiary);
-    search_.setIndents(t.shell.listTextInset, 0);
-    search_.setJustification(juce::Justification::centredLeft);
-    search_.setColour(juce::TextEditor::backgroundColourId, t.surface2);
-    search_.setColour(juce::TextEditor::outlineColourId, juce::Colours::transparentBlack);
-    search_.setColour(juce::TextEditor::focusedOutlineColourId, juce::Colours::transparentBlack);
+    search_.setHint("Search");
     search_.addListener(this);
     addAndMakeVisible(search_);
 
@@ -430,10 +438,12 @@ BrowserPanel::BrowserPanel(engine::Session& session, const ActionRegistry& actio
                                           std::tuple{Part::Favourites, ui::Icon::StarFilled, "Favourites"},
                                           std::tuple{Part::Instruments, ui::Icon::Note, "Instruments"},
                                           std::tuple{Part::Effects, ui::Icon::Knob, "Audio effects"},
+                                          std::tuple{Part::Racks, ui::Icon::Rack, "Racks"},
                                           std::tuple{Part::Plugins, ui::Icon::Plug, "Plugins"},
                                           std::tuple{Part::Places, ui::Icon::Folder, "Places"}})
     {
         auto button = std::make_unique<ui::IconButton>(icon, "browser part");
+        button->setIconSize(ui::Theme::current().shell.listIconSize); // as the open browser shows it
         button->setTooltip(tip);
         button->setWantsKeyboardFocus(false);
         button->onClick = [this, p = part]
@@ -534,6 +544,7 @@ void BrowserPanel::showPart(Part part)
     const std::string id = part == Part::Favourites    ? "cat:favourites"
                            : part == Part::Instruments ? "cat:instruments"
                            : part == Part::Effects     ? "cat:effects"
+                           : part == Part::Racks       ? "cat:racks"
                            : part == Part::Plugins     ? "cat:plugins"
                                                        : "heading:places";
     if (part != Part::Places)
@@ -606,13 +617,15 @@ void BrowserPanel::rebuildRows()
 void BrowserPanel::buildTree()
 {
     rows_.clear();
-    const auto category = [this](const std::string& id, const juce::String& name, const juce::String& caption)
+    const auto category =
+        [this](const std::string& id, const juce::String& name, const juce::String& caption, ui::Icon icon)
     {
         Row r;
         r.type = Row::Type::Category;
         r.id = id;
         r.name = name;
         r.caption = caption;
+        r.icon = icon;
         r.opens = true;
         r.open = isOpen(id);
         rows_.push_back(r);
@@ -626,7 +639,7 @@ void BrowserPanel::buildTree()
         if (item.favourite)
             favourites.push_back(&item);
     if (category("cat:favourites", "Favourites",
-                 favourites.empty() ? juce::String() : juce::String(favourites.size())))
+                 favourites.empty() ? juce::String() : juce::String(favourites.size()), ui::Icon::StarFilled))
     {
         std::stable_sort(favourites.begin(), favourites.end(), [](const auto* a, const auto* b)
                          { return a->kind != b->kind ? a->kind < b->kind : a->name < b->name; });
@@ -668,21 +681,17 @@ void BrowserPanel::buildTree()
         }
     }
 
-    // Our modules, each a folder of its presets (§5); first, the racks of each kind (racks.md §7).
-    if (category("cat:instruments", "Instruments", {}))
-    {
-        addRackRows(true, 1);
+    // Our modules, each a folder of its presets (§5); then the racks, of both kinds (ADR 0059).
+    if (category("cat:instruments", "Instruments", {}, ui::Icon::Note))
         for (const auto& d : devices)
             if (d.native && d.instrument)
                 addModuleRows(d, 1);
-    }
-    if (category("cat:effects", "Audio effects", {}))
-    {
-        addRackRows(false, 1);
+    if (category("cat:effects", "Audio effects", {}, ui::Icon::Knob))
         for (const auto& d : devices)
             if (d.native && !d.instrument)
                 addModuleRows(d, 1);
-    }
+    if (category("cat:racks", "Racks", {}, ui::Icon::Rack))
+        addRackRows(1);
 
     // Plugins, by maker.
     std::map<std::string, std::vector<const engine::AvailableDevice*>> makers;
@@ -693,7 +702,8 @@ void BrowserPanel::buildTree()
         category("cat:plugins", "Plugins",
                  juce::String(devices.size() -
                               static_cast<size_t>(std::count_if(devices.begin(), devices.end(),
-                                                                [](const auto& d) { return d.native; })))))
+                                                                [](const auto& d) { return d.native; }))),
+                 ui::Icon::Plug))
         for (const auto& [maker, plugins] : makers)
         {
             Row m;
@@ -725,6 +735,7 @@ void BrowserPanel::buildTree()
     heading.type = Row::Type::Heading;
     heading.id = "heading:places";
     heading.name = "Places";
+    heading.icon = ui::Icon::Folder;
     rows_.push_back(heading);
     const auto place = [this](const juce::File& folder, const juce::String& name, bool segno, bool yours,
                               bool library = false)
@@ -759,43 +770,33 @@ void BrowserPanel::buildTree()
     rows_.push_back(add);
 }
 
-void BrowserPanel::addRackRows(bool instrument, int depth)
+void BrowserPanel::addRackRows(int depth)
 {
-    // Every rack file of the kind in the places, the Library's (factory) before yours.
+    // Every rack file in the places, instrument and effect racks together: the Library's
+    // (factory) before yours, each A to Z.
     std::vector<juce::File> racks;
     const auto library = session_.libraryFolder();
+    const auto factory = [&library](const juce::File& f)
+    { return library != juce::File() && f.isAChildOf(library); };
     for (const auto& [place, files] : session_.browserIndex().places)
         for (const auto& f : files)
-            if (f.kind == Kind::Rack && f.instrument == instrument)
+            if (f.kind == Kind::Rack)
                 racks.push_back(fileOf(f.path));
-    std::stable_sort(racks.begin(), racks.end(),
-                     [&library](const juce::File& a, const juce::File& b)
-                     {
-                         const bool fa = library != juce::File() && a.isAChildOf(library);
-                         const bool fb = library != juce::File() && b.isAChildOf(library);
-                         if (fa != fb)
-                             return fa;
-                         return a.getFileNameWithoutExtension().compareNatural(
-                                    b.getFileNameWithoutExtension()) < 0;
-                     });
-    Row folder;
-    folder.type = Row::Type::PresetFolder;
-    folder.id = instrument ? "racks:instruments" : "racks:effects";
-    folder.name = "Racks";
-    folder.caption = racks.empty() ? juce::String() : juce::String(racks.size());
-    folder.depth = depth;
-    folder.opens = true;
-    folder.open = isOpen(folder.id);
-    rows_.push_back(folder);
-    if (!folder.open)
-        return;
+    std::sort(racks.begin(), racks.end(),
+              [&factory](const juce::File& a, const juce::File& b)
+              {
+                  if (factory(a) != factory(b))
+                      return factory(a);
+                  return a.getFileNameWithoutExtension().compareNatural(b.getFileNameWithoutExtension()) < 0;
+              });
+    racks.erase(std::unique(racks.begin(), racks.end()), racks.end());
     if (racks.empty())
     {
         Row none;
         none.type = Row::Type::Empty;
-        none.id = folder.id + "|none";
+        none.id = "racks:none";
         none.name = "None yet: Module > Save rack keeps one here";
-        none.depth = depth + 1;
+        none.depth = depth;
         rows_.push_back(none);
         return;
     }
@@ -807,8 +808,8 @@ void BrowserPanel::addRackRows(bool instrument, int depth)
         r.kind = Kind::Rack;
         r.file = file;
         r.name = file.getFileNameWithoutExtension();
-        r.caption = library != juce::File() && file.isAChildOf(library) ? "Library" : "";
-        r.depth = depth + 1;
+        r.caption = factory(file) ? "Library" : "";
+        r.depth = depth;
         rows_.push_back(r);
     }
 }

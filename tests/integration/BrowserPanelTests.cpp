@@ -604,3 +604,65 @@ TEST_CASE("browser: the Sampler's folder holds its instruments' presets by famil
         dumpPng(dump, "browser-sampler-presets@2x.png",
                 b.shell->createComponentSnapshot(p.getBounds(), true, 2.0f));
 }
+
+TEST_CASE(
+    "browser: Racks a part of its own, instrument and effect racks together; each part's icon in the rail "
+    "and the tree (ADR 0059)",
+    "[integration]")
+{
+    Browser b;
+    auto& s = *b.r.session;
+    auto& p = b.panel();
+    // An effect rack and an instrument rack, saved into your racks.
+    const auto effect = s.groupIntoRack({s.addDevice(b.track(0).id, "fd:saturator")});
+    const auto instrument = s.groupIntoRack({s.addDevice(b.track(1).id, "fd:subtractive-synth")});
+    REQUIRE(s.renameRack(effect, "Heat"));
+    REQUIRE(s.renameRack(instrument, "Layers"));
+    REQUIRE(s.saveRack(effect, s.racksFolder().getChildFile("Heat.segnorack")));
+    REQUIRE(s.saveRack(instrument, s.racksFolder().getChildFile("Layers.segnorack")));
+    s.refreshBrowser(s.racksFolder());
+    s.waitForBrowserIndex();
+    b.settle();
+
+    // The tree: Favourites, Instruments, Audio effects, Racks, then Places; the racks together.
+    const auto heat = "file:" + path(s.racksFolder().getChildFile("Heat.segnorack"));
+    const auto layers = "file:" + path(s.racksFolder().getChildFile("Layers.segnorack"));
+    b.open("cat:instruments");
+    b.open("cat:effects");
+    CHECK_FALSE(b.shows(heat));
+    CHECK_FALSE(b.shows(layers));
+    const auto ids = p.rowIds();
+    const auto at = [&ids](const std::string& id)
+    { return std::find(ids.begin(), ids.end(), id) - ids.begin(); };
+    CHECK(at("cat:favourites") < at("cat:instruments"));
+    CHECK(at("cat:instruments") < at("cat:effects"));
+    CHECK(at("cat:effects") < at("cat:racks"));
+    CHECK(at("cat:racks") < at("heading:places"));
+    b.open("cat:racks");
+    CHECK(b.shows(heat));
+    CHECK(b.shows(layers));
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "browser-racks@2x.png", b.shell->createComponentSnapshot(p.getBounds(), true, 2.0f));
+    // Search finds them as racks.
+    b.search("heat");
+    CHECK(b.shows(heat));
+    b.search("");
+
+    // The rail: a button a part, Racks among them, each icon drawn as large as the tree's.
+    b.shell->setSize(1280, 900);
+    b.settle();
+    REQUIRE(p.isRail());
+    std::vector<fd::ui::IconButton*> rail;
+    for (auto* c : p.getChildren())
+        if (auto* button = dynamic_cast<fd::ui::IconButton*>(c);
+            button != nullptr && c->getName() == "browser part")
+            rail.push_back(button);
+    CHECK(rail.size() == 7);
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "browser-rail-racks@2x.png",
+                b.shell->createComponentSnapshot(p.getBounds(), true, 2.0f));
+    b.shell->showBrowserOverlay(fd::app::BrowserPanel::Part::Racks);
+    CHECK(b.isOpen("cat:racks"));
+    CHECK(b.shows(heat));
+    b.shell->closeBrowserOverlay();
+}

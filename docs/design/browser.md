@@ -84,12 +84,14 @@ Sources: the [Live 12 browser](https://www.ableton.com/en/live-manual/12/working
 └───────────────────────────────────┘
 ```
 
-- **One column,** as the panel is narrow (220 px by default, 160 to 480): a tree, each level `shell.browserIndent` (a new metric, 12 px) in from its parent, rows on the shell's compact row height (`shell.rowHeight`). Long names end in an ellipsis, with the full name in a tooltip.
-- **What's at the top level:**
-  - **Favourites:** anything you've starred (§8).
-  - **Instruments** and **Audio effects:** our modules, A to Z. MIDI effects join when there are some (M4).
-  - **Plugins:** the plugins found by the scan, in folders by maker.
-  - **Places:** the project's folder, the Library, the Segno folder (as User library), and the folders you add (§9).
+- **One column,** as the panel is narrow (220 px by default, 160 to 480): a tree, each level `shell.browserIndent` (16 px, an icon and its gap, so a row's disclosure is under its parent's icon or name; 12 until ADR 0059) in from its parent, rows on the shell's compact row height (`shell.rowHeight`). Long names end in an ellipsis, with the full name in a tooltip.
+- **What's at the top level,** each part with its icon before its name, the one its rail button shows (ADR 0059):
+  - **Favourites** (the star): anything you've starred (§8).
+  - **Instruments** (the note) and **Audio effects** (the knob): our modules, A to Z. MIDI effects join when there are some (M4).
+  - **Racks** (two modules stacked): every rack, instrument and effect racks together, the Library's first, then yours ([racks.md](racks.md) §7).
+  - **Plugins** (the plug): the plugins found by the scan, in folders by maker.
+  - **Places** (the folder, before its heading, where its rows' disclosures are): the project's folder, the Library, the Segno folder (as User library), and the folders you add (§9).
+- **The search field** shows the magnifier at its left, as every search in Segno does (the shared `SearchField`, ADR 0059).
 - **Opening and closing:** a click on the triangle, or on a folder's name, opens it; the right and left arrows do too. Folders stay as you left them, so the tree is the same each time the browser shows.
 - **Each row shows** its name, and on the right a caption where it helps: a folder's count, a preset's tags, a sample's length, a plugin's format. The name comes first: a caption shows only when both fit whole, and the tooltip carries it otherwise.
 - **Right-click** on any row: what can be done with it (Load on the selected track, Add to favourites, Show in folder, Remove from places…), each also reachable another way (ADR 0040).
@@ -148,7 +150,7 @@ As in Live, at the product owner's suggestion:
 - **Indexing:**
   - the files under every place are indexed in the background, at launch and when a folder is opened: name, kind, length, sample rate, channels and tempo;
   - the index is kept in `~/.config/Segno/browser-index.json`, so search works from the first second;
-  - files the browser can use: WAV, AIFF, FLAC, Ogg, MP3, MIDI, Segno projects, wavetables (`.wt`, and sound files in a folder named Wavetables: a kind of their own, WAVETABLES in the results, their frames as the caption), and multisamples (SFZ files: MULTISAMPLES in the results, their zones as the caption; selected, they play the presets' phrase through a Sampler of their own, [devices/sampler/SPEC.md](../../devices/sampler/SPEC.md) S11), and racks (`.segnorack` files: RACKS in the results, and a Racks folder first under Instruments and under Audio effects, [racks.md](racks.md) §7);
+  - files the browser can use: WAV, AIFF, FLAC, Ogg, MP3, MIDI, Segno projects, wavetables (`.wt`, and sound files in a folder named Wavetables: a kind of their own, WAVETABLES in the results, their frames as the caption), and multisamples (SFZ files: MULTISAMPLES in the results, their zones as the caption; selected, they play the presets' phrase through a Sampler of their own, [devices/sampler/SPEC.md](../../devices/sampler/SPEC.md) S11), and racks (`.segnorack` files: RACKS in the results, and listed in the Racks part, [racks.md](racks.md) §7, ADR 0059);
   - adding a whole drive is allowed but slow, and the strip says so while it indexes, as Live warns.
 
 ## 10. Putting things in the song
@@ -201,7 +203,7 @@ As in Live, at the product owner's suggestion:
 
 ## 15. Compact widths and assistants
 
-**Below 1440 px** the browser is its rail (ui-principles §2). The rail holds Search, Favourites, Instruments, Audio effects, Plugins and Places; a click opens the browser over the arrangement at that part, at its normal width, and it closes when something is dragged out of it or on a click elsewhere.
+**Below 1440 px** the browser is its rail (ui-principles §2). The rail holds Search, Favourites, Instruments, Audio effects, Racks, Plugins and Places, each the icon the open browser shows before it, at the same size (`shell.listIconSize`, ADR 0059); a click opens the browser over the arrangement at that part, at its normal width, and it closes when something is dragged out of it or on a click elsewhere.
 
 **Assistants (MCP):**
 

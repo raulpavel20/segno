@@ -23,13 +23,6 @@ juce::String kindOf(const model::TrackInfo& channel)
 
 LanePicker::LanePicker(engine::Session& session) : session_(session)
 {
-    const auto& t = ui::Theme::current();
-    search_.setFont(ui::font(ui::TextStyle::Field));
-    search_.setIndents(10, 0);
-    search_.setJustification(juce::Justification::centredLeft);
-    search_.setColour(juce::TextEditor::backgroundColourId, t.surface2);
-    search_.setColour(juce::TextEditor::outlineColourId, juce::Colours::transparentBlack);
-    search_.setColour(juce::TextEditor::focusedOutlineColourId, juce::Colours::transparentBlack);
     search_.addListener(this);
     search_.addKeyListener(this);
     addAndMakeVisible(search_);
@@ -41,8 +34,8 @@ void LanePicker::open(juce::Component& parent, std::uint64_t lane, std::uint64_t
 {
     lane_ = lane;
     const auto* l = session_.snapshot()->automationLane(lane);
-    search_.setTextToShowWhenEmpty("Type a parameter for " + (l != nullptr ? utf8(l->displayName()) : juce::String("the lane")),
-                                   ui::Theme::current().textTertiary);
+    search_.setHint("Type a parameter for " +
+                    (l != nullptr ? utf8(l->displayName()) : juce::String("the lane")));
     setChannel(channel);
     if (getParentComponent() != &parent)
         parent.addChildComponent(this);

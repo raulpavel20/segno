@@ -125,7 +125,7 @@ struct ShellMetrics
         settingsControlWidth = 280;
     // A shortcut in Settings > Keys, at the controls' right edge, so long names get the rest.
     int settingsKeyWidth = 160;
-    int browserIndent = 12;     // a browser row in from its parent (ADR 0046)
+    int browserIndent = 16;     // a browser row in from its parent: an icon and its gap (ADR 0046, 0059)
     int browserWaveHeight = 32; // the preview strip's waveform
     int toastHeight = 36, toastWidth = 420;
     int keyboardWidth = 52, velocityHeight = 56;

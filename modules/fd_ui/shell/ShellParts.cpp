@@ -390,17 +390,30 @@ juce::Rectangle<int> treeRowStar(juce::Rectangle<int> row)
 
 namespace
 {
-/// A tree row's text: after its disclosure, before the star's column (kept on every row).
+/// A tree row's text: after its disclosure (and icon), before the star's column (kept on every
+/// row).
 juce::Rectangle<int> treeRowText(juce::Rectangle<int> row, const TreeItem& item)
 {
     const auto& s = Theme::current().shell;
     const auto mark = treeRowMark(row, item);
     auto text = row.withLeft(item.flat ? row.getX() + s.listTextInset : mark.getRight() + s.itemGap)
                     .withTrimmedRight(s.listTextInset);
+    if (item.icon)
+        text.removeFromLeft(s.listIconSize + s.itemGap);
     text.removeFromRight(s.listIconSize + s.itemGap);
     return text;
 }
 } // namespace
+
+juce::Rectangle<int> treeRowIcon(juce::Rectangle<int> row, const TreeItem& item)
+{
+    if (!item.icon)
+        return {};
+    const auto& s = Theme::current().shell;
+    const auto mark = treeRowMark(row, item);
+    const int x = item.flat ? row.getX() + s.listTextInset : mark.getRight() + s.itemGap;
+    return {x, row.getY(), s.listIconSize, row.getHeight()};
+}
 
 juce::Rectangle<int> treeRowCaption(juce::Rectangle<int> row, const TreeItem& item)
 {
@@ -434,6 +447,8 @@ void paintTreeRow(juce::Graphics& g, juce::Rectangle<int> row, const TreeItem& i
                  t.textTertiary);
     if (item.mark == TreeItem::Mark::Add)
         drawIcon(g, Icon::Plus, icon(mark), t.textSecondary);
+    if (item.icon)
+        drawIcon(g, *item.icon, icon(treeRowIcon(row, item)), item.dim ? t.textTertiary : t.textSecondary);
     auto text = treeRowText(row, item);
     if (item.starrable && (item.starred || item.hovered))
         drawIcon(g, item.starred ? Icon::StarFilled : Icon::Star, icon(treeRowStar(row)),

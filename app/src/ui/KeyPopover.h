@@ -78,7 +78,7 @@ private:
     std::string preview_;
     ui::Toggle noKey_{"No key"};
     ui::OctaveKeys keys_;
-    juce::TextEditor search_;
+    ui::SearchField search_;
     juce::Viewport viewport_;
     std::unique_ptr<Rows> rows_;
     std::vector<music::KeyCandidate> found_;

@@ -168,7 +168,7 @@ The rack's mappings need more room than its panel: a module's editor in the deta
   - **What it doesn't:** automation, sidechain sources (host routing, ADR 0025), MIDI mappings, the panel's view state (as for module presets).
   - **Its name is the file's name;** tags, a description and an author, as a preset's (presets.md §4).
 - **Where:** the User library's `Racks/` folder (Documents/Segno/Racks), any subfolders yours. Factory racks are files in the Library's `Racks/` (ADR 0055).
-- **In the browser** ([browser.md](browser.md)): each of Instruments and Audio effects opens with a **Racks** folder, holding the racks of its kind, factory then yours. Search finds them as RACKS. Selected, an instrument rack plays the presets' phrase; dropped or double-clicked, a rack goes where a module would, an instrument rack in place of the track's instrument.
+- **In the browser** ([browser.md](browser.md)): **Racks** is a part of its own, after Audio effects (ADR 0059; first designed as a Racks folder in each of Instruments and Audio effects), holding every rack, instrument and effect racks together, factory then yours. Search finds them as RACKS. Selected, an instrument rack plays the presets' phrase; dropped or double-clicked, a rack goes where a module would, an instrument rack in place of the track's instrument.
 - **Module > Save rack…** (and Save rack as…) writes the selected rack; **Module > Show racks folder** opens the folder.
 - **Missing pieces:** a rack with a plugin that isn't installed loads the rest and says which plugin is missing, as a project does; a module newer than this Segno is refused with its name.
 
@@ -252,7 +252,7 @@ Modules inside a rack keep their ids, so `set_parameters`, `get_module` and the 
 ## 14. Steps
 
 0. **The UI drawn and approved (§5a),** with the spike (§12): before anything else is built.
-1. **Racks and macros:** the rack with its chains and mixer rows; group and ungroup; the panel and frame in the chain; eight macros with From, To and Curve, mapped by drag, right-click or the editor; the macro editor; automation of macros; rack files, the browser's Racks folders, save and load; menus and MCP. Signed off after the product owner's hands-on tasks (§5a).
+1. **Racks and macros:** the rack with its chains and mixer rows; group and ungroup; the panel and frame in the chain; eight macros with From, To and Curve, mapped by drag, right-click or the editor; the macro editor; automation of macros; rack files, the browser's Racks part, save and load; menus and MCP. Signed off after the product owner's hands-on tasks (§5a).
 2. **Snapshots and Morph, Vary for racks,** and the factory racks in the Library.
 3. **Motion on macros:** LFO, follower and sidechain, sequencer, gate, random.
 
@@ -290,7 +290,7 @@ Approved by the product owner (2026-10-14) with every recommendation, then the U
 | R10 | **In the chain** | The rack's panel (MACROS, CHAINS), then the shown chain's modules in a frame; folding the rack folds its modules away |
 | R11 | **Making and unmaking** | Group into rack (Ctrl+G) from selected modules; Ungroup rack (Ctrl+Shift+G); Add module ▸ Rack |
 | R12 | **Saving** | A `.segnorack` file, apart from module presets: chains, modules' states, mixer rows, macros and mappings; not automation or routing. In the User library's Racks folder; factory racks in the Library |
-| R13 | **In the browser** | A Racks folder first in each of Instruments and Audio effects; RACKS in search; previewed and dropped as modules are |
+| R13 | **In the browser** | ~~A Racks folder first in each of Instruments and Audio effects~~ A part of its own, Racks, both kinds together (the product owner, 2026-10-14, ADR 0059); RACKS in search; previewed and dropped as modules are |
 | R14 | **From Transit, and when** | Step 1: per-mapping curves. Step 2: snapshots with Morph, Vary with locks, factory racks. Step 3: motion on macros (LFO, follower, sidechain, sequencer, gate, random), M4's modulators arriving early |
 | R15 | **Engine** | tracktion's racks and macro modifiers, after a spike on parallel latency, undo and plugin state |
 | R16 | **Not now** | Zones and the Drum Rack (M4), selectors and crossfaders, MIDI effect racks, racks in the plugins |
@@ -304,7 +304,7 @@ Approved by the product owner (2026-10-14) with every recommendation, then the U
 - **A rack's modules keep their ids**: every module tool, lane and sidechain reaches them as before. A module that leaves its rack is unmapped, keeping its value now. A track copied with a rack on it gets a copy of the rack of its own.
 - **Rack files are JSON** (`segnoRack: 1`): the chains with their mixer rows, our modules' states as their presets hold them, plugins' their own state, and the macros, their mappings referring to modules by chain and place. A loaded rack saved again makes the same file, byte for byte.
 - **Save rack** writes `Documents/Segno/Racks/<name>.segnorack`; **Save rack as…** renames the rack in place, then saves; **Show racks folder** opens the folder.
-- **The browser** has a Racks folder first under Instruments and under Audio effects (the Library's racks first, then yours), finds racks in search as RACKS, and puts them where a module would go, an instrument rack in place of the track's instrument. **Not yet:** a rack's preview (the presets' phrase through it); it comes with step 2's factory racks.
+- **The browser** has Racks as a part of its own after Audio effects, both kinds together (the Library's racks first, then yours; the product owner, 2026-10-14, ADR 0059; built first as a folder in each of Instruments and Audio effects), finds racks in search as RACKS, and puts them where a module would go, an instrument rack in place of the track's instrument. **Not yet:** a rack's preview (the presets' phrase through it); it comes with step 2's factory racks.
 - **Right-clicks:** the rack's header (Rename rack…, Add chain, Edit macros, Ungroup rack); a chain's name (Rename chain…, Solo, On, Remove chain); a macro (Rename macro…, Edit macros, then its automation); a knob in a rack (Map to macro ▸, Unmap from …, Edit macros). Double-clicking a macro's name renames it.
 - **Group into rack** takes the selected module and those Shift-clicked along the track's chain.
 - **MCP**, beyond §10's tools: `add_module` takes `rack` and `chain` (and type `rack`, with `path` a rack file); `move_module` takes `rack` (null: out of it) and `chain`; `set_parameters` refuses a parameter a macro sets, naming the macro; `get_module` says `setByMacro`, and a rack's macros are its parameters.

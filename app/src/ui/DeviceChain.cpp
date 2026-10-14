@@ -563,12 +563,12 @@ void DeviceChain::showAddMenu(juce::Component& target, std::function<void(const 
     menu.addSubMenu("Plugins", plugins);
 
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&target),
-                       [this, devices, add = std::move(add)](int result)
+                       [this, devices, choose = std::move(add)](int result)
                        {
                            if (result == -1)
                                actions_.perform("app.scanPlugins");
                            else if (result > 0)
-                               add(devices[static_cast<size_t>(result - 1)].key);
+                               choose(devices[static_cast<size_t>(result - 1)].key);
                        });
 }
 
@@ -1093,7 +1093,7 @@ void DeviceChain::addMacroItems(std::uint64_t module, const std::string& param, 
     if (rack == nullptr || rack->rack == nullptr)
         return;
     int current = -1;
-    model::mappingOf(*rack->rack, module, param, &current);
+    (void)model::mappingOf(*rack->rack, module, param, &current);
     const auto rackId = place->rack;
     juce::PopupMenu macros;
     for (int i = 0; i < model::RackInfo::macroCount; ++i)
@@ -1123,7 +1123,7 @@ void DeviceChain::editMacros(int macro)
         openMacroEditor(*rack, macro);
 }
 
-void DeviceChain::openMacroEditor(std::uint64_t rack, int macro)
+void DeviceChain::openMacroEditor(std::uint64_t rack, int first)
 {
     const auto* r = rackOf(rack);
     if (r == nullptr || !onShowEditor)
@@ -1201,7 +1201,7 @@ void DeviceChain::openMacroEditor(std::uint64_t rack, int macro)
         menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(raw));
     };
     raw->setRack(juce::String::fromUTF8(slotOf(rack)->info.name.c_str()), *r->info);
-    raw->selectMacro(macro);
+    raw->selectMacro(first);
     macroEditor_ = raw;
     macroEditorRack_ = rack;
     onShowEditor(rack, std::move(editor));

@@ -42,6 +42,7 @@ public:
         Favourites,
         Instruments,
         Effects,
+        Racks,
         Plugins,
         Places,
     };
@@ -121,6 +122,7 @@ private:
         bool flat = false;    // a search result: no disclosure column
         model::BrowserKind kind = model::BrowserKind::Module;
         juce::File file; // places, folders, files
+        std::optional<ui::Icon> icon; // a part's, as its rail shows it (ADR 0059)
     };
 
     void textEditorTextChanged(juce::TextEditor&) override;
@@ -132,8 +134,8 @@ private:
     [[nodiscard]] const model::AppSettings& settings() const { return store_->get(); }
     void rebuildItems();
     void rebuildRows();
-    /// The Racks folder of Instruments or Audio effects, with its rack files (racks.md §7).
-    void addRackRows(bool instrument, int depth);
+    /// The Racks part's rack files, instrument and effect racks together (racks.md §7, ADR 0059).
+    void addRackRows(int depth);
     void buildTree();
     void buildResults();
     void addModuleRows(const engine::AvailableDevice& device, int depth);
@@ -163,7 +165,7 @@ private:
 
     ui::PanelHeader header_;
     ui::ViewOption previewOption_{"Preview"};
-    juce::TextEditor search_;
+    ui::SearchField search_;
     std::vector<std::unique_ptr<ui::Toggle>> tagButtons_;
     std::set<std::string> tags_;
     std::unique_ptr<List> list_;

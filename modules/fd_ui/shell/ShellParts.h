@@ -147,8 +147,12 @@ struct TreeItem
     bool dim = false;       // gone, or "All 240 samples"
     bool secondary = false; // a command row ("Add folder…")
     bool starrable = false, starred = false;
+    /// Before the name: a part of the browser (the star of Favourites), as its rail shows it.
+    std::optional<Icon> icon;
 };
 void paintTreeRow(juce::Graphics& g, juce::Rectangle<int> row, const TreeItem& item);
+/// Where a tree row's icon is (empty without one): after its disclosure, before its name.
+[[nodiscard]] juce::Rectangle<int> treeRowIcon(juce::Rectangle<int> row, const TreeItem& item);
 /// Where a tree row's disclosure and star are (for clicks).
 [[nodiscard]] juce::Rectangle<int> treeRowMark(juce::Rectangle<int> row, const TreeItem& item);
 [[nodiscard]] juce::Rectangle<int> treeRowStar(juce::Rectangle<int> row);
