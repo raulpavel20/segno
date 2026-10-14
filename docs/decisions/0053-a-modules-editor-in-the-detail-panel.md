@@ -1,6 +1,6 @@
 # 0053. A module's editor opens in the detail panel
 
-- **Status:** Proposed (2026-10-14). The Wavetable SPEC's W9, approved 2026-10-13, chose the bottom panel for its table editor and asked for this ADR; the details are up for review with [table-editor.md](../design/table-editor.md)
+- **Status:** Accepted (product owner, 2026-10-14, with [table-editor.md](../design/table-editor.md)). The Wavetable SPEC's W9, approved 2026-10-13, chose the bottom panel for its table editor and asked for this ADR
 - **Date:** 2026-10-14
 - **Builds on:** [0022](0022-module-panels.md) (module panels: six rows tall, sections on the grid), [0027](0027-selection-and-context-panels.md) (the detail panel follows the selection)
 

@@ -1,6 +1,6 @@
 # The table editor (Wavetable, step 2)
 
-The Wavetable's tables, made and changed in Segno: drawn, built from harmonics or a formula, taken from audio or an image, then shaped by a stack of changes. Step 2 of [devices/wavetable/SPEC.md](../../devices/wavetable/SPEC.md) (W8–W10), with the spectral warps and export. **Status:** proposed for review (2026-10-14).
+The Wavetable's tables, made and changed in Segno: drawn, built from harmonics or a formula, taken from audio or an image, then shaped by a stack of changes. Step 2 of [devices/wavetable/SPEC.md](../../devices/wavetable/SPEC.md) (W8–W10), with the spectral warps and export. **Status:** approved by the product owner (2026-10-14, every recommendation of T1–T13); being built.
 
 ## 1. What the leading synths do (research, October 2026)
 
