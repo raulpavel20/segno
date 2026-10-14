@@ -358,6 +358,32 @@ juce::Rectangle<int> treeRowStar(juce::Rectangle<int> row)
     return {row.getRight() - s.listTextInset - s.listIconSize, row.getY(), s.listIconSize, row.getHeight()};
 }
 
+namespace
+{
+/// A tree row's text: after its disclosure, before the star's column (kept on every row).
+juce::Rectangle<int> treeRowText(juce::Rectangle<int> row, const TreeItem& item)
+{
+    const auto& s = Theme::current().shell;
+    const auto mark = treeRowMark(row, item);
+    auto text = row.withLeft(item.flat ? row.getX() + s.listTextInset : mark.getRight() + s.itemGap)
+                    .withTrimmedRight(s.listTextInset);
+    text.removeFromRight(s.listIconSize + s.itemGap);
+    return text;
+}
+} // namespace
+
+juce::Rectangle<int> treeRowCaption(juce::Rectangle<int> row, const TreeItem& item)
+{
+    if (item.caption.isEmpty())
+        return {};
+    auto text = treeRowText(row, item);
+    const int caption = juce::GlyphArrangement::getStringWidthInt(font(TextStyle::Caption), item.caption);
+    const int name = juce::GlyphArrangement::getStringWidthInt(font(TextStyle::Name), item.name);
+    if (name + Theme::current().shell.itemGap + caption > text.getWidth())
+        return {};
+    return text.removeFromRight(caption);
+}
+
 void paintTreeRow(juce::Graphics& g, juce::Rectangle<int> row, const TreeItem& item)
 {
     const auto& t = Theme::current();
@@ -378,22 +404,16 @@ void paintTreeRow(juce::Graphics& g, juce::Rectangle<int> row, const TreeItem& i
                  t.textTertiary);
     if (item.mark == TreeItem::Mark::Add)
         drawIcon(g, Icon::Plus, icon(mark), t.textSecondary);
-    auto text = row.withLeft(item.flat ? row.getX() + s.listTextInset : mark.getRight() + s.itemGap)
-                    .withTrimmedRight(s.listTextInset);
-    // The star's column, kept on every row.
-    text.removeFromRight(s.listIconSize + s.itemGap);
+    auto text = treeRowText(row, item);
     if (item.starrable && (item.starred || item.hovered))
         drawIcon(g, item.starred ? Icon::StarFilled : Icon::Star, icon(treeRowStar(row)),
                  item.starred ? t.active : t.textTertiary);
-    if (item.caption.isNotEmpty())
+    if (const auto caption = treeRowCaption(row, item); !caption.isEmpty())
     {
-        const auto f = font(TextStyle::Caption);
-        const int w =
-            std::min(text.getWidth() / 2, juce::GlyphArrangement::getStringWidthInt(f, item.caption));
-        g.setFont(f);
+        g.setFont(font(TextStyle::Caption));
         g.setColour(t.textTertiary);
-        g.drawText(item.caption, text.removeFromRight(w), juce::Justification::centredRight, true);
-        text.removeFromRight(s.itemGap);
+        g.drawText(item.caption, caption, juce::Justification::centredRight, false);
+        text.setRight(caption.getX() - s.itemGap);
     }
     g.setFont(font(TextStyle::Name));
     g.setColour(item.dim ? t.textTertiary : item.secondary ? t.textSecondary : t.textPrimary);

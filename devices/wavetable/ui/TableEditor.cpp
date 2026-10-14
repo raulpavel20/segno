@@ -2102,6 +2102,15 @@ void TableEditor::openFile(const juce::File& file, bool asLayer)
         {
             Recipe::Layer layer;
             layer.kind = K::Table;
+            // A factory table's file: the layer takes the table by its ID.
+            if (const auto id = wavetable::factoryIdOf(path);
+                !id.empty() && wavetable::factoryTable(id) != nullptr)
+            {
+                layer.tableId = id;
+                layer.note = name;
+                addLayer(std::move(layer));
+                return;
+            }
             for (int f = 0; f < table.frames(); ++f)
                 layer.frames.insert(layer.frames.end(), table.samples(f), table.samples(f) + N);
             layer.note = name;

@@ -139,7 +139,10 @@ void applySettings(Session& session, const model::AppSettings& settings)
         session.setPresetsFolder(presets);
     session.setPluginFolders(settings.plugins.folders);
     session.setExportDefaults(settings.exportDefaults);
-    // The browser (ADR 0046): its places and the previews' volume.
+    // The browser (ADR 0046): its places and the previews' volume; the Library first (ADR 0055).
+    session.setLibraryFolder(settings.library.location.empty()
+                                 ? juce::File()
+                                 : juce::File(juce::String::fromUTF8(settings.library.location.c_str())));
     session.setSegnoFolder(segno);
     session.setBrowserPlaces(settings.browser.places);
     session.setPreviewVolume(static_cast<float>(settings.browser.previewVolume));

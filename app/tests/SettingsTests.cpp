@@ -34,7 +34,9 @@ TEST_CASE("settings: every setting round-trips; what's malformed keeps its defau
     s.display = {.interfaceSize = 150, .systemTitleBar = true};
     s.midi.computerKeyboard = true;
     s.recording = {.format = RecordingFormat::Flac, .bitDepth = 16};
-    s.library = {.folder = "/home/me/Music/Segno", .newProjects = "/home/me/Songs"};
+    s.library = {.location = "/media/drive/Segno Library",
+                 .folder = "/home/me/Music/Segno",
+                 .newProjects = "/home/me/Songs"};
     s.plugins.folders = {"/opt/vst3"};
     s.exportDefaults.format = ExportFormat::Flac;
     s.exportDefaults.bitDepth = 16;

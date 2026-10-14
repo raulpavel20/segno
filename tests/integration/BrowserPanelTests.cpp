@@ -3,6 +3,7 @@
 // and each drop make, Collect files, the compact rail, menus, and its look.
 
 #include "RecordingFixture.h"
+#include "TestLibrary.h"
 #include "WavetableSynth.h"
 #include "model/MenuBar.h"
 #include "ui/BrowserDrops.h"
@@ -421,47 +422,82 @@ TEST_CASE("browser: at compact widths a rail, opening over the arrangement at a 
         dumpPng(dump, "browser-rail@2x.png", shell.createComponentSnapshot(p.getBounds(), true, 2.0f));
 }
 
-TEST_CASE(
-    "browser: the Wavetable's folder holds its factory tables by category, heard when selected, found by "
-    "search, loaded when put in (table-editor.md §11)",
-    "[integration]")
+TEST_CASE("browser: the Library is a place before User library; its tables heard, found as the Library's, "
+          "put in by their factory ID (ADR 0055)",
+          "[integration]")
 {
     Browser b;
     auto& p = b.panel();
+    // Not installed: said, never silent; nothing to open.
+    REQUIRE(b.shows("place:library"));
+    const auto segno = b.r.root.getChildFile("Segno");
+    {
+        const auto ids = p.rowIds();
+        const auto names = p.rowNames();
+        const auto at = [&ids](const std::string& id)
+        { return static_cast<size_t>(std::find(ids.begin(), ids.end(), id) - ids.begin()); };
+        CHECK(names[at("place:library")] == "Library");
+        CHECK(names[at("place:" + path(segno))] == "User library");
+        CHECK(at("place:library") < at("place:" + path(segno)));
+    }
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "browser-library-missing@2x.png",
+                b.shell->createComponentSnapshot(p.getBounds(), true, 2.0f));
+
+    // Pointed to in Settings > Library: a place, before your Segno folder.
+    const auto library = writeTestLibrary(b.r.root.getChildFile("Library"));
+    b.store->change([&](fd::model::AppSettings& s) { s.library.location = path(library); });
+    b.r.session->waitForBrowserIndex();
+    b.settle();
+    CHECK(b.r.session->libraryFolder() == library);
+    CHECK_FALSE(b.shows("place:library"));
+    {
+        const auto ids = p.rowIds();
+        const auto lib = std::find(ids.begin(), ids.end(), "place:" + path(library));
+        const auto yours = std::find(ids.begin(), ids.end(), "place:" + path(segno));
+        REQUIRE(lib != ids.end());
+        CHECK(lib < yours);
+    }
+    // The Wavetable's folder holds its presets only now.
     b.open("cat:instruments");
     b.open("module:fd:wavetable");
-    REQUIRE(b.shows("tables:fd:wavetable"));
-    CHECK_FALSE(b.shows("tables:fd:wavetable|Acoustic"));
-    b.open("tables:fd:wavetable");
-    CHECK(b.shows("tables:fd:wavetable|Basic"));
-    CHECK(b.shows("tables:fd:wavetable|Acoustic"));
-    // The presets come after the tables, as before.
-    const auto ids = p.rowIds();
-    const auto tables = std::find(ids.begin(), ids.end(), "tables:fd:wavetable");
-    const auto pads = std::find(ids.begin(), ids.end(), "pfolder:fd:wavetable|Pad");
-    REQUIRE(pads != ids.end());
-    CHECK(tables < pads);
-    b.open("tables:fd:wavetable|Acoustic");
-    REQUIRE(b.shows("table:acoustic/cello"));
+    CHECK_FALSE(b.shows("tables:fd:wavetable"));
+    CHECK(b.shows("pfolder:fd:wavetable|Pad"));
 
-    // Selected, it plays on a held note; the drag carries it.
-    REQUIRE(p.select("table:acoustic/cello"));
+    // Its tables are files: Wavetables, a folder a category.
+    const auto cello = library.getChildFile("Wavetables").getChildFile("Acoustic").getChildFile("Cello.wav");
+    b.open("place:" + path(library));
+    b.open("folder:" + path(library.getChildFile("Wavetables")));
+    b.open("folder:" + path(cello.getParentDirectory()));
+    REQUIRE(b.shows("file:" + path(cello)));
+    // Selected, one plays on a held note; the drag carries it.
+    REQUIRE(p.select("file:" + path(cello)));
     b.settle();
     CHECK(b.r.session->isPreviewing());
-    CHECK_FALSE(p.dragDescription("table:acoustic/cello").isVoid());
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "browser-library@2x.png", b.shell->createComponentSnapshot(p.getBounds(), true, 2.0f));
+    CHECK_FALSE(p.dragDescription("file:" + path(cello)).isVoid());
     b.r.session->stopPreview();
 
-    // Found by search, among the wavetables.
+    // Found by search among the wavetables, saying it's the Library's.
     b.search("cello");
     CHECK(b.shows("group:WAVETABLES"));
-    CHECK(b.shows("table:acoustic/cello"));
+    CHECK(b.shows("file:" + path(cello)));
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "browser-library-search@2x.png",
+                b.shell->createComponentSnapshot(p.getBounds(), true, 2.0f));
     b.search("");
+    const auto items = b.r.session->browserItems();
+    const auto item = std::find_if(items.begin(), items.end(),
+                                   [&](const auto& i) { return i.id == "file:" + path(cello); });
+    REQUIRE(item != items.end());
+    CHECK(item->caption == "Library · Acoustic");
 
-    // Put in on the selected track: a Wavetable with it, one step.
+    // Put in on the selected track: a Wavetable with the factory table itself, by its ID, one step.
     const auto t0 = b.track(0).id;
     b.shell->arrangement().selectTrack(t0);
     b.settle();
-    REQUIRE(p.select("table:acoustic/cello"));
+    REQUIRE(p.select("file:" + path(cello)));
     p.loadSelected();
     b.settle();
     b.r.session->updateSnapshotNow();
@@ -471,10 +507,38 @@ TEST_CASE(
     const auto& synth = dynamic_cast<const fd::devices::WavetableSynth&>(*handle->context().device);
     CHECK(synth.tableId(0) == "acoustic/cello");
     // Onto that Wavetable: loaded where OSC shows, one step.
-    CHECK(fd::app::browser::landsOn("table:formant/human-voice", b.track(0).devices[0]));
-    const auto done = fd::app::browser::inChain(*b.r.session, "table:formant/human-voice", t0, -1,
-                                                b.track(0).devices[0].id);
+    const auto voice =
+        "file:" +
+        path(library.getChildFile("Wavetables").getChildFile("Formant").getChildFile("Human Voice.wav"));
+    CHECK(fd::app::browser::landsOn(voice, b.track(0).devices[0]));
+    const auto done = fd::app::browser::inChain(*b.r.session, voice, t0, -1, b.track(0).devices[0].id);
     CHECK(done.done);
     CHECK(synth.tableId(0) == "formant/human-voice");
     CHECK(b.r.session->undoDescription() == "Load Human Voice");
+
+    // Pointed somewhere it isn't: said.
+    b.store->change([&](fd::model::AppSettings& s)
+                    { s.library.location = path(b.r.root.getChildFile("Gone")); });
+    b.settle();
+    CHECK(b.shows("place:library"));
+    b.store->change([](fd::model::AppSettings& s) { s.library.location.clear(); });
+}
+
+TEST_CASE("browser: a row's name comes before its caption, which shows only when both fit whole",
+          "[integration]")
+{
+    const int height = fd::ui::Theme::current().shell.rowHeight;
+    const juce::Rectangle<int> wide{0, 0, 600, height}, narrow{0, 0, 160, height};
+    fd::ui::TreeItem item;
+    item.name = "Cello.wav";
+    item.caption = "64 frames";
+    item.depth = 3;
+    const auto shown = fd::ui::treeRowCaption(wide, item);
+    REQUIRE_FALSE(shown.isEmpty());
+    CHECK(shown.getRight() < fd::ui::treeRowStar(wide).getX()); // the star's column kept
+    CHECK(fd::ui::treeRowCaption(narrow, item).isEmpty());      // the name needs the room
+    item.name = "Kick";
+    item.caption = "0:01";
+    item.depth = 1;
+    CHECK_FALSE(fd::ui::treeRowCaption(narrow, item).isEmpty());
 }

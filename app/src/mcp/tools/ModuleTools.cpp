@@ -3,10 +3,10 @@
 
 #include "mcp/tools/Tools.h"
 
-#include <fd/audiofile/AudioFile.h>
-#include <fd/device/Registry.h>
-
 #include <cmath>
+#include <fd/audiofile/AudioFile.h>
+#include <fd/device/Library.h>
+#include <fd/device/Registry.h>
 
 namespace fd::mcp
 {
@@ -246,7 +246,8 @@ void addModuleTools(Registry& registry, ToolEnv& env)
             if (!audio)
                 throw Problem{file.getFullPathName().toStdString() + " isn't audio the Sampler can load (" + error + ")."};
             auto& context = handle->context();
-            context.params.applyExtraState({{"sample.path", file.getFullPathName().toStdString()}});
+            context.params.applyExtraState(
+                {{"sample.path", fd::library::reference(file.getFullPathName().toStdString())}}); // ADR 0055
             if (audio->rootKey)
                 if (const auto root = parameterIndex(context.info, "root"); root < context.info.params.size())
                 {

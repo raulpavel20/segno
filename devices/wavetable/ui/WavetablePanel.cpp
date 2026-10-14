@@ -166,15 +166,6 @@ public:
         return true;
     }
 
-    bool takeFactoryItem(std::string_view id) override
-    {
-        if (wavetable::factoryTable(id) == nullptr)
-            return false;
-        tablePicker_->setOscillator(osc_);
-        tablePicker_->choose(id);
-        return true;
-    }
-
     bool takeAudio(std::vector<float> mono, double sampleRate, juce::String name) override
     {
         auto* editor = openEditor();

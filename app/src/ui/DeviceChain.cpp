@@ -455,9 +455,7 @@ void DeviceChain::itemDropped(const SourceDetails& details)
                 if (auto* panel = dynamic_cast<ui::DevicePanel*>(s.view.get());
                     panel != nullptr && s.info.id == *on)
                 {
-                    if (ref->file != juce::File()
-                            ? panel->takeFile(ref->file)
-                            : ref->kind == model::BrowserKind::Wavetable && panel->takeFactoryItem(ref->key))
+                    if (ref->file != juce::File() && panel->takeFile(ref->file))
                         return;
                 }
     if (onBrowserDrop)

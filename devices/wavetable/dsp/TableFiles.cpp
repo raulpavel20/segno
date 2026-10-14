@@ -1,5 +1,6 @@
 #include "TableFiles.h"
 
+#include "FactoryTables.h"
 #include "fd/audiofile/AudioFile.h"
 
 #include <algorithm>
@@ -10,6 +11,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <nlohmann/json.hpp>
 
 namespace fd::devices::wavetable
 {
@@ -296,7 +298,8 @@ bool writeBytes(const std::vector<unsigned char>& bytes, const std::string& path
 }
 } // namespace
 
-bool exportWav(const dsp::Wavetable& table, const std::string& path, std::string* error)
+bool exportWav(const dsp::Wavetable& table, const std::string& path, std::string* error,
+               std::string_view factoryId)
 {
     // RIFF/WAVE: fmt (32-bit float, mono, 48 kHz), clm ("<!>2048"), data.
     const int n = dsp::Wavetable::frameSize;
@@ -318,6 +321,16 @@ bool exportWav(const dsp::Wavetable& table, const std::string& path, std::string
     b.insert(b.end(), clm.begin(), clm.end());
     if (clm.size() % 2 != 0)
         b.push_back(0); // chunks are padded to even sizes
+    if (!factoryId.empty())
+    {
+        // Ours: which factory table it is.
+        const auto id = nlohmann::json{{"table", std::string(factoryId)}}.dump();
+        b.insert(b.end(), {'s', 'g', 'n', 'o'});
+        putU32(b, static_cast<std::uint32_t>(id.size()));
+        b.insert(b.end(), id.begin(), id.end());
+        if (id.size() % 2 != 0)
+            b.push_back(0);
+    }
     b.insert(b.end(), {'d', 'a', 't', 'a'});
     putU32(b, samples * 4);
     for (int f = 0; f < table.frames(); ++f)
@@ -326,6 +339,53 @@ bool exportWav(const dsp::Wavetable& table, const std::string& path, std::string
     const auto riff = static_cast<std::uint32_t>(b.size() - 8);
     std::memcpy(b.data() + 4, &riff, 4); // little-endian hosts only, as the rest of the format code
     return writeBytes(b, path, error);
+}
+
+std::string factoryIdOf(const std::string& path)
+{
+    // The chunks come before the data: the head of the file is enough.
+    std::vector<unsigned char> head(65536);
+    {
+        std::ifstream in(path, std::ios::binary);
+        in.read(reinterpret_cast<char*>(head.data()), static_cast<std::streamsize>(head.size()));
+        head.resize(static_cast<size_t>(std::max<std::streamsize>(0, in.gcount())));
+    }
+    if (head.size() < 12 || std::memcmp(head.data(), "RIFF", 4) != 0 ||
+        std::memcmp(head.data() + 8, "WAVE", 4) != 0)
+        return {};
+    for (size_t at = 12; at + 8 <= head.size();)
+    {
+        const auto* id = head.data() + at;
+        const std::uint32_t size = u32(id + 4);
+        if (std::memcmp(id, "sgno", 4) == 0 && at + 8 + size <= head.size())
+        {
+            const auto j = nlohmann::json::parse(std::string(reinterpret_cast<const char*>(id + 8), size),
+                                                 nullptr, false);
+            if (j.is_object() && j.contains("table") && j["table"].is_string())
+                return j["table"].get<std::string>();
+            return {};
+        }
+        if (std::memcmp(id, "data", 4) == 0)
+            break;
+        at += 8 + size + (size & 1);
+    }
+    return {};
+}
+
+bool writeFactoryTableFiles(const std::filesystem::path& folder, std::string* error)
+{
+    for (const auto& t : factoryTables())
+    {
+        const auto table = factoryTable(t.id);
+        if (table == nullptr)
+            continue;
+        const auto dir = folder / std::string(t.category);
+        std::error_code ec;
+        std::filesystem::create_directories(dir, ec);
+        if (!exportWav(*table, (dir / (std::string(t.name) + ".wav")).string(), error, t.id))
+            return false;
+    }
+    return true;
 }
 
 bool exportWt(const dsp::Wavetable& table, const std::string& path, std::string* error)

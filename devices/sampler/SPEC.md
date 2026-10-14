@@ -59,7 +59,7 @@ None in M1.
 | `voice.bend` | Bend Range | How far the pitch bend wheel bends, in semitones. | 0 … 24 st | 2 | |
 
 **Non-parameter state** (`extra`):
-- `sample.path`: absolute path;
+- `sample.path`: absolute path, or a `library:` reference to a sound in Segno's Library, resolved on each machine (ADR 0055; one that isn't there says so on the panel);
 - `sample.rate` and `sample.frames`: the original sample rate and length, for checking.
 
 Project-relative paths come with collect-and-save (M3). Embedding the audio in the project or preset comes later. State version 1.

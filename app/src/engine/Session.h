@@ -681,6 +681,11 @@ public:
     /// Your places (§9). The project's folder and the Segno folder are indexed besides them.
     void setBrowserPlaces(const std::vector<std::string>& folders);
     [[nodiscard]] std::vector<juce::File> browserPlaces() const;
+    /// Segno's Library (ADR 0055): what ships besides the modules, read-only, a place of its own in
+    /// the browser; empty when it isn't installed.
+    [[nodiscard]] juce::File libraryFolder() const;
+    /// Where the Library is (Settings > Library); empty: where it's installed (fd::library).
+    void setLibraryFolder(const juce::File& folder);
     /// The Segno folder (Settings > Library; Documents/Segno by default), with its Samples folder.
     [[nodiscard]] juce::File segnoFolder() const;
     void setSegnoFolder(const juce::File& folder);
@@ -715,14 +720,6 @@ public:
     bool previewPreset(const std::string& deviceId, const std::string& presetKey);
     /// Plays a wavetable file on a held C3, through a Wavetable of its own (table-editor.md §7).
     bool previewWavetable(const juce::File& file);
-    /// The Wavetable's factory tables in their order (the browser's Tables, table-editor.md §11).
-    struct FactoryTable
-    {
-        std::string id, name, category;
-    };
-    [[nodiscard]] std::vector<FactoryTable> wavetableFactoryTables() const;
-    /// Plays a factory table on a held C3, as previewWavetable plays a file.
-    bool previewFactoryTable(const std::string& id);
     /// Plays a MIDI file on a track's instrument (0: the track live MIDI plays), as live MIDI at
     /// the song's tempo; false if that track has no instrument or the file has no notes.
     bool previewMidiFile(const juce::File& file, std::uint64_t trackId = 0);
@@ -749,8 +746,6 @@ public:
     /// <name>"; false if it isn't a Wavetable or the file isn't a table (`error` says why).
     bool loadWavetable(std::uint64_t deviceId, int oscillator, const juce::File& file,
                        std::string* error = nullptr);
-    /// Puts a factory table on one of a Wavetable's oscillators, one undo step "Load <name>".
-    bool loadFactoryTable(std::uint64_t deviceId, int oscillator, const std::string& id);
 
     /// Copies every file the project uses from outside its folder into its Samples folder and
     /// points the clips and takes at the copies (§12); not an undo step. The project must have a

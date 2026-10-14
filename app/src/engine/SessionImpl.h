@@ -119,6 +119,7 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     PreviewPlayer preview;
     std::vector<std::string> browserPlaces;
     juce::File segnoFolder = defaultSegnoFolder();
+    juce::File libraryChoice;    // Settings > Library; none: where it's installed
     bool browserStarted = false; // places given (Settings): the indexer looks at them
     std::set<std::string> usedSources;
     /// A MIDI file previewed on the live MIDI target: its notes sent as live MIDI, in time.

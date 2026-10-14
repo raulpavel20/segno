@@ -149,6 +149,9 @@ void paintTreeRow(juce::Graphics& g, juce::Rectangle<int> row, const TreeItem& i
 /// Where a tree row's disclosure and star are (for clicks).
 [[nodiscard]] juce::Rectangle<int> treeRowMark(juce::Rectangle<int> row, const TreeItem& item);
 [[nodiscard]] juce::Rectangle<int> treeRowStar(juce::Rectangle<int> row);
+/// Where a tree row's caption goes: at the right, when it and the name both fit whole; empty when
+/// the name needs the room (the name comes first; the strip and the tooltip say the rest).
+[[nodiscard]] juce::Rectangle<int> treeRowCaption(juce::Rectangle<int> row, const TreeItem& item);
 
 /// Closes a popover on any mouse press outside it (docs/design/ui-foundations.md): a global
 /// mouse listener while attached. Presses in other top-level windows (a popup menu the popover

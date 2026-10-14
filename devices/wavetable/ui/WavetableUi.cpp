@@ -415,6 +415,14 @@ void warn(const juce::String& title, const juce::String& message)
 
 bool loadTableFile(ui::DeviceUiContext& ctx, int n, const juce::File& file)
 {
+    // A factory table's file (the Library's, ADR 0055): that factory table, by its ID.
+    if (const auto id = wavetable::factoryIdOf(file.getFullPathName().toStdString());
+        !id.empty() && wavetable::factoryTable(id) != nullptr)
+    {
+        ctx.params.beginEdit("Choose a table");
+        ctx.params.applyExtraState(W::factoryTablePatch(n, id));
+        return true;
+    }
     std::string error;
     const auto read = wavetable::importTable(file.getFullPathName().toStdString(), 0, &error);
     if (!read)

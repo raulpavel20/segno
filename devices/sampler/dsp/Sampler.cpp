@@ -1,12 +1,12 @@
 #include "Sampler.h"
 
+#include "fd/device/Library.h"
 #include "fd/dsp/Math.h"
-
-#include <nlohmann/json.hpp>
 
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
+#include <nlohmann/json.hpp>
 #include <random>
 
 namespace fd::devices
@@ -298,8 +298,14 @@ void Sampler::readExtraState(const nlohmann::json& extra)
     path_ = path;
     error_.clear();
     std::shared_ptr<const SampleData> data;
-    if (!path.empty())
-        data = SampleData::load(path, &error_);
+    // A sound in the Library is stored by its place in it (ADR 0055), found on each machine; one
+    // that isn't there says so.
+    std::error_code ec;
+    if (const auto file = library::resolve(path);
+        library::isReference(path) && (file.empty() || !std::filesystem::is_regular_file(file, ec)))
+        error_ = library::missingMessage(path);
+    else if (!path.empty())
+        data = SampleData::load(file.string(), &error_);
     sampleSeconds_ = data != nullptr ? data->seconds() : 0.0;
     samples_.publish(std::move(data));
 }

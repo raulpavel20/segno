@@ -124,7 +124,8 @@ Sources: the [Live 12 manual](https://www.ableton.com/en/live-manual/12/first-st
 | | Bit depth | 16, 24, 32-bit float | 24 |
 | | Count-in | Off, 1 beat, 2 beats, 1 bar, 2 bars (also on the Record button) | 1 bar |
 | | Audio offset / MIDI offset | ms, −500 … 500: for interfaces that report their latency wrongly | 0 |
-| **Library** | Segno folder | Where presets, unsaved projects and, later, samples live; "Move…" moves its contents | `Documents/Segno` |
+| **Library** | Library | Where Segno's Library is (ADR 0055): a readout ("Not installed" when there's none, "(not found)" for a folder that's gone) and "Choose…" | Where it's installed |
+| | Segno folder | Where presets, unsaved projects and, later, samples live; "Move…" moves its contents | `Documents/Segno` |
 | | New projects | Where Save as… starts | The Segno folder |
 | | Browser places | Folders shown in the browser (C2) | – |
 | **Plugins** | Folders | The folders scanned for VST3 and LV2, beyond the system's; Add…, Remove | The system's |

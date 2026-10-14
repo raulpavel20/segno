@@ -105,7 +105,9 @@ std::string toJson(const AppSettings& s)
     j["display"] = {{"interfaceSize", s.display.interfaceSize}, {"systemTitleBar", s.display.systemTitleBar}};
     j["midi"] = {{"computerKeyboard", s.midi.computerKeyboard}};
     j["recording"] = {{"format", formatKey(s.recording.format)}, {"bitDepth", s.recording.bitDepth}};
-    j["library"] = {{"folder", s.library.folder}, {"newProjects", s.library.newProjects}};
+    j["library"] = {{"location", s.library.location},
+                    {"folder", s.library.folder},
+                    {"newProjects", s.library.newProjects}};
     j["plugins"] = {{"folders", s.plugins.folders}};
     auto exportDefaults = s.exportDefaults;
     exportDefaults.folder.clear(); // the project's
@@ -158,6 +160,7 @@ AppSettings appSettingsFromJson(const std::string& json)
     }
     if (const auto it = j.find("library"); it != j.end() && it->is_object())
     {
+        read(*it, "location", s.library.location);
         read(*it, "folder", s.library.folder);
         read(*it, "newProjects", s.library.newProjects);
     }

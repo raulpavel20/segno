@@ -62,6 +62,7 @@ fd_generate_device_registry()
 if(FD_BUILD_TOOLS)
     add_subdirectory(tools/render)
     add_subdirectory(tools/presets)
+    add_subdirectory(tools/library)
 endif()
 
 if(FD_BUILD_TESTS)

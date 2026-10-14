@@ -1,4 +1,5 @@
 #include "Sampler.h"
+#include "fd/device/Library.h"
 #include "fd/device/State.h"
 #include "fd/dsp/Math.h"
 #include "fd/testkit/DeviceRender.h"
@@ -6,14 +7,12 @@
 #include "fd/testkit/Metrics.h"
 #include "fd/testkit/Signals.h"
 
-#include <nlohmann/json.hpp>
-
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
-
 #include <cmath>
 #include <filesystem>
 #include <functional>
+#include <nlohmann/json.hpp>
 
 using namespace fd;
 using namespace fd::testkit;
@@ -200,6 +199,49 @@ TEST_CASE("sampler state keeps the sample path; missing files are reported", "[f
     missing.writeExtraState(kept);
     CHECK(kept["sample.path"] == "/nonexistent/fd-missing.wav"); // the project still references it
     CHECK(peak(play(missing, {noteOn(0, 60)}, 4800)) == 0.0f);
+}
+
+TEST_CASE(
+    "sampler: a sound in the Library is stored by its place in it, found where the Library is, said when "
+    "missing (ADR 0055)",
+    "[fast]")
+{
+    namespace fs = std::filesystem;
+    const auto dir = fs::temp_directory_path() / "fd-sampler-library";
+    fs::remove_all(dir);
+    fs::create_directories(dir / "Library" / "Samples");
+    const auto wav = (dir / "Library" / "Samples" / "Tone.wav").string();
+    REQUIRE(audiofile::writeWav(wav, {std::vector<float>(4800, 0.25f)}, sr, std::nullopt));
+    library::setRoot(dir / "Library");
+    const auto stored = library::reference(wav);
+    REQUIRE(stored == "library:Samples/Tone.wav");
+
+    S s;
+    load(s, stored);
+    CHECK(s.sample()->frames == 4800);
+    nlohmann::json extra = nlohmann::json::object();
+    s.writeExtraState(extra);
+    CHECK(extra["sample.path"] == stored); // travels between machines
+
+    // Elsewhere on another machine: the same reference finds it.
+    fs::rename(dir / "Library", dir / "Moved");
+    library::setRoot(dir / "Moved");
+    S moved;
+    load(moved, stored);
+
+    // Not there: it says so, keeps the reference, and plays silence.
+    library::setRoot(dir / "Gone");
+    S missing;
+    missing.readExtraState({{"sample.path", stored}});
+    CHECK(missing.sample() == nullptr);
+    CHECK(missing.loadError().find("Samples/Tone.wav") != std::string::npos);
+    CHECK(missing.loadError().find("Library") != std::string::npos);
+    nlohmann::json kept = nlohmann::json::object();
+    missing.writeExtraState(kept);
+    CHECK(kept["sample.path"] == stored);
+    CHECK(peak(play(missing, {noteOn(0, 60)}, 4800)) == 0.0f);
+    library::setRoot({});
+    fs::remove_all(dir);
 }
 
 TEST_CASE("Sampler patches match golden metrics", "[fast]")

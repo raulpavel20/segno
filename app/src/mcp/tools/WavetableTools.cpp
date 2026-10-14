@@ -109,9 +109,8 @@ void addWavetableTools(Registry& registry, ToolEnv& env)
         env,
         {"list_wavetables", "List wavetables",
          "The Wavetable's tables (the wavetable synth): the factory ones by category (an id set_wavetable "
-         "takes), and the "
-         "WAV and .wt "
-         "files in the Segno folder's Wavetables (a path set_wavetable takes).",
+         "takes, and the table's file in Segno's Library when it's installed), and the WAV and .wt files in "
+         "the Segno folder's Wavetables (a path set_wavetable takes).",
          object({{"category",
                   string("Only this category (Basic, Analog, Digital, Harmonic, Formant, FM, Texture, "
                          "Spectral, Acoustic)")}}),
@@ -122,6 +121,16 @@ void addWavetableTools(Registry& registry, ToolEnv& env)
         [&env](const Json& args, CallContext&)
         {
             const auto category = args.value("category", std::string());
+            // The Library's files of the factory tables, by their IDs (ADR 0055).
+            std::map<std::string, std::string> libraryFiles;
+            if (const auto library = env.session.libraryFolder(); library != juce::File())
+                for (const auto& entry : juce::RangedDirectoryIterator(library.getChildFile("Wavetables"),
+                                                                       true, "*.wav", juce::File::findFiles))
+                {
+                    const auto path = entry.getFile().getFullPathName().toStdString();
+                    if (auto id = devices::wavetable::factoryIdOf(path); !id.empty())
+                        libraryFiles.emplace(std::move(id), path);
+                }
             Json factory = Json::array();
             for (const auto& t : devices::wavetable::factoryTables())
             {
@@ -129,10 +138,13 @@ void addWavetableTools(Registry& registry, ToolEnv& env)
                     !juce::String(std::string(t.category)).equalsIgnoreCase(juce::String(category)))
                     continue;
                 const auto table = devices::wavetable::factoryTable(t.id);
-                factory.push_back({{"id", std::string(t.id)},
-                                   {"name", std::string(t.name)},
-                                   {"category", std::string(t.category)},
-                                   {"frames", table != nullptr ? table->frames() : 0}});
+                Json j{{"id", std::string(t.id)},
+                       {"name", std::string(t.name)},
+                       {"category", std::string(t.category)},
+                       {"frames", table != nullptr ? table->frames() : 0}};
+                if (const auto it = libraryFiles.find(std::string(t.id)); it != libraryFiles.end())
+                    j["path"] = it->second;
+                factory.push_back(std::move(j));
             }
             Json files = Json::array();
             const auto folder = env.session.segnoFolder().getChildFile("Wavetables");
@@ -147,7 +159,7 @@ void addWavetableTools(Registry& registry, ToolEnv& env)
         env,
         {"set_wavetable", "Set a wavetable",
          "Puts a table on one of a Wavetable's oscillators: a factory table by its id "
-         "(list_wavetables), or a "
+         "(list_wavetables) or by its file in the Library, or a "
          "WAV or .wt file (its frames are carried in the project, so it always plays). One undo step.",
          object({{"module", id(IdKind::Module, "The Wavetable module")},
                  {"oscillator", integer("1, 2 or 3", 1, 3)},
@@ -180,17 +192,25 @@ void addWavetableTools(Registry& registry, ToolEnv& env)
             else
             {
                 const auto file = readableFile(args["path"]);
-                std::string error;
-                const auto read =
-                    devices::wavetable::importTable(file.getFullPathName().toStdString(), 0, &error);
-                if (!read)
-                    throw Problem{file.getFullPathName().toStdString() +
-                                  " isn't a table the synth can read (" + error + ")."};
-                const auto table =
-                    dsp::Wavetable::fromCycles(read->samples.data(), read->frameLength, read->frames, true);
-                context.params.applyExtraState(W::userTablePatch(
-                    n, read->name.empty() ? file.getFileNameWithoutExtension().toStdString() : read->name,
-                    table));
+                const auto path = file.getFullPathName().toStdString();
+                if (const auto factoryId = devices::wavetable::factoryIdOf(path);
+                    !factoryId.empty() && devices::wavetable::factoryTable(factoryId) != nullptr)
+                {
+                    // A factory table's file (the Library's, ADR 0055): that table, by its ID.
+                    context.params.applyExtraState(W::factoryTablePatch(n, factoryId));
+                }
+                else
+                {
+                    std::string error;
+                    const auto read = devices::wavetable::importTable(path, 0, &error);
+                    if (!read)
+                        throw Problem{path + " isn't a table the synth can read (" + error + ")."};
+                    const auto table = dsp::Wavetable::fromCycles(read->samples.data(), read->frameLength,
+                                                                  read->frames, true);
+                    context.params.applyExtraState(W::userTablePatch(
+                        n, read->name.empty() ? file.getFileNameWithoutExtension().toStdString() : read->name,
+                        table));
+                }
             }
             const auto* synth = dynamic_cast<const W*>(context.device);
             const auto table = synth != nullptr ? synth->table(n) : nullptr;

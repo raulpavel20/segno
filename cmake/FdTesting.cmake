@@ -18,10 +18,12 @@ function(fd_add_test)
     # Catch2 exits with 4 when every selected test was skipped (SKIP()).
     # Tests never read or write your presets (ADR 0044) or your Segno folder (the browser, ADR
     # 0046): a folder of their own (the presets' parent is the Segno folder), unless a test sets
-    # another.
+    # another. Nor do they find a Library installed on the machine (ADR 0055): one that isn't
+    # there, unless a test sets its own.
     catch_discover_tests(${ARG_NAME}
         TEST_PREFIX "${ARG_NAME}: "
         ADD_TAGS_AS_LABELS
         PROPERTIES SKIP_RETURN_CODE 4 ENVIRONMENT "SEGNO_PRESETS_FOLDER=${CMAKE_BINARY_DIR}/test-segno/Presets"
+            ENVIRONMENT_MODIFICATION "SEGNO_LIBRARY=set:${CMAKE_BINARY_DIR}/test-segno/no-library"
         DISCOVERY_MODE PRE_TEST)
 endfunction()

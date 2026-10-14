@@ -8,6 +8,7 @@
 
 #include <cmath>
 #include <fd/audiofile/AudioFile.h>
+#include <fd/device/Library.h>
 #include <fd/device/Registry.h>
 
 namespace fd::engine
@@ -41,6 +42,9 @@ void Session::Impl::updateBrowserPlaces()
         add(file->getParentDirectory());
     else if (unsavedFolder)
         add(*unsavedFolder);
+    // What ships (ADR 0055), then yours.
+    if (const auto library = fd::library::root(); !library.empty())
+        add(fileOf(library.string()));
     (void)segnoFolder.getChildFile("Samples").createDirectory(); // your own sounds (§9)
     (void)segnoFolder.getChildFile("Wavetables").createDirectory(); // your tables (table-editor.md §7)
     add(segnoFolder);
@@ -70,6 +74,25 @@ std::vector<juce::File> Session::browserPlaces() const
     for (const auto& p : impl_->browserPlaces)
         out.push_back(fileOf(p));
     return out;
+}
+
+juce::File Session::libraryFolder() const
+{
+    const auto root = fd::library::root();
+    const auto folder = root.empty() ? juce::File() : fileOf(root.string());
+    return folder.isDirectory() ? folder : juce::File();
+}
+
+void Session::setLibraryFolder(const juce::File& folder)
+{
+    if (folder == impl_->libraryChoice)
+        return;
+    impl_->libraryChoice = folder;
+    fd::library::setRoot(folder == juce::File()
+                             ? std::filesystem::path()
+                             : std::filesystem::path(folder.getFullPathName().toStdString()));
+    if (impl_->browserStarted)
+        impl_->updateBrowserPlaces();
 }
 
 juce::File Session::segnoFolder() const
@@ -155,19 +178,16 @@ std::vector<model::BrowserItem> Session::browserItems(const std::set<std::string
                              p->source == Preset::Source::Default ? "Your default" : p->name, d.name, p->tags,
                              std::move(words), library.isFavourite(info.id, p->key())});
         }
-        // The Wavetable's factory tables (table-editor.md §11), found like your own.
-        if (d.key == "fd:wavetable")
-            for (const auto& t : wavetableFactoryTables())
-                items.push_back({"table:" + t.id,
-                                 model::BrowserKind::Wavetable,
-                                 t.name,
-                                 d.name + " · " + t.category,
-                                 {},
-                                 t.category,
-                                 favourites.contains("table:" + t.id)});
     }
-    // The files of the places, and their folders.
+    // The files of the places, and their folders; the Library's say so ("Library · Acoustic").
     std::set<std::string> folders;
+    const auto shipped = libraryFolder();
+    const auto from = [&shipped](const juce::File& folder)
+    {
+        if (shipped == juce::File() || (folder != shipped && !folder.isAChildOf(shipped)))
+            return folder.getFileName().toStdString();
+        return folder == shipped ? std::string("Library") : "Library · " + folder.getFileName().toStdString();
+    };
     for (const auto& [place, files] : browserIndex().places)
     {
         const auto root = fileOf(place);
@@ -179,7 +199,7 @@ std::vector<model::BrowserItem> Session::browserItems(const std::set<std::string
             items.push_back({id,
                              f.kind,
                              file.getFileName().toStdString(),
-                             parent.getFileName().toStdString(),
+                             from(parent),
                              {},
                              file.getRelativePathFrom(root).toStdString(),
                              favourites.contains(id)});
@@ -193,7 +213,7 @@ std::vector<model::BrowserItem> Session::browserItems(const std::set<std::string
         items.push_back({"folder:" + path,
                          model::BrowserKind::Folder,
                          folder.getFileName().toStdString(),
-                         folder.getParentDirectory().getFileName().toStdString(),
+                         from(folder.getParentDirectory()),
                          {},
                          {},
                          favourites.contains("folder:" + path)});
@@ -397,7 +417,8 @@ std::optional<double> Session::loadSample(std::uint64_t deviceId, const juce::Fi
     }
     const EditGroup group(*this, "Load sample " + file.getFileNameWithoutExtension().toStdString());
     auto& context = handle->context();
-    context.params.applyExtraState({{"sample.path", file.getFullPathName().toStdString()}});
+    context.params.applyExtraState(
+        {{"sample.path", fd::library::reference(file.getFullPathName().toStdString())}}); // ADR 0055
     if (audio->rootKey)
         for (size_t i = 0; i < context.info.params.size(); ++i)
             if (context.info.params[i].id == "root")

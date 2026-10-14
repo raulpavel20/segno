@@ -44,7 +44,8 @@ public:
     void process(ProcessContext& context) noexcept override;
     [[nodiscard]] double tailSeconds() const noexcept override;
 
-    /// Extra state: {"sample.path", "sample.rate", "sample.frames"}. Loading is synchronous
+    /// Extra state: {"sample.path", "sample.rate", "sample.frames"}; a path into the Library is a
+    /// `library:` reference (fd/device/Library.h). Loading is synchronous
     /// (ADR 0017): the sample is ready for the audio thread when readExtraState returns.
     void writeExtraState(nlohmann::json& extra) const override;
     void readExtraState(const nlohmann::json& extra) override;

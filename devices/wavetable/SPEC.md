@@ -478,7 +478,7 @@ Dated listening notes from the product owner, and the measurable checks derived 
 - **Files:**
   - Import loads a table as it is: a WAV with frame data, a WaveEdit bank, a single cycle or a `.wt`. Anything else is audio, for the way chooser.
   - Export writes WAV with `clm ` or `.wt`, into Segno/Wavetables by default.
-- **The browser's Wavetables** (and the factory tables: the Wavetable's module folder opens to Tables, a folder a category, before its presets; found by search; heard on a held C3; put in as a file is, `DevicePanel::takeFactoryItem` for a drop on a Wavetable):
+- **The browser's Wavetables** (and the factory tables, files in the Library's Wavetables since ADR 0055, each carrying its factory ID, so loading one sets that table):
   - `.wt` files, and sound files in a folder named Wavetables, are a kind of their own: WAVETABLES in the results, their frames as the caption.
   - Segno/Wavetables is made with the Segno place.
   - A selected one plays a held C3 through a Wavetable of its own.

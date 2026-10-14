@@ -404,8 +404,16 @@ TEST_CASE("settings: the page at standard and compact widths, searched; nothing 
         const auto& s = fd::ui::Theme::current().shell;
         CHECK(p.view().page().getWidth() <= s.settingsColumnWidth);
         if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        {
             dumpPng(dump, "settings-" + juce::String(width) + "@2x.png",
                     p.shell->createComponentSnapshot(p.view().getBounds(), true, 2.0f));
+            p.view().showSetting("library.location");                        // the Library section (ADR 0055)
+            juce::MessageManager::getInstance()->runDispatchLoopUntil(1700); // past its flash
+            dumpPng(dump, "settings-library-" + juce::String(width) + "@2x.png",
+                    p.shell->createComponentSnapshot(p.view().getBounds(), true, 2.0f));
+            p.view().showSetting("audio.driver");
+            p.settle();
+        }
     }
     p.view().searchField().setText("buffer", true);
     p.settle();

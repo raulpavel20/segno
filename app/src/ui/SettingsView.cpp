@@ -867,6 +867,33 @@ void SettingsView::addLibrary()
         return p.startsWith(home) ? "~" + p.substring(home.length()) : p;
     };
     {
+        // The Library (ADR 0055): where it was found, or that it wasn't.
+        auto& r = addRow("library.location", SettingsSection::Library);
+        auto& where = static_cast<Readout&>(*components_.emplace_back(std::make_unique<Readout>()));
+        content_->addAndMakeVisible(where);
+        r.controls.push_back(&where);
+        auto& b = toggle(r, juce::String::fromUTF8("Choose\xE2\x80\xA6"), false);
+        b.onClick = [this]
+        {
+            chooseFolder("Where Segno's Library is",
+                         [this](const juce::File& f)
+                         {
+                             change([&f](model::AppSettings& s)
+                                    { s.library.location = f.getFullPathName().toStdString(); });
+                         });
+        };
+        r.refresh = [this, &where, path]
+        {
+            const auto found = session_.libraryFolder();
+            where.setText(found != juce::File() ? path(found)
+                          : settings().library.location.empty()
+                              ? juce::String("Not installed")
+                              : path(juce::File(text(settings().library.location))) + " (not found)");
+        };
+        r.changed = [this] { return !settings().library.location.empty(); };
+        r.reset = [this] { store_->change([](model::AppSettings& s) { s.library.location.clear(); }); };
+    }
+    {
         auto& r = addRow("library.folder", SettingsSection::Library);
         auto& where = static_cast<Readout&>(*components_.emplace_back(std::make_unique<Readout>()));
         content_->addAndMakeVisible(where);
@@ -1470,7 +1497,17 @@ void SettingsView::showSetting(const std::string& id)
     for (const auto& r : rows_)
         if (r->id == id)
         {
-            viewport_.setViewPosition(0, std::max(0, r->bounds.getY() - s.groupGap));
+            // A section's first setting shows under its title.
+            auto top = r->bounds.getY() - s.groupGap;
+            for (size_t i = 0; i < shownSections_.size(); ++i)
+                if (shownSections_[i] == r->section && std::find_if(
+                                                           rows_.begin(), rows_.end(),
+                                                           [&r](const auto& o)
+                                                           {
+                                                               return o->section == r->section;
+                                                           })->get() == r.get())
+                    top = stack_.titleArea(i).getY();
+            viewport_.setViewPosition(0, std::max(0, top));
             flash_ = id;
             flashUntil_ = juce::Time::getMillisecondCounterHiRes() * 0.001 + 1.5;
             content_->repaint();

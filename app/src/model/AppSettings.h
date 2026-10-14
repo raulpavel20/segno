@@ -67,6 +67,7 @@ struct AppSettings
 
     struct Library
     {
+        std::string location;    // Segno's Library (ADR 0055); empty: where it's installed
         std::string folder;      // the Segno folder; empty: Documents/Segno
         std::string newProjects; // where Save as… starts; empty: the Segno folder
         bool operator==(const Library&) const = default;

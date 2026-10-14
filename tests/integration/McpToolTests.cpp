@@ -2,26 +2,24 @@
 // test). An in-process client calls the dispatcher as a transport would; each edit must be one
 // named undo step, read-only mode must hold, and confirmations must be asked.
 
-#include "engine/EngineBehaviour.h"
+#include "TestLibrary.h"
 #include "engine/DevicePlugin.h"
+#include "engine/EngineBehaviour.h"
 #include "engine/Session.h"
 #include "engine/SessionImpl.h"
+#include "fd/testkit/Signals.h"
+#include "fd/testkit/WavIO.h"
 #include "mcp/McpServer.h"
 #include "mcp/protocol/Encoding.h"
 #include "mcp/protocol/Schema.h"
-#include "fd/testkit/Signals.h"
-#include "fd/testkit/WavIO.h"
-
-#include <tracktion_engine/tracktion_engine.h>
-#include <tracktion_engine/testing/tracktion_EnginePlayer.h>
-
-#include <httplib.h>
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
-
 #include <future>
+#include <httplib.h>
 #include <regex>
+#include <tracktion_engine/testing/tracktion_EnginePlayer.h>
+#include <tracktion_engine/tracktion_engine.h>
 
 using Catch::Approx;
 using fd::mcp::Json;
@@ -697,15 +695,28 @@ TEST_CASE(
               .find("can't be used") != std::string::npos);
     CHECK(daw.call("get_wavetable", {{"module", synth}, {"oscillator", 1}})["name"] == "Saw and sines");
 
-    // The factory tables in the browser (table-editor.md §11): found, heard, set by their id.
+    // The factory tables in the Library (ADR 0055): found as its files, heard, set by their ID.
+    const auto library = writeTestLibrary(daw.folder.getChildFile("Library"));
+    daw.session->setLibraryFolder(library);
+    daw.session->setSegnoFolder(daw.folder.getChildFile("Segno"));
+    daw.session->waitForBrowserIndex();
+    const auto cello = library.getChildFile("Wavetables")
+                           .getChildFile("Acoustic")
+                           .getChildFile("Cello.wav")
+                           .getFullPathName()
+                           .toStdString();
     const auto tables = daw.call("search", {{"query", "cello"}, {"kinds", {"wavetable"}}})["results"];
     REQUIRE_FALSE(tables.empty());
-    CHECK(tables[0]["id"] == "table:acoustic/cello");
-    CHECK(tables[0]["table"] == "acoustic/cello");
-    CHECK(daw.call("preview", {{"item", "table:acoustic/cello"}})["playing"] == true);
+    CHECK(tables[0]["path"] == cello);
+    CHECK(tables[0]["from"] == "Library · Acoustic");
+    CHECK(daw.call("preview", {{"item", cello}})["playing"] == true);
     daw.call("preview", {{"stop", true}});
-    CHECK(daw.call("set_wavetable",
-                   {{"module", synth}, {"oscillator", 2}, {"table", tables[0]["table"]}})["name"] == "Cello");
+    const auto listed = daw.call("list_wavetables", {{"category", "Acoustic"}})["factory"];
+    CHECK(std::any_of(listed.begin(), listed.end(), [&](const Json& t)
+                      { return t["id"] == "acoustic/cello" && t.value("path", "") == cello; }));
+    const auto set = daw.call("set_wavetable", {{"module", synth}, {"oscillator", 2}, {"path", cello}});
+    CHECK(set["table"] == "acoustic/cello"); // the table itself, not a copy
+    CHECK(set["name"] == "Cello");
 
     // Exported: WAV with its frame size, or .wt; read back by set_wavetable.
     const auto dir = juce::File::getSpecialLocation(juce::File::tempDirectory)
@@ -727,6 +738,7 @@ TEST_CASE(
           true); // a wavetable file, on a held note
     daw.call("preview", {{"stop", true}});
     dir.deleteRecursively();
+    daw.session->setLibraryFolder({});
 }
 
 TEST_CASE("mcp tools: each editor's grid, never an undo step (ADR 0047)", "[integration][mcp]")
@@ -876,10 +888,14 @@ TEST_CASE("mcp tools: search, browse, preview and collect_files, as the browser 
     CHECK(found["results"][0]["type"] == "fd:compressor");
     CHECK(daw.call("search", {{"query", "subtractive"}, {"limit", 3}})["results"].size() == 3);
 
-    // browse: the places, then one's files.
+    // browse: the places, then one's files. The Library first, missing here (ADR 0055), then yours.
     const auto places = daw.call("browse")["places"];
     CHECK(std::any_of(places.begin(), places.end(),
                       [&](const Json& p) { return p["path"] == place.getFullPathName().toStdString(); }));
+    REQUIRE(places.size() >= 2);
+    CHECK(places[0]["name"] == "Library");
+    CHECK(places[0]["missing"] == true);
+    CHECK(places[1]["name"] == "User library");
     const auto files = daw.call("browse", {{"folder", place.getFullPathName().toStdString()}})["files"];
     REQUIRE(files.size() == 1);
     CHECK(files[0]["tempo"] == Approx(120.0));

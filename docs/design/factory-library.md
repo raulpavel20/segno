@@ -199,3 +199,26 @@ PLACES
 | L11 | **Making it** | `tools/library` builds it from a recipe in the repository, sources fetched by file at pinned commits with their hashes, libFLAC for the encoding |
 | L12 | **In development and releases** | A build target of its own (not part of a plain build), cached; tests that need it depend on it. Releases ship it as an installer component and an archive |
 | L13 | **Versions** | The Library has a version. Released paths never change; a preset or project needing a newer Library says so |
+
+## 10. Settled while building
+
+**Phase 1, the Library and the browser (2026-10-14):**
+- **Where it's looked for:** Settings > Library first, then `SEGNO_LIBRARY`, then the standard places (§5), and a development build last in the source tree's `.cache/library`. L5 had the variable override Settings; reversed, so a folder chosen in Settings always takes effect. The variable is for where there are no Settings: the plugins in other hosts, portable setups, tests. The plugins don't see the DAW's choice ([B83](../open-questions.md)).
+- **What makes a Library:** a `library.json` with its version (`{"segnoLibrary": 1, "version": "1.0.0"}`). A folder chosen in Settings counts without one, so a Library copied by hand still works.
+- **Building it:** `fd-library build <folder>` (`tools/library`) writes the version and the factory tables, 31 MB for now. The `segno-library` target writes it into `.cache/library`, which a Debug build finds; a plain build doesn't run it. Each table's WAV carries its factory ID in a `sgno` chunk (`{"table": "acoustic/cello"}`).
+- **A factory table's file loads by its ID** wherever a table file is taken: a browser drop or double-click, Import wavetable…, a layer in the table editor, a preview, and `set_wavetable` with a path. The project stores the ID, as the table menu's choice does.
+- **In the browser:**
+  - Places are Project, Library, User library, then yours.
+  - With no Library the place says "Not installed", greyed, with Locate… on a right-click, which sets Settings > Library.
+  - Search results from it say "Library · Acoustic".
+  - The Wavetable's module folder holds its presets only; the `table:` items and `DevicePanel::takeFactoryItem` are gone. They were never released.
+- **The shared tree row puts the name first:** a caption shows only when the name and the caption both fit whole, and the tooltip carries it otherwise ([ui-foundations.md](ui-foundations.md)). The Library's tables made this matter: "Cello.wav" was cut short for its "64 frames".
+- **Settings > Library:** a Library row first: where it was found, "Not installed", or the chosen folder with "(not found)"; Choose…; Reset goes back to where it's installed. `get_settings` gives `library.location`.
+- **The Sampler** stores a sound in the Library as `library:Samples/…`, resolved each time it loads. A missing one keeps its reference, plays silence and says on the panel where it would be and how to get the Library. The DAW's loading, the panel and `load_sample` all store it so.
+- **MCP:** `browse` lists the Library (missing when there's none) and User library. `search` gives a Library table's path, and `set_wavetable` takes it. `list_wavetables` gives each factory table's file in the Library.
+- **Tests** find no Library: CTest points `SEGNO_LIBRARY` at a folder that isn't there. A test that needs one writes the factory tables into a folder of its own and chooses it.
+- **Left for phase 3, with the samples:**
+  - audio clips made from Library samples stored as `library:` paths (a file path resolver on the project);
+  - Collect files leaving them alone (L4).
+
+  No Library file can become a clip until the samples ship.

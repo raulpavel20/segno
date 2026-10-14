@@ -114,7 +114,10 @@ Json settingsJson(ToolEnv& env)
               {"audioOffsetMs", audioMs},
               {"midiOffsetMs", midiMs}}},
             {"library",
-             {{"folder", s.library.folder.empty() ? Json() : Json(s.library.folder)},
+             {{"location", session.libraryFolder() == juce::File()
+                               ? Json()
+                               : Json(session.libraryFolder().getFullPathName().toStdString())},
+              {"folder", s.library.folder.empty() ? Json() : Json(s.library.folder)},
               {"newProjects", s.library.newProjects.empty() ? Json() : Json(s.library.newProjects)}}},
             {"plugins", {{"folders", s.plugins.folders}, {"skipped", session.skippedPlugins()}}},
             {"export",

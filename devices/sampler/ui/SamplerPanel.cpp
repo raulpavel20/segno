@@ -1,6 +1,7 @@
 #include "SamplerPanel.h"
 
 #include "Sampler.h"
+#include "fd/device/Library.h"
 
 #include <nlohmann/json.hpp>
 
@@ -259,7 +260,7 @@ private:
     /// Through the host (ADR 0017); then the file's root note, if it has one.
     void load(const juce::String& path)
     {
-        ctx_.params.applyExtraState({{"sample.path", path.toStdString()}});
+        ctx_.params.applyExtraState({{"sample.path", library::reference(path.toStdString())}}); // ADR 0055
         refresh();
         if (sample_ != nullptr && sample_->rootKey)
         {

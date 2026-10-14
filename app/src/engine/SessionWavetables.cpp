@@ -19,6 +19,10 @@ using W = devices::WavetableSynth;
 /// The table in `file`, as the oscillator's state patch; nothing (and why) if it isn't one.
 std::optional<nlohmann::json> tablePatch(int oscillator, const juce::File& file, std::string* error)
 {
+    // A factory table's file (the Library's, ADR 0055): that factory table, by its ID.
+    if (const auto id = devices::wavetable::factoryIdOf(file.getFullPathName().toStdString());
+        !id.empty() && devices::wavetable::factoryTable(id) != nullptr)
+        return W::factoryTablePatch(oscillator, id);
     const auto read = devices::wavetable::importTable(file.getFullPathName().toStdString(), 0, error);
     if (!read)
         return std::nullopt;
@@ -55,39 +59,6 @@ bool Session::previewWavetable(const juce::File& file)
     if (sound.getNumSamples() == 0)
         return false;
     impl_->preview.play(std::move(sound), rate);
-    return true;
-}
-
-std::vector<Session::FactoryTable> Session::wavetableFactoryTables() const
-{
-    std::vector<FactoryTable> out;
-    for (const auto& t : devices::wavetable::factoryTables())
-        out.push_back({std::string(t.id), std::string(t.name), std::string(t.category)});
-    return out;
-}
-
-bool Session::previewFactoryTable(const std::string& id)
-{
-    stopPreview();
-    if (devices::wavetable::factoryTable(id) == nullptr)
-        return false;
-    const double rate = sampleRate() > 0.0 ? sampleRate() : 48000.0;
-    auto sound = heldNote(W::factoryTablePatch(0, id), rate);
-    if (sound.getNumSamples() == 0)
-        return false;
-    impl_->preview.play(std::move(sound), rate);
-    return true;
-}
-
-bool Session::loadFactoryTable(std::uint64_t deviceId, int oscillator, const std::string& id)
-{
-    auto handle = openDevice(deviceId);
-    const auto table = devices::wavetable::factoryTable(id);
-    if (handle == nullptr || handle->deviceId() != "wavetable" || table == nullptr)
-        return false;
-    const EditGroup group(*this, "Load " + table->name);
-    handle->context().params.applyExtraState(
-        W::factoryTablePatch(std::clamp(oscillator, 0, W::numOscs - 1), id));
     return true;
 }
 

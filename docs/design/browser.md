@@ -74,7 +74,8 @@ Sources: the [Live 12 browser](https://www.ableton.com/en/live-manual/12/working
 │ ▸ Plugins                         │
 │ PLACES                            │
 │ ▸ Project                         │   the open project's folder
-│ ▸ Segno                           │   Documents/Segno: your presets, samples, projects
+│ ▸ Library                         │   what ships with Segno (ADR 0055), read-only
+│ ▸ User library                    │   Documents/Segno: your presets, samples, projects
 │ ▸ Drum samples                    │   a folder you added
 │ + Add folder…                     │
 ├───────────────────────────────────┤
@@ -88,9 +89,9 @@ Sources: the [Live 12 browser](https://www.ableton.com/en/live-manual/12/working
   - **Favourites:** anything you've starred (§8).
   - **Instruments** and **Audio effects:** our modules, A to Z. MIDI effects join when there are some (M4).
   - **Plugins:** the plugins found by the scan, in folders by maker.
-  - **Places:** the project's folder, the Segno folder, and the folders you add (§9).
+  - **Places:** the project's folder, the Library, the Segno folder (as User library), and the folders you add (§9).
 - **Opening and closing:** a click on the triangle, or on a folder's name, opens it; the right and left arrows do too. Folders stay as you left them, so the tree is the same each time the browser shows.
-- **Each row shows** its name, and on the right a caption where it helps: a folder's count, a preset's tags, a sample's length, a plugin's format.
+- **Each row shows** its name, and on the right a caption where it helps: a folder's count, a preset's tags, a sample's length, a plugin's format. The name comes first: a caption shows only when both fit whole, and the tooltip carries it otherwise.
 - **Right-click** on any row: what can be done with it (Load on the selected track, Add to favourites, Show in folder, Remove from places…), each also reachable another way (ADR 0040).
 
 ## 5. Modules are folders of their presets
@@ -141,7 +142,8 @@ As in Live, at the product owner's suggestion:
 ## 9. Places
 
 - **Project:** the open project's folder: Recordings, Bounces, Exports, Samples (collected files). An unsaved project's folder is its place under `Segno/Unsaved`.
-- **Segno:** the Segno folder (Settings > Library): Presets, Samples (a new folder for your own sounds, shipped empty), Wavetables (your tables, [table-editor.md](table-editor.md) §7; made with the place, as Samples is), and your projects if you keep them there.
+- **Library** ([factory-library.md](factory-library.md), ADR 0055): what ships besides the modules, read-only: the factory wavetables in Wavetables, a folder a category (and, with the Sampler's stage 2, sample instruments in Samples). Found where it's installed or where Settings > Library points; when there's none it shows "Not installed", greyed, with Locate… on a right-click. Search results from it say so ("Library · Acoustic").
+- **User library:** the Segno folder (Settings > Library), named so in the browser only: Presets, Samples (a new folder for your own sounds, shipped empty), Wavetables (your tables, [table-editor.md](table-editor.md) §7; made with the place, as Samples is), and your projects if you keep them there.
 - **Your folders:** **+ Add folder…** at the end of Places, also Settings > Library > Browser places (Add…, Remove). Right-click a place to remove it; a folder that's gone shows greyed, with Locate… and Remove.
 - **Indexing:**
   - the files under every place are indexed in the background, at launch and when a folder is opened: name, kind, length, sample rate, channels and tempo;
@@ -284,5 +286,5 @@ As in Live, at the product owner's suggestion:
 - **The rail's icons** are new: `Note` (instruments), `Knob` (audio effects), `Plug` (plugins), `Folder` (places), beside Search and the star. Over the arrangement, the panel has a hairline at its edge.
 - **Remove unused files** counts a file as used if anything used it since the project opened, so undo can never bring back a clip whose file is gone.
 - **Collect files and save** needs the project saved once; before that it asks for a name first, as Save as… does.
-- **Tests** never touch your Segno folder: CTest gives them their own (the parent of their presets folder).
+- **Tests** never touch your Segno folder: CTest gives them their own (the parent of their presets folder). Nor do they find a Library installed on the machine: CTest points `SEGNO_LIBRARY` at a folder that isn't there, and a test that needs one writes its own.
 

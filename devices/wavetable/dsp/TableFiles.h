@@ -2,8 +2,10 @@
 
 #include "fd/dsp/Wavetable.h"
 
+#include <filesystem>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace fd::devices::wavetable
@@ -47,10 +49,19 @@ struct MonoAudio
 /// Writes a table (devices/wavetable/SPEC.md, "Tables and their files"): a WAV of 32-bit float
 /// frames with a `clm ` chunk giving the frame size ("<!>2048", no other vendor's flags), or a
 /// `.wt` of float frames. Read back by importTable exactly. False (and `error`) when it can't.
+/// A factory table's file (the Library's, ADR 0055) also carries its factory ID, in a `sgno` chunk
+/// of ours, so loading it puts that factory table on the oscillator by its ID.
 [[nodiscard]] bool exportWav(const dsp::Wavetable& table, const std::string& path,
-                             std::string* error = nullptr);
+                             std::string* error = nullptr, std::string_view factoryId = {});
 [[nodiscard]] bool exportWt(const dsp::Wavetable& table, const std::string& path,
                             std::string* error = nullptr);
+
+/// The factory table a WAV file is (its `sgno` chunk), or empty: a table of its own.
+[[nodiscard]] std::string factoryIdOf(const std::string& path);
+
+/// Writes every factory table as a WAV into `folder`, a folder a category ("Acoustic/Cello.wav"),
+/// each carrying its ID: the Library's Wavetables (ADR 0055). False (and `error`) when it can't.
+[[nodiscard]] bool writeFactoryTableFiles(const std::filesystem::path& folder, std::string* error = nullptr);
 
 /// Base64, for tables carried inside presets and projects.
 [[nodiscard]] std::string toBase64(const std::vector<unsigned char>& bytes);
