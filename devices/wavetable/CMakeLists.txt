@@ -1,8 +1,9 @@
-fd_add_device(ID wavetable DSP_SOURCES dsp/WavetableSynth.cpp dsp/FactoryTables.cpp dsp/TableFiles.cpp)
+fd_add_device(ID wavetable DSP_SOURCES dsp/WavetableSynth.cpp dsp/FactoryTables.cpp dsp/TableFiles.cpp
+    dsp/Formula.cpp dsp/TableRecipe.cpp dsp/AudioToTable.cpp)
 target_link_libraries(fd_device_wavetable_dsp PUBLIC fd::audiofile)
 
 fd_add_test(NAME fd_wavetable_tests
-    SOURCES tests/WavetableSynthTests.cpp
+    SOURCES tests/WavetableSynthTests.cpp tests/TableToolsTests.cpp
     LIBS fd_device_wavetable_dsp fd::testkit_device)
 
 fd_add_device_ui(ID wavetable SOURCES ui/WavetablePanel.cpp ui/WavetableUi.cpp)

@@ -515,3 +515,38 @@ TEST_CASE("wavetable synth: what a cycle costs", "[.benchmark]")
             WARN(hz << " Hz, " << name << ": " << 1e6 * took.count() / count << " us a cycle");
         }
 }
+
+TEST_CASE("wavetable synth: a table the editor made keeps its recipe in the state; a factory table drops it",
+          "[fast]")
+{
+    using namespace fd::devices::wavetable;
+    Recipe r;
+    r.name = "Drawn";
+    r.frames = 2;
+    Recipe::Layer f;
+    f.kind = Recipe::SourceKind::Formula;
+    f.formula = "sin(2*pi*x) + t*sin(6*pi*x)";
+    r.layers.push_back(f);
+    const auto baked = bake(r);
+
+    auto w = std::make_unique<W>();
+    w->readExtraState(W::recipePatch(1, r, baked));
+    CHECK(w->tableId(1) == "user");
+    CHECK(w->tableName(1) == "Drawn");
+    REQUIRE(w->recipe(1).is_object());
+    CHECK(w->recipe(1) == toJson(r));
+
+    nlohmann::json saved;
+    w->writeExtraState(saved);
+    auto again = std::make_unique<W>();
+    again->readExtraState(saved);
+    CHECK(again->recipe(1) == toJson(r));
+    CHECK(again->table(1)->frames() == 2);
+
+    saved.merge_patch(W::factoryTablePatch(1, "basic/saw"));
+    again->readExtraState(saved);
+    CHECK(again->recipe(1).is_null());
+    nlohmann::json resaved;
+    again->writeExtraState(resaved);
+    CHECK_FALSE(resaved.contains("osc2.recipe"));
+}

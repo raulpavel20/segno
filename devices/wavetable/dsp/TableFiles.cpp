@@ -221,4 +221,83 @@ std::vector<unsigned char> fromBase64(const std::string& text)
     }
     return out;
 }
+namespace
+{
+void putU32(std::vector<unsigned char>& out, std::uint32_t v)
+{
+    for (int k = 0; k < 4; ++k)
+        out.push_back(static_cast<unsigned char>((v >> (8 * k)) & 0xFF));
+}
+
+void putU16(std::vector<unsigned char>& out, std::uint16_t v)
+{
+    out.push_back(static_cast<unsigned char>(v & 0xFF));
+    out.push_back(static_cast<unsigned char>((v >> 8) & 0xFF));
+}
+
+void putFloat(std::vector<unsigned char>& out, float v)
+{
+    std::uint32_t raw = 0;
+    std::memcpy(&raw, &v, sizeof(v));
+    putU32(out, raw);
+}
+
+bool writeBytes(const std::vector<unsigned char>& bytes, const std::string& path, std::string* error)
+{
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+    if (out.good())
+        return true;
+    if (error != nullptr)
+        *error = "The file can't be written.";
+    return false;
+}
+} // namespace
+
+bool exportWav(const dsp::Wavetable& table, const std::string& path, std::string* error)
+{
+    // RIFF/WAVE: fmt (32-bit float, mono, 48 kHz), clm ("<!>2048"), data.
+    const int n = dsp::Wavetable::frameSize;
+    const auto samples = static_cast<std::uint32_t>(table.frames()) * static_cast<std::uint32_t>(n);
+    const std::string clm = "<!>" + std::to_string(n);
+    std::vector<unsigned char> b;
+    b.insert(b.end(), {'R', 'I', 'F', 'F'});
+    putU32(b, 0); // filled below
+    b.insert(b.end(), {'W', 'A', 'V', 'E', 'f', 'm', 't', ' '});
+    putU32(b, 16);
+    putU16(b, 3); // IEEE float
+    putU16(b, 1);
+    putU32(b, 48000);
+    putU32(b, 48000 * 4);
+    putU16(b, 4);
+    putU16(b, 32);
+    b.insert(b.end(), {'c', 'l', 'm', ' '});
+    putU32(b, static_cast<std::uint32_t>(clm.size()));
+    b.insert(b.end(), clm.begin(), clm.end());
+    if (clm.size() % 2 != 0)
+        b.push_back(0); // chunks are padded to even sizes
+    b.insert(b.end(), {'d', 'a', 't', 'a'});
+    putU32(b, samples * 4);
+    for (int f = 0; f < table.frames(); ++f)
+        for (int i = 0; i < n; ++i)
+            putFloat(b, table.samples(f)[i]);
+    const auto riff = static_cast<std::uint32_t>(b.size() - 8);
+    std::memcpy(b.data() + 4, &riff, 4); // little-endian hosts only, as the rest of the format code
+    return writeBytes(b, path, error);
+}
+
+bool exportWt(const dsp::Wavetable& table, const std::string& path, std::string* error)
+{
+    // "vawt", the frame size, the frame count, flags 0 (float data).
+    const int n = dsp::Wavetable::frameSize;
+    std::vector<unsigned char> b{'v', 'a', 'w', 't'};
+    putU32(b, static_cast<std::uint32_t>(n));
+    putU16(b, static_cast<std::uint16_t>(table.frames()));
+    putU16(b, 0);
+    for (int f = 0; f < table.frames(); ++f)
+        for (int i = 0; i < n; ++i)
+            putFloat(b, table.samples(f)[i]);
+    return writeBytes(b, path, error);
+}
+
 } // namespace fd::devices::wavetable

@@ -741,7 +741,10 @@ dsp::Oscillator::Mix WavetableSynth::subShape(int shape) noexcept
 nlohmann::json WavetableSynth::factoryTablePatch(int n, std::string_view id)
 {
     const std::string key = "osc" + std::to_string(n + 1) + ".";
-    return {{key + "table", std::string(id)}, {key + "name", nullptr}, {key + "pcm", nullptr}};
+    return {{key + "table", std::string(id)},
+            {key + "name", nullptr},
+            {key + "pcm", nullptr},
+            {key + "recipe", nullptr}};
 }
 
 nlohmann::json WavetableSynth::userTablePatch(int n, const std::string& name, const dsp::Wavetable& table)
@@ -757,7 +760,18 @@ nlohmann::json WavetableSynth::userTablePatch(int n, const std::string& name, co
             bytes.push_back(static_cast<unsigned char>((v >> 8) & 0xFF));
         }
     const std::string key = "osc" + std::to_string(n + 1) + ".";
-    return {{key + "table", "user"}, {key + "name", name}, {key + "pcm", wavetable::toBase64(bytes)}};
+    return {{key + "table", "user"},
+            {key + "name", name},
+            {key + "pcm", wavetable::toBase64(bytes)},
+            {key + "recipe", nullptr}};
+}
+
+nlohmann::json WavetableSynth::recipePatch(int n, const wavetable::Recipe& recipe,
+                                           const dsp::Wavetable& baked)
+{
+    auto patch = userTablePatch(n, recipe.name, baked);
+    patch["osc" + std::to_string(n + 1) + ".recipe"] = wavetable::toJson(recipe);
+    return patch;
 }
 
 void WavetableSynth::writeExtraState(nlohmann::json& extra) const
@@ -771,6 +785,8 @@ void WavetableSynth::writeExtraState(nlohmann::json& extra) const
             extra[key + "table"] = "user";
             extra[key + "name"] = t.name;
             extra[key + "pcm"] = t.pcm;
+            if (!t.recipe.is_null())
+                extra[key + "recipe"] = t.recipe;
         }
         else if (t.id != wavetable::defaultTableId)
             extra[key + "table"] = t.id;
@@ -806,6 +822,9 @@ void WavetableSynth::readExtraState(const nlohmann::json& extra)
         std::string id = text(key + "table");
         if (id.empty())
             id = std::string(wavetable::defaultTableId);
+        // A table the editor made keeps its recipe (an object), to open again editable.
+        const auto recipe = extra.find(key + "recipe");
+        t.recipe = id == "user" && recipe != extra.end() && recipe->is_object() ? *recipe : nlohmann::json();
         if (id == "user")
         {
             const auto pcm = text(key + "pcm");
@@ -824,7 +843,7 @@ void WavetableSynth::readExtraState(const nlohmann::json& extra)
                 auto table = std::make_shared<dsp::Wavetable>(
                     dsp::Wavetable::fromCycles(samples.data(), dsp::Wavetable::frameSize, frames, false));
                 table->name = text(key + "name");
-                t = {"user", table->name, pcm, std::move(table)};
+                t = {"user", table->name, pcm, std::move(table), std::move(t.recipe)};
                 continue;
             }
             id = std::string(wavetable::defaultTableId); // unreadable: back to the default
@@ -837,7 +856,7 @@ void WavetableSynth::readExtraState(const nlohmann::json& extra)
                 id = std::string(wavetable::defaultTableId);
                 table = wavetable::factoryTable(id);
             }
-            t = {id, table->name, {}, std::move(table)};
+            t = {id, table->name, {}, std::move(table), {}};
         }
     }
     const auto readCurve = [&extra, &text](const std::string& key, std::string_view standard)

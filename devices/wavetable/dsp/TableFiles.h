@@ -31,6 +31,14 @@ struct ImportedTable
 [[nodiscard]] std::optional<dsp::Wavetable> importCycles(const std::vector<std::string>& paths,
                                                          std::string* error = nullptr);
 
+/// Writes a table (devices/wavetable/SPEC.md, "Tables and their files"): a WAV of 32-bit float
+/// frames with a `clm ` chunk giving the frame size ("<!>2048", no other vendor's flags), or a
+/// `.wt` of float frames. Read back by importTable exactly. False (and `error`) when it can't.
+[[nodiscard]] bool exportWav(const dsp::Wavetable& table, const std::string& path,
+                             std::string* error = nullptr);
+[[nodiscard]] bool exportWt(const dsp::Wavetable& table, const std::string& path,
+                            std::string* error = nullptr);
+
 /// Base64, for tables carried inside presets and projects.
 [[nodiscard]] std::string toBase64(const std::vector<unsigned char>& bytes);
 [[nodiscard]] std::vector<unsigned char> fromBase64(const std::string& text);

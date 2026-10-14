@@ -1,6 +1,7 @@
 #pragma once
 
 #include "FactoryTables.h"
+#include "TableRecipe.h"
 #include "fd/device/AssetHandoff.h"
 #include "fd/device/Device.h"
 #include "fd/device/Registry.h"
@@ -282,6 +283,11 @@ public:
     /// The state patch that puts a table of `frames` cycles of 2 048 samples on oscillator n.
     [[nodiscard]] static nlohmann::json userTablePatch(int n, const std::string& name,
                                                        const dsp::Wavetable& table);
+    /// The state patch for a table the editor made: its baked frames, and its recipe beside them.
+    [[nodiscard]] static nlohmann::json recipePatch(int n, const wavetable::Recipe& recipe,
+                                                    const dsp::Wavetable& baked);
+    /// Oscillator n's recipe as saved (null when its table has none: a factory table, a file).
+    [[nodiscard]] const nlohmann::json& recipe(int n) const { return tables_[static_cast<size_t>(n)].recipe; }
 
     /// The sub's wave for its Shape choice (what the audio plays and the panel draws).
     [[nodiscard]] static dsp::Oscillator::Mix subShape(int shape) noexcept;
@@ -302,6 +308,7 @@ private:
         std::string name;
         std::string pcm; // a user table's frames, base64 16-bit
         std::shared_ptr<const dsp::Wavetable> table;
+        nlohmann::json recipe; // what the table editor made it from (null for none)
     };
 
     // Per-voice controls, ramped per sample between control ticks.

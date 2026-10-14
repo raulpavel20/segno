@@ -1,0 +1,323 @@
+// The Wavetable's table tools (docs/design/table-editor.md): formulas, recipes and their baking,
+// audio to wavetable, and table files written.
+#include "AudioToTable.h"
+#include "FactoryTables.h"
+#include "Formula.h"
+#include "TableFiles.h"
+#include "TableRecipe.h"
+#include "fd/dsp/Math.h"
+
+#include <catch2/catch_approx.hpp>
+#include <catch2/catch_test_macros.hpp>
+#include <cmath>
+#include <complex>
+#include <filesystem>
+#include <random>
+
+using namespace fd;
+using namespace fd::devices::wavetable;
+using Catch::Approx;
+
+namespace
+{
+constexpr double sr = 48000.0;
+constexpr int N = dsp::Wavetable::frameSize;
+
+/// A band-limited saw (falling, harmonics 1/h) at `hz`, `seconds` long.
+std::vector<float> saw(double hz, double seconds, double sampleRate = sr)
+{
+    const int length = static_cast<int>(seconds * sampleRate);
+    const int top = static_cast<int>(0.45 * sampleRate / hz);
+    std::vector<float> x(static_cast<size_t>(length));
+    for (int n = 0; n < length; ++n)
+    {
+        double v = 0.0;
+        for (int h = 1; h <= top; ++h)
+            v += std::sin(dsp::twoPi * h * hz * n / sampleRate) / h;
+        x[static_cast<size_t>(n)] = static_cast<float>(0.5 * v);
+    }
+    return x;
+}
+
+/// The levels of a frame's harmonics, the fundamental's taken as 1.
+std::vector<double> levels(const float* frame, int count)
+{
+    std::vector<std::complex<float>> c(static_cast<size_t>(N / 2 + 1));
+    dsp::RealFft(11).forward(frame, c.data());
+    std::vector<double> out(static_cast<size_t>(count) + 1);
+    for (int h = 1; h <= count; ++h)
+        out[static_cast<size_t>(h)] = std::abs(c[static_cast<size_t>(h)]) / std::abs(c[1]);
+    return out;
+}
+
+/// How far a frame's harmonics are from a saw's (1/h), as error power over the saw's (dB).
+double sawErrorDb(const float* frame, int count)
+{
+    const auto l = levels(frame, count);
+    double error = 0.0, total = 0.0;
+    for (int h = 1; h <= count; ++h)
+    {
+        const double want = 1.0 / h;
+        error += (l[static_cast<size_t>(h)] - want) * (l[static_cast<size_t>(h)] - want);
+        total += want * want;
+    }
+    return 10.0 * std::log10(std::max(error, 1e-30) / total);
+}
+} // namespace
+
+TEST_CASE("formula: x and t, the operators in their order, functions and waves", "[fast]")
+{
+    const auto f = Formula::parse("sin(2*pi*x) + 0.5*t^2 - -1");
+    REQUIRE(f);
+    CHECK(f->evaluate(0.25, 0.0) == Approx(2.0));
+    CHECK(f->evaluate(0.0, 1.0) == Approx(1.5));
+    CHECK(Formula::parse("2^3^2")->evaluate(0, 0) == Approx(512.0)); // right to left
+    CHECK(Formula::parse("-2^2")->evaluate(0, 0) == Approx(-4.0));
+    CHECK(Formula::parse("(1 + 2) * 3 / 2")->evaluate(0, 0) == Approx(4.5));
+    CHECK(Formula::parse("clamp(5, 0, 1) + min(1, 2) + max(1, 2) + pow(2, 3)")->evaluate(0, 0) ==
+          Approx(12.0));
+    CHECK(Formula::parse("saw(x)")->evaluate(0.25, 0) == Approx(0.5)); // rising, from 0
+    CHECK(Formula::parse("tri(x)")->evaluate(0.25, 0) == Approx(1.0));
+    CHECK(Formula::parse("sq(x)")->evaluate(0.75, 0) == Approx(-1.0));
+    CHECK(Formula::parse("rand(3)")->evaluate(0, 0) == Formula::parse("rand(3.7)")->evaluate(0, 0));
+    CHECK(Formula::parse("1 / 0")->evaluate(0, 0) == 0.0); // never infinite
+    std::string error;
+    CHECK_FALSE(Formula::parse("sin(x", &error));
+    CHECK(error.find("\")\"") != std::string::npos);
+    CHECK_FALSE(Formula::parse("y * 2", &error));
+    CHECK(error.find("\"y\" isn't known") != std::string::npos);
+    CHECK(error.find("character 1") != std::string::npos);
+    CHECK_FALSE(Formula::parse("min(1)", &error));
+    CHECK(error.find("takes 2 arguments") != std::string::npos);
+    CHECK(formulaError("x * (1 - x)").empty());
+}
+
+TEST_CASE("recipe: each source bakes as defined", "[fast]")
+{
+    // A formula's sine: one harmonic, the rest under -100 dB.
+    Recipe r;
+    r.frames = 4;
+    Recipe::Layer f;
+    f.kind = Recipe::SourceKind::Formula;
+    f.formula = "sin(2*pi*x)";
+    r.layers.push_back(f);
+    const auto sine = bake(r);
+    REQUIRE(sine.frames() == 4);
+    const auto l = levels(sine.samples(2), 50);
+    for (int h = 2; h <= 50; ++h)
+        CHECK(l[static_cast<size_t>(h)] < 1e-5);
+
+    // Harmonic bars: levels as set.
+    Recipe bars;
+    bars.frames = 1;
+    Recipe::Layer b;
+    b.kind = Recipe::SourceKind::Harmonics;
+    b.keyframes.push_back({0, {}, {1.0f, 0.5f, 0.0f, 0.25f}, {}});
+    bars.layers.push_back(b);
+    const auto bl = levels(bake(bars).samples(0), 5);
+    CHECK(bl[2] == Approx(0.5).margin(1e-4));
+    CHECK(bl[3] < 1e-4);
+    CHECK(bl[4] == Approx(0.25).margin(1e-4));
+
+    // Drawn keyframes: a square at frame 0, its negative at frame 4; crossfade passes silence at
+    // frame 2, a spectral morph keeps the level.
+    Recipe drawn;
+    drawn.frames = 5;
+    Recipe::Layer d;
+    d.kind = Recipe::SourceKind::Draw;
+    d.keyframes.push_back(
+        {0, {{0.0f, 1.0f, 0.0f}, {0.5f, 1.0f, 0.0f}, {0.5f, -1.0f, 0.0f}, {1.0f, -1.0f, 0.0f}}, {}, {}});
+    d.keyframes.push_back(
+        {4, {{0.0f, -1.0f, 0.0f}, {0.5f, -1.0f, 0.0f}, {0.5f, 1.0f, 0.0f}, {1.0f, 1.0f, 0.0f}}, {}, {}});
+    drawn.layers.push_back(d);
+    // Its peak is normalised over the table; silence in the middle frame (crossfaded).
+    const auto crossfaded = bake(drawn);
+    float middle = 0.0f;
+    for (int i = 0; i < N; ++i)
+        middle = std::max(middle, std::abs(crossfaded.samples(2)[i]));
+    CHECK(middle < 1e-3f);
+    drawn.layers[0].fill = Recipe::Fill::Spectral;
+    const auto morphed = bake(drawn);
+    float kept = 0.0f;
+    for (int i = 0; i < N; ++i)
+        kept = std::max(kept, std::abs(morphed.samples(2)[i]));
+    CHECK(kept > 0.5f);
+
+    // A factory table as a layer: the same frames.
+    Recipe copy;
+    const auto vowels = factoryTable("formant/vowels");
+    REQUIRE(vowels != nullptr);
+    copy.frames = vowels->frames();
+    Recipe::Layer t;
+    t.kind = Recipe::SourceKind::Table;
+    t.tableId = "formant/vowels";
+    copy.layers.push_back(t);
+    const auto again = bake(copy);
+    for (int i = 0; i < N; i += 7)
+        CHECK(again.samples(3)[i] == Approx(vowels->samples(3)[i]).margin(1e-4));
+}
+
+TEST_CASE("recipe: changes shape every frame, their amounts from keyframe to keyframe", "[fast]")
+{
+    Recipe r;
+    r.frames = 3;
+    Recipe::Layer saws;
+    saws.kind = Recipe::SourceKind::Formula;
+    saws.formula = "saw(x) + 0.3";
+    r.layers.push_back(saws);
+    const auto plain = bake(r);
+
+    // Remove DC takes the 0.3 out (it is already out of a table: bake drops DC), so look at Smooth.
+    Recipe::Change smooth;
+    smooth.kind = Recipe::ChangeKind::Smooth;
+    smooth.amounts = {{0, 0.0f}, {2, 1.0f}};
+    r.changes.push_back(smooth);
+    const auto smoothed = bake(r);
+    CHECK(levels(smoothed.samples(0), 40)[40] == Approx(levels(plain.samples(0), 40)[40]).epsilon(1e-3));
+    CHECK(levels(smoothed.samples(2), 40)[40] < 0.1 * levels(plain.samples(2), 40)[40]);
+    CHECK(smooth.amountAt(1) == Approx(0.5f));
+
+    // Phase Align: the fundamental starts at zero going up.
+    r.changes = {{Recipe::ChangeKind::PhaseAlign, true, dsp::Warp::FormantShift, 0, {}}};
+    Recipe shifted = r;
+    shifted.layers[0].formula = "saw(x + 0.3)";
+    const auto aligned = bake(shifted);
+    std::vector<std::complex<float>> c(static_cast<size_t>(N / 2 + 1));
+    dsp::RealFft(11).forward(aligned.samples(1), c.data());
+    CHECK(std::arg(c[1]) == Approx(-dsp::pi / 2.0).margin(1e-3));
+
+    // A spectral warp as a change: the same function the oscillator uses.
+    Recipe warped = r;
+    warped.changes = {{Recipe::ChangeKind::Warp, true, dsp::Warp::SpectralLowPass, 0, {{0, 1.0f}}}};
+    const auto lowPassed = levels(bake(warped).samples(0), 10);
+    CHECK(lowPassed[2] < 1e-4);
+
+    // Reverse: a rising saw for a falling one.
+    Recipe reversed = r;
+    reversed.changes = {{Recipe::ChangeKind::Reverse, true, dsp::Warp::FormantShift, 0, {}}};
+    const auto back = bake(reversed);
+    CHECK(back.samples(0)[N / 4] == Approx(-plain.samples(0)[N / 4]).margin(0.02));
+}
+
+TEST_CASE("recipe: saved and read back the same, baked the same every time; bad recipes refused", "[fast]")
+{
+    Recipe r;
+    r.name = "Mine";
+    r.frames = 16;
+    Recipe::Layer d;
+    d.kind = Recipe::SourceKind::Draw;
+    d.fill = Recipe::Fill::Spectral;
+    d.keyframes.push_back({0, {{0.0f, 0.0f, 0.3f}, {0.5f, 1.0f, -0.3f}, {1.0f, 0.0f, 0.0f}}, {}, {}});
+    d.keyframes.push_back({15, {{0.0f, 1.0f, 0.0f}, {1.0f, -1.0f, 0.0f}}, {}, {}});
+    r.layers.push_back(d);
+    Recipe::Layer own;
+    own.kind = Recipe::SourceKind::Audio;
+    own.level = 0.5f;
+    own.frames.assign(static_cast<size_t>(2 * N), 0.0f);
+    for (int i = 0; i < 2 * N; ++i)
+        own.frames[static_cast<size_t>(i)] = static_cast<float>(std::sin(dsp::twoPi * 3.0 * i / N));
+    own.note = "Pitched, 2 frames";
+    r.layers.push_back(own);
+    r.changes.push_back({Recipe::ChangeKind::Filter, true, dsp::Warp::FormantShift, 1, {{3, 0.2f}}});
+    r.changes.push_back({Recipe::ChangeKind::Warp, true, dsp::Warp::Shepard, 0, {{0, 0.0f}, {15, 1.0f}}});
+
+    const auto json = toJson(r);
+    const auto read = recipeFromJson(json);
+    REQUIRE(read);
+    CHECK(toJson(*read) == json);
+    const auto a = bake(*read), b = bake(r);
+    for (int f = 0; f < 16; f += 5)
+        for (int i = 0; i < N; i += 97)
+            CHECK(a.samples(f)[i] == Approx(b.samples(f)[i]).margin(1e-4)); // its data went through 16 bits
+    const auto c = bake(*read);
+    CHECK(std::equal(c.samples(0), c.samples(0) + 16 * N, a.samples(0)));
+
+    std::string error;
+    CHECK_FALSE(recipeFromJson(nlohmann::json{{"frames", 300}}, &error));
+    CHECK(error.find("frames") != std::string::npos);
+    CHECK_FALSE(recipeFromJson(nlohmann::json{{"layers", {{{"kind", "smoke"}}}}}, &error));
+    CHECK_FALSE(
+        recipeFromJson(nlohmann::json{{"layers", {{{"kind", "formula"}, {"formula", "sin("}}}}}, &error));
+    CHECK(error.find("the formula") != std::string::npos);
+    CHECK_FALSE(
+        recipeFromJson(nlohmann::json{{"layers", {{{"kind", "table"}, {"table", "basic/none"}}}}}, &error));
+    CHECK_FALSE(recipeFromJson(nlohmann::json{{"changes", {{{"kind", "warp"}, {"warp", "sync"}}}}}, &error));
+
+    // A table to start from: a factory one by its ID, one of yours by its frames.
+    const auto vowels = factoryTable("formant/vowels");
+    CHECK(recipeFromTable(*vowels, "formant/vowels").layers[0].tableId == "formant/vowels");
+    CHECK(recipeFromTable(*vowels, "").layers[0].sourceFrames() == vowels->frames());
+}
+
+TEST_CASE("audio to wavetable: the pitch within a cent, a saw's harmonics within -60 dB", "[fast]")
+{
+    for (const double hz : {55.0, 220.0, 441.3, 1000.0})
+    {
+        INFO(hz << " Hz");
+        const auto x = saw(hz, 1.0);
+        const auto found = findPitch(x.data(), static_cast<int>(x.size()), sr);
+        REQUIRE(found);
+        CHECK(std::abs(1200.0 * std::log2(*found / hz)) < 1.0);
+    }
+    std::mt19937 noise(3);
+    std::uniform_real_distribution<float> uniform(-0.5f, 0.5f);
+    std::vector<float> hiss(48000);
+    for (auto& v : hiss)
+        v = uniform(noise);
+    CHECK_FALSE(findPitch(hiss.data(), static_cast<int>(hiss.size()), sr));
+
+    const auto x = saw(220.0, 1.0);
+    for (const auto way : {AudioWay::Pitched, AudioWay::Spectral})
+    {
+        INFO((way == AudioWay::Pitched ? "pitched" : "spectral"));
+        const auto frames = framesFromAudio(x.data(), static_cast<int>(x.size()), sr, way, 8);
+        REQUIRE(frames);
+        CHECK(frames->count == 8);
+        CHECK(frames->pitch == Approx(220.0).epsilon(1e-4));
+        for (int f = 0; f < 8; f += 3)
+            CHECK(sawErrorDb(frames->samples.data() + static_cast<size_t>(f) * N, 90) < -60.0);
+    }
+    // Pitched keeps the wave: a saw's falling edge where a saw has it.
+    const auto pitched = framesFromAudio(x.data(), static_cast<int>(x.size()), sr, AudioWay::Pitched, 1);
+    REQUIRE(pitched);
+    CHECK(pitched->samples[N / 4] > 0.0f);
+
+    // Slices: windows as they are.
+    std::vector<float> ramp(10000);
+    for (size_t i = 0; i < ramp.size(); ++i)
+        ramp[i] = static_cast<float>(i) / 10000.0f;
+    const auto slices = framesFromAudio(ramp.data(), 10000, sr, AudioWay::Slices, 3);
+    REQUIRE(slices);
+    CHECK(slices->samples[0] == ramp[0]);
+    CHECK(slices->samples[static_cast<size_t>(2 * N + N - 1)] == ramp[9999]);
+
+    std::string error;
+    CHECK_FALSE(framesFromAudio(hiss.data(), 48000, sr, AudioWay::Pitched, 8, &error));
+    CHECK(error.find("Slices") != std::string::npos);
+}
+
+TEST_CASE("table files: WAV with its frame size, and .wt, read back exactly", "[fast]")
+{
+    const auto table = factoryTable("formant/vowels");
+    REQUIRE(table != nullptr);
+    const auto dir = std::filesystem::temp_directory_path() / "fd-table-files";
+    std::filesystem::create_directories(dir);
+    for (const auto* name : {"vowels.wav", "vowels.wt"})
+    {
+        INFO(name);
+        const auto path = (dir / name).string();
+        std::string error;
+        const bool wav = std::string(name).ends_with(".wav");
+        REQUIRE((wav ? exportWav(*table, path, &error) : exportWt(*table, path, &error)));
+        const auto read = importTable(path, 0, &error);
+        REQUIRE(read);
+        CHECK(read->frameLength == N);
+        CHECK(read->frames == table->frames());
+        bool same = true;
+        for (int f = 0; f < table->frames(); ++f)
+            same = same && std::equal(table->samples(f), table->samples(f) + N,
+                                      read->samples.data() + static_cast<size_t>(f) * N);
+        CHECK(same);
+        std::filesystem::remove(path);
+    }
+}
