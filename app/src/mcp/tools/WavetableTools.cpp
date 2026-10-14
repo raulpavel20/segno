@@ -108,12 +108,13 @@ void addWavetableTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"list_wavetables", "List wavetables",
-         "The Wavetable's tables (the wavetable synth): the factory ones by category (an id set_wavetable takes), and the "
+         "The Wavetable's tables (the wavetable synth): the factory ones by category (an id set_wavetable "
+         "takes), and the "
          "WAV and .wt "
          "files in the Segno folder's Wavetables (a path set_wavetable takes).",
          object({{"category",
                   string("Only this category (Basic, Analog, Digital, Harmonic, Formant, FM, Texture, "
-                         "Spectral)")}}),
+                         "Spectral, Acoustic)")}}),
          result({{"factory", arrayOf(result({{"id", string("")}, {"name", string("")}}), "", std::nullopt)},
                  {"files", arrayOf(result({{"path", string("")}, {"name", string("")}}), "", std::nullopt)}},
                 {"factory", "files"}),

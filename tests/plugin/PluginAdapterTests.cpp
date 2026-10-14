@@ -8,6 +8,7 @@
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <cstdlib>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <memory>
 #include <random>
@@ -413,4 +414,40 @@ TEST_CASE("plugin: an editor's note reaches the device at the next block, beside
         processor.playNote(48, i % 2 == 0 ? 0.5f : 0.0f);
     loudness();
     processor.releaseResources();
+}
+
+namespace fd::devices
+{
+const ui::PanelFactory& wavetablePanelFactory();
+}
+
+TEST_CASE("plugin: the Wavetable's table editor opens under its panel, drawn for review", "[plugin]")
+{
+    juce::ScopedJuceInitialiser_GUI juce;
+    fd::ui::LookAndFeel lnf;
+    juce::LookAndFeel::setDefaultLookAndFeel(&lnf);
+    {
+        fd::plugin::DeviceAudioProcessor processor(fd::devices::wavetableFactory(),
+                                                   &fd::devices::wavetablePanelFactory());
+        std::unique_ptr<juce::AudioProcessorEditor> owner(processor.createEditor());
+        auto* editor = dynamic_cast<fd::plugin::DeviceEditor*>(owner.get());
+        REQUIRE(editor != nullptr);
+        const int height = editor->getHeight();
+        REQUIRE(editor->panel().performCommand("table.edit"));
+        editor->handleUpdateNowIfNeeded();
+        REQUIRE(editor->moduleEditor() != nullptr);
+        CHECK(editor->moduleEditor()->title() == "Osc 1, Basic Shapes");
+        CHECK(editor->getHeight() > height + editor->moduleEditor()->minimumHeight());
+        CHECK(editor->getWidth() >= editor->moduleEditor()->minimumWidth());
+        if (const char* dir = std::getenv("FD_DUMP_DIR"))
+        {
+            const auto file = juce::File(dir).getChildFile("plugin-table-editor@2x.png");
+            file.deleteFile();
+            juce::FileOutputStream out(file);
+            juce::PNGImageFormat().writeImageToStream(
+                editor->createComponentSnapshot(editor->getLocalBounds(), true, 2.0f), out);
+        }
+        owner.reset();
+    }
+    juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
 }
