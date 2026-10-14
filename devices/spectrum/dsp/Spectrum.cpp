@@ -21,8 +21,9 @@ constexpr std::string_view kRanges[] = {"60 dB", "90 dB", "120 dB"};
 constexpr std::string_view kLabels[] = {"Off", "3", "6"};
 constexpr std::string_view kSlopes[] = {"0 dB/oct", "1.5 dB/oct", "3 dB/oct", "4.5 dB/oct", "6 dB/oct"};
 constexpr std::string_view kViews[] = {"Spectrum", "Spectrogram"};
+constexpr std::string_view kLengths[] = {"2 s", "5 s", "10 s", "20 s"};
 
-// Display settings: never automatable (SPEC). View arrives in stage 2: hidden until then.
+// Display settings: never automatable (SPEC).
 constexpr std::array<ParamSpec, Spectrum::NumParams> kSpecs{{
     {.id = "channel",
      .name = "Channel",
@@ -103,7 +104,16 @@ constexpr std::array<ParamSpec, Spectrum::NumParams> kSpecs{{
      .max = 1.0f,
      .def = 0.0f,
      .choices = kViews,
-     .flags = ParamFlags::Hidden},
+     .flags = ParamFlags::None},
+    {.id = "length",
+     .name = "Length",
+     .shortName = "Length",
+     .kind = kChoice,
+     .min = 0.0f,
+     .max = 3.0f,
+     .def = 1.0f,
+     .choices = kLengths,
+     .flags = ParamFlags::None},
 }};
 // What each parameter does, in one sentence: the same as in SPEC.md (open question B22).
 constexpr ParamDescription kDescriptions[] = {
@@ -116,7 +126,8 @@ constexpr ParamDescription kDescriptions[] = {
     {"range", "How many decibels the display spans from top to bottom."},
     {"side", "Draws the side signal under the main curve, to show what's stereo."},
     {"labels", "Marks the strongest peaks with their frequency and note."},
-    {"view", "Shows the spectrum now, or a spectrogram of how it changed over time (stage 2)."},
+    {"view", "Shows the spectrum now, or a spectrogram of how it changed over time."},
+    {"length", "How many seconds the spectrogram shows, from now back."},
 };
 constexpr auto kParams = describe(kSpecs, kDescriptions);
 static_assert(allDescribed(kParams), "every parameter needs a description (SPEC.md)");
@@ -190,6 +201,8 @@ void Spectrum::process(ProcessContext& ctx) noexcept
     const float* inL = ctx.input.numChannels > 0 ? ctx.input.channel(0) : nullptr;
     const float* inR = ctx.input.numChannels > 1 ? ctx.input.channel(1) : inL;
 
+    // Whether the song plays: the spectrogram moves while it does.
+    analysis().publish(PlayingSlot, ctx.transport.playing ? 1.0f : 0.0f);
     // The taps first: the output may be the input's buffers.
     if (inL != nullptr)
     {
@@ -298,6 +311,12 @@ int Spectrum::labelCount(float labels) noexcept
 {
     constexpr int counts[] = {0, 3, 6};
     return counts[std::clamp(static_cast<int>(std::lround(labels)), 0, 2)];
+}
+
+double Spectrum::lengthSeconds(float length) noexcept
+{
+    constexpr double seconds[] = {2.0, 5.0, 10.0, 20.0};
+    return seconds[std::clamp(static_cast<int>(std::lround(length)), 0, 3)];
 }
 
 std::optional<Spectrum::Snapshot> Spectrum::snapshot() const

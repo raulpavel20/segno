@@ -5,6 +5,9 @@
 #include <array>
 #include <complex>
 #include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <span>
 #include <vector>
 
 namespace fd::dsp
@@ -66,6 +69,13 @@ public:
     /// Averages everything pushed with equal weight, however long (a file's long-term spectrum).
     void setCumulative(bool cumulative) noexcept { cumulative_ = cumulative; }
 
+    /// Samples between transforms (0: a quarter of the FFT, 75 % overlap). A spectrogram asks for
+    /// about 10 ms whatever the size, so a click is one line (SPEC.md, stage 2).
+    void setHop(int samples) noexcept;
+    [[nodiscard]] int hop() const noexcept { return hop_; }
+    /// Called after every transform, inside push(): a spectrogram reads each line here.
+    std::function<void()> onTransform;
+
     /// Forgets everything pushed: no data until the next transform.
     void reset() noexcept;
 
@@ -87,13 +97,22 @@ public:
     };
     [[nodiscard]] Peak peakNear(double hz) const;
 
+    // The last transform alone, unaveraged (a spectrogram's line, SPEC.md stage 2).
+    /// The loudest bin between each pair of `edgesHz` (rising), interpolated where the span is
+    /// narrower than a bin, in dB as a sine reads (−12 dB for a −12 dBFS sine): one level per span
+    /// into `out` (edgesHz.size() − 1 of them).
+    void lineAt(std::span<const double> edgesHz, std::span<float> out) const;
+    /// The last transform in bands, as bands() reads the average (collisions in time).
+    [[nodiscard]] SpectrumCurve currentBands() const;
+
 private:
     void transform();
+    [[nodiscard]] SpectrumCurve bandsOf(const std::vector<double>& power) const;
     /// The bin power of `frame` (a whole FFT, oldest first) into `out`.
     void binPower(const std::vector<float>& frame, std::vector<double>& out);
 
     Fft fft_{11};
-    int order_ = 0, size_ = 0, hop_ = 0;
+    int order_ = 0, size_ = 0, hop_ = 0, hopAsked_ = 0;
     int write_ = 0, filled_ = 0, sinceHop_ = 0;
     double sampleRate_ = 48000.0, averagingMs_ = 300.0;
     bool cumulative_ = false;
@@ -130,6 +149,44 @@ spectrumCollisions(const SpectrumCurve& a, const SpectrumCurve& b, float slope, 
 /// an octave apart, above `floorDb`.
 [[nodiscard]] std::vector<int> spectrumPeaks(const SpectrumCurve& curve, float slope, int count,
                                              float floorDb);
+
+/// A spectrogram's history (devices/spectrum/SPEC.md, stage 2): rows of levels across the display,
+/// the newest first. Each row is the loudest of the lines that fell in its time, and marks where
+/// any of them collided with a compared track. Allocates in prepare(); for displays.
+class SpectrogramHistory
+{
+public:
+    /// `width` levels a row, `rows` rows, each `secondsPerRow` long. Clears it.
+    void prepare(int width, int rows, double secondsPerRow);
+    void clear() noexcept;
+    [[nodiscard]] int width() const noexcept { return width_; }
+    [[nodiscard]] int rows() const noexcept { return rows_; }
+    [[nodiscard]] double secondsPerRow() const noexcept { return secondsPerRow_; }
+
+    /// A line: its levels across (`width` of them), where it collided (empty: nowhere) and how
+    /// long it lasted. Fills the newest row; once that row's time is up, starts the next.
+    void add(std::span<const float> levels, std::span<const std::uint8_t> collides, double seconds);
+
+    /// Row `age` (0: the newest, filling now; rows() − 1: the oldest kept).
+    [[nodiscard]] std::span<const float> levels(int age) const;
+    [[nodiscard]] std::span<const std::uint8_t> collisions(int age) const;
+    /// Rows that hold something, the newest first.
+    [[nodiscard]] int filled() const noexcept { return filled_; }
+    /// Counts every change: a display repaints when it moves on.
+    [[nodiscard]] std::uint64_t version() const noexcept { return version_; }
+    /// Rows started since prepare() or clear(): a display's ring image follows it.
+    [[nodiscard]] std::uint64_t started() const noexcept { return started_; }
+
+private:
+    [[nodiscard]] size_t slot(int age) const noexcept;
+
+    int width_ = 0, rows_ = 0, filled_ = 0;
+    double secondsPerRow_ = 0.01, rowTime_ = 0.0;
+    std::vector<float> levels_;          // rows × width, a ring
+    std::vector<std::uint8_t> collides_; // the same
+    size_t head_ = 0;                    // the newest row's slot
+    std::uint64_t version_ = 0, started_ = 0;
+};
 
 /// The offset that brings `curve`'s average level over 50 Hz–15 kHz to `target`'s (a level-matched
 /// reference): the average of their differences there. 0 where either has nothing.

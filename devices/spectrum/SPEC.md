@@ -49,11 +49,12 @@ All are display settings: they never affect audio, and they are not automatable.
 | `range` | Range | How many decibels the display spans from top to bottom. | 60, 90, 120 | 90 | dB shown | – | – | No |
 | `side` | Side Overlay | Draws the side signal under the main curve, to show what's stereo. | Off / On | Off | toggle | – | – | No |
 | `labels` | Peak Labels | Marks the strongest peaks with their frequency and note. | Off, 3, 6 | 3 | choice | – | – | No |
-| `view` | View | Shows the spectrum now, or a spectrogram of how it changed over time (stage 2). | Spectrum, Spectrogram | Spectrum | choice | – | – | No |
+| `view` | View | Shows the spectrum now, or a spectrogram of how it changed over time. | Spectrum, Spectrogram | Spectrum | choice | – | – | No |
+| `length` | Length | How many seconds the spectrogram shows, from now back. | 2 s, 5 s, 10 s, 20 s | 5 s | choice | – | – | No |
 
 - **Channel:** L+R is the average of the left and right power spectra (how both channels look together; a mono sum would hide what's out of phase). Mid is (L + R) / 2 and Side is (L − R) / 2.
 - **Side Overlay** applies while Channel is L+R or Mid; with Left, Right or Side it has nothing to add and is dimmed.
-- **View** ships in stage 2. Until then it's fixed at Spectrum and not shown.
+- **View** and **Length** are in the header (stage 2); Length shows only with the spectrogram.
 
 **Compare source** (which track is compared) is host routing, not a parameter: the module's sidechain input ([ADR 0025](../../docs/decisions/0025-sidechain-routing.md)), chosen in the header like the Compressor's.
 
@@ -189,7 +190,7 @@ Approved as drafted (product owner, 2026-10-11):
 
 ## Stage 2: the spectrogram (for review)
 
-**Status:** for review (2026-10-15, M3 B9). Nothing is built until the product owner approves it.
+**Status:** approved by the product owner (2026-10-15) with every recommendation of G1–G10, and built the same day (below, "Settled while building stage 2"). Waiting for the product owner's sign-off.
 
 ### How others do it (October 2026)
 
@@ -218,7 +219,7 @@ Most draw time across and frequency up (a [Computer Music](https://www.pressread
 - **Where the settings sit:** View in the header, right-aligned, as a module-wide display setting (device-panels.md); Length beside it, shown only in the spectrogram. Nothing on the grid moves.
 - **Drawing:** an image the size of the display, a line written per transform, drawn as two halves of a ring: each frame costs its new lines and one copy. The first plan said "drawn on the GPU"; Segno draws with JUCE's software renderer, and a ring image needs nothing more (the frame-budget test checks it).
 - **The plugin:** the same view in the plugin and the DAW.
-- **Factory presets:** two more, **Spectrogram** (Mix: the view at its defaults) and **Find clicks** (Fix: the view, Resolution 2 048, Length 2 s, no tilt).
+- **Factory presets:** two more, **Spectrogram** (Mix: the view at its defaults) and **Find clicks** (Fix: the view, Resolution 2 048, Length 2 s, no tilt). Eight in all.
 - **IDs** (permanent once approved): `view` (Spectrum, Spectrogram; reserved since stage 1) and `length` (2 s, 5 s, 10 s, 20 s).
 
 ### Tests (done when)
@@ -234,7 +235,20 @@ Most draw time across and frequency up (a [Computer Music](https://www.pressread
 | The panel | Layout lint passes; screenshots of both views at 100 % and 200 %, with sound and a compared track |
 | Drawing at 16 384 points, 20 s | Within the panel's frame budget |
 
+### Settled while building stage 2 (2026-10-15)
+
+- **The analysis:** `dsp::SpectrumAnalyser` gained its own hop (`setHop`: a line every 480 samples at 48 kHz), a hook on each transform, and two readings of the last transform alone: the loudest bin across each pixel's span of frequencies (`lineAt`; a sine reads its own level, within the Hann window's loss between bins, up to 1.4 dB) and its bands (`currentBands`, for collisions in time). `dsp::SpectrogramHistory` keeps the rows: each the loudest of the lines in its time, with where they collided ([fast] tests).
+- **A row is a pixel:** the rows fill the display above a strip kept for the frequency labels, which never sit on the picture; the time marks and the hover readout sit on the shade, as peak labels do. Each row spans Length divided by the rows (5 s over 146 rows: 34 ms, three or four lines).
+- **The picture is written whole when it changes,** once a frame at most (about 90 000 points through a 256-step lookup of the theme's colours), simpler than the ring the design described and well within the frame budget (the panel test times the heaviest case, 16 384 points over 20 s).
+- **The colours** are a role function in `fd_ui` (`Theme::spectrogram`): the display's background, the analyser's grey and near white, as one ramp, with the collision colour mixed in where both tracks are loud (ui-foundations.md).
+- **When it moves:** the device publishes whether the song plays in an analysis slot; a line is kept while it plays or while any of it is louder than −150 dB. Just after a sound stops, the window still holds its tail, so it moves on for one window's length (up to a third of a second at 16 384 points) before it holds.
+- **Below the range,** the readout says so ("< −90 dB"), not the window's own floor.
+- **Presets:** Spectrogram and Find clicks; the six before gained Length at its default.
+- **Found while testing:** the panel tests' feeding helper played a few hundred samples twice at each quarter second; the averaged curve hid it, the spectrogram showed it as a line across. Fixed in the tests.
+
 ### Questions for review
+
+Approved by the product owner (2026-10-15) with every recommendation.
 
 | # | Question | Recommendation |
 |---|---|---|

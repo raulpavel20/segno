@@ -29,8 +29,13 @@ public:
         Side,
         Labels,
         View,
+        Length,
         NumParams
     };
+
+    /// The analysis slot that says whether the song plays (1) or not (0): the spectrogram moves
+    /// while it does (SPEC.md, stage 2).
+    static constexpr int PlayingSlot = 0;
 
     /// The analysis FIFOs: the input's left and right, and the sidechain's (the compared track)
     /// while one is connected.
@@ -65,6 +70,8 @@ public:
     [[nodiscard]] static float slopeDb(float slope) noexcept;
     /// How many peaks are labelled for a Peak Labels choice.
     [[nodiscard]] static int labelCount(float labels) noexcept;
+    /// The seconds the spectrogram shows for a Length choice (2, 5, 10 or 20).
+    [[nodiscard]] static double lengthSeconds(float length) noexcept;
 
     // ---- non-parameter state (ADR 0017): changed only through the host binding -------------
 

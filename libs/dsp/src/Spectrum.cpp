@@ -41,7 +41,7 @@ void SpectrumAnalyser::prepare(int order, double sampleRate)
 {
     order_ = std::clamp(order, 11, 14);
     size_ = 1 << order_;
-    hop_ = size_ / 4;
+    hop_ = hopAsked_ > 0 ? std::min(hopAsked_, size_) : size_ / 4;
     sampleRate_ = sampleRate > 0.0 ? sampleRate : 48000.0;
     fft_.prepare(order_);
     left_.assign(static_cast<size_t>(size_), 0.0f);
@@ -52,6 +52,13 @@ void SpectrumAnalyser::prepare(int order, double sampleRate)
     now_.assign(mags_.size(), 0.0);
     other_.assign(mags_.size(), 0.0);
     reset();
+}
+
+void SpectrumAnalyser::setHop(int samples) noexcept
+{
+    hopAsked_ = std::max(0, samples);
+    if (size_ > 0)
+        hop_ = hopAsked_ > 0 ? std::min(hopAsked_, size_) : size_ / 4;
 }
 
 void SpectrumAnalyser::setChannel(SpectrumChannel channel) noexcept
@@ -88,6 +95,8 @@ bool SpectrumAnalyser::push(const float* left, const float* right, std::size_t n
             sinceHop_ = 0;
             transform();
             transformed = true;
+            if (onTransform)
+                onTransform();
         }
     }
     return transformed;
@@ -156,6 +165,47 @@ void SpectrumAnalyser::transform()
 
 SpectrumCurve SpectrumAnalyser::bands() const
 {
+    return bandsOf(power_);
+}
+
+SpectrumCurve SpectrumAnalyser::currentBands() const
+{
+    return bandsOf(now_);
+}
+
+void SpectrumAnalyser::lineAt(std::span<const double> edgesHz, std::span<float> out) const
+{
+    const size_t spans = edgesHz.empty() ? 0 : edgesHz.size() - 1;
+    for (size_t i = 0; i < std::min(spans, out.size()); ++i)
+        out[i] = floorDb;
+    if (frames_ == 0 || spans == 0)
+        return;
+    const double binHz = sampleRate_ / size_;
+    const int lastBin = size_ / 2 - 1;
+    for (size_t i = 0; i < std::min(spans, out.size()); ++i)
+    {
+        const double lo = edgesHz[i] / binHz, hi = edgesHz[i + 1] / binHz;
+        if (edgesHz[i] >= sampleRate_ * 0.5)
+            break;
+        const int from = std::max(1, static_cast<int>(std::ceil(lo)));
+        const int to = std::min(lastBin, static_cast<int>(std::ceil(hi)) - 1);
+        double power = 0.0;
+        if (to >= from) // the loudest bin in the span: a sine reads its own level
+            for (int k = from; k <= to; ++k)
+                power = std::max(power, now_[static_cast<size_t>(k)]);
+        else // narrower than a bin: between the two around its middle
+        {
+            const double x = std::clamp(0.5 * (lo + hi), 1.0, static_cast<double>(lastBin));
+            const auto k = static_cast<size_t>(x);
+            const double t = x - static_cast<double>(k);
+            power = now_[k] * (1.0 - t) + now_[std::min(k + 1, static_cast<size_t>(lastBin))] * t;
+        }
+        out[i] = toDb(power);
+    }
+}
+
+SpectrumCurve SpectrumAnalyser::bandsOf(const std::vector<double>& source) const
+{
     SpectrumCurve out;
     out.fill(floorDb);
     if (frames_ == 0)
@@ -175,7 +225,7 @@ SpectrumCurve SpectrumAnalyser::bands() const
         if (to >= from)
         {
             for (int k = from; k <= to; ++k)
-                power += power_[static_cast<size_t>(k)];
+                power += source[static_cast<size_t>(k)];
             power /= to - from + 1;
         }
         else
@@ -183,7 +233,7 @@ SpectrumCurve SpectrumAnalyser::bands() const
             const double x = std::clamp(centre / binHz, 1.0, static_cast<double>(lastBin));
             const auto k = static_cast<size_t>(x);
             const double t = x - static_cast<double>(k);
-            power = power_[k] * (1.0 - t) + power_[std::min(k + 1, static_cast<size_t>(lastBin))] * t;
+            power = source[k] * (1.0 - t) + source[std::min(k + 1, static_cast<size_t>(lastBin))] * t;
         }
         out[static_cast<size_t>(b)] = toDb(power * scale);
     }
@@ -319,5 +369,73 @@ float spectrumMatchOffset(const SpectrumCurve& curve, const SpectrumCurve& targe
         ++n;
     }
     return n > 0 ? static_cast<float>(sum / n) : 0.0f;
+}
+// ---- the spectrogram's history ------------------------------------------------------------
+
+void SpectrogramHistory::prepare(int width, int rows, double secondsPerRow)
+{
+    width_ = std::max(0, width);
+    rows_ = std::max(0, rows);
+    secondsPerRow_ = std::max(1.0e-4, secondsPerRow);
+    levels_.assign(static_cast<size_t>(width_) * static_cast<size_t>(rows_), floorDb);
+    collides_.assign(levels_.size(), 0);
+    clear();
+}
+
+void SpectrogramHistory::clear() noexcept
+{
+    std::fill(levels_.begin(), levels_.end(), floorDb);
+    std::fill(collides_.begin(), collides_.end(), std::uint8_t{0});
+    head_ = 0;
+    filled_ = 0;
+    rowTime_ = 0.0;
+    started_ = 0;
+    ++version_;
+}
+
+size_t SpectrogramHistory::slot(int age) const noexcept
+{
+    return (head_ + static_cast<size_t>(age)) % static_cast<size_t>(rows_);
+}
+
+void SpectrogramHistory::add(std::span<const float> levels, std::span<const std::uint8_t> collides,
+                             double seconds)
+{
+    if (width_ == 0 || rows_ == 0)
+        return;
+    // Its time is up: the next row starts, the oldest one goes.
+    if (filled_ == 0 || rowTime_ >= secondsPerRow_)
+    {
+        if (filled_ > 0)
+            head_ = (head_ + static_cast<size_t>(rows_) - 1) % static_cast<size_t>(rows_);
+        const auto row = head_ * static_cast<size_t>(width_);
+        std::fill_n(levels_.begin() + static_cast<std::ptrdiff_t>(row), width_, floorDb);
+        std::fill_n(collides_.begin() + static_cast<std::ptrdiff_t>(row), width_, std::uint8_t{0});
+        filled_ = std::min(filled_ + 1, rows_);
+        rowTime_ = 0.0;
+        ++started_;
+    }
+    const auto row = head_ * static_cast<size_t>(width_);
+    const auto n = std::min(levels.size(), static_cast<size_t>(width_));
+    for (size_t i = 0; i < n; ++i)
+        levels_[row + i] = std::max(levels_[row + i], levels[i]);
+    for (size_t i = 0; i < std::min(collides.size(), static_cast<size_t>(width_)); ++i)
+        collides_[row + i] |= collides[i];
+    rowTime_ += seconds;
+    ++version_;
+}
+
+std::span<const float> SpectrogramHistory::levels(int age) const
+{
+    if (age < 0 || age >= rows_)
+        return {};
+    return {levels_.data() + slot(age) * static_cast<size_t>(width_), static_cast<size_t>(width_)};
+}
+
+std::span<const std::uint8_t> SpectrogramHistory::collisions(int age) const
+{
+    if (age < 0 || age >= rows_)
+        return {};
+    return {collides_.data() + slot(age) * static_cast<size_t>(width_), static_cast<size_t>(width_)};
 }
 } // namespace fd::dsp

@@ -102,15 +102,19 @@ private:
 class SpectrumDisplay final : public juce::Component,
                               public juce::SettableTooltipClient,
                               public juce::FileDragAndDropTarget,
-                              public ui::ParamControl
+                              public ui::ParamControl,
+                              public SpectrogramView
 {
 public:
     explicit SpectrumDisplay(ui::DeviceUiContext& ctx)
         : ctx_(ctx), device_(dynamic_cast<const S*>(ctx.device))
     {
         setTooltip("Drop an audio file here to show its average spectrum as a reference");
+        main_.onTransform = [this] { spectrogramLine(); };
         configure();
     }
+
+    void resized() override { prepareHistory(); }
 
     std::function<void(const juce::String& path)> onFileDropped;
 
@@ -134,7 +138,7 @@ public:
             matched_ = false; // match the new one at once
         }
         const auto key = std::make_tuple(param(S::Slope), param(S::Range), param(S::Labels), param(S::Hold),
-                                         param(S::Side));
+                                         param(S::Side), param(S::View));
         if (snapshotChanged || referenceChanged || key != last_)
         {
             last_ = key;
@@ -152,25 +156,28 @@ public:
         if (ctx_.analysis == nullptr)
             return;
         auto& bus = *ctx_.analysis;
-        const bool side = sideApplies();
-        bool fresh = drain(bus, S::InputLeft, S::InputRight,
+        playing_ = bus.read(S::PlayingSlot) >= 0.5f;
+        // The compared track first: the spectrogram's lines read its last transform for collisions.
+        size_t compared = 0;
+        bool fresh = drain(bus, S::CompareLeft, S::CompareRight,
                            [&](const float* l, const float* r, size_t n)
                            {
-                               if (side)
-                                   side_.push(l, r, n);
-                               return main_.push(l, r, n);
+                               compared += n;
+                               return compare_.push(l, r, n);
                            });
-        if (!side && side_.hasData())
-            side_.reset();
-
-        // The compared track: while one is chosen and its sound arrives.
-        size_t compared = 0;
-        fresh |= drain(bus, S::CompareLeft, S::CompareRight,
+        const bool side = sideApplies();
+        const auto drawn = history_.version();
+        fresh |= drain(bus, S::InputLeft, S::InputRight,
                        [&](const float* l, const float* r, size_t n)
                        {
-                           compared += n;
-                           return compare_.push(l, r, n);
+                           if (side)
+                               side_.push(l, r, n);
+                           return main_.push(l, r, n);
                        });
+        if (!side && side_.hasData())
+            side_.reset();
+        if (spectrogramShown() && history_.version() != drawn)
+            repaint();
         if (compared > 0)
             lastCompared_ = now;
         const bool comparing = compareChosen() && compare_.hasData() && now - lastCompared_ < 0.5;
@@ -235,6 +242,11 @@ public:
         const auto bounds = getLocalBounds().toFloat();
         g.setColour(dragOver_ ? t.roles.dropWell : t.surface0);
         g.fillRoundedRectangle(bounds, t.radiusControl);
+        if (spectrogramShown())
+        {
+            paintSpectrogram(g);
+            return;
+        }
         const auto plot = plotArea();
         plot.paintGrid(g, S::rangeDb(param(S::Range)) / 5.0f);
 
@@ -275,12 +287,42 @@ public:
     void mouseMove(const juce::MouseEvent& e) override
     {
         hover_ = e.position.x;
+        hoverY_ = e.position.y;
         repaint();
     }
+
+    /// What hovering the spectrogram at (`x`, `y`) reads: "2.60 kHz · E6   1.2 s ago   −24 dB"
+    /// (tests too).
+    [[nodiscard]] juce::String spectrogramReadout(float x, float y) const override
+    {
+        const auto plot = plotArea();
+        const double hz = plot.hzAt(x);
+        const int age = std::clamp(static_cast<int>(y), 0, std::max(0, history_.rows() - 1));
+        const auto column =
+            static_cast<size_t>(std::clamp(static_cast<int>(x), 0, std::max(0, history_.width() - 1)));
+        const double ago = age * history_.secondsPerRow();
+        juce::String text = utf8(frequencyText(hz) + " \xC2\xB7 " + noteText(hz));
+        text << "   " << juce::String(ago, 1) << " s ago";
+        const auto row = history_.levels(age);
+        if (age < history_.filled() && column < row.size())
+        {
+            // Below the range shown, it says so: the window's own floor means nothing.
+            const float level = row[column] + dsp::spectrum::tiltDb(hz, slope());
+            const float range = S::rangeDb(param(S::Range));
+            text << "   "
+                 << (level < -range ? "< " + juce::String(-juce::roundToInt(range))
+                                    : juce::String(juce::roundToInt(level)))
+                 << " dB";
+        }
+        return text;
+    }
+
+    [[nodiscard]] const dsp::SpectrogramHistory& history() const noexcept override { return history_; }
 
     void mouseExit(const juce::MouseEvent&) override
     {
         hover_.reset();
+        hoverY_.reset();
         repaint();
     }
 
@@ -365,8 +407,71 @@ private:
         side_.setChannel(SpectrumChannel::Side);
         for (auto* a : {&main_, &side_, &compare_})
             a->setAveraging(param(S::Average));
+        // The spectrogram: a line about every 10 ms whatever the size (SPEC.md, stage 2).
+        const bool spectrogram = spectrogramShown();
+        const int hop = spectrogram ? static_cast<int>(std::lround(rate * 0.01)) : 0;
+        for (auto* a : {&main_, &compare_})
+            a->setHop(hop);
+        if (spectrogram != spectrogramWas_ || S::lengthSeconds(param(S::Length)) != lengthWas_)
+        {
+            spectrogramWas_ = spectrogram;
+            lengthWas_ = S::lengthSeconds(param(S::Length));
+            prepareHistory();
+            repaint();
+        }
     }
 
+public:
+    /// Whether the display shows the spectrogram (View).
+    [[nodiscard]] bool spectrogramShown() const override { return param(S::View) >= 0.5f; }
+
+private:
+    /// The spectrogram's rows, a pixel each, over Length; a span of frequencies per pixel across,
+    /// on the spectrum's own axis. Starts it again.
+    void prepareHistory()
+    {
+        // The rows end above a strip for the frequency labels, which never sit on the picture.
+        const int width = std::max(0, getWidth());
+        const int rows = std::max(0, getHeight() - ui::Theme::current().deviceGrid.displayTextHeight);
+        history_.prepare(width, rows, rows > 0 ? S::lengthSeconds(param(S::Length)) / rows : 0.01);
+        const auto plot = plotArea();
+        edges_.resize(static_cast<size_t>(width) + 1);
+        for (int x = 0; x <= width; ++x)
+            edges_[static_cast<size_t>(x)] = plot.hzAt(static_cast<float>(x));
+        line_.assign(static_cast<size_t>(width), dsp::spectrum::floorDb);
+        collide_.assign(static_cast<size_t>(width), 0);
+        bandOf_.resize(static_cast<size_t>(width));
+        for (int x = 0; x < width; ++x)
+            bandOf_[static_cast<size_t>(x)] = static_cast<int>(
+                std::lround(std::clamp(dsp::spectrum::bandAt(plot.hzAt(static_cast<float>(x) + 0.5f)), 0.0,
+                                       static_cast<double>(dsp::spectrum::numBands - 1))));
+        drawnVersion_ = 0;
+    }
+
+    /// Each transform while the spectrogram shows: a line of what's heard now, kept while the
+    /// song plays or sound comes in; held otherwise (SPEC.md, stage 2).
+    void spectrogramLine()
+    {
+        if (!spectrogramShown() || history_.width() == 0)
+            return;
+        main_.lineAt(edges_, line_);
+        const bool sound = std::any_of(line_.begin(), line_.end(), [](float v) { return v > kSoundFloorDb; });
+        if (!playing_ && !sound)
+            return;
+        std::span<const std::uint8_t> collides;
+        if (comparing_ && compare_.hasData())
+        {
+            // Where both are loud at this moment: the spectrum's collision rule, in time.
+            const auto bands =
+                dsp::spectrumCollisions(main_.currentBands(), compare_.currentBands(), slope());
+            for (size_t x = 0; x < collide_.size(); ++x)
+                collide_[x] = bands[static_cast<size_t>(bandOf_[x])] ? 1 : 0;
+            collides = collide_;
+        }
+        history_.add(line_, collides, main_.hop() / main_.sampleRate());
+    }
+
+private:
     /// Takes everything the pair of FIFOs holds, in step, into `feed`. Whether it transformed.
     template <typename Feed> bool drain(AnalysisBus& bus, int leftFifo, int rightFifo, Feed&& feed)
     {
@@ -547,6 +652,115 @@ private:
         repaint();
     }
 
+    /// The spectrogram (SPEC.md, stage 2): its rows as an image, the newest at the top, the
+    /// frequency grid over it, a second's mark at the right, and the readout under the pointer.
+    void paintSpectrogram(juce::Graphics& g)
+    {
+        const auto& t = ui::Theme::current();
+        const auto plot = plotArea();
+        if (history_.filled() == 0)
+        {
+            plot.paintGrid(g);
+            ui::paintEmptyState(g, getLocalBounds(),
+                                ctx_.analysis != nullptr ? "Play to see the spectrogram" : "No signal here");
+            return;
+        }
+        renderImage();
+        {
+            juce::Graphics::ScopedSaveState saved(g);
+            juce::Path clip;
+            clip.addRoundedRectangle(getLocalBounds().toFloat(), t.radiusControl);
+            g.reduceClipRegion(clip);
+            g.drawImageAt(image_, 0, 0);
+        }
+        plot.paintGrid(g);
+        // A mark every second (every five past 10 s), labelled at the right on a backing, as peak
+        // labels are: the picture behind can be anything.
+        const double length = S::lengthSeconds(param(S::Length));
+        const double step = length > 10.0 ? 5.0 : 1.0;
+        const auto inset = static_cast<float>(t.deviceGrid.displayInset);
+        const auto textHeight = static_cast<float>(t.deviceGrid.displayTextHeight);
+        g.setFont(ui::font(ui::TextStyle::Caption));
+        for (double s = step; s < length; s += step)
+        {
+            const float y = std::round(static_cast<float>(s / history_.secondsPerRow()));
+            g.setColour(t.roles.gridMinor);
+            g.fillRect(0.0f, y, static_cast<float>(getWidth()), 1.0f);
+            const auto text = juce::String(juce::roundToInt(s)) + " s";
+            const float textWidth =
+                std::ceil(juce::GlyphArrangement::getStringWidth(g.getCurrentFont(), text));
+            const auto box = juce::Rectangle<float>(static_cast<float>(getWidth()) - inset - textWidth,
+                                                    y - textHeight, textWidth, textHeight);
+            g.setColour(t.roles.shade);
+            g.fillRoundedRectangle(box.expanded(inset / 2.0f, 0.0f), t.radiusControl);
+            g.setColour(t.textTertiary);
+            g.drawText(text, box, juce::Justification::centredRight, false);
+        }
+        if (hover_ && hoverY_ && *hoverY_ < static_cast<float>(history_.rows()))
+        {
+            g.setColour(t.roles.gridMinor);
+            g.fillRect(std::round(*hover_), 0.0f, 1.0f, static_cast<float>(history_.rows()));
+            g.fillRect(0.0f, std::round(*hoverY_), static_cast<float>(getWidth()), 1.0f);
+            // The readout on a backing, at the top left, as the spectrum's is.
+            const auto readout = spectrogramReadout(*hover_, *hoverY_);
+            const float width =
+                std::min(static_cast<float>(getWidth()) - 2.0f * inset,
+                         std::ceil(juce::GlyphArrangement::getStringWidth(g.getCurrentFont(), readout)));
+            const auto box = juce::Rectangle<float>(inset, inset / 2.0f, width, textHeight);
+            g.setColour(t.roles.shade);
+            g.fillRoundedRectangle(box.expanded(inset / 2.0f, 0.0f), t.radiusControl);
+            g.setColour(t.textSecondary);
+            g.drawText(readout, box, juce::Justification::centredLeft, true);
+        }
+    }
+
+    /// The image from the history, written again when it changed: each point's level after the
+    /// Slope, over the Range, through the theme's spectrogram colours.
+    void renderImage()
+    {
+        const auto& t = ui::Theme::current();
+        const int width = history_.width(), rows = history_.rows();
+        const float range = S::rangeDb(param(S::Range)), tilt = slope();
+        const auto key = std::make_tuple(history_.version(), range, tilt, &t);
+        if (image_.isValid() && image_.getWidth() == width && image_.getHeight() == rows && key == drawnKey_)
+            return;
+        drawnKey_ = key;
+        if (!image_.isValid() || image_.getWidth() != width || image_.getHeight() != rows)
+            image_ = juce::Image(juce::Image::ARGB, std::max(1, width), std::max(1, rows), true);
+        if (lutTheme_ != &t) // the colours, 256 steps each, read from the theme once
+        {
+            lutTheme_ = &t;
+            for (int i = 0; i < 256; ++i)
+            {
+                lut_[static_cast<size_t>(i)] = t.spectrogram(static_cast<float>(i) / 255.0f, false);
+                lutHot_[static_cast<size_t>(i)] = t.spectrogram(static_cast<float>(i) / 255.0f, true);
+            }
+        }
+        if (tiltAt_.size() != static_cast<size_t>(width) || tiltWas_ != tilt)
+        {
+            tiltWas_ = tilt;
+            tiltAt_.resize(static_cast<size_t>(width));
+            const auto plot = plotArea();
+            for (int x = 0; x < width; ++x)
+                tiltAt_[static_cast<size_t>(x)] =
+                    dsp::spectrum::tiltDb(plot.hzAt(static_cast<float>(x) + 0.5f), tilt);
+        }
+        const juce::Image::BitmapData data(image_, juce::Image::BitmapData::writeOnly);
+        for (int y = 0; y < rows; ++y)
+        {
+            const auto levels = history_.levels(y);
+            const auto hot = history_.collisions(y);
+            const bool kept = y < history_.filled();
+            for (int x = 0; x < width; ++x)
+            {
+                const auto i = static_cast<size_t>(x);
+                const float level = kept ? (levels[i] + tiltAt_[i] + range) / range : 0.0f;
+                const auto step = static_cast<size_t>(std::clamp(juce::roundToInt(level * 255.0f), 0, 255));
+                data.setPixelColour(x, y, (kept && hot[i] != 0 ? lutHot_ : lut_)[step]);
+            }
+        }
+    }
+
     ui::DeviceUiContext& ctx_;
     const S* device_;
     dsp::SpectrumAnalyser main_, side_, compare_;
@@ -558,8 +772,23 @@ private:
     float offset_ = 0.0f;
     bool matched_ = false, comparing_ = false, dragOver_ = false;
     double lastTick_ = 0.0, lastHold_ = 0.0, lastCompared_ = -1.0;
-    std::optional<float> hover_;
-    std::tuple<float, float, float, float, float> last_{-1.0f, -1.0f, -1.0f, -1.0f, -1.0f};
+    std::optional<float> hover_, hoverY_;
+    // The spectrogram (SPEC.md, stage 2).
+    static constexpr float kSoundFloorDb = -150.0f; // a line louder than this is sound coming in
+    dsp::SpectrogramHistory history_;
+    std::vector<double> edges_;
+    std::vector<float> line_, tiltAt_;
+    std::vector<std::uint8_t> collide_;
+    std::vector<int> bandOf_;
+    juce::Image image_;
+    std::array<juce::Colour, 256> lut_{}, lutHot_{};
+    const ui::Theme* lutTheme_ = nullptr;
+    float tiltWas_ = -1.0f;
+    std::tuple<std::uint64_t, float, float, const ui::Theme*> drawnKey_{};
+    std::uint64_t drawnVersion_ = 0;
+    bool playing_ = false, spectrogramWas_ = false;
+    double lengthWas_ = 0.0;
+    std::tuple<float, float, float, float, float, float> last_{-1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f};
     std::array<float, 4096> chunkL_{}, chunkR_{};
 };
 
@@ -604,6 +833,10 @@ public:
         : DevicePanel(ctx), device_(dynamic_cast<const S*>(ctx.device))
     {
         setSidechainCaption("Compare", "Compare: another track's spectrum, drawn with this one");
+        // The view, and the spectrogram's length while it shows (SPEC.md, stage 2).
+        addHeaderCombo(S::View);
+        auto& length = addHeaderCombo(S::Length);
+        showHeaderWhen(length, [this] { return display_ != nullptr && display_->spectrogramShown(); });
 
         auto& spectrum = addSection("spectrum", "Spectrum", 12);
         display_ = &own(std::make_unique<SpectrumDisplay>(ctx));
@@ -651,25 +884,30 @@ public:
         settings.label("Resolution", 0, 1, 2);
         settings.combo(S::Resolution, 2, 1, 2);
         settings.label("Peak hold", 0, 2, 2);
-        settings.combo(S::Hold, 2, 2, 2);
+        auto& hold = settings.combo(S::Hold, 2, 2, 2);
         settings.label("Range", 0, 3, 2);
         settings.combo(S::Range, 2, 3, 2);
         settings.label("Peak labels", 0, 4, 2);
-        settings.combo(S::Labels, 2, 4, 2);
+        auto& labels = settings.combo(S::Labels, 2, 4, 2);
         settings.label("Slope", 0, 5, 2);
         settings.combo(S::Slope, 2, 5, 2);
-        settings.knob(S::Average, 4, 0);
+        auto& average = settings.knob(S::Average, 4, 0);
 
-        // What can't act now recedes (ui-principles §3).
-        dimWhen({&freeze}, [this] { return !display_->hasSignal(); });
-        dimWhen({&clearSnapshot}, [this] { return device_ == nullptr || !device_->snapshot(); });
-        dimWhen({&clearReference}, [this] { return device_ == nullptr || !device_->reference(); });
+        // What can't act now recedes (ui-principles §3); in the spectrogram, what belongs to the
+        // curve: kept for when the view turns back (SPEC.md, stage 2).
+        const auto curveHidden = [this] { return display_->spectrogramShown(); };
+        dimWhen({&freeze}, [this, curveHidden] { return curveHidden() || !display_->hasSignal(); });
+        dimWhen({&clearSnapshot},
+                [this, curveHidden] { return curveHidden() || device_ == nullptr || !device_->snapshot(); });
+        dimWhen({&clearReference},
+                [this, curveHidden] { return curveHidden() || device_ == nullptr || !device_->reference(); });
         dimWhen({&side},
-                [this]
+                [this, curveHidden]
                 {
                     const auto c = display_->channel();
-                    return c != SpectrumChannel::Both && c != SpectrumChannel::Mid;
+                    return curveHidden() || (c != SpectrumChannel::Both && c != SpectrumChannel::Mid);
                 });
+        dimWhen({&load, status_, &hold, &labels, &average}, curveHidden);
     }
 
     ~SpectrumPanel() override { cancelJob(); }

@@ -256,6 +256,10 @@ struct Theme
     [[nodiscard]] juce::Colour automationLine(juce::Colour lane, bool on) const;
     [[nodiscard]] juce::Colour automationFillTop(juce::Colour lane, bool on) const;
     [[nodiscard]] juce::Colour automationFillBottom(juce::Colour lane, bool on) const;
+    /// A spectrogram's point (devices/spectrum/SPEC.md, stage 2): `level` 0 (the bottom of the
+    /// range) to 1 (its top), from the display's background through the analyser's grey to near
+    /// white; tinted with the collision colour where it collides with a compared track.
+    [[nodiscard]] juce::Colour spectrogram(float level, bool collides) const;
 
     // Type scale (px, em size).
     float textXs = 11.0f;

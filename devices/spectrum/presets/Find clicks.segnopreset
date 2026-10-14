@@ -1,0 +1,25 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Fix"
+  ],
+  "description": "A short window over two seconds, untilted: a click or a pop shows as one bright line across.",
+  "author": "Segno",
+  "state": {
+    "device": "spectrum",
+    "extra": {},
+    "params": {
+      "average": 300.0,
+      "channel": 0.0,
+      "hold": 2.0,
+      "labels": 1.0,
+      "length": 0.0,
+      "range": 1.0,
+      "resolution": 0.0,
+      "side": 0.0,
+      "slope": 0.0,
+      "view": 1.0
+    },
+    "stateVersion": 1
+  }
+}

@@ -226,3 +226,112 @@ TEST_CASE("spectrum: a reference is matched to the level of what plays", "[fast]
     nothing.fill(spectrum::floorDb);
     CHECK(spectrumMatchOffset(pink, nothing) == 0.0f);
 }
+
+// ---- the spectrogram (SPEC.md, stage 2) ----------------------------------------------------
+
+namespace
+{
+/// Edges for `count` spans across 20 Hz–20 kHz, a span per pixel, as a display's are.
+std::vector<double> pixelEdges(int count)
+{
+    std::vector<double> edges;
+    for (int i = 0; i <= count; ++i)
+        edges.push_back(20.0 * std::pow(1000.0, static_cast<double>(i) / count));
+    return edges;
+}
+} // namespace
+
+TEST_CASE("spectrogram: a line every hop asked for, whatever the size; each line the moment alone", "[fast]")
+{
+    SpectrumAnalyser a;
+    a.setHop(480); // 10 ms
+    a.prepare(14, sr);
+    CHECK(a.hop() == 480);
+    int lines = 0;
+    a.onTransform = [&] { ++lines; };
+    const auto in = fd::testkit::sine(1000.0, sr, 48000, 0.25f, 2);
+    a.push(in.channel(0), in.channel(1), static_cast<size_t>(in.numSamples()));
+    // The first line once a whole transform's worth arrived, then one every 10 ms.
+    CHECK(lines == (48000 - 16384) / 480 + 1);
+    a.setHop(0);
+    CHECK(a.hop() == 16384 / 4);
+}
+
+TEST_CASE("spectrogram: a line reads a sine at its own level in its pixel, silence at the floor", "[fast]")
+{
+    SpectrumAnalyser a;
+    a.setHop(480);
+    a.prepare(13, sr);
+    const auto edges = pixelEdges(600);
+    std::vector<float> line(600);
+    a.lineAt(edges, line);
+    CHECK(std::all_of(line.begin(), line.end(), [](float v) { return v == spectrum::floorDb; }));
+
+    const auto in = fd::testkit::sine(1000.0, sr, 24000, std::pow(10.0f, -12.0f / 20.0f), 2);
+    a.push(in.channel(0), in.channel(1), static_cast<size_t>(in.numSamples()));
+    a.lineAt(edges, line);
+    const auto loudest = std::max_element(line.begin(), line.end()) - line.begin();
+    const double at = 20.0 * std::pow(1000.0, (static_cast<double>(loudest) + 0.5) / 600.0);
+    CHECK(std::abs(std::log2(at / 1000.0)) < 1.0 / 24.0);
+    // Its loudest bin: within the window's loss between bins (Hann: up to 1.4 dB).
+    CHECK(line[static_cast<size_t>(loudest)] == Approx(-12.0f).margin(1.5f));
+    // An octave away it's far below.
+    CHECK(line[static_cast<size_t>(loudest + 60)] < -60.0f);
+    // The last transform in bands too (collisions in time).
+    const auto bands = a.currentBands();
+    CHECK(*std::max_element(bands.begin(), bands.end()) > -40.0f);
+}
+
+TEST_CASE("spectrogram: a click in silence lights the lines around it only", "[fast]")
+{
+    SpectrumAnalyser a;
+    a.setHop(480);
+    a.prepare(11, sr); // 2048 points: about 43 ms
+    const auto edges = pixelEdges(200);
+    std::vector<float> line(200);
+    std::vector<float> loudness;
+    a.onTransform = [&]
+    {
+        a.lineAt(edges, line);
+        loudness.push_back(*std::max_element(line.begin(), line.end()));
+    };
+    AudioBuffer in(2, 48000);
+    in.at(0, 24000) = in.at(1, 24000) = 0.5f;
+    a.push(in.channel(0), in.channel(1), 48000);
+    // Lit while the click is inside the window: about 2048 / 480 lines, dark before and after.
+    const auto lit = std::count_if(loudness.begin(), loudness.end(), [](float v) { return v > -100.0f; });
+    CHECK(lit >= 3);
+    CHECK(lit <= 5);
+    CHECK(loudness.front() == spectrum::floorDb);
+    CHECK(loudness.back() == spectrum::floorDb);
+}
+
+TEST_CASE("spectrogram history: rows of the loudest lines in their time, the newest first; collisions kept",
+          "[fast]")
+{
+    SpectrogramHistory h;
+    h.prepare(4, 3, 0.02); // two 10 ms lines a row
+    CHECK(h.filled() == 0);
+    const std::vector<float> quiet{-60.0f, -60.0f, -60.0f, -60.0f}, loud{-60.0f, -10.0f, -60.0f, -60.0f};
+    const std::vector<std::uint8_t> none, at3{0, 0, 0, 1};
+    h.add(quiet, none, 0.01);
+    h.add(loud, at3, 0.01);
+    CHECK(h.filled() == 1);
+    CHECK(h.levels(0)[1] == -10.0f); // the loudest of the row's lines
+    CHECK(h.collisions(0)[3] == 1);
+    h.add(quiet, none, 0.01); // the row's time is up: a new one
+    CHECK(h.filled() == 2);
+    CHECK(h.levels(0)[1] == -60.0f);
+    CHECK(h.levels(1)[1] == -10.0f); // one row older
+    CHECK(h.collisions(0)[3] == 0);
+    // Past its rows, the oldest goes.
+    for (int i = 0; i < 6; ++i)
+        h.add(quiet, none, 0.01);
+    CHECK(h.filled() == 3);
+    CHECK(std::all_of(h.levels(2).begin(), h.levels(2).end(), [](float v) { return v == -60.0f; }));
+    CHECK(h.started() == 5);
+    const auto before = h.version();
+    h.clear();
+    CHECK(h.filled() == 0);
+    CHECK(h.version() != before);
+}

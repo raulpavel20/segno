@@ -182,6 +182,18 @@ juce::Colour Theme::noteFill(juce::Colour clip, float velocity, bool selected) c
     return selected ? c.interpolatedWith(juce::Colours::white, 0.3f) : c;
 }
 
+juce::Colour Theme::spectrogram(float level, bool collides) const
+{
+    const float l = std::clamp(level, 0.0f, 1.0f);
+    // Two halves: the background to the analyser's grey, then the grey to near white.
+    const auto grey = textTertiary;
+    auto c = l < 0.5f ? surface0.interpolatedWith(grey, l * 2.0f)
+                      : grey.interpolatedWith(textPrimary, (l - 0.5f) * 2.0f);
+    if (collides)
+        c = c.interpolatedWith(meterHot, 0.35f + 0.4f * l);
+    return c;
+}
+
 juce::Colour Theme::lift(juce::Colour c, bool hovered, bool pressed) const
 {
     return c.brighter(pressed ? roles.pressedLift : (hovered ? roles.hoverLift : 0.0f));

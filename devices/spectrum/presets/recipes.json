@@ -62,6 +62,29 @@
    }
   },
   {
+   "name": "Spectrogram",
+   "tags": [
+    "Mix"
+   ],
+   "description": "How the sound changes over the last five seconds, the newest at the top: what comes and goes, which a spectrum averages away.",
+   "params": {
+    "view": "Spectrogram"
+   }
+  },
+  {
+   "name": "Find clicks",
+   "tags": [
+    "Fix"
+   ],
+   "description": "A short window over two seconds, untilted: a click or a pop shows as one bright line across.",
+   "params": {
+    "view": "Spectrogram",
+    "resolution": "2048",
+    "length": "2 s",
+    "slope": "0 dB/oct"
+   }
+  },
+  {
    "name": "Slow and smooth",
    "tags": [
     "Mix"
