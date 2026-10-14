@@ -122,3 +122,43 @@ All dimmed unless a Wavetable (or, for Make Wavetable, an audio clip) is selecte
 | T11 | **More factory tables** | About 20 from AKWF single cycles (CC0), by recipes in the repository, fetched pinned |
 | T12 | **Menus and keys** | Module > Edit Wavetable, Import…, Export…; Clip > Make Wavetable. No shortcut of its own: a double-click on the table display opens it |
 | T13 | **Assistants** | `make_wavetable`, `get_wavetable`, `edit_wavetable`, `export_wavetable` |
+
+## 11. Revised after the first use (2026-10-14, for review)
+
+**What the product owner hit, trying it:**
+- **How to close it couldn't be found.** Done sat at the far right of the panel's header, away from the tab and the editor.
+- **What the middle view showed wasn't clear.** Most of the time it showed the sum of the layers; it switched to the selected layer only in one view for each kind (2D for a drawing, Harmonics for harmonics), and only on a keyframe. Nothing said which it was showing.
+- **The 3D, 2D and Harmonics tabs meant different things** depending on the layer and the frame.
+- **The 20 AKWF tables couldn't be found:** they were only in the table's menu, at the ends of long categories, and no preset used them. (Fixed already: a factory preset for each.)
+
+**How Phase Plant does it** ([its manual](https://kilohearts.com/docs/wavetables)): "a miniature version of the whole wavetable" at the top to move between frames; under it the selected frame's waveform and its spectrum, **both shown at once**. A keyframe is placed by clicking a frame and starting to edit; edits are heard as you play.
+
+**The principle:**
+- The result and what you edit are **two places, both always shown, each named**.
+- Nothing switches what a place shows behind your back.
+- You can edit wherever you are: editing a frame that has no keyframe adds one there.
+
+```
+│ Modules   Clip   Table ×   Osc 1, Vowels (edited)                                      ▶ Preview │
+├────────────────┬───────────────────────────────────────────────┬───────────────────┬───────────────┤
+│ LAYERS      +  │ LAYER 2 · DRAW                keyframe at 23  │ RESULT      23/64 │ CHANGES     + │
+│ ● Vowels       │ ┌─ its wave: draw here ──────┐┌─ its harmonics ┐ │ ┌─ the table ──┐ │ ● Smooth 20 % │
+│ ● Draw         │ │                            ││                │ │ │ every layer, │ │ ● Formant     │
+│                │ │                            ││                │ │ │ then the     │ │               │
+│ DRAW           │ └────────────────────────────┘└────────────────┘ │ │ changes, 3D  │ │               │
+│ Level ▬▬ 80 %  │ ◆────────────◆────────────────────◆─────────── │ └──────────────┘ │               │
+│ Fill Crossfade │ Add keyframe                                   │ Frames 64        │               │
+└────────────────┴───────────────────────────────────────────────┴───────────────────┴───────────────┘
+```
+
+| # | Question | Recommendation |
+|---|---|---|
+| T14 | **How it closes** | An **×** on the Table tab, as tabs close elsewhere; in the plugins, the editor's header shows the same tab with its ×. Module > Edit wavetable is ticked while it's open, and choosing it again closes it. Done goes: one way in the header, where you look for it |
+| T15 | **The result and the layer** | Two places side by side, left to right as the sound goes: the selected layer, then the **Result**: the whole table as the module plays it (every layer summed, then the changes), in 3D, the frame shown lit, a click or drag choosing the frame. Frames (the table's count) sits under the Result |
+| T16 | **What the layer shows** | Its own frame at the frame shown, before the changes: its **wave and its harmonics side by side, always both**. The 3D, 2D and Harmonics tabs go. The place's title names the layer ("LAYER 2 · DRAW"), and on the right says where you are: "keyframe at 23", "between keyframes 12 and 40", or "its 16 frames, filled" for audio, an image or a table |
+| T17 | **Where you edit** | Where the layer is made: a drawing on its wave, harmonics on their bars (the phases in a strip under them). Formula, audio, image and table layers are set on the left; their wave and harmonics are there to look at. The side that doesn't edit says so on hover |
+| T18 | **Editing between keyframes** | Allowed: the first stroke there adds a keyframe at that frame, made of what the layer has there, and draws on it: one undo step, "Draw a wave". **Add keyframe** and **Remove keyframe** buttons sit under the strip, so neither needs a double-click or a right-click |
+| T19 | **Changes** | They shape the Result, which shows them; the layer shows what goes in. The Changes title stays; its empty text says "Each shapes the result, in order from the top" |
+| T20 | **Finding the tables** | The table's menu lists its categories as **submenus** (nine at a glance, Acoustic among them), not one list of 84. The browser's Wavetable folder (ADR 0046) gets a **Tables** folder of the factory tables by category, each heard on a held note when selected and loaded when dropped, as your own tables are |
+
+**Height:** the same ten rows as now (about 316 px). The layer's wave and harmonics get the view's rows less two (the strip and its buttons); the Result its rows less one (Frames). **Width:** the Result is 5 columns, so the editor's least width grows from about 790 px to about 1 070 px, still inside the narrowest window the app and the plugins open.
