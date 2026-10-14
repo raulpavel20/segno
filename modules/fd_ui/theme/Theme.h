@@ -137,6 +137,9 @@ struct ShellMetrics
     int barPadding = 8, barInset = 6; // a bar's (the transport's) edges: sides, top and bottom
     int itemGap = 4, groupGap = 12;   // between items in a group, between groups
     int buttonSize = 28;              // icon buttons in bars and rails
+    int toolIconSize = 16;            // a tool's icon in its tile (ui::Tile)
+    int toggleIconSize = 14;          // an icon before a toggle's label (Toggle::setIcon)
+    int toolsDockFrom = 900;          // the clip view's Tools pane docks from this width, else floats
     int fieldHeight = 24;             // text fields (search)
     // Text inside controls and rows.
     int fieldTextInset = 6;     // text from a combo box's, input button's or field's left edge

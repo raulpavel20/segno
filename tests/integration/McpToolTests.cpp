@@ -564,13 +564,14 @@ TEST_CASE("mcp tools: the notes' transform and generate tools, listed, run and c
 
     // Listed with their settings and defaults.
     const auto listed = daw.call("list_note_tools", Json::object());
-    REQUIRE(listed["transform"].size() == 8);
+    REQUIRE(listed["transform"].size() == 9);
     REQUIRE(listed["generate"].size() == 4);
-    const auto strum = listed["transform"][1];
+    CHECK(listed["transform"][0]["tool"] == "quantise");
+    const auto strum = listed["transform"][2];
     CHECK(strum["tool"] == "strum");
     CHECK(strum["settings"][0]["choices"] == Json{"up", "down", "alternate"});
     CHECK(strum["settings"][1]["default"] == 40.0);
-    const auto velocity = listed["transform"][5];
+    const auto velocity = listed["transform"][6];
     CHECK(velocity["settings"][1]["onlyWhen"]["shape"] == "ramp");
 
     // Generate: a progression, a bar each; then a bassline under it.
@@ -600,6 +601,15 @@ TEST_CASE("mcp tools: the notes' transform and generate tools, listed, run and c
                                      {"settings", {{"time", 60}}}});
     CHECK(t["notes"] == 4);
     CHECK(daw.session->undoDescription() == "Assistant: transform notes");
+    // Quantise, to the grid given: the strum undone.
+    t = daw.call("transform_notes", {{"clip", clipId},
+                                     {"where", {{"from", 0}, {"to", 1}, {"lowest", 55}, {"highest", 80}}},
+                                     {"tool", "quantise"},
+                                     {"grid", "1 bar"}});
+    CHECK(t["notes"] == 4);
+    for (const auto& n : daw.call("get_clip", {{"clip", clipId}})["notes"])
+        if (n["start"].get<double>() < 1.0 && n["pitch"].get<int>() >= 55 && n["pitch"].get<int>() <= 80)
+            CHECK(n["start"].get<double>() == Approx(0.0));
 
     // Mistakes are named.
     CHECK(daw.fails("transform_notes", {{"clip", clipId}, {"where", "all"}, {"tool", "rhythm"}})

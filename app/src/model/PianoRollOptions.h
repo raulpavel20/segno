@@ -62,11 +62,13 @@ struct PianoRollOptions
     bool others = true; // Others (§8): the other tracks' notes, faint
     std::set<std::uint64_t> othersHidden; // tracks Others leaves out, chosen one by one (§8)
     BottomLane lane;                      // the bottom lane (§11)
-    std::map<std::string, ToolValues> tools; // each transform's and generator's last settings (§23)
+    std::map<std::string, ToolValues> tools; // each tool's last settings, Quantise's too (§23, §25)
+    /// The Tools pane (§25): open, and on which tab.
+    bool toolsOpen = false;
+    ToolKind toolsTab = ToolKind::Transform;
     DrawMode draw = DrawMode::Note;
     ChordLabels chordLabels = ChordLabels::Both;
-    ChordStyle chord;          // the Chord popover's Kind, Voicing and Inversion (§7.3)
-    QuantiseSettings quantise; // Quantise…'s last settings (§9.5)
+    ChordStyle chord; // the Chord popover's Kind, Voicing and Inversion (§7.3)
 
     friend bool operator==(const PianoRollOptions&, const PianoRollOptions&) = default;
 };

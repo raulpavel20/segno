@@ -416,10 +416,17 @@ TEST_CASE("The clip view's options round-trip as view state", "[fast]")
     o.chord = {.shape = fd::music::ChordShape::Ninth,
                .voicing = fd::music::Voicing::Drop3,
                .inversion = fd::music::Inversion::Second};
-    o.quantise = {.strength = 0.5, .swing = 0.25, .starts = false, .ends = true};
+    o.tools["quantise"] = toolValues(*findNoteTool("quantise"), {{"strength", 50.0}, {"moves", 1.0}});
+    o.toolsOpen = true;
+    o.toolsTab = ToolKind::Generate;
     CHECK(pianoRollOptionsFromJson(pianoRollOptionsToJson(o)) == o);
-    CHECK(pianoRollOptionsFromJson(nlohmann::json{{"wholeRoll", "sideways"}, {"quantiseSwing", 9.0}}) ==
-          PianoRollOptions{.quantise = {.swing = 1.0}});
+    // Kept to each tool's description: a value out of range, a tool or setting gone.
+    const auto read = pianoRollOptionsFromJson(nlohmann::json{
+        {"wholeRoll", "sideways"},
+        {"tools", {{"strum", {{"time", 9000.0}, {"gone", 1.0}}}, {"nonsense", {{"x", 1.0}}}}}});
+    CHECK(read.tools.at("strum").at("time") == 250.0);
+    CHECK_FALSE(read.tools.at("strum").contains("gone"));
+    CHECK_FALSE(read.tools.contains("nonsense"));
     CHECK(pianoRollOptionsFromJson(nlohmann::json()) == PianoRollOptions{});
     CHECK(std::string(drawModeName(DrawMode::Chord)) == "Draw chord");
 }

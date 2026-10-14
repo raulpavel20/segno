@@ -10,6 +10,7 @@
 #include "ui/TrackInputs.h"
 #include "ui/AudioClipView.h"
 #include "ui/PianoRoll.h"
+#include "ui/ToolsPane.h"
 
 #include <fd_ui/fd_ui.h>
 
@@ -323,6 +324,15 @@ public:
     std::function<juce::PopupMenu()> notesMenu;
     /// The header's clip view controls (for tests and the layout lint).
     [[nodiscard]] ui::MenuButton& notesButton() noexcept { return notes_; }
+    /// The Tools pane (piano-roll.md §25), and the header's Transform and Generate that open it.
+    [[nodiscard]] ToolsPane& toolsPane() noexcept { return tools_; }
+    [[nodiscard]] ui::Toggle& transformButton() noexcept { return transform_; }
+    [[nodiscard]] ui::Toggle& generateButton() noexcept { return generate_; }
+    /// Opens the Tools pane on `tab`, or closes it (none); view state, kept with the project.
+    void showTools(std::optional<model::ToolKind> tab);
+    [[nodiscard]] bool toolsShown(model::ToolKind tab) const;
+    /// Opens the pane at a tool ("strum"; "makeChords") and chooses it.
+    void showTool(std::string_view id);
     [[nodiscard]] ui::ViewChoice& drawChoice() noexcept { return draw_; }
     [[nodiscard]] ui::Segments& drawKind() noexcept { return drawKind_; }
     [[nodiscard]] ui::ViewChoice& drawVoicing() noexcept { return drawVoicing_; }
@@ -348,6 +358,8 @@ private:
     /// piano-roll.md §4).
     ui::MenuButton notes_{"Notes"};
     ui::Toggle quantise_{"Quantise"};
+    /// Transform and Generate (piano-roll.md §25): each opens the Tools pane on its tab.
+    ui::Toggle transform_{"Transform"}, generate_{"Generate"};
     /// The piano roll's options (piano-roll.md §4): Draw, In key (with a song key: §21), Others;
     /// while drawing chords, the kind side by side and the voicing (§20.2).
     ui::ViewChoice draw_, drawVoicing_;
@@ -361,6 +373,7 @@ private:
     std::optional<model::TrackInfo> track_;
     DeviceChain chain_;
     PianoRoll roll_;
+    ToolsPane tools_; // docked at the clip view's right edge, or floating over it when narrow
     AudioClipView audio_;
     std::unique_ptr<ui::ModuleEditor> editor_;
     std::uint64_t editorModule_ = 0;

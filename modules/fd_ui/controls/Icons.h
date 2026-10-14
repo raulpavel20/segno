@@ -40,7 +40,24 @@ enum class Icon
     Knob,          // audio effects: a knob with its pointer
     Plug,          // plugins: a plug with two prongs
     Folder,        // places and folders: a folder with its tab
-    Move           // a modulation source's handle, dragged onto a knob: four ways
+    Move,          // a modulation source's handle, dragged onto a knob: four ways
+    // The clip view's tools (piano-roll.md §25): the Tools pane's tabs and each tool's tile.
+    Transform,  // notes changed: a low bar turned into a high one
+    Generate,   // notes made: a plus over lines
+    Quantise,   // a note between two grid lines
+    Humanize,   // a wavering line
+    Strum,      // three notes, each a little later
+    Arpeggiate, // notes climbing one after another
+    Chop,       // a note in pieces
+    Ornament,   // a short note before a long one
+    Velocity,   // stems of different heights
+    Span,       // a note stretched to a line
+    Randomise,  // a die
+    MakeChords, // one note, then a stack
+    Rhythm,     // beats along a line
+    Melody,     // a line of notes up and down
+    Chords,     // a stack of notes
+    Bassline    // low notes, stepping
 };
 
 /// Draws `icon` fitted (aspect kept) into `area` in `colour`.

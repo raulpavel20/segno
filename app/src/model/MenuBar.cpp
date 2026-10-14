@@ -187,6 +187,7 @@ std::vector<Menu> menuBar(MenuPlatform platform)
                       action("view.clipInKey"),
                       submenu("Other tracks' notes", {action("view.clipOthers"), separator(), list("otherTracks")}),
                       submenu("Clip view lane", {list("clipLane")}),
+                      submenu("Tools pane", {action("view.toolsTransform"), action("view.toolsGenerate")}),
                       submenu("Draw", {action("view.drawNote"), action("view.drawChord"), action("view.drawChordUnder"),
                                        separator(), action("view.drawTriads"), action("view.drawSevenths"),
                                        action("view.drawNinths"), action("view.drawSus2"), action("view.drawSus4"),

@@ -409,21 +409,23 @@ TEST_CASE("piano roll: the Notes menu opens from the header too; Quantise previe
     CHECK(itemsOf(detail.notesMenu()).contains(juce::String::fromUTF8("Chords ▸ Drop 2 voicing")));
     CHECK(detail.notesButton().isVisible());
 
-    // Quantise…: the notes move live as it's set; Escape puts them back; Apply keeps them.
+    // Quantise…: the Tools pane at Quantise (§25); the notes move live as it's set; Apply keeps them.
     REQUIRE(f.shell->actions().perform("notes.quantiseSettings"));
-    auto& quantise = f.shell->quantisePopover();
-    REQUIRE(quantise.isOpen());
-    quantise.setSettings({.strength = 0.5});
+    auto& pane = detail.toolsPane();
+    REQUIRE(pane.isVisible());
+    REQUIRE(pane.chosen() == "quantise");
+    pane.form().setValue("strength", 50.0);
     CHECK(f.notes()[0].start == Catch::Approx(0.1)); // only previewed
     CHECK(roll.notes()[0].start == Catch::Approx(0.1));
     if (const char* dir = std::getenv("FD_DUMP_DIR"))
         dumpPng(dir, "piano-roll-quantise@2x.png",
-                f.shell->createComponentSnapshot(quantise.getBounds().expanded(40), true, 2.0f));
-    CHECK(crowded(quantise, 4).isEmpty());
-    quantise.apply();
-    CHECK_FALSE(quantise.isOpen());
+                f.shell->createComponentSnapshot(f.shell->getLocalArea(&detail, detail.getLocalBounds()),
+                                                 true, 2.0f));
+    CHECK(crowded(pane, 4).isEmpty());
+    pane.apply();
+    CHECK(pane.chosen().empty());
     CHECK(f.notes()[0].start == Catch::Approx(0.05));
-    CHECK(roll.options().quantise.strength == Catch::Approx(0.5));
+    CHECK(roll.toolValues(*fd::model::findNoteTool("quantise")).at("strength") == 50.0);
     // Ctrl+U quantises with the same settings.
     f.session->undo();
     f.refresh();
@@ -455,6 +457,11 @@ TEST_CASE("piano roll: the clip view's header at standard and compact widths, op
                    draw = header.isDropped(detail.drawChoice());
         CHECK((!draw || others));
         CHECK_FALSE(header.isDropped(detail.inKeyOption()));
+        // The Tools pane's Generate, then Transform, last of all (§25).
+        const bool generate = header.isDropped(detail.generateButton()),
+                   transform = header.isDropped(detail.transformButton());
+        CHECK((!generate || draw));
+        CHECK((!transform || generate));
         if (const char* dir = std::getenv("FD_DUMP_DIR"))
             dumpPng(dir, "piano-roll-header-" + juce::String(width) + "@2x.png",
                     detail.createComponentSnapshot(header.getBounds(), true, 2.0f));
@@ -692,7 +699,8 @@ TEST_CASE("piano roll: Make chords… lays out its cards on every open, the same
              static_cast<double>(k), 1.0, 0.8f});
     f.setNotes(notes);
     click(roll, roll.pointFor(12.5, 72)); // the clip view used last
-    auto& popover = f.shell->makeChordsPopover();
+    auto& pane = f.shell->detail().toolsPane();
+    auto& popover = pane.makeChords();
     for (const std::size_t count : {9u, 10u, 9u, 10u})
     {
         INFO(count << " notes");
@@ -713,7 +721,7 @@ TEST_CASE("piano roll: Make chords… lays out its cards on every open, the same
             places.insert({card->getX(), card->getY()});
         }
         CHECK(places.size() == count); // each in a place of its own
-        popover.close();
+        pane.disarm();
     }
 }
 
@@ -728,8 +736,10 @@ TEST_CASE(
     f.setNotes({{60, 0.0, 1.0, 0.8f}, {56, 1.0, 1.0, 0.8f}, {53, 2.0, 1.0, 0.8f}, {55, 3.0, 1.0, 0.8f}});
     click(roll, roll.pointFor(5.0, 72)); // the clip view used last
     REQUIRE(f.shell->actions().perform("notes.makeChords"));
-    auto& popover = f.shell->makeChordsPopover();
-    REQUIRE(popover.isOpen());
+    auto& pane = f.shell->detail().toolsPane();
+    REQUIRE(pane.isVisible());
+    REQUIRE(pane.chosen() == "makeChords"); // the Tools pane at Make chords (§25)
+    auto& popover = pane.makeChords();
     REQUIRE(popover.cardCount() == 4);
     CHECK(popover.chordText(0) == "Cm");
     CHECK(popover.chordText(1) == juce::String::fromUTF8("A♭"));
@@ -746,15 +756,17 @@ TEST_CASE(
     CHECK(itemsOf(popover.chordMenu(0)).contains("Cm7"));
     CHECK(itemsOf(popover.chordMenu(0)).contains("Leave the note"));
     CHECK(crowded(popover, fd::ui::Theme::current().shell.itemGap).isEmpty());
-    CHECK(f.shell->getLocalBounds().contains(
-        popover.getBounds().reduced(juce::roundToInt(fd::ui::Theme::current().shell.shadowRadius))));
+    CHECK(f.shell->detail().getLocalBounds().contains(pane.getBounds()));
+    // The All row: every note at once; it says what they share.
+    CHECK(popover.allKind() == std::nullopt); // a seventh and a note left: mixed
+    CHECK(itemsOf(popover.allKindsMenu()).contains("7th"));
     if (const char* dir = std::getenv("FD_DUMP_DIR"))
         dumpPng(
             dir, "piano-roll-make-chords@2x.png",
             f.shell->createComponentSnapshot(
                 f.shell->getLocalArea(&f.shell->detail(), f.shell->detail().getLocalBounds()), true, 2.0f));
-    popover.apply();
-    CHECK_FALSE(popover.isOpen());
+    pane.apply();
+    CHECK(pane.chosen().empty());
     const auto notes = f.notes();
     CHECK(notes.size() == 3 + 3 + 4 + 1);
     f.session->undo(); // one undo step
@@ -1069,73 +1081,180 @@ TEST_CASE("piano roll (P4b): the lane's head fits every lane's label in the keys
 
 // ---- P4c: the tools that transform and generate ---------------------------------------------------
 
-TEST_CASE("piano roll (P4c): every tool's popover builds from its description, sized to its content; "
-          "previews, applies as one named step, puts back on Escape",
+TEST_CASE("piano roll (P4c, §25): the Tools pane: Transform and Generate on the bar, every tool a tile, each "
+          "tool's settings from its description; previews, applies as one named step, lets go on Escape",
           "[integration]")
 {
     RollFixture f;
     auto& roll = f.roll();
     REQUIRE(f.session->setKey(Key{9, "minor"}));
     f.setNotes(progression());
-    auto& actions = f.shell->actions();
-    auto& popover = f.shell->toolPopover();
+    auto& detail = f.shell->detail();
+    auto& pane = detail.toolsPane();
     const auto& t = fd::ui::Theme::current();
+    CHECK(detail.transformButton().isVisible());
+    CHECK(detail.generateButton().isVisible());
+    CHECK_FALSE(pane.isVisible());
+
+    // Transform on the bar: the pane docked at the right, the notes beside it, every transform a tile.
+    detail.transformButton().onClick();
+    REQUIRE(pane.isVisible());
+    CHECK(detail.transformButton().getToggleState());
+    CHECK_FALSE(pane.isFloating());
+    CHECK(roll.getRight() <= pane.getX()); // nothing covered
+    CHECK(roll.options().toolsOpen);
+    int tiles = 0;
+    for (const auto& tool : fd::model::noteTools())
+        if (const auto* tile = pane.tile(tool.id); tile != nullptr && tile->isVisible())
+            ++tiles;
+    CHECK(tiles == 9);
+    REQUIRE(pane.tile("makeChords") != nullptr);
+    CHECK(pane.tile("makeChords")->isVisible());
+    CHECK_FALSE(pane.tile("rhythm")->isVisible());
+    CHECK(crowded(pane, t.shell.itemGap).isEmpty());
+
+    // Every tool, chosen from its tile: its settings, nothing touching; the notes back when let go.
     for (const auto& tool : fd::model::noteTools())
     {
         INFO(tool.id);
-        const auto id = "notes.tool." + std::string(tool.id);
-        REQUIRE(actions.isEnabled(id));
-        REQUIRE(actions.perform(id));
-        REQUIRE(popover.isOpen());
-        CHECK(popover.tool() == &tool);
-        // Nothing touches; it stays in the shell; every setting shown has its control.
-        CHECK(crowded(popover, t.shell.itemGap).isEmpty());
-        CHECK(f.shell->getLocalBounds().contains(
-            popover.getBounds().reduced(juce::roundToInt(t.shell.shadowRadius))));
+        auto* tile = pane.tile(tool.id);
+        REQUIRE(tile != nullptr);
+        if (tool.kind != pane.tab())
+            pane.tabs().onChange(tool.kind == fd::model::ToolKind::Generate ? 1 : 0);
+        REQUIRE(tile->isEnabled());
+        tile->onClick();
+        REQUIRE(pane.chosen() == tool.id);
+        CHECK(tile->getToggleState());
+        CHECK(pane.form().tool() == &tool);
+        CHECK(crowded(pane, t.shell.itemGap).isEmpty());
+        CHECK(crowded(pane.form(), t.shell.itemGap).isEmpty());
+        CHECK(pane.getLocalBounds().contains(pane.form().getBounds()));
         for (const auto& s : tool.settings)
-            CHECK((popover.control(s.id) != nullptr) == fd::model::settingShown(tool, s, popover.values()));
+            CHECK((pane.form().control(s.id) != nullptr) ==
+                  fd::model::settingShown(tool, s, pane.form().values()));
         if (const char* dir = std::getenv("FD_DUMP_DIR");
             dir != nullptr &&
             (tool.id == "strum" || tool.id == "velocity" || tool.id == "chords" || tool.id == "rhythm"))
         {
-            f.shell->detail().frame(0.0);
+            detail.frame(0.0);
             dumpPng(dir, "piano-roll-tool-" + juce::String(std::string(tool.id)) + "@2x.png",
-                    f.shell->createComponentSnapshot(
-                        f.shell->getLocalArea(&f.shell->detail(), f.shell->detail().getLocalBounds()), true,
-                        2.0f));
+                    f.shell->createComponentSnapshot(f.shell->getLocalArea(&detail, detail.getLocalBounds()),
+                                                     true, 2.0f));
         }
-        // Escape: the notes as they were.
-        popover.close();
+        tile->onClick(); // chosen again: none
+        CHECK(pane.chosen().empty());
         CHECK(f.notes() == progression());
+        CHECK(roll.notes() == progression());
     }
+    // The tabs and the bar's buttons go together.
+    CHECK(detail.generateButton().getToggleState());
+    CHECK_FALSE(detail.transformButton().getToggleState());
+    pane.tabs().onChange(0);
+    CHECK(detail.transformButton().getToggleState());
 
-    // Strum: previewed live, kept as one step named for it.
+    // Strum from the menu: chosen in the pane, previewed, kept as one step named for it, remembered.
+    auto& actions = f.shell->actions();
     REQUIRE(actions.perform("notes.tool.strum"));
-    popover.setValue("time", 80.0);
+    REQUIRE(pane.chosen() == "strum");
+    pane.form().setValue("time", 80.0);
     CHECK(roll.notes() == progression()); // only shown so far
-    popover.apply();
-    CHECK_FALSE(popover.isOpen());
+    pane.apply();
+    CHECK(pane.chosen().empty());
     CHECK(f.session->undoDescription() == "Strum");
     CHECK(f.notes() != progression());
-    // Its settings are remembered.
     REQUIRE(actions.perform("notes.tool.strum"));
-    CHECK(popover.values().at("time") == 80.0);
-    popover.close();
+    CHECK(pane.form().values().at("time") == 80.0);
+    // Working on the notes lets go of it.
+    click(roll, roll.pointFor(15.5, 72));
+    CHECK(pane.chosen().empty());
     f.session->undo();
     f.refresh();
     CHECK(f.notes() == progression());
 
     // The Velocity tool shows each shape's settings.
     REQUIRE(actions.perform("notes.tool.velocity"));
-    CHECK(popover.control("from") != nullptr);
-    CHECK(popover.control("cycles") == nullptr);
-    const auto height = popover.getHeight();
-    popover.setValue("shape", 2.0); // Range: one setting
-    CHECK(popover.control("from") == nullptr);
-    CHECK(popover.control("range") != nullptr);
-    CHECK(popover.getHeight() < height); // sized to what it shows
-    CHECK(crowded(popover, t.shell.itemGap).isEmpty());
-    popover.close();
+    CHECK(pane.form().control("from") != nullptr);
+    CHECK(pane.form().control("cycles") == nullptr);
+    const auto height = pane.form().getHeight();
+    pane.form().setValue("shape", 2.0); // Range: one setting
+    CHECK(pane.form().control("from") == nullptr);
+    CHECK(pane.form().control("range") != nullptr);
+    CHECK(pane.form().getHeight() < height); // as tall as what it shows
+    CHECK(crowded(pane.form(), t.shell.itemGap).isEmpty());
+
+    // Escape: the tool lets go, then the pane closes.
+    pane.keyPressed(juce::KeyPress(juce::KeyPress::escapeKey));
+    CHECK(pane.chosen().empty());
+    CHECK(f.notes() == progression());
+    pane.keyPressed(juce::KeyPress(juce::KeyPress::escapeKey));
+    CHECK_FALSE(pane.isVisible());
+    CHECK_FALSE(detail.transformButton().getToggleState());
+    CHECK_FALSE(roll.options().toolsOpen);
+
+    // In the View menu too.
+    REQUIRE(actions.perform("view.toolsGenerate"));
+    CHECK(pane.isVisible());
+    CHECK(pane.tab() == fd::model::ToolKind::Generate);
+    CHECK(actions.isToggled("view.toolsGenerate"));
+}
+
+TEST_CASE("piano roll (P4c, §25): a tall Tools pane names its tiles; a short one shows their icons in a row, "
+          "the settings scrolling under Apply where they still don't fit",
+          "[integration]")
+{
+    RollFixture f;
+    f.setNotes(progression());
+    auto& detail = f.shell->detail();
+    auto& pane = detail.toolsPane();
+    const auto& t = fd::ui::Theme::current();
+    detail.showTool("rhythm");
+    const auto width = detail.getWidth();
+    // Tall: the names, two columns; the tool's rows all in view.
+    detail.setSize(width, 640);
+    CHECK_FALSE(pane.isCompact());
+    CHECK_FALSE(pane.tile("rhythm")->isCompact());
+    CHECK(pane.tile("rhythm")->getWidth() > pane.tile("rhythm")->getHeight());
+    CHECK_FALSE(pane.form().scrolls());
+    CHECK(crowded(pane, t.shell.itemGap).isEmpty());
+    if (const char* dir = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dir, "piano-roll-tools-tall@2x.png",
+                detail.createComponentSnapshot(detail.getLocalBounds(), true, 2.0f));
+    // As the clip view opens by default: icons, square, in a row; named in their tooltips.
+    detail.setSize(width, 320);
+    CHECK(pane.isCompact());
+    CHECK(pane.tile("rhythm")->getWidth() == pane.tile("rhythm")->getHeight());
+    CHECK(pane.tile("melody")->getY() == pane.tile("rhythm")->getY());
+    CHECK(pane.tile("melody")->getTooltip().startsWith("Melody: "));
+    CHECK(crowded(pane, t.shell.itemGap).isEmpty());
+    // Shorter still: the rows scroll, the title and Apply stay.
+    detail.setSize(width, 220);
+    CHECK(pane.form().scrolls());
+    CHECK(pane.form().applyButton().isVisible());
+    CHECK(pane.getLocalBounds().contains(pane.form().getBounds()));
+    pane.disarm();
+}
+
+TEST_CASE("piano roll (P4c, §25): in a narrow clip view the Tools pane floats over the notes",
+          "[integration]")
+{
+    RollFixture f(820, 900);
+    f.setNotes(progression());
+    auto& detail = f.shell->detail();
+    auto& pane = detail.toolsPane();
+    detail.showTools(fd::model::ToolKind::Transform);
+    REQUIRE(pane.isVisible());
+    CHECK(pane.isFloating());
+    CHECK(f.roll().getRight() > pane.getX()); // over the notes' right side
+    CHECK(detail.getLocalBounds().contains(pane.getBounds()));
+    detail.showTool("makeChords");
+    CHECK(pane.chosen() == "makeChords");
+    CHECK(crowded(pane.makeChords(), fd::ui::Theme::current().shell.itemGap).isEmpty());
+    if (const char* dir = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dir, "piano-roll-tools-narrow@2x.png",
+                f.shell->createComponentSnapshot(f.shell->getLocalArea(&detail, detail.getLocalBounds()),
+                                                 true, 2.0f));
+    pane.disarm();
+    CHECK(f.notes() == progression());
 }
 
 TEST_CASE("piano roll (P4c): Generate writes into an empty clip; the bassline follows its chords; the menus",
@@ -1145,7 +1264,7 @@ TEST_CASE("piano roll (P4c): Generate writes into an empty clip; the bassline fo
     auto& roll = f.roll();
     REQUIRE(f.session->setKey(Key{0, "major"}));
     auto& actions = f.shell->actions();
-    auto& popover = f.shell->toolPopover();
+    auto& pane = f.shell->detail().toolsPane();
     CHECK_FALSE(actions.isEnabled("notes.tool.strum"));    // no notes to transform
     CHECK_FALSE(actions.isEnabled("notes.tool.bassline")); // no chords to follow
     CHECK(fd::model::toolUnavailable(*fd::model::findNoteTool("bassline"), roll.notes()).find("chords") !=
@@ -1153,14 +1272,18 @@ TEST_CASE("piano roll (P4c): Generate writes into an empty clip; the bassline fo
     REQUIRE(actions.isEnabled("notes.tool.chords"));
 
     REQUIRE(actions.perform("notes.tool.chords"));
-    CHECK(popover.title() == juce::String::fromUTF8("Chords · 4 bars"));
-    popover.apply();
+    CHECK(pane.form().title() == juce::String::fromUTF8("Chords · 4 bars"));
+    CHECK_FALSE(pane.tile("bassline")->isEnabled()); // no chords yet: dimmed, saying why
+    CHECK(pane.tile("bassline")->getTooltip().contains("chords"));
+    pane.apply();
     CHECK(f.session->undoDescription() == "Chords");
     f.refresh();
     REQUIRE(roll.chordSpans().size() == 4);
+    pane.refresh();
+    CHECK(pane.tile("bassline")->isEnabled());
     REQUIRE(actions.isEnabled("notes.tool.bassline"));
     REQUIRE(actions.perform("notes.tool.bassline"));
-    popover.apply();
+    pane.apply();
     f.refresh();
     int low = 0;
     for (const auto& n : f.notes())
@@ -1172,6 +1295,8 @@ TEST_CASE("piano roll (P4c): Generate writes into an empty clip; the bassline fo
     const auto menus = fd::model::menuBar(fd::model::MenuPlatform::Windowed);
     const auto ids = fd::model::menuActions(menus);
     for (const auto& tool : fd::model::noteTools())
-        CHECK(std::find(ids.begin(), ids.end(), "notes.tool." + std::string(tool.id)) != ids.end());
+        CHECK(std::find(ids.begin(), ids.end(),
+                        tool.id == "quantise" ? std::string("notes.quantiseSettings") // Quantise…
+                                              : "notes.tool." + std::string(tool.id)) != ids.end());
     CHECK(fd::model::menuProblems(menus).empty());
 }

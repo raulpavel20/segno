@@ -86,10 +86,8 @@ nlohmann::json pianoRollOptionsToJson(const PianoRollOptions& o)
             {"chordKind", toWord(o.chord.shape, shapeWordList)},
             {"voicing", toWord(o.chord.voicing, voicingWordList)},
             {"inversion", toWord(o.chord.inversion, inversionWordList)},
-            {"quantiseStrength", o.quantise.strength},
-            {"quantiseSwing", o.quantise.swing},
-            {"quantiseStarts", o.quantise.starts},
-            {"quantiseEnds", o.quantise.ends}};
+            {"toolsOpen", o.toolsOpen},
+            {"toolsTab", o.toolsTab == ToolKind::Generate ? "generate" : "transform"}};
 }
 
 PianoRollOptions pianoRollOptionsFromJson(const nlohmann::json& json)
@@ -101,11 +99,6 @@ PianoRollOptions pianoRollOptionsFromJson(const nlohmann::json& json)
     {
         const auto it = json.find(key);
         return it != json.end() && it->is_boolean() ? it->get<bool>() : fallback;
-    };
-    const auto number = [&](const char* key, double fallback, double lo, double hi)
-    {
-        const auto it = json.find(key);
-        return it != json.end() && it->is_number() ? std::clamp(it->get<double>(), lo, hi) : fallback;
     };
     if (const auto it = json.find("wholeRoll"); it != json.end() && it->is_array())
         for (const auto& id : *it)
@@ -136,12 +129,9 @@ PianoRollOptions pianoRollOptionsFromJson(const nlohmann::json& json)
     o.chord.shape = fromWord(json, "chordKind", shapeWordList, o.chord.shape);
     o.chord.voicing = fromWord(json, "voicing", voicingWordList, o.chord.voicing);
     o.chord.inversion = fromWord(json, "inversion", inversionWordList, o.chord.inversion);
-    o.quantise.strength = number("quantiseStrength", o.quantise.strength, 0.0, 1.0);
-    o.quantise.swing = number("quantiseSwing", o.quantise.swing, 0.0, 1.0);
-    o.quantise.starts = flag("quantiseStarts", o.quantise.starts);
-    o.quantise.ends = flag("quantiseEnds", o.quantise.ends);
-    if (!o.quantise.starts && !o.quantise.ends)
-        o.quantise.starts = true;
+    o.toolsOpen = flag("toolsOpen", o.toolsOpen);
+    if (const auto it = json.find("toolsTab"); it != json.end() && it->is_string())
+        o.toolsTab = it->get<std::string>() == "generate" ? ToolKind::Generate : ToolKind::Transform;
     return o;
 }
 

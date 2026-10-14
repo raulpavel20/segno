@@ -62,7 +62,7 @@ void Shell::registerNotesActions()
                   .name = asks("Quantise"),
                   .category = "Notes",
                   .keys = {key('u', kCmd | kShift)},
-                  .perform = [this] { openQuantisePopover(); },
+                  .perform = [this] { openTool("quantise"); },
                   .isEnabled = hasNotes,
                   .whyNot = whyNoNotes});
 
@@ -88,7 +88,7 @@ void Shell::registerNotesActions()
                   .whyNot = whyNoKey});
 
     // Chords (§7.4, §20.3, §20.4): Make chords… chord by chord; Change chord… for the selected chord.
-    tool("notes.makeChords", asks("Make chords"), [this] { openMakeChords(); });
+    tool("notes.makeChords", asks("Make chords"), [this] { openTool("makeChords"); });
     const auto selectedChord = [this, &roll]
     {
         if (!detail_.showsPianoRoll() || !roll.hasSelection())
@@ -126,16 +126,18 @@ void Shell::registerNotesActions()
     tool("notes.halfSpeed", "Half speed", [&roll] { roll.stretch(2.0); });
     tool("notes.reverse", "Reverse", [&roll] { roll.reverse(); });
     tool("notes.mirror", "Mirror pitches", [&roll] { roll.mirrorPitches(); });
-    // The tools that transform and generate (§12, §23): each opens its popover. Transforms need notes;
-    // a generator a MIDI clip in the clip view (the bassline, its chords too).
+    // The tools that transform and generate (§12, §23): each opens the Tools pane at it (§25). Transforms
+    // need notes; a generator a MIDI clip in the clip view (the bassline, its chords too).
     for (const auto& t : model::noteTools())
     {
+        if (t.id == "quantise")
+            continue; // Quantise… (above) opens the pane at it
         const auto* spec = &t;
         actions_.add(
             {.id = "notes.tool." + std::string(t.id),
              .name = asks(std::string(t.name).c_str()),
              .category = "Notes",
-             .perform = [this, spec] { openTool(*spec); },
+             .perform = [this, spec] { openTool(spec->id); },
              .isEnabled = [this, &roll, spec]
              { return detail_.showsPianoRoll() && model::toolUnavailable(*spec, roll.notes()).empty(); },
              .whyNot =
@@ -190,6 +192,18 @@ void Shell::registerNotesActions()
                                  ? juce::String("The song has no key: Song > Key sets one")
                                  : juce::String("Open a MIDI clip in the clip view first: double-click it");
                   }});
+    // The Tools pane (§25): on a tab, or closed, as the header's Transform and Generate do.
+    for (const auto& [id, name, tab] :
+         {std::tuple{"view.toolsTransform", "Transform tools", model::ToolKind::Transform},
+          std::tuple{"view.toolsGenerate", "Generate tools", model::ToolKind::Generate}})
+        actions_.add({.id = id,
+                      .name = name,
+                      .category = "View",
+                      .perform = [this, kind = tab]
+                      { detail_.showTools(detail_.toolsShown(kind) ? std::nullopt : std::optional(kind)); },
+                      .isEnabled = clipView,
+                      .isToggled = [this, kind = tab] { return detail_.toolsShown(kind); },
+                      .whyNot = whyNoClip});
     actions_.add({.id = "view.clipOthers",
                   .name = "Show other tracks' notes",
                   .category = "View",
@@ -277,8 +291,9 @@ juce::PopupMenu Shell::notesContextMenu()
         actions_.addMenuItem(chords, id);
     menu.addSubMenu("Chords", chords);
     juce::PopupMenu transform; // §12
+    actions_.addMenuItem(transform, "notes.quantiseSettings");
     for (const auto& t : model::noteTools())
-        if (t.kind == model::ToolKind::Transform)
+        if (t.kind == model::ToolKind::Transform && t.id != "quantise")
             actions_.addMenuItem(transform, "notes.tool." + std::string(t.id));
     menu.addSubMenu("Transform", transform);
     actions_.addMenuItem(menu, "clip.mute");
@@ -306,7 +321,7 @@ void Shell::openChordPopover(const PianoRoll::ChordPlace& place)
     if (!detail_.showsPianoRoll())
         return;
     lastArea_ = Area::Clip;
-    quantisePopover_.close();
+    detail_.toolsPane().disarm(); // one thing at a time shows on the notes
     // Beside the place in the lane (the lane's top when it isn't shown yet).
     auto anchor = roll.laneAreaWithBefore(place);
     if (anchor.isEmpty())
@@ -314,53 +329,12 @@ void Shell::openChordPopover(const PianoRoll::ChordPlace& place)
     chordPopover_.open(*this, getLocalArea(&roll, anchor), place);
 }
 
-void Shell::openMakeChords()
-{
-    auto& roll = detail_.pianoRoll();
-    if (!detail_.showsPianoRoll() || roll.notes().empty())
-        return;
-    lastArea_ = Area::Clip;
-    chordPopover_.close();
-    quantisePopover_.close();
-    // Beside the notes it makes (§20.3).
-    std::set<std::size_t> which = roll.selection();
-    if (which.empty())
-        for (std::size_t i = 0; i < roll.notes().size(); ++i)
-            which.insert(i);
-    const auto span = model::notesSpan(roll.notes(), which);
-    auto anchor = span ? roll.laneAreaFor({span->first, span->second, {}}) : roll.rulerArea();
-    if (anchor.isEmpty())
-        anchor = roll.rulerArea();
-    makeChords_.open(*this, getLocalArea(&roll, anchor));
-}
-
-void Shell::openTool(const model::ToolSpec& tool)
-{
-    auto& roll = detail_.pianoRoll();
-    if (!detail_.showsPianoRoll())
-        return;
-    lastArea_ = Area::Clip;
-    chordPopover_.close();
-    quantisePopover_.close();
-    makeChords_.close();
-    // At the top right of the notes (§23).
-    toolPopover_.open(*this, getLocalArea(&roll, roll.gridArea()), tool);
-}
-
-void Shell::openQuantisePopover()
+void Shell::openTool(std::string_view id)
 {
     if (!detail_.showsPianoRoll())
         return;
     lastArea_ = Area::Clip;
     chordPopover_.close();
-    // Under the header's Quantise: the header's right end when it's hidden.
-    auto& header = detail_.header();
-    juce::Rectangle<int> anchor = header.getBounds().removeFromRight(1);
-    for (auto* child : header.getChildren())
-        if (auto* button = dynamic_cast<ui::Toggle*>(child);
-            button != nullptr && button->getButtonText() == "Quantise" && button->isVisible() &&
-            !button->getBounds().isEmpty())
-            anchor = button->getBounds().translated(header.getX(), header.getY());
-    quantisePopover_.open(*this, getLocalArea(&detail_, anchor));
+    detail_.showTool(id); // the Tools pane at it (§25)
 }
 } // namespace fd::app

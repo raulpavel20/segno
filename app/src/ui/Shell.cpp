@@ -373,7 +373,11 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     arrangement_.onMessage = [this](const juce::String& m) { showWarning(m); };
     detail_.pianoRoll().onMessage = [this](const juce::String& m) { showWarning(m); };
     detail_.chain().onActivated = [this] { lastArea_ = Area::Detail; };
-    detail_.pianoRoll().onActivated = [this] { lastArea_ = Area::Clip; };
+    detail_.pianoRoll().onActivated = [this]
+    {
+        lastArea_ = Area::Clip;
+        detail_.toolsPane().disarm(); // working on the notes lets go of a tool shown on them (§25)
+    };
     // The inspector's NOTES section follows the clip view's notes (piano-roll.md §9.6).
     inspector_.setPianoRoll(detail_.pianoRoll());
     detail_.pianoRoll().onSelectionChanged = [this] { inspector_.notesChanged(); };

@@ -1,8 +1,9 @@
-#include "ui/ToolPopover.h"
+#include "ui/ToolForm.h"
 
 #include "model/MusicalTime.h"
 
 #include <cmath>
+#include <map>
 
 namespace fd::app
 {
@@ -11,6 +12,11 @@ namespace
 juce::String utf8(const std::string& s)
 {
     return juce::String::fromUTF8(s.c_str());
+}
+
+juce::String utf8(std::string_view s)
+{
+    return utf8(std::string(s));
 }
 
 /// A number typed: as it's shown ("40 ms", "−8 per note", "60 %"), or a note's name for a pitch.
@@ -39,47 +45,54 @@ std::optional<double> numberFromText(const model::ToolSetting& s, const juce::St
 }
 } // namespace
 
-ToolPopover::ToolPopover(PianoRoll& roll, engine::Session& session)
-    : roll_(roll), session_(session), outside_(*this, [this] { close(); })
+/// The rows: their labels painted beside their controls.
+class ToolForm::Rows final : public juce::Component
 {
+public:
+    explicit Rows(const ToolForm& form) : form_(form) {}
+    void paint(juce::Graphics& g) override { form_.paintLabels(g); }
+
+private:
+    const ToolForm& form_;
+};
+
+ToolForm::ToolForm(PianoRoll& roll, engine::Session& session)
+    : roll_(roll), session_(session), holder_(std::make_unique<Rows>(*this))
+{
+    viewport_.setViewedComponent(holder_.get(), false);
+    viewport_.setScrollBarsShown(true, false);
+    addAndMakeVisible(viewport_);
     apply_.setClickingTogglesState(false);
     apply_.setTooltip("Keep it (Return); Escape puts the notes back");
     apply_.onClick = [this] { apply(); };
     addAndMakeVisible(apply_);
-    setVisible(false);
-    setWantsKeyboardFocus(true);
-    addKeyListener(this);
+    const auto size = ui::Theme::current().textXs;
+    measureNumber_.setFontSize(size);
+    measureChoice_.setFontSize(size);
 }
 
-ToolPopover::~ToolPopover()
-{
-    outside_.detach();
-}
+ToolForm::~ToolForm() = default;
 
-void ToolPopover::open(juce::Component& parent, juce::Rectangle<int> notes, const model::ToolSpec& tool)
+void ToolForm::setTool(const model::ToolSpec* tool)
 {
-    if (isVisible())
-        close(); // another tool: its notes back first
-    parent_ = &parent;
-    notes_ = notes;
-    if (getParentComponent() != &parent)
-        parent.addChildComponent(this);
-    tool_ = &tool;
-    values_ = roll_.toolValues(tool);
+    tool_ = tool;
+    values_ = tool != nullptr ? roll_.toolValues(*tool) : model::ToolValues{};
     build();
-    place();
-    setVisible(true);
-    toFront(true);
-    grabKeyboardFocus(); // Return applies, Escape closes
-    outside_.attach();
-    preview();
+    resized();
+    if (tool != nullptr)
+        preview();
+    else
+        roll_.previewEdit(std::nullopt);
 }
 
-void ToolPopover::build()
+void ToolForm::build()
 {
     for (auto& row : rows_)
-        removeChildComponent(row.control.get());
+        holder_->removeChildComponent(row.control.get());
     rows_.clear();
+    viewport_.setViewPosition(0, 0);
+    if (tool_ == nullptr)
+        return;
     const auto& theme = ui::Theme::current();
     for (const auto& s : tool_->settings)
     {
@@ -91,7 +104,7 @@ void ToolPopover::build()
         {
             juce::StringArray names;
             for (auto c : s.choices)
-                names.add(utf8(std::string(c)));
+                names.add(utf8(c));
             auto segments = std::make_unique<ui::Segments>(names);
             segments->setSelected(index);
             segments->onChange = [this, id](int chosen) { setValue(id, chosen); };
@@ -108,12 +121,12 @@ void ToolPopover::build()
                 juce::PopupMenu menu;
                 const auto now = static_cast<int>(std::lround(values_.at(id)));
                 for (std::size_t c = 0; c < s.choices.size(); ++c)
-                    menu.addItem(juce::PopupMenu::Item(utf8(std::string(s.choices[c])))
+                    menu.addItem(juce::PopupMenu::Item(utf8(s.choices[c]))
                                      .setTicked(static_cast<int>(c) == now)
                                      .setAction(
                                          [this, raw, &s, id, c]
                                          {
-                                             raw->setValue(utf8(std::string(s.choices[c])));
+                                             raw->setValue(utf8(s.choices[c]));
                                              setValue(id, static_cast<double>(c));
                                          }));
                 raw->setOpen(true);
@@ -141,8 +154,8 @@ void ToolPopover::build()
             row.control = std::move(field);
         }
         if (auto* tip = dynamic_cast<juce::SettableTooltipClient*>(row.control.get()))
-            tip->setTooltip(utf8(std::string(s.label)));
-        addChildComponent(*row.control);
+            tip->setTooltip(utf8(s.label));
+        holder_->addChildComponent(*row.control);
         rows_.push_back(std::move(row));
     }
     for (auto& row : rows_)
@@ -152,7 +165,7 @@ void ToolPopover::build()
     }
 }
 
-void ToolPopover::setValue(std::string_view setting, double value)
+void ToolForm::setValue(std::string_view setting, double value)
 {
     if (tool_ == nullptr)
         return;
@@ -168,11 +181,15 @@ void ToolPopover::setValue(std::string_view setting, double value)
             changed = true;
         }
     if (changed)
-        place();
+    {
+        resized();
+        if (onLayoutChanged)
+            onLayoutChanged();
+    }
     preview();
 }
 
-juce::Component* ToolPopover::control(std::string_view setting) const
+juce::Component* ToolForm::control(std::string_view setting) const
 {
     for (const auto& row : rows_)
         if (row.setting->id == setting && row.shown)
@@ -180,22 +197,23 @@ juce::Component* ToolPopover::control(std::string_view setting) const
     return nullptr;
 }
 
-model::ToolRun ToolPopover::run() const
+model::ToolRun ToolForm::run() const
 {
     return model::runNoteTool(*tool_, roll_.notes(), roll_.selection(), values_, roll_.toolContext());
 }
 
-void ToolPopover::preview()
+void ToolForm::preview()
 {
     if (tool_ == nullptr)
         return;
     const auto r = run();
     roll_.previewEdit(r.why.empty() ? std::optional(r.edit) : std::nullopt);
+    repaint(); // its title counts what it acts on
 }
 
-void ToolPopover::apply()
+void ToolForm::apply()
 {
-    if (!isVisible() || tool_ == nullptr)
+    if (tool_ == nullptr)
         return;
     const auto r = run();
     roll_.setToolValues(*tool_, values_);
@@ -206,37 +224,14 @@ void ToolPopover::apply()
     }
     else
         roll_.previewEdit(std::nullopt);
-    outside_.detach();
-    setVisible(false);
 }
 
-void ToolPopover::close()
+void ToolForm::cancel()
 {
-    outside_.detach();
-    if (!isVisible())
-        return;
-    setVisible(false);
     roll_.previewEdit(std::nullopt);
-    if (auto* parent = getParentComponent(); parent != nullptr && parent->isShowing())
-        parent->grabKeyboardFocus();
 }
 
-bool ToolPopover::keyPressed(const juce::KeyPress& key, juce::Component*)
-{
-    if (key == juce::KeyPress::escapeKey)
-    {
-        close();
-        return true;
-    }
-    if (key == juce::KeyPress::returnKey)
-    {
-        apply();
-        return true;
-    }
-    return false;
-}
-
-juce::String ToolPopover::title() const
+juce::String ToolForm::title() const
 {
     if (tool_ == nullptr)
         return {};
@@ -253,105 +248,128 @@ juce::String ToolPopover::title() const
         const auto span = roll_.toolContext().span;
         scope = juce::String(model::lengthText(span.second - span.first, roll_.tempo()));
     }
-    return utf8(std::string(tool_->name)) + dot + scope;
+    return utf8(tool_->name) + dot + scope;
 }
 
 // ---- layout --------------------------------------------------------------------------------------
 
-juce::Rectangle<int> ToolPopover::inner() const
+int ToolForm::controlWidth(const model::ToolSetting& s) const
 {
-    return getLocalBounds().reduced(juce::roundToInt(ui::Theme::current().shell.shadowRadius));
-}
-
-int ToolPopover::controlWidth(const Row& row) const
-{
-    const auto& s = *row.setting;
-    if (auto* segments = dynamic_cast<ui::Segments*>(row.control.get()))
-        return segments->preferredWidth();
-    if (auto* field = dynamic_cast<ui::ChoiceField*>(row.control.get()))
+    if (s.isChoice() && !s.menu)
+    {
+        int width = 0;
+        for (auto c : s.choices)
+            width += ui::Toggle::widthFor(utf8(c));
+        return width;
+    }
+    if (s.isChoice())
     {
         int widest = 0;
         for (auto c : s.choices)
-            widest = std::max(widest, field->widthFor(utf8(std::string(c))));
+            widest = std::max(widest, measureChoice_.widthFor(utf8(c)));
         return widest;
     }
-    auto* field = dynamic_cast<ui::NumberField*>(row.control.get());
     int widest = 0;
+    const auto* key = roll_.key() ? &*roll_.key() : nullptr;
     for (double v : {s.min, s.max, s.initial})
-        widest = std::max(widest, field->widthFor(field->textFromValue(v)));
+        widest = std::max(widest, measureNumber_.widthFor(utf8(model::settingText(s, v, key))));
     return widest;
 }
 
-int ToolPopover::preferredWidth() const
+int ToolForm::preferredWidth(const model::ToolSpec& tool) const
 {
     const auto& s = ui::Theme::current().shell;
     int content = 0;
-    for (const auto& row : rows_)
-        content = std::max(content, s.propertyLabelWidth + controlWidth(row));
-    const auto titleWidth = static_cast<int>(
-        std::ceil(juce::GlyphArrangement::getStringWidth(ui::capsLabelFont(), title().toUpperCase())));
-    content = std::max(content, titleWidth + s.groupGap + ui::Toggle::widthFor(apply_.getButtonText()));
-    return content + 2 * s.padding;
+    for (const auto& setting : tool.settings)
+        content = std::max(content, s.propertyLabelWidth + controlWidth(setting));
+    // The title at its longest ("RANDOMISE PITCH · 9999 NOTES") and Apply.
+    const auto title = (utf8(tool.name) + juce::String::fromUTF8(" · 9999 notes")).toUpperCase();
+    const auto titleWidth =
+        static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(ui::capsLabelFont(), title)));
+    return std::max(content, titleWidth + s.groupGap + ui::Toggle::widthFor(apply_.getButtonText()));
 }
 
-int ToolPopover::preferredHeight() const
+int ToolForm::heightFor(int rows)
 {
     const auto& s = ui::Theme::current().shell;
+    return s.rowHeight + rows * (s.itemGap + s.rowHeight);
+}
+
+int ToolForm::preferredHeight() const
+{
     int rows = 0;
     for (const auto& row : rows_)
         rows += row.shown ? 1 : 0;
-    return 2 * s.padding + s.rowHeight + rows * (s.itemGap + s.rowHeight);
+    return heightFor(rows);
 }
 
-void ToolPopover::place()
+int ToolForm::preferredHeight(const model::ToolSpec& tool)
 {
-    if (parent_ == nullptr)
-        return;
-    const auto& s = ui::Theme::current().shell;
-    const int margin = juce::roundToInt(s.shadowRadius);
-    const int width = preferredWidth(), height = preferredHeight();
-    const auto area = parent_->getLocalBounds().reduced(s.itemGap);
-    // At the top right of the notes, inside the panel.
-    const int x = std::clamp(notes_.getRight() - s.itemGap - width, area.getX(),
-                             std::max(area.getX(), area.getRight() - width));
-    const int y =
-        std::clamp(notes_.getY() + s.itemGap, area.getY(), std::max(area.getY(), area.getBottom() - height));
-    setBounds(juce::Rectangle<int>(x, y, width, height).expanded(margin));
-    resized();
+    // The most rows any of its choices shows (the Velocity tool's shapes), so it keeps its height.
+    int rows = 0;
+    std::map<std::pair<std::string_view, double>, int> shownFor; // the rows a choice shows
+    for (const auto& s : tool.settings)
+        if (s.when.empty())
+            ++rows;
+        else
+            ++shownFor[{s.when, s.whenIs}];
+    std::map<std::string_view, int> most;
+    for (const auto& [choice, count] : shownFor)
+        most[choice.first] = std::max(most[choice.first], count);
+    for (const auto& [setting, count] : most)
+        rows += count;
+    return heightFor(rows);
 }
 
-void ToolPopover::resized()
+bool ToolForm::scrolls() const
+{
+    return holder_->getHeight() > viewport_.getHeight();
+}
+
+void ToolForm::resized()
 {
     const auto& s = ui::Theme::current().shell;
-    auto area = inner().reduced(s.padding);
+    auto area = getLocalBounds();
     auto titleRow = area.removeFromTop(s.rowHeight);
     apply_.setBounds(titleRow.removeFromRight(ui::Toggle::widthFor(apply_.getButtonText())));
+    apply_.setVisible(tool_ != nullptr);
+    // The rows under the title, scrolling when they don't fit.
+    viewport_.setBounds(area);
+    const int rowsHeight = preferredHeight() - s.rowHeight;
+    const int width =
+        area.getWidth() - (rowsHeight > area.getHeight() ? viewport_.getScrollBarThickness() + s.itemGap : 0);
+    holder_->setSize(width, rowsHeight);
+    int y = 0;
     for (auto& row : rows_)
     {
         if (!row.shown)
             continue;
-        area.removeFromTop(s.itemGap);
-        auto line = area.removeFromTop(s.rowHeight).withTrimmedLeft(s.propertyLabelWidth);
+        y += s.itemGap;
+        auto line = juce::Rectangle<int>(s.propertyLabelWidth, y, width - s.propertyLabelWidth, s.rowHeight);
+        y += s.rowHeight;
         // A field's text lines up with the labels' column, as the inspector's do.
         if (dynamic_cast<ui::NumberField*>(row.control.get()) != nullptr)
             line = line.withLeft(line.getX() - ui::NumberField::textInset);
-        row.control->setBounds(line.withWidth(controlWidth(row)));
+        row.control->setBounds(line.withWidth(controlWidth(*row.setting)));
     }
 }
 
-void ToolPopover::paint(juce::Graphics& g)
+void ToolForm::paint(juce::Graphics& g)
+{
+    const auto& s = ui::Theme::current().shell;
+    if (tool_ != nullptr)
+        ui::paintCapsLabel(g, title(), getLocalBounds().removeFromTop(s.rowHeight).toFloat());
+}
+
+void ToolForm::paintLabels(juce::Graphics& g) const
 {
     const auto& t = ui::Theme::current();
-    const auto& s = t.shell;
-    ui::paintPopover(g, inner());
-    auto area = inner().reduced(s.padding);
-    ui::paintCapsLabel(g, title(), area.removeFromTop(s.rowHeight).toFloat());
     g.setFont(ui::font(ui::TextStyle::Body));
     g.setColour(t.textSecondary);
     for (const auto& row : rows_)
         if (row.shown)
-            g.drawText(utf8(std::string(row.setting->label)),
-                       row.control->getBounds().withX(area.getX()).withWidth(s.propertyLabelWidth),
+            g.drawText(utf8(row.setting->label),
+                       row.control->getBounds().withX(0).withWidth(t.shell.propertyLabelWidth),
                        juce::Justification::centredLeft, false);
 }
 } // namespace fd::app

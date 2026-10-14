@@ -47,10 +47,18 @@ void Toggle::mouseUp(const juce::MouseEvent& e)
     juce::Button::mouseUp(e);
 }
 
-int Toggle::widthFor(const juce::String& text)
+int Toggle::widthFor(const juce::String& text, bool icon)
 {
-    return static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(font(TextStyle::Control), text))) +
-           2 * Theme::current().shell.buttonTextPadding;
+    const auto& s = Theme::current().shell;
+    return static_cast<int>(
+               std::ceil(juce::GlyphArrangement::getStringWidth(font(TextStyle::Control), text))) +
+           2 * s.buttonTextPadding + (icon ? s.toggleIconSize + s.itemGap : 0);
+}
+
+void Toggle::setIcon(std::optional<Icon> icon)
+{
+    icon_ = icon;
+    repaint();
 }
 
 void Toggle::paintButton(juce::Graphics& g, bool highlighted, bool down)
@@ -103,9 +111,25 @@ void Toggle::paintButton(juce::Graphics& g, bool highlighted, bool down)
         g.drawRoundedRectangle(bounds.reduced(0.5f), t.radiusControl, 1.0f);
     }
 
-    g.setColour(on ? t.onActive : (highlighted ? t.textPrimary : t.textSecondary));
+    const auto ink = on ? t.onActive : (highlighted ? t.textPrimary : t.textSecondary);
+    g.setColour(ink);
     g.setFont(font(TextStyle::Control));
-    g.drawText(getButtonText(), getLocalBounds(), juce::Justification::centred, false);
+    if (icon_)
+    {
+        // The icon, a gap, the label, together in the middle.
+        const auto& s = t.shell;
+        const int text = static_cast<int>(
+            std::ceil(juce::GlyphArrangement::getStringWidth(font(TextStyle::Control), getButtonText())));
+        const int content = s.toggleIconSize + s.itemGap + text;
+        auto area = getLocalBounds().withSizeKeepingCentre(content, getHeight());
+        const auto size = static_cast<float>(s.toggleIconSize);
+        drawIcon(g, *icon_, area.removeFromLeft(s.toggleIconSize).toFloat().withSizeKeepingCentre(size, size),
+                 ink);
+        area.removeFromLeft(s.itemGap);
+        g.drawText(getButtonText(), area, juce::Justification::centredLeft, false);
+    }
+    else
+        g.drawText(getButtonText(), getLocalBounds(), juce::Justification::centred, false);
     paintAutomationIndicator(g, {3.5f, 3.5f}, automation_); // over the corner
 }
 } // namespace fd::ui

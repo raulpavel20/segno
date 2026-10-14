@@ -7,8 +7,11 @@ class Toggle : public juce::Button
 {
 public:
     explicit Toggle(const juce::String& text = {});
-    /// The width a text toggle needs for `text`: its label and the button padding each side.
-    [[nodiscard]] static int widthFor(const juce::String& text);
+    /// The width a text toggle needs for `text`: its label and the button padding each side, and
+    /// with `icon`, the icon and a gap before the label.
+    [[nodiscard]] static int widthFor(const juce::String& text, bool icon = false);
+    /// An icon before the label (the clip view's Transform and Generate, piano-roll.md §25).
+    void setIcon(std::optional<Icon> icon);
 
     /// Shows whether its parameter is automated (automation.md §6).
     void setAutomationState(AutomationState state);
@@ -26,6 +29,7 @@ public:
 
 private:
     AutomationState automation_ = AutomationState::None;
+    std::optional<Icon> icon_;
     bool popup_ = false, arm_ = false, partly_ = false;
 };
 } // namespace fd::ui

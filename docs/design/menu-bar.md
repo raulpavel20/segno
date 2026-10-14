@@ -253,12 +253,12 @@ Clip ▸ Notes ▸ moved to the Notes menu (M3 P4).
 | Item | Shortcut | |
 |---|---|---|
 | Quantise | Ctrl+U | With Quantise…'s settings |
-| Quantise… | Ctrl+Shift+U | Strength, swing, starts and/or ends, previewed live; Apply keeps it as one step |
+| Quantise… | Ctrl+Shift+U | The Tools pane at Quantise ([piano-roll.md](piano-roll.md) §25): strength, swing, starts and/or ends, previewed live; Apply keeps it as one step |
 | — | | |
 | Transpose ▸ | | Up a step (↑), Down a step (↓): steps of the scale with Key on and a song key, else semitones; they raise and lower automation points when a lane was used last, as before. — ; Up a semitone (Ctrl+↑), Down a semitone (Ctrl+↓); — ; Up an octave (Shift+↑), Down an octave (Shift+↓) |
 | Fit to key | | Dimmed, saying why, without a song key |
 | — | | |
-| Make chords… | | A card per note, each its own chord and voicing ([piano-roll.md](piano-roll.md) §20.3) |
+| Make chords… | | The Tools pane at Make chords: a row per note, each its own chord and voicing ([piano-roll.md](piano-roll.md) §20.3, §25) |
 | Chords ▸ | | Change chord… (the Chord popover for the selected chord; dimmed unless the selection is one chord); — ; Invert up (Alt+Shift+↑), Invert down (Alt+Shift+↓); — ; Smooth, Close, Open, Drop 2, Drop 3 and Spread voicing; — ; Add bass |
 | — | | |
 | Join | Ctrl+J | |
@@ -266,14 +266,14 @@ Clip ▸ Notes ▸ moved to the Notes menu (M3 P4).
 | Reverse | | |
 | Mirror pitches | | |
 | — | | |
-| Transform ▸ | | Humanize…, Strum…, Arpeggiate…, Chop…, Ornament…, Velocity…, Span…, Randomise pitch…: each a popover that previews, Apply keeps it as one step ([piano-roll.md](piano-roll.md) §12, §23; M3 P4c); dimmed without notes |
-| Generate ▸ | | Rhythm…, Melody…, Chords…, Bassline… into the selected notes' span, else the clip's loop; the bassline dimmed, saying why, until the clip has chords |
+| Transform ▸ | | Humanize…, Strum…, Arpeggiate…, Chop…, Ornament…, Velocity…, Span…, Randomise pitch…: each opens the Tools pane at it, previewed as it's set, Apply keeps it as one step ([piano-roll.md](piano-roll.md) §12, §23, §25; M3 P4c); dimmed without notes |
+| Generate ▸ | | Rhythm…, Melody…, Chords…, Bassline… (the Tools pane at it) into the selected notes' span, else the clip's loop; the bassline dimmed, saying why, until the clip has chords |
 | Re-roll chance | | The clip's notes left to chance decided again (a new seed, [piano-roll.md](piano-roll.md) §10); dimmed, saying why, while no note is |
 | — | | |
 | Select ▸ | | Select same pitch, Select outside the key, Select in the loop, Invert selection |
 | Nudge later / earlier | → / ← | They nudge lane points too, as before |
 
-The notes' right-click menu has Transform ▸ too. Clip ▸ Mute clips (0) reads "Mute notes" and mutes them while the clip view was used last; Edit ▸ Split at playhead (Ctrl+E) splits the notes crossing it then.
+The notes' right-click menu has Transform ▸ too, Quantise… first, as the Tools pane's tiles. Clip ▸ Mute clips (0) reads "Mute notes" and mutes them while the clip view was used last; Edit ▸ Split at playhead (Ctrl+E) splits the notes crossing it then.
 
 **Song** (added with the song's sections, M3 C3; the song's key first, M3 P3, [ADR 0057](../decisions/0057-the-song-has-one-key.md); [ADR 0049](../decisions/0049-the-master-row-is-the-song-row.md), [arranger.md](arranger.md) §12; Alt+G since M3 P4 gave Notes the N; Alt+S solos)
 
@@ -361,6 +361,7 @@ The notes' right-click menu has Transform ▸ too. Clip ▸ Mute clips (0) reads
 | — | | |
 | Other tracks' notes ▸ | | Show other tracks' notes (the clip view's Others, [piano-roll.md](piano-roll.md) §8); — ; each other track with notes, ticked while it's shown (M3 P4b; also the Others option's right-click) |
 | Clip view lane ▸ | | Velocity, Chance, Release velocity; the controllers (the clip's and the usual ones); Other controller ▸ (CC 0–127): what the clip view's bottom lane shows (§11, M3 P4b; also its head's menu) |
+| Tools pane ▸ | | Transform tools, Generate tools: the clip view's Tools pane on that tab, ticked while it shows it; chosen again, it closes (the header's Transform and Generate, [piano-roll.md](piano-roll.md) §25) |
 | Show only the key's notes | Ctrl+Alt+N | The clip view's In key (M3 P4, [piano-roll.md](piano-roll.md) §6, §21): only the key's rows, else the whole roll; ticked while it shows the key's rows; dimmed without a song key |
 | Show other tracks' notes | | The clip view's Others (§8) |
 | Draw ▸ | | Draw note, Draw chord, Draw chord under: the clip view's Draw (§7.2); — ; Draw triads, Draw 7th chords, Draw 9th chords, Draw sus2, sus4, add9 chords; — ; Voiced smooth, close, open, drop 2, drop 3, spread: the kind and voicing chords are drawn with (§20.2) |

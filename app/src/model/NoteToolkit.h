@@ -78,6 +78,8 @@ struct ToolContext
     double origin = 0.0;
     /// Where a generator writes: content beats [first, second).
     std::pair<double, double> span{0.0, 16.0};
+    /// The grid's step, in beats: what Quantise moves notes to.
+    double gridStep = 0.25;
 };
 
 /// A tool's run: the notes as it leaves them (the changed or new notes selected), or why it

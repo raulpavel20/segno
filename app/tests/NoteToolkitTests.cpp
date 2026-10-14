@@ -50,7 +50,7 @@ std::vector<Note> cMajorChord(double start = 0.0, double length = 1.0)
 TEST_CASE("Note tools: the catalogue is consistent", "[fast]")
 {
     const auto& tools = noteTools();
-    REQUIRE(tools.size() == 12);
+    REQUIRE(tools.size() == 13);
     std::set<std::string_view> ids;
     int transforms = 0;
     for (const auto& tool : tools)
@@ -86,7 +86,7 @@ TEST_CASE("Note tools: the catalogue is consistent", "[fast]")
         }
         CHECK(findNoteTool(tool.id) == &tool);
     }
-    CHECK(transforms == 8);
+    CHECK(transforms == 9);
     CHECK(findNoteTool("nonsense") == nullptr);
 }
 
@@ -110,6 +110,25 @@ TEST_CASE("Note tools: settings take their defaults, keep to their ranges and st
     CHECK(settingShown(velocity, *velocity.setting("from"), {{"shape", 0.0}}));
     CHECK_FALSE(settingShown(velocity, *velocity.setting("from"), {{"shape", 1.0}}));
     CHECK(settingShown(velocity, *velocity.setting("cycles"), {{"shape", 1.0}}));
+}
+
+TEST_CASE("Note tools: Quantise moves to the grid in context, part of the way, starts or ends", "[fast]")
+{
+    const std::vector<Note> notes{note(60, 0.1, 0.8), note(62, 1.05, 0.8)};
+    auto c = context();
+    c.gridStep = 0.5;
+    auto out = run("quantise", notes, {}, {}, c).edit.notes;
+    CHECK(out[0].start == Approx(0.0));
+    CHECK(out[1].start == Approx(1.0));
+    CHECK(out[0].length == Approx(0.8)); // starts only: the lengths kept
+    out = run("quantise", notes, {{"strength", 50.0}}, {}, c).edit.notes;
+    CHECK(out[0].start == Approx(0.05));
+    out = run("quantise", notes, {{"moves", 1.0}}, {}, c).edit.notes; // ends
+    CHECK(out[0].start == Approx(0.1));
+    CHECK(out[0].start + out[0].length == Approx(1.0));
+    out = run("quantise", notes, {}, {1}, c).edit.notes; // only the selected
+    CHECK(out[0].start == Approx(0.1));
+    CHECK(out[1].start == Approx(1.0));
 }
 
 TEST_CASE("Note tools: Humanize moves a little, the same for the same seed", "[fast]")

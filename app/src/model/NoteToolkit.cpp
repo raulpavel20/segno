@@ -57,6 +57,12 @@ std::vector<ToolSpec> makeTools()
 {
     using K = ToolKind;
     return {
+        {"quantise",
+         "Quantise",
+         K::Transform,
+         "Moves notes to the grid, part of the way or all, with swing",
+         {number("strength", "Strength", 0, 100, 100, "%"), number("swing", "Swing", 0, 100, 0, "%"),
+          choice("moves", "Moves", {"Starts", "Ends", "Both"}, {"starts", "ends", "both"})}},
         {"humanize",
          "Humanize",
          K::Transform,
@@ -828,6 +834,19 @@ ToolRun runNoteTool(const ToolSpec& tool, const std::vector<Note>& notes,
         else
             made = bassline(notes, v, context);
         return {place(notes, std::move(made), v, context, drop), {}};
+    }
+    if (tool.id == "quantise") // the grid's own function (§9.5)
+    {
+        const int moves = pick(v, "moves");
+        const QuantiseSettings settings{.strength = get(v, "strength") / 100.0,
+                                        .swing = get(v, "swing") / 100.0,
+                                        .starts = moves != 1,
+                                        .ends = moves != 0};
+        return {
+            quantiseNotes(notes, selection,
+                          {.step = context.gridStep, .origin = context.origin, .bar = context.beatsPerBar},
+                          settings),
+            {}};
     }
     const auto t = targetsOf(notes, selection);
     std::vector<Note> picked;

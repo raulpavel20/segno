@@ -7,7 +7,7 @@ A piano roll that's good to write music in, not only to fix notes: it writes in 
 - the menu bar as the complete list ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)) and assistants' tools ([ADR 0021](../decisions/0021-mcp-server.md));
 - the UI foundations ([ADR 0023](../decisions/0023-ui-foundations.md)): every panel sized from its content, nothing touching.
 
-**Status:** approved by the product owner (2026-10-14), with every recommendation of §17 (N1–N19) and the stages of §16; the decision is [ADR 0058](../decisions/0058-the-piano-roll-writes-in-key-and-in-chords.md). A visual mockup of the clip view came first and was approved (2026-10-14). Each stage is then built and signed off on its own. **P4a built (2026-10-14), for review:** what building settled is §19. **Revised after the product owner's first use** (§20: the key's rows, chords chosen where they're written, Make chords… chord by chord), approved and built the same day.
+**Status:** approved by the product owner (2026-10-14), with every recommendation of §17 (N1–N19) and the stages of §16; the decision is [ADR 0058](../decisions/0058-the-piano-roll-writes-in-key-and-in-chords.md). A visual mockup of the clip view came first and was approved (2026-10-14). Each stage is then built and signed off on its own. **P4a built (2026-10-14), for review:** what building settled is §19. **Revised after the product owner's first use** (§20: the key's rows, chords chosen where they're written, Make chords… chord by chord), approved and built the same day. **The tools on the surface** (§25: the Tools pane, its Transform and Generate buttons) approved and built 2026-10-15; what building settled is §25.5.
 
 ## 1. Why
 
@@ -251,12 +251,12 @@ A new **Notes** menu, between Clip and Song: the piano roll's commands have outg
 | Item | Shortcut |
 |---|---|
 | Quantise | Ctrl+U |
-| Quantise… | Ctrl+Shift+U |
+| Quantise… (the Tools pane at Quantise, §25) | Ctrl+Shift+U |
 | — | |
 | Transpose ▸ (Up a step ↑, Down a step ↓; Up a semitone Ctrl+↑, Down a semitone Ctrl+↓; Up an octave Shift+↑, Down an octave Shift+↓) | as listed |
 | Fit to key | – |
 | — | |
-| Make chords… (§20.3) | – |
+| Make chords… (§20.3; the Tools pane at Make chords, §25) | – |
 | Chords ▸ (Change chord… (§20.4); Invert up Alt+Shift+↑, Invert down Alt+Shift+↓; Smooth voicing, Close, Open, Drop 2, Drop 3, Spread; Add bass) | as listed |
 | — | |
 | Join | Ctrl+J |
@@ -266,15 +266,15 @@ A new **Notes** menu, between Clip and Song: the piano roll's commands have outg
 | — | |
 | Re-roll chance (P4b) | – |
 | — | |
-| Transform ▸ (Humanize…, Strum…, Arpeggiate…, Chop…, Ornament…, Velocity…, Span…, Randomise pitch…) (P4c) | – |
+| Transform ▸ (Humanize…, Strum…, Arpeggiate…, Chop…, Ornament…, Velocity…, Span…, Randomise pitch…) (P4c; each opens the Tools pane at it, §25) | – |
 | Generate ▸ (Rhythm…, Melody…, Chords…, Bassline…) | – |
 | — | |
 | Select ▸ (Same pitch, Outside the key, In the loop, Invert selection) | – |
 | Nudge later / earlier | → / ← |
 
 - Clip ▸ Notes ▸ moves here. Edit's Delete, Duplicate, Cut, Copy, Paste, Select all and Split at playhead act on notes when the clip view was used last, and Clip ▸ Mute clips (0) mutes notes then (§9.4): one action each, so no shortcut is doubled.
-- **The View menu** gains the clip view's options (Show only the key's notes, Others, Draw ▸), so each is reachable without the header.
-- **The right-click menu** on notes offers the most used: Quantise, Fit to key, Make chords…, Chords ▸ (Change chord…, Invert, voicings), Mute, Transform ▸, Select ▸.
+- **The View menu** gains the clip view's options (Show only the key's notes, Others, Draw ▸), so each is reachable without the header, and Tools pane ▸ (Transform tools, Generate tools: the header's Transform and Generate, §25).
+- **The right-click menu** on notes offers the most used: Quantise, Fit to key, Make chords…, Chords ▸ (Change chord…, Invert, voicings), Mute, Transform ▸ (Quantise… first, as the pane's tiles), Select ▸.
 - Shortcuts that would clash are checked by the existing test.
 
 ## 14. Assistants (MCP)
@@ -586,7 +586,7 @@ Built as §12 and §23 say. What building settled:
 - **In the menus:** Notes ▸ Transform ▸ and Generate ▸ sit between Mirror pitches and Re-roll chance; the notes' right-click menu has Transform ▸. The bassline is dimmed, saying why, until the clip has chords; the transforms until it has notes.
 - **Assistants:** `list_note_tools` gives each tool's settings (choices as words, numbers with their range and unit, which show only for a choice). `transform_notes` and `generate_notes` check the settings against the same description: an unknown setting, word or value out of range is named.
 
-## 25. The tools on the surface (proposal, for review, 2026-10-15)
+## 25. The tools on the surface (approved and built, 2026-10-15)
 
 The product owner, after P4c:
 - "I don't like that we hid so much functionality in bar menus and right click menus. It's ok that it's there, right click is good and many people know it. But I think a lot of these could have also been surfaced better, with buttons and icons in the bar above. Especially generate and transform."
@@ -644,4 +644,18 @@ Live's model fits Segno best: Live users know it, it shows every tool at once, a
 | U7 | **Narrow clip views** | Under ~900 px the pane floats over the notes' right side; the buttons give way after the options |
 | U8 | **Icons** | One per tool and button, from fd_ui's icon set |
 | U9 | **The Notes menu** | Stays the complete list; the bar and the pane are where you work |
+
+The product owner approved every recommendation, Make chords as a tile (U6), and it was built the same day.
+
+### 25.5 Settled while building (2026-10-15)
+
+- **Quantise is a tool of the catalogue** (model/NoteToolkit), the first transform: Strength, Swing (0–100 %) and Moves (Starts, Ends, Both), moving to the clip view's grid. Its settings are kept as every tool's are (the view state's `tools`), so the separate Quantise settings of §19 went. The bar's Quantise and Ctrl+U run it with them. Assistants get it too: `transform_notes` with `tool: "quantise"` and an optional `grid` (default 1/16).
+- **Where the pane is short** (the clip view at its usual height), the tiles show their icons alone, square, in a row, each named in its tooltip ("Strum: …"); with the names, two columns, where the tab's tallest tool fits under them. A tool's rows scroll under its title and Apply where even that doesn't fit; Make chords' list scrolls as before. So the pane keeps its layout as tools are chosen.
+- **The pane keeps its width** as tools are chosen: as wide as its widest tool's settings.
+- **Working on the notes lets the tool go:** a click in the roll, or opening the Chord popover, puts the notes back first. An undo, an assistant or Select all under a chosen tool shows it again on the notes as they are now, or lets it go when it can't run on them.
+- **With nothing chosen,** the space under the tiles says what to do: "Choose a tool: the notes show it as you set it, and Apply keeps it."
+- **Return applies and Escape lets the tool go** while the pane has the keys (choosing a tile gives it them); Escape with nothing chosen closes the pane.
+- **The pane's tabs and the header's buttons go together:** Transform lit while the pane shows the Transform tab. Whether it's open and its tab are view state, kept with the project (`toolsOpen`, `toolsTab`).
+- **It floats** under `shell.toolsDockFrom` (900 px) of clip view, over the notes' right side, looking like a popover; docked, it's `surface1` with a line where the notes end.
+- **In the menus,** Notes ▸ Transform ▸ lists the tools without Quantise, which is Quantise… above it; the right-click Transform ▸ starts with Quantise…, as the pane's tiles do.
 

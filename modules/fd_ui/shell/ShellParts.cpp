@@ -227,14 +227,14 @@ void PanelHeader::addOption(Segments& segments)
 
 void PanelHeader::addCommand(juce::Component& command)
 {
-    commands_.push_back(&command);
+    commands_.push_back({.component = &command, .width = command.getWidth()});
     addAndMakeVisible(command);
     resized();
 }
 
 void PanelHeader::removeCommand(juce::Component& command)
 {
-    std::erase(commands_, &command);
+    std::erase_if(commands_, [&](const Command& c) { return c.component == &command; });
     removeChildComponent(&command);
     resized();
     repaint();
@@ -245,6 +245,9 @@ void PanelHeader::setDropOrder(juce::Component& option, int order)
     for (auto& o : options_)
         if (o.component == &option)
             o.drop = order;
+    for (auto& c : commands_)
+        if (c.component == &option)
+            c.drop = order;
     resized();
 }
 
@@ -253,6 +256,9 @@ bool PanelHeader::isDropped(const juce::Component& option) const
     for (const auto& o : options_)
         if (o.component == &option)
             return o.dropped;
+    for (const auto& c : commands_)
+        if (c.component == &option)
+            return c.dropped;
     return false;
 }
 
@@ -267,6 +273,8 @@ void PanelHeader::resized()
                                            capsLabelFont(), title_.toUpperCase())));
     for (auto& o : options_)
         o.dropped = false;
+    for (auto& c : commands_)
+        c.dropped = false;
     const auto needed = [&]
     {
         int width = s.padding / 2, items = 0;
@@ -276,23 +284,33 @@ void PanelHeader::resized()
                 width += o.width() + (items++ > 0 ? s.itemGap : 0);
             }
         int commandWidth = 0, commandCount = 0;
-        for (const auto* c : commands_)
-            if (c->isVisible())
-                commandWidth += c->getWidth() + (commandCount++ > 0 ? s.itemGap : 0);
+        for (const auto& c : commands_)
+            if (c.component->isVisible() && !c.dropped)
+                commandWidth += c.shownWidth() + (commandCount++ > 0 ? s.itemGap : 0);
         if (commandCount > 0)
             width += commandWidth + (items > 0 ? s.groupGap : s.padding / 2);
         return width;
     };
     while (needed() > getWidth() - left - s.groupGap)
     {
-        Option* next = nullptr;
+        // The lowest drop order among the options and commands still shown.
+        bool* next = nullptr;
+        int lowest = 0;
         for (auto& o : options_)
-            if (o.drop > 0 && !o.dropped && o.component->isVisible() &&
-                (next == nullptr || o.drop < next->drop))
-                next = &o;
+            if (o.drop > 0 && !o.dropped && o.component->isVisible() && (next == nullptr || o.drop < lowest))
+            {
+                next = &o.dropped;
+                lowest = o.drop;
+            }
+        for (auto& c : commands_)
+            if (c.drop > 0 && !c.dropped && c.component->isVisible() && (next == nullptr || c.drop < lowest))
+            {
+                next = &c.dropped;
+                lowest = c.drop;
+            }
         if (next == nullptr)
             break;
-        next->dropped = true;
+        *next = true;
     }
 
     // Right to left, `itemGap` apart. The last one's label ends at the padding, where a caption
@@ -310,15 +328,23 @@ void PanelHeader::resized()
             options = true;
         }
     // Commands left of them, a group apart (from the padding when there are none), centred.
-    const bool commands = std::any_of(commands_.begin(), commands_.end(), [](auto* c) { return c->isVisible(); });
+    const bool commands = std::any_of(commands_.begin(), commands_.end(), [](const Command& c)
+                                      { return c.component->isVisible() && !c.dropped; });
     if (commands)
     {
         right = !options ? getWidth() - s.padding : right + s.itemGap - s.groupGap;
         for (auto it = commands_.rbegin(); it != commands_.rend(); ++it)
-            if ((*it)->isVisible())
+            if (it->dropped)
             {
-                const int w = (*it)->getWidth(), h = (*it)->getHeight();
-                (*it)->setBounds(right - w, (getHeight() - h) / 2, w, h);
+                it->width = it->shownWidth();
+                it->component->setBounds({});
+            }
+            else if (it->component->isVisible())
+            {
+                const int w = it->shownWidth(),
+                          h = it->component->getHeight() > 0 ? it->component->getHeight() : s.rowHeight;
+                it->width = w;
+                it->component->setBounds(right - w, (getHeight() - h) / 2, w, h);
                 right -= w + s.itemGap;
             }
     }

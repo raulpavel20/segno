@@ -1567,7 +1567,7 @@ void InspectorPanel::paintSections(juce::Graphics& g)
 // ---- DetailPanel ---------------------------------------------------------------------------
 
 DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions)
-    : actions_(actions), chain_(session, actions), roll_(session), audio_(session)
+    : actions_(actions), chain_(session, actions), roll_(session), tools_(roll_, session), audio_(session)
 {
     header_.onTabSelected = [this](int tab)
     {
@@ -1603,6 +1603,27 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
     quantise_.setSize(ui::Toggle::widthFor(quantise_.getButtonText()), ui::Theme::current().shell.rowHeight);
     header_.addCommand(quantise_);
     quantise_.setVisible(false);
+    // Transform and Generate (§25): the Tools pane on their tab; clicked again, it closes.
+    for (auto [button, icon, tab, tip] :
+         {std::tuple{&transform_, ui::Icon::Transform, model::ToolKind::Transform,
+                     "The tools that change notes: Quantise, Strum, Arpeggiate, Make chords and more"},
+          std::tuple{&generate_, ui::Icon::Generate, model::ToolKind::Generate,
+                     "The tools that write notes: a rhythm, a melody, chords, a bassline"}})
+    {
+        button->setIcon(icon);
+        button->setClickingTogglesState(false);
+        button->setWantsKeyboardFocus(false);
+        button->setTooltip(tip);
+        button->onClick = [this, kind = tab]
+        { showTools(toolsShown(kind) ? std::nullopt : std::optional(kind)); };
+        button->setSize(ui::Toggle::widthFor(button->getButtonText(), true),
+                        ui::Theme::current().shell.rowHeight);
+        header_.addCommand(*button);
+        button->setVisible(false);
+    }
+    addChildComponent(tools_);
+    tools_.onEscape = [this] { showTools(std::nullopt); };
+    tools_.onTabChanged = [this](model::ToolKind tab) { showTools(tab); };
     // The piano roll's options; at compact widths Others, then Fold, the voicing, Draw and last the
     // kinds give way (§4, §20.2).
     draw_.setTooltip("What a double-click draws: a note, the key's chord on it, or the key's chord under it");
@@ -1646,6 +1667,8 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
     header_.setDropOrder(drawVoicing_, 2);
     header_.setDropOrder(draw_, 3);
     header_.setDropOrder(drawKind_, 4);
+    header_.setDropOrder(generate_, 5); // the commands that open the Tools pane go last (§25)
+    header_.setDropOrder(transform_, 6);
     roll_.onOptionsChanged = [this] { updateOptions(); };
     snap_.setClickingTogglesState(false); // the piano roll's, which the Session keeps
     snap_.onClick = [this] { roll_.setSnapEnabled(!roll_.isSnapEnabled()); };
@@ -1677,6 +1700,13 @@ void DetailPanel::updateOptions()
     others_.setToggleState(o.others, juce::dontSendNotification);
     inKey_.setTooltip(actions_.tooltip("view.clipInKey"));
     others_.setTooltip(actions_.tooltip("view.clipOthers"));
+    // The Tools pane as the view state has it (a project opened with it open, on a tab).
+    if (o.toolsTab != tools_.tab())
+        tools_.setTab(o.toolsTab);
+    if (tools_.isVisible() != (showsPianoRoll() && o.toolsOpen) ||
+        transform_.getToggleState() != (showsPianoRoll() && toolsShown(model::ToolKind::Transform)) ||
+        generate_.getToggleState() != (showsPianoRoll() && toolsShown(model::ToolKind::Generate)))
+        updateVisibility();
     header_.resized(); // the choices are as wide as their values
     header_.repaint();
 }
@@ -1816,10 +1846,43 @@ void DetailPanel::updateVisibility()
     inKey_.setVisible(notes && roll_.key().has_value());
     inKey_.setToggleState(roll_.inKey(), juce::dontSendNotification); // each clip its own
     others_.setVisible(notes);
+    transform_.setVisible(notes);
+    generate_.setVisible(notes);
+    transform_.setToggleState(notes && toolsShown(model::ToolKind::Transform), juce::dontSendNotification);
+    generate_.setToggleState(notes && toolsShown(model::ToolKind::Generate), juce::dontSendNotification);
+    const bool tools = notes && roll_.options().toolsOpen;
+    if (!tools && tools_.isVisible())
+        tools_.disarm(); // the notes back as it goes
+    tools_.setVisible(tools);
     snap_.setVisible(grid);
     grid_.setVisible(grid);
     header_.resized();
     header_.repaint();
+    resized();
+}
+
+void DetailPanel::showTools(std::optional<model::ToolKind> tab)
+{
+    auto o = roll_.options();
+    o.toolsOpen = tab.has_value();
+    if (tab)
+        o.toolsTab = *tab;
+    if (tab && *tab != tools_.tab())
+        tools_.setTab(*tab);
+    roll_.setOptions(o); // view state; updateOptions lays the pane out
+    updateVisibility();
+}
+
+bool DetailPanel::toolsShown(model::ToolKind tab) const
+{
+    return roll_.options().toolsOpen && roll_.options().toolsTab == tab;
+}
+
+void DetailPanel::showTool(std::string_view id)
+{
+    const auto* tool = model::findNoteTool(id);
+    showTools(tool != nullptr ? tool->kind : model::ToolKind::Transform);
+    tools_.choose(id);
 }
 
 void DetailPanel::setClip(std::optional<model::ClipInfo> clip, const model::TempoMap& tempo)
@@ -1833,6 +1896,8 @@ void DetailPanel::setClip(std::optional<model::ClipInfo> clip, const model::Temp
 
 void DetailPanel::frame(double playheadSeconds)
 {
+    if (tools_.isVisible())
+        tools_.refresh(); // its tiles as the notes allow; its tool shown again on changed notes
     if (roll_.isVisible() || audio_.isVisible())
     {
         if (roll_.isVisible())
@@ -1869,8 +1934,27 @@ void DetailPanel::resized()
     const auto& sh = ui::Theme::current().shell;
     auto r = getLocalBounds();
     header_.setBounds(r.removeFromTop(sh.panelHeaderHeight));
-    roll_.setBounds(r);
     audio_.setBounds(r);
+    // The Tools pane at the clip view's right edge (§25): beside the notes, or floating over their
+    // right side when the clip view is narrow.
+    if (tools_.isVisible())
+    {
+        tools_.setFloating(r.getWidth() < sh.toolsDockFrom);
+        const int width = tools_.preferredWidth();
+        if (tools_.isFloating())
+        {
+            roll_.setBounds(r);
+            tools_.setBounds(r.withLeft(std::max(r.getX(), r.getRight() - width)));
+            tools_.toFront(false);
+        }
+        else
+        {
+            tools_.setBounds(r.withLeft(r.getRight() - width));
+            roll_.setBounds(r.withTrimmedRight(width));
+        }
+    }
+    else
+        roll_.setBounds(r);
     if (mode_ == Mode::Editor && editor_ != nullptr)
     {
         // The module where it was, its editor below, lined up with the module panels.

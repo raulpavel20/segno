@@ -12,13 +12,10 @@
 #include "ui/ExportPopover.h"
 #include "ui/KeyPopover.h"
 #include "ui/LanePicker.h"
-#include "ui/MakeChordsPopover.h"
 #include "ui/MixerView.h"
 #include "ui/Panels.h"
-#include "ui/QuantisePopover.h"
 #include "ui/SettingsView.h"
 #include "ui/ShellMenus.h"
-#include "ui/ToolPopover.h"
 
 #include <map>
 
@@ -117,15 +114,9 @@ public:
     /// the selected notes (Notes ▸ Make chord…).
     [[nodiscard]] ChordPopover& chordPopover() noexcept { return chordPopover_; }
     void openChordPopover(const PianoRoll::ChordPlace& place);
-    /// Make chords… (piano-roll.md §20.3): a card per note, beside the notes.
-    [[nodiscard]] MakeChordsPopover& makeChordsPopover() noexcept { return makeChords_; }
-    void openMakeChords();
-    /// Quantise… (piano-roll.md §9.5): under the clip view's Quantise.
-    [[nodiscard]] QuantisePopover& quantisePopover() noexcept { return quantisePopover_; }
-    void openQuantisePopover();
-    /// A tool of Notes ▸ Transform ▸ or Generate ▸ (piano-roll.md §12): its popover.
-    [[nodiscard]] ToolPopover& toolPopover() noexcept { return toolPopover_; }
-    void openTool(const model::ToolSpec& tool);
+    /// A tool of the Notes menu (Quantise…, Make chords…, Transform ▸, Generate ▸): the clip view's
+    /// Tools pane at it (piano-roll.md §25).
+    void openTool(std::string_view id);
     /// Ends typing in a field on a press elsewhere (tests drive its rule).
     [[nodiscard]] ui::EndEditingOnClickAway& clickAway() noexcept { return clickAway_; }
 
@@ -280,9 +271,6 @@ private:
     LanePicker lanePicker_{session_};
     KeyPopover keyPopover_{session_};
     ChordPopover chordPopover_{detail_.pianoRoll()};
-    QuantisePopover quantisePopover_{detail_.pianoRoll()};
-    MakeChordsPopover makeChords_{detail_.pianoRoll()};
-    ToolPopover toolPopover_{detail_.pianoRoll(), session_};
     ui::EndEditingOnClickAway clickAway_{*this}; // a press elsewhere keeps what was typed
     /// The picker, assigning a parameter to `lane` (for its first assignment's channel, else the
     /// track it follows).

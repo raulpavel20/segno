@@ -157,17 +157,17 @@ void addToolkitTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"transform_notes", "Transform notes",
-         "Runs a transform on the notes that match, as the clip view's Notes > Transform does: humanize, "
-         "strum, arpeggiate, chop, ornament, velocity, span, randomise. Settings left out take their "
-         "defaults (list_note_tools); random ones are seeded, so the same settings give the same notes.",
-         object(
-             {{"clip", id(IdKind::Clip, "The MIDI clip")},
-              {"where", whereSchema()},
-              {"tool",
-               string(
-                   "The transform: humanize, strum, arpeggiate, chop, ornament, velocity, span, randomise")},
-              {"settings", {{"type", "object"}, {"description", "The tool's settings by id"}}}},
-             {"clip", "where", "tool"}),
+         "Runs a transform on the notes that match, as the clip view's Notes > Transform does: quantise, "
+         "humanize, strum, arpeggiate, chop, ornament, velocity, span, randomise. Settings left out take "
+         "their defaults (list_note_tools); random ones are seeded, so the same settings give the same "
+         "notes. Quantise moves to the grid given (default 1/16).",
+         object({{"clip", id(IdKind::Clip, "The MIDI clip")},
+                 {"where", whereSchema()},
+                 {"tool", string("The transform: quantise, humanize, strum, arpeggiate, chop, ornament, "
+                                 "velocity, span, randomise")},
+                 {"settings", {{"type", "object"}, {"description", "The tool's settings by id"}}},
+                 {"grid", length("Quantise's grid (default 1/16).")}},
+                {"clip", "where", "tool"}),
          notesResult(), writes},
         [&env](const Json& args, CallContext&)
         {
@@ -180,8 +180,11 @@ void addToolkitTools(Registry& registry, ToolEnv& env)
                     {{"clip", clipJson(env, c, false)}, {"notes", 0}, {"lengthened", false}},
                     "No notes match.");
             const auto key = env.session.snapshot()->keys.keyAt(c.contentStartBeat);
+            auto context = contextOf(env, c, key);
+            if (args.contains("grid"))
+                context.gridStep = lengthArg(env, args["grid"]);
             // The matching notes, as a selection: on all of them, they're all chosen.
-            const auto run = model::runNoteTool(tool, c.notes, chosen, values, contextOf(env, c, key));
+            const auto run = model::runNoteTool(tool, c.notes, chosen, values, context);
             if (!run.why.empty())
                 throw Problem{run.why + "."};
             return ToolResult::ok(applied(env, args, c, run.edit));

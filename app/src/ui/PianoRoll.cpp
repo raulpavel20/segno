@@ -282,7 +282,8 @@ model::ToolContext PianoRoll::toolContext() const
     model::ToolContext c{.key = keyOrNull(),
                          .beatsPerBar = tempo_.beatsPerBar(),
                          .secondsPerBeat = tempo_.secondsForBeats(1.0),
-                         .origin = clip_ ? clip_->contentStartBeat : 0.0};
+                         .origin = clip_ ? clip_->contentStartBeat : 0.0,
+                         .gridStep = gridStep()};
     if (const auto span = model::notesSpan(notes_, selection_))
         c.span = *span;
     else
@@ -380,13 +381,6 @@ void PianoRoll::setChordStyle(const model::ChordStyle& style)
 {
     auto o = options_;
     o.chord = style;
-    setOptions(o);
-}
-
-void PianoRoll::setQuantiseSettings(const model::QuantiseSettings& settings)
-{
-    auto o = options_;
-    o.quantise = settings;
     setOptions(o);
 }
 
@@ -726,6 +720,7 @@ void PianoRoll::notesChanged()
 
 void PianoRoll::selectionChanged()
 {
+    ++editVersion_; // the notes too: notesChanged comes here
     if (onSelectionChanged)
         onSelectionChanged();
 }
@@ -955,7 +950,10 @@ void PianoRoll::nudge(int gridSteps)
 void PianoRoll::quantise()
 {
     if (clip_ && !notes_.empty())
-        commit(model::quantiseNotes(notes_, selection_, quantiseGrid(), options_.quantise));
+    {
+        const auto& tool = *model::findNoteTool("quantise");
+        commit(model::runNoteTool(tool, notes_, selection_, toolValues(tool), toolContext()).edit);
+    }
 }
 
 void PianoRoll::fitToKey()

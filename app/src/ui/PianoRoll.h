@@ -62,7 +62,6 @@ public:
     [[nodiscard]] juce::PopupMenu othersMenu();
     void setDraw(model::DrawMode mode);
     void setChordStyle(const model::ChordStyle& style);
-    void setQuantiseSettings(const model::QuantiseSettings& settings);
     /// The options changed (the header and the menus follow).
     std::function<void()> onOptionsChanged;
     /// The song's key where the clip is (none: no key).
@@ -120,6 +119,8 @@ public:
     void setSelection(std::set<std::size_t> selection);
     /// The notes or the selection changed (the inspector's NOTES section follows).
     std::function<void()> onSelectionChanged;
+    /// Counts changes of the notes and the selection: the Tools pane shows its tool again on them.
+    [[nodiscard]] std::uint64_t editVersion() const noexcept { return editVersion_; }
 
     // Commands on the selection, or on every note when none is selected (each one undo step).
     void deleteSelection();
@@ -130,7 +131,8 @@ public:
     void transposeSteps(int steps);
     /// Moves the selection by whole grid steps.
     void nudge(int gridSteps);
-    /// Quantises the selection, or every note when nothing is selected, with Quantise…'s settings.
+    /// Quantises the selection, or every note when nothing is selected, with the Quantise tool's
+    /// settings (§25).
     void quantise();
     /// The tools of the Notes menu (§13).
     void fitToKey();
@@ -378,6 +380,7 @@ private:
     std::optional<size_t> hoveredPoint_;
     LaneGesture laneGesture_;
     bool pointsUsed_ = false; // the controller lane was used last: Delete deletes its points
+    std::uint64_t editVersion_ = 0;
     double rowHeight_ = 12.0;
     double topEdge_ = 84.0; // see NoteGeometry
     bool needsFit_ = false;

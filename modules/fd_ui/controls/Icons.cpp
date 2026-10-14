@@ -274,6 +274,127 @@ Glyph glyph(Icon icon)
         p.lineTo(14.0f, 8.0f);
         p.lineTo(11.5f, 10.5f);
         break;
+    case Icon::Transform:
+        // A low bar turned into a high one.
+        p.startNewSubPath(2.0f, 11.5f);
+        p.lineTo(7.0f, 11.5f);
+        p.startNewSubPath(9.0f, 4.5f);
+        p.lineTo(14.0f, 4.5f);
+        p.startNewSubPath(4.5f, 9.0f);
+        p.cubicTo(5.5f, 6.0f, 7.0f, 4.5f, 9.0f, 4.5f);
+        break;
+    case Icon::Generate:
+        // A plus over lines.
+        p.startNewSubPath(8.0f, 2.0f);
+        p.lineTo(8.0f, 7.5f);
+        p.startNewSubPath(5.25f, 4.75f);
+        p.lineTo(10.75f, 4.75f);
+        p.startNewSubPath(3.0f, 10.5f);
+        p.lineTo(13.0f, 10.5f);
+        p.startNewSubPath(3.0f, 13.5f);
+        p.lineTo(9.0f, 13.5f);
+        break;
+    case Icon::Quantise:
+        // A note between two grid lines.
+        p.startNewSubPath(3.5f, 2.5f);
+        p.lineTo(3.5f, 13.5f);
+        p.startNewSubPath(12.5f, 2.5f);
+        p.lineTo(12.5f, 13.5f);
+        p.addRectangle(3.5f, 6.5f, 5.5f, 3.0f);
+        break;
+    case Icon::Humanize:
+        p.startNewSubPath(2.0f, 9.0f);
+        p.cubicTo(4.0f, 5.0f, 5.5f, 5.0f, 7.0f, 8.0f);
+        p.cubicTo(8.5f, 11.0f, 10.0f, 11.0f, 12.0f, 7.5f);
+        p.lineTo(14.0f, 6.0f);
+        break;
+    case Icon::Strum:
+        for (const auto [x0, y] : {std::pair{2.0f, 12.5f}, std::pair{5.0f, 8.5f}, std::pair{8.0f, 4.5f}})
+        {
+            p.startNewSubPath(x0, y);
+            p.lineTo(x0 + 5.5f, y);
+        }
+        break;
+    case Icon::Arpeggiate:
+        for (const auto [x0, y] :
+             {std::pair{2.0f, 13.0f}, std::pair{5.5f, 10.0f}, std::pair{9.0f, 7.0f}, std::pair{12.5f, 4.0f}})
+        {
+            p.startNewSubPath(x0, y);
+            p.lineTo(x0 + 2.0f, y);
+        }
+        break;
+    case Icon::Chop:
+        for (float x0 : {2.0f, 6.5f, 11.0f})
+            g.solid.addRoundedRectangle(x0, 6.5f, 3.0f, 3.0f, 0.75f);
+        break;
+    case Icon::Ornament:
+        p.startNewSubPath(2.5f, 6.0f);
+        p.lineTo(4.5f, 6.0f);
+        p.startNewSubPath(6.5f, 10.0f);
+        p.lineTo(14.0f, 10.0f);
+        break;
+    case Icon::Velocity:
+        for (const auto [x0, top] : {std::pair{4.0f, 9.0f}, std::pair{8.0f, 3.5f}, std::pair{12.0f, 6.5f}})
+        {
+            p.startNewSubPath(x0, 14.0f);
+            p.lineTo(x0, top);
+            p.startNewSubPath(x0 - 1.5f, top);
+            p.lineTo(x0 + 1.5f, top);
+        }
+        break;
+    case Icon::Span:
+        p.startNewSubPath(2.0f, 8.0f);
+        p.lineTo(10.5f, 8.0f);
+        p.startNewSubPath(8.0f, 5.5f);
+        p.lineTo(10.5f, 8.0f);
+        p.lineTo(8.0f, 10.5f);
+        p.startNewSubPath(13.5f, 3.0f);
+        p.lineTo(13.5f, 13.0f);
+        break;
+    case Icon::Randomise:
+        p.addRoundedRectangle(2.5f, 2.5f, 11.0f, 11.0f, 2.0f);
+        for (const auto [cx, cy] : {std::pair{5.75f, 5.75f}, std::pair{10.25f, 10.25f},
+                                    std::pair{10.25f, 5.75f}, std::pair{5.75f, 10.25f}})
+            g.solid.addEllipse(cx - 1.0f, cy - 1.0f, 2.0f, 2.0f);
+        break;
+    case Icon::MakeChords:
+        p.startNewSubPath(2.0f, 12.5f);
+        p.lineTo(5.5f, 12.5f);
+        for (float y : {4.5f, 8.5f, 12.5f})
+        {
+            p.startNewSubPath(8.0f, y);
+            p.lineTo(14.0f, y);
+        }
+        break;
+    case Icon::Rhythm:
+        for (float cx : {2.75f, 6.25f, 9.75f, 13.25f})
+            g.solid.addEllipse(cx - 1.25f, 5.75f, 2.5f, 2.5f);
+        p.startNewSubPath(2.0f, 12.0f);
+        p.lineTo(14.0f, 12.0f);
+        break;
+    case Icon::Melody:
+        p.startNewSubPath(2.0f, 11.0f);
+        p.lineTo(5.0f, 7.0f);
+        p.lineTo(8.0f, 9.5f);
+        p.lineTo(11.0f, 4.5f);
+        p.lineTo(14.0f, 7.0f);
+        break;
+    case Icon::Chords:
+        for (float y : {4.5f, 8.0f, 11.5f})
+        {
+            p.startNewSubPath(3.0f, y);
+            p.lineTo(13.0f, y);
+        }
+        break;
+    case Icon::Bassline:
+        for (const auto [x0, y] : {std::pair{2.0f, 12.0f}, std::pair{6.5f, 13.5f}, std::pair{10.5f, 11.0f}})
+        {
+            p.startNewSubPath(x0, y);
+            p.lineTo(x0 + 3.5f, y);
+        }
+        p.startNewSubPath(5.0f, 4.5f);
+        p.lineTo(11.0f, 4.5f);
+        break;
     case Icon::Search:
         p.addEllipse(2.5f, 2.5f, 8.5f, 8.5f);
         p.startNewSubPath(9.8f, 9.8f);
