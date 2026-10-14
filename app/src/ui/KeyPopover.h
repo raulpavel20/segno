@@ -63,8 +63,13 @@ private:
     void rebuildFound();
     void place();
     [[nodiscard]] juce::Rectangle<int> inner() const;
+    /// As wide as its content needs (key-and-scale.md §20): the keys, the longest key name, the
+    /// widest scale row with its scroll bar, three keys found side by side.
+    [[nodiscard]] int preferredWidth() const;
     [[nodiscard]] int preferredHeight() const;
-    [[nodiscard]] juce::Rectangle<int> spelledArea() const;
+    /// The key's name, under the keys.
+    [[nodiscard]] juce::Rectangle<int> nameArea() const;
+    /// "From your notes", and the keys found on the row under it; empty without any.
     [[nodiscard]] juce::Rectangle<int> foundArea() const;
 
     engine::Session& session_;
@@ -77,6 +82,7 @@ private:
     juce::Viewport viewport_;
     std::unique_ptr<Rows> rows_;
     std::vector<music::KeyCandidate> found_;
+    int listHeight_ = 0; // the list's height, on a row's bottom
     std::vector<std::unique_ptr<ui::Toggle>> foundButtons_;
     juce::Component::SafePointer<juce::Component> parent_;
     juce::Rectangle<int> anchor_;

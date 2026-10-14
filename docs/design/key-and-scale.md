@@ -112,33 +112,35 @@ Thirty-six scales, in five groups. They're the 35 that Live and Push users alrea
 ### The Key popover
 
 ```
-┌ KEY ───────────────────────────────────── No key ┐
-│      ┌─┐ ┌─┐     ┌─┐ ┌─┐ ┌─┐                     │  one octave of keys: a click
-│      └─┘ └─┘     └─┘ └─┘ └─┘                     │  sets the root; the root
-│   ┌───┬───┬───┬───┬───┬───┬───┐                  │  filled (●), the key's other
-│   │ • │ • │ • │ • │ • │ ● │ • │                  │  notes dotted (•)
-│   └───┴───┴───┴───┴───┴───┴───┘                  │
-│   A minor:  A  B  C  D  E  F  G                  │  ← its notes, spelled
-├──────────────────────────────────────────────────┤
-│ [⌕ Search scales                              ]  │
-│ COMMON                                           │
-│   Major                                          │
-│ ✓ Minor                                          │
-│   Harmonic minor                                 │
-│   …                                   (scrolls)  │
-├──────────────────────────────────────────────────┤
-│ FROM YOUR NOTES    A minor   C major   E minor   │
-└──────────────────────────────────────────────────┘
+┌ KEY ──────────── No key ┐
+│ ┌──┬─┬┬─┬─┬──┬─┬┬─┬┬─┬─┐ │  one octave of keys: a click
+│ │  │C♯ │ │  │F♯ │G♯│ │ │ │  sets the root (filled), the
+│ │  └┬┘└┬┘  │ └┬┘└┬┘└┬┘ │ │  key's notes named on their
+│ │   │ D │E │  │  │ A │B│ │  keys as it spells them
+│ └───┴───┴──┴──┴──┴───┴─┘ │
+│ A major                  │  its name (dimmer while previewing)
+├──────────────────────────┤
+│ [Search scales         ] │
+│ COMMON                   │
+│ • Major                  │
+│   Minor                  │
+│   Harmonic minor         │
+│   …           (scrolls)  │
+├──────────────────────────┤
+│ FROM YOUR NOTES          │
+│ [A minor][A major][E maj]│
+└──────────────────────────┘
 ```
 
 - **The chrome is the shared `Popover`;** Escape or a click elsewhere closes it (`OutsideClick`).
-- **The root:** one octave of keys. A click on a key makes it the root. The root is filled in `active`, and the key's other notes carry a dot. The line under the keys spells the key's notes (§4).
-- **The scale:** a list of `ListRow`s under the groups' caps headings, as the preset list has, the current scale ticked, with a search field above it. Hovering a scale previews its notes on the keys and in the spelled line, and changes nothing until a click.
-- **From a project with no key,** picking a root gives its major, and picking a scale gives it on C.
-- **No key** is a text button in the title row.
-- **From your notes** (§11): up to three keys that fit the project's notes, best first. A click sets one. The row isn't shown until there are enough notes to judge.
+- **The root:** one octave of keys (`ui::OctaveKeys`). A click on a key makes it the root, filled in `active`. The key's notes are named on their keys as the key spells them (§4): C♯, F♯ and G♯ in A major, B♭ in F major.
+- **The key's name** is under the keys.
+- **The scale:** a list of `ListRow`s under the groups' caps headings, as the preset list has, the current scale ticked, with a search field above it. Hovering a scale previews it on the keys and in the name (dimmer), and changes nothing until a click.
+- **From a project with no key,** picking a root gives its major, and picking a scale gives it on C. Without a key the name's place says "No key: choose a root or a scale".
+- **No key** is a text button in the title row, shown while there's a key to remove.
+- **From your notes** (§11): up to three keys that fit the project's notes, best first, on a row under their label. A click sets one. The row isn't shown until there are enough notes to judge.
 - **Undo:** changes made while the popover is open are one undo step, named after the key it closed on ("Set key to A minor", "Remove the key"). Nothing changed, no step.
-- **Sizes** come from the shell metrics: the popover's width (`shell.formPopoverWidth`), list rows (`shell.listRowHeight`, `shell.presetListRows` before it scrolls). The keys' size is a new metric, with ui-foundations.md and its tests.
+- **Its size is its content's** (§20), never a generic popover width: as wide as the widest of the keys, the longest key name, the widest scale row with the list's scroll bar, and three keys found side by side, rounded up so the seven white keys fill it on whole pixels. The list is about ten rows tall (`shell.presetListRows`), ending on a whole row. The keys' least size is a new metric, with ui-foundations.md.
 
 ### Not in the inspector
 
@@ -308,7 +310,8 @@ Each tool is one named undo step, with a test that drives it through MCP (ADR 00
 - **♯ and ♭ on screen:** Inter has neither, so the UI font falls back to the bundled JetBrains Mono for them (never a system font). The top bar's key and the piano roll's names are in the mono already.
 - **The top bar** lays the key out as a group of its own after the time signature. `model::layoutTopBar` gained a narrower width per item (`BarItem::narrowWidth`), taken before anything drops: the key's short name.
 - **New shared components** (ui-foundations.md): `ui::ChoiceField`, the key field, which looks like the `NumberField` beside it; `ui::OctaveKeys`, the popover's keys, at new `shell.octaveKey…` metrics. A new colour role, `keyRowRoot`, for the root's rows.
-- **The popover** opens under the top bar (as the Assistants popover does), at the field's left. The spelled line shows the key's name and its notes; while a scale is hovered, the previewed key in `textSecondary`. **No key** hides while there's no key: there's nothing to remove, and the shared toggle has no dimmed look. Each key found from the notes is a text button whose tooltip says how well it fits.
+- **The popover** opens under the top bar (as the Assistants popover does), at the field's left. **No key** hides while there's no key: there's nothing to remove, and the shared toggle has no dimmed look. Each key found from the notes is a text button whose tooltip says how well it fits.
+- **Sized to its content** (the product owner's review, 2026-10-14: the first build used the form popover's 420 px, about twice what it holds). Its width is computed from what it shows (`ui::listRowWidth`, new beside `paintListRow`, says how wide a row must be); it comes to about 230 px. To keep it narrow, the key's notes are named on the keys themselves (in place of a line of spelled notes beside the name, the widest thing it had), and the keys found sit on a row under their label. The keys fill the width on whole pixels, black keys wide enough for their names to sit clear of their edges. The list ends on a whole row, never half of one.
 - **Undo:** `Session::KeyChoice` keeps the popover's step open against tracktion's own timer, renames it after each change, and takes it back whole when the key ends where it began.
 - **Assistants** get accidentals as `#` and `b` (`"F# minor"`), and give them any way (`"F#"`, `"Gb"`, `"G♭"`, `"e flat"`, or 0–11).
 

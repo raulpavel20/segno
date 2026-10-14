@@ -18,12 +18,13 @@ OctaveKeys::OctaveKeys()
     setRepaintsOnMouseActivity(false);
 }
 
-void OctaveKeys::setNotes(int root, std::uint16_t notes)
+void OctaveKeys::setNotes(int root, std::uint16_t notes, std::array<juce::String, 12> names)
 {
-    if (root == root_ && notes == notes_)
+    if (root == root_ && notes == notes_ && names == names_)
         return;
     root_ = root;
     notes_ = notes;
+    names_ = std::move(names);
     repaint();
 }
 
@@ -35,18 +36,19 @@ juce::Point<int> OctaveKeys::preferredSize()
 
 juce::Rectangle<float> OctaveKeys::keyArea(int pitchClass) const
 {
+    // As wide as it's laid out: a seventh each for the white keys, on whole pixels (the metric's
+    // width at least); black keys in the metrics' proportion, an even width so they sit centred on
+    // the seams.
     const auto& s = Theme::current().shell;
-    const auto w = static_cast<float>(s.octaveKeyWidth);
+    const int w = std::max(s.octaveKeyWidth, getWidth() / 7);
+    const int bw = 2 * juce::roundToInt(0.5f * static_cast<float>(w * s.octaveBlackKeyWidth) /
+                                        static_cast<float>(s.octaveKeyWidth));
     for (size_t i = 0; i < whiteKeys.size(); ++i)
         if (whiteKeys[i] == pitchClass)
-            return {static_cast<float>(i) * w, 0.0f, w, static_cast<float>(s.octaveKeyHeight)};
+            return juce::Rectangle<int>(static_cast<int>(i) * w, 0, w, s.octaveKeyHeight).toFloat();
     for (const auto& [pc, after] : blackKeys)
         if (pc == pitchClass)
-        {
-            const auto bw = static_cast<float>(s.octaveBlackKeyWidth);
-            return {static_cast<float>(after + 1) * w - bw * 0.5f, 0.0f, bw,
-                    static_cast<float>(s.octaveBlackKeyHeight)};
-        }
+            return juce::Rectangle<int>((after + 1) * w - bw / 2, 0, bw, s.octaveBlackKeyHeight).toFloat();
     return {};
 }
 
@@ -77,14 +79,20 @@ void OctaveKeys::paint(juce::Graphics& g)
             g.setColour(t.roles.hoverWash);
             g.fillRect(area);
         }
-        // The key's other notes: a dot near the key's end, where a finger plays it.
-        if (pc != root_ && (notes_ & (1u << pc)) != 0)
+        // The set's notes: named near the key's end, where a finger plays it (a dot without a name).
+        if ((notes_ & (1u << pc)) == 0 && pc != root_)
+            return;
+        // A white key's name in the part below the black keys; a black key's at its end.
+        const auto end = black ? area.withTop(area.getBottom() - area.getWidth())
+                               : area.withTop(static_cast<float>(s.octaveBlackKeyHeight));
+        g.setColour(pc == root_ ? t.onActive : black ? t.roles.keyWhite : t.roles.keyBlack);
+        if (names_[static_cast<size_t>(pc)].isNotEmpty())
         {
-            const auto centre =
-                juce::Point<float>(area.getCentreX(), area.getBottom() - area.getWidth() * 0.5f);
-            g.setColour(black ? t.roles.keyWhite : t.roles.keyBlack);
-            g.fillEllipse(juce::Rectangle<float>(dot, dot).withCentre(centre));
+            g.setFont(font(TextStyle::Micro));
+            g.drawText(names_[static_cast<size_t>(pc)], end, juce::Justification::centred, false);
         }
+        else if (pc != root_)
+            g.fillEllipse(juce::Rectangle<float>(dot, dot).withCentre(end.getCentre()));
     };
     for (int pc : whiteKeys)
         paintKey(pc);

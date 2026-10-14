@@ -5014,6 +5014,14 @@ TEST_CASE(
     CHECK(popover.shownScales() == std::vector<std::string>{"dorian", "dorian-sharp-4"});
     popover.setQuery("bhairav");
     CHECK(popover.shownScales() == std::vector<std::string>{"double-harmonic"});
+    // The widest rows fit whole: a list as wide as its widest row.
+    for (const char* query : {"harmonic", "dim", "pent"})
+    {
+        popover.setQuery(query);
+        if (dump != nullptr)
+            dumpPng(dump, juce::String("key-popover-search-") + query + ".png",
+                    f.shell->createComponentSnapshot(popover.getBounds()));
+    }
     popover.setQuery("");
     CHECK(popover.shownScales().size() == 36);
 

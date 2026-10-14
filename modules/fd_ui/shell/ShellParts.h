@@ -122,6 +122,9 @@ struct ListItem
 };
 /// Returns the room kept for `trailing` (empty without), where the caller draws its control.
 juce::Rectangle<int> paintListRow(juce::Graphics& g, juce::Rectangle<int> row, const ListItem& item);
+/// The width a row needs to show `item` whole (its insets, the dot when `toggled`, the name, the
+/// caption, the shortcut and the trailing room): a list as wide as its widest row.
+[[nodiscard]] int listRowWidth(const ListItem& item);
 
 /// One row of a tree (the browser, ADR 0046): a ListRow's look, indented by depth, with a
 /// disclosure (or a + for a command row), the name, a caption at the right (a count, a length),

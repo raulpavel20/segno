@@ -108,6 +108,16 @@ public:
         }
         repaint();
     }
+    /// The bottom of the last scale row that ends within `most`: a list that height shows whole rows
+    /// (never half a row, nor a heading without its scales).
+    [[nodiscard]] int wholeRowsWithin(int most) const
+    {
+        int bottom = 0;
+        for (const auto& r : rows_)
+            if (!r.scale.empty() && r.area.getBottom() <= most)
+                bottom = r.area.getBottom();
+        return bottom > 0 ? bottom : std::min(most, height_);
+    }
     /// A scale's row (empty when it isn't shown).
     [[nodiscard]] juce::Rectangle<int> areaOf(const std::string& scale) const
     {
@@ -262,6 +272,8 @@ void KeyPopover::open(juce::Component& parent, juce::Rectangle<int> anchor,
     rebuildFound();
     search_.clear();
     rows_->rebuild({});
+    const auto& s = ui::Theme::current().shell;
+    listHeight_ = rows_->wholeRowsWithin(s.presetListRows * s.listRowHeight);
     showKey();
     place();
     setVisible(true);
@@ -339,10 +351,16 @@ std::optional<music::Key> KeyPopover::shownKey() const
 
 void KeyPopover::showKey()
 {
+    // The keys name the key's notes as it spells them (§4): B♭ in F major, C♭ in E♭ minor.
     const auto shown = shownKey();
-    keys_.setNotes(shown ? shown->root : -1, shown ? music::notes(*shown) : 0);
+    std::array<juce::String, 12> names;
+    if (shown)
+        for (int pc = 0; pc < 12; ++pc)
+            if (music::contains(*shown, pc))
+                names[static_cast<size_t>(pc)] = utf8(music::pitchClassName(&*shown, pc));
+    keys_.setNotes(shown ? shown->root : -1, shown ? music::notes(*shown) : 0, std::move(names));
     noKey_.setVisible(key_.has_value()); // nothing to remove without a key
-    repaint(spelledArea());
+    repaint(nameArea());
 }
 
 void KeyPopover::rebuildFound()
@@ -391,17 +409,58 @@ juce::Rectangle<int> KeyPopover::inner() const
     return getLocalBounds().reduced(juce::roundToInt(ui::Theme::current().shell.shadowRadius));
 }
 
+namespace
+{
+constexpr auto kNoKeyHint = "No key: choose a root or a scale";
+
+int textWidth(const juce::Font& font, const juce::String& text)
+{
+    return static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(font, text)));
+}
+} // namespace
+
+int KeyPopover::preferredWidth() const
+{
+    const auto& s = ui::Theme::current().shell;
+    int content = ui::OctaveKeys::preferredSize().x;
+    // The title: its caps label, then No key at the right.
+    content = std::max(content, textWidth(ui::capsLabelFont(), "KEY") + s.groupGap +
+                                    ui::Toggle::widthFor(noKey_.getButtonText()));
+    // The name under the keys: the longest any key has, or the hint without one. The widest
+    // three a search can offer side by side (major and minor keys), so the width never changes.
+    const auto nameFont = ui::font(ui::TextStyle::Name);
+    content = std::max(content, textWidth(ui::font(ui::TextStyle::Body), kNoKeyHint));
+    int found = 0;
+    for (int root = 0; root < 12; ++root)
+    {
+        for (const auto& scale : music::scales())
+            content =
+                std::max(content, textWidth(nameFont, utf8(music::keyName({root, std::string(scale.id)}))));
+        for (const char* scale : {"major", "minor"})
+            found = std::max(found, ui::Toggle::widthFor(utf8(music::keyName({root, scale}))));
+    }
+    content = std::max(content, 3 * found + 2 * s.itemGap);
+    // The scales: the widest row, ticked, beside the list's scroll bar.
+    for (const auto& scale : music::scales())
+        content = std::max(
+            content,
+            ui::listRowWidth({.name = utf8(scale.name), .caption = utf8(scale.alsoCalled), .toggled = true}) +
+                viewport_.getScrollBarThickness());
+    // Up to a multiple of 7, so the keys fill the width on whole pixels.
+    return 7 * ((content + 6) / 7) + 2 * s.padding;
+}
+
 int KeyPopover::preferredHeight() const
 {
     const auto& s = ui::Theme::current().shell;
     int h = 2 * s.padding;
     h += s.rowHeight + s.itemGap;                       // the title
     h += ui::OctaveKeys::preferredSize().y + s.itemGap; // the keys
-    h += s.rowHeight;                                   // the spelled notes
+    h += s.rowHeight;                                   // the key's name
     h += s.groupGap + s.fieldHeight + s.itemGap;        // the search
-    h += s.presetListRows * s.listRowHeight;            // the list
+    h += listHeight_;                                   // the list: whole rows
     if (!found_.empty())
-        h += s.groupGap + s.rowHeight; // the keys found
+        h += s.groupGap + 2 * s.rowHeight + s.itemGap; // the keys found, under their label
     return h;
 }
 
@@ -411,7 +470,7 @@ void KeyPopover::place()
         return;
     const auto& s = ui::Theme::current().shell;
     const int margin = juce::roundToInt(s.shadowRadius);
-    const int width = s.formPopoverWidth;
+    const int width = preferredWidth();
     const int height =
         std::min(preferredHeight(), parent_->getHeight() - anchor_.getBottom() - 2 * s.itemGap);
     const auto area = parent_->getLocalBounds();
@@ -420,7 +479,7 @@ void KeyPopover::place()
     setBounds(juce::Rectangle<int>(x, anchor_.getBottom() + s.itemGap, width, height).expanded(margin));
 }
 
-juce::Rectangle<int> KeyPopover::spelledArea() const
+juce::Rectangle<int> KeyPopover::nameArea() const
 {
     const auto& s = ui::Theme::current().shell;
     auto area = inner().reduced(s.padding);
@@ -433,7 +492,7 @@ juce::Rectangle<int> KeyPopover::foundArea() const
     if (found_.empty())
         return {};
     const auto& s = ui::Theme::current().shell;
-    return inner().reduced(s.padding).removeFromBottom(s.rowHeight);
+    return inner().reduced(s.padding).removeFromBottom(2 * s.rowHeight + s.itemGap);
 }
 
 void KeyPopover::resized()
@@ -443,20 +502,16 @@ void KeyPopover::resized()
     auto title = area.removeFromTop(s.rowHeight);
     noKey_.setBounds(title.removeFromRight(ui::Toggle::widthFor(noKey_.getButtonText())));
     area.removeFromTop(s.itemGap);
-    const auto keys = ui::OctaveKeys::preferredSize();
-    keys_.setBounds(area.removeFromTop(keys.y).withWidth(keys.x));
-    area.removeFromTop(s.itemGap + s.rowHeight); // the spelled notes
+    keys_.setBounds(area.removeFromTop(ui::OctaveKeys::preferredSize().y)); // the content's width
+    area.removeFromTop(s.itemGap + s.rowHeight);                            // the key's name
     area.removeFromTop(s.groupGap);
     search_.setBounds(area.removeFromTop(s.fieldHeight));
     area.removeFromTop(s.itemGap);
 
-    if (!found_.empty())
+    // The keys found, best first, on their own row under their label.
+    if (const auto found = foundArea(); !found.isEmpty())
     {
-        auto row = area.removeFromBottom(s.rowHeight);
-        area.removeFromBottom(s.groupGap);
-        row.removeFromLeft(juce::roundToInt(std::ceil(juce::GlyphArrangement::getStringWidth(
-                               ui::capsLabelFont(), "FROM YOUR NOTES"))) +
-                           s.groupGap);
+        auto row = found.withTrimmedTop(s.rowHeight + s.itemGap);
         for (auto& b : foundButtons_)
         {
             const int w = ui::Toggle::widthFor(b->getButtonText());
@@ -469,6 +524,7 @@ void KeyPopover::resized()
             else
                 row.setWidth(0); // the rest wait: best first
         }
+        area.setBottom(found.getY() - s.groupGap);
     }
     viewport_.setBounds(area);
     // Scrolled to the end, the view still starts on a row's top.
@@ -485,39 +541,28 @@ void KeyPopover::paint(juce::Graphics& g)
     auto area = inner().reduced(s.padding);
     ui::paintCapsLabel(g, "Key", area.removeFromTop(s.rowHeight).toFloat());
 
-    // The key shown (the hovered scale's while previewing): its name, then its notes spelled.
-    auto spelled = spelledArea();
+    // The key's name under the keys: the hovered scale's while previewing, dimmer.
+    const auto name = nameArea();
     if (const auto shown = shownKey())
     {
-        const auto name = utf8(music::keyName(*shown));
         g.setFont(ui::font(ui::TextStyle::Name));
         g.setColour(preview_.empty() ? t.textPrimary : t.textSecondary);
-        const int nameWidth =
-            juce::roundToInt(std::ceil(juce::GlyphArrangement::getStringWidth(g.getCurrentFont(), name)));
-        g.drawText(name, spelled.removeFromLeft(nameWidth), juce::Justification::centredLeft, false);
-        spelled.removeFromLeft(s.groupGap);
-        juce::String notes;
-        for (const auto& n : music::spelledNotes(*shown))
-            notes << (notes.isEmpty() ? "" : "  ") << utf8(n);
-        g.setFont(ui::font(ui::TextStyle::Value));
-        g.setColour(t.textSecondary);
-        g.drawFittedText(notes, spelled, juce::Justification::centredLeft, 1, 1.0f);
+        g.drawText(utf8(music::keyName(*shown)), name, juce::Justification::centredLeft, false);
     }
     else
     {
         g.setFont(ui::font(ui::TextStyle::Body));
         g.setColour(t.textTertiary);
-        g.drawText("No key: choose a root or a scale", spelled, juce::Justification::centredLeft, true);
+        g.drawText(kNoKeyHint, name, juce::Justification::centredLeft, false);
     }
 
     // A line between the key and the scales, and above the keys found.
     g.setColour(t.line);
-    const int lineY = spelledArea().getBottom() + s.groupGap / 2;
-    g.fillRect(area.getX(), lineY, area.getWidth(), 1);
+    g.fillRect(area.getX(), name.getBottom() + s.groupGap / 2, area.getWidth(), 1);
     if (const auto found = foundArea(); !found.isEmpty())
     {
         g.fillRect(found.getX(), found.getY() - s.groupGap / 2 - 1, found.getWidth(), 1);
-        ui::paintCapsLabel(g, "From your notes", found.toFloat());
+        ui::paintCapsLabel(g, "From your notes", found.withHeight(s.rowHeight).toFloat());
     }
 }
 } // namespace fd::app

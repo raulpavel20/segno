@@ -311,6 +311,33 @@ juce::Rectangle<int> paintProperties(juce::Graphics& g, juce::Rectangle<int> are
     return area;
 }
 
+namespace
+{
+// A list row's parts (paintListRow and listRowWidth agree on them).
+constexpr int kListShortcutWidth = 120; // the shortcut's column at the right
+constexpr int kListDotWidth = 14;       // the dot of a toggled row, before its name
+constexpr int kListNameGap = 12;        // between the name and its caption
+
+int textWidth(const juce::Font& font, const juce::String& text)
+{
+    return static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(font, text)));
+}
+} // namespace
+
+int listRowWidth(const ListItem& item)
+{
+    const auto& t = Theme::current();
+    int w = 2 * t.shell.listTextInset + item.trailing + textWidth(font(TextStyle::Name), item.name) +
+            kListNameGap;
+    if (item.shortcut.isNotEmpty())
+        w += kListShortcutWidth;
+    if (item.toggled)
+        w += kListDotWidth;
+    if (item.caption.isNotEmpty())
+        w += textWidth(font(TextStyle::Caption), item.caption);
+    return w;
+}
+
 juce::Rectangle<int> paintListRow(juce::Graphics& g, juce::Rectangle<int> row, const ListItem& item)
 {
     const auto& t = Theme::current();
@@ -325,16 +352,19 @@ juce::Rectangle<int> paintListRow(juce::Graphics& g, juce::Rectangle<int> row, c
     {
         g.setColour(t.textTertiary);
         g.setFont(font(TextStyle::ValueSmall));
-        g.drawText(item.shortcut, row.removeFromRight(120), juce::Justification::centredRight, false);
+        g.drawText(item.shortcut, row.removeFromRight(kListShortcutWidth), juce::Justification::centredRight,
+                   false);
     }
     if (item.toggled)
     {
         g.setColour(t.active);
-        g.fillEllipse(row.removeFromLeft(14).toFloat().withSizeKeepingCentre(6.0f, 6.0f));
+        g.fillEllipse(row.removeFromLeft(kListDotWidth).toFloat().withSizeKeepingCentre(6.0f, 6.0f));
     }
     g.setFont(font(TextStyle::Name));
     g.setColour(item.enabled ? t.textPrimary : t.textTertiary);
-    const int nameWidth = static_cast<int>(juce::GlyphArrangement::getStringWidth(g.getCurrentFont(), item.name)) + 12;
+    const int nameWidth =
+        static_cast<int>(juce::GlyphArrangement::getStringWidth(g.getCurrentFont(), item.name)) +
+        kListNameGap;
     g.drawText(item.name, row.removeFromLeft(nameWidth), juce::Justification::centredLeft, true);
     if (item.caption.isNotEmpty())
     {
