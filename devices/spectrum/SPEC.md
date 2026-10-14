@@ -190,7 +190,7 @@ Approved as drafted (product owner, 2026-10-11):
 
 ## Stage 2: the spectrogram (for review)
 
-**Status:** approved by the product owner (2026-10-15) with every recommendation of G1–G10, and built the same day (below, "Settled while building stage 2"). Waiting for the product owner's sign-off.
+**Status:** approved by the product owner (2026-10-15) with every recommendation of G1–G10, and built the same day (below, "Settled while building stage 2"). Signed off by the product owner (2026-10-15).
 
 ### How others do it (October 2026)
 
@@ -270,3 +270,4 @@ Approved by the product owner (2026-10-15) with every recommendation.
 - [x] Snapshots reviewed (100% / 200%; expanded, collapsed, folded; and with sound, a compared track, a snapshot and a reference)
 - [x] Sound signed off by the product owner (2026-10-11): the audio passes unchanged; the null test covers it
 - [x] Feel signed off by the product owner (2026-10-11)
+- [x] Stage 2, the spectrogram: built, its screenshots reviewed, signed off by the product owner (2026-10-15)
