@@ -1,0 +1,233 @@
+Modifier types of the host's own (Segno, modulators: docs/design/modulators.md §17).
+
+tracktion knows six modifier types, named in four places; a host can't add its own. Segno's
+modulators are modifiers of their own types, so:
+- ModifierList::isCustomType and createCustom let the host name and make its own types. They're
+  then modifiers everywhere tracktion asks (isModifier), their assignments are automation sources
+  (isAutomationSourceType, also on load), and adding or removing one rebuilds playback (the Edit's
+  tree watcher), undo and redo included.
+- Modifier::getValueFor asks a modifier for the value one assignment sees at an edit time. The
+  default is what tracktion did (the current value, or the history's for a time behind it); a
+  modulator overrides it to give each target its own copy (Per Target) and values exact to the
+  time between block starts.
+- ProcessingPosition::beforePlugin with getPluginToProcessBefore() processes a modifier at its
+  place in the track's chain (just before that plugin), so a follower hears the sound there.
+  Without that plugin in the chain, it's processed after the chain.
+
+--- a/modules/tracktion_engine/model/automation/tracktion_AutomatableParameter.cpp
++++ b/modules/tracktion_engine/model/automation/tracktion_AutomatableParameter.cpp
+@@ -164,13 +164,9 @@
+ 
+     float getCurrentValue() override
+     {
+-        float baseValue = modifier->getCurrentValue();
+-
+-        const auto currentTime = modifier->getCurrentTime();
+-        const auto deltaTime = currentTime - editTimeToReturn;
+-
+-        if (deltaTime > 0s && deltaTime < Modifier::maxHistoryTime)
+-            baseValue = modifier->getValueAt (deltaTime);
++        // Segno: asked of the modifier with the assignment and the time, so it can give each
++        // assignment its own value, or one exact to the time (Modifier::getValueFor).
++        const float baseValue = modifier->getValueFor (*assignment, editTimeToReturn);
+ 
+         return AutomationScaleHelpers::mapValue (baseValue, assignment->offset, assignment->value, assignment->curve);
+     }
+@@ -760,7 +756,8 @@
+     {
+         return v.hasType (IDs::LFO) || v.hasType (IDs::BREAKPOINTOSCILLATOR) || v.hasType (IDs::MACRO)
+             || v.hasType (IDs::STEP) || v.hasType (IDs::ENVELOPEFOLLOWER) || v.hasType (IDs::RANDOM)
+-            || v.hasType (IDs::MIDITRACKER) || v.hasType (IDs::AUTOMATIONCURVE);
++            || v.hasType (IDs::MIDITRACKER) || v.hasType (IDs::AUTOMATIONCURVE)
++            || ModifierList::isModifier (v.getType()); // Segno: the host's own modifier types
+     }
+ 
+     bool isSuitableType (const juce::ValueTree& v) const override
+--- a/modules/tracktion_engine/model/automation/tracktion_Modifier.cpp
++++ b/modules/tracktion_engine/model/automation/tracktion_Modifier.cpp
+@@ -235,6 +235,17 @@
+     callBlocking ([this] { rebuildObjects(); });
+ }
+ 
++// Segno: see the header.
++float Modifier::getValueFor (const AutomatableParameter::ModifierAssignment&, TimePosition editTime)
++{
++    const auto deltaTime = getCurrentTime() - editTime;
++
++    if (deltaTime > 0s && deltaTime < maxHistoryTime)
++        return getValueAt (deltaTime);
++
++    return getCurrentValue();
++}
++
+ ModifierList::~ModifierList()
+ {
+     freeObjects();
+@@ -244,7 +255,8 @@
+ {
+     return i == IDs::LFO || i == IDs::BREAKPOINTOSCILLATOR
+         || i == IDs::STEP || i == IDs::ENVELOPEFOLLOWER
+-        || i == IDs::RANDOM || i == IDs::MIDITRACKER;
++        || i == IDs::RANDOM || i == IDs::MIDITRACKER
++        || (isCustomType && isCustomType (i)); // Segno: the host's own types
+ }
+ 
+ juce::ReferenceCountedArray<Modifier> ModifierList::getModifiers() const
+@@ -314,7 +326,13 @@
+         else if (v.hasType (IDs::ENVELOPEFOLLOWER))       m = new EnvelopeFollowerModifier (edit, v);
+         else if (v.hasType (IDs::RANDOM))                 m = new RandomModifier (edit, v);
+         else if (v.hasType (IDs::MIDITRACKER))            m = new MIDITrackerModifier (edit, v);
+-        else                                              jassertfalse;
++        else if (createCustom)                            m = createCustom (edit, v); // Segno
++
++        if (m == nullptr)
++        {
++            jassertfalse;
++            return nullptr;
++        }
+ 
+         m->initialise();
+     }
+--- a/modules/tracktion_engine/model/automation/tracktion_Modifier.h
++++ b/modules/tracktion_engine/model/automation/tracktion_Modifier.h
+@@ -54,6 +54,14 @@
+     */
+     virtual float getCurrentValue() = 0;
+ 
++    /** Segno: the value an assignment of this modifier sees at an edit time. By default the
++        current value, or the history's when the time is behind the modifier's (latency
++        compensation). A modifier can give each assignment a value of its own, or one exact to
++        the time between block starts.
++        [[ audio_thread ]]
++    */
++    virtual float getValueFor (const AutomatableParameter::ModifierAssignment&, TimePosition editTime);
++
+     /** Must return a new ModifierAssignment for a given state. */
+     virtual AutomatableParameter::ModifierAssignment* createAssignment (const juce::ValueTree&) = 0;
+ 
+@@ -69,12 +77,17 @@
+     {
+         none,   /**< The Modifier needs no processing. */
+         preFX,  /**< The Modifier is processed before the plugn chain. */
+-        postFX  /**< The Modifier is processed after the plugn chain. */
++        postFX, /**< The Modifier is processed after the plugn chain. */
++        beforePlugin /**< Segno: processed just before getPluginToProcessBefore() in its track's
++                          chain, or after the chain when that plugin isn't there. */
+     };
+ 
+     /** Should return the position in the plugin chain that this Modifier should be processed. */
+     virtual ProcessingPosition getProcessingPosition()          { return ProcessingPosition::none; }
+ 
++    /** Segno: with ProcessingPosition::beforePlugin, the plugin this Modifier is processed before. */
++    virtual EditItemID getPluginToProcessBefore()               { return {}; }
++
+     //==============================================================================
+     /** Sub classes should implement this to initialise the Modifier. */
+     virtual void initialise (double /*sampleRate*/, int /*blockSizeSamples*/) {}
+@@ -159,6 +172,13 @@
+     /** Tests whether the Identifier is of a known Modifier type. */
+     static bool isModifier (const juce::Identifier&);
+ 
++    /** Segno: Modifier types of the host's own. isCustomType says whether a type is one, and
++        createCustom makes the Modifier for a state of that type. Set once, at start-up, on the
++        message thread.
++    */
++    static inline std::function<bool (const juce::Identifier&)> isCustomType;
++    static inline std::function<Modifier* (Edit&, const juce::ValueTree&)> createCustom;
++
+     /** Returns all the Modifiers in the list. */
+     juce::ReferenceCountedArray<Modifier> getModifiers() const;
+ 
+--- a/modules/tracktion_engine/model/edit/tracktion_Edit.cpp
++++ b/modules/tracktion_engine/model/edit/tracktion_Edit.cpp
+@@ -323,6 +323,7 @@
+              || c.hasType (IDs::ENVELOPEFOLLOWER)
+              || c.hasType (IDs::RANDOM)
+              || c.hasType (IDs::MIDITRACKER)
++             || ModifierList::isModifier (c.getType()) // Segno: the host's own modifier types
+              || p.hasType (IDs::LOOPINFO)
+              || p.hasType (IDs::PATTERN))
+         {
+--- a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp
++++ b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp
+@@ -349,7 +349,8 @@
+ std::unique_ptr<tracktion::graph::Node> createNodeForTrack (Track&, const CreateNodeParams&);
+ 
+ std::unique_ptr<tracktion::graph::Node> createPluginNodeForList (PluginList&, const TrackMuteState*, std::unique_ptr<Node>,
+-                                                                 tracktion::graph::PlayHeadState&, const CreateNodeParams&);
++                                                                 tracktion::graph::PlayHeadState&, const CreateNodeParams&,
++                                                                 ModifierList* modifiersBetween = nullptr);
+ 
+ std::unique_ptr<tracktion::graph::Node> createPluginNodeForTrack (Track&, TrackMuteState&, std::unique_ptr<Node>,
+                                                                  tracktion::graph::PlayHeadState&, const CreateNodeParams&);
+@@ -1448,11 +1449,47 @@
+                                      [dryGain = rackInstance.dryGain] { return dryGain->getCurrentValue(); });
+ }
+ 
++// Segno: the modifiers of a list to process just before a plugin (ProcessingPosition::beforePlugin),
++// in the list's order. With no plugin, those whose plugin isn't in the chain; with no chain either
++// (its plugins left out of the graph), all of them.
++static std::unique_ptr<tracktion::graph::Node> createModifierNodesBefore (ModifierList* list, Plugin* plugin, PluginList* chain,
++                                                                          const TrackMuteState* trackMuteState,
++                                                                          std::unique_ptr<Node> node,
++                                                                          tracktion::graph::PlayHeadState& playHeadState,
++                                                                          const CreateNodeParams& params)
++{
++    if (list == nullptr)
++        return node;
++
++    for (auto& modifier : list->getModifiers())
++    {
++        if (modifier->getProcessingPosition() != Modifier::ProcessingPosition::beforePlugin)
++            continue;
++
++        const auto before = modifier->getPluginToProcessBefore();
++        const bool here = plugin != nullptr ? before == plugin->itemID
++                        : chain != nullptr  ? ! std::any_of (chain->begin(), chain->end(),
++                                                             [&] (auto* p) { return p->itemID == before; })
++                                            : true;
++        if (! here)
++            continue;
++
++        node = makeNode<ModifierNode> (std::move (node), modifier, params.sampleRate, params.blockSize,
++                                       trackMuteState, playHeadState, params.forRendering,
++                                       ModifierNode::ClearOutputs::no);
++    }
++
++    return node;
++}
++
+ std::unique_ptr<tracktion::graph::Node> createPluginNodeForList (PluginList& list, const TrackMuteState* trackMuteState, std::unique_ptr<Node> node,
+-                                                                 tracktion::graph::PlayHeadState& playHeadState, const CreateNodeParams& params)
++                                                                 tracktion::graph::PlayHeadState& playHeadState, const CreateNodeParams& params,
++                                                                 ModifierList* modifiersBetween)
+ {
+     for (auto p : list)
+     {
++        node = createModifierNodesBefore (modifiersBetween, p, &list, trackMuteState, std::move (node), playHeadState, params);
++
+         if (! params.forRendering && p->isFrozen())
+             continue;
+ 
+@@ -1494,7 +1531,7 @@
+         }
+     }
+ 
+-    return node;
++    return createModifierNodesBefore (modifiersBetween, nullptr, &list, trackMuteState, std::move (node), playHeadState, params);
+ }
+ 
+ std::unique_ptr<tracktion::graph::Node> createModifierNodeForList (ModifierList* list,
+@@ -1530,7 +1567,11 @@
+                                       &trackMuteState, std::move (node), playHeadState, params);
+ 
+     if (params.includePlugins)
+-        node = createPluginNodeForList (t.pluginList, &trackMuteState, std::move (node), playHeadState, params);
++        node = createPluginNodeForList (t.pluginList, &trackMuteState, std::move (node), playHeadState, params,
++                                        t.getModifierList());
++    else
++        node = createModifierNodesBefore (t.getModifierList(), nullptr, nullptr, &trackMuteState, std::move (node),
++                                          playHeadState, params);
+ 
+     node = createModifierNodeForList (t.getModifierList(), Modifier::ProcessingPosition::postFX,
+                                       &trackMuteState, std::move (node), playHeadState, params);

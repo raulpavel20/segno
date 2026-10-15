@@ -484,3 +484,20 @@ Before sign-off, the product owner does these tasks, as with racks:
 | M16 | **"Random"** | The modulator's name. The planned M6 MIDI effect gets another name when its SPEC is written |
 | M17 | **Factory presets** | About eight each |
 | M18 | **The UI** | Drawn in every state and approved before building; hands-on tasks before sign-off (§19) |
+
+## 22. Step 0, the spike (2026-10-15)
+
+The spike's checks are kept as tests (`tests/integration/ModulatorSpikeTests.cpp`), on a modulator of our own type written for it. What it settled for §17:
+
+- **Modulators are tracktion modifiers of our own types,** in the track's modifier list or a rack's, not plugins in the chain. A tracktion patch (`cmake/patches/tracktion_engine-custom-modifiers.patch`) lets the host name and make its own types. They're then modifiers wherever tracktion asks, their routes are automation sources (on load too), and adding or removing one rebuilds playback, undo and redo included. Copies of tracks, the clipboard, undo and racks keep working as they do for tracktion's own modifiers.
+- **Per Target is one modulator answering for each route.** The patch asks a modifier for the value one route sees (`Modifier::getValueFor`). A route keeps its copy's number, and the modulator gives each copy its own phase or random path. One engine modifier per route, kept in step, isn't needed.
+- **Values exact to the time.** The time-based modulators (LFO, Random, Steps, an Envelope on the beat) are functions of the song's time and their roll, so the patch's `getValueFor` answers for the time a parameter asks, not the block's start. tracktion already splits a modulated plugin's block into 128-sample pieces, so a plugin that doesn't smooth gets a new value every 128 samples (measured, 20 Hz LFO, ±10 % of the range, 512-sample blocks: steps of 0.06 dB, against 0.24 dB every 512 samples at block starts). Our modules ramp their parameters (steps of 0.002 dB). No splitting of our own; 128 samples is the documented limit for plugins.
+- **Where a modulator sits:** the patch processes a modifier just before a plugin of its choosing (`ProcessingPosition::beforePlugin`), or after the chain without one. A Follower hears the sound there: before a Utility at −20 dB it hears the input, after the chain a tenth of it. Notes reach a modulator before the instrument and after it.
+- **Undo, save and load:** a modulator and its route added in one step are undone and redone whole, and heard again after redo. A project read back from its state renders the same (nulls below −100 dB).
+- **Rolls:** a random modulator's values come from a hash of its roll, its copy and the step, so a roll renders the same every time (two renders null to −103 dB) and another roll differently. Fresh rolls for each pass are the host setting the roll when playback starts (§13).
+- **Racks:** moved into a rack's modifier list, a modulator is the same object, keeps its routes, and moves what's in the rack from the rack's graph.
+- **It moves:** our module's parameter, a hosted plugin's (the Utility's VST3), a rack's macro (Morph is one) and the track's volume.
+- **To do in step 1:**
+  - keep each modulator's place as modules move (the plugin it's processed before), in `engine::Session`;
+  - a Follower inside a rack hears its place through the rack's connections;
+  - tracktion ignores modifiers on a plugin while automation reading is off (`Plugin::applyToBufferWithAutomation`); the DAW keeps reading on.
