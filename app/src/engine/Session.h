@@ -204,6 +204,10 @@ public:
     /// How late a module plays its track (ms): a delay the engine lines the tracks up around (a
     /// linear-phase EQ's, a lookahead). 0 if it adds none.
     [[nodiscard]] double moduleLatencyMs(std::uint64_t deviceId) const;
+    /// What a module is, for people (selection.md §8.2): ours by its type's name ("Filter"), a
+    /// plugin with its maker and format ("Diva · u-he · VST3"), a rack with its chains ("Rack · 3
+    /// chains"), a modulator by its kind ("LFO"). Empty for no such module.
+    [[nodiscard]] std::string moduleType(std::uint64_t deviceId) const;
     /// A module adding a delay you'd notice playing live, while the project hasn't been told of one
     /// (the DAW says so once per project, devices/eq/SPEC.md "Latency"): the first such module, its
     /// track and its delay. Nothing once told.

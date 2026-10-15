@@ -100,6 +100,10 @@ public:
 
     /// Ends every eased layout change at once (tests and snapshots, which get no frames).
     void finishAnimations();
+    /// The inspector's MODULE (selection.md §8.2): the module selected in the chain while the
+    /// chain was used last, or none. Checked each frame (and by tests), acting when that or the
+    /// project changed.
+    void updateInspectorModule();
     [[nodiscard]] DetailPanel& detail() noexcept { return detail_; }
     [[nodiscard]] ArrangementView& arrangement() noexcept { return arrangement_; }
     [[nodiscard]] InspectorPanel& inspector() noexcept { return inspector_; }
@@ -255,9 +259,19 @@ private:
     /// What a drop or a double-click from the browser did: select what it made, say what it replaced.
     void browserResult(const browser::Result& result);
     InspectorPanel inspector_{session_};
+    /// The inspector's shadow while it's over the arrangement (selection.md §8.1), between them.
+    struct OverlayShadow final : juce::Component
+    {
+        OverlayShadow() { setInterceptsMouseClicks(false, false); }
+        juce::Rectangle<int> under; // what casts it, in its own coordinates
+        void paint(juce::Graphics& g) override { ui::paintShadow(g, under); }
+    };
+    OverlayShadow inspectorShadow_;
     DetailPanel detail_{session_, actions_};
     enum class Area { Arrangement, Detail, Clip, Lane };
     Area lastArea_ = Area::Arrangement; // where Delete, Duplicate and Select all apply
+    /// What the inspector's MODULE showed last: the module (0 none) and the project as it was.
+    std::pair<std::uint64_t, const void*> inspectorModule_{0, nullptr};
     [[nodiscard]] bool notesActive() const; // the piano roll was used last and shows a clip
     [[nodiscard]] bool laneActive() const;   // an automation lane was used last and is selected
     [[nodiscard]] bool pointsActive() const; // ... with points selected

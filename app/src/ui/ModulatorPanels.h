@@ -60,10 +60,11 @@ private:
     Display* display_ = nullptr;
 };
 
-/// A modulator's routes (modulators.md §7.4): its right-click and its header's menu open it. A
-/// popover of rows, each a route: the target ("Filter · Freq"), its amount (-200 ... +200 %), Show
-/// (selects the target's module and scrolls to it) and Remove. Escape closes it.
-class RouteList final : public juce::Component
+/// A modulator's routes as rows (modulators.md §7.4): each the target ("Filter · Freq"), its
+/// amount (-200 ... +200 %), Show (selects the target's module and scrolls to it) and Remove. On
+/// one line where they fit, the name above the rest where they don't (the inspector's ROUTES,
+/// selection.md §8.2). The route list and the inspector share them.
+class RouteRows final : public juce::Component
 {
 public:
     struct Route
@@ -71,6 +72,43 @@ public:
         juce::String target; // "Filter · Freq"
         float amount = 0.5f; // -2 ... +2 of the target's range
     };
+    explicit RouteRows(std::vector<Route> routes);
+
+    std::function<void(int route, float amount)> onAmount;
+    /// An amount's drag starts (true) or ends: one undo step.
+    std::function<void(bool started)> onAmountGesture;
+    std::function<void(int route)> onShow, onRemove;
+
+    /// Its height `width` wide: a list row a route, two where a route's parts don't fit one.
+    [[nodiscard]] int preferredHeight(int width) const;
+    void paint(juce::Graphics& g) override;
+    void resized() override;
+
+    /// The rows' parts (for the drawn states' lint): name area, amount bar, Show, Remove.
+    struct Row
+    {
+        juce::Rectangle<int> name;
+        std::unique_ptr<ui::Knob> amount;
+        std::unique_ptr<ui::IconButton> show, remove;
+    };
+    [[nodiscard]] const std::vector<Row>& rows() const noexcept { return rows_; }
+    [[nodiscard]] const std::vector<Route>& routes() const noexcept { return routes_; }
+
+private:
+    /// Whether a route's parts fit one line `width` wide.
+    [[nodiscard]] static bool oneLine(int width);
+
+    std::vector<Route> routes_;
+    std::vector<Row> rows_;
+};
+
+/// A modulator's routes (modulators.md §7.4): its right-click and its header's menu open it. A
+/// popover of route rows (RouteRows). Escape closes it.
+class RouteList final : public juce::Component
+{
+public:
+    using Route = RouteRows::Route;
+    using Row = RouteRows::Row;
     RouteList(juce::String modulator, std::vector<Route> routes);
 
     std::function<void(int route, float amount)> onAmount;
@@ -88,20 +126,14 @@ public:
     void resized() override;
     bool keyPressed(const juce::KeyPress& key) override;
 
-    /// The rows' parts (for the drawn states' lint): name area, amount bar, Show, Remove.
-    struct Row
-    {
-        juce::Rectangle<int> name;
-        std::unique_ptr<ui::Knob> amount;
-        std::unique_ptr<ui::IconButton> show, remove;
-    };
-    [[nodiscard]] const std::vector<Row>& rows() const noexcept { return rows_; }
+    /// The rows' parts, in the rows' own place (rowsArea).
+    [[nodiscard]] const std::vector<Row>& rows() const noexcept { return rows_.rows(); }
+    [[nodiscard]] juce::Rectangle<int> rowsArea() const noexcept { return rows_.getBounds(); }
     [[nodiscard]] juce::Rectangle<int> titleArea() const noexcept { return title_; }
 
 private:
     juce::String modulator_;
-    std::vector<Route> routes_;
-    std::vector<Row> rows_;
+    RouteRows rows_;
     juce::Rectangle<int> title_;
 };
 } // namespace fd::app

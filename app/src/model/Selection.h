@@ -82,7 +82,9 @@ enum class InspectorSection
     Return,
     Master,
     Mix,
-    Sends
+    Sends,
+    Module, // the module selected in the chain (selection.md §8.2), added by the shell
+    Routes  // a selected modulator's routes, under MODULE
 };
 
 /// Everything the context panels need for a selection in a view: the rules of selection.md §3-5

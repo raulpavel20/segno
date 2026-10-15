@@ -96,6 +96,17 @@ public:
     [[nodiscard]] const model::ModulatorInfo* selectedModulator() const;
     /// Opens a modulator's route list over the chain (its handle's right-click, its header's menu).
     void showRoutes(std::uint64_t modulator);
+    /// A modulator's routes as its route list shows them, each target named as its control names
+    /// it ("Chorus · Mix"); and what its rows do (an amount set, one undo step a drag; Show; Remove,
+    /// then `afterRemove`). The inspector's ROUTES use them too (selection.md §8.2).
+    [[nodiscard]] std::vector<RouteRows::Route> routeRowsOf(std::uint64_t modulator) const;
+    struct RouteCallbacks
+    {
+        std::function<void(int route, float amount)> amount;
+        std::function<void(bool started)> gesture;
+        std::function<void(int route)> show, remove;
+    };
+    [[nodiscard]] RouteCallbacks routeCallbacks(std::uint64_t modulator, std::function<void()> afterRemove);
     void closeRoutes();
     /// The route list open (null: none).
     [[nodiscard]] RouteList* routeList() const noexcept { return routeList_.get(); }
@@ -186,6 +197,7 @@ private:
     void showSnapshotMenu(std::uint64_t rack, int snapshot);
     [[nodiscard]] int slotIndexOf(const juce::Component* c) const;
     [[nodiscard]] Slot* slotOf(std::uint64_t id);
+    [[nodiscard]] const Slot* slotOf(std::uint64_t id) const;
     [[nodiscard]] Rack* rackOf(std::uint64_t id);
     [[nodiscard]] const Rack* rackOfConst(std::uint64_t id) const;
     [[nodiscard]] RackPanel* rackPanelOf(std::uint64_t id);

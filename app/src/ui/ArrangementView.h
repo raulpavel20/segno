@@ -62,6 +62,11 @@ public:
     void zoomIn();
     void zoomOut();
     void zoomToFit();
+    /// How much of its right end something covers (the inspector over it at compact widths,
+    /// selection.md §8.1): follow-playhead pages turn before the playhead goes under it, and Zoom
+    /// to fit fits the song into what's left.
+    void setCoveredRight(int pixels);
+    [[nodiscard]] int coveredRight() const noexcept { return coveredRight_; }
     /// Follow the playhead while playing (pages the view smoothly).
     void setFollowEnabled(bool on) noexcept { follow_ = on; }
     [[nodiscard]] bool isFollowEnabled() const noexcept { return follow_; }
@@ -543,6 +548,7 @@ private:
     [[nodiscard]] model::BraceZone loopZoneAt(float x) const;
 
     bool follow_ = true;
+    int coveredRight_ = 0;
     std::optional<double> scrollTarget_; // follow-playhead paging, eased
     std::pair<double, double> loop_{0.0, 0.0};
     bool looping_ = false;

@@ -215,6 +215,9 @@ private:
 
 /// Floating chrome: the one shadow, the panel surface and radius, a hairline edge.
 void paintPopover(juce::Graphics& g, juce::Rectangle<int> bounds);
+/// The one shadow a floating thing casts (ui-principles §4), under `bounds`: a popover's, the
+/// inspector's while it's over the arrangement (selection.md §8.1).
+void paintShadow(juce::Graphics& g, juce::Rectangle<int> bounds);
 
 /// A message in the corner of `host` (bottom right) that the caller times out.
 [[nodiscard]] juce::Rectangle<int> toastArea(juce::Rectangle<int> host);

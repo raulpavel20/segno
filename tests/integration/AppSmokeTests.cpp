@@ -5243,3 +5243,114 @@ TEST_CASE(
     bar->closeList(true);
     f.shell->removeFromDesktop();
 }
+
+TEST_CASE(
+    "inspector: over the arrangement below 1440 px, open or closed across it; MODULE and ROUTES for the "
+    "module selected in the chain (C6)",
+    "[integration]")
+{
+    ShellFixture f;
+    auto& s = *f.session;
+    auto& shell = *f.shell;
+    const auto t0 = s.snapshot()->tracks[0].id;
+    const auto filter = s.addDevice(t0, "fd:filter");
+    const auto lfo = s.addModulator(t0, fd::model::ModulatorKind::Lfo, 0);
+    REQUIRE(lfo != 0);
+    const fd::engine::Session::ParamTarget freq{t0, "m" + std::to_string(filter) + "/freq"};
+    REQUIRE(s.routeModulator(lfo, freq, 0.5f));
+    REQUIRE(s.automateInNewLane(freq) != 0);
+    s.updateSnapshotNow();
+    auto& inspector = shell.inspector();
+    auto& arrangement = shell.arrangement();
+    const auto open = [&](bool on)
+    {
+        shell.finishAnimations();
+        if (inspector.isVisible() != on)
+            shell.actions().perform("view.inspector");
+        shell.finishAnimations();
+    };
+
+    // Wide: docked beside the arrangement.
+    shell.setSize(1600, 900);
+    open(true);
+    REQUIRE(inspector.isVisible());
+    CHECK(arrangement.getRight() <= inspector.getX());
+    CHECK(arrangement.coveredRight() == 0);
+    // Compact: still open, over the arrangement, which keeps its width and knows what's covered.
+    shell.setSize(1280, 900);
+    shell.finishAnimations();
+    REQUIRE(inspector.isVisible());
+    CHECK(inspector.getRight() == arrangement.getRight());
+    CHECK(inspector.getX() > arrangement.getX());
+    CHECK(arrangement.coveredRight() == inspector.getWidth());
+    const auto overWidth = arrangement.getWidth();
+    open(false);
+    CHECK(arrangement.getWidth() == overWidth); // closing it gives no width back: it took none
+    CHECK(arrangement.coveredRight() == 0);
+    // Closed stays closed across the threshold, and open stays open.
+    shell.setSize(1600, 900);
+    shell.finishAnimations();
+    CHECK_FALSE(inspector.isVisible());
+    open(true);
+    shell.setSize(1280, 900);
+    shell.finishAnimations();
+    CHECK(inspector.isVisible());
+
+    // MODULE: the Filter selected in the chain, the chain used last.
+    arrangement.selectTrack(t0);
+    auto& chain = shell.detail().chain();
+    chain.selectDevice(filter);
+    REQUIRE(chain.onActivated);
+    chain.onActivated();
+    shell.updateInspectorModule();
+    REQUIRE(inspector.module().has_value());
+    CHECK(inspector.module()->type == "Filter");
+    REQUIRE_FALSE(inspector.sections().empty());
+    CHECK(inspector.sections().front() == fd::model::InspectorSection::Module);
+    REQUIRE(inspector.movers().size() == 1);
+    CHECK(inspector.movers()[0]->getButtonText().startsWith("LFO"));
+    REQUIRE(inspector.laneShows().size() == 1);
+    if (const char* dir = std::getenv("FD_DUMP_DIR"))
+    {
+        dumpPng(dir, "inspector-over-module@2x.png",
+                shell.createComponentSnapshot(shell.getLocalBounds(), true, 2.0f));
+        dumpPng(dir, "inspector-module-crop@2x.png",
+                shell.createComponentSnapshot(inspector.getBounds().expanded(24, 0), true, 2.0f));
+    }
+
+    // Moved by: the LFO, selected; its ROUTES, whose amount is set there.
+    REQUIRE(inspector.movers()[0]->onClick);
+    inspector.movers()[0]->onClick();
+    CHECK(chain.selectedDevice() == lfo);
+    shell.updateInspectorModule();
+    REQUIRE(inspector.sections().size() >= 2);
+    CHECK(inspector.sections()[1] == fd::model::InspectorSection::Routes);
+    REQUIRE(inspector.routes() != nullptr);
+    REQUIRE(inspector.routes()->rows().size() == 1);
+    REQUIRE(inspector.routes()->onAmount);
+    inspector.routes()->onAmountGesture(true);
+    inspector.routes()->onAmount(0, 1.0f);
+    inspector.routes()->onAmountGesture(false);
+    s.updateSnapshotNow();
+    const auto* channel = s.snapshot()->channel(t0);
+    REQUIRE(channel != nullptr);
+    float amount = 0.0f;
+    for (const auto& d : channel->devices)
+        if (d.id == lfo && d.modulator != nullptr && !d.modulator->routes.empty())
+            amount = d.modulator->routes[0].amount;
+    CHECK(amount == Catch::Approx(1.0f));
+    if (const char* dir = std::getenv("FD_DUMP_DIR"))
+    {
+        shell.updateInspectorModule();
+        dumpPng(dir, "inspector-routes-crop@2x.png",
+                shell.createComponentSnapshot(inspector.getBounds().expanded(24, 0), true, 2.0f));
+    }
+
+    // The arrangement used last: MODULE goes.
+    REQUIRE(arrangement.onActivated);
+    arrangement.onActivated();
+    shell.updateInspectorModule();
+    CHECK_FALSE(inspector.module().has_value());
+    CHECK((inspector.sections().empty() ||
+           inspector.sections().front() != fd::model::InspectorSection::Module));
+}

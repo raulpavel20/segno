@@ -1017,8 +1017,7 @@ void ModulatorPanel::setDragging(bool dragging)
 
 // ---- the route list ---------------------------------------------------------------------------
 
-RouteList::RouteList(juce::String modulator, std::vector<Route> routes)
-    : modulator_(std::move(modulator)), routes_(std::move(routes))
+RouteRows::RouteRows(std::vector<Route> routes) : routes_(std::move(routes))
 {
     for (size_t i = 0; i < routes_.size(); ++i)
     {
@@ -1067,6 +1066,84 @@ RouteList::RouteList(juce::String modulator, std::vector<Route> routes)
         addAndMakeVisible(*row.remove);
         rows_.push_back(std::move(row));
     }
+}
+
+bool RouteRows::oneLine(int width)
+{
+    // A name as wide as the bar, the bar, the two buttons, and the gaps between.
+    const auto& t = ui::Theme::current();
+    const auto& s = t.shell;
+    const int bar = t.deviceGrid.width(3);
+    return width >= 2 * bar + 2 * s.groupGap + s.itemGap + 2 * s.rowHeight;
+}
+
+int RouteRows::preferredHeight(int width) const
+{
+    const auto& s = ui::Theme::current().shell;
+    return static_cast<int>(rows_.size()) * s.listRowHeight * (oneLine(width) ? 1 : 2);
+}
+
+void RouteRows::resized()
+{
+    const auto& t = ui::Theme::current();
+    const auto& s = t.shell;
+    const bool one = oneLine(getWidth());
+    auto area = getLocalBounds();
+    for (auto& row : rows_)
+    {
+        auto r = area.removeFromTop(s.listRowHeight);
+        if (!one) // the name on its own line, the rest under it
+        {
+            row.name = r;
+            r = area.removeFromTop(s.listRowHeight);
+        }
+        row.remove->setBounds(r.removeFromRight(s.rowHeight).withSizeKeepingCentre(s.rowHeight, s.rowHeight));
+        r.removeFromRight(s.itemGap);
+        row.show->setBounds(r.removeFromRight(s.rowHeight).withSizeKeepingCentre(s.rowHeight, s.rowHeight));
+        r.removeFromRight(s.groupGap);
+        const int bar = one ? t.deviceGrid.width(3) : r.getWidth();
+        row.amount->setBounds(r.removeFromRight(bar).withSizeKeepingCentre(bar, t.deviceGrid.row));
+        if (one)
+        {
+            r.removeFromRight(s.groupGap);
+            row.name = r;
+        }
+    }
+}
+
+void RouteRows::paint(juce::Graphics& g)
+{
+    const auto& t = ui::Theme::current();
+    g.setFont(ui::font(ui::TextStyle::Body));
+    g.setColour(t.textPrimary);
+    for (size_t i = 0; i < rows_.size(); ++i)
+        g.drawText(routes_[i].target, rows_[i].name, juce::Justification::centredLeft, true);
+}
+
+RouteList::RouteList(juce::String modulator, std::vector<Route> routes)
+    : modulator_(std::move(modulator)), rows_(std::move(routes))
+{
+    rows_.onAmount = [this](int i, float amount)
+    {
+        if (onAmount)
+            onAmount(i, amount);
+    };
+    rows_.onAmountGesture = [this](bool started)
+    {
+        if (onAmountGesture)
+            onAmountGesture(started);
+    };
+    rows_.onShow = [this](int i)
+    {
+        if (onShow)
+            onShow(i);
+    };
+    rows_.onRemove = [this](int i)
+    {
+        if (onRemove)
+            onRemove(i);
+    };
+    addAndMakeVisible(rows_);
     setWantsKeyboardFocus(true); // Escape closes it
     setSize(preferredBounds().getWidth(), preferredBounds().getHeight());
 }
@@ -1074,7 +1151,7 @@ RouteList::RouteList(juce::String modulator, std::vector<Route> routes)
 juce::Rectangle<int> RouteList::preferredBounds() const
 {
     const auto& s = ui::Theme::current().shell;
-    const int rows = std::max(1, static_cast<int>(routes_.size()));
+    const int rows = std::max(1, static_cast<int>(rows_.routes().size()));
     return juce::Rectangle<int>(s.formPopoverWidth,
                                 2 * s.groupGap + s.rowHeight + s.itemGap + rows * s.listRowHeight)
         .expanded(juce::roundToInt(s.shadowRadius))
@@ -1096,40 +1173,20 @@ bool RouteList::keyPressed(const juce::KeyPress& key)
 
 void RouteList::resized()
 {
-    const auto& t = ui::Theme::current();
-    const auto& s = t.shell;
+    const auto& s = ui::Theme::current().shell;
     auto area = inner().reduced(s.groupGap);
     title_ = area.removeFromTop(s.rowHeight);
     area.removeFromTop(s.itemGap);
-    for (auto& row : rows_)
-    {
-        auto r = area.removeFromTop(s.listRowHeight);
-        row.remove->setBounds(r.removeFromRight(s.rowHeight).withSizeKeepingCentre(s.rowHeight, s.rowHeight));
-        r.removeFromRight(s.itemGap);
-        row.show->setBounds(r.removeFromRight(s.rowHeight).withSizeKeepingCentre(s.rowHeight, s.rowHeight));
-        r.removeFromRight(s.groupGap);
-        const int bar = t.deviceGrid.width(3);
-        row.amount->setBounds(r.removeFromRight(bar).withSizeKeepingCentre(bar, t.deviceGrid.row));
-        r.removeFromRight(s.groupGap);
-        row.name = r;
-    }
+    rows_.setBounds(area);
 }
 
 void RouteList::paint(juce::Graphics& g)
 {
-    const auto& t = ui::Theme::current();
     ui::paintPopover(g, inner());
     ui::paintCapsLabel(g, "Routes" + dotted() + modulator_, title_.toFloat(),
                        juce::Justification::centredLeft);
-    if (routes_.empty())
-    {
+    if (rows_.routes().empty())
         ui::paintEmptyState(g, inner().withTrimmedTop(title_.getBottom() - inner().getY()),
                             "No routes: drag its handle onto a control");
-        return;
-    }
-    g.setFont(ui::font(ui::TextStyle::Body));
-    g.setColour(t.textPrimary);
-    for (size_t i = 0; i < rows_.size(); ++i)
-        g.drawText(routes_[i].target, rows_[i].name, juce::Justification::centredLeft, true);
 }
 } // namespace fd::app

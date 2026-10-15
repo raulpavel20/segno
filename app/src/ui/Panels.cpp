@@ -1022,7 +1022,8 @@ void InspectorPanel::notesChanged()
 void InspectorPanel::setContext(const model::PanelContext& context, const model::TempoMap& tempo,
                                 const std::vector<model::TrackInfo>& returns)
 {
-    sections_ = context.inspector;
+    contextSections_ = context.inspector;
+    rebuildSections();
     channel_ = context.channel;
     clip_ = context.clip;
     clipCount_ = context.clipCount;
@@ -1382,6 +1383,20 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
                 {"Clips", juce::String(static_cast<int>(channel_->clips.size())), true}};
     case S::Return: return {{"Name", {}}, {"Colour", {}}, {"Modules", modules, true}}; // the field, the swatch
     case S::Master: return {{"Modules", modules, true}};
+    case S::Module:
+    {
+        if (!module_)
+            return {};
+        std::vector<ui::Property> rows{{"Type", module_->type}, {"Delay", delayText(), true}};
+        // A line each: the modulator (a button that selects it), the lane's parameter (Show).
+        for (size_t i = 0; i < module_->facts.movedBy.size(); ++i)
+            rows.push_back({i == 0 ? "Moved by" : "", {}});
+        for (size_t i = 0; i < module_->facts.automated.size(); ++i)
+            rows.push_back({i == 0 ? "Automated" : "",
+                            juce::String::fromUTF8(module_->facts.automated[i].param.c_str())});
+        return rows;
+    }
+    case S::Routes:
     case S::Mix:
     case S::Sends:
     case S::Input:
@@ -1427,7 +1442,8 @@ int InspectorPanel::layoutSections(int width)
                                                   {S::Clips, "Clips"},       {S::Section, "Section"},
                                                   {S::Sections, "Sections"}, {S::Track, "Track"},
                                                   {S::Return, "Return"},     {S::Master, "Master"},
-                                                  {S::Mix, "Mix"},           {S::Sends, "Sends"}};
+                                                  {S::Mix, "Mix"},           {S::Sends, "Sends"},
+                                                  {S::Module, "Module"},     {S::Routes, "Routes"}};
     std::vector<ui::SectionStack::Section> sections;
     for (const auto s : sections_)
     {
@@ -1435,6 +1451,9 @@ int InspectorPanel::layoutSections(int width)
                            : s == S::Sends       ? sends_.preferredHeight()
                            : s == S::Assignments ? assignments_.preferredHeight()
                            : s == S::Input       ? input_.preferredHeight()
+                           : s == S::Routes      ? (routes_ != nullptr && !routes_->routes().empty()
+                                                        ? routes_->preferredHeight(r.getWidth())
+                                                        : t.shell.listRowHeight)
                                                  : static_cast<int>(properties(s).size()) * t.shell.rowHeight;
         sections.push_back({s == S::Notes ? notesTitle() : titles.at(s), height});
     }
@@ -1443,6 +1462,8 @@ int InspectorPanel::layoutSections(int width)
     sends_.setBounds({});
     assignments_.setBounds({});
     input_.setBounds({});
+    if (routes_ != nullptr)
+        routes_->setBounds({});
     for (size_t i = 0; i < sections_.size(); ++i)
         if (sections_[i] == S::Mix)
             mix_.setBounds(stack_.content(i));
@@ -1452,6 +1473,22 @@ int InspectorPanel::layoutSections(int width)
             assignments_.setBounds(stack_.content(i));
         else if (sections_[i] == S::Input)
             input_.setBounds(stack_.content(i));
+        else if (sections_[i] == S::Routes && routes_ != nullptr)
+            routes_->setBounds(stack_.content(i));
+        else if (sections_[i] == S::Module && module_) // its movers' buttons, its lanes' Show
+        {
+            const auto content = stack_.content(i).withTrimmedLeft(t.shell.propertyLabelWidth);
+            const auto row = [&](int n)
+            { return content.withY(content.getY() + n * t.shell.rowHeight).withHeight(t.shell.rowHeight); };
+            int n = 2; // after Type and Delay
+            for (auto* mover : movers_)
+                mover->setBounds(row(n++).reduced(0, t.shell.propertyFieldInset));
+            for (auto* show : laneShows_)
+            {
+                auto line = row(n++).reduced(0, t.shell.propertyFieldInset);
+                show->setBounds(line.removeFromRight(ui::Toggle::widthFor(show->getButtonText())));
+            }
+        }
         else if (sections_[i] == S::Lane) // the Name and Colour rows
         {
             const auto content = stack_.content(i).withTrimmedLeft(t.shell.propertyLabelWidth).withHeight(t.shell.rowHeight);
@@ -1567,6 +1604,102 @@ void InspectorPanel::paintSections(juce::Graphics& g)
     for (size_t i = 0; i < sections_.size(); ++i)
         if (const auto rows = properties(sections_[i]); !rows.empty())
             ui::paintProperties(g, stack_.content(i), rows);
+        else if (sections_[i] == model::InspectorSection::Routes &&
+                 (routes_ == nullptr || routes_->routes().empty()))
+            ui::paintEmptyState(g, stack_.content(i), "No routes: drag its handle onto a control");
+}
+
+void InspectorPanel::rebuildSections()
+{
+    sections_.clear();
+    if (module_)
+    {
+        sections_.push_back(model::InspectorSection::Module);
+        if (module_->facts.isModulator())
+            sections_.push_back(model::InspectorSection::Routes);
+    }
+    sections_.insert(sections_.end(), contextSections_.begin(), contextSections_.end());
+}
+
+juce::String InspectorPanel::delayText() const
+{
+    if (!module_ || module_->latencyMs < 0.05)
+        return "None";
+    return juce::String(module_->latencyMs, module_->latencyMs < 10.0 ? 1 : 0) + " ms";
+}
+
+void InspectorPanel::setModule(std::optional<ModuleShown> module)
+{
+    const bool sameLines = module && module_ && module->facts.id == module_->facts.id &&
+                           module->facts.movedBy.size() == module_->facts.movedBy.size() &&
+                           module->facts.automated.size() == module_->facts.automated.size();
+    module_ = std::move(module);
+    if (!module_)
+        routes_.reset();
+    if (!sameLines)
+    {
+        movers_.clear();
+        laneShows_.clear();
+        if (module_)
+        {
+            for (const auto& mover : module_->facts.movedBy)
+            {
+                auto* b = movers_.add(new ui::Toggle());
+                b->setCutsText(true);
+                b->setTooltip("Select " + juce::String::fromUTF8(mover.name.c_str()) + " in the chain");
+                b->onClick = [this, id = mover.modulator]
+                {
+                    if (onSelectModule)
+                        onSelectModule(id);
+                };
+                body_.addAndMakeVisible(b);
+            }
+            for (const auto& lane : module_->facts.automated)
+            {
+                auto* b = laneShows_.add(new ui::Toggle("Show"));
+                b->setTooltip("Show the automation lane of " + juce::String::fromUTF8(lane.param.c_str()));
+                b->onClick = [this, id = lane.lane] { session_.revealLane(id); };
+                body_.addAndMakeVisible(b);
+            }
+        }
+    }
+    // Each line's text: "LFO · Freq, Mix".
+    if (module_)
+        for (size_t i = 0; i < module_->facts.movedBy.size() && i < static_cast<size_t>(movers_.size()); ++i)
+        {
+            const auto& mover = module_->facts.movedBy[i];
+            auto text = juce::String::fromUTF8(mover.name.c_str()) + juce::String::fromUTF8(" \xc2\xb7 ");
+            for (size_t p = 0; p < mover.params.size(); ++p)
+                text << (p > 0 ? ", " : "") << juce::String::fromUTF8(mover.params[p].c_str());
+            movers_[static_cast<int>(i)]->setButtonText(text);
+        }
+    rebuildSections();
+    resized();
+    repaint();
+}
+
+void InspectorPanel::setRoutes(std::vector<RouteRows::Route> routes, DeviceChain::RouteCallbacks callbacks)
+{
+    // The same targets: amounts follow in place (not under a drag), so a drag isn't cut short.
+    if (routes_ != nullptr && routes_->routes().size() == routes.size() &&
+        std::equal(routes.begin(), routes.end(), routes_->routes().begin(),
+                   [](const auto& a, const auto& b) { return a.target == b.target; }))
+    {
+        for (size_t i = 0; i < routes.size(); ++i)
+            if (auto& knob = *routes_->rows()[i].amount; !knob.isMouseButtonDown())
+                knob.setValue(0.5f + routes[i].amount / 4.0f, juce::dontSendNotification);
+    }
+    else
+    {
+        routes_ = std::make_unique<RouteRows>(std::move(routes));
+        body_.addAndMakeVisible(*routes_);
+    }
+    routes_->onAmount = std::move(callbacks.amount);
+    routes_->onAmountGesture = std::move(callbacks.gesture);
+    routes_->onShow = std::move(callbacks.show);
+    routes_->onRemove = std::move(callbacks.remove);
+    resized();
+    repaint();
 }
 
 // ---- DetailPanel ---------------------------------------------------------------------------

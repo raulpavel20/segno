@@ -214,6 +214,7 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
                                static_cast<juce::Component*>(&arrangement_), static_cast<juce::Component*>(&browserSplit_),
                                static_cast<juce::Component*>(&inspectorSplit_), static_cast<juce::Component*>(&detailSplit_)})
         addAndMakeVisible(c);
+    addChildComponent(inspectorShadow_);
     detailSplit_.onDrag = [this](float dy)
     {
         if (detail_.mode() == DetailPanel::Mode::Editor)
@@ -370,6 +371,12 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     arrangement_.onMessage = [this](const juce::String& m) { showWarning(m); };
     detail_.pianoRoll().onMessage = [this](const juce::String& m) { showWarning(m); };
     detail_.chain().onActivated = [this] { lastArea_ = Area::Detail; };
+    // MODULE's "Moved by": that modulator, selected in the chain (selection.md §8.2).
+    inspector_.onSelectModule = [this](std::uint64_t modulator)
+    {
+        detail_.chain().selectDevice(modulator);
+        lastArea_ = Area::Detail;
+    };
     detail_.pianoRoll().onActivated = [this]
     {
         lastArea_ = Area::Clip;
@@ -1824,6 +1831,13 @@ bool Shell::keyPressed(const juce::KeyPress& k)
         const bool bounces = session_.cancelBounces();
         if (exportPanel_.cancel() || bounces)
             return true;
+        // The inspector over the arrangement (compact widths, selection.md §8.1), with the focus.
+        if (compact_.value_or(false) && inspectorPanel_.open && inspector_.hasKeyboardFocus(true))
+        {
+            setPanel(inspectorPanel_, false);
+            grabKeyboardFocus();
+            return true;
+        }
     }
     // The menu bar from the keyboard (menu-bar.md §5): F10 opens File, Alt+letter its menu.
     if (onOpenMenu)
@@ -2547,6 +2561,34 @@ void Shell::closeSettings()
 
 // ---- selection -----------------------------------------------------------------------------
 
+void Shell::updateInspectorModule()
+{
+    auto& chain = detail_.chain();
+    const auto snapshot = session_.snapshot();
+    const std::uint64_t module =
+        lastArea_ == Area::Detail && !mixerShown_ && chain.selectedDevice() && chain.track()
+            ? *chain.selectedDevice()
+            : 0;
+    const std::pair<std::uint64_t, const void*> now{module, module != 0 ? snapshot.get() : nullptr};
+    if (now == inspectorModule_)
+        return;
+    inspectorModule_ = now;
+    const auto* channel = module != 0 ? snapshot->channel(*chain.track()) : nullptr;
+    auto facts =
+        channel != nullptr ? model::moduleFacts(*channel, snapshot->automationLanes, module) : std::nullopt;
+    if (!facts)
+    {
+        inspector_.setModule(std::nullopt);
+        return;
+    }
+    const bool modulator = facts->isModulator();
+    inspector_.setModule(InspectorPanel::ModuleShown{
+        std::move(*facts), juce::String::fromUTF8(session_.moduleType(module).c_str()),
+        session_.moduleLatencyMs(module)});
+    if (modulator)
+        inspector_.setRoutes(chain.routeRowsOf(module), chain.routeCallbacks(module, {}));
+}
+
 std::optional<model::TrackInfo> Shell::selectedTrackInfo() const
 {
     const auto id = arrangement_.selectedTrack();
@@ -2757,6 +2799,7 @@ void Shell::onFrame(double timestamp)
     }
     if (relayout)
         resized();
+    updateInspectorModule();
 
     if (benchmark_)
     {
@@ -2916,16 +2959,15 @@ void Shell::paintOverChildren(juce::Graphics& g)
 
 void Shell::resized()
 {
-    // Adaptive: crossing the compact threshold resets the side panels; toggles win otherwise.
+    // Adaptive: crossing the compact threshold folds the browser to its rail (or opens it); the
+    // inspector stays open or closed, docked or over the arrangement by the width (selection.md
+    // §8.1). Toggles win otherwise.
     const bool compact = getWidth() < compactWidth;
     if (compact_ != compact)
     {
         compact_ = compact;
-        for (auto* p : {&browserPanel_, &inspectorPanel_})
-        {
-            applyPanel(*p, !compact);
-            p->shown = compact ? 0.0f : 1.0f;
-        }
+        applyPanel(browserPanel_, !compact);
+        browserPanel_.shown = compact ? 0.0f : 1.0f;
     }
 
     auto r = getLocalBounds();
@@ -2955,13 +2997,32 @@ void Shell::resized()
     const int splitter = ui::Theme::current().shell.splitter;
     browserSplit_.setBounds(r.removeFromLeft(browserW > 0.0f ? 1 : 0).withWidth(splitter).translated(-splitter / 2, 0));
 
-    // The inspector belongs to the arrangement (ADR 0027).
-    const bool inspectorShown = showSides && !mixerShown_;
+    // The inspector belongs to the arrangement (ADR 0027). Below 1440 px it opens over it, which
+    // keeps its width, casting a shadow; the arrangement knows what it covers (selection.md §8.1).
+    // Over the arrangement, it doesn't cover Settings when they show in its place.
+    const bool inspectorShown = showSides && !mixerShown_ && !(compact_.value_or(false) && settingsShown_);
     const int inspectorW = inspectorShown ? juce::roundToInt(inspectorPanel_.size * inspectorPanel_.shown) : 0;
+    const bool over = compact_.value_or(false) && inspectorW > 0;
     inspector_.setVisible(inspectorW > 0);
-    inspector_.setBounds(r.removeFromRight(inspectorW));
+    if (over)
+    {
+        // It slides in from the right: its left edge follows how far it's shown.
+        const auto area =
+            r.withLeft(r.getRight() - inspectorW).withWidth(juce::roundToInt(inspectorPanel_.size));
+        inspector_.setBounds(area);
+        const int margin = juce::roundToInt(ui::Theme::current().shell.shadowRadius);
+        inspectorShadow_.setBounds(area.expanded(margin, 0).withRight(area.getX()));
+        inspectorShadow_.under = area.translated(-inspectorShadow_.getX(), -inspectorShadow_.getY());
+    }
+    else
+        inspector_.setBounds(r.removeFromRight(inspectorW));
+    inspectorShadow_.setVisible(over);
+    arrangement_.setCoveredRight(over ? inspectorW : 0);
     inspectorSplit_.setVisible(inspectorShown && inspectorPanel_.open);
-    inspectorSplit_.setBounds(r.removeFromRight(inspectorW > 0 ? 1 : 0).withWidth(splitter).translated(-splitter / 2, 0));
+    inspectorSplit_.setBounds(
+        (over ? inspector_.getBounds().withWidth(0) : r.removeFromRight(inspectorW > 0 ? 1 : 0))
+            .withWidth(splitter)
+            .translated(-splitter / 2, 0));
 
     // The centre: the arrangement or the mixer view (C3c), whichever is current, or Settings.
     arrangement_.setVisible(!mixerShown_ && !settingsShown_);
@@ -2970,6 +3031,8 @@ void Shell::resized()
     arrangement_.setBounds(r);
     mixer_.setBounds(r);
     settingsView_.setBounds(r);
+    inspectorShadow_.toFront(false);
+    inspector_.toFront(false);
     browserSplit_.toFront(false);
     inspectorSplit_.toFront(false);
     detailSplit_.toFront(false);

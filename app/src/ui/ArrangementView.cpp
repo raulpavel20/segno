@@ -477,7 +477,7 @@ void ArrangementView::frame(double dt, double playheadSeconds)
     if (follow_ && session_.isPlaying() && drag_ == Drag::None && !timeline_.isAnimating())
     {
         const double px = timeline_.xForTime(playheadSeconds);
-        if (!scrollTarget_ && (px > timeline_.width() * 0.88 || px < 0.0))
+        if (!scrollTarget_ && (px > (timeline_.width() - coveredRight_) * 0.88 || px < 0.0))
             scrollTarget_ = std::max(0.0, playheadSeconds - timeline_.width() * 0.12 / timeline_.pixelsPerSecond());
     }
     if (scrollTarget_)
@@ -536,8 +536,16 @@ void ArrangementView::zoomOut()
 void ArrangementView::zoomToFit()
 {
     const double minimum = snapshot_->tempo.secondsForBeats(8.0 * snapshot_->tempo.beatsPerBar());
-    timeline_.animateZoomTo(0.0, std::max(snapshot_->contentEnd(), minimum));
+    // Into what's visible: the covered end stretches the span so the song ends before it.
+    const double end = std::max(snapshot_->contentEnd(), minimum);
+    const double visible = std::max(1.0, timeline_.width() - coveredRight_);
+    timeline_.animateZoomTo(0.0, end * timeline_.width() / visible);
     repaint();
+}
+
+void ArrangementView::setCoveredRight(int pixels)
+{
+    coveredRight_ = std::max(0, pixels);
 }
 
 void ArrangementView::setSelection(model::Selection selection)

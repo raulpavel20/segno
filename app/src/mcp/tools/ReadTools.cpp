@@ -42,6 +42,7 @@ Json moduleResultSchema()
         {{"id", string("The module's id")},
          {"name", string("")},
          {"type", string("Its type (\"plugin\" for third-party plugins)")},
+         {"plugin", string("A third-party plugin's name, maker and format: \"Diva · u-he · VST3\"")},
          {"on", boolean("")},
          {"latencyMs",
           number("How late it plays its track (ms): the DAW keeps the tracks in time, but what's played "

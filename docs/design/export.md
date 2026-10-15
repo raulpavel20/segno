@@ -236,7 +236,7 @@ Ctrl+Shift+E is free: Ctrl+E is split, and Ctrl+Shift+R, Live's export key, is C
 
 ## 17. MP3, Ogg and Opus, several formats at once, and finding an export again (M3 C7, for review)
 
-**Status:** designed for the product owner's review (2026-10-15), questions EX1–EX8 below. Nothing is built until it's approved.
+**Status:** approved by the product owner (2026-10-15), every recommendation of EX1–EX8.
 
 **What others do** (research, 2026-10-15):
 - **Live 12:** MP3 is one switch, "CBR 320 kbps", exported alone or beside a WAV, AIFF or FLAC. No Ogg, no Opus, no tags.

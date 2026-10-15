@@ -575,12 +575,18 @@ void paintTreeRow(juce::Graphics& g, juce::Rectangle<int> row, const TreeItem& i
     g.drawText(item.name, text, juce::Justification::centredLeft, true);
 }
 
+void paintShadow(juce::Graphics& g, juce::Rectangle<int> bounds)
+{
+    const auto& t = Theme::current();
+    juce::DropShadow(t.roles.shadow, juce::roundToInt(t.shell.shadowRadius), {0, juce::roundToInt(t.shell.shadowOffset)})
+        .drawForRectangle(g, bounds);
+}
+
 void paintPopover(juce::Graphics& g, juce::Rectangle<int> bounds)
 {
     const auto& t = Theme::current();
     // A floating popover may cast one subtle shadow (ui-principles §4).
-    juce::DropShadow(t.roles.shadow, juce::roundToInt(t.shell.shadowRadius), {0, juce::roundToInt(t.shell.shadowOffset)})
-        .drawForRectangle(g, bounds);
+    paintShadow(g, bounds);
     const auto r = bounds.toFloat();
     g.setColour(t.surface1);
     g.fillRoundedRectangle(r, t.radiusPanel);

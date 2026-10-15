@@ -2,18 +2,18 @@
 
 #include "engine/Session.h"
 #include "model/Fades.h"
+#include "model/ModuleFacts.h"
 #include "model/Selection.h"
-#include "ui/ChannelInspector.h"
 #include "ui/ActionRegistry.h"
+#include "ui/AudioClipView.h"
+#include "ui/ChannelInspector.h"
 #include "ui/DeviceChain.h"
 #include "ui/LaneAssignments.h"
-#include "ui/TrackInputs.h"
-#include "ui/AudioClipView.h"
 #include "ui/PianoRoll.h"
 #include "ui/ToolsPane.h"
+#include "ui/TrackInputs.h"
 
 #include <fd_ui/fd_ui.h>
-
 #include <optional>
 
 namespace fd::app
@@ -158,10 +158,34 @@ public:
     /// The NOTES section's fields (tests).
     [[nodiscard]] ui::NumberField& noteField(model::NoteField field) noexcept;
     [[nodiscard]] ui::Toggle& noteMute() noexcept { return noteMute_; }
+
+    /// The module selected in the chain while the chain was used last (selection.md §8.2): MODULE
+    /// above the channel's sections, its type, the delay it adds, what moves it and what
+    /// automates it; for a modulator, ROUTES under it. None takes them away.
+    struct ModuleShown
+    {
+        model::ModuleFacts facts;
+        juce::String type;
+        double latencyMs = 0.0;
+    };
+    void setModule(std::optional<ModuleShown> module);
+    /// A modulator's ROUTES: its rows as its route list has them, and what they do.
+    void setRoutes(std::vector<RouteRows::Route> routes, DeviceChain::RouteCallbacks callbacks);
+    /// A "Moved by" line clicked: that modulator, to select.
+    std::function<void(std::uint64_t modulator)> onSelectModule;
+    [[nodiscard]] const std::optional<ModuleShown>& module() const noexcept { return module_; }
+    /// MODULE's controls and ROUTES' rows (tests).
+    [[nodiscard]] const juce::OwnedArray<ui::Toggle>& movers() const noexcept { return movers_; }
+    [[nodiscard]] const juce::OwnedArray<ui::Toggle>& laneShows() const noexcept { return laneShows_; }
+    [[nodiscard]] RouteRows* routes() noexcept { return routes_.get(); }
     void resized() override;
     void paint(juce::Graphics& g) override;
 
 private:
+    /// The context's sections, MODULE and ROUTES before them while a module is shown.
+    void rebuildSections();
+    /// "None", "0.1 ms", "107 ms".
+    [[nodiscard]] juce::String delayText() const;
     /// The selected section's fields (arranger.md §10), made once.
     void wireSection();
     /// The NOTES section's fields, made once.
@@ -197,7 +221,10 @@ private:
     ChannelMix mix_{session_};
     ChannelSends sends_{session_};
     ui::SectionStack stack_;
-    std::vector<model::InspectorSection> sections_;
+    std::vector<model::InspectorSection> sections_, contextSections_;
+    std::optional<ModuleShown> module_;
+    juce::OwnedArray<ui::Toggle> movers_, laneShows_;
+    std::unique_ptr<RouteRows> routes_;
     std::optional<model::TrackInfo> channel_;
     std::optional<model::ClipInfo> clip_;
     int clipCount_ = 0;

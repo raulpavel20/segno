@@ -5,6 +5,7 @@
 #include "engine/PluginScan.h"
 #include "engine/SessionImpl.h"
 #include "engine/SongKey.h"
+#include "model/ModuleFacts.h"
 #include "model/NoteEditing.h"
 #include "model/Racks.h"
 #include "model/TrackEdits.h"
@@ -2038,6 +2039,44 @@ void Session::setDeviceEnabled(std::uint64_t deviceId, bool enabled)
         impl_->beginEdit("Module on/off");
         p->setEnabled(enabled);
     }
+}
+
+std::string Session::moduleType(std::uint64_t deviceId) const
+{
+    if (auto* m = impl_->modulator(deviceId))
+        return std::string(m->info().name);
+    auto* p = impl_->plugin(deviceId);
+    if (p == nullptr)
+        return {};
+    if (auto* native = dynamic_cast<DevicePlugin*>(p))
+        return std::string(native->device().info().name);
+    if (auto* external = dynamic_cast<te::ExternalPlugin*>(p))
+    {
+        const auto& d = external->desc;
+        auto text = d.name;
+        for (const auto& part : {d.manufacturerName, d.pluginFormatName})
+            if (part.isNotEmpty())
+                text << juce::String::fromUTF8(" \xc2\xb7 ") << part;
+        return text.toStdString();
+    }
+    if (dynamic_cast<te::RackInstance*>(p) != nullptr)
+    {
+        // Its chains, as the snapshot has them.
+        size_t chains = 0;
+        const auto s = snapshot();
+        const auto look = [&](const model::TrackInfo& channel)
+        {
+            if (const auto facts = model::moduleFacts(channel, {}, deviceId))
+                chains = static_cast<size_t>(facts->chains);
+        };
+        for (const auto& t : s->tracks)
+            look(t);
+        for (const auto& r : s->returns)
+            look(r);
+        look(s->master);
+        return "Rack \xc2\xb7 " + std::to_string(chains) + (chains == 1 ? " chain" : " chains");
+    }
+    return p->getName().toStdString();
 }
 
 double Session::moduleLatencyMs(std::uint64_t deviceId) const

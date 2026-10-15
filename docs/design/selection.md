@@ -124,7 +124,7 @@ Disabled actions are greyed in the command palette and the transport bar, and th
 
 ## 8. The inspector at compact widths, and a module's properties (M3 C6, for review)
 
-**Status:** designed for the product owner's review (2026-10-15), questions IN1–IN7 below. Nothing is built until it's approved. The NOTES section the plan also named here came with the piano roll (P4, [piano-roll.md](piano-roll.md) §9.6) and is built.
+**Status:** approved by the product owner (2026-10-15), every recommendation of IN1–IN7. The NOTES section the plan also named here came with the piano roll (P4, [piano-roll.md](piano-roll.md) §9.6) and is built.
 
 **What other DAWs do** (research of Live 12, Bitwig 5.3 and 6, Logic, Studio One / Studio Pro, Cubase, FL Studio and Reaper, 2026-10-15):
 - **Logic, Bitwig, Studio Pro and Cubase** dock the inspector in a side column. One key toggles it (`I`, F4) and a button does too. None of their manuals describes it floating over the content or hiding itself at narrow widths: below a size, panels push the content, or swap with the browser (Bitwig's smaller display profiles, Logic on iPad).
@@ -163,7 +163,15 @@ While the module chain was used last ([§6](#6-keys-and-the-area-used-last)) and
 
 Nothing new: what MODULE shows is already in `get_module` (its type and the delay it adds, `latencyMs`), `get_automation` and `get_modulators` (routes). A plugin's maker and format join `get_module`'s type.
 
-### 8.4 Questions for review
+### 8.4 Built (2026-10-15)
+
+- **Over the arrangement:** below 1440 px the inspector lies over the arrangement's right end, its shadow a component of its own between them (`ui::paintShadow`, the popovers' shadow alone). The arrangement keeps its width; `ArrangementView::setCoveredRight` keeps follow-playhead's page turns and Zoom to fit clear of it. Its splitter stays at its left edge. Escape closes it while it has the focus. While Settings show in the arrangement's place, it stays out of their way.
+- **MODULE** comes from a pure function (`model::moduleFacts`, with its tests): what moves the module (modulators in racks too) and its lanes. The shell checks each frame whether the module selected in the chain (the chain used last) or the project changed. Type and Delay come from the engine (`Session::moduleType`, `moduleLatencyMs`). Delay reads in milliseconds ("0.1 ms", "107 ms"): the inspector doesn't know the rate a module runs at.
+- **Moved by** lines are buttons (the modulator's name and what it moves, cut to fit); **Automated** lines name the parameter, with Show.
+- **ROUTES** are the route list's own rows (`RouteRows`, which the route list now holds), two lines a route in the inspector's width. An amount's drag isn't cut short as the snapshot follows: the rows are kept while their targets are the same.
+- **Assistants:** `get_module` gains `plugin`, a plugin's name, maker and format.
+
+### 8.5 Questions for review
 
 | # | Question | Recommendation |
 |---|---|---|

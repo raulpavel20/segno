@@ -723,6 +723,14 @@ DeviceChain::Slot* DeviceChain::slotOf(std::uint64_t id)
     return nullptr;
 }
 
+const DeviceChain::Slot* DeviceChain::slotOf(std::uint64_t id) const
+{
+    for (const auto& s : slots_)
+        if (s.info.id == id)
+            return &s;
+    return nullptr;
+}
+
 DeviceChain::Rack* DeviceChain::rackOf(std::uint64_t id)
 {
     for (auto& r : racks_)
@@ -1609,17 +1617,13 @@ void DeviceChain::showModulatorMenu(std::uint64_t modulator)
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(slot->view.get()));
 }
 
-void DeviceChain::showRoutes(std::uint64_t modulator)
+std::vector<RouteRows::Route> DeviceChain::routeRowsOf(std::uint64_t modulator) const
 {
-    closeRoutes();
-    auto* slot = slotOf(modulator);
-    auto* panel = modulatorPanel(modulator);
-    auto* top = getTopLevelComponent();
-    if (slot == nullptr || slot->info.modulator == nullptr || panel == nullptr || top == nullptr)
-        return;
-    const auto routes = slot->info.modulator->routes;
-    std::vector<RouteList::Route> rows;
-    for (const auto& r : routes)
+    std::vector<RouteRows::Route> rows;
+    const auto* slot = slotOf(modulator);
+    if (slot == nullptr || slot->info.modulator == nullptr)
+        return rows;
+    for (const auto& r : slot->info.modulator->routes)
     {
         // The parameter as its control names it ("Mix", not "Dry/Wet"), where the chain shows it.
         auto param = r.param;
@@ -1633,18 +1637,27 @@ void DeviceChain::showRoutes(std::uint64_t modulator)
                             param = std::string(spec.shortName.empty() ? spec.name : spec.shortName);
         rows.push_back({juce::String::fromUTF8((r.module + " \xc2\xb7 " + param).c_str()), r.amount});
     }
-    routeList_ = std::make_unique<RouteList>(juce::String::fromUTF8(slot->info.name.c_str()), rows);
-    routeListModulator_ = modulator;
+    return rows;
+}
+
+DeviceChain::RouteCallbacks DeviceChain::routeCallbacks(std::uint64_t modulator,
+                                                        std::function<void()> afterRemove)
+{
+    const auto* slot = slotOf(modulator);
+    const auto routes = slot != nullptr && slot->info.modulator != nullptr
+                            ? slot->info.modulator->routes
+                            : std::vector<model::ModulatorRouteInfo>{};
     const auto targetOfRow = [routes](int i)
     {
         const auto& r = routes[static_cast<size_t>(i)];
         return engine::Session::ParamTarget{r.channel, r.key};
     };
-    routeList_->onAmount = [this, modulator, targetOfRow](int i, float amount)
+    RouteCallbacks c;
+    c.amount = [this, modulator, targetOfRow](int i, float amount)
     { session_.setRouteAmount(modulator, targetOfRow(i), amount); };
-    routeList_->onAmountGesture = [this](bool started) { beginGesture(started, "Route amount"); };
+    c.gesture = [this](bool started) { beginGesture(started, "Route amount"); };
     // Show and Remove act once the click is over: the list closes or opens again.
-    routeList_->onShow = [this, targetOfRow](int i)
+    c.show = [this, targetOfRow](int i)
     {
         juce::MessageManager::callAsync(
             [safe = juce::Component::SafePointer<DeviceChain>(this), target = targetOfRow(i)]
@@ -1656,20 +1669,46 @@ void DeviceChain::showRoutes(std::uint64_t modulator)
                 }
             });
     };
-    routeList_->onRemove = [this, modulator, targetOfRow](int i)
+    c.remove = [this, modulator, targetOfRow, afterRemove](int i)
     {
         session_.removeRoute(modulator, targetOfRow(i));
         juce::MessageManager::callAsync(
-            [safe = juce::Component::SafePointer<DeviceChain>(this), modulator]
+            [safe = juce::Component::SafePointer<DeviceChain>(this), afterRemove]
             {
                 if (safe == nullptr)
                     return;
                 safe->session_.updateSnapshotNow();
-                if (const auto* c = safe->session_.snapshot()->channel(safe->track_.value_or(0)))
-                    safe->setTrack(*c);
-                safe->showRoutes(modulator); // its rows again, the route gone
+                if (const auto* channel = safe->session_.snapshot()->channel(safe->track_.value_or(0)))
+                    safe->setTrack(*channel);
+                if (afterRemove)
+                    afterRemove();
             });
     };
+    return c;
+}
+
+void DeviceChain::showRoutes(std::uint64_t modulator)
+{
+    closeRoutes();
+    auto* slot = slotOf(modulator);
+    auto* panel = modulatorPanel(modulator);
+    auto* top = getTopLevelComponent();
+    if (slot == nullptr || slot->info.modulator == nullptr || panel == nullptr || top == nullptr)
+        return;
+    routeList_ =
+        std::make_unique<RouteList>(juce::String::fromUTF8(slot->info.name.c_str()), routeRowsOf(modulator));
+    routeListModulator_ = modulator;
+    // Removing one opens it again, its rows the routes left.
+    auto c = routeCallbacks(modulator,
+                            [safe = juce::Component::SafePointer<DeviceChain>(this), modulator]
+                            {
+                                if (safe != nullptr)
+                                    safe->showRoutes(modulator);
+                            });
+    routeList_->onAmount = std::move(c.amount);
+    routeList_->onAmountGesture = std::move(c.gesture);
+    routeList_->onShow = std::move(c.show);
+    routeList_->onRemove = std::move(c.remove);
     routeList_->onClose = [this] { closeRoutes(); };
 
     // Above the modulator's panel, the handle's side lined up (the chain is the window's foot, and

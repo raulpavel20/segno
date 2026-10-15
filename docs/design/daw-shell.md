@@ -50,8 +50,8 @@ app/src/
 - **The menu bar** (C10, [menu-bar.md](menu-bar.md) §5): File, Edit, Track, Clip, Transport, View, Options, Help, every action in it once (`ShellMenus` over `model::menuBar`), with its shortcut. F10 opens File; Alt+letter opens a menu, underlined while Alt is held. File > Open recent lists the last 10 projects (`Segno/app.json`).
 - Splitters resize the browser and inspector. In the module view, the detail panel's height follows the module panel height (232 px panels: 280 px).
 - **Adaptive:**
-  - below 1440 logical px wide, the browser collapses to its rail and the inspector closes (the overlay inspector comes in M3);
-  - the user's explicit toggles win until the window crosses the threshold again.
+  - below 1440 logical px wide, the browser collapses to its rail, and the inspector opens over the arrangement's right end instead of beside it, casting the popovers' shadow; the arrangement keeps its width and knows what's covered (M3 C6, [selection.md](selection.md) §8.1);
+  - the browser's explicit toggle wins until the window crosses the threshold again; the inspector stays open or closed across it.
 - **Focus mode** shows only the top bar and the centre view. The panels' toggles then show them closed; one shows its panel again and ends focus mode.
 - **A side panel's state is kept once** (`Shell::Panel`, changed only by `Shell::setPanel`): open or not; a panel opens one way only, docked (the browser from its rail as from its toggle). Every way of opening one, its toggle, the menu, a rail icon or a command that needs it, goes through it, and the toggle's button and the menu's tick read it, so they always say what's on screen.
 - **The centre view** is the arrangement or the mixer view (M2 C3c, [mixer.md](mixer.md) §6), switched by the Arrange | Mix switch in the top bar or Ctrl+Alt+X.

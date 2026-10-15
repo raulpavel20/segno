@@ -391,8 +391,9 @@ void lint(const fd::app::RouteList& list, const std::vector<juce::String>& names
     {
         const auto& row = list.rows()[i];
         INFO("route " << names[i]);
-        std::vector<juce::Rectangle<int>> parts{row.name, row.amount->getBounds(), row.show->getBounds(),
-                                                row.remove->getBounds()};
+        const auto at = list.rowsArea().getPosition(); // the rows' parts, in the list's place
+        std::vector<juce::Rectangle<int>> parts{row.name + at, row.amount->getBounds() + at,
+                                                row.show->getBounds() + at, row.remove->getBounds() + at};
         for (size_t a = 0; a < parts.size(); ++a)
         {
             CHECK(inside.contains(parts[a]));
