@@ -22,7 +22,7 @@
 - **Nothing is stretched that needn't be:** a clip at its own tempo and pitch plays its file sample for sample, warped or not, and a test holds it to that.
 - **Warping runs in real time** (tracktion's real-time path, no proxy renders); bounces and exports render through the same path.
 - **Three modes, named for their job:** Beats (Segno's own player: each piece plays from its transient), Tones (Signalsmith Stretch, formants as an option) and Repitch (speed and pitch together). When Warp goes on, the audio chooses Beats or Tones, and the choice is shown.
-- **What follows the tempo by default:** loops, recordings, bounces and comps do. One-shots, long files from elsewhere and clips in older projects don't.
+- **What follows the tempo by default:** loops, recordings, bounces and comps do. One-shots and long files from elsewhere don't.
 - **Warp markers** take Live's gestures in Segno's grammar: drag a transient to pin it, double-click to add or remove, Shift+drag to slide the audio, Alt to leave the grid.
 - **The gain line belongs to the audio:** its points are pinned to moments of the file, so it loops, stretches, splits and flips with the audio.
 - **The clip's key** is read or found, shown, and correctable. **Follow key** plays a clip in the song's key by the smallest step; it's off by default, because a found key is a guess.

@@ -173,7 +173,6 @@ Checked against the vendors' manuals and release notes in October 2026: Live 12.
 | A one-shot: shorter than a bar, or with no steady beat | Off | A hit or a note shouldn't move with the tempo |
 | A long file from elsewhere: a song, a stem, someone else's recording | Off | Finding the tempo of a whole song isn't reliable enough to stretch it unasked. The Tempo tool warps it in one step (§7.8) |
 | A recording made in Segno, a bounce, a comp | On, at the song's tempo | It was made in time. At that tempo it plays untouched (§3.2), and a later tempo change keeps it in time, as in Live |
-| A clip in a project made before P6 | Off | Nothing changes when an old project opens |
 
 Settings › Audio has "Loops follow the tempo" and "Recordings follow the tempo", both on.
 
@@ -423,7 +422,7 @@ A visual mockup of the editor comes first, for approval before P6a is built. Eac
 | AE8 | **Ranges** | Dragged on the waveform; Split, Delete, Crop, Silence, Gain, Fade, Loop and Markers at transients act on them (§5) |
 | AE9 | **Nothing stretched at its own tempo** | A rule, with a null test: a clip at its tempo and pitch reads its file sample for sample (§3.2) |
 | AE10 | **Real time or rendered** | Real time (tracktion's real-time path), heard at once; bounces and exports render through the same path (§15) |
-| AE11 | **What warps by default** | Loops, recordings, bounces and comps on; one-shots, long files from elsewhere and old projects off; two settings for it (§7.2) |
+| AE11 | **What warps by default** | Loops, recordings, bounces and comps on; one-shots and long files from elsewhere off; two settings for it (§7.2) |
 | AE12 | **Modes** | Three, named for their job: Beats (Segno's own player), Tones (Signalsmith), Repitch (§7.3) |
 | AE13 | **The default mode** | Chosen by the audio when Warp goes on (Beats if percussive, else Tones), shown, one click to change (§7.3) |
 | AE14 | **Markers' gestures** | Live's: drag a transient to make a marker, double-click adds and removes, Shift+drag slides the audio; Alt frees from the grid, as everywhere in Segno (§7.5) |
@@ -452,8 +451,7 @@ A visual mockup of the editor comes first, for approval before P6a is built. Eac
   - Beats plays each piece from its transient (a click track slowed down keeps every click sample for sample);
   - Follow key moves by the smallest step;
   - gain, the gain line, polarity and channels exact to the sample;
-  - Reverse;
-  - a project from before P6 opens and plays as before.
+  - Reverse.
 - **Assistants:** each tool of §14 driven through MCP.
 - **UI:**
   - the bar at 1800, 1280, 1024, 820, 700 and 600 px, nothing touching, options giving way in order;
