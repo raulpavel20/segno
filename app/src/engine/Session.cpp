@@ -51,11 +51,14 @@ float volumeDbOf(te::VolumeAndPanPlugin* v)
 
 /// UI access to one of our devices (the panel's binding through the engine).
 /// The header's sidechain picker in the DAW (ADR 0025): "None", then the tracks that can feed
-/// the module, by name.
+/// the module, by name. A Follower's Listen (modulators.md §12.4) says "Here" for none.
 class SessionSidechain final : public ui::SidechainRouting
 {
 public:
-    SessionSidechain(Session& session, std::uint64_t deviceId) : session_(session), deviceId_(deviceId) {}
+    SessionSidechain(Session& session, std::uint64_t deviceId, std::string none = "None")
+        : session_(session), deviceId_(deviceId), none_(std::move(none))
+    {
+    }
 
     std::vector<std::string> sources() const override
     {
@@ -63,7 +66,7 @@ public:
         const auto current = source();
         if (current && std::find(choices_.begin(), choices_.end(), *current) == choices_.end())
             choices_.push_back(*current);
-        std::vector<std::string> names{"None"};
+        std::vector<std::string> names{none_};
         const auto snapshot = session_.snapshot();
         for (auto id : choices_)
         {
@@ -99,6 +102,7 @@ private:
 
     Session& session_;
     std::uint64_t deviceId_;
+    std::string none_; // the first choice: no sidechain ("None"), or where it sits ("Here")
     mutable std::vector<std::uint64_t> choices_;
 };
 
@@ -419,6 +423,12 @@ std::unique_ptr<te::Edit> Session::Impl::newEdit()
     return e;
 }
 
+std::unique_ptr<ui::SidechainRouting>
+Session::Impl::sidechainRouting(Session& session, std::uint64_t deviceId, std::string none)
+{
+    return std::make_unique<SessionSidechain>(session, deviceId, std::move(none));
+}
+
 void Session::Impl::attach(std::unique_ptr<te::Edit> e)
 {
     edit = std::move(e);
@@ -578,6 +588,10 @@ void Session::Impl::rebuildSnapshot()
         slot.deviceId = std::string(m.info().id);
         slot.enabled = m.enabledParam == nullptr || m.enabledParam->getCurrentValue() >= 0.5f;
         slot.modulator = modulatorInfo(m);
+        // A Follower listens where it sits, or to another track (§12.4), as a sidechain.
+        slot.takesSidechain = m.kind() == model::ModulatorKind::Follower;
+        if (const auto source = m.getSidechainSourceID(); source.isValid())
+            slot.sidechainSource = source.getRawID();
         return slot;
     };
     refreshModulatorRoutes(); // their copies, after whatever changed (a load, undo, a route)
@@ -1778,8 +1792,10 @@ void Session::moveDevice(std::uint64_t deviceId, int index)
 std::vector<std::uint64_t> Session::sidechainSources(std::uint64_t deviceId) const
 {
     auto* p = impl_->plugin(deviceId);
-    auto* owner = p != nullptr ? p->getOwnerTrack() : nullptr;
-    if (owner == nullptr || !takesSidechain(*p))
+    auto* m = p == nullptr ? impl_->modulator(deviceId) : nullptr;
+    te::Track* owner = p != nullptr ? p->getOwnerTrack() : m != nullptr ? impl_->trackOf(*m) : nullptr;
+    if (owner == nullptr || (p != nullptr && !takesSidechain(*p)) ||
+        (m != nullptr && m->kind() != model::ModulatorKind::Follower))
         return {};
     // A track can't feed this module if its own sound already depends on the module's track:
     // it, or a track it takes a sidechain from (and so on), is that track.
@@ -1795,6 +1811,13 @@ std::vector<std::uint64_t> Session::sidechainSources(std::uint64_t deviceId) con
                 if (auto* source = te::findTrackForID(*impl_->edit, id))
                     if (dependsOnOwner(*source, depth + 1))
                         return true;
+        // A Follower's listening: its track hears the one it listens to (modulators.md §12.4).
+        if (auto* list = t.getModifierList())
+            for (auto& q : list->getModifiers())
+                if (const auto id = q->getSidechainSourceID(); id.isValid())
+                    if (auto* source = te::findTrackForID(*impl_->edit, id))
+                        if (dependsOnOwner(*source, depth + 1))
+                            return true;
         return false;
     };
     std::vector<std::uint64_t> out;
@@ -1806,6 +1829,28 @@ std::vector<std::uint64_t> Session::sidechainSources(std::uint64_t deviceId) con
 
 bool Session::setSidechainSource(std::uint64_t deviceId, std::optional<std::uint64_t> trackId)
 {
+    // A Follower's Listen (modulators.md §12.4): one undo step; the graph is rebuilt.
+    if (auto* m = impl_->modulator(deviceId))
+    {
+        if (m->kind() != model::ModulatorKind::Follower)
+            return false;
+        te::EditItemID source;
+        if (trackId)
+        {
+            const auto allowed = sidechainSources(deviceId);
+            if (std::find(allowed.begin(), allowed.end(), *trackId) == allowed.end())
+                return false;
+            source = impl_->track(*trackId)->itemID;
+        }
+        if (m->getSidechainSourceID() == source)
+            return true;
+        impl_->beginEdit("Set Listen");
+        if (source.isValid())
+            m->state.setProperty(Modulator::listenId, source.toVar(), &impl_->edit->getUndoManager());
+        else
+            m->state.removeProperty(Modulator::listenId, &impl_->edit->getUndoManager());
+        return true;
+    }
     auto* p = impl_->plugin(deviceId);
     if (p == nullptr || !takesSidechain(*p))
         return false;

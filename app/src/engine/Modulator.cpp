@@ -16,6 +16,7 @@ const juce::Identifier Modulator::stateType{"FDMODULATOR"};
 const juce::Identifier Modulator::copyId{"fdCopy"};
 const juce::Identifier Modulator::placeId{"fdBefore"};
 const juce::Identifier Modulator::keptRollId{"fdKeptRoll"};
+const juce::Identifier Modulator::listenId{"fdListen"};
 
 namespace
 {
@@ -208,6 +209,11 @@ void Modulator::setPlace(te::EditItemID plugin, juce::UndoManager* um)
 te::EditItemID Modulator::getPluginToProcessBefore()
 {
     return place();
+}
+
+te::EditItemID Modulator::getSidechainSourceID() const
+{
+    return kind_ == ModulatorKind::Follower ? te::EditItemID::fromVar(state[listenId]) : te::EditItemID();
 }
 
 void Modulator::setRouteCount(int routes) noexcept
@@ -712,8 +718,9 @@ void Modulator::applyToBuffer(const te::PluginRenderContext& context)
             }
     }
 
-    // The Follower: how loud the sound is where it sits (its band only, while Band is on). It
-    // listens; it never changes the sound passing through.
+    // The Follower: how loud the sound is where it sits, or on the track it listens to (its two
+    // channels after the track's own, the modifier-sidechain patch); its band only, while Band is
+    // on. It listens; it never changes the sound passing through.
     if (kind_ == ModulatorKind::Follower && context.destBuffer != nullptr)
     {
         const bool band = value(Follower::Band) >= 0.5f;
@@ -733,13 +740,14 @@ void Modulator::applyToBuffer(const te::PluginRenderContext& context)
         const double releaseCoef =
             1.0 - std::exp(-1.0 / (rate * std::max(1.0e-4, value(Follower::Release) * 0.001)));
         const auto& buffer = *context.destBuffer;
-        const int channels = std::min(2, buffer.getNumChannels());
+        const int first = buffer.getNumChannels() >= 4 ? 2 : 0; // elsewhere, or here
+        const int channels = std::min(2, buffer.getNumChannels() - first);
         for (int i = 0; i < context.bufferNumSamples; ++i)
         {
             double x = 0.0;
             for (int ch = 0; ch < channels; ++ch)
             {
-                float s = buffer.getSample(ch, context.bufferStartSample + i);
+                float s = buffer.getSample(first + ch, context.bufferStartSample + i);
                 if (band)
                     s = highCut_[ch].processSingleSampleRaw(lowCut_[ch].processSingleSampleRaw(s));
                 x = std::max(x, static_cast<double>(std::abs(s)));

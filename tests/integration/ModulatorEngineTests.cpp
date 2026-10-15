@@ -344,6 +344,32 @@ TEST_CASE("modulators: a Follower hears the sound where it sits", "[integration]
     CHECK(after.getCurrentValue() == Approx(before.getCurrentValue()).margin(0.005f));
 }
 
+TEST_CASE("modulators: a Follower listening to another track hears it, and passes on only its own track's "
+          "sound (§12.4)",
+          "[integration][modulators]")
+{
+    Fixture f;
+    f.edit->ensureNumberOfAudioTracks(2);
+    auto& quiet = *te::getAudioTracks(*f.edit)[1]; // no clip: silent where the Follower sits
+    auto m = quiet.getModifierList()->insertModifier(Modulator::createState(Kind::Follower), -1, nullptr);
+    REQUIRE(m != nullptr);
+    auto& follower = dynamic_cast<Modulator&>(*m);
+    auto out = f.render();
+    CHECK(follower.getCurrentValue() < 0.01f); // here: nothing
+
+    follower.state.setProperty(Modulator::listenId, f.track().itemID.toVar(), nullptr);
+    CHECK(follower.getSidechainSourceID() == f.track().itemID);
+    f.edit->restartPlayback();
+    out = f.render();
+    INFO("heard " << follower.getCurrentValue());
+    CHECK(follower.getCurrentValue() > 0.3f); // the first track's 0.5
+    // The mix is the first track's alone: the sound it heard isn't passed on down its own chain.
+    float loudest = 0.0f;
+    for (int i = 0; i < out.numSamples() / 2; ++i)
+        loudest = std::max(loudest, std::abs(out.at(0, i)));
+    CHECK(loudest == Approx(0.5f).margin(0.01f));
+}
+
 TEST_CASE("modulators: the Envelope fires on the beat and on notes", "[integration][modulators]")
 {
     SECTION("every beat")

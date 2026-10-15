@@ -99,6 +99,8 @@ public:
     te::AutomatableParameter::ModifierAssignment* createAssignment(const juce::ValueTree& v) override;
     ProcessingPosition getProcessingPosition() override { return ProcessingPosition::beforePlugin; }
     te::EditItemID getPluginToProcessBefore() override;
+    /// The Follower listening to another track (§12.4): that track's sound comes in after its own.
+    te::EditItemID getSidechainSourceID() const override;
     juce::StringArray getAudioInputNames() override { return {"Left", "Right"}; }
     juce::StringArray getMidiInputNames() override { return {"MIDI"}; }
     void initialise(double sampleRate, int blockSize) override;
@@ -115,6 +117,8 @@ public:
     /// A route's copy, as kept on it; where it's placed (the plugin it's processed before); the
     /// roll it keeps.
     static const juce::Identifier copyId, placeId, keptRollId;
+    /// The track a Follower listens to (absent: where it sits). The Session sets it.
+    static const juce::Identifier listenId;
 
 private:
     struct Timer;

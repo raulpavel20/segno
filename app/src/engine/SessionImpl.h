@@ -611,6 +611,9 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     void startPasses();
     /// Keeps a clip's chance as it was heard, or lets it roll (in the step under way).
     void keepChance(te::MidiClip& clip, bool keep);
+    /// A module's sidechain picker (ADR 0025), or a Follower's Listen with `none` "Here".
+    [[nodiscard]] static std::unique_ptr<ui::SidechainRouting>
+    sidechainRouting(Session& session, std::uint64_t deviceId, std::string none);
     /// What the Edit's clips roll this pass (ClipChance.h).
     std::shared_ptr<ChancePass> chancePass;
     /// The modulators' info for the snapshot.
@@ -651,13 +654,15 @@ private:
         if (id == te::IDs::enabled && t.hasType(te::IDs::PLUGIN)) // undo and MCP too
             endNotesOnPowerChange(t);
         // A modulator's settings (modulators.md): saved, not the snapshot's (its knobs show them).
-        // Its place changes where it's processed (playback is rebuilt); its roll and power show.
+        // Its place and what it listens to change how it's processed (playback is rebuilt); its
+        // roll and power show.
         if (t.hasType(Modulator::stateType))
         {
             dirty = true;
-            if (id == Modulator::placeId)
+            if (id == Modulator::placeId || id == Modulator::listenId)
                 restartPending = true;
-            if (id == Modulator::placeId || id == Modulator::keptRollId || id == te::IDs::enabled)
+            if (id == Modulator::placeId || id == Modulator::keptRollId || id == te::IDs::enabled ||
+                id == Modulator::listenId)
                 changed(t);
             return;
         }

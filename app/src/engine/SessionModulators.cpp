@@ -608,27 +608,16 @@ private:
     Modulator& m_;
 };
 
-/// The Follower's Listen (§12.4): Here, for now; other tracks come with its sidechain.
-class ListenHere final : public ui::SidechainRouting
-{
-public:
-    std::vector<std::string> sources() const override { return {"Here"}; }
-    int selected() const override { return 0; }
-    void select(int) override {}
-};
-
 class ModulatorHandleImpl final : public ModulatorHandle
 {
 public:
     ModulatorHandleImpl(Session& session, Modulator& m)
         : keepAlive_(&m), modulator_(m), binding_(session, m), host_(session, m),
+          listen_(m.kind() == ModulatorKind::Follower
+                      ? Session::Impl::sidechainRouting(session, m.itemID.getRawID(), "Here")
+                      : nullptr),
           presets_(session.presetHost(m.itemID.getRawID())),
-          context_{m.info(),
-                   binding_,
-                   nullptr,
-                   nullptr,
-                   m.kind() == ModulatorKind::Follower ? &listen_ : nullptr,
-                   presets_.get()}
+          context_{m.info(), binding_, nullptr, nullptr, listen_.get(), presets_.get()}
     {
     }
     ui::DeviceUiContext& context() override { return context_; }
@@ -640,7 +629,7 @@ private:
     Modulator& modulator_;
     ModulatorBinding binding_;
     ModulatorHostImpl host_;
-    ListenHere listen_;
+    std::unique_ptr<ui::SidechainRouting> listen_; // the Follower's Listen (§12.4): Here, or a track
     std::unique_ptr<PresetHost> presets_; // its header's presets (modulators.md §14)
     ui::DeviceUiContext context_;
 };

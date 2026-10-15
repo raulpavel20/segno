@@ -1,0 +1,66 @@
+Modifiers that hear another track (Segno: docs/design/modulators.md §12.4, the Follower's Listen).
+
+A modifier processed before a plugin (the custom-modifiers patch) may name a track to hear
+(Modifier::getSidechainSourceID), as a plugin's sidechain does: that track then sends its sound,
+after its plugins, on a sidechain bus, and the modifier's node takes it on two channels after the
+track's own two. Only the track's own two go on down the chain. With none named, nothing changes.
+
+diff '--color=auto' -ru a/modules/tracktion_engine/model/automation/tracktion_Modifier.h b/modules/tracktion_engine/model/automation/tracktion_Modifier.h
+--- a/modules/tracktion_engine/model/automation/tracktion_Modifier.h	2026-10-15 18:32:35.374648376 +0300
++++ b/modules/tracktion_engine/model/automation/tracktion_Modifier.h	2026-10-15 18:32:51.328835665 +0300
+@@ -88,6 +88,11 @@
+     /** Segno: with ProcessingPosition::beforePlugin, the plugin this Modifier is processed before. */
+     virtual EditItemID getPluginToProcessBefore()               { return {}; }
+ 
++    /** Segno: a track this Modifier also hears (with ProcessingPosition::beforePlugin): its sound
++        after its plugins comes in on two channels after the track's own two, as a plugin's
++        sidechain does, and only the track's own go on. None by default. */
++    virtual EditItemID getSidechainSourceID() const             { return {}; }
++
+     //==============================================================================
+     /** Sub classes should implement this to initialise the Modifier. */
+     virtual void initialise (double /*sampleRate*/, int /*blockSizeSamples*/) {}
+diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp
+--- a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp	2026-10-15 18:32:35.380454371 +0300
++++ b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp	2026-10-15 18:32:51.329214397 +0300
+@@ -84,6 +84,13 @@
+             if (p->getSidechainSourceID() == itemID)
+                 return true;
+ 
++        // Segno: a modifier that hears it (Modifier::getSidechainSourceID).
++        for (auto at : getAudioTracks (t.edit))
++            if (auto list = at->getModifierList())
++                for (auto& m : list->getModifiers())
++                    if (m->getSidechainSourceID() == itemID)
++                        return true;
++
+         return false;
+     }
+ 
+@@ -1477,6 +1484,26 @@
+         if (! here)
+             continue;
+ 
++        // One that hears another track: that track's sound after the track's own two channels,
++        // for the modifier alone.
++        const auto sidechainSourceID = modifier->getSidechainSourceID();
++
++        if (sidechainSourceID.isValid())
++        {
++            ChannelMap toSidechain, toTrack;
++            toSidechain.entries = { { 0, 2 }, { 1, 3 } };
++            toTrack.entries = { { 0, 0 }, { 1, 1 } };
++            auto sidechain = makeNode<ReturnNode> (getSidechainBusID (sidechainSourceID),
++                                                   std::make_optional (static_cast<size_t> (modifier->itemID.getRawID())));
++            sidechain = makeNode<ChannelRemappingNode> (std::move (sidechain), std::move (toSidechain));
++            node = makeSummingNode ({ node.release(), sidechain.release() });
++            node = makeNode<ModifierNode> (std::move (node), modifier, params.sampleRate, params.blockSize,
++                                           trackMuteState, playHeadState, params.forRendering,
++                                           ModifierNode::ClearOutputs::no);
++            node = makeNode<ChannelRemappingNode> (std::move (node), std::move (toTrack));
++            continue;
++        }
++
+         node = makeNode<ModifierNode> (std::move (node), modifier, params.sampleRate, params.blockSize,
+                                        trackMuteState, playHeadState, params.forRendering,
+                                        ModifierNode::ClearOutputs::no);

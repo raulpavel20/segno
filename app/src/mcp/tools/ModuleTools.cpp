@@ -459,19 +459,27 @@ void addModuleTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"set_module_sidechain", "Set a module's sidechain",
-         "Sets what a module with a sidechain input (Compressor, Gate) listens to instead of its own input: another "
-         "track, heard after its modules and fader (even when muted), or none. get_module lists the tracks that "
-         "can feed it (never one that would make a loop). One undo step.",
+         "Sets what a module with a sidechain input (Compressor, Gate) listens to instead of its own input: "
+         "another "
+         "track, heard after its modules and fader (even when muted), or none. A Follower modulator's Listen "
+         "too: "
+         "another track, or none for where it sits. get_module lists the tracks that can feed it (never one "
+         "that "
+         "would make a loop). One undo step.",
          object({{"module", id(IdKind::Module, "The module")},
                  {"source", {{"type", {"string", "null"}}, {"description", "A track, or null for none"}}}},
                 {"module", "source"}),
-         result({{"source", {{"type", {"string", "null"}}, {"description", "The track it listens to, or null"}}}},
+         result({{"source",
+                  {{"type", {"string", "null"}}, {"description", "The track it listens to, or null"}}}},
                 {"source"}),
          changes},
-        [&env](const Json& args, CallContext&) {
+        [&env](const Json& args, CallContext&)
+        {
             const auto [slot, owner] = module(env, args["module"]);
             if (!slot.takesSidechain)
-                throw Problem{"This module has no sidechain input (the Compressor and the Gate have one)."};
+                throw Problem{
+                    "This module has no sidechain input (the Compressor, the Gate and a Follower modulator "
+                    "have one)."};
             std::optional<std::uint64_t> source;
             std::string name = "its own input";
             if (!args["source"].is_null())

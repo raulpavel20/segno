@@ -367,3 +367,51 @@ TEST_CASE("modulators (session): their panels edit them in undo steps; a project
     CHECK(reopened->host().stepValues()[3] == Approx(-0.5f));
     CHECK(reopened->host().stepChances()[3] == Approx(0.25f));
 }
+
+TEST_CASE("modulators (session): a Follower listens where it sits or to another track; loops are refused",
+          "[integration][modulators]")
+{
+    Modulators f;
+    auto& s = *f.session;
+    s.addTrack();
+    const auto kick = f.track(1);
+    const auto follower = s.addModulator(f.t, Kind::Follower);
+    const auto lfo = s.addModulator(f.t, Kind::Lfo);
+    REQUIRE(follower != 0);
+
+    // As a sidechain: where it sits by default; any track that doesn't hear its own.
+    CHECK(f.slot(follower).takesSidechain);
+    CHECK_FALSE(f.slot(follower).sidechainSource.has_value());
+    CHECK_FALSE(f.slot(lfo).takesSidechain);
+    auto sources = s.sidechainSources(follower);
+    CHECK(std::find(sources.begin(), sources.end(), kick) != sources.end());
+    CHECK(std::find(sources.begin(), sources.end(), f.t) == sources.end()); // its own: "Here"
+    CHECK(s.sidechainSources(lfo).empty());
+    CHECK_FALSE(s.setSidechainSource(lfo, kick));
+
+    // Listening to the kick: one undo step.
+    REQUIRE(s.setSidechainSource(follower, kick));
+    CHECK(s.undoDescription() == "Set Listen");
+    CHECK(f.slot(follower).sidechainSource == kick);
+    {
+        // The panel's Listen: Here, then the tracks; the kick chosen.
+        auto handle = s.openModulator(follower);
+        REQUIRE(handle != nullptr);
+        auto* listen = handle->context().sidechain;
+        REQUIRE(listen != nullptr);
+        const auto names = listen->sources();
+        REQUIRE(names.size() >= 2);
+        CHECK(names.front() == "Here");
+        CHECK(listen->selected() > 0);
+        listen->select(0); // Here
+        CHECK_FALSE(f.slot(follower).sidechainSource.has_value());
+        s.undo();
+        CHECK(f.slot(follower).sidechainSource == kick);
+    }
+
+    // A Follower on the kick listening back to the first track would make a loop: refused.
+    const auto back = s.addModulator(kick, Kind::Follower);
+    sources = s.sidechainSources(back);
+    CHECK(std::find(sources.begin(), sources.end(), f.t) == sources.end());
+    CHECK_FALSE(s.setSidechainSource(back, f.t));
+}

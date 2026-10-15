@@ -2697,6 +2697,15 @@ TEST_CASE("mcp tools: modulators added, routed, set, removed and kept (modulator
     CHECK(daw.fails("keep_roll", {{"clip", plain}, {"keep", true}}).find("left to chance") !=
           std::string::npos);
 
+    // A Follower listens to another track as a sidechain (§12.4); get_module says which.
+    const auto follower = daw.call("add_module", {{"track", t0}, {"type", "mod-follower"}})["id"];
+    CHECK(daw.call("get_module", {{"module", follower}})["sidechain"]["source"].is_null());
+    CHECK(daw.call("set_module_sidechain", {{"module", follower}, {"source", t1}})["source"] == t1);
+    CHECK(daw.call("get_module", {{"module", follower}})["sidechain"]["source"] == t1);
+    CHECK(daw.fails("set_module_sidechain", {{"module", lfoId}, {"source", t1}}).find("no sidechain") !=
+          std::string::npos);
+    daw.call("remove_module", {{"module", follower}});
+
     // Moved, folded, turned off and removed as any module.
     CHECK(daw.call("move_module", {{"module", lfoId}, {"position", 2}})["chain"][2]["id"] == lfoId);
     CHECK(daw.call("set_module_view", {{"module", lfoId}, {"collapsed", {"shape"}}})["collapsed"][0] ==
