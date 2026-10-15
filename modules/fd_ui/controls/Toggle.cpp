@@ -156,5 +156,51 @@ void Toggle::paintButton(juce::Graphics& g, bool highlighted, bool down)
     else
         g.drawText(getButtonText(), getLocalBounds(), juce::Justification::centred, false);
     paintAutomationIndicator(g, {3.5f, 3.5f}, automation_); // over the corner
+
+    // Modulators (modulators.md §7.4): a line along the bottom edge, inside, as on a bar.
+    if (dropTarget_ || dropCandidate_ || modulation_)
+    {
+        juce::Graphics::ScopedSaveState saved(g);
+        juce::Path shape;
+        shape.addRoundedRectangle(bounds, t.radiusControl);
+        g.reduceClipRegion(shape);
+        const auto line = bounds.withTop(bounds.getBottom() - t.knobRingThickness);
+        if (dropTarget_ || dropCandidate_)
+            g.setColour(dropTarget_ ? t.active : t.textTertiary);
+        else
+        {
+            g.setGradientFill(juce::ColourGradient(t.effectStart, line.getTopLeft(), t.effectEnd,
+                                                   line.getTopRight(), false));
+            g.setOpacity(modulation_->dimmed || !modulation_->turned ? t.roles.dimAlpha : 1.0f);
+        }
+        g.fillRect(line);
+    }
+}
+
+void Toggle::setModulation(std::optional<Modulation> modulation)
+{
+    if (modulation != modulation_)
+    {
+        modulation_ = modulation;
+        repaint();
+    }
+}
+
+void Toggle::setDropTarget(bool target)
+{
+    if (target != dropTarget_)
+    {
+        dropTarget_ = target;
+        repaint();
+    }
+}
+
+void Toggle::setDropCandidate(bool candidate)
+{
+    if (candidate != dropCandidate_)
+    {
+        dropCandidate_ = candidate;
+        repaint();
+    }
 }
 } // namespace fd::ui

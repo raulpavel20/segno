@@ -59,6 +59,23 @@ public:
         bool candidate = false, target = false;
     };
     [[nodiscard]] virtual MacroDrag macroDrag(size_t /*index*/) const { return {}; }
+
+    // Modulators (docs/design/modulators.md §7): in the DAW only, so these default to nothing
+    // elsewhere.
+    /// A parameter moved by its track's modulators: the range their routes move it over
+    /// (normalised, `from` <= `to`), where they have it now, and who moves it (for its tooltip);
+    /// `dimmed` while the pointer shows another modulator's routes.
+    struct Modulated
+    {
+        float from = 0.0f, to = 0.0f, now = 0.0f;
+        juce::String by;
+        bool dimmed = false;
+        bool operator==(const Modulated&) const = default;
+    };
+    [[nodiscard]] virtual std::optional<Modulated> modulated(size_t /*index*/) const { return std::nullopt; }
+    /// While a modulator's handle is dragged: whether the parameter could take it, and whether
+    /// the pointer is on it.
+    [[nodiscard]] virtual MacroDrag modulatorDrag(size_t /*index*/) const { return {}; }
 };
 
 /// Merges `patch` into `device`'s extra state directly (hosts call this once they have

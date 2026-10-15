@@ -31,6 +31,19 @@ public:
     /// (as a preset's name in its field, ADR 0044). Cuts the text to leave room.
     void setModified(bool modified);
     [[nodiscard]] bool isModified() const noexcept { return modified_; }
+    /// Moved by modulators (modulators.md §7.4): a line along its bottom edge in the modulation
+    /// gradient, as a bar's; full while the modulation has it the other way from where it's set
+    /// (`turned`), faint while it doesn't; dimmed while another modulator is shown.
+    struct Modulation
+    {
+        bool turned = false, dimmed = false;
+        bool operator==(const Modulation&) const = default;
+    };
+    void setModulation(std::optional<Modulation> modulation);
+    [[nodiscard]] const std::optional<Modulation>& modulation() const noexcept { return modulation_; }
+    /// While a modulator is dragged: the line in `active` where it would land, faint where it could.
+    void setDropTarget(bool target);
+    void setDropCandidate(bool candidate);
 
     void paintButton(juce::Graphics& g, bool highlighted, bool down) override;
     void mouseDown(const juce::MouseEvent& e) override;
@@ -40,6 +53,8 @@ public:
 private:
     AutomationState automation_ = AutomationState::None;
     std::optional<Icon> icon_;
+    std::optional<Modulation> modulation_;
     bool popup_ = false, arm_ = false, partly_ = false, cuts_ = false, modified_ = false;
+    bool dropTarget_ = false, dropCandidate_ = false;
 };
 } // namespace fd::ui

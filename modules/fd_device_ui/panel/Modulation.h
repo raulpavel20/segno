@@ -71,11 +71,31 @@ public:
     /// The source it drags (the selected LFO changes).
     void setSource(int source);
     [[nodiscard]] int source() const noexcept { return source_; }
+    /// How many routes the source has, after its name, fainter ("LFO · 3"; modulators.md §7.1);
+    /// 0 shows none.
+    void setCount(int routes);
+    /// A lock after the name: the source plays a roll it keeps (modulators.md §13).
+    void setLocked(bool locked);
+    /// The arrow alone (and no name): where there's no room, a folded module's strip.
+    void setCompact(bool compact);
+    /// Who takes the drag: a module's own panel by default; a host whose sources reach other
+    /// modules (the DAW's modulators) takes it with these. `onRelease` says whether it was
+    /// cancelled (no drag); `onCancel` is Escape during the drag.
+    std::function<void(const juce::MouseEvent&)> onDrag;
+    std::function<void(const juce::MouseEvent&, bool cancelled)> onRelease;
+    std::function<void()> onCancel;
+    /// A right-click (a modulator's route list).
+    std::function<void()> onPopupMenu;
 
     void refresh() override;
     /// Its width: the arrow, its name, and padding.
     [[nodiscard]] int preferredWidth() const;
-    juce::String getTooltip() override { return model_.handleTooltip(source_); }
+    juce::String getTooltip() override
+    {
+        return tooltip_.isNotEmpty() ? tooltip_ : model_.handleTooltip(source_);
+    }
+    /// Its own tooltip in place of the model's (a modulator's, saying what it moves).
+    void setTooltip(juce::String text) { tooltip_ = std::move(text); }
     void paint(juce::Graphics& g) override;
     void mouseEnter(const juce::MouseEvent&) override;
     void mouseExit(const juce::MouseEvent&) override;
@@ -87,6 +107,8 @@ public:
 private:
     ModulationModel& model_;
     int source_;
-    bool lit_ = false, cancelled_ = false;
+    int count_ = 0;
+    juce::String tooltip_;
+    bool lit_ = false, cancelled_ = false, locked_ = false, compact_ = false;
 };
 } // namespace fd::ui

@@ -89,14 +89,58 @@ void ModulationHandle::refresh()
     }
 }
 
+void ModulationHandle::setCount(int routes)
+{
+    if (routes != count_)
+    {
+        count_ = routes;
+        repaint();
+    }
+}
+
+void ModulationHandle::setLocked(bool locked)
+{
+    if (locked != locked_)
+    {
+        locked_ = locked;
+        repaint();
+    }
+}
+
+void ModulationHandle::setCompact(bool compact)
+{
+    if (compact != compact_)
+    {
+        compact_ = compact;
+        repaint();
+    }
+}
+
+namespace
+{
+juce::String countText(int count)
+{
+    return count > 0 ? juce::String::fromUTF8("\xC2\xB7 ") + juce::String(count) : juce::String();
+}
+} // namespace
+
 int ModulationHandle::preferredWidth() const
 {
     const auto& t = Theme::current();
     const int gap = t.shell.itemGap, icon = t.deviceGrid.sourceHandle - gap;
-    return gap + icon + gap +
-           static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(font(TextStyle::Caption),
-                                                                             model_.sourceName(source_)))) +
-           gap;
+    if (compact_)
+        return gap + icon + gap;
+    const auto width = [](const juce::String& text)
+    {
+        return static_cast<int>(
+            std::ceil(juce::GlyphArrangement::getStringWidth(font(TextStyle::Caption), text)));
+    };
+    int w = gap + icon + gap + width(model_.sourceName(source_)) + gap;
+    if (count_ > 0)
+        w += width(countText(count_)) + gap;
+    if (locked_)
+        w += icon + gap;
+    return w;
 }
 
 void ModulationHandle::paint(juce::Graphics& g)
@@ -110,10 +154,31 @@ void ModulationHandle::paint(juce::Graphics& g)
     const auto colour = lit_ ? t.effectEnd : t.textSecondary;
     r.removeFromLeft(gap);
     drawIcon(g, Icon::Move, r.removeFromLeft(icon).withSizeKeepingCentre(icon, icon).toFloat(), colour);
+    if (compact_)
+        return;
     r.removeFromLeft(gap);
-    g.setColour(colour);
     g.setFont(font(TextStyle::Caption));
-    g.drawText(model_.sourceName(source_), r, juce::Justification::centredLeft, false);
+    const auto name = model_.sourceName(source_);
+    const auto take = [&](const juce::String& text)
+    {
+        return r.removeFromLeft(static_cast<int>(
+            std::ceil(juce::GlyphArrangement::getStringWidth(font(TextStyle::Caption), text))));
+    };
+    g.setColour(colour);
+    g.drawText(name, take(name), juce::Justification::centredLeft, false);
+    if (count_ > 0)
+    {
+        r.removeFromLeft(gap);
+        const auto count = countText(count_);
+        g.setColour(t.textTertiary);
+        g.drawText(count, take(count), juce::Justification::centredLeft, false);
+    }
+    if (locked_)
+    {
+        r.removeFromLeft(gap);
+        drawIcon(g, Icon::Lock, r.removeFromLeft(icon).withSizeKeepingCentre(icon, icon).toFloat(),
+                 t.textSecondary);
+    }
 }
 
 void ModulationHandle::mouseEnter(const juce::MouseEvent&)
@@ -129,9 +194,16 @@ void ModulationHandle::mouseExit(const juce::MouseEvent&)
     refresh();
 }
 
-void ModulationHandle::mouseDown(const juce::MouseEvent&)
+void ModulationHandle::mouseDown(const juce::MouseEvent& e)
 {
     cancelled_ = false;
+    if (e.mods.isPopupMenu())
+    {
+        cancelled_ = true; // a right-click isn't a drag
+        if (onPopupMenu)
+            onPopupMenu();
+        return;
+    }
     grabKeyboardFocus(); // Escape cancels the drag
 }
 
@@ -139,15 +211,21 @@ void ModulationHandle::mouseDrag(const juce::MouseEvent& e)
 {
     if (cancelled_)
         return;
-    if (auto* panel = findParentComponentOfClass<DevicePanel>())
+    if (onDrag)
+        onDrag(e);
+    else if (auto* panel = findParentComponentOfClass<DevicePanel>())
         panel->dragSource(source_, e.getEventRelativeTo(panel).getPosition());
 }
 
 void ModulationHandle::mouseUp(const juce::MouseEvent& e)
 {
-    if (auto* panel = findParentComponentOfClass<DevicePanel>())
-        panel->dropSource(source_, e.getEventRelativeTo(panel).getPosition(),
-                          cancelled_ || !e.mouseWasDraggedSinceMouseDown());
+    const bool cancelled = cancelled_ || !e.mouseWasDraggedSinceMouseDown();
+    if (cancelled_ && onRelease) // cancelled by Escape already
+        return;
+    if (onRelease)
+        onRelease(e, cancelled);
+    else if (auto* panel = findParentComponentOfClass<DevicePanel>())
+        panel->dropSource(source_, e.getEventRelativeTo(panel).getPosition(), cancelled);
 }
 
 bool ModulationHandle::keyPressed(const juce::KeyPress& key)
@@ -155,7 +233,9 @@ bool ModulationHandle::keyPressed(const juce::KeyPress& key)
     if (key != juce::KeyPress::escapeKey || model_.draggedSource != source_)
         return false;
     cancelled_ = true;
-    if (auto* panel = findParentComponentOfClass<DevicePanel>())
+    if (onCancel)
+        onCancel();
+    else if (auto* panel = findParentComponentOfClass<DevicePanel>())
         panel->dropSource(source_, {}, true);
     return true;
 }

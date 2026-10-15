@@ -137,6 +137,11 @@ For a module with its own modulation (the Wavetable Synth; M4's DAW-wide modulat
 - **Setting the amount:** drag the ring (the band outside the arc, where the pointer becomes the resize cursor): up and right more, down and left less, Shift finely, as a knob. It sets the route of the source last hovered, or the knob's first route. The matrix sets any route exactly.
 - **Right-click a modulated knob:** its routes ("LFO 1 → 30 %"), each with Remove, then Modulate with, after its automation items.
 - **What the lint checks:** rings stay inside their cell; handles never overlap a display's label.
+- **The track's modulators** ([modulators.md](modulators.md) §7.4, §23) move any module's controls from outside it, through the host binding (`ParamBinding::modulated`, `modulatorDrag`), with the same look:
+  - a moved knob's ring has a dot where the modulation has it now;
+  - a moved bar, and a moved switch, show the ring's line along their bottom edge, inside them; a bar's "now" is a short bright stretch of the line, clear of its text; a switch's line is full while the modulation turns it over, faint while it doesn't;
+  - while a modulator's handle is dragged, every control (bars and switches too) shows a faint line or ring, and the one under the pointer lights;
+  - a source's handle can show its routes' count ("⤧ LFO · 3") and a lock (a kept roll), and its drag can be taken by the host (the chain), across panels.
 
 ## A module's editor
 

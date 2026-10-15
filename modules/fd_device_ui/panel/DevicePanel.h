@@ -131,6 +131,11 @@ protected:
     void setDisplayName(juce::String name);
     /// What the folded strip says after the name, fainter (a rack's "4 modules", racks.md §5a).
     void setFoldedDetail(juce::String detail);
+    /// An icon before the name, saying what kind of module it is (a modulator's, modulators.md §6).
+    void setHeaderIcon(std::optional<Icon> icon);
+    /// A control the folded strip keeps at its foot (a modulator's handle, modulators.md §6),
+    /// owned elsewhere; hidden while the module is unfolded.
+    void setFoldedAccessory(juce::Component* accessory);
     /// A live figure in the header with its caption (the Wavetable Synth's "CPU 4 %", W13), as
     /// wide as `widest`.
     HeaderReadout& addHeaderReadout(juce::String caption, juce::String widest,
@@ -213,6 +218,9 @@ private:
     std::vector<bool> sectionShowing_;                // each section, as laid out
     juce::String displayName_;                        // empty: the module's own
     juce::String foldedDetail_;
+    std::optional<Icon> headerIcon_;
+    juce::Rectangle<int> headerIconArea_;
+    juce::Component* foldedAccessory_ = nullptr;
     [[nodiscard]] juce::String headerName() const;
     int page_ = 0;
     TabRow pageTabs_;

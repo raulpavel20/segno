@@ -75,6 +75,7 @@ struct ColourRoles
     float dimAlpha = 0.35f;   // ignored or switched off; never compounded
     float fadedAlpha = 0.4f;  // exists but doesn't play
     float ghostAlpha = 0.28f; // another part's notes behind the clip's own (piano-roll.md §8)
+    float echoAlpha = 0.55f;  // each copy's trace behind the one before (modulators.md §9)
     float fillAlpha = 0.14f;  // the flat fill under a curve
     float depthFar = 0.25f, depthNear = 0.6f; // a 3D view's lines, farthest and nearest (atDepth)
 };
@@ -249,6 +250,11 @@ struct Theme
     [[nodiscard]] juce::Colour faded(juce::Colour c) const { return c.withMultipliedAlpha(roles.fadedAlpha); }
     /// Another track's notes in the piano roll, faint behind the clip's own (piano-roll.md §8).
     [[nodiscard]] juce::Colour ghost(juce::Colour c) const { return c.withMultipliedAlpha(roles.ghostAlpha); }
+    /// A modulator's copy `step` behind the first (0 is the first): each a step fainter.
+    [[nodiscard]] juce::Colour echo(juce::Colour c, int step) const
+    {
+        return c.withMultipliedAlpha(std::pow(roles.echoAlpha, static_cast<float>(std::max(0, step))));
+    }
     /// The flat fill under a curve drawn in `c`.
     [[nodiscard]] juce::Colour fill(juce::Colour c) const { return c.withMultipliedAlpha(roles.fillAlpha); }
     /// A line of a 3D view (a wavetable's frames) `nearness` of the way from the back (0) to the

@@ -44,6 +44,7 @@ enum class Icon
     Rack,          // racks (the browser, racks.md §7): two modules stacked in a frame
     Lock,          // a rack's macro that recall, Morph and Vary leave alone (racks.md §18.4): a padlock
     LockOpen,      // one that they move: the padlock open, its shackle lifted on one side
+    Modulator,     // modulators (modulators.md §14): a wave, and a dot where it is now
     // The clip view's tools (piano-roll.md §25): the Tools pane's tabs and each tool's tile.
     Transform,  // notes changed: a low bar turned into a high one
     Generate,   // notes made: a plus over lines

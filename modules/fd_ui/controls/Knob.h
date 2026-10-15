@@ -41,14 +41,17 @@ public:
     /// A right-click: the control's menu (automation, reset).
     std::function<void()> onPopupMenu;
 
-    // ---- modulation (docs/design/device-panels.md, "Modulation"); rotary knobs only ----------
+    // ---- modulation (docs/design/device-panels.md, "Modulation") ------------------------------
 
-    /// The range its modulation moves it over (normalised, `from` <= `to`): a ring just outside
-    /// its arc, in the modulation gradient; `dimmed` while another source is shown. None: no ring.
+    /// The range its modulation moves it over (normalised, `from` <= `to`): on a rotary knob a ring
+    /// just outside its arc, on a bar a line along its bottom edge, in the modulation gradient;
+    /// `dimmed` while another source is shown. With `now`, a dot (a tick on a bar) where the
+    /// modulation has it now (modulators.md §7.4). None: no ring.
     struct Ring
     {
         float from = 0.0f, to = 0.0f;
         bool dimmed = false;
+        std::optional<float> now;
         bool operator==(const Ring&) const = default;
     };
     void setRing(std::optional<Ring> ring);
@@ -119,6 +122,9 @@ private:
     };
     [[nodiscard]] Geometry geometry() const;
     void paintRing(juce::Graphics& g, const Geometry& k) const;
+    void paintBarRing(juce::Graphics& g, juce::Rectangle<float> r) const;
+    /// The radius of the dot on a ring where the modulation has the knob now.
+    [[nodiscard]] static float ringDotRadius() noexcept;
     void setHandleHovered(bool hovered);
     void paintBar(juce::Graphics& g);
     void paintFader(juce::Graphics& g);

@@ -4,6 +4,7 @@ namespace
 {
 constexpr int kFoldButton = 16;
 constexpr int kSettingsGap = 8;
+constexpr int kFoldedFoot = 8; // the folded strip's padding at its foot
 
 juce::Font nameFont()
 {
@@ -258,6 +259,23 @@ void DevicePanel::setFoldedDetail(juce::String detail)
         return;
     foldedDetail_ = std::move(detail);
     repaint();
+}
+
+void DevicePanel::setHeaderIcon(std::optional<Icon> icon)
+{
+    headerIcon_ = icon;
+    resized();
+    repaint();
+}
+
+void DevicePanel::setFoldedAccessory(juce::Component* accessory)
+{
+    if (foldedAccessory_ != nullptr && foldedAccessory_->getParentComponent() == this)
+        removeChildComponent(foldedAccessory_);
+    foldedAccessory_ = accessory;
+    if (foldedAccessory_ != nullptr)
+        addChildComponent(*foldedAccessory_);
+    resized();
 }
 
 juce::String DevicePanel::headerName() const
@@ -541,6 +559,8 @@ int DevicePanel::headerMinimumWidth() const
         w += kFoldButton + 4;
     if (onEnabledChange)
         w += static_cast<float>(grid.power + 6);
+    if (headerIcon_)
+        w += static_cast<float>(grid.power + 6);
     // Text widths rounded up, as resized() lays them out: a name short by a fraction is cut.
     w += std::ceil(juce::GlyphArrangement::getStringWidth(nameFont(), headerName()));
     if (!pages_.empty())
@@ -581,7 +601,7 @@ bool DevicePanel::isDragHandle(juce::Point<int> position) const
 {
     auto onControl = [&](const juce::Component& c) { return c.isVisible() && c.getBounds().contains(position); };
     if (onControl(power_) || onControl(fold_) || (presetBar_ != nullptr && onControl(*presetBar_)) ||
-        onControl(pageTabs_))
+        onControl(pageTabs_) || (foldedAccessory_ != nullptr && onControl(*foldedAccessory_)))
         return false;
     if (folded_)
         return getLocalBounds().contains(position);
@@ -609,6 +629,18 @@ void DevicePanel::resized()
         fold_.setBounds(strip.removeFromTop(kFoldButton).withSizeKeepingCentre(kFoldButton, kFoldButton));
         strip.removeFromTop(6);
         power_.setBounds(strip.removeFromTop(grid.power).withSizeKeepingCentre(grid.power, grid.power));
+        if (foldedAccessory_ != nullptr)
+        {
+            // At the strip's foot, as wide as it asks, at most the strip's width.
+            const int w =
+                std::min(foldedAccessory_->getWidth() > 0 ? foldedAccessory_->getWidth() : grid.foldedWidth,
+                         grid.foldedWidth - 2 * t.shell.itemGap);
+            foldedAccessory_->setBounds(getLocalBounds()
+                                            .withTrimmedBottom(kFoldedFoot)
+                                            .removeFromBottom(grid.sourceHandle)
+                                            .withSizeKeepingCentre(w, grid.sourceHandle));
+            foldedAccessory_->setVisible(true);
+        }
         for (auto& s : sections_)
             s->setVisible(false);
         pageTabs_.setVisible(false);
@@ -622,6 +654,8 @@ void DevicePanel::resized()
     }
     fold_.setIcon(Icon::ChevronLeft);
     fold_.setTooltip("Fold the module");
+    if (foldedAccessory_ != nullptr)
+        foldedAccessory_->setVisible(false);
 
     // Header: fold, power, name, then the settings from the right.
     auto h = header.reduced(grid.headerPadding, 0);
@@ -633,6 +667,12 @@ void DevicePanel::resized()
     if (onEnabledChange)
     {
         power_.setBounds(h.removeFromLeft(grid.power).withSizeKeepingCentre(grid.power, grid.power));
+        h.removeFromLeft(6);
+    }
+    headerIconArea_ = {};
+    if (headerIcon_)
+    {
+        headerIconArea_ = h.removeFromLeft(grid.power).withSizeKeepingCentre(grid.power, grid.power);
         h.removeFromLeft(6);
     }
     const int nameWidth =
@@ -720,8 +760,10 @@ void DevicePanel::paint(juce::Graphics& g)
     const auto name = headerName();
     if (folded_)
     {
-        // The name rotated, reading upwards, below the chevron and power.
-        auto area = getLocalBounds().toFloat().withTrimmedTop(48.0f).withTrimmedBottom(8.0f);
+        // The name rotated, reading upwards, below the chevron and power (and above an accessory).
+        auto area = getLocalBounds().toFloat().withTrimmedTop(48.0f).withTrimmedBottom(
+            static_cast<float>(kFoldedFoot) +
+            (foldedAccessory_ != nullptr ? static_cast<float>(grid.sourceHandle + t.shell.groupGap) : 0.0f));
         juce::Graphics::ScopedSaveState saved(g);
         g.addTransform(juce::AffineTransform::rotation(-juce::MathConstants<float>::halfPi, area.getCentreX(), area.getCentreY()));
         const auto rotated = juce::Rectangle<float>(area.getHeight(), area.getWidth()).withCentre(area.getCentre());
@@ -741,6 +783,8 @@ void DevicePanel::paint(juce::Graphics& g)
         return;
     }
 
+    if (headerIcon_)
+        drawIcon(g, *headerIcon_, headerIconArea_.toFloat(), t.textSecondary);
     g.setColour(t.textPrimary);
     g.setFont(nameFont());
     g.drawText(name, nameArea_, juce::Justification::centredLeft, true);

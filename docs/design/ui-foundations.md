@@ -59,6 +59,7 @@ Role functions for colours that depend on content:
 | `noteFill(colour, velocity, selected)` | control tone → clip colour by velocity (35–100 %); selected 30 % towards white | Piano roll notes and velocity stems |
 | `faded(colour)` | 40 % alpha | Content that exists but doesn't play (notes outside a clip) |
 | `ghost(colour)` | 28 % alpha (`ghostAlpha`) | Another part's notes behind the clip's own: the piano roll's Others ([piano-roll.md](piano-roll.md) §8) |
+| `echo(colour, step)` | each step 55 % of the alpha before (`echoAlpha`) | A modulator's copies with Per Target: one trace per target, over each other, each fainter ([modulators.md](modulators.md) §9) |
 | `fill(colour)` | `curveFill`'s alpha in that colour | Fills under coloured curves |
 | `atDepth(colour, nearness)` | 25 % alpha at the back to 60 % at the front (`depthFar`, `depthNear`) | A 3D view's lines: the Wavetable Synth's frames |
 | `lift(colour, hovered, pressed)` | +6 % hovered, +12 % pressed | Every hover and press state |

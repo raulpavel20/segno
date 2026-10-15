@@ -2,7 +2,7 @@
 
 A **modulator** is a module that makes no sound. It sits on a track and moves other parameters there: a filter's cutoff, a plugin's knob, a rack's Morph, the track's volume. The first five are the **LFO**, **Random**, **Envelope**, **Follower** and **Steps**. A modulator routed to several targets gives each its own copy by default, so one Random moves eight knobs eight different ways. Their randomness is random: it rolls again every time it plays, unless you keep a roll you liked.
 
-**Status:** approved by the product owner (2026-10-15), every recommendation of §21, with modulators anywhere in the chain instead of a zone of their own (§6, M2, revised after the review); ADRs 0061 and 0062 accepted. Step 0 (the spike, and the UI drawn) under way. M3 P5, the product owner's priority of 2026-10-15, moved up from M4, with [ADR 0061](../decisions/0061-modulators-move-any-parameter-on-their-track.md) and [ADR 0062](../decisions/0062-random-rolls-again-each-time-it-plays.md). It builds on [ADR 0060](../decisions/0060-motion-comes-from-modulation-modules.md) (motion comes from modulation modules). Nothing is built until the product owner says go, and the UI is drawn in every state and approved first (§19).
+**Status:** approved by the product owner (2026-10-15), every recommendation of §21, with modulators anywhere in the chain instead of a zone of their own (§6, M2, revised after the review); ADRs 0061 and 0062 accepted. Step 0 done the same day: the spike passed (§22), and the UI drawn in every state, for the product owner's review (§23). M3 P5, the product owner's priority of 2026-10-15, moved up from M4, with [ADR 0061](../decisions/0061-modulators-move-any-parameter-on-their-track.md) and [ADR 0062](../decisions/0062-random-rolls-again-each-time-it-plays.md). It builds on [ADR 0060](../decisions/0060-motion-comes-from-modulation-modules.md) (motion comes from modulation modules). Nothing is built until the product owner says go, and the UI is drawn in every state and approved first (§19).
 
 What the product owner asked (2026-10-15):
 - "Let's start the modulation modules", with a name people understand: "CV tools is great for the people who know, but most people will not know what that is in reference to."
@@ -501,3 +501,38 @@ The spike's checks are kept as tests (`tests/integration/ModulatorSpikeTests.cpp
   - keep each modulator's place as modules move (the plugin it's processed before), in `engine::Session`;
   - a Follower inside a rack hears its place through the rack's connections;
   - tracktion ignores modifiers on a plugin while automation reading is off (`Plugin::applyToBufferWithAutomation`); the DAW keeps reading on.
+
+## 23. Step 0, drawn (2026-10-15; for the product owner's review)
+
+Every state of §19, drawn with the real panel kit, the modulators' real panels and our modules' panels from a stub of what the engine will hold (`tests/integration/ModulatorUiTests.cpp`, `FD_DUMP_DIR`). Each modulator's panel passes the module panel lint, now one shared check (`tests/panels/PanelLint.h`, which every module's panel also passes). The chain keeps its gaps, a rack's panels stay inside its frame, and the route list's rows keep their parts apart.
+
+- **Among the modules:** a Utility, the LFO beside the Filter it moves (its Freq and the Chorus's Mix), the Filter, Random moving four controls with Per Target, the Chorus. Also at a compact width, the chain scrolled.
+- **Before the instrument:** the Envelope, then the Wavetable whose oscillator position it opens (a ring one way), then a Follower ducking.
+- **Inside a rack:** Steps beside the Utility it moves, in the rack's frame, after a Delay.
+- **Each panel, unfolded and folded.**
+- **Per Target on (four traces over each other, each fainter) and off (one); Keep on.**
+- **A handle dragged; a handle hovered (the lines); a moved knob, bar and switch.**
+- **The route list,** with three routes and with none.
+
+What drawing settled:
+- **The panels** (§12), on the module grid:
+  - **LFO:** SHAPE [7] (display 7 × 3; Rate, Phase, Slant, Smooth, Fade In; Shape, Sync, Mode) and TARGETS [2] (Depth, Both Ways, Per Target).
+  - **Random:** MOVEMENT [7] (display; Rate, Smooth, Slant, Cyclic, Jitter; Sync, Freeze, Keep) and TARGETS.
+  - **Envelope:** SHAPE [8] (display; Attack, Hold, Decay, Sustain, Release; the three curves as bars), TRIGGER [4] (Trigger and Every; Mode and Fire; Legato and Keep; Delay, Repeat, Chance) and TARGETS (Depth, Per Target).
+  - **Follower:** Listen as the header's sidechain picker, captioned Listen (Here, or a track); LEVEL [3] (display; Gain, Attack, Release); BAND ⏻ [2] (the shared cut-filter curve; Low, High); TARGETS (Depth).
+  - **Steps:** PATTERN [8] (display; Rate, Steps, Smooth, Jitter; Sync, Advance, Restart; Keep, Fire) and TARGETS.
+- **Each display:** a readout on its first line ("0.50 Hz", "On notes", "−33.9 dB", "16 steps · 1/16"), the handle at its right ("⤧ LFO · 2", a lock while kept), the output under them.
+  - The LFO shows one cycle, a copy's trace for each target with Per Target, and each copy's dot where it is now.
+  - Random shows its last eight steps.
+  - The Envelope shows its stages spaced by the log of their times, with the points it's dragged by inside the well, and a dot for each copy playing.
+  - The Follower shows what it heard on a dB scale.
+  - Steps shows bars (the current step brighter) with each step's chance along the foot, and with Per Target what each copy plays this time round.
+- **The header:** the Modulator icon (a wave and a dot where it is) between the power and the name, in `textSecondary`; no meters.
+- **Folded:** the strip keeps the handle's arrow at its foot, under the name.
+- **On the targets** (the kit, for every module):
+  - a moved knob's ring has a dot where it is now;
+  - a moved bar or switch has the ring's line along its bottom edge, inside it; a bar's "now" is a short bright stretch of that line, clear of its text; a switch's line is full while the modulation turns it over;
+  - while a handle is dragged, every control shows a faint line or ring, and the one under the pointer lights.
+- **The lines on hover:** from the chip's foot to a dot on each control it moves, in the modulation gradient over a dark halo, so they read where they cross other panels, sagging as a cable does, more the further they go.
+- **The route list:** a popover, `Routes · LFO`, a row a route: the target, its amount bar (−200 … +200 %, from the middle), Show and Remove.
+- **For the kit:** `Theme::echo` (each copy 55 % of the one before, `echoAlpha`), `Icon::Modulator`, a header icon and a folded accessory on `DevicePanel`, the source handle's count, lock, compact form and drags taken by its host, and `ParamBinding::modulated` and `modulatorDrag` for what the track's modulators do to a module's controls.

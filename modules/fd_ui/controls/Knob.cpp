@@ -215,13 +215,72 @@ void Knob::paintRing(juce::Graphics& g, const Geometry& k) const
     g.setOpacity(ring_->dimmed ? t.roles.dimAlpha : 1.0f);
     g.strokePath(arc, stroke);
     g.setOpacity(1.0f);
+    if (ring_->now)
+    {
+        // Where the modulation has it now (modulators.md §7.4): a dot on the ring.
+        const float dot = 2.0f * ringDotRadius();
+        g.setColour(ring_->dimmed ? t.textPrimary.withMultipliedAlpha(t.roles.dimAlpha) : t.textPrimary);
+        g.fillEllipse(
+            juce::Rectangle<float>(dot, dot).withCentre(at(angleFor(juce::jlimit(0.0f, 1.0f, *ring_->now)))));
+    }
+}
+
+float Knob::ringDotRadius() noexcept
+{
+    return Theme::current().knobRingThickness * 0.5f + 0.5f;
+}
+
+void Knob::paintBarRing(juce::Graphics& g, juce::Rectangle<float> r) const
+{
+    // On a bar, modulation is a line along its bottom edge, inside it: `active` over its length
+    // where a dragged source would land (faint where it could), else the range it moves over.
+    const auto& t = Theme::current();
+    const float thickness = t.knobRingThickness;
+    const auto line = [&](float from, float to)
+    {
+        return juce::Rectangle<float>(r.getX() + r.getWidth() * from, r.getBottom() - thickness,
+                                      r.getWidth() * (to - from), thickness);
+    };
+    juce::Graphics::ScopedSaveState saved(g);
+    juce::Path shape;
+    shape.addRoundedRectangle(r, t.radiusControl);
+    g.reduceClipRegion(shape);
+    if (dropTarget_ || dropCandidate_)
+    {
+        g.setColour(dropTarget_ ? t.active : t.textTertiary);
+        g.fillRect(line(0.0f, 1.0f));
+        return;
+    }
+    if (!ring_)
+        return;
+    const float from = juce::jlimit(0.0f, 1.0f, ring_->from), to = juce::jlimit(0.0f, 1.0f, ring_->to);
+    if (to - from >= 0.001f)
+    {
+        const auto band = line(from, to);
+        g.setGradientFill(
+            juce::ColourGradient(t.effectStart, band.getTopLeft(), t.effectEnd, band.getTopRight(), false));
+        g.setOpacity(ring_->dimmed ? t.roles.dimAlpha : 1.0f);
+        g.fillRect(band);
+        g.setOpacity(1.0f);
+    }
+    if (ring_->now)
+    {
+        // Where it is now: a short bright stretch of the line, clear of the bar's text.
+        const float x = r.getX() + r.getWidth() * juce::jlimit(0.0f, 1.0f, *ring_->now);
+        const float length = 4.0f * thickness;
+        g.setColour(ring_->dimmed ? t.textPrimary.withMultipliedAlpha(t.roles.dimAlpha) : t.textPrimary);
+        g.fillRect(juce::Rectangle<float>(juce::jlimit(r.getX(), r.getRight() - length, x - length * 0.5f),
+                                          r.getBottom() - thickness, length, thickness));
+    }
 }
 
 juce::Rectangle<float> Knob::ringBounds() const
 {
     const auto& t = Theme::current();
     const auto k = geometry();
-    const float outer = k.radius + k.thickness * 0.5f + t.knobRingGap + t.knobRingThickness;
+    // The ring's outer edge, or its now-dot's where that reaches further.
+    const float outer = k.radius + k.thickness * 0.5f + t.knobRingGap + t.knobRingThickness * 0.5f +
+                        std::max(t.knobRingThickness * 0.5f, ringDotRadius());
     return juce::Rectangle<float>(2.0f * outer, 2.0f * outer).withCentre(k.centre);
 }
 
@@ -373,6 +432,7 @@ void Knob::paintBar(juce::Graphics& g)
         g.fillRect(juce::Rectangle<float>(cx - 0.5f, r.getY(), 1.0f, 3.0f));
         g.fillRect(juce::Rectangle<float>(cx - 0.5f, r.getBottom() - 3.0f, 1.0f, 3.0f));
     }
+    paintBarRing(g, r);
 
     if (editor_ != nullptr)
         return;

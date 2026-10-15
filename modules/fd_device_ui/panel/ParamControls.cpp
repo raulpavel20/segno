@@ -216,23 +216,34 @@ void ParamKnob::refresh()
     setAutomationState(context_.params.automationState(index_));
     // Set by a rack's macro (racks.md §4): its range as a ring, and no dragging by hand.
     const auto mapping = context_.params.macroMapping(index_);
+    // Moved by the track's modulators (modulators.md §7.4): their range, and where it is now.
+    const auto moved = context_.params.modulated(index_);
     setFollowing(mapping.has_value());
-    setTooltip(mapping ? "Set by " + mapping->macro + ". " + tooltipFor(spec) : tooltipFor(spec));
+    juce::String tooltip = tooltipFor(spec);
+    if (moved)
+        tooltip = "Moved by " + moved->by + ". " + tooltip;
+    if (mapping)
+        tooltip = "Set by " + mapping->macro + ". " + tooltip;
+    setTooltip(tooltip);
     if (mapping)
         setRing(Ring{std::min(mapping->from, mapping->to), std::max(mapping->from, mapping->to),
                      mapping->dimmed});
+    else if (moved)
+        setRing(Ring{moved->from, moved->to, moved->dimmed, moved->now});
     else if (context_.modulation == nullptr)
         setRing(std::nullopt);
-    // A rack's macro dragged over the module (racks.md §4), as a modulation source is.
+    // A rack's macro dragged over the module (racks.md §4), as a modulation source is; a
+    // modulator's handle lands on any control, a bar too (modulators.md §7.1).
     const auto macro = context_.params.macroDrag(index_);
+    const auto modulator = context_.params.modulatorDrag(index_);
     if (context_.modulation == nullptr)
     {
-        setDropTarget(macro.target);
-        setDropCandidate(macro.candidate && style() == Style::Rotary);
+        setDropTarget(macro.target || modulator.target);
+        setDropCandidate((macro.candidate && style() == Style::Rotary) || modulator.candidate);
     }
     if (const auto* m = context_.modulation)
     {
-        if (!mapping)
+        if (!mapping && !moved) // the track's modulators' ring over the module's own routes'
             setRing(m->ringFor(index_, getValue()));
         setDropTarget(m->dropParam == index_ || macro.target);
         setDropCandidate(style() == Style::Rotary &&
@@ -258,6 +269,16 @@ void ParamToggle::refresh()
 {
     setToggleState(context_.params.getPlain(index_) >= 0.5f, juce::dontSendNotification);
     setAutomationState(context_.params.automationState(index_));
+    // Moved by the track's modulators (modulators.md §7.3): turned while they have it the other way.
+    const auto moved = context_.params.modulated(index_);
+    setModulation(
+        moved ? std::optional<Modulation>(Modulation{(moved->now >= 0.5f) != getToggleState(), moved->dimmed})
+              : std::nullopt);
+    const auto drag = context_.params.modulatorDrag(index_);
+    setDropTarget(drag.target);
+    setDropCandidate(drag.candidate);
+    const auto& spec = context_.info.params[index_];
+    setTooltip(moved ? "Moved by " + moved->by + ". " + tooltipFor(spec) : tooltipFor(spec));
 }
 
 void ParamToggle::clicked()

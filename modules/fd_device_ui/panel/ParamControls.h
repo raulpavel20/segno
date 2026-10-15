@@ -57,6 +57,8 @@ public:
     ParamToggle(DeviceUiContext& context, size_t paramIndex);
     void refresh() override;
     void clicked() override;
+    /// The parameter it sets.
+    [[nodiscard]] size_t param() const noexcept { return index_; }
 
 private:
     DeviceUiContext& context_;

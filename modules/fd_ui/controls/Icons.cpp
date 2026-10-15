@@ -278,6 +278,13 @@ Glyph glyph(Icon icon)
         p.lineTo(11.0f, 4.5f);
         g.solid.addRoundedRectangle(3.0f, 7.0f, 10.0f, 7.5f, 1.5f);
         break;
+    case Icon::Modulator:
+        // One cycle of a wave, and a dot where it is now (at its crest).
+        p.startNewSubPath(1.5f, 8.0f);
+        p.cubicTo(3.0f, 1.5f, 6.5f, 1.5f, 8.0f, 8.0f);
+        p.cubicTo(9.5f, 14.5f, 13.0f, 14.5f, 14.5f, 8.0f);
+        g.solid.addEllipse(3.3f, 1.9f, 3.0f, 3.0f);
+        break;
     case Icon::Move:
         // A cross with an arrowhead at each end.
         p.startNewSubPath(8.0f, 2.0f);
