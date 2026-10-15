@@ -71,11 +71,13 @@ public:
 private:
     struct Self;
     class Display;
+    class ListenBox;
     model::ModulatorKind kind_;
     ModulatorHost& host_;
     std::unique_ptr<Self> self_;
     std::unique_ptr<ui::ModulationHandle> handle_, foldedHandle_;
     std::unique_ptr<ui::Toggle> keep_;
+    std::unique_ptr<ListenBox> listen_;
     Display* display_ = nullptr;
 };
 

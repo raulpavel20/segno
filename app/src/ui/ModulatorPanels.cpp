@@ -473,6 +473,44 @@ private:
 
 // ---- the panel --------------------------------------------------------------------------------
 
+/// The Follower's Listen (modulators.md §12.4): where it sits (Here) or another track's sound,
+/// host routing as a sidechain is (ADR 0025), so not a parameter; inside its section, two columns
+/// wide, not the header's sidechain picker (the product owner: no width spent on "Here").
+class ModulatorPanel::ListenBox final : public ui::ChoiceBox, public ui::ParamControl
+{
+public:
+    explicit ListenBox(ui::SidechainRouting& routing) : routing_(routing)
+    {
+        setName("sidechain"); // its choices are track names: the layout lint doesn't fit them
+        setInlineName("Listen");
+        setTooltip("What it follows: the sound where it sits in the chain (Here), or another track's");
+        onChange = [this]
+        {
+            if (const int id = getSelectedId(); id > 0 && id - 1 != routing_.selected())
+                routing_.select(id - 1);
+        };
+        refresh();
+    }
+
+    void refresh() override
+    {
+        if (isPopupActive())
+            return;
+        if (auto sources = routing_.sources(); sources != sources_)
+        {
+            sources_ = std::move(sources);
+            clear(juce::dontSendNotification);
+            for (size_t i = 0; i < sources_.size(); ++i)
+                addItem(juce::String(sources_[i]), static_cast<int>(i) + 1);
+        }
+        setSelectedId(routing_.selected() + 1, juce::dontSendNotification);
+    }
+
+private:
+    ui::SidechainRouting& routing_;
+    std::vector<std::string> sources_;
+};
+
 ModulatorPanel::ModulatorPanel(ui::DeviceUiContext& context, ModulatorKind kind, ModulatorHost& host)
     : DevicePanel(context), kind_(kind), host_(host), self_(std::make_unique<Self>())
 {
@@ -523,44 +561,60 @@ ModulatorPanel::ModulatorPanel(ui::DeviceUiContext& context, ModulatorKind kind,
     display_->setHandle(*handle_);
     display_->setTitle(self_->name);
 
+    // One section a modulator (two for the Envelope): no width spent on a section of its own for
+    // Depth, Both Ways and Per Target, which take the room the others leave (the product owner,
+    // 2026-10-15: horizontal space in the chain is expensive).
     auto& p = context.params;
+    const auto targets = [&](ui::PanelSection& s, int column)
+    {
+        if (const auto both = model::bothWaysParam(kind))
+            s.toggle(*both, column, 3, 2);
+        if (const auto perTarget = model::perTargetParam(kind))
+            s.toggle(*perTarget, column, 4, 2);
+    };
     switch (kind)
     {
     case ModulatorKind::Lfo:
     {
-        auto& s = addSection("shape", "Shape", 7);
-        s.place(*display_, 0, 0, 7, 3);
+        auto& s = addSection("shape", "Shape", 8);
+        s.place(*display_, 0, 0, 6, 3);
+        s.knob(Lfo::Depth, 6, 0);
+        auto& fade = s.knob(Lfo::Fade, 7, 0);
         auto& rate = s.knob(Lfo::Rate, 0, 3);
         s.knob(Lfo::Phase, 1, 3);
         s.knob(Lfo::Slant, 2, 3);
         s.knob(Lfo::Smooth, 3, 3);
-        auto& fade = s.knob(Lfo::Fade, 4, 3);
-        s.combo(Lfo::Shape, 5, 3);
-        s.combo(Lfo::Sync, 5, 4).setInlineName(true);
-        s.combo(Lfo::Mode, 5, 5);
+        s.combo(Lfo::Shape, 4, 3);
+        s.combo(Lfo::Sync, 4, 4).setInlineName(true);
+        s.combo(Lfo::Mode, 4, 5);
+        targets(s, 6);
         dimWhen({&rate}, [&p] { return p.getPlain(Lfo::Sync) >= 0.5f; });
         dimWhen({&fade}, [&p] { return p.getPlain(Lfo::Mode) < 0.5f; }); // Free never restarts
         break;
     }
     case ModulatorKind::Random:
     {
-        auto& s = addSection("movement", "Movement", 7);
-        s.place(*display_, 0, 0, 7, 3);
+        auto& s = addSection("movement", "Movement", 8);
+        s.place(*display_, 0, 0, 6, 3);
+        s.knob(Random::Depth, 6, 0);
+        s.knob(Random::Jitter, 7, 0);
         auto& rate = s.knob(Random::Rate, 0, 3);
         s.knob(Random::Smooth, 1, 3);
         s.knob(Random::Slant, 2, 3);
         s.knob(Random::Cyclic, 3, 3);
-        s.knob(Random::Jitter, 4, 3);
-        s.combo(Random::Sync, 5, 3).setInlineName(true);
-        s.toggle(Random::Freeze, 5, 4, 2);
-        s.place(*keep_, 5, 5, 2, 1, ui::PanelSection::Kind::Line);
+        s.combo(Random::Sync, 4, 3).setInlineName(true);
+        s.toggle(Random::Freeze, 4, 4, 2);
+        s.place(*keep_, 4, 5, 2, 1, ui::PanelSection::Kind::Line);
+        targets(s, 6);
         dimWhen({&rate}, [&p] { return p.getPlain(Random::Sync) >= 0.5f; });
         break;
     }
     case ModulatorKind::Envelope:
     {
         auto& s = addSection("shape", "Shape", 8);
-        s.place(*display_, 0, 0, 8, 3);
+        s.place(*display_, 0, 0, 6, 3);
+        s.knob(Envelope::Depth, 6, 0);
+        s.knob(Envelope::Delay, 7, 0);
         s.knob(Envelope::Attack, 0, 3);
         s.knob(Envelope::Hold, 1, 3);
         s.knob(Envelope::Decay, 2, 3);
@@ -576,9 +630,9 @@ ModulatorPanel::ModulatorPanel(ui::DeviceUiContext& context, ModulatorKind kind,
         trigger.toggle(Envelope::Fire, 3, 1);
         auto& legato = trigger.toggle(Envelope::Legato, 0, 2, 2);
         trigger.place(*keep_, 2, 2, 2, 1, ui::PanelSection::Kind::Line);
-        trigger.knob(Envelope::Delay, 0, 3);
-        trigger.knob(Envelope::Repeat, 1, 3);
-        trigger.knob(Envelope::Chance, 2, 3);
+        trigger.knob(Envelope::Repeat, 0, 3);
+        trigger.knob(Envelope::Chance, 1, 3);
+        trigger.toggle(Envelope::PerTarget, 2, 3, 2);
         dimWhen({&every}, [&p] { return static_cast<int>(p.getPlain(Envelope::Trigger)) != 1; });
         dimWhen({&legato}, [&p] { return static_cast<int>(p.getPlain(Envelope::Trigger)) != 0; });
         dimWhen({&sustain}, [&p] { return static_cast<int>(p.getPlain(Envelope::Mode)) == 2; }); // One-shot
@@ -586,50 +640,42 @@ ModulatorPanel::ModulatorPanel(ui::DeviceUiContext& context, ModulatorKind kind,
     }
     case ModulatorKind::Follower:
     {
-        setSidechainCaption("Listen",
-                            "What it follows: the sound where it sits in the chain (Here), or another "
-                            "track's");
-        auto& s = addSection("level", "Level", 3);
-        s.place(*display_, 0, 0, 3, 3);
+        auto& s = addSection("level", "Level", 6);
+        s.place(*display_, 0, 0, 4, 3);
+        if (context.sidechain != nullptr)
+        {
+            listen_ = std::make_unique<ListenBox>(*context.sidechain);
+            s.place(*listen_, 4, 0, 2, 1, ui::PanelSection::Kind::Line);
+        }
+        s.toggle(Follower::Band, 4, 1, 2);
         s.knob(Follower::Gain, 0, 3);
         s.knob(Follower::Attack, 1, 3);
         s.knob(Follower::Release, 2, 3);
-        auto& band = addSection("band", "Band", 2, Follower::Band);
-        auto& curve =
-            own(std::make_unique<ui::CutFilterCurve>(context, Follower::Band, Follower::Low, Follower::High));
-        band.place(curve, 0, 0, 2, 3);
-        band.holdsParam(Follower::Low);
-        band.holdsParam(Follower::High);
-        band.knob(Follower::Low, 0, 3);
-        band.knob(Follower::High, 1, 3);
+        auto& low = s.knob(Follower::Low, 3, 3);
+        auto& high = s.knob(Follower::High, 4, 3);
+        s.knob(Follower::Depth, 5, 3);
+        dimWhen({&low, &high}, [&p] { return p.getPlain(Follower::Band) < 0.5f; });
         break;
     }
     case ModulatorKind::Steps:
     {
         auto& s = addSection("pattern", "Pattern", 8);
-        s.place(*display_, 0, 0, 8, 3);
+        s.place(*display_, 0, 0, 6, 3);
+        s.knob(Steps::Depth, 6, 0);
+        s.knob(Steps::Length, 7, 0);
         auto& rate = s.knob(Steps::Rate, 0, 3);
-        s.knob(Steps::Length, 1, 3);
-        s.knob(Steps::Smooth, 2, 3);
-        s.knob(Steps::Jitter, 3, 3);
-        s.combo(Steps::Sync, 4, 3, 3).setInlineName(true);
-        s.combo(Steps::Advance, 4, 4, 3).setInlineName(true);
-        s.combo(Steps::Restart, 4, 5, 3).setInlineName(true);
-        s.place(*keep_, 7, 3, 1, 1, ui::PanelSection::Kind::Line);
-        s.toggle(Steps::Fire, 7, 4);
+        s.knob(Steps::Smooth, 1, 3);
+        s.knob(Steps::Jitter, 2, 3);
+        s.combo(Steps::Sync, 3, 3, 3).setInlineName(true);
+        s.combo(Steps::Advance, 3, 4, 3).setInlineName(true);
+        s.combo(Steps::Restart, 3, 5, 3).setInlineName(true);
+        targets(s, 6);
+        s.place(*keep_, 6, 5, 1, 1, ui::PanelSection::Kind::Line);
+        s.toggle(Steps::Fire, 7, 5);
         dimWhen({&rate}, [&p] { return p.getPlain(Steps::Sync) >= 0.5f; });
         break;
     }
     }
-
-    // TARGETS: how far it moves everything it's routed to, and how (§10).
-    auto& targets = addSection("targets", "Targets", 2);
-    targets.knob(model::depthParam(kind), 0, 0, 2);
-    int row = 3;
-    if (const auto both = model::bothWaysParam(kind))
-        targets.toggle(*both, 0, row++, 2);
-    if (const auto perTarget = model::perTargetParam(kind))
-        targets.toggle(*perTarget, 0, row, 2);
     refreshFromHost();
 }
 

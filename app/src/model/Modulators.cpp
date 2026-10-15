@@ -287,8 +287,6 @@ static_assert(allDescribed(kSteps));
 
 // A modulator takes no sound in and gives none out; DeviceKind and buses are the panel kit's.
 constexpr BusConfig kNoBuses{.inputChannels = 0, .outputChannels = 0};
-// The Follower hears another track as a sidechain does (ADR 0025): its Listen picker.
-constexpr BusConfig kListens{.inputChannels = 0, .outputChannels = 0, .sidechainChannels = 2};
 constexpr DeviceInfo kInfos[] = {
     {.id = "mod-lfo", .name = "LFO", .category = "Modulators", .buses = kNoBuses, .params = kLfo},
     {.id = "mod-random", .name = "Random", .category = "Modulators", .buses = kNoBuses, .params = kRandom},
@@ -300,7 +298,7 @@ constexpr DeviceInfo kInfos[] = {
     {.id = "mod-follower",
      .name = "Follower",
      .category = "Modulators",
-     .buses = kListens,
+     .buses = kNoBuses,
      .params = kFollower},
     {.id = "mod-steps", .name = "Steps", .category = "Modulators", .buses = kNoBuses, .params = kSteps},
 };
