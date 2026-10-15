@@ -1,6 +1,6 @@
 # 0061. Modulators move any parameter on their track, each target with its own copy
 
-- **Status:** Proposed (for the product owner's review, with [modulators.md](../design/modulators.md))
+- **Status:** Proposed (reviewed by the product owner, 2026-10-15: approved, with modulators anywhere in the chain instead of a zone of their own; the revision for a last look, with [modulators.md](../design/modulators.md))
 - **Date:** 2026-10-15
 - **Builds on:** [0060](0060-motion-comes-from-modulation-modules.md) (motion comes from modulation modules), [0022](0022-module-panels.md) (module panels), [0044](0044-presets-are-files.md) (presets), [0046](0046-one-browser-modules-are-folders.md) and [0059](0059-racks-are-a-browser-part-and-every-part-has-its-icon.md) (the browser), [0025](0025-sidechain-routing.md) (sidechains), [0040](0040-a-menu-bar-and-everything-by-mouse.md) (the menu bar), [0021](0021-mcp-server.md) (assistants), [0052](0052-generic-names-are-free.md) (generic names)
 - **Moves:** M4's modulators to M3 (P5), at the product owner's request (2026-10-15)
@@ -21,7 +21,7 @@
 ## Decision
 - **They're called Modulators, and each one is a modulator:** a module that makes no sound and moves other parameters. Not "CV tools" (jargon, an Ableton pack's name, and a hardware non-goal), and not "Modulation" (already a section and page name).
 - **The first set is LFO, Random, Envelope, Follower and Steps.** Expression and Gesture come later.
-- **They sit in a zone at the start of the track's chain,** each panel on the module grid like every module's. A track without modulators shows no zone. A rack holds modulators of its own (step 2).
+- **They go anywhere in the chain, like any module,** each panel on the module grid. A modulator looks like one (its icon, no level meters). Where it sits doesn't change what it moves, except for the Follower, which listens there. Group into rack takes modulators along; inside a rack, a modulator moves only what's in it.
 - **They move any automatable parameter on their own track:**
   - modules, ours and plugins;
   - a rack's macros, Morph and chain rows;
@@ -40,12 +40,16 @@
 ## Consequences
 - **New:**
   - modulator signals as pure functions in `libs/dsp`, and our own tracktion modifiers;
-  - the modulator zone, plus a moving-value dot and hover lines in the panel kit;
+  - a moving-value dot and hover lines in the panel kit;
   - the browser's Modulators part and its icon;
   - the Module and Song menu items;
   - the MCP tools `get_modulators`, `route_modulator`, `set_route`, `remove_route` and `keep_roll`;
   - the type IDs `mod-lfo`, `mod-random`, `mod-envelope`, `mod-follower` and `mod-steps`, listed in `docs/ids.md` when approved.
-- **Engine work:** per-route state for Per Target, either as one engine modifier per route or through a small tracktion patch, decided by a spike. The block-rate steps on plugins are measured in the same spike.
+- **Engine work, decided by a spike:**
+  - per-route state for Per Target, either one engine modifier per route or a small tracktion patch;
+  - a modulator's place in the chain, either as a pass-through plugin that owns its modifier or kept in our chain model;
+  - the Follower listening mid-chain;
+  - the block-rate steps on plugins, measured.
 - **When this is accepted:**
   - vision.md is corrected: the modules ship as plugins, and the modulators are the DAW's;
   - the roadmap's M4 keeps only the modulators that come later.

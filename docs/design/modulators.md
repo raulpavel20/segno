@@ -2,7 +2,7 @@
 
 A **modulator** is a module that makes no sound. It sits on a track and moves other parameters there: a filter's cutoff, a plugin's knob, a rack's Morph, the track's volume. The first five are the **LFO**, **Random**, **Envelope**, **Follower** and **Steps**. A modulator routed to several targets gives each its own copy by default, so one Random moves eight knobs eight different ways. Their randomness is random: it rolls again every time it plays, unless you keep a roll you liked.
 
-**Status:** for review. M3 P5, the product owner's priority of 2026-10-15, moved up from M4, with [ADR 0061](../decisions/0061-modulators-move-any-parameter-on-their-track.md) and [ADR 0062](../decisions/0062-random-rolls-again-each-time-it-plays.md). It builds on [ADR 0060](../decisions/0060-motion-comes-from-modulation-modules.md) (motion comes from modulation modules). Nothing is built until the product owner says go, and the UI is drawn in every state and approved first (§19).
+**Status:** reviewed by the product owner (2026-10-15): every recommendation approved, with modulators anywhere in the chain instead of a zone of their own (§6, M2, revised for a last look). ADR 0062 accepted. M3 P5, the product owner's priority of 2026-10-15, moved up from M4, with [ADR 0061](../decisions/0061-modulators-move-any-parameter-on-their-track.md) and [ADR 0062](../decisions/0062-random-rolls-again-each-time-it-plays.md). It builds on [ADR 0060](../decisions/0060-motion-comes-from-modulation-modules.md) (motion comes from modulation modules). Nothing is built until the product owner says go, and the UI is drawn in every state and approved first (§19).
 
 What the product owner asked (2026-10-15):
 - "Let's start the modulation modules", with a name people understand: "CV tools is great for the people who know, but most people will not know what that is in reference to."
@@ -81,31 +81,29 @@ What the product owner asked (2026-10-15):
 - **Its own parameters are parameters:** automated, mapped to a rack's macro, MIDI-learned, moved by another modulator.
 - **Depth** (0–100 %) scales all its routes at once, so a wobble that comes in over eight bars is one automation lane.
 
-## 6. Where they sit: at the start of the chain
+## 6. Where they sit: anywhere in the chain
+
+The product owner (2026-10-15): "Why not just let the user put them wherever? … If we allow all positions like everything else then it's also easy to make them group in racks." This replaces a zone of their own at the start of the chain, first proposed here (M2).
 
 ```
- ┌ MODULATORS ────────────────────────────────────────┐ ┌ WAVETABLE ───┐ ┌ FILTER ──┐ ┌ DELAY ──┐  +
- │ ┌ LFO ───────────┐ ┌ RANDOM ──────────┐ ┌ FOLLOW… ┐ + │ │              │ │          │ │         │
- │ │ ∿∿∿  ⤧ LFO · 2 │ │ ≋≋≋ ⤧ Random · 4 │ │ ⤧ …     │   │ │   (rings)    │ │ (rings)  │ │         │
- │ │ Rate Slant …   │ │ Rate Smooth …    │ │ …       │   │ │              │ │          │ │         │
- │ └────────────────┘ └──────────────────┘ └─────────┘   │ │              │ │          │ │         │
- └─────────────────────────────────────────────────────┘ └──────────────┘ └──────────┘ └─────────┘
+ ┌ ∿ LFO ─────────┐ ┌ WAVETABLE ───┐ ┌ ∿ RANDOM ────────┐ ┌ FILTER ──┐ ┌ ∿ FOLLOWER ┐ ┌ COMPRESSOR ┐  +
+ │ ∿∿∿  ⤧ LFO · 2 │ │   (rings)    │ │ ≋≋≋ ⤧ Random · 4 │ │ (rings)  │ │ ⤧ hears    │ │  (rings)   │
+ │ Rate Slant …   │ │              │ │ Rate Smooth …    │ │          │ │   here     │ │            │
+ └────────────────┘ └──────────────┘ └──────────────────┘ └──────────┘ └────────────┘ └────────────┘
 ```
 
-- **A zone of their own, before the modules.** It's a tray like a rack's frame (`surface1`, a hairline edge), titled MODULATORS, with "+" at its end.
-  - Sources come before what they move, reading left to right.
-  - The zone isn't part of the signal path, and it looks it.
-- **A track without modulators shows no zone.** The first one comes from any of:
-  - Module ▸ Add modulator ▸;
-  - the chain's "+" menu;
-  - a right-click on any control (Modulate with ▸ New ▸);
-  - the browser.
+- **A modulator goes anywhere in the chain, like any module.** It's added, dragged, reordered, selected, copied and grouped into racks the same way. One rule for every module.
+- **Where it sits doesn't change what it moves.** An LFO before a filter moves it the same as one after it. Two things make that clear:
+  - a modulator looks like one: its header carries the Modulator icon (§14), and it has no level meters, since no sound passes through it;
+  - its tooltip says so: "Where a modulator sits doesn't change what it moves."
+- **The exception is the Follower, which listens where it sits** (§12.4), as Live's does: after the EQ, before the compressor.
+- **Put it next to what it moves.** An LFO beside the filter it drives is a short drag, and you see what belongs together.
+  - Modulate with ▸ New ▸ on a control puts the new modulator just before that control's module.
+  - Module ▸ Add modulator ▸ puts it after the selected module, or at the end of the chain.
+  - Dragging a handle to a module further along scrolls the chain at its edges, as the arrangement scrolls while dragging.
+- **It hears the track's notes wherever it sits,** before or after the instrument, for its Notes triggers. (Live's modulators that follow notes must sit before the instrument.)
+- **Modulators don't count for what a chain starts with.** An LFO followed by a Wavetable is still an instrument chain (racks.md §3).
 - **Each modulator's panel is on the module grid,** six rows like every module's. The layout lint, folding, presets and the header are the ones every module has. Folded, it's the usual narrow strip, and its handle stays on it.
-- **Reaching a module far along the chain:** dragging a handle scrolls the chain at its edges, as the arrangement scrolls while dragging. Modulate with ▸ needs no drag at all.
-- **Why not elsewhere** (M2):
-  - **a row under the chain** (Atelier; Cubase's tab of its own): the detail panel is one module panel high, so a second row would double its height or shrink the modules. Modulators would also need a second, smaller panel system;
-  - **anywhere in the chain** (Live): it gives them a place in the audio path that means nothing, and they get lost among the effects;
-  - **a tab of their own:** a modulator is then out of sight of what it moves, so it can't be dragged onto a knob.
 
 ## 7. Routes
 
@@ -116,7 +114,7 @@ There are three ways, each enough on its own, as in the kit ([device-panels.md](
    - The handle is the named chip in its display's top-right corner, with the number of its routes beside the name ("⤧ LFO · 3").
    - While it's dragged, every control it can move shows a faint ring over its whole sweep: on the modules, in the track's header and in the inspector. The one under the pointer lights.
    - Letting go makes a route at 50 %. Escape cancels.
-2. **Right-click any control: Modulate with ▸.** It lists the track's modulators by name, then **New ▸** LFO, Random, Envelope, Follower, Steps. A new one is added at the end of the zone and routed in one undo step.
+2. **Right-click any control: Modulate with ▸.** It lists the track's modulators by name, then **New ▸** LFO, Random, Envelope, Follower, Steps. A new one is added just before the control's module and routed in one undo step.
 3. **Drop a modulator's preset from the browser onto a control.** The modulator is added with that preset and routed to the control (§14).
 
 ### 7.2 How much
@@ -276,7 +274,7 @@ Follows how loud something is.
 
 | Control | Range | Default |
 |---|---|---|
-| Listen | This track, before or after its modules; or another track, heard after its modules and fader, as a sidechain hears it ([ADR 0025](../decisions/0025-sidechain-routing.md)) | This track, after its modules |
+| Listen | Here: the sound where it sits in the chain; or another track, heard after its modules and fader, as a sidechain hears it ([ADR 0025](../decisions/0025-sidechain-routing.md)) | Here |
 | Band | Off, or Low and High: listen to only that part of the sound (the kick's lows, a hi-hat's highs) | Off |
 | Gain | −24 … +24 dB | 0 dB |
 | Attack | 0.1 … 500 ms | 5 ms |
@@ -286,7 +284,7 @@ Follows how loud something is.
 - Routed at a negative amount, it ducks: a pad that dips with the kick, from any module, in two drags.
 - Routed to an Envelope's Fire, it fires the Envelope on loud hits.
 - Another track is chosen as a sidechain source is. Any track whose sound depends on this one is left out, so routing can't loop.
-- **Listening after a chosen module comes later** (M10). Live's follower hears whatever sits before it in the chain, but tracktion's modifiers hear a track only before or after all its modules.
+- **Listening where it sits** needs the Follower in the audio path: tracktion's modifiers hear a track only before or after all its modules, so a pass-through point of our own measures the sound there (§17).
 
 ### 12.5 Steps
 
@@ -329,25 +327,29 @@ The product owner (2026-10-15) said a chance that comes out the same every time 
 ## 14. Browser, presets, racks, copies
 
 - **The browser's Modulators** is a part of its own, after Audio effects, with its icon (a new `Modulator`: a wave with a dot) in the rail and the open browser ([ADR 0059](../decisions/0059-racks-are-a-browser-part-and-every-part-has-its-icon.md)). Each modulator is a folder of its presets, as modules are ([ADR 0046](../decisions/0046-one-browser-modules-are-folders.md)).
-  - **Dropped on a track or the chain,** it joins the track's modulators, at the end of the zone or where it's dropped in it.
+  - **Dropped in the chain,** it goes where it's dropped, like any module; dropped on a track, at the end of its chain.
   - **Dropped on a control,** it's added and routed to that control at 50 %, in one undo step.
 - **Presets** ([ADR 0044](../decisions/0044-presets-are-files.md)) keep a modulator's settings, never its routes: routes belong to the track. About eight factory presets each, about 40 in all (M17), for example:
   - a slow sweep, a tremolo, a breathing random;
   - a ratchet, a pluck;
   - a sidechain duck;
   - a trance gate, an octave ladder.
-- **Racks hold modulators of their own** (step 2, M13). They sit in the rack's frame before its chains, and they move what's in the rack: its modules, macros, Morph and chain rows. They're saved in its `.segnorack`, so a riser rack keeps its LFO on Morph. The engine already has a modifier list in every rack. Until then, a track's modulators move a rack's macros and Morph from outside it.
+- **Racks hold modulators like any module** (M13). Group into rack takes them along, and a rack's chain takes one dropped into it.
+  - A modulator in a rack moves only what's in the rack: its modules, macros, Morph and chain rows. A rack is saved and loaded whole, so grouping drops a modulator's routes to anything outside, with a toast to undo.
+  - It's saved in the rack's `.segnorack`, so a riser rack keeps its LFO on Morph.
+  - A track's modulators still move a rack's macros, Morph and modules from outside it.
+  - The engine has a modifier list in every rack.
 - **Copies and removals:**
   - Duplicating a track, or copying modules together with their modulators, keeps the routes among the copies.
   - A module moved or copied to another track leaves its routes behind, with a toast to undo.
-  - A module grouped into a rack keeps its routes.
+  - A module grouped into a rack keeps the routes to it from the track's modulators.
   - Removing a modulator removes its routes, and removing a target removes the routes to it, in the same undo step.
 
 ## 15. Menu bar and keys ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md))
 
 | Where | Item | |
 |---|---|---|
-| Module | Add modulator ▸ LFO, Random, Envelope, Follower, Steps | `module.addModulator`: to the selected track, at the end of its zone. Also the chain's "+", the zone's "+", the browser |
+| Module | Add modulator ▸ LFO, Random, Envelope, Follower, Steps | `module.addModulator`: after the selected module, or at the end of the selected track's chain. Also the chain's "+" and the browser |
 | Module | Keep as played / Let it roll | `module.keepRoll`: for the selected modulator. Dimmed unless it's a Random, Steps or an Envelope with Chance. Also Keep on its panel |
 | Module | Remove routes | `module.removeRoutes`: the selected modulator's. Also its right-click |
 | Song | Keep all as played / Let all roll | `song.keepAllRolls`: every modulator and every clip with chance in the song. Also beside the export panel's line |
@@ -382,7 +384,10 @@ There are no new shortcuts. Copy, paste, duplicate, delete, rename and fold are 
 - **Block steps:** tracktion reads modifiers once per audio block.
   - Our modules smooth their parameters as their tables say, so a fast LFO glides on them. A plugin might step.
   - The spike measures a 20 Hz LFO on a cutoff, ours and a plugin's, at 512 samples. If a plugin steps audibly, its block is split at the modulators' rate, or the limit is documented.
-- **The Follower listens** before or after the track's modules (tracktion's processing positions), or to another track through the sidechain routing.
+- **Where a modulator sits:** tracktion keeps modifiers in a list of their own, apart from the chain. The spike chooses between:
+  - each modulator as a pass-through plugin in the chain that owns its modifier, so every chain edit (move, copy, group) treats it as a module;
+  - modifiers kept in their list, with their place kept in our chain model.
+- **The Follower listens where it sits:** a pass-through point of our own measures the sound there and hands the level to its modifier. Another track's sound comes through the sidechain routing.
 - **Kept with the project:**
   - the modulators in the track's modifier list, with their settings and Keep's roll;
   - the routes in the targets' assignments.
@@ -407,11 +412,12 @@ There are no new shortcuts. Copy, paste, duplicate, delete, rename and fold are 
 ## 19. Steps
 
 - **Step 0, the spike.** One modulator of our own on tracktion's modifiers moves one of our parameters, a plugin's, a rack's Morph and the track's volume. The spike also:
+  - places it anywhere in the chain, groups it into a rack, and has a Follower listen mid-chain (§17);
   - tries Per Target both ways (§17) and measures the block steps;
   - checks undo, save and load;
   - renders a kept roll as it played, and shows passes rolling fresh.
 - **Step 0, drawn,** with the real panel kit from a stub. Every state below is checked by the layout lint and approved before building, as for racks (racks.md §5a):
-  - a track with no modulators, and one with three;
+  - modulators among the modules: beside a filter, before the instrument, inside a rack;
   - each of the five panels, unfolded and folded;
   - Per Target on with four targets (the traces), and off;
   - a handle being dragged (targets ringed, the chain scrolling), and a route made;
@@ -419,11 +425,10 @@ There are no new shortcuts. Copy, paste, duplicate, delete, rename and fold are 
   - the route list, and Keep on;
   - all at standard and compact widths, zoomed in.
 - **Step 1:**
-  - the zone and the five modulators;
+  - the five modulators, anywhere in the chain and in racks;
   - routes, Per Target and its traces, triggers;
   - Keep and fresh rolls, with the piano roll's chance (piano-roll.md §26);
   - the menus, the browser part, presets, MCP.
-- **Step 2:** racks holding modulators.
 
 Before sign-off, the product owner does these tasks, as with racks:
 - put an LFO on a filter's cutoff and set its amount on the ring;
@@ -453,7 +458,7 @@ Before sign-off, the product owner does these tasks, as with racks:
   - a kept roll renders as it played, sample for sample, and fresh passes differ;
   - no allocation in a modulator's processing;
   - the frame budget holds with 8 modulators and 32 routes moving.
-- **Panels:** the layout lint for each modulator's panel and the zone; screenshots reviewed zoomed in, at standard and compact widths.
+- **Panels:** the layout lint for each modulator's panel; screenshots reviewed zoomed in, at standard and compact widths.
 - **MCP:** every tool in §16 driven in a test.
 - **Manual:** the hands-on tasks (§19), in `docs/manual-tests/M3.md`.
 
@@ -462,7 +467,7 @@ Before sign-off, the product owner does these tasks, as with racks:
 | # | Question | Recommendation |
 |---|---|---|
 | M1 | **The name** | Modulators; each one a modulator (§4) |
-| M2 | **Where they sit** | A zone at the start of the chain, each on the module grid (§6). My first sketch was a row under the chain, as in Atelier. Two things changed my mind: the detail panel's height, and keeping one panel system for every module |
+| M2 | **Where they sit** | Anywhere in the chain, like any module; a modulator looks like one, and where it sits doesn't change what it moves, except where the Follower listens (§6). Revised after review: the product owner, 2026-10-15. A row under the chain (the first sketch) and a zone at the start of the chain (the first draft) were dropped |
 | M3 | **The first set** | LFO, Random, Envelope, Follower, Steps (approved 2026-10-15); Expression and Gesture next |
 | M4 | **Per Target's defaults** | On for Random, Envelope and Steps. Off for the LFO, whose copies spread their phases when it's on. No switch on the Follower (§8) |
 | M5 | **The traces** | One per target, over each other, each a step fainter (§9) |
@@ -470,10 +475,10 @@ Before sign-off, the product owner does these tasks, as with racks:
 | M7 | **Switches and choices** | Moved as knobs with steps, snapped (§7.3) |
 | M8 | **What it can move** | Anything on its own track, other modulators included. Another track is reached through its sound (the Follower), not its parameters |
 | M9 | **The Envelope's controls** | The Wavetable's ADSR words, with Delay, Repeat and Chance from Atelier (§12.3) |
-| M10 | **Where the Follower listens** | This track, before or after its modules, or another track; after a chosen module later |
+| M10 | **Where the Follower listens** | Where it sits in the chain, or another track |
 | M11 | **Randomness** | ADR 0062: it rolls again each time, and Keep holds a roll (§13) |
 | M12 | **Exporting with things left to chance** | Fresh rolls unless kept; the export panel says so, with Keep all as played beside it |
-| M13 | **Racks** | They hold modulators of their own, in step 2 (§14) |
+| M13 | **Racks** | They hold modulators like any module; inside, a modulator moves only what's in the rack (§14) |
 | M14 | **Free modulators** | Restart at their Phase when playback starts (§11) |
 | M15 | **A preset dropped on a control** | Added and routed in one step (§14) |
 | M16 | **"Random"** | The modulator's name. The planned M6 MIDI effect gets another name when its SPEC is written |

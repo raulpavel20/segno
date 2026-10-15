@@ -1,6 +1,6 @@
 # 0062. Random rolls again each time it plays; Keep holds a roll
 
-- **Status:** Proposed (for the product owner's review, with [modulators.md](../design/modulators.md) §13 and [piano-roll.md](../design/piano-roll.md) §26)
+- **Status:** Accepted (product owner, 2026-10-15, with [modulators.md](../design/modulators.md) §13 and [piano-roll.md](../design/piano-roll.md) §26)
 - **Date:** 2026-10-15
 - **Supersedes in part:** [0058](0058-the-piano-roll-writes-in-key-and-in-chords.md): "per-note chance the same in every render"
 - **Applies to:** the modulators ([0061](0061-modulators-move-any-parameter-on-their-track.md)) and the piano roll's chance
@@ -32,7 +32,7 @@
 - **Randomness is computed, never run.** A random value is a hash of the roll, the clip or modulator, and its place, so a kept roll renders exactly as it played.
 - **Export and bounce:** kept things play as kept, and the rest rolls fresh. When the song leaves anything to chance, the export panel says so. Bounce in place keeps one roll as audio.
 - **Tools that write keep their seeds:** the piano roll's Transform and Generate tools, and a rack's Vary.
-- **New chance rolls; old chance stays kept.** New notes and modulators roll by default. Clips saved with chance before this change open kept, so nothing saved changes its sound.
+- **Chance rolls by default;** keeping a roll is a choice.
 - **Not changed now:** the modules' own random sources (A2's sample-and-hold and wander, and the Wavetable's random sources and start phases). Whether they follow is an open question (B86).
 
 ## Consequences
