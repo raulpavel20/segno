@@ -9,7 +9,7 @@ The clip view for an audio clip, grown from a waveform viewer into an editor. It
 - the menu bar as the complete list ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)) and assistants' tools ([ADR 0021](../decisions/0021-mcp-server.md));
 - the UI foundations ([ADR 0023](../decisions/0023-ui-foundations.md)): every panel sized from its content, nothing touching.
 
-**Status:** approved by the product owner (2026-10-15), with every recommendation of §18 (AE1–AE25); the decision is [ADR 0063](../decisions/0063-audio-is-edited-as-properties-warped-in-real-time.md). With the approval came a rule for every editor, learned from the piano roll: its tools on its bar, never two clicks deep, and a bar with room filled (§20, ui-principles.md §1). The bar of §4 and the ways into the Tools pane (§11) follow it. Worked on a branch of its own (`audio-clip-editor`) beside main's modulators. The visual mockup (the editor at standard width with a range, the inspector, the Tempo tool, the arrangement's gain handle, a recording without Warp at 1024 px, the bar at five widths) was approved by the product owner the same day. Then three stages (§16), each signed off on its own. **P6a is built** (§21), for the product owner's review.
+**Status:** approved by the product owner (2026-10-15), with every recommendation of §18 (AE1–AE25); the decision is [ADR 0063](../decisions/0063-audio-is-edited-as-properties-warped-in-real-time.md). With the approval came a rule for every editor, learned from the piano roll: its tools on its bar, never two clicks deep, and a bar with room filled (§20, ui-principles.md §1). The bar of §4 and the ways into the Tools pane (§11) follow it. Worked on a branch of its own (`audio-clip-editor`) beside main's modulators. The visual mockup (the editor at standard width with a range, the inspector, the Tempo tool, the arrangement's gain handle, a recording without Warp at 1024 px, the bar at five widths) was approved by the product owner the same day. Then three stages (§16), each signed off on its own. **P6a is built and signed off** by the product owner (2026-10-15, §21); P6b, warping, is next, its engine spike first (§15).
 
 ## 1. Why
 
@@ -478,7 +478,7 @@ The product owner approved every recommendation of §18 and added a rule, learne
 
 ## 21. P6a built: the editor and the clip's sound (2026-10-15)
 
-Built on the branch, with its tests (the model's `[fast]` ones, the engine's, the assistants' and the editor's by mouse) and screenshots reviewed zoomed in at 1800, 1280, 1024, 820, 700 and 600 px. Waiting for the product owner's hands-on review before P6b.
+Built on the branch, with its tests (the model's `[fast]` ones, the engine's, the assistants' and the editor's by mouse) and screenshots reviewed zoomed in at 1800, 1280, 1024, 820, 700 and 600 px. Signed off by the product owner (2026-10-15): "Everything looks good! Signed off."
 
 ### 21.1 Settled while building
 
