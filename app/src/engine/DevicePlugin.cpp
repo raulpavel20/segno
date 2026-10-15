@@ -1,6 +1,8 @@
 #include "DevicePlugin.h"
 
+#include "Modulator.h"
 #include "SongKey.h"
+#include "SpecParameter.h"
 
 #include <fd/device/Realtime.h>
 #include <fd/device/State.h>
@@ -15,44 +17,6 @@ const juce::Identifier kExtraStateId{"fdExtra"};
 // Parameter values in the plugin's state are normalised (ADR 0028). Projects saved before then
 // hold plain values, converted when the module is loaded.
 const juce::Identifier kNormalisedId{"fdNormalised"};
-
-/// A module's parameter in tracktion: normalised (0..1, the control's travel), stepped kinds
-/// discrete, so automation holds their values as steps.
-class DeviceParameter final : public te::AutomatableParameter
-{
-public:
-    DeviceParameter(const ParamSpec& spec, te::Plugin& owner)
-        : te::AutomatableParameter(juce::String(std::string(spec.id)), juce::String(std::string(spec.name)), owner,
-                                   juce::NormalisableRange<float>(0.0f, 1.0f)),
-          spec_(spec)
-    {
-        valueToStringFunction = [&spec](float n) { return juce::String(spec.toText(spec.fromNormalized(n))); };
-        stringToValueFunction = [&spec](const juce::String& s) {
-            const auto v = spec.fromText(s.toStdString());
-            return spec.toNormalized(v ? *v : spec.def);
-        };
-    }
-
-    bool isDiscrete() const override { return spec_.isStepped(); }
-    int getNumberOfStates() const override { return spec_.numSteps(); }
-    float getValueForState(int state) const override
-    {
-        const int last = spec_.numSteps() - 1;
-        return last > 0 ? juce::jlimit(0.0f, 1.0f, static_cast<float>(state) / static_cast<float>(last)) : 0.0f;
-    }
-    int getStateForValue(float value) const override
-    {
-        return juce::roundToInt(juce::jlimit(0.0f, 1.0f, value) * static_cast<float>(std::max(0, spec_.numSteps() - 1)));
-    }
-    float snapToState(float value) const override
-    {
-        return spec_.isStepped() ? spec_.toNormalized(spec_.fromNormalized(value)) : value;
-    }
-    std::optional<float> getDefaultValue() const override { return spec_.toNormalized(spec_.def); }
-
-private:
-    const ParamSpec& spec_;
-};
 
 class DeviceBuiltInType final : public te::PluginManager::BuiltInType
 {
@@ -155,7 +119,7 @@ DevicePlugin::DevicePlugin(te::PluginCreationInfo info, const DeviceFactory& fac
             state.setProperty(id, spec.toNormalized(spec.def), nullptr);
         auto value = std::make_unique<juce::CachedValue<float>>();
         value->referTo(state, id, transient ? nullptr : um, spec.toNormalized(spec.def));
-        auto* param = new DeviceParameter(spec, *this);
+        auto* param = new SpecParameter(spec, *this);
         addAutomatableParameter(*param);
         param->attachToCurrentValue(*value);
         params_.emplace_back(param);
@@ -394,6 +358,7 @@ void registerDevices(te::Engine& engine)
 {
     for (const auto* factory : allDevices())
         registerDevice(engine, *factory);
+    Modulator::registerType(); // the modulators: modifiers of our own type (modulators.md §22)
 }
 
 void registerDevice(te::Engine& engine, const DeviceFactory& factory)

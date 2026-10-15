@@ -187,3 +187,46 @@ TEST_CASE("modulators: Steps play their values, their chances and glide", "[fast
     CHECK(played < 1100);
     CHECK(differ > 800);
 }
+
+TEST_CASE("modulators: the Envelope's stages, exact to the time", "[fast][modulators]")
+{
+    mod::EnvelopeShape s{.delayMs = 10.0,
+                         .attackMs = 20.0,
+                         .holdMs = 5.0,
+                         .decayMs = 100.0,
+                         .sustain = 0.4,
+                         .releaseMs = 50.0,
+                         .attackCurve = 0.0,
+                         .decayCurve = 0.0,
+                         .releaseCurve = 0.0};
+    CHECK(mod::envelope(s, 5.0, -1.0) == 0.0);              // waiting out its delay
+    CHECK(mod::envelope(s, 20.0, -1.0) == Approx(0.5));     // half way up (straight)
+    CHECK(mod::envelope(s, 32.0, -1.0) == Approx(1.0));     // holding at its peak
+    CHECK(mod::envelope(s, 85.0, -1.0) == Approx(0.7));     // half way down to Sustain
+    CHECK(mod::envelope(s, 1000.0, -1.0) == Approx(0.4));   // held: Sustain
+    CHECK(mod::envelope(s, 1025.0, 1000.0) == Approx(0.2)); // released: half way down
+    CHECK(mod::envelope(s, 1060.0, 1000.0) == 0.0);         // and done
+    CHECK_FALSE(mod::envelopeDone(s, 1000.0, -1.0));
+    CHECK(mod::envelopeDone(s, 1050.0, 1000.0));
+    // Released while rising: down from where it was.
+    CHECK(mod::envelope(s, 20.0, 20.0) == Approx(0.5));
+    CHECK(mod::envelope(s, 45.0, 20.0) == Approx(0.25));
+
+    // Loop: attack to decay again while held.
+    auto loop = s;
+    loop.mode = mod::EnvelopeShape::Mode::Loop;
+    CHECK(mod::envelope(loop, 10.0 + 125.0 + 10.0, -1.0) == Approx(0.5)); // the second rise, half way
+
+    // One-shot: plays through, ignoring its release; Repeat: again, back to back.
+    auto once = s;
+    once.mode = mod::EnvelopeShape::Mode::OneShot;
+    CHECK(mod::envelope(once, 135.0 + 25.0, -1.0) == Approx(0.2)); // released at the end of its decay
+    CHECK(mod::envelope(once, 200.0, -1.0) == 0.0);
+    CHECK(mod::envelopeDone(once, 185.0, -1.0));
+    auto ratchet = s;
+    ratchet.repeats = 2;
+    CHECK(mod::envelope(ratchet, 185.0 + 20.0, -1.0) == Approx(0.5)); // the first repeat, half way up
+    CHECK(mod::envelope(ratchet, 2 * 185.0 + 20.0, -1.0) == Approx(0.5));
+    CHECK(mod::envelope(ratchet, 3 * 185.0 + 20.0, -1.0) == 0.0); // two repeats, then done
+    CHECK(mod::envelopeDone(ratchet, 3 * 185.0, -1.0));
+}

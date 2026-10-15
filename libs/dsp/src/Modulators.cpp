@@ -1,5 +1,7 @@
 #include "fd/dsp/Modulators.h"
 
+#include "fd/dsp/VoiceModules.h"
+
 #include <algorithm>
 #include <cmath>
 #include <numbers>
@@ -163,5 +165,72 @@ float steps(std::span<const float> values, std::span<const float> chances, std::
         return static_cast<float>(to);
     const double from = at(n - 1);
     return static_cast<float>(from + (to - from) * eased(within / share));
+}
+namespace
+{
+double bent(double from, double to, double u, double curve) noexcept
+{
+    return from + (to - from) * CurvedEnvelope::shape(std::clamp(u, 0.0, 1.0), curve);
+}
+
+/// Before any release: the delay, the rise, the hold, the fall to Sustain, then Sustain (Loop:
+/// attack to decay again and again; One-shot: no Sustain held, see `oneShot`).
+double held(const EnvelopeShape& s, double ms) noexcept
+{
+    double t = ms - s.delayMs;
+    if (t < 0.0)
+        return 0.0;
+    const double a = std::max(0.0, s.attackMs), h = std::max(0.0, s.holdMs), d = std::max(1.0e-3, s.decayMs);
+    if (s.mode == EnvelopeShape::Mode::Loop && t >= a + h + d)
+        t = std::fmod(t, a + h + d);
+    if (t < a)
+        return bent(0.0, 1.0, t / a, s.attackCurve);
+    if (t < a + h)
+        return 1.0;
+    if (t < a + h + d)
+        return bent(1.0, s.sustain, (t - a - h) / d, s.decayCurve);
+    return s.sustain;
+}
+
+/// One firing played through (One-shot, and each of Repeat's): delay, rise, hold, fall, release.
+double cycleLength(const EnvelopeShape& s) noexcept
+{
+    return std::max(0.0, s.delayMs) + std::max(0.0, s.attackMs) + std::max(0.0, s.holdMs) +
+           std::max(1.0e-3, s.decayMs) + std::max(1.0e-3, s.releaseMs);
+}
+
+double released(const EnvelopeShape& s, double ms, double at) noexcept
+{
+    const double level = held(s, at);
+    const double r = std::max(1.0e-3, s.releaseMs);
+    return ms - at >= r ? 0.0 : bent(level, 0.0, (ms - at) / r, s.releaseCurve);
+}
+
+double oneShot(const EnvelopeShape& s, double ms) noexcept
+{
+    const double end = cycleLength(s) - std::max(1.0e-3, s.releaseMs); // where it falls to Sustain
+    return ms < end ? held(s, ms) : released(s, ms, end);
+}
+} // namespace
+
+double envelope(const EnvelopeShape& shape, double ms, double heldMs) noexcept
+{
+    if (ms < 0.0)
+        return 0.0;
+    if (shape.repeats > 0 || shape.mode == EnvelopeShape::Mode::OneShot)
+    {
+        // Played through, again after itself Repeat more times.
+        const double length = cycleLength(shape);
+        const auto lap = static_cast<int>(std::floor(ms / length));
+        return lap > std::max(0, shape.repeats) ? 0.0 : oneShot(shape, ms - lap * length);
+    }
+    return heldMs < 0.0 || ms < heldMs ? held(shape, ms) : released(shape, ms, heldMs);
+}
+
+bool envelopeDone(const EnvelopeShape& shape, double ms, double heldMs) noexcept
+{
+    if (shape.repeats > 0 || shape.mode == EnvelopeShape::Mode::OneShot)
+        return ms >= cycleLength(shape) * (std::max(0, shape.repeats) + 1);
+    return heldMs >= 0.0 && ms >= heldMs + std::max(1.0e-3, shape.releaseMs);
 }
 } // namespace fd::dsp::mod

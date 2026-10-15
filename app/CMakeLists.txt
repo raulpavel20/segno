@@ -40,6 +40,7 @@ endif()
 add_library(fd_engine INTERFACE)
 target_sources(fd_engine INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/DevicePlugin.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/Modulator.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/EngineBehaviour.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/Session.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionAutomation.cpp"

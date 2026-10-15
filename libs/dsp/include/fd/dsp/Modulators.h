@@ -73,4 +73,26 @@ struct Wander
 /// glided into over `smooth` (0..1) of a step; a step whose chance doesn't come up sits at 0.
 [[nodiscard]] float steps(std::span<const float> values, std::span<const float> chances, std::uint64_t seed,
                           std::uint64_t copy, double x, double smooth, double jitter) noexcept;
+/// The Envelope's stages (§12.3), the Wavetable's words: times in ms, Sustain and the curves
+/// as fractions (the curves -1 ... +1, CurvedEnvelope::shape's).
+struct EnvelopeShape
+{
+    enum class Mode : std::uint8_t
+    {
+        Normal,  // rises, falls to Sustain, holds it while held, releases
+        Loop,    // repeats attack to decay while held
+        OneShot, // plays through and ignores the release
+    };
+    double delayMs = 0.0, attackMs = 2.0, holdMs = 0.0, decayMs = 300.0, sustain = 0.0, releaseMs = 200.0;
+    double attackCurve = 0.3, decayCurve = 0.6, releaseCurve = 0.6;
+    Mode mode = Mode::Normal;
+    int repeats = 0; // more times after each firing, back to back (ratchets): each played through
+};
+
+/// The Envelope `ms` after it fired, its note released `heldMs` after it fired (negative: still
+/// held): 0..1. A pure function of the time, so the engine plays it exact to the time a parameter
+/// asks for and the panel draws it.
+[[nodiscard]] double envelope(const EnvelopeShape& shape, double ms, double heldMs) noexcept;
+/// Whether it has finished `ms` after it fired (released `heldMs` after; negative: still held).
+[[nodiscard]] bool envelopeDone(const EnvelopeShape& shape, double ms, double heldMs) noexcept;
 } // namespace fd::dsp::mod
