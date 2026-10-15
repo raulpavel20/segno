@@ -6,12 +6,10 @@ namespace fd::devices::wavetable_ui
 {
 namespace look
 {
-/// A display's well: flat, a step below the module's body.
+/// A display's well (the kit's).
 void paintWell(juce::Graphics& g, juce::Rectangle<float> r)
 {
-    const auto& t = ui::Theme::current();
-    g.setColour(t.surface0);
-    g.fillRoundedRectangle(r, t.radiusControl);
+    ui::paintDisplayWell(g, r);
 }
 
 float inset()
@@ -19,17 +17,10 @@ float inset()
     return static_cast<float>(ui::Theme::current().deviceGrid.displayInset);
 }
 
-/// A point dragged on a display: filled `surface3`, ringed in the value colour; `active` while
-/// held or hovered (device-panels.md, "Display handle").
+/// A point dragged on a display (the kit's).
 void paintHandle(juce::Graphics& g, juce::Point<float> at, bool hot)
 {
-    const auto& t = ui::Theme::current();
-    const auto size = static_cast<float>(t.deviceGrid.displayHandle);
-    const auto r = juce::Rectangle<float>(size, size).withCentre(at);
-    g.setColour(hot ? t.active : t.surface3);
-    g.fillEllipse(r);
-    g.setColour(hot ? t.active : t.value);
-    g.drawEllipse(r.reduced(0.5f), 1.0f);
+    ui::paintDisplayHandle(g, at, hot);
 }
 
 /// A cycle's samples as a line across `r`, its middle at the centre.
@@ -650,94 +641,15 @@ void TablePicker::importFile()
 
 namespace
 {
-/// A named shape as points to start editing from (the bends near its own curve).
+/// The kit's (shared with the LFO modulator, modulators.md §12.1).
 std::vector<std::array<float, 3>> pointsOf(const W::Curve& c)
 {
-    if (!c.points.empty())
-        return c.points;
-    if (c.shape == "triangle")
-        return {{0.0f, 0.5f, 0.0f}, {0.25f, 1.0f, 0.0f}, {0.75f, 0.0f, 0.0f}, {1.0f, 0.5f, 0.0f}};
-    if (c.shape == "saw-up")
-        return {{0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 0.0f}};
-    if (c.shape == "saw-down")
-        return {{0.0f, 1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}};
-    if (c.shape == "square")
-        return {{0.0f, 1.0f, 0.0f}, {0.5f, 1.0f, 0.0f}, {0.5f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}};
-    if (c.shape == "steps")
-        return {{0.0f, 0.0f, 0.0f},        {0.25f, 0.0f, 0.0f},       {0.25f, 1.0f / 3.0f, 0.0f},
-                {0.5f, 1.0f / 3.0f, 0.0f}, {0.5f, 2.0f / 3.0f, 0.0f}, {0.75f, 2.0f / 3.0f, 0.0f},
-                {0.75f, 1.0f, 0.0f},       {1.0f, 1.0f, 0.0f}};
-    // The sine: quarters bent towards its own roundness.
-    return {{0.0f, 0.5f, 0.3f},
-            {0.25f, 1.0f, -0.3f},
-            {0.5f, 0.5f, 0.3f},
-            {0.75f, 0.0f, -0.3f},
-            {1.0f, 0.5f, 0.0f}};
+    return dsp::editablePoints(c);
 }
 
-/// A curve's line across `r` (0 at the bottom, 1 at the top), from the table the audio plays.
-juce::Path curveLine(const W::Curve& c, juce::Rectangle<float> r)
-{
-    const auto table = c.table();
-    juce::Path p;
-    const auto n = table.size() - 1;
-    for (size_t i = 0; i <= n; ++i)
-    {
-        const juce::Point<float> pt(r.getX() + r.getWidth() * static_cast<float>(i) / static_cast<float>(n),
-                                    r.getBottom() - table[i] * r.getHeight());
-        i == 0 ? p.startNewSubPath(pt) : p.lineTo(pt);
-    }
-    return p;
-}
-
-juce::Point<float> pointAt(const std::array<float, 3>& p, juce::Rectangle<float> r)
-{
-    return {r.getX() + p[0] * r.getWidth(), r.getBottom() - p[1] * r.getHeight()};
-}
-
-/// The point under `at` (within a handle's reach), or -1.
-int pointNear(const std::vector<std::array<float, 3>>& points, juce::Rectangle<float> r,
-              juce::Point<float> at)
-{
-    const float reach = static_cast<float>(ui::Theme::current().deviceGrid.displayHandle);
-    int best = -1;
-    float nearest = reach;
-    for (size_t i = 0; i < points.size(); ++i)
-        if (const float d = pointAt(points[i], r).getDistanceFrom(at); d <= nearest)
-        {
-            nearest = d;
-            best = static_cast<int>(i);
-        }
-    return best;
-}
-
-/// Moves point `i` to `at`, between its neighbours (the first and last stay at the ends).
-void movePoint(std::vector<std::array<float, 3>>& points, size_t i, juce::Rectangle<float> r,
-               juce::Point<float> at)
-{
-    float x = (at.x - r.getX()) / r.getWidth();
-    const float lo = i == 0 ? 0.0f : points[i - 1][0], hi = i + 1 == points.size() ? 1.0f : points[i + 1][0];
-    x = i == 0 ? 0.0f : (i + 1 == points.size() ? 1.0f : std::clamp(x, lo, hi));
-    points[i][0] = x;
-    points[i][1] = std::clamp((r.getBottom() - at.y) / r.getHeight(), 0.0f, 1.0f);
-}
-
-/// Adds a point on the curve at `at`'s x, or removes the one there (keeping two).
-void addOrRemove(W::Curve& c, juce::Rectangle<float> r, juce::Point<float> at)
-{
-    c.points = pointsOf(c);
-    if (const int i = pointNear(c.points, r, at); i > 0 && static_cast<size_t>(i) + 1 < c.points.size())
-    {
-        c.points.erase(c.points.begin() + i);
-        return;
-    }
-    const float x = std::clamp((at.x - r.getX()) / r.getWidth(), 0.0f, 1.0f);
-    const auto table = c.table();
-    const float y = dsp::lookup(table, x);
-    const auto it = std::upper_bound(c.points.begin(), c.points.end(), x,
-                                     [](float v, const std::array<float, 3>& p) { return v < p[0]; });
-    c.points.insert(it, {x, y, 0.0f});
-}
+using ui::curves::addOrRemove;
+using ui::curves::movePoint;
+using ui::curves::pointNear;
 
 /// The curve's state keys, for an LFO ("lfo3") or a Remap ("osc1.remap2").
 nlohmann::json curvePatch(const std::string& key, const W::Curve& c)
@@ -758,19 +670,7 @@ nlohmann::json curvePatch(const std::string& key, const W::Curve& c)
 
 void paintCurve(juce::Graphics& g, const W::Curve& c, juce::Rectangle<float> r, bool handles, int hot)
 {
-    const auto& t = ui::Theme::current();
-    const auto line = curveLine(c, r);
-    auto fill = line;
-    fill.lineTo(r.getBottomRight());
-    fill.lineTo(r.getBottomLeft());
-    fill.closeSubPath();
-    g.setColour(t.fill(t.value));
-    g.fillPath(fill);
-    g.setColour(t.value);
-    g.strokePath(line, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved));
-    if (handles)
-        for (size_t i = 0; i < c.points.size(); ++i)
-            paintHandle(g, pointAt(c.points[i], r), static_cast<int>(i) == hot);
+    ui::paintDrawnCurve(g, c, r, handles, hot);
 }
 } // namespace
 
@@ -1309,23 +1209,28 @@ void EnvelopeEditor::mouseUp(const juce::MouseEvent&)
 
 // ---- ShapeEditor ---------------------------------------------------------------------------------
 
-namespace
-{
-/// A named shape's name in its menu: "saw-up" reads "Saw up".
-juce::String shapeName(std::string_view id)
-{
-    auto name = juce::String(std::string(id)).replaceCharacter('-', ' ');
-    return name.substring(0, 1).toUpperCase() + name.substring(1);
-}
-} // namespace
-
 ShapeEditor::ShapeEditor(ui::DeviceUiContext& context, Modulation& modulation)
     : ctx_(context), handle_(modulation, static_cast<int>(W::Source::Lfo1))
 {
-    shapes_.setTooltip("A shape to start from");
-    shapes_.onClick = [this] { showShapes(); };
-    addAndMakeVisible(handle_);
-    addAndMakeVisible(shapes_);
+    curve = [this]
+    {
+        const auto* s = synth(ctx_);
+        return s != nullptr && isLfo() ? s->lfoShape(source_) : W::Curve{};
+    };
+    onChange = [this](const W::Curve& c)
+    {
+        if (!isLfo())
+            return;
+        ctx_.params.beginEdit("Draw LFO " + juce::String(source_ + 1));
+        ctx_.params.applyExtraState(curvePatch("lfo" + std::to_string(source_ + 1), c));
+        refresh();
+    };
+    phase = [this]
+    {
+        if (!isLfo() || ctx_.analysis == nullptr || ctx_.analysis->read(W::ActiveVoices) <= 0.0f)
+            return -1.0f;
+        return ctx_.analysis->read(W::Lfo1Phase + source_);
+    };
     setSource(0);
 }
 
@@ -1334,201 +1239,61 @@ void ShapeEditor::setSource(int n)
     source_ = n;
     handle_.setSource(isLfo() ? static_cast<int>(W::Source::Lfo1) + n
                               : static_cast<int>(W::Source::Random1) + n - W::numLfos);
-    shapes_.setVisible(isLfo());
-    resized(); // the chip's name changed
+    setAccessory(&handle_, handle_.preferredWidth()); // the chip's name changed
+    setEditable(isLfo());
     setTooltip(isLfo()
                    ? "Drag a point; double-click to add or remove one; drag a segment up or down to bend it"
                    : "How the random source moves");
-    setMouseCursor(isLfo() ? juce::MouseCursor::CrosshairCursor : juce::MouseCursor::NormalCursor);
-    lastState_.clear();
+    lastRandom_.clear();
     refresh();
     repaint();
-}
-
-void ShapeEditor::resized()
-{
-    // The handle, a chip, in the top-right corner; the shapes' menu at the left.
-    const int size = ui::Theme::current().deviceGrid.sourceHandle;
-    auto top = getLocalBounds().reduced(static_cast<int>(inset())).removeFromTop(size);
-    handle_.setBounds(top.removeFromRight(handle_.preferredWidth()));
-    shapes_.setBounds(top.removeFromLeft(size));
-}
-
-juce::Rectangle<float> ShapeEditor::plot() const
-{
-    // Below the handle's row; the points' handles whole inside the well.
-    const auto& grid = ui::Theme::current().deviceGrid;
-    return getLocalBounds()
-        .toFloat()
-        .reduced(inset() + static_cast<float>(grid.displayHandle) * 0.5f)
-        .withTrimmedTop(static_cast<float>(grid.sourceHandle));
-}
-
-W::Curve ShapeEditor::curve() const
-{
-    const auto* s = synth(ctx_);
-    return s != nullptr && isLfo() ? s->lfoShape(source_) : W::Curve{};
-}
-
-void ShapeEditor::setCurve(const W::Curve& c)
-{
-    if (!isLfo())
-        return;
-    ctx_.params.beginEdit("Draw LFO " + juce::String(source_ + 1));
-    ctx_.params.applyExtraState(curvePatch("lfo" + std::to_string(source_ + 1), c));
-    lastState_.clear();
-    refresh();
 }
 
 void ShapeEditor::refresh()
 {
-    // What it draws: the curve or the random source's mode, and the LFO's phase while it plays.
-    std::string state = std::to_string(source_);
     if (isLfo())
     {
-        const auto c = curve();
-        state += c.shape;
-        for (const auto& p : c.points)
-            for (const float v : p)
-                state += "," + std::to_string(v);
-        phase_ = -1.0f;
-        if (ctx_.analysis != nullptr && ctx_.analysis->read(W::ActiveVoices) > 0.0f)
-            phase_ = ctx_.analysis->read(W::Lfo1Phase + source_);
-        state += "@" + std::to_string(juce::roundToInt(phase_ * 500.0f));
+        CurveEditor::refresh();
+        return;
     }
-    else
-        state += "m" + std::to_string(
-                           static_cast<int>(plain(ctx_, W::random(source_ - W::numLfos, W::RandomMode))));
-    if (state != lastState_)
+    // A random source: what it draws is its mode.
+    const auto state =
+        std::to_string(source_) + "m" +
+        std::to_string(static_cast<int>(plain(ctx_, W::random(source_ - W::numLfos, W::RandomMode))));
+    if (state != lastRandom_)
     {
-        lastState_ = state;
+        lastRandom_ = state;
         repaint();
     }
 }
 
-void ShapeEditor::paint(juce::Graphics& g)
+void ShapeEditor::paintContent(juce::Graphics& g, juce::Rectangle<float> r)
 {
+    if (isLfo())
+    {
+        CurveEditor::paintContent(g, r);
+        return;
+    }
+    // The random source itself, seeded, a few of its cycles across.
     const auto& t = ui::Theme::current();
-    paintWell(g, getLocalBounds().toFloat());
-    const auto r = plot();
-    if (!isLfo())
+    dsp::RandomSource random;
+    random.reset(7);
+    const auto mode = static_cast<dsp::RandomSource::Mode>(
+        static_cast<int>(plain(ctx_, W::random(source_ - W::numLfos, W::RandomMode))));
+    const int n = std::max(16, static_cast<int>(r.getWidth()));
+    const double perPoint = 6.0 / n;
+    juce::Path line;
+    for (int i = 0; i <= n; ++i)
     {
-        // The random source itself, seeded, a few of its cycles across.
-        dsp::RandomSource random;
-        random.reset(7);
-        const auto mode = static_cast<dsp::RandomSource::Mode>(
-            static_cast<int>(plain(ctx_, W::random(source_ - W::numLfos, W::RandomMode))));
-        const int n = std::max(16, static_cast<int>(r.getWidth()));
-        const double perPoint = 6.0 / n;
-        juce::Path line;
-        for (int i = 0; i <= n; ++i)
-        {
-            if (mode == dsp::RandomSource::Mode::PerNote && i % (n / 3 + 1) == 0)
-                random.noteOn();
-            const float v = random.advance(mode, 1, perPoint);
-            const juce::Point<float> pt(r.getX() +
-                                            r.getWidth() * static_cast<float>(i) / static_cast<float>(n),
-                                        r.getCentreY() - v * r.getHeight() * 0.5f);
-            i == 0 ? line.startNewSubPath(pt) : line.lineTo(pt);
-        }
-        g.setColour(t.value);
-        g.strokePath(line, juce::PathStrokeType(1.5f));
-        return;
+        if (mode == dsp::RandomSource::Mode::PerNote && i % (n / 3 + 1) == 0)
+            random.noteOn();
+        const float v = random.advance(mode, 1, perPoint);
+        const juce::Point<float> pt(r.getX() + r.getWidth() * static_cast<float>(i) / static_cast<float>(n),
+                                    r.getCentreY() - v * r.getHeight() * 0.5f);
+        i == 0 ? line.startNewSubPath(pt) : line.lineTo(pt);
     }
-    const bool editing = dragged_ >= 0 || bending_ >= 0;
-    const auto c = editing ? editing_ : curve();
-    paintCurve(g, c, r, !c.points.empty(), dragged_);
-    if (phase_ >= 0.0f)
-    {
-        // Where it is now: a line through the curve, and a dot on it.
-        const float x = r.getX() + phase_ * r.getWidth();
-        g.setColour(t.textSecondary);
-        g.drawVerticalLine(juce::roundToInt(x), r.getY(), r.getBottom());
-        const float y = r.getBottom() - dsp::lookup(c.table(), phase_) * r.getHeight();
-        const float dot = static_cast<float>(t.deviceGrid.displayHandle) * 0.5f;
-        g.setColour(t.textPrimary);
-        g.fillEllipse(juce::Rectangle<float>(dot, dot).withCentre({x, y}));
-    }
-}
-
-int ShapeEditor::pointAt(juce::Point<float> p) const
-{
-    return pointNear(editing_.points, plot(), p);
-}
-
-void ShapeEditor::mouseDown(const juce::MouseEvent& e)
-{
-    if (!isLfo())
-        return;
-    editing_ = W::Curve{curve().shape, pointsOf(curve())};
-    dragged_ = pointAt(e.position);
-    bending_ = -1;
-    if (dragged_ < 0)
-    {
-        // Between two points: bend that segment.
-        const float x = (e.position.x - plot().getX()) / plot().getWidth();
-        for (size_t k = 0; k + 1 < editing_.points.size(); ++k)
-            if (x >= editing_.points[k][0] && x <= editing_.points[k + 1][0])
-            {
-                bending_ = static_cast<int>(k);
-                bendStart_ = editing_.points[k][2];
-                bendY_ = e.position.y;
-                break;
-            }
-    }
-    repaint();
-}
-
-void ShapeEditor::mouseDrag(const juce::MouseEvent& e)
-{
-    if (dragged_ >= 0)
-        movePoint(editing_.points, static_cast<size_t>(dragged_), plot(), e.position);
-    else if (bending_ >= 0)
-    {
-        // Up bulges the segment up, whichever way it goes.
-        const auto& p = editing_.points;
-        const auto k = static_cast<size_t>(bending_);
-        const float way = p[k + 1][1] >= p[k][1] ? 1.0f : -1.0f;
-        editing_.points[k][2] = std::clamp(
-            bendStart_ + way * (bendY_ - e.position.y) / ui::Theme::current().input.bendTravel, -1.0f, 1.0f);
-    }
-    repaint();
-}
-
-void ShapeEditor::mouseUp(const juce::MouseEvent& e)
-{
-    if ((dragged_ >= 0 || bending_ >= 0) && e.mouseWasDraggedSinceMouseDown())
-        setCurve(editing_); // one undo step for the whole drag
-    dragged_ = bending_ = -1;
-    repaint();
-}
-
-void ShapeEditor::mouseDoubleClick(const juce::MouseEvent& e)
-{
-    if (!isLfo())
-        return;
-    auto c = curve();
-    addOrRemove(c, plot(), e.position);
-    setCurve(c);
-}
-
-void ShapeEditor::showShapes()
-{
-    juce::PopupMenu menu;
-    const auto named = W::namedShapes();
-    const auto current = curve();
-    for (size_t i = 0; i < named.size(); ++i)
-        menu.addItem(static_cast<int>(i) + 1, shapeName(named[i]), true,
-                     current.points.empty() && current.shape == named[i]);
-    juce::Component::SafePointer<ShapeEditor> self(this);
-    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&shapes_),
-                       [self](int chosen)
-                       {
-                           if (self == nullptr || chosen <= 0)
-                               return;
-                           self->setCurve(
-                               W::Curve{std::string(W::namedShapes()[static_cast<size_t>(chosen - 1)]), {}});
-                       });
+    g.setColour(t.value);
+    g.strokePath(line, juce::PathStrokeType(1.5f));
 }
 
 // ---- MatrixList ----------------------------------------------------------------------------------

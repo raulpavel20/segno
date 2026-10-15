@@ -7,6 +7,7 @@
 #include "fd/device/Registry.h"
 #include "fd/device/VoiceManager.h"
 #include "fd/dsp/ControlGrid.h"
+#include "fd/dsp/DrawnCurve.h"
 #include "fd/dsp/IirOversampler.h"
 #include "fd/dsp/Oscillator.h"
 #include "fd/dsp/Smoother.h"
@@ -247,13 +248,7 @@ public:
     };
 
     /// A drawn curve (an LFO's shape, a Remap warp's): a named shape, or points (x, y, bend).
-    struct Curve
-    {
-        std::string shape = "sine"; // when there are no points
-        std::vector<std::array<float, 3>> points;
-        [[nodiscard]] dsp::CurveTable table() const;
-        [[nodiscard]] bool operator==(const Curve&) const = default;
-    };
+    using Curve = dsp::DrawnCurve; // shared with the LFO modulator (modulators.md §12.1)
     /// The named shapes an LFO offers, in its menu's order.
     [[nodiscard]] static std::span<const std::string_view> namedShapes() noexcept;
 

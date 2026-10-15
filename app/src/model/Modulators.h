@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <fd/device/Device.h>
 #include <fd/device/Presets.h>
+#include <fd/dsp/DrawnCurve.h>
 #include <optional>
 #include <span>
 #include <string_view>
@@ -91,6 +92,9 @@ public:
     [[nodiscard]] virtual std::vector<float> stepValues() const { return {}; }
     [[nodiscard]] virtual std::vector<float> stepChances() const { return {}; }
     virtual void setStep(int /*step*/, float /*value*/, float /*chance*/) {}
+    /// The LFO: the shape it plays while its Shape is Drawn (§12.1); setting it is one undo step.
+    [[nodiscard]] virtual dsp::DrawnCurve drawnCurve() const { return {}; }
+    virtual void setDrawnCurve(const dsp::DrawnCurve& /*curve*/) {}
 };
 
 /// Each modulator's parameters, by index into its DeviceInfo's.

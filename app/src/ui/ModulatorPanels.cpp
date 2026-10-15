@@ -71,6 +71,33 @@ public:
     Display(ui::DeviceUiContext& context, ModulatorKind kind, ModulatorHost& host)
         : MiniDisplay(context, {}, drawnFrom(kind)), ctx_(context), kind_(kind), host_(host)
     {
+        // The LFO's drawn shape (§12.1): the shared curve editor over the plot while Shape is
+        // Drawn.
+        if (kind_ == ModulatorKind::Lfo)
+        {
+            drawn_.curve = [this] { return host_.drawnCurve(); };
+            drawn_.onChange = [this](const dsp::DrawnCurve& c)
+            {
+                host_.setDrawnCurve(c);
+                drawn_.refresh();
+                repaint();
+            };
+            addChildComponent(drawn_);
+        }
+    }
+
+    /// The LFO's drawn shape's editor (shown while Shape is Drawn).
+    [[nodiscard]] ui::CurveEditor& drawnEditor() noexcept { return drawn_; }
+
+    void resized() override
+    {
+        MiniDisplay::resized();
+        // Below the readout line, the display's width: the plot's points' handles have room.
+        const auto line =
+            contentArea().getY() + static_cast<float>(ui::Theme::current().deviceGrid.displayTextHeight);
+        const auto area = getLocalBounds().withTrimmedTop(juce::roundToInt(line));
+        drawn_.setBounds(area);
+        drawn_.setChrome(false, plotArea() - area.getPosition().toFloat());
     }
 
     void setHandle(ui::ModulationHandle& handle)
@@ -89,6 +116,24 @@ public:
     void refresh() override
     {
         MiniDisplay::refresh();
+        if (kind_ == ModulatorKind::Lfo)
+        {
+            const bool drawn = static_cast<int>(value(Lfo::Shape)) == static_cast<int>(mod::Shape::Drawn);
+            if (drawn != drawn_.isVisible())
+            {
+                drawn_.setVisible(drawn);
+                repaint();
+            }
+            if (drawn)
+            {
+                drawn_.refresh();
+                if (const auto c = host_.drawnCurve(); !(c == drawnShown_))
+                {
+                    drawnShown_ = c;
+                    repaint(); // its copies' traces follow
+                }
+            }
+        }
         // What moves without a parameter changing: where it is, its targets, its roll, what it heard.
         const auto position = host_.position();
         const auto routes = host_.routeCount();
@@ -164,6 +209,17 @@ private:
         return {};
     }
 
+    /// Where its output is drawn: under the readout line.
+    [[nodiscard]] juce::Rectangle<float> plotArea() const
+    {
+        const auto& t = ui::Theme::current();
+        const auto inset = static_cast<float>(t.deviceGrid.displayInset);
+        return contentArea()
+            .withTrimmedTop(static_cast<float>(t.deviceGrid.displayTextHeight))
+            .withTrimmedTop(inset * 0.5f)
+            .reduced(0.0f, inset * 0.25f);
+    }
+
     void drawContent(juce::Graphics& g, juce::Rectangle<float> area) override
     {
         const auto& t = ui::Theme::current();
@@ -174,7 +230,7 @@ private:
         g.setFont(ui::font(ui::TextStyle::ValueSmall));
         g.setColour(t.textSecondary);
         g.drawText(readout(), line, juce::Justification::centredLeft, true);
-        const auto plot = area.withTrimmedTop(inset * 0.5f).reduced(0.0f, inset * 0.25f);
+        const auto plot = plotArea();
         switch (kind_)
         {
         case ModulatorKind::Lfo:
@@ -248,8 +304,10 @@ private:
         const int n = copies();
         baseline(g, plot, both);
         const double now = position_ - std::floor(position_);
-        traces(g, plot, both, now,
-               [&](int copy, double u) { return mod::lfo(shape, u + mod::spread(copy, n), slant, smooth); });
+        // Drawn: the shape drawn (the editor over the plot draws its points).
+        const auto table = drawnShown_.table();
+        traces(g, plot, both, now, [&](int copy, double u)
+               { return mod::lfo(shape, u + mod::spread(copy, n), slant, smooth, &table); });
     }
 
     void drawRandom(juce::Graphics& g, juce::Rectangle<float> plot) const
@@ -465,6 +523,8 @@ private:
     ui::DeviceUiContext& ctx_;
     ModulatorKind kind_;
     ModulatorHost& host_;
+    ui::CurveEditor drawn_;      // the LFO's drawn shape, while Shape is Drawn
+    dsp::DrawnCurve drawnShown_; // what the traces draw it from
     ui::ModulationHandle* handle_ = nullptr;
     double position_ = 0.0;
     int routes_ = 0;
@@ -700,6 +760,11 @@ ui::ModulationHandle& ModulatorPanel::handle() noexcept
 juce::Component& ModulatorPanel::display() noexcept
 {
     return *display_;
+}
+
+ui::CurveEditor* ModulatorPanel::drawnEditor() noexcept
+{
+    return kind_ == ModulatorKind::Lfo ? &display_->drawnEditor() : nullptr;
 }
 
 void ModulatorPanel::refreshFromHost()

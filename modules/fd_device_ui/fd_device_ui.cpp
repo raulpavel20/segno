@@ -9,4 +9,5 @@
 #include "panel/ParamBinding.cpp"
 #include "panel/Displays.cpp"
 #include "panel/Modulation.cpp"
+#include "panel/CurveEditor.cpp"
 // clang-format on

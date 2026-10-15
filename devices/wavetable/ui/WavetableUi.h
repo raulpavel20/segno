@@ -266,41 +266,28 @@ private:
     std::vector<float> last_;
 };
 
-/// LFO n's shape drawn and edited (points dragged, double-click adds or removes one, a segment
-/// dragged up or down bends it, a named shape from the menu in its corner), or random source n's
-/// way of moving drawn. Its phase while one plays; its source handle in the corner.
-class ShapeEditor final : public juce::Component, public ui::ParamControl, public juce::SettableTooltipClient
+/// LFO n's shape drawn and edited with the shared curve editor (ui::CurveEditor: points dragged,
+/// a double-click adds or removes one, a segment bent, a named shape from its menu), or random
+/// source n's way of moving drawn. Its phase while one plays; its source handle in the corner.
+class ShapeEditor final : public ui::CurveEditor
 {
 public:
     ShapeEditor(ui::DeviceUiContext& context, Modulation& modulation);
     /// 0-7: an LFO; 8-9: a random source.
     void setSource(int n);
     void refresh() override;
-    void paint(juce::Graphics& g) override;
-    void resized() override;
-    void mouseDown(const juce::MouseEvent& e) override;
-    void mouseDrag(const juce::MouseEvent& e) override;
-    void mouseUp(const juce::MouseEvent& e) override;
-    void mouseDoubleClick(const juce::MouseEvent& e) override;
-
-    [[nodiscard]] juce::Rectangle<float> plot() const;
-    [[nodiscard]] W::Curve curve() const;
-    void setCurve(const W::Curve& c);
     [[nodiscard]] ui::ModulationHandle& handle() noexcept { return handle_; }
+
+protected:
+    void paintContent(juce::Graphics& g, juce::Rectangle<float> plot) override;
 
 private:
     [[nodiscard]] bool isLfo() const noexcept { return source_ < W::numLfos; }
-    [[nodiscard]] int pointAt(juce::Point<float> p) const;
-    void showShapes();
 
     ui::DeviceUiContext& ctx_;
     ui::ModulationHandle handle_;
-    ui::IconButton shapes_{ui::Icon::ChevronDown};
-    int source_ = 0, dragged_ = -1, bending_ = -1;
-    float bendStart_ = 0.0f, bendY_ = 0.0f;
-    W::Curve editing_;
-    std::string lastState_;
-    float phase_ = -1.0f;
+    int source_ = 0;
+    std::string lastRandom_;
 };
 
 /// The modulation matrix: a caption row with Add, then a row a route (source, target, amount,

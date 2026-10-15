@@ -5,6 +5,7 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <fd/dsp/DrawnCurve.h>
 #include <fd/dsp/Modulators.h>
 #include <memory>
 #include <tracktion_engine/tracktion_engine.h>
@@ -74,6 +75,11 @@ public:
     [[nodiscard]] std::vector<float> stepChances() const;
     /// Step `step`'s value (-1 ... +1) and chance (0..1).
     void setStep(int step, float value, float chance, juce::UndoManager* um);
+    // ---- the LFO's drawn shape (§12.1) ---------------------------------------------------------
+    /// What it plays while its Shape is Drawn (a sine until drawn); set it (one step's part).
+    [[nodiscard]] dsp::DrawnCurve drawnCurve() const;
+    void setDrawnCurve(const dsp::DrawnCurve& curve, juce::UndoManager* um);
+
     /// Whether its pattern was set (else it plays its default one); the whole pattern set, or
     /// back to the default (empty values). Presets keep it (modulators.md §14).
     [[nodiscard]] bool patternSet() const;
@@ -172,6 +178,10 @@ private:
     std::atomic<std::int64_t> firings_{0};
     // Steps' pattern, readable on the audio thread.
     std::array<std::atomic<float>, model::modulator::Steps::maxSteps> steps_{}, chances_{};
+    // The LFO's drawn shape as it plays: two tables, the audio thread reading the one shown (the
+    // other written on a change, then shown).
+    std::array<dsp::CurveTable, 2> drawn_{};
+    std::atomic<int> drawnShown_{0};
     // The Follower: its level, filters and follower state (audio thread).
     std::atomic<float> level_{0.0f};
     double followed_ = 0.0;

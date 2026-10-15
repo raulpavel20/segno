@@ -20,6 +20,8 @@ public:
 protected:
     /// `area` excludes the label line (use the full bounds when there is no label).
     virtual void drawContent(juce::Graphics& g, juce::Rectangle<float> area) = 0;
+    /// The area drawContent gets.
+    [[nodiscard]] juce::Rectangle<float> contentArea() const;
     [[nodiscard]] float param(size_t index) const { return context_.params.getPlain(index); }
 
 private:

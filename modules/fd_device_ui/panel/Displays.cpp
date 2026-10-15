@@ -37,13 +37,19 @@ void MiniDisplay::refresh()
         repaint();
 }
 
+juce::Rectangle<float> MiniDisplay::contentArea() const
+{
+    const auto r = getLocalBounds().toFloat();
+    return label_.isEmpty() ? r.reduced(5.0f, 4.0f) : r.reduced(5.0f, 4.0f).withTrimmedTop(12.0f);
+}
+
 void MiniDisplay::paint(juce::Graphics& g)
 {
     const auto& t = Theme::current();
     const auto r = getLocalBounds().toFloat();
     g.setColour(t.surface0);
     g.fillRoundedRectangle(r, t.radiusControl);
-    drawContent(g, label_.isEmpty() ? r.reduced(5.0f, 4.0f) : r.reduced(5.0f, 4.0f).withTrimmedTop(12.0f));
+    drawContent(g, contentArea());
     if (label_.isNotEmpty())
         paintCapsLabel(g, label_, r.reduced(5.0f, 3.0f).removeFromTop(12.0f));
 }

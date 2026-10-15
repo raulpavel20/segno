@@ -705,6 +705,13 @@ Json modulatorJson(ToolEnv& env, const model::DeviceSlot& slot)
     Json j{{"routes", std::move(routes)}};
     if (model::hasKeep(slot.modulator->kind))
         j["kept"] = slot.modulator->kept; // ADR 0062
+    // The LFO's drawn shape (§12.1): what Shape "Drawn" plays.
+    if (slot.modulator->kind == model::ModulatorKind::Lfo)
+        if (auto handle = env.session.openModulator(slot.id))
+        {
+            const auto c = handle->host().drawnCurve();
+            j["curve"] = c.points.empty() ? Json{{"shape", c.shape}} : Json{{"points", c.points}};
+        }
     return j;
 }
 

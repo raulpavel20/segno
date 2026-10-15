@@ -818,6 +818,12 @@ public:
         session_.impl().beginEdit("Edit step");
         m_.setStep(step, value, chance, &session_.impl().edit->getUndoManager());
     }
+    dsp::DrawnCurve drawnCurve() const override { return m_.drawnCurve(); }
+    void setDrawnCurve(const dsp::DrawnCurve& curve) override
+    {
+        session_.impl().beginEdit("Draw " + m_.getName());
+        m_.setDrawnCurve(curve, &session_.impl().edit->getUndoManager());
+    }
 
 private:
     Session& session_;

@@ -18,6 +18,10 @@ const juce::Identifier Modulator::placeId{"fdBefore"};
 const juce::Identifier Modulator::keptRollId{"fdKeptRoll"};
 const juce::Identifier Modulator::listenId{"fdListen"};
 const juce::Identifier Modulator::rackChainId{"fdRackChain"};
+namespace
+{
+const juce::Identifier kCurveId{"fdCurve"}; // the LFO's drawn shape: {"shape": …} or {"points": […]}
+} // namespace
 
 namespace
 {
@@ -281,6 +285,35 @@ void Modulator::setStep(int step, float value, float chance, juce::UndoManager* 
     state.setProperty(kChancesId, textOf(chances), um);
 }
 
+dsp::DrawnCurve Modulator::drawnCurve() const
+{
+    dsp::DrawnCurve c;
+    const auto json = nlohmann::json::parse(state[kCurveId].toString().toStdString(), nullptr, false);
+    if (!json.is_object())
+        return c;
+    if (const auto it = json.find("points"); it != json.end() && it->is_array())
+        for (const auto& p : *it)
+            if (p.is_array() && p.size() == 3)
+                c.points.push_back({p[0].get<float>(), p[1].get<float>(), p[2].get<float>()});
+    c.shape = json.value("shape", std::string("sine"));
+    return c;
+}
+
+void Modulator::setDrawnCurve(const dsp::DrawnCurve& curve, juce::UndoManager* um)
+{
+    if (curve.points.empty() && curve.shape == "sine")
+    {
+        state.removeProperty(kCurveId, um); // as it starts
+        return;
+    }
+    nlohmann::json json = nlohmann::json::object();
+    if (curve.points.empty())
+        json["shape"] = curve.shape;
+    else
+        json["points"] = curve.points;
+    state.setProperty(kCurveId, juce::String(json.dump()), um);
+}
+
 bool Modulator::patternSet() const
 {
     return state.hasProperty(kStepsId) || state.hasProperty(kChancesId);
@@ -309,6 +342,13 @@ void Modulator::setPattern(const std::vector<float>& values, const std::vector<f
 
 void Modulator::refreshFromState()
 {
+    // The drawn shape, into the table not shown, then shown (§12.1).
+    if (kind_ == ModulatorKind::Lfo)
+    {
+        const int next = 1 - drawnShown_.load(std::memory_order_relaxed);
+        drawn_[static_cast<size_t>(next)] = drawnCurve().table();
+        drawnShown_.store(next, std::memory_order_release);
+    }
     kept_.store(state.hasProperty(keptRollId));
     keptRoll_.store(static_cast<std::uint64_t>(state[keptRollId].toString().getLargeIntValue()));
     keptLap_.store(static_cast<int>(state.getProperty(kKeptLapId, 0)));
@@ -328,7 +368,8 @@ void Modulator::refreshFromState()
 
 void Modulator::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& id)
 {
-    if (tree == state && (id == keptRollId || id == kKeptLapId || id == kStepsId || id == kChancesId))
+    if (tree == state &&
+        (id == keptRollId || id == kKeptLapId || id == kStepsId || id == kChancesId || id == kCurveId))
         refreshFromState();
 }
 
@@ -425,7 +466,8 @@ double Modulator::signal(int copy, double seconds) const noexcept
     {
         const double cycles = lfoCycles(seconds) + value(Lfo::Phase) / 360.0 + mod::spread(c, routeCount());
         return mod::lfo(static_cast<mod::Shape>(static_cast<int>(value(Lfo::Shape))), cycles,
-                        value(Lfo::Slant) * 0.01, value(Lfo::Smooth) * 0.01);
+                        value(Lfo::Slant) * 0.01, value(Lfo::Smooth) * 0.01,
+                        &drawn_[static_cast<size_t>(drawnShown_.load(std::memory_order_acquire))]);
     }
     case ModulatorKind::Random:
     {

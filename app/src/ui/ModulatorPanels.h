@@ -31,6 +31,8 @@ public:
     [[nodiscard]] juce::Component& display() noexcept;
     /// The Keep toggle (Random, Envelope, Steps), else null.
     [[nodiscard]] ui::Toggle* keep() noexcept { return keep_.get(); }
+    /// The LFO's drawn shape's editor over its display (shown while Shape is Drawn), else null.
+    [[nodiscard]] ui::CurveEditor* drawnEditor() noexcept;
 
     /// Where its routes go and how the chain takes its handle's drag (the DAW's DeviceChain):
     /// set by the host.

@@ -14,6 +14,7 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <cstdlib>
+#include <fd/dsp/Modulators.h>
 #include <fd_device_ui/fd_device_ui.h>
 #include <tracktion_engine/tracktion_engine.h>
 
@@ -729,4 +730,44 @@ TEST_CASE(
     panel->onHandleDrag(mouseAt(*freq, c, c, true));
     CHECK_FALSE(s.modulatorPointer().over.has_value());
     panel->onHandleCancel();
+}
+
+TEST_CASE(
+    "modulators in the chain view: the LFO's Drawn shape edited on its display with the shared curve editor",
+    "[integration][modulators][ui]")
+{
+    Chain f;
+    auto& s = *f.session;
+    const auto lfo = s.addModulator(f.t, Kind::Lfo);
+    f.show();
+    auto* panel = f.chain->modulatorPanel(lfo);
+    REQUIRE(panel != nullptr);
+    auto* editor = panel->drawnEditor();
+    REQUIRE(editor != nullptr);
+    panel->display().resized();
+    CHECK_FALSE(editor->isVisible()); // a sine: nothing to draw on
+    {
+        auto handle = s.openModulator(lfo);
+        REQUIRE(handle != nullptr);
+        handle->context().params.setPlain(fd::model::modulator::Lfo::Shape,
+                                          static_cast<float>(fd::dsp::mod::Shape::Drawn));
+    }
+    f.refreshAll();
+    for (auto* c : {&panel->display()})
+        if (auto* pc = dynamic_cast<fd::ui::ParamControl*>(c))
+            pc->refresh();
+    REQUIRE(editor->isVisible());
+    // Over the display's plot, inside the display, clear of the handle's line.
+    CHECK(panel->display().getLocalBounds().contains(editor->getBounds()));
+    CHECK_FALSE(editor->getBounds().intersects(panel->handle().getBounds()));
+    f.shot("drawn");
+    // A double-click adds a point to the sine's five: one undo step.
+    const auto plot = editor->plot();
+    const juce::Point<float> at{plot.getX() + plot.getWidth() * 0.6f, plot.getCentreY()};
+    editor->mouseDoubleClick(mouseAt(*editor, at, at, false));
+    auto handle = s.openModulator(lfo);
+    CHECK(handle->host().drawnCurve().points.size() == 6);
+    CHECK(s.undoDescription() == "Draw LFO");
+    f.refreshAll();
+    f.shot("drawn-point");
 }

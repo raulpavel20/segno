@@ -21,6 +21,7 @@ END_JUCE_MODULE_DECLARATION
 
 #include <fd/device/Device.h>
 #include <fd/device/Presets.h>
+#include <fd/dsp/DrawnCurve.h>
 #include <fd/dsp/Modulation.h>
 #include <fd/dsp/Spectrum.h>
 #include <fd/dsp/SynthBlocks.h>
@@ -39,5 +40,6 @@ namespace fd::ui { class ModulationModel; class ModuleEditor; }
 #include "panel/ModuleEditor.h"
 #include "panel/Modulation.h"
 #include "panel/Displays.h"
+#include "panel/CurveEditor.h"
 #include "panel/PanelRegistry.h"
 // clang-format on

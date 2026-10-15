@@ -246,7 +246,8 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
                              "route_modulator",
                              "set_route",
                              "remove_route",
-                             "keep_roll"})
+                             "keep_roll",
+                             "set_lfo_curve"})
         CHECK(names.contains(name));
     for (const auto& p : registry.prompts)
     {
@@ -2705,6 +2706,18 @@ TEST_CASE("mcp tools: modulators added, routed, set, removed and kept (modulator
     CHECK(daw.fails("set_module_sidechain", {{"module", lfoId}, {"source", t1}}).find("no sidechain") !=
           std::string::npos);
     daw.call("remove_module", {{"module", follower}});
+
+    // The LFO's drawn shape (§12.1): named, or points; Shape set to Drawn; get_module says so.
+    auto drawn =
+        daw.call("set_lfo_curve", {{"modulator", lfoId}, {"points", {{0, 0, 0}, {0.5, 1, 0.3}, {1, 0, 0}}}});
+    CHECK(drawn["curve"]["points"].size() == 3);
+    CHECK(daw.call("get_module", {{"module", lfoId}})["modulator"]["curve"]["points"].size() == 3);
+    drawn = daw.call("set_lfo_curve", {{"modulator", lfoId}, {"shape", "steps"}});
+    CHECK(drawn["curve"]["shape"] == "steps");
+    CHECK(daw.fails("set_lfo_curve", {{"modulator", random}, {"shape", "sine"}}).find("isn't an LFO") !=
+          std::string::npos);
+    CHECK(daw.fails("set_lfo_curve", {{"modulator", lfoId}, {"points", {{0.6, 0, 0}, {0.2, 1, 0}}}})
+              .find("left to right") != std::string::npos);
 
     // Moved, folded, turned off and removed as any module.
     CHECK(daw.call("move_module", {{"module", lfoId}, {"position", 2}})["chain"][2]["id"] == lfoId);

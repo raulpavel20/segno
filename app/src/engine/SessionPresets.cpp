@@ -210,6 +210,11 @@ DeviceState Session::Impl::modulatorState(const Modulator& m)
             s.params[std::string(info.params[i].id)] = m.plain(i);
     if (m.kind() == model::ModulatorKind::Steps && m.patternSet())
         s.extra = {{"steps", m.stepValues()}, {"chances", m.stepChances()}};
+    // The LFO's drawn shape (§12.1), when drawn.
+    if (m.kind() == model::ModulatorKind::Lfo)
+        if (const auto c = m.drawnCurve(); !c.points.empty() || c.shape != "sine")
+            s.extra = c.points.empty() ? nlohmann::json{{"curve", {{"shape", c.shape}}}}
+                                       : nlohmann::json{{"curve", {{"points", c.points}}}};
     return s;
 }
 
@@ -242,6 +247,22 @@ void Session::Impl::applyModulatorState(Modulator& m, const DeviceState& state, 
         const auto values = floats("steps");
         if (!values.empty() || m.patternSet())
             m.setPattern(values, floats("chances"), um);
+    }
+    // The LFO's drawn shape: the preset's, or the sine it starts as.
+    if (m.kind() == model::ModulatorKind::Lfo)
+    {
+        dsp::DrawnCurve curve;
+        if (state.extra.is_object() && state.extra.contains("curve") && state.extra["curve"].is_object())
+        {
+            const auto& c = state.extra["curve"];
+            curve.shape = c.value("shape", std::string("sine"));
+            if (const auto it = c.find("points"); it != c.end() && it->is_array())
+                for (const auto& p : *it)
+                    if (p.is_array() && p.size() == 3)
+                        curve.points.push_back({p[0].get<float>(), p[1].get<float>(), p[2].get<float>()});
+        }
+        if (!(curve == m.drawnCurve()))
+            m.setDrawnCurve(curve, um);
     }
     const auto json = memo.empty() ? juce::String() : juce::String(memo.toJson().dump());
     if (m.state.getProperty(kPresetId).toString() != json)

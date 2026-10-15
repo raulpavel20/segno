@@ -8,6 +8,7 @@
 #include "model/Racks.h"
 
 #include <cmath>
+#include <fd/dsp/Modulators.h>
 
 namespace fd::mcp
 {
@@ -201,6 +202,64 @@ void addModulatorTools(Registry& registry, ToolEnv& env)
                  return ToolResult::ok({{"modulator", formatId(IdKind::Module, m.id)},
                                         {"target", paramRefJson(env, p.target)}});
              }));
+
+    registry.tools.push_back(make(
+        env,
+        {"set_lfo_curve", "Draw an LFO's shape",
+         "The shape an LFO modulator plays while its Shape is Drawn (§12.1): a named shape to start from "
+         "(sine, triangle, saw-up, saw-down, square, steps), or points [x, y, bend] from x 0 to 1 (y 0 to 1, "
+         "bottom to top; bend -1 to 1 bows each segment). Sets Shape to Drawn. One undo step.",
+         object({{"modulator", id(IdKind::Module, "The LFO")},
+                 {"shape", string("A named shape")},
+                 {"points",
+                  arrayOf({{"type", "array"}, {"items", number("")}}, "[x, y, bend] points, x rising", 2)}},
+                {"modulator"}),
+         result({{"modulator", string("")}, {"curve", result({})}}, {"modulator", "curve"}), changes},
+        [&env](const Json& args, CallContext&)
+        {
+            const auto [m, owner] = modulatorArg(env, args["modulator"]);
+            if (m.modulator->kind != model::ModulatorKind::Lfo)
+                throw Problem{m.name + " isn't an LFO: only an LFO plays a drawn shape."};
+            dsp::DrawnCurve curve;
+            if (args.contains("points"))
+            {
+                float x = -1.0f;
+                for (const auto& p : args["points"])
+                {
+                    if (!p.is_array() || p.size() != 3)
+                        throw Problem{"Each point is [x, y, bend]."};
+                    const std::array<float, 3> point{std::clamp(p[0].get<float>(), 0.0f, 1.0f),
+                                                     std::clamp(p[1].get<float>(), 0.0f, 1.0f),
+                                                     std::clamp(p[2].get<float>(), -1.0f, 1.0f)};
+                    if (point[0] < x)
+                        throw Problem{"The points go left to right: each x at least the one before."};
+                    x = point[0];
+                    curve.points.push_back(point);
+                }
+                curve.points.front()[0] = 0.0f; // from one end to the other
+                curve.points.back()[0] = 1.0f;
+            }
+            else
+            {
+                const auto shape = args.value("shape", std::string("sine"));
+                const auto named = dsp::namedCurveShapes();
+                if (std::find(named.begin(), named.end(), shape) == named.end())
+                    throw Problem{"There's no shape \"" + shape +
+                                  "\": sine, triangle, saw-up, saw-down, square or steps."};
+                curve.shape = shape;
+            }
+            auto handle = env.session.openModulator(m.id);
+            if (handle == nullptr)
+                throw Problem{"The LFO couldn't be opened."};
+            handle->host().setDrawnCurve(curve);
+            auto& params = handle->context().params;
+            params.setPlain(model::modulator::Lfo::Shape, static_cast<float>(dsp::mod::Shape::Drawn));
+            env.session.flushSnapshot();
+            const auto now = handle->host().drawnCurve();
+            return ToolResult::ok(
+                {{"modulator", formatId(IdKind::Module, m.id)},
+                 {"curve", now.points.empty() ? Json{{"shape", now.shape}} : Json{{"points", now.points}}}});
+        }));
 
     registry.tools.push_back(make(
         env,

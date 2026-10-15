@@ -15,6 +15,7 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <fd/device/Registry.h>
+#include <fd/dsp/Modulators.h>
 #include <tracktion_engine/tracktion_engine.h>
 
 using Catch::Approx;
@@ -566,4 +567,42 @@ TEST_CASE("modulators (session): in a rack, grouped with their modules, moving o
     CHECK(f.chainOf(f.t) == std::vector<std::uint64_t>{follower, utility, lfo, filter});
     CHECK(f.slot(lfo).modulator->routes.size() == 1);
     CHECK(f.swingDb() > 3.0);
+}
+
+TEST_CASE("modulators (session): an LFO plays the shape drawn while its Shape is Drawn (§12.1)",
+          "[integration][modulators]")
+{
+    Modulators f;
+    auto& s = *f.session;
+    const auto utility = s.addDevice(f.t, "fd:utility");
+    const auto lfo = s.addModulator(f.t, Kind::Lfo);
+    REQUIRE(s.routeModulator(lfo, f.target(utility, "gain"), 0.5f));
+    f.setModulator(lfo, Lfo::Rate, 8.0f);
+    CHECK(f.swingDb() > 3.0); // the sine swings
+
+    // Drawn, flat at the top: no swing, the gain held up.
+    f.setModulator(lfo, Lfo::Shape, static_cast<float>(fd::dsp::mod::Shape::Drawn));
+    auto handle = s.openModulator(lfo);
+    REQUIRE(handle != nullptr);
+    CHECK(handle->host().drawnCurve().points.empty()); // a sine until drawn
+    handle->host().setDrawnCurve({.shape = "sine", .points = {{0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 0.0f}}});
+    CHECK(s.undoDescription() == "Draw LFO");
+    CHECK(f.swingDb() < 0.2);
+    const auto held = f.render();
+    CHECK(std::abs(held.at(0, held.numSamples() / 2)) > 0.5f); // above the input's 0.5
+    // Undone: the sine again.
+    s.undo();
+    CHECK(handle->host().drawnCurve().points.empty());
+    CHECK(f.swingDb() > 3.0);
+
+    // A preset keeps it.
+    handle->host().setDrawnCurve({.shape = "saw-up"});
+    auto presets = s.presetHost(lfo);
+    REQUIRE(presets != nullptr);
+    const auto state = presets->state();
+    REQUIRE(state.extra.contains("curve"));
+    CHECK(state.extra["curve"]["shape"] == "saw-up");
+    handle->host().setDrawnCurve({});
+    presets->apply(state, {}, "Load preset");
+    CHECK(handle->host().drawnCurve().shape == "saw-up");
 }
