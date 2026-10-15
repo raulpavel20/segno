@@ -2,7 +2,7 @@
 
 A **modulator** is a module that makes no sound. It sits on a track and moves other parameters there: a filter's cutoff, a plugin's knob, a rack's Morph, the track's volume. The first five are the **LFO**, **Random**, **Envelope**, **Follower** and **Steps**. A modulator routed to several targets gives each its own copy by default, so one Random moves eight knobs eight different ways. Their randomness is random: it rolls again every time it plays, unless you keep a roll you liked.
 
-**Status:** approved by the product owner (2026-10-15), every recommendation of §21, with modulators anywhere in the chain instead of a zone of their own (§6, M2, revised after the review); ADRs 0061 and 0062 accepted. Step 0 done the same day: the spike passed (§22), and the UI drawn in every state, for the product owner's review (§23). M3 P5, the product owner's priority of 2026-10-15, moved up from M4, with [ADR 0061](../decisions/0061-modulators-move-any-parameter-on-their-track.md) and [ADR 0062](../decisions/0062-random-rolls-again-each-time-it-plays.md). It builds on [ADR 0060](../decisions/0060-motion-comes-from-modulation-modules.md) (motion comes from modulation modules). Nothing is built until the product owner says go, and the UI is drawn in every state and approved first (§19).
+**Status:** approved by the product owner (2026-10-15), every recommendation of §21, with modulators anywhere in the chain instead of a zone of their own (§6, M2, revised after the review); ADRs 0061 and 0062 accepted. Step 0 done the same day: the spike passed (§22), and the UI drawn in every state and approved (§23). Step 1 under way. M3 P5, the product owner's priority of 2026-10-15, moved up from M4, with [ADR 0061](../decisions/0061-modulators-move-any-parameter-on-their-track.md) and [ADR 0062](../decisions/0062-random-rolls-again-each-time-it-plays.md). It builds on [ADR 0060](../decisions/0060-motion-comes-from-modulation-modules.md) (motion comes from modulation modules). Nothing is built until the product owner says go, and the UI is drawn in every state and approved first (§19).
 
 What the product owner asked (2026-10-15):
 - "Let's start the modulation modules", with a name people understand: "CV tools is great for the people who know, but most people will not know what that is in reference to."
@@ -502,7 +502,7 @@ The spike's checks are kept as tests (`tests/integration/ModulatorSpikeTests.cpp
   - a Follower inside a rack hears its place through the rack's connections;
   - tracktion ignores modifiers on a plugin while automation reading is off (`Plugin::applyToBufferWithAutomation`); the DAW keeps reading on.
 
-## 23. Step 0, drawn (2026-10-15; for the product owner's review)
+## 23. Step 0, drawn (2026-10-15; approved by the product owner the same day)
 
 Every state of §19, drawn with the real panel kit, the modulators' real panels and our modules' panels from a stub of what the engine will hold (`tests/integration/ModulatorUiTests.cpp`, `FD_DUMP_DIR`). Each modulator's panel passes the module panel lint, now one shared check (`tests/panels/PanelLint.h`, which every module's panel also passes). The chain keeps its gaps, a rack's panels stay inside its frame, and the route list's rows keep their parts apart.
 
@@ -535,4 +535,5 @@ What drawing settled:
   - while a handle is dragged, every control shows a faint line or ring, and the one under the pointer lights.
 - **The lines on hover:** from the chip's foot to a dot on each control it moves, in the modulation gradient over a dark halo, so they read where they cross other panels, sagging as a cable does, more the further they go.
 - **The route list:** a popover, `Routes · LFO`, a row a route: the target, its amount bar (−200 … +200 %, from the middle), Show and Remove.
+- **After the review** (the product owner): horizontal space is expensive. TARGETS's two-column toggles and the Follower's Listen picker (the header's fixed 128 px for "Here") made the panels wider than they need to be; step 1 tightens them (§24).
 - **For the kit:** `Theme::echo` (each copy 55 % of the one before, `echoAlpha`), `Icon::Modulator`, a header icon and a folded accessory on `DevicePanel`, the source handle's count, lock, compact form and drags taken by its host, and `ParamBinding::modulated` and `modulatorDrag` for what the track's modulators do to a module's controls.
