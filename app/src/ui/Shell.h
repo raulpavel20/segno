@@ -12,6 +12,7 @@
 #include "ui/ExportPopover.h"
 #include "ui/KeyPopover.h"
 #include "ui/LanePicker.h"
+#include "ui/MidiMapView.h"
 #include "ui/MixerView.h"
 #include "ui/Panels.h"
 #include "ui/SettingsView.h"
@@ -123,6 +124,14 @@ public:
     /// Ends typing in a field on a press elsewhere (tests drive its rule).
     [[nodiscard]] ui::EndEditingOnClickAway& clickAway() noexcept { return clickAway_; }
 
+    /// MIDI map mode (midi-learn.md §3): Options > MIDI map mode; every mappable control
+    /// outlined, a click then a move maps it. Escape or the banner's Done leaves it.
+    void setMidiMapMode(bool on);
+    [[nodiscard]] bool midiMapMode() const noexcept { return midiMapMode_; }
+    [[nodiscard]] MidiMapOverlay& midiOverlay() noexcept { return *midiOverlay_; }
+    /// What a control maps to: its mark (the mixer's, the transport's) or its module's.
+    [[nodiscard]] std::optional<model::MidiTarget> midiTargetOf(const juce::Component& control) const;
+
     /// Frame statistics overlay (paint time of the arrangement, frame rate): --stats.
     void setStatsVisible(bool visible);
     /// Scripted benchmark (--benchmark): fills the project with 32 tracks of clips, zooms in and
@@ -195,6 +204,12 @@ private:
     void registerNotesActions();
     // The modulators' (ShellModulators.cpp, ADR 0061): Module ▸ Add modulator, Keep, Remove routes.
     void registerModulatorActions();
+    // MIDI learn's (ShellMidi.cpp, midi-learn.md): map mode, its banner, the overlay, the tooltips.
+    void registerMidiActions();
+    bool midiMapMode_ = false;
+    std::unique_ptr<MidiMapBanner> midiBanner_;
+    std::unique_ptr<MidiMapOverlay> midiOverlay_;
+    std::unique_ptr<Tooltips> tooltips_;
     /// The notes' right-click menu (piano-roll.md §13).
     [[nodiscard]] juce::PopupMenu notesContextMenu();
     [[nodiscard]] juce::PopupMenu sectionColourMenu();

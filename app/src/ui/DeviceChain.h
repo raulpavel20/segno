@@ -55,6 +55,9 @@ public:
     void expandSelected();
     /// The selected module's next (+1) or previous (-1) page, unfolding it (ADR 0051).
     void turnSelectedPage(int delta);
+    /// The parameter a control on a panel shown sets (a knob, bar or switch), as a target (the
+    /// modulators' drops; MIDI learn's map mode).
+    [[nodiscard]] std::optional<engine::Session::ParamTarget> targetOf(const juce::Component& control) const;
     /// Each module's "Bypassed while monitoring" in its header (recording.md §22.1), as the
     /// engine has it now: checked each frame while the chain shows.
     void updateNotices();
@@ -222,8 +225,6 @@ private:
     void beginGesture(bool started, const std::string& name);
 
     void wireModulatorPanel(ModulatorPanel& panel, std::uint64_t modulator);
-    /// The parameter a control on a panel shown sets (a knob, bar or switch), as a target.
-    [[nodiscard]] std::optional<engine::Session::ParamTarget> targetOf(const juce::Component& control) const;
     /// The control under `p` (in the content) on any panel shown, as a target.
     [[nodiscard]] std::optional<engine::Session::ParamTarget> targetAt(juce::Point<int> p) const;
     /// What shows a target in the chain: its control, else its module's panel (folded, or the

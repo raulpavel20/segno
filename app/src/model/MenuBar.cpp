@@ -240,7 +240,7 @@ std::vector<Menu> menuBar(MenuPlatform platform)
                   submenu("Computer keyboard",
                           {action("midi.computerKeyboard"), separator(), action("midi.octaveDown"),
                            action("midi.octaveUp"), action("midi.velocityDown"), action("midi.velocityUp")}),
-                  separator()}};
+                  action("midi.mapMode"), separator()}};
     if (!mac)
         options.entries.push_back(action("app.settings"));
     options.entries.push_back(action("app.scanPlugins"));

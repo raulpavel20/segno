@@ -346,6 +346,8 @@ Session::Impl::Impl(Session& o, te::Engine& e) : owner(o), engine(e)
     });
     // The browser's previews play after the engine's output (browser.md §7).
     engine.getDeviceManager().deviceManager.addAudioCallback(&preview);
+    tap.setMapper(&midiMapper); // MIDI learn's moves aren't captured as music
+    midiDrain.startTimer(16);
     indexer.onChanged = [this]
     {
         if (owner.onBrowserIndexChanged)
@@ -424,6 +426,11 @@ void Session::Impl::detach()
     if (edit == nullptr)
         return;
     cancelPendingUpdate();
+    endMidiGestures(true); // a controller's move ends with its project
+    midiMap.learning.reset();
+    midiMap.pending.reset();
+    midiMap.follow.clear();
+    midiMapper.setLearning(false);
     endRecordingPass();
     lastTouched.reset();
     edit->getTransport().removeListener(this);
@@ -461,6 +468,7 @@ void Session::Impl::midiDevicesChanged()
             in->setMonitorMode(te::InputDevice::MonitorMode::on);
     }
     edit->getTransport().ensureContextAllocated(true); // instances for new inputs
+    midiMapper.syncDevices();                          // before the tap, which asks it what it takes
     tap.syncDevices();
     if (!tapDrain.isTimerRunning())
         tapDrain.startTimer(10);
@@ -619,6 +627,12 @@ void Session::Impl::rebuildSnapshot()
     }
 
     s->edgeFades = edgeFadesOn(*edit);
+    // MIDI learn (midi-learn.md §6): the project's mappings whose targets are there (one whose
+    // module was deleted comes back with its undo), then the app's.
+    for (auto& m : projectMidiMappings())
+        if (owner.canMapMidi(m.target))
+            s->midiMappings.push_back(std::move(m));
+    s->midiMappings.insert(s->midiMappings.end(), midiMap.app.begin(), midiMap.app.end());
 
     // The song's sections (ADR 0049): the arranger track's clips, by start.
     edit->ensureArrangerTrack();
@@ -656,6 +670,7 @@ void Session::Impl::rebuildSnapshot()
                         usedSources.insert(c.sourcePath);
     }
     snapshot = std::move(s);
+    publishMidiMapped(); // the inputs take what's mapped now
     if (owner.onSnapshotChanged)
         owner.onSnapshotChanged();
     listeners.call([](Session::Listener& l) { l.snapshotChanged(); });
@@ -2376,6 +2391,7 @@ Session::EditGroup::EditGroup(Session& session, const std::string& name) : sessi
 {
     auto& impl = session_.impl();
     impl.keyStepOpen = false;
+    impl.endMidiMovesForEdit();
     if (impl.groupDepth++ == 0)
         impl.edit->getUndoManager().beginNewTransaction(juce::String(name));
 }

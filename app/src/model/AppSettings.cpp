@@ -12,9 +12,9 @@ namespace
 using Json = nlohmann::json;
 
 /// The keys this build reads; the rest of the file is kept as it is.
-constexpr const char* kKnown[] = {"segnoSettings", "recentProjects", "display",   "midi",
-                                  "recording",     "library",        "plugins",   "export",
-                                  "keys",          "browser",        "assistants"};
+constexpr const char* kKnown[] = {"segnoSettings", "recentProjects", "display",    "midi",
+                                  "recording",     "library",        "plugins",    "export",
+                                  "keys",          "browser",        "assistants", "controllers"};
 
 std::vector<std::string> strings(const Json& j, const char* key)
 {
@@ -125,6 +125,12 @@ std::string toJson(const AppSettings& s)
                     {"open", s.browser.open}};
     j["assistants"] = {
         {"enabled", s.assistants.enabled}, {"readOnly", s.assistants.readOnly}, {"port", s.assistants.port}};
+    auto transport = nlohmann::ordered_json::array();
+    for (const auto& m : s.controllers.transport)
+        transport.push_back(nlohmann::ordered_json::parse(toJson(m).dump()));
+    j["controllers"] = {{"takeover", takeoverKey(s.controllers.takeover)},
+                        {"sendBack", s.controllers.sendBack},
+                        {"transport", std::move(transport)}};
     for (const auto& [key, value] : s.others.items())
         j[key] = value;
     return j.dump(2) + "\n";
@@ -203,6 +209,17 @@ AppSettings appSettingsFromJson(const std::string& json)
         read(*it, "readOnly", s.assistants.readOnly);
         read(*it, "port", s.assistants.port);
         s.assistants.port = std::clamp(s.assistants.port, 1024, 65535);
+    }
+    if (const auto it = j.find("controllers"); it != j.end() && it->is_object())
+    {
+        std::string takeover;
+        read(*it, "takeover", takeover);
+        s.controllers.takeover = takeoverFromKey(takeover).value_or(MidiTakeover::PickUp);
+        s.controllers.sendBack = strings(*it, "sendBack");
+        if (const auto t = it->find("transport"); t != it->end() && t->is_array())
+            for (const auto& m : *t)
+                if (auto mapping = midiMappingFromJson(m); mapping && mapping->target.isTransport())
+                    s.controllers.transport.push_back(std::move(*mapping));
     }
     for (const auto& [key, value] : j.items())
         if (std::none_of(std::begin(kKnown), std::end(kKnown), [&](const char* k) { return key == k; }))

@@ -35,6 +35,8 @@ std::string sectionName(SettingsSection section)
         return "Audio";
     case S::Midi:
         return "MIDI";
+    case S::Controllers:
+        return "Controllers";
     case S::Recording:
         return "Recording";
     case S::Library:
@@ -81,6 +83,15 @@ const std::vector<SettingInfo>& settingsCatalogue()
          "keyboard controller devices"},
         {"midi.computerKeyboard", S::Midi, "Computer keyboard",
          "Plays notes from the computer's keyboard from the moment Segno opens.", "typing qwerty"},
+        {"controllers.takeover", S::Controllers, "Takeover",
+         "When a knob and its control differ: wait until it passes, go straight there, or meet at the end.",
+         "midi learn pick up jump scale soft takeover controller"},
+        {"controllers.sendBack", S::Controllers, "Send values back",
+         "Moves a device's motorised faders and lights its LED rings to follow what's mapped to them.",
+         "midi feedback motorised faders led rings controller output"},
+        {"controllers.transport", S::Controllers, "Transport",
+         "Buttons mapped to Play, Record and the rest in MIDI map mode; they work in every project.",
+         "midi learn foot switch play stop record loop metronome capture"},
         {"recording.format", S::Recording, "File format", "The kind of file new recordings are written as.",
          "wav aiff flac"},
         {"recording.bitDepth", S::Recording, "Bit depth",

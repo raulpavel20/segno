@@ -14,6 +14,7 @@ enum class SettingsSection
 {
     Audio,
     Midi,
+    Controllers,
     Recording,
     Library,
     Plugins,
@@ -23,9 +24,10 @@ enum class SettingsSection
     Assistants
 };
 inline constexpr SettingsSection kSettingsSections[] = {
-    SettingsSection::Audio,   SettingsSection::Midi,    SettingsSection::Recording,
-    SettingsSection::Library, SettingsSection::Plugins, SettingsSection::Export,
-    SettingsSection::Keys,    SettingsSection::Display, SettingsSection::Assistants};
+    SettingsSection::Audio,     SettingsSection::Midi,    SettingsSection::Controllers,
+    SettingsSection::Recording, SettingsSection::Library, SettingsSection::Plugins,
+    SettingsSection::Export,    SettingsSection::Keys,    SettingsSection::Display,
+    SettingsSection::Assistants};
 
 [[nodiscard]] std::string sectionName(SettingsSection section);
 

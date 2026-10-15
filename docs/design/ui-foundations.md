@@ -48,6 +48,7 @@ Roles are derived from the base palette in `Theme.cpp` (`deriveRoles`), the only
 | `rackFrame` | surface0 | The tray a rack's modules sit in, in the chain, edged in `line` (or `active` while a drop would land in it; [racks.md](racks.md) §5a) |
 | `overlay` | surface3 at 90 % | Diagnostic overlays (frame statistics) |
 | `automation` | effectStart | The automation indicator on controls (C4) |
+| `midiMap`, `midiMapFill` | Magenta, the same in every theme; it at twice `fillAlpha` | MIDI learn ([midi-learn.md](midi-learn.md) §4): map mode's outlines and labels, the control waiting to learn; the tint over a mapped control in map mode |
 | `shadow` | black at 50 % | The one shadow, under popovers |
 
 Role functions for colours that depend on content:

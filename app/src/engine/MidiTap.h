@@ -1,13 +1,13 @@
 #pragma once
 
+#include "engine/MidiMapper.h"
 #include "model/Capture.h"
-
-#include <tracktion_engine/tracktion_engine.h>
 
 #include <array>
 #include <functional>
 #include <memory>
 #include <string>
+#include <tracktion_engine/tracktion_engine.h>
 #include <vector>
 
 namespace fd::engine
@@ -28,6 +28,8 @@ public:
 
     /// Follows the physical MIDI inputs (when they change).
     void syncDevices();
+    /// What MIDI learn takes (MidiMapper) isn't played: it's left out (set before syncDevices).
+    void setMapper(MidiMapper* mapper) noexcept { mapper_ = mapper; }
     /// A computer keyboard message (message thread).
     void pushKeyboard(const juce::MidiMessage& message);
     /// Moves what arrived into the kept events, oldest first (message thread). `songAt` says where
@@ -59,6 +61,7 @@ private:
     [[nodiscard]] static bool keep(const juce::MidiMessage& m);
 
     te::Engine& engine_;
+    MidiMapper* mapper_ = nullptr;
     std::vector<std::unique_ptr<Device>> devices_; // index + 1: the source
     Queue keyboard_;
     std::vector<model::MidiEvent> events_;

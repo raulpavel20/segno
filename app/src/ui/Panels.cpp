@@ -6,10 +6,10 @@
 #include "model/Takes.h"
 #include "model/TopBarLayout.h"
 #include "ui/GridMenu.h"
-
-#include <fd/device/Registry.h>
+#include "ui/MidiMapView.h"
 
 #include <algorithm>
+#include <fd/device/Registry.h>
 #include <initializer_list>
 #include <limits>
 #include <map>
@@ -47,6 +47,14 @@ TransportBar::TransportBar(engine::Session& session, const ActionRegistry& actio
     add(record_, "transport.record");
     record_.setRecordAccent(true);
     record_.onPopupMenu = [this] { showRecordMenu(); };
+    // The transport's buttons, mappable in MIDI map mode, kept with the app (midi-learn.md §7).
+    for (const auto& [button, key] : {std::pair<juce::Component*, const char*>{&play_, "transport.play"},
+                                      {&stop_, "transport.stop"},
+                                      {&record_, "transport.record"},
+                                      {&loop_, "transport.loop"},
+                                      {&metronome_, "transport.metronome"},
+                                      {&capture_, "transport.capture"}})
+        setMidiTarget(*button, {0, key});
     reducedLatency_.show(
         "Reduced latency",
         "Reduced latency when monitoring is on (Options): the tracks you're playing through don't "
@@ -490,6 +498,9 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
 {
     header_.setTitle("Inspector");
     addAndMakeVisible(header_);
+    midiViewport_.setViewedComponent(&midiList_, false);
+    midiViewport_.setScrollBarsShown(true, false);
+    addChildComponent(midiViewport_);
     viewport_.setViewedComponent(&body_, false);
     viewport_.setScrollBarsShown(true, false);
     addAndMakeVisible(viewport_);
@@ -1449,11 +1460,39 @@ int InspectorPanel::rowOf(model::InspectorSection section, std::string_view key)
     return -1;
 }
 
+void InspectorPanel::setMidiMappingsShown(bool shown)
+{
+    midiShown_ = shown;
+    viewport_.setVisible(!shown);
+    midiViewport_.setVisible(shown);
+    if (shown)
+        midiList_.update();
+    resized();
+}
+
+void InspectorPanel::updateMidiMappings()
+{
+    if (!midiShown_)
+        return;
+    const int before = midiList_.preferredHeight(midiList_.getWidth());
+    midiList_.update();
+    if (midiList_.preferredHeight(midiList_.getWidth()) != before)
+        resized();
+}
+
 void InspectorPanel::resized()
 {
     const auto& t = ui::Theme::current();
     header_.setBounds(getLocalBounds().removeFromTop(t.shell.panelHeaderHeight));
     viewport_.setBounds(getLocalBounds().withTrimmedTop(header_.getBottom()));
+    midiViewport_.setBounds(viewport_.getBounds());
+    for (int pass = 0; pass < 2 && midiShown_; ++pass)
+    {
+        const int width = std::max(1, midiViewport_.getMaximumVisibleWidth());
+        midiList_.setSize(width, midiList_.preferredHeight(width));
+        if (midiViewport_.getMaximumVisibleWidth() == width)
+            break;
+    }
     // As wide as the viewport shows; again if that brought its scroll bar in or out.
     for (int pass = 0; pass < 2; ++pass)
     {

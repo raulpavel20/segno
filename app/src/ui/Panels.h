@@ -9,6 +9,7 @@
 #include "ui/ChannelInspector.h"
 #include "ui/DeviceChain.h"
 #include "ui/LaneAssignments.h"
+#include "ui/MidiMappingList.h"
 #include "ui/PianoRoll.h"
 #include "ui/ToolsPane.h"
 #include "ui/TrackInputs.h"
@@ -181,6 +182,12 @@ public:
     [[nodiscard]] const juce::OwnedArray<ui::Toggle>& movers() const noexcept { return movers_; }
     [[nodiscard]] const juce::OwnedArray<ui::Toggle>& laneShows() const noexcept { return laneShows_; }
     [[nodiscard]] RouteRows* routes() noexcept { return routes_.get(); }
+    /// MIDI map mode (midi-learn.md §6): the project's mappings in place of the sections, read
+    /// again each frame (updateMidiMappings) as they land.
+    void setMidiMappingsShown(bool shown);
+    [[nodiscard]] bool midiMappingsShown() const noexcept { return midiShown_; }
+    void updateMidiMappings();
+    [[nodiscard]] MidiMappingList& midiMappings() noexcept { return midiList_; }
     void resized() override;
     void paint(juce::Graphics& g) override;
 
@@ -211,6 +218,9 @@ private:
 
     engine::Session& session_;
     ui::PanelHeader header_;
+    MidiMappingList midiList_{session_};
+    juce::Viewport midiViewport_;
+    bool midiShown_ = false;
     /// The sections, under the header, scrolled when they're taller than the panel (the detail
     /// panel below can leave it little room).
     struct Body final : juce::Component
@@ -332,6 +342,7 @@ public:
     /// True while it's showing an audio clip.
     [[nodiscard]] bool showsAudioClip() const noexcept { return mode_ == Mode::Clip && audio_.clip().has_value(); }
     [[nodiscard]] DeviceChain& chain() noexcept { return chain_; }
+    [[nodiscard]] const DeviceChain& chain() const noexcept { return chain_; }
     /// A module's editor (ADR 0053): a view of its own, below the module, its tab named for what
     /// it edits. Replaces one open before; its Done, or the module going, closes it.
     void showEditor(std::uint64_t module, std::unique_ptr<ui::ModuleEditor> editor);

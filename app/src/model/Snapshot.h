@@ -4,6 +4,7 @@
 #include "model/Controllers.h"
 #include "model/Fades.h"
 #include "model/KeyMap.h"
+#include "model/MidiMap.h"
 #include "model/Modulators.h"
 #include "model/Recording.h"
 #include "model/TempoMap.h"
@@ -356,6 +357,9 @@ struct Snapshot
     /// The song's key (ADR 0057): none until one is chosen.
     KeyMap keys;
     bool edgeFades = true; // the project's edge fades (fades.md §2)
+    /// The MIDI mappings (midi-learn.md): the project's whose targets are there, then the app's
+    /// (the transport's).
+    std::vector<MidiMapping> midiMappings;
     std::uint64_t version = 0;
 
     /// Any channel by id: a track, a return or the master.

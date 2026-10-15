@@ -7,6 +7,7 @@
 #include "model/Editing.h"
 #include "model/Export.h"
 #include "model/Grid.h"
+#include "model/MidiMap.h"
 #include "model/RoundTrip.h"
 #include "model/Snapshot.h"
 
@@ -525,6 +526,60 @@ public:
         ParamTarget target_;
         bool touching_ = false;
     };
+
+    // ---- MIDI learn (docs/design/midi-learn.md, M3 C8) ----------------------------------------
+    // A controller's knob, fader, button or pad moves a control: one message, one target (ML6).
+    // The project keeps its mappings (each change one undo step); the transport's are the app's
+    // (set from and told to its settings). A mapped move goes the mouse's way: one gesture until
+    // it rests for half a second, one undo step, recording automation while armed (ML9).
+
+    /// Every mapping: the snapshot's (its targets there), the app's after.
+    [[nodiscard]] std::vector<model::MidiMapping> midiMappings() const;
+    [[nodiscard]] std::optional<model::MidiMapping> midiMappingOf(const model::MidiTarget& target) const;
+    /// Whether a target can be mapped (a parameter automation reaches, a channel's mute or solo,
+    /// a track's arm, a transport button).
+    [[nodiscard]] bool canMapMidi(const model::MidiTarget& target) const;
+    /// Maps a source to a target, taking the source from whatever it moved and the target from
+    /// whatever moved it. One undo step, "Map MIDI" (a transport mapping: the app's, not undone).
+    /// False if the target can't be mapped or the mode doesn't suit the source.
+    bool mapMidi(const model::MidiMapping& mapping);
+    /// Removes a target's mapping. One undo step, "Remove MIDI mapping". False if it had none.
+    bool removeMidiMapping(const model::MidiTarget& target);
+    /// A mapping's Min, Max and mode. One undo step, "MIDI mapping".
+    bool setMidiMapping(const model::MidiTarget& target, float min, float max, model::MidiMode mode);
+    /// Learning (ML1, ML2): the next message from any input maps `target`; until then every input's
+    /// messages are taken for it. cancelMidiLearn gives up.
+    void learnMidi(const model::MidiTarget& target);
+    void cancelMidiLearn();
+    [[nodiscard]] std::optional<model::MidiTarget> midiLearnTarget() const;
+    /// A message as if it came from the input named `device` (assistants' tests, the computer):
+    /// handled at the next drain, as the inputs' are.
+    void receiveMidi(const std::string& device, const juce::MidiMessage& message);
+    /// Handles what came in now, rather than at the next frame (tests).
+    void drainMidiNow();
+    /// What a mapping's row and assistants call its target: "Filter · Freq", "Bass · Volume",
+    /// "Bass · Mute", "Play"; empty if it isn't there.
+    [[nodiscard]] std::string midiTargetName(const model::MidiTarget& target) const;
+    /// A travel of a mapped parameter as its control shows it ("1.20 kHz"), and back; a switch
+    /// "On" and "Off".
+    [[nodiscard]] std::string midiValueText(const model::MidiTarget& target, float travel) const;
+    [[nodiscard]] std::optional<float> midiValueFromText(const model::MidiTarget& target,
+                                                         const std::string& text) const;
+    /// The app's settings (Settings > Controllers): takeover, the inputs values go back to, the
+    /// transport's mappings. Set by the app at launch and when they change there.
+    void setMidiTakeover(model::MidiTakeover takeover);
+    [[nodiscard]] model::MidiTakeover midiTakeover() const;
+    void setMidiSendBack(std::vector<std::string> devices);
+    /// Whether a MIDI output has this name (an input's device that values can go back to).
+    [[nodiscard]] bool hasMidiOutput(const std::string& name) const;
+    void setAppMidiMappings(std::vector<model::MidiMapping> mappings);
+    [[nodiscard]] std::vector<model::MidiMapping> appMidiMappings() const;
+    /// The app's mappings changed here (learned, removed): its settings keep them.
+    std::function<void(const std::vector<model::MidiMapping>&)> onAppMidiMappingsChanged;
+    /// A transport button pressed on a controller ("transport.play"): the app runs it.
+    std::function<void(const std::string& key)> onMidiTransport;
+    /// A mapping made by learning (the views mark the control a moment).
+    std::function<void(const model::MidiMapping&)> onMidiLearned;
 
     // ---- modulators (docs/design/modulators.md, ADR 0061; each edit one undoable step) ---------
     // A modulator sits in a track's chain as a module does: the snapshot lists it among them (a

@@ -28,5 +28,18 @@ void addAutomationItems(engine::Session& session, const engine::Session::ParamTa
         if (const auto id = session.automateInNewLane(target))
             session.revealLane(id);
     });
+    menu.addSeparator();
+    addMidiItems(session, {target.channel, target.key}, menu);
+}
+
+void addMidiItems(engine::Session& session, const model::MidiTarget& target, juce::PopupMenu& menu)
+{
+    if (!session.canMapMidi(target))
+        return;
+    menu.addItem("Learn MIDI", [&session, target] { session.learnMidi(target); });
+    if (const auto m = session.midiMappingOf(target))
+        menu.addItem("Remove MIDI mapping (" + juce::String::fromUTF8(model::sourceLabel(m->source).c_str()) +
+                         ")",
+                     [&session, target] { session.removeMidiMapping(target); });
 }
 } // namespace fd::app

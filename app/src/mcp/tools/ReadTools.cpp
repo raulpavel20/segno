@@ -32,6 +32,7 @@ Json projectResultSchema()
          {"tempo", number("Beats per minute")},
          {"edgeFades", boolean("Cut edges of audio clips fade 4 ms (set_edge_fades)")},
          {"reducedLatency", boolean("Reduced latency when monitoring (set_reduced_latency)")},
+         {"midiInputsMapped", arrayOf(string(""), "The MIDI inputs mappings use (get_midi_mappings)", 0)},
          {"timeSignature", result({{"numerator", integer("")}, {"denominator", integer("")}})},
          {"key", keyResultSchema()},
          {"tracks",

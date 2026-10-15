@@ -116,6 +116,7 @@ app/src/
 | Crossfade the selected clips' joins (C6) | `clip.crossfade` | Ctrl+Shift+X |
 | Edge fades on or off (C6) | `project.edgeFades` | Ctrl+Alt+Shift+E |
 | Reduced latency when monitoring (M3 C7, [recording.md](recording.md) §22.1) | `project.reducedLatency` | (menus only) |
+| MIDI map mode (M3 C8, [midi-learn.md](midi-learn.md) §3); Escape leaves it | `midi.mapMode` | (menus only; Ctrl+M is the metronome's) |
 | Quit (C10) | `app.quit` | Ctrl+Q |
 | Full screen (C10) | `view.fullScreen` | F11 |
 | Cancel bounces (C10) | `clip.cancelBounces` | Escape |

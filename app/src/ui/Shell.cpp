@@ -109,6 +109,7 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     registerSongActions();
     registerNotesActions();
     registerModulatorActions();
+    registerMidiActions();
     // The browser (ADR 0046): what it holds goes where it's dropped, or on the selection.
     browser_.onLoad = [this](const std::string& item) { loadFromBrowser(item); };
     browser_.onOpenProject = [this](const juce::File& project) { openFile(project); };
@@ -447,6 +448,9 @@ Shell::~Shell()
     session_.onLaneRevealed = nullptr;
     session_.automationMenu = nullptr;
     session_.onRecorded = nullptr;
+    session_.onMidiTransport = nullptr;
+    session_.onAppMidiMappingsChanged = nullptr;
+    session_.onMidiLearned = nullptr;
 }
 
 // ---- actions -------------------------------------------------------------------------------
@@ -1844,6 +1848,17 @@ bool Shell::keyPressed(const juce::KeyPress& k)
         const bool bounces = session_.cancelBounces();
         if (exportPanel_.cancel() || bounces)
             return true;
+        // MIDI learn (midi-learn.md §3): a control waiting gives up; then map mode ends.
+        if (session_.midiLearnTarget())
+        {
+            session_.cancelMidiLearn();
+            return true;
+        }
+        if (midiMapMode_)
+        {
+            setMidiMapMode(false);
+            return true;
+        }
         // The inspector over the arrangement (compact widths, selection.md §8.1), with the focus.
         if (compact_.value_or(false) && inspectorPanel_.open && inspector_.hasKeyboardFocus(true))
         {
@@ -2813,6 +2828,8 @@ void Shell::onFrame(double timestamp)
     if (relayout)
         resized();
     updateInspectorModule();
+    midiOverlay_->update(); // map mode's outlines, a control waiting to learn
+    inspector_.updateMidiMappings();
 
     if (benchmark_)
     {
@@ -3037,6 +3054,10 @@ void Shell::resized()
             .withWidth(splitter)
             .translated(-splitter / 2, 0));
 
+    // MIDI map mode's banner above the centre (midi-learn.md §3).
+    midiBanner_->setVisible(midiMapMode_);
+    if (midiMapMode_)
+        midiBanner_->setBounds(r.removeFromTop(MidiMapBanner::height()));
     // The centre: the arrangement or the mixer view (C3c), whichever is current, or Settings.
     arrangement_.setVisible(!mixerShown_ && !settingsShown_);
     mixer_.setVisible(mixerShown_ && !settingsShown_);
@@ -3049,5 +3070,7 @@ void Shell::resized()
     browserSplit_.toFront(false);
     inspectorSplit_.toFront(false);
     detailSplit_.toFront(false);
+    midiOverlay_->setBounds(getLocalBounds()); // over everything; it takes clicks only in map mode
+    midiOverlay_->toFront(false);
 }
 } // namespace fd::app

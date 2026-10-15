@@ -47,6 +47,7 @@ void addRackTools(Registry& registry, ToolEnv& env);
 void addModulatorTools(Registry& registry, ToolEnv& env);
 void addChordTools(Registry& registry, ToolEnv& env);
 void addControllerTools(Registry& registry, ToolEnv& env);
+void addMidiMapTools(Registry& registry, ToolEnv& env);
 void addToolkitTools(Registry& registry, ToolEnv& env);
 void addResources(Registry& registry, ToolEnv& env);
 void addPrompts(Registry& registry);

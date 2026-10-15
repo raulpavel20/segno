@@ -67,6 +67,8 @@ void deriveRoles(Theme& t)
     r.rackFrame = t.surface0;
     r.overlay = t.surface3.withAlpha(0.9f);
     r.automation = t.effectStart;
+    r.midiMap = hex(0xEE6FC8); // magenta: apart from every theme's accents (amber, blue, lime)
+    r.midiMapFill = r.midiMap.withAlpha(2.0f * r.fillAlpha);
     r.shadow = juce::Colours::black.withAlpha(0.5f);
 }
 

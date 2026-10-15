@@ -1116,6 +1116,7 @@ Session::ParamGesture::ParamGesture(Session& session, const ParamTarget& target,
     : session_(session), target_(target)
 {
     auto& impl = session_.impl();
+    impl.endMidiMovesForEdit();
     if (impl.groupDepth++ == 0)
         impl.edit->getUndoManager().beginNewTransaction(juce::String(name));
     if (auto p = impl.param(target_); p && p->param != nullptr)

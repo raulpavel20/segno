@@ -71,6 +71,9 @@ struct ColourRoles
     // Automation (docs/design/automation.md §6): the indicator on automated controls. Lanes draw in
     // their own colour (Theme::automationLine and the fill functions).
     juce::Colour automation;
+    // MIDI learn (docs/design/midi-learn.md §4): map mode's outlines, a mapped control's source in
+    // its corner, the control waiting to learn. A hue no theme's accents or gradient use.
+    juce::Colour midiMap, midiMapFill; // the outline and label; the tint over a mapped control
 
     // States.
     float hoverLift = 0.06f, pressedLift = 0.12f;

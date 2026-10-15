@@ -2,7 +2,7 @@
 
 A hardware controller's knob, fader, button or pad moves any control in Segno: you point at the control, move the hardware, and it's mapped. This is generic MIDI learn, for every controller. The Push 2's own support is a separate design ([push-2.md](push-2.md), ADR 0054); in User mode the Push is mapped here too. It builds on recording's MIDI inputs ([recording.md](recording.md) §3), automation ([automation.md](automation.md) §8), presets ([presets.md](presets.md) §11: mappings belong to the project and survive a preset load) and the settings page ([settings.md](settings.md)).
 
-**Status:** approved by the product owner (2026-10-15), every recommendation of ML1–ML14.
+**Status:** approved by the product owner (2026-10-15), every recommendation of ML1–ML14. Built 2026-10-16 (§13).
 
 ## 1. What others do (research, 2026-10-15)
 
@@ -167,3 +167,18 @@ Settings > Controllers (push-2.md §10, after MIDI) holds what's about your setu
 | ML12 | **Following the selection** | Not now: with the Push 2's banks (M4). Mappings stay on their control |
 | ML13 | **The look** | Map mode's outlines in a new `midiMap` role, the message in `Micro` in a mapped control's corner; drawn for approval first |
 | ML14 | **Assistants** | `get_midi_mappings`, `map_midi`, `remove_midi_mapping`. They map by message, since they can't move hardware |
+
+## 13. Built (2026-10-16)
+
+**Where it lives:** `model::MidiMap` (the maths: takeover, Min and Max, buttons, relative encoders and their guess, what's sent back; `[fast]`), `engine::MidiMapper` (a listener on each MIDI input), the Session's mappings (`SessionMidiMap.cpp`), and in the shell `MidiMapOverlay`, `MidiMapBanner`, `MidiMappingList` (the inspector's list), Settings > Controllers and three assistant tools. A small tracktion patch (`tracktion_engine-midi-input-consumers.patch`) lets an input's listener use a message up, so a mapped message reaches no track (ML8); Capture MIDI leaves mapped messages out too.
+
+**Settled while building:**
+- **The look (ML13):** in map mode a mapped control is tinted (`midiMapFill`) with its message centred over it in `Micro`, rather than in its top-right corner: there the label covered a knob's name. Where the whole label doesn't fit (a track's M and S buttons) it shows only the number ("74"). The waiting control's outline pulses outside map mode; the chosen one's is thicker in it.
+- **The window had no tooltips at all:** nothing created JUCE's tooltip window, so no tooltip anywhere in Segno had ever shown. The shell now has one (`Tooltips`), which also adds "Mapped to CC 21 (Launchkey)" to a mapped control's tooltip and says "Move a control on your MIDI device" on the one waiting.
+- **Learning:** a controller whose first value is 127 is taken for a button (Toggle); a coarse controller (0–31) waits 30 ms for its fine half before it's taken for a 7-bit one. The learning message doesn't move the control.
+- **The encoder guess** needs the same value twice in a row (an absolute knob never repeats itself) and only small steps; it changes the mapping's mode quietly, and the row shows it.
+- **Undo (ML9):** two controls moved together share one step; any other edit (a click, a command) first ends the moves still open, so it takes a step of its own.
+- **Mixer controls in map mode:** what shows can be mapped: mute, solo and arm in the headers, volume and pan where they show (taller headers, the mixer view). The inspector shows the list during the mode, so its MIX section is mapped by its right-click (Learn MIDI) outside the mode. A third-party plugin's parameters have no controls in the chain: assistants map them by name (`map_midi`).
+- **Send values back** is offered for each input whose device has an output of the same name.
+- **Assistants:** `map_midi` takes the mode a learned mapping would (a note toggles, the rest set) unless told; `remove_midi_mapping` takes a target or a message; `get_project` lists `midiInputsMapped`.
+

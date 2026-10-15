@@ -120,6 +120,9 @@ Sources: the [Live 12 manual](https://www.ableton.com/en/live-manual/12/first-st
 | | Load | Readout: CPU load and dropouts since opening | – |
 | **MIDI** | Inputs | Each MIDI input: on or off (an off one is ignored everywhere) | All on |
 | | Computer keyboard | The keyboard as MIDI on at launch | Off |
+| **Controllers** | Takeover | Pick up, Jump or Scale, for every MIDI mapping ([midi-learn.md](midi-learn.md) §5, M3 C8) | Pick up |
+| | Send values back | Each MIDI input whose device has an output of its name: on or off (motorised faders, LED rings) | Off |
+| | Transport | The transport's MIDI mappings, kept with the app (made in MIDI map mode on the top bar), each with Remove | None |
 | **Recording** | File format | WAV, AIFF, FLAC | WAV |
 | | Bit depth | 16, 24, 32-bit float | 24 |
 | | Count-in | Off, 1 beat, 2 beats, 1 bar, 2 bars (also on the Record button) | 1 bar |
@@ -205,7 +208,7 @@ Sources: the [Live 12 manual](https://www.ableton.com/en/live-manual/12/first-st
 | S1 | **Where Settings open** | In the centre, in place of the arrangement or mixer, the top bar still playing (§4). Not a separate window, not a modal dialog |
 | S2 | **One page or tabs** | One scrolling, searchable page with a section index (ui-principles §1) |
 | S3 | **Applying** | At once, saved as you go; no OK, Apply or Cancel. *Revised by the product owner: no reset per setting; defaults marked in the choices, one Reset per section shown only when something differs* (§6) |
-| S4 | **The sections** | Audio, MIDI, Recording, Library, Plugins, Export, Keys, Display, Assistants (§7) |
+| S4 | **The sections** | Audio, MIDI, Recording, Library, Plugins, Export, Keys, Display, Assistants (§7); Controllers after MIDI since M3 C8 |
 | S5 | **Interface size** | 75 to 200 % in steps, or Automatic (the system's) (§7) |
 | S6 | **The Segno folder** | Movable, with its presets and unsaved projects moved along (§7, presets.md §5) |
 | S7 | **Export defaults** | New projects start from the export settings used last, shown and editable in Settings (export.md §9) |

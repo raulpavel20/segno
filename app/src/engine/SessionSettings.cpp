@@ -150,6 +150,11 @@ void applySettings(Session& session, const model::AppSettings& settings)
     session.setSegnoFolder(segno);
     session.setBrowserPlaces(settings.browser.places);
     session.setPreviewVolume(static_cast<float>(settings.browser.previewVolume));
+    // Controllers (midi-learn.md §6): takeover, values sent back, the transport's mappings.
+    session.setMidiTakeover(settings.controllers.takeover);
+    session.setMidiSendBack(settings.controllers.sendBack);
+    if (session.appMidiMappings() != settings.controllers.transport)
+        session.setAppMidiMappings(settings.controllers.transport);
 }
 
 juce::File defaultSegnoFolder()

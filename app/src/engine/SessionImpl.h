@@ -3,6 +3,7 @@
 #include "engine/ClipChance.h"
 #include "engine/ClipNotes.h"
 #include "engine/FileIndexer.h"
+#include "engine/MidiMapper.h"
 #include "engine/MidiTap.h"
 #include "engine/Modulator.h"
 #include "engine/PreviewPlayer.h"
@@ -323,6 +324,7 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// an EditGroup the group's step takes the edits instead.
     void beginEdit(const juce::String& name)
     {
+        endMidiMovesForEdit(); // its own step, not a controller's move's
         stopAudition(); // an edit ends an audition (ADR 0038)
         keyStepOpen = false; // any other command closes the Key popover's step
         if (groupDepth == 0)
@@ -363,7 +365,64 @@ struct Session::Impl final : private juce::ValueTree::Listener,
 
     Session& owner;
     te::Engine& engine;
+    // MIDI learn (midi-learn.md §10): what the inputs' listeners take, handled each frame. Made
+    // before the tap, which leaves what it takes alone.
+    MidiMapper midiMapper{engine};
     MidiTap tap{engine}; // Capture MIDI: everything played (after the engine it listens to)
+    struct MidiMapState
+    {
+        std::optional<model::MidiTarget> learning;
+        /// A coarse controller learned, waiting a moment for its fine half (a 14-bit pair).
+        struct Pending
+        {
+            model::MidiSource source;
+            int value = 0;
+            double at = 0.0;
+        };
+        std::optional<Pending> pending;
+        std::map<std::string, model::MidiFollow> follow; // takeover, by source
+        std::map<std::string, std::vector<int>>
+            firstValues;                                // an absolute controller's, for the encoder guess
+        std::map<std::string, std::array<int, 2>> wide; // a 14-bit pair's halves, by source
+        std::map<std::string, bool> down;               // a controller button held, by source
+        std::map<std::string, int> received, sent;      // send values back: the last each way
+        /// A mapped control's move (ML9): one undo step and a touch until it rests.
+        struct Gesture
+        {
+            std::unique_ptr<te::Edit::UndoTransactionInhibitor> inhibitor;
+            std::unique_ptr<Session::ParamGesture> gesture;
+            double last = 0.0;
+        };
+        std::map<std::string, Gesture> gestures; // by target
+        bool moving = false; // a controller's move is being applied (its own edits join its step)
+        model::MidiTakeover takeover = model::MidiTakeover::PickUp;
+        std::vector<std::string> sendBack;
+        std::vector<model::MidiMapping> app; // the transport's, the app's settings'
+    } midiMap;
+    /// The project's mappings as kept, their targets there or not.
+    [[nodiscard]] std::vector<model::MidiMapping> projectMidiMappings() const;
+    /// Tells the inputs' listeners which messages are mapped (after the mappings change).
+    void publishMidiMapped();
+    /// Handles what the inputs took; ends gestures at rest; sends values back (each frame).
+    void drainMidi();
+    void handleMidi(const MidiMapper::Message& message);
+    void learnMidiFrom(const model::MidiSource& source, int value);
+    void endMidiGestures(bool all);
+    /// Another edit begins (the mouse, a command): controllers' moves still open end first, so it
+    /// takes an undo step of its own rather than joining theirs.
+    void endMidiMovesForEdit()
+    {
+        if (!midiMap.gestures.empty() && !midiMap.moving)
+            endMidiGestures(true);
+    }
+    void sendMidiBack();
+    struct MidiDrain final : juce::Timer
+    {
+        explicit MidiDrain(Impl& i) : impl(i) {}
+        void timerCallback() override { impl.drainMidi(); }
+        Impl& impl;
+    };
+    MidiDrain midiDrain{*this};
     std::unique_ptr<te::Edit> edit;
     std::shared_ptr<const model::Snapshot> snapshot;
     std::uint64_t version = 0;

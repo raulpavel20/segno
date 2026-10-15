@@ -36,6 +36,7 @@ void registerAll(Registry& registry, ToolEnv& env)
     addModulatorTools(registry, env);
     addChordTools(registry, env);
     addControllerTools(registry, env);
+    addMidiMapTools(registry, env);
     addToolkitTools(registry, env);
     addResources(registry, env);
     addPrompts(registry);
@@ -641,6 +642,15 @@ Json projectJson(ToolEnv& env)
             {"key", keyJson(snap->keys.first())},
             {"edgeFades", snap->edgeFades},
             {"reducedLatency", s.reducedLatency()},
+            {"midiInputsMapped",
+             [&s]
+             {
+                 std::vector<std::string> inputs; // midi-learn.md §9
+                 for (const auto& m : s.midiMappings())
+                     if (std::find(inputs.begin(), inputs.end(), m.source.device) == inputs.end())
+                         inputs.push_back(m.source.device);
+                 return inputs;
+             }()},
             {"end", positionJson(t.beatsForSeconds(snap->contentEnd()), t)},
             {"loop",
              {{"on", s.isLooping()},

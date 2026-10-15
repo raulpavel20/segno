@@ -2,6 +2,7 @@
 
 #include "model/Taper.h"
 #include "ui/AutomationMenu.h"
+#include "ui/MidiMapView.h"
 
 #include <cmath>
 
@@ -75,6 +76,7 @@ VolumeBar::VolumeBar(engine::Session& session, std::uint64_t channel, Style styl
     setStyle(style);
     setName("Vol");
     setTooltip("Volume (double-click: 0 dB)");
+    setMidiTarget(*this, {channel, "volume"}); // MIDI learn (midi-learn.md §7)
     setDefaultValue(static_cast<float>(model::volumePosition(0.0)));
     textFromValue = [](float v) { return levelText(static_cast<float>(model::volumeDbAt(v))); };
     valueFromText = [](const juce::String& text) -> std::optional<float> {
@@ -110,6 +112,7 @@ PanBar::PanBar(engine::Session& session, std::uint64_t channel)
     setStyle(Style::Bar);
     setName("Pan");
     setTooltip("Pan, a balance (double-click: centre)");
+    setMidiTarget(*this, {channel, "pan"});
     setArcOrigin(0.5f);
     setDefaultValue(0.5f);
     textFromValue = [](float v) { return panText(v * 2.0f - 1.0f); };
@@ -149,6 +152,7 @@ SendBar::SendBar(engine::Session& session, std::uint64_t track, std::uint64_t re
     : session_(session), track_(track), return_(returnTrack), lane_(session, {track, "send/" + std::to_string(returnTrack)})
 {
     setStyle(Style::Bar);
+    setMidiTarget(*this, {track, "send/" + std::to_string(returnTrack)});
     setDefaultValue(0.0f);
     textFromValue = [](float v) { return levelText(static_cast<float>(model::sendDbAt(v))); };
     valueFromText = [](const juce::String& text) -> std::optional<float> {
@@ -193,6 +197,20 @@ ChannelToggle::ChannelToggle(engine::Session& session, Kind kind, std::uint64_t 
     setClickingTogglesState(false); // the snapshot says what it is
     setWantsKeyboardFocus(false);
     setArmStyle(kind == Kind::Arm);
+    if (kind != Kind::PreFader) // mute, solo and arm are what controllers' buttons are for (§7)
+    {
+        const model::MidiTarget target{channel, kind == Kind::Mute   ? "mute"
+                                                : kind == Kind::Solo ? "solo"
+                                                                     : "arm"};
+        setMidiTarget(*this, target);
+        onPopupMenu = [this, target]
+        {
+            juce::PopupMenu menu;
+            addMidiItems(session_, target, menu);
+            if (menu.getNumItems() > 0)
+                menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this));
+        };
+    }
     setTooltip(kind == Kind::Mute   ? "Mute (Alt+M)"
                : kind == Kind::Solo ? "Solo (Alt+S); Ctrl+click adds to the soloed tracks"
                : kind == Kind::Arm  ? "Arm for recording (Alt+R); Ctrl+click arms one more"

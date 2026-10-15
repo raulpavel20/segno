@@ -208,6 +208,9 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
                              "arm_tracks",
                              "set_reduced_latency",
                              "measure_latency",
+                             "get_midi_mappings",
+                             "map_midi",
+                             "remove_midi_mapping",
                              "record",
                              "get_takes",
                              "use_take",
@@ -803,6 +806,73 @@ TEST_CASE("mcp tools: reduced latency when monitoring bypasses a monitored track
     pump(0.3);
     CHECK(daw.call("get_module", {{"module", eq}})["bypassedWhileMonitoring"] == false);
     CHECK(daw.call("set_reduced_latency", {{"on", false}})["on"] == false);
+}
+
+TEST_CASE("mcp tools: MIDI learn: map by message, list, a controller moves it, remove", "[integration][mcp]")
+{
+    Daw daw;
+    auto& s = *daw.session;
+    s.setMidiTakeover(fd::model::MidiTakeover::Jump);
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    const auto filter = daw.call("add_module", {{"track", t0}, {"type", "filter"}})["id"].get<std::string>();
+    const Json knob{{"type", "cc"}, {"number", 74}, {"device", "Launchkey"}};
+    auto r = daw.call(
+        "map_midi",
+        {{"module", filter}, {"parameter", "freq"}, {"message", knob}, {"min", "200 Hz"}, {"max", "2 kHz"}});
+    CHECK(r["mode"] == "absolute");
+    CHECK(r["keptWith"] == "project");
+    CHECK(r["message"]["label"] == "CC 74");
+    CHECK(r["min"].get<std::string>().find("200") != std::string::npos);
+    CHECK(s.undoDescription() == "Assistant: map midi");
+
+    // A controller moves it, between Min and Max.
+    s.receiveMidi("Launchkey", juce::MidiMessage::controllerEvent(1, 74, 127));
+    s.drainMidiNow();
+    const auto module = daw.call("get_module", {{"module", filter}});
+    for (const auto& p : module["parameters"])
+        if (p["id"] == "freq")
+            CHECK(p["text"].get<std::string>().find("2.00 k") != std::string::npos);
+
+    // A button: a note toggling the track's mute; a transport button, the app's.
+    r = daw.call("map_midi", {{"track", t0},
+                              {"button", "mute"},
+                              {"message", {{"type", "note"}, {"number", "C1"}, {"device", "Launchkey"}}}});
+    CHECK(r["mode"] == "toggle");
+    CHECK(r["target"]["button"] == "mute");
+    r = daw.call("map_midi", {{"transport", "record"},
+                              {"message", {{"type", "cc"}, {"number", 64}, {"device", "Foot"}}},
+                              {"mode", "momentary"}});
+    CHECK(r["keptWith"] == "app");
+    CHECK(r["target"]["transport"] == "record");
+    const auto list = daw.call("get_midi_mappings")["mappings"];
+    CHECK(list.size() == 3);
+    const auto inputs = daw.project()["midiInputsMapped"];
+    CHECK(std::find(inputs.begin(), inputs.end(), Json("Foot")) != inputs.end());
+    CHECK(std::find(inputs.begin(), inputs.end(), Json("Launchkey")) != inputs.end());
+
+    // Refused, saying why.
+    CHECK(daw.fails("map_midi", {{"module", filter},
+                                 {"parameter", "res"},
+                                 {"message", {{"type", "cc14"}, {"number", 1}, {"device", "Launchkey"}}},
+                                 {"mode", "toggle"}})
+              .find("absolute") != std::string::npos);
+    CHECK(daw.fails("map_midi",
+                    {{"module", filter}, {"parameter", "res"}, {"message", {{"type", "cc"}, {"number", 1}}}})
+              .find("device") != std::string::npos);
+    CHECK(daw.fails("map_midi", {{"track", t0},
+                                 {"button", "mute"},
+                                 {"message", {{"type", "cc14"}, {"number", 40}, {"device", "Launchkey"}}}})
+              .find("0-31") != std::string::npos);
+
+    // Removed by message, or by target.
+    r = daw.call("remove_midi_mapping", {{"message", knob}});
+    CHECK(r["removed"]["target"]["parameter"] == "freq");
+    CHECK(s.undoDescription() == "Assistant: remove midi mapping");
+    daw.call("remove_midi_mapping", {{"transport", "record"}});
+    CHECK(daw.call("get_midi_mappings")["mappings"].size() == 1);
+    CHECK(daw.fails("remove_midi_mapping", {{"transport", "record"}}).find("no MIDI mapping") !=
+          std::string::npos);
+    s.setAppMidiMappings({}); // the engine's settings are per name: leave none
 }
 
 TEST_CASE("mcp tools: modules, parameters, samples and view state", "[integration][mcp]")

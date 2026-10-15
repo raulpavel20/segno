@@ -87,6 +87,7 @@ private:
     // Rows of each section.
     void addAudio();
     void addMidi();
+    void addControllers();
     void addRecording();
     void addLibrary();
     void addPlugins();

@@ -1,0 +1,51 @@
+MIDI input listeners that use a message up (Segno: docs/design/midi-learn.md §5, ML8).
+
+A controller's knob mapped to a control in Segno shouldn't also reach the armed track's
+instrument (a mod wheel mapped to a filter mustn't bend the synth too). A
+PhysicalMidiInputDevice::Listener may say a message is its alone (consumesMidiMessage, asked on
+the MIDI thread after handleIncomingMidiMessage): then it goes no further. With no listener
+saying so, nothing changes.
+
+diff '--color=auto' -ru a/modules/tracktion_engine/playback/devices/tracktion_PhysicalMidiInputDevice.cpp b/modules/tracktion_engine/playback/devices/tracktion_PhysicalMidiInputDevice.cpp
+--- a/modules/tracktion_engine/playback/devices/tracktion_PhysicalMidiInputDevice.cpp	2026-10-16 01:30:25.456503180 +0300
++++ b/modules/tracktion_engine/playback/devices/tracktion_PhysicalMidiInputDevice.cpp	2026-10-16 01:30:36.273433382 +0300
+@@ -457,11 +457,20 @@
+ 
+ void PhysicalMidiInputDevice::handleIncomingMidiMessageInt (const juce::MidiMessage& m, MPESourceID sourceID)
+ {
++    bool consumed = false;
++
+     {
+         const std::scoped_lock sl (listenerLock);
+-        listeners.call ([m] (Listener& l) { l.handleIncomingMidiMessage (m); });
++        listeners.call ([&m, &consumed] (Listener& l)
++        {
++            l.handleIncomingMidiMessage (m);
++            consumed = l.consumesMidiMessage (m) || consumed;
++        });
+     }
+ 
++    if (consumed)
++        return;
++
+     if (externalController != nullptr && externalController->wantsMessage (*this, m))
+     {
+         externalController->acceptMidiMessage (*this, m);
+diff '--color=auto' -ru a/modules/tracktion_engine/playback/devices/tracktion_PhysicalMidiInputDevice.h b/modules/tracktion_engine/playback/devices/tracktion_PhysicalMidiInputDevice.h
+--- a/modules/tracktion_engine/playback/devices/tracktion_PhysicalMidiInputDevice.h	2026-10-16 01:30:25.456475488 +0300
++++ b/modules/tracktion_engine/playback/devices/tracktion_PhysicalMidiInputDevice.h	2026-10-16 01:30:36.273385723 +0300
+@@ -49,6 +49,12 @@
+         virtual ~Listener() {}
+ 
+         virtual void handleIncomingMidiMessage (const juce::MidiMessage&) {}
++
++        /** Whether the message is the listener's alone, asked after handleIncomingMidiMessage
++            on the MIDI thread: if any listener says so, it goes no further (no input instance,
++            controller or virtual device gets it). Segno: a controller's message mapped to a
++            control. */
++        virtual bool consumesMidiMessage (const juce::MidiMessage&) { return false; }
+     };
+ 
+     void addListener (Listener* l)
+Only in a/modules/tracktion_engine/playback: graph
+Only in a/modules/tracktion_engine: utilities

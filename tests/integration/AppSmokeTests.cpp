@@ -669,6 +669,8 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         "app.systemTitleBar", "app.about", "track.duplicate", "track.delete",
         // Reduced latency when monitoring (recording.md §22.1): a setting, also in Settings.
         "project.reducedLatency",
+        // MIDI map mode (midi-learn.md §3): Ctrl+M is the metronome's; Settings > Keys can give it one.
+        "midi.mapMode",
         // Presets (presets.md §10): on screen in the header; keys come with remapping.
         "module.previousPreset", "module.nextPreset", "module.savePreset", "module.savePresetAs",
         "module.revertPreset", "module.compare", "module.copyCompare", "module.useAsDefault",
@@ -1319,7 +1321,8 @@ TEST_CASE("the Assistants popover turns the server on, shows setup lines and cli
 
             shell.actions().perform("app.assistants");
             CHECK(shell.actions().isToggled("app.assistants"));
-            auto* popover = dynamic_cast<fd::app::AssistantsPopover*>(shell.getChildComponent(shell.getNumChildComponents() - 1));
+            const auto popovers = findAll<fd::app::AssistantsPopover>(shell);
+            auto* popover = popovers.empty() ? nullptr : popovers.front();
             REQUIRE(popover != nullptr);
             CHECK(popover->getRight() <= shell.getWidth());
             CHECK(popover->getY() >= fd::app::TransportBar::height);

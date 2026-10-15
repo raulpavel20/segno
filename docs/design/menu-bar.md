@@ -400,6 +400,7 @@ The notes' right-click menu has Transform ▸ too, Quantise… first, as the Too
 | Reduced latency when monitoring | | *new* (`project.reducedLatency`, M3 C7, [recording.md](recording.md) §22.1): a tick, kept with the project; also on Settings > Recording |
 | — | | |
 | Computer keyboard ▸ | | Computer keyboard as MIDI (Ctrl+Shift+K); — ; Octave down (Z), Octave up (X), Velocity down (C), Velocity up (V): *new* as actions, enabled while it plays (today the keys only) |
+| MIDI map mode | | *new* (`midi.mapMode`, M3 C8, [midi-learn.md](midi-learn.md) §3): a tick; no default shortcut (Ctrl+M is the metronome's) |
 | — | | |
 | Settings… | Ctrl+, | `app.settings` (M3 C1, [settings.md](settings.md), ADR 0045; it was Audio settings…, `app.audioSettings`). In the app menu on macOS. Recording settings… in the Record button's menu opens the page at Recording |
 | Scan for plugins | Ctrl+Alt+P | |

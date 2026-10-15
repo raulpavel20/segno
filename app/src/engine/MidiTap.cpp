@@ -21,11 +21,12 @@ struct MidiTap::Device final : te::PhysicalMidiInputDevice::Listener
 {
     std::shared_ptr<te::MidiInputDevice> device; // kept alive while listened to
     te::PhysicalMidiInputDevice* physical = nullptr;
+    MidiMapper::Taken mapped; // MIDI learn's: a controller's moves aren't music
     Queue queue;
 
     void handleIncomingMidiMessage(const juce::MidiMessage& m) override // MIDI thread
     {
-        if (!keep(m))
+        if (!keep(m) || mapped.takes(m))
             return;
         Raw raw{.time = clockOf(*device), .size = std::min(3, m.getRawDataSize())};
         std::copy_n(m.getRawData(), raw.size, raw.bytes);
@@ -72,6 +73,8 @@ void MidiTap::syncDevices()
                 auto d = std::make_unique<Device>();
                 d->device = in;
                 d->physical = physical;
+                if (mapper_ != nullptr)
+                    d->mapped = mapper_->takenFrom(in->getName());
                 physical->addListener(d.get());
                 devices_.push_back(std::move(d));
             }

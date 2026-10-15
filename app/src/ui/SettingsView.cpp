@@ -392,6 +392,8 @@ std::string SettingsView::signature() const
         out += f + ";";
     for (const auto& f : session_.skippedPlugins())
         out += f + ";";
+    for (const auto& m : settings().controllers.transport)
+        out += model::toJson(m).dump() + ";";
     out += titleBarOption_ ? "t" : "";
     return out;
 }
@@ -406,6 +408,7 @@ void SettingsView::rebuild()
     components_.clear();
     addAudio();
     addMidi();
+    addControllers();
     addRecording();
     addLibrary();
     addPlugins();
@@ -710,6 +713,149 @@ void SettingsView::addMidi()
         };
         r.changed = [this] { return settings().midi.computerKeyboard; };
         r.reset = [this] { store_->change([](model::AppSettings& s) { s.midi.computerKeyboard = false; }); };
+    }
+}
+
+// ---- Controllers ---------------------------------------------------------------------------
+
+void SettingsView::addControllers()
+{
+    // What's about your setup, not the song (midi-learn.md §6): mappings themselves are the
+    // project's, in the inspector in MIDI map mode.
+    using T = model::MidiTakeover;
+    static constexpr T takeovers[] = {T::PickUp, T::Jump, T::Scale};
+    {
+        auto& r = addRow("controllers.takeover", SettingsSection::Controllers);
+        auto& c = combo(r);
+        for (int i = 0; i < 3; ++i)
+            c.addItem(withDefault(text(model::takeoverName(takeovers[i])), takeovers[i] == T::PickUp), i + 1);
+        r.refresh = [this, &c]
+        {
+            for (int i = 0; i < 3; ++i)
+                if (takeovers[i] == settings().controllers.takeover)
+                    c.setSelectedId(i + 1, juce::dontSendNotification);
+        };
+        c.onChange = [this, &c]
+        {
+            const auto t = takeovers[std::clamp(c.getSelectedId() - 1, 0, 2)];
+            change([t](model::AppSettings& s) { s.controllers.takeover = t; });
+        };
+        r.changed = [this] { return settings().controllers.takeover != T::PickUp; };
+        r.reset = [this]
+        {
+            store_->change([](model::AppSettings& s)
+                           { s.controllers = {.transport = s.controllers.transport}; });
+        };
+    }
+    {
+        // Each MIDI input that also has an output of its name: off by default (ML10).
+        auto& r = addRow("controllers.sendBack", SettingsSection::Controllers);
+        auto devices = session_.midiDevices();
+        std::erase_if(devices, [this](const auto& d) { return !session_.hasMidiOutput(d.name); });
+        if (devices.empty())
+        {
+            auto& none = static_cast<Readout&>(*components_.emplace_back(std::make_unique<Readout>()));
+            none.setText("None connected with an output");
+            content_->addAndMakeVisible(none);
+            r.controls.push_back(&none);
+        }
+        for (const auto& d : devices)
+        {
+            auto& b = toggle(r, text(d.name), true);
+            b.onClick = [this, &b, name = d.name]
+            {
+                const bool on = b.getToggleState();
+                change(
+                    [&](model::AppSettings& s)
+                    {
+                        auto& list = s.controllers.sendBack;
+                        std::erase(list, name);
+                        if (on)
+                            list.push_back(name);
+                    });
+            };
+        }
+        r.lines = std::max(1, static_cast<int>(devices.size()));
+        r.place = [&r](juce::Rectangle<int> area)
+        {
+            const auto& s = ui::Theme::current().shell;
+            for (auto* c : r.controls)
+            {
+                const int w =
+                    dynamic_cast<ui::Toggle*>(c) != nullptr
+                        ? std::min(area.getWidth(),
+                                   ui::Toggle::widthFor(static_cast<ui::Toggle*>(c)->getButtonText()))
+                        : area.getWidth();
+                c->setBounds(area.removeFromTop(s.fieldHeight).withWidth(w));
+                area.removeFromTop(s.itemGap);
+            }
+        };
+        r.refresh = [this, &r]
+        {
+            for (auto* c : r.controls)
+                if (auto* b = dynamic_cast<ui::Toggle*>(c))
+                {
+                    const auto& list = settings().controllers.sendBack;
+                    b->setToggleState(std::find(list.begin(), list.end(), b->getButtonText().toStdString()) !=
+                                          list.end(),
+                                      juce::dontSendNotification);
+                }
+        };
+        r.changed = [this] { return !settings().controllers.sendBack.empty(); };
+        r.reset = [this] { store_->change([](model::AppSettings& s) { s.controllers.sendBack.clear(); }); };
+    }
+    {
+        // The transport's mappings (ML7): each with Remove; made in MIDI map mode on the top bar.
+        auto& r = addRow("controllers.transport", SettingsSection::Controllers);
+        const auto mappings = settings().controllers.transport;
+        if (mappings.empty())
+        {
+            auto& none = static_cast<Readout&>(*components_.emplace_back(std::make_unique<Readout>()));
+            none.setText("None: map them in MIDI map mode (Options)");
+            content_->addAndMakeVisible(none);
+            r.controls.push_back(&none);
+        }
+        for (const auto& m : mappings)
+        {
+            auto& line = static_cast<Readout&>(*components_.emplace_back(std::make_unique<Readout>()));
+            line.setText(text(session_.midiTargetName(m.target)) + ": " + text(model::sourceText(m.source)) +
+                         " (" + text(m.source.device) + ")");
+            content_->addAndMakeVisible(line);
+            r.controls.push_back(&line);
+            auto& remove = toggle(r, "Remove", false);
+            remove.onClick = [this, target = m.target]
+            {
+                // The row goes once this click returns.
+                juce::MessageManager::callAsync(
+                    [this, safe = juce::Component::SafePointer(this), target]
+                    {
+                        if (safe != nullptr)
+                            session_.removeMidiMapping(target);
+                    });
+            };
+        }
+        r.lines = std::max(1, static_cast<int>(mappings.size()));
+        r.place = [&r](juce::Rectangle<int> area)
+        {
+            const auto& s = ui::Theme::current().shell;
+            for (size_t i = 0; i < r.controls.size(); ++i)
+            {
+                auto line = area.removeFromTop(s.fieldHeight);
+                area.removeFromTop(s.itemGap);
+                if (i + 1 < r.controls.size() && dynamic_cast<ui::Toggle*>(r.controls[i + 1]) != nullptr)
+                {
+                    auto* remove = static_cast<ui::Toggle*>(r.controls[i + 1]);
+                    remove->setBounds(line.removeFromRight(ui::Toggle::widthFor(remove->getButtonText())));
+                    line.removeFromRight(s.itemGap);
+                    r.controls[i]->setBounds(line);
+                    ++i;
+                }
+                else
+                    r.controls[i]->setBounds(line);
+            }
+        };
+        r.changed = [this] { return !settings().controllers.transport.empty(); };
+        r.reset = [this] { store_->change([](model::AppSettings& s) { s.controllers.transport.clear(); }); };
     }
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "model/Export.h"
+#include "model/MidiMap.h"
 
 #include <cstddef>
 #include <filesystem>
@@ -98,6 +99,17 @@ struct AppSettings
         std::vector<std::string> open; // the tree's open rows
         bool operator==(const Browser&) const = default;
     } browser;
+
+    /// Controllers (midi-learn.md §6, §7): how a knob takes over a value that differs from it,
+    /// the inputs Segno sends values back to (motorised faders, LED rings), and the transport's
+    /// MIDI mappings, kept with the app so a foot switch records in every project (ML7).
+    struct Controllers
+    {
+        MidiTakeover takeover = MidiTakeover::PickUp;
+        std::vector<std::string> sendBack;
+        std::vector<MidiMapping> transport;
+        bool operator==(const Controllers&) const = default;
+    } controllers;
 
     struct Assistants
     {
