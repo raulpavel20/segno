@@ -9,7 +9,7 @@ The clip view for an audio clip, grown from a waveform viewer into an editor. It
 - the menu bar as the complete list ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)) and assistants' tools ([ADR 0021](../decisions/0021-mcp-server.md));
 - the UI foundations ([ADR 0023](../decisions/0023-ui-foundations.md)): every panel sized from its content, nothing touching.
 
-**Status:** designed for review (2026-10-15), with every recommendation in §18 (AE1–AE25) and a proposed [ADR 0063](../decisions/0063-audio-is-edited-as-properties-warped-in-real-time.md). Worked on a branch of its own (`audio-clip-editor`) beside main's modulators. Once approved, a visual mockup comes first, as P4's did, then three stages (§16), each signed off on its own.
+**Status:** approved by the product owner (2026-10-15), with every recommendation of §18 (AE1–AE25); the decision is [ADR 0063](../decisions/0063-audio-is-edited-as-properties-warped-in-real-time.md). With the approval came a rule for every editor, learned from the piano roll: its tools on its bar, never two clicks deep, and a bar with room filled (§20, ui-principles.md §1). The bar of §4 and the ways into the Tools pane (§11) follow it. Worked on a branch of its own (`audio-clip-editor`) beside main's modulators. A visual mockup comes first, as P4's did, then three stages (§16), each signed off on its own.
 
 ## 1. Why
 
@@ -72,7 +72,7 @@ Checked against the vendors' manuals and release notes in October 2026: Live 12.
 ## 4. The editor
 
 ```
-┌ Modules · Clip  Drum loop ─── Audio ⌄  Quantise  [⇄ Transform]   ● Warp  Beats ⌄  92.00 BPM   ● Snap  1/16 ⌄ ┐
+┌ Modules · Clip  Drum loop ─ Audio ⌄  Quantise  [Tempo] [Normalise] [Slice]  Gain −3.0 dB  Transpose +2 st  Reverse  ● Warp  Beats ⌄  92.00 BPM  ×2  ÷2  ● Snap  1/16 ⌄ ┐
 ├────────┬────────────────────────────────────────────────────────────────────────────────────────────┤
 │        │ ⟦ loop brace ⟧                                                                              │ loop strip
 │        │ 1           2           3     ▕━━━━━━━━━━▏      5                                           │ ruler: a range's time handles (§7.6)
@@ -87,14 +87,15 @@ Checked against the vendors' manuals and release notes in October 2026: Live 12.
 ```
 
 - **It opens when one audio clip is selected,** as a MIDI clip opens the piano roll (selection.md §4's table changes: one audio clip shows the Clip view). Today only a double-click or Tab opens it.
-- **The bar** keeps the tabs and the clip's name on the left and, on the right, its commands, then the clip's warping, then the view's options, in the piano roll's look:
-  - **Audio ⌄:** a `ui::MenuButton` that opens the whole Audio menu (§13), built by the same function as the menu bar's, as Notes ⌄ is;
-  - **Quantise:** one click moves the clip's transients to the grid with the last settings (§7.7), in the place it has for notes;
-  - **Transform:** opens the Tools pane at the audio's tools (§11), the button and pane the piano roll has;
-  - **Warp** (lit while the clip follows the song's tempo), and while it's on, the clip's **mode** (§7.3) and **tempo** (§7.1): a number field, "92.00 BPM", whose menu has ×2, ÷2, Detect… and Song tempo from this clip;
-  - **Snap** and the grid's step, as today.
-  - Warp, the mode and the tempo are properties of the clip, so they're in the inspector too (§12). They're also on the bar because warping is what this editor is for, as Live keeps them beside its waveform: one state, two controls.
-  - **At narrow widths** the tempo gives way first, then the mode, then Transform, then Quantise; each is still in the Audio menu and the inspector.
+- **The bar** keeps the tabs and the clip's name on the left and, on the right, every tool used while working on a clip, one click each (§20), in groups, in the piano roll's look:
+  - **Commands:** **Audio ⌄**, a `ui::MenuButton` that opens the whole Audio menu (§13), built by the same function as the menu bar's, as Notes ⌄ is; **Quantise**, one click, which moves the clip's transients to the grid with the last settings (§7.7), in the place it has for notes.
+  - **Tools:** **Tempo**, **Normalise** and **Slice**, each an icon and a word (`ui::Toggle`, as Transform and Generate are on the piano roll's bar). Each opens the Tools pane at its tool, and is lit while the pane shows it (§11).
+  - **The clip's sound:** **Gain** and **Transpose** (number fields, dragged or typed: "−3.0 dB", "+2 st") and **Reverse** (a toggle). Fine, Polarity and Channels, set less often, are in the inspector.
+  - **Warping:** **Warp** (lit while the clip follows the song's tempo), and while it's on, the clip's **mode** (§7.3), its **tempo** (§7.1, a number field, "92.00 BPM") and **×2** and **÷2**, the most common correction.
+  - **The view:** **Snap** and the grid's step, as today.
+  - **While a range is selected** (§5), its commands come first: **Split**, **Crop**, **Silence**, **Fade**, **Loop**. Nothing else moves: the groups sit at the bar's right, and the clip's name gives them room, as Draw's chord kinds appear on the piano roll's bar while drawing chords.
+  - Gain, Transpose, Reverse, Warp, the mode and the tempo are properties of the clip, so they're in the inspector too (§12). They're on the bar because they're what an audio editor is used for, as Live keeps them beside its waveform: one state, two controls.
+  - **At narrow widths** the clip's name gives way first, then the least used, each still in the Audio menu and the inspector: Normalise, ×2 and ÷2, Slice, Tempo, Reverse, the mode, Transpose, Gain, Quantise. Audio ⌄, Warp, Snap and the step stay.
 - **The level column** (on the left, `shell.keyboardWidth` wide, where the piano roll has its keys): each channel's level scale in dB (0, −6, −12, −24 …), in `textTertiary`. Dragging it up or down makes the waveform taller or shorter, to see a quiet tail or a fade's end; a double-click resets it (Studio Pro's level scale). Its foot holds the lane's chooser, as the piano roll's holds Velocity ⌄.
 - **The marker strip** (under the ruler, `shell.markerStripHeight`, a new metric): warp markers as handles while the clip warps, transients as short ticks always (§7.4, §7.5).
 - **The waveform:** a row per channel (two for a stereo file, one for mono), drawn through the clip's gain, gain line and fades, and warped as it plays. The played range is bright and the rest faded, as today. The editor builds its own peaks per channel; the arrangement keeps its merged ones.
@@ -105,7 +106,9 @@ Checked against the vendors' manuals and release notes in October 2026: Live 12.
 
 - **In the editor you select** warp markers (a click; Shift or Ctrl+click adds; a box dragged in the marker strip), a time range (a drag across the waveform), or points of the gain line (in the lane, as automation's). Selecting one kind clears the others. None of them changes the main selection (selection.md: a panel's own selections).
 - **A range** is dragged across the waveform, snapped to the grid (Alt: free). It's drawn in `selectionFill` over the waveform, with a time handle at each end in the ruler, as the piano roll's selected notes have (§7.6). A click clears it; Edit ▸ Select all (Ctrl+A) makes the whole clip the range.
-- **What acts on a range** (the Audio menu, the waveform's right-click menu, keys), each one undo step:
+- **A gain handle on the range:** a handle at the range's top centre, the clip's gain handle's look (§10). Dragged down or up, it lowers or raises the range's level on the gain line, with a ramp at each edge and a tag ("Range −4.5 dB"): a breath or a plosive tamed in one gesture (Cubase 14 puts a volume handle on its audio segments the same way).
+- **The range's commands** are on the bar while it's selected (§4), and in the Audio menu and the waveform's right-click menu.
+- **What acts on a range** (the bar, the Audio menu, the waveform's right-click menu, keys), each one undo step:
 
 | Command | Does |
 |---|---|
@@ -113,7 +116,7 @@ Checked against the vendors' manuals and release notes in October 2026: Live 12.
 | Delete | Removes that part of the clip; what's on either side stays where it is |
 | Crop to range | Moves the clip's edges to the range |
 | Silence | The gain line falls to silence over the range, with a 4 ms ramp at each edge (the edge fades' length) |
-| Gain ▸ Up 1 dB, Down 1 dB | Raises or lowers the gain line over the range, with the same ramps: a breath or a plosive tamed in one step |
+| The range's gain handle; Gain ▸ Up 1 dB, Down 1 dB | Raises or lowers the gain line over the range, with the same ramps |
 | Fade to range | A range at the clip's start becomes its fade-in; at its end, its fade-out |
 | Loop range | The clip loops the range |
 | Markers at transients | A warp marker on every transient in the range (Live's) |
@@ -267,7 +270,9 @@ A warp marker pins a moment of the audio to a beat; between markers, the audio s
 
 ## 11. The Tools pane for audio
 
-The piano roll's Tools pane ([piano-roll.md](piano-roll.md) §25), opened by the same Transform button, shows the audio's tools when the clip view shows an audio clip: tiles with their icons, the chosen tool's settings under them, the result heard and seen as it's set, Apply (Return) one undo step named for the tool, Escape lets it go, the settings remembered. There's one tab: Generate has nothing to do on audio.
+The piano roll's Tools pane ([piano-roll.md](piano-roll.md) §25) shows the audio's tools when the clip view shows an audio clip: tiles with their icons, the chosen tool's settings under them, the result heard and seen as it's set, Apply (Return) one undo step named for the tool, Escape lets it go, the settings remembered. There's one tab: Generate has nothing to do on audio.
+
+- **Opened by the tools' own buttons on the bar** (Tempo, Normalise, Slice: §4), at that tool, in one click; the piano roll's fourteen tools need its two buttons and tiles, the audio's four don't. Quantise's settings are its tile, reached from any open pane, or Audio ▸ Quantise… (Ctrl+Shift+U).
 
 | Tool | Settings (default) | While it's set |
 |---|---|---|
@@ -302,7 +307,7 @@ Under CLIP, for one audio clip (CLIP keeps Name, Colour, Start, Length, Offset, 
 
 ## 13. Menus, keys and actions (ADR 0040)
 
-A new **Audio** menu (Alt+A), between Notes and Song. **The same menu opens from the bar's Audio ⌄** (§4). Its clip properties (Warp, mode, tempo, Transpose, Follow key, Gain, Normalise, Reverse, Polarity) act on the selected audio clips from the arrangement too; what needs the editor (ranges, markers) is dimmed with the reason elsewhere.
+A new **Audio** menu (Alt+A), between Notes and Song. **The same menu opens from the bar's Audio ⌄** (§4). The menu is the complete list and the second route: what's used while working is on the bar (§4, §20). Its clip properties (Warp, mode, tempo, Transpose, Follow key, Gain, Normalise, Reverse, Polarity) act on the selected audio clips from the arrangement too; what needs the editor (ranges, markers) is dimmed with the reason elsewhere.
 
 | Item | Shortcut |
 |---|---|
@@ -411,7 +416,7 @@ A visual mockup of the editor comes first, for approval before P6a is built. Eac
 | AE1 | **Scope** | Everything in §4–§9, with warping brought forward from M4: without it an audio editor is only settings |
 | AE2 | **When it opens** | When one audio clip is selected, as a MIDI clip does (§4) |
 | AE3 | **Layout** | The level column (drag to zoom the height), a row per channel, a marker strip under the ruler, the gain line in the bottom lane (§4) |
-| AE4 | **The bar** | Audio ⌄, Quantise, Transform, then Warp with its mode and tempo, then Snap. Warp's controls on the bar and in the inspector, one state. The other way: the inspector only, a quieter bar (§4) |
+| AE4 | **The bar** | ~~Audio ⌄, Quantise, Transform, then Warp with its mode and tempo, then Snap~~ *Revised at approval (§20):* Audio ⌄, Quantise; Tempo, Normalise, Slice; Gain, Transpose, Reverse; Warp, the mode, the tempo, ×2, ÷2; Snap; a range's commands while one is selected. Properties on the bar and in the inspector, one state (§4) |
 | AE5 | **Where properties live** | An AUDIO section in the inspector, for one clip or several (§12) |
 | AE6 | **Gain on the clip in the arrangement** | A handle at its top centre, the fade handles' look, a tag while dragging (§10) |
 | AE7 | **The gain line** | In the bottom lane, edited as automation is; pinned to the audio, so it loops, stretches, splits and flips with it (§6.2) |
@@ -427,7 +432,7 @@ A visual mockup of the editor comes first, for approval before P6a is built. Eac
 | AE17 | **Transpose** | Keeps the speed, with or without Warp; Formants in Tones (§8.1) |
 | AE18 | **Key** | Found, shown and correctable; Follow key per clip, off by default, a setting for loops (§8.2, §8.3) |
 | AE19 | **Slicing** | Into clips on the track now; into a Sampler with M4 (§9) |
-| AE20 | **Tools** | The piano roll's Tools pane, with Quantise, Tempo, Normalise and Slice (§11) |
+| AE20 | **Tools** | The piano roll's Tools pane, with Quantise, Tempo, Normalise and Slice; *at approval (§20):* opened by each tool's own button on the bar, not one Transform button (§11) |
 | AE21 | **A menu** | A new Audio menu between Notes and Song (Alt+A), opened from Audio ⌄ too; keys shared with Notes go to the clip shown (§13) |
 | AE22 | **The stretcher** | Signalsmith Stretch (MIT, already built in), with its formants patched in; Rubber Band only if Tones falls short (§15, §17) |
 | AE23 | **Next** | Stem separation, with audio to MIDI, designed as the step after P6, its models in the Library (§17) |
@@ -459,3 +464,16 @@ A visual mockup of the editor comes first, for approval before P6a is built. Eac
   - the arrangement's benchmark with 32 tracks of warped loops within 8 ms a frame;
   - the editor with a 10-minute stereo file within the frame budget;
   - 32 warped clips playing within the audio budget.
+
+## 20. Approved, with the tools on screen (2026-10-15)
+
+The product owner approved every recommendation of §18 and added a rule, learned from the piano roll:
+- "We should try to keep tools easily accessible in the work area, on screen. Piling everything in submenus leads to bad UI, things I use often should not be buried 2 clicks deep."
+- "And if there is room on screen in the tool bars, why keep them empty? There is no benefit."
+
+**What it changed here** (the rule itself is in [ui-principles.md](ui-principles.md) §1, for every editor):
+- **The bar (§4)** holds what an audio editor is used for, one click each: Gain, Transpose and Reverse; ×2 and ÷2 beside the tempo; Tempo, Normalise and Slice as buttons of their own. The design had them in the inspector, the tempo's menu and the Tools pane, two clicks away.
+- **A range's commands** (Split, Crop, Silence, Fade, Loop) come onto the bar while a range is selected, and the range has a gain handle of its own (§5). The design had them in the Audio menu and the right-click menu.
+- **The Tools pane (§11)** opens at a tool from that tool's button; there's no Transform button for audio.
+- **What stays in the menus and the inspector:** what's set once or rarely: Fine, Polarity, Channels, Formants, Tails, Sensitivity, Follow key, the marker commands (on the marker's right-click, where it acts).
+- **The mockup** shows the bar at standard and compact widths, so what gives way, and when, is reviewed before it's built.

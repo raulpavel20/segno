@@ -1,6 +1,6 @@
 # 0063. Audio clips are edited as their own settings: warped in real time, untouched at their own tempo, in the song's key when asked
 
-- **Status:** Proposed (for the product owner's review, with [audio-editor.md](../design/audio-editor.md))
+- **Status:** Accepted (product owner, 2026-10-15, with [audio-editor.md](../design/audio-editor.md) and its rule for every editor's tools, §20)
 - **Date:** 2026-10-15
 - **Builds on:** [0048](0048-clips-loop.md) (clip loops and the audio clip view), [0036](0036-crossfades-at-the-boundary.md) (fades and crossfades), [0035](0035-bounce-keeps-its-source.md) (bounce), [0030](0030-projects-are-folders.md) (files are never changed or deleted implicitly), [0057](0057-the-song-has-one-key.md) (the song's key), [0058](0058-the-piano-roll-writes-in-key-and-in-chords.md) (the piano roll's surface), [0027](0027-selection-and-context-panels.md) (one selection, context panels), [0040](0040-a-menu-bar-and-everything-by-mouse.md) (the menu bar), [0021](0021-mcp-server.md) (assistants)
 - **Moves:** M4's warping and time-stretch to M3 (P6), at the product owner's request (2026-10-15)
@@ -29,8 +29,7 @@
 - **The piano roll's places:**
   - the editor opens when one audio clip is selected;
   - properties sit in an AUDIO inspector section;
-  - Warp, the mode and the tempo are on the bar;
-  - the Tools pane holds Quantise, Tempo, Normalise and Slice;
+  - what's used while working is on the editor's bar, one click each: Gain, Transpose, Reverse, Warp with its mode, tempo, ×2 and ÷2, Quantise, and Tempo, Normalise and Slice opening the Tools pane at their tool; a range's commands while one is selected (the product owner's rule at approval: tools on screen, never two clicks deep);
   - a new Audio menu sits between Notes and Song.
 - **Built in three stages:**
   - the editor and the clip's sound;
