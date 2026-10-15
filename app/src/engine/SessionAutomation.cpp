@@ -185,7 +185,7 @@ std::vector<Session::Impl::Param> Session::Impl::paramsOf(std::uint64_t channelI
                            .spec = &spec});
         }
     };
-    if (auto* t = channelTrack(channelId))
+    if (auto* t = chainTrack(channelId)) // the master's too
         for (const auto& item : chainItems(*t))
             if (item.modulator != nullptr)
                 addModulator(*item.modulator);

@@ -131,7 +131,8 @@ if(FD_BUILD_APP)
                 "${CMAKE_CURRENT_LIST_DIR}/patches/tracktion_engine-modifier-base-value.patch"
                 "${CMAKE_CURRENT_LIST_DIR}/patches/tracktion_engine-custom-modifiers.patch"
                 "${CMAKE_CURRENT_LIST_DIR}/patches/tracktion_engine-midi-playback-filter.patch"
-                "${CMAKE_CURRENT_LIST_DIR}/patches/tracktion_engine-modifier-sidechain.patch")
+                "${CMAKE_CURRENT_LIST_DIR}/patches/tracktion_engine-modifier-sidechain.patch"
+                "${CMAKE_CURRENT_LIST_DIR}/patches/tracktion_engine-master-modifiers.patch")
 
     # The MCP server's HTTP transport (ADR 0021). Header-only; built without TLS or compression
     # (it serves the loopback interface only).

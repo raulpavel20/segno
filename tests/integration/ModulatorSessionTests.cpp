@@ -415,3 +415,39 @@ TEST_CASE("modulators (session): a Follower listens where it sits or to another 
     CHECK(std::find(sources.begin(), sources.end(), f.t) == sources.end());
     CHECK_FALSE(s.setSidechainSource(back, f.t));
 }
+
+TEST_CASE("modulators (session): the master has them too, placed among its modules, moving them",
+          "[integration][modulators]")
+{
+    Modulators f;
+    auto& s = *f.session;
+    s.updateSnapshotNow();
+    const auto master = s.snapshot()->master.id;
+    const auto utility = s.addDevice(master, "fd:utility");
+    const auto lfo = s.addModulator(master, Kind::Lfo, 0); // before the Utility
+    REQUIRE(lfo != 0);
+    s.updateSnapshotNow();
+    const auto& devices = s.snapshot()->master.devices;
+    REQUIRE(devices.size() == 2);
+    CHECK(devices[0].id == lfo);
+    CHECK(devices[0].kind == model::DeviceSlot::Kind::Modulator);
+    CHECK(devices[1].id == utility);
+    CHECK(s.placeOf(lfo)->index == 0);
+    CHECK(s.placeOf(utility)->index == 1);
+
+    // Moving the master's Utility: heard.
+    CHECK(f.swingDb() < 0.1);
+    const Session::ParamTarget gain{master, "m" + std::to_string(utility) + "/gain"};
+    REQUIRE(s.canRoute(lfo, gain));
+    REQUIRE(s.routeModulator(lfo, gain, 0.5f));
+    f.setModulator(lfo, Lfo::Rate, 8.0f);
+    CHECK(f.swingDb() > 3.0);
+    // Its parameters are the master's to automate and route.
+    const auto choices = s.automatableParameters(master);
+    CHECK(std::any_of(choices.begin(), choices.end(),
+                      [&](const auto& c) { return c.key == "m" + std::to_string(lfo) + "/rate"; }));
+    // Moved after the Utility, and back.
+    s.moveDevice(lfo, 1);
+    s.updateSnapshotNow();
+    CHECK(s.snapshot()->master.devices[1].id == lfo);
+}

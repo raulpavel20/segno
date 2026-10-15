@@ -2609,8 +2609,8 @@ TEST_CASE("mcp tools: modulators added, routed, set, removed and kept (modulator
     CHECK(lfo["sections"][0]["id"] == "shape");
     const auto lfoId = lfo["id"].get<std::string>();
     const auto random = daw.call("add_module", {{"track", t0}, {"type", "Random"}})["id"].get<std::string>();
-    CHECK(daw.fails("add_module", {{"track", project["master"]["id"]}, {"type", "mod-lfo"}}).find("master") !=
-          std::string::npos);
+    CHECK(daw.call("add_module", {{"track", project["master"]["id"]}, {"type", "mod-lfo"}})["type"] ==
+          "mod-lfo");
 
     // Set up as any module.
     const auto set = daw.call("set_parameters", {{"module", lfoId}, {"values", {{"rate", "2 Hz"}}}});

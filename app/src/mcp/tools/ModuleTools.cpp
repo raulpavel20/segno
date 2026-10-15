@@ -80,7 +80,7 @@ void addModuleTools(Registry& registry, ToolEnv& env)
          "preset "
          "you name (list_presets). Into a rack's chain with rack and chain; type \"rack\" adds an empty rack "
          "(racks.md). A modulator (\"mod-lfo\", \"mod-random\", \"mod-envelope\", \"mod-follower\", "
-         "\"mod-steps\") goes in a track's or return track's own chain; route_modulator gives it what it "
+         "\"mod-steps\") goes in a channel's own chain (not into a rack's); route_modulator gives it what it "
          "moves. "
          "Returns the new module with its parameters.",
          object(
@@ -104,9 +104,6 @@ void addModuleTools(Registry& registry, ToolEnv& env)
             {
                 if (args.contains("rack"))
                     throw Problem{"Modulators go in a track's own chain for now, not into a rack's."};
-                if (t.role == model::TrackInfo::Role::Master)
-                    throw Problem{
-                        "The master can't have modulators yet: put one on a track or a return track."};
             }
             if (lower(args["type"].get<std::string>()) == "rack")
             {

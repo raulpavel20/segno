@@ -585,8 +585,16 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     [[nodiscard]] Modulator* modulator(std::uint64_t id) const;
     /// Every modulator in the project.
     [[nodiscard]] std::vector<Modulator*> modulators() const;
-    /// The track a modulator is on.
-    [[nodiscard]] te::AudioTrack* trackOf(const Modulator& modulator) const;
+    /// The track a modulator is on (the master's track for the master's).
+    [[nodiscard]] te::Track* trackOf(const Modulator& modulator) const;
+    /// The tracks whose chains can hold modulators: the tracks, the returns and the master.
+    [[nodiscard]] std::vector<te::Track*> chainTracks() const;
+    /// A channel's track for its chain with modulators (the master's track for the master).
+    [[nodiscard]] te::Track* chainTrack(std::uint64_t channel) const;
+    /// The track whose chain holds a plugin (the master's track for the master's), not in a rack.
+    [[nodiscard]] te::Track* chainTrackOf(te::Plugin& plugin) const;
+    /// A track's modules: the master track's are the Edit's master plugins.
+    [[nodiscard]] static te::PluginList& chainList(te::Track& track);
     /// A modulator's routes: each parameter it moves and its assignment there.
     struct Route
     {

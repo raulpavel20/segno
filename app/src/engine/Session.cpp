@@ -710,7 +710,7 @@ void Session::Impl::rebuildSnapshot()
     master.id = masterId();
     master.role = model::TrackInfo::Role::Master;
     master.name = "Master";
-    devicesOf(edit->getMasterPluginList(), master, nullptr);
+    devicesOf(edit->getMasterPluginList(), master, edit->getMasterTrack()); // its modulators too
     master.mix = mixOf(edit->getMasterPluginList());
     s->automationLanes = laneInfos();
     // Every file a clip or take uses, kept while the project is open (Remove unused files).
@@ -1653,7 +1653,7 @@ std::uint64_t Session::addDevice(std::uint64_t trackId, const std::string& key, 
         return 0;
     impl_->beginEdit("Add module");
     // Along a track's chain, its modulators count among its places (modulators.md §6).
-    auto* track = impl_->channelTrack(trackId);
+    auto* track = impl_->chainTrack(trackId); // the master's too
     const auto items = track != nullptr ? Impl::chainItems(*track) : std::vector<Impl::ChainItem>{};
     const bool modulated =
         std::any_of(items.begin(), items.end(), [](const auto& item) { return item.modulator != nullptr; });
@@ -1697,7 +1697,7 @@ void Session::removeDevice(std::uint64_t deviceId)
     // One step, whatever goes with it.
     EditGroup group(*this, "Remove module");
     if (auto* p = impl_->plugin(deviceId); p != nullptr && !p->isInRack())
-        if (auto* track = dynamic_cast<te::Track*>(p->getOwnerTrack()))
+        if (auto* track = impl_->chainTrackOf(*p))
         {
             // The modulators before it stay where they are: placed before what comes after it.
             auto order = Impl::chainItems(*track);
@@ -1739,10 +1739,9 @@ void Session::moveDevice(std::uint64_t deviceId, int index)
     {
         auto* m = impl_->modulator(deviceId);
         auto* moving = impl_->plugin(deviceId);
-        te::Track* track = m != nullptr ? impl_->trackOf(*m)
-                           : moving != nullptr && !moving->isInRack()
-                               ? dynamic_cast<te::Track*>(moving->getOwnerTrack())
-                               : nullptr;
+        te::Track* track = m != nullptr                               ? impl_->trackOf(*m)
+                           : moving != nullptr && !moving->isInRack() ? impl_->chainTrackOf(*moving)
+                                                                      : nullptr;
         if (track != nullptr)
         {
             auto order = Impl::chainItems(*track);

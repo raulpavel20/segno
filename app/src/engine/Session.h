@@ -527,8 +527,8 @@ public:
     // (addDevice and moveDevice indices). Its id reaches removeDevice, moveDevice and
     // setDeviceEnabled. It moves parameters on its own track: its routes.
 
-    /// Adds a modulator at `index` of a track's chain (-1: its end). Its id; 0 where there can't
-    /// be one (the master, for now).
+    /// Adds a modulator at `index` of a channel's chain (-1: its end): a track's, a return's or the
+    /// master's. Its id; 0 where there's no such channel.
     std::uint64_t addModulator(std::uint64_t channel, model::ModulatorKind kind, int index = -1);
     /// Routes a modulator to a parameter on its track at `amount`: -2 ... +2 of its range (both
     /// ways, half of it each way at 1; below 0 the other way). A route already there takes the

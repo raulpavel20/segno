@@ -778,7 +778,7 @@ std::uint64_t Session::groupIntoRack(const std::vector<std::uint64_t>& modules)
               });
     const int at = list->indexOf(picked.front().get());
     // A track's modulators stay where they sit, the rack in the first module's place.
-    auto* track = dynamic_cast<te::AudioTrack*>(picked.front()->getOwnerTrack());
+    auto* track = impl_->chainTrackOf(*picked.front());
     auto items =
         track != nullptr && modulated(*track) ? Impl::chainItems(*track) : std::vector<Impl::ChainItem>{};
 
@@ -825,7 +825,7 @@ std::vector<std::uint64_t> Session::ungroupRack(std::uint64_t rackId)
     // they sit.
     std::vector<te::Plugin::Ptr> out(chains[static_cast<size_t>(shown)].modules.begin(),
                                      chains[static_cast<size_t>(shown)].modules.end());
-    auto* track = dynamic_cast<te::AudioTrack*>(instance->getOwnerTrack());
+    auto* track = impl_->chainTrackOf(*instance);
     auto items =
         track != nullptr && modulated(*track) ? Impl::chainItems(*track) : std::vector<Impl::ChainItem>{};
     int at = list->indexOf(instance);
@@ -881,8 +881,7 @@ std::uint64_t Session::addRack(std::uint64_t channel, int index)
             }
     list->insertPlugin(instance, at, nullptr);
     // Along a track's chain, its modulators count among the places (modulators.md §6).
-    if (auto* track = dynamic_cast<te::AudioTrack*>(instance->getOwnerTrack());
-        track != nullptr && modulated(*track))
+    if (auto* track = impl_->chainTrackOf(*instance); track != nullptr && modulated(*track))
         impl_->placeInChain(*track, Impl::ChainItem{instance.get(), nullptr}, index);
     return idOf(*instance);
 }
@@ -918,7 +917,7 @@ std::optional<Session::ChainPlace> Session::placeOf(std::uint64_t deviceId) cons
                                       static_cast<int>(i)};
         return std::nullopt;
     }
-    if (auto* track = dynamic_cast<te::AudioTrack*>(p->getOwnerTrack()))
+    if (auto* track = impl_->chainTrackOf(*p))
         return ChainPlace{channelOf(*p), 0, 0, Impl::chainIndexOf(*track, deviceId)};
     auto* list = p->getOwnerList();
     if (list == nullptr)
@@ -944,10 +943,8 @@ std::uint64_t Session::addDevice(const ChainPlace& place, const std::string& key
     if (list == nullptr)
         return 0;
     EditGroup group(*this, "Add module");
-    const auto id = addDevice(dynamic_cast<te::AudioTrack*>(instance->getOwnerTrack()) != nullptr
-                                  ? instance->getOwnerTrack()->itemID.getRawID()
-                                  : impl_->masterId(),
-                              key, -1);
+    auto* owner = impl_->chainTrackOf(*instance);
+    const auto id = addDevice(owner != nullptr ? owner->itemID.getRawID() : impl_->masterId(), key, -1);
     if (id == 0)
         return 0;
     if (!moveDevice(id, place))
@@ -993,7 +990,7 @@ bool Session::moveDevice(std::uint64_t deviceId, const ChainPlace& place)
     {
         // Along the channel's chain: where it ends up, once it has left its place.
         auto* list = p->getOwnerList();
-        auto* track = dynamic_cast<te::AudioTrack*>(p->getOwnerTrack());
+        auto* track = impl_->chainTrackOf(*p);
         const int count = track != nullptr  ? static_cast<int>(Impl::chainItems(*track).size())
                           : list != nullptr ? static_cast<int>(Impl::chain(*list).size())
                                             : 0;
@@ -1033,8 +1030,7 @@ bool Session::moveDevice(std::uint64_t deviceId, const ChainPlace& place)
                            : list->indexOf(order.back()) + 1;
         p->removeFromParent();
         list->insertPlugin(p, at, nullptr);
-        if (auto* track = dynamic_cast<te::AudioTrack*>(source->getOwnerTrack());
-            track != nullptr && modulated(*track))
+        if (auto* track = impl_->chainTrackOf(*source); track != nullptr && modulated(*track))
             impl_->placeInChain(*track, Impl::ChainItem{p.get(), nullptr}, place.index);
     }
     if (source != nullptr && source != target)

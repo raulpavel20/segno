@@ -54,7 +54,7 @@ std::vector<Session::Impl::ChainItem> Session::Impl::chainItems(te::Track& track
                 modulators.push_back(mod);
     std::vector<bool> placed(modulators.size(), false);
     std::vector<ChainItem> out;
-    for (auto* p : track.pluginList)
+    for (auto* p : chainList(track))
     {
         // Each modulator just before the module it's placed before; those before the mixer's
         // plugins (the fader) come after the last module, below.
@@ -86,7 +86,7 @@ void Session::Impl::arrangeChain(te::Track& track, const std::vector<ChainItem>&
     // Each modulator placed before the module after it; after the last, before the fader (so a
     // Follower there hears the chain, not the fader's level), or after everything without one.
     te::EditItemID end;
-    for (auto* p : track.pluginList)
+    for (auto* p : chainList(track))
         if (dynamic_cast<te::VolumeAndPanPlugin*>(p) != nullptr)
         {
             end = p->itemID;
@@ -130,6 +130,38 @@ int Session::Impl::chainIndexOf(te::Track& track, std::uint64_t id)
     return -1;
 }
 
+std::vector<te::Track*> Session::Impl::chainTracks() const
+{
+    std::vector<te::Track*> out;
+    for (auto* t : te::getAudioTracks(*edit))
+        out.push_back(t);
+    if (auto* master = edit->getMasterTrack())
+        out.push_back(master);
+    return out;
+}
+
+te::Track* Session::Impl::chainTrack(std::uint64_t channel) const
+{
+    for (auto* t : chainTracks())
+        if (t->itemID.getRawID() == channel)
+            return t;
+    return nullptr;
+}
+
+te::Track* Session::Impl::chainTrackOf(te::Plugin& plugin) const
+{
+    if (plugin.isInRack())
+        return nullptr;
+    if (edit->getMasterPluginList().indexOf(&plugin) >= 0)
+        return edit->getMasterTrack();
+    return plugin.getOwnerTrack();
+}
+
+te::PluginList& Session::Impl::chainList(te::Track& track)
+{
+    return track.isMasterTrack() ? track.edit.getMasterPluginList() : track.pluginList;
+}
+
 Modulator* Session::Impl::modulator(std::uint64_t id) const
 {
     for (auto* m : modulators())
@@ -141,7 +173,7 @@ Modulator* Session::Impl::modulator(std::uint64_t id) const
 std::vector<Modulator*> Session::Impl::modulators() const
 {
     std::vector<Modulator*> out;
-    for (auto* t : te::getAudioTracks(*edit))
+    for (auto* t : chainTracks())
         if (auto* list = t->getModifierList())
             for (auto* m : list->getModifiers())
                 if (auto* mod = dynamic_cast<Modulator*>(m))
@@ -149,9 +181,9 @@ std::vector<Modulator*> Session::Impl::modulators() const
     return out;
 }
 
-te::AudioTrack* Session::Impl::trackOf(const Modulator& modulator) const
+te::Track* Session::Impl::trackOf(const Modulator& modulator) const
 {
-    for (auto* t : te::getAudioTracks(*edit))
+    for (auto* t : chainTracks())
         if (auto* list = t->getModifierList())
             for (auto* m : list->getModifiers())
                 if (m == &modulator)
@@ -396,7 +428,7 @@ void RouteDrag::end()
 
 std::uint64_t Session::addModulator(std::uint64_t channel, ModulatorKind kind, int index)
 {
-    auto* track = impl_->channelTrack(channel); // tracks and returns; not the master, for now
+    auto* track = impl_->chainTrack(channel); // tracks, returns and the master
     if (track == nullptr)
         return 0;
     impl_->beginEdit("Add " + juce::String(std::string(model::modulatorInfo(kind).name)));

@@ -1,0 +1,33 @@
+The master's modifiers placed in its chain (Segno: docs/design/modulators.md §5, ADR 0061).
+
+The custom-modifiers patch places a track's modifiers among its plugins (ProcessingPosition::
+beforePlugin); the master's chain was built without them. Its modifier list now goes with its
+plugins the same way, and a modifier on the master may hear another track (the
+modifier-sidechain patch).
+
+diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp
+--- a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp	2026-10-15 18:55:43.087905221 +0300
++++ b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp	2026-10-15 18:55:43.101667219 +0300
+@@ -84,8 +84,8 @@
+             if (p->getSidechainSourceID() == itemID)
+                 return true;
+ 
+-        // Segno: a modifier that hears it (Modifier::getSidechainSourceID).
+-        for (auto at : getAudioTracks (t.edit))
++        // Segno: a modifier that hears it (Modifier::getSidechainSourceID), the master's too.
++        for (auto at : getAllTracks (t.edit))
+             if (auto list = at->getModifierList())
+                 for (auto& m : list->getModifiers())
+                     if (m->getSidechainSourceID() == itemID)
+@@ -2028,7 +2028,10 @@
+     node = createModifierNodeForList (masterModList, Modifier::ProcessingPosition::preFX,
+                                       nullptr, std::move (node), playHeadState, params);
+ 
+-    node = createPluginNodeForList (edit.getMasterPluginList(), nullptr, std::move (node), playHeadState, params);
++    // Segno: the master's modifiers placed in its chain (ProcessingPosition::beforePlugin), as a
++    // track's are.
++    node = createPluginNodeForList (edit.getMasterPluginList(), nullptr, std::move (node), playHeadState, params,
++                                    masterModList);
+ 
+     node = createModifierNodeForList (tempoModList, Modifier::ProcessingPosition::postFX,
+                                       nullptr, std::move (node), playHeadState, params);
