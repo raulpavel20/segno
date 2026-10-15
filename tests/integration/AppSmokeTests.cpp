@@ -3509,16 +3509,15 @@ TEST_CASE("inspector: a clip's loop: on, its start and length dragged or typed; 
     if (const char* dump = std::getenv("FD_DUMP_DIR"))
         dumpPng(dump, "inspector-loop@2x.png", inspector.createComponentSnapshot(inspector.getLocalBounds(), true, 2.0f));
 
-    // Off again; then a clip stretched to the tempo (a project from before) can't loop: dimmed, saying why.
+    // Off again; a clip that follows the tempo (warped, ADR 0063) loops as any other.
     loopToggle()->triggerClick();
     juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
     CHECK_FALSE(clip().loop.on());
-    dynamic_cast<tracktion::AudioClipBase&>(*s.impl().clip(id)).setAutoTempo(true);
+    REQUIRE(s.setWarp({id}, {.on = true}));
     s.updateSnapshotNow();
     select();
     REQUIRE(loopToggle() != nullptr);
-    CHECK_FALSE(loopToggle()->isEnabled());
-    CHECK(loopToggle()->getTooltip().contains("tempo"));
+    CHECK(loopToggle()->isEnabled());
     root.deleteRecursively();
 }
 

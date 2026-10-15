@@ -24,6 +24,7 @@ Roles are derived from the base palette in `Theme.cpp` (`deriveRoles`), the only
 | `textHighlight` | active at 35 % | Selected text in fields |
 | `playhead` | textPrimary | The playhead in every time view |
 | `marker` | textPrimary at 80 % | Live playheads inside a display (Sampler) |
+| `warpMarkerLine` | textPrimary at 50 % | A warp marker's line down through the audio editor's waveform, under its handle in the marker strip ([audio-editor.md](audio-editor.md) §7.5) |
 | `loopInactive` | textTertiary at 70 % | The loop brace while looping is off |
 | `onClip` | surface0 | Text on a clip's title strip and on notes |
 | `takeUnused` / `takeUnusedContent` | surface2 / textTertiary 35 % towards surface2 | The audio of a clip's takes that it doesn't play, on their strips: no clip colour (recording.md §6) |
@@ -118,6 +119,7 @@ Role functions for colours that depend on content:
 | `shell.windowButtonWidth` | 40 (a window button, as tall as the title bar) |
 | `shell.resizeBorder` | 4 (Linux: the resize grips just inside the window's edges, outside its content) |
 | `shell.rulerHeight` / `shell.loopStripHeight` | 24 / 12 |
+| `shell.markerStripHeight` / `shell.warpMarkerWidth` / `shell.transientTick` | 16 / 9 / 6 (the audio editor's marker strip under its ruler; a warp marker's handle, a pin pointing down at its moment; a transient's tick at the strip's foot: [audio-editor.md](audio-editor.md) §4) |
 | `shell.trackHeaderWidth` | 180 |
 | `shell.panelHeaderHeight` | 24 (detail panel tabs, side panel titles) |
 | `shell.padding` | 12 (inside side panels and popovers) |

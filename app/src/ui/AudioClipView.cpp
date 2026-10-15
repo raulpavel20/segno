@@ -36,7 +36,8 @@ model::FadeClip fadeClipOf(const model::ClipInfo& c)
             .reversed = c.sound.reversed,
             .in = c.fadeIn,
             .out = c.fadeOut,
-            .crossOut = c.crossfadeOut};
+            .crossOut = c.crossfadeOut,
+            .map = model::contentMap(c)};
 }
 } // namespace
 
@@ -199,7 +200,7 @@ void AudioClipView::setClip(std::optional<model::ClipInfo> clip, const model::Te
     const bool another = !clip_ || clip_->id != clip->id;
     clip_ = std::move(clip);
     waveforms_.request(clip_->sourcePath);
-    lineView_ = model::lineToView(clip_->sound.line, origin(), clip_->sourceLength, clip_->sound.reversed);
+    lineView_ = model::lineToView(clip_->sound.line, origin(), model::contentMap(*clip_));
     laneKept_.reset(); // the snapshot has it now
     laneHead_.setVisible(true);
     if (another)
@@ -310,7 +311,7 @@ model::AudioSound AudioClipView::shownSound() const
     if (linePreview_)
         sound.line = *linePreview_;
     else if (const auto& shown = lanePreview_ ? lanePreview_ : laneKept_)
-        sound.line = model::lineFromView(shown->points, origin(), clip_->sourceLength, sound.reversed);
+        sound.line = model::lineFromView(shown->points, origin(), model::contentMap(*clip_));
     if (const auto it = previewGains_.find(clip_->id); it != previewGains_.end())
         sound.gainDb = it->second;
     return sound;
@@ -324,7 +325,7 @@ const model::AutomationPoints& AudioClipView::shownLine() const
         return laneKept_->points;
     if (linePreview_)
     {
-        lineShown_ = model::lineToView(*linePreview_, origin(), clip_->sourceLength, clip_->sound.reversed);
+        lineShown_ = model::lineToView(*linePreview_, origin(), model::contentMap(*clip_));
         return lineShown_;
     }
     return lineView_;
@@ -354,9 +355,8 @@ void AudioClipView::keepLine(const model::PointEdit& edit, const std::string& un
     lanePreview_.reset();
     laneKept_ = edit; // until the snapshot has it
     points_ = edit.selection;
-    session_.setGainLine(
-        clip_->id, model::lineFromView(edit.points, origin(), clip_->sourceLength, clip_->sound.reversed),
-        undoName);
+    session_.setGainLine(clip_->id, model::lineFromView(edit.points, origin(), model::contentMap(*clip_)),
+                         undoName);
     repaint();
 }
 
@@ -491,8 +491,9 @@ void AudioClipView::paintRows(juce::Graphics& g)
     const double o = origin(), length = clip_->sourceLength;
     const auto fade = fadeClipOf(*clip_);
     // The waveform as heard (§3.4): through the clip's gain and line; where it plays, its fades too.
+    const auto map = model::contentMap(*clip_);
     const auto soundAt = [&](double viewTime)
-    { return zoom_ * model::soundGainAt(sound, model::fileTimeOf(viewTime - o, length, sound.reversed)); };
+    { return zoom_ * model::soundGainAt(sound, map.fileAt(viewTime - o)); };
     const auto playedAt = [&](double viewTime)
     {
         float gain = soundAt(viewTime);
@@ -858,8 +859,7 @@ void AudioClipView::mouseDrag(const juce::MouseEvent& e)
         const double perPixel = e.mods.isShiftDown() ? kGainPerPixel * 0.1 : kGainPerPixel;
         rangeGainDb_ = std::round((dragStart_.y - e.position.y) * perPixel * 10.0) / 10.0;
         auto line = clip_->sound.line;
-        for (const auto& span :
-             model::fileSpans(*clip_, clip_->sound.reversed, range_->first, range_->second))
+        for (const auto& span : model::fileSpans(*clip_, range_->first, range_->second))
             line = model::lineWithGain(line, span, rangeGainDb_);
         linePreview_ = std::move(line);
         repaint();

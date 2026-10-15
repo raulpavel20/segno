@@ -1,43 +1,46 @@
-Warped clips as Segno plays them (docs/design/audio-editor.md §15, ADR 0063).
+Warped clips as Segno plays them (docs/design/audio-editor.md §15, §22, ADR 0063).
 
 A clip that follows the tempo plays past its edges as an unwarped one does (EngineBehaviour's
 getAudioClipExtension, for crossfades): its beat range widened, its offset in beats moved to match.
-And a clip can ask to follow the tempo by resampling rather than stretching (a "resample" property
-on its state, with no transposition): speed and pitch move together, Segno's Repitch, and a warped
-clip at its own tempo reads its file untouched, with no stretcher to run.
+And the behaviour can play an audio clip's source with a node of its own
+(createAudioClipSourceNode): Segno's piece player plays warped clips, each piece between warp
+markers (or transients, in its Beats mode) read from its own start at its own speed. The clip's
+plugins and fades follow that node as they would the engine's.
 
-diff '--color=auto' -ru a/modules/tracktion_engine/model/clips/tracktion_AudioClipBase.cpp b/modules/tracktion_engine/model/clips/tracktion_AudioClipBase.cpp
---- a/modules/tracktion_engine/model/clips/tracktion_AudioClipBase.cpp	2026-10-15 17:55:49.189511058 +0300
-+++ b/modules/tracktion_engine/model/clips/tracktion_AudioClipBase.cpp	2026-10-15 17:56:08.587644676 +0300
-@@ -666,6 +666,11 @@
- {
-     TimeStretcher::Mode ts = timeStretchMode;
- 
-+    // A clip can ask to follow the tempo by resampling, speed and pitch together, rather than
-+    // stretching (the host's "resample" property): with no transposition to stretch for.
-+    if (ts == TimeStretcher::disabled && state.getProperty ("resample", false) && ! getAutoPitch() && getPitchChange() == 0.0f)
-+        return ts;
-+
-     if (ts == TimeStretcher::disabled && (getAutoPitch() || getAutoTempo() || getPitchChange() != 0.0f))
-         ts = TimeStretcher::defaultMode;
- 
 diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp
 --- a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp	2026-10-15 17:55:49.187429232 +0300
-+++ b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp	2026-10-15 17:56:08.587279950 +0300
-@@ -439,6 +439,12 @@
++++ b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp	2026-10-15 21:31:27.021689479 +0300
+@@ -431,6 +431,11 @@
+ 
+     std::unique_ptr<Node> node;
+ 
++    // The behaviour may play the clip's source with a node of its own.
++    if (role == ClipRole::arranger)
++        node = clip.edit.engine.getEngineBehaviour().createAudioClipSourceNode (clip, toTime (clipTimeRangeToUse, clip.edit.tempoSequence),
++                                                                                params.processState, params.forRendering);
++
+     // A range starting before the clip (EngineBehaviour::getAudioClipExtension) plays its
+     // source from that much earlier.
+     const auto offsetForRange = [&clip, &clipTimeRangeToUse]
+@@ -439,7 +444,16 @@
          return pos.getOffset() - (pos.getStart() - toTime (clipTimeRangeToUse, clip.edit.tempoSequence).getStart());
      };
  
+-    if (clip.canUseProxy())
 +    // The same in beats, for a clip that follows the tempo.
 +    const auto offsetBeatsForRange = [&clip, &clipTimeRangeToUse]
 +    {
 +        return clip.getOffsetInBeats() - (clip.getStartBeat() - toBeats (clipTimeRangeToUse, clip.edit.tempoSequence).getStart());
 +    };
 +
-     if (clip.canUseProxy())
++    if (node != nullptr)
++    {
++    }
++    else if (clip.canUseProxy())
      {
          assert (role != ClipRole::launcher);
-@@ -593,7 +599,7 @@
+         assert (! clipTimeRangeToUse.isBeats());
+@@ -593,7 +607,7 @@
                  node = makeNode<WaveNodeRealTime> (playFile,
                                                     timeStretcherMode, timeStretcherOpts,
                                                     toBeats (clipTimeRangeToUse, clip.edit.tempoSequence),
@@ -46,7 +49,7 @@ diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_Edit
                                                     BeatRange (clip.getLoopStartBeats(), clip.getLoopLengthBeats()),
                                                     clip.getLiveClipLevel(),
                                                     clip.getActiveChannelConfiguration(),
-@@ -671,9 +677,19 @@
+@@ -671,9 +685,19 @@
          return createNodeForAudioClip (clip, clip.itemID, extendedRange(), includeARA, params, role);
      }
  
@@ -67,3 +70,20 @@ diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_Edit
      assert (role == ClipRole::arranger);
      return createNodeForAudioClip (clip, clip.itemID, extendedRange(), includeARA, params, role);
  }
+Only in a/modules/tracktion_engine/playback/graph: tracktion_WaveNode.cpp
+diff '--color=auto' -ru a/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h b/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h
+--- a/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h	2026-10-15 21:31:15.680513447 +0300
++++ b/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h	2026-10-15 21:31:27.026552687 +0300
+@@ -169,6 +169,12 @@
+                                                                              std::unique_ptr<tracktion::graph::Node>& /*input*/,
+                                                                              ProcessState&)  { return {}; }
+ 
++    /// Lets the behaviour play an audio clip's source with its own node over `played` (its
++    /// range with any extension), in place of the engine's wave node: the clip's plugins and
++    /// fades follow it as they would the engine's. Return nullptr for the engine's own.
++    virtual std::unique_ptr<tracktion::graph::Node> createAudioClipSourceNode (AudioClipBase&, TimeRange /*played*/,
++                                                                               ProcessState&, bool /*forRendering*/)  { return {}; }
++
+     /// If implemented, this lets the behaviour determine exactly which file a new
+     /// auto recording for the given track should be made to.
+     virtual juce::File getFileForNewAudioRecording (Track&, const juce::String& fileExtension)  { (void) fileExtension; return {}; }

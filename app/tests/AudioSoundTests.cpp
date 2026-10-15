@@ -148,18 +148,55 @@ TEST_CASE("audio sound: the file a clip plays over a range of the timeline", "[f
     clip.start = 10.0;
     clip.length = 4.0;
     clip.offset = 1.0;
-    clip.sourceLength = 8.0;
-    CHECK(fileSpans(clip, false, 11.0, 12.0) == std::vector<LineSpan>{{2.0, 3.0}});
-    CHECK(fileSpans(clip, true, 11.0, 12.0) == std::vector<LineSpan>{{5.0, 6.0}}); // read from the end
-    CHECK(fileSpans(clip, false, 9.0, 10.5) == std::vector<LineSpan>{{1.0, 1.5}}); // cut to the clip
+    clip.sourceLength = clip.fileLength = 8.0;
+    CHECK(fileSpans(clip, 11.0, 12.0) == std::vector<LineSpan>{{2.0, 3.0}});
+    CHECK(fileSpans(clip, 9.0, 10.5) == std::vector<LineSpan>{{1.0, 1.5}}); // cut to the clip
+    auto reversed = clip;
+    reversed.sound.reversed = true;
+    CHECK(fileSpans(reversed, 11.0, 12.0) == std::vector<LineSpan>{{5.0, 6.0}}); // read from the end
+
+    // Warped (P6b): the file at 120 BPM in a song at 60, so a second of the song is half a second of
+    // the file.
+    auto warped = clip;
+    warped.warp.on = true;
+    warped.warp.tempo = 120.0;
+    warped.beatsPerSecond = 1.0;
+    CHECK(fileSpans(warped, 11.0, 12.0) == std::vector<LineSpan>{{1.0, 1.5}});
 
     // A looped clip: each lap plays the same stretch of the file, kept once.
     clip.loop = {1.0, 1.0};
     clip.offset = 0.0;
-    CHECK(fileSpans(clip, false, 10.25, 10.75) == std::vector<LineSpan>{{1.25, 1.75}});
-    CHECK(fileSpans(clip, false, 10.25, 11.75) == std::vector<LineSpan>{{1.25, 2.0}, {1.0, 1.75}});
-    CHECK(fileSpans(clip, false, 10.25, 12.75) ==
-          std::vector<LineSpan>{{1.25, 2.0}, {1.0, 2.0}, {1.0, 1.75}});
+    CHECK(fileSpans(clip, 10.25, 10.75) == std::vector<LineSpan>{{1.25, 1.75}});
+    CHECK(fileSpans(clip, 10.25, 11.75) == std::vector<LineSpan>{{1.25, 2.0}, {1.0, 1.75}});
+    CHECK(fileSpans(clip, 10.25, 12.75) == std::vector<LineSpan>{{1.25, 2.0}, {1.0, 2.0}, {1.0, 1.75}});
+}
+
+TEST_CASE("audio sound: the gain line shows where its moments of the file play", "[fast][audio-sound]")
+{
+    const AutomationPoints line{{1.0, 0.2f, 0.5f}, {2.0, 0.8f, 0.0f}};
+    ContentMap plain;
+    plain.fileLength = 4.0;
+    auto shown = lineToView(line, 10.0, plain);
+    CHECK(shown[0].time == Approx(11.0));
+    CHECK(lineFromView(shown, 10.0, plain) == line);
+    // Reversed: mirrored, the segment bending the other way.
+    auto backwards = plain;
+    backwards.reversed = true;
+    shown = lineToView(line, 10.0, backwards);
+    CHECK(shown[0].time == Approx(12.0));
+    CHECK(shown[0].value == 0.8f);
+    CHECK(shown[0].curve == -0.5f);
+    CHECK(lineFromView(shown, 10.0, backwards) == line);
+    // Warped at twice the song's speed: each moment of the file plays at half its time.
+    ContentMap warped = plain;
+    warped.warped = true;
+    warped.played.tempo = 120.0;
+    warped.beatsPerSecond = 4.0; // 240 BPM
+    shown = lineToView(line, 10.0, warped);
+    CHECK(shown[0].time == Approx(10.5));
+    CHECK(shown[1].time == Approx(11.0));
+    const auto back = lineFromView(shown, 10.0, warped);
+    CHECK(back[1].time == Approx(2.0));
 }
 
 TEST_CASE("audio sound: Normalise each, together, and leave silence alone", "[fast][audio-sound]")

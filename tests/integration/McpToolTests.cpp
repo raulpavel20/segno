@@ -729,17 +729,6 @@ TEST_CASE("mcp tools: clip loops: loop what's shown, set the loop, extend past t
     CHECK(written["clip"]["loop"]["length"] == Approx(8.0)); // to the end of the next bar
     CHECK(written["clip"]["length"] == Approx(8.0));          // the clip as long as it was
     CHECK(written["lengthened"] == false);
-
-    // An audio clip the engine stretches to the tempo (a project from before) can't loop: the call
-    // says why and changes nothing, not even the clips that could loop.
-    const auto synced = daw.call("insert_audio_file", {{"track", t0}, {"start", "20.1.1"}, {"path", wav.getFile().getFullPathName().toStdString()}})["clip"];
-    const auto syncedId = synced["id"].get<std::string>();
-    auto* engineClip = dynamic_cast<tracktion::AudioClipBase*>(daw.session->impl().clip(std::stoull(syncedId.substr(2))));
-    REQUIRE(engineClip != nullptr);
-    engineClip->setAutoTempo(true);
-    daw.session->flushSnapshot();
-    CHECK(daw.fails("loop_clips", {{"clips", {audioId, syncedId}}}).find("tempo") != std::string::npos);
-    CHECK(daw.call("get_clip", {{"clip", audioId}})["loop"].is_null());
 }
 
 TEST_CASE("mcp tools: get_module says how late a module plays its track", "[integration][mcp]")

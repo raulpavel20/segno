@@ -520,9 +520,48 @@ The spike of §15, kept as tests (`tests/integration/WarpSpikeTests.cpp`), on tr
 | 7 | Repitch; transposing without Warp | Transposed without Warp: an octave up, the same length. Repitch through the patch's resampling: a 120 BPM file at 100 BPM plays at 366.7 Hz and 2.4 s, following the tempo as the other modes do |
 | 8 | Warped waveforms in the arrangement | Not a question for the engine: checked by the arrangement's benchmark when built |
 
-**What failed, and what changes.** tracktion's warp markers (its `WarpReader`) choose the stretcher's speed by where the output is, so each piece's change of speed is heard a stretcher's latency late: clicks pinned to 0.2, 0.4, 0.6 s by a marker land at 0.22, 0.42, 0.62 s, and after the marker 18 ms early (the hidden test reproduces it). Without a stretcher its markers don't play at all. Choosing the speed a latency ahead made it worse. So:
+**What failed, and what changes.** tracktion's warp markers (its `WarpReader`) choose the stretcher's speed by where the output is, so each piece's change of speed is heard a stretcher's latency late: clicks pinned to 0.2, 0.4, 0.6 s by a marker land at 0.22, 0.42, 0.62 s, and after the marker 18 ms early. Without a stretcher its markers don't play at all. Choosing the speed a latency ahead made it worse. So:
 - **Markers play as pieces, in Segno's piece player:** each piece between two markers is read from its own start at its own ratio, as a split part is (point 4: placed exactly), with a short crossfade at each marker (4 ms, the edge fades'). The next piece's stretcher is started a latency ahead, so a marker costs no burst of work.
 - **Beats was already a piece player** (§7.3): each piece from its transient at its own speed. It's the same player, its pieces cut at transients, unstretched, their tails faded or looped. So one player plays Beats, and Tones and Repitch with markers; a clip without markers in Tones or Repitch stays on tracktion's path, which the spike shows works.
 - **The piece player is a node of Segno's,** reading through tracktion's file cache, behind a hook that lets the engine behaviour build a clip's source node (a second small patch, in P6b's first step). The clip stays tracktion's clip that follows the tempo, so its place, length and loop in beats are tracktion's, as points 0 and 3 show. ADR 0063 holds: warping is real time, in tracktion's graph; only who reads a warped clip's pieces changes.
 - **A crossfade's spare audio on a stretched clip** is measured in its file and played in the song: the engine's extension converts one to the other by the clip's ratio (the spike checked it at the clip's own tempo).
 - **The design's other words stand.** §15's "markers through `WarpTimeManager`" becomes "markers kept with the clip, played by the piece player"; point 4's "nulls against the whole" becomes "sounds the same where it stretches, nulls where it doesn't".
+
+## 23. P6b built, step 1: the piece player and what's found in a file (2026-10-15)
+
+The product owner chose the piece player and asked for the Release reading (point 6 of §22: it holds). Settled while building it:
+
+- **Every warped clip plays through the piece player,** markers or not. §22 kept clips without markers on tracktion's path. One way of reading a warped clip means the first marker changes nothing else about how it sounds, formants come with Segno's own stretcher (no patch to tracktion's), and it costs half as much: 32 stretched stereo clips take 0.6 of a core between them in a Release render (2 % of a core a clip), against about one core through tracktion's path, spread over more threads. Clips without Warp stay on tracktion's path, transposed or not.
+- **How a piece plays:**
+  - A piece at its own speed copies its file, frame for frame.
+  - Repitch and Beats resample with the Sampler's band-limited kernels (`fd::dsp::SincKernels`).
+  - Tones stretches with Signalsmith Stretch. Its stretcher starts a block early and warms up, so a marker costs no burst of work; after a jump it starts at once (its `outputSeek`).
+  - Each piece fades in over the 4 ms before its marker, so it plays at full level from the marker on: a hit in Beats isn't softened.
+  - A marker that doesn't change the speed starts no piece: the file reads straight through it.
+  - At a loop's seam the laps meet with no crossfade of the player's own: the seam fades are the fade node's, as for any loop.
+- **Measured** (`tests/integration/WarpPlayerTests.cpp`):
+  - Clicks pinned by a marker land within 1 ms in each mode.
+  - Beats slowed keeps every hit sample for sample (−120 dB).
+  - At its own tempo, with markers on its own map, a clip reads its file exactly.
+  - Transposed in Tones, a clip keeps its length.
+  - Warp on and off, a new tempo, ×2 and a loop keep the audio the clip plays.
+  - Markers out of order or past ×4 are refused.
+- **Stretched laps sound the same; they don't match sample for sample.** Each lap's stretcher starts afresh, so point 3 is now held to how laps sound, as split parts are (point 4).
+- **The map** (`model/Warp.h`):
+  - The file's start is always pinned to beat 0. Before the first marker and after the last, the file plays at the clip's tempo.
+  - Each piece stays within ×0.25 … ×4 of the clip's tempo, and every marker edit stops there.
+  - A reversed clip's map is the file's seen from its end: mirroring is its own inverse.
+  - While a clip warps, its content counts the song's time (`model::ContentMap`). Its offset, length, loop, fades and gain line work as for any clip, and only reading the file goes through the map.
+- **What keeps what:**
+  - Warp on or off, a typed tempo, ×2 and ÷2 keep the audio the clip plays: its offset, length and loop are carried through the file.
+  - A marker edit keeps the clip's place in beats.
+- **The first tempo,** when Warp goes on and the clip has none of its own: its file's loop metadata, else a tempo in its name ("Groove_92bpm"), else the song's, where it plays untouched. Found from its audio when it's placed comes with what warps by default.
+- **Transposition:** tracktion transposes a clip without Warp, the piece player a warped one. Repitch has none: the speed sets the pitch.
+- **What's found in a file** (`fd::dsp` Onsets, `model/AudioAnalysis`, found in the background once per file while it's unchanged, streamed 30 s at a time):
+  - **Transients:** spectral flux of log magnitudes, every candidate kept with how far it stands out. A sensitivity picks among them at once, so the ticks follow a drag of Sensitivity. Each is placed at its attack to the millisecond.
+  - **Tempo:** the onsets' autocorrelation gives candidates and their octaves and fifths; a comb over each one's beats chooses, and finds it to 0.002 BPM. A clip under 32 s snaps to whole bars. The downbeat is where the low end starts most.
+  - **Mode:** Beats or Tones from a harmonic–percussive split by median filtering.
+  - **Octave readings:** with hats on every eighth as strong as the beats, a slow groove can read twice as fast. That's what the tempo's ×2 and ÷2 are for.
+- **tracktion's patch:** `tracktion_engine-warped-clips.patch` gains the hook that lets Segno build a clip's source node, and drops its resampling switch, which nothing uses now.
+- **No more "synced" clips:** an audio clip the engine stretched to the tempo before ADR 0048 couldn't loop. Any clip that follows the tempo is now a warped clip: it loops in beats and crossfades like any other.
+

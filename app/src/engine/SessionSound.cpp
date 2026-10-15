@@ -253,8 +253,6 @@ std::string Session::rangeRefusal(std::uint64_t clipId, double from, double to, 
     case RangeAction::Loop:
         if (auto track = dynamic_cast<te::AudioTrack*>(c->getClipTrack()); track == nullptr)
             return "Not on a track.";
-        if (info.synced)
-            return "A clip that follows the tempo by the engine's old way can't loop.";
         if (info.stack != 0)
             return "A clip with takes can't loop.";
         break;
@@ -329,7 +327,7 @@ Session::RangeResult Session::editRange(std::uint64_t clipId, double from, doubl
     case RangeAction::Gain:
     {
         auto line = info.sound.line;
-        for (const auto& span : model::fileSpans(info, info.sound.reversed, from, to))
+        for (const auto& span : model::fileSpans(info, from, to))
             line = action == RangeAction::Silence ? model::lineSilenced(line, span)
                                                   : model::lineWithGain(line, span, db);
         setGainLine(clipId, line, rangeName(action));

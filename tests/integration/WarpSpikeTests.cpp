@@ -1,6 +1,7 @@
 // The audio editor's warping, step 0: the engine spike (M3 step P6b, ADR 0063,
-// docs/design/audio-editor.md §15, §22). Each point is kept as a test of tracktion's real-time path
-// as Segno uses it, with tracktion_engine-warped-clips.patch: a clip following a tempo change; a
+// docs/design/audio-editor.md §15, §22). Each point is kept as a test of the real-time path Segno
+// plays warped clips on (tracktion's clip that follows the tempo, read by Segno's piece player since
+// P6b's first step, tracktion_engine-warped-clips.patch): a clip following a tempo change; a
 // warped clip at its own tempo untouched, stretched or resampled; fades, edge fades and crossfades
 // on warped clips; loops kept in beats; splits; bounces matching their render; Repitch, and
 // transposing without Warp; the cost of 32 warped clips. Stretched audio is never the same sample
@@ -84,7 +85,9 @@ struct Warper
               te::TimeStretcher::Mode mode = te::TimeStretcher::signalsmithDefault)
     {
         auto& c = clip(id);
-        c.state.setProperty("resample", mode == te::TimeStretcher::disabled, nullptr);
+        // Repitch for no stretcher, else Tones: Segno's piece player plays both.
+        c.state.setProperty("fdWarpMode", mode == te::TimeStretcher::disabled ? 2 : 1, nullptr);
+        c.state.setProperty("fdWarpTempo", bpm, nullptr);
         auto info = c.getLoopInfo();
         info.setNumBeats(c.getSourceLength().inSeconds() * bpm / 60.0);
         info.setBpm(bpm, c.getWaveInfo());
@@ -142,18 +145,6 @@ AudioBuffer sine(double seconds, double hz, float level = 0.5f)
     return b;
 }
 
-/// A click every `every` seconds: a short burst, its start easy to find.
-AudioBuffer clicks(double seconds, double every)
-{
-    AudioBuffer b(2, static_cast<int>(seconds * kRate));
-    for (double t = 0.0; t < seconds - 0.01; t += every)
-        for (int i = 0; i < 48; ++i)
-            for (int c = 0; c < 2; ++c)
-                b.at(c, static_cast<int>(t * kRate) + i) =
-                    0.8f * static_cast<float>(std::sin(2.0 * kPi * 1000.0 * i / kRate));
-    return b;
-}
-
 /// The largest difference between two renders, over [from, to) frames.
 double difference(const AudioBuffer& a, const AudioBuffer& b, int from = 0, int to = -1)
 {
@@ -199,6 +190,16 @@ double envelopeDifference(const AudioBuffer& a, const AudioBuffer& b)
     return out;
 }
 
+/// `count` frames of a render from `from`.
+AudioBuffer slice(const AudioBuffer& b, int from, int count)
+{
+    AudioBuffer out(b.numChannels(), count);
+    for (int c = 0; c < b.numChannels(); ++c)
+        for (int i = 0; i < count && from + i < b.numSamples(); ++i)
+            out.at(c, i) = b.at(c, from + i);
+    return out;
+}
+
 /// The frequency of a render's left channel over [from, to) seconds, by its rising zero crossings.
 double frequency(const AudioBuffer& b, double from, double to)
 {
@@ -227,20 +228,6 @@ std::pair<double, double> sounding(const AudioBuffer& b)
             last = i;
         }
     return {first / kRate, last / kRate};
-}
-
-/// Where each click starts in a render, in seconds.
-std::vector<double> clickTimes(const AudioBuffer& b)
-{
-    std::vector<double> out;
-    int quiet = 1 << 30;
-    for (int i = 0; i < b.numSamples(); ++i)
-    {
-        if (std::abs(b.at(0, i)) > 0.05f && quiet > frame(0.05))
-            out.push_back(i / kRate);
-        quiet = std::abs(b.at(0, i)) > 0.05f ? 0 : quiet + 1;
-    }
-    return out;
 }
 } // namespace
 
@@ -323,16 +310,19 @@ TEST_CASE("warp spike 3: a looped clip keeps its loop when it warps, in beats, l
     CHECK(w.clip(id).getLoopLengthBeats().inBeats() == Approx(1.0));
     // Its seams fade as an unwarped loop's do (the loop read in beats, engine/Session.cpp).
     CHECK(db(difference(plain, w.render(0.0, 4.0))) < -115.0); // measured -122 dB
-    // At 100 BPM each lap is the same audio, 0.6 s apart.
+    // At 100 BPM each lap is the same audio, 0.6 s apart: stretched, each lap's stretcher starts
+    // afresh, so the laps sound the same rather than match sample for sample (as split parts do,
+    // point 4).
     w.session->setTempo(100.0);
     w.session->updateSnapshotNow();
     CHECK(w.clip(id).getPosition().getLength().inSeconds() == Approx(4.8));
     const auto slow = w.render(0.0, 5.0);
     const int lap = frame(0.6);
-    double laps = 0.0;
-    for (int i = lap; i < 4 * lap; ++i)
-        laps = std::max(laps, std::abs(static_cast<double>(slow.at(0, i + lap)) - slow.at(0, i)));
-    CHECK(db(laps) < -200.0);
+    for (int n = 1; n < 6; ++n)
+    {
+        INFO("lap " << n);
+        CHECK(envelopeDifference(slice(slow, 0, lap), slice(slow, n * lap, lap)) < 1.0);
+    }
 }
 
 TEST_CASE("warp spike 4: a split warped clip plays as the whole did", "[integration][warp-spike]")
@@ -424,25 +414,6 @@ TEST_CASE("warp spike 6: 32 warped stereo clips in Tones, rendered", "[integrati
     std::cout << "warp spike 6: 9.6 s of 32 warped clips rendered in " << seconds << " s (" << 9.6 / seconds
               << "x real time, this build)" << std::endl;
     CHECK(out.numSamples() == frame(9.6));
-}
-
-// For the record (audio-editor.md §22): tracktion's warp markers (WarpReader) set the stretcher's
-// speed by the position it plays, so a piece's change of speed is heard a stretcher's latency late;
-// without a stretcher they don't play. Segno plays markers as pieces instead. Hidden: it reports.
-TEST_CASE("warp spike: tracktion's warp markers, where a marker puts the audio", "[.][warp-spike]")
-{
-    Warper w;
-    const auto id = w.place(clicks(2.0, 0.25), "Clicks", 0.0);
-    w.warp(id, 120.0);
-    auto& c = w.clip(id);
-    c.setWarpTime(true);
-    c.getWarpTimeManager().insertMarker(
-        te::WarpMarker(te::TimePosition::fromSeconds(1.0), te::TimePosition::fromSeconds(0.8)));
-    const auto out = w.render(0.0, 3.0);
-    std::cout << "tracktion's warp markers, stretched: clicks at";
-    for (double t : clickTimes(out))
-        std::cout << " " << std::round(t * 1000.0) / 1000.0;
-    std::cout << " (on the marker's map: 0 0.2 0.4 0.6 0.8 1.1 1.4 1.7)" << std::endl;
 }
 
 // Point 6's baseline: the same 32 clips, not warped (no stretcher), so the stretchers' own cost

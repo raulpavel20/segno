@@ -1671,13 +1671,10 @@ void ArrangementView::paintWaveform(juce::Graphics& g, const model::ClipInfo& cl
     if (std::any_of(sound.line.begin(), sound.line.end(),
                     [zero](const auto& p) { return std::abs(p.value - zero) > 1e-6f; }))
     {
-        WaveformTiles::drawDirect(g, *peaks, clip, body, visible, timeline_, laneArea().getX(), tint,
-                                  [&](double seconds)
-                                  {
-                                      const double at = model::contentAt(clip, seconds);
-                                      return model::soundGainAt(
-                                          sound, model::fileTimeOf(at, clip.sourceLength, sound.reversed));
-                                  });
+        const auto map = model::contentMap(clip);
+        WaveformTiles::drawDirect(
+            g, *peaks, clip, body, visible, timeline_, laneArea().getX(), tint, [&](double seconds)
+            { return model::soundGainAt(sound, map.fileAt(model::contentAt(clip, seconds))); });
         return;
     }
     const float gain = model::soundGainAt({.gainDb = sound.gainDb}, 0.0);

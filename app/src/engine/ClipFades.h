@@ -35,6 +35,8 @@ inline const juce::Identifier forward{"fdForward"};
 inline const juce::Identifier line{"FDGAINLINE"}, point{"FDGAINPOINT"}, time{"t"}, value{"v"}, curve{"c"};
 } // namespace soundIds
 
+/// The file a clip plays as recorded: a reversed clip's forward one, not its reversed copy.
+[[nodiscard]] juce::File forwardFileOf(const tracktion::AudioClipBase& clip);
 /// The clip's sound as stored on it.
 [[nodiscard]] model::AudioSound soundOf(const tracktion::AudioClipBase& clip);
 /// Writes the clip's gain line (an empty one removes it), undoably.
@@ -43,8 +45,8 @@ void writeGainLine(juce::ValueTree& clip, const model::AutomationPoints& line, j
 /// or a point of its gain line.
 [[nodiscard]] bool affectsSound(const juce::ValueTree& tree, const juce::Identifier& id);
 
-/// The clip as fades see it. Clips that play stretched or synced have no spare audio to crossfade
-/// with; a looped one's is its neighbouring lap (ADR 0048).
+/// The clip as fades see it. Clips that play from a stretched proxy have no spare audio to
+/// crossfade with; a looped one's is its neighbouring lap (ADR 0048).
 [[nodiscard]] model::FadeClip fadeClipOf(tracktion::AudioClipBase& clip);
 /// The clip with the audio clips just before and after it on its track (what its playback depends
 /// on), and its place among them: cheap, for the engine's graph building.

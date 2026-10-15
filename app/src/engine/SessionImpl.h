@@ -2,20 +2,21 @@
 
 #include "engine/ClipFades.h"
 #include "engine/ClipNotes.h"
+#include "engine/FileAnalyser.h"
 #include "engine/FileIndexer.h"
 #include "engine/MidiTap.h"
 #include "engine/PreviewPlayer.h"
 #include "engine/Session.h"
+#include "engine/WarpPlayer.h"
 #include "model/StackEdits.h"
 #include "model/Takes.h"
 #include "model/TrackEdits.h"
-
-#include <tracktion_engine/tracktion_engine.h>
 
 #include <algorithm>
 #include <atomic>
 #include <map>
 #include <set>
+#include <tracktion_engine/tracktion_engine.h>
 #include <utility>
 
 namespace fd::engine
@@ -120,6 +121,12 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     // The browser (C2, ADR 0046): the index of the places, the preview, and every file a clip or
     // take has used since the project opened (Remove unused files leaves those).
     FileIndexer indexer;
+    // What's found in clips' files (P6b, audio-editor.md §7): transients, how percussive, tempo.
+    FileAnalyser analyser;
+    /// A clip's transients (seconds of its file as recorded): none while its file is analysed.
+    [[nodiscard]] std::vector<double> transientsOf(te::AudioClipBase& clip);
+    /// A file's analysis arrived: clips that play it are shown again, and Beats ones played again.
+    void analysisFound(const std::string& path);
     PreviewPlayer preview;
     std::vector<std::string> browserPlaces;
     juce::File segnoFolder = defaultSegnoFolder();
@@ -609,9 +616,10 @@ private:
                 return;
         if (!inTransport(t) && id != te::IDs::solo) // solo is a listening aid (ADR 0026)
             dirty = true; // includes device parameters
-        // What a clip plays depends on its fades and its neighbours (ADR 0036), its sound (ADR 0063),
-        // and its notes' chance on its seed (piano-roll.md §10): playback is rebuilt.
-        if (affectsFades(t, id) || affectsSound(t, id) || id == noteIds::seed)
+        // What a clip plays depends on its fades and its neighbours (ADR 0036), its sound and its
+        // warping (ADR 0063), and its notes' chance on its seed (piano-roll.md §10): playback is
+        // rebuilt.
+        if (affectsFades(t, id) || affectsSound(t, id) || affectsWarp(t, id) || id == noteIds::seed)
             restartPending = true;
         // A lane's points.
         for (auto p = t; p.isValid() && !p.hasType(te::IDs::PLUGIN); p = p.getParent())
@@ -644,8 +652,8 @@ private:
     {
         if (inInputs(t) || child.hasType(te::IDs::INPUTDEVICES))
             return; // routing, rebuilt from the tracks' inputs
-        restartPending =
-            restartPending || child.hasType(te::IDs::AUTOMATIONCURVE) || child.hasType(soundIds::line);
+        restartPending = restartPending || child.hasType(te::IDs::AUTOMATIONCURVE) ||
+                         child.hasType(soundIds::line) || child.hasType(warpIds::markers);
         morphCheckPending = morphCheckPending || inCurve(t) || child.hasType(te::IDs::AUTOMATIONCURVE);
         structureChanged(t);
     }
@@ -653,8 +661,8 @@ private:
     {
         if (inInputs(t) || child.hasType(te::IDs::INPUTDEVICES))
             return;
-        restartPending =
-            restartPending || child.hasType(te::IDs::AUTOMATIONCURVE) || child.hasType(soundIds::line);
+        restartPending = restartPending || child.hasType(te::IDs::AUTOMATIONCURVE) ||
+                         child.hasType(soundIds::line) || child.hasType(warpIds::markers);
         morphCheckPending = morphCheckPending || inCurve(t) || child.hasType(te::IDs::AUTOMATIONCURVE);
         structureChanged(t);
     }

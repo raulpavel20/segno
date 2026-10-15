@@ -36,10 +36,12 @@ std::vector<FadeClip> fadeClips(const TrackInfo& track)
                            .loop = c.loop,
                            .source = c.sourcePath,
                            .muted = c.muted,
-                           .canExtend = !c.synced, // as the engine plays it (engine/ClipFades.cpp)
+                           .canExtend = true, // as the engine plays it (engine/ClipFades.cpp)
+                           .reversed = c.sound.reversed,
                            .in = c.fadeIn,
                            .out = c.fadeOut,
-                           .crossOut = c.crossfadeOut});
+                           .crossOut = c.crossfadeOut,
+                           .map = contentMap(c)});
     std::sort(out.begin(), out.end(), [](const auto& a, const auto& b) { return a.start < b.start; });
     return out;
 }

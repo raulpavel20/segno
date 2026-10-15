@@ -125,39 +125,34 @@ double fileTimeOf(double content, double sourceLength, bool reversed) noexcept
 
 namespace
 {
-/// Points at `flip` − their time, in time order: a segment read the other way starts at its
-/// other end and bends the other way.
-AutomationPoints mirrored(const AutomationPoints& line, double flip)
+/// Points moved to `to(time)`, in time order: where `to` runs backwards (a reversed clip), a
+/// segment read the other way starts at its other end and bends the other way.
+template <typename To> AutomationPoints moved(const AutomationPoints& line, bool backwards, To to)
 {
     AutomationPoints out;
     const auto n = line.size();
     for (size_t k = 0; k < n; ++k)
     {
+        if (!backwards)
+        {
+            out.push_back({to(line[k].time), line[k].value, line[k].curve});
+            continue;
+        }
         const auto& p = line[n - 1 - k];
-        out.push_back({flip - p.time, p.value, k + 1 < n ? -line[n - 2 - k].curve : 0.0f});
+        out.push_back({to(p.time), p.value, k + 1 < n ? -line[n - 2 - k].curve : 0.0f});
     }
     return out;
 }
 } // namespace
 
-AutomationPoints lineToView(const AutomationPoints& line, double origin, double sourceLength, bool reversed)
+AutomationPoints lineToView(const AutomationPoints& line, double origin, const ContentMap& map)
 {
-    if (reversed)
-        return mirrored(line, origin + sourceLength);
-    auto out = line;
-    for (auto& p : out)
-        p.time += origin;
-    return out;
+    return moved(line, map.reversed, [&](double file) { return origin + map.contentAt(file); });
 }
 
-AutomationPoints lineFromView(const AutomationPoints& view, double origin, double sourceLength, bool reversed)
+AutomationPoints lineFromView(const AutomationPoints& view, double origin, const ContentMap& map)
 {
-    if (reversed)
-        return mirrored(view, origin + sourceLength);
-    auto out = view;
-    for (auto& p : out)
-        p.time -= origin;
-    return out;
+    return moved(view, map.reversed, [&](double at) { return map.fileAt(at - origin); });
 }
 
 void applyChannels(ChannelMode mode, float& left, float& right) noexcept
@@ -181,14 +176,14 @@ void applyChannels(ChannelMode mode, float& left, float& right) noexcept
     }
 }
 
-std::vector<LineSpan> fileSpans(const ClipInfo& clip, bool reversed, double from, double to)
+std::vector<LineSpan> fileSpans(const ClipInfo& clip, double from, double to)
 {
     std::vector<LineSpan> out;
+    const auto map = contentMap(clip);
     for (const auto& lap : laps(clip, from, to))
     {
-        const double c0 = lap.content, c1 = lap.content + (lap.to - lap.from);
-        LineSpan span =
-            reversed ? LineSpan{clip.sourceLength - c1, clip.sourceLength - c0} : LineSpan{c0, c1};
+        const double f0 = map.fileAt(lap.content), f1 = map.fileAt(lap.content + (lap.to - lap.from));
+        const LineSpan span{std::min(f0, f1), std::max(f0, f1)};
         if (span.to > span.from &&
             std::none_of(out.begin(), out.end(), [&](const LineSpan& s)
                          { return std::abs(s.from - span.from) < 1e-9 && std::abs(s.to - span.to) < 1e-9; }))

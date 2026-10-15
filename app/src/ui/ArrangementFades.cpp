@@ -59,6 +59,7 @@ void ArrangementView::paintFades(juce::Graphics& g, const model::ClipInfo& clip,
         {
             g.setColour(t.clipBody(colour, selected));
             g.fillRect(region);
+            const auto map = model::contentMap(clip);
             forEachLap(g, clip, body,
                        [&](const model::ClipInfo& lap, juce::Rectangle<float> lapBody)
                        {
@@ -70,9 +71,7 @@ void ArrangementView::paintFades(juce::Graphics& g, const model::ClipInfo& clip,
                                {
                                    const double content = model::contentAt(lap, seconds);
                                    return model::rampGain(ramp, (seconds - from) / (to - from), fadingIn) *
-                                          model::soundGainAt(clip.sound,
-                                                             model::fileTimeOf(content, clip.sourceLength,
-                                                                               clip.sound.reversed));
+                                          model::soundGainAt(clip.sound, map.fileAt(content));
                                });
                        });
         }

@@ -1,11 +1,21 @@
 #include "engine/ClipFades.h"
+
 #include "engine/SessionImpl.h"
+#include "engine/WarpPlayer.h"
 
 #include <cmath>
 
 namespace fd::engine
 {
 namespace te = tracktion;
+
+juce::File forwardFileOf(const te::AudioClipBase& clip)
+{
+    auto& c = const_cast<te::AudioClipBase&>(clip);
+    return clip.state.hasProperty(soundIds::forward)
+               ? te::SourceFileReference::findFileFromString(c.edit, clip.state[soundIds::forward].toString())
+               : c.getOriginalFile();
+}
 
 model::FadeClip fadeClipOf(te::AudioClipBase& clip)
 {
@@ -15,7 +25,8 @@ model::FadeClip fadeClipOf(te::AudioClipBase& clip)
     c.start = pos.getStart().inSeconds();
     c.length = pos.getLength().inSeconds();
     c.offset = pos.getOffset().inSeconds();
-    c.sourceLength = clip.getSourceLength().inSeconds();
+    c.map = contentMapOf(clip); // P6b: a warped clip's content counts the song's time
+    c.sourceLength = c.map.fileLength > 0.0 ? c.map.contentLength() : 0.0;
     c.source = clip.getOriginalFile().getFullPathName().toStdString();
     c.muted = clip.isMuted();
     c.loop = loopOf(clip.state, clip.edit.tempoSequence); // ADR 0048
@@ -177,8 +188,7 @@ void ClipFadeNode::process(ProcessContext& pc)
         if (line)
         {
             const double content = model::contentAt(clip_.start, clip_.offset, clip_.loop, t);
-            gain *= model::lineGainAt(sound_.line,
-                                      model::fileTimeOf(content, clip_.sourceLength, clip_.reversed));
+            gain *= model::lineGainAt(sound_.line, clip_.map.fileAt(content));
         }
         if (pair)
             model::applyChannels(sound_.channels, dest.getSample(0, i), dest.getSample(1, i));

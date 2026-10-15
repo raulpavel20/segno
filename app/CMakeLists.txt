@@ -11,17 +11,17 @@ add_library(fd_app_model STATIC src/model/Timeline.cpp src/model/Grid.cpp src/mo
     src/model/Chance.cpp src/model/Controllers.cpp src/model/NoteToolkit.cpp
     src/model/TrackHeaderLayout.cpp src/model/AudioMeasure.cpp src/model/Taper.cpp src/model/ChannelStripLayout.cpp src/model/Selection.cpp
     src/model/Automation.cpp src/model/ArrangementRows.cpp src/model/Snapshot.cpp src/model/Recording.cpp src/model/Takes.cpp
-    src/model/TopBarLayout.cpp src/model/StackEdits.cpp src/model/Capture.cpp src/model/Bounce.cpp src/model/Fades.cpp src/model/FadeEditing.cpp src/model/AudioSound.cpp src/model/AudioToolkit.cpp src/model/Export.cpp
+    src/model/TopBarLayout.cpp src/model/StackEdits.cpp src/model/Capture.cpp src/model/Bounce.cpp src/model/Fades.cpp src/model/FadeEditing.cpp src/model/AudioSound.cpp src/model/AudioToolkit.cpp src/model/Warp.cpp src/model/AudioAnalysis.cpp src/model/Export.cpp
     src/model/MenuBar.cpp src/model/AppSettings.cpp src/model/SettingsCatalogue.cpp src/model/Browser.cpp src/model/TrackEdits.cpp src/model/ClipLoops.cpp src/model/MusicalTime.cpp src/model/BraceDrag.cpp src/model/Sections.cpp src/model/SongKey.cpp)
 target_include_directories(fd_app_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
-target_link_libraries(fd_app_model PUBLIC fd::audiofile fd::music nlohmann_json::nlohmann_json PRIVATE fd::dsp fd::warnings)
+target_link_libraries(fd_app_model PUBLIC fd::audiofile fd::music fd::dsp nlohmann_json::nlohmann_json PRIVATE fd::warnings)
 
 if(FD_BUILD_TESTS)
     fd_add_test(NAME fd_app_model_tests SOURCES tests/ModelTests.cpp tests/NoteEditingTests.cpp tests/NoteToolsTests.cpp tests/AudioMeasureTests.cpp
         tests/SelectionTests.cpp tests/AutomationTests.cpp
         tests/ArrangementRowsTests.cpp tests/RecordingTests.cpp tests/TakeStackTests.cpp tests/CaptureTests.cpp tests/BounceTests.cpp tests/FadesTests.cpp tests/ExportTests.cpp
         tests/MenuBarTests.cpp tests/TrackEditsTests.cpp tests/SettingsTests.cpp tests/BrowserModelTests.cpp tests/ClipLoopsTests.cpp tests/MusicalTimeTests.cpp tests/BraceDragTests.cpp tests/SectionsTests.cpp
-        tests/ChanceTests.cpp tests/NoteToolkitTests.cpp tests/RackModelTests.cpp tests/AudioSoundTests.cpp LIBS fd_app_model)
+        tests/ChanceTests.cpp tests/NoteToolkitTests.cpp tests/RackModelTests.cpp tests/AudioSoundTests.cpp tests/WarpTests.cpp tests/AudioAnalysisTests.cpp LIBS fd_app_model)
 endif()
 
 # fd_mcp: the MCP server's protocol layer and transports (ADR 0021, docs/design/mcp.md). JUCE-free,
@@ -49,8 +49,11 @@ target_sources(fd_engine INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionExport.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/ClipFades.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/ClipNotes.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/WarpPlayer.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/FileAnalyser.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionFades.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionSound.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionWarp.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionTracks.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionSections.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionKey.cpp"

@@ -2,6 +2,7 @@
 
 #include "engine/ClipFades.h"
 #include "engine/ClipNotes.h"
+#include "engine/WarpPlayer.h"
 
 namespace fd::engine
 {
@@ -44,6 +45,21 @@ public:
                                               std::move(sound));
     }
 
+    // Warping (ADR 0063, audio-editor.md §22): a clip that follows the tempo plays through Segno's
+    // piece player.
+    std::unique_ptr<tracktion::graph::Node> createAudioClipSourceNode(tracktion::AudioClipBase& clip,
+                                                                      tracktion::TimeRange played,
+                                                                      tracktion::ProcessState& state,
+                                                                      bool forRendering) override
+    {
+        if (!clip.getAutoTempo())
+            return {};
+        std::vector<double> found;
+        if (transients && warpOf(clip).mode == model::WarpMode::Beats)
+            found = transients(clip);
+        return makeWarpPlayer(clip, played, state, forRendering, found);
+    }
+
     // Chance (piano-roll.md §10): every render of a MIDI clip decides its notes the same way.
     juce::MidiMessageSequence createPlaybackMidiSequence(const tracktion::MidiList& list,
                                                          tracktion::MidiClip& clip,
@@ -54,6 +70,7 @@ public:
     }
 
     RecordingFiles files;
+    TransientSource transients;
 };
 } // namespace
 
@@ -66,5 +83,11 @@ void setRecordingFiles(tracktion::Engine& engine, RecordingFiles files)
 {
     if (auto* behaviour = dynamic_cast<Behaviour*>(&engine.getEngineBehaviour()))
         behaviour->files = std::move(files);
+}
+
+void setTransientSource(tracktion::Engine& engine, TransientSource source)
+{
+    if (auto* behaviour = dynamic_cast<Behaviour*>(&engine.getEngineBehaviour()))
+        behaviour->transients = std::move(source);
 }
 } // namespace fd::engine

@@ -234,9 +234,15 @@ model::ClipInfo clipInfo(te::Clip& c, int trackColour)
     if (auto* audio = dynamic_cast<te::AudioClipBase*>(&c))
     {
         clip.sourcePath = audio->getOriginalFile().getFullPathName().toStdString();
-        clip.sourceLength = audio->getSourceLength().inSeconds();
-        clip.synced = audio->getAutoTempo();
         clip.sound = soundOf(*audio); // ADR 0063
+        // Warping (P6b): while it warps, its content counts the song's time, its file laid out in
+        // beats.
+        const auto map = contentMapOf(*audio);
+        clip.warp = warpOf(*audio);
+        clip.pitch = pitchOf(audio->state);
+        clip.fileLength = map.fileLength;
+        clip.beatsPerSecond = map.beatsPerSecond;
+        clip.sourceLength = map.fileLength > 0.0 ? map.contentLength() : 0.0;
         // The format of the person's file: a reversed clip's forward one, not our copy (ADR 0063).
         const auto file =
             c.state.hasProperty(soundIds::forward)
@@ -282,20 +288,26 @@ model::ClipLoop loopOf(const juce::ValueTree& clip, const te::TempoSequence& tem
 
 void writeLoop(te::Clip& clip, const model::ClipLoop& loop, juce::UndoManager* um)
 {
-    if (auto* midi = dynamic_cast<te::MidiClip*>(&clip))
+    // A MIDI clip, and an audio clip that follows the tempo, loop in beats (ADR 0063).
+    auto* audio = dynamic_cast<te::AudioClipBase*>(&clip);
+    if (dynamic_cast<te::MidiClip*>(&clip) != nullptr || (audio != nullptr && audio->getAutoTempo()))
     {
         const auto& tempo = clip.edit.tempoSequence;
         const auto beats = [&](double seconds) { return tempo.toBeats(te::TimePosition::fromSeconds(seconds)); };
         if (loop.on())
-            midi->setLoopRangeBeats({beats(loop.start), beats(loop.end())});
+            clip.setLoopRangeBeats({beats(loop.start), beats(loop.end())});
+        else if (audio == nullptr)
+            clip.setLoopRangeBeats({});
         else
-            midi->setLoopRangeBeats({});
+        {
+            clip.state.setProperty(te::IDs::loopStartBeats, 0.0, um);
+            clip.state.setProperty(te::IDs::loopLengthBeats, 0.0, um);
+        }
         return;
     }
     if (loop.on())
     {
-        auto* audio = dynamic_cast<te::AudioClipBase*>(&clip);
-        if (audio == nullptr || audio->getAutoTempo())
+        if (audio == nullptr)
             return;
         // In whole samples of the file, as the engine wraps it: the seams drawn and faded are then
         // exactly where it wraps, lap after lap.
@@ -388,6 +400,9 @@ Session::Impl::Impl(Session& o, te::Engine& e) : owner(o), engine(e)
     setRecordingFiles(engine, [this](te::Track& t, const juce::String& extension) {
         return edit != nullptr && &t.edit == edit.get() ? recordingFile(t, extension) : juce::File();
     });
+    // Beats starts pieces at a clip's transients (audio-editor.md §7.4), once they're found.
+    setTransientSource(engine, [this](te::AudioClipBase& c) { return transientsOf(c); });
+    analyser.onFound = [this](const std::string& path) { analysisFound(path); };
     // The browser's previews play after the engine's output (browser.md §7).
     engine.getDeviceManager().deviceManager.addAudioCallback(&preview);
     indexer.onChanged = [this]
@@ -482,7 +497,34 @@ Session::Impl::~Impl()
     engine.getDeviceManager().removeChangeListener(this);
     tapDrain.stopTimer();
     setRecordingFiles(engine, {});
+    setTransientSource(engine, {});
+    analyser.onFound = nullptr;
     detach();
+}
+
+std::vector<double> Session::Impl::transientsOf(te::AudioClipBase& c)
+{
+    auto info = model::ClipInfo{};
+    info.analysis = analyser.get(forwardFileOf(c));
+    info.warp = warpOf(c);
+    info.transientsAdded = timesOf(c.state[warpIds::transientsAdded]);
+    info.transientsRemoved = timesOf(c.state[warpIds::transientsRemoved]);
+    return model::transientsOf(info);
+}
+
+void Session::Impl::analysisFound(const std::string& path)
+{
+    if (edit == nullptr)
+        return;
+    bool beats = false;
+    for (auto* t : te::getAudioTracks(*edit))
+        for (auto* c : t->getClips())
+            if (auto* audio = dynamic_cast<te::AudioClipBase*>(c))
+                if (forwardFileOf(*audio).getFullPathName().toStdString() == path)
+                    beats = beats || (audio->getAutoTempo() && warpOf(*audio).mode == model::WarpMode::Beats);
+    if (beats)
+        edit->restartPlayback();
+    triggerAsyncUpdate();
 }
 
 void Session::Impl::midiDevicesChanged()
@@ -596,6 +638,13 @@ void Session::Impl::rebuildSnapshot()
             if (c->state.hasProperty(auditionId)) // an audition's copy: not the project (ADR 0038)
                 continue;
             auto clip = clipInfo(*c, info.colour);
+            if (auto* audio = dynamic_cast<te::AudioClipBase*>(c))
+            {
+                // What's found in its file (P6b): asked for here, found in the background.
+                clip.analysis = analyser.get(forwardFileOf(*audio));
+                clip.transientsAdded = timesOf(c->state[warpIds::transientsAdded]);
+                clip.transientsRemoved = timesOf(c->state[warpIds::transientsRemoved]);
+            }
             if (audition && std::find(audition->muted.begin(), audition->muted.end(), clip.id) != audition->muted.end())
                 clip.muted = false; // muted only while its take is auditioned
             info.clips.push_back(std::move(clip));

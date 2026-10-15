@@ -797,6 +797,35 @@ public:
     [[nodiscard]] std::string rangeRefusal(std::uint64_t clip, double from, double to,
                                            RangeAction action) const;
 
+    // ---- warping (P6b, ADR 0063, audio-editor.md §7, §8.1) ----------------------------------------
+    // While an audio clip warps it follows the song's tempo, its file laid out in beats, and warp
+    // markers pin moments of it to beats. Transposition keeps a clip's speed, warped or not.
+
+    /// Changes to audio clips' warping and transposition: each field given changes on every clip.
+    struct WarpChange
+    {
+        std::optional<bool> on; // Warp: each clip keeps its start and the audio it plays
+        std::optional<model::WarpMode> mode;
+        std::optional<model::WarpTails> tails;
+        std::optional<bool> formants;
+        /// The clip's tempo (its file's), or the tempo times this (×2, ÷2): the clip plays the same
+        /// audio at it, its markers scaled with it.
+        std::optional<double> tempo, tempoTimes;
+        std::optional<double> sensitivity;  // 0 … 1
+        std::optional<int> transpose, fine; // semitones, cents
+        std::optional<int> transposeBy;     // semitones up or down from where each clip is
+    };
+    /// One undo step named `undoName`; false if no audio clip changed.
+    bool setWarp(const std::vector<std::uint64_t>& clips, const WarpChange& change,
+                 const std::string& undoName = "Warp");
+    /// Replaces an audio clip's warp markers (seconds of its file as recorded, beats of its
+    /// content; model/Warp.h), turning Warp on if it's off. The clip keeps its place in beats.
+    /// Refused (false) unless each is later than the one before, in the file and in beats, and
+    /// each piece within ×0.25 … ×4 of the clip's tempo. One undo step named `undoName`, unless an
+    /// EditGroup names it.
+    bool setWarpMarkers(std::uint64_t clip, const std::vector<model::WarpMarker>& markers,
+                        const std::string& undoName = "Warp markers");
+
     /// Normalise (§6.4): each audio clip's gain set so it reaches `targetDb` (dBFS, or LUFS), or
     /// all moved together so the loudest does. Measured from their files (streamed; not real-time).
     /// One undo step, "Normalise". Returns the clips that changed; silent ones keep their gain.

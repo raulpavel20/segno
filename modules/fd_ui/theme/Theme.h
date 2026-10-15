@@ -69,6 +69,9 @@ struct ColourRoles
     // Automation (docs/design/automation.md §6): the indicator on automated controls. Lanes draw in
     // their own colour (Theme::automationLine and the fill functions).
     juce::Colour automation;
+    // Warping (audio-editor.md §7.5): a warp marker's line down through the waveform, under its
+    // handle (textPrimary) in the marker strip.
+    juce::Colour warpMarkerLine;
 
     // States.
     float hoverLift = 0.06f, pressedLift = 0.12f;
@@ -173,6 +176,9 @@ struct ShellMetrics
     int fadeHandleSize = 7;       // a fade's or crossfade's handle on a clip (fades.md §3)
     int loopNotch = 4;            // a looped clip's notch at each seam: its depth, half its width (clip-loops.md §5)
     int timeHandleWidth = 4;      // a selection's time handle in the piano roll's ruler (piano-roll.md §9.2)
+    // The audio editor's marker strip under its ruler (audio-editor.md §4, §7.4, §7.5): a warp
+    // marker's handle (a pin pointing down at its moment), and a transient's tick at the strip's foot.
+    int markerStripHeight = 16, warpMarkerWidth = 9, transientTick = 6;
     float shadowRadius = 18.0f, shadowOffset = 6.0f;
 };
 

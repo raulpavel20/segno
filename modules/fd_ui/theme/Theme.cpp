@@ -65,6 +65,7 @@ void deriveRoles(Theme& t)
     r.rackFrame = t.surface0;
     r.overlay = t.surface3.withAlpha(0.9f);
     r.automation = t.effectStart;
+    r.warpMarkerLine = t.textPrimary.withAlpha(0.5f);
     r.shadow = juce::Colours::black.withAlpha(0.5f);
 }
 

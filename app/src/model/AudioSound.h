@@ -2,6 +2,7 @@
 
 #include "model/Automation.h"
 #include "model/ClipLoops.h"
+#include "model/Warp.h"
 
 #include <cstdint>
 #include <optional>
@@ -62,12 +63,12 @@ struct AudioSound
 [[nodiscard]] double fileTimeOf(double content, double sourceLength, bool reversed) noexcept;
 
 /// The gain line on the clip view's time, where content time c shows at `origin` + c, and back
-/// (audio-editor.md §4): a reversed clip reads its file backwards, so its line shows mirrored, each
-/// segment's bend the other way.
-[[nodiscard]] AutomationPoints lineToView(const AutomationPoints& line, double origin, double sourceLength,
-                                          bool reversed);
-[[nodiscard]] AutomationPoints lineFromView(const AutomationPoints& view, double origin, double sourceLength,
-                                            bool reversed);
+/// (audio-editor.md §4): each point where its moment of the file plays (`map`: warped, at its beat).
+/// A reversed clip reads its file backwards, so its line shows mirrored, each segment's bend the
+/// other way.
+[[nodiscard]] AutomationPoints lineToView(const AutomationPoints& line, double origin, const ContentMap& map);
+[[nodiscard]] AutomationPoints lineFromView(const AutomationPoints& view, double origin,
+                                            const ContentMap& map);
 
 /// One frame's two channels as `mode` plays them (in place). Allocation-free.
 void applyChannels(ChannelMode mode, float& left, float& right) noexcept;
@@ -79,8 +80,8 @@ struct LineSpan
     friend bool operator==(const LineSpan&, const LineSpan&) = default;
 };
 /// The stretches of the file a clip plays over [from, to) on the timeline (one per lap a looped
-/// clip plays there), in file time, each from < to.
-[[nodiscard]] std::vector<LineSpan> fileSpans(const ClipInfo& clip, bool reversed, double from, double to);
+/// clip plays there), in file time as recorded (through its warp and its reversal), each from < to.
+[[nodiscard]] std::vector<LineSpan> fileSpans(const ClipInfo& clip, double from, double to);
 
 /// The line with its gain changed by `deltaDb` over [from, to) of the file: the points inside move,
 /// the level at each edge is kept, and a ramp of `ramp` seconds inside each edge joins them (§5).
