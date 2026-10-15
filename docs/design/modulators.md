@@ -2,7 +2,7 @@
 
 A **modulator** is a module that makes no sound. It sits on a track and moves other parameters there: a filter's cutoff, a plugin's knob, a rack's Morph, the track's volume. The first five are the **LFO**, **Random**, **Envelope**, **Follower** and **Steps**. A modulator routed to several targets gives each its own copy by default, so one Random moves eight knobs eight different ways. Their randomness is random: it rolls again every time it plays, unless you keep a roll you liked.
 
-**Status:** approved by the product owner (2026-10-15), every recommendation of §21, with modulators anywhere in the chain instead of a zone of their own (§6, M2, revised after the review); ADRs 0061 and 0062 accepted. Step 0 done the same day: the spike passed (§22), and the UI drawn in every state and approved (§23). Step 1 under way. M3 P5, the product owner's priority of 2026-10-15, moved up from M4, with [ADR 0061](../decisions/0061-modulators-move-any-parameter-on-their-track.md) and [ADR 0062](../decisions/0062-random-rolls-again-each-time-it-plays.md). It builds on [ADR 0060](../decisions/0060-motion-comes-from-modulation-modules.md) (motion comes from modulation modules). Nothing is built until the product owner says go, and the UI is drawn in every state and approved first (§19).
+**Status:** approved by the product owner (2026-10-15), every recommendation of §21, with modulators anywhere in the chain instead of a zone of their own (§6, M2, revised after the review); ADRs 0061 and 0062 accepted. Step 0 done the same day: the spike passed (§22), and the UI drawn in every state and approved (§23). Step 1 built the same day (§24); waiting for the product owner's hands-on check. M3 P5, the product owner's priority of 2026-10-15, moved up from M4, with [ADR 0061](../decisions/0061-modulators-move-any-parameter-on-their-track.md) and [ADR 0062](../decisions/0062-random-rolls-again-each-time-it-plays.md). It builds on [ADR 0060](../decisions/0060-motion-comes-from-modulation-modules.md) (motion comes from modulation modules). Nothing is built until the product owner says go, and the UI is drawn in every state and approved first (§19).
 
 What the product owner asked (2026-10-15):
 - "Let's start the modulation modules", with a name people understand: "CV tools is great for the people who know, but most people will not know what that is in reference to."
@@ -564,9 +564,11 @@ Built on main in six steps (1a–1f), then the Follower's Listen, the master, Fi
 - **The export panel's line** reads "2 clips and 1 modulator play by chance", Keep all as played under it; its tooltip says each export differs.
 - **Assistants:** a route's target is an object, as automation names a parameter (`module` and `parameter`, or `track` and `volume`, `pan`, `send` with `return`); amounts in % (−200 … 200). `set_module_sidechain` sets a Follower's Listen. `keep_roll` takes a clip too, and `reroll_chance` refuses a clip that rolls.
 
-Not yet built (step 1 continues):
-- modulators in racks (§14): grouped with their modules, a rack's chain taking one, routes leaving the rack dropped with a toast, the `.segnorack` keeping them;
-- the LFO's Drawn shape, which plays as a sine until it has an editor;
-- a dragged handle's look on choices (combos and segmented buttons): they can be routed from a control's right-click and by assistants, but don't show the drag's ring;
-- the hands-on tasks (§19), in `docs/manual-tests/M3.md`, and the product owner's sign-off.
+- **In racks** (§14): a rack's chain holds modulators as a track's does, each tapping the chain where it sits (what comes there goes into it; nothing comes out). Group into rack takes them in place; their routes leaving the rack go, and a toast says how many with Undo. Rack files keep a modulator's type, settings, place and routes (by module place, a macro or Morph). A Follower in a rack listens where it sits only. Modulators move into and out of racks like modules; ungrouping brings the shown chain's out in place.
+- **The LFO's Drawn shape:** the Wavetable's LFO shape editor is shared now (`ui::CurveEditor` in the panel kit, the curve model `dsp::DrawnCurve` in `libs/dsp`). On the LFO's panel it sits over the display's plot while Shape is Drawn, without a well or top row of its own; the named shapes stay in Shape. Each edit is one undo step; presets keep the shape; assistants draw it with `set_lfo_curve`.
+- **The hands-on tasks** are in `docs/manual-tests/M3.md`.
+
+Not yet built:
+- a dragged handle's look on choices (combos and segmented buttons): they can be routed from a control's right-click and by assistants, but don't show the drag's ring or a moved look (open question B87);
+- the product owner's hands-on check and sign-off.
 
