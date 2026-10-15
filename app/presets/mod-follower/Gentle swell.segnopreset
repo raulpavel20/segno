@@ -1,0 +1,23 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Slow",
+    "Subtle"
+  ],
+  "description": "Slow up, slower down, and quieter: a soft response to the music.",
+  "author": "Segno",
+  "state": {
+    "device": "mod-follower",
+    "extra": {},
+    "params": {
+      "attack": 120.0,
+      "band": 0.0,
+      "depth": 100.0,
+      "gain": -6.0,
+      "high": 2000.0,
+      "low": 100.0,
+      "release": 1200.0
+    },
+    "stateVersion": 1
+  }
+}

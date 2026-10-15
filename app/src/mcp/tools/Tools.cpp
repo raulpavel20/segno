@@ -819,7 +819,8 @@ Json moduleTypesJson(ToolEnv& env, const std::string& kind)
     Json list = Json::array();
     for (const auto& d : env.session.availableDevices())
     {
-        if ((kind == "instrument" && !d.instrument) || (kind == "effect" && d.instrument) ||
+        // The modulators come after, with what each is for.
+        if (d.modulator || (kind == "instrument" && !d.instrument) || (kind == "effect" && d.instrument) ||
             kind == "modulator")
             continue;
         Json entry{{"type", d.native ? d.key.substr(3) : d.key},

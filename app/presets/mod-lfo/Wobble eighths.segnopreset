@@ -1,0 +1,27 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Bass",
+    "Rhythmic"
+  ],
+  "description": "A sine on eighths that restarts with each note, for a wobbling bass filter.",
+  "author": "Segno",
+  "state": {
+    "device": "mod-lfo",
+    "extra": {},
+    "params": {
+      "bothways": 1.0,
+      "depth": 100.0,
+      "fade": 0.0,
+      "mode": 1.0,
+      "pertarget": 0.0,
+      "phase": 0.0,
+      "rate": 1.0,
+      "shape": 0.0,
+      "slant": 0.0,
+      "smooth": 0.0,
+      "sync": 8.0
+    },
+    "stateVersion": 1
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Subtle"
+  ],
+  "description": "Very slow and very small: tuning or tone that wanders like an old machine.",
+  "author": "Segno",
+  "state": {
+    "device": "mod-random",
+    "extra": {},
+    "params": {
+      "bothways": 1.0,
+      "cyclic": 0.0,
+      "depth": 25.0,
+      "freeze": 0.0,
+      "jitter": 0.0,
+      "pertarget": 1.0,
+      "rate": 0.1,
+      "slant": 0.0,
+      "smooth": 100.0,
+      "sync": 0.0
+    },
+    "stateVersion": 1
+  }
+}

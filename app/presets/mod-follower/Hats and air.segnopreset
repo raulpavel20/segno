@@ -1,0 +1,22 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Drums"
+  ],
+  "description": "Hears only the top: moves something with the hats and cymbals.",
+  "author": "Segno",
+  "state": {
+    "device": "mod-follower",
+    "extra": {},
+    "params": {
+      "attack": 2.0,
+      "band": 1.0,
+      "depth": 100.0,
+      "gain": 0.0,
+      "high": 16000.0,
+      "low": 6000.0,
+      "release": 60.0
+    },
+    "stateVersion": 1
+  }
+}

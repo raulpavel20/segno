@@ -1,0 +1,25 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Fast"
+  ],
+  "description": "Eight changes a second, unevenly spaced: nervous, glitchy movement.",
+  "author": "Segno",
+  "state": {
+    "device": "mod-random",
+    "extra": {},
+    "params": {
+      "bothways": 1.0,
+      "cyclic": 0.0,
+      "depth": 100.0,
+      "freeze": 0.0,
+      "jitter": 60.0,
+      "pertarget": 1.0,
+      "rate": 8.0,
+      "slant": 0.0,
+      "smooth": 20.0,
+      "sync": 0.0
+    },
+    "stateVersion": 1
+  }
+}

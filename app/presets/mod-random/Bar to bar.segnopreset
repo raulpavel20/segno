@@ -1,0 +1,25 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Slow"
+  ],
+  "description": "A new value each bar, sliding there: a part that changes colour as the song goes.",
+  "author": "Segno",
+  "state": {
+    "device": "mod-random",
+    "extra": {},
+    "params": {
+      "bothways": 1.0,
+      "cyclic": 0.0,
+      "depth": 100.0,
+      "freeze": 0.0,
+      "jitter": 0.0,
+      "pertarget": 1.0,
+      "rate": 2.0,
+      "slant": 0.0,
+      "smooth": 30.0,
+      "sync": 16.0
+    },
+    "stateVersion": 1
+  }
+}

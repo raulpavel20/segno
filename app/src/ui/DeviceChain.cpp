@@ -191,20 +191,12 @@ DeviceChain::DeviceChain(engine::Session& session, const ActionRegistry& actions
         showAddMenu(
             add_,
             [this, track = *track_](const std::string& key) { selected_ = session_.addDevice(track, key); },
-            [this, track = *track_](juce::PopupMenu& menu)
+            [this](juce::PopupMenu& menu)
             {
-                // The modulators, after the audio effects (modulators.md §14), at the chain's end.
-                menu.addSectionHeader("Modulators");
-                for (const auto kind : model::allModulators)
-                    menu.addItem(juce::String(std::string(model::modulatorInfo(kind).name)),
-                                 [this, track, kind]
-                                 {
-                                     if (const auto id = session_.addModulator(track, kind))
-                                         selected_ = id;
-                                 });
                 menu.addSeparator();
                 menu.addItem("Rack", [this] { addRack(); }); // an empty one (racks.md §5)
-            });
+            },
+            true);
     };
     content_->addAndMakeVisible(add_);
     session_.addListener(this);
@@ -618,7 +610,7 @@ void DeviceChain::paint(juce::Graphics& g)
 }
 
 void DeviceChain::showAddMenu(juce::Component& target, std::function<void(const std::string& key)> add,
-                              std::function<void(juce::PopupMenu&)> extra)
+                              std::function<void(juce::PopupMenu&)> extra, bool modulators)
 {
     if (!track_)
         return;
@@ -636,7 +628,9 @@ void DeviceChain::showAddMenu(juce::Component& target, std::function<void(const 
             }
     };
     section("Instruments", [](const auto& d) { return d.native && d.instrument; });
-    section("Audio effects", [](const auto& d) { return d.native && !d.instrument; });
+    section("Audio effects", [](const auto& d) { return d.native && !d.instrument && !d.modulator; });
+    if (modulators) // the track's chain (not a rack's, for now): modulators.md §14
+        section("Modulators", [](const auto& d) { return d.modulator; });
     if (extra)
         extra(menu);
 
@@ -919,6 +913,19 @@ bool DeviceChain::isInterestedInDragSource(const SourceDetails& details)
            ref->kind != model::BrowserKind::Folder;
 }
 
+namespace
+{
+/// The modulator a browser item is, or is a preset of (modulators.md §14).
+std::optional<model::ModulatorKind> modulatorOf(const std::string& item)
+{
+    const auto ref = browser::parse(item);
+    if (!ref || (ref->kind != model::BrowserKind::Module && ref->kind != model::BrowserKind::Preset) ||
+        !ref->key.starts_with("fd:"))
+        return std::nullopt;
+    return model::modulatorKind(std::string_view(ref->key).substr(3));
+}
+} // namespace
+
 void DeviceChain::itemDragMove(const SourceDetails& details)
 {
     const auto item = browser::itemOf(details.description);
@@ -934,6 +941,18 @@ void DeviceChain::itemDragMove(const SourceDetails& details)
                 browserOn_ = s.info.id;
                 drop_.reset();
             }
+    // A modulator (or its preset) over a control: it goes there, routed (§14); the track's controls
+    // show they'd take it, as when a handle is dragged.
+    if (item && track_ && modulatorOf(*item))
+    {
+        const auto over = browserOn_ ? std::nullopt : targetAt(inContent);
+        if (over)
+            drop_.reset();
+        if (const engine::Session::ModulatorPointer pointer{
+                .dragging = true, .over = over, .channel = *track_};
+            !(session_.modulatorPointer() == pointer))
+            session_.setModulatorPointer(pointer);
+    }
     content_->repaint();
 }
 
@@ -942,6 +961,8 @@ void DeviceChain::itemDragExit(const SourceDetails&)
     browserDrag_ = false;
     browserOn_.reset();
     drop_.reset();
+    if (session_.modulatorPointer().dragging && session_.modulatorPointer().modulator == 0)
+        session_.setModulatorPointer({});
     content_->repaint();
 }
 
@@ -950,10 +971,24 @@ void DeviceChain::itemDropped(const SourceDetails& details)
     itemDragMove(details);
     const auto on = browserOn_;
     const auto drop = drop_;
+    const auto pointer = session_.modulatorPointer();
     itemDragExit(details);
     const auto item = browser::itemOf(details.description);
     if (!item || !track_)
         return;
+    // A modulator dropped on a control: added just before its module, with its preset, routed.
+    if (const auto kind = modulatorOf(*item);
+        kind && pointer.dragging && pointer.modulator == 0 && pointer.over)
+    {
+        const auto ref = browser::parse(*item);
+        modulateWith(*pointer.over, *kind,
+                     [this, ref](std::uint64_t id)
+                     {
+                         if (ref && ref->kind == model::BrowserKind::Preset)
+                             browser::loadPreset(session_, id, *ref);
+                     });
+        return;
+    }
     // A file on a module that takes it where it shows what it's for (a table on the Wavetable's
     // oscillator in view).
     if (on)
@@ -1726,25 +1761,28 @@ void DeviceChain::addModulatorItems(const engine::Session::ParamTarget& target, 
         with.addSeparator();
     juce::PopupMenu fresh;
     for (const auto kind : model::allModulators)
-        fresh.addItem(
-            juce::String(std::string(model::modulatorInfo(kind).name)),
-            [this, kind, target]
-            {
-                // The control's module: in the track's chain, or the rack holding it.
-                int index = -1;
-                if (const auto slash = target.key.find('/');
-                    target.key.rfind('m', 0) == 0 && slash != std::string::npos)
-                    if (const auto place = session_.placeOf(std::stoull(target.key.substr(1, slash - 1))))
-                        index = place->rack == 0 ? place->index
-                                                 : session_.placeOf(place->rack).value_or(*place).index;
-                const engine::Session::EditGroup group(
-                    session_, "Modulate with " + std::string(model::modulatorInfo(kind).name));
-                if (const auto id = session_.addModulator(target.channel, kind, index))
-                {
-                    session_.routeModulator(id, target, 0.5f);
-                    selected_ = id;
-                }
-            });
+        fresh.addItem(juce::String(std::string(model::modulatorInfo(kind).name)),
+                      [this, kind, target] { modulateWith(target, kind); });
     with.addSubMenu("New", fresh);
+}
+
+void DeviceChain::modulateWith(const engine::Session::ParamTarget& target, model::ModulatorKind kind,
+                               const std::function<void(std::uint64_t)>& setUp)
+{
+    // The control's module: in the track's chain, or the rack holding it.
+    int index = -1;
+    if (const auto slash = target.key.find('/'); target.key.rfind('m', 0) == 0 && slash != std::string::npos)
+        if (const auto place = session_.placeOf(std::stoull(target.key.substr(1, slash - 1))))
+            index = place->rack == 0 ? place->index : session_.placeOf(place->rack).value_or(*place).index;
+    const engine::Session::EditGroup group(session_,
+                                           "Modulate with " + std::string(model::modulatorInfo(kind).name));
+    if (const auto id = session_.addModulator(target.channel, kind, index))
+    {
+        if (setUp)
+            setUp(id);
+        session_.routeModulator(id, target, 0.5f);
+        selected_ = id;
+        picked_.clear();
+    }
 }
 } // namespace fd::app

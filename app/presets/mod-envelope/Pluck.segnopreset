@@ -1,0 +1,34 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Notes",
+    "Short"
+  ],
+  "description": "A quick fall with each note: route it to a filter for a plucked tone.",
+  "author": "Segno",
+  "state": {
+    "device": "mod-envelope",
+    "extra": {},
+    "params": {
+      "acurve": 0.0,
+      "attack": 1.0,
+      "chance": 100.0,
+      "dcurve": 60.0,
+      "decay": 180.0,
+      "delay": 0.0,
+      "depth": 100.0,
+      "every": 15.0,
+      "fire": 0.0,
+      "hold": 0.0,
+      "legato": 0.0,
+      "mode": 0.0,
+      "pertarget": 1.0,
+      "rcurve": 0.0,
+      "release": 120.0,
+      "repeat": 0.0,
+      "sustain": 0.0,
+      "trigger": 0.0
+    },
+    "stateVersion": 1
+  }
+}

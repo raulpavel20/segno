@@ -674,7 +674,8 @@ TEST_CASE(
     s.waitForBrowserIndex();
     b.settle();
 
-    // The tree: Favourites, Instruments, Audio effects, Racks, then Places; the racks together.
+    // The tree: Favourites, Instruments, Audio effects, Modulators (modulators.md §14), Racks, then
+    // Places; the racks together.
     const auto heat = "file:" + path(s.racksFolder().getChildFile("Heat.segnorack"));
     const auto layers = "file:" + path(s.racksFolder().getChildFile("Layers.segnorack"));
     b.open("cat:instruments");
@@ -686,8 +687,10 @@ TEST_CASE(
     { return std::find(ids.begin(), ids.end(), id) - ids.begin(); };
     CHECK(at("cat:favourites") < at("cat:instruments"));
     CHECK(at("cat:instruments") < at("cat:effects"));
-    CHECK(at("cat:effects") < at("cat:racks"));
+    CHECK(at("cat:effects") < at("cat:modulators"));
+    CHECK(at("cat:modulators") < at("cat:racks"));
     CHECK(at("cat:racks") < at("heading:places"));
+    CHECK_FALSE(b.shows("module:fd:mod-lfo")); // not among the audio effects
     b.open("cat:racks");
     CHECK(b.shows(heat));
     CHECK(b.shows(layers));
@@ -714,7 +717,7 @@ TEST_CASE(
         if (auto* button = dynamic_cast<fd::ui::IconButton*>(c);
             button != nullptr && c->getName() == "browser part")
             rail.push_back(button);
-    CHECK(rail.size() == 7);
+    CHECK(rail.size() == 8);
     if (const char* dump = std::getenv("FD_DUMP_DIR"))
         dumpPng(dump, "browser-rail-racks@2x.png",
                 b.shell->createComponentSnapshot(p.getBounds(), true, 2.0f));
@@ -722,6 +725,29 @@ TEST_CASE(
     CHECK(b.isOpen("cat:racks"));
     CHECK(b.shows(heat));
     REQUIRE(b.shell->actions().perform("view.browser"));
+    bool modulatorsInRail = false;
+    for (auto* button : rail)
+        modulatorsInRail = modulatorsInRail || button->getTooltip() == "Modulators";
+    CHECK(modulatorsInRail);
+}
+
+TEST_CASE("browser: Modulators a part of its own, each a folder of its presets (modulators.md §14)",
+          "[integration][browser][modulators]")
+{
+    Browser b;
+    auto& p = b.panel();
+    b.open("cat:modulators");
+    for (const auto* type : {"mod-lfo", "mod-random", "mod-envelope", "mod-follower", "mod-steps"})
+        CHECK(b.shows("module:fd:" + std::string(type)));
+    b.open("module:fd:mod-lfo");
+    CHECK(b.shows("preset:fd:mod-lfo|factory/Slow sweep"));
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "browser-modulators@2x.png",
+                b.shell->createComponentSnapshot(p.getBounds(), true, 2.0f));
+    // Search finds them, and their presets.
+    b.search("sweep");
+    CHECK(b.shows("preset:fd:mod-lfo|factory/Slow sweep"));
+    b.search("");
 }
 
 namespace

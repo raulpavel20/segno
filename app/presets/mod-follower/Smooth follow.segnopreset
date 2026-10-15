@@ -1,0 +1,22 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Slow"
+  ],
+  "description": "Follows the level gently: an effect that rises and falls with the part.",
+  "author": "Segno",
+  "state": {
+    "device": "mod-follower",
+    "extra": {},
+    "params": {
+      "attack": 30.0,
+      "band": 0.0,
+      "depth": 100.0,
+      "gain": 0.0,
+      "high": 2000.0,
+      "low": 100.0,
+      "release": 400.0
+    },
+    "stateVersion": 1
+  }
+}

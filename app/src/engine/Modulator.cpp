@@ -274,6 +274,32 @@ void Modulator::setStep(int step, float value, float chance, juce::UndoManager* 
     state.setProperty(kChancesId, textOf(chances), um);
 }
 
+bool Modulator::patternSet() const
+{
+    return state.hasProperty(kStepsId) || state.hasProperty(kChancesId);
+}
+
+void Modulator::setPattern(const std::vector<float>& values, const std::vector<float>& chances,
+                           juce::UndoManager* um)
+{
+    if (values.empty())
+    {
+        state.removeProperty(kStepsId, um);
+        state.removeProperty(kChancesId, um);
+        return;
+    }
+    std::vector<float> v(Steps::maxSteps, 0.0f), c(Steps::maxSteps, 1.0f);
+    for (size_t i = 0; i < v.size(); ++i)
+    {
+        if (i < values.size())
+            v[i] = std::clamp(values[i], -1.0f, 1.0f);
+        if (i < chances.size())
+            c[i] = std::clamp(chances[i], 0.0f, 1.0f);
+    }
+    state.setProperty(kStepsId, textOf(v), um);
+    state.setProperty(kChancesId, textOf(c), um);
+}
+
 void Modulator::refreshFromState()
 {
     kept_.store(state.hasProperty(keptRollId));

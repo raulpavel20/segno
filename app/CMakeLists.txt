@@ -15,13 +15,16 @@ add_library(fd_app_model STATIC src/model/Timeline.cpp src/model/Grid.cpp src/mo
     src/model/MenuBar.cpp src/model/AppSettings.cpp src/model/SettingsCatalogue.cpp src/model/Browser.cpp src/model/TrackEdits.cpp src/model/ClipLoops.cpp src/model/MusicalTime.cpp src/model/BraceDrag.cpp src/model/Sections.cpp src/model/SongKey.cpp src/model/Modulators.cpp)
 target_include_directories(fd_app_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(fd_app_model PUBLIC fd::audiofile fd::music fd::device nlohmann_json::nlohmann_json PRIVATE fd::dsp fd::warnings)
+# The modulators' factory presets (modulators.md §14, ADR 0044), from presets/<type>/.
+fd_generate_presets_from("${CMAKE_CURRENT_SOURCE_DIR}/presets" modulatorFactoryPresets fd_app_model)
 
 if(FD_BUILD_TESTS)
     fd_add_test(NAME fd_app_model_tests SOURCES tests/ModelTests.cpp tests/NoteEditingTests.cpp tests/NoteToolsTests.cpp tests/AudioMeasureTests.cpp
         tests/SelectionTests.cpp tests/AutomationTests.cpp
         tests/ArrangementRowsTests.cpp tests/RecordingTests.cpp tests/TakeStackTests.cpp tests/CaptureTests.cpp tests/BounceTests.cpp tests/FadesTests.cpp tests/ExportTests.cpp
         tests/MenuBarTests.cpp tests/TrackEditsTests.cpp tests/SettingsTests.cpp tests/BrowserModelTests.cpp tests/ClipLoopsTests.cpp tests/MusicalTimeTests.cpp tests/BraceDragTests.cpp tests/SectionsTests.cpp
-        tests/ChanceTests.cpp tests/NoteToolkitTests.cpp tests/RackModelTests.cpp LIBS fd_app_model)
+        tests/ChanceTests.cpp tests/NoteToolkitTests.cpp tests/RackModelTests.cpp tests/ModulatorPresetsTests.cpp
+        LIBS fd_app_model)
 endif()
 
 # fd_mcp: the MCP server's protocol layer and transports (ADR 0021, docs/design/mcp.md). JUCE-free,

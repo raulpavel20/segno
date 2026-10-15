@@ -36,6 +36,10 @@ struct Result
     std::uint64_t module = 0; // a module it added or loaded
 };
 
+/// Loads a preset (`ref`, of its kind) into one of our modules or modulators, in the step under way
+/// (or its own, "Load preset …"). False if it can't.
+bool loadPreset(engine::Session& session, std::uint64_t module, const Ref& ref);
+
 /// Whether `item` can go on a channel (a track; modules also on returns and the master), and
 /// whether it lands on `module` itself (a preset of its kind, a sample on a Sampler).
 [[nodiscard]] bool fitsChannel(const std::string& item, bool holdsClips);

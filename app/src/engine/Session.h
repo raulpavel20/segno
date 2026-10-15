@@ -54,9 +54,10 @@ struct AvailableDevice
 {
     std::string key;      // "fd:eq" or "ext:<plugin identifier>"
     std::string name;
-    std::string category; // "Instruments", "Audio effects", or the plugin's manufacturer
+    std::string category; // "Instruments", "Audio effects", "Modulators", or the plugin's manufacturer
     bool native = true;
     bool instrument = false;
+    bool modulator = false; // "fd:mod-lfo": it moves parameters on its track (modulators.md, ADR 0061)
 };
 
 /// One open project (ADR 0018): owns tracktion's Edit, runs every command on it (undoable),
@@ -186,8 +187,11 @@ public:
     // ---- device chains (C6; each call is one undoable step) -----------------------------
 
     [[nodiscard]] std::vector<AvailableDevice> availableDevices() const;
-    /// Adds `key` (see AvailableDevice) to the track's chain at `index` (-1 = the end);
-    /// returns the device id, 0 if it couldn't be created.
+    /// What one of ours is ("fd:eq", "fd:mod-lfo"): its parameters and presets; null for anything
+    /// else.
+    [[nodiscard]] static const DeviceInfo* nativeInfo(std::string_view key);
+    /// Adds `key` (see AvailableDevice) to the track's chain at `index` (-1 = the end); a
+    /// modulator's key adds it (addModulator). Returns the device id, 0 if it couldn't be created.
     std::uint64_t addDevice(std::uint64_t trackId, const std::string& key, int index = -1);
     void removeDevice(std::uint64_t deviceId);
     /// Moves a device to `index` within its chain.
@@ -545,6 +549,8 @@ public:
         std::uint64_t modulator = 0; // hovered or dragged; 0: none
         bool dragging = false;
         std::optional<ParamTarget> over; // the control under a dragged handle
+        /// Dragging with no modulator: a new one from the browser (§14), onto this track.
+        std::uint64_t channel = 0;
         bool operator==(const ModulatorPointer&) const = default;
     };
     void setModulatorPointer(const ModulatorPointer& pointer);

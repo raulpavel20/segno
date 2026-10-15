@@ -40,6 +40,7 @@ public:
         Favourites,
         Instruments,
         Effects,
+        Modulators,
         Racks,
         Plugins,
         Places,

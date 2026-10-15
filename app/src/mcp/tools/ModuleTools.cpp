@@ -99,21 +99,14 @@ void addModuleTools(Registry& registry, ToolEnv& env)
         {
             const auto t = channel(env, args["track"]); // modules go on tracks, returns and the master
             // A modulator (modulators.md §16): where it's asked for along a track's chain.
-            if (const auto kind = modulatorType(args["type"].get<std::string>()))
+            const auto modulator = modulatorType(args["type"].get<std::string>());
+            if (modulator)
             {
                 if (args.contains("rack"))
                     throw Problem{"Modulators go in a track's own chain for now, not into a rack's."};
-                if (args.contains("preset"))
-                    throw Problem{"Modulators have no presets yet; set_parameters sets them up."};
                 if (t.role == model::TrackInfo::Role::Master)
                     throw Problem{
                         "The master can't have modulators yet: put one on a track or a return track."};
-                const auto id = env.session.addModulator(t.id, *kind, args.value("position", -1));
-                if (id == 0)
-                    throw Problem{"The modulator couldn't be added."};
-                env.session.flushSnapshot();
-                const auto [slot, owner] = module(env, formatId(IdKind::Module, id));
-                return ToolResult::ok(moduleJson(env, slot, owner));
             }
             if (lower(args["type"].get<std::string>()) == "rack")
             {
@@ -141,16 +134,16 @@ void addModuleTools(Registry& registry, ToolEnv& env)
                     json["missing"] = std::move(missing); // plugins not installed, left out
                 return ToolResult::ok(json);
             }
-            const auto key = typeKey(env, args["type"].get<std::string>());
+            const auto key = modulator ? "fd:" + std::string(model::modulatorInfo(*modulator).id)
+                                       : typeKey(env, args["type"].get<std::string>());
             // A preset is found before the module is made: a wrong name adds nothing.
             const Preset* preset = nullptr;
             const DeviceInfo* info = nullptr;
             if (args.contains("preset"))
             {
-                const auto* factory = key.starts_with("fd:") ? findDevice(key.substr(3)) : nullptr;
-                if (factory == nullptr)
+                info = engine::Session::nativeInfo(key); // a module's or a modulator's
+                if (info == nullptr)
                     throw Problem{"Presets are for Segno's own modules."};
-                info = &factory->info();
                 auto& library = env.session.presetLibrary();
                 library.rescan();
                 const auto wanted = args["preset"].get<std::string>();

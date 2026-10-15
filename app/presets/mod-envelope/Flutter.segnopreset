@@ -1,0 +1,34 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Notes",
+    "Fast"
+  ],
+  "description": "Loops attack and decay while the note is held: a fast flutter.",
+  "author": "Segno",
+  "state": {
+    "device": "mod-envelope",
+    "extra": {},
+    "params": {
+      "acurve": 0.0,
+      "attack": 20.0,
+      "chance": 100.0,
+      "dcurve": 0.0,
+      "decay": 80.0,
+      "delay": 0.0,
+      "depth": 100.0,
+      "every": 15.0,
+      "fire": 0.0,
+      "hold": 0.0,
+      "legato": 0.0,
+      "mode": 1.0,
+      "pertarget": 1.0,
+      "rcurve": 0.0,
+      "release": 200.0,
+      "repeat": 0.0,
+      "sustain": 0.0,
+      "trigger": 0.0
+    },
+    "stateVersion": 1
+  }
+}

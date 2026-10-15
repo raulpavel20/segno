@@ -1,0 +1,26 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Amplitude"
+  ],
+  "description": "Six times a second, free of the tempo: route it to volume for a classic tremolo.",
+  "author": "Segno",
+  "state": {
+    "device": "mod-lfo",
+    "extra": {},
+    "params": {
+      "bothways": 1.0,
+      "depth": 100.0,
+      "fade": 0.0,
+      "mode": 0.0,
+      "pertarget": 0.0,
+      "phase": 0.0,
+      "rate": 6.0,
+      "shape": 0.0,
+      "slant": 0.0,
+      "smooth": 0.0,
+      "sync": 0.0
+    },
+    "stateVersion": 1
+  }
+}

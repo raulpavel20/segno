@@ -21,26 +21,29 @@ std::optional<engine::AvailableDevice> deviceOf(engine::Session& session, const 
 
 const Preset* presetOf(engine::Session& session, const Ref& ref)
 {
-    const auto* factory = findDevice(ref.key.substr(3));
-    if (factory == nullptr)
+    const auto* info = engine::Session::nativeInfo(ref.key); // a module's or a modulator's
+    if (info == nullptr)
         return nullptr;
     auto& library = session.presetLibrary();
     library.rescan();
-    const auto* p = library.find(factory->info(), ref.preset);
-    return p != nullptr && !presetTooNew(factory->info(), *p) ? p : nullptr;
+    const auto* p = library.find(*info, ref.preset);
+    return p != nullptr && !presetTooNew(*info, *p) ? p : nullptr;
 }
+} // namespace
 
-/// Loads `preset` into one of our modules, in the step under way (or its own, "Load preset …").
 bool loadPreset(engine::Session& session, std::uint64_t module, const Ref& ref)
 {
-    const auto* factory = findDevice(ref.key.substr(3));
+    const auto* info = engine::Session::nativeInfo(ref.key);
     const auto* preset = presetOf(session, ref);
     auto host = session.presetHost(module);
-    if (factory == nullptr || preset == nullptr || host == nullptr)
+    if (info == nullptr || preset == nullptr || host == nullptr)
         return false;
-    PresetController(factory->info(), *host).load(*preset);
+    PresetController(*info, *host).load(*preset);
     return true;
 }
+
+namespace
+{
 
 /// The step's name, for what's put in: "Add Compressor", "Insert Kick 808".
 bool isModule(Kind kind)
@@ -122,8 +125,9 @@ Result addModule(engine::Session& session, const Ref& ref, std::uint64_t channel
         return {};
     Result r;
     const auto old = device->instrument ? session.instrumentOf(channel) : std::nullopt;
-    // An effect plays after the instrument: dropped ahead of it, it goes right after it.
-    if (!device->instrument && index >= 0)
+    // An effect plays after the instrument: dropped ahead of it, it goes right after it. A
+    // modulator goes where it's dropped (modulators.md §6).
+    if (!device->instrument && !device->modulator && index >= 0)
         if (const auto* c = session.snapshot()->channel(channel))
             for (size_t i = 0; i < c->devices.size(); ++i)
                 if (c->devices[i].instrument && index <= static_cast<int>(i))

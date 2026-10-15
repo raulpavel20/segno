@@ -300,6 +300,13 @@ ui::ParamBinding::MacroDrag Session::Impl::modulatorDragLook(te::AutomatablePara
 {
     if (!modulatorPointer.dragging)
         return {};
+    if (modulatorPointer.modulator == 0) // a new one from the browser: anything on its track
+    {
+        const auto target = targetOf(param);
+        if (!target || target->channel != modulatorPointer.channel)
+            return {};
+        return {true, modulatorPointer.over == target};
+    }
     auto* m = modulator(modulatorPointer.modulator);
     auto* track = m != nullptr ? trackOf(*m) : nullptr;
     if (track == nullptr)
@@ -392,6 +399,9 @@ std::uint64_t Session::addModulator(std::uint64_t channel, ModulatorKind kind, i
         return 0;
     // Where it was asked for, everything else staying where it was.
     impl_->placeInChain(*track, Impl::ChainItem{nullptr, m}, index);
+    // From your default, if you set one (ADR 0044), in the same step.
+    if (const auto start = PresetController::startingPoint(m->info(), presetLibrary()))
+        impl_->applyModulatorState(*m, start->first, start->second);
     impl_->refreshModulatorRoutes();
     return m->itemID.getRawID();
 }
@@ -596,9 +606,13 @@ class ModulatorHandleImpl final : public ModulatorHandle
 public:
     ModulatorHandleImpl(Session& session, Modulator& m)
         : keepAlive_(&m), modulator_(m), binding_(session, m), host_(session, m),
-          context_{
-              m.info(), binding_, nullptr, nullptr, m.kind() == ModulatorKind::Follower ? &listen_ : nullptr,
-              nullptr}
+          presets_(session.presetHost(m.itemID.getRawID())),
+          context_{m.info(),
+                   binding_,
+                   nullptr,
+                   nullptr,
+                   m.kind() == ModulatorKind::Follower ? &listen_ : nullptr,
+                   presets_.get()}
     {
     }
     ui::DeviceUiContext& context() override { return context_; }
@@ -611,6 +625,7 @@ private:
     ModulatorBinding binding_;
     ModulatorHostImpl host_;
     ListenHere listen_;
+    std::unique_ptr<PresetHost> presets_; // its header's presets (modulators.md §14)
     ui::DeviceUiContext context_;
 };
 } // namespace

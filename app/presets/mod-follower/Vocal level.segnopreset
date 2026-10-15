@@ -1,0 +1,22 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Vocals"
+  ],
+  "description": "Hears the voice's range, smoothly: an effect that follows the singer.",
+  "author": "Segno",
+  "state": {
+    "device": "mod-follower",
+    "extra": {},
+    "params": {
+      "attack": 10.0,
+      "band": 1.0,
+      "depth": 100.0,
+      "gain": 0.0,
+      "high": 4000.0,
+      "low": 200.0,
+      "release": 250.0
+    },
+    "stateVersion": 1
+  }
+}

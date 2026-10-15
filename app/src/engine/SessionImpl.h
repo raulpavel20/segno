@@ -178,6 +178,10 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     void applyModuleState(DevicePlugin& plugin, const DeviceState& state, const PresetMemo& memo);
     /// The memo a module keeps beside its state (`fdPreset`).
     [[nodiscard]] static PresetMemo presetMemo(const DevicePlugin& plugin);
+    /// A modulator's state as presets keep it (modulators.md §14): its settings and a Steps
+    /// pattern, never its routes or its roll; set whole, with its memo, in the current step.
+    [[nodiscard]] static DeviceState modulatorState(const Modulator& modulator);
+    void applyModulatorState(Modulator& modulator, const DeviceState& state, const PresetMemo& memo);
     /// A new recording's file: `<Track> <n>.<extension>` in Recordings.
     juce::File recordingFile(te::Track& track, const juce::String& extension);
     /// Saving to `file`: recordings made before the first save move into its folder, and every

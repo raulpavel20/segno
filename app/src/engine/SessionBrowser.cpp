@@ -166,10 +166,10 @@ std::vector<model::BrowserItem> Session::browserItems(const std::set<std::string
                          {},
                          {},
                          favourites.contains("module:" + d.key)});
-        const auto* factory = findDevice(d.key.substr(3));
-        if (factory == nullptr)
+        const auto* found = nativeInfo(d.key); // a modulator's too
+        if (found == nullptr)
             continue;
-        const auto& info = factory->info();
+        const auto& info = *found;
         for (const auto* p : library.presetsFor(info))
         {
             if (p->source == Preset::Source::Builtin)

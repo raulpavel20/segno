@@ -1,0 +1,26 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Notes"
+  ],
+  "description": "A rising saw played once per note, one way: each note opens up over two seconds.",
+  "author": "Segno",
+  "state": {
+    "device": "mod-lfo",
+    "extra": {},
+    "params": {
+      "bothways": 0.0,
+      "depth": 100.0,
+      "fade": 0.0,
+      "mode": 2.0,
+      "pertarget": 0.0,
+      "phase": 0.0,
+      "rate": 0.5,
+      "shape": 2.0,
+      "slant": 0.0,
+      "smooth": 0.0,
+      "sync": 0.0
+    },
+    "stateVersion": 1
+  }
+}

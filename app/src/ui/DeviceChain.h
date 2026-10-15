@@ -173,9 +173,10 @@ private:
     /// A module's view state set elsewhere (an assistant, undo): the panel follows.
     void deviceViewChanged(std::uint64_t deviceId) override;
     void layoutSlots();
-    /// The add menu: our modules, then plugins by vendor; `add` gets the chosen key.
+    /// The add menu: our modules (and, with `modulators`, the modulators), then plugins by vendor;
+    /// `add` gets the chosen key.
     void showAddMenu(juce::Component& target, std::function<void(const std::string& key)> add,
-                     std::function<void(juce::PopupMenu&)> extra = {});
+                     std::function<void(juce::PopupMenu&)> extra = {}, bool modulators = false);
     void showRackMenu(std::uint64_t rack);
     void showChainMenu(std::uint64_t rack, int chain);
     /// A snapshot's right-click (racks.md §18.2): Rename, Update, Remove.
@@ -218,6 +219,10 @@ private:
     void showModulatorMenu(std::uint64_t modulator);
     /// Selects a route's target and shows its control (the route list's Show).
     void showTarget(const engine::Session::ParamTarget& target);
+    /// A new modulator of `kind` just before the control's module (in the track's chain), set up
+    /// by `setUp` (a preset) and routed to it at 50 %, selected: one step (§7.1, §14).
+    void modulateWith(const engine::Session::ParamTarget& target, model::ModulatorKind kind,
+                      const std::function<void(std::uint64_t modulator)>& setUp = {});
 
     engine::Session& session_;
     const ActionRegistry& actions_;

@@ -470,6 +470,87 @@ TEST_CASE("modulators in the chain view: Modulate with on a control's right-clic
     CHECK(f.chain->selectedModulator()->kind == Kind::Steps);
 }
 
+TEST_CASE("modulators in the chain view: each panel's header takes its presets without widening it (§14)",
+          "[integration][modulators][ui]")
+{
+    Chain f;
+    for (const auto kind : model::allModulators)
+        REQUIRE(f.session->addModulator(f.t, kind) != 0);
+    f.show();
+    for (const auto id : f.order())
+    {
+        auto* panel = f.chain->modulatorPanel(id);
+        REQUIRE(panel != nullptr);
+        INFO(model::modulatorInfo(panel->kind()).name);
+        REQUIRE(panel->presetBar() != nullptr);
+        CHECK(panel->headerMinimumWidth() < panel->preferredWidth()); // its sections set its width
+    }
+    f.shot("all-five");
+}
+
+TEST_CASE(
+    "modulators in the chain view: one dropped from the browser on a knob is added before its module and "
+    "routed, with its preset; presets load into a modulator and keep a Steps pattern",
+    "[integration][modulators][ui]")
+{
+    Chain f;
+    auto& s = *f.session;
+    const auto utility = s.addDevice(f.t, "fd:utility");
+    const auto filter = s.addDevice(f.t, "fd:filter");
+    f.show();
+
+    // The Tremolo preset dragged over the Filter's Freq: the track's controls would take it.
+    auto* freq = f.knob(filter, "freq");
+    const auto at = f.chain->getLocalPoint(freq, freq->getLocalBounds().getCentre());
+    const juce::var item(juce::String("segno-browser:preset:fd:mod-lfo|factory/Tremolo"));
+    const juce::DragAndDropTarget::SourceDetails details(item, nullptr, at);
+    REQUIRE(f.chain->isInterestedInDragSource(details));
+    f.chain->itemDragMove(details);
+    CHECK(s.modulatorPointer().dragging);
+    REQUIRE(s.modulatorPointer().over);
+    CHECK(*s.modulatorPointer().over == f.target(filter, "freq"));
+    f.refreshAll();
+    CHECK(freq->isDropTarget());
+    f.chain->itemDropped(details);
+    CHECK_FALSE(s.modulatorPointer().dragging);
+    const auto ids = f.order();
+    REQUIRE(ids.size() == 3);
+    CHECK(ids[0] == utility);
+    CHECK(ids[2] == filter);
+    const auto lfo = ids[1];
+    CHECK(f.info(lfo).kind == Kind::Lfo);
+    REQUIRE(f.info(lfo).routes.size() == 1);
+    CHECK(f.info(lfo).routes[0].key == f.target(filter, "freq").key);
+    CHECK(s.undoDescription() == "Modulate with LFO");
+    {
+        auto handle = s.openModulator(lfo);
+        REQUIRE(handle != nullptr);
+        CHECK(handle->context().params.getPlain(fd::model::modulator::Lfo::Rate) == Approx(6.0f));
+        REQUIRE(handle->context().presets != nullptr);
+        CHECK(handle->context().presets->memo().preset == "factory/Tremolo");
+    }
+    s.undo(); // added, set up and routed: one step
+    CHECK(f.order() == std::vector<std::uint64_t>{utility, filter});
+
+    // Steps' presets carry its pattern; Default settings brings back the default one.
+    const auto steps = s.addModulator(f.t, Kind::Steps);
+    auto host = s.presetHost(steps);
+    REQUIRE(host != nullptr);
+    const auto& info = fd::model::modulatorInfo(Kind::Steps);
+    auto& library = s.presetLibrary();
+    const auto* gate = library.find(info, "factory/Trance gate");
+    REQUIRE(gate != nullptr);
+    const auto before = host->state();
+    fd::PresetController(info, *host).load(*gate);
+    auto handle = s.openModulator(steps);
+    REQUIRE(handle != nullptr);
+    CHECK(handle->host().stepValues()[2] == Approx(-1.0f));
+    CHECK(fd::sameSound(info, host->state(), gate->state));
+    CHECK(s.undoDescription().find("Trance gate") != std::string::npos);
+    s.undo();
+    CHECK(fd::sameSound(info, host->state(), before));
+}
+
 TEST_CASE("modulators in the chain: places count them as modules move, group into racks and come out",
           "[integration][modulators]")
 {

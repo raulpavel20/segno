@@ -1573,14 +1573,36 @@ std::vector<AvailableDevice> Session::availableDevices() const
         out.push_back({"fd:" + std::string(f->info().id), std::string(f->info().name),
                        instrument ? "Instruments" : "Audio effects", true, instrument});
     }
+    for (const auto kind : model::allModulators) // modulators.md §14: after the audio effects
+    {
+        const auto& info = model::modulatorInfo(kind);
+        out.push_back({.key = "fd:" + std::string(info.id),
+                       .name = std::string(info.name),
+                       .category = "Modulators",
+                       .modulator = true});
+    }
     for (const auto& d : impl_->engine.getPluginManager().knownPluginList.getTypes())
         out.push_back({"ext:" + d.createIdentifierString().toStdString(), d.name.toStdString(),
                        d.manufacturerName.isNotEmpty() ? d.manufacturerName.toStdString() : "Plugins", false, d.isInstrument});
     return out;
 }
 
+const DeviceInfo* Session::nativeInfo(std::string_view key)
+{
+    if (!key.starts_with("fd:"))
+        return nullptr;
+    const auto id = key.substr(3);
+    if (const auto kind = model::modulatorKind(id))
+        return &model::modulatorInfo(*kind);
+    const auto* factory = fd::findDevice(id);
+    return factory != nullptr ? &factory->info() : nullptr;
+}
+
 std::uint64_t Session::addDevice(std::uint64_t trackId, const std::string& key, int index)
 {
+    if (key.starts_with("fd:"))
+        if (const auto kind = model::modulatorKind(std::string_view(key).substr(3)))
+            return addModulator(trackId, *kind, index);
     auto* list = impl_->plugins(trackId); // any channel: tracks, returns, the master
     if (list == nullptr)
         return 0;

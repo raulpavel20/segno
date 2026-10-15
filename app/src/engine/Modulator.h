@@ -74,6 +74,11 @@ public:
     [[nodiscard]] std::vector<float> stepChances() const;
     /// Step `step`'s value (-1 ... +1) and chance (0..1).
     void setStep(int step, float value, float chance, juce::UndoManager* um);
+    /// Whether its pattern was set (else it plays its default one); the whole pattern set, or
+    /// back to the default (empty values). Presets keep it (modulators.md §14).
+    [[nodiscard]] bool patternSet() const;
+    void setPattern(const std::vector<float>& values, const std::vector<float>& chances,
+                    juce::UndoManager* um);
 
     // ---- what the panel shows (message thread) -------------------------------------------------
     /// Where it is now: cycles (LFO), steps (Random, Steps), ms since copy 0 fired (Envelope).

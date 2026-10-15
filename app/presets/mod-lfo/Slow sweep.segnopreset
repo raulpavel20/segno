@@ -1,0 +1,27 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Slow",
+    "Filter"
+  ],
+  "description": "A sine over four bars, for a filter that opens and closes across a phrase.",
+  "author": "Segno",
+  "state": {
+    "device": "mod-lfo",
+    "extra": {},
+    "params": {
+      "bothways": 1.0,
+      "depth": 100.0,
+      "fade": 0.0,
+      "mode": 0.0,
+      "pertarget": 0.0,
+      "phase": 0.0,
+      "rate": 1.0,
+      "shape": 0.0,
+      "slant": 0.0,
+      "smooth": 0.0,
+      "sync": 18.0
+    },
+    "stateVersion": 1
+  }
+}

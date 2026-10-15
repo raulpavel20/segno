@@ -1,0 +1,23 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Drums",
+    "Sidechain"
+  ],
+  "description": "Hears only the lows, where the kick is: ducking that leaves the hats alone.",
+  "author": "Segno",
+  "state": {
+    "device": "mod-follower",
+    "extra": {},
+    "params": {
+      "attack": 1.0,
+      "band": 1.0,
+      "depth": 100.0,
+      "gain": 6.0,
+      "high": 150.0,
+      "low": 30.0,
+      "release": 150.0
+    },
+    "stateVersion": 1
+  }
+}

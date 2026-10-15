@@ -437,6 +437,7 @@ BrowserPanel::BrowserPanel(engine::Session& session, const ActionRegistry& actio
                                           std::tuple{Part::Favourites, ui::Icon::StarFilled, "Favourites"},
                                           std::tuple{Part::Instruments, ui::Icon::Note, "Instruments"},
                                           std::tuple{Part::Effects, ui::Icon::Knob, "Audio effects"},
+                                          std::tuple{Part::Modulators, ui::Icon::Modulator, "Modulators"},
                                           std::tuple{Part::Racks, ui::Icon::Rack, "Racks"},
                                           std::tuple{Part::Plugins, ui::Icon::Plug, "Plugins"},
                                           std::tuple{Part::Places, ui::Icon::Folder, "Places"}})
@@ -545,6 +546,7 @@ void BrowserPanel::showPart(Part part)
     const std::string id = part == Part::Favourites    ? "cat:favourites"
                            : part == Part::Instruments ? "cat:instruments"
                            : part == Part::Effects     ? "cat:effects"
+                           : part == Part::Modulators  ? "cat:modulators"
                            : part == Part::Racks       ? "cat:racks"
                            : part == Part::Plugins     ? "cat:plugins"
                                                        : "heading:places";
@@ -689,7 +691,12 @@ void BrowserPanel::buildTree()
                 addModuleRows(d, 1);
     if (category("cat:effects", "Audio effects", {}, ui::Icon::Knob))
         for (const auto& d : devices)
-            if (d.native && !d.instrument)
+            if (d.native && !d.instrument && !d.modulator)
+                addModuleRows(d, 1);
+    // The modulators, each a folder of its presets (modulators.md §14).
+    if (category("cat:modulators", "Modulators", {}, ui::Icon::Modulator))
+        for (const auto& d : devices)
+            if (d.modulator)
                 addModuleRows(d, 1);
     if (category("cat:racks", "Racks", {}, ui::Icon::Rack))
         addRackRows(1);
@@ -820,10 +827,10 @@ void BrowserPanel::addRackRows(int depth)
 
 void BrowserPanel::addModuleRows(const engine::AvailableDevice& device, int depth)
 {
-    const auto* factory = findDevice(device.key.substr(3));
-    if (factory == nullptr)
+    const auto* found = engine::Session::nativeInfo(device.key); // a modulator's too
+    if (found == nullptr)
         return;
-    const auto& info = factory->info();
+    const auto& info = *found;
     auto& library = session_.presetLibrary();
     std::vector<model::PresetEntry> entries;
     const auto moduleFolder = juce::File::createLegalFileName(text(std::string(info.name))).toStdString();
@@ -1103,8 +1110,8 @@ bool BrowserPanel::previewable(const Row& row) const
                row.kind == Kind::Midi;
     if (row.type == Row::Type::Preset)
         if (const auto ref = browser::parse(row.item))
-            if (const auto* f = findDevice(ref->key.substr(3)))
-                return f->info().kind == DeviceKind::Instrument;
+            if (const auto* info = engine::Session::nativeInfo(ref->key))
+                return info->kind == DeviceKind::Instrument;
     return false;
 }
 
@@ -1210,8 +1217,8 @@ void BrowserPanel::scrollToRow(int index)
 bool BrowserPanel::isFavourite(const std::string& item) const
 {
     if (const auto ref = browser::parse(item); ref && ref->kind == Kind::Preset)
-        if (const auto* f = findDevice(ref->key.substr(3)))
-            return session_.presetLibrary().isFavourite(f->info().id, ref->preset);
+        if (const auto* info = engine::Session::nativeInfo(ref->key))
+            return session_.presetLibrary().isFavourite(info->id, ref->preset);
     const auto& favs = settings().browser.favourites;
     return std::find(favs.begin(), favs.end(), item) != favs.end();
 }
@@ -1220,8 +1227,8 @@ void BrowserPanel::setFavourite(const std::string& item, bool favourite)
 {
     if (const auto ref = browser::parse(item); ref && ref->kind == Kind::Preset)
     {
-        if (const auto* f = findDevice(ref->key.substr(3)))
-            session_.presetLibrary().setFavourite(f->info().id, ref->preset, favourite);
+        if (const auto* info = engine::Session::nativeInfo(ref->key))
+            session_.presetLibrary().setFavourite(info->id, ref->preset, favourite);
         itemsDirty_ = true;
         rebuildRows();
         return;

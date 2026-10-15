@@ -3,7 +3,9 @@
 #include <array>
 #include <cstdint>
 #include <fd/device/Device.h>
+#include <fd/device/Presets.h>
 #include <optional>
+#include <span>
 #include <string_view>
 #include <vector>
 
@@ -59,6 +61,8 @@ struct ModulatorSection
 [[nodiscard]] std::vector<ModulatorSection> modulatorSections(ModulatorKind kind);
 /// What each is for, in a sentence (assistants' list_module_types).
 [[nodiscard]] std::string_view modulatorPurpose(ModulatorKind kind) noexcept;
+/// Their factory presets (§14, ADR 0044): about eight each, from app/presets/<type>/.
+[[nodiscard]] std::span<const FactoryPresetFile> modulatorFactoryPresets();
 
 /// What a modulator's panel shows that isn't one of its parameters (docs/design/modulators.md
 /// §9, §13): how many targets it moves, where it is now, the roll it plays and whether it's kept,

@@ -58,10 +58,10 @@ ModulePresets modulePresets(ToolEnv& env, const Json& value)
 {
     auto [slot, owner] = module(env, value);
     auto host = env.session.presetHost(slot.id);
-    const auto* factory = findDevice(slot.deviceId);
-    if (host == nullptr || factory == nullptr)
+    const auto* info = engine::Session::nativeInfo("fd:" + slot.deviceId); // a modulator's too
+    if (host == nullptr || info == nullptr)
         throw Problem{"Presets are for Segno's own modules; " + slot.name + " is a third-party plugin."};
-    return {std::move(slot), std::move(owner), std::move(host), &factory->info()};
+    return {std::move(slot), std::move(owner), std::move(host), info};
 }
 
 /// A preset by its id from list_presets, or its name (a factory preset first, unless `source`
@@ -127,11 +127,10 @@ void addPresetTools(Registry& registry, ToolEnv& env)
             else if (args.contains("type"))
             {
                 const auto type = args["type"].get<std::string>();
-                const auto* factory = findDevice(type.starts_with("fd:") ? type.substr(3) : type);
-                if (factory == nullptr)
+                info = engine::Session::nativeInfo(type.starts_with("fd:") ? type : "fd:" + type);
+                if (info == nullptr)
                     throw Problem{"There's no module type \"" + type +
                                   "\" of Segno's own; list_module_types lists them."};
-                info = &factory->info();
             }
             else
                 throw Problem{"Give a module, or a module type."};
