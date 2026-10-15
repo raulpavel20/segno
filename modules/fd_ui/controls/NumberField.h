@@ -23,6 +23,8 @@ public:
     void setJustification(juce::Justification justification);
     /// The width it needs to show `sample` (its widest value).
     [[nodiscard]] int widthFor(const juce::String& sample) const;
+    /// Its value as it shows it.
+    [[nodiscard]] juce::String text() const;
 
     std::function<juce::String(double)> textFromValue;
     std::function<std::optional<double>(const juce::String&)> valueFromText;
@@ -45,7 +47,6 @@ private:
     [[nodiscard]] double constrain(double v) const noexcept;
     void change(double v);
     void showEditor(const juce::String& initial);
-    [[nodiscard]] juce::String text() const;
 
     double min_ = 0.0, max_ = 1.0, step_ = 0.0, value_ = 0.0;
     double perPixel_ = 0.01;

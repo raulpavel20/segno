@@ -61,6 +61,14 @@ struct AudioSound
 /// reads its file backwards (`sourceLength` − content).
 [[nodiscard]] double fileTimeOf(double content, double sourceLength, bool reversed) noexcept;
 
+/// The gain line on the clip view's time, where content time c shows at `origin` + c, and back
+/// (audio-editor.md §4): a reversed clip reads its file backwards, so its line shows mirrored, each
+/// segment's bend the other way.
+[[nodiscard]] AutomationPoints lineToView(const AutomationPoints& line, double origin, double sourceLength,
+                                          bool reversed);
+[[nodiscard]] AutomationPoints lineFromView(const AutomationPoints& view, double origin, double sourceLength,
+                                            bool reversed);
+
 /// One frame's two channels as `mode` plays them (in place). Allocation-free.
 void applyChannels(ChannelMode mode, float& left, float& right) noexcept;
 

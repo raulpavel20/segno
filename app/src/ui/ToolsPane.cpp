@@ -227,6 +227,8 @@ void ToolsPane::choose(std::string_view id)
     makeChords_.setVisible(chosen_ == kMakeChords);
     resized();
     repaint();
+    if (onChosen)
+        onChosen();
 }
 
 void ToolsPane::apply()
@@ -248,6 +250,8 @@ void ToolsPane::apply()
     makeChords_.setVisible(false);
     resized();
     repaint();
+    if (onChosen)
+        onChosen();
 }
 
 juce::String ToolsPane::unavailable(const TileItem& item) const

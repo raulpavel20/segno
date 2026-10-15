@@ -214,6 +214,10 @@ public:
     void selectTake(std::uint64_t track, std::uint64_t take, bool add = false);
     [[nodiscard]] bool hasTakeSelection() const noexcept { return !selection_.takes.empty(); }
 
+    /// Where a press grabs a clip's handle (a fade's square, its gain's), in view coordinates;
+    /// nullopt while it isn't shown (tests).
+    [[nodiscard]] std::optional<juce::Point<float>> handleGrip(std::uint64_t clip,
+                                                               model::FadeHandle::Kind kind) const;
     /// The rows as drawn.
     [[nodiscard]] const std::vector<model::ArrangementRow>& rows() const noexcept { return rows_; }
     /// Row heights set by hand, by row key (view state).
@@ -393,6 +397,9 @@ private:
         float baseBend = 0.0f;
         std::optional<model::FadeEdit> edit;
         juce::Point<float> pointer; // where its value tag shows
+        /// A gain handle's (audio-editor.md §10): the clips it moves and their gains before, and by how much.
+        std::map<std::uint64_t, float> gains;
+        float gainBy = 0.0f;
     };
     /// What a fade gesture is changing, for its value tag ("Fade in 120 ms").
     [[nodiscard]] juce::String fadeDragText() const;
@@ -421,6 +428,10 @@ private:
     [[nodiscard]] std::optional<FadeRegion> fadeRegionAt(juce::Point<float> pos) const;
     void fadeMenu(const FadeRegion& region);
     bool fadeMouseDown(const juce::MouseEvent& e);
+    /// The clips a clip's gain handle moves: its parts, and the other selected audio clips while it's
+    /// selected.
+    [[nodiscard]] std::vector<std::uint64_t> gainClipsFor(const model::TrackInfo& track,
+                                                          const model::ClipInfo& clip) const;
     void fadeMouseDrag(const juce::MouseEvent& e);
     void fadeMouseUp();
     std::optional<std::uint64_t> hoveredClip_; // its fade handles show

@@ -158,6 +158,13 @@ public:
     /// The NOTES section's fields (tests).
     [[nodiscard]] ui::NumberField& noteField(model::NoteField field) noexcept;
     [[nodiscard]] ui::Toggle& noteMute() noexcept { return noteMute_; }
+    /// CLIP's Loop (tests).
+    [[nodiscard]] ui::Toggle& clipLoop() noexcept { return clipLoop_; }
+    /// The AUDIO section's fields (tests).
+    [[nodiscard]] ui::NumberField& audioGain() noexcept { return audioGain_; }
+    [[nodiscard]] ui::Toggle& audioReverse() noexcept { return audioReverse_; }
+    [[nodiscard]] ui::Toggle& audioPolarity() noexcept { return audioPolarity_; }
+    [[nodiscard]] juce::ComboBox& audioChannels() noexcept { return audioChannels_; }
     void resized() override;
     void paint(juce::Graphics& g) override;
 
@@ -258,6 +265,12 @@ private:
     void setCrossfadeShape(const std::optional<Join>& join, int id);
     void setCrossfadePlace(const std::optional<Join>& join, int id);
     std::optional<engine::Session::EditGroup> fadeGesture_;
+    /// An audio clip's sound (audio-editor.md §12): its gain dragged or typed, Reverse, Polarity,
+    /// and for a stereo file how its channels play. One undo step each.
+    ui::NumberField audioGain_;
+    ui::Toggle audioReverse_{"On"}, audioPolarity_{"Invert"};
+    juce::ComboBox audioChannels_;
+    std::optional<engine::Session::EditGroup> audioGesture_;
     TrackInputSection input_{session_};
     model::TempoMap tempo_;
     /// The selected section (arranger.md §10): its name typed, its colour, and its marks (Start,
@@ -331,8 +344,22 @@ public:
     /// Opens the Tools pane on `tab`, or closes it (none); view state, kept with the project.
     void showTools(std::optional<model::ToolKind> tab);
     [[nodiscard]] bool toolsShown(model::ToolKind tab) const;
-    /// Opens the pane at a tool ("strum"; "makeChords") and chooses it.
+    /// Opens the pane at a tool ("strum"; "makeChords"; for an audio clip, "normalise") and
+    /// chooses it.
     void showTool(std::string_view id);
+    /// Over an audio clip: the pane open or closed (audio-editor.md §11); view state, kept with the
+    /// project.
+    void showAudioTools(bool open);
+    /// The Audio menu (audio-editor.md §13): the menu bar's, built by the same function, opened
+    /// from the bar's Audio button and the waveform's right-click.
+    std::function<juce::PopupMenu()> audioMenu;
+    /// The audio editor's bar (audio-editor.md §4, §20), for tests and the layout lint.
+    [[nodiscard]] ui::MenuButton& audioButton() noexcept { return audioButton_; }
+    [[nodiscard]] ui::Toggle& normaliseButton() noexcept { return normalise_; }
+    [[nodiscard]] ui::BarField& gainField() noexcept { return gain_; }
+    [[nodiscard]] ui::Toggle& reverseButton() noexcept { return reverse_; }
+    /// A range command's button (Split, Crop, Silence, Fade, Loop): shown while a range is selected.
+    [[nodiscard]] ui::Toggle& rangeButton(engine::Session::RangeAction action) noexcept;
     [[nodiscard]] ui::ViewChoice& drawChoice() noexcept { return draw_; }
     [[nodiscard]] ui::Segments& drawKind() noexcept { return drawKind_; }
     [[nodiscard]] ui::ViewChoice& drawVoicing() noexcept { return drawVoicing_; }
@@ -350,9 +377,12 @@ private:
     void updateOptions();
     /// Modules, Clip where it's available, the editor's while one is open.
     void updateTabs();
+    /// The audio editor's bar as its clip and range are now.
+    void updateAudioBar();
 
     ui::PanelHeader header_;
     std::vector<Mode> tabModes_; // what each tab shows
+    engine::Session& session_;
     const ActionRegistry& actions_;
     /// Notes and Quantise, in the clip view's header while it shows notes (menu-bar.md §15,
     /// piano-roll.md §4).
@@ -368,6 +398,14 @@ private:
     /// The piano roll's Snap and grid step (ADR 0047), on the right while it shows a clip.
     ui::ViewOption snap_{"Snap"};
     ui::ViewChoice grid_;
+    /// The audio editor's bar (audio-editor.md §4, §20): a range's commands while one is selected;
+    /// the Audio menu; its tools; the clip's gain and Reverse.
+    ui::Toggle split_{"Split"}, crop_{"Crop"}, silence_{"Silence"}, fadeRange_{"Fade"}, loopRange_{"Loop"};
+    ui::MenuButton audioButton_{"Audio"};
+    ui::Toggle normalise_{"Normalise"};
+    ui::BarField gain_{"Gain"};
+    ui::Toggle reverse_{"Reverse"};
+    std::optional<engine::Session::EditGroup> gainGesture_; // a drag of Gain: one undo step
     Mode mode_ = Mode::Devices;
     bool clipViewAvailable_ = true;
     std::optional<model::TrackInfo> track_;

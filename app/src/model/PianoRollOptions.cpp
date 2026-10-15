@@ -87,7 +87,8 @@ nlohmann::json pianoRollOptionsToJson(const PianoRollOptions& o)
             {"voicing", toWord(o.chord.voicing, voicingWordList)},
             {"inversion", toWord(o.chord.inversion, inversionWordList)},
             {"toolsOpen", o.toolsOpen},
-            {"toolsTab", o.toolsTab == ToolKind::Generate ? "generate" : "transform"}};
+            {"toolsTab", o.toolsTab == ToolKind::Generate ? "generate" : "transform"},
+            {"audioToolsOpen", o.audioToolsOpen}};
 }
 
 PianoRollOptions pianoRollOptionsFromJson(const nlohmann::json& json)
@@ -130,6 +131,7 @@ PianoRollOptions pianoRollOptionsFromJson(const nlohmann::json& json)
     o.chord.voicing = fromWord(json, "voicing", voicingWordList, o.chord.voicing);
     o.chord.inversion = fromWord(json, "inversion", inversionWordList, o.chord.inversion);
     o.toolsOpen = flag("toolsOpen", o.toolsOpen);
+    o.audioToolsOpen = flag("audioToolsOpen", o.audioToolsOpen);
     if (const auto it = json.find("toolsTab"); it != json.end() && it->is_string())
         o.toolsTab = it->get<std::string>() == "generate" ? ToolKind::Generate : ToolKind::Transform;
     return o;

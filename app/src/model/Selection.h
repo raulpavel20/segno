@@ -73,6 +73,7 @@ enum class InspectorSection
     Take,
     Takes,
     Clip,
+    Audio, // one audio clip's sound (audio-editor.md §12), under its CLIP
     Clips,
     Notes, // the clip view's selected notes (piano-roll.md §9.6), added by the inspector
     Section,
@@ -103,16 +104,18 @@ struct PanelContext
     int sectionCount = 0;               // selected sections
 
     bool clipViewOffered = false; // the detail panel has its Clip tab (the arrangement only)
-    bool opensClipView = false;   // a change to this subject opens the clip view (in the arrangement)
+    bool opensClipView =
+        false; // a change to this subject opens the clip view (in the arrangement): one clip, of
+               // either kind (the piano roll, or the audio editor: audio-editor.md §4)
     std::optional<std::uint64_t> midiInputTarget; // live MIDI: the channel, if a track with an instrument
     std::vector<InspectorSection> inspector;      // empty: no inspector content
 
     /// What identifies the subject: when it changes, the detail panel picks its mode again. It
-    /// includes the MIDI clip, so a clip selected before its snapshot arrived counts once it does.
+    /// includes the clip, so a clip selected before its snapshot arrived counts once it does.
     struct Key
     {
         Selection selection;
-        std::optional<std::uint64_t> midiClip;
+        std::optional<std::uint64_t> clip;
 
         friend bool operator==(const Key&, const Key&) = default;
     } key;

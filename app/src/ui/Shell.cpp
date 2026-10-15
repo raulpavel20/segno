@@ -101,6 +101,7 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     registerActions();
     registerSongActions();
     registerNotesActions();
+    registerAudioActions();
     // The browser (ADR 0046): what it holds goes where it's dropped, or on the selection.
     browser_.onLoad = [this](const std::string& item) { loadFromBrowser(item); };
     browser_.onOpenProject = [this](const juce::File& project) { openFile(project); };
@@ -160,8 +161,9 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
             return sectionColourMenu();
         if (list == "otherTracks") // the clip view's Others, track by track (piano-roll.md §8)
             return detail_.pianoRoll().othersMenu();
-        if (list == "clipLane") // the clip view's bottom lane (§11)
-            return detail_.pianoRoll().laneMenu();
+        if (list == "clipLane") // the clip view's bottom lane (§11; the audio editor's: audio-editor.md §4)
+            return detail_.showsAudioClip() ? detail_.audioClipView().laneMenu()
+                                            : detail_.pianoRoll().laneMenu();
         return juce::PopupMenu();
     };
     transport_->setBrandShown(kMenuPlatform == model::MenuPlatform::Mac);
@@ -655,37 +657,43 @@ void Shell::registerActions()
     // lanes only while the arrangement shows them (selection.md §6, automation.md §9).
     auto& roll = detail_.pianoRoll();
     auto clipsShown = [this] { return !mixerShown_; };
-    actions_.add({.id = "edit.delete",
-                  .name = "Delete",
-                  .category = "Edit",
-                  .keys = {key(juce::KeyPress::deleteKey), key(juce::KeyPress::backspaceKey)},
-                  .perform =
-                      [this, &roll, clipsShown]
-                  {
-                      if (notesActive() && (roll.hasSelection() || roll.hasPointSelection()))
-                          roll.deleteSelection(); // or its controller lane's points (piano-roll.md §11)
-                      else if (lastArea_ == Area::Detail && detail_.chain().hasSelection())
-                          detail_.chain().deleteSelected();
-                      else if (sectionsActive()) // with their music (arranger.md §9)
-                          session_.deleteSections(arrangement_.selectedSections());
-                      else if (laneActive() && arrangement_.hasPointSelection())
-                          arrangement_.deletePoints();
-                      else if (laneActive())
-                          arrangement_.removeSelectedLane();
-                      else if (trackHeaderActive()) // its header (tracks-and-clips.md §5)
-                          deleteChannel(*commandChannel());
-                      else if (clipsShown())
-                          arrangement_.deleteSelection();
-                  },
-                  .isEnabled =
-                      [this, &roll, clipsShown]
-                  {
-                      return (notesActive() && (roll.hasSelection() || roll.hasPointSelection())) ||
-                             (lastArea_ == Area::Detail && detail_.chain().hasSelection()) ||
-                             sectionsActive() || laneActive() || trackHeaderActive() ||
-                             (clipsShown() &&
-                              (arrangement_.hasClipSelection() || arrangement_.hasTakeSelection()));
-                  }});
+    actions_.add(
+        {.id = "edit.delete",
+         .name = "Delete",
+         .category = "Edit",
+         .keys = {key(juce::KeyPress::deleteKey), key(juce::KeyPress::backspaceKey)},
+         .perform =
+             [this, &roll, clipsShown]
+         {
+             if (notesActive() && (roll.hasSelection() || roll.hasPointSelection()))
+                 roll.deleteSelection(); // or its controller lane's points (piano-roll.md §11)
+             else if (audioActive() && detail_.audioClipView().hasPointSelection())
+                 detail_.audioClipView().deletePoints(); // the gain line's (audio-editor.md §6.2)
+             else if (audioActive() && detail_.audioClipView().range())
+                 detail_.audioClipView().editRange(engine::Session::RangeAction::Delete); // §5
+             else if (lastArea_ == Area::Detail && detail_.chain().hasSelection())
+                 detail_.chain().deleteSelected();
+             else if (sectionsActive()) // with their music (arranger.md §9)
+                 session_.deleteSections(arrangement_.selectedSections());
+             else if (laneActive() && arrangement_.hasPointSelection())
+                 arrangement_.deletePoints();
+             else if (laneActive())
+                 arrangement_.removeSelectedLane();
+             else if (trackHeaderActive()) // its header (tracks-and-clips.md §5)
+                 deleteChannel(*commandChannel());
+             else if (clipsShown())
+                 arrangement_.deleteSelection();
+         },
+         .isEnabled =
+             [this, &roll, clipsShown]
+         {
+             return (notesActive() && (roll.hasSelection() || roll.hasPointSelection())) ||
+                    (audioActive() &&
+                     (detail_.audioClipView().hasPointSelection() || detail_.audioClipView().range())) ||
+                    (lastArea_ == Area::Detail && detail_.chain().hasSelection()) || sectionsActive() ||
+                    laneActive() || trackHeaderActive() ||
+                    (clipsShown() && (arrangement_.hasClipSelection() || arrangement_.hasTakeSelection()));
+         }});
     actions_.add({.id = "edit.duplicate",
                   .name = "Duplicate",
                   .category = "Edit",
@@ -777,30 +785,47 @@ void Shell::registerActions()
                                                     : juce::String();
                   }});
     // Split at playhead: the notes crossing it when the clip view was used last (piano-roll.md §9.1).
-    actions_.add({.id = "edit.split",
-                  .name = "Split at playhead",
-                  .category = "Edit",
-                  .keys = {key('e', kCmd)},
-                  .perform =
-                      [this, &roll]
-                  {
-                      if (notesActive())
-                          roll.splitAtPlayhead();
-                      else
-                          arrangement_.splitAtPlayhead();
-                  },
-                  .isEnabled = [this, &roll, clipsShown]
-                  { return notesActive() ? !roll.notes().empty() : clipsShown(); }});
-    actions_.add({.id = "edit.selectAll", .name = "Select all", .category = "Edit", .keys = {key('a', kCmd)},
-                  .perform = [this, &roll, clipsShown] {
-                      if (notesActive())
-                          roll.selectAll();
-                      else if (laneActive())
-                          arrangement_.selectAllPoints();
-                      else if (clipsShown())
-                          arrangement_.selectAllClips();
-                  },
-                  .isEnabled = [this, clipsShown] { return notesActive() || clipsShown(); }});
+    actions_.add(
+        {.id = "edit.split",
+         .name = "Split at playhead",
+         .category = "Edit",
+         .keys = {key('e', kCmd)},
+         .perform =
+             [this, &roll]
+         {
+             if (notesActive())
+                 roll.splitAtPlayhead();
+             else if (audioActive() && detail_.audioClipView().range()) // its edges (audio-editor.md §5)
+                 detail_.audioClipView().editRange(engine::Session::RangeAction::Split);
+             else
+                 arrangement_.splitAtPlayhead();
+         },
+         .isEnabled = [this, &roll, clipsShown]
+         { return notesActive() ? !roll.notes().empty() : clipsShown(); },
+         .label =
+             [this]
+         {
+             return juce::String(audioActive() && detail_.audioClipView().range() ? "Split at range"
+                                                                                  : "Split at playhead");
+         }});
+    actions_.add(
+        {.id = "edit.selectAll",
+         .name = "Select all",
+         .category = "Edit",
+         .keys = {key('a', kCmd)},
+         .perform =
+             [this, &roll, clipsShown]
+         {
+             if (notesActive())
+                 roll.selectAll();
+             else if (audioActive()) // the whole clip as the range (audio-editor.md §5)
+                 detail_.audioClipView().selectAll();
+             else if (laneActive())
+                 arrangement_.selectAllPoints();
+             else if (clipsShown())
+                 arrangement_.selectAllClips();
+         },
+         .isEnabled = [this, clipsShown] { return notesActive() || audioActive() || clipsShown(); }});
 
     // The arrows: the piano roll's notes (C2), or a lane's points (C4), whichever was used last.
     auto notesSelected = [this, &roll] { return (notesActive() && roll.hasSelection()) || pointsActive(); };
@@ -1775,6 +1800,11 @@ void Shell::registerActions()
 bool Shell::notesActive() const
 {
     return lastArea_ == Area::Clip && detail_.showsPianoRoll();
+}
+
+bool Shell::audioActive() const
+{
+    return lastArea_ == Area::Clip && detail_.showsAudioClip();
 }
 
 bool Shell::laneActive() const

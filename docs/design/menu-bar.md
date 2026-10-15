@@ -275,6 +275,23 @@ Clip ▸ Notes ▸ moved to the Notes menu (M3 P4).
 
 The notes' right-click menu has Transform ▸ too, Quantise… first, as the Tools pane's tiles. Clip ▸ Mute clips (0) reads "Mute notes" and mutes them while the clip view was used last; Edit ▸ Split at playhead (Ctrl+E) splits the notes crossing it then.
 
+**Audio** (M3 P6a, [audio-editor.md](audio-editor.md) §13, [ADR 0063](../decisions/0063-audio-is-edited-as-properties-warped-in-real-time.md); Alt+A; between Notes and Song): what acts on audio clips: the clip the audio editor shows when it was used last, else the selected audio clips; what needs the editor's range is dimmed with the reason elsewhere. The audio editor's **Audio ⌄** button opens this same menu (one builder), and the waveform's right-click menu has it as a submenu after the most used commands.
+
+| Item | Shortcut | |
+|---|---|---|
+| Gain ▸ | | Up 1 dB, Down 1 dB: the gain line over the range while there's one, else the clips' gain; — ; Silence (the range) |
+| Normalise… | | The Tools pane at Normalise (peak or loudness, each clip or together), previewed as it's set, Apply keeps it as one step |
+| — | | |
+| Reverse | | Ticked while the clip plays backwards |
+| Invert polarity | | Ticked while inverted |
+| Channels ▸ | | Stereo, Left, Right, Mono, Swapped: for stereo files, the one playing ticked; dimmed, saying why, for mono ones |
+| — | | |
+| Crop to range | | |
+| Fade to range | | A range from the clip's start becomes its fade-in, one to its end its fade-out; dimmed, saying why, in the middle |
+| Loop range | | |
+
+The warping, key and slice items of audio-editor.md §13 come with P6b and P6c. Edit ▸ Split (Ctrl+E) reads **Split at range** and splits at the range's edges while the audio editor was used last with a range; Delete takes the range out, and Select all makes the whole clip the range.
+
 **Song** (added with the song's sections, M3 C3; the song's key first, M3 P3, [ADR 0057](../decisions/0057-the-song-has-one-key.md); [ADR 0049](../decisions/0049-the-master-row-is-the-song-row.md), [arranger.md](arranger.md) §12; Alt+G since M3 P4 gave Notes the N; Alt+S solos)
 
 | Item | Shortcut | |
@@ -373,7 +390,8 @@ The notes' right-click menu has Transform ▸ too, Quantise… first, as the Too
 | Previous module page | Ctrl+Alt+Page Up | As above |
 | — | | |
 | Other tracks' notes ▸ | | Show other tracks' notes (the clip view's Others, [piano-roll.md](piano-roll.md) §8); — ; each other track with notes, ticked while it's shown (M3 P4b; also the Others option's right-click) |
-| Clip view lane ▸ | | Velocity, Chance, Release velocity; the controllers (the clip's and the usual ones); Other controller ▸ (CC 0–127): what the clip view's bottom lane shows (§11, M3 P4b; also its head's menu) |
+| Clip view lane ▸ | | Velocity, Chance, Release velocity; the controllers (the clip's and the usual ones); Other controller ▸ (CC 0–127): what the clip view's bottom lane shows (§11, M3 P4b; also its head's menu). Over an audio clip: Gain, the only lane until pitch (M3 P6a) |
+| Waveform height ▸ | | Taller, Shorter, Reset: the audio editor's rows, as its level column dragged and double-clicked does (M3 P6a, [audio-editor.md](audio-editor.md) §4); dimmed, saying why, while it shows no audio clip |
 | Tools pane ▸ | | Transform tools, Generate tools: the clip view's Tools pane on that tab, ticked while it shows it; chosen again, it closes (the header's Transform and Generate, [piano-roll.md](piano-roll.md) §25) |
 | Show only the key's notes | Ctrl+Alt+N | The clip view's In key (M3 P4, [piano-roll.md](piano-roll.md) §6, §21): only the key's rows, else the whole roll; ticked while it shows the key's rows; dimmed without a song key |
 | Show other tracks' notes | | The clip view's Others (§8) |

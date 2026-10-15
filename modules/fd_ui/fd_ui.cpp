@@ -16,6 +16,7 @@
 #include "controls/Icons.cpp"
 #include "controls/NumberField.cpp"
 #include "controls/ChoiceField.cpp"
+#include "controls/BarField.cpp"
 #include "controls/OctaveKeys.cpp"
 #include "controls/Labels.cpp"
 #include "controls/SearchField.cpp"

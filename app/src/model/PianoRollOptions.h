@@ -66,6 +66,8 @@ struct PianoRollOptions
     /// The Tools pane (§25): open, and on which tab.
     bool toolsOpen = false;
     ToolKind toolsTab = ToolKind::Transform;
+    /// The Tools pane over an audio clip (audio-editor.md §11): open or not, apart from the notes'.
+    bool audioToolsOpen = false;
     DrawMode draw = DrawMode::Note;
     ChordLabels chordLabels = ChordLabels::Both;
     ChordStyle chord; // the Chord popover's Kind, Voicing and Inversion (§7.3)

@@ -9,7 +9,7 @@ The clip view for an audio clip, grown from a waveform viewer into an editor. It
 - the menu bar as the complete list ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)) and assistants' tools ([ADR 0021](../decisions/0021-mcp-server.md));
 - the UI foundations ([ADR 0023](../decisions/0023-ui-foundations.md)): every panel sized from its content, nothing touching.
 
-**Status:** approved by the product owner (2026-10-15), with every recommendation of §18 (AE1–AE25); the decision is [ADR 0063](../decisions/0063-audio-is-edited-as-properties-warped-in-real-time.md). With the approval came a rule for every editor, learned from the piano roll: its tools on its bar, never two clicks deep, and a bar with room filled (§20, ui-principles.md §1). The bar of §4 and the ways into the Tools pane (§11) follow it. Worked on a branch of its own (`audio-clip-editor`) beside main's modulators. The visual mockup (the editor at standard width with a range, the inspector, the Tempo tool, the arrangement's gain handle, a recording without Warp at 1024 px, the bar at five widths) was approved by the product owner the same day. Then three stages (§16), each signed off on its own.
+**Status:** approved by the product owner (2026-10-15), with every recommendation of §18 (AE1–AE25); the decision is [ADR 0063](../decisions/0063-audio-is-edited-as-properties-warped-in-real-time.md). With the approval came a rule for every editor, learned from the piano roll: its tools on its bar, never two clicks deep, and a bar with room filled (§20, ui-principles.md §1). The bar of §4 and the ways into the Tools pane (§11) follow it. Worked on a branch of its own (`audio-clip-editor`) beside main's modulators. The visual mockup (the editor at standard width with a range, the inspector, the Tempo tool, the arrangement's gain handle, a recording without Warp at 1024 px, the bar at five widths) was approved by the product owner the same day. Then three stages (§16), each signed off on its own. **P6a is built** (§21), for the product owner's review.
 
 ## 1. Why
 
@@ -475,3 +475,31 @@ The product owner approved every recommendation of §18 and added a rule, learne
 - **The Tools pane (§11)** opens at a tool from that tool's button; there's no Transform button for audio.
 - **What stays in the menus and the inspector:** what's set once or rarely: Fine, Polarity, Channels, Formants, Tails, Sensitivity, Follow key, the marker commands (on the marker's right-click, where it acts).
 - **The mockup** shows the bar at standard and compact widths, so what gives way, and when, is reviewed before it's built.
+
+## 21. P6a built: the editor and the clip's sound (2026-10-15)
+
+Built on the branch, with its tests (the model's `[fast]` ones, the engine's, the assistants' and the editor's by mouse) and screenshots reviewed zoomed in at 1800, 1280, 1024, 820, 700 and 600 px. Waiting for the product owner's hands-on review before P6b.
+
+### 21.1 Settled while building
+
+- **It opens on selection:** one click on an audio clip shows it in the Clip view, as a MIDI clip shows the piano roll ([selection.md](selection.md) §4).
+- **A row for each signal the clip plays,** not each channel of its file: two for Stereo and Swapped (named L and R as they play), one for Left, Right and Mono (Mono draws the two channels' mean). What you see is what's heard.
+- **The level column** follows the mockup: each row's top edge is labelled with the level it stands for (0 at full scale), −∞ is in its middle, and the steps between (−3, −6, −12 …) show where they fit, a label's height and an item gap apart, with their ticks mirrored below the middle. Dragged up 48 px, the rows draw twice as tall (1× to 64×); a double-click, or View ▸ Waveform height ▸ Reset, puts full scale back at the row's edge. The rows' height is the session's view, not kept with the project.
+- **The marker strip comes with the markers** (P6b), so P6a has no empty strip. So do the range's time handles in the ruler (§7.6): in P6a a range is the `selectionFill` over the rows with a `selectionStroke` line at each edge.
+- **The range's gain handle** hangs from the top of the first row at the range's middle: 0.1 dB a pixel (Shift: 0.01), its tag "Range +3.0 dB", one undo step (Gain). Gain ▸ Up and Down act on the range the same way while there's one.
+- **What a range command leaves:** Split selects the range's new clip and the editor shows it; Crop and Delete show what's left. A command that can't act is dimmed on the bar, saying why: Fade on a range in the clip's middle, Delete and Crop on a clip with takes (its parts are one clip), Loop on a clip with takes. Edit ▸ Split reads "Split at range" while it splits at the range's edges.
+- **The gain line uses the volume fader's taper:** −∞ to +6 dB, 0 dB four fifths up the lane, as a volume lane reads. The design said +12 dB; more than +6 is the clip's Gain's job (up to +24 dB). Its points are kept in the file's time, so they loop, split and flip with the audio; a reversed clip shows its line mirrored.
+- **Reverse writes a reversed copy of its own** into the project's `Reversed` folder (32-bit float, reused while it matches its file), the clip's forward file kept beside it; its offset and loop mirror so it plays the same audio. Not tracktion's `setIsReversed`: its copy lived in a folder the project didn't keep. A clip with takes plays its takes, so its Reverse is dimmed, saying why. The inspector's format is the forward file's.
+- **Normalise:** Audio ▸ Normalise… opens the Tools pane at it, as §13 has it (§6.4 said "with the last settings"); it measures what the clip plays (its loop, while it loops). The bar's Normalise is lit while the pane shows it; clicked again, the pane closes. While it's set, the waveforms show the result; it's heard once applied.
+- **The bar** in P6a: a range's commands while there's one; Audio ⌄; Normalise; Gain and Reverse; Snap and the step. Gain is a `BarField` as wide as its value, so the gap after it is the bar's own. At narrow widths the clip's name gives way first (never to a bare "…"), then Normalise, Reverse and Gain. Quantise, Tempo, Slice, Transpose and the warping controls come with P6b and P6c.
+- **The inspector's AUDIO:** Gain, Reverse, Polarity, Channels (stereo files), then the file in two rows so neither is cut: **File** ("stereo · 4.0 s") and **Format** ("48 kHz · 24-bit").
+- **Waveforms drawn direct are drawn at the screen's pixels,** a column per physical pixel as the arrangement's tiles are, so the editor and the arrangement's fades are as sharp on a dense screen.
+- **The waveform's right-click menu:** Split, Crop, Delete, Silence, Fade, Loop; Gain ▸, Normalise…, Reverse; then Audio ▸ (the whole menu) and Grid ▸. The lane's head and View ▸ Clip view lane ▸ list Gain.
+- **Assistants:** `set_audio` (gain, gain by, reverse, polarity, channels), `get_gain_line`, `set_gain_line`, `edit_audio_range`, `list_audio_tools`, `transform_audio` (Normalise); `get_clip` gives an audio clip's `sound` and `file`.
+
+### 21.2 Left for later in P6
+
+- **Several audio clips in AUDIO** (§12: a range of values where they differ, moved together): the section shows for one clip; the Audio menu and the arrangement's gain handle already act on several.
+- **Normalise heard while it's set,** not only seen.
+- **Crossfades drawn through the clips' gain:** a crossfade's region in the arrangement draws its sum without the two clips' gain and gain line; what plays has them.
+- **The editor's frame time in a Release build:** the hidden benchmark ("audio editor paints a 10-minute stereo file zooming", §19) paints at the arrangement's cost a pixel in the dev build (89 ms a frame at 3400 × 840, the arrangement's 226 ms at 3400 × 2104), after the faded file and the played part each read only their own columns; the Release reading waits for a `rel` build.

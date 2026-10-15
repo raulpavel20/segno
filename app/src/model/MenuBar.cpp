@@ -134,6 +134,19 @@ std::vector<Menu> menuBar(MenuPlatform platform)
                              action("notes.selectInLoop"), action("notes.invertSelection")}),
           action("notes.later"), action("notes.earlier")}});
 
+    // The audio editor's (ADR 0063, audio-editor.md §13): what acts on audio clips and the editor's
+    // range. The bar's Audio button opens this same menu.
+    menus.push_back(
+        {"Audio",
+         'a',
+         {submenu("Gain",
+                  {action("audio.gainUp"), action("audio.gainDown"), separator(), action("audio.silence")}),
+          action("audio.normalise"), separator(), action("audio.reverse"), action("audio.polarity"),
+          submenu("Channels", {action("audio.channels.stereo"), action("audio.channels.left"),
+                               action("audio.channels.right"), action("audio.channels.mono"),
+                               action("audio.channels.swapped")}),
+          separator(), action("audio.crop"), action("audio.fadeRange"), action("audio.loopRange")}});
+
     // Song-wide things: the song's key (ADR 0057, key-and-scale.md §13), then its sections (ADR 0049,
     // arranger.md §12).
     menus.push_back(
@@ -174,44 +187,31 @@ std::vector<Menu> menuBar(MenuPlatform platform)
           submenu("Count-in length", {list("countIn")}), submenu("MIDI loop recording", {list("midiLoop")}),
           separator(), action("transport.loop"), action("transport.metronome")}});
 
-    menus.push_back({"View",
-                     'v',
-                     {action("view.mixer"),
-                      separator(),
-                      action("view.browser"),
-                      action("browser.search"),
-                      action("browser.preview"),
-                      action("view.inspector"),
-                      action("view.detail"),
-                      action("view.detailMode"),
-                      separator(),
-                      action("view.lanes"),
-                      action("view.returns"),
-                      action("module.fold"),
-                      action("module.expand"),
-                      action("module.nextPage"),
-                      action("module.previousPage"),
-                      separator(),
-                      // The clip view's options (piano-roll.md §13).
-                      action("view.clipInKey"),
-                      submenu("Other tracks' notes", {action("view.clipOthers"), separator(), list("otherTracks")}),
-                      submenu("Clip view lane", {list("clipLane")}),
-                      submenu("Tools pane", {action("view.toolsTransform"), action("view.toolsGenerate")}),
-                      submenu("Draw", {action("view.drawNote"), action("view.drawChord"), action("view.drawChordUnder"),
-                                       separator(), action("view.drawTriads"), action("view.drawSevenths"),
-                                       action("view.drawNinths"), action("view.drawSus2"), action("view.drawSus4"),
-                                       action("view.drawAdd9"), separator(), action("view.voicingSmooth"),
-                                       action("view.voicingClose"), action("view.voicingOpen"),
-                                       action("view.voicingDrop2"), action("view.voicingDrop3"),
-                                       action("view.voicingSpread")}),
-                      separator(),
-                      action("view.zoomIn"),
-                      action("view.zoomOut"),
-                      action("view.zoomFit"),
-                      action("view.follow"),
-                      separator(),
-                      action("view.focus"),
-                      action("view.fullScreen")}});
+    menus.push_back(
+        {"View",
+         'v',
+         {action("view.mixer"), separator(), action("view.browser"), action("browser.search"),
+          action("browser.preview"), action("view.inspector"), action("view.detail"),
+          action("view.detailMode"), separator(), action("view.lanes"), action("view.returns"),
+          action("module.fold"), action("module.expand"), action("module.nextPage"),
+          action("module.previousPage"), separator(),
+          // The clip view's options (piano-roll.md §13).
+          action("view.clipInKey"),
+          submenu("Other tracks' notes", {action("view.clipOthers"), separator(), list("otherTracks")}),
+          submenu("Clip view lane", {list("clipLane")}),
+          // The audio editor's rows (audio-editor.md §4): its level column, by menu.
+          submenu("Waveform height", {action("view.waveformTaller"), action("view.waveformShorter"),
+                                      action("view.waveformReset")}),
+          submenu("Tools pane", {action("view.toolsTransform"), action("view.toolsGenerate")}),
+          submenu("Draw",
+                  {action("view.drawNote"), action("view.drawChord"), action("view.drawChordUnder"),
+                   separator(), action("view.drawTriads"), action("view.drawSevenths"),
+                   action("view.drawNinths"), action("view.drawSus2"), action("view.drawSus4"),
+                   action("view.drawAdd9"), separator(), action("view.voicingSmooth"),
+                   action("view.voicingClose"), action("view.voicingOpen"), action("view.voicingDrop2"),
+                   action("view.voicingDrop3"), action("view.voicingSpread")}),
+          separator(), action("view.zoomIn"), action("view.zoomOut"), action("view.zoomFit"),
+          action("view.follow"), separator(), action("view.focus"), action("view.fullScreen")}});
 
     Menu options{"Options",
                  'o',

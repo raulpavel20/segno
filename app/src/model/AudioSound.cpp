@@ -123,6 +123,43 @@ double fileTimeOf(double content, double sourceLength, bool reversed) noexcept
     return reversed ? sourceLength - content : content;
 }
 
+namespace
+{
+/// Points at `flip` − their time, in time order: a segment read the other way starts at its
+/// other end and bends the other way.
+AutomationPoints mirrored(const AutomationPoints& line, double flip)
+{
+    AutomationPoints out;
+    const auto n = line.size();
+    for (size_t k = 0; k < n; ++k)
+    {
+        const auto& p = line[n - 1 - k];
+        out.push_back({flip - p.time, p.value, k + 1 < n ? -line[n - 2 - k].curve : 0.0f});
+    }
+    return out;
+}
+} // namespace
+
+AutomationPoints lineToView(const AutomationPoints& line, double origin, double sourceLength, bool reversed)
+{
+    if (reversed)
+        return mirrored(line, origin + sourceLength);
+    auto out = line;
+    for (auto& p : out)
+        p.time += origin;
+    return out;
+}
+
+AutomationPoints lineFromView(const AutomationPoints& view, double origin, double sourceLength, bool reversed)
+{
+    if (reversed)
+        return mirrored(view, origin + sourceLength);
+    auto out = view;
+    for (auto& p : out)
+        p.time -= origin;
+    return out;
+}
+
 void applyChannels(ChannelMode mode, float& left, float& right) noexcept
 {
     switch (mode)

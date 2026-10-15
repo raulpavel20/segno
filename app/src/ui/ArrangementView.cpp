@@ -613,7 +613,9 @@ void ArrangementView::paint(juce::Graphics& g)
     g.fillAll(t.surface0);
     timeline_.gridLines(snapshot_->tempo, grid_);
     paintLanes(g);
-    if (fadeDrag_ && fadeDrag_->edit) // what a fade gesture is changing (fades.md §3)
+    if (fadeDrag_ &&
+        (fadeDrag_->edit ||
+         fadeDrag_->handle.kind == model::FadeHandle::Kind::Gain)) // what it's changing (fades.md §3)
         ui::paintValueTag(g, fadeDrag_->pointer, laneArea(), fadeDragText());
     if (const auto text = clipDragText(); text.isNotEmpty()) // what a drag makes of a loop (clip-loops.md §5)
         ui::paintValueTag(g, lastDrag_, laneArea(), text);
@@ -1662,11 +1664,41 @@ void ArrangementView::paintWaveform(juce::Graphics& g, const model::ClipInfo& cl
     if (peaks == nullptr)
         return;
     const auto tint = content;
+    // Drawn as heard (audio-editor.md §10): through the clip's gain line, column by column, where it
+    // shapes the level; else through its gain, the whole waveform taller or shorter.
+    const auto& sound = clip.sound;
+    const float zero = model::lineValueForDb(0.0);
+    if (std::any_of(sound.line.begin(), sound.line.end(),
+                    [zero](const auto& p) { return std::abs(p.value - zero) > 1e-6f; }))
+    {
+        WaveformTiles::drawDirect(g, *peaks, clip, body, visible, timeline_, laneArea().getX(), tint,
+                                  [&](double seconds)
+                                  {
+                                      const double at = model::contentAt(clip, seconds);
+                                      return model::soundGainAt(
+                                          sound, model::fileTimeOf(at, clip.sourceLength, sound.reversed));
+                                  });
+        return;
+    }
+    const float gain = model::soundGainAt({.gainDb = sound.gainDb}, 0.0);
+    if (gain <= 0.0f)
+        return;
+    // Past four times full scale it's cut at the row anyway: no taller tiles than that.
+    const auto drawn = body.withSizeKeepingCentre(body.getWidth(), body.getHeight() * std::min(gain, 4.0f));
+    juce::Graphics::ScopedSaveState saved(g);
+    g.reduceClipRegion(body.getSmallestIntegerContainer());
+    const auto shown = visible.getIntersection(body.getSmallestIntegerContainer());
     // Tiles pay off on the GPU; the software renderer scales images slowly (measured).
     if (juce::OpenGLContext::getCurrentContext() != nullptr)
-        tiles_.draw(g, *peaks, clip, body, visible, timeline_, laneArea().getX(), tint, zoomSettled_);
+        tiles_.draw(g, *peaks, clip, drawn,
+                    shown.withY(static_cast<int>(drawn.getY()))
+                        .withHeight(static_cast<int>(std::ceil(drawn.getHeight()))),
+                    timeline_, laneArea().getX(), tint, zoomSettled_);
     else
-        WaveformTiles::drawDirect(g, *peaks, clip, body, visible, timeline_, laneArea().getX(), tint);
+        WaveformTiles::drawDirect(g, *peaks, clip, drawn,
+                                  shown.withY(static_cast<int>(drawn.getY()))
+                                      .withHeight(static_cast<int>(std::ceil(drawn.getHeight()))),
+                                  timeline_, laneArea().getX(), tint);
 }
 
 // ---- input ---------------------------------------------------------------------------------

@@ -89,6 +89,15 @@ std::vector<FadeHandle> fadeHandles(const TrackInfo& track)
             out.push_back({.kind = K::CrossStart, .clip = c.id, .time = from});
             out.push_back({.kind = K::CrossEnd, .clip = c.id, .time = from + crossOut->length});
         }
+        // Its gain (audio-editor.md §10): one handle in its middle; a clip with takes, one for all
+        // its parts, in the middle of them.
+        if (!(i > 0 && inner(i - 1, i)))
+        {
+            size_t last = i;
+            while (last + 1 < clips.size() && inner(last, last + 1))
+                ++last;
+            out.push_back({.kind = K::Gain, .clip = c.id, .time = (c.start + clips[last].end()) * 0.5});
+        }
     }
     return out;
 }
@@ -159,7 +168,9 @@ FadeEdit dragFade(const TrackInfo& track, const FadeHandle& handle, double secon
         return edit;
     }
     case K::BendIn:
-    case K::BendOut: return {};
+    case K::BendOut:
+    case K::Gain:
+        return {};
     }
     return {};
 }

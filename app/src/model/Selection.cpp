@@ -178,8 +178,8 @@ PanelContext panelContext(const Selection& selection, const Snapshot& snapshot, 
 
     if (channel != nullptr)
         ctx.channel = *channel;
-    ctx.key.midiClip = ctx.midiClip ? std::optional(ctx.midiClip->id) : std::nullopt;
-    ctx.opensClipView = ctx.midiClip.has_value();
+    ctx.key.clip = ctx.clip ? std::optional(ctx.clip->id) : std::nullopt;
+    ctx.opensClipView = ctx.clip.has_value();
     if (channel != nullptr && channel->holdsClips() && channel->kind == TrackInfo::Kind::Instrument)
         ctx.midiInputTarget = channel->id;
 
@@ -206,7 +206,11 @@ PanelContext panelContext(const Selection& selection, const Snapshot& snapshot, 
     else if (ctx.subject == Subject::Sections)
         ctx.inspector.push_back(InspectorSection::Sections);
     if (ctx.subject == Subject::Clip)
+    {
         ctx.inspector.push_back(InspectorSection::Clip);
+        if (ctx.clip->kind == ClipInfo::Kind::Audio)
+            ctx.inspector.push_back(InspectorSection::Audio);
+    }
     else if (ctx.subject == Subject::Clips)
         ctx.inspector.push_back(InspectorSection::Clips);
     if (channel == nullptr)

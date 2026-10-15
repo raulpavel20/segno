@@ -214,6 +214,9 @@ TEST_CASE("fade editing: handles at the fades' ends, bend dots on fades, a cross
     CHECK(handleOf(h, K::BendIn, 10)->height == Approx(1.0f - fadeInGain(0.5, 0.4f)));
     CHECK(handleOf(h, K::FadeOut, 10)->time == Approx(2.0)); // no fade: at the corner
     CHECK(handleOf(h, K::BendOut, 10) == nullptr);
+    // Its gain, at the top in its middle (audio-editor.md §10).
+    CHECK(handleOf(h, K::Gain, 10)->time == Approx(1.0));
+    CHECK(handleOf(h, K::Gain, 10)->height == 0.0f);
 
     // A crossfade at the join: its grips replace the two fades' handles there.
     t.clips[0].crossfadeOut = Crossfade{.length = 0.1, .from = -0.05};
@@ -305,6 +308,10 @@ TEST_CASE("fade editing: a clip with takes fades at its outer edges; a previewed
     CHECK(handleOf(h, K::FadeOut, 10) == nullptr); // the join between its parts
     CHECK(handleOf(h, K::FadeIn, 11) == nullptr);
     CHECK(handleOf(h, K::FadeOut, 11) != nullptr);
+
+    // One gain handle for the clip with takes, in the middle of its parts (audio-editor.md §10).
+    CHECK(handleOf(h, K::Gain, 10)->time == Approx(1.0));
+    CHECK(handleOf(h, K::Gain, 11) == nullptr);
 
     const auto previewed = withFadeEdit(t, {.crossClip = 10, .crossfade = Crossfade{.length = 0.02, .from = -0.01}}, true);
     REQUIRE(previewed.clips[0].crossfadeOut);

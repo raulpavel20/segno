@@ -1,5 +1,6 @@
 #include "ui/Panels.h"
 
+#include "model/AudioToolkit.h"
 #include "model/ClipLoops.h"
 #include "model/FadeEditing.h"
 #include "model/MusicalTime.h"
@@ -614,6 +615,68 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
         place->onChange = [this, place] { setCrossfadePlace(place == &crossInPlace_ ? crossIn_ : crossOut_, place->getSelectedId()); };
         body_.addChildComponent(*place);
     }
+    // An audio clip's sound (audio-editor.md §12).
+    audioGain_.setFontSize(ui::Theme::current().textXs);
+    audioGain_.setRange(model::minusInfinityDb, model::kMaxClipGainDb, 0.1);
+    audioGain_.setDragSensitivity(0.1);
+    audioGain_.setTooltip(
+        "The clip's gain: its level, before its gain line and fades. Drag or type; -inf is silence");
+    audioGain_.textFromValue = [](double db)
+    {
+        if (db <= model::minusInfinityDb)
+            return juce::String::fromUTF8("\xE2\x88\x92\xE2\x88\x9E dB");
+        const auto text = juce::String(std::abs(db), 1) + " dB";
+        return db < -0.05 ? juce::String::fromUTF8("\xE2\x88\x92") + text : (db > 0.05 ? "+" + text : text);
+    };
+    audioGain_.valueFromText = [](const juce::String& text) -> std::optional<double>
+    {
+        auto t = text.trim()
+                     .replace(juce::String::fromUTF8("\xE2\x88\x92"), "-")
+                     .upToFirstOccurrenceOf("dB", false, true)
+                     .trim();
+        if (t == "-inf" || t == juce::String::fromUTF8("-\xE2\x88\x9E"))
+            return model::minusInfinityDb;
+        if (t.isEmpty() || !t.containsOnly("+-0123456789."))
+            return std::nullopt;
+        return t.getDoubleValue();
+    };
+    audioGain_.onGestureStart = [this] { audioGesture_.emplace(session_, "Gain"); };
+    audioGain_.onGestureEnd = [this] { audioGesture_.reset(); };
+    audioGain_.onValueChange = [this](double db)
+    {
+        if (clip_)
+            session_.setSound({clip_->id}, {.gainDb = static_cast<float>(db)}, "Gain");
+    };
+    body_.addChildComponent(audioGain_);
+    audioReverse_.setClickingTogglesState(false);
+    audioReverse_.onClick = [this]
+    {
+        if (clip_)
+            session_.setSound({clip_->id}, {.reversed = !clip_->sound.reversed}, "Reverse");
+    };
+    body_.addChildComponent(audioReverse_);
+    audioPolarity_.setClickingTogglesState(false);
+    audioPolarity_.setTooltip("Invert the clip's polarity: to line up two microphones on one source");
+    audioPolarity_.onClick = [this]
+    {
+        if (clip_)
+            session_.setSound({clip_->id}, {.inverted = !clip_->sound.inverted}, "Polarity");
+    };
+    body_.addChildComponent(audioPolarity_);
+    for (const auto mode : {model::ChannelMode::Stereo, model::ChannelMode::Left, model::ChannelMode::Right,
+                            model::ChannelMode::Mono, model::ChannelMode::Swapped})
+        audioChannels_.addItem(juce::String(model::channelModeName(mode)), static_cast<int>(mode) + 1);
+    audioChannels_.setTooltip(
+        "How a stereo file's channels play: as recorded, one side on both, both summed, or swapped");
+    audioChannels_.onChange = [this]
+    {
+        if (clip_ && audioChannels_.getSelectedId() > 0)
+            session_.setSound(
+                {clip_->id},
+                {.channels = static_cast<model::ChannelMode>(audioChannels_.getSelectedId() - 1)},
+                "Channels");
+    };
+    body_.addChildComponent(audioChannels_);
     // The take's commands (the shell's actions, on the selected take).
     for (const auto& [button, id] : {std::pair{&copyTake_, "take.copyToTrack"}, std::pair{&moveTake_, "take.moveToTrack"},
                                      std::pair{&keepTake_, "take.keepOnly"}})
@@ -1113,6 +1176,25 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
         loopStart_.setValue(tempo_.beatsForSeconds(clip_->loop.start), juce::dontSendNotification);
         loopLength_.setValue(tempo_.beatsForSeconds(clip_->loop.length), juce::dontSendNotification);
     }
+    // An audio clip's sound (audio-editor.md §12).
+    const bool sound =
+        has(model::InspectorSection::Audio) && clip_ && clip_->kind == model::ClipInfo::Kind::Audio;
+    for (auto* c : std::initializer_list<juce::Component*>{&audioGain_, &audioReverse_, &audioPolarity_})
+        c->setVisible(sound);
+    audioChannels_.setVisible(sound && clip_->fileChannels >= 2);
+    if (sound)
+    {
+        if (!audioGesture_)
+            audioGain_.setValue(clip_->sound.gainDb, juce::dontSendNotification);
+        audioReverse_.setToggleState(clip_->sound.reversed, juce::dontSendNotification);
+        audioReverse_.setEnabled(clip_->stack == 0);
+        audioReverse_.setTooltip(
+            clip_->stack == 0
+                ? "Play the clip backwards: a reversed copy of its file, the file itself untouched"
+                : "A clip with takes plays its takes: choose one to reverse it");
+        audioPolarity_.setToggleState(clip_->sound.inverted, juce::dontSendNotification);
+        audioChannels_.setSelectedId(static_cast<int>(clip_->sound.channels) + 1, juce::dontSendNotification);
+    }
     const bool audio = has(model::InspectorSection::Clip) && clip_ && clip_->kind == model::ClipInfo::Kind::Audio;
     for (auto* field : {&fadeIn_, &fadeOut_})
     {
@@ -1351,6 +1433,34 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
         }
         return rows;
     }
+    case S::Audio:
+    {
+        if (!clip_ || clip_->kind != model::ClipInfo::Kind::Audio)
+            return {};
+        std::vector<ui::Property> rows{{"Gain", {}, false, "gain"},
+                                       {"Reverse", {}, false, "reverse"},
+                                       {"Polarity", {}, false, "polarity"}};
+        if (clip_->fileChannels >= 2)
+            rows.push_back({"Channels", {}, false, "channels"});
+        // Its file (§12): its channels and length, then its format, a row each so neither is cut.
+        const auto dot = juce::String::fromUTF8(" \xC2\xB7 ");
+        const juce::String channels = clip_->fileChannels == 1 ? juce::String("mono")
+                                      : clip_->fileChannels == 2
+                                          ? juce::String("stereo")
+                                          : juce::String(clip_->fileChannels) + " channels";
+        rows.push_back({"File", channels + dot + juce::String(clip_->sourceLength, 1) + " s"});
+        juce::StringArray format;
+        if (clip_->fileSampleRate > 0.0)
+            format.add(
+                juce::String(
+                    clip_->fileSampleRate / 1000.0,
+                    clip_->fileSampleRate == std::round(clip_->fileSampleRate / 1000.0) * 1000.0 ? 0 : 1) +
+                " kHz");
+        format.add(clip_->fileBitDepth > 0 ? juce::String(clip_->fileBitDepth) + "-bit"
+                                           : juce::String("32-bit float"));
+        rows.push_back({"Format", format.joinIntoString(dot)});
+        return rows;
+    }
     case S::Section:
         if (!section_)
             return {};
@@ -1415,14 +1525,12 @@ int InspectorPanel::layoutSections(int width)
     const auto& t = ui::Theme::current();
     auto r = juce::Rectangle<int>(0, t.shell.itemGap, width, std::numeric_limits<int>::max() / 2).reduced(t.shell.padding, 0);
 
-    static const std::map<S, juce::String> titles{{S::Point, "Point"},       {S::Points, "Points"},
-                                                  {S::Lane, "Lane"},         {S::Assignments, "Assignments"},
-                                                  {S::Input, "Input"},       {S::Take, "Take"},
-                                                  {S::Takes, "Takes"},       {S::Clip, "Clip"},
-                                                  {S::Clips, "Clips"},       {S::Section, "Section"},
-                                                  {S::Sections, "Sections"}, {S::Track, "Track"},
-                                                  {S::Return, "Return"},     {S::Master, "Master"},
-                                                  {S::Mix, "Mix"},           {S::Sends, "Sends"}};
+    static const std::map<S, juce::String> titles{
+        {S::Point, "Point"}, {S::Points, "Points"}, {S::Lane, "Lane"},       {S::Assignments, "Assignments"},
+        {S::Input, "Input"}, {S::Take, "Take"},     {S::Takes, "Takes"},     {S::Clip, "Clip"},
+        {S::Audio, "Audio"}, {S::Clips, "Clips"},   {S::Section, "Section"}, {S::Sections, "Sections"},
+        {S::Track, "Track"}, {S::Return, "Return"}, {S::Master, "Master"},   {S::Mix, "Mix"},
+        {S::Sends, "Sends"}};
     std::vector<ui::SectionStack::Section> sections;
     for (const auto s : sections_)
     {
@@ -1502,6 +1610,24 @@ int InspectorPanel::layoutSections(int width)
             crossOutShape_.setBounds(row("crossOutShape").reduced(0, t.shell.propertyFieldInset));
             crossOutPlace_.setBounds(row("crossOutPlace").reduced(0, t.shell.propertyFieldInset));
         }
+        else if (sections_[i] == S::Audio) // Gain, Reverse, Polarity, Channels: by row
+        {
+            const auto content = stack_.content(i).withTrimmedLeft(t.shell.propertyLabelWidth);
+            const auto row = [&](const char* key)
+            {
+                const int n = rowOf(S::Audio, key);
+                return n < 0 ? juce::Rectangle<int>()
+                             : content.withY(content.getY() + n * t.shell.rowHeight)
+                                   .withHeight(t.shell.rowHeight);
+            };
+            audioGain_.setBounds(row("gain").withTrimmedLeft(-ui::NumberField::textInset));
+            for (const auto& [b, key] :
+                 {std::pair{&audioReverse_, "reverse"}, std::pair{&audioPolarity_, "polarity"}})
+                b->setBounds(row(key)
+                                 .withWidth(ui::Toggle::widthFor(b->getButtonText()))
+                                 .reduced(0, t.shell.propertyFieldInset));
+            audioChannels_.setBounds(row("channels").reduced(0, t.shell.propertyFieldInset));
+        }
         else if (sections_[i] == S::Notes) // its fields, then Mute
         {
             const auto content = stack_.content(i).withTrimmedLeft(t.shell.propertyLabelWidth);
@@ -1567,7 +1693,8 @@ void InspectorPanel::paintSections(juce::Graphics& g)
 // ---- DetailPanel ---------------------------------------------------------------------------
 
 DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions)
-    : actions_(actions), chain_(session, actions), roll_(session), tools_(roll_, session), audio_(session)
+    : session_(session), actions_(actions), chain_(session, actions), roll_(session), tools_(roll_, session),
+      audio_(session)
 {
     header_.onTabSelected = [this](int tab)
     {
@@ -1622,8 +1749,15 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
         button->setVisible(false);
     }
     addChildComponent(tools_);
-    tools_.onEscape = [this] { showTools(std::nullopt); };
+    tools_.onEscape = [this]
+    {
+        if (showsAudioClip())
+            showAudioTools(false);
+        else
+            showTools(std::nullopt);
+    };
     tools_.onTabChanged = [this](model::ToolKind tab) { showTools(tab); };
+    tools_.onChosen = [this] { updateAudioBar(); }; // Normalise lit while the pane shows it
     // The piano roll's options; at compact widths Others, then Fold, the voicing, Draw and last the
     // kinds give way (§4, §20.2).
     draw_.setTooltip("What a double-click draws: a note, the key's chord on it, or the key's chord under it");
@@ -1680,8 +1814,172 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
     header_.addOption(grid_);
     snap_.setVisible(false);
     grid_.setVisible(false);
+
+    // The audio editor's bar (audio-editor.md §4, §20): a range's commands first while one is
+    // selected, then the Audio menu, its tools, and the clip's gain and Reverse, each group a
+    // group apart. Everything used while working is one click away.
+    const auto& sh = ui::Theme::current().shell;
+    using A = engine::Session::RangeAction;
+    for (const auto action : {A::Split, A::Crop, A::Silence, A::Fade, A::Loop})
+    {
+        auto& button = rangeButton(action);
+        button.setClickingTogglesState(false);
+        button.setWantsKeyboardFocus(false);
+        button.onClick = [this, action] { audio_.editRange(action); };
+        button.setSize(ui::Toggle::widthFor(button.getButtonText()), sh.rowHeight);
+        header_.addCommand(button);
+        button.setVisible(false);
+    }
+    audioButton_.setTooltip("Every command for audio clips: the Audio menu");
+    audioButton_.onClick = [this]
+    {
+        if (audioMenu)
+            audioButton_.showMenu(audioMenu());
+    };
+    audioButton_.setSize(audioButton_.preferredWidth(), sh.rowHeight);
+    header_.addCommand(audioButton_);
+    header_.setCommandGroup(audioButton_);
+    audioButton_.setVisible(false);
+    normalise_.setIcon(ui::Icon::Normalise);
+    normalise_.setClickingTogglesState(false);
+    normalise_.setWantsKeyboardFocus(false);
+    normalise_.setTooltip(
+        "Normalise: each clip's gain to a peak or a loudness, or all together (the Tools pane)");
+    normalise_.onClick = [this]
+    {
+        if (tools_.isVisible() && tools_.showsAudio() && tools_.chosen() == "normalise")
+            showAudioTools(false);
+        else
+            showTool("normalise");
+    };
+    normalise_.setSize(ui::Toggle::widthFor(normalise_.getButtonText(), true), sh.rowHeight);
+    header_.addCommand(normalise_);
+    header_.setCommandGroup(normalise_);
+    normalise_.setVisible(false);
+    // The clip's gain (§6.1): dragged or typed, a drag one undo step.
+    auto& field = gain_.field();
+    field.setFontSize(ui::Theme::current().textXs);
+    field.setRange(model::minusInfinityDb, model::kMaxClipGainDb, 0.1);
+    field.setDragSensitivity(0.1);
+    field.textFromValue = [](double db)
+    {
+        if (db <= model::minusInfinityDb)
+            return juce::String::fromUTF8("\xE2\x88\x92\xE2\x88\x9E dB");
+        const auto text = juce::String(std::abs(db), 1) + " dB";
+        return db < -0.05 ? juce::String::fromUTF8("\xE2\x88\x92") + text : (db > 0.05 ? "+" + text : text);
+    };
+    field.valueFromText = [](const juce::String& text) -> std::optional<double>
+    {
+        auto t = text.trim()
+                     .replace(juce::String::fromUTF8("\xE2\x88\x92"), "-")
+                     .upToFirstOccurrenceOf("dB", false, true)
+                     .trim();
+        if (t == "-inf" || t == juce::String::fromUTF8("-\xE2\x88\x9E"))
+            return model::minusInfinityDb;
+        if (t.isEmpty() || !t.containsOnly("+-0123456789."))
+            return std::nullopt;
+        return t.getDoubleValue();
+    };
+    field.onGestureStart = [this] { gainGesture_.emplace(session_, "Gain"); };
+    field.onGestureEnd = [this] { gainGesture_.reset(); };
+    field.onValueChange = [this](double db)
+    {
+        if (const auto& c = audio_.clip())
+            session_.setSound({c->id}, {.gainDb = static_cast<float>(db)}, "Gain");
+        gain_.fit(); // as wide as the value it shows
+        header_.resized();
+    };
+    gain_.setTooltip(
+        "The clip's gain: its level, before its gain line and fades. Drag or type; -inf is silence");
+    gain_.setSize(0, sh.rowHeight);
+    gain_.fit();
+    header_.addCommand(gain_);
+    header_.setCommandGroup(gain_);
+    gain_.setVisible(false);
+    reverse_.setClickingTogglesState(false);
+    reverse_.setWantsKeyboardFocus(false);
+    reverse_.onClick = [this]
+    {
+        if (const auto& c = audio_.clip())
+            session_.setSound({c->id}, {.reversed = !c->sound.reversed}, "Reverse");
+    };
+    reverse_.setSize(ui::Toggle::widthFor(reverse_.getButtonText()), sh.rowHeight);
+    header_.addCommand(reverse_);
+    reverse_.setVisible(false);
+    // At narrow widths the least used give way first (§4): Normalise, Reverse, then Gain.
+    header_.setDropOrder(normalise_, 1);
+    header_.setDropOrder(reverse_, 2);
+    header_.setDropOrder(gain_, 3);
+    // The editor tells the bar, and keeps the tools' settings where the notes' are (view state).
+    audio_.onRangeChanged = [this] { updateAudioBar(); };
+    audio_.menu = [this] { return audioMenu ? audioMenu() : juce::PopupMenu(); };
+    audio_.rememberedValues = [this](const model::ToolSpec& tool) { return roll_.toolValues(tool); };
+    audio_.rememberValues = [this](const model::ToolSpec& tool, const model::ToolValues& values)
+    { roll_.setToolValues(tool, values); };
     updateOptions();
     header_.resized();
+}
+
+ui::Toggle& DetailPanel::rangeButton(engine::Session::RangeAction action) noexcept
+{
+    using A = engine::Session::RangeAction;
+    switch (action)
+    {
+    case A::Split:
+        return split_;
+    case A::Crop:
+        return crop_;
+    case A::Silence:
+        return silence_;
+    case A::Fade:
+        return fadeRange_;
+    case A::Loop:
+        return loopRange_;
+    case A::Delete:
+    case A::Gain:
+        break;
+    }
+    return split_;
+}
+
+void DetailPanel::updateAudioBar()
+{
+    using A = engine::Session::RangeAction;
+    const bool audio = showsAudioClip();
+    const bool range = audio && audio_.range().has_value();
+    // What each does, or why it can't now.
+    static const std::map<A, juce::String> tips{
+        {A::Split, "Split the clip at the range's edges: the range becomes a clip of its own"},
+        {A::Crop, "Keep only the range"},
+        {A::Silence, "Silence the range: the gain line falls to silence over it"},
+        {A::Fade, "A range from the clip's start becomes its fade-in, one to its end its fade-out"},
+        {A::Loop, "Loop the range"}};
+    for (const auto& [action, tip] : tips)
+    {
+        auto& button = rangeButton(action);
+        button.setVisible(range);
+        const auto why = range ? audio_.rangeRefusal(action) : std::string();
+        button.setEnabled(why.empty());
+        const auto shortcut = action == A::Split ? actions_.shortcut("edit.split") : juce::String();
+        button.setTooltip(why.empty() ? tip + (shortcut.isNotEmpty() ? " (" + shortcut + ")" : juce::String())
+                                      : juce::String::fromUTF8(why.c_str()));
+    }
+    normalise_.setToggleState(audio && tools_.isVisible() && tools_.showsAudio() &&
+                                  tools_.chosen() == "normalise",
+                              juce::dontSendNotification);
+    if (const auto& c = audio_.clip())
+    {
+        if (!gainGesture_)
+            gain_.field().setValue(c->sound.gainDb, juce::dontSendNotification);
+        gain_.fit();
+        reverse_.setToggleState(c->sound.reversed, juce::dontSendNotification);
+        reverse_.setEnabled(c->stack == 0);
+        reverse_.setTooltip(
+            c->stack == 0 ? "Play the clip backwards: a reversed copy of its file, the file itself untouched"
+                          : "A clip with takes plays its takes: choose one to reverse it");
+    }
+    header_.resized();
+    header_.repaint();
 }
 
 void DetailPanel::updateOptions()
@@ -1703,7 +2001,7 @@ void DetailPanel::updateOptions()
     // The Tools pane as the view state has it (a project opened with it open, on a tab).
     if (o.toolsTab != tools_.tab())
         tools_.setTab(o.toolsTab);
-    if (tools_.isVisible() != (showsPianoRoll() && o.toolsOpen) ||
+    if (tools_.isVisible() != ((showsPianoRoll() && o.toolsOpen) || (showsAudioClip() && o.audioToolsOpen)) ||
         transform_.getToggleState() != (showsPianoRoll() && toolsShown(model::ToolKind::Transform)) ||
         generate_.getToggleState() != (showsPianoRoll() && toolsShown(model::ToolKind::Generate)))
         updateVisibility();
@@ -1850,10 +2148,16 @@ void DetailPanel::updateVisibility()
     generate_.setVisible(notes);
     transform_.setToggleState(notes && toolsShown(model::ToolKind::Transform), juce::dontSendNotification);
     generate_.setToggleState(notes && toolsShown(model::ToolKind::Generate), juce::dontSendNotification);
-    const bool tools = notes && roll_.options().toolsOpen;
+    // The audio editor's bar (audio-editor.md §4); the Tools pane on its tools (§11).
+    const bool audio = showsAudioClip();
+    for (auto* c : std::initializer_list<juce::Component*>{&audioButton_, &normalise_, &gain_, &reverse_})
+        c->setVisible(audio);
+    const bool tools = (notes && roll_.options().toolsOpen) || (audio && roll_.options().audioToolsOpen);
     if (!tools && tools_.isVisible())
         tools_.disarm(); // the notes back as it goes
+    tools_.setAudio(audio ? &audio_ : nullptr);
     tools_.setVisible(tools);
+    updateAudioBar();
     snap_.setVisible(grid);
     grid_.setVisible(grid);
     header_.resized();
@@ -1880,9 +2184,23 @@ bool DetailPanel::toolsShown(model::ToolKind tab) const
 
 void DetailPanel::showTool(std::string_view id)
 {
+    if (model::findAudioTool(id) != nullptr)
+    {
+        showAudioTools(true);
+        tools_.choose(id);
+        return;
+    }
     const auto* tool = model::findNoteTool(id);
     showTools(tool != nullptr ? tool->kind : model::ToolKind::Transform);
     tools_.choose(id);
+}
+
+void DetailPanel::showAudioTools(bool open)
+{
+    auto o = roll_.options();
+    o.audioToolsOpen = open;
+    roll_.setOptions(o); // view state
+    updateVisibility();
 }
 
 void DetailPanel::setClip(std::optional<model::ClipInfo> clip, const model::TempoMap& tempo)
@@ -1890,7 +2208,7 @@ void DetailPanel::setClip(std::optional<model::ClipInfo> clip, const model::Temp
     const bool audio = clip && clip->kind == model::ClipInfo::Kind::Audio;
     roll_.setClip(audio ? std::nullopt : clip, tempo);
     audio_.setClip(audio ? std::move(clip) : std::nullopt, tempo);
-    updateVisibility();
+    updateVisibility(); // the audio editor's bar with it
     updateHeader();
 }
 
@@ -1915,6 +2233,10 @@ void DetailPanel::frame(double playheadSeconds)
     }
     if (const bool can = actions_.isEnabled("notes.quantise"); quantise_.isEnabled() != can)
         quantise_.setEnabled(can);
+    // Normalise lit while the pane shows it (as Transform and Generate are for theirs).
+    if (const bool lit = showsAudioClip() && tools_.isVisible() && tools_.chosen() == "normalise";
+        normalise_.getToggleState() != lit)
+        normalise_.setToggleState(lit, juce::dontSendNotification);
     // Its tooltip names its key: the actions are registered after the panel is made.
     if (const auto tip = actions_.tooltip("notes.quantise") + ": the selected notes, or all of them, to the grid";
         tip != quantise_.getTooltip())
@@ -1934,27 +2256,26 @@ void DetailPanel::resized()
     const auto& sh = ui::Theme::current().shell;
     auto r = getLocalBounds();
     header_.setBounds(r.removeFromTop(sh.panelHeaderHeight));
+    // The Tools pane at the clip view's right edge (§25; audio-editor.md §11): beside the notes or
+    // the waveform, or floating over their right side when the clip view is narrow.
+    roll_.setBounds(r);
     audio_.setBounds(r);
-    // The Tools pane at the clip view's right edge (§25): beside the notes, or floating over their
-    // right side when the clip view is narrow.
+    juce::Component& view = showsAudioClip() ? static_cast<juce::Component&>(audio_) : roll_;
     if (tools_.isVisible())
     {
         tools_.setFloating(r.getWidth() < sh.toolsDockFrom);
         const int width = tools_.preferredWidth();
         if (tools_.isFloating())
         {
-            roll_.setBounds(r);
             tools_.setBounds(r.withLeft(std::max(r.getX(), r.getRight() - width)));
             tools_.toFront(false);
         }
         else
         {
             tools_.setBounds(r.withLeft(r.getRight() - width));
-            roll_.setBounds(r.withTrimmedRight(width));
+            view.setBounds(r.withTrimmedRight(width));
         }
     }
-    else
-        roll_.setBounds(r);
     if (mode_ == Mode::Editor && editor_ != nullptr)
     {
         // The module where it was, its editor below, lined up with the module panels.

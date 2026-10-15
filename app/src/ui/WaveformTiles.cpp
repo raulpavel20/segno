@@ -144,13 +144,21 @@ void WaveformTiles::drawDirect(juce::Graphics& g, const model::Peaks& peaks, con
     juce::Graphics::ScopedSaveState saved(g);
     g.reduceClipRegion(wholePixelsIn(area));
     g.setColour(colour);
-    fillColumns(g, peaks, x1 - x0, static_cast<float>(x0), 1.0f, body.getCentreY(), body.getHeight() * 0.5f - 1.0f,
-                [&](int c) {
-                    const double file = timeline.timeForX(x0 + c - lanesX) - clip.start + clip.offset;
-                    return static_cast<std::int64_t>(std::floor(file * peaks.sampleRate));
-                },
-                gain ? std::function<float(int)>([&](int c) { return gain(timeline.timeForX(static_cast<float>(x0 + c - lanesX) + 0.5f)); })
-                     : std::function<float(int)>());
+    // A column a physical pixel wide, as fine as the tiles on a dense screen.
+    const float scale = std::max(1.0f, g.getInternalContext().getPhysicalPixelScaleFactor());
+    const float column = 1.0f / scale;
+    const auto xOf = [&](float c) { return static_cast<float>(x0 - lanesX) + c * column; };
+    fillColumns(
+        g, peaks, static_cast<int>(std::ceil(static_cast<float>(x1 - x0) * scale)), static_cast<float>(x0),
+        column, body.getCentreY(), body.getHeight() * 0.5f - 1.0f,
+        [&](int c)
+        {
+            const double file = timeline.timeForX(xOf(static_cast<float>(c))) - clip.start + clip.offset;
+            return static_cast<std::int64_t>(std::floor(file * peaks.sampleRate));
+        },
+        gain ? std::function<float(int)>(
+                   [&](int c) { return gain(timeline.timeForX(xOf(static_cast<float>(c) + 0.5f))); })
+             : std::function<float(int)>());
 }
 
 void WaveformTiles::draw(juce::Graphics& g, const model::Peaks& peaks, const model::ClipInfo& clip,

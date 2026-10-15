@@ -61,6 +61,8 @@ public:
     std::function<void()> onEscape;
     /// Its own tabs chose another (the header's buttons and the view state follow).
     std::function<void(model::ToolKind)> onTabChanged;
+    /// A tool was chosen, or let go (the bar's tool buttons are lit while it shows theirs).
+    std::function<void()> onChosen;
 
     void paint(juce::Graphics& g) override;
     void resized() override;

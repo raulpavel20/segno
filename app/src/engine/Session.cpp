@@ -237,7 +237,12 @@ model::ClipInfo clipInfo(te::Clip& c, int trackColour)
         clip.sourceLength = audio->getSourceLength().inSeconds();
         clip.synced = audio->getAutoTempo();
         clip.sound = soundOf(*audio); // ADR 0063
-        const auto info = te::AudioFile(c.edit.engine, audio->getOriginalFile()).getInfo();
+        // The format of the person's file: a reversed clip's forward one, not our copy (ADR 0063).
+        const auto file =
+            c.state.hasProperty(soundIds::forward)
+                ? te::SourceFileReference::findFileFromString(c.edit, c.state[soundIds::forward].toString())
+                : audio->getOriginalFile();
+        const auto info = te::AudioFile(c.edit.engine, file).getInfo();
         clip.fileChannels = info.numChannels;
         clip.fileSampleRate = info.sampleRate;
         clip.fileBitDepth = info.isFloatingPoint ? 0 : info.bitsPerSample;

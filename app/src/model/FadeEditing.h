@@ -21,12 +21,13 @@ struct FadeHandle
 {
     enum class Kind
     {
-        FadeIn,      // a fade's end, at the top of the clip's body: drag to set its length
+        FadeIn, // a fade's end, at the top of the clip's body: drag to set its length
         FadeOut,
-        BendIn,      // the dot in the middle of a fade's line: drag up or down to bend it
+        BendIn, // the dot in the middle of a fade's line: drag up or down to bend it
         BendOut,
         CrossStart, // a crossfade's ends: drag to resize it (where it sits: its menu)
         CrossEnd,
+        Gain, // the clip's gain, at the top centre of its body: drag up or down (audio-editor.md §10)
     };
     Kind kind = Kind::FadeIn;
     std::uint64_t clip = 0; // the clip (a crossfade's: the clip before the join)
@@ -37,7 +38,8 @@ struct FadeHandle
 /// Every handle of a track's audio clips. A clip shows its fade handles at its corners (where its
 /// fades end); its bend dots only where it has a fade; a join with a crossfade shows the
 /// crossfade's handles instead of the two clips' fades there. A clip with takes playing several
-/// parts fades at its outer edges only (ADR 0032).
+/// parts fades at its outer edges only (ADR 0032). Every clip has its gain handle in its middle (a
+/// clip with takes, one in the middle of all its parts, on its first).
 [[nodiscard]] std::vector<FadeHandle> fadeHandles(const TrackInfo& track);
 
 /// What a fade gesture changes: one clip's fades, or one join's crossfade.
