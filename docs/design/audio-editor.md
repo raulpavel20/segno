@@ -502,7 +502,7 @@ Built on the branch, with its tests (the model's `[fast]` ones, the engine's, th
 - **Several audio clips in AUDIO** (§12: a range of values where they differ, moved together): the section shows for one clip; the Audio menu and the arrangement's gain handle already act on several.
 - **Normalise heard while it's set,** not only seen.
 - **Crossfades drawn through the clips' gain:** a crossfade's region in the arrangement draws its sum without the two clips' gain and gain line; what plays has them.
-- **The editor's frame time in a Release build:** the hidden benchmark ("audio editor paints a 10-minute stereo file zooming", §19) paints at the arrangement's cost a pixel in the dev build (89 ms a frame at 3400 × 840, the arrangement's 226 ms at 3400 × 2104), after the faded file and the played part each read only their own columns; the Release reading waits for a `rel` build.
+- ~~**The editor's frame time in a Release build**~~ *Measured (2026-10-15):* the hidden benchmark ("audio editor paints a 10-minute stereo file zooming", §19) paints a frame in 4.7 ms on average, 7.4 ms at the 95th percentile, at 3400 × 840 in a Release build: within the 8 ms budget. (89 ms in the dev build, after the faded file and the played part each read only their own columns.)
 
 ## 22. P6b step 0: the engine spike (2026-10-15)
 
@@ -516,7 +516,7 @@ The spike of §15, kept as tests (`tests/integration/WarpSpikeTests.cpp`), on tr
 | 3 | Loops | The loop is kept, in beats, lap after lap (−240 dB lap against lap at another tempo). **Its seams didn't fade:** Segno read no loop from a clip that follows the tempo. It reads the loop's beats now (−122 dB against the unwarped loop) |
 | 4 | Splits | At its own tempo, a split nulls against the whole (−124 dB). Stretched, each part starts a stretcher of its own: not the same samples, the same sound (within 0.7 dB over time), and the parts start exactly where they should. "Nulls" becomes "sounds the same" where it stretches |
 | 5 | Bounces | A bounce matches its render sample for sample, warped or not, stretched or not (−240 dB). Bounces render at the device's rate |
-| 6 | 32 warped clips in Tones | 9.6 s rendered in 8.4 s on the dev (Debug) build: real time in Debug. **The reading that counts waits for a Release build** |
+| 6 | 32 warped clips in Tones | **Holds.** In a Release build, 9.6 s of 32 stretched stereo clips render in 5.2–6.1 s on two threads, against 0.7–1.0 s for the same clips unwarped: the stretchers cost about one core between them, 3 % of a core a clip, on noise (a stretcher's hardest material). Playback spreads tracks over the engine's threads, so on the reference machine (12 cores) that's well within the audio budget. A clip at its own tempo stretches nothing (point 1) |
 | 7 | Repitch; transposing without Warp | Transposed without Warp: an octave up, the same length. Repitch through the patch's resampling: a 120 BPM file at 100 BPM plays at 366.7 Hz and 2.4 s, following the tempo as the other modes do |
 | 8 | Warped waveforms in the arrangement | Not a question for the engine: checked by the arrangement's benchmark when built |
 

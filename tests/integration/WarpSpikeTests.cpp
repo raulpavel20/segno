@@ -444,3 +444,23 @@ TEST_CASE("warp spike: tracktion's warp markers, where a marker puts the audio",
         std::cout << " " << std::round(t * 1000.0) / 1000.0;
     std::cout << " (on the marker's map: 0 0.2 0.4 0.6 0.8 1.1 1.4 1.7)" << std::endl;
 }
+
+// Point 6's baseline: the same 32 clips, not warped (no stretcher), so the stretchers' own cost
+// is the difference. Hidden: it reports.
+TEST_CASE("warp spike 6: 32 unwarped stereo clips, rendered (the baseline)", "[.][warp-spike]")
+{
+    Warper w;
+    while (w.session->snapshot()->tracks.size() < 32)
+    {
+        w.session->addTrack();
+        w.session->updateSnapshotNow();
+    }
+    for (size_t t = 0; t < 32; ++t)
+        w.place(noise(8.0), "Busy", 0.0, t);
+    w.session->updateSnapshotNow();
+    const auto t0 = std::chrono::steady_clock::now();
+    const auto out = w.render(0.0, 9.6);
+    const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+    std::cout << "warp spike 6, baseline: 9.6 s of 32 unwarped clips rendered in " << seconds << " s" << std::endl;
+    CHECK(out.numSamples() == frame(9.6));
+}
