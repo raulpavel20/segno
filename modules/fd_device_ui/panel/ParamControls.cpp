@@ -312,9 +312,33 @@ void ParamToggle::refresh()
 
 void ParamToggle::clicked()
 {
+    if (momentary_) // held, not toggled: buttonStateChanged sets it
+        return;
     context_.params.beginGesture(index_);
     context_.params.setPlain(index_, getToggleState() ? 1.0f : 0.0f);
     context_.params.endGesture(index_);
+}
+
+void ParamToggle::setMomentary(bool momentary)
+{
+    momentary_ = momentary;
+    setClickingTogglesState(!momentary);
+}
+
+void ParamToggle::buttonStateChanged()
+{
+    Toggle::buttonStateChanged();
+    if (!momentary_)
+        return;
+    const bool down = isDown();
+    if (down == held_)
+        return;
+    held_ = down;
+    if (down)
+        context_.params.beginGesture(index_);
+    context_.params.setPlain(index_, down ? 1.0f : 0.0f);
+    if (!down)
+        context_.params.endGesture(index_);
 }
 
 ParamSegmented::ParamSegmented(DeviceUiContext& context, size_t paramIndex, int columns)

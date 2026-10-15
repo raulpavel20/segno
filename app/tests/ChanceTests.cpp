@@ -112,6 +112,34 @@ TEST_CASE("Chance rolls again each pass and each loop lap; a kept roll plays the
     CHECK(played < 1100);
 }
 
+TEST_CASE(
+    "Chance in a song: clips and modulators left to chance, kept or rolling, said where exports are made",
+    "[fast]")
+{
+    Snapshot song;
+    auto& t = song.tracks.emplace_back();
+    ClipInfo chancy{.kind = ClipInfo::Kind::Midi};
+    chancy.notes = {Note{.pitch = 60, .chance = 0.5f}};
+    t.clips = {chancy, chancy, ClipInfo{.kind = ClipInfo::Kind::Midi}}; // the last, as written
+    DeviceSlot random{.kind = DeviceSlot::Kind::Modulator};
+    random.modulator = std::make_shared<ModulatorInfo>(ModulatorInfo{.kind = ModulatorKind::Random});
+    DeviceSlot lfo{.kind = DeviceSlot::Kind::Modulator};
+    lfo.modulator = std::make_shared<ModulatorInfo>(ModulatorInfo{.kind = ModulatorKind::Lfo}); // no dice
+    t.devices = {random, lfo};
+    auto in = chanceIn(song);
+    CHECK(in.clips == 2);
+    CHECK(in.modulators == 1);
+    CHECK(in.kept() == 0);
+    CHECK(in.rolling() == "2 clips and 1 modulator play by chance");
+    t.clips[0].chanceKept = true;
+    t.clips[1].chanceKept = true;
+    CHECK(chanceIn(song).rolling() == "1 modulator plays by chance");
+    random.modulator =
+        std::make_shared<ModulatorInfo>(ModulatorInfo{.kind = ModulatorKind::Random, .kept = true});
+    t.devices = {random};
+    CHECK(chanceIn(song).rolling().empty());
+}
+
 TEST_CASE("Controllers: names, ranges and the pedals' steps", "[fast]")
 {
     CHECK(controllerName(controllers::modWheel) == "Mod wheel");

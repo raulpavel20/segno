@@ -632,7 +632,7 @@ ModulatorPanel::ModulatorPanel(ui::DeviceUiContext& context, ModulatorKind kind,
         trigger.combo(Envelope::Trigger, 0, 0);
         auto& every = trigger.combo(Envelope::Every, 2, 0);
         trigger.combo(Envelope::Mode, 0, 1, 3).setInlineName(true);
-        trigger.toggle(Envelope::Fire, 3, 1);
+        trigger.toggle(Envelope::Fire, 3, 1).setMomentary(true); // fires while pressed, as a pad
         auto& legato = trigger.toggle(Envelope::Legato, 0, 2, 2);
         trigger.place(*keep_, 2, 2, 2, 1, ui::PanelSection::Kind::Line);
         trigger.knob(Envelope::Repeat, 0, 3);
@@ -676,7 +676,7 @@ ModulatorPanel::ModulatorPanel(ui::DeviceUiContext& context, ModulatorKind kind,
         s.combo(Steps::Restart, 3, 5, 3).setInlineName(true);
         targets(s, 6);
         s.place(*keep_, 6, 5, 1, 1, ui::PanelSection::Kind::Line);
-        s.toggle(Steps::Fire, 7, 5);
+        s.toggle(Steps::Fire, 7, 5).setMomentary(true);
         dimWhen({&rate}, [&p] { return p.getPlain(Steps::Sync) >= 0.5f; });
         break;
     }

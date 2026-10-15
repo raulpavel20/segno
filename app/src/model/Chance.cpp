@@ -1,5 +1,7 @@
 #include "model/Chance.h"
 
+#include "model/Modulators.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -48,6 +50,43 @@ std::uint32_t passSeed(std::uint32_t seed, std::uint64_t roll, int lap) noexcept
 {
     return static_cast<std::uint32_t>(mix(seed ^ mix(roll ^ mix(static_cast<std::uint64_t>(lap) + 1U))) >>
                                       32U);
+}
+
+ChanceInSong chanceIn(const Snapshot& snapshot)
+{
+    ChanceInSong out;
+    for (const auto* list : {&snapshot.tracks, &snapshot.returns})
+        for (const auto& t : *list)
+        {
+            for (const auto& d : t.devices)
+                if (d.modulator != nullptr && hasKeep(d.modulator->kind))
+                {
+                    ++out.modulators;
+                    out.keptModulators += d.modulator->kept ? 1 : 0;
+                }
+            for (const auto& c : t.clips)
+                if (c.kind == ClipInfo::Kind::Midi && usesChance(c.notes))
+                {
+                    ++out.clips;
+                    out.keptClips += c.chanceKept ? 1 : 0;
+                }
+        }
+    return out;
+}
+
+std::string ChanceInSong::rolling() const
+{
+    const int c = clips - keptClips, m = modulators - keptModulators;
+    if (c + m == 0)
+        return {};
+    const auto count = [](int n, const char* one, const char* many)
+    { return std::to_string(n) + " " + (n == 1 ? one : many); };
+    std::string text;
+    if (c > 0)
+        text = count(c, "clip", "clips");
+    if (m > 0)
+        text += (text.empty() ? "" : " and ") + count(m, "modulator", "modulators");
+    return text + (c + m == 1 ? " plays" : " play") + " by chance";
 }
 
 bool usesChance(const std::vector<Note>& notes) noexcept

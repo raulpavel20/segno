@@ -484,6 +484,21 @@ TEST_CASE("modulators in the chain view: each panel's header takes its presets w
         INFO(model::modulatorInfo(panel->kind()).name);
         REQUIRE(panel->presetBar() != nullptr);
         CHECK(panel->headerMinimumWidth() < panel->preferredWidth()); // its sections set its width
+        // Fire (the Envelope's, Steps'): on while it's held, as a pad (§12.3).
+        std::vector<fd::ui::ParamToggle*> toggles;
+        collect(*panel, toggles);
+        for (auto* t : toggles)
+            if (t->getButtonText() == "Fire")
+            {
+                auto handle = f.session->openModulator(id);
+                REQUIRE(handle != nullptr);
+                const auto index = t->param();
+                CHECK(t->isMomentary());
+                t->setState(juce::Button::buttonDown);
+                CHECK(handle->context().params.getPlain(index) == Approx(1.0f));
+                t->setState(juce::Button::buttonNormal);
+                CHECK(handle->context().params.getPlain(index) == Approx(0.0f));
+            }
     }
     f.shot("all-five");
 }

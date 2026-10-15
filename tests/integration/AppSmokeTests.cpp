@@ -12,6 +12,7 @@
 #include "model/ChannelStripLayout.h"
 #include "model/Editing.h"
 #include "model/MenuBar.h"
+#include "model/Modulators.h"
 #include "model/Selection.h"
 #include "ui/AutomationMenu.h"
 #include "ui/ChannelControls.h"
@@ -2976,6 +2977,34 @@ TEST_CASE("export: Ctrl+Shift+E opens the panel, Enter exports in the background
         actions.perform("project.export");
     REQUIRE(panel.keyPressed(juce::KeyPress(juce::KeyPress::escapeKey)));
     CHECK_FALSE(panel.isOpen());
+    // A song that leaves something to chance (ADR 0062): the panel says so, Keep all as played
+    // beside it, and nothing touches; kept, the line goes.
+    CHECK_FALSE(panel.showsChance());
+    REQUIRE(s.addModulator(s.snapshot()->tracks[0].id, fd::model::ModulatorKind::Random) != 0);
+    s.updateSnapshotNow();
+    actions.perform("project.export");
+    REQUIRE(panel.showsChance());
+    CHECK(panel.keepAllButton().isVisible());
+    {
+        const auto inside = panel.getLocalBounds().reduced(fd::ui::Theme::current().shell.padding);
+        std::vector<juce::Rectangle<int>> shown;
+        for (auto* child : panel.getChildren())
+            if (child->isVisible())
+            {
+                CHECK(inside.contains(child->getBounds()));
+                for (const auto& other : shown)
+                    CHECK_FALSE(other.intersects(child->getBounds()));
+                shown.push_back(child->getBounds());
+            }
+    }
+    if (const char* dump = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dump, "export-chance@2x.png",
+                panel.createComponentSnapshot(panel.getLocalBounds(), true, 2.0f));
+    const int withChance = panel.getHeight();
+    panel.keepAllButton().onClick();
+    CHECK_FALSE(panel.showsChance());
+    CHECK(panel.getHeight() < withChance);
+    REQUIRE(panel.keyPressed(juce::KeyPress(juce::KeyPress::escapeKey)));
     // With nothing to export, Enter says why.
     s.setExportSettings({.range = fd::model::ExportRange::Loop});
     actions.perform("project.export");

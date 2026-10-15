@@ -65,10 +65,17 @@ public:
     void clicked() override;
     /// The parameter it sets.
     [[nodiscard]] size_t param() const noexcept { return index_; }
+    /// On only while it's held down, as a pad (a modulator's Fire, modulators.md §12.3): a press
+    /// sets it on and letting go sets it off, as one gesture (recorded as automation while
+    /// writing).
+    void setMomentary(bool momentary);
+    [[nodiscard]] bool isMomentary() const noexcept { return momentary_; }
+    void buttonStateChanged() override;
 
 private:
     DeviceUiContext& context_;
     size_t index_;
+    bool momentary_ = false, held_ = false;
 };
 /// Segmented buttons for a Choice parameter, `columns` buttons per row.
 class ParamSegmented final : public juce::Component, public ParamControl

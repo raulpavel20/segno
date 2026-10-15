@@ -59,6 +59,8 @@ private:
     ui::NumberField target_;
     juce::TextEditor name_;
     juce::TextButton choose_{"Choose..."}, defaultFolder_{"Exports folder"}, export_{"Export"}, show_{"Show"};
+    // What the song leaves to chance (ADR 0062): each export differs; Keep all as played beside it.
+    juce::TextButton keepAll_{"Keep all as played"};
     std::unique_ptr<juce::FileChooser> chooser_;
     std::shared_ptr<engine::Session::RenderJob> job_;
     std::optional<engine::Session::ExportResult> last_;
@@ -66,11 +68,18 @@ private:
     ui::OutsideClick outside_{*this, [this] { close(); }};
 
     // Laid out by resized(): the painted parts, and each row's label.
-    juce::Rectangle<int> title_, folder_, extension_, report_, progressLine_;
+    juce::Rectangle<int> title_, folder_, extension_, report_, chance_, progressLine_;
     std::vector<std::pair<juce::String, juce::Rectangle<int>>> labels_;
     std::vector<int> separators_;
     /// Rows shown only where they apply: through the returns (stems), the loudness target.
     [[nodiscard]] bool showsThrough() const;
     [[nodiscard]] bool showsTarget() const;
+    /// What plays by chance ("2 clips and 1 modulator play by chance"), empty when nothing does.
+    [[nodiscard]] juce::String chanceText() const;
+
+public:
+    /// The chance line and its Keep all as played, shown (tests).
+    [[nodiscard]] bool showsChance() const { return chanceText().isNotEmpty(); }
+    [[nodiscard]] juce::TextButton& keepAllButton() noexcept { return keepAll_; }
 };
 } // namespace fd::app

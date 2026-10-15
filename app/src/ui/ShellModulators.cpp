@@ -69,30 +69,7 @@ void Shell::registerModulatorActions()
 
     // Every modulator in the song that rolls dice, and every clip with notes left to chance
     // (ADR 0062): kept, or rolling again.
-    const auto rolls = [this]
-    {
-        struct Rolls
-        {
-            int all = 0, kept = 0;
-        } rolls;
-        const auto snapshot = session_.snapshot();
-        for (const auto* list : {&snapshot->tracks, &snapshot->returns})
-            for (const auto& t : *list)
-                for (const auto& d : t.devices)
-                    if (d.modulator != nullptr && model::hasKeep(d.modulator->kind))
-                    {
-                        ++rolls.all;
-                        rolls.kept += d.modulator->kept ? 1 : 0;
-                    }
-        for (const auto& t : snapshot->tracks)
-            for (const auto& c : t.clips)
-                if (c.kind == model::ClipInfo::Kind::Midi && model::usesChance(c.notes))
-                {
-                    ++rolls.all;
-                    rolls.kept += c.chanceKept ? 1 : 0;
-                }
-        return rolls;
-    };
+    const auto rolls = [this] { return model::chanceIn(*session_.snapshot()); };
     actions_.add({.id = "song.keepAllRolls",
                   .name = "Keep all as played",
                   .category = "Song",
@@ -100,15 +77,15 @@ void Shell::registerModulatorActions()
                       [this, rolls]
                   {
                       const auto r = rolls();
-                      session_.keepAllRolls(r.kept < r.all);
+                      session_.keepAllRolls(r.kept() < r.all());
                   },
-                  .isEnabled = [rolls] { return rolls().all > 0; },
+                  .isEnabled = [rolls] { return rolls().all() > 0; },
                   .label =
                       [rolls]
                   {
                       const auto r = rolls();
-                      return juce::String(r.all > 0 && r.kept == r.all ? "Let all roll"
-                                                                       : "Keep all as played");
+                      return juce::String(r.all() > 0 && r.kept() == r.all() ? "Let all roll"
+                                                                             : "Keep all as played");
                   }});
 }
 } // namespace fd::app

@@ -32,4 +32,17 @@ struct NoteFate
 
 /// Whether any note is left to chance: a chance under full, or a velocity spread.
 [[nodiscard]] bool usesChance(const std::vector<Note>& notes) noexcept;
+
+/// What a song leaves to chance (ADR 0062): its MIDI clips with notes left to chance and its
+/// modulators that roll dice, and how many of each keep their roll.
+struct ChanceInSong
+{
+    int clips = 0, keptClips = 0, modulators = 0, keptModulators = 0;
+    [[nodiscard]] int all() const noexcept { return clips + modulators; }
+    [[nodiscard]] int kept() const noexcept { return keptClips + keptModulators; }
+    /// What says so where an export is made: "2 clips and 1 modulator play by chance" (empty when
+    /// everything is kept).
+    [[nodiscard]] std::string rolling() const;
+};
+[[nodiscard]] ChanceInSong chanceIn(const Snapshot& snapshot);
 } // namespace fd::model

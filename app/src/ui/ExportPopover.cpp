@@ -1,5 +1,7 @@
 #include "ui/ExportPopover.h"
 
+#include "model/Chance.h"
+
 #include <cmath>
 
 namespace fd::app
@@ -92,6 +94,18 @@ ExportPopover::ExportPopover(engine::Session& session) : session_(session)
         repaint();
     };
     export_.onClick = [this] { job_ ? (void)cancel() : (void)exportNow(); };
+    keepAll_.setTooltip(
+        "Each export rolls them again, so each is different: Keep all as played keeps what you "
+        "heard last (Song > Keep all as played)");
+    keepAll_.onClick = [this]
+    {
+        session_.keepAllRolls(true);
+        session_.updateSnapshotNow();
+        updateEnabled();
+        setSize(getWidth(), preferredHeight());
+        resized();
+        repaint();
+    };
     show_.setTooltip("Show the file in the file manager");
     show_.onClick = [this] {
         if (last_ && !last_->files.empty())
@@ -109,6 +123,12 @@ ExportPopover::ExportPopover(engine::Session& session) : session_(session)
                                static_cast<juce::Component*>(&defaultFolder_), static_cast<juce::Component*>(&export_),
                                static_cast<juce::Component*>(&show_)})
         addAndMakeVisible(c);
+    addChildComponent(keepAll_);
+}
+
+juce::String ExportPopover::chanceText() const
+{
+    return juce::String::fromUTF8(model::chanceIn(*session_.snapshot()).rolling().c_str());
 }
 
 ExportPopover::~ExportPopover() = default;
@@ -242,6 +262,7 @@ void ExportPopover::updateEnabled()
     defaultFolder_.setEnabled(!s.folder.empty());
     export_.setButtonText(job_ ? "Cancel" : "Export");
     show_.setVisible(last_ && !last_->files.empty());
+    keepAll_.setVisible(showsChance());
 }
 
 void ExportPopover::chooseFolder()
@@ -348,7 +369,8 @@ int ExportPopover::preferredHeight() const
            + (showsThrough() ? 3 : 2) * sh.rowHeight            // what, (through), range
            + (showsTarget() ? 6 : 5) * sh.rowHeight             // format ... normalise, (target)
            + sh.rowHeight + 2 * sh.fieldHeight + 2 * sh.itemGap // save to (path, buttons), name
-           + sh.rowHeight + sh.itemGap + sh.fieldHeight;        // report, export
+           + (showsChance() ? sh.groupGap + 1 + sh.rowHeight + sh.fieldHeight : 0) // chance, Keep all
+           + sh.rowHeight + sh.itemGap + sh.fieldHeight;                           // report, export
 }
 
 void ExportPopover::resized()
@@ -408,6 +430,15 @@ void ExportPopover::resized()
         line.removeFromRight(sh.itemGap);
         name_.setBounds(line);
     }
+    // What the song leaves to chance (ADR 0062), and Keep all as played under it.
+    chance_ = {};
+    if (showsChance())
+    {
+        separator();
+        chance_ = row("Chance", sh.rowHeight);
+        auto line = r.removeFromTop(sh.fieldHeight).withTrimmedLeft(sh.propertyLabelWidth);
+        keepAll_.setBounds(line.removeFromLeft(buttonWidth(keepAll_.getButtonText())));
+    }
     r.removeFromTop(sh.itemGap);
     report_ = r.removeFromTop(sh.rowHeight);
     r.removeFromTop(sh.itemGap);
@@ -436,6 +467,11 @@ void ExportPopover::paint(juce::Graphics& g)
                juce::Justification::centredLeft, false);
     g.setColour(t.textSecondary);
     g.drawText(juce::String(model::extensionFor(s.format)), extension_, juce::Justification::centredLeft, false);
+    if (!chance_.isEmpty())
+    {
+        g.setColour(t.textPrimary);
+        g.drawText(chanceText(), chance_, juce::Justification::centredLeft, true);
+    }
     // The last export's report, or the one running.
     g.setFont(ui::font(ui::TextStyle::Caption));
     const bool clips = last_ && !last_->files.empty() &&
