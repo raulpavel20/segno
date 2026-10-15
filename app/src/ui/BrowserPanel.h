@@ -47,6 +47,9 @@ public:
     };
     /// Opens a part and scrolls to it (the rail's buttons, after the shell shows the panel).
     void showPart(Part part);
+    /// Shows a file in its place, the folders to it open, selected (an export's Show in browser,
+    /// export.md §17.3). False if no place holds it.
+    bool reveal(const juce::File& file);
 
     /// Double-click or Enter on an item (an id as model::BrowserItem has it): the shell puts it
     /// on the selection.
@@ -130,6 +133,8 @@ private:
     void timerCallback() override;
 
     [[nodiscard]] const model::AppSettings& settings() const { return store_->get(); }
+    /// Opens the place holding `file` and each folder down to it; false if none holds it.
+    bool openTo(const juce::File& file);
     void rebuildItems();
     void rebuildRows();
     /// The Racks part's rack files, instrument and effect racks together (racks.md §7, ADR 0059).

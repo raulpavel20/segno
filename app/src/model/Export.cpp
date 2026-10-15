@@ -34,7 +34,8 @@ const std::initializer_list<std::pair<const char*, ExportWhat>> kWhat{
     {"mix", ExportWhat::Mix}, {"selected", ExportWhat::SelectedTracks}, {"all", ExportWhat::AllTracks}};
 const std::initializer_list<std::pair<const char*, ExportRange>> kRange{{"song", ExportRange::Song}, {"loop", ExportRange::Loop}};
 const std::initializer_list<std::pair<const char*, ExportFormat>> kFormat{
-    {"wav", ExportFormat::Wav}, {"flac", ExportFormat::Flac}, {"aiff", ExportFormat::Aiff}};
+    {"wav", ExportFormat::Wav}, {"flac", ExportFormat::Flac}, {"aiff", ExportFormat::Aiff},
+    {"mp3", ExportFormat::Mp3}, {"ogg", ExportFormat::Ogg},   {"opus", ExportFormat::Opus}};
 const std::initializer_list<std::pair<const char*, ExportNormalise>> kNormalise{
     {"off", ExportNormalise::Off}, {"peak", ExportNormalise::Peak}, {"loudness", ExportNormalise::Loudness}};
 
@@ -44,9 +45,45 @@ double levelOf(float db)
 }
 } // namespace
 
+bool isLossy(ExportFormat format) noexcept
+{
+    return format == ExportFormat::Mp3 || format == ExportFormat::Ogg || format == ExportFormat::Opus;
+}
+
 std::vector<int> bitDepthsFor(ExportFormat format)
 {
+    if (isLossy(format))
+        return {};
     return format == ExportFormat::Wav ? std::vector<int>{16, 24, 32} : std::vector<int>{16, 24};
+}
+
+std::vector<int> bitRatesFor(ExportFormat format)
+{
+    switch (format)
+    {
+    case ExportFormat::Mp3:
+    case ExportFormat::Ogg:
+        return {128, 192, 256, 320};
+    case ExportFormat::Opus:
+        return {96, 128, 160, 192, 256};
+    default:
+        return {};
+    }
+}
+
+int defaultBitRate(ExportFormat format)
+{
+    switch (format)
+    {
+    case ExportFormat::Mp3:
+        return 320;
+    case ExportFormat::Ogg:
+        return 192;
+    case ExportFormat::Opus:
+        return 160;
+    default:
+        return 0;
+    }
 }
 
 std::string extensionFor(ExportFormat format)
@@ -56,6 +93,12 @@ std::string extensionFor(ExportFormat format)
     case ExportFormat::Wav: return ".wav";
     case ExportFormat::Flac: return ".flac";
     case ExportFormat::Aiff: return ".aiff";
+    case ExportFormat::Mp3:
+        return ".mp3";
+    case ExportFormat::Ogg:
+        return ".ogg";
+    case ExportFormat::Opus:
+        return ".opus";
     }
     return ".wav";
 }
@@ -67,21 +110,63 @@ std::string formatName(ExportFormat format)
     case ExportFormat::Wav: return "WAV";
     case ExportFormat::Flac: return "FLAC";
     case ExportFormat::Aiff: return "AIFF";
+    case ExportFormat::Mp3:
+        return "MP3";
+    case ExportFormat::Ogg:
+        return "Ogg Vorbis";
+    case ExportFormat::Opus:
+        return "Opus";
     }
     return "WAV";
 }
 
-ExportSettings validated(ExportSettings s)
+std::vector<ExportFileFormat> exportFormats(const ExportSettings& s)
 {
-    const auto depths = bitDepthsFor(s.format);
-    if (std::find(depths.begin(), depths.end(), s.bitDepth) == depths.end())
+    std::vector<ExportFileFormat> out{{s.format, s.bitDepth, s.kbps}};
+    if (s.alsoAs && *s.alsoAs != s.format)
+        out.push_back({*s.alsoAs, s.alsoBitDepth, s.alsoKbps});
+    return out;
+}
+
+std::string formatLabel(const ExportFileFormat& f)
+{
+    if (!isLossy(f.format))
+        return formatName(f.format) + " " +
+               (f.bitDepth == 32 ? std::string("32-bit float") : std::to_string(f.bitDepth) + "-bit");
+    // Vorbis aims at a quality, not a rate: about that.
+    return formatName(f.format) + " " + (f.format == ExportFormat::Ogg ? "\xe2\x89\x88" : "") +
+           std::to_string(f.kbps) + " kbps";
+}
+
+namespace
+{
+/// A bit depth the format writes (the nearest below), and a bit rate it offers (its default).
+void validateFile(ExportFormat format, int& bitDepth, int& kbps)
+{
+    const auto depths = bitDepthsFor(format);
+    if (!depths.empty() && std::find(depths.begin(), depths.end(), bitDepth) == depths.end())
     {
         int best = depths.front();
         for (const int d : depths)
-            if (d <= s.bitDepth)
+            if (d <= bitDepth)
                 best = d;
-        s.bitDepth = best;
+        bitDepth = best;
     }
+    const auto rates = bitRatesFor(format);
+    if (rates.empty())
+        kbps = 0;
+    else if (std::find(rates.begin(), rates.end(), kbps) == rates.end())
+        kbps = defaultBitRate(format);
+}
+} // namespace
+
+ExportSettings validated(ExportSettings s)
+{
+    validateFile(s.format, s.bitDepth, s.kbps);
+    if (s.alsoAs && *s.alsoAs == s.format)
+        s.alsoAs.reset();
+    if (s.alsoAs)
+        validateFile(*s.alsoAs, s.alsoBitDepth, s.alsoKbps);
     if (s.sampleRate != 0.0 && std::none_of(std::begin(kExportRates), std::end(kExportRates), [&](double r) { return r == s.sampleRate; }))
         s.sampleRate = 0.0;
     if (!std::isfinite(s.loudnessTarget))
@@ -92,17 +177,22 @@ ExportSettings validated(ExportSettings s)
 
 std::string toJson(const ExportSettings& s)
 {
-    return nlohmann::json{{"what", nameOf(s.what, kWhat)},
-                          {"throughReturns", s.throughReturns},
-                          {"range", nameOf(s.range, kRange)},
-                          {"format", nameOf(s.format, kFormat)},
-                          {"bitDepth", s.bitDepth},
-                          {"sampleRate", s.sampleRate},
-                          {"dither", s.dither},
-                          {"normalise", nameOf(s.normalise, kNormalise)},
-                          {"loudnessTarget", s.loudnessTarget},
-                          {"folder", s.folder},
-                          {"name", s.name}}
+    return nlohmann::json{
+        {"what", nameOf(s.what, kWhat)},
+        {"throughReturns", s.throughReturns},
+        {"range", nameOf(s.range, kRange)},
+        {"format", nameOf(s.format, kFormat)},
+        {"bitDepth", s.bitDepth},
+        {"kbps", s.kbps},
+        {"alsoAs", s.alsoAs ? nlohmann::json(nameOf(*s.alsoAs, kFormat)) : nlohmann::json(nullptr)},
+        {"alsoBitDepth", s.alsoBitDepth},
+        {"alsoKbps", s.alsoKbps},
+        {"sampleRate", s.sampleRate},
+        {"dither", s.dither},
+        {"normalise", nameOf(s.normalise, kNormalise)},
+        {"loudnessTarget", s.loudnessTarget},
+        {"folder", s.folder},
+        {"name", s.name}}
         .dump();
 }
 
@@ -120,6 +210,14 @@ ExportSettings exportSettingsFromJson(const std::string& text)
         s.throughReturns = j["throughReturns"].get<bool>();
     if (j.contains("bitDepth") && j["bitDepth"].is_number_integer())
         s.bitDepth = j["bitDepth"].get<int>();
+    if (j.contains("kbps") && j["kbps"].is_number_integer())
+        s.kbps = j["kbps"].get<int>();
+    if (j.contains("alsoAs") && j["alsoAs"].is_string())
+        s.alsoAs = enumFrom(j, "alsoAs", kFormat, ExportFormat::Wav);
+    if (j.contains("alsoBitDepth") && j["alsoBitDepth"].is_number_integer())
+        s.alsoBitDepth = j["alsoBitDepth"].get<int>();
+    if (j.contains("alsoKbps") && j["alsoKbps"].is_number_integer())
+        s.alsoKbps = j["alsoKbps"].get<int>();
     if (j.contains("sampleRate") && j["sampleRate"].is_number())
         s.sampleRate = j["sampleRate"].get<double>();
     if (j.contains("dither") && j["dither"].is_boolean())

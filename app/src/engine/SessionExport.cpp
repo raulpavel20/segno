@@ -2,6 +2,7 @@
 // copy of the project, then measured, normalised, dithered and written in the background.
 
 #include "engine/EngineBehaviour.h"
+#include "engine/Mp3Writer.h"
 #include "engine/SessionImpl.h"
 
 #include <juce_audio_formats/juce_audio_formats.h>
@@ -19,17 +20,34 @@ struct Target
     std::string name; // the track's, for its stem's file name
 };
 
-/// What finishing a rendered file came to (on the export's thread).
+/// What finishing a rendered file came to (on the export's thread): its files, one a format
+/// (export.md §17.2).
 struct Finished
 {
-    Session::ExportedFile file;
+    std::vector<Session::ExportedFile> files;
     std::string error;
 };
 
+/// The quality index JUCE's writers take for a lossy format's bit rate (§17.1): Vorbis's quality
+/// (an index of tenths), Opus's list of rates after "Auto".
+int qualityIndexFor(model::ExportFormat format, int kbps)
+{
+    if (format == model::ExportFormat::Ogg)
+        return kbps <= 128 ? 4 : kbps <= 192 ? 6 : kbps <= 256 ? 8 : 9;
+    constexpr int opus[] = {64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 510};
+    for (int i = 0; i < static_cast<int>(std::size(opus)); ++i)
+        if (opus[i] >= kbps)
+            return i + 1;
+    return 0;
+}
+
 /// The rendered file, as the export writes it (§4, §5): its tail kept until silent, normalised,
-/// on the format's grid, under a unique name in `folder`. Runs off the message thread.
-Finished finish(const juce::File& rendered, const model::ExportSpan& span, const model::ExportSettings& settings,
-                const juce::File& folder, const std::string& fileName, const std::atomic<bool>& cancelled)
+/// then each format's file (§17.2): PCM on its grid, dithered below 32-bit float; MP3, Ogg and
+/// Opus encoded from the float render as it is, and measured decoded back, so the report has the
+/// peaks listeners get (§17.1). Each under a unique name in `folder`. Off the message thread.
+Finished finish(const juce::File& rendered, const model::ExportSpan& span,
+                const model::ExportSettings& settings, const juce::File& folder,
+                const std::vector<std::string>& fileNames, const std::atomic<bool>& cancelled)
 {
     juce::AudioFormatManager formats;
     formats.registerBasicFormats();
@@ -57,61 +75,122 @@ Finished finish(const juce::File& rendered, const model::ExportSpan& span, const
     if (cancelled)
         return {};
 
-    auto measure = [&] {
-        std::vector<std::vector<float>> data(static_cast<size_t>(channels));
-        for (int c = 0; c < channels; ++c)
-            data[static_cast<size_t>(c)].assign(audio.getReadPointer(c), audio.getReadPointer(c) + frames);
-        return model::measureAudio(data, rate);
+    const auto measure = [](const juce::AudioBuffer<float>& data, int length, double at)
+    {
+        std::vector<std::vector<float>> channelsOf(static_cast<size_t>(data.getNumChannels()));
+        for (int c = 0; c < data.getNumChannels(); ++c)
+            channelsOf[static_cast<size_t>(c)].assign(data.getReadPointer(c),
+                                                      data.getReadPointer(c) + length);
+        return model::measureAudio(channelsOf, at);
     };
-    // Normalising: a gain, the true peak first (§4).
-    Finished out;
+    // Normalising: a gain, the true peak first (§4), once for every format.
+    bool ceilingHeld = false;
     if (settings.normalise != model::ExportNormalise::Off)
     {
-        const auto before = measure();
+        const auto before = measure(audio, frames, rate);
         const auto gain = model::normaliseGain(settings.normalise, settings.loudnessTarget, before.truePeakDb, before.integratedLufs);
         audio.applyGain(0, frames, static_cast<float>(std::pow(10.0, gain.db / 20.0)));
-        out.file.ceilingHeld = gain.ceilingHeld;
+        ceilingHeld = gain.ceilingHeld;
     }
-    // On the file's grid, dithered below 32-bit float.
-    for (int c = 0; c < channels; ++c)
-    {
-        model::Quantiser quantise(settings.bitDepth, settings.dither, static_cast<std::uint32_t>(c + 1));
-        auto* data = audio.getWritePointer(c);
-        for (int i = 0; i < frames; ++i)
-            data[i] = quantise(data[i]);
-    }
-    if (cancelled)
-        return {};
-    out.file.measured = measure();
-
-    // Written beside its place, then moved into it, so a file is only ever whole (§7).
     if (!folder.createDirectory())
         return {.error = "Can't make the folder " + folder.getFullPathName().toStdString() + "."};
-    auto* format = formats.findFormatForFileExtension(juce::String(model::extensionFor(settings.format)));
-    if (format == nullptr)
-        return {.error = "This build can't write " + model::formatName(settings.format) + " files."};
-    const auto partial = folder.getNonexistentChildFile(".export", ".part", false);
+
+    Finished out;
+    const auto fail = [&out](std::string why)
     {
-        std::unique_ptr<juce::OutputStream> stream(partial.createOutputStream());
-        if (stream == nullptr)
-            return {.error = "Can't write to " + folder.getFullPathName().toStdString() + "."};
-        auto options = juce::AudioFormatWriterOptions{}.withSampleRate(rate).withNumChannels(channels).withBitsPerSample(settings.bitDepth);
-        if (settings.bitDepth == 32)
-            options = options.withSampleFormat(juce::AudioFormatWriterOptions::SampleFormat::floatingPoint);
-        auto writer = format->createWriterFor(stream, options);
-        if (writer == nullptr || !writer->writeFromAudioSampleBuffer(audio, 0, frames))
+        for (const auto& f : out.files)
+            f.file.deleteFile();
+        return Finished{.error = std::move(why)};
+    };
+    const auto files = model::exportFormats(settings);
+    for (size_t k = 0; k < files.size() && k < fileNames.size(); ++k)
+    {
+        if (cancelled)
+            return fail({});
+        const auto& f = files[k];
+        Session::ExportedFile file;
+        file.ceilingHeld = ceilingHeld;
+        const auto title =
+            juce::File(juce::String::fromUTF8(fileNames[k].c_str())).getFileNameWithoutExtension();
+        // Written beside its place, then moved into it, so a file is only ever whole (§7).
+        const auto partial = folder.getNonexistentChildFile(".export", ".part", false);
+        if (f.format == model::ExportFormat::Mp3)
         {
-            writer.reset();
-            partial.deleteFile();
-            return {.error = "The export couldn't be written (is the disk full?)."};
+            std::string error;
+            if (!writeMp3(partial, audio, frames, rate, f.kbps, title, error))
+            {
+                partial.deleteFile();
+                return fail(error);
+            }
         }
-    }
-    const auto name = model::uniqueFileName(fileName, [&](const std::string& n) { return folder.getChildFile(juce::String::fromUTF8(n.c_str())).exists(); });
-    out.file.file = folder.getChildFile(juce::String::fromUTF8(name.c_str()));
-    if (!partial.moveFileTo(out.file.file))
-    {
-        partial.deleteFile();
-        return {.error = "The export couldn't be moved into " + folder.getFullPathName().toStdString() + "."};
+        else
+        {
+            auto* format = formats.findFormatForFileExtension(juce::String(model::extensionFor(f.format)));
+            if (format == nullptr)
+                return fail("This build can't write " + model::formatName(f.format) + " files.");
+            // PCM on the file's grid, dithered below 32-bit float; a lossy format takes the floats.
+            const bool lossy = model::isLossy(f.format);
+            juce::AudioBuffer<float> data(channels, frames);
+            for (int c = 0; c < channels; ++c)
+            {
+                data.copyFrom(c, 0, audio, c, 0, frames);
+                if (lossy)
+                    continue;
+                model::Quantiser quantise(f.bitDepth, settings.dither, static_cast<std::uint32_t>(c + 1));
+                auto* d = data.getWritePointer(c);
+                for (int i = 0; i < frames; ++i)
+                    d[i] = quantise(d[i]);
+            }
+            if (!lossy)
+                file.measured = measure(data, frames, rate);
+            std::unique_ptr<juce::OutputStream> stream(partial.createOutputStream());
+            if (stream == nullptr)
+                return fail("Can't write to " + folder.getFullPathName().toStdString() + ".");
+            auto options = juce::AudioFormatWriterOptions{}
+                               .withSampleRate(rate)
+                               .withNumChannels(channels)
+                               .withBitsPerSample(lossy ? 32 : f.bitDepth);
+            if (lossy)
+                options = options.withQualityOptionIndex(qualityIndexFor(f.format, f.kbps))
+                              .withMetadataValues({{juce::OggVorbisAudioFormat::id3title, title},
+                                                   {juce::OggVorbisAudioFormat::encoderName, "Segno"}});
+            else if (f.bitDepth == 32)
+                options =
+                    options.withSampleFormat(juce::AudioFormatWriterOptions::SampleFormat::floatingPoint);
+            auto writer = format->createWriterFor(stream, options);
+            if (writer == nullptr || !writer->writeFromAudioSampleBuffer(data, 0, frames))
+            {
+                writer.reset();
+                partial.deleteFile();
+                return fail("The export couldn't be written (is the disk full?).");
+            }
+        }
+        // A lossy file is measured as listeners hear it: decoded back.
+        if (model::isLossy(f.format))
+        {
+            std::unique_ptr<juce::AudioFormatReader> back(
+                formats.findFormatForFileExtension(juce::String(model::extensionFor(f.format)))
+                    ->createReaderFor(new juce::FileInputStream(partial), true));
+            if (back == nullptr)
+            {
+                partial.deleteFile();
+                return fail("The " + model::formatName(f.format) + " file couldn't be read back.");
+            }
+            juce::AudioBuffer<float> decoded(static_cast<int>(back->numChannels),
+                                             static_cast<int>(back->lengthInSamples));
+            back->read(&decoded, 0, decoded.getNumSamples(), 0, true, true);
+            file.measured = measure(decoded, decoded.getNumSamples(), back->sampleRate);
+        }
+        const auto name = model::uniqueFileName(
+            fileNames[k], [&](const std::string& n)
+            { return folder.getChildFile(juce::String::fromUTF8(n.c_str())).exists(); });
+        file.file = folder.getChildFile(juce::String::fromUTF8(name.c_str()));
+        if (!partial.moveFileTo(file.file))
+        {
+            partial.deleteFile();
+            return fail("The export couldn't be moved into " + folder.getFullPathName().toStdString() + ".");
+        }
+        out.files.push_back(std::move(file));
     }
     return out;
 }
@@ -147,6 +226,7 @@ struct Session::Impl::Export final : std::enable_shared_from_this<Export>, priva
     std::shared_ptr<Progress> progress = std::make_shared<Progress>();
     std::shared_ptr<Session::RenderJob> rendering;
     juce::File temp;
+    size_t done_ = 0; // targets finished: each may write several files (§17.2)
     bool over = false;
 
     /// Renders the next file; false if it couldn't start.
@@ -154,8 +234,10 @@ struct Session::Impl::Export final : std::enable_shared_from_this<Export>, priva
     {
         temp = juce::File::createTempFile(".wav");
         std::weak_ptr<Export> weak = weak_from_this();
-        rendering = impl.renderCopy([&](te::Edit& copy, te::Renderer::Parameters& params) { return setUp(copy, params, targets[files.size()]); },
-                                    [weak](const std::string& error) {
+        rendering = impl.renderCopy([&](te::Edit& copy, te::Renderer::Parameters& params)
+                                    { return setUp(copy, params, targets[done_]); },
+                                    [weak](const std::string& error)
+                                    {
                                         if (auto self = weak.lock())
                                             self->rendered(error);
                                     });
@@ -233,20 +315,28 @@ struct Session::Impl::Export final : std::enable_shared_from_this<Export>, priva
         if (!error.empty())
             return end({.error = "The export didn't finish: " + error});
         // Finished off the message thread; then the next file.
-        const auto& target = targets[files.size()];
-        const auto name = model::exportFileName(base, target.kind == Target::Kind::Mix ? std::string() : target.name, bars, settings.format);
+        const auto& target = targets[done_];
+        std::vector<std::string> names;
+        for (const auto& f : model::exportFormats(settings))
+            names.push_back(model::exportFileName(
+                base, target.kind == Target::Kind::Mix ? std::string() : target.name, bars, f.format));
         std::weak_ptr<Export> weak = weak_from_this();
         if (!impl.exportThread)
             impl.exportThread = std::make_unique<juce::ThreadPool>(juce::ThreadPoolOptions{}.withThreadName("Export").withNumberOfThreads(1));
-        impl.exportThread->addJob([weak, audio = temp, range = span, options = settings, into = folder, name, state = progress,
-                                   track = target.name] {
-            auto outcome = finish(audio, range, options, into, name, state->cancelled);
-            outcome.file.track = track;
-            juce::MessageManager::callAsync([weak, ready = std::move(outcome)]() mutable {
-                if (auto self = weak.lock())
-                    self->finished(std::move(ready));
+        impl.exportThread->addJob(
+            [weak, audio = temp, range = span, options = settings, into = folder, names, state = progress,
+             track = target.name]
+            {
+                auto outcome = finish(audio, range, options, into, names, state->cancelled);
+                for (auto& f : outcome.files)
+                    f.track = track;
+                juce::MessageManager::callAsync(
+                    [weak, ready = std::move(outcome)]() mutable
+                    {
+                        if (auto self = weak.lock())
+                            self->finished(std::move(ready));
+                    });
             });
-        });
     }
 
     void finished(Finished result)
@@ -254,13 +344,15 @@ struct Session::Impl::Export final : std::enable_shared_from_this<Export>, priva
         temp.deleteFile();
         if (progress->cancelled)
         {
-            result.file.file.deleteFile();
+            for (const auto& f : result.files)
+                f.file.deleteFile();
             return end({.cancelled = true});
         }
         if (!result.error.empty())
             return end({.error = result.error});
-        files.push_back(std::move(result.file));
-        if (files.size() < targets.size())
+        for (auto& f : result.files)
+            files.push_back(std::move(f));
+        if (++done_ < targets.size())
         {
             if (!renderNext())
                 end({.error = "The export couldn't start its next file."});
@@ -294,7 +386,7 @@ private:
         // Each file's share: rendering most of it, finishing the rest.
         const float each = 1.0f / static_cast<float>(std::max<size_t>(1, targets.size()));
         const float now = rendering ? rendering->progress() * 0.85f : 0.9f;
-        progress->fraction = each * (static_cast<float>(files.size()) + now);
+        progress->fraction = each * (static_cast<float>(done_) + now);
         if (progress->cancelled && rendering) // a file being finished notices by itself
             rendering->cancel();
     }

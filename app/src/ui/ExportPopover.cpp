@@ -53,12 +53,16 @@ ExportPopover::ExportPopover(engine::Session& session) : session_(session)
     what_.addItem("The mix", 1);
     what_.addItem("Selected tracks", 2);
     what_.addItem("All tracks (and returns)", 3);
-    format_.addItem("WAV", 1);
-    format_.addItem("FLAC", 2);
-    format_.addItem("AIFF", 3);
+    for (const auto f : model::kExportFormats)
+        format_.addItem(juce::String::fromUTF8(model::formatName(f).c_str()), static_cast<int>(f) + 1);
     depth_.addItem("16-bit", 16);
     depth_.addItem("24-bit", 24);
     depth_.addItem("32-bit float", 32);
+    quality_.setTooltip("MP3 at a constant bit rate; Ogg Vorbis about that rate; Opus aims at it");
+    also_.addItem("None", 1);
+    for (const auto f : model::kExportFormats)
+        also_.addItem(juce::String::fromUTF8(model::formatName(f).c_str()), static_cast<int>(f) + 2);
+    also_.setTooltip("A second file of each, in another format, from the same render: a master and an MP3");
     dither_.addItem("Automatic", 1);
     dither_.addItem("Off", 2);
     dither_.setTooltip("Triangular dither whenever the bit depth is below 32-bit float");
@@ -111,17 +115,25 @@ ExportPopover::ExportPopover(engine::Session& session) : session_(session)
         if (last_ && !last_->files.empty())
             last_->files.front().file.revealToUser();
     };
-    for (auto* box : {&what_, &range_, &format_, &depth_, &rate_, &dither_, &normalise_})
+    inBrowser_.setTooltip("Show the file in the browser, in the project's Exports, to drag onto a track");
+    inBrowser_.onClick = [this]
+    {
+        if (last_ && !last_->files.empty() && onShowInBrowser)
+            onShowInBrowser(last_->files.front().file);
+    };
+    for (auto* box :
+         {&what_, &range_, &format_, &depth_, &quality_, &rate_, &dither_, &normalise_, &also_, &alsoDetail_})
     {
         box->onChange = [this] { store(); };
         addAndMakeVisible(box);
     }
     through_.onClick = [this] { store(); };
     target_.onValueChange = [this](double) { store(); };
-    for (juce::Component* c : {static_cast<juce::Component*>(&through_), static_cast<juce::Component*>(&target_),
-                               static_cast<juce::Component*>(&name_), static_cast<juce::Component*>(&choose_),
-                               static_cast<juce::Component*>(&defaultFolder_), static_cast<juce::Component*>(&export_),
-                               static_cast<juce::Component*>(&show_)})
+    for (juce::Component* c :
+         {static_cast<juce::Component*>(&through_), static_cast<juce::Component*>(&target_),
+          static_cast<juce::Component*>(&name_), static_cast<juce::Component*>(&choose_),
+          static_cast<juce::Component*>(&defaultFolder_), static_cast<juce::Component*>(&export_),
+          static_cast<juce::Component*>(&show_), static_cast<juce::Component*>(&inBrowser_)})
         addAndMakeVisible(c);
     addChildComponent(keepAll_);
 }
@@ -193,6 +205,10 @@ void ExportPopover::load()
     range_.setSelectedId(s.range == ExportRange::Loop && loop ? 2 : 1, juce::dontSendNotification);
     format_.setSelectedId(static_cast<int>(s.format) + 1, juce::dontSendNotification);
     depth_.setSelectedId(s.bitDepth, juce::dontSendNotification);
+    fillDetail(quality_, s.format, s.bitDepth, s.kbps);
+    also_.setSelectedId(s.alsoAs ? static_cast<int>(*s.alsoAs) + 2 : 1, juce::dontSendNotification);
+    if (s.alsoAs)
+        fillDetail(alsoDetail_, *s.alsoAs, s.alsoBitDepth, s.alsoKbps);
     rate_.clear(juce::dontSendNotification);
     rate_.addItem("Project (" + rateName(session_.sampleRate()) + ")", 1);
     int id = 2;
@@ -220,17 +236,35 @@ void ExportPopover::store()
     s.what = static_cast<ExportWhat>(kWhat[std::clamp(what_.getSelectedId() - 1, 0, 2)]);
     s.throughReturns = through_.getToggleState();
     s.range = range_.getSelectedId() == 2 ? ExportRange::Loop : ExportRange::Song;
-    s.format = static_cast<ExportFormat>(std::clamp(format_.getSelectedId() - 1, 0, 2));
-    s.bitDepth = depth_.getSelectedId();
+    const auto format = static_cast<ExportFormat>(std::clamp(format_.getSelectedId() - 1, 0, 5));
+    if (format == s.format) // its bit depth or rate, as chosen
+    {
+        if (model::isLossy(format))
+            s.kbps = quality_.getSelectedId();
+        else
+            s.bitDepth = depth_.getSelectedId();
+    }
+    s.format = format;
+    const auto also = also_.getSelectedId() >= 2
+                          ? std::optional(static_cast<ExportFormat>(also_.getSelectedId() - 2))
+                          : std::nullopt;
+    if (also && also == s.alsoAs)
+        (model::isLossy(*also) ? s.alsoKbps : s.alsoBitDepth) = alsoDetail_.getSelectedId();
+    s.alsoAs = also;
     s.sampleRate = rate_.getSelectedId() >= 2 ? model::kExportRates[static_cast<size_t>(rate_.getSelectedId() - 2)] : 0.0;
     s.dither = dither_.getSelectedId() != 2;
     s.normalise = static_cast<ExportNormalise>(std::clamp(normalise_.getSelectedId() - 1, 0, 2));
     s.loudnessTarget = target_.getValue();
     s.name = name_.getText().trim().toStdString();
     session_.setExportSettings(s);
-    // A format holds only some depths: the settings say which it takes now.
+    // A format holds only some depths or rates: the settings say which it takes now.
     loading_ = true;
-    depth_.setSelectedId(session_.exportSettings().bitDepth, juce::dontSendNotification);
+    const auto now = session_.exportSettings();
+    depth_.setSelectedId(now.bitDepth, juce::dontSendNotification);
+    fillDetail(quality_, now.format, now.bitDepth, now.kbps);
+    also_.setSelectedId(now.alsoAs ? static_cast<int>(*now.alsoAs) + 2 : 1, juce::dontSendNotification);
+    if (now.alsoAs)
+        fillDetail(alsoDetail_, *now.alsoAs, now.alsoBitDepth, now.alsoKbps);
     loading_ = false;
     updateEnabled();
     if (isVisible() && getHeight() != preferredHeight()) // a row came or went
@@ -250,15 +284,53 @@ bool ExportPopover::showsTarget() const
     return session_.exportSettings().normalise == ExportNormalise::Loudness;
 }
 
+void ExportPopover::fillDetail(juce::ComboBox& box, model::ExportFormat format, int bitDepth, int kbps)
+{
+    box.clear(juce::dontSendNotification);
+    if (model::isLossy(format))
+    {
+        for (const int rate : model::bitRatesFor(format))
+            box.addItem(
+                juce::String::fromUTF8(model::formatLabel({format, 0, rate}).c_str())
+                    .fromFirstOccurrenceOf(juce::String::fromUTF8(model::formatName(format).c_str()) + " ",
+                                           false, false),
+                rate);
+        box.setSelectedId(kbps, juce::dontSendNotification);
+        return;
+    }
+    for (const int depth : model::bitDepthsFor(format))
+        box.addItem(depth == 32 ? juce::String("32-bit float") : juce::String(depth) + "-bit", depth);
+    box.setSelectedId(bitDepth, juce::dontSendNotification);
+}
+
+bool ExportPopover::showsDither() const
+{
+    for (const auto& f : model::exportFormats(session_.exportSettings()))
+        if (!model::isLossy(f.format) && f.bitDepth < 32)
+            return true;
+    return false;
+}
+
+bool ExportPopover::showsAlsoDetail() const
+{
+    return session_.exportSettings().alsoAs.has_value();
+}
+
 void ExportPopover::updateEnabled()
 {
     const auto s = session_.exportSettings();
     through_.setVisible(showsThrough());
     target_.setVisible(showsTarget());
+    const bool lossy = model::isLossy(s.format);
+    depth_.setVisible(!lossy);
+    quality_.setVisible(lossy);
     const auto depths = model::bitDepthsFor(s.format);
     for (const int d : {16, 24, 32})
         depth_.setItemEnabled(d, std::find(depths.begin(), depths.end(), d) != depths.end());
-    dither_.setEnabled(s.bitDepth < 32);
+    dither_.setVisible(showsDither());
+    alsoDetail_.setVisible(showsAlsoDetail());
+    also_.setItemEnabled(static_cast<int>(s.format) + 2, false); // not the format itself again
+    inBrowser_.setVisible(last_ && !last_->files.empty() && onShowInBrowser != nullptr);
     defaultFolder_.setEnabled(!s.folder.empty());
     export_.setButtonText(job_ ? "Cancel" : "Export");
     show_.setVisible(last_ && !last_->files.empty());
@@ -285,7 +357,7 @@ void ExportPopover::chooseFolder()
                                                 : chosen.isAChildOf(project)        ? chosen.getRelativePathFrom(project).toStdString()
                                                                                     : chosen.getFullPathName().toStdString();
                               settings.name = file.getFileNameWithoutExtension().toStdString();
-                              for (const auto f : {ExportFormat::Wav, ExportFormat::Flac, ExportFormat::Aiff})
+                              for (const auto f : model::kExportFormats)
                                   if (file.hasFileExtension(juce::String(model::extensionFor(f)).substring(1)))
                                       settings.format = f;
                               session_.setExportSettings(settings);
@@ -354,8 +426,9 @@ juce::String ExportPopover::report() const
     text += dot + minutes(m.seconds);
     if (std::isfinite(m.integratedLufs))
         text += dot + juce::String(m.integratedLufs, 1).replace("-", juce::String::fromUTF8("\xe2\x88\x92")) + " LUFS";
-    if (std::isfinite(m.truePeakDb))
-        text += dot + juce::String(m.truePeakDb, 1).replace("-", juce::String::fromUTF8("\xe2\x88\x92")) + " dBTP";
+    if (std::isfinite(m.truePeakDb)) // a lossy file's, decoded: as listeners get it (§17.1)
+        text += dot + juce::String(m.truePeakDb, 1).replace("-", juce::String::fromUTF8("\xe2\x88\x92")) +
+                " dBTP" + (f.file.hasFileExtension("mp3;ogg;opus") ? " encoded" : "");
     if (m.clippedSamples > 0 || m.truePeakDb > 0.0)
         text += dot + "clips";
     return text;
@@ -364,10 +437,12 @@ juce::String ExportPopover::report() const
 int ExportPopover::preferredHeight() const
 {
     const auto& sh = ui::Theme::current().shell;
-    return sh.padding * 2 + sh.buttonSize                       // title
-           + 3 * (sh.groupGap + 1)                              // separators
-           + (showsThrough() ? 3 : 2) * sh.rowHeight            // what, (through), range
-           + (showsTarget() ? 6 : 5) * sh.rowHeight             // format ... normalise, (target)
+    return sh.padding * 2 + sh.buttonSize            // title
+           + 3 * (sh.groupGap + 1)                   // separators
+           + (showsThrough() ? 3 : 2) * sh.rowHeight // what, (through), range
+           + (4 + (showsDither() ? 1 : 0) + (showsTarget() ? 1 : 0) + 1 + (showsAlsoDetail() ? 1 : 0)) *
+                 sh.rowHeight // format, depth or quality, rate, (dither), normalise, (target), also as, (its
+                              // detail)
            + sh.rowHeight + 2 * sh.fieldHeight + 2 * sh.itemGap // save to (path, buttons), name
            + (showsChance() ? sh.groupGap + 1 + sh.rowHeight + sh.fieldHeight : 0) // chance, Keep all
            + sh.rowHeight + sh.itemGap + sh.fieldHeight;                           // report, export
@@ -401,16 +476,24 @@ void ExportPopover::resized()
     }
     field("Range", range_);
     separator();
+    const auto s = session_.exportSettings();
     field("Format", format_);
-    field("Bit depth", depth_);
+    if (model::isLossy(s.format))
+        field("Quality", quality_);
+    else
+        field("Bit depth", depth_);
     field("Sample rate", rate_);
-    field("Dither", dither_);
+    if (showsDither())
+        field("Dither", dither_);
     field("Normalise", normalise_);
     if (showsTarget())
     {
         auto line = row("Target", sh.rowHeight).reduced(0, sh.propertyFieldInset);
         target_.setBounds(line.removeFromLeft(target_.widthFor(juce::String::fromUTF8("\xe2\x88\x92") + "36.0 LUFS")));
     }
+    field("Also as", also_);
+    if (showsAlsoDetail())
+        field(model::isLossy(*s.alsoAs) ? "Its quality" : "Its bit depth", alsoDetail_);
     separator();
     folder_ = row("Save to", sh.rowHeight);
     {
@@ -423,7 +506,7 @@ void ExportPopover::resized()
     {
         auto line = row("Name", sh.fieldHeight);
         int ext = 0; // the widest extension
-        for (const auto f : {ExportFormat::Wav, ExportFormat::Flac, ExportFormat::Aiff})
+        for (const auto f : model::kExportFormats)
             ext = std::max(ext, static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(
                                     ui::font(ui::TextStyle::Body), juce::String(model::extensionFor(f))))));
         extension_ = line.removeFromRight(ext);
@@ -446,6 +529,8 @@ void ExportPopover::resized()
     export_.setBounds(bottom.removeFromRight(std::max(buttonWidth("Export"), buttonWidth("Cancel"))));
     bottom.removeFromRight(sh.itemGap);
     show_.setBounds(bottom.removeFromRight(buttonWidth(show_.getButtonText())));
+    bottom.removeFromRight(sh.itemGap);
+    inBrowser_.setBounds(bottom.removeFromRight(buttonWidth(inBrowser_.getButtonText())));
     progressLine_ = getLocalBounds().removeFromBottom(sh.progressHeight);
 }
 

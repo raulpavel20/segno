@@ -282,6 +282,63 @@ TEST_CASE("export: formats, depths, rates, dither and normalising", "[integratio
     CHECK(held.measured.integratedLufs < -14.0);
 }
 
+TEST_CASE(
+    "export: MP3, Ogg and Opus; a second format from the same render; measured decoded (C7, export.md §17)",
+    "[integration]")
+{
+    Exporter x;
+    x.tone(x.track(0), 0.0, 2.0, 440.0, 0.5f);
+
+    // MP3 at 320 kbps, and WAV beside it from the same render.
+    const auto both = x.exportNow(
+        {.format = ExportFormat::Mp3, .kbps = 320, .alsoAs = ExportFormat::Wav, .alsoBitDepth = 24});
+    REQUIRE(both.files.size() == 2);
+    const auto& mp3File = both.files[0];
+    const auto& wavFile = both.files[1];
+    CHECK(mp3File.file.hasFileExtension("mp3"));
+    CHECK(wavFile.file.hasFileExtension("wav"));
+    CHECK(mp3File.file.getFileNameWithoutExtension() == wavFile.file.getFileNameWithoutExtension());
+    const auto mp3 = readAny(mp3File.file);
+    const auto wav = readAny(wavFile.file);
+    CHECK(mp3.rate == wav.rate); // the render's rate, one MP3 has
+    CHECK(wav.bits == 24);
+    // As long, give or take the encoder's padding; as loud, measured from the decoded MP3.
+    CHECK(mp3.frames() / mp3.rate == Approx(wav.frames() / wav.rate).margin(0.1));
+    CHECK(mp3File.measured.integratedLufs == Approx(wavFile.measured.integratedLufs).margin(0.3));
+    CHECK(mp3File.measured.truePeakDb == Approx(wavFile.measured.truePeakDb).margin(0.5));
+    // Tagged: an ID3v2 tag first, with the title and Segno as the encoder.
+    juce::MemoryBlock bytes;
+    REQUIRE(mp3File.file.loadFileAsData(bytes));
+    CHECK(juce::String(static_cast<const char*>(bytes.getData()), 3) == "ID3");
+    const auto has = [&](const juce::String& text)
+    {
+        // UTF-16 little-endian, as LAME writes it with a byte-order mark.
+        juce::MemoryOutputStream utf16;
+        for (auto c : text)
+            utf16.writeShort(static_cast<short>(c));
+        const auto* begin = static_cast<const char*>(bytes.getData());
+        const auto* needle = static_cast<const char*>(utf16.getData());
+        return std::search(begin, begin + bytes.getSize(), needle, needle + utf16.getDataSize()) !=
+               begin + bytes.getSize();
+    };
+    CHECK(has("Segno"));
+    CHECK(has(mp3File.file.getFileNameWithoutExtension()));
+
+    // Ogg Vorbis and Opus; Opus files play at 48 kHz whatever the render's rate.
+    const auto ogg = x.exportNow({.format = ExportFormat::Ogg, .kbps = 192}).files.at(0);
+    CHECK(ogg.file.hasFileExtension("ogg"));
+    CHECK(readAny(ogg.file).frames() / readAny(ogg.file).rate == Approx(2.0).margin(0.2));
+    CHECK(ogg.measured.integratedLufs == Approx(wavFile.measured.integratedLufs).margin(0.3));
+    const auto opus =
+        x.exportNow({.format = ExportFormat::Opus, .kbps = 160, .sampleRate = 44100.0}).files.at(0);
+    CHECK(opus.file.hasFileExtension("opus"));
+    CHECK(readAny(opus.file).rate == 48000.0);
+    CHECK(opus.measured.integratedLufs == Approx(wavFile.measured.integratedLufs).margin(0.3));
+    // Rendered at 96 kHz, an MP3 is written at 48.
+    CHECK(readAny(x.exportNow({.format = ExportFormat::Mp3, .sampleRate = 96000.0}).files.at(0).file).rate ==
+          48000.0);
+}
+
 TEST_CASE("export: files go where asked and never overwrite; cancelling and refusals", "[integration]")
 {
     Exporter x;

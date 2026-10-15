@@ -12,21 +12,20 @@ namespace
 {
 using model::ExportFormat;
 
-const char* formatKey(ExportFormat f)
+std::string formatKey(ExportFormat f)
 {
-    return f == ExportFormat::Flac ? "flac" : f == ExportFormat::Aiff ? "aiff" : "wav";
+    return model::extensionFor(f).substr(1); // "wav", "mp3"
 }
 
-ExportFormat formatArg(const Json& value)
+/// A recording's format (PCM), or with `lossy` an export's (MP3, Ogg and Opus too, export.md §17).
+ExportFormat formatArg(const Json& value, bool lossy = false)
 {
     const auto v = value.get<std::string>();
-    if (v == "wav")
-        return ExportFormat::Wav;
-    if (v == "flac")
-        return ExportFormat::Flac;
-    if (v == "aiff")
-        return ExportFormat::Aiff;
-    throw Problem{"format is \"wav\", \"flac\" or \"aiff\"."};
+    for (const auto f : model::kExportFormats)
+        if (formatKey(f) == v && (lossy || !model::isLossy(f)))
+            return f;
+    throw Problem{lossy ? "format is \"wav\", \"flac\", \"aiff\", \"mp3\", \"ogg\" or \"opus\"."
+                        : "format is \"wav\", \"flac\" or \"aiff\"."};
 }
 
 int bitDepthArg(ExportFormat format, const Json& value)
@@ -122,7 +121,8 @@ Json settingsJson(ToolEnv& env)
             {"plugins", {{"folders", s.plugins.folders}, {"skipped", session.skippedPlugins()}}},
             {"export",
              {{"format", formatKey(e.format)},
-              {"bitDepth", e.bitDepth},
+              {"bitDepth", model::isLossy(e.format) ? Json() : Json(e.bitDepth)},
+              {"quality", model::isLossy(e.format) ? Json(e.kbps) : Json()},
               {"sampleRate", e.sampleRate > 0.0 ? Json(e.sampleRate) : Json("project")},
               {"dither", e.dither},
               {"normalise", normalise}}},
@@ -186,8 +186,9 @@ void addSettingsTools(Registry& registry, ToolEnv& env)
                           {"audioOffsetMs", number("-500 to 500: moves new audio recordings")},
                           {"midiOffsetMs", number("-500 to 500: moves new MIDI recordings")}})},
                  {"export",
-                  object({{"format", string("\"wav\", \"flac\" or \"aiff\"")},
+                  object({{"format", string("\"wav\", \"flac\", \"aiff\", \"mp3\", \"ogg\" or \"opus\"")},
                           {"bitDepth", integer("16, 24, or 32 (float, WAV only)")},
+                          {"quality", integer("A lossy format's bit rate in kbps (export_audio lists them)")},
                           {"sampleRate",
                            {{"type", {"number", "string"}}, {"description", "A rate, or \"project\""}}},
                           {"dither", boolean("Dither below 32-bit float")},
@@ -252,9 +253,16 @@ void addSettingsTools(Registry& registry, ToolEnv& env)
                 const auto& e = args["export"];
                 auto& d = next.exportDefaults;
                 if (e.contains("format"))
-                    d.format = formatArg(e["format"]);
-                if (e.contains("bitDepth"))
+                    d.format = formatArg(e["format"], true);
+                if (e.contains("bitDepth") && !model::isLossy(d.format))
                     d.bitDepth = bitDepthArg(d.format, e["bitDepth"]);
+                if (e.contains("quality") && model::isLossy(d.format))
+                {
+                    const auto rates = model::bitRatesFor(d.format);
+                    d.kbps = e["quality"].get<int>();
+                    if (std::find(rates.begin(), rates.end(), d.kbps) == rates.end())
+                        throw Problem{"That bit rate isn't one " + model::formatName(d.format) + " offers."};
+                }
                 if (e.contains("sampleRate"))
                 {
                     if (e["sampleRate"].is_string() && e["sampleRate"] == "project")

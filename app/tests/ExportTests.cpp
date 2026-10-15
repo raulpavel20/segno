@@ -35,9 +35,35 @@ TEST_CASE("export: settings are valid, and kept as JSON", "[fast]")
                            .name = "Demo"};
     CHECK(exportSettingsFromJson(toJson(s)) == s);
     CHECK(exportSettingsFromJson("not json") == ExportSettings{});
-    CHECK(exportSettingsFromJson(R"({"format":"ogg","bitDepth":24})") == ExportSettings{}); // unknown: the default
+    CHECK(exportSettingsFromJson(R"({"format":"wma","bitDepth":24})") ==
+          ExportSettings{}); // unknown: the default
     CHECK(extensionFor(ExportFormat::Aiff) == ".aiff");
     CHECK(formatName(ExportFormat::Flac) == "FLAC");
+
+    // MP3, Ogg and Opus (export.md §17): a bit rate each offers, its default otherwise; no bit depth.
+    CHECK(isLossy(ExportFormat::Opus));
+    CHECK_FALSE(isLossy(ExportFormat::Flac));
+    CHECK(bitDepthsFor(ExportFormat::Mp3).empty());
+    CHECK(validated({.format = ExportFormat::Mp3}).kbps == 320);
+    CHECK(validated({.format = ExportFormat::Ogg, .kbps = 256}).kbps == 256);
+    CHECK(validated({.format = ExportFormat::Opus, .kbps = 320}).kbps == 160);
+    CHECK(validated({.format = ExportFormat::Wav, .kbps = 320}).kbps == 0);
+    // Also as: another format, valid in turn; the same format again is none.
+    const auto both =
+        validated({.format = ExportFormat::Mp3, .alsoAs = ExportFormat::Flac, .alsoBitDepth = 32});
+    REQUIRE(both.alsoAs == ExportFormat::Flac);
+    CHECK(both.alsoBitDepth == 24);
+    CHECK_FALSE(validated({.format = ExportFormat::Ogg, .alsoAs = ExportFormat::Ogg}).alsoAs.has_value());
+    const auto files = exportFormats(both);
+    REQUIRE(files.size() == 2);
+    CHECK(files[0] == ExportFileFormat{ExportFormat::Mp3, 24, 320});
+    CHECK(files[1].format == ExportFormat::Flac);
+    CHECK(formatLabel(files[0]) == "MP3 320 kbps");
+    CHECK(formatLabel({ExportFormat::Ogg, 0, 192}) == "Ogg Vorbis \xe2\x89\x88"
+                                                      "192 kbps");
+    CHECK(formatLabel({ExportFormat::Wav, 32, 0}) == "WAV 32-bit float");
+    CHECK(exportSettingsFromJson(toJson(both)) == both);
+    CHECK(extensionFor(ExportFormat::Opus) == ".opus");
 }
 
 TEST_CASE("export: the song runs to its last clip, then its tail until silent; a loop is exact", "[fast]")

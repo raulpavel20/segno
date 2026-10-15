@@ -61,7 +61,7 @@ Segno does the baseline, and goes further in three ways:
 
 | Option | Choices | Default |
 |---|---|---|
-| **Format** | WAV, FLAC, AIFF | WAV |
+| **Format** | WAV, FLAC, AIFF; MP3, Ogg Vorbis, Opus (§17) | WAV |
 | **Bit depth** | 16, 24, 32-bit float (WAV only; FLAC and AIFF hold 16 and 24) | 24 |
 | **Sample rate** | The project's, 44.1, 48, 88.2, 96 kHz | The project's |
 | **Dither** | Automatic (triangular, whenever the bit depth is below 32-bit float), Off | Automatic |
@@ -290,7 +290,18 @@ The plan's "add to project" (§16): an export as a new track, or in the browser.
 
 These are new optional arguments, so no released tool changes (ADR 0021).
 
-### 17.5 Questions for review
+### 17.5 Built (2026-10-15)
+
+- **The encoders:**
+  - **MP3:** LAME 3.100's library, fetched from its pinned tarball (SHA-256 checked) and built as `fd_dep_lame`. `cmake/lame/config.h` stands in for its configure; the encoder only. `engine::writeMp3` writes the ID3v2 tag itself (title and `TSSE` Segno, in UTF-16), then LAME's info frame over the empty one it leaves (length and encoder delay, for gapless players).
+  - **Ogg and Opus:** JUCE 9's writers (quality index: Vorbis's quality in tenths, Opus's list of rates).
+- **One render, every format:** the render is normalised once. Each file is then written from it: PCM quantised and dithered on its own copy, lossy encoded from the floats. Lossy files are decoded back to be measured, and the report says "dBTP encoded" for them.
+- **Rows:** Quality replaces Bit depth for a lossy format, and Dither shows only while a PCM file below 32-bit float is written. Also as is a row of its own, with "Its bit depth" or "Its quality" under it while set.
+- **Show in browser** opens the browser at Places, the project's folder and Exports open, the file selected (`BrowserPanel::reveal`). A file outside the browser's places says so.
+- **Assistants:** `export_audio` takes `format` mp3, ogg or opus with `quality` (kbps), and `alsoAs` ({format, bitDepth or quality}), refusing a rate the format doesn't offer or the same format twice. Each file reports `encoded`. `set_settings`' export defaults take lossy formats and `quality`.
+- **Credits:** the About popover names LAME (LGPL-2.0 or later), libvorbis, libopus and libopusenc (BSD). Packaging (M7) ships LAME's licence text beside the binaries.
+
+### 17.6 Questions for review
 
 | # | Question | Recommendation |
 |---|---|---|

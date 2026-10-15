@@ -72,12 +72,13 @@ target_sources(fd_engine INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/PresetPreview.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/MidiTap.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/PluginWindow.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/PluginScan.cpp")
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/PluginScan.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/Mp3Writer.cpp")
 target_include_directories(fd_engine INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(fd_engine INTERFACE
     tracktion::tracktion_engine tracktion::tracktion_graph tracktion::tracktion_core
     fd_panel_registry fd::registry fd::fd_device_ui fd::fd_host_juce fd_app_model
-    juce::juce_audio_utils juce::juce_dsp)
+    juce::juce_audio_utils juce::juce_dsp fd_dep_lame)
 target_compile_definitions(fd_engine INTERFACE
     JUCE_PLUGINHOST_VST3=1
     $<$<PLATFORM_ID:Linux>:JUCE_PLUGINHOST_LV2=1>

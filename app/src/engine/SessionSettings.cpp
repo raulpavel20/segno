@@ -18,6 +18,10 @@ juce::AudioFormat* formatFor(te::Engine& engine, model::RecordingFormat format)
         return afm.getFlacFormat();
     case model::RecordingFormat::Aiff:
         return afm.getAiffFormat();
+    case model::RecordingFormat::Mp3: // never a recording's: WAV
+    case model::RecordingFormat::Ogg:
+    case model::RecordingFormat::Opus:
+        break;
     }
     return afm.getWavFormat();
 }

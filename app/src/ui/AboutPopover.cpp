@@ -41,7 +41,9 @@ juce::StringArray AboutPopover::paragraphs() const
         "The licence: https://www.gnu.org/licenses/agpl-3.0.html",
         "Built with JUCE (AGPL-3.0) and tracktion_engine (GPL-3.0); the Inter and JetBrains Mono fonts (SIL "
         "Open "
-        "Font License 1.1); nlohmann/json, cpp-httplib, elliptic-blep and dr_libs (MIT and public domain).",
+        "Font License 1.1); nlohmann/json, cpp-httplib, elliptic-blep and dr_libs (MIT and public domain); "
+        "the "
+        "LAME MP3 encoder (LGPL-2.0 or later); libvorbis, libopus and libopusenc (BSD).",
     };
 }
 

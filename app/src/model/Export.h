@@ -30,6 +30,9 @@ enum class ExportFormat
     Wav,
     Flac,
     Aiff,
+    Mp3,  // constant bit rate, through LAME (export.md §17)
+    Ogg,  // Ogg Vorbis
+    Opus, // Ogg Opus: 48 kHz files, whatever the render's rate
 };
 enum class ExportNormalise
 {
@@ -45,6 +48,10 @@ struct ExportSettings
     ExportRange range = ExportRange::Song;
     ExportFormat format = ExportFormat::Wav;
     int bitDepth = 24;           // 16, 24, or 32 (float; WAV only)
+    int kbps = 0;                // a lossy format's bit rate; 0: its default
+    /// Several formats at once (§17.2): a second file of each, from the same render.
+    std::optional<ExportFormat> alsoAs;
+    int alsoBitDepth = 24, alsoKbps = 0;
     double sampleRate = 0.0;     // 0: the project's
     bool dither = true;          // automatic: whenever the bit depth is below 32-bit float
     ExportNormalise normalise = ExportNormalise::Off;
@@ -60,9 +67,30 @@ inline constexpr double kExportCeilingDbtp = -1.0;
 /// The sample rates offered besides the project's.
 inline constexpr double kExportRates[] = {44100.0, 48000.0, 88200.0, 96000.0};
 
+/// Every format, in the panel's order.
+inline constexpr ExportFormat kExportFormats[] = {ExportFormat::Wav, ExportFormat::Flac, ExportFormat::Aiff,
+                                                  ExportFormat::Mp3, ExportFormat::Ogg,  ExportFormat::Opus};
+/// MP3, Ogg and Opus: a bit rate, no bit depth, no dither (§17.1).
+[[nodiscard]] bool isLossy(ExportFormat format) noexcept;
+/// The bit depths a PCM format writes (none for a lossy one).
 [[nodiscard]] std::vector<int> bitDepthsFor(ExportFormat format);
+/// The bit rates a lossy format offers, in kbps (none for PCM): MP3's are constant, Ogg's about
+/// that (Vorbis's quality), Opus's its target.
+[[nodiscard]] std::vector<int> bitRatesFor(ExportFormat format);
+[[nodiscard]] int defaultBitRate(ExportFormat format);       // 320 MP3, 192 Ogg, 160 Opus; 0 for PCM
 [[nodiscard]] std::string extensionFor(ExportFormat format); // ".wav"
-[[nodiscard]] std::string formatName(ExportFormat format);   // "WAV"
+[[nodiscard]] std::string formatName(ExportFormat format);   // "WAV", "Ogg Vorbis"
+/// One file of an export: its format with its bit depth (PCM) or bit rate (lossy).
+struct ExportFileFormat
+{
+    ExportFormat format = ExportFormat::Wav;
+    int bitDepth = 24, kbps = 0;
+    friend bool operator==(const ExportFileFormat&, const ExportFileFormat&) = default;
+};
+/// The files each target writes: the format, then Also as's.
+[[nodiscard]] std::vector<ExportFileFormat> exportFormats(const ExportSettings& settings);
+/// "WAV 24-bit", "MP3 320 kbps", "Ogg Vorbis ≈192 kbps".
+[[nodiscard]] std::string formatLabel(const ExportFileFormat& format);
 /// The settings made valid: a bit depth the format writes (the nearest below), an offered rate,
 /// a sane loudness target.
 [[nodiscard]] ExportSettings validated(ExportSettings settings);

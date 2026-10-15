@@ -316,27 +316,57 @@ void addRenderTools(Registry& registry, ToolEnv& env)
     exporting.name = "export_audio";
     exporting.title = "Export audio files";
     exporting.description =
-        "Exports the mix, or tracks as stems, of the song (bar 1 to the last clip, then the tail until silent) or "
-        "the loop, as WAV, FLAC or AIFF, offline (playback goes on), and waits for the files. Stems are each track "
+        "Exports the mix, or tracks as stems, of the song (bar 1 to the last clip, then the tail until "
+        "silent) or "
+        "the loop, as WAV, FLAC, AIFF, MP3, Ogg Vorbis or Opus, offline (playback goes on), and waits for "
+        "the "
+        "files; alsoAs writes a second format of each from the same render (a master and an MP3). Stems are "
+        "each track "
         "(and, with all tracks, each return track) through its modules and fader, adding up to the mix; with "
-        "throughReturns, each track as heard through the returns and master. Dither is automatic below 32-bit "
+        "throughReturns, each track as heard through the returns and master. Dither is automatic below "
+        "32-bit "
         "float. normalise: \"off\", \"peak\" (true peak at -1 dBTP) or \"loudness\" (to target LUFS, -14 by "
-        "default, never above -1 dBTP). Unset arguments use the project's export settings (the export panel's), "
-        "which also say where the files go: the project's Exports folder, or the folder the user chose. Files are "
-        "never overwritten. Each file is reported with its loudness, true peak and clipping. Doesn't change the "
-        "project.";
-    exporting.inputSchema =
-        object({{"what", {{"type", "string"}, {"enum", Json::array({"mix", "tracks"})}, {"description", "The mix, or tracks as stems"}}},
-                {"tracks", ids(IdKind::Track, "The tracks or return tracks as stems (default: all of them)")},
-                {"throughReturns", boolean("Stems through the returns and master")},
-                {"range", {{"type", "string"}, {"enum", Json::array({"song", "loop"})}, {"description", "The song, or the loop"}}},
-                {"format", {{"type", "string"}, {"enum", Json::array({"wav", "flac", "aiff"})}, {"description", ""}}},
-                {"bitDepth", integer("16, 24, or 32 (float, WAV only)", 16, 32)},
-                {"sampleRate", number("44100, 48000, 88200 or 96000 (default: the project's)")},
-                {"dither", boolean("Dither below 32-bit float (default true)")},
-                {"normalise", {{"type", "string"}, {"enum", Json::array({"off", "peak", "loudness"})}, {"description", ""}}},
-                {"target", number("The loudness target in LUFS (normalise: loudness)")},
-                {"name", string("The file's name, without extension (default: the project's; stems add the track's)")}});
+        "default, never above -1 dBTP). Unset arguments use the project's export settings (the export "
+        "panel's), "
+        "which also say where the files go: the project's Exports folder, or the folder the user chose. "
+        "Files are "
+        "never overwritten. Each file is reported with its loudness, true peak and clipping; an MP3, Ogg or "
+        "Opus "
+        "file measured decoded, as listeners get it. Doesn't change the project.";
+    exporting.inputSchema = object(
+        {{"what",
+          {{"type", "string"},
+           {"enum", Json::array({"mix", "tracks"})},
+           {"description", "The mix, or tracks as stems"}}},
+         {"tracks", ids(IdKind::Track, "The tracks or return tracks as stems (default: all of them)")},
+         {"throughReturns", boolean("Stems through the returns and master")},
+         {"range",
+          {{"type", "string"},
+           {"enum", Json::array({"song", "loop"})},
+           {"description", "The song, or the loop"}}},
+         {"format",
+          {{"type", "string"},
+           {"enum", Json::array({"wav", "flac", "aiff", "mp3", "ogg", "opus"})},
+           {"description", ""}}},
+         {"bitDepth", integer("16, 24, or 32 (float, WAV only)", 16, 32)},
+         {"quality",
+          integer("A lossy format's bit rate in kbps: MP3 128, 192, 256, 320 (default 320, constant); Ogg "
+                  "about 128, 192, 256, 320 (default 192); Opus 96, 128, 160, 192, 256 (default 160)",
+                  96, 320)},
+         {"alsoAs", object({{"format",
+                             {{"type", "string"},
+                              {"enum", Json::array({"wav", "flac", "aiff", "mp3", "ogg", "opus"})},
+                              {"description", ""}}},
+                            {"bitDepth", integer("Its bit depth (PCM)", 16, 32)},
+                            {"quality", integer("Its bit rate in kbps (lossy)", 96, 320)}},
+                           {"format"})},
+         {"sampleRate", number("44100, 48000, 88200 or 96000 (default: the project's)")},
+         {"dither", boolean("Dither below 32-bit float (default true)")},
+         {"normalise",
+          {{"type", "string"}, {"enum", Json::array({"off", "peak", "loudness"})}, {"description", ""}}},
+         {"target", number("The loudness target in LUFS (normalise: loudness)")},
+         {"name",
+          string("The file's name, without extension (default: the project's; stems add the track's)")}});
     exporting.outputSchema =
         result({{"files", arrayOf(result({{"file", string("")}, {"track", {{"type", {"string", "null"}}}}}), "The files", std::nullopt)}},
                {"files"});
@@ -368,18 +398,53 @@ void addRenderTools(Registry& registry, ToolEnv& env)
                 s.throughReturns = args.value("throughReturns", s.throughReturns);
                 if (args.contains("range"))
                     s.range = args["range"] == "loop" ? model::ExportRange::Loop : model::ExportRange::Song;
+                const auto formatOf = [](const Json& name)
+                {
+                    for (const auto f : model::kExportFormats)
+                        if (model::extensionFor(f).substr(1) == name.get<std::string>())
+                            return f;
+                    return model::ExportFormat::Wav;
+                };
+                // A format's bit rate: one it offers, or say which.
+                const auto rateFor = [](model::ExportFormat format, int kbps)
+                {
+                    const auto rates = model::bitRatesFor(format);
+                    if (std::find(rates.begin(), rates.end(), kbps) == rates.end())
+                    {
+                        std::string list;
+                        for (const int r : rates)
+                            list += (list.empty() ? "" : ", ") + std::to_string(r);
+                        throw Problem{model::formatName(format) + " takes " + list + " kbps."};
+                    }
+                    return kbps;
+                };
                 if (args.contains("format"))
-                    s.format = args["format"] == "flac" ? model::ExportFormat::Flac
-                               : args["format"] == "aiff" ? model::ExportFormat::Aiff
-                                                          : model::ExportFormat::Wav;
+                    s.format = formatOf(args["format"]);
                 s.bitDepth = args.value("bitDepth", s.bitDepth);
+                if (model::isLossy(s.format))
+                    s.kbps = args.contains("quality") ? rateFor(s.format, args["quality"].get<int>())
+                                                      : model::validated(s).kbps;
+                if (args.contains("alsoAs"))
+                {
+                    const auto& also = args["alsoAs"];
+                    s.alsoAs = formatOf(also["format"]);
+                    if (*s.alsoAs == s.format)
+                        throw Problem{"alsoAs is a second format: not " + model::formatName(s.format) +
+                                      " again."};
+                    if (model::isLossy(*s.alsoAs))
+                        s.alsoKbps = also.contains("quality") ? rateFor(*s.alsoAs, also["quality"].get<int>())
+                                                              : model::defaultBitRate(*s.alsoAs);
+                    else
+                        s.alsoBitDepth = also.value("bitDepth", 24);
+                }
                 if (args.contains("sampleRate"))
                 {
                     s.sampleRate = args["sampleRate"].get<double>();
                     if (model::validated(s).sampleRate != s.sampleRate)
                         throw Problem{"Choose 44100, 48000, 88200 or 96000."};
                 }
-                if (const auto depths = model::bitDepthsFor(s.format); std::find(depths.begin(), depths.end(), s.bitDepth) == depths.end())
+                if (const auto depths = model::bitDepthsFor(s.format);
+                    !depths.empty() && std::find(depths.begin(), depths.end(), s.bitDepth) == depths.end())
                     throw Problem{model::formatName(s.format) + " holds 16 or 24 bits."};
                 s.dither = args.value("dither", s.dither);
                 if (args.contains("normalise"))
@@ -438,6 +503,7 @@ void addRenderTools(Registry& registry, ToolEnv& env)
             file["track"] = f.track.empty() ? Json(nullptr) : Json(f.track);
             file["seconds"] = f.measured.seconds;
             file["ceilingHeld"] = f.ceilingHeld;
+            file["encoded"] = f.file.hasFileExtension("mp3;ogg;opus"); // measured decoded
             files.push_back(std::move(file));
             summary += f.file.getFileName().toStdString() + ": " + describe(f.measured) + (f.ceilingHeld ? " (held by the -1 dBTP ceiling)" : "") + " ";
         }

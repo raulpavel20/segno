@@ -38,6 +38,8 @@ public:
     std::function<void(const juce::String&)> onMessage;
     /// An export finished: its files and their reports (the shell's toast, with Show).
     std::function<void(const engine::Session::ExportResult&)> onExported;
+    /// The report's Show in browser (export.md §17.3): the browser at the file.
+    std::function<void(const juce::File&)> onShowInBrowser;
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -54,11 +56,14 @@ private:
     void chooseFolder();
 
     engine::Session& session_;
-    juce::ComboBox what_, range_, format_, depth_, rate_, dither_, normalise_;
+    juce::ComboBox what_, range_, format_, depth_, quality_, rate_, dither_, normalise_;
+    /// A second format from the same render (export.md §17.2), and its bit depth or bit rate.
+    juce::ComboBox also_, alsoDetail_;
     ui::Toggle through_{"Through the returns and master"};
     ui::NumberField target_;
     juce::TextEditor name_;
-    juce::TextButton choose_{"Choose..."}, defaultFolder_{"Exports folder"}, export_{"Export"}, show_{"Show"};
+    juce::TextButton choose_{"Choose..."}, defaultFolder_{"Exports folder"}, export_{"Export"}, show_{"Show"},
+        inBrowser_{"Show in browser"};
     // What the song leaves to chance (ADR 0062): each export differs; Keep all as played beside it.
     juce::TextButton keepAll_{"Keep all as played"};
     std::unique_ptr<juce::FileChooser> chooser_;
@@ -71,7 +76,12 @@ private:
     juce::Rectangle<int> title_, folder_, extension_, report_, chance_, progressLine_;
     std::vector<std::pair<juce::String, juce::Rectangle<int>>> labels_;
     std::vector<int> separators_;
-    /// Rows shown only where they apply: through the returns (stems), the loudness target.
+    /// A format's bit depths or bit rates into `box`, the one in `settings` chosen.
+    static void fillDetail(juce::ComboBox& box, model::ExportFormat format, int bitDepth, int kbps);
+    /// Rows shown only where they apply: through the returns (stems), the loudness target, dither
+    /// (a PCM file below 32-bit float), the second format's detail.
+    [[nodiscard]] bool showsDither() const;
+    [[nodiscard]] bool showsAlsoDetail() const;
     [[nodiscard]] bool showsThrough() const;
     [[nodiscard]] bool showsTarget() const;
     /// What plays by chance ("2 clips and 1 modulator play by chance"), empty when nothing does.
@@ -81,5 +91,6 @@ public:
     /// The chance line and its Keep all as played, shown (tests).
     [[nodiscard]] bool showsChance() const { return chanceText().isNotEmpty(); }
     [[nodiscard]] juce::TextButton& keepAllButton() noexcept { return keepAll_; }
+    [[nodiscard]] juce::TextButton& inBrowserButton() noexcept { return inBrowser_; }
 };
 } // namespace fd::app

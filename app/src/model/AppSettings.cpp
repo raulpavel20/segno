@@ -58,6 +58,10 @@ const char* formatKey(RecordingFormat f)
         return "aiff";
     case RecordingFormat::Flac:
         return "flac";
+    case RecordingFormat::Mp3: // recordings are never lossy: these never reach a recording
+    case RecordingFormat::Ogg:
+    case RecordingFormat::Opus:
+        break;
     }
     return "wav";
 }

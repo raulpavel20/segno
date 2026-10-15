@@ -2256,6 +2256,26 @@ TEST_CASE("mcp tools: export audio with the project's settings, only where the u
     CHECK(r["content"][0]["text"].get<std::string>().find("loop") != std::string::npos);
     r = daw.callAway("export_audio", {{"format", "flac"}, {"bitDepth", 32}});
     REQUIRE(r["isError"] == true);
+
+    // MP3 at 256 kbps and a WAV beside it, from one render (C7, export.md §17); measured decoded.
+    r = daw.callAway("export_audio", {{"name", "Both"},
+                                      {"format", "mp3"},
+                                      {"quality", 256},
+                                      {"alsoAs", {{"format", "wav"}, {"bitDepth", 16}}}});
+    INFO(r.dump().substr(0, 2000));
+    REQUIRE(r["isError"] == false);
+    files = r["structuredContent"]["files"];
+    REQUIRE(files.size() == 2);
+    CHECK(juce::String(files[0]["file"].get<std::string>()).endsWith("Both.mp3"));
+    CHECK(files[0]["encoded"] == true);
+    CHECK(juce::String(files[1]["file"].get<std::string>()).endsWith("Both.wav"));
+    CHECK(files[1]["encoded"] == false);
+    // A bit rate the format doesn't offer, or the same format twice: said why.
+    r = daw.callAway("export_audio", {{"format", "opus"}, {"quality", 320}});
+    REQUIRE(r["isError"] == true);
+    CHECK(r["content"][0]["text"].get<std::string>().find("96, 128, 160, 192, 256") != std::string::npos);
+    r = daw.callAway("export_audio", {{"format", "ogg"}, {"alsoAs", {{"format", "ogg"}}}});
+    REQUIRE(r["isError"] == true);
 }
 
 TEST_CASE("mcp tools: tracks renamed, recoloured, moved, duplicated and deleted; clips renamed, recoloured, copied (C11)",

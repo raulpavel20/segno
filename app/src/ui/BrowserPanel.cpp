@@ -1165,20 +1165,7 @@ void BrowserPanel::activate(const Row& row)
         // A folder found: shown in its place, open.
         search_.setText({}, false);
         tags_.clear();
-        auto places = session_.browserPlaces();
-        places.push_back(session_.segnoFolder());
-        if (const auto library = session_.libraryFolder(); library != juce::File())
-            places.push_back(library);
-        if (const auto project = session_.projectFolderOnDisk())
-            places.push_back(*project);
-        for (const auto& place : places)
-            if (row.file == place || row.file.isAChildOf(place))
-            {
-                setOpen("place:" + str(place), true);
-                for (auto f = row.file; f != place && f.isAChildOf(place); f = f.getParentDirectory())
-                    setOpen("folder:" + str(f), true);
-                break;
-            }
+        openTo(row.file);
         selectedId_ = row.id;
         rebuildRows();
         scrollToRow(selected_);
@@ -1186,6 +1173,40 @@ void BrowserPanel::activate(const Row& row)
     }
     if (row.opens)
         toggle(row.id);
+}
+
+bool BrowserPanel::openTo(const juce::File& file)
+{
+    auto places = session_.browserPlaces();
+    places.push_back(session_.segnoFolder());
+    if (const auto library = session_.libraryFolder(); library != juce::File())
+        places.push_back(library);
+    if (const auto project = session_.projectFolderOnDisk())
+        places.push_back(*project);
+    for (const auto& place : places)
+        if (file == place || file.isAChildOf(place))
+        {
+            setOpen("place:" + str(place), true);
+            for (auto f = file; f != place && f.isAChildOf(place); f = f.getParentDirectory())
+                if (f.isDirectory())
+                    setOpen("folder:" + str(f), true);
+            return true;
+        }
+    return false;
+}
+
+bool BrowserPanel::reveal(const juce::File& file)
+{
+    search_.setText({}, false);
+    tags_.clear();
+    if (!openTo(file.getParentDirectory()))
+        return false;
+    session_.refreshBrowser(file.getParentDirectory()); // a file just written: looked at again
+    showPart(Part::Places);
+    selectedId_ = "file:" + str(file);
+    rebuildRows();
+    scrollToRow(selected_);
+    return true;
 }
 
 void BrowserPanel::loadSelected()

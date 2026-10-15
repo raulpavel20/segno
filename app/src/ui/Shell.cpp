@@ -55,6 +55,13 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
         return out;
     };
     exportPanel_.onMessage = [this](const juce::String& m) { showWarning(m); };
+    // Show in browser (export.md §17.3): the project's Exports, the file selected, to drag in.
+    exportPanel_.onShowInBrowser = [this](const juce::File& file)
+    {
+        openPanel(browserPanel_);
+        if (!browser_.reveal(file))
+            showWarning("That folder isn't one of the browser's places: add it there to see it");
+    };
     exportPanel_.onExported = [this](const engine::Session::ExportResult& r) {
         if (r.cancelled)
         {

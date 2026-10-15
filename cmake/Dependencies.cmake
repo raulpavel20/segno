@@ -18,6 +18,7 @@
 # | libFLAC               | 1.5.0            | BSD-3-Clause       | tools/library (encoding)     |
 # | VSCO 2 CE (samples)   | 28092772 (1.1.0) | CC0-1.0            | the Library (segno-library)  |
 # | VCSL (samples)        | c1ea7bcc         | CC0-1.0            | the Library (segno-library)  |
+# | LAME (MP3 encoder)    | 3.100            | LGPL-2.0-or-later  | app (MP3 export, export.md §17) |
 
 # --- Core (always) ---------------------------------------------------------
 
@@ -141,6 +142,33 @@ if(FD_BUILD_APP)
         URL https://github.com/yhirose/cpp-httplib/archive/refs/tags/v0.57.1.tar.gz
         URL_HASH SHA256=5c9e56b6638eb415dc451ac57531e84931fcb50e261ca3dd74eec6b484fb4712
         DOWNLOAD_ONLY YES)
+    # The MP3 encoder (export.md §17, EX7): LAME's library built from its pinned source and linked
+    # in, so MP3 exports work the same on every machine. LGPL-2.0-or-later, which the GPL (and so
+    # Segno's AGPL) can take; its source is the tarball below, unchanged. The encoder only (no
+    # mpglib decoder, front end or assembly); cmake/lame/config.h stands in for its configure.
+    CPMAddPackage(
+        NAME lame
+        URL https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
+        URL_HASH SHA256=ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e
+        DOWNLOAD_ONLY YES)
+    set(lame_lib "${lame_SOURCE_DIR}/libmp3lame")
+    add_library(fd_dep_lame STATIC
+        "${lame_lib}/VbrTag.c" "${lame_lib}/bitstream.c" "${lame_lib}/encoder.c" "${lame_lib}/fft.c"
+        "${lame_lib}/gain_analysis.c" "${lame_lib}/id3tag.c" "${lame_lib}/lame.c" "${lame_lib}/newmdct.c"
+        "${lame_lib}/presets.c" "${lame_lib}/psymodel.c" "${lame_lib}/quantize.c" "${lame_lib}/quantize_pvt.c"
+        "${lame_lib}/reservoir.c" "${lame_lib}/set_get.c" "${lame_lib}/tables.c" "${lame_lib}/takehiro.c"
+        "${lame_lib}/util.c" "${lame_lib}/vbrquantize.c" "${lame_lib}/version.c")
+    target_include_directories(fd_dep_lame
+        PRIVATE "${CMAKE_CURRENT_LIST_DIR}/lame" "${lame_lib}"
+        SYSTEM PUBLIC "${lame_SOURCE_DIR}/include")
+    target_compile_definitions(fd_dep_lame PRIVATE HAVE_CONFIG_H NDEBUG)
+    # Third-party C: its own warnings are its own.
+    target_compile_options(fd_dep_lame PRIVATE $<$<C_COMPILER_ID:Clang,AppleClang,GNU>:-w> $<$<C_COMPILER_ID:MSVC>:/w>)
+    set_target_properties(fd_dep_lame PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    if(NOT WIN32)
+        target_link_libraries(fd_dep_lame PRIVATE m)
+    endif()
+
     find_package(Threads REQUIRED)
     add_library(fd_dep_httplib INTERFACE)
     target_include_directories(fd_dep_httplib SYSTEM INTERFACE "${cpp_httplib_SOURCE_DIR}")

@@ -2932,11 +2932,45 @@ TEST_CASE("export: Ctrl+Shift+E opens the panel, Enter exports in the background
     }
     // A choice is the project's at once; a format holds only its depths.
     auto boxes = findAll<juce::ComboBox>(panel);
-    REQUIRE(boxes.size() == 7); // what, range, format, depth, rate, dither, normalise
+    // what, range, format, depth, quality, rate, dither, normalise, also as, its detail
+    REQUIRE(boxes.size() == 10);
     boxes[2]->setSelectedId(2, juce::sendNotificationSync); // FLAC
     CHECK(s.exportSettings().format == fd::model::ExportFormat::Flac);
     CHECK_FALSE(boxes[3]->isItemEnabled(32));
     boxes[2]->setSelectedId(1, juce::sendNotificationSync); // WAV again
+    // MP3 (export.md §17): Quality in Bit depth's place, no Dither; Also as WAV: its depth's row.
+    {
+        const int wavHeight = panel.getHeight();
+        boxes[2]->setSelectedId(4, juce::sendNotificationSync);
+        CHECK(s.exportSettings().format == fd::model::ExportFormat::Mp3);
+        CHECK(s.exportSettings().kbps == 320);
+        CHECK(boxes[4]->isVisible());
+        CHECK_FALSE(boxes[3]->isVisible());
+        CHECK_FALSE(boxes[6]->isVisible()); // dither: no PCM file
+        CHECK(panel.getHeight() == wavHeight - fd::ui::Theme::current().shell.rowHeight);
+        boxes[8]->setSelectedId(static_cast<int>(fd::model::ExportFormat::Wav) + 2,
+                                juce::sendNotificationSync);
+        REQUIRE(s.exportSettings().alsoAs == fd::model::ExportFormat::Wav);
+        CHECK(boxes[9]->isVisible());
+        CHECK(boxes[6]->isVisible()); // the WAV is dithered
+        CHECK_FALSE(boxes[8]->isItemEnabled(static_cast<int>(fd::model::ExportFormat::Mp3) + 2));
+        const auto inside = panel.getLocalBounds().reduced(fd::ui::Theme::current().shell.padding);
+        std::vector<juce::Rectangle<int>> shown;
+        for (auto* child : panel.getChildren())
+            if (child->isVisible())
+            {
+                CHECK(inside.contains(child->getBounds()));
+                for (const auto& other : shown)
+                    CHECK_FALSE(other.intersects(child->getBounds()));
+                shown.push_back(child->getBounds());
+            }
+        if (const char* dump = std::getenv("FD_DUMP_DIR"))
+            dumpPng(dump, "export-mp3-also-wav@2x.png",
+                    panel.createComponentSnapshot(panel.getLocalBounds(), true, 2.0f));
+        boxes[8]->setSelectedId(1, juce::sendNotificationSync);
+        boxes[2]->setSelectedId(1, juce::sendNotificationSync);
+        CHECK(panel.getHeight() == wavHeight);
+    }
     if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: the panel, and the window
     {
         dumpPng(dump, "export-panel@2x.png", panel.createComponentSnapshot(panel.getLocalBounds(), true, 2.0f));
@@ -2945,12 +2979,12 @@ TEST_CASE("export: Ctrl+Shift+E opens the panel, Enter exports in the background
     // Stems and a loudness target: their rows appear, and the panel grows to hold them.
     const int small = panel.getHeight();
     boxes[0]->setSelectedId(3, juce::sendNotificationSync); // all tracks
-    boxes[6]->setSelectedId(3, juce::sendNotificationSync); // loudness
+    boxes[7]->setSelectedId(3, juce::sendNotificationSync); // loudness
     CHECK(panel.getHeight() == small + 2 * fd::ui::Theme::current().shell.rowHeight);
     if (const char* dump = std::getenv("FD_DUMP_DIR"))
         dumpPng(dump, "export-stems@2x.png", panel.createComponentSnapshot(panel.getLocalBounds(), true, 2.0f));
     boxes[0]->setSelectedId(1, juce::sendNotificationSync);
-    boxes[6]->setSelectedId(1, juce::sendNotificationSync);
+    boxes[7]->setSelectedId(1, juce::sendNotificationSync);
     CHECK(panel.getHeight() == small);
 
     // Enter: it exports in the background; the panel shows its progress, then its report.
@@ -2962,6 +2996,11 @@ TEST_CASE("export: Ctrl+Shift+E opens the panel, Enter exports in the background
     CHECK(s.exportsFolder().getChildFile("Untitled.wav").existsAsFile());
     CHECK(f.shell->lastWarning().startsWith("Exported Untitled.wav"));
     CHECK(f.shell->lastWarning().contains("LUFS"));
+    // Show in browser (§17.3): the browser at the file, in the project's Exports.
+    REQUIRE(panel.inBrowserButton().isVisible());
+    panel.inBrowserButton().onClick();
+    CHECK(f.shell->browser().selected() ==
+          "file:" + s.exportsFolder().getChildFile("Untitled.wav").getFullPathName().toStdString());
     if (const char* dump = std::getenv("FD_DUMP_DIR")) // for review: the report, and the toast
     {
         dumpPng(dump, "export-report@2x.png", panel.createComponentSnapshot(panel.getLocalBounds(), true, 2.0f));
