@@ -1046,8 +1046,12 @@ void SettingsView::addPlugins()
         {
             const auto all = session_.availableDevices();
             const auto n = std::count_if(all.begin(), all.end(), [](const auto& d) { return !d.native; });
+            // While scanning, the file being looked at (M3 C5).
+            const auto now = session_.scanningNow();
             found.setText(session_.isScanning()
-                              ? juce::String::fromUTF8("Scanning\xE2\x80\xA6")
+                              ? juce::String::fromUTF8("Scanning ") +
+                                    juce::File(now).getFileNameWithoutExtension() +
+                                    juce::String::fromUTF8("\xE2\x80\xA6")
                               : juce::String(n) + (n == 1 ? " plugin found" : " plugins found"));
             b.setEnabled(!session_.isScanning());
         };

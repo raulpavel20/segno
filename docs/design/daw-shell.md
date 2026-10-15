@@ -306,11 +306,10 @@ The UI calls instruments and effects **modules** ([ADR 0022](../decisions/0022-m
 - **Header controls** fill the track header kit's slots: mute and solo (not on the master), volume and pan bars (values only; from 80 px tall), and the meter on the right edge. They are shared components (`ui/ChannelControls`) on a layer that clips to the header column, one set per channel, placed every frame from the layout.
 - **Inspector:** titled sections with a line between them ([selection.md](selection.md) §5): the clip (if one is selected), the track, return or master, then MIX (volume and pan bars with the meter, mute and solo) and, for a track, SENDS (a bar and a Pre switch per return, or "Add return track").
 - **Snapshots** ignore device parameter and state changes (only a device's power state and sidechain source show), so turning a knob never rebuilds the arrangement.
-- **Scanning** (`Ctrl+Alt+P`): VST3, plus LV2 on Linux, in the default folders.
-  - One file per tick on the message thread, as JUCE's own plugin list does, because some formats must load there.
-  - A plugin that crashes the scan is skipped next time (JUCE's dead man's pedal).
+- **Scanning** (`Ctrl+Alt+P`): VST3, plus LV2 on Linux, in the default folders and yours (Settings > Plugins).
+  - **In a child process** (M3 C5, `engine::PluginScan`): tracktion hands each VST3 to Segno's own binary run as a scanner (`PluginScan::serveAsChild`, first thing at start-up), so a plugin that crashes takes only the child down. It's tried once more in a fresh child, then skipped: it joins the skipped list (Settings > Plugins, with Try again) and the scan goes on. LV2 is described in the DAW's process, where JUCE's dead man's pedal skips one that crashed it, next time.
+  - **In the background:** the scan runs on a thread of its own, so the window stays responsive. Settings > Plugins shows the file being looked at; a toast says when it starts and what it found ("Plugin scan finished: 41 plugins, 1 skipped").
   - Results persist through tracktion's settings.
-  - Scanning in a separate process is M3.
 
 ## Transport (C5)
 

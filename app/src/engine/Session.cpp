@@ -2,6 +2,7 @@
 #include "engine/ClipNotes.h"
 #include "engine/DevicePlugin.h"
 #include "engine/EngineBehaviour.h"
+#include "engine/PluginScan.h"
 #include "engine/SessionImpl.h"
 #include "engine/SongKey.h"
 #include "model/NoteEditing.h"
@@ -325,62 +326,6 @@ void placeClip(te::Clip& clip, double start, double length, double offset)
     clip.setPosition({{te::TimePosition::fromSeconds(start), te::TimePosition::fromSeconds(start + length)},
                       te::TimeDuration::fromSeconds(model::phaseOf(offset, loop))});
 }
-
-/// Scans plugin folders one file per tick on the message thread (some formats must load there;
-/// JUCE's own list does the same). A crash mid-scan is remembered by the dead man's pedal file
-/// and that plugin is skipped next time.
-class PluginScanner final : private juce::Timer
-{
-public:
-    PluginScanner(te::Engine& engine, const std::vector<std::string>& folders,
-                  std::function<void(const juce::String&)> progress, std::function<void(int)> done)
-        : engine_(engine), progress_(std::move(progress)), done_(std::move(done))
-    {
-        auto& pm = engine_.getPluginManager();
-        const auto pedal = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-                               .getChildFile(ui::brand::name)
-                               .getChildFile("plugin-scan-in-progress.txt");
-        pedal.getParentDirectory().createDirectory();
-        for (auto* format : pm.pluginFormatManager.getFormats())
-            if (format->canScanForPlugins() && !format->getName().containsIgnoreCase("internal"))
-            {
-                // The system's folders, and yours (Settings > Plugins).
-                auto path = format->getDefaultLocationsToSearch();
-                for (const auto& folder : folders)
-                    if (const juce::File f(juce::String::fromUTF8(folder.c_str())); f.isDirectory())
-                        path.addIfNotAlreadyThere(f);
-                scanners_.push_back(std::make_unique<juce::PluginDirectoryScanner>(
-                    pm.knownPluginList, *format, path, true, pedal, false));
-            }
-        startTimer(5);
-    }
-
-    [[nodiscard]] bool isDone() const noexcept { return scanners_.empty(); }
-
-private:
-    void timerCallback() override
-    {
-        if (scanners_.empty())
-            return;
-        auto& scanner = *scanners_.front();
-        if (progress_)
-            progress_(scanner.getNextPluginFileThatWillBeScanned());
-        juce::String name;
-        if (!scanner.scanNextFile(true, name))
-            scanners_.erase(scanners_.begin());
-        if (scanners_.empty())
-        {
-            stopTimer();
-            if (done_)
-                done_(engine_.getPluginManager().knownPluginList.getNumTypes());
-        }
-    }
-
-    te::Engine& engine_;
-    std::function<void(const juce::String&)> progress_;
-    std::function<void(int)> done_;
-    std::vector<std::unique_ptr<juce::PluginDirectoryScanner>> scanners_;
-};
 
 // ---- Impl ---------------------------------------------------------------------------------
 
@@ -2227,17 +2172,28 @@ void Session::showPluginEditor(std::uint64_t deviceId)
         p->showWindowExplicitly();
 }
 
-void Session::scanPlugins(std::function<void(const juce::String&)> onProgress, std::function<void(int)> onDone)
+void Session::scanPlugins(std::function<void(const juce::String&)> onProgress,
+                          std::function<void(ScanResult)> onDone)
 {
     if (isScanning())
         return;
-    impl_->scanner = std::make_unique<PluginScanner>(impl_->engine, impl_->pluginFolders,
-                                                     std::move(onProgress), std::move(onDone));
+    impl_->scanner = std::make_unique<PluginScan>(
+        impl_->engine, PluginScan::Options{.folders = impl_->pluginFolders}, std::move(onProgress),
+        [done = std::move(onDone)](PluginScan::Result r)
+        {
+            if (done)
+                done({r.found, r.skipped});
+        });
 }
 
 bool Session::isScanning() const
 {
-    return impl_->scanner != nullptr && !static_cast<PluginScanner*>(impl_->scanner.get())->isDone();
+    return impl_->scanner != nullptr && !impl_->scanner->isDone();
+}
+
+juce::String Session::scanningNow() const
+{
+    return isScanning() ? impl_->scanner->current() : juce::String();
 }
 
 // ---- projects ------------------------------------------------------------------------------

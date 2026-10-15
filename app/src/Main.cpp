@@ -1,20 +1,19 @@
 // Segno: the DAW. See docs/design/daw-shell.md.
 
 #include "engine/AppBehaviour.h"
-#include "engine/EngineBehaviour.h"
 #include "engine/DevicePlugin.h"
+#include "engine/EngineBehaviour.h"
+#include "engine/PluginScan.h"
 #include "engine/Session.h"
 #include "mcp/McpServer.h"
 #include "mcp/transport/StdioRelay.h"
 #include "ui/WindowContent.h"
 
-#include <juce_opengl/juce_opengl.h>
-
-#include <nlohmann/json.hpp>
-
 #include <csignal>
 #include <cstdio>
 #include <iostream>
+#include <juce_opengl/juce_opengl.h>
+#include <nlohmann/json.hpp>
 #include <thread>
 
 #if JUCE_WINDOWS
@@ -293,6 +292,9 @@ public:
 
     void initialise(const juce::String& commandLine) override
     {
+        // Launched by a plugin scan as its child (M3 C5): only that, until the scan lets it go.
+        if (fd::engine::PluginScan::serveAsChild(commandLine))
+            return;
         const auto args = juce::StringArray::fromTokens(commandLine, true);
         // --mcp-stdio: an assistant launched this process to talk MCP over standard input and
         // output (mcp.md §1). It relays to a running DAW, or runs one headless (B21).
@@ -312,8 +314,9 @@ public:
         juce::LookAndFeel::setDefaultLookAndFeel(&lnf_);
         auto behaviour = std::make_unique<fd::engine::AppBehaviour>();
         behaviour_ = behaviour.get();
-        engine_ = std::make_unique<tracktion::Engine>(fd::ui::brand::name, std::move(behaviour),
-                                                      fd::engine::makeEngineBehaviour());
+        engine_ = std::make_unique<tracktion::Engine>(
+            fd::ui::brand::name, std::move(behaviour),
+            fd::engine::makeEngineBehaviour({.scanPluginsOutOfProcess = true}));
         fd::engine::registerDevices(*engine_);
         session_ = std::make_unique<fd::engine::Session>(*engine_);
         session_->preferAudioServerOnFirstLaunch();

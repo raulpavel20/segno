@@ -7,14 +7,21 @@ function(fd_add_test)
     if(NOT FD_BUILD_TESTS)
         return()
     endif()
-    cmake_parse_arguments(ARG "JUCE" "NAME" "SOURCES;LIBS" ${ARGN})
+    # OWN_MAIN: the sources bring main() (it runs Catch2's session), for a binary that must also
+    # serve as something else (the plugin scan's child process, M3 C5).
+    cmake_parse_arguments(ARG "JUCE;OWN_MAIN" "NAME" "SOURCES;LIBS" ${ARGN})
     add_executable(${ARG_NAME} ${ARG_SOURCES})
     if(ARG_JUCE)
         set(warnings fd::warnings_juce)
     else()
         set(warnings fd::warnings)
     endif()
-    target_link_libraries(${ARG_NAME} PRIVATE Catch2::Catch2WithMain ${warnings} ${ARG_LIBS})
+    if(ARG_OWN_MAIN)
+        set(catch Catch2::Catch2)
+    else()
+        set(catch Catch2::Catch2WithMain)
+    endif()
+    target_link_libraries(${ARG_NAME} PRIVATE ${catch} ${warnings} ${ARG_LIBS})
     # Catch2 exits with 4 when every selected test was skipped (SKIP()).
     # Tests never read or write your presets (ADR 0044) or your Segno folder (the browser, ADR
     # 0046): a folder of their own (the presets' parent is the Segno folder), unless a test sets

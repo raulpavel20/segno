@@ -70,7 +70,8 @@ target_sources(fd_engine INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/PreviewPlayer.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/PresetPreview.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/MidiTap.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/PluginWindow.cpp")
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/PluginWindow.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/PluginScan.cpp")
 target_include_directories(fd_engine INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(fd_engine INTERFACE
     tracktion::tracktion_engine tracktion::tracktion_graph tracktion::tracktion_core

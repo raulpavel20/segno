@@ -22,7 +22,7 @@ namespace fd::engine
 {
 namespace te = tracktion;
 
-class PluginScanner;
+class PluginScan;
 class DevicePlugin;
 
 template <typename PluginType>
@@ -113,7 +113,7 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// A chain's user devices, in order (without the mixer's plugins: volume, meter, sends).
     [[nodiscard]] static std::vector<te::Plugin*> chain(te::PluginList& list);
 
-    std::unique_ptr<PluginScanner> scanner;
+    std::unique_ptr<PluginScan> scanner;
 
     // The browser (C2, ADR 0046): the index of the places, the preview, and every file a clip or
     // take has used since the project opened (Remove unused files leaves those).

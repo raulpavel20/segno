@@ -179,7 +179,7 @@ The project, track, clip and module resources send change notifications when the
 | `load_preset` | `module`, `preset` (id or name), `source?` (factory, yours) | Loads it into the setting shown; one undo step |
 | `save_preset` | `module`, `name`, `tags?`, `description?`, `author?`, `replace?` | Saves one of yours (refused for a name in use unless `replace`); assistants never delete presets |
 | `compare` | `module`, `action` (switch, copy) | A/B: which shows now |
-| `scan_plugins` | – | The number found; long, so it runs as a task with progress |
+| `scan_plugins` | – | The number found, and how many it skipped (they crashed the scan's child process, M3 C5); long, so it runs as a task with progress |
 | `search` | `query`, `kinds?`, `limit?` (20) | What the browser finds ([browser.md](browser.md) §6): modules, presets, plugins, and the samples, multisamples, wavetables, MIDI files, projects and folders in its places, best first, each with an id the other tools take (a module's `type`, a preset's id, a file's `path`). Read-only |
 | `browse` | `folder?` | The browser's places, or what's in one of their folders (folders, and files with their length and tempo when known). Read-only |
 | `preview` | `item` (an id or a path), `stop?` | Plays it for the person as the browser would: a sample (in time with the song when it fits), a MIDI file on the live MIDI track, an instrument preset's phrase. Allowed in read-only mode |

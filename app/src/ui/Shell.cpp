@@ -1749,11 +1749,25 @@ void Shell::registerActions()
                   .name = asks("Remove unused files"),
                   .category = "File",
                   .perform = [this] { removeUnusedFiles(); }});
-    actions_.add({.id = "app.scanPlugins", .name = "Scan for plugins", .category = "App", .keys = {key('p', kCmd | kAlt)},
-                  .perform = [this] {
-                      showWarning("Scanning for plugins...");
-                      session_.scanPlugins([this](const juce::String& file) { showWarning("Scanning " + juce::File(file).getFileName()); },
-                                           [this](int found) { showWarning("Plugin scan finished: " + juce::String(found) + " plugins"); });
+    actions_.add({.id = "app.scanPlugins",
+                  .name = "Scan for plugins",
+                  .category = "App",
+                  .keys = {key('p', kCmd | kAlt)},
+                  .perform =
+                      [this]
+                  {
+                      // In the background (M3 C5): Settings > Plugins shows the file being looked at.
+                      showWarning(juce::String::fromUTF8("Scanning for plugins\xE2\x80\xA6"));
+                      session_.scanPlugins({},
+                                           [this](engine::Session::ScanResult r)
+                                           {
+                                               auto text = "Plugin scan finished: " + juce::String(r.found) +
+                                                           (r.found == 1 ? " plugin" : " plugins");
+                                               if (r.skipped > 0)
+                                                   text << ", " << r.skipped
+                                                        << " skipped (Settings > Plugins lists them)";
+                                               showWarning(text);
+                                           });
                   },
                   .isEnabled = [this] { return !session_.isScanning(); }});
     actions_.add({.id = "app.settings",

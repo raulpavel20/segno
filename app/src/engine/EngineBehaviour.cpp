@@ -10,6 +10,10 @@ namespace
 class Behaviour final : public tracktion::EngineBehaviour
 {
 public:
+    explicit Behaviour(EngineOptions options) : options_(options) {}
+
+    bool canScanPluginsOutOfProcess() override { return options_.scanPluginsOutOfProcess; }
+
     bool shouldProcessAuxSendWhenTrackIsMuted(tracktion::AuxSendPlugin& send) override
     {
         return send.edit.state.getProperty(sendsWhileMutedId, false);
@@ -50,12 +54,15 @@ public:
     }
 
     RecordingFiles files;
+
+private:
+    EngineOptions options_;
 };
 } // namespace
 
-std::unique_ptr<tracktion::EngineBehaviour> makeEngineBehaviour()
+std::unique_ptr<tracktion::EngineBehaviour> makeEngineBehaviour(EngineOptions options)
 {
-    return std::make_unique<Behaviour>();
+    return std::make_unique<Behaviour>(options);
 }
 
 void setRecordingFiles(tracktion::Engine& engine, RecordingFiles files)

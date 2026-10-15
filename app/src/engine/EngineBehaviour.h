@@ -17,8 +17,15 @@ namespace fd::engine
 ///   spare audio past their edges (ADR 0036, the clip-playback patch);
 /// - a MIDI clip's notes left to chance play or not, and their velocity spreads, rolled again
 ///   each pass and each lap of the loop, or as kept: the same in playback, a bounce and an export
-///   then (piano-roll.md §26, ClipChance.h).
-[[nodiscard]] std::unique_ptr<tracktion::EngineBehaviour> makeEngineBehaviour();
+///   then (piano-roll.md §26, ClipChance.h);
+/// - with `scanPluginsOutOfProcess`, plugins are scanned in a child process, so one that crashes
+///   takes only that process down (M3 C5, PluginScan.h). The app sets it; tests that don't scan
+///   leave it off, as their binary can't serve as the child.
+struct EngineOptions
+{
+    bool scanPluginsOutOfProcess = false;
+};
+[[nodiscard]] std::unique_ptr<tracktion::EngineBehaviour> makeEngineBehaviour(EngineOptions options = {});
 
 /// On an Edit's root: its muted tracks still feed the return tracks. Only render copies that
 /// export a return track's stem set it (export.md §12): the tracks sending to it are muted there

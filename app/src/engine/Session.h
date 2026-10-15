@@ -873,12 +873,20 @@ public:
     /// Opens a third-party plugin's own editor window.
     void showPluginEditor(std::uint64_t deviceId);
 
-    /// Scans the default VST3 (and LV2 on Linux) folders on a background thread. A plugin that
-    /// crashes the scan is skipped next time (dead man's pedal). Callbacks run on the message
-    /// thread.
+    /// What a plugin scan found: the plugins known after it, and the files it skipped (they
+    /// crashed the scan's child process, or couldn't be read).
+    struct ScanResult
+    {
+        int found = 0, skipped = 0;
+    };
+    /// Scans the system's VST3 (and LV2 on Linux) folders and yours on a thread of its own
+    /// (PluginScan, M3 C5): a plugin that crashes takes only the scan's child process down, and
+    /// is skipped from then on. Callbacks run on the message thread.
     void scanPlugins(std::function<void(const juce::String& current)> onProgress,
-                     std::function<void(int found)> onDone);
+                     std::function<void(ScanResult)> onDone);
     [[nodiscard]] bool isScanning() const;
+    /// The file the scan is looking at now (empty when none).
+    [[nodiscard]] juce::String scanningNow() const;
     /// Folders scanned besides the system's (Settings > Plugins).
     void setPluginFolders(std::vector<std::string> folders);
     [[nodiscard]] const std::vector<std::string>& pluginFolders() const;

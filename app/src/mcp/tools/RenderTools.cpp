@@ -32,7 +32,7 @@ struct Waiter
     std::condition_variable changed;
     bool done = false;
     std::string error;
-    int found = 0;
+    int found = 0, skipped = 0;
     std::string current;
 
     void finish(std::string e = {}, int n = 0)
@@ -570,7 +570,10 @@ void addRenderTools(Registry& registry, ToolEnv& env)
     scan.description = "Scans the standard plugin folders for third-party instruments and effects (VST3, and LV2 on "
                        "Linux), so they can be added with add_module. Can take a minute; reports progress.";
     scan.inputSchema = object({});
-    scan.outputSchema = result({{"found", integer("Plugins known after the scan")}}, {"found"});
+    scan.outputSchema =
+        result({{"found", integer("Plugins known after the scan")},
+                {"skipped", integer("Files skipped: they crashed the scan, or couldn't be read")}},
+               {"found"});
     scan.annotations.idempotent = true;
     scan.call = [&env](const Json&, CallContext& context) -> ToolResult {
         auto waiter = std::make_shared<Waiter>();
@@ -582,11 +585,19 @@ void addRenderTools(Registry& registry, ToolEnv& env)
                 return;
             }
             env.session.scanPlugins(
-                [waiter](const juce::String& current) {
+                [waiter](const juce::String& current)
+                {
                     std::lock_guard lock(waiter->mutex);
                     waiter->current = current.toStdString();
                 },
-                [waiter](int found) { waiter->finish({}, found); });
+                [waiter](engine::Session::ScanResult r)
+                {
+                    {
+                        std::lock_guard lock(waiter->mutex);
+                        waiter->skipped = r.skipped;
+                    }
+                    waiter->finish({}, r.found);
+                });
         });
         if (!ran)
             return ToolResult::error("The DAW is closing.");
@@ -605,8 +616,12 @@ void addRenderTools(Registry& registry, ToolEnv& env)
             if (!env.main.isOpen())
                 return ToolResult::error("The DAW is closing.");
         }
-        return ToolResult::ok({{"found", waiter->found}},
-                              std::to_string(waiter->found) + " plugins are known; list_module_types lists them.");
+        return ToolResult::ok(
+            {{"found", waiter->found}, {"skipped", waiter->skipped}},
+            std::to_string(waiter->found) + " plugins are known; list_module_types lists them." +
+                (waiter->skipped > 0 ? " " + std::to_string(waiter->skipped) +
+                                           " skipped: they crashed the scan or couldn't be read."
+                                     : std::string()));
     };
     registry.tools.push_back(std::move(scan));
 }
