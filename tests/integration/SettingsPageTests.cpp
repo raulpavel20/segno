@@ -122,8 +122,22 @@ void checkLayout(fd::app::SettingsView& view)
             placed.push_back(c->getBounds());
         }
     const auto& s = fd::ui::Theme::current().shell;
+    const auto widthOf = [](fd::ui::TextStyle style, const std::string& text)
+    {
+        return juce::GlyphArrangement::getStringWidth(fd::ui::font(style),
+                                                      juce::String::fromUTF8(text.c_str()));
+    };
     for (const auto& id : view.shownSettings())
     {
+        // Its name and description whole: neither is cut short.
+        if (const auto* info = fd::model::findSetting(id))
+        {
+            INFO(id);
+            CHECK(widthOf(fd::ui::TextStyle::Body, info->name) <=
+                  static_cast<float>(s.settingsLabelWidth - s.groupGap));
+            CHECK(widthOf(fd::ui::TextStyle::Caption, info->description) <=
+                  static_cast<float>(view.rowBounds(id).getWidth()));
+        }
         const auto label = view.rowBounds(id).withWidth(s.settingsLabelWidth - s.itemGap);
         for (auto* c : view.controlsOf(id))
             if (c->isVisible())

@@ -188,6 +188,9 @@ class HeaderBadge final : public juce::Component, public juce::SettableTooltipCl
 public:
     HeaderBadge(std::function<juce::String()> text, std::function<juce::String()> tooltip,
                 juce::String widest);
+    /// Says `text` (empty: nothing) with `tooltip`, for a badge made without a text function
+    /// (a host's notice, DevicePanel::setHostNotice): refresh() then leaves it as it is.
+    void show(juce::String text, juce::String tooltip);
     /// The delay a module adds, while it adds one, and what that means for playing live.
     [[nodiscard]] static std::unique_ptr<HeaderBadge> latency(juce::String moduleName,
                                                               std::function<double()> latencyMs);

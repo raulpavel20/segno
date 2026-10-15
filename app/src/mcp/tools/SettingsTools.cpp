@@ -80,6 +80,12 @@ Json settingsJson(ToolEnv& env)
             std::round(10000.0 * d->getCurrentBufferSizeSamples() / d->getCurrentSampleRate()) / 10.0;
         audio["sampleRates"] = std::move(rates);
         audio["buffers"] = std::move(buffers);
+        // The channels in use, by name (what measure_latency plays on and listens to), and what
+        // the interface reports as its latency.
+        const auto channels = session.activeChannels();
+        audio["outputChannels"] = channels.outputs;
+        audio["inputChannels"] = channels.inputs;
+        audio["reportedLatencyMs"] = std::round(10.0 * session.reportedLatencyMs()) / 10.0;
     }
     else
         audio["output"] = nullptr;
@@ -157,7 +163,8 @@ void addSettingsTools(Registry& registry, ToolEnv& env)
                                    "The settings Segno keeps for every project (Settings, Ctrl+,), by "
                                    "section: audio (the driver, devices, sample "
                                    "rate, buffer and the latency it makes, and the rates and buffers "
-                                   "offered), MIDI inputs, recording (file format, "
+                                   "offered, the channels in use and the latency the interface reports), "
+                                   "MIDI inputs, recording (file format, "
                                    "bit depth, count-in, offsets), library folders, plugin folders and "
                                    "skipped plugins, a new project's export "
                                    "settings, the shortcuts changed from their defaults, the interface's "

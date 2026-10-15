@@ -1,8 +1,13 @@
 // Recording (M2 step C5, docs/design/recording.md §12): inputs, arming and recording passes.
 
 #include "mcp/tools/Tools.h"
-
+#include "model/RoundTrip.h"
 #include "model/Takes.h"
+
+#include <chrono>
+#include <cmath>
+#include <condition_variable>
+#include <mutex>
 
 namespace fd::mcp
 {
@@ -210,6 +215,146 @@ void addRecordingTools(Registry& registry, ToolEnv& env)
                     armed.push_back(formatId(IdKind::Track, t.id));
             return ToolResult::ok({{"armed", armed}}, std::to_string(armed.size()) + " tracks armed.");
         }));
+
+    registry.tools.push_back(make(env,
+                                  {"set_reduced_latency", "Reduced latency when monitoring",
+                                   "Turns the project's reduced latency when monitoring on or off (Options > "
+                                   "Reduced latency when monitoring). "
+                                   "On, a track played through live (armed with monitoring on Auto, or "
+                                   "monitoring In) doesn't wait for the "
+                                   "other tracks' delay, and its modules adding 3 ms or more are bypassed "
+                                   "while it's monitored (their power stays as "
+                                   "set; get_module says bypassedWhileMonitoring). Playback, bounces and "
+                                   "exports are as always. Kept with the "
+                                   "project; not an undo step.",
+                                   object({{"on", boolean("On or off (off in a new project)")}}, {"on"}),
+                                   result({{"on", boolean("")}}, {"on"}), changes, false},
+                                  [&env](const Json& args, CallContext&)
+                                  {
+                                      env.session.setReducedLatency(args["on"].get<bool>());
+                                      return ToolResult::ok({{"on", env.session.reducedLatency()}});
+                                  }));
+
+    // Measuring the round trip (recording.md §22.2): waits for the three tries, as export_audio
+    // waits for its files.
+    Tool latency;
+    latency.name = "measure_latency";
+    latency.title = "Measure the round trip";
+    latency.description =
+        "Measures the audio interface's round trip through a cable the user has connected from an output to "
+        "an input "
+        "(as Settings > Recording > Audio offset > Measure… does): a short noise with clicks played three "
+        "times at "
+        "-12 dBFS on the output and found on the input, which takes a few seconds. Returns the round trip, "
+        "the "
+        "latency the interface reports, and the offset new recordings need beyond it; or the problem "
+        "(nothing came "
+        "back, too loud, the tries disagree). Sets nothing: set_settings sets recording.audioOffsetMs. Ask "
+        "the user "
+        "to connect the cable and turn monitoring down first. MIDI's offset can't be measured this way.";
+    latency.inputSchema =
+        object({{"output", string("An output channel's name, as get_settings lists the device's "
+                                  "(default: the first in use)")},
+                {"input", string("An input channel's name (default: the first in use)")}});
+    latency.outputSchema =
+        result({{"roundTripMs", number("From playing to hearing it back, in ms")},
+                {"reportedMs", number("What the interface reports as its input and output latency")},
+                {"offsetMs", number("What new recordings need beyond that: the Audio offset to set")},
+                {"problem",
+                 {{"type", {"string", "null"}},
+                  {"enum", Json::array({"nothing came back", "too loud", "tries disagree", nullptr})},
+                  {"description", "Why there's no figure, or null"}}},
+                {"message", string("What Settings shows")}},
+               {"reportedMs", "problem", "message"});
+    latency.annotations.readOnly = true; // nothing is set
+    latency.call = [&env](const Json& args, CallContext& context) -> ToolResult
+    {
+        struct Done
+        {
+            std::mutex mutex;
+            std::condition_variable changed;
+            std::optional<model::RoundTripResult> result;
+        };
+        auto done = std::make_shared<Done>();
+        std::optional<ToolResult> refused;
+        const bool ran = env.main.run(
+            [&]
+            {
+                try
+                {
+                    const auto channels = env.session.activeChannels();
+                    const auto pick = [&args](const std::vector<std::string>& names, const char* key)
+                    {
+                        if (names.empty())
+                            throw Problem{std::string("The audio device has no ") + key +
+                                          " in use: choose one in Settings > Audio."};
+                        if (!args.contains(key))
+                            return 0;
+                        const auto name = args[key].get<std::string>();
+                        std::string list;
+                        for (size_t i = 0; i < names.size(); ++i)
+                        {
+                            if (names[i] == name)
+                                return static_cast<int>(i);
+                            list += (list.empty() ? "" : ", ") + names[i];
+                        }
+                        throw Problem{"No " + std::string(key) + " is named \"" + name + "\": " + list + "."};
+                    };
+                    const int output = pick(channels.outputs, "output");
+                    const int input = pick(channels.inputs, "input");
+                    env.session.measureRoundTrip(output, input, {},
+                                                 [done](const model::RoundTripResult& r)
+                                                 {
+                                                     {
+                                                         std::lock_guard lock(done->mutex);
+                                                         done->result = r;
+                                                     }
+                                                     done->changed.notify_all();
+                                                 });
+                }
+                catch (const Problem& p)
+                {
+                    refused = ToolResult::error(p.message);
+                }
+            });
+        if (!ran)
+            return ToolResult::error("The DAW is closing.");
+        if (refused)
+            return *refused;
+        for (double waited = 0.0;; waited += 0.2)
+        {
+            {
+                std::unique_lock lock(done->mutex);
+                if (done->changed.wait_for(lock, std::chrono::milliseconds(200),
+                                           [&] { return done->result.has_value(); }))
+                    break;
+            }
+            context.progress(std::min(waited / 5.0, 0.95), 1.0, "Measuring");
+            if (context.cancelled() || !env.main.isOpen())
+            {
+                (void)env.main.run([&] { env.session.cancelRoundTrip(); });
+                return ToolResult::error("The measurement was cancelled.");
+            }
+        }
+        const auto r = *done->result;
+        const auto tenth = [](double ms) { return std::round(ms * 10.0) / 10.0; };
+        using P = model::RoundTripResult::Problem;
+        Json out{{"reportedMs", tenth(r.reportedMs)},
+                 {"problem", r.problem == P::NothingCameBack ? Json("nothing came back")
+                             : r.problem == P::TooLoud       ? Json("too loud")
+                             : r.problem == P::Disagree      ? Json("tries disagree")
+                                                             : Json(nullptr)},
+                 {"message", model::roundTripText(r)}};
+        if (r.ok())
+        {
+            out["roundTripMs"] = tenth(r.roundTripMs);
+            out["offsetMs"] = tenth(r.offsetMs);
+        }
+        return ToolResult::ok(std::move(out),
+                              model::roundTripText(r) +
+                                  (r.ok() ? ". Offset " + model::offsetText(r.offsetMs) + "." : "."));
+    };
+    registry.tools.push_back(std::move(latency));
 
     registry.tools.push_back(make(
         env,

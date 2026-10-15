@@ -148,6 +148,23 @@ TEST_CASE("every module panel is laid out on the module grid", "[ui]")
                     p.panel->setFolded(false);
                     p.layout();
                 }
+                {
+                    // The DAW's "Bypassed while monitoring" (recording.md §22.1): no room of its
+                    // own, whole or short as it fits, and gone when folded.
+                    INFO("a host's notice");
+                    p.panel->setHostNotice("Bypassed while monitoring", "Bypassed", "Why");
+                    p.layout();
+                    CHECK(p.panel->preferredWidth() == width);
+                    REQUIRE(p.panel->hostNotice() != nullptr);
+                    lint(p);
+                    p.panel->setFolded(true);
+                    p.layout();
+                    CHECK(p.panel->hostNotice() == nullptr);
+                    p.panel->setFolded(false);
+                    p.panel->setHostNotice({}, {}, {});
+                    p.layout();
+                    CHECK(p.panel->hostNotice() == nullptr);
+                }
             }
             p.panel->setPage(0);
             p.layout();
@@ -178,6 +195,13 @@ TEST_CASE("every module panel is laid out on the module grid", "[ui]")
                                  });
                 const auto& header = q.panel->headerControls();
                 CHECK(std::any_of(
+                    header.begin(), header.end(), [](auto* c)
+                    { return dynamic_cast<fd::ui::LatencyBadge*>(c) != nullptr && c->isVisible(); }));
+                lint(q);
+                // Bypassed while monitoring: the notice in the badge's place, the badge hidden.
+                q.panel->setHostNotice("Bypassed while monitoring", "Bypassed", "Why");
+                q.layout();
+                CHECK(std::none_of(
                     header.begin(), header.end(), [](auto* c)
                     { return dynamic_cast<fd::ui::LatencyBadge*>(c) != nullptr && c->isVisible(); }));
                 lint(q);

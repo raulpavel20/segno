@@ -324,6 +324,28 @@ HeaderBadge& DevicePanel::showBadge(std::function<juce::String()> text, std::fun
     return showBadge(std::make_unique<HeaderBadge>(std::move(text), std::move(tooltip), std::move(widest)));
 }
 
+void DevicePanel::setHostNotice(juce::String text, juce::String brief, juce::String tooltip)
+{
+    if (text == hostText_ && brief == hostBrief_ && tooltip == hostTooltip_)
+        return;
+    if (hostNotice_ == nullptr)
+    {
+        hostNotice_ = std::make_unique<HeaderBadge>(nullptr, nullptr, juce::String());
+        hostNotice_->setName("hostNotice");
+        addChildComponent(*hostNotice_);
+    }
+    hostText_ = std::move(text);
+    hostBrief_ = std::move(brief);
+    hostTooltip_ = std::move(tooltip);
+    resized();
+    repaint();
+}
+
+const HeaderBadge* DevicePanel::hostNotice() const noexcept
+{
+    return hostNotice_ != nullptr && hostNotice_->isVisible() ? hostNotice_.get() : nullptr;
+}
+
 HeaderBadge& DevicePanel::showBadge(std::unique_ptr<HeaderBadge> made)
 {
     auto& badge = adopt(std::move(made), *this);
@@ -656,6 +678,8 @@ void DevicePanel::resized()
         pageTabs_.setVisible(false);
         for (auto* c : headerControls_)
             c->setVisible(false);
+        if (hostNotice_ != nullptr)
+            hostNotice_->setVisible(false);
         if (presetBar_ != nullptr)
             presetBar_->setVisible(false);
         for (auto& [meter, caption] : meters_)
@@ -698,11 +722,43 @@ void DevicePanel::resized()
     }
     captionAreas_.assign(headerControls_.size(), {});
     headerShowing_.assign(headerControls_.size(), true);
+    const auto captionWidth = [&](size_t i)
+    {
+        return headerCaptions_[i].isEmpty()
+                   ? 0
+                   : static_cast<int>(std::ceil(
+                         juce::GlyphArrangement::getStringWidth(captionFont(), headerCaptions_[i]))) +
+                         kCaptionGap;
+    };
+    // The host's notice hides the module's own badges.
+    const bool notice = hostNotice_ != nullptr && hostText_.isNotEmpty();
+    for (size_t i = 0; i < headerControls_.size(); ++i)
+        headerShowing_[i] = (!headerShown_[i] || headerShown_[i]()) &&
+                            !(notice && dynamic_cast<HeaderBadge*>(headerControls_[i]) != nullptr);
+    if (hostNotice_ != nullptr)
+        hostNotice_->setVisible(notice);
+    bool presetsShown = presetBar_ != nullptr;
+    if (notice)
+    {
+        // At the right end, in what the name, the other settings and the presets' least width
+        // leave; short where it doesn't fit. Where even that doesn't fit beside the presets (a
+        // narrow module), it takes their place while it shows.
+        int room = h.getWidth() - (pages_.empty() ? nameWidth + kSettingsGap : 0);
+        for (size_t i = 0; i < headerControls_.size(); ++i)
+            if (const int width = headerShowing_[i] ? settingWidth(*headerControls_[i]) : 0; width > 0)
+                room -= width + kSettingsGap + captionWidth(i);
+        const int presets = presetBar_ != nullptr ? presetBar_->minimumWidth() + kSettingsGap : 0;
+        const bool fits = HeaderBadge::widthFor(hostText_) + kSettingsGap <= room - presets;
+        hostNotice_->show(fits ? hostText_ : hostBrief_, hostTooltip_);
+        presetsShown = presetsShown && hostNotice_->preferredWidth() + kSettingsGap <= room - presets;
+        const int width = hostNotice_->preferredWidth();
+        hostNotice_->setBounds(h.removeFromRight(width).withSizeKeepingCentre(width, grid.row));
+        h.removeFromRight(kSettingsGap);
+    }
     for (size_t i = headerControls_.size(); i-- > 0;)
     {
         auto* c = headerControls_[i];
         // A latency badge while there's no delay, a setting while it doesn't matter: nothing, and no gap.
-        headerShowing_[i] = !headerShown_[i] || headerShown_[i]();
         const int width = headerShowing_[i] ? settingWidth(*c) : 0;
         c->setVisible(width > 0);
         if (width <= 0)
@@ -711,14 +767,14 @@ void DevicePanel::resized()
         if (headerCaptions_[i].isNotEmpty())
         {
             h.removeFromRight(kCaptionGap);
-            const int caption = static_cast<int>(
-                std::ceil(juce::GlyphArrangement::getStringWidth(captionFont(), headerCaptions_[i])));
-            captionAreas_[i] = h.removeFromRight(caption);
+            captionAreas_[i] = h.removeFromRight(captionWidth(i) - kCaptionGap);
         }
         h.removeFromRight(kSettingsGap);
     }
     // The presets, right-aligned before the settings; the field takes the room the name leaves.
-    if (presetBar_ != nullptr)
+    if (presetBar_ != nullptr && !presetsShown)
+        presetBar_->setVisible(false);
+    else if (presetBar_ != nullptr)
     {
         const int name = pages_.empty() ? nameWidth + kSettingsGap : 0;
         const int width =

@@ -55,6 +55,11 @@ public:
     void expandSelected();
     /// The selected module's next (+1) or previous (-1) page, unfolding it (ADR 0051).
     void turnSelectedPage(int delta);
+    /// Each module's "Bypassed while monitoring" in its header (recording.md §22.1), as the
+    /// engine has it now: checked each frame while the chain shows.
+    void updateNotices();
+    /// What a bypassed module's header says, short where it doesn't fit, and its tooltip.
+    static const juce::String bypassedText, bypassedBrief, bypassedTooltip;
 
     // ---- racks (racks.md §9: the Module menu's) ------------------------------------------------
     /// The modules Group into rack takes: the selected one, and those Shift-click added along its

@@ -1,6 +1,8 @@
 #include "ui/SettingsView.h"
 
 #include "model/Recording.h"
+#include "model/RoundTrip.h"
+#include "ui/RoundTripPanel.h"
 
 #include <cmath>
 #include <set>
@@ -72,8 +74,21 @@ struct SettingsView::Row
     std::function<void()> reset;
     /// Places the controls in the control area (lines tall); default: left to right.
     std::function<void(juce::Rectangle<int>)> place;
+    /// A panel the row opens under its description, the row's width (Audio offset's Measure…),
+    /// and its height; shown while `panelOpen` (SettingsView::openPanel sets it).
+    juce::Component* panel = nullptr;
+    std::function<int()> panelHeight;
+    bool panelOpen = false;
     juce::Rectangle<int> bounds; // in the content
     bool shown = true;
+
+    /// The room its open panel takes at its foot, with the gap above it.
+    [[nodiscard]] int panelSpace() const
+    {
+        return panel != nullptr && panelOpen && panelHeight
+                   ? ui::Theme::current().shell.itemGap + panelHeight()
+                   : 0;
+    }
 
     [[nodiscard]] int height() const
     {
@@ -161,7 +176,8 @@ public:
                         ui::TextStyle::Body, t.textPrimary, query);
             if (r->description.isNotEmpty())
             {
-                const auto below = r->bounds.withTrimmedTop(r->bounds.getHeight() - s.rowHeight);
+                const auto above = r->bounds.withTrimmedBottom(r->panelSpace()); // over its panel
+                const auto below = above.withTrimmedTop(above.getHeight() - s.rowHeight);
                 paintMarked(g, r->description, below, ui::TextStyle::Caption, t.textSecondary, query);
             }
             if (r->id == "key:" + view_.capturing_ && view_.conflict_.isNotEmpty())
@@ -774,17 +790,32 @@ void SettingsView::addRecording()
         r.changed = [this] { return session_.countIn() != C::OneBar; };
         r.reset = [this] { session_.setCountIn(C::OneBar); };
     }
+    {
+        // The project's (recording.md §22.1), as the Options menu's tick.
+        auto& r = addRow("recording.reducedLatency", SettingsSection::Recording);
+        auto& b = toggle(r, "Off", true);
+        b.onClick = [this, &b]
+        {
+            session_.setReducedLatency(b.getToggleState());
+            refresh();
+        };
+        r.refresh = [this, &b]
+        {
+            b.setToggleState(session_.reducedLatency(), juce::dontSendNotification);
+            b.setButtonText(session_.reducedLatency() ? "On" : "Off");
+        };
+        r.changed = [this] { return session_.reducedLatency(); };
+        r.reset = [this] { session_.setReducedLatency(false); };
+    }
     for (const bool midi : {false, true})
     {
         auto& r = addRow(midi ? "recording.midiOffset" : "recording.audioOffset", SettingsSection::Recording);
         auto& f =
             static_cast<ui::NumberField&>(*components_.emplace_back(std::make_unique<ui::NumberField>()));
-        f.setRange(-500.0, 500.0, 1.0);
+        // Audio's in tenths, as Measure… finds it (recording.md §22.2).
+        f.setRange(-500.0, 500.0, midi ? 1.0 : 0.1);
         f.textFromValue = [](double v)
-        {
-            return withDefault((v > 0 ? "+" : "") + juce::String(juce::roundToInt(v)) + " ms",
-                               juce::roundToInt(v) == 0);
-        };
+        { return withDefault(text(model::offsetText(v)), std::abs(v) < 0.05); };
         f.valueFromText = [](const juce::String& s) -> std::optional<double>
         {
             const auto t = s.retainCharacters("+-0123456789.");
@@ -808,7 +839,43 @@ void SettingsView::addRecording()
             return (midi ? midiMs : audio) != 0.0;
         };
         r.reset = [this] { session_.setRecordingOffsets(0.0, 0.0); };
+        if (midi)
+            continue; // MIDI's offset stays set by hand (RL8)
+        // Measure…: the round trip through a cable, in a panel under the row (RL6).
+        auto& measure = toggle(r, juce::String::fromUTF8("Measure\xe2\x80\xa6"), false);
+        measure.setTooltip("Measures your interface's round trip with a cable, to find the offset");
+        auto& panel = static_cast<RoundTripPanel&>(
+            *components_.emplace_back(std::make_unique<RoundTripPanel>(session_)));
+        content_->addChildComponent(panel);
+        r.panel = &panel;
+        r.panelHeight = [] { return RoundTripPanel::preferredHeight(); };
+        measure.onClick = [this, &r, &panel]
+        {
+            if (!r.panelOpen)
+                panel.opened();
+            setPanelOpen(r, !r.panelOpen);
+        };
+        panel.onClose = [this, &r]
+        {
+            setPanelOpen(r, false);
+            refresh(); // Use set the offset
+        };
     }
+}
+
+void SettingsView::setPanelOpen(Row& row, bool open)
+{
+    row.panelOpen = open;
+    layoutContent();
+    content_->repaint();
+}
+
+juce::Component* SettingsView::openPanel(const std::string& id) const
+{
+    for (const auto& r : rows_)
+        if (r->id == id && r->panelOpen)
+            return r->panel;
+    return nullptr;
 }
 
 // ---- Library -------------------------------------------------------------------------------
@@ -1532,7 +1599,7 @@ void SettingsView::layoutContent()
     // A row's height, and the line for a conflict under the shortcut being changed.
     const auto heightOf = [this, &s](const Row& r)
     {
-        return r.height() +
+        return r.height() + r.panelSpace() +
                (r.id == "key:" + capturing_ && conflict_.isNotEmpty() ? s.itemGap + s.fieldHeight : 0);
     };
     // Between rows: a group gap; between shortcuts, and under their heading, a list's item gap.
@@ -1577,6 +1644,11 @@ void SettingsView::layoutContent()
                     .withWidth(std::min(s.settingsControlWidth, r->bounds.getWidth() - s.settingsLabelWidth))
                     .withHeight(r->lines * s.fieldHeight + (r->lines - 1) * s.itemGap);
             shown.insert(r->controls.begin(), r->controls.end());
+            if (const int space = r->panelSpace(); space > 0)
+            {
+                r->panel->setBounds(r->bounds.withTrimmedTop(r->bounds.getHeight() - space + s.itemGap));
+                shown.insert(r->panel);
+            }
             if (r->place)
                 r->place(controlArea);
             else

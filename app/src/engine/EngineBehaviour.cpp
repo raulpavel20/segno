@@ -2,6 +2,9 @@
 
 #include "engine/ClipChance.h"
 #include "engine/ClipFades.h"
+#include "engine/MonitoringLatency.h"
+
+#include <map>
 
 namespace fd::engine
 {
@@ -53,7 +56,22 @@ public:
         return chanceFilter(clip, sequence, timeBase);
     }
 
+    // Reduced latency when monitoring (recording.md §22.1, the reduced-monitoring-latency patch).
+    bool isMonitoredWithReducedLatency(tracktion::AudioTrack& track) override
+    {
+        return engine::isMonitoredWithReducedLatency(track);
+    }
+    bool shouldBypassWhileMonitoring(tracktion::Plugin& module) override
+    {
+        const bool bypass = engine::shouldBypassWhileMonitoring(module);
+        leftOut[&module] = bypass; // what the graph does, for its header
+        return bypass;
+    }
+
     RecordingFiles files;
+    /// What the graph last decided for each module it asked about (every build asks again about
+    /// every module on a monitored track, so a stale entry is never read for one).
+    std::map<const tracktion::Plugin*, bool> leftOut;
 
 private:
     EngineOptions options_;
@@ -63,6 +81,14 @@ private:
 std::unique_ptr<tracktion::EngineBehaviour> makeEngineBehaviour(EngineOptions options)
 {
     return std::make_unique<Behaviour>(options);
+}
+
+bool leftOutWhileMonitoring(tracktion::Plugin& module)
+{
+    if (auto* behaviour = dynamic_cast<Behaviour*>(&module.engine.getEngineBehaviour()))
+        if (const auto it = behaviour->leftOut.find(&module); it != behaviour->leftOut.end())
+            return it->second;
+    return false;
 }
 
 void setRecordingFiles(tracktion::Engine& engine, RecordingFiles files)

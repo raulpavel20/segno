@@ -2,9 +2,9 @@
 // arming, monitoring, Record with count-in (recording inside the loop brace while looping), and
 // project folders for the recordings.
 
-#include "engine/SessionImpl.h"
-
 #include "engine/EngineBehaviour.h"
+#include "engine/MonitoringLatency.h"
+#include "engine/SessionImpl.h"
 
 namespace fd::engine
 {
@@ -486,6 +486,86 @@ void Session::setMidiOverdub(bool on)
 bool Session::midiOverdub() const
 {
     return impl_->edit->state[Impl::overdubId];
+}
+
+void Session::setReducedLatency(bool on)
+{
+    if (reducedLatency() == on)
+        return;
+    impl_->edit->state.setProperty(reducedLatencyId, on, nullptr);
+    impl_->edit->restartPlayback(); // the graph leaves monitored tracks out of the compensation
+}
+
+bool Session::reducedLatency() const
+{
+    return reducesLatency(*impl_->edit);
+}
+
+bool Session::bypassedWhileMonitoring(std::uint64_t deviceId) const
+{
+    auto* module = impl_->plugin(deviceId);
+    if (module == nullptr)
+        return false;
+    auto* track = dynamic_cast<te::AudioTrack*>(module->getOwnerTrack());
+    return track != nullptr && isMonitoredWithReducedLatency(*track) && leftOutWhileMonitoring(*module);
+}
+
+bool Session::reducingLatency() const
+{
+    if (!reducedLatency())
+        return false;
+    const auto all = impl_->tracks();
+    return std::any_of(all.begin(), all.end(), [](auto* t) { return isMonitored(*t); });
+}
+
+Session::AudioChannels Session::activeChannels() const
+{
+    AudioChannels channels;
+    if (auto* device = impl_->engine.getDeviceManager().deviceManager.getCurrentAudioDevice())
+    {
+        const auto pick = [](const juce::StringArray& names, const juce::BigInteger& active)
+        {
+            std::vector<std::string> out;
+            for (int i = 0; i < names.size(); ++i)
+                if (active[i])
+                    out.push_back(names[i].toStdString());
+            return out;
+        };
+        channels.outputs = pick(device->getOutputChannelNames(), device->getActiveOutputChannels());
+        channels.inputs = pick(device->getInputChannelNames(), device->getActiveInputChannels());
+    }
+    return channels;
+}
+
+void Session::measureRoundTrip(int output, int input, std::function<void(int)> progress,
+                               std::function<void(const model::RoundTripResult&)> done)
+{
+    impl_->roundTrip.reset(); // one at a time
+    impl_->measuringRoundTrip = true;
+    impl_->roundTrip = std::make_unique<RoundTrip>(
+        impl_->engine.getDeviceManager().deviceManager, output, input, std::move(progress),
+        [this, then = std::move(done)](model::RoundTripResult result)
+        {
+            impl_->measuringRoundTrip = false;
+            if (then)
+                then(result);
+        });
+}
+
+void Session::cancelRoundTrip()
+{
+    impl_->roundTrip.reset();
+    impl_->measuringRoundTrip = false;
+}
+
+bool Session::measuringRoundTrip() const
+{
+    return impl_->measuringRoundTrip;
+}
+
+double Session::reportedLatencyMs() const
+{
+    return impl_->engine.getDeviceManager().getRecordAdjustmentMs();
 }
 
 void Session::setRecordingOffsets(double audioMs, double midiMs)

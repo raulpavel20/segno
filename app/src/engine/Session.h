@@ -7,6 +7,7 @@
 #include "model/Editing.h"
 #include "model/Export.h"
 #include "model/Grid.h"
+#include "model/RoundTrip.h"
 #include "model/Snapshot.h"
 
 #include <array>
@@ -628,6 +629,31 @@ public:
     /// MIDI loop recording: each lap a take (off), or merged into one clip (on). Saved with the project.
     void setMidiOverdub(bool on);
     [[nodiscard]] bool midiOverdub() const;
+    /// Reduced latency when monitoring (recording.md §22.1): on each monitored track, modules that
+    /// add delay are bypassed (their power stays as set) and the track doesn't wait for the song's
+    /// delay compensation. Playback, bounces and exports are as always. Saved with the project.
+    void setReducedLatency(bool on);
+    [[nodiscard]] bool reducedLatency() const;
+    /// A module bypassed now by it: on a monitored track, adding delay (its header says so).
+    [[nodiscard]] bool bypassedWhileMonitoring(std::uint64_t deviceId) const;
+    /// Whether it affects a track now: on, with a track monitored (the top bar's reminder).
+    [[nodiscard]] bool reducingLatency() const;
+    /// The audio device's channels in use, by name: what Measure… plays on and listens to.
+    struct AudioChannels
+    {
+        std::vector<std::string> outputs, inputs;
+    };
+    [[nodiscard]] AudioChannels activeChannels() const;
+    /// Measures the round trip (recording.md §22.2) from output channel `output` to input channel
+    /// `input` (activeChannels' indices) through a cable: `progress` hears each of the three tries
+    /// start, `done` the result. Sets nothing. One at a time: another, or cancelRoundTrip, stops it.
+    void measureRoundTrip(int output, int input, std::function<void(int tryNumber)> progress,
+                          std::function<void(const model::RoundTripResult&)> done);
+    void cancelRoundTrip();
+    [[nodiscard]] bool measuringRoundTrip() const;
+    /// The latency the audio interface reports, input and output (ms): what new recordings are
+    /// moved back by before Audio offset.
+    [[nodiscard]] double reportedLatencyMs() const;
     /// Manual recording offsets in ms (±500), added to the latency the interface reports.
     void setRecordingOffsets(double audioMs, double midiMs);
     [[nodiscard]] std::pair<double, double> recordingOffsets() const;

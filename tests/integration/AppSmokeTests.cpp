@@ -667,6 +667,8 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
     const std::set<std::string> menuOnly{
         "take.useWhole", "take.rename", "take.copyToTrack", "take.moveToTrack", "take.keepOnly",
         "app.systemTitleBar", "app.about", "track.duplicate", "track.delete",
+        // Reduced latency when monitoring (recording.md §22.1): a setting, also in Settings.
+        "project.reducedLatency",
         // Presets (presets.md §10): on screen in the header; keys come with remapping.
         "module.previousPreset", "module.nextPreset", "module.savePreset", "module.savePresetAs",
         "module.revertPreset", "module.compare", "module.copyCompare", "module.useAsDefault",
@@ -5392,4 +5394,149 @@ TEST_CASE(
     CHECK_FALSE(inspector.module().has_value());
     CHECK((inspector.sections().empty() ||
            inspector.sections().front() != fd::model::InspectorSection::Module));
+}
+
+TEST_CASE(
+    "reduced latency when monitoring: the Options tick, Settings > Recording, a bypassed module's header, "
+    "the top bar's reminder (C7, recording.md §22.1)",
+    "[integration]")
+{
+    ShellFixture f;
+    tracktion::HostedAudioDeviceInterface::Parameters io;
+    io.sampleRate = 48000.0;
+    io.blockSize = 480;
+    io.inputChannels = 2;
+    io.outputChannels = 2;
+    tracktion::test_utilities::EnginePlayer player(f.engine, io);
+    const auto pump = [&](double seconds)
+    {
+        juce::AudioBuffer<float> in(2, 480);
+        for (int b = 0; b < static_cast<int>(seconds * 100.0); ++b)
+        {
+            in.clear();
+            player.process(in);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil(1);
+        }
+    };
+    auto& s = *f.session;
+    auto& shell = *f.shell;
+    shell.setSize(1800, 1000);
+    pump(0.1);
+    const auto t0 = s.snapshot()->tracks[0].id;
+    REQUIRE_FALSE(s.audioInputs().empty());
+    s.setAudioInput(t0, s.audioInputs().front().id);
+    s.setMonitor(t0, fd::model::Monitor::In);
+    // A Limiter (3 ms ahead), a linear-phase EQ, and a Saturator (oversampled, under a millisecond).
+    const auto limiter = s.addDevice(t0, "fd:limiter");
+    const auto eq = s.addDevice(t0, "fd:eq");
+    {
+        auto handle = s.openDevice(eq);
+        REQUIRE(handle != nullptr);
+        auto& params = handle->context().params;
+        const auto& specs = handle->context().info.params;
+        const auto phase = static_cast<size_t>(
+            std::distance(specs.begin(), std::find_if(specs.begin(), specs.end(),
+                                                      [](const auto& p) { return p.id == "phase"; })));
+        params.beginGesture(phase);
+        params.setPlain(phase, 1.0f);
+        params.endGesture(phase);
+    }
+    const auto saturator = s.addDevice(t0, "fd:saturator");
+    s.updateSnapshotNow();
+    shell.arrangement().selectTrack(t0);
+    pump(0.3);
+    auto& chain = shell.detail().chain();
+    std::map<std::uint64_t, fd::ui::DevicePanel*> panels;
+    for (const auto id : {limiter, eq, saturator})
+    {
+        chain.selectDevice(id);
+        panels[id] = chain.selectedPanel();
+        REQUIRE(panels[id] != nullptr);
+    }
+    REQUIRE(panels.size() == 3);
+    fd::app::TransportBar* bar = nullptr;
+    for (auto* child : shell.getChildren())
+        if (auto* b = dynamic_cast<fd::app::TransportBar*>(child))
+            bar = b;
+    REQUIRE(bar != nullptr);
+    const auto reminder = [&]() -> fd::ui::HeaderBadge*
+    {
+        for (auto* b : findAll<fd::ui::HeaderBadge>(*bar))
+            if (b->isVisible() && b->text() == "Reduced latency")
+                return b;
+        return nullptr;
+    };
+    const auto frame = [&]
+    {
+        pump(0.2);
+        shell.detail().frame(0.0);
+        bar->frame(0.0, s.snapshot()->tempo);
+    };
+
+    // Off: nothing said.
+    frame();
+    for (const auto& [id, p] : panels)
+        CHECK(p->hostNotice() == nullptr);
+    CHECK(reminder() == nullptr);
+
+    // Options > Reduced latency when monitoring: the EQ and the Limiter say so, their power as set;
+    // the Saturator's fraction of a millisecond stays in; the top bar reminds.
+    auto& actions = shell.actions();
+    CHECK_FALSE(actions.isToggled("project.reducedLatency"));
+    REQUIRE(actions.perform("project.reducedLatency"));
+    CHECK(s.reducedLatency());
+    CHECK(actions.isToggled("project.reducedLatency"));
+    frame();
+    for (const auto id : {limiter, eq})
+    {
+        INFO(id);
+        REQUIRE(panels[id]->hostNotice() != nullptr);
+        CHECK(panels[id]->hostNotice()->text() == fd::app::DeviceChain::bypassedText);
+        CHECK(const_cast<fd::ui::HeaderBadge*>(panels[id]->hostNotice())->getTooltip() ==
+              fd::app::DeviceChain::bypassedTooltip);
+    }
+    CHECK(panels[saturator]->hostNotice() == nullptr);
+    s.updateSnapshotNow();
+    for (const auto& d : s.snapshot()->tracks[0].devices)
+        CHECK(d.enabled);
+    REQUIRE(reminder() != nullptr);
+    CHECK(reminder()->getHeight() == fd::ui::Theme::current().deviceGrid.row);
+    CHECK(bar->getLocalBounds().contains(reminder()->getBounds()));
+    for (auto* c : bar->getChildren())
+        if (c != reminder() && c->isVisible())
+            CHECK_FALSE(c->getBounds().intersects(reminder()->getBounds()));
+    if (const char* dir = std::getenv("FD_DUMP_DIR"))
+    {
+        dumpPng(dir, "reduced-latency-chain@2x.png",
+                shell.createComponentSnapshot(shell.detail().getBounds(), true, 2.0f));
+        dumpPng(dir, "reduced-latency-eq-header@2x.png",
+                panels[eq]->createComponentSnapshot(
+                    panels[eq]->getLocalBounds().removeFromTop(fd::ui::Theme::current().deviceHeaderHeight),
+                    true, 3.0f));
+        dumpPng(dir, "reduced-latency-bar@2x.png",
+                shell.createComponentSnapshot(bar->getBounds(), true, 2.0f));
+    }
+
+    // Settings > Recording has it too: off there, off everywhere.
+    shell.showSettings("recording");
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(50); // it builds its rows
+    auto& view = shell.settingsView();
+    auto* toggle = dynamic_cast<fd::ui::Toggle*>(view.controlsOf("recording.reducedLatency").front());
+    REQUIRE(toggle != nullptr);
+    CHECK(toggle->getToggleState());
+    CHECK(toggle->getButtonText() == "On");
+    if (const char* dir = std::getenv("FD_DUMP_DIR"))
+        if (auto* content = toggle->getParentComponent())
+            dumpPng(dir, "reduced-latency-settings@2x.png",
+                    content->createComponentSnapshot(
+                        juce::Rectangle<int>(0, toggle->getY() - 120, content->getWidth(), 300), true, 2.0f));
+    toggle->triggerClick();
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(20); // the click is posted
+    CHECK_FALSE(s.reducedLatency());
+    CHECK(toggle->getButtonText() == "Off");
+    shell.closeSettings();
+    frame();
+    for (const auto& [id, p] : panels)
+        CHECK(p->hostNotice() == nullptr);
+    CHECK(reminder() == nullptr);
 }

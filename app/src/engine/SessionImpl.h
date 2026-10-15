@@ -6,6 +6,7 @@
 #include "engine/MidiTap.h"
 #include "engine/Modulator.h"
 #include "engine/PreviewPlayer.h"
+#include "engine/RoundTrip.h"
 #include "engine/Session.h"
 #include "model/StackEdits.h"
 #include "model/Takes.h"
@@ -119,6 +120,9 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     // take has used since the project opened (Remove unused files leaves those).
     FileIndexer indexer;
     PreviewPlayer preview;
+    /// Measuring the round trip (recording.md §22.2), while it runs and after, until the next.
+    std::unique_ptr<RoundTrip> roundTrip;
+    bool measuringRoundTrip = false;
     std::vector<std::string> browserPlaces;
     juce::File segnoFolder = defaultSegnoFolder();
     juce::File libraryChoice;    // Settings > Library; none: where it's installed

@@ -1063,6 +1063,12 @@ void Shell::registerActions()
     actions_.add({.id = "project.edgeFades", .name = "Edge fades", .category = "Project", .keys = {key('e', kCmd | kAlt | kShift)},
                   .perform = [this] { session_.setEdgeFades(!session_.edgeFades()); },
                   .isToggled = [this] { return session_.edgeFades(); }});
+    // Reduced latency when monitoring (recording.md §22.1): kept with the project; menus only.
+    actions_.add({.id = "project.reducedLatency",
+                  .name = "Reduced latency when monitoring",
+                  .category = "Project",
+                  .perform = [this] { session_.setReducedLatency(!session_.reducedLatency()); },
+                  .isToggled = [this] { return session_.reducedLatency(); }});
     actions_.add({.id = "midi.computerKeyboard", .name = "Computer keyboard as MIDI", .category = "MIDI",
                   .keys = {key('k', kCmd | kShift)},
                   .perform = [this] {

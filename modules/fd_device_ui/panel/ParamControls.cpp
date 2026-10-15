@@ -623,9 +623,20 @@ std::unique_ptr<HeaderBadge> HeaderBadge::latency(juce::String moduleName, std::
     return badge;
 }
 
+void HeaderBadge::show(juce::String text, juce::String tooltip)
+{
+    if (text == text_ && tooltip == getTooltip())
+        return;
+    text_ = std::move(text);
+    setTooltip(text_.isEmpty() ? juce::String() : std::move(tooltip));
+    repaint();
+}
+
 void HeaderBadge::refresh()
 {
-    const auto text = textOf_ ? textOf_() : juce::String();
+    if (!textOf_)
+        return; // its text is shown to it
+    const auto text = textOf_();
     if (text == text_)
         return;
     text_ = text;

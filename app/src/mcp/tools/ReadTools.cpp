@@ -25,15 +25,18 @@ Json clipResultSchema()
 
 Json projectResultSchema()
 {
-    return result({{"name", string("The project's name")},
-                   {"file", {{"type", {"string", "null"}}, {"description", "Its file, or null before it's saved"}}},
-                   {"unsaved", boolean("Changes since it was opened or saved")},
-                   {"tempo", number("Beats per minute")},
-                   {"edgeFades", boolean("Cut edges of audio clips fade 4 ms (set_edge_fades)")},
-                   {"timeSignature", result({{"numerator", integer("")}, {"denominator", integer("")}})},
-                   {"key", keyResultSchema()},
-                   {"tracks", arrayOf(result({{"id", string("")}, {"name", string("")}}), "Every track", std::nullopt)}},
-                  {"name", "file", "unsaved", "tempo", "timeSignature", "tracks"});
+    return result(
+        {{"name", string("The project's name")},
+         {"file", {{"type", {"string", "null"}}, {"description", "Its file, or null before it's saved"}}},
+         {"unsaved", boolean("Changes since it was opened or saved")},
+         {"tempo", number("Beats per minute")},
+         {"edgeFades", boolean("Cut edges of audio clips fade 4 ms (set_edge_fades)")},
+         {"reducedLatency", boolean("Reduced latency when monitoring (set_reduced_latency)")},
+         {"timeSignature", result({{"numerator", integer("")}, {"denominator", integer("")}})},
+         {"key", keyResultSchema()},
+         {"tracks",
+          arrayOf(result({{"id", string("")}, {"name", string("")}}), "Every track", std::nullopt)}},
+        {"name", "file", "unsaved", "tempo", "timeSignature", "tracks"});
 }
 
 Json moduleResultSchema()
@@ -48,6 +51,10 @@ Json moduleResultSchema()
           number("How late it plays its track (ms): the DAW keeps the tracks in time, but what's played "
                  "live through it is heard that late. 0 for most modules; a linear-phase or spectral EQ "
                  "about 50 to 220")},
+         {"bypassedWhileMonitoring",
+          boolean(
+              "Bypassed now by reduced latency when monitoring (set_reduced_latency): it adds delay and its "
+              "track is monitored")},
          {"parameters", arrayOf(result({{"id", string("")}, {"name", string("")}}), "", std::nullopt)}},
         {"id", "name", "type", "on", "latencyMs", "parameters"});
 }

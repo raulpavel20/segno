@@ -397,6 +397,7 @@ The notes' right-click menu has Transform ▸ too, Quantise… first, as the Too
 | Snap to grid | Ctrl+4 | Now the editor used last's |
 | Fixed grid | Ctrl+5 | *new*: fixed at the step showing, or back to adaptive |
 | Edge fades | Ctrl+Alt+Shift+E | |
+| Reduced latency when monitoring | | *new* (`project.reducedLatency`, M3 C7, [recording.md](recording.md) §22.1): a tick, kept with the project; also on Settings > Recording |
 | — | | |
 | Computer keyboard ▸ | | Computer keyboard as MIDI (Ctrl+Shift+K); — ; Octave down (Z), Octave up (X), Velocity down (C), Velocity up (V): *new* as actions, enabled while it plays (today the keys only) |
 | — | | |

@@ -206,6 +206,8 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
                              "preview",
                              "collect_files",
                              "arm_tracks",
+                             "set_reduced_latency",
+                             "measure_latency",
                              "record",
                              "get_takes",
                              "use_take",
@@ -755,6 +757,52 @@ TEST_CASE("mcp tools: get_module says how late a module plays its track", "[inte
     CHECK(ms < 120.0);
     daw.call("set_parameters", {{"module", id}, {"values", {{"resolution", "High"}}}});
     CHECK(daw.call("get_module", {{"module", id}})["latencyMs"].get<double>() > 2.0 * ms - 1.0);
+}
+
+TEST_CASE("mcp tools: reduced latency when monitoring bypasses a monitored track's delaying module",
+          "[integration][mcp]")
+{
+    Daw daw;
+    tracktion::HostedAudioDeviceInterface::Parameters io;
+    io.sampleRate = 48000.0;
+    io.blockSize = 480;
+    io.inputChannels = 2;
+    io.outputChannels = 2;
+    tracktion::test_utilities::EnginePlayer player(daw.engine, io);
+    auto pump = [&](double seconds)
+    {
+        juce::AudioBuffer<float> in(2, 480);
+        for (int b = 0; b < static_cast<int>(seconds * 100.0); ++b)
+        {
+            in.clear();
+            player.process(in);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil(1);
+        }
+    };
+    pump(0.1);
+    auto project = daw.project();
+    CHECK(project["reducedLatency"] == false);
+    const auto t0 = project["tracks"][0]["id"].get<std::string>();
+    const auto input = project["inputs"]["audio"][0].get<std::string>();
+    daw.call("set_track_input", {{"track", t0}, {"audioInput", input}, {"monitor", "in"}});
+    const auto eq = daw.call("add_module", {{"track", t0}, {"type", "eq"}})["id"].get<std::string>();
+    daw.call("set_parameters", {{"module", eq}, {"values", {{"phase", "Linear phase"}}}});
+    pump(0.3);
+    CHECK(daw.call("get_module", {{"module", eq}})["bypassedWhileMonitoring"] == false);
+
+    const auto before = daw.session->undoDescription();
+    CHECK(daw.call("set_reduced_latency", {{"on", true}})["on"] == true);
+    CHECK(daw.session->undoDescription() == before); // a setting, not an edit
+    pump(0.3);
+    CHECK(daw.project()["reducedLatency"] == true);
+    const auto module = daw.call("get_module", {{"module", eq}});
+    CHECK(module["bypassedWhileMonitoring"] == true);
+    CHECK(module["on"] == true); // its power as set
+
+    daw.call("set_track_input", {{"track", t0}, {"monitor", "off"}});
+    pump(0.3);
+    CHECK(daw.call("get_module", {{"module", eq}})["bypassedWhileMonitoring"] == false);
+    CHECK(daw.call("set_reduced_latency", {{"on", false}})["on"] == false);
 }
 
 TEST_CASE("mcp tools: modules, parameters, samples and view state", "[integration][mcp]")

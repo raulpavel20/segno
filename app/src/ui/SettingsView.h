@@ -49,6 +49,8 @@ public:
     [[nodiscard]] juce::Component& page() noexcept;
     /// A setting's controls (its combo, toggle, field…), in order.
     [[nodiscard]] std::vector<juce::Component*> controlsOf(const std::string& id) const;
+    /// The panel a setting has open under it (Audio offset's Measure…), else null.
+    [[nodiscard]] juce::Component* openPanel(const std::string& id) const;
     /// Keys: start changing an action's shortcut; the next key pressed sets it.
     void startKeyCapture(const std::string& actionId);
     /// A key pressed while capturing. Returns whether it was taken.
@@ -94,6 +96,8 @@ private:
     void addAssistants();
 
     Row& addRow(const std::string& id, model::SettingsSection section);
+    /// Opens or closes the panel under a row, and lays out again.
+    void setPanelOpen(Row& row, bool open);
     juce::ComboBox& combo(Row& row);
     ui::Toggle& toggle(Row& row, const juce::String& text, bool onOff);
     void change(const std::function<void(model::AppSettings&)>& edit);

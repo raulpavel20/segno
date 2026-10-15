@@ -202,6 +202,8 @@ Every feature comes with its tools and a test through MCP (ADR 0021). Assistants
 |---|---|---|
 | `set_track_input` | `track`, `audioInput?`, `midiInput?`, `channel?`, `monitor?`, `records?` | The track's inputs; the inputs available (`get_project` lists them too) |
 | `arm_tracks` | `tracks`, `on?` | Which tracks are armed. Not an undo step |
+| `set_reduced_latency` | `on` | Reduced latency when monitoring on or off (§22.1, M3 C7). Not an undo step. `get_project` has `reducedLatency`; `get_module` has `bypassedWhileMonitoring` |
+| `measure_latency` | `output?`, `input?` | The round trip, the latency the interface reports, and the offset recordings need (§22.2, M3 C7); doesn't set it |
 | `record` | `countIn?`, `bars?` (stop after this many bars) | Starts recording (inside the loop brace while looping); `stop` ends it. The result lists each recording track |
 | `capture_midi` | `track?` (used when nothing is armed) | The clips made and their tracks |
 | `get_takes` | `track` or `clip` | Per clip with takes: its range, parts, whether open, the take it plays (or "comp"), and each take's name, clips, file and the parts in use |
@@ -346,7 +348,7 @@ Trying C5c, the product owner found that a click on a strip (or Alt+↑/↓) rep
 
 ## 22. Hearing yourself sooner, and recording in time (M3 C7, for review)
 
-**Status:** approved by the product owner (2026-10-15), every recommendation of RL1–RL8. §15 planned both for M3: "Reduced latency when monitoring" and "Round-trip latency test".
+**Status:** approved by the product owner (2026-10-15), every recommendation of RL1–RL8. §15 planned both for M3: "Reduced latency when monitoring" and "Round-trip latency test". Built 2026-10-16 (§22.4).
 
 **What others do** (research, 2026-10-15):
 - **Monitoring with less delay:**
@@ -408,3 +410,20 @@ Trying C5c, the product owner found that a click on a strip (or Alt+↑/↓) rep
 | RL6 | **The round-trip test** | Measure… beside Audio offset: a cable, an output and an input, Measure, then Use. Three tries, compared |
 | RL7 | **When it fails** | Named reasons: nothing came back, too loud, the tries disagree |
 | RL8 | **MIDI** | Its offset stays set by hand |
+
+### 22.4 Built (2026-10-16)
+
+**The spike (RL5):** tracktion does delay a monitored track to line up with the song's compensation. With a 107 ms linear-phase EQ on another track, a monitored input was heard 5120 samples (107 ms) late. Dropping that for monitored tracks only takes a small engine patch (`cmake/patches/tracktion_engine-reduced-monitoring-latency.patch`): the playback graph wraps a monitored track's output in a node its summing leaves out of the compensation. A behaviour hook says which tracks are monitored with reduced latency, and another which modules to leave out of their chains. Renders never ask, so bounces and exports are as always. tracktion's own low-latency mode isn't used: it turns modules off, changing their power.
+
+**Settled while building:**
+- **Bypassed from 3 ms** (RL2, refined): a module is bypassed while its track is monitored if it delays the track 3 ms or more (Studio One's limit too). A lookahead (the Limiter's, the Compressor's 10 ms), a linear-phase EQ: bypassed. Oversampling (the Saturator's and the Filter's, under a millisecond) and the Compressor's 1 ms lookahead stay in: bypassing a Saturator would change the sound you play into for nothing you'd hear. A module under 3 ms keeps its own small delay; the track still doesn't wait for the others.
+- **What plays the notes is never bypassed:** the instrument stays, delay or not, since leaving it out would silence the track. A rack holding a module that delays 3 ms or more is bypassed whole (it's one module in its track's chain), its header saying so.
+- **Monitored** is what you hear live through the track: armed with Monitor on Auto, or Monitor In; a MIDI track selected for live playing while nothing is armed counts too (you're playing through it).
+- **A monitored track's sends** still line up with the other sends to their return track: the return's sum has its own compensation. Usually only a little reverb or delay is sent.
+- **The header's notice** takes the place of the module's own badges (the EQ's "+107 ms"), at the header's right end, and keeps no room of its own: no module is wider for it. Where the whole text doesn't fit it says "Bypassed"; on a header too tight even for that, it takes the preset field's place while it shows (none of ours that can be bypassed is that narrow today). A plugin's card shows it under "Plugin". The tooltip says why.
+- **The top bar's reminder** is a badge before the CPU load, dropped with it when the bar is narrow.
+- **Settings > Recording** names the row "Reduced latency" (the menu item's full name doesn't fit the name column); its description says what it does.
+- **Measuring:** each try plays tracktion's test signal (a third of a second at −12 dBFS) and records a second more, so round trips up to a second are found. A try that finds nothing, or a clipping input, ends the measurement at once. Tries further apart than 0.25 ms disagree; otherwise the middle try counts. Audio offset now takes tenths of a millisecond, as Measure finds it.
+- **Assistants:** `get_settings` lists the channels in use and the latency the interface reports; `get_module` says whether a module is bypassed while monitoring.
+- **A disabled button** (Use before there's a result, Measure while it measures) shows its label dimmed: the shared `Toggle` had no disabled look ([ui-foundations.md](ui-foundations.md)).
+

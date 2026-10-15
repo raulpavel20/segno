@@ -115,6 +115,7 @@ app/src/
 | Loop clips (M3 C10, [clip-loops.md](clip-loops.md)) | `clip.loop` | – (menus only; assignable) |
 | Crossfade the selected clips' joins (C6) | `clip.crossfade` | Ctrl+Shift+X |
 | Edge fades on or off (C6) | `project.edgeFades` | Ctrl+Alt+Shift+E |
+| Reduced latency when monitoring (M3 C7, [recording.md](recording.md) §22.1) | `project.reducedLatency` | (menus only) |
 | Quit (C10) | `app.quit` | Ctrl+Q |
 | Full screen (C10) | `view.fullScreen` | F11 |
 | Cancel bounces (C10) | `clip.cancelBounces` | Escape |

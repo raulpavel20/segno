@@ -89,6 +89,15 @@ public:
     [[nodiscard]] PanelSection* findSection(std::string_view id) const;
     /// The module-wide settings in the header (for the layout lint).
     [[nodiscard]] const std::vector<juce::Component*>& headerControls() const noexcept { return headerControls_; }
+    /// What the host says about the module (the DAW's "Bypassed while monitoring", recording.md
+    /// §22.1): a warning badge at the header's right end, in place of the module's own badges,
+    /// with `tooltip`. It keeps no room of its own in the panel's width: it has what the name, the
+    /// other settings and the preset field's least width leave, and says `brief` where `text`
+    /// doesn't fit; where even that doesn't fit, it takes the preset field's place while it shows.
+    /// Empty text: nothing.
+    void setHostNotice(juce::String text, juce::String brief, juce::String tooltip);
+    /// The notice's badge while it shows, else null (for tests and the layout lint).
+    [[nodiscard]] const HeaderBadge* hostNotice() const noexcept;
     /// The header's presets (ADR 0044): null where the host has none (snapshots, the gallery).
     [[nodiscard]] PresetBar* presetBar() const noexcept { return presetBar_.get(); }
     /// The meters of the meter strip (for the layout lint).
@@ -212,6 +221,8 @@ private:
     std::vector<std::pair<juce::Component*, juce::String>> meters_;
 
     std::unique_ptr<PresetBar> presetBar_;
+    std::unique_ptr<HeaderBadge> hostNotice_; // setHostNotice's, made the first time
+    juce::String hostText_, hostBrief_, hostTooltip_;
     struct Page
     {
         std::string id;

@@ -1,0 +1,215 @@
+Reduced latency when monitoring (Segno: docs/design/recording.md §22).
+
+A monitored track is heard sooner: EngineBehaviour::isMonitoredWithReducedLatency picks the tracks
+played live whose output skips the edit's latency compensation (wrapped in an UncompensatedNode,
+which a SummingNode sums as it is: not delayed to line up with its other inputs, and its own
+latency doesn't delay them), and EngineBehaviour::shouldBypassWhileMonitoring the plugins left out
+of such a track's own chain while it's monitored, without touching their enabled state. A rack
+whose instances are all left out isn't built meanwhile, so its latency doesn't delay what it's
+summed with. Renders never ask. With neither overridden, nothing changes.
+
+diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp
+--- a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp	2026-10-16 00:08:27.578001493 +0300
++++ b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp	2026-10-16 01:21:57.736437462 +0300
+@@ -1523,6 +1523,12 @@
+         if (! params.forRendering && p->isFrozen())
+             continue;
+ 
++        // A monitored track heard sooner leaves out the plugins the behaviour picks
++        // (EngineBehaviour::isMonitoredWithReducedLatency)
++        if (params.monitoredWithReducedLatency
++            && list.getEdit().engine.getEngineBehaviour().shouldBypassWhileMonitoring (*p))
++            continue;
++
+         if (auto meterPlugin = dynamic_cast<LevelMeterPlugin*> (p))
+         {
+             node = makeNode<LevelMeasurerProcessingNode> (std::move (node), *meterPlugin);
+@@ -1751,7 +1757,12 @@
+         node = std::move (sumNode);
+     }
+ 
+-    node = createPluginNodeForTrack (at, *trackMuteState, std::move (node), playHeadState, params);
++    // Monitored and heard sooner (EngineBehaviour::isMonitoredWithReducedLatency): its own chain
++    // leaves out the plugins the behaviour picks
++    auto pluginParams = params;
++    pluginParams.monitoredWithReducedLatency = ! params.forRendering
++                                               && at.edit.engine.getEngineBehaviour().isMonitoredWithReducedLatency (at);
++    node = createPluginNodeForTrack (at, *trackMuteState, std::move (node), playHeadState, pluginParams);
+ 
+     if (isSidechainSource (at))
+         node = makeNode<SendNode> (std::move (node), getSidechainBusID (at.itemID));
+@@ -1898,9 +1909,27 @@
+     std::vector<std::unique_ptr<Node>> nodes;
+ 
+     for (auto rackType : rackTypeList.getTypes())
+-        if (getEnabledInstancesForRack (*rackType).size() > 0)
++    {
++        auto instances = getEnabledInstancesForRack (*rackType);
++
++        // Instances left out of a monitored track's chain don't play the rack: without others it
++        // isn't built, so its latency doesn't delay what's summed with it
++        // (EngineBehaviour::isMonitoredWithReducedLatency)
++        if (! params.forRendering)
++        {
++            instances.removeIf ([] (RackInstance* instance)
++            {
++                auto& behaviour = instance->edit.engine.getEngineBehaviour();
++                auto track = dynamic_cast<AudioTrack*> (instance->getOwnerTrack());
++                return track != nullptr && behaviour.isMonitoredWithReducedLatency (*track)
++                         && behaviour.shouldBypassWhileMonitoring (*instance);
++            });
++        }
++
++        if (instances.size() > 0)
+             if (auto rackNode = createNodeForRackType (*rackType, params))
+                 nodes.push_back (std::move (rackNode));
++    }
+ 
+     return nodes;
+ }
+@@ -2104,6 +2133,11 @@
+                 }
+                 else if (auto node = createNodeForTrack (*t, params))
+                 {
++                    // Monitored and heard sooner: left out of the edit's latency compensation
++                    if (auto at = dynamic_cast<AudioTrack*> (t); at != nullptr && ! params.forRendering
++                        && edit.engine.getEngineBehaviour().isMonitoredWithReducedLatency (*at))
++                        node = makeNode<UncompensatedNode> (std::move (node));
++
+                     deviceNodes[device].push_back (std::move (node));
+                 }
+             }
+diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.h b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.h
+--- a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.h	2026-10-16 00:08:27.572479028 +0300
++++ b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.h	2026-10-16 01:21:57.731275324 +0300
+@@ -34,6 +34,7 @@
+     juce::Array<EditItemID> tracksToProcessWhileMuted = {};  /**< Tracks whose contents keep processing while the track is muted, so they can feed sidechains, aux buses and racks without being heard. Used by stem renders. @see Renderer::Parameters::tracksToProcessWhileMuted */
+     bool allowClipSlots = true;                         /**< If true, track's clip slots will be included, set to false to disable these (which will use a slightly more efficient Node). */
+     bool readAheadTimeStretchNodes = false;             /**< TEMPORARY: If true, real-time time-stretch Nodes will use a larger buffer and background thread to reduce audio CPU use. */
++    bool monitoredWithReducedLatency = false;           /**< Set by the builder for a track's own plugin chain while EngineBehaviour::isMonitoredWithReducedLatency picks it: the plugins EngineBehaviour::shouldBypassWhileMonitoring picks are left out. */
+ 
+     /** If set, this will be called for each output device to give an opportunity to add an
+         additional final Node. Unlike EditNodeBuilder::insertOptionalLastStageNode this is
+diff '--color=auto' -ru a/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h b/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h
+--- a/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h	2026-10-16 00:08:27.565941616 +0300
++++ b/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h	2026-10-16 01:21:57.726280181 +0300
+@@ -191,6 +191,16 @@
+                                                                              std::unique_ptr<tracktion::graph::Node>& /*input*/,
+                                                                              ProcessState&)  { return {}; }
+ 
++    /// Lets the behaviour have a monitored track heard sooner: its output isn't delayed to
++    /// line up with the rest of the edit's latency compensation (and its own latency doesn't
++    /// delay the rest), and the plugins shouldBypassWhileMonitoring picks are left out of its
++    /// chain. Only asked of tracks played live, never in renders. Default: no track.
++    virtual bool isMonitoredWithReducedLatency (AudioTrack&)                          { return false; }
++
++    /// On a track isMonitoredWithReducedLatency picks: whether a plugin in its chain is left
++    /// out while it's monitored (its enabled state untouched). Default: none.
++    virtual bool shouldBypassWhileMonitoring (Plugin&)                                { return false; }
++
+     /// If implemented, this lets the behaviour determine exactly which file a new
+     /// auto recording for the given track should be made to.
+     virtual juce::File getFileForNewAudioRecording (Track&, const juce::String& fileExtension)  { (void) fileExtension; return {}; }
+diff '--color=auto' -ru a/modules/tracktion_graph/tracktion_graph/nodes/tracktion_SummingNode.h b/modules/tracktion_graph/tracktion_graph/nodes/tracktion_SummingNode.h
+--- a/modules/tracktion_graph/tracktion_graph/nodes/tracktion_SummingNode.h	2026-10-16 00:08:27.560933749 +0300
++++ b/modules/tracktion_graph/tracktion_graph/nodes/tracktion_SummingNode.h	2026-10-16 01:21:57.720699967 +0300
+@@ -15,8 +15,57 @@
+ //==============================================================================
+ //==============================================================================
+ /**
++    Passes its input on as it is, and is summed as it is: a SummingNode leaves it out of its
++    latency compensation, so it isn't delayed to line up with the other inputs and its own
++    latency doesn't delay them (a monitored track heard sooner).
++*/
++class UncompensatedNode final : public Node
++{
++public:
++    UncompensatedNode (std::unique_ptr<Node> inputNode)
++        : input (std::move (inputNode))
++    {
++        jassert (input);
++        setOptimisations ({ ClearBuffers::no, AllocateAudioBuffer::yes });
++    }
++
++    NodeProperties getNodeProperties() override
++    {
++        constexpr size_t uncompensatedNodeMagicHash = size_t (0x95ab5e9dce);
++        auto props = input->getNodeProperties();
++
++        if (props.nodeID != 0)
++            hash_combine (props.nodeID, uncompensatedNodeMagicHash);
++
++        return props;
++    }
++
++    std::vector<Node*> getDirectInputNodes() override
++    {
++        return { input.get() };
++    }
++
++    bool isReadyToProcess() override
++    {
++        return input->hasProcessed();
++    }
++
++    void process (ProcessContext& pc) override
++    {
++        auto inputBuffers = input->getProcessedOutput();
++        copy (pc.buffers.audio, inputBuffers.audio);
++        pc.buffers.midi.copyFrom (inputBuffers.midi);
++    }
++
++private:
++    std::unique_ptr<Node> input;
++};
++
++//==============================================================================
++//==============================================================================
++/**
+     An Node which sums together the multiple inputs adding additional latency
+-    to provide a coherent output.
++    to provide a coherent output. Inputs that are UncompensatedNodes are summed as they are.
+ */
+ class SummingNode final : public Node
+ {
+@@ -82,12 +131,17 @@
+             props.hasAudio = props.hasAudio || nodeProps.hasAudio;
+             props.hasMidi = props.hasMidi || nodeProps.hasMidi;
+             props.numberOfChannels = std::max (props.numberOfChannels, nodeProps.numberOfChannels);
+-            props.latencyNumSamples = std::max (props.latencyNumSamples, nodeProps.latencyNumSamples);
++
++            if (! isUncompensated (node))
++                props.latencyNumSamples = std::max (props.latencyNumSamples, nodeProps.latencyNumSamples);
+ 
+             if (props.nodeID != 0 || nodeProps.nodeID != 0)
+                 hash_combine (props.nodeID, nodeProps.nodeID);
+         }
+ 
++        if (props.latencyNumSamples == std::numeric_limits<int>::min()) // every input uncompensated
++            props.latencyNumSamples = 0;
++
+         cachedNodeProperties = props;
+ 
+         return props;
+@@ -267,6 +321,11 @@
+         return hasChanged;
+     }
+ 
++    static bool isUncompensated (Node* node)
++    {
++        return dynamic_cast<UncompensatedNode*> (node) != nullptr;
++    }
++
+     bool createLatencyNodes()
+     {
+         bool topologyChanged = false;
+@@ -275,6 +334,9 @@
+ 
+         for (auto& node : nodes)
+         {
++            if (isUncompensated (node))
++                continue;
++
+             auto props = node->getNodeProperties();
+             const int nodeLatency = props.latencyNumSamples;
+             const int latencyToAdd = subtractNoWrap (maxLatency, nodeLatency);

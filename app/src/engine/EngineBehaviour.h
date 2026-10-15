@@ -18,6 +18,9 @@ namespace fd::engine
 /// - a MIDI clip's notes left to chance play or not, and their velocity spreads, rolled again
 ///   each pass and each lap of the loop, or as kept: the same in playback, a bounce and an export
 ///   then (piano-roll.md §26, ClipChance.h);
+/// - with the project's reduced latency when monitoring on, a monitored track skips the song's
+///   delay compensation and leaves out its modules that add delay (recording.md §22.1,
+///   MonitoringLatency.h);
 /// - with `scanPluginsOutOfProcess`, plugins are scanned in a child process, so one that crashes
 ///   takes only that process down (M3 C5, PluginScan.h). The app sets it; tests that don't scan
 ///   leave it off, as their binary can't serve as the child.
@@ -31,6 +34,11 @@ struct EngineOptions
 /// export a return track's stem set it (export.md §12): the tracks sending to it are muted there
 /// so only the return is heard.
 inline const juce::Identifier sendsWhileMutedId{"fdSendsWhileMuted"};
+
+/// Whether the playback graph, as last built, left a module out of its monitored track's chain
+/// (reduced latency when monitoring, MonitoringLatency.h): what its header shows, so it says
+/// what's heard.
+[[nodiscard]] bool leftOutWhileMonitoring(tracktion::Plugin& module);
 
 /// The file for a new audio recording on a track ("wav" or another extension); an empty file lets
 /// tracktion choose. One per engine: the last one set wins.

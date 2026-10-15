@@ -25,10 +25,25 @@ public:
         open_.setTooltip("Open the plugin's editor");
         open_.onClick = [this] { session_.showPluginEditor(id_); };
         addAndMakeVisible(open_);
+        addChildComponent(notice_);
         setEnabledState(slot.enabled);
     }
 
     void setEnabledState(bool on) { power_.setToggleState(on, juce::dontSendNotification); }
+    /// What the DAW says about it (DevicePanel::setHostNotice), under its kind; empty: nothing.
+    void setNotice(const juce::String& text, const juce::String& brief, const juce::String& tooltip)
+    {
+        if (text == noticeText_)
+            return;
+        noticeText_ = text;
+        const auto& grid = ui::Theme::current().deviceGrid;
+        const int room = getWidth() - 2 * ui::Theme::current().grid * 2;
+        notice_.show(text.isEmpty() || ui::HeaderBadge::widthFor(text) <= room ? text : brief, tooltip);
+        notice_.setVisible(text.isNotEmpty());
+        notice_.setSize(notice_.preferredWidth(), grid.row);
+        resized();
+    }
+    [[nodiscard]] const ui::HeaderBadge* notice() const { return notice_.isVisible() ? &notice_ : nullptr; }
 
     void paint(juce::Graphics& g) override
     {
@@ -51,6 +66,10 @@ public:
         auto header = getLocalBounds().removeFromTop(t.deviceHeaderHeight).reduced(t.grid * 2, 0);
         power_.setBounds(header.removeFromLeft(14).withSizeKeepingCentre(14, 14));
         open_.setBounds(getLocalBounds().withTrimmedTop(t.deviceHeaderHeight).reduced(t.grid * 3).removeFromBottom(24));
+        // The notice under "Plugin", a row's gap below it.
+        auto body = getLocalBounds().withTrimmedTop(t.deviceHeaderHeight).reduced(t.grid * 2);
+        body.removeFromTop(16 + t.grid);
+        notice_.setBounds(body.removeFromTop(t.deviceGrid.row).withWidth(notice_.getWidth()));
     }
 
 private:
@@ -59,6 +78,8 @@ private:
     std::string name_;
     ui::Toggle power_;
     ui::Toggle open_{"Open editor"};
+    ui::HeaderBadge notice_{nullptr, nullptr, {}};
+    juce::String noticeText_;
 };
 
 /// The device a module's slot is, for its parameters' text and specs (null for plugins and racks).
@@ -1384,6 +1405,24 @@ void DeviceChain::openMacroEditor(std::uint64_t rack, int first)
     macroEditor_ = raw;
     macroEditorRack_ = rack;
     onShowEditor(rack, std::move(editor));
+}
+
+const juce::String DeviceChain::bypassedText = "Bypassed while monitoring";
+const juce::String DeviceChain::bypassedBrief = "Bypassed";
+const juce::String DeviceChain::bypassedTooltip =
+    "Reduced latency when monitoring is on (Options): this module delays its track 3 ms or more, so it's "
+    "bypassed while the track is monitored. Its power stays as you set it.";
+
+void DeviceChain::updateNotices()
+{
+    for (const auto& s : slots_)
+    {
+        const auto text = session_.bypassedWhileMonitoring(s.info.id) ? bypassedText : juce::String();
+        if (auto* panel = dynamic_cast<ui::DevicePanel*>(s.view.get()))
+            panel->setHostNotice(text, bypassedBrief, bypassedTooltip);
+        else if (auto* card = dynamic_cast<PluginCard*>(s.view.get()))
+            card->setNotice(text, bypassedBrief, bypassedTooltip);
+    }
 }
 
 void DeviceChain::updateMacroEditor()

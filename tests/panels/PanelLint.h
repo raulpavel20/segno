@@ -239,8 +239,36 @@ inline void lintPanel(DevicePanel& panel, const fd::DeviceInfo& info, const juce
         checkPlacementText({c, PanelSection::Kind::Line, 0, 0, 2, 1});
     }
 
+    // A host's notice (DevicePanel::setHostNotice): at the header's right end, its text whole,
+    // touching nothing.
+    if (const auto* notice = panel.hostNotice())
+    {
+        INFO("host notice: " << notice->text());
+        CHECK(notice->text().isNotEmpty());
+        CHECK(width(fd::ui::font(fd::ui::TextStyle::Control), notice->text()) <=
+              static_cast<float>(notice->getWidth() - 2 * grid.displayInset) + kTextMargin);
+        CHECK(notice->getY() >= 0);
+        CHECK(notice->getBottom() <= t.deviceHeaderHeight);
+        CHECK(notice->getHeight() == grid.row);
+        CHECK(notice->getRight() <= panel.getWidth() - grid.headerPadding);
+        for (auto* c : panel.headerControls())
+            if (c->isVisible())
+                CHECK(c->getRight() < notice->getX());
+        if (const auto* bar = panel.presetBar(); bar != nullptr && bar->isVisible())
+            CHECK(bar->getRight() < notice->getX());
+        CHECK(panel.nameArea().getRight() < notice->getX());
+    }
+
     // The presets (ADR 0044): in the header between the name and the settings, touching neither,
     // the field between its narrowest and widest, its parts apart.
+    // A host's notice takes the field's place on a header too tight for both (the name whole).
+    if (panel.presetBar() != nullptr && !panel.presetBar()->isVisible() && panel.hostNotice() != nullptr)
+    {
+        INFO("presets, given up to a host's notice");
+        const auto name = width(fd::ui::font(fd::ui::TextStyle::Title), juce::String(std::string(info.name)));
+        CHECK(name <= static_cast<float>(panel.nameArea().getWidth()) + kTextMargin);
+    }
+    else
     {
         INFO("presets");
         auto* bar = panel.presetBar();
@@ -294,7 +322,8 @@ inline void lintPanel(DevicePanel& panel, const fd::DeviceInfo& info, const juce
         if (dynamic_cast<fd::ui::ParamControl*>(c) != nullptr && c->isVisible())
         {
             INFO("control '" << c->getName() << "' / " << c->getTitle());
-            const bool inHeader = std::find(header.begin(), header.end(), c) != header.end();
+            const bool inHeader = std::find(header.begin(), header.end(), c) != header.end() ||
+                                  c == panel.hostNotice(); // the host's, laid out with the header
             CHECK((inHeader || c->findParentComponentOfClass<PanelSection>() != nullptr));
         }
 }

@@ -123,7 +123,8 @@ Sources: the [Live 12 manual](https://www.ableton.com/en/live-manual/12/first-st
 | **Recording** | File format | WAV, AIFF, FLAC | WAV |
 | | Bit depth | 16, 24, 32-bit float | 24 |
 | | Count-in | Off, 1 beat, 2 beats, 1 bar, 2 bars (also on the Record button) | 1 bar |
-| | Audio offset / MIDI offset | ms, −500 … 500: for interfaces that report their latency wrongly | 0 |
+| | Reduced latency when monitoring | Off / On, the project's (also Options > Reduced latency when monitoring; [recording.md](recording.md) §22.1, M3 C7) | Off |
+| | Audio offset / MIDI offset | ms, −500 … 500: for interfaces that report their latency wrongly. Audio offset has Measure… (recording.md §22.2, M3 C7) | 0 |
 | **Library** | Library | Where Segno's Library is (ADR 0055): a readout ("Not installed" when there's none, "(not found)" for a folder that's gone) and "Choose…" | Where it's installed |
 | | Segno folder | Where presets, unsaved projects and, later, samples live; "Move…" moves its contents | `Documents/Segno` |
 | | New projects | Where Save as… starts | The Segno folder |

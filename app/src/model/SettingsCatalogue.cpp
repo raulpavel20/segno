@@ -87,6 +87,11 @@ const std::vector<SettingInfo>& settingsCatalogue()
          "How finely new recordings are written; 24-bit is plenty for most.", "16 24 32 float resolution"},
         {"recording.countIn", S::Recording, "Count-in",
          "How long the metronome counts before recording starts.", "metronome bars beats"},
+        {"recording.reducedLatency", S::Recording, "Reduced latency",
+         "The project's: a track you play through skips the others' delay and bypasses its modules adding 3 "
+         "ms "
+         "or more.",
+         "when monitoring low latency delay compensation plugin bypass"},
         {"recording.audioOffset", S::Recording, "Audio offset",
          "Moves new audio recordings earlier or later, for an interface that reports its latency wrongly.",
          "latency compensation timing"},

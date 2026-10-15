@@ -117,6 +117,9 @@ private:
     bool tempoShown_ = false; // the fields show tempo_
     double position_ = -1.0;
     int cpu_ = -1;
+    /// "Reduced latency" by the CPU load while it affects a track (recording.md §22.1).
+    ui::HeaderBadge reducedLatency_{nullptr, nullptr, {}};
+    bool reducing_ = false;
     double lastMidi_ = -1.0; // last time a MIDI note was held (activity light)
     bool midiLit_ = false;
     bool assistantLit_ = false;

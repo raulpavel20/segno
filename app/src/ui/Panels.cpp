@@ -47,6 +47,11 @@ TransportBar::TransportBar(engine::Session& session, const ActionRegistry& actio
     add(record_, "transport.record");
     record_.setRecordAccent(true);
     record_.onPopupMenu = [this] { showRecordMenu(); };
+    reducedLatency_.show(
+        "Reduced latency",
+        "Reduced latency when monitoring is on (Options): the tracks you're playing through don't "
+        "wait for the other tracks' delay, and their modules adding 3 ms or more are bypassed.");
+    addChildComponent(reducedLatency_);
     add(capture_, "transport.capture");
     add(loop_, "transport.loop");
     add(follow_, "view.follow");
@@ -221,6 +226,11 @@ void TransportBar::frame(double positionSeconds, const model::TempoMap& tempo)
         repaint(assistantLight_);
     }
 
+    if (const bool reducing = session_.reducingLatency(); reducing != reducing_)
+    {
+        reducing_ = reducing;
+        resized(); // it comes or goes beside the CPU load
+    }
     const int cpu = static_cast<int>(std::lround(session_.cpuUsage() * 100.0));
     if (positionSeconds != position_ || cpu != cpu_)
     {
@@ -381,43 +391,68 @@ void TransportBar::resized()
         entries.push_back({{S::Left, static_cast<double>(mark)}, area(markArea)});
         entries.push_back({{S::Left, static_cast<double>(ui::brandWidth(h) - mark - t.shell.itemGap), false, kWordmark}, area(wordArea)});
     }
-    entries.insert(entries.end(), {
-        // Left: the song, then Undo and Redo.
-        {{S::Left, static_cast<double>(tempoField_.widthFor("999.00")), true}, button(tempoField_)},
-        {{S::Left, static_cast<double>(textWidth(ui::TextStyle::ValueSmall, "BPM"))}, area(bpmArea_)},
-        {{S::Left, static_cast<double>(numeratorField_.widthFor("32")), true}, button(numeratorField_)},
-        {{S::Left, std::ceil(digit)}, area(slashArea_)},
-        {{S::Left, static_cast<double>(denominatorField_.widthFor("16"))}, button(denominatorField_)},
-        // The key, a group of its own: its short name when it's tight, before anything drops.
-        {{S::Left, static_cast<double>(keyField_.widthFor(keyName_.isEmpty() ? juce::String("No key") : keyName_)), true, 0,
-          static_cast<double>(keyField_.widthFor(keyShort_.isEmpty() ? juce::String("No key") : keyShort_))},
-         button(keyField_)},
-        {{S::Left, static_cast<double>(h), true}, button(metronome_)},
-        {{S::Left, static_cast<double>(h)}, button(countIn_)},
-        {{S::Left, static_cast<double>(h), true, kUndo}, button(undo_)},
-        {{S::Left, static_cast<double>(h), false, kUndo}, button(redo_)},
-        // Centre: the transport, the position, the loop.
-        {{S::Centre, static_cast<double>(h)}, button(play_)},
-        {{S::Centre, static_cast<double>(h)}, button(stop_)},
-        {{S::Centre, static_cast<double>(h)}, button(record_)},
-        {{S::Centre, static_cast<double>(h)}, button(capture_)},
-        {{S::Centre, static_cast<double>(h)}, button(automationArm_)},
-        {{S::Centre, static_cast<double>(textWidth(ui::TextStyle::ValueLarge, "000. 00. 00") + 2 * inset), true}, area(barsArea_)},
-        {{S::Centre, static_cast<double>(textWidth(ui::TextStyle::ValueMedium, "00:00.000") + inset), false, kTime}, area(timeArea_)},
-        {{S::Centre, static_cast<double>(h), true}, button(loop_)},
-        {{S::Centre, static_cast<double>(h)}, button(follow_)},
-        // Right: status, views, app.
-        {{S::Right, static_cast<double>(textWidth(ui::TextStyle::Value, "CPU 100 %")), false, kCpu}, area(cpuArea_)},
-        {{S::Right, static_cast<double>(h), true}, button(keyboard_)},
-        {{S::Right, static_cast<double>(light)}, area(midiLight_)},
-        {{S::Right, static_cast<double>(ui::Toggle::widthFor(arrangeView_.getButtonText())), true}, button(arrangeView_)},
-        {{S::Right, static_cast<double>(ui::Toggle::widthFor(mixView_.getButtonText()))}, button(mixView_)},
-        {{S::Right, static_cast<double>(h), true, kPanels}, button(browser_)},
-        {{S::Right, static_cast<double>(h), false, kPanels}, button(detail_)},
-        {{S::Right, static_cast<double>(h), false, kPanels}, button(inspector_)},
-        // App: the command palette, assistants, settings.
-        {{S::Right, static_cast<double>(h), true}, button(search_)},
-    });
+    entries.insert(
+        entries.end(),
+        {
+            // Left: the song, then Undo and Redo.
+            {{S::Left, static_cast<double>(tempoField_.widthFor("999.00")), true}, button(tempoField_)},
+            {{S::Left, static_cast<double>(textWidth(ui::TextStyle::ValueSmall, "BPM"))}, area(bpmArea_)},
+            {{S::Left, static_cast<double>(numeratorField_.widthFor("32")), true}, button(numeratorField_)},
+            {{S::Left, std::ceil(digit)}, area(slashArea_)},
+            {{S::Left, static_cast<double>(denominatorField_.widthFor("16"))}, button(denominatorField_)},
+            // The key, a group of its own: its short name when it's tight, before anything drops.
+            {{S::Left,
+              static_cast<double>(keyField_.widthFor(keyName_.isEmpty() ? juce::String("No key") : keyName_)),
+              true, 0,
+              static_cast<double>(
+                  keyField_.widthFor(keyShort_.isEmpty() ? juce::String("No key") : keyShort_))},
+             button(keyField_)},
+            {{S::Left, static_cast<double>(h), true}, button(metronome_)},
+            {{S::Left, static_cast<double>(h)}, button(countIn_)},
+            {{S::Left, static_cast<double>(h), true, kUndo}, button(undo_)},
+            {{S::Left, static_cast<double>(h), false, kUndo}, button(redo_)},
+            // Centre: the transport, the position, the loop.
+            {{S::Centre, static_cast<double>(h)}, button(play_)},
+            {{S::Centre, static_cast<double>(h)}, button(stop_)},
+            {{S::Centre, static_cast<double>(h)}, button(record_)},
+            {{S::Centre, static_cast<double>(h)}, button(capture_)},
+            {{S::Centre, static_cast<double>(h)}, button(automationArm_)},
+            {{S::Centre, static_cast<double>(textWidth(ui::TextStyle::ValueLarge, "000. 00. 00") + 2 * inset),
+              true},
+             area(barsArea_)},
+            {{S::Centre, static_cast<double>(textWidth(ui::TextStyle::ValueMedium, "00:00.000") + inset),
+              false, kTime},
+             area(timeArea_)},
+            {{S::Centre, static_cast<double>(h), true}, button(loop_)},
+            {{S::Centre, static_cast<double>(h)}, button(follow_)},
+        });
+    // Right: status, views, app. While reduced latency affects a track, its reminder before the
+    // CPU load (recording.md §22.1), dropped with it.
+    reducedLatency_.setVisible(false);
+    if (reducing_)
+        entries.push_back({{S::Right, static_cast<double>(reducedLatency_.preferredWidth()), false, kCpu},
+                           [this, row = t.deviceGrid.row](juce::Rectangle<int> r)
+                           {
+                               reducedLatency_.setVisible(!r.isEmpty());
+                               reducedLatency_.setBounds(r.withSizeKeepingCentre(r.getWidth(), row));
+                           }});
+    entries.insert(
+        entries.end(),
+        {
+            {{S::Right, static_cast<double>(textWidth(ui::TextStyle::Value, "CPU 100 %")), false, kCpu},
+             area(cpuArea_)},
+            {{S::Right, static_cast<double>(h), true}, button(keyboard_)},
+            {{S::Right, static_cast<double>(light)}, area(midiLight_)},
+            {{S::Right, static_cast<double>(ui::Toggle::widthFor(arrangeView_.getButtonText())), true},
+             button(arrangeView_)},
+            {{S::Right, static_cast<double>(ui::Toggle::widthFor(mixView_.getButtonText()))},
+             button(mixView_)},
+            {{S::Right, static_cast<double>(h), true, kPanels}, button(browser_)},
+            {{S::Right, static_cast<double>(h), false, kPanels}, button(detail_)},
+            {{S::Right, static_cast<double>(h), false, kPanels}, button(inspector_)},
+            // App: the command palette, assistants, settings.
+            {{S::Right, static_cast<double>(h), true}, button(search_)},
+        });
     if (assistants)
     {
         entries.push_back({{S::Right, static_cast<double>(h)}, button(assistants_)});
@@ -2034,6 +2069,8 @@ void DetailPanel::setClip(std::optional<model::ClipInfo> clip, const model::Temp
 
 void DetailPanel::frame(double playheadSeconds)
 {
+    if (chain_.isVisible())
+        chain_.updateNotices(); // reduced latency when monitoring (recording.md §22.1)
     if (tools_.isVisible())
         tools_.refresh(); // its tiles as the notes allow; its tool shown again on changed notes
     if (roll_.isVisible() || audio_.isVisible())

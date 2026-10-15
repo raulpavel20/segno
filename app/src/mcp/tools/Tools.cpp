@@ -640,6 +640,7 @@ Json projectJson(ToolEnv& env)
             {"timeSignature", {{"numerator", t.numerator}, {"denominator", t.denominator}}},
             {"key", keyJson(snap->keys.first())},
             {"edgeFades", snap->edgeFades},
+            {"reducedLatency", s.reducedLatency()},
             {"end", positionJson(t.beatsForSeconds(snap->contentEnd()), t)},
             {"loop",
              {{"on", s.isLooping()},
@@ -736,6 +737,7 @@ Json moduleJson(ToolEnv& env, const model::DeviceSlot& slot, const model::TrackI
     j["folded"] = view["folded"];
     // How late it plays its track (a linear-phase EQ's delay): what a change to it costs live.
     j["latencyMs"] = std::round(env.session.moduleLatencyMs(slot.id) * 10.0) / 10.0;
+    j["bypassedWhileMonitoring"] = env.session.bypassedWhileMonitoring(slot.id); // recording.md §22.1
     // A plugin's name with its maker and format, as the inspector shows it (selection.md §8.2).
     if (slot.kind == model::DeviceSlot::Kind::External)
         j["plugin"] = env.session.moduleType(slot.id);
