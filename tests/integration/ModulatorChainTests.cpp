@@ -452,6 +452,98 @@ TEST_CASE(
     CHECK(panel->handle().isLit());
 }
 
+TEST_CASE("modulators in the chain view: the Envelope's points dragged on its display; Steps drawn on its "
+          "display, its bars and chances, one undo step a drag (§12.3, §12.5)",
+          "[integration][modulators][ui]")
+{
+    Chain f;
+    auto& s = *f.session;
+    const auto envelope = s.addModulator(f.t, Kind::Envelope);
+    const auto steps = s.addModulator(f.t, Kind::Steps);
+    REQUIRE(envelope != 0);
+    REQUIRE(steps != 0);
+    f.show();
+    const auto travel = fd::ui::Theme::current().input.bendTravel;
+    const auto drag = [](juce::Component& c, juce::Point<float> from, juce::Point<float> to)
+    {
+        c.mouseDown(mouseAt(c, from, from, false));
+        c.mouseDrag(mouseAt(c, to, from, true));
+        c.mouseUp(mouseAt(c, to, from, true));
+    };
+
+    // The Envelope: its attack's peak a bend travel right, twice as long, as every envelope's.
+    {
+        auto* panel = f.chain->modulatorPanel(envelope);
+        REQUIRE(panel != nullptr);
+        auto& display = panel->display();
+        CHECK(dynamic_cast<juce::SettableTooltipClient&>(display).getTooltip().contains("Drag the points"));
+        auto handle = s.openModulator(envelope);
+        REQUIRE(handle != nullptr);
+        auto& params = handle->context().params;
+        using fd::model::modulator::Envelope;
+        const float attack = params.getPlain(Envelope::Attack);
+        // Find the peak as the pointer would: where the cursor turns to a sideways drag.
+        juce::Point<float> peak;
+        for (float x = 0.0f; x < static_cast<float>(display.getWidth()) && peak.isOrigin(); x += 1.0f)
+            for (float y = 0.0f; y < static_cast<float>(display.getHeight()); y += 1.0f)
+            {
+                display.mouseMove(mouseAt(display, {x, y}, {x, y}, false));
+                if (display.getMouseCursor() == juce::MouseCursor(juce::MouseCursor::LeftRightResizeCursor))
+                {
+                    peak = {x, y};
+                    break;
+                }
+            }
+        REQUIRE_FALSE(peak.isOrigin());
+        drag(display, peak, peak.translated(travel, 0.0f));
+        CHECK(params.getPlain(Envelope::Attack) > std::max(attack, 1.0f) * 1.8f);
+    }
+
+    // Steps: a drag across its bars draws them, all at one height; its chance row, the chances.
+    auto* panel = f.chain->modulatorPanel(steps);
+    REQUIRE(panel != nullptr);
+    auto& display = panel->display();
+    auto handle = s.openModulator(steps);
+    REQUIRE(handle != nullptr);
+    auto& host = handle->host();
+    const auto values = host.stepValues();
+    REQUIRE(values.size() >= 16);
+    const auto w = static_cast<float>(display.getWidth()), h = static_cast<float>(display.getHeight());
+    const float top = h * 0.5f; // in the bars, above their middle
+    drag(display, {w * 0.15f, top}, {w * 0.85f, top});
+    const auto drawn = host.stepValues();
+    std::vector<float> heights; // the steps drawn (the pattern keeps four decimals)
+    for (size_t i = 0; i < 16; ++i)
+        if (std::abs(drawn[i] - values[i]) > 0.01f)
+            heights.push_back(drawn[i]);
+    CHECK(heights.size() >= 10);
+    CHECK(std::all_of(heights.begin(), heights.end(), [&](float v) { return v == Approx(heights.front()); }));
+    CHECK(s.undoDescription() == "Draw steps");
+    s.undo();
+    const auto undone = host.stepValues();
+    for (size_t i = 0; i < 16; ++i)
+        CHECK(undone[i] == Approx(values[i]).margin(1.0e-3));
+
+    // The chance row dragged down and across: each step crossed takes the lower chance.
+    const auto& grid = fd::ui::Theme::current().deviceGrid;
+    const float row = h - 4.0f - static_cast<float>(grid.displayInset) * 0.75f;
+    display.mouseMove(mouseAt(display, {w * 0.5f, row}, {w * 0.5f, row}, false));
+    CHECK(display.getMouseCursor() == juce::MouseCursor(juce::MouseCursor::UpDownResizeCursor));
+    const auto down = juce::Point<float>(w * 0.2f, row);
+    display.mouseDown(mouseAt(display, down, down, false));
+    display.mouseDrag(mouseAt(display, {w * 0.2f, row + 8.0f}, down, true));
+    display.mouseDrag(mouseAt(display, {w * 0.5f, row + 8.0f}, down, true));
+    display.mouseUp(mouseAt(display, {w * 0.5f, row + 8.0f}, down, true));
+    const auto chances = host.stepChances();
+    int lower = 0;
+    for (size_t i = 0; i < 16; ++i)
+        lower += chances[i] < 1.0f ? 1 : 0;
+    CHECK(lower >= 4);
+    CHECK(s.undoDescription() == "Draw steps");
+    f.chain->content().repaint();
+    f.shot("steps-drawn");
+}
+
 TEST_CASE("modulators in the chain view: Modulate with on a control's right-click, New before its module; a "
           "ring's drag sets the route; Add modulator after the selected module",
           "[integration][modulators][ui]")

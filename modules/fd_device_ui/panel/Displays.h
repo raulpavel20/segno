@@ -33,20 +33,97 @@ private:
     std::vector<float> last_;
 };
 
+/// An envelope dragged on its display (device-panels.md, "Displays"): the attack's peak sets its
+/// attack, the decay's end its decay and sustain, the release's end its release; with curves, a
+/// segment dragged up or down bends it. Times double for every bend travel dragged right and halve
+/// dragged left, the sustain follows the pointer's height, Shift drags finely; one gesture a
+/// parameter, from the press to the release. The Subtractive's, the Sampler's, the Wavetable's and
+/// the Envelope modulator's displays share it.
+class EnvelopeDrag
+{
+public:
+    /// The parameters it sets: times in milliseconds, the sustain over its range, and the attack's,
+    /// decay's and release's curves (bends) where it has them.
+    struct Params
+    {
+        size_t attack = 0, decay = 0, sustain = 0, release = 0;
+        std::optional<std::array<size_t, 3>> curves;
+    };
+    enum Part
+    {
+        none = -1,
+        attack = 0,
+        decay = 1,
+        release = 2,
+        attackBend = 3,
+        decayBend = 4,
+        releaseBend = 5
+    };
+    EnvelopeDrag(DeviceUiContext& context, Params params) : context_(context), params_(params) {}
+    void setParams(Params params) { params_ = params; }
+
+    /// What a press at `at` takes: the point of `points` (attack, decay and, unless it cycles,
+    /// release, on screen) within a handle's reach, else with curves the segment under it
+    /// (`segments`: the attack's, decay's and release's spans across, within `plot`'s height).
+    [[nodiscard]] int partAt(const std::vector<juce::Point<float>>& points,
+                             const std::array<juce::Range<float>, 3>& segments, juce::Rectangle<float> plot,
+                             juce::Point<float> at) const;
+    /// The pointer over a part: the decay's point moves both ways, the other points sideways, a
+    /// segment up and down.
+    [[nodiscard]] static juce::MouseCursor cursorFor(int part);
+    /// Draws `points` as display handles, the one dragged lit.
+    void paint(juce::Graphics& g, const std::vector<juce::Point<float>>& points) const;
+
+    void begin(int part);
+    /// The pointer `delta` from where it was pressed; `height` the plot's (the sustain's travel).
+    void drag(juce::Point<float> delta, bool fine, float height);
+    void end();
+    [[nodiscard]] int dragged() const noexcept { return part_; }
+
+private:
+    [[nodiscard]] std::vector<size_t> paramsOf(int part) const;
+
+    DeviceUiContext& context_;
+    Params params_;
+    int part_ = none;
+    std::array<float, 2> start_{};
+};
+
 /// ADSR shape drawn by running dsp::Adsr itself. Expects four consecutive parameters: attack,
 /// decay, release in ms and sustain in percent (A, D, S, R), plus an optional cycle toggle.
-/// Segment widths follow the log of their times and fill the display.
-class EnvelopeDisplay final : public MiniDisplay
+/// Segment widths follow the log of their times and fill the display. Its points are dragged
+/// (EnvelopeDrag): the release's only while it doesn't cycle.
+class EnvelopeDisplay final : public MiniDisplay, public juce::SettableTooltipClient
 {
 public:
     EnvelopeDisplay(DeviceUiContext& context, juce::String label, size_t attackIndex,
                     std::optional<size_t> cycleIndex = std::nullopt);
 
+    /// Its points on screen: the attack's peak, the decay's end and, unless it cycles, the
+    /// release's end.
+    [[nodiscard]] std::vector<juce::Point<float>> points() const;
+    /// The point a press at `at` drags (EnvelopeDrag::Part), or none.
+    [[nodiscard]] int partAt(juce::Point<float> at) const;
+
+    void mouseMove(const juce::MouseEvent& e) override;
+    void mouseDown(const juce::MouseEvent& e) override;
+    void mouseDrag(const juce::MouseEvent& e) override;
+    void mouseUp(const juce::MouseEvent& e) override;
+
 private:
+    /// Where its segments end across its plot, as drawn.
+    struct Layout
+    {
+        juce::Rectangle<float> plot;
+        float attackEnd = 0.0f, decayEnd = 0.0f, sustainEnd = 0.0f, releaseEnd = 0.0f;
+        bool cycle = false;
+    };
+    [[nodiscard]] Layout layout() const;
     void drawContent(juce::Graphics& g, juce::Rectangle<float> area) override;
 
     size_t attack_;
     std::optional<size_t> cycle_;
+    EnvelopeDrag drag_;
 };
 /// Magnitude response of the instruments' filter section (dsp::SynthFilter) at the panel's
 /// type, cutoff (Hz) and resonance (percent). Dimmed while the optional enable toggle is off.

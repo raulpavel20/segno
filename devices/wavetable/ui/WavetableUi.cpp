@@ -983,15 +983,23 @@ void FilterResponse::mouseUp(const juce::MouseEvent&)
 // ---- EnvelopeEditor ------------------------------------------------------------------------------
 
 EnvelopeEditor::EnvelopeEditor(ui::DeviceUiContext& context, Modulation& modulation)
-    : ctx_(context), handle_(modulation, static_cast<int>(W::Source::AmpEnv))
+    : ctx_(context), handle_(modulation, static_cast<int>(W::Source::AmpEnv)), drag_(context, dragParams(0))
 {
     addAndMakeVisible(handle_);
     setTooltip("Drag the points for the times and the sustain; drag a segment up or down to bend it");
 }
 
+ui::EnvelopeDrag::Params EnvelopeEditor::dragParams(int n)
+{
+    return {
+        W::env(n, W::EnvAttack), W::env(n, W::EnvDecay), W::env(n, W::EnvSustain), W::env(n, W::EnvRelease),
+        std::array{W::env(n, W::EnvAttackCurve), W::env(n, W::EnvDecayCurve), W::env(n, W::EnvReleaseCurve)}};
+}
+
 void EnvelopeEditor::setEnvelope(int n)
 {
     env_ = n;
+    drag_.setParams(dragParams(n));
     handle_.setSource(static_cast<int>(W::Source::AmpEnv) + n);
     resized(); // the chip's name changed
     last_.clear();
@@ -1065,19 +1073,10 @@ juce::Point<float> EnvelopeEditor::pointOf(int part, const Layout& l) const
 int EnvelopeEditor::partAt(juce::Point<float> p) const
 {
     const auto l = layout();
-    const float reach = static_cast<float>(ui::Theme::current().deviceGrid.displayHandle);
-    for (int part = 0; part < 3; ++part)
-        if (pointOf(part, l).getDistanceFrom(p) <= reach)
-            return part;
-    if (!l.area.expanded(0.0f, reach).contains(p))
-        return -1;
-    if (p.x < l.attackEnd)
-        return 3;
-    if (p.x >= l.holdEnd && p.x < l.decayEnd)
-        return 4;
-    if (p.x >= l.sustainEnd)
-        return 5;
-    return -1;
+    return drag_.partAt({pointOf(0, l), pointOf(1, l), pointOf(2, l)},
+                        {juce::Range(l.area.getX(), l.attackEnd), juce::Range(l.holdEnd, l.decayEnd),
+                         juce::Range(l.sustainEnd, l.releaseEnd + 1.0f)},
+                        l.area, p);
 }
 
 void EnvelopeEditor::paint(juce::Graphics& g)
@@ -1112,98 +1111,29 @@ void EnvelopeEditor::paint(juce::Graphics& g)
     g.fillPath(fill);
     g.setColour(t.value);
     g.strokePath(line, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved));
-    for (int part = 0; part < 3; ++part)
-        paintHandle(g, pointOf(part, l), dragged_ == part);
+    drag_.paint(g, {pointOf(0, l), pointOf(1, l), pointOf(2, l)});
 }
 
 void EnvelopeEditor::mouseMove(const juce::MouseEvent& e)
 {
-    const int part = partAt(e.position);
-    setMouseCursor(part == 1               ? juce::MouseCursor::UpDownLeftRightResizeCursor
-                   : part >= 0 && part < 3 ? juce::MouseCursor::LeftRightResizeCursor
-                   : part >= 3             ? juce::MouseCursor::UpDownResizeCursor
-                                           : juce::MouseCursor::NormalCursor);
+    setMouseCursor(ui::EnvelopeDrag::cursorFor(partAt(e.position)));
 }
-
-namespace
-{
-/// The parameters a part of an envelope drags.
-std::vector<W::EnvParam> partParams(int part)
-{
-    switch (part)
-    {
-    case 0:
-        return {W::EnvAttack};
-    case 1:
-        return {W::EnvDecay, W::EnvSustain};
-    case 2:
-        return {W::EnvRelease};
-    case 3:
-        return {W::EnvAttackCurve};
-    case 4:
-        return {W::EnvDecayCurve};
-    case 5:
-        return {W::EnvReleaseCurve};
-    default:
-        return {};
-    }
-}
-} // namespace
 
 void EnvelopeEditor::mouseDown(const juce::MouseEvent& e)
 {
-    dragged_ = partAt(e.position);
-    const auto params = partParams(dragged_);
-    for (size_t i = 0; i < params.size(); ++i)
-    {
-        startValues_[i] = param(params[i]);
-        ctx_.params.beginGesture(W::env(env_, params[i]));
-    }
+    drag_.begin(partAt(e.position));
     repaint();
 }
 
 void EnvelopeEditor::mouseDrag(const juce::MouseEvent& e)
 {
-    if (dragged_ < 0)
-        return;
-    const auto& input = ui::Theme::current().input;
-    const float fine = e.mods.isShiftDown() ? input.fineFactor : 1.0f;
-    const auto dx = static_cast<float>(e.getDistanceFromDragStartX()) * fine,
-               dy = static_cast<float>(e.getDistanceFromDragStartY()) * fine;
-    const auto setTo = [&](W::EnvParam p, float v)
-    {
-        const auto& spec = ctx_.info.params[W::env(env_, p)];
-        ctx_.params.setPlain(W::env(env_, p), std::clamp(v, spec.min, spec.max));
-    };
-    // Times double for every bend travel dragged; sustain and curves follow the pointer's height.
-    const auto time = [&](float start) { return std::max(start, 1.0f) * std::exp2(dx / input.bendTravel); };
-    const float height = layout().area.getHeight();
-    switch (dragged_)
-    {
-    case 0:
-        setTo(W::EnvAttack, time(startValues_[0]));
-        break;
-    case 1:
-        setTo(W::EnvDecay, time(startValues_[0]));
-        setTo(W::EnvSustain, startValues_[1] - dy / std::max(1.0f, height) * 100.0f);
-        break;
-    case 2:
-        setTo(W::EnvRelease, time(startValues_[0]));
-        break;
-    default:
-        // A falling segment bends the other way to a rising one under the same drag.
-        setTo(partParams(dragged_)[0],
-              startValues_[0] + (dragged_ == 3 ? -dy : dy) / input.bendTravel * 100.0f);
-        break;
-    }
+    drag_.drag(e.position - e.mouseDownPosition, e.mods.isShiftDown(), layout().area.getHeight());
     refresh();
 }
 
 void EnvelopeEditor::mouseUp(const juce::MouseEvent&)
 {
-    for (const auto p : partParams(dragged_))
-        ctx_.params.endGesture(W::env(env_, p));
-    dragged_ = -1;
+    drag_.end();
     repaint();
 }
 

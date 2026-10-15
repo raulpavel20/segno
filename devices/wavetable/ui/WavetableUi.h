@@ -258,11 +258,13 @@ private:
     [[nodiscard]] juce::Point<float> pointOf(int part, const Layout& l) const;
     [[nodiscard]] float param(W::EnvParam p) const;
 
+    /// Envelope n's attack, decay, sustain and release.
+    [[nodiscard]] static ui::EnvelopeDrag::Params dragParams(int n);
+
     ui::DeviceUiContext& ctx_;
     ui::ModulationHandle handle_;
-    int env_ = 0, dragged_ = -1;
-    juce::Point<float> start_;
-    std::array<float, 3> startValues_{};
+    ui::EnvelopeDrag drag_; // its points and bends, as every envelope's
+    int env_ = 0;
     std::vector<float> last_;
 };
 

@@ -92,6 +92,9 @@ public:
     [[nodiscard]] virtual std::vector<float> stepValues() const { return {}; }
     [[nodiscard]] virtual std::vector<float> stepChances() const { return {}; }
     virtual void setStep(int /*step*/, float /*value*/, float /*chance*/) {}
+    /// A drag drawing steps on its display (§12.5): every setStep until it ends is one undo step.
+    virtual void beginSteps() {}
+    virtual void endSteps() {}
     /// The LFO: the shape it plays while its Shape is Drawn (§12.1); setting it is one undo step.
     [[nodiscard]] virtual dsp::DrawnCurve drawnCurve() const { return {}; }
     virtual void setDrawnCurve(const dsp::DrawnCurve& /*curve*/) {}

@@ -65,12 +65,31 @@ struct ModulatorPanel::Self final : ui::ModulationModel
 /// output drawn from fd::dsp::mod, the same functions the engine plays. With Per Target, one trace
 /// for each target, over each other, each a step fainter (`Theme::echo`), and each copy's dot
 /// where it is now.
-class ModulatorPanel::Display final : public ui::MiniDisplay
+class ModulatorPanel::Display final : public ui::MiniDisplay, public juce::SettableTooltipClient
 {
 public:
     Display(ui::DeviceUiContext& context, ModulatorKind kind, ModulatorHost& host)
         : MiniDisplay(context, {}, drawnFrom(kind)), ctx_(context), kind_(kind), host_(host)
     {
+        // The Envelope dragged as every envelope is (§12.3); Steps drawn (§12.5).
+        if (kind_ == ModulatorKind::Envelope)
+        {
+            envelope_.emplace(context,
+                              ui::EnvelopeDrag::Params{
+                                  Envelope::Attack, Envelope::Decay, Envelope::Sustain, Envelope::Release,
+                                  std::array<size_t, 3>{Envelope::AttackCurve, Envelope::DecayCurve,
+                                                        Envelope::ReleaseCurve}});
+            setInterceptsMouseClicks(true, true);
+            setTooltip("Drag the points for the times and the sustain; drag a segment up or down to bend it "
+                       "(Shift: finely)");
+        }
+        else if (kind_ == ModulatorKind::Steps)
+        {
+            setInterceptsMouseClicks(true, true);
+            setTooltip(
+                "Drag across the bars to draw the steps; drag up or down on the row under them for each "
+                "step's chance (Shift: finely)");
+        }
         // The LFO's drawn shape (§12.1): the shared curve editor over the plot while Shape is
         // Drawn.
         if (kind_ == ModulatorKind::Lfo)
@@ -147,7 +166,161 @@ public:
         }
     }
 
+    void mouseMove(const juce::MouseEvent& e) override
+    {
+        if (envelope_)
+        {
+            const auto shape = envelopeShape();
+            setMouseCursor(ui::EnvelopeDrag::cursorFor(
+                envelope_->partAt(shape.points, shape.segments, shape.plot, e.position)));
+        }
+        else if (kind_ == ModulatorKind::Steps)
+        {
+            const auto shape = stepsShape();
+            setMouseCursor(onChances(shape, e.position) ? juce::MouseCursor::UpDownResizeCursor
+                                                        : juce::MouseCursor::NormalCursor);
+        }
+    }
+
+    void mouseDown(const juce::MouseEvent& e) override
+    {
+        if (envelope_)
+        {
+            const auto shape = envelopeShape();
+            envelope_->begin(envelope_->partAt(shape.points, shape.segments, shape.plot, e.position));
+            repaint();
+            return;
+        }
+        if (kind_ != ModulatorKind::Steps)
+            return;
+        const auto shape = stepsShape();
+        if (!shape.bars.getUnion(shape.chances).contains(e.position))
+            return;
+        host_.beginSteps();
+        drawnTo_ = e.position;
+        if (onChances(shape, e.position))
+        {
+            drawing_ = Drawing::chances;
+            chanceFrom_ = stepOf(host_.stepChances(), stepAt(shape, e.position.x), 1.0f);
+            drawChances(shape, e);
+        }
+        else
+        {
+            drawing_ = Drawing::values;
+            drawValues(shape, e.position);
+        }
+    }
+
+    void mouseDrag(const juce::MouseEvent& e) override
+    {
+        if (envelope_)
+        {
+            envelope_->drag(e.position - e.mouseDownPosition, e.mods.isShiftDown(),
+                            envelopeShape().plot.getHeight());
+            refresh();
+            return;
+        }
+        const auto shape = stepsShape();
+        if (drawing_ == Drawing::values)
+            drawValues(shape, e.position);
+        else if (drawing_ == Drawing::chances)
+            drawChances(shape, e);
+    }
+
+    void mouseUp(const juce::MouseEvent&) override
+    {
+        if (envelope_)
+        {
+            envelope_->end();
+            repaint();
+        }
+        if (drawing_ != Drawing::none)
+        {
+            drawing_ = Drawing::none;
+            host_.endSteps();
+        }
+    }
+
 private:
+    // ---- Steps drawn (§12.5) ------------------------------------------------------------------
+
+    /// Steps as drawn: the bars, the chance row along their foot, a step's width.
+    struct StepsShape
+    {
+        juce::Rectangle<float> bars, chances;
+        float slot = 1.0f;
+        int count = 1;
+    };
+
+    [[nodiscard]] StepsShape stepsShape() const
+    {
+        const auto& t = ui::Theme::current();
+        StepsShape shape;
+        auto plot = plotArea();
+        shape.count = std::clamp(static_cast<int>(value(Steps::Length)), 1, Steps::maxSteps);
+        shape.chances = plot.removeFromBottom(static_cast<float>(t.deviceGrid.displayInset));
+        plot.removeFromBottom(static_cast<float>(t.grid) * 0.5f);
+        shape.bars = plot;
+        shape.slot = plot.getWidth() / static_cast<float>(shape.count);
+        return shape;
+    }
+
+    [[nodiscard]] static int stepAt(const StepsShape& shape, float x)
+    {
+        return std::clamp(static_cast<int>(std::floor((x - shape.bars.getX()) / shape.slot)), 0,
+                          shape.count - 1);
+    }
+
+    /// The chance row, and the gap above it: the bars end where the gap starts.
+    [[nodiscard]] static bool onChances(const StepsShape& shape, juce::Point<float> at)
+    {
+        return at.y >= shape.bars.getBottom() && at.x >= shape.bars.getX() && at.x <= shape.bars.getRight();
+    }
+
+    [[nodiscard]] static float stepOf(const std::vector<float>& v, int i, float fallback)
+    {
+        return i >= 0 && i < static_cast<int>(v.size()) ? v[static_cast<size_t>(i)] : fallback;
+    }
+
+    /// As on the velocity lane: each step the pointer crossed since the last takes its height there
+    /// (-1 at the foot ... +1 at the top).
+    void drawValues(const StepsShape& shape, juce::Point<float> to)
+    {
+        const auto values = host_.stepValues();
+        const auto chances = host_.stepChances();
+        const int from = stepAt(shape, drawnTo_.x), last = stepAt(shape, to.x);
+        for (int step = std::min(from, last); step <= std::max(from, last); ++step)
+        {
+            const float centre = shape.bars.getX() + shape.slot * (static_cast<float>(step) + 0.5f);
+            const float span = to.x - drawnTo_.x;
+            const float u = from == last || std::abs(span) < 1.0e-3f
+                                ? 1.0f
+                                : std::clamp((centre - drawnTo_.x) / span, 0.0f, 1.0f);
+            const float y = drawnTo_.y + (to.y - drawnTo_.y) * u;
+            const float height =
+                std::clamp((shape.bars.getBottom() - y) / shape.bars.getHeight(), 0.0f, 1.0f);
+            host_.setStep(step, 2.0f * height - 1.0f, stepOf(chances, step, 1.0f));
+        }
+        drawnTo_ = to;
+        repaint();
+    }
+
+    /// Up for more: the bars' height for all of it (Shift: finely); each step the pointer crosses
+    /// takes the same.
+    void drawChances(const StepsShape& shape, const juce::MouseEvent& e)
+    {
+        const float fine = e.mods.isShiftDown() ? ui::Theme::current().input.fineFactor : 1.0f;
+        const float chance = std::clamp(chanceFrom_ - (e.position.y - e.mouseDownPosition.y) * fine /
+                                                          std::max(1.0f, shape.bars.getHeight()),
+                                        0.0f, 1.0f);
+        const auto values = host_.stepValues();
+        const int from = stepAt(shape, drawnTo_.x), last = stepAt(shape, e.position.x);
+        for (int step = std::min(from, last); step <= std::max(from, last); ++step)
+            host_.setStep(step, stepOf(values, step, 0.0f), chance);
+        drawnTo_ = e.position;
+        repaint();
+    }
+
     [[nodiscard]] float value(size_t index) const { return ctx_.params.getPlain(index); }
     [[nodiscard]] bool on(size_t index) const { return value(index) >= 0.5f; }
     [[nodiscard]] juce::String text(size_t index) const
@@ -240,13 +413,13 @@ private:
             drawRandom(g, plot);
             break;
         case ModulatorKind::Envelope:
-            drawEnvelope(g, plot);
+            drawEnvelope(g);
             break;
         case ModulatorKind::Follower:
             drawFollower(g, plot);
             break;
         case ModulatorKind::Steps:
-            drawSteps(g, plot);
+            drawSteps(g);
             break;
         }
     }
@@ -328,19 +501,20 @@ private:
                });
     }
 
-    void drawSteps(juce::Graphics& g, juce::Rectangle<float> plot) const
+    void drawSteps(juce::Graphics& g) const
     {
         const auto& t = ui::Theme::current();
         const auto values = host_.stepValues();
         const auto chances = host_.stepChances();
-        const int count = std::clamp(static_cast<int>(value(Steps::Length)), 1, Steps::maxSteps);
+        const auto shape = stepsShape();
+        const int count = shape.count;
         const bool both = bothWays();
         // The chance row along the foot, the bars above it.
         const float gap = static_cast<float>(t.grid) * 0.5f;
-        const auto chanceRow = plot.removeFromBottom(static_cast<float>(t.deviceGrid.displayInset));
-        plot.removeFromBottom(gap);
+        const auto& chanceRow = shape.chances;
+        const auto& plot = shape.bars;
         baseline(g, plot, both);
-        const float slot = plot.getWidth() / static_cast<float>(count);
+        const float slot = shape.slot;
         const int current = static_cast<int>(std::floor(position_)) % count;
         const auto at = [&](const std::vector<float>& v, int i, float fallback)
         { return i < static_cast<int>(v.size()) ? v[static_cast<size_t>(i)] : fallback; };
@@ -383,41 +557,78 @@ private:
         }
     }
 
-    void drawEnvelope(juce::Graphics& g, juce::Rectangle<float> plot) const
+    /// A stage of the Envelope as drawn: its time, where it goes from and to, its bend, its width.
+    struct Stage
+    {
+        double ms, from, to, bend;
+        float width = 0.0f;
+    };
+    /// The Envelope as drawn and dragged: its stages up to the sustain (delay, attack, hold,
+    /// decay), spaced by the log of their times; the sustain a quarter of the rest, while a note is
+    /// held; then the release. The points it's dragged by and the spans of the segments it bends.
+    struct EnvelopeShape
+    {
+        juce::Rectangle<float> plot;
+        std::array<Stage, 4> stages;
+        Stage release;
+        float held = 0.0f;
+        std::vector<juce::Point<float>> points;     // the ends of attack, decay and release
+        std::array<juce::Range<float>, 3> segments; // attack, decay, release
+        [[nodiscard]] float yOf(double level) const
+        {
+            return plot.getBottom() - static_cast<float>(level) * plot.getHeight();
+        }
+    };
+
+    [[nodiscard]] EnvelopeShape envelopeShape() const
     {
         const auto& t = ui::Theme::current();
-        // The stages up to the sustain, spaced by the log of their times; the sustain a quarter of
-        // the rest, while a note is held; then the release.
-        struct Stage
-        {
-            double ms, from, to, bend;
-            float width = 0.0f;
-        };
+        EnvelopeShape e;
         const double sustain = value(Envelope::Sustain) * 0.01;
-        Stage stages[] = {{value(Envelope::Delay), 0.0, 0.0, 0.0},
-                          {value(Envelope::Attack), 0.0, 1.0, value(Envelope::AttackCurve) * 0.01},
-                          {value(Envelope::Hold), 1.0, 1.0, 0.0},
-                          {value(Envelope::Decay), 1.0, sustain, value(Envelope::DecayCurve) * 0.01}};
-        Stage release{value(Envelope::Release), sustain, 0.0, value(Envelope::ReleaseCurve) * 0.01};
+        e.stages = {Stage{value(Envelope::Delay), 0.0, 0.0, 0.0},
+                    Stage{value(Envelope::Attack), 0.0, 1.0, value(Envelope::AttackCurve) * 0.01},
+                    Stage{value(Envelope::Hold), 1.0, 1.0, 0.0},
+                    Stage{value(Envelope::Decay), 1.0, sustain, value(Envelope::DecayCurve) * 0.01}};
+        e.release = {value(Envelope::Release), sustain, 0.0, value(Envelope::ReleaseCurve) * 0.01};
         float total = 0.0f;
-        for (auto& stage : stages)
+        for (auto& stage : e.stages)
             total += stage.width = stage.ms > 0.0 || stage.to != stage.from ? stageWidth(stage.ms) : 0.0f;
-        total += release.width = stageWidth(release.ms);
-        const float held = total * 0.25f;
+        total += e.release.width = stageWidth(e.release.ms);
+        e.held = total * 0.25f;
         // The points it's dragged by stay inside the well: half a point in from its edges.
-        const auto half = static_cast<float>(t.deviceGrid.displayHandle) * 0.5f;
-        plot = plot.withTrimmedLeft(half).withTrimmedRight(half).withTrimmedBottom(half).withTrimmedTop(half);
-        const float scale = plot.getWidth() / (total + held);
-        for (auto& stage : stages)
+        e.plot = plotArea().reduced(static_cast<float>(t.deviceGrid.displayHandle) * 0.5f);
+        const float scale = e.plot.getWidth() / (total + e.held);
+        for (auto& stage : e.stages)
             stage.width *= scale;
-        release.width *= scale;
-        const auto yOf = [&](double level)
-        { return plot.getBottom() - static_cast<float>(level) * plot.getHeight(); };
+        e.release.width *= scale;
+        e.held *= scale;
+        float x = e.plot.getX();
+        for (size_t i = 0; i < e.stages.size(); ++i)
+        {
+            const float from = x;
+            x += e.stages[i].width;
+            if (i == 1 || i == 3)
+            {
+                e.points.emplace_back(x, e.yOf(e.stages[i].to));
+                e.segments[i == 1 ? 0 : 1] = {from, x};
+            }
+        }
+        x += e.held;
+        e.segments[2] = {x, x + e.release.width + 1.0f};
+        e.points.emplace_back(x + e.release.width, e.plot.getBottom());
+        return e;
+    }
+
+    void drawEnvelope(juce::Graphics& g) const
+    {
+        const auto& t = ui::Theme::current();
+        const auto e = envelopeShape();
+        const auto& plot = e.plot;
+        const double sustain = e.release.from;
         const auto levelIn = [](const Stage& stage, double u)
         { return stage.from + (stage.to - stage.from) * fd::dsp::CurvedEnvelope::shape(u, stage.bend); };
 
         juce::Path curve;
-        std::vector<juce::Point<float>> points; // the ends of attack, decay and release: dragged
         float x = plot.getX();
         curve.startNewSubPath(x, plot.getBottom());
         const auto draw = [&](const Stage& stage)
@@ -426,19 +637,14 @@ private:
             for (int i = 1; i <= n; ++i)
             {
                 const double u = static_cast<double>(i) / n;
-                curve.lineTo(x + stage.width * static_cast<float>(u), yOf(levelIn(stage, u)));
+                curve.lineTo(x + stage.width * static_cast<float>(u), e.yOf(levelIn(stage, u)));
             }
             x += stage.width;
         };
-        for (size_t i = 0; i < std::size(stages); ++i)
-        {
-            draw(stages[i]);
-            if (i == 1 || i == 3)
-                points.emplace_back(x, yOf(stages[i].to));
-        }
-        draw({0.0, sustain, sustain, 0.0, held * scale});
-        draw(release);
-        points.emplace_back(x, plot.getBottom());
+        for (const auto& stage : e.stages)
+            draw(stage);
+        draw({0.0, sustain, sustain, 0.0, e.held});
+        draw(e.release);
 
         auto fill = curve;
         fill.lineTo(plot.getRight(), plot.getBottom());
@@ -447,16 +653,9 @@ private:
         g.fillPath(fill);
         g.setColour(t.value);
         g.strokePath(curve, juce::PathStrokeType(kTraceStroke, juce::PathStrokeType::curved));
-        // The points dragged to shape it, as any display handle (the Wavetable's envelope).
-        const auto handle = static_cast<float>(t.deviceGrid.displayHandle);
-        for (const auto& point : points)
-        {
-            const auto r = juce::Rectangle<float>(handle, handle).withCentre(point);
-            g.setColour(t.surface3);
-            g.fillEllipse(r);
-            g.setColour(t.value);
-            g.drawEllipse(r.reduced(0.5f), 1.0f);
-        }
+        // The points dragged to shape it, as any envelope's (ui::EnvelopeDrag).
+        if (envelope_)
+            envelope_->paint(g, e.points);
         // Each copy playing, where it is (Per Target: each fires on its own chance): through its
         // stages up to the sustain, where a held note waits.
         const auto playing = host_.playing();
@@ -468,7 +667,7 @@ private:
             float at = plot.getX();
             double level = sustain;
             bool placed = false;
-            for (const auto& stage : stages)
+            for (const auto& stage : e.stages)
             {
                 if (ms < stage.ms)
                 {
@@ -482,8 +681,8 @@ private:
                 at += stage.width;
             }
             if (!placed)
-                at += held * scale * 0.5f; // held, in the sustain
-            dot(g, {at, yOf(level)}, copy);
+                at += e.held * 0.5f; // held, in the sustain
+            dot(g, {at, e.yOf(level)}, copy);
         }
     }
 
@@ -523,6 +722,15 @@ private:
     ui::DeviceUiContext& ctx_;
     ModulatorKind kind_;
     ModulatorHost& host_;
+    std::optional<ui::EnvelopeDrag> envelope_; // the Envelope's points and bends
+    enum class Drawing
+    {
+        none,
+        values,
+        chances
+    } drawing_ = Drawing::none; // a drag drawing Steps
+    juce::Point<float> drawnTo_;
+    float chanceFrom_ = 1.0f;
     ui::CurveEditor drawn_;      // the LFO's drawn shape, while Shape is Drawn
     dsp::DrawnCurve drawnShown_; // what the traces draw it from
     ui::ModulationHandle* handle_ = nullptr;

@@ -95,7 +95,7 @@ On the module grid ([device-panels.md](../../docs/design/device-panels.md)): sec
 - Envelope segment widths follow the log of their times and fill the display.
 - Mod amounts, voice count and bend range are value bars.
 - The Cycle toggle is the Mod envelope display's accessory.
-- To do: drag envelope segments directly on the displays.
+- The envelopes are dragged on their displays (M3 C7), as every envelope is (`ui::EnvelopeDrag`, device-panels.md, "Controls on the grid"): the attack's peak, the decay's end (decay and sustain) and the release's end; the Mod envelope's release while it doesn't cycle. Shift drags finely.
 
 ## Factory presets
 

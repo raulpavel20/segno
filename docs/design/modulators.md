@@ -569,5 +569,9 @@ Built on main in six steps (1a–1f), then the Follower's Listen, the master, Fi
 - **The hands-on tasks** are in `docs/manual-tests/M3.md`.
 - **Choices** (B87, the recommendation approved by the product owner, 2026-10-15): a handle lands on a dropdown or segmented buttons as on a switch, and they show it as a switch does: the line along the bottom edge (each button's, in segmented buttons), full while the modulation has it on another choice than the one set, that choice's button outlined. On a switch or button that's on, the line has a dark halo above it, as the lines on hover do: on the `active` fill it didn't show, the drag's lit line least of all (switches had it too). Drawn in `tests/integration/ModulatorUiTests.cpp` ("choices moved"), driven in `ModulatorChainTests.cpp`.
 
+- **Two gaps found after the sign-off, built the same day:** the Envelope's display drew the points it's dragged by, but they couldn't be dragged (§12.3: "the Wavetable's draggable envelope, shared"); and Steps' bars couldn't be drawn on its display (§12.5). Now:
+  - the Envelope's points and segments drag as the Wavetable's do, through one shared drag (`ui::EnvelopeDrag`, which the Wavetable's, the Subtractive's and the Sampler's envelopes use too);
+  - a drag across Steps' bars draws them as on the velocity lane, each step crossed taking the pointer's height; a drag up or down on the chance row under them sets the chance of each step it crosses (Shift: finely). Each drag is one undo step, "Draw steps" (`ModulatorHost::beginSteps`, `endSteps`).
+
 Signed off by the product owner (2026-10-15).
 

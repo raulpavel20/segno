@@ -150,26 +150,188 @@ std::vector<size_t> envelopeParams(size_t attack, std::optional<size_t> cycle)
 }
 } // namespace
 
+// ---- an envelope's points dragged -----------------------------------------------------------------
+
+int EnvelopeDrag::partAt(const std::vector<juce::Point<float>>& points,
+                         const std::array<juce::Range<float>, 3>& segments, juce::Rectangle<float> plot,
+                         juce::Point<float> at) const
+{
+    const auto reach = static_cast<float>(Theme::current().deviceGrid.displayHandle);
+    int nearest = none;
+    float best = reach;
+    for (size_t i = 0; i < points.size(); ++i)
+        if (const float d = points[i].getDistanceFrom(at); d <= best)
+        {
+            best = d;
+            nearest = static_cast<int>(i);
+        }
+    if (nearest != none || !params_.curves || !plot.expanded(0.0f, reach).contains(at))
+        return nearest;
+    for (int i = 0; i < 3; ++i)
+        if (segments[static_cast<size_t>(i)].contains(at.x))
+            return attackBend + i;
+    return none;
+}
+
+juce::MouseCursor EnvelopeDrag::cursorFor(int part)
+{
+    return part == decay        ? juce::MouseCursor::UpDownLeftRightResizeCursor
+           : part >= attackBend ? juce::MouseCursor::UpDownResizeCursor
+           : part != none       ? juce::MouseCursor::LeftRightResizeCursor
+                                : juce::MouseCursor::NormalCursor;
+}
+
+void EnvelopeDrag::paint(juce::Graphics& g, const std::vector<juce::Point<float>>& points) const
+{
+    for (size_t i = 0; i < points.size(); ++i)
+        paintDisplayHandle(g, points[i], static_cast<int>(i) == part_);
+}
+
+std::vector<size_t> EnvelopeDrag::paramsOf(int part) const
+{
+    switch (part)
+    {
+    case attack:
+        return {params_.attack};
+    case decay:
+        return {params_.decay, params_.sustain};
+    case release:
+        return {params_.release};
+    case attackBend:
+    case decayBend:
+    case releaseBend:
+        if (params_.curves)
+            return {(*params_.curves)[static_cast<size_t>(part - attackBend)]};
+        return {};
+    default:
+        return {};
+    }
+}
+
+void EnvelopeDrag::begin(int part)
+{
+    part_ = part;
+    const auto params = paramsOf(part_);
+    for (size_t i = 0; i < params.size(); ++i)
+    {
+        start_[i] = context_.params.getPlain(params[i]);
+        context_.params.beginGesture(params[i]);
+    }
+}
+
+void EnvelopeDrag::drag(juce::Point<float> delta, bool fine, float height)
+{
+    const auto params = paramsOf(part_);
+    if (params.empty())
+        return;
+    const auto& input = Theme::current().input;
+    const auto d = delta * (fine ? input.fineFactor : 1.0f);
+    const auto setTo = [&](size_t p, float v)
+    {
+        const auto& spec = context_.info.params[p];
+        context_.params.setPlain(p, std::clamp(v, spec.min, spec.max));
+    };
+    if (part_ >= attackBend)
+    {
+        // A bend travel up bends it all the way; a falling segment bends the other way to a rising
+        // one under the same drag.
+        const auto& spec = context_.info.params[params[0]];
+        const float up = (part_ == attackBend ? -d.y : d.y) / input.bendTravel;
+        setTo(params[0], start_[0] + up * (spec.max - spec.min) * 0.5f);
+        return;
+    }
+    // A time doubles for every bend travel dragged right; the sustain follows the pointer's height.
+    setTo(params[0], std::max(start_[0], 1.0f) * std::exp2(d.x / input.bendTravel));
+    if (params.size() > 1)
+    {
+        const auto& spec = context_.info.params[params[1]];
+        setTo(params[1], start_[1] - d.y / std::max(1.0f, height) * (spec.max - spec.min));
+    }
+}
+
+void EnvelopeDrag::end()
+{
+    for (const auto p : paramsOf(part_))
+        context_.params.endGesture(p);
+    part_ = none;
+}
+
+// ---- the instruments' envelopes -------------------------------------------------------------------
+
 EnvelopeDisplay::EnvelopeDisplay(DeviceUiContext& context, juce::String label, size_t attackIndex,
                                  std::optional<size_t> cycleIndex)
     : MiniDisplay(context, std::move(label), envelopeParams(attackIndex, cycleIndex)), attack_(attackIndex),
-      cycle_(cycleIndex)
+      cycle_(cycleIndex), drag_(context, {attackIndex, attackIndex + 1, attackIndex + 2, attackIndex + 3})
 {
+    setInterceptsMouseClicks(true, true);
+    setTooltip("Drag the points for the times and the sustain (Shift: finely)");
 }
 
-void EnvelopeDisplay::drawContent(juce::Graphics& g, juce::Rectangle<float> area)
+EnvelopeDisplay::Layout EnvelopeDisplay::layout() const
 {
-    const double a = param(attack_), d = param(attack_ + 1), s = param(attack_ + 2), r = param(attack_ + 3);
-    const bool cycle = cycle_ && param(*cycle_) > 0.5f;
-    const dsp::Adsr::Settings settings{a * 0.001, d * 0.001, s * 0.01, r * 0.001, cycle};
-
-    // Width per segment: log-scaled time, normalised so the segments fill the display beside
-    // a fixed sustain section.
-    auto weight = [](double ms) { return juce::jmax(0.08, std::log1p(ms / 5.0) / std::log1p(20000.0 / 5.0)); };
+    // Width per segment: log-scaled time, normalised so the segments fill the display beside a
+    // fixed sustain section. The points' handles sit whole inside the well.
+    Layout l;
+    l.plot = contentArea().reduced(static_cast<float>(Theme::current().deviceGrid.displayHandle) * 0.5f);
+    const double a = param(attack_), d = param(attack_ + 1), r = param(attack_ + 3);
+    l.cycle = cycle_ && param(*cycle_) > 0.5f;
+    const auto weight = [](double ms)
+    { return juce::jmax(0.08, std::log1p(ms / 5.0) / std::log1p(20000.0 / 5.0)); };
     constexpr float sustainShare = 0.2f;
-    const double total = cycle ? 2.0 * (weight(a) + weight(d)) : weight(a) + weight(d) + weight(r);
-    const float timeWidth = area.getWidth() * (cycle ? 1.0f : 1.0f - sustainShare);
-    auto width = [&](double ms) { return static_cast<float>(weight(ms) / total) * timeWidth; };
+    const double total = l.cycle ? 2.0 * (weight(a) + weight(d)) : weight(a) + weight(d) + weight(r);
+    const float timeWidth = l.plot.getWidth() * (l.cycle ? 1.0f : 1.0f - sustainShare);
+    const auto width = [&](double ms) { return static_cast<float>(weight(ms) / total) * timeWidth; };
+    l.attackEnd = l.plot.getX() + width(a);
+    l.decayEnd = l.attackEnd + width(d);
+    l.sustainEnd = l.cycle ? l.decayEnd : l.decayEnd + l.plot.getWidth() * sustainShare;
+    l.releaseEnd = l.cycle ? l.plot.getRight() : l.sustainEnd + width(r);
+    return l;
+}
+
+std::vector<juce::Point<float>> EnvelopeDisplay::points() const
+{
+    const auto l = layout();
+    const float sustain = l.plot.getBottom() - param(attack_ + 2) * 0.01f * l.plot.getHeight();
+    std::vector<juce::Point<float>> out{{l.attackEnd, l.plot.getY()}, {l.decayEnd, sustain}};
+    if (!l.cycle)
+        out.emplace_back(l.releaseEnd, l.plot.getBottom());
+    return out;
+}
+
+int EnvelopeDisplay::partAt(juce::Point<float> at) const
+{
+    return drag_.partAt(points(), {}, layout().plot, at);
+}
+
+void EnvelopeDisplay::mouseMove(const juce::MouseEvent& e)
+{
+    setMouseCursor(EnvelopeDrag::cursorFor(partAt(e.position)));
+}
+
+void EnvelopeDisplay::mouseDown(const juce::MouseEvent& e)
+{
+    drag_.begin(partAt(e.position));
+    repaint();
+}
+
+void EnvelopeDisplay::mouseDrag(const juce::MouseEvent& e)
+{
+    drag_.drag(e.position - e.mouseDownPosition, e.mods.isShiftDown(), layout().plot.getHeight());
+    refresh();
+}
+
+void EnvelopeDisplay::mouseUp(const juce::MouseEvent&)
+{
+    drag_.end();
+    repaint();
+}
+
+void EnvelopeDisplay::drawContent(juce::Graphics& g, juce::Rectangle<float>)
+{
+    const auto l = layout();
+    const auto& area = l.plot;
+    const double a = param(attack_), d = param(attack_ + 1), s = param(attack_ + 2), r = param(attack_ + 3);
+    const dsp::Adsr::Settings settings{a * 0.001, d * 0.001, s * 0.01, r * 0.001, l.cycle};
 
     dsp::Adsr env;
     juce::Path p;
@@ -187,19 +349,19 @@ void EnvelopeDisplay::drawContent(juce::Graphics& g, juce::Rectangle<float> area
     };
 
     env.noteOn();
-    segment(a, width(a));
-    segment(d, width(d));
-    if (cycle)
+    segment(a, l.attackEnd - area.getX());
+    segment(d, l.decayEnd - l.attackEnd);
+    if (l.cycle)
     {
-        segment(a, width(a));
-        segment(d, width(d));
+        segment(a, l.attackEnd - area.getX());
+        segment(d, l.decayEnd - l.attackEnd);
     }
     else
     {
-        x += area.getWidth() * sustainShare;
+        x = l.sustainEnd;
         p.lineTo(x, yFor(env.level()));
         env.noteOff();
-        segment(r, width(r));
+        segment(r, l.releaseEnd - l.sustainEnd);
     }
 
     const auto& t = Theme::current();
@@ -210,6 +372,7 @@ void EnvelopeDisplay::drawContent(juce::Graphics& g, juce::Rectangle<float> area
     g.fillPath(fill);
     g.setColour(t.value);
     g.strokePath(p, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved));
+    drag_.paint(g, points());
 }
 
 FilterDisplay::FilterDisplay(DeviceUiContext& context, size_t typeIndex, size_t cutoffIndex, size_t resonanceIndex,

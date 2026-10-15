@@ -818,6 +818,8 @@ public:
         session_.impl().beginEdit("Edit step");
         m_.setStep(step, value, chance, &session_.impl().edit->getUndoManager());
     }
+    void beginSteps() override { drawing_.emplace(session_, "Draw steps"); }
+    void endSteps() override { drawing_.reset(); }
     dsp::DrawnCurve drawnCurve() const override { return m_.drawnCurve(); }
     void setDrawnCurve(const dsp::DrawnCurve& curve) override
     {
@@ -828,6 +830,7 @@ public:
 private:
     Session& session_;
     Modulator& m_;
+    std::optional<Session::EditGroup> drawing_;
 };
 
 class ModulatorHandleImpl final : public ModulatorHandle
