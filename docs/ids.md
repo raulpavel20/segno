@@ -58,6 +58,11 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 - In a project, on the rack's type (step 2): its snapshots (`fdSnapshots`, JSON: each a name and eight positions), the current one (`fdSnapshot`), Morph's on, A and B (`fdMorphOn`, `fdMorphA`, `fdMorphB`); Morph is the macro parameter marked `fdMorph`; a macro's lock, `fdLocked` on its state. In a `.segnorack` file: `snapshots`, `morph` (`on`, `a`, `b`, `position`) and `locked` on a macro, each left out while it has nothing to say.
 - In a project, a rack's chains are kept on its modules' places in tracktion's rack (`fdChain`, `fdChainMixer`, `fdChainName`, `fdChainOn`, `fdChainSolo`) and its shown chain on the rack (`fdShownChain`).
 
+## Modulators ([modulators.md](design/modulators.md), ADR 0061; approved 2026-10-15, permanent)
+
+- A modulator is a module of one of the types `mod-lfo`, `mod-random`, `mod-envelope`, `mod-follower`, `mod-steps` (`DeviceSlot::deviceId`, MCP's `type`). The `mod-` prefix keeps them apart from device IDs.
+- Its parameter IDs follow the parameter rules below and are listed here as they're built.
+
 ## Parameter level
 
 - A parameter ID is unique within its device: lowercase, dot-separated (`gain`, `band3.freq`).

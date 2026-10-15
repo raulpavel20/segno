@@ -2,7 +2,7 @@
 
 A **modulator** is a module that makes no sound. It sits on a track and moves other parameters there: a filter's cutoff, a plugin's knob, a rack's Morph, the track's volume. The first five are the **LFO**, **Random**, **Envelope**, **Follower** and **Steps**. A modulator routed to several targets gives each its own copy by default, so one Random moves eight knobs eight different ways. Their randomness is random: it rolls again every time it plays, unless you keep a roll you liked.
 
-**Status:** reviewed by the product owner (2026-10-15): every recommendation approved, with modulators anywhere in the chain instead of a zone of their own (§6, M2, revised for a last look). ADR 0062 accepted. M3 P5, the product owner's priority of 2026-10-15, moved up from M4, with [ADR 0061](../decisions/0061-modulators-move-any-parameter-on-their-track.md) and [ADR 0062](../decisions/0062-random-rolls-again-each-time-it-plays.md). It builds on [ADR 0060](../decisions/0060-motion-comes-from-modulation-modules.md) (motion comes from modulation modules). Nothing is built until the product owner says go, and the UI is drawn in every state and approved first (§19).
+**Status:** approved by the product owner (2026-10-15), every recommendation of §21, with modulators anywhere in the chain instead of a zone of their own (§6, M2, revised after the review); ADRs 0061 and 0062 accepted. Step 0 (the spike, and the UI drawn) under way. M3 P5, the product owner's priority of 2026-10-15, moved up from M4, with [ADR 0061](../decisions/0061-modulators-move-any-parameter-on-their-track.md) and [ADR 0062](../decisions/0062-random-rolls-again-each-time-it-plays.md). It builds on [ADR 0060](../decisions/0060-motion-comes-from-modulation-modules.md) (motion comes from modulation modules). Nothing is built until the product owner says go, and the UI is drawn in every state and approved first (§19).
 
 What the product owner asked (2026-10-15):
 - "Let's start the modulation modules", with a name people understand: "CV tools is great for the people who know, but most people will not know what that is in reference to."
@@ -394,7 +394,7 @@ There are no new shortcuts. Copy, paste, duplicate, delete, rename and fold are 
 
   A saved parameter value leaves modulation out (the racks' patch).
 - **`engine::Session`** adds, routes and removes modulators. The UI and MCP both go through it.
-- **IDs** (permanent once approved, `docs/ids.md`): the types `mod-lfo`, `mod-random`, `mod-envelope`, `mod-follower` and `mod-steps`. They have a prefix of their own, so no device ID can collide with them (a "random" MIDI effect is planned). Parameter IDs are listed as they're built.
+- **IDs** (permanent, `docs/ids.md`): the types `mod-lfo`, `mod-random`, `mod-envelope`, `mod-follower` and `mod-steps`. They have a prefix of their own, so no device ID can collide with them (a "random" MIDI effect is planned). Parameter IDs are listed as they're built.
 
 ## 18. Not now
 

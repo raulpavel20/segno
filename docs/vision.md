@@ -12,7 +12,7 @@
 
 ## What we are building
 
-1. **A device suite.** Instruments, audio effects, MIDI effects and modulators with the breadth of Ableton Live Suite. They share one design language, one interaction model, one preset format and one quality bar. They ship as plugins (CLAP, VST3, LV2, AU, standalone) and work in any DAW.
+1. **A device suite.** Instruments, audio effects and MIDI effects with the breadth of Ableton Live Suite, and modulators in the DAW ([ADR 0061](decisions/0061-modulators-move-any-parameter-on-their-track.md): a plugin can't move other plugins in another host). They share one design language, one interaction model, one preset format and one quality bar. They ship as plugins (CLAP, VST3, LV2, AU, standalone) and work in any DAW.
 2. **A DAW.** It is arrangement-focused and built on tracktion_engine. The same devices run natively inside it, in a docked device chain with no floating windows. It hosts third-party plugins too. Any AI assistant the user chooses can drive it, and every device in it, through a built-in MCP server ([ADR 0021](decisions/0021-mcp-server.md)). This is opt-in and local, and no assistant is bundled.
 
 The two are developed in parallel from one shared device library (see [ADR 0002](decisions/0002-device-suite-and-daw-in-parallel.md)). The plugins make the suite useful early, inside DAWs people already use. The DAW provides the fully integrated experience.
