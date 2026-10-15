@@ -674,3 +674,8 @@ The product owner (2026-10-15) said a chance that comes out the same at the same
 - **In the engine:** the decision moves from where tracktion builds a clip's playback (§22) to where its notes play. It's still a hash of the clip's seed, the clip, the note and its lap, now with the pass's roll and the transport loop's lap in it.
 - **Assistants:** `keep_roll` (`clip`, `keep`); `reroll_chance` applies to a kept clip.
 - **Tests:** §18's "the same in playback, bounce and export" holds for a kept clip. A clip that rolls differs between two passes, and Keep reproduces the pass it came from.
+
+What building settled (2026-10-15):
+- **Where it's decided:** a filter on the clip's node (the midi-playback-filter patch) decides each note-on as it plays, by its index in the clip's sequence, traced back to its note when the node is built; a note left out ends unheard, and one that playback starts inside is decided too. A new roll each time playback or recording starts; the transport's lap counts each time the time goes back. Nothing it does as it plays allocates.
+- **Keep chance as played** keeps the roll the clip was heard with; never heard yet, this pass's first lap (what it plays next). Re-roll on a kept clip gives it another kept roll; on a clip that rolls it's dimmed, saying "Keep chance as played first". The lock shows on the bottom lane's head (beside its chevron) and after the NOTES section's Chance.
+- **Assistants:** `keep_roll` with `clip`; `reroll_chance` refuses a clip that rolls, saying to keep its roll first; a clip says `chanceKept`.

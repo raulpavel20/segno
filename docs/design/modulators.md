@@ -349,8 +349,8 @@ The product owner (2026-10-15) said a chance that comes out the same every time 
 
 | Where | Item | |
 |---|---|---|
-| Module | Add modulator ▸ LFO, Random, Envelope, Follower, Steps | `module.addModulator`: after the selected module, or at the end of the selected track's chain. Also the chain's "+" and the browser |
-| Module | Keep as played / Let it roll | `module.keepRoll`: for the selected modulator. Dimmed unless it's a Random, Steps or an Envelope with Chance. Also Keep on its panel |
+| Module | Add modulator ▸ LFO, Random, Envelope, Follower, Steps | `module.addModulator.lfo` … `.steps` (Add LFO …): after the selected module, or at the end of the selected track's chain. Also the chain's "+" and the browser |
+| Module | Keep as played / Let it roll | `module.keepRoll`: for the selected modulator. Dimmed unless it's a Random, Steps or an Envelope (as its panel's Keep). Also Keep on its panel |
 | Module | Remove routes | `module.removeRoutes`: the selected modulator's. Also its right-click |
 | Song | Keep all as played / Let all roll | `song.keepAllRolls`: every modulator and every clip with chance in the song. Also beside the export panel's line |
 | Notes | Keep chance as played / Let chance roll | [piano-roll.md](piano-roll.md) §26 |
@@ -537,3 +537,36 @@ What drawing settled:
 - **The route list:** a popover, `Routes · LFO`, a row a route: the target, its amount bar (−200 … +200 %, from the middle), Show and Remove.
 - **After the review** (the product owner): horizontal space is expensive. TARGETS's two-column toggles and the Follower's Listen picker (the header's fixed 128 px for "Here") made the panels wider than they need to be; step 1 tightens them (§24).
 - **For the kit:** `Theme::echo` (each copy 55 % of the one before, `echoAlpha`), `Icon::Modulator`, a header icon and a folded accessory on `DevicePanel`, the source handle's count, lock, compact form and drags taken by its host, and `ParamBinding::modulated` and `modulatorDrag` for what the track's modulators do to a module's controls.
+
+## 24. Step 1, built (2026-10-15)
+
+Built on main in six steps (1a–1f), then the Follower's Listen, the master, Fire and the export line. What building settled:
+
+- **The panels, tightened after the drawings' review:** one section a modulator (the Envelope keeps SHAPE and TRIGGER), Depth and the switches in the room the others leave, the Follower's Listen a two-column picker in its section. LFO, Random and Steps are 436 px wide, the Envelope 664, the Follower 332. The header's presets fit without widening any of them.
+- **The engine:**
+  - each modulator a tracktion modifier of our own type (the custom-modifiers patch), placed before the module after it in the chain;
+  - along a chain every place counts its modulators: adding, moving, grouping into a rack and out of it, replacing an instrument, a rack added; modulators keep their places through all of them;
+  - the master has them too (the master-modifiers patch);
+  - the Follower listens to another track as a module's sidechain does (the modifier-sidechain patch): that track's sound on two channels after the track's own, only the track's own passed on. Loops are refused through Followers as through modules;
+  - nothing a modulator does as it plays allocates (a test counts).
+- **The chain view:**
+  - a handle dragged onto any knob, bar or switch on the track's panels routes it at 50 %; the chain scrolls at its edges (`shell.dragScrollEdge`, `dragScrollSpeed`); Escape cancels;
+  - the lines on hover are one shared painter (`ui::paintModulationCable`), which the drawn states use too;
+  - the route list opens above the modulator's panel (the chain is the window's foot), so the panel and its count stay in view; each target is named as its control names it ("Chorus · Mix", not "Dry/Wet");
+  - a modulator's header's right-click: Routes…, Remove routes, Keep as played;
+  - a modulated knob's ring sets the route of the modulator hovered last, one undo step;
+  - a control's right-click has one Modulate with ▸: the track's modulators (ticked where they move it), New ▸ the five, then a module's own sources. New puts the modulator just before the control's module, or before the rack holding it;
+  - the chain's "+" lists the modulators after the audio effects; a rack's end cap doesn't, until modulators go into racks.
+- **Menus:** Add modulator ▸ is five actions (`module.addModulator.lfo` …), so the command palette finds "Add LFO". Keep as played is enabled for an Envelope whether or not its Chance is under 100 %, as its panel's Keep is. Song ▸ Keep all as played takes clips too.
+- **The browser:** Modulators is a part between Audio effects and Racks, in the rail and the tree. Modulators are in the module catalogue (keys `fd:mod-lfo` …), so a drop or a double-click adds one where it lands and search finds them and their presets. One (or its preset) dragged onto a control on the track's panels shows the controls that would take it, and the drop adds it just before that control's module, set up and routed at 50 %, one step.
+- **Presets:** 40 factory presets, eight each, in `app/presets/<type>/`, compiled in. A preset keeps a modulator's settings and a Steps pattern, never its routes or its roll; your default applies to a new one.
+- **Fire** is on only while it's held, as a pad.
+- **The export panel's line** reads "2 clips and 1 modulator play by chance", Keep all as played under it; its tooltip says each export differs.
+- **Assistants:** a route's target is an object, as automation names a parameter (`module` and `parameter`, or `track` and `volume`, `pan`, `send` with `return`); amounts in % (−200 … 200). `set_module_sidechain` sets a Follower's Listen. `keep_roll` takes a clip too, and `reroll_chance` refuses a clip that rolls.
+
+Not yet built (step 1 continues):
+- modulators in racks (§14): grouped with their modules, a rack's chain taking one, routes leaving the rack dropped with a toast, the `.segnorack` keeping them;
+- the LFO's Drawn shape, which plays as a sine until it has an editor;
+- a dragged handle's look on choices (combos and segmented buttons): they can be routed from a control's right-click and by assistants, but don't show the drag's ring;
+- the hands-on tasks (§19), in `docs/manual-tests/M3.md`, and the product owner's sign-off.
+

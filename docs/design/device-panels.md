@@ -141,7 +141,11 @@ For a module with its own modulation (the Wavetable Synth; M4's DAW-wide modulat
   - a moved knob's ring has a dot where the modulation has it now;
   - a moved bar, and a moved switch, show the ring's line along their bottom edge, inside them; a bar's "now" is a short bright stretch of the line, clear of its text; a switch's line is full while the modulation turns it over, faint while it doesn't;
   - while a modulator's handle is dragged, every control (bars and switches too) shows a faint line or ring, and the one under the pointer lights;
-  - a source's handle can show its routes' count ("⤧ LFO · 3") and a lock (a kept roll), and its drag can be taken by the host (the chain), across panels.
+  - a source's handle can show its routes' count ("⤧ LFO · 3") and a lock (a kept roll), and its drag can be taken by the host (the chain), across panels;
+  - hovering a handle draws a line from its foot to each control it moves (`ui::paintModulationCable`: the modulation gradient over a dark halo, sagging as a cable does), over the panels;
+  - dragging such a knob's ring sets the route of the modulator hovered last (`ParamBinding::beginModulatedDrag`, one undo step), as a module's own ring does;
+  - the right-click's Modulate with ▸ is one submenu: the track's modulators and New ▸ (`ParamBinding::addModulatorItems`), then a module's own sources;
+  - a switch can be momentary, on only while held, as a pad (`ParamToggle::setMomentary`: a modulator's Fire).
 
 ## A module's editor
 
