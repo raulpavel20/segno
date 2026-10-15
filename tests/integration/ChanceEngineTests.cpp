@@ -10,6 +10,7 @@
 #include "engine/EngineBehaviour.h"
 #include "engine/Session.h"
 #include "engine/SessionImpl.h"
+#include "fd/testkit/Allocations.h"
 #include "fd/testkit/WavIO.h"
 #include "model/Chance.h"
 
@@ -257,6 +258,33 @@ TEST_CASE(
     REQUIRE(f.session->keepChance(clipId, false));
     CHECK(f.session->undoDescription() == "Let chance roll");
     CHECK(playPass(f, clipId, 6006u)[0] == decided(fd::model::passSeed(99u, 6006u, 0), clipId));
+
+    // Deciding as it plays allocates nothing (the audio thread's part).
+    {
+        auto& c = f.engineClip(clipId);
+        const auto sequence =
+            c.getSequenceLooped().exportToPlaybackMidiSequence(c, te::MidiList::TimeBase::seconds, false);
+        auto filter = fd::engine::chanceFilter(c, sequence, te::MidiList::TimeBase::seconds);
+        REQUIRE(filter != nullptr);
+        std::vector<juce::MidiMessage> messages;
+        for (int i = 0; i < sequence.getNumEvents(); ++i)
+            messages.push_back(sequence.getEventPointer(i)->message);
+        const auto before = fd::testkit::allocationsDuringProcess();
+        {
+            const fd::testkit::CountAllocations count;
+            for (int lap = 0; lap < 8; ++lap)
+            {
+                filter->startBlock(lap % 2 == 0 ? 0.0 : 4.0, true);
+                for (int i = 0; i < static_cast<int>(messages.size()); ++i)
+                {
+                    auto m = messages[static_cast<size_t>(i)];
+                    (void)filter->shouldPlay(i, m);
+                    (void)filter->plays(i);
+                }
+            }
+        }
+        CHECK(fd::testkit::allocationsDuringProcess() == before);
+    }
 
     // Song ▸ Keep all as played keeps it with the modulators; Let all roll lets it go.
     f.session->keepAllRolls(true);

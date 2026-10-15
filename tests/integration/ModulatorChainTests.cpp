@@ -606,3 +606,61 @@ TEST_CASE("modulators in the chain: places count them as modules move, group int
     REQUIRE(s.moveDevice(filter, Session::ChainPlace{.channel = f.t, .index = 1}));
     CHECK(f.order() == std::vector<std::uint64_t>{lfo, filter, chorus, rack2});
 }
+
+TEST_CASE(
+    "modulators in the chain view: 8 modulators and 32 routes moving, refreshed and drawn within a frame "
+    "(§20)",
+    "[integration][modulators][ui]")
+{
+    Chain f;
+    auto& s = *f.session;
+    // Four modules, eight modulators among them, each moving four of the modules' knobs.
+    std::vector<std::uint64_t> modules;
+    for (const auto* type : {"fd:filter", "fd:chorus", "fd:delay", "fd:saturator"})
+        modules.push_back(s.addDevice(f.t, type));
+    std::vector<std::uint64_t> modulators;
+    for (int i = 0; i < 8; ++i)
+        modulators.push_back(s.addModulator(f.t, fd::model::allModulators[static_cast<size_t>(i % 5)], i));
+    s.updateSnapshotNow();
+    int routes = 0;
+    for (const auto& p : s.automatableParameters(f.t))
+    {
+        if (routes >= 32)
+            break;
+        if (p.key.rfind('m', 0) != 0)
+            continue;
+        const auto modulator = modulators[static_cast<size_t>(routes % 8)];
+        if (std::find(modules.begin(), modules.end(), std::stoull(p.key.substr(1, p.key.find('/') - 1))) ==
+            modules.end())
+            continue;
+        if (s.routeModulator(modulator, {f.t, p.key}, 0.4f))
+            ++routes;
+    }
+    REQUIRE(routes == 32);
+    f.show(); // the chain at a window's width (1600 px), scrolled along
+    s.play(); // they move
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(100);
+
+    // A frame: every panel's tick (each control's ring and dot), then what's on screen painted.
+    juce::Image image(juce::Image::ARGB, f.chain->getWidth(), f.chain->getHeight(), true);
+    double best = 1e9;
+    for (int pass = 0; pass < 5; ++pass)
+    {
+        const auto start = juce::Time::getMillisecondCounterHiRes();
+        f.refreshAll();
+        for (const auto id : modulators)
+            if (auto* panel = f.chain->modulatorPanel(id))
+                panel->refreshFromHost();
+        juce::Graphics g(image);
+        f.chain->paintEntireComponent(g, false);
+        best = std::min(best, juce::Time::getMillisecondCounterHiRes() - start);
+    }
+    s.stop();
+    UNSCOPED_INFO("refresh and paint " << best << " ms");
+#if defined(NDEBUG)
+    CHECK(best < 16.0); // a frame at 60 Hz
+#else
+    CHECK(best < 120.0); // a Debug build: an order of magnitude slower, still no stall
+#endif
+    WARN("8 modulators, 32 routes: refresh and paint " << best << " ms");
+}

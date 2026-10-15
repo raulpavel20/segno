@@ -6,6 +6,7 @@
 #include "engine/DevicePlugin.h"
 #include "engine/EngineBehaviour.h"
 #include "engine/Modulator.h"
+#include "fd/testkit/Allocations.h"
 #include "fd/testkit/Metrics.h"
 #include "fd/testkit/Signals.h"
 #include "fd/testkit/WavIO.h"
@@ -368,6 +369,71 @@ TEST_CASE("modulators: a Follower listening to another track hears it, and passe
     for (int i = 0; i < out.numSamples() / 2; ++i)
         loudest = std::max(loudest, std::abs(out.at(0, i)));
     CHECK(loudest == Approx(0.5f).margin(0.01f));
+}
+
+TEST_CASE("modulators: processing allocates nothing: each of the five, routed, hearing notes, playing and "
+          "stopped (§20)",
+          "[integration][modulators]")
+{
+    REQUIRE(fd::testkit::allocationTrackingEnabled());
+    {
+        // The count works in this build: an allocation in a counted scope shows.
+        const auto was = fd::testkit::allocationsDuringProcess();
+        {
+            const fd::testkit::CountAllocations count;
+            auto made = std::make_unique<std::vector<int>>(64);
+            REQUIRE(made != nullptr);
+        }
+        REQUIRE(fd::testkit::allocationsDuringProcess() > was);
+    }
+    Fixture f;
+    auto utility = f.module("utility");
+    auto& gain = Fixture::param(*utility, "gain");
+    std::vector<Modulator*> all;
+    for (const auto kind : fd::model::allModulators)
+    {
+        auto& m = f.modulator(kind, utility.get());
+        Fixture::route(m, gain, 0.2f);
+        m.initialise(kSampleRate, 512);
+        all.push_back(&m);
+    }
+    constexpr int block = 512;
+    juce::AudioBuffer<float> buffer(4, block); // a Follower hearing another track has four
+    te::MidiMessageArray midi;
+    midi.addMidiMessage(juce::MidiMessage::noteOn(1, 60, 0.8f), 0.0, {});
+    midi.addMidiMessage(juce::MidiMessage::noteOff(1, 60), 0.01, {});
+    std::vector<te::AutomatableParameter::ModifierAssignment::Ptr> routes;
+    for (auto a : gain.getAssignments())
+        routes.push_back(a);
+    // A first pass outside the count (what's made once, on the first block, may be).
+    const auto runFor = [&](int blocks, int startBlock)
+    {
+        for (int b = startBlock; b < startBlock + blocks; ++b)
+        {
+            const auto t = te::TimePosition::fromSeconds(b * block / kSampleRate);
+            f.edit->updateModifierTimers(t, block);
+            for (int c = 0; c < buffer.getNumChannels(); ++c)
+                for (int i = 0; i < block; ++i)
+                    buffer.setSample(c, i, 0.4f * std::sin(static_cast<float>(b * block + i) * 0.03f));
+            te::PluginRenderContext rc(&buffer, 0, block, &midi, 0.0,
+                                       {t, te::TimeDuration::fromSeconds(block / kSampleRate)}, b % 100 < 80,
+                                       false, false, false);
+            for (auto* m : all)
+                m->applyToBuffer(rc);
+            for (auto* m : all)
+                for (const auto& a : routes)
+                    (void)m->getValueFor(*a, t);
+            (void)gain.getCurrentValue();
+        }
+    };
+    runFor(4, 0);
+    const auto before = fd::testkit::allocationsDuringProcess();
+    {
+        const fd::testkit::CountAllocations count;
+        runFor(300, 4); // playing, stopping and starting again; the loop's laps
+        runFor(50, 0);
+    }
+    CHECK(fd::testkit::allocationsDuringProcess() == before);
 }
 
 TEST_CASE("modulators: the Envelope fires on the beat and on notes", "[integration][modulators]")
