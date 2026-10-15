@@ -50,6 +50,16 @@ inline constexpr std::array<ModulatorKind, 5> allModulators{ModulatorKind::Lfo, 
 }
 [[nodiscard]] bool hasKeep(ModulatorKind kind) noexcept;
 
+/// A section of a modulator's panel (modulators.md §23): its id (stored in view state: never
+/// renamed) and title, in order. The panel and assistants (get_module) read them here.
+struct ModulatorSection
+{
+    std::string_view id, title;
+};
+[[nodiscard]] std::vector<ModulatorSection> modulatorSections(ModulatorKind kind);
+/// What each is for, in a sentence (assistants' list_module_types).
+[[nodiscard]] std::string_view modulatorPurpose(ModulatorKind kind) noexcept;
+
 /// What a modulator's panel shows that isn't one of its parameters (docs/design/modulators.md
 /// §9, §13): how many targets it moves, where it is now, the roll it plays and whether it's kept,
 /// what a Follower heard, a Steps pattern. The DAW's Session keeps it; the drawn states stub it.

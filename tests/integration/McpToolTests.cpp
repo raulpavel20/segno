@@ -241,7 +241,12 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
                              "set_controllers",
                              "list_note_tools",
                              "transform_notes",
-                             "generate_notes"})
+                             "generate_notes",
+                             "get_modulators",
+                             "route_modulator",
+                             "set_route",
+                             "remove_route",
+                             "keep_roll"})
         CHECK(names.contains(name));
     for (const auto& p : registry.prompts)
     {
@@ -2571,4 +2576,117 @@ TEST_CASE("mcp tools: racks' snapshots stored, recalled, renamed and removed; Mo
     CHECK(rack["morph"]["b"].is_null());
     CHECK(daw.fails("set_morph", {{"rack", rackId}, {"on", true}}).find("two snapshots") !=
           std::string::npos);
+}
+
+TEST_CASE("mcp tools: modulators added, routed, set, removed and kept (modulators.md §16)",
+          "[integration][mcp]")
+{
+    Daw daw;
+    const auto project = daw.project();
+    const auto t0 = project["tracks"][0]["id"].get<std::string>();
+    const auto t1 = project["tracks"][1]["id"].get<std::string>();
+
+    // The five, as module types of their own kind.
+    const auto types = daw.call("list_module_types", {{"kind", "modulator"}})["types"];
+    std::vector<std::string> ids;
+    for (const auto& t : types)
+        ids.push_back(t["type"].get<std::string>());
+    CHECK(ids ==
+          std::vector<std::string>{"mod-lfo", "mod-random", "mod-envelope", "mod-follower", "mod-steps"});
+    CHECK(types[0]["kind"] == "modulator");
+    CHECK_FALSE(types[0]["description"].get<std::string>().empty());
+    const auto all = daw.call("list_module_types")["types"];
+    CHECK(std::any_of(all.begin(), all.end(), [](const Json& t) { return t["type"] == "mod-steps"; }));
+    CHECK(daw.read("segno://module-type/mod-lfo")["sections"][0]["id"] == "shape");
+
+    // Added as a module, by type or name, where it's asked for.
+    const auto filter = daw.call("add_module", {{"track", t0}, {"type", "filter"}})["id"].get<std::string>();
+    auto lfo = daw.call("add_module", {{"track", t0}, {"type", "mod-lfo"}, {"position", 0}});
+    CHECK(daw.session->undoDescription() == "Assistant: add module");
+    CHECK(lfo["type"] == "mod-lfo");
+    CHECK(lfo["modulator"]["routes"].empty());
+    CHECK(lfo["position"] == 0);
+    CHECK(lfo["sections"][0]["id"] == "shape");
+    const auto lfoId = lfo["id"].get<std::string>();
+    const auto random = daw.call("add_module", {{"track", t0}, {"type", "Random"}})["id"].get<std::string>();
+    CHECK(daw.fails("add_module", {{"track", project["master"]["id"]}, {"type", "mod-lfo"}}).find("master") !=
+          std::string::npos);
+
+    // Set up as any module.
+    const auto set = daw.call("set_parameters", {{"module", lfoId}, {"values", {{"rate", "2 Hz"}}}});
+    REQUIRE(set["set"].size() == 1);
+    CHECK(set["set"][0]["value"] == Approx(2.0));
+
+    // Routed to the Filter's Freq at 50 %, then 120 %; the track's volume at -30 %.
+    const Json freq{{"module", filter}, {"parameter", "freq"}};
+    auto route = daw.call("route_modulator", {{"modulator", lfoId}, {"target", freq}});
+    CHECK(route["amount"] == Approx(50.0));
+    CHECK(route["target"]["parameter"] == "freq");
+    CHECK(daw.session->undoDescription() == "Assistant: route modulator");
+    route = daw.call("set_route", {{"modulator", lfoId}, {"target", freq}, {"amount", 120}});
+    CHECK(route["amount"] == Approx(120.0));
+    daw.call("route_modulator",
+             {{"modulator", lfoId}, {"target", {{"track", t0}, {"parameter", "volume"}}}, {"amount", -30}});
+    auto mods = daw.call("get_modulators", {{"track", t0}})["modulators"];
+    REQUIRE(mods.size() == 2);
+    CHECK(mods[0]["id"] == lfoId);
+    CHECK(mods[0]["type"] == "mod-lfo");
+    CHECK(mods[0]["settings"]["rate"].get<std::string>().find("2.00") != std::string::npos);
+    REQUIRE(mods[0]["routes"].size() == 2);
+    std::map<std::string, Json> routes; // in the track's parameter order: its mixer's first
+    for (const auto& r : mods[0]["routes"])
+        routes[r["target"]["parameter"].get<std::string>()] = r;
+    CHECK(routes["freq"]["target"]["module"] == filter);
+    CHECK(routes["freq"]["amount"] == Approx(120.0));
+    CHECK(routes["volume"]["target"]["track"] == t0);
+    CHECK(routes["volume"]["amount"] == Approx(-30.0));
+    CHECK_FALSE(mods[0].contains("kept")); // an LFO rolls no dice
+    CHECK(mods[1]["kept"] == false);
+    CHECK(daw.call("get_module", {{"module", lfoId}})["modulator"]["routes"].size() == 2);
+
+    // Refused, saying why: its own parameter, another track's, a loop.
+    CHECK(daw.fails("route_modulator",
+                    {{"modulator", lfoId}, {"target", {{"module", lfoId}, {"parameter", "rate"}}}})
+              .find("its own") != std::string::npos);
+    const auto other = daw.call("add_module", {{"track", t1}, {"type", "filter"}})["id"].get<std::string>();
+    CHECK(daw.fails("route_modulator",
+                    {{"modulator", lfoId}, {"target", {{"module", other}, {"parameter", "freq"}}}})
+              .find("own track") != std::string::npos);
+    daw.call("route_modulator",
+             {{"modulator", random}, {"target", {{"module", lfoId}, {"parameter", "rate"}}}});
+    CHECK(daw.fails("route_modulator",
+                    {{"modulator", lfoId}, {"target", {{"module", random}, {"parameter", "rate"}}}})
+              .find("loop") != std::string::npos);
+    CHECK(daw.fails("route_modulator", {{"modulator", filter}, {"target", freq}}).find("isn't a modulator") !=
+          std::string::npos);
+
+    // Removed; undone.
+    daw.call("remove_route", {{"modulator", lfoId}, {"target", freq}});
+    CHECK(daw.call("get_modulators", {{"track", t0}})["modulators"][0]["routes"].size() == 1);
+    CHECK(daw.fails("set_route", {{"modulator", lfoId}, {"target", freq}, {"amount", 10}})
+              .find("doesn't move") != std::string::npos);
+    daw.call("undo");
+    CHECK(daw.call("get_modulators", {{"track", t0}})["modulators"][0]["routes"].size() == 2);
+
+    // Keep: one modulator's roll, then every one in the song let roll.
+    CHECK(daw.fails("keep_roll", {{"modulator", lfoId}, {"keep", true}}).find("rolls no dice") !=
+          std::string::npos);
+    auto kept = daw.call("keep_roll", {{"modulator", random}, {"keep", true}})["modulators"];
+    REQUIRE(kept.size() == 1);
+    CHECK(kept[0]["kept"] == true);
+    CHECK(daw.session->undoDescription() == "Assistant: keep roll");
+    kept = daw.call("keep_roll", {{"song", true}, {"keep", false}})["modulators"];
+    CHECK(kept[0]["kept"] == false);
+    CHECK(daw.fails("keep_roll", {{"keep", true}}).find("song") != std::string::npos);
+
+    // Moved, folded, turned off and removed as any module.
+    CHECK(daw.call("move_module", {{"module", lfoId}, {"position", 2}})["chain"][2]["id"] == lfoId);
+    CHECK(daw.call("set_module_view", {{"module", lfoId}, {"collapsed", {"shape"}}})["collapsed"][0] ==
+          "shape");
+    daw.call("set_module_on", {{"module", lfoId}, {"on", false}});
+    CHECK(daw.call("get_module", {{"module", lfoId}})["on"] == false);
+    daw.call("remove_module", {{"module", lfoId}});
+    mods = daw.call("get_modulators", {{"track", t0}})["modulators"];
+    REQUIRE(mods.size() == 1);
+    CHECK(mods[0]["id"] == random);
 }

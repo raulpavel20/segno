@@ -2,8 +2,11 @@
 
 #include "ModulePurposes.h"
 #include "model/Editing.h"
+#include "model/Modulators.h"
 #include "model/Racks.h"
 
+#include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <fd/device/Registry.h>
 
@@ -30,6 +33,7 @@ void registerAll(Registry& registry, ToolEnv& env)
     addSectionTools(registry, env);
     addKeyTools(registry, env);
     addRackTools(registry, env);
+    addModulatorTools(registry, env);
     addChordTools(registry, env);
     addControllerTools(registry, env);
     addToolkitTools(registry, env);
@@ -509,9 +513,11 @@ Json moduleSummary(const model::DeviceSlot& slot)
 {
     Json j{{"id", formatId(IdKind::Module, slot.id)},
            {"name", slot.name},
-           {"type", slot.kind == model::DeviceSlot::Kind::Native ? slot.deviceId : std::string("plugin")},
+           {"type", slot.kind != model::DeviceSlot::Kind::External ? slot.deviceId : std::string("plugin")},
            {"on", slot.enabled},
            {"instrument", slot.instrument}};
+    if (slot.modulator != nullptr) // modulators.md §16: it moves parameters, it makes no sound
+        j["modulator"] = true;
     // A rack (racks.md §10): its chains' modules, in order (get_rack has the rest).
     if (slot.rack != nullptr)
     {
@@ -674,6 +680,33 @@ Json transportJson(ToolEnv& env)
             {"tempo", rounded(t.bpm, 1e3)}};
 }
 
+Json modulatorSectionsJson(model::ModulatorKind kind)
+{
+    Json list = Json::array();
+    for (const auto& s : model::modulatorSections(kind))
+        list.push_back({{"id", std::string(s.id)}, {"title", std::string(s.title)}});
+    return list;
+}
+
+Json modulatorJson(ToolEnv& env, const model::DeviceSlot& slot)
+{
+    Json routes = Json::array();
+    if (slot.modulator == nullptr)
+        return {{"routes", routes}};
+    for (const auto& r : slot.modulator->routes)
+    {
+        Json route{{"target", paramRefJson(env, {r.channel, r.key})},
+                   {"amount", std::round(r.amount * 1000.0) / 10.0}};
+        if (r.copy > 0)
+            route["copy"] = r.copy + 1; // its own copy with Per Target, counted from 1
+        routes.push_back(std::move(route));
+    }
+    Json j{{"routes", std::move(routes)}};
+    if (model::hasKeep(slot.modulator->kind))
+        j["kept"] = slot.modulator->kept; // ADR 0062
+    return j;
+}
+
 Json sectionsOf(ToolEnv& env, engine::DeviceHandle& handle)
 {
     const std::string type(handle.deviceId());
@@ -713,9 +746,14 @@ Json moduleJson(ToolEnv& env, const model::DeviceSlot& slot, const model::TrackI
         handle = env.session.openRack(slot.id); // its macros, as its parameters
         j["rack"] = rackJson(env, slot, t);
     }
-    if (handle != nullptr)
+    // A modulator (modulators.md §16): its parameters as a module's, then what it moves.
+    auto modulator =
+        handle == nullptr && slot.modulator != nullptr ? env.session.openModulator(slot.id) : nullptr;
+    if (modulator != nullptr)
+        j["modulator"] = modulatorJson(env, slot);
+    if (handle != nullptr || modulator != nullptr)
     {
-        auto& context = handle->context();
+        auto& context = handle != nullptr ? handle->context() : modulator->context();
         for (size_t i = 0; i < context.info.params.size(); ++i)
             if (const auto& spec = context.info.params[i]; !spec.hasFlag(ParamFlags::Hidden))
             {
@@ -736,7 +774,8 @@ Json moduleJson(ToolEnv& env, const model::DeviceSlot& slot, const model::TrackI
                 parameters.push_back(std::move(p));
             }
         Json sections = Json::array(), pages = Json::array();
-        for (auto s : sectionsOf(env, *handle))
+        for (auto s :
+             handle != nullptr ? sectionsOf(env, *handle) : modulatorSectionsJson(slot.modulator->kind))
         {
             const auto& collapsed = view["collapsed"];
             s["collapsed"] = std::find(collapsed.begin(), collapsed.end(), s["id"]) != collapsed.end();
@@ -780,7 +819,8 @@ Json moduleTypesJson(ToolEnv& env, const std::string& kind)
     Json list = Json::array();
     for (const auto& d : env.session.availableDevices())
     {
-        if ((kind == "instrument" && !d.instrument) || (kind == "effect" && d.instrument))
+        if ((kind == "instrument" && !d.instrument) || (kind == "effect" && d.instrument) ||
+            kind == "modulator")
             continue;
         Json entry{{"type", d.native ? d.key.substr(3) : d.key},
                    {"name", d.name},
@@ -791,11 +831,39 @@ Json moduleTypesJson(ToolEnv& env, const std::string& kind)
             entry["description"] = std::string(purposeOf(d.key.substr(3)));
         list.push_back(std::move(entry));
     }
+    // The modulators (modulators.md §16): modules that move other parameters on their track.
+    if (kind.empty() || kind == "modulator")
+        for (const auto m : model::allModulators)
+        {
+            const auto& info = model::modulatorInfo(m);
+            list.push_back({{"type", std::string(info.id)},
+                            {"name", std::string(info.name)},
+                            {"kind", "modulator"},
+                            {"native", true},
+                            {"category", "Modulators"},
+                            {"description", std::string(model::modulatorPurpose(m))}});
+        }
     return list;
 }
 
 Json moduleTypeJson(ToolEnv& env, const std::string& type)
 {
+    if (const auto m = model::modulatorKind(type))
+    {
+        const auto& info = model::modulatorInfo(*m);
+        Json parameters = Json::array();
+        for (const auto& spec : info.params)
+            if (!spec.hasFlag(ParamFlags::Hidden))
+                parameters.push_back(parameterJson(spec, std::nullopt));
+        return {{"type", std::string(info.id)},
+                {"name", std::string(info.name)},
+                {"kind", "modulator"},
+                {"native", true},
+                {"category", "Modulators"},
+                {"description", std::string(model::modulatorPurpose(*m))},
+                {"parameters", std::move(parameters)},
+                {"sections", modulatorSectionsJson(*m)}};
+    }
     const auto* factory = findDevice(type);
     if (factory == nullptr)
     {
@@ -830,4 +898,87 @@ Json moduleTypeJson(ToolEnv& env, const std::string& type)
             {"parameters", std::move(parameters)},
             {"sections", std::move(sections)}};
 }
+// ---- parameters as tools name them -------------------------------------------------------------
+
+namespace
+{
+std::string lowerCase(std::string s)
+{
+    std::transform(s.begin(), s.end(), s.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return s;
+}
+} // namespace
+
+Json paramRefSchema()
+{
+    return {
+        {"module", id(IdKind::Module, "A module's parameter: the module (with parameter)")},
+        {"track", id(IdKind::Track, "A channel's mix: the track, return track or master (with parameter)")},
+        {"parameter",
+         string("The module's parameter (id or name), or for a channel \"volume\", \"pan\" or \"send\"")},
+        {"return", id(IdKind::Track, "For a send: the return track it sends to")}};
+}
+
+ParamRef paramRef(ToolEnv& env, const Json& args)
+{
+    if (!args.contains("parameter") || !args["parameter"].is_string())
+        throw Problem{
+            "Name the parameter: a module's parameter id or name with module, or \"volume\", \"pan\" or "
+            "\"send\" with track."};
+    const auto parameter = args["parameter"].get<std::string>();
+    auto& s = env.session;
+    if (args.contains("module"))
+    {
+        const auto [slot, owner] = module(env, args["module"]);
+        const auto prefix = "m" + std::to_string(slot.id) + "/";
+        const auto choices = s.automatableParameters(owner.id);
+        for (int pass = 0; pass < 2; ++pass) // ids first, then names
+            for (const auto& c : choices)
+                if (c.key.rfind(prefix, 0) == 0 && (pass == 0 ? c.key.substr(prefix.size()) == parameter
+                                                              : lowerCase(c.name) == lowerCase(parameter)))
+                    return {{owner.id, c.key}, c.name};
+        throw Problem{slot.name + " has no automatable parameter \"" + parameter +
+                      "\" (get_module lists them; settings such as lookahead can't be automated)."};
+    }
+    if (!args.contains("track"))
+        throw Problem{"Give module (for a module's parameter) or track (for volume, pan or a send)."};
+    const auto t = channel(env, args["track"]);
+    const auto p = lowerCase(parameter);
+    if (p == "volume" || p == "pan")
+        return {{t.id, p}, p == "volume" ? "Volume" : "Pan"};
+    if (p == "send")
+    {
+        if (t.role != model::TrackInfo::Role::Track)
+            throw Problem{"Only tracks send; " + t.name + " is a " + kindName(t) + "."};
+        if (!args.contains("return"))
+            throw Problem{"Name the return track the send goes to (return)."};
+        const auto r = channel(env, args["return"]);
+        if (r.role != model::TrackInfo::Role::Return)
+            throw Problem{r.name + " isn't a return track."};
+        return {{t.id, "send/" + std::to_string(r.id)}, "Send " + r.name};
+    }
+    throw Problem{
+        "A channel's parameters are \"volume\", \"pan\" and \"send\"; for a module's parameter give module."};
+}
+
+Json paramRefJson(ToolEnv& env, const engine::Session::ParamTarget& t)
+{
+    Json j{{"track", formatId(IdKind::Track, t.channel)}, {"name", env.session.paramName(t).first}};
+    if (t.key.rfind("send/", 0) == 0)
+    {
+        j["parameter"] = "send";
+        j["return"] = formatId(IdKind::Track, std::stoull(t.key.substr(5)));
+    }
+    else if (t.key.rfind('m', 0) == 0 && t.key.find('/') != std::string::npos)
+    {
+        const auto slash = t.key.find('/');
+        j["module"] = formatId(IdKind::Module, std::stoull(t.key.substr(1, slash - 1)));
+        j["parameter"] = t.key.substr(slash + 1);
+    }
+    else
+        j["parameter"] = t.key;
+    return j;
+}
+
 } // namespace fd::mcp::tools

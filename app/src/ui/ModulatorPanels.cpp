@@ -565,6 +565,11 @@ ModulatorPanel::ModulatorPanel(ui::DeviceUiContext& context, ModulatorKind kind,
     // Depth, Both Ways and Per Target, which take the room the others leave (the product owner,
     // 2026-10-15: horizontal space in the chain is expensive).
     auto& p = context.params;
+    const auto sections = model::modulatorSections(kind);
+    const auto section = [&](size_t i, int columns) -> ui::PanelSection&
+    {
+        return addSection(std::string(sections[i].id), juce::String(std::string(sections[i].title)), columns);
+    };
     const auto targets = [&](ui::PanelSection& s, int column)
     {
         if (const auto both = model::bothWaysParam(kind))
@@ -576,7 +581,7 @@ ModulatorPanel::ModulatorPanel(ui::DeviceUiContext& context, ModulatorKind kind,
     {
     case ModulatorKind::Lfo:
     {
-        auto& s = addSection("shape", "Shape", 8);
+        auto& s = section(0, 8);
         s.place(*display_, 0, 0, 6, 3);
         s.knob(Lfo::Depth, 6, 0);
         auto& fade = s.knob(Lfo::Fade, 7, 0);
@@ -594,7 +599,7 @@ ModulatorPanel::ModulatorPanel(ui::DeviceUiContext& context, ModulatorKind kind,
     }
     case ModulatorKind::Random:
     {
-        auto& s = addSection("movement", "Movement", 8);
+        auto& s = section(0, 8);
         s.place(*display_, 0, 0, 6, 3);
         s.knob(Random::Depth, 6, 0);
         s.knob(Random::Jitter, 7, 0);
@@ -611,7 +616,7 @@ ModulatorPanel::ModulatorPanel(ui::DeviceUiContext& context, ModulatorKind kind,
     }
     case ModulatorKind::Envelope:
     {
-        auto& s = addSection("shape", "Shape", 8);
+        auto& s = section(0, 8);
         s.place(*display_, 0, 0, 6, 3);
         s.knob(Envelope::Depth, 6, 0);
         s.knob(Envelope::Delay, 7, 0);
@@ -623,7 +628,7 @@ ModulatorPanel::ModulatorPanel(ui::DeviceUiContext& context, ModulatorKind kind,
         s.bar(Envelope::AttackCurve, 5, 3, 3);
         s.bar(Envelope::DecayCurve, 5, 4, 3);
         s.bar(Envelope::ReleaseCurve, 5, 5, 3);
-        auto& trigger = addSection("trigger", "Trigger", 4);
+        auto& trigger = section(1, 4);
         trigger.combo(Envelope::Trigger, 0, 0);
         auto& every = trigger.combo(Envelope::Every, 2, 0);
         trigger.combo(Envelope::Mode, 0, 1, 3).setInlineName(true);
@@ -640,7 +645,7 @@ ModulatorPanel::ModulatorPanel(ui::DeviceUiContext& context, ModulatorKind kind,
     }
     case ModulatorKind::Follower:
     {
-        auto& s = addSection("level", "Level", 6);
+        auto& s = section(0, 6);
         s.place(*display_, 0, 0, 4, 3);
         if (context.sidechain != nullptr)
         {
@@ -659,7 +664,7 @@ ModulatorPanel::ModulatorPanel(ui::DeviceUiContext& context, ModulatorKind kind,
     }
     case ModulatorKind::Steps:
     {
-        auto& s = addSection("pattern", "Pattern", 8);
+        auto& s = section(0, 8);
         s.place(*display_, 0, 0, 6, 3);
         s.knob(Steps::Depth, 6, 0);
         s.knob(Steps::Length, 7, 0);

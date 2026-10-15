@@ -3,6 +3,7 @@
 
 #include "Sampler.h"
 #include "mcp/tools/Tools.h"
+#include "model/Modulators.h"
 #include "model/Racks.h"
 
 #include <cmath>
@@ -36,6 +37,17 @@ std::string typeKey(ToolEnv& env, const std::string& type)
     throw Problem{"There's no module type \"" + type + "\"; list_module_types (or segno://modules) lists them."};
 }
 
+/// The modulator a type names: its id ("mod-lfo") or its name ("LFO").
+std::optional<model::ModulatorKind> modulatorType(const std::string& type)
+{
+    if (const auto kind = model::modulatorKind(type))
+        return kind;
+    for (const auto kind : model::allModulators)
+        if (lower(std::string(model::modulatorInfo(kind).name)) == lower(type))
+            return kind;
+    return std::nullopt;
+}
+
 std::size_t parameterIndex(const DeviceInfo& info, const std::string& key)
 {
     for (size_t i = 0; i < info.params.size(); ++i)
@@ -67,7 +79,10 @@ void addModuleTools(Registry& registry, ToolEnv& env)
          "ours or a scanned plugin. One of ours starts from your default for it, if you set one, or from a "
          "preset "
          "you name (list_presets). Into a rack's chain with rack and chain; type \"rack\" adds an empty rack "
-         "(racks.md). Returns the new module with its parameters.",
+         "(racks.md). A modulator (\"mod-lfo\", \"mod-random\", \"mod-envelope\", \"mod-follower\", "
+         "\"mod-steps\") goes in a track's or return track's own chain; route_modulator gives it what it "
+         "moves. "
+         "Returns the new module with its parameters.",
          object(
              {{"track", id(IdKind::Track, "The track, return track or master")},
               {"type",
@@ -83,6 +98,23 @@ void addModuleTools(Registry& registry, ToolEnv& env)
         [&env](const Json& args, CallContext&)
         {
             const auto t = channel(env, args["track"]); // modules go on tracks, returns and the master
+            // A modulator (modulators.md §16): where it's asked for along a track's chain.
+            if (const auto kind = modulatorType(args["type"].get<std::string>()))
+            {
+                if (args.contains("rack"))
+                    throw Problem{"Modulators go in a track's own chain for now, not into a rack's."};
+                if (args.contains("preset"))
+                    throw Problem{"Modulators have no presets yet; set_parameters sets them up."};
+                if (t.role == model::TrackInfo::Role::Master)
+                    throw Problem{
+                        "The master can't have modulators yet: put one on a track or a return track."};
+                const auto id = env.session.addModulator(t.id, *kind, args.value("position", -1));
+                if (id == 0)
+                    throw Problem{"The modulator couldn't be added."};
+                env.session.flushSnapshot();
+                const auto [slot, owner] = module(env, formatId(IdKind::Module, id));
+                return ToolResult::ok(moduleJson(env, slot, owner));
+            }
             if (lower(args["type"].get<std::string>()) == "rack")
             {
                 std::uint64_t rack = 0;
@@ -250,10 +282,12 @@ void addModuleTools(Registry& registry, ToolEnv& env)
             auto handle = env.session.openDevice(slot.id);
             if (handle == nullptr && slot.rack != nullptr)
                 handle = env.session.openRack(slot.id); // a rack's macros
+            auto modulator =
+                handle == nullptr && slot.modulator != nullptr ? env.session.openModulator(slot.id) : nullptr;
             const auto* holder = model::rackHolding(owner.devices, slot.id);
-            if (handle != nullptr)
+            if (handle != nullptr || modulator != nullptr)
             {
-                auto& context = handle->context();
+                auto& context = handle != nullptr ? handle->context() : modulator->context();
                 for (const auto& [key, value] : args["values"].items())
                 {
                     const auto i = parameterIndex(context.info, key);
@@ -487,10 +521,11 @@ void addModuleTools(Registry& registry, ToolEnv& env)
             if (args.contains("collapsed"))
             {
                 auto handle = env.session.openDevice(slot.id);
-                if (handle == nullptr)
+                if (handle == nullptr && slot.modulator == nullptr)
                     throw Problem{"Third-party plugins have no sections."};
                 std::vector<std::string> known, collapsed;
-                for (const auto& s : sectionsOf(env, *handle))
+                for (const auto& s : handle != nullptr ? sectionsOf(env, *handle)
+                                                       : modulatorSectionsJson(slot.modulator->kind))
                     known.push_back(s["id"].get<std::string>());
                 for (const auto& s : args["collapsed"])
                 {

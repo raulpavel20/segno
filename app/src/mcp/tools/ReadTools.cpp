@@ -80,7 +80,8 @@ void addReadTools(Registry& registry, ToolEnv& env)
                                    "every parameter (id, name, value, text, "
                                    "unit, range, default), its panel sections and whether they're collapsed, "
                                    "its pages and the one showing (a module with pages), and its other state "
-                                   "(such as the Sampler's sample).",
+                                   "(such as the Sampler's sample). A modulator also lists what it moves "
+                                   "(modulator.routes) and whether it keeps its roll.",
                                    object({{"module", id(IdKind::Module, "The module")}}, {"module"}),
                                    moduleResultSchema(), reading},
                                   [&env](const Json& args, CallContext&)
@@ -92,15 +93,18 @@ void addReadTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"list_module_types", "List module types",
-         "Every module that can be added to a chain: our instruments and effects, and scanned third-party plugins. "
-         "Use a type with add_module; read segno://module-type/{type} for its parameters.",
-         object({{"kind", {{"enum", {"instrument", "effect"}}, {"description", "Only instruments or only effects"}}}}),
-         result({{"types", arrayOf(result({{"type", string("")}, {"name", string("")}, {"kind", string("")}}), "",
-                                   std::nullopt)}},
+         "Every module that can be added to a chain: our instruments, effects and modulators (which move "
+         "other "
+         "parameters on their track: route_modulator), and scanned third-party plugins. Use a type with "
+         "add_module; read segno://module-type/{type} for its parameters.",
+         object({{"kind",
+                  {{"enum", {"instrument", "effect", "modulator"}},
+                   {"description", "Only instruments, effects or modulators"}}}}),
+         result({{"types", arrayOf(result({{"type", string("")}, {"name", string("")}, {"kind", string("")}}),
+                                   "", std::nullopt)}},
                 {"types"}),
          reading},
-        [&env](const Json& args, CallContext&) {
-            return ToolResult::ok({{"types", moduleTypesJson(env, args.value("kind", std::string()))}});
-        }));
+        [&env](const Json& args, CallContext&)
+        { return ToolResult::ok({{"types", moduleTypesJson(env, args.value("kind", std::string()))}}); }));
 }
 } // namespace fd::mcp

@@ -373,4 +373,45 @@ bool hasKeep(ModulatorKind kind) noexcept
 {
     return kind == ModulatorKind::Random || kind == ModulatorKind::Envelope || kind == ModulatorKind::Steps;
 }
+
+std::vector<ModulatorSection> modulatorSections(ModulatorKind kind)
+{
+    switch (kind)
+    {
+    case ModulatorKind::Lfo:
+        return {{"shape", "Shape"}};
+    case ModulatorKind::Random:
+        return {{"movement", "Movement"}};
+    case ModulatorKind::Envelope:
+        return {{"shape", "Shape"}, {"trigger", "Trigger"}};
+    case ModulatorKind::Follower:
+        return {{"level", "Level"}};
+    case ModulatorKind::Steps:
+        return {{"pattern", "Pattern"}};
+    }
+    return {};
+}
+
+std::string_view modulatorPurpose(ModulatorKind kind) noexcept
+{
+    switch (kind)
+    {
+    case ModulatorKind::Lfo:
+        return "Moves parameters in a repeating shape (sine, triangle, saw, square, drawn), free or in time "
+               "with the song: sweeps, tremolo, wobble.";
+    case ModulatorKind::Random:
+        return "Moves parameters to random values, held or gliding, in time or free; rolls again each time "
+               "it plays unless it keeps a roll.";
+    case ModulatorKind::Envelope:
+        return "Moves parameters in a shape (attack, hold, decay, sustain, release) each time it fires: on "
+               "notes, on beats, or by hand.";
+    case ModulatorKind::Follower:
+        return "Moves parameters with how loud the sound is where it sits in the chain: ducking, swells, "
+               "dynamic filters.";
+    case ModulatorKind::Steps:
+        return "Moves parameters through a pattern of up to 32 steps in time with the song, each with a "
+               "chance: gates, ladders, rhythmic filters.";
+    }
+    return {};
+}
 } // namespace fd::model

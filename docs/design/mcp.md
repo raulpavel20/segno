@@ -74,7 +74,7 @@ The project, track, clip and module resources send change notifications when the
 | `get_project` | – | As `segno://project` |
 | `get_clip` | `clip` | As `segno://clip/{id}`, notes included |
 | `get_module` | `module` | As `segno://module/{id}` |
-| `list_module_types` | `kind?` (instrument, effect) | As `segno://modules` |
+| `list_module_types` | `kind?` (instrument, effect, modulator) | As `segno://modules` |
 
 **Transport:**
 
@@ -150,6 +150,9 @@ The project, track, clip and module resources send change notifications when the
 | `set_morph` | `rack`, `on`, `a`, `b` (snapshots from 1), `position` % | Morph (§18.3): on needs A and B; its position is also the rack's parameter `morph`. `get_rack` says which macros it sets (`setByMorph`); `set_parameters` refuses them |
 | `vary_module` | `module`, `more` | Vary (§18.5) on a rack: its free mapped macros moved up to 15 % (more: 40 %); refused while Morph is on or nothing can move |
 | `save_rack` | `rack`, `path` | A `.segnorack` file (default: your racks, named as the rack); `add_module` with type `rack` and `path` loads one |
+| `get_modulators` | `track` | A track's modulators ([modulators.md](modulators.md) §16) in chain order: type, place, settings, Keep (Random, Envelope, Steps), and routes: each `target` (as automation names a parameter: `module` and `parameter`, or `track` and `volume`, `pan`, `send` with `return`) and its `amount` % (−200 … 200). Read-only; `get_module` has a modulator's routes too |
+| `route_modulator`, `set_route`, `remove_route` | `modulator`, `target`, `amount?` (%, default 50) | A route made (one already there takes the amount), its amount set, or removed; one undo step. Refused, saying why, for another track's parameter, the modulator's own, or a loop. A modulator is added, set, moved, turned off and removed as any module (`add_module` with type `mod-lfo` … `mod-steps`; not into a rack or on the master, for now) |
+| `keep_roll` | `modulator` or `song: true`, `keep` | Keep as played, or Let it roll ([ADR 0062](../decisions/0062-random-rolls-again-each-time-it-plays.md)); every modulator that rolls dice and whether it's kept. A clip's chance joins it with the piano roll's (§26 there) |
 | `list_wavetables` | `category?` | The Wavetable Synth's tables: the factory ones (id, name, category, frames) and the files in the Segno folder's Wavetables (path, name). Read-only |
 | `set_wavetable` | `module` (a Wavetable Synth), `oscillator` (1–3), `table` (a factory id) or `path` (a WAV or `.wt` file) | The table as set: its id (`user` for a file, carried in the project), name and frames; one undo step ([devices/wavetable/SPEC.md](../../devices/wavetable/SPEC.md), "Tables and their files") |
 | `make_wavetable` | `module` (a Wavetable), `oscillator` (1–3), `clip` (an audio clip, with `from?`, `to?` on the timeline) or `path` (a sound file), `mode` (`pitched`, `spectral`, `slices`), `frames?` (8–256, default 64) | The table made from the audio as Clip > Make wavetable makes it, its recipe kept: its name, frames and the pitch found; one undo step ([table-editor.md](table-editor.md) §5) |
@@ -218,6 +221,7 @@ Every DAW feature ships with its tools (the coverage rule, ADR 0021). Today:
 | Piano roll | Note tools; its chords (M3 P4, ADR 0058): `get_chords`, `set_chord`, `make_chords`, `suggest_chords`, and the Notes menu's edits in `edit_notes`; chance (`reroll_chance`) and controllers (`get_controllers`, `set_controllers`), P4b; the tools that transform and generate (`list_note_tools`, `transform_notes`, `generate_notes`), P4c |
 | The editing grid of each editor (ADR 0047) | `get_grid`, `set_grid` |
 | Module chains: add, remove, reorder, bypass, parameters, Sampler sample, collapse and fold | Module tools |
+| Modulators (M3 P5, ADR 0061) | `add_module` (types `mod-*`), `get_modulators`, `route_modulator`, `set_route`, `remove_route`, `keep_roll` |
 | Presets and A/B (M3 A1, ADR 0044) | `list_presets`, `load_preset`, `save_preset`, `compare`; `add_module` takes a `preset` |
 | Plugin scanning | `scan_plugins` |
 | Settings (M3 C1, ADR 0045) | `get_settings`, `set_settings` (never the assistants' own or the shortcuts) |

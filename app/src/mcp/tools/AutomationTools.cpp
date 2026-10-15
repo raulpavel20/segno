@@ -27,79 +27,19 @@ double rounded4(double v)
     return std::round(v * 1e4) / 1e4;
 }
 
-/// What a parameter's arguments name, resolved.
-struct Param
-{
-    ParamTarget target;
-    std::string name; // as people read it
-};
-
+/// A parameter as the arguments name it (Tools.h: shared with the modulators' routes).
+using Param = ParamRef;
 Json paramSchema()
 {
-    return {{"module", id(IdKind::Module, "A module's parameter: the module (with parameter)")},
-            {"track", id(IdKind::Track, "A channel's mix: the track, return track or master (with parameter)")},
-            {"parameter", string("The module's parameter (id or name), or for a channel \"volume\", \"pan\" or \"send\"")},
-            {"return", id(IdKind::Track, "For a send: the return track it sends to")}};
+    return paramRefSchema();
 }
-
 Param param(ToolEnv& env, const Json& args)
 {
-    if (!args.contains("parameter") || !args["parameter"].is_string())
-        throw Problem{"Name the parameter: a module's parameter id or name with module, or \"volume\", \"pan\" or "
-                      "\"send\" with track."};
-    const auto parameter = args["parameter"].get<std::string>();
-    auto& s = env.session;
-    if (args.contains("module"))
-    {
-        const auto [slot, owner] = module(env, args["module"]);
-        const auto prefix = "m" + std::to_string(slot.id) + "/";
-        const auto choices = s.automatableParameters(owner.id);
-        for (int pass = 0; pass < 2; ++pass) // ids first, then names
-            for (const auto& c : choices)
-                if (c.key.rfind(prefix, 0) == 0 &&
-                    (pass == 0 ? c.key.substr(prefix.size()) == parameter : lower(c.name) == lower(parameter)))
-                    return {{owner.id, c.key}, c.name};
-        throw Problem{slot.name + " has no automatable parameter \"" + parameter +
-                      "\" (get_module lists them; settings such as lookahead can't be automated)."};
-    }
-    if (!args.contains("track"))
-        throw Problem{"Give module (for a module's parameter) or track (for volume, pan or a send)."};
-    const auto t = channel(env, args["track"]);
-    const auto p = lower(parameter);
-    if (p == "volume" || p == "pan")
-        return {{t.id, p}, p == "volume" ? "Volume" : "Pan"};
-    if (p == "send")
-    {
-        if (t.role != model::TrackInfo::Role::Track)
-            throw Problem{"Only tracks send; " + t.name + " is a " + kindName(t) + "."};
-        if (!args.contains("return"))
-            throw Problem{"Name the return track the send goes to (return)."};
-        const auto r = channel(env, args["return"]);
-        if (r.role != model::TrackInfo::Role::Return)
-            throw Problem{r.name + " isn't a return track."};
-        return {{t.id, "send/" + std::to_string(r.id)}, "Send " + r.name};
-    }
-    throw Problem{"A channel's parameters are \"volume\", \"pan\" and \"send\"; for a module's parameter give module."};
+    return paramRef(env, args);
 }
-
-/// A parameter as assistants name it: its track, module and id (or volume, pan, send and return).
 Json paramJson(ToolEnv& env, const ParamTarget& t)
 {
-    Json j{{"track", formatId(IdKind::Track, t.channel)}, {"name", env.session.paramName(t).first}};
-    if (t.key.rfind("send/", 0) == 0)
-    {
-        j["parameter"] = "send";
-        j["return"] = formatId(IdKind::Track, std::stoull(t.key.substr(5)));
-    }
-    else if (t.key.rfind('m', 0) == 0 && t.key.find('/') != std::string::npos)
-    {
-        const auto slash = t.key.find('/');
-        j["module"] = formatId(IdKind::Module, std::stoull(t.key.substr(1, slash - 1)));
-        j["parameter"] = t.key.substr(slash + 1);
-    }
-    else
-        j["parameter"] = t.key;
-    return j;
+    return paramRefJson(env, t);
 }
 
 /// A parameter's value from a plain number, true/false, or text it understands: its travel (0..1).

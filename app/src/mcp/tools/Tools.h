@@ -44,6 +44,7 @@ void addBrowserTools(Registry& registry, ToolEnv& env);
 void addGridTools(Registry& registry, ToolEnv& env);
 void addKeyTools(Registry& registry, ToolEnv& env);
 void addRackTools(Registry& registry, ToolEnv& env);
+void addModulatorTools(Registry& registry, ToolEnv& env);
 void addChordTools(Registry& registry, ToolEnv& env);
 void addControllerTools(Registry& registry, ToolEnv& env);
 void addToolkitTools(Registry& registry, ToolEnv& env);
@@ -151,6 +152,23 @@ Json moduleTypesJson(ToolEnv& env, const std::string& kind = {});
 Json moduleTypeJson(ToolEnv& env, const std::string& type);
 /// A module type's sections, from its panel (cached).
 Json sectionsOf(ToolEnv& env, engine::DeviceHandle& handle);
+/// A modulator's sections (modulators.md §23), as sectionsOf gives a module's.
+Json modulatorSectionsJson(model::ModulatorKind kind);
+/// What a modulator moves (modulators.md §16): its routes, each a target (as paramRefJson names
+/// it) and an amount in % (-200 ... +200), and Keep where it rolls dice.
+Json modulatorJson(ToolEnv& env, const model::DeviceSlot& slot);
+
+/// A parameter as tools name it (automation.md §11, modulators.md §16): a module's (module and
+/// parameter, by id or name) or a channel's (track, and parameter "volume", "pan" or "send" with
+/// return). The schema's properties, the parameter they name (or a Problem), and back.
+struct ParamRef
+{
+    engine::Session::ParamTarget target;
+    std::string name; // as people read it
+};
+Json paramRefSchema();
+ParamRef paramRef(ToolEnv& env, const Json& args);
+Json paramRefJson(ToolEnv& env, const engine::Session::ParamTarget& target);
 
 /// Writes notes to a MIDI clip, added to its notes or replacing them (add_notes, set_notes,
 /// create_midi_clip). New notes win where they overlap notes of the same pitch; notes past the
