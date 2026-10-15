@@ -127,7 +127,9 @@ std::string ParamSpec::toText(float plain) const
     case Unit::Hertz:
         if (v >= 1000.0f)
             return formatNumber(v / 1000.0, 2) + " kHz";
-        return formatNumber(v, v < 100.0f ? decimals : 0) + " Hz";
+        // Whole hertz from 100 Hz on, unless the range is narrow enough for a tenth to matter (a
+        // tuner's reference: 440.0 Hz).
+        return formatNumber(v, v < 100.0f || max - min <= 100.0f ? decimals : 0) + " Hz";
     case Unit::Milliseconds:
         if (v >= 1000.0f)
             return formatNumber(v / 1000.0, 2) + " s";

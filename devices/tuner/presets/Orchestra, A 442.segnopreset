@@ -1,0 +1,19 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Check"
+  ],
+  "description": "Tunes to A = 442 Hz, as many orchestras do.",
+  "author": "Segno",
+  "state": {
+    "device": "tuner",
+    "extra": {},
+    "params": {
+      "mute": 0.0,
+      "notes": 0.0,
+      "reference": 442.0,
+      "view": 0.0
+    },
+    "stateVersion": 1
+  }
+}

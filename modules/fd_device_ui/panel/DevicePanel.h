@@ -144,6 +144,10 @@ protected:
     /// ms", in the warning colour) whose tooltip says what it means for playing live. For modules
     /// whose delay is a choice (the EQ's linear phase; devices/eq/SPEC.md, "Latency").
     LatencyBadge& showLatency(std::function<double()> latencyMs);
+    /// A warning badge at the header's right end while `text` says something ("Muted", the
+    /// Tuner's), its tooltip what it means; room kept for `widest`.
+    HeaderBadge& showBadge(std::function<juce::String()> text, std::function<juce::String()> tooltip,
+                           juce::String widest);
     /// Names the sidechain picker for what this module does with it (the Spectrum's "Compare"),
     /// instead of "Sidechain".
     void setSidechainCaption(juce::String caption, juce::String tooltip);
@@ -168,6 +172,7 @@ protected:
     void dimWhen(std::vector<juce::Component*> controls, std::function<bool()> inactive);
 
 private:
+    HeaderBadge& showBadge(std::unique_ptr<HeaderBadge> badge);
     friend class PanelSection;
     /// Owns `control` and adds it to `parent` (a section's content, or the panel's header).
     template <typename T>

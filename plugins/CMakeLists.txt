@@ -119,6 +119,10 @@ fd_add_device_plugin(ID loudness-meter NAME "Loudness Meter" CODE Flud KIND effe
     VST3_CATEGORIES Fx Analyzer Mastering
     CLAP_FEATURES audio-effect analyzer mastering stereo mono)
 
+fd_add_device_plugin(ID tuner NAME "Tuner" CODE Ftun KIND effect
+    VST3_CATEGORIES Fx Analyzer
+    CLAP_FEATURES audio-effect analyzer utility stereo mono)
+
 fd_add_device_plugin(ID delay NAME "Delay" CODE Fdly KIND effect
     VST3_CATEGORIES Fx Delay
     CLAP_FEATURES audio-effect delay stereo mono)

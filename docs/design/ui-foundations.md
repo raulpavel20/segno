@@ -35,6 +35,7 @@ Roles are derived from the base palette in `Theme.cpp` (`deriveRoles`), the only
 | `spectrumSnapshot` / `spectrumSide` / `spectrumCollision` | textSecondary; textSecondary at 50 %; meterHot at `fillAlpha` | The Spectrum's snapshot (dashed), side (dotted) and collision wash |
 | `loudnessShortTerm` / `loudnessMomentary` | value; value at 45 % | The Loudness Meter's short-term loudness (bar, history line over `curveFill`) and momentary (fainter, behind) |
 | `loudnessTarget` / `loudnessTargetBand` | meterNormal; meterNormal at `fillAlpha` | Its target line, and the band 1 LU either side; on target, the integrated reading. Louder than the target is `warning`, true peaks over the ceiling `meterClip` |
+| `tunerInTune` / `tunerInTuneBand` | meterNormal; meterNormal at `fillAlpha` | The Tuner: the note and needle while in tune (within 3 cents), and the in-tune band on its scale. Off is the `value` colour, with an arrow saying which way: colour never alone |
 | `outside` | textTertiary at 60 % | Data outside an active range (waveform outside Start–End) |
 | `loopTint` | value at 10 % | A loop region inside a display |
 | `focusRing` | active at 70 % | Keyboard focus, 1 px |
@@ -59,6 +60,7 @@ Role functions for colours that depend on content:
 | `noteFill(colour, velocity, selected)` | control tone → clip colour by velocity (35–100 %); selected 30 % towards white | Piano roll notes and velocity stems |
 | `faded(colour)` | 40 % alpha | Content that exists but doesn't play (notes outside a clip) |
 | `ghost(colour)` | 28 % alpha (`ghostAlpha`) | Another part's notes behind the clip's own: the piano roll's Others ([piano-roll.md](piano-roll.md) §8) |
+| `dimmed(colour)` | `dimAlpha` (35 %) | Switched off or ignored; what's gone but still shown a moment (the Tuner's last note for a second after the sound stops) |
 | `echo(colour, step)` | each step 55 % of the alpha before (`echoAlpha`) | A modulator's copies with Per Target: one trace per target, over each other, each fainter ([modulators.md](modulators.md) §9) |
 | `fill(colour)` | `curveFill`'s alpha in that colour | Fills under coloured curves |
 | `atDepth(colour, nearness)` | 25 % alpha at the back to 60 % at the front (`depthFar`, `depthNear`) | A 3D view's lines: the Wavetable Synth's frames |
@@ -89,6 +91,7 @@ Role functions for colours that depend on content:
 | `ValueLarge` | Mono 15 medium | The transport position |
 | `Micro` | Mono 9 semibold | Labels inside small graphics (note names, EQ node numbers) |
 | `Wordmark` | Mono 15 bold, all caps, tracked | The product's name beside its mark ([ADR 0024](../decisions/0024-product-name.md)) |
+| `Display` | Mono 40 medium | The one figure a display is about, read from across the room: the Tuner's note ([SPEC](../../devices/tuner/SPEC.md)) |
 
 ## Motion and input
 

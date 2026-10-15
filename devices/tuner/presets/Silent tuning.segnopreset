@@ -1,0 +1,19 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Check"
+  ],
+  "description": "Mutes the track while you tune, on the strobe for the last tenth of a cent.",
+  "author": "Segno",
+  "state": {
+    "device": "tuner",
+    "extra": {},
+    "params": {
+      "mute": 1.0,
+      "notes": 0.0,
+      "reference": 440.0,
+      "view": 1.0
+    },
+    "stateVersion": 1
+  }
+}

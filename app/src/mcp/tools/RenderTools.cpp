@@ -540,10 +540,33 @@ void addRenderTools(Registry& registry, ToolEnv& env)
                 break;
             }
             case MeterKind::Correlation:
+            case MeterKind::Ratio:
             {
                 const double v = bus.read(m.slot);
                 value = std::isfinite(v) ? Json(std::round(v * 100.0) / 100.0) : Json(nullptr);
                 unit = nullptr;
+                break;
+            }
+            case MeterKind::Hertz:
+            {
+                const double v = bus.read(m.slot);
+                value = std::isfinite(v) ? Json(std::round(v * 100.0) / 100.0) : Json(nullptr);
+                unit = "Hz";
+                break;
+            }
+            case MeterKind::Pitch:
+            {
+                // The note by name (C3 = 60), as the note tools name pitches.
+                const double v = bus.read(m.slot);
+                value = std::isfinite(v) ? Json(pitchName(static_cast<int>(std::lround(v)))) : Json(nullptr);
+                unit = nullptr;
+                break;
+            }
+            case MeterKind::Cents:
+            {
+                const double v = bus.read(m.slot);
+                value = std::isfinite(v) ? Json(std::round(v * 10.0) / 10.0) : Json(nullptr);
+                unit = "cents";
                 break;
             }
             }

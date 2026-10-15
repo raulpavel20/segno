@@ -651,9 +651,14 @@ TEST_CASE("conformance: every factory preset loads, plays cleanly within level a
             CHECK(allFinite(out));
             CHECK(peakDb(out) <= 0.0);
             // It sounds; except a flipped gate, which passes only what a gate takes away: on steady
-            // noise above its threshold, nothing.
-            const auto flip = p.state.params.find("flip");
-            CHECK((rmsDb(out) > -60.0 || (flip != p.state.params.end() && flip->second > 0.5f)));
+            // noise above its threshold, nothing; and a preset that mutes (the Tuner's Silent
+            // tuning).
+            const auto on = [&](const char* param)
+            {
+                const auto it = p.state.params.find(param);
+                return it != p.state.params.end() && it->second > 0.5f;
+            };
+            CHECK((rmsDb(out) > -60.0 || on("flip") || on("mute")));
             if (std::getenv("FD_PRESET_REPORT") != nullptr) // for level matching by hand
                 std::cout << id << " | " << p.name << " | level " << rmsDb(out) - inputRms << " dB, peak "
                           << peakDb(out) << " dBFS\n";

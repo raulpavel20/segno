@@ -1,6 +1,6 @@
 # Tuner: device spec
 
-- **Status:** Draft, for the product owner's review (TU1–TU12 under "Questions for review"). Nothing is built until it's approved; the IDs become permanent then.
+- **Status:** Approved by the product owner (2026-10-15, with every recommendation of TU1–TU12); IDs are permanent. Built (B10, 2026-10-15): what building settled is under "Settled while building". Waiting for the product owner's hands-on check.
 - **Type:** Audio effect (analysis; audio passes unchanged unless Mute is on)
 - **Tier / milestone:** Tier 1, M3 (B10)
 - **Live target:** Live 12's Tuner (Classic and Strobe views, the Histogram of pitch over time, a reference of 410–480 Hz, sharps or flats). Checked against the tuners in Logic, Bitwig, Reaper, FL Studio, Cubase and Studio One, and against GTune, Peterson's StroboSoft, TC Electronic's PolyTune plug-in and MeldaProduction's MTuner (research, 2026-10-15). References only; nothing is copied ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
@@ -63,12 +63,12 @@ in L/R ────────────────────────�
 Detection runs on the audio thread in preallocated buffers, as the Spectrum's analysis does. The readings are published on the analysis bus, so they keep updating while the panel is closed and assistants can read them.
 
 - **Audio:** passes unchanged (a null test), zero latency, no tail. Mute fades out over 10 ms and back in over 10 ms.
-- **Decimation:** the mono sum, low-passed and decimated by a whole factor to between 11 and 12.5 kHz (×4 at 44.1 and 48 kHz, ×8 at 88.2 and 96 kHz). That's enough for fundamentals up to 4.2 kHz and costs little.
+- **Decimation:** the mono sum, low-passed and decimated by a whole factor to between 16 and 25.6 kHz (×2 at 44.1 and 48 kHz, ×4 at 88.2 and 96 kHz; settled while building).
 - **The period: the McLeod Pitch Method** (normalised square difference function, NSDF). It's robust on plucked strings, voices and synths, and it rarely jumps an octave. The steps:
   - the NSDF through an FFT, in place;
   - its first "key maximum" above 0.9 of the highest, refined by parabolic interpolation;
   - the peak's height is the **clarity** (0 … 1), how periodic the sound is.
-- **Adaptive window:** four periods of the last note, between 512 and 2048 decimated samples (about 43 to 170 ms). Low notes get the length they need and high notes answer fast. Readings come every 256 decimated samples, about 47 a second.
+- **Adaptive window:** four periods of the note, between 512 and 2048 decimated samples (about 21 to 85 ms at 24 kHz). Low notes get the length they need and high notes answer fast. Readings come every 256 decimated samples, about 90 a second.
 - **Range:** 25 Hz to 4.2 kHz. That covers a 5-string bass's low B (31 Hz) tuned down a tone, and the piano's top C.
 - **Cents to a tenth:** the NSDF's lag is coarse at high notes (at 1 kHz, a hundredth of a sample is 1.4 cents). Once the note is steady, the phase of the fundamental across two hops refines the frequency, as a phase vocoder does, to better than 0.1 cent on a steady tone. While the pitch moves, the NSDF's reading stands.
 - **Gates:** a reading needs the level above −60 dBFS and clarity above 0.8. Otherwise the tuner shows no note: noise, silence and chords read as nothing rather than as a wrong note.
@@ -127,10 +127,10 @@ Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `dev
 | A sine 7 cents sharp; Reference 415 Hz on a 415 Hz sine | +7.0 ± 0.1 cents; A, 0.0 ± 0.1 |
 | Saw, square, pulse and a tone without its fundamental (harmonics 2–8), every octave | The right note, no octave errors; within ±0.5 cents |
 | The Library's multisamples (strings, bass, a voice) at their roots | Their roots, within each sample's own tuning |
-| Time to a reading | From a bass's E string (41 Hz) up: within 60 ms; the low B (31 Hz): within 150 ms |
-| White noise; silence; a three-note chord | No reading |
+| Time to a reading | A guitar's low E (82 Hz): within 70 ms; a bass's E (41 Hz): 90 ms; the low B (31 Hz): 120 ms (settled while building) |
+| White noise; silence; a cluster of unrelated notes | No reading (settled while building: a major triad reads its root) |
 | A sine gliding across the A–A♯ boundary with ±2 cents of vibrato | The note changes once |
-| In key, A minor, a G♯ | G, +100 cents (the nearest note of the key below, at a tie) |
+| In key, A minor, a G♯ | G at a tie (the nearest note of the key below); 20 cents flat, G +80 |
 | `measure_module` on the Tuner | Frequency, note, cents, clarity, level, by name and unit |
 | No allocation, lock or file access in `process()` | Conformance |
 | Conformance suite | All pass |
@@ -164,10 +164,26 @@ Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `dev
 | TU11 | **Presets** | Four, named by use: Baroque A 415, A 432, Orchestra A 442, Silent tuning |
 | TU12 | **Name and IDs** | Named **Tuner**. Device `tuner`, plugin code `Ftun`, CLAP `org.segnoaudio.tuner`; section IDs `tuner`, `history`, `settings` |
 
+## Settled while building (B10, 2026-10-15)
+
+- **Twice the analysis rate:** 16–25.6 kHz (×2 at 44.1 and 48 kHz, ×4 at 88.2 and 96), not 11–12.5. At 12 kHz the piano's top octave had under three samples a period and read an octave low. 25.6 kHz is the fastest rate at which the 2048-sample window still holds two periods of the lowest note (25 Hz). About 90 readings a second.
+- **The period from the longest window, the pitch from four periods:** every reading takes its period from the longest window the sound allows, so a low note is never read an octave high, then its pitch from about four periods around that period, so vibrato and slides show.
+- **Low notes, by the NSDF's own peak:** below about 70 Hz a window can't hold the six periods the phase method needs to keep a tone's harmonics apart, so the reading is the NSDF's peak, found by band-limited (Lanczos) interpolation rather than a parabola. Above, the phase of the loudest harmonic refines it, in three steps. A tone without its fundamental reads right either way.
+- **The note changes past ±55 cents**, or in key where the other note is nearer by more than 10 cents, rather than "after two readings agree": at 90 readings a second, two readings are only 22 ms, and vibrato on a boundary flipped the note back and forth.
+- **Time to a reading** (at 48 kHz): a guitar's low E (82 Hz) under 70 ms, a bass's E (41 Hz) under 90 ms, the low B (31 Hz) under 120 ms. The window grows from the sound's start until it holds two periods.
+- **Chords:** a cluster of unrelated notes gives no reading, but a major triad reads its root two octaves down (its notes share that period), as most tuners do. The test uses a cluster.
+- **Reference shows its tenths:** hertz of 100 or more show no decimals, except on a range 100 Hz wide or narrower ("440.0 Hz"). Only the Reference has one.
+- **For the kit:**
+  - a text style for the one figure a display is about (`Display`, Mono 40);
+  - roles `tunerInTune` and `tunerInTuneBand`, and `Theme::dimmed`;
+  - the EQ's latency badge is now a header badge any module can show (`DevicePanel::showBadge`): the Tuner's "Muted", and later "Bypassed while monitoring" (recording.md §22).
+- **Device API:** meter kinds `Hertz`, `Pitch`, `Cents` and `Ratio` (architecture.md). `measure_module` names the note ("A2").
+- **Presets:** a preset that mutes may render silence (the conformance suite's rule, as for a flipped gate).
+
 ## Sign-off
 
-- [ ] Automated: unit, conformance and integration tests; validators
-- [ ] Layout lint passes (`fd_panel_tests`)
-- [ ] Snapshots reviewed (100% / 200%; no signal, in tune, off both ways, Strobe, In key, Muted, folded)
+- [x] Automated: unit, conformance and integration tests (2026-10-15); validators to run with the release builds
+- [x] Layout lint passes (`fd_panel_tests`)
+- [x] Snapshots reviewed (100% / 200%; no signal, in tune, off both ways, Strobe, In key with and without a key, Muted, fading; 2026-10-15)
 - [ ] Sound signed off by the product owner (date): the audio passes unchanged; Mute is clean
 - [ ] Feel signed off by the product owner (date):

@@ -53,6 +53,8 @@ void deriveRoles(Theme& t)
     r.loudnessMomentary = t.value.withAlpha(0.45f);
     r.loudnessTarget = t.meterNormal;
     r.loudnessTargetBand = t.meterNormal.withAlpha(r.fillAlpha);
+    r.tunerInTune = t.meterNormal;
+    r.tunerInTuneBand = t.meterNormal.withAlpha(r.fillAlpha);
     r.outside = t.textTertiary.withAlpha(0.6f);
     r.loopTint = t.value.withAlpha(0.10f);
     r.focusRing = t.active.withAlpha(0.7f);

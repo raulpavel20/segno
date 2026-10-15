@@ -74,7 +74,7 @@ Colour roles (lanes, grid, selection, states …), text styles, motion and shell
 | Line controls | Toggles, combos, bars, segmented rows: 20 px tall |
 | Value bar | Knob in bar style for dense rows (mod amounts, voice counts): `surface3` bar, `value` fill at 45 % from the origin, name left and value right inside; same interaction as a knob, also follows horizontal drags |
 | Fonts | Inter (variable) for names and text; JetBrains Mono (variable) for values, numbers and readouts. Both bundled, both OFL-1.1 |
-| Type scale | 11 · 12 · 13 · 15 · 18 px |
+| Type scale | 11 · 12 · 13 · 15 · 18 px; 40 px for the one figure a display is about (the Tuner's note) |
 
 ### Type
 

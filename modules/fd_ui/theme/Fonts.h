@@ -40,7 +40,8 @@ enum class TextStyle
     ValueMedium, // Mono 13 medium: number fields
     ValueLarge,  // Mono 15 medium: the transport position
     Micro,       // Mono 9 semibold: labels inside small graphics
-    Wordmark     // Mono 15 bold, all caps, tracked: the product's name beside its mark
+    Wordmark,    // Mono 15 bold, all caps, tracked: the product's name beside its mark
+    Display      // Mono 40 medium: the one figure a display is about (the Tuner's note)
 };
 
 [[nodiscard]] juce::Font font(TextStyle style);

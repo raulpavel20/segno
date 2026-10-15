@@ -1585,6 +1585,68 @@ TEST_CASE("mcp tools: the Loudness Meter on the master, measured through MCP: LU
     CHECK(byId["counted_seconds"]["value"].get<int>() >= 4);
 }
 
+TEST_CASE("mcp tools: the Tuner on a track, measured through MCP: note, cents, frequency (B10)",
+          "[integration][mcp]")
+{
+    Daw daw;
+    tracktion::HostedAudioDeviceInterface::Parameters io;
+    io.sampleRate = 48000.0;
+    io.blockSize = 480;
+    io.inputChannels = 2;
+    io.outputChannels = 2;
+    tracktion::test_utilities::EnginePlayer player(daw.engine, io);
+    // A 220 Hz sine (A2: C3 = 60) into the input, heard on track 0.
+    juce::AudioBuffer<float> in(2, 480);
+    std::int64_t clock = 0;
+    auto pump = [&](double seconds)
+    {
+        for (int b = 0; b < static_cast<int>(seconds * 100.0); ++b)
+        {
+            for (int c = 0; c < 2; ++c)
+                for (int s = 0; s < 480; ++s)
+                    in.setSample(c, s,
+                                 0.2f * std::sin(2.0f * juce::MathConstants<float>::pi * 220.0f *
+                                                 static_cast<float>(clock + s) / 48000.0f));
+            clock += 480;
+            player.process(in);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil(1);
+        }
+    };
+    pump(0.1);
+    auto project = daw.project();
+    const auto t0 = project["tracks"][0]["id"].get<std::string>();
+    daw.call("set_track_input",
+             {{"track", t0}, {"audioInput", project["inputs"]["audio"][0]}, {"monitor", "in"}});
+    const auto tuner = daw.call("add_module", {{"track", t0}, {"type", "tuner"}})["id"].get<std::string>();
+    pump(1.0);
+
+    auto future = std::async(
+        std::launch::async,
+        [&]
+        {
+            return daw.server->dispatcher()->handle(
+                modernRequest("tools/call", {{"name", "measure_module"},
+                                             {"arguments", {{"module", tuner}, {"seconds", 0.2}}}}),
+                {});
+        });
+    while (future.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready)
+        pump(0.01);
+    const auto out = future.get();
+    REQUIRE(out.message);
+    const auto result = (*out.message)["result"];
+    INFO(result.dump());
+    REQUIRE(result["isError"] == false);
+    std::map<std::string, Json> byId;
+    for (const auto& m : result["structuredContent"]["meters"])
+        byId[m["id"].get<std::string>()] = m;
+    CHECK(byId["note"]["value"] == "A2");
+    CHECK(byId["cents"]["unit"] == "cents");
+    CHECK(byId["cents"]["value"].get<double>() == Approx(0.0).margin(0.2));
+    CHECK(byId["frequency"]["unit"] == "Hz");
+    CHECK(byId["frequency"]["value"].get<double>() == Approx(220.0).margin(0.05));
+    CHECK(byId["clarity"]["value"].get<double>() > 0.9);
+}
+
 TEST_CASE("mcp tools: the mixer: levels, returns, sends and meters", "[integration][mcp]")
 {
     Daw daw;

@@ -66,8 +66,8 @@ int settingWidth(juce::Component& c)
 {
     if (dynamic_cast<SidechainPicker*>(&c) != nullptr)
         return SidechainPicker::width;
-    if (auto* badge = dynamic_cast<LatencyBadge*>(&c))
-        return badge->preferredWidth(); // none while there's no delay
+    if (auto* badge = dynamic_cast<HeaderBadge*>(&c))
+        return badge->preferredWidth(); // none while it has nothing to say
     if (auto* readout = dynamic_cast<HeaderReadout*>(&c))
         return roundUpToGrid(static_cast<float>(readout->preferredWidth()));
     if (auto* combo = dynamic_cast<juce::ComboBox*>(&c))
@@ -81,12 +81,12 @@ int settingWidth(juce::Component& c)
     return c.getWidth();
 }
 
-/// The room a header setting keeps in the panel's width, shown or not: a latency badge as for
-/// a delay of up to 999 ms.
+/// The room a header setting keeps in the panel's width, shown or not: a badge's widest (a
+/// latency badge's, a delay of up to 999 ms).
 int reservedWidth(juce::Component& c)
 {
-    if (dynamic_cast<LatencyBadge*>(&c) != nullptr)
-        return LatencyBadge::widthFor("+999 ms");
+    if (auto* badge = dynamic_cast<HeaderBadge*>(&c))
+        return badge->reservedWidth();
     return settingWidth(c);
 }
 } // namespace
@@ -314,9 +314,19 @@ HeaderReadout& DevicePanel::addHeaderReadout(juce::String caption, juce::String 
 
 LatencyBadge& DevicePanel::showLatency(std::function<double()> latencyMs)
 {
-    auto& badge = adopt(
-        std::make_unique<LatencyBadge>(juce::String(std::string(context_.info.name)), std::move(latencyMs)),
-        *this);
+    return showBadge(
+        HeaderBadge::latency(juce::String(std::string(context_.info.name)), std::move(latencyMs)));
+}
+
+HeaderBadge& DevicePanel::showBadge(std::function<juce::String()> text, std::function<juce::String()> tooltip,
+                                    juce::String widest)
+{
+    return showBadge(std::make_unique<HeaderBadge>(std::move(text), std::move(tooltip), std::move(widest)));
+}
+
+HeaderBadge& DevicePanel::showBadge(std::unique_ptr<HeaderBadge> made)
+{
+    auto& badge = adopt(std::move(made), *this);
     headerControls_.push_back(&badge);
     headerCaptions_.push_back({}); // it says what it is
     headerShown_.emplace_back();

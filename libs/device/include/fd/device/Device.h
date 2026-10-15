@@ -102,6 +102,10 @@ enum class MeterKind
     Count,         // a current count (publish), e.g. voices playing
     LoudnessUnits, // LU, a current range or difference (publish): a loudness range; NaN for none
     Correlation,   // -1..1, a current value (publish): stereo correlation; NaN for none
+    Hertz,         // a frequency, a current value (publish): a tuner's reading; NaN for none
+    Pitch,         // a MIDI note number, a current value (publish): the note a tuner hears; NaN for none
+    Cents,         // cents, a current value (publish): how far off a note; NaN for none
+    Ratio,         // 0..1, a current value (publish): a tuner's clarity; NaN for none
 };
 
 /// A named meter: one analysis slot.

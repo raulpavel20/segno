@@ -63,6 +63,8 @@ struct ColourRoles
     // The Loudness Meter (devices/loudness-meter/SPEC.md): short-term in the value colour,
     // momentary fainter behind it, the target and its band; louder than the target is `warning`.
     juce::Colour loudnessShortTerm, loudnessMomentary, loudnessTarget, loudnessTargetBand;
+    // The Tuner (devices/tuner/SPEC.md): in tune, the note and needle; the ±3 cents band.
+    juce::Colour tunerInTune, tunerInTuneBand;
     juce::Colour focusRing, hoverWash, dropWell, valueHot, valueText, warning, overlay, shadow;
     juce::Colour warningFill; // behind a warning's text: a module's latency badge
     juce::Colour rackFrame;   // the tray a rack's modules sit in, in the chain (racks.md §5)
@@ -257,6 +259,9 @@ struct Theme
     {
         return c.withMultipliedAlpha(std::pow(roles.echoAlpha, static_cast<float>(std::max(0, step))));
     }
+    /// What's gone but still shown a moment (the Tuner's last note after the sound stops), or
+    /// switched off: at `dimAlpha`, never compounded.
+    [[nodiscard]] juce::Colour dimmed(juce::Colour c) const { return c.withMultipliedAlpha(roles.dimAlpha); }
     /// The flat fill under a curve drawn in `c`.
     [[nodiscard]] juce::Colour fill(juce::Colour c) const { return c.withMultipliedAlpha(roles.fillAlpha); }
     /// A line of a 3D view (a wavetable's frames) `nearness` of the way from the back (0) to the
@@ -285,6 +290,7 @@ struct Theme
     float textMd = 13.0f;
     float textLg = 15.0f;
     float textXl = 18.0f;
+    float textDisplay = 40.0f; // the one figure a display is about (the Tuner's note)
 
     [[nodiscard]] static const Theme& current() noexcept;
     static void setCurrent(const Theme& theme) noexcept;

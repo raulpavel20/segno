@@ -1,0 +1,58 @@
+{
+    "device": "tuner",
+    "author": "Segno",
+    "presets": [
+        {
+            "name": "Baroque, A 415",
+            "tags": [
+                "Check"
+            ],
+            "description": "Tunes to A = 415 Hz, the pitch many period instruments play at.",
+            "params": {
+                "reference": 415,
+                "view": "Needle",
+                "notes": "All",
+                "mute": 0
+            }
+        },
+        {
+            "name": "A 432",
+            "tags": [
+                "Check"
+            ],
+            "description": "Tunes to A = 432 Hz.",
+            "params": {
+                "reference": 432,
+                "view": "Needle",
+                "notes": "All",
+                "mute": 0
+            }
+        },
+        {
+            "name": "Orchestra, A 442",
+            "tags": [
+                "Check"
+            ],
+            "description": "Tunes to A = 442 Hz, as many orchestras do.",
+            "params": {
+                "reference": 442,
+                "view": "Needle",
+                "notes": "All",
+                "mute": 0
+            }
+        },
+        {
+            "name": "Silent tuning",
+            "tags": [
+                "Check"
+            ],
+            "description": "Mutes the track while you tune, on the strobe for the last tenth of a cent.",
+            "params": {
+                "reference": 440,
+                "view": "Strobe",
+                "notes": "All",
+                "mute": 1
+            }
+        }
+    ]
+}

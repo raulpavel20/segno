@@ -179,28 +179,36 @@ private:
 /// handle would land (modulators.md §7.1).
 [[nodiscard]] std::optional<size_t> paramOf(const juce::Component& control);
 
-/// The delay a module adds, at the header's right end while it adds one: "+107 ms" in the
-/// warning colour, and in its tooltip what that means for playing live (devices/eq/SPEC.md,
-/// "Latency"). For modules whose delay is a choice.
-class LatencyBadge final : public juce::Component, public juce::SettableTooltipClient, public ParamControl
+/// A short warning at a module header's right end while it applies, in the warning colour, its
+/// tooltip saying what it means: the delay a module adds ("+107 ms", devices/eq/SPEC.md,
+/// "Latency"), the Tuner silencing its track ("Muted"). It takes no room while there's nothing
+/// to say; the panel's width keeps room for the widest it can show.
+class HeaderBadge final : public juce::Component, public juce::SettableTooltipClient, public ParamControl
 {
 public:
-    LatencyBadge(juce::String moduleName, std::function<double()> latencyMs);
+    HeaderBadge(std::function<juce::String()> text, std::function<juce::String()> tooltip,
+                juce::String widest);
+    /// The delay a module adds, while it adds one, and what that means for playing live.
+    [[nodiscard]] static std::unique_ptr<HeaderBadge> latency(juce::String moduleName,
+                                                              std::function<double()> latencyMs);
     void refresh() override;
     void paint(juce::Graphics& g) override;
-    /// Its width on the header: none while the module adds no delay.
+    /// Its width on the header: none while it has nothing to say.
     [[nodiscard]] int preferredWidth() const;
+    /// The room the panel keeps for it: its widest text's.
+    [[nodiscard]] int reservedWidth() const { return widthFor(widest_); }
     /// Its width showing `text`.
     [[nodiscard]] static int widthFor(const juce::String& text);
     [[nodiscard]] const juce::String& text() const noexcept { return text_; }
-    /// The delay came, went or changed (the header lays out again).
+    /// It came, went or changed (the header lays out again).
     std::function<void()> onChange;
 
 private:
-    juce::String moduleName_;
-    std::function<double()> latencyMs_;
-    juce::String text_;
+    std::function<juce::String()> textOf_, tooltipOf_;
+    juce::String widest_, text_;
 };
+/// The badge as the EQ's latency first used it.
+using LatencyBadge = HeaderBadge;
 /// A module's live figure in its header (the Wavetable Synth's CPU, W13): its value in the mono,
 /// `textSecondary`, as wide as the widest it can show, so the header never moves as it changes.
 class HeaderReadout final : public juce::Component, public juce::SettableTooltipClient, public ParamControl

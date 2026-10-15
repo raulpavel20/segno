@@ -598,38 +598,49 @@ void ParamComboBox::menuClosed(int chosen)
 
 // ---- the latency badge --------------------------------------------------------------------
 
-LatencyBadge::LatencyBadge(juce::String moduleName, std::function<double()> latencyMs)
-    : moduleName_(std::move(moduleName)), latencyMs_(std::move(latencyMs))
+HeaderBadge::HeaderBadge(std::function<juce::String()> text, std::function<juce::String()> tooltip,
+                         juce::String widest)
+    : textOf_(std::move(text)), tooltipOf_(std::move(tooltip)), widest_(std::move(widest))
 {
-    setName("latency");
+    setName("badge");
     refresh();
 }
 
-void LatencyBadge::refresh()
+std::unique_ptr<HeaderBadge> HeaderBadge::latency(juce::String moduleName, std::function<double()> latencyMs)
 {
-    const int ms = latencyMs_ ? juce::roundToInt(latencyMs_()) : 0;
-    const auto text = ms > 0 ? "+" + juce::String(ms) + " ms" : juce::String();
+    const auto ms = [latencyMs] { return latencyMs ? juce::roundToInt(latencyMs()) : 0; };
+    auto badge = std::make_unique<HeaderBadge>(
+        [ms] { return ms() > 0 ? "+" + juce::String(ms()) + " ms" : juce::String(); },
+        [ms, moduleName]
+        {
+            const auto delay = juce::String(ms()) + " ms";
+            return "This " + moduleName + " delays its track by " + delay +
+                   ". The DAW keeps the tracks in time; what you play live on this track is heard " + delay +
+                   " late.";
+        },
+        "+999 ms");
+    badge->setName("latency");
+    return badge;
+}
+
+void HeaderBadge::refresh()
+{
+    const auto text = textOf_ ? textOf_() : juce::String();
     if (text == text_)
         return;
     text_ = text;
-    const auto delay = juce::String(ms) + " ms";
-    setTooltip(text_.isEmpty()
-                   ? juce::String()
-                   : "This " + moduleName_ + " delays its track by " + delay +
-                         ". The DAW keeps the tracks in time; what you play live on this track is "
-                         "heard " +
-                         delay + " late.");
+    setTooltip(text_.isEmpty() || !tooltipOf_ ? juce::String() : tooltipOf_());
     repaint();
     if (onChange)
         onChange();
 }
 
-int LatencyBadge::preferredWidth() const
+int HeaderBadge::preferredWidth() const
 {
     return text_.isEmpty() ? 0 : widthFor(text_);
 }
 
-int LatencyBadge::widthFor(const juce::String& text)
+int HeaderBadge::widthFor(const juce::String& text)
 {
     const auto& grid = Theme::current().deviceGrid;
     return static_cast<int>(
@@ -637,7 +648,7 @@ int LatencyBadge::widthFor(const juce::String& text)
            2 * grid.displayInset;
 }
 
-void LatencyBadge::paint(juce::Graphics& g)
+void HeaderBadge::paint(juce::Graphics& g)
 {
     if (text_.isEmpty())
         return;
