@@ -290,7 +290,7 @@ The plan's "add to project" (§16): an export as a new track, or in the browser.
 
 These are new optional arguments, so no released tool changes (ADR 0021).
 
-### 17.5 Built (2026-10-15)
+### 17.5 Built (2026-10-15; signed off by the product owner 2026-10-16)
 
 - **The encoders:**
   - **MP3:** LAME 3.100's library, fetched from its pinned tarball (SHA-256 checked) and built as `fd_dep_lame`. `cmake/lame/config.h` stands in for its configure; the encoder only. `engine::writeMp3` writes the ID3v2 tag itself (title and `TSSE` Segno, in UTF-16), then LAME's info frame over the empty one it leaves (length and encoder delay, for gapless players).

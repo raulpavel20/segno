@@ -348,7 +348,7 @@ Trying C5c, the product owner found that a click on a strip (or Alt+↑/↓) rep
 
 ## 22. Hearing yourself sooner, and recording in time (M3 C7, for review)
 
-**Status:** approved by the product owner (2026-10-15), every recommendation of RL1–RL8. §15 planned both for M3: "Reduced latency when monitoring" and "Round-trip latency test". Built 2026-10-16 (§22.4).
+**Status:** approved by the product owner (2026-10-15), every recommendation of RL1–RL8. §15 planned both for M3: "Reduced latency when monitoring" and "Round-trip latency test". Built 2026-10-16 (§22.4) and signed off by the product owner the same day.
 
 **What others do** (research, 2026-10-15):
 - **Monitoring with less delay:**

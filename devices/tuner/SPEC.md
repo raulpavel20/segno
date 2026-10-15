@@ -1,6 +1,6 @@
 # Tuner: device spec
 
-- **Status:** Approved by the product owner (2026-10-15, with every recommendation of TU1–TU12); IDs are permanent. Built (B10, 2026-10-15): what building settled is under "Settled while building". Waiting for the product owner's hands-on check.
+- **Status:** Approved by the product owner (2026-10-15, with every recommendation of TU1–TU12); IDs are permanent. Built (B10, 2026-10-15): what building settled is under "Settled while building". Signed off by the product owner (2026-10-16).
 - **Type:** Audio effect (analysis; audio passes unchanged unless Mute is on)
 - **Tier / milestone:** Tier 1, M3 (B10)
 - **Live target:** Live 12's Tuner (Classic and Strobe views, the Histogram of pitch over time, a reference of 410–480 Hz, sharps or flats). Checked against the tuners in Logic, Bitwig, Reaper, FL Studio, Cubase and Studio One, and against GTune, Peterson's StroboSoft, TC Electronic's PolyTune plug-in and MeldaProduction's MTuner (research, 2026-10-15). References only; nothing is copied ([ADR 0011](../../docs/decisions/0011-calibrated-ambition-and-consolidation.md)).
@@ -185,5 +185,5 @@ Built and named by Claude ([presets.md](../../docs/design/presets.md) §13; `dev
 - [x] Automated: unit, conformance and integration tests (2026-10-15); validators to run with the release builds
 - [x] Layout lint passes (`fd_panel_tests`)
 - [x] Snapshots reviewed (100% / 200%; no signal, in tune, off both ways, Strobe, In key with and without a key, Muted, fading; 2026-10-15)
-- [ ] Sound signed off by the product owner (date): the audio passes unchanged; Mute is clean
-- [ ] Feel signed off by the product owner (date):
+- [x] Sound signed off by the product owner (2026-10-16): the audio passes unchanged; Mute is clean
+- [x] Feel signed off by the product owner (2026-10-16)

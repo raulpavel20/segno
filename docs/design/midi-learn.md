@@ -2,7 +2,7 @@
 
 A hardware controller's knob, fader, button or pad moves any control in Segno: you point at the control, move the hardware, and it's mapped. This is generic MIDI learn, for every controller. The Push 2's own support is a separate design ([push-2.md](push-2.md), ADR 0054); in User mode the Push is mapped here too. It builds on recording's MIDI inputs ([recording.md](recording.md) §3), automation ([automation.md](automation.md) §8), presets ([presets.md](presets.md) §11: mappings belong to the project and survive a preset load) and the settings page ([settings.md](settings.md)).
 
-**Status:** approved by the product owner (2026-10-15), every recommendation of ML1–ML14. Built 2026-10-16 (§13).
+**Status:** approved by the product owner (2026-10-15), every recommendation of ML1–ML14. Built 2026-10-16 (§13) and signed off by the product owner the same day.
 
 ## 1. What others do (research, 2026-10-15)
 

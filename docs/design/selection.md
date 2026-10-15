@@ -124,7 +124,7 @@ Disabled actions are greyed in the command palette and the transport bar, and th
 
 ## 8. The inspector at compact widths, and a module's properties (M3 C6, for review)
 
-**Status:** approved by the product owner (2026-10-15), every recommendation of IN1–IN7. The NOTES section the plan also named here came with the piano roll (P4, [piano-roll.md](piano-roll.md) §9.6) and is built.
+**Status:** approved by the product owner (2026-10-15), every recommendation of IN1–IN7; built the same day and signed off by the product owner (2026-10-16). The NOTES section the plan also named here came with the piano roll (P4, [piano-roll.md](piano-roll.md) §9.6) and is built.
 
 **What other DAWs do** (research of Live 12, Bitwig 5.3 and 6, Logic, Studio One / Studio Pro, Cubase, FL Studio and Reaper, 2026-10-15):
 - **Logic, Bitwig, Studio Pro and Cubase** dock the inspector in a side column. One key toggles it (`I`, F4) and a button does too. None of their manuals describes it floating over the content or hiding itself at narrow widths: below a size, panels push the content, or swap with the browser (Bitwig's smaller display profiles, Logic on iPad).
