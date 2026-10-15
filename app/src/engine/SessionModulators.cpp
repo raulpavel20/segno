@@ -253,8 +253,15 @@ std::optional<Session::Impl::Moved> Session::Impl::movedBy(te::AutomatableParame
     return out;
 }
 
-void Session::Impl::startModulatorPasses()
+void Session::Impl::startPasses()
 {
+    if (chancePass != nullptr) // the clips' chance (piano-roll.md §26)
+    {
+        std::uint64_t roll = 0;
+        while (roll == 0)
+            roll = static_cast<std::uint64_t>(juce::Random::getSystemRandom().nextInt64());
+        chancePass->roll.store(roll);
+    }
     for (auto* m : modulators())
         if (!m->kept())
             m->startPass(static_cast<std::uint64_t>(juce::Random::getSystemRandom().nextInt64()));
@@ -498,11 +505,20 @@ void Session::keepAllRolls(bool keep)
     for (auto* m : impl_->modulators())
         if (model::hasKeep(m->kind()) && m->kept() != keep)
             changing.push_back(m);
-    if (changing.empty())
+    // And every clip with notes left to chance (piano-roll.md §26).
+    std::vector<te::MidiClip*> clips;
+    for (auto* t : te::getAudioTracks(*impl_->edit))
+        for (auto* c : t->getClips())
+            if (auto* midi = dynamic_cast<te::MidiClip*>(c);
+                midi != nullptr && keptChanceOf(*midi).has_value() != keep && usesChance(*midi))
+                clips.push_back(midi);
+    if (changing.empty() && clips.empty())
         return;
     impl_->beginEdit(keep ? "Keep all as played" : "Let all roll");
     for (auto* m : changing)
         m->setKept(keep, &impl_->edit->getUndoManager());
+    for (auto* c : clips)
+        impl_->keepChance(*c, keep);
 }
 
 // ---- the panel ----------------------------------------------------------------------------------

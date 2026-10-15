@@ -140,36 +140,4 @@ std::uint32_t chanceSeedOf(const te::MidiClip& clip)
     return static_cast<std::uint32_t>(static_cast<juce::int64>(clip.state.getProperty(noteIds::seed, 0)));
 }
 
-juce::MidiMessageSequence playbackSequence(const te::MidiList& list, te::MidiClip& clip,
-                                           te::MidiList::TimeBase timeBase, bool generateMPE)
-{
-    std::vector<model::Note> notes;
-    for (const auto* n : list.getNotes())
-        notes.push_back(noteOf(*n));
-    if (!model::usesChance(notes))
-        return te::MidiList::createDefaultPlaybackMidiSequence(list, clip, timeBase, generateMPE);
-
-    // A copy with each note's fate decided: those that don't play are muted (so left out), the
-    // others take their lap's velocity. Laid out lap after lap, a looped clip's notes are told
-    // apart by their lap; its loop played by the node is one lap, decided as the first.
-    te::MidiList decided(list.state.createCopy(), nullptr);
-    const bool laps = clip.isLooping() && &list != &clip.getSequence();
-    const double loopLength = clip.getLoopLengthBeats().inBeats(),
-                 loopStart = clip.getLoopStartBeats().inBeats();
-    const auto seed = chanceSeedOf(clip);
-    const auto id = clip.itemID.getRawID();
-    for (auto* n : decided.getNotes())
-    {
-        const auto note = noteOf(*n);
-        const double at = note.start;
-        const int lap = laps && loopLength > 0.0 ? static_cast<int>(std::floor(at / loopLength + 1e-9)) : 0;
-        const double place = laps ? at - lap * loopLength + loopStart : at;
-        const auto fate = model::noteFate(note, place, lap, seed, id);
-        if (!fate.plays)
-            n->setMute(true, nullptr);
-        else if (fate.velocity != note.velocity)
-            n->setVelocity(midiOf(fate.velocity, 1), nullptr);
-    }
-    return te::MidiList::createDefaultPlaybackMidiSequence(decided, clip, timeBase, generateMPE);
-}
 } // namespace fd::engine

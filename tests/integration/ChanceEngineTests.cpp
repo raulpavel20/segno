@@ -1,8 +1,10 @@
-// Chance and controllers in the engine (M3 P4b, docs/design/piano-roll.md §10, §11): notes keep
-// their chance, spread and release velocity; a clip plays what model::noteFate decides, lap after
-// lap, and a render plays the same; Re-roll changes it and undo brings it back; controller lanes
-// play as MIDI events and read back as their points, recorded events as points that hold.
+// Chance and controllers in the engine (M3 P4b, docs/design/piano-roll.md §10, §11, §26): notes
+// keep their chance, spread and release velocity; a clip plays what model::noteFate decides, lap
+// after lap, rolled again each pass and each lap of the loop unless it keeps its roll; a kept clip
+// renders as it was heard; Re-roll changes it and undo brings it back; controller lanes play as
+// MIDI events and read back as their points, recorded events as points that hold.
 
+#include "engine/ClipChance.h"
 #include "engine/ClipNotes.h"
 #include "engine/DevicePlugin.h"
 #include "engine/EngineBehaviour.h"
@@ -166,9 +168,52 @@ TEST_CASE("chance (engine): notes keep chance, spread and release velocity, move
     CHECK(c.chanceSeed == 1234u);
 }
 
-TEST_CASE("chance (engine): a looped clip plays what noteFate decides, lap by lap; Re-roll changes it, "
-          "undo brings it back",
-          "[integration]")
+namespace
+{
+/// What a looped clip's node plays on one pass through the song, through its chance filter: each
+/// note-on that plays, by (the clip's lap, pitch) → MIDI velocity. The pass rolls `roll`; `laps`
+/// times round the transport's loop (its lap counted by the filter as the time goes back).
+std::vector<std::map<std::pair<int, int>, int>> playPass(Fixture& f, std::uint64_t clipId, std::uint64_t roll,
+                                                         int laps = 1)
+{
+    f.session->impl().chancePass->roll.store(roll);
+    auto& c = f.engineClip(clipId);
+    const auto sequence =
+        c.getSequenceLooped().exportToPlaybackMidiSequence(c, te::MidiList::TimeBase::seconds, false);
+    auto filter = fd::engine::chanceFilter(c, sequence, te::MidiList::TimeBase::seconds);
+    REQUIRE(filter != nullptr);
+    std::vector<std::map<std::pair<int, int>, int>> out;
+    for (int lap = 0; lap < laps; ++lap)
+    {
+        auto& heard = out.emplace_back();
+        filter->startBlock(0.0, true); // from the start again: the transport loop came round
+        for (int i = 0; i < sequence.getNumEvents(); ++i)
+        {
+            auto m = sequence.getEventPointer(i)->message;
+            if (filter->shouldPlay(i, m) && m.isNoteOn())
+                heard[{static_cast<int>(m.getTimeStamp() / 2.0 + 1e-6), m.getNoteNumber()}] = m.getVelocity();
+        }
+        filter->startBlock(8.0, true);
+    }
+    return out;
+}
+
+/// What noteFate decides for chancyBar looped over four laps with `seed`.
+std::map<std::pair<int, int>, int> decided(std::uint32_t seed, std::uint64_t clipId)
+{
+    std::map<std::pair<int, int>, int> out;
+    for (int lap = 0; lap < 4; ++lap)
+        for (const auto& n : chancyBar())
+            if (const auto fate = fd::model::noteFate(n, n.start, lap, seed, clipId); fate.plays)
+                out[{lap, n.pitch}] = static_cast<int>(std::lround(fate.velocity * 127.0f));
+    return out;
+}
+} // namespace
+
+TEST_CASE(
+    "chance (engine): a looped clip plays what noteFate decides, lap by lap, rolled again each pass and "
+    "each time the loop comes round; Keep holds what was heard (ADR 0062)",
+    "[integration]")
 {
     Fixture f;
     const auto clipId = f.session->createMidiClip(f.track(), 0.0, 8.0); // four bars at 120 BPM
@@ -176,46 +221,56 @@ TEST_CASE("chance (engine): a looped clip plays what noteFate decides, lap by la
     REQUIRE(f.session->setClipLoop(clipId, {0.0, 2.0}).empty()); // a bar, four laps
     REQUIRE(f.clip(clipId).loop.on());
     f.session->rerollChance(clipId, 99u);
+    CHECK_FALSE(f.clip(clipId).chanceKept);
 
-    const auto expected = [&](std::uint32_t seed)
-    {
-        // (lap, pitch) → MIDI velocity, for each note that plays.
-        std::map<std::pair<int, int>, int> out;
-        const auto notes = chancyBar();
-        for (int lap = 0; lap < 4; ++lap)
-            for (const auto& n : notes)
-                if (const auto fate = fd::model::noteFate(n, n.start, lap, seed, clipId); fate.plays)
-                    out[{lap, n.pitch}] = static_cast<int>(std::lround(fate.velocity * 127.0f));
-        return out;
-    };
-    const auto played = [&]
-    {
-        std::map<std::pair<int, int>, int> out;
-        for (const auto& [time, message] : f.noteOns(clipId))
-            out[{static_cast<int>(time / 2.0 + 1e-6), message.getNoteNumber()}] = message.getVelocity();
-        return out;
-    };
-    const auto first = played();
-    CHECK(first == expected(99u));
-    CHECK(first.size() > 4 + 4);    // the sure note on every lap, and some of the rest
-    CHECK(first.size() < 4 * 8);    // not all of them
-    CHECK(first != expected(100u)); // the seed matters
+    // A pass plays what noteFate decides from the clip's seed and the pass's roll.
+    const auto first = playPass(f, clipId, 1001u, 2);
+    CHECK(first[0] == decided(fd::model::passSeed(99u, 1001u, 0), clipId));
+    CHECK(first[0].size() > 4 + 4); // the sure note on every lap, and some of the rest
+    CHECK(first[0].size() < 4 * 8); // not all of them
+    // The transport's loop came round: fresh dice.
+    CHECK(first[1] == decided(fd::model::passSeed(99u, 1001u, 1), clipId));
+    CHECK(first[1] != first[0]);
+    // Another pass: another roll.
+    const auto second = playPass(f, clipId, 2002u);
+    CHECK(second[0] == decided(fd::model::passSeed(99u, 2002u, 0), clipId));
+    CHECK(second[0] != first[0]);
 
-    // Re-roll: another seed, other notes; undo: the first again.
+    // Keep chance as played: what was heard last (the second pass), whatever passes come; one step.
+    REQUIRE(f.session->keepChance(clipId, true));
+    CHECK(f.session->undoDescription() == "Keep chance as played");
+    CHECK(f.clip(clipId).chanceKept);
+    CHECK(playPass(f, clipId, 3003u, 2) ==
+          std::vector<std::map<std::pair<int, int>, int>>{second[0], second[0]});
+    CHECK_FALSE(f.session->keepChance(clipId, true)); // already kept
+
+    // Re-roll on a kept clip: another kept roll; undo: the kept one again.
     const auto next = f.session->rerollChance(clipId);
     CHECK(next != 99u);
-    CHECK(f.clip(clipId).chanceSeed == next);
-    CHECK(played() == expected(next));
+    const auto rerolled = playPass(f, clipId, 4004u);
+    CHECK(rerolled[0] != second[0]);
     f.session->undo();
     CHECK(f.clip(clipId).chanceSeed == 99u);
-    CHECK(played() == first);
+    CHECK(playPass(f, clipId, 5005u)[0] == second[0]);
+
+    // Let chance roll: fresh again.
+    REQUIRE(f.session->keepChance(clipId, false));
+    CHECK(f.session->undoDescription() == "Let chance roll");
+    CHECK(playPass(f, clipId, 6006u)[0] == decided(fd::model::passSeed(99u, 6006u, 0), clipId));
+
+    // Song ▸ Keep all as played keeps it with the modulators; Let all roll lets it go.
+    f.session->keepAllRolls(true);
+    CHECK(f.clip(clipId).chanceKept);
+    f.session->keepAllRolls(false);
+    CHECK_FALSE(f.clip(clipId).chanceKept);
 }
 
-TEST_CASE("chance (engine): a render plays what was decided, as the same notes written out would",
+TEST_CASE("chance (engine): a kept clip renders as it was heard, as the same notes written out would; a "
+          "clip that rolls renders a fresh roll each time",
           "[integration]")
 {
-    // The clip with chance, rendered; then a project with only the notes that were decided to
-    // play, at their decided velocities, rendered the same way: the two match sample for sample.
+    // The clip with chance, kept, rendered; then a project with only the notes the kept roll
+    // plays, at their velocities, rendered the same way: the two match sample for sample.
     Fixture f;
     auto track = f.track();
     REQUIRE(f.session->addDevice(track, "fd:subtractive-synth") != 0);
@@ -223,30 +278,45 @@ TEST_CASE("chance (engine): a render plays what was decided, as the same notes w
     f.session->setNotes(clipId, chancyBar());
     REQUIRE(f.session->setClipLoop(clipId, {0.0, 2.0}).empty());
     f.session->rerollChance(clipId, 7u);
-    const auto withChance = f.render(0.0, 8.5);
 
-    std::vector<Note> decided;
+    // Rolling: two renders, two rolls.
+    const auto once = f.render(0.0, 8.5);
+    const auto again = f.render(0.0, 8.5);
+    float differ = 0.0f;
+    for (int i = 0; i < once.numSamples(); ++i)
+        differ = std::max(differ, std::abs(once.at(0, i) - again.at(0, i)));
+    CHECK(differ > 1e-3f);
+
+    // Kept (never heard here: this pass's roll, its first lap).
+    f.session->impl().chancePass->roll.store(777u);
+    REQUIRE(f.session->keepChance(clipId, true));
+    const auto withChance = f.render(0.0, 8.5);
+    CHECK(f.render(0.0, 8.5).numSamples() == withChance.numSamples());
+
+    std::vector<Note> written;
     for (int lap = 0; lap < 4; ++lap)
         for (const auto& n : chancyBar())
-            if (const auto fate = fd::model::noteFate(n, n.start, lap, 7u, clipId); fate.plays)
+            if (const auto fate =
+                    fd::model::noteFate(n, n.start, lap, fd::model::passSeed(7u, 777u, 0), clipId);
+                fate.plays)
             {
                 Note plain{n.pitch, n.start + lap * 4.0, n.length, fate.velocity};
-                decided.push_back(plain);
+                written.push_back(plain);
             }
     f.session->newProject();
     track = f.track();
     REQUIRE(f.session->addDevice(track, "fd:subtractive-synth") != 0);
     const auto plainClip = f.session->createMidiClip(track, 0.0, 8.0);
-    f.session->setNotes(plainClip, decided);
-    const auto written = f.render(0.0, 8.5);
+    f.session->setNotes(plainClip, written);
+    const auto plain = f.render(0.0, 8.5);
 
-    REQUIRE(withChance.numSamples() == written.numSamples());
+    REQUIRE(withChance.numSamples() == plain.numSamples());
     float worst = 0.0f, loudest = 0.0f;
     for (int c = 0; c < withChance.numChannels(); ++c)
         for (int i = 0; i < withChance.numSamples(); ++i)
         {
-            worst = std::max(worst, std::abs(withChance.at(c, i) - written.at(c, i)));
-            loudest = std::max(loudest, std::abs(written.at(c, i)));
+            worst = std::max(worst, std::abs(withChance.at(c, i) - plain.at(c, i)));
+            loudest = std::max(loudest, std::abs(plain.at(c, i)));
         }
     CHECK(loudest > 0.01f); // it played something
     CHECK(worst < 1e-5f);

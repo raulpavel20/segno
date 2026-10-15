@@ -1,0 +1,200 @@
+A MIDI clip's events decided as they play (Segno: docs/design/piano-roll.md §26, ADR 0062).
+
+Notes left to chance roll again each time the song plays and each time the loop comes round, so
+what plays can't be decided once, where tracktion builds a clip's sequence. EngineBehaviour::
+createMidiPlaybackFilter gives a clip's MidiNode a filter that, on the audio thread, decides each
+event it plays by its index in the sequence (and each note it chases when playback starts inside
+it): left out, or played with another velocity. Its CombiningNode's view of what's sounding
+(addNotesPlayingAt) asks the filter too. With no filter, nothing changes.
+
+diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp
+--- a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp	2026-10-15 18:09:42.821334693 +0300
++++ b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp	2026-10-15 18:10:38.451744984 +0300
+@@ -725,22 +725,25 @@
+ 
+     std::vector<juce::MidiMessageSequence> sequences;
+     sequences.emplace_back (clip.getSequenceLooped().exportToPlaybackMidiSequence (clip, timeBase, generateMPE));
++    auto filter = clip.edit.engine.getEngineBehaviour().createMidiPlaybackFilter (clip, sequences.front(), timeBase);
+ 
+-    return graph::makeNode<MidiNode> (std::move (sequences),
+-                                      timeBase,
+-                                      channels,
+-                                      generateMPE,
+-                                      editTimeRange,
+-                                      clip.getLiveClipLevel(),
+-                                      params.processState,
+-                                      clip.itemID,
+-                                      [&trackMuteState]
+-                                      {
+-                                          if (! trackMuteState.shouldTrackBeAudible())
+-                                              return ! trackMuteState.shouldTrackMidiBeProcessed();
++    auto node = std::make_unique<MidiNode> (std::move (sequences),
++                                            timeBase,
++                                            channels,
++                                            generateMPE,
++                                            editTimeRange,
++                                            clip.getLiveClipLevel(),
++                                            params.processState,
++                                            clip.itemID,
++                                            [&trackMuteState]
++                                            {
++                                                if (! trackMuteState.shouldTrackBeAudible())
++                                                    return ! trackMuteState.shouldTrackMidiBeProcessed();
+ 
+-                                          return false;
+-                                      });
++                                                return false;
++                                            });
++    node->setPlaybackFilter (std::move (filter));
++    return node;
+ }
+ 
+ std::unique_ptr<tracktion::graph::Node> createNodeForStepClip (StepClip& clip, const TrackMuteState& trackMuteState,
+diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_MidiNode.cpp b/modules/tracktion_engine/playback/graph/tracktion_MidiNode.cpp
+--- a/modules/tracktion_engine/playback/graph/tracktion_MidiNode.cpp	2026-10-15 18:09:42.808714486 +0300
++++ b/modules/tracktion_engine/playback/graph/tracktion_MidiNode.cpp	2026-10-15 18:10:14.647228902 +0300
+@@ -81,6 +81,11 @@
+ 
+     lastStart = timelineRange.getStart();
+ 
++    if (filter != nullptr)
++        filter->startBlock (timeBase == MidiList::TimeBase::beats ? getEditBeatRange().getStart().inBeats()
++                                                                   : getEditTimeRange().getStart().inSeconds(),
++                            getPlayHead().isPlaying());
++
+     if (timeBase == MidiList::TimeBase::beats)
+     {
+         const auto sectionEditTime = getEditBeatRange();
+@@ -132,7 +137,8 @@
+             break;
+ 
+         if (meh->message.isNoteOn() && meh->noteOffObject != nullptr
+-            && meh->noteOffObject->message.getTimeStamp() > local)
++            && meh->noteOffObject->message.getTimeStamp() > local
++            && (filter == nullptr || filter->plays (i)))
+             out.startNote (meh->message.getChannel(), meh->message.getNoteNumber());
+     }
+ }
+@@ -165,7 +171,7 @@
+     {
+         MidiNodeHelpers::createMessagesForTime (pc.buffers.midi, sequence, localTime.getStart(),
+                                                 channelNumbers, clipLevel, useMPEChannelMode, midiSourceID,
+-                                                controllerMessagesScratchBuffer);
++                                                controllerMessagesScratchBuffer, filter.get());
+         shouldCreateMessagesForTime = false;
+     }
+ 
+@@ -193,6 +199,8 @@
+ 
+     for (;;)
+     {
++        const int eventIndex = currentIndex;
++
+         if (auto meh = sequence.getEventPointer (currentIndex++))
+         {
+             auto eventTime = meh->message.getTimeStamp();
+@@ -208,6 +216,10 @@
+             if (eventTime >= 0.0)
+             {
+                 juce::MidiMessage m (meh->message);
++
++                if (filter != nullptr && ! filter->shouldPlay (eventIndex, m))
++                    continue;
++
+                 m.multiplyVelocity (volScale);
+                 const auto eventTimeSeconds = eventTime * secondsPerTimeBase;
+                 pc.buffers.midi.addMidiMessage (m, eventTimeSeconds, midiSourceID);
+diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_MidiNode.h b/modules/tracktion_engine/playback/graph/tracktion_MidiNode.h
+--- a/modules/tracktion_engine/playback/graph/tracktion_MidiNode.h	2026-10-15 18:09:42.804329218 +0300
++++ b/modules/tracktion_engine/playback/graph/tracktion_MidiNode.h	2026-10-15 18:10:14.647174129 +0300
+@@ -38,6 +38,10 @@
+     */
+     void addNotesPlayingAt (TimePosition, BeatPosition, ActiveNoteList&) const noexcept;
+ 
++    /** Segno: what decides which of its events play (EngineBehaviour::createMidiPlaybackFilter).
++        Set before it plays. */
++    void setPlaybackFilter (std::shared_ptr<MidiPlaybackFilter> f)   { filter = std::move (f); }
++
+ private:
+     //==============================================================================
+     std::vector<juce::MidiMessageSequence> ms;
+@@ -50,6 +54,7 @@
+     LiveClipLevel clipLevel;
+     EditItemID editItemID;
+     std::function<bool()> shouldBeMutedDelegate = nullptr;
++    std::shared_ptr<MidiPlaybackFilter> filter;
+ 
+     double sampleRate = 44100.0;
+     int currentIndex = 0;
+diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_MidiNodeHelpers.h b/modules/tracktion_engine/playback/graph/tracktion_MidiNodeHelpers.h
+--- a/modules/tracktion_engine/playback/graph/tracktion_MidiNodeHelpers.h	2026-10-15 18:09:42.814258554 +0300
++++ b/modules/tracktion_engine/playback/graph/tracktion_MidiNodeHelpers.h	2026-10-15 18:10:14.647260381 +0300
+@@ -21,7 +21,8 @@
+                                        LiveClipLevel& clipLevel,
+                                        bool useMPEChannelMode,
+                                        MPESourceID midiSourceID,
+-                                       juce::Array<juce::MidiMessage>& controllerMessagesScratchBuffer)
++                                       juce::Array<juce::MidiMessage>& controllerMessagesScratchBuffer,
++                                       MidiPlaybackFilter* filter = nullptr)
+     {
+         if (useMPEChannelMode)
+         {
+@@ -65,6 +66,10 @@
+                             if (meh->noteOffObject->message.getTimeStamp() > time + 0.0001)
+                             {
+                                 juce::MidiMessage m (meh->message);
++
++                                if (filter != nullptr && ! filter->shouldPlay (i, m))
++                                    continue;
++
+                                 m.multiplyVelocity (volScale);
+ 
+                                 // give these a tiny offset to make sure they're played after the controller updates
+diff '--color=auto' -ru a/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h b/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h
+--- a/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h	2026-10-15 18:09:42.798434020 +0300
++++ b/modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h	2026-10-15 18:10:14.647131208 +0300
+@@ -38,6 +38,28 @@
+     TimeDuration start, end;
+ };
+ 
++/** Decides, as a MIDI clip plays, which of its events play and how (Segno: notes left to chance,
++    rolled again each pass; @see EngineBehaviour::createMidiPlaybackFilter). Events are named by
++    their index in the sequence the clip's node plays. Called on the audio thread: no allocation,
++    no locks.
++*/
++struct MidiPlaybackFilter
++{
++    virtual ~MidiPlaybackFilter() = default;
++
++    /** A block starts at `editTime` (in the node's time base) while the transport is or isn't
++        playing; called before the block's events. */
++    virtual void startBlock (double /*editTime*/, bool /*isPlaying*/) noexcept {}
++
++    /** Event `index`: false leaves it out (a note-on, its note-off too); it may change the
++        message (a note-on's velocity). Chased notes, sent again when playback starts inside
++        them, come here as well. */
++    virtual bool shouldPlay (int index, juce::MidiMessage&) noexcept = 0;
++
++    /** Whether note-on `index` plays this time round, as last decided (no change made). */
++    virtual bool plays (int /*index*/) const noexcept { return true; }
++};
++
+ struct EditDefaults
+ {
+     TimecodeType timecodeType = TimecodeType::barsBeats;   /**< The timecode display format new Edits start with. */
+@@ -267,6 +289,15 @@
+         return MidiList::createDefaultPlaybackMidiSequence (list, clip, tb, generateMPE);
+     }
+ 
++    /// Segno: a filter for the events a MIDI clip plays from `sequence` (in `timeBase`), made
++    /// with the clip's node each time it's built. Null: every event plays as it is.
++    virtual std::shared_ptr<MidiPlaybackFilter> createMidiPlaybackFilter (MidiClip& /*clip*/,
++                                                                          const juce::MidiMessageSequence& /*sequence*/,
++                                                                          MidiList::TimeBase /*timeBase*/)
++    {
++        return {};
++    }
++
+     /// Must return the default looped sequence type to use.
+     ///
+     /// Current options are:

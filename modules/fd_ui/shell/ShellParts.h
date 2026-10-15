@@ -128,6 +128,9 @@ struct Property
     bool number = false;
     /// The row's name for the control placed in it (a field, a toggle), so rows can come and go.
     const char* key = nullptr;
+    /// A lock after the label: what the row sets is held as it is (a clip's chance kept as played,
+    /// piano-roll.md §26).
+    bool locked = false;
 };
 
 /// Label and value rows on the shell's row grid, from the top of `area`. Returns what's left

@@ -54,6 +54,7 @@ target_sources(fd_engine INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionExport.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/ClipFades.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/ClipNotes.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/ClipChance.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionFades.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionTracks.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/SessionSections.cpp"

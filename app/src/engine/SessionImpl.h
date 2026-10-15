@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/ClipChance.h"
 #include "engine/ClipNotes.h"
 #include "engine/FileIndexer.h"
 #include "engine/MidiTap.h"
@@ -606,8 +607,12 @@ struct Session::Impl final : private juce::ValueTree::Listener,
         std::vector<Modulator*> by;
     };
     [[nodiscard]] std::optional<Moved> movedBy(te::AutomatableParameter& param) const;
-    /// Playback starting: every modulator that doesn't keep a roll rolls again (ADR 0062).
-    void startModulatorPasses();
+    /// Playback starting: every modulator and clip that doesn't keep a roll rolls again (ADR 0062).
+    void startPasses();
+    /// Keeps a clip's chance as it was heard, or lets it roll (in the step under way).
+    void keepChance(te::MidiClip& clip, bool keep);
+    /// What the Edit's clips roll this pass (ClipChance.h).
+    std::shared_ptr<ChancePass> chancePass;
     /// The modulators' info for the snapshot.
     [[nodiscard]] std::shared_ptr<const model::ModulatorInfo> modulatorInfo(const Modulator& modulator) const;
     Session::ModulatorPointer modulatorPointer;
@@ -684,7 +689,8 @@ private:
             dirty = true; // includes device parameters
         // What a clip plays depends on its fades and its neighbours (ADR 0036), and its notes'
         // chance on its seed (piano-roll.md §10): playback is rebuilt.
-        if (affectsFades(t, id) || id == noteIds::seed)
+        if (affectsFades(t, id) || id == noteIds::seed || id == chanceIds::keptRoll ||
+            id == chanceIds::keptLap)
             restartPending = true;
         // A lane's points.
         for (auto p = t; p.isValid() && !p.hasType(te::IDs::PLUGIN); p = p.getParent())

@@ -4,6 +4,7 @@
 #include "model/NoteTools.h"
 
 #include "mcp/tools/Tools.h"
+#include "model/Chance.h"
 #include "model/NoteEditing.h"
 #include "model/PianoRollOptions.h"
 
@@ -415,8 +416,9 @@ void addNoteTools(Registry& registry, ToolEnv& env)
         env,
         {"reroll_chance", "Re-roll chance",
          "Gives a MIDI clip a new seed for its notes' chance and velocity spread (piano-roll.md §10), as "
-         "Notes > Re-roll chance does: which notes play on each lap, and how loud, are decided again. The "
-         "same seed always plays the same, in playback, bounces and exports.",
+         "Notes > Re-roll chance does: which notes play on each lap, and how loud, are decided again. For a "
+         "clip that keeps its roll (keep_roll): it plays the new one in playback, bounces and exports. A "
+         "clip that rolls again each time it plays is refused: keep its roll first.",
          object({{"clip", id(IdKind::Clip, "The MIDI clip")},
                  {"seed", integer("A seed to use (1 or more); a random one without it", 1)}},
                 {"clip"}),
@@ -425,6 +427,9 @@ void addNoteTools(Registry& registry, ToolEnv& env)
         [&env](const Json& args, CallContext&)
         {
             const auto c = midiClip(env, args["clip"]);
+            if (!c.chanceKept && model::usesChance(c.notes))
+                throw Problem{"The clip rolls its chance again each time it plays (piano-roll.md §26): "
+                              "keep_roll with keep true keeps a roll first."};
             std::optional<std::uint32_t> seed;
             if (args.contains("seed"))
                 seed = static_cast<std::uint32_t>(args["seed"].get<std::int64_t>());

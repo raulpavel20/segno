@@ -383,6 +383,7 @@ void Session::record()
     {
         impl_->playStartedAt = impl_->consumedUntil;
         impl_->wasPlaying = true;
+        impl_->startPasses(); // a new pass: fresh dice (ADR 0062)
     }
     transport.record(false, true); // with nothing armed it still plays (and records automation)
 }

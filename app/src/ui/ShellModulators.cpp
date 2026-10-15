@@ -2,6 +2,7 @@
 // modulator, Keep as played and Remove routes for the selected modulator, and Song ▸ Keep all as
 // played. The chain view (DeviceChain) does the rest: the handle's drags, its routes, its menus.
 
+#include "model/Chance.h"
 #include "model/Modulators.h"
 #include "ui/Shell.h"
 
@@ -66,7 +67,8 @@ void Shell::registerModulatorActions()
                       return info != nullptr && !info->routes.empty();
                   }});
 
-    // Every modulator in the song that rolls dice (ADR 0062): kept, or rolling again.
+    // Every modulator in the song that rolls dice, and every clip with notes left to chance
+    // (ADR 0062): kept, or rolling again.
     const auto rolls = [this]
     {
         struct Rolls
@@ -82,6 +84,13 @@ void Shell::registerModulatorActions()
                         ++rolls.all;
                         rolls.kept += d.modulator->kept ? 1 : 0;
                     }
+        for (const auto& t : snapshot->tracks)
+            for (const auto& c : t.clips)
+                if (c.kind == model::ClipInfo::Kind::Midi && model::usesChance(c.notes))
+                {
+                    ++rolls.all;
+                    rolls.kept += c.chanceKept ? 1 : 0;
+                }
         return rolls;
     };
     actions_.add({.id = "song.keepAllRolls",

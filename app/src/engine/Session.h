@@ -145,6 +145,10 @@ public:
     /// Re-roll (§10): a new seed for a MIDI clip's chance, `seed` or a random one; returns it (0:
     /// no such clip). One undo step; playback follows, undo too.
     std::uint32_t rerollChance(std::uint64_t clipId, std::optional<std::uint32_t> seed = std::nullopt);
+    /// Keep chance as played (keep) or Let chance roll (§26, ADR 0062): the clip plays the roll it
+    /// was heard with (the lap playing, or the last one) every time, or rolls again each pass.
+    /// One undo step; false if nothing changed (no such MIDI clip, or already so).
+    bool keepChance(std::uint64_t clipId, bool keep);
     /// Inserts `file` on `trackId` at `seconds`; returns the clip id, or 0 if the file is not
     /// readable audio.
     std::uint64_t insertAudioFile(std::uint64_t trackId, const juce::File& file, double seconds);
@@ -537,7 +541,8 @@ public:
     void removeRoutes(std::uint64_t modulator);
     /// Keep as played (keep) or Let it roll (ADR 0062). False for a modulator that rolls no dice.
     bool keepRoll(std::uint64_t modulator, bool keep);
-    /// Keep all as played, or Let all roll: every modulator that rolls dice.
+    /// Keep all as played, or Let all roll: every modulator that rolls dice, and every clip with
+    /// notes left to chance (piano-roll.md §26).
     void keepAllRolls(bool keep);
     /// Its panel's context and host; null if there's no such modulator.
     [[nodiscard]] std::unique_ptr<ModulatorHandle> openModulator(std::uint64_t modulator);

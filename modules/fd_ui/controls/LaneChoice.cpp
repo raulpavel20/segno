@@ -15,6 +15,14 @@ void LaneChoice::setValue(const juce::String& label)
     repaint();
 }
 
+void LaneChoice::setLocked(bool locked)
+{
+    if (locked == locked_)
+        return;
+    locked_ = locked;
+    repaint();
+}
+
 bool LaneChoice::fits(const juce::String& label, int width)
 {
     const auto& s = Theme::current().shell;
@@ -43,8 +51,12 @@ void LaneChoice::paintButton(juce::Graphics& g, bool highlighted, bool down)
     const auto colour = highlighted || down ? t.textPrimary : t.textSecondary;
     paintCapsLabel(g, value_, juce::Rectangle<float>(bounds.getX(), top, bounds.getWidth(), row),
                    juce::Justification::centred, colour);
-    const auto chevron =
-        juce::Rectangle<float>(bounds.getCentreX() - kChevron * 0.5f, top + row + gap, kChevron, kChevron);
+    // Kept: the lock and the chevron side by side, a gap apart, together in the middle.
+    const float lock = locked_ ? kChevron + gap : 0.0f;
+    const auto chevron = juce::Rectangle<float>(bounds.getCentreX() - (kChevron + lock) * 0.5f + lock,
+                                                top + row + gap, kChevron, kChevron);
     drawIcon(g, Icon::ChevronDown, chevron, colour);
+    if (locked_)
+        drawIcon(g, Icon::Lock, chevron.translated(-lock, 0.0f), colour);
 }
 } // namespace fd::ui

@@ -2679,6 +2679,24 @@ TEST_CASE("mcp tools: modulators added, routed, set, removed and kept (modulator
     CHECK(kept[0]["kept"] == false);
     CHECK(daw.fails("keep_roll", {{"keep", true}}).find("song") != std::string::npos);
 
+    // A clip's chance (piano-roll.md §26): kept, and Re-roll then; refused while it rolls.
+    const auto midi =
+        daw.call("create_midi_clip",
+                 {{"track", t0},
+                  {"start", 0},
+                  {"notes", {{{"pitch", 60}, {"start", 0}, {"length", 1}, {"chance", 50}}}}})["clip"]["id"];
+    CHECK(daw.fails("reroll_chance", {{"clip", midi}}).find("keep_roll") != std::string::npos);
+    auto both = daw.call("keep_roll", {{"clip", midi}, {"keep", true}});
+    REQUIRE(both["clips"].size() == 1);
+    CHECK(both["clips"][0]["kept"] == true);
+    CHECK(daw.call("get_clip", {{"clip", midi}})["chanceKept"] == true);
+    CHECK(daw.call("reroll_chance", {{"clip", midi}, {"seed", 5}})["seed"] == 5);
+    both = daw.call("keep_roll", {{"song", true}, {"keep", false}});
+    CHECK(both["clips"][0]["kept"] == false);
+    const auto plain = daw.call("create_midi_clip", {{"track", t1}, {"start", 0}})["clip"]["id"];
+    CHECK(daw.fails("keep_roll", {{"clip", plain}, {"keep", true}}).find("left to chance") !=
+          std::string::npos);
+
     // Moved, folded, turned off and removed as any module.
     CHECK(daw.call("move_module", {{"module", lfoId}, {"position", 2}})["chain"][2]["id"] == lfoId);
     CHECK(daw.call("set_module_view", {{"module", lfoId}, {"collapsed", {"shape"}}})["collapsed"][0] ==

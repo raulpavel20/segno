@@ -907,7 +907,9 @@ TEST_CASE("piano roll (P4b): the bottom lane shows velocity, chance or release v
         if (n.start == 0.0)
             halved += std::abs(n.chance - 0.5f) < 0.02f ? 1 : 0;
     CHECK(halved == 3); // the Am chord's three notes start there
-    CHECK(f.shell->actions().isEnabled("notes.reroll"));
+    // It rolls again each pass (§26): Re-roll waits for Keep chance as played.
+    CHECK_FALSE(f.shell->actions().isEnabled("notes.reroll"));
+    CHECK(f.shell->actions().isEnabled("notes.keepChance"));
     // A line across the rest (Shift+drag), as velocity's.
     drag(roll, {roll.pointFor(3.9, 57).x, yFor(1.0f)}, {roll.pointFor(12.1, 57).x, yFor(0.2f)},
          juce::ModifierKeys::shiftModifier);
@@ -918,11 +920,19 @@ TEST_CASE("piano roll (P4b): the bottom lane shows velocity, chance or release v
             CHECK(n.chance < 0.4f);
     f.dump("piano-roll-chance@2x.png");
 
-    // Re-roll: a new seed for the clip.
+    // Keep chance as played: the lane's head and the menu say so; then Re-roll gives it a new seed.
+    CHECK_FALSE(lane.isLocked());
+    REQUIRE(f.shell->actions().perform("notes.keepChance"));
+    f.refresh();
+    CHECK(f.clip().chanceKept);
+    CHECK(lane.isLocked());
+    CHECK(f.shell->actions().find("notes.keepChance")->label() == "Let chance roll");
+    f.dump("piano-roll-chance-kept@2x.png");
     const auto seed = f.clip().chanceSeed;
     REQUIRE(f.shell->actions().perform("notes.reroll"));
     f.refresh();
     CHECK(f.clip().chanceSeed != seed);
+    CHECK(f.clip().chanceKept);
 
     // Release velocity: its own lane, drawn the same way.
     roll.setLane({.kind = fd::model::BottomLane::Kind::Release});
@@ -948,6 +958,10 @@ TEST_CASE("piano roll (P4b): the bottom lane shows velocity, chance or release v
             CHECK(n.chance == 0.75f);
             CHECK(juce::roundToInt(n.velocitySpread * 127.0f) == 12);
         }
+    // The clip keeps its roll: a lock by the Chance row's name (§26).
+    if (const char* dir = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dir, "piano-roll-inspector-chance-kept@2x.png",
+                inspector.createComponentSnapshot(inspector.getLocalBounds(), true, 2.0f));
     roll.setLane({.kind = fd::model::BottomLane::Kind::Velocity});
     if (const char* dir = std::getenv("FD_DUMP_DIR"))
     {

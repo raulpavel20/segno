@@ -14,6 +14,10 @@ public:
     /// The label shown, in caps; repaints when it changes.
     void setValue(const juce::String& label);
     [[nodiscard]] const juce::String& value() const noexcept { return value_; }
+    /// A lock beside its chevron: what the lane shows is held as played (a clip's chance kept,
+    /// piano-roll.md §26).
+    void setLocked(bool locked);
+    [[nodiscard]] bool isLocked() const noexcept { return locked_; }
     /// Whether `label` fits a head `width` wide.
     [[nodiscard]] static bool fits(const juce::String& label, int width);
 
@@ -25,5 +29,6 @@ public:
 private:
     static constexpr float kChevron = 8.0f; // a ViewChoice's
     juce::String value_;
+    bool locked_ = false;
 };
 } // namespace fd::ui

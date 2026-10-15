@@ -402,7 +402,18 @@ juce::Rectangle<int> paintProperties(juce::Graphics& g, juce::Rectangle<int> are
         auto line = area.removeFromTop(t.shell.rowHeight);
         g.setFont(font(TextStyle::Body));
         g.setColour(t.textSecondary);
-        g.drawText(p.label, line.removeFromLeft(t.shell.propertyLabelWidth), juce::Justification::centredLeft, false);
+        const auto label = line.removeFromLeft(t.shell.propertyLabelWidth);
+        g.drawText(p.label, label, juce::Justification::centredLeft, false);
+        if (p.locked)
+        {
+            const auto size = static_cast<float>(t.shell.listIconSize);
+            const float x = label.toFloat().getX() +
+                            juce::GlyphArrangement::getStringWidth(font(TextStyle::Body), p.label) +
+                            static_cast<float>(t.shell.itemGap);
+            drawIcon(g, Icon::Lock,
+                     juce::Rectangle<float>(x, label.toFloat().getCentreY() - size * 0.5f, size, size),
+                     t.textSecondary);
+        }
         g.setFont(font(p.number ? TextStyle::Value : TextStyle::Body));
         g.setColour(t.textPrimary);
         g.drawText(p.value, line, juce::Justification::centredLeft, true);

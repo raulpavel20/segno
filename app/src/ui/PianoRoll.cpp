@@ -109,9 +109,7 @@ void PianoRoll::setOptions(const model::PianoRollOptions& options)
         laneKept_.reset();
         hoveredPoint_.reset();
         updateLanePoints();
-        laneChoice_.setValue(model::bottomLaneLabel(options_.lane));
-        laneChoice_.setTooltip(juce::String::fromUTF8(model::bottomLaneName(options_.lane).c_str()) +
-                               juce::String::fromUTF8(": what the lane shows. Click to choose another"));
+        updateLaneHead();
     }
     optionsChanged();
 }
@@ -311,6 +309,12 @@ void PianoRoll::rerollChance()
 {
     if (clip_)
         session_.rerollChance(clip_->id);
+}
+
+void PianoRoll::keepChance(bool keep)
+{
+    if (clip_)
+        session_.keepChance(clip_->id, keep);
 }
 
 model::NoteLevel PianoRoll::laneLevel() const noexcept
@@ -704,8 +708,22 @@ void PianoRoll::setClip(std::optional<model::ClipInfo> clip, const model::TempoM
     laneKept_.reset();
     std::erase_if(points_, [this](auto i) { return i >= lanePoints_.size(); });
     laneChoice_.setVisible(true);
+    updateLaneHead();
     updateGhosts();
     repaint();
+}
+
+void PianoRoll::updateLaneHead()
+{
+    laneChoice_.setValue(model::bottomLaneLabel(options_.lane));
+    // The Chance view of a clip that keeps its roll (§26): a lock.
+    const bool kept = options_.lane.kind == model::BottomLane::Kind::Chance && clip_ && clip_->chanceKept;
+    laneChoice_.setLocked(kept);
+    laneChoice_.setTooltip(
+        juce::String::fromUTF8(model::bottomLaneName(options_.lane).c_str()) +
+        (kept ? juce::String::fromUTF8(", kept as played (Notes > Let chance roll rolls it again)")
+              : juce::String()) +
+        juce::String::fromUTF8(": what the lane shows. Click to choose another"));
 }
 
 void PianoRoll::notesChanged()

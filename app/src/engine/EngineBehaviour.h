@@ -15,8 +15,9 @@ namespace fd::engine
 ///   project's Recordings folder, ADR 0030);
 /// - audio clips play their fades and crossfades through Segno's fade node, and a crossfade's
 ///   spare audio past their edges (ADR 0036, the clip-playback patch);
-/// - a MIDI clip's notes left to chance play or not, and their velocity spreads, the same in
-///   playback, a bounce and an export (piano-roll.md §10, ClipNotes.h).
+/// - a MIDI clip's notes left to chance play or not, and their velocity spreads, rolled again
+///   each pass and each lap of the loop, or as kept: the same in playback, a bounce and an export
+///   then (piano-roll.md §26, ClipChance.h).
 [[nodiscard]] std::unique_ptr<tracktion::EngineBehaviour> makeEngineBehaviour();
 
 /// On an Edit's root: its muted tracks still feed the return tracks. Only render copies that

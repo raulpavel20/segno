@@ -107,6 +107,8 @@ public:
 
     /// Notes ▸ Re-roll chance (§10): the clip's notes decided again.
     void rerollChance();
+    /// Keep chance as played, or Let chance roll (§26, ADR 0062).
+    void keepChance(bool keep);
 
     /// The Draw choice's menu (§7.2): Note, Chord, Chord under.
     [[nodiscard]] juce::PopupMenu drawMenu();
@@ -307,6 +309,8 @@ private:
     }
     /// The controller lane's points in song seconds, as its gestures and painter see them.
     void updateLanePoints();
+    /// The bottom lane's head: what it shows, and a lock while the Chance view's clip keeps its roll.
+    void updateLaneHead();
     [[nodiscard]] LaneGesture::Lane gestureLane() const;
     [[nodiscard]] LaneGeometry laneGeometry() const;
     /// Keeps an edit of the controller lane (seconds) as one undo step.

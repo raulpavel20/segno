@@ -9,8 +9,8 @@
 namespace fd::engine
 {
 // A MIDI clip's notes and controllers in the engine (M3 P4b, docs/design/piano-roll.md §10, §11):
-// Segno's state on tracktion's notes and controller events, the notes and lanes as the model sees
-// them, and the sequence a clip plays with each note's chance decided.
+// Segno's state on tracktion's notes and controller events, and the notes and lanes as the model
+// sees them. Chance is decided as the notes play (ClipChance.h).
 
 namespace noteIds
 {
@@ -37,11 +37,4 @@ void writeControllerLanes(tracktion::MidiClip& clip, const std::vector<model::Co
 
 [[nodiscard]] std::uint32_t chanceSeedOf(const tracktion::MidiClip& clip);
 
-/// The sequence a MIDI clip plays from `list` (its notes, or its loop's laps laid end to end):
-/// tracktion's own, with each note left to chance played or not, and its velocity spread, by
-/// model::noteFate. Everything that renders the clip (playback, a bounce, an export) comes here.
-[[nodiscard]] juce::MidiMessageSequence playbackSequence(const tracktion::MidiList& list,
-                                                         tracktion::MidiClip& clip,
-                                                         tracktion::MidiList::TimeBase timeBase,
-                                                         bool generateMPE);
 } // namespace fd::engine

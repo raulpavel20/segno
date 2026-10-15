@@ -249,6 +249,7 @@ model::ClipInfo clipInfo(te::Clip& c, int trackColour)
         std::sort(clip.notes.begin(), clip.notes.end(), model::noteOrder);
         clip.controllers = controllerLanesOf(*midi); // piano-roll.md §11
         clip.chanceSeed = chanceSeedOf(*midi);       // §10
+        clip.chanceKept = keptChanceOf(c).has_value(); // §26
     }
     if (auto* audio = dynamic_cast<te::AudioClipBase*>(&c))
     {
@@ -421,6 +422,7 @@ std::unique_ptr<te::Edit> Session::Impl::newEdit()
 void Session::Impl::attach(std::unique_ptr<te::Edit> e)
 {
     edit = std::move(e);
+    chancePass = chancePassOf(*edit); // its clips' chance rolls (piano-roll.md §26)
     usedSources.clear(); // a new project's history
     if (browserStarted)
         updateBrowserPlaces(); // its folder is the Project place
@@ -986,7 +988,7 @@ void Session::play()
         impl_->drainTap();
         impl_->playStartedAt = impl_->tap.now();
         impl_->wasPlaying = true;
-        impl_->startModulatorPasses(); // a new pass: fresh dice for what doesn't keep its roll
+        impl_->startPasses(); // a new pass: fresh dice for what doesn't keep its roll
     }
     impl_->edit->getTransport().play(false);
 }
@@ -1200,6 +1202,35 @@ void Session::setControllers(std::uint64_t clipId, const std::vector<model::Cont
         return;
     impl_->beginEdit(undoName);
     writeControllerLanes(*midi, lanes, &impl_->edit->getUndoManager());
+}
+
+bool Session::keepChance(std::uint64_t clipId, bool keep)
+{
+    auto* midi = dynamic_cast<te::MidiClip*>(impl_->clip(clipId));
+    if (midi == nullptr || keptChanceOf(*midi).has_value() == keep)
+        return false;
+    impl_->beginEdit(keep ? "Keep chance as played" : "Let chance roll");
+    impl_->keepChance(*midi, keep);
+    return true;
+}
+
+void Session::Impl::keepChance(te::MidiClip& clip, bool keep)
+{
+    auto* um = &edit->getUndoManager();
+    if (!keep)
+    {
+        clip.state.removeProperty(chanceIds::keptRoll, um);
+        clip.state.removeProperty(chanceIds::keptLap, um);
+        return;
+    }
+    // What it was heard with: the lap playing, or the last one played; never heard, this pass's
+    // first lap (what it plays next).
+    const auto heard = chanceHeardOf(*edit, clip.itemID.getRawID());
+    const bool played = heard->heard.load();
+    const auto roll = played ? heard->roll.load() : chancePass->roll.load();
+    const int lap = played ? heard->lap.load() : 0;
+    clip.state.setProperty(chanceIds::keptRoll, juce::String(static_cast<juce::int64>(roll)), um);
+    clip.state.setProperty(chanceIds::keptLap, lap, um);
 }
 
 std::uint32_t Session::rerollChance(std::uint64_t clipId, std::optional<std::uint32_t> seed)

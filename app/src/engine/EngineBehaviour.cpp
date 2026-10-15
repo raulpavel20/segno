@@ -1,7 +1,7 @@
 #include "engine/EngineBehaviour.h"
 
+#include "engine/ClipChance.h"
 #include "engine/ClipFades.h"
-#include "engine/ClipNotes.h"
 
 namespace fd::engine
 {
@@ -40,13 +40,13 @@ public:
         return std::make_unique<ClipFadeNode>(std::move(input), state, clips[index], playback);
     }
 
-    // Chance (piano-roll.md §10): every render of a MIDI clip decides its notes the same way.
-    juce::MidiMessageSequence createPlaybackMidiSequence(const tracktion::MidiList& list,
-                                                         tracktion::MidiClip& clip,
-                                                         tracktion::MidiList::TimeBase timeBase,
-                                                         bool generateMPE) override
+    // Chance (piano-roll.md §10, §26, ADR 0062): a MIDI clip's notes left to chance are decided as
+    // they play, again each pass and each lap of the loop, or as kept.
+    std::shared_ptr<tracktion::MidiPlaybackFilter>
+    createMidiPlaybackFilter(tracktion::MidiClip& clip, const juce::MidiMessageSequence& sequence,
+                             tracktion::MidiList::TimeBase timeBase) override
     {
-        return playbackSequence(list, clip, timeBase, generateMPE);
+        return chanceFilter(clip, sequence, timeBase);
     }
 
     RecordingFiles files;

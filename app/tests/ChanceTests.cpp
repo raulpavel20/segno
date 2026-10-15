@@ -95,6 +95,23 @@ TEST_CASE("Chance: a new seed, another clip, another lap or another note decide 
     CHECK_FALSE(usesChance({note(60, 0.0), note(62, 1.0)}));
 }
 
+TEST_CASE("Chance rolls again each pass and each loop lap; a kept roll plays the same (ADR 0062)", "[fast]")
+{
+    // A pass's seed: the same for the same seed, roll and lap; another roll or lap, another seed.
+    CHECK(passSeed(7, 100, 0) == passSeed(7, 100, 0));
+    CHECK(passSeed(7, 100, 0) != passSeed(7, 101, 0));
+    CHECK(passSeed(7, 100, 0) != passSeed(7, 100, 1));
+    CHECK(passSeed(7, 100, 0) != passSeed(8, 100, 0)); // Re-roll still changes a kept clip
+
+    // Over many passes a note at half chance plays about half of them; two passes differ somewhere.
+    Note n{.pitch = 60, .start = 0.0, .length = 1.0, .velocity = 0.8f, .chance = 0.5f};
+    int played = 0;
+    for (std::uint64_t roll = 1; roll <= 2000; ++roll)
+        played += noteFate(n, 0.0, 0, passSeed(3, roll, 0), 42).plays ? 1 : 0;
+    CHECK(played > 900);
+    CHECK(played < 1100);
+}
+
 TEST_CASE("Controllers: names, ranges and the pedals' steps", "[fast]")
 {
     CHECK(controllerName(controllers::modWheel) == "Mod wheel");

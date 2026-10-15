@@ -64,6 +64,8 @@ struct ClipInfo
     std::vector<ControllerLane> controllers;
     /// What its notes' chance is decided from (§10); Re-roll gives it a new one.
     std::uint32_t chanceSeed = 0;
+    /// It keeps the roll its chance played (§26, ADR 0062); otherwise it rolls again each pass.
+    bool chanceKept = false;
     /// A main-lane clip made from a take (ADR 0031): that take clip's id (0: not from a take).
     std::uint64_t fromTake = 0;
     /// The takes it plays from (ADR 0032): its stack's id (0: a plain clip).

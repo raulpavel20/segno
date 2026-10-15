@@ -497,6 +497,7 @@ Json clipJson(ToolEnv& env, const model::ClipInfo& c, bool notes)
                              {"points", lane.points.size()}});
         j["controllers"] = std::move(lanes);
         j["chanceSeed"] = c.chanceSeed;
+        j["chanceKept"] = c.chanceKept; // piano-roll.md §26: it keeps the roll it played
         if (notes)
         {
             const double offset = noteOffsetBeats(env, c); // notes count from the clip's start (a loop's)

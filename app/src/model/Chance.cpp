@@ -44,6 +44,12 @@ NoteFate noteFate(const Note& note, double place, int lap, std::uint32_t seed, s
     return fate;
 }
 
+std::uint32_t passSeed(std::uint32_t seed, std::uint64_t roll, int lap) noexcept
+{
+    return static_cast<std::uint32_t>(mix(seed ^ mix(roll ^ mix(static_cast<std::uint64_t>(lap) + 1U))) >>
+                                      32U);
+}
+
 bool usesChance(const std::vector<Note>& notes) noexcept
 {
     return std::any_of(notes.begin(), notes.end(),

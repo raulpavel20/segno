@@ -1362,10 +1362,15 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
         return {{"Selected", juce::String(sectionCount_), true}};
     case S::Clips: return {{"Selected", juce::String(clipCount_), true}};
     case S::Notes: // the fields, the mute (piano-roll.md §9.6)
-        return {{"Pitch", {}, false, "pitch"},   {"Start", {}, false, "start"},
-                {"Length", {}, false, "length"}, {"Velocity", {}, false, "velocity"},
-                {"Spread", {}, false, "spread"}, {"Release", {}, false, "release"},
-                {"Chance", {}, false, "chance"}, {"Mute", {}, false, "mute"}};
+        return {
+            {"Pitch", {}, false, "pitch"},
+            {"Start", {}, false, "start"},
+            {"Length", {}, false, "length"},
+            {"Velocity", {}, false, "velocity"},
+            {"Spread", {}, false, "spread"},
+            {"Release", {}, false, "release"},
+            {"Chance", {}, false, "chance", roll_ != nullptr && roll_->clip() && roll_->clip()->chanceKept},
+            {"Mute", {}, false, "mute"}};
     case S::Takes: return {{"Selected", juce::String(takeCount_), true}};
     case S::Track:
         if (!channel_)

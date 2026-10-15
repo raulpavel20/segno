@@ -3,6 +3,7 @@
 // move_module, set_module_on and remove_module take it as any.
 
 #include "mcp/tools/Tools.h"
+#include "model/Chance.h"
 #include "model/Modulators.h"
 
 #include <cmath>
@@ -198,26 +199,38 @@ void addModulatorTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"keep_roll", "Keep what was left to chance, or let it roll",
-         "A Random, a Steps with chances, or an Envelope with Chance rolls its dice again each time the song "
-         "plays. keep true keeps the roll it played last, so it plays the same every time and exports as "
-         "heard; keep false lets it roll again. For one modulator, or with song true every one in the song. "
-         "One undo step.",
+         "A Random, a Steps with chances, an Envelope with Chance, and a MIDI clip's notes left to chance "
+         "roll their dice again each time the song plays and each time the loop comes round. keep true keeps "
+         "the roll heard last, so it plays the same every time and exports as heard; keep false lets it roll "
+         "again. For one modulator or clip, or with song true every one in the song. One undo step.",
          object({{"modulator", id(IdKind::Module, "A modulator that rolls dice")},
-                 {"song", boolean("Every modulator in the song")},
+                 {"clip", id(IdKind::Clip, "A MIDI clip with notes left to chance")},
+                 {"song", boolean("Every modulator and clip in the song")},
                  {"keep", boolean("Keep its roll (true) or let it roll (false)")}},
                 {"keep"}),
          result(
-             {{"modulators", arrayOf(result({{"id", string("")}, {"kept", boolean("")}}), "", std::nullopt)}},
-             {"modulators"}),
+             {{"modulators", arrayOf(result({{"id", string("")}, {"kept", boolean("")}}), "", std::nullopt)},
+              {"clips", arrayOf(result({{"id", string("")}, {"kept", boolean("")}}), "", std::nullopt)}},
+             {"modulators", "clips"}),
          changes},
         [&env](const Json& args, CallContext&)
         {
             const bool keep = args["keep"].get<bool>();
             const bool song = args.value("song", false);
-            if (song == args.contains("modulator"))
-                throw Problem{"Give modulator, or song: true for every one in the song."};
+            if (static_cast<int>(song) + static_cast<int>(args.contains("modulator")) +
+                    static_cast<int>(args.contains("clip")) !=
+                1)
+                throw Problem{"Give modulator or clip, or song: true for every one in the song."};
             if (song)
                 env.session.keepAllRolls(keep);
+            else if (args.contains("clip"))
+            {
+                const auto c = clip(env, args["clip"]);
+                if (c.kind != model::ClipInfo::Kind::Midi || !model::usesChance(c.notes))
+                    throw Problem{"No note in " + c.name +
+                                  " is left to chance: edit_notes sets a note's chance or velocity_spread."};
+                env.session.keepChance(c.id, keep);
+            }
             else
             {
                 const auto [m, owner] = modulatorArg(env, args["modulator"]);
@@ -234,7 +247,12 @@ void addModulatorTools(Registry& registry, ToolEnv& env)
                         if (d.modulator != nullptr && model::hasKeep(d.modulator->kind))
                             list.push_back(
                                 {{"id", formatId(IdKind::Module, d.id)}, {"kept", d.modulator->kept}});
-            return ToolResult::ok({{"modulators", std::move(list)}});
+            Json clips = Json::array();
+            for (const auto& t : snapshot->tracks)
+                for (const auto& c : t.clips)
+                    if (c.kind == model::ClipInfo::Kind::Midi && model::usesChance(c.notes))
+                        clips.push_back({{"id", formatId(IdKind::Clip, c.id)}, {"kept", c.chanceKept}});
+            return ToolResult::ok({{"modulators", std::move(list)}, {"clips", std::move(clips)}});
         }));
 }
 } // namespace fd::mcp

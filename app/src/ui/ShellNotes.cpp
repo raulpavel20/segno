@@ -149,19 +149,36 @@ void Shell::registerNotesActions()
              }});
     }
 
-    // Re-roll (§10): the clip's notes left to chance decided again.
+    // Chance (§10, §26, ADR 0062): kept as played, or rolling again each pass; Re-roll gives a kept
+    // clip another roll.
+    const auto chancy = [hasNotes, &roll] { return hasNotes() && model::usesChance(roll.notes()); };
+    const auto kept = [&roll] { return roll.clip() && roll.clip()->chanceKept; };
+    const auto whyNoChance = [hasNotes, whyNoNotes]
+    {
+        return hasNotes() ? juce::String("No note in the clip is left to chance: set a note's "
+                                         "Chance or Spread in the inspector")
+                          : whyNoNotes();
+    };
     actions_.add({.id = "notes.reroll",
                   .name = "Re-roll chance",
                   .category = "Notes",
                   .perform = [&roll] { roll.rerollChance(); },
-                  .isEnabled = [hasNotes, &roll] { return hasNotes() && model::usesChance(roll.notes()); },
+                  .isEnabled = [chancy, kept] { return chancy() && kept(); },
                   .whyNot =
-                      [hasNotes, whyNoNotes]
+                      [chancy, whyNoChance]
                   {
-                      return hasNotes() ? juce::String("No note in the clip is left to chance: set a note's "
-                                                       "Chance or Spread in the inspector")
-                                        : whyNoNotes();
+                      return chancy() ? juce::String("The clip rolls its chance again each time it plays: "
+                                                     "Keep chance as played first")
+                                      : whyNoChance();
                   }});
+    actions_.add(
+        {.id = "notes.keepChance",
+         .name = "Keep chance as played",
+         .category = "Notes",
+         .perform = [&roll, kept] { roll.keepChance(!kept()); },
+         .isEnabled = chancy,
+         .whyNot = whyNoChance,
+         .label = [kept] { return juce::String(kept() ? "Let chance roll" : "Keep chance as played"); }});
 
     // Select ▸ (§5).
     tool("notes.selectSamePitch", "Select same pitch", [&roll] { roll.selectSamePitch(); });
