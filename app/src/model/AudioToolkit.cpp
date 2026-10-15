@@ -1,5 +1,7 @@
 #include "model/AudioToolkit.h"
 
+#include <algorithm>
+
 namespace fd::model
 {
 namespace
@@ -94,6 +96,27 @@ std::vector<ToolSpec> makeTools()
            .choices = {"Each", "Together"},
            .words = {"each", "together"},
            .max = 0.0}}},
+        {"slice",
+         "Slice",
+         K::Transform,
+         "Cuts the clip into clips on its track at its transients, its warp markers, every step of the grid "
+         "or every bar, in the range or the whole clip; they play on as before, and move apart",
+         {{.id = "at",
+           .label = "At",
+           .choices = {"Transients", "Warp markers", "Grid", "Bars"},
+           .words = {"transients", "markers", "grid", "bars"},
+           .max = 0.0,
+           .menu = true},
+          // The clip's own (§7.4), as Quantise's.
+          {.id = "sensitivity",
+           .label = "Sensitivity",
+           .min = 0.0,
+           .max = 100.0,
+           .step = 1.0,
+           .initial = 50.0,
+           .unit = "%",
+           .when = "at",
+           .whenIs = 0}}},
     };
 }
 } // namespace
@@ -129,6 +152,13 @@ WarpQuantise warpQuantiseChoice(const ToolValues& values, double gridBeats)
 double quantiseSensitivity(const ToolValues& values)
 {
     return toolValues(*findAudioTool("quantise"), values).at("sensitivity") / 100.0;
+}
+
+SliceChoice sliceChoice(const ToolValues& values)
+{
+    const auto v = toolValues(*findAudioTool("slice"), values);
+    const auto at = static_cast<SliceAt>(std::clamp(static_cast<int>(v.at("at")), 0, 3));
+    return {.at = at, .sensitivity = v.at("sensitivity") / 100.0};
 }
 
 TempoChoice tempoChoice(const ToolValues& values)

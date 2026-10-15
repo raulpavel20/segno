@@ -814,6 +814,13 @@ public:
         std::optional<double> sensitivity;  // 0 … 1
         std::optional<int> transpose, fine; // semitones, cents
         std::optional<int> transposeBy;     // semitones up or down from where each clip is
+        /// The clip's key (P6c, §8.2): a key, or none, set by hand; `keyFound` puts back what's
+        /// found in its file.
+        std::optional<std::optional<music::Key>> key;
+        bool keyFound = false;
+        /// Follow key (§8.3): turned on, the clip's key (what's found, unless it's set) is pinned,
+        /// and it plays moved onto the song's by the smallest step. A clip with no key can't.
+        std::optional<bool> followKey;
     };
     /// One undo step named `undoName`; false if no audio clip changed.
     bool setWarp(const std::vector<std::uint64_t>& clips, const WarpChange& change,
@@ -855,8 +862,32 @@ public:
 
     /// What follows the tempo when it's placed or made (§7.2, Settings › Audio): loops placed (with
     /// a tempo of their own or found, a whole number of bars at it), and recordings, bounces and
-    /// comps (at the song's tempo). Both on until set.
-    void setWarpDefaults(bool loopsFollowTempo, bool recordingsFollowTempo);
+    /// comps (at the song's tempo). Both on until set. And whether loops placed follow the song's
+    /// key too (§8.3), those with a key: off until set.
+    void setWarpDefaults(bool loopsFollowTempo, bool recordingsFollowTempo, bool loopsFollowKey = false);
+    /// The key found in a clip's file (§8.2: its metadata, its name, else its sound), found now if
+    /// it wasn't: what the clip's key is unless one is set. Nullopt with no clear key.
+    [[nodiscard]] std::optional<music::Key> foundKey(std::uint64_t clip);
+    /// Slice (P6c, §9): cuts an audio clip into clips on its track at `times` on the timeline
+    /// (model::sliceTimes), each playing on as before: they meet seamlessly, so they get no edge
+    /// fades between them. One undo step, "Slice". The parts in time order, the clip itself first;
+    /// empty when nothing was cut or the clip can't be (model::whyCantSlice).
+    std::vector<std::uint64_t> sliceAudio(std::uint64_t clip, std::vector<double> times);
+    /// Slice's Apply (§9, the Slice tool): cuts the clip at its transients (at `sensitivity`, set
+    /// on the clip too), its warp markers, every `gridBeats` of the song or every bar, within
+    /// `range` of the timeline (the whole clip without one). One undo step, "Slice". Its parts, the
+    /// clip first; empty with `why` saying why nothing was cut.
+    struct SliceAudio
+    {
+        model::SliceAt at = model::SliceAt::Transients;
+        std::optional<double> sensitivity;
+        double gridBeats = 0.25;
+        std::optional<std::pair<double, double>> range;
+    };
+    std::vector<std::uint64_t> slice(std::uint64_t clip, const SliceAudio& settings,
+                                     std::string* why = nullptr);
+    /// Why a clip can't be sliced (model::whyCantSlice), or empty.
+    [[nodiscard]] std::string sliceRefusal(std::uint64_t clip) const;
     /// Adds a transient by hand at `file` (seconds of the clip's file as recorded), or removes the
     /// one there (§7.4): one undo step, "Add transient" or "Remove transient".
     bool editTransients(std::uint64_t clip, double file, bool add);
@@ -1171,8 +1202,9 @@ public:
     private:
         Session& session_;
     };
-    /// Keys that fit the notes of `clips` (MIDI clips; none given: every MIDI clip that plays),
-    /// best first, at most `count` (key-and-scale.md §11). Empty with too few notes to judge.
+    /// Keys that fit the notes of `clips` (none given: every clip that plays), best first, at most
+    /// `count` (key-and-scale.md §11): MIDI clips' notes, and audio clips' keys (audio-editor.md
+    /// §8.2). Empty with too few notes to judge and no audio clip with a key.
     [[nodiscard]] std::vector<music::KeyCandidate> detectKeys(const std::vector<std::uint64_t>& clips = {},
                                                               int count = 3) const;
 

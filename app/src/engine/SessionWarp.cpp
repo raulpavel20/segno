@@ -145,12 +145,53 @@ bool Session::setWarp(const std::vector<std::uint64_t>& clips, const WarpChange&
         {
             s.setProperty(warpIds::transpose, pitch.transpose, um);
             s.setProperty(warpIds::fine, pitch.fine, um);
-            // Without Warp the engine's own reader transposes it, in real time.
-            c->setUsesProxy(false);
-            c->setPitchChange(static_cast<float>(pitch.semitones()));
         }
+        impl_->changeKey(*c, change);
+        syncPitch(*c);
     }
     return true;
+}
+
+void Session::Impl::changeKey(te::AudioClipBase& c, const WarpChange& change)
+{
+    auto& s = c.state;
+    auto* um = &edit->getUndoManager();
+    const bool following = followsKey(s) || change.followKey.value_or(false);
+    if (change.keyFound)
+        writeStoredKey(s, std::nullopt, false, um);
+    if (change.key)
+        writeStoredKey(s, *change.key, false, um);
+    if (change.followKey && !*change.followKey && followsKey(s))
+    {
+        s.removeProperty(keyIds::follow, um);
+        // A key pinned only to be followed goes back to following what's found.
+        if (s.getProperty(keyIds::found, false))
+            writeStoredKey(s, std::nullopt, false, um);
+        return;
+    }
+    if (!following)
+        return;
+    // Following: the key it follows is kept on the clip, so what it plays doesn't change by itself.
+    if (!storedKeyOf(s))
+    {
+        const auto found = analyser.now(forwardFileOf(c));
+        if (found != nullptr && found->key)
+            writeStoredKey(s, found->key, true, um);
+    }
+    const auto stored = storedKeyOf(s);
+    if (stored && *stored)
+        s.setProperty(keyIds::follow, true, um);
+    else // no key to follow
+        s.removeProperty(keyIds::follow, um);
+}
+
+std::optional<music::Key> Session::foundKey(std::uint64_t clipId)
+{
+    auto* c = dynamic_cast<te::AudioClipBase*>(impl_->clip(clipId));
+    if (c == nullptr)
+        return std::nullopt;
+    const auto found = impl_->analyser.now(forwardFileOf(*c));
+    return found != nullptr ? found->key : std::nullopt;
 }
 
 bool Session::setWarpMarkers(std::uint64_t clipId, const std::vector<model::WarpMarker>& markers,
@@ -257,10 +298,11 @@ void Session::applyTempo(std::uint64_t clipId, double bpm, double downbeat, bool
     }
 }
 
-void Session::setWarpDefaults(bool loopsFollowTempo, bool recordingsFollowTempo)
+void Session::setWarpDefaults(bool loopsFollowTempo, bool recordingsFollowTempo, bool loopsFollowKey)
 {
     impl_->loopsFollowTempo = loopsFollowTempo;
     impl_->recordingsFollowTempo = recordingsFollowTempo;
+    impl_->loopsFollowKey = loopsFollowKey;
 }
 
 std::optional<std::pair<double, model::WarpMode>> Session::Impl::loopTempo(te::AudioClipBase& c)
@@ -295,6 +337,76 @@ void Session::Impl::followSongTempo(te::AudioClipBase& c)
     writeWarpLoopInfo(c, warp);
     c.setUsesProxy(false);
     c.setAutoTempo(true);
+}
+
+std::vector<std::uint64_t> Session::sliceAudio(std::uint64_t clipId, std::vector<double> times)
+{
+    updateSnapshotNow();
+    const auto s = snapshot();
+    const auto found = model::findClip(*s, clipId);
+    if (!found || times.empty() ||
+        !model::whyCantSlice(*found->first, s->tracks.at(static_cast<size_t>(found->second))).empty())
+        return {};
+    std::sort(times.begin(), times.end());
+    const EditGroup group(*this, "Slice");
+    std::vector<std::uint64_t> parts{clipId};
+    for (const double t : times)
+        if (const auto made = splitClips({parts.back()}, t); !made.empty())
+            parts.push_back(made.front());
+    return parts.size() > 1 ? parts : std::vector<std::uint64_t>{};
+}
+
+std::vector<std::uint64_t> Session::slice(std::uint64_t clipId, const SliceAudio& settings, std::string* why)
+{
+    const auto refuse = [why](std::string text)
+    {
+        if (why != nullptr)
+            *why = std::move(text);
+        return std::vector<std::uint64_t>{};
+    };
+    if (dynamic_cast<te::AudioClipBase*>(impl_->clip(clipId)) == nullptr)
+        return refuse("Not an audio clip.");
+    if (settings.at == model::SliceAt::Transients)
+        (void)clipTransients(clipId); // found now if they weren't
+    updateSnapshotNow();
+    const auto s = snapshot();
+    const auto found = model::findClip(*s, clipId);
+    if (!found)
+        return refuse("Not an audio clip.");
+    auto info = *found->first;
+    if (auto text = model::whyCantSlice(info, s->tracks.at(static_cast<size_t>(found->second)));
+        !text.empty())
+        return refuse(text);
+    if (settings.sensitivity)
+        info.warp.sensitivity = std::clamp(*settings.sensitivity, 0.0, 1.0);
+    const auto times = model::sliceTimes(info, settings.at, model::transientsOf(info), settings.gridBeats,
+                                         s->tempo, settings.range);
+    if (times.empty())
+        switch (settings.at)
+        {
+        case model::SliceAt::Transients:
+            return refuse("There are no transients to cut at: raise the sensitivity.");
+        case model::SliceAt::Markers:
+            return refuse(info.warp.on && !info.warp.markers.empty() ? "There are no warp markers inside it."
+                                                                     : "The clip has no warp markers.");
+        case model::SliceAt::Grid:
+            return refuse("No line of the grid falls inside it.");
+        case model::SliceAt::Bars:
+            return refuse("No bar starts inside it.");
+        }
+    const EditGroup group(*this, "Slice");
+    if (settings.sensitivity)
+        setWarp({clipId}, {.sensitivity = info.warp.sensitivity}, "Slice");
+    return sliceAudio(clipId, times);
+}
+
+std::string Session::sliceRefusal(std::uint64_t clipId) const
+{
+    const auto s = snapshot();
+    const auto found = model::findClip(*s, clipId);
+    if (!found)
+        return "Not an audio clip.";
+    return model::whyCantSlice(*found->first, s->tracks.at(static_cast<size_t>(found->second)));
 }
 
 bool Session::editTransients(std::uint64_t clipId, double file, bool add)

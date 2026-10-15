@@ -152,6 +152,7 @@ std::vector<Menu> menuBar(MenuPlatform platform)
           separator(),
           submenu("Transpose", {action("audio.semitoneUp"), action("audio.semitoneDown"), separator(),
                                 action("audio.octaveUp"), action("audio.octaveDown")}),
+          action("audio.followKey"),
           separator(),
           submenu("Gain",
                   {action("audio.gainUp"), action("audio.gainDown"), separator(), action("audio.silence")}),
@@ -165,7 +166,8 @@ std::vector<Menu> menuBar(MenuPlatform platform)
           separator(),
           action("audio.crop"),
           action("audio.fadeRange"),
-          action("audio.loopRange")}});
+          action("audio.loopRange"),
+          action("audio.slice")}});
 
     // Song-wide things: the song's key (ADR 0057, key-and-scale.md §13), then its sections (ADR 0049,
     // arranger.md §12).

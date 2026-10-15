@@ -116,6 +116,8 @@ public:
     [[nodiscard]] juce::Rectangle<int> rulerArea() const;
     /// The marker strip under the ruler: transients' ticks, warp markers' handles (§4).
     [[nodiscard]] juce::Rectangle<int> markerStripArea() const;
+    /// Where Slice would cut while it's set (timeline seconds; tests).
+    [[nodiscard]] const std::vector<double>& slicePreview() const noexcept { return slicePreview_; }
     /// Every row of the waveform.
     [[nodiscard]] juce::Rectangle<int> waveformArea() const;
     [[nodiscard]] juce::Rectangle<int> rowArea(int row) const;
@@ -194,6 +196,8 @@ private:
     void paintMarkers(juce::Graphics& g);
     /// The Tempo tool's beats over the waveform, its downbeat marked (§7.8).
     void paintTempo(juce::Graphics& g) const;
+    /// Where Slice would cut, over the waveform, while it's set (§9).
+    void paintSlices(juce::Graphics& g) const;
     /// Where the Tempo tool's downbeat shows (nullopt without the tool).
     [[nodiscard]] std::optional<float> downbeatX() const;
     void paintTimeHandles(juce::Graphics& g) const;
@@ -265,5 +269,6 @@ private:
     std::pair<double, double> rangeFrom_;            // the range when its handle was pressed
     std::optional<double> sensitivityPreview_;       // Quantise's sensitivity, while it's set (§7.4)
     std::optional<model::TempoChoice> tempoPreview_; // the Tempo tool's, while it's chosen (§7.8)
+    std::vector<double> slicePreview_;               // where Slice would cut, timeline seconds (§9)
 };
 } // namespace fd::app

@@ -120,6 +120,7 @@ Sources: the [Live 12 manual](https://www.ableton.com/en/live-manual/12/first-st
 | | Load | Readout: CPU load and dropouts since opening | – |
 | | Loops follow the tempo | A loop placed warps at its tempo (its metadata, its name, else found in its sound with a steady beat), a whole number of bars at it ([audio-editor.md](audio-editor.md) §7.2) | On |
 | | Recordings follow the tempo | Recordings, bounces and comps warp at the song's tempo, playing untouched until it changes | On |
+| | Loops follow the key | A loop placed with a key found in it plays in the song's key, moved by the smallest step ([audio-editor.md](audio-editor.md) §8.3); each clip's Follow key turns it on or off | Off |
 | **MIDI** | Inputs | Each MIDI input: on or off (an off one is ignored everywhere) | All on |
 | | Computer keyboard | The keyboard as MIDI on at launch | Off |
 | **Recording** | File format | WAV, AIFF, FLAC | WAV |

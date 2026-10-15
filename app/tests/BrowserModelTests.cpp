@@ -174,4 +174,21 @@ TEST_CASE("browser: the index file round-trips and drops what it can't read; tem
     CHECK(tempoFromName("Kick 808") == 0.0);  // not a likely tempo
     CHECK(tempoFromName("TR909 Hat") == 0.0); // part of a word
     CHECK(tempoFromName("Pad 2") == 0.0);
+
+    // A key in the name (audio-editor.md §8.2): a root and its quality, alone.
+    using fd::music::Key;
+    CHECK(keyFromName("bass_98BPM_Cmin") == Key{0, "minor"});
+    CHECK(keyFromName("Pad Am 90") == Key{9, "minor"});
+    CHECK(keyFromName("Lead_F#m") == Key{6, "minor"});
+    CHECK(keyFromName("Keys Ebmaj7 chords") == std::nullopt); // a chord, not a key
+    CHECK(keyFromName("Keys_Ebmaj") == Key{3, "major"});
+    CHECK(keyFromName("Bbm loop") == Key{10, "minor"});
+    CHECK(keyFromName("Strings C# minor") == Key{1, "minor"});
+    CHECK(keyFromName("Choir G-Major") == Key{7, "major"});
+    CHECK(keyFromName("Vox A\xE2\x99\xADm") == Key{8, "minor"}); // the music glyphs, in UTF-8
+    CHECK(keyFromName("Vox F\xE2\x99\xAF major") == Key{6, "major"});
+    CHECK(keyFromName("Kick C") == std::nullopt);       // a root alone
+    CHECK(keyFromName("Ambient wash") == std::nullopt); // a word that starts like one
+    CHECK(keyFromName("Take AM") == std::nullopt);
+    CHECK(keyFromName("Dm then Gm") == Key{7, "minor"}); // the last
 }

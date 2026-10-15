@@ -443,6 +443,16 @@ Glyph glyph(Icon icon)
             p.lineTo(x0, 5.0f);
         }
         break;
+    case Icon::Slice:
+        // A sound cut at its hits: each hit's attack and decay a piece, gaps between them.
+        for (const float x0 : {1.5f, 6.5f, 11.5f})
+        {
+            p.startNewSubPath(x0, 13.5f);
+            p.lineTo(x0, 3.0f);
+            p.lineTo(x0 + 3.0f, 13.5f);
+            p.closeSubPath();
+        }
+        break;
     case Icon::Search:
         p.addEllipse(2.5f, 2.5f, 8.5f, 8.5f);
         p.startNewSubPath(9.8f, 9.8f);

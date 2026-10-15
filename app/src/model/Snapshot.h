@@ -94,6 +94,12 @@ struct ClipInfo
     /// them.
     std::shared_ptr<const FileAnalysis> analysis;
     std::vector<double> transientsAdded, transientsRemoved;
+    /// Audio clips (P6c, audio-editor.md §8.2, §8.3): its key, set by hand or found in its file
+    /// (`keyFound`); whether it follows the song's key, and the semitones that adds to its
+    /// transposition.
+    std::optional<music::Key> key;
+    bool keyFound = true, followKey = false;
+    int followSteps = 0;
 
     [[nodiscard]] double end() const noexcept { return start + length; }
 };

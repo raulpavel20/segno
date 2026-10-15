@@ -504,6 +504,11 @@ Json clipJson(ToolEnv& env, const model::ClipInfo& c, bool notes)
                      {"sensitivity", std::round(c.warp.sensitivity * 1e3) / 1e3},
                      {"markers", std::move(markers)}};
         j["pitch"] = {{"transpose", c.pitch.transpose}, {"fine", c.pitch.fine}};
+        // Its key (§8.2, §8.3; set_audio, detect_key): set, or found in its file (null while it's
+        // being found, or with no clear key), and Follow key with the semitones it adds.
+        j["key"] = keyJson(c.key);
+        j["keyFound"] = c.keyFound;
+        j["followKey"] = {{"on", c.followKey}, {"steps", c.followSteps}};
     }
     else
     {

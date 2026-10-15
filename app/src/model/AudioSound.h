@@ -83,6 +83,30 @@ struct LineSpan
 /// clip plays there), in file time as recorded (through its warp and its reversal), each from < to.
 [[nodiscard]] std::vector<LineSpan> fileSpans(const ClipInfo& clip, double from, double to);
 
+/// Where Slice cuts a clip (§9).
+enum class SliceAt
+{
+    Transients,
+    Markers, // its warp markers, while it warps
+    Grid,    // every step of the song's grid
+    Bars,    // every bar of the song
+};
+struct TrackInfo;
+/// Why Slice can't cut `clip` on `track` (§9): a sentence, or empty if it can. A clip with takes is
+/// one clip (ADR 0032): its parts would move together.
+[[nodiscard]] std::string whyCantSlice(const ClipInfo& clip, const TrackInfo& track);
+/// "transients", "markers", "grid", "bars"; and back (case ignored), nullopt if unknown.
+[[nodiscard]] std::string sliceAtName(SliceAt at);
+[[nodiscard]] std::optional<SliceAt> sliceAtFromName(const std::string& name);
+/// The times on the timeline where Slice cuts a clip (§9), in order: at its transients
+/// (`transients`, seconds of its file as recorded) or its warp markers, in every lap it plays; or at
+/// every `gridBeats` of the song, or every bar. Within `range` of the timeline (the whole clip
+/// without one), each at least minClipLength from the next and from the clip's edges.
+[[nodiscard]] std::vector<double> sliceTimes(const ClipInfo& clip, SliceAt at,
+                                             const std::vector<double>& transients, double gridBeats,
+                                             const TempoMap& tempo,
+                                             std::optional<std::pair<double, double>> range = std::nullopt);
+
 /// The line with its gain changed by `deltaDb` over [from, to) of the file: the points inside move,
 /// the level at each edge is kept, and a ramp of `ramp` seconds inside each edge joins them (§5).
 /// A span shorter than two ramps ramps over half of it each way. Values stay within the line's

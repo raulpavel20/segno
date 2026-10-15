@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <fd/music/Key.h>
 #include <map>
 #include <optional>
 #include <set>
@@ -39,6 +40,10 @@ enum class BrowserKind
 /// A tempo written in a file's name: "Drums 124 bpm", "124BPM", "loop_90" (a number from 60 to 200
 /// standing alone as the last number). 0 if there's none.
 [[nodiscard]] double tempoFromName(std::string_view name);
+/// A key written in a file's name (audio-editor.md §8.2): a root and its quality standing alone,
+/// "Am", "F#min", "Ebmaj", "C# minor", "Bb_major"; the last if there are several. A root alone
+/// ("Kick C") isn't one: it may be a take's letter, and says nothing of the mode.
+[[nodiscard]] std::optional<music::Key> keyFromName(std::string_view name);
 
 /// One file of a place, as the index keeps it.
 struct IndexedFile

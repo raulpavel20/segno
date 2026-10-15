@@ -186,7 +186,7 @@ As [push-2.md](push-2.md) §7.1 has it: the pads play in the project's key, and 
 - **How:** the notes' pitch classes, weighted by length, are matched against major and minor key profiles (the Krumhansl–Schmuckler method). Only major and minor are offered: the notes alone can't tell a mode from its relative major.
 - **Not enough to go on** (fewer than 8 notes, or fewer than 5 different ones): the row isn't shown.
 - **MIDI files:** a file's key signature isn't used. Many files carry C major whatever they hold, so their notes go through detection like any others.
-- **From audio:** later, with loops that follow the song (M4's warping): §16.
+- **From audio** (M3 P6c, [audio-editor.md](audio-editor.md) §8.2, §24): audio clips with a key weigh in too, each as its key's notes held as long as it plays, the tonic and the fifth most, in the key its Transpose puts it in; with one, too few notes doesn't hide the row. Clips that follow the song's key are left out: they say nothing of their own. The popover judges the selected clips of either kind, or every clip.
 
 ## 12. What P4 builds on this
 
@@ -265,7 +265,7 @@ Each tool is one named undo step, with a test that drives it through MCP (ADR 00
 | K6 | **Note names** | Spelled by the key, as written music does; sharps without a key, as today. The other name for a root (D♯ minor) later, if asked (§4) |
 | K7 | **What follows the key in P3** | The piano roll's rows and the root's labels, note names, the Push, modules (through the device API) and assistants. Editing in key is P4 (§7, §12) |
 | K8 | **Changing the key** | Moves no note and changes no sound. Fitting notes to the key is P4's command (§3) |
-| K9 | **Finding the key** | From MIDI notes, major and minor, offered in the popover, never set by itself. From audio later (§11) |
+| K9 | **Finding the key** | From MIDI notes, major and minor, offered in the popover, never set by itself. From audio later (§11) *(built in M3 P6c)* |
 | K10 | **Modules** | `TransportInfo::key`, an addition to the frozen API. A module works without a key, and its SPEC says how. M4's MIDI modules follow the project by default, with a key of their own as the alternative (§9) |
 | K11 | **Where it's stored** | The engine's pitch sequence, with our scale ID beside it (§15) |
 | K12 | **Shared theory** | A new JUCE-free `libs/music`: scales, keys, spelling and detection, used by the app, the Push support and modules (§15) |

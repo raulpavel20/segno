@@ -2744,7 +2744,7 @@ TEST_CASE(
     std::set<std::string> names;
     for (const auto& t : tools["tools"])
         names.insert(t["tool"].get<std::string>());
-    CHECK(names == std::set<std::string>{"quantise", "tempo", "normalise"});
+    CHECK(names == std::set<std::string>{"quantise", "tempo", "normalise", "slice"});
     r = daw.call("transform_audio", {{"clips", {clip}}, {"tool", "quantise"}, {"grid", "1/8"}});
     CHECK(daw.session->undoDescription() == "Assistant: transform audio");
     CHECK(daw.fails("transform_audio", {{"clips", {clip}}, {"tool", "quantise"}, {"grid", "1/5"}})
@@ -2752,4 +2752,90 @@ TEST_CASE(
     r = daw.call("transform_audio", {{"clips", {clip}}, {"tool", "tempo"}, {"settings", {{"then", "song"}}}});
     CHECK(daw.project()["tempo"].get<double>() == Approx(92.0).margin(0.01));
     CHECK(r["clips"][0]["warp"]["tempo"].get<double>() == Approx(92.0).margin(0.01));
+}
+
+TEST_CASE("mcp tools: an audio clip's key, Follow key with the song's, detect_key on audio, and Slice (P6c)",
+          "[integration][mcp][audio-key]")
+{
+    Daw daw;
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    // A held A whose name says A major; and a click every half second for 2 s.
+    fd::testkit::AudioBuffer tone(2, 2 * 48000), clicks(2, 2 * 48000);
+    for (int i = 0; i < tone.numSamples(); ++i)
+        tone.at(0, i) = tone.at(1, i) =
+            0.3f * std::sin(2.0f * 3.14159265f * 440.0f * static_cast<float>(i) / 48000.0f);
+    for (int k = 0; k < 4; ++k)
+        for (int i = 0; i < 480; ++i)
+            clicks.at(0, k * 24000 + i) = clicks.at(1, k * 24000 + i) =
+                0.8f * std::exp(-static_cast<float>(i) / 100.0f) * std::sin(static_cast<float>(i) * 0.3f);
+    const auto toneFile = daw.folder.getChildFile("Lead_Amaj.wav");
+    const auto clickFile = daw.folder.getChildFile("Hits.wav");
+    REQUIRE(fd::testkit::writeWav(toneFile.getFullPathName().toStdString(), tone, 48000.0));
+    REQUIRE(fd::testkit::writeWav(clickFile.getFullPathName().toStdString(), clicks, 48000.0));
+    const auto lead =
+        daw.call("insert_audio_file", {{"track", t0},
+                                       {"start", 0},
+                                       {"path", toneFile.getFullPathName().toStdString()}})["clip"]["id"]
+            .get<std::string>();
+    const auto hits =
+        daw.call("insert_audio_file", {{"track", t0},
+                                       {"start", "3.1.1"},
+                                       {"path", clickFile.getFullPathName().toStdString()}})["clip"]["id"]
+            .get<std::string>();
+
+    // detect_key reads audio clips: the lead's key, found now.
+    auto keys = daw.call("detect_key", {{"clips", {lead}}})["keys"];
+    REQUIRE(!keys.empty());
+    CHECK(keys[0]["name"] == "A major");
+    auto got = daw.call("get_clip", {{"clip", lead}});
+    CHECK(got["key"]["name"] == "A major");
+    CHECK(got["keyFound"] == true);
+    CHECK(got["followKey"]["on"] == false);
+
+    // Following G major: two semitones down; set_key moves it again, in its own step.
+    daw.call("set_key", {{"root", "G"}, {"scale", "major"}});
+    auto r = daw.call("set_audio", {{"clips", {lead}}, {"followKey", true}});
+    CHECK(r["clips"][0]["followKey"]["on"] == true);
+    CHECK(r["clips"][0]["followKey"]["steps"] == -2);
+    CHECK(daw.session->undoDescription() == "Assistant: set audio");
+    daw.call("set_key", {{"root", "Bb"}, {"scale", "major"}});
+    CHECK(daw.call("get_clip", {{"clip", lead}})["followKey"]["steps"] == 1);
+    daw.session->undo();
+    CHECK(daw.call("get_clip", {{"clip", lead}})["followKey"]["steps"] == -2);
+    // Its key set by hand, then back to what's found; none can't be followed.
+    r = daw.call("set_audio", {{"clips", {lead}}, {"key", "D major"}});
+    CHECK(r["clips"][0]["key"]["name"] == "D major");
+    CHECK(r["clips"][0]["keyFound"] == false);
+    CHECK(r["clips"][0]["followKey"]["steps"] == 5);
+    r = daw.call("set_audio", {{"clips", {lead}}, {"key", "F#m"}});
+    CHECK(r["clips"][0]["key"]["name"] == "F# minor");
+    r = daw.call("set_audio", {{"clips", {lead}}, {"key", "found"}});
+    CHECK(r["clips"][0]["key"]["name"] == "A major");
+    CHECK(r["clips"][0]["keyFound"] == true);
+    r = daw.call("set_audio", {{"clips", {lead}}, {"key", "none"}});
+    CHECK(r["clips"][0]["key"].is_null());
+    CHECK(r["clips"][0]["followKey"]["on"] == false);
+    CHECK(daw.fails("set_audio", {{"clips", {lead}}, {"key", "Q flat"}}).find("A minor") !=
+          std::string::npos);
+    // A clip with no key found can't follow: said so.
+    r = daw.call("set_audio", {{"clips", {hits}}, {"followKey", true}});
+    CHECK(r["clips"][0]["followKey"]["on"] == false);
+    CHECK(r["note"].get<std::string>().find(hits) != std::string::npos);
+
+    // Slice: listed with its settings; the hits cut at their transients, every part listed.
+    const auto tools = daw.call("list_audio_tools")["tools"];
+    CHECK(std::any_of(tools.begin(), tools.end(), [](const Json& t) { return t["tool"] == "slice"; }));
+    r = daw.call("transform_audio",
+                 {{"clips", {hits}}, {"tool", "slice"}, {"settings", {{"at", "transients"}}}});
+    CHECK(r["changed"] == 1);
+    REQUIRE(r["clips"].size() == 4);
+    CHECK(r["clips"][0]["id"] == hits);
+    CHECK(daw.session->undoDescription() == "Assistant: transform audio");
+    daw.session->undo();
+    // By bars: a bar at 120 BPM is 2 s, the clip's length: nothing to cut, said so.
+    CHECK(daw.fails("transform_audio", {{"clips", {hits}}, {"tool", "slice"}, {"settings", {{"at", "bars"}}}})
+              .find("bar") != std::string::npos);
+    r = daw.call("transform_audio",
+                 {{"clips", {hits}}, {"tool", "slice"}, {"settings", {{"at", "grid"}}}, {"grid", "1/4"}});
+    CHECK(r["clips"].size() == 4);
 }

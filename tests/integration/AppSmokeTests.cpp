@@ -718,7 +718,9 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         // the markers' commands on their right-click; Detect… on the bar's Tempo.
         "audio.warp", "audio.warpMode.beats", "audio.warpMode.tones", "audio.warpMode.repitch",
         "audio.tempoDouble", "audio.tempoHalf", "audio.detectTempo", "audio.songTempo",
-        "audio.markersAtTransients", "audio.warpFromHere", "audio.setDownbeat", "audio.removeMarkers"};
+        "audio.markersAtTransients", "audio.warpFromHere", "audio.setDownbeat", "audio.removeMarkers",
+        // Follow key and Slice… (§8.3, §9): Follow beside the key in the inspector, Slice on the bar.
+        "audio.followKey", "audio.slice"};
     for (const auto& a : actions.all())
     {
         INFO(a.id);

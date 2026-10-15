@@ -474,6 +474,33 @@ void AudioClipView::paintTempo(juce::Graphics& g) const
     }
 }
 
+void AudioClipView::paintSlices(juce::Graphics& g) const
+{
+    if (!clip_ || slicePreview_.empty())
+        return;
+    const auto& t = ui::Theme::current();
+    const auto area = waveformArea();
+    std::optional<float> first;
+    {
+        juce::Graphics::ScopedSaveState saved(g);
+        g.reduceClipRegion(area);
+        g.setColour(t.active);
+        // A looped clip's laps show in its loop: their cuts fall on the same moments.
+        for (const double at : slicePreview_)
+        {
+            const float x = std::round(
+                static_cast<float>(area.getX() + timeline_.xForTime(model::clipViewTime(*clip_, at))));
+            first = first ? std::min(*first, x) : x;
+            g.fillRect(juce::Rectangle<float>(x, static_cast<float>(area.getY()), 1.0f,
+                                              static_cast<float>(area.getHeight())));
+        }
+    }
+    // How many clips it makes, at the first cut.
+    const auto count = static_cast<int>(slicePreview_.size()) + 1;
+    ui::paintValueTag(g, {*first, static_cast<float>(area.getY() + t.shell.rowHeight)}, area,
+                      juce::String(count) + " slices");
+}
+
 void AudioClipView::nudgeMarkers(int steps)
 {
     if (!clip_ || markers_.empty() || !clip_->warp.on)

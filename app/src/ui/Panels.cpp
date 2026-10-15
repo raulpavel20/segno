@@ -19,6 +19,11 @@ namespace fd::app
 {
 namespace
 {
+// The AUDIO section's key list (§8.2): what's found, none, the twelve major and twelve minor keys,
+// and a set key of another scale.
+constexpr int kKeyFoundItem = 1, kKeyNoneItem = 2, kKeyMajorItems = 10, kKeyMinorItems = 30,
+              kKeyOtherItem = 50;
+
 /// An inspector name field: typed, Return or leaving it commits, Escape restores.
 void styleNameField(juce::TextEditor& field)
 {
@@ -787,6 +792,35 @@ InspectorPanel::InspectorPanel(engine::Session& session) : session_(session)
             session_.setWarp({clip_->id}, {.formants = !clip_->warp.formants}, "Formants");
     };
     body_.addChildComponent(audioFormants_);
+    // Its key (§8.2): what's found, none, or a major or minor key set by hand.
+    audioKey_.setTooltip(
+        "The clip's key: found in its file (its metadata, its name, else its sound), or set here");
+    audioKey_.onChange = [this]
+    {
+        const int id = audioKey_.getSelectedId();
+        if (!clip_ || id <= 0)
+            return;
+        engine::Session::WarpChange change;
+        if (id == kKeyFoundItem)
+            change.keyFound = true;
+        else if (id == kKeyNoneItem)
+            change.key = std::optional<music::Key>{};
+        else if (id == kKeyOtherItem && otherKey_)
+            change.key = otherKey_;
+        else
+            change.key = std::optional(
+                music::Key{(id - kKeyMajorItems) % 20, id >= kKeyMinorItems ? "minor" : "major"});
+        session_.setWarp({clip_->id}, change, "Clip key");
+    };
+    body_.addChildComponent(audioKey_);
+    // Follow key (§8.3): the clip plays in the song's key; its step shows on it.
+    audioFollow_.setClickingTogglesState(false);
+    audioFollow_.onClick = [this]
+    {
+        if (clip_)
+            session_.setWarp({clip_->id}, {.followKey = !clip_->followKey}, "Follow key");
+    };
+    body_.addChildComponent(audioFollow_);
     // The take's commands (the shell's actions, on the selected take).
     for (const auto& [button, id] : {std::pair{&copyTake_, "take.copyToTrack"}, std::pair{&moveTake_, "take.moveToTrack"},
                                      std::pair{&keepTake_, "take.keepOnly"}})
@@ -1291,7 +1325,7 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
         has(model::InspectorSection::Audio) && clip_ && clip_->kind == model::ClipInfo::Kind::Audio;
     for (auto* c : std::initializer_list<juce::Component*>{&audioGain_, &audioReverse_, &audioPolarity_,
                                                            &audioTranspose_, &audioFine_, &audioWarp_,
-                                                           &audioSensitivity_})
+                                                           &audioSensitivity_, &audioKey_, &audioFollow_})
         c->setVisible(sound);
     audioChannels_.setVisible(sound && clip_->fileChannels >= 2);
     // While it warps: its mode, its tempo with ×2 and ÷2, and the mode's setting.
@@ -1329,6 +1363,7 @@ void InspectorPanel::setContext(const model::PanelContext& context, const model:
                 : "A clip with takes plays its takes: choose one to reverse it");
         audioPolarity_.setToggleState(clip_->sound.inverted, juce::dontSendNotification);
         audioChannels_.setSelectedId(static_cast<int>(clip_->sound.channels) + 1, juce::dontSendNotification);
+        refreshKey();
     }
     const bool audio = has(model::InspectorSection::Clip) && clip_ && clip_->kind == model::ClipInfo::Kind::Audio;
     for (auto* field : {&fadeIn_, &fadeOut_})
@@ -1582,6 +1617,7 @@ std::vector<ui::Property> InspectorPanel::properties(model::InspectorSection sec
             else if (clip_->warp.mode == model::WarpMode::Tones)
                 rows.push_back({"Formants", {}, false, "formants"});
         }
+        rows.push_back({"Key", {}, false, "key"});
         rows.push_back({"Transients", {}, false, "transients"});
         rows.push_back({"Reverse", {}, false, "reverse"});
         rows.push_back({"Polarity", {}, false, "polarity"});
@@ -1647,6 +1683,71 @@ int InspectorPanel::rowOf(model::InspectorSection section, std::string_view key)
         if (rows[i].key != nullptr && key == rows[i].key)
             return static_cast<int>(i);
     return -1;
+}
+
+void InspectorPanel::refreshKey()
+{
+    const auto dot = juce::String::fromUTF8(" \xC2\xB7 ");
+    const auto name = [](const music::Key& k) { return juce::String::fromUTF8(music::keyName(k).c_str()); };
+    // What's found in its file: what the clip's key goes back to (asked for here too: the clip view
+    // may be closed).
+    const auto* analysis = clip_->analysis.get();
+    if (analysis == nullptr)
+        session_.requestAnalysis(clip_->id);
+    const auto found = clip_->keyFound ? clip_->key : (analysis != nullptr ? analysis->key : std::nullopt);
+    const juce::String foundText = found ? name(*found) + dot + "found"
+                                   : analysis != nullptr || clip_->keyFound
+                                       ? juce::String("None found")
+                                       : juce::String::fromUTF8("Finding\xE2\x80\xA6");
+    // A set key of a scale the list doesn't have is listed too.
+    otherKey_ = !clip_->keyFound && clip_->key && clip_->key->scale != "major" && clip_->key->scale != "minor"
+                    ? clip_->key
+                    : std::nullopt;
+    const auto items = foundText + "|" + (otherKey_ ? name(*otherKey_) : juce::String());
+    if (items != keyItems_)
+    {
+        keyItems_ = items;
+        audioKey_.clear(juce::dontSendNotification);
+        audioKey_.addItem(foundText, kKeyFoundItem);
+        audioKey_.addItem("None", kKeyNoneItem);
+        if (otherKey_)
+            audioKey_.addItem(name(*otherKey_), kKeyOtherItem);
+        for (const auto& [scale, first] :
+             {std::pair{"major", kKeyMajorItems}, std::pair{"minor", kKeyMinorItems}})
+        {
+            audioKey_.addSectionHeading(juce::String(scale).substring(0, 1).toUpperCase() +
+                                        juce::String(scale).substring(1));
+            for (int root = 0; root < 12; ++root)
+                audioKey_.addItem(name(music::Key{root, scale}), first + root);
+        }
+    }
+    int selected = kKeyFoundItem;
+    if (!clip_->keyFound)
+        selected = !clip_->key                    ? kKeyNoneItem
+                   : otherKey_                    ? kKeyOtherItem
+                   : clip_->key->scale == "minor" ? kKeyMinorItems + clip_->key->root
+                                                  : kKeyMajorItems + clip_->key->root;
+    audioKey_.setSelectedId(selected, juce::dontSendNotification);
+    // Follow key: its step on it while it follows; why not when it can't.
+    const auto minus = juce::String::fromUTF8("\xE2\x88\x92");
+    const int steps = clip_->followSteps;
+    const auto text = clip_->followKey && steps != 0
+                          ? "Follow " + (steps < 0 ? minus + juce::String(-steps) : "+" + juce::String(steps))
+                          : juce::String("Follow");
+    if (audioFollow_.getButtonText() != text)
+    {
+        audioFollow_.setButtonText(text);
+        resized();
+    }
+    audioFollow_.setToggleState(clip_->followKey, juce::dontSendNotification);
+    const bool keyed = clip_->key.has_value();
+    audioFollow_.setEnabled(keyed || clip_->followKey);
+    const bool songKey = session_.snapshot()->keys.first().has_value();
+    audioFollow_.setTooltip(
+        !keyed     ? "No key to follow: set the clip's key first"
+        : !songKey ? "Follow key: the song has no key yet; set one in the top bar and the clip moves into it"
+                   : "Follow key: the clip plays in the song's key, moved by the smallest step (a key and "
+                     "its relative count as the same)");
 }
 
 void InspectorPanel::resized()
@@ -1799,6 +1900,13 @@ int InspectorPanel::layoutSections(int width)
             audioTempo_.setBounds(tempoRow.withRight(audioDouble_.getX() - t.shell.itemGap)
                                       .withTrimmedLeft(-ui::NumberField::textInset));
             audioTails_.setBounds(row("tails").reduced(0, t.shell.propertyFieldInset));
+            // The key, then Follow beside it.
+            const auto keyRow = row("key");
+            const int followWidth = ui::Toggle::widthFor(audioFollow_.getButtonText());
+            audioFollow_.setBounds(
+                keyRow.withLeft(keyRow.getRight() - followWidth).reduced(0, t.shell.propertyFieldInset));
+            audioKey_.setBounds(keyRow.withRight(audioFollow_.getX() - t.shell.itemGap)
+                                    .reduced(0, t.shell.propertyFieldInset));
             audioSensitivity_.setBounds(row("transients").withTrimmedLeft(-ui::NumberField::textInset));
         }
         else if (sections_[i] == S::Notes) // its fields, then Mute
@@ -2026,9 +2134,12 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
          {std::tuple{&tempoTool_, ui::Icon::Tempo, "tempo",
                      "Tempo: find the clip's tempo and downbeat, halve or double it, and warp to it (the "
                      "Tools pane)"},
+          std::tuple{&normalise_, ui::Icon::Normalise, "normalise",
+                     "Normalise: each clip's gain to a peak or a loudness, or all together (the Tools pane)"},
           std::tuple{
-              &normalise_, ui::Icon::Normalise, "normalise",
-              "Normalise: each clip's gain to a peak or a loudness, or all together (the Tools pane)"}})
+              &slice_, ui::Icon::Slice, "slice",
+              "Slice: cut the clip into clips at its transients, its markers, the grid or its bars (the "
+              "Tools pane)"}})
     {
         button->setIcon(icon);
         button->setClickingTogglesState(false);
@@ -2170,13 +2281,13 @@ DetailPanel::DetailPanel(engine::Session& session, const ActionRegistry& actions
         header_.addCommand(*button);
         button->setVisible(false);
     }
-    // At narrow widths the least used give way first (§4): Normalise, ×2 and ÷2, (Slice,) Tempo,
+    // At narrow widths the least used give way first (§4): Normalise, ×2 and ÷2, Slice, Tempo,
     // Reverse, the mode, Transpose, Gain, Quantise, then the tempo. Audio, Warp, Snap and the
     // step stay.
     int drop = 1;
-    for (juce::Component* c : std::initializer_list<juce::Component*>{&normalise_, &tempoDouble_, &tempoTool_,
-                                                                      &reverse_, &warpMode_, &transpose_,
-                                                                      &gain_, &quantiseAudio_, &warpTempo_})
+    for (juce::Component* c : std::initializer_list<juce::Component*>{
+             &normalise_, &tempoDouble_, &slice_, &tempoTool_, &reverse_, &warpMode_, &transpose_, &gain_,
+             &quantiseAudio_, &warpTempo_})
         header_.setDropOrder(*c, drop++);
     header_.setDropOrder(tempoHalf_, 2); // with ×2
     // The editor tells the bar, and keeps the tools' settings where the notes' are (view state).
@@ -2236,7 +2347,8 @@ void DetailPanel::updateAudioBar()
         button.setTooltip(why.empty() ? tip + (shortcut.isNotEmpty() ? " (" + shortcut + ")" : juce::String())
                                       : juce::String::fromUTF8(why.c_str()));
     }
-    for (auto [button, tool] : {std::pair{&normalise_, "normalise"}, std::pair{&tempoTool_, "tempo"}})
+    for (auto [button, tool] :
+         {std::pair{&normalise_, "normalise"}, std::pair{&tempoTool_, "tempo"}, std::pair{&slice_, "slice"}})
         button->setToggleState(audio && tools_.isVisible() && tools_.showsAudio() && tools_.chosen() == tool,
                                juce::dontSendNotification);
     // While it warps: its mode, its tempo, ×2 and ÷2 (§4).
@@ -2443,7 +2555,7 @@ void DetailPanel::updateVisibility()
     const bool audio = showsAudioClip();
     for (auto* c :
          std::initializer_list<juce::Component*>{&audioButton_, &quantiseAudio_, &tempoTool_, &normalise_,
-                                                 &gain_, &transpose_, &reverse_, &warp_})
+                                                 &slice_, &gain_, &transpose_, &reverse_, &warp_})
         c->setVisible(audio);
     const bool tools = (notes && roll_.options().toolsOpen) || (audio && roll_.options().audioToolsOpen);
     if (!tools && tools_.isVisible())
@@ -2527,8 +2639,10 @@ void DetailPanel::frame(double playheadSeconds)
     }
     if (const bool can = actions_.isEnabled("notes.quantise"); quantise_.isEnabled() != can)
         quantise_.setEnabled(can);
-    // Normalise and Tempo lit while the pane shows them (as Transform and Generate are for theirs).
-    for (auto [button, tool] : {std::pair{&normalise_, "normalise"}, std::pair{&tempoTool_, "tempo"}})
+    // Normalise, Tempo and Slice lit while the pane shows them (as Transform and Generate are for
+    // theirs).
+    for (auto [button, tool] :
+         {std::pair{&normalise_, "normalise"}, std::pair{&tempoTool_, "tempo"}, std::pair{&slice_, "slice"}})
         if (const bool lit = showsAudioClip() && tools_.isVisible() && tools_.chosen() == tool;
             button->getToggleState() != lit)
             button->setToggleState(lit, juce::dontSendNotification);

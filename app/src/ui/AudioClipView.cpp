@@ -391,7 +391,7 @@ model::ToolValues AudioClipView::toolValues(const model::ToolSpec& tool) const
         return values;
     // What's the clip's own shows as it is (§7.4, §7.8): its sensitivity; the tempo and downbeat
     // found in its file.
-    if (tool.id == "quantise")
+    if (tool.id == "quantise" || tool.id == "slice")
         values["sensitivity"] = std::round(clip_->warp.sensitivity * 100.0);
     if (tool.id == "tempo")
     {
@@ -415,6 +415,7 @@ void AudioClipView::preview(const model::ToolSpec& tool, const model::ToolValues
     warpPreview_.reset();
     sensitivityPreview_.reset();
     tempoPreview_.reset();
+    slicePreview_.clear();
     if (tool.id == "normalise")
     {
         const auto choice = model::normaliseChoice(values);
@@ -434,17 +435,32 @@ void AudioClipView::preview(const model::ToolSpec& tool, const model::ToolValues
     }
     else if (tool.id == "tempo" && clip_)
         tempoPreview_ = model::tempoChoice(values);
+    else if (tool.id == "slice" && clip_)
+    {
+        // The cuts, and at transients the ticks as its sensitivity finds them.
+        const auto choice = model::sliceChoice(values);
+        auto shown = *clip_;
+        if (choice.at == model::SliceAt::Transients)
+        {
+            sensitivityPreview_ = choice.sensitivity;
+            shown.warp.sensitivity = choice.sensitivity;
+        }
+        slicePreview_ = model::sliceTimes(shown, choice.at, model::transientsOf(shown),
+                                          timeline_.gridStepBeats(tempo_), tempo_, range_);
+    }
     repaint();
 }
 
 void AudioClipView::cancel()
 {
-    if (previewGains_.empty() && !warpPreview_ && !sensitivityPreview_ && !tempoPreview_)
+    if (previewGains_.empty() && !warpPreview_ && !sensitivityPreview_ && !tempoPreview_ &&
+        slicePreview_.empty())
         return;
     previewGains_.clear();
     warpPreview_.reset();
     sensitivityPreview_.reset();
     tempoPreview_.reset();
+    slicePreview_.clear();
     repaint();
 }
 
@@ -454,6 +470,7 @@ void AudioClipView::apply(const model::ToolSpec& tool, const model::ToolValues& 
     warpPreview_.reset();
     sensitivityPreview_.reset();
     tempoPreview_.reset();
+    slicePreview_.clear();
     if (tool.id == "normalise")
     {
         const auto choice = model::normaliseChoice(values);
@@ -473,13 +490,31 @@ void AudioClipView::apply(const model::ToolSpec& tool, const model::ToolValues& 
     }
     else if (tool.id == "tempo" && clip_)
         applyTempo(model::tempoChoice(values));
+    else if (tool.id == "slice" && clip_)
+    {
+        const auto choice = model::sliceChoice(values);
+        std::string why;
+        const auto parts = session_.slice(clip_->id,
+                                          {.at = choice.at,
+                                           .sensitivity = choice.at == model::SliceAt::Transients
+                                                              ? std::optional(choice.sensitivity)
+                                                              : std::nullopt,
+                                           .gridBeats = timeline_.gridStepBeats(tempo_),
+                                           .range = range_},
+                                          &why);
+        if (parts.empty() && onMessage)
+            onMessage(juce::String::fromUTF8(why.c_str()));
+        // The range was of the clip as it was: the editor shows its first part.
+        if (!parts.empty())
+            setRange(std::nullopt);
+    }
     repaint();
 }
 
 juce::String AudioClipView::scope(const model::ToolSpec& tool) const
 {
     if (tool.id != "normalise")
-        return range_ && tool.id == "quantise"
+        return range_ && (tool.id == "quantise" || tool.id == "slice")
                    ? juce::String("the range")
                    : (clip_ ? juce::String::fromUTF8(clip_->name.c_str()) : juce::String());
     const auto n = static_cast<int>(toolClips().size());
@@ -494,6 +529,9 @@ juce::String AudioClipView::unavailable(const model::ToolSpec& tool) const
         return "The clip's transients are still being found";
     if (tool.id == "tempo" && !clip_->analysis->tempo)
         return "No tempo is heard in the clip: set it on the bar";
+    if (tool.id == "slice")
+        if (const auto why = session_.sliceRefusal(clip_->id); !why.empty())
+            return juce::String::fromUTF8(why.c_str()).trimCharactersAtEnd(".");
     return {};
 }
 
@@ -768,6 +806,7 @@ void AudioClipView::paint(juce::Graphics& g)
     paintRange(g);
     paintMarkers(g);
     paintTempo(g);
+    paintSlices(g);
     paintLane(g);
     // The loop strip with the clip's brace, then the ruler with what it plays in its colour.
     const auto [from, to] = playedRange();

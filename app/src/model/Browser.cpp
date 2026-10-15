@@ -4,6 +4,7 @@
 #include <cmath>
 #include <nlohmann/json.hpp>
 #include <sstream>
+#include <utility>
 
 namespace fd::model
 {
@@ -212,6 +213,67 @@ double tempoFromName(std::string_view name)
         i = j;
     }
     return last >= 60.0 && last <= 200.0 ? last : 0.0;
+}
+
+std::optional<music::Key> keyFromName(std::string_view name)
+{
+    // Words of letters, digits and accidentals (♯ and ♭ are three bytes each in UTF-8).
+    std::vector<std::string> words;
+    std::string word;
+    for (size_t i = 0; i < name.size(); ++i)
+    {
+        const auto c = static_cast<unsigned char>(name[i]);
+        if (c == 0xE2 && i + 2 < name.size() && static_cast<unsigned char>(name[i + 1]) == 0x99 &&
+            (static_cast<unsigned char>(name[i + 2]) == 0xAF ||
+             static_cast<unsigned char>(name[i + 2]) == 0xAD))
+        {
+            word += static_cast<unsigned char>(name[i + 2]) == 0xAF ? '#' : 'b';
+            i += 2;
+        }
+        else if (std::isalnum(c) || c == '#')
+            word += static_cast<char>(c);
+        else if (!word.empty())
+            words.push_back(std::exchange(word, {}));
+    }
+    if (!word.empty())
+        words.push_back(word);
+    // A quality: "m" (as written, so "M" isn't one), or min, minor, maj, major in any case.
+    const auto quality = [](const std::string& q) -> std::optional<std::string>
+    {
+        if (q == "m")
+            return "minor";
+        const auto l = lower(q);
+        if (l == "min" || l == "minor")
+            return "minor";
+        if (l == "maj" || l == "major")
+            return "major";
+        return std::nullopt;
+    };
+    // A root: an upper-case letter, then a sharp or a flat.
+    const auto root = [](const std::string& w, size_t& used) -> std::optional<int>
+    {
+        if (w.empty() || w[0] < 'A' || w[0] > 'G')
+            return std::nullopt;
+        used = w.size() > 1 && (w[1] == '#' || w[1] == 'b') ? 2 : 1;
+        return music::parsePitchClass(w.substr(0, used));
+    };
+    std::optional<music::Key> found;
+    for (size_t i = 0; i < words.size(); ++i)
+    {
+        size_t used = 0;
+        const auto pc = root(words[i], used);
+        if (!pc)
+            continue;
+        if (used < words[i].size())
+        {
+            if (const auto scale = quality(words[i].substr(used)))
+                found = music::Key{*pc, *scale};
+        }
+        else if (i + 1 < words.size())
+            if (const auto scale = quality(words[i + 1]); scale && words[i + 1] != "m")
+                found = music::Key{*pc, *scale};
+    }
+    return found;
 }
 
 // ---- the index file ------------------------------------------------------------------------

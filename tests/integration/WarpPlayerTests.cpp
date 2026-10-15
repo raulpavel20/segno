@@ -319,6 +319,116 @@ TEST_CASE("piece player: transposed, Tones keeps the length and moves the pitch"
     CHECK(soundsUntil(out) == Approx(2.0).margin(0.01));
 }
 
+TEST_CASE("piece player: Follow key plays a clip in the song's key by the smallest step, warped or not, and "
+          "moves with the song's key in its step (P6c)",
+          "[integration][warp][follow-key]")
+{
+    using fd::music::Key;
+    Player p;
+    // A held A whose name says A major (its sound alone has no clear key).
+    const auto id = p.place(sine(2.0, 440.0), "Tone_Amaj");
+    CHECK(p.session->foundKey(id) == Key{9, "major"});
+    REQUIRE(p.session->setKey(Key{7, "major"})); // G major
+    REQUIRE(p.session->setWarp({id}, {.followKey = true}));
+    auto info = p.info(id);
+    CHECK(info.followKey);
+    CHECK(info.key == Key{9, "major"});
+    CHECK(info.keyFound);
+    CHECK(info.followSteps == -2);
+    CHECK(frequency(p.render(0.0, 2.0), 0.3, 1.8) == Approx(392.0).margin(2.0));
+    // Warped, the piece player plays it there too.
+    REQUIRE(p.session->setWarp({id}, {.on = true, .tempo = 120.0}));
+    CHECK(frequency(p.render(0.0, 2.0), 0.3, 1.8) == Approx(392.0).margin(2.0));
+    // The song's key changes: it moves with it; undone, back, in one step.
+    REQUIRE(p.session->setKey(Key{10, "major"})); // B♭ major
+    CHECK(p.info(id).followSteps == 1);
+    CHECK(frequency(p.render(0.0, 2.0), 0.3, 1.8) == Approx(466.16).margin(2.5));
+    p.session->undo();
+    CHECK(p.info(id).followSteps == -2);
+    CHECK(frequency(p.render(0.0, 2.0), 0.3, 1.8) == Approx(392.0).margin(2.0));
+    // E minor has G major's notes: the same step.
+    REQUIRE(p.session->setKey(Key{4, "minor"}));
+    CHECK(p.info(id).followSteps == -2);
+    // Its Transpose adds to the step.
+    REQUIRE(p.session->setWarp({id}, {.transpose = 12}));
+    CHECK(frequency(p.render(0.0, 2.0), 0.3, 1.8) == Approx(784.0).margin(3.0));
+    // A key set by hand: D major moves up to G major's notes, not down.
+    REQUIRE(p.session->setWarp({id}, {.key = std::optional(Key{2, "major"})}));
+    info = p.info(id);
+    CHECK(info.key == Key{2, "major"});
+    CHECK_FALSE(info.keyFound);
+    CHECK(info.followSteps == 5);
+    // Repitch sets its pitch by its speed: no step.
+    REQUIRE(p.session->setWarp({id}, {.mode = fd::model::WarpMode::Repitch}));
+    CHECK(p.info(id).followSteps == 0);
+    REQUIRE(p.session->setWarp({id}, {.mode = fd::model::WarpMode::Tones}));
+    // Back to what's found, still following; then not following: as itself (with its Transpose).
+    REQUIRE(p.session->setWarp({id}, {.keyFound = true}));
+    info = p.info(id);
+    CHECK(info.key == Key{9, "major"});
+    CHECK(info.keyFound);
+    CHECK(info.followSteps == -2);
+    REQUIRE(p.session->setWarp({id}, {.followKey = false}));
+    info = p.info(id);
+    CHECK_FALSE(info.followKey);
+    CHECK(info.followSteps == 0);
+    CHECK(frequency(p.render(0.0, 2.0), 0.3, 1.8) == Approx(880.0).margin(3.0));
+    // None set by hand: nothing to follow.
+    REQUIRE(p.session->setWarp({id}, {.key = std::optional<Key>{}, .followKey = true}));
+    info = p.info(id);
+    CHECK_FALSE(info.key);
+    CHECK_FALSE(info.followKey);
+}
+
+TEST_CASE(
+    "slice: a clip cut at its transients, the grid or its bars plays on as before, in one undo step (P6c)",
+    "[integration][warp][slice]")
+{
+    using fd::model::SliceAt;
+    Player p;
+    // A click every half second, 2 bars at 120 BPM: placed, it warps at its own tempo.
+    const auto id = p.place(clicks(4.0, 0.5), "Clicks");
+    const auto before = p.render(0.0, 4.5);
+    const auto track = p.track();
+    const auto clipsOnTrack = [&]
+    {
+        p.session->updateSnapshotNow();
+        for (const auto& t : p.session->snapshot()->tracks)
+            if (t.id == track)
+                return t.clips;
+        return std::vector<fd::model::ClipInfo>{};
+    };
+    std::string why;
+    const auto parts = p.session->slice(id, {.at = SliceAt::Transients}, &why);
+    INFO(why);
+    REQUIRE(parts.size() == 8); // the first click is the clip's start
+    CHECK(parts.front() == id);
+    CHECK(p.session->undoDescription() == "Slice");
+    const auto sliced = clipsOnTrack();
+    REQUIRE(sliced.size() == 8);
+    for (size_t i = 0; i < sliced.size(); ++i)
+    {
+        INFO("slice " << i);
+        CHECK(sliced[i].start == Approx(0.5 * static_cast<double>(i)).margin(0.005));
+        CHECK(sliced[i].fadeIn.length == 0.0);
+    }
+    // Seamless: no edge fades between them, so it sounds exactly as before.
+    CHECK(db(difference(before, p.render(0.0, 4.5))) < -120.0);
+    p.session->undo();
+    CHECK(clipsOnTrack().size() == 1);
+
+    // Every beat of the grid, and every bar.
+    CHECK(p.session->slice(id, {.at = SliceAt::Grid, .gridBeats = 1.0}).size() == 8);
+    p.session->undo();
+    CHECK(p.session->slice(id, {.at = SliceAt::Bars}).size() == 2);
+    CHECK(db(difference(before, p.render(0.0, 4.5))) < -120.0);
+    p.session->undo();
+    // Warp markers: none yet, said so.
+    CHECK(p.session->slice(id, {.at = SliceAt::Markers}, &why).empty());
+    CHECK(why.find("no warp markers") != std::string::npos);
+    CHECK(clipsOnTrack().size() == 1);
+}
+
 TEST_CASE("piece player: Warp on and off, and a new tempo, keep the audio a clip plays",
           "[integration][warp]")
 {

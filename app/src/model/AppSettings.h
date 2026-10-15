@@ -58,12 +58,13 @@ struct AppSettings
         bool operator==(const Midi&) const = default;
     } midi;
 
-    /// Audio clips placed or made (audio-editor.md §7.2): whether loops, and recordings, bounces
-    /// and comps, follow the song's tempo (Warp on).
+    /// Audio clips placed or made (audio-editor.md §7.2, §8.3): whether loops, and recordings,
+    /// bounces and comps, follow the song's tempo (Warp on); and whether loops follow its key.
     struct AudioClips
     {
         bool loopsFollowTempo = true;
         bool recordingsFollowTempo = true;
+        bool loopsFollowKey = false;
         bool operator==(const AudioClips&) const = default;
     } audioClips;
 

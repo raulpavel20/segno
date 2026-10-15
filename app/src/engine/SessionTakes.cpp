@@ -303,6 +303,9 @@ te::Clip* Session::Impl::useTakeClip(te::AudioTrack& track, const juce::ValueTre
     auto* clip = track.insertClipWithState(copy); // through the undo manager
     if (clip == nullptr)
         return nullptr;
+    // A take kept aside while the song's key changed plays in the key it is now (§8.3).
+    if (auto* audio = dynamic_cast<te::AudioClipBase*>(clip); audio != nullptr && followsKey(audio->state))
+        syncPitch(*audio);
     const auto pos = clip->getPosition();
     clearUnder(track, pos.getStart().inSeconds(), pos.getEnd().inSeconds(), {clip->itemID.getRawID()});
     return clip;

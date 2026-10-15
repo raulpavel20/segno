@@ -220,7 +220,10 @@ void addAudioTools(Registry& registry, ToolEnv& env)
          "\"tempo\" (its file's BPM: it plays the same audio at it, markers scaled), \"sensitivity\" (0 to "
          "1: "
          "how many transients are found), \"transpose\" (semitones, -48 to 48) and \"fine\" (cents, -50 to "
-         "50); transposed, a clip keeps its speed.",
+         "50); transposed, a clip keeps its speed. Its key (§8.2, §8.3): \"key\" (\"A minor\", \"F#m\", "
+         "\"D dorian\"; \"none\"; \"found\" for what's found in its file) and \"followKey\" (it plays in the "
+         "song's key, moved by the smallest step, a key and its relative counting as the same; a clip with "
+         "no key can't).",
          object({{"clips", ids(IdKind::Clip, "The audio clips")},
                  {"warp", boolean("Follows the song's tempo")},
                  {"mode", string("beats, tones or repitch")},
@@ -230,6 +233,8 @@ void addAudioTools(Registry& registry, ToolEnv& env)
                  {"sensitivity", number("How many transients are found: 0 to 1")},
                  {"transpose", integer("Semitones, -48 to 48")},
                  {"fine", integer("Cents, -50 to 50")},
+                 {"key", string("Its key: \"A minor\", \"F#m\", \"D dorian\", \"none\", or \"found\"")},
+                 {"followKey", boolean("Plays in the song's key")},
                  {"gain",
                   {{"type", {"number", "string"}},
                    {"description", "dB: a number, \"-inf\", or text such as \"-3 dB\""}}},
@@ -293,8 +298,29 @@ void addAudioTools(Registry& registry, ToolEnv& env)
                     std::clamp(args["transpose"].get<int>(), -model::kMaxTranspose, model::kMaxTranspose);
             if (args.contains("fine"))
                 warp.fine = std::clamp(args["fine"].get<int>(), -model::kMaxFine, model::kMaxFine);
+            if (args.contains("key"))
+            {
+                const auto key = clipKeyArg(args["key"]);
+                if (key.found)
+                    warp.keyFound = true;
+                else
+                    warp.key = key.key;
+            }
+            if (args.contains("followKey"))
+                warp.followKey = args["followKey"].get<bool>();
             env.session.setWarp(ids, warp, "Clip sound");
-            return ToolResult::ok({{"clips", clipsJson(env, ids)}});
+            Json out{{"clips", clipsJson(env, ids)}};
+            if (warp.followKey.value_or(false))
+            {
+                std::string keyless;
+                for (const auto& c : out["clips"])
+                    if (!c["followKey"]["on"].get<bool>())
+                        keyless += (keyless.empty() ? "" : ", ") + c["id"].get<std::string>();
+                if (!keyless.empty())
+                    out["note"] = "No key was found in " + keyless +
+                                  ", so it can't follow the song's: set its \"key\".";
+            }
+            return ToolResult::ok(out);
         }));
 
     registry.tools.push_back(make(
@@ -546,12 +572,14 @@ void addAudioTools(Registry& registry, ToolEnv& env)
          "warps "
          "each clip at a tempo starting at its downbeat (seconds into its file), or sets the song's tempo "
          "from "
-         "it (\"then\": song). Tempo's settings left out are what's found in the clip (detect_tempo); others "
-         "take their defaults.",
+         "it (\"then\": song); slice cuts each clip into clips on its track (\"at\": transients, markers, "
+         "grid, bars; the grid's step is \"grid\"), seamless until they're moved, and \"clips\" lists every "
+         "part. Tempo's settings left out are what's found in the clip (detect_tempo); others take their "
+         "defaults.",
          object({{"clips", ids(IdKind::Clip, "The audio clips")},
-                 {"tool", string("The tool: normalise, quantise or tempo")},
+                 {"tool", string("The tool: normalise, quantise, tempo or slice")},
                  {"settings", {{"type", "object"}, {"description", "The tool's settings by id"}}},
-                 {"grid", string("Quantise's grid: 1/4, 1/8, 1/16, 1/32 (T for triplets)")}},
+                 {"grid", string("Quantise's and Slice's grid: 1/4, 1/8, 1/16, 1/32 (T for triplets)")}},
                 {"clips", "tool"}),
          result({{"clips", arrayOf(clipResultSchema(), "The clips", std::nullopt)},
                  {"changed", integer("How many changed")}},
@@ -579,6 +607,35 @@ void addAudioTools(Registry& registry, ToolEnv& env)
                         !why.empty() && ids.size() == 1)
                         throw Problem{why};
                 return ToolResult::ok({{"clips", clipsJson(env, ids)}, {"changed", ids.size()}});
+            }
+            if (tool->id == "slice")
+            {
+                const double grid = gridBeatsArg(args.value("grid", Json("1/16")));
+                const auto choice = model::sliceChoice(given);
+                const engine::Session::EditGroup group(env.session, "Slice");
+                std::vector<std::uint64_t> parts;
+                size_t changed = 0;
+                for (auto id : ids)
+                {
+                    std::string why;
+                    auto made = env.session.slice(id,
+                                                  {.at = choice.at,
+                                                   .sensitivity = given.contains("sensitivity")
+                                                                      ? std::optional(choice.sensitivity)
+                                                                      : std::nullopt,
+                                                   .gridBeats = grid},
+                                                  &why);
+                    if (made.empty())
+                    {
+                        if (ids.size() == 1)
+                            throw Problem{why};
+                        parts.push_back(id);
+                        continue;
+                    }
+                    ++changed;
+                    parts.insert(parts.end(), made.begin(), made.end());
+                }
+                return ToolResult::ok({{"clips", clipsJson(env, parts)}, {"changed", changed}});
             }
             if (tool->id == "tempo")
             {

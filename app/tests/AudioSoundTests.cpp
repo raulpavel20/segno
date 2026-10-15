@@ -262,3 +262,53 @@ TEST_CASE("audio sound: measuring a clip streams its file through its gain line"
     CHECK_FALSE(measureClip((dir / "missing.wav").string(), 0.0, 1.0, {}));
     std::filesystem::remove_all(dir);
 }
+
+TEST_CASE("audio sound: where Slice cuts: transients and markers in every lap, the grid, bars, a range",
+          "[fast][audio-sound]")
+{
+    TempoMap tempo; // 120 BPM, 4/4
+    ClipInfo clip;
+    clip.kind = ClipInfo::Kind::Audio;
+    clip.start = 10.0;
+    clip.length = 4.0;
+    clip.offset = 1.0;
+    clip.sourceLength = clip.fileLength = 8.0;
+    // Its transients where it plays them; those before its offset, past its end or at its edges, not.
+    const std::vector<double> transients{0.5, 1.0, 1.5, 2.25, 4.995, 6.0};
+    CHECK(sliceTimes(clip, SliceAt::Transients, transients, 0.25, tempo) == std::vector<double>{10.5, 11.25});
+    // A reversed clip plays its file from the end: file 6.0 at 11.0, 4.995 at 12.005; 2.25 is past
+    // its end.
+    auto reversed = clip;
+    reversed.sound.reversed = true;
+    const auto backwards = sliceTimes(reversed, SliceAt::Transients, transients, 0.25, tempo);
+    REQUIRE(backwards.size() == 2);
+    CHECK(backwards[0] == Approx(11.0));
+    CHECK(backwards[1] == Approx(12.005));
+    // In a range of it only.
+    CHECK(sliceTimes(clip, SliceAt::Transients, transients, 0.25, tempo, std::pair{11.0, 14.0}) ==
+          std::vector<double>{11.25});
+    // Looped: in every lap.
+    auto looped = clip;
+    looped.loop = {1.0, 1.0};
+    looped.offset = 0.0;
+    CHECK(sliceTimes(looped, SliceAt::Transients, {1.0, 1.5}, 0.25, tempo) ==
+          std::vector<double>{10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5});
+    // Warp markers, while it warps (a file at the song's tempo plays as recorded).
+    auto warped = clip;
+    warped.warp.on = true;
+    warped.warp.tempo = 120.0;
+    warped.warp.markers = {{2.0, 4.0}, {3.0, 6.0}};
+    warped.beatsPerSecond = 2.0;
+    CHECK(sliceTimes(warped, SliceAt::Markers, {}, 0.25, tempo) == std::vector<double>{11.0, 12.0});
+    CHECK(sliceTimes(clip, SliceAt::Markers, {}, 0.25, tempo).empty()); // not warped: none play
+    // The song's grid (a beat: half a second) and its bars (two seconds).
+    CHECK(sliceTimes(clip, SliceAt::Grid, {}, 1.0, tempo) ==
+          std::vector<double>{10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5});
+    CHECK(sliceTimes(clip, SliceAt::Bars, {}, 1.0, tempo) == std::vector<double>{12.0});
+    clip.start = 9.9;
+    CHECK(sliceTimes(clip, SliceAt::Bars, {}, 1.0, tempo) == std::vector<double>{10.0, 12.0});
+    // Names, both ways.
+    for (const auto at : {SliceAt::Transients, SliceAt::Markers, SliceAt::Grid, SliceAt::Bars})
+        CHECK(sliceAtFromName(sliceAtName(at)) == at);
+    CHECK_FALSE(sliceAtFromName("everywhere"));
+}

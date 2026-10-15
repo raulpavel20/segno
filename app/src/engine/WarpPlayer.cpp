@@ -1,6 +1,7 @@
 #include "engine/WarpPlayer.h"
 
 #include "engine/ClipFades.h"
+#include "engine/SongKey.h"
 
 #include <algorithm>
 #include <array>
@@ -706,6 +707,73 @@ model::AudioPitch pitchOf(const juce::ValueTree& clip)
         std::clamp(static_cast<int>(clip.getProperty(warpIds::fine, 0)), -model::kMaxFine, model::kMaxFine)};
 }
 
+std::optional<std::optional<music::Key>> storedKeyOf(const juce::ValueTree& clip)
+{
+    if (!clip.hasProperty(keyIds::key))
+        return std::nullopt;
+    const auto text = clip[keyIds::key].toString();
+    const int space = text.indexOfChar(' ');
+    if (space <= 0)
+        return std::optional<music::Key>{};
+    music::Key key{text.substring(0, space).getIntValue(), text.substring(space + 1).toStdString()};
+    key.root = ((key.root % 12) + 12) % 12;
+    if (music::scaleOf(key) == nullptr)
+        return std::optional<music::Key>{};
+    return std::optional(key);
+}
+
+void writeStoredKey(juce::ValueTree& clip, const std::optional<std::optional<music::Key>>& key, bool found,
+                    juce::UndoManager* um)
+{
+    if (!key)
+    {
+        clip.removeProperty(keyIds::key, um);
+        clip.removeProperty(keyIds::found, um);
+        return;
+    }
+    clip.setProperty(keyIds::key,
+                     *key ? juce::String((*key)->root) + " " + juce::String((*key)->scale) : juce::String(),
+                     um);
+    if (found)
+        clip.setProperty(keyIds::found, true, um);
+    else
+        clip.removeProperty(keyIds::found, um);
+}
+
+bool followsKey(const juce::ValueTree& clip)
+{
+    return clip.getProperty(keyIds::follow, false);
+}
+
+int followStepsOf(const te::AudioClipBase& clip)
+{
+    if (!followsKey(clip.state))
+        return 0;
+    auto& c = const_cast<te::AudioClipBase&>(clip);
+    if (c.getAutoTempo() && warpOf(c).mode == model::WarpMode::Repitch)
+        return 0;
+    const auto stored = storedKeyOf(clip.state);
+    const auto song = songKeyOf(clip.edit);
+    if (!stored || !*stored || !song)
+        return 0;
+    return music::stepsToKey(**stored, *song);
+}
+
+double playedSemitones(const te::AudioClipBase& clip)
+{
+    return pitchOf(clip.state).semitones() + followStepsOf(clip);
+}
+
+void syncPitch(te::AudioClipBase& clip)
+{
+    const auto semitones = static_cast<float>(playedSemitones(clip));
+    if (clip.getPitchChange() == semitones)
+        return;
+    // Without Warp the engine's own reader transposes it, in real time.
+    clip.setUsesProxy(false);
+    clip.setPitchChange(semitones);
+}
+
 model::ContentMap contentMapOf(const te::AudioClipBase& clip)
 {
     model::ContentMap m;
@@ -757,7 +825,8 @@ bool affectsWarp(const juce::ValueTree& tree, const juce::Identifier& id)
         return true;
     return id == warpIds::tempo || id == warpIds::mode || id == warpIds::tails || id == warpIds::formants ||
            id == warpIds::sensitivity || id == warpIds::transpose || id == warpIds::fine ||
-           id == warpIds::transientsAdded || id == warpIds::transientsRemoved;
+           id == warpIds::transientsAdded || id == warpIds::transientsRemoved || id == keyIds::key ||
+           id == keyIds::follow;
 }
 
 std::vector<double> timesOf(const juce::var& text)
@@ -804,7 +873,7 @@ std::unique_ptr<te::graph::Node> makeWarpPlayer(te::AudioClipBase& clip, te::Tim
     // transposed), one piece runs on into the next exactly, and needs no cut.
     const double bps = clip.edit.tempoSequence.getBeatsPerSecondAt(clip.getPosition().getStart());
     const double beatsSpeed =
-        std::pow(2.0, (warp.mode == model::WarpMode::Repitch ? 0.0 : pitchOf(clip.state).semitones()) / 12.0);
+        std::pow(2.0, (warp.mode == model::WarpMode::Repitch ? 0.0 : playedSemitones(clip)) / 12.0);
     for (size_t i = 0; i < starts.size(); ++i)
     {
         Piece p;
@@ -844,7 +913,7 @@ std::unique_ptr<te::graph::Node> makeWarpPlayer(te::AudioClipBase& clip, te::Tim
     play.mode = warp.mode;
     play.tails = warp.tails;
     play.formants = warp.formants;
-    play.semitones = warp.mode == model::WarpMode::Repitch ? 0.0 : pitchOf(clip.state).semitones();
+    play.semitones = warp.mode == model::WarpMode::Repitch ? 0.0 : playedSemitones(clip);
     play.startBeat = clip.getStartBeat().inBeats();
     play.offsetBeats = clip.getOffsetInBeats().inBeats();
     if (clip.isLooping())

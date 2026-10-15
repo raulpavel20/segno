@@ -63,7 +63,8 @@ enum class Icon
     Bassline,   // low notes, stepping
     // The audio editor's tools (audio-editor.md §11).
     Normalise, // two levels raised to a line
-    Tempo      // beats found in a sound: hits along a line, a tick over each
+    Tempo,     // beats found in a sound: hits along a line, a tick over each
+    Slice      // a sound cut at its hits: three hits, each a piece of its own
 };
 
 /// Draws `icon` fitted (aspect kept) into `area` in `colour`.

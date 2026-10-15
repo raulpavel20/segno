@@ -713,10 +713,11 @@ TEST_CASE("audio editor: a warped clip's bar: its mode, its tempo, ×2 and ÷2; 
             if (c->isVisible() && !c->getBounds().isEmpty())
                 CHECK(header.getLocalBounds().contains(c->getBounds()));
         // The least used give way first (§4): each only after all before it.
-        const std::vector<juce::Component*> order{
-            &detail.normaliseButton(), &detail.doubleButton(),        &detail.tempoButton(),
-            &detail.reverseButton(),   &detail.warpModeButton(),      &detail.transposeField(),
-            &detail.gainField(),       &detail.audioQuantiseButton(), &detail.tempoField()};
+        const std::vector<juce::Component*> order{&detail.normaliseButton(),     &detail.doubleButton(),
+                                                  &detail.sliceButton(),         &detail.tempoButton(),
+                                                  &detail.reverseButton(),       &detail.warpModeButton(),
+                                                  &detail.transposeField(),      &detail.gainField(),
+                                                  &detail.audioQuantiseButton(), &detail.tempoField()};
         for (size_t i = 1; i < order.size(); ++i)
             if (header.isDropped(*order[i]))
                 for (size_t j = 0; j < i; ++j)
@@ -916,4 +917,111 @@ TEST_CASE("audio editor paints a 10-minute stereo file zooming, within the frame
               << ": avg " << sum / static_cast<double>(times.size()) << " ms, p95 "
               << times[times.size() * 95 / 100] << " ms" << std::endl;
     CHECK(times.back() > 0.0);
+}
+
+TEST_CASE(
+    "audio editor: Slice from its button: its cuts drawn as it's set, Apply cuts the clip into clips (P6c)",
+    "[integration][audio-p6c]")
+{
+    AudioFixture f;
+    f.session->impl().analyser.waitUntilIdle();
+    f.settle();
+    auto& detail = f.shell->detail();
+    auto& pane = detail.toolsPane();
+    auto& v = f.view();
+    // A hit every half second for 4 s: cut at each but the first, the clip's start.
+    detail.sliceButton().onClick();
+    REQUIRE(pane.isVisible());
+    CHECK(pane.chosen() == "slice");
+    CHECK(detail.sliceButton().getToggleState());
+    CHECK(pane.form().values().at("sensitivity") == Approx(50.0));
+    CHECK(v.slicePreview().size() == 7);
+    f.dump("audio-slice-tool@2x.png", detail);
+    // At bars: the loop's two, one cut.
+    pane.form().setValue("at", 3.0);
+    CHECK(v.slicePreview().size() == 1);
+    pane.form().setValue("at", 0.0);
+    CHECK(v.slicePreview().size() == 7);
+    // Apply: eight clips, one undo step; the preview goes. (A click comes after a pause, when
+    // tracktion has closed the step before: here the dumps above stand in for none.)
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(400);
+    pane.apply();
+    f.settle();
+    CHECK(f.clips().size() == 8);
+    CHECK(f.session->undoDescription() == "Slice");
+    CHECK(v.slicePreview().empty());
+    f.session->undo();
+    f.settle();
+    CHECK(f.clips().size() == 1);
+    // The button shows it again, and closes it; the Audio menu's Slice… opens it at Slice, and the
+    // waveform's right-click lists it.
+    detail.sliceButton().onClick();
+    CHECK(pane.chosen() == "slice");
+    detail.sliceButton().onClick();
+    CHECK_FALSE(pane.isVisible());
+    REQUIRE(f.shell->actions().perform("audio.slice"));
+    CHECK(pane.isVisible());
+    CHECK(pane.chosen() == "slice");
+    bool listed = false;
+    REQUIRE(v.menu);
+    const auto menu = v.menu();
+    for (juce::PopupMenu::MenuItemIterator it(menu); it.next();)
+        listed = listed || it.getItem().text.startsWith("Slice");
+    CHECK(listed);
+}
+
+TEST_CASE(
+    "audio editor: the inspector's Key: found, set by hand or none; Follow key with its step on it (P6c)",
+    "[integration][audio-p6c]")
+{
+    using fd::music::Key;
+    AudioFixture f;
+    // A file whose name gives its key, after the loop.
+    fd::testkit::AudioBuffer tone(2, 2 * 48000);
+    for (int i = 0; i < tone.numSamples(); ++i)
+        tone.at(0, i) = tone.at(1, i) = 0.3f * std::sin(static_cast<float>(i) * 0.0576f);
+    const auto file = f.root.getChildFile("Keys_Am.wav");
+    REQUIRE(fd::testkit::writeWav(file.getFullPathName().toStdString(), tone, 48000.0));
+    const auto keys = f.session->insertAudioFile(f.track, file, 8.0);
+    REQUIRE(keys != 0);
+    REQUIRE(f.session->setKey(Key{0, "major"}));
+    f.select(keys);
+    f.session->impl().analyser.waitUntilIdle();
+    f.settle();
+    auto& inspector = f.shell->inspector();
+    REQUIRE(inspector.audioKey().isVisible());
+    const auto dot = juce::String::fromUTF8(" \xC2\xB7 ");
+    CHECK(inspector.audioKey().getText() == "A minor" + dot + "found");
+    CHECK(inspector.audioFollow().isEnabled());
+    // Following: A minor has C major's notes, so it stays.
+    inspector.audioFollow().onClick();
+    f.settle();
+    CHECK(f.clip(keys).followKey);
+    CHECK(inspector.audioFollow().getToggleState());
+    CHECK(inspector.audioFollow().getButtonText() == "Follow");
+    // Set to D major by hand: two semitones down, shown on Follow.
+    inspector.audioKey().setSelectedId(10 + 2, juce::sendNotificationSync);
+    f.settle();
+    CHECK(f.clip(keys).key == Key{2, "major"});
+    CHECK_FALSE(f.clip(keys).keyFound);
+    CHECK(inspector.audioKey().getText() == "D major");
+    CHECK(inspector.audioFollow().getButtonText() == juce::String::fromUTF8("Follow \xE2\x88\x92"
+                                                                            "2"));
+    if (const char* dir = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dir, "audio-key-inspector@2x.png",
+                inspector.createComponentSnapshot(inspector.getLocalBounds(), true, 2.0f));
+    // The Audio menu's Follow key is ticked with it.
+    CHECK(f.shell->actions().isToggled("audio.followKey"));
+    // None: nothing to follow.
+    inspector.audioKey().setSelectedId(2, juce::sendNotificationSync);
+    f.settle();
+    CHECK_FALSE(f.clip(keys).key);
+    CHECK_FALSE(f.clip(keys).followKey);
+    CHECK_FALSE(inspector.audioFollow().isEnabled());
+    CHECK(inspector.audioKey().getText() == "None");
+    // Back to what's found.
+    inspector.audioKey().setSelectedId(1, juce::sendNotificationSync);
+    f.settle();
+    CHECK(f.clip(keys).key == Key{9, "minor"});
+    CHECK(f.clip(keys).keyFound);
 }

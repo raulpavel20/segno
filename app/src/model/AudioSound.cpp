@@ -1,6 +1,8 @@
 #include "model/AudioSound.h"
 
+#include "model/Editing.h"
 #include "model/Snapshot.h"
+#include "model/Takes.h"
 #include "model/Taper.h"
 
 #include <algorithm>
@@ -189,6 +191,91 @@ std::vector<LineSpan> fileSpans(const ClipInfo& clip, double from, double to)
                          { return std::abs(s.from - span.from) < 1e-9 && std::abs(s.to - span.to) < 1e-9; }))
             out.push_back(span);
     }
+    return out;
+}
+
+std::string whyCantSlice(const ClipInfo& clip, const TrackInfo& track)
+{
+    if (clip.stack != 0)
+        if (const auto* stack = track.stack(clip.stack); stack != nullptr && hasTakesToShow(*stack))
+            return "A clip with takes is cut as one: keep only the take you want first (Clip > Takes > Keep "
+                   "only this take).";
+    if (clip.kind != ClipInfo::Kind::Audio || clip.sourceLength <= 0.0)
+        return "This clip's audio file is missing.";
+    return {};
+}
+
+std::string sliceAtName(SliceAt at)
+{
+    switch (at)
+    {
+    case SliceAt::Transients:
+        return "transients";
+    case SliceAt::Markers:
+        return "markers";
+    case SliceAt::Grid:
+        return "grid";
+    case SliceAt::Bars:
+        return "bars";
+    }
+    return "transients";
+}
+
+std::optional<SliceAt> sliceAtFromName(const std::string& name)
+{
+    std::string lower;
+    for (const char c : name)
+        lower += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (const auto at : {SliceAt::Transients, SliceAt::Markers, SliceAt::Grid, SliceAt::Bars})
+        if (sliceAtName(at) == lower)
+            return at;
+    return std::nullopt;
+}
+
+std::vector<double> sliceTimes(const ClipInfo& clip, SliceAt at, const std::vector<double>& transients,
+                               double gridBeats, const TempoMap& tempo,
+                               std::optional<std::pair<double, double>> range)
+{
+    const double from = std::max(clip.start, range ? range->first : clip.start);
+    const double to = std::min(clip.end(), range ? range->second : clip.end());
+    std::vector<double> cuts;
+    if (at == SliceAt::Grid || at == SliceAt::Bars)
+    {
+        const double step = at == SliceAt::Bars ? tempo.beatsPerBar() : gridBeats;
+        if (!(step > 0.0))
+            return {};
+        for (double k = std::ceil(tempo.beatsForSeconds(from) / step - 1e-9);; k += 1.0)
+        {
+            const double t = tempo.secondsForBeats(k * step);
+            if (t >= to)
+                break;
+            cuts.push_back(t);
+        }
+    }
+    else
+    {
+        // Moments of its file, where each lap plays them.
+        std::vector<double> files;
+        if (at == SliceAt::Transients)
+            files = transients;
+        else if (clip.warp.on)
+            for (const auto& m : clip.warp.markers)
+                files.push_back(m.file);
+        const auto map = contentMap(clip);
+        for (const auto& lap : laps(clip, from, to))
+            for (const double file : files)
+            {
+                const double content = map.contentAt(file);
+                if (content >= lap.content - 1e-9 && content < lap.content + (lap.to - lap.from))
+                    cuts.push_back(lap.from + (content - lap.content));
+            }
+        std::sort(cuts.begin(), cuts.end());
+    }
+    std::vector<double> out;
+    for (const double t : cuts)
+        if (t >= from && t < to && t > clip.start + minClipLength - 1e-9 &&
+            t < clip.end() - minClipLength + 1e-9 && (out.empty() || t - out.back() >= minClipLength - 1e-9))
+            out.push_back(t);
     return out;
 }
 

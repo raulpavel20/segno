@@ -173,6 +173,8 @@ public:
     [[nodiscard]] juce::ComboBox& audioTails() noexcept { return audioTails_; }
     [[nodiscard]] ui::Toggle& audioFormants() noexcept { return audioFormants_; }
     [[nodiscard]] ui::NumberField& audioSensitivity() noexcept { return audioSensitivity_; }
+    [[nodiscard]] juce::ComboBox& audioKey() noexcept { return audioKey_; }
+    [[nodiscard]] ui::Toggle& audioFollow() noexcept { return audioFollow_; }
     void resized() override;
     void paint(juce::Graphics& g) override;
 
@@ -288,6 +290,13 @@ private:
         audioHalve_{juce::String::fromUTF8("\xC3\xB7"
                                            "2")};
     juce::ComboBox audioMode_, audioTails_;
+    /// Its key, found or set, with Follow key beside it (§8.2, §8.3). The list is made again when
+    /// what it offers changes (`keyItems_`).
+    juce::ComboBox audioKey_;
+    ui::Toggle audioFollow_{"Follow"};
+    juce::String keyItems_;
+    std::optional<music::Key> otherKey_; // a set key of another scale, listed as its own item
+    void refreshKey();
     std::optional<engine::Session::EditGroup> audioGesture_;
     TrackInputSection input_{session_};
     model::TempoMap tempo_;
@@ -380,6 +389,7 @@ public:
     // warps its mode, its tempo, ×2 and ÷2.
     [[nodiscard]] ui::Toggle& audioQuantiseButton() noexcept { return quantiseAudio_; }
     [[nodiscard]] ui::Toggle& tempoButton() noexcept { return tempoTool_; }
+    [[nodiscard]] ui::Toggle& sliceButton() noexcept { return slice_; }
     [[nodiscard]] ui::BarField& transposeField() noexcept { return transpose_; }
     [[nodiscard]] ui::Toggle& warpButton() noexcept { return warp_; }
     [[nodiscard]] ui::MenuButton& warpModeButton() noexcept { return warpMode_; }
@@ -430,7 +440,7 @@ private:
     /// the Audio menu; its tools; the clip's gain and Reverse.
     ui::Toggle split_{"Split"}, crop_{"Crop"}, silence_{"Silence"}, fadeRange_{"Fade"}, loopRange_{"Loop"};
     ui::MenuButton audioButton_{"Audio"};
-    ui::Toggle quantiseAudio_{"Quantise"}, tempoTool_{"Tempo"};
+    ui::Toggle quantiseAudio_{"Quantise"}, tempoTool_{"Tempo"}, slice_{"Slice"};
     ui::Toggle normalise_{"Normalise"};
     ui::BarField gain_{"Gain"}, transpose_{"Transpose"};
     ui::Toggle reverse_{"Reverse"};

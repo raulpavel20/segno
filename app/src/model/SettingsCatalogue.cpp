@@ -84,6 +84,11 @@ const std::vector<SettingInfo>& settingsCatalogue()
          "Recordings, bounces and comps follow the song's tempo if it changes: Warp on, at the tempo they "
          "were made at.",
          "warp stretch sync bpm tempo recording bounce"},
+        {"audioClips.loopsFollowKey", S::Audio, "Loops follow the key",
+         "A loop you place plays in the song's key, moved by the smallest step, if a key is found in it. "
+         "Each "
+         "clip's Follow key turns it on or off.",
+         "key transpose pitch scale harmonic loops"},
         {"midi.inputs", S::Midi, "MIDI inputs",
          "Which keyboards and controllers Segno listens to; one turned off is ignored everywhere.",
          "keyboard controller devices"},

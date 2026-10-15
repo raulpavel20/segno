@@ -3,6 +3,7 @@
 
 #include "engine/SessionImpl.h"
 #include "engine/SongKey.h"
+#include "engine/WarpPlayer.h"
 #include "model/SongKey.h"
 
 namespace fd::engine
@@ -31,6 +32,12 @@ bool Session::setKey(const std::optional<music::Key>& key)
         impl.keyBefore = before; // where this step began
     }
     writeSongKey(*impl.edit, normalised);
+    // Clips that follow the key move with it, in the same step (audio-editor.md §8.3).
+    for (auto* t : te::getAudioTracks(*impl.edit))
+        for (auto* c : t->getClips())
+            if (auto* audio = dynamic_cast<te::AudioClipBase*>(c);
+                audio != nullptr && followsKey(audio->state))
+                syncPitch(*audio);
     return true;
 }
 
@@ -60,6 +67,6 @@ std::vector<music::KeyCandidate> Session::detectKeys(const std::vector<std::uint
 {
     const auto s = snapshot();
     const auto notes = model::notesForKeyDetection(*s, clips);
-    return music::detectKeys(notes, count);
+    return music::detectKeys(notes, model::audioForKeyDetection(*s, clips), count);
 }
 } // namespace fd::engine

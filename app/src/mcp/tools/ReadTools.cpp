@@ -69,10 +69,17 @@ void addReadTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"get_clip", "Get a clip",
-         "One clip: kind, position, length, its loop and, for MIDI clips, every note (pitch, start and length in beats "
+         "One clip: kind, position, length, its loop and, for MIDI clips, every note (pitch, start and "
+         "length in beats "
          "from the clip's start, or from its loop's start while it loops; velocity 1-127).",
          object({{"clip", id(IdKind::Clip, "The clip")}}, {"clip"}), clipResultSchema(), reading},
-        [&env](const Json& args, CallContext&) { return ToolResult::ok(clipJson(env, clip(env, args["clip"]), true)); }));
+        [&env](const Json& args, CallContext&)
+        {
+            const auto info = clip(env, args["clip"]);
+            if (info.kind == model::ClipInfo::Kind::Audio) // its key found in the background, for next time
+                env.session.requestAnalysis(info.id);
+            return ToolResult::ok(clipJson(env, info, true));
+        }));
 
     registry.tools.push_back(make(env,
                                   {"get_module", "Get a module",

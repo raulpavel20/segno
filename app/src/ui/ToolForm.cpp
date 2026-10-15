@@ -409,8 +409,10 @@ void ToolForm::resized()
         auto line = juce::Rectangle<int>(s.propertyLabelWidth, y, width - s.propertyLabelWidth, s.rowHeight);
         y += s.rowHeight;
         // A field's text lines up with the labels' column, as the inspector's do.
-        // A number's text lines up with the other rows' values (a number with ×2 and ÷2 too).
+        // A number's or a menu's text lines up with the other rows' values (a number with ×2 and ÷2
+        // too): each draws its text a field's inset in.
         if (dynamic_cast<ui::NumberField*>(row.control.get()) != nullptr ||
+            dynamic_cast<ui::ChoiceField*>(row.control.get()) != nullptr ||
             dynamic_cast<HalveDouble*>(row.control.get()) != nullptr)
             line = line.withLeft(line.getX() - ui::NumberField::textInset);
         row.control->setBounds(line.withWidth(controlWidth(*row.setting)));

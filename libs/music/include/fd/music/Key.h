@@ -72,6 +72,12 @@ enum class Accidentals
 /// distance, the upper when `preferUp`, else the lower (§6, Fit to key).
 [[nodiscard]] int nearestInKey(const Key& key, int pitch, bool preferUp = false) noexcept;
 
+/// How many semitones a sound in `from` moves to play in `to` (Follow key,
+/// docs/design/audio-editor.md §8.3): the smallest step, −6 … +6, that puts the most of its notes
+/// on the key's. A key and its relative count as the same (an A minor loop in C major doesn't
+/// move); down where up does as well. 0 for an unknown scale.
+[[nodiscard]] int stepsToKey(const Key& from, const Key& to) noexcept;
+
 /// A pitch class from a note's name: "C", "F#", "Gb", "G♭", "e flat", "Bb" (any case). Null for
 /// anything else.
 [[nodiscard]] std::optional<int> parsePitchClass(std::string_view name) noexcept;

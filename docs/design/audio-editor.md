@@ -598,3 +598,56 @@ The product owner chose the piece player and asked for the Release reading (poin
 - **Previews in time** (browser.md R8): the browser's previews play at the file's speed; following the tempo needs the preview player to stretch.
 - **A marker drag heard as it moves:** the waveform follows the drag; the sound follows on release (the graph is rebuilt per change).
 
+## 24. P6c built: the clip's key, Follow key and Slice (2026-10-16)
+
+Started at the product owner's word ("Start work on P6c") with P6b's hands-on review still to come. Settled while building:
+
+### 24.1 The clip's key (§8.2)
+
+- **Found in its sound** (`fd::dsp::PitchClassCounter`, streamed with the transients, from the file's first two minutes): the spectral peaks of 0.3 s frames between 50 Hz and 5 kHz, each counted at its pitch to a tenth of a semitone. The file's tuning is read from where they gather (A = 432 Hz reads 30 cents flat, its notes still themselves), then they fold into twelve pitch classes.
+- **When the sound has a key:** it must be pitched, with 60 % or more of its peaks' energy within 15 cents of a semitone. Chords score 0.8 and more, noise and drums about 0.3. Then its best major or minor key (Krumhansl–Kessler, as for notes) must fit at 0.6 or more, 0.08 better than every key but its relative. A held note fits A major and A minor alike, so it has none; so do drums and noise.
+- **The file's own say first:** an acid chunk's or an AIFF's root note, in the mode its name gives that root, else the one its sound fits better there, else major; then a key in its name ("Am", "F#min", "Ebmaj", "C# minor", "Bb_major": a root and its quality standing alone; a root alone, "Kick C", isn't one); then its sound.
+- **The clip's key is one of three things:** what's found ("A minor · found", or "None found", "Finding…" while it's being found), a key set by hand, or None.
+- **Set in the inspector's Key row:** a list with what's found, None, then the twelve major and twelve minor keys. Assistants can set any scale ("D dorian"); one set that way is listed too. Follow sits beside it (§24.2).
+- **The Key popover's "From your notes"** weighs audio clips with a key (key-and-scale.md §11). Each counts as its key's notes held as long as it plays, the tonic and the fifth most. Clips that follow the song's key say nothing of their own, so they're left out.
+- **Measured on generated material:** chord progressions in C major, A minor and F♯ major are found; a held tone, drums and noise have no key. Real loops will tell how well the thresholds hold: they're constants beside the code that uses them, easy to tune.
+
+### 24.2 Follow key (§8.3)
+
+- **The step:** the smallest one, −6 … +6, that puts the most of the clip's notes onto the song key's. A key and its relative count as the same: an A minor loop in C major doesn't move, a C major one in C minor moves up 3. A tritone goes down. Any song scale works the same way: a C major loop in D Dorian stays.
+- **The key it follows is pinned:** turning Follow on keeps the clip's key (what's found, unless one is set) on the clip, so what it plays never changes by itself. Turned off, a found key pinned for it goes back to following what's found.
+- **What it moves:** its step adds to Transpose and Fine, in the engine's transposition for a clip without Warp and in the piece player for a warped one. Repitch has none: its speed sets its pitch.
+- **When the song's key changes,** clips that follow it move in the same undo step, and back with it on undo. A take kept aside meanwhile moves when it's used.
+- **In the inspector:** Follow is lit while the clip follows, and shows its step ("Follow −2"). Without a key it's dimmed, saying to set one; with no song key, it says the clip moves once there is one.
+- **Placed loops:** with Settings › Audio › "Loops follow the key" (off), a loop placed with a key found in it follows the song's.
+
+### 24.3 Slice (§9)
+
+- **On the bar:** Slice is a button of its own in the tools' group: Tempo, Normalise, Slice. At narrow widths it gives way after ×2 and ÷2, before Tempo (§4's order).
+- **In the Tools pane:**
+  - **At:** Transients, Warp markers, Grid (the editor's step) or Bars.
+  - **Sensitivity:** the clip's, shown at Transients only.
+  - **Into:** left out until M4's Sampler gives it a second choice. A setting with one value doesn't earn its row.
+- **While it's set:** each cut is a line across the rows in `active`, with a tag at the first ("8 slices"). At Transients, the ticks follow the sensitivity.
+- **Where it cuts:**
+  - in the range, or the whole clip without one;
+  - in every lap of a looped clip;
+  - never within `minClipLength` of an edge or of another cut.
+- **Apply** is one undo step, "Slice". The parts meet seamlessly, so the track nulls against the clip unsliced (−120 dB). The editor shows the first part.
+- **A clip with takes is refused,** saying why: its parts would move as one (ADR 0032).
+- **Also reached from:** Audio ▸ Slice… and the waveform's right-click.
+
+### 24.4 With it
+
+- **Assistants:**
+  - `set_audio` gains `key` ("A minor", "F#m", "D dorian", "none", "found") and `followKey`. A clip with no key to follow is named in the result's note.
+  - `get_clip` gives `key`, `keyFound` and `followKey` (`on`, `steps`), and starts finding a clip's file in the background.
+  - `detect_key` reads audio clips, finding their keys now.
+  - `transform_audio` runs Slice, listing every part.
+  - `set_key` says that clips following the key move with it.
+- **The Tools pane's menus** (Slice's At, Tempo's Then, the piano roll's) now line up their text with the number rows', as the inspector's do.
+- **Not yet:**
+  - Several audio clips in AUDIO (§21.2).
+  - Slices into a Sampler (M4).
+  - A key along the song: Follow key reads the song's one key.
+

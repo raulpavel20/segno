@@ -105,7 +105,8 @@ std::string toJson(const AppSettings& s)
     j["display"] = {{"interfaceSize", s.display.interfaceSize}, {"systemTitleBar", s.display.systemTitleBar}};
     j["midi"] = {{"computerKeyboard", s.midi.computerKeyboard}};
     j["audioClips"] = {{"loopsFollowTempo", s.audioClips.loopsFollowTempo},
-                       {"recordingsFollowTempo", s.audioClips.recordingsFollowTempo}};
+                       {"recordingsFollowTempo", s.audioClips.recordingsFollowTempo},
+                       {"loopsFollowKey", s.audioClips.loopsFollowKey}};
     j["recording"] = {{"format", formatKey(s.recording.format)}, {"bitDepth", s.recording.bitDepth}};
     j["library"] = {{"location", s.library.location},
                     {"folder", s.library.folder},
@@ -152,6 +153,7 @@ AppSettings appSettingsFromJson(const std::string& json)
     {
         read(*it, "loopsFollowTempo", s.audioClips.loopsFollowTempo);
         read(*it, "recordingsFollowTempo", s.audioClips.recordingsFollowTempo);
+        read(*it, "loopsFollowKey", s.audioClips.loopsFollowKey);
     }
     if (const auto it = j.find("recording"); it != j.end() && it->is_object())
     {

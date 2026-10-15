@@ -1,5 +1,6 @@
 #pragma once
 
+#include "model/AudioSound.h"
 #include "model/NoteToolkit.h"
 #include "model/Warp.h"
 
@@ -11,7 +12,7 @@ namespace fd::model
 /// The audio editor's tools (docs/design/audio-editor.md §11): each described once, as data, with
 /// the note tools' types, so the Tools pane builds itself from the description and assistants check
 /// their arguments against it. Their runs are the Session's (they change clips, not notes). Normalise
-/// came with P6a, Quantise and Tempo with P6b; Slice comes with P6c.
+/// came with P6a, Quantise and Tempo with P6b, Slice with P6c.
 [[nodiscard]] const std::vector<ToolSpec>& audioTools();
 [[nodiscard]] const ToolSpec* findAudioTool(std::string_view id) noexcept;
 
@@ -38,4 +39,12 @@ struct TempoChoice
     bool songTempo = false;
 };
 [[nodiscard]] TempoChoice tempoChoice(const ToolValues& values);
+
+/// Slice's settings (§9): where it cuts, and the sensitivity it shows (the clip's, 0 … 1).
+struct SliceChoice
+{
+    SliceAt at = SliceAt::Transients;
+    double sensitivity = 0.5;
+};
+[[nodiscard]] SliceChoice sliceChoice(const ToolValues& values);
 } // namespace fd::model

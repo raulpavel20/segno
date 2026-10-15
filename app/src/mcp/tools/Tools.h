@@ -124,6 +124,14 @@ Json projectJson(ToolEnv& env);
 /// The song's key (ADR 0057): root, scale, name and notes, ASCII accidentals; null for none.
 Json keyJson(const std::optional<music::Key>& key);
 Json keyResultSchema();
+/// An audio clip's key as set_audio takes it (audio-editor.md §8.2): a root and a scale ("A minor",
+/// "F#m", "D dorian"), "none", or "found" (what's found in its file); else a Problem.
+struct ClipKeyArg
+{
+    bool found = false;
+    std::optional<music::Key> key;
+};
+ClipKeyArg clipKeyArg(const Json& value);
 Json transportJson(ToolEnv& env);
 Json trackJson(ToolEnv& env, const model::TrackInfo& track, bool notes = false);
 /// A track's inputs and arm state (recording.md §12), and the inputs there are.

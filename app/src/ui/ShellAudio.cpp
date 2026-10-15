@@ -303,6 +303,44 @@ void Shell::registerAudioActions()
                       .whyNot = whyNoClips,
                       .keysFrom = keys});
 
+    // Follow key (§8.3): ticked as the first clip has it. A clip with no key found can't follow.
+    actions_.add({.id = "audio.followKey",
+                  .name = "Follow key",
+                  .category = "Audio",
+                  .perform =
+                      [this]
+                  {
+                      const auto clips = audioTargets();
+                      if (clips.empty())
+                          return;
+                      const bool on = !clips.front().followKey;
+                      session_.setWarp(idsOf(clips), {.followKey = on}, "Follow key");
+                      session_.updateSnapshotNow();
+                      if (on && std::none_of(clips.begin(), clips.end(),
+                                             [this](const auto& c)
+                                             {
+                                                 const auto found =
+                                                     model::findClip(*session_.snapshot(), c.id);
+                                                 return found && found->first->followKey;
+                                             }))
+                          showWarning("No key was found in the clip: set its key in the inspector first.");
+                  },
+                  .isEnabled = hasClips,
+                  .isToggled =
+                      [this]
+                  {
+                      const auto clips = audioTargets();
+                      return !clips.empty() && clips.front().followKey;
+                  },
+                  .whyNot = whyNoClips});
+    // Slice… (§9): the Tools pane at it.
+    actions_.add({.id = "audio.slice",
+                  .name = asks("Slice"),
+                  .category = "Audio",
+                  .perform = openAudioTool("slice"),
+                  .isEnabled = hasClips,
+                  .whyNot = whyNoClips});
+
     // View > Waveform height ▸ (§4, §13): the level column's drag and double-click, by menu.
     const auto shown = [this] { return detail_.showsAudioClip(); };
     const auto whyNotShown = [] { return juce::String("Show an audio clip in the clip view first"); };
@@ -379,6 +417,7 @@ juce::PopupMenu Shell::audioContextMenu()
     menu.addSubMenu("Gain", gain);
     actions_.addMenuItem(menu, "audio.normalise");
     actions_.addMenuItem(menu, "audio.reverse");
+    actions_.addMenuItem(menu, "audio.slice");
     menu.addSeparator();
     menu.addSubMenu("Audio", detail_.audioMenu ? detail_.audioMenu() : juce::PopupMenu());
     menu.addSubMenu("Grid", detail_.pianoRoll().gridMenu()); // the clip view's (ADR 0047)

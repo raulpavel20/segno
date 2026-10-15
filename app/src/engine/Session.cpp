@@ -645,6 +645,12 @@ void Session::Impl::rebuildSnapshot()
                 clip.analysis = analyser.peek(forwardFileOf(*audio));
                 clip.transientsAdded = timesOf(c->state[warpIds::transientsAdded]);
                 clip.transientsRemoved = timesOf(c->state[warpIds::transientsRemoved]);
+                // Its key (P6c): set by hand or pinned, else what's found.
+                const auto stored = storedKeyOf(c->state);
+                clip.key = stored ? *stored : (clip.analysis != nullptr ? clip.analysis->key : std::nullopt);
+                clip.keyFound = !stored || static_cast<bool>(c->state.getProperty(keyIds::found, false));
+                clip.followKey = followsKey(c->state);
+                clip.followSteps = followStepsOf(*audio);
             }
             if (audition && std::find(audition->muted.begin(), audition->muted.end(), clip.id) != audition->muted.end())
                 clip.muted = false; // muted only while its take is auditioned
@@ -1328,9 +1334,15 @@ std::uint64_t Session::insertAudioFile(std::uint64_t trackId, const juce::File& 
     impl_->keepFirstTempo(*clip);
     // A loop plays in time (audio-editor.md §7.2): Warp on at its tempo, in the mode its sound
     // chooses. Anything else plays at its file's speed.
-    if (impl_->loopsFollowTempo)
+    if (impl_->loopsFollowTempo || impl_->loopsFollowKey)
         if (const auto loop = impl_->loopTempo(*clip))
-            setWarp({id}, {.on = true, .mode = loop->second, .tempo = loop->first}, "Insert audio file");
+        {
+            if (impl_->loopsFollowTempo)
+                setWarp({id}, {.on = true, .mode = loop->second, .tempo = loop->first}, "Insert audio file");
+            // And in key, when asked (§8.3): a loop with a key follows the song's.
+            if (impl_->loopsFollowKey)
+                setWarp({id}, {.followKey = true}, "Insert audio file");
+        }
     const double end = impl_->clip(id) != nullptr ? impl_->clip(id)->getPosition().getEnd().inSeconds()
                                                   : start.inSeconds() + audio.getLength();
     impl_->clearUnder(*track, start.inSeconds(), end, {id});

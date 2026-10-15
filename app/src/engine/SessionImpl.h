@@ -128,7 +128,7 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// A file's analysis arrived: clips that play it are shown again, and Beats ones played again.
     void analysisFound(const std::string& path);
     /// What follows the tempo when it's placed or made (Settings › Audio, audio-editor.md §7.2).
-    bool loopsFollowTempo = true, recordingsFollowTempo = true;
+    bool loopsFollowTempo = true, recordingsFollowTempo = true, loopsFollowKey = false;
     /// A file placed that's a loop: the tempo it warps at, and the mode its sound chooses.
     [[nodiscard]] std::optional<std::pair<double, model::WarpMode>> loopTempo(te::AudioClipBase& clip);
     /// A clip recorded, bounced or comped: Warp on at the song's tempo (with the setting).
@@ -136,6 +136,8 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// A clip placed keeps the tempo Warp would use (§7.1) from the start, so what the editor shows
     /// and what Warp does agree.
     void keepFirstTempo(te::AudioClipBase& clip);
+    /// A WarpChange's key and Follow key on one clip (§8.2, §8.3), in the current undo step.
+    void changeKey(te::AudioClipBase& clip, const Session::WarpChange& change);
     PreviewPlayer preview;
     std::vector<std::string> browserPlaces;
     juce::File segnoFolder = defaultSegnoFolder();

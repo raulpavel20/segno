@@ -1,9 +1,48 @@
 #include "engine/FileAnalyser.h"
 
+#include "model/Browser.h"
+
+#include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_events/juce_events.h>
 
 namespace fd::engine
 {
+namespace
+{
+/// The root note a file's loop metadata gives (§8.2): a WAV's acid chunk, an AIFF's, when it's set.
+std::optional<int> metadataRoot(const juce::File& file)
+{
+    thread_local const auto formats = []
+    {
+        auto m = std::make_unique<juce::AudioFormatManager>();
+        m->registerBasicFormats();
+        return m;
+    }();
+    const std::unique_ptr<juce::AudioFormatReader> reader(formats->createReaderFor(file));
+    if (reader == nullptr)
+        return std::nullopt;
+    const auto& meta = reader->metadataValues;
+    if (meta.getValue(juce::WavAudioFormat::acidRootSet, "0").getIntValue() != 0)
+        return meta.getValue(juce::WavAudioFormat::acidRootNote, "0").getIntValue();
+    if (meta.getValue(juce::AiffAudioFormat::appleRootSet, "0").getIntValue() != 0)
+        return meta.getValue(juce::AiffAudioFormat::appleKey, "0").getIntValue();
+    return std::nullopt;
+}
+
+/// What's found in a file, its key from its metadata and name as well as its sound.
+std::shared_ptr<const model::FileAnalysis> analyse(const std::string& path)
+{
+    auto found = model::analyseFile(path);
+    if (!found)
+        return nullptr;
+    const juce::File file(path);
+    found->key = model::fileKey(metadataRoot(file),
+                                model::keyFromName(file.getFileNameWithoutExtension().toStdString()),
+                                &found->pitchClasses);
+    return std::make_shared<const model::FileAnalysis>(std::move(*found));
+}
+} // namespace
+
 FileAnalyser::FileAnalyser() : juce::Thread("Segno file analysis")
 {
     startThread(juce::Thread::Priority::low);
@@ -60,9 +99,7 @@ std::shared_ptr<const model::FileAnalysis> FileAnalyser::now(const juce::File& f
                                                  (it->second.found != nullptr || it->second.failed))
             return it->second.found;
     }
-    auto found = model::analyseFile(path);
-    std::shared_ptr<const model::FileAnalysis> shared =
-        found ? std::make_shared<const model::FileAnalysis>(std::move(*found)) : nullptr;
+    const auto shared = analyse(path);
     std::lock_guard lock(mutex_);
     auto& e = entries_[path];
     if (!e.queued) // the background's, when it's on its way, lands as well
@@ -103,9 +140,7 @@ void FileAnalyser::run()
             wait(-1);
             continue;
         }
-        auto found = model::analyseFile(path);
-        std::shared_ptr<const model::FileAnalysis> shared =
-            found ? std::make_shared<const model::FileAnalysis>(std::move(*found)) : nullptr;
+        const auto shared = analyse(path);
         {
             std::lock_guard lock(mutex_);
             auto& e = entries_[path];
