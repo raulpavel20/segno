@@ -80,8 +80,9 @@ void addModuleTools(Registry& registry, ToolEnv& env)
          "preset "
          "you name (list_presets). Into a rack's chain with rack and chain; type \"rack\" adds an empty rack "
          "(racks.md). A modulator (\"mod-lfo\", \"mod-random\", \"mod-envelope\", \"mod-follower\", "
-         "\"mod-steps\") goes in a channel's own chain (not into a rack's); route_modulator gives it what it "
-         "moves. "
+         "\"mod-steps\") goes in a channel's chain or a rack's (moving only what's in the rack); "
+         "route_modulator "
+         "gives it what it moves. "
          "Returns the new module with its parameters.",
          object(
              {{"track", id(IdKind::Track, "The track, return track or master")},
@@ -98,13 +99,8 @@ void addModuleTools(Registry& registry, ToolEnv& env)
         [&env](const Json& args, CallContext&)
         {
             const auto t = channel(env, args["track"]); // modules go on tracks, returns and the master
-            // A modulator (modulators.md §16): where it's asked for along a track's chain.
+            // A modulator (modulators.md §16): where it's asked for, in a channel's chain or a rack's.
             const auto modulator = modulatorType(args["type"].get<std::string>());
-            if (modulator)
-            {
-                if (args.contains("rack"))
-                    throw Problem{"Modulators go in a track's own chain for now, not into a rack's."};
-            }
             if (lower(args["type"].get<std::string>()) == "rack")
             {
                 std::uint64_t rack = 0;

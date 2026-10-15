@@ -485,11 +485,21 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     static inline const juce::Identifier chainId{"fdChain"}, chainMixerId{"fdChainMixer"},
         chainNameId{"fdChainName"}, chainOnId{"fdChainOn"}, chainSoloId{"fdChainSolo"},
         shownChainId{"fdShownChain"};
+    /// One item of a channel's chain as the views show it: a module or a modulator.
+    struct ChainItem
+    {
+        te::Plugin* plugin = nullptr;
+        Modulator* modulator = nullptr;
+        [[nodiscard]] std::uint64_t id() const;
+    };
     struct RackChain
     {
         juce::ValueTree mixer; // its mixer's PLUGININSTANCE: the chain's name, on and solo
         te::VolumeAndPanPlugin* volume = nullptr;
         std::vector<te::Plugin*> modules;
+        /// Its modulators (modulators.md §14), and everything in it in order as the views show it.
+        std::vector<Modulator*> modulators;
+        std::vector<ChainItem> items;
         [[nodiscard]] bool on() const { return static_cast<bool>(mixer.getProperty(chainOnId, true)); }
         [[nodiscard]] bool solo() const { return static_cast<bool>(mixer.getProperty(chainSoloId, false)); }
     };
@@ -501,7 +511,26 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     [[nodiscard]] static std::vector<te::Plugin*> rackModules(const te::RackType& rack);
     /// Connects a rack as its chains say: its input to each chain's first module, module to
     /// module, each chain's mixer to its output while the chain is on (and soloed, if any is).
+    /// A modulator taps the chain where it sits: what comes there (notes, sound) goes into it too.
     static void wireRack(te::RackType& rack, juce::UndoManager* um);
+    /// Puts a rack's chain in `order` (its modules and modulators, all of them), as arrangeChain
+    /// does a track's: the modules in that order, each modulator placed before the module after it.
+    void arrangeRackChain(te::RackType& rack, int chain, const std::vector<ChainItem>& order);
+    /// The racks in the song, as their instances play them.
+    [[nodiscard]] std::vector<te::RackType*> rackTypes() const;
+    /// The rack a modulator is in (null: a track's chain).
+    [[nodiscard]] te::RackType* rackOf(const Modulator& modulator) const;
+    /// A rack type's instance in the song (racks have one each).
+    [[nodiscard]] te::RackInstance* instanceOf(const te::RackType& rack) const;
+    /// Puts a modulator in a rack's chain, before the item now at `index` of its items (-1: the
+    /// end), from wherever it is; its routes leaving the rack go (§14). How many went.
+    int putModulatorInRack(te::RackType& rack, Modulator& modulator, int chain, int index);
+    /// Takes a modulator out of its rack into its track's chain at `index` (-1: the end).
+    void takeModulatorOutOfRack(Modulator& modulator, te::Track& track, int index);
+    /// Whether a parameter is in a rack: a module's in it, or its macros and Morph.
+    [[nodiscard]] bool inRack(const te::RackType& rack, const te::AutomatableParameter& param) const;
+    /// A modulator's slot as the snapshot lists it.
+    [[nodiscard]] model::DeviceSlot modulatorSlot(const Modulator& modulator) const;
     /// The rack instance with this id, or holding this module (null if none).
     [[nodiscard]] te::RackInstance* rackInstance(std::uint64_t id) const;
     [[nodiscard]] te::RackInstance* rackHolding(const te::Plugin& module) const;
@@ -562,13 +591,6 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     // before the plugin it's placed before (fdBefore): the chain's order is the plugins' with each
     // modulator before the plugin it names, and those placed before the mixer (or nothing) after
     // the last module. A route is the modulator's assignment on a parameter, its value the amount.
-    /// One item of a channel's chain as the views show it: a module or a modulator.
-    struct ChainItem
-    {
-        te::Plugin* plugin = nullptr;
-        Modulator* modulator = nullptr;
-        [[nodiscard]] std::uint64_t id() const;
-    };
     /// A track's chain with its modulators where they sit.
     [[nodiscard]] static std::vector<ChainItem> chainItems(te::Track& track);
     /// Puts a track's chain in `order` (its modules and modulators, all of them): the modules in
@@ -605,6 +627,9 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// Whether routing `from` to `param` would make a loop: `param` is one of `from`'s own, or of a
     /// modulator that moves `from`, however far round (modulators.md §8).
     [[nodiscard]] bool wouldLoop(const Modulator& from, const te::AutomatableParameter& param) const;
+    /// Whether a modulator may move a parameter on its track: no loop, and in a rack only what's
+    /// in the rack (§14).
+    [[nodiscard]] bool canMove(const Modulator& from, const te::AutomatableParameter& param) const;
     /// Each modulator's copies (Per Target) counted from its routes: after routes change, a load,
     /// undo or redo.
     void refreshModulatorRoutes();
@@ -629,6 +654,8 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     Session::ModulatorPointer modulatorPointer;
     /// The modulator whose handle was hovered or dragged last: a ring's drag sets its route (§7.2).
     std::uint64_t lastModulator = 0;
+    /// Routes the last move or grouping into a rack removed (Session::lastDroppedRoutes).
+    int droppedRoutes = 0;
     /// A control's look while modulators move it or one is dragged over it (modulators.md §7.4).
     [[nodiscard]] std::optional<ui::ParamBinding::Modulated>
     modulatedLook(te::AutomatableParameter& param) const;

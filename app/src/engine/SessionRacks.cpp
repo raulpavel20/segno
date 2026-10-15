@@ -4,6 +4,7 @@
 
 #include "engine/DevicePlugin.h"
 #include "engine/SessionImpl.h"
+#include "model/Modulators.h"
 #include "model/Racks.h"
 
 #include <fd/device/Registry.h>
@@ -124,9 +125,42 @@ std::vector<Session::Impl::RackChain> Session::Impl::rackChains(const te::RackTy
         else
             chain.modules.push_back(p);
     }
+    // Its modulators (modulators.md §14): each in its chain, before the module it's placed before;
+    // those placed before none (or a module no longer there) at the chain's end.
+    for (auto* m : rack.getModifierList().getModifiers())
+        if (auto* mod = dynamic_cast<Modulator*>(m))
+            byNumber[static_cast<int>(mod->state.getProperty(Modulator::rackChainId, 0))]
+                .modulators.push_back(mod);
     std::vector<RackChain> chains;
     for (auto& [number, chain] : byNumber)
+    {
+        if (!chain.mixer.isValid() && chain.volume == nullptr && chain.modules.empty())
+        {
+            // Modulators of a chain that's gone: the last chain's, at its end.
+            if (!chains.empty())
+                chains.back().modulators.insert(chains.back().modulators.end(), chain.modulators.begin(),
+                                                chain.modulators.end());
+            continue;
+        }
         chains.push_back(std::move(chain));
+    }
+    for (auto& c : chains)
+    {
+        std::vector<bool> placed(c.modulators.size(), false);
+        for (auto* p : c.modules)
+        {
+            for (size_t i = 0; i < c.modulators.size(); ++i)
+                if (!placed[i] && c.modulators[i]->place() == p->itemID)
+                {
+                    c.items.push_back({nullptr, c.modulators[i]});
+                    placed[i] = true;
+                }
+            c.items.push_back({p, nullptr});
+        }
+        for (size_t i = 0; i < c.modulators.size(); ++i)
+            if (!placed[i])
+                c.items.push_back({nullptr, c.modulators[i]});
+    }
     return chains;
 }
 
@@ -148,20 +182,28 @@ void Session::Impl::wireRack(te::RackType& rack, juce::UndoManager* um)
         std::any_of(chains.begin(), chains.end(), [](const RackChain& c) { return c.solo(); });
     for (const auto& c : chains)
     {
-        std::vector<te::Plugin*> all = c.modules;
-        if (c.volume != nullptr)
-            all.push_back(c.volume);
-        if (all.empty())
+        if (c.modules.empty() && c.volume == nullptr)
             continue;
-        // MIDI (pin 0) and audio (1, 2) from the rack's input, module to module, to its output.
-        for (int pin = 0; pin <= 2; ++pin)
-            wanted.insert({te::EditItemID(), pin, all.front()->itemID, pin});
-        for (size_t i = 0; i + 1 < all.size(); ++i)
+        // MIDI (pin 0) and audio (1, 2) from the rack's input, module to module, to its output. A
+        // modulator takes what comes where it sits, and passes nothing on.
+        te::EditItemID from; // the rack's input
+        for (const auto& item : c.items)
+        {
+            const auto to = item.plugin != nullptr ? item.plugin->itemID : item.modulator->itemID;
             for (int pin = 0; pin <= 2; ++pin)
-                wanted.insert({all[i]->itemID, pin, all[i + 1]->itemID, pin});
+                wanted.insert({from, pin, to, pin});
+            if (item.plugin != nullptr)
+                from = to;
+        }
+        if (c.volume != nullptr)
+        {
+            for (int pin = 0; pin <= 2; ++pin)
+                wanted.insert({from, pin, c.volume->itemID, pin});
+            from = c.volume->itemID;
+        }
         if (c.on() && (!soloed || c.solo()))
             for (int pin = 1; pin <= 2; ++pin)
-                wanted.insert({all.back()->itemID, pin, te::EditItemID(), pin});
+                wanted.insert({from, pin, te::EditItemID(), pin});
     }
     // Only what changed, so an unchanged chain keeps playing as it was.
     std::vector<Connection> unwanted;
@@ -276,6 +318,17 @@ bool Session::Impl::putInRack(te::RackType& rack, const te::Plugin::Ptr& module,
     place.setProperty(chainId, chain, um);
     if (before.isValid())
         rack.state.moveChild(rack.state.indexOf(place), rack.state.indexOf(before), um);
+    // Along a chain with modulators, `index` counts them too (modulators.md §14).
+    if (const auto after = rackChains(rack); !after[static_cast<size_t>(chain)].modulators.empty())
+    {
+        std::vector<ChainItem> order;
+        for (const auto& item : after[static_cast<size_t>(chain)].items)
+            if (item.plugin != keep.get())
+                order.push_back(item);
+        const auto at = index < 0 ? order.size() : std::min(order.size(), static_cast<size_t>(index));
+        order.insert(order.begin() + static_cast<std::ptrdiff_t>(at), ChainItem{keep.get(), nullptr});
+        arrangeRackChain(rack, chain, order);
+    }
     return true;
 }
 
@@ -326,8 +379,12 @@ void Session::Impl::removeRack(te::RackInstance& instance)
     const te::RackType::Ptr type = instance.type;
     dropLanesOf(instance.itemID.getRawID());
     if (type != nullptr)
+    {
         for (auto* m : rackModules(*type))
             dropLanesOf(m->itemID.getRawID());
+        for (auto* m : type->getModifierList().getModifiers()) // its modulators' (§14)
+            dropLanesOf(m->itemID.getRawID());
+    }
     instance.removeFromParent();
     if (type != nullptr)
         edit->getRackList().removeRackType(type);
@@ -353,8 +410,9 @@ Session::Impl::rackInfo(te::RackInstance& instance,
         chain.solo = c.solo();
         chain.volumeDb = volumeDb(c.volume);
         chain.pan = c.volume != nullptr ? c.volume->pan.get() : 0.0f;
-        for (auto* m : c.modules)
-            chain.devices.push_back(slotOf(*m));
+        for (const auto& item : c.items) // its modulators where they sit (modulators.md §14)
+            chain.devices.push_back(item.plugin != nullptr ? slotOf(*item.plugin)
+                                                           : modulatorSlot(*item.modulator));
         info->chains.push_back(std::move(chain));
     }
     info->shownChain = std::clamp(static_cast<int>(instance.state.getProperty(shownChainId, 0)), 0,
@@ -753,21 +811,40 @@ juce::String newRackName(te::Edit& edit)
 
 std::uint64_t Session::groupIntoRack(const std::vector<std::uint64_t>& modules)
 {
+    impl_->droppedRoutes = 0;
     if (modules.empty())
         return 0;
-    // Every one in one channel's own chain (not in a rack), and none a rack.
+    // Every one in one channel's own chain (not in a rack), and none a rack; its modulators come
+    // along (modulators.md §14).
     te::PluginList* list = nullptr;
+    te::Track* track = nullptr;
     std::vector<te::Plugin::Ptr> picked;
+    std::set<std::uint64_t> pickedModulators;
     for (auto id : modules)
     {
+        if (auto* m = impl_->modulator(id))
+        {
+            auto* t = impl_->trackOf(*m);
+            if (t == nullptr || impl_->rackOf(*m) != nullptr || (track != nullptr && t != track))
+                return 0;
+            track = t;
+            pickedModulators.insert(id);
+            continue;
+        }
         auto* p = impl_->plugin(id);
         if (p == nullptr || p->isInRack() || Impl::rackTypeOf(p) != nullptr || p->getOwnerList() == nullptr)
             return 0;
         if (list != nullptr && p->getOwnerList() != list)
             return 0;
+        auto* t = impl_->chainTrackOf(*p);
+        if (track != nullptr && t != nullptr && t != track)
+            return 0;
+        track = t != nullptr ? t : track;
         list = p->getOwnerList();
         picked.push_back(p);
     }
+    if (picked.empty())
+        return 0; // a rack holds modules; modulators alone move into one
     // In their order in the chain; the rack goes where the first was.
     const auto order = Impl::chain(*list);
     std::sort(picked.begin(), picked.end(),
@@ -777,10 +854,18 @@ std::uint64_t Session::groupIntoRack(const std::vector<std::uint64_t>& modules)
                          std::find(order.begin(), order.end(), b.get());
               });
     const int at = list->indexOf(picked.front().get());
-    // A track's modulators stay where they sit, the rack in the first module's place.
-    auto* track = impl_->chainTrackOf(*picked.front());
-    auto items =
-        track != nullptr && modulated(*track) ? Impl::chainItems(*track) : std::vector<Impl::ChainItem>{};
+    // A track's modulators stay where they sit, but for those grouped; the rack in the first
+    // grouped item's place.
+    auto items = track != nullptr && (modulated(*track) || !pickedModulators.empty())
+                     ? Impl::chainItems(*track)
+                     : std::vector<Impl::ChainItem>{};
+    const auto isPicked = [&](const Impl::ChainItem& item)
+    {
+        if (item.modulator != nullptr)
+            return pickedModulators.contains(item.modulator->itemID.getRawID());
+        return std::any_of(picked.begin(), picked.end(),
+                           [&](const auto& p) { return p.get() == item.plugin; });
+    };
 
     impl_->beginEdit("Group into rack");
     auto rack = impl_->makeRack(newRackName(*impl_->edit));
@@ -788,6 +873,28 @@ std::uint64_t Session::groupIntoRack(const std::vector<std::uint64_t>& modules)
         return 0;
     for (const auto& p : picked)
         impl_->putInRack(*rack, p, 0, -1);
+    // The modulators, in the chain's order among the modules grouped with them.
+    std::vector<Impl::ChainItem> rackOrder;
+    for (const auto& item : items)
+        if (isPicked(item))
+            rackOrder.push_back(item);
+    std::vector<std::uint64_t> moving;
+    for (const auto& item : rackOrder)
+        if (item.modulator != nullptr)
+            moving.push_back(item.modulator->itemID.getRawID());
+    for (const auto id : moving)
+        if (auto* m = impl_->modulator(id))
+            impl_->droppedRoutes += impl_->putModulatorInRack(*rack, *m, 0, -1);
+    if (!moving.empty())
+    {
+        std::vector<Impl::ChainItem> wanted;
+        for (const auto& item : rackOrder)
+            wanted.push_back(item.plugin != nullptr ? item
+                                                    : Impl::ChainItem{nullptr, impl_->modulator(item.id())});
+        if (std::all_of(wanted.begin(), wanted.end(),
+                        [](const auto& w) { return w.plugin != nullptr || w.modulator != nullptr; }))
+            impl_->arrangeRackChain(*rack, 0, wanted);
+    }
     Impl::wireRack(*rack, &impl_->edit->getUndoManager());
     auto instance = impl_->edit->getPluginCache().getOrCreatePluginFor(te::RackInstance::create(*rack));
     if (instance == nullptr)
@@ -795,14 +902,11 @@ std::uint64_t Session::groupIntoRack(const std::vector<std::uint64_t>& modules)
     list->insertPlugin(instance, std::min(at, list->size()), nullptr);
     if (!items.empty())
     {
-        const auto isPicked = [&](const Impl::ChainItem& item)
-        {
-            return std::any_of(picked.begin(), picked.end(),
-                               [&](const auto& p) { return p.get() == item.plugin; });
-        };
         const auto first = std::find_if(items.begin(), items.end(), isPicked);
         *first = Impl::ChainItem{instance.get(), nullptr};
-        items.erase(std::remove_if(items.begin(), items.end(), isPicked), items.end());
+        items.erase(std::remove_if(items.begin(), items.end(), [&](const auto& item)
+                                   { return item.plugin != instance.get() && isPicked(item); }),
+                    items.end());
         impl_->arrangeChain(*track, items);
     }
     return idOf(*instance);
@@ -820,14 +924,27 @@ std::vector<std::uint64_t> Session::ungroupRack(std::uint64_t rackId)
     const int shown = std::clamp(static_cast<int>(instance->state.getProperty(Impl::shownChainId, 0)), 0,
                                  static_cast<int>(chains.size()) - 1);
     impl_->beginEdit("Ungroup rack");
-    // The shown chain's modules, out of the rack and into the chain where it was, in order; their
-    // macros' mappings go (each parameter keeps its value now). A track's modulators stay where
-    // they sit.
-    std::vector<te::Plugin::Ptr> out(chains[static_cast<size_t>(shown)].modules.begin(),
-                                     chains[static_cast<size_t>(shown)].modules.end());
+    // The shown chain's modules and modulators, out of the rack and into the chain where it was,
+    // in order; their macros' mappings go (each parameter keeps its value now), and the
+    // modulators' routes to the rack's macros. A track's modulators stay where they sit.
+    const auto& shownChain = chains[static_cast<size_t>(shown)];
+    std::vector<te::Plugin::Ptr> out(shownChain.modules.begin(), shownChain.modules.end());
+    std::vector<std::uint64_t> shownItems; // in order: the modules' and modulators' ids
+    for (const auto& item : shownChain.items)
+        shownItems.push_back(item.id());
     auto* track = impl_->chainTrackOf(*instance);
-    auto items =
-        track != nullptr && modulated(*track) ? Impl::chainItems(*track) : std::vector<Impl::ChainItem>{};
+    auto items = track != nullptr && (modulated(*track) || !shownChain.modulators.empty())
+                     ? Impl::chainItems(*track)
+                     : std::vector<Impl::ChainItem>{};
+    for (auto* m : shownChain.modulators)
+        for (const auto& r : impl_->routesOf(*m))
+            if (dynamic_cast<te::MacroParameter*>(r.param.param) != nullptr)
+                r.param.param->removeModifier(*r.assignment);
+    // The other chains' modulators go with the rack: their lanes first.
+    for (size_t c = 0; c < chains.size(); ++c)
+        if (static_cast<int>(c) != shown)
+            for (auto* m : chains[c].modulators)
+                impl_->dropLanesOf(m->itemID.getRawID());
     int at = list->indexOf(instance);
     std::vector<std::uint64_t> placed;
     for (const auto& p : out)
@@ -835,9 +952,13 @@ std::vector<std::uint64_t> Session::ungroupRack(std::uint64_t rackId)
         impl_->unmapFrom(*p, *type);
         p->removeFromParent();
         list->insertPlugin(p, at++, nullptr);
-        placed.push_back(idOf(*p));
     }
+    if (track != nullptr)
+        for (auto* m : shownChain.modulators)
+            impl_->takeModulatorOutOfRack(*m, *track, -1);
     impl_->removeRack(*instance);
+    for (const auto id : shownItems)
+        placed.push_back(id);
     if (!items.empty())
     {
         std::vector<Impl::ChainItem> order;
@@ -845,8 +966,11 @@ std::vector<std::uint64_t> Session::ungroupRack(std::uint64_t rackId)
             if (item.plugin != keepInstance.get())
                 order.push_back(item);
             else
-                for (const auto& p : out)
-                    order.push_back({p.get(), nullptr});
+                for (const auto id : shownItems)
+                    if (auto* m = impl_->modulator(id))
+                        order.push_back({nullptr, m});
+                    else if (auto* p = impl_->plugin(id))
+                        order.push_back({p, nullptr});
         impl_->arrangeChain(*track, order);
     }
     return placed;
@@ -894,9 +1018,20 @@ std::optional<Session::ChainPlace> Session::placeOf(std::uint64_t deviceId) cons
     if (auto* m = impl_->modulator(deviceId))
     {
         auto* track = impl_->trackOf(*m);
-        return track != nullptr ? std::optional(ChainPlace{track->itemID.getRawID(), 0, 0,
-                                                           Impl::chainIndexOf(*track, deviceId)})
-                                : std::nullopt;
+        if (track == nullptr)
+            return std::nullopt;
+        if (auto* rack = impl_->rackOf(*m)) // in a rack's chain (§14)
+        {
+            const auto chains = Impl::rackChains(*rack);
+            auto* instance = impl_->instanceOf(*rack);
+            for (size_t c = 0; c < chains.size(); ++c)
+                for (size_t i = 0; i < chains[c].items.size(); ++i)
+                    if (chains[c].items[i].modulator == m && instance != nullptr)
+                        return ChainPlace{track->itemID.getRawID(), idOf(*instance), static_cast<int>(c),
+                                          static_cast<int>(i)};
+            return std::nullopt;
+        }
+        return ChainPlace{track->itemID.getRawID(), 0, 0, Impl::chainIndexOf(*track, deviceId)};
     }
     auto* p = impl_->plugin(deviceId);
     if (p == nullptr)
@@ -911,8 +1046,8 @@ std::optional<Session::ChainPlace> Session::placeOf(std::uint64_t deviceId) cons
     {
         const auto chains = Impl::rackChains(*rack->type);
         for (size_t c = 0; c < chains.size(); ++c)
-            for (size_t i = 0; i < chains[c].modules.size(); ++i)
-                if (chains[c].modules[i] == p)
+            for (size_t i = 0; i < chains[c].items.size(); ++i) // its modulators counted (§14)
+                if (chains[c].items[i].plugin == p)
                     return ChainPlace{channelOf(*rack), idOf(*rack), static_cast<int>(c),
                                       static_cast<int>(i)};
         return std::nullopt;
@@ -960,11 +1095,30 @@ bool Session::moveDevice(std::uint64_t deviceId, const ChainPlace& place)
     const auto from = placeOf(deviceId);
     if (auto* m = impl_->modulator(deviceId))
     {
-        // Along its own track's chain; not into a rack, for now (modulators.md §14).
+        // Within its own channel: along its chain, into a rack's chain, or out of it (§14).
         auto* track = impl_->trackOf(*m);
-        if (track == nullptr || !from || place.rack != 0 ||
-            (place.channel != 0 && place.channel != from->channel))
+        if (track == nullptr || !from || (place.channel != 0 && place.channel != from->channel))
             return false;
+        auto* target = place.rack != 0 ? impl_->rackInstance(place.rack) : nullptr;
+        if (place.rack != 0 &&
+            (target == nullptr || target->type == nullptr || impl_->chainTrackOf(*target) != track))
+            return false;
+        if (target != nullptr || from->rack != 0)
+            impl_->beginEdit("Move " + m->getName());
+        if (target != nullptr)
+        {
+            // Along its own chain in the rack, the place counts as if it had left first.
+            int index = place.index;
+            if (from->rack == place.rack && from->chain == place.chain && index > from->index)
+                --index;
+            impl_->droppedRoutes = impl_->putModulatorInRack(*target->type, *m, place.chain, index);
+            return true;
+        }
+        if (from->rack != 0)
+        {
+            impl_->takeModulatorOutOfRack(*m, *track, place.index);
+            return true;
+        }
         int index = place.index < 0 ? static_cast<int>(Impl::chainItems(*track).size()) : place.index;
         if (index > from->index)
             --index;
@@ -1067,6 +1221,15 @@ bool Session::removeRackChain(std::uint64_t rackId, int chain)
     impl_->beginEdit("Remove chain");
     auto* um = &impl_->edit->getUndoManager();
     const auto& c = chains[static_cast<size_t>(chain)];
+    // Its modulators and their routes go with it (modulators.md §14).
+    for (auto* m : c.modulators)
+    {
+        impl_->dropLanesOf(m->itemID.getRawID());
+        for (const auto& r : impl_->routesOf(*m))
+            r.param.param->removeModifier(*r.assignment);
+        auto state = m->state;
+        state.getParent().removeChild(state, um);
+    }
     for (auto* m : c.modules)
     {
         impl_->dropLanesOf(idOf(*m));
@@ -1074,13 +1237,16 @@ bool Session::removeRackChain(std::uint64_t rackId, int chain)
     }
     if (c.volume != nullptr)
         c.volume->removeFromParent();
-    // The chains after it move up one.
+    // The chains after it move up one, their modulators with them.
     for (auto* p : rack.getPlugins())
     {
         auto place = p->state.getParent();
         if (const int n = place.getProperty(Impl::chainId, 0); n > chain)
             place.setProperty(Impl::chainId, n - 1, um);
     }
+    for (auto* m : rack.getModifierList().getModifiers())
+        if (const int n = m->state.getProperty(Modulator::rackChainId, 0); n > chain)
+            m->state.setProperty(Modulator::rackChainId, n - 1, um);
     Impl::wireRack(rack, um);
     const int shown = instance->state.getProperty(Impl::shownChainId, 0);
     if (shown >= chain && shown > 0)
@@ -1537,6 +1703,49 @@ bool Session::saveRack(std::uint64_t rackId, const juce::File& file, std::string
                               {"pan", chain.pan},
                               {"modules", std::move(modules)}});
     }
+    // Its modulators (modulators.md §14), each in its chain before the module it sits before (by
+    // its place: -1, the end), with its settings and its routes inside the rack: to a module (by
+    // its chain and place), a macro or Morph.
+    for (size_t c = 0; c < chains.size() && c < chainsJson.size(); ++c)
+    {
+        nlohmann::json modulators = nlohmann::json::array();
+        for (size_t i = 0; i < chains[c].items.size(); ++i)
+        {
+            auto* m = chains[c].items[i].modulator;
+            if (m == nullptr)
+                continue;
+            int before = -1;
+            for (size_t j = i + 1; j < chains[c].items.size() && before < 0; ++j)
+                if (auto* p = chains[c].items[j].plugin)
+                    if (const auto at = places.find(p->itemID.getRawID()); at != places.end())
+                        before = at->second.second;
+            nlohmann::json routes = nlohmann::json::array();
+            for (const auto& r : impl_->routesOf(*m))
+            {
+                nlohmann::json route{{"amount", r.assignment->value.get()}};
+                if (r.param.device == rackId)
+                    route["macro"] = r.param.paramId; // "macro1" ... "morph"
+                else if (const auto at = places.find(r.param.device); at != places.end())
+                {
+                    route["chain"] = at->second.first;
+                    route["module"] = at->second.second;
+                    route["param"] = r.param.paramId;
+                }
+                else
+                    continue;
+                routes.push_back(std::move(route));
+            }
+            modulators.push_back(
+                {{"type", std::string(m->info().id)},
+                 {"name", m->getName().toStdString()},
+                 {"on", m->enabledParam == nullptr || m->enabledParam->getCurrentValue() >= 0.5f},
+                 {"before", before},
+                 {"state", toJson(Impl::modulatorState(*m))},
+                 {"routes", std::move(routes)}});
+        }
+        if (!modulators.empty())
+            chainsJson[c]["modulators"] = std::move(modulators);
+    }
     json["chains"] = std::move(chainsJson);
     nlohmann::json macros = nlohmann::json::array();
     for (const auto& macro : info.macros)
@@ -1726,6 +1935,41 @@ Session::LoadedRack Session::loadRack(const juce::File& file, const ChainPlace& 
         if (macro.value("locked", false))
             rack.getMacroParameters()[static_cast<int>(i)]->state.setProperty(Impl::lockedId, true, um);
     }
+    // Its modulators (modulators.md §14): made on the track, moved into their chains where they
+    // sat, set up, and routed inside the rack.
+    for (size_t c = 0; c < chainsJson.size(); ++c)
+        for (const auto& mj : chainsJson[c].value("modulators", nlohmann::json::array()))
+        {
+            const auto kind = model::modulatorKind(mj.value("type", std::string()));
+            if (!kind)
+                continue;
+            const auto id = addModulator(place.channel, *kind, -1);
+            auto* m = impl_->modulator(id);
+            if (m == nullptr)
+                continue;
+            if (auto state = stateFromJson(mj.value("state", nlohmann::json::object())))
+                impl_->applyModulatorState(*m, *state, {});
+            if (!mj.value("on", true) && m->enabledParam != nullptr)
+                m->enabledParam->setParameter(0.0f, juce::sendNotificationSync);
+            // Before the module it sat before: its place among the chain's items now.
+            int index = -1;
+            if (const auto before = ids.find({static_cast<int>(c), mj.value("before", -1)});
+                before != ids.end())
+                if (const auto at = placeOf(before->second); at && at->rack == rackId)
+                    index = at->index;
+            impl_->putModulatorInRack(rack, *m, static_cast<int>(c), index);
+            for (const auto& r : mj.value("routes", nlohmann::json::array()))
+            {
+                std::string key;
+                if (r.contains("macro"))
+                    key = "m" + std::to_string(rackId) + "/" + r["macro"].get<std::string>();
+                else if (const auto module = ids.find({r.value("chain", 0), r.value("module", 0)});
+                         module != ids.end())
+                    key = "m" + std::to_string(module->second) + "/" + r.value("param", std::string());
+                if (!key.empty())
+                    routeModulator(id, {place.channel, key}, r.value("amount", 0.5f));
+            }
+        }
     // Its snapshots and Morph (racks.md §18.9); a file from before step 2 has none.
     if (const auto snapshotsJson = json.value("snapshots", nlohmann::json::array()); !snapshotsJson.empty())
     {

@@ -5,6 +5,7 @@
 #include "mcp/tools/Tools.h"
 #include "model/Chance.h"
 #include "model/Modulators.h"
+#include "model/Racks.h"
 
 #include <cmath>
 
@@ -50,6 +51,11 @@ double percent(float amount)
                       "), not another's: put a modulator on that track."};
     if (p.target.key.rfind("m" + std::to_string(m.id) + "/", 0) == 0)
         throw Problem{m.name + " can't move its own " + p.name + "."};
+    if (const auto* rack = model::rackHolding(owner.devices, m.id))
+        throw Problem{
+            m.name + " is in " + rack->name +
+            ": a rack's modulator moves only what's in the rack "
+            "(its modules, macros and Morph). Move it out of the rack (move_module) to reach the rest."};
     throw Problem{"That would make a loop: " + p.name + " moves " + m.name +
                   ", through the modulators between them. Route another parameter, or remove a route first."};
 }

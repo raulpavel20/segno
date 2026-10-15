@@ -1331,6 +1331,13 @@ void Shell::registerActions()
             showWarning(juce::String::fromUTF8(error.c_str()));
     };
     detail_.chain().onSaveRack = saveRack;
+    // Modulators grouped into a rack keep only routes inside it (modulators.md §14).
+    detail_.chain().onRoutesDropped = [this](int routes)
+    {
+        showToast(juce::String(routes) + (routes == 1 ? " route" : " routes") +
+                      " left the rack and were removed: a rack's modulators move what's in it",
+                  "Undo", [this] { actions_.perform("edit.undo"); });
+    };
     actions_.add({.id = "module.saveRack",
                   .name = "Save rack",
                   .category = "Module",

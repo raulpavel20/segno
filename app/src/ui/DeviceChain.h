@@ -70,6 +70,9 @@ public:
     void saveSelectedRackAs();
     /// A rack was renamed to be saved (Save rack as…): the shell writes its file.
     std::function<void(std::uint64_t rack)> onSaveRack;
+    /// Modulators went into a rack and their routes leaving it went (modulators.md §14): the shell
+    /// says how many, with Undo.
+    std::function<void(int routes)> onRoutesDropped;
     /// The selected rack as the snapshot has it (null: none selected).
     [[nodiscard]] const model::RackInfo* selectedRackInfo() const;
     /// Renames the selected rack's current snapshot in place (Rename snapshot…, racks.md §18.2).

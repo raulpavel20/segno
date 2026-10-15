@@ -137,13 +137,22 @@ struct Chain
         return *held;
     }
 
-    /// A module's panel in the chain: the chain shows the snapshot's order, left to right.
+    /// A module's panel in the chain: the chain shows the snapshot's order, left to right, a rack's
+    /// shown chain after its panel.
     fd::ui::DevicePanel* panelOf(std::uint64_t module)
     {
         std::vector<fd::ui::DevicePanel*> panels;
         collect(*chain, panels);
+        std::erase_if(panels, [](auto* p) { return !p->isVisible(); });
         std::sort(panels.begin(), panels.end(), [](auto* a, auto* b) { return a->getX() < b->getX(); });
-        const auto ids = order();
+        std::vector<std::uint64_t> ids;
+        for (const auto& d : session->snapshot()->channel(t)->devices)
+        {
+            ids.push_back(d.id);
+            if (d.rack != nullptr && !d.rack->chains.empty())
+                for (const auto& m : d.rack->chains[static_cast<size_t>(d.rack->shownChain)].devices)
+                    ids.push_back(m.id);
+        }
         for (size_t i = 0; i < panels.size() && i < ids.size(); ++i)
             if (ids[i] == module)
                 return panels[i];
@@ -663,4 +672,61 @@ TEST_CASE(
     CHECK(best < 120.0); // a Debug build: an order of magnitude slower, still no stall
 #endif
     WARN("8 modulators, 32 routes: refresh and paint " << best << " ms");
+}
+
+TEST_CASE(
+    "modulators in the chain view: dragged into a rack's frame by the header, its routes leaving the rack "
+    "said; inside, its handle reaches only the rack's controls (§14)",
+    "[integration][modulators][ui]")
+{
+    Chain f;
+    auto& s = *f.session;
+    const auto utility = s.addDevice(f.t, "fd:utility");
+    const auto filter = s.addDevice(f.t, "fd:filter");
+    const auto lfo = s.addModulator(f.t, Kind::Lfo); // at the end
+    const auto rack = s.groupIntoRack({utility});
+    REQUIRE(rack != 0);
+    REQUIRE(s.routeModulator(lfo, f.target(filter, "freq"), 0.5f));  // outside the rack-to-be
+    REQUIRE(s.routeModulator(lfo, f.target(utility, "gain"), 0.5f)); // inside it
+    int toasted = -1;
+    f.chain->onRoutesDropped = [&](int routes) { toasted = routes; };
+    f.show();
+
+    // Its header dragged into the rack's frame, after the Utility.
+    auto* panel = f.chain->modulatorPanel(lfo);
+    REQUIRE(panel != nullptr);
+    auto* utilityPanel = f.panelOf(utility);
+    REQUIRE(utilityPanel != nullptr);
+    const auto grab = panel->nameArea().getCentre().toFloat();
+    REQUIRE(panel->isDragHandle(grab.toInt()));
+    const auto into =
+        f.chain->content().getLocalArea(utilityPanel, utilityPanel->getLocalBounds()).getCentre();
+    const auto atPanel =
+        panel->getLocalPoint(&f.chain->content(), into.translated(utilityPanel->getWidth() / 2 - 4, 0));
+    f.chain->mouseDown(mouseAt(*panel, grab, grab, false));
+    f.chain->mouseDrag(mouseAt(*panel, atPanel.toFloat(), grab, true));
+    f.chain->content().repaint();
+    f.shot("into-rack");
+    f.chain->mouseUp(mouseAt(*panel, atPanel.toFloat(), grab, true));
+    const auto place = s.placeOf(lfo);
+    REQUIRE(place);
+    CHECK(place->rack == rack);
+    CHECK(toasted == 1); // the Filter's Freq, outside, went
+    f.show();
+
+    // Its panel inside the frame now (made again: it's another object in the engine).
+    panel = f.chain->modulatorPanel(lfo);
+    REQUIRE(panel != nullptr);
+    const auto frames = f.chain->frames();
+    REQUIRE(frames.size() == 1);
+    CHECK(frames[0].bounds.contains(panel->getBounds()));
+    f.shot("in-rack");
+
+    // Its handle over the Filter's Freq (outside): nothing would take it; over the rack's macro,
+    // it would.
+    auto* freq = f.knob(filter, "freq");
+    const auto c = freq->getLocalBounds().getCentre().toFloat();
+    panel->onHandleDrag(mouseAt(*freq, c, c, true));
+    CHECK_FALSE(s.modulatorPointer().over.has_value());
+    panel->onHandleCancel();
 }

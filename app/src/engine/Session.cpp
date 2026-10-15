@@ -578,22 +578,6 @@ void Session::Impl::rebuildSnapshot()
         }
         return slot;
     };
-    // A modulator in a track's chain (modulators.md): where it sits, its routes and its roll.
-    const auto modulatorSlot = [&](const Modulator& m)
-    {
-        model::DeviceSlot slot;
-        slot.id = m.itemID.getRawID();
-        slot.kind = model::DeviceSlot::Kind::Modulator;
-        slot.name = m.getName().toStdString();
-        slot.deviceId = std::string(m.info().id);
-        slot.enabled = m.enabledParam == nullptr || m.enabledParam->getCurrentValue() >= 0.5f;
-        slot.modulator = modulatorInfo(m);
-        // A Follower listens where it sits, or to another track (§12.4), as a sidechain.
-        slot.takesSidechain = m.kind() == model::ModulatorKind::Follower;
-        if (const auto source = m.getSidechainSourceID(); source.isValid())
-            slot.sidechainSource = source.getRawID();
-        return slot;
-    };
     refreshModulatorRoutes(); // their copies, after whatever changed (a load, undo, a route)
     auto devicesOf = [&](te::PluginList& list, model::TrackInfo& info, te::Track* track)
     {
@@ -1689,8 +1673,11 @@ void Session::removeDevice(std::uint64_t deviceId)
         for (const auto& r : impl_->routesOf(*m))
             r.param.param->removeModifier(*r.assignment);
         impl_->dropLanesOf(deviceId);
+        auto* rack = impl_->rackOf(*m);
         te::Modifier::Ptr keep(m);
         m->remove();
+        if (rack != nullptr) // its rack's chain no longer taps into it
+            Impl::wireRack(*rack, &impl_->edit->getUndoManager());
         impl_->refreshModulatorRoutes();
         return;
     }
@@ -1727,8 +1714,27 @@ void Session::removeDevice(std::uint64_t deviceId)
                 if (lane.getChild(i).hasType(Impl::assignId) &&
                     lane.getChild(i)[Impl::keyId].toString().startsWith(juce::String(prefix)))
                     lane.removeChild(i, &impl_->edit->getUndoManager());
-        p->removeFromParent();
+        // In a rack's chain with modulators: they stay where they sit (§14).
+        std::optional<std::pair<int, std::vector<Impl::ChainItem>>> order;
         if (rack != nullptr)
+        {
+            const auto chains = Impl::rackChains(*rack);
+            for (size_t c = 0; c < chains.size(); ++c)
+                if (!chains[c].modulators.empty() &&
+                    std::find(chains[c].modules.begin(), chains[c].modules.end(), p) !=
+                        chains[c].modules.end())
+                {
+                    std::vector<Impl::ChainItem> items;
+                    for (const auto& item : chains[c].items)
+                        if (item.plugin != p)
+                            items.push_back(item);
+                    order.emplace(static_cast<int>(c), std::move(items));
+                }
+        }
+        p->removeFromParent();
+        if (order)
+            impl_->arrangeRackChain(*rack, order->first, order->second);
+        else if (rack != nullptr)
             Impl::wireRack(*rack, &impl_->edit->getUndoManager()); // its chain closes up
     }
 }
@@ -1736,6 +1742,16 @@ void Session::removeDevice(std::uint64_t deviceId)
 void Session::moveDevice(std::uint64_t deviceId, int index)
 {
     // Along a track's chain with modulators (modulators.md §6): every item where it was but this.
+    // In a rack's chain, along it.
+    if (auto* m = impl_->modulator(deviceId); m != nullptr && impl_->rackOf(*m) != nullptr)
+    {
+        if (auto place = placeOf(deviceId))
+        {
+            place->index = index >= place->index ? index + 1 : index;
+            moveDevice(deviceId, *place);
+        }
+        return;
+    }
     {
         auto* m = impl_->modulator(deviceId);
         auto* moving = impl_->plugin(deviceId);
@@ -1794,8 +1810,8 @@ std::vector<std::uint64_t> Session::sidechainSources(std::uint64_t deviceId) con
     auto* m = p == nullptr ? impl_->modulator(deviceId) : nullptr;
     te::Track* owner = p != nullptr ? p->getOwnerTrack() : m != nullptr ? impl_->trackOf(*m) : nullptr;
     if (owner == nullptr || (p != nullptr && !takesSidechain(*p)) ||
-        (m != nullptr && m->kind() != model::ModulatorKind::Follower))
-        return {};
+        (m != nullptr && (m->kind() != model::ModulatorKind::Follower || impl_->rackOf(*m) != nullptr)))
+        return {}; // a Follower in a rack listens where it sits
     // A track can't feed this module if its own sound already depends on the module's track:
     // it, or a track it takes a sidechain from (and so on), is that track.
     // Sources are tracks; returns wait for routing work with racks (ADR 0026).
@@ -1831,7 +1847,7 @@ bool Session::setSidechainSource(std::uint64_t deviceId, std::optional<std::uint
     // A Follower's Listen (modulators.md §12.4): one undo step; the graph is rebuilt.
     if (auto* m = impl_->modulator(deviceId))
     {
-        if (m->kind() != model::ModulatorKind::Follower)
+        if (m->kind() != model::ModulatorKind::Follower || (trackId && impl_->rackOf(*m) != nullptr))
             return false;
         te::EditItemID source;
         if (trackId)

@@ -119,6 +119,8 @@ public:
     static const juce::Identifier copyId, placeId, keptRollId;
     /// The track a Follower listens to (absent: where it sits). The Session sets it.
     static const juce::Identifier listenId;
+    /// In a rack (modulators.md §14): the rack's chain it's in (its place, `placeId`, in it).
+    static const juce::Identifier rackChainId;
 
 private:
     struct Timer;

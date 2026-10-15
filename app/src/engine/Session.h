@@ -560,6 +560,9 @@ public:
     };
     void setModulatorPointer(const ModulatorPointer& pointer);
     [[nodiscard]] const ModulatorPointer& modulatorPointer() const;
+    /// The routes the last move or grouping of modulators into a rack removed: those leaving the
+    /// rack (§14). The views say so, with Undo.
+    [[nodiscard]] int lastDroppedRoutes() const;
     /// Whether a modulator could move a parameter: on its track, not its own, no loop.
     [[nodiscard]] bool canRoute(std::uint64_t modulator, const ParamTarget& target) const;
     /// The route a drag of a control's ring sets (§7.2): the one of the modulator whose handle was

@@ -10,6 +10,7 @@
 #include "fd/testkit/Signals.h"
 #include "fd/testkit/WavIO.h"
 #include "model/Modulators.h"
+#include "model/Racks.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -450,4 +451,119 @@ TEST_CASE("modulators (session): the master has them too, placed among its modul
     s.moveDevice(lfo, 1);
     s.updateSnapshotNow();
     CHECK(s.snapshot()->master.devices[1].id == lfo);
+}
+
+namespace
+{
+/// A rack's chains as the snapshot has them: each its items' ids in order.
+std::vector<std::vector<std::uint64_t>> rackChainsOf(Modulators& f, std::uint64_t rack)
+{
+    std::vector<std::vector<std::uint64_t>> out;
+    const auto* d = model::findDevice(f.info(f.t).devices, rack);
+    REQUIRE(d != nullptr);
+    REQUIRE(d->rack != nullptr);
+    for (const auto& c : d->rack->chains)
+    {
+        auto& ids = out.emplace_back();
+        for (const auto& m : c.devices)
+            ids.push_back(m.id);
+    }
+    return out;
+}
+} // namespace
+
+TEST_CASE("modulators (session): in a rack, grouped with their modules, moving only what's in it (§14)",
+          "[integration][modulators]")
+{
+    Modulators f;
+    auto& s = *f.session;
+    const auto utility = s.addDevice(f.t, "fd:utility");
+    const auto lfo = s.addModulator(f.t, Kind::Lfo, 0); // before the Utility
+    const auto filter = s.addDevice(f.t, "fd:filter");
+    REQUIRE(s.routeModulator(lfo, f.target(utility, "gain"), 0.5f));
+    REQUIRE(s.routeModulator(lfo, f.target(filter, "freq"), 0.5f)); // left outside
+    f.setModulator(lfo, Lfo::Rate, 8.0f);
+    const double free = f.swingDb();
+    CHECK(free > 3.0);
+
+    // Grouped, the LFO with the Utility: in the rack's chain before it; its route to the Filter,
+    // outside, goes (and says so); its route to the Utility stays; the sound is the same.
+    const auto rack = s.groupIntoRack({lfo, utility});
+    REQUIRE(rack != 0);
+    CHECK(s.lastDroppedRoutes() == 1);
+    CHECK(f.chainOf(f.t) == std::vector<std::uint64_t>{rack, filter});
+    CHECK(rackChainsOf(f, rack) == std::vector<std::vector<std::uint64_t>>{{lfo, utility}});
+    const auto place = s.placeOf(lfo);
+    REQUIRE(place);
+    CHECK(place->rack == rack);
+    CHECK(place->index == 0);
+    {
+        const auto inRack = model::findDevice(f.info(f.t).devices, lfo);
+        REQUIRE(inRack != nullptr);
+        REQUIRE(inRack->modulator != nullptr);
+        REQUIRE(inRack->modulator->routes.size() == 1);
+        CHECK(inRack->modulator->routes[0].key == f.target(utility, "gain").key);
+    }
+    CHECK(f.swingDb() == Approx(free).margin(0.5));
+    // A rack's modulator moves only what's in the rack: its macros yes, the Filter no.
+    CHECK_FALSE(s.canRoute(lfo, f.target(filter, "freq")));
+    CHECK(s.canRoute(lfo, {f.t, "m" + std::to_string(rack) + "/macro1"}));
+    s.undo();
+    CHECK(f.chainOf(f.t) == std::vector<std::uint64_t>{lfo, utility, filter});
+    CHECK(f.slot(lfo).modulator->routes.size() == 2);
+    s.redo();
+    {
+        const auto again = s.placeOf(lfo);
+        REQUIRE(again);
+        CHECK(again->rack == rack);
+        CHECK(f.chainOf(f.t) == std::vector<std::uint64_t>{rack, filter});
+    }
+
+    // Moved out of the rack, after the Filter; and back in, at its end.
+    REQUIRE(s.moveDevice(lfo, Session::ChainPlace{.channel = f.t, .index = 2}));
+    CHECK(f.chainOf(f.t) == std::vector<std::uint64_t>{rack, filter, lfo});
+    CHECK(rackChainsOf(f, rack) == std::vector<std::vector<std::uint64_t>>{{utility}});
+    REQUIRE(s.moveDevice(lfo, Session::ChainPlace{.channel = f.t, .rack = rack, .chain = 0, .index = 1}));
+    CHECK(rackChainsOf(f, rack) == std::vector<std::vector<std::uint64_t>>{{utility, lfo}});
+    CHECK(f.swingDb() > 3.0); // still moving the Utility from after it
+
+    // A Follower in the rack hears the chain where it sits.
+    const auto follower = s.addDevice(
+        Session::ChainPlace{.channel = f.t, .rack = rack, .chain = 0, .index = 0}, "fd:mod-follower");
+    REQUIRE(follower != 0);
+    CHECK(rackChainsOf(f, rack) == std::vector<std::vector<std::uint64_t>>{{follower, utility, lfo}});
+    CHECK(s.sidechainSources(follower).empty()); // Here only, in a rack
+
+    // A second chain with a Steps in it; removed with its chain.
+    REQUIRE(s.addRackChain(rack) == 1);
+    const auto steps =
+        s.addDevice(Session::ChainPlace{.channel = f.t, .rack = rack, .chain = 1}, "fd:mod-steps");
+    REQUIRE(steps != 0);
+    CHECK(rackChainsOf(f, rack).at(1) == std::vector<std::uint64_t>{steps});
+    REQUIRE(s.removeRackChain(rack, 1));
+    CHECK(s.openModulator(steps) == nullptr);
+
+    // Saved as a file and loaded on another track: the LFO and its route come with it.
+    const auto file = f.root.getChildFile("With LFO.segnorack");
+    REQUIRE(s.saveRack(rack, file));
+    s.addTrack();
+    const auto other = f.track(1);
+    const auto loaded = s.loadRack(file, {.channel = other});
+    REQUIRE(loaded.rack != 0);
+    const auto* copy = model::findDevice(f.info(other).devices, loaded.rack);
+    REQUIRE(copy != nullptr);
+    REQUIRE(copy->rack != nullptr);
+    const auto& copied = copy->rack->chains.at(0).devices;
+    REQUIRE(copied.size() == 3);
+    CHECK(copied[2].kind == model::DeviceSlot::Kind::Modulator);
+    REQUIRE(copied[2].modulator != nullptr);
+    REQUIRE(copied[2].modulator->routes.size() == 1);
+    CHECK(copied[2].modulator->routes[0].key == "m" + std::to_string(copied[1].id) + "/gain");
+
+    // Ungrouped: the shown chain's modules and modulators back in the track's chain, in place.
+    const auto placed = s.ungroupRack(rack);
+    CHECK(placed == std::vector<std::uint64_t>{follower, utility, lfo});
+    CHECK(f.chainOf(f.t) == std::vector<std::uint64_t>{follower, utility, lfo, filter});
+    CHECK(f.slot(lfo).modulator->routes.size() == 1);
+    CHECK(f.swingDb() > 3.0);
 }

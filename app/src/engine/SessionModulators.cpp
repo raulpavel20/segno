@@ -152,8 +152,10 @@ te::Track* Session::Impl::chainTrackOf(te::Plugin& plugin) const
 {
     if (plugin.isInRack())
         return nullptr;
-    if (edit->getMasterPluginList().indexOf(&plugin) >= 0)
-        return edit->getMasterTrack();
+    // By the lists themselves: a plugin brought back by undo may not know its owner yet.
+    for (auto* t : chainTracks())
+        if (chainList(*t).indexOf(&plugin) >= 0)
+            return t;
     return plugin.getOwnerTrack();
 }
 
@@ -178,6 +180,24 @@ std::vector<Modulator*> Session::Impl::modulators() const
             for (auto* m : list->getModifiers())
                 if (auto* mod = dynamic_cast<Modulator*>(m))
                     out.push_back(mod);
+    for (auto* rack : rackTypes()) // in racks (§14)
+        for (auto* m : rack->getModifierList().getModifiers())
+            if (auto* mod = dynamic_cast<Modulator*>(m))
+                out.push_back(mod);
+    return out;
+}
+
+std::vector<te::RackType*> Session::Impl::rackTypes() const
+{
+    // Through the racks in the chains: an instance's type is the one it plays (after undo it may
+    // not be the rack list's object).
+    std::vector<te::RackType*> out;
+    for (auto* t : chainTracks())
+        for (auto* p : chainList(*t))
+            if (auto* instance = dynamic_cast<te::RackInstance*>(p);
+                instance != nullptr && instance->type != nullptr)
+                if (std::find(out.begin(), out.end(), instance->type.get()) == out.end())
+                    out.push_back(instance->type.get());
     return out;
 }
 
@@ -188,7 +208,149 @@ te::Track* Session::Impl::trackOf(const Modulator& modulator) const
             for (auto* m : list->getModifiers())
                 if (m == &modulator)
                     return t;
+    if (auto* rack = rackOf(modulator))
+        if (auto* instance = instanceOf(*rack))
+            return chainTrackOf(*instance);
     return nullptr;
+}
+
+te::RackType* Session::Impl::rackOf(const Modulator& modulator) const
+{
+    for (auto* rack : rackTypes())
+        for (auto* m : rack->getModifierList().getModifiers())
+            if (m == &modulator)
+                return rack;
+    return nullptr;
+}
+
+te::RackInstance* Session::Impl::instanceOf(const te::RackType& rack) const
+{
+    for (auto* t : chainTracks())
+        for (auto* p : chainList(*t))
+            if (auto* instance = dynamic_cast<te::RackInstance*>(p);
+                instance != nullptr && instance->type.get() == &rack)
+                return instance;
+    return nullptr;
+}
+
+bool Session::Impl::inRack(const te::RackType& rack, const te::AutomatableParameter& param) const
+{
+    auto* owner = &param.automatableEditElement;
+    for (auto* p : rackModules(rack))
+        if (p == owner)
+            return true;
+    if (auto* m = dynamic_cast<const Modulator*>(owner))
+        return rackOf(*m) == &rack;
+    for (auto* macro : rack.getMacroParameters()) // its macros, and Morph among them
+        if (macro == &param)
+            return true;
+    return false;
+}
+
+bool Session::Impl::canMove(const Modulator& from, const te::AutomatableParameter& param) const
+{
+    if (wouldLoop(from, param))
+        return false;
+    const auto* rack = rackOf(from);
+    return rack == nullptr || inRack(*rack, param);
+}
+
+void Session::Impl::arrangeRackChain(te::RackType& rack, int chain, const std::vector<ChainItem>& order)
+{
+    auto* um = &edit->getUndoManager();
+    std::vector<juce::ValueTree> modules, modulators;
+    for (const auto& item : order)
+        if (item.plugin != nullptr)
+            modules.push_back(item.plugin->state.getParent()); // its place in the rack
+        else
+            modulators.push_back(item.modulator->state);
+    reorder(modules, um);
+    for (size_t i = 0; i < order.size(); ++i)
+    {
+        if (order[i].modulator == nullptr)
+            continue;
+        te::EditItemID before;
+        for (size_t j = i + 1; j < order.size(); ++j)
+            if (order[j].plugin != nullptr)
+            {
+                before = order[j].plugin->itemID;
+                break;
+            }
+        auto& state = order[i].modulator->state;
+        if (static_cast<int>(state.getProperty(Modulator::rackChainId, 0)) != chain)
+            state.setProperty(Modulator::rackChainId, chain, um);
+        if (order[i].modulator->place() != before)
+        {
+            if (before.isValid())
+                state.setProperty(Modulator::placeId, before.toVar(), um);
+            else
+                state.removeProperty(Modulator::placeId, um);
+        }
+    }
+    reorder(modulators, um);
+    wireRack(rack, um);
+}
+
+int Session::Impl::putModulatorInRack(te::RackType& rack, Modulator& modulator, int chain, int index)
+{
+    auto* um = &edit->getUndoManager();
+    // Its routes leaving the rack go (§14): a rack is saved and loaded whole.
+    int dropped = 0;
+    for (const auto& r : routesOf(modulator))
+        if (!inRack(rack, *r.param.param))
+        {
+            r.param.param->removeModifier(*r.assignment);
+            ++dropped;
+        }
+    const auto id = modulator.itemID.getRawID();
+    const auto chains = rackChains(rack);
+    chain = std::clamp(chain, 0, std::max(0, static_cast<int>(chains.size()) - 1));
+    auto state = modulator.state; // the object goes with its tree's move: only the tree from here
+    state.setProperty(Modulator::rackChainId, chain, um);
+    (void)rack.getModifierList(); // made where it isn't yet
+    auto into = rack.state.getChildWithName(te::IDs::MODIFIERS);
+    if (state.getParent() != into)
+    {
+        state.getParent().removeChild(state, um);
+        into.addChild(state, -1, um);
+    }
+    // Where it was asked for in the chain, the rest staying in their order.
+    auto* moved = this->modulator(id);
+    const auto now = rackChains(rack);
+    if (moved != nullptr && chain < static_cast<int>(now.size()))
+    {
+        std::vector<ChainItem> order;
+        for (const auto& item : now[static_cast<size_t>(chain)].items)
+            if (item.modulator != moved)
+                order.push_back(item);
+        const auto at = index < 0 ? order.size() : std::min(order.size(), static_cast<size_t>(index));
+        order.insert(order.begin() + static_cast<std::ptrdiff_t>(at), ChainItem{nullptr, moved});
+        arrangeRackChain(rack, chain, order);
+    }
+    else
+        wireRack(rack, um);
+    return dropped;
+}
+
+void Session::Impl::takeModulatorOutOfRack(Modulator& modulator, te::Track& track, int index)
+{
+    auto* um = &edit->getUndoManager();
+    const auto id = modulator.itemID.getRawID();
+    auto* rack = rackOf(modulator);
+    auto state = modulator.state;
+    state.removeProperty(Modulator::rackChainId, um);
+    state.removeProperty(Modulator::placeId, um);
+    (void)track.getModifierList();
+    auto into = track.state.getChildWithName(te::IDs::MODIFIERS);
+    if (state.getParent() != into)
+    {
+        state.getParent().removeChild(state, um);
+        into.addChild(state, -1, um);
+    }
+    if (rack != nullptr)
+        wireRack(*rack, um);
+    if (auto* moved = this->modulator(id))
+        placeInChain(track, ChainItem{nullptr, moved}, index);
 }
 
 // ---- routes -------------------------------------------------------------------------------------
@@ -299,6 +461,23 @@ void Session::Impl::startPasses()
             m->startPass(static_cast<std::uint64_t>(juce::Random::getSystemRandom().nextInt64()));
 }
 
+model::DeviceSlot Session::Impl::modulatorSlot(const Modulator& m) const
+{
+    model::DeviceSlot slot;
+    slot.id = m.itemID.getRawID();
+    slot.kind = model::DeviceSlot::Kind::Modulator;
+    slot.name = m.getName().toStdString();
+    slot.deviceId = std::string(m.info().id);
+    slot.enabled = m.enabledParam == nullptr || m.enabledParam->getCurrentValue() >= 0.5f;
+    slot.modulator = modulatorInfo(m);
+    // A Follower listens where it sits, or to another track (§12.4), as a sidechain; in a rack,
+    // where it sits.
+    slot.takesSidechain = m.kind() == model::ModulatorKind::Follower && rackOf(m) == nullptr;
+    if (const auto source = m.getSidechainSourceID(); source.isValid())
+        slot.sidechainSource = source.getRawID();
+    return slot;
+}
+
 std::shared_ptr<const model::ModulatorInfo> Session::Impl::modulatorInfo(const Modulator& modulator) const
 {
     auto info = std::make_shared<model::ModulatorInfo>();
@@ -351,7 +530,7 @@ ui::ParamBinding::MacroDrag Session::Impl::modulatorDragLook(te::AutomatablePara
     if (track == nullptr)
         return {};
     const auto target = targetOf(param);
-    if (!target || target->channel != track->itemID.getRawID() || wouldLoop(*m, param))
+    if (!target || target->channel != track->itemID.getRawID() || !canMove(*m, param))
         return {};
     return {true, modulatorPointer.over == target};
 }
@@ -370,6 +549,11 @@ const Session::ModulatorPointer& Session::modulatorPointer() const
     return impl_->modulatorPointer;
 }
 
+int Session::lastDroppedRoutes() const
+{
+    return impl_->droppedRoutes;
+}
+
 bool Session::canRoute(std::uint64_t modulatorId, const ParamTarget& target) const
 {
     auto* m = impl_->modulator(modulatorId);
@@ -377,7 +561,7 @@ bool Session::canRoute(std::uint64_t modulatorId, const ParamTarget& target) con
     if (track == nullptr || target.channel != track->itemID.getRawID())
         return false;
     const auto p = impl_->param(target);
-    return p && p->param != nullptr && !impl_->wouldLoop(*m, *p->param);
+    return p && p->param != nullptr && impl_->canMove(*m, *p->param);
 }
 
 std::optional<std::pair<std::uint64_t, float>> Session::routeToDrag(const ParamTarget& target) const
@@ -452,7 +636,7 @@ bool Session::routeModulator(std::uint64_t modulatorId, const ParamTarget& targe
     if (track == nullptr || target.channel != track->itemID.getRawID())
         return false; // only what's on its own track (§5)
     const auto p = impl_->param(target);
-    if (!p || p->param == nullptr || impl_->wouldLoop(*m, *p->param))
+    if (!p || p->param == nullptr || !impl_->canMove(*m, *p->param))
         return false;
     amount = std::clamp(amount, -2.0f, 2.0f);
     for (auto a : p->param->getAssignments())

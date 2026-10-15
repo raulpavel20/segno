@@ -273,8 +273,11 @@ void DeviceChain::rebuild(const std::vector<model::DeviceSlot>& devices)
     {
         const auto& d = *e.info;
         Slot slot;
+        // A modulator that went into a rack or out of one is another object in the engine: its
+        // panel is made again.
         if (auto it = old.find(d.id);
-            it != old.end() && (it->second.info.rack != nullptr) == (d.rack != nullptr))
+            it != old.end() && (it->second.info.rack != nullptr) == (d.rack != nullptr) &&
+            (d.kind != model::DeviceSlot::Kind::Modulator || it->second.rack == e.rack))
         {
             slot = std::move(it->second);
             old.erase(it);
@@ -397,7 +400,8 @@ void DeviceChain::rebuild(const std::vector<model::DeviceSlot>& devices)
                     {
                         menu.addSeparator();
                         menu.addItem("Add chain", room, false, [this, id] { session_.addRackChain(id); });
-                    });
+                    },
+                    true); // a rack's chain takes modulators too (modulators.md §14)
             };
             racks_.push_back(std::move(r));
         }
@@ -851,6 +855,8 @@ void DeviceChain::mouseUp(const juce::MouseEvent&)
         session_.moveDevice(slots_[static_cast<size_t>(dragSlot_)].info.id,
                             engine::Session::ChainPlace{
                                 .channel = *track_, .rack = d.rack, .chain = d.chain, .index = d.index});
+        if (const int dropped = session_.lastDroppedRoutes(); dropped > 0 && d.rack != 0 && onRoutesDropped)
+            onRoutesDropped(dropped);
     }
     dragging_ = false;
     dragSlot_ = -1;
@@ -1055,6 +1061,8 @@ void DeviceChain::groupPicked()
     {
         selected_ = rack;
         picked_.clear();
+        if (const int dropped = session_.lastDroppedRoutes(); dropped > 0 && onRoutesDropped)
+            onRoutesDropped(dropped);
     }
 }
 

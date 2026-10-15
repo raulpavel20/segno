@@ -17,6 +17,7 @@ const juce::Identifier Modulator::copyId{"fdCopy"};
 const juce::Identifier Modulator::placeId{"fdBefore"};
 const juce::Identifier Modulator::keptRollId{"fdKeptRoll"};
 const juce::Identifier Modulator::listenId{"fdListen"};
+const juce::Identifier Modulator::rackChainId{"fdRackChain"};
 
 namespace
 {
