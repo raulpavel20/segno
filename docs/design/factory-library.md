@@ -149,6 +149,7 @@ PLACES
 
   The same recipe gives the same Library on every machine.
 - **In development:** `cmake --build --preset dev --target segno-library` builds it once into the CPM cache (about 2.7 GB downloaded the first time), and the dev build points at it.
+  - A release build looks only where an installer puts the Library. `tools/install-desktop-entry.sh` (Segno in the app list) links `~/.local/share/Segno/Library` to the built one, never over an installed Library, and `--remove` takes the link away.
   - It isn't part of a plain build: a fresh checkout shouldn't need 3 GB.
   - Tests that need it (the factory presets' lint for the Sampler) depend on that target.
 - **In a release:** an installer component of its own, "Segno Library", and an archive beside the app for those who install by hand. A plugin-only install can take it too. Hosting the archive is for when releases start.

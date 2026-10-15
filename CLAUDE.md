@@ -20,7 +20,7 @@ cmake --preset dev                    # configure (Ninja, Debug, clang, ccache)
 cmake --build --preset dev            # build
 ctest --preset dev                    # all tests
 ctest --preset dev -L fast            # JUCE-free unit + conformance tests only
-tools/install-desktop-entry.sh rel    # Linux: Segno in the app list, running build/rel
+tools/install-desktop-entry.sh rel    # Linux: Segno in the app list, running build/rel, the Library linked in
 cmake --build --preset dev --target segno-library   # the Library (ADR 0055) into .cache/library: 1.9 GB fetched once
 ```
 
