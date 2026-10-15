@@ -270,13 +270,12 @@ model::ClipInfo clipInfoOf(te::Clip& clip)
 model::ClipLoop loopOf(const juce::ValueTree& clip, const te::TempoSequence& tempo)
 {
     const auto seconds = [&](double beats) { return tempo.toTime(te::BeatPosition::fromBeats(beats)).inSeconds(); };
-    if (clip.hasType(te::IDs::MIDICLIP))
+    // A MIDI clip, and an audio clip that follows the tempo, loop in beats (ADR 0063).
+    if (clip.hasType(te::IDs::MIDICLIP) || static_cast<bool>(clip[te::IDs::autoTempo]))
     {
         const double start = clip[te::IDs::loopStartBeats], length = clip[te::IDs::loopLengthBeats];
         return length > 0.0 ? model::ClipLoop{seconds(start), seconds(start + length) - seconds(start)} : model::ClipLoop{};
     }
-    if (static_cast<bool>(clip[te::IDs::autoTempo]))
-        return {};
     const double length = clip[te::IDs::loopLength];
     return length > 0.0 ? model::ClipLoop{clip[te::IDs::loopStart], length} : model::ClipLoop{};
 }

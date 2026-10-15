@@ -20,8 +20,8 @@ model::FadeClip fadeClipOf(te::AudioClipBase& clip)
     c.muted = clip.isMuted();
     c.loop = loopOf(clip.state, clip.edit.tempoSequence); // ADR 0048
     // A looped clip plays past its edges too: its neighbouring laps (the engine wraps them).
-    c.canExtend = !clip.getAutoTempo() && !clip.getAutoPitch() && std::abs(clip.getSpeedRatio() - 1.0) < 1e-9 &&
-                  !clip.usesTimeStretchedProxy();
+    c.canExtend =
+        !clip.getAutoPitch() && std::abs(clip.getSpeedRatio() - 1.0) < 1e-9 && !clip.usesTimeStretchedProxy();
     c.reversed = clip.state.hasProperty(soundIds::forward);
     const auto& s = clip.state;
     c.in = {clip.getFadeIn().inSeconds(), static_cast<float>(s.getProperty(fadeIds::inBend, 0.0f))};

@@ -374,7 +374,7 @@ Each tool is one named undo step, with a test that drives it through MCP (ADR 00
   7. Repitch, and transposing without Warp, work on the real-time path.
   8. Warped waveforms draw within the arrangement's frame budget.
 
-  If a point fails, the design changes before building, and says how.
+  If a point fails, the design changes before building, and says how. *Done (2026-10-15): §22. Markers and Beats are played by Segno's piece player; a patch widens warped clips' beat range for crossfades and lets a clip resample rather than stretch.*
 
 ## 16. Stages
 
@@ -503,3 +503,26 @@ Built on the branch, with its tests (the model's `[fast]` ones, the engine's, th
 - **Normalise heard while it's set,** not only seen.
 - **Crossfades drawn through the clips' gain:** a crossfade's region in the arrangement draws its sum without the two clips' gain and gain line; what plays has them.
 - **The editor's frame time in a Release build:** the hidden benchmark ("audio editor paints a 10-minute stereo file zooming", §19) paints at the arrangement's cost a pixel in the dev build (89 ms a frame at 3400 × 840, the arrangement's 226 ms at 3400 × 2104), after the faded file and the played part each read only their own columns; the Release reading waits for a `rel` build.
+
+## 22. P6b step 0: the engine spike (2026-10-15)
+
+The spike of §15, kept as tests (`tests/integration/WarpSpikeTests.cpp`), on tracktion's real-time path with one new patch (`cmake/patches/tracktion_engine-warped-clips.patch`). Where audio stretches, it's never the same sample for sample twice (a stretcher's output depends on where it started), so there the tests hold it to its loudness over time (20 ms windows); where nothing stretches, to the sample.
+
+| # | Point | Found |
+|---|---|---|
+| 0 | A tempo change | Every clip keeps its beat; a warped clip keeps its length in beats and its pitch (120 → 100 BPM: 1.0 s → 1.2 s, 2.0 → 2.4 s, 440 Hz); an unwarped one keeps its length in seconds. Segno needs nothing for it |
+| 1 | Untouched at its own tempo | Holds. Through Signalsmith Stretch, −126 dB from the file (float rounding: its analysis and resynthesis rebuild the signal); **resampled** (the patch), exactly. So a warped clip at its own tempo is resampled, with no stretcher to run: exact, and free (recordings warp by default, §7.2) |
+| 2 | Fades and crossfades | Fades and edge fades hold (−128 dB). **Crossfades failed:** tracktion builds a warped clip's node over its beat range without the extension Segno's crossfades play past the join. The patch widens the beat range as the time range is (−124 dB after it) |
+| 3 | Loops | The loop is kept, in beats, lap after lap (−240 dB lap against lap at another tempo). **Its seams didn't fade:** Segno read no loop from a clip that follows the tempo. It reads the loop's beats now (−122 dB against the unwarped loop) |
+| 4 | Splits | At its own tempo, a split nulls against the whole (−124 dB). Stretched, each part starts a stretcher of its own: not the same samples, the same sound (within 0.7 dB over time), and the parts start exactly where they should. "Nulls" becomes "sounds the same" where it stretches |
+| 5 | Bounces | A bounce matches its render sample for sample, warped or not, stretched or not (−240 dB). Bounces render at the device's rate |
+| 6 | 32 warped clips in Tones | 9.6 s rendered in 8.4 s on the dev (Debug) build: real time in Debug. **The reading that counts waits for a Release build** |
+| 7 | Repitch; transposing without Warp | Transposed without Warp: an octave up, the same length. Repitch through the patch's resampling: a 120 BPM file at 100 BPM plays at 366.7 Hz and 2.4 s, following the tempo as the other modes do |
+| 8 | Warped waveforms in the arrangement | Not a question for the engine: checked by the arrangement's benchmark when built |
+
+**What failed, and what changes.** tracktion's warp markers (its `WarpReader`) choose the stretcher's speed by where the output is, so each piece's change of speed is heard a stretcher's latency late: clicks pinned to 0.2, 0.4, 0.6 s by a marker land at 0.22, 0.42, 0.62 s, and after the marker 18 ms early (the hidden test reproduces it). Without a stretcher its markers don't play at all. Choosing the speed a latency ahead made it worse. So:
+- **Markers play as pieces, in Segno's piece player:** each piece between two markers is read from its own start at its own ratio, as a split part is (point 4: placed exactly), with a short crossfade at each marker (4 ms, the edge fades'). The next piece's stretcher is started a latency ahead, so a marker costs no burst of work.
+- **Beats was already a piece player** (§7.3): each piece from its transient at its own speed. It's the same player, its pieces cut at transients, unstretched, their tails faded or looped. So one player plays Beats, and Tones and Repitch with markers; a clip without markers in Tones or Repitch stays on tracktion's path, which the spike shows works.
+- **The piece player is a node of Segno's,** reading through tracktion's file cache, behind a hook that lets the engine behaviour build a clip's source node (a second small patch, in P6b's first step). The clip stays tracktion's clip that follows the tempo, so its place, length and loop in beats are tracktion's, as points 0 and 3 show. ADR 0063 holds: warping is real time, in tracktion's graph; only who reads a warped clip's pieces changes.
+- **A crossfade's spare audio on a stretched clip** is measured in its file and played in the song: the engine's extension converts one to the other by the clip's ratio (the spike checked it at the clip's own tempo).
+- **The design's other words stand.** §15's "markers through `WarpTimeManager`" becomes "markers kept with the clip, played by the piece player"; point 4's "nulls against the whole" becomes "sounds the same where it stretches, nulls where it doesn't".

@@ -1,0 +1,69 @@
+Warped clips as Segno plays them (docs/design/audio-editor.md §15, ADR 0063).
+
+A clip that follows the tempo plays past its edges as an unwarped one does (EngineBehaviour's
+getAudioClipExtension, for crossfades): its beat range widened, its offset in beats moved to match.
+And a clip can ask to follow the tempo by resampling rather than stretching (a "resample" property
+on its state, with no transposition): speed and pitch move together, Segno's Repitch, and a warped
+clip at its own tempo reads its file untouched, with no stretcher to run.
+
+diff '--color=auto' -ru a/modules/tracktion_engine/model/clips/tracktion_AudioClipBase.cpp b/modules/tracktion_engine/model/clips/tracktion_AudioClipBase.cpp
+--- a/modules/tracktion_engine/model/clips/tracktion_AudioClipBase.cpp	2026-10-15 17:55:49.189511058 +0300
++++ b/modules/tracktion_engine/model/clips/tracktion_AudioClipBase.cpp	2026-10-15 17:56:08.587644676 +0300
+@@ -666,6 +666,11 @@
+ {
+     TimeStretcher::Mode ts = timeStretchMode;
+ 
++    // A clip can ask to follow the tempo by resampling, speed and pitch together, rather than
++    // stretching (the host's "resample" property): with no transposition to stretch for.
++    if (ts == TimeStretcher::disabled && state.getProperty ("resample", false) && ! getAutoPitch() && getPitchChange() == 0.0f)
++        return ts;
++
+     if (ts == TimeStretcher::disabled && (getAutoPitch() || getAutoTempo() || getPitchChange() != 0.0f))
+         ts = TimeStretcher::defaultMode;
+ 
+diff '--color=auto' -ru a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp
+--- a/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp	2026-10-15 17:55:49.187429232 +0300
++++ b/modules/tracktion_engine/playback/graph/tracktion_EditNodeBuilder.cpp	2026-10-15 17:56:08.587279950 +0300
+@@ -439,6 +439,12 @@
+         return pos.getOffset() - (pos.getStart() - toTime (clipTimeRangeToUse, clip.edit.tempoSequence).getStart());
+     };
+ 
++    // The same in beats, for a clip that follows the tempo.
++    const auto offsetBeatsForRange = [&clip, &clipTimeRangeToUse]
++    {
++        return clip.getOffsetInBeats() - (clip.getStartBeat() - toBeats (clipTimeRangeToUse, clip.edit.tempoSequence).getStart());
++    };
++
+     if (clip.canUseProxy())
+     {
+         assert (role != ClipRole::launcher);
+@@ -593,7 +599,7 @@
+                 node = makeNode<WaveNodeRealTime> (playFile,
+                                                    timeStretcherMode, timeStretcherOpts,
+                                                    toBeats (clipTimeRangeToUse, clip.edit.tempoSequence),
+-                                                   clip.getOffsetInBeats(),
++                                                   offsetBeatsForRange(),
+                                                    BeatRange (clip.getLoopStartBeats(), clip.getLoopLengthBeats()),
+                                                    clip.getLiveClipLevel(),
+                                                    clip.getActiveChannelConfiguration(),
+@@ -671,9 +677,19 @@
+         return createNodeForAudioClip (clip, clip.itemID, extendedRange(), includeARA, params, role);
+     }
+ 
+-    if (clip.getAutoTempo() || clip.getAutoPitch() || role == ClipRole::launcher)
++    if (role == ClipRole::launcher)
+         return createNodeForAudioClip (clip, clip.itemID, clip.getEditBeatRange(), includeARA, params, role);
+ 
++    // A clip that follows the tempo plays past its edges too, in beats.
++    if (clip.getAutoTempo() || clip.getAutoPitch())
++    {
++        const auto range = extendedRange();
++        return createNodeForAudioClip (clip, clip.itemID,
++                                       BeatRange (clip.edit.tempoSequence.toBeats (range.getStart()),
++                                                  clip.edit.tempoSequence.toBeats (range.getEnd())),
++                                       includeARA, params, role);
++    }
++
+     assert (role == ClipRole::arranger);
+     return createNodeForAudioClip (clip, clip.itemID, extendedRange(), includeARA, params, role);
+ }
