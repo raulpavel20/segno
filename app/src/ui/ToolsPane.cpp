@@ -1,5 +1,8 @@
 #include "ui/ToolsPane.h"
 
+#include "model/AudioToolkit.h"
+#include "model/MusicalTime.h"
+
 namespace fd::app
 {
 namespace
@@ -10,11 +13,14 @@ ui::Icon iconOf(std::string_view id)
 {
     using I = ui::Icon;
     static const std::pair<std::string_view, I> icons[] = {
-        {"quantise", I::Quantise},     {"humanize", I::Humanize},   {"strum", I::Strum},
-        {"arpeggiate", I::Arpeggiate}, {"chop", I::Chop},           {"ornament", I::Ornament},
-        {"velocity", I::Velocity},     {"span", I::Span},           {"randomise", I::Randomise},
-        {"rhythm", I::Rhythm},         {"melody", I::Melody},       {"chords", I::Chords},
-        {"bassline", I::Bassline},     {kMakeChords, I::MakeChords}};
+        {"quantise", I::Quantise},   {"humanize", I::Humanize},
+        {"strum", I::Strum},         {"arpeggiate", I::Arpeggiate},
+        {"chop", I::Chop},           {"ornament", I::Ornament},
+        {"velocity", I::Velocity},   {"span", I::Span},
+        {"randomise", I::Randomise}, {"rhythm", I::Rhythm},
+        {"melody", I::Melody},       {"chords", I::Chords},
+        {"bassline", I::Bassline},   {kMakeChords, I::MakeChords},
+        {"normalise", I::Normalise}};
     for (const auto& [name, icon] : icons)
         if (name == id)
             return icon;
@@ -25,10 +31,77 @@ juce::String utf8(std::string_view s)
 {
     return juce::String::fromUTF8(std::string(s).c_str());
 }
+
+/// The piano roll's notes as the tools see them (piano-roll.md §25).
+class RollTools final : public ToolHost
+{
+public:
+    RollTools(PianoRoll& roll, engine::Session& session) : roll_(roll), session_(session) {}
+
+    model::ToolValues toolValues(const model::ToolSpec& tool) const override
+    {
+        return roll_.toolValues(tool);
+    }
+    void setToolValues(const model::ToolSpec& tool, const model::ToolValues& values) override
+    {
+        roll_.setToolValues(tool, values);
+    }
+    void preview(const model::ToolSpec& tool, const model::ToolValues& values) override
+    {
+        const auto r = run(tool, values);
+        roll_.previewEdit(r.why.empty() ? std::optional(r.edit) : std::nullopt);
+    }
+    void cancel() override { roll_.previewEdit(std::nullopt); }
+    void apply(const model::ToolSpec& tool, const model::ToolValues& values) override
+    {
+        const auto r = run(tool, values);
+        if (r.why.empty())
+        {
+            const engine::Session::EditGroup group(session_, std::string(tool.name)); // the undo step's name
+            roll_.applyEdit(r.edit);
+        }
+        else
+            roll_.previewEdit(std::nullopt);
+    }
+    juce::String scope(const model::ToolSpec& tool) const override
+    {
+        if (tool.kind == model::ToolKind::Transform)
+        {
+            const auto n =
+                static_cast<int>(roll_.hasSelection() ? roll_.selection().size() : roll_.notes().size());
+            return juce::String(n) + (n == 1 ? " note" : " notes");
+        }
+        const auto span = roll_.toolContext().span;
+        return juce::String(model::lengthText(span.second - span.first, roll_.tempo()));
+    }
+    juce::String widestScope() const override { return "9999 notes"; }
+    const music::Key* key() const override { return roll_.key() ? &*roll_.key() : nullptr; }
+    juce::String unavailable(const model::ToolSpec& tool) const override
+    {
+        if (tool.kind == model::ToolKind::Transform)
+            return roll_.notes().empty() ? "The clip has no notes yet" : "";
+        // Of the generators, the bassline needs chords to follow (the chord lane's, kept by the roll).
+        if (tool.id == "bassline" && roll_.chordSpans().empty())
+            return "The bassline follows the chord lane: write chords first";
+        return {};
+    }
+    std::uint64_t version() const override { return roll_.editVersion(); }
+    juce::String what() const override { return "the notes"; }
+
+private:
+    [[nodiscard]] model::ToolRun run(const model::ToolSpec& tool, const model::ToolValues& values) const
+    {
+        return model::runNoteTool(tool, roll_.notes(), roll_.selection(), values, roll_.toolContext());
+    }
+
+    PianoRoll& roll_;
+    engine::Session& session_;
+};
 } // namespace
 
 ToolsPane::ToolsPane(PianoRoll& roll, engine::Session& session)
-    : roll_(roll), session_(session), form_(roll, session), makeChords_(roll)
+    : roll_(roll), session_(session), notes_(std::make_unique<RollTools>(roll, session)), form_(*notes_),
+      makeChords_(roll)
 {
     tabs_.setTitle("The Tools pane's tabs");
     tabs_.setSelected(0);
@@ -55,6 +128,12 @@ ToolsPane::ToolsPane(PianoRoll& roll, engine::Session& session)
     for (const auto& t : model::noteTools())
         if (t.kind == model::ToolKind::Generate)
             add(std::string(t.id), t.kind, utf8(t.name));
+    // The audio's (audio-editor.md §11), shown instead while the clip view shows an audio clip.
+    for (const auto& t : model::audioTools())
+    {
+        add(std::string(t.id), t.kind, utf8(t.name));
+        tiles_.back().audio = true;
+    }
     addChildComponent(form_);
     addChildComponent(makeChords_);
     form_.onLayoutChanged = [this] { resized(); };
@@ -65,6 +144,44 @@ ToolsPane::ToolsPane(PianoRoll& roll, engine::Session& session)
     setWantsKeyboardFocus(true);
 }
 
+ToolsPane::~ToolsPane() = default;
+
+bool ToolsPane::shows(const TileItem& item) const noexcept
+{
+    return audio_ != nullptr ? item.audio : !item.audio && item.kind == tab_;
+}
+
+const std::vector<model::ToolSpec>& ToolsPane::catalogue() const
+{
+    return audio_ != nullptr ? model::audioTools() : model::noteTools();
+}
+
+const model::ToolSpec* ToolsPane::findTool(std::string_view id) const
+{
+    return audio_ != nullptr ? model::findAudioTool(id) : model::findNoteTool(id);
+}
+
+ToolHost& ToolsPane::host() const
+{
+    return audio_ != nullptr ? *audio_ : *notes_;
+}
+
+void ToolsPane::setAudio(ToolHost* host)
+{
+    if (host == audio_)
+        return;
+    if (!chosen_.empty())
+        disarm(); // what the tool showed goes back first
+    audio_ = host;
+    form_.setHost(this->host());
+    tabs_.setVisible(audio_ == nullptr);
+    for (auto& item : tiles_)
+        item.tile->setVisible(shows(item));
+    refresh();
+    resized();
+    repaint();
+}
+
 void ToolsPane::setTab(model::ToolKind tab)
 {
     if (!chosen_.empty())
@@ -72,7 +189,7 @@ void ToolsPane::setTab(model::ToolKind tab)
     tab_ = tab;
     tabs_.setSelected(tab == model::ToolKind::Generate ? 1 : 0);
     for (auto& item : tiles_)
-        item.tile->setVisible(item.kind == tab);
+        item.tile->setVisible(shows(item));
     refresh();
     resized();
     repaint();
@@ -89,18 +206,18 @@ void ToolsPane::choose(std::string_view id)
     form_.setTool(nullptr);
     if (!id.empty())
     {
-        const auto* tool = model::findNoteTool(id);
+        const auto* tool = findTool(id);
         const auto kind = id == kMakeChords ? model::ToolKind::Transform
                           : tool != nullptr ? tool->kind
                                             : tab_;
-        if (kind != tab_)
+        if (audio_ == nullptr && kind != tab_)
             setTab(kind);
         chosen_ = std::string(id);
         if (id == kMakeChords)
             makeChords_.start();
         else if (tool != nullptr)
             form_.setTool(tool);
-        seen_ = roll_.editVersion();
+        seen_ = host().version();
         if (isShowing())
             grabKeyboardFocus(); // Return applies, Escape lets go
     }
@@ -137,19 +254,17 @@ juce::String ToolsPane::unavailable(const TileItem& item) const
 {
     if (item.id == kMakeChords)
         return roll_.notes().empty() ? "The clip has no notes yet" : "";
-    if (item.kind == model::ToolKind::Transform)
-        return roll_.notes().empty() ? "The clip has no notes yet" : "";
-    // Of the generators, the bassline needs chords to follow (the chord lane's, kept by the roll).
-    if (item.id == "bassline" && roll_.chordSpans().empty())
-        return "The bassline follows the chord lane: write chords first";
-    return {};
+    if (item.audio)
+        return audio_ != nullptr ? audio_->unavailable(*model::findAudioTool(item.id)) : juce::String();
+    const auto* tool = model::findNoteTool(item.id);
+    return tool != nullptr ? notes_->unavailable(*tool) : juce::String();
 }
 
 juce::String ToolsPane::tipFor(const TileItem& item) const
 {
     if (const auto why = unavailable(item); why.isNotEmpty())
         return why;
-    const auto* tool = model::findNoteTool(item.id);
+    const auto* tool = item.audio ? model::findAudioTool(item.id) : model::findNoteTool(item.id);
     const auto about =
         tool != nullptr ? utf8(tool->about)
                         : juce::String("Each note becomes a chord: its own kind and voicing, or all at once");
@@ -168,7 +283,7 @@ void ToolsPane::refresh()
     }
     // The notes or the selection changed under the chosen tool (an undo, an assistant, Select
     // all): shown again on them, or let go when it can't run on them.
-    if (!chosen_.empty() && roll_.editVersion() != seen_)
+    if (!chosen_.empty() && host().version() != seen_)
     {
         const auto chosen = chosen_;
         const auto it =
@@ -179,7 +294,7 @@ void ToolsPane::refresh()
             makeChords_.start();
         else
             form_.preview();
-        seen_ = roll_.editVersion();
+        seen_ = host().version();
     }
 }
 
@@ -231,9 +346,10 @@ int ToolsPane::preferredWidth() const
     const auto& s = ui::Theme::current().shell;
     int tile = 0;
     for (const auto& item : tiles_)
-        tile = std::max(tile, item.tile->preferredWidth());
-    int content = std::max(tabs_.preferredWidth(), 2 * tile + s.itemGap);
-    for (const auto& t : model::noteTools())
+        if (item.audio == (audio_ != nullptr))
+            tile = std::max(tile, item.tile->preferredWidth());
+    int content = std::max(audio_ != nullptr ? 0 : tabs_.preferredWidth(), 2 * tile + s.itemGap);
+    for (const auto& t : catalogue())
         content = std::max(content, form_.preferredWidth(t));
     if (chosen_ == kMakeChords)
         content = std::max(content, makeChords_.preferredWidth());
@@ -255,7 +371,7 @@ int ToolsPane::tilesHeight(bool compact) const
     const auto& s = ui::Theme::current().shell;
     int shown = 0;
     for (const auto& item : tiles_)
-        shown += item.kind == tab_ ? 1 : 0;
+        shown += shows(item) ? 1 : 0;
     // Compact: square tiles, as many to a row as fit.
     const int perRow =
         compact ? std::max(1, (content().getWidth() + s.itemGap) / (s.fieldHeight + s.itemGap)) : 2;
@@ -269,11 +385,11 @@ int ToolsPane::toolHeight() const
     int tallest = 0;
     for (const auto& item : tiles_)
     {
-        if (item.kind != tab_)
+        if (!shows(item))
             continue;
         if (item.id == kMakeChords)
             tallest = std::max(tallest, s.rowHeight + 5 * (s.itemGap + s.rowHeight));
-        else if (const auto* tool = model::findNoteTool(item.id))
+        else if (const auto* tool = findTool(item.id))
             tallest = std::max(tallest, form_.preferredHeight(*tool));
     }
     return tallest;
@@ -283,7 +399,8 @@ juce::Rectangle<int> ToolsPane::formArea() const
 {
     const auto& s = ui::Theme::current().shell;
     auto area = content();
-    area.removeFromTop(s.rowHeight + s.itemGap); // the tabs
+    if (audio_ == nullptr)
+        area.removeFromTop(s.rowHeight + s.itemGap); // the tabs
     area.removeFromTop(tilesHeight(compact_));
     area.removeFromTop(s.groupGap); // a line in the middle of it
     return area;
@@ -293,8 +410,11 @@ void ToolsPane::resized()
 {
     const auto& s = ui::Theme::current().shell;
     auto area = content();
-    tabs_.setBounds(area.removeFromTop(s.rowHeight).withWidth(tabs_.preferredWidth()));
-    area.removeFromTop(s.itemGap);
+    if (audio_ == nullptr)
+    {
+        tabs_.setBounds(area.removeFromTop(s.rowHeight).withWidth(tabs_.preferredWidth()));
+        area.removeFromTop(s.itemGap);
+    }
     // The tiles with their names where the tab's tallest tool fits under them, else icons alone.
     const bool compact = tilesHeight(false) + s.groupGap + toolHeight() > area.getHeight();
     if (compact != compact_)
@@ -310,7 +430,7 @@ void ToolsPane::resized()
     int k = 0, x = area.getX(), y = area.getY();
     for (auto& item : tiles_)
     {
-        if (item.kind != tab_)
+        if (!shows(item))
             continue;
         if (compact_)
         {
@@ -354,7 +474,7 @@ void ToolsPane::paint(juce::Graphics& g)
     {
         g.setColour(t.textTertiary);
         g.setFont(ui::font(ui::TextStyle::Caption));
-        g.drawFittedText("Choose a tool: the notes show it as you set it, and Apply keeps it.",
+        g.drawFittedText("Choose a tool: " + host().what() + " show it as you set it, and Apply keeps it.",
                          below.removeFromTop(3 * s.rowHeight), juce::Justification::topLeft, 3);
     }
 }

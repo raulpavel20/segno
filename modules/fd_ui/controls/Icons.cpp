@@ -418,6 +418,19 @@ Glyph glyph(Icon icon)
         p.startNewSubPath(5.0f, 4.5f);
         p.lineTo(11.0f, 4.5f);
         break;
+    case Icon::Normalise:
+        // Two levels raised to a line.
+        p.startNewSubPath(2.0f, 2.5f);
+        p.lineTo(14.0f, 2.5f);
+        for (const float x0 : {5.0f, 11.0f})
+        {
+            p.startNewSubPath(x0, 14.0f);
+            p.lineTo(x0, 6.0f);
+            p.startNewSubPath(x0 - 2.0f, 8.0f);
+            p.lineTo(x0, 6.0f);
+            p.lineTo(x0 + 2.0f, 8.0f);
+        }
+        break;
     case Icon::Search:
         p.addEllipse(2.5f, 2.5f, 8.5f, 8.5f);
         p.startNewSubPath(9.8f, 9.8f);

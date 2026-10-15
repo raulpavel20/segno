@@ -127,7 +127,8 @@ bool meet(const FadeClip& first, const FadeClip& second) noexcept
 
 bool seamless(const FadeClip& prev, const FadeClip& next) noexcept
 {
-    return meet(prev, next) && !prev.source.empty() && prev.source == next.source && prev.loop == next.loop &&
+    return meet(prev, next) && !prev.source.empty() && prev.source == next.source &&
+           prev.reversed == next.reversed && prev.loop == next.loop &&
            std::abs(contentAtEnd(prev) - contentAtStart(next)) < kSame;
 }
 

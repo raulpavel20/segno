@@ -1,5 +1,6 @@
 #pragma once
 
+#include "model/AudioSound.h"
 #include "model/Automation.h"
 #include "model/Controllers.h"
 #include "model/Fades.h"
@@ -74,6 +75,12 @@ struct ClipInfo
     Fade fadeIn, fadeOut;
     std::optional<Crossfade> crossfadeOut;
     ClipPlayback playback;
+    /// Audio clips (P6, audio-editor.md §6): its gain, gain line, reverse, polarity and channels.
+    AudioSound sound;
+    /// Its file's format: channels, sample rate and bit depth (0: floating point or unknown).
+    int fileChannels = 0;
+    double fileSampleRate = 0.0;
+    int fileBitDepth = 0;
 
     [[nodiscard]] double end() const noexcept { return start + length; }
 };

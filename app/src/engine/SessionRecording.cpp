@@ -177,7 +177,7 @@ void Session::Impl::moveToProject(const juce::File& to)
     std::map<juce::String, juce::File> moved;
     if (!file && unsavedFolder)
     {
-        for (const auto* sub : {"Recordings", "Bounces", "Exports"})
+        for (const auto* sub : {"Recordings", "Bounces", "Exports", "Reversed"})
         {
             const auto from = unsavedFolder->getChildFile(sub);
             const auto into = to.getParentDirectory().getChildFile(sub);

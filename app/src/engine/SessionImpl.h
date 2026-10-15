@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/ClipFades.h"
 #include "engine/ClipNotes.h"
 #include "engine/FileIndexer.h"
 #include "engine/MidiTap.h"
@@ -51,6 +52,8 @@ inline te::AuxSendPlugin* sendIn(te::PluginList& list, int bus)
 void writeLoop(te::Clip& clip, const model::ClipLoop& loop, juce::UndoManager* um);
 /// Places a clip; while it loops, its offset (the phase) is wrapped into the loop.
 void placeClip(te::Clip& clip, double start, double length, double offset);
+/// The clip as the snapshot shows it, now (the snapshot itself is rebuilt later).
+[[nodiscard]] model::ClipInfo clipInfoOf(te::Clip& clip);
 
 /// The aux bus a return track listens to (-1 if none).
 inline int busOf(te::AudioTrack& returnTrack)
@@ -333,6 +336,8 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     std::array<std::string, 2> gridSteps;
     struct Render;
     std::vector<std::shared_ptr<Render>> renders; // offline renders in flight (each on an Edit copy)
+    /// Normalise's measurements (audio-editor.md §6.4), by file, content and sound: files don't change.
+    std::map<std::string, model::ClipLevels> levelCache;
     /// Renders a copy of the project offline (the render tool, bounces; ADR 0021, 0035): `setup`
     /// sets the copy and the renderer up (32-bit float WAV, plugins on, silence allowed) and may
     /// refuse (false: null returned). `done` runs on the message thread, with why it failed or
@@ -604,9 +609,9 @@ private:
                 return;
         if (!inTransport(t) && id != te::IDs::solo) // solo is a listening aid (ADR 0026)
             dirty = true; // includes device parameters
-        // What a clip plays depends on its fades and its neighbours (ADR 0036), and its notes'
-        // chance on its seed (piano-roll.md §10): playback is rebuilt.
-        if (affectsFades(t, id) || id == noteIds::seed)
+        // What a clip plays depends on its fades and its neighbours (ADR 0036), its sound (ADR 0063),
+        // and its notes' chance on its seed (piano-roll.md §10): playback is rebuilt.
+        if (affectsFades(t, id) || affectsSound(t, id) || id == noteIds::seed)
             restartPending = true;
         // A lane's points.
         for (auto p = t; p.isValid() && !p.hasType(te::IDs::PLUGIN); p = p.getParent())
@@ -639,7 +644,8 @@ private:
     {
         if (inInputs(t) || child.hasType(te::IDs::INPUTDEVICES))
             return; // routing, rebuilt from the tracks' inputs
-        restartPending = restartPending || child.hasType(te::IDs::AUTOMATIONCURVE);
+        restartPending =
+            restartPending || child.hasType(te::IDs::AUTOMATIONCURVE) || child.hasType(soundIds::line);
         morphCheckPending = morphCheckPending || inCurve(t) || child.hasType(te::IDs::AUTOMATIONCURVE);
         structureChanged(t);
     }
@@ -647,7 +653,8 @@ private:
     {
         if (inInputs(t) || child.hasType(te::IDs::INPUTDEVICES))
             return;
-        restartPending = restartPending || child.hasType(te::IDs::AUTOMATIONCURVE);
+        restartPending =
+            restartPending || child.hasType(te::IDs::AUTOMATIONCURVE) || child.hasType(soundIds::line);
         morphCheckPending = morphCheckPending || inCurve(t) || child.hasType(te::IDs::AUTOMATIONCURVE);
         structureChanged(t);
     }

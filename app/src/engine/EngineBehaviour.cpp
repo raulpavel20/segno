@@ -34,10 +34,14 @@ public:
     {
         auto [clips, index] = fadeNeighboursOf(clip);
         const auto playback = model::clipPlayback(clips, index, edgeFadesOn(clip.edit));
-        // Nothing to fade: no node, unless tracktion would apply its own curves to tiny fades.
-        if (!playback.any() && clip.getFadeIn() == tracktion::TimeDuration() && clip.getFadeOut() == tracktion::TimeDuration())
+        auto sound = soundOf(clip);
+        // Nothing to fade and its sound as recorded: no node, unless tracktion would apply its own
+        // curves to tiny fades.
+        if (!playback.any() && sound.neutral() && clip.getFadeIn() == tracktion::TimeDuration() &&
+            clip.getFadeOut() == tracktion::TimeDuration())
             return {};
-        return std::make_unique<ClipFadeNode>(std::move(input), state, clips[index], playback);
+        return std::make_unique<ClipFadeNode>(std::move(input), state, clips[index], playback,
+                                              std::move(sound));
     }
 
     // Chance (piano-roll.md §10): every render of a MIDI clip decides its notes the same way.

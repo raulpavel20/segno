@@ -86,6 +86,7 @@ struct FadeClip
     std::string source;
     bool muted = false;
     bool canExtend = true; // false: it can't play past its edges (stretched, synced, looped)
+    bool reversed = false; // it reads its file backwards (audio-editor.md §6.3)
     Fade in, out;
     std::optional<Crossfade> crossOut; // stored on it, into the clip that starts where it ends
 
@@ -99,9 +100,9 @@ struct FadeClip
 
 /// Whether two clips meet: the first ends where the second starts.
 [[nodiscard]] bool meet(const FadeClip& first, const FadeClip& second) noexcept;
-/// Whether `next` runs on seamlessly from `prev`: they meet, play the same file (with the same loop),
-/// and `next` starts in it where `prev` ends (a split, a bounce run, comp parts from one take). A
-/// loop starting again isn't seamless: it's a seam (ADR 0048).
+/// Whether `next` runs on seamlessly from `prev`: they meet, play the same file the same way round
+/// (with the same loop), and `next` starts in it where `prev` ends (a split, a bounce run, comp parts from
+/// one take). A loop starting again isn't seamless: it's a seam (ADR 0048).
 [[nodiscard]] bool seamless(const FadeClip& prev, const FadeClip& next) noexcept;
 
 /// The crossfade that fits between two clips that meet, as near as their spare audio allows to

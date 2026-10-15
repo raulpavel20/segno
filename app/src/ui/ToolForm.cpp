@@ -1,7 +1,5 @@
 #include "ui/ToolForm.h"
 
-#include "model/MusicalTime.h"
-
 #include <cmath>
 #include <map>
 
@@ -56,14 +54,13 @@ private:
     const ToolForm& form_;
 };
 
-ToolForm::ToolForm(PianoRoll& roll, engine::Session& session)
-    : roll_(roll), session_(session), holder_(std::make_unique<Rows>(*this))
+ToolForm::ToolForm(ToolHost& host) : host_(&host), holder_(std::make_unique<Rows>(*this))
 {
     viewport_.setViewedComponent(holder_.get(), false);
     viewport_.setScrollBarsShown(true, false);
     addAndMakeVisible(viewport_);
     apply_.setClickingTogglesState(false);
-    apply_.setTooltip("Keep it (Return); Escape puts the notes back");
+    apply_.setTooltip("Keep it (Return); Escape puts " + host_->what() + " back");
     apply_.onClick = [this]
     {
         if (onApply)
@@ -79,16 +76,26 @@ ToolForm::ToolForm(PianoRoll& roll, engine::Session& session)
 
 ToolForm::~ToolForm() = default;
 
+void ToolForm::setHost(ToolHost& host)
+{
+    if (&host == host_)
+        return;
+    if (tool_ != nullptr)
+        setTool(nullptr);
+    host_ = &host;
+    apply_.setTooltip("Keep it (Return); Escape puts " + host_->what() + " back");
+}
+
 void ToolForm::setTool(const model::ToolSpec* tool)
 {
     tool_ = tool;
-    values_ = tool != nullptr ? roll_.toolValues(*tool) : model::ToolValues{};
+    values_ = tool != nullptr ? host_->toolValues(*tool) : model::ToolValues{};
     build();
     resized();
     if (tool != nullptr)
         preview();
     else
-        roll_.previewEdit(std::nullopt);
+        host_->cancel();
 }
 
 void ToolForm::build()
@@ -152,7 +159,7 @@ void ToolForm::build()
             field->setFontSize(theme.textXs);
             field->setRange(s.min, s.max, s.step);
             field->setDragSensitivity(std::max(s.step, (s.max - s.min) / 200.0));
-            const auto* key = roll_.key() ? &*roll_.key() : nullptr;
+            const auto* key = host_->key();
             field->textFromValue = [&s, key](double v) { return utf8(model::settingText(s, v, key)); };
             field->valueFromText = [&s](const juce::String& text) { return numberFromText(s, text); };
             field->setValue(value, juce::dontSendNotification);
@@ -203,17 +210,11 @@ juce::Component* ToolForm::control(std::string_view setting) const
     return nullptr;
 }
 
-model::ToolRun ToolForm::run() const
-{
-    return model::runNoteTool(*tool_, roll_.notes(), roll_.selection(), values_, roll_.toolContext());
-}
-
 void ToolForm::preview()
 {
     if (tool_ == nullptr)
         return;
-    const auto r = run();
-    roll_.previewEdit(r.why.empty() ? std::optional(r.edit) : std::nullopt);
+    host_->preview(*tool_, values_);
     repaint(); // its title counts what it acts on
 }
 
@@ -221,40 +222,20 @@ void ToolForm::apply()
 {
     if (tool_ == nullptr)
         return;
-    const auto r = run();
-    roll_.setToolValues(*tool_, values_);
-    if (r.why.empty())
-    {
-        const engine::Session::EditGroup group(session_, std::string(tool_->name)); // the undo step's name
-        roll_.applyEdit(r.edit);
-    }
-    else
-        roll_.previewEdit(std::nullopt);
+    host_->setToolValues(*tool_, values_);
+    host_->apply(*tool_, values_);
 }
 
 void ToolForm::cancel()
 {
-    roll_.previewEdit(std::nullopt);
+    host_->cancel();
 }
 
 juce::String ToolForm::title() const
 {
     if (tool_ == nullptr)
         return {};
-    const auto dot = juce::String::fromUTF8(" · ");
-    juce::String scope;
-    if (tool_->kind == model::ToolKind::Transform)
-    {
-        const auto n =
-            static_cast<int>(roll_.hasSelection() ? roll_.selection().size() : roll_.notes().size());
-        scope = juce::String(n) + (n == 1 ? " note" : " notes");
-    }
-    else
-    {
-        const auto span = roll_.toolContext().span;
-        scope = juce::String(model::lengthText(span.second - span.first, roll_.tempo()));
-    }
-    return utf8(tool_->name) + dot + scope;
+    return utf8(tool_->name) + juce::String::fromUTF8(" · ") + host_->scope(*tool_);
 }
 
 // ---- layout --------------------------------------------------------------------------------------
@@ -276,7 +257,7 @@ int ToolForm::controlWidth(const model::ToolSetting& s) const
         return widest;
     }
     int widest = 0;
-    const auto* key = roll_.key() ? &*roll_.key() : nullptr;
+    const auto* key = host_->key();
     for (double v : {s.min, s.max, s.initial})
         widest = std::max(widest, measureNumber_.widthFor(utf8(model::settingText(s, v, key))));
     return widest;
@@ -289,7 +270,7 @@ int ToolForm::preferredWidth(const model::ToolSpec& tool) const
     for (const auto& setting : tool.settings)
         content = std::max(content, s.propertyLabelWidth + controlWidth(setting));
     // The title at its longest ("RANDOMISE PITCH · 9999 NOTES") and Apply.
-    const auto title = (utf8(tool.name) + juce::String::fromUTF8(" · 9999 notes")).toUpperCase();
+    const auto title = (utf8(tool.name) + juce::String::fromUTF8(" · ") + host_->widestScope()).toUpperCase();
     const auto titleWidth =
         static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(ui::capsLabelFont(), title)));
     return std::max(content, titleWidth + s.groupGap + ui::Toggle::widthFor(apply_.getButtonText()));

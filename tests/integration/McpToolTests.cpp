@@ -241,7 +241,13 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
                              "set_controllers",
                              "list_note_tools",
                              "transform_notes",
-                             "generate_notes"})
+                             "generate_notes",
+                             "set_audio",
+                             "get_gain_line",
+                             "set_gain_line",
+                             "edit_audio_range",
+                             "list_audio_tools",
+                             "transform_audio"})
         CHECK(names.contains(name));
     for (const auto& p : registry.prompts)
     {
@@ -2570,5 +2576,102 @@ TEST_CASE("mcp tools: racks' snapshots stored, recalled, renamed and removed; Mo
     REQUIRE(rack["snapshots"].size() == 1);
     CHECK(rack["morph"]["b"].is_null());
     CHECK(daw.fails("set_morph", {{"rack", rackId}, {"on", true}}).find("two snapshots") !=
+          std::string::npos);
+}
+
+TEST_CASE("mcp tools: an audio clip's sound, its gain line, its ranges and Normalise (P6a)",
+          "[integration][mcp][audio-sound]")
+{
+    Daw daw;
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    // A 4 s stereo sine at -6 dBFS.
+    fd::testkit::AudioBuffer sine(2, 4 * 48000);
+    for (int c = 0; c < 2; ++c)
+        for (int i = 0; i < sine.numSamples(); ++i)
+            sine.at(c, i) = 0.5f * std::sin(static_cast<float>(i) * 0.05f);
+    const auto file = daw.folder.getChildFile("sine.wav");
+    REQUIRE(fd::testkit::writeWav(file.getFullPathName().toStdString(), sine, 48000.0));
+    const auto clip =
+        daw.call("insert_audio_file",
+                 {{"track", t0}, {"start", 0}, {"path", file.getFullPathName().toStdString()}})["clip"]["id"]
+            .get<std::string>();
+    auto got = daw.call("get_clip", {{"clip", clip}});
+    CHECK(got["sound"]["gain"] == 0.0);
+    CHECK(got["sound"]["channels"] == "stereo");
+    CHECK(got["file"]["channels"] == 2);
+    CHECK(got["file"]["sampleRate"] == 48000.0);
+
+    // Gain, polarity, channels, reverse: one step each.
+    auto r = daw.call("set_audio",
+                      {{"clips", {clip}}, {"gain", "-3 dB"}, {"inverted", true}, {"channels", "mono"}});
+    CHECK(r["clips"][0]["sound"]["gain"] == -3.0);
+    CHECK(r["clips"][0]["sound"]["inverted"] == true);
+    CHECK(r["clips"][0]["sound"]["channels"] == "mono");
+    CHECK(daw.session->undoDescription() == "Assistant: set audio");
+    r = daw.call("set_audio", {{"clips", {clip}}, {"gainBy", -1.5}});
+    CHECK(r["clips"][0]["sound"]["gain"] == -4.5);
+    r = daw.call("set_audio", {{"clips", {clip}}, {"reverse", true}});
+    CHECK(r["clips"][0]["sound"]["reverse"] == true);
+    CHECK(r["clips"][0]["source"].get<std::string>().find("Reversed") != std::string::npos);
+    CHECK(daw.fails("set_audio", {{"clips", {clip}}, {"channels", "sideways"}}).find("stereo") !=
+          std::string::npos);
+    CHECK(daw.fails("set_audio", {{"clips", {clip}}, {"gain", "loud"}}).find("dB") != std::string::npos);
+
+    // The gain line: in dB, at times in the file.
+    r = daw.call("set_gain_line",
+                 {{"clip", clip},
+                  {"points", {{{"time", 1.0}, {"db", 0}}, {{"time", 2.0}, {"db", nullptr}, {"bend", 0.5}}}}});
+    REQUIRE(r["points"].size() == 2);
+    CHECK(r["points"][0]["db"] == 0.0);
+    CHECK(r["points"][1]["db"].is_null());
+    CHECK(r["points"][1]["bend"] == Approx(0.5));
+    CHECK(daw.call("get_gain_line", {{"clip", clip}})["points"].size() == 2);
+    CHECK(daw.call("get_clip", {{"clip", clip}})["sound"]["gainLinePoints"] == 2);
+    CHECK(daw.fails("set_gain_line", {{"clip", clip}, {"points", {{{"time", -1.0}, {"db", 0}}}}})
+              .find("negative") != std::string::npos);
+    daw.call("set_gain_line", {{"clip", clip}, {"points", Json::array()}});
+    CHECK(daw.call("get_gain_line", {{"clip", clip}})["points"].empty());
+
+    // A range: silenced, then split into a clip of its own; a fade from the middle is refused.
+    r = daw.call("edit_audio_range",
+                 {{"clip", clip}, {"from", "1.2.1"}, {"to", "1.3.1"}, {"action", "silence"}});
+    CHECK(daw.call("get_gain_line", {{"clip", clip}})["points"].size() == 4);
+    CHECK(daw.session->undoDescription() == "Assistant: edit audio range");
+    CHECK(daw.fails("edit_audio_range",
+                    {{"clip", clip}, {"from", "1.2.1"}, {"to", "1.3.1"}, {"action", "fade"}})
+              .find("start") != std::string::npos);
+    CHECK(daw.fails("edit_audio_range",
+                    {{"clip", clip}, {"from", "1.2.1"}, {"to", "1.3.1"}, {"action", "gain"}})
+              .find("db") != std::string::npos);
+    CHECK(daw.fails("edit_audio_range",
+                    {{"clip", clip}, {"from", "1.2.1"}, {"to", "1.3.1"}, {"action", "fold"}})
+              .find("split") != std::string::npos);
+    r = daw.call("edit_audio_range",
+                 {{"clip", clip}, {"from", "1.2.1"}, {"to", "1.3.1"}, {"action", "split"}});
+    CHECK(r["clips"].size() == 3);
+
+    // The tools: Normalise each to -1 dBFS.
+    const auto tools = daw.call("list_audio_tools")["tools"];
+    REQUIRE(tools.size() >= 1);
+    CHECK(tools[0]["tool"] == "normalise");
+    std::vector<std::string> parts;
+    for (const auto& c : r["clips"])
+        parts.push_back(c["id"].get<std::string>());
+    daw.call("set_audio",
+             {{"clips", parts}, {"reverse", false}, {"inverted", false}, {"channels", "stereo"}});
+    r = daw.call("transform_audio",
+                 {{"clips", parts}, {"tool", "normalise"}, {"settings", {{"to", "peak"}, {"peak", -1}}}});
+    CHECK(r["changed"] == 3);
+    // The parts either side play the sine at -6 dBFS: +5 dB brings them to -1. The middle one is
+    // the silenced range, only its ramps heard: quieter, so raised more.
+    std::map<std::string, double> gains;
+    for (const auto& c : r["clips"])
+        gains[c["id"].get<std::string>()] = c["sound"]["gain"].get<double>();
+    CHECK(gains[parts[1]] == Approx(5.0).margin(0.1));
+    CHECK(gains[parts[2]] == Approx(5.0).margin(0.1));
+    CHECK(gains[parts[0]] > 5.5);
+    CHECK(daw.fails("transform_audio", {{"clips", parts}, {"tool", "normalise"}, {"settings", {{"peak", 3}}}})
+              .find("from") != std::string::npos);
+    CHECK(daw.fails("transform_audio", {{"clips", parts}, {"tool", "explode"}}).find("list_audio_tools") !=
           std::string::npos);
 }

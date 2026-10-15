@@ -236,6 +236,11 @@ model::ClipInfo clipInfo(te::Clip& c, int trackColour)
         clip.sourcePath = audio->getOriginalFile().getFullPathName().toStdString();
         clip.sourceLength = audio->getSourceLength().inSeconds();
         clip.synced = audio->getAutoTempo();
+        clip.sound = soundOf(*audio); // ADR 0063
+        const auto info = te::AudioFile(c.edit.engine, audio->getOriginalFile()).getInfo();
+        clip.fileChannels = info.numChannels;
+        clip.fileSampleRate = info.sampleRate;
+        clip.fileBitDepth = info.isFloatingPoint ? 0 : info.bitsPerSample;
     }
     clip.loop = loopOf(c.state, c.edit.tempoSequence); // ADR 0048
     if (clip.loop.on() && clip.kind == model::ClipInfo::Kind::Midi) // the zero the clip view shows
@@ -251,6 +256,11 @@ model::TrackInfo::Kind kindOf(te::AudioTrack& t)
     return model::TrackInfo::Kind::Audio;
 }
 } // namespace
+
+model::ClipInfo clipInfoOf(te::Clip& clip)
+{
+    return clipInfo(clip, 0);
+}
 
 model::ClipLoop loopOf(const juce::ValueTree& clip, const te::TempoSequence& tempo)
 {

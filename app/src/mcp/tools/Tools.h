@@ -28,6 +28,7 @@ struct ToolEnv
 void addReadTools(Registry& registry, ToolEnv& env);
 void addTransportTools(Registry& registry, ToolEnv& env);
 void addClipTools(Registry& registry, ToolEnv& env);
+void addAudioTools(Registry& registry, ToolEnv& env);
 void addNoteTools(Registry& registry, ToolEnv& env);
 void addModuleTools(Registry& registry, ToolEnv& env);
 void addWavetableTools(Registry& registry, ToolEnv& env);

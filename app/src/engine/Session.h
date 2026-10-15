@@ -754,6 +754,64 @@ public:
     /// reason if it can't loop (nothing changes), else empty.
     std::string setClipLoop(std::uint64_t clip, const model::ClipLoop& loop, const std::string& undoName = "Loop");
 
+    // ---- an audio clip's sound and ranges (P6, ADR 0063, docs/design/audio-editor.md) -----------
+    // Settings of the clip, never of its file: gain, the gain line, reverse, polarity, channels.
+
+    /// Changes to audio clips' sound: each field given changes on every clip (MIDI clips are left
+    /// alone). `gainBy` moves each clip's gain by that much (several clips move together).
+    struct SoundChange
+    {
+        std::optional<float> gainDb, gainBy;
+        std::optional<bool> reversed, inverted;
+        std::optional<model::ChannelMode> channels;
+    };
+    /// One undo step named `undoName`; false if no audio clip changed.
+    bool setSound(const std::vector<std::uint64_t>& clips, const SoundChange& change,
+                  const std::string& undoName = "Clip sound");
+    /// Replaces an audio clip's gain line (times in its file as recorded, values on the volume
+    /// taper; empty: none). One undo step named `undoName`, unless an EditGroup names it.
+    bool setGainLine(std::uint64_t clip, const model::AutomationPoints& line,
+                     const std::string& undoName = "Gain line");
+
+    /// What the audio editor does to a range of a clip (§5), [from, to) on the timeline within it.
+    enum class RangeAction
+    {
+        Split,   // at the range's edges: the range becomes a clip of its own
+        Delete,  // that part goes; what's either side stays where it is
+        Crop,    // the clip keeps only the range
+        Silence, // the gain line falls to silence over it
+        Gain,    // the gain line over it moves by `db`
+        Fade,    // a range at the clip's start is its fade-in, at its end its fade-out
+        Loop,    // the clip loops it
+    };
+    struct RangeResult
+    {
+        /// What's left of the clip, in time order; after Split, the range's clip first.
+        std::vector<std::uint64_t> clips;
+        std::string why; // why it couldn't be done (nothing changed)
+    };
+    /// One undo step named for the action ("Split", "Delete", "Crop", "Silence", "Gain", "Fade",
+    /// "Loop").
+    RangeResult editRange(std::uint64_t clip, double from, double to, RangeAction action, double db = 0.0);
+    /// Why `action` can't be done on that range, or empty.
+    [[nodiscard]] std::string rangeRefusal(std::uint64_t clip, double from, double to,
+                                           RangeAction action) const;
+
+    /// Normalise (§6.4): each audio clip's gain set so it reaches `targetDb` (dBFS, or LUFS), or
+    /// all moved together so the loudest does. Measured from their files (streamed; not real-time).
+    /// One undo step, "Normalise". Returns the clips that changed; silent ones keep their gain.
+    struct NormaliseSettings
+    {
+        model::NormaliseTo to = model::NormaliseTo::Peak;
+        double targetDb = -1.0;
+        bool together = false;
+    };
+    std::vector<std::uint64_t> normalise(const std::vector<std::uint64_t>& clips,
+                                         const NormaliseSettings& settings);
+    /// The gains Normalise would give (the Tools pane's preview): each clip's, or nullopt to keep.
+    [[nodiscard]] std::vector<std::pair<std::uint64_t, std::optional<float>>>
+    normaliseGains(const std::vector<std::uint64_t>& clips, const NormaliseSettings& settings) const;
+
     /// A module panel's view state (collapsed sections, folded; ADR 0022), stored with the
     /// project on the module. Never an undo step or an unsaved change.
     [[nodiscard]] std::string deviceViewState(std::uint64_t deviceId) const;

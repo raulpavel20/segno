@@ -14,6 +14,7 @@ void registerAll(Registry& registry, ToolEnv& env)
     addReadTools(registry, env);
     addTransportTools(registry, env);
     addClipTools(registry, env);
+    addAudioTools(registry, env);
     addNoteTools(registry, env);
     addModuleTools(registry, env);
     addWavetableTools(registry, env);
@@ -480,6 +481,15 @@ Json clipJson(ToolEnv& env, const model::ClipInfo& c, bool notes)
         j["source"] = c.sourcePath;
         j["sourceOffsetSeconds"] = roundTime(c.offset);
         j["sourceSeconds"] = roundTime(c.sourceLength);
+        // Its sound (audio-editor.md §6; set_audio, get_gain_line) and its file's format.
+        j["sound"] = {
+            {"gain", db(c.sound.gainDb <= model::minusInfinityDb ? -INFINITY : c.sound.gainDb)},
+            {"reverse", c.sound.reversed},
+            {"inverted", c.sound.inverted},
+            {"channels", juce::String(model::channelModeName(c.sound.channels)).toLowerCase().toStdString()},
+            {"gainLinePoints", c.sound.line.size()}};
+        j["file"] = {
+            {"channels", c.fileChannels}, {"sampleRate", c.fileSampleRate}, {"bitDepth", c.fileBitDepth}};
     }
     else
     {
