@@ -302,24 +302,21 @@ void PanelHeader::resized()
     };
     while (needed() > getWidth() - left - s.groupGap)
     {
-        // The lowest drop order among the options and commands still shown.
-        bool* next = nullptr;
+        // The lowest drop order among the options and commands still shown: everything with it
+        // gives way together (a pair such as ×2 and ÷2 never shows half).
         int lowest = 0;
-        for (auto& o : options_)
-            if (o.drop > 0 && !o.dropped && o.component->isVisible() && (next == nullptr || o.drop < lowest))
-            {
-                next = &o.dropped;
+        for (const auto& o : options_)
+            if (o.drop > 0 && !o.dropped && o.component->isVisible() && (lowest == 0 || o.drop < lowest))
                 lowest = o.drop;
-            }
-        for (auto& c : commands_)
-            if (c.drop > 0 && !c.dropped && c.component->isVisible() && (next == nullptr || c.drop < lowest))
-            {
-                next = &c.dropped;
+        for (const auto& c : commands_)
+            if (c.drop > 0 && !c.dropped && c.component->isVisible() && (lowest == 0 || c.drop < lowest))
                 lowest = c.drop;
-            }
-        if (next == nullptr)
+        if (lowest == 0)
             break;
-        *next = true;
+        for (auto& o : options_)
+            o.dropped = o.dropped || (o.drop == lowest && o.component->isVisible());
+        for (auto& c : commands_)
+            c.dropped = c.dropped || (c.drop == lowest && c.component->isVisible());
     }
 
     // Right to left, `itemGap` apart. The last one's label ends at the padding, where a caption

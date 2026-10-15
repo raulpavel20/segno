@@ -35,6 +35,9 @@ public:
     [[nodiscard]] const model::ToolValues& values() const noexcept { return values_; }
     /// A setting changed, as its control changes it.
     void setValue(std::string_view setting, double value);
+    /// A setting changed from elsewhere (the audio Tempo tool's downbeat dragged on the
+    /// waveform): its control shows it, and it previews.
+    void show(std::string_view setting, double value);
     /// A setting's control (for tests and screenshots); null while it isn't shown.
     [[nodiscard]] juce::Component* control(std::string_view setting) const;
     /// "STRUM · 14 NOTES", "CHORDS · 4 BARS".
@@ -58,6 +61,7 @@ public:
 
 private:
     class Rows;
+    class HalveDouble;
     struct Row
     {
         const model::ToolSetting* setting = nullptr;

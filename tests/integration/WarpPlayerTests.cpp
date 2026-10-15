@@ -7,6 +7,7 @@
 #include "engine/EngineBehaviour.h"
 #include "engine/Session.h"
 #include "engine/SessionImpl.h"
+#include "fd/testkit/Metrics.h"
 #include "fd/testkit/WavIO.h"
 
 #include <algorithm>
@@ -283,6 +284,19 @@ TEST_CASE("piece player: at its own tempo a clip reads its file exactly, with ma
     }
 }
 
+TEST_CASE("piece player: a warped clip muted is silent, and plays again unmuted", "[integration][warp]")
+{
+    Player p;
+    const auto id = p.place(noise(2.0), "Noise");
+    REQUIRE(p.session->setWarp({id}, {.on = true, .mode = fd::model::WarpMode::Tones, .tempo = 120.0}));
+    const auto plain = p.render(0.0, 2.0);
+    REQUIRE(fd::testkit::peak(plain) > 0.1);
+    p.session->setClipsMuted({id}, true);
+    CHECK(fd::testkit::peak(p.render(0.0, 2.0)) == 0.0);
+    p.session->setClipsMuted({id}, false);
+    CHECK(db(difference(plain, p.render(0.0, 2.0))) < -200.0);
+}
+
 TEST_CASE("piece player: transposed, Tones keeps the length and moves the pitch", "[integration][warp]")
 {
     Player p;
@@ -386,4 +400,61 @@ TEST_CASE("piece player: 32 warped stereo clips with markers, rendered", "[.][wa
     std::cout << "piece player: 9.6 s of 32 warped clips, a marker every beat, rendered in " << seconds
               << " s" << std::endl;
     CHECK(out.numSamples() == frame(9.6));
+}
+
+namespace
+{
+/// A drum loop: a hit on every beat (a burst of noise decaying fast), `bars` bars at `bpm`.
+AudioBuffer drumLoop(double bpm, int bars, int hits = -1)
+{
+    const double beat = 60.0 / bpm;
+    AudioBuffer b(2, frame(bars * 4 * beat));
+    std::uint32_t x = 99;
+    const int count = hits < 0 ? bars * 4 : hits;
+    for (int k = 0; k < count; ++k)
+        for (int i = 0; i < frame(0.15) && frame(k * beat) + i < b.numSamples(); ++i)
+        {
+            x = x * 1664525u + 1013904223u;
+            const float v = 0.7f * std::exp(-static_cast<float>(i) / 2000.0f) *
+                            (static_cast<float>(x >> 8) / 8388608.0f - 1.0f);
+            for (int c = 0; c < 2; ++c)
+                b.at(c, frame(k * beat) + i) = v;
+        }
+    return b;
+}
+} // namespace
+
+TEST_CASE(
+    "piece player: what follows the tempo when it's placed: loops by their tempo, not one-shots, noise or "
+    "long files; bounces at the song's",
+    "[integration][warp]")
+{
+    Player p;
+    // A drum loop: its tempo found in its sound, 2 bars at 92 BPM; percussive, so Beats.
+    const auto loop = p.place(drumLoop(92.0, 2), "Break", 0.0);
+    auto c = p.info(loop);
+    CHECK(c.warp.on);
+    CHECK(c.warp.tempo == Approx(92.0).margin(0.01));
+    CHECK(c.warp.mode == fd::model::WarpMode::Beats);
+    CHECK(c.length == Approx(8 * 0.5).margin(1e-6)); // 8 beats at the song's 120 BPM
+    // A tempo in its name says so, whatever its sound.
+    const auto named = p.place(noise(240.0 / 92.0), "Pad_92bpm", 10.0);
+    CHECK(p.info(named).warp.on);
+    CHECK(p.info(named).warp.tempo == Approx(92.0));
+    // A one-shot (a single hit), noise with no beat, a long take: at their files' speed.
+    CHECK_FALSE(p.info(p.place(drumLoop(120.0, 1, 1), "Hit", 20.0)).warp.on);
+    CHECK_FALSE(p.info(p.place(noise(2.0), "Noise", 30.0)).warp.on);
+    CHECK_FALSE(p.info(p.place(drumLoop(120.0, 20), "Take", 40.0)).warp.on); // 40 s
+    // Bounced, it's made in time: Warp on at the song's tempo, so it plays untouched.
+    std::optional<Session::BounceResult> result;
+    auto job = p.session->bounce({loop}, fd::model::BounceMode::InPlace,
+                                 [&](const Session::BounceResult& r) { result = r; });
+    REQUIRE(job != nullptr);
+    for (int i = 0; i < 2000 && !result; ++i)
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
+    REQUIRE(result);
+    REQUIRE(result->clips.size() == 1);
+    c = p.info(result->clips[0]);
+    CHECK(c.warp.on);
+    CHECK(c.warp.tempo == Approx(120.0));
 }

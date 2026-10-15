@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdio>
 #include <numbers>
 
 namespace fd::model
@@ -798,6 +799,14 @@ std::string settingText(const ToolSetting& setting, double value, const music::K
         return music::noteName(key, static_cast<int>(whole));
     std::string text =
         whole < 0 ? "\xE2\x88\x92" + std::to_string(-whole) : std::to_string(whole); // a real minus
+    // A setting finer than a whole shows its step's decimals ("92.00 BPM", "0.250 s").
+    if (setting.step > 0.0 && setting.step < 1.0)
+    {
+        const int digits = static_cast<int>(std::ceil(-std::log10(setting.step) - 1e-9));
+        char buffer[64];
+        std::snprintf(buffer, sizeof buffer, "%.*f", digits, std::abs(value));
+        text = (value < -0.5 * setting.step ? std::string("\xE2\x88\x92") : std::string()) + buffer;
+    }
     if (setting.unit == "%")
         return text + " %";
     if (!setting.unit.empty())

@@ -30,6 +30,7 @@ struct ToolSetting
     std::string_view when;
     int whenIs = -1;
     bool menu = false; // a choice too long for segments: a choice field
+    bool halveDouble = false; // a number with ×2 and ÷2 beside it (the audio Tempo tool's tempo)
 
     [[nodiscard]] bool isChoice() const noexcept { return !choices.empty(); }
 };

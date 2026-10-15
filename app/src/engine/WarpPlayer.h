@@ -41,6 +41,9 @@ inline const juce::Identifier markers{"FDWARPMARKERS"}, marker{"FDWARPMARKER"}, 
 /// Times kept as text on a clip (the transients' edits), and back.
 [[nodiscard]] std::vector<double> timesOf(const juce::var& text);
 [[nodiscard]] juce::String textOf(const std::vector<double>& times);
+/// Keeps the engine's loop metadata to the clip's map: its length in beats is its file's, as
+/// warped (what bounds a clip's length while it follows the tempo).
+void writeWarpLoopInfo(tracktion::AudioClipBase& clip, const model::AudioWarp& warp);
 /// Writes the clip's warp markers (none removes them), undoably.
 void writeWarpMarkers(juce::ValueTree& clip, const std::vector<model::WarpMarker>& markers,
                       juce::UndoManager* um);

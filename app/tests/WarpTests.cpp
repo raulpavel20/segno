@@ -46,18 +46,6 @@ TEST_CASE("warp: modes and tails by name, both ways", "[fast][warp]")
     CHECK(tailsFromName(tailsName(WarpTails::Fade)) == WarpTails::Fade);
 }
 
-TEST_CASE("warp: a tempo in a file's name", "[fast][warp]")
-{
-    CHECK(tempoFromName("Groove_92bpm") == 92.0);
-    CHECK(tempoFromName("Drums 120 BPM") == 120.0);
-    CHECK(tempoFromName("loop-87.5bpm (wet)") == 87.5);
-    CHECK(tempoFromName("Bass_174_BPM_Fm") == 174.0);
-    CHECK_FALSE(tempoFromName("Kick 01"));
-    CHECK_FALSE(tempoFromName("v2bpm"));
-    CHECK_FALSE(tempoFromName("Tape 1000 bpm")); // not a tempo a loop is played at
-    CHECK_FALSE(tempoFromName("bpm"));
-}
-
 TEST_CASE("warp: without markers the file plays at the clip's tempo", "[fast][warp]")
 {
     AudioWarp w;

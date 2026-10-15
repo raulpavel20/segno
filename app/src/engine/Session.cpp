@@ -640,8 +640,9 @@ void Session::Impl::rebuildSnapshot()
             auto clip = clipInfo(*c, info.colour);
             if (auto* audio = dynamic_cast<te::AudioClipBase*>(c))
             {
-                // What's found in its file (P6b): asked for here, found in the background.
-                clip.analysis = analyser.get(forwardFileOf(*audio));
+                // What's found in its file (P6b), once something asked for it (the editor showing
+                // it, Beats playing it, a loop placed): read here, never started.
+                clip.analysis = analyser.peek(forwardFileOf(*audio));
                 clip.transientsAdded = timesOf(c->state[warpIds::transientsAdded]);
                 clip.transientsRemoved = timesOf(c->state[warpIds::transientsRemoved]);
             }
@@ -1308,22 +1309,32 @@ std::uint64_t Session::insertAudioFile(std::uint64_t trackId, const juce::File& 
     const te::AudioFile audio(impl_->engine, file);
     if (track == nullptr || !audio.isValid())
         return 0;
+    EditGroup group(*this, "Insert audio file");
     impl_->beginEdit("Insert audio file");
     const auto start = te::TimePosition::fromSeconds(std::max(0.0, seconds));
     auto clip = track->insertWaveClip(file.getFileNameWithoutExtension(), file,
                                       {{start, te::TimeDuration::fromSeconds(audio.getLength())}, {}}, false);
     if (clip == nullptr)
         return 0;
-    // At the file's own speed (browser.md R8, clip-loops.md §4): the engine would stretch a file
-    // with loop metadata to the tempo by itself; following the tempo comes with M4's warping.
+    // The engine would stretch a file with loop metadata to the tempo by itself: placed at its own
+    // speed first (clip-loops.md §4).
     if (clip->getAutoTempo() || clip->getAutoPitch())
     {
         clip->setAutoTempo(false);
         clip->setAutoPitch(false);
         clip->setPosition({{start, te::TimeDuration::fromSeconds(audio.getLength())}, {}});
     }
-    impl_->clearUnder(*track, start.inSeconds(), start.inSeconds() + audio.getLength(), {clip->itemID.getRawID()});
-    return clip->itemID.getRawID();
+    const auto id = clip->itemID.getRawID();
+    impl_->keepFirstTempo(*clip);
+    // A loop plays in time (audio-editor.md §7.2): Warp on at its tempo, in the mode its sound
+    // chooses. Anything else plays at its file's speed.
+    if (impl_->loopsFollowTempo)
+        if (const auto loop = impl_->loopTempo(*clip))
+            setWarp({id}, {.on = true, .mode = loop->second, .tempo = loop->first}, "Insert audio file");
+    const double end = impl_->clip(id) != nullptr ? impl_->clip(id)->getPosition().getEnd().inSeconds()
+                                                  : start.inSeconds() + audio.getLength();
+    impl_->clearUnder(*track, start.inSeconds(), end, {id});
+    return id;
 }
 
 void Session::applyClipEdits(const std::vector<model::ClipEdit>& asked, const std::string& undoName)

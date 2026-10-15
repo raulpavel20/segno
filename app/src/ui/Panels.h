@@ -165,6 +165,14 @@ public:
     [[nodiscard]] ui::Toggle& audioReverse() noexcept { return audioReverse_; }
     [[nodiscard]] ui::Toggle& audioPolarity() noexcept { return audioPolarity_; }
     [[nodiscard]] juce::ComboBox& audioChannels() noexcept { return audioChannels_; }
+    [[nodiscard]] ui::NumberField& audioTranspose() noexcept { return audioTranspose_; }
+    [[nodiscard]] ui::NumberField& audioFine() noexcept { return audioFine_; }
+    [[nodiscard]] ui::Toggle& audioWarp() noexcept { return audioWarp_; }
+    [[nodiscard]] juce::ComboBox& audioMode() noexcept { return audioMode_; }
+    [[nodiscard]] ui::NumberField& audioTempo() noexcept { return audioTempo_; }
+    [[nodiscard]] juce::ComboBox& audioTails() noexcept { return audioTails_; }
+    [[nodiscard]] ui::Toggle& audioFormants() noexcept { return audioFormants_; }
+    [[nodiscard]] ui::NumberField& audioSensitivity() noexcept { return audioSensitivity_; }
     void resized() override;
     void paint(juce::Graphics& g) override;
 
@@ -270,6 +278,16 @@ private:
     ui::NumberField audioGain_;
     ui::Toggle audioReverse_{"On"}, audioPolarity_{"Invert"};
     juce::ComboBox audioChannels_;
+    /// Its warping and transposition (§7, §8.1, §12): Transpose with Fine beside it; Warp with the
+    /// mode beside it; while it warps its tempo with ×2 and ÷2, and the mode's setting (Beats'
+    /// tails, Tones' formants); the transients' sensitivity.
+    ui::NumberField audioTranspose_, audioFine_, audioTempo_, audioSensitivity_;
+    ui::Toggle audioWarp_{"On"}, audioFormants_{"Keep"};
+    ui::Toggle audioDouble_{juce::String::fromUTF8("\xC3\x97"
+                                                   "2")},
+        audioHalve_{juce::String::fromUTF8("\xC3\xB7"
+                                           "2")};
+    juce::ComboBox audioMode_, audioTails_;
     std::optional<engine::Session::EditGroup> audioGesture_;
     TrackInputSection input_{session_};
     model::TempoMap tempo_;
@@ -358,6 +376,16 @@ public:
     [[nodiscard]] ui::Toggle& normaliseButton() noexcept { return normalise_; }
     [[nodiscard]] ui::BarField& gainField() noexcept { return gain_; }
     [[nodiscard]] ui::Toggle& reverseButton() noexcept { return reverse_; }
+    // Its warping (§4, §7, §8.1): Quantise, the Tempo tool, Transpose, Warp, and while the clip
+    // warps its mode, its tempo, ×2 and ÷2.
+    [[nodiscard]] ui::Toggle& audioQuantiseButton() noexcept { return quantiseAudio_; }
+    [[nodiscard]] ui::Toggle& tempoButton() noexcept { return tempoTool_; }
+    [[nodiscard]] ui::BarField& transposeField() noexcept { return transpose_; }
+    [[nodiscard]] ui::Toggle& warpButton() noexcept { return warp_; }
+    [[nodiscard]] ui::MenuButton& warpModeButton() noexcept { return warpMode_; }
+    [[nodiscard]] ui::BarField& tempoField() noexcept { return warpTempo_; }
+    [[nodiscard]] ui::Toggle& doubleButton() noexcept { return tempoDouble_; }
+    [[nodiscard]] ui::Toggle& halveButton() noexcept { return tempoHalf_; }
     /// A range command's button (Split, Crop, Silence, Fade, Loop): shown while a range is selected.
     [[nodiscard]] ui::Toggle& rangeButton(engine::Session::RangeAction action) noexcept;
     [[nodiscard]] ui::ViewChoice& drawChoice() noexcept { return draw_; }
@@ -402,10 +430,19 @@ private:
     /// the Audio menu; its tools; the clip's gain and Reverse.
     ui::Toggle split_{"Split"}, crop_{"Crop"}, silence_{"Silence"}, fadeRange_{"Fade"}, loopRange_{"Loop"};
     ui::MenuButton audioButton_{"Audio"};
+    ui::Toggle quantiseAudio_{"Quantise"}, tempoTool_{"Tempo"};
     ui::Toggle normalise_{"Normalise"};
-    ui::BarField gain_{"Gain"};
+    ui::BarField gain_{"Gain"}, transpose_{"Transpose"};
     ui::Toggle reverse_{"Reverse"};
-    std::optional<engine::Session::EditGroup> gainGesture_; // a drag of Gain: one undo step
+    ui::Toggle warp_{"Warp"};
+    ui::MenuButton warpMode_{"Tones"};
+    ui::BarField warpTempo_{""};
+    ui::Toggle tempoDouble_{juce::String::fromUTF8("\xC3\x97"
+                                                   "2")},
+        tempoHalf_{juce::String::fromUTF8("\xC3\xB7"
+                                          "2")};
+    // A drag of a field: one undo step.
+    std::optional<engine::Session::EditGroup> gainGesture_, transposeGesture_, tempoGesture_;
     Mode mode_ = Mode::Devices;
     bool clipViewAvailable_ = true;
     std::optional<model::TrackInfo> track_;

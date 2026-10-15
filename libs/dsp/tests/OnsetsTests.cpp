@@ -141,6 +141,13 @@ TEST_CASE("onsets: more of them as sensitivity rises; none in silence", "[fast][
     CHECK(many > few);
     CHECK(many >= 16 + 4); // the eighths and the ghosts not under a snare's tail
     CHECK(findOnsets(std::vector<float>(48000, 0.0f), kRate, 1.0).empty());
+    // A held tone starts once; where the file cuts it off is no start.
+    std::vector<float> tone(4 * 48000);
+    for (size_t i = 0; i < tone.size(); ++i)
+        tone[i] = 0.5f * std::sin(static_cast<float>(i) * 0.05f);
+    const auto held = findOnsets(tone, kRate, 1.0);
+    REQUIRE(held.size() == 1);
+    CHECK(held[0] == Approx(0.0).margin(0.005));
 }
 
 TEST_CASE("onsets: the tempo of loops from 60 to 180 BPM, within 0.1 BPM, and their downbeat",
@@ -163,8 +170,12 @@ TEST_CASE("onsets: the tempo of loops from 60 to 180 BPM, within 0.1 BPM, and th
     REQUIRE(t);
     CHECK(t->bpm == Approx(97.3).margin(0.1));
     CHECK(t->firstDownbeat == Approx(0.0).margin(0.01));
-    // Nothing rhythmic: none.
+    // Nothing rhythmic: none. A held tone starts once, from its first sample: no beat repeats.
     CHECK_FALSE(estimateTempo(std::vector<float>(5 * 48000, 0.0f), kRate));
+    std::vector<float> tone(4 * 48000);
+    for (size_t i = 0; i < tone.size(); ++i)
+        tone[i] = 0.5f * std::sin(static_cast<float>(i) * 0.05f);
+    CHECK_FALSE(estimateTempo(tone, kRate));
 }
 
 TEST_CASE("onsets: with hats on every eighth, a slow groove reads as itself or twice as fast",

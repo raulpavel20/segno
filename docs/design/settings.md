@@ -118,6 +118,8 @@ Sources: the [Live 12 manual](https://www.ableton.com/en/live-manual/12/first-st
 | | Buffer size | Choices, each with its latency ("256 samples · 5.3 ms") | 256 |
 | | Test tone | A button: plays a short tone on the output | – |
 | | Load | Readout: CPU load and dropouts since opening | – |
+| | Loops follow the tempo | A loop placed warps at its tempo (its metadata, its name, else found in its sound with a steady beat), a whole number of bars at it ([audio-editor.md](audio-editor.md) §7.2) | On |
+| | Recordings follow the tempo | Recordings, bounces and comps warp at the song's tempo, playing untouched until it changes | On |
 | **MIDI** | Inputs | Each MIDI input: on or off (an off one is ignored everywhere) | All on |
 | | Computer keyboard | The keyboard as MIDI on at launch | Off |
 | **Recording** | File format | WAV, AIFF, FLAC | WAV |

@@ -43,6 +43,47 @@ std::optional<double> numberFromText(const model::ToolSetting& s, const juce::St
 }
 } // namespace
 
+/// A number with ×2 and ÷2 beside it, an item gap apart (ToolSetting::halveDouble).
+class ToolForm::HalveDouble final : public juce::Component
+{
+public:
+    HalveDouble()
+    {
+        addAndMakeVisible(field);
+        for (auto* b : {&twice, &half})
+        {
+            b->setClickingTogglesState(false);
+            b->setWantsKeyboardFocus(false);
+            addAndMakeVisible(*b);
+        }
+        twice.setTooltip("Twice the value: it was found at half speed");
+        half.setTooltip("Half the value: it was found at double speed");
+    }
+    [[nodiscard]] int buttonsWidth() const
+    {
+        const int gap = ui::Theme::current().shell.itemGap;
+        return gap + ui::Toggle::widthFor(twice.getButtonText()) + gap +
+               ui::Toggle::widthFor(half.getButtonText());
+    }
+    void resized() override
+    {
+        const auto& s = ui::Theme::current().shell;
+        auto r = getLocalBounds();
+        half.setBounds(
+            r.removeFromRight(ui::Toggle::widthFor(half.getButtonText())).reduced(0, s.propertyFieldInset));
+        r.removeFromRight(s.itemGap);
+        twice.setBounds(
+            r.removeFromRight(ui::Toggle::widthFor(twice.getButtonText())).reduced(0, s.propertyFieldInset));
+        r.removeFromRight(s.itemGap);
+        field.setBounds(r);
+    }
+    ui::NumberField field;
+    ui::Toggle twice{juce::String::fromUTF8("\xC3\x97"
+                                            "2")},
+        half{juce::String::fromUTF8("\xC3\xB7"
+                                    "2")};
+};
+
 /// The rows: their labels painted beside their controls.
 class ToolForm::Rows final : public juce::Component
 {
@@ -155,16 +196,33 @@ void ToolForm::build()
         }
         else
         {
-            auto field = std::make_unique<ui::NumberField>();
-            field->setFontSize(theme.textXs);
-            field->setRange(s.min, s.max, s.step);
-            field->setDragSensitivity(std::max(s.step, (s.max - s.min) / 200.0));
-            const auto* key = host_->key();
-            field->textFromValue = [&s, key](double v) { return utf8(model::settingText(s, v, key)); };
-            field->valueFromText = [&s](const juce::String& text) { return numberFromText(s, text); };
-            field->setValue(value, juce::dontSendNotification);
-            field->onValueChange = [this, id](double v) { setValue(id, v); };
-            row.control = std::move(field);
+            const auto setUp = [&](ui::NumberField& field)
+            {
+                field.setFontSize(theme.textXs);
+                field.setRange(s.min, s.max, s.step);
+                field.setDragSensitivity(std::max(s.step, (s.max - s.min) / 200.0));
+                const auto* key = host_->key();
+                field.textFromValue = [&s, key](double v) { return utf8(model::settingText(s, v, key)); };
+                field.valueFromText = [&s](const juce::String& text) { return numberFromText(s, text); };
+                field.setValue(value, juce::dontSendNotification);
+                field.onValueChange = [this, id](double v) { setValue(id, v); };
+            };
+            if (s.halveDouble)
+            {
+                auto pair = std::make_unique<HalveDouble>();
+                setUp(pair->field);
+                auto* raw = pair.get();
+                for (auto [button, factor] : {std::pair{&raw->twice, 2.0}, std::pair{&raw->half, 0.5}})
+                    button->onClick = [this, &s, id, times = factor]
+                    { show(id, std::clamp(values_.at(id) * times, s.min, s.max)); };
+                row.control = std::move(pair);
+            }
+            else
+            {
+                auto field = std::make_unique<ui::NumberField>();
+                setUp(*field);
+                row.control = std::move(field);
+            }
         }
         if (auto* tip = dynamic_cast<juce::SettableTooltipClient*>(row.control.get()))
             tip->setTooltip(utf8(s.label));
@@ -200,6 +258,20 @@ void ToolForm::setValue(std::string_view setting, double value)
             onLayoutChanged();
     }
     preview();
+}
+
+void ToolForm::show(std::string_view setting, double value)
+{
+    for (auto& row : rows_)
+        if (row.setting->id == setting)
+        {
+            auto* field = dynamic_cast<ui::NumberField*>(row.control.get());
+            if (auto* pair = dynamic_cast<HalveDouble*>(row.control.get()))
+                field = &pair->field;
+            if (field != nullptr)
+                field->setValue(value, juce::dontSendNotification);
+        }
+    setValue(setting, value);
 }
 
 juce::Component* ToolForm::control(std::string_view setting) const
@@ -260,6 +332,8 @@ int ToolForm::controlWidth(const model::ToolSetting& s) const
     const auto* key = host_->key();
     for (double v : {s.min, s.max, s.initial})
         widest = std::max(widest, measureNumber_.widthFor(utf8(model::settingText(s, v, key))));
+    if (s.halveDouble)
+        widest += HalveDouble().buttonsWidth();
     return widest;
 }
 
@@ -335,7 +409,9 @@ void ToolForm::resized()
         auto line = juce::Rectangle<int>(s.propertyLabelWidth, y, width - s.propertyLabelWidth, s.rowHeight);
         y += s.rowHeight;
         // A field's text lines up with the labels' column, as the inspector's do.
-        if (dynamic_cast<ui::NumberField*>(row.control.get()) != nullptr)
+        // A number's text lines up with the other rows' values (a number with ×2 and ÷2 too).
+        if (dynamic_cast<ui::NumberField*>(row.control.get()) != nullptr ||
+            dynamic_cast<HalveDouble*>(row.control.get()) != nullptr)
             line = line.withLeft(line.getX() - ui::NumberField::textInset);
         row.control->setBounds(line.withWidth(controlWidth(*row.setting)));
     }

@@ -131,31 +131,6 @@ std::optional<WarpTails> tailsFromName(const std::string& name)
     return std::nullopt;
 }
 
-std::optional<double> tempoFromName(const std::string& name)
-{
-    const auto text = lower(name);
-    for (size_t at = text.find("bpm"); at != std::string::npos; at = text.find("bpm", at + 3))
-    {
-        // The number just before it, past a space, an underscore or a dash.
-        size_t end = at;
-        while (end > 0 && (text[end - 1] == ' ' || text[end - 1] == '_' || text[end - 1] == '-'))
-            --end;
-        size_t begin = end;
-        while (begin > 0 &&
-               (std::isdigit(static_cast<unsigned char>(text[begin - 1])) != 0 || text[begin - 1] == '.'))
-            --begin;
-        if (begin == end || text[begin] == '.')
-            continue;
-        // Not the end of a longer word or number ("v2bpm" is no tempo).
-        if (begin > 0 && std::isalpha(static_cast<unsigned char>(text[begin - 1])) != 0)
-            continue;
-        const double bpm = std::strtod(text.substr(begin, end - begin).c_str(), nullptr);
-        if (bpm >= 40.0 && bpm <= 300.0)
-            return bpm;
-    }
-    return std::nullopt;
-}
-
 double fileAtBeat(const AudioWarp& warp, double beat) noexcept
 {
     const double perBeat = 1.0 / beatsPerFileSecond(warp);
@@ -488,5 +463,24 @@ AudioWarp quantised(const AudioWarp& warp, const std::vector<double>& transients
             out = withMarkerMoved(out, *index, wanted);
     }
     return out;
+}
+AudioWarp quantisedClip(const ClipInfo& clip, std::vector<double> transients, const WarpQuantise& settings,
+                        std::optional<std::pair<double, double>> range, double origin)
+{
+    const bool reversed = clip.sound.reversed;
+    auto played = reversed ? reversedWarp(clip.warp, clip.fileLength) : clip.warp;
+    played.on = true;
+    if (reversed)
+    {
+        for (auto& t : transients)
+            t = clip.fileLength - t;
+        std::reverse(transients.begin(), transients.end());
+    }
+    const double bps = clip.beatsPerSecond > 0.0 ? clip.beatsPerSecond : 2.0;
+    const double from = range ? (range->first - origin) * bps : -1e9;
+    const double to = range ? (range->second - origin) * bps : 1e9;
+    // The song's grid: content beat 0 is the song's beat at the origin.
+    auto out = quantised(played, transients, from, to, origin * bps, settings);
+    return reversed ? reversedWarp(out, clip.fileLength) : out;
 }
 } // namespace fd::model

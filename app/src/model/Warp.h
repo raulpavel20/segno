@@ -36,9 +36,6 @@ enum class WarpTails
 
 /// A clip's tempo: its file's beats a minute (§7.1).
 inline constexpr double kMinClipTempo = 20.0, kMaxClipTempo = 999.0;
-/// A tempo in a file's name (§7.1): "Groove_92bpm", "Drums 120 BPM", "loop-87.5bpm". Nullopt
-/// without one, or outside 40 … 300 BPM.
-[[nodiscard]] std::optional<double> tempoFromName(const std::string& name);
 /// How far a piece between markers stretches, against the clip's tempo (§7.5).
 inline constexpr double kMinPieceStretch = 0.25, kMaxPieceStretch = 4.0;
 /// Transpose (semitones) and Fine (cents), each either way (§8.1).
@@ -187,4 +184,11 @@ struct WarpQuantise
 [[nodiscard]] AudioWarp quantised(const AudioWarp& warp, const std::vector<double>& transients,
                                   double fromBeat, double toBeat, double originBeat,
                                   const WarpQuantise& settings);
+/// A clip's warp quantised (§7.7), as recorded: its transients (seconds of its file as recorded)
+/// within `range` of the timeline (the whole clip without one) moved towards the song's grid, as
+/// the clip plays them (a reversed clip's from its end), `origin` the timeline's time of its
+/// content's start (model::clipViewOrigin). Warp on.
+[[nodiscard]] AudioWarp quantisedClip(const ClipInfo& clip, std::vector<double> transients,
+                                      const WarpQuantise& settings,
+                                      std::optional<std::pair<double, double>> range, double origin);
 } // namespace fd::model

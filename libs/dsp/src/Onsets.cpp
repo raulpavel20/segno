@@ -27,7 +27,7 @@ int orderFor(double sampleRate, double seconds)
 struct Spectrogram
 {
     std::vector<float> data;
-    int bins = 0, frames = 0, hop = 0;
+    int bins = 0, frames = 0, hop = 0, length = 0;
     [[nodiscard]] const float* row(int k) const
     {
         return data.data() + static_cast<size_t>(k) * static_cast<size_t>(bins);
@@ -40,6 +40,7 @@ Spectrogram spectrogram(std::span<const float> x, double sampleRate, double fram
     Fft fft(orderFor(sampleRate, frameSeconds));
     const int n = fft.size();
     Spectrogram s;
+    s.length = n;
     s.hop = n / hopDivisor;
     s.bins = n / 2 + 1;
     s.frames = static_cast<int>(x.size()) / s.hop + 1;
@@ -138,7 +139,9 @@ OnsetEnvelope envelope(std::span<const float> mono, double sampleRate, double to
                     : s.bins;
     e.hop = s.hop / sampleRate;
     e.flux.assign(static_cast<size_t>(s.frames), 0.0f);
-    for (int k = 0; k < s.frames; ++k)
+    // Where a frame reaches past the signal's end, the end cuts it off: that's no start.
+    const long ends = (static_cast<long>(mono.size()) - s.length / 2) / s.hop;
+    for (int k = 0; k < s.frames && (k == 0 || k <= ends); ++k)
     {
         const float* now = s.row(k);
         const float* prev = k > 0 ? s.row(k - 1) : nullptr;
@@ -390,6 +393,16 @@ std::optional<TempoEstimate> estimateTempo(std::span<const float> mono, double s
             out = std::max(out, at(v, k + j));
         return out;
     };
+    // A tempo is a beat that repeats: a hit alone (a one-shot, a held tone's start) has none, and
+    // two or three say less than a bar of them do.
+    std::vector<double> onBeats;
+    for (double k = phase; k < n - 1; k += period)
+        onBeats.push_back(around(o, k));
+    const double loudest = onBeats.empty() ? 0.0 : *std::max_element(onBeats.begin(), onBeats.end());
+    const auto hits = std::count_if(onBeats.begin(), onBeats.end(),
+                                    [loudest](double v) { return loudest > 0.0 && v > 0.25 * loudest; });
+    if (hits < 2)
+        return std::nullopt;
     // The bar's first beat: the one of four where the low end starts most, bar after bar (the
     // kick's beat, more than the snare's).
     const auto low = envelope(mono.first(length), sampleRate, 200.0, false);
@@ -420,7 +433,8 @@ std::optional<TempoEstimate> estimateTempo(std::span<const float> mono, double s
     t.firstDownbeat = refined(downbeat);
     t.firstBeat = refined(beat);
     const double average = total / count;
-    t.confidence = std::clamp(1.0 - std::max(0.0, average) / bestScore, 0.0, 1.0);
+    t.confidence = std::clamp(1.0 - std::max(0.0, average) / bestScore, 0.0, 1.0) *
+                   std::min(1.0, static_cast<double>(hits - 1) / 3.0);
     return t;
 }
 

@@ -58,28 +58,49 @@ void Shell::registerNotesActions()
                       .whyNot = whyNoNotes});
     };
 
+    // Its keys, and Transpose's, go to whichever kind of clip the clip view shows: the Audio menu
+    // lists the audio's with the same keys (audio-editor.md §13).
     actions_.add({.id = "notes.quantiseSettings",
                   .name = asks("Quantise"),
                   .category = "Notes",
                   .keys = {key('u', kCmd | kShift)},
-                  .perform = [this] { openTool("quantise"); },
-                  .isEnabled = hasNotes,
+                  .perform =
+                      [this]
+                  {
+                      if (detail_.showsAudioClip())
+                          actions_.perform("audio.quantiseSettings");
+                      else
+                          openTool("quantise");
+                  },
+                  .isEnabled = [this, hasNotes] { return hasNotes() || detail_.showsAudioClip(); },
                   .whyNot = whyNoNotes});
 
     // Transpose ▸: a step (of the scale with Key, §6), a semitone, an octave.
     const auto selected = [this, &roll] { return notesActive() && roll.hasSelection(); };
+    const auto semitones = [this, &roll, selected](int by)
+    {
+        return [this, &roll, selected, by]
+        {
+            if (selected())
+                roll.transpose(by);
+            else
+                actions_.perform(by > 0 ? "audio.semitoneUp" : "audio.semitoneDown");
+        };
+    };
+    const auto canTranspose = [this, selected]
+    { return selected() || actions_.isEnabled("audio.semitoneUp"); };
     actions_.add({.id = "notes.semitoneUp",
                   .name = "Up a semitone",
                   .category = "Notes",
                   .keys = {key(juce::KeyPress::upKey, kCmd)},
-                  .perform = [&roll] { roll.transpose(1); },
-                  .isEnabled = selected});
+                  .perform = semitones(1),
+                  .isEnabled = canTranspose});
     actions_.add({.id = "notes.semitoneDown",
                   .name = "Down a semitone",
                   .category = "Notes",
                   .keys = {key(juce::KeyPress::downKey, kCmd)},
-                  .perform = [&roll] { roll.transpose(-1); },
-                  .isEnabled = selected});
+                  .perform = semitones(-1),
+                  .isEnabled = canTranspose});
     actions_.add({.id = "notes.fitToKey",
                   .name = "Fit to key",
                   .category = "Notes",

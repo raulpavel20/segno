@@ -11,9 +11,14 @@ int BarField::labelWidth() const
         std::ceil(juce::GlyphArrangement::getStringWidth(font(TextStyle::Label), label_)));
 }
 
+int BarField::gap() const
+{
+    return label_.isEmpty() ? 0 : Theme::current().shell.itemGap; // no label: the field alone
+}
+
 void BarField::fit()
 {
-    setSize(labelWidth() + Theme::current().shell.itemGap + field_.widthFor(field_.text()), getHeight());
+    setSize(labelWidth() + gap() + field_.widthFor(field_.text()), getHeight());
 }
 
 void BarField::setTooltip(const juce::String& tip)
@@ -33,6 +38,6 @@ void BarField::paint(juce::Graphics& g)
 
 void BarField::resized()
 {
-    field_.setBounds(getLocalBounds().withTrimmedLeft(labelWidth() + Theme::current().shell.itemGap));
+    field_.setBounds(getLocalBounds().withTrimmedLeft(labelWidth() + gap()));
 }
 } // namespace fd::ui

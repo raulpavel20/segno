@@ -4,7 +4,9 @@
 #include "mcp/tools/Tools.h"
 #include "model/AudioSound.h"
 #include "model/AudioToolkit.h"
+#include "model/ClipLoops.h"
 #include "model/Editing.h"
+#include "model/Warp.h"
 
 #include <cmath>
 
@@ -107,6 +109,21 @@ engine::Session::RangeAction rangeActionArg(const Json& value)
     throw Problem{"The action is one of split, delete, crop, silence, gain, fade, loop."};
 }
 
+/// A grid step in beats: "1/4", "1/8", "1/16", "1/32", with a T for triplets ("1/8T").
+double gridBeatsArg(const Json& value)
+{
+    auto text =
+        juce::String(value.is_string() ? value.get<std::string>() : std::string()).trim().toLowerCase();
+    const bool triplets = text.endsWithChar('t');
+    if (triplets)
+        text = text.dropLastCharacters(1);
+    for (const auto& [name, beats] :
+         {std::pair{"1/4", 1.0}, std::pair{"1/8", 0.5}, std::pair{"1/16", 0.25}, std::pair{"1/32", 0.125}})
+        if (text == name)
+            return triplets ? beats * 2.0 / 3.0 : beats;
+    throw Problem{"The grid is 1/4, 1/8, 1/16 or 1/32, with a T for triplets (\"1/8T\")."};
+}
+
 /// A setting as list_audio_tools shows it.
 Json settingJson(const model::ToolSpec& tool, const model::ToolSetting& s)
 {
@@ -187,48 +204,98 @@ void addAudioTools(Registry& registry, ToolEnv& env)
     ToolAnnotations sets;
     sets.idempotent = true;
 
-    registry.tools.push_back(
-        make(env,
-             {"set_audio", "Set audio clips' sound",
-              "Sets audio clips' sound, never their files (audio-editor.md §6): gain in dB (-inf to +24; "
-              "\"gainBy\" moves "
-              "each clip's by an amount), reverse (it plays a reversed copy of its file, written into the "
-              "project's Reversed "
-              "folder, the same audio from its other end), polarity (\"inverted\"), and how a stereo file's "
-              "channels play "
-              "(\"stereo\", \"left\", \"right\", \"mono\", \"swapped\"). A clip with takes isn't reversed.",
-              object({{"clips", ids(IdKind::Clip, "The audio clips")},
-                      {"gain",
-                       {{"type", {"number", "string"}},
-                        {"description", "dB: a number, \"-inf\", or text such as \"-3 dB\""}}},
-                      {"gainBy", number("dB to move each clip's gain by")},
-                      {"reverse", boolean("Plays its audio backwards")},
-                      {"inverted", boolean("Polarity inverted")},
-                      {"channels", string("stereo, left, right, mono or swapped")}},
-                     {"clips"}),
-              result({{"clips", arrayOf(clipResultSchema(), "The clips", std::nullopt)}}, {"clips"}), sets},
-             [&env](const Json& args, CallContext&)
-             {
-                 const auto ids = audioClipIds(env, args["clips"]);
-                 engine::Session::SoundChange change;
-                 if (args.contains("gain"))
-                     change.gainDb = gainArg(args["gain"]);
-                 if (args.contains("gainBy"))
-                     change.gainBy = args["gainBy"].get<float>();
-                 if (args.contains("reverse"))
-                     change.reversed = args["reverse"].get<bool>();
-                 if (args.contains("inverted"))
-                     change.inverted = args["inverted"].get<bool>();
-                 if (args.contains("channels"))
-                 {
-                     const auto mode = model::channelModeFromName(args["channels"].get<std::string>());
-                     if (!mode)
-                         throw Problem{"Channels are stereo, left, right, mono or swapped."};
-                     change.channels = *mode;
-                 }
-                 env.session.setSound(ids, change, "Clip sound");
-                 return ToolResult::ok({{"clips", clipsJson(env, ids)}});
-             }));
+    registry.tools.push_back(make(
+        env,
+        {"set_audio", "Set audio clips' sound",
+         "Sets audio clips' sound, never their files (audio-editor.md §6): gain in dB (-inf to +24; "
+         "\"gainBy\" moves "
+         "each clip's by an amount), reverse (it plays a reversed copy of its file, written into the "
+         "project's Reversed "
+         "folder, the same audio from its other end), polarity (\"inverted\"), and how a stereo file's "
+         "channels play "
+         "(\"stereo\", \"left\", \"right\", \"mono\", \"swapped\"). A clip with takes isn't reversed. "
+         "Its warping and pitch (§7, §8.1): \"warp\" (the clip follows the song's tempo, keeping the audio "
+         "it "
+         "plays), its \"mode\" (beats, tones, repitch), \"tails\" (Beats: fade, loop), \"formants\" (Tones), "
+         "\"tempo\" (its file's BPM: it plays the same audio at it, markers scaled), \"sensitivity\" (0 to "
+         "1: "
+         "how many transients are found), \"transpose\" (semitones, -48 to 48) and \"fine\" (cents, -50 to "
+         "50); transposed, a clip keeps its speed.",
+         object({{"clips", ids(IdKind::Clip, "The audio clips")},
+                 {"warp", boolean("Follows the song's tempo")},
+                 {"mode", string("beats, tones or repitch")},
+                 {"tails", string("Beats' tails: fade or loop")},
+                 {"formants", boolean("Tones keeps a voice's character when transposed")},
+                 {"tempo", number("The clip's tempo: its file's BPM (20 to 999)")},
+                 {"sensitivity", number("How many transients are found: 0 to 1")},
+                 {"transpose", integer("Semitones, -48 to 48")},
+                 {"fine", integer("Cents, -50 to 50")},
+                 {"gain",
+                  {{"type", {"number", "string"}},
+                   {"description", "dB: a number, \"-inf\", or text such as \"-3 dB\""}}},
+                 {"gainBy", number("dB to move each clip's gain by")},
+                 {"reverse", boolean("Plays its audio backwards")},
+                 {"inverted", boolean("Polarity inverted")},
+                 {"channels", string("stereo, left, right, mono or swapped")}},
+                {"clips"}),
+         result({{"clips", arrayOf(clipResultSchema(), "The clips", std::nullopt)}}, {"clips"}), sets},
+        [&env](const Json& args, CallContext&)
+        {
+            const auto ids = audioClipIds(env, args["clips"]);
+            engine::Session::SoundChange change;
+            if (args.contains("gain"))
+                change.gainDb = gainArg(args["gain"]);
+            if (args.contains("gainBy"))
+                change.gainBy = args["gainBy"].get<float>();
+            if (args.contains("reverse"))
+                change.reversed = args["reverse"].get<bool>();
+            if (args.contains("inverted"))
+                change.inverted = args["inverted"].get<bool>();
+            if (args.contains("channels"))
+            {
+                const auto mode = model::channelModeFromName(args["channels"].get<std::string>());
+                if (!mode)
+                    throw Problem{"Channels are stereo, left, right, mono or swapped."};
+                change.channels = *mode;
+            }
+            const engine::Session::EditGroup group(env.session, "Clip sound");
+            env.session.setSound(ids, change, "Clip sound");
+            engine::Session::WarpChange warp;
+            if (args.contains("warp"))
+                warp.on = args["warp"].get<bool>();
+            if (args.contains("mode"))
+            {
+                const auto mode = model::warpModeFromName(args["mode"].get<std::string>());
+                if (!mode)
+                    throw Problem{"The mode is beats, tones or repitch."};
+                warp.mode = *mode;
+            }
+            if (args.contains("tails"))
+            {
+                const auto tails = model::tailsFromName(args["tails"].get<std::string>());
+                if (!tails)
+                    throw Problem{"Tails are fade or loop."};
+                warp.tails = *tails;
+            }
+            if (args.contains("formants"))
+                warp.formants = args["formants"].get<bool>();
+            if (args.contains("tempo"))
+            {
+                const double bpm = args["tempo"].get<double>();
+                if (bpm < model::kMinClipTempo || bpm > model::kMaxClipTempo)
+                    throw Problem{"A clip's tempo is from 20 to 999 BPM."};
+                warp.tempo = bpm;
+            }
+            if (args.contains("sensitivity"))
+                warp.sensitivity = std::clamp(args["sensitivity"].get<double>(), 0.0, 1.0);
+            if (args.contains("transpose"))
+                warp.transpose =
+                    std::clamp(args["transpose"].get<int>(), -model::kMaxTranspose, model::kMaxTranspose);
+            if (args.contains("fine"))
+                warp.fine = std::clamp(args["fine"].get<int>(), -model::kMaxFine, model::kMaxFine);
+            env.session.setWarp(ids, warp, "Clip sound");
+            return ToolResult::ok({{"clips", clipsJson(env, ids)}});
+        }));
 
     registry.tools.push_back(make(
         env,
@@ -303,6 +370,148 @@ void addAudioTools(Registry& registry, ToolEnv& env)
             return ToolResult::ok({{"clips", clipsJson(env, r.clips)}});
         }));
 
+    registry.tools.push_back(make(
+        env,
+        {"set_warp_markers", "Set a clip's warp markers",
+         "Warp markers pin moments of an audio clip's file to beats of its content (audio-editor.md §7.5): "
+         "between two, the audio stretches evenly; outside them it plays at the clip's tempo, and the file's "
+         "start is always pinned to beat 0. Do one of: \"markers\" (replace them all: each {file: seconds "
+         "into the file as recorded, beat: quarter notes from the content's start}, later than the one "
+         "before "
+         "in both, each piece within x0.25 to x4 of the clip's tempo); \"add\" (seconds into the file: a "
+         "marker at each, at the beat it plays now, so nothing moves); \"atTransients\" (a marker on every "
+         "transient, between \"from\" and \"to\" if given); \"warpFrom\" (a marker's index: one tempo "
+         "from it on, the markers after it gone); \"remove\" (markers' indices). Warp goes on with them. "
+         "get_clip lists a clip's markers.",
+         object({{"clip", id(IdKind::Clip, "The audio clip")},
+                 {"markers", arrayOf({{"type", "object"}}, "Every marker: {file, beat}", std::nullopt)},
+                 {"add", arrayOf({{"type", "number"}}, "Seconds into the file to pin where they play",
+                                 std::nullopt)},
+                 {"atTransients", boolean("A marker on every transient")},
+                 {"from", position("With atTransients: from here")},
+                 {"to", position("With atTransients: to here")},
+                 {"warpFrom", integer("A marker's index")},
+                 {"remove", arrayOf({{"type", "integer"}}, "Markers' indices", std::nullopt)}},
+                {"clip"}),
+         result({{"clip", clipResultSchema()}}, {"clip"}), writes},
+        [&env](const Json& args, CallContext&)
+        {
+            const auto c = audioClip(env, args["clip"]);
+            auto warp = c.warp;
+            const int asked =
+                static_cast<int>(args.contains("markers")) + static_cast<int>(args.contains("add")) +
+                static_cast<int>(args.value("atTransients", false)) +
+                static_cast<int>(args.contains("warpFrom")) + static_cast<int>(args.contains("remove"));
+            if (asked != 1)
+                throw Problem{"Give one of markers, add, atTransients, warpFrom or remove."};
+            if (args.contains("markers"))
+            {
+                warp.markers.clear();
+                for (const auto& m : args["markers"])
+                {
+                    if (!m.is_object() || !m.contains("file") || !m.contains("beat"))
+                        throw Problem{"Each marker is {file, beat}: seconds into the file, and its beat."};
+                    warp.markers.push_back({m["file"].get<double>(), m["beat"].get<double>()});
+                }
+            }
+            else if (args.contains("add"))
+            {
+                for (const auto& t : args["add"])
+                    warp = model::withMarkerAt(warp, t.get<double>()).first;
+            }
+            else if (args.value("atTransients", false))
+            {
+                double from = 0.0, to = c.fileLength;
+                if (args.contains("from") || args.contains("to"))
+                {
+                    const auto map = model::contentMap(c);
+                    const double origin = model::clipViewOrigin(c);
+                    const double a =
+                        args.contains("from") ? seconds(env, positionArg(env, args["from"])) : c.start;
+                    const double b =
+                        args.contains("to") ? seconds(env, positionArg(env, args["to"])) : c.end();
+                    const double fa = map.fileAt(a - origin), fb = map.fileAt(b - origin);
+                    from = std::min(fa, fb);
+                    to = std::max(fa, fb);
+                }
+                warp = model::withMarkersAtTransients(warp, env.session.clipTransients(c.id), from, to);
+            }
+            else if (args.contains("warpFrom"))
+            {
+                const auto index = args["warpFrom"].get<int>();
+                if (index < 0 || static_cast<size_t>(index) >= warp.markers.size())
+                    throw Problem{"No marker " + std::to_string(index) + ": the clip has " +
+                                  std::to_string(warp.markers.size()) + "."};
+                warp = model::warpedFrom(warp, static_cast<size_t>(index));
+            }
+            else
+            {
+                std::vector<size_t> gone;
+                for (const auto& i : args["remove"])
+                    if (i.get<int>() >= 0)
+                        gone.push_back(static_cast<size_t>(i.get<int>()));
+                warp = model::withoutMarkers(warp, gone);
+            }
+            if (!env.session.setWarpMarkers(c.id, warp.markers, "Warp markers"))
+                throw Problem{"Those markers are out of order, or stretch a piece past x0.25 to x4 of the "
+                              "clip's tempo."};
+            env.session.flushSnapshot();
+            return ToolResult::ok({{"clip", clipJson(env, audioClip(env, args["clip"]), false)}});
+        }));
+
+    registry.tools.push_back(make(
+        env,
+        {"get_transients", "Get a clip's transients",
+         "Where things start in an audio clip's file (audio-editor.md §7.4): seconds into the file as "
+         "recorded, at the clip's sensitivity (set_audio), with those added or removed by hand. Beats starts "
+         "its pieces at them; Quantise and markers at transients use them.",
+         object({{"clip", id(IdKind::Clip, "The audio clip")}}, {"clip"}),
+         result({{"clip", string("The clip")},
+                 {"sensitivity", number("0 to 1")},
+                 {"transients", arrayOf({{"type", "number"}}, "Seconds into the file", std::nullopt)}},
+                {"clip", "sensitivity", "transients"}),
+         reads},
+        [&env](const Json& args, CallContext&)
+        {
+            const auto c = audioClip(env, args["clip"]);
+            Json times = Json::array();
+            for (double t : env.session.clipTransients(c.id))
+                times.push_back(std::round(t * 1e4) / 1e4);
+            return ToolResult::ok({{"clip", formatId(IdKind::Clip, c.id)},
+                                   {"sensitivity", c.warp.sensitivity},
+                                   {"transients", std::move(times)}});
+        }));
+
+    registry.tools.push_back(make(
+        env,
+        {"detect_tempo", "Find a clip's tempo",
+         "The tempo found in an audio clip's sound (audio-editor.md §7.8): its BPM (60 to 180; a loop "
+         "under 32 s a whole number of bars), its first downbeat (seconds into its file) and how sure it is "
+         "(0 to 1: a drum loop's is around 0.4, a sound with no beat under 0.1). Changes nothing: "
+         "set_audio's "
+         "tempo, or transform_audio's tempo, applies it. Halve or double it when it's an octave off.",
+         object({{"clip", id(IdKind::Clip, "The audio clip")}}, {"clip"}),
+         result({{"clip", string("The clip")},
+                 {"found", boolean("Whether a tempo is heard")},
+                 {"tempo", number("BPM")},
+                 {"downbeat", number("Seconds into the file")},
+                 {"confidence", number("0 to 1")}},
+                {"clip", "found"}),
+         reads},
+        [&env](const Json& args, CallContext&)
+        {
+            const auto c = audioClip(env, args["clip"]);
+            Json out{{"clip", formatId(IdKind::Clip, c.id)}, {"found", false}};
+            if (const auto t = env.session.foundTempo(c.id))
+            {
+                out["found"] = true;
+                out["tempo"] = std::round(t->bpm * 100.0) / 100.0;
+                out["downbeat"] = std::round(t->downbeat * 1e4) / 1e4;
+                out["confidence"] = std::round(t->confidence * 1e3) / 1e3;
+            }
+            return ToolResult::ok(std::move(out));
+        }));
+
     registry.tools.push_back(
         make(env,
              {"list_audio_tools", "List audio tools",
@@ -330,13 +539,19 @@ void addAudioTools(Registry& registry, ToolEnv& env)
         env,
         {"transform_audio", "Transform audio clips",
          "Runs one of the audio editor's tools (list_audio_tools) on audio clips, as its Tools pane does: "
-         "normalise "
-         "sets each clip's gain so it reaches a peak (dBFS) or a loudness (LUFS), or moves them together so "
-         "the "
-         "loudest does. Settings left out take their defaults.",
+         "normalise sets each clip's gain so it reaches a peak (dBFS) or a loudness (LUFS), or moves them "
+         "together so the loudest does; quantise moves each clip's transients towards the grid (\"grid\": "
+         "1/4, "
+         "1/8, 1/16, 1/32, with a T for triplets; 1/16 by default) through warp markers, Warp on; tempo "
+         "warps "
+         "each clip at a tempo starting at its downbeat (seconds into its file), or sets the song's tempo "
+         "from "
+         "it (\"then\": song). Tempo's settings left out are what's found in the clip (detect_tempo); others "
+         "take their defaults.",
          object({{"clips", ids(IdKind::Clip, "The audio clips")},
-                 {"tool", string("The tool: normalise")},
-                 {"settings", {{"type", "object"}, {"description", "The tool's settings by id"}}}},
+                 {"tool", string("The tool: normalise, quantise or tempo")},
+                 {"settings", {{"type", "object"}, {"description", "The tool's settings by id"}}},
+                 {"grid", string("Quantise's grid: 1/4, 1/8, 1/16, 1/32 (T for triplets)")}},
                 {"clips", "tool"}),
          result({{"clips", arrayOf(clipResultSchema(), "The clips", std::nullopt)},
                  {"changed", integer("How many changed")}},
@@ -349,7 +564,43 @@ void addAudioTools(Registry& registry, ToolEnv& env)
             const auto* tool = model::findAudioTool(juce::String(name).trim().toLowerCase().toStdString());
             if (tool == nullptr)
                 throw Problem{"No audio tool \"" + name + "\" (list_audio_tools)."};
-            const auto choice = model::normaliseChoice(settingsArg(*tool, args.value("settings", Json())));
+            const auto given = settingsArg(*tool, args.value("settings", Json()));
+            if (tool->id == "quantise")
+            {
+                const double grid = gridBeatsArg(args.value("grid", Json("1/16")));
+                const auto values = model::toolValues(*tool, given);
+                const engine::Session::EditGroup group(env.session, "Quantise");
+                for (auto id : ids)
+                    if (const auto why = env.session.quantiseAudio(
+                            id, {.grid = model::warpQuantiseChoice(values, grid),
+                                 .sensitivity = given.contains("sensitivity")
+                                                    ? std::optional(model::quantiseSensitivity(values))
+                                                    : std::nullopt});
+                        !why.empty() && ids.size() == 1)
+                        throw Problem{why};
+                return ToolResult::ok({{"clips", clipsJson(env, ids)}, {"changed", ids.size()}});
+            }
+            if (tool->id == "tempo")
+            {
+                const engine::Session::EditGroup group(env.session, "Tempo");
+                for (auto id : ids)
+                {
+                    auto values = given;
+                    const auto found = env.session.foundTempo(id);
+                    if (!values.contains("tempo"))
+                    {
+                        if (!found)
+                            throw Problem{"No tempo is heard in a clip: give \"tempo\"."};
+                        values["tempo"] = found->bpm;
+                    }
+                    if (!values.contains("downbeat"))
+                        values["downbeat"] = found ? found->downbeat : 0.0;
+                    const auto choice = model::tempoChoice(values);
+                    env.session.applyTempo(id, choice.bpm, choice.downbeat, choice.songTempo);
+                }
+                return ToolResult::ok({{"clips", clipsJson(env, ids)}, {"changed", ids.size()}});
+            }
+            const auto choice = model::normaliseChoice(given);
             const auto changed = env.session.normalise(
                 ids, {.to = choice.loudness ? model::NormaliseTo::Loudness : model::NormaliseTo::Peak,
                       .targetDb = choice.targetDb,

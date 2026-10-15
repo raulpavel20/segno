@@ -58,6 +58,15 @@ struct AppSettings
         bool operator==(const Midi&) const = default;
     } midi;
 
+    /// Audio clips placed or made (audio-editor.md §7.2): whether loops, and recordings, bounces
+    /// and comps, follow the song's tempo (Warp on).
+    struct AudioClips
+    {
+        bool loopsFollowTempo = true;
+        bool recordingsFollowTempo = true;
+        bool operator==(const AudioClips&) const = default;
+    } audioClips;
+
     struct Recording
     {
         RecordingFormat format = RecordingFormat::Wav;

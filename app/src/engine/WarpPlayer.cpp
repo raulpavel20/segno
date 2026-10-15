@@ -72,6 +72,7 @@ struct Play
     double offsetBeats = 0.0; // the content's beat there (its phase in the loop, while it loops)
     double loopStart = 0.0, loopLength = 0.0; // content beats; length 0: no loop
     double playedFrom = 0.0, playedTo = 0.0;  // edit beats: the clip's range with any extension
+    double beatsPerSecond = 2.0;              // the song's where the clip starts, when it was built
 };
 
 /// One occurrence of a piece: piece `piece` in lap `lap`, heard over [from, to) of the clip's
@@ -90,9 +91,9 @@ class WarpPlayerNode final : public te::graph::Node, public te::TracktionEngineN
 {
 public:
     WarpPlayerNode(te::AudioFile file, Play play, int channels, te::ChannelConfiguration sourceChannels,
-                   te::ProcessState& state, te::EditItemID id, bool offline)
+                   te::LiveClipLevel level, te::ProcessState& state, te::EditItemID id, bool offline)
         : TracktionEngineNode(state), file_(std::move(file)), play_(std::move(play)), channels_(channels),
-          sourceChannels_(std::move(sourceChannels)), id_(id), offline_(offline)
+          sourceChannels_(std::move(sourceChannels)), level_(std::move(level)), id_(id), offline_(offline)
     {
         fileRate_ = file_.getSampleRate();
         fileFrames_ = file_.getLengthInSamples();
@@ -129,10 +130,20 @@ public:
         fileBuffer_.setSize(channels_, fileCapacity);
         gains_.assign(kChunk, 0.0f);
         tails_.assign(kChunk, 0.0f);
+        // Stretchers only for what stretches: none at the clip's own tempo and pitch (a recording,
+        // a loop placed at the song's tempo), one for each piece that does, up to the most a clip
+        // plays at once.
+        int stretched = 0;
         if (play_.mode == model::WarpMode::Tones)
+            for (const auto& piece : play_.pieces)
+                stretched += std::abs(piece.filePerBeat * play_.beatsPerSecond - 1.0) > 1e-9 ||
+                                     std::abs(play_.semitones) > 1e-9
+                                 ? 1
+                                 : 0;
+        stretchers_.clear();
+        if (stretched > 0)
         {
-            stretchers_.clear();
-            for (int i = 0; i < kStretchers; ++i)
+            for (int i = 0; i < std::min(kStretchers, stretched + 1); ++i)
             {
                 auto s = std::make_unique<Stretch>(kSeed + i);
                 s->presetDefault(channels_, static_cast<float>(outRate_), !offline_);
@@ -205,6 +216,7 @@ public:
             last = frameAt(play_.playedTo);
         for (int c = first; c < last; c += kChunk)
             renderChunk(dest, c, std::min(kChunk, last - c), toU(b0 + perFrame * c), perFrame);
+        applyLevel(dest, frames);
     }
 
 private:
@@ -224,6 +236,8 @@ private:
     Play play_;
     int channels_ = 2;
     te::ChannelConfiguration sourceChannels_;
+    te::LiveClipLevel level_;
+    std::array<float, 2> lastGains_{-1.0f, -1.0f}; // the level's gains the last block ended at
     te::EditItemID id_;
     bool offline_ = false;
     double fileRate_ = 0.0, outRate_ = 44100.0, bps_ = 2.0;
@@ -235,6 +249,37 @@ private:
     juce::AudioBuffer<float> fileBuffer_, inputBuffer_, outputBuffer_, sourceBuffer_;
     std::vector<float> gains_, tails_;
     bool jumped_ = true;
+
+    /// The clip's level, pan and mute, as the engine's own player applies them (a take auditioned
+    /// mutes the clip it stands in for): ramped across a block where they change.
+    void applyLevel(choc::buffer::ChannelArrayView<float>& dest, int frames)
+    {
+        std::array<float, 2> gains{};
+        if (channels_ == 2)
+            level_.getLeftAndRightGains(gains[0], gains[1]);
+        else
+            gains[0] = gains[1] = level_.getGainIncludingMute();
+        if (getPlayHead().isUserDragging())
+            for (auto& g : gains)
+                g *= 0.4f;
+        for (int c = 0; c < channels_; ++c)
+        {
+            const auto side = static_cast<size_t>(std::min(c, 1));
+            const float from = lastGains_[side] < 0.0f ? gains[side] : lastGains_[side], to = gains[side];
+            auto* out = dest.getIterator(static_cast<choc::buffer::ChannelCount>(c)).sample;
+            if (from == to)
+            {
+                if (to != 1.0f)
+                    for (int i = 0; i < frames; ++i)
+                        out[i] *= to;
+                continue;
+            }
+            const float step = (to - from) / static_cast<float>(std::max(1, frames));
+            for (int i = 0; i < frames; ++i)
+                out[i] *= from + step * static_cast<float>(i + 1);
+        }
+        lastGains_ = gains;
+    }
 
     // ---- where things are ---------------------------------------------------------------------
 
@@ -321,7 +366,7 @@ private:
     /// Whether a piece is stretched rather than read: Tones, away from its own speed or pitch.
     bool stretches(const Piece& piece) const noexcept
     {
-        if (play_.mode != model::WarpMode::Tones || stretchers_.empty())
+        if (stretchers_.empty())
             return false;
         return std::abs(piece.filePerBeat * bps_ - 1.0) > 1e-9 || std::abs(play_.semitones) > 1e-9;
     }
@@ -374,7 +419,7 @@ private:
         v.jumpFadeFrom = heard && ua > uFrom + 1.5 * du ? ua : -std::numeric_limits<double>::infinity();
         if (!stretched)
             return;
-        for (int i = 0; i < kStretchers; ++i)
+        for (int i = 0; i < static_cast<int>(stretchers_.size()); ++i)
             if (!stretcherBusy_[static_cast<size_t>(i)])
             {
                 stretcherBusy_[static_cast<size_t>(i)] = true;
@@ -674,6 +719,23 @@ model::ContentMap contentMapOf(const te::AudioClipBase& clip)
     return m;
 }
 
+void writeWarpLoopInfo(te::AudioClipBase& c, const model::AudioWarp& warp)
+{
+    const double length = c.getSourceLength().inSeconds();
+    if (!(length > 0.0))
+        return;
+    auto info = c.getLoopInfo();
+    const double beats = model::beatAtFile(warp, length);
+    info.setNumBeats(beats);
+    info.setBpm(beats * 60.0 / length, c.getWaveInfo());
+    if (info.getNumerator() <= 0)
+    {
+        info.setNumerator(4);
+        info.setDenominator(4);
+    }
+    c.setLoopInfo(info);
+}
+
 void writeWarpMarkers(juce::ValueTree& clip, const std::vector<model::WarpMarker>& markers,
                       juce::UndoManager* um)
 {
@@ -738,6 +800,11 @@ std::unique_ptr<te::graph::Node> makeWarpPlayer(te::AudioClipBase& clip, te::Tim
     }
     Play play;
     const auto starts = model::pieceStarts(warp, found, length);
+    // Beats plays each piece at its speed: where that's the map's own (at its own tempo, not
+    // transposed), one piece runs on into the next exactly, and needs no cut.
+    const double bps = clip.edit.tempoSequence.getBeatsPerSecondAt(clip.getPosition().getStart());
+    const double beatsSpeed =
+        std::pow(2.0, (warp.mode == model::WarpMode::Repitch ? 0.0 : pitchOf(clip.state).semitones()) / 12.0);
     for (size_t i = 0; i < starts.size(); ++i)
     {
         Piece p;
@@ -753,13 +820,22 @@ std::unique_ptr<te::graph::Node> makeWarpPlayer(te::AudioClipBase& clip, te::Tim
             p.fileEnd = length;
             p.filePerBeat = 60.0 / warp.tempo;
         }
-        // A marker that doesn't change the speed starts no piece (Beats' pieces each start at
-        // their own moment): the file reads on through it, exactly.
-        if (warp.mode != model::WarpMode::Beats && !play.pieces.empty() &&
-            std::abs(play.pieces.back().filePerBeat - p.filePerBeat) <= 1e-12 * p.filePerBeat)
+        // A marker that doesn't change the speed starts no piece: the file reads on through it,
+        // exactly. In Beats, a piece whose own speed is the one before's reaches it exactly too.
+        if (!play.pieces.empty())
         {
-            play.pieces.back().fileEnd = p.fileEnd;
-            continue;
+            auto& before = play.pieces.back();
+            const bool joins = warp.mode == model::WarpMode::Beats
+                                   ? std::abs(before.filePerBeat * bps - beatsSpeed) <= 1e-9 * beatsSpeed
+                                   : std::abs(before.filePerBeat - p.filePerBeat) <= 1e-12 * p.filePerBeat;
+            if (joins)
+            {
+                before.fileEnd = p.fileEnd;
+                if (warp.mode != model::WarpMode::Beats)
+                    continue;
+                before.filePerBeat = p.filePerBeat; // its run on is at this one's speed
+                continue;
+            }
         }
         play.pieces.push_back(p);
     }
@@ -777,10 +853,11 @@ std::unique_ptr<te::graph::Node> makeWarpPlayer(te::AudioClipBase& clip, te::Tim
         play.loopLength = clip.getLoopLengthBeats().inBeats();
     }
     const auto& tempo = clip.edit.tempoSequence;
+    play.beatsPerSecond = bps;
     play.playedFrom = tempo.toBeats(played.getStart()).inBeats();
     play.playedTo = tempo.toBeats(played.getEnd()).inBeats();
     const auto channels = clip.getActiveChannelConfiguration();
     return std::make_unique<WarpPlayerNode>(file, std::move(play), std::max(1, channels.getNumChannels()),
-                                            channels, state, clip.itemID, offline);
+                                            channels, clip.getLiveClipLevel(), state, clip.itemID, offline);
 }
 } // namespace fd::engine

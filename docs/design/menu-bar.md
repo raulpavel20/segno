@@ -279,6 +279,16 @@ The notes' right-click menu has Transform ▸ too, Quantise… first, as the Too
 
 | Item | Shortcut | |
 |---|---|---|
+| Warp | | *P6b:* ticked while the clip follows the tempo ([audio-editor.md](audio-editor.md) §7.1) |
+| Warp mode ▸ | | Beats, Tones, Repitch: the clip's ticked; dimmed, saying why, while it doesn't warp |
+| Tempo ▸ | | Double, Half (the clip's tempo); — ; Detect… (the Tools pane at Tempo), Song tempo from this clip |
+| — | | |
+| Quantise | Ctrl+U | The transients to the grid through warp markers, with the Quantise tool's settings (§7.7) |
+| Quantise… | Ctrl+Shift+U | The Tools pane at Quantise |
+| Warp markers ▸ | | Markers at transients, Warp from here, Set the downbeat here, Remove markers (the editor's) |
+| — | | |
+| Transpose ▸ | Ctrl+↑ / Ctrl+↓; Shift+↑ / Shift+↓ | Up a semitone, Down a semitone; — ; Up an octave, Down an octave (§8.1) |
+| — | | |
 | Gain ▸ | | Up 1 dB, Down 1 dB: the gain line over the range while there's one, else the clips' gain; — ; Silence (the range) |
 | Normalise… | | The Tools pane at Normalise (peak or loudness, each clip or together), previewed as it's set, Apply keeps it as one step |
 | — | | |
@@ -290,7 +300,7 @@ The notes' right-click menu has Transform ▸ too, Quantise… first, as the Too
 | Fade to range | | A range from the clip's start becomes its fade-in, one to its end its fade-out; dimmed, saying why, in the middle |
 | Loop range | | |
 
-The warping, key and slice items of audio-editor.md §13 come with P6b and P6c. Edit ▸ Split (Ctrl+E) reads **Split at range** and splits at the range's edges while the audio editor was used last with a range; Delete takes the range out, and Select all makes the whole clip the range.
+**Shared keys** (P6b): Quantise, Quantise… and Transpose's keys are the Notes menu's. Each key goes to whichever kind of clip the clip view shows: the Notes menu's action routes to the audio when it shows an audio clip. The Audio menu's items are actions of their own that show the same key (`Action::keysFrom`), so every action is still in the menu bar once. ← and → nudge the audio editor's selected markers by a grid step, as they nudge notes. The key and slice items come with P6c. Edit ▸ Split (Ctrl+E) reads **Split at range** and splits at the range's edges while the audio editor was used last with a range; Delete takes the range out, and Select all makes the whole clip the range.
 
 **Song** (added with the song's sections, M3 C3; the song's key first, M3 P3, [ADR 0057](../decisions/0057-the-song-has-one-key.md); [ADR 0049](../decisions/0049-the-master-row-is-the-song-row.md), [arranger.md](arranger.md) §12; Alt+G since M3 P4 gave Notes the N; Alt+S solos)
 

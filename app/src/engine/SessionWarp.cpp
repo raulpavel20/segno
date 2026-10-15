@@ -2,8 +2,10 @@
 // the clip's tempo, its mode and its setting, sensitivity, transposition, and warp markers.
 
 #include "engine/ClipFades.h"
+#include "engine/FileIndexer.h"
 #include "engine/SessionImpl.h"
 #include "engine/WarpPlayer.h"
+#include "model/AudioAnalysis.h"
 
 namespace fd::engine
 {
@@ -47,38 +49,35 @@ void relayout(te::AudioClipBase& c, const model::ClipInfo& info, const model::Co
                    te::TimeDuration::fromSeconds(offset)});
 }
 
-/// The engine's loop metadata kept to the clip's map: its length in beats is the file's, as warped
-/// (what bounds the clip's length while it follows the tempo).
-void writeLoopInfo(te::AudioClipBase& c, const model::AudioWarp& warp)
+/// How sure a tempo found in a sound must be before a loop placed follows it (§7.2): a drum loop's
+/// is around 0.4, noise's and a held tone's under 0.1.
+constexpr double kSteadyBeat = 0.25;
+
+/// The tempo a file was made at, by its own say (§7.1): its loop metadata (a WAV's acid chunk, an
+/// AIFF's beats, read from its header: the engine guesses one for any file), else a tempo in its
+/// name. 0: none.
+double ownTempo(const juce::File& file)
 {
-    const double length = c.getSourceLength().inSeconds();
-    if (!(length > 0.0))
-        return;
-    auto info = c.getLoopInfo();
-    const double beats = model::beatAtFile(warp, length);
-    info.setNumBeats(beats);
-    info.setBpm(beats * 60.0 / length, c.getWaveInfo());
-    if (info.getNumerator() <= 0)
-    {
-        info.setNumerator(4);
-        info.setDenominator(4);
-    }
-    c.setLoopInfo(info);
+    const auto found = FileIndexer::read(file);
+    return found ? found->tempo : 0.0;
 }
 
-/// The tempo a clip warps at when it has none of its own (§7.1): its file's loop metadata, a tempo
-/// in its name, else the song's, where it plays untouched.
+/// The tempo a clip warps at when it has none of its own: its file's, else the song's, where it
+/// plays untouched.
 double firstTempo(te::AudioClipBase& c)
 {
-    if (const double bpm = c.getLoopInfo().getBpm(c.getWaveInfo());
-        bpm >= model::kMinClipTempo && bpm <= model::kMaxClipTempo && c.getLoopInfo().getNumBeats() > 0.0)
+    if (const double bpm = ownTempo(forwardFileOf(c));
+        bpm >= model::kMinClipTempo && bpm <= model::kMaxClipTempo)
         return bpm;
-    if (const auto named =
-            model::tempoFromName(c.getOriginalFile().getFileNameWithoutExtension().toStdString()))
-        return *named;
     return c.edit.tempoSequence.getBpmAt(c.getPosition().getStart());
 }
 } // namespace
+
+void Session::Impl::keepFirstTempo(te::AudioClipBase& c)
+{
+    if (!c.state.hasProperty(warpIds::tempo))
+        c.state.setProperty(warpIds::tempo, firstTempo(c), &edit->getUndoManager());
+}
 
 bool Session::setWarp(const std::vector<std::uint64_t>& clips, const WarpChange& change,
                       const std::string& undoName)
@@ -101,6 +100,11 @@ bool Session::setWarp(const std::vector<std::uint64_t>& clips, const WarpChange&
             now.tempo = firstTempo(*c);
         if (change.on)
             now.on = *change.on;
+        // Warp on for the first time: its mode chosen by its sound (§7.3), Beats if percussive.
+        if (now.on && !was.on && !change.mode && !s.hasProperty(warpIds::mode))
+            if (const auto found = impl_->analyser.get(forwardFileOf(*c));
+                found != nullptr && model::startsInBeats(*found))
+                s.setProperty(warpIds::mode, static_cast<int>(model::WarpMode::Beats), um);
         if (change.tempo)
             now = model::withTempo(now, *change.tempo);
         if (change.tempoTimes)
@@ -113,7 +117,7 @@ bool Session::setWarp(const std::vector<std::uint64_t>& clips, const WarpChange&
             writeWarpMarkers(s, now.markers, um);
             if (now.on)
             {
-                writeLoopInfo(*c, now);
+                writeWarpLoopInfo(*c, now);
                 c->setUsesProxy(false);
             }
             if (now.on != was.on)
@@ -177,7 +181,144 @@ bool Session::setWarpMarkers(std::uint64_t clipId, const std::vector<model::Warp
     impl_->beginEdit(juce::String(undoName));
     c->state.setProperty(warpIds::tempo, warp.tempo, um);
     writeWarpMarkers(c->state, markers, um);
-    writeLoopInfo(*c, warp);
+    writeWarpLoopInfo(*c, warp);
+    return true;
+}
+void Session::requestAnalysis(std::uint64_t clipId)
+{
+    if (auto* c = dynamic_cast<te::AudioClipBase*>(impl_->clip(clipId)))
+        (void)impl_->analyser.get(forwardFileOf(*c));
+}
+
+std::vector<double> Session::clipTransients(std::uint64_t clipId)
+{
+    auto* c = dynamic_cast<te::AudioClipBase*>(impl_->clip(clipId));
+    if (c == nullptr)
+        return {};
+    (void)impl_->analyser.now(forwardFileOf(*c));
+    return impl_->transientsOf(*c);
+}
+
+std::optional<Session::FoundTempo> Session::foundTempo(std::uint64_t clipId)
+{
+    auto* c = dynamic_cast<te::AudioClipBase*>(impl_->clip(clipId));
+    if (c == nullptr)
+        return std::nullopt;
+    const auto found = impl_->analyser.now(forwardFileOf(*c));
+    if (found == nullptr || !found->tempo)
+        return std::nullopt;
+    return FoundTempo{found->tempo->bpm, found->tempo->firstDownbeat, found->tempo->confidence};
+}
+
+std::string Session::quantiseAudio(std::uint64_t clipId, const QuantiseAudio& settings)
+{
+    if (dynamic_cast<te::AudioClipBase*>(impl_->clip(clipId)) == nullptr)
+        return "Not an audio clip.";
+    EditGroup group(*this, "Quantise");
+    if (settings.sensitivity)
+        setWarp({clipId}, {.sensitivity = *settings.sensitivity}, "Quantise");
+    auto* c = dynamic_cast<te::AudioClipBase*>(impl_->clip(clipId));
+    const auto transients = clipTransients(clipId);
+    if (transients.empty())
+        return "The clip has no transients to quantise.";
+    const auto info = clipInfoOf(*c);
+    auto withMap = info;
+    withMap.warp = warpOf(*c);
+    withMap.fileLength = c->getSourceLength().inSeconds();
+    withMap.beatsPerSecond = c->edit.tempoSequence.getBeatsPerSecondAt(c->getPosition().getStart());
+    if (!withMap.warp.on)
+        withMap.warp.tempo = firstTempo(*c);
+    const auto warp =
+        model::quantisedClip(withMap, transients, settings.grid, settings.range, model::clipViewOrigin(info));
+    if (!setWarpMarkers(clipId, warp.markers, "Quantise"))
+        return "Quantising would stretch a piece past four times its speed.";
+    return {};
+}
+
+void Session::applyTempo(std::uint64_t clipId, double bpm, double downbeat, bool songTempo)
+{
+    if (dynamic_cast<te::AudioClipBase*>(impl_->clip(clipId)) == nullptr)
+        return;
+    EditGroup group(*this, "Tempo");
+    // Song tempo from it: the song plays at the clip's tempo, and the clip, warped at it, untouched.
+    if (songTempo)
+        setTempo(bpm);
+    setWarp({clipId}, {.on = true, .tempo = bpm}, "Tempo");
+    // The clip starts at its downbeat, where it starts now (§7.8): the audio before it is still
+    // there, past its start.
+    auto* c = dynamic_cast<te::AudioClipBase*>(impl_->clip(clipId));
+    const auto info = clipInfoOf(*c);
+    const double content = contentMapOf(*c).contentAt(downbeat);
+    if (!info.loop.on() && content > info.offset + 1e-6 && content < info.offset + info.length)
+    {
+        const auto start = te::TimePosition::fromSeconds(info.start);
+        c->setPosition({{start, start + te::TimeDuration::fromSeconds(info.length - (content - info.offset))},
+                        te::TimeDuration::fromSeconds(content)});
+    }
+}
+
+void Session::setWarpDefaults(bool loopsFollowTempo, bool recordingsFollowTempo)
+{
+    impl_->loopsFollowTempo = loopsFollowTempo;
+    impl_->recordingsFollowTempo = recordingsFollowTempo;
+}
+
+std::optional<std::pair<double, model::WarpMode>> Session::Impl::loopTempo(te::AudioClipBase& c)
+{
+    // A loop (§7.2): short, with a tempo of its own (its file's, its name's, else its sound's), a
+    // whole number of bars at it.
+    const double length = c.getSourceLength().inSeconds();
+    if (!(length > 0.0) || length > 32.0)
+        return std::nullopt;
+    double bpm = ownTempo(forwardFileOf(c));
+    // Found in its sound only where there's a steady beat to find (a one-shot, a pad or noise has
+    // none).
+    const auto found = analyser.now(forwardFileOf(c));
+    if (!(bpm > 0.0) && found != nullptr && found->tempo && found->tempo->confidence >= kSteadyBeat)
+        bpm = found->tempo->bpm;
+    if (!model::isLoopAt(length, bpm))
+        return std::nullopt;
+    return std::pair{bpm, found != nullptr && model::startsInBeats(*found) ? model::WarpMode::Beats
+                                                                           : model::WarpMode::Tones};
+}
+
+void Session::Impl::followSongTempo(te::AudioClipBase& c)
+{
+    if (!recordingsFollowTempo)
+        return;
+    // Made in time (§7.2): it plays untouched at the song's tempo, and follows it if it changes.
+    auto* um = &edit->getUndoManager();
+    auto warp = warpOf(c);
+    warp.on = true;
+    warp.tempo = edit->tempoSequence.getBpmAt(c.getPosition().getStart());
+    c.state.setProperty(warpIds::tempo, warp.tempo, um);
+    writeWarpLoopInfo(c, warp);
+    c.setUsesProxy(false);
+    c.setAutoTempo(true);
+}
+
+bool Session::editTransients(std::uint64_t clipId, double file, bool add)
+{
+    auto* c = dynamic_cast<te::AudioClipBase*>(impl_->clip(clipId));
+    if (c == nullptr)
+        return false;
+    auto& s = c->state;
+    auto added = timesOf(s[warpIds::transientsAdded]), removed = timesOf(s[warpIds::transientsRemoved]);
+    const auto drop = [file](std::vector<double>& v)
+    {
+        v.erase(std::remove_if(v.begin(), v.end(), [file](double t) { return std::abs(t - file) < 0.001; }),
+                v.end());
+    };
+    // Added, it's no longer removed; removed, no longer added (and the file's own is hidden).
+    drop(added);
+    drop(removed);
+    (add ? added : removed).push_back(file);
+    std::sort(added.begin(), added.end());
+    std::sort(removed.begin(), removed.end());
+    auto* um = &impl_->edit->getUndoManager();
+    impl_->beginEdit(add ? "Add transient" : "Remove transient");
+    s.setProperty(warpIds::transientsAdded, textOf(added), um);
+    s.setProperty(warpIds::transientsRemoved, textOf(removed), um);
     return true;
 }
 } // namespace fd::engine

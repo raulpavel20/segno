@@ -94,17 +94,19 @@ juce::Rectangle<int> AudioClipView::laneArea() const
 juce::Rectangle<int> AudioClipView::waveformArea() const
 {
     const auto& s = ui::Theme::current().shell;
-    // Between the ruler and the lane, a line above the lane.
+    // Between the marker strip and the lane, a line above the lane.
     return getLocalBounds()
         .withTrimmedLeft(s.keyboardWidth)
-        .withTrimmedTop(s.loopStripHeight + s.rulerHeight)
+        .withTrimmedTop(s.loopStripHeight + s.rulerHeight + s.markerStripHeight)
         .withTrimmedBottom(s.velocityHeight + 1);
 }
 
 juce::Rectangle<int> AudioClipView::levelArea() const
 {
     const auto& s = ui::Theme::current().shell;
-    return getLocalBounds().withTrimmedTop(s.loopStripHeight + s.rulerHeight).removeFromLeft(s.keyboardWidth);
+    return getLocalBounds()
+        .withTrimmedTop(s.loopStripHeight + s.rulerHeight + s.markerStripHeight)
+        .removeFromLeft(s.keyboardWidth);
 }
 
 int AudioClipView::rowCount() const
@@ -200,14 +202,19 @@ void AudioClipView::setClip(std::optional<model::ClipInfo> clip, const model::Te
     const bool another = !clip_ || clip_->id != clip->id;
     clip_ = std::move(clip);
     waveforms_.request(clip_->sourcePath);
+    if (clip_->analysis == nullptr)
+        session_.requestAnalysis(clip_->id); // its transients and tempo, found in the background
     lineView_ = model::lineToView(clip_->sound.line, origin(), model::contentMap(*clip_));
     laneKept_.reset(); // the snapshot has it now
     laneHead_.setVisible(true);
+    warpPreview_.reset(); // the snapshot has it now
     if (another)
     {
         needsFit_ = true;
         fitToClip();
         points_.clear();
+        markers_.clear();
+        hoveredTransient_.reset();
         previewGains_.clear();
         setRange(std::nullopt);
     }
@@ -219,6 +226,8 @@ void AudioClipView::setClip(std::optional<model::ClipInfo> clip, const model::Te
     }
     if (points_.size() > lineView_.size())
         points_.clear();
+    if (!markers_.empty() && (!clip_->warp.on || *markers_.rbegin() >= clip_->warp.markers.size()))
+        markers_.clear();
     repaint();
 }
 
@@ -377,7 +386,21 @@ std::vector<std::uint64_t> AudioClipView::toolClips() const
 
 model::ToolValues AudioClipView::toolValues(const model::ToolSpec& tool) const
 {
-    return rememberedValues ? rememberedValues(tool) : model::toolValues(tool, {});
+    auto values = rememberedValues ? rememberedValues(tool) : model::toolValues(tool, {});
+    if (!clip_)
+        return values;
+    // What's the clip's own shows as it is (§7.4, §7.8): its sensitivity; the tempo and downbeat
+    // found in its file.
+    if (tool.id == "quantise")
+        values["sensitivity"] = std::round(clip_->warp.sensitivity * 100.0);
+    if (tool.id == "tempo")
+    {
+        const auto* found =
+            clip_->analysis != nullptr && clip_->analysis->tempo ? &*clip_->analysis->tempo : nullptr;
+        values["tempo"] = found != nullptr ? found->bpm : clip_->warp.tempo;
+        values["downbeat"] = found != nullptr ? found->firstDownbeat : 0.0;
+    }
+    return model::toolValues(tool, values);
 }
 
 void AudioClipView::setToolValues(const model::ToolSpec& tool, const model::ToolValues& values)
@@ -389,6 +412,9 @@ void AudioClipView::setToolValues(const model::ToolSpec& tool, const model::Tool
 void AudioClipView::preview(const model::ToolSpec& tool, const model::ToolValues& values)
 {
     previewGains_.clear();
+    warpPreview_.reset();
+    sensitivityPreview_.reset();
+    tempoPreview_.reset();
     if (tool.id == "normalise")
     {
         const auto choice = model::normaliseChoice(values);
@@ -400,20 +426,34 @@ void AudioClipView::preview(const model::ToolSpec& tool, const model::ToolValues
             if (gain)
                 previewGains_[id] = *gain;
     }
+    else if (tool.id == "quantise" && clip_ && clip_->analysis != nullptr)
+    {
+        // The ticks as its sensitivity finds them, the markers where it would put them.
+        sensitivityPreview_ = model::quantiseSensitivity(values);
+        warpPreview_ = quantisedWarp(model::warpQuantiseChoice(values, timeline_.gridStepBeats(tempo_)));
+    }
+    else if (tool.id == "tempo" && clip_)
+        tempoPreview_ = model::tempoChoice(values);
     repaint();
 }
 
 void AudioClipView::cancel()
 {
-    if (previewGains_.empty())
+    if (previewGains_.empty() && !warpPreview_ && !sensitivityPreview_ && !tempoPreview_)
         return;
     previewGains_.clear();
+    warpPreview_.reset();
+    sensitivityPreview_.reset();
+    tempoPreview_.reset();
     repaint();
 }
 
 void AudioClipView::apply(const model::ToolSpec& tool, const model::ToolValues& values)
 {
     previewGains_.clear();
+    warpPreview_.reset();
+    sensitivityPreview_.reset();
+    tempoPreview_.reset();
     if (tool.id == "normalise")
     {
         const auto choice = model::normaliseChoice(values);
@@ -422,23 +462,45 @@ void AudioClipView::apply(const model::ToolSpec& tool, const model::ToolValues& 
                             .targetDb = choice.targetDb,
                             .together = choice.together});
     }
+    else if (tool.id == "quantise" && clip_)
+    {
+        if (const auto why = session_.quantiseAudio(
+                clip_->id, {.grid = model::warpQuantiseChoice(values, timeline_.gridStepBeats(tempo_)),
+                            .sensitivity = model::quantiseSensitivity(values),
+                            .range = range_});
+            !why.empty() && onMessage)
+            onMessage(juce::String::fromUTF8(why.c_str()));
+    }
+    else if (tool.id == "tempo" && clip_)
+        applyTempo(model::tempoChoice(values));
     repaint();
 }
 
-juce::String AudioClipView::scope(const model::ToolSpec&) const
+juce::String AudioClipView::scope(const model::ToolSpec& tool) const
 {
+    if (tool.id != "normalise")
+        return range_ && tool.id == "quantise"
+                   ? juce::String("the range")
+                   : (clip_ ? juce::String::fromUTF8(clip_->name.c_str()) : juce::String());
     const auto n = static_cast<int>(toolClips().size());
     return juce::String(n) + (n == 1 ? " clip" : " clips");
 }
 
-juce::String AudioClipView::unavailable(const model::ToolSpec&) const
+juce::String AudioClipView::unavailable(const model::ToolSpec& tool) const
 {
-    return clip_ ? juce::String() : juce::String("Show an audio clip in the clip view");
+    if (!clip_)
+        return "Show an audio clip in the clip view";
+    if ((tool.id == "quantise" || tool.id == "tempo") && clip_->analysis == nullptr)
+        return "The clip's transients are still being found";
+    if (tool.id == "tempo" && !clip_->analysis->tempo)
+        return "No tempo is heard in the clip: set it on the bar";
+    return {};
 }
 
 std::uint64_t AudioClipView::version() const
 {
-    // What the tools act on: the clips, and each one's gain and line as the snapshot has them.
+    // What the tools act on: the clips, and each one's gain, line, warp and analysis as the
+    // snapshot has them.
     std::uint64_t v = 1469598103934665603ull;
     const auto mix = [&v](std::uint64_t x) { v = (v ^ x) * 1099511628211ull; };
     for (auto id : toolClips())
@@ -447,7 +509,14 @@ std::uint64_t AudioClipView::version() const
     {
         mix(static_cast<std::uint64_t>(std::llround(clip_->sound.gainDb * 1000.0f)));
         mix(clip_->sound.line.size());
+        mix(clip_->warp.markers.size());
+        mix(static_cast<std::uint64_t>(std::llround(clip_->warp.tempo * 1000.0)));
+        mix(static_cast<std::uint64_t>(std::llround(clip_->warp.sensitivity * 1000.0)));
+        mix(clip_->analysis != nullptr ? 1u : 0u);
     }
+    if (range_)
+        mix(static_cast<std::uint64_t>(std::llround(range_->first * 1e6) ^
+                                       std::llround(range_->second * 1e6)));
     return v;
 }
 
@@ -488,10 +557,13 @@ void AudioClipView::paintRows(juce::Graphics& g)
     const auto colour = t.clipColour(clip_->colour);
     const auto [from, to] = playedRange();
     const auto sound = shownSound();
-    const double o = origin(), length = clip_->sourceLength;
     const auto fade = fadeClipOf(*clip_);
-    // The waveform as heard (§3.4): through the clip's gain and line; where it plays, its fades too.
-    const auto map = model::contentMap(*clip_);
+    // The waveform as heard (§3.4): through the clip's gain and line; where it plays, its fades too;
+    // warped as shown (a marker dragged moves the audio as it goes, §7.5).
+    auto shown = *clip_;
+    shown.warp = shownWarp();
+    const auto map = model::contentMap(shown);
+    const double o = origin(), length = map.contentLength();
     const auto soundAt = [&](double viewTime)
     { return zoom_ * model::soundGainAt(sound, map.fileAt(viewTime - o)); };
     const auto playedAt = [&](double viewTime)
@@ -501,7 +573,11 @@ void AudioClipView::paintRows(juce::Graphics& g)
             gain *= model::playbackGain(fade, clip_->playback, viewTime);
         return gain;
     };
-    const model::ClipInfo file{.kind = model::ClipInfo::Kind::Audio, .start = o, .length = length};
+    auto file = model::ClipInfo{.kind = model::ClipInfo::Kind::Audio, .start = o, .length = length};
+    file.warp = shown.warp;
+    file.sound.reversed = shown.sound.reversed;
+    file.fileLength = shown.fileLength;
+    file.beatsPerSecond = shown.beatsPerSecond;
     const auto xOf = [&](double seconds)
     { return static_cast<float>(waveformArea().getX() + timeline_.xForTime(seconds)); };
     for (int r = 0; r < rowCount(); ++r)
@@ -690,6 +766,8 @@ void AudioClipView::paint(juce::Graphics& g)
     timeline_.gridLines(tempo_, lines_);
     paintRows(g);
     paintRange(g);
+    paintMarkers(g);
+    paintTempo(g);
     paintLane(g);
     // The loop strip with the clip's brace, then the ruler with what it plays in its colour.
     const auto [from, to] = playedRange();
@@ -697,6 +775,7 @@ void AudioClipView::paint(juce::Graphics& g)
                          clip_->loop.on());
     time::paintRuler(g, lines_, timeline_, rulerArea(),
                      {.range = std::pair{from, to}, .rangeColour = t.clipColour(clip_->colour)});
+    paintTimeHandles(g);
     paintLevels(g);
     juce::Graphics::ScopedSaveState saved(g);
     g.reduceClipRegion(waveformArea().getUnion(laneArea()));
@@ -708,11 +787,27 @@ void AudioClipView::paint(juce::Graphics& g)
 void AudioClipView::mouseMove(const juce::MouseEvent& e)
 {
     auto cursor = juce::MouseCursor::NormalCursor;
-    std::optional<size_t> hovered;
+    std::optional<size_t> hovered, transient;
     if (clip_)
     {
         const float x = e.position.x - static_cast<float>(waveformArea().getX());
-        if (loopStripArea().contains(e.getPosition()))
+        const auto [left, right] = timeHandles();
+        const auto grabbed = [&](const juce::Rectangle<int>& r)
+        {
+            return !r.isEmpty() && r.expanded(static_cast<int>(ui::Theme::current().input.edgeGrab * 0.5f))
+                                       .contains(e.getPosition());
+        };
+        if (grabbed(left) || grabbed(right))
+            cursor = juce::MouseCursor::LeftRightResizeCursor;
+        else if (markerStripArea().contains(e.getPosition()))
+        {
+            // A marker to drag, else a transient to make one of (§7.5).
+            if (clip_->warp.on && markerAt(e.position))
+                cursor = juce::MouseCursor::LeftRightResizeCursor;
+            else if ((transient = transientAt(e.position)))
+                cursor = juce::MouseCursor::LeftRightResizeCursor;
+        }
+        else if (loopStripArea().contains(e.getPosition()))
         {
             const auto zone = ClipLoopBrace::zoneAt(*clip_, origin(), timeline_, x);
             if (zone == model::BraceZone::Start || zone == model::BraceZone::End)
@@ -737,6 +832,11 @@ void AudioClipView::mouseMove(const juce::MouseEvent& e)
         hoveredPoint_ = hovered;
         repaint(laneArea());
     }
+    if (transient != hoveredTransient_)
+    {
+        hoveredTransient_ = transient;
+        repaint(markerStripArea().getUnion(waveformArea()));
+    }
     setMouseCursor(cursor);
 }
 
@@ -745,11 +845,24 @@ void AudioClipView::mouseDown(const juce::MouseEvent& e)
     gesture_ = Gesture::None;
     if (!clip_)
         return;
+    // The Tempo tool's downbeat is the tool's: dragging it keeps the tool shown (§7.8).
+    if (const auto x = downbeatX();
+        x && !e.mods.isPopupMenu() && waveformArea().contains(e.getPosition()) &&
+        std::abs(*x - e.position.x) <= ui::Theme::current().input.edgeGrab * 0.5f + 1.0f)
+    {
+        dragStart_ = lastDrag_ = e.position;
+        moved_ = false;
+        gesture_ = Gesture::Downbeat;
+        return;
+    }
     if (onUsed)
         onUsed();
     dragStart_ = lastDrag_ = e.position;
     moved_ = false;
     const float x = e.position.x - static_cast<float>(waveformArea().getX());
+    // Markers, transients and the range's time handles (§7.4–§7.6).
+    if (warpPress(e))
+        return;
     if (e.mods.isPopupMenu())
     {
         // The Audio menu where you work (ADR 0040).
@@ -821,6 +934,8 @@ void AudioClipView::mouseDrag(const juce::MouseEvent& e)
         return;
     const auto previous = lastDrag_;
     lastDrag_ = e.position;
+    if (warpDrag(e))
+        return;
     const float x = e.position.x - static_cast<float>(waveformArea().getX());
     const bool past = e.getDistanceFromDragStart() >= ui::Theme::current().input.dragThreshold;
     switch (gesture_)
@@ -881,6 +996,11 @@ void AudioClipView::mouseDrag(const juce::MouseEvent& e)
     case Gesture::Level:
         setLevelZoom(zoomBase_ * std::exp2((dragStart_.y - e.position.y) / kZoomPixels));
         return;
+    case Gesture::Downbeat:
+    case Gesture::Marker:
+    case Gesture::Transient:
+    case Gesture::MarkerBox:
+    case Gesture::TimeHandle:
     case Gesture::None:
         return;
     }
@@ -891,6 +1011,12 @@ void AudioClipView::mouseUp(const juce::MouseEvent& e)
     if (!clip_)
     {
         gesture_ = Gesture::None;
+        return;
+    }
+    if (warpRelease(e))
+    {
+        gesture_ = Gesture::None;
+        repaint();
         return;
     }
     switch (gesture_)
@@ -928,6 +1054,11 @@ void AudioClipView::mouseUp(const juce::MouseEvent& e)
         break;
     }
     case Gesture::Level:
+    case Gesture::Downbeat:
+    case Gesture::Marker:
+    case Gesture::Transient:
+    case Gesture::MarkerBox:
+    case Gesture::TimeHandle:
     case Gesture::None:
         break;
     }

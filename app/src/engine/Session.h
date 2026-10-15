@@ -826,6 +826,41 @@ public:
     bool setWarpMarkers(std::uint64_t clip, const std::vector<model::WarpMarker>& markers,
                         const std::string& undoName = "Warp markers");
 
+    /// Starts finding what's in a clip's file (§7.4), in the background, if it isn't known: the
+    /// snapshot has it once it's found (the audio editor asks for the clip it shows).
+    void requestAnalysis(std::uint64_t clip);
+    /// A clip's transients (seconds of its file as recorded, §7.4), found now if they weren't.
+    [[nodiscard]] std::vector<double> clipTransients(std::uint64_t clip);
+    /// The tempo found in a clip's file (§7.8), found now if it wasn't: its first downbeat in
+    /// seconds of the file, and how sure it is (0 … 1). Nullopt with no beat to find.
+    struct FoundTempo
+    {
+        double bpm = 120.0, downbeat = 0.0, confidence = 0.0;
+    };
+    [[nodiscard]] std::optional<FoundTempo> foundTempo(std::uint64_t clip);
+    /// Quantise (§7.7): the clip's transients within `range` of the timeline (all without one)
+    /// towards the song's grid through warp markers, Warp on; `sensitivity` set first if given.
+    /// One undo step, "Quantise". Why not, or empty.
+    struct QuantiseAudio
+    {
+        model::WarpQuantise grid;
+        std::optional<double> sensitivity;
+        std::optional<std::pair<double, double>> range;
+    };
+    std::string quantiseAudio(std::uint64_t clip, const QuantiseAudio& settings);
+    /// The Tempo tool's Apply (§7.8): the clip warps at `bpm` and starts at its downbeat (seconds of
+    /// its file) where it starts now; with `songTempo`, the song's tempo is set from it too. One
+    /// undo step, "Tempo".
+    void applyTempo(std::uint64_t clip, double bpm, double downbeat, bool songTempo);
+
+    /// What follows the tempo when it's placed or made (§7.2, Settings › Audio): loops placed (with
+    /// a tempo of their own or found, a whole number of bars at it), and recordings, bounces and
+    /// comps (at the song's tempo). Both on until set.
+    void setWarpDefaults(bool loopsFollowTempo, bool recordingsFollowTempo);
+    /// Adds a transient by hand at `file` (seconds of the clip's file as recorded), or removes the
+    /// one there (§7.4): one undo step, "Add transient" or "Remove transient".
+    bool editTransients(std::uint64_t clip, double file, bool add);
+
     /// Normalise (§6.4): each audio clip's gain set so it reaches `targetDb` (dBFS, or LUFS), or
     /// all moved together so the loudest does. Measured from their files (streamed; not real-time).
     /// One undo step, "Normalise". Returns the clips that changed; silent ones keep their gain.

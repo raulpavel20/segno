@@ -431,6 +431,18 @@ Glyph glyph(Icon icon)
             p.lineTo(x0 + 2.0f, 8.0f);
         }
         break;
+    case Icon::Tempo:
+        // Beats found in a sound: hits along a line, a tick over each.
+        p.startNewSubPath(1.5f, 13.5f);
+        p.lineTo(14.5f, 13.5f);
+        for (const float x0 : {3.5f, 8.0f, 12.5f})
+        {
+            p.startNewSubPath(x0, 13.5f);
+            p.lineTo(x0, 8.5f);
+            p.startNewSubPath(x0, 2.5f);
+            p.lineTo(x0, 5.0f);
+        }
+        break;
     case Icon::Search:
         p.addEllipse(2.5f, 2.5f, 8.5f, 8.5f);
         p.startNewSubPath(9.8f, 9.8f);

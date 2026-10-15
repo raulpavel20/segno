@@ -24,6 +24,10 @@ struct Action
     std::function<juce::String()> whyNot;
     /// The name as menus and tooltips show it now ("Undo Add track"); null: `name`.
     std::function<juce::String()> label;
+    /// An action whose key it shows and shares, having none of its own: the key goes to that
+    /// action, which acts on whatever kind of clip the clip view shows (the Notes and Audio menus'
+    /// Quantise and Transpose, audio-editor.md §13).
+    std::string keysFrom;
 };
 
 /// Every action in the app, looked up by id or key press. The command palette (M2) lists it;
@@ -55,7 +59,8 @@ public:
     /// A shortcut as menus, tooltips and the palette show it: "Ctrl+Shift+E", "Alt+↑", "Space" on
     /// Linux and Windows (the system's symbols on macOS).
     [[nodiscard]] static juce::String shortcutText(const juce::KeyPress& key);
-    /// `id`'s first shortcut as shortcutText shows it; empty without one.
+    /// `id`'s first shortcut as shortcutText shows it (an action's it shares, Action::keysFrom);
+    /// empty without one.
     [[nodiscard]] juce::String shortcut(std::string_view id) const;
     /// "Name (Shortcut)" for tooltips.
     [[nodiscard]] juce::String tooltip(std::string_view id) const;
@@ -88,6 +93,9 @@ public:
     std::function<void()> onKeysChanged;
 
 private:
+    /// The keys `id` shows: its own, else those it shares.
+    [[nodiscard]] std::vector<juce::KeyPress> shownKeys(std::string_view id) const;
+
     std::vector<Action> actions_;
     std::map<std::string, std::vector<juce::KeyPress>, std::less<>> overrides_;
     std::map<std::string, std::vector<std::string>> unknownKeys_; // for actions this build lacks

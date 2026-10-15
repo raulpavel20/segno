@@ -8,6 +8,59 @@ std::vector<ToolSpec> makeTools()
 {
     using K = ToolKind;
     return {
+        {"quantise",
+         "Quantise",
+         K::Transform,
+         "Moves the clip's transients towards the grid through warp markers, in the range or the whole clip; "
+         "Warp goes on with it",
+         {{.id = "strength",
+           .label = "Strength",
+           .min = 0.0,
+           .max = 100.0,
+           .step = 1.0,
+           .initial = 100.0,
+           .unit = "%"},
+          {.id = "swing",
+           .label = "Swing",
+           .min = 0.0,
+           .max = 100.0,
+           .step = 1.0,
+           .initial = 0.0,
+           .unit = "%"},
+          // The clip's own (§7.4): shown here, and set on the clip as it's dragged.
+          {.id = "sensitivity",
+           .label = "Sensitivity",
+           .min = 0.0,
+           .max = 100.0,
+           .step = 1.0,
+           .initial = 50.0,
+           .unit = "%"}}},
+        {"tempo",
+         "Tempo",
+         K::Transform,
+         "Finds the clip's tempo and first downbeat, to correct by halving or doubling; Apply warps the clip "
+         "to them, or sets the song's tempo from it",
+         {{.id = "tempo",
+           .label = "Tempo",
+           .min = kMinClipTempo,
+           .max = kMaxClipTempo,
+           .step = 0.01,
+           .initial = 120.0,
+           .unit = "BPM",
+           .halveDouble = true},
+          {.id = "downbeat",
+           .label = "Downbeat",
+           .min = 0.0,
+           .max = 36000.0,
+           .step = 0.001,
+           .initial = 0.0,
+           .unit = "s"},
+          {.id = "then",
+           .label = "Then",
+           .choices = {"Warp on at this tempo", "Song tempo from it"},
+           .words = {"warp", "song"},
+           .max = 0.0,
+           .menu = true}}},
         {"normalise",
          "Normalise",
          K::Transform,
@@ -66,5 +119,21 @@ NormaliseChoice normaliseChoice(const ToolValues& values)
     return {.loudness = loudness,
             .targetDb = loudness ? v.at("loudness") : v.at("peak"),
             .together = v.at("clips") == 1.0};
+}
+WarpQuantise warpQuantiseChoice(const ToolValues& values, double gridBeats)
+{
+    const auto v = toolValues(*findAudioTool("quantise"), values);
+    return {.gridBeats = gridBeats, .strength = v.at("strength") / 100.0, .swing = v.at("swing") / 100.0};
+}
+
+double quantiseSensitivity(const ToolValues& values)
+{
+    return toolValues(*findAudioTool("quantise"), values).at("sensitivity") / 100.0;
+}
+
+TempoChoice tempoChoice(const ToolValues& values)
+{
+    const auto v = toolValues(*findAudioTool("tempo"), values);
+    return {.bpm = v.at("tempo"), .downbeat = v.at("downbeat"), .songTempo = v.at("then") == 1.0};
 }
 } // namespace fd::model

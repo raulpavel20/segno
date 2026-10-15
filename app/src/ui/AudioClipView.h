@@ -2,6 +2,7 @@
 
 #include "engine/Session.h"
 #include "model/AudioSound.h"
+#include "model/AudioToolkit.h"
 #include "model/Timeline.h"
 #include "ui/AutomationLane.h"
 #include "ui/ClipLoopBrace.h"
@@ -68,9 +69,42 @@ public:
     std::function<std::vector<std::uint64_t>()> selectedClips;
     /// It was pressed: Edit's commands act on it until something else is used.
     std::function<void()> onUsed;
+    /// A tool's setting changed here (the Tempo tool's downbeat dragged on the waveform): the
+    /// Tools pane shows it.
+    std::function<void(std::string_view setting, double value)> onToolValue;
     /// The clip view's remembered tool settings (view state; the piano roll keeps them).
     std::function<model::ToolValues(const model::ToolSpec&)> rememberedValues;
     std::function<void(const model::ToolSpec&, const model::ToolValues&)> rememberValues;
+
+    // ---- warp markers and transients (§7.4–§7.7) -----------------------------------------------
+    /// The clip's transients, as shown: seconds of its file as recorded (none while it's analysed).
+    [[nodiscard]] std::vector<double> transients() const;
+    /// The warp markers selected (indices into the clip's markers).
+    [[nodiscard]] const std::set<size_t>& selectedMarkers() const noexcept { return markers_; }
+    void selectMarkers(std::set<size_t> markers);
+    [[nodiscard]] bool hasMarkerSelection() const noexcept { return !markers_.empty(); }
+    /// Where a marker or a transient shows: its x in component coordinates (tests drive the mouse
+    /// with it); nullopt for one not shown.
+    [[nodiscard]] std::optional<float> markerX(size_t index) const;
+    [[nodiscard]] std::optional<float> transientX(size_t index) const;
+    /// Every transient's x, in order, worked out once (painting, the mouse).
+    [[nodiscard]] std::vector<float> transientXs() const;
+    /// The marker commands (§7.5, the Audio menu's Warp markers): each one undo step; false,
+    /// saying why through onMessage, when it can't.
+    bool markersAtTransients(); // in the range, or the whole clip
+    bool warpFromHere();        // from the first selected marker
+    bool setDownbeat();         // at the first selected marker, else the range's start
+    bool removeMarkers();       // the selected ones; else those in the range; else all
+    /// Quantise (§7.7): the transients in the range, or the clip, towards the song's grid through
+    /// markers, Warp turned on with it.
+    bool quantise(const model::WarpQuantise& settings);
+    /// The Tempo tool's Apply (§7.8): the clip warps at the tempo, starting at the downbeat; or the
+    /// song's tempo is set from it. One undo step.
+    void applyTempo(const model::TempoChoice& choice);
+    void nudgeMarkers(int steps); // ← →: a grid step each
+    [[nodiscard]] std::string markersRefusal() const;
+    /// The range's time handles in the ruler (§7.6): empty without a range.
+    [[nodiscard]] std::pair<juce::Rectangle<int>, juce::Rectangle<int>> timeHandles() const;
 
     // ---- the rows' height (§4) -----------------------------------------------------------------
     /// How much taller than full scale the waveform is drawn: 1 (full scale fills a row) to 64.
@@ -80,6 +114,8 @@ public:
     // ---- geometry, in component coordinates (tests drive the mouse with it) ---------------------
     [[nodiscard]] juce::Rectangle<int> loopStripArea() const;
     [[nodiscard]] juce::Rectangle<int> rulerArea() const;
+    /// The marker strip under the ruler: transients' ticks, warp markers' handles (§4).
+    [[nodiscard]] juce::Rectangle<int> markerStripArea() const;
     /// Every row of the waveform.
     [[nodiscard]] juce::Rectangle<int> waveformArea() const;
     [[nodiscard]] juce::Rectangle<int> rowArea(int row) const;
@@ -126,7 +162,12 @@ private:
         Range,     // a range dragged across the waveform
         RangeGain, // the range's gain handle
         Line,      // the gain line's points (LaneGesture)
-        Level      // the level column: the rows' height
+        Level,     // the level column: the rows' height
+        Downbeat,  // the Tempo tool's downbeat, dragged on the waveform (§7.8)
+        Marker,    // a warp marker dragged (Shift: the audio slid under it)
+        Transient, // a transient's tick dragged: made a marker and moved
+        MarkerBox, // a box in the marker strip: markers selected
+        TimeHandle // a range's time handle: its audio stretched (§7.6)
     };
     /// The view's time of the clip's content zero (model::clipViewOrigin).
     [[nodiscard]] double origin() const;
@@ -150,6 +191,34 @@ private:
     void paintLevels(juce::Graphics& g) const;
     void paintLane(juce::Graphics& g);
     void paintRange(juce::Graphics& g) const;
+    void paintMarkers(juce::Graphics& g);
+    /// The Tempo tool's beats over the waveform, its downbeat marked (§7.8).
+    void paintTempo(juce::Graphics& g) const;
+    /// Where the Tempo tool's downbeat shows (nullopt without the tool).
+    [[nodiscard]] std::optional<float> downbeatX() const;
+    void paintTimeHandles(juce::Graphics& g) const;
+
+    // Warping in the view (AudioClipViewWarp.cpp).
+    /// The clip's warp as shown: a gesture's preview, else the clip's.
+    [[nodiscard]] const model::AudioWarp& shownWarp() const;
+    /// The clip's warp quantised (§7.7), as recorded, at the sensitivity shown.
+    [[nodiscard]] std::optional<model::AudioWarp> quantisedWarp(const model::WarpQuantise& settings) const;
+    /// The shown warp as the file plays (a reversed clip's seen from its end): what's drawn.
+    [[nodiscard]] model::AudioWarp playedWarp() const;
+    /// A warp edited as the file plays, kept as recorded: one undo step.
+    void keepWarp(const model::AudioWarp& played, const std::string& undoName);
+    /// The view's time of a beat of the clip's content, and back.
+    [[nodiscard]] double viewTimeOfBeat(double beat) const;
+    [[nodiscard]] double beatOfViewTime(double time) const;
+    /// What's under the mouse in the marker strip.
+    [[nodiscard]] std::optional<size_t> markerAt(juce::Point<float> p) const;
+    [[nodiscard]] std::optional<size_t> transientAt(juce::Point<float> p) const;
+    bool warpPress(const juce::MouseEvent& e);
+    bool warpDrag(const juce::MouseEvent& e);
+    bool warpRelease(const juce::MouseEvent& e);
+    [[nodiscard]] juce::PopupMenu markerMenu(std::optional<size_t> marker, std::optional<double> at);
+    /// The tag a marker drag shows: the piece before it, its stretch and tempo.
+    [[nodiscard]] juce::String markerTag() const;
 
     engine::Session& session_;
     WaveformCache waveforms_{true}; // its file's peaks, a channel each (one file at a time)
@@ -183,5 +252,18 @@ private:
     ui::LaneChoice laneHead_;
 
     std::map<std::uint64_t, float> previewGains_; // a tool's gains, shown while it's chosen
+
+    // Warping (§7): the markers selected, a gesture's preview of the clip's warp (as recorded),
+    // what it drags, and the transient hovered.
+    std::set<size_t> markers_;
+    std::optional<model::AudioWarp> warpPreview_;
+    std::optional<size_t> dragMarker_; // in the played warp
+    model::AudioWarp dragFrom_;        // the played warp when the drag began
+    std::optional<size_t> hoveredTransient_;
+    std::pair<double, double> markerBox_;            // view times, while a box is dragged
+    bool handleAtEnd_ = false;                       // which time handle is dragged
+    std::pair<double, double> rangeFrom_;            // the range when its handle was pressed
+    std::optional<double> sensitivityPreview_;       // Quantise's sensitivity, while it's set (§7.4)
+    std::optional<model::TempoChoice> tempoPreview_; // the Tempo tool's, while it's chosen (§7.8)
 };
 } // namespace fd::app

@@ -347,6 +347,7 @@ struct Session::Impl::Bounce final : std::enable_shared_from_this<Bounce>, Sessi
                     continue;
                 if (!colour.isVoid())
                     clip->state.setProperty(kColourId, colour, um);
+                impl.followSongTempo(*clip); // made in time (audio-editor.md §7.2)
                 if (end.cut)
                     clip->setFadeOut(te::TimeDuration::fromSeconds(model::kBounceCutFadeSeconds));
                 auto take = impl.addTake(stack, model::bounceTakeName(names), {clip->state}, um);
@@ -401,6 +402,7 @@ struct Session::Impl::Bounce final : std::enable_shared_from_this<Bounce>, Sessi
                     continue;
                 if (!colour.isVoid())
                     clip->state.setProperty(kColourId, colour, &impl.edit->getUndoManager());
+                impl.followSongTempo(*clip); // made in time (audio-editor.md §7.2)
                 result.clips.push_back(clip->itemID.getRawID());
             }
         }

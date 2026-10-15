@@ -6,7 +6,9 @@
 // for review with FD_DUMP_DIR set.
 
 #include "ShellTestKit.h"
+#include "engine/SessionImpl.h"
 #include "fd/testkit/WavIO.h"
+#include "model/AudioAnalysis.h"
 #include "model/AudioSound.h"
 #include "model/Editing.h"
 #include "model/Selection.h"
@@ -19,6 +21,7 @@
 #include <iostream>
 
 using namespace fd::testing;
+using Catch::Approx;
 using A = fd::engine::Session::RangeAction;
 using fd::model::ChannelMode;
 
@@ -481,6 +484,151 @@ TEST_CASE("audio editor: the inspector's AUDIO section: gain, Reverse, Polarity 
                 inspector.createComponentSnapshot(inspector.getLocalBounds(), true, 2.0f));
 }
 
+TEST_CASE("audio editor: the Tools pane's Quantise and Tempo (P6b)", "[integration][warp-editor]")
+{
+    AudioFixture f;
+    f.session->impl().analyser.waitUntilIdle();
+    REQUIRE(f.session->setWarp({f.clipId}, {.on = false})); // the loop warped when placed: off, to see Apply
+    f.settle();
+    auto& detail = f.shell->detail();
+    auto& pane = detail.toolsPane();
+    // The Tempo tool, by its button: what's found in the file, the loop's 2 bars at 120 BPM, the
+    // first hit its downbeat; its beats drawn over the waveform.
+    detail.tempoButton().onClick();
+    REQUIRE(pane.isVisible());
+    CHECK(pane.chosen() == "tempo");
+    CHECK(detail.tempoButton().getToggleState());
+    CHECK(pane.form().values().at("tempo") == Approx(120.0).margin(0.01));
+    CHECK(pane.form().values().at("downbeat") == Approx(0.0).margin(0.005));
+    f.dump("audio-tempo-tool@2x.png", detail);
+    // ×2 beside it doubles it, as typed would.
+    auto* tempoRow = pane.form().control("tempo");
+    REQUIRE(tempoRow != nullptr);
+    juce::Button* twice = nullptr;
+    for (auto* c : tempoRow->getChildren())
+        if (auto* b = dynamic_cast<juce::Button*>(c);
+            b != nullptr && b->getButtonText() == juce::String::fromUTF8("\xC3\x97"
+                                                                         "2"))
+            twice = b;
+    REQUIRE(twice != nullptr);
+    twice->onClick();
+    CHECK(pane.form().values().at("tempo") == Approx(240.0).margin(0.01));
+    pane.form().show("tempo", 120.0);
+    // The downbeat dragged on the waveform shows in the form.
+    auto& v = f.view();
+    const float y = static_cast<float>(v.rowArea(0).getCentreY());
+    const auto x0 = static_cast<float>(v.waveformArea().getX() + v.timeline().xForTime(0.0)) + 1.0f;
+    drag(v, {x0, y}, {static_cast<float>(v.waveformArea().getX() + v.timeline().xForTime(0.5)), y});
+    CHECK(pane.form().values().at("downbeat") == Approx(0.5).margin(0.01));
+    // Apply: the clip warps at the tempo and starts at its downbeat, one undo step.
+    pane.apply();
+    f.settle();
+    auto c = f.clip();
+    CHECK(c.warp.on);
+    CHECK(c.warp.tempo == Approx(120.0));
+    CHECK(c.offset == Approx(0.5).margin(0.01));
+    CHECK(c.length == Approx(3.5).margin(0.01));
+    CHECK(f.session->undoDescription() == "Tempo");
+    f.session->undo();
+    f.settle();
+    CHECK_FALSE(f.clip().warp.on);
+    CHECK(f.clip().offset == Approx(0.0));
+
+    // Quantise's tool: its strength and swing, and the clip's sensitivity; Apply puts markers on
+    // the transients, moved to the grid.
+    detail.showTool("quantise");
+    REQUIRE(pane.chosen() == "quantise");
+    CHECK(pane.form().values().at("sensitivity") == Approx(50.0));
+    pane.form().setValue("strength", 50.0);
+    pane.form().setValue("sensitivity", 70.0);
+    f.dump("audio-quantise-tool@2x.png", detail);
+    pane.apply();
+    f.settle();
+    c = f.clip();
+    CHECK(c.warp.on);
+    CHECK(c.warp.sensitivity == Approx(0.7));
+    CHECK_FALSE(c.warp.markers.empty());
+    CHECK(f.session->undoDescription() == "Quantise");
+}
+
+TEST_CASE(
+    "audio editor: the inspector's warping: Transpose and Fine, Warp and its mode, the tempo, the mode's "
+    "setting and the transients' sensitivity (P6b)",
+    "[integration][warp-editor]")
+{
+    AudioFixture f;
+    REQUIRE(f.session->setWarp({f.clipId}, {.on = false})); // the loop warped when placed: off first
+    f.settle();
+    auto& inspector = f.shell->inspector();
+    for (auto* c :
+         std::initializer_list<juce::Component*>{&inspector.audioTranspose(), &inspector.audioFine(),
+                                                 &inspector.audioWarp(), &inspector.audioSensitivity()})
+        CHECK(c->isVisible());
+    CHECK_FALSE(inspector.audioTempo().isVisible()); // only while it warps
+    inspector.audioFine().setValue(-12.0, juce::sendNotificationSync);
+    f.settle();
+    CHECK(f.clip().pitch.fine == -12);
+    CHECK(inspector.audioFine().text() == juce::String::fromUTF8("\xE2\x88\x92"
+                                                                 "12 ct"));
+    inspector.audioWarp().onClick();
+    f.settle();
+    REQUIRE(f.clip().warp.on);
+    CHECK(inspector.audioTempo().isVisible());
+    CHECK(inspector.audioTempo().text() == "120.00 BPM");
+    inspector.audioMode().setSelectedId(static_cast<int>(fd::model::WarpMode::Beats) + 1,
+                                        juce::sendNotificationSync);
+    f.settle();
+    CHECK(f.clip().warp.mode == fd::model::WarpMode::Beats);
+    CHECK(inspector.audioTails().isVisible());
+    CHECK_FALSE(inspector.audioFormants().isVisible());
+    inspector.audioTails().setSelectedId(static_cast<int>(fd::model::WarpTails::Loop) + 1,
+                                         juce::sendNotificationSync);
+    f.settle();
+    CHECK(f.clip().warp.tails == fd::model::WarpTails::Loop);
+    inspector.audioSensitivity().setValue(80.0, juce::sendNotificationSync);
+    f.settle();
+    CHECK(f.clip().warp.sensitivity == Approx(0.8));
+    if (const char* dir = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dir, "audio-warp-inspector@2x.png",
+                inspector.createComponentSnapshot(inspector.getLocalBounds(), true, 2.0f));
+    // Tones: Formants instead of Tails; Repitch has no transposition.
+    inspector.audioMode().setSelectedId(static_cast<int>(fd::model::WarpMode::Tones) + 1,
+                                        juce::sendNotificationSync);
+    f.settle();
+    CHECK(inspector.audioFormants().isVisible());
+    inspector.audioFormants().onClick();
+    f.settle();
+    CHECK(f.clip().warp.formants);
+    inspector.audioMode().setSelectedId(static_cast<int>(fd::model::WarpMode::Repitch) + 1,
+                                        juce::sendNotificationSync);
+    f.settle();
+    CHECK_FALSE(inspector.audioTranspose().isEnabled());
+}
+
+TEST_CASE(
+    "arrangement: a warped clip is drawn as it plays, each piece between markers at its own speed (P6b)",
+    "[integration][warp-editor]")
+{
+    AudioFixture f;
+    // The hits every half second of the file, a marker pinning the third (1 s) to beat 3: the
+    // first two pieces' hits spread out, the rest as before.
+    REQUIRE(f.session->setWarp({f.clipId}, {.on = true, .tempo = 120.0}));
+    REQUIRE(f.session->setWarpMarkers(f.clipId, {{1.0, 3.0}}));
+    f.settle();
+    // The clip keeps its place in beats; its file as it plays is half a second longer (its first
+    // second plays as 1.5).
+    CHECK(f.clip().length == Approx(4.0).margin(1e-6));
+    CHECK(f.clip().sourceLength == Approx(4.5).margin(1e-6));
+    auto& arrangement = f.shell->arrangement();
+    arrangement.zoomToFit();
+    f.shell->finishAnimations();
+    f.settle();
+    if (const char* dir = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dir, "arrangement-warped@2x.png",
+                arrangement.createComponentSnapshot(juce::Rectangle<int>(0, 0, arrangement.getWidth(), 200),
+                                                    true, 2.0f));
+}
+
 TEST_CASE(
     "arrangement: an audio clip's gain handle, dragged, sets its gain; a double-click puts it back at 0 dB",
     "[integration]")
@@ -518,7 +666,7 @@ TEST_CASE("audio editor: the bar at standard and compact widths, nothing touchin
           "Gain give way",
           "[integration]")
 {
-    for (const int width : {1800, 1280, 1024, 820, 700, 600})
+    for (const int width : {1800, 1440, 1280, 1024, 820, 700, 600})
     {
         AudioFixture f(width, 900);
         auto& detail = f.shell->detail();
@@ -536,13 +684,180 @@ TEST_CASE("audio editor: the bar at standard and compact widths, nothing touchin
         CHECK((!reverse || normalise));
         CHECK((!gain || reverse));
         CHECK_FALSE(header.isDropped(detail.audioButton())); // the whole menu, always there
-        if (width >= 1280)
+        if (width >= 1440) // the loop warps when it's placed: its warping's controls too (P6b)
             CHECK_FALSE(normalise);
         f.dump(("audio-editor-header-" + juce::String(width) + "@2x.png").toRawUTF8(), detail,
                header.getBounds());
         if (width == 1024 || width == 600)
             f.dump(("audio-editor-" + juce::String(width) + "@2x.png").toRawUTF8(), detail);
     }
+}
+
+TEST_CASE("audio editor: a warped clip's bar: its mode, its tempo, ×2 and ÷2; what gives way, in order (P6b)",
+          "[integration][warp-editor]")
+{
+    for (const int width : {1800, 1440, 1280, 1024, 820, 700, 600})
+    {
+        AudioFixture f(width, 900);
+        REQUIRE(
+            f.session->setWarp({f.clipId}, {.on = true, .mode = fd::model::WarpMode::Beats, .tempo = 92.0}));
+        f.settle();
+        auto& detail = f.shell->detail();
+        auto& header = detail.header();
+        INFO("width " << width << ", header " << header.getWidth());
+        CHECK(detail.warpButton().getToggleState());
+        CHECK(detail.warpModeButton().getButtonText() == "Beats");
+        CHECK(detail.tempoField().field().text() == "92.00 BPM");
+        CHECK(crowded(header, fd::ui::Theme::current().shell.itemGap).isEmpty());
+        for (auto* c : header.getChildren())
+            if (c->isVisible() && !c->getBounds().isEmpty())
+                CHECK(header.getLocalBounds().contains(c->getBounds()));
+        // The least used give way first (§4): each only after all before it.
+        const std::vector<juce::Component*> order{
+            &detail.normaliseButton(), &detail.doubleButton(),        &detail.tempoButton(),
+            &detail.reverseButton(),   &detail.warpModeButton(),      &detail.transposeField(),
+            &detail.gainField(),       &detail.audioQuantiseButton(), &detail.tempoField()};
+        for (size_t i = 1; i < order.size(); ++i)
+            if (header.isDropped(*order[i]))
+                for (size_t j = 0; j < i; ++j)
+                    CHECK(header.isDropped(*order[j]));
+        CHECK(header.isDropped(detail.doubleButton()) == header.isDropped(detail.halveButton())); // a pair
+        CHECK_FALSE(header.isDropped(detail.audioButton()));
+        CHECK_FALSE(header.isDropped(detail.warpButton()));
+        if (width >= 1440)
+            for (auto* c : order)
+                CHECK_FALSE(header.isDropped(*c));
+        f.dump(("audio-warp-header-" + juce::String(width) + "@2x.png").toRawUTF8(), detail,
+               header.getBounds());
+    }
+}
+
+TEST_CASE("audio editor: the bar's Warp, mode, ×2 and ÷2, Transpose and Quantise act on the clip (P6b)",
+          "[integration][warp-editor]")
+{
+    AudioFixture f;
+    auto& detail = f.shell->detail();
+    // A loop placed plays in time (§7.2): its tempo found (2 bars at 120 BPM), in the mode its
+    // sound chooses (§7.3).
+    {
+        const auto placed = f.clip();
+        CHECK(placed.warp.on);
+        CHECK(placed.warp.tempo == Approx(120.0).margin(0.01));
+        REQUIRE(placed.analysis != nullptr);
+        CHECK(placed.warp.mode == (fd::model::startsInBeats(*placed.analysis) ? fd::model::WarpMode::Beats
+                                                                              : fd::model::WarpMode::Tones));
+        CHECK(placed.length == Approx(4.0).margin(1e-6)); // at the song's tempo, untouched
+    }
+    detail.warpButton().triggerClick();
+    f.settle();
+    CHECK_FALSE(f.clip().warp.on);
+    detail.warpButton().triggerClick();
+    f.settle();
+    auto c = f.clip();
+    REQUIRE(c.warp.on);
+    CHECK(c.warp.tempo == Approx(120.0)); // the song's: it plays untouched
+    CHECK(detail.warpModeButton().isVisible());
+    detail.doubleButton().triggerClick();
+    f.settle();
+    CHECK(f.clip().warp.tempo == Approx(240.0));
+    CHECK(f.clip().length == Approx(8.0)); // the same audio, twice as long in beats
+    detail.halveButton().triggerClick();
+    f.settle();
+    CHECK(f.clip().warp.tempo == Approx(120.0));
+    CHECK(f.shell->actions().perform("audio.warpMode.repitch"));
+    f.settle();
+    CHECK(f.clip().warp.mode == fd::model::WarpMode::Repitch);
+    CHECK(detail.warpModeButton().getButtonText() == "Repitch");
+    // Transpose typed; Ctrl+↑ (the Notes menu's key) goes to the audio clip shown.
+    detail.transposeField().field().setValue(3.0, juce::sendNotificationSync);
+    f.settle();
+    CHECK(f.clip().pitch.transpose == 3);
+    CHECK(detail.transposeField().field().text() == "+3 st");
+    click(f.view(), f.at(0.1)); // the editor used last
+    CHECK(f.press(juce::KeyPress::upKey, juce::ModifierKeys::commandModifier));
+    f.settle();
+    CHECK(f.clip().pitch.transpose == 4);
+    // Quantise: the transients to the grid through markers (here they're on it already).
+    f.session->impl().analyser.waitUntilIdle();
+    f.settle();
+    CHECK(detail.audioQuantiseButton().isEnabled());
+    detail.audioQuantiseButton().triggerClick();
+    f.settle();
+    c = f.clip();
+    CHECK(c.warp.markers.size() == 7);
+    for (const auto& m : c.warp.markers)
+        CHECK(m.beat == Approx(std::round(m.beat * 4.0) / 4.0).margin(1e-3));
+    // Warp off keeps its markers for when it's on again.
+    detail.warpButton().triggerClick();
+    f.settle();
+    CHECK_FALSE(f.clip().warp.on);
+    CHECK(f.clip().warp.markers.size() == 7);
+    CHECK_FALSE(detail.warpModeButton().isVisible());
+}
+
+TEST_CASE("audio editor: the marker strip: transients, markers, and a transient dragged into a marker (P6b)",
+          "[integration][warp-editor]")
+{
+    AudioFixture f;
+    f.session->impl().analyser.waitUntilIdle();
+    f.settle();
+    auto& v = f.view();
+    // A hit every half second (each beat at the song's 120 BPM): eight transients, each at its hit.
+    const auto found = v.transients();
+    REQUIRE(found.size() == 8);
+    CHECK(found[2] == Approx(1.0).margin(0.003));
+    // Without Warp there are no markers, only the ticks.
+    CHECK_FALSE(v.markerX(0));
+    f.dump("audio-warp-strip-off@2x.png", v);
+
+    // A transient dragged becomes a marker and moves its audio, snapped; Warp goes on with it.
+    const float y = static_cast<float>(v.markerStripArea().getCentreY());
+    const float from = *v.transientX(2);
+    drag(v, {from, y}, {from + static_cast<float>(0.25 * v.timeline().pixelsPerSecond()) + 2.0f, y});
+    f.settle();
+    auto c = f.clip();
+    CHECK(c.warp.on);
+    REQUIRE(c.warp.markers.size() == 1);
+    CHECK(c.warp.markers[0].file == Approx(1.0).margin(0.003));
+    CHECK(c.warp.markers[0].beat == Approx(2.5)); // 1.25 s at 120 BPM: on the grid
+    CHECK(*v.markerX(0) == Approx(v.waveformArea().getX() + v.timeline().xForTime(1.25)).margin(1.0));
+    CHECK(v.selectedMarkers() == std::set<size_t>{0});
+    f.dump("audio-warp-strip@2x.png", v);
+
+    // Shift + drag slides the audio under it: it stays at its beat and pins another moment.
+    const float at = *v.markerX(0);
+    drag(v, {at, y}, {at + static_cast<float>(0.1 * v.timeline().pixelsPerSecond()), y},
+         juce::ModifierKeys::shiftModifier);
+    f.settle();
+    c = f.clip();
+    REQUIRE(c.warp.markers.size() == 1);
+    CHECK(c.warp.markers[0].beat == Approx(2.5));
+    CHECK(c.warp.markers[0].file < 0.95);
+
+    // Double-click on a marker removes it; double-click in the strip adds one on the transient there.
+    doubleClick(v, {*v.markerX(0), y});
+    f.settle();
+    CHECK(f.clip().warp.markers.empty());
+    doubleClick(v, {*v.transientX(5) + 1.0f, y});
+    f.settle();
+    c = f.clip();
+    REQUIRE(c.warp.markers.size() == 1);
+    CHECK(c.warp.markers[0].file == Approx(found[5]).margin(1e-6));
+
+    // Markers at transients, then a box selects some and Delete... removes them (one step).
+    REQUIRE(v.markersAtTransients());
+    f.settle();
+    CHECK(f.clip().warp.markers.size() == 7); // every transient but the one at the file's start
+    drag(v, {static_cast<float>(v.waveformArea().getX() + v.timeline().xForTime(0.9)), y},
+         {static_cast<float>(v.waveformArea().getX() + v.timeline().xForTime(2.1)), y});
+    CHECK(v.selectedMarkers().size() == 3); // at 1.0, 1.5 and 2.0 s
+    REQUIRE(v.removeMarkers());
+    f.settle();
+    CHECK(f.clip().warp.markers.size() == 4);
+    f.session->undo();
+    f.settle();
+    CHECK(f.clip().warp.markers.size() == 7);
+    f.dump("audio-warp-markers@2x.png", v);
 }
 
 // The editor with a 10-minute stereo file (audio-editor.md §19), zooming in and out, its gain line

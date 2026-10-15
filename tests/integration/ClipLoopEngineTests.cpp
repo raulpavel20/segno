@@ -251,12 +251,16 @@ juce::File acidLoop(Looper& f, double seconds, int beats)
 {
     const auto file = f.root.getChildFile("acid.wav");
     std::unique_ptr<juce::OutputStream> stream = std::make_unique<juce::FileOutputStream>(file);
-    const auto options = juce::AudioFormatWriterOptions{}.withSampleRate(kRate).withNumChannels(2).withBitsPerSample(24).withMetadataValues(
-        {{juce::WavAudioFormat::acidBeats, juce::String(beats)},
-         {juce::WavAudioFormat::acidNumerator, "4"},
-         {juce::WavAudioFormat::acidDenominator, "4"},
-         {juce::WavAudioFormat::acidTempo, "100"},
-         {juce::WavAudioFormat::acidStretch, "1"}});
+    const auto options = juce::AudioFormatWriterOptions{}
+                             .withSampleRate(kRate)
+                             .withNumChannels(2)
+                             .withBitsPerSample(24)
+                             .withMetadataValues({{juce::WavAudioFormat::acidBeats, juce::String(beats)},
+                                                  {juce::WavAudioFormat::acidNumerator, "4"},
+                                                  {juce::WavAudioFormat::acidDenominator, "4"},
+                                                  {juce::WavAudioFormat::acidTempo,
+                                                   juce::String(beats * 60.0 / seconds)}, // as its beats say
+                                                  {juce::WavAudioFormat::acidStretch, "1"}});
     auto writer = juce::WavAudioFormat().createWriterFor(stream, options);
     REQUIRE(writer != nullptr);
     juce::AudioBuffer<float> audio(2, static_cast<int>(seconds * kRate));
@@ -346,12 +350,21 @@ TEST_CASE(
     REQUIRE(engineMidi != nullptr);
     CHECK(engineMidi->getLoopLengthBeats().inBeats() == Approx(4.0));
 
-    // A file with loop metadata is placed at its own speed, its own length.
+    // A file with loop metadata plays in time when it's placed (audio-editor.md §7.2): its 4 beats
+    // (80 BPM) at the song's 120 BPM. With "Loops follow the tempo" off, at its own speed.
     const auto acid = f.session->insertAudioFile(t, acidLoop(f, 3.0, 4), 4.0);
     REQUIRE(acid != 0);
-    CHECK_FALSE(infoOf(f, acid).warp.on);
-    CHECK(infoOf(f, acid).length == Approx(3.0));
+    CHECK(infoOf(f, acid).warp.on);
+    CHECK(infoOf(f, acid).warp.tempo == Approx(80.0));
+    CHECK(infoOf(f, acid).length == Approx(2.0));
     CHECK(f.session->setClipsLooping({acid}, true).empty());
+    f.session->setWarpDefaults(false, true);
+    const auto own = f.session->insertAudioFile(t, acidLoop(f, 3.0, 4), 30.0);
+    REQUIRE(own != 0);
+    CHECK_FALSE(infoOf(f, own).warp.on);
+    CHECK(infoOf(f, own).length == Approx(3.0));
+    CHECK(infoOf(f, own).warp.tempo == Approx(80.0)); // what Warp would use, kept from the start
+    f.session->setWarpDefaults(true, true);
 
     // A clip that follows the tempo (warped, ADR 0063) loops too, in beats.
     const auto warped = f.place(t, ramp(1.0), "warped", 10.0);

@@ -209,9 +209,17 @@ juce::String ActionRegistry::shortcutText(const juce::KeyPress& key)
 #endif
 }
 
+std::vector<juce::KeyPress> ActionRegistry::shownKeys(std::string_view id) const
+{
+    auto keys = keysOf(id);
+    if (const auto* a = find(id); keys.empty() && a != nullptr && !a->keysFrom.empty())
+        keys = keysOf(a->keysFrom);
+    return keys;
+}
+
 juce::String ActionRegistry::shortcut(std::string_view id) const
 {
-    const auto keys = keysOf(id);
+    const auto keys = shownKeys(id);
     return keys.empty() ? juce::String() : shortcutText(keys.front());
 }
 
@@ -220,7 +228,7 @@ juce::String ActionRegistry::tooltip(std::string_view id) const
     const auto* a = find(id);
     if (a == nullptr)
         return {};
-    if (keysOf(id).empty())
+    if (shownKeys(id).empty())
         return label(id);
     return label(id) + " (" + shortcut(id) + ")";
 }
@@ -233,7 +241,7 @@ void ActionRegistry::addMenuItem(juce::PopupMenu& menu, std::string_view id) con
     juce::PopupMenu::Item item(label(id));
     item.setEnabled(isEnabled(id));
     item.setTicked(isToggled(id));
-    if (!keysOf(id).empty())
+    if (!shownKeys(id).empty())
         item.shortcutKeyDescription = shortcut(id);
     item.setAction([this, key = std::string(id)] { perform(key); });
     menu.addItem(std::move(item));

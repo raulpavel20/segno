@@ -41,6 +41,39 @@ std::shared_ptr<const model::FileAnalysis> FileAnalyser::get(const juce::File& f
     return nullptr;
 }
 
+std::shared_ptr<const model::FileAnalysis> FileAnalyser::peek(const juce::File& file)
+{
+    const auto path = file.getFullPathName().toStdString();
+    std::lock_guard lock(mutex_);
+    const auto it = entries_.find(path);
+    return it != entries_.end() && it->second.modified == file.getLastModificationTime() ? it->second.found
+                                                                                         : nullptr;
+}
+
+std::shared_ptr<const model::FileAnalysis> FileAnalyser::now(const juce::File& file)
+{
+    const auto path = file.getFullPathName().toStdString();
+    const auto modified = file.getLastModificationTime();
+    {
+        std::lock_guard lock(mutex_);
+        if (const auto it = entries_.find(path); it != entries_.end() && it->second.modified == modified &&
+                                                 (it->second.found != nullptr || it->second.failed))
+            return it->second.found;
+    }
+    auto found = model::analyseFile(path);
+    std::shared_ptr<const model::FileAnalysis> shared =
+        found ? std::make_shared<const model::FileAnalysis>(std::move(*found)) : nullptr;
+    std::lock_guard lock(mutex_);
+    auto& e = entries_[path];
+    if (!e.queued) // the background's, when it's on its way, lands as well
+    {
+        e.modified = modified;
+        e.found = shared;
+        e.failed = shared == nullptr;
+    }
+    return shared;
+}
+
 void FileAnalyser::waitUntilIdle()
 {
     while (pending_.load() > 0)

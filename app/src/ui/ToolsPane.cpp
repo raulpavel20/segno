@@ -20,7 +20,7 @@ ui::Icon iconOf(std::string_view id)
         {"randomise", I::Randomise}, {"rhythm", I::Rhythm},
         {"melody", I::Melody},       {"chords", I::Chords},
         {"bassline", I::Bassline},   {kMakeChords, I::MakeChords},
-        {"normalise", I::Normalise}};
+        {"normalise", I::Normalise}, {"tempo", I::Tempo}};
     for (const auto& [name, icon] : icons)
         if (name == id)
             return icon;

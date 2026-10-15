@@ -249,6 +249,9 @@ void Session::Impl::recordingFinished(te::InputDeviceInstance&, te::EditItemID t
         {
             c->setName(t->getName());
             c->state.setProperty(colourPropertyId, colourOf(t->itemID.getRawID()), &edit->getUndoManager());
+            // Recorded in time: it follows the song's tempo (audio-editor.md §7.2).
+            if (auto* audio = dynamic_cast<te::AudioClipBase*>(c))
+                followSongTempo(*audio);
         }
     const bool overdub = mergePass && std::any_of(clips.begin(), clips.end(), [](auto* c) {
                              return dynamic_cast<te::MidiClip*>(c) != nullptr;

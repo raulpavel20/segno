@@ -713,12 +713,26 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         "audio.polarity", "audio.channels.stereo", "audio.channels.left", "audio.channels.right",
         "audio.channels.mono", "audio.channels.swapped", "audio.crop", "audio.fadeRange", "audio.loopRange",
         // The waveform's height: its level column dragged, double-clicked (§4).
-        "view.waveformTaller", "view.waveformShorter", "view.waveformReset"};
+        "view.waveformTaller", "view.waveformShorter", "view.waveformReset",
+        // Warping (§7, §13): Warp, its mode, the tempo and ×2 ÷2 are on the bar and in the inspector;
+        // the markers' commands on their right-click; Detect… on the bar's Tempo.
+        "audio.warp", "audio.warpMode.beats", "audio.warpMode.tones", "audio.warpMode.repitch",
+        "audio.tempoDouble", "audio.tempoHalf", "audio.detectTempo", "audio.songTempo",
+        "audio.markersAtTransients", "audio.warpFromHere", "audio.setDownbeat", "audio.removeMarkers"};
     for (const auto& a : actions.all())
     {
         INFO(a.id);
         CHECK_FALSE(a.name.isEmpty());
         CHECK(a.perform != nullptr);
+        // An action that shares another's key (the Audio menu's Quantise and Transpose: the key
+        // goes to whichever clip the clip view shows) shows that key, and has none of its own.
+        if (!a.keysFrom.empty())
+        {
+            CHECK(a.keys.empty());
+            CHECK(actions.shortcut(a.id) == actions.shortcut(a.keysFrom));
+            CHECK(actions.shortcut(a.id).isNotEmpty());
+            continue;
+        }
         CHECK(a.keys.empty() == menuOnly.contains(a.id));
     }
 
@@ -2823,7 +2837,9 @@ TEST_CASE("fades: drawn on clips, handles on hover, a handle drag sets a fade, C
     for (auto* field : findAll<fd::ui::NumberField>(f.shell->inspector()))
         if (field->isVisible() && f.shell->inspector().isParentOf(field))
             fields.push_back(field);
-    REQUIRE(fields.size() == 5); // fade in, fade out, their curves (menu-bar.md §15), then AUDIO's gain
+    // Fade in, fade out, their curves (menu-bar.md §15), then AUDIO's gain, transpose, fine and
+    // sensitivity.
+    REQUIRE(fields.size() == 8);
     fields[0]->setValue(25.0, juce::sendNotification);
     CHECK(clipOf(b).fadeIn.length == Catch::Approx(0.025));
     if (const char* dump = std::getenv("FD_DUMP_DIR"))
@@ -3395,7 +3411,8 @@ TEST_CASE("inspector: a clip's fade curves and the crossfades at its ends, set b
     // The first: its fade-in's curve, straightened by typing 0; then its crossfade out removed.
     select(ids[0]);
     const auto fields = shown(static_cast<fd::ui::NumberField*>(nullptr));
-    REQUIRE(fields.size() == 5); // fade in, fade out, their curves, then AUDIO's gain
+    // Fade in, fade out, their curves, then AUDIO's gain, transpose, fine and sensitivity.
+    REQUIRE(fields.size() == 8);
     CHECK(fields[2]->getValue() == Catch::Approx(40.0));
     CHECK_FALSE(fields[3]->isEnabled()); // no fade-out: no curve to set
     fields[2]->setValue(0.0, juce::sendNotificationSync);
@@ -3613,10 +3630,9 @@ TEST_CASE("snap and quantise where they're used; the take's commands in its insp
     detail.frame(0.0);
     fd::ui::Toggle* quantise = nullptr;
     for (auto* t : findAll<fd::ui::Toggle>(detail))
-        if (t->getButtonText() == "Quantise")
+        if (t->getButtonText() == "Quantise" && t->isVisible()) // the notes' (the audio's shows for audio)
             quantise = t;
     REQUIRE(quantise != nullptr);
-    CHECK(quantise->isVisible());
     CHECK(quantise->getTooltip().contains("Ctrl+U"));
     if (const char* dump = std::getenv("FD_DUMP_DIR"))
     {

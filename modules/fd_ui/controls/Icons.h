@@ -62,7 +62,8 @@ enum class Icon
     Chords,     // a stack of notes
     Bassline,   // low notes, stepping
     // The audio editor's tools (audio-editor.md §11).
-    Normalise // two levels raised to a line
+    Normalise, // two levels raised to a line
+    Tempo      // beats found in a sound: hits along a line, a tick over each
 };
 
 /// Draws `icon` fitted (aspect kept) into `area` in `colour`.

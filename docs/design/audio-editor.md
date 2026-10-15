@@ -565,3 +565,36 @@ The product owner chose the piece player and asked for the Release reading (poin
 - **tracktion's patch:** `tracktion_engine-warped-clips.patch` gains the hook that lets Segno build a clip's source node, and drops its resampling switch, which nothing uses now.
 - **No more "synced" clips:** an audio clip the engine stretched to the tempo before ADR 0048 couldn't loop. Any clip that follows the tempo is now a warped clip: it loops in beats and crossfades like any other.
 
+### 23.1 The editor's warping, settled while building (2026-10-16)
+
+- **The marker strip** (16 px under the ruler, the mockup's look): each transient a 6 px tick at its foot in `textTertiary`; a warp marker a pin pointing down at its moment, its line through the waveform (`warpMarkerLine`), selected ones in `active`. The file's start shows a pin too, which can't be moved. The strip is always there: transients show with Warp off.
+- **Dragging a transient** works from its tick in the strip. The dashed line over a hovered tick shows where a marker would go, but the waveform itself is the range's: a drag across it selects. Dragging a tick makes it a marker and moves it, turning Warp on if it's off.
+- **A marker dragged** moves its moment, snapped (Alt: free). Selected with others, they move together. Shift slides the audio under it. A double-click on it removes it, elsewhere in the strip or on the waveform adds one (on a transient within reach). A box in the strip selects markers. Delete removes them; ← and → nudge them a grid step. While a marker is dragged the waveform redraws warped as it goes, with a tag naming the piece before it ("× 1.25 · 96.0 BPM"); it's heard once dropped.
+- **Right-click in the strip:** Warp from here, Set the downbeat here, Markers at transients, Remove markers; then Add transient here and Remove transient. Set the downbeat here makes that moment the clip's start where the clip starts now. The audio before it stays, past the start, and the end stays where it is. A looped clip says to drag its loop's start instead.
+- **The range's time handles** in the ruler (the piano roll's) stretch the range's audio, the range following it, with an "× 1.5" tag.
+- **The bar,** as the mockup has it: **Audio ⌄, Quantise | Tempo, Normalise | Gain, Transpose, Reverse | Warp**, and while the clip warps its **mode ⌄, its tempo ("92.00 BPM", a field without a label), ×2, ÷2**. At narrow widths they give way in §4's order. ×2 and ÷2 share a drop order and go together: the header now drops every item that shares the lowest order at once.
+- **The inspector's AUDIO:**
+  - Gain.
+  - Transpose with Fine beside it, halves of the row as a fade's length and curve. The units ("+2 st", "−12 ct") say which is which, so Fine has no label of its own.
+  - Warp ("On"), with the mode beside it.
+  - While it warps: the Tempo with ×2 and ÷2, then Tails (Beats) or Formants (Tones).
+  - Transients (the sensitivity, %), Reverse, Polarity, Channels, File, Format.
+  - In Repitch, Transpose and Fine are dimmed. File now gives the file's own length, not the warped content's.
+- **The Tools pane:**
+  - Its tiles are Quantise, Tempo and Normalise, in §11's order.
+  - **Quantise:** Strength, Swing, and the clip's Sensitivity. While it's set, the ticks follow the sensitivity and the markers move where they'd go. Apply sets the sensitivity and the markers in one step.
+  - **Tempo:** the tempo found, with ×2 and ÷2 beside it (a tool setting can now have them), and the downbeat. Its beats are drawn over the waveform, brighter than the grid, with a "Downbeat 1.1" tag; the downbeat drags on the waveform, the form following.
+  - **Tempo's Then:** "Warp on at this tempo", or "Song tempo from it", which sets the song's tempo too. Apply warps the clip at the tempo and starts it at the downbeat, as Set the downbeat here does. One step.
+  - Like Normalise's, both are seen while they're set and heard once applied.
+- **Shared keys:** see [menu-bar.md](menu-bar.md) (Audio). The Notes menu keeps the keys, and they act on the audio while the clip view shows it. The Audio menu's items show the same keys.
+- **What warps by default** (§7.2), with Settings › Audio's two switches:
+  - **A loop placed:** under 32 s, with a tempo of its own, and a whole number of bars (1, 2, 4, 8, 16) at it. Its own tempo is read from its header (an acid chunk, an AIFF's beats: tracktion guesses one for any file, so its guess isn't used), else from its name. Failing both, it's found in its sound, only with a steady beat (confidence 0.25 or more: a drum loop's is about 0.4; noise or a pad score under 0.1). A beat has to repeat: one start alone (a held tone, a one-shot) gives no tempo, and two or three count for less than a bar's worth. Where the file ends is never a start. It warps at that tempo in the mode its sound chooses. Anything else plays at its file's speed. Every clip placed keeps the tempo Warp would use, so what the editor shows and what Warp does agree.
+  - **Recordings and bounces** warp at the song's tempo, so they play untouched until it changes. Comps are made from those takes.
+  - **Previews in the browser** still play at their files' speed: playing them in time is left for later (§23.2).
+- **At its own tempo, Beats doesn't cut:** pieces that run on into each other at their own speed are one piece, so a loop placed at the song's tempo plays its file sample for sample (§3.2).
+
+### 23.2 Left for later in P6b
+
+- **Previews in time** (browser.md R8): the browser's previews play at the file's speed; following the tempo needs the preview player to stretch.
+- **A marker drag heard as it moves:** the waveform follows the drag; the sound follows on release (the graph is rebuilt per change).
+

@@ -3,7 +3,8 @@
 namespace fd::ui
 {
 /// A value set from a bar (docs/design/ui-foundations.md, "Shared components"; the audio editor's
-/// Gain: audio-editor.md §4): its name in the Label style, then a NumberField an item gap after it.
+/// Gain: audio-editor.md §4): its name in the Label style, then a NumberField an item gap after it;
+/// without a name, the field alone (a value that says what it is: "92.00 BPM").
 /// As wide as both with the value it shows, so the gap after it is the bar's own: its owner calls
 /// fit() when the value changes and lays the bar out again.
 class BarField final : public juce::Component, public juce::SettableTooltipClient
@@ -22,6 +23,7 @@ public:
 
 private:
     [[nodiscard]] int labelWidth() const;
+    [[nodiscard]] int gap() const;
 
     juce::String label_;
     NumberField field_;

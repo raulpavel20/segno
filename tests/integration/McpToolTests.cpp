@@ -58,6 +58,8 @@ struct Daw
         session->setCountIn(fd::model::CountIn::Off);
         folder = folderName.getFile();
         REQUIRE(folder.createDirectory());
+        // What an unsaved project writes (recordings, bounces, reversed copies) stays here too.
+        session->setUnsavedRoot(folder.getChildFile("Unsaved"));
         server = std::make_unique<fd::mcp::McpServer>(*session, folder, "test");
         REQUIRE(server->start(0));
     }
@@ -247,7 +249,10 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
                              "set_gain_line",
                              "edit_audio_range",
                              "list_audio_tools",
-                             "transform_audio"})
+                             "transform_audio",
+                             "set_warp_markers",
+                             "get_transients",
+                             "detect_tempo"})
         CHECK(names.contains(name));
     for (const auto& p : registry.prompts)
     {
@@ -2589,6 +2594,7 @@ TEST_CASE("mcp tools: an audio clip's sound, its gain line, its ranges and Norma
     CHECK(got["sound"]["channels"] == "stereo");
     CHECK(got["file"]["channels"] == 2);
     CHECK(got["file"]["sampleRate"] == 48000.0);
+    CHECK(got["warp"]["on"] == false); // a held tone has no beat to follow
 
     // Gain, polarity, channels, reverse: one step each.
     auto r = daw.call("set_audio",
@@ -2641,8 +2647,7 @@ TEST_CASE("mcp tools: an audio clip's sound, its gain line, its ranges and Norma
 
     // The tools: Normalise each to -1 dBFS.
     const auto tools = daw.call("list_audio_tools")["tools"];
-    REQUIRE(tools.size() >= 1);
-    CHECK(tools[0]["tool"] == "normalise");
+    CHECK(std::any_of(tools.begin(), tools.end(), [](const Json& t) { return t["tool"] == "normalise"; }));
     std::vector<std::string> parts;
     for (const auto& c : r["clips"])
         parts.push_back(c["id"].get<std::string>());
@@ -2663,4 +2668,88 @@ TEST_CASE("mcp tools: an audio clip's sound, its gain line, its ranges and Norma
               .find("from") != std::string::npos);
     CHECK(daw.fails("transform_audio", {{"clips", parts}, {"tool", "explode"}}).find("list_audio_tools") !=
           std::string::npos);
+}
+
+TEST_CASE(
+    "mcp tools: warping: a loop placed in time, its tempo, mode and pitch, markers, transients, Quantise and "
+    "the Tempo tool (P6b)",
+    "[integration][mcp][warp]")
+{
+    Daw daw;
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    // A drum loop: a hit on every beat, 2 bars at 92 BPM.
+    const double beat = 60.0 / 92.0;
+    fd::testkit::AudioBuffer loop(2, static_cast<int>(8 * beat * 48000.0));
+    std::uint32_t x = 7;
+    for (int k = 0; k < 8; ++k)
+        for (int i = 0; i < 6000; ++i)
+        {
+            const int at = static_cast<int>(k * beat * 48000.0) + i;
+            if (at >= loop.numSamples())
+                break;
+            x = x * 1664525u + 1013904223u;
+            const float v = 0.7f * std::exp(-static_cast<float>(i) / 2000.0f) *
+                            (static_cast<float>(x >> 8) / 8388608.0f - 1.0f);
+            loop.at(0, at) = loop.at(1, at) = v;
+        }
+    const auto file = daw.folder.getChildFile("break.wav");
+    REQUIRE(fd::testkit::writeWav(file.getFullPathName().toStdString(), loop, 48000.0));
+    const auto placed = daw.call(
+        "insert_audio_file", {{"track", t0}, {"start", 0}, {"path", file.getFullPathName().toStdString()}});
+    const auto clip = placed["clip"]["id"].get<std::string>();
+    auto got = daw.call("get_clip", {{"clip", clip}});
+    // Placed in time (§7.2): its tempo found, Beats for its hits.
+    CHECK(got["warp"]["on"] == true);
+    CHECK(got["warp"]["tempo"].get<double>() == Approx(92.0).margin(0.01));
+    CHECK(got["warp"]["mode"] == "beats");
+    CHECK(got["file"]["seconds"].get<double>() == Approx(8 * beat).margin(1e-3));
+
+    // What's found: the tempo, its downbeat; the transients, one on each hit.
+    const auto found = daw.call("detect_tempo", {{"clip", clip}});
+    CHECK(found["found"] == true);
+    CHECK(found["tempo"].get<double>() == Approx(92.0).margin(0.01));
+    CHECK(found["downbeat"].get<double>() == Approx(0.0).margin(0.01));
+    const auto transients = daw.call("get_transients", {{"clip", clip}})["transients"];
+    REQUIRE(transients.size() == 8);
+    CHECK(transients[3].get<double>() == Approx(3 * beat).margin(0.003));
+
+    // Its mode, tempo and pitch.
+    auto r = daw.call("set_audio", {{"clips", {clip}}, {"mode", "tones"}, {"transpose", 2}, {"fine", -10}});
+    CHECK(r["clips"][0]["warp"]["mode"] == "tones");
+    CHECK(r["clips"][0]["pitch"]["transpose"] == 2);
+    CHECK(r["clips"][0]["pitch"]["fine"] == -10);
+    CHECK(daw.session->undoDescription() == "Assistant: set audio");
+    r = daw.call("set_audio", {{"clips", {clip}}, {"tempo", 184.0}});
+    CHECK(r["clips"][0]["length"].get<double>() == Approx(16.0).margin(1e-3)); // the same audio, 16 beats
+    daw.call("set_audio", {{"clips", {clip}}, {"tempo", 92.0}});
+    CHECK(daw.fails("set_audio", {{"clips", {clip}}, {"mode", "elastique"}}).find("tones") !=
+          std::string::npos);
+
+    // Markers: at the transients, one tempo from the second on, then set by hand.
+    r = daw.call("set_warp_markers", {{"clip", clip}, {"atTransients", true}});
+    CHECK(r["clip"]["warp"]["markers"].size() == 7); // every hit but the file's start
+    r = daw.call("set_warp_markers", {{"clip", clip}, {"warpFrom", 1}});
+    CHECK(r["clip"]["warp"]["markers"].size() == 2);
+    r = daw.call("set_warp_markers", {{"clip", clip}, {"markers", {{{"file", 2 * beat}, {"beat", 2.5}}}}});
+    REQUIRE(r["clip"]["warp"]["markers"].size() == 1);
+    CHECK(r["clip"]["warp"]["markers"][0]["beat"] == Approx(2.5));
+    CHECK(daw.fails("set_warp_markers", {{"clip", clip}, {"markers", {{{"file", 1.0}, {"beat", 40.0}}}}})
+              .find("x4") != std::string::npos);
+    CHECK(daw.fails("set_warp_markers", {{"clip", clip}}).find("one of") != std::string::npos);
+    r = daw.call("set_warp_markers", {{"clip", clip}, {"remove", {0}}});
+    CHECK(r["clip"]["warp"]["markers"].empty());
+
+    // The tools: Quantise to 1/8; the Tempo tool at what's found, the song's tempo from it.
+    const auto tools = daw.call("list_audio_tools");
+    std::set<std::string> names;
+    for (const auto& t : tools["tools"])
+        names.insert(t["tool"].get<std::string>());
+    CHECK(names == std::set<std::string>{"quantise", "tempo", "normalise"});
+    r = daw.call("transform_audio", {{"clips", {clip}}, {"tool", "quantise"}, {"grid", "1/8"}});
+    CHECK(daw.session->undoDescription() == "Assistant: transform audio");
+    CHECK(daw.fails("transform_audio", {{"clips", {clip}}, {"tool", "quantise"}, {"grid", "1/5"}})
+              .find("1/16") != std::string::npos);
+    r = daw.call("transform_audio", {{"clips", {clip}}, {"tool", "tempo"}, {"settings", {{"then", "song"}}}});
+    CHECK(daw.project()["tempo"].get<double>() == Approx(92.0).margin(0.01));
+    CHECK(r["clips"][0]["warp"]["tempo"].get<double>() == Approx(92.0).margin(0.01));
 }

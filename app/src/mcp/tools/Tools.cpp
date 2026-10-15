@@ -488,8 +488,22 @@ Json clipJson(ToolEnv& env, const model::ClipInfo& c, bool notes)
             {"inverted", c.sound.inverted},
             {"channels", juce::String(model::channelModeName(c.sound.channels)).toLowerCase().toStdString()},
             {"gainLinePoints", c.sound.line.size()}};
-        j["file"] = {
-            {"channels", c.fileChannels}, {"sampleRate", c.fileSampleRate}, {"bitDepth", c.fileBitDepth}};
+        j["file"] = {{"channels", c.fileChannels},
+                     {"sampleRate", c.fileSampleRate},
+                     {"bitDepth", c.fileBitDepth},
+                     {"seconds", roundTime(c.fileLength)}};
+        // Its warping and transposition (audio-editor.md §7, §8.1; set_audio, set_warp_markers).
+        Json markers = Json::array();
+        for (const auto& m : c.warp.markers)
+            markers.push_back({{"file", roundTime(m.file)}, {"beat", std::round(m.beat * 1e6) / 1e6}});
+        j["warp"] = {{"on", c.warp.on},
+                     {"mode", juce::String(model::warpModeName(c.warp.mode)).toLowerCase().toStdString()},
+                     {"tails", juce::String(model::tailsName(c.warp.tails)).toLowerCase().toStdString()},
+                     {"formants", c.warp.formants},
+                     {"tempo", std::round(c.warp.tempo * 1e4) / 1e4},
+                     {"sensitivity", std::round(c.warp.sensitivity * 1e3) / 1e3},
+                     {"markers", std::move(markers)}};
+        j["pitch"] = {{"transpose", c.pitch.transpose}, {"fine", c.pitch.fine}};
     }
     else
     {

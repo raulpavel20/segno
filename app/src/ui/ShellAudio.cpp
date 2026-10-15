@@ -4,6 +4,7 @@
 // (Shell.cpp).
 
 #include "model/AudioSound.h"
+#include "model/AudioToolkit.h"
 #include "model/Editing.h"
 #include "ui/Shell.h"
 
@@ -160,6 +161,147 @@ void Shell::registerAudioActions()
     rangeAction("audio.crop", "Crop to range", A::Crop);
     rangeAction("audio.fadeRange", "Fade to range", A::Fade);
     rangeAction("audio.loopRange", "Loop range", A::Loop);
+
+    // Warping (§7, §13): Warp and its mode, ticked as the first clip has them; the tempo's ×2 and ÷2,
+    // Detect… and the song's tempo from the clip.
+    const auto warping = [this]
+    {
+        const auto clips = audioTargets();
+        return std::any_of(clips.begin(), clips.end(), [](const auto& c) { return c.warp.on; });
+    };
+    const auto whyNotWarping = []
+    { return juce::String("Turn Warp on first: the clip follows the tempo then"); };
+    actions_.add({.id = "audio.warp",
+                  .name = "Warp",
+                  .category = "Audio",
+                  .perform =
+                      [this]
+                  {
+                      const auto clips = audioTargets();
+                      if (!clips.empty())
+                          session_.setWarp(idsOf(clips), {.on = !clips.front().warp.on}, "Warp");
+                  },
+                  .isEnabled = hasClips,
+                  .isToggled =
+                      [this]
+                  {
+                      const auto clips = audioTargets();
+                      return !clips.empty() && clips.front().warp.on;
+                  },
+                  .whyNot = whyNoClips});
+    for (const auto mode : {model::WarpMode::Beats, model::WarpMode::Tones, model::WarpMode::Repitch})
+    {
+        const auto name = model::warpModeName(mode);
+        actions_.add({.id = "audio.warpMode." + juce::String(name).toLowerCase().toStdString(),
+                      .name = juce::String(name),
+                      .category = "Audio",
+                      .perform = [this, mode]
+                      { session_.setWarp(idsOf(audioTargets()), {.mode = mode}, "Warp mode"); },
+                      .isEnabled = warping,
+                      .isToggled =
+                          [this, mode]
+                      {
+                          const auto clips = audioTargets();
+                          return !clips.empty() && clips.front().warp.mode == mode;
+                      },
+                      .whyNot = whyNotWarping});
+    }
+    for (const auto& [id, name, times] :
+         {std::tuple{"audio.tempoDouble", "Double", 2.0}, std::tuple{"audio.tempoHalf", "Half", 0.5}})
+        actions_.add({.id = id,
+                      .name = name,
+                      .category = "Audio",
+                      .perform = [this, factor = times]
+                      { session_.setWarp(idsOf(audioTargets()), {.tempoTimes = factor}, "Tempo"); },
+                      .isEnabled = warping,
+                      .whyNot = whyNotWarping});
+    const auto shownClip = [this] { return detail_.showsAudioClip(); };
+    const auto whyNotShownClip = [] { return juce::String("Show an audio clip in the clip view first"); };
+    const auto openAudioTool = [this](const char* tool)
+    {
+        return [this, tool]
+        {
+            if (!detail_.showsAudioClip())
+            {
+                arrangeMode_ = DetailPanel::Mode::Clip;
+                applyDetailMode();
+                openPanel(detailPanel_);
+            }
+            if (detail_.showsAudioClip())
+                detail_.showTool(tool);
+        };
+    };
+    actions_.add({.id = "audio.detectTempo",
+                  .name = asks("Detect"),
+                  .category = "Audio",
+                  .perform = openAudioTool("tempo"),
+                  .isEnabled = hasClips,
+                  .whyNot = whyNoClips});
+    actions_.add({.id = "audio.songTempo",
+                  .name = "Song tempo from this clip",
+                  .category = "Audio",
+                  .perform =
+                      [this]
+                  {
+                      const auto clips = audioTargets();
+                      if (clips.empty())
+                          return;
+                      // The clip then plays untouched, everything else following it (§7.8).
+                      session_.setTempo(clips.front().warp.tempo);
+                  },
+                  .isEnabled = hasClips,
+                  .whyNot = whyNoClips});
+    // Quantise and Quantise… (§7.7): their keys are the Notes menu's, going to the clip shown.
+    actions_.add({.id = "audio.quantise",
+                  .name = "Quantise",
+                  .category = "Audio",
+                  .perform =
+                      [this, &audio]
+                  {
+                      const auto values = audio.toolValues(*model::findAudioTool("quantise"));
+                      audio.quantise(model::warpQuantiseChoice(
+                          values, audio.timeline().gridStepBeats(session_.snapshot()->tempo)));
+                  },
+                  .isEnabled = shownClip,
+                  .whyNot = whyNotShownClip,
+                  .keysFrom = "notes.quantise"});
+    actions_.add({.id = "audio.quantiseSettings",
+                  .name = asks("Quantise"),
+                  .category = "Audio",
+                  .perform = openAudioTool("quantise"),
+                  .isEnabled = hasClips,
+                  .whyNot = whyNoClips,
+                  .keysFrom = "notes.quantiseSettings"});
+    // Warp markers ▸ (§7.5): the editor's.
+    const auto markerAction =
+        [this, shownClip, whyNotShownClip](std::string id, juce::String name, auto perform)
+    {
+        actions_.add({.id = std::move(id),
+                      .name = std::move(name),
+                      .category = "Audio",
+                      .perform = perform,
+                      .isEnabled = shownClip,
+                      .whyNot = whyNotShownClip});
+    };
+    markerAction("audio.markersAtTransients", "Markers at transients",
+                 [&audio] { audio.markersAtTransients(); });
+    markerAction("audio.warpFromHere", "Warp from here", [&audio] { audio.warpFromHere(); });
+    markerAction("audio.setDownbeat", "Set the downbeat here", [&audio] { audio.setDownbeat(); });
+    markerAction("audio.removeMarkers", "Remove markers", [&audio] { audio.removeMarkers(); });
+    // Transpose ▸ (§8.1): the clips keep their speed. The keys are the Notes menu's.
+    for (const auto& [id, name, by, keys] :
+         {std::tuple{"audio.semitoneUp", "Up a semitone", 1, "notes.semitoneUp"},
+          std::tuple{"audio.semitoneDown", "Down a semitone", -1, "notes.semitoneDown"},
+          std::tuple{"audio.octaveUp", "Up an octave", 12, "notes.octaveUp"},
+          std::tuple{"audio.octaveDown", "Down an octave", -12, "notes.octaveDown"}})
+        actions_.add({.id = id,
+                      .name = name,
+                      .category = "Audio",
+                      .perform = [this, step = by]
+                      { session_.setWarp(idsOf(audioTargets()), {.transposeBy = step}, "Transpose"); },
+                      .isEnabled = hasClips,
+                      .whyNot = whyNoClips,
+                      .keysFrom = keys});
 
     // View > Waveform height ▸ (§4, §13): the level column's drag and double-click, by menu.
     const auto shown = [this] { return detail_.showsAudioClip(); };
