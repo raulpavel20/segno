@@ -156,19 +156,14 @@ struct Module
         return 0;
     }
 
-    /// The control that sets `paramId`: a knob, a bar or a switch.
+    /// The control that sets `paramId`: a knob, a bar, a switch, segmented buttons or a dropdown.
     [[nodiscard]] juce::Component& control(std::string_view paramId) const
     {
         const auto p = param(paramId);
         for (auto* s : panel->sections())
             for (const auto& pl : s->placements())
-            {
-                if (auto* k = dynamic_cast<fd::ui::ParamKnob*>(pl.component); k != nullptr && k->param() == p)
-                    return *k;
-                if (auto* t = dynamic_cast<fd::ui::ParamToggle*>(pl.component);
-                    t != nullptr && t->param() == p)
-                    return *t;
-            }
+                if (fd::ui::paramOf(*pl.component) == p)
+                    return *pl.component;
         FAIL("no control for " << paramId);
         throw std::logic_error("unreachable");
     }
@@ -670,4 +665,66 @@ TEST_CASE("modulators, drawn for review: the route list", "[ui]")
     fd::app::RouteList none("Random", {});
     none.setBounds(none.preferredBounds());
     dump("modulators-routes-empty", none);
+}
+
+TEST_CASE("modulators, drawn for review: choices moved, and taking a dragged handle, as a switch does (B87)",
+          "[ui]")
+{
+    Fixture f;
+    auto& delay = f.delay;
+    f.chain.slots = {{f.steps.panel.get()}, {delay.panel.get()}};
+    f.chain.build();
+
+    // Steps moves the Delay's Mode (segmented buttons, set to Clean) onto Analog, its Mod Shape onto
+    // the one set, and its Stereo (a dropdown, set to Stereo) onto the next.
+    delay.move("mode", 1.0f, true, 1.0f, "Steps");
+    delay.move("mod.shape", 0.25f, false, 0.0f, "Steps");
+    delay.move("stereo", 0.5f, false, 0.5f, "Steps");
+    f.refresh();
+    auto* mode = dynamic_cast<fd::ui::ParamSegmented*>(&delay.control("mode"));
+    auto* shape = dynamic_cast<fd::ui::ParamSegmented*>(&delay.control("mod.shape"));
+    auto* stereo = dynamic_cast<fd::ui::ParamComboBox*>(&delay.control("stereo"));
+    REQUIRE(mode != nullptr);
+    REQUIRE(shape != nullptr);
+    REQUIRE(stereo != nullptr);
+    using M = fd::ui::Toggle::Modulation;
+    // On another choice: each button's line full, the one it's on outlined; on the one set: faint.
+    const auto& buttons = mode->buttons();
+    REQUIRE(buttons.size() == 3);
+    CHECK(buttons[0]->getToggleState());
+    CHECK(buttons[0]->modulation() == std::optional(M{.turned = true}));
+    CHECK(buttons[1]->modulation() == std::optional(M{.turned = true}));
+    CHECK(buttons[2]->modulation() == std::optional(M{.turned = true, .now = true}));
+    CHECK(buttons[2]->getTooltip().startsWith("Moved by Steps."));
+    for (auto* b : shape->buttons())
+        CHECK(b->modulation() == std::optional(M{}));
+    CHECK(stereo->modulation() == std::optional(M{.turned = true}));
+    CHECK(stereo->getTooltip().startsWith("Moved by Steps."));
+    f.shot("choices-moved");
+    f.crop("choices-moved-delay", *delay.panel);
+
+    // A drag of a handle: every choice faintly lined, the one under the pointer lit, every button
+    // of it.
+    delay.binding->dragging = true;
+    delay.binding->dropOn = delay.param("stereo");
+    f.refresh();
+    CHECK(stereo->isDropTarget());
+    for (auto* b : buttons)
+    {
+        CHECK(b->isDropCandidate());
+        CHECK_FALSE(b->isDropTarget());
+    }
+    f.chain.dragged = &f.steps.panel->handle();
+    f.chain.dragAt = f.chain.getLocalArea(stereo, stereo->getLocalBounds()).getCentre();
+    f.shot("choices-drag-dropdown");
+    f.crop("choices-drag-dropdown-delay", *delay.panel);
+    delay.binding->dropOn = delay.param("mode");
+    f.refresh();
+    for (auto* b : buttons)
+        CHECK(b->isDropTarget());
+    CHECK_FALSE(stereo->isDropTarget());
+    f.chain.dragAt = f.chain.getLocalArea(buttons[1], buttons[1]->getLocalBounds()).getCentre();
+    f.shot("choices-drag-segmented");
+    f.crop("choices-drag-segmented-delay", *delay.panel);
+    f.chain.dragged = nullptr;
 }

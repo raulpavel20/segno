@@ -33,10 +33,12 @@ public:
     [[nodiscard]] bool isModified() const noexcept { return modified_; }
     /// Moved by modulators (modulators.md §7.4): a line along its bottom edge in the modulation
     /// gradient, as a bar's; full while the modulation has it the other way from where it's set
-    /// (`turned`), faint while it doesn't; dimmed while another modulator is shown.
+    /// (`turned`), faint while it doesn't; dimmed while another modulator is shown. In segmented
+    /// buttons (§7.3), the choice the modulation has it on, another than the one set, is outlined
+    /// in the gradient too (`now`).
     struct Modulation
     {
-        bool turned = false, dimmed = false;
+        bool turned = false, dimmed = false, now = false;
         bool operator==(const Modulation&) const = default;
     };
     void setModulation(std::optional<Modulation> modulation);
@@ -44,6 +46,8 @@ public:
     /// While a modulator is dragged: the line in `active` where it would land, faint where it could.
     void setDropTarget(bool target);
     void setDropCandidate(bool candidate);
+    [[nodiscard]] bool isDropTarget() const noexcept { return dropTarget_; }
+    [[nodiscard]] bool isDropCandidate() const noexcept { return dropCandidate_; }
 
     void paintButton(juce::Graphics& g, bool highlighted, bool down) override;
     void mouseDown(const juce::MouseEvent& e) override;
@@ -57,4 +61,14 @@ private:
     bool popup_ = false, arm_ = false, partly_ = false, cuts_ = false, modified_ = false;
     bool dropTarget_ = false, dropCandidate_ = false;
 };
+
+/// What modulators do to a switch or a choice, drawn over it (modulators.md §7.4): the line along
+/// the bottom edge of `bounds`, inside its rounded shape, in `active` where a dragged handle would
+/// land (faint where it could), else in the modulation gradient as `modulation` says; and the
+/// outline of the choice it's on now. On a switch that's on (`onFill`), the line has a dark halo
+/// above it, as the lines on hover do, so it reads on the fill. A switch, segmented buttons and a
+/// dropdown share it.
+void paintModulationEdge(juce::Graphics& g, juce::Rectangle<float> bounds,
+                         const std::optional<Toggle::Modulation>& modulation, bool dropTarget,
+                         bool dropCandidate, bool onFill = false);
 } // namespace fd::ui

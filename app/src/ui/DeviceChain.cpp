@@ -1443,11 +1443,7 @@ std::optional<engine::Session::ParamTarget> DeviceChain::targetOf(const juce::Co
     const int index = slotIndexOf(&control);
     if (index < 0 || !track_)
         return std::nullopt;
-    std::optional<size_t> param;
-    if (const auto* knob = dynamic_cast<const ui::ParamKnob*>(&control))
-        param = knob->param();
-    else if (const auto* toggle = dynamic_cast<const ui::ParamToggle*>(&control))
-        param = toggle->param();
+    const auto param = ui::paramOf(control);
     const auto& slot = slots_[static_cast<size_t>(index)];
     auto* context = slot.handle != nullptr      ? &slot.handle->context()
                     : slot.modulator != nullptr ? &slot.modulator->context()

@@ -235,11 +235,11 @@ te::RackInstance* Session::Impl::instanceOf(const te::RackType& rack) const
 
 bool Session::Impl::inRack(const te::RackType& rack, const te::AutomatableParameter& param) const
 {
-    auto* owner = &param.automatableEditElement;
+    auto* element = &param.automatableEditElement;
     for (auto* p : rackModules(rack))
-        if (p == owner)
+        if (p == element)
             return true;
-    if (auto* m = dynamic_cast<const Modulator*>(owner))
+    if (auto* m = dynamic_cast<const Modulator*>(element))
         return rackOf(*m) == &rack;
     for (auto* macro : rack.getMacroParameters()) // its macros, and Morph among them
         if (macro == &param)

@@ -16,12 +16,6 @@ namespace
 {
 using ParamTarget = engine::Session::ParamTarget;
 
-std::string lower(std::string s)
-{
-    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    return s;
-}
-
 double rounded4(double v)
 {
     return std::round(v * 1e4) / 1e4;

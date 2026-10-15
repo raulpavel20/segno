@@ -362,11 +362,37 @@ ParamSegmented::ParamSegmented(DeviceUiContext& context, size_t paramIndex, int 
     refresh();
 }
 
+namespace
+{
+/// The choice the track's modulators have a choice parameter on now (modulators.md §7.3: the
+/// value plus the modulation, snapped to a step).
+int choiceNow(const ParamSpec& spec, float normalised)
+{
+    return juce::roundToInt(spec.fromNormalized(juce::jlimit(0.0f, 1.0f, normalised)));
+}
+} // namespace
+
 void ParamSegmented::refresh()
 {
     const int selected = static_cast<int>(context_.params.getPlain(index_));
+    // Moved by the track's modulators (§7.3), as a switch is: each button's line full while they
+    // have it on another choice, that choice's button outlined.
+    const auto& spec = context_.info.params[index_];
+    const auto moved = context_.params.modulated(index_);
+    const int now = moved ? choiceNow(spec, moved->now) : selected;
+    const auto drag = context_.params.modulatorDrag(index_);
+    const auto tooltip = moved ? "Moved by " + moved->by + ". " + tooltipFor(spec) : tooltipFor(spec);
     for (int i = 0; i < buttons_.size(); ++i)
-        buttons_[i]->setToggleState(i == selected, juce::dontSendNotification);
+    {
+        auto& b = *buttons_[i];
+        b.setToggleState(i == selected, juce::dontSendNotification);
+        b.setModulation(moved ? std::optional<Toggle::Modulation>(Toggle::Modulation{
+                                    now != selected, moved->dimmed, i == now && now != selected})
+                              : std::nullopt);
+        b.setDropTarget(drag.target);
+        b.setDropCandidate(drag.candidate);
+        b.setTooltip(tooltip);
+    }
     if (const auto state = context_.params.automationState(index_); state != automation_)
     {
         automation_ = state;
@@ -449,12 +475,29 @@ ParamComboBox::ParamComboBox(DeviceUiContext& context, size_t paramIndex) : cont
 
 void ParamComboBox::refresh()
 {
-    setSelectedId(static_cast<int>(context_.params.getPlain(index_)) + 1, juce::dontSendNotification);
+    const int selected = static_cast<int>(context_.params.getPlain(index_));
+    setSelectedId(selected + 1, juce::dontSendNotification);
     if (const auto state = context_.params.automationState(index_); state != automation_)
     {
         automation_ = state;
         repaint();
     }
+    // Moved by the track's modulators (§7.3), as a switch is: the line full while they have it on
+    // another choice than the one it shows.
+    const auto& spec = context_.info.params[index_];
+    const auto moved = context_.params.modulated(index_);
+    const auto modulation = moved ? std::optional<Toggle::Modulation>(Toggle::Modulation{
+                                        choiceNow(spec, moved->now) != selected, moved->dimmed})
+                                  : std::nullopt;
+    const auto drag = context_.params.modulatorDrag(index_);
+    if (modulation != modulation_ || drag.target != dropTarget_ || drag.candidate != dropCandidate_)
+    {
+        modulation_ = modulation;
+        dropTarget_ = drag.target;
+        dropCandidate_ = drag.candidate;
+        repaint();
+    }
+    setTooltip(moved ? "Moved by " + moved->by + ". " + tooltipFor(spec) : tooltipFor(spec));
 }
 
 void ChoiceBox::setInlineName(juce::String name)
@@ -496,6 +539,25 @@ void ParamComboBox::paintOverChildren(juce::Graphics& g)
 {
     ChoiceBox::paintOverChildren(g);
     paintAutomationIndicator(g, {3.5f, 3.5f}, automation_);
+    paintModulationEdge(g, getLocalBounds().toFloat(), modulation_, dropTarget_, dropCandidate_);
+}
+
+std::optional<size_t> paramOf(const juce::Component& control)
+{
+    if (const auto* knob = dynamic_cast<const ParamKnob*>(&control))
+        return knob->param();
+    if (const auto* toggle = dynamic_cast<const ParamToggle*>(&control))
+        return toggle->param();
+    if (const auto* segmented = dynamic_cast<const ParamSegmented*>(&control))
+        return segmented->param();
+    if (const auto* combo = dynamic_cast<const ParamComboBox*>(&control))
+        return combo->param();
+    // A segment, or a dropdown's text: its control's.
+    if (const auto* parent = control.getParentComponent();
+        parent != nullptr && (dynamic_cast<const ParamSegmented*>(parent) != nullptr ||
+                              dynamic_cast<const ParamComboBox*>(parent) != nullptr))
+        return paramOf(*parent);
+    return std::nullopt;
 }
 
 void ParamComboBox::setInlineName(bool shown)

@@ -183,6 +183,24 @@ struct Chain
         return nullptr;
     }
 
+    /// The control of type `T` that sets `param` on a module's panel (segmented buttons, a
+    /// dropdown).
+    template <typename T> T* control(std::uint64_t module, std::string_view param)
+    {
+        auto* panel = panelOf(module);
+        REQUIRE(panel != nullptr);
+        auto handle = session->openDevice(module);
+        REQUIRE(handle != nullptr);
+        const auto& params = handle->context().info.params;
+        std::vector<T*> found;
+        collect(*panel, found);
+        for (auto* c : found)
+            if (params[c->param()].id == param)
+                return c;
+        FAIL("no control " << param);
+        return nullptr;
+    }
+
     Session::ParamTarget target(std::uint64_t module, const std::string& param) const
     {
         return {t, "m" + std::to_string(module) + "/" + param};
@@ -360,6 +378,78 @@ TEST_CASE(
         panel->onHandleDrag(mouseAt(content, edge - content.getPosition().toFloat(), edge, true));
     CHECK(content.getX() < 0);
     panel->onHandleCancel();
+}
+
+TEST_CASE(
+    "modulators in the chain view: a handle dragged onto a choice routes it; a moved choice shows it as a "
+    "switch does, with its lines and lit handle (B87)",
+    "[integration][modulators][ui]")
+{
+    Chain f;
+    auto& s = *f.session;
+    const auto delay = s.addDevice(f.t, "fd:delay");
+    const auto steps = s.addModulator(f.t, Kind::Steps, 0);
+    REQUIRE(steps != 0);
+    f.show();
+    auto* panel = f.chain->modulatorPanel(steps);
+    REQUIRE(panel != nullptr);
+    auto* mode = f.control<fd::ui::ParamSegmented>(delay, "mode");
+    auto* stereo = f.control<fd::ui::ParamComboBox>(delay, "stereo");
+
+    // Onto one of the Delay's Mode buttons: every button lit, the dropdown a candidate; a route.
+    auto& analog = *mode->buttons()[2];
+    const auto c = analog.getLocalBounds().getCentre().toFloat();
+    panel->onHandleDrag(mouseAt(analog, c, c, true));
+    REQUIRE(s.modulatorPointer().over);
+    CHECK(*s.modulatorPointer().over == f.target(delay, "mode"));
+    f.refreshAll();
+    for (auto* b : mode->buttons())
+        CHECK(b->isDropTarget());
+    CHECK(stereo->isDropCandidate());
+    CHECK_FALSE(stereo->isDropTarget());
+    panel->onHandleRelease(mouseAt(analog, c, c, true), false);
+    f.refreshAll();
+    for (auto* b : mode->buttons())
+        CHECK_FALSE(b->isDropCandidate());
+
+    // Onto the Stereo dropdown, its text under the pointer: a second route.
+    auto* text = stereo->getNumChildComponents() > 0 ? stereo->getChildComponent(0) : stereo;
+    const auto t = text->getLocalBounds().getCentre().toFloat();
+    panel->onHandleDrag(mouseAt(*text, t, t, true));
+    REQUIRE(s.modulatorPointer().over);
+    CHECK(*s.modulatorPointer().over == f.target(delay, "stereo"));
+    f.refreshAll();
+    CHECK(stereo->isDropTarget());
+    panel->onHandleRelease(mouseAt(*text, t, t, true), false);
+    {
+        const auto& info = f.info(steps);
+        REQUIRE(info.routes.size() == 2);
+        CHECK(info.routes[0].key == f.target(delay, "mode").key);
+        CHECK(info.routes[1].key == f.target(delay, "stereo").key);
+    }
+
+    // Moved: each shows the line (faint while the modulation leaves it on the choice set).
+    f.show();
+    mode = f.control<fd::ui::ParamSegmented>(delay, "mode");
+    stereo = f.control<fd::ui::ParamComboBox>(delay, "stereo");
+    f.refreshAll();
+    for (auto* b : mode->buttons())
+        CHECK(b->modulation().has_value());
+    CHECK(stereo->modulation().has_value());
+    CHECK(stereo->getTooltip().startsWith("Moved by Steps."));
+
+    // Hovering the handle: a line to each; hovering a button lights the handle.
+    f.chain->mouseMove(mouseAt(panel->handle(), {4.0f, 4.0f}, {4.0f, 4.0f}, false));
+    const auto cables = f.chain->cables();
+    REQUIRE(cables.size() == 2);
+    const auto centreOf = [&](juce::Component& control)
+    { return f.chain->content().getLocalArea(&control, control.getLocalBounds()).toFloat().getCentre(); };
+    CHECK(cables[0].to.getDistanceFrom(centreOf(*mode)) < 0.5f);
+    CHECK(cables[1].to.getDistanceFrom(centreOf(*stereo)) < 0.5f);
+    f.chain->mouseExit(mouseAt(panel->handle(), {4.0f, 4.0f}, {4.0f, 4.0f}, false));
+    auto& clean = *mode->buttons()[0];
+    f.chain->mouseMove(mouseAt(clean, {4.0f, 4.0f}, {4.0f, 4.0f}, false));
+    CHECK(panel->handle().isLit());
 }
 
 TEST_CASE("modulators in the chain view: Modulate with on a control's right-click, New before its module; a "

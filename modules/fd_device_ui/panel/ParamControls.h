@@ -87,6 +87,8 @@ public:
     void paintOverChildren(juce::Graphics& g) override;
     /// The buttons (for the layout lint).
     [[nodiscard]] const juce::OwnedArray<Toggle>& buttons() const noexcept { return buttons_; }
+    /// The parameter it sets.
+    [[nodiscard]] size_t param() const noexcept { return index_; }
 
 private:
     DeviceUiContext& context_;
@@ -156,13 +158,26 @@ public:
     /// Shows its parameter's short name inside, before its choice ("Mode  Super"), where nothing
     /// else names it (device-panels.md, "Controls on the grid").
     void setInlineName(bool shown);
+    /// The parameter it sets.
+    [[nodiscard]] size_t param() const noexcept { return index_; }
+    /// What the track's modulators do to it (modulators.md §7.3), as a switch shows it.
+    [[nodiscard]] const std::optional<Toggle::Modulation>& modulation() const noexcept { return modulation_; }
+    [[nodiscard]] bool isDropTarget() const noexcept { return dropTarget_; }
+    [[nodiscard]] bool isDropCandidate() const noexcept { return dropCandidate_; }
 
 private:
     DeviceUiContext& context_;
     size_t index_;
     AutomationState automation_ = AutomationState::None;
     std::function<juce::String(int)> menuText_;
+    std::optional<Toggle::Modulation> modulation_;
+    bool dropTarget_ = false, dropCandidate_ = false;
 };
+
+/// The parameter a control on a module's panel sets: a knob, a switch, segmented buttons or a
+/// dropdown, or one of their parts (a segment, a dropdown's text). Where a dragged modulator's
+/// handle would land (modulators.md §7.1).
+[[nodiscard]] std::optional<size_t> paramOf(const juce::Component& control);
 
 /// The delay a module adds, at the header's right end while it adds one: "+107 ms" in the
 /// warning colour, and in its tooltip what that means for playing live (devices/eq/SPEC.md,

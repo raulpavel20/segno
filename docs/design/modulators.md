@@ -2,7 +2,7 @@
 
 A **modulator** is a module that makes no sound. It sits on a track and moves other parameters there: a filter's cutoff, a plugin's knob, a rack's Morph, the track's volume. The first five are the **LFO**, **Random**, **Envelope**, **Follower** and **Steps**. A modulator routed to several targets gives each its own copy by default, so one Random moves eight knobs eight different ways. Their randomness is random: it rolls again every time it plays, unless you keep a roll you liked.
 
-**Status:** approved by the product owner (2026-10-15), every recommendation of §21, with modulators anywhere in the chain instead of a zone of their own (§6, M2, revised after the review); ADRs 0061 and 0062 accepted. Step 0 done the same day: the spike passed (§22), and the UI drawn in every state and approved (§23). Step 1 built the same day (§24); waiting for the product owner's hands-on check. M3 P5, the product owner's priority of 2026-10-15, moved up from M4, with [ADR 0061](../decisions/0061-modulators-move-any-parameter-on-their-track.md) and [ADR 0062](../decisions/0062-random-rolls-again-each-time-it-plays.md). It builds on [ADR 0060](../decisions/0060-motion-comes-from-modulation-modules.md) (motion comes from modulation modules). Nothing is built until the product owner says go, and the UI is drawn in every state and approved first (§19).
+**Status:** approved by the product owner (2026-10-15), every recommendation of §21, with modulators anywhere in the chain instead of a zone of their own (§6, M2, revised after the review); ADRs 0061 and 0062 accepted. Step 0 done the same day: the spike passed (§22), and the UI drawn in every state and approved (§23). Step 1 built the same day (§24) and signed off by the product owner (2026-10-15), with how a choice shows a modulator (B87) approved and built after. M3 P5, the product owner's priority of 2026-10-15, moved up from M4, with [ADR 0061](../decisions/0061-modulators-move-any-parameter-on-their-track.md) and [ADR 0062](../decisions/0062-random-rolls-again-each-time-it-plays.md). It builds on [ADR 0060](../decisions/0060-motion-comes-from-modulation-modules.md) (motion comes from modulation modules). Nothing is built until the product owner says go, and the UI is drawn in every state and approved first (§19).
 
 What the product owner asked (2026-10-15):
 - "Let's start the modulation modules", with a name people understand: "CV tools is great for the people who know, but most people will not know what that is in reference to."
@@ -142,7 +142,7 @@ There are three ways, each enough on its own, as in the kit ([device-panels.md](
 
 ### 7.4 Seen
 
-- **Rings** on every modulated knob, as now. **Bars and faders** show the range as a band along them, in the same colours.
+- **Rings** on every modulated knob, as now. **Bars and faders** show the range as a band along them, in the same colours. **Switches and choices** (dropdowns, segmented buttons) a line along their bottom edge, full while the modulation has them on another value than the one set; in segmented buttons the choice it's on now is outlined (B87).
 - **Where it is now:** a dot on the ring (a tick on a bar) at the target's moving value, on every moved control. This is new in the kit, and it never covers the arc's own value marker.
 - **Hovering a handle** lights its targets and dims the rest, as now. It also draws a line from the handle to each target, in the modulation colour, over the panels. Lines show only on hover, since lines shown all the time would cross every panel.
 - **Hovering a modulated control** lights the handles of the modulators that move it, as now.
@@ -567,8 +567,7 @@ Built on main in six steps (1a–1f), then the Follower's Listen, the master, Fi
 - **In racks** (§14): a rack's chain holds modulators as a track's does, each tapping the chain where it sits (what comes there goes into it; nothing comes out). Group into rack takes them in place; their routes leaving the rack go, and a toast says how many with Undo. Rack files keep a modulator's type, settings, place and routes (by module place, a macro or Morph). A Follower in a rack listens where it sits only. Modulators move into and out of racks like modules; ungrouping brings the shown chain's out in place.
 - **The LFO's Drawn shape:** the Wavetable's LFO shape editor is shared now (`ui::CurveEditor` in the panel kit, the curve model `dsp::DrawnCurve` in `libs/dsp`). On the LFO's panel it sits over the display's plot while Shape is Drawn, without a well or top row of its own; the named shapes stay in Shape. Each edit is one undo step; presets keep the shape; assistants draw it with `set_lfo_curve`.
 - **The hands-on tasks** are in `docs/manual-tests/M3.md`.
+- **Choices** (B87, the recommendation approved by the product owner, 2026-10-15): a handle lands on a dropdown or segmented buttons as on a switch, and they show it as a switch does: the line along the bottom edge (each button's, in segmented buttons), full while the modulation has it on another choice than the one set, that choice's button outlined. On a switch or button that's on, the line has a dark halo above it, as the lines on hover do: on the `active` fill it didn't show, the drag's lit line least of all (switches had it too). Drawn in `tests/integration/ModulatorUiTests.cpp` ("choices moved"), driven in `ModulatorChainTests.cpp`.
 
-Not yet built:
-- a dragged handle's look on choices (combos and segmented buttons): they can be routed from a control's right-click and by assistants, but don't show the drag's ring or a moved look (open question B87);
-- the product owner's hands-on check and sign-off.
+Signed off by the product owner (2026-10-15).
 

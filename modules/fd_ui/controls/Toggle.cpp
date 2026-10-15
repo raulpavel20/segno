@@ -157,23 +157,44 @@ void Toggle::paintButton(juce::Graphics& g, bool highlighted, bool down)
         g.drawText(getButtonText(), getLocalBounds(), juce::Justification::centred, false);
     paintAutomationIndicator(g, {3.5f, 3.5f}, automation_); // over the corner
 
-    // Modulators (modulators.md §7.4): a line along the bottom edge, inside, as on a bar.
-    if (dropTarget_ || dropCandidate_ || modulation_)
+    paintModulationEdge(g, bounds, modulation_, dropTarget_, dropCandidate_, on);
+}
+
+void paintModulationEdge(juce::Graphics& g, juce::Rectangle<float> bounds,
+                         const std::optional<Toggle::Modulation>& modulation, bool dropTarget,
+                         bool dropCandidate, bool onFill)
+{
+    // A line along the bottom edge, inside, as on a bar.
+    if (!dropTarget && !dropCandidate && !modulation)
+        return;
+    const auto& t = Theme::current();
+    juce::Graphics::ScopedSaveState saved(g);
+    juce::Path shape;
+    shape.addRoundedRectangle(bounds, t.radiusControl);
+    g.reduceClipRegion(shape);
+    const auto line = bounds.withTop(bounds.getBottom() - t.knobRingThickness);
+    const bool drag = dropTarget || dropCandidate;
+    const float alpha = drag || (!modulation->dimmed && modulation->turned) ? 1.0f : t.roles.dimAlpha;
+    if (onFill) // the halo, as faint as the line
     {
-        juce::Graphics::ScopedSaveState saved(g);
-        juce::Path shape;
-        shape.addRoundedRectangle(bounds, t.radiusControl);
-        g.reduceClipRegion(shape);
-        const auto line = bounds.withTop(bounds.getBottom() - t.knobRingThickness);
-        if (dropTarget_ || dropCandidate_)
-            g.setColour(dropTarget_ ? t.active : t.textTertiary);
-        else
-        {
-            g.setGradientFill(juce::ColourGradient(t.effectStart, line.getTopLeft(), t.effectEnd,
-                                                   line.getTopRight(), false));
-            g.setOpacity(modulation_->dimmed || !modulation_->turned ? t.roles.dimAlpha : 1.0f);
-        }
+        g.setColour(t.surface0.withMultipliedAlpha(alpha));
+        g.fillRect(line.translated(0.0f, -t.knobRingThickness));
+    }
+    if (drag)
+    {
+        g.setColour(dropTarget ? t.active : t.textTertiary);
         g.fillRect(line);
+        return;
+    }
+    const juce::ColourGradient gradient(t.effectStart, bounds.getTopLeft(), t.effectEnd, bounds.getTopRight(),
+                                        false);
+    g.setGradientFill(gradient);
+    g.setOpacity(alpha);
+    g.fillRect(line);
+    if (modulation->now) // the choice it's on now: outlined, inside the edge
+    {
+        g.setOpacity(modulation->dimmed ? t.roles.dimAlpha : 1.0f);
+        g.drawRoundedRectangle(bounds.reduced(0.5f), t.radiusControl, 1.0f);
     }
 }
 

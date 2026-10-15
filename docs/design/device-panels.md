@@ -140,7 +140,9 @@ For a module with its own modulation (the Wavetable Synth; M4's DAW-wide modulat
 - **The track's modulators** ([modulators.md](modulators.md) §7.4, §23) move any module's controls from outside it, through the host binding (`ParamBinding::modulated`, `modulatorDrag`), with the same look:
   - a moved knob's ring has a dot where the modulation has it now;
   - a moved bar, and a moved switch, show the ring's line along their bottom edge, inside them; a bar's "now" is a short bright stretch of the line, clear of its text; a switch's line is full while the modulation turns it over, faint while it doesn't;
-  - while a modulator's handle is dragged, every control (bars and switches too) shows a faint line or ring, and the one under the pointer lights;
+  - choices show it as switches do (B87): a dropdown's line, and each of segmented buttons' lines, full while the modulation has it on another choice than the one set, faint while it doesn't; in segmented buttons the choice it's on now is outlined in the modulation gradient;
+  - on a switch or button that's on, the line has a dark halo above it (`surface0`, as the lines on hover have), so it reads on the `active` fill; one painter for all of them (`ui::paintModulationEdge`);
+  - while a modulator's handle is dragged, every control (bars, switches and choices too) shows a faint line or ring, and the one under the pointer lights (every button of segmented buttons);
   - a source's handle can show its routes' count ("⤧ LFO · 3") and a lock (a kept roll), and its drag can be taken by the host (the chain), across panels;
   - hovering a handle draws a line from its foot to each control it moves (`ui::paintModulationCable`: the modulation gradient over a dark halo, sagging as a cable does), over the panels;
   - dragging such a knob's ring sets the route of the modulator hovered last (`ParamBinding::beginModulatedDrag`, one undo step), as a module's own ring does;
