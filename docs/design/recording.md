@@ -343,3 +343,68 @@ Trying C5c, the product owner found that a click on a strip (or Alt+↑/↓) rep
 | C4 | A whole take | From the take menu ("for the whole clip"), the inspector or an assistant |
 | C5 | Several comps kept | Not in M2 (B47) |
 | C6 | Crossfades at nearby joins | A clip's two ends share it: they meet, never cross (fades.md §4) |
+
+## 22. Hearing yourself sooner, and recording in time (M3 C7, for review)
+
+**Status:** designed for the product owner's review (2026-10-15), questions RL1–RL8 below. Nothing is built until it's approved. §15 planned both for M3: "Reduced latency when monitoring" and "Round-trip latency test".
+
+**What others do** (research, 2026-10-15):
+- **Monitoring with less delay:**
+  - **Live**'s Options > Reduced Latency When Monitoring (saved with the Set) drops the delay compensation on monitored tracks. Modules on the monitored path keep their own latency. Live 12 adds a per-track choice, on by default, of recording "as heard" (with the monitoring latency) or as played.
+  - **Logic**'s Low Latency Mode, with a limit up to 30 ms, bypasses the plug-ins on the record-enabled or focused track that would pass it. Their buttons go grey with an orange label.
+  - **Cubase**'s Constrain Delay Compensation does the same, and since version 12 switches plug-ins to their own low-latency mode where they have one.
+  - **Studio Pro** runs monitored channels at a smaller buffer than playback, and silences plug-ins adding more than 3 ms while armed.
+  - **tracktion** has a low-latency mode of its own: it lowers the device's buffer and turns off the plug-ins it's given.
+- **Measuring the interface:**
+  - most DAWs trust the latency the driver reports and offer a record offset set by hand (Reaper, Logic, Cubase, Audacity's documented click test; ours since M2);
+  - **Ardour** measures it: "connect them using a cable", Measure, then "Use results". It plays a test tone and names its failures: "No signal detected", "Input signal is > −3 dBFS", "Large measurement deviation", "Signal polarity inverted";
+  - **Live**'s Driver Error Compensation comes with a lesson Set and a cable;
+  - **tracktion** includes a round-trip test (noise with spikes, matched coming back), as JUCE's latency demo does.
+
+### 22.1 Reduced latency when monitoring
+
+**Options > Reduced latency when monitoring** (a tick in the menu, and on Settings > Recording; RL1):
+- **What it does** (RL2): on each track you're monitoring (armed with Monitor on Auto, or Monitor In), modules that add delay are bypassed, and the track doesn't wait for the rest of the song's delay compensation. You hear the input after the interface's own latency and the modules that add none.
+- **What shows:**
+  - a bypassed module's header reads "Bypassed while monitoring" in the warning colour, where the latency badge sits, and its power stays as you set it;
+  - the top bar's CPU readout area shows "Reduced latency" while any track is affected, as a reminder (RL3).
+- **What it doesn't do:** playback, bounces and exports are as always. Modules come back the moment monitoring stops (disarmed, or Monitor Off).
+- **Recorded as played** (RL4): the recording lands where you played it, as it does now (the interface's latency moved back). It isn't recorded "as heard": with the modules bypassed, what you heard is what you played.
+- **Kept with the project**, as Live keeps it with the Set. Assistants: a new tool, `set_reduced_latency` (on or off); `get_project` reports it.
+- **Built on tracktion's low-latency mode,** without its smaller buffer: the buffer is Settings > Audio's to set. A spike comes first (RL5): whether tracktion delays a monitored track to line up with the song's compensation, and what it takes to drop that for monitored tracks only (a small engine patch, if it does).
+
+### 22.2 Measuring the round trip
+
+**Settings > Recording > Audio offset** gains **Measure…** (RL6), which opens a small panel under the row:
+
+```
+┌ Measure the round trip ──────────────────────────────────────────────┐
+│ Connect an output to an input with a cable, turn monitoring down.    │
+│ Output  Out 1 ▾      Input  In 1 ▾                       [ Measure ] │
+│                                                                      │
+│ Round trip 12.4 ms · the interface reports 10.1 ms                   │
+│ Offset +2.3 ms                                    [ Use ]  [ Cancel ]│
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+- **Measure** plays tracktion's test signal (noise with spikes) on the chosen output for two seconds at −12 dBFS and finds it on the input, three times.
+- **The result:** the round trip, what the interface reports, and the difference, which is the offset recordings need. **Use** sets Audio offset to it; Cancel leaves it as it was.
+- **Failures are named** (RL7), as Ardour names them:
+  - "Nothing came back: check the cable and the channels";
+  - "Too loud: turn the input down";
+  - "The three tries disagree by 0.4 ms: try again, with nothing else playing".
+- **MIDI's offset** stays set by hand (RL8). Measuring it needs a MIDI loopback and a synth's audio, which few setups have.
+- **Assistants:** `measure_latency` (output, input) runs it and returns the round trip, the reported latency and the offset, without setting it; `set_settings` sets the offset.
+
+### 22.3 Questions for review
+
+| # | Question | Recommendation |
+|---|---|---|
+| RL1 | **Where it lives** | Options > Reduced latency when monitoring, a tick, also on Settings > Recording, kept with the project (as Live's) |
+| RL2 | **What it does** | On monitored tracks: bypass modules that add delay, and don't wait for the song's compensation. Logic's and Cubase's bypass with Live's compensation, since our modules have no low-latency mode of their own to switch to |
+| RL3 | **Showing it** | "Bypassed while monitoring" in a bypassed module's header; "Reduced latency" by the CPU readout while any track is affected |
+| RL4 | **Recorded as played or as heard** | As played, as now. Live 12's per-track choice later, if asked |
+| RL5 | **The engine** | A spike first: does tracktion delay a monitored track for the song's compensation, and can it skip that for monitored tracks only (a patch if it must). tracktion's own smaller buffer stays off |
+| RL6 | **The round-trip test** | Measure… beside Audio offset: a cable, an output and an input, Measure, then Use. Three tries, compared |
+| RL7 | **When it fails** | Named reasons: nothing came back, too loud, the tries disagree |
+| RL8 | **MIDI** | Its offset stays set by hand |

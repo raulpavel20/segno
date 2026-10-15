@@ -121,3 +121,56 @@ Disabled actions are greyed in the command palette and the transport bar, and th
 - **The rules** are a pure function, `model::panelContext(selection, snapshot, view)` in `app/src/model/Selection`: the subject, the channel, the clip, whether the clip view is offered and opens, the live MIDI target and the inspector's sections. Its whole table is unit-tested (`[fast]`), with the helpers that keep the channel and the clips together (`withClips`, `pruned`).
 - **The shell** is tested end to end in `AppSmokeTests`: a header click after a clip, return rows, the mixer following a module click and the arrow keys, the clip view coming back after a trip to the mixer, the actions that are off in the mixer view, and one notification per click.
 - **By hand:** [manual-tests/M2.md](../manual-tests/M2.md), "Selection and context panels (A5)".
+
+## 8. The inspector at compact widths, and a module's properties (M3 C6, for review)
+
+**Status:** designed for the product owner's review (2026-10-15), questions IN1–IN7 below. Nothing is built until it's approved. The NOTES section the plan also named here came with the piano roll (P4, [piano-roll.md](piano-roll.md) §9.6) and is built.
+
+**What other DAWs do** (research of Live 12, Bitwig 5.3 and 6, Logic, Studio One / Studio Pro, Cubase, FL Studio and Reaper, 2026-10-15):
+- **Logic, Bitwig, Studio Pro and Cubase** dock the inspector in a side column. One key toggles it (`I`, F4) and a button does too. None of their manuals describes it floating over the content or hiding itself at narrow widths: below a size, panels push the content, or swap with the browser (Bitwig's smaller display profiles, Logic on iPad).
+- **Cubase's Info Line** is a strip above the editor holding the selected notes' fields. It is cheap on a laptop, but it is a second home for the same properties.
+- **Only Bitwig has a device inspector:** name, Active, its modulation sources and routings, voices, and for a plugin, Suspend. Elsewhere a device's facts are in its header, its window or the FX chain (Reaper shows a chain's latency in its corner).
+
+### 8.1 Over the arrangement, below 1440 px
+
+Today the inspector closes below 1440 logical px (daw-shell.md, "Adaptive"), and opening it docks it again, taking 260 px from the arrangement. Below 1440 px it now opens **over** the arrangement instead:
+- **Where:** along the arrangement's right edge, as wide as it is docked (260 px, or as you've sized it; its edge still resizes it), from under the top bar down to the detail panel. It casts the popovers' shadow (`shadow`) on what's under it. The arrangement keeps its width and scrolls under it.
+- **Opened and closed as now:** the top bar's inspector button, Ctrl+Alt+I, View > Show inspector, and the commands that need it. It slides in from the right with the panels' 150 ms ease-out (instant with "reduce motion").
+- **It stays open while you work beside it** (IN2): clicking clips, notes, tracks or modules updates it, as when it's docked. It closes by its button, Ctrl+Alt+I, or Escape while it has the keyboard focus.
+- **The view knows what it covers** (IN3): follow-playhead pages turn before the playhead goes under it, and Zoom to fit fits the song into what's left visible. Clips under it can still be reached by scrolling.
+- **One state** (one place for view state): the inspector is open or closed (`Shell::Panel`). Docked or over the arrangement isn't a state of its own: it follows the window's width. Crossing 1440 px keeps it open or closed as it was, and docks it or lifts it over.
+- **The mixer view** still has no inspector.
+
+Why not keep docking at compact widths: at 1280 px a docked inspector leaves the arrangement about 970 px beside the browser's rail. Over the arrangement, the inspector costs nothing until you ask for it, and gives the room back when you close it. It covers the arrangement's right end while it's open; IN3 keeps the playhead out from under it.
+
+### 8.2 MODULE: the module selected in the chain
+
+While the module chain was used last ([§6](#6-keys-and-the-area-used-last)) and a module is selected in it, the inspector shows **MODULE** for that module, above its channel's sections (TRACK, MIX, SENDS). Only what its panel's header doesn't already show (IN5):
+
+| Row | Shows |
+|---|---|
+| **Type** | The module's type, and for a plugin its maker and format: "Filter", "Diva · u-he · VST3" |
+| **Delay** | What it adds to the track's delay, which the DAW compensates: "None", "4 samples · 0.1 ms", "+107 ms" (the latency badge's figure, for every module) |
+| **Moved by** | The modulators that move it, one line each, with what they move: "LFO · Freq, Mix". A click on a line selects that modulator |
+| **Automated** | Its parameters with automation lanes, one line each, with **Show** (the lane, as a control's right-click shows it) |
+
+- Rows show only where they apply, as the export panel's do: no Moved by without modulators, no Automated without lanes, Delay always.
+- **A modulator** shows **ROUTES** under MODULE instead of Moved by: a row for each route, as the route list has them (modulators.md §7.4): the target, its amount bar, Show and Remove. Its amounts are set there too, each drag one undo step (IN6).
+- **A rack** shows Type ("Rack · 3 chains") and Delay (its largest chain's).
+- The preset, power, sidechain and Fold stay in the module's header, where they are; the inspector doesn't repeat them.
+
+### 8.3 Assistants
+
+Nothing new: what MODULE shows is already in `get_module` (its type and the delay it adds, `latencyMs`), `get_automation` and `get_modulators` (routes). A plugin's maker and format join `get_module`'s type.
+
+### 8.4 Questions for review
+
+| # | Question | Recommendation |
+|---|---|---|
+| IN1 | **Below 1440 px** | The inspector opens over the arrangement's right edge (as planned in M3), same width, with the popovers' shadow; the arrangement keeps its width. Docking at compact widths takes ~20 % of a laptop's arrangement for as long as it's open |
+| IN2 | **Closing it** | Its button, Ctrl+Alt+I, or Escape while it has focus. A click elsewhere doesn't close it: clicks beside it are how you choose what it shows |
+| IN3 | **What it covers** | The arrangement counts the covered part as out of view: follow-playhead turns pages before it, Zoom to fit fits what's left |
+| IN4 | **One state** | Open or closed is kept once; docked or over follows the width. Crossing 1440 px keeps it open or closed |
+| IN5 | **MODULE** | Type (maker and format for plugins), Delay, Moved by, Automated. Nothing the header shows (preset, power, sidechain) |
+| IN6 | **A modulator's ROUTES** | Its routes in the inspector, as the route list has them, editable there; the route list stays as the handle's right-click |
+| IN7 | **A strip above the editor** (Cubase's Info Line) | Not now: the inspector, over the arrangement at compact widths, is the one home for properties |

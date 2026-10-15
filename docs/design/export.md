@@ -233,3 +233,72 @@ Ctrl+Shift+E is free: Ctrl+E is split, and Ctrl+Shift+R, Live's export key, is C
 | Real-time export | For external instruments and effects | M4 (external hardware) |
 | Add to project | The export as a new track, or into the browser | M3 (browser) |
 | Metadata | Title, artist, ISRC, loudness tags | M7 |
+
+## 17. MP3, Ogg and Opus, several formats at once, and finding an export again (M3 C7, for review)
+
+**Status:** designed for the product owner's review (2026-10-15), questions EX1–EX8 below. Nothing is built until it's approved.
+
+**What others do** (research, 2026-10-15):
+- **Live 12:** MP3 is one switch, "CBR 320 kbps", exported alone or beside a WAV, AIFF or FLAC. No Ogg, no Opus, no tags.
+- **Bitwig:** WAV, FLAC, MP3, Ogg and Opus, several at once, each with a short menu of profiles.
+- **Logic:** checkboxes for PCM, MP3 and M4A in any combination. MP3 defaults to 160 kbps CBR, with VBR off "for player compatibility", and writes ID3 tags.
+- **Reaper:** a secondary format rendered in the same pass; MP3 as CBR, VBR or ABR; Opus.
+- **Studio Pro:** Ogg, Opus and MP3 as CBR or VBR, several formats in one pass, and a loudness target with a true-peak ceiling (ours already has one, §4).
+- **Patents and licences:**
+  - MP3's last patents expired in 2017, and Fraunhofer ended its licensing.
+  - LAME is LGPL-2.0-or-later, which can be used under the GPL, so it combines with Segno's AGPL. It is linked into GPL apps (MuseScore) and bundled by Audacity.
+  - libvorbis, libopus and libopusenc are BSD.
+- **What our libraries have:**
+  - JUCE 9.0.3 (pinned) writes Ogg Vorbis and, new in 9.0.3, Opus (libopusenc, resampling any rate to Opus's 48 kHz).
+  - JUCE's MP3 writer runs the `lame` program, which people won't have.
+  - tracktion loads LAME at run time, or calls lame or ffmpeg programs.
+
+### 17.1 The formats
+
+| Format | Encoder | Quality | Default | Sample rate |
+|---|---|---|---|---|
+| **MP3** | LAME 3.100, built from source and linked in (pinned in `cmake/Dependencies.cmake`; its licence in the credits) | 128, 192, 256, 320 kbps, constant | 320 kbps | 44.1 or 48 kHz as rendered; from 88.2 or 96 kHz, LAME converts to 44.1 or 48 |
+| **Ogg Vorbis** | JUCE's (libvorbis, bundled) | About 128, 192, 256, 320 kbps (Vorbis's quality 4, 6, 8, 9: variable, as Vorbis always is) | About 192 kbps | Any |
+| **Opus** | JUCE 9's (libopus, libopusenc, bundled) | 96, 128, 160, 192, 256 kbps | 160 kbps | Opus files are 48 kHz; the encoder converts from the render's rate |
+
+- **The Format row** gains MP3, Ogg Vorbis and Opus after WAV, FLAC and AIFF. A **Quality** row replaces Bit depth for them. Dither goes: a lossy encoder takes the 32-bit float render as it is, as Live and the mastering engineers' advice have it (EX3).
+- **Constant bit rate for MP3** (EX2): every player and service reads it, as Live's and Logic's defaults say.
+- **Normalise** works as for the others, and its −1 dBTP ceiling stays. Lossy encoding makes peaks overshoot, more at lower bit rates, so:
+- **The report measures the file itself** (EX4): decoded back, so its true peak is what listeners get ("−0.4 dBTP after encoding"). Above 0 dBTP, it's flagged as clipping is (§8).
+- **Tags:** the title (the file's name) and "Segno" as the encoder. Artist, album and the rest come with the project's metadata (§16, M7).
+- **Stems** export in any format, as now.
+
+### 17.2 Several formats at once (EX5)
+
+An **Also as** row under Format: None by default, or any other format, with its own quality or bit depth.
+- **One render, two files:** "Song.wav" and "Song.mp3", both measured in the report. The second takes the first's sample rate, or the nearest its format allows, through its encoder as above.
+- **The toast and the report** name both.
+- **Assistants:** `export_audio` takes `alsoAs` (a format, with its quality or bit depth).
+
+### 17.3 Finding an export again (EX6)
+
+The plan's "add to project" (§16): an export as a new track, or in the browser.
+- **In the browser:** the project's folder is already a place in the browser (browser.md §9), Exports in it. The report's **Show** gains **Show in browser**, which opens the browser at Project ▸ Exports with the file selected. From there it drags onto the arrangement like any file, or previews.
+- **No automatic new track:** bounce to a new track ([bounce.md](bounce.md)) does that inside the project, with the mix copied and lanes kept. An export is for outside the project.
+
+### 17.4 Assistants
+
+`export_audio`:
+- `format` takes `mp3`, `ogg` and `opus`, with `quality` in kbps;
+- `alsoAs` exports a second format in the same pass (§17.2);
+- its report gains each file's true peak after encoding.
+
+These are new optional arguments, so no released tool changes (ADR 0021).
+
+### 17.5 Questions for review
+
+| # | Question | Recommendation |
+|---|---|---|
+| EX1 | **Which formats** | MP3, Ogg Vorbis and Opus, all three: Ogg and Opus come with JUCE, MP3 is what people send |
+| EX2 | **MP3's settings** | Constant 128, 192, 256 or 320 kbps; 320 by default. No variable bit rate: some players and services still misread its length |
+| EX3 | **Dither for lossy formats** | None: the encoder takes the float render. The Dither row hides for them |
+| EX4 | **The true peak after encoding** | The report decodes each lossy file and measures it, so its true peak is what listeners get, flagged above 0 dBTP |
+| EX5 | **Several formats at once** | One more, "Also as", rendered once. Not a list of every format: two files is what people send (a master and an MP3) |
+| EX6 | **An export back in the project** | "Show in browser" in the report: Project ▸ Exports is already in the browser, and drags from there. No automatic new track (bounce does that) |
+| EX7 | **LAME in the build** | Built from its pinned source and linked in, not loaded at run time or run as a program: it works the same on every machine. Its licence (LGPL-2.0-or-later) is listed in the credits and REUSE.toml |
+| EX8 | **Tags** | Title and encoder now; the rest with the project's metadata in M7 |
