@@ -1,5 +1,6 @@
 #include "Modulator.h"
 
+#include "DevicePlugin.h"
 #include "SpecParameter.h"
 
 #include <algorithm>
@@ -13,12 +14,12 @@ namespace mod = dsp::mod;
 
 const juce::Identifier Modulator::stateType{"FDMODULATOR"};
 const juce::Identifier Modulator::copyId{"fdCopy"};
+const juce::Identifier Modulator::placeId{"fdBefore"};
+const juce::Identifier Modulator::keptRollId{"fdKeptRoll"};
 
 namespace
 {
 const juce::Identifier kTypeId{"fdType"};
-const juce::Identifier kBeforeId{"fdBefore"};
-const juce::Identifier kKeptRollId{"fdKeptRoll"};
 const juce::Identifier kKeptLapId{"fdKeptLap"};
 const juce::Identifier kStepsId{"fdSteps"};
 const juce::Identifier kChancesId{"fdChances"};
@@ -193,15 +194,15 @@ void Modulator::followStoredValues()
 
 te::EditItemID Modulator::place() const
 {
-    return te::EditItemID::fromVar(state[kBeforeId]);
+    return te::EditItemID::fromVar(state[placeId]);
 }
 
 void Modulator::setPlace(te::EditItemID plugin, juce::UndoManager* um)
 {
     if (plugin.isValid())
-        state.setProperty(kBeforeId, plugin.toVar(), um);
+        state.setProperty(placeId, plugin.toVar(), um);
     else
-        state.removeProperty(kBeforeId, um);
+        state.removeProperty(placeId, um);
 }
 
 te::EditItemID Modulator::getPluginToProcessBefore()
@@ -227,7 +228,7 @@ std::uint64_t Modulator::roll() const noexcept
 
 bool Modulator::kept() const
 {
-    return state.hasProperty(kKeptRollId);
+    return state.hasProperty(keptRollId);
 }
 
 void Modulator::setKept(bool keep, juce::UndoManager* um)
@@ -235,12 +236,12 @@ void Modulator::setKept(bool keep, juce::UndoManager* um)
     if (keep)
     {
         // The roll playing now, and the lap the loop is on: what you heard.
-        state.setProperty(kKeptRollId, juce::String(static_cast<juce::int64>(roll_.load())), um);
+        state.setProperty(keptRollId, juce::String(static_cast<juce::int64>(roll_.load())), um);
         state.setProperty(kKeptLapId, lap_.load(), um);
     }
     else
     {
-        state.removeProperty(kKeptRollId, um);
+        state.removeProperty(keptRollId, um);
         state.removeProperty(kKeptLapId, um);
     }
 }
@@ -275,8 +276,8 @@ void Modulator::setStep(int step, float value, float chance, juce::UndoManager* 
 
 void Modulator::refreshFromState()
 {
-    kept_.store(state.hasProperty(kKeptRollId));
-    keptRoll_.store(static_cast<std::uint64_t>(state[kKeptRollId].toString().getLargeIntValue()));
+    kept_.store(state.hasProperty(keptRollId));
+    keptRoll_.store(static_cast<std::uint64_t>(state[keptRollId].toString().getLargeIntValue()));
     keptLap_.store(static_cast<int>(state.getProperty(kKeptLapId, 0)));
     std::vector<float> values(Steps::maxSteps), chances(Steps::maxSteps, 1.0f);
     for (int i = 0; i < Steps::maxSteps; ++i)
@@ -294,7 +295,7 @@ void Modulator::refreshFromState()
 
 void Modulator::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& id)
 {
-    if (tree == state && (id == kKeptRollId || id == kKeptLapId || id == kStepsId || id == kChancesId))
+    if (tree == state && (id == keptRollId || id == kKeptLapId || id == kStepsId || id == kChancesId))
         refreshFromState();
 }
 
@@ -722,5 +723,12 @@ void Modulator::applyToBuffer(const te::PluginRenderContext& context)
         }
         level_.store(static_cast<float>(std::clamp(followed_, 0.0, 1.0)), std::memory_order_relaxed);
     }
+}
+bool movedByModulators(const te::AutomatableParameter& param)
+{
+    for (auto a : param.getAssignments())
+        if (dynamic_cast<const Modulator::Assignment*>(a) != nullptr)
+            return true;
+    return false;
 }
 } // namespace fd::engine

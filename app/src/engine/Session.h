@@ -38,6 +38,17 @@ public:
     [[nodiscard]] virtual std::string_view deviceId() const = 0;
 };
 
+/// UI access to a modulator (docs/design/modulators.md): its panel's context (its parameters,
+/// its Listen for a Follower) and what isn't a parameter (its routes, where it is, its roll).
+class ModulatorHandle
+{
+public:
+    virtual ~ModulatorHandle() = default;
+    [[nodiscard]] virtual ui::DeviceUiContext& context() = 0;
+    [[nodiscard]] virtual model::ModulatorHost& host() = 0;
+    [[nodiscard]] virtual model::ModulatorKind kind() const = 0;
+};
+
 /// Something that can be added to a chain: one of our devices or a scanned plugin.
 struct AvailableDevice
 {
@@ -501,6 +512,45 @@ public:
         ParamTarget target_;
         bool touching_ = false;
     };
+
+    // ---- modulators (docs/design/modulators.md, ADR 0061; each edit one undoable step) ---------
+    // A modulator sits in a track's chain as a module does: the snapshot lists it among them (a
+    // DeviceSlot of kind Modulator), and its place counts as theirs for the module calls above
+    // (addDevice and moveDevice indices). Its id reaches removeDevice, moveDevice and
+    // setDeviceEnabled. It moves parameters on its own track: its routes.
+
+    /// Adds a modulator at `index` of a track's chain (-1: its end). Its id; 0 where there can't
+    /// be one (the master, for now).
+    std::uint64_t addModulator(std::uint64_t channel, model::ModulatorKind kind, int index = -1);
+    /// Routes a modulator to a parameter on its track at `amount`: -2 ... +2 of its range (both
+    /// ways, half of it each way at 1; below 0 the other way). A route already there takes the
+    /// amount. False for another track's parameter, its own, or a loop (modulators.md §8).
+    bool routeModulator(std::uint64_t modulator, const ParamTarget& target, float amount = 0.5f);
+    /// A route's amount (-2 ... +2).
+    bool setRouteAmount(std::uint64_t modulator, const ParamTarget& target, float amount);
+    bool removeRoute(std::uint64_t modulator, const ParamTarget& target);
+    /// All its routes go ("Remove routes").
+    void removeRoutes(std::uint64_t modulator);
+    /// Keep as played (keep) or Let it roll (ADR 0062). False for a modulator that rolls no dice.
+    bool keepRoll(std::uint64_t modulator, bool keep);
+    /// Keep all as played, or Let all roll: every modulator that rolls dice.
+    void keepAllRolls(bool keep);
+    /// Its panel's context and host; null if there's no such modulator.
+    [[nodiscard]] std::unique_ptr<ModulatorHandle> openModulator(std::uint64_t modulator);
+    /// What the pointer shows of the modulators (modulators.md §7.4), for every control on the
+    /// track: a handle hovered dims the other modulators' rings; one dragged marks every control it
+    /// can move, and lights the one under the pointer. Never saved.
+    struct ModulatorPointer
+    {
+        std::uint64_t modulator = 0; // hovered or dragged; 0: none
+        bool dragging = false;
+        std::optional<ParamTarget> over; // the control under a dragged handle
+        bool operator==(const ModulatorPointer&) const = default;
+    };
+    void setModulatorPointer(const ModulatorPointer& pointer);
+    [[nodiscard]] const ModulatorPointer& modulatorPointer() const;
+    /// Whether a modulator could move a parameter: on its track, not its own, no loop.
+    [[nodiscard]] bool canRoute(std::uint64_t modulator, const ParamTarget& target) const;
 
     // ---- recording (C5, ADRs 0030 and 0031, docs/design/recording.md) -------------------------
     // A track listens to an audio input and a MIDI input, and records one kind at a time. Its

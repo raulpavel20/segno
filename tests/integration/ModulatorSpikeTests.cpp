@@ -268,11 +268,17 @@ struct Fixture
 
     Fixture()
     {
-        te::ModifierList::isCustomType = [](const juce::Identifier& t) { return t == kSpikeType; };
-        te::ModifierList::createCustom = [](te::Edit& e, const juce::ValueTree& v) -> te::Modifier* {
-            return new SpikeModulator(e, v);
+        fd::engine::registerDevices(engine); // the modulators' own type: the spike's goes before it
+        auto isTheirs = te::ModifierList::isCustomType;
+        auto makeTheirs = te::ModifierList::createCustom;
+        te::ModifierList::isCustomType = [isTheirs](const juce::Identifier& t)
+        { return t == kSpikeType || (isTheirs && isTheirs(t)); };
+        te::ModifierList::createCustom = [makeTheirs](te::Edit& e, const juce::ValueTree& v) -> te::Modifier*
+        {
+            if (v.hasType(kSpikeType))
+                return new SpikeModulator(e, v);
+            return makeTheirs ? makeTheirs(e, v) : nullptr;
         };
-        fd::engine::registerDevices(engine);
         engine.getPluginManager().createBuiltInType<ProbePlugin>();
         REQUIRE(writeWav(inputFile.getFile().getFullPathName().toStdString(), input, kSampleRate));
         edit = te::Edit::createSingleTrackEdit(engine, te::Edit::EditRole::forRendering);

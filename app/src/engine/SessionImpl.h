@@ -3,18 +3,18 @@
 #include "engine/ClipNotes.h"
 #include "engine/FileIndexer.h"
 #include "engine/MidiTap.h"
+#include "engine/Modulator.h"
 #include "engine/PreviewPlayer.h"
 #include "engine/Session.h"
 #include "model/StackEdits.h"
 #include "model/Takes.h"
 #include "model/TrackEdits.h"
 
-#include <tracktion_engine/tracktion_engine.h>
-
 #include <algorithm>
 #include <atomic>
 #include <map>
 #include <set>
+#include <tracktion_engine/tracktion_engine.h>
 #include <utility>
 
 namespace fd::engine
@@ -384,6 +384,7 @@ struct Session::Impl final : private juce::ValueTree::Listener,
         float offset = 0.0f, scale = 1.0f;
         DevicePlugin* native = nullptr; // our module
         size_t index = 0;               // its parameter's index
+        const ParamSpec* spec = nullptr; // ours (a module's or a modulator's): what its values mean
 
         [[nodiscard]] float toTravel(float value) const noexcept { return std::clamp((value - offset) / scale, 0.0f, 1.0f); }
         [[nodiscard]] float toEngine(float travel) const noexcept { return offset + std::clamp(travel, 0.0f, 1.0f) * scale; }
@@ -551,6 +552,60 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     rackInfo(te::RackInstance& instance, const std::function<model::DeviceSlot(te::Plugin&)>& slotOf) const;
     Session::MacroPointer macroPointer;
 
+    // ---- modulators (docs/design/modulators.md, ADR 0061) --------------------------------------
+    // A modulator is an engine::Modulator in its track's modifier list, processed in the chain just
+    // before the plugin it's placed before (fdBefore): the chain's order is the plugins' with each
+    // modulator before the plugin it names, and those placed before the mixer (or nothing) after
+    // the last module. A route is the modulator's assignment on a parameter, its value the amount.
+    /// One item of a channel's chain as the views show it: a module or a modulator.
+    struct ChainItem
+    {
+        te::Plugin* plugin = nullptr;
+        Modulator* modulator = nullptr;
+        [[nodiscard]] std::uint64_t id() const;
+    };
+    /// A track's chain with its modulators where they sit.
+    [[nodiscard]] static std::vector<ChainItem> chainItems(te::Track& track);
+    /// Puts a track's chain in `order` (its modules and modulators, all of them): the modules in
+    /// that order before the mixer's plugins, each modulator placed before the plugin after it
+    /// (the mixer, or nothing, after the last module), the modulators in that order. One step.
+    void arrangeChain(te::Track& track, const std::vector<ChainItem>& order);
+    /// A modulator by id, on any track.
+    [[nodiscard]] Modulator* modulator(std::uint64_t id) const;
+    /// Every modulator in the project.
+    [[nodiscard]] std::vector<Modulator*> modulators() const;
+    /// The track a modulator is on.
+    [[nodiscard]] te::AudioTrack* trackOf(const Modulator& modulator) const;
+    /// A modulator's routes: each parameter it moves and its assignment there.
+    struct Route
+    {
+        Param param;
+        te::AutomatableParameter::ModifierAssignment::Ptr assignment;
+    };
+    [[nodiscard]] std::vector<Route> routesOf(const Modulator& modulator) const;
+    /// Whether routing `from` to `param` would make a loop: `param` is one of `from`'s own, or of a
+    /// modulator that moves `from`, however far round (modulators.md §8).
+    [[nodiscard]] bool wouldLoop(const Modulator& from, const te::AutomatableParameter& param) const;
+    /// Each modulator's copies (Per Target) counted from its routes: after routes change, a load,
+    /// undo or redo.
+    void refreshModulatorRoutes();
+    /// The modulators that move a parameter, and the range they move it over now (normalised).
+    struct Moved
+    {
+        float from = 0.0f, to = 0.0f;
+        std::vector<Modulator*> by;
+    };
+    [[nodiscard]] std::optional<Moved> movedBy(te::AutomatableParameter& param) const;
+    /// Playback starting: every modulator that doesn't keep a roll rolls again (ADR 0062).
+    void startModulatorPasses();
+    /// The modulators' info for the snapshot.
+    [[nodiscard]] std::shared_ptr<const model::ModulatorInfo> modulatorInfo(const Modulator& modulator) const;
+    Session::ModulatorPointer modulatorPointer;
+    /// A control's look while modulators move it or one is dragged over it (modulators.md §7.4).
+    [[nodiscard]] std::optional<ui::ParamBinding::Modulated>
+    modulatedLook(te::AutomatableParameter& param) const;
+    [[nodiscard]] ui::ParamBinding::MacroDrag modulatorDragLook(te::AutomatableParameter& param) const;
+
 private:
     void changeListenerCallback(juce::ChangeBroadcaster* source) override;
     void recordingFinished(te::InputDeviceInstance& instance, te::EditItemID target,
@@ -578,6 +633,17 @@ private:
             return;
         if (id == te::IDs::enabled && t.hasType(te::IDs::PLUGIN)) // undo and MCP too
             endNotesOnPowerChange(t);
+        // A modulator's settings (modulators.md): saved, not the snapshot's (its knobs show them).
+        // Its place changes where it's processed (playback is rebuilt); its roll and power show.
+        if (t.hasType(Modulator::stateType))
+        {
+            dirty = true;
+            if (id == Modulator::placeId)
+                restartPending = true;
+            if (id == Modulator::placeId || id == Modulator::keptRollId || id == te::IDs::enabled)
+                changed(t);
+            return;
+        }
         // Arming is a listening state, like solo; showing takes is view state; input routing
         // follows the tracks' inputs.
         if (id == armedId || id == showTakesId || id == stackOpenId || inInputs(t))
@@ -662,8 +728,10 @@ private:
     void valueTreeChildOrderChanged(juce::ValueTree& t, int, int newIndex) override
     {
         // A module or a send moved in its chain: the engine rebuilds its graph only for one added or
-        // removed, so the new order would be heard only after something else rebuilt it.
-        restartPending = restartPending || t.getChild(newIndex).hasType(te::IDs::PLUGIN);
+        // removed, so the new order would be heard only after something else rebuilt it. Likewise
+        // a modulator among its track's (the order they're processed in).
+        restartPending = restartPending || t.getChild(newIndex).hasType(te::IDs::PLUGIN) ||
+                         t.getChild(newIndex).hasType(Modulator::stateType);
         structureChanged(t);
     }
     void deviceStateChanged(const juce::ValueTree& plugin)

@@ -107,8 +107,9 @@ public:
         const te::EditItemID modulator;
         std::atomic<int> copy{0};
     };
-    /// A route's copy, as kept on it.
-    static const juce::Identifier copyId;
+    /// A route's copy, as kept on it; where it's placed (the plugin it's processed before); the
+    /// roll it keeps.
+    static const juce::Identifier copyId, placeId, keptRollId;
 
 private:
     struct Timer;

@@ -4,6 +4,7 @@
 #include "model/Controllers.h"
 #include "model/Fades.h"
 #include "model/KeyMap.h"
+#include "model/Modulators.h"
 #include "model/Recording.h"
 #include "model/TempoMap.h"
 
@@ -79,11 +80,18 @@ struct ClipInfo
 };
 
 struct RackInfo;
+struct ModulatorInfo;
 
-/// A device in a track's chain (C6): ours or a third-party plugin.
+/// A device in a track's chain (C6): ours, a third-party plugin, or a modulator (ADR 0061: it
+/// sits in the chain like any module, though no sound passes through it).
 struct DeviceSlot
 {
-    enum class Kind { Native, External };
+    enum class Kind
+    {
+        Native,
+        External,
+        Modulator
+    };
 
     std::uint64_t id = 0;
     Kind kind = Kind::Native;
@@ -96,6 +104,28 @@ struct DeviceSlot
     std::optional<std::uint64_t> sidechainSource; // the track feeding it, if any
     /// A rack (docs/design/racks.md): its chains and macros. Null for any other module.
     std::shared_ptr<const RackInfo> rack;
+    /// A modulator (docs/design/modulators.md): its routes and its roll. Null for any other.
+    std::shared_ptr<const ModulatorInfo> modulator;
+};
+
+/// One of a modulator's routes (modulators.md §7): the parameter it moves, by its channel and
+/// key (as automation names it), and how far.
+struct ModulatorRouteInfo
+{
+    std::uint64_t channel = 0;
+    std::string key;     // "m<module>/<param>", "volume", "pan", "send/<return>"
+    std::string module;  // the module's name ("Filter", "Mixer")
+    std::string param;   // the parameter's name ("Freq")
+    float amount = 0.5f; // -2 ... +2 of its range (both ways: half of it each way at 1)
+    int copy = 0;        // its copy with Per Target
+};
+
+/// A modulator in a chain (modulators.md, ADR 0061).
+struct ModulatorInfo
+{
+    ModulatorKind kind = ModulatorKind::Lfo;
+    std::vector<ModulatorRouteInfo> routes;
+    bool kept = false; // it plays a roll it keeps (ADR 0062)
 };
 
 /// A rack's mapping of a macro to a parameter of a module in it (racks.md §4).

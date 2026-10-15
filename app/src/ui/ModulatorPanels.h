@@ -10,34 +10,7 @@
 
 namespace fd::app
 {
-/// What a modulator's panel shows that isn't one of its parameters (docs/design/modulators.md
-/// §9, §13): how many targets it moves, where it is now, the roll it plays and whether it's kept,
-/// what a Follower heard, a Steps pattern. The DAW's Session keeps it; the drawn states stub it.
-/// Message thread only.
-class ModulatorHost
-{
-public:
-    virtual ~ModulatorHost() = default;
-    /// How many targets it moves: its handle's count, and its copies with Per Target.
-    [[nodiscard]] virtual int routeCount() const = 0;
-    /// Where it is now: cycles (LFO), steps (Random, Steps), milliseconds since it fired
-    /// (Envelope), unused for the Follower.
-    [[nodiscard]] virtual double position() const = 0;
-    /// The Envelope: each copy's milliseconds since it fired, or -1 while it isn't playing (its
-    /// chance didn't come up, or it has finished). One without Per Target.
-    [[nodiscard]] virtual std::vector<double> playing() const { return {}; }
-    /// The roll it plays now (§13), and whether it keeps it.
-    [[nodiscard]] virtual std::uint64_t roll() const = 0;
-    [[nodiscard]] virtual bool kept() const = 0;
-    /// Keep (or Let it roll): one undo step.
-    virtual void setKept(bool kept) = 0;
-    /// The Follower: the levels it heard, 0..1, oldest first, the last few seconds.
-    [[nodiscard]] virtual std::vector<float> heard() const { return {}; }
-    /// Steps: each step's value (-1 ... +1) and chance (0..1); setStep changes one, one undo step.
-    [[nodiscard]] virtual std::vector<float> stepValues() const { return {}; }
-    [[nodiscard]] virtual std::vector<float> stepChances() const { return {}; }
-    virtual void setStep(int /*step*/, float /*value*/, float /*chance*/) {}
-};
+using ModulatorHost = model::ModulatorHost;
 
 /// A modulator's panel on the module grid (modulators.md §12): its main section with its
 /// display and the handle in the display's corner, then TARGETS; the Modulator icon in its

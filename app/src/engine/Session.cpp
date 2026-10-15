@@ -147,6 +147,16 @@ public:
             session_.macroMenu(id(), std::string(spec(i).id), menu);
     }
 
+    // Moved by its track's modulators (modulators.md §7.4).
+    [[nodiscard]] std::optional<Modulated> modulated(size_t i) const override
+    {
+        return session_.impl().modulatedLook(plugin_.parameter(i));
+    }
+    [[nodiscard]] MacroDrag modulatorDrag(size_t i) const override
+    {
+        return session_.impl().modulatorDragLook(plugin_.parameter(i));
+    }
+
 private:
     std::optional<Session::ParamTarget> target(size_t i) const
     {
@@ -547,11 +557,38 @@ void Session::Impl::rebuildSnapshot()
         }
         return slot;
     };
-    auto devicesOf = [&](te::PluginList& list, model::TrackInfo& info)
+    // A modulator in a track's chain (modulators.md): where it sits, its routes and its roll.
+    const auto modulatorSlot = [&](const Modulator& m)
     {
-        for (auto* p : chain(list))
+        model::DeviceSlot slot;
+        slot.id = m.itemID.getRawID();
+        slot.kind = model::DeviceSlot::Kind::Modulator;
+        slot.name = m.getName().toStdString();
+        slot.deviceId = std::string(m.info().id);
+        slot.enabled = m.enabledParam == nullptr || m.enabledParam->getCurrentValue() >= 0.5f;
+        slot.modulator = modulatorInfo(m);
+        return slot;
+    };
+    refreshModulatorRoutes(); // their copies, after whatever changed (a load, undo, a route)
+    auto devicesOf = [&](te::PluginList& list, model::TrackInfo& info, te::Track* track)
+    {
+        const auto items = track != nullptr ? chainItems(*track) : std::vector<ChainItem>{};
+        if (track == nullptr)
+            for (auto* p : chain(list))
+            {
+                auto slot = slotOf(*p);
+                if (slot.instrument && info.instrument.empty())
+                    info.instrument = slot.name;
+                info.devices.push_back(std::move(slot));
+            }
+        for (const auto& item : items)
         {
-            auto slot = slotOf(*p);
+            if (item.modulator != nullptr)
+            {
+                info.devices.push_back(modulatorSlot(*item.modulator));
+                continue;
+            }
+            auto slot = slotOf(*item.plugin);
             if (slot.instrument && info.instrument.empty())
                 info.instrument = slot.name;
             info.devices.push_back(std::move(slot));
@@ -590,7 +627,7 @@ void Session::Impl::rebuildSnapshot()
             info.audition = audition->take;
         std::sort(info.clips.begin(), info.clips.end(), [](const auto& a, const auto& b) { return a.start < b.start; });
         fillFades(*t, info.clips);
-        devicesOf(t->pluginList, info);
+        devicesOf(t->pluginList, info, t);
         info.mix = mixOf(t->pluginList);
         if (!isReturn(*t))
         {
@@ -648,7 +685,7 @@ void Session::Impl::rebuildSnapshot()
     master.id = masterId();
     master.role = model::TrackInfo::Role::Master;
     master.name = "Master";
-    devicesOf(edit->getMasterPluginList(), master);
+    devicesOf(edit->getMasterPluginList(), master, nullptr);
     master.mix = mixOf(edit->getMasterPluginList());
     s->automationLanes = laneInfos();
     // Every file a clip or take uses, kept while the project is open (Remove unused files).
@@ -940,6 +977,7 @@ void Session::play()
         impl_->drainTap();
         impl_->playStartedAt = impl_->tap.now();
         impl_->wasPlaying = true;
+        impl_->startModulatorPasses(); // a new pass: fresh dice for what doesn't keep its roll
     }
     impl_->edit->getTransport().play(false);
 }
@@ -1538,7 +1576,22 @@ std::uint64_t Session::addDevice(std::uint64_t trackId, const std::string& key, 
     if (list == nullptr)
         return 0;
     impl_->beginEdit("Add module");
-    auto* plugin = impl_->insertDevice(*list, key, index);
+    // Along a track's chain, its modulators count among its places (modulators.md §6).
+    auto* track = impl_->channelTrack(trackId);
+    const auto items = track != nullptr ? Impl::chainItems(*track) : std::vector<Impl::ChainItem>{};
+    const bool modulated =
+        std::any_of(items.begin(), items.end(), [](const auto& item) { return item.modulator != nullptr; });
+    auto* plugin = impl_->insertDevice(*list, key, modulated ? -1 : index);
+    if (modulated && plugin != nullptr)
+    {
+        auto order = Impl::chainItems(*track);
+        order.erase(std::remove_if(order.begin(), order.end(),
+                                   [plugin](const auto& item) { return item.plugin == plugin; }),
+                    order.end());
+        const auto at = index < 0 ? order.size() : std::min(order.size(), static_cast<size_t>(index));
+        order.insert(order.begin() + static_cast<std::ptrdiff_t>(at), Impl::ChainItem{plugin, nullptr});
+        impl_->arrangeChain(*track, order);
+    }
     // A new module starts from your default, if you set one (ADR 0044), in the same step.
     if (auto* native = dynamic_cast<DevicePlugin*>(plugin))
         if (const auto start = PresetController::startingPoint(native->device().info(), presetLibrary()))
@@ -1553,6 +1606,33 @@ std::uint64_t Session::addDevice(std::uint64_t trackId, const std::string& key, 
 
 void Session::removeDevice(std::uint64_t deviceId)
 {
+    if (auto* m = impl_->modulator(deviceId))
+    {
+        // A modulator: its routes and its parameters' lanes go with it.
+        impl_->beginEdit("Remove " + m->getName());
+        for (const auto& r : impl_->routesOf(*m))
+            r.param.param->removeModifier(*r.assignment);
+        impl_->dropLanesOf(deviceId);
+        te::Modifier::Ptr keep(m);
+        m->remove();
+        impl_->refreshModulatorRoutes();
+        return;
+    }
+    // One step, whatever goes with it.
+    EditGroup group(*this, "Remove module");
+    if (auto* p = impl_->plugin(deviceId); p != nullptr && !p->isInRack())
+        if (auto* track = dynamic_cast<te::Track*>(p->getOwnerTrack()))
+        {
+            // The modulators before it stay where they are: placed before what comes after it.
+            auto order = Impl::chainItems(*track);
+            const auto before = order.size();
+            order.erase(std::remove_if(order.begin(), order.end(),
+                                       [p](const auto& item) { return item.plugin == p; }),
+                        order.end());
+            if (order.size() != before && std::any_of(order.begin(), order.end(), [](const auto& item)
+                                                      { return item.modulator != nullptr; }))
+                impl_->arrangeChain(*track, order);
+        }
     if (auto* rack = impl_->rackInstance(deviceId))
     {
         impl_->beginEdit("Remove module");
@@ -1579,6 +1659,37 @@ void Session::removeDevice(std::uint64_t deviceId)
 
 void Session::moveDevice(std::uint64_t deviceId, int index)
 {
+    // Along a track's chain with modulators (modulators.md §6): every item where it was but this.
+    {
+        auto* m = impl_->modulator(deviceId);
+        auto* moving = impl_->plugin(deviceId);
+        te::Track* track = m != nullptr ? impl_->trackOf(*m)
+                           : moving != nullptr && !moving->isInRack()
+                               ? dynamic_cast<te::Track*>(moving->getOwnerTrack())
+                               : nullptr;
+        if (track != nullptr)
+        {
+            auto order = Impl::chainItems(*track);
+            if (m != nullptr || std::any_of(order.begin(), order.end(),
+                                            [](const auto& item) { return item.modulator != nullptr; }))
+            {
+                const auto from = std::find_if(order.begin(), order.end(), [deviceId](const auto& item)
+                                               { return item.id() == deviceId; });
+                if (from == order.end())
+                    return;
+                const auto item = *from;
+                const auto was = static_cast<int>(from - order.begin());
+                order.erase(from);
+                index = std::clamp(index, 0, static_cast<int>(order.size()));
+                if (index == was)
+                    return;
+                order.insert(order.begin() + index, item);
+                impl_->beginEdit(m != nullptr ? "Move " + m->getName() : juce::String("Move module"));
+                impl_->arrangeChain(*track, order);
+                return;
+            }
+        }
+    }
     auto* p = impl_->plugin(deviceId);
     if (p != nullptr && p->isInRack()) // along its rack's chain: to where it ends up
     {
@@ -1845,6 +1956,16 @@ std::unique_ptr<Session::LevelReader> Session::levelReader(std::uint64_t channel
 
 void Session::setDeviceEnabled(std::uint64_t deviceId, bool enabled)
 {
+    if (auto* m = impl_->modulator(deviceId))
+    {
+        // Off, it moves nothing (tracktion leaves a disabled modifier's routes out).
+        if (m->enabledParam != nullptr && (m->enabledParam->getCurrentValue() >= 0.5f) != enabled)
+        {
+            impl_->beginEdit("Modulator on/off");
+            m->enabledParam->setParameter(enabled ? 1.0f : 0.0f, juce::sendNotificationSync);
+        }
+        return;
+    }
     if (auto* p = impl_->plugin(deviceId); p != nullptr && p->isEnabled() != enabled)
     {
         impl_->beginEdit("Module on/off");
@@ -2081,12 +2202,18 @@ std::string Session::savedViewState() const
 
 namespace
 {
-/// Undo and redo restore our modules' stored values; their parameters follow (DevicePlugin).
+/// Undo and redo restore our modules' and modulators' stored values; their parameters follow
+/// (DevicePlugin, Modulator).
 void followStoredValues(te::Edit& edit)
 {
     for (auto* p : te::getAllPlugins(edit, false))
         if (auto* native = dynamic_cast<DevicePlugin*>(p))
             native->followStoredValues();
+    for (auto* t : te::getAudioTracks(edit))
+        if (auto* list = t->getModifierList())
+            for (auto* m : list->getModifiers())
+                if (auto* mod = dynamic_cast<Modulator*>(m))
+                    mod->followStoredValues();
 }
 } // namespace
 

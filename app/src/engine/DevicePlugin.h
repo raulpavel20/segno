@@ -107,6 +107,9 @@ void registerDevices(te::Engine& engine);
 /// Registers one device as a built-in plugin type (tests: a device of their own).
 void registerDevice(te::Engine& engine, const DeviceFactory& factory);
 
+/// Whether any of the track's modulators move `param` (modulators.md).
+[[nodiscard]] bool movedByModulators(const te::AutomatableParameter& param);
+
 /// UI binding for a native device: edits go through AutomatableParameter (automation
 /// recording and undo work).
 class DevicePluginBinding : public ui::ParamBinding
@@ -114,7 +117,13 @@ class DevicePluginBinding : public ui::ParamBinding
 public:
     explicit DevicePluginBinding(DevicePlugin& plugin) : plugin_(plugin) {}
 
-    float getPlain(size_t i) const override { return spec(i).fromNormalized(plugin_.parameter(i).getCurrentValue()); }
+    /// Its value: what a macro or automation sets it to; under modulators, its own (their ring
+    /// and dot show what they do, modulators.md §7.3).
+    float getPlain(size_t i) const override
+    {
+        auto& p = plugin_.parameter(i);
+        return spec(i).fromNormalized(movedByModulators(p) ? p.getCurrentBaseValue() : p.getCurrentValue());
+    }
     void setPlain(size_t i, float plain) override
     {
         plugin_.parameter(i).setParameter(spec(i).toNormalized(plain), juce::sendNotification);

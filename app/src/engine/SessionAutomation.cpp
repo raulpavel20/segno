@@ -143,7 +143,8 @@ std::vector<Session::Impl::Param> Session::Impl::paramsOf(std::uint64_t channelI
                                .device = device,
                                .steps = spec.numSteps(),
                                .native = native,
-                               .index = i});
+                               .index = i,
+                               .spec = &spec});
             }
             return;
         }
@@ -165,6 +166,29 @@ std::vector<Session::Impl::Param> Session::Impl::paramsOf(std::uint64_t channelI
                            .scale = range.getLength() > 0.0f ? range.getLength() : 1.0f});
         }
     };
+    // A modulator's parameters (modulators.md §5): automated, mapped, moved by another, as a module's.
+    const auto addModulator = [&](Modulator& m)
+    {
+        const auto specs = m.info().params;
+        for (size_t i = 0; i < specs.size(); ++i)
+        {
+            const auto& spec = specs[i];
+            out.push_back({.kind = Param::Kind::Module,
+                           .param = &m.parameter(i),
+                           .key = "m" + std::to_string(m.itemID.getRawID()) + "/" + std::string(spec.id),
+                           .name = std::string(spec.name),
+                           .module = m.getName().toStdString(),
+                           .paramId = std::string(spec.id),
+                           .device = m.itemID.getRawID(),
+                           .steps = spec.numSteps(),
+                           .index = i,
+                           .spec = &spec});
+        }
+    };
+    if (auto* t = channelTrack(channelId))
+        for (const auto& item : chainItems(*t))
+            if (item.modulator != nullptr)
+                addModulator(*item.modulator);
     for (auto* p : chain(*list))
     {
         auto* rack = rackTypeOf(p);
@@ -951,7 +975,7 @@ std::string Session::paramText(const ParamTarget& target, float travel) const
     case Impl::Param::Kind::Pan: return panText(p->toEngine(travel));
     case Impl::Param::Kind::Module:
     {
-        const auto& spec = p->native->device().info().params[p->index];
+        const auto& spec = *p->spec;
         return spec.toText(spec.fromNormalized(travel));
     }
     case Impl::Param::Kind::External: return p->param->valueToString(p->toEngine(travel)).toStdString();
@@ -973,7 +997,7 @@ std::optional<double> Session::paramPlain(const ParamTarget& target, float trave
     case Impl::Param::Kind::Pan: return p->toEngine(travel);
     case Impl::Param::Kind::Module:
     {
-        const auto& spec = p->native->device().info().params[p->index];
+        const auto& spec = *p->spec;
         return spec.fromNormalized(travel);
     }
     case Impl::Param::Kind::External: return std::clamp(travel, 0.0f, 1.0f); // normalised (mcp.md)
@@ -996,7 +1020,7 @@ std::optional<float> Session::paramFromPlain(const ParamTarget& target, double p
     case Impl::Param::Kind::Pan: return p->toTravel(std::clamp(v, -1.0f, 1.0f));
     case Impl::Param::Kind::Module:
     {
-        const auto& spec = p->native->device().info().params[p->index];
+        const auto& spec = *p->spec;
         return spec.toNormalized(v);
     }
     case Impl::Param::Kind::External: return std::clamp(v, 0.0f, 1.0f);
@@ -1024,7 +1048,7 @@ std::optional<float> Session::paramFromText(const ParamTarget& target, const std
         return std::nullopt;
     case Impl::Param::Kind::Module:
     {
-        const auto& spec = p->native->device().info().params[p->index];
+        const auto& spec = *p->spec;
         if (const auto v = spec.fromText(text))
             return spec.toNormalized(*v);
         return std::nullopt;
