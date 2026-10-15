@@ -7,7 +7,7 @@ A piano roll that's good to write music in, not only to fix notes: it writes in 
 - the menu bar as the complete list ([ADR 0040](../decisions/0040-a-menu-bar-and-everything-by-mouse.md)) and assistants' tools ([ADR 0021](../decisions/0021-mcp-server.md));
 - the UI foundations ([ADR 0023](../decisions/0023-ui-foundations.md)): every panel sized from its content, nothing touching.
 
-**Status:** approved by the product owner (2026-10-14), with every recommendation of §17 (N1–N19) and the stages of §16; the decision is [ADR 0058](../decisions/0058-the-piano-roll-writes-in-key-and-in-chords.md). A visual mockup of the clip view came first and was approved (2026-10-14). Each stage is then built and signed off on its own. **P4a built (2026-10-14), for review:** what building settled is §19. **Revised after the product owner's first use** (§20: the key's rows, chords chosen where they're written, Make chords… chord by chord), approved and built the same day. **The tools on the surface** (§25: the Tools pane, its Transform and Generate buttons) approved and built 2026-10-15; what building settled is §25.5. P4b and P4c built 2026-10-15 (§22–§24). **All three stages and the tools on the surface signed off by the product owner (2026-10-15).**
+**Status:** approved by the product owner (2026-10-14), with every recommendation of §17 (N1–N19) and the stages of §16; the decision is [ADR 0058](../decisions/0058-the-piano-roll-writes-in-key-and-in-chords.md). A visual mockup of the clip view came first and was approved (2026-10-14). Each stage is then built and signed off on its own. **P4a built (2026-10-14), for review:** what building settled is §19. **Revised after the product owner's first use** (§20: the key's rows, chords chosen where they're written, Make chords… chord by chord), approved and built the same day. **The tools on the surface** (§25: the Tools pane, its Transform and Generate buttons) approved and built 2026-10-15; what building settled is §25.5. P4b and P4c built 2026-10-15 (§22–§24). **All three stages and the tools on the surface signed off by the product owner (2026-10-15).** §26 (chance that rolls again each time it plays, with Keep; [ADR 0062](../decisions/0062-random-rolls-again-each-time-it-plays.md)) proposed for review (2026-10-15).
 
 ## 1. Why
 
@@ -660,3 +660,18 @@ The product owner approved every recommendation, Make chords as a tile (U6), and
 - **It floats** under `shell.toolsDockFrom` (900 px) of clip view, over the notes' right side, looking like a popover; docked, it's `surface1` with a line where the notes end.
 - **In the menus,** Notes ▸ Transform ▸ lists the tools without Quantise, which is Quantise… above it; the right-click Transform ▸ starts with Quantise…, as the pane's tiles do.
 
+
+## 26. Chance rolls again each time it plays (proposed, ADR 0062; for review)
+
+The product owner (2026-10-15) said a chance that comes out the same at the same place every time "defeats the purpose of using randomness." This section revises §10's "The same every time it's rendered" and N14. It was designed with the modulators, which follow the same rule ([modulators.md](modulators.md) §13, [ADR 0062](../decisions/0062-random-rolls-again-each-time-it-plays.md)).
+
+- **Chance and velocity spread roll again each time they play:** each time playback starts, each time the loop comes round, and on each lap of a looped clip.
+- **Keep chance as played** (Notes menu, after Re-roll chance): the clip keeps the roll you heard (the lap playing, or the last one played) and plays it every time, as clips do today.
+  - **Let chance roll** goes back to fresh rolls. Each is one undo step.
+  - While a clip's roll is kept, the Chance view's name in the bottom lane and the NOTES inspector's Chance row show a lock.
+  - Re-roll chance gives a kept clip another kept roll. It's dimmed, saying why, on a clip that rolls.
+- **Song ▸ Keep all as played** keeps every clip's and modulator's roll in the song, and **Let all roll** releases them.
+- **Clips saved with chance before this change open kept,** so nothing saved changes its sound.
+- **In the engine:** the decision moves from where tracktion builds a clip's playback (§22) to where its notes play. It's still a hash of the clip's seed, the clip, the note and its lap, now with the pass's roll and the transport loop's lap in it.
+- **Assistants:** `keep_roll` (`clip`, `keep`); `reroll_chance` applies to a kept clip.
+- **Tests:** §18's "the same in playback, bounce and export" holds for a kept clip. A clip that rolls differs between two passes, and Keep reproduces the pass it came from.

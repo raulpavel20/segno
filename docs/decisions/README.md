@@ -69,6 +69,8 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0058](0058-the-piano-roll-writes-in-key-and-in-chords.md) | The piano roll writes in key and in chords: one surface without a tool palette, in key by default, chords read from the notes and rewritten voice-led, other tracks' notes, per-note chance the same in every render, controller lanes, previewed tools; a Notes menu; three stages | Accepted |
 | [0059](0059-racks-are-a-browser-part-and-every-part-has-its-icon.md) | Racks are a part of the browser of their own, both kinds together; every part shows one icon, the same in the rail and the open browser; every search field shows the magnifier | Accepted |
 | [0060](0060-motion-comes-from-modulation-modules.md) | Motion comes from a collection of modulation modules (LFO, envelope follower, others) that drive any parameter, a rack's Morph and macros too; racks get no motion of their own; modulation built once, not into each module | Accepted |
+| [0061](0061-modulators-move-any-parameter-on-their-track.md) | Modulators (LFO, Random, Envelope, Follower, Steps) are modules that make no sound, in a zone at the start of the chain, moving any parameter on their track around where it's set; each target its own copy (Per Target) by default where it makes sense; the Wavetable's words; the DAW's only | Proposed |
+| [0062](0062-random-rolls-again-each-time-it-plays.md) | Random rolls again each time it plays (note chance, velocity spread, the modulators); Keep holds a roll; tools that write keep their seeds | Proposed; supersedes in part 0058 |
 
 ## Template
 

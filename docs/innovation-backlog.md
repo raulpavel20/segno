@@ -46,7 +46,7 @@ To schedule an idea, it needs:
 
 | Idea | Why | Status |
 |---|---|---|
-| **Drag-to-modulate:** drop any modulator on any parameter of any device; modulation is shown on every control | Faster and more visible than Live's modulation workflow | 📌 M4 |
+| **Drag-to-modulate:** drop any modulator on any parameter of any device; modulation is shown on every control | Faster and more visible than Live's modulation workflow | 📌 M3 P5 ([modulators.md](design/modulators.md)) |
 | **Macro snapshots with morphing** in racks | Live's macro variations, but blendable and automatable | 💡 (variations are M4; morphing later) |
 | **Per-note expression (MPE) everywhere** it makes sense | Expressive playing across the whole suite | 📌 M5 |
 | **Audio → wavetable resynthesis** in the wavetable synth | Turn any sound into an instrument | Scheduled: the Wavetable Synth, step 2 (M3 P1, ADR 0050) |

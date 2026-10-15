@@ -151,7 +151,7 @@ These depend on the host, so they live in the DAW. The plugin builds offer modul
 |---|---|---|---|
 | Racks + macros | Instrument, effect and MIDI racks; parallel chains; macros and macro variations | Instrument/Audio Effect/MIDI Effect Rack | M3 (moved up from M4, the product owner, 2026-10-13) |
 | Drum Rack | Pads, each holding any device chain; choke groups; drop samples onto pads | Drum Rack | M4 |
-| Modulators | LFO, envelope follower, shaper, MIDI expression → any parameter, by drag and drop | Modulators | M4 |
+| Modulators | LFO (a drawn shape covers Live's Shaper and Shaper MIDI), Random, Envelope, Follower, Steps: any parameter on the track, by drag and drop, each target its own copy ([modulators.md](../design/modulators.md), [ADR 0061](../decisions/0061-modulators-move-any-parameter-on-their-track.md)); Expression (MIDI expression) and Gesture later | Modulators | M3 (moved up from M4, the product owner, 2026-10-15) |
 | MIDI tools | Piano-roll generators and transformations (strum, arpeggiate, humanise, chordify, rhythm) | MIDI Tools | M6 / 1.x |
 
 ## Coverage check
