@@ -101,6 +101,7 @@ Shell::Shell(engine::Session& session, mcp::McpServer* assistants)
     registerActions();
     registerSongActions();
     registerNotesActions();
+    registerModulatorActions();
     // The browser (ADR 0046): what it holds goes where it's dropped, or on the selection.
     browser_.onLoad = [this](const std::string& item) { loadFromBrowser(item); };
     browser_.onOpenProject = [this](const juce::File& project) { openFile(project); };

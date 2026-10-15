@@ -143,7 +143,9 @@ std::vector<Menu> menuBar(MenuPlatform platform)
           action("song.insertSection"), separator(), action("song.loopSection"),
           action("song.previousSection"), action("song.nextSection"), separator(), action("song.selectClips"),
           action("song.duplicateSection"), action("song.deleteSection"), action("song.removeSectionMark"),
-          separator(), submenu("Section colour", {list("sectionColour")})}});
+          separator(), submenu("Section colour", {list("sectionColour")}),
+          // What's left to chance, as it played or rolling again (ADR 0062).
+          separator(), action("song.keepAllRolls")}});
 
     // Presets act on the selected module (ADR 0044, presets.md §10).
     menus.push_back(
@@ -164,7 +166,13 @@ std::vector<Menu> menuBar(MenuPlatform platform)
           action("module.storeSnapshot"), action("module.updateSnapshot"), action("module.renameSnapshot"),
           action("module.removeSnapshot"), action("module.morph"), action("module.vary"),
           action("module.varyMore"), separator(), action("module.saveRack"), action("module.saveRackAs"),
-          action("module.racksFolder")}});
+          action("module.racksFolder"), separator(),
+          // Modulators (modulators.md §15): one added, the selected one's roll and routes.
+          submenu("Add modulator",
+                  {action("module.addModulator.lfo"), action("module.addModulator.random"),
+                   action("module.addModulator.envelope"), action("module.addModulator.follower"),
+                   action("module.addModulator.steps")}),
+          action("module.keepRoll"), action("module.removeRoutes")}});
 
     menus.push_back(
         {"Transport",

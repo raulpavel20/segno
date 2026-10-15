@@ -187,6 +187,7 @@ target_sources(fd_app_ui INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/BrowserDrops.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ShellMenus.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ShellSong.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ShellModulators.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ShellNotes.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/TitleBar.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/WindowContent.cpp"

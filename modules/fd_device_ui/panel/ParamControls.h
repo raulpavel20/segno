@@ -20,6 +20,11 @@ void showParamMenu(DeviceUiContext& context, size_t paramIndex, juce::Component&
 /// wrapped by `whileAlive` (it runs only while the control is there).
 void addModulationItems(ModulationModel& model, size_t paramIndex, juce::PopupMenu& menu,
                         const std::function<std::function<void()>(std::function<void()>)>& whileAlive);
+/// The same with its sources added to `with`, the Modulate with ▸ submenu a host's own sources
+/// share (the DAW's modulators, modulators.md §15).
+void addModulationItems(ModulationModel& model, size_t paramIndex, juce::PopupMenu& menu,
+                        juce::PopupMenu& with,
+                        const std::function<std::function<void()>(std::function<void()>)>& whileAlive);
 
 /// Knob bound to a parameter: text, ranges, default and stepping come from its ParamSpec.
 class ParamKnob final : public Knob, public ParamControl
@@ -48,6 +53,7 @@ private:
     int source_ = -1;
     std::optional<int> ringRoute_; // the route a drag on the ring sets
     float ringAmount_ = 0.0f;
+    bool trackRing_ = false; // a drag of the track's modulators' ring (the host sets their route)
 };
 
 /// Toggle bound to a Toggle-kind parameter.

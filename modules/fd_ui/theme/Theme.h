@@ -168,6 +168,8 @@ struct ShellMetrics
     int takeIconSize = 12;        // the audition button in a take strip's name chip (ADR 0038)
     int clipButtonSize = 12;      // a button on a clip: cancel its bounce (menu-bar.md §15)
     int dropLine = 2;             // where a dragged module or row lands: a line in `active`
+    int dragScrollEdge = 24;      // a drag this near a scrolled view's edge scrolls it...
+    int dragScrollSpeed = 12;     // ...this far at a time, at most (a modulator's handle, modulators.md §6)
     int rackInset = 6;            // a rack's frame around its panels in the chain (racks.md §5)...
     int rackLabelHeight = 16;     // ...and its strip under them, naming the chain shown
     int progressHeight = 2;       // the progress line along the bottom of what's being worked on

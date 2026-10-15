@@ -10,7 +10,7 @@ juce::String tooltipFor(const ParamSpec& spec)
 }
 } // namespace
 
-void addModulationItems(ModulationModel& m, size_t index, juce::PopupMenu& menu,
+void addModulationItems(ModulationModel& m, size_t index, juce::PopupMenu& menu, juce::PopupMenu& with,
                         const std::function<std::function<void()>(std::function<void()>)>& whileAlive)
 {
     // Its routes, each with Remove.
@@ -32,7 +32,8 @@ void addModulationItems(ModulationModel& m, size_t index, juce::PopupMenu& menu,
     const auto sources = m.sources();
     if (sources.empty())
         return;
-    juce::PopupMenu with;
+    if (with.getNumItems() > 0)
+        with.addSeparator();
     if (m.isFull())
         with.addItem("The matrix is full: remove a route first", false, false, [] {});
     else
@@ -45,7 +46,15 @@ void addModulationItems(ModulationModel& m, size_t index, juce::PopupMenu& menu,
                               whileAlive([&m, id = sources[i].id, index] { m.addRoute(id, index); }));
             with.addSubMenu(name, group);
         }
-    menu.addSubMenu("Modulate with", with);
+}
+
+void addModulationItems(ModulationModel& m, size_t index, juce::PopupMenu& menu,
+                        const std::function<std::function<void()>(std::function<void()>)>& whileAlive)
+{
+    juce::PopupMenu with;
+    addModulationItems(m, index, menu, with, whileAlive);
+    if (with.getNumItems() > 0)
+        menu.addSubMenu("Modulate with", with);
 }
 
 void showParamMenu(DeviceUiContext& context, size_t index, juce::Component& control,
@@ -80,11 +89,16 @@ void showParamMenu(DeviceUiContext& context, size_t index, juce::Component& cont
         if (menu.getNumItems() > before)
             menu.addSeparator();
     }
-    // Its modulation (device-panels.md, "Modulation").
-    if (context.modulation != nullptr)
+    // Its modulation: the routes that move it, then one Modulate with ▸ for the track's
+    // modulators (modulators.md §15) and the module's own sources (device-panels.md, "Modulation").
     {
         const int before = menu.getNumItems();
-        addModulationItems(*context.modulation, index, menu, whileAlive);
+        juce::PopupMenu with;
+        params.addModulatorItems(index, menu, with);
+        if (context.modulation != nullptr)
+            addModulationItems(*context.modulation, index, menu, with, whileAlive);
+        if (with.getNumItems() > 0)
+            menu.addSubMenu("Modulate with", with);
         if (menu.getNumItems() > before)
             menu.addSeparator();
     }
@@ -99,9 +113,16 @@ void showParamMenu(DeviceUiContext& context, size_t index, juce::Component& cont
 
 ParamKnob::ParamKnob(DeviceUiContext& context, size_t paramIndex) : context_(context), index_(paramIndex)
 {
-    // Its ring sets the amount of a route that moves it (device-panels.md, "Modulation").
+    // Its ring sets the amount of a route that moves it (device-panels.md, "Modulation"): the
+    // track's modulators' while they move it (their ring is the one shown, modulators.md §7.2),
+    // else the module's own.
     onRingStart = [this]
     {
+        ringRoute_.reset();
+        trackRing_ =
+            context_.params.modulated(index_).has_value() && context_.params.beginModulatedDrag(index_);
+        if (trackRing_)
+            return;
         auto* m = context_.modulation;
         const auto route = m != nullptr ? m->routeToDrag(index_) : std::nullopt;
         ringRoute_ = route ? std::optional<int>(route->index) : std::nullopt;
@@ -113,7 +134,12 @@ ParamKnob::ParamKnob(DeviceUiContext& context, size_t paramIndex) : context_(con
     };
     onRingDrag = [this](float delta)
     {
-        if (ringRoute_ && context_.modulation != nullptr)
+        if (trackRing_)
+        {
+            context_.params.dragModulated(index_, delta);
+            refresh();
+        }
+        else if (ringRoute_ && context_.modulation != nullptr)
         {
             ringAmount_ = std::clamp(ringAmount_ + delta, -1.0f, 1.0f);
             context_.modulation->setAmount(*ringRoute_, ringAmount_);
@@ -122,6 +148,8 @@ ParamKnob::ParamKnob(DeviceUiContext& context, size_t paramIndex) : context_(con
     };
     onRingEnd = [this]
     {
+        if (std::exchange(trackRing_, false))
+            context_.params.endModulatedDrag(index_);
         if (ringRoute_ && context_.modulation != nullptr)
             context_.modulation->endAmount(*ringRoute_);
         ringRoute_.reset();
@@ -245,9 +273,10 @@ void ParamKnob::refresh()
     {
         if (!mapping && !moved) // the track's modulators' ring over the module's own routes'
             setRing(m->ringFor(index_, getValue()));
-        setDropTarget(m->dropParam == index_ || macro.target);
-        setDropCandidate(style() == Style::Rotary &&
-                         ((m->draggedSource >= 0 && m->canModulate(index_)) || macro.candidate));
+        setDropTarget(m->dropParam == index_ || macro.target || modulator.target);
+        setDropCandidate((style() == Style::Rotary &&
+                          ((m->draggedSource >= 0 && m->canModulate(index_)) || macro.candidate)) ||
+                         modulator.candidate);
         if (source_ >= 0)
             setSourceHandle(true, m->hoveredSource == source_ || m->draggedSource == source_ ||
                                       m->movesHovered(source_));

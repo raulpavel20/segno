@@ -718,6 +718,25 @@ void ModulatorPanel::refreshFromHost()
     display_->refresh();
 }
 
+void ModulatorPanel::setLit(bool lit)
+{
+    // The handle reads its source's hovered state; while the pointer is on the handle itself, it
+    // stays lit.
+    if (lit)
+        self_->hoveredSource = 0;
+    else if (!handle_->isMouseOver() && !foldedHandle_->isMouseOver())
+        self_->hoveredSource = -1;
+    handle_->refresh();
+    foldedHandle_->refresh();
+}
+
+void ModulatorPanel::setDragging(bool dragging)
+{
+    self_->draggedSource = dragging ? 0 : -1;
+    handle_->refresh();
+    foldedHandle_->refresh();
+}
+
 // ---- the route list ---------------------------------------------------------------------------
 
 RouteList::RouteList(juce::String modulator, std::vector<Route> routes)
@@ -738,6 +757,16 @@ RouteList::RouteList(juce::String modulator, std::vector<Route> routes)
         {
             if (onAmount)
                 onAmount(static_cast<int>(i), (v - 0.5f) * 4.0f);
+        };
+        row.amount->onGestureStart = [this]
+        {
+            if (onAmountGesture)
+                onAmountGesture(true);
+        };
+        row.amount->onGestureEnd = [this]
+        {
+            if (onAmountGesture)
+                onAmountGesture(false);
         };
         row.amount->setTooltip("How far it moves " + routes_[i].target +
                                ": -200 to +200 %; below zero the other way");
@@ -760,6 +789,7 @@ RouteList::RouteList(juce::String modulator, std::vector<Route> routes)
         addAndMakeVisible(*row.remove);
         rows_.push_back(std::move(row));
     }
+    setWantsKeyboardFocus(true); // Escape closes it
     setSize(preferredBounds().getWidth(), preferredBounds().getHeight());
 }
 
@@ -767,14 +797,30 @@ juce::Rectangle<int> RouteList::preferredBounds() const
 {
     const auto& s = ui::Theme::current().shell;
     const int rows = std::max(1, static_cast<int>(routes_.size()));
-    return {0, 0, s.formPopoverWidth, 2 * s.groupGap + s.rowHeight + s.itemGap + rows * s.listRowHeight};
+    return juce::Rectangle<int>(s.formPopoverWidth,
+                                2 * s.groupGap + s.rowHeight + s.itemGap + rows * s.listRowHeight)
+        .expanded(juce::roundToInt(s.shadowRadius))
+        .withZeroOrigin();
+}
+
+juce::Rectangle<int> RouteList::inner() const
+{
+    return getLocalBounds().reduced(juce::roundToInt(ui::Theme::current().shell.shadowRadius));
+}
+
+bool RouteList::keyPressed(const juce::KeyPress& key)
+{
+    if (key != juce::KeyPress::escapeKey || !onClose)
+        return false;
+    onClose();
+    return true;
 }
 
 void RouteList::resized()
 {
     const auto& t = ui::Theme::current();
     const auto& s = t.shell;
-    auto area = getLocalBounds().reduced(s.groupGap);
+    auto area = inner().reduced(s.groupGap);
     title_ = area.removeFromTop(s.rowHeight);
     area.removeFromTop(s.itemGap);
     for (auto& row : rows_)
@@ -794,12 +840,12 @@ void RouteList::resized()
 void RouteList::paint(juce::Graphics& g)
 {
     const auto& t = ui::Theme::current();
-    ui::paintPopover(g, getLocalBounds());
+    ui::paintPopover(g, inner());
     ui::paintCapsLabel(g, "Routes" + dotted() + modulator_, title_.toFloat(),
                        juce::Justification::centredLeft);
     if (routes_.empty())
     {
-        ui::paintEmptyState(g, getLocalBounds().withTrimmedTop(title_.getBottom()),
+        ui::paintEmptyState(g, inner().withTrimmedTop(title_.getBottom() - inner().getY()),
                             "No routes: drag its handle onto a control");
         return;
     }

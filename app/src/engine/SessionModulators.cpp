@@ -110,6 +110,26 @@ void Session::Impl::arrangeChain(te::Track& track, const std::vector<ChainItem>&
     reorder(modulators, um);
 }
 
+void Session::Impl::placeInChain(te::Track& track, const ChainItem& item, int index)
+{
+    auto order = chainItems(track);
+    order.erase(std::remove_if(order.begin(), order.end(),
+                               [&](const ChainItem& other) { return other.id() == item.id(); }),
+                order.end());
+    const auto at = index < 0 ? order.size() : std::min(order.size(), static_cast<size_t>(index));
+    order.insert(order.begin() + static_cast<std::ptrdiff_t>(at), item);
+    arrangeChain(track, order);
+}
+
+int Session::Impl::chainIndexOf(te::Track& track, std::uint64_t id)
+{
+    const auto order = chainItems(track);
+    for (size_t i = 0; i < order.size(); ++i)
+        if (order[i].id() == id)
+            return static_cast<int>(i);
+    return -1;
+}
+
 Modulator* Session::Impl::modulator(std::uint64_t id) const
 {
     for (auto* m : modulators())
@@ -295,6 +315,8 @@ ui::ParamBinding::MacroDrag Session::Impl::modulatorDragLook(te::AutomatablePara
 void Session::setModulatorPointer(const ModulatorPointer& pointer)
 {
     impl_->modulatorPointer = pointer;
+    if (pointer.modulator != 0)
+        impl_->lastModulator = pointer.modulator;
 }
 
 const Session::ModulatorPointer& Session::modulatorPointer() const
@@ -312,6 +334,52 @@ bool Session::canRoute(std::uint64_t modulatorId, const ParamTarget& target) con
     return p && p->param != nullptr && !impl_->wouldLoop(*m, *p->param);
 }
 
+std::optional<std::pair<std::uint64_t, float>> Session::routeToDrag(const ParamTarget& target) const
+{
+    const auto p = impl_->param(target);
+    if (!p || p->param == nullptr)
+        return std::nullopt;
+    std::optional<std::pair<std::uint64_t, float>> first;
+    for (auto a : p->param->getAssignments())
+        for (auto* m : impl_->modulators())
+            if (a->isForModifierSource(*m))
+            {
+                const std::pair route{m->itemID.getRawID(), a->value.get()};
+                if (route.first == impl_->lastModulator)
+                    return route;
+                if (!first)
+                    first = route;
+            }
+    return first;
+}
+
+bool RouteDrag::begin(Session& session, const std::optional<Session::ParamTarget>& target)
+{
+    end();
+    const auto route = target ? session.routeToDrag(*target) : std::nullopt;
+    if (!route)
+        return false;
+    modulator_ = route->first;
+    amount_ = route->second;
+    target_ = *target;
+    group_.emplace(session, "Route amount");
+    return true;
+}
+
+void RouteDrag::drag(Session& session, float delta)
+{
+    if (modulator_ == 0)
+        return;
+    amount_ = std::clamp(amount_ + delta, -2.0f, 2.0f);
+    session.setRouteAmount(modulator_, target_, amount_);
+}
+
+void RouteDrag::end()
+{
+    group_.reset();
+    modulator_ = 0;
+}
+
 std::uint64_t Session::addModulator(std::uint64_t channel, ModulatorKind kind, int index)
 {
     auto* track = impl_->channelTrack(channel); // tracks and returns; not the master, for now
@@ -323,13 +391,7 @@ std::uint64_t Session::addModulator(std::uint64_t channel, ModulatorKind kind, i
     if (m == nullptr)
         return 0;
     // Where it was asked for, everything else staying where it was.
-    auto order = Impl::chainItems(*track);
-    order.erase(
-        std::remove_if(order.begin(), order.end(), [m](const auto& item) { return item.modulator == m; }),
-        order.end());
-    const auto at = index < 0 ? order.size() : std::min(order.size(), static_cast<size_t>(index));
-    order.insert(order.begin() + static_cast<std::ptrdiff_t>(at), Impl::ChainItem{nullptr, m});
-    impl_->arrangeChain(*track, order);
+    impl_->placeInChain(*track, Impl::ChainItem{nullptr, m}, index);
     impl_->refreshModulatorRoutes();
     return m->itemID.getRawID();
 }
@@ -470,11 +532,29 @@ public:
     {
         return session_.impl().modulatorDragLook(m_.parameter(i));
     }
+    bool beginModulatedDrag(size_t i) override { return ring_.begin(session_, target(i)); }
+    void dragModulated(size_t, float delta) override { ring_.drag(session_, delta); }
+    void endModulatedDrag(size_t) override { ring_.end(); }
+    void addAutomationItems(size_t i, juce::PopupMenu& menu) override
+    {
+        if (const auto t = target(i); t && session_.automationMenu)
+            session_.automationMenu(*t, menu);
+    }
+    void addModulatorItems(size_t i, juce::PopupMenu& menu, juce::PopupMenu& with) override
+    {
+        if (const auto t = target(i); t && session_.modulatorMenu)
+            session_.modulatorMenu(*t, menu, with);
+    }
 
 private:
     [[nodiscard]] const ParamSpec& spec(size_t i) const { return m_.info().params[i]; }
+    [[nodiscard]] std::optional<Session::ParamTarget> target(size_t i) const
+    {
+        return session_.moduleParameter(m_.itemID.getRawID(), std::string(spec(i).id));
+    }
     Session& session_;
     Modulator& m_;
+    RouteDrag ring_;
 };
 
 /// What the panel shows that isn't a parameter, from the engine's modulator.

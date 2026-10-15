@@ -328,22 +328,9 @@ public:
             for (auto* target : lineTo)
             {
                 const auto chip = getLocalArea(lineFrom, lineFrom->getLocalBounds()).toFloat();
-                const juce::Point<float> from(chip.getCentreX(), chip.getBottom());
-                const auto to = getLocalArea(target, target->getLocalBounds()).toFloat().getCentre();
-                const float sag = std::min(0.15f * std::abs(to.x - from.x),
-                                           static_cast<float>(t.devicePanelHeight) * 0.25f);
-                juce::Path cable;
-                cable.startNewSubPath(from);
-                cable.cubicTo(from.translated(0.0f, sag), to.translated(0.0f, sag), to);
-                const float line = t.knobRingThickness;
-                g.setColour(t.surface0);
-                g.strokePath(cable, juce::PathStrokeType(3.0f * line, juce::PathStrokeType::curved,
-                                                         juce::PathStrokeType::rounded));
-                g.setGradientFill(juce::ColourGradient(t.effectStart, from, t.effectEnd, to, false));
-                g.strokePath(cable, juce::PathStrokeType(line, juce::PathStrokeType::curved));
-                const float dot = 2.0f * (line + 0.5f);
-                g.fillEllipse(juce::Rectangle<float>(dot, dot).withCentre(from));
-                g.fillEllipse(juce::Rectangle<float>(2.0f * dot, 2.0f * dot).withCentre(to));
+                fd::ui::paintModulationCable(
+                    g, {chip.getCentreX(), chip.getBottom()},
+                    getLocalArea(target, target->getLocalBounds()).toFloat().getCentre());
             }
         // A drag: the handle's chip at the pointer.
         if (dragged != nullptr)
@@ -403,7 +390,7 @@ void lint(ChainStub& chain, const std::vector<std::pair<ModulatorPanel*, const f
 void lint(const fd::app::RouteList& list, const std::vector<juce::String>& names)
 {
     const auto& t = fd::ui::Theme::current();
-    const auto inside = list.getLocalBounds().reduced(t.shell.groupGap);
+    const auto inside = list.inner().reduced(t.shell.groupGap);
     CHECK(inside.contains(list.titleArea()));
     for (size_t i = 0; i < list.rows().size(); ++i)
     {

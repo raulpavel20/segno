@@ -116,6 +116,21 @@ public:
                     g.setColour(t.active);
                     g.drawRect(s.view->getBounds(), t.shell.dropLine);
                 }
+        // A modulator's handle hovered: a line to each control it moves (modulators.md §7.4).
+        for (const auto& c : owner_.cables())
+            ui::paintModulationCable(g, c.from, c.to);
+        // Its handle dragged: its chip at the pointer.
+        if (owner_.draggedModulator_ != 0 && owner_.dragChip_.isValid())
+        {
+            const auto& chip = owner_.dragChip_;
+            const float scale = 1.0f / 2.0f; // the snapshot's
+            g.setOpacity(0.9f);
+            g.drawImage(chip, juce::Rectangle<float>(static_cast<float>(chip.getWidth()) * scale,
+                                                     static_cast<float>(chip.getHeight()) * scale)
+                                  .withPosition(
+                                      owner_.dragAt_.translated(t.shell.itemGap, t.shell.itemGap).toFloat()));
+            g.setOpacity(1.0f);
+        }
         if (!(owner_.dragging_ || owner_.browserDrag_) || !owner_.drop_)
             return;
         // Where it lands, before it lands (racks.md §5a): in a rack's chain, the line runs its
@@ -176,8 +191,17 @@ DeviceChain::DeviceChain(engine::Session& session, const ActionRegistry& actions
         showAddMenu(
             add_,
             [this, track = *track_](const std::string& key) { selected_ = session_.addDevice(track, key); },
-            [this](juce::PopupMenu& menu)
+            [this, track = *track_](juce::PopupMenu& menu)
             {
+                // The modulators, after the audio effects (modulators.md §14), at the chain's end.
+                menu.addSectionHeader("Modulators");
+                for (const auto kind : model::allModulators)
+                    menu.addItem(juce::String(std::string(model::modulatorInfo(kind).name)),
+                                 [this, track, kind]
+                                 {
+                                     if (const auto id = session_.addModulator(track, kind))
+                                         selected_ = id;
+                                 });
                 menu.addSeparator();
                 menu.addItem("Rack", [this] { addRack(); }); // an empty one (racks.md §5)
             });
@@ -186,12 +210,17 @@ DeviceChain::DeviceChain(engine::Session& session, const ActionRegistry& actions
     session_.addListener(this);
     session_.macroMenu = [this](std::uint64_t module, const std::string& param, juce::PopupMenu& menu)
     { addMacroItems(module, param, menu); };
+    session_.modulatorMenu = [this](const engine::Session::ParamTarget& target, juce::PopupMenu& menu,
+                                    juce::PopupMenu& with) { addModulatorItems(target, menu, with); };
 }
 
 DeviceChain::~DeviceChain()
 {
+    closeRoutes();
     session_.macroMenu = nullptr;
+    session_.modulatorMenu = nullptr;
     session_.setMacroPointer({});
+    session_.setModulatorPointer({});
     session_.removeListener(this);
     for (auto& s : slots_)
     {
@@ -258,6 +287,17 @@ void DeviceChain::rebuild(const std::vector<model::DeviceSlot>& devices)
             slot = std::move(it->second);
             old.erase(it);
         }
+        else if (d.kind == model::DeviceSlot::Kind::Modulator)
+        {
+            slot.modulator = session_.openModulator(d.id);
+            if (slot.modulator != nullptr)
+            {
+                auto panel = std::make_unique<ModulatorPanel>(slot.modulator->context(),
+                                                              slot.modulator->kind(), slot.modulator->host());
+                wireModulatorPanel(*panel, d.id);
+                slot.view = std::move(panel);
+            }
+        }
         else if (d.rack != nullptr)
         {
             slot.handle = session_.openRack(d.id);
@@ -305,6 +345,8 @@ void DeviceChain::rebuild(const std::vector<model::DeviceSlot>& devices)
         slot.chain = e.chain;
         if (auto* rack = dynamic_cast<RackPanel*>(slot.view.get()); rack != nullptr && d.rack != nullptr)
             rack->setRack(juce::String::fromUTF8(d.name.c_str()), *d.rack);
+        if (auto* modulator = dynamic_cast<ModulatorPanel*>(slot.view.get())) // its routes or roll changed
+            modulator->refreshFromHost();
         if (auto* panel = dynamic_cast<ui::DevicePanel*>(slot.view.get()))
             panel->setEnabledState(d.enabled);
         else if (auto* card = dynamic_cast<PluginCard*>(slot.view.get()))
@@ -371,6 +413,10 @@ void DeviceChain::rebuild(const std::vector<model::DeviceSlot>& devices)
 
     if (selected_ && slotOf(*selected_) == nullptr)
         selected_.reset();
+    if (hoveredModulator_ != 0 && slotOf(hoveredModulator_) == nullptr)
+        setHoveredModulator(0);
+    if (routeListModulator_ != 0 && slotOf(routeListModulator_) == nullptr)
+        closeRoutes();
     for (auto it = picked_.begin(); it != picked_.end();)
         it = slotOf(*it) == nullptr ? picked_.erase(it) : std::next(it);
     add_.setVisible(track_.has_value());
@@ -754,13 +800,19 @@ void DeviceChain::mouseDown(const juce::MouseEvent& e)
                                          : inSlot.y < ui::Theme::current().deviceHeaderHeight && inSlot.x > 24;
     if (!handle)
         return;
-    // A rack's header: its menu on a right-click.
+    // A rack's header: its menu on a right-click; a modulator's: its own (modulators.md §7.4).
     if (e.mods.isPopupMenu())
     {
         if (slot.info.rack != nullptr)
         {
             selected_ = slot.info.id;
             showRackMenu(slot.info.id);
+        }
+        else if (slot.info.kind == model::DeviceSlot::Kind::Modulator)
+        {
+            selected_ = slot.info.id;
+            content_->repaint();
+            showModulatorMenu(slot.info.id);
         }
         return;
     }
@@ -814,6 +866,18 @@ void DeviceChain::mouseUp(const juce::MouseEvent&)
 
 void DeviceChain::mouseMove(const juce::MouseEvent& e)
 {
+    // A modulator's handle: its lines (modulators.md §7.4). A control: the handles of the
+    // modulators that move it light.
+    if (auto* handle = dynamic_cast<ui::ModulationHandle*>(e.eventComponent))
+    {
+        if (const int index = slotIndexOf(handle);
+            index >= 0 && slots_[static_cast<size_t>(index)].info.kind == model::DeviceSlot::Kind::Modulator)
+            setHoveredModulator(slots_[static_cast<size_t>(index)].info.id);
+    }
+    else if (hoveredModulator_ != 0 && draggedModulator_ == 0)
+        setHoveredModulator(0);
+    lightModulatorsOf(e.eventComponent);
+
     // On a knob a rack's macro sets: that macro's name lights (racks.md §5a).
     int lit = -1;
     std::uint64_t litRack = 0;
@@ -833,8 +897,11 @@ void DeviceChain::mouseMove(const juce::MouseEvent& e)
             panel->setLitMacro(r.id == litRack ? lit : -1);
 }
 
-void DeviceChain::mouseExit(const juce::MouseEvent&)
+void DeviceChain::mouseExit(const juce::MouseEvent& e)
 {
+    if (dynamic_cast<ui::ModulationHandle*>(e.eventComponent) != nullptr && draggedModulator_ == 0)
+        setHoveredModulator(0);
+    lightModulatorsOf(nullptr);
     for (const auto& r : racks_)
         if (auto* panel = rackPanelOf(r.id))
             panel->setLitMacro(-1);
@@ -1282,5 +1349,402 @@ void DeviceChain::beginGesture(bool started, const std::string& name)
         gesture_.emplace(session_, name);
     else
         gesture_.reset();
+}
+
+// ---- modulators (docs/design/modulators.md §6, §7, §15) ------------------------------------------
+
+void DeviceChain::wireModulatorPanel(ModulatorPanel& panel, std::uint64_t modulator)
+{
+    panel.onHandleDrag = [this, modulator](const juce::MouseEvent& e) { modulatorDragged(modulator, e); };
+    panel.onHandleRelease = [this, modulator](const juce::MouseEvent&, bool cancelled)
+    { modulatorReleased(modulator, cancelled); };
+    panel.onHandleCancel = [this, modulator] { modulatorReleased(modulator, true); };
+    panel.onRoutes = [this, modulator] { showRoutes(modulator); };
+}
+
+ModulatorPanel* DeviceChain::modulatorPanel(std::uint64_t modulator) const
+{
+    for (const auto& s : slots_)
+        if (s.info.id == modulator)
+            return dynamic_cast<ModulatorPanel*>(s.view.get());
+    return nullptr;
+}
+
+const model::ModulatorInfo* DeviceChain::selectedModulator() const
+{
+    if (selected_)
+        for (const auto& s : slots_)
+            if (s.info.id == *selected_)
+                return s.info.modulator.get();
+    return nullptr;
+}
+
+void DeviceChain::addModulator(model::ModulatorKind kind)
+{
+    if (!track_)
+        return;
+    // After the selected module along the track's chain, else at its end (§6).
+    int index = -1;
+    if (selected_)
+        if (const auto place = session_.placeOf(*selected_); place && place->rack == 0)
+            index = place->index + 1;
+    if (const auto id = session_.addModulator(*track_, kind, index))
+    {
+        selected_ = id;
+        picked_.clear();
+    }
+}
+
+std::optional<engine::Session::ParamTarget> DeviceChain::targetOf(const juce::Component& control) const
+{
+    const int index = slotIndexOf(&control);
+    if (index < 0 || !track_)
+        return std::nullopt;
+    std::optional<size_t> param;
+    if (const auto* knob = dynamic_cast<const ui::ParamKnob*>(&control))
+        param = knob->param();
+    else if (const auto* toggle = dynamic_cast<const ui::ParamToggle*>(&control))
+        param = toggle->param();
+    const auto& slot = slots_[static_cast<size_t>(index)];
+    auto* context = slot.handle != nullptr      ? &slot.handle->context()
+                    : slot.modulator != nullptr ? &slot.modulator->context()
+                                                : nullptr;
+    if (!param || context == nullptr || *param >= context->info.params.size())
+        return std::nullopt;
+    return engine::Session::ParamTarget{*track_, "m" + std::to_string(slot.info.id) + "/" +
+                                                     std::string(context->info.params[*param].id)};
+}
+
+std::optional<engine::Session::ParamTarget> DeviceChain::targetAt(juce::Point<int> p) const
+{
+    for (const auto& s : slots_)
+    {
+        if (!s.view->isVisible() || !s.view->getBounds().contains(p))
+            continue;
+        for (auto* hit = s.view->getComponentAt(s.view->getLocalPoint(content_.get(), p));
+             hit != nullptr && hit != s.view.get(); hit = hit->getParentComponent())
+            if (auto target = targetOf(*hit))
+                return target;
+    }
+    return std::nullopt;
+}
+
+namespace
+{
+/// Each component under `root` that shows within it (it and its parents up to `root` visible).
+template <typename Visit> void eachShown(juce::Component& root, Visit&& visit)
+{
+    for (auto* c : root.getChildren())
+        if (c->isVisible())
+        {
+            visit(*c);
+            eachShown(*c, visit);
+        }
+}
+} // namespace
+
+juce::Component* DeviceChain::controlFor(const engine::Session::ParamTarget& target) const
+{
+    if (!track_ || target.channel != *track_)
+        return nullptr;
+    for (const auto& s : slots_)
+    {
+        const auto prefix = "m" + std::to_string(s.info.id) + "/";
+        if (!s.view->isVisible() || target.key.rfind(prefix, 0) != 0)
+            continue;
+        juce::Component* found = nullptr;
+        eachShown(*s.view,
+                  [&](juce::Component& c)
+                  {
+                      if (found == nullptr && targetOf(c) == std::optional(target))
+                          found = &c;
+                  });
+        return found != nullptr ? found : s.view.get();
+    }
+    return nullptr;
+}
+
+std::vector<DeviceChain::Cable> DeviceChain::cables() const
+{
+    std::vector<Cable> out;
+    auto* panel =
+        hoveredModulator_ != 0 && draggedModulator_ == 0 ? modulatorPanel(hoveredModulator_) : nullptr;
+    if (panel == nullptr || !panel->isVisible())
+        return out;
+    const model::ModulatorInfo* info = nullptr;
+    for (const auto& s : slots_)
+        if (s.info.id == hoveredModulator_)
+            info = s.info.modulator.get();
+    if (info == nullptr)
+        return out;
+    auto& handle = panel->handle();
+    const auto chip = content_->getLocalArea(&handle, handle.getLocalBounds()).toFloat();
+    for (const auto& r : info->routes)
+        if (auto* control = controlFor({r.channel, r.key}))
+            out.push_back({{chip.getCentreX(), chip.getBottom()},
+                           content_->getLocalArea(control, control->getLocalBounds()).toFloat().getCentre()});
+    return out;
+}
+
+void DeviceChain::setHoveredModulator(std::uint64_t modulator)
+{
+    if (modulator == hoveredModulator_)
+        return;
+    hoveredModulator_ = modulator;
+    if (draggedModulator_ == 0)
+        session_.setModulatorPointer({.modulator = modulator}); // the other modulators' rings dim
+    content_->repaint();
+}
+
+void DeviceChain::lightModulatorsOf(const juce::Component* control)
+{
+    const auto target = control != nullptr ? targetOf(*control) : std::nullopt;
+    for (const auto& s : slots_)
+        if (auto* panel = dynamic_cast<ModulatorPanel*>(s.view.get()); panel != nullptr && s.info.modulator)
+        {
+            const auto& routes = s.info.modulator->routes;
+            panel->setLit(target &&
+                          std::any_of(routes.begin(), routes.end(), [&](const auto& r)
+                                      { return r.channel == target->channel && r.key == target->key; }));
+        }
+}
+
+void DeviceChain::modulatorDragged(std::uint64_t modulator, const juce::MouseEvent& e)
+{
+    auto* panel = modulatorPanel(modulator);
+    if (panel == nullptr)
+        return;
+    if (draggedModulator_ != modulator)
+    {
+        // The drag starts: its chip follows the pointer, and the drag repeats while the pointer
+        // rests at an edge, so the chain keeps scrolling (§6).
+        draggedModulator_ = modulator;
+        auto& handle = panel->handle();
+        dragChip_ = handle.createComponentSnapshot(handle.getLocalBounds(), true, 2.0f);
+        panel->setDragging(true);
+        juce::Desktop::getInstance().beginDragAutoRepeat(30);
+    }
+    const auto inViewport = e.getEventRelativeTo(&viewport_).getPosition();
+    const auto& t = ui::Theme::current();
+    viewport_.autoScroll(inViewport.x, inViewport.y, t.shell.dragScrollEdge, t.shell.dragScrollSpeed);
+    dragAt_ = e.getEventRelativeTo(content_.get()).getPosition();
+    const auto over = targetAt(dragAt_);
+    session_.setModulatorPointer({.modulator = modulator,
+                                  .dragging = true,
+                                  .over = over && session_.canRoute(modulator, *over) ? over : std::nullopt});
+    content_->repaint();
+}
+
+void DeviceChain::modulatorReleased(std::uint64_t modulator, bool cancelled)
+{
+    const auto pointer = session_.modulatorPointer();
+    session_.setModulatorPointer({});
+    if (auto* panel = modulatorPanel(modulator))
+        panel->setDragging(false);
+    const bool wasDragged = draggedModulator_ == modulator;
+    draggedModulator_ = 0;
+    dragChip_ = {};
+    hoveredModulator_ = 0;
+    content_->repaint();
+    // Let go on a control: a route at 50 % (§7.1); Escape, or nowhere it can go, changes nothing.
+    if (!cancelled && wasDragged && pointer.dragging && pointer.modulator == modulator && pointer.over)
+        session_.routeModulator(modulator, *pointer.over, 0.5f);
+}
+
+void DeviceChain::showModulatorMenu(std::uint64_t modulator)
+{
+    const auto* slot = slotOf(modulator);
+    if (slot == nullptr || slot->info.modulator == nullptr)
+        return;
+    const auto& info = *slot->info.modulator;
+    juce::PopupMenu menu;
+    menu.addItem(juce::String::fromUTF8("Routes\xe2\x80\xa6"), [this, modulator] { showRoutes(modulator); });
+    menu.addItem("Remove routes", !info.routes.empty(), false,
+                 [this, modulator] { session_.removeRoutes(modulator); });
+    if (model::hasKeep(info.kind))
+    {
+        menu.addSeparator();
+        menu.addItem(info.kept ? "Let it roll" : "Keep as played",
+                     [this, modulator, keep = !info.kept] { session_.keepRoll(modulator, keep); });
+    }
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(slot->view.get()));
+}
+
+void DeviceChain::showRoutes(std::uint64_t modulator)
+{
+    closeRoutes();
+    auto* slot = slotOf(modulator);
+    auto* panel = modulatorPanel(modulator);
+    auto* top = getTopLevelComponent();
+    if (slot == nullptr || slot->info.modulator == nullptr || panel == nullptr || top == nullptr)
+        return;
+    const auto routes = slot->info.modulator->routes;
+    std::vector<RouteList::Route> rows;
+    for (const auto& r : routes)
+    {
+        // The parameter as its control names it ("Mix", not "Dry/Wet"), where the chain shows it.
+        auto param = r.param;
+        for (const auto& s : slots_)
+            if (const auto prefix = "m" + std::to_string(s.info.id) + "/"; r.key.rfind(prefix, 0) == 0)
+                if (auto* context = s.handle != nullptr      ? &s.handle->context()
+                                    : s.modulator != nullptr ? &s.modulator->context()
+                                                             : nullptr)
+                    for (const auto& spec : context->info.params)
+                        if (spec.id == r.key.substr(prefix.size()))
+                            param = std::string(spec.shortName.empty() ? spec.name : spec.shortName);
+        rows.push_back({juce::String::fromUTF8((r.module + " \xc2\xb7 " + param).c_str()), r.amount});
+    }
+    routeList_ = std::make_unique<RouteList>(juce::String::fromUTF8(slot->info.name.c_str()), rows);
+    routeListModulator_ = modulator;
+    const auto targetOfRow = [routes](int i)
+    {
+        const auto& r = routes[static_cast<size_t>(i)];
+        return engine::Session::ParamTarget{r.channel, r.key};
+    };
+    routeList_->onAmount = [this, modulator, targetOfRow](int i, float amount)
+    { session_.setRouteAmount(modulator, targetOfRow(i), amount); };
+    routeList_->onAmountGesture = [this](bool started) { beginGesture(started, "Route amount"); };
+    // Show and Remove act once the click is over: the list closes or opens again.
+    routeList_->onShow = [this, targetOfRow](int i)
+    {
+        juce::MessageManager::callAsync(
+            [safe = juce::Component::SafePointer<DeviceChain>(this), target = targetOfRow(i)]
+            {
+                if (safe != nullptr)
+                {
+                    safe->closeRoutes();
+                    safe->showTarget(target);
+                }
+            });
+    };
+    routeList_->onRemove = [this, modulator, targetOfRow](int i)
+    {
+        session_.removeRoute(modulator, targetOfRow(i));
+        juce::MessageManager::callAsync(
+            [safe = juce::Component::SafePointer<DeviceChain>(this), modulator]
+            {
+                if (safe == nullptr)
+                    return;
+                safe->session_.updateSnapshotNow();
+                if (const auto* c = safe->session_.snapshot()->channel(safe->track_.value_or(0)))
+                    safe->setTrack(*c);
+                safe->showRoutes(modulator); // its rows again, the route gone
+            });
+    };
+    routeList_->onClose = [this] { closeRoutes(); };
+
+    // Above the modulator's panel, the handle's side lined up (the chain is the window's foot, and
+    // the panel stays in view: its count follows a Remove), else under it; inside the window.
+    auto& handle = panel->handle();
+    routeListAnchor_ = top->getLocalArea(&handle, handle.getLocalBounds());
+    const auto panelArea = top->getLocalArea(panel, panel->getLocalBounds());
+    const auto& s = ui::Theme::current().shell;
+    const auto size = routeList_->preferredBounds();
+    const int margin = juce::roundToInt(s.shadowRadius);
+    const auto area = top->getLocalBounds().reduced(s.itemGap);
+    int y = panelArea.getY() - s.itemGap - (size.getHeight() - margin);
+    if (y < area.getY())
+        y = panelArea.getBottom() + s.itemGap - margin;
+    const int x = std::clamp(routeListAnchor_.getX() - margin, area.getX() - margin,
+                             std::max(area.getX() - margin, area.getRight() + margin - size.getWidth()));
+    routeList_->setBounds(size.withPosition(x, y));
+    top->addAndMakeVisible(*routeList_);
+    routeList_->toFront(true);
+    routeList_->grabKeyboardFocus();
+    routeListOutside_ = std::make_unique<ui::OutsideClick>(*routeList_, [this] { closeRoutes(); });
+    routeListOutside_->attach();
+}
+
+void DeviceChain::closeRoutes()
+{
+    if (routeListOutside_ != nullptr)
+        routeListOutside_->detach();
+    routeListOutside_.reset();
+    routeList_.reset();
+    routeListModulator_ = 0;
+}
+
+void DeviceChain::showTarget(const engine::Session::ParamTarget& target)
+{
+    // "m<module>/<param>": the module selected and scrolled to, its control's page shown.
+    if (target.key.rfind('m', 0) != 0)
+        return;
+    const auto slash = target.key.find('/');
+    if (slash == std::string::npos)
+        return;
+    const auto module = std::stoull(target.key.substr(1, slash - 1));
+    const auto param = target.key.substr(slash + 1);
+    selectDevice(module);
+    if (auto* s = slotOf(module))
+        if (auto* panel = dynamic_cast<ui::DevicePanel*>(s->view.get()))
+        {
+            panel->setFolded(false, true);
+            const auto* context = s->handle != nullptr      ? &s->handle->context()
+                                  : s->modulator != nullptr ? &s->modulator->context()
+                                                            : nullptr;
+            if (context != nullptr)
+                for (size_t i = 0; i < context->info.params.size(); ++i)
+                    if (context->info.params[i].id == param)
+                        panel->showParameter(i);
+        }
+}
+
+void DeviceChain::addModulatorItems(const engine::Session::ParamTarget& target, juce::PopupMenu& menu,
+                                    juce::PopupMenu& with)
+{
+    if (!track_ || target.channel != *track_)
+        return;
+    // The routes that move it, each with Remove (as a module's own routes are listed).
+    const auto snapshot = session_.snapshot();
+    const auto* channel = snapshot->channel(target.channel);
+    if (channel == nullptr)
+        return;
+    std::vector<const model::DeviceSlot*> modulators;
+    for (const auto& d : channel->devices)
+        if (d.modulator != nullptr)
+            modulators.push_back(&d);
+    for (const auto* m : modulators)
+        for (const auto& r : m->modulator->routes)
+            if (r.key == target.key)
+            {
+                juce::PopupMenu route;
+                route.addItem("Remove", [this, id = m->id, target] { session_.removeRoute(id, target); });
+                menu.addSubMenu(juce::String::fromUTF8(m->name.c_str()) + juce::String::fromUTF8(" → ") +
+                                    juce::String(juce::roundToInt(r.amount * 100.0f)) + " %",
+                                route);
+            }
+    // Modulate with: the track's modulators, then New (§7.1): added just before the control's
+    // module, in the track's chain, and routed, in one step.
+    for (const auto* m : modulators)
+    {
+        const bool routed = std::any_of(m->modulator->routes.begin(), m->modulator->routes.end(),
+                                        [&](const auto& r) { return r.key == target.key; });
+        with.addItem(juce::String::fromUTF8(m->name.c_str()), session_.canRoute(m->id, target), routed,
+                     [this, id = m->id, target] { session_.routeModulator(id, target, 0.5f); });
+    }
+    if (!modulators.empty())
+        with.addSeparator();
+    juce::PopupMenu fresh;
+    for (const auto kind : model::allModulators)
+        fresh.addItem(
+            juce::String(std::string(model::modulatorInfo(kind).name)),
+            [this, kind, target]
+            {
+                // The control's module: in the track's chain, or the rack holding it.
+                int index = -1;
+                if (const auto slash = target.key.find('/');
+                    target.key.rfind('m', 0) == 0 && slash != std::string::npos)
+                    if (const auto place = session_.placeOf(std::stoull(target.key.substr(1, slash - 1))))
+                        index = place->rack == 0 ? place->index
+                                                 : session_.placeOf(place->rack).value_or(*place).index;
+                const engine::Session::EditGroup group(
+                    session_, "Modulate with " + std::string(model::modulatorInfo(kind).name));
+                if (const auto id = session_.addModulator(target.channel, kind, index))
+                {
+                    session_.routeModulator(id, target, 0.5f);
+                    selected_ = id;
+                }
+            });
+    with.addSubMenu("New", fresh);
 }
 } // namespace fd::app

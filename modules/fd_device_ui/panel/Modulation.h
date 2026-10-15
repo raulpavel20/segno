@@ -60,6 +60,12 @@ public:
     [[nodiscard]] juce::String handleTooltip(int source) const;
 };
 
+/// A line from a modulation source's handle to a control it moves, shown while the handle is
+/// hovered (modulators.md §7.4): from `from` (the handle's foot) to `to` (the control's centre),
+/// in the modulation gradient over a dark halo so it reads where it crosses other panels, sagging
+/// as a cable does, more the further it goes, a dot at each end.
+void paintModulationCable(juce::Graphics& g, juce::Point<float> from, juce::Point<float> to);
+
 /// A modulation source's handle in a display's corner (an LFO's shape, an envelope): a chip, the
 /// four-way arrow and the source's name on `surface3`, `deviceGrid.sourceHandle` tall, lit in
 /// `effectEnd` while hovered or while the knob under the pointer is moved by it. Dragged onto a
@@ -88,6 +94,8 @@ public:
     std::function<void()> onPopupMenu;
 
     void refresh() override;
+    /// Whether it's lit now (hovered, dragged, or moving the control under the pointer).
+    [[nodiscard]] bool isLit() const noexcept { return lit_; }
     /// Its width: the arrow, its name, and padding.
     [[nodiscard]] int preferredWidth() const;
     juce::String getTooltip() override

@@ -419,12 +419,8 @@ std::uint64_t Session::replaceInstrument(std::uint64_t trackId, const std::strin
     const auto old = instrumentOf(trackId);
     int index = 0;
     if (old)
-    {
-        const auto chain = Impl::chain(*list);
-        for (size_t i = 0; i < chain.size(); ++i)
-            if (chain[i]->itemID.getRawID() == old->id)
-                index = static_cast<int>(i);
-    }
+        if (const auto place = placeOf(old->id)) // its modulators counted along a track's chain
+            index = place->index;
     const auto available = availableDevices();
     const auto it =
         std::find_if(available.begin(), available.end(), [&](const auto& d) { return d.key == key; });

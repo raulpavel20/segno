@@ -160,6 +160,7 @@ Role functions for colours that depend on content:
 | `shell.progressHeight` | 2 (the progress line along the bottom of what's being worked on, C7) |
 | `shell.clipButtonSize` | 12 (a button on a clip, on a `surface2` chip: cancel its bounce; menu-bar.md §15) |
 | `shell.dropLine` | 2 (where a dragged module, row or strip lands: a line in `active`) |
+| `shell.dragScrollEdge` / `shell.dragScrollSpeed` | 24 / 12 (a drag this near a scrolled view's edge scrolls it, at most this far a step, the steps repeating while the pointer rests: a modulator's handle along the chain, [modulators.md](modulators.md) §6) |
 | `shell.rackInset` | 6 (a rack's frame around its panels in the chain, inside the chain's gap; [racks.md](racks.md) §5a) |
 | `shell.rackLabelHeight` | 16 (the frame's strip under its panels, naming the chain shown) |
 | `shell.fadeHandleSize` | 7 (a fade's or crossfade's handle on a clip, C6; a fade narrower than this draws only its handle) |

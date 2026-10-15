@@ -156,6 +156,14 @@ public:
     {
         return session_.impl().modulatorDragLook(plugin_.parameter(i));
     }
+    bool beginModulatedDrag(size_t i) override { return ring_.begin(session_, target(i)); }
+    void dragModulated(size_t, float delta) override { ring_.drag(session_, delta); }
+    void endModulatedDrag(size_t) override { ring_.end(); }
+    void addModulatorItems(size_t i, juce::PopupMenu& menu, juce::PopupMenu& with) override
+    {
+        if (const auto t = target(i); t && session_.modulatorMenu)
+            session_.modulatorMenu(*t, menu, with);
+    }
 
 private:
     std::optional<Session::ParamTarget> target(size_t i) const
@@ -176,6 +184,7 @@ private:
 
     Session& session_;
     mutable std::shared_ptr<const model::Snapshot> snapshot_;
+    RouteDrag ring_;
 };
 
 class NativeDeviceHandle final : public DeviceHandle
@@ -2025,18 +2034,22 @@ std::string Session::deviceViewState(std::uint64_t deviceId) const
 {
     if (auto* p = impl_->plugin(deviceId))
         return p->state.getProperty(Impl::panelViewId).toString().toStdString();
+    if (auto* m = impl_->modulator(deviceId)) // a modulator's panel, as a module's
+        return m->state.getProperty(Impl::panelViewId).toString().toStdString();
     return {};
 }
 
 void Session::setDeviceViewState(std::uint64_t deviceId, const std::string& json)
 {
     auto* p = impl_->plugin(deviceId);
-    if (p == nullptr)
+    auto* m = p == nullptr ? impl_->modulator(deviceId) : nullptr;
+    if (p == nullptr && m == nullptr)
         return;
+    auto state = p != nullptr ? p->state : m->state;
     if (json.empty())
-        p->state.removeProperty(Impl::panelViewId, nullptr);
+        state.removeProperty(Impl::panelViewId, nullptr);
     else
-        p->state.setProperty(Impl::panelViewId, juce::String(json), nullptr); // no undo manager
+        state.setProperty(Impl::panelViewId, juce::String(json), nullptr); // no undo manager
     impl_->listeners.call([deviceId](Listener& l) { l.deviceViewChanged(deviceId); });
 }
 

@@ -40,6 +40,10 @@ public:
 
     /// Reads the host again: the handle's count and lock, the Keep toggle, the display.
     void refreshFromHost();
+    /// Lights its handle while the control under the pointer is one it moves (§7.4).
+    void setLit(bool lit);
+    /// Its handle is being dragged (lit, and Escape cancels the drag), or no longer.
+    void setDragging(bool dragging);
 
 private:
     struct Self;
@@ -56,7 +60,7 @@ private:
 
 /// A modulator's routes (modulators.md §7.4): its right-click and its header's menu open it. A
 /// popover of rows, each a route: the target ("Filter · Freq"), its amount (-200 ... +200 %), Show
-/// (selects the target's module and scrolls to it) and Remove.
+/// (selects the target's module and scrolls to it) and Remove. Escape closes it.
 class RouteList final : public juce::Component
 {
 public:
@@ -68,12 +72,19 @@ public:
     RouteList(juce::String modulator, std::vector<Route> routes);
 
     std::function<void(int route, float amount)> onAmount;
+    /// An amount's drag starts (true) or ends: one undo step.
+    std::function<void(bool started)> onAmountGesture;
     std::function<void(int route)> onShow, onRemove;
+    std::function<void()> onClose;
 
-    /// Its size for its routes: the form popover's width, a list row a route.
+    /// Its size for its routes: the form popover's width, a list row a route, and the shadow's
+    /// margin round it.
     [[nodiscard]] juce::Rectangle<int> preferredBounds() const;
+    /// The popover inside the shadow's margin.
+    [[nodiscard]] juce::Rectangle<int> inner() const;
     void paint(juce::Graphics& g) override;
     void resized() override;
+    bool keyPressed(const juce::KeyPress& key) override;
 
     /// The rows' parts (for the drawn states' lint): name area, amount bar, Show, Remove.
     struct Row

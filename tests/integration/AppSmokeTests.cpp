@@ -693,6 +693,11 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         // A rack's snapshots and Morph (racks.md §18.9): in the menu and on the rack's panel.
         "module.storeSnapshot", "module.updateSnapshot", "module.renameSnapshot", "module.removeSnapshot",
         "module.morph",
+        // Modulators (modulators.md §15): no new shortcuts; the chain's + and the browser add
+        // them, Keep is on the panel, Remove routes in the handle's and header's right-click.
+        "module.addModulator.lfo", "module.addModulator.random", "module.addModulator.envelope",
+        "module.addModulator.follower", "module.addModulator.steps", "module.keepRoll", "module.removeRoutes",
+        "song.keepAllRolls",
         // The piano roll's tools (piano-roll.md §13): in the Notes menu, which the clip view's
         // Notes button opens where you work, and the most used on the notes' right-click menu.
         "notes.fitToKey", "notes.makeChords", "notes.changeChord", "notes.voiceSmooth", "notes.voiceClose",

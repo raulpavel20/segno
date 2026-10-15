@@ -2,6 +2,7 @@
 
 #include "engine/Session.h"
 #include "ui/ActionRegistry.h"
+#include "ui/ModulatorPanels.h"
 #include "ui/RackPanel.h"
 
 #include <fd_ui/fd_ui.h>
@@ -20,6 +21,10 @@ class MacroEditor;
 /// A rack (docs/design/racks.md §5, §5a) shows as its panel, then its shown chain's modules, in a
 /// frame ending in a + of its own; folded, it's one strip. Modules are dragged into its frame
 /// (its chain shown) and out past its end; a macro's name dragged onto a knob in the frame maps it.
+///
+/// A modulator (docs/design/modulators.md, ADR 0061) shows among the modules as its panel. Its
+/// handle dragged onto a control routes it there, the chain scrolling at its edges; hovered, lines
+/// run from it to each control it moves; right-clicked, its route list opens.
 class DeviceChain final : public juce::Component,
                           public juce::DragAndDropTarget,
                           private engine::Session::Listener
@@ -80,6 +85,31 @@ public:
     /// The scrolled strip the modules are laid out on (tests and screenshots).
     [[nodiscard]] juce::Component& content() const;
 
+    // ---- modulators (modulators.md §6, §7, §15) --------------------------------------------------
+    /// Adds a modulator after the selected module, or at the end of the chain (Module ▸ Add
+    /// modulator), and selects it.
+    void addModulator(model::ModulatorKind kind);
+    /// The modulator selected, as the snapshot has it (null: none, or a module is selected).
+    [[nodiscard]] const model::ModulatorInfo* selectedModulator() const;
+    /// Opens a modulator's route list over the chain (its handle's right-click, its header's menu).
+    void showRoutes(std::uint64_t modulator);
+    void closeRoutes();
+    /// The route list open (null: none).
+    [[nodiscard]] RouteList* routeList() const noexcept { return routeList_.get(); }
+    /// A modulator's panel shown (null: none).
+    [[nodiscard]] ModulatorPanel* modulatorPanel(std::uint64_t modulator) const;
+    /// The lines drawn while a modulator's handle is hovered (§7.4): from the handle's foot to each
+    /// control it moves, in the content.
+    struct Cable
+    {
+        juce::Point<float> from, to;
+    };
+    [[nodiscard]] std::vector<Cable> cables() const;
+    /// The items a control's right-click gets (Session::modulatorMenu): the routes that move it,
+    /// each with Remove, and Modulate with ▸ the track's modulators and New ▸ (§7.1).
+    void addModulatorItems(const engine::Session::ParamTarget& target, juce::PopupMenu& menu,
+                           juce::PopupMenu& with);
+
     /// Called when the chain is clicked (the shell routes Delete to the area used last).
     std::function<void()> onActivated;
     /// A module asks to show its editor (ADR 0053): the detail panel takes it.
@@ -115,6 +145,7 @@ private:
     {
         model::DeviceSlot info;
         std::unique_ptr<engine::DeviceHandle> handle; // our devices, and a rack's macros
+        std::unique_ptr<engine::ModulatorHandle> modulator;
         std::unique_ptr<juce::Component> view;        // panel or card
         std::uint64_t rack = 0;                       // shown in a rack's frame (0: the track's chain)
         int chain = 0;                                // that rack's chain
@@ -169,6 +200,25 @@ private:
     [[nodiscard]] float valueOf(std::uint64_t module, const std::string& param);
     void beginGesture(bool started, const std::string& name);
 
+    void wireModulatorPanel(ModulatorPanel& panel, std::uint64_t modulator);
+    /// The parameter a control on a panel shown sets (a knob, bar or switch), as a target.
+    [[nodiscard]] std::optional<engine::Session::ParamTarget> targetOf(const juce::Component& control) const;
+    /// The control under `p` (in the content) on any panel shown, as a target.
+    [[nodiscard]] std::optional<engine::Session::ParamTarget> targetAt(juce::Point<int> p) const;
+    /// What shows a target in the chain: its control, else its module's panel (folded, or the
+    /// control on another page); null for none (the track's mixer).
+    [[nodiscard]] juce::Component* controlFor(const engine::Session::ParamTarget& target) const;
+    void modulatorDragged(std::uint64_t modulator, const juce::MouseEvent& e);
+    void modulatorReleased(std::uint64_t modulator, bool cancelled);
+    /// The handle under the pointer: its lines drawn, the other modulators' rings dimmed.
+    void setHoveredModulator(std::uint64_t modulator);
+    /// The control under the pointer: the handles of the modulators that move it light.
+    void lightModulatorsOf(const juce::Component* control);
+    /// A modulator's header's right-click: Routes, Remove routes, Keep as played.
+    void showModulatorMenu(std::uint64_t modulator);
+    /// Selects a route's target and shows its control (the route list's Show).
+    void showTarget(const engine::Session::ParamTarget& target);
+
     engine::Session& session_;
     const ActionRegistry& actions_;
     std::optional<std::uint64_t> track_;
@@ -193,5 +243,14 @@ private:
     std::uint64_t macroEditorRack_ = 0;
     std::optional<engine::Session::EditGroup> gesture_; // a drag of a chain's mixer or a mapping
     bool saveOnRename_ = false;                         // Save rack as…: the rename saves it
+    // Modulators: the handle hovered (its lines), the one dragged (its chip at the pointer, in the
+    // content), and the route list open.
+    std::uint64_t hoveredModulator_ = 0, draggedModulator_ = 0;
+    juce::Point<int> dragAt_;
+    juce::Image dragChip_;
+    std::unique_ptr<RouteList> routeList_;
+    std::unique_ptr<ui::OutsideClick> routeListOutside_;
+    std::uint64_t routeListModulator_ = 0;
+    juce::Rectangle<int> routeListAnchor_; // the handle it opened from, in the window
 };
 } // namespace fd::app

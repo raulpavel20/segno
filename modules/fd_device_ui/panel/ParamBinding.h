@@ -76,6 +76,15 @@ public:
     /// While a modulator's handle is dragged: whether the parameter could take it, and whether
     /// the pointer is on it.
     [[nodiscard]] virtual MacroDrag modulatorDrag(size_t /*index*/) const { return {}; }
+    /// A drag of the ring they draw (§7.2): the amount of the route the host picks (the modulator
+    /// hovered last), one undo step from begin to end; `delta` is of the control's travel. False
+    /// where there's no route to set.
+    virtual bool beginModulatedDrag(size_t /*index*/) { return false; }
+    virtual void dragModulated(size_t /*index*/, float /*delta*/) {}
+    virtual void endModulatedDrag(size_t /*index*/) {}
+    /// A control's right-click (§15): the routes that move it in `menu`, the track's modulators in
+    /// `with` (the Modulate with ▸ submenu, which a module's own sources share).
+    virtual void addModulatorItems(size_t /*index*/, juce::PopupMenu& /*menu*/, juce::PopupMenu& /*with*/) {}
 };
 
 /// Merges `patch` into `device`'s extra state directly (hosts call this once they have

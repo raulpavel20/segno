@@ -551,6 +551,13 @@ public:
     [[nodiscard]] const ModulatorPointer& modulatorPointer() const;
     /// Whether a modulator could move a parameter: on its track, not its own, no loop.
     [[nodiscard]] bool canRoute(std::uint64_t modulator, const ParamTarget& target) const;
+    /// The route a drag of a control's ring sets (§7.2): the one of the modulator whose handle was
+    /// hovered last, else the first that moves it. Its modulator and amount.
+    [[nodiscard]] std::optional<std::pair<std::uint64_t, float>> routeToDrag(const ParamTarget& target) const;
+    /// A control's right-click (§15): the routes that move it in `menu`, the track's modulators in
+    /// `with` (Modulate with ▸). The chain view adds them, as it adds a rack's macros (macroMenu).
+    std::function<void(const ParamTarget& target, juce::PopupMenu& menu, juce::PopupMenu& with)>
+        modulatorMenu;
 
     // ---- recording (C5, ADRs 0030 and 0031, docs/design/recording.md) -------------------------
     // A track listens to an audio input and a MIDI input, and records one kind at a time. Its

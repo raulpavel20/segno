@@ -570,6 +570,12 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// that order before the mixer's plugins, each modulator placed before the plugin after it
     /// (the mixer, or nothing, after the last module), the modulators in that order. One step.
     void arrangeChain(te::Track& track, const std::vector<ChainItem>& order);
+    /// Puts `item` at `index` of its track's chain as the views count it (its modules and
+    /// modulators; -1 or past the end: the end), the rest staying in their order. One step.
+    void placeInChain(te::Track& track, const ChainItem& item, int index);
+    /// Where a module or modulator is along its track's chain as the views count it; -1 if it
+    /// isn't there (in a rack, or on no track).
+    [[nodiscard]] static int chainIndexOf(te::Track& track, std::uint64_t id);
     /// A modulator by id, on any track.
     [[nodiscard]] Modulator* modulator(std::uint64_t id) const;
     /// Every modulator in the project.
@@ -601,6 +607,8 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// The modulators' info for the snapshot.
     [[nodiscard]] std::shared_ptr<const model::ModulatorInfo> modulatorInfo(const Modulator& modulator) const;
     Session::ModulatorPointer modulatorPointer;
+    /// The modulator whose handle was hovered or dragged last: a ring's drag sets its route (§7.2).
+    std::uint64_t lastModulator = 0;
     /// A control's look while modulators move it or one is dragged over it (modulators.md §7.4).
     [[nodiscard]] std::optional<ui::ParamBinding::Modulated>
     modulatedLook(te::AutomatableParameter& param) const;
@@ -772,5 +780,24 @@ private:
                 return true;
         return false;
     }
+};
+
+/// A drag of the ring the track's modulators draw round a control (modulators.md §7.2): the
+/// amount of one route, one undo step from start to end. The bindings of modules, racks' macros
+/// and modulators share it.
+class RouteDrag
+{
+public:
+    /// The route of `target` the drag sets (Session::routeToDrag); false where none moves it.
+    bool begin(Session& session, const std::optional<Session::ParamTarget>& target);
+    /// `delta` of the control's travel: as much again of the route's amount.
+    void drag(Session& session, float delta);
+    void end();
+
+private:
+    std::optional<Session::EditGroup> group_;
+    std::uint64_t modulator_ = 0;
+    Session::ParamTarget target_;
+    float amount_ = 0.0f;
 };
 } // namespace fd::engine

@@ -78,6 +78,25 @@ void ModulationHandle::setSource(int source)
     repaint();
 }
 
+void paintModulationCable(juce::Graphics& g, juce::Point<float> from, juce::Point<float> to)
+{
+    const auto& t = Theme::current();
+    const float sag =
+        std::min(0.15f * std::abs(to.x - from.x), static_cast<float>(t.devicePanelHeight) * 0.25f);
+    juce::Path cable;
+    cable.startNewSubPath(from);
+    cable.cubicTo(from.translated(0.0f, sag), to.translated(0.0f, sag), to);
+    const float line = t.knobRingThickness;
+    g.setColour(t.surface0);
+    g.strokePath(cable, juce::PathStrokeType(3.0f * line, juce::PathStrokeType::curved,
+                                             juce::PathStrokeType::rounded));
+    g.setGradientFill(juce::ColourGradient(t.effectStart, from, t.effectEnd, to, false));
+    g.strokePath(cable, juce::PathStrokeType(line, juce::PathStrokeType::curved));
+    const float dot = 2.0f * (line + 0.5f);
+    g.fillEllipse(juce::Rectangle<float>(dot, dot).withCentre(from));
+    g.fillEllipse(juce::Rectangle<float>(2.0f * dot, 2.0f * dot).withCentre(to));
+}
+
 void ModulationHandle::refresh()
 {
     const bool lit =

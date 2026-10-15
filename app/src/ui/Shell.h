@@ -189,6 +189,8 @@ private:
     void registerSongActions();
     // The piano roll's commands (ShellNotes.cpp, ADR 0058): the Notes menu, the clip view's options.
     void registerNotesActions();
+    // The modulators' (ShellModulators.cpp, ADR 0061): Module ▸ Add modulator, Keep, Remove routes.
+    void registerModulatorActions();
     /// The notes' right-click menu (piano-roll.md §13).
     [[nodiscard]] juce::PopupMenu notesContextMenu();
     [[nodiscard]] juce::PopupMenu sectionColourMenu();
