@@ -749,3 +749,5 @@ Names follow ADR 0067: 808, 909, 707 and 606 are allowed; makers' and model name
 - **Cajón:** the source names its strokes only by number; bass, tone and slap are guesses from how they sound.
 - **Levels between kits:** Sub 808, Analog lab and Hardstyle are 5 dB or more above the middle, and Machine percussion and Mallets below it.
 - **Any pad that's wrong for its kit,** too loud or soft within it, or too long.
+
+**Signed off by the product owner (2026-10-16):** "It sounds good." The Drum Kit is done: steps 0 to 3. The cap of 8 layers × 4 takes a piece can go if a kit sounds repetitive in use; the Library's size is no reason to keep it (factory-library.md, B94).
