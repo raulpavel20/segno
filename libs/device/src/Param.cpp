@@ -165,6 +165,12 @@ std::string ParamSpec::toText(float plain) const
         return formatNumber(v, decimals) + " LUFS";
     case Unit::Dbtp:
         return formatNumber(v, decimals) + " dBTP";
+    case Unit::PerSecond:
+        return formatNumber(v, v >= 10.0f ? 0 : decimals) + " /s";
+    case Unit::Octaves:
+        return formatNumber(v, decimals) + " oct";
+    case Unit::Times:
+        return formatNumber(v, decimals) + "\xC3\x97"; // multiplication sign (UTF-8)
     case Unit::None:
         break;
     }

@@ -294,15 +294,34 @@ ParamToggle::ParamToggle(DeviceUiContext& context, size_t paramIndex)
     refresh();
 }
 
+namespace
+{
+/// A toggle's two values: its parameter's least and most (0 and 1 for an on/off parameter; 0 and
+/// 100 % for a pad on a level, Granular's Fire), and the middle it's on above.
+float offValue(const ParamSpec& spec)
+{
+    return spec.min;
+}
+float onValue(const ParamSpec& spec)
+{
+    return spec.max;
+}
+bool toggledOn(const ParamSpec& spec, float plain)
+{
+    return plain >= 0.5f * (spec.min + spec.max);
+}
+} // namespace
+
 void ParamToggle::refresh()
 {
-    setToggleState(context_.params.getPlain(index_) >= 0.5f, juce::dontSendNotification);
+    const auto& param = context_.info.params[index_];
+    setToggleState(toggledOn(param, context_.params.getPlain(index_)), juce::dontSendNotification);
     setAutomationState(context_.params.automationState(index_));
     // Moved by the track's modulators (modulators.md §7.3): turned while they have it the other way.
     const auto moved = context_.params.modulated(index_);
-    setModulation(
-        moved ? std::optional<Modulation>(Modulation{(moved->now >= 0.5f) != getToggleState(), moved->dimmed})
-              : std::nullopt);
+    setModulation(moved ? std::optional<Modulation>(
+                              Modulation{toggledOn(param, moved->now) != getToggleState(), moved->dimmed})
+                        : std::nullopt);
     const auto drag = context_.params.modulatorDrag(index_);
     setDropTarget(drag.target);
     setDropCandidate(drag.candidate);
@@ -314,8 +333,9 @@ void ParamToggle::clicked()
 {
     if (momentary_) // held, not toggled: buttonStateChanged sets it
         return;
+    const auto& param = context_.info.params[index_];
     context_.params.beginGesture(index_);
-    context_.params.setPlain(index_, getToggleState() ? 1.0f : 0.0f);
+    context_.params.setPlain(index_, getToggleState() ? onValue(param) : offValue(param));
     context_.params.endGesture(index_);
 }
 
@@ -336,7 +356,8 @@ void ParamToggle::buttonStateChanged()
     held_ = down;
     if (down)
         context_.params.beginGesture(index_);
-    context_.params.setPlain(index_, down ? 1.0f : 0.0f);
+    const auto& param = context_.info.params[index_];
+    context_.params.setPlain(index_, down ? onValue(param) : offValue(param));
     if (!down)
         context_.params.endGesture(index_);
 }

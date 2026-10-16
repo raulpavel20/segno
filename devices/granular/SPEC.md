@@ -156,7 +156,7 @@ State version 1. Every parameter is automatable except where noted. Families use
 | `src<n>.tune` | Source n Tune | Shifts the source by semitones, from the root it was found or set at. | −48 … +48 | 0 | st | stepped | per grain |
 | `src<n>.fine` | Source n Fine | Tunes the source slightly. | −100 … +100 | 0 | ct | linear | per grain |
 | `src.mix` | Source Mix | How many grains come from Source 2: none at 0 %, all at 100 %. | 0 … 100 | 50 | % | linear | per grain |
-| `src.pick` | Source Pick | Random picks each grain's source by the mix; Alternate takes turns; Both plays every grain from each. | Random, Alternate, Both | Random | choice | – | per grain |
+| `src.pick` | Source Pick | Random picks each grain's source by the mix; Turns alternates them; Both plays every grain from each. | Random, Turns, Both | Random | choice | – | per grain |
 
 **Live input** (`live`, step 2):
 
@@ -219,7 +219,7 @@ State version 1. Every parameter is automatable except where noted. Families use
 | `pitch.spray` | Pitch Spray | How far each grain's pitch strays, at random. | 0 … 48 | 0 | st | centre 12 st | per grain |
 | `pitch.dir` | Spray Direction | Strays both ways, only up, or only down. | Both, Up, Down | Both | choice | – | per grain |
 | `pitch.quant` | Quantize | Lands each grain's pitch on semitones, the song's key, octaves, octaves and fifths, or a chord. | Off, Semitones, Song Key, Octaves, Fifths, Chord | Off | choice | – | per grain |
-| `pitch.chord` | Chord | The chord grains land on when Quantize is Chord. | Major, Minor, Sus 2, Sus 4, Major 7, Minor 7, Dominant 7, Major 9, Minor 9, Power, The Key's Chord | Major | choice | – | per grain |
+| `pitch.chord` | Chord | The chord grains land on when Quantize is Chord. | Major, Minor, Sus 2, Sus 4, Major 7, Minor 7, Dominant 7, Major 9, Minor 9, Power, Key Chord | Major | choice | – | per grain |
 | `pitch.glide` | Grain Glide | Slides each grain's pitch by this much over its life. | −24 … +24 | 0 | st | linear | per grain |
 
 **Stereo:**
@@ -247,17 +247,62 @@ State version 1. Every parameter is automatable except where noted. Families use
 | `gcolor.ratio` | Ring Ratio | The ring's frequency against each grain's pitch. | 0.25 … 16 | 2 | × | log | per grain |
 | `gcolor.ringspray` | Ring Spray | How much the ring's frequency varies from grain to grain. | 0 … 100 | 0 | % | linear | per grain |
 
-**Filters** (`filter<n>`, n = 1–2) and `filters.routing`: the Wavetable's 17, with the same IDs, names, ranges and descriptions ([Wavetable SPEC](../wavetable/SPEC.md)): on, type (its 14 types), cutoff, resonance, drive, shape, key track, envelope amount (from Env 2), and the routing from serial to parallel. Filter 1 on (LP 24, 20 000 Hz, so it starts open), filter 2 off.
+**Filters** (`filter<n>`, n = 1–2) and the routing, as the Wavetable's. Filter 1 starts open (LP 24 at 20 000 Hz), filter 2 off:
 
-**Amp and envelopes:** `amp.vel` and `env<n>` (n = 1–3; Env 1 is the amp, Env 2 moves the filters by default, Env 3 is free), each with attack, hold, decay, sustain, release, their three curves and its mode, as the Wavetable's: 28 parameters. The amp's defaults suit a pad: attack 50 ms, decay 1 000 ms, sustain 100 %, release 800 ms.
+| ID (permanent) | Name | Description | Range | Default | Unit | Curve | Smoothing |
+|---|---|---|---|---|---|---|---|
+| `filter<n>.on` | Filter n On | Turns the filter on or off. | Off / On | On (1), Off (2) | toggle | – | 5 ms fade |
+| `filter<n>.type` | Filter n Type | The filter's kind: low, high or band pass, notch, peak, ladder or diode, comb, formant or phaser. | LP 12, LP 24, Ladder, Diode, HP 12, HP 24, BP 12, BP 24, Notch, Peak, Comb +, Comb −, Formant, Phaser | LP 24 (1), HP 12 (2) | choice | – | crossfade |
+| `filter<n>.cutoff` | Filter n Cutoff | Where the filter acts: for a low pass, lower is darker. | 20 … 20 000 | 20 000 (1), 100 (2) | Hz | log | 20 ms multiplicative |
+| `filter<n>.res` | Filter n Resonance | Emphasis at the cutoff; near the top the ladder and diode filters start to sing on their own. | 0 … 100 | 20 | % | linear | 20 ms |
+| `filter<n>.drive` | Filter n Drive | Pushes the filter harder, for warmth and grit. | 0 … 100 | 0 | % | linear | 20 ms |
+| `filter<n>.shape` | Filter n Shape | The type's own setting: the formant's vowel, the comb's damping, the phaser's spread. | 0 … 100 | 50 | % | linear | 20 ms |
+| `filter<n>.key` | Filter n Key Track | How much the cutoff follows the note played: at 100 % it rises an octave per octave. | 0 … 100 | 50 | % | linear | 20 ms |
+| `filter<n>.env` | Filter n Env | How far Env 2 moves the cutoff, up or down. | −100 … +100 | 0 | % | linear | 20 ms |
+| `filters.routing` | Filter Routing | Filter 1 into filter 2 at 0 %, the two side by side at 100 %, or anywhere between. | 0 … 100 | 0 | % | linear | 20 ms |
 
-**LFOs** (`lfo<n>`, n = 1–4): the Wavetable's seven each (rate, sync, mode, phase, smooth, fade in, per note), each with a drawn shape: 28 parameters.
+**Amp and envelopes** (`env<n>`, n = 1–3): Env 1 is the amp, Env 2 moves the filters, Env 3 is free. The amp's defaults suit a pad:
 
-**Random** (`rnd<n>`, n = 1–2): the Wavetable's four each (mode, rate, sync, per note), with one more mode, **Per Grain**: a new value for each grain, the same for every target of that grain, so a grain that goes higher can also go brighter and further right: 8 parameters.
+| ID (permanent) | Name | Description | Range | Default | Unit | Curve | Smoothing |
+|---|---|---|---|---|---|---|---|
+| `amp.vel` | Velocity | How much harder playing makes notes louder. | 0 … 100 | 50 | % | linear | – |
+| `env<n>.a` | *Env* Attack | How long the envelope takes to rise. | 0 … 20 000 | 50 (1), 2 (2, 3) | ms | centre 50 ms | – |
+| `env<n>.h` | *Env* Hold | How long the envelope stays at its peak before it falls. | 0 … 10 000 | 0 | ms | centre 100 ms | – |
+| `env<n>.d` | *Env* Decay | How long the envelope takes to fall to its sustain level. | 1 … 20 000 | 1 000 (1), 400 (2), 300 (3) | ms | centre 300 ms | – |
+| `env<n>.s` | *Env* Sustain | The envelope's level while the key stays down. | 0 … 100 | 100 (1), 0 (2, 3) | % | linear | 20 ms |
+| `env<n>.r` | *Env* Release | How long the envelope takes to fall after the key is released. | 1 … 20 000 | 800 (1), 300 (2, 3) | ms | centre 300 ms | – |
+| `env<n>.acurve` | *Env* Attack Curve | How the attack rises: below zero it starts slowly, above zero quickly. | −100 … +100 | 30 | % | linear | – |
+| `env<n>.dcurve` | *Env* Decay Curve | How the decay falls: below zero it starts slowly, above zero quickly. | −100 … +100 | 60 | % | linear | – |
+| `env<n>.rcurve` | *Env* Release Curve | How the release falls: below zero it starts slowly, above zero quickly. | −100 … +100 | 60 | % | linear | – |
+| `env<n>.mode` | *Env* Mode | Normal; Loop repeats attack to decay while the key is held; One-shot plays through and ignores the release. | Normal, Loop, One-shot | Normal | choice | – | – |
 
-**Macros** (`macro<n>`, n = 1–8): 8 parameters.
+**LFOs** (`lfo<n>`, n = 1–4), each with a drawn shape, and **random sources** (`rnd<n>`, n = 1–2), as the Wavetable's, with one more mode, **Per Grain**: a new value for each grain, the same for every target of that grain, so a grain that goes higher can also go brighter and further right:
 
-**The matrix** (`mod<n>`, n = 1–32): the Wavetable's five each (source, target, amount, curve, scale): 160 parameters.
+| ID (permanent) | Name | Description | Range | Default | Unit | Curve | Smoothing |
+|---|---|---|---|---|---|---|---|
+| `lfo<n>.rate` | LFO n Rate | How fast the LFO moves when it isn't synced to the tempo. | 0.01 … 100 | 2 | Hz | log | 20 ms multiplicative |
+| `lfo<n>.sync` | LFO n Sync | Locks the LFO to the song's tempo, in note values. | Off, 1/64 … 8 bars, with dotted and triplet values | Off | choice | – | – |
+| `lfo<n>.mode` | LFO n Mode | Free keeps running; Retrigger restarts it with each note; Envelope plays its shape once per note. | Free, Retrigger, Envelope | Retrigger | choice | – | – |
+| `lfo<n>.phase` | LFO n Phase | Where in its shape the LFO starts. | 0 … 360 | 0 | ° | linear | – |
+| `lfo<n>.smooth` | LFO n Smooth | Rounds off the shape's corners, so steps glide. | 0 … 100 | 0 | % | linear | 20 ms |
+| `lfo<n>.fade` | LFO n Fade In | How long the LFO takes to fade in after each note starts. | 0 … 10 000 | 0 | ms | centre 500 ms | – |
+| `lfo<n>.poly` | LFO n Per Note | On, each note has its own LFO; off, one LFO moves every note together. | Off / On | On | toggle | – | – |
+| `rnd<n>.mode` | Random n Mode | Steps holds, Smooth glides, Chaos wanders; Per Note picks a value for each note, Per Grain one for each grain. | Steps, Smooth, Chaos, Per Note, Per Grain | Smooth | choice | – | – |
+| `rnd<n>.rate` | Random n Rate | How often a new value comes when it isn't synced to the tempo. | 0.01 … 100 | 4 | Hz | log | 20 ms multiplicative |
+| `rnd<n>.sync` | Random n Sync | Locks the new values to the song's tempo, in note values. | as LFO Sync | Off | choice | – | – |
+| `rnd<n>.poly` | Random n Per Note | On, each note has its own values; off, every note follows the same ones. | Off / On | On | toggle | – | – |
+| `macro<n>` | Macro n | A knob of your own: route it to any settings to move them together. | 0 … 100 | 0 | % | linear | 20 ms |
+
+**The matrix** (`mod<n>`, n = 1–32), as the Wavetable's:
+
+| ID (permanent) | Name | Description | Range | Default | Unit | Curve | Smoothing |
+|---|---|---|---|---|---|---|---|
+| `mod<n>.src` | Mod n Source | What drives this route: an envelope, an LFO, a macro, how the note is played, or the grain itself. | None, then every source below | None | choice | – | – |
+| `mod<n>.dst` | Mod n Target | What this route changes. | None, then every target below | None | choice | – | – |
+| `mod<n>.amt` | Mod n Amount | How much, and in which direction, this route moves its target. | −100 … +100 | 0 | % | linear | 20 ms |
+| `mod<n>.curve` | Mod n Curve | Bends the route's response: below zero small moves of the source count for less, above zero for more. | −100 … +100 | 0 | % | linear | – |
+| `mod<n>.aux` | Mod n Scale | Another source that scales this route's amount, such as the mod wheel or velocity. | None and the sources above | None | choice | – | – |
+
 - **Sources,** in this order (permanent): None; Env 1, 2, 3; LFO 1 … 4; Random 1, 2; Macro 1 … 8; Velocity, Note, Pressure, Slide, Bend, Mod Wheel; Grain Random (a fresh bipolar value for each grain); Grain Alternate (+1 and −1 by turns); Scan (the playhead's place in the part, 0 to 1); Input Level (how loud the live input is, followed).
 - **Targets,** in this order (permanent):
   - None; Pitch; Position, Position Spray, Scan;
@@ -532,7 +577,7 @@ Dated listening notes from the product owner, and the measurable checks derived 
 | # | Question | Recommendation |
 |---|---|---|
 | G1 | **How far to go** | Beyond Live, as the product owner asked: Granulator III plus extras, to the depth of the leading granular instruments. [ADR 0065](../../docs/decisions/0065-granular-goes-beyond-live.md) lifts ADR 0011's "instruments stay close to Live's" for this instrument, as ADR 0050 did for the Wavetable. Innovation where the integrated DAW helps (the song's key, tempo and position; clips and tracks as sources; captures kept), and in CPU |
-| G2 | **Sources** | Two, each a file, a Library instrument (its zones by note), a clip, or the live input, mixed per grain (Random, Alternate, Both). More than two waits for a later stage: two cover cross-textures and live against sample, and each one more costs memory and UI |
+| G2 | **Sources** | Two, each a file, a Library instrument (its zones by note), a clip, or the live input, mixed per grain (Random, Turns, Both). More than two waits for a later stage: two cover cross-textures and live against sample, and each one more costs memory and UI |
 | G3 | **Modes** | Six: Classic, Loop and Cloud (Granulator's), Pitched (a sample as an oscillator), Rhythm (on the song's grid), Spectral (step 3). Fire starts grains in any mode |
 | G4 | **Per-grain processing** | A filter on every grain (LP, BP, HP, Resonator) with cutoff spray, pitch tracking and key snap; colour (crush, ring) with sprays. Each free when off. No delay or reverb inside (G15) |
 | G5 | **Pitch** | The root found on loading (metadata, name, sound) and set in one click; Key Track; spray with a direction; Quantize to semitones, the song's key, octaves, fifths or a chord; glide within a grain; Formant in Pitched and Spectral |
@@ -555,6 +600,37 @@ Dated listening notes from the product owner, and the measurable checks derived 
 | G22 | **Assistants' tools** | `load_granular_source` (a file, a clip or a Library instrument into Source 1 or 2), `get_granular_source` (its kind, root, part, length, transients); step 2: `capture_granular`, `make_granular` (a clip into a Granular on a new track). Parameters through the module tools every module has |
 | G23 | **Where in the plan** | P8 of M3, on the `synth` branch, beside main's work |
 | G24 | **The experiments** | All in, since the product owner asked for room to experiment, and each is cheap: Rhythm with Chance, Repeats and Swing; Fire; Random Per Grain; Grain Glide; Position Key; the Song playhead; Hold and Feedback on the live input; Both sources on every grain; colour; Spectral's Smear. Any to drop? |
+
+## Drawn (the visual mockup, 2026-10-16; for the product owner's review)
+
+Every state drawn with the real panel kit: Granular's own panel, from its approved parameters and a stand-in for the engine (the grains, the CPU and the playhead published as the engine will publish them). Each state passes the module panel lint on every page (`tests/panels/GranularPanelTests.cpp`, `FD_DUMP_DIR`):
+- **Grains:** Classic, Loop, Cloud (a cloud on octaves and fifths), Pitched, Rhythm, Spectral; Source 2 beside Source 1; an empty source; a source on Live, with the Input picker on a track; the routes' rings on Position, Density and Pitch Spray.
+- **Sound:** a resonator on every grain with its cutoff's spray; LIVE while a source is on Live.
+- **Modulation:** LFO 1 and the matrix with four routes; Random 1 per grain.
+- Collapsed and folded.
+
+**The layout as drawn:**
+- **Grains** (about 1 480 px): SOURCE 7 columns, POSITION 5, GRAIN 6, PITCH 4, SPREAD 4.
+  - SOURCE: the display (5 × 5), the picker under it; at its right, 1 | 2, Sample | Live, Gain, Tune, Mix and Pick.
+  - POSITION: Position, Spray, Scan and Pos Key as knobs; Spray Shape, Scan Sync, Scan End, Playhead and Snap as a column of choices beside them.
+  - GRAIN: the mode's five knobs and the window drawn small; Mode and Window; Size Sync (Rate in Rhythm, Resolution in Spectral), Skew; Repeats, Fire as a pad, Flatness. Placed again when the mode changes, so each mode shows its own; what a mode doesn't use is dimmed (Size Sync in Pitched, the window in Spectral).
+  - PITCH: Semi, Fine, Key, Spray; Glide; the spray's direction (Both | Up | Down), Quantize, Chord (dimmed but for Chord).
+  - SPREAD: Pan, Size, Level, Even; Pan Mode; Density Gain.
+- **Sound** (about 1 480 px, 1 600 with LIVE): GRAIN FILTER 4 (Type, In Key, the response with its spray, Cutoff, Res, Spray, Track), GRAIN COLOR 3, FILTER 6 and ENVELOPES 7 as the Wavetable's, VOICE 5 (Glide, Bend, Width, Volume, Max; Mode, Latch; Glide Mode, Grain Tails; Voices, Filter Routing), LIVE 3 (Length, Gain, the input's level; Rolling | Hold | Frozen; Feedback; Capture).
+- **Modulation:** LFO 6, MATRIX 11, MACROS 4, as the Wavetable's.
+- **Header:** the page tabs, the presets, Input, Quality, the grains playing and the CPU.
+
+**Settled while drawing:**
+- **The parts every synth shares** (an envelope drawn and dragged, an LFO's shape, the filters' responses, the matrix, the modulation's rings and handles) moved from the Wavetable into the panel kit (`ui::synth`, `SynthParts.h`), so Granular's and the Wavetable's are one: the Wavetable unchanged, its panel tests passing.
+- **The display's look follows the Sampler's** (the well, the waveform's columns, S and E, the file's line), with one difference to review: the waveform is grey behind the grains, which take the colour (Source 1 in the value colour, Source 2 in a new colour role, `secondSource`, violet), so the grains read over it.
+- **Names that read apart on one page:** Scan Sync and Size Sync (not two "Sync"), Scan End (not "End", which the display's E is), Pos Key (not a second "Key"), Spray Shape; the grain filter's In Key (Cutoff to Key) and the Spectral Harm (Harmonics) as their knobs' short names.
+- **Two choices renamed to fit their dropdowns:** Source Pick's Alternate is **Turns**, Chord's The Key's Chord is **Key Chord** (as the Wavetable's stack names it). Their descriptions follow.
+- **Three units added to the device API** (an addition, as `TransportInfo::key` was): per second (Density), octaves (Cutoff Spray), times (Ring Ratio).
+- **A toggle on a level** (Fire, 0 to 100 %) sets its parameter's most and least, and reads on above the middle, so a pad can fire it; on an on/off parameter, nothing changes.
+- **Filter Routing sits in VOICE,** named in full there, since FILTER has no room; Source Fine waits for the Source editor (step 2), where the root is set.
+- **LIVE's Feedback is a bar,** with the input's level beside Gain; the sample's name dims while its source is on Live (it stays loaded for when it's back on Sample).
+- **Scan isn't finer near 0:** the parameters have no curve symmetric about zero, so it's linear.
+- **The conformance suite** finds every parameter described as in this SPEC; its check that an instrument plays waits for step 1's engine, with a chord of Segno's own in Source 1 for it to play (`GrainSource::chord`).
 
 ## Sign-off
 

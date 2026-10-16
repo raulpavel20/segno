@@ -25,6 +25,7 @@ Roles are derived from the base palette in `Theme.cpp` (`deriveRoles`), the only
 | `playhead` | textPrimary | The playhead in every time view |
 | `marker` | textPrimary at 80 % | Live playheads inside a display (Sampler) |
 | `warpMarkerLine` | textPrimary at 50 % | A warp marker's line down through the audio editor's waveform, under its handle in the marker strip ([audio-editor.md](audio-editor.md) §7.5) |
+| `secondSource` | Clip palette hue 13 (violet), the same in every theme | Granular's Source 2: its waveform and its grains, beside Source 1's in `value` ([Granular SPEC](../../devices/granular/SPEC.md), "UI layout") |
 | `loopInactive` | textTertiary at 70 % | The loop brace while looping is off |
 | `onClip` | surface0 | Text on a clip's title strip and on notes |
 | `takeUnused` / `takeUnusedContent` | surface2 / textTertiary 35 % towards surface2 | The audio of a clip's takes that it doesn't play, on their strips: no clip colour (recording.md §6) |

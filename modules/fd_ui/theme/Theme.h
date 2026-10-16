@@ -77,6 +77,8 @@ struct ColourRoles
     // Warping (audio-editor.md §7.5): a warp marker's line down through the waveform, under its
     // handle (textPrimary) in the marker strip.
     juce::Colour warpMarkerLine;
+    // Granular's Source 2 beside Source 1's `value`: its waveform and its grains (devices/granular/SPEC.md).
+    juce::Colour secondSource;
 
     // States.
     float hoverLift = 0.06f, pressedLift = 0.12f;

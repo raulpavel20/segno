@@ -3,7 +3,7 @@
 fd_add_test(NAME fd_panel_tests
     SOURCES PanelLayoutTests.cpp PanelPagesTests.cpp ModulationUiTests.cpp SpectrumPanelTests.cpp DelayPanelTests.cpp ChorusPanelTests.cpp PhaserFlangerPanelTests.cpp AutoPanTremoloPanelTests.cpp ReverbPanelTests.cpp FilterPanelTests.cpp
             LoudnessMeterPanelTests.cpp EqPanelTests.cpp WavetablePanelTests.cpp TableEditorTests.cpp SamplerPanelTests.cpp
-            EnvelopeDisplayTests.cpp TunerPanelTests.cpp
+            EnvelopeDisplayTests.cpp TunerPanelTests.cpp GranularPanelTests.cpp
     LIBS fd_panel_registry fd::registry fd::fd_ui fd::fd_device_ui juce::juce_gui_basics fd::testkit
          juce::juce_recommended_config_flags
     JUCE)

@@ -73,6 +73,12 @@ const char* unitName(Unit unit)
         return "LUFS";
     case Unit::Dbtp:
         return "dBTP";
+    case Unit::PerSecond:
+        return "per second";
+    case Unit::Octaves:
+        return "octaves";
+    case Unit::Times:
+        return "times";
     }
     return "";
 }
