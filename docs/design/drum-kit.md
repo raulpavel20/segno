@@ -373,7 +373,7 @@ Kept as tests (`tests/integration/DrumKitSpikeTests.cpp`). The pad inlet is buil
     | 64 | 1,179 ms | 757 ms | 1.56× | 15 % |
     | 128 | 1,866 ms | 960 ms | 1.94× | 23 % |
 
-    A pad costs about 0.13 % of real time on this machine. In this pattern most pads are silent most of the time, so that's mostly what an idle pad costs. Kits of 16 to 64 pads are cheap. A full 128 costs twice what as many tracks would. That's acceptable, but worth a look before kits that size are common: skipping idle pads, or the Sampler's idle cost.
+    A pad costs about 0.13 % of real time on this machine. In this pattern most pads are silent most of the time, so that's mostly what an idle pad costs. Kits of 16 to 64 pads are cheap. A full 128 costs twice what as many tracks would. That's acceptable, but worth a look before kits that size are common: skipping idle pads, or the Sampler's idle cost (open question B95, for when it's time to optimise).
 11. **A whole kit swapped** (A/B, a preset): 16 pads with half-second stereo samples are read back in 47 ms in Release (53 ms in Debug), under the 100 ms §15 asked for.
 
 **Settled while building it:**
