@@ -2,7 +2,7 @@
 
 How we find what to optimise by measuring it, rather than by reading code and guessing. Tools for the CPU on the audio thread and on the UI, for memory, and for checking that a change made things faster.
 
-**Status:** for review (2026-10-16), PR1–PR8 below. Nothing is installed or built yet. [ADR 0071](../decisions/0071-profiling-tools.md) is proposed with it.
+**Status:** approved by the product owner (2026-10-16): "I approve the tools" (PR1–PR8), [ADR 0071](../decisions/0071-profiling-tools.md) accepted. Work starts 2026-10-17 with §5's order. Nothing is installed or built yet; perf's permission (PR2) is the product owner's to set when it starts.
 
 What the product owner asked (2026-10-16): "research into profiler tools for such apps … tools to help profile exactly what the weak points are and what needs optimising and where, instead of just blindly reviewing code to find bits to optimise. There must be some industry standards for C++ app profilers."
 
@@ -137,6 +137,8 @@ tracktion already times every module and every block. Showing it would help anyo
 Steps 1 and 2 are small. Step 3 is about a day, the zones included.
 
 ## 6. Questions for review
+
+Approved by the product owner (2026-10-16) with every recommendation.
 
 | # | Question | Recommendation |
 |---|---|---|

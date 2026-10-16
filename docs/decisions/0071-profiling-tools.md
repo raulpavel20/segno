@@ -1,6 +1,6 @@
 # 0071. Profiling: perf and hotspot, Tracy behind FD_PROFILE, callgrind and heaptrack
 
-- **Status:** Proposed (2026-10-16, with [profiling.md](../design/profiling.md), PR1–PR8)
+- **Status:** Accepted (product owner, 2026-10-16: "I approve the tools", with [profiling.md](../design/profiling.md), PR1–PR8)
 - **Date:** 2026-10-16
 - **Builds on:** [0006](0006-juce-free-core-and-module-boundaries.md) (no JUCE below the JUCE line)
 - **Number:** 0065 and 0069 are taken on the `synth` branch; renumbered at merge if main has used 0071
