@@ -371,7 +371,8 @@ Session::Impl::Impl(Session& o, te::Engine& e) : owner(o), engine(e)
         return edit != nullptr && &t.edit == edit.get() ? recordingFile(t, extension) : juce::File();
     });
     // Beats starts pieces at a clip's transients (audio-editor.md §7.4), once they're found.
-    setTransientSource(engine, [this](te::AudioClipBase& c) { return transientsOf(c); });
+    setTransientSource(engine, [this](te::AudioClipBase& c, bool forRendering)
+                       { return transientsOf(c, forRendering); });
     analyser.onFound = [this](const std::string& path) { analysisFound(path); };
     // The browser's previews play after the engine's output (browser.md §7).
     engine.getDeviceManager().deviceManager.addAudioCallback(&preview);
@@ -486,10 +487,10 @@ Session::Impl::~Impl()
     detach();
 }
 
-std::vector<double> Session::Impl::transientsOf(te::AudioClipBase& c)
+std::vector<double> Session::Impl::transientsOf(te::AudioClipBase& c, bool now)
 {
     auto info = model::ClipInfo{};
-    info.analysis = analyser.get(forwardFileOf(c));
+    info.analysis = now ? analyser.now(forwardFileOf(c)) : analyser.get(forwardFileOf(c));
     info.warp = warpOf(c);
     info.transientsAdded = timesOf(c.state[warpIds::transientsAdded]);
     info.transientsRemoved = timesOf(c.state[warpIds::transientsRemoved]);

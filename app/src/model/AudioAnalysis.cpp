@@ -18,7 +18,8 @@ constexpr double kSegmentSeconds = 30.0, kPadSeconds = 0.5;
 constexpr double kTempoSeconds = 60.0, kPercussiveSeconds = 20.0, kKeySeconds = 120.0;
 } // namespace
 
-std::optional<FileAnalysis> analyseFile(const std::string& path, std::string* error)
+std::optional<FileAnalysis> analyseFile(const std::string& path, std::string* error,
+                                        const std::atomic<bool>* stop)
 {
     FileAnalysis out;
     std::vector<float> buffer, head;
@@ -73,10 +74,10 @@ std::optional<FileAnalysis> analyseFile(const std::string& path, std::string* er
                 bufferStart += static_cast<std::int64_t>(dropped);
                 first = false;
             }
-            return true;
+            return stop == nullptr || !stop->load();
         },
         error);
-    if (!info || !(rate > 0.0))
+    if (!info || !(rate > 0.0) || (stop != nullptr && stop->load()))
         return std::nullopt;
     if (!buffer.empty())
         find(buffer.size(), first ? 0.0 : kPadSeconds, static_cast<double>(buffer.size()) / rate + 1.0);

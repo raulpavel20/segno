@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <fd/dsp/Onsets.h>
 #include <fd/dsp/PitchClasses.h>
 #include <fd/music/Key.h>
@@ -32,8 +33,9 @@ struct FileAnalysis
 };
 
 /// Analyses the file at `path`, streamed, its channels mixed. Nullopt, with `error`, if it can't be
-/// read. Not real-time: a background thread's.
-[[nodiscard]] std::optional<FileAnalysis> analyseFile(const std::string& path, std::string* error = nullptr);
+/// read, or once `stop` is set. Not real-time: a background thread's.
+[[nodiscard]] std::optional<FileAnalysis> analyseFile(const std::string& path, std::string* error = nullptr,
+                                                      const std::atomic<bool>* stop = nullptr);
 
 /// A clip's transients (§7.4): the file's at its sensitivity, without those removed (within a
 /// millisecond) and with those added by hand, in order. Seconds of the file as recorded.

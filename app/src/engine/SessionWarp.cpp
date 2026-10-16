@@ -236,8 +236,7 @@ std::vector<double> Session::clipTransients(std::uint64_t clipId)
     auto* c = dynamic_cast<te::AudioClipBase*>(impl_->clip(clipId));
     if (c == nullptr)
         return {};
-    (void)impl_->analyser.now(forwardFileOf(*c));
-    return impl_->transientsOf(*c);
+    return impl_->transientsOf(*c, true);
 }
 
 std::optional<Session::FoundTempo> Session::foundTempo(std::uint64_t clipId)

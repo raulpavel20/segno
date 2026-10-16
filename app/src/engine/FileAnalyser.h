@@ -49,6 +49,7 @@ private:
     std::map<std::string, Entry> entries_;
     std::deque<std::string> queue_;
     std::atomic<int> pending_{0};
+    std::atomic<bool> stopping_{false};
     std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
 };
 } // namespace fd::engine

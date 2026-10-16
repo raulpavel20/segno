@@ -127,8 +127,9 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     FileIndexer indexer;
     // What's found in clips' files (P6b, audio-editor.md §7): transients, how percussive, tempo.
     FileAnalyser analyser;
-    /// A clip's transients (seconds of its file as recorded): none while its file is analysed.
-    [[nodiscard]] std::vector<double> transientsOf(te::AudioClipBase& clip);
+    /// A clip's transients (seconds of its file as recorded): none while its file is analysed, or
+    /// found here and now (`now`: a render, which can't play it again once they're found).
+    [[nodiscard]] std::vector<double> transientsOf(te::AudioClipBase& clip, bool now);
     /// A file's analysis arrived: clips that play it are shown again, and Beats ones played again.
     void analysisFound(const std::string& path);
     /// What follows the tempo when it's placed or made (Settings › Audio, audio-editor.md §7.2).

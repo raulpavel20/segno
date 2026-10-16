@@ -43,7 +43,7 @@ struct Player
         session = std::make_unique<Session>(engine);
         session->setUnsavedRoot(root.getChildFile("Unsaved"));
         REQUIRE(root.createDirectory());
-        fd::engine::setTransientSource(engine, [this](te::AudioClipBase&) { return transients; });
+        fd::engine::setTransientSource(engine, [this](te::AudioClipBase&, bool) { return transients; });
     }
 
     ~Player()

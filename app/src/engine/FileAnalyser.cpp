@@ -30,9 +30,10 @@ std::optional<int> metadataRoot(const juce::File& file)
 }
 
 /// What's found in a file, its key from its metadata and name as well as its sound.
-std::shared_ptr<const model::FileAnalysis> analyse(const std::string& path)
+std::shared_ptr<const model::FileAnalysis> analyse(const std::string& path,
+                                                   const std::atomic<bool>* stop = nullptr)
 {
-    auto found = model::analyseFile(path);
+    auto found = model::analyseFile(path, nullptr, stop);
     if (!found)
         return nullptr;
     const juce::File file(path);
@@ -51,6 +52,7 @@ FileAnalyser::FileAnalyser() : juce::Thread("Segno file analysis")
 FileAnalyser::~FileAnalyser()
 {
     alive_->store(false);
+    stopping_.store(true); // a long file's analysis stops where it is
     signalThreadShouldExit();
     notify();
     stopThread(10000);
@@ -140,7 +142,9 @@ void FileAnalyser::run()
             wait(-1);
             continue;
         }
-        const auto shared = analyse(path);
+        const auto shared = analyse(path, &stopping_);
+        if (stopping_.load())
+            break;
         {
             std::lock_guard lock(mutex_);
             auto& e = entries_[path];

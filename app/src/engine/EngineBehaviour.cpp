@@ -63,7 +63,7 @@ public:
             return {};
         std::vector<double> found;
         if (transients && warpOf(clip).mode == model::WarpMode::Beats)
-            found = transients(clip);
+            found = transients(clip, forRendering);
         return makeWarpPlayer(clip, played, state, forRendering, found);
     }
 

@@ -44,8 +44,8 @@ using Stretch = signalsmith::stretch::SignalsmithStretch<float>;
 
 /// Voices playing at once: the piece playing, the next fading in, and the next ones primed.
 constexpr int kVoices = 4;
-/// Stretchers for Tones: one per voice that stretches at once.
-constexpr int kStretchers = 3;
+/// Stretchers for Tones: one per voice, so every voice playing at once stretches.
+constexpr int kStretchers = kVoices;
 /// Output frames rendered at a time: every buffer is sized for this, never for the device's block.
 constexpr int kChunk = 256;
 /// The fastest a piece reads its file, in file seconds a second (Beats transposed up).

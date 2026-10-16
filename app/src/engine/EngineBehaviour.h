@@ -47,8 +47,8 @@ using RecordingFiles = std::function<juce::File(tracktion::Track& track, const j
 void setRecordingFiles(tracktion::Engine& engine, RecordingFiles files);
 
 /// A clip's transients (seconds of its file as recorded, audio-editor.md §7.4), where the piece
-/// player starts Beats' pieces; none while they're being found. One per engine: the last one set
-/// wins.
-using TransientSource = std::function<std::vector<double>(tracktion::AudioClipBase& clip)>;
+/// player starts Beats' pieces: none while they're being found, unless `forRendering` (a render
+/// waits for them). One per engine: the last one set wins.
+using TransientSource = std::function<std::vector<double>(tracktion::AudioClipBase& clip, bool forRendering)>;
 void setTransientSource(tracktion::Engine& engine, TransientSource source);
 } // namespace fd::engine
