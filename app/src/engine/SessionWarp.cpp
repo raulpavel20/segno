@@ -409,26 +409,34 @@ std::string Session::sliceRefusal(std::uint64_t clipId) const
     return model::whyCantSlice(*found->first, s->tracks.at(static_cast<size_t>(found->second)));
 }
 
-bool Session::editTransients(std::uint64_t clipId, double file, bool add)
+bool Session::editTransients(std::uint64_t clipId, const std::vector<double>& add,
+                             const std::vector<double>& remove)
 {
     auto* c = dynamic_cast<te::AudioClipBase*>(impl_->clip(clipId));
-    if (c == nullptr)
+    if (c == nullptr || (add.empty() && remove.empty()))
         return false;
     auto& s = c->state;
     auto added = timesOf(s[warpIds::transientsAdded]), removed = timesOf(s[warpIds::transientsRemoved]);
-    const auto drop = [file](std::vector<double>& v)
+    const auto drop = [](std::vector<double>& v, double file)
     {
         v.erase(std::remove_if(v.begin(), v.end(), [file](double t) { return std::abs(t - file) < 0.001; }),
                 v.end());
     };
     // Added, it's no longer removed; removed, no longer added (and the file's own is hidden).
-    drop(added);
-    drop(removed);
-    (add ? added : removed).push_back(file);
+    for (const auto* times : {&add, &remove})
+        for (double file : *times)
+        {
+            drop(added, file);
+            drop(removed, file);
+            (times == &add ? added : removed).push_back(file);
+        }
     std::sort(added.begin(), added.end());
     std::sort(removed.begin(), removed.end());
     auto* um = &impl_->edit->getUndoManager();
-    impl_->beginEdit(add ? "Add transient" : "Remove transient");
+    impl_->beginEdit(remove.empty() && add.size() == 1   ? "Add transient"
+                     : add.empty() && remove.size() == 1 ? "Remove transient"
+                     : add.empty()                       ? "Remove transients"
+                                                         : "Edit transients");
     s.setProperty(warpIds::transientsAdded, textOf(added), um);
     s.setProperty(warpIds::transientsRemoved, textOf(removed), um);
     return true;

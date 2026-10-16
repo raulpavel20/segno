@@ -510,6 +510,76 @@ void AudioClipView::nudgeMarkers(int steps)
              "Move markers");
 }
 
+double AudioClipView::fileAtViewTime(double time) const
+{
+    auto shown = *clip_;
+    shown.warp = shownWarp();
+    return model::contentMap(shown).fileAt(time - origin());
+}
+
+double AudioClipView::transientPlace() const
+{
+    return range_ ? range_->first : playhead_;
+}
+
+std::vector<double> AudioClipView::transientsInRange() const
+{
+    std::vector<double> out;
+    if (!clip_ || !range_)
+        return out;
+    const double a = fileAtViewTime(range_->first), b = fileAtViewTime(range_->second);
+    for (double t : transients())
+        if (t >= std::min(a, b) && t <= std::max(a, b))
+            out.push_back(t);
+    return out;
+}
+
+std::string AudioClipView::addTransientRefusal() const
+{
+    if (!clip_)
+        return "Show an audio clip in the clip view.";
+    const double file = fileAtViewTime(transientPlace());
+    if (file < 0.0 || file > clip_->fileLength)
+        return "Put the playhead where it goes in the clip, or select a range from there.";
+    const auto found = transients();
+    if (std::any_of(found.begin(), found.end(), [file](double t) { return std::abs(t - file) < 0.001; }))
+        return "There's a transient there already.";
+    return {};
+}
+
+std::string AudioClipView::removeTransientsRefusal() const
+{
+    if (!clip_)
+        return "Show an audio clip in the clip view.";
+    if (!range_)
+        return "Select a range over the transients to remove.";
+    if (transientsInRange().empty())
+        return "There are no transients in the range.";
+    return {};
+}
+
+bool AudioClipView::addTransient()
+{
+    if (const auto why = addTransientRefusal(); !why.empty())
+    {
+        if (onMessage)
+            onMessage(juce::String::fromUTF8(why.c_str()));
+        return false;
+    }
+    return session_.editTransients(clip_->id, {fileAtViewTime(transientPlace())}, {});
+}
+
+bool AudioClipView::removeTransients()
+{
+    if (const auto why = removeTransientsRefusal(); !why.empty())
+    {
+        if (onMessage)
+            onMessage(juce::String::fromUTF8(why.c_str()));
+        return false;
+    }
+    return session_.editTransients(clip_->id, {}, transientsInRange());
+}
+
 juce::PopupMenu AudioClipView::markerMenu(std::optional<size_t> marker, std::optional<double> at)
 {
     juce::PopupMenu m;
@@ -526,19 +596,17 @@ juce::PopupMenu AudioClipView::markerMenu(std::optional<size_t> marker, std::opt
               warped && !clip_->warp.markers.empty(), false, [this] { removeMarkers(); });
     if (at)
     {
-        // Transients by hand (§7.4): rarely needed, so only here.
+        // Transients by hand (§7.4): where clicked here; the Audio menu's at the playhead or range.
         m.addSeparator();
         const auto near = transientAt({static_cast<float>(waveformArea().getX() + timeline_.xForTime(*at)),
                                        static_cast<float>(markerStripArea().getCentreY())});
-        auto shown = *clip_;
-        shown.warp = shownWarp();
-        const double file = model::contentMap(shown).fileAt(*at - origin());
+        const double file = fileAtViewTime(*at);
         const auto id = clip_->id;
         m.addItem("Add transient here", !near && file >= 0.0 && file <= clip_->fileLength, false,
-                  [this, id, file] { session_.editTransients(id, file, true); });
+                  [this, id, file] { session_.editTransients(id, {file}, {}); });
         const auto found = transients();
         m.addItem("Remove transient", near.has_value(), false,
-                  [this, id, t = near ? found[*near] : 0.0] { session_.editTransients(id, t, false); });
+                  [this, id, t = near ? found[*near] : 0.0] { session_.editTransients(id, {}, {t}); });
     }
     return m;
 }

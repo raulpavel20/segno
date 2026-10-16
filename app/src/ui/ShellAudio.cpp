@@ -50,6 +50,15 @@ void Shell::registerAudioActions()
     // Clip commands act on the editor's clip, or the selected audio clips (§13).
     const auto hasClips = [this] { return !audioTargets().empty(); };
     const auto whyNoClips = [] { return juce::String("Select an audio clip first"); };
+    // The tools (§11) open on the clip view's clip: one clip, shown or selected. With several
+    // selected the clip view shows none (open question B90).
+    const auto oneClip = [this] { return detail_.showsAudioClip() || audioTargets().size() == 1; };
+    const auto whyNotOneClip = [this]
+    {
+        return juce::String(audioTargets().size() > 1
+                                ? "Select one audio clip: the tools open on the clip view's"
+                                : "Select an audio clip first");
+    };
     // The range's commands need the editor's range (§5).
     const auto rangeAction = [this, &audio](std::string id, juce::String name, A action, double db = 0.0)
     {
@@ -102,8 +111,8 @@ void Shell::registerAudioActions()
                       if (detail_.showsAudioClip())
                           detail_.showTool("normalise");
                   },
-                  .isEnabled = hasClips,
-                  .whyNot = whyNoClips});
+                  .isEnabled = oneClip,
+                  .whyNot = whyNotOneClip});
     // Reverse and polarity (§6.3): ticked as the first clip has them.
     const auto toggle = [this, hasClips, whyNoClips](std::string id, juce::String name,
                                                      bool model::AudioSound::* flag, const char* undo)
@@ -235,8 +244,8 @@ void Shell::registerAudioActions()
                   .name = asks("Detect"),
                   .category = "Audio",
                   .perform = openAudioTool("tempo"),
-                  .isEnabled = hasClips,
-                  .whyNot = whyNoClips});
+                  .isEnabled = oneClip,
+                  .whyNot = whyNotOneClip});
     actions_.add({.id = "audio.songTempo",
                   .name = "Song tempo from this clip",
                   .category = "Audio",
@@ -269,8 +278,8 @@ void Shell::registerAudioActions()
                   .name = asks("Quantise"),
                   .category = "Audio",
                   .perform = openAudioTool("quantise"),
-                  .isEnabled = hasClips,
-                  .whyNot = whyNoClips,
+                  .isEnabled = oneClip,
+                  .whyNot = whyNotOneClip,
                   .keysFrom = "notes.quantiseSettings"});
     // Warp markers ▸ (§7.5): the editor's.
     const auto markerAction =
@@ -288,6 +297,23 @@ void Shell::registerAudioActions()
     markerAction("audio.warpFromHere", "Warp from here", [&audio] { audio.warpFromHere(); });
     markerAction("audio.setDownbeat", "Set the downbeat here", [&audio] { audio.setDownbeat(); });
     markerAction("audio.removeMarkers", "Remove markers", [&audio] { audio.removeMarkers(); });
+    // Transients by hand (§7.4): at the playhead or the range's start; those in the range.
+    actions_.add(
+        {.id = "audio.addTransient",
+         .name = "Add transient",
+         .category = "Audio",
+         .perform = [&audio] { audio.addTransient(); },
+         .isEnabled = [this, &audio]
+         { return detail_.showsAudioClip() && audio.addTransientRefusal().empty(); },
+         .whyNot = [&audio] { return juce::String::fromUTF8(audio.addTransientRefusal().c_str()); }});
+    actions_.add(
+        {.id = "audio.removeTransients",
+         .name = "Remove transients",
+         .category = "Audio",
+         .perform = [&audio] { audio.removeTransients(); },
+         .isEnabled = [this, &audio]
+         { return detail_.showsAudioClip() && audio.removeTransientsRefusal().empty(); },
+         .whyNot = [&audio] { return juce::String::fromUTF8(audio.removeTransientsRefusal().c_str()); }});
     // Transpose ▸ (§8.1): the clips keep their speed. The keys are the Notes menu's.
     for (const auto& [id, name, by, keys] :
          {std::tuple{"audio.semitoneUp", "Up a semitone", 1, "notes.semitoneUp"},
@@ -338,8 +364,8 @@ void Shell::registerAudioActions()
                   .name = asks("Slice"),
                   .category = "Audio",
                   .perform = openAudioTool("slice"),
-                  .isEnabled = hasClips,
-                  .whyNot = whyNoClips});
+                  .isEnabled = oneClip,
+                  .whyNot = whyNotOneClip});
 
     // View > Waveform height ▸ (§4, §13): the level column's drag and double-click, by menu.
     const auto shown = [this] { return detail_.showsAudioClip(); };

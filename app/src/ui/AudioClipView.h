@@ -103,6 +103,12 @@ public:
     void applyTempo(const model::TempoChoice& choice);
     void nudgeMarkers(int steps); // ← →: a grid step each
     [[nodiscard]] std::string markersRefusal() const;
+    /// Transients by hand (§7.4, the Audio menu's Warp markers): one undo step; false, saying why
+    /// through onMessage, when it can't. Added at the range's start, else the playhead.
+    bool addTransient();
+    bool removeTransients(); // those in the range
+    [[nodiscard]] std::string addTransientRefusal() const;
+    [[nodiscard]] std::string removeTransientsRefusal() const;
     /// The range's time handles in the ruler (§7.6): empty without a range.
     [[nodiscard]] std::pair<juce::Rectangle<int>, juce::Rectangle<int>> timeHandles() const;
 
@@ -214,6 +220,13 @@ private:
     /// The view's time of a beat of the clip's content, and back.
     [[nodiscard]] double viewTimeOfBeat(double beat) const;
     [[nodiscard]] double beatOfViewTime(double time) const;
+    /// Where in its file as recorded the view's `time` plays, as shown (through its warp and its
+    /// reversal).
+    [[nodiscard]] double fileAtViewTime(double time) const;
+    /// Where Add transient puts one (the view's time): the range's start, else the playhead.
+    [[nodiscard]] double transientPlace() const;
+    /// The transients shown in the range (seconds of the file as recorded).
+    [[nodiscard]] std::vector<double> transientsInRange() const;
     /// What's under the mouse in the marker strip.
     [[nodiscard]] std::optional<size_t> markerAt(juce::Point<float> p) const;
     [[nodiscard]] std::optional<size_t> transientAt(juce::Point<float> p) const;

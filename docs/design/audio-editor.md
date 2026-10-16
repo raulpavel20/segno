@@ -195,7 +195,7 @@ Three, each named for what it's for:
 - **Found in the background** when a file is first shown, by an onset detector in `libs/dsp` (spectral flux with an adaptive threshold). tracktion's own detector reads one channel against a fixed threshold, and ignores its sensitivity setting.
 - **Drawn** as short ticks in the marker strip, in `textTertiary`. Hovering one shows where a marker would go: a dashed line down through the waveform.
 - **Sensitivity** (per clip, 0–100 %, 50 by default) finds fewer or more of them. It's in the inspector, and a row of the Quantise and Slice tools: one value, shown by each, the ticks changing as it's dragged. It drives several things, but never out of sight: what it changes is drawn as you change it (the piano roll's lesson, §20 there).
-- **Right-click in the strip:** Add transient here, Remove transient. Rarely needed, so it's only in that menu.
+- **By hand:** right-click in the strip: Add transient here, Remove transient. Audio ▸ Warp markers has them too (ADR 0040): Add transient (at the range's start, else the playhead) and Remove transients (those in the range). Rarely needed, so nothing on the bar.
 - **Every tool that uses transients** (Beats, Quantise, Markers at transients, Slice) uses the ones drawn.
 
 ### 7.5 Warp markers
@@ -281,7 +281,7 @@ The piano roll's Tools pane ([piano-roll.md](piano-roll.md) §25) shows the audi
 | Slice | At: Transients, Warp markers, Grid, Bars (Transients); Sensitivity (the clip's); Into: Clips | The cuts drawn over the waveform |
 
 - **One description per tool,** as for notes: `model/AudioToolkit` beside `model/NoteToolkit`, read by the pane, assistants and the remembered settings.
-- **Normalise** acts on every selected audio clip; the others act on the clip the editor shows.
+- **Normalise** acts on every selected audio clip; the others act on the clip the editor shows. (Built: the clip view shows one clip, so the pane opens with one selected; several wait for [B90](../open-questions.md).)
 
 ## 12. The inspector's AUDIO section
 
@@ -306,7 +306,7 @@ Under CLIP, for one audio clip (CLIP keeps Name, Colour, Start, Length, Offset, 
 
 ## 13. Menus, keys and actions (ADR 0040)
 
-A new **Audio** menu (Alt+A), between Notes and Song. **The same menu opens from the bar's Audio ⌄** (§4). The menu is the complete list and the second route: what's used while working is on the bar (§4, §20). Its clip properties (Warp, mode, tempo, Transpose, Follow key, Gain, Normalise, Reverse, Polarity) act on the selected audio clips from the arrangement too; what needs the editor (ranges, markers) is dimmed with the reason elsewhere.
+A new **Audio** menu (Alt+A), between Notes and Song. **The same menu opens from the bar's Audio ⌄** (§4). The menu is the complete list and the second route: what's used while working is on the bar (§4, §20). Its clip properties (Warp, mode, tempo, Transpose, Follow key, Gain, Reverse, Polarity) act on the selected audio clips from the arrangement too; what needs the editor (ranges, markers) is dimmed with the reason elsewhere. The tools (Normalise…, Detect…, Quantise…, Slice…) open on the clip view's clip, so they're dimmed while several clips are selected ([B90](../open-questions.md)).
 
 | Item | Shortcut |
 |---|---|
@@ -316,7 +316,7 @@ A new **Audio** menu (Alt+A), between Notes and Song. **The same menu opens from
 | — | |
 | Quantise | Ctrl+U |
 | Quantise… (the Tools pane at Quantise) | Ctrl+Shift+U |
-| Warp markers ▸ (Markers at transients, Warp from here, Set the downbeat here, Remove markers) | – |
+| Warp markers ▸ (Markers at transients, Warp from here, Set the downbeat here, Remove markers; Add transient, Remove transients) | – |
 | — | |
 | Transpose ▸ (Up a semitone, Down a semitone; Up an octave, Down an octave) | Ctrl+↑, Ctrl+↓, Shift+↑, Shift+↓ |
 | Follow key | – |
@@ -347,6 +347,7 @@ Each tool is one named undo step, with a test that drives it through MCP (ADR 00
 | `set_audio` | `clips`, and any of `gain`, `transpose`, `fine`, `reverse`, `polarity`, `channels`, `warp`, `mode`, `tails`, `formants`, `tempo`, `key`, `follow_key`, `sensitivity` |
 | `set_warp_markers` | `clip`, `markers` (a time in the file and a beat each), `replace?`; or `at_transients`, `warp_from`, `downbeat` |
 | `get_transients` | A clip's transients, as times in its file |
+| `edit_transients` | `clip`, `add?`, `remove?`: transients by hand, as times in its file (§7.4) |
 | `get_gain_line` / `set_gain_line` | A clip's gain line: points (a time in the file, dB, bend) |
 | `edit_audio_range` | `clip`, `from`, `to`, `action`: split, delete, crop, silence, gain, fade, loop, markers |
 | `list_audio_tools` / `transform_audio` | The Tools pane's tools by name, with their settings, as `list_note_tools` and `transform_notes` |
@@ -490,7 +491,7 @@ Built on the branch, with its tests (the model's `[fast]` ones, the engine's, th
 - **What a range command leaves:** Split selects the range's new clip and the editor shows it; Crop and Delete show what's left. A command that can't act is dimmed on the bar, saying why: Fade on a range in the clip's middle, Delete and Crop on a clip with takes (its parts are one clip), Loop on a clip with takes. Edit ▸ Split reads "Split at range" while it splits at the range's edges.
 - **The gain line uses the volume fader's taper:** −∞ to +6 dB, 0 dB four fifths up the lane, as a volume lane reads. The design said +12 dB; more than +6 is the clip's Gain's job (up to +24 dB). Its points are kept in the file's time, so they loop, split and flip with the audio; a reversed clip shows its line mirrored.
 - **Reverse writes a reversed copy of its own** into the project's `Reversed` folder (32-bit float, reused while it matches its file), the clip's forward file kept beside it; its offset and loop mirror so it plays the same audio. Not tracktion's `setIsReversed`: its copy lived in a folder the project didn't keep. A clip with takes plays its takes, so its Reverse is dimmed, saying why. The inspector's format is the forward file's.
-- **Normalise:** Audio ▸ Normalise… opens the Tools pane at it, as §13 has it (§6.4 said "with the last settings"); it measures what the clip plays (its loop, while it loops). The bar's Normalise is lit while the pane shows it; clicked again, the pane closes. While it's set, the waveforms show the result; it's heard once applied.
+- **Normalise:** Audio ▸ Normalise… opens the Tools pane at it, as §13 has it (§6.4 said "with the last settings"); it measures what the clip plays (its loop, while it loops), in its file as recorded: through its warp, a reversed clip's original read where it plays. The bar's Normalise is lit while the pane shows it; clicked again, the pane closes. While it's set, the waveforms show the result; it's heard once applied.
 - **The bar** in P6a: a range's commands while there's one; Audio ⌄; Normalise; Gain and Reverse; Snap and the step. Gain is a `BarField` as wide as its value, so the gap after it is the bar's own. At narrow widths the clip's name gives way first (never to a bare "…"), then Normalise, Reverse and Gain. Quantise, Tempo, Slice, Transpose and the warping controls come with P6b and P6c.
 - **The inspector's AUDIO:** Gain, Reverse, Polarity, Channels (stereo files), then the file in two rows so neither is cut: **File** ("stereo · 4.0 s") and **Format** ("48 kHz · 24-bit").
 - **Waveforms drawn direct are drawn at the screen's pixels,** a column per physical pixel as the arrangement's tiles are, so the editor and the arrangement's fades are as sharp on a dense screen.

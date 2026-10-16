@@ -510,6 +510,59 @@ void addAudioTools(Registry& registry, ToolEnv& env)
 
     registry.tools.push_back(make(
         env,
+        {"edit_transients", "Add or remove transients",
+         "Transients by hand (audio-editor.md §7.4): \"add\" puts one at each time, \"remove\" hides "
+         "those at each (as get_transients lists them); seconds into the file as recorded. The clip keeps "
+         "them through any sensitivity. One undo step. Returns the transients as get_transients does.",
+         object({{"clip", id(IdKind::Clip, "The audio clip")},
+                 {"add", arrayOf({{"type", "number"}}, "Seconds into the file", std::nullopt)},
+                 {"remove", arrayOf({{"type", "number"}}, "Transients' times, as listed", std::nullopt)}},
+                {"clip"}),
+         result({{"clip", string("The clip")},
+                 {"transients", arrayOf({{"type", "number"}}, "Seconds into the file", std::nullopt)}},
+                {"clip", "transients"}),
+         writes},
+        [&env](const Json& args, CallContext&)
+        {
+            const auto c = audioClip(env, args["clip"]);
+            const auto times = [&](const char* key)
+            {
+                std::vector<double> out;
+                for (const auto& t : args.value(key, Json::array()))
+                {
+                    if (!t.is_number())
+                        throw Problem{std::string(key) + " lists seconds into the file."};
+                    out.push_back(t.get<double>());
+                }
+                return out;
+            };
+            const auto add = times("add"), remove = times("remove");
+            if (add.empty() && remove.empty())
+                throw Problem{"Give add or remove: seconds into the file."};
+            const auto now = env.session.clipTransients(c.id);
+            const auto near = [&now](double t)
+            {
+                return std::any_of(now.begin(), now.end(), [t](double n) { return std::abs(n - t) < 0.001; });
+            };
+            const auto shown = [](double t) { return Json(std::round(t * 1e4) / 1e4).dump(); };
+            for (double t : add)
+                if (t < 0.0 || t > c.fileLength)
+                    throw Problem{"The file is " + shown(c.fileLength) + " s long: " + shown(t) +
+                                  " isn't in it."};
+            for (double t : remove)
+                if (!near(t))
+                    throw Problem{"No transient at " + shown(t) + " s: get_transients lists them."};
+            env.session.editTransients(c.id, add, remove);
+            env.session.flushSnapshot();
+            Json out = Json::array();
+            for (double t : env.session.clipTransients(c.id))
+                out.push_back(std::round(t * 1e4) / 1e4);
+            return ToolResult::ok({{"clip", formatId(IdKind::Clip, c.id)}, {"transients", std::move(out)}},
+                                  std::to_string(out.size()) + " transients.");
+        }));
+
+    registry.tools.push_back(make(
+        env,
         {"detect_tempo", "Find a clip's tempo",
          "The tempo found in an audio clip's sound (audio-editor.md §7.8): its BPM (60 to 180; a loop "
          "under 32 s a whole number of bars), its first downbeat (seconds into its file) and how sure it is "

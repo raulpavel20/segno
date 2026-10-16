@@ -222,6 +222,34 @@ TEST_CASE("audio editor: a mono file shows one row and no Channels", "[integrati
 }
 
 TEST_CASE(
+    "audio editor: with several clips selected, the clip properties act on all and the tools wait for one",
+    "[integration]")
+{
+    AudioFixture f;
+    const auto second = f.session->insertAudioFile(f.track, f.root.getChildFile("Beat.wav"), 8.0);
+    REQUIRE(second != 0);
+    f.settle();
+    f.shell->arrangement().setSelection(
+        fd::model::withClips(*f.session->snapshot(), {f.clipId, second}, f.track, f.track));
+    f.settle();
+    auto& actions = f.shell->actions();
+    CHECK_FALSE(f.shell->detail().showsAudioClip()); // the clip view shows one clip
+    // Gain moves them all (§6.1); the tools open on the clip view's clip, so they're dimmed, saying why.
+    REQUIRE(actions.isEnabled("audio.gainUp"));
+    REQUIRE(actions.perform("audio.gainUp"));
+    CHECK(f.clip().sound.gainDb == Catch::Approx(1.0f));
+    CHECK(f.clip(second).sound.gainDb == Catch::Approx(1.0f));
+    for (const auto* id : {"audio.normalise", "audio.detectTempo", "audio.quantiseSettings", "audio.slice"})
+    {
+        INFO(id);
+        CHECK_FALSE(actions.isEnabled(id));
+        CHECK(actions.find(id)->whyNot().startsWith("Select one audio clip"));
+    }
+    f.select(second);
+    CHECK(actions.isEnabled("audio.normalise"));
+}
+
+TEST_CASE(
     "audio editor: a range dragged across the waveform; the bar's commands act on it, one undo step each",
     "[integration]")
 {
@@ -859,6 +887,27 @@ TEST_CASE("audio editor: the marker strip: transients, markers, and a transient 
     f.settle();
     CHECK(f.clip().warp.markers.size() == 7);
     f.dump("audio-warp-markers@2x.png", v);
+
+    // Transients by hand (§7.4, Audio ▸ Warp markers): one added at the playhead, those in the range
+    // removed, each one undo step.
+    v.setRange(std::nullopt);
+    v.frame(0.75);
+    CHECK(v.addTransientRefusal().empty());
+    REQUIRE(v.addTransient());
+    f.settle();
+    CHECK(f.session->undoDescription() == "Add transient");
+    CHECK(v.transients().size() == 9);
+    CHECK(v.addTransientRefusal() == "There's a transient there already.");
+    CHECK(v.removeTransientsRefusal() == "Select a range over the transients to remove.");
+    v.setRange(std::pair{0.6, 1.1}); // the new one and the one at 1.0 s
+    REQUIRE(v.removeTransients());
+    f.settle();
+    CHECK(f.session->undoDescription() == "Remove transients");
+    CHECK(v.transients().size() == 7);
+    CHECK(v.removeTransientsRefusal() == "There are no transients in the range.");
+    f.session->undo();
+    f.settle();
+    CHECK(v.transients().size() == 9);
 }
 
 // The editor with a 10-minute stereo file (audio-editor.md §19), zooming in and out, its gain line

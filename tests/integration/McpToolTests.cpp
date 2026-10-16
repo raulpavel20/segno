@@ -264,6 +264,7 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
                              "transform_audio",
                              "set_warp_markers",
                              "get_transients",
+                             "edit_transients",
                              "detect_tempo"})
         CHECK(names.contains(name));
     for (const auto& p : registry.prompts)
@@ -3071,6 +3072,22 @@ TEST_CASE(
     const auto transients = daw.call("get_transients", {{"clip", clip}})["transients"];
     REQUIRE(transients.size() == 8);
     CHECK(transients[3].get<double>() == Approx(3 * beat).margin(0.003));
+
+    // Transients by hand: one added between two hits, one removed; each call one undo step.
+    auto edited = daw.call("edit_transients", {{"clip", clip}, {"add", {3.5 * beat}}})["transients"];
+    REQUIRE(edited.size() == 9);
+    CHECK(edited[4].get<double>() == Approx(3.5 * beat).margin(1e-4));
+    CHECK(daw.session->undoDescription() == "Assistant: edit transients");
+    edited =
+        daw.call("edit_transients", {{"clip", clip}, {"remove", {edited[4], transients[3]}}})["transients"];
+    CHECK(edited.size() == 7);
+    CHECK(daw.fails("edit_transients", {{"clip", clip}, {"remove", {3.5 * beat}}}).find("get_transients") !=
+          std::string::npos);
+    CHECK(daw.fails("edit_transients", {{"clip", clip}, {"add", {60.0}}}).find("long") != std::string::npos);
+    CHECK(daw.fails("edit_transients", {{"clip", clip}}).find("add or remove") != std::string::npos);
+    daw.session->undo();
+    daw.session->undo();
+    REQUIRE(daw.call("get_transients", {{"clip", clip}})["transients"].size() == 8);
 
     // Its mode, tempo and pitch.
     auto r = daw.call("set_audio", {{"clips", {clip}}, {"mode", "tones"}, {"transpose", 2}, {"fine", -10}});

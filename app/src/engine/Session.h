@@ -1044,9 +1044,11 @@ public:
                                      std::string* why = nullptr);
     /// Why a clip can't be sliced (model::whyCantSlice), or empty.
     [[nodiscard]] std::string sliceRefusal(std::uint64_t clip) const;
-    /// Adds a transient by hand at `file` (seconds of the clip's file as recorded), or removes the
-    /// one there (§7.4): one undo step, "Add transient" or "Remove transient".
-    bool editTransients(std::uint64_t clip, double file, bool add);
+    /// Transients by hand (§7.4): adds them at `add` and removes those at `remove` (seconds of the
+    /// clip's file as recorded, each within a millisecond). One undo step: "Add transient",
+    /// "Remove transient", "Remove transients" or "Edit transients".
+    bool editTransients(std::uint64_t clip, const std::vector<double>& add,
+                        const std::vector<double>& remove);
 
     /// Normalise (§6.4): each audio clip's gain set so it reaches `targetDb` (dBFS, or LUFS), or
     /// all moved together so the loudest does. Measured from their files (streamed; not real-time).

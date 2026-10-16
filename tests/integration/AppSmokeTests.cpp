@@ -729,6 +729,8 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         "audio.warp", "audio.warpMode.beats", "audio.warpMode.tones", "audio.warpMode.repitch",
         "audio.tempoDouble", "audio.tempoHalf", "audio.detectTempo", "audio.songTempo",
         "audio.markersAtTransients", "audio.warpFromHere", "audio.setDownbeat", "audio.removeMarkers",
+        // Transients by hand (§7.4): rarely needed; also on the marker strip's right-click.
+        "audio.addTransient", "audio.removeTransients",
         // Follow key and Slice… (§8.3, §9): Follow beside the key in the inspector, Slice on the bar.
         "audio.followKey", "audio.slice"};
     for (const auto& a : actions.all())
