@@ -691,6 +691,9 @@ TEST_CASE("every action has a unique shortcut and the shell routes keys to it", 
         "module.editWavetable", "module.importWavetable", "module.exportWavetable", "clip.makeWavetable",
         // The Sampler's sound (devices/sampler/SPEC.md, S10): a click on its panel does the same.
         "module.loadSample",
+        // A Drum Kit's pads (drum-kit.md §12): a double-click renames, Ctrl+drag copies, and every
+        // item is on the pad's right-click.
+        "module.renamePad", "module.copyPad", "module.pastePad", "module.clearPad",
         // Racks (racks.md §9): Ctrl+G and Ctrl+Shift+G group and ungroup; the rest are on the
         // rack itself (its macro's and header's right-click, "+ Chain", a double-click on a name).
         "module.editMacros", "module.addChain", "module.renameRack", "module.saveRack", "module.saveRackAs",

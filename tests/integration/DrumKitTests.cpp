@@ -554,3 +554,28 @@ TEST_CASE("drum kit: kits are its presets: saved, loaded whole into another kit,
     CHECK(k.kit(fresh).chains.size() == 2);
     CHECK(k.pad(fresh, 36)->name == "Kick");
 }
+
+TEST_CASE("drum kit: a synth on a pad is choked as quickly as a Sampler is", "[integration]")
+{
+    for (const auto& [synth, release] :
+         {std::pair{"fd:subtractive-synth", "amp.r"}, std::pair{"fd:wavetable", "env1.r"}})
+    {
+        INFO(synth);
+        Kits k;
+        auto& s = *k.session;
+        const auto kit = s.addDevice(k.t, "fd:drum-kit");
+        // A held synth on the open hat's pad, its release long; the closed hat silence.
+        const auto open = s.addDevice(Session::ChainPlace{.rack = kit, .pad = 46}, synth);
+        REQUIRE(open != 0);
+        k.setParam(open, release, 2000.0f);
+        s.loadPads(kit, 42, {k.sample("Hat closed", fd::testkit::silence(4800, 1))});
+        s.setPad(kit, 46, {.choke = 1});
+        s.setPad(kit, 42, {.choke = 1});
+        const auto clip = s.createMidiClip(k.t, 0.0, 4.0);
+        s.setNotes(clip, {{.pitch = 46, .start = 0.0, .length = 3.0, .velocity = 1.0f},
+                          {.pitch = 42, .start = 1.0, .length = 0.25, .velocity = 1.0f}});
+        const auto out = k.render(2.0);
+        CHECK(levelDb(out, 0.2, 0.25) > -40.0);    // the synth sounds
+        CHECK(levelDb(out, 0.5021, 0.3) < -100.0); // and stops within 2 ms of the closed hat
+    }
+}

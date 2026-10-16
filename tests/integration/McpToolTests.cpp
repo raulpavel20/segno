@@ -3229,3 +3229,80 @@ TEST_CASE("mcp tools: an audio clip's key, Follow key with the song's, detect_ke
                  {{"clips", {hits}}, {"tool", "slice"}, {"settings", {{"at", "grid"}}}, {"grid", "1/4"}});
     CHECK(r["clips"].size() == 4);
 }
+
+TEST_CASE("mcp tools: the Drum Kit: added, samples onto pads, pads set, moved and cleared, modules on pads "
+          "(drum-kit.md §13)",
+          "[integration][mcp]")
+{
+    Daw daw;
+    const auto t0 = daw.project()["tracks"][0]["id"].get<std::string>();
+    // Listed with the instruments.
+    const auto types = daw.call("list_module_types", {{"kind", "instrument"}})["types"];
+    CHECK(std::any_of(types.begin(), types.end(), [](const Json& t) { return t["type"] == "drum-kit"; }));
+
+    const auto kit = daw.call("add_module", {{"track", t0}, {"type", "drum-kit"}})["id"].get<std::string>();
+    CHECK(daw.call("get_kit", {{"kit", kit}})["pads"].empty());
+    const auto sample = [&](const std::string& name, const fd::testkit::AudioBuffer& sound)
+    {
+        const auto file = daw.folder.getChildFile(name + ".wav");
+        REQUIRE(fd::testkit::writeWav(file.getFullPathName().toStdString(), sound, 48000.0));
+        return file.getFullPathName().toStdString();
+    };
+    const auto kick = sample("Kick", fd::testkit::sine(60.0, 48000.0, 9600, 0.5f, 1));
+    const auto hat = sample("Hat", fd::testkit::whiteNoise(4800, 2, 0.2f, 1));
+
+    // Samples onto pads from C1 up, one step; each a Sampler.
+    auto got = daw.call("load_pads", {{"kit", kit}, {"pad", "C1"}, {"paths", {kick, hat}}});
+    CHECK(daw.session->undoDescription() == "Assistant: load pads");
+    REQUIRE(got["pads"].size() == 2);
+    CHECK(got["pads"][0]["pad"] == "C1");
+    CHECK(got["pads"][0]["note"] == 36);
+    CHECK(got["pads"][0]["name"] == "Kick");
+    CHECK(got["pads"][0]["plays"] == "C3");
+    CHECK(got["pads"][0]["modules"][0]["type"] == "sampler");
+    CHECK(got["pads"][1]["pad"] == "C\xe2\x99\xaf"
+                                   "1");
+
+    // Its settings; the pad by name or number.
+    got = daw.call("set_pad", {{"kit", kit}, {"pad", 37}, {"choke", 1}, {"name", "Closed"}, {"plays", "D3"}});
+    CHECK(got["pads"][1]["choke"] == 1);
+    CHECK(got["pads"][1]["name"] == "Closed");
+    CHECK(got["pads"][1]["plays"] == "D3");
+    got = daw.call("set_pad", {{"kit", kit}, {"pad", "C1"}, {"pan", "25L"}, {"volumeDb", -6.0}});
+    CHECK(got["pads"][0]["pan"] == "25L");
+    CHECK(daw.fails("set_pad", {{"kit", kit}, {"pad", "E1"}, {"choke", 2}}).find("empty") !=
+          std::string::npos);
+    CHECK(daw.fails("set_pad", {{"kit", kit}, {"pad", "H2"}}).find("note") != std::string::npos);
+    got = daw.call("set_pad", {{"kit", kit}, {"pad", "C#1"}, {"selected", true}});
+    CHECK(got["selectedPad"] == "C\xe2\x99\xaf"
+                                "1");
+
+    // A module onto a pad, and moved to another; an instrument onto a pad in place of its own.
+    const auto sat =
+        daw.call("add_module", {{"track", t0}, {"type", "saturator"}, {"kit", kit}, {"pad", "C1"}});
+    got = daw.call("get_kit", {{"kit", kit}});
+    REQUIRE(got["pads"][0]["modules"].size() == 2);
+    CHECK(got["pads"][0]["modules"][1]["id"] == sat["id"]);
+    daw.call("add_module", {{"track", t0}, {"type", "subtractive-synth"}, {"kit", kit}, {"pad", "G1"}});
+    got = daw.call("get_kit", {{"kit", kit}});
+    REQUIRE(got["pads"].size() == 3);
+    CHECK(got["pads"][2]["pad"] == "G1");
+    CHECK(got["pads"][2]["name"] == "Subtractive");
+    daw.call("move_module", {{"module", sat["id"]}, {"position", 0}, {"kit", kit}, {"pad", "G1"}});
+    got = daw.call("get_kit", {{"kit", kit}});
+    CHECK(got["pads"][0]["modules"].size() == 1);
+    CHECK(got["pads"][2]["modules"][1]["id"] == sat["id"]);
+    CHECK(daw.fails("add_module", {{"track", t0}, {"type", "drum-kit"}, {"kit", kit}, {"pad", "A1"}})
+              .find("couldn't") != std::string::npos);
+
+    // Moved (swapped), copied, cleared.
+    got = daw.call("move_pad", {{"kit", kit}, {"from", "C1"}, {"to", "C#1"}});
+    CHECK(got["pads"][0]["name"] == "Closed");
+    CHECK(got["pads"][1]["name"] == "Kick");
+    got = daw.call("move_pad", {{"kit", kit}, {"from", "C#1"}, {"to", "D1"}, {"copy", true}});
+    CHECK(got["pads"].size() == 4);
+    got = daw.call("clear_pad", {{"kit", kit}, {"pad", "D1"}});
+    CHECK(got["pads"].size() == 3);
+    CHECK(daw.fails("clear_pad", {{"kit", kit}, {"pad", "D1"}}).find("empty") != std::string::npos);
+    CHECK(daw.fails("get_kit", {{"kit", sat["id"]}}).find("isn't a Drum Kit") != std::string::npos);
+}

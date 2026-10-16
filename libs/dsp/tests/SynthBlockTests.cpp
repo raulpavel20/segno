@@ -1,10 +1,10 @@
-#include "fd/dsp/SynthBlocks.h"
 #include "fd/dsp/Math.h"
+#include "fd/dsp/SynthBlocks.h"
+#include "fd/dsp/VoiceModules.h"
 #include "fd/testkit/Metrics.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
-
 #include <cmath>
 
 using namespace fd::dsp;
@@ -142,4 +142,36 @@ TEST_CASE("LFO waves and rate", "[fast]")
         CHECK(std::abs(v) <= 1.0f);
     }
     CHECK(crossings == 5);
+}
+
+TEST_CASE("an envelope stopped falls to silence within its stop time, released or not", "[fast]")
+{
+    Adsr env;
+    env.setSampleRate(sr);
+    env.set({.attack = 0.001, .decay = 0.1, .sustain = 1.0, .release = 2.0}); // a long release
+    env.noteOn();
+    for (int i = 0; i < 4800; ++i)
+        env.next();
+    env.stop(0.0015);
+    for (int i = 0; i < static_cast<int>(0.0015 * sr); ++i)
+        env.next();
+    CHECK(env.level() < 0.0011); // -60 dB
+    env.noteOn();                // a new note: its own release again
+    for (int i = 0; i < 4800; ++i)
+        env.next();
+    env.noteOff();
+    for (int i = 0; i < static_cast<int>(0.0015 * sr); ++i)
+        env.next();
+    CHECK(env.level() > 0.9);
+
+    CurvedEnvelope curved;
+    curved.prepare(sr);
+    curved.set({.attackMs = 1.0, .decayMs = 100.0, .sustain = 1.0, .releaseMs = 2000.0});
+    curved.noteOn();
+    for (int i = 0; i < 4800; ++i)
+        curved.next();
+    curved.stop(1.5);
+    for (int i = 0; i < static_cast<int>(0.0015 * sr) + 1; ++i)
+        curved.next();
+    CHECK(curved.level() == 0.0f);
 }

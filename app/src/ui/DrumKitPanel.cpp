@@ -226,17 +226,18 @@ void DrumKitPanel::updatePad()
         c->setEnabled(pad != nullptr);
         c->setAlpha(pad != nullptr ? 1.0f : t.roles.dimAlpha);
     }
-    if (pad == nullptr)
-        return;
+    // An empty pad's settings show where a new pad's start: 0 dB, centre, C3, no group.
+    const model::RackChain fresh;
+    const auto& shown = pad != nullptr ? *pad : fresh;
     if (!padGesture_)
     {
-        volume_.setValue(static_cast<float>(model::volumePosition(pad->volumeDb)),
+        volume_.setValue(static_cast<float>(model::volumePosition(shown.volumeDb)),
                          juce::dontSendNotification);
-        pan_.setValue(0.5f + 0.5f * pad->pan, juce::dontSendNotification);
-        plays_.setValue(playsPosition(pad->plays), juce::dontSendNotification);
+        pan_.setValue(0.5f + 0.5f * shown.pan, juce::dontSendNotification);
+        plays_.setValue(playsPosition(shown.plays), juce::dontSendNotification);
     }
-    choke_.setSelectedId(std::clamp(pad->choke, 0, model::kit::chokeGroups) + 1, juce::dontSendNotification);
-    solo_.setToggleState(pad->solo, juce::dontSendNotification);
+    choke_.setSelectedId(std::clamp(shown.choke, 0, model::kit::chokeGroups) + 1, juce::dontSendNotification);
+    solo_.setToggleState(shown.solo, juce::dontSendNotification);
     padSection_->refresh();
 }
 

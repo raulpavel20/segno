@@ -2,10 +2,12 @@
 
 #include "engine/Session.h"
 #include "ui/ActionRegistry.h"
+#include "ui/DrumKitPanel.h"
 #include "ui/ModulatorPanels.h"
 #include "ui/RackPanel.h"
 
 #include <fd_ui/fd_ui.h>
+#include <map>
 #include <optional>
 #include <set>
 
@@ -22,11 +24,16 @@ class MacroEditor;
 /// frame ending in a + of its own; folded, it's one strip. Modules are dragged into its frame
 /// (its chain shown) and out past its end; a macro's name dragged onto a knob in the frame maps it.
 ///
+/// A Drum Kit (docs/design/drum-kit.md §8) shows as its panel, then its selected pad's modules, in a
+/// rack's frame: its pads take samples, modules and presets from the browser, dragged between
+/// each other; a pad's right-click is its menu; pads light as they're hit.
+///
 /// A modulator (docs/design/modulators.md, ADR 0061) shows among the modules as its panel. Its
 /// handle dragged onto a control routes it there, the chain scrolling at its edges; hovered, lines
 /// run from it to each control it moves; right-clicked, its route list opens.
 class DeviceChain final : public juce::Component,
                           public juce::DragAndDropTarget,
+                          public juce::FileDragAndDropTarget,
                           private engine::Session::Listener
 {
 public:
@@ -69,8 +76,20 @@ public:
     /// chain, in the track's own chain.
     [[nodiscard]] std::vector<std::uint64_t> pickedModules() const;
     void groupPicked();
-    /// The rack selected, or holding the module selected.
+    /// The rack selected, or holding the module selected (a Drum Kit too: it has a rack's macros).
     [[nodiscard]] std::optional<std::uint64_t> selectedRack() const;
+    /// The Drum Kit selected, or holding the module selected.
+    [[nodiscard]] std::optional<std::uint64_t> selectedKit() const;
+
+    // ---- the Drum Kit (drum-kit.md §12: the Module menu's) -------------------------------------
+    /// The selected kit's selected pad, if it has a sound.
+    [[nodiscard]] std::optional<std::pair<std::uint64_t, int>> selectedPad() const;
+    void renameSelectedPad();
+    void copySelectedPad();
+    void pasteOnSelectedPad();
+    void clearSelectedPad();
+    /// Load sample… on a kit: a file chooser, then the sample onto the selected pad.
+    void loadSampleOnSelectedPad();
     void ungroupSelectedRack();
     void addChainToSelectedRack();
     void renameSelectedRack();
@@ -153,6 +172,14 @@ public:
     void itemDragMove(const SourceDetails& details) override;
     void itemDragExit(const SourceDetails& details) override;
     void itemDropped(const SourceDetails& details) override;
+    /// Sample files from the desktop (drum-kit.md §11): on a kit's pad, from that pad up; several in
+    /// the chain, a Drum Kit with them; one, a Sampler with it (browser.md §10).
+    bool isInterestedInFileDrag(const juce::StringArray& files) override;
+    void fileDragMove(const juce::StringArray& files, int x, int y) override;
+    void fileDragExit(const juce::StringArray& files) override;
+    void filesDropped(const juce::StringArray& files, int x, int y) override;
+    /// What a drop of sample files does, once its place is known: tests call it.
+    void dropFiles(const std::vector<juce::File>& files, juce::Point<int> at);
 
     void resized() override;
     void paint(juce::Graphics& g) override;
@@ -181,17 +208,29 @@ private:
         std::unique_ptr<ui::IconButton> endCap;
         juce::Rectangle<int> emptyHint;
         bool folded = false;
+        bool kit = false; // a Drum Kit: its frame shows its selected pad's modules
     };
     /// Where a drag lands: in the track's chain (rack 0) or a rack's shown chain, before `index`.
     struct Drop
     {
         std::uint64_t rack = 0;
         int chain = 0, index = 0;
+        int pad = -1; // a Drum Kit's selected pad, whose chain it is (made if it's empty)
     };
     class Content;
 
     void rebuild(const std::vector<model::DeviceSlot>& devices);
     void wireRackPanel(RackPanel& panel, std::uint64_t rack);
+    void wireKitPanel(DrumKitPanel& panel, std::uint64_t kit);
+    [[nodiscard]] DrumKitPanel* kitPanelOf(std::uint64_t id);
+    /// A pad's right-click (drum-kit.md §5): Select pad, Rename pad…, Load sample…, Copy pad, Paste
+    /// pad, Clear pad, On, Solo, Choke group ▸.
+    void showPadMenu(std::uint64_t kit, int note);
+    void loadSampleOnPad(std::uint64_t kit, int note);
+    /// The kit pad under `p` (in the content), if a browser item would go on it.
+    [[nodiscard]] std::optional<std::pair<std::uint64_t, int>> padAt(juce::Point<int> p) const;
+    /// The pads hit since last looked: lit a moment each (drum-kit.md §5).
+    void updatePadLights();
     /// A module's view state set elsewhere (an assistant, undo): the panel follows.
     void deviceViewChanged(std::uint64_t deviceId) override;
     void layoutSlots();
@@ -278,5 +317,15 @@ private:
     std::unique_ptr<ui::OutsideClick> routeListOutside_;
     std::uint64_t routeListModulator_ = 0;
     juce::Rectangle<int> routeListAnchor_; // the handle it opened from, in the window
+    // Drum Kits: a browser drag over a pad, and each kit's pads lit as they're hit.
+    std::optional<std::pair<std::uint64_t, int>> padDrop_;
+    struct PadLights
+    {
+        std::array<std::uint32_t, 128> hits{};
+        std::array<juce::uint32, 128> until{}; // ms: lit till then
+        bool seen = false;
+    };
+    std::map<std::uint64_t, PadLights> padLights_;
+    std::unique_ptr<juce::FileChooser> chooser_; // Load sample… on a pad
 };
 } // namespace fd::app

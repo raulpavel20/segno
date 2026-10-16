@@ -160,6 +160,7 @@ target_sources(fd_app_mcp INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/SectionTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/KeyTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/RackTools.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/KitTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/ModulatorTools.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mcp/tools/Resources.cpp")
 target_include_directories(fd_app_mcp INTERFACE "${CMAKE_CURRENT_BINARY_DIR}/generated")

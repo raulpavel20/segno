@@ -195,6 +195,8 @@ std::uint64_t Session::addToPad(const ChainPlace& place, const std::string& key)
     at.pad = -1;
     if (instrument)
         at.index = 0;
+    else if (at.index == 0 && instrumentOn(Impl::rackChains(*kit)[static_cast<size_t>(chain)]) != nullptr)
+        at.index = 1; // an effect after the pad's instrument
     if (!moveDevice(id, at))
     {
         removeDevice(id);
@@ -232,6 +234,10 @@ bool Session::moveToPad(std::uint64_t deviceId, const ChainPlace& place)
     at.pad = -1;
     if (instrument)
         at.index = 0;
+    else if (at.index == 0)
+        if (auto* there = instrumentOn(Impl::rackChains(*kit)[static_cast<size_t>(chain)]);
+            there != nullptr && there != p)
+            at.index = 1; // an effect after the pad's instrument
     const bool moved = moveDevice(deviceId, at);
     if (moved && replaced != 0)
         removeDevice(replaced);
@@ -509,9 +515,11 @@ DeviceState Session::Impl::kitState(Session& session, te::RackInstance& instance
     }
     // The macros: their names, and what they're mapped to by pad and place.
     nlohmann::json macroJson = nlohmann::json::array();
+    bool macrosSaySomething = false;
     const auto info = rackInfo(instance, [](te::Plugin& p) { return model::DeviceSlot{.id = p.itemID.getRawID()}; });
-    for (const auto& macro : info->macros)
+    for (size_t i = 0; i < info->macros.size(); ++i)
     {
+        const auto& macro = info->macros[i];
         nlohmann::json mappings = nlohmann::json::array();
         for (const auto& m : macro.mappings)
             if (const auto it = places.find(m.module); it != places.end())
@@ -521,9 +529,16 @@ DeviceState Session::Impl::kitState(Session& session, te::RackInstance& instance
                                     {"from", m.from},
                                     {"to", m.to},
                                     {"curve", m.curve}});
+        macrosSaySomething =
+            macrosSaySomething || !mappings.empty() || macro.name != "Macro " + std::to_string(i + 1);
         macroJson.push_back({{"name", macro.name}, {"mappings", std::move(mappings)}});
     }
-    s.extra = {{"pads", std::move(pads)}, {"macros", std::move(macroJson)}};
+    // An empty kit says nothing: it's the Drum Kit's Default settings (presets.md §9).
+    s.extra = nlohmann::json::object();
+    if (!pads.empty())
+        s.extra["pads"] = std::move(pads);
+    if (macrosSaySomething)
+        s.extra["macros"] = std::move(macroJson);
     return s;
 }
 

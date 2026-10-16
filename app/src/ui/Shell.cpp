@@ -1345,18 +1345,48 @@ void Shell::registerActions()
                   .isEnabled = isWavetable});
     // The Sampler's sound (devices/sampler/SPEC.md, S10): a sample or an SFZ file, the selected
     // module's when it's a Sampler.
-    actions_.add({.id = "module.loadSample",
-                  .name = juce::String::fromUTF8("Load sample\xE2\x80\xA6"),
+    actions_.add(
+        {.id = "module.loadSample",
+         .name = juce::String::fromUTF8("Load sample\xE2\x80\xA6"),
+         .category = "Module",
+         .perform =
+             [this]
+         {
+             if (auto* panel = selectedModule("sampler"))
+                 panel->performCommand("sample.load");
+             else if (detail_.chain().selectedKit()) // onto the kit's selected pad (drum-kit.md §12)
+                 detail_.chain().loadSampleOnSelectedPad();
+         },
+         .isEnabled = [this]
+         { return selectedModule("sampler") != nullptr || detail_.chain().selectedKit().has_value(); }});
+    // The Drum Kit's pads (drum-kit.md §12): the selected kit's selected pad.
+    auto hasPad = [this] { return detail_.chain().selectedPad().has_value(); };
+    actions_.add({.id = "module.renamePad",
+                  .name = juce::String::fromUTF8("Rename pad\xE2\x80\xA6"),
                   .category = "Module",
-                  .perform =
-                      [this]
-                  {
-                      if (auto* panel = selectedModule("sampler"))
-                          panel->performCommand("sample.load");
-                  },
-                  .isEnabled = [this] { return selectedModule("sampler") != nullptr; }});
+                  .perform = [this] { detail_.chain().renameSelectedPad(); },
+                  .isEnabled = hasPad});
+    actions_.add({.id = "module.copyPad",
+                  .name = "Copy pad",
+                  .category = "Module",
+                  .perform = [this] { detail_.chain().copySelectedPad(); },
+                  .isEnabled = hasPad});
+    actions_.add({.id = "module.pastePad",
+                  .name = "Paste pad",
+                  .category = "Module",
+                  .perform = [this] { detail_.chain().pasteOnSelectedPad(); },
+                  .isEnabled = [this]
+                  { return detail_.chain().selectedKit().has_value() && session_.canPastePad(); }});
+    actions_.add({.id = "module.clearPad",
+                  .name = "Clear pad",
+                  .category = "Module",
+                  .perform = [this] { detail_.chain().clearSelectedPad(); },
+                  .isEnabled = hasPad});
     // Racks (racks.md §9): the selected modules grouped, the selected rack's own.
-    auto hasRack = [this] { return detail_.chain().selectedRack().has_value(); };
+    // A rack's own; a Drum Kit has a rack's macros, nothing else of a rack's (drum-kit.md §10).
+    auto hasRack = [this]
+    { return detail_.chain().selectedRack().has_value() && !detail_.chain().selectedKit().has_value(); };
+    auto hasMacros = [this] { return detail_.chain().selectedRack().has_value(); };
     actions_.add({.id = "module.groupIntoRack",
                   .name = "Group into rack",
                   .category = "Module",
@@ -1380,7 +1410,7 @@ void Shell::registerActions()
                       else
                           detail_.chain().editMacros();
                   },
-                  .isEnabled = hasRack,
+                  .isEnabled = hasMacros,
                   .isToggled = [this] { return detail_.chain().editingMacros(); }});
     actions_.add(
         {.id = "module.addChain",
@@ -1391,7 +1421,7 @@ void Shell::registerActions()
              [this]
          {
              const auto rack = detail_.chain().selectedRack();
-             if (!rack)
+             if (!rack || detail_.chain().selectedKit())
                  return false;
              for (const auto& t : session_.snapshot()->tracks)
                  if (const auto* d = model::findDevice(t.devices, *rack); d != nullptr && d->rack != nullptr)
@@ -1457,7 +1487,8 @@ void Shell::registerActions()
                   .perform = [this] { detail_.chain().renameSelectedRack(); },
                   .isEnabled = hasRack});
     // Snapshots, Morph and Vary (racks.md §18.9): the selected rack's.
-    auto rackInfo = [this] { return detail_.chain().selectedRackInfo(); };
+    auto rackInfo = [this] // a kit has no snapshots, Morph or Vary (drum-kit.md §16)
+    { return detail_.chain().selectedKit() ? nullptr : detail_.chain().selectedRackInfo(); };
     auto onRack = [this](auto&& edit)
     {
         if (const auto rack = detail_.chain().selectedRack())

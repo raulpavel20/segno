@@ -361,6 +361,11 @@ The notes' right-click menu has Transform ▸ too, Quantise… first, as the Too
 | Remove snapshot | | *new* (`module.removeSnapshot`): the current one; also its right-click |
 | Morph | | *new* (`module.morph`, §18.3): ticked while on; dimmed until there are two snapshots; also MORPH's power dot |
 | Vary / Vary more | Ctrl+Alt+V / Ctrl+Alt+Shift+V | *new* (`module.vary`, `module.varyMore`, §18.5): the selected rack's free mapped macros; dimmed while Morph is on; also the rack's right-click |
+| Rename pad… | | *new* (`module.renamePad`, [drum-kit.md](drum-kit.md) §12): the selected Drum Kit's selected pad, in place on the pad; also a double-click on its name and its right-click. Dimmed for an empty pad |
+| Copy pad / Paste pad | | *new* (`module.copyPad`, `module.pastePad`): the pad's sound and settings, pasted over the selected pad (any kit); also the pad's right-click; Ctrl+drag between pads copies too |
+| Clear pad | | *new* (`module.clearPad`): its modules and settings go; also its right-click |
+
+Load sample… also loads onto a Drum Kit's selected pad when the kit is selected (drum-kit.md §12). A Drum Kit has a rack's macros (Edit macros), and none of a rack's other items: they're dimmed for it.
 
 **Transport**
 

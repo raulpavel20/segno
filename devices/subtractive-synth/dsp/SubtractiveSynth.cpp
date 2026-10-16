@@ -350,6 +350,14 @@ void SubtractiveSynth::voiceRelease(int index)
     v.mod.noteOff();
 }
 
+void SubtractiveSynth::voiceStop(int index)
+{
+    // All sound off (a Drum Kit's choke group, ADR 0064): silent within 1.5 ms.
+    auto& v = voice_[static_cast<size_t>(index)];
+    v.amp.stop(0.0015);
+    v.mod.noteOff();
+}
+
 void SubtractiveSynth::handleEvent(const Event& e) noexcept
 {
     const auto ch = static_cast<size_t>(e.channel & 15);

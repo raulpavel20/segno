@@ -54,6 +54,16 @@ Result inChain(engine::Session& session, const std::string& item, std::uint64_t 
 /// In a rack's chain (racks.md §5): a module (with its preset), or a sample or table in a module
 /// of its own, at the place; an instrument here doesn't replace the track's.
 Result inRack(engine::Session& session, const std::string& item, const engine::Session::ChainPlace& place);
+/// Whether `item` can go on a Drum Kit's pad (drum-kit.md §6): a sample or multisample, a module,
+/// preset or plugin (not a rack, a kit or a modulator), a wavetable.
+[[nodiscard]] bool fitsPad(const std::string& item);
+/// On a Drum Kit's pad (§6): a sample into the pad's Sampler or a Sampler of its own; an instrument
+/// (with its preset) in place of the pad's; an effect after its modules; a table on a Wavetable of
+/// its own. One step.
+Result onPad(engine::Session& session, const std::string& item, std::uint64_t kit, int note);
+/// Several samples in a channel's chain (drum-kit.md §11): a Drum Kit with them from C1 up, in
+/// place of the channel's instrument. One step.
+Result kitWith(engine::Session& session, const std::vector<juce::File>& samples, std::uint64_t channel);
 /// Below the tracks: a new track with it.
 Result newTrack(engine::Session& session, const std::string& item, double seconds);
 /// Double-click or Enter (§10): into the selected module if it lands on it, else onto the

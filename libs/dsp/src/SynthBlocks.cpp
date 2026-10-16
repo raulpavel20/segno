@@ -103,6 +103,15 @@ void Adsr::set(const Settings& s) noexcept
     releaseCoef_ = coef(s.release);
 }
 
+void Adsr::stop(double seconds) noexcept
+{
+    if (stage_ == Stage::Idle)
+        return;
+    stopCoef_ = std::exp(-6.907755 / std::max(1.0, seconds * sampleRate_));
+    stopping_ = true;
+    stage_ = Stage::Release;
+}
+
 float Adsr::next() noexcept
 {
     switch (stage_)
@@ -135,7 +144,7 @@ float Adsr::next() noexcept
         level_ = s_.sustain; // follows sustain changes
         break;
     case Stage::Release:
-        level_ *= releaseCoef_;
+        level_ *= stopping_ ? stopCoef_ : releaseCoef_;
         if (level_ < 1e-6) // -120 dB
         {
             level_ = 0.0;

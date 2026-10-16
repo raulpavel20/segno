@@ -19,4 +19,10 @@ namespace fd::engine
 /// summed at their volume and pan; offline, never touching the project. Empty for an effect rack,
 /// or one holding a plugin (plugins aren't rendered offline).
 [[nodiscard]] juce::AudioBuffer<float> renderRackPhrase(const nlohmann::json& rack, double sampleRate);
+
+/// A Drum Kit preset's preview (docs/design/drum-kit.md §9): a bar of a beat through its pads (kick,
+/// snare and hats on C1, D1, F♯1 and A♯1; a kit without them its pads in turn), each pad's modules
+/// in order at its Plays, its choke groups heard; offline, never touching the project. Empty for a
+/// kit holding a plugin.
+[[nodiscard]] juce::AudioBuffer<float> renderKitBeat(const DeviceState& kit, double sampleRate);
 } // namespace fd::engine

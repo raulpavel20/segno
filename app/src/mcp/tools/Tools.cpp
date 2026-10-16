@@ -34,6 +34,7 @@ void registerAll(Registry& registry, ToolEnv& env)
     addSectionTools(registry, env);
     addKeyTools(registry, env);
     addRackTools(registry, env);
+    addKitTools(registry, env);
     addModulatorTools(registry, env);
     addChordTools(registry, env);
     addControllerTools(registry, env);
@@ -882,6 +883,11 @@ Json moduleTypesJson(ToolEnv& env, const std::string& kind)
                    {"category", d.category}};
         if (d.native)
             entry["description"] = std::string(purposeOf(d.key.substr(3)));
+        if (d.key == "fd:drum-kit") // the DAW's own, without a SPEC (drum-kit.md)
+            entry["description"] =
+                "Drums: a pad for each note, each pad any instrument and effects (a Sampler by "
+                "default, One-shot); choke groups; its presets are whole kits. load_pads puts "
+                "samples on pads; get_kit reads them.";
         list.push_back(std::move(entry));
     }
     // The modulators (modulators.md §16): modules that move other parameters on their track.

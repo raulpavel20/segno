@@ -359,6 +359,23 @@ void CurvedEnvelope::noteOff() noexcept
     enter(Stage::Release);
 }
 
+void CurvedEnvelope::stop(double ms) noexcept
+{
+    released_ = true;
+    if (stage_ == Stage::Idle)
+        return;
+    stage_ = Stage::Release;
+    from_ = level_;
+    to_ = 0.0;
+    u_ = 0.0;
+    const double samples = ms * 0.001 * sampleRate_;
+    du_ = samples >= 1.0 ? 1.0 / samples : 1.0;
+    a_ = 0.0; // straight
+    e_ = 1.0;
+    step_ = 1.0;
+    norm_ = 0.0;
+}
+
 void CurvedEnvelope::enter(Stage stage) noexcept
 {
     stage_ = stage;

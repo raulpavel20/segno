@@ -101,6 +101,9 @@ public:
     void set(const Settings& s) noexcept { settings_ = s; }
     void noteOn() noexcept;
     void noteOff() noexcept;
+    /// Falls straight to silence within `ms`, released or not, whatever its release: a sound
+    /// stopped (All sound off, a Drum Kit's choke group).
+    void stop(double ms) noexcept;
     void reset() noexcept;
 
     /// Advances one sample and returns the level (0..1).

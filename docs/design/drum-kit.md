@@ -2,7 +2,7 @@
 
 The **Drum Kit** is an instrument with a pad for each note. Each pad holds a sound: a sample, played by the Sampler, or any other instrument, with effects after it if you want them. Drop a kick on a pad and the pad plays it. Drop a synth on the next one and that pad plays the synth. Hats choke each other. A whole kit is saved as one of the Drum Kit's presets.
 
-**Status:** approved by the product owner (2026-10-16), every recommendation of K1–K18, with [ADR 0064](../decisions/0064-a-drum-kit-whose-pads-hold-any-instrument.md) accepted. It replaces M4's Drum Sampler and Drum Rack, and moves up to M3 as P7 at the product owner's word to start it. Step 0 started the same day: the spike, and the UI drawn in every state for approval before anything else is built (§17). The factory kits come last, from CC0 sets the product owner and Claude search for together (§17, step 3).
+**Status:** approved by the product owner (2026-10-16), every recommendation of K1–K18, with [ADR 0064](../decisions/0064-a-drum-kit-whose-pads-hold-any-instrument.md) accepted. It replaces M4's Drum Sampler and Drum Rack, and moves up to M3 as P7 at the product owner's word to start it. Step 0 done the same day: the spike passed (§20), the UI drawn in every state and approved (§21). Step 1, the kit, built the same day (§22), for the product owner's hands-on check. The factory kits come last, from CC0 sets the product owner and Claude search for together (§17, step 3).
 
 What the product owner asked (2026-10-16):
 - A Drum Sampler module and a Drum Rack feature were "such a convoluted, roundabout way" of doing it. The Sampler already plays a single sample, and the rack "reads like something distinct from the collection of modules that the Rack feature is supposed to be".
@@ -405,3 +405,26 @@ Every state of §17 step 0, drawn with the real panel kit and module panels from
 - **The overview** sits in a well like a display's. A pad with a sound is a light cell, the selected pad's is in `active`, and the 16 shown are framed. At 1x a row is 3 px high.
 - **A pad's tooltip** names it whole ("Hat closed · F♯1"), as its name is cut to fit. An empty pad's says what it takes.
 - **The panel kit gained** `ui::PadGrid` and `ui::PadOverview` (`fd_ui`, shared, so Push 2's display and the piano roll's drum view can draw pads the same way), and the metrics `deviceGrid.padGap`, `padInset` and `overviewGap`.
+
+## 22. Step 1, built (2026-10-16)
+
+The kit, built on the spike (§20) and the drawings (§21): `app/src/engine/SessionKits.cpp` (the Session's kit), `app/src/ui/DrumKitPanel.*` and `DeviceChain` (its panel and frame in the chain), `app/src/mcp/tools/KitTools.cpp` (assistants). Tested through the Session (`DrumKitTests`), the chain view (`DrumKitChainTests`) and MCP (`McpToolTests`).
+
+**What's there:**
+- **The Drum Kit is an instrument** (`fd:drum-kit`): in Add module, the chain's +, the browser's Instruments with its kits as presets, and `list_module_types`. A new one is empty, or your default kit.
+- **Pads:** a click selects the kit and the pad and plays it while held, as the computer keyboard plays the track (Session::computerKeyboardNote). A double-click renames a pad. A pad dragged onto another moves its sound there (swapped with what's there), Ctrl+drag copies. The wheel and the overview move the 16 shown. A pad lights a moment each time it's hit: its inlet counts its hits on the audio thread, and the chain looks every frame.
+- **Sounds onto pads:** from the browser, a sample onto a pad (into its Sampler, or a One-shot Sampler of its own at its own pitch), a module or preset (an instrument in place of the pad's own), a table (a Wavetable with it); into the frame, onto the selected pad. Load sample… on the pad's right-click and in the Module menu. A rack or a kit never goes on a pad, and a modulator doesn't (it moves controls).
+- **PAD:** on, Vol, Pan, Plays, Choke and Solo, each one undo step (a drag of Vol, Pan or Plays one step).
+- **The pad's right-click:** Select pad, Rename pad…, Load sample…, Copy pad, Paste pad, Clear pad, On, Solo, Choke group ▸. The Module menu has Rename pad…, Copy pad, Paste pad and Clear pad.
+- **Kits are presets** (§9): Save preset, the list, A/B, your default, the browser's Drum Kit folder; a kit preset previews as a bar of a beat through its pads.
+- **Assistants:** `get_kit`, `set_pad`, `load_pads`, `move_pad`, `clear_pad`; `add_module` and `move_module` take `kit` and `pad`.
+
+**Settled while building:**
+- **Several samples make a kit from the desktop.** The browser drags one item at a time, so §11's "several samples dropped in a chain" comes from a file manager: several sample files dropped in a track's chain make a Drum Kit with them from C1 (in place of the track's instrument); dropped on a pad, they load from that pad up; one makes a Sampler, as from the browser.
+- **An effect never goes ahead of a pad's instrument:** put first on a pad that has one, it goes after it.
+- **The synths stop on a choke too:** All sound off stops the Subtractive and the Wavetable within 1.5 ms, through a quick stop their envelopes gained (`Adsr::stop`, `CurvedEnvelope::stop`, in `libs/dsp`). A plugin stops however it stops on CC 120.
+- **The snapshot follows a pad's note, Plays and choke group, and a kit's selected pad and pads shown.** Changes inside a module's own state don't rebuild the snapshot, so these are named for it, a rack's shown chain with them.
+- **An empty kit is Default settings:** its state says nothing, so a new kit shows no changed mark.
+- **Modulators on a pad aren't kept in a kit preset yet:** they stay with the project; a preset made from a kit with one leaves it out. Few will put one there before macros come (step 2).
+
+**Before sign-off,** the hands-on tasks of §17 step 1, done unaided by the product owner.

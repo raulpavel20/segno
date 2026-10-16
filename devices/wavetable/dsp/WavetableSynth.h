@@ -367,6 +367,7 @@ private:
                     bool retrigger) override;
     void voiceLegato(int v, int key, float velocity) override;
     void voiceRelease(int v) override;
+    void voiceStop(int v) override;
 
     void handleEvent(const Event& e) noexcept;
     void tick(const TransportInfo& transport, bool renderNow) noexcept;

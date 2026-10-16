@@ -210,3 +210,162 @@ juce::AudioBuffer<float> renderRackPhrase(const nlohmann::json& rack, double sam
     return finish(std::move(out), sampleRate);
 }
 } // namespace fd::engine
+
+namespace fd::engine
+{
+juce::AudioBuffer<float> renderKitBeat(const DeviceState& kit, double sampleRate)
+{
+    if (!kit.extra.is_object())
+        return {};
+    // Each pad's modules, made from the kit; a pad that's off plays nothing.
+    struct Pad
+    {
+        int note = 36, plays = 60, choke = 0;
+        std::vector<std::unique_ptr<Device>> modules;
+        std::vector<bool> on;
+        float left = 1.0f, right = 1.0f;
+    };
+    std::vector<Pad> pads;
+    for (const auto& p : kit.extra.value("pads", nlohmann::json::array()))
+    {
+        auto& pad = pads.emplace_back();
+        pad.note = p.value("note", 36);
+        pad.plays = p.value("plays", 60);
+        pad.choke = p.value("choke", 0);
+        const float db = p.value("volumeDb", 0.0f), pan = std::clamp(p.value("pan", 0.0f), -1.0f, 1.0f);
+        const float gain =
+            p.value("on", true) && db > model::minusInfinityDb ? juce::Decibels::decibelsToGain(db) : 0.0f;
+        pad.left = gain * (pan > 0.0f ? 1.0f - pan : 1.0f);
+        pad.right = gain * (pan < 0.0f ? 1.0f + pan : 1.0f);
+        for (const auto& m : p.value("modules", nlohmann::json::array()))
+        {
+            if (!m.contains("device"))
+                return {}; // a plugin: not rendered offline
+            const auto* factory = findDevice(m["device"].get<std::string>());
+            const auto state = stateFromJson(m.value("state", nlohmann::json::object()));
+            if (factory == nullptr || !state)
+                return {};
+            auto device = factory->create();
+            if (applyState(*device, *state) != ApplyResult::Ok)
+                return {};
+            pad.on.push_back(m.value("on", true));
+            pad.modules.push_back(std::move(device));
+        }
+    }
+    if (pads.empty())
+        return {};
+    // The macros where the kit has them.
+    const auto macros = kit.extra.value("macros", nlohmann::json::array());
+    for (size_t i = 0; i < macros.size(); ++i)
+    {
+        const auto it = kit.params.find("macro" + std::to_string(i + 1));
+        const float value = it != kit.params.end() ? it->second / 100.0f : 0.0f;
+        for (const auto& m : macros[i].value("mappings", nlohmann::json::array()))
+            for (auto& pad : pads)
+                if (pad.note == m.value("pad", -1))
+                    if (const auto at = static_cast<size_t>(m.value("module", 0)); at < pad.modules.size())
+                    {
+                        auto& device = *pad.modules[at];
+                        if (const auto p = device.params().indexOf(m.value("param", std::string())))
+                            device.params().set(
+                                *p, device.info().params[*p].fromNormalized(
+                                        model::macroMapped(value, m.value("from", 0.0f), m.value("to", 1.0f),
+                                                           m.value("curve", 0.0f))));
+                    }
+    }
+
+    // A bar at 120 bpm (drum-kit.md §9): kick on C1, snare on D1, closed hat on F♯1 every eighth,
+    // the open hat on A♯1 last. A kit without them plays its pads in turn, an eighth apart.
+    const int eighth = static_cast<int>(0.25 * sampleRate);
+    std::vector<std::pair<int, int>> hits; // (sample, note)
+    const auto has = [&](int note)
+    { return std::any_of(pads.begin(), pads.end(), [note](const Pad& p) { return p.note == note; }); };
+    if (has(36) || has(38))
+    {
+        for (int i = 0; i < 8; ++i)
+            if (i != 7)
+                hits.emplace_back(i * eighth, 42);
+        hits.emplace_back(7 * eighth, 46);
+        for (const int at : {0, 4})
+            hits.emplace_back(at * eighth, 36);
+        for (const int at : {2, 6})
+            hits.emplace_back(at * eighth, 38);
+    }
+    else
+        for (size_t i = 0; i < pads.size() && i < 8; ++i)
+            hits.emplace_back(static_cast<int>(i) * eighth, pads[i].note);
+    std::sort(hits.begin(), hits.end());
+
+    constexpr int block = 512;
+    double tail = 0.0;
+    for (auto& pad : pads)
+        for (auto& device : pad.modules)
+        {
+            device->prepare({sampleRate, block});
+            tail = std::max(tail, device->tailSeconds());
+        }
+    const int total = static_cast<int>(std::min(2.0 + std::min(tail, 1.0), 3.0) * sampleRate);
+    juce::AudioBuffer<float> out(2, total), a(2, block), b(2, block);
+    out.clear();
+    std::vector<EventList> events(pads.size());
+    for (auto& e : events)
+        e.reserve(32);
+    for (int start = 0; start < total; start += block)
+    {
+        const int n = std::min(block, total - start);
+        // Each pad's notes, at the note it plays, and the choke groups' stops (as its inlet does).
+        for (size_t p = 0; p < pads.size(); ++p)
+        {
+            events[p].clear();
+            for (const auto& [at, note] : hits)
+            {
+                if (at < start || at >= start + n)
+                    continue;
+                if (note == pads[p].note)
+                {
+                    events[p].push({.sampleOffset = at - start,
+                                    .type = EventType::NoteOn,
+                                    .key = static_cast<std::uint8_t>(pads[p].plays),
+                                    .value = 0.8f});
+                    if (at + eighth / 2 - start < n)
+                        events[p].push({.sampleOffset = at + eighth / 2 - start,
+                                        .type = EventType::NoteOff,
+                                        .key = static_cast<std::uint8_t>(pads[p].plays)});
+                }
+                else if (pads[p].choke > 0)
+                    for (const auto& other : pads)
+                        if (other.note == note && other.choke == pads[p].choke)
+                            events[p].push({.sampleOffset = at - start, .type = EventType::AllSoundOff});
+            }
+            events[p].sortByTime();
+        }
+        for (size_t p = 0; p < pads.size(); ++p)
+        {
+            auto& pad = pads[p];
+            a.clear();
+            for (size_t i = 0; i < pad.modules.size(); ++i)
+            {
+                if (!pad.on[i])
+                    continue;
+                auto& device = pad.modules[i];
+                b.clear();
+                const auto& buses = device->info().buses;
+                ProcessContext context;
+                context.input = {a.getArrayOfWritePointers(), std::min(2, buses.inputChannels)};
+                context.output = {b.getArrayOfWritePointers(),
+                                  std::min(2, std::max(1, buses.outputChannels))};
+                context.events = &events[p];
+                context.numSamples = n;
+                context.transport.samplePosition = start;
+                device->process(context);
+                if (buses.outputChannels == 1)
+                    b.copyFrom(1, 0, b, 0, 0, n);
+                std::swap(a, b);
+            }
+            out.addFrom(0, start, a, 0, 0, n, pad.left);
+            out.addFrom(1, start, a, 1, 0, n, pad.right);
+        }
+    }
+    return finish(std::move(out), sampleRate);
+}
+} // namespace fd::engine

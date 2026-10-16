@@ -1,5 +1,6 @@
 #include "ui/DeviceChain.h"
 
+#include "model/DrumKit.h"
 #include "model/Racks.h"
 #include "ui/BrowserDrops.h"
 #include "ui/MacroEditor.h"
@@ -115,8 +116,9 @@ public:
             auto frame = r.frame;
             frame.dropInside = owner_.drop_ && owner_.drop_->rack == r.id;
             paintRackFrame(g, frame);
-            if (!r.emptyHint.isEmpty())
-                ui::paintEmptyState(g, r.emptyHint, "Drop modules here");
+            if (!r.emptyHint.isEmpty()) // a kit's empty pad takes a sound (drum-kit.md §6)
+                ui::paintEmptyState(g, r.emptyHint,
+                                    r.kit ? "Drop a sample or an instrument here" : "Drop modules here");
         }
     }
 
@@ -276,7 +278,15 @@ void DeviceChain::rebuild(const std::vector<model::DeviceSlot>& devices)
     for (const auto& d : devices)
     {
         entries.push_back({&d, 0, 0});
-        if (d.rack != nullptr && !d.rack->chains.empty())
+        if (d.rack != nullptr && d.rack->kit)
+        {
+            // A kit: its selected pad's modules, if it has a sound (drum-kit.md §8).
+            for (size_t c = 0; c < d.rack->chains.size(); ++c)
+                if (d.rack->chains[c].note == d.rack->selectedPad)
+                    for (const auto& m : d.rack->chains[c].devices)
+                        entries.push_back({&m, d.id, static_cast<int>(c)});
+        }
+        else if (d.rack != nullptr && !d.rack->chains.empty())
         {
             const auto shown = static_cast<size_t>(
                 std::clamp(d.rack->shownChain, 0, static_cast<int>(d.rack->chains.size()) - 1));
@@ -311,6 +321,16 @@ void DeviceChain::rebuild(const std::vector<model::DeviceSlot>& devices)
                 auto panel = std::make_unique<ModulatorPanel>(slot.modulator->context(),
                                                               slot.modulator->kind(), slot.modulator->host());
                 wireModulatorPanel(*panel, d.id);
+                slot.view = std::move(panel);
+            }
+        }
+        else if (d.rack != nullptr && d.rack->kit)
+        {
+            slot.handle = session_.openRack(d.id); // its macros and its kits (drum-kit.md §8, §9)
+            if (slot.handle != nullptr)
+            {
+                auto panel = std::make_unique<DrumKitPanel>(slot.handle->context());
+                wireKitPanel(*panel, d.id);
                 slot.view = std::move(panel);
             }
         }
@@ -361,6 +381,8 @@ void DeviceChain::rebuild(const std::vector<model::DeviceSlot>& devices)
         slot.chain = e.chain;
         if (auto* rack = dynamic_cast<RackPanel*>(slot.view.get()); rack != nullptr && d.rack != nullptr)
             rack->setRack(juce::String::fromUTF8(d.name.c_str()), *d.rack);
+        if (auto* kit = dynamic_cast<DrumKitPanel*>(slot.view.get()); kit != nullptr && d.rack != nullptr)
+            kit->setKit(*d.rack);
         if (auto* modulator = dynamic_cast<ModulatorPanel*>(slot.view.get())) // its routes or roll changed
             modulator->refreshFromHost();
         if (auto* panel = dynamic_cast<ui::DevicePanel*>(slot.view.get()))
@@ -390,7 +412,7 @@ void DeviceChain::rebuild(const std::vector<model::DeviceSlot>& devices)
     for (const auto& d : devices)
         if (d.rack != nullptr)
         {
-            Rack r{.id = d.id, .info = d.rack};
+            Rack r{.id = d.id, .info = d.rack, .kit = d.rack->kit};
             if (auto it = caps.find(d.id); it != caps.end())
                 r.endCap = std::move(it->second);
             else
@@ -399,10 +421,26 @@ void DeviceChain::rebuild(const std::vector<model::DeviceSlot>& devices)
                 r.endCap->setWantsKeyboardFocus(false);
                 content_->addAndMakeVisible(*r.endCap);
             }
-            r.endCap->setTooltip("Add a module to the rack's chain shown, or a chain beside it");
+            r.endCap->setTooltip(r.kit ? "Add a module to the pad"
+                                       : "Add a module to the rack's chain shown, or a chain beside it");
             const auto id = d.id;
             r.endCap->onClick = [this, id]
             {
+                if (const auto* kit = rackOf(id); kit != nullptr && kit->kit && kit->info != nullptr)
+                {
+                    // Onto the selected pad, made if it's empty (drum-kit.md §8).
+                    const int pad = kit->info->selectedPad;
+                    showAddMenu(
+                        *kit->endCap,
+                        [this, id, pad](const std::string& key)
+                        {
+                            if (const auto added = session_.addDevice(
+                                    engine::Session::ChainPlace{.rack = id, .pad = pad}, key))
+                                selected_ = added;
+                        },
+                        {}, true);
+                    return;
+                }
                 const auto* rack = rackOf(id);
                 if (rack == nullptr || rack->info == nullptr)
                     return;
@@ -436,6 +474,8 @@ void DeviceChain::rebuild(const std::vector<model::DeviceSlot>& devices)
         closeRoutes();
     for (auto it = picked_.begin(); it != picked_.end();)
         it = slotOf(*it) == nullptr ? picked_.erase(it) : std::next(it);
+    for (auto it = padLights_.begin(); it != padLights_.end();)
+        it = rackOf(it->first) == nullptr ? padLights_.erase(it) : std::next(it);
     add_.setVisible(track_.has_value());
     updateMacroEditor();
     layoutSlots();
@@ -577,11 +617,11 @@ void DeviceChain::layoutSlots()
         {
             auto& inner = slots_[j];
             inner.view->setVisible(!rack->folded);
-            // A chain that's off is faded with its modules (racks.md §5a).
+            // A chain that's off is faded with its modules (racks.md §5a); a kit's pad too.
             const auto& chains = rack->info->chains;
             const bool on =
                 inner.chain < static_cast<int>(chains.size()) && chains[static_cast<size_t>(inner.chain)].on;
-            inner.view->setAlpha(on || chains.size() < 2 ? 1.0f : t.roles.fadedAlpha);
+            inner.view->setAlpha(on || (chains.size() < 2 && !rack->kit) ? 1.0f : t.roles.fadedAlpha);
             if (rack->folded)
                 continue;
             inner.view->setBounds(x, top, widthOf(*inner.view), h);
@@ -607,12 +647,24 @@ void DeviceChain::layoutSlots()
         rack->frame.label = rack->folded
                                 ? juce::Rectangle<int>()
                                 : juce::Rectangle<int>(chainX, top + h, x - chainX, t.shell.rackLabelHeight);
-        const bool several = info.chains.size() > 1 && !rack->folded;
-        const auto shown =
-            static_cast<size_t>(std::clamp(info.shownChain, 0, static_cast<int>(info.chains.size()) - 1));
-        rack->frame.text = several ? chainLabel(info, static_cast<int>(shown)) : juce::String();
-        rack->frame.chainOff = several && !info.chains[shown].on;
-        rack->frame.soloed = several && info.chains[shown].solo;
+        if (rack->kit)
+        {
+            // A kit's frame always names its pad (drum-kit.md §21), off and soloed as a chain's.
+            const auto* pad = model::kit::padOn(info, info.selectedPad);
+            rack->frame.text =
+                rack->folded ? juce::String() : juce::String::fromUTF8(model::kit::frameLabel(info).c_str());
+            rack->frame.chainOff = !rack->folded && pad != nullptr && !pad->on;
+            rack->frame.soloed = !rack->folded && pad != nullptr && pad->solo;
+        }
+        else
+        {
+            const bool several = info.chains.size() > 1 && !rack->folded;
+            const auto shown =
+                static_cast<size_t>(std::clamp(info.shownChain, 0, static_cast<int>(info.chains.size()) - 1));
+            rack->frame.text = several ? chainLabel(info, static_cast<int>(shown)) : juce::String();
+            rack->frame.chainOff = several && !info.chains[shown].on;
+            rack->frame.soloed = several && info.chains[shown].solo;
+        }
         x = rack->frame.bounds.getRight() + gap;
         i = j;
     }
@@ -791,7 +843,18 @@ DeviceChain::Drop DeviceChain::dropAt(juce::Point<int> p, std::optional<std::uin
                 ++index;
         }
         if (panel != nullptr && p.x >= panel->view->getBounds().getCentreX())
+        {
+            if (r.kit) // onto the selected pad: its chain, made if it's empty (drum-kit.md §6)
+            {
+                const int pad = r.info->selectedPad;
+                int chain = -1;
+                for (size_t c = 0; c < r.info->chains.size(); ++c)
+                    if (r.info->chains[c].note == pad)
+                        chain = static_cast<int>(c);
+                return {r.id, chain, index, pad};
+            }
             return {r.id, r.info->shownChain, index};
+        }
     }
     // Along the track's chain, a rack and its frame as one.
     int index = 0;
@@ -830,7 +893,7 @@ void DeviceChain::mouseDown(const juce::MouseEvent& e)
     // A rack's header: its menu on a right-click; a modulator's: its own (modulators.md §7.4).
     if (e.mods.isPopupMenu())
     {
-        if (slot.info.rack != nullptr)
+        if (slot.info.rack != nullptr && !slot.info.rack->kit)
         {
             selected_ = slot.info.id;
             showRackMenu(slot.info.id);
@@ -881,9 +944,10 @@ void DeviceChain::mouseUp(const juce::MouseEvent&)
     if (dragging_ && dragSlot_ >= 0 && drop_ && track_)
     {
         const auto& d = *drop_;
-        session_.moveDevice(slots_[static_cast<size_t>(dragSlot_)].info.id,
-                            engine::Session::ChainPlace{
-                                .channel = *track_, .rack = d.rack, .chain = d.chain, .index = d.index});
+        session_.moveDevice(
+            slots_[static_cast<size_t>(dragSlot_)].info.id,
+            engine::Session::ChainPlace{
+                .channel = *track_, .rack = d.rack, .chain = d.chain, .index = d.index, .pad = d.pad});
         if (const int dropped = session_.lastDroppedRoutes(); dropped > 0 && d.rack != 0 && onRoutesDropped)
             onRoutesDropped(dropped);
     }
@@ -968,6 +1032,24 @@ void DeviceChain::itemDragMove(const SourceDetails& details)
     browserDrag_ = true;
     browserOn_.reset();
     drop_ = dropAt(inContent, std::nullopt);
+    // Over a kit's pad: onto it, lit as it lands (drum-kit.md §6).
+    const auto pad = item && browser::fitsPad(*item) ? padAt(inContent) : std::nullopt;
+    if (padDrop_ != pad)
+    {
+        if (padDrop_)
+            if (auto* panel = kitPanelOf(padDrop_->first))
+                panel->pads().setDropTarget(-1);
+        padDrop_ = pad;
+        if (padDrop_)
+            if (auto* panel = kitPanelOf(padDrop_->first))
+                panel->pads().setDropTarget(padDrop_->second);
+    }
+    if (padDrop_)
+    {
+        drop_.reset();
+        content_->repaint();
+        return;
+    }
     if (item)
         for (const auto& s : slots_)
             if (s.view->isVisible() && s.view->getBounds().contains(inContent) &&
@@ -996,6 +1078,10 @@ void DeviceChain::itemDragExit(const SourceDetails&)
     browserDrag_ = false;
     browserOn_.reset();
     drop_.reset();
+    if (padDrop_)
+        if (auto* panel = kitPanelOf(padDrop_->first))
+            panel->pads().setDropTarget(-1);
+    padDrop_.reset();
     if (session_.modulatorPointer().dragging && session_.modulatorPointer().modulator == 0)
         session_.setModulatorPointer({});
     content_->repaint();
@@ -1006,11 +1092,26 @@ void DeviceChain::itemDropped(const SourceDetails& details)
     itemDragMove(details);
     const auto on = browserOn_;
     const auto drop = drop_;
+    const auto pad = padDrop_;
     const auto pointer = session_.modulatorPointer();
     itemDragExit(details);
     const auto item = browser::itemOf(details.description);
     if (!item || !track_)
         return;
+    // Onto a kit's pad, or a sample into a kit's frame: onto its selected pad (drum-kit.md §6).
+    if (pad)
+    {
+        session_.selectPad(pad->first, pad->second);
+        browser::onPad(session_, *item, pad->first, pad->second);
+        return;
+    }
+    if (drop && drop->pad >= 0)
+        if (const auto ref = browser::parse(*item);
+            ref && (ref->kind == model::BrowserKind::Sample || ref->kind == model::BrowserKind::Multisample))
+        {
+            browser::onPad(session_, *item, drop->rack, drop->pad);
+            return;
+        }
     // A modulator dropped on a control: added just before its module, with its preset, routed.
     if (const auto kind = modulatorOf(*item);
         kind && pointer.dragging && pointer.modulator == 0 && pointer.over)
@@ -1038,8 +1139,11 @@ void DeviceChain::itemDropped(const SourceDetails& details)
     if (!on && drop && drop->rack != 0)
     {
         if (onBrowserDropInRack)
-            onBrowserDropInRack(
-                *item, {.channel = *track_, .rack = drop->rack, .chain = drop->chain, .index = drop->index});
+            onBrowserDropInRack(*item, {.channel = *track_,
+                                        .rack = drop->rack,
+                                        .chain = drop->chain,
+                                        .index = drop->index,
+                                        .pad = drop->pad});
         return;
     }
     if (onBrowserDrop)
@@ -1415,6 +1519,7 @@ const juce::String DeviceChain::bypassedTooltip =
 
 void DeviceChain::updateNotices()
 {
+    updatePadLights();
     for (const auto& s : slots_)
     {
         const auto text = session_.bypassedWhileMonitoring(s.info.id) ? bypassedText : juce::String();
@@ -1866,5 +1971,274 @@ void DeviceChain::modulateWith(const engine::Session::ParamTarget& target, model
         selected_ = id;
         picked_.clear();
     }
+}
+} // namespace fd::app
+
+// ---- the Drum Kit (docs/design/drum-kit.md §5, §8, §12) --------------------------------------
+
+namespace fd::app
+{
+void DeviceChain::wireKitPanel(DrumKitPanel& panel, std::uint64_t kit)
+{
+    // A pad pressed plays it, as the computer keyboard does, on the kit's track (the one shown).
+    panel.onPlayPad = [this](int note) { session_.computerKeyboardNote(note, 100.0f / 127.0f); };
+    panel.onStopPad = [this](int note) { session_.computerKeyboardNote(note, 0.0f); };
+    panel.onSelectPad = [this, kit](int note)
+    {
+        // The kit selected with its pad, so the Module menu's pad items act on it.
+        selected_ = kit;
+        picked_.clear();
+        if (onActivated)
+            onActivated();
+        content_->repaint();
+        session_.selectPad(kit, note);
+    };
+    panel.onShowPads = [this, kit](int from) { session_.showPads(kit, from); };
+    panel.onPadMenu = [this, kit](int note) { showPadMenu(kit, note); };
+    panel.onMovePad = [this, kit](int from, int to, bool copy) { session_.movePad(kit, from, to, copy); };
+    panel.onRenamePad = [this, kit](int note, const juce::String& name)
+    { session_.setPad(kit, note, {.name = name.toStdString()}); };
+    panel.onPadOn = [this, kit](int note, bool on) { session_.setPad(kit, note, {.on = on}); };
+    panel.onPadSolo = [this, kit](int note, bool solo) { session_.setPad(kit, note, {.solo = solo}); };
+    panel.onPadVolume = [this, kit](int note, float db) { session_.setPad(kit, note, {.volumeDb = db}); };
+    panel.onPadPan = [this, kit](int note, float pan) { session_.setPad(kit, note, {.pan = pan}); };
+    panel.onPadPlays = [this, kit](int note, int plays) { session_.setPad(kit, note, {.plays = plays}); };
+    panel.onPadChoke = [this, kit](int note, int group) { session_.setPad(kit, note, {.choke = group}); };
+    panel.onPadGesture = [this](bool started) { beginGesture(started, "Pad mixer"); };
+}
+
+DrumKitPanel* DeviceChain::kitPanelOf(std::uint64_t id)
+{
+    auto* s = slotOf(id);
+    return s != nullptr ? dynamic_cast<DrumKitPanel*>(s->view.get()) : nullptr;
+}
+
+std::optional<std::pair<std::uint64_t, int>> DeviceChain::padAt(juce::Point<int> p) const
+{
+    for (const auto& r : racks_)
+        if (r.kit && !r.folded)
+            if (const auto* s = slotOf(r.id))
+                if (auto* panel = dynamic_cast<DrumKitPanel*>(s->view.get());
+                    panel != nullptr && panel->isVisible())
+                {
+                    auto& pads = panel->pads();
+                    const auto at = pads.getLocalPoint(content_.get(), p);
+                    if (pads.getLocalBounds().contains(at))
+                        if (const int note = pads.padAt(at); note >= 0)
+                            return std::pair{r.id, note};
+                }
+    return std::nullopt;
+}
+
+void DeviceChain::showPadMenu(std::uint64_t kit, int note)
+{
+    const auto* r = rackOf(kit);
+    if (r == nullptr || r->info == nullptr)
+        return;
+    const auto* pad = model::kit::padOn(*r->info, note);
+    const bool sound = pad != nullptr;
+    juce::PopupMenu menu;
+    menu.addItem("Select pad", [this, kit, note] { session_.selectPad(kit, note); });
+    menu.addItem(juce::String::fromUTF8("Rename pad\xe2\x80\xa6"), sound, false,
+                 [this, kit, note]
+                 {
+                     if (auto* panel = kitPanelOf(kit))
+                         panel->renamePad(note);
+                 });
+    menu.addItem(juce::String::fromUTF8("Load sample\xe2\x80\xa6"),
+                 [this, kit, note] { loadSampleOnPad(kit, note); });
+    menu.addSeparator();
+    menu.addItem("Copy pad", sound, false, [this, kit, note] { session_.copyPad(kit, note); });
+    menu.addItem("Paste pad", session_.canPastePad(), false,
+                 [this, kit, note] { session_.pastePad(kit, note); });
+    menu.addItem("Clear pad", sound, false, [this, kit, note] { session_.clearPad(kit, note); });
+    menu.addSeparator();
+    menu.addItem("On", sound, sound && pad->on,
+                 [this, kit, note, on = sound && pad->on] { session_.setPad(kit, note, {.on = !on}); });
+    menu.addItem("Solo", sound, sound && pad->solo, [this, kit, note, solo = sound && pad->solo]
+                 { session_.setPad(kit, note, {.solo = !solo}); });
+    juce::PopupMenu choke;
+    for (int group = 0; group <= model::kit::chokeGroups; ++group)
+        choke.addItem(juce::String::fromUTF8(model::kit::chokeName(group).c_str()), sound,
+                      sound && pad->choke == group,
+                      [this, kit, note, group] { session_.setPad(kit, note, {.choke = group}); });
+    menu.addSubMenu("Choke group", choke, sound);
+    menu.showMenuAsync(juce::PopupMenu::Options());
+}
+
+namespace
+{
+std::vector<juce::File> samplesIn(const juce::StringArray& files)
+{
+    std::vector<juce::File> out;
+    for (const auto& f : files)
+        if (const auto kind = model::fileKind(f.toStdString());
+            kind == model::BrowserKind::Sample || kind == model::BrowserKind::Multisample)
+            out.emplace_back(f);
+    return out;
+}
+} // namespace
+
+bool DeviceChain::isInterestedInFileDrag(const juce::StringArray& files)
+{
+    return track_.has_value() && !samplesIn(files).empty();
+}
+
+void DeviceChain::fileDragMove(const juce::StringArray&, int x, int y)
+{
+    const auto inContent = content_->getLocalPoint(this, juce::Point<int>(x, y));
+    const auto pad = padAt(inContent);
+    if (padDrop_ != pad)
+    {
+        if (padDrop_)
+            if (auto* panel = kitPanelOf(padDrop_->first))
+                panel->pads().setDropTarget(-1);
+        padDrop_ = pad;
+        if (padDrop_)
+            if (auto* panel = kitPanelOf(padDrop_->first))
+                panel->pads().setDropTarget(padDrop_->second);
+    }
+    browserDrag_ = !pad.has_value();
+    if (pad)
+        drop_.reset();
+    else
+        drop_ = dropAt(inContent, std::nullopt);
+    content_->repaint();
+}
+
+void DeviceChain::fileDragExit(const juce::StringArray&)
+{
+    if (padDrop_)
+        if (auto* panel = kitPanelOf(padDrop_->first))
+            panel->pads().setDropTarget(-1);
+    padDrop_.reset();
+    browserDrag_ = false;
+    drop_.reset();
+    content_->repaint();
+}
+
+void DeviceChain::filesDropped(const juce::StringArray& files, int x, int y)
+{
+    const auto at = content_->getLocalPoint(this, juce::Point<int>(x, y));
+    fileDragExit(files);
+    dropFiles(samplesIn(files), at);
+}
+
+void DeviceChain::dropFiles(const std::vector<juce::File>& files, juce::Point<int> at)
+{
+    if (!track_ || files.empty())
+        return;
+    if (const auto pad = padAt(at))
+    {
+        session_.selectPad(pad->first, pad->second);
+        session_.loadPads(pad->first, pad->second, files);
+        return;
+    }
+    if (files.size() > 1)
+    {
+        const auto r = browser::kitWith(session_, files, *track_);
+        if (r.module != 0)
+            selected_ = r.module;
+        return;
+    }
+    const auto drop = dropAt(at, std::nullopt);
+    if (onBrowserDrop)
+        onBrowserDrop("file:" + files.front().getFullPathName().toStdString(), *track_, drop.index,
+                      std::nullopt);
+}
+
+void DeviceChain::loadSampleOnPad(std::uint64_t kit, int note)
+{
+    chooser_ = std::make_unique<juce::FileChooser>("Load a sample onto the pad", juce::File(),
+                                                   "*.wav;*.aif;*.aiff;*.flac;*.mp3;*.sfz");
+    chooser_->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                          [this, kit, note](const juce::FileChooser& fc)
+                          {
+                              if (const auto file = fc.getResult(); file.existsAsFile())
+                              {
+                                  session_.selectPad(kit, note);
+                                  session_.loadPads(kit, note, {file});
+                              }
+                          });
+}
+
+void DeviceChain::updatePadLights()
+{
+    // A pad lights a moment each time it's hit: a click, a key, the song (drum-kit.md §5).
+    const auto now = juce::Time::getMillisecondCounter();
+    constexpr juce::uint32 lit = 150; // ms
+    for (const auto& r : racks_)
+    {
+        if (!r.kit)
+            continue;
+        auto* panel = kitPanelOf(r.id);
+        if (panel == nullptr)
+            continue;
+        auto& lights = padLights_[r.id];
+        const auto hits = session_.padHits(r.id);
+        std::bitset<128> on;
+        for (size_t n = 0; n < hits.size(); ++n)
+        {
+            if (lights.seen && hits[n] != lights.hits[n])
+                lights.until[n] = now + lit;
+            on.set(n, lights.until[n] > now);
+        }
+        lights.hits = hits;
+        lights.seen = true;
+        panel->setPlaying(on);
+    }
+}
+
+std::optional<std::uint64_t> DeviceChain::selectedKit() const
+{
+    if (const auto rack = selectedRack())
+        if (const auto* r = rackOfConst(*rack); r != nullptr && r->kit)
+            return rack;
+    return std::nullopt;
+}
+
+std::optional<std::pair<std::uint64_t, int>> DeviceChain::selectedPad() const
+{
+    if (const auto kit = selectedKit())
+        if (const auto* r = rackOfConst(*kit); r != nullptr && r->info != nullptr &&
+                                               model::kit::padOn(*r->info, r->info->selectedPad) != nullptr)
+            return std::pair{*kit, r->info->selectedPad};
+    return std::nullopt;
+}
+
+void DeviceChain::renameSelectedPad()
+{
+    if (const auto pad = selectedPad())
+        if (auto* panel = kitPanelOf(pad->first))
+        {
+            panel->setFolded(false, true);
+            panel->renamePad(pad->second);
+        }
+}
+
+void DeviceChain::copySelectedPad()
+{
+    if (const auto pad = selectedPad())
+        session_.copyPad(pad->first, pad->second);
+}
+
+void DeviceChain::pasteOnSelectedPad()
+{
+    if (const auto kit = selectedKit())
+        if (const auto* r = rackOfConst(*kit); r != nullptr && r->info != nullptr)
+            session_.pastePad(*kit, r->info->selectedPad);
+}
+
+void DeviceChain::clearSelectedPad()
+{
+    if (const auto pad = selectedPad())
+        session_.clearPad(pad->first, pad->second);
+}
+
+void DeviceChain::loadSampleOnSelectedPad()
+{
+    if (const auto kit = selectedKit())
+        if (const auto* r = rackOfConst(*kit); r != nullptr && r->info != nullptr)
+            loadSampleOnPad(*kit, r->info->selectedPad);
 }
 } // namespace fd::app

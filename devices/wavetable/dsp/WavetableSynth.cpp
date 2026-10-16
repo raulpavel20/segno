@@ -941,6 +941,15 @@ void WavetableSynth::voiceRelease(int index)
         e.noteOff();
 }
 
+void WavetableSynth::voiceStop(int index)
+{
+    // All sound off (a Drum Kit's choke group, ADR 0064): the amp envelope silent within 1.5 ms.
+    auto& v = voice_[static_cast<size_t>(index)];
+    v.envs[0].stop(1.5);
+    for (size_t e = 1; e < v.envs.size(); ++e)
+        v.envs[e].noteOff();
+}
+
 void WavetableSynth::handleEvent(const Event& e) noexcept
 {
     const auto ch = static_cast<size_t>(e.channel & 15);

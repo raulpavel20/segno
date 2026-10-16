@@ -255,6 +255,18 @@ std::optional<Session::Preview> Session::previewFile(const juce::File& file)
 bool Session::previewPreset(const std::string& deviceId, const std::string& presetKey)
 {
     stopPreview();
+    if (deviceId == drumKit().id) // a kit: a bar of a beat through its pads (drum-kit.md §9)
+    {
+        const auto* preset = presetLibrary().find(drumKit(), presetKey);
+        if (preset == nullptr || presetTooNew(drumKit(), *preset))
+            return false;
+        const double rate = sampleRate() > 0.0 ? sampleRate() : 48000.0;
+        auto beat = renderKitBeat(preset->state, rate);
+        if (beat.getNumSamples() == 0)
+            return false;
+        impl_->preview.play(std::move(beat), rate);
+        return true;
+    }
     const auto* factory = findDevice(deviceId);
     if (factory == nullptr)
         return false;

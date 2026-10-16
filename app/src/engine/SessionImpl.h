@@ -872,6 +872,14 @@ private:
                 changed(t);
                 return;
             }
+        // What a rack or a kit shows (racks.md §5, drum-kit.md §8), and a kit's pads' notes, Plays
+        // and choke groups (drum-kit.md §14): the snapshot has them.
+        if (id == shownChainId || id == selectedPadId || id == padsFromId || id == PadInlet::noteId ||
+            id == PadInlet::playsId || id == PadInlet::chokeId)
+        {
+            changed(t);
+            return;
+        }
         // Device parameters and state change constantly; only a device's power state, its
         // sidechain source (ADR 0025) and the mixer's own plugins (volume, pan, sends) show.
         for (auto p = t; p.isValid(); p = p.getParent())

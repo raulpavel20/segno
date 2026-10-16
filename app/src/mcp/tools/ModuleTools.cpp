@@ -79,7 +79,10 @@ void addModuleTools(Registry& registry, ToolEnv& env)
          "ours or a scanned plugin. One of ours starts from your default for it, if you set one, or from a "
          "preset "
          "you name (list_presets). Into a rack's chain with rack and chain; type \"rack\" adds an empty rack "
-         "(racks.md). A modulator (\"mod-lfo\", \"mod-random\", \"mod-envelope\", \"mod-follower\", "
+         "(racks.md). Type \"drum-kit\" adds a Drum Kit (drum-kit.md), its presets its kits; onto a kit's "
+         "pad "
+         "with kit and pad (an instrument in place of the pad's own; get_kit lists the pads). A modulator "
+         "(\"mod-lfo\", \"mod-random\", \"mod-envelope\", \"mod-follower\", "
          "\"mod-steps\") goes in a channel's chain or a rack's (moving only what's in the rack); "
          "route_modulator "
          "gives it what it moves. "
@@ -93,6 +96,12 @@ void addModuleTools(Registry& registry, ToolEnv& env)
               {"rack", id(IdKind::Module, "Into this rack's chain instead of the track's")},
               {"path", string("With type \"rack\": a .segnorack file to load (search finds them as racks)")},
               {"chain", integer("The rack's chain, from 1 (default: 1)", 1)},
+              {"kit", id(IdKind::Module, "Onto this Drum Kit's pad instead of the track's chain")},
+              {"pad",
+               {{"type", {"integer", "string"}},
+                {"description",
+                 "With kit: the pad, its note as a number (36) or a name (\"C1\"); made if it's "
+                 "empty"}}},
               {"preset", string("One of ours: a preset to start from, by its id or name (list_presets)")}},
              {"track", "type"}),
          moduleResultSchema(), adds},
@@ -148,7 +157,20 @@ void addModuleTools(Registry& registry, ToolEnv& env)
                                   " that this Segno can load; list_presets lists them."};
             }
             std::uint64_t id = 0;
-            if (args.contains("rack"))
+            if (args.contains("kit"))
+            {
+                const auto [kit, owner] = module(env, args["kit"]);
+                if (kit.rack == nullptr || !kit.rack->kit || owner.id != t.id)
+                    throw Problem{formatId(IdKind::Module, kit.id) + " isn't a Drum Kit on that track."};
+                if (!args.contains("pad"))
+                    throw Problem{"Which pad: pad, its note (36) or name (\"C1\")."};
+                id = env.session.addDevice(engine::Session::ChainPlace{.channel = t.id,
+                                                                       .rack = kit.id,
+                                                                       .index = args.value("position", -1),
+                                                                       .pad = padArg(args["pad"])},
+                                           key);
+            }
+            else if (args.contains("rack"))
             {
                 const auto [rack, owner] = module(env, args["rack"]);
                 if (rack.rack == nullptr || owner.id != t.id)
@@ -191,17 +213,23 @@ void addModuleTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"move_module", "Move a module",
-         "Moves a module within its track: along its chain, into a rack's chain (rack and chain), or out of "
-         "a rack "
-         "into the track's chain (rack: null). A rack never goes into a rack.",
-         object({{"module", id(IdKind::Module, "The module")},
-                 {"position", integer("Its new place in the chain it goes to, from 0", 0)},
-                 {"rack",
-                  {{"type", {"string", "null"}},
-                   {"description", "A rack on its track to move it into; null: "
-                                   "the track's own chain"}}},
-                 {"chain", integer("The rack's chain, from 1 (default: 1)", 1)}},
-                {"module", "position"}),
+         "Moves a module within its track: along its chain, into a rack's chain (rack and chain), onto a "
+         "Drum "
+         "Kit's pad (kit and pad), or out of a rack or kit into the track's chain (rack: null). A rack never "
+         "goes into a rack.",
+         object(
+             {{"module", id(IdKind::Module, "The module")},
+              {"position", integer("Its new place in the chain it goes to, from 0", 0)},
+              {"rack",
+               {{"type", {"string", "null"}},
+                {"description", "A rack on its track to move it into; null: "
+                                "the track's own chain"}}},
+              {"chain", integer("The rack's chain, from 1 (default: 1)", 1)},
+              {"kit", id(IdKind::Module, "A Drum Kit on its track: onto its pad")},
+              {"pad",
+               {{"type", {"integer", "string"}},
+                {"description", "With kit: the pad, its note (36) or name (\"C1\"); made if it's empty"}}}},
+             {"module", "position"}),
          result({{"chain", arrayOf(result({{"id", string("")}}), "The chain now, in order", std::nullopt)}},
                 {"chain"}),
          changes},
@@ -209,7 +237,21 @@ void addModuleTools(Registry& registry, ToolEnv& env)
         {
             const auto [slot, owner] = module(env, args["module"]);
             const int position = args["position"].get<int>();
-            if (!args.contains("rack"))
+            if (args.contains("kit"))
+            {
+                const auto [kit, kitOwner] = module(env, args["kit"]);
+                if (kit.rack == nullptr || !kit.rack->kit || kitOwner.id != owner.id)
+                    throw Problem{formatId(IdKind::Module, kit.id) +
+                                  " isn't a Drum Kit on the module's track."};
+                if (!args.contains("pad"))
+                    throw Problem{"Which pad: pad, its note (36) or name (\"C1\")."};
+                if (!env.session.moveDevice(slot.id, engine::Session::ChainPlace{.channel = owner.id,
+                                                                                 .rack = kit.id,
+                                                                                 .index = position,
+                                                                                 .pad = padArg(args["pad"])}))
+                    throw Problem{"It can't go there (a rack or a kit never goes on a pad)."};
+            }
+            else if (!args.contains("rack"))
                 env.session.moveDevice(slot.id, position); // along its own chain
             else
             {

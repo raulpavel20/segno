@@ -63,7 +63,8 @@ Identifiers stored in users' projects, presets and plugin scans **can never chan
 
 - A Drum Kit is a module of type `drum-kit` (`DeviceSlot::deviceId`, MCP's `type`, a kit preset's `device`). Its macros are a rack's, `macro1` … `macro8`; it has no `morph`.
 - Its panel's sections (view state): `pads`, `pad`, `macros`.
-- In a project, a kit is a rack whose chains are its pads. Each pad's chain starts with a pad inlet, a plugin of type `fdPadInlet`, whose state keeps the pad's note (`fdPadNote`, 0 … 127), the note it plays (`fdPadPlays`) and its choke group (`fdPadChoke`, 0 for none, 1 … 16). The rest (the pad's name, the selected pad, the pads shown, a kit preset's form) is named here when step 1 builds it.
+- In a project, a kit is a rack whose type says so (`fdKit`) and whose chains are its pads. Each pad's chain starts with a pad inlet, a plugin of type `fdPadInlet`, whose state keeps the pad's note (`fdPadNote`, 0 … 127), the note it plays (`fdPadPlays`) and its choke group (`fdPadChoke`, 0 for none, 1 … 16); the pad's name, on and solo are its chain's (`fdChainName`, `fdChainOn`, `fdChainSolo` on its mixer). On the kit's instance: the selected pad (`fdSelectedPad`), the lowest of the 16 shown (`fdPadsFrom`) and the kit's preset memo (`fdPreset`).
+- A kit preset is a `.segnopreset` of device `drum-kit`, state version 1: its macros' positions as parameters `macro1` … `macro8` (0 to 100); in its extra state, `pads` (each `note`, `name`, `plays`, `choke`, `on`, `volumeDb`, `pan` and `modules`, each module as a rack file holds it: `name`, `on`, and `device` and `state`, or `plugin` and `state`) and `macros` (each `name` and `mappings`: `pad`, `module`, `param`, `from`, `to`, `curve`), each left out while it has nothing to say.
 
 ## Modulators ([modulators.md](design/modulators.md), ADR 0061; approved 2026-10-15, permanent)
 

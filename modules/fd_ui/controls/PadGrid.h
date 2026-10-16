@@ -36,6 +36,7 @@ public:
     void setPads(int from, const std::array<Pad, shown>& pads, int selected);
     /// The notes sounding now: their pads are lit.
     void setPlaying(const std::bitset<128>& notes);
+    [[nodiscard]] const std::bitset<128>& playing() const noexcept { return playing_; }
     /// Where a drag from outside would land (−1: nowhere).
     void setDropTarget(int note);
 

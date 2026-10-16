@@ -76,6 +76,7 @@ private:
     void voiceStart(int v, int key, float velocity, int channel, std::int32_t noteId, bool retrigger) override;
     void voiceLegato(int v, int key, float velocity) override;
     void voiceRelease(int v) override;
+    void voiceStop(int v) override;
 
     void tick(const TransportInfo& transport) noexcept;
     void computeControls(Voice& v, std::array<double, NumControls>& out) const noexcept;

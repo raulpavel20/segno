@@ -1,5 +1,7 @@
 #include "ui/BrowserDrops.h"
 
+#include "model/DrumKit.h"
+#include "model/Modulators.h"
 #include "model/Racks.h"
 
 #include <fd/device/Registry.h>
@@ -345,6 +347,59 @@ Result inRack(engine::Session& session, const std::string& item, const engine::S
     else if (ref->kind == Kind::Wavetable && !session.loadWavetable(module, 0, ref->file))
         return {};
     return {true, {}, 0, module};
+}
+
+bool fitsPad(const std::string& item)
+{
+    const auto ref = parse(item);
+    if (!ref)
+        return false;
+    if (ref->kind == Kind::Sample || ref->kind == Kind::Multisample || ref->kind == Kind::Wavetable)
+        return true;
+    if (!isModule(ref->kind))
+        return false;
+    // Not a kit (racks don't nest), not a modulator (it moves controls, it isn't a pad's sound).
+    return ref->key != "fd:drum-kit" &&
+           !(ref->key.starts_with("fd:") && model::modulatorKind(std::string_view(ref->key).substr(3)));
+}
+
+Result onPad(engine::Session& session, const std::string& item, std::uint64_t kit, int note)
+{
+    const auto ref = parse(item);
+    if (!ref || !fitsPad(item))
+        return {};
+    if (ref->kind == Kind::Sample || ref->kind == Kind::Multisample)
+    {
+        const auto loaded = session.loadPads(kit, note, {ref->file});
+        return {!loaded.empty(), {}, 0, 0};
+    }
+    const engine::Session::EditGroup group(session, ref->kind == Kind::Wavetable
+                                                        ? "Add Wavetable with " + tableName(*ref)
+                                                        : stepName(session, *ref));
+    const auto key = ref->kind == Kind::Wavetable ? std::string("fd:wavetable") : ref->key;
+    const auto module = session.addDevice(engine::Session::ChainPlace{.rack = kit, .pad = note}, key);
+    if (module == 0)
+        return {};
+    if (ref->kind == Kind::Preset)
+        loadPreset(session, module, *ref);
+    else if (ref->kind == Kind::Wavetable && !session.loadWavetable(module, 0, ref->file))
+        return {};
+    return {true, {}, 0, module};
+}
+
+Result kitWith(engine::Session& session, const std::vector<juce::File>& samples, std::uint64_t channel)
+{
+    const auto old = session.instrumentOf(channel);
+    const engine::Session::EditGroup group(session, old ? "Replace " + old->name + " with Drum Kit"
+                                                        : "Add Drum Kit with " +
+                                                              std::to_string(samples.size()) + " samples");
+    const auto kit = session.replaceInstrument(channel, "fd:drum-kit");
+    if (kit == 0 || session.loadPads(kit, model::kit::firstShown, samples).empty())
+        return {};
+    Result r{true, {}, 0, kit};
+    if (old)
+        r.toast = "Replaced " + juce::String(old->name) + " with Drum Kit";
+    return r;
 }
 
 Result newTrack(engine::Session& session, const std::string& item, double seconds)

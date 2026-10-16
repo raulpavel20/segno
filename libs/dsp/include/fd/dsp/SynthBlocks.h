@@ -121,16 +121,24 @@ public:
 
     void setSampleRate(double sr) noexcept { sampleRate_ = sr; }
     void set(const Settings& s) noexcept;
-    void noteOn() noexcept { stage_ = Stage::Attack; }
+    void noteOn() noexcept
+    {
+        stage_ = Stage::Attack;
+        stopping_ = false;
+    }
     void noteOff() noexcept
     {
         if (stage_ != Stage::Idle)
             stage_ = Stage::Release;
     }
+    /// Falls to -60 dB within `seconds`, released or not, whatever its release: a sound stopped
+    /// (All sound off, a Drum Kit's choke group).
+    void stop(double seconds) noexcept;
     void reset() noexcept
     {
         stage_ = Stage::Idle;
         level_ = 0.0;
+        stopping_ = false;
     }
 
     float next() noexcept;
@@ -142,7 +150,8 @@ public:
 private:
     double sampleRate_ = 48000.0;
     Settings s_{};
-    double attackCoef_ = 0.0, decayCoef_ = 0.0, releaseCoef_ = 0.0;
+    double attackCoef_ = 0.0, decayCoef_ = 0.0, releaseCoef_ = 0.0, stopCoef_ = 0.0;
+    bool stopping_ = false; // released by stop(): its own quick release
     Stage stage_ = Stage::Idle;
     double level_ = 0.0;
 };
