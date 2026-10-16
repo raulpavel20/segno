@@ -120,11 +120,6 @@ float soundGainAt(const AudioSound& sound, double fileSeconds) noexcept
     return gainForDb(sound.gainDb) * lineGainAt(sound.line, fileSeconds);
 }
 
-double fileTimeOf(double content, double sourceLength, bool reversed) noexcept
-{
-    return reversed ? sourceLength - content : content;
-}
-
 namespace
 {
 /// Points moved to `to(time)`, in time order: where `to` runs backwards (a reversed clip), a
@@ -180,17 +175,23 @@ void applyChannels(ChannelMode mode, float& left, float& right) noexcept
 
 std::vector<LineSpan> fileSpans(const ClipInfo& clip, double from, double to)
 {
-    std::vector<LineSpan> out;
+    std::vector<LineSpan> played;
     const auto map = contentMap(clip);
     for (const auto& lap : laps(clip, from, to))
     {
         const double f0 = map.fileAt(lap.content), f1 = map.fileAt(lap.content + (lap.to - lap.from));
-        const LineSpan span{std::min(f0, f1), std::max(f0, f1)};
-        if (span.to > span.from &&
-            std::none_of(out.begin(), out.end(), [&](const LineSpan& s)
-                         { return std::abs(s.from - span.from) < 1e-9 && std::abs(s.to - span.to) < 1e-9; }))
-            out.push_back(span);
+        if (const LineSpan span{std::min(f0, f1), std::max(f0, f1)}; span.to > span.from)
+            played.push_back(span);
     }
+    // Laps that play the same stretch overlap: joined, so an edit changes each moment once.
+    std::sort(played.begin(), played.end(),
+              [](const LineSpan& a, const LineSpan& b) { return a.from < b.from; });
+    std::vector<LineSpan> out;
+    for (const auto& span : played)
+        if (!out.empty() && span.from <= out.back().to + 1e-9)
+            out.back().to = std::max(out.back().to, span.to);
+        else
+            out.push_back(span);
     return out;
 }
 
@@ -291,7 +292,7 @@ AutomationPoints lineSilenced(const AutomationPoints& line, LineSpan span, doubl
     return rewrite(line, span, ramp, [](float) { return 0.0f; });
 }
 
-std::optional<ClipLevels> measureClip(const std::string& path, double contentFrom, double contentTo,
+std::optional<ClipLevels> measureClip(const std::string& path, const std::vector<LineSpan>& spans,
                                       const AudioSound& sound, std::string* error)
 {
     dsp::LoudnessMeter meter;
@@ -300,7 +301,8 @@ std::optional<ClipLevels> measureClip(const std::string& path, double contentFro
     double peak = 0.0;
     std::int64_t frame = 0;
     bool prepared = false;
-    double from = 0.0, to = 0.0; // in the file as recorded
+    size_t span = 0; // the first of `spans` not yet passed
+    const double end = spans.empty() ? 0.0 : spans.back().to;
     const auto info = audiofile::stream(
         path, 4096,
         [&](const audiofile::StreamInfo& format, const float* interleaved, int frames)
@@ -308,9 +310,6 @@ std::optional<ClipLevels> measureClip(const std::string& path, double contentFro
             const int channels = std::max(1, format.numChannels);
             if (!prepared)
             {
-                const double length = static_cast<double>(format.numFrames) / format.sampleRate;
-                from = fileTimeOf(sound.reversed ? contentTo : contentFrom, length, sound.reversed);
-                to = fileTimeOf(sound.reversed ? contentFrom : contentTo, length, sound.reversed);
                 meter.prepare(format.sampleRate, std::min(channels, dsp::LoudnessMeter::maxChannels));
                 scratch.assign(static_cast<size_t>(std::min(channels, 2)), std::vector<float>(4096));
                 prepared = true;
@@ -319,10 +318,12 @@ std::optional<ClipLevels> measureClip(const std::string& path, double contentFro
             for (int i = 0; i < frames; ++i, ++frame)
             {
                 const double t = static_cast<double>(frame) / format.sampleRate;
-                if (t < from)
-                    continue;
-                if (t >= to)
+                while (span < spans.size() && t >= spans[span].to)
+                    ++span;
+                if (span == spans.size())
                     break;
+                if (t < spans[span].from)
+                    continue;
                 const float g = lineGainAt(sound.line, t);
                 float l = interleaved[i * channels] * g;
                 float r = channels > 1 ? interleaved[i * channels + 1] * g : l;
@@ -341,7 +342,7 @@ std::optional<ClipLevels> measureClip(const std::string& path, double contentFro
                     pointers.push_back(c.data());
                 meter.process(pointers.data(), used);
             }
-            return static_cast<double>(frame) / format.sampleRate < to;
+            return static_cast<double>(frame) / format.sampleRate < end;
         },
         error);
     if (!info)

@@ -58,9 +58,6 @@ struct AudioSound
 [[nodiscard]] float lineGainAt(const AutomationPoints& line, double fileSeconds) noexcept;
 /// A clip's gain (linear) at `fileSeconds` of its file: its gain times its line. Allocation-free.
 [[nodiscard]] float soundGainAt(const AudioSound& sound, double fileSeconds) noexcept;
-/// Where in its file, as recorded, a clip plays `content` seconds of its content: a reversed clip
-/// reads its file backwards (`sourceLength` − content).
-[[nodiscard]] double fileTimeOf(double content, double sourceLength, bool reversed) noexcept;
 
 /// The gain line on the clip view's time, where content time c shows at `origin` + c, and back
 /// (audio-editor.md §4): each point where its moment of the file plays (`map`: warped, at its beat).
@@ -79,8 +76,9 @@ struct LineSpan
     double from = 0.0, to = 0.0;
     friend bool operator==(const LineSpan&, const LineSpan&) = default;
 };
-/// The stretches of the file a clip plays over [from, to) on the timeline (one per lap a looped
-/// clip plays there), in file time as recorded (through its warp and its reversal), each from < to.
+/// The stretches of the file a clip plays over [from, to) on the timeline, in file time as recorded
+/// (through its warp and its reversal): what the laps of a looped clip play there, joined where they
+/// overlap or touch, in order, each from < to.
 [[nodiscard]] std::vector<LineSpan> fileSpans(const ClipInfo& clip, double from, double to);
 
 /// Where Slice cuts a clip (§9).
@@ -131,12 +129,13 @@ struct ClipLevels
     double peakDb = silent;
     double lufs = silent;
 };
-/// Measures what a clip plays of its file, `contentFrom` … `contentTo` seconds of its content,
-/// through its gain line (streamed: not real-time, and never the whole file in memory). Nullopt,
-/// with `error`, if the file can't be read.
-[[nodiscard]] std::optional<ClipLevels> measureClip(const std::string& path, double contentFrom,
-                                                    double contentTo, const AudioSound& sound,
-                                                    std::string* error = nullptr);
+/// Measures what a clip plays of its file: `spans` of it (fileSpans: in order, apart) through its gain
+/// line and channels. `path` is the file as recorded (a reversed clip's original, which its line
+/// follows). Streamed: not real-time, and never the whole file in memory. Nullopt, with `error`, if
+/// the file can't be read.
+[[nodiscard]] std::optional<ClipLevels> measureClip(const std::string& path,
+                                                    const std::vector<LineSpan>& spans,
+                                                    const AudioSound& sound, std::string* error = nullptr);
 /// The gain (dB) each clip needs for Normalise: each reaching `targetDb` (dBFS or LUFS) by itself,
 /// or `together`, all moved by the amount that brings the loudest to it. A silent clip keeps its
 /// gain (nullopt). Gains are kept within −∞ … +24 dB.

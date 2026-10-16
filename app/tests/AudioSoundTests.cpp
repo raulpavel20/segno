@@ -89,12 +89,6 @@ TEST_CASE("audio sound: a clip's gain and its line multiply", "[fast][audio-soun
     CHECK_FALSE(flat.neutral());
 }
 
-TEST_CASE("audio sound: a reversed clip reads its file from the end", "[fast][audio-sound]")
-{
-    CHECK(fileTimeOf(1.25, 10.0, false) == 1.25);
-    CHECK(fileTimeOf(1.25, 10.0, true) == 8.75);
-}
-
 TEST_CASE("audio sound: a range's gain moves the line inside it and keeps its edges", "[fast][audio-sound]")
 {
     const auto line = lineWithGain({}, {1.0, 2.0}, -6.0, 0.004);
@@ -163,12 +157,14 @@ TEST_CASE("audio sound: the file a clip plays over a range of the timeline", "[f
     warped.beatsPerSecond = 1.0;
     CHECK(fileSpans(warped, 11.0, 12.0) == std::vector<LineSpan>{{1.0, 1.5}});
 
-    // A looped clip: each lap plays the same stretch of the file, kept once.
+    // A looped clip: each lap plays the same stretch of the file, and the stretches join (an edit
+    // there changes each moment once).
     clip.loop = {1.0, 1.0};
     clip.offset = 0.0;
     CHECK(fileSpans(clip, 10.25, 10.75) == std::vector<LineSpan>{{1.25, 1.75}});
-    CHECK(fileSpans(clip, 10.25, 11.75) == std::vector<LineSpan>{{1.25, 2.0}, {1.0, 1.75}});
-    CHECK(fileSpans(clip, 10.25, 12.75) == std::vector<LineSpan>{{1.25, 2.0}, {1.0, 2.0}, {1.0, 1.75}});
+    CHECK(fileSpans(clip, 10.75, 11.5) == std::vector<LineSpan>{{1.0, 1.5}, {1.75, 2.0}});
+    CHECK(fileSpans(clip, 10.25, 11.75) == std::vector<LineSpan>{{1.0, 2.0}});
+    CHECK(fileSpans(clip, 10.25, 12.75) == std::vector<LineSpan>{{1.0, 2.0}});
 }
 
 TEST_CASE("audio sound: the gain line shows where its moments of the file play", "[fast][audio-sound]")
@@ -243,23 +239,38 @@ TEST_CASE("audio sound: measuring a clip streams its file through its gain line"
     REQUIRE(fd::audiofile::writeWav(path, audio, rate));
 
     AudioSound sound;
-    const auto whole = measureClip(path, 0.0, 4.0, sound);
+    const auto whole = measureClip(path, {{0.0, 4.0}}, sound);
     REQUIRE(whole);
     CHECK(whole->peakDb == Approx(-6.02).margin(0.05));
-    const auto tail = measureClip(path, 1.5, 4.0, sound);
+    const auto tail = measureClip(path, {{1.5, 4.0}}, sound);
     CHECK(tail->peakDb == Approx(-12.04).margin(0.05));
     CHECK(tail->lufs < whole->lufs);
+    // Only the spans it plays: the loud second is left out between them.
+    CHECK(measureClip(path, {{1.25, 1.75}, {2.0, 3.0}}, sound)->peakDb == Approx(-12.04).margin(0.05));
 
-    // Reversed, the first 2.5 s of its content are the file's last 2.5 s.
-    sound.reversed = true;
-    CHECK(measureClip(path, 0.0, 2.5, sound)->peakDb == Approx(-12.04).margin(0.05));
-    sound.reversed = false;
+    // What a clip plays, through fileSpans: reversed, the first 2.5 s of its content are the file's
+    // last 2.5 s; warped at half the file's tempo, the first 2 s of the song are its first second.
+    ClipInfo clip;
+    clip.kind = ClipInfo::Kind::Audio;
+    clip.length = 2.5;
+    clip.sourceLength = clip.fileLength = 4.0;
+    clip.sound.reversed = true;
+    CHECK(measureClip(path, fileSpans(clip, 0.0, 2.5), sound)->peakDb == Approx(-12.04).margin(0.05));
+    clip.sound.reversed = false;
+    clip.length = 2.0;
+    clip.warp.on = true;
+    clip.warp.tempo = 120.0;
+    clip.beatsPerSecond = 1.0;
+    REQUIRE(fileSpans(clip, 0.0, 2.0) == std::vector<LineSpan>{{0.0, 1.0}});
+    CHECK(measureClip(path, fileSpans(clip, 0.0, 2.0), sound)->peakDb == Approx(-6.02).margin(0.05));
+    clip.offset = 2.0; // content counts the song's time: two seconds of it are a second of the file
+    CHECK(measureClip(path, fileSpans(clip, 0.0, 2.0), sound)->peakDb == Approx(-12.04).margin(0.05));
 
     // The line lowers what it measures.
     sound.line = {{0.0, lineValueForDb(-6.0), 0.0f}};
-    CHECK(measureClip(path, 0.0, 4.0, sound)->peakDb == Approx(-12.04).margin(0.05));
+    CHECK(measureClip(path, {{0.0, 4.0}}, sound)->peakDb == Approx(-12.04).margin(0.05));
 
-    CHECK_FALSE(measureClip((dir / "missing.wav").string(), 0.0, 1.0, {}));
+    CHECK_FALSE(measureClip((dir / "missing.wav").string(), {{0.0, 1.0}}, {}));
     std::filesystem::remove_all(dir);
 }
 

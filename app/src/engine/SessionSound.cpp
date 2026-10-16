@@ -37,14 +37,6 @@ const char* rangeName(Session::RangeAction action)
     return "Edit";
 }
 
-/// What Normalise measures of a clip: the content it plays (its loop, while it loops).
-std::pair<double, double> measuredContent(const model::ClipInfo& clip)
-{
-    if (clip.loop.on())
-        return {clip.loop.start, clip.loop.end()};
-    return {clip.offset, clip.offset + clip.length};
-}
-
 /// A reversed copy of `original` in `folder`, 32-bit float WAV, written once: a copy already there
 /// that matches (its format, and its start is the original's end reversed) is used again. Invalid
 /// if the original can't be read or the copy written.
@@ -135,11 +127,14 @@ void mirrorPlacement(te::AudioClipBase& clip, const model::ClipInfo& info, juce:
     clip.setOffset(te::TimeDuration::fromSeconds(std::max(0.0, length - (info.offset + info.length))));
 }
 
-std::string levelKey(const model::ClipInfo& clip, double from, double to)
+/// What Normalise measured: the file, the stretches of it the clip plays, and how it plays them.
+std::string levelKey(const std::string& file, const std::vector<model::LineSpan>& spans,
+                     const model::ClipInfo& clip)
 {
     std::ostringstream key;
-    key << clip.sourcePath << '|' << from << '|' << to << '|' << clip.sound.reversed << '|'
-        << static_cast<int>(clip.sound.channels);
+    key << file << '|' << static_cast<int>(clip.sound.channels);
+    for (const auto& s : spans)
+        key << '|' << s.from << '-' << s.to;
     for (const auto& p : clip.sound.line)
         key << '|' << p.time << ',' << p.value << ',' << p.curve;
     return key.str();
@@ -363,12 +358,15 @@ Session::normaliseGains(const std::vector<std::uint64_t>& clips, const Normalise
         if (c == nullptr)
             continue;
         const auto info = clipInfoOf(*c);
-        const auto [from, to] = measuredContent(info);
-        const auto key = levelKey(info, from, to);
+        // What it plays of the file as recorded, through its warp and its loop: a reversed clip's
+        // original, which its line follows.
+        const auto file = forwardFileOf(*c).getFullPathName().toStdString();
+        const auto spans = model::fileSpans(info, info.start, info.end());
+        const auto key = levelKey(file, spans, info);
         auto found = impl_->levelCache.find(key);
         if (found == impl_->levelCache.end())
         {
-            const auto measured = model::measureClip(info.sourcePath, from, to, info.sound);
+            const auto measured = model::measureClip(file, spans, info.sound);
             found = impl_->levelCache.emplace(key, measured.value_or(model::ClipLevels{})).first;
         }
         ids.push_back(id);

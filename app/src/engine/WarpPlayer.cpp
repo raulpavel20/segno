@@ -117,6 +117,7 @@ public:
 
     void prepareToPlay(const te::graph::PlaybackInitialisationInfo& info) override
     {
+        (void)dsp::SincKernels::instance(); // built here, never on the audio thread
         outRate_ = info.sampleRate;
         auto& cache = file_.engine->getAudioFileManager().cache;
         for (auto& v : voices_)
