@@ -1,9 +1,10 @@
 # 0064. A Drum Kit instrument whose pads hold any instrument, the Sampler by default
 
-- **Status:** Proposed (2026-10-16), with [drum-kit.md](../design/drum-kit.md) (K1–K18)
+- **Status:** Accepted (the product owner, 2026-10-16, with [drum-kit.md](../design/drum-kit.md): every recommendation of K1–K18)
 - **Date:** 2026-10-16
-- **Supersedes in part, on acceptance:** [0056](0056-racks-are-modules-of-modules.md): "Zones and the Drum Rack come in M4". The Drum Kit takes the Drum Rack's place, and key, velocity and chain-select zones are no longer planned.
-- **Changes, on acceptance:** [device-suite.md](../devices/device-suite.md): the Drum Sampler leaves the device list, and the Drum Rack becomes the Drum Kit
+- **Supersedes in part:** [0056](0056-racks-are-modules-of-modules.md): "Zones and the Drum Rack come in M4". The Drum Kit takes the Drum Rack's place, and key, velocity and chain-select zones are no longer planned.
+- **Changes:** [device-suite.md](../devices/device-suite.md): the Drum Sampler leaves the device list, and the Drum Rack becomes the Drum Kit
+- **Moves:** the Drum Kit from M4 to M3 (P7), at the product owner's word to start it (2026-10-16)
 - **Builds on:** [0056](0056-racks-are-modules-of-modules.md) (racks), [0044](0044-presets-are-files.md) (presets are files), [0046](0046-one-browser-modules-are-folders.md) (modules are folders of their presets), [0055](0055-factory-content-is-files-in-a-read-only-library.md) (the Library), [0034](0034-device-api-frozen.md) (the frozen device API), [0040](0040-a-menu-bar-and-everything-by-mouse.md) (the menu bar), [0021](0021-mcp-server.md) (assistants), [0052](0052-generic-names-are-free.md) (generic names)
 
 ## Context
@@ -54,11 +55,11 @@
   - No kit in other DAWs.
 - **New permanent identifiers** (`docs/ids.md`, on approval): the module type `drum-kit`, and the pads' properties in a project and in a kit preset.
 - **The device API gains `EventType::AllSoundOff`,** an addition that leaves devices and saved states unchanged (ADR 0034).
-- **On acceptance these docs change:**
+- **Done with the acceptance:**
   - device-suite.md: no Drum Sampler; the Drum Rack row becomes the Drum Kit; the coverage notes;
   - the roadmap's M4;
   - ADR 0056's status line, and racks.md §3, §13 and R16;
   - push-2.md's step 3 and the piano roll's drum view (piano-roll.md §16), which both name the Drum Rack;
   - factory-library.md's Drum Rack kits, and presets.md P11's "core content with M4's Drum Sampler";
-  - menu-bar.md and mcp.md, for the kit's items and tools.
+  - menu-bar.md and mcp.md gain the kit's items and tools when step 1 builds them.
 - **The Drum Synth (M5) stays as planned:** one voice an instance, made for a pad. Its SPEC says so.

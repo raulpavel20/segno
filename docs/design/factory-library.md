@@ -114,7 +114,7 @@ Segno folder  (Documents/Segno: yours, written by you and by Segno for you)
 ▸ Instruments
    ▸ Sampler          Yours, then the factory presets by tag: Strings ▸ Violins, Violins pizzicato…
    ▸ Wavetable        Yours, Pad, Lead, Bass…
-   ▸ Drum Rack        (later) Yours, Acoustic kit, Electronic kit…
+   ▸ Drum Kit         (later) Yours, Acoustic kit, Electronic kit…
 ▸ Audio effects
 ▸ Plugins
 PLACES
@@ -127,9 +127,9 @@ PLACES
 **How they connect:**
 - **A factory preset is built into its module, as now (ADR 0044); its sounds are Library files.** It points at them by `library:` paths:
   - the Sampler's "Violins" at `library:Samples/Strings/Violin section/Sustain.sfz`;
-  - a Drum Rack kit, pad by pad, at `library:Samples/Drums/Acoustic kit/Kick 1.flac`…;
+  - a Drum Kit's kit, pad by pad, at `library:Samples/Drums/Acoustic kit/Kick 1.flac`…;
   - a Wavetable preset at a factory table by its ID: the same table as `Library/Wavetables/Acoustic/Cello.wav`, built into the synth too. So Wavetable presets play even without the Library.
-- **The files are the raw material; the presets are instruments made from them.** Selecting `Sustain.sfz` in the Library plays a phrase; dragging it onto a track makes a Sampler with it at its defaults. Dragging `Kick 1.flac` onto a Drum Rack pad loads that pad.
+- **The files are the raw material; the presets are instruments made from them.** Selecting `Sustain.sfz` in the Library plays a phrase; dragging it onto a track makes a Sampler with it at its defaults. Dragging `Kick 1.flac` onto a Drum Kit's pad loads that pad ([drum-kit.md](drum-kit.md) §6).
 - **What you make is yours, in your Segno folder:**
   - a preset you save goes to `Presets/Sampler/…` (Yours in the module's folder), and can point at Library files and your own alike;
   - your recordings and sounds go to `Samples/` or a folder you add;

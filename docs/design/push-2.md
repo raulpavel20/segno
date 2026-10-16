@@ -297,7 +297,7 @@ app/src/control/push2/        fd_app_push2: DAW only
 
 - **Step 1:** connecting, lights, the display, Settings > Controllers and the udev script; the buttons of §6; Note, Device, Mix, Setup and User; `get_push` and `push_input`.
 - **Step 2:** Song (the Session button); Browse and Add Device (modules and presets on the display); Clip (the inspector's CLIP section on the encoders); Repeat (notes repeated in time, the scene buttons' note values); Double Loop with Clip > Double loop; a section's display (the EQ's curve, an envelope) on the Push.
-- **Step 3,** with M4's Drum Rack and groove: step sequencing on the pads, melodic and drums; the swing encoder.
+- **Step 3,** with the Drum Kit ([drum-kit.md](drum-kit.md)) and groove: step sequencing on the pads, melodic and drums; the swing encoder.
 
 ## 17. Questions for review
 
@@ -318,4 +318,4 @@ app/src/control/push2/        fd_app_push2: DAW only
 | Q13 | **User mode** | The User button hands the Push to MIDI learn and other programs, and back (§7.6) |
 | Q14 | **The display's access, per system** | Linux: a udev rule giving the logged-in user access, installed by `tools/install-push2-udev-rule.sh` now and by the packages at M7; without it, a dark display and Settings saying why. macOS: nothing. Windows: the WinUSB driver Live installs; without Live, open (B78) (§5) |
 | Q15 | **Assistants** | `get_push` (state and the display as an image) and `push_input` (presses, turns, pads); `controllers` in the settings tools (§12) |
-| Q16 | **When** | Step 1 as M4's first DAW step, once M3 is done (Note mode needs P3's key); step 2 next in M4; step 3 with the Drum Rack. If you want it sooner, step 1 fits right after P4 |
+| Q16 | **When** | Step 1 as M4's first DAW step, once M3 is done (Note mode needs P3's key); step 2 next in M4; step 3 with the Drum Kit. If you want it sooner, step 1 fits right after P4 |

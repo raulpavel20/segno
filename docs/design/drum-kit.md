@@ -2,7 +2,7 @@
 
 The **Drum Kit** is an instrument with a pad for each note. Each pad holds a sound: a sample, played by the Sampler, or any other instrument, with effects after it if you want them. Drop a kick on a pad and the pad plays it. Drop a synth on the next one and that pad plays the synth. Hats choke each other. A whole kit is saved as one of the Drum Kit's presets.
 
-**Status:** for review (2026-10-16), with [ADR 0064](../decisions/0064-a-drum-kit-whose-pads-hold-any-instrument.md) (proposed). It's planned for M4, where it replaces the Drum Sampler and the Drum Rack. Nothing is built until the product owner says go, and the UI is drawn in every state and approved first (§17).
+**Status:** approved by the product owner (2026-10-16), every recommendation of K1–K18, with [ADR 0064](../decisions/0064-a-drum-kit-whose-pads-hold-any-instrument.md) accepted. It replaces M4's Drum Sampler and Drum Rack, and moves up to M3 as P7 at the product owner's word to start it. Step 0 started the same day: the spike, and the UI drawn in every state for approval before anything else is built (§17). The factory kits come last, from CC0 sets the product owner and Claude search for together (§17, step 3).
 
 What the product owner asked (2026-10-16):
 - A Drum Sampler module and a Drum Rack feature were "such a convoluted, roundabout way" of doing it. The Sampler already plays a single sample, and the rack "reads like something distinct from the collection of modules that the Rack feature is supposed to be".
@@ -183,7 +183,7 @@ Sources: [Live: Drum Racks](https://www.ableton.com/en/manual/instrument-drum-an
   - **What it doesn't:** automation, routing, solo and the view, as for any preset.
 - **Where they are:**
   - yours in `Documents/Segno/Presets/Drum Kit/`;
-  - factory kits built into the DAW (`app/presets/drum-kit/`, as the modulators' are), playing samples from the Library by `library:` paths ([ADR 0055](../decisions/0055-factory-content-is-files-in-a-read-only-library.md)).
+  - factory kits built into the DAW (`app/presets/drum-kit/`, as the modulators' are), playing samples from the Library by `library:` paths ([ADR 0055](../decisions/0055-factory-content-is-files-in-a-read-only-library.md)). They're made last (§17, step 3).
 - **In the browser,** Instruments ▸ Drum Kit opens to Yours, then the factory kits in folders by their first tag (Acoustic, Electronic, Percussion…), as any instrument's presets are ([browser.md](browser.md) §5). Selected, with Preview on, a kit plays a one-bar beat through itself, rendered offline: kick, snare and hats on C1, D1, F#1 and A#1. A kit with a plugin on a pad isn't previewed, as for racks, and its tooltip says why.
 - **In the header,** the preset group works as on any module: the kit's name, previous and next, the changed mark, Save preset, and **A/B**, which keeps two whole kits to switch between.
 - **"Use as the default for a new Drum Kit"** makes your own starting kit, every pad loaded as you like it. This is how a new kit comes preloaded, if you want it to (K7). Without one, a new kit is empty.
@@ -305,7 +305,8 @@ The **Module** menu, a group after the racks' items, dimmed unless a Drum Kit is
    - save the kit, and load it on another track;
    - make it your default;
    - swap two pads.
-2. **Macros on kits, and the factory kits** in the Library, made from recipes as the factory racks are (racks.md §18.8), with samples the product owner brings (presets.md P11), signed off by ear.
+2. **Macros on kits** (§10).
+3. **The factory kits, the final step** (the product owner, 2026-10-16). Together, the product owner and Claude search for good CC0 drum sets and kits, download them, and put together a comprehensive set of factory kits covering many genres. The samples go into the Library ([ADR 0055](../decisions/0055-factory-content-is-files-in-a-read-only-library.md)). The kits are made from recipes, as the factory racks are (racks.md §18.8), and signed off by ear.
 
 Each step is built, tested and signed off on its own.
 
@@ -326,6 +327,8 @@ Each step is built, tested and signed off on its own.
 
 ## 19. Questions for review
 
+Approved by the product owner (2026-10-16) with every recommendation.
+
 | # | Question | Recommendation |
 |---|---|---|
 | K1 | **One instrument or two things** | One instrument, the Drum Kit. No Drum Sampler, no Drum Rack (ADR 0064) |
@@ -345,4 +348,4 @@ Each step is built, tested and signed off on its own.
 | K15 | **In the plugin builds** | No: the kit is the DAW's, as racks are; the Sampler and the Drum Synth are the plugins' drums |
 | K16 | **Several samples dropped in a chain** | Make a Drum Kit with them from C1 |
 | K17 | **Names** | Drum Kit, kit, pad, choke group, Plays. Never rack or chain in its UI |
-| K18 | **Building it** | The spike and the UI drawn for review first (step 0), then the kit (1), then macros and factory kits (2) |
+| K18 | **Building it** | The spike and the UI drawn for review first (step 0), then the kit (1), then macros (2), and last the factory kits, from CC0 sets searched for together (3) |

@@ -315,7 +315,7 @@ Each tool is one named undo step, with a test that drives it through MCP (ADR 00
 | **P4a: in key, chords, and the basics** | §5–§9: Key and Fold, arrows in the scale, Fit to key; the chord lane, Draw chords, the Chord popover with suggestions, make chords, inversions and voicings; other tracks' notes; copy, split, join, legato, time handles, velocity lines, mute, Quantise…, the NOTES inspector; the Notes menu; MCP | What the product owner asked for first, and what makes writing fast |
 | **P4b: chance and controllers** | §10–§11: chance and velocity spread (played the same in every render), release velocity, the controller lanes | Expected now; recorded controllers become visible |
 | **P4c: transform and generate** | §12: the transform and generate tools | Builds on the chords and chance of the stages before |
-| **Later, with their features** | Grooves (M4, with quantise); a drum view (M4, with the Drum Rack); per-note MPE (M5); editing several clips at once; step input; chord names over arpeggios; chance groups and conditions | Each needs its own milestone's work |
+| **Later, with their features** | Grooves (M4, with quantise); a drum view (with the Drum Kit, [drum-kit.md](drum-kit.md) §11); per-note MPE (M5); editing several clips at once; step input; chord names over arpeggios; chance groups and conditions | Each needs its own milestone's work |
 
 Each stage is built, reviewed in screenshots at standard and compact widths, and signed off before the next.
 

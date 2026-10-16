@@ -35,9 +35,8 @@ Names are functional ([ADR 0008](../decisions/0008-naming-and-trade-dress.md)); 
 | Working name | Scope | Covers (Live) | Beyond Live | Tier | Milestone |
 |---|---|---|---|---|---|
 | **Subtractive** | *Core:* 2 oscillators with shape morphing + noise, per-voice drift, low-pass filter (multiple types), 2 envelopes, LFO, small modulation matrix, MPE. *Stage 2:* dual oscillator→filter→amp paths with routing, in the expanded view | Drift, Analog | – | 1→2 | M1→M5 |
-| **Sampler** | *Classic/one-shot* (M1) → *slice* with transient detection (M4) → *multisample zones*, velocity layers, round-robin (M5). Filter, envelopes, LFOs, warping | Simpler, Sampler | – | 1→2 | M1→M5 |
-| **Drum Sampler** | One-shot drum sampler with built-in shaping (pitch, envelope, filter, simple effects), designed to sit on drum pads | Drum Sampler, Impulse (with Drum Rack) | – | 1 | M4 |
-| **Drum Synth** | Synthesised drum voices in one device with a voice selector: kick, snare, hat, clap, tom, cymbal, FM percussion | Drum Synths (DS Kick, DS Snare, …) | – | 2 | M5 |
+| **Sampler** | *Classic/one-shot* (M1) → *slice* with transient detection (M4) → *multisample zones*, velocity layers, round-robin (M5). Filter, envelopes, LFOs, warping. The Drum Kit's pads play samples through it ([ADR 0064](../decisions/0064-a-drum-kit-whose-pads-hold-any-instrument.md)) | Simpler, Sampler, Drum Sampler | – | 1→2 | M1→M5 |
+| **Drum Synth** | Synthesised drum voices in one device with a voice selector: kick, snare, hat, clap, tom, cymbal, FM percussion; one voice an instance, made for a Drum Kit's pad | Drum Synths (DS Kick, DS Snare, …) | – | 2 | M5 |
 | **Wavetable** | 2 wavetable oscillators + sub, wavetable import, unison modes, 2 filters with routing, modulation matrix, MPE | Wavetable | – | 2 | M3 (moved up from M5, the product owner, 2026-10-13) |
 | **FM** | 4 operators, a set of fixed algorithms, a waveform per operator, filter, LFO, pitch envelope | Operator | – | 2 | M5 |
 | **Granular** | Grain playback from any sample: position, spray, grain size, density, pitch, MPE | Granulator III | – | 2 | M5 |
@@ -46,7 +45,7 @@ Names are functional ([ADR 0008](../decisions/0008-naming-and-trade-dress.md)); 
 | Modelled Strings | Physically modelled string instruments | Tension | – | 3 | 1.x |
 | Electric Piano | Modelled electric pianos | Electric | – | 3 | 1.x |
 
-Bass and Poli (Max for Live instruments in Live) are covered by Subtractive presets. Drum Rack is a DAW rack feature (see below).
+Bass and Poli (Max for Live instruments in Live) are covered by Subtractive presets. Drum kits are the Drum Kit, a DAW feature (see below): its pads play the Sampler, so there's no Drum Sampler ([ADR 0064](../decisions/0064-a-drum-kit-whose-pads-hold-any-instrument.md), the product owner, 2026-10-16).
 
 ## Audio effects
 
@@ -150,7 +149,7 @@ These depend on the host, so they live in the DAW. The plugin builds offer modul
 | Feature | Scope | Covers (Live) | Milestone |
 |---|---|---|---|
 | Racks + macros | Instrument, effect and MIDI racks; parallel chains; macros and macro variations | Instrument/Audio Effect/MIDI Effect Rack | M3 (moved up from M4, the product owner, 2026-10-13) |
-| Drum Rack | Pads, each holding any device chain; choke groups; drop samples onto pads | Drum Rack | M4 |
+| Drum Kit | One instrument: 128 pads, each holding any instrument and effects, the Sampler by default; choke groups; kits as its presets ([drum-kit.md](../design/drum-kit.md), [ADR 0064](../decisions/0064-a-drum-kit-whose-pads-hold-any-instrument.md)) | Drum Rack, Impulse | M3 P7 (moved up from M4, the product owner, 2026-10-16) |
 | Modulators | LFO (a drawn shape covers Live's Shaper and Shaper MIDI), Random, Envelope, Follower, Steps: any parameter on the track, by drag and drop, each target its own copy ([modulators.md](../design/modulators.md), [ADR 0061](../decisions/0061-modulators-move-any-parameter-on-their-track.md)); Expression (MIDI expression) and Gesture later | Modulators | M3 (moved up from M4, the product owner, 2026-10-15) |
 | MIDI tools | Piano-roll generators and transformations (strum, arpeggiate, humanise, chordify, rhythm) | MIDI Tools | M6 / 1.x |
 

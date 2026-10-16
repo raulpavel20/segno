@@ -50,7 +50,7 @@ What the product owner asked:
   - an **effect rack** holds effects only, and goes wherever effects go.
   - A rack is an instrument rack the moment one of its chains starts with an instrument. On a track, an instrument rack is the track's instrument: put where one is, it replaces it, as any instrument does ([browser.md](browser.md) §11).
 - **Anything that goes in a chain goes in a rack:** our modules and third-party plugins.
-- **Not in a rack:** a rack. The engine doesn't nest racks (§12), and one level covers what was asked. Key, velocity and chain-select zones come with the Drum Rack (M4), which is a rack with a chain per pad.
+- **Not in a rack:** a rack. The engine doesn't nest racks (§12), and one level covers what was asked. ~~Key, velocity and chain-select zones come with the Drum Rack (M4), which is a rack with a chain per pad.~~ The Drum Rack became the Drum Kit ([drum-kit.md](drum-kit.md), [ADR 0064](../decisions/0064-a-drum-kit-whose-pads-hold-any-instrument.md)): an instrument built on a rack with a chain per pad; zones aren't planned.
 
 ## 4. Macros
 
@@ -246,8 +246,8 @@ Modules inside a rack keep their ids, so `set_parameters`, `get_module` and the 
 ## 13. Not in racks, for now
 
 - Racks inside racks (the engine doesn't).
-- Key, velocity and chain-select zones; the Drum Rack (M4).
-- Chain selectors and crossfaders (Bitwig's Selector and XY): the Morph knob covers blending between sounds; a selector can come with the Drum Rack's per-pad chains.
+- Key, velocity and chain-select zones (not planned: velocity layers come from the Sampler's zones); the Drum Rack, now the Drum Kit ([drum-kit.md](drum-kit.md)).
+- Chain selectors and crossfaders (Bitwig's Selector and XY): the Morph knob covers blending between sounds; the Drum Kit's pads are chains a note each.
 - MIDI effect racks: Segno has no MIDI effects yet (M4).
 - Racks in the plugins: the plugins are one module each. A rack is a DAW thing, as ADR 0002 foresaw ("racks and macros later") and as Live's are.
 
@@ -295,7 +295,7 @@ Approved by the product owner (2026-10-14) with every recommendation, then the U
 | R13 | **In the browser** | ~~A Racks folder first in each of Instruments and Audio effects~~ A part of its own, Racks, both kinds together (the product owner, 2026-10-14, ADR 0059); RACKS in search; previewed and dropped as modules are |
 | R14 | **From Transit, and when** | Step 1: per-mapping curves. Step 2: snapshots with Morph, Vary with locks, factory racks. Step 3: motion on macros (LFO, follower, sidechain, sequencer, gate, random), M4's modulators arriving early |
 | R15 | **Engine** | tracktion's racks and macro modifiers, after a spike on parallel latency, undo and plugin state |
-| R16 | **Not now** | Zones and the Drum Rack (M4), selectors and crossfaders, MIDI effect racks, racks in the plugins |
+| R16 | **Not now** | Zones and the Drum Rack (M4; now the Drum Kit, ADR 0064), selectors and crossfaders, MIDI effect racks, racks in the plugins |
 | R17 | **The UI, nothing confusing** (the product owner's requirement) | Drawn in every state and approved before it's built; one chain looks like a plain group (the chain list shows from the second chain); the frame always says what's inside; drops show where they land; macros and their knobs light each other; one word for each thing; tried hands-on before sign-off (§5a) |
 
 ## 17. Settled while building step 1 (2026-10-14)

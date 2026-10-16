@@ -1,6 +1,6 @@
 # 0056. Racks are modules of modules, saved as their own files
 
-- **Status:** Accepted (the product owner, 2026-10-14: the design, then its UI drawn in every state); where the browser lists racks superseded by [0059](0059-racks-are-a-browser-part-and-every-part-has-its-icon.md) the same day: a Racks part of its own, racks of both kinds together; macros' motion of their own superseded by [0060](0060-motion-comes-from-modulation-modules.md) (2026-10-15): motion comes from modulation modules
+- **Status:** Accepted (the product owner, 2026-10-14: the design, then its UI drawn in every state); where the browser lists racks superseded by [0059](0059-racks-are-a-browser-part-and-every-part-has-its-icon.md) the same day: a Racks part of its own, racks of both kinds together; macros' motion of their own superseded by [0060](0060-motion-comes-from-modulation-modules.md) (2026-10-15): motion comes from modulation modules; the Drum Rack superseded by [0064](0064-a-drum-kit-whose-pads-hold-any-instrument.md) (2026-10-16): a Drum Kit instrument instead, and no zones
 - **Date:** 2026-10-14
 - **Builds on:** [0002](0002-device-suite-and-daw-in-parallel.md) (the DAW's native chain: "racks and macros later"), [0022](0022-module-panels.md) (module panels), [0044](0044-presets-are-files.md) (presets are files), [0046](0046-one-browser-modules-are-folders.md) (one browser), [0053](0053-a-modules-editor-in-the-detail-panel.md) (a module's editor in the detail panel), [0055](0055-factory-content-is-files-in-a-read-only-library.md) (factory content in the Library)
 
@@ -12,7 +12,7 @@
 
 ## Decision
 - **A rack is a module that holds modules:** chains side by side, each serial, summed, each with a mixer row. It's an instrument rack when an instrument starts one of its chains, else an effect rack. It moves, folds, turns off and automates as any module.
-- **Racks don't nest.** Zones and the Drum Rack come in M4.
+- **Racks don't nest.** ~~Zones and the Drum Rack come in M4.~~ Superseded by [0064](0064-a-drum-kit-whose-pads-hold-any-instrument.md): a Drum Kit instrument, built on racks; zones aren't planned.
 - **A rack has eight macros.** Each maps parameters across the rack, every mapping with its own range (From, To) and Curve. A mapped parameter follows its macro and isn't dragged by hand.
 - **A rack is saved as a `.segnorack` file**, apart from module presets: its chains, their modules' states and mixer rows, its macros and mappings. Not automation or routing. Yours go in the User library's Racks folder; factory racks are files in the Library.
 - ~~**The browser lists racks in a Racks folder** at the top of Instruments and of Audio effects.~~ Superseded by [0059](0059-racks-are-a-browser-part-and-every-part-has-its-icon.md): racks are a part of the browser of their own, both kinds together.
