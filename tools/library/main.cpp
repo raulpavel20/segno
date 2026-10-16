@@ -90,13 +90,16 @@ int build(const fs::path& folder, const fs::path& recipeFile, const fs::path& so
                 {{"name", s.name}, {"url", s.url}, {"commit", s.commit}, {"license", s.license}});
         library["sources"] = std::move(credits);
         library["instruments"] = recipe->instruments.size();
-        std::ofstream(folder / "README.txt")
-            << "Segno's Library: the sounds and wavetables that come with Segno. Read-only: Segno never\n"
-               "writes here, and presets and projects point into it by paths relative to it.\n\n"
-               "The sample instruments are made from VSCO 2 Community Edition and the Versilian Community\n"
-               "Sample Library, by Versilian Studios, both released under CC0 1.0. Thank you.\n"
-               "The wavetables are Segno's own and the Adventure Kid Waveforms (CC0 1.0) by Kristoffer "
-               "Ekstrand.\n";
+        // Every source credited, though CC0 asks nothing (ADR 0068).
+        std::ofstream readme(folder / "README.txt");
+        readme << "Segno's Library: the sounds and wavetables that come with Segno. Read-only: Segno never\n"
+                  "writes here, and presets and projects point into it by paths relative to it.\n\n"
+                  "The sample instruments and drum kits are made from these, each released under CC0 1.0.\n"
+                  "Thank you to everyone who recorded and shared them:\n";
+        for (const auto& s : recipe->sources)
+            readme << "  - " << s.name << (s.raw.empty() ? std::string() : " (" + s.url + ")") << "\n";
+        readme << "The wavetables are Segno's own and the Adventure Kid Waveforms (CC0 1.0) by Kristoffer "
+                  "Ekstrand.\n";
     }
     if (!racksFile.empty())
     {

@@ -328,6 +328,14 @@ class Pad:
     trim: float = 0.0  # dB on top of its role's level
 
 
+# A kit's tags (drum-kit.md §27.2): its family first, the browser's folder, then its styles.
+FAMILIES = ["Acoustic", "Electronic", "Percussion"]
+STYLES = ["Jazz", "Funk", "Soul", "Rock", "Indie", "Lo-fi", "Cinematic", "Classic", "Hip-hop", "Trap", "House",
+          "Techno", "Dance", "80s", "Pop", "Synth", "Drum and bass", "Hardstyle", "Future bass", "Electro", "Glitch",
+          "Chiptune", "Latin", "African", "Flamenco", "Middle Eastern", "Indian", "Orchestral", "Industrial",
+          "Organic", "Electronic", "Acoustic"]
+
+
 @dataclass
 class Kit:
     name: str
@@ -380,6 +388,9 @@ def kits(ctx):
     out.append(_chip(ctx))
     out.append(_sub_808(ctx))
     out.append(_body(ctx))
+    for kit in out:
+        if kit.tags[0] not in FAMILIES or any(t not in STYLES for t in kit.tags[1:]):
+            raise SystemExit(f"{kit.name}: tags {kit.tags} not in drums.FAMILIES, then drums.STYLES")
     return out
 
 
@@ -416,7 +427,7 @@ def _808_classic(ctx):
         Pad(MARACAS, piece("Maracas", "ma8/MA.WAV", 1), "Maracas", "shaker", velocity=60),
         Pad(CLAVES, piece("Claves", "cl8/CL.WAV", 1), "Claves", "perc", velocity=60),
     ]
-    return Kit("808 classic", ["Drums", "Electronic", "Classic"],
+    return Kit("808 classic", ["Electronic", "Classic"],
                "The analog machine as it left the factory, every knob near its middle: round kick, "
                "snappy snare, ticking hats, congas and the cowbell.", pads)
 
@@ -452,7 +463,7 @@ def _jazz_sticks(ctx):
         Pad(BELL, piece("Ride bell", "ride_bell", None, 5.0), "Ride bell", "ride", pan=0.3),
         Pad(SPLASH, piece("Sizzle crash", "crash_sizzle", None, 6.0), "Sizzle", "cymbal", pan=-0.3),
     ]
-    return Kit("Jazz sticks", ["Drums", "Acoustic", "Jazz"],
+    return Kit("Jazz sticks", ["Acoustic", "Jazz"],
                "A small jazz kit played with sticks in a club room: a deep snare from whisper to crack, "
                "a breathing ride, a flat ride and a sizzle.", pads)
 
@@ -483,7 +494,7 @@ def _body(ctx):
         Pad(HIGHTOM, piece("Shoulder", "shoulderout_r"), "Shoulder", "perc", velocity=40, pan=0.3),
         Pad(RIDE, piece("Cheek pop", "cheek_lin"), "Cheek pop", "perc", velocity=40, pan=-0.3),
     ]
-    return Kit("Body", ["Drums", "Percussion", "Organic"],
+    return Kit("Body", ["Percussion", "Organic"],
                "Everything a body plays: stomps for a kick, claps for a snare, snaps, chest and belly "
                "drums, a heel and a cheek pop.", pads)
 
@@ -524,7 +535,7 @@ def _funk_studio(ctx):
         Pad(RIDE, piece("Ride", "ride_ride", None, 4.0), "Ride", "ride", pan=0.3),
         Pad(BELL, piece("Ride bell", "ride_bell", None, 3.0), "Ride bell", "ride", pan=0.3),
     ]
-    return Kit("Funk studio", ["Drums", "Acoustic", "Funk"],
+    return Kit("Funk studio", ["Acoustic", "Funk"],
                "A dry studio kit for funk and soul: a tight half-muted snare that loves ghost notes, a "
                "short kick, crisp hats, no room.", pads)
 
@@ -551,7 +562,7 @@ def _dusty(ctx):
         Pad(CRASH, _virtuosity_mono(ctx, pool, "Crash", "crash_crash", "lofi", 4.0, room=-12), "Crash", "cymbal"),
         Pad(RIDE, _virtuosity_mono(ctx, pool, "Ride", "ride_ride", "lofi", 4.0, room=-12), "Ride", "ride"),
     ]
-    return Kit("Dusty", ["Drums", "Acoustic", "Lo-fi"],
+    return Kit("Dusty", ["Acoustic", "Lo-fi"],
                "The jazz kit heard through a 1950s microphone: warm, worn and mid-heavy, made for boom bap and "
                "lo-fi beats.", pads)
 
@@ -595,7 +606,7 @@ def _rock(ctx):
         Pad(CRASH2, drum("Sizzle crash", "crash_sizzle_17", "crs_cr", 6.0, [("cl", -4.0), ("oh", 0.0)]),
             "Sizzle crash", "cymbal", pan=-0.45),
     ]
-    return Kit("Rock", ["Drums", "Acoustic", "Rock"],
+    return Kit("Rock", ["Acoustic", "Rock"],
                "An early-80s kit hit hard: a damped 24-inch kick, a deep snare with rimshots, four toms and a "
                "full set of cymbals, a china among them.", pads)
 
@@ -626,7 +637,7 @@ def _mallets(ctx):
         Pad(CHINA, drum("China mallet", "china_18", "cn_mallet", 8.0, cym), "China", "cymbal", pan=0.45),
         Pad(SPLASH, drum("Sizzle mallet", "ride_sizzle_19", "rds_mallet", 8.0, cym), "Sizzle", "cymbal", pan=-0.45),
     ]
-    return Kit("Mallets", ["Drums", "Acoustic", "Cinematic"],
+    return Kit("Mallets", ["Acoustic", "Cinematic"],
                "The rock kit played with soft mallets: booming toms and cymbals that swell and wash, for film "
                "and ambient music.", pads)
 
@@ -661,7 +672,7 @@ def _brushes(ctx):
         Pad(CHINA, piece("China", "china", 5.0), "China", "cymbal", pan=0.4),
         Pad(SPLASH, piece("Splash", "splash", 4.0), "Splash", "cymbal", pan=-0.25),
     ]
-    return Kit("Brushes", ["Drums", "Acoustic", "Jazz"],
+    return Kit("Brushes", ["Acoustic", "Jazz"],
                "A kit played with brushes in a small room: snare hits, digs and stirs, a soft kick, and "
                "cymbals that hiss and shimmer.", pads)
 
@@ -701,7 +712,7 @@ def _indie(ctx):
         Pad(HIGHBLOCK, piece("Woodblock", "wb", "wb_hi", [("cl", 0.0, 0.0), ("oh", -6.0, 0.0)], 1.0), "Woodblock",
             "perc", pan=0.2),
     ]
-    return Kit("Indie", ["Drums", "Acoustic", "Indie"],
+    return Kit("Indie", ["Acoustic", "Indie"],
                "A kit with snare wires on every drum: a buzzing kick, snares turned into toms, a loose hat and "
                "trashy cymbals. Garage and indie rock.", pads)
 
@@ -738,7 +749,7 @@ def _seventies(ctx):
         Pad(HIGHTOM_L, piece("Loose hat", "hl", [("oh", 0.0), ("front", -4.0)], 2.0), "Loose hat", "hat", choke=1,
             pan=0.25),
     ]
-    return Kit("70s soul", ["Drums", "Acoustic", "Soul"],
+    return Kit("70s soul", ["Acoustic", "Soul"],
                "A kit recorded for a 1973 sound: a deep thud of a kick, a fat snare, three toms and a hi-hat "
                "that opens wide. Soul, funk and breaks.", pads)
 
@@ -774,7 +785,7 @@ def _808_boom(ctx):
         pad(COWBELL, "cb8/CB.WAV", "Cowbell", "perc", seconds_=1.5),
         pad(CLAVES, "cl8/CL.WAV", "Claves", "perc", seconds_=1),
     ]
-    return Kit("808 boom", ["Drums", "Electronic", "Hip-hop"],
+    return Kit("808 boom", ["Electronic", "Hip-hop"],
                "The 808 with the kick's decay all the way up and its tone down: a long boom under a darker "
                "snare and long toms. Hip-hop, electro, Miami bass.", pads)
 
@@ -797,7 +808,7 @@ def _808_trap(ctx):
         pad(HIGHTOM, "ht8/HT50.WAV", "High tom", "tom", piece="High tom", seconds_=2, pan=0.3),
         pad(COWBELL, "cb8/CB.WAV", "Cowbell", "perc", seconds_=1.5),
     ]
-    return Kit("808 trap", ["Drums", "Electronic", "Trap"],
+    return Kit("808 trap", ["Electronic", "Trap"],
                "Trap's 808: a long sub-kick to play as a bass and a short kick for the punch, a bright snappy "
                "snare, the clap and tight hats for rolls.", pads)
 
@@ -840,7 +851,7 @@ def _909_house(ctx):
         pad(RIDE, "HATS", "909_Ride_Cymbal", "Ride", "ride", seconds_=4),
         pad(CHINA, "PERC", "909_Hand_Clap_Long", "Clap long", "clap", piece="Clap long"),
     ]
-    return Kit("909 house", ["Drums", "Electronic", "House"],
+    return Kit("909 house", ["Electronic", "House"],
                "The 909 as house knows it: the round kick, the snare and clap on two and four, open hats on "
                "the off-beat and the ride.", pads)
 
@@ -864,7 +875,7 @@ def _909_techno(ctx):
         pad(RIDE, "HATS", "909_Ride_Cymbal_Short", "Ride", "ride", piece="Ride short", seconds_=3),
         pad(CHINA, "BD", "909_AttackBD_3", "Kick hard", "kick", piece="Kick attack hard", trim=-1),
     ]
-    return Kit("909 techno", ["Drums", "Electronic", "Techno"],
+    return Kit("909 techno", ["Electronic", "Techno"],
                "The 909 tightened for techno: its attack kick and snare, short hats and toms, a short ride "
                "for driving sixteenths.", pads)
 
@@ -888,7 +899,7 @@ def _707_dance(ctx):
         pad(TAMB, "PERC", "707_Tambourine", "Tambourine", "shaker"),
         pad(CHINA, "SD", "707_Snare_Dum_3", "Snare 3", "snare", piece="Snare 3"),
     ]
-    return Kit("707 dance", ["Drums", "Electronic", "Dance"],
+    return Kit("707 dance", ["Electronic", "Dance"],
                "The 707's bright digital drums: punchy kick, crisp snare, a tambourine, the sound of 80s dance "
                "and early house.", pads)
 
@@ -915,7 +926,7 @@ def _machine_percussion(ctx):
         pad(OPENTRIANGLE, "PERC", "727_Star_Chime", "Star chime", "fx", seconds_=3),
         pad(TAMB, "PERC", "707_Tambourine", "Tambourine", "shaker"),
     ]
-    return Kit("Machine percussion", ["Drums", "Percussion", "Electronic"],
+    return Kit("Machine percussion", ["Percussion", "Electronic"],
                "A drum machine's Latin percussion: congas, bongos, timbales, agogos, a quijada and whistles, "
                "in the bright digital colour of the 80s.", pads)
 
@@ -941,7 +952,7 @@ def _analog_606(ctx):
         pad(CRASH, f"{d}/HATS/015.wav", "Cymbal", "cymbal", seconds_=4),
         pad(RIDE, f"{d}/HATS/012.wav", "Cymbal short", "cymbal", piece="Cymbal short", seconds_=3),
     ]
-    return Kit("606 analog", ["Drums", "Electronic", "Classic"],
+    return Kit("606 analog", ["Electronic", "Classic"],
                "A small analog machine in the 606's mould, recorded by its owner: a thumpy kick, a noisy "
                "snare, sizzling hats and two toms. Acid and minimal.", pads)
 
@@ -977,7 +988,7 @@ def _80s_digital(ctx):
         pad(COWBELL, "PERC", "Cowbell", "Cowbell", "perc"),
         pad(MARACAS, "PERC", "Shaker", "Shaker", "shaker"),
     ]
-    return Kit("80s digital", ["Drums", "Electronic", "80s"],
+    return Kit("80s digital", ["Electronic", "80s"],
                "An 80s digital drum machine's sampled kit: tight kick, big snare, clap and four toms. Pop, "
                "synth-pop and new wave.", pads)
 
@@ -1004,7 +1015,7 @@ def _80s_electronic(ctx):
         pad(CRASH2, "MISC", "FM_Percussion_2", "FM perc 2", "perc", piece="FM perc 2"),
         pad(VIBRASLAP, "TOMS", "Process_Roto", "Roto", "tom", piece="Roto"),
     ]
-    return Kit("80s electronic", ["Drums", "Electronic", "80s"],
+    return Kit("80s electronic", ["Electronic", "80s"],
                "The same 80s machine's electronic side: processed kick and snare, synth toms and FM "
                "percussion. Electro-funk and synth-pop.", pads)
 
@@ -1043,7 +1054,7 @@ def _90s_club(ctx):
         pad(SPLASH, "FX", "High_Q", "High Q", "fx"),
         pad(COWBELL, "PERC", "Cowbell", "Cowbell", "perc"),
     ]
-    return Kit("90s club", ["Drums", "Electronic", "House"],
+    return Kit("90s club", ["Electronic", "House"],
                "A 90s groove box at the club: house kicks and snares, a fat clap, pop hats, congas, a "
                "reverse cymbal and a scratch.", pads)
 
@@ -1069,7 +1080,7 @@ def _90s_studio(ctx):
         pad(BELL, "HATS", "Rock_Ride_Bell_Cymbal", "Ride bell", "ride", piece="Ride bell rock", seconds_=3),
         pad(SPLASH, "HATS", "Splash_Cymbal", "Splash", "cymbal", seconds_=3),
     ]
-    return Kit("90s studio", ["Drums", "Electronic", "Pop"],
+    return Kit("90s studio", ["Electronic", "Pop"],
                "A 90s groove box's studio kit: a real kick, a big gated snare, rock toms and acoustic hats. "
                "Pop, R&B and rock demos.", pads)
 
@@ -1095,7 +1106,7 @@ def _synth_percussion(ctx):
         pad(CABASA, "samples/ShakerLong01.flac", "Long shaker", "shaker", piece="Shaker long"),
         pad(CLAVES, "samples/Claves01.flac", "Claves", "perc"),
     ]
-    return Kit("Synth percussion", ["Drums", "Electronic", "Synth"],
+    return Kit("Synth percussion", ["Electronic", "Synth"],
                "Drums made on synthesizers, nothing recorded: sine kicks, noise snares and claps, metallic "
                "hats and pitched toms.", pads)
 
@@ -1130,7 +1141,7 @@ def _drum_and_bass(ctx):
         pad(MARACAS, "Shakers & Rattles/Shaker 1", "Shaker", "shaker"),
         pad(CHINA, "Snares/DnB Snare 4", "Snare 4", "snare", piece="Snare 4"),
     ]
-    return Kit("Drum and bass", ["Drums", "Electronic", "Drum and bass"],
+    return Kit("Drum and bass", ["Electronic", "Drum and bass"],
                "Snares that crack at 170 bpm, a tight kick, fast hats and a ride for rolling breaks.", pads)
 
 
@@ -1152,7 +1163,7 @@ def _hardstyle(ctx):
         pad(CHINA, "Claps/Layered Clap 2", "Layered clap", "clap", piece="Clap layered"),
         pad(SPLASH, "Snares/Punch Snare 3", "Snare 3", "snare", piece="Snare 3"),
     ]
-    return Kit("Hardstyle", ["Drums", "Electronic", "Hardstyle"],
+    return Kit("Hardstyle", ["Electronic", "Hardstyle"],
                "Distorted, tuned kicks in G and F, a hardcore kick, punchy snares and a noise clap. Hardstyle "
                "and hardcore.", pads)
 
@@ -1175,7 +1186,7 @@ def _hip_hop(ctx):
         pad(MARACAS, "Shakers & Rattles/Shaker 3", "Shaker", "shaker"),
         pad(CHINA, "../SFXs/Vinyl Backspin", "Backspin", "fx", piece="Backspin"),
     ]
-    return Kit("Hip-hop", ["Drums", "Electronic", "Hip-hop"],
+    return Kit("Hip-hop", ["Electronic", "Hip-hop"],
                "A long and a short kick, hip-hop and R&B snares, a trap clap, a snap and a vinyl backspin.",
                pads)
 
@@ -1198,7 +1209,7 @@ def _future(ctx):
         pad(CHINA, "Claps/Synthetic Clap 2", "Clap 2", "clap", piece="Clap 2"),
         pad(SPLASH, "Kicks/Future Kick 3", "Kick 3", "kick", piece="Kick 3"),
     ]
-    return Kit("Future bass", ["Drums", "Electronic", "Future bass"],
+    return Kit("Future bass", ["Electronic", "Future bass"],
                "Bright, compressed kicks, wide synthetic claps and snares, and synth toms for future bass "
                "and pop drops.", pads)
 
@@ -1234,7 +1245,7 @@ def _electro_lab(ctx):
         pad(CHINA, "elec_plip", "Plip", "fx"),
         pad(BELL, "elec_chime", "Chime", "fx", seconds_=3),
     ]
-    return Kit("Electro lab", ["Drums", "Electronic", "Electro"],
+    return Kit("Electro lab", ["Electronic", "Electro"],
                "Electronic drums and blips from a lab bench: a hollow kick, filtered snares, a fuzz tom, a "
                "wood block, pops, pings and chimes.", pads)
 
@@ -1259,7 +1270,7 @@ def _minimal(ctx):
         pad(CHINA, "perc_swash", "Swash", "fx"),
         pad(BELL, "perc_bell", "Bell", "perc", seconds_=3),
     ]
-    return Kit("Minimal", ["Drums", "Electronic", "Techno"],
+    return Kit("Minimal", ["Electronic", "Techno"],
                "Small, dry club sounds: two kicks, clicky snares and snaps, a family of thin hats and a bell. "
                "Minimal techno and microhouse.", pads)
 
@@ -1310,7 +1321,7 @@ def _latin(ctx):
         Pad(TAMB, perc("Tambourine", "tambourine"), "Tambourine", "shaker", pan=-0.3),
         Pad(VIBRASLAP, perc("Vibraslap", "vibraslap", 3.0), "Vibraslap", "fx"),
     ]
-    return Kit("Latin", ["Drums", "Percussion", "Latin"],
+    return Kit("Latin", ["Percussion", "Latin"],
                "A full Latin percussion section in a room: congas and tumba, bongos, timbales, agogos, a "
                "cowbell, guiros, shakers, claves and a cuíca.", pads)
 
@@ -1337,7 +1348,7 @@ def _cajon(ctx):
         Pad(LOWTOM, stroke("Tone", "sl3"), "Tone", "tom"),
         Pad(MIDTOM_L, stroke("High tone", "sl4"), "High tone", "tom"),
     ]
-    return Kit("Cajón", ["Drums", "Percussion", "Acoustic"],
+    return Kit("Cajón", ["Percussion", "Acoustic"],
                "A cajón played from the bass at its centre to the slap at its top edge, with its snares, and "
                "its sides for ghost notes. Unplugged sessions.", pads)
 
@@ -1367,7 +1378,7 @@ def _bobobo(ctx):
         Pad(HIGHAGOGO, bell("High bell", "High"), "High bell", "perc", pan=0.3),
         Pad(LOWAGOGO, bell("Low bell", "Low"), "Low bell", "perc", pan=0.3),
     ]
-    return Kit("Bobobo", ["Drums", "Percussion", "African"],
+    return Kit("Bobobo", ["Percussion", "African"],
                "The drums of bobobo, the Ewe social music of Ghana: a bass, tenors and trebles, open and "
                "stopped, with a bell to lead them.", pads)
 
@@ -1401,7 +1412,7 @@ def _flamenco(ctx):
         Pad(TAMB, piece("Tambourine", _freepats("Tambourine", "05", "06", "07", "08")), "Tambourine", "shaker",
             velocity=50, pan=-0.3),
     ]
-    return Kit("Flamenco", ["Drums", "Percussion", "Flamenco"],
+    return Kit("Flamenco", ["Percussion", "Flamenco"],
                "A flamenco cajón's bass and slaps, palmas open and muted, and castanets: the rhythm section "
                "of a rumba or a bulería.", pads)
 
@@ -1443,7 +1454,7 @@ def _middle_eastern(ctx):
         Pad(CRASH, named(ctx, pool, "Finger cymbals", "vcsl", rf"^{VCSL_STRUCK}/Finger Cymbals/Fing_Cymb\.wav$", 4.0),
             "Zills", "perc", pan=-0.3),
     ]
-    return Kit("Middle Eastern", ["Drums", "Percussion", "Middle Eastern"],
+    return Kit("Middle Eastern", ["Percussion", "Middle Eastern"],
                "A darbuka's doum, tak and pa, frame drums open and muted, a riq-like tambourine and finger "
                "cymbals.", pads)
 
@@ -1470,7 +1481,7 @@ def _tabla(ctx):
         Pad(MIDTOM, bol("Te ne", "te_ne"), "Te ne", "perc", velocity=50),
         Pad(HIGHTOM_L, bol("Dhec", "dhec"), "Dhec", "perc", velocity=50),
     ]
-    return Kit("Tabla", ["Drums", "Percussion", "Indian"],
+    return Kit("Tabla", ["Percussion", "Indian"],
                "A pair of tabla, one bol a pad: the bass drum's ghe and ke, the treble's na, tin, te, re and "
                "tun.", pads)
 
@@ -1512,7 +1523,7 @@ def _orchestral(ctx):
         Pad(VIBRASLAP, v("Slapstick", rf"^{VCSL_STRUCK}/Slapstick/slapstick_rr(?P<rr>\d)\.wav$", 1.5), "Slapstick",
             "snare", trim=-3),
     ]
-    return Kit("Orchestral", ["Drums", "Percussion", "Orchestral"],
+    return Kit("Orchestral", ["Percussion", "Orchestral"],
                "The orchestra's percussion: a concert bass drum, a snare with its wires on and off, two toms, "
                "clash and suspended cymbals, a gong, a triangle and a slapstick.", pads)
 
@@ -1551,7 +1562,7 @@ def _junkyard(ctx):
         Pad(CHINA, vs("Gong cymbal", "cymb_gong", "cymb_gong2", seconds=6.0), "Gong cymbal", "cymbal", velocity=50),
         Pad(SPLASH, vs("Glass 2", "glass_break5", "glass_break6", "glass_break7"), "Glass 2", "fx", velocity=50),
     ]
-    return Kit("Junkyard", ["Drums", "Percussion", "Industrial"],
+    return Kit("Junkyard", ["Percussion", "Industrial"],
                "Found metal and glass, struck: an anvil, brake drums, metal hits that ring, a chain, a brick "
                "and breaking glass. Industrial and cinematic.", pads)
 
@@ -1573,7 +1584,7 @@ def _glitch(ctx):
         folder, number = path.split("/")
         sfz = files(ctx, pool, f"Glitch {i}", src, [f"Zamenhof Stickmusterstuch Error {folder}/{number}.wav"], 1.5)
         pads.append(Pad(note, sfz, f"Glitch {i}", "fx", velocity=50))
-    return Kit("Glitch", ["Drums", "Electronic", "Glitch"],
+    return Kit("Glitch", ["Electronic", "Glitch"],
                "Sixteen glitches: processed clicks, crackles, bursts and stutters for IDM and experimental "
                "beats.", pads)
 
@@ -1636,7 +1647,7 @@ def _analog_lab(ctx):
         Pad(COWBELL, v["cowbell"], "Cowbell", "perc", velocity=40),
         Pad(CLAVES, v["clave"], "Clave", "perc", velocity=40),
     ]
-    return Kit("Analog lab", ["Drums", "Electronic", "Synth"],
+    return Kit("Analog lab", ["Electronic", "Synth"],
                "Segno's own analog-style drums, made in the build: a round kick and a punchy one, a snappy "
                "snare, a clap, metallic hats and cymbals, toms and a cowbell.", pads)
 
@@ -1682,7 +1693,7 @@ def _chip(ctx):
         Pad(62, c("Laser", {"wave": "pulse", "duty": 0.5, "start": 3000, "end": 100, "sweepTime": 0.05,
                             "decay": 0.15}), "Laser", "fx", velocity=40),
     ]
-    return Kit("Chip", ["Drums", "Electronic", "Chiptune"],
+    return Kit("Chip", ["Electronic", "Chiptune"],
                "8-bit drums from pulse, triangle and noise channels, in sixteen steps of loudness: kicks, "
                "noise snares and hats, sliding toms, a blip, a zap and a laser.", pads)
 
@@ -1705,6 +1716,6 @@ def _sub_808(ctx):
         Pad(CLOSED, v["closed"], "Closed hat", "hat", choke=1, velocity=40),
         Pad(OPEN, v["open"], "Open hat", "open hat", choke=1, velocity=40),
     ]
-    return Kit("Sub 808", ["Drums", "Electronic", "Trap"],
+    return Kit("Sub 808", ["Electronic", "Trap"],
                "A tuned 808 bass across twelve pads, C to B, to play basslines from the pads, a slide into "
                "the note, and a kick, snare, clap and hats around it.", pads)

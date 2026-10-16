@@ -91,6 +91,10 @@ TEST_CASE("factory kits: their recipes, the Library's pieces and the presets agr
                 hatGroups.insert(pad["choke"].get<int>());
             }
         }
+        // Its family first: the browser's folder (drum-kit.md §27.2).
+        const auto& tags = kit["tags"];
+        REQUIRE_FALSE(tags.empty());
+        CHECK((tags[0] == "Acoustic" || tags[0] == "Electronic" || tags[0] == "Percussion"));
         // A kit's hats choke each other: one group, not none.
         if (hats)
         {

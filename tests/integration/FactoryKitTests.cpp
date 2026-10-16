@@ -1,7 +1,8 @@
 // The factory kits (docs/design/drum-kit.md §27) heard from the Library a development build makes
 // (cmake --build --preset dev --target segno-library); skipped where it isn't built. Every pad's
 // Sampler loads its piece with nothing missing, and every kit plays its preview beat: it sounds,
-// it doesn't clip. FD_PRESET_REPORT=1 prints each kit's level, for balancing them.
+// it doesn't clip. FD_PRESET_REPORT=1 prints each kit's level, for balancing them; FD_DUMP_DIR
+// writes each kit's beat as a WAV.
 #include "Sampler.h"
 #include "engine/PresetPreview.h"
 #include "model/Modulators.h"
@@ -14,9 +15,10 @@
 #include <fd/device/Registry.h>
 #include <filesystem>
 #include <iostream>
-#include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_audio_formats/juce_audio_formats.h>
 
-TEST_CASE("factory kits: every pad plays its piece from the Library; every kit's beat sounds, unclipped",
+TEST_CASE("factory kits: every pad plays its piece from the Library and sounds; every kit's beat sounds, "
+          "unclipped",
           "[library][integration]")
 {
     const auto library = std::filesystem::path(FD_SOURCE_DIR) / ".cache" / "library";
@@ -64,6 +66,44 @@ TEST_CASE("factory kits: every pad plays its piece from the Library; every kit's
         CHECK(rms > -40.0);
         if (std::getenv("FD_PRESET_REPORT") != nullptr)
             std::cout << "kit | " << p->name << " | level " << rms << " dB, peak " << peakDb << " dBFS\n";
+        // Every pad alone, off the beat's notes (the preview plays it once): it sounds. FD_DUMP_DIR:
+        // the kit's beat as a WAV, and its every pad in turn, half a second apart, for hearing them all.
+        const auto& pads = p->state.extra["pads"];
+        const int step = 24000;
+        juce::AudioBuffer<float> tour(2, static_cast<int>(pads.size()) * step + 3 * 48000);
+        tour.clear();
+        for (size_t i = 0; i < pads.size(); ++i)
+        {
+            INFO(pads[i]["name"].get<std::string>());
+            auto alone = p->state;
+            alone.extra["pads"] = nlohmann::json::array({pads[i]});
+            alone.extra["pads"][0]["note"] = 60;
+            const auto hit = fd::engine::renderKitBeat(alone, 48000.0);
+            REQUIRE(hit.getNumSamples() > 0);
+            CHECK(hit.getMagnitude(0, hit.getNumSamples()) > 0.01f); // -40 dBFS at least
+            CHECK(hit.getMagnitude(0, hit.getNumSamples()) < 1.0f);
+            for (int c = 0; c < 2 && c < hit.getNumChannels(); ++c)
+                tour.addFrom(
+                    c, static_cast<int>(i) * step, hit, c, 0,
+                    std::min(hit.getNumSamples(), tour.getNumSamples() - static_cast<int>(i) * step));
+        }
+        if (const char* dir = std::getenv("FD_DUMP_DIR"))
+        {
+            const auto write = [&](const juce::String& name, const juce::AudioBuffer<float>& audio)
+            {
+                const auto file = juce::File(dir).getChildFile(name + ".wav");
+                file.deleteFile();
+                juce::WavAudioFormat wav;
+                std::unique_ptr<juce::OutputStream> out = file.createOutputStream();
+                if (auto writer = wav.createWriterFor(out, juce::AudioFormatWriterOptions{}
+                                                               .withSampleRate(48000.0)
+                                                               .withNumChannels(audio.getNumChannels())
+                                                               .withBitsPerSample(24)))
+                    writer->writeFromAudioSampleBuffer(audio, 0, audio.getNumSamples());
+            };
+            write(juce::String::fromUTF8(p->name.c_str()), beat);
+            write(juce::String::fromUTF8(p->name.c_str()) + " pads", tour);
+        }
         ++kits;
     }
     CHECK(kits > 0);

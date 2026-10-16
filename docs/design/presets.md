@@ -256,6 +256,7 @@ The commands act on the **selected module**, or the one whose header was used la
   - **use:** Drums, Bass, Vocals, Keys, Guitar, Bus, Master;
   - **character:** Subtle, Heavy, Warm, Bright, Wide, Clean, Dirty;
   - **instruments' sound:** Bass, Lead, Pad, Keys, Pluck, Brass, FX, Drums; and for the Sampler's instruments, Strings, Woodwinds, Orchestral ([factory-library.md](factory-library.md) §7).
+  - **the Drum Kit's kits:** their family first, the browser's folder (Acoustic, Electronic, Percussion), then their styles (Jazz, Rock, Trap, House, Latin…: the list is `drums.STYLES` in `tools/library/drums.py`, [drum-kit.md](drum-kit.md) §27.2).
   - Your own presets take any tag.
 - **The Sampler's presets** play instruments from Segno's Library, made from VSCO 2 CE and VCSL (CC0) at the product owner's suggestion ([factory-library.md](factory-library.md), ADR 0055): 48, built 2026-10-14.
 - **Recipes:** each set is `devices/<name>/presets/recipes.json`, naming only what differs from the module's defaults (numbers in the parameter's unit, or text it reads: "4:1", "LP 24"). `fd-presets make` (`tools/presets`) writes each preset's whole state beside it; the conformance suite checks the files are what the recipes make. `fd-presets describe <module>` lists a module's parameters for writing recipes.
