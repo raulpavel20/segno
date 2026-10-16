@@ -222,8 +222,8 @@ void addAudioTools(Registry& registry, ToolEnv& env)
          "how many transients are found), \"transpose\" (semitones, -48 to 48) and \"fine\" (cents, -50 to "
          "50); transposed, a clip keeps its speed. Its key (§8.2, §8.3): \"key\" (\"A minor\", \"F#m\", "
          "\"D dorian\"; \"none\"; \"found\" for what's found in its file) and \"followKey\" (it plays in the "
-         "song's key, moved by the smallest step, a key and its relative counting as the same; a clip with "
-         "no key can't).",
+         "song's key, moved by the smallest step, a key and its relative counting as the same; the song "
+         "needs a key, set_key, and a clip with no key can't).",
          object({{"clips", ids(IdKind::Clip, "The audio clips")},
                  {"warp", boolean("Follows the song's tempo")},
                  {"mode", string("beats, tones or repitch")},
@@ -308,6 +308,8 @@ void addAudioTools(Registry& registry, ToolEnv& env)
             }
             if (args.contains("followKey"))
                 warp.followKey = args["followKey"].get<bool>();
+            if (warp.followKey.value_or(false) && !env.session.snapshot()->keys.first())
+                throw Problem{"The song has no key to follow: set one with set_key first."};
             const auto asked = [&args](std::initializer_list<const char*> keys)
             {
                 return std::any_of(keys.begin(), keys.end(),
@@ -322,13 +324,24 @@ void addAudioTools(Registry& registry, ToolEnv& env)
             Json out{{"clips", clipsJson(env, ids)}};
             if (warp.followKey.value_or(false))
             {
-                std::string keyless;
+                std::string keyless, repitched;
+                const auto add = [](std::string& list, const Json& c)
+                { list += (list.empty() ? "" : ", ") + c["id"].get<std::string>(); };
                 for (const auto& c : out["clips"])
                     if (!c["followKey"]["on"].get<bool>())
-                        keyless += (keyless.empty() ? "" : ", ") + c["id"].get<std::string>();
+                        add(keyless, c);
+                    else if (c["warp"]["on"].get<bool>() && c["warp"]["mode"] == "repitch")
+                        add(repitched, c);
+                std::string note;
                 if (!keyless.empty())
-                    out["note"] = "No key was found in " + keyless +
-                                  ", so it can't follow the song's: set its \"key\".";
+                    note = "No key was found in " + keyless +
+                           ", so it can't follow the song's: set its \"key\".";
+                if (!repitched.empty())
+                    note += (note.empty() ? "" : " ") + repitched +
+                            " warps in Repitch, whose speed sets its pitch: it moves into the key in Beats "
+                            "or Tones.";
+                if (!note.empty())
+                    out["note"] = note;
             }
             return ToolResult::ok(out);
         }));

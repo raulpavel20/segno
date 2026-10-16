@@ -3167,6 +3167,13 @@ TEST_CASE("mcp tools: an audio clip's key, Follow key with the song's, detect_ke
     CHECK(got["key"]["name"] == "A major");
     CHECK(got["keyFound"] == true);
     CHECK(got["followKey"]["on"] == false);
+    // The song has no key yet: nothing to follow, refused whole (the inspector dims Follow).
+    CHECK(
+        daw.fails("set_audio", {{"clips", {lead}}, {"followKey", true}, {"transpose", 3}}).find("set_key") !=
+        std::string::npos);
+    got = daw.call("get_clip", {{"clip", lead}});
+    CHECK(got["followKey"]["on"] == false);
+    CHECK(got["pitch"]["transpose"] == 0);
 
     // Following G major: two semitones down; set_key moves it again, in its own step.
     daw.call("set_key", {{"root", "G"}, {"scale", "major"}});
@@ -3197,6 +3204,13 @@ TEST_CASE("mcp tools: an audio clip's key, Follow key with the song's, detect_ke
     r = daw.call("set_audio", {{"clips", {hits}}, {"followKey", true}});
     CHECK(r["clips"][0]["followKey"]["on"] == false);
     CHECK(r["note"].get<std::string>().find(hits) != std::string::npos);
+    // In Repitch it follows, but its speed sets its pitch: said so.
+    r = daw.call(
+        "set_audio",
+        {{"clips", {lead}}, {"key", "found"}, {"warp", true}, {"mode", "repitch"}, {"followKey", true}});
+    CHECK(r["clips"][0]["followKey"]["on"] == true);
+    CHECK(r["clips"][0]["followKey"]["steps"] == 0);
+    CHECK(r["note"].get<std::string>().find("Repitch") != std::string::npos);
 
     // Slice: listed with its settings; the hits cut at their transients, every part listed.
     const auto tools = daw.call("list_audio_tools")["tools"];

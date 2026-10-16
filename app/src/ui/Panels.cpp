@@ -1826,14 +1826,22 @@ void InspectorPanel::refreshKey()
         resized();
     }
     audioFollow_.setToggleState(clip_->followKey, juce::dontSendNotification);
+    // Dimmed where it can't move the clip (no clip key, no song key, Repitch), but a clip that
+    // follows can always be turned off.
     const bool keyed = clip_->key.has_value();
-    audioFollow_.setEnabled(keyed || clip_->followKey);
     const bool songKey = session_.snapshot()->keys.first().has_value();
-    audioFollow_.setTooltip(
-        !keyed     ? "No key to follow: set the clip's key first"
-        : !songKey ? "Follow key: the song has no key yet; set one in the top bar and the clip moves into it"
-                   : "Follow key: the clip plays in the song's key, moved by the smallest step (a key and "
-                     "its relative count as the same)");
+    const bool repitch = clip_->warp.on && clip_->warp.mode == model::WarpMode::Repitch;
+    audioFollow_.setEnabled((keyed && songKey && !repitch) || clip_->followKey);
+    juce::String tip = "Follow key: the clip plays in the song's key, moved by the smallest step (a key and "
+                       "its relative count as the same)";
+    if (!keyed)
+        tip = "No key to follow: set the clip's key first";
+    else if (!songKey)
+        tip = clip_->followKey ? "Follow key: the song has no key; the clip moves into one once it's set"
+                               : "The song has no key to follow: set one in the top bar first";
+    else if (repitch)
+        tip = "Repitch has no transposition: the speed sets the pitch";
+    audioFollow_.setTooltip(tip);
 }
 
 void InspectorPanel::resized()

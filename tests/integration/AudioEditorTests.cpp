@@ -1038,7 +1038,6 @@ TEST_CASE(
     REQUIRE(fd::testkit::writeWav(file.getFullPathName().toStdString(), tone, 48000.0));
     const auto keys = f.session->insertAudioFile(f.track, file, 8.0);
     REQUIRE(keys != 0);
-    REQUIRE(f.session->setKey(Key{0, "major"}));
     f.select(keys);
     f.session->impl().analyser.waitUntilIdle();
     f.settle();
@@ -1046,7 +1045,16 @@ TEST_CASE(
     REQUIRE(inspector.audioKey().isVisible());
     const auto dot = juce::String::fromUTF8(" \xC2\xB7 ");
     CHECK(inspector.audioKey().getText() == "A minor" + dot + "found");
+    // The song has no key: nothing to follow, so Follow and the menu's Follow key are dimmed.
+    CHECK_FALSE(inspector.audioFollow().isEnabled());
+    CHECK_FALSE(f.shell->actions().isEnabled("audio.followKey"));
+    if (const char* dir = std::getenv("FD_DUMP_DIR"))
+        dumpPng(dir, "audio-key-no-song-key@2x.png",
+                inspector.createComponentSnapshot(inspector.getLocalBounds(), true, 2.0f));
+    REQUIRE(f.session->setKey(Key{0, "major"}));
+    f.settle();
     CHECK(inspector.audioFollow().isEnabled());
+    CHECK(f.shell->actions().isEnabled("audio.followKey"));
     // Following: A minor has C major's notes, so it stays.
     inspector.audioFollow().onClick();
     f.settle();
@@ -1078,4 +1086,22 @@ TEST_CASE(
     f.settle();
     CHECK(f.clip(keys).key == Key{9, "minor"});
     CHECK(f.clip(keys).keyFound);
+    // Following, then the song's key taken away: Follow stays lit and can be turned off, then dims.
+    inspector.audioFollow().onClick();
+    f.settle();
+    REQUIRE(f.clip(keys).followKey);
+    REQUIRE(f.session->setKey(std::nullopt));
+    f.settle();
+    CHECK(inspector.audioFollow().getToggleState());
+    CHECK(inspector.audioFollow().isEnabled());
+    CHECK(f.shell->actions().isEnabled("audio.followKey"));
+    inspector.audioFollow().onClick();
+    f.settle();
+    CHECK_FALSE(f.clip(keys).followKey);
+    CHECK_FALSE(inspector.audioFollow().isEnabled());
+    // In Repitch the speed sets the pitch: Follow is dimmed, as Transpose is.
+    REQUIRE(f.session->setKey(Key{0, "major"}));
+    REQUIRE(f.session->setWarp({keys}, {.on = true, .mode = fd::model::WarpMode::Repitch}, "Warp"));
+    f.settle();
+    CHECK_FALSE(inspector.audioFollow().isEnabled());
 }

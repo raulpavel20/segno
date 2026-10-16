@@ -619,7 +619,7 @@ Started at the product owner's word ("Start work on P6c") with P6b's hands-on re
 - **The key it follows is pinned:** turning Follow on keeps the clip's key (what's found, unless one is set) on the clip, so what it plays never changes by itself. Turned off, a found key pinned for it goes back to following what's found.
 - **What it moves:** its step adds to Transpose and Fine, in the engine's transposition for a clip without Warp and in the piece player for a warped one. Repitch has none: its speed sets its pitch.
 - **When the song's key changes,** clips that follow it move in the same undo step, and back with it on undo. A take kept aside meanwhile moves when it's used.
-- **In the inspector:** Follow is lit while the clip follows, and shows its step ("Follow −2"). Without a key it's dimmed, saying to set one; with no song key, it says the clip moves once there is one.
+- **In the inspector:** Follow is lit while the clip follows, and shows its step ("Follow −2"). It's dimmed where it can't move the clip, its tooltip saying why: without a clip key, without a song key, and in Repitch (as Transpose is). A clip that follows can always be turned off, so one following when the song's key is taken away stays lit, and moves into the next key set. Audio ▸ Follow key is dimmed without a song key, saying to set one (the product owner, after first use, 2026-10-16: a control that does nothing where it is shouldn't invite a click).
 - **Placed loops:** with Settings › Audio › "Loops follow the key" (off), a loop placed with a key found in it follows the song's.
 
 ### 24.3 Slice (§9)
@@ -641,7 +641,7 @@ Started at the product owner's word ("Start work on P6c") with P6b's hands-on re
 ### 24.4 With it
 
 - **Assistants:**
-  - `set_audio` gains `key` ("A minor", "F#m", "D dorian", "none", "found") and `followKey`. A clip with no key to follow is named in the result's note.
+  - `set_audio` gains `key` ("A minor", "F#m", "D dorian", "none", "found") and `followKey`. Turning it on without a song key is refused, the call doing nothing; a clip with no key to follow, or one in Repitch, is named in the result's note.
   - `get_clip` gives `key`, `keyFound` and `followKey` (`on`, `steps`), and starts finding a clip's file in the background.
   - `detect_key` reads audio clips, finding their keys now.
   - `transform_audio` runs Slice, listing every part.

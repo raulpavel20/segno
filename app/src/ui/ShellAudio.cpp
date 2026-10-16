@@ -329,7 +329,13 @@ void Shell::registerAudioActions()
                       .whyNot = whyNoClips,
                       .keysFrom = keys});
 
-    // Follow key (§8.3): ticked as the first clip has it. A clip with no key found can't follow.
+    // Follow key (§8.3): ticked as the first clip has it. A clip with no key found can't follow;
+    // without a song key there's nothing to follow, but a clip that follows can be turned off.
+    const auto canFollow = [this]
+    {
+        const auto clips = audioTargets();
+        return !clips.empty() && (session_.snapshot()->keys.first().has_value() || clips.front().followKey);
+    };
     actions_.add({.id = "audio.followKey",
                   .name = "Follow key",
                   .category = "Audio",
@@ -351,14 +357,21 @@ void Shell::registerAudioActions()
                                              }))
                           showWarning("No key was found in the clip: set its key in the inspector first.");
                   },
-                  .isEnabled = hasClips,
+                  .isEnabled = canFollow,
                   .isToggled =
                       [this]
                   {
                       const auto clips = audioTargets();
                       return !clips.empty() && clips.front().followKey;
                   },
-                  .whyNot = whyNoClips});
+                  .whyNot =
+                      [this, whyNoClips]
+                  {
+                      return audioTargets().empty()
+                                 ? whyNoClips()
+                                 : juce::String(
+                                       "The song has no key to follow: set one in the top bar first");
+                  }});
     // Slice… (§9): the Tools pane at it.
     actions_.add({.id = "audio.slice",
                   .name = asks("Slice"),
