@@ -2,7 +2,7 @@
 
 The **Drum Kit** is an instrument with a pad for each note. Each pad holds a sound: a sample, played by the Sampler, or any other instrument, with effects after it if you want them. Drop a kick on a pad and the pad plays it. Drop a synth on the next one and that pad plays the synth. Hats choke each other. A whole kit is saved as one of the Drum Kit's presets.
 
-**Status:** approved by the product owner (2026-10-16), every recommendation of K1–K18, with [ADR 0064](../decisions/0064-a-drum-kit-whose-pads-hold-any-instrument.md) accepted. It replaces M4's Drum Sampler and Drum Rack, and moves up to M3 as P7 at the product owner's word to start it. Step 0 done the same day: the spike passed (§20), the UI drawn in every state and approved (§21). Step 1, the kit, built and signed off by the product owner the same day (§22). Next: step 2 (macros on kits), the piano roll's drum view (asked for at sign-off, §23), and last the factory kits. The factory kits come last, from CC0 sets the product owner and Claude search for together (§17, step 3).
+**Status:** approved by the product owner (2026-10-16), every recommendation of K1–K18, with [ADR 0064](../decisions/0064-a-drum-kit-whose-pads-hold-any-instrument.md) accepted. It replaces M4's Drum Sampler and Drum Rack, and moves up to M3 as P7 at the product owner's word to start it. Step 0 done the same day: the spike passed (§20), the UI drawn in every state and approved (§21). Step 1, the kit, built and signed off by the product owner the same day (§22). Step 2a, macros on kits, built (§24). The piano roll's drum view, asked for at sign-off, designed for review with ADR 0066 proposed (§23, step 2b). Last, the factory kits. The factory kits come last, from CC0 sets the product owner and Claude search for together (§17, step 3).
 
 What the product owner asked (2026-10-16):
 - A Drum Sampler module and a Drum Rack feature were "such a convoluted, roundabout way" of doing it. The Sampler already plays a single sample, and the rack "reads like something distinct from the collection of modules that the Rack feature is supposed to be".
@@ -202,7 +202,7 @@ Sources: [Live: Drum Racks](https://www.ableton.com/en/manual/instrument-drum-an
   - several samples dropped in a track's module chain make a Drum Kit with them, from C1 up, in one undo step. Where the track has an instrument, the kit replaces it, as any instrument does;
   - one sample dropped there makes a Sampler, as now;
   - samples dropped on a track's lanes make audio clips, as now.
-- **The piano roll's drum view** (M4, [piano-roll.md](piano-roll.md) §16) names its rows from the kit's pads, and can show only the pads with sounds. That design is the piano roll's. The kit gives it the names (`get_kit` and the snapshot).
+- **The piano roll's drum view** (§23, brought from M4 at the product owner's word): a kit's clip opens on its pads, a row for each pad with a sound, named, without the tools drums don't need.
 - **Push 2** (proposed, [push-2.md](push-2.md) step 3): the drum layout's pads light where the kit's pads have sounds, in the track's colour, and the display names the selected pad. Step sequencing writes the selected pad's note.
 - **Slicing** (the Sampler's M4 stage): "Slice to Drum Kit" makes a kit with a Sampler on each pad from C1, each playing one slice, and a MIDI clip that plays them in order. Its design is the Sampler's slicing stage.
 - **The mixer** sees one channel, the kit's track. Pads as channels of their own come later (§16).
@@ -306,7 +306,7 @@ The **Module** menu, a group after the racks' items, dimmed unless a Drum Kit is
    - save the kit, and load it on another track;
    - make it your default;
    - swap two pads.
-2. **Macros on kits** (§10).
+2. **Macros on kits** (§10, step 2a), then **the piano roll's drum view** (§23, step 2b), each signed off on its own.
 3. **The factory kits, the final step** (the product owner, 2026-10-16). Together, the product owner and Claude search for good CC0 drum sets and kits, download them, and put together a comprehensive set of factory kits covering many genres. The samples go into the Library ([ADR 0055](../decisions/0055-factory-content-is-files-in-a-read-only-library.md)). The kits are made from recipes, as the factory racks are (racks.md §18.8), and signed off by ear.
 
 Each step is built, tested and signed off on its own.
@@ -428,3 +428,175 @@ The kit, built on the spike (§20) and the drawings (§21): `app/src/engine/Sess
 - **Modulators on a pad aren't kept in a kit preset yet:** they stay with the project; a preset made from a kit with one leaves it out. Few will put one there before macros come (step 2).
 
 **Signed off by the product owner (2026-10-16).** Asked at sign-off: a drum view in the piano roll, for clips on a kit's track: only the lanes of the pads with sounds, named, and without the tools that make no sense for drums (chords and the like). Designed in §23 for review.
+
+## 23. The piano roll's drum view (for review, 2026-10-16)
+
+The product owner asked for it at step 1's sign-off. A MIDI clip on a Drum Kit's track should show only the rows of the pads with sounds, so a beat can be written without hunting through the roll. Tools that make no sense for drums, such as making chords, shouldn't show there.
+
+This brings the drum view from M4 ([piano-roll.md](piano-roll.md) §16) into step 2 of the kit. It amends [ADR 0058](../decisions/0058-the-piano-roll-writes-in-key-and-in-chords.md)'s in-key default for a kit's clips, so it comes with a proposed ADR, [0066](../decisions/0066-a-drum-kits-clips-open-on-its-pads.md).
+
+### 23.1 How others do it (October 2026)
+
+- **Live 12:** a clip on a Drum Rack's track shows the pads, by itself. Rows are the pads that hold devices, and Fold shows only the rows with notes.
+  - Notes keep their lengths. Pressing a row's key plays its pad.
+  - Rhythm and Euclidean, its generators, work pad by pad. The manual hides none of the scale tools for drums.
+  - Sources: [Live: Editing MIDI](https://www.ableton.com/en/live-manual/12/editing-midi/), [Live: MIDI Tools](https://www.ableton.com/en/live-manual/12/midi-tools/).
+- **Bitwig 6:** the Drum/Hybrid editor shows the Drum Machine's chains that have sounds, or the notes in use. Snap to Key and micro-pitch belong to the piano editor alone ([release notes](https://downloads.bitwig.com/6.0/Release-Notes-6.0.pdf), [user guide](https://www.bitwig.com/userguide/latest/working_with_note_events/)).
+- **Logic 12:** Collapse mode (the notes in use) and Drum Names are switched by hand. Its Step Sequencer names Drum Machine Designer's rows and gives each a mute and a solo ([Logic guide](https://support.apple.com/guide/logicpro/overview-lgcpa9111b0d/12.3/mac/15.6)).
+- **Cubase 15:** a part with a drum map opens in the Drum Editor, by itself.
+  - It shows either the sounds the part uses or the sounds the instrument has.
+  - Notes are diamonds, with lengths optional. Each sound has its own mute and snap.
+  - Source: [Steinberg](https://www.steinberg.help/r/cubase-pro/15.0/en/cubase_nuendo/topics/midi_editors/midi_editors_drum_editor_drum_sound_visibilty_r.html).
+- **Studio Pro (Studio One):** the Drum view is a button on the editor's bar.
+  - With Impact, the rows are its loaded sounds, named, and unused notes are hidden.
+  - Notes are triggers without lengths, and Scale works only in the piano view ([manual](https://fenderstudiopromanual.fender.com/en/Content/Editing_Topics/Note%20Editor.htm)).
+- **FL Studio** has no drum view in its piano roll: beats go in the Channel Rack's step sequencer. **REAPER** hides unused or unnamed rows by hand, and has diamond notes for drums.
+- **In common:**
+  - Most show the pads with sounds by default: Live, Bitwig, Studio One with Impact, and Cubase.
+  - Bitwig and Studio One leave the key's tools to the piano.
+  - On lengths the field splits: Cubase and Studio One draw hits; Live, Logic and Bitwig keep lengths.
+
+### 23.2 The pads as rows
+
+```
+┌ Modules · Clip ── Notes ⌄  Quantise  [⇄ Transform]  [✦ Generate]              ● Pads  ● Snap  1/16 ⌄ ┐
+├────────────────┬─────────────────────────────────────────────────────────────────────────────────────┤
+│                │ ⟦ loop brace ⟧                                                                      │
+│                │ 1          2          3          4                                                  │ ruler
+├────────────────┼─────────────────────────────────────────────────────────────────────────────────────┤
+│ Crash      C♯2 │ ▬                                                                                   │
+│ Open hat   A♯1 │        ▬                      ▬                                                     │
+│ Closed hat F♯1 │ ▬  ▬  ▬     ▬  ▬  ▬  ▬     ▬  ▬  ▬                                                 │
+│░E1░░░░░░░░░░░░░│░░░░░░░░░░░░░▬░░░░░░░░░░░░░  ← a note on a pad without a sound: hatched              │
+│ Clap       D♯1 │                                                                                     │
+│ Snare      D1  │     ▬           ▬           ▬           ▬                                           │
+│ Kick       C1  │ ▬        ▬  ▬        ▬                                                              │
+├────────────────┼─────────────────────────────────────────────────────────────────────────────────────┤
+│ Velocity ⌄     │ ▮  ▮  ▮ …                                                                           │
+└────────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+- **A clip on a Drum Kit's track opens on its pads**, when the track's instrument is a Drum Kit.
+  - Each row is a pad with a sound. Its name comes first, then its note in `textSecondary` ("Kick  C1").
+  - The lowest pad is at the bottom, as on the kit's pads and the piano.
+  - The keys' column is as wide as the longest name needs, up to a limit. Past it, a name ends in an ellipsis and its whole name is in the tooltip.
+- **Nothing in the clip is hidden.** A note on a pad without a sound keeps a row in its place.
+  - The row is hatched, as a note outside the key is ([piano-roll.md](piano-roll.md) §21.2), and named by its note alone.
+  - The row goes when its last note leaves it, once the gesture ends.
+  - A pad that's off has its name dimmed, so a silent row says why.
+- **A row works as In key's rows do** ([piano-roll.md](piano-roll.md) §21.1):
+  - a double-click draws on the row clicked;
+  - a drag moves notes from pad to pad;
+  - ↑/↓ move the selection a row, to the next pad shown;
+  - Ctrl+↑/↓ move it a semitone, which can leave the pads (the note's row then appears hatched);
+  - Shift+↑/↓ move it an octave, as everywhere.
+- **Notes keep their lengths,** drawn as everywhere. A pad can hold a synth, or a Sampler that plays as long as the note is held, and both are heard. Hits without lengths, Cubase's and Studio One's way, would hide what sounds.
+- **A row's name is its pad's key.** Pressed, it plays the pad, as the keyboard's keys play. It also selects that pad in the kit, so Modules shows its sound. That's view state, not an undo step (Live).
+- **Rows' height:** opened, the rows grow to fill the notes' height. With more pads than fit at the roll's row height, they keep that height and scroll. Zoom works as now.
+- **An empty kit** has no rows besides the hatched ones. The grid says "No pads with sounds yet: drop samples on the Drum Kit's pads, or show the whole roll."
+
+### 23.3 One toggle: the pads or the whole roll
+
+- **Pads** takes In key's place in the header on a kit's clip. A key means nothing to drums.
+  - **On:** the pads.
+  - **Off:** the whole roll, chromatic, with every tool back. That's for a pad that holds a synth and is played in chords, say.
+- **On by default.** A clip turned off stays off. It's the same per-clip memory In key uses (`wholeRoll`), so a clip has one switch, whichever view it's for.
+- **In the menu bar:**
+  - View ▸ "Show only the kit's pads" (Ctrl+Alt+N) is In key's item. Its name follows the clip shown, as Mute clips becomes Mute notes ([piano-roll.md](piano-roll.md) §9.4).
+  - It's dimmed, saying why, where neither applies.
+- **When the kit goes from the track,** or another instrument takes its place, the clip goes back to In key or the whole roll, as for any clip.
+
+### 23.4 What drums don't need, gone from the surface
+
+On the pads, the surface shows only what works on drums. The menu bar keeps every item, as ADR 0040 asks of it. There, these items are dimmed with the reason: "Not on a Drum Kit's pads: show the whole roll for it."
+
+| Where | Shown on the pads | Gone (dimmed in the menu bar) |
+|---|---|---|
+| The header | Notes ⌄, Quantise, Transform, Generate, Pads, Snap, the grid | Draw (note, chord, chord under) with its kinds and voicing; In key; Others |
+| Above the notes | The ruler | The chord lane: a kick, a snare and a hat together would be named as a chord |
+| Transform | Quantise, Humanize, Chop (rolls), Ornament (flams), Velocity, Span | Strum, Arpeggiate, Randomise pitch, Make chords |
+| Generate | Rhythm, on a pad | Melody, Chords, Bassline |
+| The Notes menu and the notes' right-click | Quantise, Transpose ▸, Join, Length ▸, Reverse, chance, Select ▸ Same pitch, In the loop and Invert | Fit to key, Make chords…, Chords ▸, Mirror pitches, Select ▸ Outside the key |
+
+- **Others goes on the pads.** Another track's pitches would land on the pad rows by chance: a bass's F♯1 drawn faint on the closed hat.
+- **Rhythm on the pads** plays on a pad, chosen by name. It defaults to the selected notes' pad, else the row pressed last. "The chords" goes.
+
+### 23.5 Assistants
+
+- **Views were never theirs** ([piano-roll.md](piano-roll.md) §21.4, S6), but they need the pads to write on the right notes:
+  - `get_clip` on a kit's track gains `pads`: the kit's pads with sounds, each with its note and name;
+  - each note on a pad gains `pad`, the pad's name;
+  - `edit_notes` and `generate_notes` take a pad's name ("Snare") wherever they take a pitch.
+- **Driven in a test** through MCP, as the UI's edits are.
+
+### 23.6 Model and engine
+
+- **No engine change.** The snapshot already holds the track's kit: each pad's note, name and on.
+- **The rows** are a list of pitches. In key and the whole roll already make that list one way each, and the pads are a third way: a pure function in `model/`, tested `[fast]`. It gives the pads with sounds, then the pitches with notes and no pad, in order.
+- **The tools:** each of the catalogue's tools says whether it works on drums (`model/NoteToolkit`). The pane's tiles and the actions' enabled state follow that one flag.
+
+### 23.7 Steps
+
+1. **Drawn,** with the real piano roll from a stub, and approved before anything is built:
+   - a kit's clip with seven pads, as in §23.2;
+   - a note on an empty pad;
+   - a pad that's off;
+   - an empty kit;
+   - the header and the Tools pane on the pads;
+   - all at standard and compact widths, zoomed.
+2. **Built:**
+   - the rows;
+   - the toggle and its memory;
+   - the surface without the melodic tools, and their menu items dimmed;
+   - Rhythm on a pad;
+   - the assistants.
+
+   Signed off after the product owner's hands-on tasks:
+   - write a four-bar beat on a kit with eight pads;
+   - move hits between pads;
+   - flam the snare and roll the hats;
+   - turn the clip to the whole roll and back.
+
+### 23.8 Tests (done when)
+
+| What | Target |
+|---|---|
+| Rows | `[fast]`: the pads with sounds in order; a note without a pad keeps a hatched row; ↑/↓ by rows, Ctrl+↑/↓ by semitones |
+| The view | A kit's clip opens on its pads; a clip turned to the whole roll stays so; another instrument puts In key back |
+| The surface | The header, the Tools pane and the right-click menu without the melodic tools; their menu bar items dimmed with the reason |
+| Drawing | A double-click draws on the row clicked; pressing a row's name plays its pad and selects it in the kit |
+| Rhythm | Writes on the pad chosen |
+| UI | Drawn for review at standard and compact widths, zoomed; the layout checklist passes |
+| MCP | `get_clip` names the pads; `edit_notes` and `generate_notes` with a pad's name |
+
+### 23.9 Questions and recommendations
+
+| # | Question | Recommendation |
+|---|---|---|
+| D1 | **When it shows** | On a kit's track's clip, by itself. Pads takes In key's place, and a clip turned off is remembered (Live, Bitwig, Cubase). The other way, a button you press each time (Logic, Studio One), is what the request wants to avoid |
+| D2 | **Which rows** | The pads with sounds, plus hatched rows for notes on empty pads. No "only rows with notes" fold: §21 dropped it for the piano, and a kit's 8–16 pads fit anyway |
+| D3 | **Hits or lengths** | Lengths, drawn as everywhere (Live, Logic, Bitwig). A pad can be a synth, and a Sampler can play as long as the note is held |
+| D4 | **Row order** | By note, lowest at the bottom, as the pads. No order of your own for now (Cubase, Studio One and REAPER have one) |
+| D5 | **Row names** | The pad's name and its note. Pressed, a row plays its pad and selects it in the kit (Live) |
+| D6 | **The tools drums don't need** | Gone from the bar, the Tools pane and the right-click menu on the pads, and dimmed in the menu bar with the reason (ADR 0040). The other way would dim them on the surface too, which keeps everything in place, but you asked not to see them |
+| D7 | **Others** | Gone on the pads: another track's pitches would land on pad rows by chance |
+| D8 | **Rhythm** | On a pad, by name; "The chords" goes |
+| D9 | **Mute, solo and length per row** | Not now. A pad's On and Solo are in the kit, one click away, and a row's name dims when its pad is off. Logic's Step Sequencer and Studio One's patterns have them per row; they'd come with a step sequencer (M4 or later) |
+| D10 | **Painting a row** | My verdict: yes, on the pads. A double-click held and dragged along a row paints a hit on each grid step, as Live's draw mode and Bitwig's spray can do. Sixteen hats would otherwise take sixteen double-clicks, and that's the hunting you want gone. The con: the same drag lengthens the drawn note in the whole roll, so the gesture differs between the views. A hit is lengthened by its end afterwards, as any note is |
+| D11 | **Assistants** | `get_clip` names the pads; `edit_notes` and `generate_notes` take a pad's name for a pitch |
+| D12 | **The ADR** | Proposed [ADR 0066](../decisions/0066-a-drum-kits-clips-open-on-its-pads.md): a kit's clips open on its pads, amending ADR 0058's in-key default for them, and the drum view moves from M4 to M3 with the kit |
+
+## 24. Step 2a, macros on kits, built (2026-10-16)
+
+The kit's eight macros work as a rack's (§10): `app/src/ui/MacroPanel.*`, a panel both the rack's and the kit's derive from, so their macros look and behave the same. Tested through the Session (`DrumKitTests`), the chain view (`DrumKitChainTests`, drawn as `kit-chain-macros`) and MCP (`McpToolTests`).
+
+**What's there:**
+- **Mapping,** as on a rack: a macro's name dragged onto a knob of any pad's module; a knob's right-click, Map to macro ▸; the macro editor (Edit macros, on the macro's right-click, the Module menu and the kit's knob menu). One macro can set modules on several pads at once: tune every tom.
+- **MACROS shows from the first mapping.** A macro that maps nothing recedes. Its name lights while the pointer is on a knob it sets, and hovered, it lights those knobs. A double-click renames it.
+- **Automation:** the macros are the kit's parameters, automated as a rack's.
+- **Assistants:** `map_macro` and `set_macro` take a kit as their `rack`; `get_kit` gives its macros.
+
+**Settled while building:**
+- **A kit's macro has no Store snapshot or Lock** on its right-click. The Session refuses snapshots, Morph, Vary and locks on a kit (§16).
+- **The rack tools refuse a kit by name.** `get_rack`, `add_rack_chain`, `store_snapshot`, `set_morph`, `vary_module` and the rest say it's a Drum Kit, and point to `get_kit`, `set_pad`, `map_macro` and `set_macro`.
+- **Undoing a macro** puts it back at once. Its parameters follow on the next block the engine plays, as for a rack's macro.
