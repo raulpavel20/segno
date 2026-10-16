@@ -2,7 +2,7 @@
 
 The **Drum Kit** is an instrument with a pad for each note. Each pad holds a sound: a sample, played by the Sampler, or any other instrument, with effects after it if you want them. Drop a kick on a pad and the pad plays it. Drop a synth on the next one and that pad plays the synth. Hats choke each other. A whole kit is saved as one of the Drum Kit's presets.
 
-**Status:** approved by the product owner (2026-10-16), every recommendation of K1–K18, with [ADR 0064](../decisions/0064-a-drum-kit-whose-pads-hold-any-instrument.md) accepted. It replaces M4's Drum Sampler and Drum Rack, and moves up to M3 as P7 at the product owner's word to start it. Step 0 done the same day: the spike passed (§20), the UI drawn in every state and approved (§21). Step 1, the kit, built and signed off by the product owner the same day (§22). Step 2a, macros on kits, built (§24). The piano roll's drum view, asked for at sign-off, designed and approved by the product owner the same day with every recommendation of D1–D12, painting a row too, and ADR 0066 accepted (§23, step 2b); drawn for approval (§25). Last, the factory kits. The factory kits come last, from CC0 sets the product owner and Claude search for together (§17, step 3).
+**Status:** approved by the product owner (2026-10-16), every recommendation of K1–K18, with [ADR 0064](../decisions/0064-a-drum-kit-whose-pads-hold-any-instrument.md) accepted. It replaces M4's Drum Sampler and Drum Rack, and moves up to M3 as P7 at the product owner's word to start it. Step 0 done the same day: the spike passed (§20), the UI drawn in every state and approved (§21). Step 1, the kit, built and signed off by the product owner the same day (§22). Step 2a, macros on kits, built (§24). The piano roll's drum view, asked for at sign-off, designed and approved by the product owner the same day with every recommendation of D1–D12, painting a row too, and ADR 0066 accepted (§23, step 2b); drawn and approved (§25), and built (§26), for the product owner's hands-on check. Last, the factory kits. The factory kits come last, from CC0 sets the product owner and Claude search for together (§17, step 3).
 
 What the product owner asked (2026-10-16):
 - A Drum Sampler module and a Drum Rack feature were "such a convoluted, roundabout way" of doing it. The Sampler already plays a single sample, and the rack "reads like something distinct from the collection of modules that the Rack feature is supposed to be".
@@ -623,3 +623,26 @@ Drawn with the real piano roll, on a kit of seven pads with a beat over four bar
   - Transform shows six tiles: Quantise, Humanize, Chop, Ornament, Velocity and Span;
   - Generate shows Rhythm alone;
   - Rhythm's Pitch becomes **Pad**, a choice of the pads by name, and its On goes.
+
+## 26. Step 2b, the drum view, built (2026-10-16)
+
+The drawings approved by the product owner (§25), the rest built. Tested by `DrumViewTests` (the view, drawing, painting, the menus), `NoteToolsTests` and `NoteToolkitTests` (`[fast]`: the rows, painting, the arrows, the drum tools) and `McpToolTests`.
+
+**What's there besides §25:**
+- **Painting a row** (D10): on the pads, a double-click held and dragged along a row puts a hit on each grid step it passes, where no note on that pad sounds yet (`model::paintRow`). It's one undo step, and the hits are selected.
+  - The grid is the clip view's step, even with Snap off: a paint is always in steps.
+  - Elsewhere, the same drag still lengthens the note drawn.
+- **A pad's name, pressed,** plays it and selects it in the kit, so Modules shows its sound. It's view state, not an undo step.
+- **The arrows:** ↑/↓ move a row, Ctrl+↑/↓ a semitone, as §23.2 says (`model::transposeInRows`).
+- **The menus:**
+  - View's item reads "Show only the kit's pads" on a kit's clip, ticked while it shows them.
+  - On the pads, the menu bar dims what drums don't need, saying "Not on a Drum Kit's pads: turn Pads off to show the whole roll". That's Fit to key, Make chords…, Chords ▸, Mirror pitches, Select outside the key, the tools that don't work on drums, Other tracks' notes, and Draw ▸ with its kinds and voicings.
+  - The notes' right-click menu leaves them out. Its Notes ▸ is the menu bar's, dimmed there.
+  - The registry gained `ActionRegistry::require`, a condition added to actions already registered, so the list of what drums don't need is kept in one place (`ShellNotes.cpp`).
+- **Assistants** (§23.5): `get_clip` gives a kit's clip's `pads`, and each note its `pad`. A pad's name works wherever a pitch does: `add_notes`, `set_notes`, `edit_notes` and `remove_notes`' filters, and `generate_notes`' pitch settings.
+
+**Settled while building:**
+- **Assistants aren't held to the view:** on a kit's clip `generate_notes` still runs any generator, as views were never theirs. Only Rhythm's pad by name is new for them.
+- **A kit inside a rack's chain isn't the track's kit:** only a kit in the track's own chain makes its clips open on its pads (`model::kit::trackKit`).
+
+**For the product owner's hands-on check** (§23.7): write a four-bar beat on a kit with eight pads, move hits between pads, flam the snare and roll the hats, and turn the clip to the whole roll and back.

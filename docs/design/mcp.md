@@ -131,6 +131,8 @@ The project, track, clip and module resources send change notifications when the
 
 `get_clip`'s notes say `"muted": true` for a muted note (only then).
 
+On a Drum Kit's track ([drum-kit.md](drum-kit.md) §23.5), `get_clip` also gives `pads`: the kit's pads with sounds, each with `pad` (its note's name), `note` and `name`. Each note on one of them says its `pad`. Wherever a tool takes a pitch, a pad's name works too, in any case: a note's `pitch`, a `where` filter's `pitch`, `lowest` and `highest`, and a generator's pitch setting (`generate_notes` with `rhythm` and `{"pitch": "Closed hat"}`).
+
 **Modules** (ours, and third-party plugins as far as their parameters go):
 
 | Tool | Arguments | Result |
@@ -229,7 +231,7 @@ Every DAW feature ships with its tools (the coverage rule, ADR 0021). Today:
 | Module chains: add, remove, reorder, bypass, parameters, Sampler sample, collapse and fold | Module tools |
 | Modulators (M3 P5, ADR 0061) | `add_module` (types `mod-*`, with `preset`), `get_modulators`, `route_modulator`, `set_route`, `remove_route`, `keep_roll`, `set_module_sidechain` (the Follower's Listen); presets through the preset tools |
 | Presets and A/B (M3 A1, ADR 0044) | `list_presets`, `load_preset`, `save_preset`, `compare`; `add_module` takes a `preset` |
-| The Drum Kit (M3 P7, ADR 0064) | `add_module` (type `drum-kit`; `kit` and `pad` put a module on a pad), `move_module` (`kit`, `pad`), `get_kit`, `set_pad`, `load_pads`, `move_pad`, `clear_pad`; its macros through `map_macro` and `set_macro`; its kits through the preset tools; modules on pads through the module tools |
+| The Drum Kit (M3 P7, ADR 0064) | `add_module` (type `drum-kit`; `kit` and `pad` put a module on a pad), `move_module` (`kit`, `pad`), `get_kit`, `set_pad`, `load_pads`, `move_pad`, `clear_pad`; its macros through `map_macro` and `set_macro`; its kits through the preset tools; modules on pads through the module tools; its clips' notes by pad name (`get_clip`'s `pads`, a pitch as a pad's name, drum-kit.md §23.5) |
 | Plugin scanning | `scan_plugins` |
 | Settings (M3 C1, ADR 0045) | `get_settings`, `set_settings` (never the assistants' own or the shortcuts) |
 | The browser (M3 C2, ADR 0046) | `search`, `browse`, `preview`, `collect_files`; loading through `add_module` (with `preset`), `insert_audio_file`, `insert_midi_file`, `load_sample` (a sample or a multisample) |
