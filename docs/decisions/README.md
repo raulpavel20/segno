@@ -77,6 +77,7 @@ Each file records one decision: the situation, what was decided, and what follow
 | [0067](0067-drum-machine-numbers-are-terms-of-the-trade.md) | The bare numbers that became the trade's names for a sound (808, 909, 606, 707, 727, 626, 303) are allowed in kit and preset names; makers' names and full model names (Roland, TR-808, LinnDrum) stay out (amends 0052) | Accepted |
 | [0068](0068-the-factory-kits-sources.md) | The factory kits' sounds are CC0 only, verified and pinned; Fischer's 808 (CC0 added by its repackager) and recordings of sample-playback machines are accepted; Freesound waits; Segno renders its own drum voices where no CC0 recording exists | Accepted |
 | [0070](0070-an-instrument-rack-plays-the-tracks-audio-once.md) | An instrument rack plays the track's audio once, through its first chain heard; its other chains start from silence with the notes alone; effect racks and the Drum Kit unchanged (answers B92) | Accepted |
+| [0071](0071-profiling-tools.md) | Profiling: perf + hotspot for where the time goes (perf events allowed while profiling), Tracy behind `FD_PROFILE` and our own JUCE-free `FD_ZONE` macros for the timeline, a `profile` preset, callgrind for exact counts, heaptrack for memory | Proposed |
 
 ## Template
 
