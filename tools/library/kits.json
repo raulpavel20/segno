@@ -4824,6 +4824,1469 @@
    ]
   },
   {
+   "name": "Latin",
+   "tags": [
+    "Drums",
+    "Percussion",
+    "Latin"
+   ],
+   "description": "A full Latin percussion section in a room: congas and tumba, bongos, timbales, agogos, a cowbell, guiros, shakers, claves and a cuíca.",
+   "pads": [
+    {
+     "note": 60,
+     "piece": "Samples/Drums/Latin percussion/High bongo.sfz",
+     "name": "High bongo",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.25,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 61,
+     "piece": "Samples/Drums/Latin percussion/Low bongo.sfz",
+     "name": "Low bongo",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.15,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 62,
+     "piece": "Samples/Drums/Latin percussion/Muted conga.sfz",
+     "name": "Muted conga",
+     "role": "perc",
+     "choke": 0,
+     "pan": -0.1,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 63,
+     "piece": "Samples/Drums/Latin percussion/Conga.sfz",
+     "name": "Conga",
+     "role": "perc",
+     "choke": 0,
+     "pan": -0.15,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 64,
+     "piece": "Samples/Drums/Latin percussion/Tumba.sfz",
+     "name": "Tumba",
+     "role": "perc",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 65,
+     "piece": "Samples/Drums/Latin percussion/High timbale.sfz",
+     "name": "High timbale",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.35,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 66,
+     "piece": "Samples/Drums/Latin percussion/Low timbale.sfz",
+     "name": "Low timbale",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 67,
+     "piece": "Samples/Drums/Latin percussion/High agogo.sfz",
+     "name": "High agogo",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.4,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 68,
+     "piece": "Samples/Drums/Latin percussion/Low agogo.sfz",
+     "name": "Low agogo",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.4,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 69,
+     "piece": "Samples/Drums/Latin percussion/Cabasa.sfz",
+     "name": "Cabasa",
+     "role": "shaker",
+     "choke": 0,
+     "pan": -0.35,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 70,
+     "piece": "Samples/Drums/Latin percussion/Shaker.sfz",
+     "name": "Shaker",
+     "role": "shaker",
+     "choke": 0,
+     "pan": 0.35,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 71,
+     "piece": "Samples/Drums/Latin percussion/Short whistle.sfz",
+     "name": "Short whistle",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 72,
+     "piece": "Samples/Drums/Latin percussion/Long whistle.sfz",
+     "name": "Long whistle",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 73,
+     "piece": "Samples/Drums/Latin percussion/Short guiro.sfz",
+     "name": "Short guiro",
+     "role": "shaker",
+     "choke": 0,
+     "pan": -0.25,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 74,
+     "piece": "Samples/Drums/Latin percussion/Long guiro.sfz",
+     "name": "Long guiro",
+     "role": "shaker",
+     "choke": 0,
+     "pan": -0.25,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 75,
+     "piece": "Samples/Drums/Latin percussion/Claves.sfz",
+     "name": "Claves",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.2,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 76,
+     "piece": "Samples/Drums/Latin percussion/High block.sfz",
+     "name": "High block",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 77,
+     "piece": "Samples/Drums/Latin percussion/Low block.sfz",
+     "name": "Low block",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 78,
+     "piece": "Samples/Drums/Latin percussion/Muted cuica.sfz",
+     "name": "Muted cuíca",
+     "role": "perc",
+     "choke": 0,
+     "pan": -0.2,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 79,
+     "piece": "Samples/Drums/Latin percussion/Cuica.sfz",
+     "name": "Cuíca",
+     "role": "perc",
+     "choke": 0,
+     "pan": -0.2,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 80,
+     "piece": "Samples/Drums/Latin percussion/Muted triangle.sfz",
+     "name": "Muted triangle",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.45,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 81,
+     "piece": "Samples/Drums/Latin percussion/Triangle.sfz",
+     "name": "Triangle",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.45,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 56,
+     "piece": "Samples/Drums/Latin percussion/Cowbell.sfz",
+     "name": "Cowbell",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.2,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 54,
+     "piece": "Samples/Drums/Latin percussion/Tambourine.sfz",
+     "name": "Tambourine",
+     "role": "shaker",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 58,
+     "piece": "Samples/Drums/Latin percussion/Vibraslap.sfz",
+     "name": "Vibraslap",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Cajón",
+   "tags": [
+    "Drums",
+    "Percussion",
+    "Acoustic"
+   ],
+   "description": "A cajón played from the bass at its centre to the slap at its top edge, with its snares, and its sides for ghost notes. Unplugged sessions.",
+   "pads": [
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Cajon/Bass.sfz",
+     "name": "Bass",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/Cajon/Side.sfz",
+     "name": "Side",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Cajon/Slap.sfz",
+     "name": "Slap",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/Cajon/Snare slap.sfz",
+     "name": "Snare slap",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/Cajon/Snare tone.sfz",
+     "name": "Snare tone",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": -2
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/Cajon/Low tone.sfz",
+     "name": "Low tone",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/Cajon/Side 2.sfz",
+     "name": "Side 2",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/Cajon/Tone.sfz",
+     "name": "Tone",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/Cajon/High tone.sfz",
+     "name": "High tone",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Bobobo",
+   "tags": [
+    "Drums",
+    "Percussion",
+    "African"
+   ],
+   "description": "The drums of bobobo, the Ewe social music of Ghana: a bass, tenors and trebles, open and stopped, with a bell to lead them.",
+   "pads": [
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Bobobo/Bass.sfz",
+     "name": "Bass",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Bobobo/Tenor.sfz",
+     "name": "Tenor",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/Bobobo/Tenor 2.sfz",
+     "name": "Tenor 2",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/Bobobo/Tenor stopped.sfz",
+     "name": "Tenor stop",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/Bobobo/Tenor stopped 2.sfz",
+     "name": "Tenor stop 2",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/Bobobo/Treble.sfz",
+     "name": "Treble",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 47,
+     "piece": "Samples/Drums/Bobobo/Treble 2.sfz",
+     "name": "Treble 2",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 48,
+     "piece": "Samples/Drums/Bobobo/Treble stopped.sfz",
+     "name": "Treble stop",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 50,
+     "piece": "Samples/Drums/Bobobo/Treble stopped 2.sfz",
+     "name": "Treble stop 2",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 67,
+     "piece": "Samples/Drums/Bobobo/High bell.sfz",
+     "name": "High bell",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 68,
+     "piece": "Samples/Drums/Bobobo/Low bell.sfz",
+     "name": "Low bell",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Flamenco",
+   "tags": [
+    "Drums",
+    "Percussion",
+    "Flamenco"
+   ],
+   "description": "A flamenco cajón's bass and slaps, palmas open and muted, and castanets: the rhythm section of a rumba or a bulería.",
+   "pads": [
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Flamenco/Cajon bass.sfz",
+     "name": "Cajón bass",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/Flamenco/Palmas sordas.sfz",
+     "name": "Palmas sordas",
+     "role": "clap",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": -3
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Flamenco/Cajon slap.sfz",
+     "name": "Cajón slap",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/Flamenco/Palmas.sfz",
+     "name": "Palmas",
+     "role": "clap",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/Flamenco/Cajon slap 2.sfz",
+     "name": "Cajón slap 2",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/Flamenco/Castanets.sfz",
+     "name": "Castanets",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/Flamenco/Castanets roll.sfz",
+     "name": "Castanets 2",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 54,
+     "piece": "Samples/Drums/Flamenco/Tambourine.sfz",
+     "name": "Tambourine",
+     "role": "shaker",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Middle Eastern",
+   "tags": [
+    "Drums",
+    "Percussion",
+    "Middle Eastern"
+   ],
+   "description": "A darbuka's doum, tak and pa, frame drums open and muted, a riq-like tambourine and finger cymbals.",
+   "pads": [
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Middle Eastern/Doum.sfz",
+     "name": "Doum",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/Middle Eastern/Pa.sfz",
+     "name": "Pa",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Middle Eastern/Tak.sfz",
+     "name": "Tak",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/Middle Eastern/Darbuka 2.sfz",
+     "name": "Darbuka 2",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/Middle Eastern/Darbuka 3.sfz",
+     "name": "Darbuka 3",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": -2
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/Middle Eastern/Frame drum.sfz",
+     "name": "Frame drum",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.2,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/Middle Eastern/Frame drum muted.sfz",
+     "name": "Frame muted",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.2,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/Middle Eastern/Small frame drum.sfz",
+     "name": "Small frame",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.2,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 47,
+     "piece": "Samples/Drums/Middle Eastern/Small frame muted.sfz",
+     "name": "Small muted",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.2,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/Middle Eastern/Tambourine.sfz",
+     "name": "Riq",
+     "role": "shaker",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/Middle Eastern/Tambourine shake.sfz",
+     "name": "Riq shake",
+     "role": "shaker",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/Middle Eastern/Finger cymbals.sfz",
+     "name": "Zills",
+     "role": "perc",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Tabla",
+   "tags": [
+    "Drums",
+    "Percussion",
+    "Indian"
+   ],
+   "description": "A pair of tabla, one bol a pad: the bass drum's ghe and ke, the treble's na, tin, te, re and tun.",
+   "pads": [
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Tabla/Ghe.sfz",
+     "name": "Ghe",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/Tabla/Ke.sfz",
+     "name": "Ke",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Tabla/Na.sfz",
+     "name": "Na",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/Tabla/Te.sfz",
+     "name": "Te",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/Tabla/Tin.sfz",
+     "name": "Tin",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/Tabla/Ghe slide.sfz",
+     "name": "Ghe 2",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": -3
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/Tabla/Re.sfz",
+     "name": "Re",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/Tabla/Tun.sfz",
+     "name": "Tun",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 44,
+     "piece": "Samples/Drums/Tabla/Na short.sfz",
+     "name": "Na short",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/Tabla/Tas.sfz",
+     "name": "Tas",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/Tabla/Te muted.sfz",
+     "name": "Te muted",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 47,
+     "piece": "Samples/Drums/Tabla/Te ne.sfz",
+     "name": "Te ne",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 48,
+     "piece": "Samples/Drums/Tabla/Dhec.sfz",
+     "name": "Dhec",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Orchestral",
+   "tags": [
+    "Drums",
+    "Percussion",
+    "Orchestral"
+   ],
+   "description": "The orchestra's percussion: a concert bass drum, a snare with its wires on and off, two toms, clash and suspended cymbals, a gong, a triangle and a slapstick.",
+   "pads": [
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Orchestral percussion/Bass drum.sfz",
+     "name": "Bass drum",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Orchestral percussion/Snare.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/Orchestral percussion/Snare off.sfz",
+     "name": "Snare off",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": -2
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/Orchestral percussion/Low tom.sfz",
+     "name": "Low tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.2,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/Orchestral percussion/High tom.sfz",
+     "name": "High tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.2,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/Orchestral percussion/Woodblock.sfz",
+     "name": "Woodblock",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/Orchestral percussion/Tambourine.sfz",
+     "name": "Tambourine",
+     "role": "shaker",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/Orchestral percussion/Clash cymbals.sfz",
+     "name": "Clash cymbals",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/Orchestral percussion/Suspended cymbal.sfz",
+     "name": "Suspended cymbal",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 52,
+     "piece": "Samples/Drums/Orchestral percussion/Gong.sfz",
+     "name": "Gong",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 53,
+     "piece": "Samples/Drums/Orchestral percussion/Suspended bell.sfz",
+     "name": "Cymbal bell",
+     "role": "ride",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 81,
+     "piece": "Samples/Drums/Orchestral percussion/Triangle.sfz",
+     "name": "Triangle",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.4,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 80,
+     "piece": "Samples/Drums/Orchestral percussion/Triangle muted.sfz",
+     "name": "Muted triangle",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.4,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 58,
+     "piece": "Samples/Drums/Orchestral percussion/Slapstick.sfz",
+     "name": "Slapstick",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": -3
+    }
+   ]
+  },
+  {
+   "name": "Junkyard",
+   "tags": [
+    "Drums",
+    "Percussion",
+    "Industrial"
+   ],
+   "description": "Found metal and glass, struck: an anvil, brake drums, metal hits that ring, a chain, a brick and breaking glass. Industrial and cinematic.",
+   "pads": [
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Junkyard/Brake drum.sfz",
+     "name": "Brake drum",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": -3
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/Junkyard/Metal tick.sfz",
+     "name": "Metal tick",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Junkyard/Anvil.sfz",
+     "name": "Anvil",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/Junkyard/Glass.sfz",
+     "name": "Glass",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/Junkyard/Anvil 2.sfz",
+     "name": "Anvil 2",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": -2
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/Junkyard/Brake drum low.sfz",
+     "name": "Brake drum 2",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/Junkyard/Metal hit.sfz",
+     "name": "Metal hit",
+     "role": "hat",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/Junkyard/Brake drum soft.sfz",
+     "name": "Brake soft",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 30.0,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/Junkyard/Metal ring.sfz",
+     "name": "Metal ring",
+     "role": "open hat",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/Junkyard/Metal hit 2.sfz",
+     "name": "Metal hit 2",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 47,
+     "piece": "Samples/Drums/Junkyard/Metal hit 3.sfz",
+     "name": "Metal hit 3",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 48,
+     "piece": "Samples/Drums/Junkyard/Metal hit 4.sfz",
+     "name": "Metal hit 4",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/Junkyard/Chain.sfz",
+     "name": "Chain",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/Junkyard/Brick.sfz",
+     "name": "Brick",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 52,
+     "piece": "Samples/Drums/Junkyard/Gong cymbal.sfz",
+     "name": "Gong cymbal",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 55,
+     "piece": "Samples/Drums/Junkyard/Glass 2.sfz",
+     "name": "Glass 2",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Glitch",
+   "tags": [
+    "Drums",
+    "Electronic",
+    "Glitch"
+   ],
+   "description": "Sixteen glitches: processed clicks, crackles, bursts and stutters for IDM and experimental beats.",
+   "pads": [
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Glitch/Glitch 1.sfz",
+     "name": "Glitch 1",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/Glitch/Glitch 2.sfz",
+     "name": "Glitch 2",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Glitch/Glitch 3.sfz",
+     "name": "Glitch 3",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/Glitch/Glitch 4.sfz",
+     "name": "Glitch 4",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/Glitch/Glitch 5.sfz",
+     "name": "Glitch 5",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/Glitch/Glitch 6.sfz",
+     "name": "Glitch 6",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/Glitch/Glitch 7.sfz",
+     "name": "Glitch 7",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/Glitch/Glitch 8.sfz",
+     "name": "Glitch 8",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 44,
+     "piece": "Samples/Drums/Glitch/Glitch 9.sfz",
+     "name": "Glitch 9",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/Glitch/Glitch 10.sfz",
+     "name": "Glitch 10",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/Glitch/Glitch 11.sfz",
+     "name": "Glitch 11",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 47,
+     "piece": "Samples/Drums/Glitch/Glitch 12.sfz",
+     "name": "Glitch 12",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 48,
+     "piece": "Samples/Drums/Glitch/Glitch 13.sfz",
+     "name": "Glitch 13",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/Glitch/Glitch 14.sfz",
+     "name": "Glitch 14",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 50,
+     "piece": "Samples/Drums/Glitch/Glitch 15.sfz",
+     "name": "Glitch 15",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/Glitch/Glitch 16.sfz",
+     "name": "Glitch 16",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 50,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
    "name": "Body",
    "tags": [
     "Drums",

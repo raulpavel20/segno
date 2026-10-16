@@ -94,6 +94,27 @@ SOURCES = {
         "commit": "7b39b6639705f801dd9d907d6c1715b8c795a376",
         "license": "CC0-1.0",
     },
+    "gogodze1": {
+        "name": "Gogodze Phu Vol. I (Karoryfer Samples)",
+        "url": "https://github.com/sfzinstruments/karoryfer.gogodze-phu-vol-i",
+        "repo": "sfzinstruments/karoryfer.gogodze-phu-vol-i",
+        "commit": "7452f62060cd3a468c78bc361d96a4dfb30879c9",
+        "license": "CC0-1.0",
+    },
+    "fpworld": {
+        "name": "FreePats World Percussion",
+        "url": "https://github.com/freepats/world-percussion",
+        "repo": "freepats/world-percussion",
+        "commit": "e54eb2912a0d6d4444ab205d52f778e27da0fc96",
+        "license": "CC0-1.0",
+    },
+    "zamenhof": {
+        "name": "Zamenhof Stickmusterstuch Error (Karoryfer Samples)",
+        "url": "https://github.com/sfzinstruments/zamenhof_stickmusterstuch_error",
+        "repo": "sfzinstruments/zamenhof_stickmusterstuch_error",
+        "commit": "338133ee7fe6a429576c0dea3edfa1b9270201b6",
+        "license": "CC0-1.0",
+    },
     "fischer": {
         # Michael Fischer's recordings (1994), CC0 by their repackager, TidalCycles (ADR 0068).
         "name": "Michael Fischer's 808 recordings (TidalCycles' repackaging)",
@@ -170,7 +191,7 @@ def _layers(regions, layers, takes):
 
 def mapped(ctx, pool, name, source, maps, seconds, layers=6, takes=3):
     """A piece from the source's own maps, one per microphone: [(map path, gain dB, pan)] or
-    [(map path, gain dB, pan, pattern)], the pattern picking the map's regions by their samples' names
+    [(map path, gain dB, pan, pattern)], the pattern picking the map's regions by their samples' paths
     where one map holds several articulations or microphones. Their regions come in the same order;
     their samples are relative to the maps' program folder."""
     tree = ctx.tree(source)
@@ -178,7 +199,7 @@ def mapped(ctx, pool, name, source, maps, seconds, layers=6, takes=3):
     for path, gain, pan, *pattern in maps:
         regions = ctx.parse_sfz(ctx.text(source, path))
         if pattern:
-            regions = [r for r in regions if re.search(pattern[0], os.path.basename(r["sample"]))]
+            regions = [r for r in regions if re.search(pattern[0], r["sample"].replace("\\", "/"))]
         if not regions:
             raise SystemExit(f"{source}: {path} maps nothing{' for ' + pattern[0] if pattern else ''}")
         program = path.split("/mappings/")[0] if "/mappings/" in path else os.path.dirname(path)
@@ -202,6 +223,40 @@ def mapped(ctx, pool, name, source, maps, seconds, layers=6, takes=3):
             zone["file"] = parts[0]["file"]
         else:
             zone["mix"] = parts
+        zones.append(zone)
+    return _add(Piece(pool, name, source, seconds, zones))
+
+
+DYNAMICS = ["ppp", "pp", "p", "mp", "mf", "f", "ff", "fff"]
+
+
+def named(ctx, pool, name, source, pattern, seconds, layers=6, takes=4):
+    """A piece from the files whose paths match `pattern`: its group `vel` names a velocity layer (a
+    number, or a dynamic: pp, mf, ff), its group `rr` a take; either may be missing."""
+    found = []
+    for path in ctx.tree(source):
+        m = re.search(pattern, path)
+        if m:
+            found.append((path, m.groupdict()))
+    if not found:
+        raise SystemExit(f"{source}: nothing matches {pattern}")
+
+    def loudness(v):
+        if v is None:
+            return 0
+        return DYNAMICS.index(v) if v in DYNAMICS else int(re.sub(r"\D", "", v) or 0)
+
+    levels = sorted({loudness(g.get("vel")) for _, g in found})
+    regions = []
+    for path, g in sorted(found, key=lambda f: (loudness(f[1].get("vel")), int(f[1].get("rr") or 0), f[0])):
+        i = levels.index(loudness(g.get("vel")))
+        regions.append({"lovel": str(128 * i // len(levels)), "hivel": str(128 * (i + 1) // len(levels) - 1),
+                        "_file": path})
+    zones = []
+    for li, ti, count, lo, hi, region in _layers(regions, layers, takes):
+        zone = {"file": region["_file"], "name": f"{_short(name)}_v{li + 1}_{ti + 1}", "lovel": lo, "hivel": hi}
+        if count > 1:
+            zone["seq"] = [count, ti + 1]
         zones.append(zone)
     return _add(Piece(pool, name, source, seconds, zones))
 
@@ -288,6 +343,15 @@ def kits(ctx):
     out.append(_future(ctx))
     out.append(_electro_lab(ctx))
     out.append(_minimal(ctx))
+    out.append(_latin(ctx))
+    out.append(_cajon(ctx))
+    out.append(_bobobo(ctx))
+    out.append(_flamenco(ctx))
+    out.append(_middle_eastern(ctx))
+    out.append(_tabla(ctx))
+    out.append(_orchestral(ctx))
+    out.append(_junkyard(ctx))
+    out.append(_glitch(ctx))
     out.append(_body(ctx))
     return out
 
@@ -628,9 +692,9 @@ def _seventies(ctx):
     drum = [("front", -3.0), ("oh", -6.0), ("side", -8.0)]
     pads = [
         Pad(KICK, piece("Kick", "kick", [("kick", 0.0), *drum], 2.0), "Kick", "kick"),
-        Pad(SIDESTICK, piece("Side-stick", "snare", [("snare", 0.0), *drum], 1.0, r"^ss_"), "Side-stick", "rim"),
-        Pad(SNARE, piece("Snare", "snare", [("snare", 0.0), *drum], 2.0, r"^sc_"), "Snare", "snare"),
-        Pad(SNARE2, piece("Snare edge", "snare", [("snare", 0.0), *drum], 2.0, r"^se_"), "Edge", "snare", trim=-2),
+        Pad(SIDESTICK, piece("Side-stick", "snare", [("snare", 0.0), *drum], 1.0, r"/ss_"), "Side-stick", "rim"),
+        Pad(SNARE, piece("Snare", "snare", [("snare", 0.0), *drum], 2.0, r"/sc_"), "Snare", "snare"),
+        Pad(SNARE2, piece("Snare edge", "snare", [("snare", 0.0), *drum], 2.0, r"/se_"), "Edge", "snare", trim=-2),
         Pad(LOWTOM_F, piece("Low tom", "toml", [("front", 0.0), ("oh", -3.0), ("side", -6.0)], 3.0), "Low tom",
             "tom", pan=-0.3),
         Pad(CLOSED, piece("Closed hat", "hc", [("oh", 0.0), ("front", -4.0)], 1.0), "Closed hat", "hat", choke=1,
@@ -1171,3 +1235,317 @@ def _minimal(ctx):
     return Kit("Minimal", ["Drums", "Electronic", "Techno"],
                "Small, dry club sounds: two kicks, clicky snares and snaps, a family of thin hats and a bell. "
                "Minimal techno and microhouse.", pads)
+
+
+# ---- percussion kits --------------------------------------------------------------------------
+
+VCSL_DRUMS = "Membranophones/Struck Membranophones"
+VCSL_STRUCK = "Idiophones/Struck Idiophones"
+
+
+def _latin(ctx):
+    """Virtuosity's Latin percussion, close, mid, overhead and room microphones together: congas,
+    bongos, timbales, bells, shakers and a cuíca (the timbales, cuíca and blocks through the
+    overheads alone, as they were recorded)."""
+    pool, src = "Latin percussion", "virtuosity"
+    m = "Programs/mappings/perc"
+
+    def perc(name, map_name, seconds=2.0, full=True, layers=6, takes=3):
+        mics = [(f"{m}/close/{map_name}_map.sfz", 0.0, 0.0), (f"{m}/mid/{map_name}_map.sfz", -3.0, 0.0),
+                (f"{m}/oh/{map_name}_map.sfz", -6.0, 0.0), (f"{m}/room/{map_name}_map.sfz", -9.0, 0.0)] if full \
+            else [(f"{m}/oh/{map_name}_map.sfz", 0.0, 0.0)]
+        return mapped(ctx, pool, name, src, mics, seconds, layers, takes)
+
+    pads = [
+        Pad(HIGHBONGO, perc("High bongo", "bongo_high"), "High bongo", "perc", pan=0.25),
+        Pad(LOWBONGO, perc("Low bongo", "bongo_low"), "Low bongo", "perc", pan=0.15),
+        Pad(MUTECONGA, perc("Muted conga", "conga_muted"), "Muted conga", "perc", pan=-0.1),
+        Pad(OPENCONGA, perc("Conga", "conga_open"), "Conga", "perc", pan=-0.15),
+        Pad(LOWCONGA, perc("Tumba", "tumba"), "Tumba", "perc", pan=-0.3),
+        Pad(HIGHTIMBALE, perc("High timbale", "timbale_13", full=False), "High timbale", "perc", pan=0.35),
+        Pad(LOWTIMBALE, perc("Low timbale", "timbale_14", full=False), "Low timbale", "perc", pan=0.3),
+        Pad(HIGHAGOGO, perc("High agogo", "agogo_high"), "High agogo", "perc", pan=0.4),
+        Pad(LOWAGOGO, perc("Low agogo", "agogo_low"), "Low agogo", "perc", pan=0.4),
+        Pad(CABASA, perc("Cabasa", "cabasa"), "Cabasa", "shaker", pan=-0.35),
+        Pad(MARACAS, perc("Shaker", "shaker_down"), "Shaker", "shaker", pan=0.35),
+        Pad(SHORTWHISTLE, perc("Short whistle", "whistle_short"), "Short whistle", "fx"),
+        Pad(LONGWHISTLE, perc("Long whistle", "whistle_long", 3.0), "Long whistle", "fx"),
+        Pad(SHORTGUIRO, perc("Short guiro", "guiro_fast"), "Short guiro", "shaker", pan=-0.25),
+        Pad(LONGGUIRO, perc("Long guiro", "guiro_slow", 3.0), "Long guiro", "shaker", pan=-0.25),
+        Pad(CLAVES, perc("Claves", "claves"), "Claves", "perc", pan=0.2),
+        Pad(HIGHBLOCK, perc("High block", "woodblock_high", full=False), "High block", "perc", pan=0.3),
+        Pad(LOWBLOCK, perc("Low block", "woodblock_low", full=False), "Low block", "perc", pan=0.3),
+        Pad(MUTECUICA, perc("Muted cuica", "cuica_muted", full=False), "Muted cuíca", "perc", pan=-0.2),
+        Pad(OPENCUICA, perc("Cuica", "cuica_open", full=False), "Cuíca", "perc", pan=-0.2),
+        Pad(MUTETRIANGLE, perc("Muted triangle", "triangle_muted"), "Muted triangle", "perc", pan=0.45),
+        Pad(OPENTRIANGLE, perc("Triangle", "triangle_open", 4.0), "Triangle", "perc", pan=0.45),
+        Pad(COWBELL, perc("Cowbell", "cowbell"), "Cowbell", "perc", pan=0.2),
+        Pad(TAMB, perc("Tambourine", "tambourine"), "Tambourine", "shaker", pan=-0.3),
+        Pad(VIBRASLAP, perc("Vibraslap", "vibraslap", 3.0), "Vibraslap", "fx"),
+    ]
+    return Kit("Latin", ["Drums", "Percussion", "Latin"],
+               "A full Latin percussion section in a room: congas and tumba, bongos, timbales, agogos, a "
+               "cowbell, guiros, shakers, claves and a cuíca.", pads)
+
+
+def _cajon(ctx):
+    """A deeply sampled cajón: five strike positions down its face, two with its snares, and its
+    sides, through a condenser and a dynamic microphone."""
+    pool, src = "Cajon", "gogodze1"
+    m = "Programs/mappings"
+
+    def stroke(name, code, seconds=1.5, maps="hits"):
+        return mapped(ctx, pool, name, src,
+                      [(f"{m}/cajon_{maps}_cnd.sfz", 0.0, 0.0, f"/cajon_{code}_"),
+                       (f"{m}/cajon_{maps}_dyn.sfz", -4.0, 0.0, f"/cajon_{code}_")], seconds, layers=4, takes=4)
+
+    pads = [
+        Pad(KICK, stroke("Bass", "sl1"), "Bass", "kick"),
+        Pad(SIDESTICK, stroke("Side", "sl6", maps="sides"), "Side", "rim"),
+        Pad(SNARE, stroke("Slap", "sl5"), "Slap", "snare"),
+        Pad(CLAP, stroke("Snare slap", "sr2"), "Snare slap", "snare"),
+        Pad(SNARE2, stroke("Snare tone", "sr1"), "Snare tone", "snare", trim=-2),
+        Pad(LOWTOM_F, stroke("Low tone", "sl2"), "Low tone", "tom"),
+        Pad(CLOSED, stroke("Side 2", "sl7", maps="sides"), "Side 2", "rim"),
+        Pad(LOWTOM, stroke("Tone", "sl3"), "Tone", "tom"),
+        Pad(MIDTOM_L, stroke("High tone", "sl4"), "High tone", "tom"),
+    ]
+    return Kit("Cajón", ["Drums", "Percussion", "Acoustic"],
+               "A cajón played from the bass at its centre to the slap at its top edge, with its snares, and "
+               "its sides for ghost notes. Unplugged sessions.", pads)
+
+
+def _bobobo(ctx):
+    """Bobobo, the Ewe social music of Ghana: its bass, tenor and treble drums, open and stopped,
+    with VCSL's agogo standing for its bell."""
+    pool = "Bobobo"
+    m = "Programs/mappings"
+
+    def drum(name, map_name):
+        return mapped(ctx, pool, name, "gogodze1", [(f"{m}/{map_name}.sfz", 0.0, 0.0)], 2.0, layers=4, takes=4)
+
+    bell = lambda name, which: named(ctx, pool, name, "vcsl",
+                                     rf"^{VCSL_STRUCK}/Agogo Bells/Agogo_{which}_v(?P<vel>\d)_rr(?P<rr>\d)_Mid\.wav$",
+                                     2.0)
+    pads = [
+        Pad(KICK, drum("Bass", "bobobo_bass"), "Bass", "kick"),
+        Pad(SNARE, drum("Tenor", "bobobo_tenor_l_1"), "Tenor", "tom"),
+        Pad(SNARE2, drum("Tenor 2", "bobobo_tenor_l_2"), "Tenor 2", "tom"),
+        Pad(LOWTOM_F, drum("Tenor stopped", "bobobo_tenor_s_1"), "Tenor stop", "tom"),
+        Pad(LOWTOM, drum("Tenor stopped 2", "bobobo_tenor_s_2"), "Tenor stop 2", "tom"),
+        Pad(MIDTOM_L, drum("Treble", "bobobo_treble_l_1"), "Treble", "tom"),
+        Pad(MIDTOM, drum("Treble 2", "bobobo_treble_l_2"), "Treble 2", "tom"),
+        Pad(HIGHTOM_L, drum("Treble stopped", "bobobo_treble_s_1"), "Treble stop", "tom"),
+        Pad(HIGHTOM, drum("Treble stopped 2", "bobobo_treble_s_2"), "Treble stop 2", "tom"),
+        Pad(HIGHAGOGO, bell("High bell", "High"), "High bell", "perc", pan=0.3),
+        Pad(LOWAGOGO, bell("Low bell", "Low"), "Low bell", "perc", pan=0.3),
+    ]
+    return Kit("Bobobo", ["Drums", "Percussion", "African"],
+               "The drums of bobobo, the Ewe social music of Ghana: a bass, tenors and trebles, open and "
+               "stopped, with a bell to lead them.", pads)
+
+
+def _freepats(name, *names):
+    return [f"samples/{name}/{n}.flac" for n in names]
+
+
+def _flamenco(ctx):
+    """A flamenco cajón, palmas and castanets, recorded by one recordist."""
+    pool, src = "Flamenco", "fpworld"
+
+    def piece(name, paths, seconds=1.5):
+        return files(ctx, pool, name, src, paths, seconds)
+
+    pads = [
+        Pad(KICK, piece("Cajon bass", _freepats("CajonFlamenco", "101", "102", "103", "104", "105", "106")),
+            "Cajón bass", "kick", velocity=50),
+        Pad(SIDESTICK, piece("Palmas sordas", _freepats("HandClap", "02_02", "02_05")), "Palmas sordas", "clap",
+            velocity=50, trim=-3),
+        Pad(SNARE, piece("Cajon slap", _freepats("CajonFlamenco", "201", "202", "203", "204", "205", "206")),
+            "Cajón slap", "snare", velocity=50),
+        Pad(CLAP, piece("Palmas", _freepats("HandClap", "01_02", "01_03", "01_05", "01_06", "01_07", "01_08")),
+            "Palmas", "clap", velocity=50),
+        Pad(SNARE2, piece("Cajon slap 2", _freepats("CajonFlamenco", "214", "216", "217", "218", "219", "220")),
+            "Cajón slap 2", "snare", velocity=50),
+        Pad(CLOSED, piece("Castanets", _freepats("Castanets", "01", "02", "03", "04", "05", "06")), "Castanets",
+            "perc", velocity=50, pan=0.3),
+        Pad(OPEN, piece("Castanets roll", _freepats("Castanets", "09", "10", "11", "12")), "Castanets 2", "perc",
+            velocity=50, pan=0.3),
+        Pad(TAMB, piece("Tambourine", _freepats("Tambourine", "05", "06", "07", "08")), "Tambourine", "shaker",
+            velocity=50, pan=-0.3),
+    ]
+    return Kit("Flamenco", ["Drums", "Percussion", "Flamenco"],
+               "A flamenco cajón's bass and slaps, palmas open and muted, and castanets: the rhythm section "
+               "of a rumba or a bulería.", pads)
+
+
+def _middle_eastern(ctx):
+    """A darbuka's doum, tak and pa, VCSL's darbuka strokes, two frame drums, a tambourine and
+    finger cymbals."""
+    pool = "Middle Eastern"
+
+    def fp(name, *names):
+        return files(ctx, pool, name, "fpworld", [f"samples/Darbuka/{n}.flac" for n in names], 1.5)
+
+    def vcsl(name, folder, pattern, seconds=2.0):
+        return named(ctx, pool, name, "vcsl", rf"^{VCSL_DRUMS}/{folder}/{pattern}$", seconds)
+
+    pads = [
+        Pad(KICK, fp("Doum", "doom_01_01", "doom_01_02", "doom_01_03", "doom_01_04", "doom_01_05", "doom_01_06"),
+            "Doum", "kick", velocity=50),
+        Pad(SIDESTICK, fp("Pa", "pa_03_01", "pa_03_02", "pa_03_03", "pa_03_04"), "Pa", "rim", velocity=50),
+        Pad(SNARE, fp("Tak", "tak_02_01", "tak_02_02", "tak_02_03", "tak_02_04", "tak_02_05", "tak_02_06"),
+            "Tak", "snare", velocity=50),
+        Pad(CLAP, vcsl("Darbuka 2", "Darbuka", r"Darbuka_2_hit_vl(?P<vel>\d)_rr(?P<rr>\d)\.wav"), "Darbuka 2", "snare"),
+        Pad(SNARE2, vcsl("Darbuka 3", "Darbuka", r"Darbuka_3_hit_vl(?P<vel>\d)_rr(?P<rr>\d)\.wav"), "Darbuka 3",
+            "snare", trim=-2),
+        Pad(LOWTOM_F, vcsl("Frame drum", "Frame Drum", r"HDrumL_Hit_v(?P<vel>\d)_rr(?P<rr>\d)_Sum\.wav", 3.0),
+            "Frame drum", "tom", pan=-0.2),
+        Pad(LOWTOM, vcsl("Frame drum muted", "Frame Drum", r"HDrumL_HitMuted_v(?P<vel>\d)_rr(?P<rr>\d)_Sum\.wav"),
+            "Frame muted", "tom", pan=-0.2),
+        Pad(MIDTOM_L, vcsl("Small frame drum", "Frame Drum", r"HDrumS_Hit_v(?P<vel>\d)_rr(?P<rr>\d)_Sum\.wav", 3.0),
+            "Small frame", "tom", pan=0.2),
+        Pad(MIDTOM, vcsl("Small frame muted", "Frame Drum", r"HDrumS_HitMuted_v(?P<vel>\d)_rr(?P<rr>\d)_Sum\.wav"),
+            "Small muted", "tom", pan=0.2),
+        Pad(CLOSED, named(ctx, pool, "Tambourine", "vcsl",
+                          rf"^{VCSL_STRUCK}/Tambourine 1/Tamb1_Hit_v(?P<vel>\d)_rr(?P<rr>\d)_Mid\.wav$", 2.0),
+            "Riq", "shaker", pan=0.3),
+        Pad(OPEN, named(ctx, pool, "Tambourine shake", "vcsl",
+                        rf"^{VCSL_STRUCK}/Tambourine 1/Tamb1_Shake_rr(?P<rr>\d)_Mid\.wav$", 2.0),
+            "Riq shake", "shaker", pan=0.3),
+        Pad(CRASH, named(ctx, pool, "Finger cymbals", "vcsl", rf"^{VCSL_STRUCK}/Finger Cymbals/Fing_Cymb\.wav$", 4.0),
+            "Zills", "perc", pan=-0.3),
+    ]
+    return Kit("Middle Eastern", ["Drums", "Percussion", "Middle Eastern"],
+               "A darbuka's doum, tak and pa, frame drums open and muted, a riq-like tambourine and finger "
+               "cymbals.", pads)
+
+
+def _tabla(ctx):
+    """Tabla bols, one stroke a pad: the bayan's ghe and ke, the dayan's na, tin, te and re."""
+    pool, src = "Tabla", "sonicpi"
+
+    def bol(name, *names, seconds=2.0):
+        return files(ctx, pool, name, src, [f"etc/samples/tabla_{n}.flac" for n in names], seconds)
+
+    pads = [
+        Pad(KICK, bol("Ghe", "ghe1", "ghe2", "ghe3", "ghe4"), "Ghe", "kick", velocity=50),
+        Pad(SIDESTICK, bol("Ke", "ke1", "ke2", "ke3"), "Ke", "rim", velocity=50),
+        Pad(SNARE, bol("Na", "na"), "Na", "snare", velocity=50),
+        Pad(CLAP, bol("Te", "te1", "te2"), "Te", "snare", velocity=50),
+        Pad(SNARE2, bol("Tin", "na_o"), "Tin", "snare", velocity=50),
+        Pad(LOWTOM_F, bol("Ghe slide", "ghe5", "ghe6", "ghe7", "ghe8"), "Ghe 2", "kick", velocity=50, trim=-3),
+        Pad(CLOSED, bol("Re", "re"), "Re", "perc", velocity=50),
+        Pad(LOWTOM, bol("Tun", "tun1", "tun2", "tun3"), "Tun", "tom", velocity=50),
+        Pad(PEDAL, bol("Na short", "na_s"), "Na short", "perc", velocity=50),
+        Pad(MIDTOM_L, bol("Tas", "tas1", "tas2", "tas3"), "Tas", "tom", velocity=50),
+        Pad(OPEN, bol("Te muted", "te_m"), "Te muted", "perc", velocity=50),
+        Pad(MIDTOM, bol("Te ne", "te_ne"), "Te ne", "perc", velocity=50),
+        Pad(HIGHTOM_L, bol("Dhec", "dhec"), "Dhec", "perc", velocity=50),
+    ]
+    return Kit("Tabla", ["Drums", "Percussion", "Indian"],
+               "A pair of tabla, one bol a pad: the bass drum's ghe and ke, the treble's na, tin, te, re and "
+               "tun.", pads)
+
+
+def _orchestral(ctx):
+    """The orchestra's percussion section: a concert bass drum, a concert snare, two toms, clash and
+    suspended cymbals, a gong, a triangle, a tambourine and a woodblock."""
+    pool = "Orchestral percussion"
+
+    def v(name, pattern, seconds, **options):
+        return named(ctx, pool, name, "vcsl", pattern, seconds, **options)
+
+    pads = [
+        Pad(KICK, v("Bass drum", rf"^{VCSL_DRUMS}/Bass Drum 1/BDrumNew_hit_v(?P<vel>\d)_rr(?P<rr>\d)_Sum\.wav$", 4.0),
+            "Bass drum", "kick"),
+        Pad(SNARE, v("Snare", rf"^{VCSL_DRUMS}/Snare Drum, Modern 1/Snare2_HitSN_v(?P<vel>\d)_rr(?P<rr>\d)_Mid\.wav$",
+                     2.0), "Snare", "snare"),
+        Pad(SNARE2, v("Snare off", rf"^{VCSL_DRUMS}/Snare Drum, Modern 1/Snare2_HitNS_v(?P<vel>\d)_rr(?P<rr>\d)_Mid\.wav$",
+                      2.0), "Snare off", "snare", trim=-2),
+        Pad(LOWTOM_F, v("Low tom", rf"^{VCSL_DRUMS}/Tom 2/Stick/TomL_HitS_v(?P<vel>\d)_rr(?P<rr>\d)_Mid\.wav$", 3.0),
+            "Low tom", "tom", pan=-0.2),
+        Pad(LOWTOM, v("High tom", rf"^{VCSL_DRUMS}/Tom 1/Stick/TomH_HitS_v(?P<vel>\d)_rr(?P<rr>\d)_Mid\.wav$", 3.0),
+            "High tom", "tom", pan=0.2),
+        Pad(CLOSED, v("Woodblock", rf"^{VCSL_STRUCK}/Woodblock/wood_click_(?P<vel>pp|mp|f|ff)(_rr(?P<rr>\d))?\.wav$",
+                      1.0), "Woodblock", "perc", pan=0.3),
+        Pad(OPEN, v("Tambourine", rf"^{VCSL_STRUCK}/Tambourine 2/Tamb2_Hit_v(?P<vel>\d)_rr(?P<rr>\d)_Mid\.wav$", 2.0),
+            "Tambourine", "shaker", pan=-0.3),
+        Pad(CRASH, v("Clash cymbals", rf"^{VCSL_STRUCK}/Clash Cymbals 1/cymbal_crash1_(?P<vel>pp|mp|mf|ff)(?P<rr>\d)\.wav$",
+                     8.0), "Clash cymbals", "cymbal", pan=-0.3),
+        Pad(RIDE, v("Suspended cymbal", rf"^{VCSL_STRUCK}/Suspended Cymbal 1/susCymb1_hit_(?P<vel>pp|mp|f|fff)(?P<rr>1)\.wav$",
+                    8.0), "Suspended cymbal", "cymbal", pan=0.3),
+        Pad(CHINA, v("Gong", rf"^{VCSL_STRUCK}/Gong 1/gong_(?P<vel>p|mf|f|fff)\.wav$", 10.0), "Gong", "cymbal"),
+        Pad(BELL, v("Suspended bell", rf"^{VCSL_STRUCK}/Suspended Cymbal 1/susCymb1_hit_bell_(?P<vel>pp|mf|fff)1\.wav$",
+                    6.0), "Cymbal bell", "ride", pan=0.3),
+        Pad(OPENTRIANGLE, v("Triangle", rf"^{VCSL_STRUCK}/Triangles/Legacy/1/triangle1_hit_(?P<vel>pp|mp)\.wav$", 5.0),
+            "Triangle", "perc", pan=0.4),
+        Pad(MUTETRIANGLE, v("Triangle muted", rf"^{VCSL_STRUCK}/Triangles/Legacy/1/triangle1_hit_mp_muted(?P<rr>\d)\.wav$",
+                            1.0), "Muted triangle", "perc", pan=0.4),
+        Pad(VIBRASLAP, v("Slapstick", rf"^{VCSL_STRUCK}/Slapstick/slapstick_rr(?P<rr>\d)\.wav$", 1.5), "Slapstick",
+            "snare", trim=-3),
+    ]
+    return Kit("Orchestral", ["Drums", "Percussion", "Orchestral"],
+               "The orchestra's percussion: a concert bass drum, a snare with its wires on and off, two toms, "
+               "clash and suspended cymbals, a gong, a triangle and a slapstick.", pads)
+
+
+def _junkyard(ctx):
+    """Found metal and glass, struck: an anvil, brake drums, metal hits, chains and breaking glass."""
+    pool = "Junkyard"
+    misc = "Miscellania Raw/Misc 1"
+
+    def v(name, pattern, seconds=2.0):
+        return named(ctx, pool, name, "vcsl", pattern, seconds)
+
+    def vs(name, *names, seconds=2.0):
+        return files(ctx, pool, name, "vsco", [f"{misc}/{n}.wav" for n in names], seconds)
+
+    pads = [
+        Pad(KICK, v("Brake drum", rf"^{VCSL_STRUCK}/Brake Drum/BrakeDrum1_Hammer_v(?P<vel>\d)_rr(?P<rr>\d)_Mid\.wav$"),
+            "Brake drum", "kick", trim=-3),
+        Pad(SIDESTICK, vs("Metal tick", "metal_hit1", "metal_hit2"), "Metal tick", "rim", velocity=50),
+        Pad(SNARE, v("Anvil", rf"^{VCSL_STRUCK}/Anvil/Anvil_Hit1_v(?P<vel>\d)_rr(?P<rr>\d)_Mid\.wav$"), "Anvil", "snare"),
+        Pad(CLAP, vs("Glass", "glass_break", "glass_break2", "glass_break3", "glass_break4"), "Glass", "fx",
+            velocity=50),
+        Pad(SNARE2, v("Anvil 2", rf"^{VCSL_STRUCK}/Anvil/Anvil_Hit2_v(?P<vel>\d)_rr(?P<rr>\d)_Mid\.wav$"), "Anvil 2",
+            "snare", trim=-2),
+        Pad(LOWTOM_F, v("Brake drum low", rf"^{VCSL_STRUCK}/Brake Drum/BrakeDrum2_Hammer3_v(?P<vel>\d)_rr(?P<rr>\d)_Mid\.wav$"),
+            "Brake drum 2", "tom"),
+        Pad(CLOSED, vs("Metal hit", "metal_hit3", "metal_hit4", "metal_hit5"), "Metal hit", "hat", velocity=50),
+        Pad(LOWTOM, v("Brake drum soft", rf"^{VCSL_STRUCK}/Brake Drum/BrakeDrum1_YarnM_v(?P<vel>\d)_rr(?P<rr>\d)_Mid\.wav$"),
+            "Brake soft", "tom"),
+        Pad(OPEN, vs("Metal ring", "metal_hit6", "metal_hit7", seconds=3.0), "Metal ring", "open hat", velocity=50),
+        Pad(MIDTOM_L, vs("Metal hit 2", "metal_hit8", "metal_hit9"), "Metal hit 2", "perc", velocity=50),
+        Pad(MIDTOM, vs("Metal hit 3", "metal_hit10", "metal_hit11"), "Metal hit 3", "perc", velocity=50),
+        Pad(HIGHTOM_L, vs("Metal hit 4", "metal_hit13", "metal_hit14"), "Metal hit 4", "perc", velocity=50),
+        Pad(CRASH, vs("Chain", "chain_grind", seconds=4.0), "Chain", "fx", velocity=50),
+        Pad(RIDE, vs("Brick", "brick_scrape", "brick_scrape2"), "Brick", "fx", velocity=50),
+        Pad(CHINA, vs("Gong cymbal", "cymb_gong", "cymb_gong2", seconds=6.0), "Gong cymbal", "cymbal", velocity=50),
+        Pad(SPLASH, vs("Glass 2", "glass_break5", "glass_break6", "glass_break7"), "Glass 2", "fx", velocity=50),
+    ]
+    return Kit("Junkyard", ["Drums", "Percussion", "Industrial"],
+               "Found metal and glass, struck: an anvil, brake drums, metal hits that ring, a chain, a brick "
+               "and breaking glass. Industrial and cinematic.", pads)
+
+
+GLITCH = ["Eins Samples/24", "Eins Samples/21", "Eins Samples/27", "Eins Samples/81", "Eins Samples/13",
+          "Eins Samples/12", "Eins Samples/22", "Eins Samples/04", "Eins Samples/35", "Eins Samples/38",
+          "Eins Samples/05", "Eins Samples/80", "Eins Samples/11", "Eins Samples/61", "Eins Samples/10",
+          "Zwei Samples/z02"]
+
+
+def _glitch(ctx):
+    """Sixteen short glitches: processed clicks, crackles and bursts, the strongest of the library's
+    one-shots."""
+    pool, src = "Glitch", "zamenhof"
+    notes = [KICK, SIDESTICK, SNARE, CLAP, SNARE2, LOWTOM_F, CLOSED, LOWTOM, PEDAL, MIDTOM_L, OPEN, MIDTOM,
+             HIGHTOM_L, CRASH, HIGHTOM, RIDE]
+    pads = []
+    for i, (note, path) in enumerate(zip(notes, GLITCH), 1):
+        folder, number = path.split("/")
+        sfz = files(ctx, pool, f"Glitch {i}", src, [f"Zamenhof Stickmusterstuch Error {folder}/{number}.wav"], 1.5)
+        pads.append(Pad(note, sfz, f"Glitch {i}", "fx", velocity=50))
+    return Kit("Glitch", ["Drums", "Electronic", "Glitch"],
+               "Sixteen glitches: processed clicks, crackles, bursts and stutters for IDM and experimental "
+               "beats.", pads)

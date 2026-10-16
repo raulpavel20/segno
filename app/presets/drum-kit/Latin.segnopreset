@@ -1,0 +1,1453 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Drums",
+    "Percussion",
+    "Latin"
+  ],
+  "description": "A full Latin percussion section in a room: congas and tumba, bongos, timbales, agogos, a cowbell, guiros, shakers, claves and a cuíca.",
+  "author": "Segno",
+  "state": {
+    "device": "drum-kit",
+    "extra": {
+      "pads": [
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/Tambourine.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Tambourine",
+          "note": 54,
+          "on": true,
+          "pan": -0.3,
+          "plays": 60,
+          "volumeDb": -11.7
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/Cowbell.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Cowbell",
+          "note": 56,
+          "on": true,
+          "pan": 0.2,
+          "plays": 60,
+          "volumeDb": -9.6
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/Vibraslap.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Vibraslap",
+          "note": 58,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -4.2
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/High bongo.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "High bongo",
+          "note": 60,
+          "on": true,
+          "pan": 0.25,
+          "plays": 60,
+          "volumeDb": -7.8
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/Low bongo.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Low bongo",
+          "note": 61,
+          "on": true,
+          "pan": 0.15,
+          "plays": 60,
+          "volumeDb": -7.6
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/Muted conga.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Muted conga",
+          "note": 62,
+          "on": true,
+          "pan": -0.1,
+          "plays": 60,
+          "volumeDb": -9.7
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/Conga.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Conga",
+          "note": 63,
+          "on": true,
+          "pan": -0.15,
+          "plays": 60,
+          "volumeDb": -13.2
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/Tumba.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Tumba",
+          "note": 64,
+          "on": true,
+          "pan": -0.3,
+          "plays": 60,
+          "volumeDb": -11.5
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/High timbale.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "High timbale",
+          "note": 65,
+          "on": true,
+          "pan": 0.35,
+          "plays": 60,
+          "volumeDb": -8.6
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/Low timbale.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Low timbale",
+          "note": 66,
+          "on": true,
+          "pan": 0.3,
+          "plays": 60,
+          "volumeDb": -10.2
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/High agogo.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "High agogo",
+          "note": 67,
+          "on": true,
+          "pan": 0.4,
+          "plays": 60,
+          "volumeDb": -6.1
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/Low agogo.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Low agogo",
+          "note": 68,
+          "on": true,
+          "pan": 0.4,
+          "plays": 60,
+          "volumeDb": -6.6
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/Cabasa.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Cabasa",
+          "note": 69,
+          "on": true,
+          "pan": -0.35,
+          "plays": 60,
+          "volumeDb": -10.6
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/Shaker.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Shaker",
+          "note": 70,
+          "on": true,
+          "pan": 0.35,
+          "plays": 60,
+          "volumeDb": -11.5
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/Short whistle.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Short whistle",
+          "note": 71,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -10.8
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/Long whistle.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Long whistle",
+          "note": 72,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -10.9
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/Short guiro.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Short guiro",
+          "note": 73,
+          "on": true,
+          "pan": -0.25,
+          "plays": 60,
+          "volumeDb": -9.5
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/Long guiro.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Long guiro",
+          "note": 74,
+          "on": true,
+          "pan": -0.25,
+          "plays": 60,
+          "volumeDb": -9.5
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/Claves.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Claves",
+          "note": 75,
+          "on": true,
+          "pan": 0.2,
+          "plays": 60,
+          "volumeDb": -2.0
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/High block.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "High block",
+          "note": 76,
+          "on": true,
+          "pan": 0.3,
+          "plays": 60,
+          "volumeDb": -3.0
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/Low block.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Low block",
+          "note": 77,
+          "on": true,
+          "pan": 0.3,
+          "plays": 60,
+          "volumeDb": -3.1
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/Muted cuica.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Muted cuíca",
+          "note": 78,
+          "on": true,
+          "pan": -0.2,
+          "plays": 60,
+          "volumeDb": -10.7
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/Cuica.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Cuíca",
+          "note": 79,
+          "on": true,
+          "pan": -0.2,
+          "plays": 60,
+          "volumeDb": -12.0
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/Muted triangle.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Muted triangle",
+          "note": 80,
+          "on": true,
+          "pan": 0.45,
+          "plays": 60,
+          "volumeDb": -6.3
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Latin percussion/Triangle.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Triangle",
+          "note": 81,
+          "on": true,
+          "pan": 0.45,
+          "plays": 60,
+          "volumeDb": -5.1
+        }
+      ]
+    },
+    "params": {
+      "macro1": 0.0,
+      "macro2": 0.0,
+      "macro3": 0.0,
+      "macro4": 0.0,
+      "macro5": 0.0,
+      "macro6": 0.0,
+      "macro7": 0.0,
+      "macro8": 0.0
+    },
+    "stateVersion": 1
+  }
+}

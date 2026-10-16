@@ -1,0 +1,712 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Drums",
+    "Percussion",
+    "Middle Eastern"
+  ],
+  "description": "A darbuka's doum, tak and pa, frame drums open and muted, a riq-like tambourine and finger cymbals.",
+  "author": "Segno",
+  "state": {
+    "device": "drum-kit",
+    "extra": {
+      "pads": [
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Middle Eastern/Doum.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Doum",
+          "note": 36,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -2.0
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Middle Eastern/Pa.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Pa",
+          "note": 37,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -6.7
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Middle Eastern/Tak.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Tak",
+          "note": 38,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -4.8
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Middle Eastern/Darbuka 2.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Darbuka 2",
+          "note": 39,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -2.0
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Middle Eastern/Darbuka 3.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Darbuka 3",
+          "note": 40,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -3.4
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Middle Eastern/Frame drum.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Frame drum",
+          "note": 41,
+          "on": true,
+          "pan": -0.2,
+          "plays": 60,
+          "volumeDb": -6.6
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Middle Eastern/Tambourine.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Riq",
+          "note": 42,
+          "on": true,
+          "pan": 0.3,
+          "plays": 60,
+          "volumeDb": -12.5
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Middle Eastern/Frame drum muted.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Frame muted",
+          "note": 43,
+          "on": true,
+          "pan": -0.2,
+          "plays": 60,
+          "volumeDb": -3.9
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Middle Eastern/Small frame drum.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Small frame",
+          "note": 45,
+          "on": true,
+          "pan": 0.2,
+          "plays": 60,
+          "volumeDb": -4.2
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Middle Eastern/Tambourine shake.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Riq shake",
+          "note": 46,
+          "on": true,
+          "pan": 0.3,
+          "plays": 60,
+          "volumeDb": -12.3
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Middle Eastern/Small frame muted.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Small muted",
+          "note": 47,
+          "on": true,
+          "pan": 0.2,
+          "plays": 60,
+          "volumeDb": -4.2
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Middle Eastern/Finger cymbals.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Zills",
+          "note": 49,
+          "on": true,
+          "pan": -0.3,
+          "plays": 60,
+          "volumeDb": -6.5
+        }
+      ]
+    },
+    "params": {
+      "macro1": 0.0,
+      "macro2": 0.0,
+      "macro3": 0.0,
+      "macro4": 0.0,
+      "macro5": 0.0,
+      "macro6": 0.0,
+      "macro7": 0.0,
+      "macro8": 0.0
+    },
+    "stateVersion": 1
+  }
+}

@@ -1,0 +1,940 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Drums",
+    "Percussion",
+    "Industrial"
+  ],
+  "description": "Found metal and glass, struck: an anvil, brake drums, metal hits that ring, a chain, a brick and breaking glass. Industrial and cinematic.",
+  "author": "Segno",
+  "state": {
+    "device": "drum-kit",
+    "extra": {
+      "pads": [
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Junkyard/Brake drum.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Brake drum",
+          "note": 36,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -7.1
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Junkyard/Metal tick.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Metal tick",
+          "note": 37,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -3.7
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Junkyard/Anvil.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Anvil",
+          "note": 38,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -4.0
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Junkyard/Glass.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Glass",
+          "note": 39,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -3.1
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Junkyard/Anvil 2.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Anvil 2",
+          "note": 40,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -5.2
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Junkyard/Brake drum low.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Brake drum 2",
+          "note": 41,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -4.0
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Junkyard/Metal hit.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Metal hit",
+          "note": 42,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -11.4
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Junkyard/Brake drum soft.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 30.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Brake soft",
+          "note": 43,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -8.4
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Junkyard/Metal hit 2.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Metal hit 2",
+          "note": 45,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -8.9
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Junkyard/Metal ring.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Metal ring",
+          "note": 46,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -10.8
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Junkyard/Metal hit 3.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Metal hit 3",
+          "note": 47,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -6.2
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Junkyard/Metal hit 4.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Metal hit 4",
+          "note": 48,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -9.7
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Junkyard/Chain.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Chain",
+          "note": 49,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -9.8
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Junkyard/Brick.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Brick",
+          "note": 51,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -3.1
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Junkyard/Gong cymbal.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Gong cymbal",
+          "note": 52,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -9.9
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Junkyard/Glass 2.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Glass 2",
+          "note": 55,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -9.7
+        }
+      ]
+    },
+    "params": {
+      "macro1": 0.0,
+      "macro2": 0.0,
+      "macro3": 0.0,
+      "macro4": 0.0,
+      "macro5": 0.0,
+      "macro6": 0.0,
+      "macro7": 0.0,
+      "macro8": 0.0
+    },
+    "stateVersion": 1
+  }
+}

@@ -1,0 +1,940 @@
+{
+  "segnoPreset": 1,
+  "tags": [
+    "Drums",
+    "Electronic",
+    "Glitch"
+  ],
+  "description": "Sixteen glitches: processed clicks, crackles, bursts and stutters for IDM and experimental beats.",
+  "author": "Segno",
+  "state": {
+    "device": "drum-kit",
+    "extra": {
+      "pads": [
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Glitch/Glitch 1.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Glitch 1",
+          "note": 36,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -12.8
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Glitch/Glitch 2.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Glitch 2",
+          "note": 37,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -14.9
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Glitch/Glitch 3.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Glitch 3",
+          "note": 38,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -15.4
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Glitch/Glitch 4.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Glitch 4",
+          "note": 39,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -13.8
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Glitch/Glitch 5.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Glitch 5",
+          "note": 40,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -12.6
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Glitch/Glitch 6.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Glitch 6",
+          "note": 41,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -12.2
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Glitch/Glitch 7.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Glitch 7",
+          "note": 42,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -9.6
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Glitch/Glitch 8.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Glitch 8",
+          "note": 43,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -9.0
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Glitch/Glitch 9.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Glitch 9",
+          "note": 44,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -10.2
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Glitch/Glitch 10.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Glitch 10",
+          "note": 45,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -17.2
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Glitch/Glitch 11.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Glitch 11",
+          "note": 46,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -12.5
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Glitch/Glitch 12.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Glitch 12",
+          "note": 47,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -10.9
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Glitch/Glitch 13.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Glitch 13",
+          "note": 48,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -10.0
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Glitch/Glitch 14.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Glitch 14",
+          "note": 49,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -3.1
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Glitch/Glitch 15.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Glitch 15",
+          "note": 50,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -12.9
+        },
+        {
+          "choke": 0,
+          "modules": [
+            {
+              "device": "sampler",
+              "name": "Sampler",
+              "on": true,
+              "state": {
+                "device": "sampler",
+                "extra": {
+                  "sample.path": "library:Samples/Drums/Glitch/Glitch 16.sfz"
+                },
+                "params": {
+                  "amp.a": 0.5,
+                  "amp.d": 300.0,
+                  "amp.r": 50.0,
+                  "amp.s": 100.0,
+                  "detune": 0.0,
+                  "end": 100.0,
+                  "fade.in": 0.5,
+                  "fade.out": 2.0,
+                  "fenv.a": 2.0,
+                  "fenv.d": 400.0,
+                  "fenv.r": 300.0,
+                  "fenv.s": 0.0,
+                  "filter.cutoff": 2000.0,
+                  "filter.env": 0.0,
+                  "filter.key": 50.0,
+                  "filter.on": 0.0,
+                  "filter.res": 20.0,
+                  "filter.type": 1.0,
+                  "gain": 0.0,
+                  "loop": 0.0,
+                  "loop.start": 0.0,
+                  "loop.xfade": 2.0,
+                  "mode": 1.0,
+                  "oneshot.gate": 0.0,
+                  "root": 60.0,
+                  "start": 0.0,
+                  "transpose": 0.0,
+                  "vel.amp": 50.0,
+                  "voice.bend": 2.0,
+                  "voice.count": 16.0,
+                  "voice.glide": 0.0,
+                  "voice.mode": 0.0
+                },
+                "stateVersion": 1
+              }
+            }
+          ],
+          "name": "Glitch 16",
+          "note": 51,
+          "on": true,
+          "pan": 0.0,
+          "plays": 60,
+          "volumeDb": -17.3
+        }
+      ]
+    },
+    "params": {
+      "macro1": 0.0,
+      "macro2": 0.0,
+      "macro3": 0.0,
+      "macro4": 0.0,
+      "macro5": 0.0,
+      "macro6": 0.0,
+      "macro7": 0.0,
+      "macro8": 0.0
+    },
+    "stateVersion": 1
+  }
+}
