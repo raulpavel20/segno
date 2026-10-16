@@ -1,6 +1,6 @@
 # 0052. Generic names are free to use; names a vendor made up aren't
 
-- **Status:** Accepted (product owner, 2026-10-14)
+- **Status:** Accepted (product owner, 2026-10-14); drum machine numbers allowed as terms of the trade by [0067](0067-drum-machine-numbers-are-terms-of-the-trade.md)
 - **Date:** 2026-10-14
 - **Amends:** [0008](0008-naming-and-trade-dress.md): its list of names, and its rule that every device's final name be distinctive
 
