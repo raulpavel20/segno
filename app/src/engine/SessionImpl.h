@@ -602,6 +602,8 @@ struct Session::Impl final : private juce::ValueTree::Listener,
     /// Connects a rack as its chains say: its input to each chain's first module, module to
     /// module, each chain's mixer to its output while the chain is on (and soloed, if any is).
     /// A modulator taps the chain where it sits: what comes there (notes, sound) goes into it too.
+    /// An instrument rack's track audio goes through its first chain heard alone, the other
+    /// chains taking only the notes (ADR 0070); a kit's goes round its pads (drum-kit.md §20).
     static void wireRack(te::RackType& rack, juce::UndoManager* um);
     /// Puts a rack's chain in `order` (its modules and modulators, all of them), as arrangeChain
     /// does a track's: the modules in that order, each modulator placed before the module after it.

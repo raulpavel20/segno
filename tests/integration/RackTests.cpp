@@ -1,7 +1,8 @@
 // Racks (M3 P2, docs/design/racks.md §15, ADR 0056), through engine::Session: grouping sounds as
 // the modules did and undoes whole; chains side by side, each with its mixer row; modules into,
 // along and out of a rack; macros mapped From to To along their Curve, automated like any
-// parameter; racks saved with the project, copied with their track, and instrument racks.
+// parameter; racks saved with the project, copied with their track, and instrument racks, which
+// play the track's audio once (ADR 0070).
 
 #include "engine/DevicePlugin.h"
 #include "engine/EngineBehaviour.h"
@@ -478,6 +479,78 @@ TEST_CASE("racks: an instrument rack plays notes and makes its track an instrume
     s.setNotes(clip, {{.pitch = 60, .start = 0.0, .length = 1.5, .velocity = 0.8f}});
     s.setMute(r.t, true);
     CHECK(fd::testkit::rmsDb(r.render()) > -40.0);
+}
+
+TEST_CASE(
+    "racks: an instrument rack plays the track's audio once, through its first chain heard; notes reach "
+    "every chain",
+    "[integration]")
+{
+    // ADR 0070 (open question B92): layered chains used to add the track's audio once each.
+    Racks r;
+    auto& s = *r.session;
+    // A synth playing no notes adds nothing: the track's noise passes it, then the Utility.
+    const auto synth = s.addDevice(r.t, "fd:subtractive-synth");
+    const auto utility = s.addDevice(r.t, "fd:utility");
+    r.setParam(utility, "gain", "-6 dB");
+    const auto before = r.render();
+    CHECK(r.gainDb() == Approx(-6.0).margin(0.05));
+
+    // Grouped, one chain: the same sound, its Utility still on the track's audio.
+    const auto rack = s.groupIntoRack({synth, utility});
+    REQUIRE(rack != 0);
+    CHECK(r.slot(rack).instrument);
+    CHECK(fd::testkit::nullResidualDb(r.render(), before) < -100.0);
+
+    // Up to four chains, each with a synth: the track's audio is still heard once, through the first.
+    for (int chain = 1; chain < 4; ++chain)
+    {
+        INFO("chain " << chain + 1);
+        REQUIRE(s.addRackChain(rack) == chain);
+        CHECK(r.gainDb() == Approx(-6.0).margin(0.05)); // an empty chain beside it adds nothing
+        REQUIRE(s.addDevice({.rack = rack, .chain = chain}, "fd:subtractive-synth") != 0);
+        CHECK(r.gainDb() == Approx(-6.0).margin(0.05));
+    }
+    CHECK(fd::testkit::nullResidualDb(r.render(), before) < -100.0);
+
+    // Another chain's effect doesn't touch the track's audio.
+    const auto other = s.addDevice({.rack = rack, .chain = 1}, "fd:utility");
+    REQUIRE(other != 0);
+    r.setParam(other, "gain", "-20 dB");
+    CHECK(r.gainDb() == Approx(-6.0).margin(0.05));
+
+    // The first chain off: the audio goes through the next one heard, still once.
+    REQUIRE(s.setRackChain(rack, 0, {.on = false}));
+    CHECK(r.gainDb() == Approx(-20.0).margin(0.05));
+    s.undo();
+    CHECK(r.gainDb() == Approx(-6.0).margin(0.05));
+    // A soloed chain takes it: the third, a synth alone.
+    REQUIRE(s.setRackChain(rack, 2, {.solo = true}));
+    CHECK(r.gainDb() == Approx(0.0).margin(0.05));
+    REQUIRE(s.setRackChain(rack, 2, {.solo = false}));
+    CHECK(r.gainDb() == Approx(-6.0).margin(0.05));
+    // No chain heard: nothing of the rack. The rack off passes the track's audio, as any module.
+    for (int chain = 0; chain < 4; ++chain)
+        REQUIRE(s.setRackChain(rack, chain, {.on = false}));
+    CHECK(fd::testkit::rmsDb(r.render()) < -100.0);
+    s.setDeviceEnabled(rack, false);
+    CHECK(r.gainDb() == Approx(0.0).margin(0.05));
+
+    // Notes reach every chain, the ones that start from silence too: with the first chain at -inf,
+    // the second's synth plays the note as the first did alone.
+    s.setMute(r.t, true);
+    const auto t = r.track(1);
+    const auto lead = s.addDevice(t, "fd:subtractive-synth");
+    const auto layered = s.groupIntoRack({lead});
+    REQUIRE(layered != 0);
+    const auto clip = s.createMidiClip(t, 0.0, kSeconds);
+    s.setNotes(clip, {{.pitch = 60, .start = 0.0, .length = 1.5, .velocity = 0.8f}});
+    const double one = fd::testkit::rmsDb(r.render());
+    CHECK(one > -40.0);
+    REQUIRE(s.addRackChain(layered) == 1);
+    REQUIRE(s.addDevice({.rack = layered, .chain = 1}, "fd:subtractive-synth") != 0);
+    REQUIRE(s.setRackChain(layered, 0, {.volumeDb = model::minusInfinityDb}));
+    CHECK(fd::testkit::rmsDb(r.render()) == Approx(one).margin(0.5));
 }
 
 TEST_CASE("racks: a rack file loads as it was saved, the same sound; a newer module is refused, a plugin not "

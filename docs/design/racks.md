@@ -43,10 +43,11 @@ What the product owner asked:
 - **A module that holds modules.** In the chain it's one module: it can be moved, turned off, folded, removed and automated like any other.
 - **Chains side by side.** A rack has one chain or more. Each chain is a row of modules played in order; every chain gets the rack's input, and their outputs are added together.
   - **One chain** keeps a sound whole: the product owner's "snapshot of the chain as it is".
-  - **Several** layer instruments (two synths on every note) or process in parallel (a dry chain beside a crushed one). **A chain with no modules passes its input through**, so dry and wet sit side by side.
+  - **Several** layer instruments (two synths on every note) or process in parallel (a dry chain beside a crushed one). **A chain with no modules passes its input through**, so dry and wet sit side by side (in an instrument rack, only the chain that carries the track's audio has an input to pass, ADR 0070).
 - **Each chain has a mixer row:** its name, on, solo, volume and pan. Solo hears that chain alone while you set it up; it isn't kept as the sound.
 - **Two kinds, by what they hold,** as modules are:
   - an **instrument rack** holds an instrument at the start of a chain (any chain); notes go to every chain's instrument;
+    - **the track's audio is heard once** ([ADR 0070](../decisions/0070-an-instrument-rack-plays-the-tracks-audio-once.md)): it goes through the first chain heard (the first that's on, or the first soloed), as it would through the same modules on the track. Every other chain starts from silence, with the notes alone, so layered instruments don't add the track's audio again. With one chain, the rack sounds as its modules did on the track;
   - an **effect rack** holds effects only, and goes wherever effects go.
   - A rack is an instrument rack the moment one of its chains starts with an instrument. On a track, an instrument rack is the track's instrument: put where one is, it replaces it, as any instrument does ([browser.md](browser.md) §11).
 - **Anything that goes in a chain goes in a rack:** our modules and third-party plugins.

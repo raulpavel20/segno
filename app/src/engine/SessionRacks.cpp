@@ -101,6 +101,13 @@ bool mappable(te::Plugin& module, const te::AutomatableParameter& param)
     }
     return param.paramID != "dry level" && param.paramID != "wet level";
 }
+
+/// Whether one of a rack's chains starts with an instrument: an instrument rack (racks.md §3).
+bool startsWithInstrument(const std::vector<Session::Impl::RackChain>& chains)
+{
+    return std::any_of(chains.begin(), chains.end(), [](const Session::Impl::RackChain& c)
+                       { return !c.modules.empty() && c.modules.front()->isSynth(); });
+}
 } // namespace
 
 // ---- the rack's shape ---------------------------------------------------------------------
@@ -183,17 +190,37 @@ void Session::Impl::wireRack(te::RackType& rack, juce::UndoManager* um)
     const auto chains = rackChains(rack);
     const bool soloed =
         std::any_of(chains.begin(), chains.end(), [](const RackChain& c) { return c.solo(); });
+    const auto wired = [](const RackChain& c) { return !c.modules.empty() || c.volume != nullptr; };
+    const auto heard = [&](const RackChain& c) { return c.on() && (!soloed || c.solo()); };
     const bool kit = isKit(rack);
     if (kit) // the track's own audio, once, round the pads (drum-kit.md §15)
         for (int pin = 1; pin <= 2; ++pin)
             wanted.insert({te::EditItemID(), pin, te::EditItemID(), pin});
+    // An instrument rack plays the track's audio once (ADR 0070): through its first chain heard,
+    // as the same modules would on the track. Every other chain starts from silence.
+    const RackChain* withAudio = nullptr;
+    if (!kit && startsWithInstrument(chains))
+        for (const auto& c : chains)
+            if (wired(c) && heard(c))
+            {
+                withAudio = &c;
+                break;
+            }
     for (const auto& c : chains)
     {
-        if (c.modules.empty() && c.volume == nullptr)
+        if (!wired(c))
             continue;
         // MIDI (pin 0) and audio (1, 2) from the rack's input, module to module, to its output. A
-        // modulator takes what comes where it sits, and passes nothing on. A pad's chain starts
-        // with its inlet, which takes the kit's notes alone: its sound starts from silence.
+        // modulator takes what comes where it sits, and passes nothing on. A chain that starts from
+        // silence takes only the notes from the rack's input; nothing on its audio pins is
+        // silence. A pad's chain starts with its inlet, which takes the kit's notes alone.
+        const bool silent = withAudio != nullptr && &c != withAudio;
+        const auto connect = [&](te::EditItemID src, te::EditItemID dst)
+        {
+            const bool fromInput = src == te::EditItemID();
+            for (int pin = 0; pin <= (silent && fromInput ? 0 : 2); ++pin)
+                wanted.insert({src, pin, dst, pin});
+        };
         te::EditItemID from; // the rack's input
         if (c.inlet != nullptr)
         {
@@ -203,18 +230,16 @@ void Session::Impl::wireRack(te::RackType& rack, juce::UndoManager* um)
         for (const auto& item : c.items)
         {
             const auto to = item.plugin != nullptr ? item.plugin->itemID : item.modulator->itemID;
-            for (int pin = 0; pin <= 2; ++pin)
-                wanted.insert({from, pin, to, pin});
+            connect(from, to);
             if (item.plugin != nullptr)
                 from = to;
         }
         if (c.volume != nullptr)
         {
-            for (int pin = 0; pin <= 2; ++pin)
-                wanted.insert({from, pin, c.volume->itemID, pin});
+            connect(from, c.volume->itemID);
             from = c.volume->itemID;
         }
-        if (c.on() && (!soloed || c.solo()))
+        if (heard(c))
             for (int pin = 1; pin <= 2; ++pin)
                 wanted.insert({from, pin, te::EditItemID(), pin});
     }
@@ -269,12 +294,7 @@ bool Session::Impl::playsNotes(te::Plugin& plugin)
 {
     if (auto* rack = rackTypeOf(&plugin))
     {
-        if (isKit(*rack))
-            return true;
-        for (const auto& chain : rackChains(*rack))
-            if (!chain.modules.empty() && chain.modules.front()->isSynth())
-                return true;
-        return false;
+        return isKit(*rack) || startsWithInstrument(rackChains(*rack));
     }
     return plugin.isSynth();
 }
