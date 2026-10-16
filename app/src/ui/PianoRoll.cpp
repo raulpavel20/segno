@@ -2357,6 +2357,19 @@ void PianoRoll::mouseDown(const juce::MouseEvent& e)
         }
         if (folded_ && rows_.empty())
             return; // an empty kit's: no rows to draw on (§23.2)
+        if (onPads())
+        {
+            // On the pads, a hit on the row clicked, a grid step long; dragged along the row, a hit
+            // on each step it passes (§23.2, D10). Lengthened by its end afterwards, as any note.
+            gesture_ = Gesture::Paint;
+            paintPitch_ = std::clamp(geo.pitchForY(local.y), 0, 127);
+            paintFrom_ = geo.beatForX(local.x);
+            preview_ =
+                model::paintRow(notes_, paintPitch_, paintFrom_, paintFrom_, quantiseGrid(), drawVelocity_);
+            previewOn(paintPitch_, drawVelocity_);
+            repaint();
+            return;
+        }
         // Draw a note (or a chord, §7.2) one grid step long, on the row and in the step under the
         // mouse (Alt: free of the grid); dragging lengthens it.
         base_ = drawnAt(local, e.mods.isAltDown());
@@ -2468,8 +2481,9 @@ void PianoRoll::mouseDrag(const juce::MouseEvent& e)
         }
         return;
     }
-    const bool immediate = gesture_ == Gesture::Draw || gesture_ == Gesture::Velocity ||
-                           gesture_ == Gesture::VelocityOffset || gesture_ == Gesture::VelocityLine;
+    const bool immediate = gesture_ == Gesture::Draw || gesture_ == Gesture::Paint ||
+                           gesture_ == Gesture::Velocity || gesture_ == Gesture::VelocityOffset ||
+                           gesture_ == Gesture::VelocityLine;
     if (!immediate && !moved_ && e.getDistanceFromDragStart() < ui::Theme::current().input.dragThreshold)
         return; // a click, not a drag
     moved_ = true;
@@ -2477,6 +2491,10 @@ void PianoRoll::mouseDrag(const juce::MouseEvent& e)
 
     switch (gesture_)
     {
+    case Gesture::Paint:
+        preview_ = model::paintRow(notes_, paintPitch_, paintFrom_, beatAtX(e.position.x), quantiseGrid(),
+                                   drawVelocity_);
+        break;
     case Gesture::Notes:
     case Gesture::Draw:
         drag_.deltaBeats = deltaBeats;
@@ -2626,15 +2644,16 @@ void PianoRoll::mouseUp(const juce::MouseEvent& e)
     }
     clickedInSelection_.reset();
     toggleOnClick_.reset();
-    const bool edits = gesture_ == Gesture::Draw || gesture_ == Gesture::Velocity ||
-                       gesture_ == Gesture::VelocityOffset ||
+    const bool edits = gesture_ == Gesture::Draw || gesture_ == Gesture::Paint ||
+                       gesture_ == Gesture::Velocity || gesture_ == Gesture::VelocityOffset ||
                        ((gesture_ == Gesture::Notes || gesture_ == Gesture::VelocityLine ||
                          gesture_ == Gesture::TimeHandle) &&
                         moved_);
     if (edits && preview_)
         commit(std::move(*preview_));
     preview_.reset();
-    if (gesture_ == Gesture::Notes || gesture_ == Gesture::Draw || gesture_ == Gesture::Keys)
+    if (gesture_ == Gesture::Notes || gesture_ == Gesture::Draw || gesture_ == Gesture::Paint ||
+        gesture_ == Gesture::Keys)
         previewOff();
     gesture_ = Gesture::None;
     updateRows(); // the rows held still under the gesture: now they follow the notes

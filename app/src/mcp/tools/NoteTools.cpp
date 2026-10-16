@@ -63,11 +63,14 @@ float midiAmount(double value, const std::string& where)
     return static_cast<float>(std::round(value) / 127.0);
 }
 
-model::Note parseNote(ToolEnv& env, const Json& n, double offset, const std::string& where)
+model::Note parseNote(ToolEnv& env, const Json& n, double offset, const std::string& where, const Pads& pads)
 {
-    const auto pitch = parsePitch(n["pitch"]);
+    const auto pitch = pitchOrPad(n["pitch"], pads);
     if (!pitch)
-        throw Problem{where + ".pitch: " + n["pitch"].dump() + " isn't a MIDI note number (0-127) or a name such as \"C3\" (60)."};
+        throw Problem{where + ".pitch: " + n["pitch"].dump() +
+                      " isn't a MIDI note number (0-127) or a name such as \"C3\" (60)" +
+                      (pads.empty() ? std::string(".")
+                                    : std::string(", nor one of the kit's pads (get_clip lists them)."))};
     double length = 0.0;
     try
     {
@@ -87,7 +90,8 @@ model::Note parseNote(ToolEnv& env, const Json& n, double offset, const std::str
 }
 
 /// Which notes a `where` argument picks: "all", or a filter by pitch and time.
-std::set<std::size_t> select(ToolEnv& env, const std::vector<model::Note>& notes, double offset, const Json& where)
+std::set<std::size_t> select(ToolEnv& env, const std::vector<model::Note>& notes, double offset,
+                             const Json& where, const Pads& pads)
 {
     std::set<std::size_t> out;
     if (where.is_string())
@@ -96,10 +100,11 @@ std::set<std::size_t> select(ToolEnv& env, const std::vector<model::Note>& notes
             out.insert(i);
         return out;
     }
-    const auto pitchOf = [](const Json& v, const char* name) -> std::optional<int> {
+    const auto pitchOf = [&pads](const Json& v, const char* name) -> std::optional<int>
+    {
         if (v.is_null())
             return std::nullopt;
-        if (auto p = parsePitch(v))
+        if (auto p = pitchOrPad(v, pads))
             return p;
         throw Problem{std::string("where.") + name + ": " + v.dump() + " isn't a pitch."};
     };
@@ -146,7 +151,7 @@ Json notesResult()
 }
 std::set<std::size_t> selectNotes(ToolEnv& env, const model::ClipInfo& c, const Json& where)
 {
-    return select(env, c.notes, contentOffset(env, c), where);
+    return select(env, c.notes, contentOffset(env, c), where, clipPads(env, c));
 }
 
 Json writeNotes(ToolEnv& env, const model::ClipInfo& c, const Json& input, bool replace)
@@ -154,10 +159,11 @@ Json writeNotes(ToolEnv& env, const model::ClipInfo& c, const Json& input, bool 
     const double offset = contentOffset(env, c);
     std::vector<model::Note> notes = replace ? std::vector<model::Note>{} : c.notes;
     std::set<std::size_t> placed;
+    const auto pads = clipPads(env, c);
     for (size_t i = 0; i < input.size(); ++i)
     {
         placed.insert(notes.size());
-        notes.push_back(parseNote(env, input[i], offset, "notes[" + std::to_string(i) + "]"));
+        notes.push_back(parseNote(env, input[i], offset, "notes[" + std::to_string(i) + "]", pads));
     }
     const auto edit = model::resolveOverlaps(notes, placed);
     env.session.setNotes(c.id, edit.notes);
@@ -207,7 +213,7 @@ void addNoteTools(Registry& registry, ToolEnv& env)
          notesResult(), replaces},
         [&env](const Json& args, CallContext&) {
             const auto c = midiClip(env, args["clip"]);
-            const auto chosen = select(env, c.notes, contentOffset(env, c), args["where"]);
+            const auto chosen = select(env, c.notes, contentOffset(env, c), args["where"], clipPads(env, c));
             env.session.setNotes(c.id, model::deleteNotes(c.notes, chosen).notes);
             env.session.flushSnapshot();
             return ToolResult::ok({{"clip", clipJson(env, clip(env, args["clip"]), false)},
@@ -275,7 +281,7 @@ void addNoteTools(Registry& registry, ToolEnv& env)
         {
             const auto c = midiClip(env, args["clip"]);
             const double offset = contentOffset(env, c);
-            auto chosen = select(env, c.notes, offset, args["where"]);
+            auto chosen = select(env, c.notes, offset, args["where"], clipPads(env, c));
             if (chosen.empty())
                 return ToolResult::ok({{"clip", clipJson(env, c, false)}, {"notes", 0}, {"lengthened", false}},
                                       "No notes match.");

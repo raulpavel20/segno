@@ -286,6 +286,7 @@ private:
         None,
         Notes,
         Draw,
+        Paint, // on the pads, a double-click dragged along a row (drum-kit.md §23.2, D10)
         Box,
         Velocity,
         VelocityOffset,
@@ -457,6 +458,8 @@ private:
     double stretchFactor_ = 1.0;
     std::optional<std::size_t> hoveredSpan_;
     float drawVelocity_ = 100.0f / 127.0f;
+    int paintPitch_ = 0;                   // the row a paint is on...
+    double paintFrom_ = 0.0;               // ...and the beat it started at
     std::optional<int> previewPitch_;      // the note sounding now
     std::vector<int> previewChordPitches_; // a chord sounding now (the popover's hover)
 };

@@ -37,6 +37,12 @@ namespace fd::model
 [[nodiscard]] std::vector<int> padRows(const std::bitset<128>& pads, const std::vector<Note>& notes,
                                        const std::vector<Note>* more = nullptr);
 
+/// Painting a row on the pads (§23.2, D10): a hit on `pitch` on each grid step from the step at
+/// `from` to the step at `to` (either way round), each a step long, where no note on that pitch
+/// sounds yet. The hits are selected; with none to add, nothing changes.
+[[nodiscard]] NoteEdit paintRow(const std::vector<Note>& notes, int pitch, double from, double to,
+                                const BeatGrid& grid, float velocity);
+
 /// The arrows on the pads: the notes moved `steps` rows of `rows` (low to high), as a group,
 /// limited so every note stays on a row. A note on no row moves by semitones.
 [[nodiscard]] NoteEdit transposeInRows(const std::vector<Note>& notes, const std::set<std::size_t>& selection,

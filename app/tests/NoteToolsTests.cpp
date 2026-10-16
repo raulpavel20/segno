@@ -143,6 +143,25 @@ TEST_CASE("The pads: a row for each pad with a sound, and one for each pitch wit
     CHECK(padRows({}, {}).empty()); // an empty kit, an empty clip: no rows
 }
 
+TEST_CASE("The pads: painting a row puts a hit on each grid step, where none sounds yet", "[fast]")
+{
+    const std::vector<Note> notes{note(42, 0.5, 0.25)};
+    auto out = paintRow(notes, 42, 0.1, 1.2, sixteenths, 0.8f); // from the step at 0 to the one at 1
+    // 0, 0.25, 0.75 and 1.0: the step at 0.5 has its note already.
+    CHECK(out.notes.size() == 5);
+    CHECK(out.selection.size() == 4);
+    for (auto i : out.selection)
+    {
+        CHECK(out.notes[i].pitch == 42);
+        CHECK(out.notes[i].length == Approx(0.25));
+    }
+    CHECK(std::is_sorted(out.notes.begin(), out.notes.end(), noteOrder));
+    // Leftwards too: the same steps.
+    CHECK(paintRow(notes, 42, 1.2, 0.1, sixteenths, 0.8f).notes.size() == 5);
+    // One step: one hit.
+    CHECK(paintRow({}, 36, 2.1, 2.2, sixteenths, 0.8f).notes.size() == 1);
+}
+
 TEST_CASE("The pads: the arrows move a row, as a group, kept on the rows", "[fast]")
 {
     const std::vector<int> rows{36, 38, 42, 46};

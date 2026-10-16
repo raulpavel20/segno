@@ -34,6 +34,9 @@ public:
     ~Shell() override;
 
     [[nodiscard]] const ActionRegistry& actions() const noexcept { return actions_; }
+    /// The notes' right-click menu (piano-roll.md §13; on a Drum Kit's pads without what drums don't
+    /// need, drum-kit.md §23.4).
+    [[nodiscard]] juce::PopupMenu notesContextMenu();
     [[nodiscard]] CommandPalette& palette() noexcept { return palette_; }
     /// Shows a warning in the window (engine warnings; never a modal dialog).
     void showWarning(const juce::String& message);
@@ -212,8 +215,6 @@ private:
     std::unique_ptr<MidiMapBanner> midiBanner_;
     std::unique_ptr<MidiMapOverlay> midiOverlay_;
     std::unique_ptr<Tooltips> tooltips_;
-    /// The notes' right-click menu (piano-roll.md §13).
-    [[nodiscard]] juce::PopupMenu notesContextMenu();
     /// The audio editor's commands (audio-editor.md §13): the Audio menu's actions, the bar's Audio
     /// button and the waveform's right-click menu (ShellAudio.cpp).
     void registerAudioActions();

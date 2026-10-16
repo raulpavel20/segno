@@ -1,6 +1,7 @@
 #include "mcp/tools/Tools.h"
 
 #include "ModulePurposes.h"
+#include "model/DrumKit.h"
 #include "model/Editing.h"
 #include "model/Modulators.h"
 #include "model/Racks.h"
@@ -287,10 +288,14 @@ Json positionResult()
 Json noteInput()
 {
     return object(
-        {{"pitch", {{"type", {"integer", "string"}}, {"description", "MIDI note number, or a name with C3 = 60 (\"D#4\")"}}},
+        {{"pitch",
+          {{"type", {"integer", "string"}},
+           {"description", "MIDI note number, or a name with C3 = 60 (\"D#4\"); on a Drum Kit's clip, a "
+                           "pad's name too (\"Snare\")"}}},
          {"start",
           {{"type", {"number", "string"}},
-           {"description", "Beats from the clip's start (0 is its first beat), or text such as \"1/8\" or \"2 beats\""}}},
+           {"description",
+            "Beats from the clip's start (0 is its first beat), or text such as \"1/8\" or \"2 beats\""}}},
          {"length", length("How long the note is.")},
          {"velocity", integer("1-127 (default 100)", 1, 127)},
          {"muted", boolean("Kept but not played (default false)")},
@@ -437,6 +442,34 @@ Json noteJson(const model::Note& note, double offsetBeats)
     return j;
 }
 
+Pads clipPads(ToolEnv& env, const model::ClipInfo& clip)
+{
+    Pads pads;
+    const auto snapshot = env.session.snapshot();
+    if (const auto found = model::findClip(*snapshot, clip.id);
+        found && clip.kind == model::ClipInfo::Kind::Midi)
+        if (const auto* kit =
+                model::kit::trackKit(snapshot->tracks[static_cast<size_t>(found->second)].devices))
+            for (const auto& pad : kit->rack->chains)
+                pads.emplace_back(pad.note, pad.name);
+    std::sort(pads.begin(), pads.end());
+    return pads;
+}
+
+std::optional<int> pitchOrPad(const Json& value, const Pads& pads)
+{
+    if (const auto pitch = parsePitch(value))
+        return pitch;
+    if (value.is_string())
+    {
+        const auto name = juce::String::fromUTF8(value.get<std::string>().c_str()).trim();
+        for (const auto& [note, pad] : pads)
+            if (name.equalsIgnoreCase(juce::String::fromUTF8(pad.c_str())))
+                return note;
+    }
+    return std::nullopt;
+}
+
 Json clipJson(ToolEnv& env, const model::ClipInfo& c, bool notes)
 {
     const auto t = tempo(env);
@@ -529,12 +562,28 @@ Json clipJson(ToolEnv& env, const model::ClipInfo& c, bool notes)
         j["controllers"] = std::move(lanes);
         j["chanceSeed"] = c.chanceSeed;
         j["chanceKept"] = c.chanceKept; // piano-roll.md §26: it keeps the roll it played
+        // On a Drum Kit's track, its pads with sounds (drum-kit.md §23.5), and each note on one named
+        // for it: notes are written on pads by their names too.
+        const auto pads = clipPads(env, c);
+        if (!pads.empty())
+        {
+            Json list = Json::array();
+            for (const auto& [note, name] : pads)
+                list.push_back({{"pad", model::kit::noteName(note)}, {"note", note}, {"name", name}});
+            j["pads"] = std::move(list);
+        }
         if (notes)
         {
             const double offset = noteOffsetBeats(env, c); // notes count from the clip's start (a loop's)
             Json list = Json::array();
             for (const auto& n : c.notes)
-                list.push_back(noteJson(n, offset));
+            {
+                auto note = noteJson(n, offset);
+                for (const auto& [pitch, name] : pads)
+                    if (pitch == n.pitch)
+                        note["pad"] = name;
+                list.push_back(std::move(note));
+            }
             j["notes"] = std::move(list);
         }
     }

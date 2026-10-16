@@ -210,6 +210,41 @@ std::vector<int> padRows(const std::bitset<128>& pads, const std::vector<Note>& 
     return rows;
 }
 
+NoteEdit paintRow(const std::vector<Note>& notes, int pitch, double from, double to, const BeatGrid& grid,
+                  float velocity)
+{
+    constexpr double eps = 1e-9;
+    pitch = std::clamp(pitch, 0, 127);
+    const double first = grid.floor(std::max(0.0, std::min(from, to)));
+    const double last = grid.floor(std::max(0.0, std::max(from, to)));
+    std::vector<Note> hits;
+    for (double t = first; t <= last + eps;)
+    {
+        const double next = grid.next(t);
+        const double length = std::max(minNoteLength, next - t);
+        const bool sounding = std::any_of(
+            notes.begin(), notes.end(), [&](const Note& n)
+            { return n.pitch == pitch && n.start < t + length - eps && n.start + n.length > t + eps; });
+        if (!sounding)
+            hits.push_back({pitch, t, length, midiVelocity(velocity)});
+        if (next <= t + eps)
+            break; // no grid: one hit
+        t = next;
+    }
+    auto all = notes;
+    all.insert(all.end(), hits.begin(), hits.end());
+    std::stable_sort(all.begin(), all.end(), noteOrder);
+    NoteEdit out{std::move(all), {}};
+    for (const auto& h : hits)
+        for (std::size_t i = 0; i < out.notes.size(); ++i)
+            if (out.notes[i] == h && !out.selection.contains(i))
+            {
+                out.selection.insert(i);
+                break;
+            }
+    return out;
+}
+
 NoteEdit transposeInRows(const std::vector<Note>& notes, const std::set<std::size_t>& selection,
                          const std::vector<int>& rows, int steps)
 {

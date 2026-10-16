@@ -80,7 +80,9 @@ void addReadTools(Registry& registry, ToolEnv& env)
         {"get_clip", "Get a clip",
          "One clip: kind, position, length, its loop and, for MIDI clips, every note (pitch, start and "
          "length in beats "
-         "from the clip's start, or from its loop's start while it loops; velocity 1-127).",
+         "from the clip's start, or from its loop's start while it loops; velocity 1-127). On a Drum "
+         "Kit's track, its pads with sounds (pads: note and name) and each note's pad: notes are written "
+         "on pads by their names too.",
          object({{"clip", id(IdKind::Clip, "The clip")}}, {"clip"}), clipResultSchema(), reading},
         [&env](const Json& args, CallContext&)
         {

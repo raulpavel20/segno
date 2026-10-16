@@ -147,6 +147,13 @@ std::string kindName(const model::TrackInfo& channel);
 /// Pan as people write it: "C", "25L", "50R".
 std::string panText(float pan);
 Json clipJson(ToolEnv& env, const model::ClipInfo& clip, bool notes);
+/// A clip's pads (drum-kit.md §23.5): on a Drum Kit's track, its pads with sounds, low to high, each
+/// a note and its name. Empty on any other track.
+using Pads = std::vector<std::pair<int, std::string>>;
+Pads clipPads(ToolEnv& env, const model::ClipInfo& clip);
+/// A pitch as assistants write it: a MIDI note number (60), a name ("C3"), or on a kit's clip a
+/// pad's name ("Snare", any case).
+std::optional<int> pitchOrPad(const Json& value, const Pads& pads);
 Json moduleSummary(const model::DeviceSlot& slot);
 /// Everything about a module: parameters, sections, view, and non-parameter state.
 Json moduleJson(ToolEnv& env, const model::DeviceSlot& slot, const model::TrackInfo& track);

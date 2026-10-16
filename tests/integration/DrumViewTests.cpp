@@ -6,6 +6,7 @@
 #include "ShellTestKit.h"
 #include "fd/testkit/Signals.h"
 #include "fd/testkit/WavIO.h"
+#include "model/DrumKit.h"
 #include "model/Selection.h"
 
 #include <catch2/catch_approx.hpp>
@@ -226,4 +227,82 @@ TEST_CASE("drum view: the header at standard and compact widths", "[integration]
                 f.dump("drum-view-1024");
         }
     }
+}
+
+TEST_CASE("drum view: a double-click dragged along a row paints a hit on each grid step, one undo step; a "
+          "pad's name plays it and selects it in the kit",
+          "[integration]")
+{
+    DrumView f;
+    auto& roll = f.roll();
+    // Along the clap's row, from the first beat to just short of the second.
+    const auto from = roll.pointFor(0.05, 39), to = roll.pointFor(1.9, 39);
+    roll.mouseDown(mouseEvent(roll, from, from, false, juce::ModifierKeys::leftButtonModifier, 2));
+    roll.mouseDrag(mouseEvent(roll, to, from, true, juce::ModifierKeys::leftButtonModifier, 2));
+    roll.mouseUp(mouseEvent(roll, to, from, true, juce::ModifierKeys::leftButtonModifier, 2));
+    f.refresh();
+    const double step = roll.quantiseGrid().step;
+    REQUIRE(step > 0.0);
+    const auto hits = std::count_if(roll.notes().begin(), roll.notes().end(),
+                                    [](const fd::model::Note& n) { return n.pitch == 39; });
+    CHECK(hits == static_cast<long>(std::floor(1.9 / step)) + 1);
+    for (const auto& n : roll.notes())
+        CHECK(n.length == Catch::Approx(step));
+    f.session->undo(); // one step takes every hit back
+    f.refresh();
+    CHECK(roll.notes().empty());
+
+    // A pad's name, pressed: the kit's selected pad.
+    const auto name =
+        juce::Point<float>(static_cast<float>(roll.keysArea().getCentreX()), roll.pointFor(0.0, 42).y);
+    roll.mouseDown(mouseEvent(roll, name, name, false));
+    roll.mouseUp(mouseEvent(roll, name, name, false));
+    f.session->updateSnapshotNow();
+    CHECK(fd::model::kit::trackKit(f.session->snapshot()->tracks.front().devices)->rack->selectedPad == 42);
+}
+
+TEST_CASE("drum view: on the pads the menu bar dims what drums don't need, saying why; the right-click menu "
+          "leaves it out",
+          "[integration]")
+{
+    DrumView f;
+    REQUIRE(f.session->setKey(fd::music::Key{0, "major"}));
+    f.beat();
+    const auto& actions = f.shell->actions();
+    for (const auto* id :
+         {"notes.fitToKey", "notes.makeChords", "notes.invertUp", "notes.mirror", "notes.selectOutsideKey",
+          "notes.tool.strum", "notes.tool.melody", "view.clipOthers", "view.drawChord", "view.voicingOpen"})
+    {
+        INFO(id);
+        CHECK_FALSE(actions.isEnabled(id));
+        CHECK(actions.find(id)->whyNot().contains("Drum Kit's pads"));
+    }
+    for (const auto* id : {"notes.quantise", "notes.join", "notes.reverse", "notes.tool.chop",
+                           "notes.tool.ornament", "notes.tool.rhythm"})
+    {
+        INFO(id);
+        CHECK(actions.isEnabled(id));
+    }
+    CHECK(actions.label("view.clipInKey") == "Show only the kit's pads");
+    CHECK(actions.isToggled("view.clipInKey"));
+    // The right-click menu: without them (its Notes ▸ is the menu bar's, where they're dimmed).
+    const auto in = [](const juce::StringArray& items, const char* item)
+    { return items.contains(juce::String::fromUTF8(item)); };
+    auto items = itemsOf(f.shell->notesContextMenu());
+    CHECK_FALSE(in(items, "Fit to key"));
+    CHECK_FALSE(in(items, "Transform ▸ Strum…"));
+    CHECK_FALSE(in(items, "Chords ▸ Invert up"));
+    CHECK_FALSE(in(items, "Select ▸ Select outside the key"));
+    CHECK(in(items, "Transform ▸ Chop…"));
+    CHECK(in(items, "Quantise"));
+    CHECK(in(items, "Notes ▸ Fit to key"));
+
+    // The whole roll: all of it back; the item still names the kit's pads, unticked.
+    f.roll().setPads(false);
+    CHECK(actions.isEnabled("notes.fitToKey"));
+    CHECK(actions.label("view.clipInKey") == "Show only the kit's pads");
+    CHECK_FALSE(actions.isToggled("view.clipInKey"));
+    items = itemsOf(f.shell->notesContextMenu());
+    CHECK(in(items, "Fit to key"));
+    CHECK(in(items, "Transform ▸ Strum…"));
 }

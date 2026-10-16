@@ -55,7 +55,7 @@ Json settingJson(const model::ToolSpec& tool, const model::ToolSetting& s)
         j["max"] = s.max;
         j["default"] = s.initial;
         if (s.unit == "pitch")
-            j["unit"] = "MIDI note number (60 is C3)";
+            j["unit"] = "MIDI note number (60 is C3), a name (\"C3\"), or on a Drum Kit's clip a pad's name";
         else if (!s.unit.empty())
             j["unit"] = s.unit;
     }
@@ -64,8 +64,9 @@ Json settingJson(const model::ToolSpec& tool, const model::ToolSetting& s)
     return j;
 }
 
-/// The settings an assistant gave, as the tool's values: words for choices, numbers in range.
-model::ToolValues settingsArg(const model::ToolSpec& tool, const Json& settings)
+/// The settings an assistant gave, as the tool's values: words for choices, numbers in range; a
+/// pitch also as a name, or on a kit's clip a pad's (drum-kit.md §23.5).
+model::ToolValues settingsArg(const model::ToolSpec& tool, const Json& settings, const Pads& pads = {})
 {
     model::ToolValues out;
     if (settings.is_null())
@@ -93,6 +94,16 @@ model::ToolValues settingsArg(const model::ToolSpec& tool, const Json& settings)
                 throw Problem{"settings." + id + ": one of " + words + "."};
             }
             out[id] = static_cast<double>(it - s->words.begin());
+            continue;
+        }
+        if (s->unit == "pitch" && value.is_string())
+        {
+            const auto pitch = pitchOrPad(value, pads);
+            if (!pitch)
+                throw Problem{
+                    "settings." + id + ": " + value.dump() + " isn't a note name such as \"C3\"" +
+                    (pads.empty() ? std::string(".") : std::string(", nor one of the kit's pads."))};
+            out[id] = static_cast<double>(*pitch);
             continue;
         }
         if (!value.is_number() || value.get<double>() < s->min || value.get<double>() > s->max)
@@ -196,7 +207,8 @@ void addToolkitTools(Registry& registry, ToolEnv& env)
          "Writes new notes into a MIDI clip, as the clip view's Notes > Generate does: rhythm, melody, "
          "chords, bassline (which follows the clip's chords). Into start and length (beats from the "
          "clip's start), else the clip's loop, or the clip. The existing setting keeps the notes there "
-         "(new notes go around kept notes of the same pitch) or replaces them.",
+         "(new notes go around kept notes of the same pitch) or replaces them. On a Drum Kit's clip a "
+         "pitch setting takes a pad's name: rhythm with {\"pitch\": \"Closed hat\"}.",
          object({{"clip", id(IdKind::Clip, "The MIDI clip")},
                  {"tool", string("The generator: rhythm, melody, chords, bassline")},
                  {"settings", {{"type", "object"}, {"description", "The tool's settings by id"}}},
@@ -208,7 +220,7 @@ void addToolkitTools(Registry& registry, ToolEnv& env)
         {
             const auto c = midiClipArg(env, args["clip"]);
             const auto& tool = toolArg(args["tool"], model::ToolKind::Generate);
-            const auto values = settingsArg(tool, args.value("settings", Json()));
+            const auto values = settingsArg(tool, args.value("settings", Json()), clipPads(env, c));
             const auto t = tempo(env);
             const double offset = noteOffsetBeats(env, c);
             const double whole = c.loop.on() ? t.beatsForSeconds(c.loop.length) : t.beatsForSeconds(c.length);

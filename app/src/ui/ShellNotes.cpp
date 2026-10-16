@@ -25,6 +25,27 @@ juce::String asks(const char* name)
 {
     return juce::String(name) + juce::String::fromUTF8("\xE2\x80\xA6");
 }
+
+/// What drums don't need (drum-kit.md §23.4): the key's, the chords', Draw's and Others' items, and
+/// the tools that don't work on drums. On a Drum Kit's pads the menu bar dims them, saying why, and
+/// the notes' right-click menu leaves them out.
+bool melodic(std::string_view id)
+{
+    static constexpr std::string_view ids[] = {
+        "notes.fitToKey",   "notes.makeChords",       "notes.changeChord", "notes.invertUp",
+        "notes.invertDown", "notes.voiceSmooth",      "notes.voiceClose",  "notes.voiceOpen",
+        "notes.voiceDrop2", "notes.voiceDrop3",       "notes.voiceSpread", "notes.addBass",
+        "notes.mirror",     "notes.selectOutsideKey", "view.clipOthers"};
+    if (std::find(std::begin(ids), std::end(ids), id) != std::end(ids))
+        return true;
+    if (id.starts_with("view.draw") || id.starts_with("view.voicing"))
+        return true;
+    constexpr std::string_view tool = "notes.tool.";
+    if (id.starts_with(tool))
+        if (const auto* spec = model::findNoteTool(id.substr(tool.size())))
+            return !spec->drums;
+    return false;
+}
 } // namespace
 
 void Shell::registerNotesActions()
@@ -321,6 +342,16 @@ void Shell::registerNotesActions()
                 return menus_->menu(static_cast<int>(i));
         return juce::PopupMenu();
     };
+    // On a Drum Kit's pads, what drums don't need is dimmed, saying why (drum-kit.md §23.4).
+    std::vector<std::string> ids;
+    for (const auto& a : actions_.all())
+        if (melodic(a.id))
+            ids.push_back(a.id);
+    for (const auto& id : ids)
+        actions_.require(
+            id, [this, &roll] { return !(detail_.showsPianoRoll() && roll.onPads()); },
+            [] { return juce::String("Not on a Drum Kit's pads: turn Pads off to show the whole roll"); });
+
     roll.onChordPopover = [this](const PianoRoll::ChordPlace& place, juce::Rectangle<int>)
     { openChordPopover(place); };
 }
@@ -328,10 +359,17 @@ void Shell::registerNotesActions()
 juce::PopupMenu Shell::notesContextMenu()
 {
     // The most used, on the notes (§13): the rest are in the Notes menu, which opens from here too.
+    // On a Drum Kit's pads, without what drums don't need (drum-kit.md §23.4).
+    const bool pads = detail_.pianoRoll().onPads();
+    const auto add = [this, pads](juce::PopupMenu& m, const std::string& id)
+    {
+        if (!(pads && melodic(id)))
+            actions_.addMenuItem(m, id);
+    };
     juce::PopupMenu menu;
-    actions_.addMenuItem(menu, "notes.quantise");
-    actions_.addMenuItem(menu, "notes.fitToKey");
-    actions_.addMenuItem(menu, "notes.makeChords");
+    add(menu, "notes.quantise");
+    add(menu, "notes.fitToKey");
+    add(menu, "notes.makeChords");
     juce::PopupMenu chords;
     actions_.addMenuItem(chords, "notes.changeChord");
     chords.addSeparator();
@@ -341,12 +379,13 @@ juce::PopupMenu Shell::notesContextMenu()
     for (const char* id : {"notes.voiceSmooth", "notes.voiceClose", "notes.voiceOpen", "notes.voiceDrop2",
                            "notes.voiceDrop3", "notes.voiceSpread"})
         actions_.addMenuItem(chords, id);
-    menu.addSubMenu("Chords", chords);
+    if (!pads)
+        menu.addSubMenu("Chords", chords);
     juce::PopupMenu transform; // §12
     actions_.addMenuItem(transform, "notes.quantiseSettings");
     for (const auto& t : model::noteTools())
         if (t.kind == model::ToolKind::Transform && t.id != "quantise")
-            actions_.addMenuItem(transform, "notes.tool." + std::string(t.id));
+            add(transform, "notes.tool." + std::string(t.id));
     menu.addSubMenu("Transform", transform);
     actions_.addMenuItem(menu, "clip.mute");
     menu.addSeparator();
@@ -360,7 +399,7 @@ juce::PopupMenu Shell::notesContextMenu()
     juce::PopupMenu select;
     for (const char* id :
          {"notes.selectSamePitch", "notes.selectOutsideKey", "notes.selectInLoop", "notes.invertSelection"})
-        actions_.addMenuItem(select, id);
+        add(select, id);
     menu.addSubMenu("Select", select);
     menu.addSubMenu("Notes", detail_.notesMenu ? detail_.notesMenu() : juce::PopupMenu());
     menu.addSubMenu("Grid", detail_.pianoRoll().gridMenu()); // where you edit (ADR 0047)

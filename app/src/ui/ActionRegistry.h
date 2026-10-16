@@ -40,6 +40,9 @@ public:
 
     [[nodiscard]] const Action* find(std::string_view id) const;
     [[nodiscard]] const std::vector<Action>& all() const noexcept { return actions_; }
+    /// Adds a condition to an action already added: it runs only while `condition` holds too, and
+    /// `why` says why when it doesn't (a view where it means nothing: a Drum Kit's pads).
+    void require(std::string_view id, std::function<bool()> condition, std::function<juce::String()> why);
 
     /// Performs `id` if it exists and is enabled. Returns true if it ran, or if it couldn't and
     /// said why (onRefused).

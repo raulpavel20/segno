@@ -17,6 +17,23 @@ const Action* ActionRegistry::find(std::string_view id) const
     return nullptr;
 }
 
+void ActionRegistry::require(std::string_view id, std::function<bool()> condition,
+                             std::function<juce::String()> why)
+{
+    for (auto& a : actions_)
+        if (a.id == id)
+        {
+            a.isEnabled = [enabled = std::move(a.isEnabled), condition]
+            { return condition() && (!enabled || enabled()); };
+            a.whyNot = [whyNot = std::move(a.whyNot), condition, why]
+            {
+                return !condition() ? why() : whyNot ? whyNot() : juce::String();
+            };
+            return;
+        }
+    jassertfalse; // added first
+}
+
 bool ActionRegistry::perform(std::string_view id) const
 {
     const auto* a = find(id);
