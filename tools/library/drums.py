@@ -63,6 +63,37 @@ SOURCES = {
         "commit": "69a0274cdc39c99c3098cde1bc3789690de86d62",  # 1.001
         "license": "CC0-1.0",
     },
+    "machines": {
+        # Recordings of drum machines by their owner (Mck): an analog 606-style machine, a digital
+        # machine's classic voices, an 80s digital machine and a 90s groove box (ADR 0068).
+        "name": "MckSamplePacks (MckAudio)",
+        "url": "https://github.com/MckAudio/MckSamplePacks",
+        "repo": "MckAudio/MckSamplePacks",
+        "commit": "5db40e8fe26785c256845a5bb38921b2654a887f",
+        "license": "CC0-1.0",
+    },
+    "fpsynth": {
+        "name": "FreePats Synthesizer Percussion",
+        "url": "https://github.com/freepats/synthesizer-percussion",
+        "repo": "freepats/synthesizer-percussion",
+        "commit": "39bbabce8e0e10aa259d5d94fca329f668733185",
+        "license": "CC0-1.0",
+    },
+    "lmms": {
+        "name": "LMMS assets",
+        "url": "https://github.com/LMMS/assets",
+        "repo": "LMMS/assets",
+        "commit": "bc09e0745c69c73bd6c3112122031e4963ce3876",
+        "license": "CC0-1.0",
+    },
+    "sonicpi": {
+        # Its samples from Freesound, "placed in the public domain via the Creative Commons 0 License".
+        "name": "Sonic Pi's samples",
+        "url": "https://github.com/sonic-pi-net/sonic-pi",
+        "repo": "sonic-pi-net/sonic-pi",
+        "commit": "7b39b6639705f801dd9d907d6c1715b8c795a376",
+        "license": "CC0-1.0",
+    },
     "fischer": {
         # Michael Fischer's recordings (1994), CC0 by their repackager, TidalCycles (ADR 0068).
         "name": "Michael Fischer's 808 recordings (TidalCycles' repackaging)",
@@ -239,6 +270,24 @@ def kits(ctx):
     out.append(_brushes(ctx))
     out.append(_indie(ctx))
     out.append(_seventies(ctx))
+    out.append(_808_boom(ctx))
+    out.append(_808_trap(ctx))
+    out.append(_909_house(ctx))
+    out.append(_909_techno(ctx))
+    out.append(_707_dance(ctx))
+    out.append(_machine_percussion(ctx))
+    out.append(_analog_606(ctx))
+    out.append(_80s_digital(ctx))
+    out.append(_80s_electronic(ctx))
+    out.append(_90s_club(ctx))
+    out.append(_90s_studio(ctx))
+    out.append(_synth_percussion(ctx))
+    out.append(_drum_and_bass(ctx))
+    out.append(_hardstyle(ctx))
+    out.append(_hip_hop(ctx))
+    out.append(_future(ctx))
+    out.append(_electro_lab(ctx))
+    out.append(_minimal(ctx))
     out.append(_body(ctx))
     return out
 
@@ -601,3 +650,524 @@ def _seventies(ctx):
     return Kit("70s soul", ["Drums", "Acoustic", "Soul"],
                "A kit recorded for a 1973 sound: a deep thud of a kick, a fat snare, three toms and a hi-hat "
                "that opens wide. Soul, funk and breaks.", pads)
+
+
+# ---- electronic kits --------------------------------------------------------------------------
+
+def _one(ctx, pool, source, seconds=2.0, velocity=60):
+    """A pad maker for a pool of single samples: (note, file, name, role, more Pad options)."""
+
+    def pad(note, path, name, role, piece=None, seconds_=None, **options):
+        sfz = files(ctx, pool, piece or name, source, [path] if isinstance(path, str) else path,
+                    seconds_ or seconds)
+        return Pad(note, sfz, name, role, velocity=options.pop("velocity", velocity), **options)
+
+    return pad
+
+
+def _808_boom(ctx):
+    """The 808 with its kick's decay all the way up and its tone down: a long, booming kick under a
+    darker snare, for hip-hop and electro."""
+    pad = _one(ctx, "808", "fischer")
+    pads = [
+        pad(KICK, "bd8/BD0010.WAV", "Kick", "kick", piece="Kick boom", seconds_=3.5),
+        pad(SIDESTICK, "rs8/RS.WAV", "Rimshot", "rim", seconds_=1),
+        pad(SNARE, "sd8/SD0025.WAV", "Snare", "snare", piece="Snare dark", seconds_=1.5),
+        pad(CLAP, "cp8/CP.WAV", "Clap", "clap", seconds_=1.5),
+        pad(LOWTOM_F, "lt8/LT10.WAV", "Low tom", "tom", piece="Low tom long", seconds_=3, pan=-0.3),
+        pad(CLOSED, "ch8/CH.WAV", "Closed hat", "hat", piece="Closed hat", seconds_=1, choke=1),
+        pad(MIDTOM_L, "mt8/MT10.WAV", "Mid tom", "tom", piece="Mid tom long", seconds_=3),
+        pad(OPEN, "oh8/OH75.WAV", "Open hat", "open hat", piece="Open hat long", seconds_=2, choke=1),
+        pad(HIGHTOM_L, "ht8/HT10.WAV", "High tom", "tom", piece="High tom long", seconds_=3, pan=0.3),
+        pad(CRASH, "cy8/CY0075.WAV", "Cymbal", "cymbal", piece="Cymbal dark", seconds_=5),
+        pad(COWBELL, "cb8/CB.WAV", "Cowbell", "perc", seconds_=1.5),
+        pad(CLAVES, "cl8/CL.WAV", "Claves", "perc", seconds_=1),
+    ]
+    return Kit("808 boom", ["Drums", "Electronic", "Hip-hop"],
+               "The 808 with the kick's decay all the way up and its tone down: a long boom under a darker "
+               "snare and long toms. Hip-hop, electro, Miami bass.", pads)
+
+
+def _808_trap(ctx):
+    """Trap's 808: a short kick and a long sub-kick, a bright snappy snare, the clap, tight hats
+    and the rimshot."""
+    pad = _one(ctx, "808", "fischer")
+    pads = [
+        pad(35, "bd8/BD2510.WAV", "808", "kick", piece="Kick long", seconds_=4, trim=-1),
+        pad(KICK, "bd8/BD7500.WAV", "Kick", "kick", piece="Kick short", seconds_=1.5),
+        pad(SIDESTICK, "rs8/RS.WAV", "Rimshot", "rim", seconds_=1),
+        pad(SNARE, "sd8/SD7575.WAV", "Snare", "snare", piece="Snare bright", seconds_=1.5),
+        pad(CLAP, "cp8/CP.WAV", "Clap", "clap", seconds_=1.5),
+        pad(SNARE2, "sd8/SD5010.WAV", "Snare snappy", "snare", piece="Snare snappy", seconds_=1.5, trim=-2),
+        pad(CLOSED, "ch8/CH.WAV", "Closed hat", "hat", piece="Closed hat", seconds_=1, choke=1),
+        pad(OPEN, "oh8/OH25.WAV", "Open hat", "open hat", piece="Open hat short", seconds_=1.5, choke=1),
+        pad(LOWTOM, "lt8/LT50.WAV", "Low tom", "tom", piece="Low tom", seconds_=2, pan=-0.3),
+        pad(MIDTOM, "mt8/MT50.WAV", "Mid tom", "tom", piece="Mid tom", seconds_=2),
+        pad(HIGHTOM, "ht8/HT50.WAV", "High tom", "tom", piece="High tom", seconds_=2, pan=0.3),
+        pad(COWBELL, "cb8/CB.WAV", "Cowbell", "perc", seconds_=1.5),
+    ]
+    return Kit("808 trap", ["Drums", "Electronic", "Trap"],
+               "Trap's 808: a long sub-kick to play as a bass and a short kick for the punch, a bright snappy "
+               "snare, the clap and tight hats for rolls.", pads)
+
+
+def _machine_file(ctx, folder, name):
+    """A file of the machines' recordings by its name, without its number: "TR8/BD", "909_Bass_Drum_1"."""
+    tree = ctx.tree("machines")
+    found = [p for p in tree if p.startswith(folder + "/") and re.fullmatch(r"\d{3}_" + re.escape(name) + r"\.wav",
+                                                                               os.path.basename(p))]
+    if len(found) != 1:
+        raise SystemExit(f"machines: {folder}/{name}: {len(found)} files")
+    return found[0]
+
+
+def _modern(ctx, pool):
+    """A pad maker for the digital machine's voices: (note, folder, name in the machine, our name, role)."""
+    one = _one(ctx, pool, "machines")
+
+    def pad(note, folder, name, ours, role, **options):
+        return one(note, _machine_file(ctx, "TR8/" + folder, name), ours, role, **options)
+
+    return pad
+
+
+def _909_house(ctx):
+    pad = _modern(ctx, "909")
+    pads = [
+        pad(35, "BD", "909_Bass_Drum_2", "Kick 2", "kick", piece="Kick 2"),
+        pad(KICK, "BD", "909_Bass_Drum_1", "Kick", "kick"),
+        pad(SIDESTICK, "PERC", "909_Rim_Shot", "Rimshot", "rim", seconds_=1),
+        pad(SNARE, "SD", "909_Snare_Drum_1", "Snare", "snare"),
+        pad(CLAP, "PERC", "909_Hand_Clap", "Clap", "clap"),
+        pad(SNARE2, "SD", "909_Snare_Drum_2", "Snare 2", "snare", piece="Snare 2"),
+        pad(LOWTOM_F, "TOMS", "909_Low_Tom", "Low tom", "tom", pan=-0.3),
+        pad(CLOSED, "HATS", "909_Closed_HiHat", "Closed hat", "hat", choke=1, seconds_=1),
+        pad(MIDTOM_L, "TOMS", "909_Mid_Tom", "Mid tom", "tom"),
+        pad(OPEN, "HATS", "909_Open_HiHat", "Open hat", "open hat", choke=1),
+        pad(HIGHTOM_L, "TOMS", "909_High_Tom", "High tom", "tom", pan=0.3),
+        pad(CRASH, "HATS", "909_Crash_Cymbal", "Crash", "cymbal", seconds_=4),
+        pad(RIDE, "HATS", "909_Ride_Cymbal", "Ride", "ride", seconds_=4),
+        pad(CHINA, "PERC", "909_Hand_Clap_Long", "Clap long", "clap", piece="Clap long"),
+    ]
+    return Kit("909 house", ["Drums", "Electronic", "House"],
+               "The 909 as house knows it: the round kick, the snare and clap on two and four, open hats on "
+               "the off-beat and the ride.", pads)
+
+
+def _909_techno(ctx):
+    pad = _modern(ctx, "909")
+    pads = [
+        pad(35, "BD", "909_Bass_Drum_3", "Kick 3", "kick", piece="Kick 3"),
+        pad(KICK, "BD", "909_AttackBD_1", "Kick", "kick", piece="Kick attack"),
+        pad(SIDESTICK, "PERC", "909_Rim_Shot", "Rimshot", "rim", seconds_=1),
+        pad(SNARE, "SD", "909_AttackSD_1", "Snare", "snare", piece="Snare attack"),
+        pad(CLAP, "PERC", "909_Hand_Clap", "Clap", "clap"),
+        pad(SNARE2, "SD", "909_Snare_Drum_3", "Snare 3", "snare", piece="Snare 3"),
+        pad(LOWTOM_F, "TOMS", "909_Low_Tom_Short", "Low tom", "tom", piece="Low tom short", pan=-0.3),
+        pad(CLOSED, "HATS", "909_Closed_HiHat_Short", "Closed hat", "hat", piece="Closed hat short", choke=1,
+            seconds_=1),
+        pad(MIDTOM_L, "TOMS", "909_Mid_Tom_Short", "Mid tom", "tom", piece="Mid tom short"),
+        pad(OPEN, "HATS", "909_Open_HiHat_Short", "Open hat", "open hat", piece="Open hat short", choke=1),
+        pad(HIGHTOM_L, "TOMS", "909_High_Tom_Short", "High tom", "tom", piece="High tom short", pan=0.3),
+        pad(CRASH, "HATS", "909_Crash_Cymbal_Short", "Crash", "cymbal", piece="Crash short", seconds_=3),
+        pad(RIDE, "HATS", "909_Ride_Cymbal_Short", "Ride", "ride", piece="Ride short", seconds_=3),
+        pad(CHINA, "BD", "909_AttackBD_3", "Kick hard", "kick", piece="Kick attack hard", trim=-1),
+    ]
+    return Kit("909 techno", ["Drums", "Electronic", "Techno"],
+               "The 909 tightened for techno: its attack kick and snare, short hats and toms, a short ride "
+               "for driving sixteenths.", pads)
+
+
+def _707_dance(ctx):
+    pad = _modern(ctx, "707")
+    pads = [
+        pad(35, "BD", "707_Bass_Drum_2", "Kick 2", "kick", piece="Kick 2"),
+        pad(KICK, "BD", "707_Bass_Drum_1", "Kick", "kick"),
+        pad(SIDESTICK, "PERC", "707_Rim_Shot", "Rimshot", "rim", seconds_=1),
+        pad(SNARE, "SD", "707_Snare_Dum_1", "Snare", "snare"),
+        pad(CLAP, "PERC", "707_Hand_Clap", "Clap", "clap"),
+        pad(SNARE2, "SD", "707_Snare_Dum_2", "Snare 2", "snare", piece="Snare 2"),
+        pad(LOWTOM_F, "TOMS", "707_Low_Tom", "Low tom", "tom", pan=-0.3),
+        pad(CLOSED, "HATS", "707_Closed_HiHat", "Closed hat", "hat", choke=1, seconds_=1),
+        pad(MIDTOM_L, "TOMS", "707_Mid_Tom", "Mid tom", "tom"),
+        pad(OPEN, "HATS", "707_Open_HiHat", "Open hat", "open hat", choke=1),
+        pad(HIGHTOM_L, "TOMS", "707_High_Tom", "High tom", "tom", pan=0.3),
+        pad(CRASH, "HATS", "707_Crash_Cymbal", "Crash", "cymbal", seconds_=4),
+        pad(RIDE, "HATS", "707_Ride_Cymbal", "Ride", "ride", seconds_=4),
+        pad(TAMB, "PERC", "707_Tambourine", "Tambourine", "shaker"),
+        pad(CHINA, "SD", "707_Snare_Dum_3", "Snare 3", "snare", piece="Snare 3"),
+    ]
+    return Kit("707 dance", ["Drums", "Electronic", "Dance"],
+               "The 707's bright digital drums: punchy kick, crisp snare, a tambourine, the sound of 80s dance "
+               "and early house.", pads)
+
+
+def _machine_percussion(ctx):
+    pad = _modern(ctx, "Machine percussion")
+    pads = [
+        pad(HIGHBONGO, "PERC", "727_High_Bongo", "High bongo", "perc", pan=0.2),
+        pad(LOWBONGO, "PERC", "727_Low_Bongo", "Low bongo", "perc", pan=0.1),
+        pad(MUTECONGA, "PERC", "727_Mute_High_Conga", "Mute conga", "perc", pan=-0.1),
+        pad(OPENCONGA, "PERC", "727_Open_High_Conga", "High conga", "perc", pan=-0.15),
+        pad(LOWCONGA, "PERC", "727_Low_Conga", "Low conga", "perc", pan=-0.25),
+        pad(HIGHTIMBALE, "PERC", "727_High_Timbale", "High timbale", "perc", pan=0.3),
+        pad(LOWTIMBALE, "PERC", "727_Low_Timbale", "Low timbale", "perc", pan=0.25),
+        pad(HIGHAGOGO, "PERC", "727_Agogo_High", "High agogo", "perc", pan=0.35),
+        pad(LOWAGOGO, "PERC", "727_Agogo_Low", "Low agogo", "perc", pan=0.35),
+        pad(CABASA, "PERC", "727_Cabasa", "Cabasa", "shaker", pan=-0.3),
+        pad(MARACAS, "PERC", "808_Maracas", "Maracas", "shaker", pan=0.3),
+        pad(SHORTWHISTLE, "PERC", "727_Short_Whistle", "Short whistle", "fx"),
+        pad(LONGWHISTLE, "PERC", "727_Long_Whistle", "Long whistle", "fx"),
+        pad(CLAVES, "PERC", "808_Claves_1", "Claves", "perc", pan=-0.2),
+        pad(MUTECUICA, "PERC", "727_Quijada", "Quijada", "perc"),
+        pad(COWBELL, "PERC", "808_Cowbell", "Cowbell", "perc"),
+        pad(OPENTRIANGLE, "PERC", "727_Star_Chime", "Star chime", "fx", seconds_=3),
+        pad(TAMB, "PERC", "707_Tambourine", "Tambourine", "shaker"),
+    ]
+    return Kit("Machine percussion", ["Drums", "Percussion", "Electronic"],
+               "A drum machine's Latin percussion: congas, bongos, timbales, agogos, a quijada and whistles, "
+               "in the bright digital colour of the 80s.", pads)
+
+
+def _analog_606(ctx):
+    """An analog 606-style machine recorded by its owner: knobs at several settings each (chosen
+    by decay; the toms are its two, low and high)."""
+    pad = _one(ctx, "606", "machines")
+    d = "RD6"
+    pads = [
+        pad(35, f"{d}/BD/004.wav", "Kick long", "kick", piece="Kick long", seconds_=2),
+        pad(KICK, f"{d}/BD/001.wav", "Kick", "kick", seconds_=1),
+        pad(SNARE, f"{d}/SD/001.wav", "Snare", "snare", seconds_=1),
+        pad(CLAP, f"{d}/CLAP/002.wav", "Clap", "clap", seconds_=1.5),
+        pad(SNARE2, f"{d}/SD/003.wav", "Snare long", "snare", piece="Snare long", seconds_=2),
+        pad(LOWTOM_F, f"{d}/TOMS/001.wav", "Low tom", "tom", seconds_=1, pan=-0.3),
+        pad(CLOSED, f"{d}/HATS/002.wav", "Closed hat", "hat", choke=1, seconds_=1),
+        pad(LOWTOM, f"{d}/TOMS/004.wav", "Low tom long", "tom", piece="Low tom long", seconds_=2, pan=-0.3),
+        pad(PEDAL, f"{d}/HATS/006.wav", "Half hat", "hat", piece="Half hat", choke=1, seconds_=1),
+        pad(MIDTOM_L, f"{d}/TOMS/006.wav", "High tom", "tom", seconds_=1, pan=0.3),
+        pad(OPEN, f"{d}/HATS/007.wav", "Open hat", "open hat", choke=1, seconds_=1.5),
+        pad(MIDTOM, f"{d}/TOMS/008.wav", "High tom long", "tom", piece="High tom long", seconds_=2, pan=0.3),
+        pad(CRASH, f"{d}/HATS/015.wav", "Cymbal", "cymbal", seconds_=4),
+        pad(RIDE, f"{d}/HATS/012.wav", "Cymbal short", "cymbal", piece="Cymbal short", seconds_=3),
+    ]
+    return Kit("606 analog", ["Drums", "Electronic", "Classic"],
+               "A small analog machine in the 606's mould, recorded by its owner: a thumpy kick, a noisy "
+               "snare, sizzling hats and two toms. Acid and minimal.", pads)
+
+
+def _rx(ctx, pool):
+    one = _one(ctx, pool, "machines")
+
+    def pad(note, folder, name, ours, role, **options):
+        return one(note, _machine_file(ctx, "RX5/" + folder, name), ours, role, **options)
+
+    return pad
+
+
+def _80s_digital(ctx):
+    pad = _rx(ctx, "80s digital")
+    pads = [
+        pad(35, "BD", "Heavy_Bass_Drum_1", "Kick heavy", "kick", piece="Kick heavy"),
+        pad(KICK, "BD", "Bass_Drum_1", "Kick", "kick"),
+        pad(SIDESTICK, "SD", "Rim_Shot_1", "Rimshot", "rim", seconds_=1),
+        pad(SNARE, "SD", "Snare_Drum_1", "Snare", "snare"),
+        pad(CLAP, "PERC", "Claps", "Clap", "clap"),
+        pad(SNARE2, "SD", "Heavy_Snare_Drum_1", "Snare heavy", "snare", piece="Snare heavy"),
+        pad(LOWTOM_F, "TOMS", "Tom_4", "Floor tom", "tom", pan=-0.35),
+        pad(CLOSED, "HATS", "HiHat_Closed", "Closed hat", "hat", choke=1, seconds_=1),
+        pad(LOWTOM, "TOMS", "Tom_3", "Low tom", "tom", pan=-0.15),
+        pad(OPEN, "HATS", "HiHat_Open", "Open hat", "open hat", choke=1),
+        pad(MIDTOM_L, "TOMS", "Tom_2", "Mid tom", "tom", pan=0.1),
+        pad(MIDTOM, "TOMS", "Tom_1", "High tom", "tom", pan=0.3),
+        pad(CRASH, "HATS", "Crash_Cymbal", "Crash", "cymbal", seconds_=4),
+        pad(RIDE, "HATS", "Ride_Edge", "Ride", "ride", seconds_=4),
+        pad(BELL, "HATS", "Ride_Cup", "Ride bell", "ride", seconds_=3),
+        pad(TAMB, "PERC", "Tambourine", "Tambourine", "shaker"),
+        pad(COWBELL, "PERC", "Cowbell", "Cowbell", "perc"),
+        pad(MARACAS, "PERC", "Shaker", "Shaker", "shaker"),
+    ]
+    return Kit("80s digital", ["Drums", "Electronic", "80s"],
+               "An 80s digital drum machine's sampled kit: tight kick, big snare, clap and four toms. Pop, "
+               "synth-pop and new wave.", pads)
+
+
+def _80s_electronic(ctx):
+    pad = _rx(ctx, "80s digital")
+    pads = [
+        pad(35, "BD", "Electric_Bass_Drum", "Kick electric", "kick", piece="Kick electric"),
+        pad(KICK, "BD", "Process_Bass_Drum_1", "Kick", "kick", piece="Kick processed"),
+        pad(SIDESTICK, "SD", "Rim_Shot_2", "Rimshot", "rim", piece="Rimshot 2", seconds_=1),
+        pad(SNARE, "SD", "Process_Snare_Drum_1", "Snare", "snare", piece="Snare processed"),
+        pad(CLAP, "PERC", "Claps", "Clap", "clap"),
+        pad(SNARE2, "SD", "Electric_Snare_Drum", "Snare electric", "snare", piece="Snare electric"),
+        pad(LOWTOM_F, "TOMS", "Process_Tom_3", "Low tom", "tom", piece="Tom processed low", pan=-0.3),
+        pad(CLOSED, "HATS", "HiHat_Closed", "Closed hat", "hat", choke=1, seconds_=1),
+        pad(MIDTOM_L, "TOMS", "Process_Tom_2", "Mid tom", "tom", piece="Tom processed mid"),
+        pad(OPEN, "HATS", "HiHat_Open", "Open hat", "open hat", choke=1),
+        pad(HIGHTOM_L, "TOMS", "Process_Tom_1", "High tom", "tom", piece="Tom processed high", pan=0.3),
+        pad(CRASH, "HATS", "Crash_Cymbal", "Crash", "cymbal", seconds_=4),
+        pad(CHINA, "TOMS", "FM_Tom", "FM tom", "tom", piece="FM tom"),
+        pad(RIDE, "SD", "FM_Snare_Drum", "FM snare", "snare", piece="FM snare"),
+        pad(SPLASH, "TOMS", "Hybrid_Tom", "Hybrid tom", "tom", piece="Hybrid tom"),
+        pad(COWBELL, "MISC", "FM_Percussion_1", "FM perc", "perc", piece="FM perc 1"),
+        pad(CRASH2, "MISC", "FM_Percussion_2", "FM perc 2", "perc", piece="FM perc 2"),
+        pad(VIBRASLAP, "TOMS", "Process_Roto", "Roto", "tom", piece="Roto"),
+    ]
+    return Kit("80s electronic", ["Drums", "Electronic", "80s"],
+               "The same 80s machine's electronic side: processed kick and snare, synth toms and FM "
+               "percussion. Electro-funk and synth-pop.", pads)
+
+
+def _dr(ctx, pool):
+    one = _one(ctx, pool, "machines")
+
+    def pad(note, folder, name, ours, role, **options):
+        return one(note, _machine_file(ctx, "DR5/" + folder, name), ours, role, **options)
+
+    return pad
+
+
+def _90s_club(ctx):
+    pad = _dr(ctx, "90s groove box")
+    pads = [
+        pad(35, "BD", "Dance_Kick", "Kick 2", "kick", piece="Kick dance"),
+        pad(KICK, "BD", "House_Kick_1", "Kick", "kick", piece="Kick house"),
+        pad(SIDESTICK, "PERC", "Claves", "Claves", "perc", seconds_=1),
+        pad(SNARE, "SD", "House_Snare", "Snare", "snare", piece="Snare house"),
+        pad(CLAP, "PERC", "TR-808_Clap", "Clap", "clap", piece="Clap"),
+        pad(SNARE2, "SD", "Dance_Snare", "Snare 2", "snare", piece="Snare dance"),
+        pad(LOWTOM_F, "PERC", "Conga_Low_Open", "Low conga", "perc", piece="Conga low", pan=-0.3),
+        pad(CLOSED, "HATS", "Pop_Closed_Hi-hat", "Closed hat", "hat", piece="Closed hat pop", choke=1, seconds_=1),
+        pad(LOWTOM, "PERC", "Conga_High_Open", "High conga", "perc", piece="Conga high", pan=-0.15),
+        pad(PEDAL, "HATS", "Pop_Pedal_Hi-hat", "Pedal hat", "hat", piece="Pedal hat pop", choke=1, seconds_=1),
+        pad(MIDTOM_L, "PERC", "Conga_High_Slap", "Conga slap", "perc", piece="Conga slap"),
+        pad(OPEN, "HATS", "Pop_Open_Hi-hat", "Open hat", "open hat", piece="Open hat pop", choke=1),
+        pad(MIDTOM, "PERC", "Tambourine", "Tambourine", "shaker"),
+        pad(HIGHTOM_L, "PERC", "Shaker", "Shaker", "shaker"),
+        pad(CRASH, "HATS", "Crash_Cymbal_1", "Crash", "cymbal", piece="Crash", seconds_=4),
+        pad(RIDE, "HATS", "Ride_Cymbal", "Ride", "ride", piece="Ride", seconds_=4),
+        pad(CHINA, "FX", "Reverse_Cymbal", "Reverse cymbal", "fx", seconds_=3),
+        pad(BELL, "FX", "Scratch_Push", "Scratch", "fx"),
+        pad(TAMB, "SD", "Noise_Snare", "Noise snare", "snare", piece="Snare noise"),
+        pad(SPLASH, "FX", "High_Q", "High Q", "fx"),
+        pad(COWBELL, "PERC", "Cowbell", "Cowbell", "perc"),
+    ]
+    return Kit("90s club", ["Drums", "Electronic", "House"],
+               "A 90s groove box at the club: house kicks and snares, a fat clap, pop hats, congas, a "
+               "reverse cymbal and a scratch.", pads)
+
+
+def _90s_studio(ctx):
+    pad = _dr(ctx, "90s groove box")
+    pads = [
+        pad(35, "BD", "Tight_Kick", "Kick tight", "kick", piece="Kick tight"),
+        pad(KICK, "BD", "Real_Kick", "Kick", "kick", piece="Kick real"),
+        pad(SIDESTICK, "SD", "Ambient_Side_Stick", "Side-stick", "rim", piece="Side-stick", seconds_=1),
+        pad(SNARE, "SD", "Real_Snare_1", "Snare", "snare", piece="Snare real"),
+        pad(CLAP, "SD", "Room_Gated_Snare", "Gated snare", "snare", piece="Snare gated"),
+        pad(SNARE2, "SD", "Rock_Snare", "Rock snare", "snare", piece="Snare rock"),
+        pad(LOWTOM_F, "TOMS", "Rock_Tom_4", "Floor tom", "tom", piece="Tom rock 4", pan=-0.35),
+        pad(CLOSED, "HATS", "Acoustic_Closed_Hi-hat", "Closed hat", "hat", piece="Closed hat", choke=1, seconds_=1),
+        pad(LOWTOM, "TOMS", "Rock_Tom_3", "Low tom", "tom", piece="Tom rock 3", pan=-0.15),
+        pad(PEDAL, "HATS", "Acoustic_Pedal_Hi-hat", "Pedal hat", "hat", piece="Pedal hat", choke=1, seconds_=1),
+        pad(MIDTOM_L, "TOMS", "Rock_Tom_2", "Mid tom", "tom", piece="Tom rock 2", pan=0.1),
+        pad(OPEN, "HATS", "Acoustic_Open_Hi-hat", "Open hat", "open hat", piece="Open hat", choke=1),
+        pad(MIDTOM, "TOMS", "Rock_Tom_1", "High tom", "tom", piece="Tom rock 1", pan=0.3),
+        pad(CRASH, "HATS", "Crash_Cymbal_2", "Crash", "cymbal", piece="Crash 2", seconds_=4),
+        pad(RIDE, "HATS", "Rock_Ride_Cymbal", "Ride", "ride", piece="Ride rock", seconds_=4),
+        pad(BELL, "HATS", "Rock_Ride_Bell_Cymbal", "Ride bell", "ride", piece="Ride bell rock", seconds_=3),
+        pad(SPLASH, "HATS", "Splash_Cymbal", "Splash", "cymbal", seconds_=3),
+    ]
+    return Kit("90s studio", ["Drums", "Electronic", "Pop"],
+               "A 90s groove box's studio kit: a real kick, a big gated snare, rock toms and acoustic hats. "
+               "Pop, R&B and rock demos.", pads)
+
+
+def _synth_percussion(ctx):
+    pad = _one(ctx, "Synth percussion", "fpsynth")
+    pads = [
+        pad(35, "samples/Kick06.flac", "Kick 2", "kick", piece="Kick 2"),
+        pad(KICK, "samples/Kick04.flac", "Kick", "kick"),
+        pad(SNARE, "samples/Snare09.flac", "Snare", "snare"),
+        pad(CLAP, "samples/Clap01.flac", "Clap", "clap"),
+        pad(SNARE2, "samples/Snare14.flac", "Snare 2", "snare", piece="Snare 2"),
+        pad(LOWTOM_F, ["samples/LowTom02-01.flac", "samples/LowTom02-02.flac"], "Low tom", "tom", pan=-0.3),
+        pad(CLOSED, "samples/ClosedHiHat01-01.flac", "Closed hat", "hat", choke=1, seconds_=1),
+        pad(LOWTOM, ["samples/MidTom02-01.flac", "samples/MidTom02-02.flac"], "Mid tom", "tom"),
+        pad(PEDAL, "samples/ClosedHiHat02-01.flac", "Closed hat 2", "hat", piece="Closed hat 2", choke=1, seconds_=1),
+        pad(MIDTOM_L, ["samples/HighTom02-01.flac", "samples/HighTom02-02.flac"], "High tom", "tom", pan=0.3),
+        pad(OPEN, "samples/OpenHiHat02-01.flac", "Open hat", "open hat", choke=1),
+        pad(CRASH, ["samples/Cymbal01-01.flac", "samples/Cymbal01-02.flac", "samples/Cymbal01-03.flac"], "Cymbal",
+            "cymbal", seconds_=4),
+        pad(RIDE, "samples/Cymbal02.flac", "Cymbal 2", "cymbal", piece="Cymbal 2", seconds_=4),
+        pad(MARACAS, "samples/Shaker04.flac", "Shaker", "shaker"),
+        pad(CABASA, "samples/ShakerLong01.flac", "Long shaker", "shaker", piece="Shaker long"),
+        pad(CLAVES, "samples/Claves01.flac", "Claves", "perc"),
+    ]
+    return Kit("Synth percussion", ["Drums", "Electronic", "Synth"],
+               "Drums made on synthesizers, nothing recorded: sine kicks, noise snares and claps, metallic "
+               "hats and pitched toms.", pads)
+
+
+def _lmms(ctx, pool):
+    one = _one(ctx, pool, "lmms")
+    base = "Samples/Sample library/Drums"
+
+    def pad(note, path, name, role, **options):
+        return one(note, os.path.normpath(f"{base}/{path}.flac"), name, role, **options)
+
+    return pad
+
+
+def _drum_and_bass(ctx):
+    pad = _lmms(ctx, "Drum and bass")
+    pads = [
+        pad(KICK, "Kicks/DnB Kick", "Kick", "kick"),
+        pad(SIDESTICK, "Misc/Rim Shot 1", "Rimshot", "rim"),
+        pad(SNARE, "Snares/DnB Snare 1", "Snare", "snare"),
+        pad(CLAP, "Snares/DnB Snare 2", "Snare 2", "snare", piece="Snare 2"),
+        pad(SNARE2, "Snares/DnB Snare 3", "Snare 3", "snare", piece="Snare 3"),
+        pad(LOWTOM_F, "Toms/Tomsynth 1 Floor", "Floor tom", "tom", pan=-0.3),
+        pad(CLOSED, "Hi-hats/CHH 3", "Closed hat", "hat", choke=1, seconds_=1),
+        pad(LOWTOM, "Toms/Tomsynth 1 Low", "Low tom", "tom", pan=-0.15),
+        pad(PEDAL, "Hi-hats/CHH 5", "Closed hat 2", "hat", piece="Closed hat 2", choke=1, seconds_=1),
+        pad(MIDTOM_L, "Toms/Tomsynth 1 Mid", "Mid tom", "tom", pan=0.1),
+        pad(OPEN, "Hi-hats/OHH 2", "Open hat", "open hat", choke=1),
+        pad(MIDTOM, "Toms/Tomsynth 1 High", "High tom", "tom", pan=0.3),
+        pad(CRASH, "Crashes/Crash 3", "Crash", "cymbal", seconds_=4),
+        pad(RIDE, "Rides/Cymbal Ride 2", "Ride", "ride", seconds_=4),
+        pad(MARACAS, "Shakers & Rattles/Shaker 1", "Shaker", "shaker"),
+        pad(CHINA, "Snares/DnB Snare 4", "Snare 4", "snare", piece="Snare 4"),
+    ]
+    return Kit("Drum and bass", ["Drums", "Electronic", "Drum and bass"],
+               "Snares that crack at 170 bpm, a tight kick, fast hats and a ride for rolling breaks.", pads)
+
+
+def _hardstyle(ctx):
+    pad = _lmms(ctx, "Hardstyle")
+    pads = [
+        pad(35, "Kicks/Hardstyle Kick 2 - G1", "Kick 2", "kick", piece="Kick 2", trim=-1),
+        pad(KICK, "Kicks/Hardstyle Kick 1 - G1", "Kick", "kick", trim=-1),
+        pad(SIDESTICK, "Kicks/Hardcore Kick 1 - G#1", "Hardcore kick", "kick", piece="Kick hardcore", trim=-1),
+        pad(SNARE, "Snares/Punch Snare 1", "Snare", "snare"),
+        pad(CLAP, "Claps/Noise Clap", "Clap", "clap"),
+        pad(SNARE2, "Snares/Punch Snare 2", "Snare 2", "snare", piece="Snare 2"),
+        pad(LOWTOM_F, "Kicks/Hardstyle Kick 3 - G1", "Kick 3", "kick", piece="Kick 3", trim=-1),
+        pad(CLOSED, "Hi-hats/CHH 7", "Closed hat", "hat", choke=1, seconds_=1),
+        pad(LOWTOM, "Kicks/Hardstyle Kick 5 - F1", "Kick F", "kick", piece="Kick F", trim=-1),
+        pad(OPEN, "Hi-hats/OHH 5", "Open hat", "open hat", choke=1),
+        pad(CRASH, "Crashes/Crash 5", "Crash", "cymbal", seconds_=4),
+        pad(RIDE, "Rides/Cymbal Ride 4", "Ride", "ride", seconds_=4),
+        pad(CHINA, "Claps/Layered Clap 2", "Layered clap", "clap", piece="Clap layered"),
+        pad(SPLASH, "Snares/Punch Snare 3", "Snare 3", "snare", piece="Snare 3"),
+    ]
+    return Kit("Hardstyle", ["Drums", "Electronic", "Hardstyle"],
+               "Distorted, tuned kicks in G and F, a hardcore kick, punchy snares and a noise clap. Hardstyle "
+               "and hardcore.", pads)
+
+
+def _hip_hop(ctx):
+    pad = _lmms(ctx, "Hip-hop")
+    pads = [
+        pad(35, "Kicks/Bass Kick Long", "Long kick", "kick", piece="Kick long"),
+        pad(KICK, "Kicks/Bass Kick Short", "Kick", "kick", piece="Kick short"),
+        pad(SIDESTICK, "Misc/Rim Shot 2", "Rimshot", "rim"),
+        pad(SNARE, "Snares/Hiphop Snare 1", "Snare", "snare"),
+        pad(CLAP, "Claps/Trap Clap", "Clap", "clap"),
+        pad(SNARE2, "Snares/Hiphop Snare 2", "Snare 2", "snare", piece="Snare 2"),
+        pad(LOWTOM_F, "Snares/Hiphop Snare 3", "Snare 3", "snare", piece="Snare 3"),
+        pad(CLOSED, "Hi-hats/CHH 5", "Closed hat", "hat", choke=1, seconds_=1),
+        pad(LOWTOM, "Misc/Snap 1", "Snap", "rim"),
+        pad(OPEN, "Hi-hats/OHH 4", "Open hat", "open hat", choke=1),
+        pad(MIDTOM_L, "Snares/RnB Snare 1", "RnB snare", "snare", piece="Snare RnB"),
+        pad(CRASH, "Crashes/Crash 2", "Crash", "cymbal", seconds_=4),
+        pad(MARACAS, "Shakers & Rattles/Shaker 3", "Shaker", "shaker"),
+        pad(CHINA, "../SFXs/Vinyl Backspin", "Backspin", "fx", piece="Backspin"),
+    ]
+    return Kit("Hip-hop", ["Drums", "Electronic", "Hip-hop"],
+               "A long and a short kick, hip-hop and R&B snares, a trap clap, a snap and a vinyl backspin.",
+               pads)
+
+
+def _future(ctx):
+    pad = _lmms(ctx, "Future")
+    pads = [
+        pad(35, "Kicks/Future Kick 2", "Kick 2", "kick", piece="Kick 2"),
+        pad(KICK, "Kicks/Future Kick 1", "Kick", "kick"),
+        pad(SNARE, "Snares/Future Snare 1", "Snare", "snare"),
+        pad(CLAP, "Claps/Synthetic Clap 1", "Clap", "clap"),
+        pad(SNARE2, "Snares/Future Snare 2", "Snare 2", "snare", piece="Snare 2"),
+        pad(LOWTOM_F, "Toms/Tomsynth 2 Floor", "Floor tom", "tom", pan=-0.3),
+        pad(CLOSED, "Hi-hats/CHH 9", "Closed hat", "hat", choke=1, seconds_=1),
+        pad(LOWTOM, "Toms/Tomsynth 2 Low", "Low tom", "tom", pan=-0.15),
+        pad(MIDTOM_L, "Toms/Tomsynth 2 Mid", "Mid tom", "tom", pan=0.1),
+        pad(OPEN, "Hi-hats/OHH 7", "Open hat", "open hat", choke=1),
+        pad(MIDTOM, "Toms/Tomsynth 2 High", "High tom", "tom", pan=0.3),
+        pad(CRASH, "Crashes/Crash 6", "Crash", "cymbal", seconds_=4),
+        pad(CHINA, "Claps/Synthetic Clap 2", "Clap 2", "clap", piece="Clap 2"),
+        pad(SPLASH, "Kicks/Future Kick 3", "Kick 3", "kick", piece="Kick 3"),
+    ]
+    return Kit("Future bass", ["Drums", "Electronic", "Future bass"],
+               "Bright, compressed kicks, wide synthetic claps and snares, and synth toms for future bass "
+               "and pop drops.", pads)
+
+
+def _sonic(ctx, pool):
+    one = _one(ctx, pool, "sonicpi")
+
+    def pad(note, name, ours, role, **options):
+        return one(note, f"etc/samples/{name}.flac", ours, role, **options)
+
+    return pad
+
+
+def _electro_lab(ctx):
+    pad = _sonic(ctx, "Electro lab")
+    pads = [
+        pad(35, "elec_hollow_kick", "Hollow kick", "kick", piece="Kick hollow"),
+        pad(KICK, "elec_soft_kick", "Kick", "kick", piece="Kick soft"),
+        pad(SIDESTICK, "elec_tick", "Tick", "rim"),
+        pad(SNARE, "elec_snare", "Snare", "snare"),
+        pad(CLAP, "elec_filt_snare", "Filter snare", "snare", piece="Snare filtered"),
+        pad(SNARE2, "elec_hi_snare", "High snare", "snare", piece="Snare high"),
+        pad(LOWTOM_F, "elec_fuzz_tom", "Fuzz tom", "tom"),
+        pad(CLOSED, "elec_cymbal", "Cymbal", "hat", piece="Cymbal", seconds_=1.5),
+        pad(LOWTOM, "elec_mid_snare", "Mid snare", "snare", piece="Snare mid"),
+        pad(OPEN, "elec_triangle", "Triangle", "perc"),
+        pad(MIDTOM_L, "elec_lo_snare", "Low snare", "snare", piece="Snare low"),
+        pad(MIDTOM, "elec_wood", "Wood", "perc"),
+        pad(HIGHTOM_L, "elec_pop", "Pop", "perc"),
+        pad(CRASH, "elec_bong", "Bong", "perc"),
+        pad(HIGHTOM, "elec_blip", "Blip", "fx"),
+        pad(RIDE, "elec_ping", "Ping", "fx"),
+        pad(CHINA, "elec_plip", "Plip", "fx"),
+        pad(BELL, "elec_chime", "Chime", "fx", seconds_=3),
+    ]
+    return Kit("Electro lab", ["Drums", "Electronic", "Electro"],
+               "Electronic drums and blips from a lab bench: a hollow kick, filtered snares, a fuzz tom, a "
+               "wood block, pops, pings and chimes.", pads)
+
+
+def _minimal(ctx):
+    pad = _sonic(ctx, "Minimal")
+    pads = [
+        pad(35, "bd_tek", "Kick 2", "kick", piece="Kick tek"),
+        pad(KICK, "bd_haus", "Kick", "kick", piece="Kick haus"),
+        pad(SIDESTICK, "perc_snap", "Snap", "rim"),
+        pad(SNARE, "sn_dolf", "Snare", "snare"),
+        pad(CLAP, "sn_zome", "Snare 2", "snare", piece="Snare zome"),
+        pad(SNARE2, "sn_generic", "Snare 3", "snare", piece="Snare generic"),
+        pad(LOWTOM_F, "bd_klub", "Kick 3", "kick", piece="Kick klub", trim=-2),
+        pad(CLOSED, "hat_tap", "Closed hat", "hat", choke=1, piece="Hat tap"),
+        pad(LOWTOM, "bd_zome", "Kick 4", "kick", piece="Kick zome", trim=-2),
+        pad(PEDAL, "hat_snap", "Snap hat", "hat", choke=1, piece="Hat snap"),
+        pad(OPEN, "hat_psych", "Open hat", "open hat", choke=1, piece="Hat psych"),
+        pad(MIDTOM_L, "hat_metal", "Metal hat", "hat", choke=1, piece="Hat metal"),
+        pad(CRASH, "hat_zild", "Long hat", "open hat", choke=1, piece="Hat zild"),
+        pad(RIDE, "ride_tri", "Ride", "ride", piece="Ride tri", seconds_=3),
+        pad(CHINA, "perc_swash", "Swash", "fx"),
+        pad(BELL, "perc_bell", "Bell", "perc", seconds_=3),
+    ]
+    return Kit("Minimal", ["Drums", "Electronic", "Techno"],
+               "Small, dry club sounds: two kicks, clicky snares and snaps, a family of thin hats and a bell. "
+               "Minimal techno and microhouse.", pads)

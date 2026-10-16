@@ -58,6 +58,34 @@
    "commit": "69a0274cdc39c99c3098cde1bc3789690de86d62",
    "license": "CC0-1.0"
   },
+  "machines": {
+   "name": "MckSamplePacks (MckAudio)",
+   "url": "https://github.com/MckAudio/MckSamplePacks",
+   "raw": "https://raw.githubusercontent.com/MckAudio/MckSamplePacks",
+   "commit": "5db40e8fe26785c256845a5bb38921b2654a887f",
+   "license": "CC0-1.0"
+  },
+  "fpsynth": {
+   "name": "FreePats Synthesizer Percussion",
+   "url": "https://github.com/freepats/synthesizer-percussion",
+   "raw": "https://raw.githubusercontent.com/freepats/synthesizer-percussion",
+   "commit": "39bbabce8e0e10aa259d5d94fca329f668733185",
+   "license": "CC0-1.0"
+  },
+  "lmms": {
+   "name": "LMMS assets",
+   "url": "https://github.com/LMMS/assets",
+   "raw": "https://raw.githubusercontent.com/LMMS/assets",
+   "commit": "bc09e0745c69c73bd6c3112122031e4963ce3876",
+   "license": "CC0-1.0"
+  },
+  "sonicpi": {
+   "name": "Sonic Pi's samples",
+   "url": "https://github.com/sonic-pi-net/sonic-pi",
+   "raw": "https://raw.githubusercontent.com/sonic-pi-net/sonic-pi",
+   "commit": "7b39b6639705f801dd9d907d6c1715b8c795a376",
+   "license": "CC0-1.0"
+  },
   "fischer": {
    "name": "Michael Fischer's 808 recordings (TidalCycles' repackaging)",
    "url": "https://github.com/tidalcycles/sounds-tr808-fischer",
@@ -57788,6 +57816,4012 @@
        "sha256": "3113a08a8316c2f0fc6037fa438f9e0e1e10f98028b75a880453fb4cfb35d453"
       }
      ]
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Kick boom.sfz",
+   "source": "fischer",
+   "maxSeconds": 3.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "bd8/BD0010.WAV",
+     "name": "KickBoom",
+     "sha256": "2929f825db405543f8f1e1ef09e368d83421f030e249cb6a17e5a5ff34a882d6"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Snare dark.sfz",
+   "source": "fischer",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "sd8/SD0025.WAV",
+     "name": "SnareDark",
+     "sha256": "321007ec8ff915bad2a01ab69a095e1366a13f703f37a7d87c45ee15184d44f6"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Low tom long.sfz",
+   "source": "fischer",
+   "maxSeconds": 3,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "lt8/LT10.WAV",
+     "name": "LowTomLong",
+     "sha256": "b5f6c19876ce23539cd9b943f5d96c9284b0f95d6317e15e3f12b59f97f048df"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Mid tom long.sfz",
+   "source": "fischer",
+   "maxSeconds": 3,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "mt8/MT10.WAV",
+     "name": "MidTomLong",
+     "sha256": "50b81a0a9ab88871fd1a4eb98e642b9df12deae7beb826938c86c6b847636646"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Open hat long.sfz",
+   "source": "fischer",
+   "maxSeconds": 2,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "oh8/OH75.WAV",
+     "name": "OpenHatLong",
+     "sha256": "cde0aec2ca84358067859f52bac7d55b875f30d2baea700923e25e21307803e9"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/High tom long.sfz",
+   "source": "fischer",
+   "maxSeconds": 3,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "ht8/HT10.WAV",
+     "name": "HighTomLong",
+     "sha256": "aef7d50fc43965c35ef2fde924b19f3fa4be08a9132d0095514d0fae4b5c9202"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Cymbal dark.sfz",
+   "source": "fischer",
+   "maxSeconds": 5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "cy8/CY0075.WAV",
+     "name": "CymbalDark",
+     "sha256": "e8ea77861310eeed2d4619467506d4ef949b98f26790ae76a1aba17a1537b211"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Kick long.sfz",
+   "source": "fischer",
+   "maxSeconds": 4,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "bd8/BD2510.WAV",
+     "name": "KickLong",
+     "sha256": "7ef0803c4dc34bef9740be40bc42d7a0bb98a6951be9c3e97e4d1b184eed3e78"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Kick short.sfz",
+   "source": "fischer",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "bd8/BD7500.WAV",
+     "name": "KickShort",
+     "sha256": "d91601a7dee7a81a55a191024e0f6f756e69c4e09e33e820018a620ef27dfd2d"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Snare bright.sfz",
+   "source": "fischer",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "sd8/SD7575.WAV",
+     "name": "SnareBright",
+     "sha256": "d7fa75dff476baaef99de0b251d86c39aa0e0f36a06043db9a97417350fe4439"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Snare snappy.sfz",
+   "source": "fischer",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "sd8/SD5010.WAV",
+     "name": "SnareSnappy",
+     "sha256": "6832682eeb286223b76bf7ce4daa2c1a2df9e13b722f11c81c44c3a30c607ffc"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/808/Open hat short.sfz",
+   "source": "fischer",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "oh8/OH25.WAV",
+     "name": "OpenHatShort",
+     "sha256": "2674962ca376c0d08ce802423eb696be86b516450fe23707ac69f3878b35f12b"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Kick 2.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/BD/005_909_Bass_Drum_2.wav",
+     "name": "Kick2",
+     "sha256": "0ee430119d1e06e2adc512834aa80e2c540843fd23b21f0fe2fa59e6cb908ef4"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Kick.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/BD/004_909_Bass_Drum_1.wav",
+     "name": "Kick",
+     "sha256": "cc6950e429ca3947d10c68789c455132203ddebe7780a548df5a5a4a28ac9fdf"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Rimshot.sfz",
+   "source": "machines",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/009_909_Rim_Shot.wav",
+     "name": "Rimshot",
+     "sha256": "17a9c7ebc6cd396012f6830455424d57af557c9b93b18489ccb17086b5e5f2f7"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Snare.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/SD/005_909_Snare_Drum_1.wav",
+     "name": "Snare",
+     "sha256": "fa616e21f0e2bbe8f4130e99607b75ea9e2af240fd36cce9441b28439a5d58de"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Clap.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/019_909_Hand_Clap.wav",
+     "name": "Clap",
+     "sha256": "8e774ac42f6598cbeafae5a83082729640afbf4424cc3a75525446faf3f8d954"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Snare 2.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/SD/006_909_Snare_Drum_2.wav",
+     "name": "Snare2",
+     "sha256": "668e1212c94155120a6dfffbb9896660276c92cacac3be762219ca67f3b6d72c"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Low tom.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/TOMS/010_909_Low_Tom.wav",
+     "name": "LowTom",
+     "sha256": "6b44d1895a0acf931a8f5908c9eecb88029261ccce59aa56e8dd8666f1ccc1f2"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Closed hat.sfz",
+   "source": "machines",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/HATS/008_909_Closed_HiHat.wav",
+     "name": "ClosedHat",
+     "sha256": "d1d3cc54824226fc1ef48f35929fda1e61e8a7538548b83bb5e25511e83d6546"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Mid tom.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/TOMS/011_909_Mid_Tom.wav",
+     "name": "MidTom",
+     "sha256": "1713256d7c264564e787846ed2ea926887f62b2b91dc2c0cb83a3be165d2600d"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Open hat.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/HATS/007_909_Open_HiHat.wav",
+     "name": "OpenHat",
+     "sha256": "efed076bc35e52048570e6f0ebb1551b7da3d610d83106c7dbab980f6d356d56"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/High tom.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/TOMS/012_909_High_Tom.wav",
+     "name": "HighTom",
+     "sha256": "b89649c9285ca9bb2aa9d7561b7892dce731af7245b6bebebbe0fde1c9da31f0"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Crash.sfz",
+   "source": "machines",
+   "maxSeconds": 4,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/HATS/020_909_Crash_Cymbal.wav",
+     "name": "Crash",
+     "sha256": "b06754de78f38dc4d6dcc773d6fddc34391d751a976a7153f38fa21e9e28ce1f"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Ride.sfz",
+   "source": "machines",
+   "maxSeconds": 4,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/HATS/026_909_Ride_Cymbal.wav",
+     "name": "Ride",
+     "sha256": "7d7fba3d614a45ce0743c0e2aba23fcf998564e5baa6a0132b52f7ccdb02c657"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Clap long.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/020_909_Hand_Clap_Long.wav",
+     "name": "ClapLong",
+     "sha256": "ebae60af7f7264b13c5d999bdf1f307c89fd3b99aa17c06c76421e23f56b5637"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Kick 3.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/BD/006_909_Bass_Drum_3.wav",
+     "name": "Kick3",
+     "sha256": "aac8c45e075f59150a2e2dd13b608943496475886ebea44869b1e738a8baf7f0"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Kick attack.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/BD/012_909_AttackBD_1.wav",
+     "name": "KickAttack",
+     "sha256": "b92c7a585a381948befef7b197b3e6496c8278c08be8bc56853755f2066b3203"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Snare attack.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/SD/011_909_AttackSD_1.wav",
+     "name": "SnareAttack",
+     "sha256": "7f8a7f8dd7d34585de80573f15756378a098725634d038d3a2bcb7c20343b880"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Snare 3.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/SD/007_909_Snare_Drum_3.wav",
+     "name": "Snare3",
+     "sha256": "044e5220b494b8bdb8b67d80b258d57f317a4b52f96bc66a4cf81d06a6ee9cfe"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Low tom short.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/TOMS/013_909_Low_Tom_Short.wav",
+     "name": "LowTomShort",
+     "sha256": "febc3475cf4a1cead0289776495937e537ce4e584bb9c9a232e6ee99cf2e42d3"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Closed hat short.sfz",
+   "source": "machines",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/HATS/010_909_Closed_HiHat_Short.wav",
+     "name": "ClosedHatShort",
+     "sha256": "ebd66dd2ee632af789a9be9a54df577cd10c7002754ad5c54b1225afb4a78aae"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Mid tom short.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/TOMS/014_909_Mid_Tom_Short.wav",
+     "name": "MidTomShort",
+     "sha256": "ba15e902766f98fba270e62a9454ed4b499ba283e7632d707193c10a790ede1a"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Open hat short.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/HATS/009_909_Open_HiHat_Short.wav",
+     "name": "OpenHatShort",
+     "sha256": "1b82fec1fd34b607b16c4f9d8320744c83da3bee41b9341627537d6553d9767c"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/High tom short.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/TOMS/015_909_High_Tom_Short.wav",
+     "name": "HighTomShort",
+     "sha256": "63ee9819e2f13e320da8e08ee7a565f37ae58d7fe385894e2577438608a4e2a8"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Crash short.sfz",
+   "source": "machines",
+   "maxSeconds": 3,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/HATS/021_909_Crash_Cymbal_Short.wav",
+     "name": "CrashShort",
+     "sha256": "bef5604ffd759bb072dc3c3ef7b18e143aee0cf69ea33098f8b068dd47623ffd"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Ride short.sfz",
+   "source": "machines",
+   "maxSeconds": 3,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/HATS/027_909_Ride_Cymbal_Short.wav",
+     "name": "RideShort",
+     "sha256": "2daeb3db7e74a4bd071712257c18a9e3c8e21a1eaabae3d4949c8ffff8c2c16b"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/909/Kick attack hard.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/BD/014_909_AttackBD_3.wav",
+     "name": "KickAttackHard",
+     "sha256": "0a831325aec1dc2294c3616779cdae4b8ff3606b0ce9e8eeec140fe5c081551f"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/707/Kick 2.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/BD/010_707_Bass_Drum_2.wav",
+     "name": "Kick2",
+     "sha256": "55ea4be1cf86805087d1f910c8d9117851d2af350a9885f9d0f0615f56b4f3f8"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/707/Kick.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/BD/009_707_Bass_Drum_1.wav",
+     "name": "Kick",
+     "sha256": "0a66d1684ece7796f9a44ca6a68ef7f6e3480d7d2636de09240873cfb2ff31d2"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/707/Rimshot.sfz",
+   "source": "machines",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/012_707_Rim_Shot.wav",
+     "name": "Rimshot",
+     "sha256": "47d45d0f4b21a41fc620202f11e36caa290a4a0958ceb5a096da116e58eec6da"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/707/Snare.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/SD/008_707_Snare_Dum_1.wav",
+     "name": "Snare",
+     "sha256": "19c0cde52ba1b89a69365375388b960615c9b710efe7ab734ca6e51ffc4dbb16"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/707/Clap.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/021_707_Hand_Clap.wav",
+     "name": "Clap",
+     "sha256": "d64937bec207dc2fb9326e614bcb01d5c0eb26dd4e3862a8cb8ab98329beffd8"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/707/Snare 2.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/SD/009_707_Snare_Dum_2.wav",
+     "name": "Snare2",
+     "sha256": "8bd80acde111e9fafe35e92ae87c523f6beab3f79ae5572db161241ce4dc84e7"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/707/Low tom.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/TOMS/025_707_Low_Tom.wav",
+     "name": "LowTom",
+     "sha256": "414dc2fc55f8d34536100dc713f4223fb17665963b62eab0bec28a52b70342cb"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/707/Closed hat.sfz",
+   "source": "machines",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/HATS/012_707_Closed_HiHat.wav",
+     "name": "ClosedHat",
+     "sha256": "618e1480540d27c6d3c0c63ed2e142b3ab1b3cd2bacaa8f763cf74aa6f8a7fc4"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/707/Mid tom.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/TOMS/026_707_Mid_Tom.wav",
+     "name": "MidTom",
+     "sha256": "fd4d45f188200016af7372043eaec12e26790cf2701cc877b13f54dc87d7598b"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/707/Open hat.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/HATS/011_707_Open_HiHat.wav",
+     "name": "OpenHat",
+     "sha256": "8e704cb31803fdfbddd1a57cc1811fe49c3772f63139c9bdfb4e9b193f090f58"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/707/High tom.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/TOMS/027_707_High_Tom.wav",
+     "name": "HighTom",
+     "sha256": "e7f22e8f22a833a05ff72609023b665fb5ae02a9f57ea3ab423af7c81d574e97"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/707/Crash.sfz",
+   "source": "machines",
+   "maxSeconds": 4,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/HATS/022_707_Crash_Cymbal.wav",
+     "name": "Crash",
+     "sha256": "a984f13fc1c6a4a5003c42485c885c472f19f1a4f5d43e4fe12377ab4c2e03a0"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/707/Ride.sfz",
+   "source": "machines",
+   "maxSeconds": 4,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/HATS/028_707_Ride_Cymbal.wav",
+     "name": "Ride",
+     "sha256": "bc97072f47c38a4ed0b4d23d5680bcc1bd0cb68692281a0e3df6bf8f7bb718b5"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/707/Tambourine.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/036_707_Tambourine.wav",
+     "name": "Tambourine",
+     "sha256": "a87d3dcd966c19f96b8ce6d288814990d9079d5d91396839fbcbe38549fc8cea"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/707/Snare 3.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/SD/010_707_Snare_Dum_3.wav",
+     "name": "Snare3",
+     "sha256": "3458502c6b0f37795bbe390fac8e54719192dee401adab33f1ff34df02114527"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Machine percussion/High bongo.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/007_727_High_Bongo.wav",
+     "name": "HighBongo",
+     "sha256": "15ea2e64d505c76581eaa32b3c30987e615f0203ccec3e93c686baea67b70138"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Machine percussion/Low bongo.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/006_727_Low_Bongo.wav",
+     "name": "LowBongo",
+     "sha256": "f6f35d02bf22559adedae1e3840c7c6a51704903200f47ecdf3c256faa07c324"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Machine percussion/Mute conga.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/003_727_Mute_High_Conga.wav",
+     "name": "MuteConga",
+     "sha256": "2738e81a39508fe5382693cb8188aa7d98b2cc0847e3610f9b1f8ac510b0636d"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Machine percussion/High conga.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/002_727_Open_High_Conga.wav",
+     "name": "HighConga",
+     "sha256": "23d569c94d49f2bf5947433ca732a65432110aae8a6eccd0fda0755ea016b51c"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Machine percussion/Low conga.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/001_727_Low_Conga.wav",
+     "name": "LowConga",
+     "sha256": "503519e7fa214194d2062798674381605510d8bdcd599d683c22c6201bfb9bf2"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Machine percussion/High timbale.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/005_727_High_Timbale.wav",
+     "name": "HighTimbale",
+     "sha256": "3a74b20cdca9c5e976efc0666c3ee08c3d4bd88ad07e0c999dbbd0a8c24cc5c1"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Machine percussion/Low timbale.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/004_727_Low_Timbale.wav",
+     "name": "LowTimbale",
+     "sha256": "69f24d2425019e61428244daeeb4f97e6038976fb19bd3018b4666e2e40ee449"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Machine percussion/High agogo.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/016_727_Agogo_High.wav",
+     "name": "HighAgogo",
+     "sha256": "5d20210ef2512977775a2ea9c48da5fe8c44050cd1aaf9c3dd2255ead4368956"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Machine percussion/Low agogo.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/014_727_Agogo_Low.wav",
+     "name": "LowAgogo",
+     "sha256": "9adf018d4d8f610cbc990d312d39af0db7ac5f4b93c728ba81b2e6818c5fbba7"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Machine percussion/Cabasa.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/028_727_Cabasa.wav",
+     "name": "Cabasa",
+     "sha256": "707c961802f6bfc2ad89210d21f82698b9385c7072d981257b4f955f3a4cd38e"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Machine percussion/Maracas.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/026_808_Maracas.wav",
+     "name": "Maracas",
+     "sha256": "c8a092260aa47327df1b90d5a9624917b9f306ea0f253e93700b30a8ee92aa5b"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Machine percussion/Short whistle.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/029_727_Short_Whistle.wav",
+     "name": "ShortWhistle",
+     "sha256": "7f50276392cd2fb87eabc693969011b3e1e18ce9a446ed72ec07059396482be9"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Machine percussion/Long whistle.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/030_727_Long_Whistle.wav",
+     "name": "LongWhistle",
+     "sha256": "18a2bdaf028303649acc91e40b52dbb1b8eb8a42ab5fd381429a1d6c1ab8a20e"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Machine percussion/Claves.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/010_808_Claves_1.wav",
+     "name": "Claves",
+     "sha256": "a6424bfb5458c9547969ae7c323fc761c36e1d5d80061d56da0bb0114a217cb6"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Machine percussion/Quijada.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/031_727_Quijada.wav",
+     "name": "Quijada",
+     "sha256": "21bbec6bd1bc6b32e1fee30c6e70542429f61b2547c597d4e6579a63da786482"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Machine percussion/Cowbell.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/033_808_Cowbell.wav",
+     "name": "Cowbell",
+     "sha256": "455f3814093a4817296b7296a73b5d3c200715bdfde81c53fde4e63a30803980"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Machine percussion/Star chime.sfz",
+   "source": "machines",
+   "maxSeconds": 3,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/035_727_Star_Chime.wav",
+     "name": "StarChime",
+     "sha256": "203f60da451a9a002aac6cd41f1da960094861205485910d933fdcb986b3a309"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Machine percussion/Tambourine.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "TR8/PERC/036_707_Tambourine.wav",
+     "name": "Tambourine",
+     "sha256": "a87d3dcd966c19f96b8ce6d288814990d9079d5d91396839fbcbe38549fc8cea"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/606/Kick long.sfz",
+   "source": "machines",
+   "maxSeconds": 2,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RD6/BD/004.wav",
+     "name": "KickLong",
+     "sha256": "2d618439c9e5095c1e72ae9f630e24b7201d286d9dce5e7267ea1aa1ffc284f7"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/606/Kick.sfz",
+   "source": "machines",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RD6/BD/001.wav",
+     "name": "Kick",
+     "sha256": "78a61a029f5e9ff44c475db6928ce46709e65c3864519a60141a0797ca6b852b"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/606/Snare.sfz",
+   "source": "machines",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RD6/SD/001.wav",
+     "name": "Snare",
+     "sha256": "0878d7a0f87e2bd39751754aa6aec73ec89b71d51a7ff97576e9bbe388f550a4"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/606/Clap.sfz",
+   "source": "machines",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RD6/CLAP/002.wav",
+     "name": "Clap",
+     "sha256": "5ce12e57bf8b8c8b27fc2d669544eae01e43a49a321a6cb0ab33dd985ce40480"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/606/Snare long.sfz",
+   "source": "machines",
+   "maxSeconds": 2,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RD6/SD/003.wav",
+     "name": "SnareLong",
+     "sha256": "94e2f7a7342b11d4ad34a18c748dc1b88200ebdb0d25e29fac41109e25d15167"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/606/Low tom.sfz",
+   "source": "machines",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RD6/TOMS/001.wav",
+     "name": "LowTom",
+     "sha256": "e0a8b584a42129d871642ed67e92c946ffa3bbcbca391ece043cee1f0e8a32b2"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/606/Closed hat.sfz",
+   "source": "machines",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RD6/HATS/002.wav",
+     "name": "ClosedHat",
+     "sha256": "4052f2e904c624132a75ea7d8be671a5f8f688eeafb698494cac2a5543994ff5"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/606/Low tom long.sfz",
+   "source": "machines",
+   "maxSeconds": 2,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RD6/TOMS/004.wav",
+     "name": "LowTomLong",
+     "sha256": "edb329a854b69a3da416f46d0b97bcf3908f6f54e73fafbca450afe3aca8094b"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/606/Half hat.sfz",
+   "source": "machines",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RD6/HATS/006.wav",
+     "name": "HalfHat",
+     "sha256": "0133b5c50021db5612dffb06a862b9e23f2f10d775b149490078f04c461e20de"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/606/High tom.sfz",
+   "source": "machines",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RD6/TOMS/006.wav",
+     "name": "HighTom",
+     "sha256": "834c7db9e43662298d70e62f9fd6569563500fcce16edde639de58ad0738c0aa"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/606/Open hat.sfz",
+   "source": "machines",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RD6/HATS/007.wav",
+     "name": "OpenHat",
+     "sha256": "75f3094b1915a8d38f05321cecbafa14009d6f21e7e601eae31ad39acb63af51"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/606/High tom long.sfz",
+   "source": "machines",
+   "maxSeconds": 2,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RD6/TOMS/008.wav",
+     "name": "HighTomLong",
+     "sha256": "555559018590405189fb936d195c3d25b1996da8ba7e7425f5850dce2f60e6fd"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/606/Cymbal.sfz",
+   "source": "machines",
+   "maxSeconds": 4,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RD6/HATS/015.wav",
+     "name": "Cymbal",
+     "sha256": "7b2f18072d598daae3ae1937507c949447a1429925a91ea545f6e4db865d8a23"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/606/Cymbal short.sfz",
+   "source": "machines",
+   "maxSeconds": 3,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RD6/HATS/012.wav",
+     "name": "CymbalShort",
+     "sha256": "74401c3baed4874a1b465b76abde8c1b57b9b2eedaf612e8cf080be89b934446"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Kick heavy.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/BD/009_Heavy_Bass_Drum_1.wav",
+     "name": "KickHeavy",
+     "sha256": "c1499e62a361b26386d61406ddd865fdbab85f6bdbef5242535ced36911ac64e"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Kick.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/BD/001_Bass_Drum_1.wav",
+     "name": "Kick",
+     "sha256": "7952c4be454c9bc1a1b2b01bad02bf8b1b54b5c5e0c3b37112babbebeb6dd4c8"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Rimshot.sfz",
+   "source": "machines",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/SD/004_Rim_Shot_1.wav",
+     "name": "Rimshot",
+     "sha256": "174a12667f7f2a8dac2428c4ae77a1bdf7ff8e2c9611a9904d365a4dfbfc3cf5"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Snare.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/SD/001_Snare_Drum_1.wav",
+     "name": "Snare",
+     "sha256": "73a95879ac0efd8f3da3b9b1363352872bfe4eff6441a75c319862917c0415c7"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Clap.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/PERC/001_Claps.wav",
+     "name": "Clap",
+     "sha256": "08b063967bc26e847ae404db86db135e3a37bc67e717bbe1a21c0247dbb8c05c"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Snare heavy.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/SD/011_Heavy_Snare_Drum_1.wav",
+     "name": "SnareHeavy",
+     "sha256": "1ce69c72dd54a1361eebdff66aebd3e606cb235c5bba31cffe335b673371c0ac"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Floor tom.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/TOMS/004_Tom_4.wav",
+     "name": "FloorTom",
+     "sha256": "d55706430230ea9c2902ede640fb69d03be33fcc7087497ad121fbb05a1a3741"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Closed hat.sfz",
+   "source": "machines",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/HATS/001_HiHat_Closed.wav",
+     "name": "ClosedHat",
+     "sha256": "a29d4589e636f5de79f8b7bf00dfd32eb7f723223ae22513572e6c9d5075e77b"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Low tom.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/TOMS/003_Tom_3.wav",
+     "name": "LowTom",
+     "sha256": "9d21253666bb482c29ca473db5739366403127fed74cee0f368ef5ee57b50950"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Open hat.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/HATS/002_HiHat_Open.wav",
+     "name": "OpenHat",
+     "sha256": "fb4c353802ae0092897c861eff27ebea5f666a20820621180329540559285017"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Mid tom.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/TOMS/002_Tom_2.wav",
+     "name": "MidTom",
+     "sha256": "8a562d2eec5fdab90cece965932e3c437057d43798be43123aa30cb1ceac6ec4"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/High tom.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/TOMS/001_Tom_1.wav",
+     "name": "HighTom",
+     "sha256": "f1ea2ef04f5732e806bebfe5f3ce4da87c5ce63c02f6c6c9fa1044a644280034"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Crash.sfz",
+   "source": "machines",
+   "maxSeconds": 4,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/HATS/005_Crash_Cymbal.wav",
+     "name": "Crash",
+     "sha256": "8a0d0aa297eaf3b219d7979925ef0b6dfdca513022d2ecc25355b7c915a99617"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Ride.sfz",
+   "source": "machines",
+   "maxSeconds": 4,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/HATS/004_Ride_Edge.wav",
+     "name": "Ride",
+     "sha256": "dc13ec930d88db23f63fad252767cda942f094a88570a5d82a2add0084c29086"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Ride bell.sfz",
+   "source": "machines",
+   "maxSeconds": 3,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/HATS/003_Ride_Cup.wav",
+     "name": "RideBell",
+     "sha256": "a5773e2ecf56f02405c37124e16c07e50bf626ace69cfd2bb0bf43e8a710b574"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Tambourine.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/PERC/002_Tambourine.wav",
+     "name": "Tambourine",
+     "sha256": "940fd6484474b1b7aec239aa93c421b2847730ffb922c1ea1627cb23006d3538"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Cowbell.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/PERC/003_Cowbell.wav",
+     "name": "Cowbell",
+     "sha256": "683d3c92b1b259ad8a17d8d634f8cf9857701caf95c7f55f2a1d6af095b38ec0"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Shaker.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/PERC/004_Shaker.wav",
+     "name": "Shaker",
+     "sha256": "57b87d09ec31addfde90e0e50c4f84b0b295e58fe2b226238bda6ebb0c9ae368"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Kick electric.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/BD/008_Electric_Bass_Drum.wav",
+     "name": "KickElectric",
+     "sha256": "b1fdf13c6ae14d273cc89e24c7d2e5d0d2f6ccc8fd871a9b96c44d7ac4524b3d"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Kick processed.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/BD/012_Process_Bass_Drum_1.wav",
+     "name": "KickProcessed",
+     "sha256": "63870d35974f9cbba2863c1ef35cc7b7b4e62f5cbdaf543362ee0eedb5855b73"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Rimshot 2.sfz",
+   "source": "machines",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/SD/005_Rim_Shot_2.wav",
+     "name": "Rimshot2",
+     "sha256": "3d75d6012d7d5ff7b4e3f9d266268611773a24018978c38c5974efef2d8be408"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Snare processed.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/SD/015_Process_Snare_Drum_1.wav",
+     "name": "SnareProcessed",
+     "sha256": "072d5af3f850c9277e4e506e9128b36179ac09cffc657a28d5eb44cc5aed4fce"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Snare electric.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/SD/010_Electric_Snare_Drum.wav",
+     "name": "SnareElectric",
+     "sha256": "2c08749297b06f102504a94fb6b3d40ade91a437e03868d0117c7ce9f255b70e"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Tom processed low.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/TOMS/017_Process_Tom_3.wav",
+     "name": "TomProcessedLow",
+     "sha256": "53222d15998edfd923904b1b2b6880a6d820837c22d7b0b76bce1030688e310f"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Tom processed mid.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/TOMS/016_Process_Tom_2.wav",
+     "name": "TomProcessedMid",
+     "sha256": "8debda9107b2a3ec468a70f53466abe076f592e5a2a0b6c59b889e3434d812c0"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Tom processed high.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/TOMS/015_Process_Tom_1.wav",
+     "name": "TomProcessedHigh",
+     "sha256": "a3f1095477abb0eb8e72d9098fb92f198becade432952920f4a22756d0aa08a9"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/FM tom.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/TOMS/018_FM_Tom.wav",
+     "name": "FMTom",
+     "sha256": "0c42abcf66af5c170d85912876c9f8f9668392a3dce3df43e4116af9eb701641"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/FM snare.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/SD/021_FM_Snare_Drum.wav",
+     "name": "FMSnare",
+     "sha256": "f253d9af82da90241ef1819cdd2e7892d904719a658d630e7b0107a3ec503a7e"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Hybrid tom.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/TOMS/020_Hybrid_Tom.wav",
+     "name": "HybridTom",
+     "sha256": "32ac2e65fc78a4883b85293251da26ef8f5ad4ee402dca4f035fe86c2c914caa"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/FM perc 1.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/MISC/006_FM_Percussion_1.wav",
+     "name": "FMPerc1",
+     "sha256": "e30bb3f5e836c1198e4139429c535b3b32d1b05c7a4a14f065464d8164b8c501"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/FM perc 2.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/MISC/007_FM_Percussion_2.wav",
+     "name": "FMPerc2",
+     "sha256": "4694d20a2548d8630de7d57d9b0023c00a57ca40cd50558d6a951d99aef16028"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/80s digital/Roto.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "RX5/TOMS/019_Process_Roto.wav",
+     "name": "Roto",
+     "sha256": "ca7db9c6aee564909cbc9f85bf862db93f9c017c85913ea73c77f4225c9bc727"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Kick dance.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/BD/005_Dance_Kick.wav",
+     "name": "KickDance",
+     "sha256": "4e0a3864c46f74826b0f1ca9fd19c61d2ebaa79de2d6958b2fe6d70243f165a9"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Kick house.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/BD/017_House_Kick_1.wav",
+     "name": "KickHouse",
+     "sha256": "d74a91de13ff2addf8c7631aceda081dbdf9a2ed7dadc2cd1a50afa719dee50c"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Claves.sfz",
+   "source": "machines",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/PERC/015_Claves.wav",
+     "name": "Claves",
+     "sha256": "f47998aa257e4a703e6263df3a08238742000c3e81f73eab321049830e432733"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Snare house.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/SD/014_House_Snare.wav",
+     "name": "SnareHouse",
+     "sha256": "01b8e76631a0adc676521ff64cc51f5f0c74676d1ef2aff962fe86e2576a4009"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Clap.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/PERC/035_TR-808_Clap.wav",
+     "name": "Clap",
+     "sha256": "c76473ede9c4ebca6eae296f82a720da1a18e076b904146617d83492105a9d50"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Snare dance.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/SD/008_Dance_Snare.wav",
+     "name": "SnareDance",
+     "sha256": "da53fa06f8429c6b54c41ca2672e025b50f663f661ae6633da3dffcc6e2901da"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Conga low.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/PERC/013_Conga_Low_Open.wav",
+     "name": "CongaLow",
+     "sha256": "aacf4c0ad6d98fe5b9dc7fe30e1da6d8d774a8200ac335a0584dcfb0c9ebcf64"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Closed hat pop.sfz",
+   "source": "machines",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/HATS/006_Pop_Closed_Hi-hat.wav",
+     "name": "ClosedHatPop",
+     "sha256": "ec2cd2836f4f5beaa3093b022c47489323d3925615900bb33ba60163dd1acc09"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Conga high.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/PERC/012_Conga_High_Open.wav",
+     "name": "CongaHigh",
+     "sha256": "9dc1b97fa9971489e0fd5d40066b699f13b8c0789a47688faf057b90c1279379"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Pedal hat pop.sfz",
+   "source": "machines",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/HATS/008_Pop_Pedal_Hi-hat.wav",
+     "name": "PedalHatPop",
+     "sha256": "3a37c01e7d81fb8bc2424cb8064257b985f10fe3432147b86a87dacf7b14940b"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Conga slap.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/PERC/011_Conga_High_Slap.wav",
+     "name": "CongaSlap",
+     "sha256": "b9f11d7b816db556ec5d6193422bf7bfd88261318b147d95d89968fbf162e861"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Open hat pop.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/HATS/007_Pop_Open_Hi-hat.wav",
+     "name": "OpenHatPop",
+     "sha256": "c4a7fad4581f864e591be410a0821aa3327fc639f7b8721fbb2bc091d4c596eb"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Tambourine.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/PERC/002_Tambourine.wav",
+     "name": "Tambourine",
+     "sha256": "836ff0289f3e079349ed6442d25a896c8915cd68c98ee67d62361ca8ef096253"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Shaker.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/PERC/020_Shaker.wav",
+     "name": "Shaker",
+     "sha256": "9c23c20d29f1a648ef8de23f03adb84ef4450642957fbfb49e28a6bc2c1057b5"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Crash.sfz",
+   "source": "machines",
+   "maxSeconds": 4,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/HATS/011_Crash_Cymbal_1.wav",
+     "name": "Crash",
+     "sha256": "3f566fe22ee482d37cecddcfee849563c813b903b9f1f685ceed32245d9071ed"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Ride.sfz",
+   "source": "machines",
+   "maxSeconds": 4,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/HATS/014_Ride_Cymbal.wav",
+     "name": "Ride",
+     "sha256": "c795d83e0f0b315cc9659e91936425b1e1be9e98504fa269495b69c470606332"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Reverse cymbal.sfz",
+   "source": "machines",
+   "maxSeconds": 3,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/FX/017_Reverse_Cymbal.wav",
+     "name": "ReverseCymbal",
+     "sha256": "c93510678d24ce8aa1a865a9c17b639adbdc4583bf1595dff8ced7544601f45f"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Scratch.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/FX/007_Scratch_Push.wav",
+     "name": "Scratch",
+     "sha256": "78acf3a55b980c69e51292a2d192bc66e6b99c359a08a8fb5aca22dca3678044"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Snare noise.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/SD/020_Noise_Snare.wav",
+     "name": "SnareNoise",
+     "sha256": "fef8275ec8df813c8961f3352ea2ff09e957829231f65cef0c4f2577086a3198"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/High Q.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/FX/004_High_Q.wav",
+     "name": "HighQ",
+     "sha256": "88468d1210aa957702b1d62d28de993c412f9ed5cc5d658244461085d137a075"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Cowbell.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/PERC/001_Cowbell.wav",
+     "name": "Cowbell",
+     "sha256": "25b551b2cfd101eee03e1f0762e1b69f311a76198185dbe115e83b203d5593a0"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Kick tight.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/BD/032_Tight_Kick.wav",
+     "name": "KickTight",
+     "sha256": "c03b95a8d03a8ba5aa194c20ba39e68b73facb89c04bc63479aa2e85671eae7a"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Kick real.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/BD/023_Real_Kick.wav",
+     "name": "KickReal",
+     "sha256": "9971d8ee6d226a2512557d2237ac5acba4d65075426858bec62c28aa4d092f33"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Side-stick.sfz",
+   "source": "machines",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/SD/041_Ambient_Side_Stick.wav",
+     "name": "SideStick",
+     "sha256": "bb0aad8f59908d2e986a21f3b00f8fd05035381816195a1b6a8c21e6ea863897"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Snare real.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/SD/025_Real_Snare_1.wav",
+     "name": "SnareReal",
+     "sha256": "d811fbe068a264af4f6eeecc63af255590568fd3c89dab740d761ccbf273952f"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Snare gated.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/SD/031_Room_Gated_Snare.wav",
+     "name": "SnareGated",
+     "sha256": "5c4904212a38ccb5b0118fc766d31dd3d67ea8abc85a08df5b714141d302c8ec"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Snare rock.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/SD/032_Rock_Snare.wav",
+     "name": "SnareRock",
+     "sha256": "5bbd247534b8e9102dbfeb01761549c40cf4e7e6538ce89a83f678e6268d41e3"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Tom rock 4.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/TOMS/024_Rock_Tom_4.wav",
+     "name": "TomRock4",
+     "sha256": "03aa6423caebc1109ea53fc7d69830eda4e81eab5051a449a504988d330bee38"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Closed hat.sfz",
+   "source": "machines",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/HATS/001_Acoustic_Closed_Hi-hat.wav",
+     "name": "ClosedHat",
+     "sha256": "ccd45ee88538b72dc83334747ce8a50a4c777dacbaf7e5e3865568496370053d"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Tom rock 3.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/TOMS/023_Rock_Tom_3.wav",
+     "name": "TomRock3",
+     "sha256": "6359f64068965b54bc11f4538c0170539d609c8520f36df964a9507f957065e7"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Pedal hat.sfz",
+   "source": "machines",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/HATS/003_Acoustic_Pedal_Hi-hat.wav",
+     "name": "PedalHat",
+     "sha256": "27f161f9d2262db314d30eb3ec454bef905d7a86d1c47fa02c87102462de9901"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Tom rock 2.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/TOMS/022_Rock_Tom_2.wav",
+     "name": "TomRock2",
+     "sha256": "5fe94f08107cc9d3eca8b95ee792ec1b5f8ddb89ef70e1203d71e5425944868f"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Open hat.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/HATS/002_Acoustic_Open_Hi-hat.wav",
+     "name": "OpenHat",
+     "sha256": "20d5f740641df2aa0d8de6bd25f543fb412b5731f1a322d5db689f58701f09a8"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Tom rock 1.sfz",
+   "source": "machines",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/TOMS/021_Rock_Tom_1.wav",
+     "name": "TomRock1",
+     "sha256": "87759757fefc5cee76c0e12e09b1d3b13ff42dd9948d3e7531fb39190593480c"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Crash 2.sfz",
+   "source": "machines",
+   "maxSeconds": 4,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/HATS/012_Crash_Cymbal_2.wav",
+     "name": "Crash2",
+     "sha256": "8dff97a81b4f7bf56be9f890ae067d2ef72a08a5125aa318a22f897186d7d4e8"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Ride rock.sfz",
+   "source": "machines",
+   "maxSeconds": 4,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/HATS/016_Rock_Ride_Cymbal.wav",
+     "name": "RideRock",
+     "sha256": "648036a79245e9d76fa4c0994f93ae14e19690c005fa4c6ae6ea86054a12a771"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Ride bell rock.sfz",
+   "source": "machines",
+   "maxSeconds": 3,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/HATS/015_Rock_Ride_Bell_Cymbal.wav",
+     "name": "RideBellRock",
+     "sha256": "241e233faa60f71f52bdea5696eed2388278105785071f68a5a2ce14d6fcefc7"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/90s groove box/Splash.sfz",
+   "source": "machines",
+   "maxSeconds": 3,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "DR5/HATS/017_Splash_Cymbal.wav",
+     "name": "Splash",
+     "sha256": "8d73eb3e7ff07fbd4225db0576dbd58b2c6b6cb165dc6e62f8f959b23acd7b8c"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Synth percussion/Kick 2.sfz",
+   "source": "fpsynth",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "samples/Kick06.flac",
+     "name": "Kick2",
+     "sha256": "515b199be22a5d8c74e6b61f8e1608b29dfa583a3866429c429e092166fce18e"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Synth percussion/Kick.sfz",
+   "source": "fpsynth",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "samples/Kick04.flac",
+     "name": "Kick",
+     "sha256": "b034f40d172ba5b51297e42957a88c0d09b7df5e6214afcb33fe7ac67b2b1725"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Synth percussion/Snare.sfz",
+   "source": "fpsynth",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "samples/Snare09.flac",
+     "name": "Snare",
+     "sha256": "569a80d3f996085384762b1c1123d1543b4a10e3b3a18e1101d4b3229f193a2c"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Synth percussion/Clap.sfz",
+   "source": "fpsynth",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "samples/Clap01.flac",
+     "name": "Clap",
+     "sha256": "813df4de97a5f956a8dbaacbbac6ce0847e74eabc9cfcae4792894514fadf697"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Synth percussion/Snare 2.sfz",
+   "source": "fpsynth",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "samples/Snare14.flac",
+     "name": "Snare2",
+     "sha256": "7a3422ea4d64ca8ada82157d8cbabb6536fee8e82851ec7eb6a50e15908b10e3"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Synth percussion/Low tom.sfz",
+   "source": "fpsynth",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "samples/LowTom02-01.flac",
+     "name": "LowTom_1",
+     "seq": [
+      2,
+      1
+     ],
+     "sha256": "131b530285ed40035a8460920a715b8d42b52524b86ccf536ffe655543a66293"
+    },
+    {
+     "file": "samples/LowTom02-02.flac",
+     "name": "LowTom_2",
+     "seq": [
+      2,
+      2
+     ],
+     "sha256": "aacffc7fb647f804e73791cca8f80e7fee9385f2302729197c397c0459af92fa"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Synth percussion/Closed hat.sfz",
+   "source": "fpsynth",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "samples/ClosedHiHat01-01.flac",
+     "name": "ClosedHat",
+     "sha256": "70740a828aa0bdd651a9a8a99fe41d65b35a8a3590bfefedb0623776eafda15b"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Synth percussion/Mid tom.sfz",
+   "source": "fpsynth",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "samples/MidTom02-01.flac",
+     "name": "MidTom_1",
+     "seq": [
+      2,
+      1
+     ],
+     "sha256": "a94ad384936581c3d12ff45d5c4a167c7ceab0c926577cc9b6bbd3ab8ea021d9"
+    },
+    {
+     "file": "samples/MidTom02-02.flac",
+     "name": "MidTom_2",
+     "seq": [
+      2,
+      2
+     ],
+     "sha256": "ab21cd4ee2047c609da03c0edd6feeb35c5d5fb8f3363f5a589581840cabee5b"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Synth percussion/Closed hat 2.sfz",
+   "source": "fpsynth",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "samples/ClosedHiHat02-01.flac",
+     "name": "ClosedHat2",
+     "sha256": "1e7664e0edee10fb38a34abd281958b12a215c10064ec26c56599723af227654"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Synth percussion/High tom.sfz",
+   "source": "fpsynth",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "samples/HighTom02-01.flac",
+     "name": "HighTom_1",
+     "seq": [
+      2,
+      1
+     ],
+     "sha256": "dc611f181b08573f07a8683f37c8b35caaa5e877dda9d4dc3bd891e3a593021d"
+    },
+    {
+     "file": "samples/HighTom02-02.flac",
+     "name": "HighTom_2",
+     "seq": [
+      2,
+      2
+     ],
+     "sha256": "c9bf9498a5105f62f5f64bb22c6a577d54a8e19d6a5975ffd0a6463d774311f3"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Synth percussion/Open hat.sfz",
+   "source": "fpsynth",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "samples/OpenHiHat02-01.flac",
+     "name": "OpenHat",
+     "sha256": "7cd92a28918176e6e54b87ade295e9a9c5f2d0987129a43baf73c3f1fe1a5438"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Synth percussion/Cymbal.sfz",
+   "source": "fpsynth",
+   "maxSeconds": 4,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "samples/Cymbal01-01.flac",
+     "name": "Cymbal_1",
+     "seq": [
+      3,
+      1
+     ],
+     "sha256": "ba60aaedee28c30506360f8ae5e0c6ba1ec196645712bc6f121f8ab043c4872a"
+    },
+    {
+     "file": "samples/Cymbal01-02.flac",
+     "name": "Cymbal_2",
+     "seq": [
+      3,
+      2
+     ],
+     "sha256": "b6beb24e2c0f563ae6a884a81aa7050c2350c23f90fd7cdaafc5ee7c3c0da819"
+    },
+    {
+     "file": "samples/Cymbal01-03.flac",
+     "name": "Cymbal_3",
+     "seq": [
+      3,
+      3
+     ],
+     "sha256": "6e6805f48a2f281eb0a7481e0da0b4ebcd1540492e4bbf27f3f46ed31d3a647d"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Synth percussion/Cymbal 2.sfz",
+   "source": "fpsynth",
+   "maxSeconds": 4,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "samples/Cymbal02.flac",
+     "name": "Cymbal2",
+     "sha256": "f5f6d7c31d8fe699c7b176bdbde5f4b0af7a008ab5024887c7abb9bf73e3ccb8"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Synth percussion/Shaker.sfz",
+   "source": "fpsynth",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "samples/Shaker04.flac",
+     "name": "Shaker",
+     "sha256": "75ff4e79b7018185d16fbaef48562efcd46c19a2e1f53684cbf25b2f50c975ee"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Synth percussion/Shaker long.sfz",
+   "source": "fpsynth",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "samples/ShakerLong01.flac",
+     "name": "ShakerLong",
+     "sha256": "c67f05d2f9438babfaba1b88a8340b8f32e6552672aef18501408d85dd8ae7f4"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Synth percussion/Claves.sfz",
+   "source": "fpsynth",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "samples/Claves01.flac",
+     "name": "Claves",
+     "sha256": "0ef5b8ec8f2117243b7c8b516c8701cf799cde2b1811d3e3fa7964ce82052086"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Drum and bass/Kick.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Kicks/DnB Kick.flac",
+     "name": "Kick",
+     "sha256": "d42ffc073f4e665bcec521358ef50392ea77197f10b8f7e29506a5f83969b1b8"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Drum and bass/Rimshot.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Misc/Rim Shot 1.flac",
+     "name": "Rimshot",
+     "sha256": "8e979ff5ec8039227d5f40d1c3140a6068daec393164a006051244c09fce677d"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Drum and bass/Snare.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Snares/DnB Snare 1.flac",
+     "name": "Snare",
+     "sha256": "e4c3854722642a29e3d87f7e97e75a535d383d7ab37f13fba84fdd1c0b2d95f0"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Drum and bass/Snare 2.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Snares/DnB Snare 2.flac",
+     "name": "Snare2",
+     "sha256": "6d70a8ad09b4bdb08dbe627e5fc4a391595852cc1783f5d640588d2b19766530"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Drum and bass/Snare 3.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Snares/DnB Snare 3.flac",
+     "name": "Snare3",
+     "sha256": "e94165ab6c328e7a686c192f1e9c75fa3b185909c5a91c0ff6d2fd70ab0138f8"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Drum and bass/Floor tom.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Toms/Tomsynth 1 Floor.flac",
+     "name": "FloorTom",
+     "sha256": "320658ad353174e1ce75c99706414d1c5a9e792f0a1ac3fe6f9e93374a44fbe6"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Drum and bass/Closed hat.sfz",
+   "source": "lmms",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Hi-hats/CHH 3.flac",
+     "name": "ClosedHat",
+     "sha256": "f9d797ac65143e70bd48a02b520f1bb7d70852ea75208bb67496cd58e3f89062"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Drum and bass/Low tom.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Toms/Tomsynth 1 Low.flac",
+     "name": "LowTom",
+     "sha256": "4e1a4a9f12093c65fab5a9415d7c8886c770f34a3169e4692a1b550b7a62d273"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Drum and bass/Closed hat 2.sfz",
+   "source": "lmms",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Hi-hats/CHH 5.flac",
+     "name": "ClosedHat2",
+     "sha256": "163a324605a40eb62095042fda5b832097f659c9e984f28a6be12cd6818e6efd"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Drum and bass/Mid tom.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Toms/Tomsynth 1 Mid.flac",
+     "name": "MidTom",
+     "sha256": "88f40bc6384fa9c8cdeca78c6d9d7045c735da75850542305795fb8fe7445fbc"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Drum and bass/Open hat.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Hi-hats/OHH 2.flac",
+     "name": "OpenHat",
+     "sha256": "1468e903e1fdc8caa2c654c06f816bc828fdf09934745958af83d73726555dc2"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Drum and bass/High tom.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Toms/Tomsynth 1 High.flac",
+     "name": "HighTom",
+     "sha256": "9fa1a6919345ce810708a7f0004333f5b01126e412d5d3ecba08b1648d85b8ea"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Drum and bass/Crash.sfz",
+   "source": "lmms",
+   "maxSeconds": 4,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Crashes/Crash 3.flac",
+     "name": "Crash",
+     "sha256": "adf57d29316358495efc82fc34de5a82b312006053339a0d092d18e2c55af0cf"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Drum and bass/Ride.sfz",
+   "source": "lmms",
+   "maxSeconds": 4,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Rides/Cymbal Ride 2.flac",
+     "name": "Ride",
+     "sha256": "634911549296b19ffd11440b26aa8a598f33813184ddcf25b8581856c97e4b8f"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Drum and bass/Shaker.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Shakers & Rattles/Shaker 1.flac",
+     "name": "Shaker",
+     "sha256": "11fcda658baf08101b9d3ae5050c2daac68dce1d91cb6c214a269eebdf70ffc3"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Drum and bass/Snare 4.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Snares/DnB Snare 4.flac",
+     "name": "Snare4",
+     "sha256": "e81c58358abfb5f146f51385cc97ea02e3e661b3ffa7970f435e0604a57f6e68"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hardstyle/Kick 2.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Kicks/Hardstyle Kick 2 - G1.flac",
+     "name": "Kick2",
+     "sha256": "f6074da92b1d88c3cc0b3c4de37a648a4a7bf5fd27d03bfed86798994a90e15d"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hardstyle/Kick.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Kicks/Hardstyle Kick 1 - G1.flac",
+     "name": "Kick",
+     "sha256": "564f44eb6ad41a11151b119890129273a86d67b4a8f861097216cee6f296a84d"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hardstyle/Kick hardcore.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Kicks/Hardcore Kick 1 - G#1.flac",
+     "name": "KickHardcore",
+     "sha256": "3dfe875adc455e9d53ca61bb5c9cfb6910ff3469f38fd4ba725c8173805353cd"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hardstyle/Snare.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Snares/Punch Snare 1.flac",
+     "name": "Snare",
+     "sha256": "f38eb4da130ba76fbe0a6c5697802a526f5b16aa89d3343a8b308d1715a31e12"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hardstyle/Clap.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Claps/Noise Clap.flac",
+     "name": "Clap",
+     "sha256": "54dc1f84ad280d52aa002d75f809afdb260ace88665469ef9fc5868037fe18a5"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hardstyle/Snare 2.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Snares/Punch Snare 2.flac",
+     "name": "Snare2",
+     "sha256": "05d8e375f621e40563e86fd16412f4cca001c6e91296924fe9bf19e64b959f96"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hardstyle/Kick 3.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Kicks/Hardstyle Kick 3 - G1.flac",
+     "name": "Kick3",
+     "sha256": "6f7c758fe0e6ecc07b17ae2556af585a18c33f23c0e9ecbf0a3d250ac9c05b03"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hardstyle/Closed hat.sfz",
+   "source": "lmms",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Hi-hats/CHH 7.flac",
+     "name": "ClosedHat",
+     "sha256": "40cafeefc4a0d6a62d9350100f875c59149d0f546ec160a9ff2c454a4f1c0bea"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hardstyle/Kick F.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Kicks/Hardstyle Kick 5 - F1.flac",
+     "name": "KickF",
+     "sha256": "1183a5562aaad573c44129163cec30d1a63976f37a80210377d6069b18cdc567"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hardstyle/Open hat.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Hi-hats/OHH 5.flac",
+     "name": "OpenHat",
+     "sha256": "8e4e8d95850128e2680d0f450cf06cd9b9483897ebe41ff6ddec7be251d5104d"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hardstyle/Crash.sfz",
+   "source": "lmms",
+   "maxSeconds": 4,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Crashes/Crash 5.flac",
+     "name": "Crash",
+     "sha256": "88759b3290767c21bc8ff57eb91bfb50eb4f39f0011ce9e6d1044fbc5b8b11f3"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hardstyle/Ride.sfz",
+   "source": "lmms",
+   "maxSeconds": 4,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Rides/Cymbal Ride 4.flac",
+     "name": "Ride",
+     "sha256": "8b29118ecd0309509f7f61eb405740a20ae368f43421855b55093d463a117799"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hardstyle/Clap layered.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Claps/Layered Clap 2.flac",
+     "name": "ClapLayered",
+     "sha256": "e73e432e7f04bd462290a719863611a34181de11b3956c72e46ca6f7c01dc9be"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hardstyle/Snare 3.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Snares/Punch Snare 3.flac",
+     "name": "Snare3",
+     "sha256": "11beaa2b53abc12d2066fe7289774df54be3b6ded6c0ba037bd0ef3edfe9cca9"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hip-hop/Kick long.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Kicks/Bass Kick Long.flac",
+     "name": "KickLong",
+     "sha256": "bdd3eca5bf49b68bf8f47073dd4fa9b53edc4e69449ef713ffe285ba9d693952"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hip-hop/Kick short.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Kicks/Bass Kick Short.flac",
+     "name": "KickShort",
+     "sha256": "ee86e47475416a60df3786bdedffd99455ff7998760c6b76e92be6acd4a33e5b"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hip-hop/Rimshot.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Misc/Rim Shot 2.flac",
+     "name": "Rimshot",
+     "sha256": "a7518c639d3d4ea0420bb64a2c7d74b86254666d80ae07977827621f2d889ffc"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hip-hop/Snare.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Snares/Hiphop Snare 1.flac",
+     "name": "Snare",
+     "sha256": "b0b2db1c8879652a4231b97312da9f7d7b2509b0c4de81c4326a08062f3e4f57"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hip-hop/Clap.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Claps/Trap Clap.flac",
+     "name": "Clap",
+     "sha256": "678a200f224124e212d490d2dbd3f9a57d608b553b3a6e69716d339eaa53bfce"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hip-hop/Snare 2.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Snares/Hiphop Snare 2.flac",
+     "name": "Snare2",
+     "sha256": "621ee4befe65226d5533fbd65b3e70c61719a750963ce5dadc95276957cbdf32"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hip-hop/Snare 3.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Snares/Hiphop Snare 3.flac",
+     "name": "Snare3",
+     "sha256": "85ecb905f18ffe0bdb768834c98ed772025f37d730c0da7451d8c05623c20463"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hip-hop/Closed hat.sfz",
+   "source": "lmms",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Hi-hats/CHH 5.flac",
+     "name": "ClosedHat",
+     "sha256": "163a324605a40eb62095042fda5b832097f659c9e984f28a6be12cd6818e6efd"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hip-hop/Snap.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Misc/Snap 1.flac",
+     "name": "Snap",
+     "sha256": "26f9ce55e57d6681e861340e166e97e77c36c77e71a6f6ac91b061850c7c8350"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hip-hop/Open hat.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Hi-hats/OHH 4.flac",
+     "name": "OpenHat",
+     "sha256": "ac81b29f2897f98e77aafb30fc81d3fc477b259ae84d4f328423115d0e031295"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hip-hop/Snare RnB.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Snares/RnB Snare 1.flac",
+     "name": "SnareRnB",
+     "sha256": "3ac8efa8a4ebf9f4e1df883582a3bad082583cef4f4b0bc112c4c6c8c26fc101"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hip-hop/Crash.sfz",
+   "source": "lmms",
+   "maxSeconds": 4,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Crashes/Crash 2.flac",
+     "name": "Crash",
+     "sha256": "82ddd96fd0445bdb4f315bf17b1b3b90b0c9e2659574636b03abcce788b394b6"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hip-hop/Shaker.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Shakers & Rattles/Shaker 3.flac",
+     "name": "Shaker",
+     "sha256": "53442cd342424c91c7161975112d02236bf844b130804e3b00e38bdaea82c993"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Hip-hop/Backspin.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/SFXs/Vinyl Backspin.flac",
+     "name": "Backspin",
+     "sha256": "37c5755f879bd458f9963993b22f70d0e8faf8adf851ff06325c658b6a58134f"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Future/Kick 2.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Kicks/Future Kick 2.flac",
+     "name": "Kick2",
+     "sha256": "ce9657b3285d5c24df6901f20c70d016b77e0daf0e1cf0b690ba70302b58e41f"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Future/Kick.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Kicks/Future Kick 1.flac",
+     "name": "Kick",
+     "sha256": "f9617069eab3cde43a651b1937492db6b815f046ea8e5ebf1e7207d488991290"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Future/Snare.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Snares/Future Snare 1.flac",
+     "name": "Snare",
+     "sha256": "e153eaf08d60e91da60c37615972afbf1c3a25976dd45673c28803a034fac7ea"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Future/Clap.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Claps/Synthetic Clap 1.flac",
+     "name": "Clap",
+     "sha256": "a08b3908fcb6ce7fb6ee26a813c5bd81d046783678a6f771c6a9667d01004de9"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Future/Snare 2.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Snares/Future Snare 2.flac",
+     "name": "Snare2",
+     "sha256": "4990d296f23cdd9834dfebb2087839ae9599cbb8581f0f01f5d75efc2fcdce17"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Future/Floor tom.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Toms/Tomsynth 2 Floor.flac",
+     "name": "FloorTom",
+     "sha256": "d2b2ce2de41c8e463cb1e5ac4d5253be83489643618c63548f642a978844c296"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Future/Closed hat.sfz",
+   "source": "lmms",
+   "maxSeconds": 1,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Hi-hats/CHH 9.flac",
+     "name": "ClosedHat",
+     "sha256": "ae58332d57f87e9521af0923d7bf92a3f41a41beb8699449402d61ad086034b5"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Future/Low tom.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Toms/Tomsynth 2 Low.flac",
+     "name": "LowTom",
+     "sha256": "5adefe71877f4e0e512738e649d56944bffd775ce7dd135d219a433fc51d818c"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Future/Mid tom.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Toms/Tomsynth 2 Mid.flac",
+     "name": "MidTom",
+     "sha256": "e5a0a12d4f1a42e00d9daccf493c2f1d151e93d505c3b222449ded4d1f816044"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Future/Open hat.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Hi-hats/OHH 7.flac",
+     "name": "OpenHat",
+     "sha256": "f55ca17f5f28bb9cbf37bcd711a5df3e38125673df243f48f9059a2a3f8cdc85"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Future/High tom.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Toms/Tomsynth 2 High.flac",
+     "name": "HighTom",
+     "sha256": "a6e38913f863830a1ace2235332aeac764a01a8506b5661353764110bccbd767"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Future/Crash.sfz",
+   "source": "lmms",
+   "maxSeconds": 4,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Crashes/Crash 6.flac",
+     "name": "Crash",
+     "sha256": "cccd4fdade475aa8360d29365aa6f427e4f4affb72c6cbccbc11015dfcf9282e"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Future/Clap 2.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Claps/Synthetic Clap 2.flac",
+     "name": "Clap2",
+     "sha256": "9931caa222c7014635c7b7d49e507bd6facf03d5d978b702200fcd0990e1b1df"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Future/Kick 3.sfz",
+   "source": "lmms",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "Samples/Sample library/Drums/Kicks/Future Kick 3.flac",
+     "name": "Kick3",
+     "sha256": "e54674a5f593cf4b710f4b9cb7873bea5b51964c8c57f137829e53186f5d7c3e"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Electro lab/Kick hollow.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/elec_hollow_kick.flac",
+     "name": "KickHollow",
+     "sha256": "bcccfba9f68bf248c6dac11311f62fd42a18c05dcf67ab8eaec912214fb481bb"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Electro lab/Kick soft.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/elec_soft_kick.flac",
+     "name": "KickSoft",
+     "sha256": "07121a5d607c9998e0153751680a32e928c3fbf41d734a8c8fef4ce257bf3ed6"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Electro lab/Tick.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/elec_tick.flac",
+     "name": "Tick",
+     "sha256": "ac3fa3c78f8af1509e4c90425e04173816cf7db968f1e31a34719c7e319312c5"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Electro lab/Snare.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/elec_snare.flac",
+     "name": "Snare",
+     "sha256": "a5548c4e418864f985b7efc92776ffa5d81a5273c26360f28c1ea4f12c2a9865"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Electro lab/Snare filtered.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/elec_filt_snare.flac",
+     "name": "SnareFiltered",
+     "sha256": "648b29977bfd75f0aeb33215da0a2f44a214d2256fd81f3e24f458a7fe041db2"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Electro lab/Snare high.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/elec_hi_snare.flac",
+     "name": "SnareHigh",
+     "sha256": "73dca64f3c994ebde945572933f73d431f2813bacec8267065c76f176d5656e3"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Electro lab/Fuzz tom.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/elec_fuzz_tom.flac",
+     "name": "FuzzTom",
+     "sha256": "b2fada15c49bb61e4e6a89a57cbbe407ecbb117d058c0abcebb43ee1081f38d2"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Electro lab/Cymbal.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 1.5,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/elec_cymbal.flac",
+     "name": "Cymbal",
+     "sha256": "00d18c8b6a8114948b316c86bf960dfcc355d3aeb712a78c5fbbccb2093b8752"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Electro lab/Snare mid.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/elec_mid_snare.flac",
+     "name": "SnareMid",
+     "sha256": "37cc37fcefef613f3a1e8d4e16e212345930f80ff2132de22c2ca2b88ec59a1c"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Electro lab/Triangle.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/elec_triangle.flac",
+     "name": "Triangle",
+     "sha256": "850027f2d7e5b882b3689d91f2b95b5a26fbef43fc4e37fc3043c81ce52acbc4"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Electro lab/Snare low.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/elec_lo_snare.flac",
+     "name": "SnareLow",
+     "sha256": "720dc00b02969e5951417ae3e20096d594d1b23aff6758bff61c57ddfcba1acd"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Electro lab/Wood.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/elec_wood.flac",
+     "name": "Wood",
+     "sha256": "f046ea904a91f742d3436250a2bdf2d1c21ff91a227606ddbadc4d4bee1e69fa"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Electro lab/Pop.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/elec_pop.flac",
+     "name": "Pop",
+     "sha256": "c7cd99162f0aecf2cc3c18775c81f25819855b075d0a07ec9fa321e1e3cf8e19"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Electro lab/Bong.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/elec_bong.flac",
+     "name": "Bong",
+     "sha256": "e4f76c4bff74af70b89eae6c7e72ddce9dfd9df8a1b68fe0a663c6a91e192b61"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Electro lab/Blip.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/elec_blip.flac",
+     "name": "Blip",
+     "sha256": "6d082528d45fe31a07104a430ed229f8782e322bf985f9299099c000755214b5"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Electro lab/Ping.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/elec_ping.flac",
+     "name": "Ping",
+     "sha256": "3a9d365271168d9283782d8671cfa6b2787427b2e1e387729555b538a1bf1a3b"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Electro lab/Plip.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/elec_plip.flac",
+     "name": "Plip",
+     "sha256": "6bae1bd8db6167732001372b5286f27d1db28b512dde11673f66e1dfb041bae1"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Electro lab/Chime.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 3,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/elec_chime.flac",
+     "name": "Chime",
+     "sha256": "6491cb81484f9ec8da9b19eac3aa88b234d5519becc7a96172d54a1da1b21f0f"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Minimal/Kick tek.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/bd_tek.flac",
+     "name": "KickTek",
+     "sha256": "031cd7d4b3b8ccd94fb3cb5b19eaaaa3ca285f46972b6ff24bdc1dea982ef035"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Minimal/Kick haus.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/bd_haus.flac",
+     "name": "KickHaus",
+     "sha256": "b9aa2aa81a8ccabc1a93763e689587447860497a661ed03ba3f9bd6c06e99346"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Minimal/Snap.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/perc_snap.flac",
+     "name": "Snap",
+     "sha256": "09d5cc75cd9ef183e9464801c7e7b2e441ca8e12f99b2610cbc2d5168297a19d"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Minimal/Snare.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/sn_dolf.flac",
+     "name": "Snare",
+     "sha256": "88d04c0cf427f1af163479edb9d6477b95d0db0a790633cb87bbd3f3430207c7"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Minimal/Snare zome.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/sn_zome.flac",
+     "name": "SnareZome",
+     "sha256": "9621c28afb20fd135656ed02038df0704d0ad7b8d2d51835adbfebfd560bc7e9"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Minimal/Snare generic.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/sn_generic.flac",
+     "name": "SnareGeneric",
+     "sha256": "c7682e3916a5eee1cdafac18d2a4a9e03e96f6ed5ccabed4a4ff4816c103860f"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Minimal/Kick klub.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/bd_klub.flac",
+     "name": "KickKlub",
+     "sha256": "40beea807c90d0c31bc1f6e9a12fdb70f729912f6f0a3ddda0b2d29a1526fca3"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Minimal/Hat tap.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/hat_tap.flac",
+     "name": "HatTap",
+     "sha256": "7007e5b02d8f86e161c78e7e72c96af99a9c6a5d99c1cf35703d419e6f867d8c"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Minimal/Kick zome.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/bd_zome.flac",
+     "name": "KickZome",
+     "sha256": "3bc806a8eda258b305ff7183785a56b45769cb41d6f5459f90b18639d78220ac"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Minimal/Hat snap.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/hat_snap.flac",
+     "name": "HatSnap",
+     "sha256": "f2c1aa0febba2b8c9a5788d6913609c7314ebb4e33926fb039b6f580ed3df19c"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Minimal/Hat psych.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/hat_psych.flac",
+     "name": "HatPsych",
+     "sha256": "ee3269e2c134b29c76737c08bf729e2e7dc17d6a14d13c6a0e114fcd5b5fc626"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Minimal/Hat metal.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/hat_metal.flac",
+     "name": "HatMetal",
+     "sha256": "a696ae6fe04361980da0b081c1249ce30277f82db665bf84fce4e516913962d1"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Minimal/Hat zild.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/hat_zild.flac",
+     "name": "HatZild",
+     "sha256": "e916af838e56e413f8793292e499908930073215558ae6be92353c88a6beec60"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Minimal/Ride tri.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 3,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/ride_tri.flac",
+     "name": "RideTri",
+     "sha256": "acff7b0ddb105eccc979bcab27aaaa3ec65254c2f211ae7ebcf49e5048e50c21"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Minimal/Swash.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 2.0,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/perc_swash.flac",
+     "name": "Swash",
+     "sha256": "c2d125db98ff2d79f3a89a08a24b6618dc1f0410c2cc717e8cc83ebc6956dcca"
+    }
+   ]
+  },
+  {
+   "sfz": "Samples/Drums/Minimal/Bell.sfz",
+   "source": "sonicpi",
+   "maxSeconds": 3,
+   "pitched": false,
+   "normalize": -1.0,
+   "global": {},
+   "zones": [
+    {
+     "file": "etc/samples/perc_bell.flac",
+     "name": "Bell",
+     "sha256": "7d88fccc70acaeec1800976f57dc46e7fb80fd66668d3220c4961a11c8d30f9b"
     }
    ]
   },

@@ -1535,6 +1535,3295 @@
    ]
   },
   {
+   "name": "808 boom",
+   "tags": [
+    "Drums",
+    "Electronic",
+    "Hip-hop"
+   ],
+   "description": "The 808 with the kick's decay all the way up and its tone down: a long boom under a darker snare and long toms. Hip-hop, electro, Miami bass.",
+   "pads": [
+    {
+     "note": 36,
+     "piece": "Samples/Drums/808/Kick boom.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/808/Rimshot.sfz",
+     "name": "Rimshot",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/808/Snare dark.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/808/Clap.sfz",
+     "name": "Clap",
+     "role": "clap",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/808/Low tom long.sfz",
+     "name": "Low tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/808/Closed hat.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/808/Mid tom long.sfz",
+     "name": "Mid tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/808/Open hat long.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 48,
+     "piece": "Samples/Drums/808/High tom long.sfz",
+     "name": "High tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/808/Cymbal dark.sfz",
+     "name": "Cymbal",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 56,
+     "piece": "Samples/Drums/808/Cowbell.sfz",
+     "name": "Cowbell",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 75,
+     "piece": "Samples/Drums/808/Claves.sfz",
+     "name": "Claves",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "808 trap",
+   "tags": [
+    "Drums",
+    "Electronic",
+    "Trap"
+   ],
+   "description": "Trap's 808: a long sub-kick to play as a bass and a short kick for the punch, a bright snappy snare, the clap and tight hats for rolls.",
+   "pads": [
+    {
+     "note": 35,
+     "piece": "Samples/Drums/808/Kick long.sfz",
+     "name": "808",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": -1
+    },
+    {
+     "note": 36,
+     "piece": "Samples/Drums/808/Kick short.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/808/Rimshot.sfz",
+     "name": "Rimshot",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/808/Snare bright.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/808/Clap.sfz",
+     "name": "Clap",
+     "role": "clap",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/808/Snare snappy.sfz",
+     "name": "Snare snappy",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": -2
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/808/Closed hat.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/808/Open hat short.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/808/Low tom.sfz",
+     "name": "Low tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 47,
+     "piece": "Samples/Drums/808/Mid tom.sfz",
+     "name": "Mid tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 50,
+     "piece": "Samples/Drums/808/High tom.sfz",
+     "name": "High tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 56,
+     "piece": "Samples/Drums/808/Cowbell.sfz",
+     "name": "Cowbell",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "909 house",
+   "tags": [
+    "Drums",
+    "Electronic",
+    "House"
+   ],
+   "description": "The 909 as house knows it: the round kick, the snare and clap on two and four, open hats on the off-beat and the ride.",
+   "pads": [
+    {
+     "note": 35,
+     "piece": "Samples/Drums/909/Kick 2.sfz",
+     "name": "Kick 2",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 36,
+     "piece": "Samples/Drums/909/Kick.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/909/Rimshot.sfz",
+     "name": "Rimshot",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/909/Snare.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/909/Clap.sfz",
+     "name": "Clap",
+     "role": "clap",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/909/Snare 2.sfz",
+     "name": "Snare 2",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/909/Low tom.sfz",
+     "name": "Low tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/909/Closed hat.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/909/Mid tom.sfz",
+     "name": "Mid tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/909/Open hat.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 48,
+     "piece": "Samples/Drums/909/High tom.sfz",
+     "name": "High tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/909/Crash.sfz",
+     "name": "Crash",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/909/Ride.sfz",
+     "name": "Ride",
+     "role": "ride",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 52,
+     "piece": "Samples/Drums/909/Clap long.sfz",
+     "name": "Clap long",
+     "role": "clap",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "909 techno",
+   "tags": [
+    "Drums",
+    "Electronic",
+    "Techno"
+   ],
+   "description": "The 909 tightened for techno: its attack kick and snare, short hats and toms, a short ride for driving sixteenths.",
+   "pads": [
+    {
+     "note": 35,
+     "piece": "Samples/Drums/909/Kick 3.sfz",
+     "name": "Kick 3",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 36,
+     "piece": "Samples/Drums/909/Kick attack.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/909/Rimshot.sfz",
+     "name": "Rimshot",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/909/Snare attack.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/909/Clap.sfz",
+     "name": "Clap",
+     "role": "clap",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/909/Snare 3.sfz",
+     "name": "Snare 3",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/909/Low tom short.sfz",
+     "name": "Low tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/909/Closed hat short.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/909/Mid tom short.sfz",
+     "name": "Mid tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/909/Open hat short.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 48,
+     "piece": "Samples/Drums/909/High tom short.sfz",
+     "name": "High tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/909/Crash short.sfz",
+     "name": "Crash",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/909/Ride short.sfz",
+     "name": "Ride",
+     "role": "ride",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 52,
+     "piece": "Samples/Drums/909/Kick attack hard.sfz",
+     "name": "Kick hard",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": -1
+    }
+   ]
+  },
+  {
+   "name": "707 dance",
+   "tags": [
+    "Drums",
+    "Electronic",
+    "Dance"
+   ],
+   "description": "The 707's bright digital drums: punchy kick, crisp snare, a tambourine, the sound of 80s dance and early house.",
+   "pads": [
+    {
+     "note": 35,
+     "piece": "Samples/Drums/707/Kick 2.sfz",
+     "name": "Kick 2",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 36,
+     "piece": "Samples/Drums/707/Kick.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/707/Rimshot.sfz",
+     "name": "Rimshot",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/707/Snare.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/707/Clap.sfz",
+     "name": "Clap",
+     "role": "clap",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/707/Snare 2.sfz",
+     "name": "Snare 2",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/707/Low tom.sfz",
+     "name": "Low tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/707/Closed hat.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/707/Mid tom.sfz",
+     "name": "Mid tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/707/Open hat.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 48,
+     "piece": "Samples/Drums/707/High tom.sfz",
+     "name": "High tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/707/Crash.sfz",
+     "name": "Crash",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/707/Ride.sfz",
+     "name": "Ride",
+     "role": "ride",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 54,
+     "piece": "Samples/Drums/707/Tambourine.sfz",
+     "name": "Tambourine",
+     "role": "shaker",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 52,
+     "piece": "Samples/Drums/707/Snare 3.sfz",
+     "name": "Snare 3",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Machine percussion",
+   "tags": [
+    "Drums",
+    "Percussion",
+    "Electronic"
+   ],
+   "description": "A drum machine's Latin percussion: congas, bongos, timbales, agogos, a quijada and whistles, in the bright digital colour of the 80s.",
+   "pads": [
+    {
+     "note": 60,
+     "piece": "Samples/Drums/Machine percussion/High bongo.sfz",
+     "name": "High bongo",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.2,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 61,
+     "piece": "Samples/Drums/Machine percussion/Low bongo.sfz",
+     "name": "Low bongo",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.1,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 62,
+     "piece": "Samples/Drums/Machine percussion/Mute conga.sfz",
+     "name": "Mute conga",
+     "role": "perc",
+     "choke": 0,
+     "pan": -0.1,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 63,
+     "piece": "Samples/Drums/Machine percussion/High conga.sfz",
+     "name": "High conga",
+     "role": "perc",
+     "choke": 0,
+     "pan": -0.15,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 64,
+     "piece": "Samples/Drums/Machine percussion/Low conga.sfz",
+     "name": "Low conga",
+     "role": "perc",
+     "choke": 0,
+     "pan": -0.25,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 65,
+     "piece": "Samples/Drums/Machine percussion/High timbale.sfz",
+     "name": "High timbale",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 66,
+     "piece": "Samples/Drums/Machine percussion/Low timbale.sfz",
+     "name": "Low timbale",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.25,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 67,
+     "piece": "Samples/Drums/Machine percussion/High agogo.sfz",
+     "name": "High agogo",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.35,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 68,
+     "piece": "Samples/Drums/Machine percussion/Low agogo.sfz",
+     "name": "Low agogo",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.35,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 69,
+     "piece": "Samples/Drums/Machine percussion/Cabasa.sfz",
+     "name": "Cabasa",
+     "role": "shaker",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 70,
+     "piece": "Samples/Drums/Machine percussion/Maracas.sfz",
+     "name": "Maracas",
+     "role": "shaker",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 71,
+     "piece": "Samples/Drums/Machine percussion/Short whistle.sfz",
+     "name": "Short whistle",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 72,
+     "piece": "Samples/Drums/Machine percussion/Long whistle.sfz",
+     "name": "Long whistle",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 75,
+     "piece": "Samples/Drums/Machine percussion/Claves.sfz",
+     "name": "Claves",
+     "role": "perc",
+     "choke": 0,
+     "pan": -0.2,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 78,
+     "piece": "Samples/Drums/Machine percussion/Quijada.sfz",
+     "name": "Quijada",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 56,
+     "piece": "Samples/Drums/Machine percussion/Cowbell.sfz",
+     "name": "Cowbell",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 81,
+     "piece": "Samples/Drums/Machine percussion/Star chime.sfz",
+     "name": "Star chime",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 54,
+     "piece": "Samples/Drums/Machine percussion/Tambourine.sfz",
+     "name": "Tambourine",
+     "role": "shaker",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "606 analog",
+   "tags": [
+    "Drums",
+    "Electronic",
+    "Classic"
+   ],
+   "description": "A small analog machine in the 606's mould, recorded by its owner: a thumpy kick, a noisy snare, sizzling hats and two toms. Acid and minimal.",
+   "pads": [
+    {
+     "note": 35,
+     "piece": "Samples/Drums/606/Kick long.sfz",
+     "name": "Kick long",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 36,
+     "piece": "Samples/Drums/606/Kick.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/606/Snare.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/606/Clap.sfz",
+     "name": "Clap",
+     "role": "clap",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/606/Snare long.sfz",
+     "name": "Snare long",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/606/Low tom.sfz",
+     "name": "Low tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/606/Closed hat.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/606/Low tom long.sfz",
+     "name": "Low tom long",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 44,
+     "piece": "Samples/Drums/606/Half hat.sfz",
+     "name": "Half hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/606/High tom.sfz",
+     "name": "High tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/606/Open hat.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 47,
+     "piece": "Samples/Drums/606/High tom long.sfz",
+     "name": "High tom long",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/606/Cymbal.sfz",
+     "name": "Cymbal",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/606/Cymbal short.sfz",
+     "name": "Cymbal short",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "80s digital",
+   "tags": [
+    "Drums",
+    "Electronic",
+    "80s"
+   ],
+   "description": "An 80s digital drum machine's sampled kit: tight kick, big snare, clap and four toms. Pop, synth-pop and new wave.",
+   "pads": [
+    {
+     "note": 35,
+     "piece": "Samples/Drums/80s digital/Kick heavy.sfz",
+     "name": "Kick heavy",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 36,
+     "piece": "Samples/Drums/80s digital/Kick.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/80s digital/Rimshot.sfz",
+     "name": "Rimshot",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/80s digital/Snare.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/80s digital/Clap.sfz",
+     "name": "Clap",
+     "role": "clap",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/80s digital/Snare heavy.sfz",
+     "name": "Snare heavy",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/80s digital/Floor tom.sfz",
+     "name": "Floor tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.35,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/80s digital/Closed hat.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/80s digital/Low tom.sfz",
+     "name": "Low tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.15,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/80s digital/Open hat.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/80s digital/Mid tom.sfz",
+     "name": "Mid tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.1,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 47,
+     "piece": "Samples/Drums/80s digital/High tom.sfz",
+     "name": "High tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/80s digital/Crash.sfz",
+     "name": "Crash",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/80s digital/Ride.sfz",
+     "name": "Ride",
+     "role": "ride",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 53,
+     "piece": "Samples/Drums/80s digital/Ride bell.sfz",
+     "name": "Ride bell",
+     "role": "ride",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 54,
+     "piece": "Samples/Drums/80s digital/Tambourine.sfz",
+     "name": "Tambourine",
+     "role": "shaker",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 56,
+     "piece": "Samples/Drums/80s digital/Cowbell.sfz",
+     "name": "Cowbell",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 70,
+     "piece": "Samples/Drums/80s digital/Shaker.sfz",
+     "name": "Shaker",
+     "role": "shaker",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "80s electronic",
+   "tags": [
+    "Drums",
+    "Electronic",
+    "80s"
+   ],
+   "description": "The same 80s machine's electronic side: processed kick and snare, synth toms and FM percussion. Electro-funk and synth-pop.",
+   "pads": [
+    {
+     "note": 35,
+     "piece": "Samples/Drums/80s digital/Kick electric.sfz",
+     "name": "Kick electric",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 36,
+     "piece": "Samples/Drums/80s digital/Kick processed.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/80s digital/Rimshot 2.sfz",
+     "name": "Rimshot",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/80s digital/Snare processed.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/80s digital/Clap.sfz",
+     "name": "Clap",
+     "role": "clap",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/80s digital/Snare electric.sfz",
+     "name": "Snare electric",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/80s digital/Tom processed low.sfz",
+     "name": "Low tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/80s digital/Closed hat.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/80s digital/Tom processed mid.sfz",
+     "name": "Mid tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/80s digital/Open hat.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 48,
+     "piece": "Samples/Drums/80s digital/Tom processed high.sfz",
+     "name": "High tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/80s digital/Crash.sfz",
+     "name": "Crash",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 52,
+     "piece": "Samples/Drums/80s digital/FM tom.sfz",
+     "name": "FM tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/80s digital/FM snare.sfz",
+     "name": "FM snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 55,
+     "piece": "Samples/Drums/80s digital/Hybrid tom.sfz",
+     "name": "Hybrid tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 56,
+     "piece": "Samples/Drums/80s digital/FM perc 1.sfz",
+     "name": "FM perc",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 57,
+     "piece": "Samples/Drums/80s digital/FM perc 2.sfz",
+     "name": "FM perc 2",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 58,
+     "piece": "Samples/Drums/80s digital/Roto.sfz",
+     "name": "Roto",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "90s club",
+   "tags": [
+    "Drums",
+    "Electronic",
+    "House"
+   ],
+   "description": "A 90s groove box at the club: house kicks and snares, a fat clap, pop hats, congas, a reverse cymbal and a scratch.",
+   "pads": [
+    {
+     "note": 35,
+     "piece": "Samples/Drums/90s groove box/Kick dance.sfz",
+     "name": "Kick 2",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 36,
+     "piece": "Samples/Drums/90s groove box/Kick house.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/90s groove box/Claves.sfz",
+     "name": "Claves",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/90s groove box/Snare house.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/90s groove box/Clap.sfz",
+     "name": "Clap",
+     "role": "clap",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/90s groove box/Snare dance.sfz",
+     "name": "Snare 2",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/90s groove box/Conga low.sfz",
+     "name": "Low conga",
+     "role": "perc",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/90s groove box/Closed hat pop.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/90s groove box/Conga high.sfz",
+     "name": "High conga",
+     "role": "perc",
+     "choke": 0,
+     "pan": -0.15,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 44,
+     "piece": "Samples/Drums/90s groove box/Pedal hat pop.sfz",
+     "name": "Pedal hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/90s groove box/Conga slap.sfz",
+     "name": "Conga slap",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/90s groove box/Open hat pop.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 47,
+     "piece": "Samples/Drums/90s groove box/Tambourine.sfz",
+     "name": "Tambourine",
+     "role": "shaker",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 48,
+     "piece": "Samples/Drums/90s groove box/Shaker.sfz",
+     "name": "Shaker",
+     "role": "shaker",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/90s groove box/Crash.sfz",
+     "name": "Crash",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/90s groove box/Ride.sfz",
+     "name": "Ride",
+     "role": "ride",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 52,
+     "piece": "Samples/Drums/90s groove box/Reverse cymbal.sfz",
+     "name": "Reverse cymbal",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 53,
+     "piece": "Samples/Drums/90s groove box/Scratch.sfz",
+     "name": "Scratch",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 54,
+     "piece": "Samples/Drums/90s groove box/Snare noise.sfz",
+     "name": "Noise snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 55,
+     "piece": "Samples/Drums/90s groove box/High Q.sfz",
+     "name": "High Q",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 56,
+     "piece": "Samples/Drums/90s groove box/Cowbell.sfz",
+     "name": "Cowbell",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "90s studio",
+   "tags": [
+    "Drums",
+    "Electronic",
+    "Pop"
+   ],
+   "description": "A 90s groove box's studio kit: a real kick, a big gated snare, rock toms and acoustic hats. Pop, R&B and rock demos.",
+   "pads": [
+    {
+     "note": 35,
+     "piece": "Samples/Drums/90s groove box/Kick tight.sfz",
+     "name": "Kick tight",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 36,
+     "piece": "Samples/Drums/90s groove box/Kick real.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/90s groove box/Side-stick.sfz",
+     "name": "Side-stick",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/90s groove box/Snare real.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/90s groove box/Snare gated.sfz",
+     "name": "Gated snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/90s groove box/Snare rock.sfz",
+     "name": "Rock snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/90s groove box/Tom rock 4.sfz",
+     "name": "Floor tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.35,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/90s groove box/Closed hat.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/90s groove box/Tom rock 3.sfz",
+     "name": "Low tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.15,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 44,
+     "piece": "Samples/Drums/90s groove box/Pedal hat.sfz",
+     "name": "Pedal hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/90s groove box/Tom rock 2.sfz",
+     "name": "Mid tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.1,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/90s groove box/Open hat.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 47,
+     "piece": "Samples/Drums/90s groove box/Tom rock 1.sfz",
+     "name": "High tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/90s groove box/Crash 2.sfz",
+     "name": "Crash",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/90s groove box/Ride rock.sfz",
+     "name": "Ride",
+     "role": "ride",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 53,
+     "piece": "Samples/Drums/90s groove box/Ride bell rock.sfz",
+     "name": "Ride bell",
+     "role": "ride",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 55,
+     "piece": "Samples/Drums/90s groove box/Splash.sfz",
+     "name": "Splash",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Synth percussion",
+   "tags": [
+    "Drums",
+    "Electronic",
+    "Synth"
+   ],
+   "description": "Drums made on synthesizers, nothing recorded: sine kicks, noise snares and claps, metallic hats and pitched toms.",
+   "pads": [
+    {
+     "note": 35,
+     "piece": "Samples/Drums/Synth percussion/Kick 2.sfz",
+     "name": "Kick 2",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Synth percussion/Kick.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Synth percussion/Snare.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/Synth percussion/Clap.sfz",
+     "name": "Clap",
+     "role": "clap",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/Synth percussion/Snare 2.sfz",
+     "name": "Snare 2",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/Synth percussion/Low tom.sfz",
+     "name": "Low tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/Synth percussion/Closed hat.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/Synth percussion/Mid tom.sfz",
+     "name": "Mid tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 44,
+     "piece": "Samples/Drums/Synth percussion/Closed hat 2.sfz",
+     "name": "Closed hat 2",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/Synth percussion/High tom.sfz",
+     "name": "High tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/Synth percussion/Open hat.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/Synth percussion/Cymbal.sfz",
+     "name": "Cymbal",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/Synth percussion/Cymbal 2.sfz",
+     "name": "Cymbal 2",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 70,
+     "piece": "Samples/Drums/Synth percussion/Shaker.sfz",
+     "name": "Shaker",
+     "role": "shaker",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 69,
+     "piece": "Samples/Drums/Synth percussion/Shaker long.sfz",
+     "name": "Long shaker",
+     "role": "shaker",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 75,
+     "piece": "Samples/Drums/Synth percussion/Claves.sfz",
+     "name": "Claves",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Drum and bass",
+   "tags": [
+    "Drums",
+    "Electronic",
+    "Drum and bass"
+   ],
+   "description": "Snares that crack at 170 bpm, a tight kick, fast hats and a ride for rolling breaks.",
+   "pads": [
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Drum and bass/Kick.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/Drum and bass/Rimshot.sfz",
+     "name": "Rimshot",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Drum and bass/Snare.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/Drum and bass/Snare 2.sfz",
+     "name": "Snare 2",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/Drum and bass/Snare 3.sfz",
+     "name": "Snare 3",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/Drum and bass/Floor tom.sfz",
+     "name": "Floor tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/Drum and bass/Closed hat.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/Drum and bass/Low tom.sfz",
+     "name": "Low tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.15,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 44,
+     "piece": "Samples/Drums/Drum and bass/Closed hat 2.sfz",
+     "name": "Closed hat 2",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/Drum and bass/Mid tom.sfz",
+     "name": "Mid tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.1,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/Drum and bass/Open hat.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 47,
+     "piece": "Samples/Drums/Drum and bass/High tom.sfz",
+     "name": "High tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/Drum and bass/Crash.sfz",
+     "name": "Crash",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/Drum and bass/Ride.sfz",
+     "name": "Ride",
+     "role": "ride",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 70,
+     "piece": "Samples/Drums/Drum and bass/Shaker.sfz",
+     "name": "Shaker",
+     "role": "shaker",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 52,
+     "piece": "Samples/Drums/Drum and bass/Snare 4.sfz",
+     "name": "Snare 4",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Hardstyle",
+   "tags": [
+    "Drums",
+    "Electronic",
+    "Hardstyle"
+   ],
+   "description": "Distorted, tuned kicks in G and F, a hardcore kick, punchy snares and a noise clap. Hardstyle and hardcore.",
+   "pads": [
+    {
+     "note": 35,
+     "piece": "Samples/Drums/Hardstyle/Kick 2.sfz",
+     "name": "Kick 2",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": -1
+    },
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Hardstyle/Kick.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": -1
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/Hardstyle/Kick hardcore.sfz",
+     "name": "Hardcore kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": -1
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Hardstyle/Snare.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/Hardstyle/Clap.sfz",
+     "name": "Clap",
+     "role": "clap",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/Hardstyle/Snare 2.sfz",
+     "name": "Snare 2",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/Hardstyle/Kick 3.sfz",
+     "name": "Kick 3",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": -1
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/Hardstyle/Closed hat.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/Hardstyle/Kick F.sfz",
+     "name": "Kick F",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": -1
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/Hardstyle/Open hat.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/Hardstyle/Crash.sfz",
+     "name": "Crash",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/Hardstyle/Ride.sfz",
+     "name": "Ride",
+     "role": "ride",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 52,
+     "piece": "Samples/Drums/Hardstyle/Clap layered.sfz",
+     "name": "Layered clap",
+     "role": "clap",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 55,
+     "piece": "Samples/Drums/Hardstyle/Snare 3.sfz",
+     "name": "Snare 3",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Hip-hop",
+   "tags": [
+    "Drums",
+    "Electronic",
+    "Hip-hop"
+   ],
+   "description": "A long and a short kick, hip-hop and R&B snares, a trap clap, a snap and a vinyl backspin.",
+   "pads": [
+    {
+     "note": 35,
+     "piece": "Samples/Drums/Hip-hop/Kick long.sfz",
+     "name": "Long kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Hip-hop/Kick short.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/Hip-hop/Rimshot.sfz",
+     "name": "Rimshot",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Hip-hop/Snare.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/Hip-hop/Clap.sfz",
+     "name": "Clap",
+     "role": "clap",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/Hip-hop/Snare 2.sfz",
+     "name": "Snare 2",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/Hip-hop/Snare 3.sfz",
+     "name": "Snare 3",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/Hip-hop/Closed hat.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/Hip-hop/Snap.sfz",
+     "name": "Snap",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/Hip-hop/Open hat.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/Hip-hop/Snare RnB.sfz",
+     "name": "RnB snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/Hip-hop/Crash.sfz",
+     "name": "Crash",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 70,
+     "piece": "Samples/Drums/Hip-hop/Shaker.sfz",
+     "name": "Shaker",
+     "role": "shaker",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 52,
+     "piece": "Samples/Drums/Hip-hop/Backspin.sfz",
+     "name": "Backspin",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Future bass",
+   "tags": [
+    "Drums",
+    "Electronic",
+    "Future bass"
+   ],
+   "description": "Bright, compressed kicks, wide synthetic claps and snares, and synth toms for future bass and pop drops.",
+   "pads": [
+    {
+     "note": 35,
+     "piece": "Samples/Drums/Future/Kick 2.sfz",
+     "name": "Kick 2",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Future/Kick.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Future/Snare.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/Future/Clap.sfz",
+     "name": "Clap",
+     "role": "clap",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/Future/Snare 2.sfz",
+     "name": "Snare 2",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/Future/Floor tom.sfz",
+     "name": "Floor tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/Future/Closed hat.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/Future/Low tom.sfz",
+     "name": "Low tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": -0.15,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/Future/Mid tom.sfz",
+     "name": "Mid tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.1,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/Future/Open hat.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 47,
+     "piece": "Samples/Drums/Future/High tom.sfz",
+     "name": "High tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.3,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/Future/Crash.sfz",
+     "name": "Crash",
+     "role": "cymbal",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 52,
+     "piece": "Samples/Drums/Future/Clap 2.sfz",
+     "name": "Clap 2",
+     "role": "clap",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 55,
+     "piece": "Samples/Drums/Future/Kick 3.sfz",
+     "name": "Kick 3",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Electro lab",
+   "tags": [
+    "Drums",
+    "Electronic",
+    "Electro"
+   ],
+   "description": "Electronic drums and blips from a lab bench: a hollow kick, filtered snares, a fuzz tom, a wood block, pops, pings and chimes.",
+   "pads": [
+    {
+     "note": 35,
+     "piece": "Samples/Drums/Electro lab/Kick hollow.sfz",
+     "name": "Hollow kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Electro lab/Kick soft.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/Electro lab/Tick.sfz",
+     "name": "Tick",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Electro lab/Snare.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/Electro lab/Snare filtered.sfz",
+     "name": "Filter snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/Electro lab/Snare high.sfz",
+     "name": "High snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/Electro lab/Fuzz tom.sfz",
+     "name": "Fuzz tom",
+     "role": "tom",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/Electro lab/Cymbal.sfz",
+     "name": "Cymbal",
+     "role": "hat",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/Electro lab/Snare mid.sfz",
+     "name": "Mid snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/Electro lab/Triangle.sfz",
+     "name": "Triangle",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/Electro lab/Snare low.sfz",
+     "name": "Low snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 47,
+     "piece": "Samples/Drums/Electro lab/Wood.sfz",
+     "name": "Wood",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 48,
+     "piece": "Samples/Drums/Electro lab/Pop.sfz",
+     "name": "Pop",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/Electro lab/Bong.sfz",
+     "name": "Bong",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 50,
+     "piece": "Samples/Drums/Electro lab/Blip.sfz",
+     "name": "Blip",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/Electro lab/Ping.sfz",
+     "name": "Ping",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 52,
+     "piece": "Samples/Drums/Electro lab/Plip.sfz",
+     "name": "Plip",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 53,
+     "piece": "Samples/Drums/Electro lab/Chime.sfz",
+     "name": "Chime",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Minimal",
+   "tags": [
+    "Drums",
+    "Electronic",
+    "Techno"
+   ],
+   "description": "Small, dry club sounds: two kicks, clicky snares and snaps, a family of thin hats and a bell. Minimal techno and microhouse.",
+   "pads": [
+    {
+     "note": 35,
+     "piece": "Samples/Drums/Minimal/Kick tek.sfz",
+     "name": "Kick 2",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 36,
+     "piece": "Samples/Drums/Minimal/Kick haus.sfz",
+     "name": "Kick",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 37,
+     "piece": "Samples/Drums/Minimal/Snap.sfz",
+     "name": "Snap",
+     "role": "rim",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 38,
+     "piece": "Samples/Drums/Minimal/Snare.sfz",
+     "name": "Snare",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 39,
+     "piece": "Samples/Drums/Minimal/Snare zome.sfz",
+     "name": "Snare 2",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 40,
+     "piece": "Samples/Drums/Minimal/Snare generic.sfz",
+     "name": "Snare 3",
+     "role": "snare",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 41,
+     "piece": "Samples/Drums/Minimal/Kick klub.sfz",
+     "name": "Kick 3",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": -2
+    },
+    {
+     "note": 42,
+     "piece": "Samples/Drums/Minimal/Hat tap.sfz",
+     "name": "Closed hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 43,
+     "piece": "Samples/Drums/Minimal/Kick zome.sfz",
+     "name": "Kick 4",
+     "role": "kick",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": -2
+    },
+    {
+     "note": 44,
+     "piece": "Samples/Drums/Minimal/Hat snap.sfz",
+     "name": "Snap hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 46,
+     "piece": "Samples/Drums/Minimal/Hat psych.sfz",
+     "name": "Open hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 45,
+     "piece": "Samples/Drums/Minimal/Hat metal.sfz",
+     "name": "Metal hat",
+     "role": "hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 49,
+     "piece": "Samples/Drums/Minimal/Hat zild.sfz",
+     "name": "Long hat",
+     "role": "open hat",
+     "choke": 1,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 51,
+     "piece": "Samples/Drums/Minimal/Ride tri.sfz",
+     "name": "Ride",
+     "role": "ride",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 52,
+     "piece": "Samples/Drums/Minimal/Swash.sfz",
+     "name": "Swash",
+     "role": "fx",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    },
+    {
+     "note": 53,
+     "piece": "Samples/Drums/Minimal/Bell.sfz",
+     "name": "Bell",
+     "role": "perc",
+     "choke": 0,
+     "pan": 0.0,
+     "velocity": 60,
+     "transpose": 0,
+     "trim": 0.0
+    }
+   ]
+  },
+  {
    "name": "Body",
    "tags": [
     "Drums",
