@@ -1,6 +1,5 @@
 #include "ui/DrumKitPanel.h"
 
-#include "engine/Session.h"
 #include "model/DrumKit.h"
 #include "model/Taper.h"
 #include "ui/ChannelControls.h"
@@ -26,7 +25,7 @@ int playsAt(float position) noexcept
 }
 } // namespace
 
-DrumKitPanel::DrumKitPanel(ui::DeviceUiContext& context) : DevicePanel(context)
+DrumKitPanel::DrumKitPanel(ui::DeviceUiContext& context) : MacroPanel(context)
 {
     // PADS: the 16 shown over six columns, all 128 in the seventh.
     auto& pads = addSection("pads", "Pads", 7);
@@ -158,12 +157,7 @@ DrumKitPanel::DrumKitPanel(ui::DeviceUiContext& context) : DevicePanel(context)
                         return std::any_of(kit_.macros.begin(), kit_.macros.end(),
                                            [](const model::RackMacro& m) { return !m.mappings.empty(); });
                     });
-    for (int i = 0; i < model::RackInfo::macroCount; ++i)
-    {
-        auto& knob = macrosSection_->knob(static_cast<size_t>(i), i % 4, i < 4 ? 0 : 3);
-        knob.setSourceHandle(true);
-        macros_[static_cast<size_t>(i)] = &knob;
-    }
+    addMacroKnobs(*macrosSection_);
     updatePads();
     updatePad();
 }
@@ -182,7 +176,7 @@ void DrumKitPanel::setKit(const model::RackInfo& kit)
     setFoldedDetail(utf8(model::kit::contents(kit_)));
     updatePads();
     updatePad();
-    updateMacros();
+    updateMacroKnobs(kit_.macros);
     if (!updateShownSections())
         resized();
 }
@@ -239,20 +233,6 @@ void DrumKitPanel::updatePad()
     choke_.setSelectedId(std::clamp(shown.choke, 0, model::kit::chokeGroups) + 1, juce::dontSendNotification);
     solo_.setToggleState(shown.solo, juce::dontSendNotification);
     padSection_->refresh();
-}
-
-void DrumKitPanel::updateMacros()
-{
-    const auto& t = ui::Theme::current();
-    const auto& specs = engine::Session::drumKit().params;
-    for (size_t i = 0; i < macros_.size(); ++i)
-    {
-        const auto& macro = kit_.macros[i];
-        auto& knob = *macros_[i];
-        knob.setName(macro.name.empty() ? juce::String(std::string(specs[i].name)) : utf8(macro.name));
-        // One that maps nothing yet recedes: turning it does nothing (as a rack's, racks.md §5a).
-        knob.setAlpha(macro.mappings.empty() ? t.roles.fadedAlpha : 1.0f);
-    }
 }
 
 void DrumKitPanel::renamePad(int note)

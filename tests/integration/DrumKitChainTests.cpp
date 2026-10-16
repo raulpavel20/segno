@@ -1,7 +1,8 @@
 // The Drum Kit in the chain view (docs/design/drum-kit.md §5, §6, §8, §12; step 1): its panel, its
 // selected pad's modules in its frame with the frame naming the pad; a pad pressed selects the kit
 // and the pad and plays it; browser items dropped on pads and into the frame; a pad's settings from
-// PAD; the Module menu's pad commands; pads lit as they're hit. Drawn with FD_DUMP_DIR.
+// PAD; the Module menu's pad commands; pads lit as they're hit; its macros (step 2). Drawn with
+// FD_DUMP_DIR.
 #include "engine/DevicePlugin.h"
 #include "engine/EngineBehaviour.h"
 #include "engine/Session.h"
@@ -12,6 +13,7 @@
 #include "ui/BrowserDrops.h"
 #include "ui/DeviceChain.h"
 #include "ui/DrumKitPanel.h"
+#include "ui/MacroEditor.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <cstdlib>
@@ -54,6 +56,34 @@ template <typename T> void collect(juce::Component& root, std::vector<T*>& out)
             out.push_back(t);
         collect(*c, out);
     }
+}
+
+juce::MouseEvent mouseAt(juce::Component& c, juce::Point<float> pos, bool dragged)
+{
+    return {juce::Desktop::getInstance().getMainMouseSource(),
+            pos,
+            juce::ModifierKeys::leftButtonModifier,
+            0.0f,
+            0.0f,
+            0.0f,
+            0.0f,
+            0.0f,
+            &c,
+            &c,
+            juce::Time::getCurrentTime(),
+            pos,
+            juce::Time::getCurrentTime(),
+            1,
+            dragged};
+}
+
+/// A menu's item by its text, through its submenus.
+const juce::PopupMenu::Item* itemNamed(const juce::PopupMenu& menu, const juce::String& text)
+{
+    for (juce::PopupMenu::MenuItemIterator it(menu, true); it.next();)
+        if (it.getItem().text == text)
+            return &it.getItem();
+    return nullptr;
 }
 
 /// The chain view on a session with a Drum Kit on its first track.
@@ -315,4 +345,92 @@ TEST_CASE("drum kit in the chain: pads light a moment as they're hit", "[ui]")
     juce::Thread::sleep(200);
     c.chain->updateNotices();
     CHECK_FALSE(c.panel().pads().playing().test(36)); // a moment only
+}
+
+TEST_CASE("drum kit in the chain, step 2: its macros, mapped to its pads' modules as a rack's are", "[ui]")
+{
+    KitChain c;
+    c.session->loadPads(c.kit, 36, {c.sample("Kick")});
+    c.show();
+    const auto sampler = model::kit::padOn(c.info(), 36)->devices.at(0).id;
+    // No mapping yet: MACROS takes no width.
+    CHECK_FALSE(c.panel().findSection("macros")->isVisible());
+
+    // A knob's right-click on the pad's Sampler: Map to macro ▸ Macro 1 maps it, MACROS shows.
+    juce::PopupMenu menu;
+    REQUIRE(c.session->macroMenu);
+    c.session->macroMenu(sampler, "detune", menu);
+    const auto* first = itemNamed(menu, "Macro 1");
+    REQUIRE(first != nullptr);
+    REQUIRE(first->action);
+    first->action();
+    c.show();
+    auto info = c.info();
+    REQUIRE(info.macros[0].mappings.size() == 1);
+    CHECK(info.macros[0].mappings[0].module == sampler);
+    auto& panel = c.panel();
+    CHECK(panel.findSection("macros")->isVisible());
+    CHECK(panel.macroKnob(0).getAlpha() == 1.0f);
+    CHECK(panel.macroKnob(1).getAlpha() < 1.0f); // one that maps nothing recedes, as a rack's
+
+    // Macro 2's name dragged onto the Sampler's Gain: mapped, From where it was.
+    const auto handle = c.session->openDevice(sampler);
+    REQUIRE(handle != nullptr);
+    const auto& specs = handle->context().info.params;
+    std::vector<fd::ui::ParamKnob*> knobs;
+    collect(*c.panelsAfterKit().at(0), knobs);
+    fd::ui::ParamKnob* gain = nullptr;
+    fd::ui::ParamKnob* detune = nullptr;
+    for (auto* k : knobs)
+        if (k->isVisible() && k->param() < specs.size())
+        {
+            if (specs[k->param()].id == "gain")
+                gain = k;
+            if (specs[k->param()].id == "detune")
+                detune = k;
+        }
+    REQUIRE(gain != nullptr);
+    REQUIRE(detune != nullptr);
+    const auto centre = gain->getLocalBounds().getCentre().toFloat();
+    REQUIRE(panel.onMacroDrag);
+    panel.onMacroDrag(1, mouseAt(*gain, centre, true));
+    CHECK(c.session->macroPointer().dragging);
+    CHECK(c.session->macroPointer().module == sampler);
+    gain->refresh();
+    CHECK(gain->isDropTarget());
+    panel.onMacroDrop(1, mouseAt(*gain, centre, true));
+    CHECK_FALSE(c.session->macroPointer().dragging);
+    info = c.info();
+    REQUIRE(info.macros[1].mappings.size() == 1);
+    CHECK(info.macros[1].mappings[0].param == "gain");
+    CHECK(c.session->undoDescription() == "Map to macro");
+    c.show();
+
+    // The pointer on Detune: Macro 1's name lights; away, it doesn't.
+    c.chain->mouseMove(mouseAt(*detune, detune->getLocalBounds().getCentre().toFloat(), false));
+    CHECK(c.panel().macroKnob(0).isHandleLit());
+    CHECK_FALSE(c.panel().macroKnob(1).isHandleLit());
+    c.chain->mouseExit(mouseAt(*detune, {}, false));
+    CHECK_FALSE(c.panel().macroKnob(0).isHandleLit());
+
+    // Renamed in place: its name over its knob.
+    REQUIRE(c.panel().onRenameMacro);
+    c.panel().onRenameMacro(0, "Tune");
+    c.show();
+    CHECK(c.info().macros[0].name == "Tune");
+    CHECK(c.panel().macroKnob(0).getName() == "Tune");
+    dump("kit-chain-macros", *c.chain);
+
+    // Edit macros: the macro editor, on the kit, that macro chosen.
+    std::unique_ptr<juce::Component> shown;
+    c.chain->onShowEditor = [&](std::uint64_t, std::unique_ptr<fd::ui::ModuleEditor> editor)
+    { shown = std::move(editor); };
+    REQUIRE(c.panel().onEditMacros);
+    c.panel().onEditMacros(1);
+    CHECK(dynamic_cast<fd::app::MacroEditor*>(shown.get()) != nullptr);
+    c.chain->selectDevice(c.kit);
+    CHECK(c.chain->editingMacros());
+
+    // Snapshots stay a rack's (drum-kit.md §10).
+    CHECK(c.session->storeSnapshot(c.kit) < 0);
 }

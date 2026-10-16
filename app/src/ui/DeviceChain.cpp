@@ -496,14 +496,28 @@ void DeviceChain::wireRackPanel(RackPanel& panel, std::uint64_t rack)
     panel.onAddChain = [this, rack] { session_.addRackChain(rack); };
     panel.onRenameChain = [this, rack](int chain, const juce::String& name)
     { session_.setRackChain(rack, chain, {.name = name.toStdString()}); };
-    panel.onRenameMacro = [this, rack](int macro, const juce::String& name)
-    { session_.setMacro(rack, macro, std::nullopt, name.toStdString()); };
     panel.onRenameRack = [this, rack](const juce::String& name)
     {
         session_.renameRack(rack, name.toStdString());
         if (std::exchange(saveOnRename_, false) && onSaveRack)
             onSaveRack(rack);
     };
+    wireMacros(panel, rack);
+    // Snapshots, locks and Morph (racks.md §18).
+    panel.onRecallSnapshot = [this, rack](int snapshot) { session_.recallSnapshot(rack, snapshot); };
+    panel.onStoreSnapshot = [this, rack] { session_.storeSnapshot(rack); };
+    panel.onSnapshotMenu = [this, rack](int snapshot) { showSnapshotMenu(rack, snapshot); };
+    panel.onRenameSnapshot = [this, rack](int snapshot, const juce::String& name)
+    { session_.setSnapshot(rack, snapshot, name.toStdString()); };
+    panel.onLockMacro = [this, rack](int macro, bool locked) { session_.lockMacro(rack, macro, locked); };
+    panel.onMorphOn = [this, rack](bool on) { session_.setMorph(rack, {.on = on}); };
+    panel.onMorphBetween = [this, rack](int a, int b) { session_.setMorph(rack, {.a = a, .b = b}); };
+}
+
+void DeviceChain::wireMacros(MacroPanel& panel, std::uint64_t rack)
+{
+    panel.onRenameMacro = [this, rack](int macro, const juce::String& name)
+    { session_.setMacro(rack, macro, std::nullopt, name.toStdString()); };
     panel.onEditMacros = [this, rack](int macro) { openMacroEditor(rack, macro); };
     // A macro's name: hovered, it lights what it sets (and dims the other macros' rings);
     // dragged onto a knob in the frame, it maps it (racks.md §4, §5a).
@@ -516,15 +530,6 @@ void DeviceChain::wireRackPanel(RackPanel& panel, std::uint64_t rack)
     };
     panel.onMacroDrag = [this, rack](int macro, const juce::MouseEvent& e) { macroDragged(rack, macro, e); };
     panel.onMacroDrop = [this, rack](int macro, const juce::MouseEvent&) { macroDropped(rack, macro); };
-    // Snapshots, locks and Morph (racks.md §18).
-    panel.onRecallSnapshot = [this, rack](int snapshot) { session_.recallSnapshot(rack, snapshot); };
-    panel.onStoreSnapshot = [this, rack] { session_.storeSnapshot(rack); };
-    panel.onSnapshotMenu = [this, rack](int snapshot) { showSnapshotMenu(rack, snapshot); };
-    panel.onRenameSnapshot = [this, rack](int snapshot, const juce::String& name)
-    { session_.setSnapshot(rack, snapshot, name.toStdString()); };
-    panel.onLockMacro = [this, rack](int macro, bool locked) { session_.lockMacro(rack, macro, locked); };
-    panel.onMorphOn = [this, rack](bool on) { session_.setMorph(rack, {.on = on}); };
-    panel.onMorphBetween = [this, rack](int a, int b) { session_.setMorph(rack, {.a = a, .b = b}); };
 }
 
 void DeviceChain::showSnapshotMenu(std::uint64_t rack, int snapshot)
@@ -826,6 +831,12 @@ RackPanel* DeviceChain::rackPanelOf(std::uint64_t id)
     return s != nullptr ? dynamic_cast<RackPanel*>(s->view.get()) : nullptr;
 }
 
+MacroPanel* DeviceChain::macroPanelOf(std::uint64_t id)
+{
+    auto* s = slotOf(id);
+    return s != nullptr ? dynamic_cast<MacroPanel*>(s->view.get()) : nullptr;
+}
+
 DeviceChain::Drop DeviceChain::dropAt(juce::Point<int> p, std::optional<std::uint64_t> dragged) const
 {
     // Inside a rack's frame, past its panel's middle: into its chain shown (racks.md §5).
@@ -971,7 +982,7 @@ void DeviceChain::mouseMove(const juce::MouseEvent& e)
         setHoveredModulator(0);
     lightModulatorsOf(e.eventComponent);
 
-    // On a knob a rack's macro sets: that macro's name lights (racks.md §5a).
+    // On a knob a rack's or a kit's macro sets: that macro's name lights (racks.md §5a).
     int lit = -1;
     std::uint64_t litRack = 0;
     if (auto* knob = dynamic_cast<ui::ParamKnob*>(e.eventComponent))
@@ -986,7 +997,7 @@ void DeviceChain::mouseMove(const juce::MouseEvent& e)
                         litRack = rack->id;
         }
     for (const auto& r : racks_)
-        if (auto* panel = rackPanelOf(r.id))
+        if (auto* panel = macroPanelOf(r.id))
             panel->setLitMacro(r.id == litRack ? lit : -1);
 }
 
@@ -996,7 +1007,7 @@ void DeviceChain::mouseExit(const juce::MouseEvent& e)
         setHoveredModulator(0);
     lightModulatorsOf(nullptr);
     for (const auto& r : racks_)
-        if (auto* panel = rackPanelOf(r.id))
+        if (auto* panel = macroPanelOf(r.id))
             panel->setLitMacro(-1);
 }
 
@@ -2005,6 +2016,7 @@ void DeviceChain::wireKitPanel(DrumKitPanel& panel, std::uint64_t kit)
     panel.onPadPlays = [this, kit](int note, int plays) { session_.setPad(kit, note, {.plays = plays}); };
     panel.onPadChoke = [this, kit](int note, int group) { session_.setPad(kit, note, {.choke = group}); };
     panel.onPadGesture = [this](bool started) { beginGesture(started, "Pad mixer"); };
+    wireMacros(panel, kit);
 }
 
 DrumKitPanel* DeviceChain::kitPanelOf(std::uint64_t id)

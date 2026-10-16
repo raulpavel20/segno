@@ -8,62 +8,9 @@ namespace fd::app
 {
 // ---- the panel ------------------------------------------------------------------------------
 
-RackPanel::RackPanel(ui::DeviceUiContext& context) : DevicePanel(context)
+RackPanel::RackPanel(ui::DeviceUiContext& context) : MacroPanel(context)
 {
-    auto& macros = addSection("macros", "Macros", 4);
-    for (int i = 0; i < model::RackInfo::macroCount; ++i)
-    {
-        auto& knob = macros.knob(static_cast<size_t>(i), i % 4, i < 4 ? 0 : 3);
-        knob.setSourceHandle(true);
-        knob.onHandleDrag = [this, i](const juce::MouseEvent& e)
-        {
-            if (onMacroDrag)
-                onMacroDrag(i, e);
-        };
-        knob.onHandleRelease = [this, i](const juce::MouseEvent& e)
-        {
-            if (onMacroDrop)
-                onMacroDrop(i, e);
-        };
-        knob.onHandleHover = [this, i](bool hovered)
-        {
-            if (onMacroHover)
-                onMacroHover(i, hovered);
-            setMorphLit(hovered && model::morphSets(rack_, i)); // Morph lit while one it moves is
-        };
-        knob.onHandleDoubleClick = [this, i] { renameMacro(i); };
-        // Its right-click: rename it, edit the macros, then its automation as any parameter's.
-        knob.onPopupMenu = [this, &knob, i]
-        {
-            ui::showParamMenu(this->context(), static_cast<size_t>(i), knob,
-                              [this, i](juce::PopupMenu& menu)
-                              {
-                                  menu.addItem(juce::String::fromUTF8("Rename macro\xe2\x80\xa6"),
-                                               [this, i] { renameMacro(i); });
-                                  menu.addItem("Edit macros",
-                                               [this, i]
-                                               {
-                                                   if (onEditMacros)
-                                                       onEditMacros(i);
-                                               });
-                                  // Snapshots and locks (racks.md §18).
-                                  menu.addItem("Store snapshot",
-                                               [this]
-                                               {
-                                                   if (onStoreSnapshot)
-                                                       onStoreSnapshot();
-                                               });
-                                  const bool locked = rack_.macros[static_cast<size_t>(i)].locked;
-                                  menu.addItem("Lock macro", true, locked,
-                                               [this, i, locked]
-                                               {
-                                                   if (onLockMacro)
-                                                       onLockMacro(i, !locked);
-                                               });
-                              });
-        };
-        macros_[static_cast<size_t>(i)] = &knob;
-    }
+    addMacroKnobs(addSection("macros", "Macros", 4));
 
     // SNAPSHOTS, from the first (racks.md §18.2): a click recalls one, a double-click renames it.
     snapshotsSection_ = &addSection("snapshots", "Snapshots", 4);
@@ -354,35 +301,37 @@ void RackPanel::setMorphLit(bool lit)
 
 void RackPanel::updateMacros()
 {
-    const auto& t = ui::Theme::current();
+    updateMacroKnobs(rack_.macros);
     for (size_t i = 0; i < macros_.size(); ++i)
-    {
-        const auto& macro = rack_.macros[i];
-        auto& knob = *macros_[i];
-        knob.setName(macro.name.empty()
-                         ? juce::String(std::string(engine::Session::rackMacros().params[i].name))
-                         : juce::String::fromUTF8(macro.name.c_str()));
-        // Lit while its own knob or Morph's name is under the pointer (Morph moving it).
-        knob.setSourceHandle(true, static_cast<int>(i) == litMacro_ ||
-                                       (morphHovered_ && model::morphSets(rack_, static_cast<int>(i))));
-        knob.setLocked(macro.locked);
-        // One that maps nothing yet recedes: turning it does nothing (racks.md §5a).
-        knob.setAlpha(macro.mappings.empty() && static_cast<int>(i) != litMacro_ ? t.roles.fadedAlpha : 1.0f);
-    }
+        macros_[i]->setLocked(rack_.macros[i].locked);
 }
 
-void RackPanel::renameMacro(int macro)
+void RackPanel::addMacroItems(int macro, juce::PopupMenu& menu)
 {
-    if (macro < 0 || macro >= model::RackInfo::macroCount || isFolded())
-        return;
-    auto& knob = *macros_[static_cast<size_t>(macro)];
-    const auto strip = knob.nameStrip().toNearestInt() + getLocalPoint(&knob, juce::Point<int>());
-    nameEditor_.show(strip, knob.getName(), ui::TextStyle::Label,
-                     [this, macro](const juce::String& name)
-                     {
-                         if (onRenameMacro)
-                             onRenameMacro(macro, name);
-                     });
+    // Snapshots and locks (racks.md §18).
+    menu.addItem("Store snapshot",
+                 [this]
+                 {
+                     if (onStoreSnapshot)
+                         onStoreSnapshot();
+                 });
+    const bool locked = rack_.macros[static_cast<size_t>(macro)].locked;
+    menu.addItem("Lock macro", true, locked,
+                 [this, macro, locked]
+                 {
+                     if (onLockMacro)
+                         onLockMacro(macro, !locked);
+                 });
+}
+
+bool RackPanel::macroLit(int macro) const
+{
+    return morphHovered_ && model::morphSets(rack_, macro); // Morph moving it
+}
+
+void RackPanel::macroHovered(int macro, bool hovered)
+{
+    setMorphLit(hovered && model::morphSets(rack_, macro)); // Morph lit while one it moves is
 }
 
 void RackPanel::renameChain(int chain)
@@ -412,14 +361,6 @@ void RackPanel::renameRack()
             if (onRenameRack)
                 onRenameRack(name);
         });
-}
-
-void RackPanel::setLitMacro(int macro)
-{
-    if (macro == litMacro_)
-        return;
-    litMacro_ = macro;
-    updateMacros();
 }
 
 // ---- the frame ------------------------------------------------------------------------------

@@ -13,12 +13,17 @@ using namespace tools;
 
 namespace
 {
-/// The rack an argument names, with the track that holds it.
-std::pair<model::DeviceSlot, model::TrackInfo> rackArg(ToolEnv& env, const Json& value)
+/// The rack an argument names, with the track that holds it; with `kits`, a Drum Kit too, whose
+/// macros are a rack's (drum-kit.md §10).
+std::pair<model::DeviceSlot, model::TrackInfo> rackArg(ToolEnv& env, const Json& value, bool kits = false)
 {
     auto [slot, owner] = module(env, value);
     if (slot.rack == nullptr)
         throw Problem{formatId(IdKind::Module, slot.id) + " isn't a rack; group_modules makes one."};
+    if (slot.rack->kit && !kits)
+        throw Problem{formatId(IdKind::Module, slot.id) +
+                      " is a Drum Kit: get_kit reads it, set_pad sets its pads, and map_macro and set_macro "
+                      "its macros. Snapshots, Morph, Vary and locks are a rack's alone."};
     return {slot, owner};
 }
 
@@ -325,16 +330,17 @@ void addRackTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"map_macro", "Map a macro to a parameter",
-         "Maps one of a rack's macros (1 to 8) to a parameter of a module in the rack: where the macro's 0 % "
+         "Maps one of a rack's or a Drum Kit's macros (1 to 8) to a parameter of a module in it (a kit's: on "
+         "any of its pads): where the macro's 0 % "
          "puts it (from) and its 100 % (to), in the parameter's unit as set_parameters takes it (third-party "
          "plugins: 0 to 1), and the curve (-100 to 100 %: up, it comes in late; down, early; 0 straight). "
          "From "
          "defaults to where it is, To to its top. A parameter another macro set is taken from it. The "
          "parameter "
          "then follows its macro; set the macro (set_macro) or automate it.",
-         object({{"rack", id(IdKind::Module, "The rack")},
+         object({{"rack", id(IdKind::Module, "The rack, or the Drum Kit")},
                  {"macro", integer("The macro, 1 to 8", 1, 8)},
-                 {"module", id(IdKind::Module, "A module in the rack")},
+                 {"module", id(IdKind::Module, "A module in it")},
                  {"parameter", string("Its parameter's id (get_module)")},
                  {"from", {{"type", {"number", "string"}}, {"description", "Where the macro's 0 % puts it"}}},
                  {"to", {{"type", {"number", "string"}}, {"description", "Where its 100 % puts it"}}},
@@ -343,7 +349,7 @@ void addRackTools(Registry& registry, ToolEnv& env)
          rackResult, changes},
         [&env, now](const Json& args, CallContext&)
         {
-            const auto [rack, owner] = rackArg(env, args["rack"]);
+            const auto [rack, owner] = rackArg(env, args["rack"], true);
             const int macro = macroArg(args["macro"]);
             const auto [slot, holder] = module(env, args["module"]);
             const auto param = args["parameter"].get<std::string>();
@@ -416,10 +422,10 @@ void addRackTools(Registry& registry, ToolEnv& env)
     registry.tools.push_back(make(
         env,
         {"set_macro", "Set a macro",
-         "Sets one of a rack's macros: its value (0 to 100 %; every parameter mapped to it follows), its "
-         "name, "
-         "and its lock (locked, snapshots' recall, Morph and Vary leave it alone; racks.md §18.4).",
-         object({{"rack", id(IdKind::Module, "The rack")},
+         "Sets one of a rack's or a Drum Kit's macros: its value (0 to 100 %; every parameter mapped to it "
+         "follows), its name, and a rack's macro's lock (locked, snapshots' recall, Morph and Vary leave it "
+         "alone; racks.md §18.4).",
+         object({{"rack", id(IdKind::Module, "The rack, or the Drum Kit")},
                  {"macro", integer("The macro, 1 to 8", 1, 8)},
                  {"value", number("0 .. 100 %")},
                  {"name", string("Its name")},
@@ -428,15 +434,18 @@ void addRackTools(Registry& registry, ToolEnv& env)
          rackResult, changes},
         [&env, now](const Json& args, CallContext&)
         {
-            const auto [rack, owner] = rackArg(env, args["rack"]);
+            const auto [rack, owner] = rackArg(env, args["rack"], true);
             const int macro = macroArg(args["macro"]);
+            if (args.contains("locked") && rack.rack->kit)
+                throw Problem{"A Drum Kit's macros aren't locked: a lock keeps a macro from snapshots, Morph "
+                              "and Vary, which are a rack's alone."};
             if (args.contains("locked"))
                 env.session.lockMacro(rack.id, macro, args["locked"].get<bool>());
             std::optional<float> value;
             if (args.contains("value"))
             {
                 env.session.flushSnapshot();
-                const auto [fresh, holder] = rackArg(env, args["rack"]);
+                const auto [fresh, holder] = rackArg(env, args["rack"], true);
                 if (model::morphSets(*fresh.rack, macro))
                     throw Problem{"Morph sets macro " + std::to_string(macro + 1) +
                                   ": set_morph moves it; set_morph with on false, or locked true, frees it."};

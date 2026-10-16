@@ -2,6 +2,7 @@
 
 #include "engine/Session.h"
 #include "model/Snapshot.h"
+#include "ui/MacroPanel.h"
 
 #include <array>
 #include <fd_device_ui/fd_device_ui.h>
@@ -21,7 +22,7 @@ namespace fd::app
 ///     rack with one chain is a group: no list.
 /// The macros are the rack's own parameters (engine::Session::rackMacros()), set through the
 /// host's binding as a module's are; the chains are the host's, edited through the callbacks below.
-class RackPanel final : public ui::DevicePanel
+class RackPanel final : public MacroPanel
 {
 public:
     /// The chains CHAINS has rows for (racks.md §16).
@@ -34,10 +35,6 @@ public:
 
     /// What it shows: the rack's name, its chains (and the one its frame shows) and its macros.
     void setRack(const juce::String& name, const model::RackInfo& rack);
-    /// Lights a macro's name while the pointer is on a knob it sets, elsewhere in the rack (-1:
-    /// none).
-    void setLitMacro(int macro);
-    [[nodiscard]] ui::ParamKnob& macroKnob(int macro) const { return *macros_[static_cast<size_t>(macro)]; }
     [[nodiscard]] ui::ParamKnob& morphKnob() const { return *morph_; }
     [[nodiscard]] ui::Toggle& snapshotButton(int snapshot)
     {
@@ -58,19 +55,11 @@ public:
     /// A drag of the shown chain's Vol or Pan begins (true) and ends: one undo step between.
     std::function<void(bool started)> onChainGesture;
     std::function<void(int chain, const juce::String& name)> onRenameChain;
-    std::function<void(int macro, const juce::String& name)> onRenameMacro;
-    /// Its right-click's Edit macros: the macro editor, that macro chosen.
-    std::function<void(int macro)> onEditMacros;
-    /// Renames in place: a macro (its name over its knob) or a chain (its name in the list).
-    void renameMacro(int macro);
+    /// Renames a chain in place: its name in the list.
     void renameChain(int chain);
     /// Renames the rack in place: its name in the header.
     void renameRack();
     std::function<void(const juce::String& name)> onRenameRack;
-    // A macro's name dragged onto a knob in the rack (racks.md §4): the host lights where it
-    // would land and maps it there on release; hovered, it lights the knobs it sets.
-    std::function<void(int macro, const juce::MouseEvent&)> onMacroDrag, onMacroDrop;
-    std::function<void(int macro, bool hovered)> onMacroHover;
 
     // Snapshots, locks and Morph (racks.md §18), recorded by the host, each one undo step.
     std::function<void(int snapshot)> onRecallSnapshot;
@@ -89,8 +78,12 @@ private:
     void placeChains();
     void placeSnapshots();
     void updateMacros();
+    // Its macros' extras (racks.md §18): Store snapshot and Lock on a macro's right-click; a macro
+    // Morph moves lit while Morph's name is hovered, and the other way round.
+    void addMacroItems(int macro, juce::PopupMenu& menu) override;
+    [[nodiscard]] bool macroLit(int macro) const override;
+    void macroHovered(int macro, bool hovered) override;
 
-    std::array<ui::ParamKnob*, model::RackInfo::macroCount> macros_{};
     // CHAINS: a row a chain, as the table editor's layers (an on dot, the names to choose from),
     // and its solo.
     std::array<ui::Toggle, maxChains> on_, solo_;
@@ -111,10 +104,8 @@ private:
     ui::ChoiceBox morphA_, morphB_;
     juce::StringArray morphNames_;
     bool morphHovered_ = false; // the pointer on Morph's name: the macros it moves are lit
-    ui::NameEditor nameEditor_{*this};
     model::RackInfo rack_;
     juce::String rackName_;
-    int litMacro_ = -1;
     bool chainGesture_ = false; // Vol or Pan being dragged: not set from the snapshot meanwhile
 };
 

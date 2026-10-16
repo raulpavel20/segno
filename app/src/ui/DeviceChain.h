@@ -222,6 +222,8 @@ private:
     void rebuild(const std::vector<model::DeviceSlot>& devices);
     void wireRackPanel(RackPanel& panel, std::uint64_t rack);
     void wireKitPanel(DrumKitPanel& panel, std::uint64_t kit);
+    /// A rack's or a kit's macros (racks.md §4, drum-kit.md §10): renamed, edited, hovered, dragged.
+    void wireMacros(MacroPanel& panel, std::uint64_t rack);
     [[nodiscard]] DrumKitPanel* kitPanelOf(std::uint64_t id);
     /// A pad's right-click (drum-kit.md §5): Select pad, Rename pad…, Load sample…, Copy pad, Paste
     /// pad, Clear pad, On, Solo, Choke group ▸.
@@ -248,6 +250,7 @@ private:
     [[nodiscard]] Rack* rackOf(std::uint64_t id);
     [[nodiscard]] const Rack* rackOfConst(std::uint64_t id) const;
     [[nodiscard]] RackPanel* rackPanelOf(std::uint64_t id);
+    [[nodiscard]] MacroPanel* macroPanelOf(std::uint64_t id); // a rack's or a kit's
     /// Where a drag at `p` (in the content) would land; never into the rack being dragged.
     [[nodiscard]] Drop dropAt(juce::Point<int> p, std::optional<std::uint64_t> dragged) const;
     /// The knob of a module in `rack`'s frame at `p` (in the content): its module and parameter.

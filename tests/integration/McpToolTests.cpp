@@ -3230,8 +3230,8 @@ TEST_CASE("mcp tools: an audio clip's key, Follow key with the song's, detect_ke
     CHECK(r["clips"].size() == 4);
 }
 
-TEST_CASE("mcp tools: the Drum Kit: added, samples onto pads, pads set, moved and cleared, modules on pads "
-          "(drum-kit.md §13)",
+TEST_CASE("mcp tools: the Drum Kit: added, samples onto pads, pads set, moved and cleared, modules on pads, "
+          "its macros (drum-kit.md §13)",
           "[integration][mcp]")
 {
     Daw daw;
@@ -3305,4 +3305,26 @@ TEST_CASE("mcp tools: the Drum Kit: added, samples onto pads, pads set, moved an
     CHECK(got["pads"].size() == 3);
     CHECK(daw.fails("clear_pad", {{"kit", kit}, {"pad", "D1"}}).find("empty") != std::string::npos);
     CHECK(daw.fails("get_kit", {{"kit", sat["id"]}}).find("isn't a Drum Kit") != std::string::npos);
+
+    // Its macros (step 2, §10), as a rack's: one maps the Saturator on G1 and the Sampler on C♯1.
+    got = daw.call("get_kit", {{"kit", kit}});
+    const auto kickSampler = got["pads"][1]["modules"][0]["id"];
+    daw.call("map_macro", {{"rack", kit}, {"macro", 1}, {"module", sat["id"]}, {"parameter", "drive"}});
+    got =
+        daw.call("map_macro", {{"rack", kit}, {"macro", 1}, {"module", kickSampler}, {"parameter", "gain"}});
+    CHECK(daw.session->undoDescription() == "Assistant: map macro");
+    REQUIRE(got["macros"][0]["mappings"].size() == 2);
+    daw.call("set_macro", {{"rack", kit}, {"macro", 1}, {"name", "Punch"}, {"value", 50}});
+    got = daw.call("get_kit", {{"kit", kit}});
+    CHECK(got["macros"][0]["name"] == "Punch");
+    CHECK(got["macros"][0]["mappings"].size() == 2);
+    // A rack's alone: chains, snapshots, Morph, Vary and locks.
+    CHECK(daw.fails("set_macro", {{"rack", kit}, {"macro", 1}, {"locked", true}}).find("aren't locked") !=
+          std::string::npos);
+    for (const auto& [tool, args] :
+         std::vector<std::pair<std::string, Json>>{{"store_snapshot", {{"rack", kit}}},
+                                                   {"set_morph", {{"rack", kit}, {"on", true}}},
+                                                   {"add_rack_chain", {{"rack", kit}}},
+                                                   {"vary_module", {{"module", kit}}}})
+        CHECK(daw.fails(tool, args).find("is a Drum Kit") != std::string::npos);
 }

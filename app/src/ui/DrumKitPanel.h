@@ -1,6 +1,7 @@
 #pragma once
 
 #include "model/Snapshot.h"
+#include "ui/MacroPanel.h"
 
 #include <array>
 #include <bitset>
@@ -13,10 +14,10 @@ namespace fd::app
 ///   - PADS: the 16 pads shown (ui::PadGrid) and, beside them, all 128 (ui::PadOverview);
 ///   - PAD: the selected pad's settings: on (the title's power), Vol, Pan, Plays, Choke and Solo;
 ///     dimmed while the pad is empty, which has none;
-///   - MACROS, from the first mapping (§10): the kit's eight macros, as a rack's.
+///   - MACROS, from the first mapping (§10): the kit's eight macros, as a rack's (MacroPanel).
 /// The macros are the kit's own parameters (engine::Session::drumKit()), set through the host's
 /// binding as a module's are; the pads are the host's, edited through the callbacks below.
-class DrumKitPanel final : public ui::DevicePanel
+class DrumKitPanel final : public MacroPanel
 {
 public:
     explicit DrumKitPanel(ui::DeviceUiContext& context);
@@ -53,7 +54,6 @@ public:
 private:
     void updatePads();
     void updatePad();
-    void updateMacros();
     [[nodiscard]] const model::RackChain* selectedPad() const;
 
     ui::PadGrid pads_;
@@ -63,8 +63,6 @@ private:
     ui::ChoiceBox choke_;
     ui::Toggle solo_{"Solo"};
     ui::PanelSection* macrosSection_ = nullptr;
-    std::array<ui::ParamKnob*, model::RackInfo::macroCount> macros_{};
-    ui::NameEditor nameEditor_{*this};
     model::RackInfo kit_;
     bool padGesture_ = false; // Vol, Pan or Plays being dragged: not set from the snapshot meanwhile
 };

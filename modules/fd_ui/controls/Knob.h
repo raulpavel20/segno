@@ -81,6 +81,7 @@ public:
     /// A knob that's itself a modulation source (a macro): its name is the source's handle (the
     /// pointer a hand over it), lit in `effectEnd` while hovered or while `lit`.
     void setSourceHandle(bool shown, bool lit = false);
+    [[nodiscard]] bool isHandleLit() const noexcept { return handleLit_; }
     /// Where the source's handle is (the name strip), in the knob; empty when it isn't one.
     [[nodiscard]] juce::Rectangle<float> handleArea() const;
     std::function<void(const juce::MouseEvent&)> onHandleDrag, onHandleRelease;

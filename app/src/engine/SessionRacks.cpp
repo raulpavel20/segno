@@ -1497,10 +1497,12 @@ bool Session::unmapMacro(std::uint64_t moduleId, const std::string& paramId)
 
 namespace
 {
+/// A rack's, never a Drum Kit's: a kit's macros have no snapshots, Morph, locks or Vary yet
+/// (drum-kit.md §10).
 te::RackType* rackTypeFor(Session::Impl& impl, std::uint64_t rackId)
 {
     auto* instance = impl.rackInstance(rackId);
-    return instance != nullptr ? instance->type.get() : nullptr;
+    return instance != nullptr && !Session::Impl::isKit(instance) ? instance->type.get() : nullptr;
 }
 
 int intOf(const juce::var& v)

@@ -579,3 +579,45 @@ TEST_CASE("drum kit: a synth on a pad is choked as quickly as a Sampler is", "[i
         CHECK(levelDb(out, 0.5021, 0.3) < -100.0); // and stops within 2 ms of the closed hat
     }
 }
+
+TEST_CASE("drum kit, step 2: its macros set modules on several pads at once, are automated as a rack's, "
+          "and have no snapshots, Morph, Vary or locks",
+          "[integration]")
+{
+    Kits k;
+    auto& s = *k.session;
+    const auto kit = s.addDevice(k.t, "fd:drum-kit");
+    s.loadPads(kit, 41,
+               {k.sample("Tom 1", fd::testkit::sine(100.0, kRate, 9600, 0.5f, 1)),
+                k.sample("Tom 2", fd::testkit::sine(140.0, kRate, 9600, 0.5f, 1))});
+    const auto low = k.pad(kit, 41)->devices.at(0).id;
+    const auto high = k.pad(kit, 42)->devices.at(0).id;
+
+    // One macro tunes both toms (drum-kit.md §10): each Sampler's Transpose follows it.
+    REQUIRE(s.mapMacro(kit, 0, low, "transpose", 0.5f, 0.7f));
+    REQUIRE(s.mapMacro(kit, 0, high, "transpose", 0.5f, 0.7f));
+    REQUIRE(s.setMacro(kit, 0, std::nullopt, std::string("Toms")));
+    REQUIRE(s.setMacro(kit, 0, 1.0f));
+    const auto at = [&](std::uint64_t module)
+    { return s.paramValue({k.t, "m" + std::to_string(module) + "/transpose"}); };
+    REQUIRE(at(low));
+    CHECK(*at(low) == Approx(0.7f).margin(0.01));
+    CHECK(*at(high) == Approx(0.7f).margin(0.01));
+    REQUIRE(k.kit(kit).macros[0].mappings.size() == 2);
+    // One undo step: the macro back where it was (its parameters follow it as the engine plays).
+    CHECK(s.undoDescription() == "Macro");
+    s.undo();
+    CHECK(k.kit(kit).macros[0].value == Approx(0.0f).margin(1e-3));
+
+    // Automated as a rack's: its macros are the kit's parameters, named as renamed.
+    const auto params = s.automatableParameters(k.t);
+    CHECK(std::any_of(params.begin(), params.end(), [&](const Session::ParamChoice& p)
+                      { return p.key == "m" + std::to_string(kit) + "/macro1" && p.name == "Toms"; }));
+
+    // Snapshots, Morph, Vary and locks stay a rack's for now.
+    CHECK(s.storeSnapshot(kit) < 0);
+    CHECK_FALSE(s.setMorph(kit, {.on = true}));
+    CHECK_FALSE(s.varyRack(kit, Session::varyAmount));
+    CHECK_FALSE(s.lockMacro(kit, 0, true));
+    CHECK(k.kit(kit).snapshots.empty());
+}

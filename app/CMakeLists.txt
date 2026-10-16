@@ -194,6 +194,7 @@ target_sources(fd_app_ui INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/WaveformCache.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/WaveformTiles.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/DeviceChain.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/MacroPanel.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/RackPanel.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/DrumKitPanel.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ModulatorPanels.cpp"
