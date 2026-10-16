@@ -130,6 +130,29 @@ TEST_CASE("onsets: every hit of a drum pattern, within 5 ms, nothing else", "[fa
     }
 }
 
+TEST_CASE("onsets: the same hits at 44.1 and 48 kHz", "[fast][onsets]")
+{
+    // Frames of the same length at either rate: "at least 23 ms" doubled them at 48 kHz.
+    std::vector<double> truth;
+    const auto audio = drums(120.0, 2, &truth);
+    constexpr double rate = 44100.0;
+    std::vector<float> resampled(static_cast<size_t>(static_cast<double>(audio.size()) * rate / kRate));
+    for (size_t i = 0; i < resampled.size(); ++i)
+    {
+        const double at = static_cast<double>(i) * kRate / rate;
+        const auto k = static_cast<size_t>(at);
+        const auto f = static_cast<float>(at - static_cast<double>(k));
+        resampled[i] = audio[k] + (k + 1 < audio.size() ? f * (audio[k + 1] - audio[k]) : 0.0f);
+    }
+    const auto found = findOnsets(resampled, rate, 0.5);
+    REQUIRE(found.size() == truth.size());
+    for (size_t i = 0; i < truth.size(); ++i)
+    {
+        INFO("hit " << i);
+        CHECK(found[i] == Approx(truth[i]).margin(0.005));
+    }
+}
+
 TEST_CASE("onsets: more of them as sensitivity rises; none in silence", "[fast][onsets]")
 {
     const auto audio = drums(100.0, 2, nullptr, -30.0); // with ghost notes 30 dB down

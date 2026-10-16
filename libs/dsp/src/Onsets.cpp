@@ -12,13 +12,12 @@ namespace fd::dsp
 {
 namespace
 {
-/// The FFT order whose frame lasts at least `seconds`.
+/// The FFT order whose frame lasts nearest `seconds` (in log terms): at 44.1 and 48 kHz alike, 23 ms
+/// is 1024 samples, where "at least" doubled it at 48 kHz.
 int orderFor(double sampleRate, double seconds)
 {
-    int order = 6;
-    while ((1 << order) < sampleRate * seconds && order < 16)
-        ++order;
-    return order;
+    const double samples = std::max(1.0, sampleRate * seconds);
+    return std::clamp(static_cast<int>(std::lround(std::log2(samples))), 6, 16);
 }
 
 /// Magnitude frames of a signal, frame k centred on sample k × hop (the signal padded with
