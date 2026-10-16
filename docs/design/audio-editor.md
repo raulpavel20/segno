@@ -653,3 +653,4 @@ Started at the product owner's word ("Start work on P6c") with P6b's hands-on re
   - Slices into a Sampler (M4).
   - A key along the song: Follow key reads the song's one key.
 
+**P6b and P6c signed off by the product owner (2026-10-16)** after the hands-on check: "warping, and key and slices are also good". The audio editor is done; what's not yet (above, §17) waits for its milestone.
