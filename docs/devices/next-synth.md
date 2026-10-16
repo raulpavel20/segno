@@ -1,6 +1,6 @@
 # The next synth: which gap to fill
 
-- **Status:** for review by the product owner (2026-10-16), on the `synth` branch
+- **Status:** decided by the product owner (2026-10-16): **Granular**, "extensive and featurefull … plus extras", with room for experiments and CPU first. Its SPEC: [devices/granular/SPEC.md](../../devices/granular/SPEC.md), with [ADR 0065](../decisions/0065-granular-goes-beyond-live.md)
 - **Asked for:** "another instrument, another synth … what kind of synth would best fit here to fill in the biggest gap now"; not drums, which main is designing (the Drum Kit, [drum-kit.md](../design/drum-kit.md), ADR 0064, proposed)
 - **What follows approval:** the chosen synth's `devices/<name>/SPEC.md` from the [template](SPEC-TEMPLATE.md), researched and drawn as the Wavetable's was, before any code
 
@@ -105,7 +105,7 @@ An outline only. The SPEC settles it after research into Granulator III, Bitwig'
 | # | Question | Recommendation |
 |---|---|---|
 | N1 | **Which synth next** | Granular (§5); FM after it, with FM-style Wavetable presets in the meantime |
-| N2 | **When** | Now, on the `synth` branch, moved up from M5 into M3 as P7, as the Wavetable was (P1) |
+| N2 | **When** | Now, on the `synth` branch, moved up from M5 into M3 as P8, as the Wavetable was (P1) |
 | N3 | **How deep** | Match Granulator III (ADR 0011), going past it only where the DAW makes it cheap: the song's key, Make granular from a clip, the display as a control |
 | N4 | **Its sources** | Files, clips and the Library's instruments; live capture as a later stage |
 | N5 | **The Sampler's code** | Read samples through it, never change it: main's Drum Kit is built on the Sampler |
