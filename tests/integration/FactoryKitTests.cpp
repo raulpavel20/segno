@@ -5,7 +5,7 @@
 // writes each kit's beat as a WAV.
 #include "Sampler.h"
 #include "engine/PresetPreview.h"
-#include "model/Modulators.h"
+#include "model/FactoryPresets.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <cmath>
@@ -28,7 +28,7 @@ TEST_CASE("factory kits: every pad plays its piece from the Library and sounds; 
     const auto* sampler = fd::findDevice("sampler");
     REQUIRE(sampler != nullptr);
     int kits = 0;
-    for (const auto& file : fd::model::modulatorFactoryPresets())
+    for (const auto& file : fd::model::dawFactoryPresets())
     {
         const auto p = fd::parsePresetFile(file.text, std::string(file.name));
         REQUIRE(p);

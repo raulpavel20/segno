@@ -15,8 +15,9 @@ add_library(fd_app_model STATIC src/model/Timeline.cpp src/model/Grid.cpp src/mo
     src/model/MenuBar.cpp src/model/AppSettings.cpp src/model/SettingsCatalogue.cpp src/model/Browser.cpp src/model/TrackEdits.cpp src/model/ClipLoops.cpp src/model/MusicalTime.cpp src/model/BraceDrag.cpp src/model/Sections.cpp src/model/SongKey.cpp src/model/Modulators.cpp src/model/DrumKit.cpp)
 target_include_directories(fd_app_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(fd_app_model PUBLIC fd::audiofile fd::music fd::device fd::dsp nlohmann_json::nlohmann_json PRIVATE fd::warnings)
-# The modulators' factory presets (modulators.md §14, ADR 0044), from presets/<type>/.
-fd_generate_presets_from("${CMAKE_CURRENT_SOURCE_DIR}/presets" modulatorFactoryPresets fd_app_model)
+# The DAW's own modules' factory presets, from presets/<type>/: the modulators' (modulators.md §14,
+# ADR 0044) and the Drum Kit's kits (drum-kit.md §27).
+fd_generate_presets_from("${CMAKE_CURRENT_SOURCE_DIR}/presets" dawFactoryPresets fd_app_model)
 
 if(FD_BUILD_TESTS)
     fd_add_test(NAME fd_app_model_tests SOURCES tests/ModelTests.cpp tests/NoteEditingTests.cpp tests/NoteToolsTests.cpp tests/AudioMeasureTests.cpp

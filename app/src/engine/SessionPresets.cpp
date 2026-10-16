@@ -3,6 +3,7 @@
 
 #include "engine/DevicePlugin.h"
 #include "engine/SessionImpl.h"
+#include "model/FactoryPresets.h"
 
 #include <fd/device/Registry.h>
 
@@ -306,12 +307,12 @@ void Session::Impl::applyModulatorState(Modulator& m, const DeviceState& state, 
 
 PresetLibrary& Session::presetLibrary()
 {
-    // Our modules' factory presets, and the modulators' (modulators.md §14).
+    // Our devices' factory presets, and the DAW's own modules': the modulators' and the kits.
     static const std::vector<FactoryPresetFile> factory = []
     {
         std::vector<FactoryPresetFile> all(factoryPresetFiles().begin(), factoryPresetFiles().end());
-        const auto modulators = model::modulatorFactoryPresets();
-        all.insert(all.end(), modulators.begin(), modulators.end());
+        const auto daw = model::dawFactoryPresets();
+        all.insert(all.end(), daw.begin(), daw.end());
         return all;
     }();
     if (impl_->presets == nullptr)

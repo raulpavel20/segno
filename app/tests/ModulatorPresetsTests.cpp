@@ -1,6 +1,7 @@
 // The modulators' factory presets (docs/design/modulators.md §14, ADR 0044): about eight each, each a
 // preset file of this build, naming only the modulator's own parameters, within their ranges, and
 // a Steps pattern of the right length.
+#include "model/FactoryPresets.h"
 #include "model/Modulators.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -14,13 +15,17 @@ TEST_CASE("modulator presets: about eight each, of this build, their own paramet
 {
     std::map<std::string, int> count;
     std::set<std::string> names;
-    for (const auto& file : modulatorFactoryPresets())
+    for (const auto& file : dawFactoryPresets())
     {
         INFO(file.name);
         const auto preset = fd::parsePresetFile(file.text, std::string(file.name));
         REQUIRE(preset.has_value());
         const auto kind = modulatorKind(preset->state.deviceId);
-        REQUIRE(kind.has_value());
+        if (!kind.has_value())
+        {
+            CHECK(preset->state.deviceId == "drum-kit"); // the only other module with presets here
+            continue;
+        }
         const auto& info = modulatorInfo(*kind);
         CHECK_FALSE(fd::presetTooNew(info, *preset));
         CHECK_FALSE(preset->description.empty());
