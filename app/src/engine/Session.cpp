@@ -1,3 +1,4 @@
+#include "Granular.h"
 #include "engine/ClipFades.h"
 #include "engine/ClipNotes.h"
 #include "engine/DevicePlugin.h"
@@ -579,6 +580,8 @@ void Session::Impl::rebuildSnapshot()
             slot.takesSidechain = takesSidechain(*p);
             if (slot.takesSidechain && p->getSidechainSourceID().isValid())
                 slot.sidechainSource = p->getSidechainSourceID().getRawID();
+            if (const auto* granular = dynamic_cast<const devices::Granular*>(&native->device()))
+                slot.rollKept = granular->rollKept();
         }
         else
         {

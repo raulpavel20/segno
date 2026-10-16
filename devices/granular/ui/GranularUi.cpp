@@ -1,5 +1,7 @@
 #include "GranularUi.h"
 
+#include <fd/device/Library.h>
+
 namespace fd::devices::granular_ui
 {
 namespace
@@ -29,25 +31,32 @@ constexpr float kPitchSpan = 24.0f;
 juce::String noteName(double note)
 {
     static constexpr const char* names[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
-    const long n = std::lround(note);
-    return juce::String(names[((n % 12) + 12) % 12]) +
-           juce::String(static_cast<int>(std::floor(n / 12.0)) - 2);
+    const int n = static_cast<int>(std::lround(note));
+    return juce::String(names[((n % 12) + 12) % 12]) + juce::String((n >= 0 ? n / 12 : (n - 11) / 12) - 2);
 }
 
-juce::String fileName(const std::string& path)
+/// What source n holds (a file's audio or a multisample's zones).
+std::shared_ptr<const GrainSourceSet> setOf(const ui::DeviceUiContext& ctx, int n)
 {
-    return juce::File::createFileWithoutCheckingPath(juce::String::fromUTF8(path.c_str()))
-        .getFileNameWithoutExtension();
+    const auto* g = granular(ctx);
+    return g != nullptr ? g->sourceSet(n) : nullptr;
 }
 } // namespace
 
 void loadSourceFile(ui::DeviceUiContext& ctx, int n, const juce::File& file)
 {
-    const std::string key = "src" + std::to_string(n + 1) + ".";
+    // As the browser and the assistants load one (Granular::sourcePatch): the Library's as a
+    // reference, the root found again, the source on and all of the file playing. One undo step.
     ctx.params.beginEdit("Load " + file.getFileNameWithoutExtension() + " into Source " +
                          juce::String(n + 1));
-    ctx.params.applyExtraState({{key + "path", file.getFullPathName().toStdString()},
-                                {key + "name", file.getFileNameWithoutExtension().toStdString()}});
+    ctx.params.applyExtraState(
+        G::sourcePatch(n, library::reference(std::filesystem::path(file.getFullPathName().toStdString()))));
+    for (const auto& [param, value] : G::sourceSettings(n))
+    {
+        ctx.params.beginGesture(param);
+        ctx.params.setPlain(param, value);
+        ctx.params.endGesture(param);
+    }
 }
 
 // ---- SourceDisplay -------------------------------------------------------------------------------
@@ -224,10 +233,15 @@ void SourceDisplay::paint(juce::Graphics& g)
     const auto data = shown();
     if (data == nullptr)
     {
+        // Empty, or a file that didn't load: what to do, or why.
+        const auto* gr = granular(ctx_);
+        const auto error = gr != nullptr && !live() ? gr->loadError(source_) : std::string();
         g.setColour(t.textSecondary);
         g.drawFittedText(
             live() ? juce::String("No input yet: choose a track in the header's Input")
-                   : juce::String("Drop a sample, a clip or a Library instrument, or click to browse"),
+            : !error.empty()
+                ? juce::String::fromUTF8(error.c_str())
+                : juce::String("Drop a sample, a clip or a Library instrument, or click to browse"),
             getLocalBounds().reduced(t.deviceGrid.displayInset), juce::Justification::centred, 3);
         return;
     }
@@ -386,8 +400,7 @@ SourcePicker::SourcePicker(ui::DeviceUiContext& context) : ctx_(context)
         else if (id == 3)
         {
             ctx_.params.beginEdit("Clear Source " + juce::String(source_ + 1));
-            const std::string key = "src" + std::to_string(source_ + 1) + ".";
-            ctx_.params.applyExtraState({{key + "path", nullptr}, {key + "name", nullptr}});
+            ctx_.params.applyExtraState(G::sourcePatch(source_, {}));
         }
         refresh();
     };
@@ -405,8 +418,7 @@ void SourcePicker::setSource(int n)
 
 void SourcePicker::refresh()
 {
-    const auto* g = granular(ctx_);
-    const auto data = g != nullptr ? g->sourceData(source_) : nullptr;
+    const auto data = setOf(ctx_, source_);
     const auto name =
         data != nullptr ? juce::String::fromUTF8(data->name.c_str()) : juce::String("No sample");
     if (name == shownName_)
@@ -448,11 +460,13 @@ void SourcePicker::browse()
 
 void SourcePicker::step(int delta)
 {
-    const auto* g = granular(ctx_);
-    const auto data = g != nullptr ? g->sourceData(source_) : nullptr;
+    // The next file in the folder of the one it plays (a reference into the Library resolved).
+    const auto data = setOf(ctx_, source_);
     if (data == nullptr || data->path.empty())
         return;
-    const auto file = juce::File(juce::String::fromUTF8(data->path.c_str()));
+    const auto file = juce::File(juce::String::fromUTF8(library::resolve(data->path).string().c_str()));
+    if (!file.existsAsFile())
+        return;
     auto files = file.getParentDirectory().findChildFiles(juce::File::findFiles, false, audioFiles);
     files.sort();
     const int at = files.indexOf(file);

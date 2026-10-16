@@ -158,3 +158,8 @@ fd_add_device_plugin(ID sampler NAME "Sampler" CODE Fsmp KIND instrument
 fd_add_device_plugin(ID wavetable NAME "Wavetable" CODE Fwav KIND instrument
     VST3_CATEGORIES Instrument Synth
     CLAP_FEATURES instrument synthesizer stereo)
+
+# The live input (step 2) comes in on the sidechain bus (ADR 0025).
+fd_add_device_plugin(ID granular NAME "Granular" CODE Fgrn KIND instrument
+    VST3_CATEGORIES Instrument Synth
+    CLAP_FEATURES instrument synthesizer granular stereo)

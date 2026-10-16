@@ -173,6 +173,8 @@ TEST_CASE("mcp tools: the catalogue is well formed and vendor-free", "[integrati
                              "set_parameters",
                              "load_sample",
                              "get_zones",
+                             "load_granular_source",
+                             "get_granular_source",
                              "list_wavetables",
                              "set_wavetable",
                              "make_wavetable",
@@ -3228,4 +3230,61 @@ TEST_CASE("mcp tools: an audio clip's key, Follow key with the song's, detect_ke
     r = daw.call("transform_audio",
                  {{"clips", {hits}}, {"tool", "slice"}, {"settings", {{"at", "grid"}}}, {"grid", "1/4"}});
     CHECK(r["clips"].size() == 4);
+}
+
+TEST_CASE("mcp tools: a Granular's sources: a file and a clip's part loaded, read back, its roll kept",
+          "[integration][mcp]")
+{
+    Daw daw("fd-mcp-granular-tests");
+    const auto t0 = daw.call("add_track", {{"name", "Clouds"}})["track"];
+    const auto g = daw.call("add_module", {{"track", t0}, {"type", "granular"}})["id"];
+    CHECK(daw.call("get_granular_source", {{"module", g}})["kind"] == "empty");
+
+    // A sample named for its root (scientific A2: Segno's A1, MIDI 45), into Source 2.
+    const auto wav = daw.folder.getChildFile("Pad A2.wav");
+    REQUIRE(fd::testkit::writeWav(wav.getFullPathName().toStdString(),
+                                  fd::testkit::sine(110.0, 48000.0, 4 * 48000, 0.5f, 1), 48000.0));
+    const auto path = wav.getFullPathName().toStdString();
+    const auto loaded = daw.call("load_granular_source", {{"module", g}, {"source", 2}, {"path", path}});
+    CHECK(loaded["kind"] == "file");
+    CHECK(loaded["source"] == 2);
+    CHECK(loaded["seconds"] == Approx(4.0));
+    CHECK(loaded["root"] == "A1");
+    CHECK(loaded["rootFound"] == true);
+    CHECK(loaded["part"]["end"] == Approx(4.0));
+    CHECK(daw.session->undoDescription() == "Assistant: load granular source");
+    const auto module = daw.call("get_module", {{"module", g}});
+    CHECK(module["state"]["src2.path"] == path);
+    CHECK(daw.call("get_granular_source", {{"module", g}, {"source", 2}})["name"] == "Pad A2");
+    CHECK(daw.call("get_granular_source", {{"module", g}})["kind"] == "empty"); // Source 1 untouched
+    daw.call("undo");
+    CHECK(daw.call("get_granular_source", {{"module", g}, {"source", 2}})["kind"] == "empty");
+
+    // An audio clip's part: the second second of the file (beats at 120 bpm).
+    const auto clip =
+        daw.call("insert_audio_file", {{"track", t0}, {"start", 0}, {"path", path}})["clip"]["id"];
+    daw.call("trim_clip", {{"clip", clip}, {"start", "1.3.1"}, {"end", "2.1.1"}});
+    const auto part = daw.call("load_granular_source", {{"module", g}, {"clip", clip}})["part"];
+    CHECK(part["start"] == Approx(1.0));
+    CHECK(part["end"] == Approx(2.0));
+
+    // What isn't a Granular, or isn't a sound.
+    const auto eq = daw.call("add_module", {{"track", t0}, {"type", "eq"}})["id"];
+    CHECK(daw.fails("load_granular_source", {{"module", eq}, {"path", path}}).find("isn't a Granular") !=
+          std::string::npos);
+    const auto text = daw.folder.getChildFile("notes.txt");
+    REQUIRE(text.replaceWithText("not a sound"));
+    CHECK(daw.fails("load_granular_source", {{"module", g}, {"path", text.getFullPathName().toStdString()}})
+              .find("isn't a sound") != std::string::npos);
+    CHECK_FALSE(daw.fails("load_granular_source", {{"module", g}}).empty()); // neither path nor clip
+
+    // Its roll (ADR 0062): kept, listed, let go with the song's.
+    auto kept = daw.call("keep_roll", {{"module", g}, {"keep", true}});
+    REQUIRE(kept["modules"].size() == 1);
+    CHECK(kept["modules"][0] == Json{{"id", g}, {"kept", true}});
+    CHECK(daw.call("get_module", {{"module", g}})["state"].contains("roll"));
+    kept = daw.call("keep_roll", {{"song", true}, {"keep", false}});
+    CHECK(kept["modules"][0]["kept"] == false);
+    CHECK(daw.fails("keep_roll", {{"module", eq}, {"keep", true}}).find("rolls no dice") !=
+          std::string::npos);
 }

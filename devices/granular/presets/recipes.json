@@ -1,0 +1,1176 @@
+{
+    "device": "granular",
+    "author": "Segno",
+    "presets": [
+        {
+            "name": "Frozen strings",
+            "tags": [
+                "Pad",
+                "Strings",
+                "Wide"
+            ],
+            "description": "A violin section held still in long, overlapping grains, its bow never ending.",
+            "params": {
+                "pos": 40,
+                "pos.spray": 12,
+                "grain.size": 450,
+                "grain.overlap": 8,
+                "pan.spray": 70,
+                "env1.a": 900,
+                "env1.r": 2800,
+                "filter1.cutoff": 9000,
+                "out.volume": 6.0,
+                "src1.gain": 1.0
+            },
+            "extra": {
+                "src1.path": "library:Samples/Strings/Violin section/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Cello haze",
+            "tags": [
+                "Pad",
+                "Strings",
+                "Warm"
+            ],
+            "description": "Cellos scattered into a slow cloud, the quiet parts raised so it stays steady.",
+            "params": {
+                "grain.mode": "Cloud",
+                "grain.density": 30,
+                "grain.size": 650,
+                "pos": 30,
+                "pos.spray": 35,
+                "grain.even": 50,
+                "pan.spray": 60,
+                "env1.a": 1200,
+                "env1.r": 3000,
+                "filter1.cutoff": 3500,
+                "out.volume": 4.2
+            },
+            "extra": {
+                "src1.path": "library:Samples/Strings/Cello section/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Reed choir",
+            "tags": [
+                "Pad",
+                "Woodwinds",
+                "Warm"
+            ],
+            "description": "A clarinet and an oboe in one cloud, each grain from one or the other.",
+            "params": {
+                "src2.on": true,
+                "src.mix": 45,
+                "grain.mode": "Cloud",
+                "grain.density": 40,
+                "grain.size": 400,
+                "pos": 35,
+                "pos.spray": 25,
+                "pan.spray": 80,
+                "env1.a": 700,
+                "env1.r": 2200,
+                "out.volume": 3.0
+            },
+            "extra": {
+                "src1.path": "library:Samples/Woodwinds/Clarinet/Sustain.sfz",
+                "src2.path": "library:Samples/Woodwinds/Oboe/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Glass cloud",
+            "tags": [
+                "Pad",
+                "Bright",
+                "Wide"
+            ],
+            "description": "Wine glasses ringing in a cloud an octave either way.",
+            "params": {
+                "grain.mode": "Cloud",
+                "grain.density": 50,
+                "grain.size": 300,
+                "pos": 20,
+                "pos.spray": 30,
+                "pitch.spray": 12,
+                "pitch.quant": "Octaves",
+                "pan.spray": 90,
+                "env1.a": 600,
+                "env1.r": 3000,
+                "out.volume": 2.9
+            },
+            "extra": {
+                "src1.path": "library:Samples/Tuned percussion/Wine glasses/Wine glasses.sfz"
+            }
+        },
+        {
+            "name": "Bell shimmer",
+            "tags": [
+                "Pad",
+                "Bright",
+                "FX"
+            ],
+            "description": "Tubular bells broken into fifths and octaves, some of them backwards.",
+            "params": {
+                "grain.mode": "Cloud",
+                "grain.density": 35,
+                "grain.size": 350,
+                "pos": 15,
+                "pos.spray": 40,
+                "pitch.spray": 12,
+                "pitch.quant": "Fifths",
+                "grain.reverse": 30,
+                "pan.spray": 85,
+                "env1.a": 400,
+                "env1.r": 3500,
+                "out.volume": 6.0,
+                "src1.gain": 11.5
+            },
+            "extra": {
+                "src1.path": "library:Samples/Tuned percussion/Tubular bells/Tubular bells.sfz"
+            }
+        },
+        {
+            "name": "Organ drift",
+            "tags": [
+                "Pad",
+                "Keys",
+                "Warm"
+            ],
+            "description":
+                "A soft pipe organ read slowly forward, an LFO wandering where the grains come from.",
+            "params": {
+                "grain.size": 300,
+                "grain.overlap": 6,
+                "pos": 20,
+                "scan.rate": 8,
+                "scan.end": "Bounce",
+                "lfo1.rate": 0.15,
+                "lfo1.mode": "Free",
+                "lfo1.poly": false,
+                "env1.a": 500,
+                "env1.r": 2000,
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Position Spray",
+                "mod1.amt": 30,
+                "out.volume": 6.0,
+                "src1.gain": 1.2
+            },
+            "extra": {
+                "src1.path": "library:Samples/Keys/Pipe organ/Soft.sfz"
+            }
+        },
+        {
+            "name": "Horn swell",
+            "tags": [
+                "Pad",
+                "Brass",
+                "Warm"
+            ],
+            "description": "French horns swelling slowly out of overlapping grains.",
+            "params": {
+                "grain.size": 250,
+                "grain.overlap": 5,
+                "pos": 35,
+                "pos.spray": 10,
+                "pan.spray": 40,
+                "env1.a": 1500,
+                "env1.r": 2500,
+                "filter1.cutoff": 5000,
+                "filter1.env": 30,
+                "env2.a": 1500,
+                "env2.d": 2000,
+                "env2.s": 40,
+                "out.volume": 6.0,
+                "src1.gain": 1.3
+            },
+            "extra": {
+                "src1.path": "library:Samples/Brass/French horn/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Harp rain",
+            "tags": [
+                "Pad",
+                "Pluck",
+                "Wide"
+            ],
+            "description": "A harp falling apart into drops, each landing on a note of the song's key.",
+            "params": {
+                "grain.mode": "Cloud",
+                "grain.density": 25,
+                "grain.size": 140,
+                "pos": 0,
+                "pos.spray": 50,
+                "pos.dist": "Ahead",
+                "pitch.spray": 12,
+                "pitch.quant": "Song Key",
+                "pan.spray": 100,
+                "env1.a": 200,
+                "env1.r": 2500,
+                "out.volume": 6.0,
+                "src1.gain": 4.9
+            },
+            "extra": {
+                "src1.path": "library:Samples/Strings/Harp/Harp.sfz"
+            }
+        },
+        {
+            "name": "Piano dust",
+            "tags": [
+                "Pad",
+                "Keys",
+                "Subtle"
+            ],
+            "description":
+                "A grand piano ground into fine dust: short grains, uneven levels, a few backwards.",
+            "params": {
+                "grain.mode": "Cloud",
+                "grain.density": 60,
+                "grain.size": 80,
+                "pos": 8,
+                "pos.spray": 20,
+                "grain.levelspray": 60,
+                "grain.reverse": 25,
+                "gfilter.on": true,
+                "gfilter.cutoff": 3000,
+                "gfilter.spray": 2,
+                "pan.spray": 80,
+                "env1.a": 300,
+                "env1.r": 2000,
+                "out.volume": 6.0,
+                "src1.gain": 4.9
+            },
+            "extra": {
+                "src1.path": "library:Samples/Keys/Grand piano/Grand piano.sfz"
+            }
+        },
+        {
+            "name": "Kalimba stars",
+            "tags": [
+                "Pad",
+                "Pluck",
+                "Bright"
+            ],
+            "description": "Kalimba notes scattered high and low on a major seventh chord.",
+            "params": {
+                "grain.mode": "Cloud",
+                "grain.density": 12,
+                "grain.size": 320,
+                "pos": 0,
+                "pos.spray": 10,
+                "pos.dist": "Ahead",
+                "pitch.spray": 24,
+                "pitch.quant": "Chord",
+                "pitch.chord": "Major 7",
+                "pan.spray": 100,
+                "env1.a": 100,
+                "env1.r": 3000,
+                "out.volume": 6.0,
+                "src1.gain": 7.6
+            },
+            "extra": {
+                "src1.path": "library:Samples/Tuned percussion/Kalimba/Kalimba.sfz"
+            }
+        },
+        {
+            "name": "Dark matter",
+            "tags": [
+                "Pad",
+                "Bass",
+                "Heavy"
+            ],
+            "description":
+                "A tuba an octave down, in slow grains half of them reversed, under a closed filter.",
+            "params": {
+                "grain.mode": "Cloud",
+                "grain.density": 20,
+                "grain.size": 700,
+                "pos": 30,
+                "pos.spray": 30,
+                "pitch.transpose": -12,
+                "grain.reverse": 50,
+                "filter1.cutoff": 700,
+                "filter1.res": 30,
+                "env1.a": 1500,
+                "env1.r": 3000,
+                "out.volume": 6.0,
+                "src1.gain": 12.0
+            },
+            "extra": {
+                "src1.path": "library:Samples/Brass/Tuba/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Bowed metal",
+            "tags": [
+                "Pad",
+                "FX",
+                "Heavy"
+            ],
+            "description": "Tubular bells held in a loop and ring-modulated into something forged.",
+            "params": {
+                "grain.mode": "Loop",
+                "grain.size": 320,
+                "grain.xfade": 40,
+                "pos": 4,
+                "grain.even": 60,
+                "gcolor.ring": 35,
+                "gcolor.ratio": 1.5,
+                "env1.a": 800,
+                "env1.r": 2500,
+                "out.volume": 6.0,
+                "src1.gain": 7.6
+            },
+            "extra": {
+                "src1.path": "library:Samples/Tuned percussion/Tubular bells/Tubular bells.sfz"
+            }
+        },
+        {
+            "name": "Reverse tide",
+            "tags": [
+                "Pad",
+                "Strings",
+                "FX"
+            ],
+            "description": "Long cello grains played backwards, swelling into each note.",
+            "params": {
+                "grain.size": 900,
+                "grain.overlap": 4,
+                "pos": 35,
+                "pos.spray": 20,
+                "grain.reverse": 100,
+                "pan.spray": 50,
+                "env1.a": 300,
+                "env1.r": 2000,
+                "out.volume": 4.7
+            },
+            "extra": {
+                "src1.path": "library:Samples/Strings/Cello section/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Slow motion",
+            "tags": [
+                "Pad",
+                "Strings",
+                "Subtle"
+            ],
+            "description": "The violins stretched to a quarter of their speed, their pitch where it was.",
+            "params": {
+                "grain.mode": "Loop",
+                "grain.size": 120,
+                "grain.xfade": 35,
+                "scan.rate": 25,
+                "scan.end": "Bounce",
+                "pan.spray": 20,
+                "env1.a": 200,
+                "env1.r": 1500,
+                "out.volume": 6.0,
+                "src1.gain": 6.1
+            },
+            "extra": {
+                "src1.path": "library:Samples/Strings/Violin section/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Frozen strike",
+            "tags": [
+                "Keys",
+                "Pad",
+                "Bright"
+            ],
+            "description": "The first moment of a piano note held for as long as the key is down.",
+            "params": {
+                "grain.mode": "Loop",
+                "grain.size": 70,
+                "grain.xfade": 45,
+                "pos": 3,
+                "pan.spray": 15,
+                "env1.a": 5,
+                "env1.r": 1200,
+                "out.volume": 4.9
+            },
+            "extra": {
+                "src1.path": "library:Samples/Keys/Grand piano/Grand piano.sfz"
+            }
+        },
+        {
+            "name": "Swarm",
+            "tags": [
+                "FX",
+                "Strings",
+                "Wide"
+            ],
+            "description": "Tremolo violins torn into hundreds of tiny grains from everywhere at once.",
+            "params": {
+                "grain.mode": "Cloud",
+                "grain.density": 220,
+                "grain.size": 30,
+                "grain.max": 128,
+                "pos": 0,
+                "pos.spray": 100,
+                "pos.dist": "Ahead",
+                "pan.spray": 100,
+                "env1.a": 400,
+                "env1.r": 1500,
+                "out.volume": 6.0,
+                "src1.gain": 6.8
+            },
+            "extra": {
+                "src1.path": "library:Samples/Strings/Violin section/Tremolo.sfz"
+            }
+        },
+        {
+            "name": "Crushed brass",
+            "tags": [
+                "Lead",
+                "Brass",
+                "Dirty"
+            ],
+            "description": "Trumpet stabs in short grains, each crushed to a different grit.",
+            "params": {
+                "grain.size": 60,
+                "grain.overlap": 3,
+                "pos": 5,
+                "gcolor.crush": 55,
+                "gcolor.crushspray": 40,
+                "env1.a": 5,
+                "env1.d": 400,
+                "env1.s": 60,
+                "env1.r": 300,
+                "out.volume": 6.0,
+                "src1.gain": 12.0
+            },
+            "extra": {
+                "src1.path": "library:Samples/Brass/Trumpet/Staccato.sfz"
+            }
+        },
+        {
+            "name": "Metal rain",
+            "tags": [
+                "FX",
+                "Bright",
+                "Wide"
+            ],
+            "description": "A vibraphone ring-modulated grain by grain, each at its own ratio.",
+            "params": {
+                "grain.mode": "Cloud",
+                "grain.density": 80,
+                "grain.size": 45,
+                "pos": 5,
+                "pos.spray": 40,
+                "gcolor.ring": 60,
+                "gcolor.ratio": 3.5,
+                "gcolor.ringspray": 30,
+                "pan.spray": 90,
+                "env1.a": 100,
+                "env1.r": 2000,
+                "out.volume": 6.0,
+                "src1.gain": 9.5
+            },
+            "extra": {
+                "src1.path": "library:Samples/Tuned percussion/Vibraphone/Vibraphone.sfz"
+            }
+        },
+        {
+            "name": "Resonant swarm",
+            "tags": [
+                "FX",
+                "Strings",
+                "Bright"
+            ],
+            "description":
+                "Tremolo violins through a resonator on every grain, each ringing on a note of the key.",
+            "params": {
+                "grain.mode": "Cloud",
+                "grain.density": 90,
+                "grain.size": 70,
+                "pos": 30,
+                "pos.spray": 30,
+                "gfilter.on": true,
+                "gfilter.type": "Resonator",
+                "gfilter.cutoff": 1500,
+                "gfilter.spray": 3,
+                "gfilter.res": 15,
+                "gfilter.snap": true,
+                "pan.spray": 80,
+                "env1.a": 300,
+                "env1.r": 2000,
+                "out.volume": 6.0,
+                "src1.gain": 12.0
+            },
+            "extra": {
+                "src1.path": "library:Samples/Strings/Violin section/Tremolo.sfz"
+            }
+        },
+        {
+            "name": "Wind tunnel",
+            "tags": [
+                "FX",
+                "Subtle",
+                "Wide"
+            ],
+            "description":
+                "A timpani roll's rumble an octave up, through a band pass that sweeps and scatters like wind.",
+            "params": {
+                "grain.size": 200,
+                "grain.overlap": 6,
+                "pos": 30,
+                "pos.spray": 40,
+                "pitch.spray": 2,
+                "pitch.transpose": 12,
+                "gfilter.on": true,
+                "gfilter.type": "BP",
+                "gfilter.cutoff": 900,
+                "gfilter.spray": 2,
+                "gfilter.res": 15,
+                "lfo1.rate": 0.2,
+                "lfo1.mode": "Free",
+                "lfo1.poly": false,
+                "env1.a": 800,
+                "env1.r": 2000,
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Grain Cutoff",
+                "mod1.amt": 40,
+                "out.volume": 6.0,
+                "src1.gain": 12.0
+            },
+            "extra": {
+                "src1.path": "library:Samples/Percussion/Timpani/Rolls.sfz"
+            }
+        },
+        {
+            "name": "Timpani thunder",
+            "tags": [
+                "FX",
+                "Drums",
+                "Heavy"
+            ],
+            "description": "Timpani rolls scrubbed back and forth, an octave below.",
+            "params": {
+                "grain.size": 180,
+                "grain.overlap": 4,
+                "scan.rate": 150,
+                "scan.end": "Bounce",
+                "pitch.transpose": -12,
+                "pos.spray": 15,
+                "filter1.cutoff": 2500,
+                "env1.a": 300,
+                "env1.r": 2500,
+                "out.volume": 6.0,
+                "src1.gain": 3.6
+            },
+            "extra": {
+                "src1.path": "library:Samples/Percussion/Timpani/Rolls.sfz"
+            }
+        },
+        {
+            "name": "Rising sparks",
+            "tags": [
+                "FX",
+                "Woodwinds",
+                "Bright"
+            ],
+            "description": "Clarinet grains that each slide up a fifth as they fade.",
+            "params": {
+                "grain.mode": "Cloud",
+                "grain.density": 40,
+                "grain.size": 220,
+                "pos": 30,
+                "pos.spray": 30,
+                "pitch.glide": 7,
+                "pan.spray": 80,
+                "env1.a": 300,
+                "env1.r": 2000,
+                "out.volume": 1.8
+            },
+            "extra": {
+                "src1.path": "library:Samples/Woodwinds/Clarinet/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Falling glass",
+            "tags": [
+                "FX",
+                "Bright",
+                "Wide"
+            ],
+            "description": "Glockenspiel grains each falling an octave, scattered across the field.",
+            "params": {
+                "grain.mode": "Cloud",
+                "grain.density": 30,
+                "grain.size": 300,
+                "pos": 0,
+                "pos.spray": 20,
+                "pos.dist": "Ahead",
+                "pitch.glide": -12,
+                "pan.spray": 100,
+                "env1.a": 50,
+                "env1.r": 2500,
+                "out.volume": 6.0,
+                "src1.gain": 3.3
+            },
+            "extra": {
+                "src1.path": "library:Samples/Tuned percussion/Glockenspiel/Glockenspiel.sfz"
+            }
+        },
+        {
+            "name": "Octave shimmer",
+            "tags": [
+                "Pad",
+                "Strings",
+                "Bright"
+            ],
+            "description": "Violins doubled an octave and two up, the higher grains to the right.",
+            "params": {
+                "grain.mode": "Cloud",
+                "grain.density": 45,
+                "grain.size": 400,
+                "pos": 40,
+                "pos.spray": 20,
+                "pitch.spray": 24,
+                "pitch.dir": "Up",
+                "pitch.quant": "Octaves",
+                "pan.spray": 80,
+                "pan.mode": "By Pitch",
+                "env1.a": 900,
+                "env1.r": 3000,
+                "out.volume": 6.0,
+                "src1.gain": 1.2
+            },
+            "extra": {
+                "src1.path": "library:Samples/Strings/Violin section/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Reed oscillator",
+            "tags": [
+                "Lead",
+                "Woodwinds",
+                "Clean"
+            ],
+            "description": "An oboe's tone at any note, its grains at the note's own pitch.",
+            "params": {
+                "grain.mode": "Pitched",
+                "grain.periods": 4,
+                "pos": 40,
+                "pan.spray": 0,
+                "env1.a": 20,
+                "env1.r": 300,
+                "out.volume": 6.0,
+                "src1.gain": 3.7
+            },
+            "extra": {
+                "src1.path": "library:Samples/Woodwinds/Oboe/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Vowel lead",
+            "tags": [
+                "Lead",
+                "Woodwinds",
+                "Bright"
+            ],
+            "description": "A tenor sax as an oscillator, the mod wheel moving its character up and down.",
+            "params": {
+                "grain.mode": "Pitched",
+                "grain.periods": 6,
+                "pos": 35,
+                "pan.spray": 0,
+                "voice.mode": "Legato",
+                "voice.glide": 60,
+                "env1.a": 15,
+                "env1.r": 250,
+                "mod1.src": "Mod Wheel",
+                "mod1.dst": "Formant",
+                "mod1.amt": 50,
+                "out.volume": -0.8
+            },
+            "extra": {
+                "src1.path": "library:Samples/Woodwinds/Tenor sax/Tenor sax.sfz"
+            }
+        },
+        {
+            "name": "Pipe synth",
+            "tags": [
+                "Keys",
+                "Lead",
+                "Bright"
+            ],
+            "description": "A loud pipe organ's tone played as a synth, long grains for a steady pitch.",
+            "params": {
+                "grain.mode": "Pitched",
+                "grain.periods": 8,
+                "pos": 30,
+                "pan.spray": 10,
+                "env1.a": 10,
+                "env1.r": 400,
+                "out.volume": -7.9
+            },
+            "extra": {
+                "src1.path": "library:Samples/Keys/Pipe organ/Loud.sfz"
+            }
+        },
+        {
+            "name": "Formant bass",
+            "tags": [
+                "Bass",
+                "Woodwinds",
+                "Warm"
+            ],
+            "description": "A bassoon an octave down as a mono bass, its character lifted to stay clear.",
+            "params": {
+                "grain.mode": "Pitched",
+                "grain.periods": 3,
+                "grain.formant": 5,
+                "pitch.transpose": -12,
+                "pos": 40,
+                "pan.spray": 0,
+                "voice.mode": "Mono",
+                "voice.glide": 80,
+                "env1.a": 5,
+                "env1.r": 200,
+                "filter1.cutoff": 3000,
+                "out.volume": -2.1
+            },
+            "extra": {
+                "src1.path": "library:Samples/Woodwinds/Bassoon/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Brass oscillator",
+            "tags": [
+                "Lead",
+                "Brass",
+                "Bright"
+            ],
+            "description": "A trumpet's tone at any note, a gentle vibrato after it starts.",
+            "params": {
+                "grain.mode": "Pitched",
+                "grain.periods": 4,
+                "pos": 30,
+                "pan.spray": 0,
+                "lfo1.rate": 5,
+                "lfo1.fade": 600,
+                "env1.a": 30,
+                "env1.r": 500,
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Pitch",
+                "mod1.amt": 1,
+                "out.volume": 3.9
+            },
+            "extra": {
+                "src1.path": "library:Samples/Brass/Trumpet/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Singing cello",
+            "tags": [
+                "Lead",
+                "Strings",
+                "Warm"
+            ],
+            "description": "A cello's tone at the note's pitch, its character breathing slowly.",
+            "params": {
+                "grain.mode": "Pitched",
+                "grain.periods": 4,
+                "pos": 40,
+                "pan.spray": 0,
+                "lfo1.rate": 0.3,
+                "env1.a": 80,
+                "env1.r": 600,
+                "mod1.src": "LFO 1",
+                "mod1.dst": "Formant",
+                "mod1.amt": 10,
+                "out.volume": 5.7
+            },
+            "extra": {
+                "src1.path": "library:Samples/Strings/Cello section/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Buzz bass",
+            "tags": [
+                "Bass",
+                "Strings",
+                "Dirty"
+            ],
+            "description": "A double bass as a mono oscillator, two periods a grain and a little crush.",
+            "params": {
+                "grain.mode": "Pitched",
+                "grain.periods": 2,
+                "pos": 40,
+                "gcolor.crush": 25,
+                "pan.spray": 0,
+                "voice.mode": "Mono",
+                "env1.a": 5,
+                "env1.r": 150,
+                "filter1.cutoff": 2500,
+                "filter1.env": 40,
+                "out.volume": -4.1
+            },
+            "extra": {
+                "src1.path": "library:Samples/Strings/Double bass/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Grain piano",
+            "tags": [
+                "Keys",
+                "Pluck",
+                "Warm"
+            ],
+            "description": "An upright piano played through in grains, each note from a different place.",
+            "params": {
+                "grain.size": 70,
+                "grain.overlap": 4,
+                "scan.rate": 100,
+                "scan.end": "Stop",
+                "pos.key": 20,
+                "pan.spray": 30,
+                "env1.a": 5,
+                "env1.d": 2500,
+                "env1.s": 0,
+                "env1.r": 600,
+                "out.volume": 6.0,
+                "src1.gain": 12.0
+            },
+            "extra": {
+                "src1.path": "library:Samples/Keys/Upright piano/Upright piano.sfz"
+            }
+        },
+        {
+            "name": "Pizzicato sparks",
+            "tags": [
+                "Pluck",
+                "Strings",
+                "Bright"
+            ],
+            "description": "Violin plucks scattered, every grain starting on a pluck.",
+            "params": {
+                "grain.mode": "Cloud",
+                "grain.density": 25,
+                "grain.size": 120,
+                "pos": 0,
+                "pos.spray": 100,
+                "pos.dist": "Ahead",
+                "pos.snap": "Transients",
+                "pitch.spray": 12,
+                "pitch.quant": "Song Key",
+                "pan.spray": 90,
+                "env1.a": 50,
+                "env1.r": 1500,
+                "out.volume": 6.0,
+                "src1.gain": 8.9
+            },
+            "extra": {
+                "src1.path": "library:Samples/Strings/Violin section/Pizzicato.sfz"
+            }
+        },
+        {
+            "name": "Harpsichord shards",
+            "tags": [
+                "Pluck",
+                "Keys",
+                "Bright"
+            ],
+            "description": "A harpsichord in thirty-second grains, a few left out at random.",
+            "params": {
+                "grain.mode": "Rhythm",
+                "grain.rate": "1/32",
+                "grain.size": 50,
+                "grain.chance": 60,
+                "pos.spray": 15,
+                "pan.spray": 60,
+                "env1.a": 5,
+                "env1.d": 1500,
+                "env1.s": 30,
+                "env1.r": 400,
+                "out.volume": 6.0,
+                "src1.gain": 8.7
+            },
+            "extra": {
+                "src1.path": "library:Samples/Keys/Harpsichord/Harpsichord.sfz"
+            }
+        },
+        {
+            "name": "Stutter marimba",
+            "tags": [
+                "Pluck",
+                "Keys",
+                "Clean"
+            ],
+            "description": "Marimba notes stuttering in sixteenths, three times each.",
+            "params": {
+                "grain.mode": "Rhythm",
+                "grain.rate": "1/16",
+                "grain.repeats": 3,
+                "grain.size": 45,
+                "grain.chance": 75,
+                "pan.spray": 40,
+                "env1.a": 5,
+                "env1.r": 500,
+                "out.volume": 6.0,
+                "src1.gain": 4.0
+            },
+            "extra": {
+                "src1.path": "library:Samples/Tuned percussion/Marimba/Marimba.sfz"
+            }
+        },
+        {
+            "name": "Glitch xylophone",
+            "tags": [
+                "Pluck",
+                "FX",
+                "Bright"
+            ],
+            "description": "A xylophone cut up in swung sixteenths, octaves apart, some missing.",
+            "params": {
+                "grain.mode": "Rhythm",
+                "grain.rate": "1/16",
+                "grain.swing": 30,
+                "grain.size": 70,
+                "grain.chance": 65,
+                "grain.repeats": 2,
+                "pos.spray": 20,
+                "pos.dist": "Ahead",
+                "grain.even": 50,
+                "pitch.spray": 12,
+                "pitch.quant": "Octaves",
+                "pan.spray": 70,
+                "env1.a": 5,
+                "env1.r": 600,
+                "out.volume": 6.0,
+                "src1.gain": 1.4
+            },
+            "extra": {
+                "src1.path": "library:Samples/Tuned percussion/Xylophone/Xylophone.sfz"
+            }
+        },
+        {
+            "name": "Broken music box",
+            "tags": [
+                "Pluck",
+                "FX",
+                "Dirty"
+            ],
+            "description": "A glockenspiel in triplets on the key's notes, a little crushed, some backwards.",
+            "params": {
+                "grain.mode": "Rhythm",
+                "grain.rate": "1/8T",
+                "grain.size": 140,
+                "grain.reverse": 40,
+                "pitch.spray": 7,
+                "pitch.quant": "Song Key",
+                "gcolor.crush": 20,
+                "pan.spray": 60,
+                "env1.a": 5,
+                "env1.r": 1200,
+                "out.volume": -1.7
+            },
+            "extra": {
+                "src1.path": "library:Samples/Tuned percussion/Glockenspiel/Glockenspiel.sfz"
+            }
+        },
+        {
+            "name": "Timpani pulse",
+            "tags": [
+                "Drums",
+                "Heavy",
+                "Warm"
+            ],
+            "description": "Timpani hits doubled on every eighth, on the song's grid.",
+            "params": {
+                "grain.mode": "Rhythm",
+                "grain.rate": "1/8",
+                "grain.repeats": 2,
+                "grain.size": 110,
+                "pos.snap": "Transients",
+                "pan.spray": 20,
+                "env1.a": 1,
+                "env1.r": 500,
+                "out.volume": 6.0,
+                "src1.gain": 2.6
+            },
+            "extra": {
+                "src1.path": "library:Samples/Percussion/Timpani/Hits.sfz"
+            }
+        },
+        {
+            "name": "Marimba sequence",
+            "tags": [
+                "Pluck",
+                "Keys",
+                "Wide"
+            ],
+            "description":
+                "Sixteenths of marimba wandering over the song's key, each note starting elsewhere.",
+            "params": {
+                "grain.mode": "Rhythm",
+                "grain.rate": "1/16",
+                "grain.size": 90,
+                "pitch.spray": 12,
+                "pitch.quant": "Song Key",
+                "pos.key": 50,
+                "pos.spray": 20,
+                "pan.spray": 80,
+                "env1.a": 5,
+                "env1.r": 800,
+                "out.volume": 6.0,
+                "src1.gain": 9.4
+            },
+            "extra": {
+                "src1.path": "library:Samples/Tuned percussion/Marimba/Marimba.sfz"
+            }
+        },
+        {
+            "name": "Two worlds",
+            "tags": [
+                "Pad",
+                "Woodwinds",
+                "Brass"
+            ],
+            "description":
+                "A flute and a trombone taking turns grain by grain, Macro 1 leaning on one or the other.",
+            "params": {
+                "src2.on": true,
+                "src.pick": "Random",
+                "src.mix": 50,
+                "grain.mode": "Cloud",
+                "grain.density": 35,
+                "grain.size": 350,
+                "pos": 30,
+                "pos.spray": 30,
+                "pan.spray": 70,
+                "env1.a": 600,
+                "env1.r": 2000,
+                "macro1": 50,
+                "mod1.src": "Macro 1",
+                "mod1.dst": "Source Mix",
+                "mod1.amt": 50,
+                "out.volume": 3.7
+            },
+            "extra": {
+                "src1.path": "library:Samples/Woodwinds/Flute/Sustain.sfz",
+                "src2.path": "library:Samples/Brass/Trombone/Sustain.sfz",
+                "macro1.name": "Flute or Trombone"
+            }
+        },
+        {
+            "name": "Song scan",
+            "tags": [
+                "Pad",
+                "Strings",
+                "Subtle"
+            ],
+            "description": "Violins read once through every four bars, following the song wherever it plays.",
+            "params": {
+                "grain.size": 300,
+                "grain.overlap": 6,
+                "scan.from": "Song",
+                "scan.sync": "4 bars",
+                "pos.spray": 8,
+                "pan.spray": 50,
+                "env1.a": 500,
+                "env1.r": 2000,
+                "out.volume": 6.0,
+                "src1.gain": 0.2
+            },
+            "extra": {
+                "src1.path": "library:Samples/Strings/Violin section/Sustain.sfz"
+            }
+        },
+        {
+            "name": "Fired bells",
+            "tags": [
+                "FX",
+                "Pluck",
+                "Bright"
+            ],
+            "description":
+                "Vibraphone grains fired by a random source rather than a clock, a scattered rhythm.",
+            "params": {
+                "grain.mode": "Rhythm",
+                "grain.rate": "4 bars",
+                "grain.size": 250,
+                "rnd1.mode": "Steps",
+                "rnd1.rate": 12,
+                "pos.spray": 20,
+                "pos.dist": "Ahead",
+                "pitch.spray": 12,
+                "pitch.quant": "Song Key",
+                "pan.spray": 90,
+                "env1.a": 5,
+                "env1.r": 1500,
+                "mod1.src": "Random 1",
+                "mod1.dst": "Fire",
+                "mod1.amt": 100,
+                "out.volume": 6.0,
+                "src1.gain": 9.1
+            },
+            "extra": {
+                "src1.path": "library:Samples/Tuned percussion/Vibraphone/Vibraphone.sfz"
+            }
+        },
+        {
+            "name": "Grain by grain",
+            "tags": [
+                "FX",
+                "Strings",
+                "Wide"
+            ],
+            "description": "Every grain of the cellos rolling its own cutoff and pan.",
+            "params": {
+                "grain.mode": "Cloud",
+                "grain.density": 50,
+                "grain.size": 110,
+                "pos.spray": 100,
+                "rnd1.mode": "Per Grain",
+                "gfilter.on": true,
+                "gfilter.type": "BP",
+                "gfilter.cutoff": 1500,
+                "gfilter.res": 50,
+                "env1.a": 200,
+                "env1.r": 1500,
+                "mod1.src": "Random 1",
+                "mod1.dst": "Grain Cutoff",
+                "mod1.amt": 60,
+                "mod2.src": "Grain Random",
+                "mod2.dst": "Pan",
+                "mod2.amt": 100,
+                "out.volume": 6.0,
+                "src1.gain": 8.0
+            },
+            "extra": {
+                "src1.path": "library:Samples/Strings/Cello section/Spiccato.sfz"
+            }
+        },
+        {
+            "name": "Breath drone",
+            "tags": [
+                "Pad",
+                "Woodwinds",
+                "Subtle"
+            ],
+            "description": "A harmonica held by Latch, one note after another adding to a slow drone.",
+            "params": {
+                "grain.mode": "Cloud",
+                "grain.density": 30,
+                "grain.size": 600,
+                "pos": 40,
+                "pos.spray": 25,
+                "grain.even": 60,
+                "voice.latch": true,
+                "pan.spray": 70,
+                "env1.a": 2000,
+                "env1.r": 4000,
+                "filter1.cutoff": 4000,
+                "out.volume": 6.0,
+                "src1.gain": 0.7
+            },
+            "extra": {
+                "src1.path": "library:Samples/Woodwinds/Harmonica/Harmonica.sfz"
+            }
+        }
+    ]
+}

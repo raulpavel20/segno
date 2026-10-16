@@ -2340,6 +2340,51 @@ void Granular::setSourceSet(int n, std::shared_ptr<const GrainSourceSet> set)
     publishAssets();
 }
 
+nlohmann::json Granular::rollPatch(bool keep) const
+{
+    return {{"roll", keep ? nlohmann::json(roll_.load(std::memory_order_relaxed)) : nlohmann::json(nullptr)}};
+}
+
+nlohmann::json Granular::sourcePatch(int n, const std::string& stored)
+{
+    const std::string key = "src" + std::to_string(std::clamp(n, 0, numSources - 1) + 1) + ".";
+    return {{key + "path", stored.empty() ? nlohmann::json(nullptr) : nlohmann::json(stored)},
+            {key + "root", nullptr}};
+}
+
+std::vector<std::pair<size_t, float>> Granular::sourceSettings(int n)
+{
+    n = std::clamp(n, 0, numSources - 1);
+    return {{source(n, SrcOn), 1.0f},
+            {source(n, SrcInput), 0.0f},
+            {source(n, SrcStart), 0.0f},
+            {source(n, SrcEnd), 100.0f}};
+}
+
+nlohmann::json Granular::swappedPatch() const
+{
+    const std::scoped_lock lock(loaderMutex_);
+    nlohmann::json patch = nlohmann::json::object();
+    for (int n = 0; n < numSources; ++n)
+    {
+        const auto other = static_cast<size_t>(numSources - 1 - n);
+        const std::string key = "src" + std::to_string(n + 1) + ".";
+        patch[key + "path"] = paths_[other].empty() ? nlohmann::json(nullptr) : nlohmann::json(paths_[other]);
+        patch[key + "root"] = roots_[other] ? nlohmann::json(*roots_[other]) : nlohmann::json(nullptr);
+    }
+    return patch;
+}
+
+std::vector<std::pair<size_t, float>> Granular::swappedSettings() const
+{
+    std::vector<std::pair<size_t, float>> out;
+    for (size_t p = 0; p < SourceParamCount; ++p)
+        for (int n = 0; n < numSources; ++n)
+            out.emplace_back(source(n, static_cast<SourceParam>(p)),
+                             params().get(source(numSources - 1 - n, static_cast<SourceParam>(p))));
+    return out;
+}
+
 std::string Granular::loadError(int n) const
 {
     const std::scoped_lock lock(loaderMutex_);

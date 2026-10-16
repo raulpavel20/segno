@@ -4,7 +4,6 @@
 #include "fd/device/Library.h"
 #include "fd/dsp/Onsets.h"
 #include "fd/dsp/PitchDetector.h"
-#include "fd/dsp/Resampling.h"
 
 #include <algorithm>
 #include <cctype>
@@ -57,23 +56,68 @@ struct HalfBand
     }
 };
 
+/// `in` with `pad` zeros either side, so the filters below run without a test at the edges.
+std::vector<float> padded(std::span<const float> in, int pad)
+{
+    std::vector<float> p(in.size() + 2 * static_cast<size_t>(pad), 0.0f);
+    std::copy(in.begin(), in.end(), p.begin() + pad);
+    return p;
+}
+
 /// `in` at twice its rate: its own samples, and the points between them.
 std::vector<float> upsample(std::span<const float> in)
 {
     static const HalfBand h;
+    constexpr int side = HalfBand::side;
     const int n = static_cast<int>(in.size());
+    const auto p = padded(in, side);
     std::vector<float> out(static_cast<size_t>(2 * n), 0.0f);
     for (int i = 0; i < n; ++i)
     {
+        const float* x = p.data() + i + 1; // in[i - side + 1] … in[i + side]
+        float y = 0.0f;
+        for (int j = 0; j < 2 * side; ++j)
+            y += h.taps[static_cast<size_t>(j)] * x[j];
         out[static_cast<size_t>(2 * i)] = in[static_cast<size_t>(i)];
-        double y = 0.0;
-        for (int j = 0; j < 2 * HalfBand::side; ++j)
+        out[static_cast<size_t>(2 * i + 1)] = y;
+    }
+    return out;
+}
+
+/// A level halved: low-passed first, its pass band to 0.205 of its rate and its stop band from
+/// 0.25 at about 80 dB (dsp::decimateByTwo's design: 129 taps, a Kaiser-windowed sinc, β 8), in
+/// floats with its symmetric taps folded. The pyramid's build is most of a load.
+std::vector<float> halve(std::span<const float> in)
+{
+    constexpr int half = 64;
+    static const auto taps = []
+    {
+        constexpr double fc = 2.0 * 0.2275, beta = 8.0;
+        std::array<double, half + 1> h{};
+        double sum = 0.0;
+        for (int k = 0; k <= half; ++k)
         {
-            const int at = i + j - HalfBand::side + 1;
-            if (at >= 0 && at < n)
-                y += h.taps[static_cast<size_t>(j)] * in[static_cast<size_t>(at)];
+            const double x = fc * k;
+            const double s = k == 0 ? 1.0 : std::sin(std::numbers::pi * x) / (std::numbers::pi * x);
+            const double u = static_cast<double>(k) / (half + 1);
+            h[static_cast<size_t>(k)] = fc * s * besselI0(beta * std::sqrt(1.0 - u * u)) / besselI0(beta);
+            sum += (k == 0 ? 1.0 : 2.0) * h[static_cast<size_t>(k)];
         }
-        out[static_cast<size_t>(2 * i + 1)] = static_cast<float>(y);
+        std::array<float, half + 1> f{};
+        for (int k = 0; k <= half; ++k)
+            f[static_cast<size_t>(k)] = static_cast<float>(h[static_cast<size_t>(k)] / sum);
+        return f;
+    }();
+    const int n = static_cast<int>(in.size());
+    const auto p = padded(in, half);
+    std::vector<float> out(static_cast<size_t>((n + 1) / 2));
+    for (int i = 0; i < static_cast<int>(out.size()); ++i)
+    {
+        const float* c = p.data() + half + 2 * i;
+        float y = taps[0] * c[0];
+        for (int k = 1; k <= half; ++k)
+            y += taps[static_cast<size_t>(k)] * (c[-k] + c[k]);
+        out[static_cast<size_t>(i)] = y;
     }
     return out;
 }
@@ -264,7 +308,7 @@ std::shared_ptr<const GrainSource> GrainSource::build(const audiofile::DecodedAu
         if (plain[0].size() < 512)
             break;
         for (auto& c : plain)
-            c = dsp::decimateByTwo(c);
+            c = halve(c);
     }
 
     // What's found in it, on a mono mix at its own rate.
@@ -460,9 +504,12 @@ std::shared_ptr<const GrainSourceSet> GrainSourceSet::load(const std::string& st
             z.hiKey = r->hiKey; // every velocity: one layer was kept
             z.root = (r->rootFromSample && audio->rootKey ? *audio->rootKey : r->root) - r->transpose -
                      r->tune / 100.0;
-            z.gain = static_cast<float>(std::pow(10.0, r->volume / 20.0));
             z.audio = GrainSource::build(*audio, r->sample.stem().string(), r->sample.string(),
                                          {.compact = true, .analyse = false});
+            // Each zone's audio was brought to full scale: its level in the set is what the file
+            // asks (its volume) over what that took.
+            z.gain =
+                static_cast<float>(std::pow(10.0, r->volume / 20.0) / std::max(1e-6f, z.audio->normalise));
             set->zones.push_back(std::move(z));
         }
         if (set->zones.empty())
@@ -471,6 +518,14 @@ std::shared_ptr<const GrainSourceSet> GrainSourceSet::load(const std::string& st
                 *error = "None of " + file.filename().string() + "'s samples could be read";
             return nullptr;
         }
+        // The set brought to full scale as one: its loudest zone there, the rest as the file
+        // balances them.
+        float loudest = 0.0f;
+        for (const auto& z : set->zones)
+            loudest = std::max(loudest, z.gain);
+        if (loudest > 0.0f)
+            for (auto& z : set->zones)
+                z.gain /= loudest;
     }
     else
     {

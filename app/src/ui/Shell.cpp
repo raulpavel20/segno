@@ -1355,6 +1355,30 @@ void Shell::registerActions()
                           panel->performCommand("sample.load");
                   },
                   .isEnabled = [this] { return selectedModule("sampler") != nullptr; }});
+    // The Granular's sources (devices/granular/SPEC.md, "Everything by mouse"): a file asked for
+    // into one of them, or the two swapped.
+    for (int n = 0; n < 2; ++n)
+        actions_.add({.id = "module.loadSource" + std::to_string(n + 1),
+                      .name = juce::String::fromUTF8("Load Source ") + juce::String(n + 1) +
+                              juce::String::fromUTF8("\xE2\x80\xA6"),
+                      .category = "Module",
+                      .perform =
+                          [this, n]
+                      {
+                          if (auto* panel = selectedModule("granular"))
+                              panel->performCommand(n == 0 ? "source1.load" : "source2.load");
+                      },
+                      .isEnabled = [this] { return selectedModule("granular") != nullptr; }});
+    actions_.add({.id = "module.swapSources",
+                  .name = "Swap sources",
+                  .category = "Module",
+                  .perform =
+                      [this]
+                  {
+                      if (selectedModule("granular") != nullptr)
+                          session_.swapGranularSources(*detail_.chain().selectedDevice());
+                  },
+                  .isEnabled = [this] { return selectedModule("granular") != nullptr; }});
     // Racks (racks.md §9): the selected modules grouped, the selected rack's own.
     auto hasRack = [this] { return detail_.chain().selectedRack().has_value(); };
     actions_.add({.id = "module.groupIntoRack",

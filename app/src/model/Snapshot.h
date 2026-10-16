@@ -135,6 +135,9 @@ struct DeviceSlot
     std::shared_ptr<const RackInfo> rack;
     /// A modulator (docs/design/modulators.md): its routes and its roll. Null for any other.
     std::shared_ptr<const ModulatorInfo> modulator;
+    /// A module that rolls its own dice (a Granular, ADR 0062): whether it keeps its roll. None
+    /// for any other.
+    std::optional<bool> rollKept;
 };
 
 /// One of a modulator's routes (modulators.md §7): the parameter it moves, by its channel and

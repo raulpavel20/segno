@@ -205,7 +205,8 @@ std::vector<Menu> menuBar(MenuPlatform platform)
           action("module.presetsFolder"), separator(),
           // A module's own (docs/design/table-editor.md §8): dimmed for the others.
           action("module.editWavetable"), action("module.importWavetable"), action("module.exportWavetable"),
-          separator(), action("module.loadSample"), separator(),
+          separator(), action("module.loadSample"), action("module.loadSource1"),
+          action("module.loadSource2"), action("module.swapSources"), separator(),
           // Racks (racks.md §9): a module of modules, its chains and macros.
           action("module.groupIntoRack"), action("module.ungroupRack"), action("module.editMacros"),
           action("module.addChain"), action("module.renameRack"), separator(),

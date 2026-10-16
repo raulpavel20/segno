@@ -449,6 +449,120 @@ void addModuleTools(Registry& registry, ToolEnv& env)
                                    {"zones", std::move(zones)}});
         }));
 
+    // The Granular's sources (devices/granular/SPEC.md, G22).
+    const auto granularResult =
+        [](const engine::Session::GranularSource& src, std::uint64_t module, int source)
+    {
+        Json transients = Json::array(), beats = Json::array();
+        for (size_t i = 0; i < src.transients.size() && i < 64; ++i)
+            transients.push_back(roundTime(src.transients[i]));
+        for (size_t i = 0; i < src.beats.size() && i < 64; ++i)
+            beats.push_back(roundTime(src.beats[i]));
+        Json j{{"module", formatId(IdKind::Module, module)},
+               {"source", source + 1},
+               {"kind", src.kind},
+               {"path", src.path.empty() ? Json(nullptr) : Json(src.path)},
+               {"name", src.name},
+               {"seconds", roundTime(src.seconds)},
+               {"channels", src.channels},
+               {"root", src.root ? Json(pitchName(static_cast<int>(std::lround(*src.root)))) : Json(nullptr)},
+               {"rootCents",
+                src.root ? Json(std::lround((*src.root - std::round(*src.root)) * 100.0)) : Json(nullptr)},
+               {"rootFound", src.rootFound},
+               {"part",
+                {{"start", roundTime(src.partStart * src.seconds)},
+                 {"end", roundTime(src.partEnd * src.seconds)}}},
+               {"transients", std::move(transients)},
+               {"transientCount", src.transients.size()},
+               {"beatCount", src.beats.size()},
+               {"beats", std::move(beats)}};
+        if (src.kind == "multisample")
+            j["zones"] = src.zones;
+        if (src.truncated)
+            j["truncated"] = true;
+        if (!src.error.empty())
+            j["error"] = src.error;
+        return j;
+    };
+    const auto granularSchema =
+        result({{"kind", string("empty, file or multisample")},
+                {"path", {{"type", {"string", "null"}}}},
+                {"name", string("")},
+                {"seconds", number("The file's length (a multisample's middle-C zone's)")},
+                {"channels", integer("")},
+                {"root", {{"type", {"string", "null"}}, {"description", "Its root note, C3 = 60"}}},
+                {"rootFound", boolean("Found in the file (its metadata, name or sound), not set by hand")},
+                {"part", result({{"start", number("seconds")}, {"end", number("seconds")}})},
+                {"transients",
+                 arrayOf(number(""), "Where things start in it (seconds, the first 64)", std::nullopt)},
+                {"beats", arrayOf(number(""), "Its beats (seconds, the first 64)", std::nullopt)}},
+               {"kind", "part"});
+
+    registry.tools.push_back(make(
+        env,
+        {"load_granular_source", "Load a Granular's source",
+         "Loads into a Granular module's Source 1 or 2: a sample (an audio file), a multisample (an SFZ "
+         "file: "
+         "the Library's instruments are), or an audio clip's part of its file. The source turns on and plays "
+         "the file (all of it, or the clip's part); its root is found in the file (its metadata, its name or "
+         "its sound). Says what it found: length, root, transients and beats. One undo step.",
+         object({{"module", id(IdKind::Module, "The Granular")},
+                 {"source", integer("Source 1 or 2 (1 when left out)", 1, 2)},
+                 {"path", string("A file's absolute path")},
+                 {"clip", id(IdKind::Clip, "An audio clip: its part of its file")}},
+                {"module"}),
+         granularSchema, changes},
+        [&env, granularResult](const Json& args, CallContext&)
+        {
+            const auto [slot, owner] = module(env, args["module"]);
+            if (slot.deviceId != "granular")
+                throw Problem{formatId(IdKind::Module, slot.id) + " isn't a Granular."};
+            if (args.contains("path") == args.contains("clip"))
+                throw Problem{"Give path (a file) or clip (an audio clip), one of them."};
+            const int n = args.value("source", 1) - 1;
+            juce::File file;
+            std::optional<std::pair<double, double>> part;
+            if (args.contains("clip"))
+            {
+                const auto c = clip(env, args["clip"]);
+                if (c.kind != model::ClipInfo::Kind::Audio || c.sourcePath.empty())
+                    throw Problem{c.name + " isn't an audio clip."};
+                file = juce::File(juce::String::fromUTF8(c.sourcePath.c_str()));
+                if (c.sourceLength > 0.0)
+                    part = std::pair{c.offset / c.sourceLength,
+                                     std::min(1.0, (c.offset + c.length) / c.sourceLength)};
+            }
+            else
+                file = readableFile(args["path"]);
+            std::string error;
+            const auto loaded = env.session.loadGranularSource(slot.id, n, file, part, &error);
+            if (!loaded)
+                throw Problem{file.getFullPathName().toStdString() + " isn't a sound Granular can load (" +
+                              error + ")."};
+            return ToolResult::ok(granularResult(*loaded, slot.id, n));
+        }));
+
+    registry.tools.push_back(make(
+        env,
+        {"get_granular_source", "Get a Granular's source",
+         "What a Granular module's Source 1 or 2 holds: empty, a file or a multisample; its length, "
+         "channels, "
+         "root (found, or set by hand), the part grains come from, and where things start in it (transients) "
+         "and its beats, which Snap lands grains on.",
+         object({{"module", id(IdKind::Module, "The Granular")},
+                 {"source", integer("Source 1 or 2 (1 when left out)", 1, 2)}},
+                {"module"}),
+         granularSchema, reading},
+        [&env, granularResult](const Json& args, CallContext&)
+        {
+            const auto [slot, owner] = module(env, args["module"]);
+            const int n = args.value("source", 1) - 1;
+            const auto src = env.session.granularSource(slot.id, n);
+            if (!src)
+                throw Problem{formatId(IdKind::Module, slot.id) + " isn't a Granular."};
+            return ToolResult::ok(granularResult(*src, slot.id, n));
+        }));
+
     registry.tools.push_back(make(
         env,
         {"set_module_sidechain", "Set a module's sidechain",

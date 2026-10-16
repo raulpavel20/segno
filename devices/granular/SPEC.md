@@ -632,6 +632,45 @@ Every state drawn with the real panel kit: Granular's own panel, from its approv
 - **Scan isn't finer near 0:** the parameters have no curve symmetric about zero, so it's linear.
 - **The conformance suite** finds every parameter described as in this SPEC; its check that an instrument plays waits for step 1's engine, with a chord of Segno's own in Source 1 for it to play (`GrainSource::chord`).
 
+## Built (step 1, the instrument, 2026-10-16)
+
+The engine, the panel on live data, the DAW's menus, browser drops and assistants' tools, the plugin and 44 factory presets. Tests: `devices/granular/tests/GranularTests.cpp` (16 cases), the conformance suite, the panel lint, `tests/integration` (the Module menu, MCP).
+
+**Measured** (Release, `[.benchmark]`, this laptop, 48 kHz, one core):
+
+| Load | Measured | Budget |
+|---|---|---|
+| 8 notes × 64 grains, mono, Eco / Normal / High | 3.5 / 4.6 / 6.3 % | ≤ 4 % (Normal) |
+| The same, stereo | 7.0 % | – |
+| The same, a long source (the plain 16-bit pyramid) | 11.7 % | – |
+| The same, every grain filtered / crushed | 7.6 / 7.9 % | – |
+| The same, stereo, every grain filtered and crushed | 17 % | ≤ 10 % |
+| Pitched, 8 notes, 8 periods | 1.5 % | ≤ 8 % (stereo, C5) |
+| Classic, 8 notes × 16 grains | 1.9 % | – |
+
+Two budgets aren't met yet (B74): Normal by 15 %, the filtered and coloured stereo cloud by 70 %. What's left to try, measured one at a time: pass 1 writing its taps four at a time (one 16-byte store, transposed), two groups of filtered grains in one loop, held (crushed) samples read once.
+
+**Quality** (a tone's images and noise beside it, a Blackman-Harris spectrum): Eco −62 dB, Normal −74 dB, High −103 dB; the plain pyramid −65 dB. Aliasing two to four octaves up stays under the source's level by more than 50 dB at every Quality.
+
+**Settled while building:**
+- **Each note's grains are rendered over the whole block, once,** at its end. The budget is counted where each new grain starts, from where every grain ends, rather than rendered up to it, so it's exact and a render is bit-identical for any block size (as the conformance suite checks). A voice ends at the exact sample its amp ends (with Grain Tails, its last grain and 20 ms for its filters to ring).
+- **The instance's 1 024 grains are shared out evenly:** a note plays at most Max Grains, and never more than 1 024 ÷ Voices (128 at 8 voices), so the cap doesn't depend on what other notes are doing within a block.
+- **At the budget,** a new grain reads with Eco's interpolator, and the grain nearest its end steps aside over 2 ms; only then, not before (a full cloud at Normal sounds like Normal).
+- **Repeats replay the grain where it is,** back to back; its filter runs on through them (the window starts at zero, so nothing clicks). A grain stepping aside keeps repeating until its fade ends.
+- **Grains with a filter are rendered eight at a time,** each in a SIMD lane, their filters run across the lanes, then each is added to the note in turn; grains without one first, each kind in the order they started, so every sample's sum is in the same order however the block is cut.
+- **Grain Tails:** until the note is released, the amp envelope shapes the voice; from the release, each grain playing keeps the level it had, and each that starts takes the envelope's level as it starts. A One-shot envelope plays out as it is.
+- **A DC blocker at 5 Hz** heads the voice stage: a Pitched grain shorter than a period of its source (a formant below the note) carries an offset. A formant exactly an octave under the note, on a pure sine at 4 periods, is silent (the Hann window's spectrum is zero at every harmonic); a source with harmonics isn't.
+- **Rolls (ADR 0062):** a new device hook, `Device::startPass(roll)`, gives a module a pass's dice; the Session calls it with the modulators' when playback starts or a render does. With no host calling it (a plugin, the tests) Granular counts its own from a fixed base at each start of playback, so two new instances play alike and `reset()` is deterministic. Keep stores the roll (`roll`); the Module menu's Keep as played, Song ▸ Keep all as played and `keep_roll` (a new `module` argument) cover Granular. The plugins have no menu bar: there, each instance rolls by itself.
+- **Rhythm and the Song playhead follow the song's samples,** not its beats, so a step lands on the same sample whatever the block. Swing makes every second step late by Swing × half a step (67 %: a triplet's feel); Jitter doesn't move Rhythm's grains, which are on the grid.
+- **The plain pyramid's 8-tap sinc** is cut at 0.42 of each level's rate with a Kaiser β of 8.6 (−65 dB, the band kept to 20 kHz at 48 kHz), each output one 8-wide dot product.
+- **The voice filters keep their last coefficients** (`dsp::VoiceFilter`: a tan and a pow a sample saved while the cutoff holds still), which the Wavetable shares, its output unchanged bit for bit.
+- **A multisample is brought to full scale as one:** each zone's audio is normalised, then given the level its SFZ file asks over what that took, and the set scaled so its loudest zone is at full scale (the instrument's balance between keys and layers kept; not each zone at full scale, which doubled the Library's own gains).
+- **Loading is the pyramid's build** (97 % of it): its filters are Granular's own, in floats with their symmetric taps folded, and the loader is optimised in Debug builds too. A Library instrument loads in under a second in Debug, a tenth of that in Release.
+- **One way to load a source** (`Granular::sourcePatch`, `sourceSettings`): from the panel, the browser and the assistants alike, the Library's as a `library:` reference, the root found again, the source on and playing all of the file (a clip's part from `load_granular_source`). The display says why a file didn't load.
+- **The DAW:** Module ▸ Load Source 1…, Load Source 2…, Swap sources, and Keep as played for a Granular; a sample or multisample dropped from the browser goes into the source the panel shows (Source 1 when it's folded). Edit Source, Capture and Freeze Input come with step 2. `load_granular_source` takes a file, an SFZ or an audio clip (its part of its file); `get_granular_source` returns the kind, length, root, part, transients and beats.
+- **The plugin** is built (`Fgrn`: VST3, CLAP, LV2), its sidechain bus ready for step 2's live input.
+- **The factory presets:** 44 from the Library's instruments, across the five modes of step 1, each level-matched by measurement to about −20 dB RMS on a held C3 (the other instruments' presets' level), its peak under −1.5 dBFS. A drum kit isn't a source (its SFZ has one drum a key, so a note plays one drum). Pitched wants a source with harmonics: it reads the source at its own pitch, so a nearly pure tone in long grains mostly cancels. The sources of Segno's own (rendered into the Library) wait for a Library build that adds them; the Live and Spectral presets and the factory racks with a space come with steps 2 and 3.
+
 ## Sign-off
 
 - [ ] Automated: unit, conformance and golden tests; validators; the CPU benchmarks

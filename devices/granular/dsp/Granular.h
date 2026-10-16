@@ -18,6 +18,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace fd::devices
@@ -334,6 +335,17 @@ public:
     /// Keep as Played holds the roll playing now (or last played), so every pass plays it; off,
     /// it rolls again each time (Let It Roll). Stored with the state.
     void keepRoll(bool keep) noexcept { rollKept_.store(keep, std::memory_order_relaxed); }
+    /// The same as a state patch, for the host's undo (Module ▸ Keep as Played).
+    [[nodiscard]] nlohmann::json rollPatch(bool keep) const;
+
+    /// Loading `stored` (a file's path, or a `library:` reference) into source n, as the panel,
+    /// the browser and the assistants all do it: the state's patch (the file, its root found
+    /// again) and the settings that go with it (the source on, playing the file, all of it).
+    [[nodiscard]] static nlohmann::json sourcePatch(int n, const std::string& stored);
+    [[nodiscard]] static std::vector<std::pair<size_t, float>> sourceSettings(int n);
+    /// Swap Sources: each source's file, root and settings in the other's place.
+    [[nodiscard]] nlohmann::json swappedPatch() const;
+    [[nodiscard]] std::vector<std::pair<size_t, float>> swappedSettings() const;
 
     // ---- the audio thread's side of the display ------------------------------------------------
     /// Publishes the grains playing now for the displays (real-time safe: no allocation, no lock).

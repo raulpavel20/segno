@@ -271,7 +271,9 @@ bool landsOn(const std::string& item, const model::DeviceSlot& module)
         return ref->key == "fd:" + module.deviceId;
     if (ref->kind == Kind::Wavetable)
         return module.deviceId == "wavetable";
-    return (ref->kind == Kind::Sample || ref->kind == Kind::Multisample) && module.deviceId == "sampler";
+    // A sample or a multisample: a Sampler's, or a Granular's source (its Source 1).
+    return (ref->kind == Kind::Sample || ref->kind == Kind::Multisample) &&
+           (module.deviceId == "sampler" || module.deviceId == "granular");
 }
 
 Result onChannel(engine::Session& session, const std::string& item, std::uint64_t channel, double seconds)
@@ -308,6 +310,8 @@ Result inChain(engine::Session& session, const std::string& item, std::uint64_t 
                 return {loadPreset(session, *onModule, *ref), {}, 0, *onModule};
             if (ref->kind == Kind::Wavetable)
                 return {session.loadWavetable(*onModule, 0, ref->file), {}, 0, *onModule};
+            if (slot->deviceId == "granular")
+                return {session.loadGranularSource(*onModule, 0, ref->file).has_value(), {}, 0, *onModule};
             return {session.loadSample(*onModule, ref->file).has_value(), {}, 0, *onModule};
         }
     if (isModule(ref->kind))

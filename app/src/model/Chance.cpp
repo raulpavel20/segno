@@ -64,6 +64,11 @@ ChanceInSong chanceIn(const Snapshot& snapshot)
                     ++out.modulators;
                     out.keptModulators += d.modulator->kept ? 1 : 0;
                 }
+                else if (d.rollKept)
+                {
+                    ++out.modules;
+                    out.keptModules += *d.rollKept ? 1 : 0;
+                }
             for (const auto& c : t.clips)
                 if (c.kind == ClipInfo::Kind::Midi && usesChance(c.notes))
                 {
@@ -76,17 +81,22 @@ ChanceInSong chanceIn(const Snapshot& snapshot)
 
 std::string ChanceInSong::rolling() const
 {
-    const int c = clips - keptClips, m = modulators - keptModulators;
-    if (c + m == 0)
+    const int c = clips - keptClips, m = modulators - keptModulators, d = modules - keptModules;
+    if (c + m + d == 0)
         return {};
     const auto count = [](int n, const char* one, const char* many)
     { return std::to_string(n) + " " + (n == 1 ? one : many); };
-    std::string text;
+    std::vector<std::string> parts;
     if (c > 0)
-        text = count(c, "clip", "clips");
+        parts.push_back(count(c, "clip", "clips"));
     if (m > 0)
-        text += (text.empty() ? "" : " and ") + count(m, "modulator", "modulators");
-    return text + (c + m == 1 ? " plays" : " play") + " by chance";
+        parts.push_back(count(m, "modulator", "modulators"));
+    if (d > 0)
+        parts.push_back(count(d, "module", "modules"));
+    std::string text = parts[0];
+    for (size_t i = 1; i < parts.size(); ++i)
+        text += (i + 1 == parts.size() ? " and " : ", ") + parts[i];
+    return text + (c + m + d == 1 ? " plays" : " play") + " by chance";
 }
 
 bool usesChance(const std::vector<Note>& notes) noexcept

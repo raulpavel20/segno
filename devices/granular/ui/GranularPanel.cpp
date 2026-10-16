@@ -257,9 +257,25 @@ public:
             context().modulation = nullptr;
     }
 
+    /// A file from the host's browser: into the source shown.
     bool takeFile(const juce::File& file) override
     {
+        if (!file.hasFileExtension(audioFiles))
+            return false;
         loadSourceFile(context(), sourceSelector_->selected(), file);
+        return true;
+    }
+
+    /// Module ▸ Load Source 1… and Load Source 2… (SPEC, "Everything by mouse"): that source shown,
+    /// then a file asked for.
+    bool performCommand(std::string_view id) override
+    {
+        const int n = id == "source1.load" ? 0 : id == "source2.load" ? 1 : -1;
+        if (n < 0)
+            return false;
+        setPage(0, true);
+        sourceSelector_->setSelected(n, juce::sendNotification);
+        picker_->browse();
         return true;
     }
 
